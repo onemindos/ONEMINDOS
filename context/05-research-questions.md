@@ -1,6 +1,6 @@
 # Research Question Bank
 
-Generated 2026-11-10 by 7 domain agents and 1 completeness critic, after they read REQUIREMENTS, ADR-001 and the conversation record. **334 questions in 9 sets** (Q324–Q334 added for the second and fourth briefs).
+Generated 2026-11-10 by 7 domain agents and 1 completeness critic, after they read REQUIREMENTS, ADR-001 and the conversation record. **335 questions in 9 sets** (Q324–Q335 added for the later founder briefs).
 
 **Priority:** **P0** = blocks the foundation decision · **P1** = needed for the 1–2 year plan · **P2** = 5–10 year horizon.
 
@@ -1367,3 +1367,7 @@ The research agent must give **every** question a status (answered / partial / b
 **Q334 [P0]** Can one foundation (base OS + image + k3s/RKE2 + capability layer) be **as simple as a Raspberry Pi** for a 4–8 GB Pi 5 greenhouse node **and** scale to a multi-node GPU enterprise cluster running Isaac Sim, with no product switch? Measure the footprint on the smallest supported node, and say what must be optional or lazy-loaded. Which competitors achieve "same product at every scale" (balena, Talos/Omni, Red Hat Device Edge → OpenShift, Ubuntu Core → Ubuntu Pro, Olares), and how?  
 *Why:* F-14, the founder's core promise.  
 *Method:* vendor docs; VM lab footprint measurement; k3s resource profiling; minimal vs full profile design.
+
+**Q335 [P0]** Which plugin extension points must the OneMind base OS expose from day one so that every plugin type can be added without forking the OS? The types are Market apps, dashboard widgets, desktop and shell plugins, device, driver and protocol adapters, AI skills, agents and tools, automations, and OS/image profiles. What do the proven ecosystems (Omarchy, Home Assistant + HACS, Olares OAC, Umbrel community stores, Backstage, Obsidian, VS Code, Grafana, WordPress, ROS) teach about manifests, sandboxing, signing, review tiers, compatibility ranges, malware incidents and community growth?  
+*Why:* A-5 and A-6, plus the founder's explicit priority. It shapes the foundation.  
+*Method:* read each ecosystem's plugin docs and validator code; collect security incident reports; draft a OneMind plugin manifest and test it against the 7 plugin types.

@@ -124,3 +124,6 @@ Zeus: "I want OneMind OS to be **as simple as using a Raspberry Pi, up to full e
 Zeus asked to also consider **the core differences between kernel families**: macOS is built on **Darwin** (open-source core, the **XNU** kernel derived from **BSD** and the **Mach microkernel**), while Linux uses the independently created **monolithic Linux kernel** (Linus Torvalds). Requirement F-15, covered by W18 and the final PDF.
 
 **Status at hand-off:** the Fedora IoT/Red Hat edge deep dive and the IIoT landscape research were still running when this was saved. If `research/platform/fedora-iot-and-redhat-edge-deep-dive.md` or `research/platform/iiot-landscape-and-requirements.md` is missing, **do that research yourself first** (W2/W8 scope in RESEARCH-MISSION.md).
+
+## 14. Sixth brief
+Zeus: "Make sure the **plugin ecosystem** is also considered." The plugin ecosystem (requirements A-5 and A-6; the Omarchy model as inspiration; the community can edit and add plugins; distribution through the website) is a founder priority. It is covered in W19, deliverable 29, the PDF, and the decision-critical list (day-one extension points in the base OS).
