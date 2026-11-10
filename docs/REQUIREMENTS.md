@@ -155,6 +155,23 @@ Kubernetes cluster (DigitalOcean) with Argo CD GitOps, NATS JetStream (with esta
 
 ---
 
+## 13. Platform ambition and build path (added 2026-11-10, second brief)
+
+| ID | Requirement |
+|---|---|
+| F-1 | **Built for the next 5–10 years of physical AI.** The foundation must anticipate what is coming (humanoids, VLA models, world models, edge inference, new robot hardware), not just what exists today. |
+| F-2 | **Keep pace with NVIDIA:** track and natively support NVIDIA's roadmap (Jetson, DGX, Isaac, GR00T, Cosmos, Omniverse, NIM, the Kubernetes GPU stack), while staying hardware-agnostic. |
+| F-3 | **Ease of use is the future.** "I want to connect a robot → use OneMind OS" must be plug and play on any device. |
+| F-4 | **Supersede the other OSes for this purpose and be the moat:** the default OS that people and startups build on for robotics, physical AI and sovereign operations. |
+| F-5 | **Third-party ecosystem:** other startups integrate their products, apps and devices into the OneMind Marketplace (SDK, certification, distribution, revenue model). Users run their own and custom applications too. |
+| F-6 | **Self-hosted mixed with cloud:** hybrid by design, from local-only to cloud-connected. |
+| F-7 | **Build without limitations:** evaluate owning the kernel ("our own kernel") and/or our own image. Kernel strategy (upstream vs vendor BSP vs a custom-configured or patched OneMind kernel, real-time) is a major determination. |
+| F-8 | **Development tooling and path, especially from the founder's Mac:** the toolchain for building the OS, images, kernel, apps and robotics software on a Mac (Apple Silicon), plus CI. |
+| F-9 | **Two-phase execution:** this research run decides the core and the paths. A **second ultracode session** then builds it out, or the founder builds it. The research must produce the build brief for that session. |
+| F-10 | **Final PDF report** for the founder: full scope, visuals, how everything connects, Linux distro comparisons and why the chosen one fits best, all evidence-based, covering everything discussed in the founding session. |
+
+---
+
 ## Open questions (do not assume)
 
 1. ~~"MHS" protocol~~ **Resolved:** Anthropic's **Model Hardware Standard** (research preview, announced 2026-08-27) for AI agents operating physical hardware. Reachable via MCP/CLI/code. The spec isn't public yet; open-sourcing is planned. See `research/platform/ai-native-protocols-and-ux.md` §3.
@@ -168,3 +185,4 @@ Kubernetes cluster (DigitalOcean) with Argo CD GitOps, NATS JetStream (with esta
 | Date | Change |
 |---|---|
 | 2026-11-10 | Initial capture from founder brief. |
+| 2026-11-10 | Added §13 F-1..F-10 (physical AI 5–10 yr, NVIDIA, ease of use, ecosystem, kernel/image ownership, Mac dev path, second build session, final PDF). Total IDs: 92. |

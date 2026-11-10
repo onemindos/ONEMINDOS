@@ -1,6 +1,6 @@
 # Research Question Bank
 
-Generated 2026-11-10 by 7 domain agents and 1 completeness critic, after they read REQUIREMENTS, ADR-001 and the conversation record. **323 questions in 8 sets.**
+Generated 2026-11-10 by 7 domain agents and 1 completeness critic, after they read REQUIREMENTS, ADR-001 and the conversation record. **333 questions in 9 sets** (Q324–Q333 added for the second brief).
 
 **Priority:** **P0** = blocks the foundation decision · **P1** = needed for the 1–2 year plan · **P2** = 5–10 year horizon.
 
@@ -1190,7 +1190,7 @@ The research agent must give **every** question a status (answered / partial / b
 *Why:* HARDWARE.md and D-004 mark these as unconfirmed; every hands-on benchmark in the question bank depends on them.  
 *Method:* Write a short script/checklist (lscpu, lsblk, dmidecode, fwupdmgr get-devices, mokutil --sb-state, tpm2_getcap; system_profiler on Mac; adb getprop on Android) for Zeus to run; record outputs in research-output/.
 
-**Q291 [P0]** For each of the 82 requirement IDs and decisions D-001 to D-006, which research-output file and which question answers it, and which IDs remain 'designed but unvalidated'? Build the traceability matrix early, re-run it after each research wave, and list any requirement that research recommends changing (with the evidence) for Zeus to decide.  
+**Q291 [P0]** For each of the 92 requirement IDs and decisions D-001 to D-006, which research-output file and which question answers it, and which IDs remain 'designed but unvalidated'? Build the traceability matrix early, re-run it after each research wave, and list any requirement that research recommends changing (with the evidence) for Zeus to decide.  
 *Why:* REQUIREMENTS.md forbids silently dropping any requirement and the mission requires traceability; a running matrix is the only way to prove nothing was lost across hundreds of questions.  
 *Method:* Parse REQUIREMENTS.md IDs; tag every question and output section with IDs; generate a matrix (ID -> questions -> files -> status); run as a completeness gate in the workflow loop.
 
@@ -1321,3 +1321,45 @@ The research agent must give **every** question a status (answered / partial / b
 **Q323 [P2]** How should cameras and recordings (Frigate NVR, doorbells, greenhouse and security cameras, robot cameras) be handled legally and technically: audio-recording consent laws (two-party consent states), GDPR household exemption limits when cameras see public space or neighbours, retention, AI detection on Coral/Hailo/GPU, and keeping footage local while giving agents access?  
 *Why:* Security cameras are part of the homestead mission (context/01) and a top self-hosted app category, but no generated question covers their legal or AI-access constraints.  
 *Method:* State wiretap statutes summary, CJEU Ryneš ruling and EDPB video guidelines 3/2019, Frigate docs; benchmark Frigate detection on Pi 5 + Hailo and Beelink + Coral.
+
+## Second brief: kernel/image ownership, Mac dev path, ecosystem, physical AI (added 2026-11-10, F-1…F-10)
+
+**Q324 [P0]** What does "OneMind owns its kernel" realistically mean for a sole developer with AI agents? Compare a stock distro kernel, an upstream LTS kernel with a OneMind config (the HAOS/ChromeOS approach), vendor BSP kernels (Raspberry Pi, NVIDIA L4T), and a patched kernel (PREEMPT_RT, security). Cover maintenance hours per year, security patch latency, and board and NVIDIA compatibility.  
+*Why:* F-7: the founder wants no limitations. This is "a very big determination".  
+*Method:* kernel.org/CIP SLTS lifecycles; HAOS `Documentation/kernel.md`; ChromeOS and SteamOS kernel practices; the L4T kernel sources and update cadence.
+
+**Q325 [P0]** Is any non-Linux kernel path (Zircon/Fuchsia, seL4, Redox, HarmonyOS HongMeng-style microkernel) viable for OneMind in 5–10 years, or is "own image + own kernel config on Linux" the only realistic route? What did Huawei and Google spend to build theirs?  
+*Why:* F-7; it prevents a costly detour.  
+*Method:* official project docs, public statements and costs, driver ecosystems.
+
+**Q326 [P0]** Which image build tool best fits Debian/L4T appliance images built from a Mac via CI: debos, mkosi, Rugix Bakery, bootc/osbuild, Kairos, Buildroot or Yocto? Consider reproducibility, signing, multi-arch, and Pi 5 and Jetson support.  
+*Why:* F-7/F-8.  
+*Method:* tool docs and repos; a VM lab build of a minimal image.
+
+**Q327 [P0]** What is the best development setup on an Apple Silicon Mac for building OneMind? Options include UTM/QEMU, Lima/Colima, OrbStack, Docker buildx multi-arch, k3d/kind, cross-compiling kernels, and remote x86/arm64 builders and GitHub Actions arm64 runners. Which steps cannot be done on macOS (e.g. Jetson flashing via SDK Manager, Isaac Sim)?  
+*Why:* F-8.  
+*Method:* official docs for each tool; NVIDIA SDK Manager host requirements; Isaac Sim requirements.
+
+**Q328 [P1]** How did Android, ROS, Home Assistant, SteamOS, the NVIDIA Jetson partner ecosystem, Viam and Foxglove become the default platforms third parties build on? What SDK, certification, distribution and revenue terms made it work, and what should the OneMind Marketplace copy?  
+*Why:* F-4/F-5.  
+*Method:* developer docs, partner program terms, public metrics.
+
+**Q329 [P1]** What is the minimal end-to-end "connect a robot → use OneMind OS" flow (discovery, QR/USB/network onboarding, adapter or driver auto-install, capability detection, safety gates, MHS/MCP exposure)? Which robot platforms (LeRobot SO-100/101, Unitree, TurtleBot 4, PX4 drones, Jetson-based kits) should be first-class at launch?  
+*Why:* F-3.  
+*Method:* vendor SDK docs, ROS 2 drivers, MHS preview info, Matter/DPP commissioning patterns.
+
+**Q330 [P1]** What does NVIDIA's announced 2025–2026 roadmap (GTC, CES, KubeCon NA 2026: Jetson Thor and its successors, GR00T, Cosmos, Isaac, Omniverse, Newton, NIM, DGX Spark/Station) imply for OneMind's hardware tiers and software support windows? How can OneMind support new releases on day one while staying hardware-agnostic?  
+*Why:* F-1/F-2.  
+*Method:* NVIDIA newsroom, developer blogs, release notes, product pages.
+
+**Q331 [P2]** Which physical-AI shifts expected for 2028–2036 (humanoids at home, on-device VLA and world models, robot-as-a-service, new safety regulation) would break or strengthen the chosen foundation? What design hedges keep OneMind the default OS through them?  
+*Why:* F-1/F-4.  
+*Method:* primary roadmaps and regulations, credible forecasts labelled SECONDARY, scenarios from W15.
+
+**Q332 [P1]** How should hybrid self-hosted + cloud work (F-6) without lock-in? Options include an optional OneMind Cloud relay, burst GPU, backups and fleet management. How do balenaCloud, Olares Space, Umbrel and Home Assistant Cloud handle it?  
+*Why:* F-6.  
+*Method:* vendor docs and pricing.
+
+**Q333 [P0]** What exactly should the second ultracode build session implement first, and in what order, to prove the core: image pipeline, kernel config, signed A/B updates, k3s, capability layer, dashboard MVP, robot onboarding MVP? What are its acceptance tests?  
+*Why:* F-9.  
+*Method:* synthesize from 01, 20 and 28; Blueprint A01–A24.

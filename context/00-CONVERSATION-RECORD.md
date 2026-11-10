@@ -96,3 +96,16 @@ Zeus wants a **massive "ultracode" research run by a different agent on a bigger
 - Cover all hardware.
 - Do reverse engineering, use every tool, and put results in a dedicated folder for Zeus to review.
 - Act as if this is a **one-shot prompt**.
+
+## 10. Second brief (added while preparing this mission)
+Zeus added these, verbatim in spirit:
+- **Build for the future:** consider the next 5–10 years of physical AI and everything coming out.
+- **NVIDIA** will be one of the best things to keep up with.
+- **Ease of use** is the future.
+- **Be the OS that supersedes all others** for robotics and physical AI. "We are going to be the moat." Startups will want to integrate into the OneMind Marketplace because it's plug and play on any device, mixing self-hosted and cloud, with people's own and custom applications.
+- **The test sentence:** *"I want to connect a robot" → "use OneMind OS."*
+- **No limitations:** "I technically want my own kernel, as they say, and have everything on top of it, or our own image if necessary." Choosing that route is a very big determination, and so is choosing the **development tools**, especially for working from the Mac now.
+- **Next steps:** after this research decides the core and all paths, devices and offerings, a **second ultracode session** will build it out (otherwise the founder builds it).
+- **Final deliverable:** a **PDF** for the founder that explains the full scope, with visuals showing how everything connects, comparisons between Linux distributions and why the best fit was picked, all based on real research, and including everything from this chat.
+
+New requirement IDs F-1…F-10 (`docs/REQUIREMENTS.md` §13). Collaborator: Daniel (GitHub `dcarku`) will run the research agent from his account.

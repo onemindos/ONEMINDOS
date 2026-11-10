@@ -1,6 +1,6 @@
 # ONEMINDOS
 
-> 🤖 **Research agents: start with [RESEARCH-MISSION.md](RESEARCH-MISSION.md).** Output goes in [research-output/](research-output/).
+> 🤖 **Research agents: start with [RESEARCH-MISSION.md](RESEARCH-MISSION.md).** Output goes in [research-output/](research-output/). Humans: the copy-paste kickoff prompt is in [KICKOFF-PROMPT.md](KICKOFF-PROMPT.md).
 
 The operating system for sovereignty: a local-first home/edge cloud OS where every device is a node, every app is plug-and-play, and everything is readable by AI.
 
@@ -11,7 +11,7 @@ This repo holds OneMind OS research, requirements and architecture. No product c
 | Path | What |
 |---|---|
 | [RESEARCH-MISSION.md](RESEARCH-MISSION.md) | **The master research brief** for the ultracode research run |
-| [context/](context/) | Context pack: conversation record, proven cluster, prior planning, findings index, founder/ecosystem, **323-question research bank** |
+| [context/](context/) | Context pack: conversation record, proven cluster, prior planning, findings index, founder/ecosystem, **333-question research bank** |
 | [research-output/](research-output/) | Where the research agent writes its deliverables (reviewed via PR) |
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | Founder requirements with IDs. The source of truth for *what* we build. |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture v0.1. Partly superseded: **ADR-001 wins on base OS, image and updates** |
