@@ -1,6 +1,6 @@
 # Research Question Bank
 
-Generated 2026-11-10 by 7 domain agents and 1 completeness critic, after they read REQUIREMENTS, ADR-001 and the conversation record. **333 questions in 9 sets** (Q324–Q333 added for the second brief).
+Generated 2026-11-10 by 7 domain agents and 1 completeness critic, after they read REQUIREMENTS, ADR-001 and the conversation record. **334 questions in 9 sets** (Q324–Q334 added for the second and fourth briefs).
 
 **Priority:** **P0** = blocks the foundation decision · **P1** = needed for the 1–2 year plan · **P2** = 5–10 year horizon.
 
@@ -1363,3 +1363,7 @@ The research agent must give **every** question a status (answered / partial / b
 **Q333 [P0]** What exactly should the second ultracode build session implement first, and in what order, to prove the core: image pipeline, kernel config, signed A/B updates, k3s, capability layer, dashboard MVP, robot onboarding MVP? What are its acceptance tests?  
 *Why:* F-9.  
 *Method:* synthesize from 01, 20 and 28; Blueprint A01–A24.
+
+**Q334 [P0]** Can one foundation (base OS + image + k3s/RKE2 + capability layer) be **as simple as a Raspberry Pi** for a 4–8 GB Pi 5 greenhouse node **and** scale to a multi-node GPU enterprise cluster running Isaac Sim, with no product switch? Measure the footprint on the smallest supported node, and say what must be optional or lazy-loaded. Which competitors achieve "same product at every scale" (balena, Talos/Omni, Red Hat Device Edge → OpenShift, Ubuntu Core → Ubuntu Pro, Olares), and how?  
+*Why:* F-14, the founder's core promise.  
+*Method:* vendor docs; VM lab footprint measurement; k3s resource profiling; minimal vs full profile design.

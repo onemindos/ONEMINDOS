@@ -109,3 +109,18 @@ Zeus added these, verbatim in spirit:
 - **Final deliverable:** a **PDF** for the founder that explains the full scope, with visuals showing how everything connects, comparisons between Linux distributions and why the best fit was picked, all based on real research, and including everything from this chat.
 
 New requirement IDs F-1…F-10 (`docs/REQUIREMENTS.md` §13). Collaborator: Daniel (GitHub `dcarku`) will run the research agent from his account.
+
+## 11. Third brief: IoT/IIoT, Fedora IoT and VillageOS
+Zeus: "Make sure it supports the path of the future **IoT and IIoT**. **Fedora IoT is super important. I don't want to hit limitations** with that." He shared **https://www.villageos.ai**: "This is also why I'm going operating systems. Please go deeper."
+- **VillageOS:** "Neighborhood-Scale Intelligence for Resilient Local Sustenance". It *claims* to be a Stanford spin-off ML platform (unconfirmed; research found it is a design/orchestration platform from ReGen Villages, with an AGPL "VillageOS-API", not an OS) and open-source consortium, with partners Khorium.ai (physics simulation), Nurture Robotics (SAMI construction robots) and Earth Rover, and pilots in South Africa, Mexico and Sweden. Its components are a generative design engine, a physics validation layer, construction translation, and EdgeAI operational intelligence for energy, water and food. Deep research: `research/competitors/villageos.md`.
+- **Fedora IoT deep dive:** `research/platform/fedora-iot-and-redhat-edge-deep-dive.md`. **IIoT landscape:** `research/platform/iiot-landscape-and-requirements.md`.
+- New requirement IDs: F-11, F-12, F-13 (95 total).
+- **Note:** ADR-001's earlier dismissal of Fedora IoT must be re-examined with full evidence. The founder's priority on it is explicit.
+
+## 12. Fourth brief
+Zeus: "I want OneMind OS to be **as simple as using a Raspberry Pi, up to full enterprise.** From running a **small greenhouse** to running **robotics simulations**, with **no limitations**." Requirement F-14.
+
+## 13. Fifth brief
+Zeus asked to also consider **the core differences between kernel families**: macOS is built on **Darwin** (open-source core, the **XNU** kernel derived from **BSD** and the **Mach microkernel**), while Linux uses the independently created **monolithic Linux kernel** (Linus Torvalds). Requirement F-15, covered by W18 and the final PDF.
+
+**Status at hand-off:** the Fedora IoT/Red Hat edge deep dive and the IIoT landscape research were still running when this was saved. If `research/platform/fedora-iot-and-redhat-edge-deep-dive.md` or `research/platform/iiot-landscape-and-requirements.md` is missing, **do that research yourself first** (W2/W8 scope in RESEARCH-MISSION.md).

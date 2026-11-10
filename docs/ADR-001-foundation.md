@@ -12,6 +12,8 @@
 
 > **Correction to earlier advice:** ARCHITECTURE.md v0.1 recommended Ubuntu 24.04 + Kairos. Verification overturned both. Ubuntu's 10-year security updates need **paid Ubuntu Pro for commercial devices**, and **Kairos documents Raspberry Pi 5 as "currently not supported"** and commits an update as soon as cloud-init runs. This ADR supersedes those points.
 
+> **⚠ Re-examination required (2026-11-10, founder priority F-12):** the founder says Fedora IoT is "super important" for the IoT/IIoT future. This ADR's dismissal of Fedora IoT/bootc (§2 D2, D3) is **reopened**. See [`research/platform/fedora-iot-and-redhat-edge-deep-dive.md`](../research/platform/fedora-iot-and-redhat-edge-deep-dive.md) and the research mission (W2/W8).
+
 ---
 
 ## 1. What the proven competitors actually do

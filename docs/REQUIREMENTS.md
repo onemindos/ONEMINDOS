@@ -170,6 +170,12 @@ Kubernetes cluster (DigitalOcean) with Argo CD GitOps, NATS JetStream (with esta
 | F-9 | **Two-phase execution:** this research run decides the core and the paths. A **second ultracode session** then builds it out, or the founder builds it. The research must produce the build brief for that session. |
 | F-10 | **Final PDF report** for the founder: full scope, visuals, how everything connects, Linux distro comparisons and why the chosen one fits best, all evidence-based, covering everything discussed in the founding session. |
 
+| F-11 | **IoT and Industrial IoT (IIoT) without limitations:** the foundation must serve consumer IoT (home, greenhouse, homestead) *and* industrial IoT (farms, water/energy, warehouses, factories, public-safety infrastructure) for 10+ years: industrial protocols (OPC UA, MQTT/Sparkplug B, Modbus, BACnet, CAN), real-time, IEC 62443, zero-touch onboarding, and fleets of thousands of devices. |
+| F-12 | **Fedora IoT is "super important" to the founder.** Fedora IoT and the Red Hat edge lineage (bootc/image mode, CentOS Stream, RHEL for Edge / Red Hat Device Edge, MicroShift, greenboot, FDO) must get a full, fair evaluation as the base or as a supported profile. The chosen path must not hit limitations on the IoT/IIoT future. |
+| F-14 | **One OS, simple at every scale, with no limitations:** as simple as setting up a Raspberry Pi, all the way to full enterprise. **The same OneMind OS** runs a small greenhouse on a Pi and robotics simulations on GPU clusters. The experience stays simple while capability scales; the user never switches products. |
+| F-15 | **Compare kernel families before committing to Linux:** Darwin/XNU (Mach microkernel + BSD, macOS), the BSDs (FreeBSD, used by TrueNAS CORE/pfSense), the Linux monolithic kernel, and microkernels (seL4, Zircon, HarmonyOS HongMeng). Explain why the chosen kernel family fits OneMind (drivers, NVIDIA/Jetson, containers/Kubernetes, robotics, IoT, licensing) and what macOS/Darwin means for the Mac development path. |
+| F-13 | **Community-scale resilience** (food, water, energy, circular resources) is a target use case. VillageOS.ai, a neighborhood-scale edge-AI consortium, is a reference to study as a competitor, partner or app to host. **This is why OneMind is going to operating systems.** |
+
 ---
 
 ## Open questions (do not assume)
@@ -186,3 +192,6 @@ Kubernetes cluster (DigitalOcean) with Argo CD GitOps, NATS JetStream (with esta
 |---|---|
 | 2026-11-10 | Initial capture from founder brief. |
 | 2026-11-10 | Added §13 F-1..F-10 (physical AI 5–10 yr, NVIDIA, ease of use, ecosystem, kernel/image ownership, Mac dev path, second build session, final PDF). Total IDs: 92. |
+| 2026-11-10 | Added F-11 (IoT + IIoT), F-12 (Fedora IoT / Red Hat edge lineage, full evaluation), F-13 (community-scale resilience, VillageOS). Total IDs: 95. |
+| 2026-11-10 | Added F-14 (one OS, simple at every scale: Pi → enterprise, greenhouse → robotics simulation, no limitations). Total IDs: 96. |
+| 2026-11-10 | Added F-15 (kernel families: Darwin/XNU vs BSD vs Linux vs microkernels). Total IDs: 97. |
