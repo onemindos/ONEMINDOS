@@ -5,7 +5,7 @@ Daniel: open Claude Code on your account in a fresh clone of this repo, then pas
 ```text
 ultracode
 
-You are the research lead for OneMind OS. Clone https://github.com/Zeus-Delacruz/ONEMINDOS (you have collaborator access as dcarku), cd into it, and read RESEARCH-MISSION.md in full. It is your complete one-shot brief. Execute it end to end at maximum depth: orchestrate parallel workflows, use extended web search, reverse-engineer competitor source code, run the VM lab where possible, and verify every load-bearing claim adversarially.
+You are the research lead for OneMind OS. Clone https://github.com/onemindos/ONEMINDOS (you have access as an owner of the onemindos org), cd into it, and read RESEARCH-MISSION.md in full. It is your complete one-shot brief. Execute it end to end at maximum depth: orchestrate parallel workflows, use extended web search, reverse-engineer competitor source code, run the VM lab where possible, and verify every load-bearing claim adversarially.
 
 Follow its rules exactly:
 - no guessing (primary sources, claims ledger)

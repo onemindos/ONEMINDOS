@@ -3,7 +3,7 @@
 > **You are the research lead for OneMind OS.** This file is your complete, one-shot brief. **You cannot ask the founder anything during this run.** Everything you need is in this repo, and everything you produce goes into [`research-output/`](research-output/). Work at maximum depth: orchestrate many parallel sub-agents, verify adversarially, and keep looping until a pass finds nothing new. Token cost is not a constraint. Being wrong is.
 
 **Commissioned by:** Zeus Delacruz, founder of OneMind OS · **Date:** 2026-11-10
-**Repo:** https://github.com/Zeus-Delacruz/ONEMINDOS. Base branch `main`. Clone it; never force-push.
+**Repo:** https://github.com/onemindos/ONEMINDOS. Base branch `main`. Clone it; never force-push.
 **Reviewer:** Zeus, who is learning OS/platform engineering as he goes. Explain clearly, define terms, and show the "why".
 
 **Terms used here (tool-independent):**
@@ -230,8 +230,8 @@ If your environment can't run VMs, say so in `00-…`, and turn each spike into 
 
 ## 8. Git workflow
 
-1. Clone `https://github.com/Zeus-Delacruz/ONEMINDOS` and branch **`research/ultracode-foundation`** from `main`.
-2. **If you lack push access,** fork the repo and open the PR from `yourfork:research/ultracode-foundation` to `Zeus-Delacruz/ONEMINDOS:main`.
+1. Clone `https://github.com/onemindos/ONEMINDOS` and branch **`research/ultracode-foundation`** from `main`.
+2. **If you lack push access,** fork the repo and open the PR from `yourfork:research/ultracode-foundation` to `onemindos/ONEMINDOS:main`.
 3. **If the branch or PR already exists,** add commits to it. Never force-push, and never open a second PR.
 4. **Open a *draft* PR early,** once the Tier A baseline is in (claims ledger plus W2/W3 drafts). Title: `Research: OneMind OS foundation & 10-year plan`. Push after every workstream. Mark it *Ready for review* only when §9 is met.
 5. The PR body holds the executive summary and review checklist. If it would exceed about 60k characters, summarize and link to the files instead.

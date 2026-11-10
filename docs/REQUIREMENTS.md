@@ -147,7 +147,7 @@ Sovereign operations, situational awareness/TAK, OSINT, homestead/greenhouse/off
 | RS-4 | Survey **all relevant Linux distributions** for the base OS. |
 | RS-5 | Review the repos the founder flagged: storytold/craft-anything, qybaihe/bla, morluto/rea. |
 | RS-6 | If source code of anything is needed, ask Zeus and he will help obtain it. |
-| RS-7 | Document everything in this repo (github.com/Zeus-Delacruz/ONEMINDOS). |
+| RS-7 | Document everything in this repo (github.com/onemindos/ONEMINDOS). |
 
 ## 12. Existing assets to carry forward
 
