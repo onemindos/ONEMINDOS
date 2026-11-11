@@ -114,7 +114,7 @@ Tick the recommended option, or write another. "Due" is the week from `20` §2.3
 - [ ] **Z-28** Purge leaked personal data from the branch history (one-time rewrite of all four pushed commits + force-push) **before the PR is marked ready** · rec. (a)
 - [ ] **Z-41** Run the Ubuntu Secure Boot VM test U-SB (LT-VM-20) on your Mac on day 1, or approve an Ubuntu mirror for the lab; also judge the two disclosed reads past the Ubuntu block (`evidence/hygiene-log.md` §7) · rec. (a) run it day 1. If it fails, the pre-registered map gives bootc
 - [ ] **Z-01** (legal) Ask counsel and Canonical about modified Ubuntu, including Jetson, with a written price · rec. (a) now. **Rev. 4:** this now gates the base of record; meanwhile the default is Ubuntu 26.04 + RAUC, nothing Ubuntu-based ships before an answer, and both CI legs are built
-- [ ] **Z-38** Base OS: accept the frozen-protocol result (Ubuntu 26.04 + RAUC, with its conditions and the pre-registered map), or override it as your own logged decision · rec. (a) accept. It blocks the base-lock gate, the default base in `30-…` and the PDF's base-OS chapter
+- [x] **Z-38** ✅ **Decided 2026-11-11: (b) Debian 13 (founder override).** Base OS: accept the frozen-protocol result (Ubuntu 26.04 + RAUC, with its conditions and the pre-registered map), or override it as your own logged decision · rec. (a) accept. It blocks the base-lock gate, the default base in `30-…` and the PDF's base-OS chapter
 - [ ] **Z-37** Approve sending the vendor outreach drafts (Canonical, Freexian, Red Hat, NVIDIA/Inception) · rec. (a)
 - [ ] **Z-30** (legal) Incorporate, so Inception and vendor agreements can proceed · rec. (a)
 - [ ] **Z-14** Platform first inside an image-first plan · rec. (a)
