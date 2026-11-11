@@ -1,3 +1,3 @@
 [2026-11-11T01:29:48Z] host=lima-w5b after 1x2s: marker=90da4f236231fc90b716bc4c022743ea expected=90da4f236231fc90b716bc4c022743ea
 NAME     READY   STATUS    RESTARTS   AGE   IP          NODE   NOMINATED NODE   READINESS GATES
-writer   1/1     Running   1          21m   <vm-ip>   box1   <none>           <none>
+writer   1/1     Running   1          21m   <vm-private-ip>   box1   <none>           <none>

@@ -1,0 +1,86 @@
+SOURCE: https://github.com/Start9Labs/start-technologies/issues/3923
+ACCESSED: 2026-11-11
+STATE: CLOSED created 2026-09-10T14:28:11Z closed 2026-09-17T16:46:54Z
+TITLE: [bug]: installer writes kernel device names to /etc/fstab with no `nofail` — a re-enumerated disk boots the server into unrecoverable emergency mode
+
+### Prerequisites
+- [x] I searched existing issues and this is not already reported.
+
+### StartOS version
+0.4.0.2 (field report); defect verified in `master` @ `7b9521d9f`
+
+### Architecture / image
+x86_64 (AMD64) — Full
+
+### Server hardware
+DIY Apple machine, 3 SATA disks (one failing SMART — 1815 reallocated sectors)
+
+### Which surface?
+Other / unsure — boot / installer
+
+### What happens
+
+`os_install` writes `/etc/fstab` from `fstab.template`:
+
+```
+{boot}  /boot       vfat    umask=0077  0   2
+{efi}   /boot/efi   vfat    umask=0077  0   1
+{root}  /           btrfs   defaults    0   1
+```
+
+The placeholders are filled from `part_info.boot` / `extra_boot["efi"]` / `root`, all `PathBuf`s holding **kernel device names** — `partition_for()` builds them as disk path + index, e.g. `/dev/sdb` + `1` → `/dev/sdb1`. So an installed fstab reads:
+
+```
+/dev/sdb1  /boot      vfat   umask=0077  0  2
+/dev/sdb2  /boot/efi  vfat   umask=0077  0  1
+/dev/sdb3  /          btrfs  defaults    0  1
+```
+
+No `UUID=` / `PARTUUID=`, and **no `nofail` on any entry**.
+
+`/dev/sdX` assignment is SATA probe-order dependent and is not stable across boots. On a multi-disk box — especially one with a marginal drive that is slow to respond — the OS disk can enumerate under a different letter for a single boot. Then:
+
+1. `dev-sdb1.device` never appears; `boot.mount` waits the default 90 s and fails.
+2. `local-fs.target` fails, so systemd enters `emergency.target`.
+3. `emergency.service` runs `sulogin`. StartOS locks `root`, so sulogin prints `Cannot open access to console, the root account is locked` and exits immediately.
+4. `multi-user.target` is never reached, so **`ssh.service` and `startd.service` never start**. The server is unreachable on LAN and remotely, and no console login is possible — a headless brick until someone physically power-cycles it.
+5. Root is a squashfs image with a **tmpfs** upper (`startos-initramfs-module`), and persistent journal storage is not mounted, so journald stays in `/run/log/journal`. **The failed boot's journal is destroyed by the next reboot.** `journalctl -b -1` then shows a *healthy* boot, so the failure erases its own evidence and gets misattributed.
+
+A warm `systemctl reboot` largely preserves SATA link state, so a bad enumeration tends to reproduce across warm reboots; only a cold power-off (full link re-training) reshuffles it. That makes the failure look intermittent and hardware-random.
+
+Separately: the `/` line names a btrfs block device, but the runtime root is the overlay the initramfs assembles. `OsPartitionInfo::from_fstab()` documents exactly this — *"`/` is an overlayfs the initramfs sets up, so its fstab source (`overlay`) names no block device"* — and skips every non-`/boot` entry when reading. The generator still writes a device there, so what is on disk contradicts what the reader assumes.
+
+### What should happen instead
+
+- fstab should use `PARTUUID=`, which survives re-enumeration. `resolve_fstab_source()` already resolves `UUID=` / `PARTUUID=` when reading fstab, so nothing downstream needs to change.
+- `/boot` and `/boot/efi` should carry `nofail`. Neither is needed to reach `multi-user.target` — they matter for OS updates and GRUB. With `nofail`, a mis-enumerated or unhealthy boot partition degrades to *"the next update fails with a clear error"* instead of *"the server is unreachable and cannot be logged into"*.
+- The `/` entry should be dropped or written as `overlay`, matching what `from_fstab()` already assumes.
+- Worth considering separately: `emergency.service` on a box with a locked root and no usable console is a dead end by construction. A fallback that still brings up sshd would turn a brick into a support case.
+
+### Steps to reproduce
+
+1. On any installed x86 box, `cat /etc/fstab` — confirm the entries name `/dev/sdXN`.
+2. Add a SATA disk that enumerates ahead of the OS disk, or move the OS disk to a different port.
+3. Boot. `boot.mount` times out after 90 s; the box lands in emergency mode and is unreachable over SSH.
+4. Power-cycle into a good boot, then run `journalctl -b -1` — the failed boot left no journal.
+
+Field report: DIY Apple hardware, 3 SATA disks, one failing SMART. An OS update was run over SSH; the box rebooted into the emergency console below and was unreachable for ~90 minutes. Two warm reboots did not clear it; a cold power-off did.
+
+### Logs & evidence
+
+```shell
+You are in emergency mode. After logging in, type "journalctl -xb" to view
+system logs, "systemctl reboot" to reboot, or "exit" to continue bootup.
+sulogin: tcgetattr failed: Input/output error
+Cannot open access to console, the root account is locked.
+```
+
+Code refs (`master` @ `7b9521d9f`):
+
+- `shared-libs/crates/start-core/src/os_install/fstab.template`
+- `shared-libs/crates/start-core/src/os_install/mod.rs:522-533` — template fill
+- `shared-libs/crates/start-core/src/os_install/mod.rs:47-62` — `partition_for()`
+- `shared-libs/crates/start-core/src/disk/mod.rs:50-112` — `from_fstab()` / `resolve_fstab_source()`
+- `projects/start-os/build/lib/scripts/startos-initramfs-module:113-121` — tmpfs upper
+- `projects/start-os/startd.service` — `WantedBy=multi-user.target`
+

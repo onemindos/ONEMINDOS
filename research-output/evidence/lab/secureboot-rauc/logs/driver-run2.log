@@ -1,0 +1,30 @@
+##### [23:47:53] T1 first boot (Secure Boot, lab keys)
+##### [23:47:53] QEMU START qemu-system-x86_64 -machine q35,smm=on -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -global driver=cfi.pflash01,property=secure,value=on -global ICH9-LPC.disable_s3=1 -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd -drive if=pflash,format=raw,unit=1,file=/var/lab/sbrun2/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/sbrun2/disk.img -drive if=virtio,format=raw,readonly=on,file=/var/lab/sbrun2/bundles.img -chardev socket,id=chrtpm,path=/var/lab/sbrun2/swtpm.sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 -serial stdio -monitor none
+===> T1: PASS {'gate': True, 'SecureBoot=1 SetupMode=0': True, 'kernel SB': True, 'lab PK': True, 'LUKS2': True, 'tpm2 token': True, 'unlock': True, 'no prompt': True}; first boot 74s
+##### [23:49:07] T2 good update A->B
+===> T2: PASS install rc=0 BootNext=OneMind-B gate1=mark-good/B/v2 BootOrder[0]=OneMind-B gate2=mark-good/B/v2
+##### [23:52:01] T3 bad-health update (into A) -> rollback to B
+===> T3: PASS install rc=0 BootNext=OneMind-A gate1=('mark-bad', 'A', 3) gate2=('mark-good', 'B', 2) tpm-unlocks=2 BootOrder[0]=OneMind-B
+##### [23:55:19] T4 tampered UKI (into A) -> firmware must refuse
+===> T4: PASS install rc=0 BootNext=OneMind-A new-kernel-ran=False gate=('mark-good', 'B', 2) firmware=['BdsDxe: failed to load Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\\EFI\\Linux\\onemind-A.efi: Access Denied']
+##### [23:57:23] T5 unsigned UKI (into A) -> firmware must refuse
+===> T5: PASS install rc=0 BootNext=OneMind-A new-kernel-ran=False gate=('mark-good', 'B', 2) firmware=['BdsDxe: failed to load Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\\EFI\\Linux\\onemind-A.efi: Access Denied']
+##### [23:59:36] QEMU EXIT (poweroff)
+##### [23:59:36] T6 Secure Boot OFF, same TPM: data must stay locked
+##### [23:59:37] QEMU START qemu-system-x86_64 -machine q35,smm=on -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -global driver=cfi.pflash01,property=secure,value=on -global ICH9-LPC.disable_s3=1 -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd -drive if=pflash,format=raw,unit=1,file=/var/lab/sbrun2/OVMF_VARS_off.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/sbrun2/disk.img -drive if=virtio,format=raw,readonly=on,file=/var/lab/sbrun2/bundles.img -chardev socket,id=chrtpm,path=/var/lab/sbrun2/swtpm.sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 -serial stdio -monitor none
+===> T6: PASS gate=('no-commit', 'B', 2) unlock-failed=True
+##### [00:00:43] QEMU EXIT (poweroff)
+##### [00:00:43] T6b Secure Boot back ON: unlock again
+##### [00:00:43] QEMU START qemu-system-x86_64 -machine q35,smm=on -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -global driver=cfi.pflash01,property=secure,value=on -global ICH9-LPC.disable_s3=1 -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd -drive if=pflash,format=raw,unit=1,file=/var/lab/sbrun2/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/sbrun2/disk.img -drive if=virtio,format=raw,readonly=on,file=/var/lab/sbrun2/bundles.img -chardev socket,id=chrtpm,path=/var/lab/sbrun2/swtpm.sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 -serial stdio -monitor none
+===> T6b (info): gate=('mark-good', 'B', 2) unlock=True
+##### [00:01:31] QEMU EXIT (poweroff)
+===> T7 (bonus): PASS {'T1/A': True, 'T2/B': True, 'T3/A-bad': True, 'T3/B-after-rollback': True}
+##### [00:01:31] SUMMARY total 818s
+##### [00:01:31] T1 | PASS | {'gate': True, 'SecureBoot=1 SetupMode=0': True, 'kernel SB': True, 'lab PK': True, 'LUKS2': True, 'tpm2 token': True, 'unlock': True, 'no prompt': True}; first boot 74s
+##### [00:01:31] T2 | PASS | install rc=0 BootNext=OneMind-B gate1=mark-good/B/v2 BootOrder[0]=OneMind-B gate2=mark-good/B/v2
+##### [00:01:31] T3 | PASS | install rc=0 BootNext=OneMind-A gate1=('mark-bad', 'A', 3) gate2=('mark-good', 'B', 2) tpm-unlocks=2 BootOrder[0]=OneMind-B
+##### [00:01:31] T4 | PASS | install rc=0 BootNext=OneMind-A new-kernel-ran=False gate=('mark-good', 'B', 2) firmware=['BdsDxe: failed to load Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\\EFI\\Linux\\onemind-A.efi: Access Denied']
+##### [00:01:31] T5 | PASS | install rc=0 BootNext=OneMind-A new-kernel-ran=False gate=('mark-good', 'B', 2) firmware=['BdsDxe: failed to load Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\\EFI\\Linux\\onemind-A.efi: Access Denied']
+##### [00:01:31] T6 | PASS | gate=('no-commit', 'B', 2) unlock-failed=True
+##### [00:01:31] T7 (bonus) | PASS | {'T1/A': True, 'T2/B': True, 'T3/A-bad': True, 'T3/B-after-rollback': True}
+rc=0

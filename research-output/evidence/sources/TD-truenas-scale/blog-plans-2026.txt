@@ -1,0 +1,154 @@
+TrueNAS Plans for 2026: TrueNAS 26 & OpenZFS 2.4 Roadmap 
+ Products V-Series – Max Performance & Versatility 
+ M-Series – High Capacity All-Flash or Hybrid 
+ F-Series – High Performance NVME 
+ R-Series – Single Controller Appliances 
+ H-Series – Versatility and Power Efficiency 
+ Mini Series – Edge and Branch Office 
+ TrueNAS Enterprise – Mission Critical Storage. 24×7 Enterprise Support 
+ TrueNAS Community Edition – Test Drive TrueNAS in Your Environment 
+ Manage Your TrueNAS Systems 
+ Solutions Industry 
+ Media & Entertainment 
+ US Public Sector 
+ Audio 
+ Automotive 
+ Broadcasting 
+ Education 
+ Gaming 
+ Healthcare 
+ Manufacturing 
+ MSP 
+ Use Cases 
+ AI & Research 
+ Analytics 
+ Backup & Archival 
+ Cloud 
+ Data Mobility 
+ File Sharing 
+ Red Hat OpenShift 
+ Surveillance/CCTV 
+ TrueCloud Backup 
+ Veeam Backup 
+ Virtualization 
+ TrueNAS as an Alternative 
+ Alternative to Dell 
+ Alternative to Everpure / Pure Storage 
+ Alternative to HPE Alletra 
+ Alternative to NetApp 
+ Alternative to Public Cloud 
+ Support & Resources Support 
+ Enterprise Support – For customers with active support contracts 
+ Community Support – For peer-to-peer, forum support 
+ Community 
+ TrueNAS Community Edition 
+ Community Forum 
+ TrueNAS Merch Store 
+ Resources 
+ Apps 
+ Case Studies 
+ Certifications & Integrations 
+ Data sheets 
+ Documentation 
+ FAQ 
+ Reseller Network 
+ Software Status 
+ Solution Briefs and Guides 
+ TrueNAS API 
+ TrueNAS Blog 
+ TrueNAS Security 
+ Videos 
+ White Papers 
+ ZFS Overview 
+ Company About TrueNAS 
+ Team 
+ Our Clients 
+ Reviews 
+ Awards 
+ Newsroom 
+ Careers 
+ Contact Us 
+ Get A Quote 
+ Close 
+ Get A Quote 
+ Sign In TrueNAS Connect 
+ Partner Portal 
+ Enterprise Support 
+ TrueNAS Plans for 2026: Building on Your Success
+ } 
+ February 4, 2026 
+ o 
+ TrueNAS 
+ Your storage demands aren’t slowing down. Whether you’re powering AI workloads, protecting critical backups, or scaling media production, you need infrastructure that keeps pace without surprise costs or forced migrations.
+ 2025 proved that’s exactly what TrueNAS delivers. From daily file sharing to cutting-edge data science research, nearly half a million systems worldwide ran on TrueNAS. Deployments like the all-NVMe powerhouse in the Amazon Prime Video NBA studio showcased what’s possible when storage stops being the bottleneck.
+ Now it’s time to look ahead. Here’s how TrueNAS will continue earning your trust in 2026 with software, services, and hardware that put you in control.
+ Where TrueNAS Stands Today 
+ You have options depending on your stability and feature requirements:
+ TrueNAS 25.10 “Goldeye” is the current recommended version for new deployments, now at General availability with very few reported issues. A 25.10.2 update is scheduled for February. This is also the minimum version for TrueNAS Connect .
+ TrueNAS 25.04 “Fangtooth” remains the most widely deployed version and is still recommended for mission-critical workloads requiring maximum stability. Update to 25.10 at your convenience to access features like NVMe-oF and 400GbE support.
+ TrueNAS 24.x and 13.0 continue working, but are no longer receiving updates. If you need the latest security patches or features, plan your migration path to 25.10 or later.
+ What’s Coming in 2026 
+ TrueNAS 26: Simplified, Strengthened 
+ TrueNAS 26 marks a shift to an annual release cadence – fewer version numbers to track, more time to build confidence before upgrading. A straightforward, two-digit name simplifies versioning, with updates shifting from “25.04.2.6” to just straightforward “26.1” numbering. Nightlies are available for interested developers.
+ Starting with TrueNAS 26, you’ll see these straightforward version numbers instead of our fish-themed code names. This shift makes it easier for your team to track releases, plan upgrades, and communicate about your infrastructure across departments.
+ With this change to annual release comes an extended and enhanced development cycle. TrueNAS 26 will retain its primary version number while receiving feature packs, security updates, and hotfixes. This will allow more extensive testing by both the TrueNAS engineering team and give TrueNAS users more predictable update cycles.
+ TrueNAS 26 enters beta in April, with new capabilities:
+ TrueNAS Webshare with integrated search helps you find what you need across your storage, fast
+ Ransomware detection and protection lets you catch and prevent threats before they have a chance to take hold
+ OpenZFS 2.4 with hybrid pool improvements gives you the performance of flash where it counts and the capacity of HDDs where it’s needed to scale
+ LXC containers are fully supported, offering legacy CORE users with custom Jails a clear, stable migration path
+ Linux Kernel 6.18 LTS enables support for new hardware while providing long-term stability for your infrastructure
+ More capabilities will be announced as TrueNAS 26 progresses through its phases.
+ TrueNAS Connect: Cloud-Like Management, On Your Terms 
+ Managing multiple TrueNAS systems shouldn’t mean juggling separate interfaces. TrueNAS Connect brings unified, cloud-style management while your data stays under your control.
+ Q1 Launch — For Technical Teams and Growing Businesses: 
+ Connect Foundation (included): Deploy and configure TrueNAS systems without needing a keyboard and screen attached. Simplify your initial setup.
+ Connect Plus (subscription): Replication management, expanded Webshare access, and additional ransomware protection services for home businesses and enthusiasts.
+ Q2 Launch — For Enterprise and MSPs: 
+ Connect Business: Designed for high-availability systems, larger fleets, and managed service providers who need visibility across environments.
+ TrueNAS Connect is available today, with our Early Connectors promotion offering an exclusive 50% discount for the first year of your TrueNAS Connect Plus subscription.
+ TrueCommand remains available for organizations managing systems across older TrueNAS versions or requiring on-premises deployment.
+ Appliances Built for Your Workloads 
+ TrueNAS appliances deliver turnkey deployments with enterprise support, whether you need massive capacity, extreme performance, or both.
+ Terabit-Scale Performance: The TrueNAS R60 is the introduction of our fifth-generation hardware, supporting 400GbE networking and RDMA capabilities for demanding video editing, data science, and AI workloads. Additional appliances supporting TrueNAS Enterprise with High-Availability are in internal testing.
+ Hybrid Flexibility: Flash prices fluctuate, but your budget shouldn’t. TrueNAS H-Series systems support up to 12 NVMe SSDs or HDDs in each primary bay, with up to 102 additional HDDs capable of being loaded in an expansion shelf. in a single system. You get 80% lower cost per TB compared to all-flash, with performance that satisfies most workloads. Larger hybrid configurations are coming soon.
+ Intelligent Tiering: OpenZFS improvements in TrueNAS 26 will enable smarter data placement across NVMe and HDD tiers. Hot datasets can be pinned to flash, with cold data benefiting from the economics of spinning disk.
+ Unprecedented Density: With 26TB HDDs and 122TB SSDs now available, you can deploy over 1PB of high-performance NVMe in a single rack unit.
+ Whatever your requirements, there’s a TrueNAS appliance that fits. Contact us to discuss your needs.
+ Own Your Data 
+ Data sovereignty isn’t just for governments. It’s for every organization and every individual that refuses to hand control to vendors who profit from lock-in.
+ TrueNAS delivers storage you can trust: predictable costs, portable data, and technology you can verify. That’s why more than 60% of Fortune 500 companies already run TrueNAS.
+ Ready to take control? Download TrueNAS Community Edition to experience it yourself, or contact our team to explore enterprise solutions.
+ Own Your Data. Start Today. 
+ Share On Social:
+-->
+ 541 Division Street
+Campbell, CA 95008, USA
+ Contact Us 
+ <email-masked> 
+ Listen to our Podcast 
+ Support
+ Enterprise Support 
+ Community Support 
+ Forums 
+ FAQs 
+ Useful Links
+ Careers 
+ About Us 
+ Blog 
+ News & Articles 
+ TrueNAS Enterprise 
+ TrueNAS Community Edition 
+ Open Storage for Proxmox 
+ TrueCommand 
+ TrueCommand Cloud 
+ TrueNAS Legacy 
+ Software Status 
+ Referral Program 
+ Reseller Network 
+ Subscribe to our newsletter 
+ --->
+ © Copyright 2026 iXsystems, Inc. dba TrueNAS. All rights reserved.
+ Legal     TrueNAS Logos 
+ TrueNAS Newsletter Subscription 
+Be the First to Know

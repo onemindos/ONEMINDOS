@@ -1,0 +1,1833 @@
+SOURCE: https://pbs.proxmox.com/wiki/Roadmap
+ACCESSED: 2026-11-11
+
+
+Roadmap - Proxmox Backup Server
+ Roadmap
+ From Proxmox Backup Server
+ Jump to navigation
+ Jump to search
+ Contents
+1 Roadmap
+2 Release History
+2.1 Proxmox Backup Server 4.2
+2.1.1 Highlights
+2.1.2 Changelog Overview
+2.1.2.1 Enhancements in the Web Interface (GUI)
+2.1.2.2 General Backend Improvements
+2.1.2.3 S3 Backend
+2.1.2.4 Client Improvements
+2.1.2.5 Access Control
+2.1.2.6 Tape Backup
+2.1.2.7 Installation ISO
+2.1.2.8 Improved Management of Proxmox Backup Server Machines
+2.1.3 Known Issues & Breaking Changes
+2.2 Proxmox Backup Server 4.1
+2.2.1 Highlights
+2.2.2 Changelog Overview
+2.2.2.1 Enhancements in the Web Interface (GUI)
+2.2.2.2 General Backend Improvements
+2.2.2.3 S3 Backend (Technology Preview)
+2.2.2.4 Client Improvements
+2.2.2.5 Access Control
+2.2.2.6 Tape Backup
+2.2.2.7 Installation ISO
+2.2.2.8 Improved Management of Proxmox Backup Server Machines
+2.2.3 Known Issues & Breaking Changes
+2.2.3.1 Hanging backups with kernel 6.17 for specific setups
+2.2.3.2 Potential issues booting into kernel 6.17 on some Dell PowerEdge servers
+2.3 Proxmox Backup Server 4.0
+2.3.1 Highlights
+2.3.2 Changelog Overview
+2.3.2.1 Enhancements in the web interface (GUI)
+2.3.2.2 General backend improvements
+2.3.2.3 Client improvements
+2.3.2.4 Tape backup
+2.3.2.5 Installation ISO
+2.3.2.6 Improved management of Proxmox Backup Server machines
+2.3.3 Known Issues & Breaking Changes
+2.3.3.1 The test repository is now named pbs-test
+2.3.3.2 Potential changes in network interface names
+2.3.3.3 Passkeys as Second Factor (TFA)
+2.3.3.4 Change in sync job filter order
+2.3.3.5 systemd logs "System is tainted: unmerged-bin" after boot
+2.3.3.6 OpenID users get logged out instantly
+2.4 Proxmox Backup Server 4.0 BETA
+2.4.1 Highlights
+2.4.2 Changelog Overview
+2.4.2.1 Enhancements in the web interface (GUI)
+2.4.2.2 General backend improvements
+2.4.2.3 Client improvements
+2.4.2.4 Tape backup
+2.4.2.5 Installation ISO
+2.4.2.6 Improved management of Proxmox Backup Server machines
+2.4.3 Known Issues & Breaking Changes
+2.4.3.1 The test repository is now named pbs-test
+2.4.3.2 Potential changes in network interface names
+2.5 Proxmox Backup Server 3.4
+2.5.1 Highlights
+2.5.2 Changelog Overview
+2.5.2.1 Enhancements in the web interface (GUI)
+2.5.2.2 General backend improvements
+2.5.2.3 Client improvements
+2.5.2.4 Tape backup
+2.5.2.5 Installation ISO
+2.5.2.6 Improved management of Proxmox Backup Server machines
+2.5.3 Known Issues & Breaking Changes
+2.6 Proxmox Backup Server 3.3
+2.6.1 Highlights
+2.6.2 Changelog Overview
+2.6.2.1 Enhancements in the web interface (GUI)
+2.6.2.2 General backend improvements
+2.6.2.3 Client improvements
+2.6.2.4 Tape backup
+2.6.2.5 Access control
+2.6.2.6 Installation ISO
+2.6.2.7 Improved management of Proxmox Backup Server machines
+2.6.2.8 Notable bugfixes and general improvements
+2.6.3 Known Issues & Breaking Changes
+2.7 Proxmox Backup Server 3.2
+2.7.1 Highlights
+2.7.2 Changelog Overview
+2.7.2.1 Enhancements in the web interface (GUI)
+2.7.2.2 General backend improvements
+2.7.2.3 Client improvements
+2.7.2.4 Tape backup
+2.7.2.5 Access control
+2.7.2.6 Installation ISO
+2.7.2.7 Improved management of Proxmox Backup Server machines
+2.7.3 Known Issues & Breaking Changes
+2.7.3.1 Kernel 6.8
+2.7.3.2 Kernel: Change in Network Interface Names
+2.8 Proxmox Backup Server 3.1
+2.8.1 Highlights
+2.8.2 Changelog Overview
+2.8.2.1 Enhancements in the web interface (GUI)
+2.8.2.2 General backend improvements
+2.8.2.3 Client improvements
+2.8.2.4 Tape backup
+2.8.2.5 Access control
+2.8.2.6 Installation ISO
+2.8.2.7 Improved management of Proxmox Backup Server machines
+2.8.3 Known Issues & Breaking Changes
+2.8.3.1 Kernel
+2.9 Proxmox Backup Server 3.0
+2.9.1 Highlights
+2.9.2 Changelog Overview
+2.9.2.1 Enhancements in the web interface (GUI)
+2.9.2.2 General backend improvements
+2.9.2.3 Client improvements
+2.9.2.4 Tape backup
+2.9.2.5 Access control
+2.9.2.6 Installation ISO
+2.9.2.7 Notable bug fixes
+2.9.3 Known Issues & Breaking Changes
+2.10 Proxmox Backup Server 2.4
+2.10.1 Highlights
+2.10.2 Changelog Overview
+2.10.2.1 Enhancements in the web interface (GUI)
+2.10.2.2 General Backend Improvements
+2.10.2.3 Client Improvements
+2.10.2.4 Tape backup
+2.10.2.5 Installation ISO
+2.10.2.6 Documentation
+2.10.2.7 Notable bug fixes
+2.10.3 Known Issues & Breaking Changes
+2.11 Proxmox Backup Server 2.3
+2.12 Proxmox Backup Server 2.2
+2.13 Proxmox Backup Server 2.1
+2.14 Proxmox Backup Server 2.0
+2.15 Proxmox Backup Server 1.1
+2.16 Proxmox Backup Server 1.0
+2.17 Proxmox Backup Server Beta (2nd ISO release)
+2.18 Proxmox Backup Server Beta
+Roadmap
+Proxmox VE host backup
+Backup clients for other operating systems
+Encrypt data optionally on server-side, on datastore sync and/or incoming backups.
+Improved quality of service control like per-user bandwidth limits or maximum number of active task workers.
+Integration into Proxmox Datacenter Manager.
+Completed tasks that have been featured previously on the roadmap:
+Push-based sync mode (done with 3.3)
+Backup to one (physical) datastore from multiple Proxmox VE clusters, avoiding backup naming conflicts (done)
+GUI restore improvements (including VMs) (done)
+Set manual protection (immutable) flag for backups (done)
+Transforming the single prune configuration of a datastore to allowing multiple jobs, with namespace support (done)
+Support S3/Object as datastore storage backend. (done)
+Importer for existing vzdump archives into Proxmox Backup Server (done, see Import VMA Backups into Proxmox Backup Server)
+LDAP/AD Authentication (done)
+Improve and extend notifications by allowing one to add more endpoints besides email, each with separate filters (done with 3.2)
+Release History
+See also Announcement forum
+Proxmox Backup Server 4.2
+Released 29. April 2026
+Based on Debian Trixie (13.4)
+Latest 7.0 Kernel as new stable default
+ZFS 2.4.1
+Highlights
+Allow moving groups and namespaces.
+Backup groups and namespaces can now be moved to different locations within the same datastore.
+This allows users to reorganize existing backups while ensuring data consistency.
+Server-side encryption for push sync jobs.
+Push sync jobs can now be configured to encrypt snapshots before sending them to remote datastores.
+For example, this can be used to push snapshots to Proxmox Backup Server instances in less trusted offsite locations.
+Furthermore, pull sync jobs can be configured to decrypt snapshots encrypted on the remote datastores.
+Concurrent group pull/push processing for sync jobs.
+Sync jobs can now process multiple groups in parallel by configuring the new worker-threads property.
+This can significantly improve throughput on high latency networks.
+S3-compatible object stores as backup storage backend officially supported, including request statistics and notification thresholds.
+Using S3-compatible object stores as a backup storage backend has graduated from the technology preview phase and is now officially supported.
+S3-backed datastores can now track request counts and traffic statistics for deeper operational insights and monitoring.
+This is especially relevant for getting notified when traffic exceeds expected thresholds.
+The request counters are visualized in the datastores summary.
+Kernel 7.0 as the new stable default.
+Changelog Overview
+Enhancements in the Web Interface (GUI)
+Persist the column state of the datastore usage panel on the dashboard (issue 7412).
+Expose new option to use the node's HTTP proxy for remote connections in the remote edit window.
+Fix an issue where creating a new user would change the pre-selected realm for the currently logged-in user (issue 7149).
+Fix an issue where OpenID Connect logins would drop the originally requested URL, preventing deep links from working correctly (issue 7337).
+Set datastore usage related titles based on the backend type.
+For example, the "Storage Usage" column is now labeled "Local Cache Usage" for S3-backed datastores.
+Updated translations, among others:
+Czech
+French
+German
+Italian
+Japanese
+Korean
+Polish
+Russian
+Simplified Chinese
+Spanish
+Swedish
+Traditional Chinese
+General Backend Improvements
+Allow moving groups and namespaces (issue 6195).
+Backup groups and namespaces can now be moved to different locations within the same datastore.
+This lets users reorganize existing backups while ensuring data consistency through per-group locking.
+Any lock conflicts are gracefully handled by allowing retries on partially completed moves.
+Server-side encryption for push sync jobs.
+Push sync jobs can now be configured to encrypt snapshots before sending them to remote datastores.
+For example, this can be used to push snapshots to Proxmox Backup Server instances in less trusted offsite locations.
+Furthermore, pull sync jobs can be configured to decrypt snapshots encrypted on the remote datastores.
+Concurrent group pull/push processing for sync jobs (issue 4182).
+Sync jobs can now process multiple groups in parallel by configuring the new worker-threads property.
+This can significantly improve throughput on high latency networks, overcoming HTTP/2 connection limitations.
+Log messages are now prefixed with their respective context (groups, snapshots, archives).
+Considerably improved logging for sync jobs in the push direction.
+Make the garbage collector run automatically on removable datastores when they are unmounted, if the new gc-on-unmount flag is set (issue 7465).
+Use proper errors for fixed-index inputs instead of panics so a corrupted or unexpected index state fails the single backup task instead of crashing the service.
+Fix a bug that allowed users with powerful Sys.Modify privileges to inject arbitrary options into an apt-get invocation (PSA-2026-00003-1).
+Fix an issue which caused the API to leak information about whether a user exists if certain conditions are met (PSA-2026-00008-1).
+Support configuring the proxy daemon's real peer-IP header and allowed source IP addresses through environment variables (PSA-2026-00009-1).
+The PROXY_REAL_IP_HEADER and PROXY_REAL_IP_ALLOW_FROM variables can be set by overriding the proxmox-backup-proxy.service systemd unit.
+This enables deploying Proxmox Backup Server behind a reverse proxy while preserving the real client IP address.
+Allow remote connections to optionally use the node's configured HTTP proxy (issue 3723).
+When configuring a remote, there is now an option to route the connection through the node's HTTP proxy.
+Implement datastore config caching to avoid re-parsing the whole config on every access, improving performance with a large number of datastores (issue 6049).
+Fix include/exclude pattern matching for nested paths on both server and client (issue 7382).
+Anchored patterns in subdirectories would fail to match because the leading slash was not added when building the nested pattern.
+Fix an issue where modifying the IPv6 network configuration would overwrite an existing config method like auto with manual (issue 7329).
+Fix push sync jobs cleanup on datastore destroy.
+Fix a bug that prevented push sync jobs from being enumerated in the 'matcher-field-values' API endpoint.
+Integrate upstream fixes for the "Crackarmor" AppArmor vulnerabilities (PSA-2026-00010-1).
+Fix a bug where corrupted or missing job state files would prevent users from viewing configured jobs (issue 7400).
+The API now gracefully handles such errors by returning an unknown job state instead of failing.
+Furthermore, the proxy daemon now actively self-heals corrupted state files by automatically overwriting them when scheduling the next job run.
+Improve detection of configured Proxmox repositories by verifying their signature rather than relying solely on the repository URI (issue 5207).
+This fixes a spurious "No repository is enabled" warning in the Repositories panel when using a mirrored repository (for example, via the Proxmox Offline Mirror).
+The backup API no longer requires the file size upfront for fixed-index uploads.
+S3 Backend
+Graduation from technology preview.
+Using S3-compatible object stores as a backup storage backend has officially graduated from the technology preview phase and is now fully supported.
+S3 request statistics and notification thresholds for S3-backed datastores (issue 6563).
+S3-backed datastores can now track request counts and traffic statistics for deeper operational insights and monitoring.
+These counters can be periodically reset using a scheduled task. For example, this allows for monthly traffic inspection.
+Furthermore, thresholds can be set on a per-request or traffic-volume basis. If these are exceeded, users are notified.
+The request counters are visualized in the datastores summary.
+Support using the node's configured HTTP proxy for S3-backed datastores (issue 6716).
+Expose the "DeleteObjects via DeleteObject" provider quirk to fall back to deleting objects one at a time for S3 endpoints that do not support batch deletes (issue 7078).
+General improvements to the S3 backend:
+Fix an S3 refresh regression introduced in Proxmox Backup Server 4.1 that would result in a panic every time an s3-refresh was initiated.
+Mute a spurious warning when overwriting empty chunks in the local cache during normal cache eviction.
+Ensure empty namespaces are not skipped on S3 refresh, so they are properly synchronized to the local cache.
+Reduce the number of S3 requests when listing backup contents by using the owner from the local store cache instead of refetching it.
+Allow cancelling the garbage collection for S3 stores in the second phase by adding task-cancellation points after each processed S3 object key.
+Improve reliability by automatically retrying S3 requests that fail with HTTP status codes 500, 503, or 504 (issue 6858).
+Client Improvements
+Add individual repository component parameters (--server, --port, --datastore, --auth-id, and --ns) as an alternative to the compound --repository URL.
+These CLI options also seamlessly merge with their corresponding PBS_SERVER, PBS_PORT, PBS_DATASTORE, and PBS_AUTH_ID environment variables.
+Support FIFO pipe inputs for image backups, allowing users to pipe data of unknown size as fixed-index backup input (issue 3847).
+This allows users to directly pipe images into proxmox-backup-client.
+Fail early if the same pipe is specified for multiple inputs, as the files with repeated pipes will always be empty.
+Fix encryption key loading for the mount command to fall back to the default key location, aligning the behavior with all other commands (issue 7219).
+Do not consider unfinished, potentially still running, snapshots when automatically selecting the most recent snapshot for proxmox-backup-client restore (issue 7305).
+This avoids accidentally selecting a snapshot that is still being created when the user only passed a backup group as restore source.
+Warn for proxmox-backup-client logout if no ticket is found (issue 7242).
+Add support for the PBS_NAMESPACE environment variable to specify the backup namespace (issue 5340).
+Access Control
+Reduce overhead for token-authenticated API calls by caching API token secret verification results (issue 7017).
+ACME: Support ACME servers returning HTTP 204 for nonce requests (issue 6939).
+Tape Backup
+Allow up to 256 drives per changer in the web interface, matching the backend capability (issue 7331).
+Cope with tape drives that require aligned buffer sizes when setting up encryption.
+Improve SCSI string parsing to handle tape hardware that pads with spaces after the termination byte instead of before (issue 7303).
+Installation ISO
+Add support for preparing PXE- and iPXE-compatible auto installation ISOs.
+This can be done with the new --pxe and --pxe-loader options for the proxmox-auto-install-assistant prepare-iso command.
+This functionality requires at least 6 GiB of available memory on the host.
+Make the network interface name validation consistent with the API schema.
+Fix a bug which caused the auto installer to mark uppercase MAC addresses as unknown for network interface pinning maps.
+Fix a 'command not found' error that could occur under certain circumstances.
+Save the post-hook data to /run/proxmox-installer/post-hook-data.json in the installer environment.
+Allow users to drop to the debug shell by pressing Ctrl-C during the installation.
+Improved Management of Proxmox Backup Server Machines
+Adapt the system report's output to the renaming of arcstat to zarcstat in ZFS 2.4.
+Fix a regression in ACME certificate renewal through the proxmox-daily-update service (issue 7311).
+Documentation: Update ZFS swap documentation to reflect Debian Trixie no longer reading /etc/sysctl.conf.
+Documentation: Add list of supported maintenance modes.
+Documentation: Add example for running a sync job manually via the proxmox-backup-manager CLI tool.
+Known Issues & Breaking Changes
+None at time of release.
+Proxmox Backup Server 4.1
+Released 26. November 2025
+Based on Debian Trixie (13.2)
+Latest 6.17.2-1 Kernel as new stable default
+ZFS 2.3.4
+Highlights
+Traffic control based on the authenticated user.
+Traffic control already allows limiting backup and restore traffic for specific client networks.
+Now, traffic control can also take the authenticated Proxmox Backup Server user into account.
+This allows more convenient and fine-grained prioritization of backup or restore traffic.
+Allow to control parallelism of verify jobs.
+Backup snapshot verification is both an IO- and CPU-heavy workload, as it needs to read chunks from disk and verify their checksums.
+The number of threads used for reading from disk and for checksum verification can now be customized.
+In some setups, customizing the number of threads can significantly decrease the overall runtime of the verify job.
+Bandwidth rate limiting for S3 endpoints.
+Since Proxmox Backup Server 4.0, backup metadata and chunks can be stored in S3-compatible object stores (technology preview).
+It is now possible to enforce bandwidth rate limits on incoming and outgoing connections from or to S3 endpoints.
+This can avoid network congestion between the Proxmox Backup Server instance and the object store during backup or restore operations.
+Kernel 6.17 as the new stable default.
+Changelog Overview
+Enhancements in the Web Interface (GUI)
+Allow users outside the pam realm to access the shell (issue 6398).
+Accessing the shell requires the Sys.Console privilege.
+Non-PAM users are required to enter valid PAM credentials to access the shell.
+Fix a sorting issue where the "Last comment" field was not considered (issue 6592).
+Improve appearance with high-resolution displays.
+Fix an issue where the WebAuthn setting dialog, which is only accessible for the root user, was susceptible to XSS (PSA-2025-00014-1).
+Updated translations, among others:
+Czech
+French
+Georgian
+German
+Italian
+Japanese
+Korean
+Polish
+Spanish
+Swedish
+Traditional Chinese
+Ukrainian
+General Backend Improvements
+Traffic control based on the authenticated user.
+Traffic control already allows limiting backup and restore traffic for specific client networks.
+Now, traffic control can also take the authenticated Proxmox Backup Server user into account.
+This allows more convenient and fine-grained prioritization of backup or restore traffic.
+If the client IP matches multiple rules, the rules specifying a user have precedence.
+Allow to control parallelism of verify jobs.
+Backup snapshot verification is both an IO- and CPU-heavy workload, as it needs to read chunks from disk and verify their checksums.
+The number of threads used for reading from disk and for checksum verification can now be customized in the datastore tuning options.
+Individual verify jobs can override the datastore-wide settings.
+In some setups, customizing the number of threads can significantly decrease the overall runtime of the verify job.
+The optimal number of read and verify threads depends on the particular setup.
+Allow to automatically unmount removable datastores after an automatic sync job is completed.
+A removable datastore can be configured to trigger a sync job when it is mounted.
+In addition, the removable datastore can now be unmounted automatically after the sync job has finished.
+Allow removable datastore creation on the device's root directory.
+Improve performance of the API endpoint for listing backup groups.
+Ensure proper cleanup if setting the backup group owner fails.
+Clarify task log messages for protected backup snapshots when pruning (issue 6624).
+Mount a dedicated tmpfs under /run/proxmox-backup to avoid exceeding the maximum number of inodes on low-memory hosts.
+This will only take effect after a reboot.
+Fix an issue where Proxmox Backup Server would stop accepting incoming connections in certain error cases.
+This could be caused by health checks, for example when running behind HAProxy.
+Fix a regression where pull sync jobs would not resync all corrupt snapshots.
+Fix an issue where authenticating against a Remote running some versions of Proxmox Backup Server 3.4 would fail.
+Fix an issue where backup snapshot creation would not drop locks in time and cause an immediately following backup snapshot creation to fail (issue 6566).
+This could, for example, happen for push sync jobs.
+Fix a race condition during long-running garbage collection and pruning of recent snapshots that could lead to backup corruption before Proxmox Backup Server 3.4 (PSA-2025-00019-1).
+Improve the efficiency of fingerprint validation.
+Fix a verification error message that mentioned S3 even in case of a local datastores.
+Fix a locking issue where a backup would not be prioritized over garbage collection during a server reload.
+Avoid slowdowns when waiting for chunk insertion to finish during pull sync jobs.
+Ensure correct reuse of pre-existing chunks for backup snapshots created by a pull sync job.
+Fix a race condition between deleting a datastore and modifying the configuration of unrelated datastores.
+Fix rare race conditions during garbage collection.
+S3 Backend (Technology Preview)
+Bandwidth rate limiting for S3 endpoints.
+Since Proxmox Backup Server 4.0, backup metadata and chunks can be stored in S3-compatible object stores (technology preview).
+It is now possible to enforce bandwidth rate limits on incoming and outgoing connections from or to S3 endpoints.
+This can avoid network congestion between the Proxmox Backup Server instance and the object store during backup or restore operations.
+Rate and burst limits can be configured per S3 endpoint.
+General improvements to the S3 backend:
+Adjust request timeouts to better accommodate slower connections.
+Implement a retry mechanism to improve the handling of transient client errors.
+Drop overly restrictive minimum length check for regions.
+Improve compatibility with S3 endpoints whose responses do not contain a Date header.
+Improve compatibility with S3 endpoints that do not return some optional fields when listing objects (issue 7008).
+Set the Content-Length header only when necessary in order to fix issues when accessing an S3 endpoint via a proxy (issue 6906).
+An S3 refresh now waits for active operations to finish in order to avoid potential inconsistencies.
+Improve protection against malicious backup clients with S3-backed datastores (PSA-2025-00020-1)
+Improve the error reporting when receiving an HTTP 403 response from an S3 endpoint.
+Evict corrupt chunks from the in-memory LRU cache in order to allow them to be re-inserted during backup upload (issue 6961).
+Reduce the number of connection initiations for pull sync jobs.
+Fix an issue where a restore could fail when reading a cached chunk that is being evicted from the cache.
+Avoid marking chunks as corrupt if they could not be fetched correctly due to S3 client errors (issue 6665).
+Fix an issue where garbage collection would fail to clean up unreferenced chunks.
+Fix race conditions between garbage collection and S3 chunk upload, insert, and marking of corrupt chunks.
+Improve the fetching and insertion logic for the local datastore cache.
+Ensure corrupt chunks are kept until a correct version of the chunk is re-inserted.
+Fix locking issues that could render the Proxmox Backup Server instance unresponsive due to unfortunate timing (see also issue 6750).
+Fix an issue where uploading the backup log could block the current thread.
+Improve error reporting to simplify troubleshooting.
+Client Improvements
+ZIP archives created when restoring a directory from file-based backups now preserve symlinks (issue 4995).
+Access Control
+Fix an issue where realms with 2-character names would not allow the creation of new users (issue 6913).
+Fix a regression that removed the possibility to log in with a ticket provided via the password field.
+Fix an issue where users logging in with OpenID Connect would be logged out.
+Enable backup eligibility in order to fix issues with some passkeys, such as passkeys from Bitwarden.
+Add an API endpoint for verifying token-owned VNC authentication tickets to be used by termproxy.
+Tape Backup
+Documentation: Fix potentially misleading command-line example (issue 6714).
+Installation ISO
+Allow pinning the names of network interface names in the GUI and TUI installers, as well as through the automated installer.
+When a kernel version changes, the interface name may change due to new (PCIe) features being picked up. This can lead to broken network configurations.
+By pinning the network interfaces, the names will not change between kernel versions.
+Including this functionality in the installer ensures that a node will not change its interface names across updates.
+Set the compatibility_level of postfix to 3.6 in order to avoid a warning.
+Remove a warning by setting the timezone before configuring postfix.
+Do not create deprecated /etc/timezone.
+Add an option to proxmox-auto-install-assistant that allows the user to interactively verify the hashed root password.
+Do not select a Debian mirror and use the CDN for Debian repositories instead.
+Improved Management of Proxmox Backup Server Machines
+Include more information in the system report to improve troubleshooting.
+Integrate fixes for Spectre branch target injection ("VMScape", see PSA-2025-00016-1).
+Sendmail: Improve compatibility with mail servers with limited UTF-8 support.
+Improvements to the pbs3to4 upgrade tool:
+Check that GRUB is set up to update removable GRUB installations on ESP.
+Detect problematic bootloader situations if the systemd-boot metapackage is installed, as this can cause problems on upgrade.
+Fix an issue where the status of a completed task would not be detected if the last log message spans multiple lines (issue 5946).
+ACME Account view: Improve the handling of providers that do not return an e-mail field, such as Let's Encrypt.
+API viewer: Add a description panel to the return section (issue 6830).
+Improve the robustness of alternative names support for network interfaces introduced in Proxmox Backup Server 4.0.
+Fix a regression that caused an error if a VLAN interface was defined on top of a bond member.
+Known Issues & Breaking Changes
+Hanging backups with kernel 6.17 for specific setups
+Some users reported irregular issues with backups of Proxmox VE VMs slowing down a lot or getting stuck completely. If you are affected, pin the 6.14 kernel on the Proxmox Backup Server host:
+proxmox-boot-tool kernel pin 6.14.11-4-pve
+The issue is still being investigated and might be related to the network. Some users reported that using a default MTU rather than jumbo frames helped. See this forum thread for the discussion.
+Potential issues booting into kernel 6.17 on some Dell PowerEdge servers
+Some users have reported failure to boot into kernel 6.17 and machine check errors on certain Dell PowerEdge servers, while kernel 6.14 boots successfully.
+It is reported that enabling SR-IOV Global and I/OAT DMA in the firmware helps.
+See this forum thread.
+If enabling SR-IOV Global and I/OAT DMA does not resolve the issue, we recommend pinning the 6.14 kernel:
+proxmox-boot-tool kernel pin 6.14.11-4-pve
+You can list the exact available versions with proxmox-boot-tool kernel list. See the admin guide for more details.
+Proxmox Backup Server 4.0
+Released 06. August 2025
+Based on Debian Trixie (13)
+Latest 6.14.8-2 Kernel as new stable default
+ZFS 2.3.3
+Highlights
+New major release based on the great Debian Trixie.
+Seamless upgrade from Proxmox Backup Server 3.4, see Upgrade from 3 to 4.
+S3-compatible object stores as backup storage backend (technology preview).
+Proxmox Backup Server can now connect to object stores that provide an S3-compatible API.
+A new datastore type persists backup metadata and chunks to an S3-compatible object store.
+To reduce the number of requests to the object store, a local cache temporarily stores metadata and chunks.
+ZFS now supports adding new devices to existing RAIDZ pools with minimal downtime.
+Changelog Overview
+Enhancements in the web interface (GUI)
+Fix an issue where the datastore creation tasks would not be formatted properly in the task list.
+Improvements to the custom consent window:
+Avoid showing the consent text twice for OIDC logins.
+Restrict the text length of the consent banner to 64 KiB.
+Fix an issue where the consent window size would exceed the viewport size (issue 6312).
+Use HttpOnly cookies as an additional layer of protection against cookie stealing attacks.
+Small improvements to the services view in the host's system panel.
+Fix an issue where the node services panel would incorrectly show postfix as disabled.
+Improved handling of translations:
+Add support for plural forms and ngettext usage.
+Translations can now contain comments that are extracted from the source code and provide useful context for translators.
+Updated translations, among others:
+Czech (new!)
+Arabic
+Bulgarian
+French
+German
+Italian
+Japanese
+Korean
+Polish
+Russian
+Simplified Chinese
+Spanish
+Swedish
+Traditional Chinese
+Ukrainian
+General backend improvements
+S3-compatible object stores as backup storage backend (technology preview).
+Proxmox Backup Server can now connect to object stores that provide an S3-compatible API.
+A new datastore type persists backup metadata and chunks to an S3-compatible object store.
+One such datastore cannot be shared between multiple Proxmox Backup Server instances.
+Datastore contents can be reused for a new Proxmox Backup Server instance if the original instance has gone offline permanently.
+Allow to automatically run sync jobs whenever a relevant removable datastore is mounted.
+Sync jobs that reference a local removable datastore can only be run while the removable datastore is mounted.
+Setting the new run-on-mount flag on a sync job causes it to run automatically when the removable datastore is mounted.
+Fix an issue where forgetting a group, or the last snapshot of a group, would fail if a group note is present (issue 6358).
+Fix an issue where forgetting a group, or the last snapshot of a group, would fail if the owner file was already deleted.
+Improvements to the garbage collection:
+Allow bypassing the chunk cache used during the marking phase by setting a cache capacity of 0.
+Track chunk cache statistics in the garbage collection task log.
+Fix logging in case of index files created or deleted while the garbage collection job is running.
+Fix a rare race condition in the chunk marking phase.
+Improvements to notifications:
+Warn if mailto-user refers to a user without an email address when sending a notification.
+Fix an issue with the SMTP endpoint options where the "Authenticate" check box would be inadvertently checked in some browsers (issue 5588).
+Fix an issue where the SMTP endpoint did not properly quote the sender's display name (issue 6188).
+Default to the notification mode notification-system for new datastore/tape jobs.
+This was already the default in the GUI, and it is now also the default for jobs created via API and CLI.
+Existing jobs without an explicit setting are automatically converted to the explicit setting.
+Move notification settings for tape backup jobs to a separate tab.
+Improve the GUI for notification settings.
+Fix an issue where a sync job would acquire an exclusive lock on a source snapshot, causing concurrent backups to fail.
+Avoid a superfluous stat syscall when checking the protected state of a snapshot.
+Provide more details in backup task logs to ease troubleshooting.
+Client improvements
+Ensure that CLI tools print a newline after their usage string if an argument is missing.
+Fix an issue where restoring a file-based backup would fail if the backup contained a hardlink.
+Tape backup
+Improve compatibility with tape drivers/libraries that are configured to forbid applications to change tape encryption settings.
+Wait for calibration of LTO-9 tapes to improve compatibility with tapes that are automatically formatted when they are first used.
+Increase the timeout for moving a medium in a changer from 5 to 45 minutes
+This improves compatibility with some tape libraries where such operations can a take a long time.
+Installation ISO
+Install the microcode package matching the current platform.
+This ensures that new Proxmox Backup Server installations get available fixes for CPU security issues and other CPU bugs.
+This also means that installations now have the non-free-firmware repository enabled.
+To get microcode updates that were released after the ISO was built, hosts have to be updated regularly. Microcode updates need a reboot to go into effect.
+Ignore network interfaces without a valid MAC address instead of aborting the installation.
+Check that the configured LVM swapsize is not greater than half the disk size (issue 5887).
+Handle the case where the DHCP lease includes the search domain in the Host Name option.
+Improve error reporting for disk and RAID checks.
+Improvements to the text-based installer and proxmox-auto-install-assistant:
+Improve error reporting when encountering an invalid CIDR.
+Add plausibility checks for subnet masks and IPv4 address
+Improvements to the automated installation:
+Handle the case where the answer file provides an empty search domain.
+Check the number of disks for RAID configurations already when parsing the answer file to catch invalid configurations earlier.
+Warn if the answer file contains deprecated snake_case keys.
+Check for duplicate disks in the answer file.
+Improve the visibility of CLI errors by printing an additional newline.
+Improved management of Proxmox Backup Server machines
+Provide a tool for pinning network interface names.
+Network interface names may change due to multiple factors, including changes to the hardware setup, software updates, and firmware updates.
+Examples are systemd, kernel and driver updates during major or minor version updates, and BIOS updates.
+Changes of network interface names can require manually adjusting network and firewall configurations.
+proxmox-network-interface-pinning is a tool for assigning permanent "pinned" names to network interfaces.
+These pinned names are tied to the interface's MAC address.
+Support alternative names for network interfaces.
+Alternative names can be used to give multiple additional names to a network interface.
+While network interface names are restricted to 15 user-visible bytes, alternative names can be up to 128 bytes long.
+It is now possible to use alternative names in /etc/network/interfaces instead of (primary) network interface names.
+Transparent support for alternative names can decrease the maintenance overhead in case the primary network interface name changes due to an update.
+The network configuration GUI also shows alternative names of network interfaces.
+New ZFS version 2.3.3:
+Support for adding new devices to existing RAIDZ pools without downtime.
+See upstream changelog for details.
+Secure Boot: Exclude the NTFS module from the monolithic Grub EFI binary (PSA-2025-00012-1).
+Add a pbs-network-config-commit systemd service to apply pending network changes on boot.
+ACME: Improve compatibility with ACME servers whose directory endpoint does not provide certain fields.
+Known Issues & Breaking Changes
+The test repository is now named pbs-test
+For consistency with existing repositories the pbstest repository is now spelled pbs-test.
+Potential changes in network interface names
+Proxmox Backup Server 4 can now transparently handle many network interface name changes.
+These changes may occur when upgrading from Proxmox Backup Server 3.x to 4.0 due to new naming scheme policies or the added support for new NIC features. For example, this may happen when upgrading from Kernel 6.8 to Kernel 6.14.
+If the previous primary name remains available as an alternative name, manual intervention may not be necessary since Proxmox Backup Server 4.0 allows the use of alternative names in network configurations.
+However, in some cases, the previous primary name might not be available as an alternative name after the upgrade. In such cases, manual reconfiguration after the upgrade is currently still necessary.
+Prior to upgrading, you can install the proxmox-network-interface-pinning package and use the CLI tool with the same name to pin network interfaces to custom names.
+Passkeys as Second Factor (TFA)
+Proxmox Backup Server supports WebAuthn as a second-factor authentication method. Although passkeys are related to WebAuthn, there are some differences that may cause issues when using them after upgrading to Proxmox Backup Server 4.0.
+A fix is currently being rolled out through the proxmox-backup-server 4.0.11-3 version.
+When using two-factor authentication (TFA), you should always ensure that you have another second-factor type set up as a backup, such as recovery codes or time-based one-time password (TOTP).
+Change in sync job filter order
+For sync jobs the filtering of encrypted only or verified only snapshots is now performed before applying the transfer last cutoff. This makes the behavior more intuitive.
+systemd logs "System is tainted: unmerged-bin" after boot
+It is recommended to ignore this message. See the Debian Trixie release notes for more details.
+OpenID users get logged out instantly
+In Proxmox Backup Server version 4 up until and including 4.0.11 there was a bug in the authentication logic for accounts that used OpenID to log in. This would lead to users being immediately logged out again after the initial login. A fix has been implemented in proxmox-backup-server version 4.0.12-1. Please update to at least that version if you are using OpenID and run into this problem.
+Proxmox Backup Server 4.0 BETA
+Released 24. July 2025
+Note: This is a test version that is not yet intended for production use. The release notes will be continuously updated during the beta phase.
+Based on Debian Trixie (13)
+Latest 6.14.8-1 Kernel as new stable default
+ZFS 2.3.3
+Highlights
+New major release based on the great Debian Trixie.
+Seamless upgrade from Proxmox Backup Server 3.4, see Upgrade from 3 to 4.
+S3-compatible object stores as backup storage backend (technology preview).
+Proxmox Backup Server can now connect to object stores that provide an S3-compatible API.
+A new datastore type persists backup metadata and chunks to an S3-compatible object store.
+To reduce the number of requests to the object store, a local cache temporarily stores metadata and chunks.
+ZFS now supports adding new devices to existing RAIDZ pools without downtime.
+Changelog Overview
+Enhancements in the web interface (GUI)
+Fix an issue where the datastore creation tasks would not be formatted properly in the task list.
+Improvements to the custom consent window:
+Avoid showing the consent text twice for OIDC logins.
+Restrict the text length of the consent banner to 64 KiB.
+Fix an issue where the consent window size would exceed the viewport size (issue 6312).
+Use HttpOnly cookies as an additional layer of protection against cookie stealing attacks.
+Small improvements to the services view in the host's system panel.
+Fix an issue where the node services panel would incorrectly show postfix as disabled.
+Updated translations, among others:
+Czech (new!)
+Arabic
+Bulgarian
+French
+German
+Italian
+Japanese
+Korean
+Russian
+Spanish
+Swedish
+Traditional Chinese
+Ukrainian
+General backend improvements
+S3-compatible object stores as backup storage backend (technology preview).
+Proxmox Backup Server can now connect to object stores that provide an S3-compatible API.
+A new datastore type persists backup metadata and chunks to an S3-compatible object store.
+One such datastore cannot be shared between multiple Proxmox Backup Server instances.
+Datastore contents can be reused for a new Proxmox Backup Server instance if the original instance has gone offline permanently.
+Allow to automatically run sync jobs whenever a relevant removable datastore is mounted.
+Sync jobs that reference a local removable datastore can only be run while the removable datastore is mounted.
+Setting the new run-on-mount flag on a sync job causes it to run automatically when the removable datastore is mounted.
+Fix an issue where forgetting a group, or the last snapshot of a group, would fail if a group note is present (issue 6358).
+Fix an issue where forgetting a group, or the last snapshot of a group, would fail if the owner file was already deleted.
+Improvements to the garbage collection:
+Allow bypassing the chunk cache used during the marking phase by setting a cache capacity of 0.
+Track chunk cache statistics in the garbage collection task log.
+Fix logging in case of index files created or deleted while the garbage collection job is running.
+Fix a rare race condition in the chunk marking phase.
+Improvements to notifications:
+Warn if mailto-user refers to a user without an email address when sending a notification.
+Fix an issue with the SMTP endpoint options where the "Authenticate" check box would be inadvertently checked in some browsers (issue 5588).
+Fix an issue where the SMTP endpoint did not properly quote the sender's display name (issue 6188).
+Default to the notification mode notification-system for new datastore/tape jobs.
+This was already the default in the GUI, and it is now also the default for jobs created via API and CLI.
+Existing jobs without an explicit setting are automatically converted to the explicit setting.
+Move notification settings for tape backup jobs to a separate tab.
+Improve the GUI for notification settings.
+Fix an issue where a sync job would acquire an exclusive lock on a source snapshot, causing concurrent backups to fail.
+Avoid a superfluous stat syscall when checking the protected state of a snapshot.
+Provide more details in backup task logs to ease troubleshooting.
+Client improvements
+Ensure that CLI tools print a newline after their usage string if an argument is missing.
+Fix an issue where restoring a file-based backup would fail if the backup contained a hardlink.
+Tape backup
+Improve compatibility with tape drivers/libraries that are configured to forbid applications to change tape encryption settings.
+Installation ISO
+Install the microcode package matching the current platform.
+This ensures that new Proxmox Backup Server installations get available fixes for CPU security issues and other CPU bugs.
+This also means that installations now have the non-free-firmware repository enabled.
+To get microcode updates that were released after the ISO was built, hosts have to be updated regularly. Microcode updates need a reboot to go into effect.
+Ignore network interfaces without a valid MAC address instead of aborting the installation.
+Check that the configured LVM swapsize is not greater than half the disk size (issue 5887).
+Handle the case where the DHCP lease includes the search domain in the Host Name option.
+Improve error reporting for disk and RAID checks.
+Improvements to the text-based installer and proxmox-auto-install-assistant:
+Improve error reporting when encountering an invalid CIDR.
+Add plausibility checks for subnet masks and IPv4 address
+Improvements to the automated installation:
+Handle the case where the answer file provides an empty search domain.
+Check the number of disks for RAID configurations already when parsing the answer file to catch invalid configurations earlier.
+Warn if the answer file contains deprecated snake_case keys.
+Check for duplicate disks in the answer file.
+Improve the visibility of CLI errors by printing an additional newline.
+Improved management of Proxmox Backup Server machines
+Support alternative names for network interfaces.
+Alternative names can be used to give multiple additional names to a network interface.
+While network interface names are restricted to 15 user-visible bytes, alternative names can be up to 128 bytes long.
+It is now possible to use alternative names in /etc/network/interfaces instead of (primary) network interface names.
+Transparent support for alternative names can decrease the maintenance overhead in case the primary network interface name changes due to an update.
+New ZFS version 2.3.3:
+Support for adding new devices to existing RAIDZ pools without downtime.
+See upstream changelog for details.
+ACME: Improve compatibility with ACME servers whose directory endpoint does not provide certain fields.
+Known Issues & Breaking Changes
+The test repository is now named pbs-test
+For consistency with existing repositories the pbstest repository is now spelled pbs-test.
+Potential changes in network interface names
+Proxmox Backup Server 4 can now transparently handle many network interface name changes.
+These changes may occur when upgrading from Proxmox Backup Server 3.x to 4.0 due to new naming scheme policies or the added support for new NIC features. For example, this may happen when upgrading from Kernel 6.8 to Kernel 6.14.
+If the previous primary name remains available as an alternative name, manual intervention may not be necessary since Proxmox Backup Server 4.0 allows the use of alternative names in network configurations.
+However, in some cases, the previous primary name might not be available as an alternative name after the upgrade. In such cases, manual reconfiguration after the upgrade is currently still necessary.
+Proxmox Backup Server 3.4
+Released 10. April 2025
+Based on Debian Bookworm (12.10)
+Latest 6.8.12-9 Kernel as new stable default
+Newer 6.14 Kernel as opt-in
+ZFS: 2.2.7 (with compatibility patches for Kernel 6.14)
+Highlights
+Performance improvements for garbage collection.
+Garbage collection frees up storage space by removing unused chunks from the datastore.
+For this, it has to mark all chunks that are currently in use by backup snapshots.
+The marking phase now uses a cache to avoid redundant marking operations.
+This increases memory consumption but can significantly decrease the runtime of garbage collection.
+More fine-grained control over backup snapshot selection for sync jobs.
+Sync jobs are useful for pushing or pulling backup snapshots to or from remote Proxmox Backup Server instances.
+Group filters already allow selecting which backup groups should be synchronized.
+In addition, it is now possible to only synchronize backup snapshots that are encrypted, or only backup snapshots that are verified.
+Static build of the Proxmox Backup command-line client.
+Proxmox Backup Server is tightly integrated with Proxmox VE, but its command-line client can also be used outside Proxmox VE.
+Packages for the command-line client are already provided for hosts running Debian or Debian derivatives.
+A new statically linked binary increases the compatibility with Linux hosts running other distributions.
+This makes it easier to use Proxmox Backup Server to create file-level backups of arbitrary Linux hosts.
+Latest Linux 6.14 kernel available as opt-in kernel.
+Changelog Overview
+Enhancements in the web interface (GUI)
+Allow configuring a default realm which will be pre-selected in the login dialog (issue 5379).
+The prune simulator now allows specifying schedules with both range and step size (issue 6069).
+Ensure that the prune simulator shows kept backups in the list of backups.
+Fix an issue where the GUI would not fully load after navigating to the "Prune & GC Jobs" tab in rare cases.
+Deleting the comment of an API token is now possible.
+Various smaller improvements to the GUI.
+Fix some occurrences where translatable strings were split, which made potentially useful context unavailable for translators.
+General backend improvements
+Performance improvements for garbage collection (issue 5331).
+Garbage collection frees up storage space by removing unused chunks from the datastore.
+For this, its first phase updates the atime (access time) of all chunk files that are currently in use by backup snapshots.
+The marking phase now uses an improved chunk iteration logic and a cache to avoid redundant atime updates.
+This increases memory consumption but can significantly decrease the runtime of garbage collection.
+The cache capacity can be configured in the datastore's tuning options.
+More fine-grained control over backup snapshot selection for sync jobs.
+Sync jobs are useful for pushing or pulling backup snapshots to or from remote Proxmox Backup Server instances.
+Group filters already allow selecting which backup groups should be synchronized.
+In addition, it is now possible to only synchronize backup snapshots that are encrypted, or only backup snapshots that are verified (issue 6072).
+The sync job's transfer-last setting has precedence over the verified-only and encrypted-only filtering.
+Add a safeguard against filesystems that do not honor atime updates (issue 5982).
+The first phase of garbage collection marks used chunk files by explicitly updating their atime.
+If the filesystem backing the chunk store does not honor such atime updates, phase two may delete chunks that are still in use, leading to data loss.
+Hence, datastore creation and garbage collection now perform an atime update on a test chunk, and report an error if the atime update is not honored.
+The check is enabled by default and can be disabled in the datastore's tuning options.
+Allow to customize the atime cutoff for garbage collection in the datastore's tuning options.
+The atime cutoff defaults to 24 hours and 5 minutes, as a safeguard for filesystems that do not always immediately update the atime.
+However, on filesystems that do immediately update the atime, this can cause unused chunks to be kept for longer than necessary.
+Hence, allow advanced users to configure a custom atime cutoff in the datastore's tuning options.
+Allow to generate a new token secret for an API token via the API and GUI (issue 3887).
+Revert a check for known but missing chunks when creating a new backup snapshot (reverts fix for issue 5710).
+This check was introduced in Proxmox Backup Server 3.3 to enable clients to re-send chunks that disappeared.
+However, the check turned out to not scale well for large setups, as reported by the community.
+Hence, revert the check and aim for an opt-in or opt-out approach in the future.
+Ensure proper unmount if the creation of a removable datastore fails.
+Remove a backup group if its last backup snapshot is removed (issue 3336).
+Previously, the empty backup group persisted with the previous owner still set.
+This caused issues when trying to add new snapshots with a different owner to the group.
+Decouple the locking of backup groups, snapshots, and manifests from the underlying filesystem of the datastore (issue 3935).
+Lock files are now created on the tmpfs under /run instead of the datastore's backing filesystem.
+This can also alleviate issues concerning locking on datastores backed by network filesystems.
+Ensure that permissions of an API token are deleted when the API token is deleted (issue 4382).
+Ensure that chunk files are inserted with the correct owner if the process is running as root.
+Fix an issue where prune jobs would not write a task log in some cases, causing the tasks to be displayed with status "Unknown".
+When listing datastores, parse the configuration and check the mount status after the authorization check.
+This can lead to performance improvements on large setups.
+Improve the error reporting by including more details (for example the errno) in the description.
+Ensure that "Wipe Disk" also wipes the GPT header backup at the end of the disk (issue 5946).
+Ensure that the task status is reported even if logging is disabled using the PBS_LOG environment variable.
+Fix an issue where proxmox-backup-manager would write log output twice.
+Fix an issue where a worker task that failed during start would not be cleaned up.
+Fix a race condition that could cause an incorrect update of the number of current tasks.
+Increase the locking timeout for the task index file to alleviate issues due to lock contention.
+Fix an issue where verify jobs would be too eagerly aborted if the manifest update fails.
+Fix an issue where file descriptors would not be properly closed on daemon reload.
+Fix an issue where the version of a remote Proxmox Backup Server instance was checked incorrectly.
+Client improvements
+Static build of the Proxmox Backup command-line client (issue 4788).
+Proxmox Backup Server is tightly integrated with Proxmox VE, but its command-line client can also be used outside Proxmox VE.
+Packages for the command-line client are already provided for hosts running Debian or Debian derivatives.
+A new statically linked binary increases compatibility with Linux hosts running other distributions.
+This makes it easier to interact with Proxmox Backup Server on arbitrary Linux hosts, for example to create or manage file-level host backups.
+Allow to read passwords from credentials passed down by systemd.
+Examples are the API token secret for the Proxmox Backup Server, or the password needed to unlock the encryption key.
+Improvements to the vma-to-pbs tool, which allows importing Proxmox Virtual Machine Archives (VMA) into Proxmox Backup Server:
+Optionally read the repository or passwords from environment variables, similarly to proxmox-backup-client.
+Add support for the --version command-line option.
+Avoid leaving behind zstd, lzop or zcat processes as zombies (issue 5994).
+Clarify the error message in case the VMA file ends unexpectedly.
+Mention restrictions for archive names in the documentation and manpage (issue 6185).
+Improvements to the change detection modes for file-based backups introduced in Proxmox Backup Server 3.3:
+Fix an issue where the file size was not considered for metadata comparison, which could cause subsequent restores to fail.
+Fix a race condition that could prevent proper error propagation during a container backup to Proxmox Backup Server.
+File restore from image-based backups: Switch to blockdev options when preparing drives for the file restore VM.
+In addition, fix a short-lived regression when using namespaces or encryption due to this change.
+Tape backup
+Allow to increase the number of worker threads for reading chunks during tape backup.
+On certain setups, this can significantly increase the throughput of tape backups.
+Add a section on disaster recovery from tape to the documentation (issue 4408).
+Installation ISO
+Raise the minimum root password length from 5 to 8 characters for all installers.
+This change is done in accordance with current NIST recommendations.
+Print more user-visible information about the reasons why the automated installation failed.
+Allow RAID levels to be set case-insensitively in the answer file for the automated installer.
+Prevent the automated installer from printing progress messages while there has been no progress.
+Correctly acknowledge the user's preference whether to reboot on error during automated installation (issue 5984).
+Allow binary executables (in addition to shell scripts) to be used as the first-boot executable for the automated installer.
+Allow properties in the answer file of the automated installer to be either in snake_case or kebab-case.
+The kebab-case variant is preferred to be more consistent with other Proxmox configuration file formats.
+The snake_case variant will be gradually deprecated and removed in future major version releases.
+Validate the locale and first-boot-hook settings while preparing the automated installer ISO, instead of failing the installation due to wrong settings.
+Prevent printing non-critical kernel logging messages, which drew over the TUI installer's interface.
+Keep the network configuration detected via DHCP in the GUI installer, even when not clicking the Next button first (issue 2502).
+Add an option to retrieve the fully qualified domain name (FQDN) from the DHCP server with the automated installer (issue 5811).
+Improve the error handling if no DHCP server is configured on the network or no DHCP lease is received.
+The GUI installer will pre-select the first found interface if the network was not configured with DHCP.
+The installer will fall back to more sensible values for the interface address, gateway address, and DNS server if the network was not configured with DHCP.
+Add an option to power off the machine after the successful installation with the automated installer (issue 5880).
+Improve the ZFS ARC maximum size settings for systems with a limited amount of memory.
+On these systems, the ZFS ARC maximum size is clamped in such a way, that there is always at least 1 GiB of memory left to the system.
+Make Btrfs installations use the proxmox-boot-tool to manage the EFI system partitions (issue 5433).
+Make GRUB install the bootloader to the disk directly to ensure that a system is still bootable even though the EFI variables were corrupted.
+Fix a bug in the GUI installer's hard disk options, which causes ext4 and xfs to show the wrong options after switching back from Btrfs's advanced options tab.
+Improved management of Proxmox Backup Server machines
+Several vulnerabilities in GRUB that could be used to bypass SecureBoot were discovered and fixed (PSA-2025-00005-1)
+The Documentation for SecureBoot now includes instructions to prevent using vulnerable components for booting via a revocation policy.
+Improvements to the notification system:
+Allow overriding templates used for notifications sent as plain text as well as HTML (issue 6143).
+Streamline notification templates in preparation for user-overridable templates.
+Clarify the descriptions for notification matcher modes (issue 6088).
+Fix an error that occurred when creating or updating a notification target.
+HTTP requests to webhook and gotify targets now set the Content-Length header.
+Lift the requirement that InfluxDB organization and bucket names need to at least three characters long
+The new minimum length is one character.
+Improve the accuracy of the "Used Memory" metric by relying on the MemAvailable statistic reported by the kernel.
+Previously, the metric incorrectly ignored some reclaimable memory allocations and thus overestimated the amount of used memory.
+Backport a kernel patch that avoids a performance penalty on Raptor Lake CPUs with recent microcode (issue 6065).
+Backport a kernel patch that fixes Open vSwitch network crashes that would occur with a low probability when exiting ovs-tcpdump.
+Known Issues & Breaking Changes
+None
+Proxmox Backup Server 3.3
+Released 28. November 2024
+Based on Debian Bookworm (12.8)
+Latest 6.8.12-4 Kernel as new stable default
+Newer 6.11 Kernel as opt-in
+ZFS 2.2.6 (with compatibility patches for Kernel 6.11)
+Highlights
+Push direction for sync jobs.
+Sync jobs can already pull backup snapshots from remote Proxmox Backup Server instances.
+The new push direction allows copying backup snapshots from the local instance to remote instances.
+This can be useful in setups where the remote instance cannot initiate connections to the local instance.
+Support for removable datastores.
+Datastores can now be created on removable media for offline storage.
+After unmounting the removable datastore, the medium can be removed.
+The datastore can be used on multiple Proxmox Backup Server instances.
+Webhook target for the notification system.
+The new webhook notification target allows notification events to trigger HTTP requests.
+Request headers and body can be customized and can contain notification metadata.
+This allows users to push notifications to any target that supports webhooks.
+New change detection modes for speeding up file-based backups.
+Metadata and data of backup snapshots are now stored in two separate archives.
+Optionally, files that have not changed since the previous backup snapshot can be identified using the previous backup snapshot's metadata archive.
+Processing of unchanged files is avoided when possible, which can lead to significant reduction in backup runtime.
+Changelog Overview
+Enhancements in the web interface (GUI)
+Allow to set a consent banner that users must acknowledge before logging in (issue 5463).
+This can be required for compliance reasons.
+The banner supports Markdown and can be set in Configuration → Other → General → Consent Text.
+Columns in the "Prune & GC Jobs" view are now sortable (issue 5422).
+Fix a short-lived regression where updating proxmox-backup-server without updating proxmox-widget-toolkit made the GUI inaccessible (issue 5503).
+Fix an issue where the "Change owner" dialog would not accept usernames shorter than 8 characters (issue 5861).
+Disallow creating a datastore on / via the GUI, as this is most likely unintended.
+Fix an issue where clicking on an external link to the GUI would display a login screen, even if the current session was still valid.
+Show only installed services in the node's system panel by default, but optionally allow showing all services (issue 5611).
+Right-align numbers in the S.M.A.R.T. values table (issue 5831).
+Fix an issue where the installed Proxmox Backup Server version was incorrectly rendered with a hyphen instead of a dot.
+Improved translations, among others:
+Bulgarian (NEW!)
+Arabic
+French
+German
+Italian
+Japanese
+Russian
+Spanish
+Traditional Chinese
+General backend improvements
+Push direction for sync jobs (issue 3044).
+Sync jobs can already pull backup snapshots from remote Proxmox Backup Server instances.
+The new push direction allows copying backup snapshots from the local instance to remote instances.
+This can be useful in setups where the remote instance cannot initiate connections to the local instance.
+The new privileges Remote.DatastoreBackup, Remote.DatastoreModify and Remote.DatastorePrune can be used on the source side to restrict permissions to push snapshots to a remote instance.
+Users can push snapshots directly via the CLI.
+Pull sync jobs can now optionally resync corrupt chunks (issue 3786).
+When syncing a backup group from a remote, the sync job checks whether the last local snapshot has previously failed verification.
+If this is the case, the sync job overwrites the local snapshot with the remote snapshot.
+As the additional lookups impact sync job performance, the feature is disabled by default and can be enabled in the sync job options.
+Support for removable datastores.
+Datastores can now be created on removable media for offline storage.
+After unmounting the removable datastore in the GUI, the medium can be removed.
+The datastore can be used on multiple Proxmox Backup Server instances.
+Multiple datastores per device are also supported.
+If the device only contains a single datastore, connecting the device will automatically mount the datastore.
+Check for known but missing chunks when creating a new backup snapshot (issue 5710).
+Known chunks are chunks that are contained in the previous snapshot of the backup group.
+When creating a new backup snapshot, the list of known chunks is sent to the client, so the client can skip uploading known chunks.
+However, if a known chunk disappeared, but the previous snapshot has not been re-verified yet, the new backup snapshot will be corrupt.
+To make the user aware of this condition, check the previously known chunks for existence when finishing the new backup snapshot.
+If a missing chunk is detected, the backup fails and the verify state of the previous backup snapshot is set to failed.
+Fix a regression where an early HTTP connection close could result in high CPU usage and denial-of-service (issue 5868).
+Early connection closes are used by some monitoring solutions performing health checks.
+Allow reusing already-existing datastores, but disallow creating datastores in non-empty directories (issue 5439).
+Fix a regression that prevented legacy notifications for successful sync jobs.
+Fix an issue where a delayed TLS Client Hello would cause the API server to respond with a plain HTTP 400 "Bad Request" response (issue 5105).
+Abort garbage collection if a nested datastore is encountered, as garbage collection cannot be done safely on nested datastores.
+Update choices of cryptographic primitives:
+CSRF tokens now use a standard HMAC construction.
+Migrate to yescrypt for hashing passwords. Old hashes will be upgraded to the new scheme once a user logs in.
+Migrate to Ed25519 for authentication tickets.
+Use constant-time comparison for additional hardening against timing side-channels.
+Fix an issue where a sync job would not honor the transfer-last option and include more snapshots than intended.
+Fix an issue where proxmox-backup-manager network reload would exit before the network configuration got applied.
+Fix an issue where updating a datastore via the CLI would exit before the operation was finished and leave behind a lockfile (issue 5801).
+External metric server: Remove overly strict restrictions on InfluxDB organization and bucket names, and URL-encode them in HTTP requests.
+Several minor performance improvements for backend operations.
+The API server now includes zlib headers if the Deflate response content coding is requested.
+Improve compression throughput when creating chunks.
+This can lead to performance improvements if all involved storages are so fast that compression becomes a bottleneck.
+Fix an issue where the Gotify notification target would not accept a TLS certificate with an IP address as Subject Alternative Name (issue 5808). '
+Adjust display format for timespans so that parsing them again produces the expected value.
+Previously, m was used for months and min for minutes.
+Now, M is used for months and m for minutes.
+The PUT /access/users/{userid} API endpoint now ignores the password parameter, as it was not usable for changing the password.
+The PUT /access/password endpoint should be used instead.
+Improvements to logging and error reporting:
+Errors from task logs are now also logged to the system log, increasing their visibility.
+Improve error message in the case where proxy.key and proxy.pem have the wrong permissions.
+Include more context in some error messages.
+Client improvements
+New change detection modes data and metadata for file-based backups (issue 3174), such as container backups from Proxmox VE.
+In both new modes, the metadata and data of file-based backup snapshots are stored separately.
+This removes the necessity for a dedicated catalog file, but still allows for efficient metadata lookups.
+In metadata mode, files that have not changed since the previous backup snapshot are identified using the metadata archive of the previous backup snapshot.
+Processing of unchanged files is avoided when possible, which can lead to significant reduction in backup runtime.
+The recently released Proxmox VE 8.3 allows adjusting the change detection mode in the Advanced Options of backup jobs.
+Improvements to the vma-to-pbs tool, which allows importing Proxmox Virtual Machine Archives (VMA) into Proxmox Backup Server:
+Support bulk import of a dump directory containing VMA files.
+Improve readability of logs and show upload progress as a percentage.
+Allow the user to specify a notes file and a log file to associate with the backup snapshot.
+Improvements to CLI argument handling.
+The client now optionally takes a set of pattern parameters to restore only a subset of entries in a file-level backup (issue 2996).
+Ignore stale files during file-based backup creation and warn the user accordingly, instead of failing the backup (issue 5853).
+Stale files may, for example, occur in combination with network file systems if files are removed while the backup is still in process.
+Add a CLI command to forget (delete) a whole backup group with all contained snapshots.
+Improve performance of image-based backups by using an input buffer better aligned to the chunk size.
+Fix an issue where the rate and burst parameters were ignored (issue 5622).
+Warn when restoring a file-based backup snapshot containing files with invalid ACLs, instead of failing the restore operation completely.
+Periodically log the current backup progress (issue 5560).
+Prefer to store temporary files in the XDG Cache directory (~/.cache by default) instead of /tmp (issue 3699).
+Avoid unnecessary allocation in the AES benchmark, making the results more aligned with the actual hardware capabilities.
+Fix an issue where a file-based backup created by a non-root user could not be restored by that user if the --exclude flag was used (issue 5304).
+Fix a short-lived regression that caused the map command to error out (issue 5571).
+Fix an issue where an incorrect mount command would occasionally give no error output.
+Failure to re-authenticate to the Proxmox Backup Server is not treated as a fatal error anymore, as the failure may be due to a transient network instability.
+Fix an issue where the number of active operations on a datastore would be tracked incorrectly if the chunks directory is unavailable.
+Improvements to file restore from image-based backups:
+Mount NTFS file systems with the UTF-8 charset. This fixes an issue where files with non-ASCII names would not be visible during file restore (issue 5465).
+Log errors when a file cannot be accessed to facilitate troubleshooting.
+Take truncated serial numbers into account when searching for disks.
+Tape backup
+Lift the root-only requirement for some tape operations (issue 5233):
+Allow non-root users with the Tape.Modify privilege to update the tape status.
+Allow non-root users with the Tape.Write privilege to destroy tapes.
+Implement a workaround for changers that advertise but omit certain fields in the ELEMENT STATUS page response.
+Without the workaround, the tapes would not be recognized.
+Disable Programmable Early Warning Zone (PEWZ) when loading a tape, as Proxmox Backup Server does not use PEWZ.
+This avoids an error in case a different application previously set up PEWZ.
+Write informational Media Auxiliary Memory (MAM) attributes on tapes.
+This includes the Proxmox Backup Server product name, version, label text and current media pool.
+These on-tape information can help users to identify tapes when querying them with tools other than Proxmox Backup Server.
+Improve tape-backup throughput by avoiding unnecessary syncs after having written 128 GiB.
+Collect "Bytes Used" statistic for tape inventories and display it in the GUI.
+Improved handling of tape activity:
+Avoid potentially blocking queries when the tape is busy, for example while the library is initializing LTO-9 tapes.
+Query current tape activity and show it in the GUI.
+Access control
+Increase the minimum length requirement for new passwords to 8 characters.
+Two-factor authentication with WebAuthn: Serialize OriginUrl according to RFC6454.
+Fix an issue that prevented non-root users from configuring the network, despite having the necessary permissions.
+Lock the shadow.json file used for the PBS authentication realm for updating, to prevent race-conditions.
+Installation ISO
+Add a post-installation notification mechanism for automated installations (issue 5536).
+This mechanism can be configured with the new post-installation-webhook section in the answer file.
+Add support for running a custom script on first boot after automated installation (issue 5579).
+The script can be provided in the ISO or fetched from a URL.
+Allow users to set hashed passwords (instead of plaintext passwords) in the proxmox-auto-installer answer file.
+Allow users to customize the label of the partition from which the automated installer fetches the answer file.
+This adds the --partition-label option to the proxmox-auto-install-assistant prepare-iso command.
+Previously, the partition label was hardcoded to PROXMOX-AIS.
+Add ZFS maximum arc size option field in the advanced disk options during installation.
+By default, 50% of the installed system memory is used as the maximum arc size, which is ZFS's default value.
+Add ability to detect and rename an existing ZFS pool named rpool during the installation.
+Improve the email address validation to include a broader set of email address formats.
+This implements the email validation check specified in the HTML specification.
+The text-based installer now fails if no supported NIC was found, similar to graphical installer.
+Improve UI consistency by adding the missing background layer for the initial setup error screen in the text-based installer.
+Improve usability for small screens by adding a tabbed view for the advanced options at the disk selection step in the text-based installer.
+This change only affects screens with a screen width of less than or equal to 80 columns.
+Fix an issue with ISOs generated with the proxmox-auto-install-assistant which caused the user to end up in the GRUB shell when booting from a block device (e.g. an USB flash drive) in UEFI mode.
+Fix a bug which caused some kernel parameters related to the automated installer to be removed incorrectly.
+Fix a bug which caused the installer to not detect Secure Boot in some cases.
+Ask the user for patience while making the system bootable if multiple disks are configured, as this may take longer than expected.
+Preserve the nomodeset kernel command-line parameter.
+A missing nomodeset parameter has caused display rendering issues when booting the finished Proxmox VE installation on some systems (see this comment for more information).
+Ship the recent version 7.20 of memtestx86+, adding support for current CPU Generations (Intel's Arrow Lake and Ryzen 9000 series) as well as preliminary NUMA support.
+Import the extensive documentation for the installer from Proxmox VE
+Improve user-visible error and log messages in the installer.
+Improve documentation for the proxmox-auto-install-assistant.
+Improve error reporting by printing the full error message when the installation fails in proxmox-auto-installer.
+Improve error reporting by printing the full error message when mounting and unmounting the installation file system fails in proxmox-chroot.
+Improve debugging and testing by enumerating the installation environment anew (e.g. when running the command dump-env).
+Improve logging of installation progress.
+Send the correct content-type charset utf-8 when fetching answer files from a HTTP server during automated installation.
+Switch the text-based installer rendering backend from termion to crossterm.
+Improved management of Proxmox Backup Server machines
+The notification system now supports generic webhook targets.
+The webhook target allows notification events to trigger arbitrary HTTP POST/PUT/GET requests.
+Users can customize HTTP request headers and body using templates.
+In case the HTTP request should include secret values, these values can be stored in a protected configuration file that is only readable by root.
+Fix an issue where pbs2to3 did not recognize kernels newer than 6.5 (issue 5600).
+Add man page for the node.cfg configuration file under proxmox-backup.node.cfg.5.
+ACME: Use the correct base64url decoder instead of base64 for EAB (external account bindings).
+Add a new /status/metrics API endpoint for retrieving status data of various subsystems.
+This allows to implement pull-style metric collection systems.
+Fix a regression that prevented update notifications from being sent.
+Fix an issue where ACME account registration on the command line would wait for a custom directory URI without indicating this to the user.
+Avoid an error on systems where /etc/apt/sources.list does not exist (issue 5513).
+Return the partition UUID in the REST API call for listing disks, for easier identification.
+Improvements to Secure Boot management.
+With the need to update the revocation database embedded in the shim boot loader, some edge-cases were discovered and improved in the proxmox-secure-boot metapackage.
+Ship an apt pinning snippet to ensure that Proxmox provided packages are installed, even if Debian temporary ships a higher version.
+Relax the dependency on the grub2 version to also allow the previous one, mostly to prevent accidental removal of the meta-package in edge-cases.
+Improvements to Proxmox Offline Mirror.
+Support repositories, that provide a complete GPG keyring instead of a certificate (e.g. Mellanox OFED repository).
+Remove empty directories being left behind after syncing a mirror with removed snapshots to a medium. The large number of empty directories could lead to excessive runtimes on medium sync.
+Fix a typo in the documentation of the command arguments.
+Fix a RCE vulnerability in the shim bootloader used for Secure Boot support.
+See PSA-2024-00007-1 for details.
+Update the provided r8125-dkms package, needed some of the commonly seen Realtek 2.5G NICs, to version 9.013.02-1.
+Improvements to ifupdown2:
+Skip calling files left behind by dpkg (e.g. .dpkg-old, .dpkg-new) in the pre- and post-up directories, as this can cause outages when switching from ifupdown (issue 5197).
+Notable bugfixes and general improvements
+Since the release of Proxmox Backup Server 3.2, the Proxmox team has begun tracking explicit security issues publicly in our forum.
+Following the posts there is highly recommended.
+Known Issues & Breaking Changes
+None
+Proxmox Backup Server 3.2
+Released 25. April 2024
+Based on Debian Bookworm (12.5)
+Latest 6.8 Kernel as new stable default
+ZFS 2.2.3
+Highlights
+New flexible notification system.
+Send notifications not only via the local Postfix MTA, but also via authenticated SMTP or to Gotify instances.
+Flexible notification routing with matcher-based rules to decide which targets receive notifications about which events.
+Support for automated and unattended installation of Proxmox Backup Server.
+Proxmox Backup Server now ships a tool that prepares a Proxmox Backup Server ISO for automated installation.
+The prepared ISO retrieves all required settings for automated installation from an answer file.
+The answer file can be provided directly in the ISO, on an additional disk such as a USB flash drive, or over the network.
+Ability to exclude particular backup groups from sync and tape backup jobs.
+Group filters already supported including particular backup groups, and now additionally support excluding particular backup groups.
+This allows more flexibility when defining which backup groups should be synchronized from a remote Proxmox Backup Server or written to tapes.
+Overview of prune and garbage collection jobs of all datastores.
+A new tab in the datastore summary panel shows defined prune and garbage collection jobs of all datastores.
+This allows to quickly assess whether all datastores are correctly set up to regularly run important maintenance tasks.
+Support for Active Directory authentication realms.
+The new Active Directory realm type synchronizes users and groups from a remote Active Directory server.
+This makes it easier to integrate with existing Enterprise infrastructure.
+Changelog Overview
+Enhancements in the web interface (GUI)
+Allow managing VLAN network interfaces in the GUI.
+A new "Prune & GC Jobs" tab in the datastore summary panel shows an overview of prune and garbage collection jobs of all datastores (issue 3217).
+The garbage collection job status view now displays the amount of removed, as well as, pending data.
+Allow usernames shorter than 4 characters, as they are already allowed by the backend (issue 4819).
+The datastore summary now handles missing usage information gracefully and avoids logging errors to the console.
+Fix an issue where the node summary page would not display the version of a running foreign kernel (issue 5117).
+Fix an issue where individual entries of the DNS configuration for the system (searchdomain and DNS Servers) could not be deleted via the GUI.
+Fix an issue where creating a new InfluxDB metric server entry would fail if one already exists.
+The context menu of backup snapshots and groups now allows to copy the snapshot or group name to the clipboard (issue 5188).
+Disallow setting an empty schedule for a prune job.
+Various fixes to the sync job overview.
+Fix issues where some edit windows would send API parameters that were not accepted by the backend.
+Fix an issue where the settings window would fail to reset the layout.
+Fix an issue where the GUI used an incorrect language code for Korean, and provide a clean transition for users who still have a cookie with the incorrect language code set.
+Fix xterm.js not loading in certain OS+Browser constellations, for example iOS (issue 5063).
+Fix an issue where the date picker would choose the wrong date after changing to a different month.
+Clarify the confirmation prompt for removing a certificate without a name.
+Fix an issue where edit windows would not be correctly masked while loading.
+Display the end-of-life message as a notice up until three weeks before the end-of-life date, and display it as a warning from that point on.
+Move the "Reset" button for edit windows to an icon-only button in the title bar (issue 5277).
+This reduces the risk of misclicking and accidentally resetting form data.
+The TFA input field now sets an autocompletion hint for improved compatibility with password managers (issue 5251).
+Improved translations, among others:
+French
+German
+Italian
+Japanese
+Korean
+Simplified Chinese
+Spanish
+Traditional Chinese
+Ukrainian
+General backend improvements
+Add a command to proxmox-backup-manager to list the garbage collection job status for all datastores (issue 4723).
+A similar command already exists for prune and verify jobs.
+Avoid a race condition when logging in with TFA.
+Improve efficiency of the routine that checks whether a block device is a partition.
+Check transitions from/to maintenance modes more strictly for validity.
+For instance, leaving maintenance mode "delete" should not be allowed, as the datastore may be in an undefined state.
+Group filters for sync jobs and tape backup jobs can now exclude particular backup groups (issue 4315).
+This allows more flexibility when defining which backup groups should be synchronized or written to tapes.
+All include filters are processed first, and exclude filters are processed afterwards.
+Improve error reporting when reading the backup group owner fails.
+When uploading a custom certificate, the private key is now optional and defaults to the existing key, similarly to the behavior of Proxmox VE.
+The backend now sends a Connection: upgrade header when upgrading to HTTP/2 (issue 5217).
+This further improves compatibility with reverse proxies that strictly adhere to RFC 7230, after a fix for issue 4779 shipped with Proxmox Backup Server 3.1 did not fully resolve the issue.
+Add summaries to sync job task logs:
+Print the number and total size of synchronized chunks, as well as the average transfer rate (issue 5285).
+Print the number of snapshots and groups that are removed because "remove vanished" is enabled.
+Avoid keeping a reference to datastore files when enabling the offline maintenance mode.
+When creating a datastore, allow reusing an existing directory if it is empty and not a mountpoint.
+Add an option to prune a group asynchronously in a worker task.
+Fix an issue where the total size of a storage would be calculated incorrectly in some edge cases.
+Datastores can now be configured with a notification-mode for a smooth migration to the new notification system.
+The notification mode determines how notifications for prune, garbage collection, verification and remote/local sync jobs will be sent.
+The legacy-sendmail mode replicates the previous behavior of sending an email via the local Postfix MTA to a configured user's email address. This is the default for any existing datastores.
+The notification-system mode sends notifications exclusively using the new notification system. This is the default for new datastores created via the web UI.
+Client improvements
+The new vma-to-pbs tool allows importing Proxmox Virtual Machine Archives (VMA) into Proxmox Backup Server.
+For backup targets other than Proxmox Backup Server, Proxmox VE creates VM backups in VMA format.
+With the new tool, these .vma files can be imported into Proxmox Backup Server, where they are made available as regular backup snapshots.
+For more information, see Import VMA Backups into Proxmox Backup Server.
+Add the delete-groups flag to the namespace deletion command, as it was previously missing.
+Backup creation can now optionally ignore metadata of files for which reading xattrs fails with an E2BIG (issue 4975).
+Some filesystems, for example ZFS, support xattrs larger than 64 KB. However, such large xattrs are not supported by the Linux kernel, and reading them fails with error E2BIG.
+Backup creation can now optionally ignore E2BIG errors.
+This will still back up files with overly large xattrs, but skip their metadata.
+Fix an issue where the connection to a Proxmox Backup Server presenting a certificate signed by a CA not trusted by the client's host would fail, even if a fingerprint is provided (issue 5248).
+Switch to modern ntfs3g driver for the live-restore image, since it supports more features found in the filesystems of current Windows guests (issue 5259).
+Tape backup
+Add a button to the GUI that removes media from the inventory without destroying the data.
+Remove the hard limit on the number of tapes in a media set (issue 5229).
+The limit was not properly enforced and, if exceeded, blocked access to most functions via API, CLI and GUI.
+Instead of a partially enforced hard limit, log a task warning if the media set has more than 20 media.
+Work around an issue with some changers that send incomplete responses when querying the element status.
+Add an option that, when enabled, instructs the changer to eject a tape before unloading it (issue 4904).
+This is required by some tape libraries that do not follow the standards correctly.
+The new option is named eject-before-unload and can be set manually via API or CLI.
+Increase the tape transfer timeout from 30 seconds to 3 minutes, since most changers take about a minute to complete a slot change.
+Fix an issue where the encryption key of the tape-drive was unloaded too eagerly.
+Before proxmox-backup-server version 3.1.4-1 the additional tape-specific encryption was disabled.
+We recommend using the native software-defined client-side encryption for the best security.
+Improve handling of duplicate media label texts:
+Operations that identify the tape by its label text now throw an error if duplicate label texts are detected.
+In addition to the label text, tape operations can now optionally identify a tape by its (unique) UUID.
+Writing a label text now throws an error if the label already exists in the inventory.
+The tape inventory GUI now uses the UUID to identify tapes instead of the label text, as it is not necessarily unique.
+Improve error output when reading the element status fails.
+Improve formatting of LTO9 (or higher) tapes:
+Avoid full re-initialization when doing a fast erase, as it can take up to two hours.
+When doing a slow erase, increase the timeout to two hours and warn that the operation can take a long time.
+Improvements to the LTO barcode generator:
+Add LTO-9 tape type and make it the new default.
+Add WORM tape types.
+Only enable the "Add" button if fields are valid.
+The API now forbids creating a drive config with the same name as an existing changer, and vice-versa, to prevent confusing situations.
+Tape backups and restore can now be configured with a notification-mode for a smooth migration to the new notification system.
+The legacy-sendmail mode replicates the previous behavior of sending an email via the local Postfix MTA to a configured user's email address
+The notification-system mode sends notifications exclusively using the new notification system.
+Access control
+Add support for Active Directory authentication realms.
+This new realm type retrieves users and groups from an external Active Directory Server.
+Active Directory realms are already supported by Proxmox VE, and are now supported by Proxmox Backup Server as well.
+Fix an issue where the OpenID Connect realm would wrongly reject valid ACR values (issue 5190).
+Require non-root users to enter their current password on password change.
+This is to hedge against a scenario where an attacker has local or even physical access to a computer where a user is logged in.
+Installation ISO
+Support for automated and unattended installation of Proxmox Backup Server.
+Introduce the proxmox-auto-install-assistant tool that prepares an ISO for automated installation.
+The automated installation ISO reads all required settings from an answer file in TOML format.
+One option to provide the answer file is to directly add it to the ISO. Alternatively, the installer can retrieve it from a specifically-labeled partition or via HTTPS from a specific URL.
+If the answer file is retrieved via HTTPS, URL and fingerprint can be directly added to the ISO, or obtained via DHCP or DNS.
+See the wiki page on Automated Installation for more details.
+Improved management of Proxmox Backup Server machines
+New flexible notification system.
+Allows sending notifications to different targets. The local Postfix MTA, previously the sole notification option, is now one of several target types available.
+Two new target types include: smtp allowing direct notification emails via authenticated SMTP, and gotify, which sends notifications to a Gotify instance.
+Flexible notification routing is possible through matcher-based rules that determine which targets receive notifications for specific events.
+Match rules can select events based on their severity, time of occurrence, or event-specific metadata fields (such as the event type, datatore, job-id, media-pool).
+Multiple rules can be combined to implement more complex routing scenarios.
+Add the gdisk package to the dependencies, as sgdisk is needed to initialize disks.
+Remove whitespace when adding a subscription key, to avoid failing subscription checks due to superfluous whitespace.
+Support for adding custom ACME enabled CA's with optional authentication through External Account Binding (EAB), on the commandline (issue 4497).
+Improved system report to provide a better status overview:
+Add configured prune jobs.
+Improvements to Proxmox Offline Mirror:
+Improve UX in promxox-offline-mirror-helper, when having multiple subscription keys available at the chosen mountpoint.
+Add dark mode to the documentation.
+Fix a wrong configuration setting for allowing weak RSA cryptographic parameters.
+Improve path handling with command line arguments.
+Support repositories that do not provide a Priority field (issue 5249).
+Known Issues & Breaking Changes
+Kernel 6.8
+The Proxmox Backup Server 3.2 releases will install and use the 6.8 Linux kernel by default, a major kernel change can have a few, hardware specific, side effects.
+You can avoid installing the 6.8 kernel by pinning the proxmox-default-kernel package version before the upgrade. The last version to depend on kernel 6.5 is 1.0.1.
+To pin the package to that version, create a file in /etc/apt/preferences.d/proxmox-default-kernel with the following content. This will keep proxmox-default-kernel on the old version until that file is deleted, and a new upgrade is initiated:
+Package: proxmox-default-kernel
+Pin: version 1.0.1
+Pin-Priority: 1000
+Kernel: Change in Network Interface Names
+Upgrading kernels always carries the risk of network interface names changing, which can lead to invalid network configurations after a reboot.
+In this case, you must either update the network configuration to reflect the name changes, or pin the network interface to its name beforehand.
+See the reference documentation on how to pin the interface names based on MAC Addresses.
+Currently, the following models are known to be affected at higher rates:
+Models using i40e. Their names can get an additional port suffix like p0 added.
+Proxmox Backup Server 3.1
+Released 30. November 2023
+Based on Debian Bookworm (12.2)
+Latest 6.5 Kernel as stable default
+ZFS 2.2.0 with all important patches from the upcoming 2.2.2 release.
+Highlights
+Secure Boot support.
+Proxmox Backup Server now includes a signed shim bootloader trusted by most hardware's UEFI implementations. All necessary components of the boot chain are available in variants signed by Proxmox.
+Local sync jobs for efficiently copying backup snapshots between local datastores.
+This is particularly useful for complex setups involving tiered datastores, for example, where a smaller, faster datastore is used for incoming backups, and a slower one for long-term archival.
+Automatically upgrade HTTP connections to HTTPS.
+Seamless upgrade from Proxmox Backup Server 2.4, see Upgrade from 2 to 3, which includes the addition of a pbs2to3 helper tool in the old stable release.
+Changelog Overview
+Enhancements in the web interface (GUI)
+Improvements to the node summary panel:
+The summary now indicates whether the node was booted in legacy (BIOS) mode, EFI mode, or EFI mode with Secure Boot enabled.
+The currently running kernel is now reported more compactly by indicating only the version and the build date.
+A new button in the datastore can now conveniently display connection information for connecting to that particular datastore from Proxmox Virtual Environment, another Proxmox Backup Server instance, or the backup client.
+If no comment is set for a backup group, the web GUI now displays the note of the last snapshot instead (issue 4260).
+Support wiping disks in the Storage/Disks menu, providing parity with the functionality in Proxmox VE (issue 3690).
+Allow removing systemd mount units of unused mounted directories via GUI and CLI.
+This enables users to unmount the directory of a removed datastore, so that they can wipe and reuse the disk.
+Right-clicking on a backup group or snapshot now opens a context menu for easier access to relevant actions.
+Automatically redirect HTTP requests to HTTPS for convenience.
+This avoids "Connection reset" browser errors that can be confusing, especially after setting up Proxmox Backup Server the first time.
+The ZFS creation window does not show a reset button anymore, as this button does not make sense for creation windows.
+Update external links to proxmox.com that changed during the website redesign.
+Improved translations, among others:
+Croatian (NEW!)
+Georgian (NEW!)
+Arabic
+Catalan
+German
+Italian
+Polish
+Simplified Chinese
+Spanish
+Traditional Chinese
+Ukrainian
+Several remaining occurrences of the GiB unit in the GUI can now be translated (issue 4551).
+General backend improvements
+Support for local sync jobs that pull contents of a local datastore to another local datastore.
+Previously, sync jobs could only pull datastores from remote Proxmox Backup Server instances over the network.
+Now, sync jobs can alternatively pull contents from a local datastore.
+Creating a datastore with prune options now creates a corresponding prune job (issue 4374).
+Previously, the prune options given on datastore creation were ignored.
+The backup task log now contains the IP address of the client initiating the backup, in order to simplify troubleshooting (issue 3777).
+Fix an issue where garbage collection would fail with an error if a snapshot is deleted while the job is running. This situation is now handled gracefully without an error (issue 4823).
+Fix an issue where scheduled garbage collection would not run if the task log of the previous garbage collection was missing, for example due to a host crash or power loss (issue 4895).
+With the Proxmox repositories having support for fetching them directly the changelogs for new package versions shown in the UI are now all gathered with apt changelog.
+Improve checks when setting up an offline subscription key.
+Mails sent by Proxmox Backup Server now contain an Auto-Submitted header to avoid triggering automated replies (issue 4162).
+Improve clarity of API parameter verification errors by showing a list of errors if there is more than one error.
+Improve the proxmox-backup-debug tool output by including the chunk size and compression state of chunks.
+Client improvements
+Send HTTP Connection header when upgrading to HTTP 2, as mandated by the HTTP Semantics RFC 9910 (issue 4779).
+This improves compatibility with reverse proxies that strictly adhere to the RFC.
+If a task started via the CLI fails, the CLI tool now also exits with a non-zero exit code indicating failure (issue 4343).
+This simplifies using the CLI tools in scripts.
+In case the task succeeds with warnings, the tool exits with exit code zero indicating success.
+When making an API call via the client that is not expected to return any data, avoid printing an error "api returned no data".
+Avoid potentially confusing output when successfully forgetting (deleting) a backup snapshot via the CLI (issue 4971).
+Allow to configure whether restore should overwrite existing symlinks or hard links (issue 4761).
+Fix an issue where the backup client would still try to access files even though they were excluded from the backup. If this access failed due to insufficient permissions, the backup would be aborted (issue 4380).
+Add an option to ignore errors that occur during the extraction of device nodes.
+Improvements to logging:
+Log a warning during backup if the previous manifest contains no index for the requested archive, and clarify the wording of log messages in that case. Previously, an error was logged even though the backup succeeded (issue 4591).
+Improve readability of log messages during encrypted backup.
+Fix rare alignment issue during pxar archive extraction that occasionally caused files with many irregular zero-blocks to be larger after extracted.
+File Restore: the minimal Linux VM image used by proxmox-file-restore was updated to use kernel 6.5 and ZFS 2.2.
+Tape backup
+Improve LTO 9 tape support by recognizing LTO 9 tape density codes.
+Improve compatibility with tape libraries that do not support the DVCID bit for querying vendor/model of connected drives (e.g. Qualstar).
+Previously, querying the tape library status without DVCID support would fail with an error.
+Now, this case is handled more gracefully by ignoring missing DVCID support and making the missing vendor/model information optional.
+The web GUI now marks media sets as incomplete if the expected number of tapes does not match the actual number of tapes.
+Improvements to tape restore via GUI:
+Fix an issue where selecting a target namespace for one datastore would cause datastores without a target namespace to be skipped.
+Fix an issue where tape restore would skip everything if source and target datastores are named differently (issue 4977).
+Access control
+Improvements to Two-Factor Authentication (TFA):
+Unlocking a user now also resets the TFA failure count.
+Parsing of the TOTP algorithm is now case-insensitive to improve compatibility with manually edited TFA configurations.
+The LDAP connection check now searches only the base of the base DN instead of the whole subtree.
+This fixes an issue where the connection check fails due to size limitations imposed by the LDAP server.
+Installation ISO
+The ISO is able to run on Secure Boot enabled machines.
+The text-based UI got significant improvement based on the feedback received from the first release in Proxmox VE 8.0 and Proxmox Backup Server 3.0.
+The current link-state of each network interface is now displayed in the network configuration view, helping in identifying the correct NIC for the management interface (issue 4869).
+If provided by the DHCP server, the hostname field is already filled out with the information from the lease.
+The correct meta-package of grub is now installed based on the boot mode (grub-pc or grub-efi-amd64). This ensures that the bootloader on disk gets updated when there is an upgrade for the grub package.
+The text-based UI is now also available over a serial console, for headless systems with a serial port.
+/var/lib/vz backing the local storage is now created as separate dataset for installations on ZFS (issue 1410).
+The root dataset on ZFS installations now uses acltype=posixacl in line with upstream's recommendation.
+Kernel parameters passed on the command line during install are now also set in the target system (issue 4747).
+Fix the warning that is shown in case the address family (IPv4, IPv6) of the host IP and DNS server do not match.
+The text-based UI now sets the correct disk-size for the selected disk, instead of limiting the installation to the size of the first disk in the list (issue 4856).
+For better UX, the text-based UI now also displays a count-down before automatically rebooting.
+The screensaver in the graphical installer is now disabled.
+The graphical installer now displays the units used for disk-based options.
+The kernel command line parameter vga788 is now set for both the graphical debug and all text-based UI installation options. This improves compatibility of the installer with certain hardware combinations.
+The installer now installs zstd, to enable its use for initramfs compression.
+Improved management of Proxmox Backup Server machines
+Secure Boot support.
+Proxmox Backup Server now ships a shim bootloader signed by a CA trusted by most hardware's UEFI implementation. In addition, it ships variants of the GRUB bootloader, MOK utilities and kernel images signed by Proxmox and trusted by the shim bootloader.
+New installation will support Secure Boot out of the box if it is enabled.
+Existing installations can be adapted to Secure Boot by installing optional packages, and possibly reformatting and re-initializing the ESP(s), without the need for a complete reinstallation. See the reference documentation.
+How to use custom secure boot keys has been documented in the Secure Boot Setup wiki. For using DKMS modules with secure boot, see the reference documentation.
+The kernel shipped by Proxmox is shared for all products. This is now reflected in the renaming from pve-kernel and pve-headers to proxmox-kernel and proxmox-headers respectively in all relevant packages.
+The new proxmox-default-kernel and proxmox-default-headers meta-packages will depend on the currently recommended kernel-series.
+Many edge-cases encountered during the upgrade from Proxmox Backup Server 2 to 3 by our user-base are now detected and warned about in the improved pbs2to3 checks:
+Fix an issue where pbs2to3 would incorrectly detect the boot mode as legacy boot even if EFI mode was used.
+Warn if DKMS modules are detected, as many of them do not upgrade smoothly to the newer kernel versions in PBS 3.
+Warn if the PBS 3 system does not have the correct meta-package of grub installed ensures to actually upgrade the installed bootloader to the newest version.
+Improve system report formatting and level of detail simplify troubleshooting for enterprise support via the Customer Portal.
+Known Issues & Breaking Changes
+Kernel
+Some users with Intel Wi-Fi cards, like the AX201 model, reported that initialization of the card failed with Linux kernel 6.5.
+This is still being investigated. You should avoid booting into the new kernel if you have no physical access to your server and an Intel Wi-Fi device is used as its only connection. See the documentation for how to pin a kernel version.
+Some SAS2008 controllers need a workaround to get detected since kernel 6.2, see the forum thread for details.
+Proxmox Backup Server 3.0
+Released 28. June 2023
+Based on Debian Bookworm (12.0)
+Latest 6.2 Kernel as stable default
+ZFS 2.1.12
+Highlights
+New major release based on the great Debian Bookworm.
+Seamless upgrade from Proxmox Backup Server 2.4, see Upgrade from 2 to 3
+Increase the flexibility of sync-jobs with the new transfer-last option.
+Add new text-based UI mode for the installation ISO, written in Rust using the Cursive TUI (Text User Interface) library.
+Changelog Overview
+Enhancements in the web interface (GUI)
+Improved Dark color theme:
+The Dark color theme, introduced in Proxmox Backup Server 2.4, received a lot of positive feedback from our community, which resulted in further improvements.
+Tape backup and restore tasks are now included in the task summary.
+When labeling a tape in a changer, the default value cannot be overridden in the GUI anymore:
+Proxmox Backup Server relies on the label being identical to the barcode, so it is not advisable to change the label. If having a different label is required, then it is still possible to override this via the CLI.
+Fixed an issue where the GUI would not immediately refresh the subscription information after uploading a subscription key.
+Improved translations, among others:
+Ukrainian (NEW)
+Japanese
+Simplified Chinese
+Traditional Chinese
+The size units (Bytes, KB, MiB,...) are now passed through the translation framework as well, allowing localized variants (e.g., for French).
+The language selection is now localized and displayed in the currently selected language
+General backend improvements
+Chunk store now handles specific edge cases during insertion more gracefully.
+Updated the kernel of the image that proxmox-backup-restore-image uses to 6.2.16 and ZFS 2.1.12.
+This can be particularly useful when trying to restore from guests that used newer features of a filesystem that are only supported by newer kernel versions, for example with Btrfs or ZFS volumes.
+In HTTP error responses, mention the requested path instead of the filesystem path, to avoid triggering automated security scanners.
+When authenticating via PAM, pass the PAM_RHOST item. With this, it is possible to manually configure PAM such that certain users (for example root@pam) can only log in from certain hosts.
+Client improvements
+Increase the flexibility of sync-jobs with the new transfer-last option:
+Specifying this parameter will only transfer the newest n backups, instead of all backups.
+Improved log output for sync jobs: In order to improve readability, the log now contains one opening line for every backup group.
+proxmox-backup-manager user tfa now supports list and delete commands (issue #4734).
+These can be used to list all currently configured TFA tokens as well as delete them.
+proxmox-file-restore now honors the environment variable PBS_QEMU_DEBUG.
+Fix an issue where running the status command would fail with a traceback (issue #4638).
+Improved error handling when zipping a directory fails, by exiting early if a fatal error occurs.
+Tape backup
+Improved reading attributes from tapes that use medium auxiliary memory (MAM).
+Show a list of required tapes when restoring a single snapshot, like it has been the case for full restores already.
+Added a fallback mode for tapes only supporting the 6 byte variant of the MODE SENSE or SELECT commands. This improves compatibility with some tape drives and libraries, for example the StarWind VTL.
+When restoring backups, instead of aborting when a tape is missing in the changer, the task now waits for the correct tape to be inserted (issue #4719).
+Fixed an issue with media-sets that have multiple datastores, where trying to restore a single datastore via the GUI would inadvertently restore all datastores.
+Access control
+Add TFA/TOTP lockout to protect against an attacker who has obtained the user password and attempts to guess the second factor:
+If TFA fails too many times in a row, this user account is locked out of TFA for an hour. If TOTP fails too many times in a row, TOTP is disabled for the user account. Using a recovery key will unlock a user account.
+The configuration for LDAP realms is now actively tested by attempting to connect before adding such a realm to the configuration.
+Surround user filter expressions with parentheses if they are not already present, similarly to Proxmox VE.
+Remove support for unauthenticated LDAP binds (where no password is given), which are not supported in Proxmox VE either.
+Installation ISO
+Add new text-based UI mode for the installation ISO, written in Rust using the Cursive TUI (Text User Interface) library:
+You can use the new TUI mode to work around issues with launching the GTK based graphical installer, sometimes observed on both very new and rather old hardware.
+The new text mode executes the same code for the actual installation as the existing graphical mode.
+The version of BusyBox shipped with the ISO was updated to version 1.36.1.
+Detection of unreasonable system time.
+If the system time is older than the time the installer was created, the system notifies the user with a warning.
+ethtool is now shipped with the ISO and installed on all systems.
+systemd-boot is provided by its own package instead of systemd in Debian Bookworm and is installed with the new ISO.
+Notable bug fixes
+Fixed an issue where certain prune job tasks did not show up in the task summary.
+Fixed an issue where garbage collection would incorrectly show warnings when namespaces were used by a datastore (issue #4357).
+Fixed a bug that prevented entering netmasks for networks with CIDR prefix length smaller than /8 in the network interface configuration (issue #4722).
+Restoring files from a ZFS snapshot directory now works with proxmox-file-restore (issue #4477).
+Known Issues & Breaking Changes
+User accounts will now be locked after too many attempts to authenticate with a second factor. This is intended to protect against an attacker who has obtained the user password and attempts to guess the second factor. Unlocking requires either a successful login with a recovery key or a manual unlock by an administrator.
+Systems booting via UEFI from a ZFS on root setup should install the systemd-boot package after the upgrade.
+The systemd-boot was split out from the systemd package for Debian Bookworm based releases. It won't get installed automatically upon upgrade from Proxmox VE 7.4 as it can cause trouble on systems not booting from UEFI with ZFS on root setup by the Proxmox VE installer.
+Systems which have ZFS on root and boot in UEFI mode will need to manually install it if they need to initialize a new ESP (see the output of proxmox-boot-tool status and the relevant documentation).
+Note that the system remains bootable even without the package installed (the boot-loader that was copied to the ESPs during intialization remains untouched), so you can also install it after the upgrade was finished.
+It is not recommended installing systemd-boot on systems which don't need it, as it would replace grub as bootloader in its postinst script.
+Proxmox Backup Server 2.4
+Released 29. March 2023
+Based on Debian Bullseye (11.6)
+Latest 5.15.102 Kernel as stable default
+Newer 6.2.6 kernel as opt-in
+ZFS 2.1.9
+Highlights
+Proxmox Backup Server now provides a dark theme for the web interface & the documentation.
+Add LDAP as a new user authentication realm.
+Add initial support for WORM (write once, read many) tapes.
+Changelog Overview
+Enhancements in the web interface (GUI)
+Add a fully-integrated "Proxmox Dark" theme variant of the long-time Crisp light theme.
+By default, the prefers-color-scheme media query from the Browser/OS will be used to decide the default color scheme.
+Users can override the theme via a newly added Color Theme menu in the user menu.
+Task logs can now be downloaded directly as text files for further inspection.
+The Add User dialog has now a realm field, making it possible to add users to an LDAP or OpenID Connect realm manually.
+Improve the UI for verification jobs, showing the namespace and max-depth columns and allowing one to edit those fields in the edit job window (#4448).
+While the API supported limiting a verification job to a specific namespace or depth since 2.2, such settings weren't editable nor visible in the web interface.
+The 'Services' panel of the 'Administration' section now marks optional services that are not installed as not installed instead of marking them as dead.
+In order to make it more obvious how to disable scheduled Garbage Collection (GC), the 'GC Schedule' window now shows an X button that resets the schedule to none.
+For prune jobs, rename 'Store' to 'Datastore' for consistency reasons.
+Fixed the default value for pruning mail notification settings in the datastore options.
+Fixed rendering the 'Enabled' column for the 'Metric Server' view.
+Improved translations, among others:
+Arabic
+French
+German
+Italian
+Japanese
+Russian
+Slovenian
+Simplified Chinese
+Traditional Chinese
+General Backend Improvements
+Add LDAP realm authentication and user synchronization
+This allows user authentication against an external LDAP server. In order to be able to log in, users in LDAP realms must be added manually. Alternatively, users can be synced automatically from the LDAP server.
+Client Improvements
+Suppress harmless but confusing "storing login ticket failed" errors when backing up to Proxmox Backup Server.
+The proxmox-backup-manager CLI tool can now be used to trigger an existing prune, verification, or sync job manually.
+The output of the proxmox-backup-debug diff archive command was improved.
+The command now shows file attributes, highlights changes and has colored output.
+Provide higher runtime control for logging in the pxar CLI tool (#4578).
+Users can now decide themselves which messages, log sources or log levels are interesting for a particular use case through the PBS_LOG environment variable.
+Various improvements for error handling and reported messages to improve user experience.
+Tape backup
+Add initial support for WORM (write once, read many) tapes
+Skip unassigned tapes when updating the inventory
+Tapes that are assigned to a pool but not yet in a media set belong to the special all-zero media set. Since there will never be a catalog on these tapes, trying to restore a catalog will always fail, so leave them out.
+Installation ISO
+the version of BusyBox shipped with the ISO was updated to version 1.36.0.
+The EFI System Partition (ESP) defaults to 1 GiB of size if the root disk partition (hdsize) is bigger than 100 GB.
+UTC can now be selected as timezone during installation.
+Documentation
+Expand the documentation for maintenance, focusing specifically on Garbage Collection (GC).
+Link screenshots in the documentation to their image files.
+Implement dark mode that honors the prefers-color-scheme media query automatically.
+Add dark mode support to the API viewer widget.
+Notable bug fixes
+Don't interrupt tasks when pressing Ctrl + C when viewing task logs via proxmox-backup-manager task log or proxmox-backup-client task log (#4483).
+proxmox-backup-client now prints task logs to stdout instead of stderr (#4387).
+Removal of all associated prune jobs and ACL entries when their data store is deleted (#4256).
+Fixed a bug where snapshots were not listed in a tape media set (#4466).
+Warn if a login ticket could not be stored (e.g. due to $XDG_RUNTIME_DIR not being set, which can happen if invoked via sudo) (#4346).
+Reduce lock contention of the verify-after-complete feature with periodic syncs (#4523).
+Known Issues & Breaking Changes
+None.
+Proxmox Backup Server 2.3
+Released 29. November 2022
+Based on Debian Bullseye (11.5)
+Latest 5.15 Kernel as stable default (5.15.74)
+Newer 5.19 Kernel as opt-in
+ZFS 2.1.6
+Changelog Overview
+Enhancements in the Web Interface (GUI):
+Datastore permissions: Allow editing the ACL path and query the available namespaces and add them as ACL path to the pre-defined selections for convenience
+Datastore content: Only mask the inner view of the content tree on error, to allow a user to trigger a manual reload using the reload button in the top bar
+Improve navigating the whole Proxmox Backup Server web UI when a user only has limited permissions on a specific (sub-)namespace
+Show block device partition tree on the web UI
+Improve the prune-simulator, among other things allow setting a custom simulation "now" date/time
+Improved certificate view - for example for certificates with many SANs
+Improved translations, among others:
+Arabic
+Dutch
+German
+Italian
+Polish
+Traditional Chinese
+Turkish
+Add Namespace Aware Prune Jobs
+Expand the single-schedule per datastore to a flexible, namespace aware prune job system
+Allow fine-grained control over when and how deep a specific namespace get pruned
+In addition to above, the manual prune action also became more powerful w.r.t. namespace and prune-depth selection
+Implement email notifications for prune jobs
+Rework the task log outputs for prune job workers
+Native Support for Sending Periodic Metrics to InfluxDB
+Support for HTTP(S) and UDP endpoints
+Optionally TLS certificate validation can be disabled for HTTPS endpoints
+Metric data is aligned as good as possible to the stats sent from a Proxmox VE node.
+Metrics include:
+CPU load averages, IOwait
+Memory used/total, Swap used/total
+NIC traffic statistics
+Filesystem usage for datastores
+Blockdevice IOPS and bytes read/written for datastores
+Support Proxmox Offline Mirroring & Subscription Handling
+Proxmox Offline Mirror: The tool supports subscriptions and repository mirrors for air-gapped systems. Newly added proxmox-offline-mirror utility can now be used to keep Proxmox Backup Server hosts, without access to the public internet up-to-date and running with a valid subscription.
+Tape Backup Improvements
+Improve behavior for vanishing snapshots, only log the event but do not fail the tasks
+Make total/throughput reporting use human-readable units on tape restore
+Include used tapes in job notification e-mails
+Optionally try to restore missing catalogs during inventory
+In a disaster recovery case, in addition to re-inventorizing the labels and media-sets, trying to recover the catalogs from the tape, so that one knows what's actually on them, helps in getting an overview.
+General Client Improvements
+Proxmox-backup-client: Added ignore-acls, ignore-xattrs, ignore-ownership, ignore-permissions and overwrite parameters to the restore command: If any of the ignore parameters is set the corresponding metadata is not restored - e.g. there is no chown call if ignore-ownership is set. The overwrite parameter causes the restore to overwrite a file if it is already present instead of failing.
+File-restore: Add 'format' and 'zstd' parameters to 'extract' CLI command.
+Add the diff sub-command to proxmox-backup-debug, allowing one to compare pxar archives for two arbitrary snapshots, outputting a list of added/modified/deleted files.
+Support http proxies through the ALL_PROXY environment variable for proxmox-backup-client. Note that using a general tunnel for all traffic, for example wireguard to shield traffic is preferred.
+Fix an issue with the mount subcommand, where reading large files could yield corrupt data.
+General Backend Improvements
+New mail-forwarding binary proxmox-mail-forward: It unifies the configuration for sending the system-generated mails to the email address configured for root@pam, with Proxmox VE.
+Implement sync-level option for datastores, allowing one to configure how backup data is synced to disk to match their respective setup and needs.
+Improve error handling when removing status files and locks from jobs that were never executed
+Datastore list and datastore status: Avoid opening datastore and possibly iterating over namespace (for lesser privileged users), but rather use the in-memory ACL tree directly to check if there's access to any namespace below.
+More robust handling of refreshing datastore states periodically and on config change - previously a lock was dropped, causing inconsistencies between long-running backup jobs and garbage collection tasks
+Datastore: Swap dirtying the internal datastore cache every 60s by just using the available config digest to detect any changes accurately when they actually happen, reducing periodic IO.
+Restore-daemon: Make file listing "streaming" for better interactivity on initial response
+API daemon: startup scheduling tasks faster by improving aligning the trigger-time to the minute boundary
+SMART: Add raw field, for compatibility with the Proxmox VE API - it contains the same data as value, which for now is kept for backwards compatibility
+SMART: Don't treat certain non-zero exit codes of smartctl as error (if bit 2 of the exit-code is set the returned data is still parseable) - aligns with the implementation in Proxmox VE
+Improve file-system compatibility for various edge cases: For example take the reservation for root for EXT4 into consideration
+ACME/Let's Encrypt: Send emails on certificate renewal failure
+Optimize filtered snapshot listing
+Move some blocking parts off to their own (reused) thread to reduce the chance of sometimes blocking the tokio reactor thread handling things like new incoming connections
+Periodically trigger unparking a tokio thread to ensure all newly incoming requests are handled in a timely manner
+The proxmox-backup-manager pull subcommand now handles a missing namespace parameter by pulling to the root namespace
+Known Issues & Notable Changes
+The upgrade will check if the owner of the lock file /etc/proxmox-backup/.datastore.lck is backup, and if it is not, it will try to correct the owner.
+If the automatic owner correction fails, the update process issues a warning and suggests how to try again manually.
+Note that this should only affect some older 1.x installations that had no need for locks outside the privileged API daemon and might have created the file with root as owner.
+Proxmox Backup Server 2.2
+Released 18. May 2022
+Based on Debian Bullseye (11.3)
+Kernel 5.15
+ZFS 2.1.4
+Changelog Overview
+Enhancements in the web interface (GUI):
+Add "Group Filter" tab to the "Add" and "Edit" windows of sync and tape-backup jobs
+Allow configuration of the default language used in the web interface
+Add Markdown aware panel for recording structured notes, and support multi-line comments in the node configuration file.
+Hide RRD chart for IO delay, if no `io_ticks` are returned
+Improved translations, among others:
+Arabic
+French
+German
+Japan
+Polish
+Turkish
+Datastore Backup Namespaces:
+Implement backup namespaces for datastores.
+Namespaces allow for the reuse of a single chunk store deduplication domain for multiple sources, while avoiding naming conflicts and enabling more fine-grained access control.
+Add support for syncing a source namespace into any target namespace.
+With the max-depth setting, you can control how deep the recursion on finding groups to sync should go.
+Add support for namespaces in current Proxmox VE 7.2, the following versions form the baseline:
+pve-manager >= 7.2-4, libpve-storage-perl >= 7.2-4, pve-container >= 4.2-1, qemu-server >= 7.2-3, pve-qemu-kvm >= 6.2.0-7
+Maintenance Mode and Active Operations Tracking:
+Implement read-only and offline maintenance modes for a datastore.
+Track whether each datastore access is a write or read operation, so that Proxmox Backup Server can gracefully enter the respective mode, by allowing conflicting operations that started before the maintenance mode to finish.
+Once enabled, depending on the mode, new reads and/or writes to the datastore are blocked, allowing an administrator to safely execute maintenance tasks, for example, on the underlying storage.
+General backend improvements:
+Improve memory footprint
+Improve interaction with the glibc system allocator to dramatically decrease peak and overall RSS memory usage
+The glibc allocator has a misguided heuristic to detect transient allocations, which will only start to use mmap in allocation sizes above 32 MiB.
+This means that relatively large allocations end up on the heap, where cleanup and returning memory to the OS is harder to do and easier to be blocked by small, long-living allocations at the top (end) of the heap.
+By reducing the threshold for switching from the cached heap to the kernel provided mmap to 128 KiB, we can lower peak RSS usage by a factor of 10, or even 20 in some scenarios.
+See the git commit for more details.
+Optimize LRU caches
+Add streaming interfaces for some API endpoints, such as the task-log list or snapshot list.
+This can remove the need to collect large lists into intermediate memory buffers.
+Transform all access to group or snapshot lists to efficient, lazy iterators.
+Improve IO access pattern for some scenarios, like TFA with high user and login count.
+Disable SSL/TLS renegotiation in the API daemon.
+For zpools created via the API, set the `relatime=on` flag by default.
+Allow for the disabling of inode-sorting for chunk iteration.
+While inode-sorting benefits read performance on block devices with higher latency (for example, spinning disks), it also requires extra work to get the metadata needed for sorting, so it's a trade-off. For setups that have either very slow or very fast metadata IO, the benefits may turn into a net cost.
+Add dry-run option for the proxmox-backup-client backup CLI command.
+Verify: Allow one to enforce verification when manually verifying a datastore or namespace through the web interface
+Improve reload behavior of the proxmox-backup-proxy API daemon
+Close acceptor for new incoming connections immediately on shutdown to avoid connection resets during the wait for running tasks to finish.
+Improvements on file restore
+Add support for zstd-compressed tar archive download, in addition to the existing zip download option.
+The tar archive supports more file types (for example, hard links and device nodes), and zstd allows for fast, efficient, and effective compression.
+Add language encoding flag (EFS) to files when creating a zip archive, if an entry is valid UTF-8.
+This improves the handling of non-ASCII code point extraction under Windows.
+Allow up to 25s for the file-restore VM to have scanned all possible filesystems in a backup.
+Improve IO access in the file-restore-for-block-backup VM's internal driver, and start disk initialization in parallel to staring the API listening task.
+On average the restore-tool should be waiting more compared to the previous 12s "worst" case wait time.
+Avoid automatically pre-mounting ZFS pools.
+The upfront time-cost can be too large to pay initially, for example, if there are many subvolumes present. Thus, only mount on demand.
+Proxmox Backup Server 2.1
+Released 23. November 2021
+Based on Debian Bullseye (11.1)
+Kernel 5.13
+ZFS 2.1
+Changelog Overview
+Enhancements in the web interface (GUI):
+Add traffic control management panel in the web interface.
+Load and usage graphs now have much higher resolution.
+Display the next media label for a tape backup job.
+Improved translations, among others:
+Arabic
+Basque
+Brazilian Portuguese
+French
+German
+Simplified Chinese
+Traditional Chinese
+Turkish
+Enhancements in Backup Management
+Support flexible traffic-control bandwidth limits:
+Implement a token bucket filter (TBF) for limiting incoming (for example, backup) and outgoing (for example, restore) traffic from a set of networks.
+Limits can be configured such that they get applied only during specific time-frames.
+Support for protected backups, which will not be pruned and cannot be removed manually, without first removing the protected flag.
+Support group-filter for sync jobs and tape-backup jobs:
+For such a job, you can specify if you want to process only a specific type (ct, vm, host), a specific group or a regex that matches the group-ID.
+Multiple such filters can be applied per job. They act cumulatively.
+Enhance existing OpenID Connect (OIDC) support:
+Add support for configuring an arbitrary username claim.
+Allow setting the requested scopes for user information requests. The default remains the same (profile and email).
+The prompt behavior is now unset (previously hard-coded to login) and can be configured to the OIDC specification defined variants or an arbitrary extension.
+You can now configure Authentication Context Class Reference (ACR) values to be requested on any authentication request.
+Improved Round Robin Database implementation
+Uses a journal to avoid data loss;
+Uses much higher resolution:
+per-day: 1 min (previously 30 min)
+per-month: 30 min (previously 12 hours)
+per-year: 6 h (previously 1 week)
+per-decade: 1 week (previously none)
+Stores data for last 10 years;
+Backend
+New debugging tool proxmox-backup-debug
+Improved support for various tape drives and changers
+Proxmox Backup Server 2.0
+Released 13. July 2021
+Based on Debian Bullseye (11)
+Kernel 5.11
+ZFS 2.0
+Changelog Overview
+Tape Backup:
+Matured from technology preview to the first stable release
+Improve restore flexibility, allowing you to select multiple snapshots for one restore job
+Read chunks sorted by inode on backup, to leverage improved read speed on slow spinning disks with increased sequential access
+Backend:
+Support for Single-Sign-On (SSO) with the new OpenID Connect access realm type
+You can integrate external authorization servers, either using existing public services or your own identity and access management solution, for example, Keycloak or LemonLDAP::NG.
+ACME/Let's Encrypt integration with stand-alone and DNS Plugins, for easy deployment of trusted certificates
+Improved caching for proxmox-backup-client map
+Single file-restore support for VMs that use ZFS or LVM internally
+Support setting an HTTP proxy for package updates and subscription check requests
+Enhancements in the web interface (GUI):
+Make dashboard status panel more detailed, showing, among other things, uptime, Kernel version, CPU info and a high level repository status overview.
+New Repository management panel in the Administration tab shows an in-depth status and a list of all configured repositories.
+Basic repository management, for example, activating or deactivating a repository, is also supported.
+ACME/Let's Encrypt GUI integration
+Support setting comments on a backup group
+Updated ExtJS JavaScript framework to latest GPL release 7.0
+Improved translations, including:
+Arabic
+French
+German
+Japanese
+Polish
+Turkish
+Installer:
+Rework the installer environment to use switch_root instead of chroot, when transitioning from initrd to the actual installer.
+This improves module and firmware loading, and slightly reduces memory usage during installation.
+Automatically detect HiDPI screens, and increase console font and GUI scaling accordingly. This improves UX for workstations with Proxmox VE (for example, for passthrough).
+Improve ISO detection:
+Support ISOs backed by devices using USB Attached SCSI (UAS), which modern USB3 flash drives often do.
+Linearly increase the delay of subsequent scans for a device with an ISO image, bringing the total check time from 20s to 45s. This allows for the detection of very slow devices, while continuing faster in general.
+Use zstd compression for the initrd image and the squashfs images.
+Update to busybox 1.33.1 as the core-utils provider.
+Known Issues
+Network: Due to the updated systemd version, and for most upgrades, the newer kernel version (5.4 to 5.11), some network interfaces might change upon reboot:
+Some may change their name. For example, due to newly supported functions, a change from enp33s0f0 to enp33s0f0np0 could occur.
+We observed such changes with high-speed Mellanox models.
+Bridge MAC address selection has changed in Debian Bullseye - it is now generated based on the interface name and the machine-id (5) of the system.
+Note that by default, Proxmox Backup Server does not uses a Linux Bridge for networking, so most setups are unaffected.
+Upgrade from 1.1
+See Upgrade from 1.1 to 2.x
+Proxmox Backup Server 1.1
+Released 15. April 2021
+Based on Debian Buster (10.9)
+Kernel 5.4.106
+ZFS 2.0
+Tape Backup (Technology Preview)
+Tape technology has stood the test of time, when it comes to highly reliable, economic and flexible long-term storage of large amounts of data. Key advantages being:
+the inherent offline nature of the stored data - mitigating crypto-locker attacks;
+the portability of the tapes - making them ideal for off-site archiving;
+the existence of WORM (write once read many) tapes - a key requirement for compliance with data integrity regulations in certain environments;
+the low cost per storage unit;
+Tape backup jobs back up datastores to a media pool, and multiple datastores can be backed up to the same media pool. Choose to write all snapshots of a datastore or only the latest snapshot per group to the media set.
+Tape restore jobs restore the content of a media set to one or more datastores - this enables operators to restore multiple datastores from a media set, even if the system does not have the free disk space required in a single datastore (potentially multiple 100 TB).
+Flexible retention policies (e.g., always recycle tapes, never recycle tapes, recycle tapes after a particular calendar event).
+New user space tape driver written in Rust.
+Support for tape encryption using the hardware encryption feature of the LTO tape drive.
+Support for tape autoloaders - by rewriting the mtx tool in Rust (now pmtx), most autoloaders supported by other tape-backup solutions available on Linux will work with Proxmox Backup Server.
+For stand-alone tape drives without an attached changer, users are notified via e-mail about necessary (load/unload) operations.
+The configuration of all necessary components, jobs, and schedules can be carried out comfortably via the web interface.
+The Proxmox LTO Barcode Label Generator, a small web-app, can be used to generate and print barcode labels for the tapes on standard adhesive label sheets. These help to identify the tapes in an autoloader.
+Two-factor authentication (TFA) for the web interface
+The web interface can now be configured to use TFA with one or more of the following implementations:
+Time-base One-Time Password (TOTP), for clients like FreeOTP, Google Authenticator, etc.
+WebAuthn, a general standard for authentication. This is implemented by various security devices, like hardware keys or by the trusted platform modules (TPM) of a computer or smartphone.
+Recovery keys for single use (as backup, should you lose your authenticators).
+The activation and configuration of TFA can be done by the users themselves or by an administrator.
+TFA is complemented by the existing, token-based authentication for granting automated access to Proxmox Backup Server resources, for example, when configuring a Proxmox Backup Server storage in a Proxmox VE setup.
+HTTP compression via Content-Encoding
+Responses from the Proxmox Backup Server API can get quite large, but in general can be compressed well. By adding support for deflate Content-Encoding, bandwidth is saved and response times are improved, especially over bandwidth constricted links.
+Compression of file-level ZIP archive downloads
+Downloading a directory from a file-level backup will now produce a compressed ZIP archive, reducing bandwidth and local space required.
+Notable enhancements and bug fixes
+Improved handling of POSIX ACL entries on files.
+Improved hand-over to new process when upgrading the Proxmox Backup Server packages.
+Use the local filesystem to handle synchronization, in order to avoid issues with locking on remote filesystems (CIFS/NFS).
+Changed HTTP timeouts to work more robustly, even over high latency and low bandwidth links, which are not uncommon for remote backup sites.
+Better error-handling during garbage-collection, coping with the case when there's no space left on a datastore filesystem.
+Improved UX when using a GPG master key.
+Verification: Sort chunks by their inode to speed-up access on a storage with slow random-IO, for example, spinning disks.
+Proxmox Backup Server 1.0
+Released 11. November 2020
+Based on Debian Buster (10.6)
+Kernel 5.4 LTS
+ZFS 0.8.4
+Backup & Restore (core functionality):
+Deduplication
+Periodic backups produce large amounts of duplicate data. The deduplication layer avoids redundancy and minimizes the used storage space. Deduplication is performed per datastore.
+Incremental backups
+Changes between backups are typically small. Reading and sending only the delta reduces the storage and network impact of backups.
+Data Integrity
+The built in SHA-256 checksum algorithm ensures the accuracy and consistency of your backups.
+Compression 
+The ultra-fast Zstandard compression is able to compress several gigabytes of data per second.
+Encryption 
+ Backups can be encrypted on the client-side using AES-256 in Galois/Counter mode. This authenticated encryption mode provides very high performance on modern hardware.
+Verification 
+Backups on disk can be verified with the stored SHA-256 checksums to protect against corruption and bitrot. This can be scheduled periodically including regular re-verification.
+Remote Sync
+It is possible to efficiently synchronize data from remote sites. Only deltas containing new data are transferred. Optimized and tested for high-latency links.
+Performance
+The whole software stack is written in Rust, to provide high speed and memory efficiency.
+Open Source
+Proxmox Backup Server is free and open-source software. The source code is licensed under GNU AGPL, v3.
+And of course - Backups can be restored comfortably!
+Proxmox VE Integration
+Support for incremental, deduplicated backups of qemu virtual machines (supporting QEMU dirty bitmaps) and containers.
+Simply configurable as a Storage Backend on Proxmox VE
+Granular restore:
+Mapping for QEMU virtual disks to loop back block devices
+File-level restore of container backups
+Current backup state is preserved across migrations inside Proxmox VE
+Enterprise support
+With the release of version 1.0, support subscriptions for Proxmox Backup Server are available, providing access to the stable Enterprise Repository (recommended for production use) and to technical support from the Proxmox team.
+Web interface
+Manage Proxmox backups with the integrated, web-based user interface.
+Start operations from within the views in which they are relevant
+Widgets in the GUI provide useful popups when you hoover over (e.g., individual states in the task summary, on the dashboard)
+Improved and mature user experience in the GUI - many features known from other Proxmox products were ported to the new Rust code-base to provide the same level of comfort during daily work:
+Online reference documentation for the current version, available in the GUI via the Help button
+System console via xterm.js
+System updates and changelogs
+Display of the system's journal
+Scheduling
+Management and scheduling of maintenance tasks provides all the settings necessary to just configure it once and not have to think about it
+Scheduling based on the flexible systemd-time specification
+E-mail notifications for scheduled background tasks (verification, pruning, garbage collection, sync jobs).
+Vastly improved user interface
+Sensible encryption-key handling
+Proxmox Backup Server encryption keys are stored as simple json files, and can be easily stored off-site for disaster recover purposes
+They can also be exported as QR-codes for printing on paper and storing off-line
+Flexible Access Control:
+Support for fine-grained ACLs for separate users on different objects (datastores, remotes, system configuration)
+Token based authentication with reduced privileges:
+A user can create tokens with a subset of their privileges, instead of having to store their password on a client
+Proxmox Backup Server Beta (2nd ISO release)
+Released 5. October 2020
+Beta Release
+Update to recent package versions with many fixes and feature additions
+Based on Debian 10.6 Buster
+Updated kernel (5.4) and include latest security fixes
+Proxmox Backup Server Beta
+Released 10. July 2020
+First public beta release
+Based on Debian Buster (10.4)
+Kernel 5.4 LTS with ZFS 0.8.4
+Retrieved from "https://pbs.proxmox.com/mediawiki/index.php?title=Roadmap&oldid=162"
+ Cookies help us deliver our services. By using our services, you agree to our use of cookies.
+More informationOK
+ Navigation menu
+ Personal tools
+ Log in
+ Namespaces
+ Page
+Discussion
+ English
+ Views
+ Read
+View source
+View history
+ More
+ Search
+ Navigation
+ Proxmox Backup Server
+Documentation (current)
+Documentation (3.x)
+Get support
+ Sites
+ proxmox.com
+Support forum
+Bugtracker
+Source code
+ Tools
+ What links here
+Related changes
+Special pages
+Printable version
+Permanent link
+Page information
+Cite this page
+ This page was last edited on 29 April 2026, at 12:58.
+ Privacy policy
+ About Proxmox Backup Server
+ Disclaimers

@@ -1,0 +1,123 @@
+Understanding Google Play's VpnService policy - Play Console Help Skip to main content Play Console Help Sign in Google Help Help Center Play Console Help Policy Center Community Play Console Privacy Policy Terms of Service Submit feedback Send feedback on... This help content & information General Help Center experience Close Next Help Center Community Announcements Play Console Play Console Help Get started Popular articles Manage your developer account Create, upload, and publish Distribute your app Run tests and check performance Protect your app Comply with Google Play policies Fix an issue Android developer verification Design for multiple form factors Central Play Help Center Policy Center Restricted Content Intellectual Property Privacy, Deception and Device Abuse Use of SDKs In Apps Malware Impersonation Mobile Unwanted Software Monetization and Ads Store Listing and Promotion Spam, Functionality, and User Experience Other Programs Families Enforcement Updates and Other Resources How Google Play Works for Developers Policy education and app requirements Understanding Google Play's VpnService policy Notification You can now request help from the Help page in your Play Console account.  If you don't have access to Play Console, ask your account admin for an invite. Understanding Google Play's VpnService policy The VpnService is a base class for applications to extend and build their own VPN solutions. If your app requires VpnService, you need to submit the declaration form, now available in Play Console, by August 31, 2023 to avoid further enforcement. 
+ This article provides an overview of the policy, its prominent disclosure and consent requirements, and a preview of associated declaration questions. It is not a substitute for the policy itself. Read the policy in its entirety to ensure that you understand and comply with its contents. All apps that use the VpnService must complete the declaration form to avoid violating the policy resulting in potential enforcement actions. 
+ Using the VpnService 
+ Only apps that use the VpnService and have VPN as their core functionality can create a secure device-level tunnel to a remote server. Exceptions include apps that require a remote server for core functionality such as: 
+ Parental control and enterprise management apps 
+ App usage tracking 
+ Device security apps (for example, anti-virus, mobile device management, firewall) 
+ Network-related tools (for example, remote access) 
+ Web browsing apps 
+ Carrier apps that require the use of VPN functionality to provide telephony or connectivity services 
+ The VpnService cannot be used to: 
+ Collect personal and sensitive user data without prominent disclosure and consent. 
+ Redirect or manipulate user traffic from other apps on a device for monetization purposes (for example, redirecting ads traffic through a country different than that of the user). 
+ Apps that use the VpnService must: 
+ Document use of the VpnService in the Google Play listing, 
+ must encrypt the data from the device to the VPN tunnel endpoint, and 
+ abide by all Developer Program Policies including the Ad Fraud , Permissions , and Malware policies. 
+ Prominent disclosure and consent requirements 
+ Apps eligible for the use of the VpnService must meet the prominent disclosure and consent requirements described in Google Play’s User Data policy if they access or collect any personal and sensitive user data. Those apps must include a prominent disclosure that: 
+ Must be within the app itself and cannot only be in the app description or on a website 
+ Must be displayed in the normal usage of the app and not require the user to navigate through a menu or settings 
+ Must describe the data being accessed or collected through the VpnService API 
+ Must explain how the data will be used and/or shared 
+ Must require affirmative user action for consent (for example, tap to accept, or tick a check box) 
+ Cannot only be placed in a privacy policy or terms of service 
+ Cannot be included with other disclosures pertaining to personal or sensitive data collection. This should be a separate disclosure indicating why the app requires the VpnService API and any potential use cases. 
+ Important: If you change how your app uses this API, you must submit the form again with updated and accurate information. Deceptive and non-declared uses of these APIs may result in a suspension of your app and/or termination of your developer account.
+ VPN service declaration 
+ Starting November 1, 2022, apps that are using VpnService will be able to submit a new policy declaration in Play Console. This is subject to Google Play’s approval. 
+ Here’s a preview of the declaration questions: 
+ 1. Is providing a VPN the core functionality of your application? 
+ Yes 
+ No 
+ [If you answered No to 1.] 
+ 2. Which permitted functionality does your app provide? Select all that apply. 
+ App usage tracking 
+ Carrier app requiring VPN functionality to provide telephony or connectivity services 
+ Device security (including anti-virus and firewall) 
+ Enterprise management apps 
+ Network-related tools (including remote access) 
+ Parental control 
+ Browsers 
+ None of the above 
+ Note: Selecting a category that does not match the core purpose of your app may lead to a rejection. Being in one of these categories is not sufficient. Your application must also: 
+ Document your use of VpnService in your Google Play listing 
+ Encrypt the data from the device to the VPN tunnel endpoint 
+ [If you answered None of the above to 2.] 
+ 2 (a). 
+ You declared that your app’s core purpose is not on the list of permitted functionalities. Apps using VpnService outside of the permitted functionalities will be rejected. If you think you need to use VpnService, explain in detail how your app’s functionality meets the criteria. 
+ Otherwise, remove all VPN services from all active artifacts across all release tracks to meet Google Play policy. 
+ 3. To help us review your app, provide a link to a short video (90 seconds or shorter). The video must show your app being opened and your VPN being used. If it isn’t obvious how the VPN service is being used, provide a voice-over or captions to help explain. Enter a YouTube or cloud storage URL to an MP4, or other common video file format. 
+ 4. (a). What data does your VPN service collect or share? Select all that apply. Learn more . 
+ Yes 
+ No 
+ [If you answered Yes to 4. (a).] 
+ 4. (b). What data do you collect or share using the VpnService? 
+ Location
+ Approximate location 
+ Precise location 
+ Personal info
+ Name 
+ Email address 
+ Personal identifiers 
+ Address 
+ Phone number 
+ Race and ethnicity 
+ Political or religious beliefs 
+ Sexual orientation or gender identity 
+ Other personal info 
+ Financial info
+ Credit card, debit card, or bank account number 
+ Purchase history 
+ Credit info 
+ Other financial info 
+ Health and fitness
+ Health information 
+ Fitness information 
+ Messages
+ Emails 
+ SMS or MMS messages 
+ Other in-app messages 
+ Photos or videos
+ Photos 
+ Videos 
+ Audio files
+ Voice or sound recordings 
+ Music files 
+ Other audio files 
+ Files and docs
+ Files and docs 
+ Calendar
+ Calendar events 
+ Contacts
+ Contacts 
+ App activity
+ Page views and taps in app 
+ In-app search history 
+ Installed apps 
+ Other user-generated content 
+ Other actions 
+ Web browsing
+ Web browsing history 
+ App info and performance
+ Crash logs 
+ Diagnostics 
+ Other app performance data 
+ Device or other identifiers
+ Device or other identifiers 
+ 5. To help us review your app, provide a link to a short video (90 seconds or shorter). The video must show the prominent disclosure shown to users in your app. The prominent disclosure in your app must explain why your app requires the use of the VpnService, and how it's used. If you collect and/or share any personal or sensitive user data using the VpnService, you must declare this to the users, and explain its intended purpose. Enter a YouTube or cloud storage URL to an MP4, or other common video file format. 
+ Guidance for video showcasing your app’s prominent disclosure 
+ The video that you provide as part of the declaration must include the following: 
+ The opening of your app on the device. 
+ The user flows to get to the prominent disclosure and consent screen for VpnService.
+ Make sure that the video includes the full disclosure. If it requires scrolling, make sure you slowly scroll so that all text is visible in the video. 
+ The user flow when the user consents, including granting your app VpnService. 
+ The user flow when the user does not consent, including the process when the user triggers the prominent disclosure and consent screen again. 
+ 5. (a). Does your application redirect or manipulate user traffic from other apps on a device for monetization purposes? 
+ Yes 
+ No 
+ [if you answered Yes to 5. (a).] 
+ 5. (b). Your app does not meet the allowed categories for use of VpnService. If you believe your monetization use case meets the category for use in alignment with policy, please explain. 
+ Note: Any manipulation of ads that can impact monetization will result in rejection. 
+ Was this helpful? How can we improve it? Yes No Submit Need more help? Try these next steps: Post to the help community Get answers from community members Contact us Tell us more and we’ll help you get there true Policy education and app requirements 1 of 32 Understanding Google Play’s Payments policy 2 of 32 Understanding Google Play's Service Fee 3 of 32 Understanding Google Play's Better Ads Experiences policy 4 of 32 Understanding Google Play's VpnService policy 5 of 32 Understanding moderation requirements and incidental sexual content in UGC apps 6 of 32 Understanding Google Play’s app account deletion requirements 7 of 32 Understanding foreground service and full-screen intent requirements 8 of 32 Understanding Google Play’s Spyware policy 9 of 32 Requirements for news and magazine apps 10 of 32 Update on COVID-19 guidelines 11 of 32 Requirements for distributing apps in specific countries/regions 12 of 32 Requirements for apps that communicate government information 13 of 32 Android Health Permissions: Guidance and FAQs 14 of 32 Provide information for the Financial features declaration 15 of 32 Country/region allowances for gambling apps 16 of 32 Advertising ID 17 of 32 System services 18 of 32 Using SDKs safely and securely 19 of 32 On-device Android container apps and the REQUIRE_SECURE_ENV manifest flag option 20 of 32 Health app categories and additional information 21 of 32 Understanding Google Play's AI-Generated Content policy 22 of 32 General conditions of access for Google Play in the EEA 23 of 32 Learning more about our Child Safety Standards policy 24 of 32 Requirements for providing sign in details for review 25 of 32 How to declare a news and magazine app 26 of 32 Understanding Google Play’s Cryptocurrency Exchanges and Software Wallets Policy 27 of 32 Flexibility for EEA App Distribution 28 of 32 Best Practices to Safeguard AI-Generated Content 29 of 32 Changes to the external offers program for users in the EEA 30 of 32 Changes to Google Play for upcoming app store bills for users in applicable US states 31 of 32 Requirements for apps with incidental dating or matchmaking features 32 of 32 Preview: Understanding foreground service and full-screen intent requirements ©2026 Google Privacy Policy Terms of Service Language Afrikaans‎ català‎ dansk‎ Deutsch‎ eesti‎ English (United Kingdom)‎ español‎ español (Latinoamérica)‎ Filipino‎ français‎ français (Canada)‎ Gaeilge‎ hrvatski‎ Indonesia‎ isiZulu‎ italiano‎ Kiswahili‎ latviešu‎ lietuvių‎ magyar‎ Malti‎ Melayu‎ Nederlands‎ norsk‎ polski‎ português‎ português (Brasil)‎ română‎ slovenčina‎ slovenščina‎ suomi‎ svenska‎ Tiếng Việt‎ Türkçe‎ čeština‎ Ελληνικά‎ български‎ русский‎ српски‎ українська‎ ‏ עברית ‏ اردو ‏ العربية हिन्दी‎ தமிழ்‎ ಕನ್ನಡ‎ ไทย‎ አማርኛ‎ 中文（简体）‎ 中文（繁體）‎ 中文（香港）‎ 日本語‎ 한국어‎ English‎ Enable Dark Mode Send feedback on... This help content & information General Help Center experience Search Clear search Close search Google apps Main menu 10553039576603487994 true Search Help Center false true true true true true 92637 false false false false false

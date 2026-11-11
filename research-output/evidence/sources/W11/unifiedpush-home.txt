@@ -1,0 +1,72 @@
+UnifiedPush 
+ Skip to main content 
+ UnifiedPush 
+ Navigation 
+ Get started 
+ Distributors
+ FAQ
+ Apps using UnifiedPush
+ Gateway
+ Troubleshooting 
+ Your setup
+ Self-Hosted ntfy Server
+ Self-Hosted UnifiedPush and Matrix Servers
+ Developers 
+ Introduction
+ User Experience
+ Implementations
+ Sandbox Linux apps
+ Specifications 
+ Definitions
+ Android
+ D-Bus
+ News
+ Talks
+ Contributing
+ More 
+ Codeberg
+ Matrix Chat
+ Mastodon
+ Donate
+ UnifiedPush 
+ Edit page
+ UnifiedPush 
+ UnifiedPush is a decentralized push notification system that lets you choose the service you want to use. It’s designed to be privacy-friendly, flexible, and open — making it perfect if you want control over your push notifications. 
+ Quickstart guides:
+ Android: 
+ Sunup : A quick and easy way to use UnifiedPush without signing up for an account. 
+ ntfy : A lightweight, open-source push notification service that can be used as a UnifiedPush distributor. 
+ Conversations (XMPP) : A popular XMPP client that can both distribute and receive UnifiedPush notifications. 
+ NextPush : A push notification service designed for Nextcloud. 
+ gCompat-UP : A UnifiedPush distributor that uses Google Services, mainly used for development. 
+ Linux: 
+ KUnifiedPush : Service developed by KDE, able to connect to different servers. 
+ Key benefits of UnifiedPush:
+ Open standard: Interoperable and resilient. 
+ Decentralized: Not tied to any single company or service, reducing reliance on gatekeepers. 
+ Privacy first: Push notifications are encrypted. 
+ Self-hostable: Run your own notification server for as much control as you need. 
+ User Control: The user chooses the service they use, not the developers. 
+ Key features:
+ No privileged services needed: Use lightweight services and follow the least privilege policy. Works on de-Googled Android devices and custom ROMs. Works as a user service on Linux devices. 
+ Multiple distributors: Choose from a list of distributors . 
+ Easy integration: Developers can add UnifiedPush support to their apps with minimal effort. 
+ How it works
+ Step 1. App Sends Notification: 
+An app server (e.g. Mastodon) sends a short message to your UnifiedPush distributor’s server (e.g. Sunup). 
+ Step 2. Distributor Delivers Notification: 
+The distributor receives the message and forwards it to the targeted application (e.g. Tusky). 
+ Step 3. Device Receives Notification: 
+The application wakes up and processes the received data. It usually uses the content to show a notification* on the user interface. 
+ * This is why it is called a push notification . 
+ Communication
+ You can reach us on our main chat room on Matrix at #unifiedpush:matrix.org 
+ They support UnifiedPush
+ It is already possible to receive your push notifications with UnifiedPush on different applications! 
+ Explore more apps and details 
+ Funding
+ This project is funded through NGI Zero Core , a fund established by NLnet with financial support from the European Commission’s Next Generation Internet program. Learn more at the NLnet project page . 
+ This project has been funded by COVESA . 
+ Built with Hugo and 
+ Version: d00beb6 
+ Back to top

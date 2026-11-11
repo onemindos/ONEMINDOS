@@ -1,0 +1,434 @@
+SOURCE: https://redis.io/blog/agplv3/
+ACCESSED: 2026-11-10
+
+Redis is now available under the AGPLv3 open source license | Redis
+Skip to:
+Home
+Content
+Footer navigation
+Build production-ready, resilient agents. Six new capabilities across retrieval, memory, routing, and messaging.
+Register now
+Redis Iris
+Platform
+Platform
+Redis Iris
+Real-time context for agents
+Intent Router
+[New]
+Classify on intents
+Agent Playbooks
+Reuse answers & procedures
+Redis Agent Memory
+Agentic memory for consistent experiences
+Context Gateway
+Leverage context from anywhere
+Lens
+[New]
+See inside your agents
+Redis Agent Mesh
+[New]
+Keep agents communicating
+Caching
+Sub-ms read/write at scale
+Streaming
+Event-driven messaging & data pipelines
+Session management
+Fast, persistent storage for sessions
+Search
+Search & query for structured data
+Feature store
+Real-time ML feature pipeline for apps & agents
+Redis Data Integration
+CDC across your structured data
+Redis Flex
+More data, more speed, less cost
+Latest
+Register now
+Getting agents to actually work in production and at scale
+Nov. 12, 2026
+Get Redis
+Downloads
+Deploy
+Deploy
+Redis Cloud
+Fully managed, fully flexible
+Redis Software
+On-prem
+Redis open source framework
+Redis 8.8
+Pricing
+Let’s talk numbers
+Redis on AWS
+Buy with cloud commits
+Azure Managed Redis
+Microsoft-supported Redis
+Redis on Google Cloud
+Redis from the marketplace
+saw a 40% increase in revenue generation through their new Redis powered online experience.
+See how
+uses Redis for 100+ vector search queries per second.
+See how
+achieved 37% faster API response times while having a 15% lower memory footprint with Redis.
+See how
+saw over a billion API requests per month with Redis.
+See how
+Tools
+Redis Insight
+UI to visualize, query, & debug
+RIOT
+Get data into Redis from anywhere
+Client libraries
+Python, Node, Java, Go, .Net, & more
+SDKs
+Connect Redis to your apps
+Get Redis
+Downloads
+Solutions
+AI & ML Apps
+Scale agent & agentic systems
+Everything you need to be successful
+RAG
+Understand how Redis powers RAG
+Semantic search
+Right answers, right now
+ML
+Leverage your features, fast
+Token optimization
+All the AI without all the cost
+AI cost optimization
+Control AI costs without compromise
+Core Workloads
+Fraud detection
+Stop fraud, protect customers
+Real-time decisions
+Act on data in real time
+Caching & performance
+Our bread & butter
+Real-time messaging
+Streams at the speed of thought
+Session management
+Consistent experiences everywhere
+Leaderboards
+Know who’s winning
+Industries
+Financial services
+E-commerce & retail
+Gaming
+Healthcare
+Telco
+Get Redis
+Downloads
+Devs
+Docs
+Redis Cloud
+The nitty gritty
+Welcome to the community
+Join the largest open source community in cache
+Dev Hub
+All the tools to build
+Training
+University
+Become a Redis expert
+Tutorials
+How-to for whatever you’re trying to do
+Quick starts
+Go 0 to 1: Redis fast
+Knowledge base
+Get support
+saw a 40% increase in revenue generation through their new Redis powered online experience.
+See how
+uses Redis for 100+ vector search queries per second.
+See how
+achieved 37% faster API response times while having a 15% lower memory footprint with Redis.
+See how
+saw over a billion API requests per month with Redis.
+See how
+Learning
+Blog
+All the words
+Resource center
+Everything you need, in one place
+Demo center
+Anything & everything, in action
+Reference architectures
+No guessing, just deploy
+Resources
+Customers
+Resource Center
+Events
+Virtual & live events
+Come say hello
+Partners
+Join the Redis Partner Network
+Find a partner
+AWS
+Google
+Microsoft
+saw a 40% increase in revenue generation through their new Redis powered online experience.
+See how
+uses Redis for 100+ vector search queries per second.
+See how
+achieved 37% faster API response times while having a 15% lower memory footprint with Redis.
+See how
+saw over a billion API requests per month with Redis.
+See how
+Latest
+Getting agents to actually work in production and at scale
+Nov. 12, 2026
+Learn how to Build
+Visit our dev hub
+Search
+Book a meeting
+Try Redis
+Redis Iris
+Platform
+Platform
+Redis Iris
+Real-time context for agents
+Intent Router
+[New]
+Classify on intents
+Agent Playbooks
+Reuse answers & procedures
+Redis Agent Memory
+Agentic memory for consistent experiences
+Context Gateway
+Leverage context from anywhere
+Lens
+[New]
+See inside your agents
+Redis Agent Mesh
+[New]
+Keep agents communicating
+Caching
+Sub-ms read/write at scale
+Streaming
+Event-driven messaging & data pipelines
+Session management
+Fast, persistent storage for sessions
+Search
+Search & query for structured data
+Feature store
+Real-time ML feature pipeline for apps & agents
+Redis Data Integration
+CDC across your structured data
+Redis Flex
+More data, more speed, less cost
+Register now
+Get Redis
+Downloads
+Deploy
+Deploy
+Redis Cloud
+Fully managed, fully flexible
+Redis Software
+On-prem
+Redis open source framework
+Redis 8.8
+Pricing
+Let’s talk numbers
+Redis on AWS
+Buy with cloud commits
+Azure Managed Redis
+Microsoft-supported Redis
+Redis on Google Cloud
+Redis from the marketplace
+Tools
+Redis Insight
+UI to visualize, query, & debug
+RIOT
+Get data into Redis from anywhere
+Client libraries
+Python, Node, Java, Go, .Net, & more
+SDKs
+Connect Redis to your apps
+Get Redis
+Downloads
+Solutions
+AI & ML Apps
+Scale agent & agentic systems
+Everything you need to be successful
+RAG
+Understand how Redis powers RAG
+Semantic search
+Right answers, right now
+ML
+Leverage your features, fast
+Token optimization
+All the AI without all the cost
+AI cost optimization
+Control AI costs without compromise
+Core Workloads
+Fraud detection
+Stop fraud, protect customers
+Real-time decisions
+Act on data in real time
+Caching & performance
+Our bread & butter
+Real-time messaging
+Streams at the speed of thought
+Session management
+Consistent experiences everywhere
+Leaderboards
+Know who’s winning
+Industries
+Financial services
+E-commerce & retail
+Gaming
+Healthcare
+Telco
+Get Redis
+Downloads
+Devs
+Docs
+Redis Cloud
+The nitty gritty
+Welcome to the community
+Join the largest open source community in cache
+Dev Hub
+All the tools to build
+Training
+University
+Become a Redis expert
+Tutorials
+How-to for whatever you’re trying to do
+Quick starts
+Go 0 to 1: Redis fast
+Knowledge base
+Get support
+Learning
+Blog
+All the words
+Resource center
+Everything you need, in one place
+Demo center
+Anything & everything, in action
+Reference architectures
+No guessing, just deploy
+Resources
+Customers
+Resource Center
+Events
+Virtual & live events
+Come say hello
+Partners
+Join the Redis Partner Network
+Find a partner
+AWS
+Google
+Microsoft
+Learn how to Build
+Visit our dev hub
+Try Redis
+Book a meeting
+Resource Center
+Events & webinars
+Blog
+Videos
+Glossary
+Resources
+Architecture Diagrams
+Demo Center
+Resource Center
+Events & webinars
+Blog
+Videos
+Glossary
+Resources
+Architecture Diagrams
+Demo Center
+Back to blog
+Blog
+Redis is now available under the AGPLv3 open source license
+May 01, 2025
+2 minute read
+Rowan Trollope
+Summarize with AI
+The rise of hyperscalers like AWS and GCP has unlocked incredible speed and scale for startups and enterprises alike. But for companies rooted in open source, it has posed a fundamental challenge: how do you keep innovating and investing in OSS projects when cloud providers reap the profits and control the infrastructure without proportional contributions back to the projects that they exploit?
+To counter this, companies like MongoDB and Elastic adopted SSPL to protect their business from cloud providers extracting value without reinvesting. Redis initially took a different approach, creating Redis Stack as a separate distribution with a different license for advanced features. While this safeguarded innovation, it also split the developer experience and slowed progress on core Redis. What we really needed was a way to enhance Redis at its core without maintaining two separate tracks—Redis Community Edition and Redis Stack.
+After I joined the company, and a year of evaluating alternatives, in March 2024, we decided to
+move Redis to the SSPL license
+. This achieved our goal—AWS and Google now maintain their own fork—but the change hurt our relationship with the Redis community. SSPL is not truly open source because the Open Source Initiative clarified it lacks the requisites to be an OSI-approved license.
+Following our license change, in November of 2024 Salvatore Sanfillipo (antirez) decided to
+rejoin Redis
+as a developer evangelist. Collaborating with Salvatore on new capabilities, company strategy and community engagement has been a true privilege that has made a major impact that will pay dividends into the future.
+With guidance from Salvatore, our CTO, Benjamin Renaud, and our core developers, we have made some key decisions to improve Redis going forward:
+Adding the OSI-approved
+AGPL
+as an additional licensing option for Redis, starting with Redis 8 (available now);
+Introducing vector sets—the first new data type in years—created by Salvatore;
+Integrating Redis Stack technologies, including JSON, Time Series, probabilistic data types, Redis Query Engine and more into core Redis 8 under AGPL;
+Delivering over 30 performance improvements with up to 87% faster commands and 2x throughput; and
+Improving community engagement, particularly with client ecosystem contributions.
+Redis 8 with its new capabilities and with AGPL licensing demonstrates our ongoing commitment to making a platform developers love, while advancing Redis according to Salvatore’s original vision.
+View as Markdown
+Share
+Get started with Redis today
+Speak to a Redis expert and learn more about enterprise-grade Redis today.
+Try for free
+Talk to sales
+Trust
+Privacy
+Terms of use
+Legal notices
+Cookie preferences
+English
+Español
+Français
+Deutsch
+한국어
+Italiano
+Português
+Use cases
+Vector database
+Feature Form
+Semantic cache
+Caching
+NoSQL database
+Leaderboards
+Data deduplication
+Messaging
+Authentication token storage
+Fast data ingest
+Redis Search
+All solutions
+Industries
+Financial Services
+Gaming
+Healthcare
+Retail
+Telco
+All industries
+Compare
+Redis vs. ElastiCache
+Redis vs. Memcached
+Redis vs. Memorystore
+Redis vs. Redis Open Source
+Company
+Mission & values
+Careers
+News
+Connect
+Community
+Events & Webinars
+Partners
+Amazon Web Services
+Google Cloud
+Azure
+All partners
+Support
+Professional Services
+Support
+Redis for Agents Documentation
+English
+Español
+Français
+Deutsch
+한국어
+Italiano
+Português
+Trust
+Privacy
+Terms of use
+Legal notices
+Cookie preferences

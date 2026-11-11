@@ -1,0 +1,479 @@
+STIG Compliance | TrueNAS Documentation Hub 
+ Search TrueNAS Documentation
+ × 
+ Show Results From:
+ Version (25.04) 
+ 28 (Nightly) 
+ 27 
+ 25.10 
+ 25.04 
+ 24.10 
+ Docs 
+ API 
+ Apps 
+ TrueNAS Connect 
+ Searching...
+ Products 
+ Support & Resources 
+ Get A Quote 
+ Solutions 
+ Company 
+ Sign In 
+ Close 
+ Products V-Series Max Performance & Versatility
+ F-Series High Performance NVME
+ H-Series Versatility and Power Efficiency
+ Mini Series Edge and Branch Office
+ M-Series High Capacity All-Flash or Hybrid
+ R-Series Single Controller Appliances
+ TrueNAS Enterprise
+ Mission Critical Storage. 24×7 Enterprise Support
+ TrueNAS Community Edition
+ Test Drive TrueNAS in Your Environment
+ Streamlined Management for your TrueNAS Systems 
+ Solutions Industry
+ Audio 
+ Automotive 
+ Broadcasting 
+ Education 
+ US Public Sector 
+ Gaming 
+ Healthcare 
+ MSP 
+ Manufacturing 
+ Research & AI 
+ Media & Entertainment 
+ Use Cases
+ Analytics 
+ Backup & Archival 
+ Cloud 
+ Data Mobility 
+ File Sharing 
+ TrueCloud Backup 
+ Media & Entertainment 
+ Surveillance/CCTV 
+ Veeam Backup 
+ Virtualization 
+ Red Hat OpenShift 
+ TrueNAS as an Alternative
+ Alternative to Dell 
+ Alternative to NetApp 
+ Alternative to Pure Storage 
+ Support & Resources Support
+ Enterprise Support For customers with active support contracts
+ Community Support For peer-to-peer, forum support
+ Resources
+ Case Studies 
+ Datasheets 
+ Documentation 
+ TrueNAS API 
+ FAQ 
+ Apps 
+ TrueNAS Blogs 
+ Software Status 
+ TrueNAS Security 
+ Solution Briefs and Guides 
+ Certifications & Integrations 
+ White Papers 
+ Videos 
+ TrueCommand Cloud 
+ Reseller Network 
+ ZFS Overview 
+ Community
+ TrueNAS Community Edition 
+ Community Forum 
+ Discord 
+ TrueNAS GitHub 
+ TrueNAS Merch Store 
+ Company About TrueNAS 
+ Team 
+ Awards 
+ Careers 
+ Contact Us 
+ Newsroom 
+ Our Clients 
+ Reviews 
+ Sign In TrueNAS Connect 
+ Partner Portal 
+ Enterprise Support 
+ Get A Quote 
+ Documentation Hub Product TrueNAS
+ TrueNAS Apps 
+ TrueNAS Connect TrueCommand
+ TrueNAS Systems
+ Version 
+ Keyword Search 
+ AI Search 
+ × 
+ TrueNAS Software Status 
+ TrueNAS
+ Nightly (28) 
+ 27 
+ 25.10 
+ 25.04 
+ 13.0 
+ Archive 
+ Solutions
+ ⎙ Download or Print 
+ Migrating Data to TrueNAS from Third-Party Solutions 
+ Accessing TrueNAS Remotely 
+ Migrating MinIO Data from Previous TrueNAS Versions (Deprecated) 
+ Optimizations
+ Cross-Site Disaster Recovery 
+ Media Workflows 
+ Security Recommendations 
+ STIG Compliance 
+ Networking Recommendations 
+ Integrations
+ AWS Images (Obsolete) 
+ Asigra Plugin 
+ Containers 
+ CSI Driver
+ CSI Driver Administrators Guide 
+ CSI Driver User Guide 
+ CSI Driver Reference 
+ OpenShift Operator
+ OpenShift Operator Administrators Guide 
+ OpenShift Operator User Guide 
+ OpenShift Operator Reference 
+ Nextcloud 
+ OpenStack Cinder Driver 
+ Proxmox VE Storage Plugin 
+ Veeam 
+ Veeam Software Appliance 
+ Veeam Infrastructure Appliance 
+ Veeam Immutability 
+ VMware
+ TrueNAS Virtualized with ESXi 
+ TrueNAS vCenter Plugin 
+ Hyper-V 
+ Entra Domain Services (Azure DS) 
+ Products
+ V-Series 
+ F-Series 
+ H-Series 
+ M-Series 
+ R-Series 
+ Mini Series 
+ Expansion Shelves 
+ Notices 
+ Legacy Systems
+ X-Series 
+ Mini Series 
+ M-Series 
+ R-Series 
+ Z-Series 
+ FreeNAS Certified 
+ Discontinued Expansion Shelves 
+ Contributing
+ Web Interface Translations 
+ Web UI Code Contributions 
+ Issue Reporting
+ Issue Reporting in Jira 
+ Feature Requests 
+ Documentation
+ Content Styling 
+ Updating Content 
+ Adding a New Article 
+ Article Template 
+ References
+ Copyrights and Trademarks 
+ ACL Primer 
+ Concepts and Terminology 
+ Bits or Bytes? 
+ Controller or Node? 
+ Understanding IPv6 
+ IPMI 
+ L2ARC 
+ Performance
+ Interconnect Maximum Effective Data Rates 
+ SMB Directory List Times 
+ SLOG Devices 
+ Server Message Block (SMB) 
+ Thin Provisioning 
+ ZFS Deduplication 
+ ZFS Primer 
+ ZFS dRAID Primer 
+ Drive Troubleshooting Flowchart 
+ ZFS ZIL and SLOG 
+ ZFS Capacity Calculator 
+ ZFS Capacity Graph 
+ RAIDZ Extension Calculator 
+ TrueNAS Apps 
+ TrueNAS Connect 
+ TrueNAS API Docs 
+ Security Reports 
+ Documentation Archive 
+ View Source 
+ RSS Feed 
+ ➤ Documentation Hub 
+ /
+ Solutions 
+ /
+ Optimizations 
+ /
+ STIG Compliance 
+ Edit page 
+ STIG Compliance
+   16 minute read.
+ Last Modified 2026-10-06 13:26 EDT 
+ TrueNAS Compliance
+ TrueNAS falls into the category of an appliance with its own operating system as covered in General Purpose Operating System Security Requirements Guide (GPOS SRG) findings.
+Through connection to Active Directory, TrueNAS also complies with the Active Directory Domain Security Technical Implementation Guide SRG findings related to authentication and access controls for user, group, and systems.
+ Customizing TrueNAS Security Options for STIG Compliance
+ Many areas of compliance with the STIG SRG findings are automatically addressed through the TrueNAS kernel and middleware, but some are optional settings and features in the TrueNAS UI administration users customize to suit individual use cases and security policies.
+This article details customizable settings to accomplish a security-hardened system for STIG and FIPS compliance.
+ Install TrueNAS
+ Existing TrueNAS systems can upgrade to the latest release through the UI.
+Earlier releases of TrueNAS can upgrade by following the established migration paths or might need to clean-install the latest release of SCALE using the iso
+ . Refer to documentation on upgrading existing systems found here .
+ If side-grading (migrating) from an earlier release to the latest TrueNAS release, follow guidance in the Preparing to Migrate article before beginning the migration.
+ If clean-installing TrueNAS for the first time, follow guidance in the Installation Instructions articles.
+ Prerequisites
+ If you are installing TrueNAS on servers other than licensed TrueNAS Enterprise systems, you should read and follow guidance in the TrueNAS Hardware Guide .
+ Configuring TrueNAS
+ After installing TrueNAS, users must configure network, storage, users, sharing, and data backup solutions. See Configuration Instructions for more information.
+ Administration Accounts
+ TrueNAS creates the root user and an administration user at installation.
+Some releases of TrueNAS might only have root as the default administration user, while other releases have either the admin or truenas_admin as the default user.
+ TrueNAS systems with the root user, or either the admin or truenas_admin user should create a new administration user with full control privileges and assign a complex password that follows current password management guidelines.
+ After testing the login for the new administration user, disable both the root user password if not already disabled, and the default admin or truenas_admin user password to security-harden the system.
+Only enable the root user password when necessary to perform functions not available to the administration user, and when tasks are complete, disable the root user password again.
+ If creating multiple administration user accounts for individuals that fill specific roles, limit privileges and access to what is minimally required to perform the system responsibilities.
+ See Using Administrator Logins for more information on administration user accounts.
+ Restrict Access to Roles
+ TrueNAS allows for role-based access control (RBAC) through the privileges function such as the predefined, full control, readonly, and sharing_administrator roles.
+ In 24.10 and later releases, full administrators can configure new privileges to create other administration user roles with access limited to specific tasks such as replication, cloud sync, cloud backup, apps and docker, directory services, system audit, and keychain read/write capabilities.
+Create the new privilege and assign it to a new or existing group, and then assign the new group to the administration user.
+ Use caution when creating new privileges.
+Incorrectly configuring privileges can result in unintended consequences.
+Do not modify the default existing privileges!
+ See Using Administrator Logins for more information on administration user accounts.
+ Restrict Access to SSH
+ Enable SSH access only for the full-control administration user (Local Administrator) but do not leave the SSH service enabled when not in use. Disable the SSH service after completing the required tasks.
+Re-enable it only when you need access again.
+ Do not set the SSH service to start automatically if the system restarts to prevent starting and leaving SSH running when not needed.
+See SSH Service for more information.
+ If using multiple administration user accounts, limit SSH session access to only users that require this ability to communicate with TrueNAS at the command-line level.
+See Restrict Access to Sudo Commands for more information.
+ Restrict Access to Sudo Commands
+ Only the main system administration account should have access to sudo commands.
+ If other administration users need access to SSH or sudo command, restrict access to specific sudo commands rather than allowing unlimited access.
+Also, require password entry before executing any sudo command in an SSH or shell session.
+ If creating multiple administration users with permissions to perform specific tasks, do not enable sudo commands or configure limited access by entering only the specific commands they need to use to complete required tasks.
+ See Managing Users and Using Administrator Logins for more information on creating users and allowing sudo command access.
+ Restrict Access to Shell
+ Configure access to the shell for only the main administration user with full control.
+For better control leave access to the shell to only the root user.
+Enable the root user password only when required.
+ If creating multiple administration users, deny or restrict administration user access to the shell.
+If granting limited access to the shell, restrict sudo command access to only those commands necessary for the role the administration user fills and enforce password entry for commands.
+ Lock Users
+ If necessary, use the Lock User option on the Credentials > Users > Edit User screen to prevent or restrict user access for a limited time.
+Locking the account disables but does not delete the account.
+ Web UI Security
+ Various settings found on the System > General Settings and Advanced Settings screens can limit web UI access, increase visibility of system activity, and increase system security.
+TrueNAS can also require login credential entry before permitting access to the Console Setup menu after the system installation.
+ Require Login to Show Console Setup Menu
+ After the initial system installation, administration users with full control can configure TrueNAS to require a user login before showing the Console Setup menu screen.
+Go to System > Advanced Settings and click Configure on the Console widget. Clearing the Show Text Console without Password Prompt sets TrueNAS to show the login prompt before showing the Console Setup menu.
+ Set Up a GUI SSL Certificate
+ TrueNAS provides a default, self-signed certificate to enable encrypted web interface connections but users can obtain, import, or create a new certificate to use for this function for added security.
+If adding or importing a certificate, go to Credentials > Certificates then first add or import the certificate authority (CA) and then create or import the certificate to add it as a selectable option in the GUI SSL Certificate field on the System > General Settings > GUI Settings screen.
+ Configure HTTPS TLS Protocols
+ TrueNAS uses TLSv1.2 and TLSv1.3 to provide a cryptographic protocol for securing client/server connections.
+TrueNAS provides the TLSv1.0 and TLSv1.1 options for backward compatibility but these protocols are less secure than the default protocol selections.
+To change the default selections, go to System > General Settings , and click Settings on the GUI widget. Click the dropdown arrow for HTTPS Protocols , make the change and then click Save .
+ Configure a Banner
+ TrueNAS allows you to configure a banner message to show before logging into the web UI or SSH login screens.
+ To configure a web UI banner message, go to System > Advanced Settings and click Configure on the Access widget.
+Type the text into the Login Banner field, and click Save .
+This shows a banner screen when users first enter the web UI IP address. Users click Continue to gain access the TrueNAS login screen.
+ To configure a banner before authorized users can log into an SSH session, go to System > Advanced Settings and click Console .
+Enter the text for the message in the MOTD Banner field and click Save .
+ Session Controls
+ Monitor the user session displayed on the Access widget located on the System > Advanced Settings screen.
+Use Terminate Other Sessions to end a WebSocket session/connection to TrueNAS if necessary.
+Configure session timeout in seconds to limit how long TrueNAS remains logged in when not in active use.
+ Configure Two Factor Authentication
+ Two Factor Authentication adds a second level of security to log-in access.
+TrueNAS provides the option to enable two-factor authentication globally, which prompts users to set up 2FA for the web UI.
+A separate option allows requiring two-factor authentication to log into an SSH session for users who configured a 2FA secret.
+ STIG Mode Exception: In GPOS STIG compatibility mode, 2FA for UI access is mandatory for all users. In standard mode, users can skip 2FA setup and log in without it.
+ When global 2FA is enabled in standard (non-STIG) mode:
+ Users with a configured 2FA secret must provide the 2FA code to log in to the UI
+ Users without a configured 2FA secret can log in without 2FA but see a one-time per session prompt to set it up
+ SSH 2FA only applies to users who configured a 2FA secret and are using password-based authentication
+ See Managing Global Two-Factor Authentication for more information
+ Monitor System Activity
+ Monitor System Console Messages
+ TrueNAS allows showing real-time console messages at the bottom of the web UI screen.
+Turning this on allows the administration user to monitor console messages detailing system activity.
+Click on the banner at the bottom of the UI screen to open a dialog showing system activity for a few days of system activity.
+Go to System > General Settings and click Settings on the GUI widget. Select Show Console Messages and click Save to show console messages.
+ System Auditing
+ To customize the system auditing retention period, specify how long the TrueNAS retains auditing records.
+See Audit Logs for more information on TrueNAS audit logs and configuring auditing settings.
+ To keep audit log records beyond the retention period, use the Export button to download a copy of the audit database.
+Move the file to a remote backup server to retain a copy of the log based on your data security policies.
+TrueNAS prevents modification of the audit log database on the TrueNAS server. Use other data protection measures to prevent modification of a downloaded copy of the file.
+ System Logging
+ Configure TrueNAS to send system logs to an external server using the Syslog widget on the System > Advanced Settings screen in release 24.10 and later .
+ Enter the IP address or host name for the remote system logging server.
+Select the preconfigured system certificate.
+ You need a certificate to use TLS protocol for syslog transport to the remote log server.
+Create a new dedicated certificate authority and certificate to secure the TLS connection with the remote server.
+ To include the fully-qualified domain name (FQDN) in logs to precisely identify systems with similar host names, select or enable the Use FQDN for Logging option.
+ Alert Settings
+ Configure alert settings to monitor system, user, and process activity from the System > Alert Settings screen.
+ Configure the email address to receive system alerts when triggered.
+ Next, configure the individual alert parameters for your use case.
+Consider setting the following alerts for STIG compliance: Category
+ Alert
+ Reason
+ Audit 
+ Audit Service Backend Failed 
+ Set alert level preference to send notifications when an auditing function failure occurs to promptly correct the issue and not lose audit logs.
+ Audit Service Setup Failed 
+ Set alert level preference to send notifications when the auditing setup fails to correct the issue promptly and not lose audit logs.
+ Certificates 
+ Certificate is Expiring Soon 
+ Certificate is Expiring 
+ Certificate has Expired 
+ Set alert level preferences to send notifications when certificates near expiration. This allows you to renew or replace certificates before they affect certificate-dependent functions.
+ Certificate Revoked 
+ Set alert preferences to notify you of certificate revocations so you can promptly obtain a new certificate.
+ Web UI HTTPS Certificate Setup Failed 
+ Set alert level preferences to send notifications when the web UI HTTPS certificate setup fails to promptly address issues that impact the security of HTTPS access to the TrueNAS web UI.
+ Directory Services 
+ Active Directory Domain Validation Failed 
+ Set the alert level preference to send notifications when Active Directory domain verification fails to promptly investigate and take corrective action.
+ Sharing 
+ Deprecated Service Configuration Detected 
+ Deprecated Service is Running 
+ Set alert preferences to notify you when the system detects deprecated services or configurations. Consult release notes and tutorials for information on affected Share protocols and their replacements.
+ IP Addresses Bound to an iSCSI Portal Were Not Found 
+ NFS Services Could Not Bind to Specific IP Addresses Using 0.0.0 
+ NFS shares reference hosts that could not be resolved 
+ Set alert preferences to notify you of failed or missing network connections so you can update configurations promptly.
+ NTLMv1 authentication has been attempted in the last 24 hours 
+ Set alert preferences to notify you when NTLMv1 authentication occurs between TrueNAS and Windows servers. NTLMv1 provides some session security, message integrity, and confidentiality but lacks the robustness of modern protocols and remains vulnerable to replay and brute-force attacks. Investigate any NTLMv1 usage promptly and upgrade to more secure authentication methods.
+ SMB share path has unresolvable issues 
+ Set the alert level preference to send notifications when there are unresolvable issues with an SMB share path. Leaving share paths issues unaddressed can leave the system and data in the shares vulnerable to attack.
+ Storage 
+ Pool consuming USB disks 
+ Set the alert level preference to send notifications when TrueNAS detects a USB disk connected to and used by the system. USB drives can put data and data security at risk if used for normal storage and as a potential source of unauthorized data transfer medium. USB drives are not recommended as a target for system and data backups.
+ System 
+ Admin User is Overriden 
+ Administrator account activity 
+ SSH Login Failures 
+ Set alert preferences to notify you when TrueNAS detects administrator activity in web UI and SSH sessions. These alerts help you identify potential unauthorized access to TrueNAS features, functions, system configuration, and data storage.
+ The Web Interface Could Not Bind to Configured Address 
+ Set the alert level preference to send notifications when TrueNAS detects problems binding to any network address. Address incorrectly configured network addresses promptly to maintain secure communication between TrueNAS and other remote servers.
+ Network Security
+ Do not leave inactive network connections configured or active in TrueNAS even if they are non-public IP addresses.
+ Allowed IP Addresses
+ To limit the IP address(es) allowed access to the TrueNAS web UI to a single or range of IP addresses in a subnet, go to System > Advanced Settings > Allowed IP Addresses and either enter a single IP address to restrict access to one IP address, or enter an IP address and subnet mask to restrict access to a range of IP addresses.
+ Use caution when configuring the system to restrict access to avoid locking out web UI access to all users!
+If locked out of the web UI, connect a terminal and keyboard to the system server to change this setting to allow web UI access again.
+ Disable Unused Network Connections
+ Unused network connections, whether in network interfaces such as a bridge, VLAN, link aggregate, interface aliases, or static routes.
+Left active in the system and if publicly accessible, these addresses present security vulnerabilities.
+Check share advanced options and share service configurations for invalid network addresses or connections to discontinued remote servers.
+ Allowed Domains and IP Addresses/Hosts
+ To increase network, consider configuring allowed domains on the Network > Global Configuration screen .
+ To increase share security, configure allowed host names or IP addresses for SMB shares or NFS shares .
+ Data Security
+ To keep data secure, TrueNAS provides dataset access controls, encryption, and the ability to lock/unlock datasets.
+Shares can configure share or filesystem access controls.
+Applications allow configuring access control on the storage volumes or host path datasets they use for container storage.
+ Configure Access Control Lists (ACLs)
+ TrueNAS provides both POSIX and NFSv4 access control protocols and applies them based on the dataset preset selected when creating the dataset.
+Advanced users can override the default ACL protocol applied through advanced dataset setting options to suit their security protocols or individual use cases.
+ Configure dataset access for owners, individual users, groups, or everyone. Set permissions to allow or deny read-only, read/write, or full control access.
+See Setting Up Permissions for more information.
+ SMB shares permit setting up permissions for just the share but not the dataset for the share, or for both the dataset and the share.
+See Windows Shares for more information on SMB shares, creating shares, and configuring settings including permissions.
+ NFS shares do not have the same setting options and rely on the dataset ACL settings.
+See NFS Shares for more information.
+ Apps installation wizards for apps in the enterprise and stable trains, and some community apps include the option to enable ACLs where you set the owner and permissions level by storage volume/dataset host path.
+ Configure Encryption
+ TrueNAS allows users to set encryption at the dataset level but does not recommend setting it at the pool level. Pool-level encryption forces encryption on all datasets created in the pool and can only use key encryption.
+Encrypting at the dataset level allows more granular control over encrypted versus unencrypted datasets, and allows setting the encryption type to either key or passphrase protection.
+Child datasets of encrypted datasets inherit encryption from the parent dataset.
+See Storage Encryption for more information on encrypting datasets.
+ Encrypted datasets allow users to lock them to prevent read or write access until users unlock them.
+ Data Transfer Security
+ TrueNAS allows encryption on data transfers made through cloud sync and replication tasks.
+This provides an additional encryption layer that works with or without dataset-level encryption.
+ See Encrypting Cloud Sync Tasks for more information on encrypting cloud sync tasks, or Adding Transfer Encryption for information on adding encryption to remote replication tasks.
+ Maintain SSH Connection Credentials
+ TrueNAS uses SSH connection credentials for cloud backup tasks, cloud sync tasks, rsync tasks, and replication tasks.
+Purge the list of SSH connections to backup servers no longer actively used to minimize security vulnerabilities through connections to the remote servers or services no longer used.
+Select out-of-date or inactive SSH connections, SSH Keypair, or cloud credentials to edit or delete them.
+ Updating TrueNAS Releases
+ TrueNAS provides a way to update to the latest releases from the UI. The main Dashboard and Software > Updates screen provide access to the latest releases for the currently installed release train selected in TrueNAS.
+Alternatively, users can use an iso to clean install the latest version of TrueNAS.
+Each release upgrade creates a new boot environment.
+ Manage Boot Environments
+ To manage versions of TrueNAS releases, go to System > Boot to open the Boot Environments screen.
+Select the checkbox(es) for releases you want to delete from the list of inactive releases.
+Maintaining releases does not pose security risks but does consume space on the boot pool.
+See Boot Pool Management for more information on working with boot pool environments.
+ Virtualization
+ This document does not cover user-created virtual machine environments.
+The operating systems and applications you deploy in these VMs determine their STIG compliance.
+ Future STIG Compliance
+ TrueNAS does not comply with STIG GPOS SRG for the following findings scheduled for a future release:
+ SRG-OS-00366-GPOS-10153
+ The operating system must prevent the installation of patches, service packs, device drivers, or OS components without verification, and that are digitally signed using a certificate recognized and approved by the organization. SRG-OS-000477-GPOS-00222
+ The operating system must generate audit records for all kernel module load, unload, and restart actions, and also for all program initiations. SRG-OS-000278-GPOS-00108
+ Completion of compliance with this finding stating the operating system must use cryptographic mechanisms to protect the integrity of audit tools. 
+ Related Content
+ Solutions Security Recommendations 
+ Tutorial Using Administrator Logins 
+ Adding SSH Credentials 
+ Configuring Rsync Tasks 
+ Configuring SSH Service 
+ Managing Global 2FA (Two-Factor Authentication) 
+ Reference Two Factor Auth Screen 
+ SSH Screens 
+ Rsync Tasks Screens 
+ Advanced Settings Screen 
+ SSH Service Screen 
+ Have more questions? 
+ For further discussion or assistance, see these resources:
+ TrueNAS Community Forum 
+ TrueNAS Community Discord 
+ TrueNAS Enterprise Support (requires paid support contract) 
+ Found content that needs an update?  
+You can
+ suggest content changes 
+ directly! To request changes to this content, click the Feedback button located on the middle-right side of the page (might require disabling ad blocking plugins).
+ Page Sections: 
+ 541 Division Street
+Campbell, CA 95008, USA
+ Contact Us 
+ <email-masked> 
+ Listen to our Podcast 
+ Support
+ Enterprise Support 
+ Community Support 
+ Forums 
+ FAQs 
+ Useful Links
+ Careers 
+ About Us 
+ Blog 
+ News & Articles 
+ TrueNAS Enterprise 
+ TrueNAS Community Edition 
+ TrueCommand 
+ TrueCommand Cloud 
+ TrueNAS Legacy 
+ Software Status 
+ Reseller Network 
+ Subscribe to our newsletter 
+ © Copyright  iXsystems, Inc. dba TrueNAS. All rights reserved. 
+ Legal 
+ TrueNAS Logos

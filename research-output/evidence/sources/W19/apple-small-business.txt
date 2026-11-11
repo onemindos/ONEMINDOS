@@ -1,0 +1,541 @@
+
+
+	App Store Small Business Program - Apple Developer
+
+View in English
+
+					Apple Developer
+
+											Get Started
+
+Explore Get Started
+
+Overview
+
+Learn
+
+Apple Developer Program
+
+Stay Updated
+
+Latest News
+
+Hello Developer
+
+											Platforms
+
+Explore Platforms
+
+Apple Platforms
+
+iOS
+
+iPadOS
+
+macOS
+
+tvOS
+
+visionOS
+
+watchOS
+
+App Store
+
+Featured
+
+Design
+
+Distribution
+
+Games
+
+Accessories
+
+Web
+
+Home
+
+CarPlay
+
+											Technologies
+
+Explore Technologies
+
+Overview
+
+Xcode
+
+Swift
+
+SwiftUI
+
+Featured
+
+Accessibility
+
+AI & Machine Learning
+
+App Intents
+
+Apple Intelligence
+
+Games
+
+Security
+
+Xcode Cloud
+
+											Community
+
+Explore Community
+
+Overview
+
+Meet with Apple events
+
+Community events
+
+Developer Forums
+
+Open Source
+
+Featured
+
+WWDC
+
+Swift Student Challenge
+
+Developer Stories
+
+App Store Awards
+
+Apple Design Awards
+
+Apple Developer Centers
+
+											Documentation
+
+Explore Documentation
+
+Documentation Library
+
+Technology Overviews
+
+Sample Code
+
+Human Interface Guidelines
+
+Videos
+
+Release Notes
+
+Featured Updates
+
+iOS
+
+iPadOS
+
+macOS
+
+watchOS
+
+visionOS
+
+tvOS
+
+Xcode
+
+											Downloads
+
+Explore Downloads
+
+All Downloads
+
+Operating Systems
+
+Applications
+
+Design Resources
+
+Featured
+
+Xcode
+
+TestFlight
+
+Fonts
+
+SF Symbols
+
+Icon Composer
+
+											Support
+
+Explore Support
+
+Overview
+
+Help Guides
+
+Developer Forums
+
+Feedback Assistant
+
+Contact Us
+
+Featured
+
+Account Help
+
+App Review Guidelines
+
+App Review Help
+
+App Store Connect Help
+
+Upcoming Requirements
+
+Agreements and Guidelines
+
+System Status
+
+Quick Links
+
+													Events
+
+													News
+
+													Forums
+
+													Sample Code
+
+													Videos
+
+				App Store
+
+					Open Menu
+
+					Close Menu
+
+							Overview
+
+							What’s New
+
+							Get Started
+
+							Resources
+
+App Store Small Business Program
+
+Propel your small business forward with the next generation of groundbreaking apps on the App Store and invest more resources into your business.
+
+How it works
+
+The App Store Small Business Program is designed to accelerate innovation and help propel your small business forward with the next generation of groundbreaking apps on the App Store. It features a reduced commission rate of 15% on paid apps and Apple In-App Purchases, so you can invest more resources into your business to continue building quality apps that customers love.
+
+The basics
+
+Existing developers who made up to 1 million USD in proceeds in the prior calendar year for all their apps, as well as developers new to the App Store, can qualify for the program and the reduced commission.
+
+If a participating developer surpasses the 1 million USD threshold in the current calendar year, the standard commission rate will apply to future sales.
+
+If a developer’s proceeds fall below the 1 million USD threshold in a future calendar year, they can re-qualify for the 15% commission the year after.
+
+Developers must identify any Associated Developer Accounts to determine proceeds eligibility.
+
+Associated Developer Accounts
+
+To ensure that all participants are fully eligible as small businesses, you’ll need to list all of your Associated Developer Accounts when you sign up for this program. An Associated Developer Account is an Apple Developer Program account that you own or control or an Apple Developer Program account that owns or controls your account. For additional information, see the FAQs below.
+
+Proceeds eligibility
+
+To participate in the program, you and your Associated Developer Accounts must have earned no more than 1 million USD in total proceeds (sales net of Apple’s commission and certain taxes and adjustments) during the 12 fiscal months occurring within the previous calendar year, and have earned no more than 1 million USD during the current year. When an app is transferred, proceeds for the calendar year will be associated with all accounts that initiate or accept the transfer of that app. For additional information, see the FAQs below.
+
+How to enroll
+
+The vast majority of developers on the App Store who sell digital goods and services are eligible — simply complete a few steps to enroll.
+
+To enroll, you’ll need to:
+
+Be an Account Holder in the Apple Developer Program,
+
+Review and accept the latest Paid Apps agreement (Schedule 2 to the Apple Developer Program License Agreement) in App Store Connect, and
+
+If applicable, list all of your Associated Developer Accounts.
+
+Get started today.
+
+Enroll now
+
+Q&A
+
+When will my adjusted proceeds go into effect?
+
+Your proceeds will be adjusted fifteen (15) days after the end of the fiscal calendar month in which your enrollment is approved. For example, if your enrollment is approved on February 10, 2022, your proceeds are adjusted starting March 14, 2022.
+
+How do I estimate whether I’m eligible for the program based on my proceeds? 
+
+Your eligibility is based on your total App Store proceeds converted into United States dollars (USD) in the prior calendar year. Proceeds are your sales net of Apple’s commission and certain taxes and adjustments. To estimate your proceeds, use the payments deposited into your bank account and your tax and adjustment details in App Store Connect.
+
+If your bank account currency is in USD. Add the total App Store payments deposited into your bank account in the prior calendar year. Then modify that amount with any taxes and adjustments from the Payments and Financial Reports section of App Store Connect. For taxes and adjustments in other currencies, use the USD exchange rate shown in App Store Connect for each month.
+
+If your bank account currency is not in USD. You’ll need to convert your App Store payments deposited into your bank account in the prior calendar year into USD. Use a publicly available exchange rate that corresponds with the end of each fiscal month in Apple’s fiscal calendar to calculate your total USD proceeds. Then modify the total USD amount with any taxes and adjustments from the Payments and Financial Reports section of App Store Connect.
+
+Make sure to add the proceeds for any Associated Developer Accounts.
+
+Why do I need to list my Associated Developer Accounts?
+
+The App Store Small Business Program is intended for small businesses and individual developers. If your organization controls other Apple Developer Program accounts or is controlled by another account that sells digital goods and services on the App Store, the collective proceeds from these related organizations must not exceed the 1 million USD threshold in order to qualify for the program.
+
+How do I know if I have an Associated Developer Account?
+
+As the individual or legal entity who accepted the Apple Developer Program License Agreement, you have an Associated Developer Account if any of the following apply:
+
+You have majority (over 50%) corporate, individual, or partnership interest in the ownership or shares of another Apple Developer Program account.
+
+Another Apple Developer Program member has majority (over 50%) corporate, individual, or partnership interest in the ownership or shares of your account.
+
+You have ultimate decision-making authority over another Apple Developer Program account.
+
+Another Apple Developer Program member has ultimate decision-making authority over your account.
+
+What details about my Associated Developer Account will I need to provide?
+
+In addition to stating how many Associated Developer Accounts you have, you must provide the following details for each account:
+
+Name (individual or organization)
+
+Team ID
+
+Account Holder email address
+
+Description of relationship between you and the account
+
+Can I participate in the Small Business Program if I’m on the alternative terms in the EU?
+
+For developers on the alternative terms in the EU in the App Store Small Business Program and for subscriptions after their first year, Apple will offer a further reduced commission of 10%.
+
+How do app transfers impact my participation in the program?
+
+App transfers are allowed. However, when an app is transferred, the proceeds for the calendar year will be associated with all accounts that initiate or accept the transfer of that app. Program eligibility is based on total proceeds from all Associated Developer Accounts and transferred apps.
+
+How do I access Apple Foundation Models on Private Cloud Compute?
+
+If you’re enrolled in the App Store Small Business Program with fewer than 
+							two million first-time App Store downloads, you’re eligible to use Apple 
+							Foundation Models running on Private Cloud Compute (PCC) with no cloud API 
+							cost. To access PCC, you'll first need the Private Cloud Compute entitlement 
+							assigned to your account. Learn more.
+
+If I have additional questions who should I contact?
+
+Apple Developer Support can help. Receive guidance by phone or email by contacting us.
+
+Submit
+
+Prepare your apps and metadata for submission to the App Store.
+
+							Learn more
+
+Manage
+
+Manage apps, analytics, sales reports, business information, and more.
+
+							Learn more
+
+Promote
+
+Get marketing guidance and tools to help you promote your app on the App Store.
+
+							Learn more
+
+Support
+
+Have a question or request? Get help with guides, articles, or by contacting us.
+
+							Learn more
+
+Developer Footer
+
+App Store
+
+App Store Small Business Program
+
+Platforms
+
+			 Open Menu 
+			 Close Menu 
+
+iOS
+
+iPadOS
+
+macOS
+
+tvOS
+
+visionOS
+
+watchOS
+
+App Store
+
+Tools
+
+			 Open Menu 
+			 Close Menu 
+
+Swift
+
+SwiftUI
+
+Swift Playground
+
+TestFlight
+
+Xcode
+
+Xcode Cloud
+
+Icon Composer
+
+SF Symbols
+
+Technologies
+
+			 Open Menu 
+			 Close Menu 
+
+Accessibility
+
+Accessories
+
+AI & Machine Learning
+
+Apple In-App Purchase
+
+Apple Intelligence
+
+Audio & Video
+
+Augmented Reality
+
+Business
+
+Design
+
+Distribution
+
+Education
+
+Games
+
+Health & Fitness
+
+Localization
+
+Maps & Location
+
+Security
+
+Safari & Web
+
+Resources
+
+			 Open Menu 
+			 Close Menu 
+
+Documentation
+
+Downloads
+
+Sample Code
+
+Videos
+
+Documentation Archive
+
+Support
+
+			 Open Menu 
+			 Close Menu 
+
+Help Guides & Articles
+
+Contact Us
+
+Forums
+
+Feedback & Bug Reporting
+
+System Status
+
+Account
+
+			 Open Menu 
+			 Close Menu 
+
+Apple Developer
+
+App Store Connect
+
+Certificates, IDs, & Profiles
+
+Feedback Assistant
+
+Programs
+
+			 Open Menu 
+			 Close Menu 
+
+Apple Developer Program
+
+Apple Developer Enterprise Program
+
+App Store Small Business Program
+
+MFi Program
+
+Mini Apps Partner Program
+
+News Partner Program
+
+Video Partner Program
+
+Security Bounty Program
+
+Security Research Device Program
+
+Events
+
+			 Open Menu 
+			 Close Menu 
+
+Meet with Apple
+
+Apple Developer Centers
+
+App Store Awards
+
+Apple Design Awards
+
+Apple Developer Academies
+
+WWDC
+
+Read the latest news. 
+Get the Apple Developer app. Follow us on bilibili, LinkedIn, WeChat, and YouTube.
+
+Light
+
+Dark
+
+Auto
+
+Copyright ©  2026 Apple Inc. All rights reserved.
+
+			Terms of Use
+			Privacy Policy
+			Agreements and Guidelines
+

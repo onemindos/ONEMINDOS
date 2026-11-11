@@ -1,0 +1,26 @@
+Snapshot (opening post, trimmed; accessed 2026-11-11)
+URL: https://github.com/siderolabs/talos/issues/14002
+Title: sd-boot upgrade preserves persistent default instead of manually selected boot entry
+State: closed  Created: 2026-08-10T03:31:15Z  Closed: 2026-08-23T16:21:31Z
+
+## Bug report
+
+When a node has two valid UKIs, `LoaderEntryDefault` names an older generation, and an operator boots a different generation from the sd-boot menu, `LoaderEntrySelected` correctly names the running generation. `sdboot.ProbeWithCallback`, however, currently matches `LoaderEntryDefault` first.
+
+The upgrade path treats the returned `Config.Default` as the current/previous generation. It can therefore retain the old persistent default as the rollback generation and remove the UKI that is actually running. This makes a manually recovered node vulnerable to returning to the known-bad entry on the next upgrade.
+
+This behavior is present on current `main` and `release-1.13`.
+
+## Reproduction
+
+1. Install two valid Talos UKIs, `Talos-old.efi` and `Talos-current.efi`.
+2. Leave `LoaderEntryDefault=Talos-old.efi`.
+3. Select `Talos-current.efi` in the sd-boot menu. `LoaderEntrySelected` is now `Talos-current.efi`.
+4. Run an upgrade.
+5. Observe that probing identifies `Talos-old.efi` as the current entry because the default is matched first.
+
+## Expected behavior
+
+For a normal firmware boot, a valid `LoaderEntrySelected` is the entry actually running and should be preferred. For a proven kexec boot (`LoaderEntryOneShot="kexec reboot"` and `LoaderEntryRebootReason="reboot"`), sd-boot did not participate and the installer-updated default should remain authoritative. In either case, the alternate EFI entry should be used only as a validated fallback when the preferred UKI is absent.
+
+A focused fix and regression tests are ready.

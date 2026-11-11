@@ -1,0 +1,18 @@
+# CasaOS core and Kairos docs checks (read-only). Accessed 2026-11-11.
+# Pattern A (backup tools): \b(backup|restic|kopia|borg)\b ; Pattern B (AI): \b(ollama|openai|llm|mcp)\b ; files: *.go *.vue *.js *.ts ; node_modules excluded
+icewhale_CasaOS @ e099dd6b4982a264663df2536a55bfea2ae5448a
+icewhale_CasaOS-AppManagement @ debfa317f0f996b91b43210e8d57799461388704
+icewhale_CasaOS-UserService @ 800c630c3443364cde142a9aadea0dc3880e6232
+icewhale_CasaOS-Gateway @ 606a84523802dde7269f10660c867d089e7ed660
+icewhale_CasaOS-Common @ bd9a9049507c3bb9fea9f2caf389f738d10e74b3
+icewhale_CasaOS-UI @ 400a22c120e9f14b6e5c2276f9b79253acf95f35
+matches (file:line: text):
+  icewhale_CasaOS-AppManagement/route/v2/global.go:72:		return fmt.Errorf("openai api key is required")
+  icewhale_CasaOS-AppManagement/service/appstore.go:119:	// make a backup of existing workdir
+  icewhale_CasaOS-AppManagement/service/appstore.go:121:		backupDir := workdir + ".backup"
+  icewhale_CasaOS-AppManagement/service/appstore.go:134:					logger.Error("failed to remove backup appstore workdir", zap.Error(err), zap.String("backupDir", backupDir))
+  icewhale_CasaOS-AppManagement/service/appstore.go:144:				logger.Error("failed to restore backup appstore workdir", zap.Error(err), zap.String("backupDir", backupDir), zap.String("workdir", workdir)
+  icewhale_CasaOS-AppManagement/service/compose_app.go:429:	// backup current compose file
+reading: appstore.go L119-L144 copies the app-store work dir aside before refresh; compose_app.go L429 keeps the previous compose file; global.go L70-L73 validates a global env-var key (error text names an OpenAI API key) that is passed to all app containers. None is a user backup feature or an AI service.
+
+kairos-io/kairos-docs @ b1bf8bedc43697ce552b988a74f0f4e76afaeddf: docs/advanced/partition_encryption.md L118-L124 declares OS accounts in the cloud-config 'users:' block (name, groups, ssh_authorized_keys). Example password value not reproduced.

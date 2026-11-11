@@ -1,0 +1,89 @@
+# Commit-author concentration, default branch, 2025-11-11T00:00Z to 2026-11-11T00:00Z
+# Query: gh api --paginate repos/<repo>/commits?since=2025-11-11T00:00:00Z&until=2026-11-11T00:00:00Z&per_page=100
+# Accessed 2026-11-11 (UTC). Logins are replaced by rank labels (A, B, C...) to keep personal data out of this public repo.
+# Accounts whose login contains 'bot' are excluded from the human counts.
+
+repo: getumbrel/umbrel
+total_commits: 651
+bot_commits: 3
+human_accounts: 5
+human commits per account, ranked:
+  A 381
+  B 156
+  C 106
+  D 3
+  E 2
+
+repo: home-assistant/operating-system
+total_commits: 429
+bot_commits: 119
+human_accounts: 26
+human commits per account, ranked:
+  A 213
+  B 54
+  C 10
+  D 4
+  E 3
+  F 3
+  G 2
+  H 2
+  I 2
+  J 1
+  K 1
+  L 1
+  M 1
+  N 1
+  O 1
+  P 1
+  Q 1
+  R 1
+  S 1
+  T 1
+  U 1
+  V 1
+  W 1
+  X 1
+  Y 1
+  Z 1
+
+repo: home-assistant/supervisor
+total_commits: 849
+bot_commits: 384
+human_accounts: 29
+human commits per account, ranked:
+  A 261
+  B 77
+  C 51
+  D 34
+  E 12
+  F 6
+  G 2
+  H 1
+  I 1
+  J 1
+  K 1
+  L 1
+  M 1
+  N 1
+  O 1
+  P 1
+  Q 1
+  R 1
+  S 1
+  T 1
+  U 1
+  V 1
+  W 1
+  X 1
+  Y 1
+  Z 1
+  27 1
+  28 1
+  29 1
+
+repo: IceWhaleTech/CasaOS
+total_commits: 1
+bot_commits: 0
+human_accounts: 1
+human commits per account, ranked:
+  A 1

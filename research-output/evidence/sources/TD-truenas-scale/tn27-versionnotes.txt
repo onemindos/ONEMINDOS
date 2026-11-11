@@ -1,0 +1,867 @@
+TrueNAS 27 Version Notes | TrueNAS Documentation Hub 
+ Search TrueNAS Documentation
+ × 
+ Show Results From:
+ Version (25.04) 
+ 28 (Nightly) 
+ 27 
+ 25.10 
+ 25.04 
+ 24.10 
+ Docs 
+ API 
+ Apps 
+ TrueNAS Connect 
+ Searching...
+ Products 
+ Support & Resources 
+ Get A Quote 
+ Solutions 
+ Company 
+ Sign In 
+ Close 
+ Products V-Series Max Performance & Versatility
+ F-Series High Performance NVME
+ H-Series Versatility and Power Efficiency
+ Mini Series Edge and Branch Office
+ M-Series High Capacity All-Flash or Hybrid
+ R-Series Single Controller Appliances
+ TrueNAS Enterprise
+ Mission Critical Storage. 24×7 Enterprise Support
+ TrueNAS Community Edition
+ Test Drive TrueNAS in Your Environment
+ Streamlined Management for your TrueNAS Systems 
+ Solutions Industry
+ Audio 
+ Automotive 
+ Broadcasting 
+ Education 
+ US Public Sector 
+ Gaming 
+ Healthcare 
+ MSP 
+ Manufacturing 
+ Research & AI 
+ Media & Entertainment 
+ Use Cases
+ Analytics 
+ Backup & Archival 
+ Cloud 
+ Data Mobility 
+ File Sharing 
+ TrueCloud Backup 
+ Media & Entertainment 
+ Surveillance/CCTV 
+ Veeam Backup 
+ Virtualization 
+ Red Hat OpenShift 
+ TrueNAS as an Alternative
+ Alternative to Dell 
+ Alternative to NetApp 
+ Alternative to Pure Storage 
+ Support & Resources Support
+ Enterprise Support For customers with active support contracts
+ Community Support For peer-to-peer, forum support
+ Resources
+ Case Studies 
+ Datasheets 
+ Documentation 
+ TrueNAS API 
+ FAQ 
+ Apps 
+ TrueNAS Blogs 
+ Software Status 
+ TrueNAS Security 
+ Solution Briefs and Guides 
+ Certifications & Integrations 
+ White Papers 
+ Videos 
+ TrueCommand Cloud 
+ Reseller Network 
+ ZFS Overview 
+ Community
+ TrueNAS Community Edition 
+ Community Forum 
+ Discord 
+ TrueNAS GitHub 
+ TrueNAS Merch Store 
+ Company About TrueNAS 
+ Team 
+ Awards 
+ Careers 
+ Contact Us 
+ Newsroom 
+ Our Clients 
+ Reviews 
+ Sign In TrueNAS Connect 
+ Partner Portal 
+ Enterprise Support 
+ Get A Quote 
+ Documentation Hub Product TrueNAS
+ TrueNAS Apps 
+ TrueNAS Connect TrueCommand
+ TrueNAS Systems
+ Version 
+ Keyword Search 
+ AI Search 
+ × 
+ SCALEs 
+ User and Group Quota Screens 
+ ⎙ Download or Print 
+ Getting Started
+ ⎙ Download or Print 
+ TrueNAS 27 Version Notes 
+ Feature Deprecations 
+ TrueNAS Hardware Guide 
+ Installation Instructions
+ Preparing for TrueNAS UI Configuration 
+ Preparing for TrueNAS UI Configuration (Enterprise) 
+ Preparing for TrueNAS UI Configuration (Home Users) 
+ Installing TrueNAS 
+ Installing TrueNAS Enterprise (HA) 
+ Using the Console Setup Menu 
+ Migrating from CORE
+ Preparing to Migrate 
+ Community Migrations 
+ Enterprise Migrations 
+ Component Naming 
+ (obsolete) ZFS Feature Flags Removed 
+ Third-Party Data Migration 
+ Configuration Instructions
+ Logging In for the First Time 
+ Configuring TrueNAS Using the UI 
+ Setting Up Storage 
+ Setting Up Data Sharing 
+ Backing Up TrueNAS 
+ Configuring Virtualization and Apps 
+ Getting Support
+ Providing Feedback in TrueNAS 
+ User Agreements
+ TrueNAS Enterprise EULA 
+ Software Development Life Cycle 
+ TrueNAS Data Collection Statement 
+ Top Toolbar
+ Alerts
+ Alert Settings Screens 
+ Email Screens 
+ Settings Options
+ User API Keys Screen 
+ Two Factor Auth Screen 
+ Using UI Global Search 
+ Managing API Keys 
+ Shutting Down TrueNAS Enterprise HA 
+ Top Toolbar Screens 
+ Jobs Screens 
+ Dashboard
+ Customizing the Dashboard 
+ Dashboard Screen 
+ Storage
+ Pools
+ Import Pool 
+ Creating Pools 
+ Creating Fusion Pools 
+ Managing Pools 
+ Local Pool Migration 
+ Pool Creation Wizard Screen 
+ Storage Tiering Pool Migration 
+ VDEV Screens 
+ Disks
+ Replacing Disks 
+ Wiping a Disk 
+ SLOG Over-Provisioning 
+ Managing Self-Encrypting Drives (SED) 
+ Disks Screen 
+ Drive Health Management 
+ Storage Tiering 
+ Storage Dashboard Screens 
+ Datasets
+ Adding and Managing Datasets 
+ Encryption
+ Encrypting Datasets 
+ Encryption Screen 
+ Permissions
+ Configuring ACL Permissions 
+ ACL Screens 
+ Quotas
+ Managing User or Group Quotas 
+ Capacity Settings Screen 
+ User and Group Quota Screens 
+ Snapshots
+ Creating Snapshots 
+ Managing Snapshots 
+ Snapshots Screens 
+ Zvols
+ Adding and Managing Zvols 
+ Zvols Screen 
+ Datasets Screens 
+ Shares
+ Windows Shares (SMB)
+ Adding and Managing SMB Shares 
+ Adding a Basic Time Machine SMB Share 
+ Setting Up Final Cut Pro SMB Shares 
+ Using SMB Shadow Copy 
+ Setting Up SMB Private Dataset Shares 
+ Using SMB Shares with macOS Decomposed Unicode 
+ Setting Up SMB Multichannel 
+ SMB Shares Screens 
+ NFS Shares
+ Adding NFS Shares 
+ NFS Shares Screens 
+ Multiprotocol Shares 
+ Block Shares (iSCSI)
+ Adding iSCSI Block Shares 
+ Setting Up Fibre Channel 
+ Using an iSCSI Share 
+ Increasing iSCSI Available Storage 
+ Block (iSCSI) Share Target Screens 
+ Fibre Channel Screens 
+ NVMe-oF Subsystems
+ Configuring NVMe-oF 
+ Managing NVMe-oF Subsystems 
+ NVMe-oF Share Screens 
+ S3
+ Configuring S3 Object Storage 
+ S3 Buckets Screens 
+ WebShare
+ Configuring WebShare 
+ WebShare Shares Screens 
+ Migrating AFP Shares 
+ Shares Screens 
+ Data Protection
+ TrueCloud Backup Tasks
+ Managing TrueCloud Backup Tasks 
+ TrueCloud Backup Tasks Screens 
+ Cloud Sync Tasks
+ Backing Up Google Drive to TrueNAS 
+ Managing Cloud Sync Tasks 
+ Adding a Google Photos Cloud Sync Task 
+ Cloud Sync Tasks Screens 
+ Periodic Snapshot Tasks
+ Adding Periodic Snapshot Tasks 
+ Periodic Snapshot Tasks Screens 
+ Rsync Tasks
+ Configuring Rsync Tasks 
+ Rsync Tasks Screens 
+ Replication Tasks
+ Setting Up a Local Replication Task 
+ Setting Up a Remote Replication Task 
+ Replication Task Screens 
+ Advanced Replication Tasks
+ Configuring Advanced Replication Tasks 
+ Setting Up an Encrypted Replication Task 
+ Unlocking a Replication Encrypted Dataset or Zvol 
+ VMware Snapshots
+ Creating VMWare Snapshots 
+ VMWare Snapshots Screen 
+ Data Protection Screens 
+ Network
+ Interface Configuration
+ Configuring Network Interfaces 
+ Setting Up a Network Bridge 
+ Setting Up a Link Aggregation 
+ Setting Up a Network VLAN 
+ Network Interface Screens 
+ Network Configuration
+ Managing Network Configurations 
+ Configuring IPv6 
+ Managing Network Settings (Enterprise HA) 
+ Network Configuration Screens 
+ Static Routes
+ Configuring Static Routes 
+ Static Routes Screens 
+ IPMI
+ Setting Up IPMI 
+ IPMI Screens 
+ Accessing NAS from VMs and Containers 
+ Network Screen 
+ Credentials
+ Users
+ Managing Users 
+ Users Screens 
+ Using Administrator Logins 
+ Groups
+ Managing Groups 
+ Groups Screens 
+ Privileges
+ Managing Privileges 
+ Privileges Screens 
+ Directory Services
+ Configuring Active Directory 
+ Configuring LDAP 
+ Configuring IPA 
+ Configuring Kerberos 
+ Kerberos Realms Screens 
+ Kerberos Keytab Screens 
+ Directory Services Screens 
+ Backup Credentials
+ Adding Cloud Credentials 
+ Adding SSH Credentials 
+ Cloud Credentials Screens 
+ SSH Screens 
+ Backup Credentials Screens 
+ Certificates
+ Managing Certificates 
+ Managing Certificate Signing Requests 
+ Adding ACME DNS Authenticators 
+ Creating ACME Certificates 
+ Certificates Screens 
+ Certificate Signing Requests Screens 
+ ACME DNS-Authenticators Screens 
+ S3 Access Keys Screen 
+ KMIP
+ Configuring KMIP 
+ KMIP Screen 
+ Containers
+ Creating and Managing Containers 
+ Containers Screens 
+ Virtual Machines
+ Creating and Managing Virtual Machines 
+ Adding and Managing VM Devices 
+ Virtual Machines Screens 
+ Apps
+ Apps Screens 
+ Custom App Screens 
+ Reporting
+ Configuring Reports 
+ Reporting Screens 
+ System Settings
+ Update
+ Updating TrueNAS 
+ Updating TrueNAS Enterprise HA 
+ Update Screens 
+ General Settings
+ Configuring General Settings 
+ Adding a License and Proactive Support 
+ Setting Up System Email 
+ General Settings Screen 
+ Advanced Settings
+ Configuring Advanced Settings 
+ Managing the System Configuration 
+ Managing the Console Setup Menu 
+ Managing Cron Jobs 
+ Managing System Logging 
+ Managing Init/Shutdown Scripts 
+ Configuring SED Settings 
+ Isolating GPU for VMs 
+ Managing Global 2FA (Two-Factor Authentication) 
+ Developer Mode (Unsupported) 
+ Advanced Settings Screen 
+ Boot
+ Boot Pool Management 
+ Boot Screens 
+ Services
+ Configuring FTP Service 
+ Configuring NFS Service 
+ Configuring SMB Service 
+ Configuring SNMP Service 
+ Configuring SSH Service 
+ Configuring UPS Service 
+ Services Screens 
+ FTP Service Screen 
+ iSCSI Services Screen 
+ NFS Services Screen 
+ SMB Service Screen 
+ SNMP Service Screen 
+ S3 Service Screen 
+ SSH Service Screen 
+ UPS Services Screen 
+ WebShare Service Screen 
+ Shell
+ Using Shell 
+ Shell Screen 
+ Alert Settings Screen 
+ Audit
+ Using Audit Logs 
+ Audit Screen 
+ View Enclosure Screen (TrueNAS Systems Only) 
+ API Reference 
+ TrueNAS Security Reports 
+ TrueNAS Apps 
+ TrueNAS Connect 
+ TrueNAS API Docs 
+ Security Reports 
+ Documentation Archive 
+ View Source 
+ RSS Feed 
+ Software Status 
+ Solutions 
+ TrueNAS Systems 
+ Contributing 
+ References 
+ ➤ TrueNAS 27 (Early) 
+ /
+ Getting Started 
+ /
+ TrueNAS 27 Version Notes 
+ Edit page 
+ TrueNAS Early Release Documentation
+ This content follows TrueNAS 27 releases.
+Use the Product and Version selectors above to view content specific to a stable software release.
+ TrueNAS 27 Version Notes
+   31 minute read.
+ Last Modified 2026-11-04 12:55 EST 
+ This page tracks the latest notes for TrueNAS 27, which was renamed from TrueNAS 26.
+Pre-release builds are early-stage software intended for testing and feedback, not production use.
+See the Software Development Life Cycle for an overview of TrueNAS release stages and versioning.
+ Release notes for the 26-BETA.1 through 26-BETA.3 releases are in the TrueNAS 26 Version Notes .
+ Notable Changes and Known Issues
+ Early releases are intended for testing and feedback purposes.
+Do not use early-release software for critical tasks.
+ October 6, 2026
+ The TrueNAS team is pleased to release TrueNAS 27-RC.1!
+ Notable changes: 
+ Renames TrueNAS 26 to TrueNAS 27.
+TrueNAS 26 is now TrueNAS 27, and TrueNAS 27-RC.1 is the first release under the new name.
+The earlier 26-BETA.1, 26-BETA.2, and 26-BETA.3 releases keep their original names, and their documentation remains available in the 26 documentation .
+ Adds the TrueNAS Object Interface (Early Access).
+Object storage (S3 API) is now available as a native TrueNAS service, in addition to the containerized third-party app.
+Each bucket is a ZFS dataset, so object data gets the same snapshots, quotas, replication, and data integrity as other data, and is managed from the same web interface.
+27-RC.1 covers the core S3 API, including multipart uploads, object tagging, bucket and object ACLs, versioning, and immutability.
+Versioning and Object Lock require a TrueNAS Connect Plus license or a TrueNAS Enterprise system.
+Early Access means TrueNAS wants your feedback: try it with your applications and report what works and what doesn’t on the forums .
+See Configuring S3 Object Storage and the 27-RC.1 feature set blog post for more information.
+ Fixes the web interface staying unavailable after an upgrade on systems with many RSA-4096 certificates ( NAS-143641 ).
+On systems with many RSA-4096 certificates, middleware could take about a minute to regenerate /etc/nginx/nginx.conf after an upgrade, and nginx failed to start because the file did not exist yet. The web interface now stays available while the configuration regenerates.
+ Fixes editing a user account moving the home directory for that user to its parent directory ( NAS-143753 ).
+The Edit User form submitted the parent of the home directory path instead of the path itself, so saving any change relocated the home directory for the user and changed permissions on the parent directory. The form now submits the correct home directory path.
+ Updates the default certificate signing requests (CSRs) TrueNAS generates for HTTPS and TrueNAS Connect ( NAS-142603 , NAS-142604 ).
+Default CSRs requested a TLS client authentication extended key usage (EKU) that public certificate authorities no longer issue for server certificates, and the CSR subject listed outdated contact details. Default CSRs no longer request the unneeded client authentication EKU and use current contact information.
+ Updates the Containers screen for middleware container.* API changes ( NAS-142088 ).
+Deleting a container now runs as a background job with Force and Recursive options instead of completing immediately. The Containers screen reflects this job-based delete flow.
+ Fixes an NFS server issue that could crash the system when a client retransmits a request ( NAS-142560 ).
+If an NFSv4.1 client connection dropped and reconnected while a request was still being answered, two copies of the same request could reach the server and both read from the same cached reply slot at once. nfsd no longer modifies a session slot while replaying its cached reply, which prevents the resulting crash.
+ Fixes VRRP not delivering IPv6 advertisements between HA controllers, which could let both controllers claim to be MASTER ( NAS-142303 ).
+Without a configured unicast source address, VRRP sent IPv6 traffic from the interface link-local address, so the peer advertisements never reached the address the other controller expected. Both controllers could then become MASTER for the same IPv6 virtual IP. VRRP instances now set the correct unicast source IP so IPv6 advertisements are received.
+ Fixes several iSCSI, Fibre Channel, and iSER target driver crashes ( NAS-142264 , NAS-142258 , NAS-142126 , NAS-142161 ).
+SCST, the underlying target driver that handles iSCSI, Fibre Channel, and iSER connections, had several race conditions that could crash the target or corrupt memory: removing a LUN while another teardown ran, losing a session access control group during reassignment, unregistering a target while queued work still referenced it, and rapid connect/disconnect cycles over iSCSI over InfiniBand (iSER). The driver now handles all of these cases correctly.
+ Fixes intermittent permission denied errors on NFS shares for Active Directory and LDAP users ( NAS-142228 ).
+When rpc.mountd used --manage-gids and a brief winbind or SSSD outage occurred, the group lookup could return zero groups, and the kernel cached that empty result as valid. The affected user lost all supplementary group access on every export until the cache expired. Empty group replies are now treated as failures instead of being cached as valid, so the lookup is retried.
+ Improves High Availability (HA) resilience to brief interconnect interruptions ( NAS-142152 ).
+A short interruption on the inter-controller NTB link could trigger an unnecessary peer reset or start kernel-level lock recovery. HA now waits longer for the link to recover before treating a brief interruption as a real peer failure.
+ Allows toggling ALUA on an iSCSI target when the standby HA controller is unreachable ( NAS-142057 ).
+Administrators could not change the Asymmetric Logical Unit Access (ALUA) setting if the standby controller was offline. ALUA can now be toggled regardless of standby controller reachability.
+ Fixes an error that blocked replacing an unavailable disk in a pool ( NAS-141804 ).
+Attempting to replace a disk that had gone unavailable failed with a 'NoneType' object has no attribute 'replace' error instead of completing the replacement. Disk replacement now handles unavailable disks correctly.
+ Fixes the Session Timeout setting under Access Settings not taking effect ( NAS-143940 ).
+A configured session timeout of several hours had no effect, and the session expired within minutes of switching browser tabs instead. The Session Timeout setting now applies for its full configured duration.
+ Improves TrueSearch performance on shares with about 1 million files ( NAS-143855 ).
+Searches on very large shares could take seven to eight seconds and time out in the client (for example, Finder), even after moving the search index to faster storage. TrueSearch performance is improved for these large-scale shares.
+ Fixes disk image import failures and incorrect size reporting ( NAS-143736 , NAS-143839 ).
+A disk image exported from a zvol on 25.10 could not be imported after being moved to a 26-BETA.3 system, and importing a 50 GiB disk image showed a Size requirement of 50 GiB when the import actually needed 51 GiB. Disk images exported from 25.10 now import correctly on TrueNAS 26, and import now reports the size the target zvol actually needs.
+ Fixes Webshare not offering a way to continue when passkey registration fails ( NAS-140894 ).
+If a user aborted or failed passkey registration, Webshare said they could still use Webshare without a passkey but showed no button to proceed, only the Create Passkey button. Webshare now offers a way to continue past a failed or abandoned passkey registration.
+ Fixes scheduled replication tasks not running automatically ( NAS-142970 ).
+A scheduled replication task ran correctly when started manually, but its cron schedule showed no upcoming runs for the current month, only for the next month, so it never fired automatically. Cron scheduling for replication tasks now includes runs in the current month.
+ Fixes the Storage Dashboard throwing an error and showing no pools ( NAS-142517 ).
+After upgrading, the Storage Dashboard could throw a class_special_usable property error and display no pools when some pools had special vdevs and others did not. The dashboard now handles pools with and without special vdevs correctly.
+ Fixes compound AND / != filters not excluding matching events in the audit log search ( NAS-142222 ).
+Searching SMB audit logs with a filter like Event != "Authentication" AND Event != "Close" still returned Authentication events in the results. Compound filters now correctly exclude the events they specify.
+ Fixes applying ACLs to app storage paths that already contain data ( NAS-142117 ).
+Editing the ACL on an already-running app mount path could fail with [EFAULT] / [EPERM] errors stating that the path contains existing data and force was not specified, but the UI had no way to select the force option. ACL edits on app mount paths now work without this error.
+ Fixes app upgrade jobs reporting success when the image pull fails ( NAS-142191 ).
+Upgrading a custom app whose image pull failed still finished the job with a SUCCESS status and a message that the app was upgraded and redeployed, even though nothing changed. The failure was previously logged only to /var/log/app_lifecycle.log and never reached the job status shown in the UI. The job now reports failure when the image pull does not succeed.
+ Fixes the NVMe-TCP service generating an invalid configuration when a subsystem uses associated hosts ( NAS-141762 ).
+Adding a namespace to an NVMe-TCP subsystem configured with associated hosts could reinitialize the kernel NVMe target with a configuration that conflicted with the associated-hosts setting, logging Can't set allow_any_host when explicit hosts are set! and preventing new namespaces from working. The service now generates a configuration consistent with associated hosts.
+ Fixes migrated LXC containers no longer working after the .ix-virt dataset is deleted ( NAS-141666 ).
+Containers migrated from Incus were not tracked in /mnt/.truenas_containers the way newly created containers are, so after the .ix-virt dataset was removed, the migrated containers stopped working and could not even be deleted. Migrated containers are now tracked correctly so they keep working after migration.
+ Fixes a virtual machine installation media upload ending up as a 0-byte file ( NAS-141825 ).
+Uploading installation media for a new VM could complete with the resulting file at 0 bytes instead of the expected image size. Uploaded installation media now saves with the correct file size.
+ Fixes Docker failing to pull larger images inside a privileged LXC container ( NAS-141470 ).
+Docker running inside an LXC container with ID Map Type set to Privileged could fail to pull nontrivial images. Docker can now pull these images inside a privileged container.
+ Fixes mail.send omitting Cc recipients from the outgoing email ( NAS-141845 ).
+ mail.send added Cc addresses only to the Cc: header, but SMTP delivery is driven by the envelope recipient list, which was built from the To addresses alone. Cc recipients never received the email even though they appeared to be included. Cc addresses are now added to the SMTP envelope so they receive the email.
+ Fixes Docker failing to configure for Apps on every reboot after upgrading to 26-BETA.1 or 26-BETA.2 ( NAS-141446 ).
+After upgrading, Docker configuration for the Apps service could fail on boot, and the only workaround was to unset and reselect the apps pool, which had to be repeated after every reboot. Docker now configures correctly for Apps on boot.
+ Fixes alert emails that were not RFC 5322 compliant and could bounce from Gmail ( NAS-141699 ).
+Alert emails formatted in a way that violated RFC 5322 could be rejected by providers like Gmail, so the alert never reached the recipient. Alert emails are now formatted to comply with RFC 5322.
+ Fixes Webshare blocking a quick re-login after a session disconnect on the TrueNAS Connect Free tier ( NAS-141712 ).
+The Free tier allows only a single Webshare session, so closing a tab or losing network connection could lock a user out of logging back in immediately, forcing them to wait for a long timeout or a service restart. Users can now log back in promptly after a session disconnect.
+ Fixes invalid rclone configuration files caused by unescaped special characters ( NAS-142234 ).
+Generating rclone configuration files by hand could produce an invalid INI file when a setting contained special characters. Configuration files are now generated with configparser , which escapes special characters correctly.
+ Fixes the dashboard network throughput graph showing data from only one interface in a bond ( NAS-142731 ).
+The network throughput graph on the dashboard displayed traffic for only one member of a bonded interface instead of the combined total, so it never showed the bond’s actual maximum speed. The graph now reflects throughput for all interfaces in the bond.
+ Fixes an app keeping an invalid NVIDIA GPU UUID after the GPU is replaced ( NAS-142006 ).
+After replacing a NVIDIA GPU in the system, an existing app could keep referencing the old GPU UUID instead of the new one, even though the system correctly reported the new GPU. Apps now pick up the replacement GPU UUID correctly.
+ Fixes a scrub-paused alert that fires too early and shows the literal text 'pool' instead of the pool name ( NAS-142198 ).
+Pausing a scrub for only a few minutes could trigger the alert meant for a scrub paused more than eight hours, and the alert text showed the placeholder 'pool' rather than the actual pool name. The alert now fires only after eight hours and shows the correct pool name.
+ Fixes the Apps dataset preset overwriting the Case Insensitive and Atime choices for a user ( NAS-141792 ).
+Selecting Case Insensitive and leaving Atime enabled in Advanced Settings while using the Apps dataset preset saved the dataset as case-sensitive with Atime disabled instead. The preset now keeps these user-configured settings.
+ Fixes the storage dashboard disk health panel becoming corrupted when not all pool devices report SMART values ( NAS-141753 ).
+If any device in a pool lacked SMART values, the disk health panel display could become corrupted. The panel now displays correctly even when some devices have no SMART data.
+ Fixes Webshare failing to generate share links for files with Chinese file names or paths ( NAS-142148 ).
+Webshare could not create a share link when the file name or path contained Chinese characters. Share links now work correctly for these file names and paths.
+ Fixes high CPU usage caused by console CLI redraw when a key input gets stuck ( NAS-141550 ).
+A stuck physical key, or a stuck virtual key sent over IPMI or another out-of-band method, could lock the console CLI menu process to 100% of a CPU thread. The CLI now handles stuck key input without pegging the CPU.
+ Identifies USB passthrough devices by their physical port in the VM and Container UI ( NAS-142433 ).
+USB passthrough devices were identified only by vendor and product ID, which cannot tell two identical devices apart and can change after a replug. The device picker now identifies devices by their physical port, which survives replugs and reboots and distinguishes identical devices.
+ Improves consistency of the pool usage indicator between the Dashboard and Storage Dashboard ( NAS-142168 ).
+The same vdev usage percentage could show as a normal green indicator on the Dashboard while showing as an orange warning with a red gauge on the Storage Dashboard , using different thresholds in each place. The two dashboards now use consistent usage thresholds.
+ Updates Go to 1.25.12 for TrueSearch to include upstream security fixes ( NAS-141713 ).
+TrueSearch built against an older Go release that has since received important security fixes. TrueSearch now builds with Go 1.25.12 or later.
+ Click here to see the full 27 changelog or visit the TrueNAS 27-RC.1 Changelog in Jira.
+ Amazon S3 is a trademark of Amazon.com, Inc. or its affiliates. 
+ These are ongoing issues that can affect multiple versions in the 27 series.
+When resolved, issues move to Notable Changes for the appropriate release.
+ Current Known Issues
+ The Backup Tasks dashboard card does not display TrueCloud Backup or Periodic Snapshot tasks, even when those tasks are configured and have completed successfully.
+The tasks run normally and appear as expected on the Data Protection screen; only the dashboard card omits them.
+Other task types, such as Replication and Cloud Sync, appear on the card as expected.
+ Upgrading to TrueNAS 27 can disrupt two-factor authentication (2FA) for any account with a stored token interval other than 30 or 60 seconds. TrueNAS 27 supports only these two intervals and clears the stored 2FA secret for any affected account during the upgrade. A non-standard interval can come from the API, or from the global 2FA interval setting in TrueNAS releases before 24.04, which applied a single interval to every 2FA account on the system and persists across upgrades. The current web interface always uses a 30-second interval. See Two-Factor Authentication for who is affected and how to restore access.
+ TrueSearch indexing runs as a background task with no progress indicator ( NAS-144243 ).
+After you enable TrueSearch for WebShare or Enable Search (Spotlight) for SMB, TrueNAS indexes the shares in the background without showing a job or progress.
+Indexing can use significant CPU and disk I/O while it runs, and searches can be very slow or time out until indexing finishes.
+Searches return results during indexing, and performance returns to normal after indexing completes. The time this takes depends on the number of files.
+For best performance, always keep the TrueSearch index on SSD-backed storage.
+ TrueNAS 27-RC.1 can show critical license alerts on systems with a TrueNAS Connect license ( NAS-144046 ).
+Systems that use a license from TrueNAS Connect can show two critical alerts: System serial does not match license. and TrueNAS is running on unsupported hardware. 
+The license is valid and these alerts are expected, so you can ignore them.
+The following TrueNAS release removes the alerts.
+ See the latest status on Jira for public issues discovered in TrueNAS 27 that are being resolved in a future TrueNAS release.
+ See the Release Notes section of the TrueNAS forum for ongoing updates about known issues, investigations, and statistics about TrueNAS releases.
+ TrueNAS 27 brings many new features and improvements to the TrueNAS experience.
+ Annual Release Cadence and Simplified Versioning
+ TrueNAS 27 introduces an annual release cadence with simplified version numbering.
+Instead of fish-themed code names and multi-digit version strings, releases now use straightforward numbers like “27.0”.
+TrueNAS 27 receives feature packs, security updates, and hotfixes throughout the year, providing more predictable upgrade cycles and extended testing periods for both the engineering team and end users.
+ WebShare with TrueSearch
+ WebShare provides browser-based file access without requiring SMB or NFS client mounting on user systems.
+Users can browse, upload, download, and manage files directly from a web browser, with support for folder creation, filtering, snapshot timeline viewing, shareable links, and hidden file toggling.
+WebShare is configured through TrueNAS Connect and requires a dataset and at least one local user account with WebShare access enabled.
+ TrueSearch is the TrueNAS file indexing service, and it also powers Spotlight search on SMB shares.
+When TrueSearch is enabled in the WebShare service configuration, all active shares are indexed for fast file searching by filename, content, or file type.
+Encrypted datasets are excluded from indexing.
+Passkey authentication options provide flexible access control for WebShare users.
+ TrueNAS Object Interface (Early Access)
+ Object storage (S3 API) is available in TrueNAS 27 as a native TrueNAS service, in addition to the containerized third-party app.
+The TrueNAS Object Interface gives concurrent access to the same data over SMB, NFS, WebShare, and the S3 protocol.
+Each object storage bucket is a ZFS dataset, so object data gets the same snapshots, quotas, replication, and data integrity as other data, and is managed from the same web interface.
+ 27-RC.1 covers the core S3 API that applications depend on, including multipart uploads, object tagging, bucket and object ACLs, versioning, and immutability.
+The TrueNAS Object Interface runs on every TrueNAS edition with no capacity limits, including in offline mode for air-gapped environments.
+Versioning and Object Lock require a TrueNAS Connect Plus license or a TrueNAS Enterprise system.
+ The TrueNAS Object Interface is an Early Access feature.
+Try it with your applications and share what works and what doesn’t on the forums .
+See Configuring S3 Object Storage and the 27-RC.1 feature set blog post .
+ Amazon S3 is a trademark of Amazon.com, Inc. or its affiliates. 
+ Containers
+ Containers , introduced as an experimental feature in TrueNAS 25.04, are fully supported in TrueNAS 27.
+Containers provide lightweight, isolated Linux environments that share the host kernel while maintaining their own file system, processes, and network configuration, using fewer system resources than virtual machines while starting quickly and scaling efficiently.
+ TrueNAS 27 extends container support to Enterprise systems with High Availability (HA) configurations, enabling container failover between controllers.
+HA container failover requires a static IP configuration.
+ Users migrating from TrueNAS CORE who previously relied on custom Jails can use containers as a supported migration path.
+See Containers for configuration details.
+ SMB Stateful Failover
+ TrueNAS 27 introduces stateful SMB HA failover for Enterprise systems with High Availability (HA) configurations.
+When enabled in the SMB service configuration, TrueNAS maintains SMB session state across controller failover events, allowing SMB clients to recover existing connections without re-authentication after a failover.
+See Enabling SMB Stateful Failover for configuration details.
+ SMB Spotlight Search
+ TrueNAS 27 adds Spotlight search support for SMB shares, allowing macOS clients to use Spotlight to search file contents directly on TrueNAS SMB shares.
+Spotlight search uses TrueSearch and has the same requirements: a system connected to TrueNAS Connect or a TrueNAS Enterprise license that includes TrueSearch.
+Spotlight search is enabled in the SMB service configuration.
+TrueSearch indexes all active SMB shares and does not index encrypted datasets.
+See Enabling Spotlight Search for configuration details.
+ Fusion Pools and Storage Tiering
+ Storage Tiering is a TrueNAS Enterprise feature that lets administrators move data between the performance (flash) and capacity (HDD) tiers of a fusion pool without disrupting clients.
+Datasets migrate transparently between tiers, and share access paths stay the same.
+ OpenZFS 2.4
+ TrueNAS 27 integrates OpenZFS 2.4, which introduces new capabilities including hybrid pool support for combining flash and HDD storage, physical block rewriting, and dynamic gang header improvements.
+It also adds default user, group, and project quotas, and the ability to limit scrubs to a set time window.
+See OpenZFS Feature Flags for details on newly added feature flags.
+ Linux Kernel 6.18
+ TrueNAS 27 ships with Linux Kernel 6.18, enabling support for new hardware and receiving long-term maintenance and security updates from the upstream kernel project.
+ API Changes
+ TrueNAS 27 removes the deprecated REST API and modernizes the JSON-RPC 2.0 WebSocket API with improved authentication methods, including SCRAM-SHA-512 mutual authentication for API keys.
+ See API Changes for migration guidance.
+ This section tracks features removed in 27 and features deprecated in 27 for future removal.
+Plan migrations immediately to avoid disruptions during upgrades.
+ Features Removed in 27
+ Legacy VMs
+ Deprecated: 25.04.2
+ Removed: 27 
+ Legacy virtual machines created using the Instances screen in 25.04.0 and 25.04.1, and still shown on the Containers screen through 25.10, are removed in TrueNAS 27.
+No migration tool, wizard, or notification exists to move them automatically.
+Containers migrate automatically during the upgrade. These legacy VMs do not.
+ Migration Path:
+ While still running TrueNAS 25.10, record the configuration of each legacy VM and the location of the disk on the pool.
+ Upgrade to TrueNAS 27.
+ Re-create the VM and reattach the disk using the migration procedure.
+ Impact: A legacy VM does not appear anywhere in TrueNAS 27 after the upgrade. The VM disk remains on the pool, but you must re-create the VM configuration by hand and reattach the disk to it.
+ See Also:
+ Migrating Legacy VMs to Virtual Machines 
+ REST API
+ Deprecated: 25.04
+ Removed: 27 
+ The TrueNAS REST API was deprecated in TrueNAS 25.04 and is removed in TrueNAS 27.
+Systems still using the REST API must migrate to the WebSocket API before upgrading.
+ The TrueNAS REST API has been fully replaced by the versioned JSON-RPC 2.0 Websocket API.
+ Migration Path:
+ Review current API integrations and identify all REST API calls.
+ Review the Websocket API documentation to identify replacement endpoints.
+ Update all scripts and integrations to use Websocket API endpoints.
+ Test thoroughly in a non-production environment.
+ Deploy updated integrations before upgrading to 27.
+ Impact: Systems still using the REST API must migrate to the Websocket API before upgrading to 27.
+REST API endpoints do not function in 27 and later.
+ See Also:
+ Websocket API Documentation 
+ Managing API Keys 
+ JSON-RPC API Methods
+ pool.is_upgraded
+ Deprecated: 25.10
+ Removed: 27 
+ The pool.is_upgraded method, which reported whether a pool had all ZFS feature flags enabled, is removed in TrueNAS 27. No direct replacement is provided. Scripts that need to inspect pool feature flag state can use pool.query and read the returned feature flag information.
+ pool.ddt_prefetch
+ Deprecated: 25.10
+ Removed: 27 
+ The pool.ddt_prefetch method, which prefetched deduplication table (DDT) entries for a pool, is removed in TrueNAS 27. Use pool.prefetch instead, which prefetches both DDT and Block Reference Table (BRT) metadata in a single call.
+ Deprecated Features (Removal in Future Versions)
+ JSON-RPC API Methods
+ Legacy Authentication Methods
+ Deprecated: 27
+ Planned Removal: 28 
+ The auth.login and auth.login_with_api_key methods are deprecated and scheduled for removal in TrueNAS 27. Migrate to auth.login_ex :
+ Replace auth.login with auth.login_ex using mechanism="PASSWORD_PLAIN" . For two-factor authentication, follow with auth.login_ex_continue using mechanism="OTP_TOKEN" .
+ Replace auth.login_with_api_key with auth.login_ex using mechanism="API_KEY_PLAIN" (or mechanism="SCRAM" for stronger mutual authentication).
+ Removing the legacy auth.login and auth.login_with_api_key entry points does not affect API_KEY_PLAIN or the other non-SCRAM mechanisms on auth.login_ex , which remain supported beyond TrueNAS 27.
+ See the SCRAM Authentication primer for guidance on implementing SCRAM in custom API clients and migrating pre-TrueNAS 27 API keys to the optimized precomputed format.
+ Pool Scrub Methods
+ Deprecated: 27
+ Planned Removal: TBD 
+ The pool.scrub.run and pool.scrub.scrub methods are deprecated. Use zpool.scrub.run to start, stop, or pause pool scrub operations. A removal version is not yet defined.
+ system.advanced consolemsg Attribute
+ Deprecated: 27
+ Planned Removal: TBD 
+ The consolemsg attribute on system.advanced.config and system.advanced.update is deprecated. Use the ui_consolemsg attribute on system.general.config and system.general.update instead. A removal version is not yet defined.
+ config.save pool_keys Parameter
+ Deprecated: 27
+ Planned Removal: TBD 
+ The pool_keys parameter on config.save is deprecated and already ignored — passing it has no effect on TrueNAS configuration backups. The parameter remains accepted for backward compatibility. A removal version is not yet defined.
+ For additional resources, see the Feature Deprecations page.
+ Upgrading TrueNAS
+ Early releases of a major version are intended for testing and feedback purposes only.
+Do not use early release software for critical tasks.
+ TrueNAS is an appliance built from specific Linux packages.
+Updating TrueNAS using apt or any method other than the TrueNAS web interface can make the system inoperable.
+ Modifying the base OS can cause unexpected behavior during upgrades:
+ Users who manually installed Docker on TrueNAS 24.04 or earlier can experience TrueNAS Apps failure in 24.10 or later.
+ This occurs due to conflicts between the manually installed and native Docker configurations.
+ Affected systems can encounter app_lifecycle.compose_action errors, such as:
+ 'group_add[0]' expected type 'string', got unconvertible type 'int', value: '568' 
+ See NAS-134660 for details and a workaround.
+ All auxiliary parameters can experience changes between TrueNAS major versions due to security and development changes.
+We recommend removing all auxiliary parameters from TrueNAS configurations before upgrading as these settings can result in unexpected behavior such as SMB share failures after an upgrade.
+ SSH auxiliary parameters are unsupported.
+Certain configurations can prevent the SSH service from starting.
+ After updating, clear the browser cache ( CTRL+F5 ) before logging in to TrueNAS. This ensures stale data doesn’t interfere with loading the TrueNAS UI.
+ TrueNAS Apps
+ Application maintenance, including version updates, features, and configuration options, is independent from TrueNAS version release cycles.
+See documentation and resources at the TrueNAS Apps Market and the truenas/apps repository issues tracker for more information.
+ The TrueNAS REST API is removed in TrueNAS 27. Systems still using the REST API must migrate to the JSON-RPC 2.0 WebSocket API before upgrading. See API Changes for migration guidance and details about API authentication improvements in TrueNAS 27.
+ TrueNAS Apps
+ Application maintenance, including version updates, features, and configuration options, is independent from TrueNAS version release cycles.
+See documentation and resources at the TrueNAS Apps Market and the truenas/apps repository issues tracker for more information.
+ API Improvements in TrueNAS 27
+ REST API Removal
+ The TrueNAS REST API was deprecated in TrueNAS 25.04 and is removed in TrueNAS 27.
+Systems still using the REST API must migrate to the WebSocket API before upgrading.
+ TrueNAS (25.04 and later) uses a versioned JSON-RPC 2.0 over WebSocket API.
+API versions are numbered in conjunction with TrueNAS version releases.
+ The API documentation provides information about supported API methods and events.
+Documentation is included for all API versions supported by the current TrueNAS release and defaults to the latest supported API.
+Use the dropdown to view documentation for different supported API versions.
+ Advanced users can interact with the TrueNAS API to perform management tasks using the TrueNAS API Client as an alternative to the TrueNAS web UI.
+This websocket client provides the command line tool midclt and allows users to communicate with middleware using Python by making API calls.
+The client can connect to the local TrueNAS instance or to a specified remote socket.
+ You can access TrueNAS API documentation in the web interface by clicking laptop My API Keys on the top right toolbar account_circle user settings dropdown menu to open the User API Keys screen.
+Click API Docs to view API documentation.
+ Improved API Authentication
+ TrueNAS 27 introduces auth.login_ex as a unified WebSocket API authentication method that supports password ( PASSWORD_PLAIN ), API key ( API_KEY_PLAIN ), OTP token ( OTP_TOKEN ), and the new SCRAM-SHA-512 ( SCRAM ) mechanism. SCRAM provides mutual authentication between client and server without transmitting raw key material.
+ The legacy auth.login and auth.login_with_api_key methods are deprecated and scheduled for removal in TrueNAS 27. Their functionality is fully replaced by auth.login_ex , which continues to support API_KEY_PLAIN and the other non-SCRAM mechanisms beyond TrueNAS 27. SCRAM is the recommended choice for new clients that can adopt it.
+ See the SCRAM Authentication primer for guidance on implementing SCRAM in custom API clients and migrating pre-TrueNAS 26 API keys to the optimized precomputed format.
+ For the full list of deprecated and removed API methods, see Feature Deprecations .
+ Two-Factor Authentication Interval Change
+ TrueNAS 27 restricts the two-factor authentication (2FA) token interval to 30 or 60 seconds. TrueNAS 27 validates Time-based One-Time Password (TOTP) login codes and accepts only these two intervals.
+ A non-standard interval could have been set through the API, or through the global 2FA setting in TrueNAS releases before 24.04, where the web interface exposed an editable interval field that applied a single value to every 2FA account on the system. That value persists across upgrades. The current web interface always sets a 30-second interval and no longer exposes this field, so 2FA configured through the UI on TrueNAS 24.04 or later uses the supported 30-second interval. A non-standard interval worked for web interface logins in earlier releases but stops working after upgrading to TrueNAS 27. Both local accounts and directory services (Active Directory or LDAP) accounts are in scope.
+ During the upgrade, TrueNAS clears the stored 2FA secret and resets the interval to 30 for any affected account. That account has no working 2FA until the user sets up 2FA again.
+ To avoid any interruption, affected users re-enroll before upgrading. Go to Credentials > Two Factor Auth , click Renew 2FA Secret , then scan the new QR code with an authenticator app. The renewed secret uses the default 30-second interval. If you are not sure whether an account is affected, renew the 2FA secret for that account anyway. A renewal is safe for accounts that are not affected.
+ To restore 2FA for an affected account after upgrading:
+ On standard systems, where 2FA is not required to log in, the user signs in with their password, then re-enrolls 2FA at Credentials > Two Factor Auth .
+ On systems that require 2FA to log in (for example, STIG mode), an administrator issues a one-time password for the affected user. An administrator who can still sign in generates it at Credentials > Users : select the affected user, then click Generate One-Time Password on the Password widget. If every administrator is locked out, an administrator with console access generates it from the console:
+ midclt call auth.generate_onetime_password '{"username": " account-name "}'
+ Replace
+ account-name 
+ with the name of the affected user account. The command returns a one-time password (for example, 1_nIaCpK-OhJPNQ-I6BfKr-29CyQB ). The user enters it in place of their password at the login screen, then reconfigures 2FA at Credentials > Two Factor Auth .
+ Containers and Virtual Machines
+ Containers
+ LXC containers, introduced as an experimental feature in earlier TrueNAS releases, are fully supported in TrueNAS 27.
+Due to backend technology changes in TrueNAS 27, containers on the Containers screen require migration.
+Containers migrate automatically at the first boot after upgrading, except on HA-capable TrueNAS Enterprise systems.
+Contact TrueNAS Enterprise Support if you have containers on a TrueNAS Enterprise system that does not migrate them.
+See Migrating Containers from TrueNAS 25.10 for what TrueNAS migrates.
+ TrueNAS 27 adds the following container improvements:
+ Enterprise HA support — Containers can now fail over between HA controllers ( NAS-138309 ).
+HA container failover requires a static IP configuration . Containers using DHCP do not fail over.
+ GPU passthrough — NVIDIA and other supported GPU devices can now be assigned to LXC containers from the container configuration screen ( NAS-138569 , NAS-138570 , NAS-138700 ).
+ USB and PCIe passthrough fixes — A regression that prevented USB and PCIe device passthrough to containers and VMs is resolved in 26-BETA.1 ( NAS-139045 , NAS-139356 ).
+ See Containers for configuration details.
+ Virtual Machines
+ Legacy virtual machines from the Instances screen, still shown on the Containers screen in TrueNAS 25.10, are not automatically migrated to TrueNAS 27.
+No migration tool, wizard, or notification exists for these VMs.
+TrueNAS does not preserve the VM configuration, UEFI variables, or Trusted Platform Module (TPM) state.
+The VM disk remains on the pool.
+ Before upgrading, while still running TrueNAS 25.10, record each VM configuration and zvol name, and take a recursive snapshot of the pool the instances use.
+See Preparing to Upgrade to TrueNAS 27 in the TrueNAS 25.10 documentation.
+ After upgrading, see Migrating Legacy VMs to Virtual Machines to re-create the VM and reattach the VM disk.
+ Drive Health Management
+ TrueNAS monitors the condition of installed HDD and SSD drives (SAS, SATA, and NVMe) through three integrated layers:
+ ZFS detects sudden failures in real time during active read and write operations and marks affected vdevs or disks as faulted immediately.
+ TrueNAS Middleware polls SMART data from every drive every 90 minutes. When a polled attribute crosses a failure threshold, TrueNAS generates an alert.
+ Alert logic filters incoming SMART and ZFS data to suppress known-benign attribute fluctuations, reducing false-positive alerts by approximately 50% compared to prior releases.
+ Drive health status is visible on the Disk Health card on the Storage dashboard. Active alerts appear in the Alerts panel with details on the affected disk and recommended next steps.
+ Community Edition users can supplement automated monitoring with manual SMART tests run via cron jobs or the smartctl command-line tool. Third-party tools such as Scrutiny are also available from the TrueNAS Apps catalog.
+ See Drive Health Management for full details.
+ Upgrade Paths
+ Early releases of a major version are intended for testing and feedback purposes only.
+Do not use early release software for critical tasks.
+ Upgrading to TrueNAS 27 from an earlier TrueNAS release is primarily done using the web interface update process .
+ Another upgrade option is to use a TrueNAS .iso file to perform a fresh install on the system and then restore a system configuration file .
+ Update to the latest maintenance release of the current major version before upgrading to the next major version.
+You can then upgrade directly from the latest maintenance release to the latest release of the next major version.
+ This chart shows the basic upgrade paths between TrueNAS major versions.
+Depending on your use case and risk tolerance, you might prefer to delay upgrading to allow additional time for testing and stability.
+See the TrueNAS Software Status for version recommendations tailored to different user types from Developer to Mission Critical.
+ ‹ 
+ › 
+ flowchart LR
+ A["11.3-U5"] -->|update| B["12.0-U8.1"]
+ B -->|"update / ISO install"| C["13.0-U6.8 / 13.3-U2"]
+ C -->|update| G
+ C -->|ISO install| J
+ D["22.02.4 (Angelfish)"] -->|update| E
+ E["22.12.4.2 (Bluefin)"] -->|update| F
+ F["23.10.2 (Cobia)"] -->|update| G
+ G["24.04.2.5 (Dragonfish)"] -->|update| H
+ H["24.10.2.4 (Electric Eel)"] -->|update| I
+ I["25.04.2.6 (Fangtooth)"] -->|update| J
+ J["25.10.7 (Goldeye)"] -->|"anticipated"| K
+ K["TrueNAS 27.0"]
+ ‹ 
+ › 
+ flowchart LR
+ A["11.3-U5"] -->|update| B
+ B["12.0-U8.1"] -->|update| C
+ C["13.0-U6.8"] -->|ISO install| H
+ C -->|update| E
+ D["23.10.2 (Cobia)"] -->|update| E
+ E["24.04.2.5 (Dragonfish)"] -->|update| F
+ F["24.10.2.4 (Electric Eel)"] -->|update| G
+ G["25.04.2.6 (Fangtooth)"] -->|update| H
+ H["25.10.7 (Goldeye)"] -->|"anticipated"| I
+ I["TrueNAS 27.0"]
+ Permitted upgrade methods are:
+ update : Apply updates using the Update screen in the TrueNAS UI or install a manual update file.
+Not all upgrade paths support automatic updates (see chart).
+ ISO install : Save your TrueNAS configuration file, perform a fresh install using an .iso file for the target version, then upload the saved configuration.
+ You can skip major versions using a fresh installation with configuration file restore.
+Before skipping versions, review release notes for each major version to identify service deprecations or significant changes that might affect your configuration.
+Consider upgrading incrementally through major versions with significant changes, or be prepared to manually reconfigure any incompatibilities after upgrading directly to the target version.
+ Migrating from TrueNAS 13.0 or 13.3
+ Migrating TrueNAS from FreeBSD- to Linux-based versions is a one-way operation.
+Attempting to activate or roll back to a FreeBSD-based TrueNAS boot environment can break the system.
+ Upgrade your FreeBSD-based TrueNAS system to the latest publicly-available release version, 13.0-U6.7 (or 13.3-U1.2 for community users), before attempting to migrate.
+See Software Releases for current recommended update paths to make sure you download and migrate to the correct version.
+ Depending on the specific system configuration, migrating from a FreeBSD-based TrueNAS version can be a straightforward or complicated process.
+See the Migration articles for cautions and notes about differences between each software and the migration process.
+ TrueNAS Enterprise 
+ TrueNAS Enterprise customers with High Availability (HA) or Non-HA TrueNAS Hardware should consult with TrueNAS Enterprise Support for assistance before attempting to migrate.
+ Customers who purchase TrueNAS hardware or that want additional support must have a support contract to use TrueNAS Support Services.
+The TrueNAS Community forums provides free support for users without a TrueNAS Support contract.
+ TrueNAS Customer Support 
+ Support Portal
+ https://support.ixsystems.com 
+ Email
+ <email-masked> 
+ Telephone and Other Resources
+ https://www.ixsystems.com/support/ 
+ Component Versions and ZFS Feature Flags
+ Software Component Versions
+ Click the component version number to see release notes for that component.
+ 27-RC.1
+ 26-BETA.3
+ 26-BETA.2
+ 26-BETA.1
+ Linux Kernel
+ 6.18.52 
+ 6.18.42 
+ 6.18.23 
+ 6.18.13 
+ OpenZFS
+ 2.4.4 
+ 2.4.3 
+ 2.4.1 
+ 2.4.1 
+ Docker Engine
+ 29.0.4 
+ 29.0.4 
+ 29.0.4 
+ 29.0.4 
+ NVIDIA Driver
+ 580.173.02 
+ 580.173.02 
+ 590.44.01 
+ 590.44.01 
+ *TrueNAS (25.10 and later) includes the NVIDIA open GPU kernel module drivers .
+These drivers work with Turing and later GPUs.
+Earlier architectures (Pascal, Maxwell, Volta) are not compatible.
+See NVIDIA GPU Support for more information.
+ OpenZFS Feature Flags
+ TrueNAS integrates many features provided by the upstream OpenZFS project .
+Any new feature flags introduced since the previous OpenZFS version that was integrated into TrueNAS (OpenZFS 2.3.3) are listed below:
+ Feature Flag
+ GUID
+ Notes
+ block_cloning_endian 
+ com.truenas:block_cloning_endian 
+ Corrects ZAP entry endianness issues in the Block Reference Table (BRT) used by block cloning. Read-only compatible.
+ dynamic_gang_header 
+ com.klarasystems:dynamic_gang_header 
+ Enables larger gang headers based on pool sector size. Not read-only compatible; must be manually enabled.
+ physical_rewrite 
+ com.truenas:physical_rewrite 
+ Enables physical block rewriting that preserves logical birth times, reducing incremental send stream sizes. Read-only compatible.
+ For more details on feature flags, see OpenZFS Feature Flags and OpenZFS zpool-feature.7 .
+ Have more questions? 
+ For further discussion or assistance, see these resources:
+ TrueNAS Community Forum 
+ TrueNAS Community Discord 
+ TrueNAS Enterprise Support (requires paid support contract) 
+ Found content that needs an update?  
+You can
+ suggest content changes 
+ directly! To request changes to this content, click the Feedback button located on the middle-right side of the page (might require disabling ad blocking plugins).
+ Jump To: 
+ 541 Division Street
+Campbell, CA 95008, USA
+ Contact Us 
+ <email-masked> 
+ Listen to our Podcast 
+ Support
+ Enterprise Support 
+ Community Support 
+ Forums 
+ FAQs 
+ Useful Links
+ Careers 
+ About Us 
+ Blog 
+ News & Articles 
+ TrueNAS Enterprise 
+ TrueNAS Community Edition 
+ TrueCommand 
+ TrueCommand Cloud 
+ TrueNAS Legacy 
+ Software Status 
+ Reseller Network 
+ Subscribe to our newsletter 
+ © Copyright  iXsystems, Inc. dba TrueNAS. All rights reserved. 
+ Legal 
+ TrueNAS Logos

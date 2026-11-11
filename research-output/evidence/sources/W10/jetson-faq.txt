@@ -1,0 +1,673 @@
+
+ Jetson FAQ | NVIDIA Developer
+ Jetson FAQ
+ What is Jetson?
+ NVIDIA® Jetson is the world's leading platform for
+ AI at the
+ edge. It combines high-performance, low-power compute modules with
+ the NVIDIA AI software stack. It’s the
+ ideal platform for advanced robotics and other autonomous products.
+ For more information, see the NVIDIA Jetson Developer Site.
+ For product datasheets and other technical collateral, see the
+ Jetson Download Center.
+ What is JetPack?
+ JetPack is NVIDIA’s software stack for Jetson platforms. It integrates Jetson Linux, AI compute stack, AI frameworks, a holistic set of libraries and developer tools into one package. It provides everything needed to build, deploy, and optimize AI-powered edge applications on Jetson devices. Refer to the JetPack page to learn more.
+ What version of JetPack should I use?
+ JetPack 7 supports Jetson Thor with Linux 24.04 LTS, Kernel 6.8 our latest compute stack and libraries. It will support Jetson Orin series 2026
+ JetPack 6 is in sustaining mode. It supports Jetson Orin with production-ready feature releases. It also supports Jetson Platform Services, Upgradable AI compute stack and a broad support for popular distros and kernels.
+ JetPack 5 is in sustaining mode. It supports Jetson Orin and Jetson Xavier with production-ready feature releases.
+ JetPack 4 is EoL and supports Jetson Xavier, Jetson TX2, and Jetson Nano.
+ JetPack 4 – JetPack 4 was first released in 2018 with Ubuntu 18.04 LTS and kernel 4.9. Jetpack 4 was announced End of Life in November 2024. NVIDIA encourages developers to leverage the expertise of Jetson Ecosystem partners including TimeSys and Codethink for further Kernel maintenance. For seamless support continuity on Jetson Xavier modules, we suggest developers transition to the latest JetPack available for their platform.
+ Does Jetson support running generative AI models? How can I get started?
+ The NVIDIA Jetson platform is uniquely capable of running any kind of generative AI model locally, including LLMs, vision transformers, VLMs and Stable Diffusion.
+ Jetson AGX Orin delivers leading performance in the MLPerf Benchmark for generative AI at the embedded edge.
+ To explore more, please visit the NVIDIA Jetson AI Lab.
+ Where can I buy Jetson products?
+ Jetson products are available from distributors and e-tailers, as well as from NVIDIA. See this link for a full listing.
+ What is the difference between Jetson Developer Kits and Jetson modules?
+ Each Jetson developer kit includes a non-production specification Jetson module attached to a reference carrier board. Together with JetPack SDK, it is used to develop and test software for your use case. Jetson developer kits are not
+ intended for production use.
+ Jetson modules are suitable for deployment in a production environment throughout their operating lifetime. Each Jetson module ships with no software pre-installed; you attach it to a carrier board
+ designed or procured for your end product, and flash it with the software image you’ve developed.
+ What is the difference between the Jetson AGX Orin Developer Kit with 32GB vs. 64GB?
+ The Jetson AGX Orin Developer Kit has been upgraded with 64GB of memory. The performance is the same as the original
+ 32GB Jetson AGX Orin Developer Kit, except for the memory. The price of the Jetson AGX Orin developer kit with 64GB
+ of memory is $3499.
+ In addition, the production Jetson AGX Orin 64GB and Jetson AGX Orin 32GB modules have different memory, AI compute
+ and performances. Please refer to the
+ technical specifications table here
+ for details.
+ What is the Jetson Orin Nano Super Developer Kit, and how does the hardware differ from the original Jetson Orin Nano Developer Kit?
+ The NVIDIA Jetson Orin Nano Super Developer Kit is a compact, yet powerful computer that redefines generative AI for small edge devices. It delivers up to 67 TOPS of AI performance—a 1.7X improvement over its predecessor—to seamlessly run all kinds of generative AI models, like vision transformers, large language models, vision-language models, and more.
+ The Jetson Orin Nano Super has no physical hardware and package differences compared to the Jetson Orin Nano Developer Kit. The performance upgrade comes from software optimization. Existing Jetson Orin Nano Developer Kit users can experience this performance boost with just a software update.
+ How can I enable Super Mode on my Jetson Orin? Will Jetson Orin Super Mode require new carrier board, thermal design and power solutions? 
+ Jetson Orin Super Mode, designed to accelerate AI performance for Jetson Orin NX and Orin Nano series, is natively available from JetPack 6.1 onwards. NVIDIA provides a new flash configuration file for customers who need improved performance. The new flash config supports a 25W power mode and MAXN power mode for the Jetson Orin Nano series and a 40W power mode and MAXN power mode for Jetson Orin NX series of production modules. 
+ The Jetson Orin Super Mode requires a higher power budget and customers may need to redesign their carrier boards and thermal solutions to enable the super mode. For the Orin NX series, the carrier board must have an HV rail to enable super mode and thermal designs need to support 40W. For the Orin Nano series, the carrier board and thermal design can refer to Jetson Orin Nano developer kit. 
+ Can Jetson developer kits be used as production systems or as part of a product?
+ No. Jetson developer kits are not for production use. The developer kit is used to develop and test software in a pre-production environment.
+ Jetson modules are designed for deployment in a production environment throughout their operating lifetime.
+ Jetson developer kit
+ Jetson module
+ Operating Lifetime
+ None specified
+ 5 or 10 year operating life in a production environment
+ Warranty
+ 1 year warranty for development use only
+ 3 year warranty †
+ Availability
+ No guarantee of availability.
+ Order quantities may be limited.
+ No notice before EOL.
+ Available for at least 5 years (up to 10).
+ Built to forecast.
+ Last Time Buy notice before EOL.
+ BOM
+ Several components may be non-production quality. Components may change without notification.
+ Production rated components. Any changes are notified via PCN following JEDEC JESD-046 standard.
+ Validation
+ Basic functional validation in a constrained environment.
+ Full functionality and reliability validation across environmental specifications. Tests are listed in the datasheet.
+ † Unless otherwise specified.
+ How do I port my application from a developer kit to a production module and production carrier board?
+ See the Jetson Module Adaptation and Bring-Up topic in the latest Jetson Linux Developer Guide for a description of how to port software from a Jetson developer kit to
+ your production hardware.
+ Are the Jetson AGX Xavier and Jetson Xavier NX modules still available?
+ Jetson AGX Xavier and Jetson Xavier NX modules will continue to be available per our Jetson Product Lifecycle page—up to January 2028 for Jetson AGX Xavier
+ and Jetson Xavier NX, and July 2031 for Jetson AGX Xavier Industrial. NVIDIA Jetson Xavier developer kits have reached EOL, but development systems are available from Jetson Partners.
+ What production systems are available from Jetson ecosystem partners?
+ Jetson ecosystem partners provide complete hardware systems built around Jetson modules for a variety of use cases. They also offer many production-ready carrier boards to help you get to market quickly.
+ See the complete list of these Jetson partner products.
+ What development systems are available from Jetson ecosystem partners?
+ Jetson ecosystem partners offer Jetson Development Systems which include a partner carrier board with a
+ production Jetson module. The partner carrier boards are production quality and support a broad range of I/Os including MIPI CSI-2, GMSL, Ethernet, USB, HDMI, PCIe, and more.
+ Are all Jetson modules compatible?
+ All Jetson modules are software compatible, and new capabilities such as DLA engine acceleration may become available when moving software developed on one Jetson module to another. If the move implies a change in JetPack version, some
+ porting may be required.
+ From a hardware perspective, Jetson modules have many signals in common, but the connector pin-out and electromechanical footprints do vary. See the Jetson module Data Sheets
+ and Product Design Guides for details. In summary:
+ Jetson Thor Modules
+ Jetson AGX Orin Series Modules
+ Jetson Orin Nano Series, Orin NX series Modules
+ Jetson AGX Xavier Series Modules
+ Jetson Nano, TX2 NX, Xavier NX Series Modules
+ Jetson TX2, TX2 4GB, TX2i Modules
+ Jetson Thor Modules
+ Pin and form-factor compatible
+ Form-factor compatible
+ -
+ Form-factor compatible
+ -
+ -
+ Jetson AGX Orin Series Modules
+ Form-factor compatible
+ Pin and form-factor compatible
+ -
+ Pin and form-factor compatible†
+ -
+ -
+ Jetson Orin Nano Series, Orin NX Series Modules
+ -
+ -
+ Pin and form-factor compatible
+ -
+ Form-factor compatible††
+ -
+ Jetson AGX Xavier Series
+ Form-factor compatible
+ Pin and form-factor compatible† 
+ -
+ Pin and form-factor compatible 
+ -
+ -
+ Jetson Nano, TX2 NX, Xavier NX Series Modules
+ -
+ -
+ Form-factor compatible††
+ -
+ Pin and form-factor compatible
+ -
+ Jetson TX2, TX2 4GB, TX2i Modules
+ -
+ -
+ -
+ -
+ -
+ Pin and form-factor compatible
+ † Jetson AGX Orin and Jetson AGX Xavier pin compatibility is dependent on your UPHY usage 
+ †† Jetson Orin NX & Jetson Orin Nano series modules are not pin-compatible with Jetson Xavier NX
+ series modules, but you can design a carrier board for the I/Os they have in common, such that both modules are supported.
+ When designing a carrier board to support more than one of the modules listed above as pin compatible, there may be some interface differences to note. See the Interface Comparison and Migration documents for details.
+ For a general overview of Jetson modules and their different combinations of interfaces, mechanical size, and performance, see the Jetson Hardware page.
+ What changes for industrial environments does Jetson AGX Orin Industrial have compared to Jetson AGX Orin?
+ Feature
+ Jetson AGX Orin
+ Jetson AGX Orin Industrial
+ Shock
+ Non-Operational: 140G, 2 ms
+ Non-Operational: 140G, 2 ms
+ Operational 50G, 11 ms
+ Vibration
+ Non-Operational: 3G
+ Non-Operational: 3G
+ Operational 5G
+ Operating Temperature
+ Operational: -25°C to 80°C at TTP
+ Operational: -40°C to 85°C at TTP
+ Humidity
+ Biased, 85°C, 85% RH, 168 hours
+ 85°C / 85% RH, 1000 hours, Power ON
+ Temperature Bias
+ -20°C, 24 hours
+ 45°C, 168 hours (operational)
+ -40°C, 72 hours
+ 85°C, 1000 hours (operational)
+ Error-Correcting Code
+ -
+ Inline DRAM ECC
+ Operating Lifetime
+ 5 Years
+ 10 Years
+ Max Power
+ 60W
+ 75W
+ What are the key differences between Jetson AGX Xavier Industrial and Jetson AGX Xavier?
+ Feature
+ Jetson AGX Xavier
+ Jetson AGX Xavier Industrial
+ Shock
+ Non-operational: 340G, 2 ms, Half sine, 6 
+ shocks/axis, 3 axes
+ Operational: 50G, 11 ms, Half sine 
+Non-operational: 140G, 2 ms, Half sine, 3-axis, 
+FCT/DPA, extend to 340G
+ Vibration
+ Non-operational: 10-500 Hz, 5G RMS, 8 
+hours/axis
+ Operational: 10-500 Hz, 5G RMS (random/sinusoidal) 
+Non-operational: 10-1000 Hz, 3G RMS, 3-axis, FCT
+ Temperature
+ Operational: -25°C to 80°C at TTP
+ Operational: -40°C to 85°C at TTP
+ Humidity
+ Non-operational: 95% RH, -10°C to 65°C, 
+10cycl/240 hours
+ Non-operational: 95% RH, -10°C to 65°C
+ Safety Cluster Engine
+ -
+ 2x Arm® Cortex®-R5 in lockstep
+ Error-Correcting Code
+ -
+ Inline DRAM ECC and GPU ECC
+ Operating Lifetime
+ 5 Years
+ 10 Years
+ What changes for industrial environments does Jetson TX2i have compared to Jetson TX2?
+ Feature
+ Jetson TX2
+ Jetson TX2i
+ Shock
+ 140G, 2ms
+ 140G, 2ms
+ Vibration
+ 10Hz ~200Hz, 1g & 2g RMS
+ Random: 5g RMS 10 to 500Hz
+ Sinusoidal: 5g RMS 10 to 500Hz
+ Temp Range at module TTP
+ -25°C - 80°C
+ -40°C - 85°C
+ Humidity
+ 85°C / 85% RH, 168 hours
+ -10°C to 65°C / 95% RH, 240 hours
+ Operating Life
+ 5 Years
+ (GB at 35C: MTBF=1,747,520 hours
+ GF at 35C: MTBF=1,066,851 hours)
+ 10 Years
+ (GB at 45C: 2,505,155 hours Rt=0.9656
+ GF at 45C: 1,254,624 hours Rt=0.9326)
+ Misc Env Testing
+ N/A
+ Mixed gas flow; dust settling; free fall drop
+ TDP
+ 15W
+ 20W
+ What camera modules are compatible with the Jetson platform?
+ Jetson has multiple interfaces for connecting a camera. That includes
+ USB, Ethernet, and MIPI CSI-2.
+ Jetson ecosystem partners provide camera modules to connect through
+ available Jetson interfaces. These partners supply drivers and support
+ for operation with the Jetpack SDK.
+ See the list of
+ Jetson partner-supported cameras
+ for a broad portfolio of cameras including SerDes-based solutions like
+ GMSL and FPD-LINK for longer cable lengths.
+ What memory components are included in the Jetson Orin modules?
+ The Memory Part Numbers included in the Jetson Orin modules can be found
+ in the tables included in the Product Marking Specification application
+ notes
+ listed here.
+ How long will each Jetson product be available for purchase?
+ See the Lifecycle page on
+ the Jetson Developer Zone.
+ How can I get support for my Jetson Developer Kit or module?
+ See this link for available support.
+ What is the warranty for Jetson products?
+ Product
+ Warranty
+ Jetson Developer Kits
+ 1 Year Warranty
+ †
+ Jetson modules
+ Tegra SoCs
+ 3 Year Warranty
+ ††
+ † Jetson developer kits are warranted for development use only.
+ †† Unless otherwise specified.
+ What is the operating lifetime for Jetson products?
+ Product
+ Operating Lifetime
+ All Jetson modules (except those listed below)
+ Tegra K1 Soc
+ 5 Years
+ Jetson AGX Xavier Industrial
+ Jetson AGX Orin Industrial
+ Jetson TX2i module
+ Tegra K1 Industrial SoC
+ 10 Years
+ What is the price of Jetson products?
+ Here is a summary of volume suggested pricing at 1KU+. Follow
+ this link
+ to find a local distributor.
+ Product
+ MSRP (USD)
+ Jetson AGX Thor Developer Kit
+ $5499
+ Jetson T5000 Module
+ $4999 (1KU+)
+ Jetson T4000 Module
+ $2999 (1KU+)
+ Jetson AGX Orin Developer Kit
+ $3499
+ Jetson AGX Orin 64GB Module
+ $2999 (1KU+)
+ Jetson AGX Orin Industrial
+ $3199 (1KU+)
+ Jetson AGX Orin 32GB Module
+ $1799 (1KU+)
+ Jetson Orin NX 16GB Module
+ $999 (1KU+)
+ Jetson Orin NX 8GB Module
+ $649 (1KU+)
+ Jetson Orin Nano Super Developer Kit
+ $399
+ Jetson Orin Nano 8GB
+ $399 (1KU+)
+ Jetson Orin Nano 4GB
+ $349 (1KU+)
+ Jetson AGX Xavier Module
+ $1599 (1KU+)
+ Jetson AGX Xavier Industrial Module
+ $2299 (1KU+)
+ Jetson Xavier NX 16GB Module
+ $899 (1KU+)
+ Jetson Xavier NX Module
+ $692
+ Jetson TX2 NX Module
+ $249 (1KU+)
+ Jetson TX2i Module
+ $999 (1KU+)
+ Jetson Nano Module
+ $267 
+ What is the origin of the Jetson Modules?
+ Name
+ P/N
+ Origin
+ Jetson T5000 
+ 900-13834-0080-001
+ China, USA, or Vietnam
+ Jetson T4000 
+ 900-13834-0000-001
+ China, USA, or Vietnam
+ Jetson AGX Orin 64GB
+ 900-13701-0050-000
+ China, USA, or Vietnam
+ Jetson AGX Orin Industrial
+ 900-13701-0080-000
+ USA
+ Jetson AGX Orin 32GB
+ 900-13701-0040-000
+ China, USA, or Vietnam
+ Jetson Orin NX 16GB
+ 900-13767-0000-001
+ China, USA, or Vietnam
+ Jetson Orin NX 8GB
+ 900-13767-0010-001
+ China, USA, or Vietnam
+ Jetson Orin Nano 8GB
+ 900-13767-0030-000
+ China, USA, or Vietnam
+ Jetson Orin Nano 4GB
+ 900-13767-0040-000
+ China, USA, or Vietnam
+ Jetson AGX Xavier Industrial
+ 900-82888-0080-000
+ China or USA
+ Jetson AGX Xavier 64GB
+ 900-82888-0050-000
+ China or Taiwan
+ -->
+ Jetson AGX Xavier
+ 900-82888-0040-000
+ China, Taiwan or Vietnam
+ Jetson Xavier NX 16GB
+ 900-83668-0030-000
+ China, Taiwan or Vietnam
+ Jetson Xavier NX
+ 900-83668-0000-000
+ China, Taiwan or Vietnam
+ Jetson TX2 NX
+ 900-13636-0010-000
+ China or Vietnam
+ Jetson TX2
+ 900-83310-0001-000
+ 900-83310-A301-000
+ 900-83310-A401-000
+ China or Taiwan
+ -->
+ Jetson TX2 4GB
+ 900-83489-0080-000
+ China
+ -->
+ Jetson TX2i
+ 900-83489-0000-000
+ China or Vietnam
+ Jetson Nano
+ 900-13448-0020-000
+ China, Taiwan or Vietnam
+ Please reach out to your local distributors for these origin-specific SKUs.
+ Name
+ P/N
+ Origin
+ Jetson T5000
+ 900-13834-0080-0A1
+ USA
+ Jetson T4000
+ 900-13834-0000-0A1
+ USA
+ Jetson AGX Orin 64GB
+ 900-13701-0050-0A0
+ USA
+ Jetson Orin NX 16GB
+ 900-13767-0000-0A1
+ USA
+ Jetson Orin NX 8GB
+ 900-13767-0010-0V1
+ USA or Vietnam
+ Jetson AGX Xavier Industrial
+ 900-82888-0080-0A0
+ USA
+ Jetson AGX Xavier
+ 900-82888-0040-0T0
+ Taiwan
+ Jetson Xavier NX
+ 900-83668-0000-0T0
+ Taiwan
+ What is the origin of the Jetson Developer Kits?
+ Name
+ P/N
+ Origin
+ Jetson AGX Thor Developer Kit
+ 945-14070-0087-000
+945-14070-0085-000
+945-14070-0080-000
+ China, USA or Vietnam
+ NVIDIA Jetson AGX Orin 64GB Developer Kit
+ 945-13730-0057-000
+945-13730-0055-000
+945-13730-0050-000
+ China, USA or Vietnam
+ Jetson Orin Nano Super Developer Kit
+ 945-13766-0007-000
+945-13766-0005-000
+945-13766-0000-000
+ China, USA or Vietnam
+ What if I need an RMA (Return Material Authorization)?
+ If you believe that your Jetson product is defective, please contact
+ the NVIDIA Customer Care team. We will help you troubleshoot your issue
+ and process a replacement if it is found to be defective.
+ Go to
+ this link.
+ Select the "Live Chat" option to chat online with one of our
+ customer care agents.
+ Enter your contact information.
+ Select the "Jetson" from the product drop-down list.
+ Submit the request.
+ What Export Control Classification Number (ECCN) applies to Jetson
+ modules and developer kits?
+ The ECCN is 5A992.C. Please contact
+ [email masked]
+ if you need additional information.
+ What are the Part Numbers for Jetson products?
+ Jetson Modules and SoCs
+ Jetson T5000
+ SKU
+ Regions
+ 900-13834-0080-001
+900-13834-0080-0A1 (Origin – USA)
+ US, CA, CN, JP, EU, UK, RS, UA, SG, MY, VN, HK, KR, IL, PH, MX, IN, AU / NZ, TW
+ Jetson T4000
+ SKU
+ Regions
+ 900-13834-0000-001
+900-13834-0000-0A1 (Origin – USA)
+ US, CA, CN, JP, EU, UK, RS, UA, SG, MY, VN, HK, KR, IL, PH, MX, IN, AU / NZ, TW
+ Jetson AGX Orin 64GB
+ SKU
+ Regions
+ 900-13701-0050-000
+900-13701-0050-0A0 (Origin - USA)
+ US, CA, MX, UK, EU*, RS, UA, IL, IN, CN, MY, VN, SG, HK, AU, PH,
+ TW, JP, KR, NZ
+ Jetson AGX Orin Industrial
+ SKU
+ Regions
+ 900-13701-0080-000
+ US, CA, MX, UK, EU*, RS, UA, IL, IN, CN, MY, VN, SG, HK, AU, PH,
+ TW, JP, KR, NZ
+ Jetson AGX Orin 32GB
+ SKU
+ Regions
+ 900-13701-0040-000
+ US, CA, MX, UK, EU*, RS, UA, IL, IN, CN, MY, VN, SG, HK, AU, PH,
+ TW, JP, KR, NZ
+ Jetson Orin NX 16GB
+ SKU
+ Regions
+ 900-13767-0000-001
+900-13767-0000-0A1 (Origin - USA)
+ US, CA, MX, UK, EU*, RS, IL, IN, CN, MY, VN, SG, HK, AU, PH, TW,
+ JP, KR, NZ
+ Jetson Orin NX 8GB
+ SKU
+ Regions
+ 900-13767-0010-001
+900-13767-0010-0V1 (Origin - USA or Vietnam)
+ US, CA, MX, UK, EU*, RS, IL, IN, CN, MY, VN, SG, HK, AU, PH, TW,
+ JP, KR, NZ
+ Jetson Orin Nano 8GB
+ SKU
+ Regions
+ 900-13767-0030-000
+ US, CA, MX, UK, EU*, RS, IL, IN, CN, MY, VN, SG, HK, AU, PH, TW,
+ JP, KR, NZ
+ Jetson Orin Nano 4GB
+ SKU
+ Regions
+ 900-13767-0040-000
+ US, CA, MX, UK, EU*, RS, IL, IN, CN, MY, VN, SG, HK, AU, PH, TW,
+ JP, KR, NZ
+ Jetson AGX Xavier 64GB
+ SKU
+ Regions
+ 900-82888-0050-000
+ US, CA, MX, BR, UK, EU, RS, UA, IL, IN, CN, MY, VN, SG, HK, AU,
+ PH, TW, JP, KR, NZ
+ Jetson AGX Xavier
+ SKU
+ Regions
+ 900-82888-0040-000
+ 900-82888-0000-000†
+ 900-82888-0040-0T0 (Origin - Taiwan)
+ US, CA, MX, BR, UK, EU, RS, UA, IL, IN, CN, MY, VN, SG, HK, AU,
+ PH, TW, JP, KR, NZ
+ Jetson AGX Xavier Industrial
+ SKU
+ Regions
+ 900-82888-0080-000
+900-82888-0080-0A0 (Origin - USA)
+ US, CA, MX, BR, UK, EU, RS, UA, IL, IN, CN, MY, VN, SG, HK, AU,
+ PH, TW, JP, KR, NZ
+ Jetson Xavier NX 16GB
+ SKU
+ Regions
+ 900-83668-0030-000
+ US, CA, MX, BR, UK, EU, RS, UA, IL, IN, CN, MY, VN, SG, HK, AU,
+ PH, TW, JP, KR, NZ
+ Jetson Xavier NX
+ SKU
+ Regions
+ 900-83668-0000-000
+900-83668-0000-0T0 (Origin - Taiwan)
+ US, CA, MX, BR, UK, EU, RS, UA, IL, IN, CN, MY, VN, SG, HK, AU,
+ PH, TW, JP, KR, NZ
+ Jetson TX2 NX
+ SKU
+ Regions
+ 900-13636-0010-000
+ US, CA, MX, BR, UK, EU, RS, UA, IL, IN, CN, MY, VN, SG, HK, AU,
+ PH, TW, JP, KR, NZ
+ [EOL] Jetson TX2
+ SKU
+ Regions
+ 900-83310-0001-000
+ US, CA, UK, EU, CN, SG, HK, AU, TW, JP, KR, NZ
+ 900-83310-A301-000
+ IL
+ 900-83310-A401-000
+ IN
+ [EOL] Jetson TX2 4GB
+ SKU
+ Regions
+ 900-83489-0080-000
+ US, CA, MX, BR, UK, EU, RS, UA, IL, IN, CN, MY, VN, SG, HK, AU,
+ PH, TW, JP, KR, NZ
+ Jetson TX2i
+ SKU
+ Regions
+ 900-83489-0000-000
+ US, CA, MX, BR, UK, EU, RS, UA, IL, IN, CN, MY, VN, SG, HK, AU,
+ PH, TW, JP, KR, NZ
+ Jetson Nano
+ SKU
+ Regions
+ 900-13448-0020-000
+ US, CA, MX, BR, UK, EU, RS, UA, IL, IN, CN, MY, VN, SG, HK, AU,
+ PH, TW, JP, KR, NZ
+ [EOL] Tegra K1 (SoC)
+ SKU
+ CD575M-A1
+ CD575M-C-A1
+ [EOL] Tegra K1 Industrial (SoC)
+ SKU
+ CD575MI-A1
+ CD575MI-C-A1
+ * “EU” implies Austria, Belgium, Bulgaria, Croatia,
+ Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany,
+ Greece, Hungary, Iceland, Ireland, Italy, Latvia, Liechtenstein,
+ Lithuania, Luxembourg, Malta, Netherlands, Norway, Poland, Portugal,
+ Romania, Slovakia, Slovenia, Spain, Sweden, Switzerland, Turkey.
+ † 900-82888-0040-000 (with 32 GB memory) replaces
+ previous version 900-82888-0000-000 (with 16 GB memory).
+ Jetson Developer Kits
+ Jetson AGX Thor Developer Kit
+ SKU
+ Regions
+ 945-14070-0080-000
+ US, CA, CN, TW, JP, TW
+ 945-14070-0085-000
+ EU, UK, RS, UA, SG, MY, VN, HK, KR, IL
+ 945-14070-0087-000
+ PH, MX, IN, AU / NZ
+ Jetson AGX Orin 64GB Developer Kit
+ SKU
+ Regions
+ 945-13730-0050-000§
+ US, CA, CN, TW, JP
+ 945-13730-0055-000§
+ UK, EU*, RS, UA, IL, MY, VN, SG, HK, KR
+ 945-13730-0057-000§
+ IN, AU, PH, NZ
+ Jetson Orin Nano Super Developer Kit
+ SKU
+ Regions
+ 945-13766-0000-000
+ US, CA, CN, JP, PH
+ 945-13766-0005-000
+ EU, UK, RS, UA, SG, VN, HK, KR, MY, IL
+ 945-13766-0007-000
+ IN, TW
+ [EOL]
+ Jetson AGX Xavier Developer Kit
+ SKU
+ Regions
+ 945-82972-0040-000
+ 945-82972-0000-000†
+ US, CA, PH, TW, JP
+ 945-82972-0045-000
+ 945-82972-0005-000†
+ UK, EU, IL, MY, SG
+ 945-82972-0046-000
+ 945-82972-0006-000†
+ CN, VN, AU, KR, NZ
+ 945-82972-0047-000
+ 945-82972-0007-000†
+ IN
+ [EOL]
+ Jetson Xavier NX Developer Kit
+ SKU
+ Regions
+ 945-83518-0000-000
+ US, CA, MX, CN, PH, TW, JP
+ 945-83518-0005-000
+ BR, UK, EU, RS, UA, IL, VN, SG, HK, KR
+ 945-83518-0007-000
+ IN, AU, NZ
+ [EOL]
+ Jetson Nano Developer Kit
+ SKU
+ Regions
+ 945-13450-0000-100
+ 945-13450-0000-000‡
+ US, CA, MX, BR, UK, EU, IL, IN, CN, MY, VN, SG,
+ HK, AU, PH, TW, JP, KR, NZ
+ [EOL]
+ Jetson Nano 2GB Developer Kit
+ SKU
+ Regions
+ 945-13541-0000-000
+ US, CA, UK, EU
+ 945-13541-0001-000
+ MX, BR, RS, UA, IL, IN, CN, MY, VN, SG, HK, AU,
+ PH, TW, JP, KR, NZ
+ * “EU” implies Austria, Belgium, Bulgaria, Croatia,
+ Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany,
+ Greece, Hungary, Iceland, Ireland, Italy, Latvia, Liechtenstein,
+ Lithuania, Luxembourg, Malta, Netherlands, Norway, Poland, Portugal,
+ Romania, Slovakia, Slovenia, Spain, Sweden, Switzerland, Turkey.
+ † 945-82972-004n-000 (with 32 GB memory) replaces
+ previous version 945-82972-000n-000 (with 16 GB memory)
+ ‡ 945-13450-0000-100 adds support for production Jetson
+ Nano module and replaces 945-13450-0000-000
+ § Jetson AGX Orin Developer kit has fully upgraded from
+ 32GB to 64GB memory. Both versions have the same 275 TOPS performance.
+ Join now

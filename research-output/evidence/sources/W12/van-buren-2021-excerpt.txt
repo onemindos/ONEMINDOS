@@ -1,0 +1,27 @@
+--- lines 95,120 of extracted text ---
+12. 
+(b) The statute’s structure further cuts against the Government’s 
+position. Subsection (a)(2) specifies two distinct ways of obtaining in-
+formation unlawfully—first, when an individual “accesses a computer
+without authorization,” §1030(a)(2), and second, when an individual 
+“exceeds authorized access” by accessing a computer “with authoriza-
+tion” and then obtaining information he is “not entitled so to obtain,” 
+§§1030(a)(2), (e)(6). Van Buren contends that the “without authoriza-
+tion” clause protects computers th emselves from outside hackers, 
+while the “exceeds authorized access” clause provides complementary 
+protection for certain information within computers by targeting so-
+called inside hackers. Under Van Buren’s reading, liability under both 
+clauses stems from a gates-up-or-down inquiry—one either can or can-
+not access a computer system, and one either can or cannot access cer-
+tain areas within the system. This treats the clauses consistently and
+aligns with the computer-context understanding of access as entry. By
+contrast, the Government proposes to read the first phrase “without 
+authorization” as a gates-up-or-down inquiry and the second phrase 
+“exceeds authorized access” as de pendent on the circumstances—a 
+reading inconsistent with subsection (a)(2)’s design and structure. The 
+Government’s reading leaves unanswered why the statute would pro-
+hibit accessing computer information, but not the computer itself, for 
+an improper purpose.
+Another structural problem for the Government: §1030(a)(2) also
+gives rise to civil liability, §1030(g), with the statute defining “damage”
+and “loss” to specify what a plaintiff in a civil suit can recover. 

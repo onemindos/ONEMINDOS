@@ -11,3 +11,13 @@ All accessed 2026-11-10. The DEC agent verified only the facts below itself. Eve
 | 5 | https://www.truenas.com/docs/scale/24.10/gettingstarted/scalereleasenotes/ | PRIMARY (vendor release notes) | C-DEC-007 | Wayback: http://web.archive.org/web/20261015034155/https://www.truenas.com/docs/scale/24.10/gettingstarted/scalereleasenotes/ ; sha256 of the HTML fetched 2026-11-10: `ac67edd7aba2814bf2e92c3eb4578c9b9720afb7c3c1caac63c7691754389456`. Note: the page gives 24.10.0 as 2024-10-29 in its 24.10.0 section but 2024-12-17 in its introduction (that date matches 24.10.1). |
 
 **Derived numbers (not new facts):** the refuter-corrected scorecard totals and their ±5 sensitivity runs in `01-FOUNDATION-DECISION.md` §3 were computed with the frozen formula `Σ(weight × score)/5` and the proportional rescaling rule in `evidence/scorecard-weights.md` §6. The script is short and reproduced in `01-…` §3.6 so anyone can re-run it.
+
+### Added 2026-11-11 (revision 2)
+
+| # | Source | Type | Claims | Archive / integrity |
+|---|---|---|---|---|
+| 6 | `torvalds/linux@adc218676eef25575469234709c2d87185ca223a` (tag v6.12): `kernel/module/signing.c` (L64–L65) | PRIMARY (code, pinned tag) | C-DEC-008 | Saved: `sources/DEC/linux-v6.12-kernel-module-signing.c.txt` (one author email in the header masked), sha256 of the original `b6dac3fb2527b3a2b897bf1279f056479d888be82cbdb612225c49568962e938`, of the saved copy `e958b2544b522eb1ecaa0a39f17abe58ad7f34f2f9bafb4b746b734433adfc58` |
+| 7 | same commit: `security/integrity/platform_certs/load_uefi.c` (L156–L191) | PRIMARY | C-DEC-009 | Saved: `sources/DEC/linux-v6.12-security-integrity-platform_certs-load_uefi.c.txt`, sha256 `a3ceaf8ad33201a57236b4fe99c418109db8987dbc26a46b59d1a8e924d27fd9` |
+| 8 | same commit: `security/integrity/Kconfig` (L55–L75) | PRIMARY | C-DEC-009, C-DEC-010 | Saved: `sources/DEC/linux-v6.12-security-integrity-Kconfig.txt`, sha256 `53c2a292cfdab6e3cef032d86a4cc244d9bb16eb8be7724cb1e905f499bc20ad` |
+
+Why these were checked: X-2R enrolled a OneMind key in UEFI db [C-LAB-secureboot-rauc-012], and DC-16 needs OneMind-signed driver packs to load under lockdown. On a stock (Debian-built) kernel a db key cannot do that; only a key built into the kernel or a MOK key can. This is what links DC-16 and Secure Boot to the kernel route (01 §3.5). Debian's own kernel config was not opened; the inference that Debian enables the machine keyring is **not** relied on.

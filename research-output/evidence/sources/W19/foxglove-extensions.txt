@@ -1,0 +1,226 @@
+Extensions | Foxglove Docs
+
+Skip to main content
+
+DocumentationSDKAPIChangelog
+Back to Foxglove
+
+Search
+
+Getting started
+Overview
+Getting started guide
+Python
+C++
+Rust
+
+Frameworks
+Open a file
+Explore examples
+
+Hardware
+
+Robots
+
+Custom Data
+
+Agents & MCP
+Overview
+Agent sidebar
+MCP server
+Slack
+
+Visualization
+Overview
+
+Connecting to data
+Playback
+Comparison mode
+Layouts
+
+Panels
+Variables
+User Scripts
+FoxQL
+Shareable links
+Video export
+Open via CLI
+Annotate ROS enum fields
+Controls and shortcuts
+Migrate from other tools
+
+Data Platform
+Overview
+Importing data
+Exporting data
+Devices
+Recordings
+Sessions
+Events
+
+Search
+
+Primary Sites
+
+Edge Sites
+
+Fleet
+Overview
+Device Tokens
+
+Foxlet
+Bridge
+Remote Access
+
+Integration
+
+Extensions
+Local development
+Publishing extensions
+
+Guides
+
+Extension API
+
+Webhooks
+
+Embedding Foxglove
+
+Jupyter notebook
+
+Grafana
+CLI
+OAuth
+Personal access tokens
+Release feeds
+
+Administration
+Settings
+Audit logs
+Pricing
+Standalone License
+Projects
+Roles
+Seat types
+SSO
+
+Integration
+Extensions
+On this page
+
+Extensions
+Extend Foxglove's capabilities with custom extensions to better support your team's unique workflows. Build bespoke panels, convert custom messages to Foxglove message types, and alias topic names for easy visualization.
+
+note
+
+Installing local extensions requires a developer seat.
+
+Once you've developed and installed your extension, you can open your app settings to display all available and installed extensions.
+
+Custom panels​
+
+While Foxglove offers a suite of built-in panels for robotics data visualization and debugging, many users have domain-specific needs that our out-of-the-box offering does not address.
+
+Custom panel extensions allow you to build an entire panel. Custom panels can subscribe to messages on various topics, advertise and publish, and display the message information in whatever form is most relevant for your workflow.
+
+Custom panels are ideal when your visualization or interaction needs are bespoke and not easily solved via one of the built-in panels.
+
+Links and resources​
+
+Guide: Create custom panel
+
+Build a custom panel extension (React)
+
+Message converters​
+
+Message converter extensions allow you to convert messages from one form to another. There are two types of converters:
+
+Schema converters — convert messages from one schema to another. Ideal when there is a 1:1 relationship between some internal schema and a well-known Foxglove schema. For example, converting a custom GPS message to foxglove.LocationFix for visualization in the Map panel.
+
+Topic converters — produce new topics from one or more input topics. They are more flexible than schema converters but also have more surface area to implement.
+
+Schema converterTopic converter
+Use caseVisualize custom messages using built-in panelsProcessing and creating new data
+Conversion type1:1 schema mappingArbitrary topic generation
+Input sourceAny schemaOne or more specific topics
+State handlingStatelessStateful supported
+OutputWell-known schemaCustom or well-known schemas
+
+note
+
+Message converters run on-demand only when the topic is subscribed to by a panel.
+
+Links and resources​
+
+Guide: Create schema converter
+
+Guide: Create topic converter
+
+Write a message converter extension (Map panel)
+
+Write a message converter extension (3D panel)
+
+Topic aliases​
+
+Topic alias extensions allow you to alias topics in your data source to new topics. Foxglove panels can subscribe to both the aliased topics and the original data source's topics.
+
+Data loaders​
+
+Data loaders allow you to add support for custom file formats in Foxglove. They are a small WASM binary bundled with the extension that reads a file and emits Foxglove messages.
+
+Links and resources​
+
+Data loaders overview
+
+Guide: Create data loader with Rust
+
+User-Script utilities​
+
+User-Script utilities are re-usable functions that can be imported into user-scripts.
+
+Links and resources​
+
+Guide: Register a user-script utility
+
+Writing an extension​
+
+You can write extensions in JavaScript or TypeScript and package them into .foxe files. You can distribute these files privately to your Foxglove organization or publicly via our registry – installing extensions via the registry is only supported on the desktop app. A single extension can include multiple panels or converters.
+
+Foxglove provides a set of starter templates and commands in the create-foxglove-extension package to simplify authoring an extension.
+
+Requirements:
+
+Node.js 14+
+
+To set up your extension project, navigate to the directory where you'll want your source code to live and run the following command in a Terminal window:
+
+npm init foxglove-extension@latest my-extension-name
+
+This will set up an extension directory structure. The entrypoint of your extension is the index.ts file.
+
+The entrypoint script MUST export an ExtensionModule — that is, a single activate function which accepts a single ExtensionContext argument.
+
+API reference​
+
+ExtensionContext
+
+@foxglove/extension
+
+Previous
+Remote Access
+Next
+Local development
+Need help? Contact support.
+Chat with the community on Discord.
+See the changelog.
+Interested in buying? See pricing.
+Read the latest on the Foxglove blog.
+LLM? Read llms.txt.
+
+Custom panels
+Message converters
+Topic aliases
+Data loaders
+User-Script utilities
+Writing an extension
+API reference

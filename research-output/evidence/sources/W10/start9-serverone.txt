@@ -1,0 +1,58 @@
+
+ Server One 6600H | Start9
+ Menu Cart 
+Server One 6600H
+Your personal data center. The photos, files, passwords and messages you have handed to the cloud, brought home to a machine that answers to you alone.
+ Configure and Buy 
+AMD Ryzen 5 6600H, up to 4.5 GHzLPDDR5 memory at 6400 MT/sPCIe 4.0 NVMe storage, up to 4 TBA data center in your home
+ For a generation the bargain has been the same: hand over your data, accept the terms, and pay every month for access to your own life. Server One ends that bargain. It is a data center reduced to one small machine in your home. It plugs into power and your router, and it serves the phones and laptops you already own, from anywhere in the world, running free and open-source software. 
+Privacy
+Your disk, your keys and your logs are in your custody, not a provider's. No company's staff can open your files, no advertiser can mine them, and any demand for them must be served on you rather than quietly on someone else.
+Censorship resistance
+There is no account to suspend, no terms of service to violate, and no content policy but your own. No one else can delete what you store, and what you publish over Tor cannot be taken down by seizing a domain or cancelling a hosting contract.
+Security
+Server One has one tenant: you. Each service runs in its own isolated container, every connection to it is encrypted, and your credentials never leave hardware you hold. There is no vast shared platform to breach.
+Cost
+Bought once, shared by the whole household, and run for the cost of electricity. The services on it are free software. There are no seats to count, no storage tiers to climb, and no subscription that only moves one way.
+Above all, dignity.
+No one should need permission to keep their own memories, speak their own mind, or hold their own money.
+Self-hosting is how you stop asking permission.
+Powered by StartOS
+ Start9's free, open-source operating system makes running your own server as simple as using an app: install services, reach them from anywhere, and back them up, all from your browser. 
+Explore StartOS
+Replace the cloud one service at a time
+ Much of the finest software ever written is free and open source, and the Start9 Marketplace puts it one click from running on your own machine. It is a network of registries anyone can run, so no one can close it on you. 
+ Explore the Marketplace What's being replaced ActualBudgetAudiobookshelfBTCPayServerCal.diyDatumGatewayEclairERPNextForgejoFulcrumGiteaI2PdJitsiMeetllama.cppMattermostNextExplorerNTFYOwnTracksRecorderPrimalqBittorrentRideTheLightningSimpleXServerStalwartStratumV2TorvLLMAxeOSMonitorASICSeerBitcoinCashDaemonBisq2NodeBitcoinCashNode(BCHN)BlockstreamBlindOracleBunker46ChamaClamsRemotecopypartyCronicleDojoFloweetheHubQuaiNetworkHelipadBitcoinControlCenterIssoKimaiLightningJetMalojaMemosMinifluxMulti-ScrobblerNavidromeONLYOFFICEDocsOvumcyPaperless-ngxPPQPrivateModeReadstrRomMScriptwerkSnowflakeStashThunderHubUmbrelBitcoinUIWasabiWalletActualBudgetAudiobookshelfBTCPayServerCal.diyDatumGatewayEclairERPNextForgejoFulcrumGiteaI2PdJitsiMeetllama.cppMattermostNextExplorerNTFYOwnTracksRecorderPrimalqBittorrentRideTheLightningSimpleXServerStalwartStratumV2TorvLLMAxeOSMonitorASICSeerBitcoinCashDaemonBisq2NodeBitcoinCashNode(BCHN)BlockstreamBlindOracleBunker46ChamaClamsRemotecopypartyCronicleDojoFloweetheHubQuaiNetworkHelipadBitcoinControlCenterIssoKimaiLightningJetMalojaMemosMinifluxMulti-ScrobblerNavidromeONLYOFFICEDocsOvumcyPaperless-ngxPPQPrivateModeReadstrRomMScriptwerkSnowflakeStashThunderHubUmbrelBitcoinUIWasabiWallet
+AlbyHubBarkWalletByparrCollaboraOnlineDiscourseElectrsFileBrowserQuantumForgejoRunnerGarageGiteaRunnerImmichLidarrLNbitsMempoolNode-REDOllamaPapraProwlarrRadarrSearXNGSonarrStart9PagesStratumV2PoolUptimeKumawordpressAzerothCorePlayerbotsEloPoolBeszelBitcoinExplorerMonetaryViewBOLT12PayBuzzRelayChangeDetection.ioCloudPrintBridgeCouchDBCryptPadFedimintGatewayFrigateElectrumServerGod'sEyeViewHermesAgentInbucketKamadoPoolKindleBitcoinDisplayLinkwardenManifoldFedimintGuardianMeTubeMoneron8nNitterOpenClawP2PoolPaymentNamePublicPool'sWebReticulumMeshChatRustDeskServerSignalMessengerBridgeSpecterStirlingPDFTorRelayUTXOracleWireGuardVPNAlbyHubBarkWalletByparrCollaboraOnlineDiscourseElectrsFileBrowserQuantumForgejoRunnerGarageGiteaRunnerImmichLidarrLNbitsMempoolNode-REDOllamaPapraProwlarrRadarrSearXNGSonarrStart9PagesStratumV2PoolUptimeKumawordpressAzerothCorePlayerbotsEloPoolBeszelBitcoinExplorerMonetaryViewBOLT12PayBuzzRelayChangeDetection.ioCloudPrintBridgeCouchDBCryptPadFedimintGatewayFrigateElectrumServerGod'sEyeViewHermesAgentInbucketKamadoPoolKindleBitcoinDisplayLinkwardenManifoldFedimintGuardianMeTubeMoneron8nNitterOpenClawP2PoolPaymentNamePublicPool'sWebReticulumMeshChatRustDeskServerSignalMessengerBridgeSpecterStirlingPDFTorRelayUTXOracleWireGuardVPN
+AmIExposed?BitcoinCoreCoreLightningCoturnDocuSealElementWeb(Start9fork)FireflyIIIFrappeHelpdeskGhostHomeAssistantJellyfinLightningTerminalLNDNextcloudNostrRSRelayOpenWebUIPocketIDPublicPoolRadicaleShelfarrSpliitStartOSRegistrySynapseVaultwardenArchiveBoxBalanceofSatoshisBCHExplorerBisqBitcoinFamilyDashboardBlisspointBitcoinTXCanaryChargeLNDCloudflareTunnelCrawl4AIDeepSeekHarnessFedimintGuardianFulcrumBCHHashrateAutopilotHolesailIPFSKeepLaWalletNWCLNDgMapleProxyMinecraftServerMostroNamecoinCoreNostrVPNOpenSERPPactphoenixdQuaiMiningDashboardRobosatss/watcherSimpleXWebsocketBridgeStandardNotesServerTailscaleTunnelSatsVikunjaWispAmIExposed?BitcoinCoreCoreLightningCoturnDocuSealElementWeb(Start9fork)FireflyIIIFrappeHelpdeskGhostHomeAssistantJellyfinLightningTerminalLNDNextcloudNostrRSRelayOpenWebUIPocketIDPublicPoolRadicaleShelfarrSpliitStartOSRegistrySynapseVaultwardenArchiveBoxBalanceofSatoshisBCHExplorerBisqBitcoinFamilyDashboardBlisspointBitcoinTXCanaryChargeLNDCloudflareTunnelCrawl4AIDeepSeekHarnessFedimintGuardianFulcrumBCHHashrateAutopilotHolesailIPFSKeepLaWalletNWCLNDgMapleProxyMinecraftServerMostroNamecoinCoreNostrVPNOpenSERPPactphoenixdQuaiMiningDashboardRobosatss/watcherSimpleXWebsocketBridgeStandardNotesServerTailscaleTunnelSatsVikunjaWisp
+IncludedA year of Premium Support
+ Every Server One comes with a year of help from the Start9 team, the people who build its software. A $200 subscription, at no additional cost. 
+ A private support portal Ask in any topic, from your computer or your phone.
+ Dux Start9's AI support agent, available at any hour and working from the documentation for every version of every service.
+ The Start9 team The people who build StartOS, StartWRT and the services join the same chat.
+ Learn about Premium Support 
+support.start9.com
+Specs
+ Small enough to hold in one hand, with the power to run a household's digital life. 
+ProcessorAMD Ryzen 5 6600H, 6 cores / 12 threads, up to 4.5 GHz
+Memory16 GB or 32 GB LPDDR5-6400
+Storage2 TB or 4 TB NVMe SSD (Samsung 990 EVO Plus or similar)
+GraphicsIntegrated AMD Radeon
+NetworkingGigabit Ethernet, 1× RJ45; no Wi-Fi
+Ports2× USB 3.0 · 2× USB 2.0 · 1× USB-C 3.1 · 2× HDMI
+PowerDC in, 19 V / 5 A
+Dimensions4.5″ × 4.2″ × 1.6″ (11.4 × 10.6 × 4.0 cm)
+Weight0.81 lb (0.37 kg)
+Operating systemStartOS (preinstalled)
+Warranty1-year limited hardware warranty
+ Configure and Buy Compare with Umbrel Hardware
+ServerRouter
+Software
+StartOSStartWRTStartTunnel
+More
+Premium SupportFor business Docs 
+Community
+About Start9ReviewsGet helpContact
+Connect
+ GitHub X Nostr Tor 
+© 2026 Start9 Labs, IncTermsPrivacyReturnsShippingWarrantySecurity IP Geolocation by DB-IP 

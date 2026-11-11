@@ -20,14 +20,14 @@ k3s-arm64: OK
 RESULT C_k3s_node_ready_seconds=5
 RESULT C_k3s_kube_system_ready_seconds=22
 NAMESPACE     NAME                                      READY   STATUS      RESTARTS     AGE   IP          NODE         NOMINATED NODE   READINESS GATES
-kube-system   coredns-577d995dff-hq7qw                  1/1     Running     0            12s   <vm-ip>   lima-w4lab   <none>           <none>
-kube-system   helm-install-gateway-api-crd-fc6pf        0/1     Completed   0            12s   <vm-ip>   lima-w4lab   <none>           <none>
-kube-system   helm-install-traefik-45zvt                0/1     Completed   1 (6s ago)   12s   <vm-ip>   lima-w4lab   <none>           <none>
-kube-system   helm-install-traefik-crd-8hzfw            0/1     Completed   0            12s   <vm-ip>   lima-w4lab   <none>           <none>
-kube-system   local-path-provisioner-56c6584955-8zh9x   1/1     Running     0            12s   <vm-ip>   lima-w4lab   <none>           <none>
-kube-system   metrics-server-778c4649b4-zcd2g           0/1     Running     0            12s   <vm-ip>   lima-w4lab   <none>           <none>
-kube-system   svclb-traefik-b803c557-5q9kl              2/2     Running     0            5s    <vm-ip>   lima-w4lab   <none>           <none>
-kube-system   traefik-68df944ff7-zjvrw                  0/1     Running     0            5s    <vm-ip>   lima-w4lab   <none>           <none>
+kube-system   coredns-577d995dff-hq7qw                  1/1     Running     0            12s   <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   helm-install-gateway-api-crd-fc6pf        0/1     Completed   0            12s   <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   helm-install-traefik-45zvt                0/1     Completed   1 (6s ago)   12s   <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   helm-install-traefik-crd-8hzfw            0/1     Completed   0            12s   <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   local-path-provisioner-56c6584955-8zh9x   1/1     Running     0            12s   <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   metrics-server-778c4649b4-zcd2g           0/1     Running     0            12s   <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   svclb-traefik-b803c557-5q9kl              2/2     Running     0            5s    <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   traefik-68df944ff7-zjvrw                  0/1     Running     0            5s    <vm-private-ip>   lima-w4lab   <none>           <none>
 RESULT C_k3s_default_idle memavail_mib=2615 writes_mib_600s=12 writes_gb_per_day=1.89 cpu_pct_all_cores=2.0
                  total        used        free      shared  buff/cache   available
   Mem:            3923        1308         206           1        2587        2614

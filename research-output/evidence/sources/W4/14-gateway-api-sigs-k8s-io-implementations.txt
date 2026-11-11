@@ -1,0 +1,306 @@
+Implementations | Gateway API
+ Gateway API
+ Overview
+ Guides
+ Reference
+ Enhancements
+ Contributing
+ GitHub
+ Light
+ Dark
+ Auto
+ Overview
+ Introduction
+ Concepts
+ API Overview
+ Troubleshooting and Status
+ Roles and Personas
+ Security
+ Tools
+ Use cases
+ Versioning
+ Traffic Matching
+ Hostnames
+ Conformance
+ Levels
+ Running the suite
+ Changelog
+ Implementations
+ List
+ Matching Wizard
+ Implementations
+ v1.6
+ v1.5
+ v1.4
+ Service Mesh
+ Overview
+ GAMMA Initiative
+ Service Facets
+ FAQ
+ Glossary
+ View page source
+ Edit this page
+ Create child page
+ Create documentation issue
+ On this Page
+ Conformance levels
+ Integrations
+ Gateway Controller Implementation Status
+ Conformant
+ Partially Conformant
+ Service Mesh Implementation Status
+ Conformant
+ Integrations
+ Implementations
+ AWS Load Balancer Controller
+ Agentgateway
+ Airlock Microgateway
+ Amazon Elastic Kubernetes Service
+ Calico
+ Cilium
+ Envoy Gateway
+ Gloo Gateway
+ Google Kubernetes Engine
+ Gravitee Kubernetes Operator
+ Higress
+ Istio
+ Kgateway
+ Kong Operator
+ Lexfrei’s Cloudflare Tunnel Gateway Controller
+ N42 Gateway
+ NGINX Gateway Fabric
+ Portus
+ Traefik Proxy
+ Turna
+ Varnish Gateway
+ WSO2 Gateway
+ Integrations
+ Argo Rollouts
+ cert-manager
+ Flagger
+ Knative
+ Kuadrant
+ OpenKruise Rollouts
+ Adding new entries
+ For implementations
+ For integrations
+ Implementations
+ This document tracks downstream implementations and integrations of Gateway API
+and provides status and resource references for them.
+Conformance levels
+There are two levels of Gateway API conformance:
+Conformant
+Partially Conformant
+For more information about these conformance levels, see the Conformance Levels page.
+Integrations
+Also listed on this page are integrations, which are other software
+projects that are able to make use of Gateway API resources to perform
+other functions (like managing DNS or creating certificates).
+ Note
+This page contains links to third party projects that provide functionality
+required for Gateway API to work. The Gateway API project authors aren’t
+responsible for these projects, which are listed alphabetically within their
+class.
+ Compare extended supported features across implementations
+View a table to quickly compare supported features of projects. These outline Gateway controller implementations that have passed core conformance tests, and focus on extended conformance features that they have implemented. These tables will be generated and uploaded to the site once at least 3 implementations have uploaded their conformance reports under the conformance reports.
+Gateway Controller Implementation Status 
+Conformant
+Agentgateway
+Airlock Microgateway
+Calico
+Cilium
+Envoy Gateway
+Google Kubernetes Engine
+Gravitee Kubernetes Operator
+Higress
+Istio
+Kgateway
+Kong Operator
+Lexfrei’s Cloudflare Tunnel Gateway Controller
+N42 Gateway
+NGINX Gateway Fabric
+Portus
+Traefik Proxy
+Turna
+Varnish Gateway
+WSO2 Gateway
+Partially Conformant
+AWS Load Balancer Controller
+Amazon Elastic Kubernetes Service
+Gloo Gateway
+Service Mesh Implementation Status 
+Conformant
+Cilium
+Istio
+Integrations 
+Argo Rollouts
+cert-manager
+Flagger
+Knative
+Kuadrant
+OpenKruise Rollouts
+Implementations
+In this section you will find specific links to blog posts, documentation and other Gateway API references for specific implementations.
+AWS Load Balancer Controller
+AWS Load Balancer Controller manages AWS Elastic Load Balancers for Kubernetes clusters. The controller provisions AWS Application Load Balancers (ALB) when you create a Kubernetes Ingress and AWS Network Load Balancers (NLB) when you create a Kubernetes Service of type LoadBalancer.
+Gateway API support is GA for both Layer 4 (L4) and Layer 7 (L7) routing, enabling customers to provision and manage AWS NLBs and ALBs directly from Kubernetes clusters using the extensible Gateway API.
+See the AWS Load Balancer Controller documentation for information on how to deploy and use the Gateway API implementation.
+Agentgateway
+Agentgateway is an open source Gateway API implementation hosted as a part of the Linux Foundation, focusing on AI use cases, including LLM consumption, LLM serving, agent-to-agent (A2A), agent-to-tool (MCP), as well as traditional TCP/HTTP traffic serving.
+It is the first and only proxy designed specifically for the Kubernetes Gateway API, powered by a high performance and scalable Rust dataplane implementation.
+Airlock Microgateway
+Airlock Microgateway is a Kubernetes-native security solution that extends the routing capabilities of the Gateway API with WAAP (Web Application and API Protection) features and identity-aware proxying.
+It filters requests using deny rules against known attacks (OWASP Top 10), along with header filtering, JSON parsing, OpenAPI specification enforcement, GraphQL schema validation, GeoIP support, and antivirus scanning via ICAP.
+Authentication can be enforced via client certificates, JWT, or OIDC with step-up authentication for MFA, with support for OAuth 2.0 Token Introspection and Token Exchange. Airlock Microgateway is certified for Red Hat OpenShift, and built-in Grafana dashboards provide real-time reporting on system health, traffic and threats.
+Amazon Elastic Kubernetes Service
+Amazon Elastic Kubernetes Service (EKS) is a managed service that you can use to run Kubernetes on AWS without needing to install, operate, and maintain your own Kubernetes control plane or nodes. EKS’s implementation of the Gateway API is through AWS Gateway API Controller which provisions Amazon VPC Lattice Resources for gateway(s), HTTPRoute(s) in EKS clusters.
+Calico
+Calico is an open-source networking and security solution for
+Kubernetes and other cloud-native environments. Calico’s Gateway API
+implementation is built on the tigera-operator and
+Envoy Gateway: the operator reconciles a GatewayAPI
+custom resource, provisions an Envoy Gateway control plane, and creates
+a default tigera-gateway-class GatewayClass on the cluster.
+Questions and contributions are welcome on GitHub. For
+maintainer inquiries, see the Tigera contact form.
+Cilium
+Cilium is an eBPF-based networking, observability and security
+solution for Kubernetes and other networking environments. It includes Cilium
+Service Mesh, a highly efficient mesh data plane that can
+be run in sidecarless mode to dramatically improve
+performance, and avoid the operational complexity of sidecars. Cilium also
+supports the sidecar proxy model, offering choice to users.
+Cilium supports Gateway API, passing conformance for v1.4.0 as of Cilium 1.19
+Cilium is open source and is a CNCF Graduated project.
+If you have questions about Cilium Service Mesh the #service-mesh channel on
+Cilium Slack is a good place to start. For contributing to the development
+effort, check out the #development channel or join our weekly developer meeting.
+Envoy Gateway
+Envoy Gateway is an Envoy subproject for managing Envoy-based application gateways. The supported
+APIs and fields of the Gateway API are outlined here.
+Use the quickstart to get Envoy Gateway running with Gateway API in a
+few simple steps.
+Gloo Gateway
+Gloo Gateway by Solo.io is a feature-rich, Kubernetes-native ingress controller and next-generation API gateway.
+Gloo Gateway brings the full power and community support of Gateway API to its existing control-plane implementation.
+Google Kubernetes Engine
+Google Kubernetes Engine (GKE) is a managed Kubernetes platform offered
+by Google Cloud. GKE’s implementation of the Gateway API is through the GKE
+Gateway controller which provisions Google Cloud Load Balancers
+for Pods in GKE clusters.
+The GKE Gateway controller supports weighted traffic splitting, mirroring,
+advanced routing, multi-cluster load balancing and more. See the docs to deploy
+private or public Gateways and also multi-cluster
+Gateways.
+Gravitee Kubernetes Operator
+The Gravitee Kubernetes Operator (GKO) lets you manage Gravitee APIs, applications, and other assets in a Kubernetes-native and declarative way.
+For support, feedback, or to engage in a discussion about the Gravitee Kubernetes Operator, please feel free to submit an issue or visit our community forum.
+Higress
+Higress is a cloud-native API gateway built on Istio and
+Envoy. It provides Kubernetes Gateway API and Ingress support alongside API
+management and AI gateway capabilities. Higress is an open source
+CNCF project.
+Source code, documentation, and issue tracking are available in the
+Higress repository.
+Istio
+Istio is an open source service mesh and gateway implementation.
+A minimal install of Istio can be used to provide a fully compliant
+implementation of the Kubernetes Gateway API for cluster ingress traffic
+control. For service mesh users, Istio also fully supports the GAMMA
+initiative’s Gateway API support for east-west traffic
+management within the mesh.
+Much of Istio’s documentation, including all of the ingress tasks and several mesh-internal traffic management tasks, already includes parallel instructions for
+configuring traffic using either the Gateway API or the Istio configuration API.
+Check out the Gateway API task for more information about the Gateway API implementation in Istio.
+Kgateway
+The kgateway project is a feature-rich, Kubernetes-native ingress controller and next-generation API gateway.
+It is focused on maintaining a great HTTP experience, extending features for advanced routing in scenarios such as AI and MCP gateways, and interoperating with a service mesh such as Istio in both ambient and sidecar modes.
+This focus means that you can easily configure a set of Envoy instances that are reasonably distributed in a performant way across many north-south and east-west use cases.
+Kgateway is generally available with its 2.0 release.
+Kong Operator
+Kong is an open source API Gateway built for hybrid and multi-cloud environments.
+The Kong Operator can be used to configure managed Gateways and orchestrate instances of Kong Kubernetes Ingress Controllers.
+For help and support with Kong Operator please feel free to create an issue or a discussion. You can also ask for help in the #kong channel on Kubernetes slack.
+Lexfrei’s Cloudflare Tunnel Gateway Controller
+Lexfrei’s Cloudflare Tunnel Gateway Controller
+is a Kubernetes controller that implements the Gateway API on top of Cloudflare
+Tunnel: it watches Gateway, HTTPRoute, and GRPCRoute resources and programs
+Cloudflare Tunnel ingress through the Cloudflare API, serving traffic through an
+in-process L7 proxy data plane that embeds the cloudflared tunnel transport.
+It is open source under the BSD-3-Clause license, maintained by an individual
+(lexfrei), and not affiliated with or endorsed by Cloudflare; see the
+documentation for setup and
+configuration.
+N42 Gateway
+N42 Gateway is a community driven Ingress and Gateway API implementation for HAProxy.
+N42 Gateway is a conformant Gateway API implementation since v0.17. It implements all core features from the standard channel, as well as TLSRoute and TCPRoute APIs from the experimental channel.
+NGINX Gateway Fabric
+NGINX Gateway Fabric is an open-source project that provides an implementation of the Gateway API using NGINX as the data plane. The goal of this project is to implement the core Gateway API to configure an HTTP or TCP/UDP load balancer, reverse-proxy, or API gateway for applications running on Kubernetes. You can find the comprehensive NGINX Gateway Fabric user documentation on the NGINX Documentation website.
+For a list of supported Gateway API resources and features, see the Gateway API Compatibility doc.
+If you have any suggestions or experience issues with NGINX Gateway Fabric, please create an issue or a discussion on GitHub. You can also ask for help in the NGINX Community Forum.
+Portus
+Portus is an open source Kubernetes gateway written in Rust. One data plane
+serves Gateway API routes, an AI gateway for LLM providers (routing on the request body,
+API keys, token budgets) and an MCP gateway for tool servers. The controller compiles
+Gateway API resources into a protobuf config streamed to a data plane per Gateway over
+mTLS gRPC. Get started with the quick start.
+Traefik Proxy
+Traefik Proxy supports the Gateway API specification, check the Kubernetes Gateway Provider Documentation for more information on how to deploy and use it.
+For help and support with Traefik Proxy, create an issue or ask for help in the Traefik Labs Community Forum.
+Turna
+Turna is an open source operations sidecar and Gateway API implementation written in Go. Its controller watches Gateway API resources and programs proxies that route HTTP, gRPC, TLS, TCP and UDP traffic straight to pod endpoints from EndpointSlices, using Turna’s own load balancing, retries and passive health checks.
+See the Kubernetes Gateway documentation to install it with Helm or Kustomize. For questions and issues, open an issue on GitHub.
+Varnish Gateway
+Varnish Gateway is an open source Kubernetes Gateway API implementation
+developed by Varnish Software AS, using Varnish as its data plane.
+In addition to Gateway API resources, Varnish Gateway exposes a VarnishCachePolicy policy
+attachment for fine-grained caching control (TTL, grace, request coalescing, cache key
+customization, bypass conditions) at the Gateway, HTTPRoute, or rule level.
+WSO2 Gateway
+WSO2 Gateway is an AI-ready, GitOps-driven platform for building, securing, and governing APIs across cloud, hybrid, and on-premises environments. It represents the next generation of the WSO2 Kubernetes Gateway (APK), delivering a unified Kubernetes-native gateway experience with deeper platform integration and modern GitOps workflows.
+For supported Gateway API resources and features, see the Gateway API support guide. For questions and contributions, visit GitHub.
+Integrations
+In this section you will find specific links to blog posts, documentation and other Gateway API references for specific integrations.
+Argo Rollouts
+Argo Rollouts is a progressive delivery controller for Kubernetes. It supports several advanced deployment methods such as blue/green and canaries. Argo Rollouts supports the Gateway API via a plugin.
+cert-manager
+cert-manager is a tool to automate certificate management in cloud native environments.
+cert-manager can generate TLS certificates for Gateway resources. This is configured by adding annotations to a Gateway. It currently supports the v1 spec of Gateway API. You can refer to the cert-manager docs to try it out.
+Flagger
+Flagger is a progressive delivery tool that automates the release process for applications running on Kubernetes.
+Flagger can be used to automate canary deployments and A/B testing using Gateway API. You can refer to this tutorial to use Flagger with any implementation of Gateway API.
+Knative
+Knative is a serverless platform built on Kubernetes. Knative Serving provides a simple API for running stateless containers with automatic management of URLs, traffic splitting between revisions, request-based autoscaling (including scale to zero), and automatic TLS provisioning. Knative Serving supports multiple HTTP routers through a plugin architecture, including a gateway API plugin which is currently in alpha as not all Knative features are supported.
+Kuadrant
+Kuadrant is an open source multi cluster Gateway API controller that integrates with and provides policies via policy attachment to other Gateway API providers.
+Kuadrant supports Gateway API for defining gateways centrally and attaching policies such as DNS, TLS, Auth and Rate Limiting that apply to all of your Gateways.
+Kuadrant works with both Istio and Envoy Gateway as underlying Gateway API providers, with plans to work with other gateway providers in future.
+For help and support with Kuadrant’s implementation please feel free to create an issue or ask for help in the #kuadrant channel on Kubernetes slack.
+OpenKruise Rollouts
+OpenKruise Rollouts is a plugin-n-play progressive delivery controller for Kubernetes. It supports several advanced deployment methods such as blue/green and canaries. OpenKruise Rollouts has built-in support for the Gateway API.
+Adding new entries
+This page is automatically generated; please do not make PRs to this page.
+For implementations
+Implementations wanting to add themselves must:
+Add a conformance report to conformance/reports.
+Add an ImplementationDetails YAML file to conformance/list/implementations. See the
+README.md file in that directory for more.
+Once the PR is ready, run make update-implist in the top level of the repository, and
+the implementations list generation code will update the page for you. You can see what
+the page will look like using the live docs preview with make live-docs command.
+If your implementation does not appear, check the output of make update-implist, and it
+will indicate what is wrong. Note that all conformance decisions are now handled by this
+tool, and changes to conformance require updating the tool.
+This process replaces an older, maintainer-performed process.
+For integrations
+Integrations wanting to add themselves must:
+Add an ImplementationDetails YAML file to conformance/list/integrations. See the
+README.md file in that directory for more.
+Once the PR is ready, run make update-implist in the top level of the repository, and
+the implementations list generation code will update the page for you. You can see what
+the page will look like using the live docs preview with make live-docs command.
+ © 2026 The Linux Foundation
+ Terms of Use |
+ Privacy Policy |
+ Trademark Usage |
+ License

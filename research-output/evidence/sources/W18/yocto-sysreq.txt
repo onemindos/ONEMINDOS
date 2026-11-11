@@ -1,0 +1,537 @@
+1 System Requirements — The Yocto Project ® 6.1-tip documentation
+ The Yocto Project ®
+ Introduction and Overview
+Quick Build
+What I wish I’d known about Yocto Project
+Transitioning to a custom environment for systems development
+Overview and Concepts
+Contributor Guide
+Contributor Guide
+Manuals
+Reference Manual
+1 System Requirements
+1.1 Minimum Free Disk Space
+1.2 Minimum System RAM and CPU Cores
+1.3 Supported Linux Distributions
+1.4 Required Packages for the Build Host
+1.4.1 Ubuntu and Debian
+1.4.2 Fedora Packages
+1.4.3 openSUSE Leap Packages
+1.4.4 AlmaLinux Packages
+1.4.5 CentOS Stream Packages
+1.4.6 RockyLinux Packages
+1.5 Required Git, tar, Python, make and gcc Versions
+1.5.1 Installing a Pre-Built buildtools Tarball with install-buildtools script
+1.5.2 Downloading a Pre-Built buildtools Tarball
+1.5.3 Building Your Own buildtools Tarball
+2 Yocto Project Supported Architectures And Features
+3 Yocto Project Terms
+4 Yocto Project Releases and the Stable Release Process
+5 Source Directory Structure
+6 Classes
+7 Tasks
+8 Using Configuration Fragments
+9 devtool Quick Reference
+10 OpenEmbedded Kickstart (.wks) Reference
+11 QA Error and Warning Messages
+12 Images
+13 Features
+14 Variables Glossary
+15 Variable Context
+16 FAQ
+17 Contributions and Additional Information
+Board Support Package (BSP) Manual
+Development Tasks Manual
+Linux Kernel Development Manual
+Security Manual
+Profile and Tracing Manual
+Application Development and SDKs Manual
+Toaster Manual
+Test Environment Manual
+BitBake User Manual
+Security Reference
+Yocto Project Security Reference
+Release Information
+Release Notes and Migration Guides
+Release Manuals
+Supported Release Manuals
+Outdated Release Manuals
+Documentation Index
+Index
+Documentation Downloads
+Documentation Downloads
+Governance and History
+Governance and History
+ The Yocto Project ®
+ single
+ 6.1-tip
+ »
+ Yocto Project Reference Manual »
+ 1 System Requirements
+ View page source
+1 System Requirements
+Welcome to the Yocto Project Reference Manual. This manual provides
+reference information for the current release of the Yocto Project, and
+is most effectively used after you have an understanding of the basics
+of the Yocto Project. The manual is neither meant to be read as a
+starting point to the Yocto Project, nor read from start to finish.
+Rather, use this manual to find variable definitions, class
+descriptions, and so forth as needed during the course of using the
+Yocto Project.
+For introductory information on the Yocto Project, see the
+Yocto Project Website and the
+“The Yocto Project Development Environment”
+chapter in the Yocto Project Overview and Concepts Manual.
+If you want to use the Yocto Project to quickly build an image without
+having to understand concepts, work through the
+Yocto Project Quick Build document. You can find “how-to”
+information in the Yocto Project Development Tasks Manual. You can find Yocto Project overview
+and conceptual information in the Yocto Project Overview and Concepts Manual.
+Note
+For more information about the Yocto Project Documentation set, see
+the Links and Related Documentation section.
+1.1 Minimum Free Disk Space
+To build an image such as core-image-sato for the qemux86-64 machine,
+you need a system with at least 140 Gbytes of free disk space.
+However, much more disk space will be necessary to build more complex images,
+to run multiple builds and to cache build artifacts, improving build efficiency.
+If you have a shortage of disk space, see the “Conserving Disk Space”
+section of the Development Tasks Manual.
+1.2 Minimum System RAM and CPU Cores
+You will manage to build an image such as core-image-sato for the
+qemux86-64 machine with as little as 32 Gbytes of RAM and
+16 CPU cores, but your builds will be much faster on a system with
+as much RAM and as many CPU cores as possible.
+1.3 Supported Linux Distributions
+Currently, the 6.1 release (“Blacksail”) of the Yocto Project is
+supported on the following distributions:
+AlmaLinux 8
+AlmaLinux 9
+AlmaLinux 10
+CentOS Stream 9
+CentOS Stream 10
+Debian 11
+Debian 12
+Debian 13
+Fedora 42
+Fedora 43
+Fedora 44
+openSUSE Leap 15.6
+openSUSE Leap 16.0
+Rocky Linux 8
+Rocky Linux 9
+Rocky Linux 10
+Ubuntu 22.04 (LTS)
+Ubuntu 24.04 (LTS)
+Ubuntu 25.04
+Ubuntu 25.10
+Ubuntu 26.04 (LTS)
+The following distribution versions are still tested, even though the
+organizations publishing them no longer make updates publicly available:
+Fedora 42
+openSUSE Leap 15.5
+Ubuntu 25.04
+Ubuntu 25.10
+Note that the Yocto Project doesn’t have access to private updates
+that some of these versions may have. Therefore, our testing has
+limited value if you have access to such updates. Also, buildtools
+may have to be used on older releases in order to get current enough
+tools, such as Python.
+Finally, here are the distribution versions which were previously
+tested on former revisions of “Blacksail”, but no longer are:
+This list is currently empty
+Note
+While the Yocto Project Team attempts to ensure all Yocto Project
+releases are one hundred percent compatible with each officially
+supported Linux distribution, you may still encounter problems
+that happen only with a specific distribution.
+Yocto Project releases are tested against the stable Linux
+distributions in the above list. The Yocto Project should work
+on other distributions but validation is not performed against
+them.
+In particular, the Yocto Project does not support and currently
+has no plans to support rolling-releases or development
+distributions due to their constantly changing nature. We welcome
+patches and bug reports, but keep in mind that our priority is on
+the supported platforms listed above.
+If your Linux distribution is not in the above list, we recommend to
+get the buildtools or buildtools-extended tarballs
+containing the host tools required by your Yocto Project release,
+typically by running scripts/install-buildtools as explained in
+the “Required Git, tar, Python, make and gcc Versions” section.
+You may use Windows Subsystem For Linux v2 to set up a build host
+using Windows 10 or later, or Windows Server 2019 or later, but validation
+is not performed against build hosts using WSL 2.
+See the
+Setting Up to Use Windows Subsystem For Linux (WSL 2)
+section in the Yocto Project Development Tasks Manual for more information.
+If you encounter problems, please go to Yocto Project
+Bugzilla and submit a bug. We are
+interested in hearing about your experience. For information on
+how to submit a bug, see the Yocto Project
+Bugzilla wiki page
+and the “Reporting a Defect Against the Yocto Project and OpenEmbedded”
+section in the Yocto Project and OpenEmbedded Contributor Guide.
+1.4 Required Packages for the Build Host
+The list of packages you need on the host development system can be
+large when covering all build scenarios using the Yocto Project. This
+section describes required packages according to Linux distribution and
+function.
+1.4.1 Ubuntu and Debian
+Here are the packages needed to build an image on a headless system
+with a supported Ubuntu or Debian Linux distribution:
+sudo apt-get install build-essential chrpath cpio debianutils diffstat file gawk gcc git iputils-ping libacl1 libcrypt-dev locales python3 python3-git python3-jinja2 python3-pexpect python3-pip python3-subunit socat texinfo unzip wget xz-utils zstd
+You also need to ensure you have the en_US.UTF-8 locale enabled:
+$ locale --all-locales | grep en_US.utf8
+If this is not the case, you can reconfigure the locales package to add it
+(requires an interactive shell):
+$ sudo dpkg-reconfigure locales
+Note
+If you are not in an interactive shell, dpkg-reconfigure will
+not work as expected. To add the locale you will need to edit
+/etc/locale.gen file to add/uncomment the en_US.UTF-8 locale.
+A simple way to do this as root is:
+$ echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+$ locale-gen
+If your build system has the oss4-dev package installed, you
+might experience QEMU build failures due to the package installing
+its own custom /usr/include/linux/soundcard.h on the Debian
+system. If you run into this situation, try either of these solutions:
+$ sudo apt build-dep qemu
+$ sudo apt remove oss4-dev
+Additionally, on distributions other than Debian 11 and Ubuntu 22.04 (otherwise
+see note below), install the following package:
+$ sudo apt-get install python3-websockets
+Note
+On Debian 11 and Ubuntu 22.04, the minimum version for
+python3-websockets is not satisfied by the host distribution. This
+package is used for fetching pre-built shared state artifacts from upstream Yocto Project
+servers (see core/yocto/sstate-mirror-cdn for more
+information).
+In order to use this feature, you can get the correct version of
+python3-websockets by either:
+Using a buildtools tarball by following the
+Required Git, tar, Python, make and gcc Versions section below.
+Installing python3-websockets using Pip in a virtual environment, e.g.:
+$ python3 -m venv --clear ./yocto-docs-venv
+$ . ./yocto-docs-venv/bin/activate
+$ pip install websockets
+Here are the packages needed to build Project documentation manuals:
+sudo apt install git librsvg2-bin locales make python3-pip python3-venv
+python3 -m venv --clear ./yocto-docs-venv
+. ./yocto-docs-venv/bin/activate
+python3 -m pip install sphinx sphinx_rtd_theme pyyaml sphinx-copybutton 'sphinxcontrib-svg2pdfconverter>=2.0.0'
+In addition to the previous packages, here are the packages needed to build the
+documentation in PDF format:
+sudo apt install fonts-freefont-otf latexmk tex-gyre texlive-fonts-extra texlive-fonts-recommended texlive-lang-all texlive-latex-extra texlive-latex-recommended texlive-xetex
+1.4.2 Fedora Packages
+Here are the packages needed to build an image on a headless system
+with a supported Fedora Linux distribution:
+sudo dnf install bzip2 chrpath cpio cpp diffstat diffutils file findutils gawk gcc gcc-c++ git glibc-devel glibc-langpack-en gzip hostname libacl make patch perl perl-Data-Dumper perl-File-Compare perl-File-Copy perl-FindBin perl-Text-ParseWords perl-Thread-Queue perl-bignum perl-locale python python3 python3-GitPython python3-jinja2 python3-pexpect python3-pip python3-websockets rpcgen socat tar texinfo unzip wget which xz zstd $([ $(rpm -E %fedora) -ge 42 ] && echo "util-linux-script")
+Here are the packages needed to build Project documentation manuals:
+sudo dnf install git glibc-locale-source librsvg2-tools make python3-pip which
+python3 -m venv --clear ./yocto-docs-venv
+. ./yocto-docs-venv/bin/activate
+python3 -m pip install sphinx sphinx_rtd_theme pyyaml sphinx-copybutton 'sphinxcontrib-svg2pdfconverter>=2.0.0'
+In addition to the previous packages, here are the packages needed to build the
+documentation in PDF format:
+sudo dnf install 'texlive-collection-lang*' latexmk texlive-collection-fontsextra texlive-collection-fontsrecommended texlive-collection-latex texlive-collection-latexextra texlive-collection-latexrecommended texlive-collection-xetex texlive-fncychap texlive-gnu-freefont texlive-tex-gyre texlive-xetex
+1.4.3 openSUSE Leap Packages
+1.4.3.1 openSUSE Leap 15.6 Packages
+Here are the packages needed to build an image on a headless system
+with a supported openSUSE Leap 15.6 distribution:
+sudo zypper install bzip2 chrpath diffstat gcc gcc-c++ git gzip hostname libacl1 make makeinfo patch python python-curses python-xml python3 python3-Jinja2 python3-curses python3-pexpect python3-pip rpcgen socat tar wget which xz zstd
+sudo pip3 install GitPython
+Additionally, openSUSE Leap 15.6 requires a buildtools tarball to be
+installed and set up, as this distribution provides a version of Python that is
+too old for BitBake. Follow the Required Git, tar, Python, make and gcc Versions
+section below for more information.
+Here are the packages needed to build Project documentation manuals:
+sudo zypper install git glibc-i18ndata make python3-pip rsvg-convert which
+python3 -m venv --clear ./yocto-docs-venv
+. ./yocto-docs-venv/bin/activate
+python3 -m pip install sphinx sphinx_rtd_theme pyyaml sphinx-copybutton 'sphinxcontrib-svg2pdfconverter>=2.0.0'
+In addition to the previous packages, here are the packages needed to build the
+documentation in PDF format:
+sudo zypper install 'texlive-collection-lang*' texlive-collection-fontsextra texlive-collection-fontsrecommended texlive-collection-latex texlive-collection-latexextra texlive-collection-latexrecommended texlive-collection-xetex texlive-fncychap texlive-gnu-freefont texlive-latexmk texlive-tex-gyre texlive-xetex
+1.4.3.2 openSUSE Leap 16.0 Packages
+Here are the packages needed to build an image on a headless system
+with a supported openSUSE Leap 16.0 distribution:
+sudo zypper install bzip2 chrpath diffstat gcc gcc-c++ git gzip hostname libacl1 make makeinfo patch python3 python3-GitPython python3-Jinja2 python3-curses python3-pexpect python3-pip python3-websockets python3-xml rpcgen socat tar wget which xz zstd
+Here are the packages needed to build Project documentation manuals:
+sudo zypper install git glibc-i18ndata make python3-pip rsvg-convert which
+python3 -m venv --clear ./yocto-docs-venv
+. ./yocto-docs-venv/bin/activate
+python3 -m pip install sphinx sphinx_rtd_theme pyyaml sphinx-copybutton 'sphinxcontrib-svg2pdfconverter>=2.0.0'
+In addition to the previous packages, here are the packages needed to build the
+documentation in PDF format:
+sudo zypper install 'texlive-collection-lang*' texlive-collection-fontsextra texlive-collection-fontsrecommended texlive-collection-latex texlive-collection-latexextra texlive-collection-latexrecommended texlive-collection-xetex texlive-fncychap texlive-gnu-freefont texlive-latexmk texlive-tex-gyre texlive-xetex
+1.4.4 AlmaLinux Packages
+Here are the packages needed to build an image on a headless system
+with a supported AlmaLinux distribution:
+sudo dnf install -y epel-release
+sudo dnf install -y dnf-plugins-core
+sudo dnf config-manager --set-enabled crb || sudo dnf config-manager --set-enabled powertools
+sudo dnf makecache
+sudo dnf install -y bzip2 chrpath cpio cpp diffstat diffutils gawk gcc gcc-c++ git glibc-devel glibc-langpack-en gzip libacl make patch perl perl-Data-Dumper perl-Text-ParseWords perl-Thread-Queue python3 python3-GitPython python3-jinja2 python3-pexpect python3-pip rpcgen socat tar texinfo unzip wget which xz zstd
+You will also need to use a buildtools tarball which provides a set of
+basic host tools with fixed versions. Follow the Required Git, tar, Python, make and gcc Versions
+section below to learn how to download and install this tarball.
+Note
+The AlmaLinux 9, CentOS 9 and RockyLinux 9 distributions are affected by a
+bug described in https://bugzilla.yoctoproject.org/show_bug.cgi?id=16143, which is the reason why a
+buildtools tarball is required.
+Note
+Extra Packages for Enterprise Linux (i.e. epel-release) is
+a collection of packages from Fedora built on RHEL/CentOS for
+easy installation of packages not included in enterprise Linux
+by default. You need to install these packages separately.
+The PowerTools/CRB repo provides additional packages such as
+rpcgen and texinfo.
+The makecache command consumes additional Metadata from
+epel-release.
+Here are the packages needed to build Project documentation manuals:
+sudo dnf install -y git glibc-locale-source librsvg2-tools make python3-pip which
+python3 -m venv --clear ./yocto-docs-venv
+. ./yocto-docs-venv/bin/activate
+python3 -m pip install sphinx sphinx_rtd_theme pyyaml sphinx-copybutton 'sphinxcontrib-svg2pdfconverter>=2.0.0'
+In addition to the previous packages, the following TeX Live packages
+are needed to build the documentation in PDF format and can be installed with
+the TeX Live package manager:
+sudo dnf install -y wget perl
+textooldir=${TEXTOOLDIR:-"./docs-build-tex-tools"}
+mkdir -p "$textooldir"/tl
+wget https://mirror.ctan.org/systems/texlive/tlnet/install-tl-unx.tar.gz -O "$textooldir"/install-tl-unx.tar.gz
+tar xzf "$textooldir"/install-tl-unx.tar.gz -C "$textooldir"
+"$textooldir"/install-tl-*/install-tl --scheme=small --texdir="${textooldir}"/tl --no-interaction
+PATH="$PATH:${textooldir}/tl/bin/x86_64-linux" tlmgr install titlesec varwidth tabulary needspace upquote framed capt-of wrapfig fncychap gnu-freefont ctex latexmk nimbus15
+rm -r "$textooldir"/install-tl*
+Warning
+The Tex Live installation above is only valid for x86_64 hosts.
+Before building the documentation PDF, setup the PATH to use the installed
+packages (with ${textooldir} pointing to the TeX Live installation from the
+previous step):
+$ export PATH="${PATH}:${textooldir}/tl/bin/x86_64-linux"
+1.4.5 CentOS Stream Packages
+Here are the packages needed to build an image on a headless system
+with a supported CentOS Stream distribution:
+sudo dnf install -y epel-release
+sudo dnf install -y dnf-plugins-core
+sudo dnf config-manager --set-enabled crb || sudo dnf config-manager --set-enabled powertools
+sudo dnf makecache
+sudo dnf install -y bzip2 chrpath cpio cpp diffstat diffutils gawk gcc gcc-c++ git glibc-devel glibc-langpack-en gzip libacl make patch perl perl-Data-Dumper perl-Text-ParseWords perl-Thread-Queue python3 python3-GitPython python3-jinja2 python3-pexpect python3-pip rpcgen socat tar texinfo unzip wget which xz zstd
+You will also need to use a buildtools tarball which provides a set of
+basic host tools with fixed versions. Follow the Required Git, tar, Python, make and gcc Versions
+section below to learn how to download and install this tarball.
+Note
+The AlmaLinux 9, CentOS 9 and RockyLinux 9 distributions are affected by a
+bug described in https://bugzilla.yoctoproject.org/show_bug.cgi?id=16143, which is the reason why a
+buildtools tarball is required.
+Here are the packages needed to build Project documentation manuals:
+sudo dnf install -y git glibc-locale-source librsvg2-tools make python3-pip which
+python3 -m venv --clear ./yocto-docs-venv
+. ./yocto-docs-venv/bin/activate
+python3 -m pip install sphinx sphinx_rtd_theme pyyaml sphinx-copybutton 'sphinxcontrib-svg2pdfconverter>=2.0.0'
+In addition to the previous packages, the following TeX Live packages
+are needed to build the documentation in PDF format and can be installed with
+the TeX Live package manager:
+sudo dnf install -y wget perl
+textooldir=${TEXTOOLDIR:-"./docs-build-tex-tools"}
+mkdir -p "$textooldir"/tl
+wget https://mirror.ctan.org/systems/texlive/tlnet/install-tl-unx.tar.gz -O "$textooldir"/install-tl-unx.tar.gz
+tar xzf "$textooldir"/install-tl-unx.tar.gz -C "$textooldir"
+"$textooldir"/install-tl-*/install-tl --scheme=small --texdir="${textooldir}"/tl --no-interaction
+PATH="$PATH:${textooldir}/tl/bin/x86_64-linux" tlmgr install titlesec varwidth tabulary needspace upquote framed capt-of wrapfig fncychap gnu-freefont ctex latexmk nimbus15
+rm -r "$textooldir"/install-tl*
+Warning
+The Tex Live installation above is only valid for x86_64 hosts.
+Before building the documentation PDF, setup the PATH to use the installed
+packages (with ${textooldir} pointing to the TeX Live installation from the
+previous step):
+$ export PATH="${PATH}:${textooldir}/tl/bin/x86_64-linux"
+1.4.6 RockyLinux Packages
+Here are the packages needed to build an image on a headless system
+with a supported RockyLinux distribution:
+sudo dnf install -y epel-release
+sudo dnf install -y dnf-plugins-core
+sudo dnf config-manager --set-enabled crb || sudo dnf config-manager --set-enabled powertools
+sudo dnf makecache
+sudo dnf install -y bzip2 chrpath cpio cpp diffstat diffutils gawk gcc gcc-c++ git glibc-devel glibc-langpack-en gzip libacl make patch perl perl-Data-Dumper perl-Text-ParseWords perl-Thread-Queue python3 python3-GitPython python3-jinja2 python3-pexpect python3-pip rpcgen socat tar texinfo unzip wget which xz zstd
+You will also need to use a buildtools tarball which provides a set of
+basic host tools with fixed versions. Follow the Required Git, tar, Python, make and gcc Versions
+section below to learn how to download and install this tarball.
+Note
+The AlmaLinux 9, CentOS 9 and RockyLinux 9 distributions are affected by a
+bug described in https://bugzilla.yoctoproject.org/show_bug.cgi?id=16143, which is the reason why a
+buildtools tarball is required.
+Note
+Extra Packages for Enterprise Linux (i.e. epel-release) is
+a collection of packages from Fedora built on RHEL/CentOS for
+easy installation of packages not included in enterprise Linux
+by default. You need to install these packages separately.
+The PowerTools/CRB repo provides additional packages such as
+rpcgen and texinfo.
+The makecache command consumes additional Metadata from
+epel-release.
+Here are the packages needed to build Project documentation manuals:
+sudo dnf install -y git glibc-locale-source librsvg2-tools make python3-pip which
+python3 -m venv --clear ./yocto-docs-venv
+. ./yocto-docs-venv/bin/activate
+python3 -m pip install sphinx sphinx_rtd_theme pyyaml sphinx-copybutton 'sphinxcontrib-svg2pdfconverter>=2.0.0'
+In addition to the previous packages, the following TeX Live packages
+are needed to build the documentation in PDF format and can be installed with
+the TeX Live package manager:
+sudo dnf install -y wget perl
+textooldir=${TEXTOOLDIR:-"./docs-build-tex-tools"}
+mkdir -p "$textooldir"/tl
+wget https://mirror.ctan.org/systems/texlive/tlnet/install-tl-unx.tar.gz -O "$textooldir"/install-tl-unx.tar.gz
+tar xzf "$textooldir"/install-tl-unx.tar.gz -C "$textooldir"
+"$textooldir"/install-tl-*/install-tl --scheme=small --texdir="${textooldir}"/tl --no-interaction
+PATH="$PATH:${textooldir}/tl/bin/x86_64-linux" tlmgr install titlesec varwidth tabulary needspace upquote framed capt-of wrapfig fncychap gnu-freefont ctex latexmk nimbus15
+rm -r "$textooldir"/install-tl*
+Warning
+The Tex Live installation above is only valid for x86_64 hosts.
+Before building the documentation PDF, setup the PATH to use the installed
+packages (with ${textooldir} pointing to the TeX Live installation from the
+previous step):
+$ export PATH="${PATH}:${textooldir}/tl/bin/x86_64-linux"
+1.5 Required Git, tar, Python, make and gcc Versions
+In order to use the build system, your host development system must meet
+the following version requirements for Git, tar, and Python:
+Git 2.22.0 or greater
+tar 1.28 or greater
+Python 3.9.0 or greater
+GNU make 4.0 or greater
+If your host development system does not meet all these requirements,
+you can resolve this by installing a buildtools tarball that
+contains these tools. You can either download a pre-built tarball or
+use BitBake to build one.
+In addition, your host development system must meet the following
+version requirement for gcc:
+gcc 10.1 or greater
+If your host development system does not meet this requirement, you can
+resolve this by installing a buildtools-extended tarball that
+contains additional tools, the equivalent of the Debian/Ubuntu build-essential
+package.
+For systems with a broken make version (e.g. make 4.2.1 without patches) but
+where the rest of the host tools are usable, you can use the buildtools-make
+tarball instead.
+In the sections that follow, three different methods will be described for
+installing the buildtools, buildtools-extended or buildtools-make
+toolset.
+1.5.1 Installing a Pre-Built buildtools Tarball with install-buildtools script
+The install-buildtools script is the easiest of the three methods by
+which you can get these tools. It downloads a pre-built buildtools
+installer and automatically installs the tools for you:
+Execute the install-buildtools script. Here is an example:
+$ cd /path/to/bitbake-builds
+$ ./layers/openembedded-core/scripts/install-buildtools \
+ --without-extended-buildtools \
+ --base-url https://downloads.yoctoproject.org/releases/yocto \
+ --release yocto-6.1 \
+ --installer-version 6.1
+During execution, the buildtools tarball will be downloaded, the
+checksum of the download will be verified, the installer will be run
+for you, and some basic checks will be run to make sure the
+installation is functional.
+To avoid the need of sudo privileges, the install-buildtools
+script will by default tell the installer to install in:
+/path/to/bitbake-builds/buildtools
+If your host development system needs the additional tools provided
+in the buildtools-extended tarball, you can instead execute the
+install-buildtools script with the default parameters:
+$ cd /path/to/bitbake-builds
+$ ./layers/openembedded-core/scripts/install-buildtools
+Alternatively if your host development system has a broken make
+version such that you only need a known good version of make,
+you can use the --make-only option:
+$ cd /path/to/bitbake-builds
+$ ./layers/openembedded-core/scripts/install-buildtools --make-only
+Source the tools environment setup script by using a command like the
+following:
+$ source /path/to/bitbake-builds/buildtools/environment-setup-x86_64-pokysdk-linux
+After you have sourced the setup script, the tools are added to
+PATH and any other environment variables required to run the
+tools are initialized. The results are working versions of
+Git, tar, Python and chrpath. And in the case of the
+buildtools-extended tarball, additional working versions of tools
+including gcc, make and the other tools included in
+packagegroup-core-buildessential.
+1.5.2 Downloading a Pre-Built buildtools Tarball
+If you would prefer not to use the install-buildtools script, you can instead
+download and run a pre-built buildtools installer yourself with the following
+steps:
+Go to https://downloads.yoctoproject.org/releases/yocto/yocto-6.1/buildtools/, locate and
+download the .sh file corresponding to your host architecture
+and to buildtools, buildtools-extended or buildtools-make.
+Execute the installation script. Here is an example for the
+traditional installer:
+$ sh ~/Downloads/x86_64-buildtools-nativesdk-standalone-6.1.sh
+Here is an example for the extended installer:
+$ sh ~/Downloads/x86_64-buildtools-extended-nativesdk-standalone-6.1.sh
+An example for the make-only installer:
+$ sh ~/Downloads/x86_64-buildtools-make-nativesdk-standalone-6.1.sh
+During execution, a prompt appears that allows you to choose the
+installation directory. For example, you could choose the following:
+/home/your-username/buildtools
+As instructed by the installer script, you will have to source the tools
+environment setup script:
+$ source /home/your_username/buildtools/environment-setup-x86_64-pokysdk-linux
+After you have sourced the setup script, the tools are added to
+PATH and any other environment variables required to run the
+tools are initialized. The results are working versions of
+Git, tar, Python and chrpath. And in the case of the
+buildtools-extended tarball, additional working versions of tools
+including gcc, make and the other tools included in
+packagegroup-core-buildessential.
+1.5.3 Building Your Own buildtools Tarball
+Building and running your own buildtools installer applies only when you
+have a build host that can already run BitBake. In this case, you use
+that machine to build the .sh file and then take steps to transfer
+and run it on a machine that does not meet the minimal Git, tar, and
+Python (or gcc) requirements.
+Here are the steps to take to build and run your own buildtools
+installer:
+On the machine that is able to run BitBake, be sure you have set up
+your build environment with the setup script
+(oe-init-build-env).
+Run the BitBake command to build the tarball:
+$ bitbake buildtools-tarball
+or to build the extended tarball:
+$ bitbake buildtools-extended-tarball
+or to build the make-only tarball:
+$ bitbake buildtools-make-tarball
+Note
+The SDKMACHINE variable determines
+whether you build tools for a 32-bit or 64-bit system.
+Once the build completes, you can find the .sh file that installs
+the tools in the tmp/deploy/sdk subdirectory of the
+Build Directory. The installer file has the string
+“buildtools” or “buildtools-extended” in the name.
+Transfer the .sh file from the build host to the machine that
+does not meet the Git, tar, or Python (or gcc) requirements.
+On this machine, run the .sh file to install the tools. Here is an
+example for the traditional installer:
+$ sh ~/Downloads/x86_64-buildtools-nativesdk-standalone-6.1.sh
+For the extended installer:
+$ sh ~/Downloads/x86_64-buildtools-extended-nativesdk-standalone-6.1.sh
+And for the make-only installer:
+$ sh ~/Downloads/x86_64-buildtools-make-nativesdk-standalone-6.1.sh
+During execution, a prompt appears that allows you to choose the
+installation directory. For example, you could choose the following:
+/home/your_username/buildtools
+Source the tools environment setup script by using a command like the
+following:
+$ source /home/your_username/buildtools/environment-setup-x86_64-poky-linux
+After you have sourced the setup script, the tools are added to
+PATH and any other environment variables required to run the
+tools are initialized. The results are working versions of
+Git, tar, Python and chrpath. And in the case of the
+buildtools-extended tarball, additional working versions of tools
+including gcc, make and the other tools included in
+packagegroup-core-buildessential.
+ A Linux Foundation Collaborative Project.
+ All Rights Reserved. Linux Foundation® and Yocto Project® are registered trademarks of the Linux Foundation.
+Linux® is a registered trademark of Linus Torvalds.
+© Copyright 2010-2026, The Linux Foundation, CC-BY-SA-2.0-UK license
+Last updated on Nov 09, 2026 from the yocto-docs git repository.

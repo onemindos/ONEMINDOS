@@ -1,0 +1,83 @@
+--- lines 120,125 of extracted text ---
+Deutsche - Datenschutzerklärung für Endbenutzer
+
+Effective Date: December 8, 2025
+Our mission at Plaid is to unlock financial freedom for everyone. Privacy and security are very important to us.
+This End User Privacy Policy (“Policy”) is meant to help you (the “end user”) understand how we at Plaid collect, use, and share your data when you use Plaid products or services - for example, when you use Plaid Portal, or when you use Plaid to connect and share your data to power the applications (“apps”) you use. These apps, which offer many consumer services and products such as helping you save for retirement, manage your spending, streamline credit applications, or transfer money, are built and provided by our business customers (we’ll call them “developers” here), and powered by Plaid.
+This Policy applies to Plaid Inc., Plaid Financial Ltd., and Plaid, B.V. (collectively, “Plaid,” “we,” “our,” and “us”). Please see the“Contacting Plaid” section below for which of these entities is responsible for processing your data.
+--- lines 245,265 of extracted text ---
+Provide Services: To operate, provide, service, assess, process, and maintain our products and services, including to remember you or your device when you return to use our services.
+
+Develop Existing Services: To improve, enhance, modify, add to, and further develop our services.
+
+Help Prevent Fraud, Verify Your Identity, or Protect Privacy: To verify your identity and help protect you, developers, our partners, Plaid, and others from and prevent actual or potential fraud, unauthorized transactions, claims, other liabilities, malicious activity, and other privacy and security-related concerns.
+
+Develop New Services: To develop new products, features, technologies and services that benefit you and the apps you use, including to develop, train, test, and deploy artificial intelligence ("AI") systems.
+
+Develop Insights: To develop insights based on the data we've collected about you. This includes your transaction data, other financial data, data about which financial accounts you have connected to which apps, and data from other sources, to help us, your financial institutions, and the developers of your connected apps provide services and/or a better user experience to you, like providing you with a faster connection and onboarding experience or faster access to your funds, helping to detect and prevent potentially fraudulent activity, or personalizing their services to you.
+
+Provide Support: To provide support to you or to developers, including to help respond to your inquiries related to our services or developers' apps.
+
+Communicate With You: To communicate with you and send you things like technical notices, updates, security alerts, and messages.
+
+Investigate Misuse and Misconduct: To investigate any misuse of our service or developers' apps, including violations of our Developer Policy, criminal activity, or other unauthorized access to our services.
+
+For Legal Purposes: To comply with contractual and legal obligations under applicable law and for other legal purposes such as to establish and defend against claims.
+
+With Your Consent: For other notified purposes with your consent or at your direction.
+We also collect, use, and share data that has been aggregated, de-identified, or anonymized in a manner that does not identify you personally for any purpose permitted under applicable law. This includes creating or using aggregated, de-identified, or anonymized data to develop new products or services, to facilitate research, and to help us or our customers assess the speed, accuracy, performance, and/or security of our services.
+Our Lawful Bases for Processing (EEA and UK End Users)
+--- lines 4250,4265 of extracted text ---
+Developer Policy
+Available languages:
+
+Française - Politique relative au développeur
+
+Español - Política de desarrolladores
+
+Deutsch - Richtlinie für Entwickler
+
+Effective Date: April 19, 2026
+This Developer Policy ("Policy") provides additional rules and guidelines that govern
+ access to and use by our developers (“you” or “your”) of the APIs, SDKs, websites
+ (“Site”), dashboards, related tools, and other products or services (collectively, the
+ "Services") provided by Plaid Inc. and its subsidiaries, including Plaid Consumer
+ Reporting Agency, Inc., Plaid Financial Ltd., and Plaid, B.V. (“Plaid”, “we”, “our”, and
+ “us”), and is incorporated into any agreement between you and Plaid governing your
+--- lines 4385,4420 of extracted text ---
+ terminates or expires; or (iii) reasonably necessary under applicable law. After your
+ Account deactivation, we will deprovision your access to all End User Data associated
+ with your integration.
+Even after your Account deactivation, to the extent permitted under applicable law, we
+ may still retain any information we collected about you for as long as necessary to fulfill
+ the purposes outlined in our privacy policy/statement, or for a longer retention period if
+ required or permitted under applicable law.
+Prohibited Conduct
+You agree not to, and agree not to assist or otherwise enable any third party to:
+sell or rent End User Data to marketers or any other third party;
+access or use the Services or End User Data for any unlawful, infringing, threatening, abusive, obscene, harassing, defamatory, deceptive, or fraudulent purpose;
+collect and store end users’ bank credentials and/or End User Data other than as required to access or use the Services, as authorized by the end user, as permitted by Plaid, and as permitted under applicable law;
+use, disclose, or retain any “nonpublic personal information” (as defined under the Gramm-Leach-Bliley Act) or “personal information” (as defined under the California Consumer Privacy Act) other than in strict compliance with applicable law;
+use, disclose, or otherwise process any “personal data” (as defined in Regulation (EU) 2016/679 (General Data Protection Regulation)) other than in strict compliance with applicable law;
+access or use the Services or access, transmit, process, or store End User Data in violation of any applicable privacy laws or in any manner that would be a breach of contract or agreement with the applicable end user;
+access or use the Services to infringe any patent, trademark, trade secret, copyright, right of publicity, or other right of any person or entity;
+access or use the Services for any purpose other than for which it is provided by us, including for competitive evaluation, spying, creating a substitute or similar services to any of the Services, or other nefarious purpose;
+scan or test (manually or in an automated fashion) the vulnerability of any Plaid infrastructure without express prior written permission from Plaid;
+breach, disable, interfere with, or otherwise circumvent any security or authentication measures or any other aspect of the Service;
+overload, flood, or spam any part of the Services;
+create developer accounts for the Services by any means other than our publicly-supported interfaces (e.g., creating developer accounts in an automated fashion or otherwise in bulk);
+transfer, syndicate, or otherwise distribute the Services or End User Data without express prior written permission from Plaid;
+decipher, decompile, disassemble, copy, reverse engineer, or attempt to derive any source code or underlying ideas or algorithms of any part of the Services, except as permitted by applicable law;
+modify, translate, or otherwise create derivative works of any part of the Services;
+access or use the Services or End User Data in a manner that violates any agreement between you or the end user and Plaid; or
+access or use the Services or End User Data in a manner that violates any applicable law, statute, ordinance, or regulation.
+Suspension and Termination
+We reserve the right to withhold, refuse, or terminate access to the Services and/or End User Data in whole or in part where we believe the Services are being accessed or used in violation of this Policy or any other Plaid agreement, including Plaid’s agreements with any third party partners or data sources of Plaid (each, a “Partner”), or where use would pose a risk of harm, including reputational harm, to Plaid, its infrastructure, its data, the Services, an end user, or a Partner.
+We will use reasonable efforts to notify you via email or other method when deciding to withhold, refuse, or terminate access to the Services and/or End User Data. We may immediately suspend or terminate access without notice if appropriate under the circumstances, such as when we become aware of activity that is a violation of any applicable law or when we determine, in our sole discretion, that harm is imminent.
+Plaid will not be liable for any damages of any nature suffered by you or any third party resulting from Plaid’s exercise of its rights under this Policy or under applicable law.
+Reporting Violations
+If any person becomes aware of a violation of this Policy, we request that you
+ immediately notify us via email to
+ <email masked>.
+ We may take any appropriate action -- including reporting any activity or conduct that we suspect
+ violates the law to appropriate law enforcement officials, regulators, or other

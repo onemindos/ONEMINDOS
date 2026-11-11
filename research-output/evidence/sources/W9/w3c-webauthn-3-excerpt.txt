@@ -1,0 +1,31 @@
+EXCERPT of W3C WebAuthn Level 3, https://www.w3.org/TR/webauthn-3/, fetched 2026-11-10. Raw HTML sha256: 157030c980d44a3ce4b1ec5bcfaa16790c7dfefac20709af6ed2b11c7120970b
+Web Authentication: An API for accessing Public Key Credentials - Level 3
+
+ Web Authentication:
+An API for accessing Public Key Credentials
+Level 3
+
+ W3C Recommendation,
+ 25 August 2026
+
+ More details about this document
+
+ This version:
+
+ This Recommendation is the Level 3 successor to Web Authentication: An API for accessing Public Key Credentials Level 2. The Revision History documents the changes from Level 2.
+
+ There have been no substantive changes since the Candidate Recommendation Snapshot of 26 May 2026.
+
+ 14.3. Authenticator-local Biometric Recognition
+
+ Biometric authenticators perform the biometric recognition internally in the authenticator - though for platform authenticators the biometric data might also be visible to the client, depending on the implementation. Biometric data is
+not revealed to the WebAuthn Relying Party; it is used only locally to perform user verification authorizing the creation and
+registration of, or authentication using, a public key credential. A malicious Relying Party therefore cannot discover the
+user’s personal identity via biometric data, and a security breach at a Relying Party cannot expose biometric data for an attacker to
+use for forging logins at other Relying Parties.
+
+ In the case where a Relying Party requires biometric recognition, this is performed locally by the biometric authenticator
+perfoming user verification and then signaling the result by setting the UV flag in the signed assertion response,
+instead of revealing the biometric data itself to the Relying Party.
+
+ 14.4. Privacy considerations for authenticators

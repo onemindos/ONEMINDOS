@@ -1,0 +1,1055 @@
+
+
+	Extension runtime security
+
+		AI agents: See llms.txt for documentation discovery and navigation. Documentation articles are also available as Markdown by appending .md to the article URL.
+
+					Skip to content
+
+										Features
+
+											AI development
+
+Agents
+
+Models
+
+Customizations
+
+Continuity
+
+											Editor
+
+Write code
+
+Enterprise
+
+Extensibility
+
+								Release notes
+								Blog
+
+										Resources
+
+											Help
+
+Documentation
+
+Learn
+
+API
+
+FAQ
+
+											Extensibility
+
+														Extension Marketplace
+
+														(opens in new tab)
+
+														MCP registry
+
+														(opens in new tab)
+
+											Connect
+
+														Events
+
+														(opens in new tab)
+
+														GitHub repository
+
+														(opens in new tab)
+
+								Download
+
+											Search
+											⌘ ⇧ P
+
+													Download 
+
+											VS Code Insiders
+											Other platforms
+
+												Command line interface
+												CLI for Apple silicon
+												CLI for Intel
+
+												Command line interface
+												CLI for x64
+												CLI for Arm64
+
+												Command line interface
+												CLI for x64
+												CLI for Arm64
+												CLI for Arm32
+
+						By using VS Code, you agree to its
+						license
+						and
+						privacy statement.
+
+						By using VS Code, you agree to
+						License
+						&
+						Privacy.
+
+GitHub Universe, on demand. Watch the VS Code session recordings.
+
+A year of VS Code, wrapped. Explore the highlights.
+
+			Dismiss this update
+
+Documentation
+
+                  Overview
+
+              Get Started
+
+                  Download and Install
+
+                  Get to Know VS Code
+
+                  Agents Quickstart
+
+                  Editor Tutorial
+
+                  Intro Videos
+
+              AI in VS Code
+
+                  Overview
+
+              Get Started
+
+                  Find a Guide
+
+                  Set Up GitHub Copilot
+
+                  Agents Quickstart
+
+                  Agents Tutorial
+
+                  Cloud Continuity Tutorial
+
+                  Best Practices
+
+              Work with AI
+
+                  Inline Suggestions
+
+                  Chat View
+
+                  Agents Window
+
+                  Inline Chat & Quick Chat
+
+                  Use Chat
+
+                  Canvases
+
+                  Add Prompt Context
+
+                  Review & Revert Changes
+
+                  Configure the Agents Window
+
+              Plan and Run Tasks
+
+                  Plan Work
+
+                  Use Tools
+
+                  Browser Tools
+
+                  Subagents
+
+                  Automations
+
+              Sessions
+
+                  Manage Sessions
+
+                  Memory
+
+                  Artifacts
+
+              Permissions and Security
+
+                  Approvals & Permissions
+
+                  Agent Sandboxing
+
+                  AI Security
+
+              Choose Models and Agents
+
+                  Choose and Configure Models
+
+                  Choose an Agent Harness
+
+                  Move from Local to Copilot
+
+                  Compare Model Results
+
+              Customize and Extend
+
+                  Overview
+
+                  Plugins
+
+                  Agent Skills
+
+                  Instructions
+
+                  Custom Agents
+
+                  Copilot Connectors
+
+                  Add MCP Servers
+
+                  Manage MCP Servers
+
+                  Hooks
+
+                  Prompt Files
+
+                  Migrate Existing Customizations
+
+              Work Across Apps and Machines
+
+                  Remote Agent Sessions
+
+                  Cloud Sessions
+
+                  Session History
+
+              Tutorials & Guides
+
+                  Find a Guide
+
+                  Explore a Codebase
+
+                  Add a Feature
+
+                  Fix a Bug
+
+                  Refactor Safely
+
+                  Add Tests
+
+                  Test Web Apps
+
+                  Run Parallel Tasks
+
+                  Get Back on Track
+
+                  Adapt Agents to Your Project
+
+                  Context Engineering
+
+                  Test-Driven Development
+
+                  Jupyter Notebooks
+
+                  Reduce Credit Usage
+
+                  Prompt Examples
+
+              Concepts
+
+                  Agents
+
+                  How Models Work
+
+                  Context
+
+                  Tools
+
+                  Sessions and Chats
+
+                  Agent Harnesses
+
+                  Agent Customization
+
+                  Workspace Context
+
+                  Trust & Safety
+
+              Reference and Help
+
+              Reference
+
+                  Cheat Sheet
+
+                  Tools and Context
+
+                  Settings Reference
+
+                  VS Code Pet
+
+                  Custom Agent File Reference
+
+                  Custom Instructions Reference
+
+                  Agent Plugin Authoring Reference
+
+                  MCP Configuration
+
+                  Hooks Reference
+
+                  OpenTelemetry Monitoring
+
+                  Agent Host Architecture
+
+              Troubleshooting
+
+                  Troubleshooting
+
+                  Debug Chat Interactions
+
+                  Diagnose Prompt Caching
+
+                  FAQ
+
+              Editor
+
+                  Overview
+
+              Getting Started
+
+                  Editor Tutorial
+
+                  User Interface
+
+                  Tips and Tricks
+
+              Write code
+
+                  Basic Editing
+
+                  IntelliSense
+
+                  Inline Suggestions
+
+                  Smart Actions
+
+                  Code Navigation
+
+                  Refactoring
+
+                  Snippets
+
+              Workspaces
+
+                  Overview
+
+                  Multi-Root Workspaces
+
+                  Workspace Trust
+
+              Configure the editor
+
+                  Display Language
+
+                  Layout
+
+                  Keyboard Shortcuts
+
+                  Settings
+
+                  Settings Sync
+
+              Extensions
+
+                  Overview
+
+                  Extension Marketplace
+
+                  Extension Runtime Security
+
+                  Themes
+
+                  Profiles
+
+              Accessibility
+
+                  Overview
+
+                  Voice Interactions
+
+                  Command Line Interface
+
+                  Telemetry
+
+              Reference
+
+                  Default Keyboard Shortcuts
+
+                  Default Settings
+
+                  Substitution Variables
+
+                  Tasks Schema
+
+              Source Control
+
+                  Overview
+
+                  Quickstart
+
+                  Repositories & Remotes
+
+                  Staging, Commits & Undo
+
+                  History & Blame
+
+                  Branches, Stashes & Worktrees
+
+                  Merge Conflicts
+
+                  Collaborate on GitHub
+
+                  Troubleshooting
+
+                  FAQ
+
+              Terminal
+
+                  Get Started
+
+                  Terminal Basics
+
+                  Terminal Profiles
+
+                  Shell Integration
+
+                  Appearance
+
+                  Advanced
+
+              Debugging & Testing
+
+                  Debugging
+
+                  Debug Configuration
+
+                  Tasks
+
+                  Testing
+
+                  Integrated Browser
+
+                  Port Forwarding
+
+              Guides & Tutorials
+
+                  Test-Driven Development
+
+                  Test Web Apps
+
+              Enterprise
+
+                  Overview
+
+                  Enterprise Policies
+
+                  Manage AI Settings
+
+                  Extensions
+
+                  Telemetry
+
+                  Updates
+
+              Remote
+
+                  Overview
+
+                  VS Code for the Web
+
+                  SSH
+
+                  SSH Tutorial
+
+                  Tunnels
+
+                  Dev Containers
+
+                  WSL
+
+                  WSL Tutorial
+
+                  GitHub Codespaces
+
+                  VS Code Server
+
+                  Linux Prerequisites
+
+                  Tips and Tricks
+
+                  FAQ
+
+              Advanced Setup
+
+                  GitHub Copilot Setup
+
+                  Linux
+
+                  macOS
+
+                  Windows
+
+                  Raspberry Pi
+
+                  Network
+
+                  Portable Mode
+
+                  Additional Components
+
+                  Uninstall
+
+                  Languages & Runtimes
+
+                  Extension Docs
+
+              Topics
+
+                Overview
+
+                Download and Install
+
+                Get to Know VS Code
+
+                Agents Quickstart
+
+                Editor Tutorial
+
+                Intro Videos
+
+                Overview
+            Get Started
+                    Find a Guide
+
+                    Set Up GitHub Copilot
+
+                    Agents Quickstart
+
+                    Agents Tutorial
+
+                    Cloud Continuity Tutorial
+
+                    Best Practices
+            Work with AI
+                    Inline Suggestions
+
+                    Chat View
+
+                    Agents Window
+
+                    Inline Chat & Quick Chat
+
+                    Use Chat
+
+                    Canvases
+
+                    Add Prompt Context
+
+                    Review & Revert Changes
+
+                    Configure the Agents Window
+                Plan and Run Tasks
+                        Plan Work
+
+                        Use Tools
+
+                        Browser Tools
+
+                        Subagents
+
+                        Automations
+                Sessions
+                        Manage Sessions
+
+                        Memory
+
+                        Artifacts
+                Permissions and Security
+                        Approvals & Permissions
+
+                        Agent Sandboxing
+
+                        AI Security
+            Choose Models and Agents
+                    Choose and Configure Models
+
+                    Choose an Agent Harness
+
+                    Move from Local to Copilot
+
+                    Compare Model Results
+            Customize and Extend
+                    Overview
+
+                    Plugins
+
+                    Agent Skills
+
+                    Instructions
+
+                    Custom Agents
+
+                    Copilot Connectors
+
+                    Add MCP Servers
+
+                    Manage MCP Servers
+
+                    Hooks
+
+                    Prompt Files
+
+                    Migrate Existing Customizations
+            Work Across Apps and Machines
+                    Remote Agent Sessions
+
+                    Cloud Sessions
+
+                    Session History
+            Tutorials & Guides
+                    Find a Guide
+
+                    Explore a Codebase
+
+                    Add a Feature
+
+                    Fix a Bug
+
+                    Refactor Safely
+
+                    Add Tests
+
+                    Test Web Apps
+
+                    Run Parallel Tasks
+
+                    Get Back on Track
+
+                    Adapt Agents to Your Project
+
+                    Context Engineering
+
+                    Test-Driven Development
+
+                    Jupyter Notebooks
+
+                    Reduce Credit Usage
+
+                    Prompt Examples
+            Concepts
+                    Agents
+
+                    How Models Work
+
+                    Context
+
+                    Tools
+
+                    Sessions and Chats
+
+                    Agent Harnesses
+
+                    Agent Customization
+
+                    Workspace Context
+
+                    Trust & Safety
+            Reference and Help    Reference
+                        Cheat Sheet
+
+                        Tools and Context
+
+                        Settings Reference
+
+                        VS Code Pet
+
+                        Custom Agent File Reference
+
+                        Custom Instructions Reference
+
+                        Agent Plugin Authoring Reference
+
+                        MCP Configuration
+
+                        Hooks Reference
+
+                        OpenTelemetry Monitoring
+
+                        Agent Host Architecture
+                Troubleshooting
+                        Troubleshooting
+
+                        Debug Chat Interactions
+
+                        Diagnose Prompt Caching
+
+                        FAQ
+
+                Overview
+            Getting Started
+                    Editor Tutorial
+
+                    User Interface
+
+                    Tips and Tricks
+            Write code
+                    Basic Editing
+
+                    IntelliSense
+
+                    Inline Suggestions
+
+                    Smart Actions
+
+                    Code Navigation
+
+                    Refactoring
+
+                    Snippets
+                Workspaces
+                        Overview
+
+                        Multi-Root Workspaces
+
+                        Workspace Trust
+            Configure the editor
+                    Display Language
+
+                    Layout
+
+                    Keyboard Shortcuts
+
+                    Settings
+
+                    Settings Sync
+                Extensions
+                        Overview
+
+                        Extension Marketplace
+
+                        Extension Runtime Security
+
+                    Themes
+
+                    Profiles
+                Accessibility
+                        Overview
+
+                        Voice Interactions
+
+                    Command Line Interface
+
+                    Telemetry
+            Reference
+                    Default Keyboard Shortcuts
+
+                    Default Settings
+
+                    Substitution Variables
+
+                    Tasks Schema
+
+                Overview
+
+                Quickstart
+
+                Repositories & Remotes
+
+                Staging, Commits & Undo
+
+                History & Blame
+
+                Branches, Stashes & Worktrees
+
+                Merge Conflicts
+
+                Collaborate on GitHub
+
+                Troubleshooting
+
+                FAQ
+
+                Get Started
+
+                Terminal Basics
+
+                Terminal Profiles
+
+                Shell Integration
+
+                Appearance
+
+                Advanced
+
+                Debugging
+
+                Debug Configuration
+
+                Tasks
+
+                Testing
+
+                Integrated Browser
+
+                Port Forwarding
+            Guides & Tutorials
+                    Test-Driven Development
+
+                    Test Web Apps
+
+                Overview
+
+                Enterprise Policies
+
+                Manage AI Settings
+
+                Extensions
+
+                Telemetry
+
+                Updates
+
+                Overview
+
+                VS Code for the Web
+
+                SSH
+
+                SSH Tutorial
+
+                Tunnels
+
+                Dev Containers
+
+                WSL
+
+                WSL Tutorial
+
+                GitHub Codespaces
+
+                VS Code Server
+
+                Linux Prerequisites
+
+                Tips and Tricks
+
+                FAQ
+
+                GitHub Copilot Setup
+
+                Linux
+
+                macOS
+
+                Windows
+
+                Raspberry Pi
+
+                Network
+
+                Portable Mode
+
+                Additional Components
+
+                Uninstall
+
+                Languages & Runtimes
+
+                Extension Docs
+
+On this page there are 6 sectionsOn this page
+
+About extension runtime permissions
+
+Extension publisher trust
+
+Determine extension reliability
+
+Marketplace protections
+
+Report suspicious extensions
+
+Related resources
+
+Extension runtime security
+
+			Copy as Markdown
+
+					Copy as Markdown
+
+					View as Markdown
+
+					Ask in VS Code
+
+					Ask in VS Code Insiders
+
+Extensions greatly enhance the functionality of Visual Studio Code. They can also introduce risks, such as malicious code execution and data privacy concerns. The Visual Studio Marketplace has many ways to protect you from bad extensions. In addition, VS Code gives you several indicators of an extension's reliability.
+
+This document outlines the runtime permissions of extensions in VS Code and the measures in place to protect you from malicious extensions. You'll learn how to make an informed decision about the reliability of an extension before installing it.
+
+About extension runtime permissions
+
+The extension host is responsible for running extensions in VS Code. The extension host has the same permissions as VS Code itself. This means that any action that VS Code can perform, an extension can also perform through the extension host.
+
+For example, an extension can read and write files on your machine, make network requests, run external processes, and modify workspace settings.
+
+Extension publisher trust
+
+As of VS Code release 1.97, when you first install an extension from a third-party publisher, VS Code shows a dialog prompting you to confirm that you trust the publisher of that extension.
+
+When you trust the publisher of an extension pack or an extension with dependencies on other extensions, you are also trusting the publishers of the dependent extensions.
+
+Publishers for extensions that you installed previously are considered trusted and are automatically added to the list of trusted publishers.
+
+You can manage the list of trusted extensions by using the Extensions: Manage Trusted Extensions Publishers command.
+
+        Important
+
+When you install extensions by using the VS Code command line, the extension's publisher is not automatically trusted.
+
+Determine extension reliability
+
+Before you install an extension, you can take various steps to determine if it's reliable. The Visual Studio Marketplace provides you with information about the extension to help you make an informed decision:
+
+Ratings & Reviews: Read what others think about the extension.
+
+Q & A: Review existing questions and the level of the publisher's responsiveness. You can also engage with the extension's publisher if you have concerns.
+
+Issues, Repository, and License: Check if the publisher provided these and if they have the support you expect.
+
+Verified Publisher: Use the blue check mark next to the publisher's name and domain name as an extra signal of trust. The check mark indicates that the publisher has proven domain-name ownership to the Marketplace. It also shows that the Marketplace has verified both the existence of the domain name and the good standing of the publisher on the Marketplace for at least six months.
+
+        Tip
+
+If you want to enforce which extensions are allowed to be used in your organization, check out how to configure allowed extensions in VS Code.
+
+Marketplace protections
+
+The Visual Studio Marketplace employs several mechanisms to protect you from malicious extensions:
+
+Malware scanning: The Marketplace runs a malware scan on each extension package that's published to ensure its safety. The scan, which uses several antivirus engines, is run for each new extension and for each extension update. Until the scan is all clear, the extension won't be published in the Marketplace for public usage.
+
+Dynamic detection: The Marketplace does dynamic detection by verifying the extension's runtime behavior by running it in a sandboxed environment (clean room VM).
+
+Verified publishers: Publishers can verify (blue check mark) their identity by proving domain ownership. It shows that the publisher has proven domain-name ownership to the Marketplace. It also shows that the Marketplace has verified both the existence of the domain and the good standing of the publisher on the Marketplace for at least six months.
+
+Unusual usage monitoring: The Marketplace monitors the downloads and usage patterns of extensions to detect unusual behavior.
+
+Name squatting: The Marketplace stops extension authors from stealing the names of official publishers, such as Microsoft or RedHat, and popular extensions, like GitHub Copilot.
+
+Block List: If a malicious extension is reported and verified, or a vulnerability is found in an extension dependency, the extension is removed from the Marketplace and added to a block list. If the extension has been installed, it's automatically uninstalled by VS Code.
+
+Extension Signature Verification: The Visual Studio Marketplace signs all extensions when they're published. VS Code checks this signature when you install an extension to verify the integrity and the source of the extension package.
+
+Secret Scanning: The Marketplace automatically scans every newly published extension for secrets such as API keys or credentials (for example, Azure DevOps PAT tokens). If any secrets are detected, publishing is blocked to prevent potential security risks. The VSCE tool scans .env files during packaging and blocks publishing if secrets are found.
+
+Learn about these measures in the Security and Trust in Visual Studio Marketplace blog post.
+
+Report suspicious extensions
+
+If you do see an extension that looks suspicious, report the extension to the Marketplace team. The Marketplace team provides an initial response within one business day.
+
+To report an extension:
+
+Open the extension's page in the Visual Studio Marketplace.
+
+Select the Report a concern link at the bottom of the extension More Info section.
+
+Related resources
+
+Learn how to install and manage extensions in Visual Studio Code.
+
+Use Workspace Trust to decide whether code in a project folder can be executed by VS Code and extensions without explicit approval. This adds an extra layer of security when working with unfamiliar code.
+
+Configure allowed extensions in VS Code to enforce which extensions are allowed to be used in your organization.
+
+11/4/2026
+
+						Microsoft
+
+Community
+
+GitHub
+
+Reddit
+
+X
+
+Bluesky
+
+LinkedIn
+
+Watch & listen
+
+YouTube
+
+Podcast
+
+TikTok
+
+Instagram
+
+Legal
+
+Privacy
+
+Terms of Use
+
+Help
+
+Support
+
+License
+
+							Community
+
+GitHub
+
+Reddit
+
+X
+
+Bluesky
+
+LinkedIn
+
+							Watch & listen
+
+YouTube
+
+Podcast
+
+TikTok
+
+Instagram
+
+							Legal
+
+Privacy
+
+Terms of Use
+
+							Help
+
+Support
+
+License
+
+					Consumer Health Privacy
+					Manage Cookies
+
+By using VS Code, you agree to its license and privacy statement.
+
+						Your Privacy Choices
+

@@ -1,0 +1,14 @@
+Snapshot (opening post, trimmed; accessed 2026-11-11)
+URL: https://github.com/siderolabs/talos/issues/14061
+Title: Update `talosctl rollback` to wait for ready state
+State: open  Created: 2026-08-17T19:35:21Z  Closed: null
+
+## Feature Request
+
+I'd like `talosctl rollback` to provide updates and not return successfully until the node is healthy, like `talosctl upgrade`.
+
+This is a duplicate of https://github.com/siderolabs/talos/issues/7337, which was closed as not planned. If it'd be better to close this new issue and reopen the original I'm open to that, but didn't see a way for me to reopen on my own 😄 
+
+### Description
+
+`talosctl upgrade` and `talosctl upgrade-k8s` both provide updates and wait for a clean status, but `talosctl rollback` just kicks off a function and immediately returns a success. This is a bit offputting for endusers, and requires using `talosctl dmesg` or `talosctl dashboard` to watch the node yourself. I'm not sure yet exactly how much work it would be to implement live output for rollback, but considering it'd be largely the same process as upgrade I can't imagine it's a horribly large effort.

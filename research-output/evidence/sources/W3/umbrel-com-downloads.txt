@@ -1,0 +1,108 @@
+Download umbrelOS
+Umbrel HomeUmbrel ProumbrelOSApp StoreSupport
+Last day10% off Umbrel Home & Pro until Sep 29Celebrate umbrelOS 2.0 with 10% off Umbrel Home and Umbrel Pro until Sep 29.
+Umbrel HomePalm-sized home cloud.
+Umbrel ProThe ultimate home server.
+umbrelOSNEWTurn a computer at home into your own cloud.
+App StoreThe superpowers are endless.
+SupportHelp is always at hand.
+umbrelOS 2.0.1Install umbrelOSon your own hardware.
+Tell us about your machine. We’ll plan your drives and walk you through the rest.
+Know what you need? See all downloads
+Free for personal use.
+Install umbrelOS at home at no cost, with every update included. It’s licensed under the PolyForm Noncommercial License.
+Building a product?
+For OEM licensing and partnerships, email <email-masked>.
+What will umbrelOS run on?
+Mini PC
+Or any desktop or laptop
+NAS
+Intel or AMD, with drive bays
+AI PC
+A PC with a graphics card
+Raspberry Pi
+Pi 5 (recommended) or Pi 4
+Virtual machine
+Try it on this computer
+Something else?See every downloadDesigned for umbrelOS
+Umbrel Home and Umbrel Pro arrive with umbrelOS pre-installed, ready the moment you plug in.
+Buy Umbrel HomeBuy Umbrel Pro
+Downloads
+Intel & AMD
+Run from a USB drive
+Usually no screen or keyboard needed, and every drive inside stays free for your files.
+umbrelos-amd64.img.xz
+Disk image · 1.5 GB
+SHA-2567be2aee3…6c0afd78
+umbrelOS 2.0.1umbrelOS 2.1 Beta 1What’s new
+Install guide
+Intel & AMD
+Install to an internal drive
+For a built-in storage chip, or if you’d rather not leave a USB drive plugged in.
+umbrelos-amd64-usb-installer.iso
+Installer ISO · 1.8 GB
+SHA-256ba4ff357…d7db4935
+umbrelOS 2.0.1umbrelOS 2.1 Beta 1What’s new
+Install guide
+Raspberry Pi
+Pi 5 (recommended) and Pi 4
+Runs from a microSD card, 32 GB or bigger.
+umbrelos-pi.img.zip
+Disk image · 1.3 GB
+SHA-2563bf72393…239dde8c
+umbrelOS 2.0.1umbrelOS 2.1 Beta 1What’s new
+Install guide
+Virtual machine
+Any app that supports EFI
+The quickest way to try umbrelOS on the computer you’re using.
+umbrelos-amd64-usb-installer.iso
+Installer ISO · 1.8 GB
+SHA-256ba4ff357…d7db4935
+umbrelOS 2.0.1umbrelOS 2.1 Beta 1What’s new
+Install guide
+Or skip the setup.
+Umbrel Home and Umbrel Pro come with umbrelOS built in and their storage already planned. Plug in, open umbrel.local, done.
+Umbrel Home
+Small, quiet, and ready the moment you plug it in.
+From BuyLearn more
+Umbrel Pro
+Four SSD slots, FailSafe, and room to grow.
+From BuyLearn more
+Then get the Umbrel app.
+Photos back up on their own, and your Umbrel shows up in Finder and File Explorer.
+iPhoneAndroidMacWindows
+Questions, answered.
+Is umbrelOS really free?Yes, for personal use, with every update included. umbrelOS is licensed under the PolyForm Noncommercial License. For OEM licensing and partnerships, email <email-masked>.
+Already running umbrelOS?There’s nothing to download. Open Settings on your Umbrel and check for updates: umbrelOS 2.0 installs in place, and your apps and files stay where they are. How updates work.
+Why does umbrelOS run from a USB drive?So every drive inside your machine is free for your apps and files, and can be protected with FailSafe Mode. The USB drive just stays plugged in. When there are drives inside, your files never live on it.
+FailSafe Mode or Full Storage Mode?FailSafe Mode keeps your files safe if a drive fails: hard drives work in same-size pairs with every file on both, and SSDs set aside one drive’s worth of space for recovery data. Full Storage Mode gives you every byte, but a failed drive takes everything with it. Neither is a backup, so keep one either way. With SSDs, FailSafe Mode can only be turned on during setup, or when you add your second SSD.
+Can I use drives of different sizes?Yes. In Full Storage Mode, every drive adds its full size. In FailSafe Mode, hard drives pair up with a twin of the same size at setup, and a drive without one waits, unused, until you add it. SSDs of different sizes all count as your smallest one, so matching sizes waste nothing.
+Can I mix SSDs and hard drives?Yes. Your hard drives hold your apps and files, and SSDs speed them up, about 30× in our tests. A speed-boost SSD holds small files and file details, so it becomes part of your storage: keep it installed. In FailSafe Mode, use two SSDs of the same size so the boost is protected too.
+Can I add drives later?Yes. Turn it off, add the drive, turn it on, and umbrelOS walks you through it. In FailSafe Mode, hard drives go in as pairs and SSDs one at a time. If umbrelOS started with no drives for storage, using new drives as your main storage takes a backup and a fresh setup.
+What about drives plugged in over USB?They show up as external storage in Files: great for backups and for sharing over your network. Only internal SATA and NVMe drives become your main storage.
+What happens to what’s already on my drives?The USB drive you copy umbrelOS onto is erased. The drives inside aren’t touched until setup, when umbrelOS lists each one and asks before erasing them. If they hold storage from another umbrelOS setup, it offers to restore it instead. Moving from another Umbrel? See how to bring everything along.
+Where can I get help?Right here: tap Ask Umbrel or the chat bubble, any time. Our assistant knows umbrelOS inside out, and you can reach our team from the same chat. The community forum and Discord are full of people with the same hardware, too.
+Didn’t find your answer?Ask Umbrel
+Because the cloud doesn't have to be somewhere else. It can be home.
+Stay in the loop
+Follow our journey in helping people truly own their data. Better yet, be a part of it.
+Subscribe
+Products
+Umbrel Home
+Umbrel Pro
+umbrelOS
+App Store
+Support
+Community
+Forum
+Discord
+Reddit
+X
+Telegram
+Company
+GitHub
+Careers
+Affiliates
+Legal
+Partner
+© 2026 Umbrel. All rights reserved.

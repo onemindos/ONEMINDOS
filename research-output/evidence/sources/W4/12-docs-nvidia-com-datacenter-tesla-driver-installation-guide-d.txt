@@ -1,0 +1,159 @@
+Debian — NVIDIA Driver Installation Guide
+ Skip to main content
+ Back to top
+ Ctrl+K
+ NVIDIA Driver Installation Guide
+ Choose version 
+ PDF
+ Search
+ Ctrl+K
+ Search
+ Ctrl+K
+ NVIDIA Driver Installation Guide
+ Choose version 
+ PDF
+ Table of Contents
+Introduction
+Pre-installation Actions
+Choose an Installation Method
+Recent Updates
+Kernel Modules
+Amazon Linux
+AlmaLinux
+Azure Linux
+Debian
+Fedora
+KylinOS
+Oracle Linux
+Red Hat Enterprise Linux
+Rocky Linux
+SUSE
+Ubuntu
+Windows
+Driver Helper Script
+Compute-only and Desktop Installation
+Wayland-only Desktop Installation
+Version locking
+GNOME Software Integration
+Optimus Laptops and Multi-GPU Desktop Systems
+Advanced Options
+Optional Components
+DLSS / Smooth Motion / Reflex
+Tarballs and Zip Archive Deliverables
+Post-installation Actions
+Removing the Driver
+Additional Considerations
+Frequently Asked Questions
+Notices
+ Debian
+ Is this page helpful?
+Debian#
+This section covers:
+Debian 12
+Debian 13
+Preparation#
+Perform the Pre-installation Actions.
+The kernel headers and development packages for the currently running kernel can be installed with:
+# apt install linux-headers-$(uname -r)
+Enable the contrib repository:
+# add-apt-repository contrib
+Choose an installation method: Local Repository Enablement or Network Repository Enablement (amd64).
+Local Repository Enablement#
+Download the NVIDIA driver repository:
+$ wget https://developer.download.nvidia.com/compute/nvidia-driver/<driver-version>/local_installers/nvidia-driver-local-repo-<distribution>-<driver-version>_1.0-1_<arch>.deb
+where <driver-version> is the NVIDIA driver version.
+Install local repository on file system:
+# dpkg -i nvidia-driver-local-repo-<distribution>-<driver-version>_1.0-1_<arch>.deb
+Enroll ephemeral public GPG key:
+# cp /var/nvidia-driver-local-repo-<distribution>-<driver-version>/nvidia-driver-*-keyring.gpg /usr/share/keyrings/
+Update the package index:
+# apt update
+Network Repository Enablement (amd64)#
+Install the new cuda-keyring package:
+$ wget https://developer.download.nvidia.com/compute/cuda/repos/<distribution>/x86_64/cuda-keyring_1.1-1_all.deb
+# dpkg -i cuda-keyring_1.1-1_all.deb
+# apt update
+If you are unable to install the cuda-keyring package you can follow these instructions:
+Enroll the new signing key:
+$ wget https://developer.download.nvidia.com/compute/cuda/repos/<distribution>/x86_64/cuda-archive-keyring.gpg
+# mv cuda-archive-keyring.gpg /usr/share/keyrings/cuda-archive-keyring.gpg
+Enable the network repository:
+# echo "deb [signed-by=/usr/share/keyrings/cuda-archive-keyring.gpg] https://developer.download.nvidia.com/compute/cuda/repos/<distribution>/x86_64/ /" \
+ | tee /etc/apt/sources.list.d/cuda-<distribution>-<arch>.list
+Network Repository Enablement (arm64)#
+Install the new cuda-keyring package:
+$ wget https://developer.download.nvidia.com/compute/cuda/repos/<distribution>/sbsa/cuda-keyring_1.1-1_all.deb
+# dpkg -i cuda-keyring_1.1-1_all.deb
+# apt update
+If you are unable to install the cuda-keyring package you can follow these instructions:
+Enroll the new signing key:
+$ wget https://developer.download.nvidia.com/compute/cuda/repos/<distribution>/sbsa/cuda-archive-keyring.gpg
+# mv cuda-archive-keyring.gpg /usr/share/keyrings/cuda-archive-keyring.gpg
+Enable the network repository:
+# echo "deb [signed-by=/usr/share/keyrings/cuda-archive-keyring.gpg] https://developer.download.nvidia.com/compute/cuda/repos/<distribution>/sbsa/ /" \
+ | tee /etc/apt/sources.list.d/cuda-<distribution>-<arch>.list
+Selecting a Branch or a Specific Driver version#
+To confine and pin the system to track a specific branch or driver version, install the appropriate pinning package, for example:
+# apt install nvidia-driver-pinning-<branch>
+or
+# apt install nvidia-driver-pinning-<version>
+Hint
+For the best experience when locking a branch, we suggest installing the pinning package prior to installing the driver.
+More information on the use and scope of these packages can be found in the recent updates section on Version locking packages for Ubuntu / Debian and explained in detail at Version locking.
+Driver Installation#
+These instructions apply to both local and network installations.
+Open Kernel Modules
+# apt -V install nvidia-open
+Compute-only (Headless) and Desktop-only (no Compute) Installation#
+It’s possible to install the driver without all the desktop components (GL, EGL, Vulkan, X drivers, and so on) to limit the footprint and dependencies on the system. With the same logic it’s possible to install a desktop system without any compute component.
+Note
+The components excluded at installation time can always be added at a later stage. This will pull in all the additional dependencies required.
+Compute-only System#
+Open Kernel Modules
+# apt -V install nvidia-driver-cuda nvidia-kernel-open-dkms
+Desktop-only System#
+Open Kernel Modules
+# apt -V install nvidia-driver nvidia-kernel-open-dkms
+Reboot the System#
+# reboot
+Perform the Post-installation Actions.
+Package Upgrades#
+When a new version is available, a normal package update command specific for the distribution should suffice in upgrading the driver. The various differences in distributions would take care of obsolency and package switching when performing upgrades to a different branch.
+If APT pinning is configured on the system, please adjust the configuration or remove the pinning entirely. Please refer to the APT paragraph of the Version locking section for more information.
+When upgrading the driver, whether configured to a pinned branch or the latest available, the command to execute is always the same; what matters is the APT pinning configuration:
+# apt dist-upgrade
+Or a bit more aggressive, to take into consideration held back packages that might have changed between driver releases, for example to upgrade from nvidia-open-565 to nvidia-open:
+# apt dist-upgrade --autoremove --purge nvidia-open
+This will remove any package which would have dependencies removed.
+ previous
+ Azure Linux
+ next
+ Fedora
+ On this page
+Preparation
+Local Repository Enablement
+Network Repository Enablement (amd64)
+Network Repository Enablement (arm64)
+Selecting a Branch or a Specific Driver version
+Driver Installation
+Compute-only (Headless) and Desktop-only (no Compute) Installation
+Compute-only System
+Desktop-only System
+Reboot the System
+Package Upgrades
+ so the DOM is not blocked -->
+ Privacy Policy
+ | 
+ Your Privacy Choices
+ | 
+ Terms of Service
+ | 
+ Accessibility
+ | 
+ Corporate Policies
+ | 
+ Product Security
+ | 
+ Contact
+ Copyright © 2024-2026, NVIDIA Corporation & affiliates. All rights reserved.
+ Last updated on Nov 09, 2026.

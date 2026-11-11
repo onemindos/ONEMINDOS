@@ -1,0 +1,135 @@
+   Works with Home Assistant                    
+
+  Certified products  Resources  Benefits  What's involved?  What's required?   
+ Get in touch  
+
+  Certified products  Resources  Benefits  What's involved?  What's required?   
+ Get in touch     
+
+Works with
+
+Home Assistant
+
+A program from the
+
+ Works with Home Assistant helps clearly indicate to
+					the large Home Assistant community which devices provide the best
+					smart home experience, both now and in the future.
+
+It highlights devices that prioritize local, private, and secure
+					operation while advancing sustainability within the smart home.
+ Get in touch  
+
+Discover more partners in the
+blog     
+
+Benefits 
+
+Joining the Works with Home Assistant program allows you to
+								showcase the official badge of compatibility, which is also
+								displayed on your integration page.
+
+Only certified partners are permitted to use the dedicated
+								'Works with' badge.
+
+Your devices will be promoted through Home Assistant’s official
+								channels. Most importantly, these devices will become the
+								preferred choice for over two million households using Home
+								Assistant.
+
+What's involved? 
+
+Step 1  of 6  
+ Choose the products you would like to certify  
+We can advise on our testing availability and help you prioritize your device list.   
+
+Step 2  of 6  
+ Sign our WWHA agreement  
+This lays out clearly each party’s responsibilities to each other.   
+
+Step 3  of 6  
+ Pay the annual fee payment of 500 Swiss Francs  
+Designed to cover admin only, so the program can still be a great fit for start-up companies.   
+
+Step 4  of 6  
+ Our expert team tests devices  
+Let us know if you require any customizations to help our team start using your devices.   
+
+Step 5  of 6  
+ Testing feedback is given  
+Not simply a pass/fail: Feedback rounds are imperative to help us address issues and keep user experience a top priority.   
+
+Step 6  of 6  
+ Approval and WWHA badge awarded  
+Use the badge on product listings, web pages, packaging, and other marketing material to showcase your connection with our community.     
+
+Program goals for 2026 
+
+What's required? 
+
+End Devices 
+
+We do not currently certify connecting devices such as hubs, bridges, repeaters or Zigbee / Z-Wave adapters.   
+
+Available to the general public 
+
+If your device is going through a crowd-funding or pre-sale campaign, we will not test it until it is fully funded and in the manufacturing stage.   
+
+Available locally and not reliant on a separate cloud connection 
+
+We prioritize local control above everything else. Cloud control can be an extra, but must be opt-in only.   
+
+Available to access firmware updates directly in Home Assistant 
+
+Ideally, all devices should be able to access over-the-air (OTA) firmware updates from within our system. If this isn't possible, you must provide a way to alert users about firmware updates.   
+
+Zigbee 
+
+CSA Certification  
+
+Matter 
+
+CSA Certification  
+
+Z-Wave 
+
+Z-Wave Alliance Certification  
+
+Local network or Bluetooth connectivity 
+
+An integration quality of gold or above    
+
+All devices must have FCC/CE or equivalent certification 
+
+Above all, partners need to share our values of Privacy, Choice, and Sustainability.     
+
+The list above is non-exhaustive. As we're a small team we have to
+				prioritize certification of devices strategically. Our strategic
+				objectives with this program are currently to prioritize device variety,
+				easy DIY installation, regional availability and partners who are a
+				positive force for good, both inside and outside of our community. We
+				cannot always certify manufacturers who apply to join the program, but
+				we will continue to work to increase our capacity over the coming
+				months.
+
+Above all, partners need to share our values of Privacy,
+Choice, and Sustainability.
+
+Interested in working with us? 
+
+We’re always open to speaking about integrations or other collaborative
+				relationships as well as the Works with program. Email us and we can
+				tell you more about the Home Assistant universe and how you might get
+				involved.
+ Email [email protected]
+ or copy email address  
+
+ To learn more about joining Works with Home Assistant - reach out
+						to our team: [email protected]  
+
+This website uses
+privacy-first analytics
+to help us improve the site. You can view all data in our
+public dashboard.
+
+       

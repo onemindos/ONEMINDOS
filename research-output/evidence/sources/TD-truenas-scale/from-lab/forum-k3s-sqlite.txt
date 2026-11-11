@@ -1,0 +1,81 @@
+Potential k3s Database Corruption Issue - Need Assistance - Apps and Virtualization - TrueNAS Community Forums 
+ = 40rem)" rel="stylesheet" data-target="chat_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-ai_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-gamification_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-reactions_desktop" />
+ = 40rem)" rel="stylesheet" data-target="poll_desktop" />
+ TrueNAS Enterprise Hardware 
+ | 
+ Commercial Support 
+ Report a Bug 
+   |  
+ Docs & AI Search 
+   |  
+ Careers 
+   |  
+ Browse Forum Archive 
+ TrueNAS Community Forums 
+ Potential k3s Database Corruption Issue - Need Assistance 
+ Apps and Virtualization 
+ SCALE 
+ <forum-user-masked>
+ July 19, 2024, 10:49am
+ 1 
+ Hello,
+ I’ve encountered an issue with my k3s installation on TrueNAS where it appears the database might be corrupted. This has resulted in all applications failing to launch. Here’s an excerpt from the log that suggests there might be a problem with the etcd database:
+ Part of sudo journalctl -b -u k3s output
+ Jul 19 19:06:20 truenas k3s[5942]: Trace[1184495388]: ["List(recursive=true) etcd3" audit-id:a11a74b7-cc2a-4c33-b431-968e20ffa29a,key:/events,resourceVersion:,resourceVersionMatch:,limit:0,continue: 536ms (19:>
+Jul 19 19:06:20 truenas k3s[5942]: Trace[1184495388]: [536.430308ms] [536.430308ms] END
+Jul 19 19:06:20 truenas k3s[5942]: time="2024-07-19T19:06:20+09:00" level=info msg="COMPACT compactRev=400802 targetCompactRev=401802 currentRev=1215448"
+Jul 19 19:06:20 truenas k3s[5942]: time="2024-07-19T19:06:20+09:00" level=error msg="Compact failed: failed to compact to revision 401802: database disk image is malformed"
+Jul 19 19:06:20 truenas k3s[5942]: I0719 19:06:20.517118 5942 trace.go:219] Trace[1588815257]: "Get" accept:application/vnd.kubernetes.protobuf, */*,audit-id:345a3434-f054-40d3-ad46-ddde2f4c091c,client:127.>
+ The error message “Compact failed: failed to compact to revision 401802: database disk image is malformed” indicates a potential corruption.
+ I’m seeking advice on two fronts:
+ Repairing the Database: Is there a recommended approach to attempt a repair on the etcd database? If specific tools or commands are advised, please share.
+ Resetting k3s: If a repair isn’t feasible, how should I go about resetting the k3s dataset? Before I proceed, I need to ensure that I can back up the application settings configured through the web UI. For instance, settings accessible via URLs like https://<private-ip-masked>/ui/apps/installed/TRUENAS/community/filebrowser/edit .
+ Any guidance on backing up these configurations before a system reset would be greatly appreciated.
+ Thank you for your assistance.
+ Related topics
+ Topic
+ Replies
+ Views
+ Activity
+ Error In Apps Service after Truenas + Plex App update 
+ Apps and Virtualization 
+ SCALE 
+ , 
+ 23_10-Cobia 
+ 0 
+ <forum-user-masked>
+ April 14, 2024
+ Checksum errors and Corrupt files 
+ TrueNAS General 
+ SCALE 
+ 2 
+ <forum-user-masked>
+ October 31, 2024
+ Dragonfish k3s certificate expired (+ k3s corruption?) 
+ TrueNAS General 
+ SCALE 
+ 2 
+ <forum-user-masked>
+ August 4, 2025
+ Clean Install Fails - UI Shows "Apps Service Running" but k3s.service is Not Found 
+ TrueNAS General 
+ 4 
+ <forum-user-masked>
+ June 28, 2025
+ Configuring apps for the first time, process never ends 
+ Apps and Virtualization 
+ SCALE 
+ , 
+ Apps 
+ 8 
+ <forum-user-masked>
+ April 24, 2024
+ Home 
+ Categories 
+ Guidelines 
+ Terms of Service 
+ Privacy Policy 
+ Powered by Discourse , best viewed with JavaScript enabled

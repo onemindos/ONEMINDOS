@@ -1,0 +1,9 @@
+[build 04:27:47] verify k3s artifacts against the release sha256sum file
+k3s-airgap-images-amd64.tar.zst: OK
+k3s: OK
+[build 04:27:47] lab PKI
+[build 04:27:47] mmdebstrap amd64 trixie
+I: installing remaining packages inside the chroot...
+I: cleaning package lists and apt cache...
+I: success in 172.4347 seconds
+busybox has no httpd applet

@@ -47,7 +47,7 @@ time="2026-11-10T20:29:14-05:00" level=warning msg="Unknown flag --disable found
 time="2026-11-10T20:29:14-05:00" level=warning msg="Unknown flag --cluster-init found in config.yaml, skipping\n"
 time="2026-11-10T20:29:14-05:00" level=info msg="Snapshot drill-box1-1794360555 saved."
 [2026-11-11T01:29:14Z] etcd-snapshot exit=0
-<home>/<lab-dir>/w5-restore/shared/drill.sh: line 131: strings: command not found
+<lab-dir>/w5-restore/shared/drill.sh: line 131: strings: command not found
 [2026-11-11T01:29:14Z] snapshot file starts with: 
 no parent snapshot found, will read all files
 

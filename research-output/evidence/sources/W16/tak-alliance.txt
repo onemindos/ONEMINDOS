@@ -1,0 +1,58 @@
+SOURCE: https://www.takalliance.org/
+ACCESSED: 2026-11-10
+
+TAK Alliance | Forward Together
+0
+Skip to Content
+TAK Alliance
+ABOUT
+RESOURCES
+CONTACT
+Open Menu
+Close Menu
+TAK Alliance
+ABOUT
+RESOURCES
+CONTACT
+Open Menu
+Close Menu
+ABOUT
+RESOURCES
+CONTACT
+Our
+Mission
+TAK Alliance exists to advance, protect, and sustain the Team Awareness Kit (TAK) ecosystem as a critical enabler of national security and public safety. We bring together industry partners, government stakeholders, and the TAK Product Center to strengthen collaboration, ensure responsible stewardship of the open TAK architecture, and promote policies that enable TAK’s continued growth and success.
+Learn more
+what is tak?
+The Team Awareness Kit (TAK) is the U.S. government’s premier digital situational awareness and mission coordination platform. It enables personnel to see, share, and act on a common map—showing teammates, vehicles, aircraft, sensors, and key locations in real time.
+Developed by the Air Force Research Laboratory, TAK began as a smartphone-based mapping tool and has evolved into a full family of applications used across the U.S. military, federal law enforcement, homeland security, and public safety. Users can exchange location data, imagery, chat, video, and mission graphics across devices and networks, giving everyone—from ground operators to command centers—the same operational picture.
+TAK is a family of interoperable tools—ATAK (Android), iTAK (iOS), WinTAK (Windows), WebTAK, and TAK Server—forming a unified ecosystem for planning, execution, and data sharing. Whether in combat zones, disaster areas, or border operations, TAK provides a fast, secure, and intuitive means of coordinating people and assets in real time.
+Its plugin-based architecture allows users to rapidly add capabilities—such as route planning, fires coordination, UAV control, medical tracking, or sensor feeds—without fragmenting the core system. This open, modular approach lets agencies tailor TAK to their missions while maintaining interoperability across the enterprise.
+WIDESPREAD USE
+TAK is employed by more than 20 U.S. government programs, spanning the Department of War, Homeland Security, and other federal agencies, as well as numerous allied nations.
+LARGE USER BASE
+As of FY25, TAK supports roughly 300,000 users across the federal government, making it one of the most widely adopted government-owned software systems in use today.
+TAK.GOV
+Why Tak Matters
+TAK serves as the mission coordination backbone for modern defense and homeland security operations. By integrating live data, planning tools, and communications, it enables operators to plan, execute, and adapt faster and more effectively—replacing disparate tools with a single, unified platform.
+Critically, TAK is government-owned and open-source, which:
+Eliminates vendor lock-in and proprietary barriers.
+Prevents data silos and ensures cross-agency interoperability.
+Encourages private-sector innovation through open development.
+Delivers long-term efficiency by sharing improvements across all users.
+This model makes TAK a force multiplier not only for warfighters and operators, but also for taxpayers—ensuring every investment strengthens a common, interoperable platform rather than duplicating effort across government.
+In the words of its creators, TAK helps users “gain intellectual overmatch” by enabling them to outthink, outmaneuver, and outpace adversaries through better coordination and faster, data-driven action.
+Contact us
+EXPLORE
+ABOUT
+RESOURCES
+CONTACT
+Newsletter Block
+This newsletter signup form needs a storage option. Edit the block and enter a storage location via the
+Storage
+tab.
+Sign up with your email address to receive news and updates on TAK Alliance activities and member events.
+Email Address
+Sign Up
+Thank you!
+Copyright © 2026 TAK Alliance

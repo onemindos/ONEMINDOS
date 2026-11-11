@@ -1,0 +1,25 @@
+Local Push | Home Assistant Companion Docs 
+ Skip to main content Companion Apps Docs Download Gallery Support GitHub (iOS) GitHub (Android) Getting Started Core Features Data handling Notifications Introduction Actionable Notifications Attachments Critical notifications Privacy, rate limiting and security Notification Cleared Notification Commands Live Activities and Live Updates Sounds Local Push Notification Received Integrations Apple Watch Wear OS Android Auto/Automotive CarPlay macOS Meta Quest Troubleshooting Notifications Local Push On this page Local Push Local Push uses the WebSocket API to deliver notifications to your device instead of using Apple's Push Notification Service or Google's Firebase Cloud Messaging. 
+ Platform Version 2021.7 2021.7 2022.2 
+ info Local Push requires HA core-2021.6 or later in combination with a supported platform above. 
+ Requirements ​ 
+ has a few limitations: 
+ Local Push will only occur when connected via Internal URL, and requires configuring SSIDs to consider internal. This is an Operating System limitation as this feature is designed for low or minimal connectivity situations. 
+ Although small, battery usage will be increased by a small amount when Local Push is enabled as it maintains an ongoing connection to your HA server. You can disable it in the connection settings for your server. 
+ will always maintain a Local Push connection as long as the app is running and has no additional battery impact. 
+ will maintain a Local Push connection as specified by your configuration. In order to keep this connection the app will need to create a persistent notification, you will be able to minimize the notification channel for Persistent Connection on your device to hide it. Depending on your setting this may have adverse affects on battery life. If you are using the minimal flavor you will want to keep this setting as "Always" and consider granting the app background access to make the connection more reliable. 
+ Rate limits ​ 
+ Notifications delivered via Local Push do not count against Rate Limits . 
+ Configuration ​ 
+ can disable Local Push by editing the internal connection settings for the server. Go to Settings then Companion App and tap on the server row, then tap Internal URL. 
+ does not have an option to disable Local Push, see requirements above for more information. 
+ can configure Local Push settings in Settings then Companion App and tap on the server row, then select Persistent Connection. 
+ Viewing Status ​ 
+ and :
+You can view the status of Local Push in the Server section Companion App in Settings . This will show one of a few statuses: 
+ Disabled, when toggled off by the connection setting or not currently on the internal network. 
+ Unsupported, when the iOS version does not support Local Push. 
+ Unavailable, when the core version does not support Local Push. 
+ Establishing, when it is initially connecting to the server. 
+ Available, when it is connected and ready for pushes. The number after indicates the number of messages received since the connection began, which can be useful for debugging. 
+ Edit this page Previous Sounds Next Notification Received Requirements Rate limits Configuration Viewing Status Community Forum Discord GitHub Social YouTube Reddit GitHub Mastodon Bluesky X (Twitter) Facebook Instagram LinkedIn Copyright © 2026 Home Assistant. Built with Docusaurus.

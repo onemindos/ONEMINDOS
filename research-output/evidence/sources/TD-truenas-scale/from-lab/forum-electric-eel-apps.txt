@@ -1,0 +1,256 @@
+The Future of Electric Eel and Apps - Announcements - TrueNAS Community Forums 
+ = 40rem)" rel="stylesheet" data-target="chat_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-ai_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-gamification_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-reactions_desktop" />
+ = 40rem)" rel="stylesheet" data-target="poll_desktop" />
+ TrueNAS Enterprise Hardware 
+ | 
+ Commercial Support 
+ Report a Bug 
+   |  
+ Docs & AI Search 
+   |  
+ Careers 
+   |  
+ Browse Forum Archive 
+ TrueNAS Community Forums 
+ The Future of Electric Eel and Apps 
+ Announcements 
+ <forum-user-masked>
+ May 29, 2024, 1:56pm
+ 1 
+ The Future of Electric Eel and Apps
+ There’s been some great progress on Apps in SCALE. Kubernetes (K3S) has been integrated. A catalog system has been built to enable easy web UI management of apps. ZFS has been modified to support Docker OverlayFS to better handle snapshots from containerized applications, and custom Docker containers can be downloaded and run directly via the web UI.
+ However, one thing has been missing until now: Docker Compose scripts cannot be used for importing applications.
+ The TrueNAS community has been forced to build Apps using Helm charts. Helm charts are powerful, but they are more complex and less portable. There’s been lots of feedback from the community that native Docker and Docker Compose is preferred, and that K3s and Helm charts have been too complex and less reliable. It’s clear that Docker is the industry standard for building containerized applications. TrueNAS users have been vocal.
+ “Add native Docker support. It’s the most requested feature for TrueNAS.” (Quentin J.)
+ “Include easier or more streamlined Docker support out of the box Docker.” (Primoz R.)
+ “I really do wish TrueNAS had a clean option for more pure Docker/Compose use.“ (James P.)
+ iX Listens
+ One of TrueNAS’s primary goals is to create an environment that is easy to use and innovate in. We want it to be easy to import and export Apps and their data. This is part of our promise of “True Data Freedom.”
+ Over the last six months, we have been working to meet the Community demand for native Docker Compose while minimizing the disruption of existing App deployments. We now have a solution and a plan for Electric Eel, which we’re ready to share now.
+ Electric Eel
+ The current version of TrueNAS SCALE is Dragonfish (24.04). The first update, 24.04.1, has achieved the quality needed for it to be our most successful release ever, with over 35,000 users already running on Dragonfish.
+ The next version of TrueNAS SCALE is Electric Eel (24.10), due in Q4 this year. It’s been in active development for many months and will be BETA in Q3 this year. It’s a very exciting and feature-packed release that’s set to include:
+ OpenZFS 2.3 with RAIDZ expansion and Fast Dedup
+ Web UI improvements including a Global Search, and better dashboards
+ Web-based installation of TrueNAS
+ Integrated Cloud backup of TrueNAS
+ Additional security features and dozens of other improvements
+ New iX platforms and capabilities
+ And now ….Native Docker and Docker Compose support for Apps
+ We expect that users will be very excited by the complete package. As we progress to BETA there will be a more complete write-up of what is included.
+ Docker Compose Introduction
+ We’ve thought long and hard about how to introduce Docker Compose support and have developed a plan that minimizes disruption. It will include moving the Apps infrastructure from K3S to Docker. Docker and Compose will simplify portability and innovation of Apps.
+ All of the TrueNAS Apps catalog will migrate to Docker Compose without requiring users to take any manual actions; all current users will need to do is update the system to Electric Eel when it launches. Each TrueNAS installation will identify the Apps running and automatically migrate to using the new Docker Compose App from the Catalog. Those updated Apps will use exactly the same datasets and configuration options as used previously.
+ After this update, new Apps can come from the TrueNAS Catalogs or can be installed as traditional Docker Compose applications using standard YAML config files. TrueNAS will fully support the gamut of industry standard Docker and Compose application deployments. With this process, it will be vastly easier for TrueNAS users to build or import more complex Apps from upstream sources.
+ Long-Term Kubernetes Support
+ For anyone who wants to continue using Kubernetes (K3s or K8s), we recommend using TrueNAS Sandboxes . This transition can happen in Dragonfish before updating to Electric Eel. Kubernetes instances within a Sandbox have full APIs available and can also be configured for clustering if the user so chooses
+ Third-party catalogs will have an option of continuing to maintain and support their Helm chart Catalogs via deployment of K3s in a sandbox. Contact us if you need guidance on this transition.
+ Next Steps
+ The engineering team will be merging code and updating the catalogs over the next two months. There will be no impact on existing Dragonfish Apps. When the new Apps system in Electric Eel is functional, we will alert the developer community and provide links to a nightly image. However, open testing will likely begin with a BETA version, expected in August.
+ Do not update your system to a Nightly developer image now and expect your Apps to work. Please wait until iX provides an all-clear message. 
+ We’ll help the community establish best practices for transitioning Apps as we progress through Nightly and BETA testing. This process should be easy for TrueNAS Apps, but will likely require some examples and thought for private and third-party Apps.
+ Users can continue deploying TrueNAS Apps on Cobia or Dragonfish and expect a straightforward migration to Electric Eel. For those that want Docker Compose applications now, a native Docker runtime can be run in a Linux sandbox today. If you like this new direction, please cheer us on and let us know how we can improve it.
+ Does anyone else have a love/hate relationship with TrueNAS? 
+ TrueNAS Charts vs TrueCharts - which to use and why 
+ TrueNas and Proxmox 
+ CAN'T TRUENAS BE MADE MORE USER FRIENDLY? 
+ Help importing a pool from scale to core 
+ Preparing for a switch from Core to Scale 
+ Apps Update - 2024-06-06 
+ TrueNAS SCALE 24.04.1.1 is Now Available! 
+ Seeking Solution for Docker Orchestration and High Availability 
+ Electric Eel Emerges 
+ TrueNAS SCALE 24.10-BETA.1 is Now Available! 
+ TrueNAS SCALE 24.10-BETA.1 is Now Available! 
+ Access Vikunja CLI in TrueNAS installed from app store 
+ Add a "search" box to the dashboard page 
+ Apps are so broken to me ! Almost nothing I installed works! 
+ Truecommand 3.0 
+ TrueNAS CORE: plugins won't install - Syncthing, Nextcloud 
+ Be aware of the TrueCharts Apps blank screen 
+ Where exactly are Applications configuration stored? It's not in the Backup Sqlite! 
+ What's going to happen to motioneye? 
+ <forum-user-masked>
+ May 29, 2024, 2:34pm
+ 2 
+ Awesome news!
+ In other words… LET’S GO!!!
+ <forum-user-masked>
+ May 29, 2024, 3:09pm
+ 3 
+ I would love to see some wireframes or designs on how the docker and docker compose functionality is expected to work. I do think this is a great step forward, but one of my issues with the existing k3s functionality is that it’s a little too hidden behind the UI and not that easy to manually modify.
+ The beauty of docker compose is that it’s just a text file and easy to edit/modify, so I’m very curious as to how iX is planning to support it. I don’t know how many people are working on this area but to completely swap out k3s in favour of docker and have it all migrate and be a seamless user experience in just over 5 months seems very ambitious.
+ I’d almost suggest reducing the scope of this change to focus on good docker container support and spinning up individual containers first for 24.10, then add in compose support later when there’s a good experience. But as I said, I’d love to see the UX on this proposal first.
+ <forum-user-masked>
+ May 29, 2024, 3:17pm
+ 4 
+ Electric Eel is quickly shaping up to be the most exciting and impactful release of SCALE since its first release!
+ <forum-user-masked>
+ May 29, 2024, 3:24pm
+ 5 
+ Kushan:
+ I would love to see some wireframes or designs on how the docker and docker compose functionality is expected to work. I do think this is a great step forward, but one of my issues with the existing k3s functionality is that it’s a little too hidden behind the UI and not that easy to manually modify.
+ The beauty of docker compose is that it’s just a text file and easy to edit/modify, so I’m very curious as to how iX is planning to support it. I don’t know how many people are working on this area but to completely swap out k3s in favour of docker and have it all migrate and be a seamless user experience in just over 5 months seems very ambitious.
+ I’d almost suggest reducing the scope of this change to focus on good docker container support and spinning up individual containers first for 24.10, then add in compose support later when there’s a good experience. But as I said, I’d love to see the UX on this proposal first.
+ Current plan is to keep a lot of the Apps UI intact with regard to how we browse for Apps in the catalog. We will be adding a networking section where docker networks can be created and managed, as well as the ability to import docker compose YAML directly. Our goal here is to not over-complicate the implementation, and allow pretty much a 1:1 of native docker / compose functionality to be used out of box.
+ <forum-user-masked>
+ May 29, 2024, 3:26pm
+ 6 
+ Thanks for the response, that sounds wonderful! What would the UX be in terms of editing an existing compose file? So say I’ve imported my existing compose and I just want to change a container name or something - can I just import it again? Can I edit it directly somewhere, even if it has to be done via ssh?
+ <forum-user-masked>
+ May 29, 2024, 3:48pm
+ 7 
+ I would like to thank @HoneyBadger for this post giving us all an insight into the thinking that is happening inside ixSystems. I think that the general consensus is that Docker Compose will be better than K3s (simpler, less overhead) so this seems like an excellent long-term choice.
+ A few immediate comments that come to mind:
+ The automatic migration of TrueNAS Chart apps from K3S to Docker sounds really good - and IMO ixSystems deserve a real plaudit for putting the effort into achieving this.
+ I appreciate that ixSystems don’t want to continue to support (i.e. put costly effort into) K3s. So although it might be nice for ixSystems to support a release in which both existing K3s apps are supported in parallel with the new Docker infrastructure, I can fully understand why they don’t want to do this.
+ It is unclear whether Electric Eel will support 3rd party docker app catalogues in the same way that 3rd party Helm catalogues like TrueCharts are currently supported. Or indeed whether such support would be needed over and above support for checking whether custom docker / composer images have been updated and offering admins the chance to update. But if it is needed, such support would seem to me to be relatively simple.
+ Alternatively it might be nice if ixSystems were to consider providing a community catalogue (say based on a Github repo) where community members could define docker apps which utilise the standard GUI functionality for TrueNAS apps. This could be administered by either ixSystems or by senior community members and would be a way to get the breadth of apps that TrueCharts provide without having a
+ We will need to see what TrueCharts response will be to this. But they seem to be more interested in supporting Helm charts globally than supporting TrueNAS specifically, so I suspect that they are most likely to twilight the TrueNAS SCALE Catalogue support (and close it once Dragonfish goes out of support) and focus on other platforms.
+ I would imagine that it would be possible for the community to continue to innovate around Jailmaker and to provide:
+ A console-based UI for Jailmaker which helps users create Jails (akin to the Jail wizard in CORE??)
+ Automated Jailmaker install for K3s
+ Support for 3rd party Helm catalogues (such as TrueCharts)
+ Some sort of automated script to migrate TrueCharts apps from Dragonfish inbuilt K3s to K3s in a Sandbox.
+ Finally, now that we have this announcement, I think it might be useful if someone more experienced than me could write a couple of complementary Forum posts to this one, giving:
+ Recommendations for new users on whether to use TrueCharts apps at all now that this has been announced. To me it would seem sensible to switch to a matching TrueNAS Chart app if one is available but in many cases the choice now is TrueCharts with a GUI and update support, or Jailmaker/Docker using a command line and manual editing of compose files etc. and possible manual updates via the command line too.
+ A practical overview of how users should deal with their existing TrueCharts K3s applications perhaps with a few options (migrate to TrueNAS equivalent apps, migrate to Docker in a Sandbox, migrate to K3s in a Sandbox etc.) and then have a list somewhere of which option is recommended for each TrueCharts package.
+ <forum-user-masked>
+ May 29, 2024, 3:48pm
+ 8 
+ Kushan:
+ Thanks for the response, that sounds wonderful! What would the UX be in terms of editing an existing compose file? So say I’ve imported my existing compose and I just want to change a container name or something - can I just import it again? Can I edit it directly somewhere, even if it has to be done via ssh?
+ Yes, so the plan is if you deploy a pre-defined App from the “Store” those will be static and not let you make direct YAML edits. This is to protect the upgrade path from blowing up on you later as the App Catalog moves forward.
+ If you deploy a manual Docker/Compose App via the UI or by supplying a YAML file, you will then be able to edit it later in the UI (or CLI) by changing the YAML directly, as you would with a traditional docker compose deployment on any standard Linux.
+ <forum-user-masked>
+ May 29, 2024, 3:51pm
+ 9 
+ Can we have parameterised YAML files with a GUI to ask for the parameter values?
+ <forum-user-masked>
+ May 29, 2024, 4:01pm
+ 10 
+ Maybe, eventually. The “Deploy Custom” UI today will sort of do that, but only with a subset of functionality. Writing a fully 1:1 YAML → UI parser will be a big lift and we’ll see to see what kind of demand there is for that. People who want pointy-clicky type interfaces might already have enough functionality for those use-cases as is. We just don’t want it to get in the way of what docker and compose native support out of box.
+ <forum-user-masked>
+ May 29, 2024, 4:29pm
+ 11 
+ I really wish k3s could continue to be supported as-is, too. I have dozens of apps configured with dynamic certs, reverse-proxy, etc. It will take me a long time to learn how to set up this same environment again within a sandbox.
+ <forum-user-masked>
+ May 29, 2024, 4:30pm
+ 12 
+ Yea, they are pretty mutually exclusive (k3s & docker on same box). You could use a sandbox, or do the exact same setup with Docker Compose native, which I think you’d find there is a LOT more resource and information floating around on how to setup.
+ <forum-user-masked>
+ May 29, 2024, 4:38pm
+ 13 
+ I am not sure how you would indicate in a YAML file which items were parameterised and how you would also provide other UI elements such as (internationalised) tooltips etc.
+ I suspect that you really need to use separate (YAML) files from Composer.yaml to define the UI fields, and the associated default values and field names and descriptions / tooltips, and for internationalising these, and then to use these fields e.g. FIELD1 to substitute into the Composer.yaml file where you have e.g. {{FIELD1}} or similar syntax.
+ You may also need to store the key:value pairs in a database so that when you want to edit an existing app you don’t have to parse both the default Composer.yaml file (to determine where the substitutable variables are) and the current Composer.yaml file (to work out what the current values are).
+ So this is not that complicated, but definitely significantly more work than requiring every user to either except the default hardcoded Composer.yaml file (which more than likely won’t match e.g. pool names or mount paths etc.) or to manually edit the Composer.yaml file (which then starts to need the user to have significant composer knowledge).
+ That said, I think you need to keep the UI functionality as generic and simple as you can so that it doesn’t take too much effort to code and if it satisfies the needs of 80%-90% of all docker application configuration needs (i.e. for 80%-90% of existing TrueNAS/TrueChart apps on the first iteration) that would be a great solution. Another area where you can economise for the first release is on field population (i.e. require people to type full paths rather than giving a path selection widget, don’t validate field contents, don’t validation fields, limit the number of field types (use “true” or “false” instead of a checkbox to start with etc.). Tweaking this to make the UI nicer can be done at a later date.
+ As someone has already suggested, sharing wireframes of the proposed UI to get feedback as to whether the initial functionality is likely to be useful or worthless would be likely to be a good idea.
+ But please, pretty please, don’t go for the rock-bottom simplest solution (e.g. hard coded YAML files) only to find when people try it that it doesn’t meet the needs of most users and you then need to play catch up - see Reporting reduction to 7 days retained data for an example of how this doesn’t end up well.
+ <forum-user-masked>
+ May 29, 2024, 5:22pm
+ 14 
+ kris:
+ Yea, they are pretty mutually exclusive (k3s & docker on same box). You could use a sandbox, or do the exact same setup with Docker Compose native, which I think you’d find there is a LOT more resource and information floating around on how to setup.
+ If they are mutually exclusive then that is a clear justification for what you are proposing. Yes, it would be great if you could simply migrate existing non-TrueNAS apps directly into a Sandboxed K3s environment that is supported by ixSystems (with the existing UI retained and a different UI for Docker Apps), but that feels like a LOT of work simply to provide some compatibility for perhaps one or two full releases.
+ However, let’s not kid ourselves - it is going to be VERY painful for people with lots of TrueCharts or custom K3s apps to switch from Dragonfin to ElectricEel - whether they switch to Docker or to Sandbox K3s especially when there is no UI support for either (cf. existing K3s UI support).
+ My proposed solution is for you to leverage the power of the community to cover all the mass of apps:
+ ixSystems provides some generic Docker Compose UI configuration capability as outlined above; and
+ ixSystems provides a Github repo to store community provided app definitions; and
+ The community then help each other to A) define the Docker equivalents for all the TrueCharts apps, and B) help each other with custom k3s apps.
+ Each user would still need manually to note the Dragonfin K3s configurations and then create the equivalent ElectricEel Docker/Composer configurations, but at least there would be some standardised apps and a UI to help with this.
+ <forum-user-masked>
+ May 29, 2024, 5:52pm
+ 15 
+ yottabit:
+ I really wish k3s could continue to be supported as-is, too. I have dozens of apps configured with dynamic certs, reverse-proxy, etc. It will take me a long time to learn how to set up this same environment again within a sandbox.
+ Dragonfish will be available, stable and mature for a long time. Our recommendation is that users do not update to Electric Eel until they are ready. We understand that some users will have a more complex transition.
+ <forum-user-masked>
+ May 29, 2024, 6:57pm
+ 16 
+ But they seem to be more interested in supporting Helm charts globally than supporting TrueNAS specifically
+ Our Ecosystem is 100% based on kubernets and Helm and is not exchangeable with anything else.
+ We will need to see what TrueCharts response will be to this
+ We will aim to offer a smooth migration path to a different Kubernetes backend, while keeping your data hosted on your trusted TrueNAS SCALE Machine.
+ We would want to highlight that this is not guaranteed to be the “sandbox” based k3s solution discussed here. There is a very significant chance even that it’s not going to use the sandbox system.
+ We would advice users against blindly going after “k3s in a sandbox” unless they have experience maintaining mutable kubernetes distro’s already.
+ Recommendations for new users on whether to use TrueCharts apps at all now that this has been announced
+ We would advice new users to not invest in an ecosystem (SCALE Apps) that is already deprecated. However, users already using said ecosystem will get a migrationpath offered on a later date.
+ A practical overview of how users should deal with their existing TrueCharts K3s applications
+ We advice users not to make rash decisions. We would also advice users not to take any advice on TrueCharts maters from any random forum post, as we cannot give any guarantees on third party information sources.
+ There will be a streamlined migration process this summer.
+ <forum-user-masked>
+ May 29, 2024, 7:01pm
+ 17 
+ kris:
+ Yes, so the plan is if you deploy a pre-defined App from the “Store” those will be static and not let you make direct YAML edits.
+ This makes sense for the sake of maintaining a catalogue of stable and safe apps.
+Incidentally, it probably makes the catalogue poorly attractive to most users, who want more flexibility than within the “walled gardens” of Synology or QNAP but may not be savvy enough to deploy their own jails/VMs. And this will nicely set up the stage for dropping the catalogue altogether in Flounder or Grouper (or whatever the next fishes will be).
+ Plain docker-compose support, and let users use linuxserver.io and the like as their “app catalogue”, is certainly a better solution.
+Electric Eel looks like a stunning release. 
+ <forum-user-masked>
+ May 29, 2024, 7:10pm
+ 18 
+ Protopia:
+ Recommendations for new users on whether to use TrueCharts apps at all now that this has been announced
+ I think this is already more a “religious” question than a technical one, and it isn’t going to become less so with this announcement.
+ My real question is, why, and why now? iX could have done this with Angelfish. But instead they created an ecosystem using k3s, that went through four major releases–and now they’re tossing it out in favor of something they could have done back then and saved a lot of people a lot of trouble. You must have believed that there was some significant benefit to the k3s environment–do those benefits just not matter any more? Or were they never realized?
+ I’ve said in the past, and still maintain, that I don’t really care about the underlying technology behind the apps; what I care about is that they work for me. Currently, in 23.10, the TrueCharts apps work well for me; the “official” apps don’t meet my needs. We’ll see what the future holds, but this announcement has me suspecting that most of my “apps” are going to end up moving off of my NAS.
+ My bigger concern, though, which I’ve had for several years, is that iX just doesn’t appear to have a long-term plan–from the outside, it looks like they’ve been making drastic changes of direction every couple of years, ever since The Release That Must Not Be Named. And this is just the latest example of that trend.
+ <forum-user-masked>
+ May 29, 2024, 7:10pm
+ 19 
+ it is going to be VERY painful for people with lots of TrueCharts or custom K3s apps to switch from Dragonfin to ElectricEel
+ Lets not run ahead of ourselves…
+The process can be very-hard or very-trivial depending on how our efforts on migrating users are going to work out.
+ <forum-user-masked>
+ May 29, 2024, 7:12pm
+ 20 
+ truecharts:
+ There will be a streamlined migration process this summer.
+ This is encouraging. It’s probably too early to answer this, but will that process depend on being on Dragonfish already? Because until the pool import bug is fixed, I can’t use it.
+ next page → 
+ Related topics
+ Topic
+ Replies
+ Views
+ Activity
+ Migrating from TrueCharts 
+ TrueNAS General 
+ Apps 
+ , 
+ TrueCharts 
+ 156 
+ <forum-user-masked>
+ November 2, 2024
+ Does anyone else have a love/hate relationship with TrueNAS? 
+ TrueNAS General 
+ 60 
+ <forum-user-masked>
+ September 5, 2024
+ TrueNAS Charts vs TrueCharts - which to use and why 
+ Apps and Virtualization 
+ 55 
+ <forum-user-masked>
+ August 16, 2024
+ Removal of K3s based apps from TrueNAS 
+ TrueNAS General 
+ 154 
+ <forum-user-masked>
+ June 17, 2024
+ No good reverse proxy support for Electric eel transition 
+ TrueNAS General 
+ SCALE 
+ 25 
+ <forum-user-masked>
+ June 11, 2024
+ Home 
+ Categories 
+ Guidelines 
+ Terms of Service 
+ Privacy Policy 
+ Powered by Discourse , best viewed with JavaScript enabled

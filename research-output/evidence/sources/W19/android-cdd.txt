@@ -1,0 +1,792 @@
+
+
+      Android Compatibility Definition Document  |  Android Open Source Project
+
+      Skip to main content
+
+    Docs
+
+What's new?
+
+                      Release notes
+
+                      Latest security bulletins
+
+                      Latest Compatibility Definition Document (CDD)
+
+                      Site updates
+
+Getting Started
+
+                      About
+
+                      Start
+
+                      Download
+
+                      Builds
+
+                      Test
+
+                      Create
+
+                      Contribute
+
+                      Community
+
+                      Tools, build, and related reference
+
+Security
+
+                      Overview
+
+                      Bulletins
+
+                      Features
+
+                      Testing
+
+                      Best Practices
+
+Core Topics
+
+                      Architecture
+
+                      Audio
+
+                      Camera
+
+                      Connectivity
+
+                      Data
+
+                      Display
+
+                      Fonts
+
+                      Graphics
+
+                      Interaction
+
+                      Media
+
+                      Performance
+
+                      Permissions
+
+                      Power
+
+                      Runtime
+
+                      Settings
+
+                      Storage
+
+                      Tests
+
+                      Updates
+
+                      Virtualization
+
+Compatibility
+
+                      Compatibility Definition Document (CDD)
+
+                      Compatibility Test Suite (CTS)
+
+Android Devices
+
+                      Overview
+
+                      Cuttlefish
+
+                      Enterprise
+
+                      TV
+
+Automotive
+
+                      Overview
+
+                      Software Defined Vehicle
+
+                      In-vehicle Infotainment
+
+                      Release Details
+
+Reference
+
+                      HIDL
+
+                      HAL
+
+                      Trade Federation
+
+                      Security Test Suite
+
+    Android Code Search
+
+            /
+
+      English
+
+      Deutsch
+
+      Español – América Latina
+
+      Français
+
+      Indonesia
+
+      Italiano
+
+      Polski
+
+      Português – Brasil
+
+      Tiếng Việt
+
+      Türkçe
+
+      Русский
+
+      עברית
+
+      العربيّة
+
+      فارسی
+
+      हिंदी
+
+      বাংলা
+
+      ภาษาไทย
+
+      中文 – 简体
+
+      中文 – 繁體
+
+      日本語
+
+      한국어
+
+              Sign in
+
+          Documentation
+
+    What's New?
+
+    Getting Started
+
+    Security
+
+    Core Topics
+
+    Compatibility
+
+    Android Devices
+
+    Automotive
+
+    Reference
+
+      Docs
+
+      More
+
+      What's New?
+
+      Getting Started
+
+      Security
+
+      Core Topics
+
+      Compatibility
+
+      Android Devices
+
+      Automotive
+
+      Reference
+
+      Android Code Search
+
+Overview
+
+        Compatibility
+
+Android Compatibility program overview
+Compatibility Definition Document
+Compatibility Definition Document preview
+Changelog (Android 14 and 15)
+
+        CDDs in HTML
+
+Android 17 (current)
+Android 16
+Android 15
+Android 14
+Android 13
+Android 12
+Android 11
+Android 10
+Android 9
+Android 8.1
+Android 8.0
+Android 7.1
+Android 7.0
+Android 6.0
+Android 5.1
+Android 5.0
+Android 4.4
+Android 4.3
+Android 4.2
+Android 4.1
+Android 4.0
+Android 2.3
+Android 2.2
+Android 2.1
+Android 1.6
+
+        CDDs as PDF
+
+Android 12
+Android 11
+Android 10
+Android 9
+Android 8.1
+Android 8.0
+Android 7.1
+Android 7.0
+Android 6.0
+Android 5.1
+Android 5.0
+Android 4.4
+Android 4.3
+Android 4.2
+Android 4.1
+Android 4.0
+Android 2.3
+Android 2.3.3
+Android 2.2
+Android 2.1
+Android 1.6
+Compatibility FAQs
+
+        Compatibility Test Suite (CTS)
+
+Overview
+Set up CTS automated testing
+Set up CTS (AOSP 10 or lower)
+
+        Run automated tests
+
+Run automated tests
+Run CTS automated tests (AOSP 10 or lower)
+Run media tests locally
+CTS device interaction helper module
+Troubleshoot CTS
+CTS v2 command console
+CTS v1 command console
+Instant apps
+CTS test for Secure Element
+Run media performance class tests
+Run NPU Manager Mobly tests
+
+        Run CTS-V tests
+
+Run CTS-V tests
+CTS Verifier test guidance
+
+        Test multidevice
+
+Run CTS Verifier multidevice tests
+Set up the BananaPi-R3 access point
+Run multidevice NFC tests (Android 15)
+
+        Test audio
+
+Overview
+
+        Test equipment and panels
+
+Audio peripherals
+Audio loopback calibration panel
+Audio devices panel
+
+        Audio test guides
+
+Audio data paths tests
+Audio frequency tests
+Audio workload test
+Basic audio system functionality tests
+Head tracking latency test
+Latency compliance tests
+MIDI tests
+Multichannel input and multichannel output tests
+Multichannel mixdown test
+Near ultrasound tests
+Pro audio test
+USB audio tests
+
+        Test camera
+
+        Test camera images
+
+Overview
+Test camera images on foldables
+Test camera images using automation
+Obtain a modular rig system
+Obtain a Gen2 rig
+Obtain a regular FOV rig
+Obtain a wide FOV rig
+Purchase a foldable kit
+
+        Test camera sensors
+
+Test sensor fusion
+Obtain a sensor fusion box
+Android 13 controller
+Obtain sensor fusion box for tablets
+
+        Test camera HAL
+
+Test camera HAL
+
+        Reference
+
+Camera ITS tests
+Android 17 Camera ITS release notes
+Android 16 Camera ITS release notes
+Android 15 Camera ITS release notes
+Android 14 Camera ITS release notes
+Android 13 Camera ITS release notes
+Android 12 Camera ITS release notes
+Android 11 Camera ITS release notes
+Run CTS Verifier media playback tests
+Rotation vector CV crosscheck
+CTS Verifier for instant apps
+Barometer measurement tests
+Interpret results
+CTS development
+Developer-Powered CTS
+Downloads
+
+        CTS release notes
+
+CTS 17 release notes
+CTS 16.1 release notes
+CTS 16 release notes
+CTS 15 release notes
+CTS 14 release notes
+CTS 13 release notes
+CTS 12L release notes
+CTS 12 release notes
+CTS FAQs
+
+      What's new?
+
+      Release notes
+
+      Latest security bulletins
+
+      Latest Compatibility Definition Document (CDD)
+
+      Site updates
+
+      Getting Started
+
+      About
+
+      Start
+
+      Download
+
+      Builds
+
+      Test
+
+      Create
+
+      Contribute
+
+      Community
+
+      Tools, build, and related reference
+
+      Security
+
+      Overview
+
+      Bulletins
+
+      Features
+
+      Testing
+
+      Best Practices
+
+      Core Topics
+
+      Architecture
+
+      Audio
+
+      Camera
+
+      Connectivity
+
+      Data
+
+      Display
+
+      Fonts
+
+      Graphics
+
+      Interaction
+
+      Media
+
+      Performance
+
+      Permissions
+
+      Power
+
+      Runtime
+
+      Settings
+
+      Storage
+
+      Tests
+
+      Updates
+
+      Virtualization
+
+      Compatibility
+
+      Compatibility Definition Document (CDD)
+
+      Compatibility Test Suite (CTS)
+
+      Android Devices
+
+      Overview
+
+      Cuttlefish
+
+      Enterprise
+
+      TV
+
+      Automotive
+
+      Overview
+
+      Software Defined Vehicle
+
+      In-vehicle Infotainment
+
+      Release Details
+
+      Reference
+
+      HIDL
+
+      HAL
+
+      Trade Federation
+
+      Security Test Suite
+
+Effective in 2026, to align with our trunk stable development model and ensure platform stability for the ecosystem, we will publish source code to AOSP in Q2 and Q4. For building and contributing to AOSP, use android-latest-release. The android-latest-release manifest branch will always reference the most recent release pushed to AOSP. For more information, see Changes to AOSP.
+
+          AOSP
+
+          Docs
+
+          Compatibility
+
+      Android Compatibility Definition Document
+
+      Stay organized with collections
+
+      Save and categorize content based on your preferences.
+
+Welcome to the Android Compatibility Definition Document (CDD). This document
+enumerates the requirements that must be met in order for devices to be
+compatible with the latest version of Android. To be considered compatible with
+Android, device implementations MUST meet the requirements
+presented in this Compatibility Definition, including any documents
+incorporated via reference. For each release of the Android platform, a
+detailed CDD will be provided. The CDD represents the "policy" aspect of
+Android compatibility.
+
+It is important the policy of the Android compatibility program is codified
+explicitly as no test suite, including the
+Android Compatibility Test Suite (CTS),
+can truly be comprehensive. For instance, the CTS includes a test that checks for the presence and
+correct behavior of OpenGL graphics APIs, but no software test can verify that the
+graphics actually appear correctly on the screen. More generally, it's
+impossible to test the presence of hardware features such as keyboards, display
+density, Wi-Fi, and Bluetooth.
+
+The CDD's role is to codify and clarify specific requirements, and
+eliminate ambiguity.  The CDD does not attempt to be comprehensive. Since
+Android is a single corpus of open-source code, the code itself is the
+comprehensive "specification" of the platform and its APIs. The CDD acts as a
+"hub" referencing other content (such as SDK API documentation) that provides
+a framework in which the Android source code may be used so that the end
+result is a compatible system.
+
+If you want to build a device compatible with a given Android version,
+start by checking out the source code for that version, and then read the
+corresponding CDD and stay within its guidelines.
+
+  You may view the latest CDD as an HTML web page.
+
+Find released versions of the CDD and approved release version strings here:
+
+    Version
+    PDF
+    HTML/XHTML
+    Strings
+
+    17
+    —
+    android-17-cdd.html
+    Version 17
+
+    MPC supplemental
+
+    16
+    —
+    android-16-cdd.html
+    Version 16
+
+    15
+    —
+    android-15-cdd.html
+    Version 15
+
+    14
+    —
+    android-14-cdd.html
+    Version 14
+
+    13
+    —
+    android-13-cdd.html
+    Version 13
+
+    12
+    android-12-cdd.pdf
+    android-12-cdd.html
+    Version 12
+
+    11
+    android-11-cdd.pdf
+    android-11-cdd.html
+    Version 11
+
+    10
+    android-10-cdd.pdf
+    android-10-cdd.html
+    Version 10
+
+    9
+    android-9-cdd.pdf
+    android-9-cdd.html
+    Version 9
+
+    8.1
+    android-8.1-cdd.pdf
+    android-8.1-cdd.html
+    Version 8.1
+
+    8.0
+    android-8.0-cdd.pdf
+    android-8.0-cdd.html
+    Version 8.0
+
+    7.1
+    android-7.1-cdd.pdf
+    android-7.1-cdd.html
+    Version 7.1
+
+    7.0
+    android-7.0-cdd.pdf
+    android-7.0-cdd.html
+    Version 7.0
+
+    6.0
+    android-6.0-cdd.pdf
+    android-6.0-cdd.html
+    Version 6.0
+
+    5.1
+    android-5.1.cdd.pdf
+    android-5.1-cdd.html
+    Version 5.1
+
+    5.0
+    android-5.0.cdd.pdf
+    android-5.0-cdd.html
+    Version 5.0
+
+    4.4
+    android-4.4.cdd.pdf
+    android-4.4-cdd.html
+    Version 4.4
+
+    4.3
+    android-4.3.cdd.pdf
+    android-4.3-cdd.html
+    Version 4.3
+
+    4.2
+    android-4.2.cdd.pdf
+    android-4.2-cdd.html
+    Version 4.2
+
+    4.1
+    android-4.1.cdd.pdf
+    android-4.1-cdd.html
+    Version 4.1
+
+    4.0
+    android-4.0.cdd.pdf
+    android-4.0-cdd.html
+    Version 4.0
+
+    2.3
+    android-2.3.cdd.pdf
+
+    android-2.3.3-cdd.pdf
+    android-2.3-cdd.html
+    Version 2.3
+
+    2.2
+    android-2.2.cdd.pdf
+    android-2.2-cdd.html
+    Version 2.2
+
+    2.1
+    android-2.1.cdd.pdf
+    android-2.1-cdd.html
+    Version 2.1
+
+    1.6
+    android-1.6.cdd.pdf
+    android-1.6-cdd.html
+
+Content and code samples on this page are subject to the licenses described in the Content License. Java and OpenJDK are trademarks or registered trademarks of Oracle and/or its affiliates.
+
+Last updated 2026-06-17 UTC.
+
+      [[["Easy to understand","easyToUnderstand","thumb-up"],["Solved my problem","solvedMyProblem","thumb-up"],["Other","otherUp","thumb-up"]],[["Missing the information I need","missingTheInformationINeed","thumb-down"],["Too complicated / too many steps","tooComplicatedTooManySteps","thumb-down"],["Out of date","outOfDate","thumb-down"],["Samples / code issue","samplesCodeIssue","thumb-down"],["Other","otherDown","thumb-down"]],["Last updated 2026-06-17 UTC."],[],[]]
+
+Build
+
+            Android repository
+
+            Requirements
+
+            Downloading
+
+            Preview binaries
+
+            Factory images
+
+            Driver binaries
+
+Connect
+
+            @Android on X
+
+            @AndroidDev on X
+
+            Android Blog
+
+            Google Security Blog
+
+            Platform on Google Groups
+
+            Building on Google Groups
+
+            Porting on Google Groups
+
+Get help
+
+            Android Help Center
+
+            Pixel Help Center
+
+            www.android.com
+
+            Google Mobile Services
+
+            Stack Overflow
+
+            Issue Tracker
+
+          About Android
+
+          Community
+
+          Legal
+
+          License
+
+          Privacy
+
+          Site feedback
+
+          Manage cookies
+
+      English
+
+      Deutsch
+
+      Español – América Latina
+
+      Français
+
+      Indonesia
+
+      Italiano
+
+      Polski
+
+      Português – Brasil
+
+      Tiếng Việt
+
+      Türkçe
+
+      Русский
+
+      עברית
+
+      العربيّة
+
+      فارسی
+
+      हिंदी
+
+      বাংলা
+
+      ภาษาไทย
+
+      中文 – 简体
+
+      中文 – 繁體
+
+      日本語
+
+      한국어
+

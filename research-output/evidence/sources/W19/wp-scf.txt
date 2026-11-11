@@ -1,0 +1,209 @@
+
+
+Secure Custom Fields | WordPress News
+
+Skip to content
+
+Showcase
+Plugins
+Themes
+Hosting
+News
+Resources
+Learn WordPress
+Documentation
+Education
+Forums
+Developers
+Blocks
+Patterns
+Photos
+Openverse ↗︎
+WordPress.tv ↗︎
+About
+About WordPress
+Make WordPress
+Events
+Five for the Future
+Enterprise
+Gutenberg ↗︎
+Job Board ↗︎
+Swag ↗︎
+Get WordPress
+
+								Search in WordPress.org
+
+		Get WordPress	
+
+News
+
+Secure Custom Fields
+
+All posts
+
+Search results
+
+Categories
+All posts
+Awards
+Community
+Design
+Development
+Documentation
+Education
+Events
+Features
+General
+Interviews
+Meta
+Month in WordPress
+Performance
+Podcast
+Releases
+Security
+Store
+Testing
+Updates
+WordCamp
+
+Categories
+All posts
+Awards
+Community
+Design
+Development
+Documentation
+Education
+Events
+Features
+General
+Interviews
+Meta
+Month in WordPress
+Performance
+Podcast
+Releases
+Security
+Store
+Testing
+Updates
+WordCamp
+
+October 12, 2024
+			By 
+Matt Mullenweg
+			in 
+Security
+
+Secure Custom Fields
+
+On behalf of the WordPress security team,  I am announcing that we are invoking point 18 of the plugin directory guidelines and are forking Advanced Custom Fields (ACF) into a new plugin, Secure Custom Fields. SCF has been updated to remove commercial upsells and fix a security problem.
+
+On October 3rd, the ACF team announced ACF plugin updates will come directly from their website. Sites that followed the ACF team’s instructions on “How to update ACF” will continue to get updates directly from WP Engine. On October 1st, 2024, WP Engine also deployed its own solution for updates and installations for plugins and themes across their customers’ sites in place of WordPress.org’s update service.
+
+Sites that continue to use WordPress.org’s update service and have not chosen to switch to ACF updates from WP Engine can click to update to switch to Secure Custom Fields. Where sites have chosen to have plugin auto-updates from WordPress.org enabled, this update process will auto-switch them from Advanced Custom Fields to Secure Custom Fields.
+
+This update is as minimal as possible to fix the security issue. Going forward, Secure Custom Fields is now a non-commercial plugin, and if any developers want to get involved in maintaining and improving it, please get in touch.
+
+Similar situations have happened before, but not at this scale. This is a rare and unusual situation brought on by WP Engine’s legal attacks, we do not anticipate this happening for other plugins.
+
+WP Engine has posted instructions for how to use their version of Advanced Custom Fields that uses their own update server, so you have that option, though the WordPress Security Team does not recommend it until they fix the security issues. You can uninstall Advanced Custom Fields and activate Secure Custom Fields from the plugin directory and be just fine.
+
+There is separate, but not directly related news that Jason Bahl has left WP Engine to work for Automattic and will be making WPGraphQL a canonical community plugin. We expect others will follow as well.
+
+Share this:
+
+Share on Threads (Opens in new window)Threads
+
+Share on Mastodon (Opens in new window)Mastodon
+
+Share on Bluesky (Opens in new window)Bluesky
+
+Share on X (Opens in new window)X
+
+Share on Facebook (Opens in new window)Facebook
+
+Share on LinkedIn (Opens in new window)LinkedIn
+
+Share using Native toolsShareCopied to clipboard
+
+Previous Forking is Beautiful
+
+Next WordPress 6.7 Beta 3
+
+Get the latest updates
+
+Subscribe to WordPress News
+
+								Email Address							
+
+								Subscribe							
+
+					Join 21.5K other subscribers				
+
+Contribute to WordPress
+
+WordPress is open-source software created by a global community. There are many ways to get involved, whether through code, design, documentation, and more.
+
+About
+
+News
+
+Hosting
+
+Privacy
+
+Showcase
+
+Themes
+
+Plugins
+
+Patterns
+
+Learn
+
+Documentation
+
+Developers
+
+WordPress.tv ↗
+
+Get Involved
+
+Events
+
+Donate ↗
+
+Swag ↗
+
+WordPress.com ↗
+
+Matt ↗
+
+bbPress ↗
+
+BuddyPress ↗
+
+			The WordPress® trademark is the intellectual property of the WordPress Foundation.		
+
+Visit our X (formerly Twitter) account
+
+Visit our Bluesky account
+
+Visit our Mastodon account
+
+Visit our Threads account
+
+Visit our Facebook page
+
+Visit our Instagram account
+
+Visit our LinkedIn account
+
+Visit our TikTok account
+
+Visit our YouTube channel
+
+Visit our Tumblr account
+

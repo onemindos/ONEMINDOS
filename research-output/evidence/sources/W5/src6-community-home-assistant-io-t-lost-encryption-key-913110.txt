@@ -1,0 +1,88 @@
+Topic: Lost encryption key
+--- post 1 · 2025-07-21T17:05:40.093Z · author masked
+Hello all
+I am running HAOS as a vm on proxmox and all my backups are located on mon my nas
+following a massive thunderstorm, when i restarted HA i received an error ha is in recovery mode.
+I spent all afternoon to try to resolve this to no avail.
+I decided to delete the current HA VM and rebuild a new one.
+all went well with the reinstallation
+I go to restore one of the backups (tar file) and i try to restore from that file.
+I is asking me for an encryption key i look at my settings in my new hA install and copy the encryption key from there an past it in the restore procedure. It failed.
+I truly hope that someone will have a way to view the old encryption key for the previous build or if there is a way to import the TAR file in the new install
+thank you for your help and patience
+--- post 2 · 2025-07-21T17:37:57.743Z · author masked
+Did you setup backups in proxmox? If you did it will take a few minutes to restore. If you didn’t set up backups in promo do it now so you don’t have this issue again. I don’t think there is a way to bypass the encryption.
+--- post 3 · 2025-07-21T17:43:08.274Z · author masked
+Too late, but for backups inside your own network it is best to turn of encryption.
+And you have no backup unless you tested a restore. I test a restore every month on a separate VM that I start just for testing.
+--- post 4 · 2025-07-21T17:55:13.894Z · author masked
+wbravin:
+I is asking me for an encryption key i look at my settings in my new hA install and copy the encryption key from there an past it in the restore procedure.
+Because your new HA install has no idea what the encryption key for your old HA install is. If you didn’t download and save the encryption key from your old install, then you’re in trouble.
+--- post 5 · 2025-07-21T18:52:24.453Z · author masked
+Hello all
+Thank you for your prompt reply and assistance.
+I see that i will need to reinstall EVERYTHING s*******t
+My bad i did not want encryptions on my systems. Looks like I selected it by mistake
+Once again Thank you
+--- post 6 · 2025-07-21T20:01:40.861Z · author masked
+wbravin:
+hope that someone will have a way to view the old encryption key for the previous build
+You haven’t got a snapshot of the VM you can restore? That one should have the original encryption key.
+image1170×1091 70.6 KB
+Once you have the encryption key you can reload any backup. 
+If you do need to start over, make sure you either save the encryption key or just disable encryption:
+image1170×929 51.8 KB
+(this needs to be set for every backup location separately)
+--- post 7 · 2025-07-22T07:37:31.672Z · author masked
+Thank you for your time and assistance.
+I do not have proxmox backups. Therefore I 'm very upset with myself for this stupidity.
+I’m in the unfortunate process to rebuild my whole automation environment.
+The silverning is that i get to streamline and improve my environment
+i expect 3 days of work
+Once again thank you all for your promptness and help
+--- post 8 · 2025-07-22T08:19:49.688Z · author masked
+Just a thought what is the oldest backup you have as encryption was only introduced a few months ago. Well January apparently, Its a long shot but you never know
+--- post 9 · 2025-07-22T10:17:53.957Z · author masked
+Thank you for your suggestion
+My oldest is from Jan 25 which is the first backup i made with the new rebuild. I used the previous backup to this one to rebuild HA then. Alas i did not turn off the encryption then.
+FYI after 20 hours i just finished to install an integrate the basic addons.
+Now i need to rebuild all my automations 
+However thank you for your help and patience. The folks on this thread are one of the main reasons that HA is so successful
+--- post 10 · 2025-07-23T05:21:54.211Z · author masked
+@aceindy Hello all
+I finally loaded all my integrations and devices in my new install of HAOS.
+I was prepared to create a backup of the new solution and when i went to configure it i did not see the option to turn the encryption off. as per your screen.
+I did download the emergency kit and saved it on my nas (that gets backed up to a secondary server on a weekly based and on a 3rd server on a monthly bases.
+However i still fell that in my opinion and for my requirements encryption is of no interest.
+Therefore I would recommend that the option (forced) to turn on or off the encrryption should be always present.
+Once again thank you for all your help
+--- post 11 · 2025-07-23T05:56:50.099Z · author masked
+You need the press the cog wheel next to your backup location to disable encryption
+--- post 12 · 2025-07-23T06:29:32.515Z · author masked
+Setup daily backups in proxmox as well, you won’t need a key then
+--- post 13 · 2025-07-23T07:20:53.320Z · author masked
+Thanks Folks
+I finally found the cog DUH.
+FYI i increased the backups retention to 10. Once all is running well i do not do much with my system except for letting it run. IMHO weekly backups are more than enough for me. however i’m happy to refer to your comments and learn from them
+Once again thank you all for your time, patience and help
+--- post 14 · 2025-07-23T08:44:45.855Z · author masked
+Remember to make a copy of you backup outside of your server, at least once a month.
+--- post 15 · 2025-07-23T09:42:06.886Z · author masked
+@mcarty thank you for your reply
+I do backup to a secondary server every week and to a 3rd server once a month.
+Do you this is sufficient?
+Thank you for your advice
+--- post 16 · 2025-07-23T09:47:33.143Z · author masked
+I am saying backup your proxmox VM’s as well as HA. VM’s are dead easy to restore if you use the snapshot method. You should be able to back these up to your nas easily.
+https://pve.proxmox.com/wiki/Backup_and_Restore
+--- post 17 · 2025-07-23T10:15:15.918Z · author masked
+@Arh thanks your ears must have been buzzing. I am in the process to learn how to create backups
+thank you
+--- post 18 · 2025-07-23T14:48:45.663Z · author masked
+And…don’t forget to dry-run your backup process every now and then (just to see if it works) 
+You can use any (stand-alone) system for that; it doesn’t have to be your running system (it doesn’t even has to be the same hardware)
+--- post 19 · 2025-07-23T14:54:15.870Z · author masked
+Good point to check my backups every once in a while. I shutdown the VM running HA in proxmox, restore the VM from a snapshot, and the restore the HA backup. If all is well I then delete that new VM and restart the original one.
+--- post 20 · 2025-07-23T15:34:49.253Z · author masked
+Brilliant Suggestions Thanks

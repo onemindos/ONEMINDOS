@@ -1,0 +1,1310 @@
+
+ Software Packages and the Update Mechanism — NVIDIA Jetson Linux Developer Guide
+ Skip to main content
+ Back to top
+ Ctrl+K
+ NVIDIA Jetson Linux Developer Guide
+ Search
+ Ctrl+K
+ Search
+ Ctrl+K
+ NVIDIA Jetson Linux Developer Guide
+ Table of Contents
+ Introduction
+Welcome
+Quick Start
+Architecture
+Jetson Software Architecture
+Yocto on Jetson Platforms
+Boot Architecture
+Jetson AGX Orin, Orin NX, and Orin Nano Boot Flow
+Jetson Thor Boot Flow
+Partition Configuration
+Software Feature Overview
+Jetson Orin Series
+Jetson Thor Series
+Software Features in Depth
+Flashing Support
+Flashing Support for Jetson Thor
+Emulation Flash Configurations
+Root File System
+Bootloader
+T23x/T26x Boot Configuration Table
+Pinmux and GPIO Configuration
+Common Prod Configuration
+Controller Product Configuration
+Pad Voltage DT Binding
+PMIC Configuration
+Storage Device Configuration
+UPHY Lane Configuration
+OEM-FW Ratchet Configuration
+BootROM Reset PMIC Configuration
+Miscellaneous Configuration
+SDRAM Configuration
+DRAM-ECC
+GPIO Interrupt Mapping Configuration
+MB2 BCT Misc Configuration
+Security Configuration
+Platform Configuration Profile
+UEFI Adaptation
+Update and Redundancy
+Kernel
+Kernel Customization
+Installing Real-Time Kernel
+Bring Your Own Kernel
+Generic Timestamp Engine
+BMI088 IMU Driver
+Enable 25 Gigabit Ethernet on QSFP Port
+Kernel Boot Time Optimization
+Display Configuration and Bring-Up
+Common Display Configurations for All Platforms
+nv-load-display-modules Service
+Display Configuration for Jetson Orin
+Display Configuration for Jetson Thor
+I/O Customization
+PWM Frequency Configuration
+Kernel Debugging Tools
+Multimedia
+Multimedia APIs
+Accelerated Decode with FFmpeg
+Accelerated GStreamer
+Software Encode in Orin Nano
+Hardware Acceleration in the WebRTC Framework
+Graphics
+Graphics APIs
+Graphics Programming
+Binary Shader Program Management
+GLSLC Shader Program Compiler
+OpenGL ES Programming Tips
+EGLStream
+EGLDevice
+Sample Applications
+OpenWFD
+Vulkan SC
+Vulkan SC Samples
+Windowing Systems
+Weston (Wayland)
+X Window System
+Camera Development
+Camera Support Matrix
+Argus Framework
+Camera Software Development Solution
+Sensor Software Driver Programming
+Jetson Virtual Channel with GMSL Camera Framework
+Argus NvRaw Tool
+Camera Driver Porting
+Sensor Software Troubleshooting
+SIPL Framework
+Introduction to SIPL
+Camera Hardware Abstraction Layer (HAL)
+Camera HAL Driver Discovery
+UDDF
+HSL and UDDF Overview
+Guide to Writing UDDF Drivers
+PyHSL
+Integrating UDDF Drivers with SIPL
+Release Notes
+FAQ
+GMSL Camera Development Guide
+GMSL Architecture Overview
+Directory Layout and Build
+Guide to Writing GMSL UDDF Drivers
+Integrating GMSL UDDF Drivers with SIPL
+CoE Camera Development Guide
+Camera Software Development Solution for Jetson Thor
+Camera-over-Ethernet Overview
+Holoscan Sensor Bridge (HSB)
+JetPack 7.2 SIPL Migration Guide
+SIPL Query JSON Guide
+SIPL Camera Application Developer Guide
+SIPL Query Sample
+SIPL Image Formats
+Camera SIPL Notifications
+Runtime Interfaces and Sensor Characterization
+SIPL Stereo Pipeline
+Security
+Secure Boot
+Quick Start Guide to Enable Secure Boot for Jetson Thor
+Quick Start Guide to Enable Secure Boot for Jetson Orin
+Fuse Configuration File
+Key Preparation
+Fuse Operations
+Sign and Flash Secured Images
+PKC Key Revocation
+UEFI Secure Boot
+UEFI Payload Encryption
+UEFI Variable Protection
+UEFI Platform Vendor Key Feature
+Kernel Module Signing
+Factory Secure Key and Expansion Key Provisioning
+Hafnium Secure Partition Manager
+OP-TEE: Open Portable Trusted Execution Environment
+Architecture
+Trusted Application and Client Application Development
+EKB: Encrypted Key Blob
+Sample Applications
+PKCS #11 Support in OP-TEE
+Disk Encryption
+Disk Encryption Concepts
+Partition Layout
+Encrypting the Rootfs
+Dynamic Partition Encryption
+Manufacturing
+Secure Storage
+Firmware TPM
+Software Architecture
+fTPM Boot Flow
+fTPM Provisioning
+Production Workflow
+Device-Side Operations
+fTPM Turnkey Solution for Ecosystem Partners
+Rollback Protection
+Memory Encryption
+PVA Authentication
+Security Keys List
+Communications
+PCIe Endpoint Mode
+Enabling Bluetooth Audio
+Audio Setup and Development
+CUDA Instrumentation Methods
+Multi-Instance GPU (MIG)
+Platform Power and Performance
+Jetson Orin Nano Series, Jetson Orin NX Series, and Jetson AGX Orin Series
+Jetson Thor Product Family
+Software Packages and the Update Mechanism
+Boot Time Optimization
+Working With Sources
+Test Plan and Validation
+Hardware References
+Jetson Developer Kit Setup
+Jetson EEPROM Layout
+Jetson Module Adaptation and Bring-Up
+Jetson Thor Adaptation and Bring-Up
+Jetson AGX Orin Series
+Jetson Orin NX and Nano Series
+Checklists
+Configuring the Jetson Expansion Headers
+Controller Area Network (CAN)
+Applications and Tools
+Board Automation
+Jetson Linux Toolchain
+Jetson Linux Development Tools
+Debugging on Jetson Platforms
+Performance Monitoring
+Tegrastats Utility
+Tegra Combined UART
+How to Submit a Bug Report
+Reference Material
+Package Manifest
+Related Documentation
+Legal Information
+ Software Packages and the Update Mechanism
+ Is this page helpful?
+Software Packages and the Update Mechanism#
+NVIDIA provides additional NVIDIA® Jetson™ Linux software components and updates in APT
+(Debian) repositories, accessible through the apt utility.
+Note
+These packages are only verified with the root filesystem shipped in this L4T BSP release.
+Installing Additional Packages#
+NVIDIA maintains the following APT repositories:
+For NVIDIA® Jetson AGX Orin™
+For NVIDIA® Jetson Orin™ NX and NVIDIA® Jetson Orin™ Nano
+The package nvidia-l4t-apt-source is preinstalled in the Jetson Linux root
+file system. It identifies the platform it is running on and adds the
+appropriate repositories to the software source list.
+The packages in the APT repositories are signed with GPG keys. The
+corresponding public key is preinstalled in the Jetson Linux root file system.
+Once the repositories are added to the source list, apt can download and
+install packages.
+Note
+The APT repositories described here are also used to upgrade existing packages and install packages that NVIDIA adds to the set initially installed with Jetson Linux. For more information, see Updating a Jetson Device.
+Repackaging Debian Packages#
+You can use the script nvdebrepack.sh to repackage the existing Jetson Linux
+Debian packages. The script can be found in the directory Linux_for_Tegra/tools/Debian/. Refer to the
+Linux_for_Tegra/tools/Debian/nvdebrepack.txt file for more information.
+Building Kernel Debian Packages Yourself#
+You can customize the Jetson Linux kernel by getting the kernel source packages,
+making your changes, and building the Debian packages.
+This section describes the package dependencies and scripts that NVIDIA
+uses to build the kernel packages. You can use the package as a reference to
+create your own Debian packages.
+Using the Repackager Tool#
+The repackager is a tool that allows users to extract a subset of the necessary files from the Debian package archives in the Jetson Linux BSP for their own distributions. Users who do not need the complete set of libraries, scripts, and packages, but still want to get Jetson support, can use the repackager tool to customize their environment.
+The repackager tool also comes with a dependency checker script that validates whether the subset of files the users packaged includes the necessary dependencies.
+Note
+To see the latest input parameters run the -h option in the repackager.
+In the following examples, the version information in the Debian file names are substituted with the $VERSION symbol for clarity. Here is an example of an actual file name:
+nvidia-l4t-core_36.3.0-20240506102626_arm64.deb
+Converting a Debian File#
+To convert a Debian file, run the following command:
+./nv_repackager.sh -c nvidia-l4t-core_$VERSION.deb
+The files in the Debian file will be repackaged into a tar file.
+Converting Multiple Debian Files#
+To convert multiple Debian files, run the following command:
+./nv_repackager.sh -c nvidia-l4t-core_$VERSION.deb,nvidia-l4t-cuda_$VERSION.deb
+The files these Debian files will be packaged into two separate tar files.
+Note
+The Debian files should be separated by commas.
+Converting all Debian Files Under BSP#
+To convert the Debian files under BSP, run the following command:
+./nv_repackager.sh --convert-all
+The Debian files in BSP will be packaged into their own tar files.
+Converting a Subset of Files and Placing the Output in the Designated Directory#
+To convert a subset of files and place them in the appropriate directory, run the following command:
+./nv_repackager.sh -c nvidia-l4t-core_$VERSION.deb -p sample_pullfile.txt -o $HOME/output/
+The sample pull file keeps a list of files users want to package from a Debian file. The resulting tar file will only contain the files that are being pulled and will be placed in the designated directory.
+Note
+You can use the Pull option only when you convert one Debian file.
+The format of the pull files should be in a relative path in a Debian, and here is an example of the format:
+path/to/first_file/file_1.so
+path/to/second_file/file_2.h
+path/to/third_file/file_3.txt
+Converting Files to Different Paths#
+To convert files to different paths, run the following commands:
+./nv_repackager.sh -c nvidia-l4t-core_$VERSION.deb -t
+usr/lib/tegra/:usr/lib/nvidia/,usr/bin/:usr/sbin/
+The transform option works sequentially as sed, and it moves files on the original path to the new path. Therefore, the files in Debian that are in the usr/lib/tegra/ directory will be placed in the usr/lib/nvidia directory, and the usr/bin directory will be placed in the usr/sbin directory.
+Note
+Here is some additional information:
+To avoid an unintended transform result, use the fully qualified path.
+The old and new path should be separated by a comma, and each transform relation should be separated by a comma.
+Printing Out the Dependencies of a Converted Debian File#
+To print out the dependencies of a converted Debian file, run the following command:
+./nv_repackager.sh -c nvidia-l4t-core_$VERSION.deb -d
+With the -d option, the file dependencies in the Debian file will be printed on screen.
+Note
+If there is a filename that is specified using the -d option, the dependency list will be saved to the file.
+Ignoring the Dependency Check Failure#
+To ignore the dependency check failure, run the following command:
+./nv_repackager.sh -c nvidia-l4t-core_$VERSION.deb -p sample_pullfile.txt -i
+When there is a pull option, the repackager will check whether the dependency has been met. For users who do not care whether the dependency has been met, the ignore option will print only warnings when the dependency check does not pass. For example, this option can be useful when you repack a Debian into multiple tar files and split dependencies across the tar files.
+Working with the Packages#
+The kernel packages are all open source, and three of the four kernel
+packages are in public_sources.tbz2. You can download the archive from
+the NVIDIA Developer Center.
+This archive contains another archive named kernel_src.tbz2, which in
+turn contains three directories of header files:
+nvidia-l4t-kernel/
+nvidia-l4t-kernel-dtbs/
+nvidia-l4t-kernel-headers/
+The debian.org
+Guide for Debian Maintainers
+provides guidelines to modify the open source files and create new Debian packages from these files.
+For information about nvidia-l4t-jetson-io, the fourth package, refer to nvidia-l4t-jetson-io.
+Package Dependencies#
+Most Jetson Linux Debian packages depend on the nvidia-l4t-core package, which
+prevents package installation on an incompatible Jetson platform, such as
+installing a Jetson software package on a non-Jetson device. If nvidia-l4t-core detects an incompatible
+platform, it will not perform the installation.
+nvidia-l4t-core also prevents a partial upgrade, in which one Jetson Linux package upgrades to a new major release, but other Jetson Linux packages that depend on it are also not upgraded. Partial upgrades can cause compatibility issues between firmware, programs, and libraries that have been upgraded and ones that have not.
+nvidia-l4t-kernel#
+nvidia-l4t-kernel contains files for the Jetson Linux kernel.
+Prerequisites and Dependencies#
+Here are the prerequisites for this package:
+nvidia-l4t-core (must match this package’s major release)
+Here are the dependencies for this package:
+nvidia-l4t-tools
+nvidia-l4t-init
+Package Scripts#
+This package has a post-installation script that you can get by extracting the .deb file and completes the following actions:
+Executes depmod -a.
+Creates a dpkg trigger file named /usr/lib/linux/triggers/<release>.
+The trigger invokes actions defined in /etc/kernel/postinst.d to update initramfs/grub configs/… when the kernel is updated. This conforms to the standard Ubuntu kernel update procedure.
+nvidia-l4t-kernel-dtbs#
+nvidia-l4t-kernel-dtbs contains files for Jetson Linux’s device tree blobs (DTBs).
+The package installs the .dtb files in /boot/. When you flash a
+board, it installs the .dtb file that is used by that board in /boot/dtb/ by
+checking the board specification against the DTBs’ compatibility information.
+Prerequisites and Dependencies#
+Here are the prerequisites for this package:
+nvidia-l4t-core (must match the major release for this package)
+Here are the dependencies for this package:
+device-tree-compiler
+nvidia-l4t-kernel
+Package Scripts#
+This package has a post-installation script, which you can get by extracting the .deb file, and completes the following actions:
+Decompiles the .dtb file used by the board in /boot/dtb/ and gets the bootargs property in the /chosen node.
+Decompiles the corresponding .dtb file in /boot/ and substitutes the bootargs property from step 1 in the resulting .dts file.
+Recompiles the .dts file to a .dtb file and puts it in /boot/dtb/.
+nvidia-l4t-kernel-headers#
+nvidia-l4t-kernel-headers contains Jetson Linux kernel header files.
+Prerequisites and Dependencies#
+Here are the prerequisites for this package:
+nvidia-l4t-core (must match this package’s major release)
+Here are the dependencies for this package:
+nvidia-l4t-kernel
+libc6
+libssl1.1
+Package Scripts#
+This package has no package scripts.
+nvidia-l4t-jetson-io#
+nvidia-l4t-jetson-io contains Python scripts that are used for Jetson I/O functions.
+Prerequisites and Dependencies#
+Here are the prerequisites for this package:
+nvidia-l4t-core (must match this package’s major release)
+Here are the dependencies for this package:
+mount
+python3
+util-linux
+nvidia-l4t-kernel
+device-tree-compiler
+You can also get the dependencies by extracting the Debian file.
+Package Scripts#
+This package has no package scripts.
+Over-the-Air Update#
+An Over-the-Air (OTA) Update allows you to update NVIDIA Jetson devices and host computers for Jetson development.
+Jetson Linux supports the following OTA types:
+Debian package management-based OTA can update Jetson devices that run Jetson Linux or Jetson components on a host computer.
+Image-based OTA allows you to create OTA payload packages and can update the full image that is running on a Jetson device, partition by partition. The following sections describe both forms of OTA.
+Updating from the NVIDIA APT Server#
+The first OTA update type uses Debian packages obtained from an
+NVIDIA APT server. You can use this form of OTA update to update a
+Jetson device running Jetson Linux or to update NVIDIA JetPack™ components that are
+installed on a host computer that runs Ubuntu. The APT server maintains
+respective groups of Debian packages for each purpose.
+This section describes the tools and packages that provide basic support
+for Jetson Linux.
+Note
+To update JetPack and Jetson Linux components to a new JetPack release on a system where both are installed, see the instructions in the
+JetPack documentation.
+NVIDIA does not recommend installing OTA Debian packages on a Jetson Linux release earlier than release 32.3.1, or on a system that is based on Ubuntu without the customization of Jetson Linux.
+OTA updates may include changes to the firmware in the QSPI flash memory, as well as the Linux userspace and kernel driver packages. OTA updates ensure that the firmware, userspace, and driver packages remain consistent, aligning the firmware version in the QSPI with the corresponding versions in the Linux userspace and kernel drivers. NVIDIA advises against installing a combination of packages from different releases.
+Upgrading from release 35.x to release 36.x is not supported. Check the /etc/nv_tegra_release directory on your Jetson device for the current software version.
+Updating a Jetson Device#
+Use the appropriate procedure below to update your system:
+To update to a new point release
+of the same minor release, for example, from release 36.2 to 36.3.
+To update to new minor release.
+Updating to a New Point Release#
+Enter the following command:
+$ sudo apt update
+apt reads a list of packages from the remote APT repository and identifies new and upgradable packages.
+Enter the following command:
+$ apt list --upgradable
+apt displays a list of new and upgradable packages.
+To install the basic packages for Jetson Linux, enter the following command:
+$ sudo apt upgrade
+Reboot your Jetson device after the upgrade is finished.
+Updating to a New Minor Release#
+Open the apt source configuration file in a text editor, for example:
+$ sudo vi /etc/apt/sources.list.d/nvidia-l4t-apt-source.list
+Change the repository name and download URL in the deb commands.
+The original commands are:
+deb https://repo.download.nvidia.com/jetson/common <release> main
+deb https://repo.download.nvidia.com/jetson/som <release> main
+<release> is the release number of the minor release to which you want to update. For example, to update to minor release 39.2, replace <release> with r39.2. OTA updates to the latest point release of the specified minor release.
+For example, if the current release is release 39.2, the commands are as follows:
+deb https://repo.download.nvidia.com/jetson/common r39.2 main
+deb https://repo.download.nvidia.com/jetson/som r39.2 main
+Save and close the source configuration file.
+Enter the following commands:
+$ sudo apt update
+$ sudo apt dist-upgrade
+If apt prompts you to choose an option to fix local modified configuration file, reply Y for yes (to use the NVIDIA updated version of the file).
+When the upgrade is finished, reboot the Jetson device.
+Note
+The do-release-upgrade command is disabled because Jetson Linux does not officially support Ubuntu release 22.04 at this time.
+Real-Time Kernel Using OTA Update#
+For detailed instructions on installing the Real-Time Kernel, refer to Real-Time Kernel Using OTA Update.
+Updating a Host#
+NVIDIA provides a group of Debian packages that add or update Jetson
+Linux support components on the host computer.
+Preparing the Host Computer to Install Jetson Linux Support Components#
+To install the public key of the x86_64 repository of the public APT server, enter the following command:
+$ sudo apt-key adv --fetch-key https://repo.download.nvidia.com/jetson/jetson-ota-public.asc
+Add the following x86_64 repository to the host system’s source list.
+For an Ubuntu 22.04 host:
+deb http://repo.download.nvidia.com/jetson/x86_64/jammy <relno> main
+For an Ubuntu 24.04 host:
+deb http://repo.download.nvidia.com/jetson/x86_64/noble <relno> main
+Where <relno> is the current release’s full release number as specified in the Release Notes.
+Enter the following command:
+$ sudo apt update
+Use apt to download and install the required packages.
+For an Ubuntu 22.04 host:
+$ sudo apt-get install cuda-toolkit-13-0 cuda-cross-sbsa-13-0 \
+ cuda-toolkit-12-9 cuda-cross-aarch64-12-9 nvsci supporting-tools\
+ libnvvpi4 vpi4-dev vpi4-cross-aarch64-l4t python3.10-vpi4 \
+ vpi4-samples vpi4-python-src nsight-systems-2025.6.1 nsight-dl\
+ nsight-graphics-for-embeddedlinux-2025.3.0.0
+For an Ubuntu 24.04 host:
+$ sudo apt-get install cuda-toolkit-13-0 cuda-cross-sbsa-13-0 \
+ cuda-toolkit-12-9 cuda-cross-aarch64-12-9 nvsci supporting-tools\
+ libnvvpi4 vpi4-dev vpi4-cross-aarch64-l4t python3.12-vpi4 \
+ vpi4-samples vpi4-python-src nsight-systems-2025.6.1 nsight-dl\
+ nsight-graphics-for-embeddedlinux-2025.3.0.0
+Debian Packages on the NVIDIA APT Server#
+This section lists the Debian packages maintained on the NVIDIA APT
+server for a Jetson device or a host.
+Update Packages for Jetson Devices#
+Here is a list of the OTA update packages for BSP on Jetson devices as
+of Jetson Linux release 36.3.
+Refer to List of JetPack OTA Packages in JetPack SDK for a list of other OTA packages and instructions to apply the packages.
+Note
+The component group for the following table is BSP.
+Package
+Purpose of the Package
+jetson-gpio-common
+Jetson GPIO library (common files).
+The source files are in NVIDIA/jetson-gpio.
+nvidia-igx-bootloader
+The NVIDIA IGX Bootloader update payload.
+nvidia-igx-oobe
+The NVIDIA IGX OOBE (out-of-box experience) package.
+nvidia-igx-systemd-reboot-hooks
+Systemd shutdown hook for the NVIDIA IGX.
+nvidia-l4t-3d-core
+NVIDIA graphics libraries including GL and EGL.
+nvidia-l4t-adaruntime
+The NVIDIA Ada Runtime package.
+nvidia-l4t-apt-source
+The Jetson APT source list.
+nvidia-l4t-bootloader
+The Tegra bootloader update payload.
+nvidia-l4t-bootloader-utils
+The NVIDIA bootloader utility tools.
+nvidia-l4t-bsp-nvgpu
+The NVIDIA L4T BSP meta package for nvgpu.
+nvidia-l4t-bsp-openrm
+The NVIDIA L4T BSP meta package for OpenRM.
+nvidia-l4t-camera
+Tegra camera libraries and utilities.
+nvidia-l4t-configs
+Jetson Linux system configuration files.
+nvidia-l4t-core
+Jetson Linux core system libraries.
+nvidia-l4t-cuda
+CUDA lower lever driver, cuDLA user space library, and CUDA forward compatibility layer.
+nvidia-l4t-cuda-utils
+The NVIDIA CUDA utility tools.
+nvidia-l4t-dgpu-apt-source
+The Jetson APT source list for dGPU.
+nvidia-l4t-dgpu-config
+The kernel module parameters for dGPU.
+nvidia-l4t-dgpu-tools
+The enabling iGPU on dGPU script.
+nvidia-l4t-dgpu-x11
+The xorg.conf for dGPU.
+nvidia-l4t-display-kernel
+Display kernel modules including modeset and DRM drivers for Jetson Thor and later chips.
+The source files are in nvidia/nv-tegra/tegra/kernel-src/nv-kernel-display-driver.git.
+nvidia-l4t-dla-compiler
+NVIDIA DLA compiler.
+nvidia-l4t-extlinux
+The NVIDIA Extlinux configuration package.
+nvidia-l4t-factory-service
+The service for installing GPU driver.
+nvidia-l4t-firmware
+Firmware for Tegra SoC and a few Wi-Fi chips that are used by Jetson.
+nvidia-l4t-firmware-nvgpu
+The NVIDIA L4T firmware package for nvgpu.
+nvidia-l4t-firmware-openrm
+The NVIDIA L4T firmware package for OpenRM.
+nvidia-l4t-firstboot
+The NVIDIA first-boot configuration package.
+nvidia-l4t-gbm
+Tegra GBM backend and EGL platform GBM implementation.
+nvidia-l4t-graphics-demos
+Graphics demonstration sources and binaries.
+nvidia-l4t-gstreamer
+Gstreamer applications and plugins for Jetson Linux.
+nvidia-l4t-init
+Jetson Linux system init files and systemd services.
+nvidia-l4t-init-nvgpu
+Jetson Linux system init files for nvgpu.
+nvidia-l4t-init-openrm
+Jetson Linux system init files for OpenRM.
+nvidia-l4t-initrd
+Jetson Linux init RAM disk package.
+nvidia-l4t-jetson-io
+Jetson-io tool to reconfigure the 40-pin expansion header on Jetson platforms.
+Refer to Running Jetson-IO in Configuring the Jetson Expansion Headers for more information.
+nvidia-l4t-jetson-multimedia-api
+The Multimedia API is a collection of lower-level APIs that support flexible application development by providing
+better control over the underlying hardware blocks.
+nvidia-l4t-jetsonpower-gui-tools
+The GUI tool that is used to configure power on Jetson.
+nvidia-l4t-kernel
+The Jetson Linux kernel image and modules.
+The source files are in nvidia/nv-tegra.
+nvidia-l4t-kernel-dtbs
+The Jetson Linux kernel dtb files.
+The source files are in nvidia/nv-tegra.
+nvidia-l4t-kernel-headers
+The Jetson Linux kernel headers for local development.
+The source files are in nvidia/nv-tegra.
+nvidia-l4t-kernel-module-configs
+The Jetson Linux kernel module configuration files.
+nvidia-l4t-kernel-nvgpu
+The Jetson Linux kernel modules for nvgpu.
+nvidia-l4t-kernel-oot-headers
+The Jetson Linux OOT modules header.
+nvidia-l4t-kernel-oot-modules
+The Jetson Linux OOT modules.
+nvidia-l4t-kernel-openrm
+The Jetson Linux kernel modules for OpenRM.
+nvidia-l4t-kernel-partitions
+The Jetson Linux kernel and kernel DTB partition package.
+nvidia-l4t-libvulkan
+The NVIDIA Vulkan loader library.
+nvidia-l4t-multimedia
+The Jetson Linux multimedia libraries.
+nvidia-l4t-multimedia-nvgpu
+The Jetson Linux multimedia libraries for nvgpu.
+nvidia-l4t-multimedia-openrm
+The Jetson Linux multimedia libraries for OpenRM.
+nvidia-l4t-multimedia-utils
+The Jetson Linux multimedia utility libraries.
+nvidia-l4t-nvfancontrol
+The fan control service and utility for Jetson.
+nvidia-l4t-nvml
+The NVML for Tegra.
+nvidia-l4t-nvpmodel
+The nvpmodel tool is used to manage power profiles and adjusts the maximum clock frequencies for the
+CPU, GPU, memory controller, and miscellaneous SoC clocks with the number of CPU clusters online.
+nvidia-l4t-nvpmodel-gui-tools
+The GUI version of the nvpmodel tool.
+nvidia-l4t-nvsci
+NvSci is a set of communication interface libraries out of which CUDA interoperates with
+NvSciBuf and NvSciSync.
+nvidia-l4t-oobe
+The NVIDIA OOBE (out-of-box experience) package.
+nvidia-l4t-openwfd
+The Tegra Open Source WiFi Display (OpenWFD) user space driver.
+nvidia-l4t-optee
+OP-TEE Trusted Applications, user space libraries/daemon, and demonstration applications.
+nvidia-l4t-pva
+The Programmable Vision Accelerator (PVA) user-mode driver and interface library.
+nvidia-l4t-tools
+Various system tools for Jetson.
+nvidia-l4t-usb-service
+The NVIDIA USB device mode service.
+nvidia-l4t-video-codec-openrm
+The Jetson Linux video codec libraries for OpenRM.
+nvidia-l4t-vulkan-sc-dev
+The Vulkan SC dev package.
+nvidia-l4t-vulkan-sc-nvgpu
+The Vulkan SC runtime package for nvgpu.
+nvidia-l4t-vulkan-sc-openrm
+The Vulkan SC runtime package for OpenRM.
+nvidia-l4t-vulkan-sc-samples
+The Vulkan SC samples package.
+nvidia-l4t-vulkan-sc-sdk
+The Vulkan SC SDK package.
+nvidia-l4t-wayland
+The Wayland package.
+nvidia-l4t-weston
+The Weston-related files including utilities, API and backend libraries, icons, and images.
+nvidia-l4t-wpasupplicant
+The NVIDIA user-mode Wi-Fi daemon package.
+nvidia-l4t-x11
+The NVIDIA X11 configuration tool.
+nvidia-l4t-xwayland
+The NVIDIA XCB-X11 library that enables X applications to run on Wayland compositors with hardware acceleration.
+python3-jetson-gpio
+The Jetson GPIO library package (Python 3).
+The source files are in NVIDIA/jetson-gpio.
+Update Packages for Hosts#
+The following table lists Jetson Linux support components that you can
+install with apt on a host, and the packages that contain them.
+Component group
+Packages
+CUDA
+collectx-bringup
+cuda
+cuda-12-9
+cuda-13-0
+cuda-cccl-12-9
+cuda-cccl-13-0
+cuda-command-line-tools-12-9
+cuda-command-line-tools-13-0
+cuda-compat-12-9
+cuda-compat-13-0
+cuda-compiler-12-9
+cuda-compiler-13-0
+cuda-crt-12-9
+cuda-crt-13-0
+cuda-ctadvisor-13-0
+cuda-cudart-12-9
+cuda-cudart-13-0
+cuda-cudart-dev-12-9
+cuda-cudart-dev-13-0
+cuda-culibos-13-0
+cuda-culibos-cross-amd64-13-0
+cuda-culibos-dev-13-0
+cuda-cuobjdump-12-9
+cuda-cuobjdump-13-0
+cuda-cupti-12-9
+cuda-cupti-13-0
+cuda-cupti-dev-12-9
+cuda-cupti-dev-13-0
+cuda-cuxxfilt-12-9
+cuda-cuxxfilt-13-0
+cuda-demo-suite-12-9
+cuda-documentation-12-9
+cuda-documentation-13-0
+cuda-driver-dev-12-9
+cuda-driver-dev-13-0
+cuda-drivers
+cuda-drivers-575
+cuda-drivers-580
+cuda-gdb-12-9
+cuda-gdb-13-0
+cuda-gdb-src-12-9
+cuda-gdb-src-13-0
+cuda-libraries-12-9
+cuda-libraries-13-0
+cuda-libraries-dev-12-9
+cuda-libraries-dev-13-0
+cuda-minimal-build-12-9
+cuda-minimal-build-13-0
+cuda-nsight-13-0
+cuda-nsight-compute-12-9
+cuda-nsight-compute-13-0
+cuda-nsight-systems-13-0
+cuda-nvcc-12-9
+cuda-nvcc-13-0
+cuda-nvdisasm-12-9
+cuda-nvdisasm-13-0
+cuda-nvml-dev-12-9
+cuda-nvml-dev-13-0
+cuda-nvprof-12-9
+cuda-nvprune-12-9
+cuda-nvprune-13-0
+cuda-nvrtc-12-9
+cuda-nvrtc-13-0
+cuda-nvrtc-dev-12-9
+cuda-nvrtc-dev-13-0
+cuda-nvtx-12-9
+cuda-nvtx-13-0
+cuda-nvvm-12-9
+cuda-nvvp-12-9
+cuda-opencl-12-9
+cuda-opencl-13-0
+cuda-opencl-dev-12-9
+cuda-opencl-dev-13-0
+cuda-profiler-api-12-9
+cuda-profiler-api-13-0
+cuda-runtime-12-9
+cuda-runtime-13-0
+cuda-sandbox-dev-13-0
+cuda-sanitizer-12-9
+cuda-sanitizer-13-0
+cuda-toolkit
+cuda-toolkit-12
+cuda-toolkit-12-9
+cuda-toolkit-12-9-config-common
+cuda-toolkit-12-config-common
+cuda-toolkit-13
+cuda-toolkit-13-0
+cuda-toolkit-13-0-config-common
+cuda-toolkit-13-config-common
+cuda-toolkit-config-common
+cuda-tools-12-9
+cuda-tools-13-0
+cuda-visual-tools-12-9
+cuda-visual-tools-13-0
+dh-dkms
+dkms
+dkms-noautoinstall-test-dkms
+dkms-replace-test-dkms
+dkms-test-dkms
+gds-tools-12-9
+gds-tools-13-0
+libcublas-12-9
+libcublas-13-0
+libcublas-dev-12-9
+libcublas-dev-13-0
+libcufft-12-9
+libcufft-13-0
+libcufft-dev-12-9
+libcufft-dev-13-0
+libcufile-12-9
+libcufile-13-0
+libcufile-dev-12-9
+libcufile-dev-13-0
+libcurand-12-9
+libcurand-13-0
+libcurand-dev-12-9
+libcurand-dev-13-0
+libcusolver-12-9
+libcusolver-13-0
+libcusolver-dev-12-9
+libcusolver-dev-13-0
+libcusparse-12-9
+libcusparse-13-0
+libcusparse-dev-12-9
+libcusparse-dev-13-0
+libnpp-12-9
+libnpp-13-0
+libnpp-dev-12-9
+libnpp-dev-13-0
+libnvfatbin-12-9
+libnvfatbin-13-0
+libnvfatbin-dev-12-9
+libnvfatbin-dev-13-0
+libnvidia-cfg1-575
+libnvidia-cfg1-580
+libnvidia-common-575
+libnvidia-common-580
+libnvidia-compute-575
+libnvidia-compute-580
+libnvidia-decode-575
+libnvidia-decode-580
+libnvidia-egl-gbm1
+libnvidia-egl-wayland1
+libnvidia-egl-wayland-dev
+libnvidia-egl-xcb1
+libnvidia-egl-xlib1
+libnvidia-encode-575
+libnvidia-encode-580
+libnvidia-extra-575
+libnvidia-extra-580
+libnvidia-fbc1-575
+libnvidia-fbc1-580
+libnvidia-gl-575
+libnvidia-gl-580
+libnvidia-gpucomp-575
+libnvidia-gpucomp-580
+libnvidia-nscq
+libnvjitlink-12-9
+libnvjitlink-13-0
+libnvjitlink-dev-12-9
+libnvjitlink-dev-13-0
+libnvjpeg-12-9
+libnvjpeg-13-0
+libnvjpeg-dev-12-9
+libnvjpeg-dev-13-0
+libnvptxcompiler-13-0
+libnvsdm
+libnvsdm-dev
+libnvvm-13-0
+libxnvctrl0
+libxnvctrl-dev
+mft
+mft-autocomplete
+mft-oem
+nsight-compute-2025.2.0
+nsight-compute-2025.3.0
+nsight-systems-2025.3.2
+nvidia-compute-utils-575
+nvidia-compute-utils-580
+nvidia-dkms-575
+nvidia-dkms-575-open
+nvidia-dkms-580
+nvidia-dkms-580-open
+nvidia-driver-575
+nvidia-driver-575-open
+nvidia-driver-580
+nvidia-driver-580-open
+nvidia-driver-assistant
+nvidia-fabricmanager
+nvidia-fabricmanager-dev
+nvidia-firmware-575-575.51.03
+nvidia-firmware-580
+nvidia-fs
+nvidia-fs-dkms
+nvidia-gds
+nvidia-gds-12-9
+nvidia-gds-13-0
+nvidia-headless-575
+nvidia-headless-575-open
+nvidia-headless-580
+nvidia-headless-580-open
+nvidia-headless-no-dkms-575
+nvidia-headless-no-dkms-575-open
+nvidia-headless-no-dkms-580
+nvidia-headless-no-dkms-580-open
+nvidia-imex
+nvidia-kernel-common-575
+nvidia-kernel-common-580
+nvidia-kernel-open-575
+nvidia-kernel-source-575
+nvidia-kernel-source-575-open
+nvidia-kernel-source-580
+nvidia-kernel-source-580-open
+nvidia-modprobe
+nvidia-open
+nvidia-open-575
+nvidia-open-580
+nvidia-persistenced
+nvidia-settings
+nvidia-utils-575
+nvidia-utils-580
+nvidia-xconfig
+nvlink5
+nvlink5-580
+nvlsm
+xserver-xorg-video-nvidia-575
+xserver-xorg-video-nvidia-580
+CUDA cross-compile
+cuda-cccl-cross-sbsa-13-0
+cuda-cross-sbsa
+cuda-cross-sbsa-13-0
+cuda-crt-cross-sbsa-13-0
+cuda-cudart-cross-sbsa-13-0
+cuda-culibos-cross-sbsa-13-0
+cuda-cupti-cross-sbsa-13-0
+cuda-driver-cross-sbsa-13-0
+cuda-nvcc-cross-sbsa-13-0
+cuda-nvml-cross-sbsa-13-0
+cuda-nvrtc-cross-sbsa-13-0
+cuda-profiler-api-cross-sbsa-13-0
+libcublas-cross-sbsa-13-0
+libcufft-cross-sbsa-13-0
+libcurand-cross-sbsa-13-0
+libcusolver-cross-sbsa-13-0
+libcusparse-cross-sbsa-13-0
+libnpp-cross-sbsa-13-0
+libnvfatbin-cross-sbsa-13-0
+libnvjitlink-cross-sbsa-13-0
+libnvjpeg-cross-sbsa-13-0
+libnvptxcompiler-cross-sbsa-13-0
+libnvvm-cross-sbsa-13-0
+Computer Vision
+libnvvpi4
+vpi4-dev
+vpi4-cross-aarch64-l4t
+python3.12-vpi4
+python3.10-vpi4
+vpi4-samples
+vpi4-python-src
+NvStreams
+nvsci
+supporting-tools
+Developer Tools
+nsight-systems-2025.6.1
+nsight-dl
+nsight-graphics-for-embeddedlinux-2025.3.0.0
+Customizing Debian Packages#
+You can customize Debian packages to help you implement your solution,
+for example, by adding support for your carrier board. Refer to
+Repackaging Debian Packages
+and
+Building Kernel Debian Packages Yourself for more information.
+Downloading Debian Packages for Later Use#
+As an alternative to installing Debian packages on a Jetson device or
+host from the APT server, you can download packages, store them, and
+manually install them later.
+To download packages, open the
+NVIDIA Jetson repository
+in a web browser. This page displays a list of Debian packages for each
+JetPack release and processor. Each package name is a hyperlink; to download a
+package, click its link.
+Updating Jetson Linux with Image-Based Over-the-Air Update#
+Image-Based Over-the-Air Update is a failsafe way to update the BSP on a
+Jetson device by writing pre-generated images to its partitions. For example,
+this would allow you to perform an OTA update from version 39.2.0 to a future version.
+Image-based OTA also supports updates between versions with different
+partition layouts that require layout changes during the update. For example,
+image-based OTA currently supports updates from version 35.5.0 to version 36.4.x.
+Updates to Jetson Linux 39.2.0
+Carrier Board
+Modules
+From Release
+Jetson AGX Orin
+All Jetson AGX Orin
+series modules
+35.5.0, 35.6.x,
+36.3.0, 36.4.x,
+36.5.0, or
+39.2.0
+Jetson AGX Orin
+Industrial
+35.5.0, 35.6.x,
+36.3.0, 36.4.x,
+36.5.0, or
+39.2.0
+Jetson Orin NX/Nano
+All Jetson Orin NX/Nano
+series modules
+35.5.0, 35.6.x,
+36.3.0, 36.4.x,
+36.5.0, or
+39.2.0
+Jetson AGX Thor
+All Jetson Thor
+series modules
+38.2.0, 38.4.0, or
+39.2.0
+Note
+To upgrade from 35.5.0 or later versions to this release, you can directly apply an OTA update.
+It is necessary to upgrade both chains to this release by performing the OTA update twice.
+If you are upgrading from a version earlier than 35.5.0 to this release, please first upgrade
+to 35.5.0, and then upgrade to this release. For example, if upgrading from 35.4.1, you should
+first upgrade to 35.5.0 and then from 35.5.0 to this release. See Examples for
+more details.
+Terms and Abbreviations#
+This section uses the following terms and abbreviations:
+Bootloader update payload (BUP): This file contains firmware
+binaries of each type needed to update a Jetson device.
+Over-the-air (OTA) update: The Jetson Linux feature that enables
+you to update Jetson devices.
+Top of tree (ToT): The latest revision of a file in a source
+control system, such as Git.
+High-Level Flow#
+Here is the workflow for an image-based OTA update:
+Prepare an OTA payload package on the host machine.
+Trigger the OTA process on the target device.
+Preparing the OTA Payload Package#
+The current Jetson Linux BSP provides the necessary tools to generate the OTA payload package in
+the OTA tool package. To download the OTA tool package, go to
+Jetson Linux page.
+The OTA tool package can be used to create the OTA payload package for the following use cases:
+Updating a full system
+Updating the bootloader only
+Updating the rootfs only
+The generated OTA payload package is in the ota_payload_package.tar.gz archive, and the OTA payload
+package includes images for the partitions that need to be updated.
+Note
+NVIDIA recommends applying a security mechanism, such as a signature or encryption, to this package.
+Upload ota_payload_package.tar.gz and the OTA tools package
+ota_tools_<rel>_aarch64.tbz2 to your OTA server.
+Triggering the OTA Process#
+You are responsible for writing the OTA client service that triggers the
+OTA process, and the service must include the following steps:
+Download the ota_tools_<rel>_aarch64.tbz2 OTA tool package and the
+ota_payload_package.tar.gz OTA payload package from your own OTA
+server.
+<rel> is the current release number; for example, 39.2.0.
+Validate the downloaded OTA payload package and its contents
+according to your own security requirements.
+Use the tool in the OTA tool package to trigger the OTA update. The
+tool decompresses the OTA payload package and prepares it for OTA
+update. The tool handles cases where a partition layout change is
+involved and not involved, and where rootfs A/B is enabled and disabled.
+Preparing for an Image-Based OTA Update#
+To prepare for an image-based OTA update, the following steps need to be completed
+on the host machine and the target device.
+Steps Performed on the Host Machine#
+Set the BASE_BSP environment variable to the complete pathname of the
+Linux_for_Tegra/ directory for the base BSP. (The base BSP is the BSP
+release that needs to be updated, such as r38.2.0.)
+For example, set BASE_BSP by running this command:
+$ export BASE_BSP=/home/username/R38.2.0/Linux_for_Tegra
+Get the package for the current release of Jetson Linux and unpack
+and apply its sample root file system.
+Go to the directory that contains the current BSP package and enter
+the following commands:
+$ tar xpf Jetson_Linux_<rel>_aarch64.tbz2
+$ cd Linux_for_Tegra/rootfs/
+$ sudo tar xpf ../../Tegra_Linux_Sample-Root-Filesystem_<rel>_aarch64.tbz2
+$ cd ..
+$ sudo ./apply_binaries.sh
+Set the environment variable TARGET_BSP to the complete pathname of the
+Linux_for_Tegra/ directory for current BSP release. For example, set
+TARGET_BSP by running this command:
+$ export TARGET_BSP=/home/username/R39.2.0/Linux_for_Tegra
+Install the ota_tools_<rel>_aarch64.tbz2 OTA tool package to ${TARGET_BSP}:
+$ cd ${TARGET_BSP}/../
+$ sudo tar xpf ota_tools_<rel>_aarch64.tbz2
+To generate the OTA update payload package, enter the following commands:
+$ cd ${TARGET_BSP}
+$ sudo -E ./tools/ota_tools/version_upgrade/l4t_generate_ota_package.sh \
+ [options] <target_board> <bsp_version>
+Options:
+-s, -b, and -r can be used independently or combined into
+a single term, such as -sb or -sr.
+-s: Skip generating the rootfs image. Use this option if a rootfs
+image has been generated or specified with the -f option.
+-b: Generate an OTA payload package to only update Bootloader.
+This option is meaningful only for an update without layout change.
+-r: Generate an OTA payload package to only update rootfs.
+This option is meaningful only for an update without layout change.
+-u <PKC_key_file> is an optional PKC key file, and it must be the same as
+the file that was used to flash images to the target board.
+-v <SBK_key_file> is an optional SBK key file, and it must be the same as
+the file that was used to flash images to the target board.
+-o <rootfs_updater> specifies the script that will be be used to update
+the rootfs partition. (Refer to
+Updating the Rootfs Partition with a Customized Updater and
+Image
+for more information.)
+-f <rootfs_image> is the path of the rootfs image to be written to the
+rootfs partition.
+The default rootfs is built from ${TARGET_BSP}/rootfs, and this option allows you overwrite the default rootfs image with a self-generated rootfs image. An example is an image that is cloned from a Jetson device that has been completely customized with a ToT release of Jetson Linux.
+--external-device <external_device> specifies the external device to be upgraded, and nvme0n1
+is the supported device.
+-S <rootfs_size> specifies the size of rootfs partition on external device.
+It is only valid when --external-device option is set. KiB, MiB, GiB
+short hands are allowed.
+-E <esp_image> specifies the image to update ESP. Only valid for update without change in layout.
+-T <ext_num_sectors> specifies the number of the sectors of the external storage device.
+--rootfs-uuid <rootfs_uuid> specifies UUID for rootfs to be updated through OTA.
+--rootfs-b-uuid <rootfs_b_uuid> specifies UUID for rootfs B on the device to be updated through OTA.
+--uda-uuid <uda_uuid> specifies UUID for UDA on the device to be updated through OTA.
+--uefi-keys <keys_conf> specifies the UEFI keys configuration file.
+--uefi-enc <UEFI_enc_key> specifies the key file (0x19: 16-byte; 0x23: 32-byte) to encrypt UEFI payloads.
+where:
+<target_board> is the appropriate configuration name:
+For Jetson AGX Orin P3701-0000(32GB) or P3701-0004 (32GB) or P3701-0005 (64GB): jetson-agx-orin-devkit
+For Jetson AGX Orin Industrial P3701-0008: jetson-agx-orin-devkit-industrial
+For Jetson Orin NX P3767-0000(16GB) or P3767-0001(8GB): jetson-orin-nano-devkit
+For Jetson Orin Nano P3767-0003(8GB) or P3767-0004(4GB) or P3767-0005(8GB): jetson-orin-nano-devkit
+For Jetson AGX Thor P3834-0008(128GB): jetson-agx-thor-devkit
+For Jetson AGX Thor P3834-0000(64GB): jetson-agx-thor-t4000
+<bsp_version> is the base BSP version, in the form Rmm-n, where
+mm and n are the major and minor version numbers. For example, R35-5 specifies base BSP version 35.5.x.
+The script generates the ota_payload_package.tar.gz file under the ${TARGET_BSP}/bootloader/<target_board>/ directory.
+If enabling UEFI secure boot, it also generates uefi_secureboot_overlay_multi_specs.tar.gz file under the ${TARGET_BSP}/bootloader/uefi_overlay directory.
+The ota_payload_package.tar.gz archive that the script generates from the default rootfs occupies about 2.5GB, and a self-generated rootfs might yield a larger or smaller archive. To apply the image-based OTA, and decompress the archive on the Jetson device, requires at least 7GB of free space.
+Note
+Step 6 in Steps Performed on the Host Machine
+uses the Jetson Linux sample rootfs from Linux_for_Tegra/rootfs/ to build the OTA package.
+If you customized the sample rootfs, add required libraries and binaries into the rootfs and apply them before running this script.
+To implement a complete OTA solution, place the OTA tool package and OTA payload package on your OTA server.
+Steps Performed on the Jetson Device#
+Install efibootmgr and nvme-cli packages if they are not installed on the target board
+by running the command sudo apt-get install efibootmgr nvme-cli.
+Download the ota_tools_<rel>_aarch64.tbz2 OTA tool package and
+the ota_payload_package.tar.gz OTA payload package to the
+target board.
+Create a directory to hold files that were generated in the OTA update process.
+Set the WORKDIR environment variable to the complete pathname for this directory.
+Unpack ota_tools_<rel>_aarch64.tbz2 into the ${WORKDIR} directory.
+Create a /ota/ directory.
+Place the ota_payload_package.tar.gz OTA payload package in the /ota/ directory.
+If enabling UEFI secure boot, place the uefi_secureboot_overlay_multi_specs.tar.gz package in the /ota/ directory.
+Unpack the OTA payload package and prepare to start OTA:
+$ cd ${WORKDIR}/Linux_for_Tegra/tools/ota_tools/version_upgrade
+$ sudo ./nv_ota_start.sh /ota/ota_payload_package.tar.gz
+If no error occurred in step 8, reboot the target board. Otherwise, resolve the error
+before continuing.
+After executing this step, the target board boots to the recovery kernel, which runs the OTA update process. If an unexpected power loss or reset occurs during the OTA update process, the target device can reboot into the recovery kernel and continue the update. The maximum number of times the target device reboots and continues the update is determined by the OTA_MAX_RETRY_COUNT script variable, which defaults to 0 (zero). If the update fails more than the specified number of times, the target device boots to the recovery kernel and enters the bash shell. You can change the value of OTA_MAX_RETRY_COUNT in ${TARGET_BSP}/tools/ota_tools/version_upgrade/nv_recovery.sh.
+On the target device, if the update process fails, the logs are stored in the /ota_logs/ directory, and these logs record the details about the OTA update process. If this process successfully completes, by default, the logs are automatically deleted. To save logs for a successful OTA, see Reserving logs requirement in Miscellaneous Customization.
+Note
+To create a complete, secure OTA update solution, you must complete the following tasks:
+Implement an OTA client that executes this procedure on the target device.
+Apply security mechanisms according to your security policy requirements.
+Utility to Trigger an OTA#
+The nv_ota_start.sh utility is used to trigger the OTA, and image-based OTA supports
+updates between versions with or without partition layout changes. The OTA supports updates
+whether rootfs A/B is enabled or disabled. You do not need to be aware of the difference
+because the nv_ota_start.sh utility handles both cases.
+nv_ota_start.sh is included in ota_tools_<rel>_aarch64.tbz2. It
+finally executes nv_ota_update_implement.sh to trigger OTA update.
+Backing Up and Restoring Files on the APP Partition#
+The nv_ota_preserve_data.sh script in the ota_tools_<rel>_aarch64.tbz2
+backs up and restores files on the APP partition during OTA update. It is
+located in the Linux_for_Tegra/tools/ota_tools/version_upgrade/ directory.
+Edit the ota_backup_files_list.txt configuration file to add the
+pathnames of files that will be preserved after the OTA update. The
+distributed version of ota_backup_files_list.txt contains the following:
+# All the files or directories should be listed with absolute path
+# Example:
+# etc/passwd
+# opt/nvidia
+Pathnames are written in relative form, but the names are always interpreted
+relative to the file system root. You can think of the names as absolute
+pathnames from which the leading slash is omitted.
+You can add comment lines starting with a pound sign (’#’) in column 1.
+Note
+The nv_ota_preserve_data.sh script packs the listed files into a .tar.gz archive. You can select other ways to back up and restore these files based on your own requirements.
+OTA Upgrades on an External Device#
+Jetson devices support booting from external storage devices, such as an NVMe.
+To apply an image-based OTA on Jetson devices, the l4t_generate_ota_package.sh
+script provides the --external-device and -S options to generate an OTA payload
+package for external storage devices.
+To flash a Jetson device with an external storage device, refer to Flashing with initrd in Flashing Support for more information.
+OTA Upgrades with Disk Encryption Enabled#
+Jetson devices support disk encryption on internal or external devices, and the rootfs partition is encrypted.
+To apply an image-based OTA on Jetson devices with disk encryption enabled, set “ROOTFS_ENC=1” when
+running the l4t_generate_ota_package.sh script to generate an OTA payload package. You can also specify the
+key file for disk encryption by using the -i option.
+To enable disk encryption on Jetson devices, refer to How to Create an Encrypted Rootfs on the Host in Disk Encryption.
+Note
+Before generating a OTA payload package, ensure that ${TARGET_BSP}/bootloader/eks_<CHIP_ID>.img contains the same keys as the existing ones in the EKS partition on the device to be updated. To generate eks_<CHIP_ID>.img, refer to Tool for EKB Generation in OP-TEE. The <CHIP_ID> is t234 for Jetson Orin series and t264 for Jetson Thor series.
+OTA Upgrades with UEFI Secure Boot Enabled#
+The image-based OTA now supports UEFI secure boot. If the OTA payload is built with UEFI secure boot enabled, the following will occur after the update: UEFI secure boot will either remain enabled if it was already active, or it will be newly enabled if it was previously disabled.
+To generate an OTA payload package with UEFI secure boot enabled, you must specify the --uefi-keys and --rootfs-uuid options. If UEFI payload encryption is enabled, you must specify the --uefi-enc option. If rootfs A/B is enabled on the device, you must specify the --rootfs-b-uuid option. If the UDA partition is encrypted with disk encryption, you must specify the --uda-uuid option.
+In addition to the ota_payload_package.tar.gz file, the l4t_generate_ota_package.sh generates uefi_secureboot_overlay_multi_specs.tar.gz and uefi_base_multi_specs.tar.gz files under the Linux_for_Tegra/bootloader/uefi_overlay directory if enabling UEFI secure boot. The uefi_secureboot_overlay_multi_specs.tar.gz archive contains the UEFI payloads signed and/or encrypted by the specified UEFI keys, and the uefi_base_multi_specs.tar.gz archive contains the UEFI payloads not signed or encrypted. The UEFI payloads are loaded by UEFI from rootfs during booting, including extlinux.conf, initrd and kernel DTB.
+For more information about OTA update with UEFI secure boot enabled, please see Applying OTA with UEFI secure boot enabled in Examples.
+Complete and Secure the OTA#
+NVIDIA provides the basic functionality of updating the system through
+the OTA update process. You must modify the process and create a
+complete and secure OTA solution. Depending on your needs, your modified
+process might have to meet at least one of the following requirements:
+Encrypting OTA update payloads
+Hosting OTA update payloads on an OTA update server
+Triggering an OTA update when an update is found on the OTA server (a
+function of the OTA update client on the target device)
+Authenticating the OTA update server
+Decrypting OTA update payloads
+Determining when to apply OTA update payloads
+Customization#
+If you customized the released BSP, such as by customizing the
+rootfs or the recovery image, you must modify some files in
+the distributed image-based OTA update process to apply the image-based
+OTA update solution. The following sections provide information about
+the customization types and the OTA update changes that the types require.
+Rootfs Customization#
+Rootfs customization comprises:
+Adding or removing files in the rootfs.
+Modifying the files in rootfs.
+These changes require the following:
+Applying changes to the rootfs.
+Recovery Image Customization#
+Recovery image customization comprises:
+Adding some files to the recovery initrd.
+These changes require the following:
+Editing the provided file recovery_copy_binlist.txt to specify the
+file systems and pathnames of any files you want to add to the recovery image. See the same file for an explanation and examples of how to make the changes.
+Recovery Task Customization#
+In the recovery kernel, the nv_ota_run_tasks.sh script will be executed as a task runner. It will execute OTA tasks in a sequential order. To add a task to be run when recovery kernel is running, you must complete the following tasks:
+Place the script files that execute tasks into the Linux_for_Tegra/tools/ota_tools/version_upgrade/ directory. Make sure the script files have execution permission.
+Modify the OTA_TASKS and the OTA_TASK_NEEDED_FILES in nv_ota_customer.conf to add these script files.
+The script files whose names are listed in the OTA_TASKS are OTA tasks which will be executed in order by the task runner. Insert the script file name at a proper position.
+The script files whose names are listed in the OTA_TASK_NEEDED_FILES are the files needed by OTA tasks. Add the script file name into the list if any.
+Re-generate the OTA update payload package.
+Miscellaneous Customization#
+Ethernet connectivity requirement
+If you want to ensure that no update is performed unless a stable Ethernet connection is available, enable OTA update’s Ethernet connectivity requirement by setting the property REQUIRE_ETHERNET in nv_ota_customer.conf. This setting makes Jetson device check Ethernet connectivity before starting OTA. If no connection is found, it attempts to establish one by rebooting.
+This requirement is disabled by default because a Jetson device does not use Ethernet as its primary means of connectivity.
+Reserving logs requirement
+Logs are automatically deleted after the OTA successfully completes. To save logs for debug purposes, you can set the RESERVE_LOGS property to true in nv_ota_customer.conf. After the OTA finishes, this setting saves all the logs in the /last_ota_update_log directory.
+Multiple Board Specs Customization#
+The image-based OTA supports generating a multi-spec OTA payload for each supported Jetson device. If you are sure what the board specs are for your Jetson devices, you can customize the Linux_for_Tegra/tools/ota_tools/version_upgrade/ota_board_specs.conf to comment out unused board spec entries before you generate the OTA payload package. This can shorten the time needed to generate the OTA payload package and decrease the size of the resulting package.
+Here is a sample of a customized jetson_orin_nano_devkit_ota_emmc_r35_spec field in the ota_board_specs.conf file that can generate the OTA payload package exclusively for the Jetson Orin NX P3767-0001(8GB):
+jetson_orin_nano_devkit_ota_emmc_r35_spec=(
+ # External device
+ # orin-nx 16GB
+ #'boardid=3767;fab=000;boardsku=0000;boardrev=;fuselevel_s=1;chiprev=;chipsku=00:00:00:D3;board=jetson-orin-nano-devkit;rootdev=nvme0n1p1;bup_type=bl;signed_img_dir=images-R35-ToT'
+ # orin-nx 8GB
+ 'boardid=3767;fab=000;boardsku=0001;boardrev=;fuselevel_s=1;chiprev=;chipsku=00:00:00:D4;board=jetson-orin-nano-devkit;rootdev=nvme0n1p1;bup_type=bl;signed_img_dir=images-R35-ToT'
+ # orin-nano 8GB
+ #'boardid=3767;fab=000;boardsku=0003;boardrev=;fuselevel_s=1;chiprev=;chipsku=00:00:00:D5;board=jetson-orin-nano-devkit;rootdev=nvme0n1p1;bup_type=bl;signed_img_dir=images-R35-ToT'
+ # orin-nano devkit 8GB
+ #'boardid=3767;fab=000;boardsku=0005;boardrev=;fuselevel_s=1;chiprev=;chipsku=00:00:00:D5;board=jetson-orin-nano-devkit;rootdev=nvme0n1p1;bup_type=bl;signed_img_dir=images-R35-ToT'
+ # orin-nano 4GB
+ #'boardid=3767;fab=000;boardsku=0004;boardrev=;fuselevel_s=1;chiprev=;chipsku=00:00:00:D6;board=jetson-orin-nano-devkit;rootdev=nvme0n1p1;bup_type=bl;signed_img_dir=images-R35-ToT'
+)
+Updating the Rootfs Partition with a Customized Updater and Image#
+When you generate an OTA payload package (step 6 in
+Steps Performed on the Host Machine),
+you can specify the rootfs updater with the -o option and specify the rootfs image with the -f option.
+The rootfs updater is a script that writes the rootfs image to the
+rootfs partition. It is called with appropriate command line parameters
+and options by several Jetson Linux utilities and services, such as OTA
+update. NVIDIA provides a default rootfs updater named
+nv_ota_rootfs_updater.sh which is in the distribution archive
+ota_tools_<rel>_aarch64.tbz2.
+The default rootfs updater’s usage is:
+$ nv_ota_rootfs_updater.sh [-p <devnode>] [-d <workdir>] <image>
+Where:
+<devnode> is the device node path of the rootfs partition, for example, /dev/mmcblk0p1.
+<workdir> is the path of the OTA work directory, for example, /ota_work.
+<image> is the path of the rootfs image, for example, /ota_work/system.img.
+If you create a customized rootfs image, you must specify a rootfs
+updater that can process that image. The rootfs updater you specify must
+expect the same arguments and options as nv_ota_rootfs_updater.sh.
+Depending on your needs, the updater might (or might not) use these arguments
+and options.
+User Release Version#
+An image-based OTA supports an update from the BSP version to the same BSP version. For example, for an OTA update
+from version 39.2.0 to version 39.2.0 with an updated rootfs and with an updated user version number.
+The user release version is defined in Linux_for_Tegra/nv_tegra/user_version and the valid value is between 0.0~999.999.
+During generating rootfs image, the user release version defined as USER_VERSION in Linux_for_Tegra/nv_tegra/user_version
+is to be copied into the file /etc/user_release_version in rootfs.
+Updating the ESP Partition#
+To manually update the ESP partition, complete the following steps:
+Download the ota_tools_<rel>_aarch64.tbz2 OTA tool package. <rel> is the current release number; for example, 39.2.0.
+Copy the OTA tool package to the Jetson device’s filesystem and extract the package.
+For example, you can copy the OTA tool package to the /opt/ directory and extract it.
+Copy the new ESP partition image to the Jetson device’s filesystem. For example, you can copy the esp.img to /opt/ directory.
+To update the ESP partition, use the nv_update_alt_part.sh tool in the OTA tool package:
+$ cd /opt/Linux_for_Tegra/tools/ota_tools/version_upgrade/
+$ sudo ./nv_update_alt_part.sh esp /opt/esp.img
+If no error occurred in step 4, reboot the Jetson device.
+Examples#
+NVIDIA provides several examples of how to apply an image-based OTA update:
+Jetson Thor: Generating an OTA payload package for OTA updates from R38.4.0 to the latest R39 version
+Jetson Orin: Generating an OTA payload package for OTA updates from R35.5.0 to the latest R39 version
+Jetson Orin: OTA update from R35.5.0 to the latest R39 version
+Jetson Orin: OTA update from a version earlier than R35.5.0 to the latest R39 version
+Using a golden image in the OTA update.
+Applying OTA with UEFI secure boot enabled.
+For more information about these examples, see the Linux_for_Tegra/tools/ota_tools/version_upgrade/Image_based_OTA_Examples.txt file,
+which is in the ota_tools_<rel>_aarch64.tbz2 OTA tool package.
+ previous
+ Jetson Thor Product Family
+ next
+ Boot Time Optimization
+ On this page
+Installing Additional Packages
+Repackaging Debian Packages
+Building Kernel Debian Packages Yourself
+Using the Repackager Tool
+Converting a Debian File
+Converting Multiple Debian Files
+Converting all Debian Files Under BSP
+Converting a Subset of Files and Placing the Output in the Designated Directory
+Converting Files to Different Paths
+Printing Out the Dependencies of a Converted Debian File
+Ignoring the Dependency Check Failure
+Working with the Packages
+Package Dependencies
+nvidia-l4t-kernel
+Prerequisites and Dependencies
+Package Scripts
+nvidia-l4t-kernel-dtbs
+Prerequisites and Dependencies
+Package Scripts
+nvidia-l4t-kernel-headers
+Prerequisites and Dependencies
+Package Scripts
+nvidia-l4t-jetson-io
+Prerequisites and Dependencies
+Package Scripts
+Over-the-Air Update
+Updating from the NVIDIA APT Server
+Updating a Jetson Device
+Updating to a New Point Release
+Updating to a New Minor Release
+Real-Time Kernel Using OTA Update
+Updating a Host
+Preparing the Host Computer to Install Jetson Linux Support Components
+Debian Packages on the NVIDIA APT Server
+Update Packages for Jetson Devices
+Update Packages for Hosts
+Customizing Debian Packages
+Downloading Debian Packages for Later Use
+Updating Jetson Linux with Image-Based Over-the-Air Update
+Terms and Abbreviations
+High-Level Flow
+Preparing the OTA Payload Package
+Triggering the OTA Process
+Preparing for an Image-Based OTA Update
+Steps Performed on the Host Machine
+Steps Performed on the Jetson Device
+Utility to Trigger an OTA
+Backing Up and Restoring Files on the APP Partition
+OTA Upgrades on an External Device
+OTA Upgrades with Disk Encryption Enabled
+OTA Upgrades with UEFI Secure Boot Enabled
+Complete and Secure the OTA
+Customization
+Rootfs Customization
+Recovery Image Customization
+Recovery Task Customization
+Miscellaneous Customization
+Multiple Board Specs Customization
+Updating the Rootfs Partition with a Customized Updater and Image
+User Release Version
+Updating the ESP Partition
+Examples
+ so the DOM is not blocked -->
+ Privacy Policy
+ | 
+ Your Privacy Choices
+ | 
+ Terms of Service
+ | 
+ Accessibility
+ | 
+ Corporate Policies
+ | 
+ Product Security
+ | 
+ Contact
+ Copyright © 2025-2026, NVIDIA Corporation.
+ Last updated on Jun 02, 2026.

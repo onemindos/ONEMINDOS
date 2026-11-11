@@ -1,0 +1,381 @@
+SOURCE: https://www.digitalocean.com/hatch
+ACCESSED: 2026-11-10
+
+Grow with the Startup-Friendly AI-Native Cloud | DigitalOcean Startups
+Blog
+Docs
+Careers
+Get Support
+Contact Sales
+DigitalOcean
+Products
+Featured AI Products
+Compute
+Build, deploy, and scale cloud compute resources
+Containers and Images
+Safely store and manage containers and backups
+Managed Databases
+Fully managed resources running popular database engines
+Management and Dev Tools
+Control infrastructure and gather insights
+Networking
+Secure and control traffic to apps
+Security
+Help protect your account and resources with these security features
+Storage
+Store and access any amount of data reliably in the cloud
+Browse all products
+Solutions
+AI/ML
+CMS
+Data and IoT
+Developer Tools
+Gaming and Media
+Hosting
+Security and Networking
+Startups and SMBs
+Web and App Platforms
+See all solutions
+Developers
+Community
+Documentation
+Developer Tools
+Get Involved
+Utilities and Help
+Partners
+Become a Partner
+Marketplace
+Pricing
+Log in
+Sign up
+Log in
+Sign up
+Build. Launch. Scale. Grow with the Startup-Friendly AI-Native Cloud.
+Ready to build the future? DigitalOcean has the AI infrastructure and platform to enable you to build, deploy, and scale with ease.
+Unlock growth with DigitalOcean’s AI-Native Cloud, purpose-built for startups
+Imagine building and scaling your AI startup without the typical cloud cost barriers. DigitalOcean makes it possible. We understand the need for agile, affordable infrastructure, and we've tailored exclusive benefits to fuel your innovation. DigitalOcean Startups empowers you to scale your AI ambitions, not just your expenses.
+AI Platform, Powered by DigitalOcean credits
+Use your credits for seamless API integration,
+custom AI agents
+, and robust security.
+Early-Stage Boost
+Selected startups will be invited to apply for GPU credit packages.
+What our happy startups are saying
+As a small team trying to optimize everywhere we can, we've been loving DigitalOcean's Inference Router because it lets us compare cost, latency, and token trade-offs between models, quickly and visually. The platform is intuitive, and the Startups program team has been a rock, going above and beyond for us as we scale.
+Angela Hoover
+CEO, Andi (YC W22)
+The platform has reduced our time to market for AI features. It's also made it easier for us to estimate projects with a lower threshold which makes it easier for our agency to focus on our AI offerings in general.
+Johan Bengtsson
+CTO @ Brainforest
+As a Founder, every dollar and hour counts. DigitalOcean's Startups program gave us both, offering generous credits and a support ecosystem that felt like having a Technical Co-founder in our corner from day one.
+Paul Dhaliwal
+CEO, CodeConductor & Knolli
+1
+2
+3
+DigitalOcean: Your launchpad to hypergrowth
+12 months to scale
+Get the cloud infrastructure you need with DigitalOcean credits (amount varies) to focus on building, not billing.
+Expert one-on-ones
+DigitalOcean connects you directly with DigitalOcean's product managers, engineers, and more for personalized guidance.
+Never miss a beat
+Free access to Standard-tier paid support for 15 months to ensure your startup stays up and running smoothly.
+DigitalOcean startup community
+Network online and offline with like-minded founders in the DigitalOcean Startup community.
+Supercharge your growth:
+The DigitalOcean Marketplace puts your innovative tools in front of a massive developer audience.
+Unleash your startup's potential: Powerful builder tools at your fingertips
+Go beyond basic perks. Access a treasure trove of exclusive builder tools designed to empower founders and startups. Build, launch, and scale your dream venture faster and more efficiently.
+20% off Stripe Atlas
+2 months free of paid Standard Plan
+$500 in credit
+90 days of free use
+Up to $5k in credit
+$1000 in credit
+Get $500 cash when you deposit $50k
+$2000 in credit
+$1000 credit toward Team or Enterprise plan
+Up to 90% off year one
+$1000 in credit
+Free use until $1MM in revenue/processed value
+$2500 in credits
+Get 15 months of free Standard Tier support
+1
+2
+3
+4
+5
+The DigitalOcean AI Startup Ecosystem
+Partner with DigitalOcean and equip your startups with the AI platform built for explosive growth.
+From seed to scale: See how DigitalOcean empowered future innovators
+Ex-human
+is building the next generation of AI characters with DigitalOcean's scalable AI infrastructure..
+Learn more
+about Ex-human
+Uxify
+is the AI performance hub for site experience and growth Track user experience and engagement.
+Learn more
+about Uxify
+Easysize
+is an AI-powered clothing fit and size platform. They provide a plugin for fashion shops that allows customers to find their perfect size by answering a few simple questions.
+Learn more
+about EasySize
+Hack The Box
+offers advanced training for IT security professionals and hackers through gamified, hands-on experiences.
+Learn more
+about HackTheBox
+Vuukle
+is a publisher workspace and collection of tools to help creators super-charge their content, maximize ad revenue, improve site speed and amplify audience engagement.
+Learn more
+about Vuukle
+Parabol
+is a remote meeting platform for Agile teams. They make it easy for Agile product development teams and business agility teams to routinely hold plannings, scrum, and retrospective meetings online.
+Learn more
+about Parabol
+What makes DigitalOcean the startup launchpad?
+As a founder and somebody that doesn't have a DevOps background, I didn't spend every morning of my life wearing a pager and doing XML sit-ups…what I wanted to do was ship an application to users so that we could begin iterating it.
+Jordan Husney
+CEO @ parabol.co
+The cost savings we get by using DigitalOcean enables us to offer our customers pricing that is roughly 5 times more affordable than what the competition is offering. DigitalOcean is the perfect fit for small and medium sized businesses.
+Vujadian Divjak
+CMO @ Publitio
+We had been growing 10 to 20% a month. And every step of the way, DO had tools that were exactly what it is right. We came for the simplicity and then, as we scaled, we were actually very pleasantly surprised by many things on the platform.
+Daniel Ni
+Founder and CEO @ ScraperAPI
+1
+2
+3
+Recommended resources
+Articles
+Successful Customer Acquisition for Startups
+For many entrepreneurs attempting to monetize or build a business out of their products, what comes after the initial proof of concept is somewhat of a mystery.
+Learn more
+about customer acquisition for startups
+Videos
+From Startup to Sustainability: Best Practices for Engineering Teams in Times of Transition
+A more reliable way to scale where you move fast, and break less. Learn how to structure your business goals to mitigate potential risk, knock down technical debt, and improve processes.
+Learn more
+about transitioning from startup to sustainability
+Articles
+Startup funding explained: Series A, Series B, Series C
+Startup funding can get confusing. Outside of bootstrapping a startup with founder funds, many early-stage businesses raise funding from various sources.
+Learn more
+about seed funding
+Frequently asked questions
+Are applications for the DigitalOcean Startups program currently open?
+Applications for our current cohort are temporarily paused as we prepare to launch an updated program experience in early 2027.
+When will the new DigitalOcean Startups program launch?
+The new program is scheduled to launch in early 2027.
+I am a current Hatch / Startups program participant. How does this affect my benefits?
+Active program members are not affected by this pause. Your existing DigitalOcean credits, 1-on-1 technical advisory sessions, and partner perks remain fully active through the duration of your original program term. You can continue accessing your benefits via your founder dashboard or by contacting [email-masked].
+Are you still accepting new accelerator, VC, and incubator partners?
+Yes! We actively welcome new venture partners and portfolio managers. If you manage an accelerator, VC fund, or startup community, please reach out via [email-masked] to discuss co-marketing opportunities and early partner access for 2027.
+What is DigitalOcean Startups?
+DigitalOcean Startups helps developers create, launch, and scale their startups. This includes a range of perks to get you started, including 12 months of DigitalOcean credits to easily deploy and scale your infrastructure.
+Why is DigitalOcean doing this?
+We want to empower the startup community. We always strive to support and show love to our community. We want it to be easy for you to have access to our resources.
+Who is eligible for DigitalOcean Startups? How do you select DigitalOcean Startups members?
+We prioritize AI-native startups. Service-based startups (consulting services, web/app development services, marketing agencies, etc.) are not eligible. New applicants are evaluated using the following criteria:
+Must have raised $10m or less.
+Must have a company website, and an email address associated with the company website.
+Must create a registered DigitalOcean team account with a business/company email (not a personal email account).
+How do I know if my accelerator/incubator/VC firm has a relationship with the DigitalOcean Startups?
+Please see our
+portfolio partner list
+. You can ask your program manager if you have a partnership with DigitalOcean Startups.
+How many credits do I get?
+DigitalOcean awards startups credits through approved DigitalOcean Startups partners. To learn more about your eligibility award level, please contact your program manager at your DigitalOcean Startups Partner.
+What if I have already received credits for my startup?
+This program is for new startups that have not used prior credits with DigitalOcean.
+How do DigitalOcean credits work?
+You will be given a pre-determined amount of credits as set out in your onboarding email to be used over the term of the program with Qualifying Program Services. Participants generally are entitled to a $10,000 monthly limit (and charges apply for any use in a month exceeding this amount).
+When accepted into the program, what types of services can I use with my credits ("Qualifying Program Services")?
+As of May 13, 2026, you may use your credits on any DigitalOcean services, except as to the following:
+GPU Droplets
+NVIDIA H100 GPU Kubernetes
+Bare Metal GPUs
+Dedicated Inference
+Serverless Inference, Third-party AI models hosted outside of DigitalOcean Infrastructure (including commercial/frontier models, including but not limited to Anthropic and OpenAI)
+Paperspace Machines
+Cloudways services
+Any other charges passed through to third-party providers outside of DigitalOcean's infrastructure
+This set of credits are referred to as “core” credits. GPU credits are a separate benefit and will not be covered by the core credits received when initially accepted into the program. Acceptance into the program does not ensure entitlement of GPU credit benefits, and are made available to select customers after review of their GPU credit application and infrastructure needs.
+Not sure if a certain product is covered by your credits? Reach out to
+[email-masked]
+and we'll get back to you as soon as possible.
+Do DigitalOcean credits cover GPU Droplet usage?
+DigitalOcean Startups core credits do not cover your GPU Droplet usage, and may only be used with Qualifying Program Services. Your account's payment method will be charged for usage of GPU Droplets and any other services not appearing on the Qualifying Program Services.
+Can you help migrate my customers from other public clouds to DigitalOcean?
+Yes, we have migration plans, technical assistance, and credits available to make it easy for your clients.
+How do I receive access to the DigitalOcean Startups perks?
+You can access DigitalOcean Startups' perks through the Welcome Kit that you receive when you're accepted into the program.
+What happens if I go over the monthly credit limit?
+If you go over the monthly credit limit, you will be charged for the additional usage for that month.
+Do I need to be a DigitalOcean customer to sign up for DigitalOcean Startups?
+Before applying for DigitalOcean Startups, you must
+create a new DigitalOcean team account
+for your startup with 1) the corporate email address associated with your company domain and 2) a valid
+credit card. You can learn more about DigitalOcean team accounts
+here
+. For security reasons, applicants must include a working website and matching corporate email address.
+Can I transfer my DigitalOcean credits?
+No. The DigitalOcean credits are designed to help you scale your infrastructure and are not transferable. If you do not use the credits, they will be forfeited.
+Are there any other limitations on how I use DigitalOcean credits?
+Yes. Program credits may only be used for Qualifying Program Services, which excludes GPU Products. Additionally, you cannot use any program credits for the mining of cryptocurrency (e.g. bitcoin mining). You can also not use the DigitalOcean credits for services in a manner that consumes excessive network capacity, CPU cycles, or disk IO, or that are AI model inference services hosted by third party vendors. If you do, use of services other than Qualifying Program Services are subject to additional charges, and DigitalOcean may end your participation in the DigitalOcean Startups program. Please review the
+DigitalOcean Startups Terms of Service
+for complete program terms.
+I haven't been able to spend all my credits. Can I get an extension?
+The DigitalOcean Startups program does not grant extensions.
+Start building today
+From GPU-powered inference and Kubernetes to managed databases and storage, get everything you need to build, scale, and deploy intelligent applications.
+Sign up
+Company
+About
+Leadership
+Blog
+Careers
+Customers
+Partners
+Referral Program
+Affiliate Program
+Press
+Legal
+Privacy Policy
+Security
+Investor Relations
+Products
+Managed Agents
+Knowledge Bases
+GPU Droplets
+Bare Metal GPUs
+Inference Engine
+Data Services
+Learning Services
+Evaluations
+Model Library
+Droplets
+Kubernetes
+Functions
+App Platform
+Load Balancers
+Managed Databases
+Spaces
+Block Storage
+Network File Storage
+API
+Uptime
+Cloud Security Posture Management (CSPM)
+Identity and Access Management (IAM)
+Cloudways
+View all Products
+Resources
+Community Tutorials
+Community Q&A
+Write for DOnations
+Currents Research
+DigitalOcean Startups
+Wavemakers Program
+Compass Council
+Open Source
+Newsletter Signup
+Marketplace
+Pricing
+Pricing Calculator
+Documentation
+Release Notes
+Code of Conduct
+Shop Swag
+Solutions
+AI Training GPU
+GPU Inference
+VPS Hosting
+Website Hosting
+VPN
+Docker Hosting
+Node.js Hosting
+Web Mobile Apps
+WordPress Hosting
+Virtual Machines
+View all Solutions
+Contact
+Support
+Sales
+Report Abuse
+System Status
+Share your ideas
+Company
+About
+Leadership
+Blog
+Careers
+Customers
+Partners
+Referral Program
+Affiliate Program
+Press
+Legal
+Privacy Policy
+Security
+Investor Relations
+Products
+Managed Agents
+Knowledge Bases
+GPU Droplets
+Bare Metal GPUs
+Inference Engine
+Data Services
+Learning Services
+Evaluations
+Model Library
+Droplets
+Kubernetes
+Functions
+App Platform
+Load Balancers
+Managed Databases
+Spaces
+Block Storage
+Network File Storage
+API
+Uptime
+Cloud Security Posture Management (CSPM)
+Identity and Access Management (IAM)
+Cloudways
+View all Products
+Resources
+Community Tutorials
+Community Q&A
+Write for DOnations
+Currents Research
+DigitalOcean Startups
+Wavemakers Program
+Compass Council
+Open Source
+Newsletter Signup
+Marketplace
+Pricing
+Pricing Calculator
+Documentation
+Release Notes
+Code of Conduct
+Shop Swag
+Solutions
+AI Training GPU
+GPU Inference
+VPS Hosting
+Website Hosting
+VPN
+Docker Hosting
+Node.js Hosting
+Web Mobile Apps
+WordPress Hosting
+Virtual Machines
+View all Solutions
+Contact
+Support
+Sales
+Report Abuse
+System Status
+Share your ideas
+© 2026 DigitalOcean, LLC.
+Sitemap

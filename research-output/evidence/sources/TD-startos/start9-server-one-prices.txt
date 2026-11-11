@@ -1,0 +1,7 @@
+SOURCE: https://start9.com/server-one (embedded Shopify product JSON in page HTML)
+ACCESSED: 2026-11-11
+
+"title":"2TB / 16GB","availableForSale":true,"price":{"amount":"899.0"
+"title":"2TB / 32GB","availableForSale":true,"price":{"amount":"1099.0"
+"title":"4TB / 16GB","availableForSale":true,"price":{"amount":"1199.0"
+"title":"4TB / 32GB","availableForSale":true,"price":{"amount":"1399.0"

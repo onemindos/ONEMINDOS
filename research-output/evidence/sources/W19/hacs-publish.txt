@@ -1,0 +1,390 @@
+
+
+        Include default repositories - HACS
+
+          Skip to content
+
+  HACS is built into Home Assistant as the Marketplace, starting with 2026.11.
+  What this means for you
+
+                HACS
+
+            Include default repositories
+
+            Initializing search
+
+    hacs/integration
+
+  Home
+
+  Marketplace
+
+  Use
+
+  Publish
+
+  Contribute
+
+  FAQ
+
+  Help
+
+    HACS
+
+    hacs/integration
+
+    Home
+
+    Marketplace
+
+    Use
+
+    Use
+
+    Download HACS
+
+    Download HACS
+
+    Prerequisites
+
+    Downloading HACS
+
+    Configure HACS
+
+    Configure HACS
+
+    Initial configuration
+
+    Configuration options
+
+    Repositories
+
+    Repositories
+
+    Using the HACS dashboard
+
+    Repository types
+
+    Repository types
+
+    AppDaemon apps
+
+    Dashboard
+
+    Integration
+
+    Python Script
+
+    Template
+
+    Theme
+
+    Entities
+
+    Entities
+
+    Update entities
+
+    Switch entities
+
+    Data and backup
+
+    My Home Assistant
+
+    Troubleshooting
+
+    Troubleshooting
+
+    Diagnostics
+
+    Log file and debug logging
+
+    HACS update broke my HACS
+
+    HA update broke my HACS
+
+    Update HACS
+
+    Remove HACS
+
+    Publish
+
+    Publish
+
+    General
+
+    Include default repositories
+
+    Include default repositories
+
+      Table of contents
+
+        Who can submit?
+
+        Before you start
+
+        Additional information
+
+        What happens next?
+
+        Check brands
+
+        Check core domain conflict
+
+        Check manifest
+
+        Check hacs-validation
+
+        Check HACS manifest
+
+        Check archived
+
+        Check releases
+
+        Check owner
+
+        Check license
+
+        Check images
+
+        Check repository
+
+        lint jq
+
+        lint sorted
+
+        After the PR is merged
+
+    GitHub Action
+
+    AppDaemon Apps
+
+    Integrations
+
+    Plugin (Dashboard)
+
+    Python Scripts
+
+    Custom template
+
+    Themes
+
+    Update default repositories
+
+    Remove default repositories
+
+    Contribute
+
+    Contribute
+
+    Backend
+
+    Devcontainer
+
+    Documentation
+
+    Frontend
+
+    Translation
+
+    Maintainer
+
+    FAQ
+
+    FAQ
+
+    Apps?
+
+    Custom Repositories
+
+    Data sources
+
+    Existing elements
+
+    Why do I need a GitHub account?
+
+    Update broke HACS
+
+    Is this for hass.io only?
+
+    What HACS can do
+
+    Other Git providers
+
+    Private GitHub Repositories
+
+    How does it work: Download
+
+    Help
+
+    Help
+
+    Issues
+
+    Home
+
+    Publish
+
+Include default repositories
+
+Who can submit?¶
+
+Only the owner or a major contributor of a repository can submit a pull request (PR) to add it as a default.
+
+Custom integrations used for alpha or beta testing core integrations, or those that override core integrations, are not accepted as defaults. You can still use them as a custom repository.
+
+Before you start¶
+
+Make sure your repository meets these requirements:
+
+Your repository can be added to HACS as a custom repository.
+
+Your repository is public and hosted on GitHub.
+
+Add and pass these GitHub Actions:
+
+HACS Action (Before you submit your PR, this action must pass without any errors or ignores.)
+
+Hassfest (for integrations only)
+
+Create a new GitHub release (not just a tag, a full release) after the actions run successfully.
+
+Once everything checks out, add your repository to the appropriate file in hacs/default.
+
+./appdaemon for AppDaemon apps
+
+./integration for integrations (custom components)
+
+./plugin for plugins (custom cards, dashboards, etc.)
+
+./python_script for Python scripts (made for the Python script integration)
+
+./template for templates (for custom templates)
+
+./theme for themes
+
+Additional information¶
+
+Make sure to add your entry in the list alphabetically, and not at the end.
+
+Your PR must be editable, so don’t submit it from an organization account.
+
+In your fork of hacs/default, always create a new branch from master for your changes. Don’t use the master branch directly.
+
+If your repository is for a single or a limited set of countries, the country key needs to be set in the released hacs.json file.
+
+If you did not fill out the pull request template correctly, your PR will be closed without further notice.
+
+If you misrepresent your statements in the pull request, your PR will be closed without further notice.
+
+If you are not the owner of the repository, or a major contributor, your PR will be closed without further notice.
+
+If the repository does not meet the requirements for inclusion, your PR will be drafted for minor issues, and closed for major issues.
+
+If your PR is drafted, set it to ready for review when you are ready for it to be reviewed.
+
+What happens next?¶
+
+HACS is growing fast, with new repositories added almost daily, but new additions still take months to be reviewed and included. Want to check the status of your PR? Visit the backlog to see where things stand.
+
+If you have questions or run into issues, check the documentation or reach out to the community. Good luck, and thank you for contributing!
+
+When your repository is up for review, a set of automated checks are run. All checks must pass unless otherwise agreed upon with the HACS team before the PR was opened. Here’s what’s checked:
+
+Check brands¶
+
+Applies only to integrations.
+
+Checks that your integration has a brand directory with at least an icon.png file.
+If it doesn’t, it falls back to checking the domain in the home-assistant/brands repository. 
+
+Check core domain conflict¶
+
+Applies only to integrations.
+
+Checks that your integration doesn't use the same domain as an integration in Home Assistant core, including integrations coming in the next release.
+Custom integrations that override a core integration are not accepted as defaults, see Who can submit?.
+
+Check manifest¶
+
+Checks that your integration's manifest is valid. Learn more or see the integration manifest documentation. Applies only to integrations.
+
+Check hacs-validation¶
+
+Runs the same validation that HACS itself uses to check your repository.
+
+Check HACS manifest¶
+
+Checks that your hacs.json file contains at least a name. See requirements
+
+Check archived¶
+
+Checks if your repository is archived. It must be active.
+
+Check releases¶
+
+Checks that your repository has at least one release.
+
+Check owner¶
+
+Checks if the submitter is the owner or a major contributor to the repository.
+
+Check license¶
+
+Checks that your repository has a license GitHub can identify, and that the Open Source Initiative approves it.
+A license GitHub can't identify (shown as NOASSERTION) fails, and so does a license that restricts how the code can be used, like a non-commercial one.
+
+Check images¶
+
+Applies only to plugins and themes.
+
+Checks that images are present in the readme file for HACS to render. 
+
+Check repository¶
+
+Checks general repository requirements:
+
+The repository has a description
+
+The repository has issues enabled
+
+The repository has topics defined
+
+lint jq¶
+
+Ensures that the files in your PR are valid JSON.
+
+lint sorted¶
+
+Ensures that the files in your PR are sorted correctly.
+
+After the PR is merged¶
+
+After your PR is merged, your repository will be included in the next scheduled scan.
+
+Help and support
+
+Resources
+
+                    Code of Conduct
+
+                    Made with Material for MkDocs
+
+Help us make these docs great!
+
+All HACS docs are open source. See something that's wrong or unclear? Submit a pull request.
+
+                Edit this page on GitHub
+
+            Learn how to contribute
+
+Still need help?
+
+Create an issue
+
+Join the Discord server
+
+  Back to top
+
+    This website uses privacy-first analytics to help us improve the site. You can view all data in our public dashboard.
+

@@ -1,0 +1,523 @@
+Generic Kernel Image (GKI) project  |  Android OS core topics  |  Android Open Source Project
+ Skip to main content
+ Docs
+ What's new?
+ Release notes
+ Latest security bulletins
+ Latest Compatibility Definition Document (CDD)
+ Site updates
+ Getting Started
+ About
+ Start
+ Download
+ Builds
+ Test
+ Create
+ Contribute
+ Community
+ Tools, build, and related reference
+ Security
+ Overview
+ Bulletins
+ Features
+ Testing
+ Best Practices
+ Core Topics
+ Architecture
+ Audio
+ Camera
+ Connectivity
+ Data
+ Display
+ Fonts
+ Graphics
+ Interaction
+ Media
+ Performance
+ Permissions
+ Power
+ Runtime
+ Settings
+ Storage
+ Tests
+ Updates
+ Virtualization
+ Compatibility
+ Compatibility Definition Document (CDD)
+ Compatibility Test Suite (CTS)
+ Android Devices
+ Overview
+ Cuttlefish
+ Enterprise
+ TV
+ Automotive
+ Overview
+ Software Defined Vehicle
+ In-vehicle Infotainment
+ Release Details
+ Reference
+ HIDL
+ HAL
+ Trade Federation
+ Security Test Suite
+ Android Code Search
+ /
+ English
+ Deutsch
+ Español – América Latina
+ Français
+ Indonesia
+ Italiano
+ Polski
+ Português – Brasil
+ Tiếng Việt
+ Türkçe
+ Русский
+ עברית
+ العربيّة
+ فارسی
+ हिंदी
+ বাংলা
+ ภาษาไทย
+ 中文 – 简体
+ 中文 – 繁體
+ 日本語
+ 한국어
+ Sign in
+ Docs
+ Core topics
+ Overview
+ Architecture and Platform
+ Connectivity and Input
+ Media and Display
+ System health and Updates
+ Testing
+ Data storage and access
+ Docs
+ More
+ Overview
+ Architecture and Platform
+ Connectivity and Input
+ Media and Display
+ System health and Updates
+ Testing
+ Data storage and access
+ Android Code Search
+ Architecture
+Overview
+ Hardware abstraction layer (HAL)
+Overview
+ HIDL (deprecated)
+Overview
+Interfaces and packages
+Interface hashing
+Services and data transfer
+Fast Message Queue
+Use Binder IPC
+HIDL MemoryBlock
+Network stack configuration tools
+Model threading
+Convert HAL modules
+Data types
+Safe union
+Interface versioning
+Code style guide
+ HIDL C++
+Overview
+Packages
+Interfaces
+Data types
+Functions
+ HIDL Java
+Overview
+Data types
+Interface methods and errors
+Export constants
+ Other
+HIDL framework backward compatibility verification
+Dynamically available HALs
+Legacy HALs (AOSP <=v7)
+ Kernel
+Overview
+Kernel release notes
+Stable kernel releases and updates
+Android common kernels
+GKI project
+GKI development
+GKI versioning scheme
+ GKI release builds
+Overview
+android12-5.10 release builds
+android13-5.10 release builds
+android13-5.15 release builds
+android14-5.15 release builds
+android14-6.1 release builds
+android15-6.6 release builds
+android16-6.12 release builds
+android17-6.18 release builds
+ Deprecated builds
+android12-5.10 deprecated builds
+android13-5.10 deprecated builds
+android13-5.15 deprecated builds
+android14-5.15 deprecated builds
+android14-6.1 deprecated builds
+android15-6.6 deprecated builds
+android16-6.12 deprecated builds
+android17-6.18 deprecated builds
+ GKI release builds (JSON)
+android12-5.10 release builds
+android13-5.10 release builds
+android13-5.15 release builds
+android14-5.15 release builds
+android14-6.1 release builds
+android15-6.6 release builds
+android16-6.12 release builds
+android17-6.18 release builds
+GKI release process
+Request a respin
+GKI 16-6.12 android-mainline errata
+Maintain a stable KMI
+ Kernel ABI monitoring
+Overview
+Run ABI monitoring
+Work with symbol lists
+ Modules
+Overview
+Configure kernel features as GKI modules
+Vendor module guidelines
+Loadable kernel modules
+Kernel module support
+Test GKI modules
+Boot time optimization
+Debug features
+Develop kernel code for GKI
+Proxy Execution in Android
+Android kernel file system support
+Extend the kernel with eBPF
+Collect kernel telemetry with eBPF
+Use DebugFS in Android 12
+FIPS 140-3 certifiable GKI crypto module
+EROFS
+Android kernel FAQ
+Kernel networking unit tests
+Transition from ION to DMA-BUF heaps (5.4 kernel)
+Incremental File System
+ Configuration
+Overview
+Implement system properties as APIs
+Add system properties
+Implement Config File Schema API
+ Archive
+Overview
+ConfigStore
+Create the HAL interface
+Implement the service
+Client-side use
+Add ConfigStore classes and items
+ Device tree overlays
+Overview
+Implement DTOs
+DTO syntax
+Compile and verify
+Use multiple DTs
+DTB and DTBO partitions
+Optimize DTO
+ Vendor NDK (<=AOSP 14)
+Overview
+Enable VNDK
+VNDK build system support
+VNDK extensions
+VNDK snapshot design
+Generate VNDK snapshots
+Generate vendor snapshots
+Linker namespace
+Directories, rules, and sepolicy
+RenderScript
+ABI stability
+Prebuilt ABI usages checker
+ Vendor interface object
+Overview
+Manifests
+Compatibility matrixes
+FCM lifecycle
+Device manifest development
+Match rules
+Additional resources
+ AIDL
+Overview
+AIDL language
+AIDL backends
+Stable AIDL
+AIDL for HALs
+Run AIDL services dynamically
+Annotations in AIDL
+FMQ with AIDL
+AIDL fuzzing
+AIDL style guide
+ Binder (Interprocess Communication)
+Overview
+Handle threads
+Priority inheritance
+Handle cached and frozen apps
+ Bootloader
+Overview
+Canonical boot reason
+Boot image header
+Implement bootconfig
+Recovery images
+DTB images
+Implement OTA updates
+Lock and unlock the bootloader
+Version information in AVB properties
+Move fastboot to userspace
+ Generic Bootloader
+Overview
+Deploy GBL
+GBL respin process
+GBL release builds
+ Partitions
+Overview
+Partition layout
+Vendor boot partitions
+Vendor and ODM DLKM partitions
+Shared system image
+Ramdisk partitions
+Generic boot partition
+ODM partitions
+Product partitions
+Implement a GKI module partition
+Enforce product partition interfaces
+Trusty OS partitions
+ 16 KB page size
+Overview
+Use Cuttlefish with 16 KB page size on ARM64
+Simulate Cuttlefish with 16 KB page size on x86-64
+Flash Pixel with 16 KB page size support
+Get the page size
+Optimize for 16 KB page size
+System properties
+Enable 16 KB toggle
+Enable 16 KB backcompat option
+Vendor API level
+ Power
+Overview
+Power management
+Thermal mitigation
+Power stats HAL
+App power management
+Platform power management with Doze
+Performance management
+App background behavior trackers
+Support batteryless devices
+Measure component power
+Measure device power
+Measure power values
+Routine Battery Saver
+TV standby
+SystemSuspend service
+ Wattson
+Power analysis overview
+Collect and analyze traces
+ Settings
+Overview
+Design guidelines
+Patterns and components
+Information architecture
+Personalized settings
+Universal search
+ Fonts
+Implement custom font fallback
+ What's new?
+ Release notes
+ Latest security bulletins
+ Latest Compatibility Definition Document (CDD)
+ Site updates
+ Getting Started
+ About
+ Start
+ Download
+ Builds
+ Test
+ Create
+ Contribute
+ Community
+ Tools, build, and related reference
+ Security
+ Overview
+ Bulletins
+ Features
+ Testing
+ Best Practices
+ Core Topics
+ Architecture
+ Audio
+ Camera
+ Connectivity
+ Data
+ Display
+ Fonts
+ Graphics
+ Interaction
+ Media
+ Performance
+ Permissions
+ Power
+ Runtime
+ Settings
+ Storage
+ Tests
+ Updates
+ Virtualization
+ Compatibility
+ Compatibility Definition Document (CDD)
+ Compatibility Test Suite (CTS)
+ Android Devices
+ Overview
+ Cuttlefish
+ Enterprise
+ TV
+ Automotive
+ Overview
+ Software Defined Vehicle
+ In-vehicle Infotainment
+ Release Details
+ Reference
+ HIDL
+ HAL
+ Trade Federation
+ Security Test Suite
+ Effective in 2026, to align with our trunk stable development model and ensure platform stability for the ecosystem, we will publish source code to AOSP in Q2 and Q4. For building and contributing to AOSP, use android-latest-release. The android-latest-release manifest branch will always reference the most recent release pushed to AOSP. For more information, see Changes to AOSP.
+ AOSP
+ Docs
+ Core topics
+ Architecture and Platform
+ Generic Kernel Image (GKI) project
+ Stay organized with collections
+ Save and categorize content based on your preferences.
+This page describes the Generic Kernel Image (GKI) project
+and how it increases Android stability and improves security.
+History
+Every Android-powered device needs a production kernel. Prior to GKI, kernels
+were custom and based on the Android Common Kernel (ACK), with device-specific
+changes made by system on chip (SoC) vendors and OEMs.
+This customization could result in as much as 50% of kernel
+code being out-of-tree code and not from upstream Linux kernels or ACKs.
+As such, the custom nature of pre-GKI kernels resulted in
+significant kernel fragmentation.
+Costs of fragmentation
+Kernel fragmentation has several negative effects on the Android community.
+Security updates are labor intensive
+Security patches cited in the
+Android Security Bulletin (ASB)
+must be backported into each of the device kernels. However, due to kernel
+fragmentation, it's prohibitively expensive to propagate security fixes to
+Android devices in the field.
+Difficult to merge Long-Term Supported updates
+The Long-Term Supported (LTS) releases include security fixes and
+other critical bug fixes. Staying up to date with LTS releases has proven
+to be the
+most effective way to provide security fixes. On Pixel devices, it was
+discovered that 90% of the kernel security issues reported in the ASB had
+already been fixed for devices that stay up to date.
+However, with all of the custom modifications in the device kernels, it's
+difficult to just merge the LTS fixes into device kernels.
+Inhibit Android platform release upgrades
+Fragmentation makes it difficult for new Android features requiring
+kernel changes to be added to devices in the field. Android Framework
+code had to account for the different kernel variations and couldn't
+rely on new Android features being implemented in the kernel
+This slowed down innovation and caused increased code size and
+complexity.
+Difficult to contribute kernel changes back to upstream Linux
+The fragmented way of pulling patches into the production kernels caused a
+delay of up to 18 months from the point where an LTS release was available
+upstream, to when it was in a device.
+This long delay between upstream kernel release and products makes it difficult
+for the Android community to feed needed features and drivers into the
+upstream kernels. By the time a user submitted suggestions for improvements, the
+codebase had changed, making it hard to show the relevance
+of the patch.
+Fix the fragmentation: Generic Kernel Image
+The Generic Kernel Image (GKI) project addresses kernel fragmentation by
+unifying the core kernel and moving SoC and board support out of the core kernel
+into loadable vendor modules. GKI also presents a stable Kernel Module
+Interface (KMI) for vendor modules, so modules and kernel can be updated
+independently. Some characteristics of the GKI kernel are:
+The GKI kernel is built from the ACK sources.
+The GKI kernel is a single-kernel binary plus associated loadable modules
+per architecture, per LTS release.
+The GKI kernel is tested with all Android Platform releases that are
+supported for the
+associated ACK. There's no feature deprecation for the lifetime of a GKI
+kernel version.
+The GKI kernel exposes a stable KMI to drivers within a given LTS.
+The GKI kernel doesn't contain SoC-specific or board-specific code.
+For an image of GKI architecture, refer to the
+Kernel overview.
+Common Image
+Beginning with Android 12, devices shipping with kernel version 5.10 or higher
+must ship with the GKI kernel. Generic Kernel Image (GKI) release
+builds are updated regularly
+and updated regularly with LTS and critical bug fixes.
+Because binary stability is maintained for the KMI, you can install these boot
+images without making changes to vendor images. The GKI project has these goals:
+Don't introduce significant performance or power regressions when replacing
+the product kernel with the GKI kernel.
+Enable partners to deliver kernel security fixes and bug fixes without vendor
+involvement.
+Reduce the cost of upreving the major kernel version for devices.
+Maintain a single GKI kernel binary per architecture by updating kernel
+versions with a clear process for upgrading.
+ Content and code samples on this page are subject to the licenses described in the Content License. Java and OpenJDK are trademarks or registered trademarks of Oracle and/or its affiliates.
+ Last updated 2026-10-09 UTC.
+ [[["Easy to understand","easyToUnderstand","thumb-up"],["Solved my problem","solvedMyProblem","thumb-up"],["Other","otherUp","thumb-up"]],[["Missing the information I need","missingTheInformationINeed","thumb-down"],["Too complicated / too many steps","tooComplicatedTooManySteps","thumb-down"],["Out of date","outOfDate","thumb-down"],["Samples / code issue","samplesCodeIssue","thumb-down"],["Other","otherDown","thumb-down"]],["Last updated 2026-10-09 UTC."],[],[]]
+ Build
+ Android repository
+ Requirements
+ Downloading
+ Preview binaries
+ Factory images
+ Driver binaries
+ Connect
+ @Android on X
+ @AndroidDev on X
+ Android Blog
+ Google Security Blog
+ Platform on Google Groups
+ Building on Google Groups
+ Porting on Google Groups
+ Get help
+ Android Help Center
+ Pixel Help Center
+ www.android.com
+ Google Mobile Services
+ Stack Overflow
+ Issue Tracker
+ About Android
+ Community
+ Legal
+ License
+ Privacy
+ Site feedback
+ Manage cookies
+ English
+ Deutsch
+ Español – América Latina
+ Français
+ Indonesia
+ Italiano
+ Polski
+ Português – Brasil
+ Tiếng Việt
+ Türkçe
+ Русский
+ עברית
+ العربيّة
+ فارسی
+ हिंदी
+ বাংলা
+ ภาษาไทย
+ 中文 – 简体
+ 中文 – 繁體
+ 日本語
+ 한국어

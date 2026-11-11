@@ -3,7 +3,7 @@
 # phases: a1 (w5a: SQLite box + backup) | b1 (w5b: restore SQLite) | b2 (w5b: convert to etcd + snapshot)
 #         a2 (w5a: wipe, restore etcd snapshot)
 set -uo pipefail
-S=<home>/<lab-dir>/w5-restore/shared
+S=<lab-dir>/w5-restore/shared
 K3S_VERSION="v1.37.2+k3s1"
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 export RESTIC_REPOSITORY=$S/restic-repo RESTIC_PASSWORD_FILE=$S/restic-pass

@@ -1,0 +1,278 @@
+Devices supported by HAMi | HAMi
+Skip to main content
+HAMiHomeDocsTutorialsCase StudiesCommunityEventsBlogReleases
+NextNext
+v2.11.0
+v2.10.0
+v2.9.0
+v2.8.0
+v2.7.0
+v2.6.0
+v2.5.1
+v2.5.0
+v2.4.1
+v1.3.0
+EnglishEnglish
+简体中文
+↑What is HAMi?
+Get started
+Concepts
+Install
+Vendor guides
+Supported devices
+NVIDIA GPU
+AMD GPU
+AWS Neuron
+Biren GPU
+Cambricon MLU
+Enflame GCU
+Huawei Ascend NPU
+Hygon HCU
+Iluvatar GPU
+Kunlunxin XPU
+MetaX GPU
+Mthreads GPU
+Vastai GPU
+Operate
+Design and develop
+Contributor Guide
+This is unreleased documentation for HAMi Next version.
+For up-to-date documentation, see the latest version (v2.11.0).
+Version: Next
+On this page
+Devices supported by HAMi
+Applicable version: Next (unreleased), based on HAMi development commit adf1a43a. See the v2.11.0 support matrix or the historical v2.10.0 support matrix.
+Last verified: 2026-11-06, against the HAMi source, default device configuration, and device guides.
+The table below lists device integration status, allocation modes, and multi-card partitioning capabilities for released and experimental HAMi integrations. See the device guides below for the required plugins, drivers, and container runtimes.
+DeviceModeModelsIntegration statusMemory controlCompute controlMulti-card partitioning
+NVIDIA GPU
+HAMi-core
+All
+Stable
+Memory quota
+Time-slice throttling
+Yes
+NVIDIA GPU
+MIG (dynamic partitioning)
+MIG-capable models
+Stable
+Hardware profile
+Hardware profile
+Yes (subject to CUDA and driver requirements)
+AMD GPU
+CU slicing
+Instinct / ROCm; see guide
+Stable
+Memory quota
+CU share
+Yes
+AWS Neuron
+Whole device / core allocation
+Inferentia / Trainium; see guide
+Stable
+No separate quota interface
+NeuronCore allocation
+Core allocation across devices (the last device can be partially allocated; selected devices must be idle and satisfy topology constraints)
+Biren GPU
+Whole device / pre-partitioned SVI
+Biren166M
+Stable
+Fixed SVI partitions
+Fixed SVI partitions
+Yes (pre-partitioned SVI instances)
+Cambricon MLU
+Dynamic SMLU
+370, 590
+Stable
+Memory quota
+Core quota
+No
+Enflame GCU
+DRS
+S60
+Stable
+Profile-based allocation
+Profile-based allocation
+No
+Ascend NPU
+template
+910A, 910B series, 910C, 310P
+Stable
+Template-based allocation
+Determined by template
+No
+Ascend NPU
+hami-core
+Depends on model and runtime; see guide
+Stable
+Memory quota
+Compute quota
+Yes
+Ascend NPU
+ENPU
+A2/910B, A3/910C
+Stable
+Memory quota
+Depends on ENPU policy
+No
+Ascend NPU
+Whole device
+950DT 9582 (96 GiB); requires a separate deployment of ascend-device-plugin v1.5.0 (Chart 0.2.2)
+Stable
+No separate quota interface
+No separate quota interface
+N/A
+Hygon HCU
+Dynamic vHCU partitioning
+All
+Stable
+Memory quota
+Compute share
+No
+Iluvatar GPU
+vGPU (gpu-manager)
+MR-V100, MR-V50, BI-V150, BI-V100
+Stable
+Memory quota
+Core quota
+No
+Kunlunxin XPU
+VXPU
+P800-OAM
+Stable
+Partition size
+Determined by partition size
+Yes
+MetaX GPU
+sGPU
+MXC500
+Stable
+Memory quota
+Depends on QoS
+Yes (not supported with sgpu-app-class)
+Mthreads GPU
+sGPU
+MTT S4000
+Stable
+Discrete memory sizes
+Core quota
+No
+Teco GPU (Tecorigin)
+Core allocation (in development)
+To be confirmed
+Experimental
+To be validated
+To be validated
+To be validated
+Vastai GPU
+Whole card / Die allocation
+VA16
+Stable
+Whole card or Die allocation
+Whole card or Die allocation
+Yes (Die allocation)
+Stable means included in an official HAMi release. Release status in this table is checked against v2.11.0. Experimental means the integration is still in development or validation and has not been officially released.
+Teco integration has not been merged into the Next baseline above. Device models and capabilities remain to be validated. Track progress in HAMi #3369 and documentation PR #979.
+Capability columns:
+Memory control: The memory quota or partition size that a container can request. Templates and fixed partition sizes round memory allocations up to the corresponding size.
+Compute control: Devices control compute resources through time slices, core allocation, hardware partitions, or QoS policies. See the linked references in the table for limitations.
+Multi-card partitioning: A single container can allocate resources across multiple physical devices while using only part of the resources on some of those devices. Allocating only whole devices does not count as multi-card partitioning. See the linked references for allocation granularity and limitations. N/A means the mode allocates whole devices only.
+Component integration guides​
+For NVIDIA sharing, Volcano vGPU and KAI Scheduler retain their own scheduling capabilities and use HAMi-core for runtime isolation; the KAI Scheduler integration provides memory isolation. HAMi-DRA works with the Kubernetes scheduler through DRA drivers; its NVIDIA sharing path uses HAMi-core to enforce memory and compute limits at runtime.
+The table below links to device and scheduling component integration guides, including installation steps, configuration requirements, and limitations. - means no guide is available.
+ManufacturerHAMiHAMi-DRAVolcanoKAI-scheduler
+NVIDIA
+Allocate device memory · Remote GPU
+Dynamic Resource Allocation
+Use Volcano vGPU
+Use KAI Scheduler
+AMD
+Enable AMD GPU sharing
+-
+-
+-
+AWS
+Manage AWS Neuron devices
+-
+-
+-
+Biren
+Enable Biren sharing
+-
+-
+-
+Cambricon
+Enable Cambricon MLU sharing
+-
+-
+-
+Enflame
+Enable Enflame GCU sharing
+-
+-
+-
+Huawei Ascend
+Enable Huawei Ascend sharing
+-
+Volcano Ascend vNPU
+-
+Hygon
+Enable Hygon HCU sharing
+-
+-
+-
+Iluvatar
+Enable Iluvatar GPU sharing
+-
+-
+-
+Kunlunxin
+Whole-device scheduling · VXPU sharing
+-
+-
+-
+MetaX
+Enable MetaX GPU sharing
+-
+-
+-
+Mthreads
+Enable Mthreads GPU sharing
+-
+-
+-
+Teco (Tecorigin)
+Integration guide (in development)
+-
+-
+-
+Vastai
+Enable Vastai sharing
+-
+-
+-
+Each linked guide covers device-specific setup, configuration notes, and known limitations. Read it before deploying that device.
+Edit this page
+Last updated on Nov 6, 2026
+Previous
+Vendor guides
+Next
+Remote GPU
+Component integration guides
+Documentation
+Supported Devices
+Quick Start
+Concepts
+Tutorials
+Join Community
+Discord
+Slack (#hami-dev)
+Community Survey
+Follow Us
+LinkedIn
+YouTube
+X
+ © HAMi Authors 2026 | Documentation Distributed under CC-BY-4.0 | Powered by Netlify
+ Copyright © HAMi a Series of LF Projects, LLC
+ For website terms of use, trademark policy and other project policies please see lfprojects.org/policies/.
+HAMi is a CNCF Incubating project

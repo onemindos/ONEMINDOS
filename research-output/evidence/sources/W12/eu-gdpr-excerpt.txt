@@ -1,0 +1,180 @@
+--- lines 105,108 of extracted text ---
+(18)
+
+This Regulation does not apply to the processing of personal data by a natural person in the course of a purely personal or household activity and thus with no connection to a professional or commercial activity. Personal or household activities could include correspondence and the holding of addresses, or social networking and online activity undertaken within the context of such activities. However, this Regulation applies to controllers or processors which provide the means for processing personal data for such personal or household activities.
+
+--- lines 175,178 of extracted text ---
+(35)
+
+Personal data concerning health should include all data pertaining to the health status of a data subject which reveal information relating to the past, current or future physical or mental health status of the data subject. This includes information about the natural person collected in the course of the registration for, or the provision of, health care services as referred to in Directive 2011/24/EU of the European Parliament and of the Council (9) to that natural person; a number, symbol or particular assigned to a natural person to uniquely identify the natural person for health purposes; information derived from the testing or examination of a body part or bodily substance, including from genetic data and biological samples; and any information on, for example, a disease, disability, disease risk, medical history, clinical treatment or the physiological or biomedical state of the data subject independent of its source, for example from a physician or other health professional, a hospital, a medical device or an in vitro diagnostic test.
+
+--- lines 753,775 of extracted text ---
+Article 2
+
+Material scope
+
+1.   This Regulation applies to the processing of personal data wholly or partly by automated means and to the processing other than by automated means of personal data which form part of a filing system or are intended to form part of a filing system.
+
+2.   This Regulation does not apply to the processing of personal data:
+
+(a)
+
+in the course of an activity which falls outside the scope of Union law;
+
+(b)
+
+by the Member States when carrying out activities which fall within the scope of Chapter 2 of Title V of the TEU;
+
+(c)
+
+by a natural person in the course of a purely personal or household activity;
+
+(d)
+
+by competent authorities for the purposes of the prevention, investigation, detection or prosecution of criminal offences or the execution of criminal penalties, including the safeguarding against and the prevention of threats to public security.
+--- lines 1065,1110 of extracted text ---
+Article 9
+
+Processing of special categories of personal data
+
+1.   Processing of personal data revealing racial or ethnic origin, political opinions, religious or philosophical beliefs, or trade union membership, and the processing of genetic data, biometric data for the purpose of uniquely identifying a natural person, data concerning health or data concerning a natural person's sex life or sexual orientation shall be prohibited.
+
+2.   Paragraph 1 shall not apply if one of the following applies:
+
+(a)
+
+the data subject has given explicit consent to the processing of those personal data for one or more specified purposes, except where Union or Member State law provide that the prohibition referred to in paragraph 1 may not be lifted by the data subject;
+
+(b)
+
+processing is necessary for the purposes of carrying out the obligations and exercising specific rights of the controller or of the data subject in the field of employment and social security and social protection law in so far as it is authorised by Union or Member State law or a collective agreement pursuant to Member State law providing for appropriate safeguards for the fundamental rights and the interests of the data subject;
+
+(c)
+
+processing is necessary to protect the vital interests of the data subject or of another natural person where the data subject is physically or legally incapable of giving consent;
+
+(d)
+
+processing is carried out in the course of its legitimate activities with appropriate safeguards by a foundation, association or any other not-for-profit body with a political, philosophical, religious or trade union aim and on condition that the processing relates solely to the members or to former members of the body or to persons who have regular contact with it in connection with its purposes and that the personal data are not disclosed outside that body without the consent of the data subjects;
+
+(e)
+
+processing relates to personal data which are manifestly made public by the data subject;
+
+(f)
+
+processing is necessary for the establishment, exercise or defence of legal claims or whenever courts are acting in their judicial capacity;
+
+(g)
+
+processing is necessary for reasons of substantial public interest, on the basis of Union or Member State law which shall be proportionate to the aim pursued, respect the essence of the right to data protection and provide for suitable and specific measures to safeguard the fundamental rights and the interests of the data subject;
+
+(h)
+
+processing is necessary for the purposes of preventive or occupational medicine, for the assessment of the working capacity of the employee, medical diagnosis, the provision of health or social care or treatment or the management of health or social care systems and services on the basis of Union or Member State law or pursuant to contract with a health professional and subject to the conditions and safeguards referred to in paragraph 3;
+
+(i)
+
+processing is necessary for reasons of public interest in the area of public health, such as protecting against serious cross-border threats to health or ensuring high standards of quality and safety of health care and of medicinal products or medical devices, on the basis of Union or Member State law which provides for suitable and specific measures to safeguard the rights and freedoms of the data subject, in particular professional secrecy;
+
+(j)
+
+--- lines 1233,1330 of extracted text ---
+Article 14
+
+Information to be provided where personal data have not been obtained from the data subject
+
+1.   Where personal data have not been obtained from the data subject, the controller shall provide the data subject with the following information:
+
+(a)
+
+the identity and the contact details of the controller and, where applicable, of the controller's representative;
+
+(b)
+
+the contact details of the data protection officer, where applicable;
+
+(c)
+
+the purposes of the processing for which the personal data are intended as well as the legal basis for the processing;
+
+(d)
+
+the categories of personal data concerned;
+
+(e)
+
+the recipients or categories of recipients of the personal data, if any;
+
+(f)
+
+where applicable, that the controller intends to transfer personal data to a recipient in a third country or international organisation and the existence or absence of an adequacy decision by the Commission, or in the case of transfers referred to in Article 46 or 47, or the second subparagraph of Article 49(1), reference to the appropriate or suitable safeguards and the means to obtain a copy of them or where they have been made available.
+
+2.   In addition to the information referred to in paragraph 1, the controller shall provide the data subject with the following information necessary to ensure fair and transparent processing in respect of the data subject:
+
+(a)
+
+the period for which the personal data will be stored, or if that is not possible, the criteria used to determine that period;
+
+(b)
+
+where the processing is based on point (f) of Article 6(1), the legitimate interests pursued by the controller or by a third party;
+
+(c)
+
+the existence of the right to request from the controller access to and rectification or erasure of personal data or restriction of processing concerning the data subject and to object to processing as well as the right to data portability;
+
+(d)
+
+where processing is based on point (a) of Article 6(1) or point (a) of Article 9(2), the existence of the right to withdraw consent at any time, without affecting the lawfulness of processing based on consent before its withdrawal;
+
+(e)
+
+the right to lodge a complaint with a supervisory authority;
+
+(f)
+
+from which source the personal data originate, and if applicable, whether it came from publicly accessible sources;
+
+(g)
+
+the existence of automated decision-making, including profiling, referred to in Article 22(1) and (4) and, at least in those cases, meaningful information about the logic involved, as well as the significance and the envisaged consequences of such processing for the data subject.
+
+3.   The controller shall provide the information referred to in paragraphs 1 and 2:
+
+(a)
+
+within a reasonable period after obtaining the personal data, but at the latest within one month, having regard to the specific circumstances in which the personal data are processed;
+
+(b)
+
+if the personal data are to be used for communication with the data subject, at the latest at the time of the first communication to that data subject; or
+
+(c)
+
+if a disclosure to another recipient is envisaged, at the latest when the personal data are first disclosed.
+
+4.   Where the controller intends to further process the personal data for a purpose other than that for which the personal data were obtained, the controller shall provide the data subject prior to that further processing with information on that other purpose and with any relevant further information as referred to in paragraph 2.
+
+5.   Paragraphs 1 to 4 shall not apply where and insofar as:
+
+(a)
+
+the data subject already has the information;
+
+(b)
+
+the provision of such information proves impossible or would involve a disproportionate effort, in particular for processing for archiving purposes in the public interest, scientific or historical research purposes or statistical purposes, subject to the conditions and safeguards referred to in Article 89(1) or in so far as the obligation referred to in paragraph 1 of this Article is likely to render impossible or seriously impair the achievement of the objectives of that processing. In such cases the controller shall take appropriate measures to protect the data subject's rights and freedoms and legitimate interests, including making the information publicly available;
+
+(c)
+
+obtaining or disclosure is expressly laid down by Union or Member State law to which the controller is subject and which provides appropriate measures to protect the data subject's legitimate interests; or
+
+(d)
+
+where the personal data must remain confidential subject to an obligation of professional secrecy regulated by Union or Member State law, including a statutory obligation of secrecy.
+
+Article 15
+
+Right of access by the data subject
+

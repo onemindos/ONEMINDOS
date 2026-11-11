@@ -1,0 +1,113 @@
+SOURCE: https://start9.com/premium-support
+ACCESSED: 2026-11-11
+
+Premium Support | Start9
+Menu
+Cart
+Premium Support
+Premium Support is a one-year subscription to Start9's private support portal at support.start9.com. It covers StartOS, StartWRT, StartTunnel, Start9 hardware, and every service in the Start9 Registry.
+Subscribe
+Open the portal
+Meet Dux
+Start9's AI support agent answers the moment you write, at any hour. It works from the documentation for every version of every product and service, and knows whether your problem is already fixed and waiting for release. Every reply shows how Dux worked it out.
+Learn more
+Every book
+Reindexed daily
+Every service
+At every version
+130+ repositories
+Every 15 minutes
+Every advisory
+Open and verified
+Down to the Code
+When the documentation runs out, Dux asks Helix, Start9's engineering agent, to read the source code of the product or service. Follow the investigation beside your chat, and if Helix finds a bug, it files the report.
+Learn more
+The docs don't cover this. Asking Helix to read the code.
+startos/main.ts
+v30.0.2:0
+const conf = await nextcloudConf.read().once()
+if (!conf.trusted_domains) {
+conf.trusted_domains = [hostname]
+}
+return sdk.Daemons.of(effects, started)
+Bug report filed
+Talk to a Person
+Request a human at any time. During support hours, someone from the Start9 team joins the same chat, already caught up on everything you and Dux have said. Dux keeps helping while you wait.
+Learn more
+Request a human
+Close chat
+Message Start9…
+A
+Alex joined
+A
+Alex
+Start9
+I've read the chat and Dux's notes, so no need to repeat anything.
+Start with a Topic
+Open a chat under StartOS, StartWRT, StartTunnel, your hardware, or any service in the Start9 Registry, and Dux starts from the right documentation. Attach logs, screenshots and config files as you go.
+Learn more
+Choose a topic
+General
+StartOS
+StartWRT
+StartTunnel
+Start9 hardware
+DIY hardware
+Services
+Nextcloud
+Immich
+Jellyfin
+Vaultwarden
+qBittorrent
+Pseudonymous
+Your account takes an access code and an email address, and only Start9 sees them. Everyone else sees the name you choose. Your real name is never asked for.
+Learn more
+Start9 knows
+Access code
+s9-••••-••••
+Email
+••••@proton.me
+Everyone else sees
+S
+satoshi_fan
+On Your Phone
+The portal installs as an app on your phone or computer, straight from support.start9.com, with no app store in between. A notification names who replied, never what they said.
+Learn more
+Start9 Support
+Alex replied
+now
+Thank you
+StartOS, StartWRT and StartTunnel are free and open source, and they stay that way because people pay for what surrounds them.
+Every subscription funds the development of the free software and the services ecosystem, the same as every Server One and RISC-V Router does. Subscribing gets you help when you need it, and it keeps the software free for everyone who runs it.
+Subscribe for $200 a year
+Support is best effort, as our capacity allows, with no guaranteed response time. Anyone who bought a support membership or Start9 hardware before the subscription was introduced keeps their membership for as long as Start9 offers it. Companies:
+Start9 Business
+Hardware
+Server
+Router
+Software
+StartOS
+StartWRT
+StartTunnel
+More
+Premium Support
+For business
+Docs
+Community
+About Start9
+Reviews
+Get help
+Contact
+Connect
+GitHub
+X
+Nostr
+Tor
+© 2026 Start9 Labs, Inc
+Terms
+Privacy
+Returns
+Shipping
+Warranty
+Security
+IP Geolocation by DB-IP

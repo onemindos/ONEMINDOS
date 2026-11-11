@@ -1,0 +1,133 @@
+Source: https://www.siderolabs.com/pricing/ (accessed 2026-11-11, extracted text)
+Pricing - Sidero Labs
+Skip to content
+Products
+Customers
+Pricing
+Blog
+Docs
+TalosCon ↗
+Start trial
+Get demo →
+Fair and transparent pricing
+Talos Linux
+Free community edition, or Enterprise Linux with compliance and 24/7 support
+Community Edition
+Talos Linux, free and open source (MPL-2.0)
+$0
+forever
+Self-hosted, community supported
+Get started
+Includes
+Unlimited clusters & nodes
+Minimal attack surface
+Community support
+Enterprise
+Enterprise Linux
+Talos Enterprise Linux — compliance, support, and Omni fleet management on the same open-source OS.
+$1,000
+/ node / year
+Minimum 10 nodes · flat per-node pricing · volume discounts available
+Contact us
+Every plan includes
+Fleet management with Omni, included
+CVE SLAs
+Signed attestations
+24/7 support
+FIPS 140-3 compliant builds
+SBOM + curated VEX
+Commercial IP indemnity
+Built for NIS2 & CRA
+Talos Omni
+Cluster management for Talos Linux
+Omni · Hobby
+Solo and small setups
+Free
+Up to 10 nodes · 2 users
+Get started
+Includes
+Talos Linux community edition
+Omni cluster management
+Community support
+Omni · Startup
+Growing teams, self-serve
+$25
+/ node / month
+Up to 50 nodes · unlimited clusters
+Get started
+Includes
+Everything in Hobby
+Up to 50 nodes
+Unlimited clusters
+Included
+Omni · Enterprise
+Included with Talos Enterprise Linux above.
+Included
+Part of the enterprise license above
+See Enterprise Linux
+Includes
+Everything in Startup
+Enterprise assurance & support
+On Talos Enterprise Linux
+Omni · Edge
+Large fleets of distributed edge nodes
+Contact us
+Enterprise · distributed edge scale
+Contact us
+Includes
+Priced for edge scale
+Secure node enrollment
+Enterprise support
+Hobby and Startup
+run on Talos Linux community edition. For FIPS 140-3 compliant builds, CVE SLAs, indemnity and 24/7 support, choose Talos Enterprise Linux above.
+Frequently asked questions
+Is Talos Linux still free?
+Yes. Talos Linux community edition is free and open source under MPL-2.0, and stays that way.
+Enterprise Linux is the same codebase with a commercial layer on top.
+What is Talos Enterprise Linux, and what does it cost?
+The commercial tier of Talos Linux: $1,000 per node per year, with a 10-node minimum and flat per-node pricing. It adds FIPS 140-3 compliant builds, SBOMs with curated VEX, signed attestations, CVE SLAs, commercial IP indemnity, 24/7 support, and Omni fleet management, included.
+Is Omni bundled or sold separately?
+Both. The full Omni management plane is included with Talos Enterprise Linux. Omni is also available standalone on Talos Linux community edition through the Hobby and Startup plans, without the enterprise assurance layer.
+What's the difference between standalone Omni and the Omni in Enterprise Linux?
+Standalone Omni (Hobby, Startup) manages clusters on the free community OS. Enterprise Linux adds FIPS-compliant builds, CVE SLAs, indemnity, signed attestations, and 24/7 support on top.
+Do I need Kubernetes to run virtual machines?
+No. Talos Hypervisor runs VMs directly on Talos Linux without Kubernetes. Open source with general availability in December.
+Can I self-host or run in an air-gapped environment?
+Yes. Enterprise Linux and Omni run as managed SaaS or fully self-hosted, including disconnected and air-gapped environments.
+Secure by architecture. Proven in production.
+Start trial
+Get demo →
+490 South Fairview
+Goleta, CA 93117
+e:
+[vendor contact email masked]
+t:
+(888) 488-2567
+Product
+Talos Director
+Talos Linux
+Talos Omni
+Talos Hypervisor
+Talos Linux for AI
+Talos Cupar
+Pricing
+Support
+Company
+Customers
+About us
+Careers
+Become a partner
+Contact us
+Resources
+Blog
+Docs
+The smallest Kubernetes →
+Copy Fail barely scratches Talos Linux →
+Why patching won't save you →
+Status
+Get support
+Join our newsletters.
+Submit
+© 2026 Sidero Labs, Inc. All Rights Reserved
+Privacy Policy
+Terms & Conditions

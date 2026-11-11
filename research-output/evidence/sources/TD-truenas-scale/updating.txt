@@ -1,0 +1,475 @@
+Updating TrueNAS | TrueNAS Documentation Hub 
+ Search TrueNAS Documentation
+ × 
+ Show Results From:
+ Version (25.04) 
+ 28 (Nightly) 
+ 27 
+ 25.10 
+ 25.04 
+ 24.10 
+ Docs 
+ API 
+ Apps 
+ TrueNAS Connect 
+ Searching...
+ Products 
+ Support & Resources 
+ Get A Quote 
+ Solutions 
+ Company 
+ Sign In 
+ Close 
+ Products V-Series Max Performance & Versatility
+ F-Series High Performance NVME
+ H-Series Versatility and Power Efficiency
+ Mini Series Edge and Branch Office
+ M-Series High Capacity All-Flash or Hybrid
+ R-Series Single Controller Appliances
+ TrueNAS Enterprise
+ Mission Critical Storage. 24×7 Enterprise Support
+ TrueNAS Community Edition
+ Test Drive TrueNAS in Your Environment
+ Streamlined Management for your TrueNAS Systems 
+ Solutions Industry
+ Audio 
+ Automotive 
+ Broadcasting 
+ Education 
+ US Public Sector 
+ Gaming 
+ Healthcare 
+ MSP 
+ Manufacturing 
+ Research & AI 
+ Media & Entertainment 
+ Use Cases
+ Analytics 
+ Backup & Archival 
+ Cloud 
+ Data Mobility 
+ File Sharing 
+ TrueCloud Backup 
+ Media & Entertainment 
+ Surveillance/CCTV 
+ Veeam Backup 
+ Virtualization 
+ Red Hat OpenShift 
+ TrueNAS as an Alternative
+ Alternative to Dell 
+ Alternative to NetApp 
+ Alternative to Pure Storage 
+ Support & Resources Support
+ Enterprise Support For customers with active support contracts
+ Community Support For peer-to-peer, forum support
+ Resources
+ Case Studies 
+ Datasheets 
+ Documentation 
+ TrueNAS API 
+ FAQ 
+ Apps 
+ TrueNAS Blogs 
+ Software Status 
+ TrueNAS Security 
+ Solution Briefs and Guides 
+ Certifications & Integrations 
+ White Papers 
+ Videos 
+ TrueCommand Cloud 
+ Reseller Network 
+ ZFS Overview 
+ Community
+ TrueNAS Community Edition 
+ Community Forum 
+ Discord 
+ TrueNAS GitHub 
+ TrueNAS Merch Store 
+ Company About TrueNAS 
+ Team 
+ Awards 
+ Careers 
+ Contact Us 
+ Newsroom 
+ Our Clients 
+ Reviews 
+ Sign In TrueNAS Connect 
+ Partner Portal 
+ Enterprise Support 
+ Get A Quote 
+ Documentation Hub Product TrueNAS
+ TrueNAS Apps 
+ TrueNAS Connect TrueCommand
+ TrueNAS Systems
+ Version 
+ Keyword Search 
+ AI Search 
+ × 
+ ⎙ Download or Print 
+ Getting Started
+ ⎙ Download or Print 
+ 25.10 (Goldeye) Version Notes 
+ Feature Deprecations 
+ TrueNAS Hardware Guide 
+ Installation Instructions
+ Preparing for TrueNAS UI Configuration 
+ Preparing for TrueNAS UI Configuration (Enterprise) 
+ Preparing for TrueNAS UI Configuration (Home Users) 
+ Installing TrueNAS 
+ Installing TrueNAS Enterprise (HA) 
+ Using the Console Setup Menu 
+ Migrating from CORE
+ Preparing to Migrate 
+ Community Migrations 
+ Enterprise Migrations 
+ Component Naming 
+ (obsolete) ZFS Feature Flags Removed 
+ Third-Party Data Migration 
+ Configuration Instructions
+ Logging In for the First Time 
+ Configuring TrueNAS Using the UI 
+ Setting Up Storage 
+ Setting Up Data Sharing 
+ Backing Up TrueNAS 
+ Configuring Virtualization and Apps 
+ Getting Support
+ Providing Feedback in TrueNAS 
+ User Agreements
+ TrueNAS EULA 
+ Software Development Life Cycle 
+ TrueNAS Data Collection Statement 
+ TrueNAS Tutorials
+ ⎙ Download or Print 
+ Top Toolbar
+ Using UI Global Search 
+ Managing API Keys 
+ Shutting Down TrueNAS Enterprise HA 
+ Dashboard 
+ Storage
+ Import Pool 
+ Disks
+ Replacing Disks 
+ Wiping a Disk 
+ SLOG Over-Provisioning 
+ Managing Self-Encrypting Drives (SED) 
+ Drive Health Management 
+ Create Pool 
+ Fusion Pools 
+ Managing Pools 
+ Datasets
+ Adding and Managing Datasets 
+ Adding and Managing Zvols 
+ Managing User or Group Quotas 
+ Creating Snapshots 
+ Managing Snapshots 
+ Storage Encryption 
+ Configuring ACL Permissions 
+ Shares
+ AFP Migration 
+ Block Shares (iSCSI)
+ Adding iSCSI Block Shares 
+ Setting Up Fibre Channel 
+ Using an iSCSI Share 
+ Increasing iSCSI Available Storage 
+ Adding NFS Shares 
+ Multiprotocol Shares 
+ Windows Shares (SMB)
+ Managing SMB Shares 
+ Adding a Basic Time Machine SMB Share 
+ Setting Up Final Cut Pro SMB Shares 
+ Using SMB Shadow Copy 
+ Setting Up SMB Private Dataset Shares 
+ SMB Share MacOS Client Limitations When Using Decomposed Unicode Characters 
+ Setting Up SMB Multichannel 
+ NVMe-oF Subsystems
+ Managing NVMe-oF Subsystems 
+ Data Protection
+ Managing TrueCloud Backup Tasks 
+ Cloud Sync Tasks
+ Backing Up Google Drive to TrueNAS 
+ Adding a Google Photos Cloud Sync Task 
+ Configuring Rsync Tasks 
+ Adding Periodic Snapshot Tasks 
+ Creating VMWare Snapshots 
+ Replication Tasks
+ Setting Up a Local Replication Task 
+ Setting Up a Remote Replication Task 
+ Advanced Replication Tasks
+ Setting Up an Encrypted Replication Task 
+ Unlocking a Replication Encrypted Dataset or Zvol 
+ Network
+ Interface Configurations
+ Setting Up a Network Bridge 
+ Setting Up a Link Aggregation 
+ Setting Up a Network VLAN 
+ Managing Network Configurations 
+ Configuring IPv6 
+ Managing Network Settings (Enterprise HA) 
+ Configuring Static Routes 
+ Setting Up IPMI 
+ Accessing NAS from VMs and Containers 
+ Credentials
+ Using Administrator Logins 
+ Managing Users 
+ Managing Groups 
+ Setting Up Directory Services
+ Configuring Active Directory 
+ Configuring IPA 
+ Configuring LDAP 
+ Configuring Kerberos 
+ Backup Credentials
+ Adding Cloud Credentials 
+ Adding SSH Credentials 
+ Certificates
+ Managing Certificates 
+ Managing Certificate Signing Requests 
+ Adding ACME DNS Authenticators 
+ Creating ACME Certificates 
+ Configuring KMIP 
+ Containers 
+ Virtual Machines
+ Adding and Managing VM Devices 
+ Reporting 
+ System Settings
+ Updating TrueNAS 
+ Updating TrueNAS Enterprise HA 
+ General Settings
+ Adding a License and Proactive Support 
+ Setting Up System Email 
+ Advanced Settings
+ Managing the System Configuration 
+ Managing Cron Jobs 
+ Managing the Console Setup Menu 
+ Managing System Logging 
+ Configuring SED Settings 
+ Managing Init/Shutdown Scripts 
+ Isolating GPU for VMs 
+ Managing Global 2FA (Two-Factor Authentication) 
+ Developer Mode (Unsupported) 
+ Boot Pool Management 
+ Services
+ FTP 
+ NFS 
+ SMB 
+ SNMP 
+ SSH 
+ UPS 
+ Using Shell 
+ Using Audit Logs 
+ UI Reference Guide
+ ⎙ Download or Print 
+ Top Toolbar
+ Alerts
+ Alert Settings Screens 
+ Email Screens 
+ Settings Options
+ User API Keys Screen 
+ Two-Factor Authentication Screen 
+ Jobs Screens 
+ Dashboard 
+ Storage
+ Disks 
+ Pool Creation Wizard 
+ VDEVs 
+ Datasets
+ Zvols 
+ Capacity Settings 
+ Snapshots 
+ User and Group Quotas 
+ Encryption Settings 
+ Permissions 
+ Shares
+ SMB Shares Screens 
+ NFS Shares Screens 
+ Block (iSCSI) Share Target Screens 
+ Fibre Channel Screens 
+ NVMe-oF Share Screens 
+ Data Protection
+ TrueCloud Backup Tasks Screens 
+ Cloud Sync Tasks Screens 
+ Rsync Tasks Screens 
+ Periodic Snapshot Tasks Screens 
+ VMWare Snapshots Screen 
+ Replication Task Screens 
+ Network
+ Network Interface Screens 
+ Network Configuration Screens 
+ Static Routes Widget 
+ IPMI Screens 
+ Credentials
+ Users Screens 
+ Groups Screens 
+ Directory Services Screens
+ Active Directory Screens 
+ IPA Screens 
+ LDAP Screens 
+ Kerberos Settings Screen 
+ Kerberos Realms Screens 
+ Kerberos Keytab Screens 
+ Backup Credentials
+ Cloud Credentials Screens 
+ SSH Screens 
+ Certificates
+ Certificates Screens 
+ Certificate Signing Requests Screens 
+ ACME DNS-Authenticators Screens 
+ KMIP Screen 
+ Containers 
+ Virtual Machines 
+ Apps
+ Custom App Screens 
+ Reporting 
+ System Settings
+ Update Screens 
+ General Settings Screen 
+ Advanced Settings Screen 
+ Boot 
+ Services
+ FTP Service Screen 
+ iSCSI Services Screen 
+ NFS Services Screen 
+ SMB Service Screen 
+ SNMP Service Screen 
+ SSH Service Screen 
+ UPS Services Screen 
+ Shell Screen 
+ Alert Settings Screen 
+ View Enclosure Screen (TrueNAS Systems Only) 
+ Audit Screen 
+ API Reference 
+ TrueNAS Security Reports 
+ TrueNAS Apps 
+ TrueNAS Connect 
+ TrueNAS API Docs 
+ Security Reports 
+ Documentation Archive 
+ View Source 
+ RSS Feed 
+ Software Status 
+ Software Releases 
+ Solutions 
+ TrueNAS Systems 
+ Contributing 
+ References 
+ ➤ TrueNAS 25.10 
+ /
+ TrueNAS Tutorials 
+ /
+ System Settings 
+ /
+ Updating TrueNAS 
+ Edit page 
+TrueNAS Stable Version Documentation
+ This content follows TrueNAS 25.10 (Goldeye) releases.
+Use the Product and Version selectors above to view content specific to a different software release.
+ Updating TrueNAS
+   5 minute read.
+ Last Modified 2025-08-29 14:50 EDT 
+ TrueNAS has several software branches (linear update paths) known as trains.
+Update profiles offer updates to the release running on your system based on specific use cases.
+Some profiles are not available or recommended for Enterprise customers.
+TrueNAS systems are shipped with the profile set for the user based on their use case.
+ The Update screen shows the installed version, other installation or update options, and user profiles.
+Some users can select a different profile option from the Select and update profile dropdown list.
+ Software Update Paths
+ When upgrading TrueNAS to a new major version, follow the upgrade path of major versions until the system is on the desired major version release.
+For more information on the upgrade path from one version to the next, see Software Releases .
+ See the Software Status page for the latest recommendations for software usage.
+Do not change to a prerelease or nightly release unless you intend to keep the system permanently on early versions and are not storing critical data on it.
+ The Developer update profile allows using a non-production train in active development, but be prepared to experience bugs or other problems.
+Testers are encouraged to submit bug reports with debug files.
+For information on how to file an issue ticket, see Filing an Issue Ticket in TrueNAS .
+ The TrueNAS Update screen provides users with automatic and manual update methods.
+ We recommend updating TrueNAS when the system is idle (no clients connected, no disk activity, etc.).
+The system restarts after an upgrade.
+Update during scheduled maintenance times to avoid disrupting user activities.
+ All auxiliary parameters are subject to change between major versions of TrueNAS due to security and development issues.
+We recommend removing all auxiliary parameters from TrueNAS configurations before upgrading.
+ Automatically Updating
+ If an update is available, it shows in the Update Available section on the Update screen.
+ Figure 1: Update Available 
+ Click Install Update to open the Save configuration settings from this machine before updating? window.
+ Figure 2: Save Configuration Settings 
+ Select Export Password Secret Seed , then click Save Configuration .
+ Why should I save the secret seed?
+ The secret seed is the key TrueNAS uses to decrypt encrypted fields in the configuration database.
+TrueNAS encrypts these fields because they can contain sensitive information such as cryptographic certificates, service passwords, or weak hashing algorithms (for example, the NT hashes of SMB users).
+ When you restore a configuration file that does not include the secret seed, TrueNAS generates a new seed and cannot read the encrypted fields.
+Services that rely on those fields stop working. Examples are SMB access for local user accounts and apps.
+Always select the Export Password Secret Seed option when you download the system config file.
+ What happens if I do not save the secret seed? 
+ You can still log into the web UI with your existing password.
+TrueNAS stores login passwords and API keys as one-way hashes rather than encrypted values, so a missing secret seed does not affect them.
+ TrueNAS disables SMB authentication for all local user accounts.
+To restore SMB access for an account, go to Credentials > Users , edit the user, and set a new password.
+TrueNAS requires a new password before it re-enables SMB authentication for that account.
+ TrueNAS deletes some encrypted items entirely, such as cloud credentials, SSH keychain credentials, and Kerberos keytabs.
+It empties the values of others, such as SED passwords, certificate private keys, and service passwords.
+Reconfigure these settings after you log in.
+ After you log in, recheck all system settings to verify the configurations are correct.
+Then test the system to verify it works as desired.
+When the system operates per the desired configuration, download and save the system configuration with the secret seed option selected, and keep it in a secure location.
+ Always save the secret seed with the system configuration file after you change the system configuration.
+This gives you a current backup copy to use if you need it.
+ TrueNAS downloads the configuration and the update files, then starts the installation.
+ After updating, clear the browser cache ( CTRL+F5 ) before logging in to TrueNAS. This ensures stale data doesn’t interfere with loading the TrueNAS UI.
+ Manually Updating
+ If the system detects an available update, it and the Install Update button show below the current release running on the system.
+Click Install Update . The Save configuration settings from this machine before updating? window opens.
+Leave Export Password Secret Seed selected, and then click Save Configuration .
+ TrueNAS Manual update files are available from the TrueNAS Download page website.
+If using the Developer update profile and a nightly build, you can use the manual update option to update the release running on your system if an update is not shown in the Update Available section of the Update screen.
+ Click Install to the right of Manual Update .
+The Save configuration settings from this machine before updating? window opens.
+Click Export Password Secret Seed , then click Save Configuration .
+The Manual Update screen opens.
+ Figure 3: Manual Update Screen 
+ Click Choose File to locate the update file on your system.
+Select a temporary location to store the update file.
+Select Memory Device or the mount location from the dropdown list to keep a copy in the server.
+ Click Apply Update to start the update process. A status window opens and displays the installation progress.
+When complete, the system automatically Restarts .
+ Update Progress
+ When a system update starts, appears in the toolbar at the top of the UI.
+Click the icon to see the current status of the update and which TrueNAS administrative account initiated the update.
+ Figure 4: Update Status Example 
+ Related Content
+ Tutorials Updating TrueNAS Enterprise HA 
+ Getting Started Installing TrueNAS 
+ UI Reference Update Screens 
+ Have more questions? 
+ For further discussion or assistance, see these resources:
+ TrueNAS Community Forum 
+ TrueNAS Community Discord 
+ TrueNAS Enterprise Support (requires paid support contract) 
+ Found content that needs an update?  
+You can
+ suggest content changes 
+ directly! To request changes to this content, click the Feedback button located on the middle-right side of the page (might require disabling ad blocking plugins).
+ Page Sections: 
+ 541 Division Street
+Campbell, CA 95008, USA
+ Contact Us 
+ <email-masked> 
+ Listen to our Podcast 
+ Support
+ Enterprise Support 
+ Community Support 
+ Forums 
+ FAQs 
+ Useful Links
+ Careers 
+ About Us 
+ Blog 
+ News & Articles 
+ TrueNAS Enterprise 
+ TrueNAS Community Edition 
+ TrueCommand 
+ TrueCommand Cloud 
+ TrueNAS Legacy 
+ Software Status 
+ Reseller Network 
+ Subscribe to our newsletter 
+ © Copyright  iXsystems, Inc. dba TrueNAS. All rights reserved. 
+ Legal 
+ TrueNAS Logos

@@ -1,0 +1,130 @@
+CIP is now supporting five SLTS kernels – Civil Infrastructure Platform
+Skip to main content
+ Search 
+ Close Search
+ search
+ Menu 
+ About
+ About
+ FAQ
+Blog
+ Blog
+ Press Releases
+ Newsletter Sign Up
+News & Events
+ News
+ Events
+Technical Resources
+ Documentation
+ GitLab
+ Wiki
+Membership
+ Current Members
+ Learn About Membership
+ Join Now
+ Meeting Calendar
+ Member Support
+twitter linkedin github 
+ search
+ CIP is now supporting five SLTS kernels
+ By Regina NkenchorMay 26, 2025Blog 
+ No Comments
+With the first release of a 6.12-based CIP kernel, the Civil Infrastructure Platform project extends its commitment to provide super long-term supported (SLTS) kernels to the fifth series.
+The new 6.12-cip support was set up to run until mid of 2035. Combined with the other four SLTS kernels, 4.4-cip, 4.19-cip, 5.10-cip and 6.1-cip, all started with 2 years distance and all running for up to 10 years, this provides a high degree of flexibility to their users when to schedule major updates on their devices. See here for further considerations around this.
+The CIP kernel, just like the whole CIP project, is a community effort. Contributions in form of test reports, fix proposals, reviews, etc. are highly welcome. And if you are relying on CIP kernels in production, please consider joining the project to help us sustaining or even expanding our work.
+ Search
+ Recent Posts
+ Securing the Next Decade of Critical Infrastructure: A Bureau Veritas Perspective on Threat Modeling and Hardening in the CIP Open-Source Ecosystem
+ A Decade of Stability: 10 Years of the CIP Kernel WG
+ Civil Infrastructure Platform Achieves OpenSSF Best Practices Gold Badge
+ “Trust in Longevity”: How Cybertrust leverages CIP to Provide Enterprise-Grade Support and Security for Industrial-Grade Linux Distributions.
+ Accelerating Industrial Innovation: How CIP Complements TI’s Industrial Processors
+Archives
+ September 2026
+ August 2026
+ July 2026
+ June 2026
+ May 2026
+ April 2026
+ June 2025
+ May 2025
+ January 2025
+ August 2024
+ June 2024
+ August 2022
+ April 2022
+ August 2021
+ June 2021
+ February 2021
+ December 2020
+ October 2020
+ August 2020
+ June 2020
+ November 2019
+ September 2019
+ July 2019
+ March 2019
+ February 2019
+ October 2018
+ August 2018
+ July 2018
+ June 2018
+ May 2018
+ April 2018
+ March 2018
+ February 2018
+ January 2018
+ December 2017
+ November 2017
+ October 2017
+ September 2017
+ August 2017
+ June 2017
+ May 2017
+ March 2017
+ February 2017
+ October 2016
+ August 2016
+ May 2016
+ April 2016
+Categories
+ Announcement
+ Blog
+ Events
+ In the News
+ Press Release
+ Work Group
+Meta
+ Log in
+ Entries feed
+ Comments feed
+ WordPress.org
+ Comments are closed.
+-->
+ © 2022 Civil Infrastructure Platform is a Linux Foundation Project. All Rights Reserved.
+ Linux Foundation is a registered trademark of The Linux Foundation. Linux is a registered trademark of Linus Torvalds.
+Please see our privacy policy and terms of use.
+ Close Menu
+ About
+ About
+ FAQ
+Blog
+ Blog
+ Press Releases
+ Newsletter Sign Up
+News & Events
+ News
+ Events
+Technical Resources
+ Documentation
+ GitLab
+ Wiki
+Membership
+ Current Members
+ Learn About Membership
+ Join Now
+ Meeting Calendar
+ Member Support
+ twitter 
+linkedin 
+github

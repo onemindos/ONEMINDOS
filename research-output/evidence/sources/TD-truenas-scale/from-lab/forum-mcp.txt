@@ -1,0 +1,372 @@
+TrueNAS Labs - MCP Server - Resources - TrueNAS Community Forums 
+ = 40rem)" rel="stylesheet" data-target="chat_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-ai_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-gamification_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-reactions_desktop" />
+ = 40rem)" rel="stylesheet" data-target="poll_desktop" />
+ TrueNAS Enterprise Hardware 
+ | 
+ Commercial Support 
+ Report a Bug 
+   |  
+ Docs & AI Search 
+   |  
+ Careers 
+   |  
+ Browse Forum Archive 
+ TrueNAS Community Forums 
+ TrueNAS Labs - MCP Server 
+ Resources 
+ Research-Preview 
+ <forum-user-masked>
+ February 20, 2026, 5:38pm
+ 1 
+ As discussed on the T3 Podcast, we have a Research Preview MCP Server for testing TrueNAS Management via an LLM.
+ truenas.github.io 
+ TrueNAS MCP Server | TrueNAS Research Labs 
+ NOTE: This is NOT for production use, and is not fully supported by TrueNAS at this stage. This is released to gather feedback from our community on how well the concept does (or doesn’t) work in their own testing environments.
+ Please keep comments and discussion related to this MCP Server in this thread. Happy testing!
+ TrueNAS 25.10.2 Release - and Talking to your TrueNAS server with MCP? | TrueNAS Tech Talk (T3) E054 
+ TrueNAS 26.0.0-BETA.2 is Now Available! 
+ <forum-user-masked>
+ February 20, 2026, 6:50pm
+ 2 
+ which version of TrueNAS am i running?
+Checking your TrueNAS system info now and I’ll report the exact installed version.
+Called truenas MCP system_info tool
+Worked for 11s
+You’re running TrueNAS version 25.10.1.
+ Working fine on Codex. I started using TrueNAS very recently (having moved from UGREEN UGOS), an official MCP is very exciting and I’m sure it will be very helpful
+ <forum-user-masked>
+ February 20, 2026, 7:25pm
+ 3 
+ Oh wow, I’ve been wishing something like this existed. Excited to try this out.
+ <forum-user-masked>
+ February 20, 2026, 8:08pm
+ 4 
+ And for the lobsters among us: It also works using openclaw. 
+answer one by one:
+- which version of TrueNAS am I running?
+- how many apps are running?
+- read out all available temperatures
+───
+1️⃣ TrueNAS Version
+TrueNAS 25.10.2 running on <host> (AMD Ryzen AI 9 HX PRO 370, 12 cores/24 threads, 92 GB ECC RAM, uptime: ~1 day)
+───
+2️⃣ Running Apps
+51 apps — all status RUNNING ✅
+| App | Version |
+| --------------------------- | --------- |
+| Dawarich | 1.2.0 |
+| Frigate | 0.16.4 |
+| ESPHome | 2026.2.1 |
+| Immich | v2.5.6 |
+| Jellyfin | 10.11.6 |
+| Plex | 1.43.0 |
+| Vaultwarden | 1.35.3 |
+| Stalwart | v0.15.5 |
+| OpenCloud | 4.0.3 |
+| Keycloak | 26.5.4 |
+| Gitea | 1.25.4 |
+| Mealie | v3.11.0 |
+| Open WebUI | v0.8.3 |
+| Pihole | 2026.02.0 |
+| Syncthing | 2.0.14 |
+| Radarr/Sonarr/Lidarr/Bazarr | ✅ |
+| + 35 more | ✅ |
+───
+3️⃣ Temperatures
+💾 Hard Drives (HDD — RAIDZ1):
+| Disk | Temp |
+| ---- | ---- |
+| sda | 37°C |
+| sdb | 38°C |
+| sdc | 38°C |
+| sdd | 38°C |
+⚡ NVMe SSDs:
+| Disk | Temp |
+| ------- | ------- |
+| nvme0n1 | 36°C |
+| nvme1n1 | 54°C 🟡 |
+| nvme2n1 | 51°C 🟡 |
+HDDs are fine ✅, NVMes are running a bit warm but still within normal range. CPU temperatures couldn't be retrieved — the TrueNAS Reporting API requires a different endpoint for that which I haven't cracked yet.
+ <forum-user-masked>
+ February 20, 2026, 8:30pm
+ 5 
+ Interesting! I got the MCP setup via Cursor running Codex 5.3 high and it told me the MCP server has no tool to provide any temperature data. What call did your OpenClaw run to get disk temps?
+ <forum-user-masked>
+ February 20, 2026, 8:50pm
+ 6 
+ Temp data is available in the API, this motivates me to go extend the MCP a bit more to include the full range of graph data Fix incoming!
+ <forum-user-masked>
+ February 20, 2026, 8:55pm
+ 7 
+ Very good catch!
+ Lobster got caught red clawed:
+ The truenas-mcp tool doesn’t expose temperatures, so I called the TrueNAS REST API directly with curl:
+ POST https://<private-ip>/api/v2.0/disk/temperatures 
+ Authorization: Bearer <API_KEY>
+ <forum-user-masked>
+ February 20, 2026, 9:19pm
+ 8 
+ Cheater! 
+ I just pushed a proper change to the MCP to get this data, and a bunch more now as well.
+ <forum-user-masked>
+ February 20, 2026, 10:48pm
+ 9 
+ Screenshot_20260220_231651 2560×1254 111 KB 
+ Screenshot_20260220_231424 2560×728 54.7 KB 
+ <forum-user-masked>
+ February 21, 2026, 1:41am
+ 10 
+ It works! Codex 5.3 High got it with get_system/disk_metrics now. cputemp/disktemp HOUR unit.
+ Current readings (from latest samples):
+CPU temp: ~28 C overall (cpu0 29, cpu1 30, cpu2 28, cpu3 28)
+Disk temps:
+sda: 32 C
+sdb: 38 C
+sdc: 40 C
+sdd: 46 C
+sde: 45 C
+Last-hour CPU max observed was 48 C on one core.
+ <forum-user-masked>
+ April 8, 2026, 4:01am
+ 12 
+ TrueNAS MCP Server Created Just posting this here for reference and a python alternative.
+ <forum-user-masked>
+ June 23, 2026, 3:54pm
+ 13 
+ This seems like an incredibly useful project! I have not seen any releases or updates on Github since Feb 20th, and so I am just wondering where this is headed, and what the timeline is looking like. These tools are incredibly powerful, especially for new/beginner/casual users.
+ Other users (spranab) have started to create their own MCP to support their instances.
+ <forum-user-masked>
+ June 23, 2026, 5:26pm
+ 14 
+ Oh, its absolutely on our radar to come out with a full production version of the MCP. The research preview was just that, a preview to get feedback from the field, which has been excellent so far. I’ll look forward to announcing the release of a full-featured MCP at a future date 
+ <forum-user-masked>
+ June 23, 2026, 6:34pm
+ 15 
+ Thanks, Kris!! I think this is a really exciting step forward, and I know I at least will be delighted to see a full production version of this.
+ <forum-user-masked>
+ August 22, 2026, 6:49pm
+ 16 
+ Configured in my lab. Works well for sysadmin tasks and reporting functions! Thanks for making available. I also included a summary table where the Agent used API versus MCP if it’s useful.
+ MCP reporting POC
+ image 1251×266 24.3 KB 
+ image 1377×1040 135 KB 
+ image 1360×334 35.4 KB 
+SKILL 
+ TrueNAS lab health (RGY) — all four MCP servers:
+truenas-core, truenas-scale, truenas-offsite1, truenas-offsite2.
+Read-only. No dismiss/write unless I explicitly authorize.
+Per host (MCP): system_info, system_health, list_alerts (dismissed=false), query_pools.
+Also (tn-ws.py — MCP has no these APIs):
+ Core: pool.snapshottask.query
+ Scale: replication.query
+(Offsites are receive-only; expect no local snap/repl tasks.)
+RGY (active alerts only; dismissed ignored; INFO success does not grade):
+ G = reachable, p0 ONLINE/healthy, no active WARNING/CRITICAL, snap/repl not ERROR
+ Y = reachable + pool OK, but active WARNING (or degraded-but-online)
+ R = unreachable, pool not ONLINE/unhealthy, CRITICAL/ERROR alert, or task state ERROR
+Lab overall = worst host (R > Y > G).
+Deliverable:
+1. Update canvases/truenas-lab-health.canvas.tsx
+ - Stats: overall + host G/Y/R (or snap/repl OK counts)
+ - Callout: lab status
+ - Host table: RGY | MCP | Host / IP | Version | Uptime | Pool | Active alerts | Snap / repl | Notes
+ - Snapshot table (Core): ID | Dataset | Schedule | Retain | Enabled | State | Last run
+ - Replication table (Scale): RGY | Name | Dir | Path | Schedule | Retain | Enc | State | Notes
+ - RGY pills + matching rowTone; caption with source + timestamp
+2. Short chat summary with the same host table
+Always mask host IPs as 10.40.0.** (never print last octets).
+Clean slate each run — grade only current live state.
+ MCP vs API (feedback for TrueNAS Labs MCP)
+ Needed for this workflow
+ MCP
+ API (tn-ws.py)
+ system_info , system_health , list_alerts(dismissed=false) , query_pools 
+ Yes
+ Yes
+ Periodic snapshot tasks (config + state)
+ Missing ( query_snapshots only)
+ pool.snapshottask.query 
+ Replication tasks (config + state)
+ Missing
+ replication.query 
+ Grade active alerts only
+ Partial — system_health still includes dismissed in alerts[] / alert_count 
+ Prefer alert.list filtered; or use MCP list_alerts(dismissed=false) 
+ MCP Build POC
+ Using the truenas mcp for our truenas-* hosts, build the solution in the workflow diagram in the agent-lab.
+Guidelines:
+Use the existing repluser as you see fit. Just use default time schedules.
+Source pools are the p0/dsMusic, p0/dsHomes, and p0/dsBackups datasets.
+Ask few questions and just do it unless creds changes and you need my approval.
+Keep track of the MCP versus API functions so we can feed back to the TrueNAS Labs MCP developers.
+ graph TD
+ subgraph A[Production Server]
+ P["1. Take Snapshot (zfs)"] -->|Snapshot Data| B;
+ end
+ subgraph B[Backup Orchestrator Server]
+ B_Job(["2. Native Replication Job"]) -->|Stream Snapshot| O1;
+ B_Job -->|Stream Snapshot| O2;
+ end
+ subgraph Offsite_Storage[Offsite1 & Offsite2 Physical Servers]
+ direction LR
+ O1["Offsite1 Pool (p0/Archives)"]
+ O2["Offsite2 Pool (p0/Archives)"]
+ style O1 fill:#ffcccc,stroke:#cc0000,stroke-width:2px
+ style O2 fill:#ffcccc,stroke:#cc0000,stroke-width:2px
+ end
+ subgraph Security[🔒 Security & Recovery Protocol]
+ direction TB
+ E_Barrier(Dataset Encrypted at Rest)
+ U_Step(["Manual Unlock"])
+ end
+ %% Connections and Flow Logic
+ %% Replication Flow
+ B -->|3. Write Data| O1;
+ B -->|3. Write Data| O2;
+ %% Offsite State and Recovery
+ O1 --> E_Barrier;
+ O2 --> E_Barrier;
+ E_Barrier -- Requires Key --> U_Step;
+ U_Step --> |4. Data Available| R[Restore/Browse Data];
+ %% The full cycle
+ A --> B;
+ B --> O1;
+ B --> O2;
+ %% Notes and Legend
+ style B_Job fill:#e6f7ff, stroke:#007bff
+ style E_Barrier fill:#fff2cc, stroke:#ff9900, stroke-width:2px
+ subgraph Legend
+ L1[✅ Key Benefit: Data is unreadable if the physical box is stolen.]
+ L2[⚙️ Operational Benefit: No scripts needed; uses native TrueNAS GUI.]
+ end
+ Workflow is live end-to-end on the lab.
+ Built
+ Step
+ Host
+ What
+ Snapshots
+ truenas-core
+ Periodic tasks on p0/dsBackups , p0/dsHomes , p0/dsMusic — every 15m ( :00/:15/:30/:45 ), keep 4h
+ PULL
+ truenas-scale
+ pull-from-prod-* → p0/Archives/<leaf> via repluser / prod-ssh — :05/:20/:35/:50 , keep 8h
+ PUSH + encrypt
+ truenas-scale → offsite1/2
+ push-to-offsite{1,2}-* → encrypted p0/Archives/<leaf> — :10/:25/:40/:55 , keep 8h
+ MCP vs API (feedback for TrueNAS Labs MCP)
+ Needed for this workflow
+ MCP
+ API ( tn-ws.py )
+ system_info , query_pools , query_datasets , query_snapshots , query_jobs , list_alerts 
+ Yes
+ Yes
+ create_dataset (incl. encryption options)
+ Yes
+ Yes
+ Users / repluser / SSH pubkey
+ Missing
+ user.query/create/update 
+ SSH service enable/start
+ Missing
+ service.* 
+ Keychain + host-key scan
+ Missing
+ keychaincredential.* 
+ Periodic snapshot tasks
+ Missing
+ CORE: pool.snapshottask.* ; prove snap: zfs.snapshot.create (CORE has no pool.snapshot.* )
+ Replication CRUD + replication.run 
+ Missing
+ replication.query/create/update/run 
+ Dataset lock/unlock
+ Missing
+ pool.dataset.lock/unlock 
+ zfs allow 
+ Missing
+ SSH as root (SCALE truenas_admin cannot)
+ Highest-value MCP adds: replication task CRUD/run, keychain SSH creds, snapshottask CRUD, and CORE-aware snapshot create ( zfs.snapshot.create ).
+ Ops notes
+ SCALE auth rate-limits rapid tn-ws.py reconnects — space calls or keep a session.
+ PUSH must use readonly=IGNORE for repluser (cannot set readonly ).
+ Consider rotating TN_SCALE_API_KEY — a rate-limit error briefly echoed the key in a local terminal log.
+ <forum-user-masked>
+ November 2, 2026, 3:48pm
+ 17 
+ Note, MCP has been version updated, handful of new APIs and bug fixes. Please feel free to update and test.
+ <forum-user-masked>
+ November 2, 2026, 6:56pm
+ 18 
+ Is it deterministic?
+ <forum-user-masked>
+ November 2, 2026, 9:05pm
+ 19 
+ In what sense? The API and the MCP tools themselves are of course fully deterministic. Meaning you or an agent calls the tool with your parameters, that is mapped into the API and is deterministic the whole way through.
+ Of course that has nothing to say about the LLM or the Human + LLM combination on the other end of the toolset. Both of those tend to be non deterministic, although I would say with the latest frontier models, they are trending towards being more reliably deterministic than the human counterpart sitting at the keyboard tends to be. Anybody who’s been interacting with a user community for any decent amount of time should know that 
+ <forum-user-masked>
+ November 2, 2026, 9:17pm
+ 20 
+ MikeO3:
+ SCALE auth rate-limits rapid tn-ws.py reconnects — space calls or keep a session.
+ FYI this is misuse of websocket protocol. The point of having a stateful protocol is that you don’t rapidly create / tear down. You should keep sessions. It’s really no different than SMB in that way for example (unless you’re a PBS developer – after years of still doing SMB sessions wrong with resulting server load and log spam) .
+ <forum-user-masked>
+ November 2, 2026, 10:20pm
+ 21 
+ In terms of flow control configuration (esp. tool discovery). I had to ‘fix’ some setup where the LLM was supposed to organize the data and tool chain ad hoc. (With some interesting results.)
+ (Of course, I did so by reverting to periodic scripts.)
+ next page → 
+ Related topics
+ Topic
+ Replies
+ Views
+ Activity
+ Home lab migrating off vSphere 
+ Apps and Virtualization 
+ 14 
+ <forum-user-masked>
+ July 17, 2024
+ Responding to your Feedback on 25.10, SMART, NVIDIA, and more | TrueNAS Tech Talk (T3) E045 
+ Announcements 
+ SMART 
+ , 
+ Podcast 
+ , 
+ Goldeye 
+ , 
+ 2510 
+ 67 
+ <forum-user-masked>
+ February 21, 2026
+ TrueNAS Bloatware? 
+ TrueNAS General 
+ 24 
+ <forum-user-masked>
+ July 20, 2026
+ 24.04.1 - eta 05/28 
+ TrueNAS General 
+ SCALE 
+ 32 
+ <forum-user-masked>
+ May 29, 2024
+ Questions re: Optimizing SCRUB and SMART Test Schedules for HDD and NVME SSD Pools (Home/Small Office) 
+ TrueNAS General 
+ SCALE 
+ , 
+ ZFS 
+ , 
+ SMART 
+ , 
+ NVMe 
+ , 
+ Community-Edition 
+ 20 
+ <forum-user-masked>
+ July 10, 2025
+ Home 
+ Categories 
+ Guidelines 
+ Terms of Service 
+ Privacy Policy 
+ Powered by Discourse , best viewed with JavaScript enabled

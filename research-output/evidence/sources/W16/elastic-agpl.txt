@@ -1,0 +1,301 @@
+SOURCE: https://www.elastic.co/blog/elasticsearch-is-open-source-again
+ACCESSED: 2026-11-10
+
+Elasticsearch Is Open Source. Again! | Elastic Blog
+Skip to main content
+The Forrester Wave™: XDR Platforms, Q2 2026
+Access report
+About us
+Partners
+Support
+|
+Log in
+Elasticsearch
+Elasticsearch for...
+Context engineering
+Get the most relevant context to agents so that they deliver accurate and trusted outcomes
+Vector database
+Efficiently create, store, and search vector embeddings
+Search powered applications
+The speed, scale, and flexibility to power modern application experience
+Logs
+Collect, search, explore, and act on large volumes
+Threat protection
+Detect, investigate, and remediate cyber threats at scale on real-time data
+Workflows
+Combine scripted automation with AI reasoning natively in Elasticsearch
+Elasticsearch components
+Elasticsearch
+A distributed, RESTful search and analytics engine
+Kibana (Discover, Dashboards)
+Explore, visualize, and build dashboards using data stored in Elasticsearch
+Elastic Agent Builder
+Build context-aware agents faster that incorporate all your data and deliver best-in-class relevance.
+AutoOps
+Easy cluster management with performance recommendations, resource utilization, and cost insights
+Piped query language
+Simplify workflows and accelerate query response for efficient data processing
+Jina AI search models
+Jina AI is part of Elastic, bringing best-in-class models for embeddings, rerankers, and URL and doc extraction
+Deployment options
+Elastic Cloud Serverless
+Zero operational load so that you can build faster
+Start free trial
+Elastic Cloud Hosted
+Deploy and scale on any cloud in minutes with ultimate control
+Start free trial
+Self-managed Elasticsearch
+Run locally, via Kubernetes, or your own orchestration
+Download
+Solutions
+Search
+Ecommerce search
+Improve customers' search experience and drive conversion
+Customer support search
+Help customers find support information quickly and easily
+Search-driven apps
+Create engaging apps quickly and easily with Elasticsearch
+Overview
+Observability
+Log analytics
+Centralize and analyze logs using Search AI to detect, investigate, and remediate incidents
+Infrastructure monitoring
+Monitor, visualize, and analyze the health of your on-premises and cloud infrastructure
+Digital experience monitoring
+Improve users' experience with real user monitoring (RUM), synthetic testing, and uptime monitoring
+App performance monitoring
+Monitor, visualize, and analyze the performance and availability of your applications
+AI SRE
+Elastic nightshift AI SRE agents detect and investigate across your entire stack, with full context
+LLM observability
+Monitor and optimize LLM performance, cost, safety, and reliability
+Overview
+Security
+SIEM
+Detect, investigate, and respond to evolving threats with Al-driven security analytics
+Agentic SOAR
+Automate alert triage, enrichment, and response natively with Elastic Workflows, no separate SOAR required
+XDR and endpoint security
+Secure your endpoints, clouds, and containers with AI-driven insights
+AI for security
+Automate your triage, investigation, and response workflows with Search AI
+Overview
+Enterprise
+Why Elastic?
+10x your data's value
+Learn how you can tap into your underutilized data with Search AI
+Knowledge Hub
+Industry
+Financial services
+Manufacturing
+Public sector
+Retail
+Telecommunications
+View all industries
+Better together
+Cloud providers
+Deploy with your favorite cloud marketplace: AWS, Azure, or Google Cloud
+Elastic AI Ecosystem
+Use Elastic with built-in integrations with leading Al technology providers
+Search AI Partner Program
+Partner with Elastic so we can find the answers, together
+Accolades
+AV-Comparatives
+Top result in 2026 Endpoint, Pevention, and Response Test with 100% protection scores and zero false alarms
+Forrester Wave™ XDR
+Strong Performer in The Forrester Wave™: XDR Platforms, Q2 2026
+2026 Gartner® Magic Quadrant™
+A Leader in 2026 Gartner® Magic Quadrant™ for Enterprise AI Search
+IDC MarketScape
+Leader in the 2026 SIEM Assessment
+Customers
+View all customers stories
+Search
+Docusign powers millions of e-signature searches daily with Elasticsearch
+Security
+UOL slashes incident resolution time by 80% with Elastic Security
+Observability
+Pepsi boosts efficiency and reduces MTTR by 30% with Elastic Observability
+Resources
+Launch
+Get started
+Follow along with beginner guides for each solution
+Demo gallery
+Play in our hands-on sandbox and watch how-to videos
+Downloads
+Download Elasticsearch now to get started for free
+Integrations
+Easily connect Elasticsearch to all the systems that matter
+Learn
+Docs
+Learn how to use all of Elastic's products and features
+Elasticsearch Labs
+Learn how to build with the latest features and abilities
+Elastic Security Labs
+Understand the threat horizon and see the latest research
+Elastic Observability Labs
+Explore what's next in monitoring and metric trends
+Blog
+Read all of the latest company news from Elastic's blog
+Connect
+Community
+Join our community of developers on Slack, GitHub, and more
+Events
+Attend your local meetups, workshops, and Elastic{ON}
+Webinars
+Check out Elastic webinars and learn directly from our experts
+Discuss
+Share tips, ask questions, and learn from other developers
+Get help
+Training
+Learn Elastic for free and expand your skills with our courses
+Support
+Get expert advice on your Elasticsearch deployments for fast resolution
+Consulting
+Drive success with custom support and consulting services
+Pricing
+Docs
+Search
+Start free trial
+Contact sales
+Table of Contents
+Table of contents
+Elasticsearch Is Open Source. Again!
+Close
+Elasticsearch Is Open Source. Again!
+By
+Shay Banon
+August 29, 2024
+Share on Twitter
+Share on Twitter
+Share on LinkedIn
+Share on LinkedIn
+Share on Facebook
+Share on Facebook
+Share by Email
+Share by Email
+Print this page
+Print
+[D.N.A]
+Elasticsearch and Kibana can be called Open Source again. It is hard to express how happy this statement makes me. Literally jumping up and down with excitement here. All of us at Elastic are. Open source is in my DNA. It is in Elastic DNA. Being able to call Elasticsearch Open Source again is pure joy.
+[LOVE.]
+The tl;dr is that we will be adding AGPL as another license option next to ELv2 and SSPL in the coming weeks. We never stopped believing and behaving like an open source community after we changed the license. But being able to use the term Open Source, by using AGPL, an OSI approved license, removes any questions, or fud, people might have.
+[Not Like Us]
+We never stopped believing in Open Source at Elastic. I never stopped believing in Open Source. I’m going on 25 years and counting as a true believer. So why the change 3 years ago? We had
+issues with AWS
+and the market confusion their offering was causing. So after trying all the other options we could think of, we changed the license, knowing it would result in a fork of Elasticsearch with a different name and a different trajectory. It’s a long story.
+[Like That]
+The good news is that while it was painful, it worked. 3 years later, Amazon is fully invested in their fork, the market confusion has been (mostly) resolved, and our partnership with AWS is stronger than ever. We were even named AWS partner of the year. I had always hoped that enough time would pass that we could feel safe to get back to being an Open Source project - and it finally has.
+[All The Stars]
+We want to make the life of our users as simple as possible. We have people that really like ELv2 (a BSD inspired license). We have people that have SSPL approved (through MongoDB using it). Which is why we are simply
+adding another option, and not removing anything
+. If you already use and enjoy Elasticsearch, please carry on, nothing changed. For others, you now have the option to choose AGPL as well.
+[LOYALTY.]
+We chose AGPL, vs another license, because we hope our work with OSI will help to have more options in the Open Source licensing world. And it seems like another OSI approved license will rhyme with SSPL and/or AGPL. Heck, maybe AGPL is enough for infrastructure software like us with how things have progressed since we had to change the license (for example, Grafana who moved to it from Apache2). We are committed to figure it out.
+[euphoria]
+I am so happy to be able to call Elasticsearch Open Source again.
+[Alright]
+With any change, there can be confusion, and, of course, there can be trolls. (Aren’t there always trolls?) Let’s have some fun and try to answer some of these.. Here are some I can imagine, but let’s keep adding to this.
+“Changing the license was a mistake, and Elastic now backtracks from it”. We removed a lot of market confusion when we changed our license 3 years ago. And because of our actions, a lot has changed. It’s an entirely different landscape now. We aren’t living in the past. We want to build a better future for our users. It’s because we took action then, that we are in a position to take action now.
+“AGPL is not true open source, license X is”: AGPL is an OSI approved license, and it's a widely adopted one. For example, MongoDB used to be AGPL and Grafana is AGPL. It shows that AGPL doesn’t affect usage or popularity. We chose AGPL because we believe it’s the best way to start to pave a path, with OSI, towards more Open Source in the world, not less.
+“Elastic changes the license because they are not doing well” - I will start by saying that I am as excited today as ever about the future of Elastic. I am tremendously proud of our products and our team's execution. We shipped Stateless Elasticsearch, ES|QL, and tons of vector database/hybrid search improvements for GenAI use cases. We are leaning heavily into OTel in logging and Observability. And our SIEM product in Security keeps adding amazing features and it's one of the fastest growing in the market. Users' response has been humbling. The stock market will have its ups and downs. What I can assure you, is that we are always thinking long term, and this change is part of it.
+If we see more, we will add them above to hopefully reduce confusion.
+[HUMBLE.]
+It’s so exciting to build for the future. Elasticsearch is back to being Open Source. Yay! What a wonderful thing to say. What a wonderful day.
+Forever :elasticheart:
+Open Source
+Shay
+Get started on Elastic Cloud today by signing up for a
+free 14-day trial
+.
+Share
+Share on Twitter
+Share on Twitter
+Share on LinkedIn
+Share on LinkedIn
+Share on Facebook
+Share on Facebook
+Share by Email
+Share by Email
+Print this page
+Print
+Sign up for Elastic Cloud free trial
+Spin up a fully loaded deployment on the cloud provider you choose. As the company behind
+Elasticsearch
+, we bring our features and support to your Elastic clusters in the cloud.
+Start free trial
+Follow us
+About us
+About Elastic
+Leadership
+Blog
+Newsroom
+Join us
+Careers
+Career portal
+How we hire
+Partners
+Find a partner
+Partner login
+Request access
+Become a partner
+Trust & Security
+Legal
+Trust center
+Privacy at Elastic
+Trade Compliance
+Ethics & Compliance
+Investor relations
+Investor resources
+Governance
+Financials
+Stock
+Excellence Awards
+Previous winners
+Elastic{ON} Tour
+Become a sponsor
+All events
+About us
+About Elastic
+Leadership
+Blog
+Newsroom
+Join us
+Careers
+Career portal
+How we hire
+Partners
+Find a partner
+Partner login
+Request access
+Become a partner
+Trust & Security
+Legal
+Trust center
+Privacy at Elastic
+Trade Compliance
+Ethics & Compliance
+Investor relations
+Investor resources
+Governance
+Financials
+Stock
+Excellence Awards
+Previous winners
+Elastic{ON} Tour
+Become a sponsor
+All events
+Trademarks
+Terms of Use
+Privacy Statement
+Sitemap
+©
+. elasticsearch B.V. All Rights Reserved
+This website and all associated content, software, discussion forums, products, and services are intended for professional use only. No consumer use of this website or its content is intended or directed.
+Elastic, Elasticsearch, and other related marks are trademarks, logos, or registered trademarks of elasticsearch B.V. in the United States and other countries.
+Apache, Apache Lucene, Apache Hadoop, Hadoop, HDFS and the yellow elephant logo are trademarks of the
+Apache Software Foundation
+in the United States and/or other countries. All other brand names, product names, or trademarks belong to their respective owners.
+Notice at Collection
+|
+Your Privacy Choices

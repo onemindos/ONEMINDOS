@@ -1,0 +1,146 @@
+TrueNAS 25.10: Smarter, Streamlined Updates & Tools 
+ Products V-Series – Max Performance & Versatility 
+ M-Series – High Capacity All-Flash or Hybrid 
+ F-Series – High Performance NVME 
+ R-Series – Single Controller Appliances 
+ H-Series – Versatility and Power Efficiency 
+ Mini Series – Edge and Branch Office 
+ TrueNAS Enterprise – Mission Critical Storage. 24×7 Enterprise Support 
+ TrueNAS Community Edition – Test Drive TrueNAS in Your Environment 
+ Manage Your TrueNAS Systems 
+ Solutions Industry 
+ Media & Entertainment 
+ US Public Sector 
+ Audio 
+ Automotive 
+ Broadcasting 
+ Education 
+ Gaming 
+ Healthcare 
+ Manufacturing 
+ MSP 
+ Use Cases 
+ AI & Research 
+ Analytics 
+ Backup & Archival 
+ Cloud 
+ Data Mobility 
+ File Sharing 
+ Red Hat OpenShift 
+ Surveillance/CCTV 
+ TrueCloud Backup 
+ Veeam Backup 
+ Virtualization 
+ TrueNAS as an Alternative 
+ Alternative to Dell 
+ Alternative to Everpure / Pure Storage 
+ Alternative to HPE Alletra 
+ Alternative to NetApp 
+ Alternative to Public Cloud 
+ Support & Resources Support 
+ Enterprise Support – For customers with active support contracts 
+ Community Support – For peer-to-peer, forum support 
+ Community 
+ TrueNAS Community Edition 
+ Community Forum 
+ TrueNAS Merch Store 
+ Resources 
+ Apps 
+ Case Studies 
+ Certifications & Integrations 
+ Data sheets 
+ Documentation 
+ FAQ 
+ Reseller Network 
+ Software Status 
+ Solution Briefs and Guides 
+ TrueNAS API 
+ TrueNAS Blog 
+ TrueNAS Security 
+ Videos 
+ White Papers 
+ ZFS Overview 
+ Company About TrueNAS 
+ Team 
+ Our Clients 
+ Reviews 
+ Awards 
+ Newsroom 
+ Careers 
+ Contact Us 
+ Get A Quote 
+ Close 
+ Get A Quote 
+ Sign In TrueNAS Connect 
+ Partner Portal 
+ Enterprise Support 
+ Smarter and Streamlined Updates with TrueNAS 25.10
+ } 
+ November 19, 2025 
+ o 
+ TrueNAS | TrueNAS Community Edition 
+ TrueNAS 25.04 “Fangtooth” is the most reliable and popular version of TrueNAS today, trusted to keep data safe for millions of users worldwide. Today, we’re explaining the improvements to the update tools and communication for our latest release, TrueNAS 25.10 “Goldeye” – already installed on over 30,000 systems just two weeks after its launch at the end of October.
+ As part of the upgrade process of any software, there can occasionally be changes that require some preparation or awareness of the impact that they may cause. From security hardening to updated defaults, it’s important to give users advance notice before they’ve installed a new software version, and have an easy way to keep track of these changes and the status of any known issues that might be of concern to each user.
+ With the TrueNAS 25.10 update, we’ve significantly improved the tools and communication channels for software updates. Deciding when to update your TrueNAS system is always an important and often personal decision, and it’s best to have all of the relevant information available so you can make an informed choice.
+ Let’s go through each of these changes, starting with the familiar Software Status page.
+ A New (Automatically Updated) Software Status Page
+ For the past three years, TrueNAS users have relied on our Software Status page to provide guidance and suggestions on when to update. Early adopters would eagerly refresh the page waiting for a new release to be made available, and conservative users would wait for the new release to reach the bottom of the stack, letting it fully mature before deploying it onto their own systems.
+ This Software Status page has been manually maintained by the TrueNAS web development team over this time; and while it’s proven to be helpful and appreciated, it wasn’t always the easiest to discover, and could be overwhelming for new users.
+ With TrueNAS 25.10, we’ve tied the updates to the Status page in with our code development and deployment pipeline. With one simple code change upstream, a build can be promoted to a new profile, making it visible on the Software Status page, ready to download by our customer base, and even moved to be the new default image for new TrueNAS Enterprise appliances on the factory floor.
+ The software status page we introduced provides advice on when to update based on the user profile. Conservative users need less disruption and a lower risk of finding issues. Early adopters want to work with the latest technology and features.
+ We’ve been manually running this page for over 3 years now, and it has proven to be very useful for those who use it. Sometimes, the (unwanted) advice is not to update yet, but unwanted advice can be good advice.
+ This status page has moved from our web team to our engineering and documentation team, with the focus on automating the process. With one administrative change, we can change the status of software in our appliance factory, in customer appliances, on this status page, and in the TrueNAS UI.
+ Alongside the new automated updates to the page, we’re streamlining the display table itself to help reduce confusion about what version of TrueNAS is best for each user profile to install. The update advice will be faster and more thorough. We can take into account bug reports and the number of deployments. There are two major changes to the new page:
+ Retirement of TrueNAS CORE 13.0 Update Recommendations 
+ Minor updates to TrueNAS CORE 13.0 are becoming exceedingly rare, and we suggest that users looking for new features and regular security updates make plans to upgrade to TrueNAS Community Edition. As always, TrueNAS 13.0 will continue to operate reliably if your environment remains unchanged.
+ Consolidation of Mission Critical and Conservative 
+ Most users considered “Conservative” and “Mission Critical” to be identical, and as such we saw little difference in update rates for these two profiles. Truly “Mission Critical” workloads should make use of TrueNAS Enterprise systems with High Availability (HA) – but our TrueNAS CE users can, of course, wait for the same “Mission Critical” tag to apply to their desired software before manually updating.
+ Searchable, Browseable Version Notes
+ The new Version Notes introduced on the TrueNAS Docs site is easier than ever to read. This single web document consolidates release notes, new major features, and known issues for the TrueNAS 25.10 release into a simple format, and gives power users and developers the ability to browse or search the full changelog of tickets directly from the TrueNAS Engineering back-end Jira project.
+ Interested in searching for a specific issue or feature request? It’s easier than ever to track it down – and for those interested, get a peek behind the scenes at the process.
+ We’re interested in hearing your feedback about this new Version Notes page and format. If you have any thoughts – positive or negative – feel free to submit them through the easy “Feedback” pop-up tab on the right side of the Docs site, on this page or any other you’re interested in.
+ Integrated Update Advice, Without Leaving the Web UI
+ The Update page in TrueNAS 25.10 works in tandem with the Version Notes and Software Status page, bringing you a snapshot of the key changes for upgrades offered, important pre-update verification steps, as well as a link to the full Version Notes page.
+ Integrated with the new page is the ability to select an Update Profile. By selecting a profile, users ensure they receive update notifications that are directly relevant to their chosen pace and preferences, eliminating unnecessary alerts and providing a more focused experience.
+ Which Update Profile Should I Pick?
+ For the majority of TrueNAS Community Edition users, we recommend sticking to the “General” update profile. This will ensure a balance between the availability of new features, and the maturity and stability that you’ve come to expect from TrueNAS. Once you’ve chosen to upgrade to TrueNAS 25.10 “Goldeye”, simply make your desired selection from the Update Profile selector on the System -> Update screen.
+ Users seeking early access to cutting-edge features and new releases should consider the “Early Adopter” profile, as well as making use of the convenient links to the full Release Notes pages on the TrueNAS Documentation site to review any significant changes, especially when moving between major releases.
+ Both new and established TrueNAS users should also review the Boot Environment activation and rollback process, which enables easy undoing of upgrades and allowing the system to revert to a previously used version with a single reboot.
+ Enterprise Customers have Enterprise Support
+ While TrueNAS updates have been streamlined and made easier than ever, we recommend that our TrueNAS Enterprise customers reach out to our Support services to get customized advice and assistance where required. Let the experts at TrueNAS review your use case and challenges to determine when the best time for you to update your systems is, and have the added assurance of our top-rated and highly-reviewed support team on standby to guide you through the process and resolve any unexpected issues.
+ Ready to Jump In?
+ Ready to experience TrueNAS? You can download TrueNAS Community Edition to try it out, or if your business is ready to join the more than 60% of the Fortune 500 already using TrueNAS, reach out to our sales team and find out how the unified storage of TrueNAS can help you and your business take control of your storage.
+ Whether you’re managing a single system at home or a fleet of TrueNAS hardware across your enterprise, TrueNAS 25.10 helps make staying current safer and simpler than ever.
+ Own Your Data – Get Started Today 
+ Share On Social:
+-->
+ 541 Division Street
+Campbell, CA 95008, USA
+ Contact Us 
+ <email-masked> 
+ Listen to our Podcast 
+ Support
+ Enterprise Support 
+ Community Support 
+ Forums 
+ FAQs 
+ Useful Links
+ Careers 
+ About Us 
+ Blog 
+ News & Articles 
+ TrueNAS Enterprise 
+ TrueNAS Community Edition 
+ Open Storage for Proxmox 
+ TrueCommand 
+ TrueCommand Cloud 
+ TrueNAS Legacy 
+ Software Status 
+ Referral Program 
+ Reseller Network 
+ Subscribe to our newsletter 
+ --->
+ © Copyright 2026 iXsystems, Inc. dba TrueNAS. All rights reserved.
+ Legal     TrueNAS Logos 
+ TrueNAS Newsletter Subscription 
+Be the First to Know

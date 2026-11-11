@@ -1,0 +1,540 @@
+
+
+      Declare permissions  |  Chrome Extensions  |  Chrome for Developers
+
+      Skip to main content
+
+    Docs
+
+Build with Chrome
+
+Learn how Chrome works, participate in origin trials, and build with Chrome everywhere.
+
+                      Web Platform
+
+                      Isolated Web Apps (IWA)
+
+                      Capabilities
+
+                      Automation and testing
+
+                      ChromeDriver
+
+                      Extensions
+
+                      Chrome Web Store
+
+                      Chromium
+
+                      Web on Android
+
+                      Origin trials
+
+                      Release notes
+
+Productivity
+
+Create the best experience for your users with the web's best tools.
+
+                      DevTools
+
+                      Lighthouse
+
+                      Chrome UX Report
+
+                      Accessibility
+
+                      Modern Web Guidance
+
+Get things done quicker and neater, with our ready-made libraries.
+
+                      Workbox
+
+                      Puppeteer
+
+Experience
+
+Design a beautiful and performant web with Chrome.
+
+                      AI
+
+                      Performance
+
+                      CSS and UI
+
+                      Identity
+
+                      Payments
+
+                      Privacy and security
+
+                      Ads
+
+Resources
+
+More from Chrome and Google.
+
+                      All documentation
+
+                      Baseline open_in_new
+
+                      web.dev open_in_new
+
+                      PageSpeed Insights audit open_in_new
+
+    Case studies
+
+    Blog
+
+    New in Chrome
+
+            /
+
+      English
+
+      Deutsch
+
+      Español – América Latina
+
+      Français
+
+      Indonesia
+
+      Italiano
+
+      Nederlands
+
+      Polski
+
+      Português – Brasil
+
+      Tiếng Việt
+
+      Türkçe
+
+      Русский
+
+      עברית
+
+      العربيّة
+
+      فارسی
+
+      हिंदी
+
+      বাংলা
+
+      ภาษาไทย
+
+      中文 – 简体
+
+      中文 – 繁體
+
+      日本語
+
+      한국어
+
+              Sign in
+
+          Docs
+
+          Chrome Extensions
+
+    Overview
+
+    Get Started
+
+    Develop
+
+    How To
+
+    AI
+
+    Reference
+
+                      API
+
+                      Permissions
+
+                      Manifest
+
+    Samples
+
+    Chrome Web Store
+
+                      Prepare your Extension
+
+                      Publish in the Chrome Web Store
+
+                      Program Policies
+
+      Docs
+
+      More
+
+      Overview
+
+      Get Started
+
+      Develop
+
+      How To
+
+      AI
+
+      Reference
+
+      More
+
+      Samples
+
+      Chrome Web Store
+
+      More
+
+      Case studies
+
+      Blog
+
+      New in Chrome
+
+Introduction
+
+        Design the user interface
+
+User interface components
+Add a popup
+Implement an action
+Build a context menu
+Override Chrome pages
+Trigger actions from the omnibox
+Give users options
+Notify users
+Respond to commands
+What are themes?
+Configure extension icons
+Make your extension accessible
+Internationalize the interface
+
+        Core concepts
+
+The browser namespace
+Content scripts
+Message passing
+Match patterns
+Storage and cookies
+Content filtering
+The activeTab permission
+Declare permissions
+Permission warning guidelines
+Native messaging
+Cross-origin network requests
+Cross-origin isolation
+Service worker introduction
+Extension service worker basics
+The extension service worker lifecycle
+Events in service workers
+Real Time updates
+
+        Migrate to Manifest V3
+
+What is Manifest V3
+Manifest V2 support timeline
+Known issues when migrating to Manifest V3
+Migration overview
+Manifest V3 migration checklist
+Update the manifest
+Migrate to a service worker
+Update your code
+Replace blocking web request listeners
+Improve extension security
+Deal with remote hosted code violations
+Publish your extension
+
+        Security and privacy
+
+Stay secure
+Protect user privacy
+
+      Build with Chrome
+
+      Web Platform
+
+      Isolated Web Apps (IWA)
+
+      Capabilities
+
+      Automation and testing
+
+      ChromeDriver
+
+      Extensions
+
+      Chrome Web Store
+
+      Chromium
+
+      Web on Android
+
+      Origin trials
+
+      Release notes
+
+      Productivity
+
+      DevTools
+
+      Lighthouse
+
+      Chrome UX Report
+
+      Accessibility
+
+      Modern Web Guidance
+
+      Workbox
+
+      Puppeteer
+
+      Experience
+
+      AI
+
+      Performance
+
+      CSS and UI
+
+      Identity
+
+      Payments
+
+      Privacy and security
+
+      Ads
+
+      Resources
+
+      All documentation
+
+      Baseline <span class="material-icons" style="font-size: 12px;" aria-hidden="true" translate="no">open_in_new</span>
+
+      web.dev <span class="material-icons" style="font-size: 12px;" aria-hidden="true" translate="no">open_in_new</span>
+
+      PageSpeed Insights audit <span class="material-icons" style="font-size: 12px;" aria-hidden="true" translate="no">open_in_new</span>
+
+      API
+
+      Permissions
+
+      Manifest
+
+      Prepare your Extension
+
+      Publish in the Chrome Web Store
+
+      Program Policies
+
+          Home
+
+          Docs
+
+          Chrome Extensions
+
+          Develop
+
+      Declare permissions
+
+      Stay organized with collections
+
+      Save and categorize content based on your preferences.
+
+To use most extension APIs and features, you must declare your extension's intent in the manifest's permissions fields. Extensions can request the following categories of permissions, specified using the respective manifest keys:
+
+"permissions"
+Contains items from a list of known strings. Changes may trigger a warning.
+"optional_permissions"
+Granted by the user at runtime, instead of at install time.
+"content_scripts.matches"
+Contains one or more match patterns that allows content scripts to inject into one or more hosts. Changes may trigger a warning.
+"host_permissions"
+Contains one or more match patterns that give access to one or more hosts. Changes may trigger a warning.
+"optional_host_permissions"
+Granted by the user at runtime, instead of at install time.
+
+Permissions help to limit damage if your extension is compromised by malware. Some permission warnings are displayed to users for their consent before
+installation or at runtime, as detailed in Permission with warnings.
+
+Consider using optional permissions wherever the functionality of your extension
+permits, to provide users with informed control over access to resources and data.
+
+If an API requires a permission, its documentation explains how to declare it. For an
+example, see Storage API.
+
+Manifest
+
+The following is an example of the permissions section of a manifest file:
+
+manifest.json:
+
+{
+  "name": "Permissions Extension",
+  ...
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage"
+  ],
+  "optional_permissions": [
+    "topSites",
+  ],
+  "host_permissions": [
+    "https://www.developer.chrome.com/*"
+  ],
+  "optional_host_permissions":[
+    "https://*/*",
+    "http://*/*"
+  ],
+  ...
+  "manifest_version": 3
+}
+
+Host permissions
+
+Host permissions allow extensions to interact with the URL's matching patterns. Some Chrome APIs require host permissions in addition to their own API permissions, which are documented on each reference page. Here are some examples:
+
+Make fetch() requests from the extension service worker and extension pages.
+
+Read and query the sensitive tab properties (url, title, and favIconUrl) using the browser.tabs API.
+
+Inject a content script programmatically.
+
+Monitor and control the network requests with the browser.webRequest API.
+
+Access cookies with the browser.cookies API.
+
+Redirect and modify requests and response headers using browser.declarativeNetRequest API.
+
+In some special cases, host permissions are not required. These include:
+
+Using the chrome.tabs API to access and modify tabs, including access to the tab's URL if you have the tabs permission.
+
+Interacting with the browser using the chrome.debugger API.
+
+Allowing the injection of a content script declared in the manifest.
+
+Permissions with warnings
+
+When an extension requests multiple permissions, and many of them display
+warnings on installation, the user will see a list of warnings, like in the following example:
+
+Users are more likely to trust an extension with limited warnings or when permissions are explained
+to them. Consider implementing optional permissions or a less powerful API to avoid alarming
+warnings. For best practices for warnings, see Permission warnings guidelines. Specific
+warnings are listed with the permissions to which they apply in the
+Permissions reference list.
+
+Adding or changing match patterns in the "host_permissions" and "content_scripts.matches"
+fields of the manifest file will also trigger a warning. To learn more, see
+Updating permissions.
+
+Allow access
+
+If your extension needs to run on file:// URLs or operate in incognito mode, users must give the extension access on its details page. You can find instructions for opening the details page under Manage your extensions.
+
+Allow access to file URLs and incognito pages
+
+Right-click the extension icon in Chrome.
+
+Choose Manage Extension.
+
+Extension menu
+
+Scroll down to enable access to file URLs or incognito mode.
+
+  Access enabled to file URLs and incognito mode.
+
+To detect whether the user has allowed access, you can call extension.isAllowedIncognitoAccess() or
+extension.isAllowedFileSchemeAccess().
+
+Except as otherwise noted, the content of this page is licensed under the Creative Commons Attribution 4.0 License, and code samples are licensed under the Apache 2.0 License. For details, see the Google Developers Site Policies. Java is a registered trademark of Oracle and/or its affiliates.
+
+Last updated 2024-02-05 UTC.
+
+      [[["Easy to understand","easyToUnderstand","thumb-up"],["Solved my problem","solvedMyProblem","thumb-up"],["Other","otherUp","thumb-up"]],[["Missing the information I need","missingTheInformationINeed","thumb-down"],["Too complicated / too many steps","tooComplicatedTooManySteps","thumb-down"],["Out of date","outOfDate","thumb-down"],["Samples / code issue","samplesCodeIssue","thumb-down"],["Other","otherDown","thumb-down"]],["Last updated 2024-02-05 UTC."],[],[]]
+
+Contribute
+
+            File a bug
+
+            See open issues
+
+Related content
+
+            Chromium updates
+
+            Case studies
+
+            Archive
+
+            Podcasts & shows
+
+Follow
+
+            @ChromiumDev on X
+
+            YouTube
+
+            Chrome for Developers on LinkedIn
+
+            RSS
+
+          Terms
+
+          Privacy
+
+          Manage cookies
+
+      English
+
+      Deutsch
+
+      Español – América Latina
+
+      Français
+
+      Indonesia
+
+      Italiano
+
+      Nederlands
+
+      Polski
+
+      Português – Brasil
+
+      Tiếng Việt
+
+      Türkçe
+
+      Русский
+
+      עברית
+
+      العربيّة
+
+      فارسی
+
+      हिंदी
+
+      বাংলা
+
+      ภาษาไทย
+
+      中文 – 简体
+
+      中文 – 繁體
+
+      日本語
+
+      한국어
+

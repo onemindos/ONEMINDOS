@@ -1,0 +1,639 @@
+Integration quality scale | Home Assistant ContributorsSkip to content
+Core and integrations
+
+Start here
+Get started
+
+Build the software
+Core and integrations
+Frontend
+Apps
+Marketplace
+Companion apps
+OS and Supervisor
+
+Design, write, translate
+Design
+Brand
+Writing docs
+Translations
+
+Run the project
+Community
+Releases
+Roadmap
+Events and calendar
+
+Understand how it works
+Architecture
+Security
+Data
+Glossary
+HomeBlogBlog
+
+Search Core and integrations/Search
+
+Show more results
+↑↓ to moveEnter to openEsc to close
+
+Overview
+Your first contribution
+Development workflow
+Overview
+Write code
+Development environment
+Code style
+Type hints
+Running the tests
+Writing tests
+Linters, hassfest, and CI
+Validating input
+Pull requests
+Development checklist
+Submitting a pull request
+After you open a pull request
+Keeping up to date
+Reviewing pull requests
+Tips and tricks
+Changing behavior
+Deprecating
+Versioning
+Labs
+Building integrations
+Overview
+Getting started
+How an integration fits in
+Tutorial
+Build a Python library
+Create an integration
+File structure
+Setup and configuration
+Config entries
+Config flow
+Forms, menus, and progress
+Options flow
+Subentries
+Reauth and reconfigure
+OAuth 2.0
+YAML configuration
+Setup failures and exceptions
+Data and updates
+Fetching data
+Events
+Instance URL
+Discovery
+Discovery
+Network discovery
+Bluetooth
+Fetching Bluetooth data
+Devices and registries
+Device registry
+Entity registry
+Area registry
+Integration features
+Actions
+Triggers and conditions
+Device automations
+Diagnostics
+System health
+Repairs
+Restart required
+Reproduce state
+Significant change
+Backup
+Media source
+Reference
+Manifest
+Integration brands and images
+Translations
+Integration categories
+Entities
+Overview
+Basics
+Entity class
+Naming
+Updating state
+Lifecycle
+State and attributes
+Icons
+Entity registry
+Sensors and status
+Air quality
+Binary sensor
+Calendar
+Device tracker
+Event
+Geolocation
+Sensor
+Weather
+Lights and climate
+Climate
+Fan
+Humidifier
+Light
+Water heater
+Openings and security
+Alarm control panel
+Cover
+Lock
+Siren
+Valve
+Media
+Camera
+Image
+Media player
+Remotes and signals
+Infrared
+Radio frequency
+Remote
+Voice and AI
+AI task
+Assist satellite
+Conversation
+Speech-to-text
+Text-to-speech
+Wake word detection
+Appliances
+Lawn mower
+Update
+Vacuum
+Inputs and helpers
+Button
+Date
+Date and time
+Notify
+Number
+Scene
+Select
+Switch
+Text
+Time
+To-do list
+Integration quality scale
+Overview
+Tiers
+All rules
+Raise the tier
+Quality scale file
+Bronze
+action-setup
+appropriate-polling
+brands
+common-modules
+config-flow
+config-flow-test-coverage
+dependency-transparency
+docs-actions
+docs-conditions
+docs-high-level-description
+docs-installation-instructions
+docs-removal-instructions
+docs-triggers
+entity-event-setup
+entity-unique-id
+has-entity-name
+runtime-data
+test-before-configure
+test-before-setup
+unique-config-entry
+Silver
+action-exceptions
+config-entry-unloading
+docs-configuration-parameters
+docs-installation-parameters
+entity-unavailable
+integration-owner
+log-when-unavailable
+parallel-updates
+reauthentication-flow
+test-coverage
+Gold
+devices
+diagnostics
+discovery
+discovery-update-info
+docs-data-update
+docs-examples
+docs-known-limitations
+docs-supported-devices
+docs-supported-functions
+docs-troubleshooting
+docs-use-cases
+dynamic-devices
+entity-category
+entity-device-class
+entity-disabled-by-default
+entity-translations
+exception-translations
+icon-translations
+reconfiguration-flow
+repair-issues
+stale-devices
+Platinum
+async-dependency
+inject-websession
+strict-typing
+How core works
+Overview
+The core
+The hass object
+Events
+States
+Actions
+Async
+Async in Home Assistant
+Thread safety
+Blocking operations
+Authentication
+How authentication works
+Permissions
+Authentication API
+APIs
+REST API
+WebSocket API
+Instance discovery
+Modbus devices
+LoRaWAN
+Voice and AI
+Intents
+Built-in intents
+Conversation API
+Assist pipelines
+LLM API
+Contributors
+Core and integrations
+Integration quality scale
+
+On this page
+Overview
+Why there is a scale
+How it works
+Start here
+The rules
+Bronze
+Silver
+Gold
+Platinum
+Related pages
+Who to talk to
+Core and integrations
+Overview
+Your first contribution
+Development workflow
+Overview
+Write code
+Development environment
+Code style
+Type hints
+Running the tests
+Writing tests
+Linters, hassfest, and CI
+Validating input
+Pull requests
+Development checklist
+Submitting a pull request
+After you open a pull request
+Keeping up to date
+Reviewing pull requests
+Tips and tricks
+Changing behavior
+Deprecating
+Versioning
+Labs
+Building integrations
+Overview
+Getting started
+How an integration fits in
+Tutorial
+Build a Python library
+Create an integration
+File structure
+Setup and configuration
+Config entries
+Config flow
+Forms, menus, and progress
+Options flow
+Subentries
+Reauth and reconfigure
+OAuth 2.0
+YAML configuration
+Setup failures and exceptions
+Data and updates
+Fetching data
+Events
+Instance URL
+Discovery
+Discovery
+Network discovery
+Bluetooth
+Fetching Bluetooth data
+Devices and registries
+Device registry
+Entity registry
+Area registry
+Integration features
+Actions
+Triggers and conditions
+Device automations
+Diagnostics
+System health
+Repairs
+Restart required
+Reproduce state
+Significant change
+Backup
+Media source
+Reference
+Manifest
+Integration brands and images
+Translations
+Integration categories
+Entities
+Overview
+Basics
+Entity class
+Naming
+Updating state
+Lifecycle
+State and attributes
+Icons
+Entity registry
+Sensors and status
+Air quality
+Binary sensor
+Calendar
+Device tracker
+Event
+Geolocation
+Sensor
+Weather
+Lights and climate
+Climate
+Fan
+Humidifier
+Light
+Water heater
+Openings and security
+Alarm control panel
+Cover
+Lock
+Siren
+Valve
+Media
+Camera
+Image
+Media player
+Remotes and signals
+Infrared
+Radio frequency
+Remote
+Voice and AI
+AI task
+Assist satellite
+Conversation
+Speech-to-text
+Text-to-speech
+Wake word detection
+Appliances
+Lawn mower
+Update
+Vacuum
+Inputs and helpers
+Button
+Date
+Date and time
+Notify
+Number
+Scene
+Select
+Switch
+Text
+Time
+To-do list
+Integration quality scale
+Overview
+Tiers
+All rules
+Raise the tier
+Quality scale file
+Bronze
+action-setup
+appropriate-polling
+brands
+common-modules
+config-flow
+config-flow-test-coverage
+dependency-transparency
+docs-actions
+docs-conditions
+docs-high-level-description
+docs-installation-instructions
+docs-removal-instructions
+docs-triggers
+entity-event-setup
+entity-unique-id
+has-entity-name
+runtime-data
+test-before-configure
+test-before-setup
+unique-config-entry
+Silver
+action-exceptions
+config-entry-unloading
+docs-configuration-parameters
+docs-installation-parameters
+entity-unavailable
+integration-owner
+log-when-unavailable
+parallel-updates
+reauthentication-flow
+test-coverage
+Gold
+devices
+diagnostics
+discovery
+discovery-update-info
+docs-data-update
+docs-examples
+docs-known-limitations
+docs-supported-devices
+docs-supported-functions
+docs-troubleshooting
+docs-use-cases
+dynamic-devices
+entity-category
+entity-device-class
+entity-disabled-by-default
+entity-translations
+exception-translations
+icon-translations
+reconfiguration-flow
+repair-issues
+stale-devices
+Platinum
+async-dependency
+inject-websession
+strict-typing
+How core works
+Overview
+The core
+The hass object
+Events
+States
+Actions
+Async
+Async in Home Assistant
+Thread safety
+Blocking operations
+Authentication
+How authentication works
+Permissions
+Authentication API
+APIs
+REST API
+WebSocket API
+Instance discovery
+Modbus devices
+LoRaWAN
+Voice and AI
+Intents
+Built-in intents
+Conversation API
+Assist pipelines
+LLM APIOn this page
+On this page
+Overview
+Why there is a scale
+How it works
+Start here
+The rules
+Bronze
+Silver
+Gold
+Platinum
+Related pages
+Who to talk to
+Integration quality scale
+The tiers and rules that describe how good an integration is, how an integration earns a tier, and how to move it up.
+
+Home Assistant has thousands of integrations, written by thousands of people. The integration quality scale is how the project describes, in one word, how good each of them is: Bronze, Silver, Gold, or Platinum. Every tier is a list of concrete rules, and an integration earns a tier by following every rule of that tier and of the tiers below it.
+
+Tip
+
+Working on an integration? Start with all rules: every rule per tier on one page, with what it asks in one line, and a checklist to copy into your pull request.
+
+Why there is a scale
+
+For users, the tier is a promise. They see it on the integration page in the documentation and in Settings > Devices & services. A Bronze integration sets up from the UI and has tests. A Gold integration is discovered on the network, can be reconfigured, has translated names and errors, and comes with documentation that tells you which devices work. Users pick devices based on this, so the tier has to be honest.
+
+For you as a contributor, the scale is a shared definition of "done". Instead of a reviewer's personal taste, there is a written rule with a reason behind it. You know what is expected before you open a pull request, and you know what to work on next when you want to improve an integration.
+
+For maintainers and reviewers, it keeps thousands of integrations consistent. An integration that claims a rule is checked against it, partly by tools, and those claims can be relied on when the codebase moves forward.
+
+How it works
+
+The tier of an integration is the quality_scale key in its manifest.json. Many older integrations were never graded and have no tier yet. A new integration must have one.
+
+An integration with a tier also has a quality_scale.yaml file. It lists every rule and its status: done, todo, or exempt with a reason.
+
+Hassfest, the validation script of core, checks that file. It fails when a rule that the tier needs is not done or exempt, and it runs extra checks on some rules that are marked done.
+
+A reviewer checks the rest, and a member of the core team approves the new tier.
+
+New integrations must reach Bronze. There is no way into core below it.
+
+Start here
+
+Tiers: what Bronze, Silver, Gold, and Platinum mean, and the tiers outside the scale, like internal and legacy.
+
+All rules: every rule on one page, per tier, with a checklist to copy into your pull request. This is where you find what to do.
+
+Raise the tier of an integration: how to work your way up, how to check your work, and how to get the new tier reviewed.
+
+The quality scale file: the format of quality_scale.yaml, and everything that checks it.
+
+Building a new integration? It needs every Bronze rule. The tutorial builds one that meets them.
+
+The rules
+
+Every rule has its own page. All rules lists them per tier, with a link to each. Each page explains what the rule asks, why, how to implement it, how it is checked, and when it does not apply. The rule pages use the same names as quality_scale.yaml, so /core/quality-scale/entity-unique-id/ is the page of the entity-unique-id rule.
+
+Bronze
+
+The baseline: set up from the UI, a tested config flow, unique IDs, and basic documentation. Start with config-flow, or see all 20 Bronze rules.
+
+Silver
+
+Reliability: handle errors and offline devices, reauthenticate, have an integration owner, and more than 95% test coverage. Start with integration-owner, or see all 10 Silver rules.
+
+Gold
+
+The best user experience: discovery, devices, translations, diagnostics, repairs, and full documentation for users. Start with devices, or see all 21 Gold rules.
+
+Platinum
+
+Technical excellence: async dependencies, a shared web session, and strict typing. Start with strict-typing, or see all 3 Platinum rules.
+
+Related pages
+
+Building integrations: how integrations work, and the files they are made of.
+
+Writing tests: the tests that several rules ask for.
+
+Write integration documentation: the documentation rules are about the integration page on home-assistant.io.
+
+Make your strings translatable: for the translation rules.
+
+Who to talk to
+
+Ask about a rule, or whether an exemption is reasonable, in a thread in #coding-support on the Home Assistant Discord.
+
+The integration owners of an integration, listed as codeowners in its manifest.json, know best where it stands. Mention them in your pull request.
+
+Ideas to change a rule, or to add one, belong in the architecture discussions.
+
+Was this page helpful?YesNo
+
+Give feedback(opens in a new tab)
+View feedback(opens in a new tab)
+Edit this pageView history
+Last updated on November 2, 2026.PreviousTo-do listNextTiers
+On this page
+Overview
+Why there is a scale
+How it works
+Start here
+The rules
+Bronze
+Silver
+Gold
+Platinum
+Related pages
+Who to talk to
+
+Home Assistant is a project of the Open Home Foundation.
+
+Contribute
+Get started
+All areas
+Glossary
+Data and analytics
+Code of conduct
+Contributor License Agreement
+Stay up to date
+Blog
+Blog RSS feed
+Newsletter
+Integration alerts
+System status
+More Home Assistant
+Home Assistant
+Community forum
+Creator Network
+Works With Home Assistant
+
+This website uses privacy-first analytics to help us improve the site. You can view all data in our public dashboard.
+Privacy
+Security
+Source on GitHub
+

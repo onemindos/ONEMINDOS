@@ -1,0 +1,78 @@
+SOURCE: https://community.umbrel.com/t/we-ve-raised-a-3m-seed-round-and-are-now-hiring/4365
+ACCESSED: 2026-11-10
+
+We’ve raised a $3M seed round and are now hiring - Announcements - Umbrel Community
+= 40rem)" rel="stylesheet" data-target="discourse-ai_desktop"  />
+= 40rem)" rel="stylesheet" data-target="discourse-reactions_desktop"  />
+= 40rem)" rel="stylesheet" data-target="poll_desktop"  />
+Umbrel Community
+We’ve raised a $3M seed round and are now hiring
+Announcements
+mayank
+October 29, 2021, 11:59am
+1
+Wow, it’s crazy how fast things have moved. Feels like only yesterday when we started Umbrel, and here we are today.
+I’m so thrilled to announce that we’ve raised $3M in our seed round to make Umbrel even more awesome for you all!
+I highly recommend reading our blog post about this raise that goes over how
+@lukechilds
+and I met, why we started Umbrel, our journey so far, and what lies ahead:
+https://blog.getumbrel.com/seed-6d09aa08f8ac
+We’ll be using the funds raised to build out our team and accelerate Umbrel’s development.
+We’re hiring across all roles — design, development, marketing, business, operations, community, and support.
+You can be among the first ten people to join Umbrel’s core team, and your work will have a direct impact on shaping Umbrel’s future.
+What we care about: talent with a genuine love for your craft and the desire to do meaningful work. What we don’t care about: credentials and degrees. If that sounds like you, and our mission resonates with you, email us at
+[email-masked]
+–
+Today is a big day. And we owe it to you, the community. Thanks for supporting us with code contributions, bug reports, fixes, documentation, and more than we can ever return.
+trbouma
+October 29, 2021, 12:04pm
+2
+Congratulations from Canada here! In the short time I have been exposed to Umbrel, I have become a big believer and supporter. Enough so, that I am putting my own money on the line (in the form of sats, of course).
+jonathan
+October 29, 2021,  7:07pm
+3
+what’s umbrel’s business model?
+Officient
+November 1, 2021,  9:28pm
+5
+Awesome! Shot an email to
+[email-masked]
+, hopefully there’s a role I can be of use in
+Related topics
+Topic
+Replies
+Views
+Activity
+Recycling old hardware to run Umbrel on Ubuntu
+Support and Troubleshooting
+1
+2410
+August 6, 2021
+Introducing the new Umbrel Community forum
+Announcements
+41
+4489
+August 8, 2021
+Installing umbrel on x86
+Support and Troubleshooting
+53
+6481
+July 9, 2025
+Help us make Umbrel better: Fill out this 1-minute survey
+Announcements
+3
+958
+March 1, 2023
+Getting Started with Umbrel node
+Bitcoin and Lightning
+19
+31388
+December 2, 2024
+Home
+Categories
+Guidelines
+Terms of Service
+Privacy Policy
+Powered by
+Discourse
+, best viewed with JavaScript enabled

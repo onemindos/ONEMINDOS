@@ -1,0 +1,154 @@
+TrueNAS 26 Is Here: What's New in This Major Release 
+ Products V-Series – Max Performance & Versatility 
+ M-Series – High Capacity All-Flash or Hybrid 
+ F-Series – High Performance NVME 
+ R-Series – Single Controller Appliances 
+ H-Series – Versatility and Power Efficiency 
+ Mini Series – Edge and Branch Office 
+ TrueNAS Enterprise – Mission Critical Storage. 24×7 Enterprise Support 
+ TrueNAS Community Edition – Test Drive TrueNAS in Your Environment 
+ Manage Your TrueNAS Systems 
+ Solutions Industry 
+ Media & Entertainment 
+ US Public Sector 
+ Audio 
+ Automotive 
+ Broadcasting 
+ Education 
+ Gaming 
+ Healthcare 
+ Manufacturing 
+ MSP 
+ Use Cases 
+ AI & Research 
+ Analytics 
+ Backup & Archival 
+ Cloud 
+ Data Mobility 
+ File Sharing 
+ Red Hat OpenShift 
+ Surveillance/CCTV 
+ TrueCloud Backup 
+ Veeam Backup 
+ Virtualization 
+ TrueNAS as an Alternative 
+ Alternative to Dell 
+ Alternative to Everpure / Pure Storage 
+ Alternative to HPE Alletra 
+ Alternative to NetApp 
+ Alternative to Public Cloud 
+ Support & Resources Support 
+ Enterprise Support – For customers with active support contracts 
+ Community Support – For peer-to-peer, forum support 
+ Community 
+ TrueNAS Community Edition 
+ Community Forum 
+ TrueNAS Merch Store 
+ Resources 
+ Apps 
+ Case Studies 
+ Certifications & Integrations 
+ Data sheets 
+ Documentation 
+ FAQ 
+ Reseller Network 
+ Software Status 
+ Solution Briefs and Guides 
+ TrueNAS API 
+ TrueNAS Blog 
+ TrueNAS Security 
+ Videos 
+ White Papers 
+ ZFS Overview 
+ Company About TrueNAS 
+ Team 
+ Our Clients 
+ Reviews 
+ Awards 
+ Newsroom 
+ Careers 
+ Contact Us 
+ Get A Quote 
+ Close 
+ Get A Quote 
+ Sign In TrueNAS Connect 
+ Partner Portal 
+ Enterprise Support 
+ TrueNAS 26 Makes its Debut
+ } 
+ April 7, 2026 
+ o 
+ Featured | TrueNAS 
+ TrueNAS is taking a major leap forward with the first beta of TrueNAS 26, our initial version of a new series of annual software releases. Moving beyond the previous twice-yearly schedule, this change is a direct response to Community preference for annual releases.
+ The shift to an annual release cadence is driven by a commitment to quality and a better customer experience. This new annual release cycle, with point releases like 26.1 and 26.2, promises improved TrueNAS quality, easier communications, and increased development productivity.
+ TrueNAS 26 – the software formerly codenamed as “Halfmoon” – marks the beginning of a new chapter, succeeding the “fish” codename releases and focusing squarely on the future of unified, intelligent, and highly reliable storage with integrated Apps and VMs.
+ Today, we’re releasing TrueNAS 26-BETA1 . With over 700 updates and fixes, it’s ready for Community testing and feedback. Please note that upgrading from TrueNAS 25.10 to 26-BETA.1 is not available in the TrueNAS UI until the release of TrueNAS 25.10.3. Users who wish to upgrade their 25.10 system to 26-BETA.1 can install the update bundle manually , or use the standard installer to make an offline upgrade. If you are using TrueCommand, we recommend upgrading to the early release of TrueCommand 3.3 prior to updating.
+ Let’s go over some of the highlights of TrueNAS 26.
+ OpenZFS 2.4 Delivers Major Hybrid Pool Improvements 
+ The world is suffering from massive AI-induced “memflation” – the massive increase in DRAM, NAND, and enterprise SSD pricing. This sudden shock is driving demand for the most cost-effective solutions.
+ TrueNAS is delivering an antidote to this crisis through increased performance and cost-effectiveness. TrueNAS 26 includes several key advancements in OpenZFS development, such as:
+ Hybrid flash pools can be built from multiple flash and HDD vdevs. The flash tier is used for data, but can also act as the ZIL/SLOG for better efficiency. This enables a much larger range of hybrid configurations and dramatically reduces costs per TB compared with all-flash pools. Assign datasets or LUNs to the flash tier, for up to 10X performance increases. Small files and metadata can be given preferential use of flash resources.
+ Scheduled ZFS scrubbing reduces any performance impacts by avoiding busy hours.
+ Major performance improvements include an additional Fast Dedup performance increase via TrueNAS-developed contributions. Dedup can be used with both all-flash and hybrid-flash solutions.
+ Linux Kernel 6.18 (LTS) 
+ TrueNAS updates its kernel to the latest Linux LTS version, 6.18. This supports the latest hardware and drivers while improving performance:
+ NVIDIA Driver 590.48 provides bug fixes for existing NVIDIA GPUs, and adds support for newer cards like the RTX 5050 and RTX PRO 2000 Blackwell.
+ Enhanced per-CPU memory management improves performance for memory-intensive workloads.
+ TrueNAS UI Improvements 
+ TrueNAS 26 has numerous web UI improvements to streamline your day-to-day use, with two standout changes being:
+ Guided Alerts provide a simpler troubleshooting experience. Each alert includes guidance on where to go to resolve the issue. Small indicators are added to the menu to guide users to areas that require attention or intervention.
+ Simplified User Management reduces the time and complexity of managing users and controlling which services they have access to. It is more intuitive and requires fewer clicks and scrolling.
+ TrueNAS 26 Delivers Intelligent Data Services 
+ TrueNAS 26 brings a wealth of new and enhanced features focused on intelligent data services and enabled via TrueNAS Connect. These intelligent services provide extreme flexibility to support modern workloads:
+ TrueNAS WebShare is a major leap in file sharing, allowing you to share files via a browser, tablet, or phone. It offers Dropbox-like file sharing, FIPS 140 Encrypted Transport, and secure interoperability across protocols, including SMB/AD and NFSv4.
+ Spotlight Search (TrueSearch) is integrated with WebShare. This feature provides a desktop-like search experience, offering sub-second response times and scalability up to a billion files. It indexes on SSDs and supports macOS Spotlight, allowing users to seamlessly search filenames and content on their TrueNAS faster than traversing through all local storage with each new query.
+ These services are built for Enterprise and will also be enabled via TrueNAS Connect. More details will be announced later. WebShare and TrueSearch are both available now when the system is associated with a TrueNAS Connect account.
+ Several additional improvements have been made, including:
+ LXC containers are now fully supported as an additional option for deploying Linux workloads directly on your TrueNAS system, with lower overhead than traditional VMs.
+ The Versatile New TrueNAS V-Series 
+ TrueNAS 26 enables new hardware, most notably the TrueNAS V-Series , which adds extreme versatility with its 400GbE capability and High Availability. While these platforms are primarily for our Enterprise offerings, the underlying technology contributes to the stability of the TrueNAS core.
+ Come and see us and the new V-Series at NAB Las Vegas from April 19th-22nd .
+ Take Control of Your Data 
+ Data sovereignty isn’t just for governments. It’s for every organization and every individual that refuses to hand control to vendors who profit from lock-in.
+ TrueNAS delivers storage you can trust: predictable costs, portable data, and technology you can verify. That’s why more than 60% of Fortune 500 companies already run TrueNAS.
+ Ready to take control? Download TrueNAS Community Edition to experience it yourself, or contact our team to explore enterprise solutions.
+ Own Your Data. Start Today. 
+ Glossary 
+ What is TrueNAS 26 and what makes it different from previous versions? 
+ TrueNAS 26 is the first annual release of TrueNAS, replacing the twice-yearly schedule. It features OpenZFS 2.4, Linux Kernel 6.18 LTS, WebShare, TrueSearch, and LXC container support—delivering better quality and a simpler upgrade path for the community.
+ What is OpenZFS 2.4 and how does it improve storage in TrueNAS 26? 
+ OpenZFS 2.4 brings hybrid flash pool support, Fast Dedup enhancements, and scheduled scrubbing—delivering up to 10× performance gains and making hybrid storage more accessible.
+ What are TrueNAS WebShare and TrueSearch? 
+ WebShare enables browser-based file sharing with FIPS 140 encryption and cross-protocol support. TrueSearch delivers sub-second search across files, indexed on SSDs and compatible with macOS Spotlight, offering a desktop-like experience on your NAS.
+ Share On Social:
+-->
+ 541 Division Street
+Campbell, CA 95008, USA
+ Contact Us 
+ <email-masked> 
+ Listen to our Podcast 
+ Support
+ Enterprise Support 
+ Community Support 
+ Forums 
+ FAQs 
+ Useful Links
+ Careers 
+ About Us 
+ Blog 
+ News & Articles 
+ TrueNAS Enterprise 
+ TrueNAS Community Edition 
+ Open Storage for Proxmox 
+ TrueCommand 
+ TrueCommand Cloud 
+ TrueNAS Legacy 
+ Software Status 
+ Referral Program 
+ Reseller Network 
+ Subscribe to our newsletter 
+ --->
+ © Copyright 2026 iXsystems, Inc. dba TrueNAS. All rights reserved.
+ Legal     TrueNAS Logos 
+ TrueNAS Newsletter Subscription 
+Be the First to Know

@@ -1,0 +1,190 @@
+SecureBoot IS NECESSARY for TrueNAS; Attention All Users - TrueNAS General - TrueNAS Community Forums 
+ = 40rem)" rel="stylesheet" data-target="chat_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-ai_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-gamification_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-reactions_desktop" />
+ = 40rem)" rel="stylesheet" data-target="poll_desktop" />
+ TrueNAS Enterprise Hardware 
+ | 
+ Commercial Support 
+ Report a Bug 
+   |  
+ Docs & AI Search 
+   |  
+ Careers 
+   |  
+ Browse Forum Archive 
+ TrueNAS Community Forums 
+ SecureBoot IS NECESSARY for TrueNAS; Attention All Users 
+ TrueNAS General 
+ CORE , 
+ SCALE , 
+ Security 
+ <forum-user-masked>
+ September 20, 2024, 5:28pm
+ 1 
+ Hi there. I wish I could spend more time writing this nuanced post, but I’ll try to save it for those who are clueless:
+ Installing UEFI Secure Boot is easy and doesn’t need Microsoft. Just try using Ventoy, the ISO system that comes with a SecureBoot key for you to add to your SecureKey list while installing the OS. (Whether or not this is secure is an entirely different topic on supply chain attacks or inept vendors. forums.truenas .com/t/add-support-for-secure-boot-to-scale/9727 )
+ I’ve seen a thread or two here in TrueNAS Forums that says, “What about the laser security system you need to protect your server?” But it’s really what-about-ism. SecureBoot is right now the only implementable and accessible security system anybody has to protect their system from rootkits. ( forums.truenas .com/t/freebsd-kicks-me-back-to-bios-on-boot-after-upgrading-cpu/3932 )
+ TrueNAS’s team, avoiding this topic or failing to target it DIRECTLY, means that this is a level of enterprise security that folk like you and me DO NOT have access to, and require. Are you only storing pirated media? Maybe you’re fine with legacy boot. But are you storing pictures? Documents? What about incredibly private things that people might try to blackmail you with?
+ The point is that it IS possible to get SecureBoot running on ANY operating system you or other folk run. It’s not rocket science, it’s computer science.
+ Until then, ixSystems IS aware that people WANT Secure Boot for TPMs and other ways of automatedly unlocking drives–it’s not just about rootkits. ( [NAS-114463] - iXsystems TrueNAS Jira [NAS-111251] - iXsystems TrueNAS Jira ) It’s about knowing your system wasn’t tampered with, and having a modern security system to which you can ENTRUST your data. Otherwise, I would only use TrueNAS for hobbyist or laboratory things unless you have enterprise support that can ensure and guarantee your system remains uncompromised. Even JPGs, video files, and other common media formats can have viral payloads. Stop taking it for granted.
+ Sincerely,
+ Filene Taylor
+(AKA my personal account at the old Community forums, FindingFilene, URL: findingfilene.105469 )
+PS: I had to modify the links in this post that link to threads within this very forum because they consume my 2-link maximum as a ‘new member.’
+ <forum-user-masked>
+ September 20, 2024, 5:49pm
+ 2 
+ SecureBoot is on our roadmap already, expected in 2025. We want it as well, just takes time like everything else 
+ <forum-user-masked>
+ September 20, 2024, 5:53pm
+ 3 
+ Philene:
+ Otherwise, I would only use TrueNAS for hobbyist or laboratory things unless you have enterprise support that can ensure and guarantee your system remains uncompromised.
+ Even secure boot has been compromised. For example, my model of SuperMicro motherboard was in the list of affected hardware in the discovery just a few months ago:
+ Ars Technica – 25 Jul 24 
+ Secure Boot is completely broken on 200+ models from 5 big device makers 
+ Keys were labeled "DO NOT TRUST." Nearly 500 device models use them anyway.
+ So thinking that Secure Boot can guarantee a system is uncompromiseable by root kits is unfortunately a pipe dream. It’s a slim layer of protection at best.
+ My view of this post is that it’s scare mongering. If an outsider can run arbitrary code on your server, that others should have no access to from the outside, it’s game over anyway.
+ <forum-user-masked>
+ September 20, 2024, 6:33pm
+ 4 
+ neofusion:
+ My view of this post is that it’s scare mongering.
+ Exactly.
+ <forum-user-masked>
+ September 20, 2024, 11:35pm
+ 5 
+ It’s Microsoft’s and Intel’s attempt at vendor lock in and utterly useless as a security tool.
+ If I don’t have full control over a system that I have physical access to that’s the opposite of security in my book.
+ My hardware - my control.
+ <forum-user-masked>
+ September 21, 2024, 2:24am
+ 6 
+ Thank you, Kris.
+ I really can’t wait, but I might be busy enough that you’ll finish when I can take TrueNAS back.
+ The work and security it takes to safeguard a PKI is really understated in the current international condition. And I’m unfamiliar with the build process you’d need to develop to sign your builds or releases as well! It’s not an easy task by any means.
+ Thanks again.
+ <forum-user-masked>
+ September 21, 2024, 2:38am
+ 7 
+ For anybody else reading, you might need to dig a little deeper than the preceding replies had, as they might have been unable to assemble the malformed links I posted, or the arguments behind them.
+ SecureBoot is an ideology of signing a bootloader with a key, so if the bootloader file changes, the key signature won’t match. I don’t need Intel or Microsoft to sign my bootloader, and neither did VenToy. Moreover, we have a multilateral supply chain attack, where software vendors are so lazy their keys have 4-character passphrases and were reused for a decade across manufacturers. We need to pay our coders (and iX Systems devs) more so they might have robust quarantining systems, and key creation logs to reconstruct a history, as both protect the entire supply chain of keyholders. Otherwise, even my own PKI for my own projects is failed, if it means I had to share my root key with some thug.
+ Before anybody replies again on this HTTPS website, with a certificate signed by Let’s Encrypt, let’s revisit how Entrust has had, IIRC, a variety of their top PKI keyholders missing in the midst of confusing key issuing conflicts. You all need a deeper read of the world our softwares live in. Google Chrome to Stop Loading Sites Using Entrust Certificates in November | RestorePrivacy It’s for the same reason we don’t use a certain malwared Polyfill website.
+ mic drop 
+ <forum-user-masked>
+ September 21, 2024, 2:50am
+ 8 
+ Philene:
+ certificate signed by Let’s Encrypt, let’s revisit how Entrust
+ I’d ask what you think these two things have to do with each other (they are, after all, completely unrelated CAs), but I’m afraid your answer would be yet another random and bizarre rant.
+ <forum-user-masked>
+ September 21, 2024, 3:00am
+ 9 
+ Ah, I love how it’s not clear if you’re willing to dredge the threat of PKI compromise, or if you think there will always be a root CA for you to trust that’s not “vendor lock-in.” no, you go on. 
+ <forum-user-masked>
+ September 21, 2024, 9:43am
+ 10 
+ With a stance like that, how are you going to acquire a copy of TrueNAS 25.10 Sarcastic Fringehead, featuring the new Secure Boot bits, without trusting HTTPS during the transfer?
+ And that’s without even broaching the subject of DNS and how that can be manipulated…
+ Pick your battles.
+ <forum-user-masked>
+ September 21, 2024, 12:43pm
+ 11 
+ “Sarcastic Fringehead”
+ I love that. It reminded me of this guy:
+(it’s max headroom)
+ Thank you for mentioning DNS as that’s just another leg I’m learning about. (I like TrueNAS CORE does ACME DNS certificate issuing, I want TrueNAS scale to take it on, but that’s another topic! )
+ <forum-user-masked>
+ September 21, 2024, 12:59pm
+ 12 
+ Philene:
+ I like TrueNAS CORE does ACME DNS certificate issuing, I want TrueNAS scale to take it on
+ SCALE does it to a greater degree (i.e., it supports more DNS providers) than CORE.
+ <forum-user-masked>
+ February 17, 2025, 10:28pm
+ 13 
+ Any updates on this? Will this be releasing with Fangtooth? 
+ <forum-user-masked>
+ February 17, 2025, 11:17pm
+ 14 
+ SecureBoot is planned for 25.10 this fall.
+ <forum-user-masked>
+ February 17, 2025, 11:21pm
+ 15 
+ Amazing, thank you!
+ <forum-user-masked>
+ November 20, 2025, 5:08am
+ 16 
+ @kris , I just tried booting the TrueNAS 25.10 ISO with Secure Boot enabled and it failed. After taking a look at the release notes for that version, the only thing that is listed there is Secure Boot support for VMs. Is that what was planned? Wasn’t it supporting Secure Boot on the host?
+ <forum-user-masked>
+ November 20, 2025, 5:23am
+ 17 
+ I double-checked, and this is definitely not a misconfiguration on my end. The EFI binaries in the ISO are simply not signed.
+ root@de200401f30d:/# cd /mnt
+root@de200401f30d:/mnt# sbverify --list ./efi\_/boot/bootx64.efi
+No signature table present
+root@de200401f30d:/mnt# sbverify --list ./System/Library/CoreServices/boot.efi
+No signature table present
+ <forum-user-masked>
+ November 20, 2025, 6:13pm
+ 18 
+ Still being worked on for secure boot on the OS. Getting shims signed by MS next before we roll it into one of the upcoming versions of TrueNAS.
+ <forum-user-masked>
+ November 20, 2025, 9:50pm
+ 19 
+ They commented on this in a recent T3 vlog.
+ Rolling out Secure Boot isn’t something you want to mess up because the repercussions of a botched implementation are non-trivial.
+ <forum-user-masked>
+ October 4, 2026, 3:30pm
+ 20 
+ @kris it’s been more than a year since the last reply and the images are still not signed. Would it be possible to get a status update on that? is it planned at all?
+ next page → 
+ Related topics
+ Topic
+ Replies
+ Views
+ Activity
+ FreeBSD kicks me back to BIOS on boot after upgrading CPU 
+ TrueNAS General 
+ CORE 
+ , 
+ Hardware 
+ 5 
+ <forum-user-masked>
+ May 14, 2024
+ Has the recently found copy.fail exploit been addressed in Truenas? 
+ TrueNAS General 
+ SCALE 
+ , 
+ Bug 
+ , 
+ Security 
+ , 
+ Linux 
+ 24 
+ <forum-user-masked>
+ May 9, 2026
+ [Closed] SecureBoot in TrueNAS SCALE and CORE; Vendor Keys First, MS keys Later 
+ Feature Requests 
+ 2 
+ <forum-user-masked>
+ October 9, 2025
+ CVE-2026-113470 Update (Intermediate CA Compromise) 
+ TrueNAS General 
+ 17 
+ <forum-user-masked>
+ October 31, 2026
+ TrueNAS 26 Nightlies Emerge! 
+ Announcements 
+ 19 
+ <forum-user-masked>
+ March 16, 2026
+ Home 
+ Categories 
+ Guidelines 
+ Terms of Service 
+ Privacy Policy 
+ Powered by Discourse , best viewed with JavaScript enabled

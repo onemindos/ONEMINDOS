@@ -1,0 +1,54 @@
+Source: https://shop.zimaspace.com/products.json?limit=250
+Accessed: 2026-11-11 (UTC). Extract: title | variant | price USD (Shopify feed)
+
+ZimaBoard SE – Home Server Made Simple | 864 (8GB RAM + 64GB eMMC) / Starter Kit | 159.00
+ZimaBoard SE – Home Server Made Simple | 864 (8GB RAM + 64GB eMMC) / NAS Kit | 189.00
+ZimaBoard SE – Home Server Made Simple | 1664 (16GB RAM + 64GB eMMC) / Starter Kit | 199.00
+ZimaBoard SE – Home Server Made Simple | 1664 (16GB RAM + 64GB eMMC) / NAS Kit | 229.00
+ZimaCube 2 Personal Cloud Home NAS | Standard (i3-1215U/8GB/256GB) | 799.00
+ZimaCube 2 Personal Cloud Home NAS | Pro (i5-1235U/16GB/256GB) | 1299.00
+ZimaCube 2 Personal Cloud Home NAS | Creator Pack (i5-1235U/64GB/1TB+RTX Pro 2000) | 2499.00
+ZimaBoard 2 Firewall Kit | 832 Firewall Kit | 419.00
+ZimaBoard 2 Firewall Kit | 1664 Firewall Kit | 479.00
+19V/3A 57W USB-C Power Adapter for ZimaBlade | Default Title | 18.90
+ZimaBoard 2 - Hyper Performance Single Board Server for KS Add On | ZimaBoard 2 832 | 339.00
+ZimaBoard 2 - Hyper Performance Single Board Server for KS Add On | ZimaBoard 2 1664 | 399.00
+ZimaBoard 2 1664 Master Kit | Default Title | 999.00
+ZimaBoard 2 1664 Smart Home Kit | Default Title | 579.00
+ZimaBoard 2 Mini Nas Kit for Home Server & Personal Cloud | ZimaBoard 2 832 Mini NAS Kit | 449.00
+ZimaBoard 2 Mini Nas Kit for Home Server & Personal Cloud | ZimaBoard 2 1664 Mini NAS Kit | 519.00
+2-Bay HDD Rack Tray for ZimaBoard 2 | Default Title | 29.90
+ZimaBoard 2 Upgrade Fee (1664 Model) | Default Title | 60.00
+ZimaBoard 2 Cooling Fan | Default Title | 5.90
+120W 12V/10A GaN Power Adapter for ZimaBoard & ZimaBoard 2 | Default Title | 43.90
+ZimaBoard 2 - Mini Home Server for Your Big Idea | 832 (8GB RAM + 32GB eMMC) / Board Only | 339.00
+ZimaBoard 2 - Mini Home Server for Your Big Idea | 832 (8GB RAM + 32GB eMMC) / Starter Bundle | 379.00
+ZimaBoard 2 - Mini Home Server for Your Big Idea | 832 (8GB RAM + 32GB eMMC) / Mini NAS Kit | 449.00
+ZimaBoard 2 - Mini Home Server for Your Big Idea | 1664 (16GB RAM + 64GB eMMC) / Board Only | 399.00
+ZimaBoard 2 - Mini Home Server for Your Big Idea | 1664 (16GB RAM + 64GB eMMC) / Starter Bundle | 449.00
+ZimaBoard 2 - Mini Home Server for Your Big Idea | 1664 (16GB RAM + 64GB eMMC) / Mini NAS Kit | 519.00
+Zima RE.INVENTED Drawstring Bag | Default Title | 19.90
+ZimaBoard 832 "Special Agent Kit" | Default Title | 499.90
+ZimaBoard 832 - 2021 Special Edition | Default Title | 199.90
+Heat Sink Module for ZimaCube Series | Default Title | 9.90
+Front Grille Special Edition For ZimaCube Series | Betula Gray | 9.90
+Front Grille Special Edition For ZimaCube Series | Juglans Nigra | 9.90
+ZimaBlade 7700 DeskBuild NAS Kit: X86 4-Core DIY NAS with One-Click Apps | Default Title | 185.00
+ZimaBoard 232 Firewall Kit – 4x 2.5GbE Intel NIC, x86 Custom Setup (RTS) | Default Title | 139.90
+2 Bay HDD Rack Tray for ZimaBlade and RPi Dual 3.5'' Storage Drive Stand | Default Title | 27.90
+16GB DDR3L 1333 MT/s RAM for ZimaBoard SE & ZimaBlade | Default Title | 39.90
+ZimaBlade - Single Board Server for Cyber Native | Blade 3760 / Board Only | 49.00
+ZimaBlade - Single Board Server for Cyber Native | Blade 3760 / Starter Bundle | 109.00
+ZimaBlade - Single Board Server for Cyber Native | Blade 7700 / Board Only | 119.00
+ZimaBlade - Single Board Server for Cyber Native | Blade 7700 / Starter Bundle | 160.00
+ZimaBlade - Single Board Server for Cyber Native | Blade 7700 / Dual-Bay NAS Kit | 179.00
+ZimaCube Pro Personal Cloud | Base (1235U/16G/256G) | 1099.00
+ZimaCube Pro Personal Cloud | RAM Upgrade (1235U/64G/256G) | 1249.00
+ZimaCube Pro Creator Pack Personal Cloud | Standard (1235U/64G/1T/RTX2000Ada) | 1999.00
+ZimaCube Personal Cloud | Base (N100/8G/256G) | 649.00
+ZimaCube Personal Cloud | RAM Upgrade (N100/16G/256G) | 679.00
+ZimaBoard - A Decentralized Home Server | ZimaBoard 232 | 89.90
+ZimaBoard - A Decentralized Home Server | ZimaBoard 432 | 159.90
+ZimaBoard - A Decentralized Home Server | ZimaBoard 832 | 199.90
+ZimaBoard 832 Development Kit | Default Title | 499.90
+SATA Y-Cable for ZimaBoard/ZimaBlade | Default Title | 3.90

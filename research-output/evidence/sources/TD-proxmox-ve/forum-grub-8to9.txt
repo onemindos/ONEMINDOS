@@ -1,0 +1,17 @@
+SOURCE: https://forum.proxmox.com/threads/issue-booting-into-grub-after-upgrade-from-proxmox-8-to-9.178482/
+ACCESSED: 2026-11-11
+
+NOTE: excerpt only; user handles, hostnames and IDs removed for privacy. Full thread at the SOURCE URL.
+
+ [SOLVED] - Issue booting into GRUB after upgrade from Proxmox 8 to 9 | Proxmox Support Forum
+ [SOLVED] Issue booting into GRUB after upgrade from Proxmox 8 to 9
+After the upgrade, upon reboot, I was dropped to the GRUB prompt (grub>), instead of the normal boot menu. Attempting ls showed my LVM volumes correctly, but insmod normal failed to load, and the menu never appeared.
+Cause: The correct GRUB package was installed, but the UEFI firmware was still booting an old/incorrect GRUB entry. grub-install ensures the fixed version is used.
+Everything is then solved until I power off the server (and remove the power plug) and I have to redo all the steps
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=proxmox --recheck
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=proxmox --recheck --removable
+https://pve.proxmox.com/wiki/Upgrade_from_8_to_9#GRUB_Might_Fail_To_Boot_From_LVM_in_UEFI_Mode
+I have the same issue and the fix proposed by @<user> partially solved my issue:
+Make sure there's only one ESP the firmware actually boots: lsblk -f | grep -i fat. If you have multiple FAT32 EFI partitions, grub-install may be writing to one the firmware doesn't use.
+To regain access, I used the manual kernel boot method: I set the root to my LVM volume, loaded the latest kernel (6.17), loaded the corresponding initramfs, and booted successfully. This allowed me to start the Proxmox node and access the system.
+Your GRUB install itself is fine — the problem is that your UEFI firmware isn't keeping the NVRAM boot entry across a full power loss. grub-install writes a boot variable via efibootmgr pointing to \EFI\proxmox\grubx64.efi, but many firmwares drop or fail to persist NVRAM entries after the board loses power completely. With no valid entry left, the board falls back to its default BBS order, which is why you have to redo everything each cold start.

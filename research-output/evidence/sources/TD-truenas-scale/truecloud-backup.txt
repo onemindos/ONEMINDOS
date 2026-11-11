@@ -1,0 +1,560 @@
+Managing TrueCloud Backup Tasks | TrueNAS Documentation Hub 
+ Search TrueNAS Documentation
+ × 
+ Show Results From:
+ Version (25.04) 
+ 28 (Nightly) 
+ 27 
+ 25.10 
+ 25.04 
+ 24.10 
+ Docs 
+ API 
+ Apps 
+ TrueNAS Connect 
+ Searching...
+ Products 
+ Support & Resources 
+ Get A Quote 
+ Solutions 
+ Company 
+ Sign In 
+ Close 
+ Products V-Series Max Performance & Versatility
+ F-Series High Performance NVME
+ H-Series Versatility and Power Efficiency
+ Mini Series Edge and Branch Office
+ M-Series High Capacity All-Flash or Hybrid
+ R-Series Single Controller Appliances
+ TrueNAS Enterprise
+ Mission Critical Storage. 24×7 Enterprise Support
+ TrueNAS Community Edition
+ Test Drive TrueNAS in Your Environment
+ Streamlined Management for your TrueNAS Systems 
+ Solutions Industry
+ Audio 
+ Automotive 
+ Broadcasting 
+ Education 
+ US Public Sector 
+ Gaming 
+ Healthcare 
+ MSP 
+ Manufacturing 
+ Research & AI 
+ Media & Entertainment 
+ Use Cases
+ Analytics 
+ Backup & Archival 
+ Cloud 
+ Data Mobility 
+ File Sharing 
+ TrueCloud Backup 
+ Media & Entertainment 
+ Surveillance/CCTV 
+ Veeam Backup 
+ Virtualization 
+ Red Hat OpenShift 
+ TrueNAS as an Alternative
+ Alternative to Dell 
+ Alternative to NetApp 
+ Alternative to Pure Storage 
+ Support & Resources Support
+ Enterprise Support For customers with active support contracts
+ Community Support For peer-to-peer, forum support
+ Resources
+ Case Studies 
+ Datasheets 
+ Documentation 
+ TrueNAS API 
+ FAQ 
+ Apps 
+ TrueNAS Blogs 
+ Software Status 
+ TrueNAS Security 
+ Solution Briefs and Guides 
+ Certifications & Integrations 
+ White Papers 
+ Videos 
+ TrueCommand Cloud 
+ Reseller Network 
+ ZFS Overview 
+ Community
+ TrueNAS Community Edition 
+ Community Forum 
+ Discord 
+ TrueNAS GitHub 
+ TrueNAS Merch Store 
+ Company About TrueNAS 
+ Team 
+ Awards 
+ Careers 
+ Contact Us 
+ Newsroom 
+ Our Clients 
+ Reviews 
+ Sign In TrueNAS Connect 
+ Partner Portal 
+ Enterprise Support 
+ Get A Quote 
+ Documentation Hub Product TrueNAS
+ TrueNAS Apps 
+ TrueNAS Connect TrueCommand
+ TrueNAS Systems
+ Version 
+ Keyword Search 
+ AI Search 
+ × 
+ ⎙ Download or Print 
+ Getting Started
+ ⎙ Download or Print 
+ 25.10 (Goldeye) Version Notes 
+ Feature Deprecations 
+ TrueNAS Hardware Guide 
+ Installation Instructions
+ Preparing for TrueNAS UI Configuration 
+ Preparing for TrueNAS UI Configuration (Enterprise) 
+ Preparing for TrueNAS UI Configuration (Home Users) 
+ Installing TrueNAS 
+ Installing TrueNAS Enterprise (HA) 
+ Using the Console Setup Menu 
+ Migrating from CORE
+ Preparing to Migrate 
+ Community Migrations 
+ Enterprise Migrations 
+ Component Naming 
+ (obsolete) ZFS Feature Flags Removed 
+ Third-Party Data Migration 
+ Configuration Instructions
+ Logging In for the First Time 
+ Configuring TrueNAS Using the UI 
+ Setting Up Storage 
+ Setting Up Data Sharing 
+ Backing Up TrueNAS 
+ Configuring Virtualization and Apps 
+ Getting Support
+ Providing Feedback in TrueNAS 
+ User Agreements
+ TrueNAS EULA 
+ Software Development Life Cycle 
+ TrueNAS Data Collection Statement 
+ TrueNAS Tutorials
+ ⎙ Download or Print 
+ Top Toolbar
+ Using UI Global Search 
+ Managing API Keys 
+ Shutting Down TrueNAS Enterprise HA 
+ Dashboard 
+ Storage
+ Import Pool 
+ Disks
+ Replacing Disks 
+ Wiping a Disk 
+ SLOG Over-Provisioning 
+ Managing Self-Encrypting Drives (SED) 
+ Drive Health Management 
+ Create Pool 
+ Fusion Pools 
+ Managing Pools 
+ Datasets
+ Adding and Managing Datasets 
+ Adding and Managing Zvols 
+ Managing User or Group Quotas 
+ Creating Snapshots 
+ Managing Snapshots 
+ Storage Encryption 
+ Configuring ACL Permissions 
+ Shares
+ AFP Migration 
+ Block Shares (iSCSI)
+ Adding iSCSI Block Shares 
+ Setting Up Fibre Channel 
+ Using an iSCSI Share 
+ Increasing iSCSI Available Storage 
+ Adding NFS Shares 
+ Multiprotocol Shares 
+ Windows Shares (SMB)
+ Managing SMB Shares 
+ Adding a Basic Time Machine SMB Share 
+ Setting Up Final Cut Pro SMB Shares 
+ Using SMB Shadow Copy 
+ Setting Up SMB Private Dataset Shares 
+ SMB Share MacOS Client Limitations When Using Decomposed Unicode Characters 
+ Setting Up SMB Multichannel 
+ NVMe-oF Subsystems
+ Managing NVMe-oF Subsystems 
+ Data Protection
+ Managing TrueCloud Backup Tasks 
+ Cloud Sync Tasks
+ Backing Up Google Drive to TrueNAS 
+ Adding a Google Photos Cloud Sync Task 
+ Configuring Rsync Tasks 
+ Adding Periodic Snapshot Tasks 
+ Creating VMWare Snapshots 
+ Replication Tasks
+ Setting Up a Local Replication Task 
+ Setting Up a Remote Replication Task 
+ Advanced Replication Tasks
+ Setting Up an Encrypted Replication Task 
+ Unlocking a Replication Encrypted Dataset or Zvol 
+ Network
+ Interface Configurations
+ Setting Up a Network Bridge 
+ Setting Up a Link Aggregation 
+ Setting Up a Network VLAN 
+ Managing Network Configurations 
+ Configuring IPv6 
+ Managing Network Settings (Enterprise HA) 
+ Configuring Static Routes 
+ Setting Up IPMI 
+ Accessing NAS from VMs and Containers 
+ Credentials
+ Using Administrator Logins 
+ Managing Users 
+ Managing Groups 
+ Setting Up Directory Services
+ Configuring Active Directory 
+ Configuring IPA 
+ Configuring LDAP 
+ Configuring Kerberos 
+ Backup Credentials
+ Adding Cloud Credentials 
+ Adding SSH Credentials 
+ Certificates
+ Managing Certificates 
+ Managing Certificate Signing Requests 
+ Adding ACME DNS Authenticators 
+ Creating ACME Certificates 
+ Configuring KMIP 
+ Containers 
+ Virtual Machines
+ Adding and Managing VM Devices 
+ Reporting 
+ System Settings
+ Updating TrueNAS 
+ Updating TrueNAS Enterprise HA 
+ General Settings
+ Adding a License and Proactive Support 
+ Setting Up System Email 
+ Advanced Settings
+ Managing the System Configuration 
+ Managing Cron Jobs 
+ Managing the Console Setup Menu 
+ Managing System Logging 
+ Configuring SED Settings 
+ Managing Init/Shutdown Scripts 
+ Isolating GPU for VMs 
+ Managing Global 2FA (Two-Factor Authentication) 
+ Developer Mode (Unsupported) 
+ Boot Pool Management 
+ Services
+ FTP 
+ NFS 
+ SMB 
+ SNMP 
+ SSH 
+ UPS 
+ Using Shell 
+ Using Audit Logs 
+ UI Reference Guide
+ ⎙ Download or Print 
+ Top Toolbar
+ Alerts
+ Alert Settings Screens 
+ Email Screens 
+ Settings Options
+ User API Keys Screen 
+ Two-Factor Authentication Screen 
+ Jobs Screens 
+ Dashboard 
+ Storage
+ Disks 
+ Pool Creation Wizard 
+ VDEVs 
+ Datasets
+ Zvols 
+ Capacity Settings 
+ Snapshots 
+ User and Group Quotas 
+ Encryption Settings 
+ Permissions 
+ Shares
+ SMB Shares Screens 
+ NFS Shares Screens 
+ Block (iSCSI) Share Target Screens 
+ Fibre Channel Screens 
+ NVMe-oF Share Screens 
+ Data Protection
+ TrueCloud Backup Tasks Screens 
+ Cloud Sync Tasks Screens 
+ Rsync Tasks Screens 
+ Periodic Snapshot Tasks Screens 
+ VMWare Snapshots Screen 
+ Replication Task Screens 
+ Network
+ Network Interface Screens 
+ Network Configuration Screens 
+ Static Routes Widget 
+ IPMI Screens 
+ Credentials
+ Users Screens 
+ Groups Screens 
+ Directory Services Screens
+ Active Directory Screens 
+ IPA Screens 
+ LDAP Screens 
+ Kerberos Settings Screen 
+ Kerberos Realms Screens 
+ Kerberos Keytab Screens 
+ Backup Credentials
+ Cloud Credentials Screens 
+ SSH Screens 
+ Certificates
+ Certificates Screens 
+ Certificate Signing Requests Screens 
+ ACME DNS-Authenticators Screens 
+ KMIP Screen 
+ Containers 
+ Virtual Machines 
+ Apps
+ Custom App Screens 
+ Reporting 
+ System Settings
+ Update Screens 
+ General Settings Screen 
+ Advanced Settings Screen 
+ Boot 
+ Services
+ FTP Service Screen 
+ iSCSI Services Screen 
+ NFS Services Screen 
+ SMB Service Screen 
+ SNMP Service Screen 
+ SSH Service Screen 
+ UPS Services Screen 
+ Shell Screen 
+ Alert Settings Screen 
+ View Enclosure Screen (TrueNAS Systems Only) 
+ Audit Screen 
+ API Reference 
+ TrueNAS Security Reports 
+ TrueNAS Apps 
+ TrueNAS Connect 
+ TrueNAS API Docs 
+ Security Reports 
+ Documentation Archive 
+ View Source 
+ RSS Feed 
+ Software Status 
+ Software Releases 
+ Solutions 
+ TrueNAS Systems 
+ Contributing 
+ References 
+ ➤ TrueNAS 25.10 
+ /
+ TrueNAS Tutorials 
+ /
+ Data Protection 
+ /
+ Managing TrueCloud Backup Tasks 
+ Edit page 
+TrueNAS Stable Version Documentation
+ This content follows TrueNAS 25.10 (Goldeye) releases.
+Use the Product and Version selectors above to view content specific to a different software release.
+ Managing TrueCloud Backup Tasks
+   9 minute read.
+ Last Modified 2025-08-22 08:49 EDT 
+ TrueNAS can send, receive, or synchronize data with the cloud storage providers available in TrueNAS.
+ TrueCloud backup tasks allow for single-time transfers or recurring transfers on a schedule.
+They are an effective method to back up data to a remote location.
+ This article provides instructions on configuring a TrueCloud backup task using Storj and covers setting up the Storj iX account and TrueNAS credential.
+ To take advantage of the lower-cost benefits of the TrueCloud backup service, you must create your Storj iX account using the link provided on the Add Cloud Credentials screen.
+ You must also create and authorize the storage buckets on Storj for TrueNAS to use.
+ iXsystems is not responsible for charges incurred using a third-party vendor with the TrueCloud backup feature.
+ TrueCloud Backup Task Requirements
+ You must configure all system storage (pool and datasets or zvols) and have them ready to receive or send data.
+ Creating a TrueCloud Backup Task
+ To create a TrueCloud Backup task:
+ Create the TrueNAS Storj cloud credential .
+ Adding the Storj cloud credential in TrueNAS includes following the link to create the Storj iX account, creating a new bucket, and obtaining the S3 authentication credentials needed to complete the process in TrueNAS.
+ Create the TrueCloud Backup task for one bucket.
+ Adding Storj Cloud Credentials
+ Go to Credentials > Backup Credentials and click Add on the Cloud Credentials widget.
+The Cloud Credentials screen opens with Storj displayed as the default provider in the Provider field.
+ Figure 1: Adding Storj Cloud Credentials 
+ Enter a descriptive name to identify the credential in the Name field.
+ You can create your Storj iX cloud service account using two methods:
+ Go to the TrueNAS Storj web page and click Sign Up & Log in - iX-Storj .
+ Go to Credentials > Backup Credentials and click Add .
+Select Storj iX as the Provider on the Cloud Credentials screen, then click Sign up for account .
+ The Storj Create your Storj account web page opens.
+ You must use this link to create your Storj account to take advantage of the benefits of the Storj iX pricing!
+ Enter your information in the fields, select the I agree to the Terms of Service and Privacy Policy , and click the button at the bottom of the screen.
+The Storj main dashboard opens.
+ Figure 2: Storj Main Dashboard 
+ After setting up your Storj iX account, set up Storj S3 access and create your Storj bucket .
+ The endpoint set in the Storj credential applies to all Cloud Sync Tasks that use that credential.
+ After completing this configuration form, you can set up the TrueCloud Backup task .
+ Setting up S3 Access
+ After creating your Storj iX account, add S3 access credentials.
+ Click Access Keys to open the Access Keys dashboard, then click New Access Key .
+ Figure 3: Storj Access Keys Screen 
+ The New Access window opens.
+ Enter the name you want to use for this credential.
+Select S3 Credentials for access type, then click Next .
+ Figure 4: Storj New Access Key Window 
+ Select the permissions you want to allow this access key.
+Choose Full Access to allow permanent full permissions to all buckets and data then click Create Access or select Advanced then click Next to customize access configuration.
+ Figure 5: Storj Access Permissions Window. 
+ To enable TrueNAS to create new Storj buckets , set the access configuration to Full Access .
+ (Optional) If configuring advanced access options:
+ a. Select the permissions to allow.
+Choose one or more of Read , Write , List , Delete , or choose All Permissions .
+Click Next .
+ Figure 6: Storj Access Select Permissions 
+ b. Select the buckets to allow access to.
+Click All Buckets or click Select Buckets and use the Buckets dropdown to select one or more bucket(s).
+Click Next .
+ Figure 7: Storj Access Select Buckets. 
+ c. Select an expiration date if you want to set the duration or length of time to allow this credential to exist.
+You can select a preset period, click Set Custom Expiration Date to use the calendar to set the duration, or select No expiration .
+Click Next to open the Access Encryption window.
+ Figure 8: Storj Create Access Select Duration 
+ d. Review access details and then click Create Access .
+ Figure 9: Storj Create Access Confirm Details 
+ Use Copy All or Download All to obtain the access key, secret key, and endpoint.
+Keep these in a safe place where you can back up the file.
+ Figure 10: Storj S3 Credentials Generated 
+ Click Close .
+ Enter these keys in the Authentication fields in TrueNAS on the Cloud Credentials screen to complete setting up the cloud credential.
+ Enter the authentication information provided by Storj in the Access Key ID and Secret Access Key fields.
+ Click Verify Credentials and wait for the system to verify the credentials.
+ Figure 11: Verify Cloud Credentials 
+ Click Save .
+ Creating a TrueNAS Storj Bucket
+ Not all Storj buckets are TrueNAS compatible.
+To create a TrueNAS-compatible bucket, either log in to Storj using the ix Storj affiliate link before creating the bucket in the Storj UI, or use the TrueNAS UI to create the bucket using the Add New option.
+ To create a Storj bucket from the TrueNAS UI:
+ Go to Data Protection .
+Click Add on either the TrueCloud Backup Tasks or Cloud Sync Tasks widget.
+ If using the Add TrueCloud Backup Task screen:
+ Select the stored Storj cloud credential from the Credentials dropdown.
+Do this as part of setting up a task.
+  Figure 12: TrueCloud Add New Bucket Settings 
+ Select Add New from the Bucket dropdown.
+ Enter a name for the new bucket. Only lowercase letters, numbers, and hyphens are allowed
+ Continue to configure the TrueCloud backup task, then click Save .
+TrueNAS creates the task and remote bucket on Storj.
+ If using the Cloud Sync Task Wizard :
+ Select the stored Storj cloud credential from the Provider > Credentials dropdown.
+Do this as part of setting up a task or use the wizard to create the bucket without saving a configured task.
+ Click Verify Credential for verification, then click Next to go to the What and When screen.
+ Select Add New to open the Add Bucket screen.
+ Figure 13: Add Bucket Screen 
+ Enter a name for the new bucket.
+ Click Save .
+TrueNAS creates the remote bucket on Storj and then returns to the Cloud Sync Task Wizard .
+ Adding a Storj TrueCloud Backup Task
+ To add the TrueCloud backup task, go to Data Protection > TrueCloud Backup Tasks :
+ Click Add to open the Add TrueCloud Backup Task screen.
+ Figure 14: Add TrueCloud Backup Task 
+ Enter or browse to select the local Source Path to the directories or files you want sent to the cloud for backup.
+Click the arrow to the left of the name to expand it, then click on the name to select it.
+ Select the Storj credential on the Credentials dropdown list.
+You can select Add New to create the Storj credential if you skipped the instructions above.
+ Select the Storj bucket from the Bucket dropdown list.
+ If you have not previously created a TrueNAS compatible Storj bucket, select Add New and follow the procedure in Creating a TrueNAS Storj Bucket .
+ Click the arrow icon for the Folder field to expand the dropdown list and select the desired folder in the Storj bucket, or enter a folder path.
+Enter /name , where name is a folder that does not exist, to create a new folder in the Storj bucket.
+ Enter a name for the task under Task Settings .
+ Enter the number of snapshot copies to retain in Keep Last .
+ Enter a password for the backup repository.
+Record this password in a secure location.
+You need the password to recreate the task using the same bucket/folder, such as in a new TrueNAS install or system, or to restore data from the existing snapshots in another TrueNAS system.
+ Set the task schedule for when to run this task.
+ Click Save .
+ TrueNAS adds the task to the TrueCloud Backup Tasks widget with the state N/A until the task runs on schedule.
+To test the task, click the vertical ellipses more_vert on the task and select Run Job to start the task apart from the scheduled time.
+ The task status changes to SUCCESS when complete.
+ Figure 15: TrueCloud Backup Task Complete 
+ Using Advanced Options
+ Advanced Options and Advanced Remote Options contain additional settings for advanced users.
+ Figure 16: Add TrueCloud Backup Task Advanced Options 
+ Select Use Snapshot to create and use a snapshot to back up or synchronize the operation between TrueNAS and the TrueCloud backup solution. This snapshot is automatically removed after the operation completes.
+ Advanced users can write scripts that run immediately before or after the TrueCloud backup task.
+Enter environment variables in either the Pre-script or Post-script fields.
+The Post-script field only runs when the TrueCloud backup task succeeds.
+See TrueCloud Backup Tasks Screens for information on available environment variables.
+ Use Exclude to enter a list of files and directories to exclude from sync.
+Press Enter to separate entries.
+See TrueCloud Backup Tasks Screens for syntax examples.
+ Use Transfer Settings to prevent excess resource consumption by setting the pack size and read concurrency.
+ Managing TrueCloud Tasks
+ To edit an existing TrueCloud backup task, click the vertical ellipses more_vert on the task and select Edit to open the Edit TrueCloud Backup Task screen. After making changes, click Save .
+ To run a scheduled task before the defined time, click the vertical ellipses more_vert on the task and select Run Job to start the task immediately.
+ To delete a task, click the vertical ellipses more_vert on the task and select delete Delete for the task to delete.
+ See TrueCloud Backup Tasks Screens for more information on TrueCloud Backup Task screens.
+ Restoring Data from TrueCloud Snapshots
+ To restore data from a TrueCloud backup, locate an existing snapshot on the Snapshots widget .
+ Figure 17: Snapshots Widget 
+ Click the vertical ellipses more_vert on the task and select history Restore to open the Restore from Snapshot screen.
+ Figure 18: Restore from Snapshot 
+ Select Include Everything to restore all data, or exclude some data using Include from subfolder , Select paths to exclude , or Exclude by pattern .
+See TrueCloud Backup Tasks Screens for more information.
+ Set the local Target to the target dataset of the backup task.
+Click Save to restore data from the snapshot.
+ Removing TrueCloud Snapshots
+ To delete an existing snapshot, locate it on the Snapshots widget .
+Click the vertical ellipses more_vert on the snapshot and select delete Delete to delete the snapshot.
+A Delete Snapshot dialog opens.
+ Figure 19: Delete Snapshot 
+ Click Confirm and then Delete to start the job.
+ Related Content
+ Tutorials Managing the System Configuration 
+ Adding Cloud Credentials 
+ Backing Up Google Drive to TrueNAS 
+ Cloud Sync Tasks 
+ Setting Up a Local Replication Task 
+ Getting Started Backing Up TrueNAS 
+ UI Reference TrueCloud Backup Tasks Screens 
+ Cloud Credentials Screens 
+ Cloud Sync Tasks Screens 
+ Backup Credentials 
+ SSH Service Screen 
+ Have more questions? 
+ For further discussion or assistance, see these resources:
+ TrueNAS Community Forum 
+ TrueNAS Community Discord 
+ TrueNAS Enterprise Support (requires paid support contract) 
+ Found content that needs an update?  
+You can
+ suggest content changes 
+ directly! To request changes to this content, click the Feedback button located on the middle-right side of the page (might require disabling ad blocking plugins).
+ Page Sections: 
+ 541 Division Street
+Campbell, CA 95008, USA
+ Contact Us 
+ <email-masked> 
+ Listen to our Podcast 
+ Support
+ Enterprise Support 
+ Community Support 
+ Forums 
+ FAQs 
+ Useful Links
+ Careers 
+ About Us 
+ Blog 
+ News & Articles 
+ TrueNAS Enterprise 
+ TrueNAS Community Edition 
+ TrueCommand 
+ TrueCommand Cloud 
+ TrueNAS Legacy 
+ Software Status 
+ Reseller Network 
+ Subscribe to our newsletter 
+ © Copyright  iXsystems, Inc. dba TrueNAS. All rights reserved. 
+ Legal 
+ TrueNAS Logos

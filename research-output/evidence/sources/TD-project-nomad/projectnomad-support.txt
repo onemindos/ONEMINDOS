@@ -1,0 +1,63 @@
+Support Project NOMAD
+Project NOMAD™
+Features
+Use Cases
+Hardware
+Install
+About
+Contact
+Shop
+Get Started
+Support the
+Project
+Project NOMAD is 100% free and open source. No subscriptions, no paywalls, no catch. Here's how you can help keep it going.
+Buy Us a Coffee
+Every contribution helps fund development, cover server costs, and build new content packs. Even a few bucks goes a long way.
+Support on Ko-fi
+Need Help With Your Home Network?
+Rogue Support is a networking consultation service for home users. Think of it as Uber for computer networking. Professional help with your Wi-Fi, network setup, and troubleshooting from vetted technicians.
+Supporting Rogue Support helps fund Project NOMAD development.
+Spread the Word
+Money is one way to help, but word of mouth is just as powerful.
+Star on GitHub
+A star helps more people discover the project. Takes two seconds.
+Star the repo
+Share With Someone
+Know someone who preps, homeschools, or lives off-grid? Send them the link.
+Copy the link
+Join the Discord
+Connect with other NOMAD users, share your build, and help newcomers.
+Join Discord
+Contribute Your Time
+Project NOMAD is built by a community of volunteers. Whether you have 30 minutes a week or a few hours, there's a way to help. Answer questions on Discord, triage GitHub issues, or contribute code.
+See Volunteer Roles
+Project NOMAD
+An offline-first knowledge and education server. Knowledge that never goes offline.
+Find Us Online
+Get Started
+Recommended Hardware
+Installation Guide
+FAQ
+Video Guides
+The NOMAD Deck
+Community Builds
+Benchmark Leaderboard
+Learn
+Offline AI
+Offline Internet
+Offline Computer
+Project
+Roadmap
+Our Story
+Press
+Volunteer
+Support the Project
+Merch Shop
+Contact
+Crosstalk Solutions
+Rogue Support
+Powered by
+Crosstalk Solutions
+©
+2026
+Project NOMAD™. Open source under Apache 2.0 License.

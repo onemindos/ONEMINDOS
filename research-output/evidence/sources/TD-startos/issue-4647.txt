@@ -1,0 +1,46 @@
+SOURCE: https://github.com/Start9Labs/start-technologies/issues/4647
+ACCESSED: 2026-11-11
+STATE: CLOSED created 2026-11-09T15:07:42Z closed 2026-11-09T21:39:46Z
+TITLE: OS update drops user kernel parameters from grub.cfg — upgrade runs update-grub in a chroot without the persistent config overlay (build/lib/scripts/upgrade:43)
+
+### Environment
+
+- StartOS version not stated by the reporter (kernel 7.2.11+deb13-amd64, as 0.4.1.2 ships), x86_64; read against `master`
+- Server One with a Phison E18 NVMe (Sabrent Rocket 4 Plus, 1987:5018), kernel 7.2.x
+- Area: update / boot configuration
+
+### What happens
+
+Some NVMe drives need kernel parameters to stay stable, e.g. `nvme_core.default_ps_max_latency_us=0 pcie_aspm=off pcie_port_pm=off`. Without them the controller drops off (`controller is down; will reset`, `CSTS=0xffffffff`, `Unable to change power state from D3cold to D0`). The data filesystem then takes btrfs write errors and goes read-only. The user can add the parameters by editing `/etc/default/grub` and running `update-grub`, and they then appear in `/boot/grub/grub.cfg` and `/proc/cmdline`. But:
+
+1. The `/etc/default/grub` edit is lost at the next reboot. The root is overlayfs with a tmpfs upperdir, so it reverts to the image's `GRUB_CMDLINE_LINUX="boot=startos console=ttyS0,115200n8 console=tty0"`. `grub.cfg` on `/boot` keeps the parameters for now.
+2. The next OS update regenerates `grub.cfg` from the new image only, so the parameters disappear and the drive failure comes back after every update. A drop-in placed in the persistent overlay (`/media/startos/config/overlay/etc/default/grub.d/*.cfg`) survives reboots but still isn't seen by the update.
+
+No mechanism exists for user kernel parameters to survive an update, and there's no shipped quirk for this drive.
+
+### What should happen instead
+
+Kernel parameters the user adds through a persistent path should survive OS updates. Two options: the update's `update-grub` sees `/media/startos/config/overlay`, or StartOS offers a supported setting for extra kernel parameters.
+
+### Root cause / code pointers
+
+Found by reading code.
+
+- `projects/start-os/build/lib/scripts/startos-initramfs-module:120`: at boot the root is `lowerdir=/startos/config/overlay:/lower` with a tmpfs upper. Edits to `/etc` outside `/media/startos/config/overlay` are ephemeral.
+- `projects/start-os/build/lib/scripts/upgrade:43-45`: the update chroot mounts `lowerdir=/media/startos/lower` only, without the config overlay. Then at `:73` it runs `update-grub`, which writes `/boot/grub/grub.cfg` (`/boot` is rbind-mounted, `:58`) from the bare image's `/etc/default/grub` and `/etc/default/grub.d`.
+- `projects/start-os/debian/postinst:36-44`: it hard-sets `GRUB_CMDLINE_LINUX` and empties `GRUB_CMDLINE_LINUX_DEFAULT` in the image.
+- `projects/start-os/scripts/nvme-isolation-test.sh:48-65`: the repo's own NVMe diagnostic script applies its workarounds by `sed` on `/etc/default/grub`. On a running 0.4.0 system that file is on the tmpfs layer, so its changes last only until the next update.
+
+A possible fix is to add `/media/startos/config/overlay` as the top lowerdir in the `upgrade` chroot, as the initramfs does. Persistent `/etc/default/grub.d/*.cfg` drop-ins would then be honoured by `update-grub` during updates.
+
+### Logs & evidence
+
+```
+nvme nvme0: controller is down; will reset: CSTS=0xffffffff, PCI_STATUS=0xffff
+nvme 0000:..: Unable to change power state from D3cold to D0, device inaccessible
+```
+Next, the reset fails with -19 and btrfs reports write errors on package-data, then the filesystem goes read-only. The device is stable while the three parameters are on the kernel command line.
+
+<!-- helix-55-9c7a6563 -->
+<!-- support chat 449 -->
+

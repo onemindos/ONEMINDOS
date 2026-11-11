@@ -1,0 +1,17 @@
+--- lines 80,95 of extracted text ---
+note
+
+Client Version 23.7.0 and
+Server Version 23.7.0 or higher are required for this feature.
+
+warning
+
+From July 2025 onwards, GoCardless has stopped accepting new Bank Account Data accounts. The below sign up instructions are now outdated, however, if you are an existing user, your account should continue to work.
+
+Create SECRET and KEY for Actual​
+
+Create an account with GoCardless - https://bankaccountdata.gocardless.com/overview/.
+
+Log into your account dashboard at the same URL and select Developers->User secrets from the left side menu.
+
+Click on the '+ create new' button at the bottom left.

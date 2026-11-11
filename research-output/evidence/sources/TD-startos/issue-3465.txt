@@ -1,0 +1,63 @@
+SOURCE: https://github.com/Start9Labs/start-technologies/issues/3465
+ACCESSED: 2026-11-11
+STATE: CLOSED created 2026-07-11T18:15:37Z closed 2026-07-13T16:53:06Z
+TITLE: `-nvidia` OS images ship the proprietary NVIDIA kernel module flavor — Blackwell GPUs (GB10 / DGX Spark, RTX 50-series) cannot initialize
+
+## Summary
+
+The `x86_64-nvidia` / `aarch64-nvidia` image flavors ship the **proprietary** flavor of the NVIDIA kernel modules. Per NVIDIA, [Blackwell and later are only supported by the **open** kernel modules](https://download.nvidia.com/XFree86/Linux-aarch64/580.159.03/README/kernel_open.html) (the proprietary flavor ends at Ada). As a result, any Blackwell GPU — DGX Spark / GB10 on `aarch64-nvidia`, RTX 50-series on `x86_64-nvidia` — fails to bind the driver, and services fall back to CPU even on the correct image flavor.
+
+Surfaced by this community report of a DGX Spark (GB10) running CPU-only inference:
+https://community.start9.com/t/experience-report-dgx-spark-gb10-start9-os-v0-4-0-ollama-currently-cpu-only-gpu-not-detected/5347
+(That user is on the plain `aarch64` image, which has no NVIDIA driver at all — but flashing `aarch64-nvidia` would not have helped, per below.)
+
+## Evidence (shipped artifact)
+
+Inspected `startos-0.4.0-beta.9-d1f153d_aarch64-nvidia.iso` from the release CDN:
+
+```
+$ mount -o loop startos-0.4.0-beta.9-d1f153d_aarch64-nvidia.iso /mnt
+$ unsquashfs -d nv /mnt/live/filesystem.squashfs \
+    usr/lib/modules/7.0.4+deb13-arm64/kernel/drivers/video/nvidia.ko
+$ modinfo nv/usr/lib/modules/7.0.4+deb13-arm64/kernel/drivers/video/nvidia.ko | grep -E '^(license|version)'
+version:        580.159.03
+license:        NVIDIA          # <- proprietary; the open flavor reports "Dual MIT/GPL"
+```
+
+Everything else in the image checks out for Blackwell-on-ARM64:
+- Driver 580.159.03 explicitly supports the GB10 (devid `2941`) — it's in the driver's [supported chips list](https://download.nvidia.com/XFree86/Linux-aarch64/580.159.03/README/supportedchips.html).
+- Kernel `7.0.4+deb13` (trixie-backports) is newer than the DGX OS baseline for this hardware.
+- `nvidia-container-toolkit` 1.19.0 is present, and the `nvidiaContainer` overlay + `/dev/nvidia*` passthrough plumbing works independently of module flavor.
+
+## Root cause
+
+`projects/start-os/build/image-recipe/build.sh` runs the `.run` installer inside the live-build chroot, where **no GPU is visible**. `nvidia-installer`'s flavor selection treats "no supported GPU detected" the same as "GPUs don't support open": in [`kernel.c` `valid_kernel_module_types()`](https://github.com/NVIDIA/nvidia-installer/blob/580.159.03/kernel.c#L2705) the open entry is skipped when `open_modules.supported_gpu_present` is false, leaving proprietary as the only valid type — and [`check_for_nvidia_graphics_devices()`](https://github.com/NVIDIA/nvidia-installer/blob/580.159.03/misc.c) only prints a warning when zero GPUs are found. So a headless chroot build silently produces proprietary modules.
+
+This is easy to miss on test hardware: Turing→Ada GPUs work with either flavor, so nothing fails until someone boots a Blackwell part.
+
+For history: NVIDIA image support was introduced in #3089 and the driver bumped to 580.159.03 in #3226 — the flavor selection issue is orthogonal to both and present since the beginning, because the chroot never has a GPU during image build.
+
+## Fix
+
+One flag on the installer invocation in the `9000-install-startos.hook.chroot` heredoc in `projects/start-os/build/image-recipe/build.sh`:
+
+```diff
+     if ! sh "\${RUN_PATH}" \
+         --silent \
++        --kernel-module-type=open \
+         --kernel-name="\${KVER}" \
+         --no-x-check \
+         --no-nouveau-check \
+         --no-runlevel-check; then
+```
+
+(`--kernel-module-type` valid values are `open` and `proprietary`; confirmed in the 580.159.03 installer option table.)
+
+**Trade-off:** the open modules support Turing and later only, so this drops Maxwell/Pascal/Volta (GTX 9xx/10xx, Tesla P/V) from the `-nvidia` images. That matches NVIDIA's own direction — since the 560 series they recommend and default to open wherever supported — but if pre-Turing support matters, the alternative is building both flavors and selecting at boot, at considerably more complexity. Recommend open-only plus a release note.
+
+## Verification
+
+- Post-fix image: `modinfo nvidia.ko` in the squashfs should report `license: Dual MIT/GPL`.
+- On Blackwell hardware: driver binds, `nvidia-smi` shows the GPU, and a `nvidiaContainer: true` service (Ollama / llama.cpp CUDA variant) reports a CUDA compute backend instead of `library=cpu`.
+- The forum reporter has a DGX Spark (Gigabyte AI TOP ATOM GB10) and is willing to test — happy to coordinate on the thread above.
+

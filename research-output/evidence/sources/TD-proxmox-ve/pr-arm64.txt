@@ -1,0 +1,220 @@
+SOURCE: https://www.proxmox.com/en/about/company-details/press-releases/proxmox-virtual-environment-launches-official-arm64-support
+ACCESSED: 2026-11-11
+
+
+ Proxmox Virtual Environment launches official Arm64 Support
+ Search
+ Select your language
+ English 
+ German 
+ Home
+ Products 
+ Proxmox Virtual Environment 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Comparison
+ Pricing
+ Proxmox Backup Server 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Pricing
+ Proxmox Mail Gateway 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Virtual Appliance
+ Pricing
+ Proxmox Datacenter Manager 
+ Overview
+ Benefits
+ Features
+ Downloads
+ Proxmox Virtual Environment
+ ISO
+ Documentation
+ Agreements
+ Proxmox Backup Server
+ ISO
+ Documentation
+ Agreements
+ Proxmox Mail Gateway
+ ISO
+ Documentation
+ Agreements
+ Proxmox Datacenter Manager
+ ISO
+ Documentation
+ Services 
+ Support & Services 
+ Enterprise Support Services
+ Online Support Services
+ Customer Portal
+ Community Forum
+ Training 
+ Training
+ Course Catalog
+ Videos
+ FAQ
+ Partners 
+ Find a Partner 
+ Explore
+ Reseller Partner
+ Success Stories
+ All Partners
+ Not yet a Partner? 
+ Become a partner
+ About 
+ About us 
+ Company
+ Careers
+ Events
+ Success Stories
+ Open Source 
+ Community
+ Developers
+ Bug and feature requests
+ Source Code (Git)
+ Company Details 
+ Press Releases
+ Media Kit
+ In the News
+ Newsletter
+ Contact us →
+Get HelpCustomer Portal
+Community Forum
+Support
+Contact Us
+Buy now
+ Search
+ Select your language
+ English 
+ German 
+ Home
+ProductsProxmox Virtual Environment
+Overview
+Features
+Get Started
+Requirements
+Comparison
+Pricing
+Proxmox Backup Server
+Overview
+Features
+Get Started
+Requirements
+Pricing
+Proxmox Mail Gateway
+Overview
+Features
+Get Started
+Requirements
+Virtual Appliance
+Pricing
+Proxmox Datacenter Manager
+Overview
+Benefits
+Features
+DownloadsProxmox Virtual EnvironmentISO
+Documentation
+Agreements
+Proxmox Backup ServerISO
+Documentation
+Agreements
+Proxmox Mail GatewayISO
+Documentation
+Agreements
+Proxmox Datacenter ManagerISO
+Documentation
+ServicesSupport & Services
+Enterprise Support Services
+Online Support Services
+Customer Portal
+Community Forum
+Training
+Training
+Course Catalog
+Videos
+FAQ
+PartnersFind a Partner
+Explore
+Reseller Partner
+Success Stories
+All Partners
+Not yet a Partner?
+Become a partner
+AboutAbout us
+Company
+Careers
+Events
+Success Stories
+Open Source
+Community
+Developers
+Bug and feature requests
+Source Code (Git)
+Company Details
+Press Releases
+Media Kit
+In the News
+Newsletter
+Contact us →
+ Proxmox Virtual Environment launches official Arm64 Support 
+ August 05, 2026 
+ Download:
+ English 
+ German 
+First official Arm64 release extends Proxmox VE beyond x86-64 architectures.
+Features day-one validation for NVIDIA Grace™ and NVIDIA Vera™ CPU architectures.
+Delivers complete feature parity across KVM, LXC, ZFS, and Ceph storage stacks.
+VIENNA, Austria – August 05, 2026 –Enterprise software developer Proxmox Server Solutions GmbH today announced the immediate availability of the first officially supported Arm64 edition of its flagship platform, Proxmox Virtual Environment. The release extends the open-source virtualization platform to Arm-based server systems, supporting enterprise demand for high-density, energy-efficient data center architectures.
+Proxmox VE for Arm64 provides a unified platform to manage Arm64 virtual machines and Linux containers (LXC). Users benefit from the established web-based management interface, software-defined networking, storage, high-availability clustering, and backup capabilities of Proxmox VE on supported Arm64 hardware.
+Systems based on the NVIDIA Grace and NVIDIA Vera CPU architectures are supported from the first official Arm64 release. These platforms target demanding data center, cloud, accelerated computing, and AI training and inference environments, expanding the infrastructure options available to organizations building modern and energy-efficient data centers.
+Technical validation on NVIDIA Grace Hopper™ systems
+Developed in technical collaboration with NVIDIA and Supermicro, Proxmox engineers performed joint validation on NVIDIA Grace Hopper™ Superchip server systems. This effort enabled rapid porting and thorough testing across the platform stack, which is already operating across select enterprise production environments.
+Full feature parity for ZFS and Ceph
+Built on Proxmox VE’s established Linux and KVM foundation, the Arm64 edition underwent architecture-wide validation. Key enterprise storage mainstays – including ZFS and Ceph – have been fully optimized to deliver exact performance, reliability, and feature parity with existing x86 deployments.
+“As data centers shift toward high-density, energy-efficient architectures, our customers require the exact same mission-critical stability on Arm64 that they have relied on with x86," said Tim Marx, COO at Proxmox Server Solutions. "Through our close engineering work with NVIDIA and Supermicro, we are ensuring that enterprises can scale their next-generation AI and cloud workloads with complete confidence in their underlying hypervisor."
+“Our goal was not simply to run Proxmox VE on a new architecture, but to deliver full feature parity: KVM, networking, clustering, ZFS, and Ceph all behaving exactly as our users expect from our x86-64 builds,” said Thomas Lamprecht, CTO at Proxmox Server Solutions. “Developing directly on NVIDIA Grace Hopper systems let us validate that on production-class hardware from day one, and NVIDIA's upstream kernel work ensures the platform evolves alongside NVIDIA Grace and NVIDIA Vera.”
+Availability
+Proxmox Virtual Environment for Arm64 is open-source software and immediately available for download via bare-metal ISO images or package repositories alongside existing x86-64 builds.
+For enterprise environments, Proxmox Server Solutions offers comprehensive support plans that provide stable and secure updates and direct access to expert support services. These support contracts offer a cost-effective way to secure enterprise-grade stability. Enterprise support for Arm64 deployments are available upon request.
+Resources:
+ISO Image Download: https://www.proxmox.com/en/downloads 
+Forum Announcement: https://forum.proxmox.com/
+Roadmap: For published and upcoming features, see the Release Notes & Documentation
+###
+About Proxmox Virtual Environment
+Powering over 2 million hosts globally, Proxmox Virtual Environment is a complete open-source platform for enterprise virtualization and hyper-converged infrastructure. It natively unifies KVM virtualization, LXC containers, software-defined storage, and networking on a single platform. Alongside its dedicated Backup Server and Datacenter Manager, the Proxmox ecosystem eliminates multi-site complexity as well as dependency on proprietary stacks. Backed by a global community of over 225,000 members, the platform serves as a scalable, cost-effective foundation for modern data centers.
+About Proxmox Server Solutions
+Proxmox Server Solutions provides powerful, intuitive open-source server software that guarantees vendor independence and minimizes total cost of ownership. Enterprises of all sizes rely on the company’s reliable vendor support, certified training services, and a global network of 3,000 integration partners to ensure business continuity. Established in 2005 and headquartered in Vienna, Austria, tens of thousands of corporate customers worldwide trust Proxmox solutions to secure their mission-critical IT environments.
+Contact: <press contact removed>
+ Products
+Proxmox Virtual Environment
+Proxmox Datacenter Manager
+Proxmox Backup Server
+Proxmox Mail Gateway
+Downloads
+Support
+ Resources
+Community
+Developers
+Success Stories
+Press Room
+Videos
+Training
+ Newsletter
+ Email *
+ I agree with the privacy policy *
+ Subscribe 
+About Proxmox
+Careers
+Contact Us
+Legal
+Sitemap
+Privacy Policy
+ Copyright © 2004 - 2026 Proxmox Server Solutions GmbH. All rights reserved.

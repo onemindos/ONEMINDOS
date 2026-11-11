@@ -1,0 +1,415 @@
+Trademark guidelines and policies
+
+ Skip to content
+Navigation
+
+Menu
+
+Explore Red Hat
+
+ AI
+
+Overview
+
+ AI news
+
+ Technical blog
+
+ Live AI events
+
+ Inference explained
+
+See our approach
+
+Products
+
+ Red Hat AI Enterprise
+
+ Red Hat AI Inference
+
+ Red Hat OpenShift AI
+
+Explore Red Hat AI
+
+Engage & learn
+
+ Learning hub
+
+ AI topics
+
+ AI partners
+
+ Services for AI
+
+ Hybrid cloud
+
+Platform solutions
+Artificial intelligence
+Build, deploy, and monitor AI models and apps.
+Linux standardization
+Get consistency across operating environments.
+Application development
+Simplify the way you build, deploy, and manage apps.
+Automation
+Scale automation and unite tech, teams, and environments.
+
+Use cases
+Virtualization
+Modernize operations for virtualized and containerized workloads.
+Digital sovereignty 
+Control and protect critical infrastructure. 
+Security
+Code, build, deploy, and monitor security-focused software.
+Edge computing
+Deploy workloads closer to the source with edge technology.
+Explore solutions
+
+Solutions by industry
+
+ Automotive
+
+ Financial services
+
+ Healthcare
+
+ Industrial sector
+
+ Media and entertainment
+
+ Public sector (Global)
+
+ Public sector (U.S.)
+
+ Telecommunications
+
+Discover cloud technologies
+Learn how to use our cloud products and solutions at your own pace in the Red Hat® Hybrid Cloud Console. 
+
+ Products
+
+Platforms
+Red Hat AI
+Develop and deploy AI solutions across the hybrid cloud.
+Red Hat Enterprise Linux
+Support hybrid cloud innovation on a flexible operating system.
+Red Hat OpenShift
+Build, modernize, and deploy apps at scale.New version
+Red Hat Ansible Automation Platform
+Implement enterprise-wide automation.
+
+Featured
+
+ Lightwell
+
+ Red Hat AI Enterprise
+
+ Red Hat OpenShift Virtualization Engine
+
+ Red Hat Desktop
+
+See all products
+
+Try & buy
+
+ Start a trial
+
+ Buy online
+
+ Integrate with major cloud providers
+
+Services & support
+
+ Consulting
+
+ Product support
+
+ Services for AI
+
+ Technical Account Management
+
+Explore services
+
+ Training
+
+Training & certification
+
+ Courses and exams
+
+ Certifications
+
+ Skills assessments
+
+ Red Hat Academy
+
+ Learning subscription
+
+Explore training
+
+Featured
+
+ Red Hat Certified System Administrator exam
+
+ Red Hat System Administration I
+
+ Red Hat Learning Subscription trial (No cost)
+
+ Red Hat Certified Engineer exam
+
+ Red Hat Certified OpenShift Administrator exam
+
+Services
+
+ Consulting
+
+ Partner training
+
+ Product support
+
+ Services for AI
+
+ Technical Account Management
+
+ Learn
+
+Build your skills
+
+ Documentation
+
+ Hands-on labs
+
+ Red Hat learning hub
+
+ Interactive demos
+
+ Training and certification
+
+More ways to learn
+
+ Blog
+
+ Events and webinars
+
+ Podcasts and video series
+
+ Red Hat TV
+
+ Resource library
+
+For developers
+Discover resources and tools to help you build, deliver, and manage cloud-native applications and services.
+
+ Partners
+
+For customers
+
+ Our partners
+
+ Red Hat Ecosystem Catalog
+
+Find a partner
+
+For partners
+
+ Partner Connect
+
+ Become a partner
+
+ Training
+
+ Support
+
+Access the partner portal
+
+Build solutions powered by trusted partners
+Find solutions from our collaborative community of experts and technologies in the Red Hat® Ecosystem Catalog.
+Console
+Docs
+Support
+
+ Search
+
+×
+
+I'd like to:
+Start a trial
+Buy a learning subscription
+Manage subscriptions
+Contact sales
+Contact customer service
+See Red Hat jobs
+
+Help me find:
+Documentation
+Developer resources
+Tech topics
+Architecture center
+Security updates
+Customer support
+
+I want to learn more about:
+AI
+Application modernization
+Automation
+Cloud-native applications
+Linux
+Virtualization
+
+New For you
+
+Recommended
+We'll recommend resources you may like as you browse. Try these suggestions for now.
+Product trial center
+Courses and exams
+All products
+Tech topics
+Resource library
+
+Log in
+
+Get more with a Red Hat account
+
+ Console access
+ Event registration
+ Training & trials
+ World-class support
+Explore more account benefitsLog in or register
+
+A subscription may be required for some services.
+
+Change page language简体中文EnglishFrançaisDeutschItaliano日本語한국어PortuguêsEspañol
+Contact us
+
+[[name]]
+ Edit avatar
+
+Login: [[login]]
+Account number: [[account_number]]
+[[email]]
+Change page language简体中文EnglishFrançaisDeutschItaliano日本語한국어PortuguêsEspañolLog out
+
+Policies and guidelines
+Trademark guidelines
+
+Jump to section 
+
+Jump to section
+
+Subject of the Guidelines 
+These Red Hat Trademark Guidelines (“Guidelines”) outline the policy of Red Hat, LLC and its subsidiaries (“Red Hat”) for your use of Red Hat Marks (as defined below). These Guidelines cover all of Red Hat’s trademarks and service marks (the “Red Hat Word Marks”) and logos (the “Red Hat Logos”) (collectively, the “Red Hat Marks”), both registered and unregistered.
+In these Guidelines, we are not trying to limit the lawful use of our trademarks, including their “fair use,” but rather describe for you what we consider the parameters of lawful use to be. Trademark law can be ambiguous, so these Guidelines are meant to inform you about what we believe are acceptable uses.
+Nothing in these Guidelines is meant to limit your rights under the terms of a free and open source software license. Trademarks and copyright are different rights, so regardless of what rights or permissions you may or may not have to use the Red Hat Marks, you always have all your rights under any applicable free and open source software licenses.
+To ensure that your permitted use maintains the high quality and integrity that is associated with the Red Hat Marks, Red Hat, at its sole discretion, may terminate or modify your permission at any time. Red Hat retains and reserves all rights to the Red Hat Marks and their use, including the sole right to modify these Guidelines, with immediate or later effect. By using the Red Hat Marks, you agree that any goodwill associated with your use of the Red Hat Marks belongs to and inures solely to the benefit of Red Hat and that your use of the Red Hat Marks does not entitle you to, nor will you acquire any rights to, the Red Hat Marks.
+Some Red Hat Marks are also covered by trademark guidelines or policies separately published by or on behalf of Red Hat. If these Guidelines directly conflict with the separately published guideline or policy, the separately published guideline or policy prevails. As an example, see the Fedora trademark guidelines.
+Use of Red Hat Logos
+These Guidelines do not give you any permission to use a Red Hat Logo or any Red Hat Word Mark in a stylized form. To use these forms of the Red Hat Marks, you must have a separate, express written agreement with Red Hat.
+If you have express written permission or license from Red Hat to use the Red Hat Logos or a Red Hat Word Mark in a stylized form (“Logos”), you may not change the colors of the Logos unless the context requires the use of black-and-white graphics. You may not add additional elements, rearrange or remove elements of the Logos, or combine the Logos with other logos. You may change the size of the Logos in order to scale them, however, you may not change the proportions or distort the Logos. You may not crop, modify, flip, or rotate the Logos. You must maintain clear space around the Logos that does not have text, distracting graphics, or other logos. Link the Red Hat Logos to the relevant Red Hat website.
+You must also follow the Red Hat Brand Standards found here.
+If you want to report misuse of any Red Hat Marks, please contact us at <email-masked>.
+How You Can Use the Red Hat Marks
+The overarching principle for these Guidelines is that whenever you use a Red Hat Mark, you must always do so in a way that does not mislead anyone, either directly or by omission, about exactly what they are getting and from whom. If your use seems to be permitted, but there is nevertheless the possibility that someone will misperceive what your relationship is to Red Hat, you cannot use the Red Hat Mark in that way.
+As examples, this means that, without separate permission from Red Hat, you cannot:
+Use the Red Hat Marks in a way that expresses or implies sponsorship or endorsement by, or affiliation or a relationship with Red Hat when one does not exist. 
+Use the Red Hat Marks to refer to your product or service as being certified by Red Hat unless you have explicit authorization from Red Hat to refer to the product or service as so certified. 
+Use Red Hat Marks on any merchandise, swag, or non-software goods.
+Use terminology that states or implies that Red Hat assumes any responsibility for the performance of your products or services.
+Use or register, in whole or in part, the Red Hat Marks, or any phonetic equivalent, foreign language equivalent, takeoff, or abbreviation as part of your own trademark, service mark, company name, trade name, product name, service name, social media handle, or domain name.
+Use the Red Hat Marks in a disparaging or inappropriate manner or in any manner that violates any federal, state, or international law or regulation.
+Imitate or copy Red Hat’s distinctive trade dress.
+Below is some guidance on uses we are commonly asked about.
+Use of Red Hat Marks with Software
+As allowed by the free and open source software licenses, you can distribute modified Red Hat source code, distribute executable code you have compiled, made, built, or rebuilt from original or modified Red Hat source code, and combine Red Hat software with other software ("Your Product"). Red Hat would consider your software "combined" with Red Hat’s if installing Red Hat’s software automatically installs yours, or if you offer your software in one executable with Red Hat’s software. However, you must remove all Red Hat Marks from Your Product, give Your Product its own name that is not similar to any Red Hat Mark, and use the Red Hat Word Marks only in text to truthfully describe Your Product and its relationship to a Red Hat product, such as the fact that the code you are distributing is a modification of Red Hat software. This is because if people are misled into believing they are getting the same software that Red Hat provides, they will be confused when they are not getting the same features and functionality, customer support, or quality assurance they expect from Red Hat.
+Examples of proper references to Red Hat products:
+“Our [your brand] software is built from modified source code derived from Red Hat Enterprise Linux.”
+“Our [your brand] container platform is based on Red Hat OpenShift Plus.”
+Use of Red Hat Marks to Describe Interoperability
+You can use the Red Hat Word Marks to truthfully describe compatibility or interoperability between your software and Red Hat’s. The Red Hat Word Marks must be used after a verb or preposition that describes the relationship between your software and Red Hat’s. Your own brand name should always be more prominent than any Red Hat Marks. You may say, for example, “[Your brand] software for the Red Hat Enterprise Linux operating system" but you may not say "Bob's Red Hat Linux software."
+Some other examples that may work for you are:
+“Our [your brand] software runs on Red Hat® Enterprise Linux®”
+“Our [your brand] software can be deployed using the Red Hat® Ansible® Automation Platform”
+“Our [your brand] software is built using the Red Hat® JBoss® Enterprise Application Platform”
+Use of Red Hat Marks If You Offer Training
+You may not offer Red Hat certification training courses or exams without first becoming a Red Hat certified training partner. However, you may use Red Hat Word Marks in connection with your own training courses as long as you:
+Use the Red Hat Word Marks referentially and not as the leading word or most prominent element in your course title. For example, “John  Doe’s training course for Red Hat® Enterprise Linux®” is acceptable;
+Make your name or company name more prominent than the Red Hat Word Marks  on all training materials and training-related marketing;
+Include the following disclaimer on all webpages, course material, and marketing collateral on which the Red Hat Word Marks appear:
+“(Name/Company Name) has no affiliation with Red Hat, LLC. The (list of used trademarks) trademarks are used for identification purposes only and are not intended to indicate affiliation with or approval by Red Hat.";
+Do not use any Red Hat Logos; and
+Do not use any Red Hat course identification numbers (e.g., RH200, EX220, etc.).
+Use of Red Hat Marks for User Groups
+You may use the Red Hat Word Marks as part of your user group name provided that:
+The main focus of the group is Red Hat software;
+Any software or services that the group provides are without cost;
+The group does not make a profit;
+Any charge to attend meetings is to cover only the cost of the venue, food, and drink;
+It is clear that the group is not affiliated with or endorsed by Red Hat; and
+You do not use the Red Hat Logos.
+Use of Red Hat Marks with Websites and Marketing Collateral
+You may not use Red Hat Marks on your website in a way that suggests that your website is an official Red Hat website or that Red Hat endorses your website. You may not use Red Hat Marks as or as part of a domain name, subdomain, social media handle, channel, page, or the like. Similarly, you may not use Red Hat Marks in marketing materials in a way that suggests that they are Red Hat’s own materials or that Red Hat endorses your products or services. Your own brand must be more prominently featured than any Red Hat Marks. This means that the Red Hat Marks should not be used in page titles or headers, only in the text of the website to truthfully describe Red Hat’s products and services.
+Use of Red Hat Marks in Books and Articles
+You may use the Red Hat Word Marks in book and article titles and presentations as long as the use does not suggest that Red Hat has published, endorsed, sponsored, or agrees with your work. If used in a book or article title, a Red Hat Word Mark must not be the leading word or most prominent element of the title. You may use accurate, unmodified screenshots showing Red Hat products in use for purposes of illustration.
+Proper Use of a Trademark
+Always use a trademark as an adjective modifying a noun. Don't use a trademark as a verb. Don't use "a" or "the" to refer to an instance of the trademark.
+Always use trademarks in their exact form with the correct spelling and never abbreviate, hyphenate, or combine trademarks with any other words or designs.
+Always distinguish trademarks from the surrounding text, either by capitalizing, bolding, italicizing, or underlining the trademark.
+Don’t pluralize a trademark. Don't use a trademark as a possessive.
+Don’t create acronyms using the Red Hat Marks.
+Don’t alter, modify, abbreviate, or make variations of the Red Hat Marks.
+Put the following notice in the footer of the page where you have used a Red Hat Mark (or, if in a book, on the credits page), on any packaging or labeling, and on advertising or marketing materials: "[List of marks] is/are [a] trademark[s] of Red Hat, LLC,  registered in the United States and other countries."
+In the case of a registered trademark, the first or most prominent mention of the Red Hat Mark on a web page, document, packaging, or documentation must be accompanied by a symbol indicating the Red Hat Mark is registered ("®"). 
+Questions?
+If you have any questions about these Guidelines or you would like to speak to someone about the use of the Red Hats Marks in ways not described in these Guidelines, please email Red Hat at <email-masked>.
+These Guidelines are based in part on the Model Trademark Guidelines, available at http://www.modeltrademarkguidelines.org. Both these Guidelines and the Model Trademark Guidelines are licensed under a Creative Commons Attribution 4.0 Unported license.
+
+Platforms
+Red Hat AI
+Red Hat Enterprise Linux
+Red Hat OpenShift
+Red Hat Ansible Automation Platform
+See all products
+Tools
+Training and certification
+My account
+Customer support
+Developer resources
+Find a partner
+Red Hat Ecosystem Catalog
+Documentation
+Try, buy, & sell
+Product trial center
+Red Hat Store
+Buy online (Japan)
+Console
+Communicate
+Contact sales
+Contact customer service
+Contact training
+Social
+
+ About Red Hat
+
+ Red Hat is an open hybrid cloud technology leader, delivering a consistent, comprehensive foundation for transformative IT and artificial intelligence (AI) applications in the enterprise. As a trusted adviser to the Fortune 500, Red Hat offers cloud, developer, Linux, automation, and application platform technologies, as well as award-winning services.
+
+Our company
+How we work
+Customer success stories
+Newsroom
+Open source commitments
+Our social impact
+Jobs
+Change page language简体中文EnglishFrançaisDeutschItaliano日本語한국어PortuguêsEspañol
+Red Hat legal and privacy links
+About Red Hat
+Jobs
+Events
+Locations
+Contact Red Hat
+Red Hat Blog
+Inclusion at Red Hat
+Cool Stuff Store
+Red Hat Summit
+Red Hat legal and privacy links
+Privacy statement
+Terms of use
+All policies and guidelines
+Digital accessibility
+© 2026 Red Hat

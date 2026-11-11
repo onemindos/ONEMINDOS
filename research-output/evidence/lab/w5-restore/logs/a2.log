@@ -7,7 +7,7 @@ disable:
   - traefik
   - metrics-server
 cluster-init: true
-[2026-11-11T01:29:19Z] install.sh sha256: c2a2643dd7c259121a876d16538844c60928de3d38ae98f22f7b95a7ffcfab9d  <home>/<lab-dir>/w5-restore/shared/install.sh
+[2026-11-11T01:29:19Z] install.sh sha256: c2a2643dd7c259121a876d16538844c60928de3d38ae98f22f7b95a7ffcfab9d  <lab-dir>/w5-restore/shared/install.sh
 [INFO]  Using v1.37.2+k3s1 as release
 [INFO]  Downloading hash https://github.com/k3s-io/k3s/releases/download/v1.37.2%2Bk3s1/sha256sum-arm64.txt
 [INFO]  Downloading binary https://github.com/k3s-io/k3s/releases/download/v1.37.2%2Bk3s1/k3s-arm64

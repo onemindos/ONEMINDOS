@@ -1,0 +1,125 @@
+SOURCE: https://fsl.software/
+ACCESSED: 2026-11-10
+
+FSL - Functional Source License
+FSL
+What?
+The Functional Source License (FSL) is a
+Fair Source
+license that converts to Apache 2.0 or MIT after two years. It is
+designed for SaaS companies that value both user freedom and
+developer sustainability. FSL provides everything a developer needs
+to use and learn from your software without
+harmful free-riding
+.
+FSL-1.1-ALv2
+(
+raw
+)
+FSL-1.1-MIT
+(
+raw
+)
+FSL is part of the
+Fair Source
+initiative. Go check it
+out.
+FAQ
+Why?
+Many SaaS companies wish to make the source code for their core
+products available under
+permissive
+terms without the risk of
+harmful free-riding
+. A standard license for this purpose makes life easier for both
+producers and consumers of such software.
+What is harmful free-riding?
+Harmful free-riding is the sort of free-riding that leads to
+the free-rider problem
+: “In the social sciences, the free-rider problem is a type of
+market failure that occurs when those who benefit from resources,
+public goods and common pool resources do not pay for them or
+under-pay. Examples of such goods are public roads or public
+libraries or services or other goods of a communal nature. Free
+riders are a problem for common pool resources because they may
+overuse it by not paying for the good (either directly through
+fees or tolls or indirectly through taxes). Consequently, the
+common pool resource may be under-produced, overused, or degraded.
+Additionally, it has been shown that despite evidence that people
+tend to be cooperative by nature (a prosocial behaviour), the
+presence of free-riders causes cooperation to deteriorate,
+perpetuating the free-rider problem.”
+Why not Open Source?
+Open Source
+does not
+protect against harmful free-riding.
+What about AGPLv3 though?
+AGPLv3
+is not permissive enough. As a highly viral copyleft license, it
+exposes users to serious risk of having to divulge their
+proprietary source code. FSL does not introduce this risk, so FSL
+software can be adopted at organizations where AGPL is outside of
+policy.
+Why not open core?
+Open core
+is not permissive enough. It restricts based on feature set, such
+that some product features are
+never
+open. Moreover, the
+percentage of features that are restricted is highly variable from
+product to product. With FSL, all product features are available
+now for almost all uses, and are soon fully permissive.
+Why not [some other alternative]?
+There have been many somewhat similar attempts over the decades to
+balance user freedom and developer sustainability. None has truly
+caught on in the industry, and their original sponsors have either
+stopped promoting or outright abandoned them.
+FSL's immediate predecessor is the
+Business Source License
+(BSL or BUSL). BSL's time-based approach is great, but the
+Additional Use Grant is a serious flaw, because it creates
+too much variability
+. Each BSL implementation is essentially a new license. Also,
+four years is too long. FSL is an evolved BSL that (we hope) has a
+better chance of catching on.
+What can I do with FSL software?
+You can do anything with FSL software except undermine its
+producer. You can run it for almost all purposes, study it, modify
+it, and distribute your changes, including proposing improvements
+back to the producer. After two years it becomes permissive Open
+Source software under Apache 2.0 or MIT.
+Why only Apache 2.0 and MIT?
+Looking at popular licenses according to
+OSI
+and
+GitHub
+: copyleft is
+not our jam, and BSD/ISC don't offer anything over MIT. That
+leaves Apache 2.0 (with its patent grant) and MIT.
+Okay, but I can use FSL with a different change license, right?
+No. If you do this, you'll have to call it something other than
+FSL. Can you try to use the
+Business Source License
+,
+though? It's similar to FSL but allows for any change license.
+How exactly does the two years work?
+The two year timeframe applies to each software version that is
+made available. Methods of making software available include
+pushing a Git commit, publishing a package to a repository, or
+mailing out a CD in a tin. For example, one could clone a repo,
+run
+git checkout `git rev-list -n 1 --before="2 years ago"
+master`
+, and—if
+LICENSE.md
+is FSL—use that version under
+MIT or Apache 2.0.
+What's with the name?
+Meh, it's functional. ¯\_(ツ)_/¯
+What's the backstory?
+Read the announcement
+.
+How do I adopt FSL for my product?
+Glad you asked!
+Check out our guide on GitHub
+.

@@ -1,0 +1,131 @@
+SOURCE: https://breakingdefense.com/2025/11/evolution-and-future-of-the-tactical-assault-kit-for-soldiers-and-special-operators/
+ACCESSED: 2026-11-10
+
+Evolution and future of the Tactical Assault Kit for soldiers and special operators - Breaking Defense
+Twitter
+Facebook
+YouTube
+RSS
+LinkedIn
+Envelope
+About Us
+Webinars
+News Video: The Weekly Break Out
+Special Features
+Open navigation
+Breaking Defense
+Toggle Search
+Europe Edition
+Newsletter Signup
+Close navigation
+Air
+Land
+Naval
+Space
+Networks
+AI
+Business
+Congress
+Pentagon
+Global
+About Us
+Webinars
+News Video: The Weekly Break Out
+Twitter
+Facebook
+YouTube
+RSS
+LinkedIn
+Envelope
+Search for:
+Search
+Featured:
+Eurosatory 2026
+International Fighter Conference
+Sponsored Post,
+Networks & Digital Warfare
+Evolution and future of the Tactical Assault Kit for soldiers and special operators
+“Tactical operating system” for warfighters has evolved to provide more situational awareness of the battlefield.
+By
+Breaking Defense
+on November 10, 2025 11:44 am
+Share
+Share Options
+Share a link to this article
+Copy Link
+Copy Link
+Email
+Facebook
+LinkedIn
+X
+presented by
+Operators use multiple systems with TAK tools to enhance situational awareness. (Photo courtesy of Booz Allen.)
+The Tactical Assault Kit (TAK) has become one of the Pentagon’s success stories, evolving from a research project into a widely adopted tool across the services. Born out of an Air Force Research Laboratory (AFRL) experiment and propelled by US Special Operations Command’s operational needs, TAK today also underpins the Army’s Nett Warrior program, connects DHS teams, and links coalition partners worldwide. With more than 500,000 users, it is increasingly viewed as the “tactical operating system” for modern warfighters.
+Breaking Defense discussed TAK’s development, current adoption, and the road ahead with
+Booz Allen
+Vice President John Carl.
+Breaking Defense: Describe the Tactical Assault Kit, and how it began?
+John Carl, Vice President of Booz Allen.
+Carl:
+TAK started as a research project out of the Air Force Research Lab and kicked off with ATAK, the Android Tactical Assault Kit. SOCOM had a need to increase situational awareness of the individual operator, and AFRL developed ATAK as a way to use cell phones as a COTS (commercial off the shelf) platform. They deployed situational awareness software onto them and networked them together. It began as a cooperative development between SOCOM and AFRL, and is now the foundational software for program’s the Army’s Nett Warrior – moving from heavy, expensive, bespoke systems to a commercial smartphone running government-owned software at vastly reduced cost.
+How has TAK evolved to where it is today?
+TAK has evolved in both capability and innovation. It’s no longer limited to Android phones but it’s available on iOS as iTAK, laptops with WinTAK, a Linux-based version with TAKX, TAK Server, and WebTAK for larger formation command and control and connectivity.
+It’s built with a plugin architecture similar to how you download apps to your phone, which lets developers add capability without altering the core code. It’s gone far beyond just maps: live drone feeds on 3D terrain, advanced navigation, controlling robots, planning parachute jumps. That open model drives innovation for both government and commercial partners offering advanced TAK solutions that are simple, scalable and secure.
+What is its continuing value today?
+One of the most critical capabilities on the battlefield is shared, accurate situational understanding. TAK links soldiers to each other and higher headquarters, showing friendly and enemy locations on a single map. It cuts down on radio chatter, accelerates decision cycles, and helps leaders at every level. As I mentioned, it started with Special Operations Forces and now has expanded across formations and even into the civilian world. It’s not just a tool — it’s an enabler of the force.
+How does TAK compare in cost to other options?
+The core software comes from the TAK Product Center, which is government-owned. Any government entity can use that baseline software without licensing costs. Then they just need commercial hardware — a smartphone, a laptop. This eliminates the need for bespoke hardware that can cost hundreds of millions.
+TAK open systems architecture allows you to connect new and existing equipment and the marriage of COTS/GOTS that you get from TAK is massively more cost effective with better results.
+What role does Booz Allen play in TAK?
+As one of the original developers of TAK, Booz Allen plays a significant role in the continuous advancement of TAK systems through ATAK and WinTAK solutions. We deploy a suite of products like Sit(x) through the TAK ecosystem that enhance operational and situational awareness capability at the edge.
+With a proven record of supporting interoperability, Booz Allen uses TAK to drive market leading innovations as well as creating a baseline for connectivity with its investment partners (Firestorm, ScoutAI, etc.). Our plug-in ready technology powered by TAK sustains it as a trusted, reliable ecosystem that our customers can count on when in the field.
+What is the current state of TAK adoption?
+TAK has over 500,000 users across the globe — the Pentagon, DHS, coalition partners, ministries of defense. It’s the backbone of Nett Warrior and SOF, and the Marine Corps is now beginning to deploy it more robustly. It’s not everywhere, but broad adoption in many different sectors inside the Pentagon has made it the standard for mobile situational awareness, or, as I say, it is the tactical OS that’s delivering results on the battlefield today.
+Challenges are not technical but rather related to funding and policy. Nett Warrior is limited by how much funding it gets, and each service has its own cybersecurity process. Broader adoption comes down to funding, leadership decisions to standardize, and working through cybersecurity processes like authorizations to operate.
+What do warfighters think of the system?
+The special operators and soldiers who use TAK love it. It’s a game changer. They are asking for new capabilities — updates to UAS tool, ways to do more complex missions — because they see huge value. As future leaders who use TAK rise into command roles, adoption will accelerate.
+Another point is that TAK is at the tactical edge, and sometimes that edge gets overlooked when big programs like Next Gen C2 get the focus. But for Next Gen C2 to really work, you need TAK at the edge to connect the soldier into it.
+How would TAK work in conjunction with new capabilities like Lattice command and control?
+We don’t see it as a zero-sum game. TAK and platforms like Lattice can complement each other. Think of Lattice as the operational data layer/lake, and TAK as the government-owned interface at the tactical edge. Integrated together, one plus one equals three.
+TAK is already a common language at the edge. Keeping TAK government-owned avoids vendor lock-in while still letting private-sector systems connect. It fosters competition and innovation in the commercial space as well.
+What’s the vision for TAK over the next 18 to 36 months?
+TAK is being positioned to become the ubiquitous AI-enabled C2 platform for the joint force at the tactical edge. With the power in commercial devices today, you can do AI at the edge. The TAK Product Center is working on more intelligent filtering and pushing of relevant information. They’re also looking at collaborative sensor mesh — every TAK device as an active contributor back into the collective intelligence. That means faster decisions, richer situational awareness, and more resilience.
+Final thoughts?
+Booz Allen supports the TAK Product Center’s vision by continuing the advancement of TAK through a product suite of plug-in ready solutions that brings faster mission success to our warfighters. We are committed to working with partners throughout the TAK community to deliver the best solutions to our customers.
+Topics:
+AFRL
+Air Force
+Air Force Research Lab AFRL
+Android Tactical Assault Kit
+Booz Allen eBrief TAK
+COTS
+cyber security
+eBrief
+networks
+Pentagon
+Presented by Booz Allen
+Sponsored Content
+technology
+US Special Operations
+US Special Operations Command (SOCOM)
+More from Breaking Defense
+Ukraine eyeing new SpaceX Starshield deal by mid-2027, still no answers about October problems
+Saildrone inks agreement with Norwegian shipbuilder Umoe Mandal to produce USVs
+Fairbanks Morse Defense in talks with Navy about Seawolf-class submarine repairs
+Shield AI acquires radar firm Echodyne in $5.3B deal
+Recommended
+Land Warfare,
+Networks & Digital Warfare
+AUSA 2026: The ground truth on the Army’s next chapter
+Sponsored Post,
+Air Warfare
+Gambit Series offers a scalable path for collaborative combat aircraft
+Networks & Digital Warfare
+Pacific Command bolsters network defense with Cyber Defense Forces Pacific
+Our Sites
+© 2026 Breaking Media, Inc. All rights reserved. Registration or use of this site constitutes acceptance of our
+Terms of Service
+and
+Privacy Policy
+.
+×

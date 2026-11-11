@@ -1,0 +1,14 @@
+SOURCE: https://www.modelhardwarestandard.com/
+ACCESSED: 2026-11-10
+
+Model Hardware Standard
+Model Hardware Standard
+Model Hardware Standard
+A new standard for AI agents to safely operate physical equipment in scientific research and advanced manufacturing.
+Apply for access
+Read the announcement
+Origins of the project
+MHS started as a project between Anthropic and HHMI Janelia Research Campus to enable AI to accelerate scientific research. Partners across science, robotics, electronics, and manufacturing are helping develop the standard further, ahead of it becoming open source.
+Joining the research preview
+MHS is starting as a limited research preview. We're inviting stakeholders across science and industry to test the standard, build safety evaluations, and develop best practices for AI agents operating physical equipment before we open-source it. Access is by application during the preview.
+Model Hardware Standard

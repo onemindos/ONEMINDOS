@@ -1,0 +1,662 @@
+Configuring Advanced Settings | TrueNAS Documentation Hub 
+ Search TrueNAS Documentation
+ × 
+ Show Results From:
+ Version (25.04) 
+ 28 (Nightly) 
+ 27 
+ 25.10 
+ 25.04 
+ 24.10 
+ Docs 
+ API 
+ Apps 
+ TrueNAS Connect 
+ Searching...
+ Products 
+ Support & Resources 
+ Get A Quote 
+ Solutions 
+ Company 
+ Sign In 
+ Close 
+ Products V-Series Max Performance & Versatility
+ F-Series High Performance NVME
+ H-Series Versatility and Power Efficiency
+ Mini Series Edge and Branch Office
+ M-Series High Capacity All-Flash or Hybrid
+ R-Series Single Controller Appliances
+ TrueNAS Enterprise
+ Mission Critical Storage. 24×7 Enterprise Support
+ TrueNAS Community Edition
+ Test Drive TrueNAS in Your Environment
+ Streamlined Management for your TrueNAS Systems 
+ Solutions Industry
+ Audio 
+ Automotive 
+ Broadcasting 
+ Education 
+ US Public Sector 
+ Gaming 
+ Healthcare 
+ MSP 
+ Manufacturing 
+ Research & AI 
+ Media & Entertainment 
+ Use Cases
+ Analytics 
+ Backup & Archival 
+ Cloud 
+ Data Mobility 
+ File Sharing 
+ TrueCloud Backup 
+ Media & Entertainment 
+ Surveillance/CCTV 
+ Veeam Backup 
+ Virtualization 
+ Red Hat OpenShift 
+ TrueNAS as an Alternative
+ Alternative to Dell 
+ Alternative to NetApp 
+ Alternative to Pure Storage 
+ Support & Resources Support
+ Enterprise Support For customers with active support contracts
+ Community Support For peer-to-peer, forum support
+ Resources
+ Case Studies 
+ Datasheets 
+ Documentation 
+ TrueNAS API 
+ FAQ 
+ Apps 
+ TrueNAS Blogs 
+ Software Status 
+ TrueNAS Security 
+ Solution Briefs and Guides 
+ Certifications & Integrations 
+ White Papers 
+ Videos 
+ TrueCommand Cloud 
+ Reseller Network 
+ ZFS Overview 
+ Community
+ TrueNAS Community Edition 
+ Community Forum 
+ Discord 
+ TrueNAS GitHub 
+ TrueNAS Merch Store 
+ Company About TrueNAS 
+ Team 
+ Awards 
+ Careers 
+ Contact Us 
+ Newsroom 
+ Our Clients 
+ Reviews 
+ Sign In TrueNAS Connect 
+ Partner Portal 
+ Enterprise Support 
+ Get A Quote 
+ Documentation Hub Product TrueNAS
+ TrueNAS Apps 
+ TrueNAS Connect TrueCommand
+ TrueNAS Systems
+ Version 
+ Keyword Search 
+ AI Search 
+ × 
+ SCALEs 
+ User and Group Quota Screens 
+ ⎙ Download or Print 
+ Getting Started
+ ⎙ Download or Print 
+ TrueNAS 27 Version Notes 
+ Feature Deprecations 
+ TrueNAS Hardware Guide 
+ Installation Instructions
+ Preparing for TrueNAS UI Configuration 
+ Preparing for TrueNAS UI Configuration (Enterprise) 
+ Preparing for TrueNAS UI Configuration (Home Users) 
+ Installing TrueNAS 
+ Installing TrueNAS Enterprise (HA) 
+ Using the Console Setup Menu 
+ Migrating from CORE
+ Preparing to Migrate 
+ Community Migrations 
+ Enterprise Migrations 
+ Component Naming 
+ (obsolete) ZFS Feature Flags Removed 
+ Third-Party Data Migration 
+ Configuration Instructions
+ Logging In for the First Time 
+ Configuring TrueNAS Using the UI 
+ Setting Up Storage 
+ Setting Up Data Sharing 
+ Backing Up TrueNAS 
+ Configuring Virtualization and Apps 
+ Getting Support
+ Providing Feedback in TrueNAS 
+ User Agreements
+ TrueNAS Enterprise EULA 
+ Software Development Life Cycle 
+ TrueNAS Data Collection Statement 
+ Top Toolbar
+ Alerts
+ Alert Settings Screens 
+ Email Screens 
+ Settings Options
+ User API Keys Screen 
+ Two Factor Auth Screen 
+ Using UI Global Search 
+ Managing API Keys 
+ Shutting Down TrueNAS Enterprise HA 
+ Top Toolbar Screens 
+ Jobs Screens 
+ Dashboard
+ Customizing the Dashboard 
+ Dashboard Screen 
+ Storage
+ Pools
+ Import Pool 
+ Creating Pools 
+ Creating Fusion Pools 
+ Managing Pools 
+ Local Pool Migration 
+ Pool Creation Wizard Screen 
+ Storage Tiering Pool Migration 
+ VDEV Screens 
+ Disks
+ Replacing Disks 
+ Wiping a Disk 
+ SLOG Over-Provisioning 
+ Managing Self-Encrypting Drives (SED) 
+ Disks Screen 
+ Drive Health Management 
+ Storage Tiering 
+ Storage Dashboard Screens 
+ Datasets
+ Adding and Managing Datasets 
+ Encryption
+ Encrypting Datasets 
+ Encryption Screen 
+ Permissions
+ Configuring ACL Permissions 
+ ACL Screens 
+ Quotas
+ Managing User or Group Quotas 
+ Capacity Settings Screen 
+ User and Group Quota Screens 
+ Snapshots
+ Creating Snapshots 
+ Managing Snapshots 
+ Snapshots Screens 
+ Zvols
+ Adding and Managing Zvols 
+ Zvols Screen 
+ Datasets Screens 
+ Shares
+ Windows Shares (SMB)
+ Adding and Managing SMB Shares 
+ Adding a Basic Time Machine SMB Share 
+ Setting Up Final Cut Pro SMB Shares 
+ Using SMB Shadow Copy 
+ Setting Up SMB Private Dataset Shares 
+ Using SMB Shares with macOS Decomposed Unicode 
+ Setting Up SMB Multichannel 
+ SMB Shares Screens 
+ NFS Shares
+ Adding NFS Shares 
+ NFS Shares Screens 
+ Multiprotocol Shares 
+ Block Shares (iSCSI)
+ Adding iSCSI Block Shares 
+ Setting Up Fibre Channel 
+ Using an iSCSI Share 
+ Increasing iSCSI Available Storage 
+ Block (iSCSI) Share Target Screens 
+ Fibre Channel Screens 
+ NVMe-oF Subsystems
+ Configuring NVMe-oF 
+ Managing NVMe-oF Subsystems 
+ NVMe-oF Share Screens 
+ S3
+ Configuring S3 Object Storage 
+ S3 Buckets Screens 
+ WebShare
+ Configuring WebShare 
+ WebShare Shares Screens 
+ Migrating AFP Shares 
+ Shares Screens 
+ Data Protection
+ TrueCloud Backup Tasks
+ Managing TrueCloud Backup Tasks 
+ TrueCloud Backup Tasks Screens 
+ Cloud Sync Tasks
+ Backing Up Google Drive to TrueNAS 
+ Managing Cloud Sync Tasks 
+ Adding a Google Photos Cloud Sync Task 
+ Cloud Sync Tasks Screens 
+ Periodic Snapshot Tasks
+ Adding Periodic Snapshot Tasks 
+ Periodic Snapshot Tasks Screens 
+ Rsync Tasks
+ Configuring Rsync Tasks 
+ Rsync Tasks Screens 
+ Replication Tasks
+ Setting Up a Local Replication Task 
+ Setting Up a Remote Replication Task 
+ Replication Task Screens 
+ Advanced Replication Tasks
+ Configuring Advanced Replication Tasks 
+ Setting Up an Encrypted Replication Task 
+ Unlocking a Replication Encrypted Dataset or Zvol 
+ VMware Snapshots
+ Creating VMWare Snapshots 
+ VMWare Snapshots Screen 
+ Data Protection Screens 
+ Network
+ Interface Configuration
+ Configuring Network Interfaces 
+ Setting Up a Network Bridge 
+ Setting Up a Link Aggregation 
+ Setting Up a Network VLAN 
+ Network Interface Screens 
+ Network Configuration
+ Managing Network Configurations 
+ Configuring IPv6 
+ Managing Network Settings (Enterprise HA) 
+ Network Configuration Screens 
+ Static Routes
+ Configuring Static Routes 
+ Static Routes Screens 
+ IPMI
+ Setting Up IPMI 
+ IPMI Screens 
+ Accessing NAS from VMs and Containers 
+ Network Screen 
+ Credentials
+ Users
+ Managing Users 
+ Users Screens 
+ Using Administrator Logins 
+ Groups
+ Managing Groups 
+ Groups Screens 
+ Privileges
+ Managing Privileges 
+ Privileges Screens 
+ Directory Services
+ Configuring Active Directory 
+ Configuring LDAP 
+ Configuring IPA 
+ Configuring Kerberos 
+ Kerberos Realms Screens 
+ Kerberos Keytab Screens 
+ Directory Services Screens 
+ Backup Credentials
+ Adding Cloud Credentials 
+ Adding SSH Credentials 
+ Cloud Credentials Screens 
+ SSH Screens 
+ Backup Credentials Screens 
+ Certificates
+ Managing Certificates 
+ Managing Certificate Signing Requests 
+ Adding ACME DNS Authenticators 
+ Creating ACME Certificates 
+ Certificates Screens 
+ Certificate Signing Requests Screens 
+ ACME DNS-Authenticators Screens 
+ S3 Access Keys Screen 
+ KMIP
+ Configuring KMIP 
+ KMIP Screen 
+ Containers
+ Creating and Managing Containers 
+ Containers Screens 
+ Virtual Machines
+ Creating and Managing Virtual Machines 
+ Adding and Managing VM Devices 
+ Virtual Machines Screens 
+ Apps
+ Apps Screens 
+ Custom App Screens 
+ Reporting
+ Configuring Reports 
+ Reporting Screens 
+ System Settings
+ Update
+ Updating TrueNAS 
+ Updating TrueNAS Enterprise HA 
+ Update Screens 
+ General Settings
+ Configuring General Settings 
+ Adding a License and Proactive Support 
+ Setting Up System Email 
+ General Settings Screen 
+ Advanced Settings
+ Configuring Advanced Settings 
+ Managing the System Configuration 
+ Managing the Console Setup Menu 
+ Managing Cron Jobs 
+ Managing System Logging 
+ Managing Init/Shutdown Scripts 
+ Configuring SED Settings 
+ Isolating GPU for VMs 
+ Managing Global 2FA (Two-Factor Authentication) 
+ Developer Mode (Unsupported) 
+ Advanced Settings Screen 
+ Boot
+ Boot Pool Management 
+ Boot Screens 
+ Services
+ Configuring FTP Service 
+ Configuring NFS Service 
+ Configuring SMB Service 
+ Configuring SNMP Service 
+ Configuring SSH Service 
+ Configuring UPS Service 
+ Services Screens 
+ FTP Service Screen 
+ iSCSI Services Screen 
+ NFS Services Screen 
+ SMB Service Screen 
+ SNMP Service Screen 
+ S3 Service Screen 
+ SSH Service Screen 
+ UPS Services Screen 
+ WebShare Service Screen 
+ Shell
+ Using Shell 
+ Shell Screen 
+ Alert Settings Screen 
+ Audit
+ Using Audit Logs 
+ Audit Screen 
+ View Enclosure Screen (TrueNAS Systems Only) 
+ API Reference 
+ TrueNAS Security Reports 
+ TrueNAS Apps 
+ TrueNAS Connect 
+ TrueNAS API Docs 
+ Security Reports 
+ Documentation Archive 
+ View Source 
+ RSS Feed 
+ Software Status 
+ Solutions 
+ TrueNAS Systems 
+ Contributing 
+ References 
+ ➤ TrueNAS 27 (Early) 
+ /
+ System Settings 
+ /
+ Advanced Settings 
+ /
+ Configuring Advanced Settings 
+ Edit page 
+ TrueNAS Early Release Documentation
+ This content follows TrueNAS 27 releases.
+Use the Product and Version selectors above to view content specific to a stable software release.
+ Configuring Advanced Settings
+   13 minute read.
+ Last Modified 2026-10-06 08:48 EDT 
+ Advanced Settings provides configuration options for the console, syslog, kernel, sysctl, replication, cron jobs, init/shutdown scripts, system dataset pool, isolated GPU device(s), NVIDIA drivers, system access sessions, allowed IP addresses, audit logging, and global two-factor authentication. Enterprise systems with SED drives and the appropriate license also see the self-encrypting drive option. Enterprise systems also see the security options (STIG and FIPS).
+ TrueNAS Enterprise 
+ Enterprise-licensed system administrators have additional options to configure security-related settings, such as FIPS and STIG compatibility and Self-Encrypting Drive (SED) configuration.
+ Advanced settings have reasonable defaults in place. A warning message displays for some settings advising of the dangers of making changes.
+Changing advanced settings can be dangerous when done incorrectly. Use caution before saving changes.
+ Make sure you are comfortable with ZFS, Linux, and system configuration, backup, and restoration before making any changes.
+ Figure 1: Advanced Settings Screen 
+ Figure 2: Advanced Settings Screen (cont.'d) 
+ Figure 3: Advanced Settings Screen (cont.'d) 
+ TrueNAS Enterprise 
+ Enterprise-licensed systems include configuration options for STIG and FIPS security, and failover when the system is a High Availability system.
+ Figure 4: Advanced Settings Screen for HA 
+ Configuring System Auditing
+ The Audit card displays the current audit storage and retention policy settings.
+The public-facing TrueNAS API allows querying audit records, exporting audit reports, and configuring audit dataset settings and retention periods.
+ Figure 5: Advanced System Setting Audit Card 
+ The Audit configuration screen sets the retention period, reservation size, quota size and percentage of used space in the audit dataset that triggers warning and critical alerts.
+ Figure 6: Configure Audit Screen 
+ Audit Settings
+ Settings
+ Description
+ Retention (in days) 
+ Enter the number of days to retain local audit messages.
+ Reservation (in GiB) 
+ Enter the size (in GiB) of reserved space to allocate on the ZFS dataset where the audit databases are stored. The reservation specifies the minimum amount of space guaranteed to the dataset, and counts against the space available for other datasets in the zpool where the audit dataset is located. To disable , enter zero ( 0 ).
+ Quota (in GiB) 
+ Enter the size (in GiB) of the maximum amount of space that can be consumed by the dataset where the audit databases are stored. To disable , enter zero ( 0 ).
+ Quota Fill Warning (in %) 
+ Enter a percentage threshold. TrueNAS generates a warning level alert when the dataset quota reaches that capacity used. Allowed range: 5 - 80 .
+ Quota Fill Critical (in %) 
+ Enter a percentage threshold. TrueNAS generates a critical level alert when the dataset quota reaches that capacity used. Allowed range: 50 - 95 .
+ Click Configure to open the Audit configuration screen and to manage storage and retention policies for audit logs .
+ Managing Tunable Variables
+ Use Add on the Tunable card to add a tunable that configures a kernel module parameter at runtime.
+ The Add Tunable screen shows the settings.
+ Select the tunable type from the Type dropdown list.
+There are three options:
+ SYSCTL - Linux kernel parameters (called sysctl variables) that tune low-level kernel behavior across networking, memory management, virtual memory, file descriptors, security hardening and more that affect the entire system. Sysctl tunables configure kernel module parameters while the system runs and generally take effect immediately. Best used for general system performance, network stack, memory pressure, security hardening (e.g., against SYN floods: net.ipv4.tcp_syncookies=1 ). Variables persist across system reboots if set in config files. Enter a sysctl loader value in Value .
+ UDEV - UDEV rules, which are dynamic device manager configurations that run with when the kernel detects hardware events (e.g, disk plugged in, USB device attached, block device created). Variables are applied per device or per subsystem. They are ideal for hardware-specific tuning, especially disks/SSDs in ZFS pools e.g., forcing a consistent I/O scheduler, readahead, or queue depth on pool drives to avoid defaults that hurt ZFS performance. They are permanent when the rule file exists, and rules re-apply automatically on device add/remove operations.
+ ZFS - OpenZFS module parameters for the ZFS kernel module on Linux. They control ZFS-specific behavior like ARC caching, compression, I/O scheduling, prefetching, recordsize limits, and more. Use for fine-tuning ZFS performance, memory usage (AREC/L2ARC), compression, dedup, scrub/resilver behavior, and I/O patterns. They only apply to ZFS filesystem/modules. Runtime changes are lost on reboot or module reloads.
+ Enter the variable name in Variable , the value for the variable in Value , and a short description in Description . See examples below for each tunable type.
+ Type: SYSCTL 
+ Variable: net.core.somaxconn 
+ Value : 1024 
+ Description : Increase max pending connections for better network handling under load. 
+ Type: UDEV 
+ Variable : ACTION==“add|change”, KERNEL==“sd[a-z]” 
+ Value : 1 
+ Description : Set I/O scheduler to deadline on all rotational disks. 
+ Type: ZFS 
+ Variable : zfs_arc_max 
+ Value : 17179869184 (that is 16 GiB in bytes; calculate as desired RAM cap x 1024 3 )
+ Description : Cap ZFS ARC at 16 GiB to leave headroom for apps/VMs. 
+ Select Enabled . Disabling the tunable does not delete the variable.
+ Click Save .
+ Adding NTP Servers
+ The NTP Servers card allows users to add Network Time Protocol (NTP) servers.
+These sync the local system time with an accurate external reference.
+By default, new installations use several existing NTP servers. TrueNAS supports adding custom NTP servers.
+ Use Force when entering and NTP server address that cannot currently be reached (e.g., pre-configuring a server that is not provisioned yet, or one that is temporarily unreachable but expected to work later). Force should activate the Save button and allow the entry.
+If the Save button does not activate, clear the entry, enable Force and renter the NTP server address.
+ Managing the System Dataset
+ Storage card shows the pool configured as the system dataset pool and allows users to select a different storage pool to hold the system dataset.
+The system dataset stores core files for debugging and keys for encrypted pools.
+It also stores Samba4 metadata, such as the user and group cache and share-level permissions.
+It also includes the reslivering priority setting.
+ Figure 7: Storage Card 
+ Configure opens the Storage Settings configuration screen.
+ Storage Settings Configuration Screen
+ If the system has one pool, TrueNAS configures that pool as the system dataset pool.
+If your system has more than one pool, you can set the system dataset pool using the Select Pool dropdown.
+Users can move the system dataset to an unencrypted or key-encrypted pool.
+ Figure 8: System Dataset Pool Config Screen 
+ Users can move the system dataset to a key-encrypted pool, but cannot change the pool encryption type afterward.
+If the encrypted pool already has a passphrase set, you cannot move the system dataset to that pool.
+ Changing Resilvering Priority
+ To set a different resilver priority, select Run Resilvering At Higher Priority At Certain Times .
+Two additional setting options are shown that allow configuring the day and time range for resilvering to run.
+ Figure 9: Resilver Priority Settings 
+ To return to the default resilver priority, clear the checkbox and click Save .
+ Setting the Number of Replication Tasks
+ The Replication card displays the number of replication tasks that can execute simultaneously on the system. It allows users to adjust the maximum number of replication tasks the system can execute simultaneously.
+ Click Configure to open the Replication configuration screen.
+ Enter a number for the maximum number of simultaneous replication tasks you want to allow the system to process and click Save .
+ Managing Allowed IP Addresses
+ Use the System > Advanced Settings > Allowed IP Addresses configuration screen to restrict access to the TrueNAS web UI and API.
+ Entering an IP address limits access to the system to only the address(es) entered here. To allow unrestricted access to all IP addresses, leave this list empty.
+ Managing Access (WebSocket Sessions)
+ The Access widget shows a list of all active sessions, including the current logged-in user session and the time it started.
+ The Login Banner shows the custom text entered on the Access Settings screen. This text shows before the login screen.
+When configured, users see the login banner and must click Continue to show the TrueNAS login splash screen.
+ Administrators can manage other active sessions and configure the session timeout for their accounts.
+ Figure 10: Access Widget 
+ Terminate Other Sessions ends all sessions except the current session. It opens the Terminate session dialog. Click Confirm then Continue to end other sessions. This does not terminate the currently logged-in administration user session.
+ The logout icon is inactive for the currently logged-in administrator session and active for any other current sessions.
+It cannot be used to terminate the currently logged-in active administrator session.
+ The Start session time shows the configured token duration for the current session (default is 300 seconds, or five minutes).
+TrueNAS logs out user sessions that are inactive for longer than the configured token setting for the user.
+New activity resets the token counter.
+ To change settings, click Configure to open the Access Settings screen, where you can add a login banner.
+ Figure 11: Access Settings Screen 
+ Changing the Session Timeout
+ Enter a value in the number of seconds to suit your needs and security requirements. For example, to change the timeout to 10 minutes, enter 6000.
+ The default session timeout setting is 300 seconds or five minutes.
+ The minimum value allowed is 30 seconds, and the maximum is 2147482 seconds, or 20 hours, 31 minutes, and 22 seconds.
+ Click Save .
+ Adding a Banner
+ To show a login banner before the login screen shows, enter the text in the Login Banner field.
+Use carriage returns to break up a large block of text and to improve the readability of the text.
+ After saving the text. The next time an administrative user logs into the UI, a banner screen shows.
+To advance to the login screen, click Continue .
+ Allowing Directory Service Users to Access the UI
+ TrueNAS Enterprise 
+ Only Enterprise-licensed systems allow TrueNAS web UI access for Directory Service accounts
+ TrueNAS allows Enterprise users to show the UI to users in an Active Directory group.
+To configure this access, first, add the selected AD users to a group that is granted a TrueNAS privilege that permits it, and enable the Allow Directory Service users to access WebUI option on the Access Settings screen. This option only shows on Enterprise-licensed systems.
+ Figure 12: Access Settings Screen Enterprise Systens 
+ After TrueNAS joins AD, it automatically creates a new privilege entry in the Privileges screen table, and this privilege is automatically populated with the domain admins group for the domain.
+You can edit this privilege by selecting the table row and clicking Edit .
+Never modify the settings for the standard pre-defined privileges (listed below)! Changing these pre-defined roles can result in lost access to the UI!
+ Pre-defined TrueNAS privileges are:
+ Read-Only Administrator - Allows the user to view settings but not make changes in the UI.
+ Sharing Administrator - Allows the user to create new shares and the share dataset.
+ Local Administrator - Gives full control (read/write/exeute permissions) to the user.
+ Installing NVIDIA Drivers
+ The NVIDIA Drivers widget allows you to install or remove NVIDIA GPU drivers on your system.
+NVIDIA GPU support is required for containers that use NVIDIA GPUs for graphics acceleration or computation.
+ Figure 13: NVIDIA Drivers Widget 
+ Click Configure to open the NVIDIA Drivers configuration screen.
+ Figure 14: NVIDIA Drivers Configuration Screen 
+ To install NVIDIA drivers:
+ Select Install NVIDIA Drivers .
+ Click Save .
+ Installing NVIDIA drivers requires the system to use the production kernel.
+If Enable Debug Kernel is selected, NVIDIA driver installation fails.
+Disable the debug kernel before installing NVIDIA drivers.
+ After installation completes, NVIDIA GPU devices become available for assignment to containers.
+To verify installation, check that your GPU devices appear in the container GPU device selection list.
+ To uninstall the drivers:
+ Deselect Install NVIDIA Drivers .
+ Click Save .
+ Containers using NVIDIA GPUs cannot start after driver removal.
+ See NVIDIA Drivers Card in the UI Reference for detailed field descriptions.
+ Security Settings
+ TrueNAS Enterprise 
+ Only Enterprise-licensed systems show the Security card and have access to the STIG and FIPS settings.
+ Administrators considering enabling STIG and FIPS security settings should contact TrueNAS Support before making any changes!
+ Contacting Support
+ Customers who purchase TrueNAS hardware or that want additional support must have a support contract to use TrueNAS Support Services.
+The TrueNAS Community forums provides free support for users without a TrueNAS Support contract.
+ TrueNAS Customer Support 
+ Support Portal
+ https://support.ixsystems.com 
+ Email
+ <email-masked> 
+ Telephone and Other Resources
+ https://www.ixsystems.com/support/ 
+ STIG and FIPS Considerations
+ Review these topics and contact TrueNAS Support before enabling STIG and FIPS security settings.
+ When STIG (and FIPS) are enabled:
+ TrueNAS cannot issue API keys, and existing API keys cannot be used for authentication. Only the user credential with a two-factor authentication method is accepted.
+ SSH log-ins require a cryptographic algorithm.
+ SMB authentication for local TrueNAS accounts is disabled.
+ NTLM authentication passthrough to a domain controller is disabled.
+ Usage stats are not reported, and the Usage Collection option is disabled.
+ One-time passwords (OTP) configured for administrative users have a single use and expire after 24 hours.
+After logging in with the OTP, the system prompts the user to immediately change the password and set up two-factor authentication.
+ TrueNAS is limited to a maximum of 10 concurrent sessions.
+Accounts lock for 15 minutes after three consecutive failed login attempts.
+ Password aging rules are applied to the SMB protocol. After a failed login attempt, users with expired passwords receive a password-expired message.
+ TrueNAS prompts users to change their passwords when logging in, and the system flags the account as requiring this change.
+Users cannot reuse a password if it is marked as used within the last five passwords in the history file. Passwords must be 15 characters in length.
+ TrueNAS updates can only use a signed update file provided by the TrueNAS team.
+ What features are not available?
+ When enabled, STIG disables these features:
+ Virtualization
+ Apps
+ TrueCommand connectivity
+ What events are included in auditing?
+ When STIG (and FIPS) are enabled, auditing includes these events:
+ Account creation events
+ Privilege commands (with full text of the commands run)
+ Privilege changes
+ Log-ins and other system access events.
+Account log-ins are tracked from two distinct sources (UI and SSH)
+ Kernel module load/unload
+ Audit log modifications and attempts to modify audit logs
+ Security object modifications and attempts to modify security objects
+ Configuring STIG and FIPS
+ To set up FIPS or STIG compliance on a TrueNAS server, you must first configure a one-time password for the admin user with full permissions, and then enable two-factor authentication for that admin user.
+When that user logs into TrueNAS the first time with the OTP, TrueNAS prompts that user to set up two-factor authentication.
+This is time sensitive and must occur within 24 hours after saving the one-time password.
+ After the administrator sets up 2FA they are assigned a 2FA authentication.
+Also configure any additional current admin users for 2FA before configuring STIG.
+ The administrator with 2FA must generate a one-time password (OTP) for any other new or existing admin user that is not yet configured with 2FA and send them the password.
+They have 24 hours to log in, using the OTP, and then TrueNAS configures two-factor authentication (2FA) for them at login.
+These users are prompted to configure two-factor authentication the first time they log in after having the one-time password configured.
+ After configuring two-factor authentication, go to System > Advanced Settings and locate the Security card.
+ Click Settings to open the System Security configuration screen.
+ Select the toggle to enable FIPS and STIG, then click Save .
+You must enable FIPS with STIG!
+The system prompts you to restart.
+ The system restart takes several minutes to complete before showing the login screen.
+Highly Available (HA) systems must restart each storage controller before STIG mode is fully enabled.
+ TrueNAS Administrator Password Rules
+ The remaining options on the System Security configuration screen are for setting TrueNAS administrator password rules.
+Options include defining a password lifetime, types of characters that must be present in the password, how many characters must be present in a valid password, and how many previously used passwords to remember for an account and prevent reuse in a new password.
+ Adjust these as needed for your security requirements.
+Enabling STIG compatibility mode requires specific minimum values for these settings.
+ Note that TrueNAS begins warning all local account types (administrator, full admin, read-only, and sharing-only) seven days before password expiration. After expiration, the account locks and requires administrative action to unlock.
+ Additional Content
+ Related Content
+ Tutorial Configuring Advanced Replication Tasks 
+ Configuring General Settings 
+ Import Pool 
+ Setting Up a Local Replication Task 
+ Setting Up an Encrypted Replication Task 
+ Reference Disks Screen 
+ Encryption Screen 
+ General Settings Screen 
+ Periodic Snapshot Tasks Screens 
+ Pool Creation Wizard Screen 
+ Have more questions? 
+ For further discussion or assistance, see these resources:
+ TrueNAS Community Forum 
+ TrueNAS Community Discord 
+ TrueNAS Enterprise Support (requires paid support contract) 
+ Found content that needs an update?  
+You can
+ suggest content changes 
+ directly! To request changes to this content, click the Feedback button located on the middle-right side of the page (might require disabling ad blocking plugins).
+ Page Sections: 
+ 541 Division Street
+Campbell, CA 95008, USA
+ Contact Us 
+ <email-masked> 
+ Listen to our Podcast 
+ Support
+ Enterprise Support 
+ Community Support 
+ Forums 
+ FAQs 
+ Useful Links
+ Careers 
+ About Us 
+ Blog 
+ News & Articles 
+ TrueNAS Enterprise 
+ TrueNAS Community Edition 
+ TrueCommand 
+ TrueCommand Cloud 
+ TrueNAS Legacy 
+ Software Status 
+ Reseller Network 
+ Subscribe to our newsletter 
+ © Copyright  iXsystems, Inc. dba TrueNAS. All rights reserved. 
+ Legal 
+ TrueNAS Logos

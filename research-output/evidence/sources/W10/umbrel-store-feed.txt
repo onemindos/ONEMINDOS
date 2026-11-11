@@ -1,0 +1,17 @@
+Extracted from Shopify products.json feed, accessed 2026-11-11
+Umbrel Pro (4TB) | Default Title | USD 1299.00 | available=True | published=2026-07-05
+Umbrel Pro (8TB) | Default Title | USD 1899.00 | available=True | published=2026-07-05
+Umbrel Protect for Umbrel Pro (8TB) | Default Title | USD 99.00 | available=True | published=2026-03-17
+Umbrel Protect for Umbrel Pro (2TB) | Default Title | USD 69.00 | available=True | published=2026-03-17
+Umbrel Pro (2TB) | Default Title | USD 999.00 | available=True | published=2026-03-17
+Umbrel Protect for Umbrel Pro (4TB) | Default Title | USD 89.00 | available=True | published=2026-02-05
+Umbrel Protect for Umbrel Pro (no SSDs) | Default Title | USD 59.00 | available=True | published=2026-02-05
+Umbrel Pro | Default Title | USD 699.00 | available=True | published=2026-02-05
+Umbrel Protect for Umbrel Home (512GB) | Default Title | USD 39.00 | available=True | published=2025-12-22
+Umbrel Home (512GB) | Default Title | USD 499.00 | available=True | published=2025-12-06
+Umbrel Protect for Umbrel Home (2TB) | Default Title | USD 69.00 | available=True | published=2025-10-19
+Umbrel Protect for Umbrel Home (4TB) | Default Title | USD 89.00 | available=True | published=2025-10-19
+Umbrel Protect for Umbrel Home (1TB) | Default Title | USD 49.00 | available=True | published=2025-10-19
+Umbrel Home (4TB) | Default Title | USD 949.00 | available=True | published=2025-05-31
+Umbrel Home (2TB) | Default Title | USD 699.00 | available=True | published=2025-05-31
+Umbrel Home (1TB) | Default Title | USD 599.00 | available=True | published=2025-05-31

@@ -1,0 +1,156 @@
+SOURCE: https://blog.balena.io/balena-docs-platform-migration-to-gitbook/
+ACCESSED: 2026-11-11
+
+balena docs platform migration to GitBook
+Skip to content
+Search
+Projects
+Sign up
+balena docs platform migration to GitBook
+We’re excited to announce that balena has migrated its docs platform to GitBook!
+Users familiar with
+our documentation
+will notice an overall improved experience. Additionally our new docs benefits from a
+dark theme
+, a (way)
+better search
+tool, an
+AI assistant
+, an
+MCP server
+and an
+API playground
+.
+Read on to learn why we felt the need to migrate, what changed, what future improvements we have planned and how you can help shape the future of our docs!
+Why we migrated our docs now
+Like most companies, it can feel very attractive to want to build all your own tooling.  Who knows what you and your users need better than you, right? And in the past we’ve had many instances where that’s what we’ve chosen to do. Time and experience however have taught us when it’s better to lean into solutions that aren’t homegrown.
+Whilst on paper having our own docs framework was the right thing to do, the downside is that building out and then maintaining our own solution is time consuming, and not an efficient use of our team’s resources. Often too we’d find ourselves spending time reinventing the wheel when it came to designing new features. For example, a user asked about including the ability to test API endpoints in browser. This is such a great feature and something we really wanted to enable. However justifying the time to build this, and other features, was hard. Particularly when it’s not the key problem you, our users, are looking for us to solve. We’d much rather pour our time into building you a product that makes fleet management as easy and pain free as possible.
+That said, we know how integral a great docs experience is for users and it’s important that we provide that. But that doesn’t mean we
+need
+to build the tooling ourselves when there are such great services available, whose entire focus
+is
+to make a great docs platform.
+So why choose Gitbook?
+Whilst we might not be building it ourselves, it’s still fundamental that whoever we partner with is aligned with our
+values and principles
+. We want to make sure we’re working with teams that have a people first, transparent culture and care about building for the longterm.
+We spent a long time deliberating over what tools and features we’d learnt were important to our users. As power users of docs ourselves, we too had strong opinions on what would create the best possible experience. Again both for those using it, and for us contributing to it. From there we evaluated various solutions to find the best fit.
+Gitbook
+for us are that solution. We love that they care about building relationships with their users, and their help and support has continued all the way through from the discovery phase to a paid plan.
+“Working with the balena team has been a great example of what the right docs migration looks like — they came in with a clear sense of what their users needed, and our job was just to make sure GitBook could deliver on that. It’s been a genuinely collaborative process from day one.”
+— John Cashman, Support Generalist, GitBook
+A key feature for us too is that all our content is our own. Gitbook connects to our docs GitHub repo meaning that anything we put into our docs content remains within our control. Which means, as before,
+that open contributions to our docs
+are still possible.
+What’s improved?
+Whilst for now our aim was to keep as much parity as possible with our old docs (more on that in a bit), there are some notable improvements.
+Search and AI assistant
+We recognise the importance of decent search capabilities and this was a priority feature set for us to get right. It’s deeply frustrating when you can’t find what you’re looking for. Equally we’re annoyed we’ve spent time creating content you can’t find or use!
+Our existing search suffered from poor layout, search hierarchy and a lack of AI functionality. From feedback in support and forums we could see that content was often missed due to difficulty navigating (something we’ll continue to develop and improve) and poor search results. GitBook search’s layout makes it easier to scan search results. Plus if you can’t find what you want, you can ask the ‘GitBook assistant’ for help.
+As LLMs are becoming a standard part of our daily work, we wanted tooling that would help leverage their benefits. The AI ‘
+GitBook assistant
+‘ helps answer documentation questions, surface relevant content and suggest next steps.
+We also now have an
+MCP server
+so you can easily connect balena docs to your preferred external tooling like Claude, Cursor and VS code. This means you can get answers about balenaOS, device management, or fleet configuration without ever leaving your workflow.
+(left) Our old docs search struggling to find relevant results. (right) Our new docs search showing the correct results in a clear and organised layout
+Layout and design
+Similar to our search, our old docs general theme lacked clear legibility and content hierarchy.
+The GitBook styling has improved accessibility, readability and layout as default.
+The table of contents, previously mixed in together, is now split out. The general contents is now in the left side menu and the page contents is to the right. The page contents additionally has improved granularity to help you find what you’re looking for at a glance.
+We also finally have light, dark and match system theme option! This can easily be toggled in the bottom right of the browser.
+Split tables of contents to differentiate between docs structure and page content.
+API docs
+To our earlier anecdote, the friction of our current API documentation is something we’ve spoken about at length with our users. Fortunately thanks to GitBook offering support for OpenAPI specs out-of-the-box, we have added an
+API playground
+!
+You can now test our API endpoints directly from your browser and play around with the parameters, much like you would in
+Swagger
+. There is also color syntaxing on the examples (finally!), and you can get code snippets in HTTP, cURL, Javascript or Python. There is also an option to open an API client in
+Scalar
+, which imports the whole API collection and gives you a Postman-like interface.
+Please note that this feature is in beta. Expect rough edges and bugs here and there while we work on improving the spec.
+An example of the interactive blocks that you can use to test API endpoints in browser
+What’s next?
+To our earlier point about keeping consistency with our previous docs, we have focused on migrating to a superior platform that will in turn enable us to continue to improve our docs experience.
+We’re constantly learning how we can better help users. Our intention is to help get you where you want and need to navigate to with as little friction as possible.
+This is why we’ll be continuing to develop and iterate in the near future.
+We always want to hear from you as feedback is how we improve. Please let us know if you have any questions or comments by joining the discussions in the forum (follow the link below)👇
+Alternatively please feel free to contribute PRs and issues to our docs GitHub repo
+https://github.com/balena-io/docs
+Share this post
+Share on Facebook (Opens in new window)
+Facebook
+Share on X (Opens in new window)
+X
+Share on LinkedIn (Opens in new window)
+LinkedIn
+Posted
+March 4, 2026
+in
+announcement
+Laura Allison
+Tags:
+docs
+Related posts
+Release Party: Improving balenaCloud Docs
+Date
+April 2, 2021
+In relation to
+event
+Balena cycle roundup – March 2026
+Date
+March 19, 2026
+In relation to
+inside balena
+Aligning with the Ecosystem: Migrating away from Balenalib Base Images
+Date
+May 21, 2025
+In relation to
+announcement
+Join the discussion at
+forums.balena.io
+GitHub
+Twitter
+Facebook
+Instagram
+LinkedIn
+YouTube
+Twitch
+Slideshare
+Hackaday
+Hackster
+Balena
+Home page
+What is balena?
+Pricing
+Customers
+Products
+BalenaOS
+OpenBalena
+BalenaCloud
+BalenaEtcher
+BalenaEngine
+Resources
+Support
+Docs
+Forums
+Projects
+Base images
+Status
+Company
+Team
+Jobs
+Press
+Contact us
+Terms of Service
+|
+Privacy Statement
+|
+Master agreement
+| Copyright 2024 Balena | All Rights Reserved
+Loading Comments...
+Write a Comment...
+Email (Required)
+Name (Required)
+Website

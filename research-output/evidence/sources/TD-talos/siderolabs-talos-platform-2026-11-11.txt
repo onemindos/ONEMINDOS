@@ -1,0 +1,240 @@
+Source: https://www.siderolabs.com/platform/talos-os-for-kubernetes/ (accessed 2026-11-11, extracted text)
+Linux OS for Kubernetes
+Skip to content
+New
+Talos Enterprise Linux is here.
+The same open-source OS with 24/7 support, built for NIS2 & CRA.
+·
+See what’s included
+→
+Products
+Customers
+Pricing
+Blog
+Docs
+TalosCon ↗
+Start trial
+Get demo →
+Kubernetes · Talos Linux
+Kubernetes infrastructure that can’t drift and won’t fail an audit.
+Talos Linux is the immutable, API-driven operating system purpose-built for Kubernetes. No SSH, no shell, no package manager. Just the binaries needed to run your fleet, from bare metal to the edge.
+Read the docs
+Go to repo
+→
+See Talos Enterprise Linux
+→
+By the numbers
+<50
+OS binaries
+100MB
+OS footprint
+~1 min
+boot time
+<5 min
+to cluster
+0
+package managers
+Free & Enterprise
+One codebase.
+Two ways to run it.
+Talos Linux is free and open source under MPL-2.0. Talos Enterprise Linux is the same OS. What the enterprise tier adds is proof, indemnity, and someone to call: the assurance, compliance evidence, and support that security and procurement teams need to sign off.
+Shared foundation
+The only difference is that the Enterprise build enables FIPS 140-3 compliance, and adds the security artifacts, indemnity, CVE SLAs, and support.
+•
+Open source · MPL-2.0
+Talos Linux
+Free, forever
+Immutable, API-driven OS for Kubernetes
+No SSH, no shell, no package manager
+Minimal attack surface, minimal CVEs
+CIS-hardened, mTLS, SELinux, trusted boot
+Community support · 10,200+ GitHub stars
+Get started
+→
+•
+Enterprise license · MPL-2.0
+New
+Talos Enterprise Linux
+$1,000 per node per year · 10-node minimum
+Fleet management with Omni, included
+24/7/365 support with CVE SLAs
+FIPS 140-3 compliant builds
+Schematic-specific SBOMs & curated VEX, for your exact build
+Signed build attestation
+Commercial IP indemnity
+Built for NIS2 & CRA compliance
+Talk to us
+→
+Open stays open.
+Enterprise adds assurance and service on top of the same open-source OS. Same code, same MPL-2.0, your hardware. Security is never gated behind the paid tier.
+Trusted by enterprise platform teams
+In production across regulated, sovereign, and mission-critical environments.
+Why Talos Linux
+Infrastructure that can’t drift,
+and can’t be logged into.
+Most fleets are held together by hand, and the gaps are where they break. Talos removes the gaps by design, the same across every cluster and every site.
+Minimal
+Minimal by design
+Fewer than 50 binaries, just enough to run Kubernetes. Minimal attack surface, minimal CVEs.
+API-only
+No SSH, no shell
+Every node interaction goes through a secured gRPC API with mutual TLS. Nothing to log into.
+Immutable
+Read-only & ephemeral
+Nothing is written to disk at runtime, nothing persists between reboots. A reboot returns the node to its declared state.
+Declarative
+One YAML, whole machine
+The entire machine state is defined declaratively. No configuration-management tools to maintain.
+Atomic
+Unified lifecycle
+OS and Kubernetes upgrade together as one atomic, rollback-safe image. The same swap from day zero on.
+Hardened
+Secure by default
+mTLS on all API access, CIS guidelines applied out of the box, SELinux and trusted boot included.
+Talos Enterprise Linux
+Clear the security review.
+Keep the open-source OS.
+Everything Talos Linux does, plus Omni fleet management, the audit evidence, indemnity, and response times that get an open-source OS through enterprise procurement. Built for NIS2 and CRA.
+Compliance
+FIPS & regulatory fit
+FIPS 140-3 compliant builds and a posture built for the frameworks auditors ask about.
+FIPS 140-3 compliant builds
+NIS2 & CRA-aligned posture
+CIS benchmark alignment
+Supply chain
+Artifacts security teams demand
+Evidence tied to the exact image you run, traceable back to source.
+Schematic-specific SBOM per release
+Curated VEX, not auto-generated noise
+Signed build attestation
+OCI-compatible distribution
+Support
+24/7/365, with targets
+The people who wrote the code, not a tier-1 helpdesk.
+CVE SLAs with response targets by severity
+Direct access to Sidero engineering
+Dedicated Slack channel
+Upgrade & migration assistance
+Legal
+Commercial IP indemnity
+The contractual protection procurement expects from a commercial vendor.
+IP indemnification for Talos Linux
+Formal support agreement, SLA-backed
+Audit-ready documentation
+Security-questionnaire support
+Talk to us about Enterprise
+→
+Adopted in the open
+~1M
+downloads / year
+109k+
+registered clusters
+10,200+
+GitHub stars
+330+
+contributors
+In the community’s words
+“
+I'm consistently being blown away by the amount of engineering that has gone into Talos Linux for running k8s easily and securely.
+It's crazy to think that there was a time all of this had to be manually wired up. As much as I don't like drinking an individual company's koolaid, so far this one's lit.
+”
+[testimonial author masked]
+·
+[testimonial author masked]
+“
+Talos is so nice and simple to manage when compared to having to manage both k3s and the host OS.
+To make it even better, deploy a self-hosted instance of Omni to manage the Talos nodes. Gives you a nice interface to handle rolling out config patches, rolling Talos and k8s updates, scaling up and down, and integrating with infrastructure providers to automatically provision machines.
+”
+[testimonial author masked]
+·
+Reddit · r/homelab · March 2026
+Fleet management
+When ready to manage a fleet,
+Omni builds on talosctl
+When the fleet outgrows manual lifecycle management, Omni takes over provisioning, upgrades, config, and backups across every cluster from one place. It also schedules containers directly on Talos at single-node edge sites, with no Kubernetes cluster required, managed through the same fleet plane.
+Talos Omni · source available · BSL 1.1 · SaaS or self-hosted
+Start Omni trial
+Read about Omni
+→
+Cluster status
+Running
+Control planes
+3 / 3 ready
+Talos version
+1.14.0
+Kubernetes
+1.37.0
+Edge containers, no cluster
+new
+Deployment
+SaaS · self-hosted
+Community
+Powered by the community.
+Learn, share and build with other Talos users.
+Community extensions
+Awesome-talos
+Terraform modules, homelab configs, integrations, dashboards, maintained by the community.
+Terraform modules
+Homelab configs
+Integrations
+Dashboards
+# browse what the community has built
+$
+git clone https://github.com/siderolabs/awesome-talos
+$
+cd awesome-talos && ls
+terraform/  homelab/  integrations/  dashboards/
+# found something missing? open a pull request
+github.com/siderolabs/awesome-talos
+→
+Talos Enterprise Linux
+Watch on YouTube
+→
+Built in the open
+Open source since day one. In production since 2020.
+Talos Linux is and stays open source under MPL-2.0. The enterprise tier adds assurance and support on top. It doesn’t close the code or move capabilities behind a wall.
+Talos Linux
+MPL-2.0
+forever
+Talos Omni
+source available
+BSL 1.1
+CNCF
+Silver member
+Secure by architecture. Proven in production.
+Read the docs
+Talk to us →
+490 South Fairview
+Goleta, CA 93117
+e:
+[vendor contact email masked]
+t:
+(888) 488-2567
+Product
+Talos Director
+Talos Linux
+Talos Omni
+Talos Hypervisor
+Talos Linux for AI
+Talos Cupar
+Pricing
+Support
+Company
+Customers
+About us
+Careers
+Become a partner
+Contact us
+Resources
+Blog
+Docs
+The smallest Kubernetes →
+Copy Fail barely scratches Talos Linux →
+Why patching won't save you →
+Status
+Get support
+Join our newsletters.
+Submit
+© 2026 Sidero Labs, Inc. All Rights Reserved
+Privacy Policy
+Terms & Conditions

@@ -1,0 +1,277 @@
+SOURCE: https://frame.work/blog/frameworks-series-a-1-and-community-participation
+ACCESSED: 2026-11-10
+
+Framework | Framework’s Series A-1 and Community Participation
+containers--header-component--header#setHeaderAppearance'
+class="z-[60] sticky inset-0 [&>*]:border-b [&>*]:border-b-transparent hover:[&>*]:border-b-utility-outline header-primary bg-surface text-black border-utility-outline-mild"
+data-test-id="header">
+containers--navigations--mobile-menu-component--menu#close keydown->containers--navigations--mobile-menu-component--menu#trapFocus turbo:before-cache@window->containers--navigations--mobile-menu-component--menu#teardown'>
+containers--navigations--mobile-menu-component--menu#toggle'>
+menu
+containers--navigations--mobile-menu-component--menu#close'>
+containers--navigations--mobile-menu-component--menu#close'>
+close
+containers--navigations--mobile-accordion-component--accordion#toggle'>
+Framework Desktop
+keyboard_arrow_down
+keyboard_arrow_up
+Desktop
+Specs
+Shop parts
+Downloads and guides
+Configure now
+containers--navigations--mobile-accordion-component--accordion#toggle'>
+Framework Laptop 12
+keyboard_arrow_down
+keyboard_arrow_up
+Laptop 12
+Specs
+Shop parts
+Downloads and guides
+Configure now
+containers--navigations--mobile-accordion-component--accordion#toggle'>
+Framework Laptop 13
+keyboard_arrow_down
+keyboard_arrow_up
+Laptop 13 Pro
+Specs
+Shop parts
+Downloads and guides
+Configure now
+Laptop 13
+Specs
+Shop parts
+Downloads and guides
+Configure now
+containers--navigations--mobile-accordion-component--accordion#toggle'>
+Framework Laptop 16
+keyboard_arrow_down
+keyboard_arrow_up
+Laptop 16
+Specs
+Shop parts
+Downloads and guides
+Configure now
+containers--navigations--mobile-accordion-component--accordion#toggle'>
+Shop all
+keyboard_arrow_down
+keyboard_arrow_up
+View All
+Outlet
+Framework Laptop
+Framework Desktop
+Mainboards
+Accessories
+Expansion Cards
+Memory & Storage
+Keyboards
+Parts
+Customization
+Tools
+Software
+Merch
+containers--navigations--mobile-accordion-component--accordion#toggle'>
+Support
+keyboard_arrow_down
+keyboard_arrow_up
+Downloads and guides
+Framework Desktop
+Framework Laptop 12
+Framework Laptop 13
+Framework Laptop 16
+Resources
+Linux on the Framework Laptop
+Community Forum
+Knowledge Base
+Contact Support
+Submit a support request
+For Business
+containers--navigations--mobile-accordion-component--accordion#toggle'>
+About
+keyboard_arrow_down
+keyboard_arrow_up
+About Framework
+Sustainability
+Our Blog
+We're Hiring
+1
+USD
+USD
+Sign in
+Don't have an account?
+Create your account
+Sign in
+or
+Create account
+Skip to main content
+containers--navigations--hero-component--hero-component#toggleBodyOverflow mouseleave->containers--navigations--hero-component--hero-component#restore focusout->containers--navigations--hero-component--hero-component#restore keydown.esc@window->containers--navigations--hero-component--hero-component#dismiss'>
+Desktop
+Desktop
+Specs
+Shop parts
+Downloads and guides
+Configure now
+containers--navigations--hero-component--hero-component#toggleBodyOverflow mouseleave->containers--navigations--hero-component--hero-component#restore focusout->containers--navigations--hero-component--hero-component#restore keydown.esc@window->containers--navigations--hero-component--hero-component#dismiss'>
+Laptop 12
+Laptop 12
+Specs
+Shop parts
+Downloads and guides
+Configure now
+containers--navigations--hero-component--hero-component#toggleBodyOverflow mouseleave->containers--navigations--hero-component--hero-component#restore focusout->containers--navigations--hero-component--hero-component#restore keydown.esc@window->containers--navigations--hero-component--hero-component#dismiss'>
+Laptop 13
+Laptop 13 Pro
+Specs
+Shop parts
+Downloads and guides
+Configure now
+Laptop 13
+Specs
+Shop parts
+Downloads and guides
+Configure now
+containers--navigations--hero-component--hero-component#toggleBodyOverflow mouseleave->containers--navigations--hero-component--hero-component#restore focusout->containers--navigations--hero-component--hero-component#restore keydown.esc@window->containers--navigations--hero-component--hero-component#dismiss'>
+Laptop 16
+Laptop 16
+Specs
+Shop parts
+Downloads and guides
+Configure now
+containers--navigations--dropdown-component--dropdown-component#toggleBodyOverflow mouseleave->containers--navigations--dropdown-component--dropdown-component#restore focusout->containers--navigations--dropdown-component--dropdown-component#restore keydown.esc@window->containers--navigations--dropdown-component--dropdown-component#dismiss'>
+Shop all
+View All
+Outlet
+Framework Laptop
+Framework Desktop
+Mainboards
+Accessories
+Expansion Cards
+Memory & Storage
+Keyboards
+Parts
+Customization
+Tools
+Software
+Merch
+containers--navigations--dropdown-component--dropdown-component#toggleBodyOverflow mouseleave->containers--navigations--dropdown-component--dropdown-component#restore focusout->containers--navigations--dropdown-component--dropdown-component#restore keydown.esc@window->containers--navigations--dropdown-component--dropdown-component#dismiss'>
+Support
+Downloads and guides
+Framework Desktop
+Framework Laptop 12
+Framework Laptop 13
+Framework Laptop 16
+Resources
+Linux on the Framework Laptop
+Community Forum
+Knowledge Base
+Contact Support
+Submit a support request
+For Business
+containers--navigations--dropdown-component--dropdown-component#toggleBodyOverflow mouseleave->containers--navigations--dropdown-component--dropdown-component#restore focusout->containers--navigations--dropdown-component--dropdown-component#restore keydown.esc@window->containers--navigations--dropdown-component--dropdown-component#dismiss'>
+About
+About Framework
+Sustainability
+Our Blog
+We're Hiring
+1
+containers--navigations--profile-component--profile#restore focusout->containers--navigations--profile-component--profile#leave keydown.esc@window->containers--navigations--profile-component--profile#dismiss turbo:before-cache@window->containers--navigations--profile-component--profile#teardown'>
+containers--navigations--profile-component--profile#toggle'>
+account_circle
+containers--navigations--profile-component--profile#collapse'>
+Sign in
+Don't have an account?
+Create your account
+Sign in
+or
+Create account
+local_mall
+USD
+USD
+elements--snackbar-component--close#closeMessage snackbar-component:dismiss->elements--snackbar-component--close#closeMessage'>
+elements--snackbar-component--close#closeMessage'>Sample Link content
+elements--snackbar-component--close#closeMessage'>Sample Button content
+elements--snackbar-component--close#closeMessage'>
+close
+All
+News
+Hardware
+Environment
+Reviews
+Framework’s Series A-1 and Community Participation
+News
+Apr 23 2024
+by
+Nirav Patel
+Today we’re announcing $18M in new funding from an incredible set of investors, with a $17M Series A-1 round led by Spark Capital, with Buckley Ventures, Anzu Partners, Cooler Master, and Pathbreaker Ventures participating. We started just over four years ago with a vision to remake consumer electronics to respect people and the planet. We chose to take on the notebook space first to prove that it’s possible to fix even the most mature, competitive categories with an excellent product that is simple to repair, upgrade, and customize. We’ve continued to increase our sales and market share substantially each year as the industry broadly has struggled. It’s clear that our commitment to longevity is resonating. It’s ultimately your belief in our mission and products that drives our success.
+When we closed a
+Series A round
+two years ago, we shared our strategy around fundraising, which is to raise as little as possible and focus funds on efficiently expanding the reach of our mission. You can now see the results of that investment with Framework Laptop 16 out in customers’ hands. With this new round, we’re continuing to deepen support for our existing customers, scaling the reach of our current products, and extending to additional product categories that let us empower new consumers and businesses. Ultimately, we need for everyone in the world to have the option for a longer-lasting product, no matter the category.
+A core focus of this fundraise beyond taking in capital is bringing strategic connections and expertise. We chose each of our new investors based on their belief in our mission, the strengths of their teams, the companies they work with, and the reach of their networks. We’ve had a number of early partnership discussions with other startups in our investors’ portfolios, and we’re excited to share more about this as we deliver on the results. Cooler Master is a key strategic partner-turned-investor, having been both the supplier for our Framework Laptop 16 thermal system and the first company to join the Framework ecosystem with a compatible product,
+a case
+that enables Framework Laptop Mainboard reuse. We have additional collaborations with the Cooler Master team in incubation now.
+There is one group of people who are more strategically important than any other: the Framework community. The third most common question we’ve gotten since starting Framework (after “
+AMD when?
+” and “
+Upgradeable graphics when?
+”) is “Can I invest in Framework?”. The answer is finally… possibly. In addition to the $17M of funds we’ve raised from traditional investors, we’re raising a $1M community round to enable 100 of you to invest $10,000 each in Framework. Investing in startups is approximately the riskiest place imaginable to put your money, and statistically, the most likely outcome for any individual early-stage startup investment is for it to become worthless. With that in mind, for both moral and regulatory reasons, we’re limiting participation to individuals and entities that meet the
+SEC’s Accredited Investor
+qualifications. This also allows us to publicly share the existence of this fundraising under the
+SEC’s 506(c) regulations
+. If you qualify as an Accredited Investor, believe in our mission and strategy, and are interested in investing in this round, you can get more details and apply
+here
+.
+There’s one other way you can participate in our mission, which is to join our team! To actually drive the growth that our new funding enables, we’re adding a few key roles across Framework, including a Product Marketing Manager and a Supply Chain Manager. You can check out all of our open roles on our
+careers page
+. We’re eager to fix this industry together as quickly as we can.
+Comment on this blog post in the Framework Community
+Join the Discussion
+Which Framework Laptop is right for you?
+Browse Framework Laptops
+Company
+About Us
+Sustainability
+Our Blog
+We're Hiring
+1
+Contact Us
+Accessibility Statement
+For Business
+Social
+Twitter
+YouTube
+Instagram
+Facebook
+LinkedIn
+Bluesky
+Mastodon
+GitHub
+RSS
+Community
+Community Forum
+Support
+Repair Guides
+Shop all
+View All
+Outlet
+Framework Laptop
+Framework Desktop
+Mainboards
+Accessories
+Expansion Cards
+Memory & Storage
+Keyboards
+Parts
+Customization
+Tools
+Software
+Merch
+Subscribe
+Stay up to date with the Framework Newsletter (a few times a month)
+© 2026 Framework Computer Inc
+Terms of Service
+Privacy Policy
+Warranty
+Terms of Sale
+Cookie Policy
+USD
+USD

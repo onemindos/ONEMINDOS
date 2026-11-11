@@ -1,0 +1,12 @@
+Topic: SMB Network Backup Restore Fails - Infinite Loading in Onboarding
+--- post 1 · 2026-09-23T18:11:02.577Z · author masked
+I am performing a clean install of umbrelOS 2.0 and trying to restore my ~100 GB backup from my local SMB server during the onboarding wizard (Restore from a backup > Another Umbrel or NAS).
+I enter the server IP, the share name, and valid SMB credentials.
+The credentials and connection are accepted.
+However, the file/folder browser never populates. It gets stuck indefinitely on a loading spinner (waited over 15 minutes).
+No folders or files are rendered inside the UI, making it impossible to highlight the backup directory and proceed to the encryption password screen.
+Because the onboarding picker was stuck, I completed the initial wizard by creating a user and attempted the restore via Settings > Backups > Restore:
+The backup was detected, the encryption password was accepted, and the restore process started and ran to completion.
+Once the process finished, however, nothing was restored:
+No applications appear on the dashboard.
+The Files and Downloads sections are also completely empty, even though the backup contains around 100 GB of personal files, photos, and media.

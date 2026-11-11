@@ -1,0 +1,581 @@
+Develop for the web on Android XR  |  Android XR for WebXR  |  Android Developers 
+ Skip to main content
+ Essentials
+ Build AI experiences 
+ Build AI-powered Android apps with Gemini APIs and more.
+ Get started
+ Get started 
+ Create your first app. Use Compose for UI and adaptive app development to support multiple device form factors.
+ Hello, world!
+ Adaptive apps
+ Compose for UI
+ AI-powered IDE
+ Monetization with Play ↗️
+ Developer Verification
+ Registered App Stores
+ Optimize by form factor 
+ Build apps that optimize the user experience on phones, tablets, foldables, cars, XR, and more.
+ Phones, tablets, foldables
+ Android for Cars
+ Android TV
+ Android XR
+ Googlebook
+ ChromeOS
+ Wear OS
+ Build by category 
+ Learn to build for your use case by following Google's prescriptive and opinionated guidance.
+ Games
+ Camera & media
+ Social & messaging
+ Health & fitness
+ Productivity
+ Enterprise apps
+ Get the latest 
+ Stay in touch with the latest releases throughout the year, join our preview programs, and give us your feedback.
+ Latest updates
+ Experimental updates
+ Android Studio preview
+ Jetpack & Compose libraries
+ Wear OS releases
+ Privacy Sandbox ↗️
+ Design & Plan
+ Excellent Experiences 
+ Build the best experiences for your best users.
+ Learn more
+ UI Design 
+ Design a beautiful user interface using Android best practices. 
+ Design for Android
+ Mobile
+ Desktop experiences
+ XR Headsets & XR Glasses
+ AI Glasses
+ Widgets
+ Wear OS
+ Android TV
+ Android for Cars
+ Architecture 
+ Design robust, testable, and maintainable app logic and services. 
+ Introduction
+ Libraries
+ Navigation
+ Modularization
+ Testing
+ Kotlin Multiplatform
+ Quality 
+ Plan for app quality and align with Play store guidelines. 
+ Overview
+ Core value
+ User experience
+ Accessibility
+ Technical quality
+ Excellent Experiences
+ Security 
+ Safeguard users against threats and ensure a secure Android experience. 
+ Overview
+ Privacy
+ Permissions
+ Identity
+ Fraud prevention
+ Develop
+ Build more with agents in Android 
+ Turn prompts into real Android experiences using your favorite agents.
+ Learn more
+ Get Android CLI
+ Core areas 
+ Get the samples and docs for the features you need. 
+ Samples
+ Multidevice support
+ User interfaces
+ Background work
+ Data and files
+ Connectivity
+ All core areas ⤵️
+ Tools and workflow 
+ Use the IDE to write and build your app, or create your own pipeline. 
+ Write and debug code
+ Build projects
+ Test your app
+ Performance
+ Command-line tools
+ Gradle plugin API
+ Android Bench
+ Build with agents
+ Device tech 
+ Write code for form factors. Connect devices and share data. 
+ Phones, tablets, foldables
+ Googlebook
+ ChromeOS
+ Android for Cars
+ Android TV
+ Android XR
+ Wear OS
+ Android Health
+ Better Together
+ All devices ⤵️
+ Libraries 
+ Browse API reference documentation with all the details. 
+ Android platform
+ Jetpack libraries
+ Compose libraries
+ Google Play services ↗️
+ Google Play SDK index ↗️
+ Google Play
+ Play Console 
+ Publish your app or game and grow your business on Google Play.
+ Learn more ↗️
+ Go to Play Console
+ Fundamentals 
+ Learn how to engage users, monitize, and secure your app. 
+ Play Monetization
+ Play Integrity
+ Android vitals
+ Play Policies
+ Play Programs ↗️
+ Games Dev Center 
+ Develop and deliver games. Get tools, downloads, and samples. 
+ Overview
+ Play Asset Delivery
+ Play Games Services
+ Play Games on PC
+ Level Up guidelines
+ All Play guides ⤵️
+ Libraries 
+ Browse API reference documentation with all the details. 
+ Play Feature Delivery
+ Play In-app Updates
+ Play In-app Reviews
+ Play Install Referrer
+ Google Play services ↗️
+ Google Play SDK index ↗️
+ All Play libraries ⤵️
+ Tools & resources 
+ Tools for publishing, promoting, and managing your app. 
+ Android App Bundles
+ Brand & marketing
+ Play Console APIs ↗️
+ Blog
+ the Android Developer's Blog 
+ Read the latest
+ Explore the authors →
+ Explore categories 
+ Product News
+ Stay in the loop with the latest updates, feature releases, and behind-the-scenes looks at how we’re evolving.
+ Community
+ Discover stories from our users, spotlight features, and the collaborative projects that bring us all together.
+ How-tos
+ From quick tips to deep-dive tutorials, these step-by-step guides are designed to help you work smarter and faster.
+ Case Studies
+ Real-world results from real-world users. Explore how different teams use our tools to achieve their goals.
+ Events & Programs
+ Get the details on upcoming webinars, workshops, meetups, and special initiatives designed to help you grow.
+ Documentation
+ Access detailed manuals, API references, and technical specifications to help you build and integrate with confidence.
+ / 
+ English 
+ Deutsch 
+ Español – América Latina 
+ Français 
+ Indonesia 
+ Italiano 
+ Polski 
+ Português – Brasil 
+ Tiếng Việt 
+ Türkçe 
+ Русский 
+ עברית 
+ العربيّة 
+ فارسی 
+ हिंदी 
+ বাংলা 
+ ภาษาไทย 
+ 中文 – 简体 
+ 中文 – 繁體 
+ 日本語 
+ 한국어 
+ Android Studio
+ Sign in 
+ Develop
+ Devices
+ Android XR
+ WebXR
+ Overview
+ Samples
+ Guides
+ Experiments
+ Catalyst Program
+ Design immersive experiences ➡️
+ Design augmented experiences ➡️
+ Essentials
+ More
+ Design & Plan
+ More
+ Develop
+ More
+ Overview
+ Samples
+ Guides
+ Experiments
+ Catalyst Program
+ Design immersive experiences ➡️
+ Design augmented experiences ➡️
+ Google Play
+ More
+ Blog
+ More
+ Android Studio
+ See all XR tools & technologies ⍐ 
+ Build for XR | Web 
+ Overview 
+ Enhance with AI 
+ Enhance your app with AI using Gemini APIs 
+ Package & distribute 
+ Ensure Android XR app quality ⍈ 
+ Check if your mobile app is ready for Android XR 
+ Package and distribute apps for Android XR 
+ Support 
+ Get support 
+ Build AI experiences
+ Get started
+ Get started
+ Hello, world!
+ Adaptive apps
+ Compose for UI
+ AI-powered IDE
+ Monetization with Play ↗️
+ Developer Verification
+ Registered App Stores
+ Optimize by form factor
+ Phones, tablets, foldables
+ Android for Cars
+ Android TV
+ Android XR
+ Googlebook
+ ChromeOS
+ Wear OS
+ Build by category
+ Games
+ Camera & media
+ Social & messaging
+ Health & fitness
+ Productivity
+ Enterprise apps
+ Get the latest
+ Latest updates
+ Experimental updates
+ Android Studio preview
+ Jetpack & Compose libraries
+ Wear OS releases
+ Privacy Sandbox ↗️
+ Excellent Experiences
+ Learn more
+ UI Design
+ Design for Android
+ Mobile
+ Desktop experiences
+ XR Headsets & XR Glasses
+ AI Glasses
+ Widgets
+ Wear OS
+ Android TV
+ Android for Cars
+ Architecture
+ Introduction
+ Libraries
+ Navigation
+ Modularization
+ Testing
+ Kotlin Multiplatform
+ Quality
+ Overview
+ Core value
+ User experience
+ Accessibility
+ Technical quality
+ Excellent Experiences
+ Security
+ Overview
+ Privacy
+ Permissions
+ Identity
+ Fraud prevention
+ Build more with agents in Android
+ Learn more
+ Get Android CLI
+ Core areas
+ Samples
+ Multidevice support
+ User interfaces
+ Background work
+ Data and files
+ Connectivity
+ All core areas ⤵️
+ Tools and workflow
+ Write and debug code
+ Build projects
+ Test your app
+ Performance
+ Command-line tools
+ Gradle plugin API
+ Android Bench
+ Build with agents
+ Device tech
+ Phones, tablets, foldables
+ Googlebook
+ ChromeOS
+ Android for Cars
+ Android TV
+ Android XR
+ Wear OS
+ Android Health
+ Better Together
+ All devices ⤵️
+ Libraries
+ Android platform
+ Jetpack libraries
+ Compose libraries
+ Google Play services ↗️
+ Google Play SDK index ↗️
+ Play Console
+ Learn more ↗️
+ Go to Play Console
+ Fundamentals
+ Play Monetization
+ Play Integrity
+ Android vitals
+ Play Policies
+ Play Programs ↗️
+ Games Dev Center
+ Overview
+ Play Asset Delivery
+ Play Games Services
+ Play Games on PC
+ Level Up guidelines
+ All Play guides ⤵️
+ Libraries
+ Play Feature Delivery
+ Play In-app Updates
+ Play In-app Reviews
+ Play Install Referrer
+ Google Play services ↗️
+ Google Play SDK index ↗️
+ All Play libraries ⤵️
+ Tools & resources
+ Android App Bundles
+ Brand & marketing
+ Play Console APIs ↗️
+ the Android Developer's Blog
+ Read the latest
+ Explore the authors →
+ Explore categories
+ Product News
+ Community
+ How-tos
+ Case Studies
+ Events & Programs
+ Documentation
+ Thanks for joining us at the Android Dev Summit! Rewatch the Android XR talks , try things out, and send us your feedback .
+ Android Developers
+ Develop
+ Devices
+ Android XR
+ WebXR
+ Guides
+ Develop for the web on Android XR 
+ Stay organized with collections
+ Save and categorize content based on your preferences.
+ Applicable XR devices
+ This guidance helps you build experiences for these types of XR devices.
+ Learn about XR device types → 
+ XR Headsets 
+ Wired XR Glasses 
+ Learn about XR device types → 
+ Chrome on Android XR supports WebXR . WebXR is an open standard
+by W3C that brings high-performance XR APIs to
+ supported browsers . If you're building for the web, you can
+enhance existing sites with 3D models or build new immersive experiences. 
+ The following WebXR features are supported by Chrome for Android XR: 
+ Device API 
+ AR Module 
+ Gamepads Module 
+ Hit Test Module 
+ Hand Input 
+ Anchors 
+ Depth Sensing 
+ Light Estimation 
+ To see WebXR in action, launch Chrome on an Android XR device or the Android XR
+Emulator and browse the official WebXR samples . 
+ Prerequisite: Choose a WebXR framework 
+ Before you begin developing, it's important to choose the right WebXR framework.
+This significantly enhances your own productivity and improves the quality of
+the experiences you create. 
+ For full control over 3D scenes and creation of custom or complex
+interactions, we recommend three.js and
+ babylon.js . 
+ For rapid prototyping or using HTML-like syntax to define 3D scenes, we
+recommend A-Frame and model-viewer . 
+ You can also review more frameworks and sample code . 
+ If you prefer using native JavaScript and WebGL, refer to WebXR on
+GitHub to create your first WebXR experiment. 
+ Adapt for Android XR 
+ If you have existing WebXR experiences running on other devices, you may need to
+update your code to properly support WebXR on Android XR. For example, WebXR
+experiences focused on mobile devices will have to adapt from one screen to two
+stereo screens in Android XR. WebXR experiences targeting mobile devices or
+existing headsets may need to adapt input code to be hand-first. 
+ When working with WebXR on Android XR, you may need to update your code to
+compensate for the fact that there are two screens—one for each eye. 
+ About ensuring a sense of depth in WebXR 
+ When a user places a virtual object in their physical space, its scale should be
+accurate so that it appears as if it truly belongs there. For example, in a
+furniture shopping app, users need to trust that a virtual armchair will fit
+perfectly in their living room. 
+ Chrome for Android XR supports the Depth Sensing Module in
+WebXR , which enhances a device's ability to perceive the
+dimensions and contours of their real-world environment. This depth information
+lets you create more immersive and realistic interactions, helping users
+make informed decisions. 
+ Unlike depth sensing on mobile phones, depth sensing in Android XR is
+stereoscopic, streaming two depth maps in real-time for binocular vision. You
+may need to update your WebXR code to properly support stereo depth frames. 
+ The following example renders depth information stereoscopically: 
+ // Called every time a XRSession requests that a new frame be drawn. 
+ function onXRFrame ( t , frame ) { 
+ const session = frame . session ; 
+ session . requestAnimationFrame ( onXRFrame ); 
+ const baseLayer = session . renderState . baseLayer ; 
+ const pose = frame . getViewerPose ( xrRefSpace ); 
+ if ( pose ) { 
+ gl . bindFramebuffer ( gl . FRAMEBUFFER , session . renderState . baseLayer . framebuffer ); 
+ // Clears the framebuffer. 
+ gl . clearColor ( 0 , 0 , 0 , 0 ); 
+ gl . clear ( gl . COLOR_BUFFER_BIT | gl . DEPTH_BUFFER_BIT ); 
+ // Note: Two views will be returned from pose.views. 
+ for ( const view of pose . views ) { 
+ const viewport = baseLayer . getViewport ( view ); 
+ gl . viewport ( viewport . x , viewport . y , viewport . width , viewport . height ); 
+ const depthData = frame . getDepthInformation ( view ); 
+ if ( depthData ) { 
+ renderDepthInformationGPU ( depthData , view , viewport ); 
+ } 
+ } 
+ } else { 
+ console . error ( 'Pose unavailable in the current frame!' ); } 
+ } 
+ Key points about the code 
+ A valid pose must be returned to access depth data. 
+ pose.views returns a view for each eye and its
+corresponding for loop runs twice. 
+ Alas, your browser doesn't support HTML5 video. That's OK! You can still
+ download the video and watch it with a video player.
+ Real-time depth visualization using WebXR depth sensing API. Red indicates closer pixels while blue indicates farther pixels.
+ Add hand interaction in WebXR 
+ Adding hand interaction to your WebXR app enhances user engagement by enabling
+more intuitive and immersive experiences. 
+ Hand input is the primary interaction mechanism in Android XR. Chrome for
+Android XR supports the Hand Input API as the default input.
+This API lets users interact with virtual objects naturally, using gestures and
+hand movements to grab, push, or manipulate elements in the scene. 
+ Devices such as mobile phones or controller-centric XR devices may not yet
+support hand input. You may need to update your WebXR code to properly support
+hand input. The Immersive VR Session with Hands demonstrates
+how to integrate hand tracking into your WebXR project. 
+ The following animation shows an example of combining pinching with the WebXR
+API to show a user "wiping out" the surface of a virtual space to reveal a
+pass-through window into the real world. 
+ Alas, your browser doesn't support HTML5 video. That's OK! You can still
+ download the video and watch it with a video player.
+ WebXR demo of using hand pinch to wipe out screens to see-through the physical reality.
+ Permissions in WebXR 
+ When you use WebXR APIs that require permission, Chrome prompts the user to
+grant the permission to the site. All WebXR APIs require the 3d mapping and
+camera tracking permission. Access tracked face, eye, and hand data are also
+protected by permissions. If all needed permissions are
+granted, calling navigator.xr.requestSession('immersive-ar', options) returns
+a valid WebXR session. 
+ The permissions preference chosen by the user persists for each domain.
+Accessing a WebXR experience in a different domain causes Chrome to prompt for
+permissions again. If the WebXR experience requires multiple permissions, Chrome
+prompts for each permission one at a time. 
+ As with all permissions on the web, you should properly handle situations where
+the permission is denied. 
+ Content and code samples on this page are subject to the licenses described in the Content License . Java and OpenJDK are trademarks or registered trademarks of Oracle and/or its affiliates. 
+ Last updated 2026-08-31 UTC. 
+ [[["Easy to understand","easyToUnderstand","thumb-up"],["Solved my problem","solvedMyProblem","thumb-up"],["Other","otherUp","thumb-up"]],[["Missing the information I need","missingTheInformationINeed","thumb-down"],["Too complicated / too many steps","tooComplicatedTooManySteps","thumb-down"],["Out of date","outOfDate","thumb-down"],["Samples / code issue","samplesCodeIssue","thumb-down"],["Other","otherDown","thumb-down"]],["Last updated 2026-08-31 UTC."],[],[]]
+ X
+ Follow @AndroidDev on X 
+ YouTube
+ Check out Android Developers on YouTube 
+ LinkedIn
+ Connect with the Android Developers community on LinkedIn 
+ More Android 
+ Android
+ Android for Enterprise
+ Security
+ Source
+ News
+ Blog
+ Podcasts
+ Discover 
+ Gaming
+ Machine Learning
+ Health & Fitness
+ Camera & Media
+ Privacy
+ 5G
+ Android Devices 
+ Large screens
+ Wear OS
+ ChromeOS devices
+ Android for cars
+ Android TV
+ Releases 
+ Android 17
+ Android 16
+ Android 15
+ Android 14
+ Android 13
+ Android 12
+ Android 11
+ Documentation and Downloads 
+ Android Studio guide
+ Developers guides
+ API reference
+ Download Studio
+ Android NDK
+ Support 
+ Report platform bug
+ Report documentation bug
+ Google Play support
+ Join research studies
+ Android
+ Chrome
+ Firebase
+ Google Cloud Platform
+ All products
+ Privacy
+ License
+ Brand guidelines
+ Manage cookies
+ Get news and tips by email 
+ Subscribe
+ English 
+ Deutsch 
+ Español – América Latina 
+ Français 
+ Indonesia 
+ Italiano 
+ Polski 
+ Português – Brasil 
+ Tiếng Việt 
+ Türkçe 
+ Русский 
+ עברית 
+ العربيّة 
+ فارسی 
+ हिंदी 
+ বাংলা 
+ ภาษาไทย 
+ 中文 – 简体 
+ 中文 – 繁體 
+ 日本語 
+ 한국어

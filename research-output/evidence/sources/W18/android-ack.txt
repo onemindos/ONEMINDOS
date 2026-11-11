@@ -1,0 +1,834 @@
+Android common kernels  |  Android OS core topics  |  Android Open Source Project
+ Skip to main content
+ Docs
+ What's new?
+ Release notes
+ Latest security bulletins
+ Latest Compatibility Definition Document (CDD)
+ Site updates
+ Getting Started
+ About
+ Start
+ Download
+ Builds
+ Test
+ Create
+ Contribute
+ Community
+ Tools, build, and related reference
+ Security
+ Overview
+ Bulletins
+ Features
+ Testing
+ Best Practices
+ Core Topics
+ Architecture
+ Audio
+ Camera
+ Connectivity
+ Data
+ Display
+ Fonts
+ Graphics
+ Interaction
+ Media
+ Performance
+ Permissions
+ Power
+ Runtime
+ Settings
+ Storage
+ Tests
+ Updates
+ Virtualization
+ Compatibility
+ Compatibility Definition Document (CDD)
+ Compatibility Test Suite (CTS)
+ Android Devices
+ Overview
+ Cuttlefish
+ Enterprise
+ TV
+ Automotive
+ Overview
+ Software Defined Vehicle
+ In-vehicle Infotainment
+ Release Details
+ Reference
+ HIDL
+ HAL
+ Trade Federation
+ Security Test Suite
+ Android Code Search
+ /
+ English
+ Deutsch
+ Español – América Latina
+ Français
+ Indonesia
+ Italiano
+ Polski
+ Português – Brasil
+ Tiếng Việt
+ Türkçe
+ Русский
+ עברית
+ العربيّة
+ فارسی
+ हिंदी
+ বাংলা
+ ภาษาไทย
+ 中文 – 简体
+ 中文 – 繁體
+ 日本語
+ 한국어
+ Sign in
+ Docs
+ Core topics
+ Overview
+ Architecture and Platform
+ Connectivity and Input
+ Media and Display
+ System health and Updates
+ Testing
+ Data storage and access
+ Docs
+ More
+ Overview
+ Architecture and Platform
+ Connectivity and Input
+ Media and Display
+ System health and Updates
+ Testing
+ Data storage and access
+ Android Code Search
+ Architecture
+Overview
+ Hardware abstraction layer (HAL)
+Overview
+ HIDL (deprecated)
+Overview
+Interfaces and packages
+Interface hashing
+Services and data transfer
+Fast Message Queue
+Use Binder IPC
+HIDL MemoryBlock
+Network stack configuration tools
+Model threading
+Convert HAL modules
+Data types
+Safe union
+Interface versioning
+Code style guide
+ HIDL C++
+Overview
+Packages
+Interfaces
+Data types
+Functions
+ HIDL Java
+Overview
+Data types
+Interface methods and errors
+Export constants
+ Other
+HIDL framework backward compatibility verification
+Dynamically available HALs
+Legacy HALs (AOSP <=v7)
+ Kernel
+Overview
+Kernel release notes
+Stable kernel releases and updates
+Android common kernels
+GKI project
+GKI development
+GKI versioning scheme
+ GKI release builds
+Overview
+android12-5.10 release builds
+android13-5.10 release builds
+android13-5.15 release builds
+android14-5.15 release builds
+android14-6.1 release builds
+android15-6.6 release builds
+android16-6.12 release builds
+android17-6.18 release builds
+ Deprecated builds
+android12-5.10 deprecated builds
+android13-5.10 deprecated builds
+android13-5.15 deprecated builds
+android14-5.15 deprecated builds
+android14-6.1 deprecated builds
+android15-6.6 deprecated builds
+android16-6.12 deprecated builds
+android17-6.18 deprecated builds
+ GKI release builds (JSON)
+android12-5.10 release builds
+android13-5.10 release builds
+android13-5.15 release builds
+android14-5.15 release builds
+android14-6.1 release builds
+android15-6.6 release builds
+android16-6.12 release builds
+android17-6.18 release builds
+GKI release process
+Request a respin
+GKI 16-6.12 android-mainline errata
+Maintain a stable KMI
+ Kernel ABI monitoring
+Overview
+Run ABI monitoring
+Work with symbol lists
+ Modules
+Overview
+Configure kernel features as GKI modules
+Vendor module guidelines
+Loadable kernel modules
+Kernel module support
+Test GKI modules
+Boot time optimization
+Debug features
+Develop kernel code for GKI
+Proxy Execution in Android
+Android kernel file system support
+Extend the kernel with eBPF
+Collect kernel telemetry with eBPF
+Use DebugFS in Android 12
+FIPS 140-3 certifiable GKI crypto module
+EROFS
+Android kernel FAQ
+Kernel networking unit tests
+Transition from ION to DMA-BUF heaps (5.4 kernel)
+Incremental File System
+ Configuration
+Overview
+Implement system properties as APIs
+Add system properties
+Implement Config File Schema API
+ Archive
+Overview
+ConfigStore
+Create the HAL interface
+Implement the service
+Client-side use
+Add ConfigStore classes and items
+ Device tree overlays
+Overview
+Implement DTOs
+DTO syntax
+Compile and verify
+Use multiple DTs
+DTB and DTBO partitions
+Optimize DTO
+ Vendor NDK (<=AOSP 14)
+Overview
+Enable VNDK
+VNDK build system support
+VNDK extensions
+VNDK snapshot design
+Generate VNDK snapshots
+Generate vendor snapshots
+Linker namespace
+Directories, rules, and sepolicy
+RenderScript
+ABI stability
+Prebuilt ABI usages checker
+ Vendor interface object
+Overview
+Manifests
+Compatibility matrixes
+FCM lifecycle
+Device manifest development
+Match rules
+Additional resources
+ AIDL
+Overview
+AIDL language
+AIDL backends
+Stable AIDL
+AIDL for HALs
+Run AIDL services dynamically
+Annotations in AIDL
+FMQ with AIDL
+AIDL fuzzing
+AIDL style guide
+ Binder (Interprocess Communication)
+Overview
+Handle threads
+Priority inheritance
+Handle cached and frozen apps
+ Bootloader
+Overview
+Canonical boot reason
+Boot image header
+Implement bootconfig
+Recovery images
+DTB images
+Implement OTA updates
+Lock and unlock the bootloader
+Version information in AVB properties
+Move fastboot to userspace
+ Generic Bootloader
+Overview
+Deploy GBL
+GBL respin process
+GBL release builds
+ Partitions
+Overview
+Partition layout
+Vendor boot partitions
+Vendor and ODM DLKM partitions
+Shared system image
+Ramdisk partitions
+Generic boot partition
+ODM partitions
+Product partitions
+Implement a GKI module partition
+Enforce product partition interfaces
+Trusty OS partitions
+ 16 KB page size
+Overview
+Use Cuttlefish with 16 KB page size on ARM64
+Simulate Cuttlefish with 16 KB page size on x86-64
+Flash Pixel with 16 KB page size support
+Get the page size
+Optimize for 16 KB page size
+System properties
+Enable 16 KB toggle
+Enable 16 KB backcompat option
+Vendor API level
+ Power
+Overview
+Power management
+Thermal mitigation
+Power stats HAL
+App power management
+Platform power management with Doze
+Performance management
+App background behavior trackers
+Support batteryless devices
+Measure component power
+Measure device power
+Measure power values
+Routine Battery Saver
+TV standby
+SystemSuspend service
+ Wattson
+Power analysis overview
+Collect and analyze traces
+ Settings
+Overview
+Design guidelines
+Patterns and components
+Information architecture
+Personalized settings
+Universal search
+ Fonts
+Implement custom font fallback
+ What's new?
+ Release notes
+ Latest security bulletins
+ Latest Compatibility Definition Document (CDD)
+ Site updates
+ Getting Started
+ About
+ Start
+ Download
+ Builds
+ Test
+ Create
+ Contribute
+ Community
+ Tools, build, and related reference
+ Security
+ Overview
+ Bulletins
+ Features
+ Testing
+ Best Practices
+ Core Topics
+ Architecture
+ Audio
+ Camera
+ Connectivity
+ Data
+ Display
+ Fonts
+ Graphics
+ Interaction
+ Media
+ Performance
+ Permissions
+ Power
+ Runtime
+ Settings
+ Storage
+ Tests
+ Updates
+ Virtualization
+ Compatibility
+ Compatibility Definition Document (CDD)
+ Compatibility Test Suite (CTS)
+ Android Devices
+ Overview
+ Cuttlefish
+ Enterprise
+ TV
+ Automotive
+ Overview
+ Software Defined Vehicle
+ In-vehicle Infotainment
+ Release Details
+ Reference
+ HIDL
+ HAL
+ Trade Federation
+ Security Test Suite
+ Effective in 2026, to align with our trunk stable development model and ensure platform stability for the ecosystem, we will publish source code to AOSP in Q2 and Q4. For building and contributing to AOSP, use android-latest-release. The android-latest-release manifest branch will always reference the most recent release pushed to AOSP. For more information, see Changes to AOSP.
+ AOSP
+ Docs
+ Core topics
+ Architecture and Platform
+ Android common kernels
+ Stay organized with collections
+ Save and categorize content based on your preferences.
+AOSP common kernels
+(also known as the Android common kernels or ACKs) are downstream of
+kernel.org kernels and include patches
+of interest to the Android community that haven't been merged into mainline or
+Long Term Supported (LTS) kernels. These patches can include:
+Backports and cherry-picks of upstream functionality needed for Android
+features
+Features ready for Android devices but still under development upstream
+Vendor/OEM features that are useful for other ecosystem partners
+android-mainline is the primary development branch for Android features. Linux
+mainline is merged into android-mainline whenever Linus Torvalds posts a
+release or release candidate. Before 2019, Android common kernels were
+constructed by cloning the recently declared LTS kernel and adding the
+Android-specific patches. This process changed in 2019 to branch the new Android
+common kernel from android-mainline. This new model avoids the significant
+effort to forward port and test Android patches by accomplishing the same result
+incrementally. android-mainline undergoes significant continuous testing, this
+model includes a high-quality kernel from the day it's published.
+When a new LTS is declared upstream, the corresponding common kernel is branched
+from android-mainline. This allows partners to begin a project prior to the
+declaration of the LTS version, by merging from android-mainline. After the
+new common kernel branch is created, partners can seamlessly change the merge
+source to the new branch.
+Other common kernel branches receive regular merges from their associated
+LTS kernel.
+These merges are normally done immediately after the LTS release is posted. For
+example, when Linux 6.1.75 was posted, it was merged into the 6.1 common
+kernel (android14-6.1). Partners are strongly encouraged to
+update their kernels to stay up-to-date with LTS and Android-specific bug fixes.
+Note: For a list of terms used in this document, refer to the
+Kernel overview.
+ACK KMI kernel branch
+GKI kernels have a stable Kernel Module Interface. The KMI is uniquely
+identified by the kernel version and the Android platform release, so the
+branches are named
+ANDROID_RELEASE-KERNEL_VERSION
+.
+For example, the 6.1 GKI
+kernel for Android 14 is named android14-6.1. For
+Android 15, the GKI kernel android15-6.6 was
+introduced.
+Common kernel hierarchy
+Branch from android-mainline
+The top level of the common kernel hierarchy is shown in Figure 1.
+Figure 1. Creating common kernels from android-mainline kernel
+Notice that a new Android common kernel android14-6.1 was branched from
+android-mainline in 2022. In 2023, when the next LTS was declared,
+android15-6.6 was branched from android-mainline.
+As shown in Figure 1, each kernel version can be the basis for two GKI kernels.
+For example, the two v5.15 kernels are android13-5.15 and android14-5.15,
+both of which are feature kernels for their respective platform releases. This
+was the case for 5.10 as well; android12-5.10 was created when the LTS was
+declared and android13-5.10 branched from android12-5.10 at the kernel
+feature complete milestone in Spring 2021 to allow development of features for
+Android 13. Starting with Android
+15 (2024), there is only
+one new GKI kernel per kernel version (there is no android15-6.1 kernel).
+ACK KMI branch lifecycle
+The lifecycle of a ACK KMI branch is shown in Figure 2.
+Figure 2. 6.6 ACK KMI branch lifecycle
+To clarify the development process and branch lifecycle, Figure 2 focuses on the
+ACK KMI branches for 6.6.
+Each ACK KMI branch cycles through three phases indicated in Figure 2 by
+different colors in each branch. As shown, LTS is regularly merged regardless
+of the phase.
+Development phase
+When it's created, a ACK KMI branch enters the development phase (labeled as
+dev in Figure 2), and is open for feature contributions for the next Android
+platform release. In Figure 2, android15-6.6 was created when 6.6 was
+declared as the new upstream LTS kernel.
+Stabilization phase
+When the ACK KMI branch is declared feature complete, it enters the
+stabilization phase (labeled as stable in Figure 2). Partner features and
+bug fixes are still accepted, but KMI tracking is enabled to detect any changes
+that affect the interface. In this phase, KMI-breaking changes are accepted
+and the KMI definition updated on a predefined cadence (normally every two
+weeks). See the
+GKI overview for
+details on KMI monitoring.
+KMI frozen phase
+Before a new platform release is pushed to AOSP, the ACK KMI branch is frozen
+and remains frozen for the lifetime of the branch. This means that no
+KMI-breaking changes are accepted unless a serious security issue is identified
+that can't be mitigated without affecting the stable KMI. To avoid KMI
+breakages, some patches merged from LTS might be modified or dropped if the fix
+isn't required for Android devices.
+When a ACK KMI branch is frozen, bug fixes and partner features can be accepted
+as long as the existing KMI common kernel isn't broken. The KMI can be extended
+with new exported symbols as long as the interfaces comprising the current KMI
+aren't affected. When new interfaces are added to the KMI, they immediately
+become stable and can't be broken by future changes.
+For example, a change that adds a field to a structure used by a KMI interface
+common kernel isn't allowed because it changes the interface definition:
+struct foo {
+ int original_field1;
+ int original_field2;
+ int new_field; // Not allowed
+};
+int do_foo(struct foo &myarg)
+{
+ do_stuff(myarg);
+}
+EXPORT_SYMBOL_GPL(do_foo);
+However, adding a new function is fine:
+struct foo2 {
+ struct foo orig_foo;
+ int new_field;
+};
+int do_foo2(struct foo2 &myarg)
+{
+ do_stuff2(myarg);
+}
+EXPORT_SYMBOL_GPL(do_foo2);
+For the lifetime of the GKI kernel, backward compatibility with userspace is
+maintained so that the kernel can safely be used for the Android platform
+release the device was launched with. Continuous testing with previous releases
+maintains compatibility. So in Figure 2, the android15-6.6
+kernel can be used for Android 15 devices and later
+devices. Because the Android platform release is
+also compatible with previous versions, the android14-6.1 kernel could be used
+for Android 15 devices either for launch or upgrade.
+KMI generation number
+If there is an LTS merge during the stabilization phase or a security issue or
+other event after this that requires a KMI-changing patch to be accepted, the
+KMI generation number recorded in build.config.common is incremented. The
+current KMI generation can be found using the uname command:
+$ uname -r
+6.6.30-android15-6-g86d10b30f51f
+The number after the platform release is the KMI generation (6 in this case).
+If the KMI generation changes, the kernel isn't compatible with vendor modules
+that conform to the previous KMI generation, so the modules must be rebuilt and
+updated synchronously with the kernel. After KMI freeze, KMI generation changes
+are expected to be very rare.
+Compatibility between kernels
+The compatibility requirements between kernels in the same LTS family are
+changing beginning with the new GKI kernels.
+GKI kernels
+GKI kernels maintain backward compatibility with all Android platform
+releases that supported the kernel version. Additionally, the Android platform
+releases are backward-compatible with GKI kernels from previous releases. So
+you can safely use the android14-6.1 kernel developed for
+Android 14 (2023) on devices running
+Android 15 (2024). Compatibility is verified through
+continuous VTS and CTS testing of the GKI kernels with all supported releases.
+The KMI is stable so that the kernel can be updated without requiring a rebuild
+of kernel modules in the vendor image.
+KMI compatibility isn't maintained between different GKI kernels. So,
+for example, an android14-6.1 kernel cannot be replaced with an
+android15-6.6 kernel without rebuilding all modules.
+GKI kernels are supported for their initial and subsequent releases only.
+They aren't supported for older releases. So an
+android15-6.6 kernel is not supported for devices running
+Android 14 (2023).
+Compatibility matrix
+This table shows the kernel versions supported and tested with each Android
+platform release.
+Android platform release
+Supported kernels
+Android 17 (2026)
+android17-6.18
+android16-6.12
+android15-6.6
+android14-6.1
+android14-5.15
+android13-5.15
+android13-5.10 (not supported in Android 17 QPR1 or higher)
+android12-5.10 (not supported in Android 17 QPR1 or higher)
+Android 16 (2025)
+android16-6.12
+android15-6.6
+android14-6.1
+android14-5.15
+android13-5.15
+android13-5.10
+android12-5.10
+Android 15 (2024)
+android15-6.6
+android14-6.1
+android14-5.15
+android13-5.15
+android13-5.10
+android12-5.10
+Android 14 (2023)
+android14-6.1
+android14-5.15
+android13-5.15
+android13-5.10
+android12-5.10
+Android 13 (2022)
+android13-5.15
+android13-5.10
+android12-5.10
+Android 12 (2021)
+android12-5.10
+Support lifetimes and security patches
+ACKs receive LTS merges from upstream and bug fixes for Android-specific code.
+These fixes include all kernel security patches cited in the monthly Android
+Security Bulletins that are relevant to ACK.
+ACKs might be supported for longer than the corresponding upstream stable kernel
+at kernel.org. In this case, Google
+provides extended support until the end-of-life (EOL) date shown in this
+section. When kernels are EOLed, they are no longer
+supported by Google and devices running them are considered to be vulnerable.
+Beginning with kernel 6.6, the support lifetime for the stable kernels is
+4 years.
+This table shows the lifetimes for the supported ACKs:
+ACK branch
+Launch
+date
+Support
+lifetime
+(years)
+EOL
+android12-5.10
+2020-12-13
+6
+2027-07-01
+android13-5.10
+2020-12-13
+6
+2027-07-01
+android13-5.15
+2021-10-31
+6
+2028-07-01
+android14-5.15
+2021-10-31
+6
+2028-07-01
+android14-6.1
+2022-12-11
+6
+2029-07-01
+android15-6.6
+2023-10-29
+4
+2028-07-01
+android16-6.12
+2024-11-17
+4
+2029-07-01
+android17-6.18
+2025-11-30
+4
+2030-07-01
+Common kernel testing
+The common kernels are tested with several CI systems in addition to downstream
+testing by vendors.
+KernelCI testing
+KernelCI build-and-boot tests are
+initiated whenever a new patch is committed to a common kernel branch. Several
+hundred build configurations are tested and booted on various boards. Recent
+results for Android kernels can be found on the KernelCL site.
+Android presubmit and postsubmit testing
+Presubmit tests are used to prevent failures from being introduced into the
+Android common kernels. The test result summary can be found in 'Checks' tab of
+the code change in Android common kernel gerrit.
+Android postsubmit testing is performed
+on new published builds in Android common kernel branches when new patches are
+committed to an Android common kernel branch in ci.android.com. By
+entering aosp_kernel as a partial branch name in ci.android.com, you
+see a list of kernel branches with
+results available. For example, results for android-mainline can be found on
+theAndroid continuous build integration (Android CI) dashboard. Click the
+a particular build to find test status in the Test Results tab.
+The tests defined by test-mapping
+with test group kernel-presubmit in Android platform source tree are run as
+presubmit for Android kernel branches. For example following configuration in
+test/vts/tests/kernel_proc_file_api_test/TEST_MAPPING
+enables vts_kernel_proc_file_api_test as presubmit test at Android common
+kernel code check-in.
+{
+ "kernel-presubmit": [
+ {
+ "name": "vts_kernel_proc_file_api_test"
+ }
+ ]
+}
+0-day testing
+0-day testing performs patch-by-patch testing
+on all Android common kernel branches when new patches are committed. Various
+boot, functional, and performance tests are run. Join the public group
+cros-kernel-buildreports.
+Test matrix
+Android common kernel
+Android Platform releases
+Test Suites
+Main
+17
+16
+15
+14
+13
+KernelCI
+Pre Submit
+Post Submit
+0-day
+android-mainline
+✅
+❌
+❌
+❌
+❌
+❌
+✅
+✅
+✅
+✅
+android17-6.18
+✅
+✅
+❌
+❌
+❌
+❌
+✅
+✅
+✅
+✅
+android16-6.12
+✅
+✅
+✅
+❌
+❌
+❌
+✅
+✅
+✅
+✅
+android15-6.6
+✅
+✅
+✅
+✅
+❌
+❌
+✅
+✅
+✅
+✅
+android14-6.1
+android14-5.15
+✅
+✅
+✅
+✅
+✅
+❌
+✅
+✅
+✅
+✅
+android13-5.15
+android13-5.10
+✅
+✅
+✅
+✅
+✅
+✅
+✅
+✅
+✅
+✅
+android12-5.10
+✅
+✅
+✅
+✅
+✅
+✅
+✅
+✅
+✅
+✅
+Contribute to Android common kernels
+Generally, feature development should be done on mainline Linux and not on
+Android common kernels. Upstream development is strongly encouraged, and after
+development is accepted there, it can be backported to the specific ACK
+branch as needed. The Android Kernel Team is
+happy to support upstreaming efforts for the benefit of the Android ecosystem.
+Submit patches to Gerrit
+and conform to these
+contribution guidelines.
+ Content and code samples on this page are subject to the licenses described in the Content License. Java and OpenJDK are trademarks or registered trademarks of Oracle and/or its affiliates.
+ Last updated 2026-10-09 UTC.
+ [[["Easy to understand","easyToUnderstand","thumb-up"],["Solved my problem","solvedMyProblem","thumb-up"],["Other","otherUp","thumb-up"]],[["Missing the information I need","missingTheInformationINeed","thumb-down"],["Too complicated / too many steps","tooComplicatedTooManySteps","thumb-down"],["Out of date","outOfDate","thumb-down"],["Samples / code issue","samplesCodeIssue","thumb-down"],["Other","otherDown","thumb-down"]],["Last updated 2026-10-09 UTC."],[],[]]
+ Build
+ Android repository
+ Requirements
+ Downloading
+ Preview binaries
+ Factory images
+ Driver binaries
+ Connect
+ @Android on X
+ @AndroidDev on X
+ Android Blog
+ Google Security Blog
+ Platform on Google Groups
+ Building on Google Groups
+ Porting on Google Groups
+ Get help
+ Android Help Center
+ Pixel Help Center
+ www.android.com
+ Google Mobile Services
+ Stack Overflow
+ Issue Tracker
+ About Android
+ Community
+ Legal
+ License
+ Privacy
+ Site feedback
+ Manage cookies
+ English
+ Deutsch
+ Español – América Latina
+ Français
+ Indonesia
+ Italiano
+ Polski
+ Português – Brasil
+ Tiếng Việt
+ Türkçe
+ Русский
+ עברית
+ العربيّة
+ فارسی
+ हिंदी
+ বাংলা
+ ภาษาไทย
+ 中文 – 简体
+ 中文 – 繁體
+ 日本語
+ 한국어

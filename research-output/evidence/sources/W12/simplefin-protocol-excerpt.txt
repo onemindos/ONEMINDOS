@@ -1,0 +1,92 @@
+--- lines 55,145 of extracted text ---
+SimpleFIN Protocol
+
+Version: 2.0.0-draft
+
+Introduction
+
+The SimpleFIN protocol allows users to share read-only financial data with third parties. It’s similar to RSS, but for financial data.
+
+Though intended mostly for banks, it can also be used for reward points or gift certificate balances (e.g. Frequent Flyer Miles, Amazon gift card balance, etc…)
+
+Three parties are involved in SimpleFIN:
+
+Party
+Description
+
+User
+A person using a web browser. They have an account at a bank or other institution.
+
+Application
+Third party software that wants read-only access to a User’s financial data.
+
+Server
+A SimpleFIN Server operated by a bank or other financial institution.
+
+Application developers should start with the App Quickstart.
+
+Banks or financial institutions wanting to host their own SimpleFIN Server should start at the Server Implementation Guide.
+
+Users should visit the SimpleFIN Bridge.
+
+Older versions
+
+SimpleFIN Version 1
+
+Flow
+
+This diagram shows how a User gives read-only bank account access to an App:
+
+And this diagram shows how a User can revoke an App’s access:
+
+SimpleFIN Bridge
+
+For optimal privacy, banks ought to implement SimpleFIN Servers. In some cases, where banks haven’t yet implemented SimpleFIN, the SimpleFIN Bridge can be used.
+
+App Quickstart
+
+This section is for application developers that want to integrate financial data (bank account balances/transactions) into their application.
+
+If you are a programmer, and want programmatic access to your financial data, you’re in the right place.
+
+1. Start a connection
+
+First, direct your user to create a SimpleFIN Token. Do this by sending them to their institution’s SimpleFIN Server /create URL. If their institution doesn’t have a SimpleFIN Server, you can use the SimpleFIN Bridge.
+
+Here’s an example HTML snippet:
+
+Connect your bank account to this app, by
+<a href="https://bridge.simplefin.org/simplefin/create">clicking here.</a>
+
+2. Receive a SimpleFIN Token
+
+The user will return to your app with a SimpleFIN Token in their clipboard. Provide a location for them to paste the token into your app – perhaps on the same page they left from.
+
+Here’s an example HTML form that receives a SimpleFIN Token:
+
+<form method="post">
+ SimpleFIN Token: <textarea name="token"></textarea>
+ <button type="submit">Connect Bank</button>
+</form>
+
+3. Claim the Access URL
+
+The SimpleFIN Token you receive from users is a Base64-encoded URL. Make an HTTP POST to that URL to claim an Access URL.
+
+Securely store the Access URL for later use.
+
+Here’s a command line example. Obtain a SimpleFIN Token:
+
+SIMPLEFIN_TOKEN="aHR0cHM6Ly9icmlkZ2Uuc2ltcGxlZmluLm9yZy9zaW1wbGVmaW4vY2xhaW0vZGVtbw=="
+
+Base64 decode the SimpleFIN Token to get a URL:
+
+CLAIM_URL=$(echo "${SIMPLEFIN_TOKEN}" | base64 --decode)
+# https://bridge.simplefin.org/simplefin/claim/demo
+
+Make a POST request to the decoded URL to get an Access URL:
+
+ACCESS_URL=$(curl -X POST "${CLAIM_URL}")
+# https://user123:[email protected]/simplefin
+
+4. Get Data

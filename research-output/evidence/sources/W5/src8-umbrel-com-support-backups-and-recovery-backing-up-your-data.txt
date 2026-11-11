@@ -1,0 +1,213 @@
+Backing up your data | umbrelOS Support
+Umbrel HomeUmbrel ProumbrelOSApp StoreSupport
+Last day10% off Umbrel Home & Pro until Sep 29Celebrate umbrelOS 2.0 with 10% off Umbrel Home and Umbrel Pro until Sep 29.
+Umbrel HomePalm-sized home cloud.
+Umbrel ProThe ultimate home server.
+umbrelOSNEWTurn a computer at home into your own cloud.
+App StoreThe superpowers are endless.
+SupportHelp is always at hand.
+SupportSupportOn this page
+Getting StartedWhat is Umbrel?
+What's new in umbrelOS 2.0
+Setting up Umbrel Home
+Setting up Umbrel Pro
+Connecting to your Umbrel
+Umbrel for iPhone
+Umbrel for Android
+Umbrel for Mac
+Umbrel for Windows
+Install umbrelOS on your own hardwareRunning umbrelOS on your own hardware
+Installing umbrelOS on Raspberry Pi
+Updating your Raspberry Pi's bootloader
+Installing umbrelOS on amd64
+Installing umbrelOS in a virtual machine
+AppsInstalling an app
+Updating an app
+Uninstalling an app
+Adding a community app store
+Starting, stopping, or restarting an app
+App settings
+Troubleshooting apps
+Running custom Docker containers
+BasicsPersonalizing your Umbrel
+Sharing your Umbrel with other users
+Managing active logins
+Connecting to Wi-Fi
+Setting up two-factor authentication (2FA)
+Updating umbrelOS
+Monitoring your Umbrel's performance
+Restarting or shutting down
+Migrating to a new Umbrel
+Joining the beta program
+Factory reset
+Remote access
+Accessing your Umbrel over HTTPS
+FilesUsing Files
+Accessing your files from other devices
+Network devices
+Downloading your files from the cloud
+PhotosUsing Photos
+Backing up photos from your iPhone
+Moving from Google Photos
+Moving from Apple Photos and iCloud
+Moving from Immich
+MachinesUsing Machines
+StorageExternal storage
+Managing your storage
+Backups & RecoveryBacking up your data
+Restoring from a backup
+Using Rewind
+TroubleshootingViewing logs
+Network troubleshooting
+Performance troubleshooting
+AdvancedConnecting AI agents (MCP)
+GPU acceleration
+SSH access
+Using the built-in Terminal
+Reinstalling umbrelOS on Umbrel Home and Pro
+Set up backups
+Back up to another Umbrel
+How backups work
+Back up manually
+Multiple backup locations
+Excluding files or apps
+Support
+Getting Started
+What is Umbrel?
+What's new in umbrelOS 2.0
+Setting up Umbrel Home
+Setting up Umbrel Pro
+Connecting to your Umbrel
+Umbrel for iPhone
+Umbrel for Android
+Umbrel for Mac
+Umbrel for Windows
+Install umbrelOS on your own hardware
+Running umbrelOS on your own hardware
+Installing umbrelOS on Raspberry Pi
+Updating your Raspberry Pi's bootloader
+Installing umbrelOS on amd64
+Installing umbrelOS in a virtual machine
+Apps
+Installing an app
+Updating an app
+Uninstalling an app
+Adding a community app store
+Starting, stopping, or restarting an app
+App settings
+Troubleshooting apps
+Running custom Docker containers
+Basics
+Personalizing your Umbrel
+Sharing your Umbrel with other users
+Managing active logins
+Connecting to Wi-Fi
+Setting up two-factor authentication (2FA)
+Updating umbrelOS
+Monitoring your Umbrel's performance
+Restarting or shutting down
+Migrating to a new Umbrel
+Joining the beta program
+Factory reset
+Remote access
+Accessing your Umbrel over HTTPS
+Files
+Using Files
+Accessing your files from other devices
+Network devices
+Downloading your files from the cloud
+Photos
+Using Photos
+Backing up photos from your iPhone
+Moving from Google Photos
+Moving from Apple Photos and iCloud
+Moving from Immich
+Machines
+Using Machines
+Storage
+External storage
+Managing your storage
+Backups & Recovery
+Backing up your data
+Restoring from a backup
+Using Rewind
+Troubleshooting
+Viewing logs
+Network troubleshooting
+Performance troubleshooting
+Advanced
+Connecting AI agents (MCP)
+GPU acceleration
+SSH access
+Using the built-in Terminal
+Reinstalling umbrelOS on Umbrel Home and Pro
+Backups & RecoveryUpdated October 2, 2026
+Backing up your data
+Set up encrypted backups of your files, apps, and data
+Chat about this article
+umbrelOS can back up your entire Umbrel, including your account, settings, files, apps, and data, to another Umbrel, a NAS, or an external USB drive. Backups are encrypted and run automatically every hour once set up.
+When you need your data back, you can restore everything or use Rewind to recover specific files and folders from past backups.
+Set up backups
+Your backup location needs free space equal to at least twice the size of your backup.
+Go to Settings > Backups and click Set up.
+Choose a backup type: Another Umbrel or NAS for a device on your network, or External Drive for a USB drive connected to your Umbrel. Umbrel Private Cloud is also coming soon. If you're backing up to another Umbrel, that Umbrel will need file sharing set up first. You'll connect using the username and password shown in its file sharing settings. For a NAS, you'll need the credentials for that device.
+Select a folder on that device to store your backups. You can also create a new folder right from the wizard.
+Choose whether to exclude any files, folders, or apps from your backups. By default, everything is included. You can always change this later.
+Set an encryption password to protect your backups. You'll need this password to restore from them.
+Save your encryption password somewhere safe, like a password manager. You won't be able to see it again, and you won't be able to restore without it.
+Back up to another Umbrel
+If you're backing up one Umbrel to another, we recommend connecting both Umbrels with Tailscale first. This gives each Umbrel a stable private address and avoids relying on local network discovery.
+Install Tailscale from the Umbrel App Store on both Umbrels.
+Sign in to both with the same Tailscale account.
+On the destination Umbrel, create a folder in Files for storing backups.
+Share that folder over the network. Right-click the folder in Files and select Share over network, or go to Settings > File sharing > Configure and share that specific folder.
+Copy the destination Umbrel's Tailscale IP address or MagicDNS name from the Tailscale app or admin dashboard.
+On the source Umbrel, open Files, click the + next to Network Devices, and add the destination Umbrel manually. Use its Tailscale IP address or MagicDNS name as the server address instead of umbrel.local or a local IP address, then enter the file sharing username and password shown on the destination Umbrel.
+Go to Settings > Backups. If this is your first backup location, click Set up. Otherwise, go to Configure and add a backup location. Choose Another Umbrel or NAS, select the destination Umbrel and shared folder, then finish configuring backups.
+How backups work
+Once set up, umbrelOS backs up your data automatically on an hourly basis. It keeps:
+Hourly backups for the past 24 hours
+Daily backups for the past week
+Weekly backups for the past month
+Monthly backups for the past year
+Backups older than one year are automatically removed.
+Back up manually
+You can trigger a backup at any time from Settings > Backups > Configure. Select the backup location you want to back up to and click Back up now.
+Multiple backup locations
+You can add more than one backup location for extra peace of mind. To add another, go to Settings > Backups > Configure and add a new backup location. Each location runs its own set of automatic backups.
+Excluding files or apps
+By default, all your files and apps are included in backups. You can exclude specific files, folders, or entire apps from the Exclude from Backups section in Settings > Backups > Configure. Exclusions apply to all backup locations.
+Some apps automatically exclude certain data like caches or logs that can be recreated or could cause issues if restored. These auto-exclusions are set by the app developer and can't be changed. You can see what each app auto-excludes in the Exclude from Backups section.
+Keep in mind that if you exclude an app, it will still be reinstalled during a restore but its data won't be included. It will start fresh as if newly installed.
+PreviousManaging your storage
+NextRestoring from a backup
+On this page
+Set up backups
+Back up to another Umbrel
+How backups work
+Back up manually
+Multiple backup locations
+Excluding files or apps
+Because the cloud doesn't have to be somewhere else. It can be home.
+Stay in the loop
+Follow our journey in helping people truly own their data. Better yet, be a part of it.
+Subscribe
+Products
+Umbrel Home
+Umbrel Pro
+umbrelOS
+App Store
+Support
+Community
+Forum
+Discord
+Reddit
+X
+Telegram
+Company
+GitHub
+Careers
+Affiliates
+Legal
+Partner
+© 2026 Umbrel. All rights reserved.

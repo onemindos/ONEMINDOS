@@ -1,0 +1,110 @@
+Extracted from Shopify products.json feed, accessed 2026-11-11
+ZimaBoard SE – Home Server Made Simple | 864 (8GB RAM + 64GB eMMC) / Starter Kit | USD 159.00 | available=True | published=2026-10-26
+ZimaBoard SE – Home Server Made Simple | 864 (8GB RAM + 64GB eMMC) / NAS Kit | USD 189.00 | available=True | published=2026-10-26
+ZimaBoard SE – Home Server Made Simple | 1664 (16GB RAM + 64GB eMMC) / Starter Kit | USD 199.00 | available=True | published=2026-10-26
+ZimaBoard SE – Home Server Made Simple | 1664 (16GB RAM + 64GB eMMC) / NAS Kit | USD 229.00 | available=True | published=2026-10-26
+8GB DDR3L 1600 MT/s 204-Pin SODIMM Memory (Pre-order) | Default Title | USD 19.90 | available=True | published=2026-10-20
+PCIe x4 to 10G Ethernet Single-Port Adapter with RTL8127 Chipset | Default Title | USD 49.90 | available=True | published=2026-07-07
+Lekuo USB4 40Gbps M.2 NVMe SSD Enclosure | Default Title | USD 59.00 | available=True | published=2026-05-08
+ZimaCube 2 Personal Cloud Home NAS | Standard (i3-1215U/8GB/256GB) | USD 799.00 | available=True | published=2026-03-16
+ZimaCube 2 Personal Cloud Home NAS | Pro (i5-1235U/16GB/256GB) | USD 1299.00 | available=True | published=2026-03-16
+ZimaCube 2 Personal Cloud Home NAS | Creator Pack (i5-1235U/64GB/1TB+RTX Pro 2000) | USD 2499.00 | available=True | published=2026-03-16
+ZIMA RE.INVENTED Innovative T-shirt | S / Black | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | S / Gray | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | S / White | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | M / Black | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | M / Gray | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | M / White | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | L / Black | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | L / Gray | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | L / White | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | XL / Black | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | XL / Gray | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | XL / White | USD 39.90 | available=True | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 2XL / Black | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 2XL / Gray | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 2XL / White | USD 39.90 | available=True | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 3XL / Black | USD 39.90 | available=True | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 3XL / Gray | USD 39.90 | available=False | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 3XL / White | USD 39.90 | available=True | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 4XL / Black | USD 39.90 | available=True | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 4XL / Gray | USD 39.90 | available=True | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 4XL / White | USD 39.90 | available=True | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 5XL / Black | USD 39.90 | available=True | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 5XL / Gray | USD 39.90 | available=True | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 5XL / White | USD 39.90 | available=True | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 6XL / Black | USD 39.90 | available=True | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 6XL / Gray | USD 39.90 | available=True | published=2025-12-05
+ZIMA RE.INVENTED Innovative T-shirt | 6XL / White | USD 39.90 | available=True | published=2025-12-05
+ZIMA Digital Gift Card | $100.00 | USD 100.00 | available=True | published=2025-11-28
+ZIMA Digital Gift Card | $150.00 | USD 150.00 | available=True | published=2025-11-28
+ZIMA Digital Gift Card | $200.00 | USD 200.00 | available=True | published=2025-11-28
+ZIMA Digital Gift Card | $300.00 | USD 300.00 | available=True | published=2025-11-28
+ZimaBoard 2 Firewall Kit | 832 Firewall Kit | USD 419.00 | available=True | published=2025-10-29
+ZimaBoard 2 Firewall Kit | 1664 Firewall Kit | USD 479.00 | available=True | published=2025-10-29
+19V/3A 57W USB-C Power Adapter for ZimaBlade | Default Title | USD 18.90 | available=True | published=2025-09-18
+GPU Docking Station for KS Add On | Default Title | USD 179.90 | available=True | published=2025-06-09
+ZimaBoard 2 - Hyper Performance Single Board Server for KS Add On | ZimaBoard 2 832 | USD 339.00 | available=True | published=2025-06-09
+ZimaBoard 2 - Hyper Performance Single Board Server for KS Add On | ZimaBoard 2 1664 | USD 399.00 | available=True | published=2025-06-09
+240W USB-C to USB-C Fast Charging Cable | Default Title | USD 9.90 | available=True | published=2025-06-06
+ZimaBoard 2 1664 Master Kit | Default Title | USD 999.00 | available=True | published=2025-06-05
+ZimaBoard 2 1664 Smart Home Kit | Default Title | USD 579.00 | available=True | published=2025-06-05
+ZimaBoard 2 Mini Nas Kit for Home Server & Personal Cloud | ZimaBoard 2 832 Mini NAS Kit | USD 449.00 | available=True | published=2025-06-05
+ZimaBoard 2 Mini Nas Kit for Home Server & Personal Cloud | ZimaBoard 2 1664 Mini NAS Kit | USD 519.00 | available=True | published=2025-06-05
+2-Bay HDD Rack Tray for ZimaBoard 2 | Default Title | USD 29.90 | available=True | published=2025-06-04
+ZimaBoard 2 Upgrade Fee (1664 Model) | Default Title | USD 60.00 | available=True | published=2025-06-04
+800W OCuLink GPU Docking Station – High-Performance External GPU Enclosure | Default Title | USD 179.90 | available=True | published=2025-06-03
+ZimaBoard 2 Cooling Fan | Default Title | USD 5.90 | available=True | published=2025-05-29
+Wi-Fi 6 USB Adapter with 5GHz/2.4GHz Dual Band | Default Title | USD 17.90 | available=True | published=2025-05-29
+120W 12V/10A GaN Power Adapter for ZimaBoard & ZimaBoard 2 | Default Title | USD 43.90 | available=True | published=2025-05-29
+ZimaBoard 2 - Mini Home Server for Your Big Idea | 832 (8GB RAM + 32GB eMMC) / Board Only | USD 339.00 | available=True | published=2025-05-28
+ZimaBoard 2 - Mini Home Server for Your Big Idea | 832 (8GB RAM + 32GB eMMC) / Starter Bundle | USD 379.00 | available=True | published=2025-05-28
+ZimaBoard 2 - Mini Home Server for Your Big Idea | 832 (8GB RAM + 32GB eMMC) / Mini NAS Kit | USD 449.00 | available=True | published=2025-05-28
+ZimaBoard 2 - Mini Home Server for Your Big Idea | 1664 (16GB RAM + 64GB eMMC) / Board Only | USD 399.00 | available=True | published=2025-05-28
+ZimaBoard 2 - Mini Home Server for Your Big Idea | 1664 (16GB RAM + 64GB eMMC) / Starter Bundle | USD 449.00 | available=True | published=2025-05-28
+ZimaBoard 2 - Mini Home Server for Your Big Idea | 1664 (16GB RAM + 64GB eMMC) / Mini NAS Kit | USD 519.00 | available=True | published=2025-05-28
+Zima RE.INVENTED Drawstring Bag | Default Title | USD 19.90 | available=True | published=2025-01-24
+ZimaBoard 832 "Special Agent Kit" | Default Title | USD 499.90 | available=False | published=2025-01-22
+ZimaBoard 832 - 2021 Special Edition | Default Title | USD 199.90 | available=False | published=2025-01-22
+Universal Copper Heat Sink for M.2 2280 SSD | Default Title | USD 4.90 | available=True | published=2024-12-10
+Heat Sink Module for ZimaCube Series | Default Title | USD 9.90 | available=True | published=2024-09-25
+Front Grille Special Edition For ZimaCube Series | Betula Gray | USD 9.90 | available=True | published=2024-09-11
+Front Grille Special Edition For ZimaCube Series | Juglans Nigra | USD 9.90 | available=False | published=2024-09-11
+ZimaBlade 7700 DeskBuild NAS Kit: X86 4-Core DIY NAS with One-Click Apps | Default Title | USD 185.00 | available=False | published=2024-07-21
+ZimaBoard 232 Firewall Kit – 4x 2.5GbE Intel NIC, x86 Custom Setup (RTS) | Default Title | USD 139.90 | available=False | published=2024-07-16
+2 Bay HDD Rack Tray for ZimaBlade and RPi Dual 3.5'' Storage Drive Stand | Default Title | USD 27.90 | available=True | published=2024-01-26
+PCIe 3.0 x4 to Dual NVMe M.2 SSD Adapter Card | Default Title | USD 129.90 | available=True | published=2024-01-11
+16GB DDR3L 1333 MT/s RAM for ZimaBoard SE & ZimaBlade | Default Title | USD 39.90 | available=True | published=2024-01-10
+ZimaBlade - Single Board Server for Cyber Native | Blade 3760 / Board Only | USD 49.00 | available=True | published=2023-12-14
+ZimaBlade - Single Board Server for Cyber Native | Blade 3760 / Starter Bundle | USD 109.00 | available=True | published=2023-12-14
+ZimaBlade - Single Board Server for Cyber Native | Blade 7700 / Board Only | USD 119.00 | available=False | published=2023-12-14
+ZimaBlade - Single Board Server for Cyber Native | Blade 7700 / Starter Bundle | USD 160.00 | available=False | published=2023-12-14
+ZimaBlade - Single Board Server for Cyber Native | Blade 7700 / Dual-Bay NAS Kit | USD 179.00 | available=False | published=2023-12-14
+ZimaCube Pro Personal Cloud | Base (1235U/16G/256G) | USD 1099.00 | available=False | published=2023-12-13
+ZimaCube Pro Personal Cloud | RAM Upgrade (1235U/64G/256G) | USD 1249.00 | available=False | published=2023-12-13
+ZimaCube Pro Creator Pack Personal Cloud | Standard (1235U/64G/1T/RTX2000Ada) | USD 1999.00 | available=False | published=2023-12-13
+ZimaCube Personal Cloud | Base (N100/8G/256G) | USD 649.00 | available=True | published=2023-12-12
+ZimaCube Personal Cloud | RAM Upgrade (N100/16G/256G) | USD 679.00 | available=False | published=2023-12-12
+5-in-1 USB Multiport Adapter Gigabit RJ45, 3x USB 3.0, USB Type-C | Default Title | USD 19.90 | available=True | published=2023-04-03
+USB 3.0 to RJ45 Ethernet Adapter Realtek RTL8153 Chipset | Default Title | USD 9.90 | available=True | published=2023-04-03
+10Gbps Type-C Enclosure for M.2 NVMe SSD JMS583 USB3.1 Gen2 | Enclosure Only | USD 9.90 | available=True | published=2023-04-01
+10Gbps Type-C Enclosure for M.2 NVMe SSD JMS583 USB3.1 Gen2 | Enclosure + Copper Heat Sink | USD 12.90 | available=True | published=2023-04-01
+PCIe to 4-Port 2.5G Ethernet Adapter Realtek RTL8125B Chipset | Default Title | USD 39.90 | available=True | published=2023-02-01
+PCIe to Dual Port 2.5G Ethernet Adapter Realtek RTL8125B Chipset | Default Title | USD 39.90 | available=True | published=2023-02-01
+Mini DisplayPort Male to HDMI Female Cable 4K 60Hz | Default Title | USD 12.90 | available=True | published=2022-12-07
+Mini DisplayPort Male to HDMI Female Cable 1080P | Default Title | USD 3.90 | available=True | published=2022-12-07
+PCIe to 4-Port 2.5G Ethernet Adapter Intel I226 Chipset | Default Title | USD 99.90 | available=True | published=2022-09-29
+PCIe to Dual Port Gigabit Ethernet Adapter Realtek RTL8111 Chipset | Default Title | USD 9.90 | available=True | published=2022-09-29
+PCIe to 4-Port Gigabit Ethernet Adapter Realtek RTL8111 Chipset | Default Title | USD 25.90 | available=True | published=2022-09-29
+ZimaBoard - A Decentralized Home Server | ZimaBoard 232 | USD 89.90 | available=False | published=2022-08-29
+ZimaBoard - A Decentralized Home Server | ZimaBoard 432 | USD 159.90 | available=False | published=2022-08-29
+ZimaBoard - A Decentralized Home Server | ZimaBoard 832 | USD 199.90 | available=False | published=2022-08-29
+PCIe to 5 Port SATA III Adapter JMB585 Chipset | Default Title | USD 39.90 | available=True | published=2021-06-12
+12V/3A Power Adapter | Default Title | USD 5.90 | available=True | published=2021-06-12
+ZimaBoard 832 Development Kit | Default Title | USD 499.90 | available=False | published=2021-06-06
+Intel AX210 WiFi 6E PCIe Card with 8Dbi Antennas Set | Default Title | USD 39.90 | available=True | published=2021-06-06
+SATA Y-Cable for ZimaBoard/ZimaBlade | Default Title | USD 3.90 | available=True | published=2021-06-06
+PCIe to NVMe & NGFF SSD Adapter | Default Title | USD 9.90 | available=True | published=2021-06-06
+PCIe to 4 Channel USB Adapter | Default Title | USD 14.90 | available=True | published=2021-06-06
+PCIe to 2.5G Ethernet Adapter Realtek RTL8125 Chipset | Default Title | USD 29.90 | available=True | published=2021-06-06
+Cat7 Ethernet Cable (2m/ 6.5ft, Black) | Black | USD 4.90 | available=True | published=2021-06-06

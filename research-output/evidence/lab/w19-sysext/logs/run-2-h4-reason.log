@@ -1,0 +1,21 @@
+Opened '/var/lib/extensions/onemind-future.raw' in O_RDONLY access mode, with O_DIRECT enabled.
+Checking for /usr/lib/extension-release.d/extension-release.onemind-future: Success
+Failed to read /etc/hostname file of image, ignoring: No such file or directory
+Failed to read /etc/machine-id file of image, ignoring: No such file or directory
+Failed to read /etc/machine-info file of image, ignoring: No such file or directory
+Failed to read /etc/os-release file of image, ignoring: No such file or directory
+Failed to read /etc/initrd-release file of image, ignoring: No such file or directory
+Checking for /usr/lib/extension-release.d/extension-release.onemind-future: Success
+Checking for /etc/extension-release.d/extension-release.onemind-future: No such file or directory
+Cannot open /etc/extension-release.d/, ignoring: No such file or directory
+Failed to read confext-release file of image, ignoring: No such file or directory
+Hierarchy '/usr' is not a mount point, skipping.
+Hierarchy '/opt' is not a mount point, skipping.
+Opened '/var/lib/extensions/onemind-future.raw' in O_RDONLY access mode, with O_DIRECT enabled.
+Mounting /proc/self/fd/3 (squashfs) on /run/systemd/sysext/extensions/onemind-future (MS_RDONLY|MS_NODEV "")...
+Checking for /usr/lib/extension-release.d/extension-release.onemind-future: Success
+Extension 'onemind-future' is for API level '2.0', but running on API level '1.0'
+No suitable extensions found (1 ignored due to incompatible image(s)).
+NAME           TYPE PATH                                   TIME
+onemind-future raw  /var/lib/extensions/onemind-future.raw Tue 2026-11-10 23:30:19 EST
+257

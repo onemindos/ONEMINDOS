@@ -1,0 +1,477 @@
+Quick Start — NVIDIA Jetson Linux Developer Guide
+ Skip to main content
+ Back to top
+ Ctrl+K
+ NVIDIA Jetson Linux Developer Guide
+ Search
+ Ctrl+K
+ Search
+ Ctrl+K
+ NVIDIA Jetson Linux Developer Guide
+ Table of Contents
+ Introduction
+Welcome
+Quick Start
+Architecture
+Jetson Software Architecture
+Yocto on Jetson Platforms
+Boot Architecture
+Jetson AGX Orin, Orin NX, and Orin Nano Boot Flow
+Jetson Thor Boot Flow
+Partition Configuration
+Software Feature Overview
+Jetson Orin Series
+Jetson Thor Series
+Software Features in Depth
+Flashing Support
+Flashing Support for Jetson Thor
+Emulation Flash Configurations
+Root File System
+Bootloader
+T23x/T26x Boot Configuration Table
+Pinmux and GPIO Configuration
+Common Prod Configuration
+Controller Product Configuration
+Pad Voltage DT Binding
+PMIC Configuration
+Storage Device Configuration
+UPHY Lane Configuration
+OEM-FW Ratchet Configuration
+BootROM Reset PMIC Configuration
+Miscellaneous Configuration
+SDRAM Configuration
+DRAM-ECC
+GPIO Interrupt Mapping Configuration
+MB2 BCT Misc Configuration
+Security Configuration
+Platform Configuration Profile
+UEFI Adaptation
+Update and Redundancy
+Kernel
+Kernel Customization
+Installing Real-Time Kernel
+Bring Your Own Kernel
+Generic Timestamp Engine
+BMI088 IMU Driver
+Enable 25 Gigabit Ethernet on QSFP Port
+Kernel Boot Time Optimization
+Display Configuration and Bring-Up
+Common Display Configurations for All Platforms
+nv-load-display-modules Service
+Display Configuration for Jetson Orin
+Display Configuration for Jetson Thor
+I/O Customization
+PWM Frequency Configuration
+Kernel Debugging Tools
+Multimedia
+Multimedia APIs
+Accelerated Decode with FFmpeg
+Accelerated GStreamer
+Software Encode in Orin Nano
+Hardware Acceleration in the WebRTC Framework
+Graphics
+Graphics APIs
+Graphics Programming
+Binary Shader Program Management
+GLSLC Shader Program Compiler
+OpenGL ES Programming Tips
+EGLStream
+EGLDevice
+Sample Applications
+OpenWFD
+Vulkan SC
+Vulkan SC Samples
+Windowing Systems
+Weston (Wayland)
+X Window System
+Camera Development
+Camera Support Matrix
+Argus Framework
+Camera Software Development Solution
+Sensor Software Driver Programming
+Jetson Virtual Channel with GMSL Camera Framework
+Argus NvRaw Tool
+Camera Driver Porting
+Sensor Software Troubleshooting
+SIPL Framework
+Introduction to SIPL
+Camera Hardware Abstraction Layer (HAL)
+Camera HAL Driver Discovery
+UDDF
+HSL and UDDF Overview
+Guide to Writing UDDF Drivers
+PyHSL
+Integrating UDDF Drivers with SIPL
+Release Notes
+FAQ
+GMSL Camera Development Guide
+GMSL Architecture Overview
+Directory Layout and Build
+Guide to Writing GMSL UDDF Drivers
+Integrating GMSL UDDF Drivers with SIPL
+CoE Camera Development Guide
+Camera Software Development Solution for Jetson Thor
+Camera-over-Ethernet Overview
+Holoscan Sensor Bridge (HSB)
+JetPack 7.2 SIPL Migration Guide
+SIPL Query JSON Guide
+SIPL Camera Application Developer Guide
+SIPL Query Sample
+SIPL Image Formats
+Camera SIPL Notifications
+Runtime Interfaces and Sensor Characterization
+SIPL Stereo Pipeline
+Security
+Secure Boot
+Quick Start Guide to Enable Secure Boot for Jetson Thor
+Quick Start Guide to Enable Secure Boot for Jetson Orin
+Fuse Configuration File
+Key Preparation
+Fuse Operations
+Sign and Flash Secured Images
+PKC Key Revocation
+UEFI Secure Boot
+UEFI Payload Encryption
+UEFI Variable Protection
+UEFI Platform Vendor Key Feature
+Kernel Module Signing
+Factory Secure Key and Expansion Key Provisioning
+Hafnium Secure Partition Manager
+OP-TEE: Open Portable Trusted Execution Environment
+Architecture
+Trusted Application and Client Application Development
+EKB: Encrypted Key Blob
+Sample Applications
+PKCS #11 Support in OP-TEE
+Disk Encryption
+Disk Encryption Concepts
+Partition Layout
+Encrypting the Rootfs
+Dynamic Partition Encryption
+Manufacturing
+Secure Storage
+Firmware TPM
+Software Architecture
+fTPM Boot Flow
+fTPM Provisioning
+Production Workflow
+Device-Side Operations
+fTPM Turnkey Solution for Ecosystem Partners
+Rollback Protection
+Memory Encryption
+PVA Authentication
+Security Keys List
+Communications
+PCIe Endpoint Mode
+Enabling Bluetooth Audio
+Audio Setup and Development
+CUDA Instrumentation Methods
+Multi-Instance GPU (MIG)
+Platform Power and Performance
+Jetson Orin Nano Series, Jetson Orin NX Series, and Jetson AGX Orin Series
+Jetson Thor Product Family
+Software Packages and the Update Mechanism
+Boot Time Optimization
+Working With Sources
+Test Plan and Validation
+Hardware References
+Jetson Developer Kit Setup
+Jetson EEPROM Layout
+Jetson Module Adaptation and Bring-Up
+Jetson Thor Adaptation and Bring-Up
+Jetson AGX Orin Series
+Jetson Orin NX and Nano Series
+Checklists
+Configuring the Jetson Expansion Headers
+Controller Area Network (CAN)
+Applications and Tools
+Board Automation
+Jetson Linux Toolchain
+Jetson Linux Development Tools
+Debugging on Jetson Platforms
+Performance Monitoring
+Tegrastats Utility
+Tegra Combined UART
+How to Submit a Bug Report
+Reference Material
+Package Manifest
+Related Documentation
+Legal Information
+ Quick Start
+ Is this page helpful?
+Quick Start#
+This topic will help you get started quickly using NVIDIA® Jetson™ Linux with an NVIDIA Jetson developer kit.
+Types and Models of Jetson Devices#
+Both Jetson modules and Jetson developer kits are available from NVIDIA. A Jetson developer kit
+includes a non-production-specification Jetson module attached to a reference carrier board. You
+can use it with NVIDIA® JetPack™ SDK to develop and test software for your use case. Jetson developer kits
+are not intended for production use.
+Jetson modules are suitable for deployment in a production environment throughout their operating
+lifetime. Each Jetson module ships with no software preinstalled; you attach it to a carrier board
+designed or procured for your end product and flash it with the software image you have developed.
+This release of Jetson Linux supports both the Jetson Thor and Jetson Orin product families, including:
+NVIDIA® Jetson Thor™ modules and the Jetson AGX Thor Developer Kit
+NVIDIA® Jetson Orin™ NX and Nano modules and the Jetson Orin Nano
+Developer Kit
+NVIDIA® Jetson AGX Orin™ modules and the Jetson AGX Orin
+Developer Kit
+For details about these Jetson devices, see the
+Jetson Software Documentation
+page of the
+NVIDIA Edge Computing
+web site, and the
+Jetson FAQ.
+Preparing a Jetson Developer Kit for Use#
+This section explains how to prepare a Jetson developer kit for use by flashing it with the appropriate software.
+Later sections of this guide explain in more detail how to:
+Set up
+a Jetson developer kit
+Flashing Support
+software to a Jetson developer kit
+Assumptions#
+You have a Jetson developer kit and a separate Linux (Ubuntu 22.04 or Ubuntu 20.04) host system.
+Your Jetson developer kit is powered off and is connected as follows.
+(Note that your Jetson developer kit may not come with the devices and cables listed below.)
+Linux host is connected for flashing through the appropriate USB Type-C port
+of the developer kit.
+For NVIDIA Jetson AGX Orin Developer Kit, use the USB-C port next to the 40 pin header.
+For other Jetson developer kits, please refer to the developer kit user guide document.
+Any required USB peripherals such as keyboard and mouse are connected to the Jetson developer. You may use a USB hub for this.
+A wired Ethernet connection with internet access is connected
+for installing optional software on the developer kit when Jetson Linux has been installed and is running.
+A display device or a serial console is connected.
+A serial console is a terminal program, such as minicom, that runs on the host computer or another connected computer.
+If flashing the rootfs to an SD card or USB flash drive on Orin NX or Orin Nano, the storage size must be 64GB or larger.
+Environment Variables#
+Your host system must be configured to set certain environment variables:
+${L4T_RELEASE_PACKAGE} contains the name of the Jetson Linux release package:
+Jetson_Linux_<version>_aarch64.tbz2.
+${SAMPLE_FS_PACKAGE} contains the name of the sample file system package:
+Tegra_Linux_Sample-Root-Filesystem_<version>_aarch64.tbz2.
+${BOARD} contains the name of a supported configuration
+of Jetson module and the carrier board. Common values for this field can be found in
+the Configuration column in the Jetson Modules and Configurations table.
+To Flash the Jetson Developer Kit Operating Software#
+Download the latest Jetson Linux release package and sample file system
+for your Jetson developer kit from https://developer.nvidia.com/linux-tegra
+Enter the following commands to untar the files and assemble the rootfs:
+$ tar xf ${L4T_RELEASE_PACKAGE}
+$ sudo tar xpf ${SAMPLE_FS_PACKAGE} -C Linux_for_Tegra/rootfs/
+$ cd Linux_for_Tegra/
+$ sudo ./tools/l4t_flash_prerequisites.sh
+Apply the binaries:
+$ sudo ./apply_binaries.sh
+Note
+For Jetson Thor, using --openrm as in previous releases (sudo ./apply_binaries.sh --openrm) remains supported but does not affect the result.
+Ensure that your Jetson developer kit is configured and
+connected to your Linux host as described in
+Assumptions.
+Put your Jetson developer kit into Force Recovery Mode.
+For the Jetson AGX Thor developer kit:
+Use a USB cable to connect your host computer to the J81 recovery port. For the connector location, refer to the Jetson AGX Thor Developer Kit User Guide.
+Ensure that the developer kit is powered off.
+Press and hold down the Force Recovery button.
+Press, then release the Power button.
+Release the Force Recovery button.
+For the Jetson AGX Orin developer kit:
+Ensure that the developer kit is powered off.
+Press and hold down the Force Recovery button.
+Press, then release the Power button.
+Release the Force Recovery button.
+For the Jetson Orin Nano developer kit:
+Disconnect the power cable to ensure that the developer kit is powered off.
+Place a jumper to short the REC and GND pins on the 12-pin button header.
+Reconnect the power cable.
+Confirm that the developer kit is in Force Recovery Mode
+by following the procedure
+To determine whether the developer kit is in force recovery mode.
+Enter this command on your Linux host to install (flash)
+the Jetson release onto the Jetson developer kit.
+Jetson AGX Thor Developer Kit (NVMe):
+$ sudo ./l4t_initrd_flash.sh --erase-all jetson-agx-thor-devkit internal
+Jetson AGX Thor Developer Kit (NVMe) with T4000 module:
+$ sudo ./l4t_initrd_flash.sh --erase-all jetson-agx-thor-t4000 internal
+Note
+For Jetson Thor, the BSP assumes that your NVMe storage is larger than 234 GiB. If the NVMe storage is smaller, do one of the following:
+When you run the initrd flash script, add EXT_NUM_SECTORS=<NVMe storage size in bytes> / 512 as an environment variable:
+$ sudo EXT_NUM_SECTORS="<NVMe storage size in bytes> / 512" ./tools/kernel_flash/l4t_initrd_flash.sh
+In jetson-agx-thor-devkit.conf, add EXT_NUM_SECTORS=<NVMe storage size by byte> / 512.
+Jetson Orin Nano Developer Kit (NVMe):
+$ sudo ./l4t_initrd_flash.sh --erase-all jetson-orin-nano-devkit internal
+Jetson Orin Nano Developer Kit (USB):
+$ sudo ./l4t_initrd_flash.sh --external-device sda1 \
+ --erase-all jetson-orin-nano-devkit internal
+Jetson Orin Nano Developer Kit (SD card):
+$ sudo ./l4t_initrd_flash.sh --external-device mmcblk0p1 \
+ --erase-all jetson-orin-nano-devkit internal
+Jetson Orin Nano Developer Kit with Super Configuration (NVMe):
+$ sudo ./l4t_initrd_flash.sh --erase-all jetson-orin-nano-devkit-super internal
+Jetson Orin Nano Developer Kit with Super Configuration (USB):
+$ sudo ./l4t_initrd_flash.sh --external-device sda1 \
+ --erase-all jetson-orin-nano-devkit-super internal
+Jetson Orin Nano Developer Kit with Super Configuration (SD card):
+$ sudo ./l4t_initrd_flash.sh --external-device mmcblk0p1 \
+ --erase-all jetson-orin-nano-devkit-super internal
+Jetson AGX Orin Developer Kit (eMMC):
+$ sudo ./flash.sh --erase-all jetson-agx-orin-devkit internal
+Jetson AGX Orin Developer Kit (NVMe):
+$ sudo ./l4t_initrd_flash.sh --external-device nvme0n1p1 \
+ -c tools/kernel_flash/flash_l4t_t234_nvme.xml \
+ --erase-all jetson-agx-orin-devkit external
+Jetson AGX Orin Developer Kit (USB):
+$ sudo ./l4t_initrd_flash.sh --external-device sda1 \
+ -c tools/kernel_flash/flash_l4t_t234_nvme.xml \
+ --erase-all jetson-agx-orin-devkit external
+Jetson AGX Orin Developer Kit (SD card):
+$ sudo ./l4t_initrd_flash.sh --external-device mmcblk0p1 \
+ -c tools/kernel_flash/flash_l4t_t234_nvme.xml \
+ --erase-all jetson-agx-orin-devkit internal
+Note
+When booting your system, make sure to select the corresponding flashed boot media from the UEFI menu to boot. For example, if flashing from an NVMe drive, make sure to select the NVMe drive as your boot option from the UEFI menu.
+Refer to Using flash.sh with Orin NX and Nano for more information.
+The --erase-all option erases all the data on the flashed boot media. If you want to keep your own data on the flashed boot media, remove this option when running the flash command.
+A list of common configurations is provided in Jetson Modules and Configurations.
+For Jetson Thor, reboot the board after the installation process is complete. For others, the Jetson developer kit automatically reboots when
+the installation process is complete. At this point your Jetson developer kit is operational. Follow the prompts on the display to set up a user account and log in.
+Jetson Modules and Configurations#
+Jetson Linux provides ready-made support for the following configurations.
+Module
+Module Type
+Carrier Board
+Configuration
+Configuration Notes
+Jetson AGX Thor Developer Kit 128GB-DRAM
+(P3834-0008)
+Production
+Jetson T5000 reference carrier board
+(P4071-0000)
+jetson-agx-thor-devkit
+Flashes QSPI-NOR and NVMe drive
+(only supported via l4t_initrd_flash.sh)
+Jetson AGX Thor Developer Kit 64GB-DRAM
+(P3834-0000)
+Production
+Jetson T4000 reference carrier board
+(P4071-0000)
+jetson-agx-thor-t4000
+Flashes QSPI-NOR and NVMe drive
+(only supported via l4t_initrd_flash.sh)
+Jetson Orin NX 16GB-DRAM (P3767-0000)
+Production
+Jetson Orin Nano reference carrier board
+(P3768-0000)
+jetson-orin-nano-devkit /
+jetson-orin-nano-devkit-super *
+Flashes QSPI-NOR and USB/NVMe drive
+(only supported via l4t_initrd_flash.sh)
+Jetson Orin NX 8GB-DRAM (P3767-0001)
+Production
+Jetson Orin Nano reference carrier board
+(P3768-0000)
+jetson-orin-nano-devkit /
+jetson-orin-nano-devkit-super *
+Flashes QSPI-NOR and USB/NVMe drive
+(only supported via l4t_initrd_flash.sh)
+Jetson Orin Nano 8GB-DRAM (P3767-0003)
+Production
+Jetson Orin Nano reference carrier board
+(P3768-0000)
+jetson-orin-nano-devkit /
+jetson-orin-nano-devkit-super *
+Flashes QSPI-NOR and USB/NVMe drive
+(only supported via l4t_initrd_flash.sh)
+Jetson Orin Nano 4GB-DRAM (P3767-0004)
+Production
+Jetson Orin Nano reference carrier board
+(P3768-0000)
+jetson-orin-nano-devkit /
+jetson-orin-nano-devkit-super *
+Flashes QSPI-NOR and USB/NVMe drive
+(only supported via l4t_initrd_flash.sh)
+Jetson Orin Nano 8GB-DRAM (P3767-0005)
+Development
+Jetson Orin Nano reference carrier board
+(P3768-0000)
+jetson-orin-nano-devkit /
+jetson-orin-nano-devkit-super *
+Flashes QSPI-NOR and microSD Card/USB/NVMe drive
+(only supported via l4t_initrd_flash.sh)
+Jetson AGX Orin Dev-Kit Module (P3701-0000)
+Development
+Jetson AGX Orin reference carrier board
+(P3737-0000)
+jetson-agx-orin-devkit
+Flashes QSPI-NOR and eMMC
+Jetson AGX Orin 32GB-DRAM (P3701-0004)
+Production
+Jetson AGX Orin reference carrier board
+(P3737-0000)
+jetson-agx-orin-devkit
+Flashes QSPI-NOR and eMMC
+Jetson AGX Orin 64GB-DRAM (P3701-0005)
+Production
+Jetson AGX Orin reference carrier board
+(P3737-0000)
+jetson-agx-orin-devkit
+Flashes QSPI-NOR and eMMC
+Jetson AGX Orin Industrial (P3701-0008)
+Production
+Jetson AGX Orin reference carrier board
+(P3737-0000)
+jetson-agx-orin-devkit-industrial
+Flashes QSPI-NOR and eMMC
+* Compared to jetson-orin-nano-devkit.conf, jetson-orin-nano-devkit-super.conf has a higher power budget and extended clock-frequency steps.
+For more information on Super configuration, refer to Supported Modes and Power Efficiency.
+Development modules are sold only as the components of a developer kit. Production modules are compatible with the listed carrier boards and are mainly intended for production use, so they are only sold separately. Development and production modules are sold both ways.
+Each configuration shown in the preceding table has a corresponding file with the extension .conf. For example, the configuration file for jetson-orin-nano-devkit is jetson-orin-nano-devkit.conf / jetson-orin-nano-devkit-super.conf. Compared to jetson-orin-nano-devkit.conf, jetson-orin-nano-devkit-super.conf has a higher power budget and extended clock-frequency steps.
+For more information on Super configuration, refer to Supported Modes and Power Efficiency.
+To Determine Whether the Developer Kit Is in Force Recovery Mode#
+Connect your Linux host computer to the appropriate USB port on
+your Jetson developer kit (see
+Assumptions).
+Open a terminal window on your host computer and enter command
+lsusb. The Jetson module is in Force Recovery Mode if you see the message:
+Bus <bbb> Device <ddd>: ID 0955: <nnnn> Nvidia Corp.
+Where:
+<bbb> is any three-digit number.
+<ddd> is any three-digit number.
+<nnnn> is a four-digit number that represents the type of your
+Jetson module:
+7023 for Jetson AGX Orin (P3701-0000 with 32GB)
+7023 for Jetson AGX Orin (P3701-0005 with 64GB)
+7023 for Jetson AGX Orin Industrial (P3701-0008 with 64GB)
+7026 for Jetson T5000 (P3834-0008 with 128GB)
+7226 for Jetson T4000 (P3834-0000 with 64GB)
+7223 for Jetson AGX Orin (P3701-0004 with 32GB)
+7323 for Jetson Orin NX (P3767-0000 with 16GB)
+7423 for Jetson Orin NX (P3767-0001 with 8GB)
+7523 for Jetson Orin Nano (P3767-0003 and P3767-0005 with 8GB)
+7623 for Jetson Orin Nano (P3767-0004 with 4GB)
+ previous
+ Welcome
+ next
+ Jetson Software Architecture
+ On this page
+Types and Models of Jetson Devices
+Preparing a Jetson Developer Kit for Use
+Assumptions
+Environment Variables
+To Flash the Jetson Developer Kit Operating Software
+Jetson Modules and Configurations
+To Determine Whether the Developer Kit Is in Force Recovery Mode
+ so the DOM is not blocked -->
+ Privacy Policy
+ | 
+ Your Privacy Choices
+ | 
+ Terms of Service
+ | 
+ Accessibility
+ | 
+ Corporate Policies
+ | 
+ Product Security
+ | 
+ Contact
+ Copyright © 2025-2026, NVIDIA Corporation.
+ Last updated on Jun 02, 2026.

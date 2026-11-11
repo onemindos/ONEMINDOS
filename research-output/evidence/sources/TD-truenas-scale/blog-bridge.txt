@@ -1,0 +1,159 @@
+TrueNAS Connect: Enterprise Features on Your Own Hardware 
+ Products V-Series – Max Performance & Versatility 
+ M-Series – High Capacity All-Flash or Hybrid 
+ F-Series – High Performance NVME 
+ R-Series – Single Controller Appliances 
+ H-Series – Versatility and Power Efficiency 
+ Mini Series – Edge and Branch Office 
+ TrueNAS Enterprise – Mission Critical Storage. 24×7 Enterprise Support 
+ TrueNAS Community Edition – Test Drive TrueNAS in Your Environment 
+ Manage Your TrueNAS Systems 
+ Solutions Industry 
+ Media & Entertainment 
+ US Public Sector 
+ Audio 
+ Automotive 
+ Broadcasting 
+ Education 
+ Gaming 
+ Healthcare 
+ Manufacturing 
+ MSP 
+ Use Cases 
+ AI & Research 
+ Analytics 
+ Backup & Archival 
+ Cloud 
+ Data Mobility 
+ File Sharing 
+ Red Hat OpenShift 
+ Surveillance/CCTV 
+ TrueCloud Backup 
+ Veeam Backup 
+ Virtualization 
+ TrueNAS as an Alternative 
+ Alternative to Dell 
+ Alternative to Everpure / Pure Storage 
+ Alternative to HPE Alletra 
+ Alternative to NetApp 
+ Alternative to Public Cloud 
+ Support & Resources Support 
+ Enterprise Support – For customers with active support contracts 
+ Community Support – For peer-to-peer, forum support 
+ Community 
+ TrueNAS Community Edition 
+ Community Forum 
+ TrueNAS Merch Store 
+ Resources 
+ Apps 
+ Case Studies 
+ Certifications & Integrations 
+ Data sheets 
+ Documentation 
+ FAQ 
+ Reseller Network 
+ Software Status 
+ Solution Briefs and Guides 
+ TrueNAS API 
+ TrueNAS Blog 
+ TrueNAS Security 
+ Videos 
+ White Papers 
+ ZFS Overview 
+ Company About TrueNAS 
+ Team 
+ Our Clients 
+ Reviews 
+ Awards 
+ Newsroom 
+ Careers 
+ Contact Us 
+ Get A Quote 
+ Close 
+ Get A Quote 
+ Sign In TrueNAS Connect 
+ Partner Portal 
+ Enterprise Support 
+ Building a Bridge Between Community & Enterprise
+ } 
+ March 12, 2026 
+ o 
+ TrueNAS | TrueNAS Connect 
+ How we’re delivering what our community has been asking for: Enterprise features on your own hardware. 
+ For years, a clear request has echoed through TrueNAS community channels – maybe you’ve made it yourself: “ Give us a way to access TrueNAS Enterprise features on our own hardware. ”
+ If you’ve been caught between a powerful storage platform with no license fees and a full Enterprise appliance you didn’t need, you know exactly what that gap felt like. This post explains how we’re closing it – and why.
+ TrueNAS Community Edition has always been powerful, reliable, and genuinely free. But certain advanced capabilities – proactive alerting, advanced management, defense-grade security, performance enhancements, third party software integrations, etc – have only been available only with TrueNAS Enterprise appliances . That wasn’t an accident or an oversight. Our Open-Core business model is how TrueNAS sustains itself as a company and how the development work for TrueNAS Community Edition is funded.
+ TrueNAS Community Edition and Enterprise versions were separate islands, without an easy upgrade path or way to provide access to advanced features. In order to connect the two, a bridge was needed. TrueNAS Connect was introduced in early 2026 as a monitoring and management solution, extending and enhancing your TrueNAS installation with additional web-driven features, while creating a simpler install process for new users. As we continue through 2026, TrueNAS Connect also becomes a bridge between our free Community Edition and our Enterprise Appliances.
+ Given the importance of transparency in our Open-Core business model, we want to be clear about three things: 
+ TrueNAS Community Edition will always remain a storage solution with no license fees. No existing Community Edition features are being paywalled, and new features are coming just as they always have. TrueNAS Connect is completely optional – you can run your storage system however you’d like.
+ TrueNAS Enterprise has always had features that could only be accessed through commercial relationships. Enterprise customers have been paying for features and support that Community Edition users didn’t have access to for more than a decade now, but these were only available on TrueNAS Enterprise Appliances.
+ TrueNAS Connect builds the bridge. What is new is that there will now be a third option to access some of those enhanced features without buying a TrueNAS Enterprise appliance. TrueNAS Connect enables this.
+ TrueNAS Connect is a bridge, not a wall. 
+ It’s a Connection between Community Edition and Enterprise.
+ How TrueNAS Got Here
+ TrueNAS has evolved through distinct phases, each driven by how the community and the market have grown around it.
+ 2010–2018: One Stack, One Community
+ FreeNAS was a single software stack: free, powerful, and reliable with OpenZFS at its core. It was widely adopted by technical teams, home labs, and university environments. TrueNAS Enterprise appliances emerged from those beginnings and added high-availability with additional enterprise capabilities for organizations that needed them.
+ 2019–2025: Two Paths, One Foundation
+ As adoption expanded, TrueNAS moved to an Open-Core model with two delivery paths built on the same software foundation:
+ Community Edition (CE) maintained its no-cost roots. We added better apps, containers, and VM support, keeping CE as the on-ramp for technical users and innovative organizations.
+ Enterprise Appliances served professional organizations and enterprise customers with HA, NVMe performance, defense-grade security, and Gartner-recognized support and service . All things required to protect business and mission-critical data.
+ This model worked well, but it left a gap. If you were a professional user, a small business, or someone managing multiple systems – and you wanted more than CE offered – your only option was to move to a full Enterprise appliance. There was no intermediate software-only step.
+ 2026 and Beyond: Three Options, One TrueNAS Platform
+ In 2026, two things are changing at once: we’re introducing a third path that fills the gap between CE and Enterprise.
+ Community Edition is for hobbyists, homelabbers, students, and self-reliant technical teams who want a powerful storage platform with no license fees. It includes the full OpenZFS foundation with file, block, and object protocols, VMs, Docker, Apps, and more. It remains free – nothing is being removed, and new open-source features continue to be added. 
+ TrueNAS Enterprise is for IT leaders and professional organizations that need turnkey HA appliances, defense-grade security, dedicated support, and deep integrations with platforms like VMware, Proxmox, and Veeam. TrueNAS Enterprise continues to improve and remains the right choice for mission-critical environments. From NBA on Prime to NIST and Vanderbilt University , thousands of companies around the world trust TrueNAS with their data – ranging from media and entertainment (Warner Brothers, Paramount, Marvel) to technology (Cisco, ActivisionBlizzard, Google) and federal institutions (NASA, FAA, Department of Energy) and throughout the Global 1000.
+ TrueNAS Connect enables a new option for power users: professionals, small businesses, and anyone managing important storage. It’s the bridge, delivering enterprise-class capabilities like advanced monitoring, websharing, proactive alerts, multi-system management, and ransomware protection to your own hardware. Over the coming years, we plan to offer more value-added features to power users.
+ Connect includes a free “Foundation” tier that covers basic functionality, with paid “Plus” and future “Business” tiers for teams that need more. It also greatly simplifies the installation of Community Edition onto bare metal. And, upgrading to Plus or Business tiers is also a simple way to give back to the project while receiving tangible value in return. However, no one is required to use TrueNAS Connect in order to use TrueNAS. 
+ The Open-Core model isn’t changing. TrueNAS software remains the foundation across all three. Many new features will automatically be enabled in the free Community Edition. TrueNAS Connect manages the licensing and permissions that enables Enterprise capabilities beyond the free tier, and its free Foundation tier ensures that everyone who wants access to it, has it.
+ This is an answer to the request the community has been making for years.
+ TrueNAS 26 is a new chapter in TrueNAS development
+ TrueNAS 26 will be the first release with an annual cadence. This change is driven by a focus on quality that can benefit all users, enabled by longer development, testing, and release cycles.
+ The move to annual release cycles will reduce the frequency of software updates and enable Long-Term Support (LTS) features for Enterprises. TrueNAS 26 also includes the foundation for licensing of some Enterprise features like LTS via TrueNAS Connect. This will give power users many more options for using TrueNAS.
+ The BETA of TrueNAS 26 starts in April, and the Release is planned for Q3. While not all capabilities will be available immediately, we plan to make a progressive rollout.
+ What This Means for You
+ If you’re a Community Edition user
+ Nothing changes about what you have today. CE remains free, the source code remains open, and new features continue to be added. What does change is that you now have a bridge to enterprise-class capabilities on your own hardware – through TrueNAS Connect – if and when you want them. Start with the Foundation tier at no cost. And, upgrade to paid tiers only if you see the value or simply want to contribute to the TrueNAS project. If not, no worries — you can stay on the Foundation tier as long as you’d like. The choice is yours.
+ If you’re a Power user
+ You’ve had the fewest options in TrueNAS – until now. TrueNAS Connect is built for you: advanced monitoring, management across multiple systems, proactive alerts, and more – at a price point that reflects the scale of your environment, not the cost of a full Enterprise appliance. And as TrueNAS Connect grows, so does what’s available to you. You now have a path to the enterprise-class capabilities that were previously out of reach on your own hardware.
+ If you’re an Enterprise customer
+ Enterprise appliances and support continue to improve. TrueNAS Connect will add a management layer that makes your infrastructure easier to operate securely at scale. And the enterprise-led development model means that every feature is designed with your requirements in mind from the start, not retrofitted after the fact.
+ All TrueNAS 26 users should experience improved software quality with less frequent software updates.
+ TrueNAS Connect is a Bridge, Not a Wall
+ TrueNAS Connect is about expanding access. For the first time, enterprise capabilities that were previously available only through appliance purchases have a path to reach the broader community – with a free tier to start.
+ We know this is a shift. We believe it’s the right approach – both for the long-term health of TrueNAS as a community and a company, as well as for the quality, consistency, and options for what all users receive.
+ We also know that developing our software transparently invites scrutiny. We welcome it. The alternative is developing behind closed doors and keeping secrets. We’d rather earn that trust by showing the work and by being direct when we make hard decisions and explaining why.
+ TrueNAS Connect is the bridge that enables the third option that many in the community have asked for: software-defined storage with more enterprise capabilities – giving you more control, more options, and a path forward on your own hardware. We look forward to building it the same way we’ve built everything else: through the collaboration and feedback of our community.
+ Learn more about TrueNAS Connect at connect.truenas.com 
+ Share On Social:
+-->
+ 541 Division Street
+Campbell, CA 95008, USA
+ Contact Us 
+ <email-masked> 
+ Listen to our Podcast 
+ Support
+ Enterprise Support 
+ Community Support 
+ Forums 
+ FAQs 
+ Useful Links
+ Careers 
+ About Us 
+ Blog 
+ News & Articles 
+ TrueNAS Enterprise 
+ TrueNAS Community Edition 
+ Open Storage for Proxmox 
+ TrueCommand 
+ TrueCommand Cloud 
+ TrueNAS Legacy 
+ Software Status 
+ Referral Program 
+ Reseller Network 
+ Subscribe to our newsletter 
+ --->
+ © Copyright 2026 iXsystems, Inc. dba TrueNAS. All rights reserved.
+ Legal     TrueNAS Logos 
+ TrueNAS Newsletter Subscription 
+Be the First to Know

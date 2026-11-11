@@ -1,0 +1,168 @@
+Manage Kubernetes Clusters for GPU Infrastructure with NVIDIA Kubernetes Engine | NVIDIA Technical Blog
+ DEVELOPER
+ Home
+Blog
+Forums
+Docs
+Downloads
+Training
+ Join
+ Technical Blog
+ Subscribe
+ Related Resources 
+ Data Center / Cloud
+ Manage Kubernetes Clusters for GPU Infrastructure with NVIDIA Kubernetes Engine
+ Nov 10, 2026
+ By Nathan Taber, Eric Chapman and Erin Boyd 
+ Like
+ Discuss (0)
+ L
+ T
+ F
+ R
+ E
+ AI-Generated Summary
+ NVIDIA DSX AI Factory Platform introduces two open source projects, NVIDIA Kubernetes Engine (NVKE) and NVIDIA Kubernetes Recipes (NVKR), for building and operating managed Kubernetes services on GPU infrastructure.
+NVKR builds reproducible node images, container images, and packages from version-pinned sources, while NVKE uses those artifacts to provision and manage Kubernetes clusters through a REST API and controllers running on a management cluster.
+The NVKE management plane is deployed with nvkectl, which bootstraps a temporary seed cluster, requests servers from NVIDIA Infra Controller (NICo) via CAPNICo, and forms a management cluster that creates customer workload clusters with their own control planes and node pools.
+AI factories publish release sets comprising machine images, cluster releases, and node pool releases so customers can select a validated Kubernetes version without handling OS images or cloud-init directly.
+NVIDIA Cloud Partners Firmus and SK Telecom are integrating NVKE and NVKR into their AI factories, while partners Mirantis, Rafay, Spectro Cloud, OpenNebula Systems, vCluster, and Netris are incorporating components into their managed Kubernetes and network automation offerings.
+Both projects are in public preview under the Apache 2.0 license, with APIs and behavior subject to change, and are not yet recommended for production workloads.
+Next Steps
+Read the NVKE documentation to learn how to deploy and operate the management plane.
+Try the local quickstart on a single machine to evaluate NVKE without GPU infrastructure.
+Join the NVIDIA DSX AI Factory Slack workspace to discuss NVKE and NVKR with the community.
+ Powered by NVIDIA Nemotron. AI-generated content may summarize information incompletely. Verify important information. Learn more
+NVIDIA is announcing two open source projects for building and operating managed Kubernetes services on GPU infrastructure—NVIDIA Kubernetes Engine (NVKE) and NVIDIA Kubernetes Recipes (NVKR). Both are new projects available in public preview.
+AI Factory customers often want to consume GPU capacity through the Kubernetes APIs, tools, and ecosystem they already use, with the factory operating their clusters. Delivering this service requires API-driven provisioning, tenant isolation, upgrades, and recovery, backed by service commitments. It also requires qualifying GPU hardware, networking, drivers, and runtime software across GPU generations and Kubernetes versions.
+NVKE and NVKR divide this work between cluster management and reproducible software builds. NVKE provides the software to run a managed Kubernetes service, installed on the factory’s infrastructure, with APIs to provision and manage clusters. NVKR builds the operating system images, container images, and packages those clusters need, using recipes that define validated combinations of software versions and GPU generations. AI Factories retain control of their software, operations, service, and customer experience. Teams can adopt NVKE and NVKR projects together or independently.
+ Figure 1. The NVIDIA DSX AI Factory Platform
+Both NVKE and NVKR are components of the NVIDIA DSX AI Factory Platform, which helps AI factories design, build, and operate GPU infrastructure. Both projects are available on GitHub under the Apache 2.0 license, so teams can inspect the code, develop in parallel, and contribute improvements. During the public preview, APIs, configuration, and behavior may change between releases. NVKE and NVKR are not yet recommended for production workloads. See preview status and known limitations.
+This walkthrough covers building a node image with NVKR, deploying the NVKE management plane, and provisioning a customer Kubernetes cluster.
+How NVKE and NVKR work together
+NVKR builds the software: It produces node images, binaries, container images, and Helm charts from specific source versions and records the build inputs.
+NVKE manages the clusters: It uses those artifacts to provision and operate Kubernetes clusters.
+Teams can use the projects together or separately. NVKE has no runtime dependency on NVKR, and NVKR can build artifacts for other Kubernetes management systems.
+nvkectl starts a temporary seed cluster on a bootstrap host and uses it to form a management cluster. The NVKE management plane, including the REST API and controllers, runs on the management cluster. The management plane creates workload clusters for AI factory customers, each with its own Kubernetes control plane, etcd, and node pools. Machines come from NVIDIA Infra Controller (NICo), which manages bare-metal lifecycle, through CAPNICo, the Cluster API infrastructure provider for NICo.
+A node must present an attested SPIFFE identity before it receives join credentials. The NVKE telemetry pipeline, an OpenTelemetry-based Helm chart, collects logs, metrics, and traces and exports them over OTLP to a monitoring backend.
+ Figure 2. How NVKR, the NVKE management cluster, NICo, and workload clusters fit together
+Inside each workload cluster, teams add the GPU-accelerated runtime with AI Cluster Runtime (AICR), node packages with NodeWright, and break-fix automation with NVSentinel.
+NVKE is a Certified Kubernetes AI Platform and Certified Kubernetes Installer, conformance tested on Kubernetes 1.36.
+From bare metal to a customer cluster
+This walkthrough describes how to provision a customer Kubernetes cluster starting from servers installed in a rack by building a node image with NVKR, deploying the NVKE management plane with nvkectl, and creating a customer cluster through the NVKE API. The NVKE documentation lists every flag and option, along with the most up-to-date steps.
+Walkthrough prerequisites:
+Three CPU servers for the management cluster, plus a separate Linux bootstrap host on the site network with containerd, nerdctl, kind, Helm, and kubectl
+Three CPU servers for the workload cluster control plane
+A pool of GPU servers for worker nodes
+A NICo installation with enrolled capacity
+A Linux build host with Docker and KVM support
+An HTTP server for the node image, a container registry for the controller image, and internet access to download the open source images and Helm charts used during installation
+Build the node image
+NVKR defines the Kubernetes software configuration that NVIDIA validates for NVKE and provides the reproducible pipeline that turns that definition into deployable artifacts. NVKR builds node images from version-pinned sources and records every input, so teams can identify the software included in each image and can rebuild it later. The management cluster and each node pool can run different images, such as one per CPU architecture or GPU generation.
+Teams clone the NVKR repository on the build host. They then run the quickstart script to build nvkectl, the NVKE controller image, and its Helm chart, and a second script to build the node image, named node-image-01 in this walkthrough.
+$ git clone https://github.com/dsx-ai-factory/nvkr.git && cd nvkr
+$ bash scripts/nvkr-quickstart.sh
+$ NVKE_OS_ARCH=amd64 scripts/nvke-os-local.sh node-image-01
+The node image build compiles the NVKE node agent and OVN-Kubernetes from source and adds checksum-pinned upstream releases of the Kubernetes 1.36 packages and the SPIRE agent. It then boots a virtual machine from the Ubuntu installer, installs the agents, and stages the Kubernetes and networking packages on the disk. The result is a QCOW2 disk image. Teams push the controller image to a registry, copy nvkectl to the bootstrap host, and put the QCOW2 on an HTTP server.
+Deploy the NVKE management plane
+The NVKE management plane runs on a Kubernetes cluster called the management cluster. Teams run the following command on the bootstrap host to begin creating the management cluster:
+$ nvkectl bootstrap site -f site-a.yaml \
+ --nvke-controller-image registry.example.com/nvke/nvke-controller:<tag>
+The site specification file, site-a.yaml, includes the inputs that NICo needs to provision the three servers for the management cluster. The bootstrap command starts a temporary Kubernetes cluster on the bootstrap host. This temporary cluster uses kind to run a single Kubernetes node and hosts the NVKE software needed for the setup.
+The NVKE controller asks NICo for three servers, which NICo boots from the previously built node image. When all three nodes have joined, the bootstrap process deletes the temporary cluster, leaving the management cluster. Teams then install the NVKE management plane on the management cluster and run nvkectl config set-site to connect the command-line tool to the NVKE API.
+Publish a release set that customers will run
+Customers choose a release by name from those that the AI factory publishes. They do not work directly with operating system images or cloud-init configuration.
+A release set has three components:
+A machine image holds the iPXE script NICo runs to boot a server.
+A cluster release pairs a machine image with the cloud-init configuration that prepares a control plane node and records the Kubernetes version that cloud-init installs.
+A node pool release provides the corresponding image and configuration for worker nodes.
+$ nvkectl create machineimage -f machineimage.yaml
+$ nvkectl create clusterrelease -f clusterrelease.yaml
+$ nvkectl create nodepoolrelease -f nodepoolrelease.yaml
+Create a customer cluster
+A customer cluster request includes the same NICo inputs as the site specification, plus a Kubernetes version. The control plane and each node pool have their own instance types, VPC prefix, and release. In this example, the control plane and GPU node pool reference releases named k8s-1.36.3-amd64.
+name: customer-a
+controlPlaneKubernetesVersion: 1.36.3
+etcdEncrypted: true
+controlPlaneVIP: <private-ip-masked>
+nico: {orgID: <org-id>, siteID: <site-id>, vpcID: <vpc-id>}
+controlPlaneConfig:
+ desiredCount: 3
+ nico: {instanceTypePreference: [<cpu-instance-type>], vpcPrefixIDs: [<prefix-id>], release: k8s-1.36.3-amd64}
+nodePools:
+ - name: gpu
+ nodeNamePrefix: gpu
+ desiredNodeCount: 4
+ nico: {instanceTypeID: <gpu-instance-type>, vpcPrefixIDs: [<prefix-id>], release: k8s-1.36.3-amd64}
+Teams save the request as customer-a.yaml, then run the following command to submit it to the NVKE REST API through nvkectl.
+$ nvkectl create cluster -f customer-a.yaml
+The cluster status remains Provisioning until the first control-plane node has run kubeadm init and NVKE has installed OVN-Kubernetes and NodeLocal DNSCache. The status then changes to Provisioned.
+Give the customer access
+The customer accesses the cluster’s Kubernetes API through a kubeconfig, while the AI factory continues managing it through the NVKE API. To give the customer access, the team retrieves the cluster’s kubeconfig from the management cluster and shares it securely.
+$ nvkectl get kubeconfig customer-a --output-file customer-a.kubeconfig
+kubeconfig written to customer-a.kubeconfig
+AI factories and partners building with NVKE and NVKR
+NVIDIA Cloud Partners Firmus and SK Telecom are integrating NVKE and NVKR into their AI Factories to build and deploy Kubernetes clusters that host AI workloads.
+Additionally, NVIDIA Partners Mirantis, Rafay, Spectro Cloud, OpenNebula Systems, and vCluster are integrating components of NVKE and NVKR into their managed Kubernetes offerings to help their AI factory customers run AI workloads on Kubernetes. Netris is enabling NVKE for its network automation solution.
+Available today in public preview
+NVKE and NVKR are in public preview and are not yet recommended for production workloads. These projects are evolving rapidly, and the NVKE API may change between releases. The preview status page lists current limitations.
+Teams can evaluate the projects against their infrastructure requirements and review planned work on the public NVKE and NVKR roadmaps. Feedback and contributions can help shape NVKE, NVKR, and the rest of the DSX AI Factory stack.
+Get started
+NVKE and NVKR are open source components available through the NVIDIA DSX AI Factory GitHub organization, alongside CAPNICo. Start with the NVKE documentation or try the local quickstart on a single machine—no GPU or NVIDIA account needed.
+Join the conversation in #nvke on the NVIDIA DSX AI Factory Slack workspace using the Slack invitation link. Share what you build with the community.
+Visit the NVIDIA booth #170 at KubeCon for more Kubernetes deep dives and live demos.
+NVKE documentation and NVKR documentation
+NVKE roadmap and NVKR roadmap
+Validate Kubernetes for GPU Infrastructure with Layered, Reproducible Recipes
+Manage Kubernetes Node Fleets with NodeWright
+Automate Kubernetes AI Cluster Health with NVSentinel
+ Discuss (0)
+ Like
+ Tags
+ Data Center / Cloud | Developer Tools & Techniques | General | DSX | Intermediate Technical | Tutorial | AI Factory | Cloud Services | DSX AI Factory Platform | KubeCon | Kubernetes | Open Source 
+ About the Authors
+ About Nathan Taber
+ Nathan Taber is a product manager who has helped define how modern cloud and AI infrastructure are built. At AWS, he was a founding member of the Amazon EKS team and helped define Kubernetes at AWS through work on EKS, Karpenter, and the broader OSS ecosystem. At NVIDIA he helps define GPU-accelerated Kubernetes and health-automation patterns for large-scale AI infrastructure, influencing how cloud providers and their customers run production GPU workloads reliably at scale.
+ View all posts by Nathan Taber
+ About Eric Chapman
+ Eric Chapman is the product manager for NVIDIA Kubernetes Engine, where he works on software that AI factories use to run Kubernetes for their customers. Before joining NVIDIA, he worked on Amazon EKS at AWS.
+ View all posts by Eric Chapman
+ About Erin Boyd
+ Erin Boyd is a senior director of engineering at NVIDIA, where she leads the engineering teams that build NVIDIA Kubernetes Engine and related DSX Kubernetes projects. Before joining NVIDIA, she was a distinguished engineer and director of emerging technologies in the Red Hat Office of the CTO and worked on cloud services at Apple. She has co-chaired the CNCF Storage SIG and served on the Technical Oversight Committee and Governing Board for the CNCF.
+ View all posts by Erin Boyd
+ Comments
+ Comments are closed.
+ Related posts
+ NVIDIA Run:ai Is Now Open Source as Part of NVIDIA DSX AI Factory Platform
+ NVIDIA Run:ai Is Now Open Source as Part of NVIDIA DSX AI Factory Platform
+ Orchestrating Accelerated Virtual Machines with Kubernetes Using NVIDIA GPU Operator
+ Orchestrating Accelerated Virtual Machines with Kubernetes Using NVIDIA GPU Operator
+ On-Demand Session: Accelerating Kubernetes with NVIDIA Operators
+ On-Demand Session: Accelerating Kubernetes with NVIDIA Operators
+ NVIDIA GPU Operator: Simplifying GPU Management in Kubernetes
+ NVIDIA GPU Operator: Simplifying GPU Management in Kubernetes
+ Kubernetes For AI Hyperparameter Search Experiments
+ Kubernetes For AI Hyperparameter Search Experiments
+ Related posts
+ Agent Substrate: Advancing Kubernetes for Agents at Scale
+ Agent Substrate: Advancing Kubernetes for Agents at Scale
+ Start and Restore GPU Workloads in Seconds with NVIDIA Snapshot
+ Start and Restore GPU Workloads in Seconds with NVIDIA Snapshot
+ Configure, Certify, and Operate Kubernetes GPU Clusters with NVIDIA DSX OS
+ Configure, Certify, and Operate Kubernetes GPU Clusters with NVIDIA DSX OS
+ Memory-Enforced GPU Sharing in Kubernetes with NVIDIA CUDA 13.4
+ Memory-Enforced GPU Sharing in Kubernetes with NVIDIA CUDA 13.4
+ 3 Ways to Boost MoE Inference on NVIDIA DGX Spark
+ 3 Ways to Boost MoE Inference on NVIDIA DGX Spark
+ Theme
+ Light
+ System
+ Dark
+ Close
+ Previous
+ Next
+ L
+ T
+ F
+ R
+ E

@@ -11,7 +11,7 @@ disable:
   - traefik
   - metrics-server
 
-[2026-11-11T01:08:26Z] install.sh sha256: c2a2643dd7c259121a876d16538844c60928de3d38ae98f22f7b95a7ffcfab9d  <home>/<lab-dir>/w5-restore/shared/install.sh
+[2026-11-11T01:08:26Z] install.sh sha256: c2a2643dd7c259121a876d16538844c60928de3d38ae98f22f7b95a7ffcfab9d  <lab-dir>/w5-restore/shared/install.sh
 [INFO]  Using v1.37.2+k3s1 as release
 [INFO]  Downloading hash https://github.com/k3s-io/k3s/releases/download/v1.37.2%2Bk3s1/sha256sum-arm64.txt
 [INFO]  Skipping binary downloaded, installed k3s matches hash
@@ -72,7 +72,7 @@ drwx------ 8 root root    4096 Nov 10 20:07 ..
 [2026-11-11T01:18:34Z] datastore dir size: 13M
 [2026-11-11T01:18:34Z] BACKUP (online, k3s running)
 [2026-11-11T01:18:34Z] sqlite3 integrity: ok
-created restic repository 4bf06144f3 at <home>/<lab-dir>/w5-restore/shared/restic-repo
+created restic repository 4bf06144f3 at <lab-dir>/w5-restore/shared/restic-repo
 
 Please note that knowledge of your password is required to access
 the repository. Losing your password means that your data is
@@ -92,5 +92,5 @@ drwxr-xr-x 8 root root     256 Nov 10 20:18 ..
 -rw------- 1 root root      33 Nov 10 20:18 node-password
 -rw-r--r-- 1 root root 8138752 Nov 10 20:18 state.db
 -rw------- 1 root root     109 Nov 10 20:18 token
-4.0K	<home>/<lab-dir>/w5-restore/shared/restic-pass
-24K	<home>/<lab-dir>/w5-restore/shared/restic-repo
+4.0K	<lab-dir>/w5-restore/shared/restic-pass
+24K	<lab-dir>/w5-restore/shared/restic-repo

@@ -1,0 +1,302 @@
+
+
+    Someone Slipped a RAT into Arch Linux!
+
+        📬 Newsletter
+
+        🎫 Events
+
+        🧩 Quizzes & Puzzles
+
+        ❤️ Support Us
+
+        More
+
+        - 🎒 Resources
+
+        - ▶️ YouTube
+
+        - 🏘️ Community
+
+        📖 About
+
+        - Contact Us
+
+        - Policies
+
+        👤 Members
+
+        - Get Plus Membership
+
+        - Free eBooks for Members
+
+        About
+
+        Privacy Policy
+
+        Linux Courses
+
+        Log in
+
+Sign up
+
+Sign in
+
+        📬 Newsletter
+
+        🎫 Events
+
+        🧩 Quizzes & Puzzles
+
+        ❤️ Support Us
+
+        More
+
+        - 🎒 Resources
+
+        - ▶️ YouTube
+
+        - 🏘️ Community
+
+        📖 About
+
+        - Contact Us
+
+        - Policies
+
+        👤 Members
+
+        - Get Plus Membership
+
+        - Free eBooks for Members
+
+        About
+
+        Privacy Policy
+
+        Linux Courses
+
+          Log in
+
+          Subscribe
+
+Someone Slipped a RAT into Arch Linux!
+
+A sneaky menace made its way into Arch User Repository. Another reminder to not blindly trust packages from AUR, PPA and even from Snapcraft.
+
+    Sourav Rudra
+
+        04 Aug 2025
+      2 min read
+
+A RAT, or remote access trojan, is a type of malware that lets attackers control a device from far away. Usually, RATs target Windows or macOS computers. But even Linux, which is known for being secure, is not completely safe from these kinds of threats. 
+A concerning case has popped up where malicious AUR packages on Arch Linux were found dropping CHAOS RAT onto user systems without their knowledge.
+What's Happening: A user who goes by the name "danikpapas" uploaded three fake packages to the Arch User Repository (AUR)—librewolf-fix-bin, firefox-patch-bin, and zen-browser-patched-bin.
+They looked like browser-related tools, but when installed, they ran a script that downloaded CHAOS RAT, a remote access trojan. Once inside, it gives attackers full control of the system, allowing them to run commands, spy on the user, and drop more malware.
+The packages were up for around two days. They were first posted on July 16, 2025, and shortly flagged and removed by Arch maintainers on July 18, 2025.
+What Now: If you use Arch Linux or an Arch-based distribution, check if any of these packages are installed on your system. Run this command to see if they’re there:
+pacman -Qs librewolf-fix-bin firefox-patch-bin zen-browser-patched-bin
+
+These screenshots are for illustrative purposes. I didn’t have those sus packages in my CachyOS installation.
+If any show up, remove them immediately with:
+sudo pacman -Rns <package-name>
+
+📋
+Keep in mind: Removing the package only deletes the software itself. It may not fully eliminate any malicious files or processes left behind. If you installed or updated this package recently, consider checking your system for suspicious activity or restoring from a clean backup.
+
+Updated on August 4, 2025, at 05:10 UTC.
+As always, make sure your system is up to date and only install packages from trusted sources, particularly when using community-driven repositories like the AUR. Staying cautious helps keep your Linux setup safe.
+Suggested Read 📖
+
+What is Arch User Repository (AUR)? How to Use AUR on Arch and Manjaro Linux?
+What is AUR in Arch Linux? How do I use AUR? Is it safe to use? This article explains it all.
+It's FOSSDimitrios
+
+        Development Updates
+        News
+
+    Share
+
+    Share
+
+    Share
+
+    Share
+
+    Email
+
+    Feedback
+
+          About the author
+
+Sourav Rudra
+
+A nerd with a passion for open source software, custom PC builds, motorsports, and exploring the endless possibilities of this world.
+
+    Featured
+
+"First We Take Manhattan": DHH on Omarchy, AI, Asahi and Winning the Linux Desktop
+
+Here's Everything New Coming to Linux Mint 27 This Christmas
+
+Asahi Linux Drops MIT and Goes Full GPL After AI Tools Were Used to Steal Unreleased Code
+
+Killed by Ubuntu, Linux Mint is Bringing This Classic Feature Back
+
+France’s Weird Per-Gigabyte Data Tax Could Cost VLC Over €1 Million a Year!
+
+    Latest
+
+The Company Behind GameOS is Now Building an AI Desktop OS Based on Linux
+
+                  10 Nov 2026
+
+NeoVim Too Complex? Try Helix as Your First Modal Editor
+
+                  10 Nov 2026
+
+I Tried The Weird New Mini Window Feature in Firefox 160
+
+                  10 Nov 2026
+
+              Become a Better Linux User
+
+                With the FOSS Weekly Newsletter, you learn useful Linux tips, discover applications, explore new distros and stay updated with the latest from Linux world 
+
+    Subscribe
+
+Great! Check your inbox and click the link.
+
+Sorry, something went wrong. Please try again.
+
+          ❤️
+
+Support Independent Content
+
+We respect your choice to use an ad blocker! It's FOSS is an independent publication that relies on your support.
+
+Consider supporting us to keep quality Linux content free for everyone.
+
+            Become a Member
+
+            Buy us a Coffee ☕
+
+        Read next
+
+The Company Behind GameOS is Now Building an AI Desktop OS Based on Linux
+
+I Tried The Weird New Mini Window Feature in Firefox 160
+
+SuperPoD OS and Agentic Infra Take Center Stage at openEuler Summit 2026
+
+Here's Everything New Coming to Linux Mint 27 This Christmas
+
+Asahi Linux Drops MIT and Goes Full GPL After AI Tools Were Used to Steal Unreleased Code
+
+Become a Better Linux User
+
+With the FOSS Weekly Newsletter, you learn useful Linux tips, discover applications, explore new distros and stay updated with the latest from Linux world 
+
+    Subscribe
+
+Great! Check your inbox and click the link.
+
+Sorry, something went wrong. Please try again.
+
+          Making You A Better Linux User
+
+    Subscribe
+
+Great! Check your inbox and click the link.
+
+Sorry, something went wrong. Please try again.
+
+        Navigation
+
+        📬 Newsletter
+
+        🎫 Events
+
+        🧩 Quizzes & Puzzles
+
+        ❤️ Support Us
+
+        More
+
+        - 🎒 Resources
+
+        - ▶️ YouTube
+
+        - 🏘️ Community
+
+        📖 About
+
+        - Contact Us
+
+        - Policies
+
+        👤 Members
+
+        - Get Plus Membership
+
+        - Free eBooks for Members
+
+        About
+
+        Privacy Policy
+
+        Linux Courses
+
+              Resources
+
+Courses 🎓
+
+Distro Resources 📖
+
+Guides 📒
+
+        Social
+
+Facebook
+
+Twitter
+
+RSS
+
+Bluesky
+
+Mastodon
+
+Github
+
+Instagram
+
+Reddit
+
+Telegram
+
+Youtube
+
+        ©2026 It's FOSS.
+        Hosted on Digital Ocean (get $200 in FREE credits) & Published with Ghost & Rinne.
+
+    System
+    Light
+    Dark
+
+Great! You’ve successfully signed up. 
+
+Welcome back! You've successfully signed in. 
+
+You've successfully subscribed to It's FOSS. 
+
+Your link has expired. 
+
+Success! Check your email for magic link to sign-in. 
+
+Success! Your billing info has been updated. 
+
+Your billing was not updated. 
+
+Privacy Manager
+

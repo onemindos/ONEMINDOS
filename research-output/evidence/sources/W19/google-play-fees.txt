@@ -1,0 +1,188 @@
+Service fees - Play Console Help       Skip to main content 
+
+Play Console Help
+
+Sign in
+
+Google Help
+
+Help Center
+Play Console Help
+Policy Center
+Community
+Play Console
+
+Privacy Policy
+Terms of Service
+Submit feedback   
+
+Send feedback on...
+
+This help content & information
+
+General Help Center experience
+CloseNext
+
+Help Center
+Community
+Announcements
+
+Play Console
+
+Play Console Help
+Get startedPopular articlesManage your developer accountCreate, upload, and publishDistribute your appRun tests and check performanceProtect your appComply with Google Play policiesFix an issueAndroid developer verificationDesign for multiple form factorsCentral Play Help Center
+Policy Center
+Restricted ContentIntellectual PropertyPrivacy, Deception and Device AbuseUse of SDKs In AppsMalwareImpersonationMobile Unwanted SoftwareMonetization and AdsStore Listing and PromotionSpam, Functionality, and User ExperienceOther ProgramsFamiliesEnforcementUpdates and Other ResourcesHow Google Play Works for Developers   
+
+Notification    
+
+You can now request help from the Help page in your Play Console account.  If you don't have access to Play Console, ask your account admin for an invite.           
+
+Service fees
+
+Apps and in-app products sold through Google Play’s billing system or an Alternative Billing System (as defined below) in accordance with the Payments policy are subject to a service fee.
+
+There isn't a single service fee as Google Play takes into account that developers operate in different situations that require different levels of support to build sustainable businesses. 97% of developers distribute their apps and take advantage of all Google Play has to offer at no charge. Of those developers that are subject to a service fee, 99% are eligible for a fee of 15% or less by participating in different programs offered by Google Play.
+
+The following provides an overview of Google Play’s service fees:
+
+For transactions with users in Australia, the European Economic Area, Japan, United Kingdom, or United States:
+
+The applicable service fee will be determined by whether the transacting user's install is "new" or "existing", with the regional rollout date (June 30, 2026 for the EEA, UK, and US; September 30, 2026 for Australia and Japan) serving as the effective date:
+
+New Installs: A transaction from a user whose first-time install or first update of the app from Google Play occurred on or after the regional rollout date for the user's region.
+
+Existing Installs: A transaction from a user whose first-time install or first update of the app from Google Play occurred before the regional rollout date for the user's region.
+
+      Service fee type
+      Auto-renewing subscriptions
+
+      (new & existing installs)
+      Other transactions (new installs)
+      Other transactions (existing installs)
+
+      First $1M (USD) of annual earnings
+      10% 
+
+      + 5% billing fee *
+
+      Standard
+      10% 
+
+      + 5% billing fee *
+      20% 
+
+      + 5% billing fee *
+      25% 
+
+      + 5% billing fee *
+
+      OR;
+
+      20% for external 
+
+      web links
+
+      When participating in the Play Games Level Up or Apps Experience programs
+      10% 
+
+      + 5% billing fee *
+      15% 
+
+      + 5% billing fee *
+      20% 
+
+      + 5% billing fee *
+
+      OR;
+
+      15% for external 
+
+      web links
+
+* Billing fee applies when a user completes a purchase of an in-app digital service or feature using Google Play Billing or for the initial purchase of a paid app or game
+
+For all remaining markets until the announced updated service fees are rolled out globally:
+
+      Service fee type
+      Service fee
+
+Developers enrolled in the 15% service fee tier
+
+15% for the first $1M (USD) revenue earned by the developer each year
+
+        30% for earnings in excess of $1M (USD) revenue earned by the developer each year
+
+      Subscriptions
+
+15% for automatically renewing subscription products purchased by subscribers, regardless of revenue earned by the developer each year
+
+      Other transactions
+
+15% or lower for eligible developers who qualify under programs such as the Play Media Experience Program
+
+For developers who offer an alternative billing system in addition to Google Play’s billing system for transactions with users in South Korea or India, in accordance with the Payments policy, and pursuant to the applicable terms of service (“Alternative Billing System”), the service fee for such transactions using the Alternative Billing System is equal to the service fee applicable for transactions via Google Play’s billing system reduced by 4%. Learn more about offering an alternative billing system for users in South Korea in this Help Center article or India in this Help Center article.
+
+Additionally, developers may direct users in the EEA outside of their app to promote offers of digital features and services, in accordance with program requirements. Developers selling digital content or services can now offer their users in the EEA an alternative to Google Play's billing system within their apps, subject to program requirements.
+
+Learn more about our service fee by visiting Understanding Google Play’s Service Fee.
+
+Was this helpful?
+How can we improve it?
+YesNo
+Submit
+
+Need more help? 
+Try these next steps:    
+
+   Post to the help community    Get answers from community members            
+
+ Contact us  Tell us more and we’ll help you get there                  
+
+true 
+
+Paid apps, in-app products & subscriptions
+
+1 of 4Supported locations for distribution to Google Play users
+
+2 of 4Service fees
+
+3 of 4Changes to Google Play's service fee in 2021
+
+4 of 4Offer apps, in-app products, and subscriptions in multiple currencies          
+
+  ©2026 Google   
+  Privacy Policy   
+  Terms of Service             Language   Afrikaans‎català‎dansk‎Deutsch‎eesti‎English (United Kingdom)‎español‎español (Latinoamérica)‎Filipino‎français‎français (Canada)‎Gaeilge‎hrvatski‎Indonesia‎isiZulu‎italiano‎Kiswahili‎latviešu‎lietuvių‎magyar‎Malti‎Melayu‎Nederlands‎norsk‎polski‎português‎português (Brasil)‎română‎slovenčina‎slovenščina‎suomi‎svenska‎Tiếng Việt‎Türkçe‎čeština‎Ελληνικά‎български‎русский‎српски‎українська‎‏עברית‏اردو‏العربيةहिन्दी‎தமிழ்‎ಕನ್ನಡ‎ไทย‎አማርኛ‎中文（简体）‎中文（繁體）‎中文（香港）‎日本語‎한국어‎ English‎      
+
+Enable Dark Mode         
+
+Send feedback on... This help content & information General Help Center experience                   
+
+Search
+Clear search
+Close search
+Google apps
+Main menu                
+2882125241668725259                                                         
+
+true                         
+Search Help Center   
+false   
+
+true    
+
+true    
+
+true                                                                                       
+true   
+true   
+92637                                                                                                     
+
+false    
+
+false                                                                                                                                                      
+false   
+false                                                          
+
+false  

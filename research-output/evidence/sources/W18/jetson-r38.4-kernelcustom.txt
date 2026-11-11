@@ -1,0 +1,268 @@
+Kernel Customization — NVIDIA Jetson Linux Developer Guide
+ Skip to main content
+ Back to top
+ Ctrl+K
+ NVIDIA Jetson Linux Developer Guide
+ Search
+ Ctrl+K
+ Search
+ Ctrl+K
+ NVIDIA Jetson Linux Developer Guide
+ Table of Contents
+ Introduction
+Welcome
+Quick Start
+Architecture
+Jetson Software Architecture
+Boot Architecture
+Jetson Thor Boot Flow
+Partition Configuration
+Software Feature Overview
+Jetson Thor Series
+Software Features in Depth
+Flashing Support
+Flashing Support for Jetson Thor
+Emulation Flash Configurations
+Root File System
+Bootloader
+T23x/T26x Boot Configuration Table
+Pinmux and GPIO Configuration
+Common Prod Configuration
+Controller Product Configuration
+Pad Voltage DT Binding
+PMIC Configuration
+Storage Device Configuration
+UPHY Lane Configuration
+OEM-FW Ratchet Configuration
+BootROM Reset PMIC Configuration
+Miscellaneous Configuration
+SDRAM Configuration
+GPIO Interrupt Mapping Configuration
+MB2 BCT Misc Configuration
+Security Configuration
+Platform Configuration Profile
+UEFI Adaptation
+Update and Redundancy
+Kernel
+Kernel Customization
+Installing Real-Time Kernel
+Bring Your Own Kernel
+Generic Timestamp Engine
+BMI088 IMU Driver
+Enable 25 Gigabit Ethernet on QSFP Port
+Kernel Boot Time Optimization
+Display Configuration and Bring-Up
+Common Display configurations for all Platforms
+Orin specific Display Configuration
+Display Configuration for Jetson Thor
+Multimedia
+Multimedia APIs
+Accelerated Decode with ffmpeg
+Accelerated GStreamer
+Software Encode in Orin Nano
+Hardware Acceleration in the WebRTC Framework
+Graphics
+Graphics APIs
+Graphics Programming
+Binary Shader Program Management
+GLSLC Shader Program Compiler
+OpenGL ES Programming Tips
+EGLStream
+EGLDevice
+Sample Applications
+OpenWFD
+Vulkan SC
+Vulkan SC Samples
+Windowing Systems
+Weston (Wayland)
+X Window System
+Camera Development
+Camera Development using CoE
+Camera Software Development Solution for Jetson Thor
+Introduction to SIPL
+Camera-over-Ethernet Overview
+HSL and UDDF Overview
+SIPL Query JSON Guide for CoE Camera Development
+NvSIPL CoE Camera Application Developer Guide
+PyHSL
+Guide to Writing UDDF Drivers
+Integrating UDDF Drivers with SIPL
+Camera SIPL Notifications
+SIPL Guidance on Output Image Formats
+Camera Software Development Solution
+Sensor Software Driver Programming
+Jetson Virtual Channel with GMSL Camera Framework
+Argus NvRaw Tool
+Camera Driver Porting
+Security
+Secure Boot
+Factory Secure Key and Expansion Key Provisioning
+Hafnium Secure Partition Manager
+OP-TEE: Open Portable Trusted Execution Environment
+Disk Encryption
+Secure Storage
+Firmware TPM
+Rollback Protection
+Memory Encryption
+PVA Authentication
+Communications
+PCIe Endpoint Mode
+Enabling Bluetooth Audio
+Audio Setup and Development
+CUDA Instrumentation Methods
+Platform Power and Performance
+Jetson Thor Product Family
+Software Packages and the Update Mechanism
+Boot Time Optimization
+Working With Sources
+Test Plan and Validation
+Hardware References
+Jetson Developer Kit Setup
+Jetson EEPROM Layout
+Jetson Module Adaptation and Bring-Up
+Jetson Thor Adaptation and Bring-Up
+Checklists
+Configuring the Jetson Expansion Headers
+Controller Area Network (CAN)
+Applications and Tools
+Board Automation
+Jetson Linux Toolchain
+Jetson Linux Development Tools
+Debugging on Jetson Platforms
+Performance Monitoring
+Tegrastats Utility
+Tegra Combined UART
+How to Submit a Bug Report
+Reference Material
+Package Manifest
+Related Documentation
+Legal Information
+ Kernel
+ Kernel Customization
+ Is this page helpful?
+Kernel Customization#
+You can manually rebuild the kernel used for the NVIDIA® Jetson™ Linux. You must have Internet access for this.
+Prerequisites#
+You have installed Git. You can install with the following command:
+$ sudo apt install git
+Your system has the default Git port 9418 open for outbound connections.
+You have installed the Linux kernel build utilities. You can install with the following command:
+$ sudo apt install build-essential bc flex bison libssl-dev zstd
+You have installed the toolchain. See Jetson Linux Toolchain
+for information about how to download and install the reference toolchain.
+Obtaining the Kernel Sources#
+You can obtain the Jetson Linux kernel sources in the following ways:
+Sync the sources using Git.
+download the kernel source files and manually extract them.
+NVIDIA recommends that you sync with Git.
+To Sync the Kernel Sources with Git#
+To get the kernel source, run the source_sync.sh script:
+$ cd <install-path>/Linux_for_Tegra/source
+$ ./source_sync.sh -k -t <release-tag>
+The correct release-tag is specified in the release notes. This tag name syncs the sources to the source revision from which the release binary was built.
+To Manually Download and Expand the Kernel Sources#
+In your browser, go to https://developer.nvidia.com/embedded/jetson-linux-archive.
+Locate and download the Jetson Linux source files for your release.
+Extract the .tbz2 file:
+$ tar xf public_sources.tbz2 -C <install-path>/Linux_for_Tegra/..
+Extract the kernel and the NVIDIA out-of-tree modules source files:
+$ cd <install-path>/Linux_for_Tegra/source
+$ tar xf kernel_src.tbz2
+$ tar xf kernel_oot_modules_src.tbz2
+$ tar xf nvidia_kernel_display_driver_source.tbz2
+$ tar xf nvidia_unified_gpu_display_driver_source.tbz2
+This extracts the kernel source to the kernel/ subdirectory, and the NVIDIA out-of-tree kernel modules sources to the current directory.
+Building the Jetson Linux Kernel#
+Go to the build directory:
+$ cd <install-path>/Linux_for_Tegra/source
+If you are building the real-time kernel, enable the real-time configuration:
+$ ./generic_rt_build.sh "enable"
+Run the following commands to build the Jetson Linux kernel and its in-tree modules:
+$ export CROSS_COMPILE=<toolchain-path>/aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-
+$ make -C kernel
+Run the following commands to install the kernel and in-tree modules:
+$ export INSTALL_MOD_PATH=<install-path>/Linux_for_Tegra/rootfs/
+$ sudo -E make install -C kernel
+$ cp kernel/kernel-noble/arch/arm64/boot/Image \
+ <install-path>/Linux_for_Tegra/kernel/Image
+Building the NVIDIA Out-of-Tree Modules#
+Go to the build directory:
+$ cd <install-path>/Linux_for_Tegra/source
+If you are building the real-time kernel, configure the following variable that pertains to the nvdisplay drivers:
+$ export IGNORE_PREEMPT_RT_PRESENCE=1
+Run the following commands to build:
+$ export CROSS_COMPILE=<toolchain-path>/aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-
+$ export KERNEL_HEADERS=$PWD/kernel/kernel-noble
+$ export kernel_name=noble
+$ make modules
+Run the following commands to install:
+$ export INSTALL_MOD_PATH=<install-path>/Linux_for_Tegra/rootfs/
+$ sudo -E make modules_install
+To update the initramfs, run the following commands:
+$ cd <install-path>/Linux_for_Tegra
+$ sudo ./tools/l4t_update_initrd.sh
+Note
+If you are building natively on a target, to update the the initramfs directly on the target, run the sudo nv-update-initrd command.
+Note
+To prevent apt upgrade from unintentionally overriding your custom kernel, you need to rename the kernel and initramfs images, and then update extlinux.conf. You can do this either on the host or on the target.
+Rename the kernel and initramfs images to any names you prefer:
+On host:
+$ sudo mv <install-path>/Linux_for_Tegra/rootfs/boot/Image <install-path>/Linux_for_Tegra/rootfs/boot/Image.custom
+$ sudo mv <install-path>/Linux_for_Tegra/rootfs/boot/initrd <install-path>/Linux_for_Tegra/rootfs/boot/initrd.custom
+On target:
+$ sudo mv /boot/Image /boot/Image.custom
+$ sudo mv /boot/initrd /boot/initrd.custom
+Update DEFAULT and add an entry for your custom kernel with any LABEL name you prefer in extlinux.conf. Edit <install-path>/Linux_for_Tegra/rootfs/boot/extlinux/extlinux.conf on the host or edit /boot/extlinux/extlinux.conf on the target:
+TIMEOUT 30
+DEFAULT custom
+MENU TITLE L4T boot options
+LABEL primary
+...
+# Add a new entry to custom kernel
+LABEL custom
+ MENU LABEL custom kernel
+ LINUX /boot/Image.custom
+ INITRD /boot/initrd.custom
+ APPEND ${cbootargs}
+If the nvidia-l4t-kernel Debian package is upgraded during apt upgrade, the value of DEFAULT in extlinux.conf automatically changes to the newly installed kernel (such as DEFAULT primary).
+So, if you want to continue using your custom kernel, be sure to set DEFAULT again after the upgrade.
+Building the DTBs#
+Go to the build directory:
+$ cd <install-path>/Linux_for_Tegra/source
+Run the following commands to build:
+$ export CROSS_COMPILE=<toolchain-path>/aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-
+$ export KERNEL_HEADERS=$PWD/kernel/kernel-noble
+$ make dtbs
+Run the following commands to install:
+$ cp kernel-devicetree/generic-dts/dtbs/* <install-path>/Linux_for_Tegra/kernel/dtb/
+Note
+If KERNEL_HEADERS points to a source directory rather than an exported headers directory,
+you will need to run make ARCH=arm64 defconfig scripts or equivalent in order to build dtc.
+ previous
+ Kernel
+ next
+ Installing Real-Time Kernel
+ On this page
+Prerequisites
+Obtaining the Kernel Sources
+To Sync the Kernel Sources with Git
+To Manually Download and Expand the Kernel Sources
+Building the Jetson Linux Kernel
+Building the NVIDIA Out-of-Tree Modules
+Building the DTBs
+ so the DOM is not blocked -->
+ Privacy Policy
+ | 
+ Your Privacy Choices
+ | 
+ Terms of Service
+ | 
+ Accessibility
+ | 
+ Corporate Policies
+ | 
+ Product Security
+ | 
+ Contact
+ Copyright © 2025-2026, NVIDIA Corporation.
+ Last updated on Jan 16, 2026.

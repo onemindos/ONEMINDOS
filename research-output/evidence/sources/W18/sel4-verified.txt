@@ -1,0 +1,284 @@
+Verified Configurations | seL4 docs
+ D
+ O
+ S
+ C
+ Getting Started
+ Overview
+ Tutorials
+ Setting up with Docker
+ Repo manifest cheat sheet
+ The seL4 Kernel
+ Overview
+ Setting up
+ Tutorial
+ Setting up
+ Getting the tutorials
+ Hello world
+ Capabilities
+ Untyped
+ Mapping
+ Threads
+ IPC
+ Notifications
+ Interrupts
+ Fault handling
+ MCS
+ End
+ How-to
+ API docs
+ Manual
+ Supported platforms
+ Verified configurations
+ Configurations
+ Standalone seL4 builds
+ Bitfield generator
+ Testing & benchmarking
+ seL4test
+ Debugging guide
+ Debugging user space
+ sel4bench
+ Benchmarking guide
+ Contributing
+ Porting to a new platform
+ Releases
+ Sources
+ Microkit
+ Overview
+ Setting up your machine
+ Tutorial
+ Welcome
+ Part 0 - Setting up
+ Part 1 - Serial server
+ Part 2 - Client
+ Part 3 - Wordle server
+ Part 4 - Virtual machines
+ End
+ Manual
+ Roadmap
+ Supported platforms
+ Releases
+ Sources
+ CAmkES
+ Overview
+ Setting up your machine
+ Tutorials
+ Hello CAmkES
+ Introduction
+ Events
+ Timer
+ Virtual Machines
+ Cross-VM connectors
+ How-to
+ Manual
+ Supported platforms
+ Virtualisation
+ CAmkES VM
+ VM library
+ VMM library
+ Releases
+ Sources
+ C support
+ C runtime
+ User-level libraries
+ Build System
+ Tutorials
+ Init & Threads
+ IPC
+ ELF loading & Processes
+ Timer
+ How-to
+ Rust support
+ Overview
+ How to use
+ Tutorial
+ API
+ Supported configurations
+ Releases
+ Sources
+ ELF loader
+ ELF loader for C
+ capDL
+ Overview
+ Language Spec
+ capDL loader (C)
+ Releases
+ Examples & demos
+ Overview
+ Releases
+ Contribute
+ Contact
+ Support
+ Main Site
+ seL4 on GitHub
+ Verified Configurations
+This page describes which architecture/platform/configuration combinations of
+seL4 have verified properties, which configurations possess which properties,
+and how to obtain an seL4 version for a specified configuration. For an overview
+of these properties and their explanations, please see the verification page on
+the seL4 website. The Frequently Asked
+Questions also as a section
+on the formal verification of seL4.
+The formal proofs for seL4 are hosted at https://github.com/seL4/l4v. They
+are written in the Isabelle/HOL theorem prover. See
+the README file in the l4v repository for build
+and setup instructions if you want to run and check the proofs against a
+specific version and configuration of seL4.
+Examining and Building Verified Configurations
+Current verified configurations can be found in seL4 sources in the
+configs folder:
+cd configs/
+ls *_verified.cmake
+# AARCH64_bcm2711_verified.cmake ARM_HYP_exynos5410_verified.cmake
+# AARCH64_bcm2712_verified.cmake ARM_HYP_verified.cmake
+# AARCH64_imx8mm_verified.cmake ARM_imx8mm_verified.cmake
+# AARCH64_imx8mq_verified.cmake ARM_MCS_verified.cmake
+# AARCH64_imx93_verified.cmake ARM_omap3_verified.cmake
+# AARCH64_maaxboard_verified.cmake ARM_tk1_verified.cmake
+# AARCH64_MCS_verified.cmake ARM_verified.cmake
+# AARCH64_odroidc2_verified.cmake ARM_zynq7000_verified.cmake
+# AARCH64_odroidc4_verified.cmake ARM_zynqmp_verified.cmake
+# AARCH64_rockpro64_verified.cmake RISCV64_ariane_verified.cmake
+# AARCH64_stm32mp2_verified.cmake RISCV64_bananapi-f3_verified.cmake
+# AARCH64_tqma_verified.cmake RISCV64_cheshire_verified.cmake
+# AARCH64_tx1_verified.cmake RISCV64_hifive-p550_verified.cmake
+# AARCH64_ultra96v2_verified.cmake RISCV64_MCS_verified.cmake
+# AARCH64_verified.cmake RISCV64_polarfire_verified.cmake
+# AARCH64_zynqmp_verified.cmake RISCV64_rocketchip_verified.cmake
+# ARM_am335x_verified.cmake RISCV64_rocketchip-zcu102_verified.cmake
+# ARM_bcm2837_verified.cmake RISCV64_star64_verified.cmake
+# ARM_exynos5410_verified.cmake RISCV64_verified.cmake
+# ARM_exynos5422_verified.cmake X64_verified.cmake
+# ARM_HYP_exynos5_verified.cmake
+To obtain specific source code and build for a given configuration (e.g.
+ARM) in a build directory:
+mkdir build
+cd build
+cmake -P ../config/ARM_verified.cmake
+Notably kernel.elf is the kernel binary, and kernel_all_pp.c is
+the kernel source code after preprocessing, which is used as the basis
+for verification efforts.
+Also see standalone seL4 builds for
+general guidelines on generating an seL4 binary and build system information
+from an existing configuration.
+Available Verified Configurations
+Unverified Features
+At present, none of our verified configurations take into account
+address translation for devices (System MMU or IOMMU), debug/profiling/printing
+interfaces, or the kernel startup at boot.
+The proofs for AARCH64_MCS/ARM_MCS (mixed-criticality extensions to real-time
+seL4 features) are in progress. Refer to the
+roadmap for status and upcoming features.
+Arm Aarch32 (ARM)
+Configurations that start with ARM are verified configurations for the
+AArch23 architecture. Those with MCS in the name indicate configurations for
+the ongoing MCS verification. Proofs for all other ARM_* configurations are
+completed.
+The following features are supported by verification in AArch32 configurations:
+ Architecture: ARMv7-A 32-bit, kernel running in EL1
+ Floating point support: No
+ Hypervisor mode: No (see separate AArch32/Hypervisor configurations)
+The following properties are verified:
+ C-level functional correctness, including fast path
+ integrity and availability (access control)
+ confidentiality (information flow)
+ binary correctness, covering C functions that have C-level verification
+ model-level functional correctness of the capDL user-level system initialiser/root task
+The following seL4 AArch32 platforms are supported by verification:
+ BeagleBoard
+ BeagleBone Black / Blue
+ Jetson TK1
+ OdroidXU
+ OdroidXU4
+ Raspberry Pi 3-b
+ Sabre Lite
+ Zynq ZCU106 Evaluation Kit
+ Zynq ZCU102 Evaluation Kit
+ Zynq-7000 ZC706 Evaluation Kit
+ i.MX8M Mini
+Arm Aarch32 in Hypervisor mode (ARM_HYP)
+Configurations that start with ARM_HYP are verified configurations for the
+AArch32 architecture with hypervisor mode enabled. The seL4 kernel runs as
+hypervisor in EL2.
+The following features are supported by verification in ARM_HYP configurations:
+ Architecture: ARMv7-A 32-bit, kernel running in EL2
+ Floating point support: No
+ Hypervisor mode: Yes
+The following properties are verified:
+ C-level functional correctness, including fast path
+The following seL4 AArch32 platforms with hypervisor mode are supported by
+verification:
+ Jetson TK1
+ OdroidXU
+ OdroidXU4
+ TK1-SOM
+Arm AArch64 (AARCH64)
+Configurations that start with AARCH64 are verified configurations for the
+AArch64 architecture with hypervisor mode enabled. The seL4 kernel runs as
+hypervisor in EL2.
+The following features are supported by verification in AARCH64 configurations:
+ Architecture: ARMv8-A 64-bit, kernel running in EL2
+ Floating point support: Yes
+ Hypervisor mode: Yes
+The following properties are verified:
+ C-level functional correctness, including fast path
+ integrity and availability (access control)
+ confidentiality (information flow)
+Further properties are under development. See also the
+roadmap for status and schedule.
+The following seL4 AArch64 platforms are supported by verification:
+ Avnet MaaXBoard
+ Odroid-C2
+ Odroid-C4
+ ROCKPro64
+ Raspberry Pi 4B
+ Raspberry Pi 5B
+ Rock3b
+ STM32MP25 EV1
+ TQMa8XQP 1GB
+ TX1
+ TX2
+ Ultra96v2 Evaluation Kit
+ Zynq ZCU106 Evaluation Kit
+ Zynq ZCU102 Evaluation Kit
+ i.MX8M Mini
+ i.MX8M Plus
+ i.MX8M Quad
+ i.MX93 EVK
+RISC-V 64-bit (RISCV64)
+Configurations that start with RISCV64 are verified configurations for the
+RISC-V 64-bit architecture. Those with MCS in the name indicate configurations
+for the ongoing MCS verification.
+The following features are supported by verification in RISCV64 configurations:
+ Architecture: RISC-V 64 bit
+ Floating point support: No
+ Hypervisor mode: No
+The following properties are verified:
+ C-level functional correctness, no fast path
+ integrity and availability (access control)
+ confidentiality (information flow)
+The following seL4 RISCV64 platforms are supported by verification:
+ Ariane
+ Banana Pi BPI-F3
+ Cheshire
+ HiFive Premier P550
+ HiFive Unleashed
+ Microchip PolarFire Icicle Kit
+ Pine64 Star64
+ Rocketchip
+ Rocketchip (zcu102)
+Intel x64 (X64)
+Configurations that start with X64 are verified configurations for the
+x86-64 architecture.
+The following features are supported by verification in X64 configurations:
+ Architecture: Intel x64
+ Floating point support: Yes
+ Hypervisor/VT-x mode: No
+The following properties are verified:
+ C-level functional correctness, no fast path
+The following seL4 X64 platforms are supported by verification:
+ PC99
+ Sitemap
+ Test status
+Edit
+ page on GitHub

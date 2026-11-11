@@ -1,0 +1,11 @@
+SOURCE: https://forum.proxmox.com/threads/pve-9-beta-pve-nested-upgrade-from-8-to-9-breaks-boot.168662/
+ACCESSED: 2026-11-11
+
+NOTE: excerpt only; user handles, hostnames and IDs removed for privacy. Full thread at the SOURCE URL.
+
+ [PVE-9 BETA] PVE Nested Upgrade from 8 to 9 breaks boot
+ [PVE-9 BETA] PVE Nested Upgrade from 8 to 9 breaks boot | Proxmox Support Forum
+ I just tested the PVE-8 to PVE-9 Upgrade on a freshly installed PVE-8 Installation (Nested, VM) so not on physical hardware. After upgrading and rebooting, the VM does not boot anymore and goes to VM-BIOS.
+<esp-uuid> is configured with: grub (versions: 6.14.8-1-pve, 6.8.12-12-pve)
+Basically there was a reinit of the proxmox-boot-tool missing when the grub/shim update got pulled in by the major update, thus causing some fallout in certain setups managed by proxmox-boot-tool.
+this would not be an issue if /dev/sda2 is not mounted permanently on /boot/efi - I'd remove the entry from fstab, unmount it and run proxmox-boot-tool reinit

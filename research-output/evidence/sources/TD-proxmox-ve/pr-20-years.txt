@@ -1,0 +1,203 @@
+SOURCE: https://www.proxmox.com/en/about/company-details/press-releases/proxmox-celebrates-20-years
+ACCESSED: 2026-11-11
+
+
+ Proxmox celebrates 20 years of open-source enterprise solutions
+ Search
+ Select your language
+ English 
+ German 
+ Home
+ Products 
+ Proxmox Virtual Environment 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Comparison
+ Pricing
+ Proxmox Backup Server 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Pricing
+ Proxmox Mail Gateway 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Virtual Appliance
+ Pricing
+ Proxmox Datacenter Manager 
+ Overview
+ Benefits
+ Features
+ Downloads
+ Proxmox Virtual Environment
+ ISO
+ Documentation
+ Agreements
+ Proxmox Backup Server
+ ISO
+ Documentation
+ Agreements
+ Proxmox Mail Gateway
+ ISO
+ Documentation
+ Agreements
+ Proxmox Datacenter Manager
+ ISO
+ Documentation
+ Services 
+ Support & Services 
+ Enterprise Support Services
+ Online Support Services
+ Customer Portal
+ Community Forum
+ Training 
+ Training
+ Course Catalog
+ Videos
+ FAQ
+ Partners 
+ Find a Partner 
+ Explore
+ Reseller Partner
+ Success Stories
+ All Partners
+ Not yet a Partner? 
+ Become a partner
+ About 
+ About us 
+ Company
+ Careers
+ Events
+ Success Stories
+ Open Source 
+ Community
+ Developers
+ Bug and feature requests
+ Source Code (Git)
+ Company Details 
+ Press Releases
+ Media Kit
+ In the News
+ Newsletter
+ Contact us →
+Get HelpCustomer Portal
+Community Forum
+Support
+Contact Us
+Buy now
+ Search
+ Select your language
+ English 
+ German 
+ Home
+ProductsProxmox Virtual Environment
+Overview
+Features
+Get Started
+Requirements
+Comparison
+Pricing
+Proxmox Backup Server
+Overview
+Features
+Get Started
+Requirements
+Pricing
+Proxmox Mail Gateway
+Overview
+Features
+Get Started
+Requirements
+Virtual Appliance
+Pricing
+Proxmox Datacenter Manager
+Overview
+Benefits
+Features
+DownloadsProxmox Virtual EnvironmentISO
+Documentation
+Agreements
+Proxmox Backup ServerISO
+Documentation
+Agreements
+Proxmox Mail GatewayISO
+Documentation
+Agreements
+Proxmox Datacenter ManagerISO
+Documentation
+ServicesSupport & Services
+Enterprise Support Services
+Online Support Services
+Customer Portal
+Community Forum
+Training
+Training
+Course Catalog
+Videos
+FAQ
+PartnersFind a Partner
+Explore
+Reseller Partner
+Success Stories
+All Partners
+Not yet a Partner?
+Become a partner
+AboutAbout us
+Company
+Careers
+Events
+Success Stories
+Open Source
+Community
+Developers
+Bug and feature requests
+Source Code (Git)
+Company Details
+Press Releases
+Media Kit
+In the News
+Newsletter
+Contact us →
+ Proxmox celebrates 20 years of open-source enterprise solutions 
+ April 29, 2025 
+ VIENNA, Austria – April 29, 2025 – Proxmox, a leading provider of open-source Enterprise IT solutions, celebrates its 20th anniversary. Since 2005, Proxmox has been committed to delivering secure, scalable, and user-friendly open-source solutions to enterprises worldwide.
+Starting with Proxmox Mail Gateway and later launching Proxmox Virtual Environment—the first platform to combine container-based virtualization and the KVM hypervisor on a single interface—Proxmox has become synonymous with innovation and usability. Built-in technologies like ZFS and Ceph allow businesses to eliminate expensive storage infrastructure such as Fibre Channel or iSCSI SANs, further enhancing Proxmox VE's value. Today, the company’s flagship product Proxmox VE has become the open-source alternative to proprietary virtualization solutions such as VMware by Broadcom.
+Milestones include the introduction of a subscription-based support model in 2013, the launch of the Rust-based Proxmox Backup Server in 2020, the development of a new, Yew-based GUI framework, and the recent Alpha release of Proxmox Datacenter Manager simplifying the management of multiple Proxmox VE clusters.
+With more than 200,000 community members and 1.5 million hosts managed globally, Proxmox constantly deepens its partnerships with 1000+ resellers in over 142 countries, and with many hardware and software or backup suppliers like NVIDIA or Veeam. The Proxmox open solutions enable enterprises to avoid vendor lock-in and reduce IT costs significantly; approximately 95% of VMware setups could migrate seamlessly to Proxmox VE.
+Proxmox continues to expand its product capabilities and global reach, delivering transparent, future-ready solutions for modern IT environments.
+When we started Proxmox 20 years ago, our goal was simple: make powerful open-source server tools accessible to everyone. Today, seeing 1.5 millions of systems powered by Proxmox around the world, it’s clear we are achieving that goal. This success would not have been possible without our dedicated community, our loyal customers, our strong partners, and our passionate team. I sincerely thank everyone who has been part of this journey.Proxmox Founder Martin Maurer
+Looking ahead, we will continue on our steady growth path. We are excited to expanding our portfolio with new solutions like Proxmox Datacenter Manager, which will greatly simplify the management of multiple Proxmox VE clusters. We are strengthening our support offerings, and expanding support and integration with various backup and storage tools, and deepening our collaboration with customers and partners. Open-source is the future, and we are proud to help shape it—with transparency, flexibility, and the power of community.Proxmox Founder Dietmar Maurer
+###
+About Proxmox Server Solutions
+Proxmox provides powerful and user-friendly open-source server software. Enterprises of all sizes and industries use the Proxmox solutions to deploy efficient and simplified IT infrastructures, minimize total cost of ownership, and avoid vendor lock-in. Proxmox also offers commercial support, training services, and an extensive partner ecosystem to ensure business continuity for its customers. Proxmox Server Solutions GmbH was established in 2005 and is headquartered in Vienna, Austria.
+Contact: <press contact removed>
+ Products
+Proxmox Virtual Environment
+Proxmox Datacenter Manager
+Proxmox Backup Server
+Proxmox Mail Gateway
+Downloads
+Support
+ Resources
+Community
+Developers
+Success Stories
+Press Room
+Videos
+Training
+ Newsletter
+ Email *
+ I agree with the privacy policy *
+ Subscribe 
+About Proxmox
+Careers
+Contact Us
+Legal
+Sitemap
+Privacy Policy
+ Copyright © 2004 - 2026 Proxmox Server Solutions GmbH. All rights reserved.

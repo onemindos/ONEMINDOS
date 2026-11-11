@@ -1,0 +1,105 @@
+--- lines 1,200 of extracted text ---
+Overview | Garmin Connect Developer Program | Garmin Developers
+
+Garmin Developers
+
+Garmin Connect Developer Program
+
+Overview
+
+Business
+
+Personal
+
+MenuOverview
+
+Program Overview
+Whether you're an individual developer exploring an idea or a company building at scale, the Garmin Connect Developer Program provides a solution for access at every stage.
+
+Personal
+Secure access to your own Garmin Connect data for individuals who want to explore, analyze, and build personalized experiences using their own data.
+How It Works
+Log in to the Garmin Connect website to retrieve your personal API key and generate access tokens for Garmin Connect API requests.
+SET UP NOWPersonal
+INCLUDED:
+
+Activity Data
+JSON & .FIT
+
+Health Data
+JSON
+
+Women's Health Data
+JSON
+Delivery
+Pull only
+
+Business
+The Garmin Connect Developer Program supports a broad range of organizations, from individual developers and startups to companies operating at significant scale.
+How It Works
+Apply for the Garmin Connect Developer Program and create an app with Starter Access. As your business and integration needs evolve, you can request Enterprise Access through Garmin Developer Portal.
+REQUEST NOWStarterBUSINESS
+The starting point for organizations building apps with Garmin Connect API access. Build, test, and launch integrations using core Garmin Connect APIs.
+INCLUDED:
+
+Activity API
+JSON & .FIT
+
+Courses API
+JSON
+
+Health API
+JSON
+
+Training API
+JSON
+
+Women's Health API
+JSON
+Delivery
+Push only
+Historical Data
+Not included
+User Capacity
+LimitedEnterpriseBUSINESS
+Designed for companies operating at scale requiring capabilities beyond Starter Access. Available options and commercial terms are tailored based on business and technical requirements.
+INCLUDED:
+
+Activity API
+JSON & .FIT
+
+Courses API
+JSON
+
+Health API
+JSON
+
+Training API
+JSON
+
+Women's Health API
+JSON
+
+Golf API
+JSON
+Delivery
+Push or Ping/Pull
+Historical Data
+1 month +
+User Capacity
+Unlimited
+Technical Support
+Included
+
+Developer Blog
+
+Garmin Brand Guidelines
+
+Contact
+
+Developer Forum
+
+©2026 Garmin LTD or Its Subsidiaries•
+Terms of Use•
+PrivacyGarmin
+

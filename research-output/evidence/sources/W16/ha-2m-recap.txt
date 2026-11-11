@@ -1,0 +1,269 @@
+SOURCE: https://www.home-assistant.io/blog/2025/04/16/state-of-the-open-home-recap/
+ACCESSED: 2026-11-10
+
+2 million homes strong - State of the Open Home 2025 - Home Assistant
+2026.11.1
+Documentation
+Installation
+Automations
+Dashboards
+Voice assistants
+Device organization
+Energy management
+Templating
+Configuration using the YAML file
+Our hardware
+Home Assistant Green
+Connect ZBT-2
+Connect ZWA-2
+Voice Preview Edition
+👀
+Integrations
+Blog
+Need help?
+What the Heck?!
+Get started
+On this page
+Open Home Foundation year one
+Powering the Open Home
+Foundation upgrades
+Donations and Partnerships
+New Open Home Foundation projects
+Community
+Research
+Works with Home Assistant
+Voice & AI
+Living Our Values
+Wrapping Up
+Home
+▸
+Blog
+2 million homes strong - State of the Open Home 2025
+Paulus Schoutsen
+April 16, 2025
+Announcements
+State-of-the-Open-Home
+Comments
+The State of the Open Home 2025 has wrapped, and a big thanks to everyone who tuned in to the live stream! If you missed it, please
+check out the recording
+, it’s a slick production and definitely the best way to take it all in. For those who would rather read about all the updates and announcements, we’ve also got you covered with this blog.
+It was an over 2-hour event, and if you need a shorter summary than this blog, here’s my best attempt 😅:
+Summary:
+Home Assistant doubled its user base to 2M households
+Open Home Foundation is now tax-exempt
+The Foundation has taken on 39 full-time project staff
+Espressif has donated to the Foundation
+Announced upcoming Works with Home Assistant partners
+24 May will be Home Assistant Community Day with many meetups
+Music Assistant and HACS are now Foundation projects
+The Community Survey had 8k respondents and interesting results
+Roadmap 2025 sets out plans for a new device database
+For all the juicy details, keep reading!
+Open Home Foundation year one
+(00:10:10)
+State of the Open Home is our annual opportunity to share the latest developments, celebrate community achievements, and outline our vision for the future of the Open Home.
+It was at last year’s State of the Open Home that
+we announced the Open Home Foundation
+. I donated Home Assistant to the Foundation, and others in the community followed suit by contributing vital projects that form the core of the Open Home ecosystem. That’s also where we set out our mission: to fight for privacy (your data is yours), choice (no vendor lock-in), and sustainability (devices built to last).
+The Foundation wasn’t just paperwork—it took us from being “just” a bunch of (very big) open-source GitHub projects to being seen as serious industry players. We’re now recognized as a peer, invited to speak at events like the
+Connections summit at CES
+, joining the
+Z-Wave Alliance board
+, and even being named by
+Fast Company as a top innovator
+—all because we respect user data! People always knew that we were building cool things, but now they understand why we were doing it.
+Vergecast talking about realizing that Home Assistant is the real deal!
+Powering the Open Home
+(00:23:13)
+There are now 56 people working full-time to support Open Home projects and the community that surrounds them. These are some of the biggest open source projects in the world, including Home Assistant, ESPHome, Z-Wave JS, Zigpy, Open Home Matter Server, our voice technology, apps, and more. Many of the founders of these Open Home projects now work for the Open Home Foundation, turning their part-time passions into full-time careers - our in-house expertise is truly industry-leading. Supporting all this work requires a steady stream of income.
+Nabu Casa existed before the Open Home Foundation, and during State of the Open Home 2025,
+Ben Bangert
+, Nabu Casa’s co-founder and CTO, explained why and how it was set up,
+Our approach at Nabu Casa has always been about sustainable growth. By avoiding the startup model, we can ensure we are under no pressure to compromise on our mission and values. It has driven our ability to hire and expand the company without taking on outside interests that would have goals that don't align with ours.
+Nabu Casa builds and maintains the products that make Home Assistant easier to use, like
+Home Assistant Cloud
+and
+hardware
+. A big chunk of its profit continues to go to projects like Home Assistant, but now it does so via the Open Home Foundation. The Open Home Foundation builds on Nabu Casa’s original intent of removing outside pressures from the projects it funds, allowing them never to be bought or ruined by commercial meddling.
+Foundation upgrades
+In the year since launching the Foundation, more steps have been taken to protect the Open Home. We chose Switzerland to base the Foundation as it provided the best protection for these projects. We recently transitioned from a Swiss Verein to
+a more protective Stiftung
+. We also achieved tax-exempt status, meaning your support can go even further. Where previously, all 56 employees worked for Nabu Casa, now all employees who work directly on Foundation projects work for the Foundation, further enhancing the independence of Foundation projects.
+The Open Home Foundation is growing
+A big shout-out to
+Pascal
+! He was instrumental in starting the Foundation and has spent the last year fine-tuning its operation.
+Donations and Partnerships
+(00:26:38)
+This year, we received several high-profile donations, and at the State of the Open Home, we announced another considerable donation:
+Espressif
+has donated $25,000 to the Foundation! Espressif designs many of the chips that power ESPHome. They are supporting Open Home software development to help drive the DIY sensor and controller revolution forward.
+More than donations, we have projects that provide amazing in-kind support
+Late last year, we received
+$25,000 from DuckDuckGo
+for being part of a better Internet ecosystem. These two sizeable donations make a meaningful impact on our work, and we are incredibly grateful for the support of these two organizations that believe in our mission. We also always try to support the projects that we believe are vital to our work and the broader Open Home ecosystem. That is why this year we started recurring donations to
+Buildroot
+,
+Alpine
+, and
+aiohttp
+.
+As we said previously, we want sustainable funding, and small intermittent donations don’t allow us to effectively financially plan.
+Home Assistant Cloud subscriptions
+remain the best way for individuals to support us financially.
+New Open Home Foundation projects
+(00:31:34)
+The Open Home Foundation owns and governs over 240 open standards, drivers, and libraries that support the realization of the Open Home, and it’s time to add a couple more.
+Marcel van der Veldt
+joined the live stream to announce that he has donated
+Music Assistant
+to the Open Home Foundation! Music Assistant has always been deeply entwined with multiple Open Home projects, and we’re excited to see how this extra support will allow more people to take back control of their music, on their players. If you want some interesting insight into Music Assistant, my
+interview with Marcel
+during the event is a must-watch.
+And there was more! The
+Home Assistant Community Store (HACS)
+, created by
+Joakim Sørensen
+, has also been donated to the Open Home Foundation! HACS is an amazing tool for the community, giving more choice to Home Assistant users and serving as a great starting point for your development journey. These projects are such a fantastic fit for the Foundation—I wouldn’t be surprised if you already thought they were part of it.
+Community
+(00:49:00)
+When asked at a recent event “What is my North Star?”, my answer came quickly, it is the “Community”. Nothing we do would be possible without our contributions, and supporters. Meeting community members during my travels is one of the best parts of this job.
+Franck Nijhof
+, Home Assistant Lead at the Open Home Foundation, took the stage to celebrate the incredible community. He shared some of the biggest community highlights of the year, including becoming the most active open source project on GitHub (21,000+ unique contributors in 2024!) and winning the most welcoming open-source project award. He emphasized that this success belongs to the entire community, which extends far beyond developers, as there are so many ways to contribute including being a translator, designer, tester, forum helper, or content creator.
+Our community is doing amazing things with Home Assistant,
+Check out how Rúnar Björn Herrera is
+making his home more accessible
+and sharing his expertise with the community.
+(01:03:08)
+One big announcement Franck made was that this year we went from 1 million to over 2 million active installations in 2024! The key to harnessing this community power, Franck explained, is actively listening and building with users, not just for them, but with them. Initiatives like the
+“Month of What The Heck?!”
+and adapting plans based on feedback (like with backups) demonstrate this commitment to iterating together, even when initial ideas need adjustment.
+Looking ahead, the goal is to deepen this collaboration by developing “fully in the open” across all disciplines, fostering a collective intelligence. To further strengthen these connections, Franck announced the first official
+Home Assistant Community Day on May 24th, 2025
+🎉, encouraging users worldwide to organize and attend local meetups.
+Research
+(01:08:03)
+We want the Foundation projects to serve our community, and that’s why we’ve put a bigger focus on research.
+Annika Schulz
+is our UX Researcher, and at this year’s State of the Open Home, she gave us a fantastic overview of the privacy-respecting research we’re conducting and the invaluable insights it is bringing.
+You love choice! but we're still learning what privacy and sustainability mean to you.
+Our 2024 Community Survey was a huge success, with over 8,600 responses! We learned so much about who uses Home Assistant. For instance, a big majority of the people who answered the survey are tech-curious, have been using HA for 3+ years, live in households of 2.8 people on average, and have somewhere between 11-100 devices 😎 (
+watch the whole segment
+, there are so many interesting results!). We also delved into their motivations and how deeply our values of Choice and Privacy resonate, even if the practical implementation of privacy remains a challenge for many. Annika’s key message – “User research helps remind us… We are not the users.” – we need to challenge our assumptions and personal biases.
+Works with Home Assistant
+(01:24:13)
+With choice playing such a big part in why our community uses Open Home projects, it’s crucial to ensure users can find great devices that align with our values.
+Miranda Bishop
+, our Partnership Manager, joined me to discuss the “Works with Home Assistant” program. Explaining it isn’t about exclusion but about
+highlighting
+manufacturers committed to local control. They also sign an agreement to provide long-term support and be a positive force in the community.
+We had a couple of our existing partners send us messages about joining the program, and thanks for the warm words. Also teased during the live stream were new partners close to formally joining the program, including
+Reolink
+,
+Eve
+, and
+Shelly
+(but more details on those soon). Miranda stressed that the program isn’t “pay us money and you can have the badge”; it’s about shared ethics of privacy, choice, and sustainability. The goal remains: within 3 years, to offer certified choices for every device type, everywhere, at all budgets. Your feedback helps drive this – keep telling manufacturers you want local control and point them to the
+Works with Home Assistant program
+, as we’re here to help.
+Shelly with Home Assistant helps
+automate Las Vegas' Mob Museum
+, including its moonshine production!
+(01:54:00)
+Voice & AI
+(01:36:05)
+Mike Hansen
+, our “Voice Guy,” was the next to take the stage. In case you missed it, this year we launched our first voice hardware device, Home Assistant Voice Preview Edition, which pairs incredibly with all the voice software we’ve been developing. To put it mildly, it’s been a pretty big hit! Mike explained how we built it to help push forward open source voice development, and it’s very much succeeding. Before Voice Preview Edition there wasn’t an Icelandic-speaking voice assistant, this is now being developed—all without a single person at the Foundation speaking this language.
+@Jlo's
+AI-powered home in action (01:42:37)
+Mike touched on future plans for more conversational interactions and enhanced integration with Music Assistant. He also addressed AI, explaining how we see Home Assistant as the perfect private playground for users to experiment with AI technologies locally, focusing on utility, not monetization, unlike the big players. A landline phone on set even rang during the segment with an AI-powered notification from
+my own
+Home Assistant—apologies, it predates silent mode ☎️.
+Living Our Values
+(01:57:05)
+We wrapped up with a discussion focused on our values with Annika Schulz, Franck Nijhof, and Madelena Mak. We touched on user privacy concerns Annika uncovered, the diverse ways Franck sees ‘choice’ manifesting (beyond just protocols, including local APIs), and how sustainability, as Madelena explained, connects to durability, energy management, and the right to repair.
+Finally, together with
+Madelena Mak
+, we looked back at our 2024
+roadmap
+– I’m proud we delivered on nearly everything we set out to do, including top community requests. This builds trust. We gave a
+glimpse into our 2025 Roadmap
+(
+02:16:51
+), including a new focus on harnessing our collective intelligence. This will be driven by a new information architecture that gives context to devices via a device database (expect a detailed post on Roadmap 2025 soon!).
+Wrapping Up
+The live Q&A session at the end was, as always, a highlight,
+tackling great questions from the audience
+.
+It was an energizing day, reaffirming my belief in our mission and the incredible power of this community. We’re building something unique and important together. Thank you to everyone who watched, participated, and continuously supports the Open Home. Your belief in this project makes it all possible.
+And, of course, a huge thank you to all our
+Home Assistant Cloud subscribers
+. Your financial support is the bedrock that allows the Open Home Foundation to thrive and continue driving innovation in the private, open smart home.
+Share this post
+Tweet
+Share on Facebook
+Recent Posts
+2026.11: A lot in store!
+Naming things in Home Assistant, shaped by your feedback
+“What the Heck?!” 2026: Everyone at home gets a say
+Everything Smart Home joins Works with Home Assistant
+LEDVANCE joins Works with Home Assistant
+On this page
+Open Home Foundation year one
+Powering the Open Home
+Foundation upgrades
+Donations and Partnerships
+New Open Home Foundation projects
+Community
+Research
+Works with Home Assistant
+Voice & AI
+Living Our Values
+Wrapping Up
+Back to top
+Home Assistant is a project from the
+Open Home Foundation
+.
+Join us and contribute!
+GitHub repo
+Contributors website
+Community Forum
+Creator Network
+Works with Home Assistant
+Our community
+Reporting issues
+System status
+Integration Alerts
+Security Alerts
+System Status
+Companion apps
+iOS and Apple devices
+Android and Wear OS
+...and more!
+Support us
+Merch store
+Home Assistant Cloud
+Governance
+Privacy Notices
+Contributor License Agreement
+Terms of Service
+Code of Conduct
+License
+Follow us
+Sign up for our newsletter
+For partnership inquiries please check out
+Works with Home Assistant
+. For media,
+email our team
+. For other questions, you can
+contact support
+(No technical support!)
+This website uses
+privacy-first analytics
+to help us improve the site. You can view all data in our
+public dashboard
+.
+Website powered by
+Jekyll
+Originally based on the
+Oscailte theme

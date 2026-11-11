@@ -110,3 +110,84 @@
 | Paywalled standards (EN 18031 clause text, IEC 62443) | Only catalogue metadata could be cited | Buy if a certification route is chosen (Z-11) |
 | CIP wiki (reference hardware, SLTS table) | Behind a bot challenge; not bypassed | Check it in a browser if CIP becomes the industrial kernel |
 | New Wayback captures | Blocked by the run's permission policy | Optional: save the ARCHIVE-GAP pages listed in `evidence/sources/*.md` |
+
+---
+
+## E. Founder decisions from the wave-2 adversarial pass (added 2026-11-11 by DEC, revision 2 of `01-…`)
+
+> ### Explain it like I'm the founder
+> The second round of attacks on the plan didn't knock anything over, but it showed where the plan leans on *your* choices rather than on evidence. Three earlier items grew: Z-01 now covers your Jetson robots, Z-03 now has Mender as a serious runner-up, and Z-04 now includes the keys that sign drivers and plugins. Twelve new items follow. Each has a recommendation you can accept as is.
+
+**Updates to earlier items (IDs unchanged):**
+- **Z-01 now covers the Jetson flavor.** A OneMind Jetson image is a modified L4T Ubuntu, and NVIDIA's forum defers its Ubuntu rootfs to Canonical's terms [C-REF-DC-cost-007, C-LIC-011]. Ask Canonical about **both** the Jetson image and a possible Ubuntu core. NVIDIA's own BSP licence is now verified: the unmodified BSP may be shipped on NVIDIA hardware with the licence attached [C-LIC-001…003]. The Canonical and Freexian quote requests are drafted in [`evidence/outreach-drafts.md`](evidence/outreach-drafts.md) (not sent; the brief forbids contacting vendors).
+- **Z-03 now has three options:** (a) RAUC (recommended; wins the tie-break on Secure Boot, revocation, free deltas, Pi 5 and lab proof), (b) **Mender** (corrected raw score 62.0 vs RAUC 61.0, a tie; strongest on MCU-to-Jetson breadth and a self-hostable fleet server, but deltas and phased rollouts are paid [C-STEEL-updates-mender-015]), (c) Rugix (56.0 at best; one maintainer). **Recommendation: (a), and fund Mender's two tests (a lab spike and a stock-L4T Jetson test) in the 180 days.**
+- **Z-04 now includes** the kernel-module signing key (driver packs), the extension (sysext) verity key and the plugin countersigning key, all under the same offline root as RAUC [01 §4.8].
+- **Z-05 now distinguishes image and box:** ask counsel whether a OneMind box is classified as an "operating system" or by its own core function, and screen it against the router, VPN, smart-home assistant and identity-management entries [C-REF-W6-technical-008].
+
+### Z-16 · Jetson base: stay on L4T Ubuntu, or move to Yocto meta-tegra? · DC-09, F-2, M-7
+**Why it matters:** L4T Ubuntu is easiest for a solo founder and has NVIDIA's full SDK, but it needs Canonical's permission (Z-01) and its life ends with each JetPack branch (JetPack 5 ended on 2026-10-30 [C-REF-W7L-001]). meta-tegra builds Orin and Thor images on a 6.18 LTS kernel with NVIDIA's own out-of-tree modules, and balenaOS ships Orin on it [C-STEEL-jb-002, C-STEEL-jb-010]. Its kernel route is only about four months old and depends on very few maintainers [C-STEEL-jb-004, C-STEEL-jb-006].
+**Options:** (a) L4T Ubuntu for the launch beta **and** a meta-tegra lab (LAB-W7-6) within 180 days that decides the default; (b) L4T only; (c) meta-tegra from day one.
+**Recommendation: (a).** Buy the Orin Nano Super early; the lab needs it. Flash every Jetson A/B from the start so a later switch is an update.
+**Blocked until answered:** the Robotics edition's long-term image; the S2 tie-break (meta-tegra favours Mender).
+
+### Z-17 · Robotics simulation/training GPU boxes: Debian or Ubuntu? · DC-13, N-8
+**Why it matters:** Isaac Sim lists only Ubuntu (and Windows) hosts [C-REF-DC-robotics-013], and NVIDIA's driver build has broken on routine Debian kernels [C-REF-DC-cost-009].
+**Options:** (a) robotics sim/training boxes on the Ubuntu GPU flavor after Z-01, unless a lab runs Isaac Sim headless on Debian 13 and passes NVIDIA's checker; (b) Debian everywhere; (c) Ubuntu for every GPU box.
+**Recommendation: (a).** The general Pro box (local AI, time-sliced) stays Debian.
+
+### Z-18 · x86 boot route for the first image · DC-18, R-1
+**Why it matters:** the lab proved two routes. RAUC's GRUB backend gives 3 counted tries and passed with real k3s [C-LAB-rauc-k3s-gate-009]. RAUC's `efi` backend with signed per-slot kernels passed under Secure Boot with no GRUB at all [C-LAB-secureboot-rauc-013], but gives one try per boot attempt [C-LAB-secureboot-rauc-003]. Switching routes on boxes already sold is costly.
+**Options:** (a) `efi` + signed UKIs from the first image, if a combined spike (efi + real k3s gate + power cut during the trial boot) passes, else GRUB; (b) GRUB at launch, migrate later; (c) `efi` regardless.
+**Recommendation: (a).**
+
+### Z-19 · Secure Boot key model and the kernel it implies · F-7, M-2
+**Why it matters:** a key in UEFI db cannot sign kernel modules for a stock kernel; only a key built into the kernel, or a MOK key confirmed at the console, can [C-DEC-008…010]. Driver plugins and NVIDIA modules need one of those under Secure Boot.
+**Options:** (a) OneMind's db key enrolled at the factory (setup mode), and for the enforcing release a OneMind-built LTS kernel with the module key built in (K2-hybrid; Jetson keeps NVIDIA's kernel); (b) shim + a OneMind MOK enrolled at the factory, stock Debian kernel (BYO boxes need a console step each); (c) no out-of-tree modules under Secure Boot.
+**Recommendation: (a)**, unless test T-W19-03 finds a console-free route on a stock kernel. Also decide whether owners can take over their box's keys ("sovereign mode"), which GPL-3 Installation Information may require on locked consumer boxes [C-LIC-019].
+
+### Z-20 · Fleet server for updates · F-11, N-6
+**Why it matters:** RAUC has no fleet server; Mender OSS has one (heavy: 11+ containers plus MongoDB [C-STEEL-updates-mender-003]); Flight Control serves the Red Hat lineage [C-STEEL-IIOT-005].
+**Options:** (a) OneMind's own release service on NATS (manifest, channels, revocation) for RAUC, with the W8 10k fleet test choosing a fleet plane in year 1; (b) adopt Mender OSS server now; (c) hawkBit.
+**Recommendation: (a)**, and include Mender OSS server and Flight Control in that fleet test.
+
+### Z-21 · Plugin contracts, review staffing and money · DC-16, F-5 (also 29 §20 items 1–2)
+**Options:** (a) freeze E1, E2, E3, E4, E7, E9, E10 at v1 and ship E5, E6, E8 as v1-beta; Community tier only for sandboxed plugin types; host-grant plugins Verified or higher; a costed review plan before the Community tier opens; paid-plugin share 0% on the first USD 1M lifetime, then 15% (W19's proposal); (b) freeze all ten now; (c) no third-party plugins in release 1.
+**Recommendation: (a).** Review is staffing: Open VSX says its model "cannot continue indefinitely" without funding [C-REF-W19-cost-004]. Also decide whether the Community tier is enabled on the Robotics edition at all (recommended: Verified and higher only).
+
+### Z-22 · Third-party host-level plugins in release 1? · DC-16, U-4
+**Why it matters:** host extensions live on the data partition, which A/B never resets. If a test shows that someone with root once can make an unsigned extension merge after a reboot or slot switch, the safe fallback is Flatcar's model: host extensions only inside the signed OS slot [C-W19-005, C-REF-W19-security-004].
+**Options:** (a) allow them if T-W19-01's security variant passes, otherwise OneMind-built only; (b) OneMind-built host extensions only in release 1; (c) allow them regardless.
+**Recommendation: (a).** Apps, widgets, AI tools and automations are unaffected either way.
+
+### Z-23 · k3s on robots and field kits · N-9, U-4
+**Why it matters:** a k3s server holds every Secret and an admin kubeconfig; Kubernetes assumes nodes are physically secure [C-REF-W4-security-008].
+**Options:** (a) capturable nodes run the k3s **agent** only, enrolled with TPM-bound or short-lived credentials; servers only on hub-class boxes; (b) servers wherever there are ≥ 4 GB.
+**Recommendation: (a).** A single-box home Lite is a server by necessity and relies on its encrypted data partition.
+
+### Z-24 · Sunset the script install · P-7, DC-22
+**Why it matters:** Home Assistant, Umbrel and CasaOS each dropped or stalled their script/BYO path [C-REF-DC-longevity-004, C-REF-DC-longevity-005, C-REF-DC-longevity-006].
+**Options:** (a) script install is a developer loop, unsupported after image GA; BYO hardware means "flash our image"; (b) keep a supported script path.
+**Recommendation: (a).**
+
+### Z-25 · Is FIPS/STIG compliance a P0 product property? · W4 P0-2, DC-24
+**Why it matters:** if yes, the k3s/RKE2 tie breaks to **RKE2 on every node with 8 GB or more** (RKE2 has an active FIPS 140-3 certificate, Canal CNI only [C-REF-W4-security-006, C-REF-W4-security-007]); k3s also crashes in Go's FIPS-only mode today [C-REF-DC-longevity-010].
+**Options:** (a) no FIPS/STIG requirement before the public-safety tier is sold; CJIS AES-256 under FIPS 197 as the day-1 answer; (b) compliance is P0 from year 1.
+**Recommendation: (a)**, unless a named public-safety buyer is in year-1 scope.
+
+### Z-26 · Desktop (Hyprland) edition plugins · UX-10, A-6 (29 §20 item 3)
+**Options:** (a) accept Omarchy's manifest shape, Verified publishers only, off by default; (b) a OneMind fork of the manifest; (c) no desktop plugins.
+**Recommendation: (a)**, as W19 proposes.
+
+### Z-27 · Pull two industrial tests forward? · F-11, F-12
+**Why it matters:** the EL10 bootc steelman would flip the industrial recommendation if FDO onboarding and fleet simulation clearly favour it [C-STEEL-IIOT-001, C-STEEL-IIOT-007].
+**Options:** (a) run LAB-W8-4 (FDO onboarding with TPM) on **both** Debian and AlmaLinux 10 bootc, and a Flight Control `devicesimulator` run, within 180 days; (b) leave them for the year-2 Industrial profile.
+**Recommendation: (a).** Both are cheap VM tests and could change which base the first industrial SKU uses.
+
+### Access and inputs added in revision 2 (RS-6)
+
+| Needed | Why | What Zeus can do |
+|---|---|---|
+| Jetson Orin Nano Super (and later a second Orin module) | meta-tegra LAB-W7-6; Mender stock-L4T test; RT variance between two modules [C-REF-DC-robotics-005] | Buy early in the 180 days |
+| Dell 5540 in firmware setup mode | Secure Boot on real firmware, option ROMs, power cut under Secure Boot (F-SB-1…3) | Run the tests in `evidence/lab/secureboot-rauc/README.md` §11; back up the factory keys first |
+| A RAUC ≥ 1.15.2 package for Debian 13 | Every RAUC lab ran Debian's 1.13 [C-LAB-rauc-k3s-gate-005] | Approve building it from upstream in CI |
+| Counsel time | Image vs box CRA classes, Ubuntu for Jetson, GPL-3 Installation Information on locked boxes | Brief counsel with Z-01, Z-05 and Z-19 |

@@ -1,0 +1,380 @@
+SOURCE: https://www.home-assistant.io/green/
+ACCESSED: 2026-11-10
+
+Home Assistant Green - Home Assistant
+2026.11.1
+Documentation
+Installation
+Automations
+Dashboards
+Voice assistants
+Device organization
+Energy management
+Templating
+Configuration using the YAML file
+Our hardware
+Home Assistant Green
+Connect ZBT-2
+Connect ZWA-2
+Voice Preview Edition
+👀
+Integrations
+Blog
+Need help?
+What the Heck?!
+Get started
+What is it?
+Easy to start
+Versatile
+Trustworthy
+Specs
+FAQ
+Support
+BUY NOW
+What is it?
+Easy to start
+Versatile
+Trustworthy
+Specs
+FAQ
+Support
+BUY NOW
+Upgrade Your
+Smart Home.
+Designed and built by
+Easy to start.
+Versatile.
+Trust­Worthy.
+Take your first step to upgrading your smart home with Home Assistant
+Green, the easiest way to start using Home Assistant.
+Easy to start
+Ready. Set. Go.
+—
+The affordable Home Assistant Green is the easiest way you can start
+using Home Assistant. Simply plug in the included power adapter and Ethernet cable to begin your Home Assistant journey.*
+*Internet connection is required for the initial setup
+Simple setup
+Plug and play. Get started right away.
+1
+Plug it in.
+Just plug in power
+and network cables, and you'll be up and running.
+2
+Use the app.
+Download our
+mobile apps or use our web app to guide you through the setup
+process seamlessly,
+3
+That's all!
+Home Assistant will automatically start detecting your smart home
+devices.
+Great quality yet affordable.
+$
+199 / 179
+€
+*
+Home Assistant Green is the easiest way to run Home Assistant. Try out Home Assistant for your smart home or share
+the love with family and friends.
+* Recommended MSRP. USD prices exclude taxes, while EUR prices include applicable taxes. Prices differ between regions due to varying local market costs and conditions, and are subject to individual retailers.
+Brought to you by
+Every purchase supports the Open Home
+Nabu Casa designs and builds official Home Assistant hardware. As a commercial partner of the Open Home Foundation, Nabu Casa contributes the majority of its profits to the foundation. This means every purchase supports the development of projects like Home Assistant and ESPHome.
+An easy choice
+Check out what reviewers and community members are saying about the Home Assistant Green
+The Home Assistant Green is here to make the most powerful smart home platform more accessible
+The Verge
+Home Assistant setup: A step by step guide for beginners
+Rebecca Keys
+Home Assistant GREEN - A Smart Home Hub for Beginners!
+Make It Work
+Beginner's Guide to Getting Started with Home Assistant
+HiTech Life
+"There's no going back to Apple Home or Google Home because the level of control you get is completely unmatched."
+6 Months Later
+One Year with Home Assistant: Tips & Tricks & What I Learned (HA Green)
+TechMishka
+"Home Assistant Green Is the Best Smart Home Purchase I've Ever Made"
+How-To Geek
+Super Easy Home Assistant Setup in 2026!
+Simon Says Home Assistant
+Getting Started with Home Automation using Home Assistant Green
+Project Smart Home
+"A year later, I still haven't found any reason to upgrade my trusty Home Assistant Green."
+The Smart Home Blog
+Versatile
+Works with (almost)
+Everything.
+Powerful hardware lets you control and automate everything in your
+home from a single app with Home Assistant.
+Integrated
+Everything and the kitchen sink in one app.
+More than 1,000 built-in integrations support hundreds of thousands
+of smart devices and online services, with more regularly added by
+our community.
+SIMPLE MIGRATION
+Switch from other smart home ecosystems at your own pace.
+Home Assistant works with your existing Apple HomeKit, Google Home*,
+Samsung SmartThings**, and Amazon Alexa* setup, allowing a seamless
+and gradual migration for everyone in your home.
+Learn more
+* Home Assistant Cloud subscription is recommended for seamless
+integration with Google Home and Amazon Alexa voice assistants.
+**
+Home Assistant Cloud subscription is recommended for using webhooks
+with Samsung SmartThings.
+Extensible
+Expand compatibility as your home expands.
+You can add Home Assistant Connect ZBT-2 to control Zigbee and Thread* devices, set up Home Assistant Cloud for voice assistants, and integrate third-party USB accessories to support other smart standards, such as
+Z-Wave
+or Bluetooth.
+Get Connect ZBT-2
+Powerful specs
+The perfect hardware for Home Assistant.
+Home Assistant Green ensures a fast and smooth Home Assistant user
+experience.
+1.8 GHz
+Quad-core ARM processor
+4 GB
+RAM
+32 GB
+eMMC Storage
+Beautiful enclosure
+made of translucent polycarbonate
+USB 2.0 ports ×2
+for use with Home Assistant Connect ZBT-2 and more
+Gigabit Ethernet port
+for fast communication
+Large aluminum heatsink
+for noiseless CPU cooling
+Trustworthy
+Built for trust.
+Built to last.
+Your home is built to last, and so should your smart home. With Home
+Assistant, your smart home is private, truly owned and controlled by
+you.
+Improves every month.
+Home Assistant is built by one of the largest communities of
+open-source contributors. New features and improvements are added
+every month, ensuring your smart home never lets you down.
+Your data is private and local.
+Home Assistant keeps your data locally, which means you are safe
+from invasive privacy practices and you can access your smart home
+even when the Internet is down.
+What's in the box
+Home Assistant Green smart home hub
+Gigabit Ethernet cable
+x 1
+Universal power supply
+12 V DC, 1 A
+Comes with plug adapters for EU, US, and UK
+Quick Start Guide
+Warranty and Safety Information
+Hardware specifications
+SoC
+Rockchip RK3566 SoC with quad-core Arm Cortex-A55 CPU
+CPU Frequency
+1.8 GHz
+Storage
+32 GB eMMC flash drive
+Memory
+4 GB LPDDR4X
+Interfaces
+Status LEDs
+White (power indicator)
+Green (activity indicator)
+Yellow
+(system health indicator)
+Power supply
+DC barrel connector, 5.5 mm * 2.1 mm
+12 V DC, 1 A
+Battery
+CR2032. Not included. Optional.
+Energy consumption
+Idle: ~1.7 W at 12 V
+Load: ~3 W at 12 V
+USB
+2x USB 2.0 Type-A Host ports, 5 V up to 2 A (combined)
+Display
+HDMI port, for diagnostic purposes only
+External storage
+MicroSD slot, for recovery purposes only
+Networking
+Gigabit Ethernet port
+Dimensions and weight
+Length
+112 mm / 4.41 inches
+Width
+112 mm / 4.41 inches
+Height
+32 mm / 1.26 inches
+Weight
+340 g / 12 oz
+Materials
+Enclosure
+Semi-transparent polycarbonate plastic
+Heatsink
+Anodized aluminum
+Packaging
+Chipboard
+Environmental conditions for operation
+Temperature
+0 °C to 40 °C
+32 °F to 104 °F
+Humidity
+Non-condensing
+Room conditions
+Indoor use only
+Keep in dry, not excessively dusty environment
+as this can cause damage to the unit.
+Product information
+Model No.
+NC-GREEN-1175
+Conformity
+CE, FCC
+Origin
+Made in PRC
+Who made this?
+Pioneers of the Open Home.
+Home Assistant Green is created and designed by Nabu Casa, the
+founders behind the popular home automation software Home Assistant
+and is engineered by Seeed Studio.
+Learn more
+Got Some questions?
+I am already using Home Assistant. Is this for me?
+If you are not familiar with tinkering with Raspberry Pi, or if
+you want a well-supported and dedicated piece of hardware to run
+Home Assistant, Home Assistant Green is for you.
+If you
+are still looking for a present for friends and family, this would
+be perfect, too!
+What is the difference between Home Assistant Yellow and Home
+Assistant Green?
+The most obvious difference is that Home Assistant Green is a
+plug-and-play system. It is designed to be used as-is. Home
+Assistant Yellow is designed to be extended by more RAM or more
+storage by adding an NVMe SSD. But extending also means you have
+to open the housing, install the additional hardware, and go
+through more complex installation steps.
+The other big difference is that Yellow comes with support
+for Zigbee 3.0 and Matter-over-Thread. But Green can also use
+these protocols by adding a Connect ZBT-2.
+Do I need a Home Assistant Connect ZBT-2?
+It is not strictly required, as most smart home devices and hubs work with Home Assistant Green out-of-the-box, but you should
+confirm compatibility
+. For the best experience, pair Home Assistant Connect ZBT-2 with Home Assistant Green, making a single hub solution for your Zigbee or Thread powered smart home.
+Home Assistant Connect ZBT-2 allows Zigbee or Thread* devices to connect directly to Home Assistant Green.
+* Thread support is currently under development.
+Will Nabu Casa keep supporting Home Assistant Green?
+Yes! We are committed to keep supporting all platforms that are
+currently available.
+Will Nabu Casa keep supporting Home Assistant Yellow?
+Absolutely! We believe in Home Assistant Yellow! Depending on
+who you are and what your smart home looks like, Home
+Assistant Yellow might be the better choice for you.
+Will Home Assistant drop support for the Raspberry Pi?
+Nope! We are committed to keep supporting all platforms that are
+currently available.
+Does Home Assistant Green support Matter?
+Yes. Home Assistant works with
+Matter devices
+over Wi-Fi and Ethernet once the Matter integration and
+Matter Server
+are set up. Additionally, Thread-based Matter devices will need a
+Thread border router
+on your network, and you may already have a compatible device in your home (such as certain Apple, Google, and Amazon devices). Home Assistant can act as one with the addition of a Thread-capable radio such as the
+Home Assistant Connect ZBT-2
+.
+Already got your Home Assistant Green?
+Let's get you started. Learn more in our documentations for the
+device.
+Get started
+Home Assistant Green
+Shipping to
+North America
+Asia
+Australia
+Europe
+Ships from US
+Ships from US
+Ships from US
+Ships from US
+Ships from US & Canada
+Ships from China
+Ships from Australia
+Ships from Australia
+Ships from Australia
+Ships from Australia
+Ships from Czech Republic
+Ships from Denmark
+Ships from Finland
+Ships from France
+Ships from Germany
+Ships from Germany
+Ships from Germany
+Ships from Germany
+Ships from Germany
+Ships from Greece
+Ships from Hungary
+Ships from Hungary
+Ships from Italy
+Ships from Netherlands
+Ships from Netherlands
+Ships from Norway
+Ships from Poland
+Ships from Portugal
+Ships from Romania
+Ships from Slovakia
+Ships from Sweden
+Ships from Sweden
+Ships from Sweden
+Ships from Switzerland
+Ships from Switzerland
+Ships from UK
+Ships from UK
+Ships from UK
+Home Assistant is a project from the
+Open Home Foundation
+.
+Join us and contribute!
+GitHub repo
+Contributors website
+Community Forum
+Creator Network
+Works with Home Assistant
+Our community
+Reporting issues
+System status
+Integration Alerts
+Security Alerts
+System Status
+Companion apps
+iOS and Apple devices
+Android and Wear OS
+...and more!
+Support us
+Merch store
+Home Assistant Cloud
+Governance
+Privacy Notices
+Contributor License Agreement
+Terms of Service
+Code of Conduct
+License
+Follow us
+Sign up for our newsletter
+For partnership inquiries please check out
+Works with Home Assistant
+. For media,
+email our team
+. For other questions, you can
+contact support
+(No technical support!)
+This website uses
+privacy-first analytics
+to help us improve the site. You can view all data in our
+public dashboard
+.
+Website powered by
+Jekyll
+Originally based on the
+Oscailte theme

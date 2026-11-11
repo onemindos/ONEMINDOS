@@ -1,0 +1,40 @@
+SOURCE: https://github.com/Start9Labs/start-technologies/issues/4009
+ACCESSED: 2026-11-11
+STATE: CLOSED created 2026-09-18T20:30:42Z closed 2026-09-19T19:22:01Z
+TITLE: Pi image never grows its btrfs root filesystem — init_resize.sh resizes through a read-only bind mount and ignores the failure (init_resize.sh:104)
+
+### Environment
+
+StartOS 0.4.0.1, `raspberrypi` image, Raspberry Pi 4 Model B (8 GB) booting from a 128 GB microSD — field report in #3624. Code read on master at 3cf760cb7; the resize line is unchanged since it was added in dba1cb93c, so every Pi image from 0.4.0-alpha.21 on is affected. Area: image build / first boot.
+
+### What happens
+
+On a Pi the root btrfs filesystem stays at its flashed size forever. First boot grows the root *partition* to 16 GiB (or the whole card on a small one), but the filesystem inside it is never grown. #3624's reporter found a 1.52 GiB filesystem on a 13.8 GiB partition with about 48 MiB free. `df` does not show the slack; `btrfs filesystem usage` does.
+
+The image is built with the root partition sized to the squashfs plus 256 MB, so that is all the free space a Pi ever has on the filesystem holding `images/` and the config overlay.
+
+### What should happen instead
+
+First boot should grow the filesystem to fill the partition, and a failed grow should fail `init_resize.sh` so its `init=` hook stays in place and retries, the way the partition steps already do.
+
+### Root cause / code pointers
+
+- `projects/start-os/build/image-recipe/raspberrypi/img/usr/lib/startos/scripts/init_resize.sh:104` runs `btrfs filesystem resize max /media/startos/root`.
+- `projects/start-os/build/lib/scripts/startos-initramfs-module:129` mounts that path with `mount -r --bind /startos ${rootmnt}/media/startos/root`. The resize ioctl takes write access on the mount it is issued through, so on a read-only bind it fails with `Read-only file system`. The `mount / -o remount,rw` on the line before remounts the overlay, not this bind.
+- The command's exit status is not checked, unlike every `sfdisk` step above it. `main` returns 0, the script logs `SUCCESS — resized root filesystem`, and removes its own hook from `grub.cfg`, so nothing ever retries.
+- `/media/startos/config` is a read-write bind of the same filesystem (`startos-initramfs-module:125`), and the script already writes to it a few lines later. Resizing through that path is what worked for the reporter.
+- `build.sh:482-485` sizes the root partition as squashfs + 256 MB with the comment "avoiding the need for btrfs resize", which is only true until something else needs space.
+
+Found by reading code; not run on a device. The kernel behaviour on a read-only bind is from `btrfs_ioctl_resize` taking `mnt_want_write_file`, and matches the reporter's observation that the same command succeeds through the read-write bind.
+
+Not tested, but worth checking before 0.4.0.2: an OS update writes the new rootfs image into `images/` beside the running one, which should not fit in the space these boxes have.
+
+### Logs & evidence
+
+From #3624, on the affected Pi:
+
+```
+sudo btrfs filesystem usage /media/startos/config   # 1.52 GiB filesystem, 12.26 GiB device slack, ~48 MiB free
+sudo btrfs filesystem resize max /media/startos/config   # grew it to 13.78 GiB, 12.30 GiB free
+```
+

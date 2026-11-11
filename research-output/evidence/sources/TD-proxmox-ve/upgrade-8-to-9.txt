@@ -1,0 +1,399 @@
+SOURCE: https://pve.proxmox.com/wiki/Upgrade_from_8_to_9
+ACCESSED: 2026-11-11
+
+
+Upgrade from 8 to 9 - Proxmox VE
+ Upgrade from 8 to 9
+ From Proxmox VE
+ Jump to navigation
+ Jump to search
+ Contents
+1 Introduction
+2 New installation
+3 Breaking Changes
+4 In-place upgrade
+4.1 Prerequisites
+4.2 Testing the Upgrade
+4.3 Actions step-by-step
+4.3.1 Continuously use the pve8to9 checklist script
+4.3.2 Move important Virtual Machines and Containers
+4.3.3 Update the configured APT repositories
+4.3.3.1 Update Debian Base Repositories to Trixie
+4.3.3.2 Add the Proxmox VE 9 Package Repository
+4.3.3.3 Update the Ceph Package Repository
+4.3.3.4 Refresh Package Index
+4.3.4 Upgrade the system to Debian Trixie and Proxmox VE 9.0
+4.3.5 Check Result & Reboot Into Updated Kernel
+4.4 After the Proxmox VE upgrade
+4.4.1 For Clusters
+4.4.2 Optional: Modernize apt Repository Sources
+4.5 Checklist issues
+4.5.1 proxmox-ve package is too old
+4.5.2 LVM/LVM-thin storage has guest volumes with autoactivation enabled
+4.6 Known Upgrade Issues
+4.6.1 General
+4.6.1.1 Upgrade wants to remove package 'proxmox-ve'
+4.6.1.2 Kernel Audit Messages are Enabled During the Upgrade
+4.6.2 Third-party Storage Plugins
+4.6.3 Ceph "insecure key types" health warnings and errors
+4.6.4 Older Hardware and New 6.14 Kernel and Other Software
+4.6.5 GRUB Might Fail To Boot From LVM in UEFI Mode
+4.6.6 Systemd-boot meta-package changes the bootloader configuration automatically and should be uninstalled
+4.6.7 LVM Thin Pool needs repair
+4.6.8 VM Live-Migration
+4.6.8.1 VM Live-Migration with different host CPUs
+4.6.9 Network
+4.6.9.1 Network Interface Name Change
+4.6.9.2 Existing Ceph Full Mesh Setups fail to boot
+4.6.9.3 Custom OpenFabric or OSPF Fabric FRR configurations broken
+4.6.10 cgroup V1 Removal
+4.6.11 NVIDIA vGPU Compatibility
+4.6.12 VM Memory Consumption Shown is Higher
+4.6.13 Veeam Backup broken for VMs using QEMU machine version >= 10.0
+4.6.14 Host PCI passthrough with kernel 6.14 for virtual machines sometimes broken
+4.6.15 systemd-sysctl no longer reads /etc/sysctl.conf
+4.7 Troubleshooting
+4.7.1 Failing upgrade to "trixie"
+4.7.2 Unable to boot due to grub failure
+4.8 External links
+Introduction
+Proxmox VE 9.x introduces several new major features. You should plan the upgrade carefully, make and verify backups before beginning, and test extensively. Depending on the existing configuration, several manual steps—including some downtime—may be required.
+Note: A valid and tested backup is always required before starting the upgrade process. Test the backup beforehand in a test lab setup.
+In case the system is customized and/or uses additional packages or any other third party repositories/packages, ensure those packages are also upgraded to and compatible with Debian Trixie.
+In general, there are two ways to upgrade a Proxmox VE 8.x system to Proxmox VE 9.x:
+A new installation on new hardware (restoring VMs from the backup)
+An in-place upgrade via apt (step-by-step)
+New installation
+Backup all VMs and containers to an external storage (see Backup and Restore).
+Backup all files in /etc
+required: files in /etc/pve, as well as /etc/passwd, /etc/network/interfaces, /etc/resolv.conf, and anything that deviates from a default installation.
+Install latest Proxmox VE 9.x from the ISO (this will delete all data on the existing host).
+Empty the browser cache and/or force-reload (CTRL + SHIFT + R, or for MacOS ⌘ + Alt + R) the Web UI.
+Rebuild your cluster, if applicable.
+Restore the file /etc/pve/storage.cfg (this will make the external storage used for backup available).
+Restore firewall configs /etc/pve/firewall/ and /etc/pve/nodes/<node>/host.fw (if applicable).
+Restore all VMs from backups (see Backup and Restore).
+Administrators comfortable with the command line can follow the procedure Bypassing backup and restore when upgrading, if all VMs/CTs are on a single shared storage.
+Breaking Changes
+See the release notes for breaking (API) changes: https://pve.proxmox.com/wiki/Roadmap#9.0-known-issues
+In-place upgrade
+In-place upgrades are carried out via apt. Familiarity with apt is required to proceed with this upgrade method.
+Prerequisites
+Upgraded to the latest version of Proxmox VE 8.4 on all nodes.
+Ensure your node(s) have correct package repository configuration (web UI, Node -> Repositories) if your pve-manager version isn't at least 8.4.1.
+Hyper-converged Ceph: upgrade any Ceph Quincy or Ceph Reef cluster to Ceph 19.2 Squid before you start the Proxmox VE upgrade to 9.0.
+Follow the guide Ceph Quincy to Reef and Ceph Reef to Squid, respectively.
+Co-installed Proxmox Backup Server: see the Proxmox Backup Server 3 to 4 upgrade how-to
+Reliable access to the node. It's recommended to have access over a host independent channel like IKVM/IPMI or physical access.
+If only SSH is available we recommend testing the upgrade on an identical, but non-production machine first.
+It is also highly recommended to use a terminal multiplexer (for example, tmux or screen) to ensure the upgrade can continue even if the SSH connection gets interrupted.
+A healthy cluster
+Valid and tested backup of all VMs and CTs (in case something goes wrong)
+At least 5 GB free disk space on the root mount point, ideally more than 10 GB.
+Check known upgrade issues
+Testing the Upgrade
+An upgrade test can be easily performed using a standalone server. Install the Proxmox VE 8.4 ISO on some test hardware, then upgrade this installation to the latest minor version of Proxmox VE 8.4 (see Package repositories).
+To replicate the production setup as closely as possible, copy or create all relevant configurations to the test machine, then start the upgrade. It is also possible to install Proxmox VE 8.4 in a VM and test the upgrade in this environment.
+Actions step-by-step
+The following actions need to be carried out from the command line of each Proxmox VE node in your cluster
+Perform the actions via console or ssh; preferably via console to avoid interrupted ssh connections. Do not carry out the upgrade when connected via the virtual console offered by the GUI; as this will get interrupted during the upgrade. If only SSH is available consider using a terminal multiplexer (such as tmux or screen) to avoid issues if the SSH connection gets interrupted.
+Remember to ensure that a valid backup of all VMs and CTs has been created before proceeding.
+Continuously use the pve8to9 checklist script
+A small checklist program named pve8to9 is included in the latest Proxmox VE 8.4 packages. The program will provide hints and warnings about potential issues before, during and after the upgrade process. You can call it by executing:
+ pve8to9
+To run it with all checks enabled, execute:
+ pve8to9 --full
+Make sure to run the full checks at least once before the upgrade.
+This script only checks and reports things. By default, no changes to the system are made and thus, none of the issues will be automatically fixed.
+You should keep in mind that Proxmox VE can be heavily customized, so the script may not recognize all the possible problems with a particular setup!
+It is recommended to re-run the script after each attempt to fix an issue. This ensures that the actions taken actually fixed the respective warning.
+Move important Virtual Machines and Containers
+If any VMs and CTs need to keep running for the duration of the upgrade, migrate them away from the node that is being upgraded.
+Migration compatibility rules to keep in mind when planning your cluster upgrade:
+A migration of a VM or CT from an older version of Proxmox VE to a newer version will always work.
+A migration from a newer Proxmox VE version to an older version may work, but is generally not supported.
+Note: In a partially-upgraded cluster, minor inconsistencies may occur if you are logged into the GUI on a node that is already upgraded to Proxmox VE 9, and perform actions (such as guest migrations) on a node that is still running Proxmox VE 8. If you see any errors or warnings while migrating guests away from a node that is still running Proxmox VE 8, log into the GUI on that node and retry the migration.
+Update the configured APT repositories
+First, make sure that the system is using the latest Proxmox VE 8.4 packages:
+apt update
+apt dist-upgrade
+pveversion
+The last command should report at least 8.4.1 or newer.
+Note: For hyperconverged Ceph setups, ensure that you are running Ceph Squid (version 19). Check the output of ceph --version to be sure. If you are not running Ceph Squid, see the upgrade guide for Ceph Reef to Squid and complete the upgrade first. Do not proceed with any of the steps below before upgrading to Ceph Squid.
+Update Debian Base Repositories to Trixie
+Update all Debian and Proxmox VE repository entries to Trixie.
+sed -i 's/bookworm/trixie/g' /etc/apt/sources.list
+sed -i 's/bookworm/trixie/g' /etc/apt/sources.list.d/pve-enterprise.list
+Ensure that there are no remaining Debian Bookworm specific repositories left, otherwise you can put a # symbol at the start of the respective line to comment these repositories out.
+Check all entries in the /etc/apt/sources.list and /etc/apt/sources.list.d/pve-enterprise.list, for the correct Proxmox VE 9 / Debian Trixie repositories see Package Repositories.
+Add the Proxmox VE 9 Package Repository
+If you are using the enterprise repository, you can add the Proxmox VE 9 enterprise repository in the new deb822 style. Run the following command to create the related pve-enterprise.sources file:
+cat > /etc/apt/sources.list.d/pve-enterprise.sources << EOF
+Types: deb
+URIs: https://enterprise.proxmox.com/debian/pve
+Suites: trixie
+Components: pve-enterprise
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+EOF
+After you added the new enterprise repository as above, check that apt picks it up correctly. You can do so by first running apt update followed by apt policy. Make sure that no errors are shown and that apt policy only outputs the desired repositories. Then you can remove the old /etc/apt/sources.list.d/pve-enterprise.list file. Run apt update and apt policy again to be certain that the old repo has been removed.
+If using the no-subscription repository, see Package Repositories. You should be able to add the Proxmox VE 9 no-subscription repository with this command:
+cat > /etc/apt/sources.list.d/proxmox.sources << EOF
+Types: deb
+URIs: http://download.proxmox.com/debian/pve
+Suites: trixie
+Components: pve-no-subscription
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+EOF
+As with the enterprise repository, make sure that apt picks it up correctly with apt update followed by apt policy. Then remove the previous Proxmox VE 8 no-subscription repository from either the /etc/apt/sources.list, /etc/apt/sources.list.d/pve-install-repo.list or any other .list file you may have added it to. Run apt update and apt policy again to be certain that the old repo has been removed.
+Update the Ceph Package Repository
+Note: For hyper-converged ceph setups only, check the ceph panel and configured repositories in the Web UI of this node, if unsure.
+Replace any ceph.com repositories with proxmox.com ceph repositories.
+Note: At this point a hyper-converged Ceph cluster installed directly in Proxmox VE must run Ceph 19.2 Squid, otherwise you need to upgrade Ceph first before upgrading to Proxmox VE 9 on Debian 13 Trixie!
+You can check the current Ceph version in the Ceph panel of each node in the Web UI of Proxmox VE.
+Since Proxmox VE 8 there also exists an enterprise repository for ceph, providing the best choice for production setups. Execute the command below to add the Trixie-based Ceph enterprise repository in the new deb822 style:
+cat > /etc/apt/sources.list.d/ceph.sources << EOF
+Types: deb
+URIs: https://enterprise.proxmox.com/debian/ceph-squid
+Suites: trixie
+Components: enterprise
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+EOF
+Make sure that apt picks it up correctly by running apt update first and then apt policy. There should be no errors and the new repository should show up correctly in the output of apt policy. Then you can remove the old /etc/apt/sources.list.d/ceph.list file. You can run apt update and then apt policy again to make sure it has been properly removed.
+If updating fails with a 401 error, you might need to refresh the subscription first to ensure new access to ceph is granted, do this via the Web UI or pvesubscription update --force.
+If you do not have any subscription you can use the no-subscription repository, add it with the following command in the new deb822 style:
+cat > /etc/apt/sources.list.d/ceph.sources << EOF
+Types: deb
+URIs: http://download.proxmox.com/debian/ceph-squid
+Suites: trixie
+Components: no-subscription
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+EOF
+As with the enterprise repository, make sure that apt picks it up correctly with apt update followed by apt policy. Then you can remove the old /etc/apt/sources.list.d/ceph.list file. 
+If there is a backports line, remove it - the upgrade has not been tested with packages from the backports repository installed.
+Refresh Package Index
+Update the repositories' package index and verify that no error is reported:
+apt update
+Upgrade the system to Debian Trixie and Proxmox VE 9.0
+Note that the time required for finishing this step heavily depends on the system's performance, especially the root filesystem's IOPS and bandwidth.
+A slow spinner can take up to 60 minutes or more, while for a high-performance server with SSD storage, the dist-upgrade can be finished in under 5 minutes.
+Start with this step, to get the initial set of upgraded packages:
+apt dist-upgrade
+During the above step, you will be asked to approve changes to configuration files and some service restarts, where the default config has been updated by their respective package.
+You may also be shown the output of apt-listchanges, you can simply exit there by pressing "q". If you get prompted for your default keyboard selection, simply use the arrow keys to navigate to the one applicable in your case and hit enter.
+For questions about service restarts (like Restart services during package upgrades without asking?) use the default if unsure, as the reboot after the upgrade will restart all services cleanly anyway. 
+It's suggested to check the difference for each file in question and choose the answer accordingly to what's most appropriate for your setup.
+Common configuration files with changes, and the recommended choices are:
+/etc/issue -> Proxmox VE will auto-generate this file on boot, and it has only cosmetic effects on the login console.
+Using the default "No" (keep your currently-installed version) is safe here.
+/etc/lvm/lvm.conf -> Changes relevant for Proxmox VE will be updated, and a newer config version might be useful.
+If you did not make extra changes yourself and are unsure it's suggested to choose "Yes" (install the package maintainer's version) here.
+/etc/ssh/sshd_config -> If you have not changed this file manually, the only differences should be a replacement of ChallengeResponseAuthentication no with KbdInteractiveAuthentication no and some irrelevant changes in comments (lines starting with #).
+If this is the case, both options are safe, though we would recommend installing the package maintainer's version in order to move away from the deprecated ChallengeResponseAuthentication option. If there are other changes, we suggest to inspect them closely and decide accordingly.
+/etc/default/grub -> Here you may want to take special care, as this is normally only asked for if you changed it manually, e.g., for adding some kernel command line option.
+It's recommended to check the difference for any relevant change, note that changes in comments (lines starting with #) are not relevant.
+If unsure, we suggested to selected "No" (keep your currently-installed version)
+/etc/chrony/chrony.conf -> If you made local changes you might want to move them out of the global config into the conf.d or, for custom time sources, the sources.d folder.
+See the /etc/chrony/conf.d/README and /etc/chrony/sources.d/README files on your system for detaily.
+If you did not make extra changes yourself and are unsure it's suggested to choose "Yes" (install the package maintainer's version) here.
+Check Result & Reboot Into Updated Kernel
+If the dist-upgrade command exits successfully, you can re-check the pve8to9 checker script and reboot the system in order to use the new Proxmox VE kernel.
+Please note that you should reboot even if you already used the 6.14 kernel previously, through the opt-in package on Proxmox VE 8.
+This is required to guarantee the best compatibility with the rest of the system, as the updated kernel was (re-)build with the newer Proxmox VE 9 compiler and ABI versions.
+After the Proxmox VE upgrade
+Empty the browser cache and/or force-reload (CTRL + SHIFT + R, or for macOS ⌘ + Alt + R) the Web UI.
+For Clusters
+Check that all nodes are up and running on the latest package versions.
+If not, continue the upgrade on the next node, start over at #Prerequisites
+Proxmox VE 9 deprecates HA groups in favor of HA rules. If you are using HA and HA groups, HA groups will be automatically migrated to HA rules once all cluster nodes have been upgraded to Proxmox VE 9.
+If you encounter any issues with HA groups or rules after having upgraded all cluster nodes, check the logs of pve-ha-crm on the active CRM node for errors with journalctl -eu pve-ha-crm.
+Optional: Modernize apt Repository Sources
+You can migrate existing repository sources to the recommended deb822 style format, by running:
+apt modernize-sources
+By answering the following prompt with "n" you can check the changes the command would make before applying them. To apply them simply run the command again and respond to the prompt with "Y". 
+The command will also keep the old .list files around by appending .bak to them. So you will have the new .sources files and the old repository configurations in the .list.bak files. You can remove the leftover backup files once you verified that everything works smoothly with the new format.
+Checklist issues
+proxmox-ve package is too old
+Check the configured package repository entries; they still need to be for Proxmox VE 8.x and Bookworm at this step (see Package_Repositories). Then run 
+apt update
+followed by
+apt dist-upgrade
+to get the latest Proxmox VE 8.x packages before upgrading to PVE 9.
+LVM/LVM-thin storage has guest volumes with autoactivation enabled
+On LVM or LVM-thin storages, a guest volume corresponds to an LVM Logical volume (LV). By default, LVM automatically activates an LV when it becomes visible, for example after boot or, if the LVM storage resides on an iSCSI LUN, after iSCSI login. Starting with PVE 9, new LVs will be created with autoactivation disabled. Such LVs are not automatically activated anymore, and are instead activated by Proxmox VE when needed. In clusters with shared LVM storages (for example on a shared iSCSI/FC LUN), this prevents problems that could cause guest/disk creation or guest migration to fail. See bug #4997 for more information.
+For existing LVs, we provide a migration script that disables autoactivation for all guest volumes on active and enabled LVM and LVM-thin storages. The migration script is located at /usr/share/pve-manager/migrations/pve-lvm-disable-autoactivation, and the pve8to9 checklist script suggests to run this migration script if necessary. If there are guest volumes on shared LVM storages, running the migration script is strongly recommended, to prevent the issues outlined above. If guest volumes are only on local LVM or LVM-thin storages, running the migration script is optional.
+Known Upgrade Issues
+General
+As a Debian based distribution, Proxmox VE is affected by most issues and changes affecting Debian.
+Thus, ensure that you read the upgrade specific issues for Debian Trixie. In particular, note that /tmp is now a tmpfs file system, using up to 50% of memory, and files in /tmp and /var/tmp are now regularly cleaned while the system is running.
+Please also check the known issue list from the Proxmox VE 9.0 changelog: https://pve.proxmox.com/wiki/Roadmap#9.0-known-issues
+Upgrade wants to remove package 'proxmox-ve'
+If you have installed Proxmox VE on top of a plain Debian Trixie (without using the Proxmox VE ISO), you may have installed the package 'linux-image-amd64', which conflicts with current 9.x setups. To solve this, you have to remove this package with
+apt remove linux-image-amd64
+before the dist-upgrade.
+Kernel Audit Messages are Enabled During the Upgrade
+Due to changes made to certain systemd defaults between Debian Bookworm and Debian Trixie, journald will begin to log kernel audit messages during the upgrade to Proxmox VE 9.
+In particular, audit logging was disabled by default in Debian Bookworm and earlier, while the corresponding socket systemd-journald-audit.socket remained enabled. In Debian Trixie, this was reversed: Audit logging is enabled by default again (thus matching upstream), while systemd-journald-audit.socket is now disabled by default. However, the socket remains enabled during the upgrade, which is why the audit log messages will start to appear.
+To prevent excessive audit messages being logged during the upgrade, you can disable and stop systemd-journald-audit.socket before upgrading:
+systemctl disable --now systemd-journald-audit.socket
+Otherwise, the audit messages will stop being logged once you reboot the node after the upgrade is complete.
+Third-party Storage Plugins
+If you use any external storage plugin you need to wait until the plugin author adapted it for Proxmox VE 9.0.
+Ceph "insecure key types" health warnings and errors
+Ceph Squid 19.2.6 and Ceph Tentacle 20.2.4 added health checks for keys that use
+the aes encryption method which is affected by CVE-2025-30156.
+These checks set the cluster status to HEALTH_ERR. However, all services remain
+operational. The warnings can appear after rebooting the first upgraded node that has a MON service.
+If no other health warning appears, the upgrade to version 9 should be resumed despite the new warnings. Once all nodes are running the latest packages in Proxmox VE 9, you can perform the key migration procedure to clear the health warnings and errors.
+This is a sample of the newly added health warnings and errors:
+$ ceph -s
+ cluster:
+ id: <cluster-id>
+ health: HEALTH_ERR
+ X auth client entities with insecure key types
+ Monitors are configured to allow auth using insecure key types
+ Monitors are configured to allow creation of insecure key types
+ Y rotating auth service keys using insecure key types
+ Z auth service entities with insecure key types
+ Monitors are configured to issue insecure service tickets
+ [...]
+You can find more information and instructions on how to migrate the keys at our documentation.
+Older Hardware and New 6.14 Kernel and Other Software
+Compatibility of old hardware (released >= 10 years ago) is not as thoroughly tested as more recent hardware.
+For old hardware we highly recommend testing compatibility of Proxmox VE 9 with identical (or at least similar) hardware before upgrading any production machines.
+Ceph has been reported to run into "illegal instruction" errors with at least AMD Opteron 2427 (released in 2009) and AMD Turion II Neo N54L (released in 2010) CPUs.
+We will expand this section with potential pitfalls and workarounds once they arise.
+GRUB Might Fail To Boot From LVM in UEFI Mode
+Due to a bug in grub in PVE 8 and before, grub may fail to boot from LVM with an error message disk `lvmid/...` not found.
+When booting in UEFI mode, you need to ensure that the new grub version containing the fix is indeed used for booting the system.
+Systems with Root on ZFS and systems booting in legacy mode are not affected.
+On systems booting in EFI mode with root on LVM, install the correct grub meta-package with:
+[ -d /sys/firmware/efi ] && apt install grub-efi-amd64
+For more details see the relevant wiki page.
+Systemd-boot meta-package changes the bootloader configuration automatically and should be uninstalled
+With Debian Trixie the systemd-boot package got split up a bit further into systemd-boot-efi (containing the EFI-binary used for booting), 
+systemd-boot-tools (containing bootctl) and the systemd-boot meta-package (containing hooks which run upon upgrades of itself and other packages
+and install systemd-boot as bootloader).
+As Proxmox Systems usually use systemd-boot for booting only in some configurations (ZFS on root and UEFI booted without secure boot), which are managed by proxmox-boot-tool, the meta-package systemd-boot should be removed.
+The package was automatically shipped for systems installed from the PVE 8.1 to PVE 8.4 ISOs, as it contained bootctl in bookworm.
+If the pve8to9 checklist script suggests it, the systemd-boot meta-package is safe to remove unless you manually installed it and are using systemd-boot as a bootloader. Should systemd-boot-efi and systemd-boot-tools be required, pve8to9 will warn you accordingly.
+The pve8to9 checklist script will change its output depending on the state of the upgrade, and should be run continuously before and after the upgrade.
+It will print which packages should be removed or added at the appropriate time.
+The only situation where you should keep the meta-package systemd-boot installed is if you manually setup systemd-boot for your system.
+See also the filed bug for systemd-boot.
+LVM Thin Pool needs repair
+On some systems, LVM Thin Pools might need to be manually repaired after the upgrade and you will see an error message like:
+Check of pool pve/data failed (status:64). Manual repair required!
+Use the command lvconvert --repair pve/data to repair the pool. The cause is still being investigated.
+VM Live-Migration
+VM Live-Migration with different host CPUs
+Live migration between nodes with different CPU models and especially different vendors can cause problems, such as VMs becoming unresponsive and causing high CPU utilization.
+We recommend testing live migration with a non-production VM first when upgrading.
+For this reason, we highly encourage using homogenous setups in clusters that use live migration.
+Network
+Network Interface Name Change
+Due to the new kernel recognizing more features of some hardware, like for example virtual functions, and interface naming often derives from the PCI(e) address, some NICs may change their name, in which case the network configuration needs to be adapted.
+In general, it's recommended to either have an independent remote connection to the Proxmox VE's host console, for example, through IPMI or IKVM, or physical access for managing the server even when its own network doesn't come up after a major upgrade or network change.
+With Proxmox VE 9 there is a pve-network-interface-pinning tool that can help you pin all network interfaces to nicX based names.
+Existing Ceph Full Mesh Setups fail to boot
+In earlier versions of the Full Mesh Network for Ceph Server guide, the configuration contains a post-up line to restart frr:
+post-up /usr/bin/systemctl restart frr.service
+This will break with the upgrade to Proxmox VE 9, since FRR now depends on the networking.service - leading to a deadlock when restarting the node.
+Change the post-up to the following before a host reboot:
+post-up /usr/bin/systemctl is-active --quiet frr.service && /usr/bin/systemctl restart frr.service || true
+This way it will only restart the frr service if it is already running.
+ℹ️ Note: If it is too late, and the host is stuck on boot, you can boot into the Rescue Boot of the Proxmox VE installation ISO. It is in the Advanced menu of the bootloader. Once booted you can edit the /etc/network/interfaces.
+Custom OpenFabric or OSPF Fabric FRR configurations broken
+When upgrading to Proxmox VE 9, custom OpenFabric or OSPF Fabric configurations defined in /etc/frr/frr.conf.local will no longer work after the first request to apply the SDN config.
+This occurs because applying the SDN configuration automatically disables the daemons in /etc/frr/daemons, as these daemons are now managed by the Proxmox VE SDN stack.
+To restore functionality for your custom configuration, create the file /etc/default/frr and add ospfd=yes for OSPF or fabricd=yes for OpenFabric.
+This file overrides the settings in /etc/frr/daemons, allowing your configuration to work independently of the Proxmox VE SDN Fabric.
+If you decide to use the new SDN Fabrics, remember to remove the /etc/default/frr file so that the daemons get disabled correctly after an SDN Fabric is deleted.
+cgroup V1 Removal
+Please note that since Proxmox VE 7.0, the default environment is pure cgroupv2.
+While it was still possible to manually enable the legacy cgroupv1 environment with Proxmox VE 8, this is no longer possible with Proxmox VE 9, which does not support the legacy cgroupv1 environment.
+This means Containers running systemd version 230 (released in 2016!) or older will not be supported by Proxmox VE 9.
+If you still run such container (e.g., CentOS 7 or Ubuntu 16.04), please use the remaining Proxmox VE 8 support cycle (estimated EOL is July 2026) as time window to migrate to newer, still supported versions of the respective Container OS.
+NVIDIA vGPU Compatibility
+If you are using NVIDIA's GRID/vGPU technology, its driver must be compatible with the kernel you are using.
+Make sure you use at least GRID version 18.3 (driver version 570.158.02 - current as of July 2025) on the host before upgrading, since older versions (e.g. 15.x) are not compatible with kernel versions >= 6.0 and Proxmox VE 9.0 ships with at least 6.14.
+Note that we cannot guarantee compatibility during the beta, for the definitive list of tested versions see: https://pve.proxmox.com/wiki/NVIDIA_vGPU_on_Proxmox_VE
+VM Memory Consumption Shown is Higher
+In some situations you might see that the Memory usage of a VM is higher after the upgrade. Maybe even a bit over 100%.
+If the VM does not report detailed memory usage, Proxmox VE will show the host's view of the memory usage. With Proxmox VE 9, the accounting of the memory usage on the host has been adapted and takes the memory overhead of the VM into account. Therefore, the percentage may spike to over 100% in some cases.
+If the new Host memory usage field is the same as the Memory Usage field in the VM's summary panel, then Proxmox VE was unable to gather the VM's internal memory usage information.
+This happens if one of the following conditions applies:
+The Ballooning Device has been disabled in the advanced memory settings of the VM.
+This removes the communication channel to gather the guest's internal memory usage information.
+The guest does not report back any detailed memory usage information.
+For example, FreeBSD is known to not report memory usage details, which includes popular firewalls like pfSense or OPNsense.
+If the BalloonService on a Windows guest is not installed or not running.
+Veeam Backup broken for VMs using QEMU machine version >= 10.0
+In preparation for features like snapshots on thick LVM, it was necessary to change how Proxmox VE attaches disks to QEMU internally. This is in effect for virtual machines using a QEMU machine version 10.0 or higher. Veeam has not adapted to these changes yet. Either pin the machine version to 9.2+pve1 for the affected virtual machines or postpone the upgrade.
+Host PCI passthrough with kernel 6.14 for virtual machines sometimes broken
+Some users reported that virtual machines using PCI passthrough are not able to start anymore when using kernel 6.14. A workaround is booting an older kernel. Pin the old kernel to make this persistent.
+systemd-sysctl no longer reads /etc/sysctl.conf
+In the systemd-sysctl version shipped with Proxmox VE 9, /etc/sysctl.conf is no longer honored. Therefore, any values set there will not get applied anymore. Instead, they should be moved or re-created in /etc/sysctl.d/<NN>-<name>.conf, where NN should be a two-digit number defining the ordering of the config file. For more information on how these files are used see the sysctl.d(5) man page.
+When using EVPN with exit nodes, the documentation previously instructed overriding the rp_filter setting via /etc/sysctl.conf. This setting will no longer be applied after rebooting. Oftentimes additional settings, such as enabling IP forwarding, are set via /etc/sysctl.conf as well. It is recommended to check the content of the file before upgrading and migrate any settings from there.
+Troubleshooting
+Failing upgrade to "trixie"
+Make sure that the repository configuration for Trixie is correct.
+If there was a network failure and the upgrade was only partially completed, try to repair the situation with 
+apt -f install
+If you see the following message:
+W: (pve-apt-hook) You are attempting to remove the meta-package 'proxmox-ve'!
+then one or more of the currently existing packages cannot be upgraded since the proper Trixie repository is not configured.
+Check which of the previously used repositories (i.e. for Bookworm) do not exist for Trixie or have not been upgraded to Bookworm ones. 
+If a corresponding Trixie repository exists, upgrade the configuration (see also the section on updating the Ceph Package repository).
+If an upgrade is not possible, configure all repositories as they were before the upgrade attempt, then run: 
+apt update
+again. Then remove all packages which are currently installed from that repository. Following this, start the upgrade procedure again.
+Unable to boot due to grub failure
+See Recover From Grub Failure
+If your system was installed on ZFS using legacy BIOS boot before the Proxmox VE 6.4 ISO, incompatibilities between the ZFS implementation in grub and newer ZFS versions can lead to a broken boot.
+Check the article on switching to proxmox-boot-tool ZFS: Switch Legacy-Boot to Proxmox Boot Tool for more details.
+External links
+Release Notes for Debian 13 (trixie), 64-bit PC
+Retrieved from "https://pve.proxmox.com/mediawiki/index.php?title=Upgrade_from_8_to_9&oldid=12639"
+ Categories: HOWTO
+Installation
+Upgrade
+ Cookies help us deliver our services. By using our services, you agree to our use of cookies.
+More informationOK
+ Navigation menu
+ Personal tools
+ Log in
+ Namespaces
+ Page
+Discussion
+ English
+ Views
+ Read
+View source
+View history
+ More
+ Search
+ Navigation
+ Proxmox VE
+Documentation (current)
+Documentation (8.x)
+Downloads
+Installation
+Get support
+ Sites
+ proxmox.com
+Support forum
+Bugtracker
+Source code
+FAQ
+ Tools
+ What links here
+Related changes
+Special pages
+Printable version
+Permanent link
+Page information
+Cite this page
+ This page was last edited on 17 September 2026, at 11:24.
+ Privacy policy
+ About Proxmox VE
+ Disclaimers

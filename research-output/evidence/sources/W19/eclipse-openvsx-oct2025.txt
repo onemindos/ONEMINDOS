@@ -1,0 +1,465 @@
+
+
+    Open VSX security update, October 2025 | Eclipse Foundation Blog | Open source news, insights, and updates
+
+      Skip to main content
+
+            Join us
+
+            What we do
+
+            Resources
+
+            About us
+
+                      Log in
+
+                      Manage Cookies
+
+Download
+
+        Join us
+
+            Membership
+
+                Become a member
+
+                Review membership fees
+
+                Access member portal
+
+            Sponsorship
+
+                Support us as a sponsor
+
+            Contribute
+
+                How to contribute
+
+                Bring us your project
+
+                Committer training
+
+            Collaborate with us
+
+                Join an existing industry collaboration
+
+                Start a new collaboration
+
+        What we do
+
+            Projects
+
+                Explore projects
+
+                View specifications
+
+            Industry collaborations
+
+                Explore collaborations
+
+                Join a working group
+
+                Join an interest group
+
+                Read success stories
+
+            Core services
+
+                Explore core services
+
+                Ensure project security
+
+            Key initiatives
+
+                Embedded & IoT
+
+                Enterprise Java
+
+                Data sovereignty
+
+                Security & privacy
+
+                Developer tools & IDEs
+
+                AI & emerging technologies
+
+                Automotive & mobility
+
+                Policy & compliance
+
+            Strategic services
+
+                Transform research into open source
+
+                Engage professional services
+
+                Build your OSPO
+
+        Resources
+
+            What's happening
+
+                Read our blog
+
+                Join mailing lists
+
+                Get news updates
+
+                Subscribe to newsletter
+
+            Events
+
+                Explore events
+
+                Join a community meetup
+
+                Attend a webinar
+
+                Join OCX
+
+            Developer resources
+
+                Explore projects hub
+
+                Attend office hours
+
+                Report a vulnerability
+
+                View known vulnerabilities
+
+                Use the security handbook
+
+            Industry insights
+
+                View case studies
+
+                View whitepapers
+
+                View surveys & reports
+
+            Marketplaces
+
+                Adoptium
+
+                Eclipse IDE
+
+                Open VSX
+
+        About us
+
+            The Foundation
+
+                About
+
+                Meet the team
+
+                Board & governance
+
+            Our members
+
+                Become a member
+
+                View member directory
+
+                Access member portal
+
+            Sponsorship
+
+                Become a sponsor
+
+                Sponsor directory
+
+            More
+
+                Join our team
+
+                Explore our brand
+
+                Contact us
+
+Membership
+
+Become a member
+
+Review membership fees
+
+Access member portal
+
+Sponsorship
+
+Support us as a sponsor
+
+Contribute
+
+How to contribute
+
+Bring us your project
+
+Committer training
+
+Collaborate with us
+
+Join an existing industry collaboration
+
+Start a new collaboration
+
+Projects
+
+Explore projects
+
+View specifications
+
+Industry collaborations
+
+Explore collaborations
+
+Join a working group
+
+Join an interest group
+
+Read success stories
+
+Core services
+
+Explore core services
+
+Ensure project security
+
+Key initiatives
+
+              Embedded & IoT
+
+              Enterprise Java
+
+              Data sovereignty
+
+              Security & privacy
+
+              Developer tools & IDEs
+
+              AI & emerging technologies
+
+              Automotive & mobility
+
+              Policy & compliance
+
+Strategic services
+
+Transform research into open source
+
+Engage professional services
+
+Build your OSPO
+
+What's happening
+
+Read our blog
+
+Join mailing lists
+
+Get news updates
+
+Subscribe to newsletter
+
+Events
+
+              Explore events
+
+              Join a community meetup
+
+              Attend a webinar
+
+              Join OCX
+
+Developer resources
+
+Explore projects hub
+
+Attend office hours
+
+Report a vulnerability
+
+View known vulnerabilities
+
+Use the security handbook
+
+Industry insights
+
+View case studies
+
+View whitepapers
+
+View surveys & reports
+
+Marketplaces
+
+Adoptium
+
+Eclipse IDE
+
+Open VSX
+
+The Foundation
+
+About
+
+Meet the team
+
+Board & governance
+
+Our members
+
+Become a member
+
+View member directory
+
+Access member portal
+
+Sponsorship
+
+Become a sponsor
+
+Sponsor directory
+
+More
+
+Join our team
+
+Explore our brand
+
+Contact us
+
+Open VSX security update, October 2025
+
+by
+        Mikaël Barbero
+
+27 October 2025
+
+                  Home
+
+                  Blogs
+
+                  Mikaël Barbero's blog
+
+                  Open VSX security update, October 2025
+
+Open VSX security update, October 2025
+
+Over the past few weeks, the Open VSX team and the Eclipse Foundation have been responding to reports of leaked tokens and related malicious activity involving certain extensions hosted on the Open VSX Registry. We want to share a clear summary of what happened, what actions we’ve taken, and what improvements we’re implementing to strengthen the security of the ecosystem.
+
+Background
+
+Earlier this month, our team was alerted to a report from Wiz identifying several extension publishing tokens inadvertently exposed by developers within public repositories. Some of these tokens were associated with Open VSX accounts.
+
+Upon investigation, we confirmed that a small number of tokens had been leaked and could potentially be abused to publish or modify extensions. These exposures were caused by developer mistakes, not a compromise of the Open VSX infrastructure. All affected tokens were revoked immediately once identified.
+
+To improve detection going forward, we introduced a token prefix format in collaboration with MSRC to enable easier and more accurate scanning for exposed tokens across public repositories.
+
+The “GlassWorm” campaign
+
+Around the same time, a separate report from Koi Security described a new malware campaign that leveraged some of these leaked tokens to publish malicious extensions. The report referred to this as a “sel”-propagating worm,” drawing comparisons to the ShaiHulud incident that impacted the npm registry in September.
+
+While the report raises valid concerns, we want to clarify that this was not a self-replicating worm in the traditional sense. The malware in question was designed to steal developer credentials, which could then be used to extend the attacker’s reach, but it did not autonomously propagate through systems or user machines.
+
+We also believe that the reported download count of 35,800 overstates the actual number of affected users, as it includes inflated downloads generated by bots and visibility-boosting tactics used by the threat actors.
+
+All known malicious extensions were removed from Open VSX immediately upon notification, and associated tokens were rotated or revoked without delay.
+
+Status of the incident
+
+As of October 21, 2025, the Open VSX team considers this incident fully contained and closed. There is no indication of ongoing compromise or remaining malicious extensions on the platform.
+
+We continue to collaborate closely with affected developers, ecosystem partners, and independent researchers to ensure transparency and reinforce preventive measures.
+
+Strengthening the platform
+
+This event has underscored the importance of proactive defense across the supply chain, particularly in community-driven ecosystems. To that end, we are implementing several improvements:
+
+Token lifetime limits: All tokens will have shorter validity periods by default, reducing the potential impact of accidental leaks.
+
+Simplified revocation: We are improving internal workflows and developer tooling to make token revocation faster and more seamless upon notification.
+
+Security scanning at publication: Automated scanning of extensions will now occur at the time of publication, helping us detect malicious code patterns or embedded secrets before an extension becomes available to users.
+
+Ecosystem collaboration: We are continuing to work with other marketplace operators, including VS Code and third-party forks, to share intelligence and best practices for extension security.
+
+Help us build a more secure and sustainable open source future
+
+We take this responsibility seriously, and the trust you place in us is paramount. Incidents like this remind us that supply chain security is a shared responsibility: from publishers managing their tokens carefully, to registry maintainers improving detection and response capabilities.
+
+The Open VSX incident is now resolved, but our work on improving the resilience of the ecosystem is ongoing. We remain committed to transparency and to strengthening every part of our platform to ensure that open source innovation continues safely and securely.
+
+Open VSX is built by and for the open source developer community. It needs your support to stay sustainable. Read more about this in our recent blog post.
+
+If you believe you’ve discovered a security issue affecting Open VSX, please reach out to us at <email-masked>.
+
+Thank you for your vigilance, cooperation, and commitment to a safer open source community.
+
+Source
+
+https://mikael.barbero.tech/blog/post/2025-10-27-openvsx-security-update/
+
+Tags
+
+security
+
+eclipse-foundation
+
+Don't forget to share this post!
+
+  Back to the top
+
+Eclipse Foundation
+
+About
+
+Projects
+
+Collaborations
+
+Membership
+
+Sponsor
+
+Legal
+
+                Privacy Policy
+
+                Terms of Use
+
+                Compliance
+
+                Code of Conduct
+
+                Legal Resources
+
+                Manage Cookies
+
+More
+
+Report a Vulnerability
+
+Service Status
+
+Contact Us
+
+Support
+
+See what we're up to
+
+Stay up to date
+
+Subscribe to our newsletter
+
+Copyright © Eclipse Foundation AISBL. All rights reserved.
+
+              Privacy policy
+
+              Terms of use
+
+              Compliance
+
+              Legal
+

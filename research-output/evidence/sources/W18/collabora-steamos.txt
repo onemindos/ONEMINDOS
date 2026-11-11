@@ -1,0 +1,150 @@
+SteamOS 3.6: How the Steam Deck atomic updates are improving
+ -->
+-->
+-->
+ About
+Who we are
+Our expertise
+Our work
+Open Source
+Our ecosystem
+Services
+Guide
+Train
+Build
+Integrate
+Optimize
+Maintain
+Industries
+Automotive
+Digital TV
+Silicon
+OEM
+VR/AR
+News & Blog
+Careers
+Contact
+About
+Services
+Industries
+News & Blog
+Careers
+Contact
+-->
++44 (0)1223 362967
++1 514 667 2499
+<email-masked>
+-->
+Home » 
+News & Blog » 
+News & Events » 
+SteamOS 3.6: How the Steam Deck atomic updates are improving
+-->
+ Home
+News & Blog
+News
+SteamOS 3.6: How the Steam Deck atomic updates are improving
+-->
+SteamOS 3.6: How the Steam Deck atomic updates are improving
+-->
+10/05/2024
+-->
+Posted on 10/05/2024 by Ludovico de Nittis
+-->
+SteamOS 3.6: How the Steam Deck atomic updates are improving
+Posted on 10/05/2024 by Ludovico de Nittis
+-->
+Ludovico de Nittis 
+May 10, 2024
+Share this post:
+-->
+Reading time: 
+Since the Steam Deck's release back in 2022, users have had a portable means to enjoy Linux-based gaming. As with any system that advances, there have been several under the hood improvements. Today we are focusing on the system updates with a focus on the challenges we faced and how we solved them.
+SteamOS utilizes an A/B partition scheme for its system updates. That layout means maintaining two separate partitions, A and B, where the primary one holds the current operating system and the secondary is reserved for system updates. The actual OS images are atomic and applied using RAUC and Casync.
+This system works incredibly well. When publishing new images we can ensure that the end users will all receive exactly the same update, even if they disabled the read-only flag and edited some files (complications arise with files in /etc and /var that are not immutable, but that's a story for another day).
+However we identified a few key points that could have been improved in Casync:
+Calculating the current image seed is done on the fly and is a single-thread operation.
+On the Steam Deck this usually means that when you press the "apply update" button, nearly the full first minute is spent to chunk and hash the entire image that is currently in use, with one CPU core at 100% usage.
+Given how Casync works, estimating the size of a download on the device would require the same one minute of CPU usage
+It doesn't allow multiple parallel HTTP(S) GET operations, at least not without applying downstream patches
+Even after rewriting the download logic to use curl multi, there was still a desire to improve the overall time required to apply a system update
+If a download is interrupted, the next attempt will start over from the beginning. This could be avoided by also using the destination as a seed, at the cost of doubling the amount of time spent at the "preparation" phase.
+The latest public release was in 2017 and, even if not yet official, it felt like development came to a halt. Several of the patches that we wrote back in the days were still left as open PRs without any traction from the maintainers (this was back in 2021)
+At that point our options were basically the following:
+Search a drop-in replacement for Casync that addresses the flaws mentioned above
+Provide additional patches to improve Casync, even if all those patches would likely end up in downstream only
+Replace Casync with a different tool entirely
+The third option was only a last measure because that would have required marking a separation point between old and new images. Meaning that end users would have to go through two back to back system updates out of the box, at least until the factory started to produce new Steam Decks with a base image that was past that separation point.
+Fortunately we discovered Desync, which is a re-implementation of the majority of Casync, and ensures to be a drop-in replacement of Casync in "many use cases". The project was in active development and, most importantly, there were several interesting selling points on the project README, like multiple parallel HTTP(S) requests support and multi threaded chunking.
+After some careful evaluation we decided that switching to Desync would ultimately bring several improvements.
+Upstreamed patches for Desync
+Before mentioning what are the major benefits that Desync brought, we should talk about the work that was required for us to actually do the switch.
+As mentioned before, Desync was a drop-in replacement to Casync in "many use cases". While it definitely allows you to install system updates created with Casync and vice-versa, there are a few key differences in how they apply the updates that required a non-trivial amount of work.
+The key improvements that we had to make were:
+The seeds are treated differently compared to Casync. Given that with the Steam Deck users are allowed to disable the read-only mode, we had no guarantees that the Desync pre-calculated index file for the seed would be correct. For this reason we had to implement a pre-determined "plan" on how to assemble an update, an option to regenerate invalid seed indexes, validate what has been written when taking chunks from a seed, and try harder if a seed chunk is invalid
+The images are not located in a single URL path, so we had to include support for glob patterns in the configuration file
+Add ability to quickly estimate the download size of an update
+Add Desync support in RAUC
+Actual benefits
+After all this work, what are the concrete benefits for the end users?
+It is now significantly faster to apply system updates. How much "faster" heavily depends on the size of the update and the Internet connection speed. From our testings, usually the overall update process was consistently at least 30%-50% faster.
+If the download of an update fails midway, e.g. if there is a connection error, the second download attempt will be able to quickly resume from the point previously reached.
+The download progress percentage is more precise and refreshed more frequently.
+It allows us to quickly check if the current image is pristine or has been altered. Useful for example during the factory reset operation to avoid having to download an image from the Internet unless necessary.
+Lays out the base to allow in the future the ability for the clients to quickly estimate the download size of system updates.
+When can I try it?
+Right now! This change has already been included in SteamOS 3.6, which is currently in the "Preview" channel. You can opt-in from Settings > System > Steam Update Channel.
+Please note that the Preview channel includes new features that are still being tested, so you may encounter issues.
+Related Posts
+Portable Linux gaming with the Steam Deck
+Kernel 6.0: Start of a new series and dawn of Rust
+Moving the Linux desktop to another reality
+Related Posts
+Portable Linux gaming with the Steam Deck
+Kernel 6.0: Start of a new series and dawn of Rust
+Moving the Linux desktop to another reality
+Search the newsroom
+ Search
+Latest News & Events
+Real-time AI video analytics on Renesas at electronica 2026
+05/11/2026
+Next week we'll be at electronica in Munich! In partnership with Renesas, Collabora will showcase real-time, low-latency ML video analytics…
+Linux 7.3: Color format control, Tyr progress, and more
+03/11/2026
+Collabora authored 111 patches for Linux 7.3, spanning DRM core, Rust, MediaTek, Rockchip, and more. Highlights include a new color format…
+Panfrost is now using Kraid!
+26/10/2026
+Kraid is now the default Panfrost compiler for Valhall and newer Mali GPUs, delivering major reductions in shader instructions, spilling,…
+ About Collabora
+ Whether writing a line of code or shaping a longer-term strategic software development plan, we'll help you navigate the ever-evolving world of Open Source.
+ View the Korean version of Collabora.com
+-->
+한국어 버전의 Collabora.com 보기
+Acesse Collabora.com em Português
+한국어 버전의 Collabora.com 보기
+Acesse Collabora.com em Português
+-->
+ Learn more
+ Who we are
+ Services
+ Our expertise
+ Industries
+ Our work
+ Careers
+ Open Source
+Collabora on LinkedIn
+Collabora on YouTube
+Collabora on Mastodon
+Collabora on Bluesky
+Collabora on Facebook
+Collabora RSS Feed
+Collabora on Twitter-->
+Collabora on Google+-->
+ +44 1223 362967
+ +1 514 667 2499
+ <email-masked>
+ Our website only uses a strictly necessary session cookie provided by our CMS system. To find out more please follow this link.
+ Collabora Limited © 2005-2026. All rights reserved. Privacy Notice. Sitemap.
+To ensure the Collabora website works as designed, please enable JavaScript. Thanks
+-->
+-->
