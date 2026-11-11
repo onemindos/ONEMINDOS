@@ -1,0 +1,37 @@
+#!/bin/bash
+# OneMind health gate: commit a trial boot only when k3s is healthy; otherwise reboot,
+# which makes the Rugix GRUB boot flow fall back to the committed (default) group.
+set -u
+TIMEOUT="${ONEMIND_GATE_TIMEOUT:-300}"
+LOG=/var/log/onemind/health-gate.log
+mkdir -p /var/log/onemind
+log() { local m; m="onemind-health-gate: $(date -u +%FT%TZ) $*"; echo "$m" >>"$LOG"; echo "$m" >/dev/console; echo "$m"; }
+INFO=$(rugix-ctrl system info 2>&1) || { log "ERROR rugix-ctrl system info failed: $INFO"; exit 1; }
+ACTIVE=$(jq -r '.boot.activeGroup // .boot.active_group // empty' <<<"$INFO")
+DEFAULT=$(jq -r '.boot.defaultGroup // .boot.default_group // empty' <<<"$INFO")
+log "boot release=$(cat /etc/onemind-release) active=${ACTIVE} default=${DEFAULT}"
+if [ -z "$ACTIVE" ] || [ -z "$DEFAULT" ]; then log "ERROR cannot read boot groups: $INFO"; exit 1; fi
+if [ "$ACTIVE" = "$DEFAULT" ]; then log "COMMITTED-BOOT nothing to commit"; exit 0; fi
+log "TRIAL boot of group ${ACTIVE}; waiting up to ${TIMEOUT}s for k3s"
+# Require STABLE consecutive healthy checks (10 s apart), and keep retrying until the
+# deadline if a commit is refused (run 3 amd64 gave up on the first refusal).
+STABLE="${ONEMIND_GATE_STABLE:-3}"
+START=$(date +%s); OK=0
+while [ $(( $(date +%s) - START )) -lt "$TIMEOUT" ]; do
+  if R=$(/usr/lib/onemind/k3s-healthy); then
+    OK=$((OK + 1))
+    if [ "$OK" -ge "$STABLE" ]; then
+      log "HEALTHY ${OK}x in a row after $(( $(date +%s) - START ))s"
+      if OUT=$(rugix-ctrl system commit 2>&1); then
+        log "COMMIT group=${ACTIVE} release=$(cat /etc/onemind-release)"; exit 0
+      fi
+      log "COMMIT-REFUSED (will retry): $(echo "$OUT" | tail -n 3 | tr '\n' ' ')"; OK=0
+    fi
+  else
+    OK=0
+  fi
+  sleep 10
+done
+log "ROLLBACK: k3s not healthy after ${TIMEOUT}s (last: ${R:-n/a}); rebooting to default group ${DEFAULT}"
+sync
+systemctl reboot

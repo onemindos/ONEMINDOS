@@ -1,0 +1,5 @@
+# OneMind W2 lab: "bad" OS image = good image with k3s broken (simulates a bad OS update that breaks the platform)
+ARG GOOD=localhost:5000/onemind-lab:good
+FROM ${GOOD}
+RUN sed -i 's#^ExecStart=.*#ExecStart=/usr/bin/false#' /usr/lib/systemd/system/k3s.service && bootc container lint
+LABEL org.onemind.lab.variant="bad"

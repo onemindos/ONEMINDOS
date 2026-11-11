@@ -1,0 +1,78 @@
+ 
+ Buildroot - Making Embedded Linux Easy 
+ Buildroot 
+ News 
+ Documentation 
+ Support 
+ Contribute 
+ LTS 
+ Sponsors 
+ Association 
+ Download 
+ Download
+ Series
+ End of Life
+ Latest release
+ Latest release date
+ Downloads
+ Candidate
+ 2026.08.x
+ December 2026
+ 2026.08.1
+ Changelog
+ 2026-10-22
+ .tar.gz
+ [PGP sig] 
+ .tar.xz
+ [PGP sig] 
+-->
+ Stable
+ 2026.08.1.x
+ December 2026
+ 2026.08.1
+ Changelog
+ 2026-10-22
+ .tar.gz
+ [PGP sig] 
+ .tar.xz
+ [PGP sig] 
+ Old stable
+ 2026.05.x
+ September 2026
+ 2026.05.3
+ Changelog
+ 2026-09-10
+ .tar.gz
+ [PGP sig] 
+ .tar.xz
+ [PGP sig] 
+ Long-term support
+ 2025.02.x
+ March 2028
+ 2025.02.19
+ Changelog
+ 2026-10-22
+ .tar.gz
+ [PGP sig] 
+ .tar.xz
+ [PGP sig] 
+ This and earlier releases (and their PGP signatures) can always be downloaded from
+ https://buildroot.org/downloads/ .
+ Git repository
+ The buildroot repository can be browsed online at
+ https://gitlab.com/buildroot.org/buildroot/ .
+ To grab a copy of the repository use
+ git clone https://gitlab.com/buildroot.org/buildroot.git 
+ If you are not already familiar with using Git, we recommend
+ you visit the Git
+ website .
+ Once you've checked out a copy of the source tree, you can
+ update your source tree at any time so it is in sync with the
+ latest and greatest by entering your buildroot directory and
+ running the command:
+ git pull 
+ Because you've only been granted anonymous access to the
+ tree, you won't be able to push your changes to the
+ repo. Changes can instead be submitted for inclusion by
+ posting them to the buildroot mailing list.
+

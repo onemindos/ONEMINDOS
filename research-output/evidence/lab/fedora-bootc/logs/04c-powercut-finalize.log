@@ -1,0 +1,36 @@
+[01:26:53] channel stable -> v4-big
+marker=v4-big uptime=81.65
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:ba3902dc9b13e2c0535eec0f6f4dea42dd8bab9a2ff177222538b631bef40c36","staged":null,"rollback":"sha256:4d653883f0aa52d18d9f8d3e083479ec6bfe037b8dc17529e7a4703d46084d25"}
+Deploying...done (2 seconds)
+Removed layers:   6     Size: 1.6 GB
+Added layers:     6     Size: 1.6 GB
+marker=v4-big uptime=99.52
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:ba3902dc9b13e2c0535eec0f6f4dea42dd8bab9a2ff177222538b631bef40c36","staged":"sha256:42c741fb2854bdb0d6999df9da027a59a3734c47e4e5f4026938f3f22e9a15e1","rollback":"sha256:4d653883f0aa52d18d9f8d3e083479ec6bfe037b8dc17529e7a4703d46084d25"}
+[01:27:11] reboot; SIGKILL QEMU 1s later (inside ostree-finalize-staged at shutdown)
+[01:27:14] power restored
+started pid 79335
+up after 17s
+marker=v4-big uptime=8.87
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:ba3902dc9b13e2c0535eec0f6f4dea42dd8bab9a2ff177222538b631bef40c36","staged":null,"rollback":"sha256:4d653883f0aa52d18d9f8d3e083479ec6bfe037b8dc17529e7a4703d46084d25"}
+--- ostree fsck:
+fsck objects (42112/43432) 96%
+fsck objects (43432/43432) 100%
+object fsck of 87 commits completed successfully - no errors found.
+--- deployments:
+  default 8b4cc15631cf1f76b0d6f4f24f14914d4c31fbe2b1c00020c5fc224672ed0f79.0 (pending)
+    origin: <unknown origin type>
+* default 6613a3fdd8e813fd68e4a704285bfe6bb3c2a30476ca88b2ac49691e1e09e0c3.1
+    origin: <unknown origin type>
+running
+[01:27:47] recovery: bootc upgrade again
+Total new layers: 72    Size: 2.6 GB
+Removed layers:   6     Size: 1.6 GB
+Added layers:     6     Size: 1.6 GB
+Connection to 127.0.0.1 closed by remote host.
+up after 19s
+marker=v4-big uptime=8.79
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:42c741fb2854bdb0d6999df9da027a59a3734c47e4e5f4026938f3f22e9a15e1","staged":null,"rollback":"sha256:ba3902dc9b13e2c0535eec0f6f4dea42dd8bab9a2ff177222538b631bef40c36"}

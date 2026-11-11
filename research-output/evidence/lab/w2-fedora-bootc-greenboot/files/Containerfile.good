@@ -1,0 +1,14 @@
+# OneMind W2 lab: "good" OS image. Base = Fedora IoT 45 bootc (ships greenboot + greenboot-default-health-checks).
+ARG BASE=quay.io/fedora/fedora-iot:45
+FROM ${BASE}
+# k3s binary verified against the release's sha256sum-arm64.txt before the build (see run.sh)
+COPY k3s-arm64 /usr/bin/k3s
+COPY k3s-selinux.noarch.rpm /tmp/k3s-selinux.noarch.rpm
+RUN chmod 0755 /usr/bin/k3s && dnf -y install container-selinux /tmp/k3s-selinux.noarch.rpm && dnf clean all && rm -f /tmp/k3s-selinux.noarch.rpm
+COPY k3s.service /usr/lib/systemd/system/k3s.service
+COPY 50-k3s-ready.sh /etc/greenboot/check/required.d/50-k3s-ready.sh
+COPY greenboot.conf /etc/greenboot/greenboot.conf
+COPY registries-lab.conf /etc/containers/registries.conf.d/50-lab.conf
+COPY sudoers-lab /etc/sudoers.d/90-lab
+RUN chmod 0440 /etc/sudoers.d/90-lab && chmod 0755 /etc/greenboot/check/required.d/50-k3s-ready.sh && systemctl enable k3s.service greenboot-healthcheck.service && bootc container lint
+LABEL org.onemind.lab.variant="good"

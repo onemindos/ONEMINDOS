@@ -1,0 +1,31 @@
+enabled
+Wed 2026-11-11 02:22:14 UTC 1h 2min -                                - bootc-fetch-apply-updates.timer bootc-fetch-apply-updates.service
+ExecStart=/usr/bin/bootc upgrade --apply --quiet
+OnBootSec=1h
+OnUnitInactiveSec=8h
+RandomizedDelaySec=2h
+No changes in: docker://198.18.0.2:5000/onemind/lab:stable
+FALLBACK BOOT DETECTED! Default bootc deployment has been rolled back.
+Greenboot healthcheck passed - status is GREEN.---
+[    4.689962] fedora greenboot[1883]:  INFO  greenboot            > Initial /boot mount state: rw
+[    4.689962] fedora greenboot[1883]:  INFO  greenboot            > /boot is already rw; no remount needed
+[    4.705422] fedora greenboot[1883]:  INFO  greenboot::grub      > Set grubenv: boot_success=0
+[    4.715747] fedora greenboot[1883]:  INFO  greenboot            > First health check failure, setting boot counter to 3
+[    4.715845] fedora greenboot[1883]:  INFO  greenboot            > Initial /boot mount state: rw
+[    4.715845] fedora greenboot[1883]:  INFO  greenboot            > /boot is already rw; no remount needed
+[    4.728167] fedora greenboot[1883]:  INFO  greenboot::grub      > boot_counter does not exists
+[    4.728167] fedora greenboot[1883]:  INFO  greenboot::grub      > setting boot counter
+[    4.740758] fedora greenboot[1883]:  INFO  greenboot::grub      > Set grubenv: boot_counter=3
+[    4.750277] fedora greenboot[1883]:  INFO  greenboot::handler   > restarting the system
+[    4.763956] fedora greenboot[1883]: Error: greenboot healthcheck failed
+[    5.123164] fedora systemd[1]: greenboot-healthcheck.service: Main process exited, code=exited, status=1/FAILURE
+[    5.123184] fedora systemd[1]: greenboot-healthcheck.service: Failed with result 'exit-code'.
+[    5.123274] fedora systemd[1]: Stopped greenboot-healthcheck.service - Greenboot Health Checks Runner.
+## bootc upgrade while channel=v3-bad and v3-bad is the rollback deployment
+  Digest: sha256:e5c9cf58aa4ad30c014fca9a0e6e17bce5327d227c98580fb3a715c1bde775f1
+Total new layers: 72    Size: 1.0 GB
+Removed layers:   5     Size: 13.1 MB
+Added layers:     6     Size: 13.1 MB
+marker=v2 uptime=93.46
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:18807cd1861252cd86cc687a6c27012813560987f146b4e5cd90456d5adf6e28","staged":"sha256:e5c9cf58aa4ad30c014fca9a0e6e17bce5327d227c98580fb3a715c1bde775f1","rollback":"sha256:e5c9cf58aa4ad30c014fca9a0e6e17bce5327d227c98580fb3a715c1bde775f1"}

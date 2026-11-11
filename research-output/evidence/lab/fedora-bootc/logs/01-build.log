@@ -1,0 +1,111 @@
+# Trimmed: v1 container build (v2/v3-bad/alt identical except VARIANT), then bootc-image-builder summary. Full log kept outside the repo.
+STEP 1/10: FROM quay.io/fedora/fedora-bootc@sha256:a2e3dea74c6ba8b9c8dbdfd1a2e63fccc1d446cfce20e1efbeb567b63e9e940d
+STEP 2/10: ARG VARIANT=v1
+--> 6d9ae953fd72
+STEP 3/10: RUN dnf -y install greenboot greenboot-default-health-checks && dnf clean all &&     systemctl enable greenboot-healthcheck.service greenboot-set-rollback-trigger.service
+Updating and loading repositories:
+ Fedora 44 - aarch64 - Updates Archive  100% |  23.1 MiB/s |  64.7 MiB |  00m03s
+ Fedora 44 openh264 (From Cisco) - aarc 100% |   1.4 KiB/s |   5.3 KiB |  00m04s
+ Fedora 44 - aarch64 - Updates          100% | 286.9 KiB/s |  12.8 MiB |  00m46s
+ Fedora 44 - aarch64                    100% | 366.4 KiB/s |  35.6 MiB |  01m39s
+Repositories loaded.
+Package                          Arch    Version         Repository      Size
+Installing:
+ greenboot                       aarch64 0:0.16.4-0.fc44 updates      2.2 MiB
+ greenboot-default-health-checks aarch64 0:0.16.4-0.fc44 updates      4.6 KiB
+
+Transaction Summary:
+ Installing:         2 packages
+
+Total size of inbound packages is 740 KiB. Need to download 740 KiB.
+After this operation, 2 MiB extra will be used (install 2 MiB, remove 0 B).
+[1/2] greenboot-default-health-checks-0 100% |  25.4 KiB/s |  11.1 KiB |  00m00s
+[2/2] greenboot-0:0.16.4-0.fc44.aarch64 100% | 329.4 KiB/s | 728.5 KiB |  00m02s
+--------------------------------------------------------------------------------
+[2/2] Total                             100% | 334.2 KiB/s | 739.6 KiB |  00m02s
+Running transaction
+Importing OpenPGP key 0x6D9F90A6:
+ UserID     : "Fedora (44) <fedora-44-primary (Fedora public key UID, masked)>"
+ Fingerprint: 36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6
+ From       : file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-44-aarch64
+The key was successfully imported.
+[1/4] Verify package files              100% |   2.0 KiB/s |   2.0   B |  00m00s
+[2/4] Prepare transaction               100% | 111.0   B/s |   2.0   B |  00m00s
+[3/4] Installing greenboot-0:0.16.4-0.f 100% | 309.0 MiB/s |   2.2 MiB |  00m00s
+[4/4] Installing greenboot-default-heal 100% | 147.6 KiB/s |   5.6 KiB |  00m00s
+Complete!
+Removed 21 files, 13 directories (total of 189 MiB). 0 errors occurred.
+Created symlink '/etc/systemd/system/multi-user.target.wants/greenboot-healthcheck.service' → '/usr/lib/systemd/system/greenboot-healthcheck.service'.
+Created symlink '/etc/systemd/system/greenboot-success.target.requires/greenboot-healthcheck.service' → '/usr/lib/systemd/system/greenboot-healthcheck.service'.
+Created symlink '/etc/systemd/system/ostree-finalize-staged.service.requires/greenboot-set-rollback-trigger.service' → '/usr/lib/systemd/system/greenboot-set-rollback-trigger.service'.
+--> 53badd49d8fe
+STEP 4/10: RUN printf '[[registry]]\nlocation = "198.18.0.2:5000"\ninsecure = true\n'       > /etc/containers/registries.conf.d/50-onemind-lab.conf
+--> 47f34e335992
+STEP 5/10: RUN echo '%wheel ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/90-lab && chmod 0440 /etc/sudoers.d/90-lab
+--> 8699737e0b7f
+STEP 6/10: RUN mkdir -p /usr/share/onemind && echo "${VARIANT}" > /usr/share/onemind/version
+--> d48e6f1bf380
+STEP 7/10: COPY 10-onemind-marker.sh /usr/lib/greenboot/check/required.d/10-onemind-marker.sh
+--> d1491cbcb021
+STEP 8/10: RUN if [ "${VARIANT}" = "v3-bad" ]; then       printf '#!/bin/bash\necho "onemind lab: simulated broken platform (v3-bad)" >&2\nexit 1\n'         > /usr/lib/greenboot/check/required.d/99-onemind-broken.sh &&       chmod 0755 /usr/lib/greenboot/check/required.d/99-onemind-broken.sh; fi
+--> 8bae29d4bfe2
+STEP 9/10: RUN if [ "${VARIANT}" = "alt" ]; then dnf -y install tmux && dnf clean all; fi
+--> 596fbab3fdae
+STEP 10/10: RUN bootc container lint
+Lint warning: nonempty-run-tmp: Found content in runtime-only directories (/run, /tmp):
+  /run/dnf
+
+Lint warning: var-log: Found non-empty logfiles:
+  /var/log/dnf5.log
+
+Lint warning: var-tmpfiles: Found content in /var missing systemd tmpfiles.d entries:
+  d /var/cache/libdnf5 0755 root root - -
+  d /var/lib/dnf/repos 0755 root root - -
+  d /var/lib/dnf/repos/fedora-c57ecdc42b71550a 0755 root root - -
+  d /var/lib/dnf/repos/updates-7608c6d2bd2ece7d 0755 root root - -
+Found non-directory/non-symlink files in /var:
+  var/lib/dnf/repos/fedora-c57ecdc42b71550a/countme
+  var/lib/dnf/repos/updates-7608c6d2bd2ece7d/countme
+  var/cache/ldconfig/aux-cache
+  var/log/dnf5.log
+
+Checks passed: 11
+Checks skipped: 1
+Warnings: 3
+COMMIT onemind/lab:v1
+--> e17f6117139f
+Successfully tagged localhost/onemind/lab:v1
+...
+# bootc-image-builder (tail)
+Build
+  root: <host>
+  runner: org.osbuild.centos9 (org.osbuild.centos9)
+org.osbuild.qemu: d74160fc61a5a7eab770765aa4b2040a3537d789776d5436762a2223cd60158b {
+  "filename": "disk.qcow2",
+  "format": {
+    "type": "qcow2",
+    "compat": "1.1"
+  }
+}
+
+⏱  Duration: 26.84s
+manifest - finished successfully
+
+Pipelines
+  build:    	4536260c9ca86c88a1eb15803f3ec0e41e0da120dec5c2a93a561cf6c3c257c4
+  image:    	0a5768e0d9d87b010f56b50a08527ceed08f19dbc125a80802a90c1b04b53005
+  qcow2:    	d74160fc61a5a7eab770765aa4b2040a3537d789776d5436762a2223cd60158b
+  vmdk:     	56f54abafc78f3314baf995cb35ea5cd415b2cd58be88b320de82a5601bd9ef6
+  vpc:      	f9f18318ead74d783e382b9a1a95042272ea59a83d5816aad4377418872ed676
+  ovf:      	792d5b156358df06af3a67e4c161a37557006bd72ff3e8a4803971bd6f90a57b
+  archive:  	33ba692cd3c021f1118b4c1420c9db12bfcd5ed807413f77413dad90d1e41060
+  gce:      	622357dbf5d35844a28f02f556d8bd035eea0b9e8d0f124d6217abb3e42cf7c2
+
+Checkpoints
+Build complete!
+Results saved in .
+0650c58fb68cf67431f279b9e61ac20685fd11429a110b820019227e51ad6517  /var/tmp/lab-out/qcow2/disk.qcow2
+v1 sha256:98c97af121287fa810cc594118736bf715b5dd231fbad52a057cc882b3cc19c7
+v2 sha256:18807cd1861252cd86cc687a6c27012813560987f146b4e5cd90456d5adf6e28
+v3-bad sha256:e5c9cf58aa4ad30c014fca9a0e6e17bce5327d227c98580fb3a715c1bde775f1
+alt sha256:c8abdb61a1af47ae3ca2bb935b56831906f8b4bcbc0d24f399de19657c1b1be2

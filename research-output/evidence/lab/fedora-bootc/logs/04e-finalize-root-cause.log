@@ -1,0 +1,26 @@
+ -4 a20e14f77c0349bcb745f81f16d76d15 Wed 2026-11-11 01:27:22 UTC Wed 2026-11-11 01:27:54 UTC
+ -3 b607f1529fad4f92832c901a165ae76a Wed 2026-11-11 01:28:03 UTC Wed 2026-11-11 01:30:09 UTC
+ -2 0368eaadff3b4cabb86c26156cff4057 Wed 2026-11-11 01:30:20 UTC Wed 2026-11-11 01:30:44 UTC
+ -1 0ba879ff063a4d8685b796403fa5a9e3 Wed 2026-11-11 01:30:52 UTC Wed 2026-11-11 01:31:10 UTC
+  0 ccfc94303b564609b86f04fc6a73ebe1 Wed 2026-11-11 01:31:19 UTC Wed 2026-11-11 01:31:41 UTC
+=== boot -3 greenboot + finalize ===
+[    4.353572] fedora greenboot[1883]:  INFO  greenboot          > Kernel booted successfully, disarming GRUB fallback before healthchecks
+[    4.363352] fedora greenboot[1883]:  INFO  greenboot::grub    > Clear grubenv: fallback
+[    4.402170] fedora greenboot[1883]:  INFO  greenboot::grub      > Clear grubenv: greenboot_next_deployment_id
+[  124.146746] fedora systemd[1]: Finished ostree-finalize-staged.service - OSTree Finalize Staged Deployment.
+[  124.146991] fedora systemd[1]: Finished greenboot-set-rollback-trigger.service - Greenboot Rollback trigger.
+[  127.325008] fedora systemd[1]: Stopping greenboot-set-rollback-trigger.service - Greenboot Rollback trigger...
+[  127.753251] fedora greenboot[2447]:  INFO  greenboot          > Setting rollback trigger for deployment: sha256:8d4a07dfa4629b90d5f1a79533c17de87bcaec3598506f0d5a84f4b3725a4dc0
+[  127.775521] fedora greenboot[2447]:  INFO  greenboot::grub    > Set grubenv: greenboot_next_deployment_id=sha256:8d4a07dfa4629b90d5f1a79533c17de87bcaec3598506f0d5a84f4b3725a4dc0
+=== boot -2 greenboot + finalize ===
+[    3.867819] fedora greenboot[917]:  WARN  greenboot          > GRUB kernel fallback detected: expected deployment sha256:8d4a07dfa4629b90d5f1a79533c17de87bcaec3598506f0d5a84f4b3725a4dc0, booted sha256:42c741fb2854bdb0d6999df9da027a59a3734c47e4e5f4026938f3f22e9a15e1
+[    3.867819] fedora greenboot[917]:  INFO  greenboot          > GRUB kernel fallback detected - new deployment failed to boot
+[    3.867819] fedora greenboot[917]:  INFO  greenboot          > Making GRUB fallback permanent by rolling back to the currently booted deployment
+[    3.867819] fedora greenboot[917]:  INFO  greenboot::handler > Greenboot will now attempt to rollback to a previous deployment.
+[    3.911339] fedora greenboot[917]:  INFO  greenboot::handler > Deployment manager 'bootc' detected, attempting rollback.
+[    3.944822] fedora bootc[963]: Rolling back to image: sha256:ba3902dc9b13e2c0535eec0f6f4dea42dd8bab9a2ff177222538b631bef40c36
+[    3.986914] fedora bootc[963]: Transaction complete; bootconfig swap: no; bootversion: boot.0.0, deployment count change: 0
+[    5.407311] fedora greenboot[963]: Next boot: rollback deployment
+[    5.408825] fedora greenboot[917]:  INFO  greenboot          > Rollback to previous deployment completed successfully
+[    5.418207] fedora greenboot[917]:  INFO  greenboot::grub    > Clear grubenv: greenboot_next_deployment_id
+[    5.423931] fedora greenboot[917]:  INFO  greenboot::grub    > Clear grubenv: fallback

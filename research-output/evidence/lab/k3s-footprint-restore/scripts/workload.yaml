@@ -1,0 +1,68 @@
+# Test workload: 30 nginx replicas, PostgreSQL with a local-path volume, a file writer with a volume,
+# and a ConfigMap. The Secret is created by guest-workload.sh with a random throwaway value.
+apiVersion: v1
+kind: Namespace
+metadata: {name: kfr}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: kfr-config, namespace: kfr}
+data: {marker: "onemind-restore-test-v1"}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: filler, namespace: kfr}
+spec:
+  replicas: 30
+  selector: {matchLabels: {app: filler}}
+  template:
+    metadata: {labels: {app: filler}}
+    spec:
+      containers:
+      - name: nginx
+        image: docker.io/library/nginx:1.29-alpine
+        resources: {requests: {cpu: 5m, memory: 8Mi}, limits: {memory: 64Mi}}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: {name: pg, namespace: kfr}
+spec:
+  serviceName: pg
+  replicas: 1
+  selector: {matchLabels: {app: pg}}
+  template:
+    metadata: {labels: {app: pg}}
+    spec:
+      containers:
+      - name: pg
+        image: docker.io/library/postgres:17-alpine
+        env:
+        - {name: POSTGRES_PASSWORD, valueFrom: {secretKeyRef: {name: kfr-secret, key: pgpass}}}
+        - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+        volumeMounts: [{name: data, mountPath: /var/lib/postgresql/data}]
+        resources: {requests: {cpu: 50m, memory: 128Mi}, limits: {memory: 512Mi}}
+  volumeClaimTemplates:
+  - metadata: {name: data}
+    spec: {accessModes: [ReadWriteOnce], storageClassName: local-path, resources: {requests: {storage: 1Gi}}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: files, namespace: kfr}
+spec: {accessModes: [ReadWriteOnce], storageClassName: local-path, resources: {requests: {storage: 256Mi}}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: writer, namespace: kfr}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: writer}}
+  template:
+    metadata: {labels: {app: writer}}
+    spec:
+      containers:
+      - name: w
+        image: docker.io/library/busybox:1.37
+        command: ["sh","-c","[ -f /data/blob ] || head -c 8388608 /dev/urandom > /data/blob; sync; sleep infinity"]
+        volumeMounts: [{name: files, mountPath: /data}]
+        resources: {requests: {cpu: 5m, memory: 8Mi}, limits: {memory: 32Mi}}
+      volumes: [{name: files, persistentVolumeClaim: {claimName: files}}]

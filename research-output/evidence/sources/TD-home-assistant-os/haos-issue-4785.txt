@@ -1,0 +1,110 @@
+Snapshot of https://github.com/home-assistant/operating-system/issues/4785 (accessed 2026-11-10 via gh CLI; author handles removed; body truncated)
+title: HassOS 18 on Pi 5 with NVMe hat is unstable and will corrupt its filesystem
+state: OPEN
+created: 2026-06-20T02:09:16Z
+closed: -
+
+### Describe the issue you are experiencing
+
+Upon updating to 18.0 the device would run for about three minutes before succumbing to an endless series of I/O errors and needing to be power cycled.
+
+### What operating system image do you use?
+
+rpi5-64  (Raspberry Pi 5 64-bit OS)
+
+### What version of Home Assistant Operating System is installed?
+
+18.0 (since reverted)
+
+### Did the problem occur after upgrading the Operating System?
+
+Yes
+
+### Hardware details
+
+This is all post-rollback as the device was unusable.
+
+Pi 5 with an NVMe hat and a Samsung 960 Evo Pro stick.
+
+### Steps to reproduce the issue
+
+It happened immediately after updating HassOS to 18.0 and went away when I flipped back to the other boot slot.
+
+
+### Anything in the Supervisor logs that might be useful for us?
+
+```txt
+It didn't save any logs worth speaking of because it went read only pretty much instantly and the logs never got flushed to disk.
+```
+
+### Anything in the Host logs that might be useful for us?
+
+```txt
+It didn't save any logs worth speaking of because it went read only pretty much instantly and the logs never got flushed to disk.
+```
+
+### System information
+
+Post-rollback, because I need this device to actually work.
+
+## System Information
+
+version | core-2026.6.4
+-- | --
+installation_type | Home Assistant OS
+dev | false
+hassio | true
+docker | true
+container_arch | aarch64
+user | root
+virtualenv | false
+python_version | 3.14.5
+os_name | Linux
+os_version | 6.12.75-haos-raspi
+arch | aarch64
+timezone | America/Los_Angeles
+config_dir | /config
+
+<details><summary>Home Assistant Community Store</summary>
+
+GitHub API | ok
+-- | --
+GitHub Content | ok
+GitHub Web | ok
+HACS Data | ok
+GitHub API Calls Remaining | 5000
+Installed Version | 2.0.5
+Stage | running
+Available Repositories | 3206
+Downloaded Repositories | 16
+
+</details>
+
+<details><summary>Home Assistant Cloud</summary>
+
+logged_in | true
+-- | --
+subscription_expiration | June 16, 2027 at 5:00 PM
+relayer_connected | true
+relayer_region | us-east-1
+remote_enabled | true
+remote_connected | true
+alexa_enabled | false
+google_enabled | true
+cloud_ice_servers_enabled | true
+remote_server | us-east-1-10.ui.nabu.casa
+certificate_status | ready
+instance_id | 0558199d26dc42a6bc0b793a43e61bf5
+can_reach_cert_server | ok
+can_reach_cloud_auth | ok
+can_reach_cloud | ok
+
+</details>
+
+<details><summary>Home Assistant Supervisor</summary>
+
+host_os | Home Assistant OS 17.3
+-- | --
+update_channel | stable
+supervisor_version | supervisor-2026.06.2
+agent_

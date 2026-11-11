@@ -1,0 +1,470 @@
+Installing Real-Time Kernel — NVIDIA Jetson Linux Developer Guide 
+ Skip to main content 
+ Back to top 
+ Ctrl + K 
+ NVIDIA Jetson Linux Developer Guide
+ Search 
+ Ctrl + K 
+ Search 
+ Ctrl + K 
+ NVIDIA Jetson Linux Developer Guide
+ Table of Contents
+ Introduction 
+ Welcome 
+ Quick Start 
+ Architecture 
+ Jetson Software Architecture 
+ Yocto on Jetson Platforms 
+ Boot Architecture 
+ Jetson AGX Orin, Orin NX, and Orin Nano Boot Flow 
+ Jetson Thor Boot Flow 
+ Partition Configuration 
+ Software Feature Overview 
+ Jetson Orin Series 
+ Jetson Thor Series 
+ Software Features in Depth 
+ Flashing Support 
+ Flashing Support for Jetson Thor 
+ Emulation Flash Configurations 
+ Root File System 
+ Bootloader 
+ T23x/T26x Boot Configuration Table 
+ Pinmux and GPIO Configuration 
+ Common Prod Configuration 
+ Controller Product Configuration 
+ Pad Voltage DT Binding 
+ PMIC Configuration 
+ Storage Device Configuration 
+ UPHY Lane Configuration 
+ OEM-FW Ratchet Configuration 
+ BootROM Reset PMIC Configuration 
+ Miscellaneous Configuration 
+ SDRAM Configuration 
+ DRAM-ECC 
+ GPIO Interrupt Mapping Configuration 
+ MB2 BCT Misc Configuration 
+ Security Configuration 
+ Platform Configuration Profile 
+ UEFI Adaptation 
+ Update and Redundancy 
+ Kernel 
+ Kernel Customization 
+ Installing Real-Time Kernel 
+ Bring Your Own Kernel 
+ Generic Timestamp Engine 
+ BMI088 IMU Driver 
+ Enable 25 Gigabit Ethernet on QSFP Port 
+ Kernel Boot Time Optimization 
+ Display Configuration and Bring-Up 
+ Common Display Configurations for All Platforms 
+ nv-load-display-modules Service 
+ Display Configuration for Jetson Orin 
+ Display Configuration for Jetson Thor 
+ I/O Customization 
+ PWM Frequency Configuration 
+ Kernel Debugging Tools 
+ Multimedia 
+ Multimedia APIs 
+ Accelerated Decode with FFmpeg 
+ Accelerated GStreamer 
+ Software Encode in Orin Nano 
+ Hardware Acceleration in the WebRTC Framework 
+ Graphics 
+ Graphics APIs 
+ Graphics Programming 
+ Binary Shader Program Management 
+ GLSLC Shader Program Compiler 
+ OpenGL ES Programming Tips 
+ EGLStream 
+ EGLDevice 
+ Sample Applications 
+ OpenWFD 
+ Vulkan SC 
+ Vulkan SC Samples 
+ Windowing Systems 
+ Weston (Wayland) 
+ X Window System 
+ Camera Development 
+ Camera Support Matrix 
+ Argus Framework 
+ Camera Software Development Solution 
+ Sensor Software Driver Programming 
+ Jetson Virtual Channel with GMSL Camera Framework 
+ Argus NvRaw Tool 
+ Camera Driver Porting 
+ Sensor Software Troubleshooting 
+ SIPL Framework 
+ Introduction to SIPL 
+ Camera Hardware Abstraction Layer (HAL) 
+ Camera HAL Driver Discovery 
+ UDDF 
+ HSL and UDDF Overview 
+ Guide to Writing UDDF Drivers 
+ PyHSL 
+ Integrating UDDF Drivers with SIPL 
+ Release Notes 
+ FAQ 
+ GMSL Camera Development Guide 
+ GMSL Architecture Overview 
+ Directory Layout and Build 
+ Guide to Writing GMSL UDDF Drivers 
+ Integrating GMSL UDDF Drivers with SIPL 
+ CoE Camera Development Guide 
+ Camera Software Development Solution for Jetson Thor 
+ Camera-over-Ethernet Overview 
+ Holoscan Sensor Bridge (HSB) 
+ JetPack 7.2 SIPL Migration Guide 
+ SIPL Query JSON Guide 
+ SIPL Camera Application Developer Guide 
+ SIPL Query Sample 
+ SIPL Image Formats 
+ Camera SIPL Notifications 
+ Runtime Interfaces and Sensor Characterization 
+ SIPL Stereo Pipeline 
+ nvsiplsrc: Hands-On Guide for the GStreamer SIPL Camera Source 
+ Security 
+ Secure Boot 
+ Quick Start Guide to Enable Secure Boot for Jetson Thor 
+ Quick Start Guide to Enable Secure Boot for Jetson Orin 
+ Fuse Configuration File 
+ Key Preparation 
+ Fuse Operations 
+ Sign and Flash Secured Images 
+ PKC Key Revocation 
+ UEFI Secure Boot 
+ UEFI Payload Encryption 
+ UEFI Variable Protection 
+ UEFI Platform Vendor Key Feature 
+ Kernel Module Signing 
+ Factory Secure Key and Expansion Key Provisioning 
+ Hafnium Secure Partition Manager 
+ OP-TEE: Open Portable Trusted Execution Environment 
+ Architecture 
+ Trusted Application and Client Application Development 
+ EKB: Encrypted Key Blob 
+ Sample Applications 
+ PKCS #11 Support in OP-TEE 
+ Disk Encryption 
+ Disk Encryption Concepts 
+ Partition Layout 
+ Encrypting the Rootfs 
+ Dynamic Partition Encryption 
+ Manufacturing 
+ Secure Storage 
+ Firmware TPM 
+ Software Architecture 
+ fTPM Boot Flow 
+ fTPM Provisioning 
+ Production Workflow 
+ Device-Side Operations 
+ fTPM Turnkey Solution for Ecosystem Partners 
+ Rollback Protection 
+ Memory Encryption 
+ PVA Authentication 
+ Security Keys List 
+ Communications 
+ PCIe Endpoint Mode 
+ Enabling Bluetooth Audio 
+ Audio Setup and Development 
+ CUDA Instrumentation Methods 
+ Multi-Instance GPU (MIG) 
+ Platform Power and Performance 
+ Jetson Orin Nano Series, Jetson Orin NX Series, and Jetson AGX Orin Series 
+ Jetson Thor Product Family 
+ Software Packages and the Update Mechanism 
+ Jetson ISO Customization Guide 
+ Boot Time Optimization 
+ Working With Sources 
+ Test Plan and Validation 
+ Hardware References 
+ Jetson Developer Kit Setup 
+ Jetson EEPROM Layout 
+ Jetson Module Adaptation and Bring-Up 
+ Jetson Thor Adaptation and Bring-Up 
+ Jetson AGX Orin Series 
+ Jetson Orin NX and Nano Series 
+ Checklists 
+ Configuring the Jetson Expansion Headers 
+ Controller Area Network (CAN) 
+ Applications and Tools 
+ Board Automation 
+ Jetson Linux Toolchain 
+ Jetson Linux Development Tools 
+ Debugging on Jetson Platforms 
+ Performance Monitoring 
+ Tegrastats Utility 
+ Tegra Combined UART 
+ How to Submit a Bug Report 
+ Reference Material 
+ Package Manifest 
+ Related Documentation 
+ Legal Information 
+ Kernel 
+ Installing Real-Time Kernel 
+ Is this page helpful? 
+ Installing Real-Time Kernel # 
+ Real-Time Kernel support is provided with Developer-Preview quality for the following platforms:
+ Jetson T5000
+ Jetson AGX Orin
+ Jetson Orin NX and Nano
+ You can install Real-Time Kernel by using OTA update or building the kernel sources manually.
+ Real-Time Kernel Using OTA Update # 
+ The Real-Time (RT) Kernel can be installed with a Debian package management–based OTA on Jetson devices running Jetson Linux or Jetson components on a host computer.
+ Installing the Real-Time Kernel Packages on a Jetson Device # 
+ Open the apt source configuration file in a text editor. For example:
+ $ sudo vi /etc/apt/sources.list.d/nvidia-l4t-apt-source.list 
+ Add the RT Kernel repository:
+ deb https://repo.download.nvidia.com/jetson/rt-kernel <release> main 
+ Replace <release> with the release number of the minor release to which you want to update. 
+For example, to update to release 39.2, replace <release> with r39.2 . 
+OTA updates install the latest version of the specified release.
+ Save and close the source configuration file.
+ Enter the following command:
+ $ sudo apt update 
+ Install the RT kernel packages:
+ For Jetson Thor devices:
+ $ sudo apt install nvidia-l4t-rt-kernel nvidia-l4t-rt-kernel-headers nvidia-l4t-rt-kernel-oot-modules nvidia-l4t-display-rt-kernel nvidia-l4t-rt-kernel-openrm 
+ For Jetson Orin devices:
+ $ sudo apt install nvidia-l4t-rt-kernel nvidia-l4t-rt-kernel-headers nvidia-l4t-rt-kernel-oot-modules nvidia-l4t-display-rt-kernel nvidia-l4t-rt-kernel-nvgpu 
+ Reboot your Jetson device after the installation is finished:
+ $ sudo reboot 
+ Removing the Real-Time Kernel Packages from a Jetson Device # 
+ Remove the RT Kernel packages by using the following command:
+ For Jetson AGX Thor devices:
+ $ sudo apt remove nvidia-l4t-rt-kernel nvidia-l4t-rt-kernel-headers nvidia-l4t-rt-kernel-oot-modules nvidia-l4t-display-rt-kernel nvidia-l4t-rt-kernel-openrm 
+ For Jetson Orin devices:
+ $ sudo apt remove nvidia-l4t-rt-kernel nvidia-l4t-rt-kernel-headers nvidia-l4t-rt-kernel-oot-modules nvidia-l4t-display-rt-kernel nvidia-l4t-rt-kernel-nvgpu 
+ Reboot your Jetson device:
+ $ sudo reboot 
+ Switch to a Different Kernel # 
+ After you install the Real-Time Kernel on your device, you might want to switch between the Real-Time Kernel image and the original generic kernel image without re-installing or removing kernel packages. You can do this by editing /boot/extlinux/extlinux.conf and setting the DEFAULT property to specify the kernel you want to boot. Set DEFAULT to real-time for the Real-Time Kernel or to primary for the generic kernel:
+ TIMEOUT 30 
+DEFAULT real-time 
+ Building Real-Time Linux Kernel Sources # 
+ For detailed instructions on downloading the Real-Time sources and building it, refer to Kernel Customization .
+ Note
+ The UEFI runtime services are enabled by default, which might increase latency. We do not recommend using UEFI runtime services while running RT applications. For more information, refer to commit ba7585a4a5580b4cba26ebe76050bd2ef1148948 .
+ Real-Time Kernel Latency Results on Jetson Thor # 
+ This section provides latency measurement results for the Real-Time Kernel. We measured latency by tuning the kernel configuration and kernel boot parameters.
+ Kernel Tuning Steps # 
+ Build the kernel with CONFIG_NO_HZ_FULL=y and CONFIG_RCU_NOCB_CPU=y .
+ Remove efi=runtime from the kernel boot parameters.
+ Add the following to the kernel boot parameters. Here, CPUs 8–13 are isolated for the real-time application; adjust based on your application:
+ rcu_nocb_poll rcu_nocbs=8-13 nohz=on nohz_full=8-13 kthread_cpus=0,1,2,3,4,5,6,7 irqaffinity=0,1,2,3,4,5,6,7 isolcpus=managed_irq,domain,8-13 
+ Run the following commands:
+ Disable real-time task CPU time throttling:
+ sudo sysctl kernel.sched_rt_runtime_us=-1 
+echo -1 | sudo tee /proc/sys/kernel/sched_rt_runtime_us 
+ Disable real-time CPU runtime throttling:
+ sudo sysctl kernel.timer_migration=0 
+echo 0 | sudo tee /proc/sys/kernel/timer_migration 
+ System Setup and Load During Latency Measurement # 
+ All CPUs set to performance mode. When you run Real-Time Kernel, all CPUs are in performance mode.
+ DDR at maximum frequency.
+ GPU clock at maximum frequency.
+ CPU power management disabled.
+ CPU idle states disabled.
+ glmark2 running on a 4K display over the DP port.
+ USB read/write with fio .
+ Ping over the RJ45 port every 2 ms.
+ Four pings over the QSFP port every 2 ms.
+ rteval load (kernel compilation and hackbench ).
+ stress running on CPUs 8–13 using taskset -c $CORE stress --cpu 1 command, where CORE is cpu 8-13 .
+ Run rtla timerlat to measure latency.
+ Latency Results # 
+ CPU
+ Count
+ IRQ 
+Cur
+ IRQ 
+Min
+ IRQ 
+Avg
+ IRQ 
+Max
+ Thread 
+Cur
+ Thread 
+Min
+ Thread 
+Avg
+ Thread 
+Max
+ 0
+ #236604692
+ 2
+ 0
+ 1
+ 61
+ 6
+ 1
+ 4
+ 66
+ 1
+ #236604692
+ 1
+ 0
+ 1
+ 47
+ 2
+ 1
+ 4
+ 55
+ 2
+ #236604692
+ 1
+ 0
+ 1
+ 61
+ 3
+ 1
+ 4
+ 66
+ 3
+ #236604692
+ 1
+ 0
+ 1
+ 45
+ 4
+ 1
+ 5
+ 51
+ 4
+ #236604692
+ 1
+ 0
+ 1
+ 89
+ 4
+ 1
+ 5
+ 96
+ 5
+ #236604692
+ 1
+ 0
+ 1
+ 56
+ 4
+ 1
+ 5
+ 62
+ 6
+ #236604692
+ 1
+ 0
+ 1
+ 46
+ 4
+ 1
+ 5
+ 52
+ 7
+ #236604692
+ 1
+ 0
+ 1
+ 46
+ 4
+ 1
+ 5
+ 55
+ 8
+ #236604692
+ 1
+ 1
+ 1
+ 14
+ 3
+ 3
+ 3
+ 26
+ 9
+ #236604692
+ 1
+ 1
+ 1
+ 11
+ 3
+ 2
+ 3
+ 17
+ 10
+ #236604692
+ 1
+ 1
+ 1
+ 10
+ 3
+ 2
+ 3
+ 16
+ 11
+ #236604692
+ 1
+ 1
+ 1
+ 7
+ 3
+ 2
+ 3
+ 10
+ 12
+ #236604692
+ 1
+ 1
+ 1
+ 7
+ 3
+ 2
+ 3
+ 14
+ 13
+ #236604692
+ 1
+ 1
+ 1
+ 8
+ 3
+ 2
+ 3
+ 13
+ From the table, CPUs 0–7 (where the system load is running) show higher maximum latency, up to 96 microseconds. The isolated CPUs 8–13 (where only the stress and real-time thread workloads are running) show lower maximum latency, up to 26 microseconds.
+ In this example, we isolated CPUs 8–13. But you can define any CPU as isolated and design your application to meet your requirements. You can change latency values based on your application and tuning.
+ References # 
+ Ubuntu RT kernel tuning: Launching the real-time kernel (Canonical Ubuntu blog)
+ Linux Foundation wiki:
+ Hackbench 
+ RTEval 
+ Real-time Linux Analysis tool (rtla) 
+ previous
+ Kernel Customization
+ next
+ Bring Your Own Kernel
+ On this page 
+ Real-Time Kernel Using OTA Update 
+ Installing the Real-Time Kernel Packages on a Jetson Device 
+ Removing the Real-Time Kernel Packages from a Jetson Device 
+ Switch to a Different Kernel 
+ Building Real-Time Linux Kernel Sources 
+ Real-Time Kernel Latency Results on Jetson Thor 
+ Kernel Tuning Steps 
+ System Setup and Load During Latency Measurement 
+ Latency Results 
+ References 
+ Privacy Policy 
+ | 
+ Your Privacy Choices 
+ | 
+ Terms of Service 
+ | 
+ Accessibility 
+ | 
+ Corporate Policies 
+ | 
+ Product Security 
+ | 
+ Contact 
+ Copyright © 2025-2026, NVIDIA Corporation. 
+ Last updated on Aug 12, 2026.

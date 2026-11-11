@@ -1,0 +1,18 @@
+jetson-lifecycle|https://developer.nvidia.com/embedded/lifecycle|50326|20b6efb4e5c93d9b8ed31c426deec12d1682ab5de40b4f5f7a44bb9427372329
+jetson-linux-archive|https://developer.nvidia.com/embedded/jetson-linux-archive|141577|c2fe95ff2817cc583ce721b45c8f3d17fbbf7bc73f76136725ab0e6fc99a6f04
+jetpack-archive-7.2|https://developer.nvidia.com/embedded/jetpack/downloads/archive-7.2|49088|23f5298c913d9edde59f4244c0da2c1c10bd06d138d440913c8beab084a6d0e2
+jetpack|https://developer.nvidia.com/embedded/jetpack|47504|da3701f5420ad7b9107f6ca831528e0c4819f0cdab5f3a8351f6bd38fad5cac7
+r39.2.1-rt-kernel|https://docs.nvidia.com/jetson/archives/r39.2.1/DeveloperGuide/SD/Kernel/RealTimeKernel.html|63920|dd56701216afb008deee81bfe4dd6204aa96b0b062244f46b75ad1848a0d0e89
+r39.2.1-byok|https://docs.nvidia.com/jetson/archives/r39.2.1/DeveloperGuide/SD/Kernel/BringYourOwnKernel.html|94050|53cc0fdeb0c209d72c1aa78f00e96857eb59e5c0bffe7e249e9f2440025b5f4a
+r39.2.1-update-redundancy|https://docs.nvidia.com/jetson/archives/r39.2.1/DeveloperGuide/SD/Bootloader/UpdateAndRedundancy.html|134673|4493981498b1f2ea4e203565ba9ed3e69a7945c93005cdabcfc881ef0828383a
+isaac-ros-getting-started|https://nvidia-isaac-ros.github.io/getting_started/index.html|185604|3d634ee4f36d746219051696687272db81d3ba9190da34fbb9c40c242c7e9071
+isaac-ros-preempt|https://nvidia-isaac-ros.github.io/getting_started/compute/preempt_setup.html|81354|7062f0d85ab24fc22866b89568e2a8d2229ec370ee7f49d7d158e3a0b389b03b
+debian-trixie-linux-image-rt|https://packages.debian.org/search?keywords=linux-image-rt&searchon=names&suite=trixie&section=all|3319|d19b9ef1e716a61d30480e8e528a47d9975876c11febe9c4921a04110df10439
+anthropic-mhs|https://www.anthropic.com/news/model-hardware-standard-research-preview|295383|2f073b8a233c1ee3ae0f6969ad88656390ec7ae02f0dd17dfe2cac34783d4bff
+nvidia-t3000-blog|https://blogs.nvidia.com/blog/jetson-thor-robotics-edge-ai-agent/|121813|29170bf3a548bda320f7c18e50f1e265c6b7fa56018fb70458a5136da660e9bd
+k8s-pss|https://kubernetes.io/docs/concepts/security/pod-security-standards/|525592|4ceeba95b4af9ace7aad37f310be0853c3d68c427a9a64de692fda5e13d82da9
+fastdds-shm-docker|https://fast-dds.docs.eprosima.com/en/latest/docker/shm_docker.html|161545|7fea3b59b6ec26551dc2b5905fc40efe7df57dbf71b42307c0f91a63756254f9
+clearpath-robot-install|https://docs.clearpathrobotics.com/docs/ros/installation/robot|100078|1ad39571a2ca514b4e6c45a5eb8776df558450f09c1d18fc44e021eea40933e1
+bd-coreio-docker|https://dev.bostondynamics.com/docs/payload/docker_containers|106316|b25f1cc119ff2f670e398073d73491f9892ecfca7983abeed214e0f656afa284
+bd-coreio-docker redacted-sha256 0cc063cf2d9ce4c87fa9c567f60833a471615738f067cec3d3f71b4eab301731
+clearpath-robot-install redacted-sha256 ac14c1f2e2b007698ee297e78cc562ea0d958d372e8d3d6c02742ca9d08cb99a

@@ -1,0 +1,5 @@
+parent = "onemind-base"
+recipes = ["release-marker"]
+
+[parameters."release-marker"]
+version = "v2-good"

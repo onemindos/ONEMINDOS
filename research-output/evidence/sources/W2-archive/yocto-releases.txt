@@ -1,0 +1,579 @@
+ 
+ Releases - Yocto Project 
+ Releases 
+ From Yocto Project
+ Jump to navigation Jump to search 
+ Note that https://www.yoctoproject.org/development/releases/ is the preferred source of information. 
+ This page remains as it currently contains more information.
+ See Release calendar for upcoming release dates.
+ Release Activity 
+ See also a graphical release timeline .
+ Releases can be downloaded at https://www.yoctoproject.org/software-overview/downloads/ 
+ Codename
+ Yocto Project Version
+ Release Date
+ Current Version
+ Support Level
+ Poky Version
+ BitBake branch
+ Maintainer
+ Notes
+ Garburn
+ 6.2
+ April 2027
+ Support for 6 months (until October 2027)
+ N/A
+ 2.22
+ Richard Purdie <[email-redacted]>
+ Blacksail
+ 6.1
+ October 2026
+ Support for 6 months (until April 2027)
+ N/A
+ 2.20
+ Richard Purdie <[email-redacted]>
+ Wrynose 
+(like 'rhinos')
+ 6.0
+ April 2026
+ 6.0 (May 2026)
+ Long Term Support (until April 2030)
+ N/A
+ 2.18
+ Yoann Congal <[email-redacted]>
+ Whinlatter 
+(like 'win latter')
+ 5.3
+ December 2025
+ 5.3.2 (March 2026)
+ EOL
+ N/A
+ 2.16
+ Yoann Congal <[email-redacted]>
+ Recipe versions 
+ Walnascar (aka Walna)
+ 5.2
+ May 2025
+ 5.2.4 (October 2025)
+ EOL since November 2025
+ N/A
+ 2.12
+ Steve Sakoman <[email-redacted]>
+ Recipe versions 
+ Styhead 
+(like 'try head')
+ 5.1
+ October 2024
+ 5.1.4 (April 2025)
+ EOL
+ N/A
+ 2.10
+ Steve Sakoman <[email-redacted]>
+ Scarthgap
+ 5.0
+ April 2024
+ 5.0.18 (June 2026)
+ Long Term Support (until April 2028)
+ N/A
+ 2.8
+ Yoann Congal <[email-redacted]>
+ Recipe versions 
+ Nanbield 
+(like 'man field')
+ 4.3
+ November 2023
+ 4.3.4 (April 2024)
+ EOL
+ N/A
+ 2.6
+ Steve Sakoman <[email-redacted]>
+ Mickledore
+ 4.2
+ May 2023
+ 4.2.4 (December 2023)
+ EOL
+ N/A
+ 2.4
+ Steve Sakoman <[email-redacted]>
+ Langdale
+ 4.1
+ October 2022
+ 4.1.4 (May 2023)
+ EOL
+ N/A
+ 2.2
+ Steve Sakoman <[email-redacted]>
+ Kirkstone 
+(like 'kirk stun')
+ 4.0
+ May 2022
+ 4.0.33 (February 2026)
+ EOL
+ N/A
+ 2.0
+ Yoann Congal <[email-redacted]>
+ Honister
+ 3.4
+ October 2021
+ 3.4.4 (May 2022)
+ EOL
+ N/A
+ 1.52
+ Anuj Mittal <[email-redacted]>
+ Hardknott
+ 3.3
+ April 2021
+ 3.3.6 (April 2022)
+ EOL
+ N/A
+ 1.50
+ Anuj Mittal <[email-redacted]>
+ Gatesgarth
+ 3.2
+ Oct 2020
+ 3.2.4 (May 2021)
+ EOL
+ N/A
+ 1.48
+ Anuj Mittal <[email-redacted]>
+ Dunfell
+ 3.1
+ April 2020
+ 3.1.33 (May 2024)
+ EOL - LTS¹
+ 23.0
+ 1.46
+ Steve Sakoman <[email-redacted]>
+ Zeus
+ 3.0
+ October 2019
+ 3.0.4 (August 2020)
+ EOL
+ 22.0.3
+ 1.44
+ Anuj/Armin
+ Warrior
+ 2.7
+ April 2019
+ 2.7.4 (June 2020)
+ EOL
+ 21.0
+ 1.42
+ Armin Kuster <[email-redacted]>
+ Thud
+ 2.6
+ Nov 2018
+ 2.6.4 (October 2019)
+ EOL
+ 20.0
+ 1.40
+ Armin Kuster <[email-redacted]>
+ Sumo
+ 2.5
+ April 2018
+ 2.5.3 (April 2019)
+ EOL
+ 19.0
+ 1.38
+ Armin Kuster <[email-redacted]>
+ Rocko
+ 2.4
+ Oct 2017
+ 2.4.4 (November 2018)
+ EOL
+ 18.0
+ 1.36
+ Armin Kuster <[email-redacted]>
+ Pyro
+ 2.3
+ May 2017
+ 2.3.4 (July 2018)
+ EOL
+ 17.0
+ 1.34
+ Armin Kuster <[email-redacted]>
+ Morty
+ 2.2
+ Nov 2016
+ 2.2.4 (July 2018)
+ EOL
+ 16.0
+ 1.32
+ Armin Kuster <[email-redacted]>
+ Krogoth
+ 2.1
+ Apr 2016
+ 2.1.3 (July 2017)
+ EOL
+ 15.0
+ 1.30
+ Armin Kuster <[email-redacted]>
+ Jethro
+ 2.0
+ Nov 2015
+ 2.0.3 (January 2017)
+ EOL
+ 14.0
+ 1.28
+ Robert Yang <[email-redacted]>
+ Fido
+ 1.8
+ Apr 2015
+ 1.8.2
+ EOL
+ 13.0
+ 1.26
+ Joshua Lock <[email-redacted]>
+ Dizzy
+ 1.7
+ Oct 2014
+ 1.7.3
+ EOL
+ 12.0
+ 1.24
+ Armin Kuster <[email-redacted]>
+ Daisy
+ 1.6
+ Apr 2014
+ 1.6.3
+ EOL
+ 11.0
+ 1.22
+ Saul Wold <[email-redacted]>
+ Dora
+ 1.5
+ Oct 2013
+ 1.5.4
+ EOL
+ 10.0
+ 1.20
+ Robert Yang <[email-redacted]>
+ Dylan
+ 1.4
+ Apr 2013
+ 1.4.3
+ EOL
+ 9.0
+ 1.18
+ Paul Eggleton <[email-redacted]>
+ Danny
+ 1.3
+ Oct 2012
+ 1.3.2
+ EOL
+ 8.0
+ 1.16
+ Ross Burton <[email-redacted]>
+ Denzil
+ 1.2
+ Apr 2012
+ 1.2.2
+ EOL
+ 7.0
+ 1.15
+ Edison
+ 1.1
+ Oct 2011
+ 1.1.2
+ EOL
+ 6.0
+ 1.13
+ Bernard
+ 1.0
+ Apr 2011
+ 1.0.2
+ EOL
+ 5.0
+ 1.11
+ Laverne
+ 0.9
+ Oct 2010
+ 4.0
+ 1.11
+ Green
+ N/A
+ 11 June 2010
+ 3.3
+ Purple
+ N/A
+ 15 Dec 2009
+ 3.2
+ Pinky
+ N/A
+ 12 Nov 2009
+ 3.1
+ Blinky
+ N/A
+ 1 Aug 2007
+ 3.0
+ Clyde
+ N/A
+ 19 Jan 2007
+ 2.0
+ Inky
+ N/A
+ 10 Feb 2006
+ 1.0
+ Note: see also Stable Release and LTS , Linux Yocto , Release calendar and Release Feature Table pages. EOL means some community support on email lists but no commit updates in the repos. There is also OS Vendor support for some Yocto EOL releases.
+ ¹ The 3.1 series and 4.0 were originally planned for two years but extended to four. Future LTS releases are planned for 4 years.
+ Releases Links 
+ Yocto Project Release 
+ Code Name 
+ Poky version 
+ Maintainer 
+ Features 
+ Schedule 
+ Status 
+ QA Test Plan 
+ QA Test Report 
+ Release notes 
+ Yocto Project 3.4
+ Honister
+ 26.0
+ Anuj Mittal
+ Yocto_3.4_Features 
+ Yocto_3.4_Schedule 
+ Yocto_Project_v3.4_Status 
+ Yocto_3.4_Overall_Test_Plan 
+ 3.4 qa run history 
+ 3.4 release notes 
+ Yocto Project 3.3
+ Hardknott
+ 25.0
+ Anuj Mittal
+ Yocto_3.3_Features 
+ Yocto_3.3_Schedule 
+ Yocto_Project_v3.3_Status 
+ Yocto_3.3_Overall_Test_Plan 
+ 3.3 qa run history 
+ 3.3 release notes 
+ Yocto Project 3.2
+ Gatesgarth
+ 24.0
+ Anuj Mittal
+ Yocto_3.2_Features 
+ Yocto_3.2_Schedule 
+ Yocto_Project_v3.2_Status 
+ Yocto_3.2_Overall_Test_Plan 
+ 3.2 qa run history 
+ 3.2 release notes 
+ Yocto Project 3.1
+ Dunfell
+ 23.0
+ Steve Sakoman
+ Yocto_3.1_Features 
+ Yocto_3.1_Schedule 
+ Yocto_Project_v3.1_Status 
+ Yocto_3.1_Overall_Test_Plan 
+ 3.1 qa run history 
+ 3.1 release notes 
+ Yocto Project 3.0
+ Zeus
+ 22.0
+ Armin Kuster/Anuj Mittal
+ Yocto_2.8_Features 
+ Yocto_2.8_Schedule 
+ Yocto_Project_v2.8_Status 
+ Yocto_2.8_Overall_Test_Plan 
+ 2.8 qa run history 
+ 3.0 release notes 
+ Yocto Project 2.7
+ Warrior
+ 21.0
+ Community
+ Yocto_2.7_Features 
+ Yocto_2.7_Schedule 
+ Yocto_Project_v2.7_Status 
+ Yocto_2.7_Overall_Test_Plan 
+ 2.7 qa run history 
+ 2.7 release notes 
+ Yocto Project 2.6
+ Thud
+ 20.0
+ Community
+ Yocto_2.6_Features 
+ Yocto_2.6_Schedule 
+ Yocto_Project_v2.6_Status 
+ Yocto_2.6_Overall_Test_Plan 
+ 2.6 qa run history 
+ 2.6 release notes 
+ Yocto Project 2.5
+ Sumo
+ 19.0
+ Community
+ Yocto_2.5_Features 
+ Yocto_2.5_Schedule 
+ Yocto_Project_v2.5_Status 
+ Yocto_2.5_Overall_Test_Plan 
+ 2.5 qa run history 
+ 2.5 release notes 
+ Yocto Project 2.4
+ Rocko
+ 18.0
+ Community
+ Yocto_2.4_Features 
+ Yocto_2.4_Schedule 
+ Yocto_Project_v2.4_Status 
+ Yocto_2.4_Overall_Test_Plan 
+ 2.4 qa run history 
+ 2.4 release notes 
+ Yocto Project 2.3
+ Pyro
+ 17.0
+ Community
+ Yocto_2.3_Features 
+ Yocto_2.3_Schedule 
+ Yocto_Project_v2.3_Status 
+ Yocto_2.3_Overall_Test_Plan 
+ 2.3 qa run history 
+ 2.3 release notes 
+ Yocto Project 2.2
+ Morty
+ 16.0
+ Community
+ Yocto_2.2_Features 
+ Yocto_2.2_Schedule 
+ Yocto_Project_v2.2_Status 
+ Yocto_2.2_Overall_Test_Plan 
+ 2.2 qa run history 
+ 2.2 release notes 
+ Yocto Project 2.1
+ Krogoth
+ 15.0
+ Community
+ Yocto_2.1_Features 
+ Yocto_2.1_Schedule 
+ Yocto_Project_v2.1_Status 
+ Yocto_2.1_Overall_Test_Plan 
+ 2.1 qa run history 
+ 2.1 release notes 
+ Yocto Project 2.0
+ Jethro
+ 14.0
+ Community
+ Yocto_1.9_Features 
+ Yocto_1.9_Schedule 
+ Yocto_Project_v1.9_Status 
+ 1.9 qa run history 
+ 2.0 release notes 
+ Yocto Project 1.8
+ Fido
+ 13.0
+ Community
+ Yocto_1.8_Features 
+ Yocto_1.8_Schedule 
+ Yocto_Project_v1.8_Status 
+ Yocto_1.8_Overall_Test_Plan 
+ 1.8 qa run history 
+ 1.8 release notes 
+ Yocto Project 1.7
+ Dizzy
+ 12.0
+ Community
+ Yocto_1.7_Features 
+ Yocto_1.7_Schedule 
+ Yocto_Project_v1.7_Status 
+ Yocto_1.7_Overall_Test_Plan 
+ 1.7 qa run history 
+ 1.7 release notes 
+ Yocto Project 1.6
+ Daisy
+ 11.0
+ Community
+ Yocto_1.6_Features 
+ Yocto_1.6_Schedule 
+ Yocto_Project_v1.6_Status 
+ Yocto_1.6_Overall_Test_Plan 
+ 1.6 qa run history 
+ 1.6 release notes 
+ Yocto Project 1.5
+ Dora
+ 10.0
+ Community
+ Yocto_1.5_Features 
+ Yocto_1.5_Schedule 
+ Yocto_Project_v1.5_Status 
+ Yocto_1.5_Overall_Test_Plan 
+ 1.5 qa run history 
+ 1.5 release notes 
+ Yocto Project 1.4
+ Dylan
+ 9.0
+ Community
+ Yocto_1.4_Features 
+ Yocto_1.4_Schedule 
+ Yocto_Project_v1.4_Status 
+ Yocto_1.4_Overall_Test_Plan 
+ Yocto_1.4_Milestone_Test_Report 
+ 1.4 release notes 
+ Yocto Project 1.3
+ Danny
+ 8.0
+ Community
+ Yocto_1.3_Features 
+ Yocto_1.3_Schedule 
+ Yocto_Project_v1.3_Status 
+ Yocto_1.3_Overall_Test_Plan 
+ Yocto_1.3_Milestone_Test_Report 
+ 1.3 release notes 
+ Yocto Project 1.2
+ Denzil
+ 7.0
+ Community
+ Yocto_1.2_Features 
+ Yocto_1.2_Schedule 
+ Yocto_Project_v1.2_Status 
+ Yocto_1.2_Overall_Test_Plan 
+ Yocto_1.2_Milestone_Test_Report 
+ 1.2 release notes 
+ Yocto Project 1.1
+ Edison
+ 6.0
+ Community
+ Yocto_1.1_Features 
+ Yocto_1.1_Schedule 
+ Yocto_Project_v1.1_Release_Criteria 
+ Yocto_1.1_Overall_Test_Plan 
+ Yocto_1.1_Milestone_Test_Report 
+ Yocto Project 1.0
+ Bernard
+ 5.0
+ Community
+ Yocto_Features 
+ Yocto_1.0_Schedule 
+ Yocto_Project_v1.0_Release_Criteria 
+ Yocto_1.0_Overall_Test_Plan 
+ Retrieved from " https://wiki.yoctoproject.org/wiki/index.php?title=Releases&oldid=86876 "
+ Navigation menu
+ Page actions
+ Page 
+ Discussion 
+ Read 
+ View source 
+ History 
+ Page actions
+ Page 
+ Discussion 
+ More 
+ Tools 
+ Personal tools
+ Log in 
+ Request account 
+ Navigation
+ Main page 
+ Recent changes 
+ Random page 
+ Help about MediaWiki 
+ Search 
+ Tools
+ What links here 
+ Related changes 
+ Special pages 
+ Printable version 
+ Permanent link 
+ Page information 
+ This page was last edited on 10 September 2026, at 14:27.
+ Privacy policy 
+ About Yocto Project 
+ Disclaimers 
+ 

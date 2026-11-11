@@ -1,0 +1,886 @@
+Update and Redundancy — NVIDIA Jetson Linux Developer Guide 
+ Skip to main content 
+ Back to top 
+ Ctrl + K 
+ NVIDIA Jetson Linux Developer Guide
+ Search 
+ Ctrl + K 
+ Search 
+ Ctrl + K 
+ NVIDIA Jetson Linux Developer Guide
+ Table of Contents
+ Introduction 
+ Welcome 
+ Quick Start 
+ Architecture 
+ Jetson Software Architecture 
+ Yocto on Jetson Platforms 
+ Boot Architecture 
+ Jetson AGX Orin, Orin NX, and Orin Nano Boot Flow 
+ Jetson Thor Boot Flow 
+ Partition Configuration 
+ Software Feature Overview 
+ Jetson Orin Series 
+ Jetson Thor Series 
+ Software Features in Depth 
+ Flashing Support 
+ Flashing Support for Jetson Thor 
+ Emulation Flash Configurations 
+ Root File System 
+ Bootloader 
+ T23x/T26x Boot Configuration Table 
+ Pinmux and GPIO Configuration 
+ Common Prod Configuration 
+ Controller Product Configuration 
+ Pad Voltage DT Binding 
+ PMIC Configuration 
+ Storage Device Configuration 
+ UPHY Lane Configuration 
+ OEM-FW Ratchet Configuration 
+ BootROM Reset PMIC Configuration 
+ Miscellaneous Configuration 
+ SDRAM Configuration 
+ DRAM-ECC 
+ GPIO Interrupt Mapping Configuration 
+ MB2 BCT Misc Configuration 
+ Security Configuration 
+ Platform Configuration Profile 
+ UEFI Adaptation 
+ Update and Redundancy 
+ Kernel 
+ Kernel Customization 
+ Installing Real-Time Kernel 
+ Bring Your Own Kernel 
+ Generic Timestamp Engine 
+ BMI088 IMU Driver 
+ Enable 25 Gigabit Ethernet on QSFP Port 
+ Kernel Boot Time Optimization 
+ Display Configuration and Bring-Up 
+ Common Display Configurations for All Platforms 
+ nv-load-display-modules Service 
+ Display Configuration for Jetson Orin 
+ Display Configuration for Jetson Thor 
+ I/O Customization 
+ PWM Frequency Configuration 
+ Kernel Debugging Tools 
+ Multimedia 
+ Multimedia APIs 
+ Accelerated Decode with FFmpeg 
+ Accelerated GStreamer 
+ Software Encode in Orin Nano 
+ Hardware Acceleration in the WebRTC Framework 
+ Graphics 
+ Graphics APIs 
+ Graphics Programming 
+ Binary Shader Program Management 
+ GLSLC Shader Program Compiler 
+ OpenGL ES Programming Tips 
+ EGLStream 
+ EGLDevice 
+ Sample Applications 
+ OpenWFD 
+ Vulkan SC 
+ Vulkan SC Samples 
+ Windowing Systems 
+ Weston (Wayland) 
+ X Window System 
+ Camera Development 
+ Camera Support Matrix 
+ Argus Framework 
+ Camera Software Development Solution 
+ Sensor Software Driver Programming 
+ Jetson Virtual Channel with GMSL Camera Framework 
+ Argus NvRaw Tool 
+ Camera Driver Porting 
+ Sensor Software Troubleshooting 
+ SIPL Framework 
+ Introduction to SIPL 
+ Camera Hardware Abstraction Layer (HAL) 
+ Camera HAL Driver Discovery 
+ UDDF 
+ HSL and UDDF Overview 
+ Guide to Writing UDDF Drivers 
+ PyHSL 
+ Integrating UDDF Drivers with SIPL 
+ Release Notes 
+ FAQ 
+ GMSL Camera Development Guide 
+ GMSL Architecture Overview 
+ Directory Layout and Build 
+ Guide to Writing GMSL UDDF Drivers 
+ Integrating GMSL UDDF Drivers with SIPL 
+ CoE Camera Development Guide 
+ Camera Software Development Solution for Jetson Thor 
+ Camera-over-Ethernet Overview 
+ Holoscan Sensor Bridge (HSB) 
+ JetPack 7.2 SIPL Migration Guide 
+ SIPL Query JSON Guide 
+ SIPL Camera Application Developer Guide 
+ SIPL Query Sample 
+ SIPL Image Formats 
+ Camera SIPL Notifications 
+ Runtime Interfaces and Sensor Characterization 
+ SIPL Stereo Pipeline 
+ nvsiplsrc: Hands-On Guide for the GStreamer SIPL Camera Source 
+ Security 
+ Secure Boot 
+ Quick Start Guide to Enable Secure Boot for Jetson Thor 
+ Quick Start Guide to Enable Secure Boot for Jetson Orin 
+ Fuse Configuration File 
+ Key Preparation 
+ Fuse Operations 
+ Sign and Flash Secured Images 
+ PKC Key Revocation 
+ UEFI Secure Boot 
+ UEFI Payload Encryption 
+ UEFI Variable Protection 
+ UEFI Platform Vendor Key Feature 
+ Kernel Module Signing 
+ Factory Secure Key and Expansion Key Provisioning 
+ Hafnium Secure Partition Manager 
+ OP-TEE: Open Portable Trusted Execution Environment 
+ Architecture 
+ Trusted Application and Client Application Development 
+ EKB: Encrypted Key Blob 
+ Sample Applications 
+ PKCS #11 Support in OP-TEE 
+ Disk Encryption 
+ Disk Encryption Concepts 
+ Partition Layout 
+ Encrypting the Rootfs 
+ Dynamic Partition Encryption 
+ Manufacturing 
+ Secure Storage 
+ Firmware TPM 
+ Software Architecture 
+ fTPM Boot Flow 
+ fTPM Provisioning 
+ Production Workflow 
+ Device-Side Operations 
+ fTPM Turnkey Solution for Ecosystem Partners 
+ Rollback Protection 
+ Memory Encryption 
+ PVA Authentication 
+ Security Keys List 
+ Communications 
+ PCIe Endpoint Mode 
+ Enabling Bluetooth Audio 
+ Audio Setup and Development 
+ CUDA Instrumentation Methods 
+ Multi-Instance GPU (MIG) 
+ Platform Power and Performance 
+ Jetson Orin Nano Series, Jetson Orin NX Series, and Jetson AGX Orin Series 
+ Jetson Thor Product Family 
+ Software Packages and the Update Mechanism 
+ Jetson ISO Customization Guide 
+ Boot Time Optimization 
+ Working With Sources 
+ Test Plan and Validation 
+ Hardware References 
+ Jetson Developer Kit Setup 
+ Jetson EEPROM Layout 
+ Jetson Module Adaptation and Bring-Up 
+ Jetson Thor Adaptation and Bring-Up 
+ Jetson AGX Orin Series 
+ Jetson Orin NX and Nano Series 
+ Checklists 
+ Configuring the Jetson Expansion Headers 
+ Controller Area Network (CAN) 
+ Applications and Tools 
+ Board Automation 
+ Jetson Linux Toolchain 
+ Jetson Linux Development Tools 
+ Debugging on Jetson Platforms 
+ Performance Monitoring 
+ Tegrastats Utility 
+ Tegra Combined UART 
+ How to Submit a Bug Report 
+ Reference Material 
+ Package Manifest 
+ Related Documentation 
+ Legal Information 
+ Bootloader 
+ Update and Redundancy 
+ Is this page helpful? 
+ Update and Redundancy # 
+ NVIDIA ® Jetson™ Linux supports Bootloader update and redundancy on all Jetson platforms.
+ The Bootloader update process performs a safe Bootloader update and ensures 
+that a workable Bootloader partition remains available during an 
+update. It accomplishes this using A/B update , a feature that maintains 
+two sets of Bootloader partitions, Slot A and Slot B , each of which is a 
+complete set of the partitions that contain boot images.
+ Bootloader redundancy is enabled by default.
+ A/B Slot Layout # 
+ The principle of shadow copying enables multiple placeholders. All of the 
+placeholders but one hold backup copies. Each backup copy is a 
+candidate to boot from. However, based on runtime decisions, 
+the correct copy of the binary is loaded to continue with the boot 
+process. These two shadow copies are commonly referred to as Slot A and 
+Slot B. This two-slot implementation is as follows:
+ The diagram above shows the slot implementation in conceptual form.
+ A/B System Update # 
+ Partition Selection # 
+ A/B system updates use two sets of partitions (slots). Each slot has several attributes:
+ The slot that the running system booted from is called the current slot . 
+The other slot is called the unused slot . The system exchanges the roles of the current and unused slot in the course of an 
+update, or when the software fails repeatedly during or immediately after a boot.
+ The slot that the system will use the next time it boots is called the active slot . In “steady state” device the bootable slot is also the active slot. When the system is being updated it may be different.
+ A slot’s status attribute indicates whether the slot contains a 
+system from which the device should be able to boot. When the system 
+is running the current slot is bootable; the unused slot may have an 
+older, identical, or newer version of the system, and may or may not 
+be bootable.
+ The bootable slot is the slot whose status attribute is normal .
+ If a bootable slot fails to boot, Bootloader sets its status attribute as unbootable and switches the roles of the current and unused slots. 
+The formerly unused, now current, slot typically contains boot software that is one update old (if the device was just updated with nonfunctional software) 
+or current (if the former current slot has suffered data corruption).
+ Bootloader Implementation # 
+ The A/B system uses the Scratch Register to store the slot status. It 
+is used between the cpu-bootloader and early stage Bootloader. The early 
+stage Bootloader runs the state machine to select the boot slot.
+ Jetson Orin Implementation # 
+ For Jetson Orin products, Bootloader handles the update failure cases as follows:
+ Here is the process flow:
+ For NVIDIA ® Jetson AGX Orin™ , NVIDIA ® Jetson Orin™ NX , and NVIDIA ® Jetson Orin™ Nano : 
+BootRom uses the BR-BCT to find the current slot for cold boot, 
+and it uses the Scratch Register to find the current slot for warm boot. It marks the current slot status 
+as invalid and caches the current slot number, 0 (slot A) or 1 (slot B), with the status flag in scratch 
+register 109. This slot number will be used by MB1, MB2, UEFI, or later stage loaders. When control reaches 
+cpu-bootloader, it restores the status flag to valid and saves to the scratch register 109.
+ If BootRom does not find a current slot, the device enters NVIDIA recovery mode.
+ Note
+ For NVIDIA ® Jetson AGX Orin™ , NVIDIA ® Jetson Orin™ NX , and NVIDIA ® Jetson Orin™ Nano , the cpu-bootloader automatically updates the slot number in BR-BCT when the following conditions are met:
+ The slot number in BR-BCT does not match the current slot number in the scratch register.
+ The UEFI variable AutoUpdateBrBct is set to 1, and this value is configured by L4TConfiguration.dts in UEFI source.
+ Jetson Thor Implementation # 
+ For Jetson Thor products, Bootloader handles the update failure cases as follows:
+ The process flow for NVIDIA ® Jetson Thor™ is as follows:
+ BootRom uses the Scratch Register to find the current slot for both cold boot and warm boot. 
+It marks the current slot status as invalid and caches the current slot number, 0 (slot A) or 1 (slot B), 
+with the status flag in Scratch Register. This slot number will be used by MB1, MB2,UEFI, or later stage loaders. 
+When control reaches cpu-bootloader, it restores the status flag to valid and saves to the Scratch Register.
+ If BootRom does not find a current slot, the device enters NVIDIA recovery mode.
+ Note
+ For NVIDIA ® Jetson Thor™ , the cpu-bootloader automatically switches boot chain after the LastBootChainFailed flag is set in the Scratch Register.
+ Bootloader Scratch Register # 
+ This section provides information about the Scratch register definition.
+ For NVIDIA ® Jetson AGX Orin™ , NVIDIA ® Jetson Orin™ NX , and NVIDIA ® Jetson Orin™ Nano # 
+ Scratch register 109 layout
+ Bits
+ Contents
+ 31-6
+ Reserved
+ 5-4
+ Current slot number
+ 3-0
+ Boot slot status flag
+ Where:
+ The current slot number is 0 for slot A and 1 for slot B.
+ The boot slot status flag uses bits to indicate the following slot statuses:
+ 0 : valid
+ 1 : invalid
+ For example, 0001b means slot A is invalid.
+ For NVIDIA ® Jetson Thor™ # 
+ Scratch Register layout
+ Bits
+ Contents
+ 31-14
+ Reserved
+ 13
+ Last boot failed flag
+ 12-11
+ MB1 current slot number
+ 10-7
+ MB1 boot slot status flag
+ 6
+ Reserved
+ 5-4
+ BootRom current slot number
+ 3-0
+ BootRom boot slot status flag
+ The BootRom current slot number is 0 for slot A and 1 for slot B.
+ The MB1 current slot number is 0 for slot A and 1 for slot B
+ The boot slot status flag for BootRom and MB1 uses bits to indicate the following slot statuses:
+ 0 : Valid
+ 1 : Invalid
+ For example, 0001b means that slot A is invalid.
+ The last boot failed flag uses the bit to indicate the following cases:
+ 0 : last boot was successful.
+ 1 : last boot failed.
+ Partition Settings # 
+ The A/B partitions must use the following naming convention:
+ A_mb1 
+ B_mb1 
+ A_mb2 
+ B_mb2 
+ A_cpu-bootloader 
+ B_cpu-bootloader 
+ etc
+ The name of the partition that is being loaded is derived as follows:
+ partition_name = "<slot_value>"_<base_name> 
+slot value = "A" for slot 0 
+slot value = "B" for slot 1 
+ Bootloader Version in QSPI Flash # 
+ The bootloader version is stored in the A_VER and B_VER partitions, located in the QSPI flash. UEFI gets the version from these partitions and passes it to kernel. 
+Run the following command in the kernel to read the bootloader version via the sysfs node of DMI:
+ $ cat /sys/class/dmi/id/bios_version 
+ The format of the output is <bsp_branch>.<bsp_major>.<bsp_minor>-gcid-<8-digit build number> . For example, the release 39.2.0 produces the following output:
+ $ cat /sys/class/dmi/id/bios_version 
+39.2.0-gcid-45501086 
+ Another way to get the bootloader version is to read the fw_version of the ESRT table:
+ $ sudo cat /sys/firmware/efi/esrt/entries/entry0/fw_version 
+ The output value is a decimal number, so you need to convert it to a hexadecimal number in the 0xAABBCC form where 0xAA is the release branch, 0xBB is the major version, 
+and 0xCC is the minor version. For example, the release 39.2.0 is stored as follows:
+ 2556416 = 0x270200 => [0x27].[0x02].[0x00] => 39.2.0 
+ Update Bootloader # 
+ The bootloader is updated by UEFI Capsule update. Refer to Manually Trigger the Capsule Update for more information.
+ Bootloader Tools # 
+ NVIDIA provides tools for ease of use in the Bootloader update process.
+ Boot Control # 
+ nvbootctrl is intended to be used for debugging, so it can be used to dump the slot information. You can also use it to set the active slot, 
+which forces the boot slot to change for the next boot.
+ To display the command usage, run the following command with no parameters:
+ $ sudo nvbootctrl 
+ For more information, refer to Manually Modifying Boot Slots .
+ Bootloader Update Payload Generator # 
+ The Bootloader Update Payload (BUP) is the payload that is packed into the Capsule payload. The BUP is generated by the 
+ build_l4t_bup.sh host tool, which is kept with flash.sh in the Linux for Jetson Board Support Package (BSP).
+ This section describes procedures for generating a multi-spec BUP or a single-spec BUP.
+ A multi-spec BUP includes firmware binaries and BCT images for each supported Jetson device. When you run the updater, it uses the appropriate binary of each type for the device you are updating.
+ A single-spec BUP includes firmware binaries and BCT images for just one type of device. It is appropriate if you are updating just one type of Jetson device.
+ To generate a multi-spec BUP or a single-spec BUP, refer to Generating the Bootloader Update Payload (BUP) .
+ The multi-spec procedure stores a BUP at each of these locations for the 
+respective group of processors. The single-spec procedure stores a BUP 
+at just one location for the appropriate type of processor.
+ Manually Modifying Boot Slots # 
+ NVIDIA provides the nvbootctrl tool for testing and development purposes. However, you may wish to switch boot slots manually from user space.
+ To manually modify the boot slots # 
+ Run the following command to switch to superuser mode:
+ $ sudo su 
+ Run the following command:
+ # nvbootctrl <command> 
+ Where <command> is one of the values in the following table:
+ Command
+ Description
+ get-number-slots
+ Prints the number of slots.
+ get-current-slot
+ Prints the currently running slot.
+ dump-slots-info
+ Prints information about the slots.
+ set-active-boot-slot <slot>
+ At the next boot, loads and executes <slot> .
+ verify
+ Verifies the bootloader and the rootfs boot.
+ is-rootfs-ab-enabled
+ Rootfs only, return: 
+ 0: Rootfs A/B is disabled.
+ 1: Rootfs A/B is enabled and current rootfs slot is A.
+ 2: Rootfs A/B is enabled and current rootfs slot is B.
+ Note
+ <slot> is the zero-based slot number.
+ The default setting for both slot 0 and slot 1 is “bootable”.
+ To show the current boot slot # 
+ Run the following command:
+ # nvbootctrl get-current-slot 
+ The command displays a single digit, 0 (slot A) or 1 (slot B).
+ To show the slot status # 
+ Run the following command:
+ # nvbootctrl dump-slots-info 
+ The command displays the status of both slots:
+ Current version: 39.2.0 
+Capsule update status: 0 
+Current bootloader slot: A 
+Active bootloader slot: A 
+num_slots: 2 
+slot: 0, status: normal 
+slot: 1, status: normal 
+ Sample Boot Log # 
+ The boot slot is selected by BootRom, and MB1 and MB2 use the slot number. The message displayed from MB1 is available from an MB1 debug build 
+that has messages enabled. Messages from MB2 are always available.
+ For NVIDIA ® Jetson AGX Orin™ , NVIDIA ® Jetson Orin™ NX , and NVIDIA ® Jetson Orin™ Nano # 
+ The following sample log shows that slot 1 (slot B) is selected as the boot slot:
+ [0000.062] I> MB1 (version: 1.4.0.1-t234-54845784-08e631ca) 
+[0000.067] I> t234-A01-1-Silicon (0x12347) Prod 
+[0000.071] I> Boot-mode : Coldboot 
+[0000.075] I> Entry timestamp: 0x00000000 
+[0000.078] I> last_boot_error: 0x0 
+[0000.081] I> BR-BCT: preprod_dev_sign: 0 
+[0000.085] I> rst_source: 0xb, rst_level: 0x1 
+[0000.089] I> Task: SE error check 
+[0000.092] I> Task: Bootchain select WAR set 
+[0000.097] I> Task: Enable SLCG 
+[0000.099] I> Task: CRC check 
+[0000.102] I> Task: Initialize MB2 params 
+[0000.107] I> MB2-params @ 0x40060000 
+ . . . 
+ . . . 
+[0000.321] I> Loading MEMBCT 
+[0000.323] I> Slot: 1 
+[0000.325] I> Binary[0] block-66816 (partition size: 0x40000) 
+[0000.331] I> Binary name: MEM-BCT-0 
+ . . . 
+ . . . 
+I> MB2 (version: 0.0.0.0-t234-54845784-2db4d185) 
+I> t234-A01-1-Silicon (0x12347) 
+I> Boot-mode : Coldboot 
+I> Emulation: 
+I> Entry timestamp: 0x001e49d5 
+I> Regular heap: [base:0x40040000, size:0x10000] 
+ . . . 
+ . . . 
+I> Partition name: B_spe-fw 
+I> Size of partition: 589824 
+I> Binary@ device:3/0 block-118016 (partition size: 0x90000), name: B_spe-fw 
+I> strt_pg_num(118016) num_of_pgs(16) read_buf(0x40066650) 
+I> strt_pg_num(118032) num_of_pgs(512) read_buf(0x272e00000) 
+ . . . 
+ . . . 
+ For NVIDIA ® Jetson Thor™ # 
+ The following sample log shows that slot 1 (slot B) is selected as the boot slot:
+ [0000.091] I> MB1 (version: 0.23.0.0-t264-75019003-744baa0a) 
+[0000.091] C> Boot-mode : Coldboot 
+[0000.092] C> MB1 last_boot_error: 0x0 
+[0000.092] I> Entry timestamp: 0x00012a81 
+[0000.094] C> rst_source: 0x1a, rst_level: 0x1 
+[0000.098] I> BR-BCT: preprod_dev_sign: 0 
+[0000.102] I> Socket mask: 0x1 
+[0000.105] I> Socket id: 0 
+[0000.107] I> Chip supports UFS HS mode 
+[0000.111] I> BR last_boot_error0: 0x0 
+[0000.114] I> BR last_boot_error1: 0x0 
+[0000.118] I> BR last_boot_error2: 0x0 
+[0000.121] I> NVBCT is initialized 
+ . . . 
+ . . . 
+[0000.367] I> Loading MEMBCT 
+[0000.370] I> Slot: 1 
+[0000.372] I> Binary[6] block-66304 (partition size: 0x60000) 
+[0000.377] I> Binary name: MEM-BCT-6 
+ . . . 
+ . . . 
+[0001.904] I> MB2 (version: 0.0.0.0-t264-75019003-08f5c3f3-28Jul25-130647+0000) 
+[0001.904] I> t264-A01-2-Silicon (0x12647) 
+[0001.904] I> Boot-mode : Coldboot 
+[0001.904] I> Emulation: 
+[0001.907] I> Entry timestamp: 0x001cb769 
+ . . . 
+ . . . 
+[0002.917] I> Partition name: B_adsp0-fw 
+[0002.917] I> Size of partition: 524288 
+[0002.917] I> Binary@ device:3/0 block-98816 (partition size: 0x80000), name: B_adsp0-fw 
+[0002.923] I> Ratchet: [B_adsp0-fw]: sw (BCH): 0, hw (BCT): 0 
+ . . . 
+ . . . 
+ Generating the Bootloader Update Payload (BUP) # 
+ A Bootloader Update Payload (BUP) is used to implement Bootloader 
+update. It contains firmware binaries of each type needed to update a 
+Jetson device.
+ This section describes the procedure for generating a single-spec BUP, 
+which contains just one binary of each type and can be used to update 
+just one Jetson device configuration.
+ There is also a procedure for generating a multi-spec BUP, which 
+includes multiple firmware binaries and BCT images of each type, and can 
+be used to update any supported type of Jetson device. When you run the 
+updater, it uses the appropriate binary of each type for the device you 
+are updating. For more information, refer to Generating a Multi-Spec BUP .
+ Before you generate BUPs, set the ToT_BSP environment variable to point to the complete path name of the BSPs for the current release (the Linux_for_Tegra/ directory) 
+in which flash.sh is stored.
+ Generating a Single-Spec BUP # 
+ To create a BUP image that will be stored in a file for a carrier board that is not connected to the host system:
+ For a Jetson AGX Orin carrier board with the indicated values of FAB , BOARDID , FUSELEVEL , BOARDSKU , and CHIP_SKU :
+ $ cd ${ToT_BSP} 
+$ sudo FAB=000 BOARDID=3701 FUSELEVEL=fuselevel_production BOARDSKU=0000 CHIP_SKU="00:00:00:D0" ./build_l4t_bup.sh jetson-agx-orin-devkit mmcblk0p1 
+ For a Jetson Orin NX carrier board with the indicated values of FAB , BOARDID , FUSELEVEL , BOARDSKU , and CHIP_SKU :
+ $ cd ${ToT_BSP} 
+$ sudo FAB=000 BOARDID=3767 FUSELEVEL=fuselevel_production BOARDSKU=0000 CHIP_SKU="00:00:00:D3" ./build_l4t_bup.sh jetson-orin-nano-devkit mmcblk0p1 
+ For a Jetson AGX Thor Developer Kit with the indicated values of FAB , BOARDID , FUSELEVEL , BOARDSKU , and CHIP_SKU :
+ $ cd ${ToT_BSP} 
+$ sudo FAB=000 BOARDID=3834 FUSELEVEL=fuselevel_production BOARDSKU=0008 CHIP_SKU="00:00:00:A0" ./build_l4t_bup.sh jetson-agx-thor-devkit internal 
+ To create a BUP image for a board that is connected to the host system:
+ Place the target board into Force Recovery Mode .
+ Run the following commands:
+ $ cd ${ToT_BSP} 
+$ sudo ./build_l4t_bup.sh <device> <mmcblk0p1|internal> 
+ Where <device> is:
+ For the Jetson AGX Orin: jetson-agx-orin-devkit 
+ For the Jetson Orin NX series and the Orin Nano series: jetson-orin-nano-devkit 
+ For the Jetson AGX Thor Developer Kit: jetson-agx-thor-devkit 
+ To create the PKC signed BUP image for a carrier board connected to the host system:
+ Place the target board into Force Recovery Mode .
+ Run the following commands:
+ $ cd ${ToT_BSP} 
+$ sudo ./build_l4t_bup.sh -u <pkc_key_file> -v <sbk_key_file> <device> <mmcblk0p1|internal> 
+ Where:
+ <pkc_key_file> is the RSA private key file for your board. It must be in the ${ToT_BSP}/bootloader directory, or you must specify its absolute pathname.
+ <sbk_key_file> is the Secure Boot Key (SBK) key file for your board. It must be in the ${ToT_BSP}/bootloader directory, or you must specify its absolute pathname. This option must used with PKC key.
+ <device> is:
+ For the Jetson AGX Orin series: jetson-agx-orin-devkit 
+ For the Jetson Orin NX series and the Orin Nano series: jetson-orin-nano-devkit 
+ For the Jetson AGX Thor Developer Kit: jetson-agx-thor-devkit 
+ Generating a Specified Partition BUP # 
+ Note
+ UEFI support for one partition image update is disabled in the default UEFI build. To enable this feature, complete the instructions in 
+ Single Image Capsule Update . To rebuild UEFI, refer to 
+ Building UEFI for NVIDIA Jetson .
+ To create a specified partition BUP image for a carrier board connected to the host system:
+ Place the target board into Force Recovery Mode .
+ Run the following commands:
+ $ cd ${ToT_BSP} 
+$ sudo ./build_l4t_bup.sh --single-image-bup <partition_name> <device> <mmcblk0p1|internal> 
+ Where:
+ <partition_name> is the partition name specified in flash.cfg.
+ <device> is:
+ For the Jetson AGX Orin series: jetson-agx-orin-devkit 
+ For the Jetson Orin NX series and the Orin Nano series: jetson-orin-nano-devkit 
+ For the Jetson AGX Thor Developer Kit: jetson-agx-thor-devkit 
+ Note
+ The generated BUP payload name is <partition_name>_only_payload .
+ The following example generates a partition BUP image of A_xusb-fw for the Jetson AGX Thor Developer Kit:
+ $ cd ${ToT_BSP} 
+$ sudo ./build_l4t_bup.sh --single-image-bup A_xusb-fw jetson-agx-thor-devkit internal 
+ Generating a Multi-Spec BUP # 
+ Run the following commands:
+ $ cd ${ToT_BSP} 
+$ sudo [ROOTFS_AB=1] ./l4t_generate_soc_bup.sh [-u <pkc_key_file>] [ -v <sbk_key_file> ] [-b <board>] [-p <option>] [-f <boardspec file>] [-e <boardspec entry>] [-d] <target_soc> 
+ ROOTFS_AB=1 creates a capsule payload with root file system redundancy (“rootfs redundancy”) enabled.
+ <pkc_key_file> is the RSA private key file for your Jetson carrier board. If it is a relative pathname, it is interpreted relative to the ${ToT_BSP}/bootloader/ directory.
+ <sbk_key_file> is the SBK key file for your board. It must be in the ${ToT_BSP}/bootloader directory, or you must specify its absolute pathname. This option must used with PKC key.
+ <board> specifies one particular board for corresponding target_soc.
+ <options> is a string of command line options to be passed to flash.sh to generate the BUP. If the string contains whitespace characters, it must be enclosed in quotes.
+ <boardspec file> specifies a user-provided board spec file.
+ <boardspec entry> specifies a board spec entry in a user provided board spec file, such as “t23x_agx_bl_spec” in “jetson_board_spec.cfg”.
+ -d causes the script to run in debug mode, which keeps all boot firmware blob images in bootloader/signed and bootloader/multi-signed .
+ <target_soc> is:
+ For the Jetson AGX Orin series, the Orin NX series, and the Orin Nano series: t23x 
+ For the Jetson Thor series: t26x 
+ Note
+ Duplicated BUP entry is not allowed when customizing the BUP entries in the board spec files.
+ Location of Generated BUP Files # 
+ Both procedures store the generated BUP(s) in the director(ies):
+ For the Jetson AGX Orin series, the Orin NX series, and the Orin Nano series: ${ToT_BSP}/bootloader/payloads_t23x 
+ For the Jetson Thor series: ${ToT_BSP}/bootloader/payloads_t26x 
+ To Customize the BUP # 
+ Currently, the UEFI Capsule update supports an optional update for a pre-defined list of partitions, and this optional update is completed 
+by packing or unpacking these images into the UEFI Capsule. Users can change the SKIP field settings between 
+“0” and “1” for an image in the t23x_bl_table or t26x_bl_table in the bootloader/l4t_bup_gen.func file, which is in the ${ToT_BSP}/Linux_for_Tegra/ 
+directory. This way, the corresponding image will be packed (or unpacked) into BUP and then into the UEFI Capsule.
+ For example, Add the ist-config into BUP:
+ 'A_ist-config 1 1 0 0' 
+ Unpack the ist-config to BUP:
+ 'A_ist-config 1 1 0 1' 
+ The list of images that support optional update:
+ eks
+ fsi-fw
+ ist-bpmp
+ ist-config
+ ist-ucode
+ tsec-fw
+ xusb-fw
+ Note
+ Update the EKB image for the eks partition only when user keys are added or removed. 
+The eks partitions on both chains must be updated to ensure that the user keys are synced.
+ Generating the Capsule Update Payload # 
+ Currently, a Capsule update payload is used to implement the Bootloader update.
+ A multi-spec Capsule payload contains multiple firmware binaries and BCT images of each type. The payload can be used to update any supported Jetson device. 
+When you start the update, UEFI uses the appropriate binary of each type for the device you are updating.
+ A single-spec Capsule payload contains one set of firmware binaries and BCT images. The payload can only be used to update one specific device.
+ Before you generate Capsule update payloads, set the ToT_BSP environment variable to point to the complete path name of the BSPs for the current release (the Linux_for_Tegra/ directory) 
+in which flash.sh is stored.
+ Generating a Capsule Payload # 
+ Generate a BUP:
+ To generate a multi-spec BUP, refer to Generating a Multi-Spec BUP .
+ To generate a single-spec BUP, refer to Generating a Single-Spec BUP .
+ Run the following commands to generate a Capsule payload:
+ $ cd ${ToT_BSP} 
+$ ./generate_capsule/l4t_generate_soc_capsule.sh [-o <output file> [-i <input file>] [ --signer-private-cert <signer private cert> ] [ --other-public-cert <other public cert> ] [ --trusted-public-cert <trusted public cert> ] <target_soc> 
+ Where:
+ <output file> is the path and file name of the output Capsule image.
+ <input file> is the path and file name of the input BUP payload.
+ <signer private cert> specifies the OpenSSL signer private certificate filename. (By default, the public TestCert.pem is used.)
+ <other public cert> specifies OpenSSL other public certificate filename. (By default, the public TestSub.pub.pem is used.)
+ <trusted public cert> specifies OpenSSL trusted public certificate filename. (By default, the public TestRoot.pub.pem by default.)
+ <target_soc> is:
+ For the Jetson AGX Orin series, the Orin NX series, and the Orin Nano series: t234 
+ For the Jetson Thor series: t264 
+ For production, you must create or specify your own certificates to replace the test certificates, which include signer private cert , 
+ other public cert , and trusted public cert . Without specifying your own certificates, UEFI Capsule update security is highly vulnerable.
+ Note
+ When specifying your own certificates, you must also rebuild UEFI with these certificates. The certificates are located in the 
+ edk2/BaseTools/Source/Python/Pkcs7Sign/ directory of the UEFI source. Please refer to the edk2/BaseTools/Source/Python/Pkcs7Sign/Readme.md 
+for generating and replacing the certificates.
+ Here are the examples to generate multi-spec Capsule payloads for t23x:
+ Generate a multi-spec, Capsule payload for the AGX Orin series:
+ $ cd ${ToT_BSP} 
+# For AGX Orin: 
+$ sudo ./l4t_generate_soc_bup.sh -e t23x_agx_bl_spec t23x 
+# For AGX Orin Industrial: 
+$ sudo ./l4t_generate_soc_bup.sh -e t23x_agx_ind_bl_spec t23x 
+$ ./generate_capsule/l4t_generate_soc_capsule.sh -i bootloader/payloads_t23x/bl_only_payload -o ./TEGRA_BL.Cap t234 
+ Generate a multi-spec, Capsule payload for the Orin NX series and the Orin Nano series:
+ $ cd ${ToT_BSP} 
+$ sudo ./l4t_generate_soc_bup.sh -e t23x_3767_bl_spec t23x 
+$ ./generate_capsule/l4t_generate_soc_capsule.sh -i bootloader/payloads_t23x/bl_only_payload -o ./TEGRA_BL.Cap t234 
+ Here are the examples to generate multi-spec Capsule payloads for t26x:
+ Generate a multi-spec, Capsule payload for the Jetson Thor series:
+ $ cd ${ToT_BSP} 
+# For Jetson Thor: 
+$ sudo ./l4t_generate_soc_bup.sh -e t26x_3834_bl_spec t26x 
+$ ./generate_capsule/l4t_generate_soc_capsule.sh -i bootloader/payloads_t26x/bl_only_payload -o ./TEGRA_BL.Cap t264 
+ Use the fwupdtool to Trigger the Capsule Update # 
+ To trigger the Capsule update with fwupdtool , run the following commands on the target:
+ Copy the generated Capsule payload to the target file system. For example:
+ $ scp user@<payload_host_ip>:${ToT_BSP}/TEGRA_BL.Cap /opt/ota_package/ 
+ Initialize the OsIndications UEFI variable:
+ $ cd /sys/firmware/efi/efivars/ 
+$ printf "\x07\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" > /tmp/var_tmp.bin 
+$ sudo dd if=/tmp/var_tmp.bin of=OsIndications-8be4df61-93ca-11d2-aa0d-00e098032b8c bs=12;sync 
+ Get the Device ID of the System Firmware :
+ $ fwupdmgr get-devices 
+ Trigger the Capsule update. Afterward, choose y to reboot and finish the update:
+ $ sudo fwupdtool install-blob <payload file> <Device ID> 
+ Where <payload file> is the file path of Capsule payload. <Device ID> is obtained in step 3.
+ The following example triggers Capsule update for Jetson Thor:
+ $ sudo fwupdtool install-blob /opt/ota_package/TEGRA_BL.Cap a45df35ac0e948ee180fe216a5f703f32dda163f 
+ Note
+ The fwupdtool does not support single partition image Capsule updates.
+ Use the Helper Script to Trigger the Capsule Update # 
+ To trigger the Capsule update:
+ Copy the generated Capsule payload to the target file system.
+ Run the following command to trigger Capsule update:
+ $ nv_bootloader_capsule_updater.sh [-h|--help] -q <input file> 
+ Where <input file> is the file path of Capsule payload.
+ The following example triggers Capsule update for Jetson Thor:
+ $ nv_bootloader_capsule_updater.sh -q /opt/ota_package/t26x/TEGRA_BL_3834_agx.Cap 
+ Reboot the target system for updates to take effect.
+ Note
+ The helper script does not support single partition image Capsule updates.
+ Manually Trigger the Capsule Update # 
+ The UEFI updates the non-current slot Bootloader when a Capsule update is triggered. The device boots from the updated non-current slot after the Capsule update has finished.
+ Copy the generated Capsule payload to the EFI/UpdateCapsule directory in the esp partition of the active boot media. 
+For more information, refer to Generating a Capsule Payload .
+ For a device that is booted from eMMC , copy the payload to the esp partition on eMMC.
+ For a device that is booted from NVMe , copy the payload to the esp partition on NVMe.
+ Set the bit2 of the OsIndications UEFI variable:
+ $ cd /sys/firmware/efi/efivars/ 
+$ printf "\x07\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00" > /tmp/var_tmp.bin 
+$ sudo dd if=/tmp/var_tmp.bin of=OsIndications-8be4df61-93ca-11d2-aa0d-00e098032b8c bs=12;sync 
+ Reboot the Jetson device. UEFI will use the Capsule payload to update the non-current slot Bootloader.
+ To check the Capsule update status , run the nvbootctrl command:
+ $ sudo nvbootctrl dump-slots-info 
+ The output value of Capsule update status can be following:
+ 0 - No Capsule update 
+1 - Capsule update successfully 
+2 - Capsule install successfully but boot new firmware failed 
+3 - Capsule install failed 
+ Manually Sync Bootloader A/B Slots with the Capsule Update # 
+ Bootloader A/B slots can be synced by applying the Capsule update on a non-current slot.
+ If the UEFI Capsule was previously successfully updated, the current slot boots up with the image from the Capsule. To update the 
+non-current slot through Capsule Update, users must complete the steps below.
+ If the UEFI Capsule was not previously successfully updated, to ensure that slots A and B are updated with the same image, users 
+must complete the following steps twice. For example, if the current slot is A, when you complete the following steps the first time, 
+slot B is updated. After the devices boot up from slot B, when users complete the steps again, slot A will be updated with the Capsule. 
+The device will now boot up from slot A.
+ Copy the Capsule payload that was used in step 1 in Manually Trigger the Capsule Update to the 
+ EFI/UpdateCapsule directory in the esp partition of the active boot media.
+ Set the bit2 of the OsIndications UEFI variable.
+ Reboot the Jetson device. UEFI uses the Capsule payload to update the non-current slot Bootloader.
+ To check the Capsule update status and current slot, run the nvbootctrl command. The Capsule update status is success.
+ Manually Triggering the Single Partition Image Capsule Update # 
+ Generate a specified partition BUP image. For more information, refer to Generating a Specified Partition BUP .
+ Generate a Capsule payload from the specified partition BUP image. For more information, refer to Generating a Capsule Payload .
+ The following example generates a Capsule payload of A_xusb-fw for t26x:
+ $ cd ${ToT_BSP} 
+$ ./generate_capsule/l4t_generate_soc_capsule.sh -i bootloader/payloads_t26x/A_xusb-fw_only_payload -o ./TEGRA_BL.Cap t264 
+ Customize the UEFI to enable the single image Capsule update. Refer to the Single Image Capsule Update 
+for more information.
+ Copy the generated Capsule payload in step 2 to the EFI/UpdateCapsule directory in the esp partition of the active boot media. 
+Refer to the step 1 in Manually Triggering the Capsule Update for more information.
+ Trigger the single partition image Capsule update. Refer to the Single Image Capsule Update 
+for more information.
+ Users need to set the FmpCapsuleSinglePartitionChain and OsIndications variables.
+ Set FmpCapsuleSinglePartitionChain with the desired boot chain to be updated (0: slot A, 1: slot B).
+ Set the bit2 of the OsIndications . Refer to the step 2 in Manually Triggering the Capsule Update 
+for more information.
+ The following example triggers A_xusb-fw single-image Capsule update to slot B on t26x, current slot is A. Refer to 
+ Manually Modifying Boot Slots for the command that shows current slot:
+ $ cd /sys/firmware/efi/efivars/ 
+$ printf "\x07\x00\x00\x00\x01" > /tmp/var_tmp.bin 
+# In case to update chain A, the setting is: 
+# $ printf "\x07\x00\x00\x00\x00" > /tmp/var_tmp.bin 
+$ sudo dd if=/tmp/var_tmp.bin of=FmpCapsuleSinglePartitionChain-781e084c-a330-417c-b678-38e696380cb9 bs=5;sync 
+$ printf "\x07\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00" > /tmp/var_tmp.bin 
+$ sudo dd if=/tmp/var_tmp.bin of=OsIndications-8be4df61-93ca-11d2-aa0d-00e098032b8c bs=12;sync 
+ Reboot the Jetson device. UEFI will use the single image Capsule payload to update the specified partition.
+ To verify the single partition image Capsule update status, check the value of the /sys/firmware/efi/esrt/entries/entry0/last_attempt_status file after system boots up. 
+0 means that the verification was successful. For other values, check the error code:
+ $ sudo cat /sys/firmware/efi/esrt/entries/entry0/last_attempt_status 
+ Note
+ When single partition image Capsule update is complete, the Capsule update status in the output of nvbootctrl command is not reliable.
+ Linux Vendor Firmware Service (LVFS) Support # 
+ The Linux Vendor Firmware Service (LVFS) is a secure portal that allows hardware vendors to upload firmware updates. 
+This site is used by all major Linux distributions to provide metadata for clients such as fwupdmgr and GNOME Software.
+ Jetson devices support LVFS, although you must first complete the following steps:
+ Use the provided metainfo.xml file as a base and their capsule payload ( .cap ) to create a cabinet archive file ( .cab ).
+ Upload the cabinet file to the LVFS website.
+ Connect a Jetson device to the Internet.
+ The fwupd daemon downloads the metadata from the LVFS server.
+ Execute fwupdmgr or start the GUI to get the update details and trigger the updates.
+ The following sections provide more information about using LVFS.
+ LVFS Account Prerequisite # 
+ To upload firmware to LVFS, you must first get an account. Follow the steps provided in Getting an Account on the LVFS website.
+ Use the following two tickets as references when applying for an account:
+ Ticket 888 
+ Ticket 934 
+ The vendor manager is set when creating an LVFS account. In the future, the vendor manager can create new LVFS accounts.
+ A vendor is created initially as untrusted, which means no users can promote firmware to testing or stable. You can still do embargo testing.
+ For more information, reach out to LVFS administrators and read the LVFS documentation .
+ LVFS MetaInfo Files # 
+ To describe a device and its firmware, the OEM or ODM adds a .metainfo.xml file to the firmware archive. 
+Metadata in the file is in XML format and uses a subset of the AppStream component specification .
+ The following is an example metainfo.xml file for the Jetson AGX Thor developer kit:
+ <?xml version="1.0" encoding="UTF-8"?> 
+ <component type= "firmware" > 
+ <id> com.nvidia.jetson.thor.firmware </id> 
+ <name> Jetson Thor Firmware </name> 
+ <summary> Firmware Update for the System Firmware </summary> 
+ <description> 
+ <p> This update improves the performance and stability of the device. </p> 
+ </description> 
+ <developer_name> L4T </developer_name> 
+ <project_license> Proprietary </project_license> 
+ <url type= "homepage" > https://developer.nvidia.com </url> 
+ <metadata_license> CC0-1.0 </metadata_license> 
+ <provides> 
+ <firmware type= "flashed" > 3c834404-d2d7-4912-8c1c-6e850b5f2824 </firmware> 
+ </provides> 
+ <releases> 
+ <release urgency= "high" version= "2491136" date= "2025-08-25" > 
+ <description> 
+ <p> 
+ Support for new reference power modes. 
+ CVE and minor bug fixes. 
+ </p> 
+ </description> 
+ </release> 
+ </releases> 
+ <requires> 
+ <id compare= "ge" version= "1.1.3" > org.freedesktop.fwupd </id> 
+ <hardware> 316ce853-58fe-52e8-bb91-c350a68e85b8 </hardware> 
+ </requires> 
+ <custom> 
+ <value key= "LVFS::UpdateProtocol" > org.uefi.capsule </value> 
+ <value key= "LVFS::DeviceIntegrity" > signed </value> 
+ <value key= "LVFS::VersionFormat" > dell-bios </value> 
+ </custom> 
+ <categories> 
+ <category> X-Device </category> 
+ </categories> 
+ </component> 
+ You can customize the metainfo.xml file based on the example file. For more information, refer to the LVFS Metadata documentation.
+ Generate a Cabinet Archive # 
+ Note
+ If the gcab package is not installed, install it by using the command sudo apt-get install gcab .
+ To generate a cabinet archive ( .cab ) file using the metainfo.xml file, run the following commands:
+ # Generate capsule payload: 
+$ cd ${ToT_BSP} 
+$ sudo ./l4t_generate_soc_bup.sh -e t26x_3834_bl_spec t26x 
+$ ./generate_capsule/l4t_generate_soc_capsule.sh -i bootloader/payloads_t26x/bl_only_payload -o ./firmware.bin t264 
+# Generate cabinet archive: 
+$ gcab -c -v Jetson_thor.cab <your_path>/firmware.metainfo.xml firmware.bin 
+ The cabinet archive file is generated in the current directory.
+ Upload the Archive file to LVFS # 
+ If your user account has the appropriate permissions, upload the cabinet file for the capsule test and move it to the Embargo remote.
+ The stage of the uploaded cabinet file should be Embargo , as shown in the following image:
+ Embargo Testing # 
+ Important
+ Vendors should conduct only embargo testing at this stage and must not make the cabinet file public.
+ To do embargo testing, follow these steps:
+ From the LVFS meta page, download the <VENDOR_NAME>-embargo.conf file:
+ The following is an example nvidia-embargo.conf file:
+ [fwupd Remote] 
+ Enabled = true 
+ Title = Embargoed for NVIDIA 
+ RefreshInterval = 3600 
+ MetadataURI = https://fwupd.org/downloads/firmware-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xml.gz 
+ ReportURI = https://fwupd.org/lvfs/firmware/report 
+ OrderBefore = lvfs,fwupd 
+ # ↓ MODIFY ↓ Specify the e-mail address you use to log into LVFS 
+ Username = 
+ # ↓ MODIFY ↓ Specify a USER TOKEN from https://fwupd.org/lvfs/profile 
+ Password = 
+ Update the credentials (username and token) in the <VENDOR_NAME>-embargo.conf file.
+ Follow the instructions in End-to-End testing . Copy the <VENDOR_NAME>-embargo.conf file to /etc/fwupd/remotes.d/ .
+ Update the firmware on the Jetson device by running the following commands:
+ $ fwupdmgr enable-remote ${ VENDOR_NAME } -embargo -y 
+$ fwupdmgr refresh --force 
+$ fwupdmgr get-updates --force 
+$ fwupdmgr update 
+ Reboot the Jetson device. After boot up, upload the existing report:
+ $ fwupdmgr report-history 
+ Testing and Stable Remote # 
+ After at least five successful reports, contact the LVFS administrators for access to the trusted domain to continue with Testing and Stable remote configuration.
+ Important
+ Move stable firmware to Testing and Stable only after completing an end-to-end test with the Embargo remote.
+ previous
+ UEFI Adaptation
+ next
+ Kernel
+ On this page 
+ A/B Slot Layout 
+ A/B System Update 
+ Partition Selection 
+ Bootloader Implementation 
+ Jetson Orin Implementation 
+ Jetson Thor Implementation 
+ Bootloader Scratch Register 
+ For NVIDIA ® Jetson AGX Orin™ , NVIDIA ® Jetson Orin™ NX , and NVIDIA ® Jetson Orin™ Nano 
+ For NVIDIA ® Jetson Thor™ 
+ Partition Settings 
+ Bootloader Version in QSPI Flash 
+ Update Bootloader 
+ Bootloader Tools 
+ Boot Control 
+ Bootloader Update Payload Generator 
+ Manually Modifying Boot Slots 
+ To manually modify the boot slots 
+ To show the current boot slot 
+ To show the slot status 
+ Sample Boot Log 
+ For NVIDIA ® Jetson AGX Orin™ , NVIDIA ® Jetson Orin™ NX , and NVIDIA ® Jetson Orin™ Nano 
+ For NVIDIA ® Jetson Thor™ 
+ Generating the Bootloader Update Payload (BUP) 
+ Generating a Single-Spec BUP 
+ Generating a Specified Partition BUP 
+ Generating a Multi-Spec BUP 
+ Location of Generated BUP Files 
+ To Customize the BUP 
+ Generating the Capsule Update Payload 
+ Generating a Capsule Payload 
+ Use the fwupdtool to Trigger the Capsule Update 
+ Use the Helper Script to Trigger the Capsule Update 
+ Manually Trigger the Capsule Update 
+ Manually Sync Bootloader A/B Slots with the Capsule Update 
+ Manually Triggering the Single Partition Image Capsule Update 
+ Linux Vendor Firmware Service (LVFS) Support 
+ LVFS Account Prerequisite 
+ LVFS MetaInfo Files 
+ Generate a Cabinet Archive 
+ Upload the Archive file to LVFS 
+ Embargo Testing 
+ Testing and Stable Remote 
+ Privacy Policy 
+ | 
+ Your Privacy Choices 
+ | 
+ Terms of Service 
+ | 
+ Accessibility 
+ | 
+ Corporate Policies 
+ | 
+ Product Security 
+ | 
+ Contact 
+ Copyright © 2025-2026, NVIDIA Corporation. 
+ Last updated on Aug 12, 2026.

@@ -1,0 +1,149 @@
+ 
+ Download - The CentOS Project 
+ Download 
+ About 
+ About CentOS 
+ Special Interest Groups (SIGs) 
+ Governance 
+ Code of Conduct 
+ Sponsors 
+ Community 
+ Contribute 
+ Forums 
+ Mailing Lists 
+ Chat 
+ Events 
+ Calendar 
+ Blog 
+ Submit Bug 
+ Documentation 
+ Manuals 
+ GPG Key Info 
+ Release Notes 
+ Home 
+ Download
+ Download
+ Table of Contents 
+ Cloud and container images 
+ Geographical mirrors 
+ Sources 
+ Older Versions 
+ Export Regulations 
+ CentOS Stream
+ Continuously delivered distro that tracks just ahead of Red Hat Enterprise
+Linux (RHEL) development, positioned as a midstream between Fedora Linux
+and RHEL. For anyone interested in participating and collaborating in the
+RHEL ecosystem, CentOS Stream is your reliable platform for innovation.
+ 10 
+ 9 
+ Architecture
+ ISOs
+ RPMs
+ Cloud
+ Containers
+ Vagrant
+ x86_64
+ Mirrors 
+ Mirrors 
+ Images 
+ Images 
+ Boxes 
+ ARM64 (aarch64)
+ Mirrors 
+ Mirrors 
+ Images 
+ Images 
+ IBM Power (ppc64le)
+ Mirrors 
+ Mirrors 
+ Images 
+ Images 
+ IBM Z (s390x)
+ Mirrors 
+ Mirrors 
+ Images 
+ Images 
+ Documentation
+ Release Notes 
+ End-of-life
+ 2030-05-31 (End of RHEL 10 full support phase)
+ Architecture
+ ISOs
+ RPMs
+ Cloud
+ Containers
+ Vagrant
+ x86_64
+ Mirrors 
+ Mirrors 
+ Images 
+ Images 
+ Boxes 
+ ARM64 (aarch64)
+ Mirrors 
+ Mirrors 
+ Images 
+ Images 
+ IBM Power (ppc64le)
+ Mirrors 
+ Mirrors 
+ Images 
+ Images 
+ IBM Z (s390x)
+ Mirrors 
+ Mirrors 
+ Images 
+ Images 
+ Documentation
+ Release Announcement 
+ Release Notes 
+ End-of-life
+ 2027-05-31 (End of RHEL 9 full support phase)
+ CentOS invites you to be a part of the community as a contributor .
+There are many ways to contribute to the project, including documentation, QA,
+testing, coding changes for SIGs , providing mirroring or hosting,
+and helping other users.
+ How to verify your ISO.
+ If you plan to create USB boot media, please read this first to avoid damage to your system.
+ The CentOS Stream 10 release notes are continuously updated to include issues and incorporate feedback from users.
+ Cloud and container images
+ We build, maintain and update Cloud images that you can find on our Cloud Images server .
+ These images are built and made available for all the architectures that corresponding version supports.
+ People interested in importing ‘GenericCloud’ images into their own cloud solution can find corresponding images on the link above.
+ Worth knowing that you can also import (through Skopeo or other methods) container images the same way, and such .tar.xz files can be found on the same mirror.
+ Parallel to that, we have also official images that are available directly to be deployed for the following solutions:
+ Amazon Web Services 
+ Quay Registry 
+ Docker Registry 
+ Geographical mirrors
+ If you’re looking for a specific (or geographically local) mirror, please check out our list of current mirrors .
+ Sources
+ CentOS Stream sources are maintained in the
+ centos-stream GitLab namespace .
+ CentOS SIG sources are maintained in several locations:
+ CentOS namespace on GitLab 
+ CentOS namespace on GitHub 
+ Older Versions
+ Legacy versions of CentOS are no longer maintained.
+They are available from the CentOS Vault for historical purposes.
+ Export Regulations
+ By downloading CentOS software, you acknowledge that you understand all of the
+following: CentOS software and technical information may be subject to the U.S.
+Export Administration Regulations (the “EAR”) and other U.S. and foreign laws
+and may not be exported, re-exported or transferred (a) to any country listed
+in Country Group E:1 in Supplement No. 1 to part 740 of the EAR (currently,
+Cuba, Iran, North Korea, Sudan & Syria); (b) to any prohibited destination or
+to any end user who has been prohibited from participating in U.S. export
+transactions by any federal agency of the U.S. government; or (c) for use in
+connection with the design, development or production of nuclear, chemical or
+biological weapons, or rocket systems, space launch vehicles, or sounding
+rockets, or unmanned air vehicle systems. You may not download CentOS software
+or technical information if you are located in one of these countries or
+otherwise subject to these restrictions. You may not provide CentOS software or
+technical information to individuals or entities located in one of these
+countries or otherwise subject to these restrictions. You are also responsible
+for compliance with foreign law requirements applicable to the import, export
+and use of CentOS software and technical information.
+ Community-driven free software effort focused around the goal of providing a rich base platform for open source communities to build upon.
+ Copyright © 2026 The CentOS Project Legal Privacy Site source 
+

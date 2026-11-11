@@ -1,0 +1,62 @@
+2026-11-11T01:34:52Z === T0 first boot of v1
+2026-11-11T01:34:52Z disk prepared from v1-amd64/system.img
+2026-11-11T01:34:52Z qemu started pid=89956
+2026-11-11T01:35:20Z ssh up after 28s
+2026-11-11T01:36:21Z k3s healthy after 61s since check start
+release=v1
+{"active":"a","default":"a","state":"Active"}
+k3s-healthy: ok
+onemind-health-gate: 2026-11-11T01:35:52Z boot release=v1 active=a default=a
+onemind-health-gate: 2026-11-11T01:35:52Z COMMITTED-BOOT nothing to commit
+2026-11-11T01:36:25Z PASS T0 :: release=v1 {"active":"a","default":"a"} 
+2026-11-11T01:36:40Z === T1 good update v2-good
+2026-11-11T01:36:40Z copy bundle v2good
+2026-11-11T01:37:02Z install v2good (--reboot yes)
+ INFO installing update to boot group "b"
+ WARN skipping component compatibility check scope="system" reason="bundle component metadata is absent and not required by policy"
+{"event":"CompatibilityCheckSkipped","scope":"system","reason":"bundle component metadata is absent and not required by policy"}
+ INFO running hooks for "update-install/pre-update"
+ INFO installing bundle payload 0 to slot boot-b
+ INFO installing bundle payload 1 to slot system-b
+ INFO running hooks for "update-install/post-update"
+ INFO instructing boot flow to try booting into "b"
+ INFO setting spare flag for Grub boot flow
+ INFO rebooting
+2026-11-11T01:40:06Z rebooted (new boot id) after 28s
+release=v2-good
+{"active":"b","default":"b","state":"Active"}
+k3s-healthy: ok
+onemind-health-gate: 2026-11-11T01:40:26Z boot release=v2-good active=b default=a
+onemind-health-gate: 2026-11-11T01:40:26Z TRIAL boot of group b; waiting up to 300s for k3s
+onemind-health-gate: 2026-11-11T01:40:29Z HEALTHY after 3s
+onemind-health-gate: 2026-11-11T01:40:34Z COMMIT group=b release=v2-good
+2026-11-11T01:40:42Z PASS T1-trial-committed :: release=v2-good {"active":"b","default":"b"} 
+2026-11-11T01:41:11Z rebooted (new boot id) after 28s
+2026-11-11T01:41:34Z PASS T1-sticky-after-reboot :: release=v2-good {"active":"b","default":"b"} 
+2026-11-11T01:41:34Z === T2 bad update v2-bad
+2026-11-11T01:41:34Z copy bundle v2bad
+2026-11-11T01:41:58Z install v2bad (--reboot yes)
+ INFO installing update to boot group "a"
+ WARN skipping component compatibility check scope="system" reason="bundle component metadata is absent and not required by policy"
+{"event":"CompatibilityCheckSkipped","scope":"system","reason":"bundle component metadata is absent and not required by policy"}
+ INFO running hooks for "update-install/pre-update"
+ INFO installing bundle payload 0 to slot boot-a
+ INFO installing bundle payload 1 to slot system-a
+ INFO running hooks for "update-install/post-update"
+ INFO instructing boot flow to try booting into "a"
+ INFO setting spare flag for Grub boot flow
+ INFO rebooting
+2026-11-11T01:43:39Z rebooted (new boot id) after 28s
+v2-bad
+activating
+2026-11-11T01:43:40Z T2b: manual commit attempt on bad slot (must be refused)
+ INFO running hooks for "system-commit/pre-commit"
+ INFO running hook k3s-healthy
+k3s-healthy: apiserver not ready
+unable to run `pre-commit` hooks
+├╴at crates/apps/rugix-ctrl/src/operations/system.rs:119:10
+│   
+╰─▶ cause: hook "system-commit/pre-commit/k3s-healthy" failed
+    ╰╴at crates/libs/rugix-hooks/src/lib.rs:77:17
+2026-11-11T01:43:42Z PASS T2b manual commit refused
+2026-11-11T01:43:42Z waiting for the gate to roll back by itself (no further commands)

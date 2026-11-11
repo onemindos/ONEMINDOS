@@ -1,0 +1,42 @@
+lima-kfr-etcd-restore
+ls: cannot access '/var/lib/rancher': No such file or directory
+k3s version v1.37.2+k3s1 (f6973cb8)
+go version go1.26.10
+Summary: Restored 1020 files/dirs (100.612 MiB) in 0:00
+time="2026-11-10T20:30:38-05:00" level=info msg="Opening etcd client connection with endpoints [https://127.0.0.1:2379]"
+time="2026-11-10T20:30:38-05:00" level=info msg="Opening etcd client connection with endpoints [https://127.0.0.1:2379]"
+time="2026-11-10T20:30:38-05:00" level=fatal msg="bootstrap data already found and encrypted with different token"
+Job for k3s.service failed because the control process exited with error code.
+See "systemctl status k3s.service" and "journalctl -xeu k3s.service" for details.
+node=
+deploy/filler ready=
+deploy/writer ready=
+sts/pg ready=
+pg_rows=
+pg_md5=
+configmap=
+secret_marker_sha256=e3b0c44298fc1c14
+blob_sha256=
+--- diff expected vs actual (empty = identical)
+1,10c1,9
+< node=Ready
+< node_list=omos-box:Ready
+< deploy/filler ready=30/30
+< deploy/writer ready=1/1
+< sts/pg ready=1/1
+< pg_rows=100000
+< pg_md5=1448eaf636e3e2aea44dfb5e84de4401
+< configmap=onemind-restore-test-v1
+< secret_marker_sha256=6aa4c8a403f4353a
+< blob_sha256=62736fd422cdc9f7
+---
+> node=
+> deploy/filler ready=
+> deploy/writer ready=
+> sts/pg ready=
+> pg_rows=
+> pg_md5=
+> configmap=
+> secret_marker_sha256=e3b0c44298fc1c14
+> blob_sha256=
+phase2 done kfr-etcd-restore

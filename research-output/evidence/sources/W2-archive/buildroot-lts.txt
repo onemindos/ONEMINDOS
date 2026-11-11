@@ -1,0 +1,135 @@
+ 
+ Buildroot - Making Embedded Linux Easy 
+ Buildroot 
+ News 
+ Documentation 
+ Support 
+ Contribute 
+ LTS 
+ Sponsors 
+ Association 
+ Download 
+ Buildroot LTS
+ 3-year long-term support with security fixes 
+ LTS Objectives
+ 1 
+ 3-year LTS support
+ Starting with version 2025.02 , the LTS support has been extended to
+ 3 years , replacing the previous 1-year cycle.
+ 2 
+ Vulnerability tracking & reporting
+ Tracking of the vulnerabilities affecting Buildroot
+ is available at
+ security.buildroot.org .
+ LTS stewards ensure this data remains up-to-date by actively
+ maintaining Buildroot packages metadata.
+ 3 
+ Sponsored LTS stewards
+ To ensure a consistent release cadence and maintenance
+ workflow, paid LTS stewards are assigned to the weekly LTS
+ maintenance tasks.
+ 4 
+ Dedicated backports
+ Vulnerability fixes applied to the master branch will be
+ prioritized for backporting to stable branches.
+ Releases
+ The Buildroot LTS sponsorship initiative has evolved from a more
+ comprehensive understanding of the needs of our user base.
+ To address these requirements, the release model evolves into the following.
+ Starting with 2025.02, the first release of every odd-numbered year is a long-term
+ support (LTS) release supported for three years.
+ In between, non-LTS releases are made every 3 months.
+ 2025
+ 2026
+ 2027
+ 2025.02
+ 3 Years Support (LTS) 
+ 2025.05
+ 3 mo 
+ 2025.08
+ 3 mo 
+ 2025.11
+ 3 mo 
+ 2026.02
+ 3 mo 
+ 2026.05
+ 3 mo 
+ 2026.08
+ 3 mo 
+ 2026.11
+ 3 mo 
+ 2027.02
+ 3 Years Support (LTS) 
+ ...
+ How we work
+ Each week, the LTS stewards define the set of commits to
+ analyze based on the previous week's commits to the master branch. The
+ commits are then annotated to define a list of candidates for the LTS
+ branches.
+ Mid-week, the candidates are cherry-picked to a staging branch hosted on
+ gitlab.com/essensium-mind/buildroot .
+ Every maintained branch has a staging branch, with the .x 
+ suffix replaced by .pre . The staging branch allows other
+ maintainers to review the changes before they are pushed upstream.
+ By the end of the week, the staging branches are pushed upstream and
+ contributors are notified. Feedback from users, sponsors and
+ autobuilders 
+ are then collected and
+ vulnerability analyses 
+ updated.
+ For more information about the development workflow, see the
+ documentation .
+ Monday Mon 
+ Tuesday Tue 
+ Wednesday Wed 
+ Thursday Thu 
+ Friday Fri 
+ ...
+ Freeze weekly commit set from master
+ Apply branch specific patches
+ Analysis & commit annotation
+ Cherry picking to staging branch
+ Push to upstream branch
+ Update vulns
+ Sponsorship benefits
+ 1 
+ Long-term sustainability
+ Sponsors ensure the long-term sustainability of the Buildroot
+ LTS effort with dedicated stewards assigned to tasks such as
+ backporting, security monitoring and LTS releases.
+ 2 
+ Recognition of your sponsorship
+ Sponsors can be publicly acknowledged on the Buildroot website.
+ Sponsors may provide a logo linking to a webpage of their
+ choice.
+ 3 
+ Direct interaction with LTS stewards
+ Sponsors may submit queries and requests regarding
+ Buildroot LTS and security updates.
+ 4 
+ Assignment of priorities for package tracking
+ Buildroot integrates more than 2000 open source packages,
+ many of which do not offer long-term stable releases or
+ security updates.
+ Sponsors may submit a priority list indicating: 
+ - Packages of interest
+ - Architectures of interest
+ 5 
+ Testing of your packages
+ To make sure the packages of interest to the sponsors don't
+ include regressions between releases.
+ Sponsors may submit a list of packages to be tested
+ before a bugfix release.
+ 6 
+ Personalized security reports
+ Sponsors receive personalized security reports for their
+ Buildroot packages in the form of
+ security.buildroot.org 
+ with comparison with the upstream branches.
+ Sponsor now!
+ Interested ? Contact us at
+ [email-redacted] 
+ to learn more about the different sponsorship tiers and get all the
+ details about the sponsorship.
+   Contact us 
+

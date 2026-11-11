@@ -1,0 +1,52 @@
+# Refuter report: P0-2 (IEC 62443-4-2 without Red Hat lineage), IIoT and industrial-fit lens
+
+- **Refuter lens:** IIoT and industrial fit (F-11 IEC 62443, OPC UA/Modbus fleets, F-5 certified hardware, D-001 open core; solo founder)
+- **Date:** 2026-11-10 · **Re-check by:** 2027-05-10 for the Debian LTS and kernel facts (6 months); 2027-11-10 for the certificates and lifecycle pages (12 months)
+- **Verdict:** **upheld, with three required corrections.** I could not disprove the core claim. The strongest evidence turned out to be stronger than cited: the Moxa "declaration" is a real IECEE certificate issued by DEKRA, for host-device requirements, on Debian 13-based MIL4. One of the three supporting legs (Siemens IEOD) shows nothing about certification. The CIP leg is narrower than "Debian-based ... 4-2 compliance" suggests. The closing sentence is half-true, because an OS *can* hold a 4-2 component certificate, as Red Hat's does.
+
+## Claim under test
+
+> IEC 62443-4-2 certification does not require the Red Hat lineage: Moxa Industrial Linux 4 is based on Debian 13 and Moxa lists an IEC 62443-4-2 Security Level 2 certification declaration (v1.0, 2026-07-02) for UC-1200A/2200A/3400A/4400A/8600A with MIL4; the Debian-based Civil Infrastructure Platform announced IEC 62443-4-1 and 4-2 compliance on 2026-09-28; Siemens' Industrial Edge Own Device image is based on Debian 12. Certification attaches to a product (device+OS+config), not to an OS.
+
+## What the cited sources confirm (re-opened 2026-11-10)
+
+| Item | Source | Status |
+|---|---|---|
+| MIL is "Debian-based"; the manual is titled "Moxa Industrial Linux 4.x (Debian 13)"; there is a resource row "IEC 62443-4-2 Security Level 2 Certification for UC-1200A, UC-2200A, UC-3400A, UC-4400A, UC-8600A Series with MIL4 · Declaration v1.0 · Jul 02, 2026" | Moxa MIL page (live page, fetched directly; the Wayback copy was not reachable from this environment) | **Confirmed.** The page says the cert applies to **MIL4 Secure** (UC-8600A ships "MIL4 Standard" preinstalled, and "MIL4 Secure" must be ordered through CTO). That supports "device+OS+config". |
+| The "declaration" PDF itself | Moxa CDN, `moxa-iec-62443-4-2-security-level-2-certification-for-uc-1200a-...-with-mil4-declaration-v1.0.pdf` (NEW, opened) | **Stronger than claimed.** It is an **IECEE Certificate of Conformity, Cyber Security Capability, No. NL-127271, issued by DEKRA Certification B.V., 2026-07-02**, IEC 62443-4-2:2019, SL2, "Software version: Moxa Industrial Linux V4.0". Assessed as a **host device** (HDR 12/0/14; EDR, NDR and SAR not claimed). It states: "developed following ... IEC 62443-4-1 as certified in DK-179684-UL". |
+| CIP announced IEC 62443-4-1 and 4-2 "compliance" | LF press release, 2026-09-28 | **Confirmed but vague.** It names no assessor, scope, SL or Debian version, and says adopters keep "responsibility for the requirements specific to their own products". |
+| Siemens IEOD is "based on the Linux Debian 12 (bookworm) distribution" | Siemens IEOD PDF (text extracted locally) | **Confirmed, but irrelevant to the claim.** The 481-line document contains **no** mention of IEC 62443. It shows industrial use of Debian, not certification. |
+| `meta-iot2050` kas file pins isar and `isar-cip-core` | GitHub `siemens/meta-iot2050@5be02695:kas/iot2050.yml` L15-40 | Confirmed. Note that IOT2050 is **CIP Core on isar**, not stock Debian. |
+| IEC 62443-4-2 | IEC webstore 34421 | Confirmed: Ed. 1.0 (2019-02-27), COR1 2022, **stability date 2027**. A revision may be coming. |
+
+## Strongest counter-argument
+
+1. **None of the three examples is "Debian". Each is a vendor- or consortium-maintained derivative with its own kernel and its own certified process.** Moxa's MIL4 Secure runs Moxa's CIP-derived kernel (`linux-image-6.12.0-cip-moxa-*`, per MPSA-266240) under Moxa's own UL-certified 4-1 process. CIP's assessment covers a *minimal CIP Core* reference image on one reference device (M-COM), and IOT2050 builds on that, not on stock Debian. So the evidence proves "Red Hat lineage is not required". It does **not** prove "Debian 13 + k3s, as OneMind would ship it, is on an equal footing". On that point the Red Hat side is now *ahead*: Red Hat holds **TÜV Rheinland IEC 62443-4-2 SL-C 2 certificates for RHEL 9.6, OpenShift 4.20 and MicroShift 4.21** (Red Hat compliance page, NEW). That is a certified OS *and* a certified Kubernetes component a product can inherit. No equivalent exists for Debian proper, k3s, or any Debian+k3s stack.
+2. **"Certification attaches to a product, not to an OS" is half-true.** IEC 62443-4-2 certifies *components*: software applications, embedded, host and network devices. Red Hat's RHEL certificate and CIP's BV assessment are OS-level component evaluations. The accurate sentence: *a device certification is issued per product, revision and configuration (Moxa: hardware rev 1.0 + MIL V4.0 Secure); an OS-level component certificate (RHEL, CIP Core) reduces that work but does not replace it.*
+3. **CIP's 4-2 scope is narrow.** The CIP FR-2 assessment document (NEW, opened) names **Bureau Veritas** as assessor. It says SL-3 items "were out of scope", **host device and software application requirements are outside the platform's scope**, and EDR/NDR variants are "planned for future assessment". It also leaves authorization, session lock, audit rules, NTP security, non-repudiation and wireless control to the integrator. "Debian-based CIP achieved 4-2" therefore means "common component requirements, at SL2, on a minimal image", not a host-device certificate OneMind could reuse.
+4. **The real gate is the IEC 62443-4-1 process certificate, and it is lineage-neutral.** Moxa's certificate rests on a separate UL 4-1 process certificate (DK-179684-UL). Certification alone did not stop a failure in the field. The certified MIL Secure line shipped a TPM-to-LUKS key-sniffing flaw (**CVE-2026-0714**, MPSA-255121, 2026-02-06, CVSS 4.0 7.0, MIL3) and then an **incomplete fix**: **CVE-2026-9266** (MPSA-266240, 2026-06-12, CVSS 4.0 7.0) lists "UC Series (MIL4 Secure)" as affected, and the V2406C has no patch at all. The bootloader-password issue (CVE-2026-0715) has no patch, only a configuration workaround. Keeping a certificate meaningful takes a PSIRT, kernel backports and 10-year maintenance. That cost applies to OneMind on any lineage, and a solo founder cannot yet pay it.
+5. **Lifecycle risk for a certified Debian product.** The Siemens IEOD example is on Debian 12. Debian's regular security support for bookworm ended **2026-07-12**, LTS runs only to **2028-06-30**, and "some packages get no LTS coverage" (Debian news 2026-07-12, NEW). A Debian-based certified product therefore needs a CIP or ELTS-style backport stream (which Moxa sells as "10-year LTS ... double the standard 5-year Debian support"). Otherwise the certified configuration ages out of security support within roughly 2 to 5 years. RHEL's 10-year lifecycle comes with the certificate.
+
+## New sources (searched for failure, CVE and lifecycle evidence; all opened)
+
+1. Moxa MPSA-266240, CVE-2026-9266 (incomplete fix, MIL4 Secure affected): https://www.moxa.com/en/support/product-support/security-advisory/mpsa-266240-cve-2026-9266-missing-required-cryptographic-step-vulnerability-in-industrial-computers
+2. Moxa MPSA-255121, CVE-2026-0714/0715: https://www.moxa.com/en/support/product-support/security-advisory/mpsa-255121-cve-2026-0714-cve-2026-0715-multiple-vulnerabilities-in-industrial-computers
+3. Debian, "Security support for Bookworm handed over to the LTS team" (2026-07-12): https://www.debian.org/News/2026/20260712
+4. CIP IEC 62443-4-2 FR-2 assessment details (BV; scope exclusions): https://cip-documents.readthedocs.io/en/latest/iec-62443-assessment/iec-62443-4-2/iec-62443-4-2-fr-2.html
+5. Red Hat IEC 62443-4-2 compliance page (TÜV Rheinland SL-C 2 for RHEL 9.6, OCP 4.20, MicroShift 4.21; no dates given): https://access.redhat.com/compliance/iec-62443-4-2
+6. Moxa MIL4 IECEE certificate NL-127271 (DEKRA): https://cdn-cms-frontdoor-dfc8ebanh6bkb3hs.a02.azurefd.net/getmedia/639a6b8c-fd54-4f98-a042-4e0626a7cf0d/moxa-iec-62443-4-2-security-level-2-certification-for-uc-1200a-uc-2200a-uc-3400a-uc-4400a-uc-8600a-series-with-mil4-declaration-v1.0.pdf
+
+Not usable: the LF CIP wiki page on IEC 62443-4-x returned HTTP 403 when opened. A search snippet claimed it says CIP "cannot meet major secure development practices defined in IEC-62443-4-1". **UNVERIFIED; do not cite.**
+
+## Required corrections to the claim
+
+- Replace "certification declaration" with "**IECEE certificate NL-127271 (DEKRA, 2026-07-02), host device, SL2, MIL V4.0 Secure, under Moxa's UL 4-1 process certificate**".
+- Remove the Siemens IEOD clause as support for certification. Keep it only as "Debian is used in industrial edge products". Use IOT2050/CIP Core for the Siemens-Debian link.
+- Change "CIP ... 4-2 compliance" to "**BV-assessed 4-2 common component requirements at SL2 on a minimal CIP Core reference image; HDR/SAR out of scope; EDR/NDR future**".
+- Change the last sentence to: "A device certificate is issued per product revision and configuration. OS-level component certificates (RHEL 9.6, MicroShift 4.21; CIP Core) reduce that work, and Debian proper and k3s have none."
+
+## What would flip the decision
+
+- **Toward refuted (Red Hat lineage needed in practice):** an IIoT buyer or tender list (for example in a water, energy or utility RFP that OneMind targets under F-11) that requires a *component-certified OS and Kubernetes* by name, together with the fact that no Debian-, CIP- or k3s-based component certificate exists by 2027-11. Or: IEC 62443-4-2 Ed. 2 or the CRA harmonised standards requiring OS-component evidence that only RHEL or MicroShift can supply off the shelf.
+- **Toward fully upheld without caveats:** a published third-party 4-2 certificate (named body, number) for a product on **stock Debian 13** (not a vendor or CIP kernel fork), or for k3s or any Debian-based Kubernetes as a software component. Also a published CIP certificate number with HDR/EDR scope.
+- **Toward irrelevance for OneMind (either lineage):** if OneMind cannot fund a 4-1 process certificate and a PSIRT (the Moxa precondition), base-OS lineage does not matter for certification at all. The decision then becomes "partner with a certified hardware or OS vendor (Moxa MIL, CIP members, or RHEL Device Edge) for the IIoT SKU". That is a founder decision (`blocked: founder-decision`).

@@ -1,0 +1,24 @@
+[Unit]
+Description=Lightweight Kubernetes (k3s server)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=notify
+EnvironmentFile=-/etc/default/k3s
+ExecStartPre=-/sbin/modprobe br_netfilter
+ExecStartPre=-/sbin/modprobe overlay
+ExecStartPre=/bin/sh -c 'mkdir -p /var/lib/rancher/k3s/agent/images && ln -sf /usr/lib/onemind/k3s-airgap-images.tar.zst /var/lib/rancher/k3s/agent/images/k3s-airgap-images.tar.zst'
+ExecStart=/usr/local/bin/k3s server --disable=traefik --disable=servicelb --disable=metrics-server --write-kubeconfig-mode=0644 $K3S_EXTRA_ARGS
+KillMode=process
+Delegate=yes
+LimitNOFILE=1048576
+LimitNPROC=infinity
+LimitCORE=infinity
+TasksMax=infinity
+TimeoutStartSec=0
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,40 @@
+Image resized.
+ssh up after 161s
+greenboot=active after 183s
+{"booted":"<lab-registry>/onemind-lab:good","digest":"sha256:08b928d7af8805bee4cf721f3eb9b6d7ccd8dbc2067f93c6181831858e452773","rollback":null}
+Nov 11 01:18:35 localhost.localdomain greenboot[1749]:  INFO  greenboot::greenboot > required script /usr/lib/greenboot/check/required.d/02_watchdog.sh success!
+Nov 11 01:18:35 localhost.localdomain greenboot[1749]:  INFO  greenboot::greenboot > No watchdog on the system, skipping check
+Nov 11 01:18:35 localhost.localdomain greenboot[1749]:  INFO  greenboot::greenboot > running required check /etc/greenboot/check/required.d/50-k3s-ready.sh
+Nov 11 01:18:58 localhost.localdomain greenboot[1749]:  INFO  greenboot::greenboot > required script /etc/greenboot/check/required.d/50-k3s-ready.sh success!
+Nov 11 01:18:58 localhost.localdomain greenboot[1749]:  INFO  greenboot::greenboot > k3s healthy after 25s
+Nov 11 01:18:58 localhost.localdomain greenboot[1749]:  INFO  greenboot::greenboot > running wanted check /usr/lib/greenboot/check/wanted.d/01_update_platforms_check.sh
+Nov 11 01:18:59 localhost.localdomain greenboot[1749]:  INFO  greenboot::greenboot > wanted script /usr/lib/greenboot/check/wanted.d/01_update_platforms_check.sh success!
+Nov 11 01:18:59 localhost.localdomain greenboot[1749]:  INFO  greenboot::greenboot > We can connect to all update platforms
+Nov 11 01:18:59 localhost.localdomain greenboot[1749]:  INFO  greenboot            > greenboot health-check passed.
+Nov 11 01:18:59 localhost.localdomain greenboot[1749]:  INFO  greenboot            > Initial /boot mount state: ro
+Nov 11 01:18:59 localhost.localdomain greenboot[1749]:  INFO  greenboot            > Remounting /boot as rw for operation
+Nov 11 01:18:59 localhost.localdomain greenboot[1749]:  INFO  greenboot::grub      > Set grubenv: boot_success=1
+Nov 11 01:18:59 localhost.localdomain greenboot[1749]:  INFO  greenboot::grub      > Clear grubenv: boot_counter
+Nov 11 01:18:59 localhost.localdomain greenboot[1749]:  INFO  greenboot            > Restoring /boot mount to ro
+Nov 11 01:18:59 localhost.localdomain systemd[1]: Finished greenboot-healthcheck.service - Greenboot Health Checks Runner.
+boot_success=1
+k3s version v1.37.2+k3s1 (f6973cb8)
+NAME                    STATUS   ROLES           AGE   VERSION        INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                        KERNEL-VERSION                   CONTAINER-RUNTIME
+localhost.localdomain   Ready    control-plane   21s   v1.37.2+k3s1   <device-ip>     <none>        Fedora Linux 45 (IoT Edition)   7.3.3-300.fc45.aarch64 (arm64)   containerd://2.3.7-k3s1
+NAMESPACE     NAME                                      READY   STATUS              RESTARTS   AGE
+kube-system   coredns-577d995dff-pms5z                  1/1     Running             0          15s
+kube-system   helm-install-gateway-api-crd-8qz4g        0/1     ContainerCreating   0          15s
+kube-system   helm-install-traefik-crd-k84sq            0/1     ContainerCreating   0          15s
+kube-system   helm-install-traefik-f8kl4                0/1     ContainerCreating   0          15s
+kube-system   local-path-provisioner-56c6584955-4m7tr   1/1     Running             0          15s
+kube-system   metrics-server-778c4649b4-bhgjc           0/1     Running             0          15s
+Enforcing
+               total        used        free      shared  buff/cache   available
+Mem:            3880         953        2113           1         956        2927
+Swap:           3879           0        3879
+NAME="Fedora Linux"
+VERSION="45 (IoT Edition)"
+Filesystem      Size  Used Avail Use% Mounted on
+composefs       6.7M  6.7M     0 100% /
+/dev/vda3       8.5G  3.0G  5.6G  35% /var
+/dev/vda3       8.5G  3.0G  5.6G  35% /sysroot

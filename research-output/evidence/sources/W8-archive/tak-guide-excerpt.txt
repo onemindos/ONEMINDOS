@@ -1,0 +1,55 @@
+
+
+3     System Requirements
+3.1     Supported Operating Systems
+    • Rocky Linux 9
+    • Red Hat Enterprise Linux (RHEL) 9
+    • Rocky Linux 8 (Replacement for CentOS 8, which is EOL)
+    • Red Hat Enterprise Linux (RHEL) 8
+    • Red Hat Enterprise Linux (RHEL) 7
+    • Ubuntu 22
+    • Raspberry Pi OS (64-bit)
+    • CentOS 7 (not CentOS 8 Stream)
+Java 17 is required. Java 17 is installed by default via package dependencies, but if your system has a different
+Java version installed in addition to Java 17, ensure that TAK Server is using Java 17.
+
+3.2     Server Requirements
+    • 4 processor cores
+    • 8 GB RAM
+    • 40 GB disk storage
+For Raspberry Pi installations, a Pi 4, Model B, Quad-Core 64-bit 8GB RAM version is recommended for a
+minimal TAK Server setup (TAK Server messaging and api services with local PostgreSQL database)
+NOTE: Insecure ports are a potential security risk and may allow attackers to gain access to
+the system resulting in the disclosure of personal and sensitive information. Use of unencrypted
+ports should be avoided to ensure a secure TAK Server deployment.
+
+3.3     AWS / GovCloud Recommended Instance Type
+    • c5.xlarge
+         – 4 vCPU
+         – 8 GB RAM
+         – Up to 10 Gbps network bandwidth
+TAK Server supports multiple deployment configurations:
+    • Single server install: One server running TAK Server core (messaging, API, plugins and database):
+      recommended for fewer than 500 users.
+    • Two server install: One server running TAK Server core (messaging, API, plugins and database) and
+      a second server running PostgreSQL database: recommended for more than 500 users.
+    • Containerized docker install: One container running TAK Server core (messaging, API, plugins
+      and database) and another container running PostgreSQL database (designed for operating systems
+      other than CentOS 7 / RHEL 7). Hardened containers are published to both tak.gov and IronBank
+      (see https://ironbank.dso.mil/repomap?searchText=tak%20server).
+The following installation files are provided:
+
+4.1.1     Installer for single-server install
+    • RHEL/Rocky/CentOS: takserver-x.x-RELEASE-xx.noarch.rpm
+    • Ubuntu/RaspPi: takserver_x.x-RELEASExx_all.deb
+
+4.1.2     Database installer for two-server install
+    • RHEL/Rocky/CentOS: takserver-database-x.x-RELEASE-xx.noarch.rpm
+    • Ubuntu/RaspPi: takserver-database_x.x-RELEASExx_all.deb
+
+4.1.3     Core installer for two-server install
+    • RHEL/Rocky/CentOS: takserver-core-x.x-RELEASE-x.noarch.rpm
+    • Ubuntu/RaspPi: takserver-core_x.x-RELEASExx_all.deb
+
+4.1.4     Containerized docker install bundle
+    • takserver-docker-x.x-RELEASE-xx.zip

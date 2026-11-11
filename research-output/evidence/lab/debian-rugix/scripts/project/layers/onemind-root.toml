@@ -1,0 +1,8 @@
+# Debian 13 "trixie" bootstrapped from a fixed snapshot.debian.org timestamp,
+# so every package version is pinned by date.
+root = true
+recipes = ["core/debian-bootstrap"]
+
+[parameters."core/debian-bootstrap"]
+suite = "trixie"
+snapshot = "20261109T000000Z"

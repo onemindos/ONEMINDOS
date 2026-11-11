@@ -1,0 +1,5 @@
+Method: gh api --paginate repos/<r>/commits?since=2026-10-11T00:00:00Z (default branch), counted SHAs and distinct author logins. Accessed 2026-11-10.
+morluto/rea              commits_30d=4760 distinct_authors=337  head=e2585aa7ce31c37866ca46991ec656fdffaa3b90
+storytold/craft-anything commits_30d=823  distinct_authors=88   head=4f61975f25d96c71635bacb07619b5b5bd0a0bd1
+qybaihe/bla              commits_30d=485  distinct_authors=8    head=3e53a1e5b63f1267cc94560a3411d0bb7775313d
+Stargazer listing (REST /stargazers and GraphQL stargazers) returned 404 / totalCount 0 for every repo tried, including home-assistant/operating-system, so star-account sampling was not possible from this environment.

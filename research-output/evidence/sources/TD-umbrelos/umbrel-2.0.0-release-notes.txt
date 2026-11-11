@@ -1,0 +1,52 @@
+2026-09-22T15:42:05Z
+
+umbrelOS 2.0 is the biggest update we've ever shipped. It brings a new Photos app, Umbrel apps for iPhone and Mac, Machines for running Windows, Ubuntu, and Android inside your Umbrel, multiple user accounts, an MCP server for AI agents, a new Storage Manager with FailSafe (RAID), downloads from cloud storage, GPU acceleration, an all-new App Store, redesigned Settings, faster Files, redesigned CMD/Ctrl-K search, automatic HTTPS, and hundreds of smaller improvements and bug fixes.
+
+[**→ Watch the keynote**](https://youtu.be/lBsKk_NNg2A)
+
+<img width="3840" height="2880" alt="bento 2 0-2" src="https://github.com/user-attachments/assets/545d8178-0bae-4b0f-a5a4-b229b6879ed4" />
+
+### New features
+
+- **Photos:** Photos and videos on your Umbrel show up in the new Photos app automatically, organized by years, months, and days, with albums, favorites, Live Photos, panoramas, and screenshots.
+
+- **Umbrel for iPhone:** The new [Umbrel app for iOS](https://link.umbrel.com/ios-app) backs up your entire camera roll to your Umbrel automatically, in the background, even when the app is closed.
+
+- **Umbrel for Mac:** The new [Umbrel app for macOS](https://link.umbrel.com/macos-app) finds your Umbrel automatically and adds it as a drive in Finder, on your local network and over Tailscale.
+
+- **Machines:** Run Windows, Ubuntu, Debian, Android, and more right inside your Umbrel. Install in one click and get the full desktop in your browser.
+
+- **Multiple users:** Everyone gets their own account, home screen, and private home folder. Share the apps and folders you choose, and keep the rest private.
+
+- **AI agents:** With the new MCP server, connect Claude Code, Codex, OpenClaw, Cursor, or any AI agent to install apps, organize files, or troubleshoot issues for you. Each agent gets its own token and only the access you allow, and you can revoke it anytime.
+
+- **Storage Manager:** On devices with multiple internal SSD or HDD slots, combine drives into one space or choose FailSafe (RAID) for peace of mind if a drive fails. Swap drives and check their health from Settings. NAS devices with both HDD and SSD slots can also enable SSD acceleration.
+
+- **Download from cloud:** Download from Dropbox, OneDrive, iCloud Drive, Nextcloud, ownCloud, or any WebDAV server in one go, or keep your folders backing up to your Umbrel continuously. Google Drive support is coming soon.
+
+- **GPU acceleration:** NVIDIA, AMD, and Intel GPUs, including Thunderbolt eGPUs, are detected automatically and passed through to apps like Ollama and Jellyfin. GPU and VRAM activity shows up in Live Usage.
+
+- **New settings for every app:** Point any app at folders on external or network drives, choose exactly what it can access, and even move entire apps to external drives.
+
+- **All-new App Store:** A new Discover experience with categories, featured collections, search, sorting, an update shelf, compatibility checks, and release history.
+
+- **Redesigned Settings:** Settings has been rebuilt from the ground up, with search and better organization.
+
+- **Redesigned CMD/Ctrl-K search:** Search across apps, files, photos, videos, and settings from anywhere.
+
+- **Faster Files:** Background indexing, instant search, continuously generated thumbnails, HEIC support, safer uploads, and more.
+
+- **Automatic HTTPS:** Your Umbrel is now served over HTTPS automatically.
+
+Join the [Umbrel Community Discord](https://discord.gg/efNtFzqtdx) to share your feedback on this update and engage with other users.
+
+### Downloads
+
+- https://download.umbrel.com/release/2.0.0/SHA256SUMS
+- https://download.umbrel.com/release/2.0.0/SHA256SUMS.ots
+- https://download.umbrel.com/release/2.0.0/umbrelos-amd64-usb-installer.iso
+- https://download.umbrel.com/release/2.0.0/umbrelos-amd64.img.xz
+- https://download.umbrel.com/release/2.0.0/umbrelos-amd64.update
+- https://download.umbrel.com/release/2.0.0/umbrelos-amd64-legacy.update
+- https://download.umbrel.com/release/2.0.0/umbrelos-pi.img.zip
+- https://download.umbrel.com/release/2.0.0/umbrelos-pi.update

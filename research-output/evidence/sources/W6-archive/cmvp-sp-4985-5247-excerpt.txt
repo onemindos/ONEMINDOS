@@ -1,0 +1,148 @@
+# Excerpt: CMVP security policies #4985 (OpenSSL FIPS Provider 3.1.2) and #5247 (Go Cryptographic Module), fetched 2026-11-10
+# sha256(140sp4985.pdf)=9976464c15e05589e3c31464093457757a4d0cebeaa88f2ac406833c17c5a413
+# sha256(140sp5247.pdf)=2dfcf09554a8f045d6a6326a1c66ac4c079f3fc27cee90ed27262c60c75b4478
+Tested Operational Environments - Software, Firmware, Hybrid: 
+ 
+
+OpenSSL FIPS Provider  FIPS 140-3 Non-Proprietary Security Policy 
+The OpenSSL Project. 2025 
+This document may be reproduced and distributed only in its original entirety without revision. 
+Page 8 of 89 
+Operating System Hardware 
+Platform 
+Processors PAA/PAI Hypervisor 
+or Host OS 
+Version(s) 
+Ubuntu Linux 
+22.04.1 Server 
+Dell Inspiron 
+7573 
+Intel i7-
+8550U 
+No N/A 3.1.2 
+Ubuntu Linux 
+22.04.1 Server 
+Dell Inspiron 
+7573 
+Intel i7-
+8550U 
+Yes N/A 3.1.2 
+Debian 11.5 Dell Inspiron 
+7573 
+Intel i7-
+8550U 
+No N/A 3.1.2 
+Debian 11.5 Dell Inspiron 
+7573 
+Intel i7-
+8550U 
+Yes N/A 3.1.2 
+FreeBSD 13.1 Dell Inspiron 
+7591 2 in 1 
+Intel i7-
+10510U 
+No N/A 3.1.2 
+FreeBSD 13.1 Dell Inspiron 
+7591 2 in 1 
+Intel i7-
+10510U 
+Yes N/A 3.1.2 
+Windows 10 Pro Dell Inspiron 
+7591 2 in 1 
+Intel i7-
+10510U 
+No N/A 3.1.2 
+Windows 10 Pro Dell Inspiron 
+7591 2 in 1 
+Intel i7-
+10510U 
+Yes N/A 3.1.2 
+macOS 11.5.2 Apple M1 Mac 
+Mini 
+M1 No N/A 3.1.2 
+macOS 11.5.2 Apple M1 Mac 
+Mini 
+M1 Yes N/A 3.1.2 
+macOS 11.5.2 Apple i7 Mac 
+Mini 
+Intel i7 No N/A 3.1.2 
+macOS 11.5.2 Apple i7 Mac 
+Mini 
+Intel i7 Yes N/A 3.1.2 
+Table 3: Tested Operational Environments - Software, Firmware, Hybrid 
+ 
+Vendor-Affirmed Operational Environments - Software, Firmware, Hybrid: 
+ 
+N/A for this module. 
+ 
+No operational environments are vendor affirmed. 
+----- 5247
+2.2 Tested and Vendor Affirmed Module Version and Identification 
+Tested Module Identification – Software, Firmware, Hybrid (Executable Code Sets): 
+
+   
+ 
+Page 9 of 100 
+ 
+Package or File Name Software/ Firmware 
+Version 
+Features Integrity Test 
+fips.o (darwin/arm64) v1.0.0 and v1.0.1 Binary file compiled 
+from the source in the 
+v1.0.0-c2097c7c.zip or 
+v1.0.1.zip file 
+HMAC-SHA2-256 
+fips.o (freebsd/amd64) v1.0.0 and v1.0.1 Binary file compiled 
+from the source in the 
+v1.0.0-c2097c7c.zip or 
+v1.0.1.zip file 
+HMAC-SHA2-256 
+fips.o (linux/amd64) v1.0.0 and v1.0.1 Binary file compiled 
+from the source in the 
+v1.0.0-c2097c7c.zip or 
+v1.0.1.zip file 
+HMAC-SHA2-256 
+fips.o (linux/arm) v1.0.0 and v1.0.1 Binary file compiled 
+from the source in the 
+v1.0.0-c2097c7c.zip or 
+v1.0.1.zip file 
+HMAC-SHA2-256 
+fips.o (linux/arm64) v1.0.0 and v1.0.1 Binary file compiled 
+from the source in the 
+v1.0.0-c2097c7c.zip or 
+v1.0.1.zip file 
+HMAC-SHA2-256 
+fips.o (linux/mips64) v1.0.0 and v1.0.1 Binary file compiled 
+from the source in the 
+v1.0.0-c2097c7c.zip or 
+v1.0.1.zip file 
+HMAC-SHA2-256 
+   
+ 
+Page 10 of 100 
+ 
+Package or File Name Software/ Firmware 
+Version 
+Features Integrity Test 
+fips.o (linux/ppc64le) v1.0.0 and v1.0.1 Binary file compiled 
+from the source in the 
+v1.0.0-c2097c7c.zip or 
+v1.0.1.zip file 
+HMAC-SHA2-256 
+fips.o (linux/s390x) v1.0.0 and v1.0.1 Binary file compiled 
+from the source in the 
+v1.0.0-c2097c7c.zip or 
+v1.0.1.zip file 
+HMAC-SHA2-256 
+fips.o 
+(windows/amd64) 
+v1.0.0 and v1.0.1 Binary file compiled 
+from the source in the 
+v1.0.0-c2097c7c.zip or 
+v1.0.1.zip file 
+HMAC-SHA2-256 
+fips.o (windows/arm64) v1.0.0 and v1.0.1 Binary file compiled 
+from the source in the 
+v1.0.0-c2097c7c.zip or 
+v1.0.1.zip file 
+HMAC-SHA2-256 

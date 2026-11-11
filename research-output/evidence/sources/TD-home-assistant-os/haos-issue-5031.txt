@@ -1,0 +1,86 @@
+Snapshot of https://github.com/home-assistant/operating-system/issues/5031 (accessed 2026-11-10 via gh CLI; author handles removed; body truncated)
+title: HAOS 18.3 regression on generic-x86-64: Realtek RTL8168/r8169 NETDEV WATCHDOG and loss of network
+state: CLOSED
+created: 2026-09-21T11:37:24Z
+closed: 2026-09-29T06:55:42Z
+
+### Describe the issue you are experiencing
+
+After upgrading a bare-metal generic-x86-64 Home Assistant OS installation from HAOS 18.2 to HAOS 18.3, the Ethernet interface becomes unusable after reboot.
+
+HAOS itself boots successfully, but the machine becomes unreachable from the LAN. The local console continuously reports r8169 NETDEV WATCHDOG transmit queue timeouts on enp2s0.
+
+The affected NIC is:
+
+- Vendor ID: 0x10ec (Realtek)
+- Device ID: 0x8168
+- Subsystem vendor: 0x10ec
+- Subsystem device: 0x8168
+- Driver: r8169
+- Interface: enp2s0
+- PCI address: 0000:02:00.0
+
+Rolling back to HAOS 18.2 using `os boot-slot other` immediately restores Ethernet connectivity.
+
+HAOS 18.2 works normally on the exact same hardware and configuration.
+
+### What operating system image do you use?
+
+generic-x86-64 (Generic UEFI capable x86-64 systems)
+
+### What version of Home Assistant Operating System is installed?
+
+18.3
+
+### Did the problem occur after upgrading the Operating System?
+
+Yes
+
+### Hardware details
+
+Bare-metal x86-64 installation.
+
+Ethernet controller:
+- PCI address: 0000:02:00.0
+- Vendor ID: 0x10ec (Realtek)
+- Device ID: 0x8168
+- Subsystem vendor: 0x10ec
+- Subsystem device: 0x8168
+- Kernel driver: r8169
+- Interface: enp2s0
+
+HAOS 18.2:
+- Kernel: 6.18.39-haos
+- Ethernet works normally
+
+HAOS 18.3:
+- System boots, but Ethernet becomes unusable
+- Repeated NETDEV WATCHDOG transmit queue timeout messages
+
+### Steps to reproduce the issue
+
+1. Start with HAOS 18.2 on a generic-x86-64 bare-metal system using a Realtek 10ec:8168 NIC with the r8169 driver.
+2. Verify Ethernet connectivity works normally.
+3. Upgrade Home Assistant OS from 18.2 to 18.3.
+4. Reboot into HAOS 18.3.
+5. Observe that HAOS boots, but the host becomes unreachable from the LAN.
+6. Check the local console and observe repeated r8169 NETDEV WATCHDOG / transmit queue timeout messages.
+7. From the local Home Assistant CLI, run `os boot-slot other`.
+8. The system boots back into HAOS 18.2.
+9. Ethernet connectivity immediately works normally again without any configuration changes.
+
+I reproduced the regression by upgrading to 18.3 and confirmed that it disappears when booting the previous 18.2 slot.
+
+<img width="1152" height="1536" alt="Image" src="https://github.com/user-attachments/assets/9c4361df-c9ef-4c97-a946-c5ae4d01f658" />
+
+### Anything in the Supervisor logs that might be useful for us?
+
+```txt
+The Supervisor did not report an explicit OS update error.
+
+The update was fetched normally:
+
+2026-09-21 17
+
+Maintainer comment (project member), 2026-09-29:
+Duplicate of a known, currently there's an available workaround in https://github.com/home-assistant/operating-system/issues/5019#issuecomment-5743937324

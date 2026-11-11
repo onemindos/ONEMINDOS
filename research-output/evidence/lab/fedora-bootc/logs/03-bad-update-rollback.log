@@ -1,0 +1,66 @@
+[01:17:02] channel stable -> v3-bad
+layers already present: 67; layers needed: 6 (13.1 MB)
+Deploying...done (2 seconds)
+Queued for next boot: 198.18.0.2:5000/onemind/lab:stable
+  Version: 44.20261110.0
+  Digest: sha256:e5c9cf58aa4ad30c014fca9a0e6e17bce5327d227c98580fb3a715c1bde775f1
+Total new layers: 72    Size: 1.0 GB
+Removed layers:   5     Size: 13.1 MB
+Added layers:     6     Size: 13.1 MB
+marker=v2 uptime=21.50
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:18807cd1861252cd86cc687a6c27012813560987f146b4e5cd90456d5adf6e28","staged":"sha256:e5c9cf58aa4ad30c014fca9a0e6e17bce5327d227c98580fb3a715c1bde775f1","rollback":"sha256:9a6054d33ea12b07ed1a9c9212bd3ef066863e04b8e135d4c4f7921af66fcce0"}
+[01:17:10] rebooting into v3-bad, then hands off
+Connection to 127.0.0.1 closed by remote host.
+[01:17:10] +0s (down)
+[01:17:26] +16s v3-bad up=5.21 boot_success=0 boot_counter=3 
+[01:17:36] +26s (down)
+[01:18:21] +71s v2 up=10.15 boot_success=1 
+[01:18:26] +76s v2 up=14.85 boot_success=1 
+[01:18:32] +82s v2 up=19.61 boot_success=1 
+[01:18:37] +87s v2 up=24.78 boot_success=1 
+[01:18:42] +92s v2 up=29.94 boot_success=1 
+[01:18:47] +97s v2 up=35.06 boot_success=1 
+[01:18:52] +102s v2 up=40.17 boot_success=1 
+[01:18:57] +107s v2 up=45.28 boot_success=1 
+[01:19:02] +112s v2 up=50.39 boot_success=1 
+[01:19:07] +117s v2 up=55.49 boot_success=1 
+[01:19:13] +123s v2 up=60.59 boot_success=1 
+[01:19:18] +128s v2 up=65.69 boot_success=1 
+marker=v2 uptime=65.77
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:18807cd1861252cd86cc687a6c27012813560987f146b4e5cd90456d5adf6e28","staged":null,"rollback":"sha256:e5c9cf58aa4ad30c014fca9a0e6e17bce5327d227c98580fb3a715c1bde775f1"}
+[    3.922272] fedora greenboot[918]:  INFO  greenboot::handler   > Greenboot will now attempt to rollback to a previous deployment.
+[    3.959766] fedora greenboot[918]:  INFO  greenboot::handler   > System detected as bootc (status.booted.image: {"architecture":"arm64","image":{"image":"198.18.0.2:5000/onemind/lab:stable","transport":"registry"},"imageDigest":"sha256:e5c9cf58aa4ad30c014fca9a0e6e17bce5327d227c98580fb3a715c1bde775f1","timestamp":"2026-11-11T01:11:57.602651992Z","version":"44.20261110.0"})
+[    3.959766] fedora greenboot[918]:  INFO  greenboot::handler   > Deployment manager 'bootc' detected, attempting rollback.
+[    3.995304] fedora bootc[979]: Rolling back to image: sha256:18807cd1861252cd86cc687a6c27012813560987f146b4e5cd90456d5adf6e28
+[    4.006331] fedora bootc[979]: bootfs is sufficient for calculated new size: 0 bytes
+[    4.006552] fedora bootc[979]: Starting syncfs for system repo
+[    4.009543] fedora bootc[979]: Completed syncfs() for system repo in 3 ms
+[    4.009553] fedora bootc[979]: Starting freeze/thaw cycle for boot
+[    4.031160] fedora bootc[979]: Completed freeze/thaw cycle for boot in 22 ms
+[    4.031402] fedora bootc[979]: Transaction complete; bootconfig swap: no; bootversion: boot.0.1, deployment count change: 0
+[    4.032402] fedora bootc[979]: Starting syncfs for system repo
+[    4.034151] fedora bootc[979]: Completed syncfs() for system repo in 2 ms
+[    5.110214] fedora bootc[979]: Freed objects: 39.6 kB
+[    5.119442] fedora greenboot[979]: Next boot: rollback deployment
+[    5.121373] fedora greenboot[918]:  INFO  greenboot            > Rollback successful
+[    5.121545] fedora greenboot[918]:  INFO  greenboot            > Initial /boot mount state: rw
+[    5.121545] fedora greenboot[918]:  INFO  greenboot            > /boot is already rw; no remount needed
+[    5.133902] fedora greenboot[918]:  INFO  greenboot::grub      > Clear grubenv: boot_counter
+[    5.142161] fedora greenboot[918]:  INFO  greenboot::grub      > Clear grubenv: greenboot_next_deployment_id
+[    5.142161] fedora greenboot[918]:  INFO  greenboot::handler   > restarting the system
+[    5.150058] fedora greenboot[918]: Error: greenboot healthcheck failed
+[    5.152286] fedora systemd[1]: greenboot-healthcheck.service: Main process exited, code=exited, status=1/FAILURE
+[    5.152334] fedora systemd[1]: greenboot-healthcheck.service: Failed with result 'exit-code'.
+[    5.152478] fedora systemd[1]: Stopped greenboot-healthcheck.service - Greenboot Health Checks Runner.
+[    5.152646] fedora systemd[1]: greenboot-healthcheck.service: Consumed 714ms CPU time over 1.411s wall clock time, 115.6M memory peak.
+---
+IDX BOOT ID                          FIRST ENTRY                 LAST ENTRY
+ -6 b0dbef9610d34aea9fea19e501281ff0 Wed 2026-11-11 01:16:03 UTC Wed 2026-11-11 01:16:40 UTC
+ -5 caca1ace3dc54412becf995210ff1f30 Wed 2026-11-11 01:16:50 UTC Wed 2026-11-11 01:17:13 UTC
+ -4 8a48e7e9bfe94cbabb2f3f50c0017107 Wed 2026-11-11 01:17:22 UTC Wed 2026-11-11 01:17:27 UTC
+ -3 9f7d20cb074849ed896825ffbe5226a8 Wed 2026-11-11 01:17:35 UTC Wed 2026-11-11 01:17:39 UTC
+ -2 66e130607b45459eb51f162b47423675 Wed 2026-11-11 01:17:46 UTC Wed 2026-11-11 01:17:51 UTC
+ -1 dbb36e7808be4e8480902b65a57245db Wed 2026-11-11 01:17:59 UTC Wed 2026-11-11 01:18:05 UTC
+  0 0a5e451dbe58494bb1389eac7b26fe51 Wed 2026-11-11 01:18:12 UTC Wed 2026-11-11 01:19:18 UTC

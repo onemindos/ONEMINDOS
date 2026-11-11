@@ -1,0 +1,228 @@
+Service Order for Debian Extended Long Term Support
+
+
+Identification of Parties
+
+                                           “Service Provider”                  “Client”
+
+Company Name                             Freexian SARL
+
+                                         7 B rue de la Montat
+                                         42290 Sorbiers
+                                         France
+Address
+
+
+
+
+EU VAT Number (if applicable)            FR07481385649
+
+SIREN (only for French companies) 481 385 649
+
+
+
+
+Client Contacts
+
+                                                         Name                             Email
+
+Administrative Contact
+(receives legal notices & renewals)
+
+Invoicing Contact
+(receives invoices)
+
+Technical Contact
+(rec. credentials & technical updates)
+
+
+
+Subscription Period
+
+Subscription Start Date                                                (required)
+
+Invoicing Frequency &                                                  (required)
+Renewal Term
+
+‍Renewal Policy
+
+
+
+
+Preamble
+This Service Agreement, entered into by the Parties at the Subscription Start Date set above, is executed in
+accordance with the terms of a Master Services Agreement, signed between both Parties. If the Parties have not
+signed any Master Services Agreement yet, then the signature of this Service Order constitutes acceptance of
+Freexian’s   Master    Services   Agreement     (version  1    —    November     1 st,  2025)     located   at
+https://www.freexian.com/terms/, which, together with this Service Order, form the Contract between our
+companies.
+
+
+
+
+Freexian SARL                                                   1/4             Service Order for Debian ELTS
+                                                                                       Version: February 2026
+Debian ELTS Subscription Details
+
+Invoice’s currency
+    Euros (€)            USD ($) (please note that it is usually more cost effective to pay in Euros)
+
+
+
+
+Debian 9 support
+
+   Check this if you want Extended support for Debian 9 and fill the information about architecturesand duration
+
+
+Architectures for Debian 9                    amd64            i386             armel           armhf         arm64
+
+We expect to need support for Debian 9 until:
+(This is non-binding and helps us to plan the renewals, you can shorten/extend at will)
+
+
+
+
+Debian 10 support
+
+   Check this if you want Extended support for Debian 10 and fill the information about architectures and duration
+
+Architectures for Debian 10                  amd64            i386             armhf            arm64
+
+We expect to need support for Debian 10 until:
+(This is non-binding and helps us to plan the renewals, you can shorten/extend at will)
+
+
+
+
+Debian 11 support (starting in September 2026)
+
+   Check this if you want Extended support for Debian 11 and fill the information about architectures and duration
+
+Architectures for Debian 11                  amd64            armhf            arm64        Other:
+We expect to need support for Debian 11 until:
+(This is non-binding and helps us to plan the renewals, you can shorten/extend at will)
+
+
+
+
+    1. Description of Services
+
+Debian releases are supported by the Debian project for 5 years after their publication. Freexian’s Extended Long
+Term Support (ELTS) enables the Client to benefit from 5 additional years of security support on a subset of
+packages of Debian release(s) of their choice.
+
+             1.1      Scope of the security support
+The Client provides, for each Debian release that they are using, the list of source packages that they are using
+and that they would like to see supported by Freexian. In return, Freexian provides for each requested Debian
+release :
+    •   the price of the service for the next half-year, as well as expected prices for future Support Periods ;
+    •   the list of source packages that Freexian will not support but that were mentioned in the Client’s package
+        list.
+
+
+The price of the ELTS service is based on the package list provided by the Client and based on the estimated
+work-load generated for the selected packages. The price increases after each half-year period to compensate
+for the loss of Clients which stopped using the given Debian release and the increased complexity of maintaining
+software released many years ago. The Client can update its list of packages at any time by sending an updated
+
+
+Freexian SARL                                                2/4                            Service Order for Debian ELTS
+                                                                                                   Version: February 2026
+list to [email-redacted]. The updated list(s) will become effective for the next Support Period and will impact
+the price of future Support Periods.
+
+
+Freexian will monitor the publication of security issues in the CVE database. Freexian does not guarantee that
+every single security issue will be fixed. However each issue will be reviewed and triaged, and some may be
+classified as not worthy of being fixed. Some might not be fixable at all, in which case the corresponding security
+announce will provide mitigation techniques.
+
+
+Freexian does not guarantee any timeline for the publication of a security fix. There are too many factors
+that can delay the release of a security fix (availability of the vulnerability details, availability of an upstream
+patch, requirement to backport said patch, etc.). Freexian will do its best to serve ELTS Clients by providing
+timely security updates for the packages that they are using.
+
+
+The Client acknowledges that the list of packages covered by security support evolves over time. If Freexian stops
+supporting a package that was requested by the Client, this information will be communicated either through a
+proper security announcement or with a direct email to the Client’s technical contacts.
+
+
+The Client acknowledges that the packages maintained by Freexian are the packages which were in the Debian
+Release. Backports (with the exceptions of those documented on Freexian’s ELTS website) or external packages
+not included in the Debian release are not supported and are not updated.
+
+            1.2     Access to package repositories with security updates
+
+The Client is granted access to private package repositories managed by Freexian containing Debian packages
+for the Debian releases requested in the “Debian ELTS Subscription Details” section above.
+For packages listed in Client’s package lists, and that Freexian accepted to support, Freexian will publish security
+updates in the above repositories as needed. Each security update will be accompanied with an Extended LTS
+Advisory (ELA) describing the update and listing the fixed CVE.
+
+
+All the data provided to the Client through security.freexian.com is private and made available to the Client for
+their own use only. This includes the Debian ELTS packages, data feeds about vulnerabilities and updates, and
+any other information that Freexian might decide to share to the Client. In particular, the client must not make
+any such data publicly available, and must not privately share such data with any third-party organization or
+individual.
+
+            1.3     Technical support
+
+Clients that have issues with the repositories, the provided packages, the vulnerabilities, the security fixes, or
+any related process, can get help from Freexian by opening a support issue.
+
+
+    2. Support Period
+
+This service is managed with fixed Support Periods of 6 months: from January 1st to June 30th, and from July
+1st to December 31st.
+
+
+    3. Subscription Periods
+
+If the start of the subscription does not match the start of an official Support Period, the length of the initial
+Subscription Period will be adjusted so that the initial Subscription Period ends at the end of a Support Period.
+Following Subscription Periods will last for the duration set in the “Invoicing Frequency & Renewal Term” field.
+
+
+    4. Price and invoicing
+
+Services are invoiced in advance according to the Price indicated on the accepted quote. Depending on the
+selected Invoicing Frequency, the invoiced Subscription Period can cover one or more Support Periods.
+
+
+Freexian SARL                                           3/4                         Service Order for Debian ELTS
+                                                                                           Version: February 2026
+When the invoiced Subscription Period includes a partial Support Period, the price of that Support Period will be
+adjusted pro-rata temporis.
+
+
+   5. Minor updates to the subscription
+
+The following parameters of the subscription can be modified with a written Notice to [email-redacted]:
+   •   Name and email of the various contacts
+   •   Invoicing frequency & renewal term
+   •   Renewal policy
+   •   End of use planned date
+
+
+    FREEXIAN SARL                                        THE CLIENT
+    Signature:                                           Signature:
+
+
+
+
+    Name:                                                Name:
+
+
+    Title:                                               Title:
+
+
+
+
+Freexian SARL                                         4/4                         Service Order for Debian ELTS
+                                                                                         Version: February 2026
+

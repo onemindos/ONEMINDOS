@@ -1,0 +1,5 @@
+jq
+ca-certificates
+iptables
+kmod
+curl

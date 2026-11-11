@@ -1,0 +1,62 @@
+> [!TIP]
+> This update is available now for users enrolled in the umbrelOS Beta Program. To enroll, go to Settings > Advanced Settings > umbrelOS Beta Program.
+
+umbrelOS 2.1 Beta 1 brings a new file viewer that opens and edits PDFs, Office documents and spreadsheets right in Files, Umbrel apps for Android and Windows, bridged networking, USB devices and a shared clipboard in Machines, an umbrelOS that fits phones and tablets in every orientation, support for newer hardware, and many more improvements and bug fixes.
+
+### New features
+
+- **Documents in Files:** Open PDFs, Word documents, PowerPoint decks, Excel spreadsheets and CSV files in a new full-window viewer, and make quick edits without leaving Files. Fill in PDF forms, highlight, draw and sign, fix text in documents and slides, and edit cells and formulas. Keynote, Pages and Numbers files show a preview.
+
+- **Umbrel for Android:** Everything the [Umbrel app for iPhone](https://link.umbrel.com/ios-app) does, now on Android. The new [Umbrel app for Android](https://link.umbrel.com/android-app) backs up your photos and videos to your Umbrel automatically, and opens umbrelOS and your apps already signed in.
+
+- **Umbrel for Windows:** Your Umbrel now shows up in File Explorer, the way [Umbrel for Mac](https://link.umbrel.com/macos-app) adds it to Finder. The new [Umbrel app for Windows](https://link.umbrel.com/windows-app) finds your Umbrel automatically and adds your shared folders as drives.
+
+- **Bridged networking for Machines:** Set a machine's network access to Your network and it joins your home network like any other device, with its own address from your router. It's ideal for Home Assistant OS and anything that needs to find or be found by other devices at home. Machines stay Private by default, and Your network needs your Umbrel connected over Ethernet.
+
+- **USB devices in Machines:** Give a machine the USB devices plugged into your Umbrel, like drives, Zigbee and serial adapters, network adapters and Coral accelerators. Changes apply while the machine is running, and stay through restarts and backups.
+
+- **Shared clipboard in Machines:** Copy and paste between your computer and your machines. On a Mac, ⌘C and ⌘V work inside the machine too.
+
+- **Machines on phones and tablets:** Machines now have a touch console made for fingers, with an on-screen keyboard, so you can really use them from a phone or tablet.
+
+- **Storage Manager:** Drives connected through SAS HBA cards now show up in Storage Manager. SSDs are shown in a clearer list, replacing a drive has more safeguards against erasing data by mistake, and FailSafe now makes it clear you can swap in a larger drive to grow your storage.
+
+- **Newer hardware support:** Umbrel Home, Umbrel Pro and other x86 devices move to the Linux 7.2 kernel, NVIDIA RTX 50-series GPUs are now supported, and NTFS drives now mount on Raspberry Pi.
+
+- **Faster Windows machines:** Idle Windows machines use up to 5× less CPU on your Umbrel, and Windows now uses every core you give it.
+
+- **Reproducible builds:** Every umbrelOS image, update and installer can now be rebuilt from source and checked byte for byte against the release.
+
+Beta 1 also includes these fixes and improvements:
+
+- Fix your Umbrel's network name drifting from umbrel.local to umbrel-2.local and beyond.
+- Fix Plex's iPhone, iPad and Apple TV apps not finding your Plex server on your local network.
+- Fix long media playback, like a movie in Jellyfin on Safari, potentially stalling apps and the dashboard.
+- Fix Docker-in-Docker apps.
+- Saved static IPs now apply from the start of boot, and the saved WiFi network reconnects reliably after a restart.
+- Fix the Raspberry Pi image not booting after the SD card or USB drive was flashed on, or plugged into, a Windows PC.
+- Keep umbrelOS responsive while it handles very large batches of file changes, and keep folder sizes when you rename or move folders in Files.
+- Reduce background work: Files stops retrying media it can never read, ignores the hidden `._` files macOS leaves on drives and shares, and no longer watches machine disks while they run.
+- Photos and videos without a capture date, like WhatsApp media and screenshots, are now dated by when they were made instead of when they reached your Umbrel.
+- Show anamorphic videos, like old camcorder and DVD footage, at their correct shape.
+- Fix intermittent Photos upload and iPhone backup failures.
+- Fix iCloud Drive downloads failing on large Pages, Keynote and Numbers documents.
+- App installs, app updates and umbrelOS updates show smoother, live progress.
+- Keep the dashboard responsive while many apps start at once, such as at boot or during Update all.
+- Machines: fix port forwards that could fail at random, Linux desktop admin prompts now accept your password, Fedora Desktop machines have sound, and machines shut down cleanly when your Umbrel shuts down.
+- UI refinements and bug fixes throughout the interface.
+- Harden the Linux kernel by blocking kernel modules umbrelOS doesn't use.
+
+Join the umbrelOS beta channel on the [Umbrel Community Discord](https://discord.gg/efNtFzqtdx) to share your feedback on this beta and engage with other users.
+
+### Downloads
+
+- https://download.umbrel.com/release/2.1.0-beta.1/manifest.txt
+- https://download.umbrel.com/release/2.1.0-beta.1/manifest.txt.ots
+- https://download.umbrel.com/release/2.1.0-beta.1/manifest.txt.sig
+- https://download.umbrel.com/release/2.1.0-beta.1/umbrelos-amd64-usb-installer.iso
+- https://download.umbrel.com/release/2.1.0-beta.1/umbrelos-amd64.img.xz
+- https://download.umbrel.com/release/2.1.0-beta.1/umbrelos-amd64.update
+- https://download.umbrel.com/release/2.1.0-beta.1/umbrelos-amd64-legacy.update
+- https://download.umbrel.com/release/2.1.0-beta.1/umbrelos-pi.img.zip
+- https://download.umbrel.com/release/2.1.0-beta.1/umbrelos-pi.update

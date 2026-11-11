@@ -1,0 +1,14 @@
+[Unit]
+Description=OneMind health-gated Rugix commit
+After=k3s.service network-online.target
+Wants=k3s.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/default/onemind-health-gate
+ExecStart=/usr/lib/onemind/health-gate
+TimeoutStartSec=infinity
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,27 @@
+lima-kfr-sqlite-restore
+ls: cannot access '/var/lib/rancher': No such file or directory
+k3s version v1.37.2+k3s1 (f6973cb8)
+go version go1.26.10
+Summary: Restored 1020 files/dirs (102.597 MiB) in 0:00
+node_ready_seconds=8
+workloads_ready_seconds=33 fresh_ready_pods=32/32
+node=Ready
+node_list=omos-box:Ready
+deploy/filler ready=30/30
+deploy/writer ready=1/1
+sts/pg ready=1/1
+pg_rows=100000
+pg_md5=fcc231c408dea2b310ba1d06dbd66eef
+configmap=onemind-restore-test-v1
+secret_marker_sha256=a472c4bc003d35ed
+blob_sha256=aa3a9497ae822bde
+--- diff expected vs actual (empty = identical)
+IDENTICAL
+      3 Completed
+     37 Running
+command terminated with exit code 2
+2026-11-11 01:31:03.707 UTC [28] LOG:  redo done at 0/44B8368 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+2026-11-11 01:31:03.708 UTC [26] LOG:  checkpoint starting: end-of-recovery immediate wait
+2026-11-11 01:31:03.712 UTC [26] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.002 s, total=0.004 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB; lsn=0/44B83E0, redo lsn=0/44B83E0
+2026-11-11 01:31:03.713 UTC [1] LOG:  database system is ready to accept connections
+phase2 done kfr-sqlite-restore

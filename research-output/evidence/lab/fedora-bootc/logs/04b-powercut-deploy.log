@@ -1,0 +1,34 @@
+[01:24:31] channel stable -> v4-big
+marker=v4-big uptime=94.67
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:4d653883f0aa52d18d9f8d3e083479ec6bfe037b8dc17529e7a4703d46084d25","staged":null,"rollback":"sha256:18807cd1861252cd86cc687a6c27012813560987f146b4e5cd90456d5adf6e28"}
+Running as unit: lab-upgrade-29827.service; invocation ID: 940d7b613daa40e69697f41080f22933
+--- ostree repo tmp (partial objects):
+0	/sysroot/ostree/repo/tmp
+--- up.log so far:
+layers already present: 68; layers needed: 6 (1.6 GB)
+Deploying...[01:24:48] SIGKILL QEMU (phase=deploy)
+[01:24:50] power restored
+started pid 77800
+up after 16s
+marker=v4-big uptime=8.86
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:4d653883f0aa52d18d9f8d3e083479ec6bfe037b8dc17529e7a4703d46084d25","staged":null,"rollback":"sha256:18807cd1861252cd86cc687a6c27012813560987f146b4e5cd90456d5adf6e28"}
+--- ostree fsck:
+fsck objects (43294/43477) 99%
+fsck objects (43477/43477) 100%
+object fsck of 93 commits completed successfully - no errors found.
+--- deployments:
+* default 8b4cc15631cf1f76b0d6f4f24f14914d4c31fbe2b1c00020c5fc224672ed0f79.0
+    origin: <unknown origin type>
+  default 097f3eb85089a51accd2ff49252c4d187565aec1be8ef88878d2e2a493363965.0 (rollback)
+    origin: <unknown origin type>
+running
+[01:25:18] recovery: bootc upgrade again
+Total new layers: 72    Size: 2.6 GB
+Removed layers:   6     Size: 1.6 GB
+Added layers:     6     Size: 1.6 GB
+up after 19s
+marker=v4-big uptime=9.91
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:ba3902dc9b13e2c0535eec0f6f4dea42dd8bab9a2ff177222538b631bef40c36","staged":null,"rollback":"sha256:4d653883f0aa52d18d9f8d3e083479ec6bfe037b8dc17529e7a4703d46084d25"}

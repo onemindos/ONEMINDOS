@@ -1,0 +1,9 @@
+parent = "onemind-base"
+# Same as v2noagent but with the gate freshness checks switched off.
+recipes = ["release-marker", "break-k3s", "naive-gate"]
+
+[parameters."release-marker"]
+version = "v2-noagent-naive"
+
+[parameters."break-k3s"]
+args = "--disable-agent"

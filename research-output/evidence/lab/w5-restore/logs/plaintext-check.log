@@ -1,0 +1,2 @@
+bk-etcd/drill-box1-1794360555 cm-plaintext=1 secret-plaintext=0 k8s-enc-prefix=5
+bk-sqlite/state.db cm-plaintext=1 secret-plaintext=0 k8s-enc-prefix=8

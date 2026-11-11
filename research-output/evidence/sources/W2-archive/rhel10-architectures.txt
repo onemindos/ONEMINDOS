@@ -1,0 +1,146 @@
+ 
+ Chapter 2. Architectures | Considerations in adopting RHEL 10 | Red Hat Enterprise Linux | 10 | Red Hat Documentation 
+ Skip to navigation Skip to content Featured links
+ Support 
+ Console 
+ Developers 
+ Start a trial 
+ All Red Hat For customers Customer support 
+ Subscription management 
+ Support Cases 
+ Red Hat Ecosystem Catalog 
+ Find a partner 
+ For partners Partner portal 
+ Partner support 
+ Become a partner 
+ Try, buy, & sell Red Hat Store 
+ Contact Sales 
+ Start a trial 
+ Learning resources Training and certification 
+ Hybrid cloud learning hub 
+ Interactive labs 
+ Learning community 
+ Red Hat TV 
+ Architecture Center 
+ Open source communities Global advocacy 
+ How we contribute 
+ AI 
+ Learn 
+ Documentation 
+ Resources 
+ Support Console Developers Start a trial Contact 
+ Select your language English Français 한국어 日本語 中文 (中国) Deutsch Italiano Português Español 
+ Home 
+ Products 
+ Red Hat Enterprise Linux 
+ 10 
+ Considerations in adopting RHEL 10 
+ Chapter 2. Architectures 
+ Open Table of contents 
+ Open page settings 
+ Red Hat Enterprise Linux
+ Format Multi-page Single-page View full doc as PDF 
+ Red Hat Enterprise Linux
+ Considerations in adopting RHEL 10 
+ Providing feedback on Red Hat documentation 
+ 1. Key resources for evaluating an upgrade to RHEL 10 
+ 2. Architectures 
+ 3. Repositories 
+ 4. Application Streams 
+ 5. Containers 
+ 6. Compilers and development tools 
+ 7. Desktop 
+ 8. Dynamic programming languages, web servers, database servers 
+ 9. RHEL for Edge 
+ 10. File systems and storage 
+ 11. Hardware enablement Hardware enablement 
+ 11.1. Unmaintained hardware support 
+ 11.2. Removed hardware support 
+ 12. High availability and clusters 
+ 13. Identity Management 
+ 14. Infrastructure services 
+ 15. Installer and image creation Installer and image creation 
+ 15.1. Graphical user interface 
+ 15.2. Kickstart changes 
+ 15.3. Image creation 
+ 16. Kernel Kernel 
+ 16.1. Notable changes to kernel 
+ 16.2. Notable changes to boot loader 
+ 17. The command-line assistant 
+ 18. Networking 
+ 19. Performance 
+ 20. Security Security 
+ 20.1. Security compliance changes 
+ 20.2. Changes to cryptographic components 
+ 20.3. Changes to SELinux 
+ 21. Shells and command-line tools Shells and command-line tools 
+ 21.1. Notable changes to system management 
+ 21.2. Notable changes to command line tools 
+ 22. Software management Software management 
+ 22.1. Notable changes to DNF 
+ 22.2. Notable changes to createrepo_c 
+ 22.3. Notable changes to RPM Notable changes to RPM 
+ 22.3.1. Improved user experience and security 
+ 22.3.2. Improved packaging experience 
+ 22.3.3. Other notable changes 
+ 23. System roles 
+ 24. Virtualization 
+ 25. The web console 
+ A. Changes to packages Changes to packages 
+ A.1. New packages 
+ A.2. Package replacements 
+ A.3. Moved packages 
+ A.4. Removed packages 
+ A.5. Packages with removed support 
+ Legal Notice 
+ Format Multi-page Single-page View full doc as PDF 
+ Streamline your workflow with the new MCP server for Red Hat product documentation. Connect your AI tools and LLMs directly to live Red Hat product documentation. Connect now .
+ Chapter 2. Architectures
+ Review the supported hardware architectures for Red Hat Enterprise Linux (RHEL) 10 to ensure your infrastructure is compatible before you install or upgrade.
+ Red Hat Enterprise Linux 10 is distributed with the kernel version 6.12.0, which provides support for the following architectures at the minimum required version (stated in parentheses):
+ AMD and Intel 64-bit architectures (x86-64-v3)
+ The 64-bit ARM architecture (ARMv8.0-A)
+ IBM Power Systems, Little Endian (POWER10 and later)
+ 64-bit IBM Z (z15)
+ Previous Next 
+ Format Multi-page Single-page View full doc as PDF 
+ Github Youtube Twitter Learn
+ Developer resources 
+ Cloud learning hub 
+ Interactive labs 
+ Training and certification 
+ Customer support 
+ See all documentation 
+ Try, buy, & sell
+ Product trial center 
+ Red Hat Ecosystem Catalog 
+ Red Hat Store 
+ Buy online (Japan) 
+ Communities
+ Customer Portal Community 
+ Events 
+ How we contribute 
+ About Red Hat
+ We deliver hardened solutions that make it easier for enterprises to work across platforms and environments, from the core datacenter to the network edge.
+ Making open source more inclusive
+ Red Hat is committed to replacing problematic language in our code, documentation, and web properties. For more details, see the Red Hat Blog . 
+ About Red Hat Documentation
+ We help Red Hat users innovate and achieve their goals with our products and services with content they can trust. Explore our recent updates . 
+ Legal Notice Theme
+ Red Hat legal and privacy links
+ About Red Hat 
+ Jobs 
+ Events 
+ Locations 
+ Contact Red Hat 
+ Red Hat Blog 
+ Inclusion at Red Hat 
+ Cool Stuff Store 
+ Red Hat Summit 
+ © 2026 Red Hat Red Hat legal and privacy links
+ Privacy statement 
+ Terms of use 
+ All policies and guidelines 
+ Digital accessibility 
+ Back to top 
+ 

@@ -1,0 +1,108 @@
+
+ Debian -- Details of package linux-image-rt-arm64 in trixie 
+ skip the navigation 
+ Packages 
+ About Debian 
+ Getting Debian 
+ Support 
+ Developers' Corner 
+  / Packages 
+ / trixie (stable) 
+ / kernel 
+ / linux-image-rt-arm64 
+package names 
+ descriptions 
+ source package names 
+ package contents 
+ all options 
+ [  bullseye  ]
+ [  bookworm  ]
+ [  bookworm-backports  ]
+ [  trixie  ]
+ [  trixie-backports  ]
+ [  forky  ]
+ [  sid  ]
+ [ Source: linux-signed-arm64  ]
+ Package: linux-image-rt-arm64 (6.12.116-1)
+ [ security ] 
+ Links for linux-image-rt-arm64
+ Debian Resources:
+ Bug Reports 
+ Developer Information 
+ Debian Changelog 
+ Copyright File 
+ Download Source Package linux-signed-arm64 :
+ [linux-signed-arm64_6.12.116+1.dsc] 
+ [linux-signed-arm64_6.12.116+1.tar.xz] 
+ Maintainers:
+ Debian Kernel Team 
+ ( QA Page , Mail Archive )
+ Bastian Blank 
+ ( QA Page )
+ maximilian attems 
+ ( QA Page )
+ Ben Hutchings 
+ ( QA Page )
+ Salvatore Bonaccorso 
+ ( QA Page )
+ External Resources:
+ Homepage [www.kernel.org]
+ Similar packages:
+ linux-image-6.1-arm64 
+ linux-image-6.1-rt-arm64 
+ linux-image-6.12-arm64 
+ linux-image-6.12-rt-arm64 
+ linux-image-6.12-arm64-16k 
+ linux-image-arm64-16k 
+ linux-modules-arm64 
+ linux-modules-rt-arm64 
+ linux-modules-arm64-16k 
+ linux-headers-arm64 
+ linux-headers-rt-arm64 
+ Linux for 64-bit ARMv8 machines (meta-package)
+This package depends on the latest Linux kernel and modules for use on
+64-bit ARMv8 machines.
+ Other Packages Related to linux-image-rt-arm64
+ depends
+ recommends
+ suggests
+ enhances
+ dep: 
+ linux-image-6.12.116+deb13-rt-arm64 
+ (= 6.12.116-1)
+ Linux 6.12 for 64-bit ARMv8 machines (signed), PREEMPT_RT
+ Download linux-image-rt-arm64
+ Download for all available architectures 
+ Architecture
+ Package Size
+ Installed Size
+ Files
+ arm64 
+ 1.4 kB
+ 13.0 kB
+ [ list of files ]
+ This page is also available in the following languages (How to set the default document language ):
+ Български (Bəlgarski) 
+ dansk 
+ Deutsch 
+ suomi 
+ français 
+ 한국어 (Hangul) 
+ magyar 
+ Italiano 
+ 日本語 (Nihongo) 
+ Nederlands 
+ polski 
+ Português (br) 
+ Русский (Russkij) 
+ slovensky 
+ svenska 
+ Türkçe 
+ українська (ukrajins'ka) 
+ 中文 (Zhongwen,简) 
+ 中文 (Zhongwen,繁) 
+ See our contact page to get in touch.
+Content Copyright © 1997 - 2026 SPI Inc. ; See license terms . Debian is a trademark of SPI Inc.
+ Learn more about this site .
+This service is sponsored by Hewlett-Packard .
+
