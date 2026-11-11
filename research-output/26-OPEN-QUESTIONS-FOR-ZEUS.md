@@ -1,6 +1,7 @@
 # 26 · Open questions for Zeus
 
 **Created:** 2026-11-10 by DEC (Tier A). Later workstreams **append** sections; don't reorder the IDs. **Final for this run (2026-11-11, tag FINAL):** §F adds the revision-3 updates and Z-28…Z-37, and §G maps every `blocked: founder-decision` item in `24-…` to a Z-ID, so this file now covers all of brief §6 (REQUIREMENTS open questions 2–5 in §B, the Blueprint questions in §C, RS-6 access in §D, §E and §F). The approval boxes are in [`REVIEW-CHECKLIST.md`](REVIEW-CHECKLIST.md); the week each decision is due is in `20-…` §2.3.
+**Revision 4 (2026-11-11, DEC4):** §H re-states the base-OS question under the frozen scorecard rules and adds **Z-38…Z-40**; it also updates Z-01 and Z-10 (IDs unchanged, appended, not reordered).
 **How to use this file:** each item gives the question, the options, a recommendation, and what is blocked until you answer. Where the brief told us to assume an answer (rule 8), the assumption is stated and the work proceeds on it. Items marked **(legal)** need counsel, which is not legal advice from this research.
 **Serves requirements:** RS-6, R-1, R-3, D-001, H-1, M-8, F-11, F-12, N-9, U-4
 
@@ -13,7 +14,7 @@
 
 ### Z-01 · Ask Canonical and counsel about redistributing modified Ubuntu (legal) · Q-W2-1, Q168, Q57
 **Why it matters:** Canonical's policy says modified Ubuntu may be redistributed only if "approved, certified or provided by Canonical"; otherwise trademarks must be removed **and** binaries recompiled [C-W2-050]. This decides whether Ubuntu can become the core (it led the raw scorecard) and affects the GPU-server flavor and possibly the Jetson flavor (NVIDIA's L4T Ubuntu, modified by OneMind). Ubuntu Pro for Devices has no public price [C-W2-006].
-**Options:** (a) ask counsel for a reading and Canonical for terms plus a Pro for Devices quote at 1k/10k units; (b) don't ask; ship only Debian and NVIDIA's own images; (c) ship Ubuntu flavors with trademarks stripped and accept the recompile risk.
+**Options:** (a) ask counsel for a reading and Canonical for terms plus a Pro for Devices quote at 1k/10k units (*FIX4:* also ask whether trademark use for a modified image is sold only inside Ubuntu Pro for Devices, whose contents list "Trademark use" [C-FIX4-001], and whether it requires a Canonical kernel, as Canonical's device certification does [C-FIX4-002]); (b) don't ask; ship only Debian and NVIDIA's own images; (c) ship Ubuntu flavors with trademarks stripped and accept the recompile risk.
 **Recommendation: (a), now.** It costs little, and the answer either re-opens Ubuntu as the core or confirms Debian. A draft for Canonical is in `evidence/outreach-drafts.md` (O-1).
 **Blocked until answered:** shipping any Ubuntu-based OneMind image (GPU-server flavor; check the Jetson flavor too). **Assumption meanwhile:** Debian core; Jetson stays on NVIDIA's L4T.
 
@@ -294,6 +295,55 @@ Four more questions only a lawyer can answer. Recommendation: put them in the sa
 
 Questions that are `partial` with a founder-decision blocker (for example Q35/Q200 → Z-04, Q215/Q182 → Z-08/Z-25, Q259 → Z-12, Q300 → Z-13, Q335 → Z-21/Z-22, Q289/Q235 → Z-19, Q165/Q212 → Z-05) are already covered by the Z-IDs named in their rows in `24-…`.
 
+## H. Revision 4: the base-OS result under the frozen rules (added 2026-11-11 by DEC4)
+
+> ### Explain it like I'm the founder
+> Before scoring, we locked the contest rules. Revision 3 broke one of them: it brought Debian into a tie it was not part of, after the scores were known, and Debian then won. Revision 4 applies the rules as locked. With two evidence corrections applied equally to everyone, the card is **Ubuntu 26.04 65 · bootc 64 · Debian 63**, and the locked tie-break gives the base to **Ubuntu, 6 rows to 4 over bootc** (`01` §3.1.6). That is a narrow win, and it carries a condition you do not control: Canonical must allow OneMind to ship a modified Ubuntu, or OneMind must strip the brand and rebuild the binaries [C-W2-050]. The rules do not stop you choosing differently. But if you do, it is **your** decision, written down as yours, not "what the scorecard says". Three short decisions follow.
+
+**Updates to earlier items (IDs unchanged):**
+- **Z-01 (Canonical and counsel):** this now gates the **decision of record**, not only a re-open. **Assumption meanwhile (rule 8) changes** from "Debian core" to: the protocol result (Ubuntu 26.04 + RAUC) is the default; nothing Ubuntu-based ships before Z-01 is answered; one image definition builds a Debian leg and an Ubuntu leg (`01` REC-DEC-17); and the shipping base is locked at a named gate before the first box ships, using the pre-registered map in `01` §3.1.6 (h). Under that map, a refusal that leaves only debrand-and-recompile, which you reject, gives **bootc**. If W2-HW-3 has also failed, it gives **Debian**, but too narrowly to be settled, so it comes back to you. **Recommendation unchanged: (a), now (week 1)**, and ask for a written price so the risk register's missing cost (RR-09) can be filled [C-DEC4-010].
+- **Z-10 (bootc):** **approve W2-HW-3 before gate G1 (week 4)**, not "early in the 180 days". It now decides between the protocol result and Debian. If it fails, the card becomes Ubuntu 65 · Debian 63 · bootc 60, and the locked tie-break gives **Debian** (6–5) [C-DEC4-007]. It also has to come first because a box shipped on Debian/Ubuntu + RAUC cannot move to bootc without a reflash [C-STEEL4-bootc-025].
+
+### Z-38 · Base OS: accept the frozen-protocol result (Ubuntu 26.04), or override it as your own decision? · Q-P3-1, critic P3-1, ADR-001 D2
+**Why it matters:** this is the hardest decision to undo. The disk layout, update engine and signing work are the same for Debian and Ubuntu, but every shipped box carries its base for years. The locked rules give Ubuntu 26.04 + RAUC (D), but only **fragilely**: D wins 11 of 14 weight-shake runs, Debian 2 and bootc 1, and every run is a tie settled by a 6–4 row count [C-DEC4-006]. Rev. 3's case for Debian was real, but it reached the verdict through a rule invented after scoring [C-PROTO4-018].
+**Options:**
+- **(a) Accept the protocol result as the default, with its conditions** (Z-01 first; both CI legs; base locked at a named gate before the first shipment; the pre-registered map decides on W2-HW-3 and Z-01).
+- **(b) Choose Debian 13 now, as a founder decision** logged in `evidence/scorecard-weights.md` §8 with the ranking under both rules. *For:* the core image ships without anyone's permission; umbrelOS is a constraint-matched Debian appliance on Pi 5 and x86 [C-W2-043, C-W3-039]; every lab ran on it, now including native arm64 and Secure Boot on RAUC 1.15.2 [C-LAB-aarch64-gate-004, C-LAB-secureboot-1152-005]; it is cheapest at 10k units ($40 vs $120 per device, `lifecycle-cost-2036.md`). *Against:* it loses the locked tie-break to both rivals; it needs the most in-place rebases to 2036; Debian security after 2028 rests on one paid team (Freexian) [C-REF-DC-cost-003]; there are recent Pi 5 trixie boot regressions [C-REF4-S1R4-technical-004, C-REF4-S1R4-technical-005]; and OneMind must sign its own GPU and driver modules under Secure Boot [C-REF4-S1R4-security-005].
+- **(c) Choose RHEL-family bootc now.** *For:* raw leader on the rev-3 card, rebase built in, no permission needed [C-STEEL4-bootc-014]. *Against:* its Pi 5 path is one person's experimental repo [C-STEEL4-bootc-001], and the power-cut downgrade is unfixed upstream [C-STEEL4-bootc-024].
+- **(d) Defer all choice to the map** at the lock gate. This is the same as (a), but without stating a default.
+
+**Recommendation: (a).** It is the only option the locked rules produce, and it already contains the hedge: the Debian leg is built anyway, and the map sends S1 to Debian if bootc's Pi 5 test fails. Choose (b) only for a reason the rules do not capture, for example that you will not sign any Canonical terms at any price. In that case answer Z-01 "no", and the map, not a fresh argument, decides.
+**Blocked until answered:** the base-lock gate in `20-…`, the default base in `30-…`, and the PDF's base-OS chapter. **Assumption meanwhile:** (a).
+
+### Z-39 · Does an unmet, third-party-dependent condition disqualify a candidate? · Q-P3-1 (second half)
+**Why it matters:** the locked rules rank a CONDITIONAL candidate and send its mitigation to the plan; only a FAIL removes it [C-PROTO4-002]. Ubuntu's licence condition waits on Canonical, and the risk register gives that mitigation an owner but **no cost**, which the rules require [C-DEC4-010]. The same Canonical condition also sits on the Jetson flavor of Debian and bootc (it is NVIDIA's modified Ubuntu) [C-REF-DC-cost-007].
+**Options:** (a) **literal reading (current):** COND stays ranked; fill RR-09's cost when Canonical answers. (b) An uncosted third-party COND counts as FAIL **for every candidate**: Debian, bootc and Ubuntu all drop out through their Jetson flavor, leaving Yocto 54 · Fedora IoT 52 · Ubuntu Core 52 and no rule for a shared second place [C-DEC4-007]. (c) The same reading, **applied per mitigation**: Ubuntu's core has no route except Canonical or a debranded rebuild, while Debian's and bootc's cores need none and their Jetson flavor has the meta-tegra route. Ubuntu drops out, and the rules give **bootc** (6–5 over Debian).
+**Recommendation: (a)**, and close the cost gap (REC-DEC-43). Option (c) is a defensible reading, but adopting it is a rule change, so it needs a §8 row. Written now, before Canonical answers, it would be fair. Written after, it would look like fitting the rule to the result.
+**Blocked until answered:** nothing immediately. It matters the day Canonical answers, or does not answer by the lock gate.
+
+### Z-40 · Write down four scoring rules before the next tests · Q-P3-2, critic P3-9, protocol ruling REC-PROTO4-04/06
+**Why it matters:** four choices the locked file never wrote down each decide S1 on their own (`01` §3.1.6 f–g):
+1. **The tie-break counting method:** which rows count, and what settles a draw. The full table gives Ubuntu over bootc 6–4; decision-critical questions only, 4–3; the same plus the licence row, a 4–4 draw.
+2. **How "experimental" vendor support scores** in hardware fit (C2): bootc at 3 or 2. At 2, Debian wins.
+3. **Whether "proven in production" (C4) in S1 is scored on the base or on the whole stack** including the update engine. Whole stack: bootc wins outright.
+4. **Whether a third candidate may ever enter a tie.** The rev-3 rule; recommended: no.
+
+**Options:** (a) adopt the readings `01` rev. 4 used: full-table row count, a draw goes to you, "experimental" with a documented path = 3 `doc-only` until W2-HW-3 measures it, C4 scored on the base layer, no third finalist. Log them as your decision in `scorecard-weights.md` §8 **before W2-HW-3 runs**. (b) Pick different readings, under the same timing. (c) Leave them unwritten: every close result then comes back to you.
+**Recommendation: (a), before gate G1.** Any choice made after the Pi 5 result is known looks like fitting the rules to it, which is exactly what the freeze exists to stop.
+**Blocked until answered:** a clean protocol result for the "W2-HW-3 passes" branch of the map (`01` §3.1.6 h), which can end in a 4–4 draw.
+
+**Critic pass-3 questions, mapped:** Q-P3-1 → Z-38, Z-39 · Q-P3-2 → Z-40 · Q-P3-3 (OneMind's own RAUC permanent or stop-gap) → Z-03, with RAUC's own concentration now recorded (`01` §5.9.2) · Q-P3-4 (bus factor of AlmaLinux's Pi images) → answered by the bootc steelman: 75 commits, one contributor, 12 stars [C-STEEL4-bootc-001]; it feeds W2-HW-3 and Z-38 (c) · Q-P3-5 (non-primary rows in 01) → answered by `evidence/critic/cit4-mapping.md`: no scorecard cell or tie-break verdict rests only on a SECONDARY row.
+
+### What competitors do (Z-38, constraint fit)
+
+| Competitor | Base and update stack | Their constraints | Fit for OneMind |
+|---|---|---|---|
+| umbrelOS 2.0 | Debian 13 + Rugix A/B (earlier Mender) [C-W2-043, C-W3-040] | Small company, Pi 5 + x86 consumer appliance, no Kubernetes | **High** for Debian as an appliance base; its engine differs, and post-rebase updates were unreliable in the field [C-REF4-DC-technical-006] |
+| Home Assistant OS | Buildroot + RAUC [C-TD-home-assistant-os-003] | Funded team, many SBCs, no Kubernetes | High for the engine; it builds from source rather than on a distribution |
+| Bosch ctrlX OS | Ubuntu **Core** (snaps), IEC 62443-4-2 SL 2 per vendor statement [C-SCORE-023, C-CIT4-012] | Large industrial vendor with a Canonical partnership | **Low** for a solo founder: the Canonical relationship is the very thing Z-01 asks about |
+| Red Hat Device Edge | RHEL image mode (bootc) + MicroShift, Orin paid [C-W2-041] | Large vendor, enterprise edge, no Pi | Partial: same update model as option (c), not the same market |
+| IronFlockOS | Debian 13 + RAUC + Docker, pre-1.0 [C-CIT4-001, C-CIT4-002] | Small company, industrial, no hardware acceptance yet | Watch item: the closest design precedent to Debian + RAUC, not yet proof |
+
 ## What competitors do (for the new items, constraint fit)
 
 | Item | Competitor | What they did | Their constraints | Fit for OneMind |
@@ -314,4 +364,7 @@ Questions that are `partial` with a founder-decision blocker (for example Q35/Q2
 | **Device owner (Android)** | A fully managed device mode, set up only at first boot or after a factory reset. |
 | **ELTS** | Freexian's paid Extended Long Term Support for old Debian releases. |
 | **Notified body** | An independent organisation the EU authorises to assess a product's conformity under the CRA. |
+| **Frozen protocol** *(§H)* | The scoring rules in `evidence/scorecard-weights.md`, locked before any option was scored; a change needs a logged row and an allowed reason. |
+| **Pre-registered decision map** *(§H)* | A table written before a test runs, saying which option each outcome produces under the locked rules. |
+| **Debrand-and-recompile** *(§H)* | Canonical's alternative to its approval: remove Ubuntu's trademarks and rebuild the binaries yourself before redistributing a modified image [C-W2-050]. |
 | **Substantial modification** | A CRA term: a change after sale that makes the changer responsible as if they were the manufacturer of a new product. |

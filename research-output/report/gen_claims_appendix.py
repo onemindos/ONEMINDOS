@@ -16,8 +16,8 @@ for f in sorted(glob.glob(os.path.join(HERE, "chapters", "[0-1][0-9]-*.md"))):
 cited = []
 for grp in re.findall(r"\[(C-[^\]]+)\]", text):
     for part in re.split(r",\s*", grp):
-        part = part.strip()
-        if re.fullmatch(r"C-[A-Za-z0-9-]+-\d{3}", part) and part not in cited: cited.append(part)
+        m = re.match(r"(C-[A-Za-z0-9-]+?-\d{3})(?![0-9])", part.strip())  # leading ID; ignores inline labels and ranges' tails
+        if m and m.group(1) not in cited: cited.append(m.group(1))
 missing = [c for c in cited if c not in ledger]
 if missing:
     print("UNRESOLVED:", " ".join(missing)); sys.exit(1)
@@ -36,7 +36,7 @@ rows = ["# Appendix C · Sources for every claim ID in this report {#sec-claims 
 for c in sorted(cited, key=key):
     r = ledger[c]
     src = (r.get("source_url") or "").strip() or "(see ledger)"
-    src = src.replace("|", "/")
+    src = src.replace("|", "/").replace("\\", "/").replace("@", "\\@").replace("<", "\\<")  # no pandoc citations or raw HTML
     if len(src) > 150: src = src[:147] + "…"
     rows.append(f"| {c} | {r.get('source_type','').strip()} · {r.get('status','').strip()} | {r.get('accessed_date','').strip()} | {brk(src)} |")
 open(os.path.join(HERE, "chapters", "17-appendix-claims.md"), "w", encoding="utf-8").write("\n".join(rows) + "\n")

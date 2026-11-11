@@ -1,0 +1,65 @@
+[build 12:22:14] lab Secure Boot keys (PK, KEK, db) and RAUC CA
+[build 12:22:15] OVMF vars: enroll lab PK/KEK/db only (no Microsoft keys), Secure Boot on
+INFO: reading raw edk2 varstore from /usr/share/OVMF/OVMF_VARS_4M.fd
+INFO: var store range: 0x64 -> 0x40000
+INFO: create variable PK
+INFO: clear PK sigdb
+INFO: add PK cert PK.crt
+INFO: create variable KEK
+INFO: add KEK cert KEK.crt
+INFO: create variable db
+INFO: add db cert db.crt
+INFO: add dummy dbx entry
+INFO: create variable dbx
+INFO: create variable SecureBootEnable
+INFO: set variable SecureBootEnable: True
+INFO: create variable CustomMode
+INFO: set variable CustomMode: False
+INFO: writing raw edk2 varstore to /var/lab/sbout/OVMF_VARS_sb.fd
+KEK                 : blob: 881 bytes
+PK                  : blob: 879 bytes
+SecureBootEnable    : bool: ON
+db                  : blob: 879 bytes
+dbx                 : blob: 76 bytes
+[build 12:22:17] mmdebstrap amd64 trixie
+I: installing remaining packages inside the chroot...
+I: cleaning package lists and apt cache...
+I: success in 501.9485 seconds
+image rauc: rauc 1.15.2
+Debian rauc package: not installed (expected)
+[build 12:30:39] customise rootfs
+[build 12:30:40] UKIs (ukify + sbsign with lab db key)
+[uki v1 signed A] sha256 7250ffd1e7e61226… sbverify: Signature verification OK
+[uki v1 signed B] sha256 e2fd6be1ba8d83c0… sbverify: Signature verification OK
+[uki v2 signed A] sha256 79b07b9181ae0ef8… sbverify: Signature verification OK
+[uki v2 signed B] sha256 1991ba7a877804b1… sbverify: Signature verification OK
+[uki v3 signed A] sha256 6bf1fb93853dae30… sbverify: Signature verification OK
+[uki v3 signed B] sha256 63b978beb911e129… sbverify: Signature verification OK
+[uki v4 tampered A] sha256 871bb13702dd337b… sbverify: Signature verification failed
+[uki v4 tampered B] sha256 4dd1d819d56d0951… sbverify: Signature verification failed
+Wrote unsigned /var/lab/sb/uki/onemind-A-v5.efi
+Wrote unsigned /var/lab/sb/uki/onemind-B-v5.efi
+[uki v5 unsigned A] sha256 828bf8dafb1a4c55… sbverify: Signature verification failed
+[uki v5 unsigned B] sha256 324221415231dca6… sbverify: Signature verification failed
+[build 12:31:17] ext4 images
+[build 12:31:26] rauc bundles
+rauc-Message: 07:31:51.938: No keyring given, skipping signature verification
+[good] rauc-Message: 07:31:52.133: Verified inline signature by 'O = OneMind LAB, CN = rauc-lab-signer' Version:        '2' Bundle Format:  verity 
+rauc-Message: 07:32:20.837: No keyring given, skipping signature verification
+[bad-health] rauc-Message: 07:32:20.965: Verified inline signature by 'O = OneMind LAB, CN = rauc-lab-signer' Version:        '3' Bundle Format:  verity 
+rauc-Message: 07:32:44.134: No keyring given, skipping signature verification
+[tampered] rauc-Message: 07:32:44.238: Verified inline signature by 'O = OneMind LAB, CN = rauc-lab-signer' Version:        '4' Bundle Format:  verity 
+rauc-Message: 07:32:57.301: No keyring given, skipping signature verification
+[unsigned] rauc-Message: 07:32:57.395: Verified inline signature by 'O = OneMind LAB, CN = rauc-lab-signer' Version:        '5' Bundle Format:  verity 
+rauc-Message: 07:33:15.030: No keyring given, skipping signature verification
+[plain-good] rauc-Message: 07:33:15.516: Verified detached signature by 'O = OneMind LAB, CN = rauc-lab-signer' Version:        '2' Bundle Format:  plain 
+[build 12:33:15] disk image (01 §4.3 layout)
+Number  Start (sector)    End (sector)  Size       Code  Name
+   1            2048         2099199   1024.0 MiB  EF00  onemind-esp
+   2         2099200         3147775   512.0 MiB   EF00  onemind-boot-a
+   3         3147776         4196351   512.0 MiB   EF00  onemind-boot-b
+   4         4196352        25167871   10.0 GiB    8304  onemind-system-a
+   5        25167872        46139391   10.0 GiB    8304  onemind-system-b
+   6        46139392        48236543   1024.0 MiB  8300  onemind-recovery
+   7        48236544        52430847   2.0 GiB     8309  onemind-data
+[build 12:34:05] kernel 6.12.116+deb13-amd64; done

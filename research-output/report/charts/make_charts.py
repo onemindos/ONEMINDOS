@@ -1,5 +1,5 @@
 """Charts for the founder report. Every number is copied from a cited research-output file:
-scores: evidence/scorecard-rev3.md and 03-base-os.md §4 · lifecycle: 03 §6.1 · cost: 01 §3.1.5 (lifecycle-cost-2036.md)
+scores: evidence/scorecard-rev3.md, 01 §3.1.6 (d) (rev. 4 card) and 03-base-os.md §4 · lifecycle: 03 §6.1 · cost: 01 §3.1.5 (lifecycle-cost-2036.md)
 k3s footprint: C-LAB-k3s-footprint-restore-007/008, C-W4-078 · DC-20: C-LAB-minimal-image-dc20-011 · risks: 23-RISK-REGISTER.md §4."""
 import sys, os, datetime as dt, matplotlib
 matplotlib.use("Agg")
@@ -11,18 +11,18 @@ plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 10, "axes.spines
 BLUE, GREY, GOLD, RED, GREEN = "#2F5D9E", "#B8C2D1", "#C9A227", "#B04A4A", "#3F8F4F"
 def save(name): plt.savefig(os.path.join(OUT, name), dpi=140, bbox_inches="tight", facecolor="white"); plt.close()
 
-# 1. S1 base OS: frozen W2 card vs fully cited rev-3 card
-names = ["RHEL-family bootc (C)", "Ubuntu 26.04 (D)", "Debian 13 (A) — chosen", "Fedora IoT (B)", "Ubuntu Core (E)", "Yocto + RAUC (G)", "Buildroot + RAUC (F)"]
-w2  = [56, 62, 56, 48, 46, 51, 46]
-r3  = [64, 62, 60, 52, 52, 51, 46]
+# 1. S1 base OS: rev-3 cited card vs rev-4 card (01 §3.1.6 d; rule-6 re-score C3 3 -> 4 for every RAUC stack)
+names = ["Ubuntu 26.04 + RAUC (D) — decision of record", "RHEL-family bootc (C)", "Debian 13 + RAUC (A)", "Yocto + RAUC (G)", "Fedora IoT (B)", "Ubuntu Core (E)", "Buildroot + RAUC (F)"]
+r3  = [62, 64, 60, 51, 52, 52, 46]
+r4  = [65, 64, 63, 54, 52, 52, 49]
 fig, ax = plt.subplots(figsize=(8.6, 4.2)); y = range(len(names))
-ax.axvspan(61, 64, color=GOLD, alpha=0.15, lw=0); ax.text(62.5, len(names) - 0.35, "tie band\n(< 3 pts of leader)", ha="center", fontsize=8, color="#7A6312")
-ax.barh([i + 0.2 for i in y], w2, height=0.38, color=GREY, label="W2 frozen card (2026-11-10)")
-ax.barh([i - 0.2 for i in y], r3, height=0.38, color=[GREEN if "chosen" in n else BLUE for n in names], label="Rev. 3, every cell cited (2026-11-11)")
-for i, (a, b) in enumerate(zip(w2, r3)):
+ax.axvspan(62, 65, color=GOLD, alpha=0.15, lw=0); ax.text(63.5, len(names) - 0.35, "within 3 pts of leader;\nonly the top two tie", ha="center", fontsize=8, color="#7A6312")
+ax.barh([i + 0.2 for i in y], r3, height=0.38, color=GREY, label="Rev. 3 card, every cell cited (withdrawn verdict)")
+ax.barh([i - 0.2 for i in y], r4, height=0.38, color=[GREEN if "record" in n else BLUE for n in names], label="Rev. 4 card, frozen protocol (2026-11-11)")
+for i, (a, b) in enumerate(zip(r3, r4)):
     ax.text(b + 0.4, i - 0.2, f"{b}", va="center", fontsize=8.5); ax.text(a + 0.4, i + 0.2, f"{a}", va="center", fontsize=8, color="#555")
 ax.set_yticks(list(y)); ax.set_yticklabels(names); ax.invert_yaxis(); ax.set_xlim(40, 70); ax.set_xlabel("Weighted score (0–100, frozen weights)")
-ax.set_title("S1 · Base OS scorecard: a three-way tie, settled head-to-head for Debian"); ax.legend(loc="lower right", fontsize=8, frameon=False)
+ax.set_title("S1 · Base OS: Ubuntu and bootc tie; the locked tie-break gives Ubuntu 6–4"); ax.legend(loc="upper center", bbox_to_anchor=(0.45, -0.16), ncol=2, fontsize=8, frameon=False)
 save("chart-s1-base-os.png")
 
 # 2. S2–S5 small multiples
@@ -36,7 +36,7 @@ for ax, (t, n, v) in zip(axs, panels):
     ax.barh(range(len(n)), v, color=cols); ax.set_yticks(range(len(n))); ax.set_yticklabels(n, fontsize=8.5); ax.invert_yaxis()
     ax.set_xlim(40, 80); ax.set_title(t, fontsize=10)
     for i, x in enumerate(v): ax.text(x + 0.5, i, str(x), va="center", fontsize=8)
-fig.suptitle("Other foundation scorecards (rev. 3, cited cells). ✓ = chosen; S2 is a tie that RAUC wins on the tie-break", fontsize=10.5, y=1.04)
+fig.suptitle("Other foundation scorecards (cited cells; unchanged in rev. 4). ✓ = chosen; S2 is a tie that RAUC wins on the tie-break", fontsize=10.5, y=1.04)
 save("chart-s2-s5.png")
 
 # 3. Lifecycle to 2036

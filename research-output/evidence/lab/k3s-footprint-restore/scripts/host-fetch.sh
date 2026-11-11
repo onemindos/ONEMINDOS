@@ -1,7 +1,7 @@
 #!/bin/bash
 # Runs on the macOS HOST. Downloads the pinned binaries and verifies them against the upstream checksum files.
 set -euo pipefail
-LAB=${LAB:-$HOME/<lab-dir>/k3s-footprint-restore}; mkdir -p "$LAB/dl" "$LAB/xfer"; cd "$LAB/dl"
+LAB=${LAB:?"set LAB to <lab-dir>/k3s-footprint-restore"}; mkdir -p "$LAB/dl" "$LAB/xfer"; cd "$LAB/dl"
 V='v1.37.2%2Bk3s1'
 curl -sSfLO "https://github.com/k3s-io/k3s/releases/download/$V/k3s-arm64"
 curl -sSfLO "https://github.com/k3s-io/k3s/releases/download/$V/sha256sum-arm64.txt"

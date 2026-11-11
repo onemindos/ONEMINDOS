@@ -1,0 +1,313 @@
+ 
+ open62541 package versions - Repology 
+ Toggle navigation 
+ Projects 
+ Maintainers 
+ Repositories 
+ Tools 
+ Security 
+ News 
+ Docs 
+ Versions 
+ Packages 
+ Information 
+ History 
+ CVEs 
+ Related 
+ Badges 
+ Report 
+ Versions for open62541 
+ 56 package(s) known 
+ Repository 
+ Package name 
+ Version 
+ Category 
+ Maintainer(s) 
+ ALT Linux p11 
+ open62541 
+ 1.4.14 
+ Development/C 
+ <email-masked> 
+ ALT Sisyphus 
+ open62541 
+ 1.4.14 
+ Development/C 
+ <email-masked> 
+ AUR 
+ open62541-git 
+ v1.0_rc3_r18_g07d98934 
+ - 
+ pro@aur 
+ AUR 
+ open62541 
+ v1.5.4_r6_g42ada9ef6 
+ - 
+ qwjyh@aur 
+ ConanCenter 
+ open62541 
+ 1.5.8 
+ - 
+ - 
+ ConanCenter 
+ open62541 
+ 1.4.20 
+ - 
+ - 
+ Debian 13 trixie/main 
+ open62541 
+ 1.4.11.1 
+ misc 
+ <email-masked> 
+ Debian 14 forky/main 
+ open62541 
+ 1.4.18 
+ misc 
+ <email-masked> 
+ Debian Unstable sid/main 
+ open62541 
+ 1.4.18 
+ misc 
+ <email-masked> 
+ deepin 25 community 
+ open62541 
+ 1.4.11.1 
+ misc 
+ <email-masked> 
+ Devuan Unstable unstable/main 
+ open62541 
+ 1.4.18 
+ misc 
+ <email-masked> 
+ EPEL 7 
+ open62541 
+ 0.3.1 
+ Unspecified 
+ - 
+ Fedora 39 updates 
+ open62541 
+ 1.3.12 
+ Unspecified 
+ - 
+ Fedora 39 release 
+ open62541 
+ 1.3.4 
+ Unspecified 
+ - 
+ Fedora 40 updates 
+ open62541 
+ 1.3.12 
+ Unspecified 
+ - 
+ Fedora 40 release 
+ open62541 
+ 1.3.4 
+ Unspecified 
+ - 
+ Fedora 41 updates 
+ open62541 
+ 1.4.14 
+ Unspecified 
+ - 
+ Fedora 41 release 
+ open62541 
+ 1.4.4 
+ Unspecified 
+ - 
+ Fedora 42 updates 
+ open62541 
+ 1.4.14 
+ Unspecified 
+ - 
+ Fedora 42 release 
+ open62541 
+ 1.4.11.1 
+ Unspecified 
+ - 
+ Fedora 43 updates 
+ open62541 
+ 1.5.8 
+ Unspecified 
+ - 
+ Fedora 43 release 
+ open62541 
+ 1.4.13 
+ Unspecified 
+ - 
+ Fedora 44 updates 
+ open62541 
+ 1.5.10 
+ Unspecified 
+ - 
+ Fedora 44 release 
+ open62541 
+ 1.5.0 
+ Unspecified 
+ - 
+ Fedora Rawhide development 
+ open62541 
+ 1.5.10 
+ Unspecified 
+ - 
+ FreeBSD Ports 
+ devel/open62541 
+ 1.5.10 
+ devel 
+ <email-masked> 
+ Gentoo overlay GURU 
+ dev-libs/open62541 
+ 1.5.10 
+ dev-libs 
+ <email-masked> 
+ Homebrew 
+ open62541 
+ 1.5.10 
+ - 
+ - 
+ Kali Linux Rolling main 
+ open62541 
+ 1.4.18 
+ misc 
+ <email-masked> 
+ LiGurOS stable 
+ dev-libs/open62541 
+ 1.4.13 
+ dev-libs 
+ <email-masked> 
+ LiGurOS develop 
+ dev-libs/open62541 
+ 1.5.10 
+ dev-libs 
+ <email-masked> 
+ MSYS2 clang64 
+ mingw-w64-clang-x86_64-open62541 
+ 1.5.10 
+ - 
+ - 
+ MSYS2 clangarm64 
+ mingw-w64-clang-aarch64-open62541 
+ 1.5.10 
+ - 
+ - 
+ MSYS2 ucrt64 
+ mingw-w64-ucrt-x86_64-open62541 
+ 1.5.10 
+ - 
+ - 
+ nixpkgs stable 24.05 
+ open62541 
+ 1.4.6 
+ - 
+ <email-masked> 
+ nixpkgs stable 24.11 
+ open62541 
+ 1.4.12 
+ - 
+ <email-masked> 
+ nixpkgs stable 25.05 
+ open62541 
+ 1.4.14 
+ - 
+ <email-masked> 
+ nixpkgs stable 25.11 
+ open62541 
+ 1.4.16 
+ - 
+ <email-masked> 
+ nixpkgs stable 26.05 
+ open62541 
+ 1.4.22 
+ - 
+ <email-masked> 
+ nixpkgs unstable 
+ open62541 
+ 1.4.22 
+ - 
+ <email-masked> 
+ OpenBSD Ports 
+ misc/open62541 
+ 1.3.19 
+ misc 
+ <email-masked> 
+ OpenBSD Ports 
+ misc/open62541 
+ 1.3.19 
+ misc 
+ <email-masked> 
+ Parrot parrot-updates/main 
+ open62541 
+ 1.4.11.1 
+ misc 
+ <email-masked> 
+ Parrot parrot/main 
+ open62541 
+ 1.4.11.1 
+ misc 
+ <email-masked> 
+ PLD Linux 
+ open62541 
+ 1.4.12 
+ - 
+ - 
+ PTXdist 
+ open62541 
+ 1.3.4 
+ - 
+ - 
+ PureOS landing landing/main 
+ open62541 
+ 1.4.11.1 
+ libs 
+ <email-masked> 
+ Raspbian Stable main 
+ open62541 
+ 1.4.11.1 
+ misc 
+ <email-masked> 
+ Raspbian Testing main 
+ open62541 
+ 1.4.18 
+ misc 
+ <email-masked> 
+ Ubuntu 25.04 plucky/universe 
+ open62541 
+ 1.4.6 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 25.10 questing/universe 
+ open62541 
+ 1.4.11.1 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 26.04 resolute/universe 
+ open62541 
+ 1.4.11.1 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 26.10 stonking/universe 
+ open62541 
+ 1.4.18 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 27.04 tenacious/universe 
+ open62541 
+ 1.4.18 
+ universe/misc 
+ <email-masked> 
+ Vcpkg 
+ open62541 
+ 1.4.22 
+ - 
+ - 
+ YACP 
+ open62541 
+ 1.5.10 
+ Libs 
+ - 
+ GitHub repositories:
+ webapp ,
+ updater ,
+ ruleset 
+ Copyright (C) 2016-2026 Dmitry Marakasov 
+ Code licensed under GPLv3+.
+ Click me to get banned 
+ 

@@ -15,3 +15,5 @@ The authoritative table is README §"Pinned versions and hashes"; this file rest
 | Registry digests | see README (v1, v2, v3-bad, alt, v4-big ×4) |
 
 `SHA256SUMS` hashes the committed scripts and logs. No run-time hash file of the scripts was written, and the run-time folder holds only the build output and VM state.
+
+**Masking (2026-11-11, critic pass-3 P3-10):** `README.md` (How to rerun block), `scripts/lab.sh` and `scripts/run-vm.sh` no longer name the lab host's folder layout. The README says `<lab-dir>/fedora-bootc`; the scripts now stop with an error unless `LAB` is set (`${LAB:?…}`) instead of defaulting to a host path. `SHA256SUMS` carries the masked hashes; the original hashes and the unmasked originals (commit `414d60a`) are listed in `../PREREGISTRATION.md` §"Masking log". Nothing was re-run.

@@ -21,11 +21,11 @@
 | RR-06 | Prompt injection drives a physical or destructive action [C-W6-068] | Gateway-enforced human approval; tainted-data rules |
 | RR-07 | Signing-key loss or theft, including the module key and the root's own lifetime | Offline root, HSM, 2-of-3, rotation drill, vendor-exit clause |
 | RR-08 | k3s on small, capturable devices exposes every Secret [C-REF-W4-security-008] | Agent-only robots; hardened re-measure; 8 GB floor if needed |
-| RR-09 | Canonical refuses or overprices modified-Ubuntu redistribution, now blocking Jetson too [C-REF-DC-cost-007] | Ask now (Z-01); meta-tegra lab; Debian core needs no permission |
+| RR-09 | Canonical refuses or overprices modified-Ubuntu redistribution. Under revision 4 this is the condition on the **base-OS decision itself** (Ubuntu 26.04 core), not only on Jetson [C-REF-DC-cost-007]; the mitigation has no cost bound until a quote exists [C-DEC4-010]. Canonical sells "Trademark use" inside Ubuntu Pro for Devices, per device and unpriced; a provisional bracket is $0–$250 per box over 10 years, an assumption, not a quote [C-FIX4-001, C-FIX4-004] | Ask in week 1 with a request for a written price (Z-01); both core legs built until the G6 lock; nothing Ubuntu-based ships before an answer; the pre-registered map decides a refusal (bootc, or you if W2-HW-3 also failed); meta-tegra lab for Jetson |
 | RR-10 | Secure Boot downgrade [C-LAB-secureboot-rauc-018] | Version-match gate rule; SBAT and key rotation |
 | RR-11 | A third-party plugin persists through an unsigned extension [C-REF-W19-security-004] | Signed-only policy; T-W19-01 as the ADR condition |
 | RR-12 | Secure Boot enforcement forces a OneMind-built kernel on a solo founder [C-DEC-008] | Plan K2; measure bump time; seek a console-free route |
-| RR-13 | Debian 13 → 14 rebase costs more than budgeted; Pi paced by Raspberry Pi | Timed rebase drill with founder-hours; pinned Pi archive |
+| RR-13 | The locked base's major rebase costs more than budgeted or strands boxes (Debian 13 → 14, Pi paced by Raspberry Pi; on Ubuntu, the alternative is an unpriced Pro window to 2036 [C-W2-005, C-W2-006]); umbrelOS's Debian rebase stranded or reflashed some units [C-REF4-DC-longevity-006] | Timed rebase drill on both legs with founder-hours, then N → N+2 updates from the old slot; pinned Pi archive |
 | RR-14 | Hardware price and supply volatility [C-W10-037, C-W10-034] | No own boxes in year 1; second-source SKUs |
 
 The remaining 16 high, 30 medium and 6 low risks are in `23-RISK-REGISTER.md` §4, with a deduplication map in §6 showing where each original risk statement went. Also tracked: Pi 5 real time unreliable under load [C-REF-DC-technical-001] and k3s crashing in Go's FIPS-only mode [C-REF-DC-longevity-010].

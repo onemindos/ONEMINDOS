@@ -1,17 +1,20 @@
 # Decisions for Zeus {#sec-decisions}
 
-> **Explain it like I'm the founder.** The research could decide most things from evidence. These are the ones it couldn't: they depend on your money, your risk appetite, a lawyer, or access we didn't have. Each one has a recommendation, so you can say "yes" and move on, or pick another option. **The first six matter before any code ships**; the rest can wait weeks. Full options, reasoning and what each blocks are in `26-OPEN-QUESTIONS-FOR-ZEUS.md`. Items marked *(legal)* need counsel.
+> **Explain it like I'm the founder.** The research could decide most things from evidence. These are the ones it couldn't: they depend on your money, your risk appetite, a lawyer, or access we didn't have. Each one has a recommendation, so you can say "yes" and move on, or pick another option. **The first nine matter before any code ships or any base is locked**; the rest can wait weeks. Full options, reasoning and what each blocks are in `26-OPEN-QUESTIONS-FOR-ZEUS.md`. Items marked *(legal)* need counsel.
 
 ## Decide before code ships {#sec-decide-now}
 
 | ID | Question | Recommendation | Why |
 |---|---|---|---|
-| **Z-01** *(legal)* | Ask Canonical and counsel about redistributing a modified Ubuntu? | **Yes, now**: counsel's reading plus Canonical's terms and a Pro for Devices quote at 1k/10k units | The answer re-opens Ubuntu as the core or confirms Debian, and it now also governs Jetson [C-W2-050, C-REF-DC-cost-007] |
+| **Z-01** *(legal)* | Ask Canonical and counsel about redistributing a modified Ubuntu? | **Yes, in week 1**: counsel's reading plus Canonical's terms and a **written** Pro for Devices price at 1k/10k units | Under revision 4 this gates the **base-OS decision of record** (Ubuntu 26.04), not only Jetson [C-W2-050, C-REF-DC-cost-007]. Agreed with a price → Ubuntu outright; refused and you reject a debranded rebuild → bootc. **Assumption meanwhile:** the Ubuntu 26.04 result with both legs built, nothing Ubuntu-based shipped |
 | **Z-02** | Security updates on by default? | **Yes for the security channel**, with opt-out, postpone, a window, health gate and auto-rollback; feature updates stay manual; robots get a "mission-safe reboot" rule | The CRA expects it [C-W6-008]; rollback makes it safe; R-1's intent (you stay in control) is kept |
 | **Z-03** | Update engine | **RAUC**, with the layout engine-neutral (Mender runner-up, Rugix alternative) | Tie on score; RAUC wins on Secure Boot, revocation, free deltas, Pi 5, 3 tries [C-LAB-rauc-1152-011] |
 | **Z-04** | Signing-key custody | **Offline root in a hardware key/HSM you hold, 2-of-3 release signers, a written succession/escrow plan**, plus a rotation drill before the first box | Home Assistant's release key lives in CI secrets [C-TD-home-assistant-os-013]; umbrelOS's beta shows the better design [C-TD-umbrelos-013] |
 | **Z-05** *(legal)* | Open-core boundary vs the CRA route | **Keep every OneMind-authored part of the base image Apache-2.0; paid features as separate apps**; counsel on classification and firmware blobs; route decided by 2027-Q2 | Keeps the FOSS self-assessment route open and D-001's promise |
 | **Z-06** | Support period per SKU | **At least 5 years from end of sale**, capped by each board's kernel window (Jetson shortest), met by in-place rebases | CRA support-period duty [C-W6-002]; ELTS is quote-only and own-use-only [C-W2-004] |
+| **Z-38** | Base OS: accept the scorecard's result (Ubuntu 26.04 + RAUC), or override it as your own decision? | **(a) Accept it as the default**, with its conditions: Z-01 first, both legs built, base locked at G6 by the decision map | The locked rules produce only this answer, and it already holds the hedge: the Debian leg is built anyway, and the map sends the base to Debian if bootc fails on a real Pi 5 [C-DEC4-006]. Choosing Debian now is allowed, but it is then logged as **your** decision in the scorecard's change log, with the ranking under both rules (Chapter 4) |
+| **Z-39** | Does an unmet condition that depends on someone else (like Canonical's permission) disqualify a candidate? | **No (the literal rule)**: a conditional candidate stays ranked; close the missing cost when Canonical answers | The locked rules remove a candidate only on a FAIL [C-PROTO4-002]. Reading an uncosted condition as a FAIL would remove Ubuntu, and through the Jetson flavor also Debian and bootc [C-DEC4-007]. Any other reading is a rule change and must be logged before Canonical answers |
+| **Z-40** | Write four scoring rules down before the next tests? | **Yes, before gate G1 (week 4)**: full-table row count with a draw going to you; "experimental" Pi 5 support scored 3 until W2-HW-3 measures it; "proven in production" scored on the base layer; never a third finalist | Each of the four decides the base on its own (`01` §3.1.6 f–g). Chosen after the Pi 5 result is known, any of them would look like fitting the rules to the result |
 
 ## Platform and product decisions {#sec-decide-platform}
 
@@ -20,7 +23,7 @@
 | Z-07 | k3s floor for small boxes (REQUIREMENTS open question 2) | k3s server on ≥ 8 GB; 4 GB + SSD as a limited profile; SD-only or smaller = NATS leaf; confirm with the Pi 5 soak |
 | Z-08 | When to add RKE2 | One distribution (k3s) until a buyer needs FIPS/STIG or an AI-conformant GPU cluster [C-W4-038]; k0s in the bake-off |
 | Z-09 | GPU-server flavor on Ubuntu + RKE2 | Allow it once Z-01 is answered |
-| Z-10 | Fund the bootc Industrial profile | **Yes, year 2**, with Fedora IoT as a CI canary now: your Fedora IoT answer |
+| Z-10 | Fund the bootc Industrial profile; run W2-HW-3 when? | **Yes, year 2**, on AlmaLinux 10 or RHEL 10 image mode, with CentOS Stream and Fedora IoT as CI canaries now: your Fedora IoT answer. **Approve the bootc Pi 5 test W2-HW-3 before gate G1 (week 4)**: if it fails, the base becomes Debian [C-DEC4-007], and a box shipped on Ubuntu or Debian + RAUC cannot move to bootc without a reflash [C-STEEL4-bootc-025] |
 | Z-11 | Industrial certification route | Partner with an already-certified platform for the first industrial SKU [C-W8-033, C-W2-042] |
 | Z-12 | Default TAK server; where TAK lives | TAK Server container on ≥ 8 GB boxes [C-W8-018], OpenTAKServer on 4 GB profiles; cloud TAK as relay until the home bus is the authority |
 | Z-13 | What "mirror" means | Warm standby (continuous restore, one-click promote) by default; live HA only on 3+ nodes |
@@ -37,7 +40,7 @@
 | Z-24 | Sunset the script install | Developer loop only after image GA [C-REF-DC-longevity-004] |
 | Z-25 | FIPS/STIG as a P0 property | No, unless a named public-safety buyer is in year-1 scope; k3s fails a FIPS-only gate today [C-REF-DC-longevity-010] |
 | Z-26 | Desktop edition plugins | Accept Omarchy's manifest shape, Verified publishers only, off by default |
-| Z-27 | Pull two industrial tests forward | Yes: FDO on Debian and AlmaLinux bootc, plus a Flight Control fleet simulation, within 180 days |
+| Z-27 | Pull two industrial tests forward | Yes: FDO on the core legs and AlmaLinux bootc (FDO is experimental; device-certificate onboarding plus a manual claim stays the fallback), plus a Flight Control fleet simulation, within 180 days |
 
 ## The REQUIREMENTS open questions and the recurring Blueprint questions {#sec-decide-blueprint}
 

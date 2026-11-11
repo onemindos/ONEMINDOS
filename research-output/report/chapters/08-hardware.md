@@ -1,6 +1,6 @@
 # The hardware line and box designs {#sec-hardware}
 
-> **Explain it like I'm the founder.** The foundation already decides most of the hardware: a box that runs k3s needs at least 4 GB of RAM and an SSD, smaller gadgets join over NATS, Jetsons run NVIDIA's Ubuntu, and everything else runs the same Debian image. So the boxes are not six products; they are **six sizes of one OS**. Each machine gets a "superpower" label automatically from what is inside it. And the money advice is blunt: **don't sell your own boxes in year 1.** Memory and Jetson prices jumped in 2026, so publish a certified hardware list and flashable images first, and have a factory partner build your boxes in year 2.
+> **Explain it like I'm the founder.** The foundation already decides most of the hardware: a box that runs k3s needs at least 4 GB of RAM and an SSD, smaller gadgets join over NATS, Jetsons run NVIDIA's Ubuntu, and everything else runs the same core image (Ubuntu 26.04 under the current decision, or Debian 13 if the decision map picks it; see Chapter 4). So the boxes are not six products; they are **six sizes of one OS**. Each machine gets a "superpower" label automatically from what is inside it. And the money advice is blunt: **don't sell your own boxes in year 1.** Memory and Jetson prices jumped in 2026, so publish a certified hardware list and flashable images first, and have a factory partner build your boxes in year 2.
 
 ## Six sizes of one OS {#sec-sizes}
 
@@ -9,9 +9,9 @@
 | Size | Superpower | Reference spec | Image · k3s role | Sourced price anchor |
 |---|---|---|---|---|
 | **Node** (leaf) | Sensor gateway | ESP32, Pi Zero class, ≤ 4 GB or no SSD | Vendor firmware or Debian minimal · NATS leaf only | HA Green $199 [C-W10-021] |
-| **Edge** | Hub / greenhouse / TAK node | Pi 5 **8 GB** or CM5 + **NVMe**; Zigbee/Thread + LoRa; optional Hailo-10H HAT (40 TOPS, $200 [C-W10-036]) | Debian (Pi kernel) · k3s server | Pi 5 16 GB $385 [C-W10-034]; CM5 from $67.50 [C-W10-035] |
-| **Lite** | Home cloud / vault | Intel **N150**, **16 GB** (the chip's maximum), 2+ NVMe, 2.5 GbE, TPM 2.0, custom Secure Boot keys | Debian · k3s server | Umbrel Home $499 / Pro $699 [C-W10-018] |
-| **Pro** | Private AI | x86 + NVIDIA RTX ≥ 16 GB VRAM, 64 GB+ RAM; or a GB10 system | Debian + device plugin, or GPU flavor · k3s server | DGX Spark $4,699 [C-W10-032]; Olares One $4,999 [C-W10-019] |
+| **Edge** | Hub / greenhouse / TAK node | Pi 5 **8 GB** or CM5 + **NVMe**; Zigbee/Thread + LoRa; optional Hailo-10H HAT (40 TOPS, $200 [C-W10-036]) | Core image (Pi 5 kernel) · k3s server | Pi 5 16 GB $385 [C-W10-034]; CM5 from $67.50 [C-W10-035] |
+| **Lite** | Home cloud / vault | Intel **N150**, **16 GB** (the chip's maximum), 2+ NVMe, 2.5 GbE, TPM 2.0, custom Secure Boot keys | Core image · k3s server | Umbrel Home $499 / Pro $699 [C-W10-018] |
+| **Pro** | Private AI | x86 + NVIDIA RTX ≥ 16 GB VRAM, 64 GB+ RAM; or a GB10 system | Core image + device plugin, or GPU flavor · k3s server | DGX Spark $4,699 [C-W10-032]; Olares One $4,999 [C-W10-019] |
 | **Robotics** | Robot brain | **Production** Jetson Orin NX 16 GB / AGX Orin / T4000 on a partner carrier with CAN, GMSL/CSI, PoE | L4T Ubuntu 24.04 · k3s agent (or server) | Orin NX 16 GB $999, T4000 $2,999 (1k units) [C-W10-026] |
 | **Omni** | Simulator | RTX PRO 6000 Blackwell workstation, 64 GB+ RAM, 16+ cores (Isaac Sim "ideal" [C-W10-016]), or a DGX Spark pair | GPU-server Ubuntu · k3s/RKE2 | Not priced (no consumer competitor) |
 

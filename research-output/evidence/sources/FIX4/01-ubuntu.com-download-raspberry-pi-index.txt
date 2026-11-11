@@ -1,0 +1,155 @@
+Source: github.com/canonical/ubuntu.com@ec15716b1c4b95f1860672d4274dda730ee9b4fe:templates/download/raspberry-pi/index.html (website source of ubuntu.com; ubuntu.com itself did not resolve from this session). Extracted text, Jinja tags kept. Accessed 2026-11-11.
+
+{% extends "download/_base_download.html" %}
+{% block title %}Install Ubuntu on a Raspberry Pi{% endblock %}
+{% block meta_image %}
+ https://assets.ubuntu.com/v1/f60f86c4-Embedded+social+media+banner+.jpg
+{% endblock meta_image %}
+{% block meta_description %}
+ Ubuntu is an open-source operating system for cross-platform development, there's no better place to get started than with Ubuntu on a Raspberry Pi
+{% endblock meta_description %}
+{% block meta_copydoc %}
+ https://docs.google.com/document/d/1KgnSBa8mbR7qwlxxtqbE5a1wXh5GjtVums8TIB7IGVw/edit#
+{% endblock meta_copydoc %}
+{% block body_class %}is-paper{% endblock %}
+{% block content %}
+ Install Ubuntu
+ on a Raspberry Pi
+ Versatile and affordable, the Raspberry Pi is one of the most popular devices available on the market, with uses that range from education to industry.
+ With full Ubuntu support, open source developers have everything they need to get up and running quickly and securely.
+ {{ image(url="https://assets.ubuntu.com/v1/016b770d-raspberry+pi+horizontal.svg",
+ alt="Raspberry Pi",
+ height="48",
+ width="36",
+ hi_def=True,
+ loading="auto") | safe
+ }}
+ First time installing Ubuntu on Raspberry Pi? 
+ The simplest way is to use the Raspberry Pi Imager which enables you to select an Ubuntu image when flashing your SD card.
+ If you are on Ubuntu, open the terminal and run: 
+ sudo snap install rpi-imager 
+ And follow our Desktop , Server and Core tutorials to get started.
+ {{ image(url="https://assets.ubuntu.com/v1/e24d92fc-raspberry-pi-imager-2024.png",
+ alt="Screenshot of the Raspberry Pi Imager, with three buttons letting you choose the Raspberry Pi device, operating system and storage where to write the image",
+ width="1416",
+ height="972",
+ hi_def=True,
+ loading="lazy") | safe
+ }}
+ Ubuntu {{ releases_yaml.lts.full_version }} LTS 
+ {{ image(url=releases_yaml.lts.mascot_image_large.url,
+ alt=releases_yaml.lts.name,
+ width=releases_yaml.lts.mascot_image_large.width,
+ height=releases_yaml.lts.mascot_image_large.height,
+ hi_def=True,
+ loading="auto") | safe
+ }}
+ The latest LTS version of Ubuntu. LTS stands for long-term support — which means five years of free security and maintenance updates, extended up to 15 years with Ubuntu Pro .
+ Download Ubuntu Desktop 
+ {% if releases_yaml.lts.raspi_desktop_iso_size %}
+ {{ releases_yaml.lts.raspi_desktop_iso_size }} 
+ {% endif %}
+ Minimum 4GBs of RAM and 16GB storage required 
+ Download Ubuntu Server 
+ {% if releases_yaml.lts.raspi_server_iso_size %}
+ {{ releases_yaml.lts.raspi_server_iso_size }} 
+ {% endif %}
+ Certain releases of Ubuntu require a minimum EEPROM date for compatibility for the Raspberry Pi 4 and 5. 
+ Learn more in our documentation › 
+ Ubuntu {{ releases_yaml.latest.full_version }} 
+ {{ image(url=releases_yaml.latest.mascot_image_large.url,
+ alt=releases_yaml.latest.name,
+ width=releases_yaml.latest.mascot_image_large.width,
+ height=releases_yaml.latest.mascot_image_large.height,
+ hi_def=True,
+ loading="auto") | safe
+ }}
+ The latest version of Ubuntu. Ubuntu {{ releases_yaml.latest.full_version }} comes with nine months of security and maintenance updates, until {{ releases_yaml.latest.eol }}.
+ Download Ubuntu Desktop 
+ {% if releases_yaml.latest.raspi_desktop_iso_size %}
+ {{ releases_yaml.latest.raspi_desktop_iso_size }} 
+ {% endif %}
+ Minimum 4GB of RAM and 16GB of storage required 
+ Download Ubuntu Server 
+ {% if releases_yaml.latest.raspi_server_iso_size %}
+ {{ releases_yaml.latest.raspi_server_iso_size }} 
+ {% endif %}
+ Certain releases of Ubuntu require a minimum EEPROM date for compatibility for the Raspberry Pi 4 and 5. 
+ Learn more in our documentation › 
+ Ubuntu Core {{ releases_yaml.latest.core_version }} 
+ An immutable, strictly confined operating system designed for deploying Internet of Things (IoT) use-cases with a focus on security and simplified maintenance, supported until 2036.
+ Build your Ubuntu Core image for your application and targeted hardware. 
+ Build your Core 24 
+ Or try a pre-built Ubuntu Core image for the Raspberry Pi. Our pre-built Ubuntu Core images are an ideal way to experiment with Ubuntu Core.
+ Download Ubuntu Core {{ releases_yaml.latest.core_version }} 
+ {% if releases_yaml.latest.rasp_pi_core_24_size %}
+ {{ releases_yaml.latest.rasp_pi_core_24_size }} 
+ {% endif %}
+ Supported devices 
+ Certified devices are tested for reliability and performance, ensuring you have the best out-of-the-box Ubuntu experience. Ubuntu LTS releases are certified on select Raspberry Pi hardware.
+ Learn more about Ubuntu Certified › 
+ All certified Raspberry Pi hardware › 
+ Ubuntu 26.04 LTS 
+ Ubuntu Core 24 
+ Raspberry Pi 5 
+ {{ image(url="https://assets.ubuntu.com/v1/14667b44-raspberry-pi_5.png",
+ alt="Raspberry Pi 5",
+ width="61",
+ height="46",
+ hi_def=True,
+ loading="lazy",
+ attrs={"class": "u-hide--small"},) | safe
+ }}
+ Yes, certified 
+ Yes, certified 
+ Raspberry Pi Zero 2 W 
+ {{ image(url="https://assets.ubuntu.com/v1/a79a3cee-raspberry-pi-z-2.png",
+ alt="Raspberry Pi Zero 2 W",
+ width="70",
+ height="46",
+ hi_def=True,
+ loading="lazy",
+ attrs={"class": "u-hide--small"},) | safe
+ }}
+ Yes 
+ Yes, certified 
+ Raspberry Pi CM4 
+ {{ image(url="https://assets.ubuntu.com/v1/3be8f179-Raspberry-Pi-CM4.png",
+ alt="Raspberry Pi CM4",
+ height="48",
+ width="68",
+ hi_def=True,
+ loading="lazy",
+ attrs={"class": "u-hide--small"},) | safe
+ }}
+ Yes, certified 
+ Yes, certified 
+ Raspberry Pi 400 
+ {{ image(url="https://assets.ubuntu.com/v1/cfdcd6c7-Raspberry-Pi-400-back--1536x1097.png",
+ alt="Raspberry Pi 400",
+ height="48",
+ width="93",
+ hi_def=True,
+ loading="lazy",
+ attrs={"class": "u-hide--small"},) | safe
+ }}
+ Yes 
+ Yes, certified 
+ Raspberry Pi 4B 
+ {{ image(url="https://assets.ubuntu.com/v1/a999bb5f-Raspberry+Pi+4.png",
+ alt="Raspberry Pi 4",
+ height="48",
+ width="75",
+ hi_def=True,
+ loading="lazy",
+ attrs={"class": "u-hide--small"},) | safe
+ }}
+ Yes, certified 
+ Yes, certified 
+ Make something great today 
+ Raspberry Pi Tutorial: Host a Minecraft server on Ubuntu Desktop 
+ Common Sense — using the Raspberry Pi Sense HAT on Ubuntu Impish Indri 
+ Homelab clusters: LXD micro cloud on Raspberry Pi 
+ Build your own bare metal cloud using a Raspberry Pi cluster with MAAS 
+ Latest from our blog › 
+{% endblock %}

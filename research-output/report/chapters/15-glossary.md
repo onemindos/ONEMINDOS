@@ -7,8 +7,11 @@
 | **aiPolicy** | A per-integration flag saying whether its data may go to AI: allowed, consent-required, official-MCP-only, display-only or prohibited. |
 | **ATAK / iTAK / CloudTAK** | Team Awareness Kit map apps for Android, iPhone and the browser; TAK Server links them. CoT (Cursor on Target) is their message format. |
 | **batman-adv** | A Linux kernel mesh-networking protocol; with WireGuard and NATS leaf links it forms OneMind's native mesh. |
+| **Base lock (G6)** | The gate (April 2027) after which one base (Ubuntu, Debian or bootc) is the shipping base; changing it later means reflashing boxes. |
 | **bootc / image mode** | Shipping the whole OS as a container image; Red Hat's long-life lineage (Fedora → CentOS Stream → RHEL) uses it. |
 | **BSP** | Board support package: the vendor's kernel, drivers and firmware for a board (for example NVIDIA's L4T). |
+| **Decision map** | The base-OS result for each outcome of the two pending answers (Canonical's reply, the bootc Pi 5 test), written on 2026-11-11 before either is known. |
+| **Decision of record** | What the research assumes until you rule otherwise: for the base, the result the frozen rules give (Ubuntu 26.04 + RAUC, conditional). |
 | **Capability gateway** | OneMind's single enforcement point: it turns app capabilities into MCP tools, REST, CLI and Agent Skills, checks permissions, asks for approvals and logs everything. |
 | **CRA** | EU Cyber Resilience Act (Regulation (EU) 2024/2847); main obligations from 2027-12-11. |
 | **DC-nn** | A decision-critical question: one of 24 questions whose answer could flip ADR-001. |
@@ -42,7 +45,7 @@
 | **Secure Boot / UKI** | Firmware checks each boot file's signature; a unified kernel image (UKI) packs kernel, initrd and command line into one signed file. |
 | **sysext / confext** | systemd system and configuration extensions: signed images laid over a read-only `/usr` or `/etc`. |
 | **SQLite / etcd** | The two k3s databases: SQLite for one server, etcd for several. |
-| **Tie / tie-break** | Two candidates within 3 points on the frozen scorecard are tied; the tie goes to the decision-critical evidence, never to changed weights. |
+| **Tie / tie-break** | When the **top two** candidates on the frozen scorecard are less than 3 points apart, they are tied; the tie goes to the decision-critical evidence between those two, counted row by row, never to changed weights or to a third candidate. |
 | **Tryboot** | The Raspberry Pi firmware's one-shot "try this boot partition next" mechanism. |
 | **Z-nn** | A founder decision item in `26-OPEN-QUESTIONS-FOR-ZEUS.md`. |
 
@@ -57,6 +60,8 @@
 | Debian 13 + Rugix (x86 and arm64) | Pass; found the stale-status trap [C-LAB-debian-rugix-023] |
 | Debian 13 + RAUC + real k3s gate | Pass twice; naive gate committed a broken kubelet [C-LAB-rauc-k3s-gate-008] |
 | RAUC under enforced Secure Boot | Pass twice; downgrade gap found [C-LAB-secureboot-rauc-018] |
+| RAUC 1.15.2 under enforced Secure Boot (rev. 4) | Pass; the old-signed-kernel gap persists [C-LAB-secureboot-1152-005, C-LAB-secureboot-1152-009] |
+| RAUC 1.15.2 + k3s on native arm64 (rev. 4) | Pass with the unchanged gate [C-LAB-aarch64-gate-004] |
 | RAUC 1.15.2 + real k3s gate | Pass [C-LAB-rauc-1152-011] |
 | Ubuntu 26.04 leg | Pass with RAUC 1.15.1; RAUC 1.13 fails on Linux 7.0 [C-LAB-ubuntu-2604-leg-010] |
 | Mender 5.2.0 + same gate | Pass, with the one-try limit [C-LAB-mender-013] |
@@ -70,4 +75,4 @@
 
 **What the lab cannot show:** real power loss, real PC firmware, Pi 5, Jetson, GPU drivers or real-time latency on metal. These are the founder tests in `22-HARDWARE-LAB-TEST-PLAN.md` and the gates in Chapter 11.
 
-**Honest limits of this report.** It summarises; the reasoning and the full evidence are in the numbered research files. Confidence is **low-medium** on the base OS and update engine (tie-break wins), **high** on the health gate and backups. Vendor prices (Ubuntu Pro for Devices, Freexian ELTS for arm64, Red Hat) are unpublished, so cost figures depend on stated assumptions. KubeCon NA 2026 was checked mid-event (re-check by 2026-12-10). Humanoid and post-Thor NVIDIA forecasts are proposals, not sourced. Legal readings (CRA, licences, trademarks, AB 1043) are for counsel. The research could not contact vendors, use the live cluster or touch hardware. The completeness critic's later passes and any remaining ledger gaps are tracked in `evidence/critic/`.
+**Honest limits of this report.** It summarises; the reasoning and the full evidence are in the numbered research files. Confidence is **low** on the base OS (a fragile result, conditional on Canonical) and **low-medium** on the update engine (a tie-break win), **high** on the health gate and backups. Vendor prices (Ubuntu Pro for Devices, Freexian ELTS for arm64, Red Hat) are unpublished, so cost figures depend on stated assumptions. KubeCon NA 2026 was checked mid-event (re-check by 2026-12-10). Humanoid and post-Thor NVIDIA forecasts are proposals, not sourced. Legal readings (CRA, licences, trademarks, AB 1043) are for counsel. The research could not contact vendors, use the live cluster or touch hardware. The completeness critic's later passes and any remaining ledger gaps are tracked in `evidence/critic/`.

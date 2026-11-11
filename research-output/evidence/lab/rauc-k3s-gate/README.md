@@ -186,7 +186,7 @@ Build RAUC 1.15.2 or later from its signed tag inside the Lima VM. Install it in
 ## 12. How to re-run
 
 ```bash
-LAB=~/<lab-dir>/rauc-k3s-gate        # outside the repo
+LAB=<lab-dir>/rauc-k3s-gate        # outside the repo
 mkdir -p $LAB/logs && cp -R research-output/evidence/lab/rauc-k3s-gate/scripts $LAB/scripts
 limactl create --name lab-rkg --tty=false --vm-type vz --cpus 10 --memory 16 --disk 80 \
   --mount-only $LAB:w --mount-type virtiofs template:debian-13 && limactl start lab-rkg

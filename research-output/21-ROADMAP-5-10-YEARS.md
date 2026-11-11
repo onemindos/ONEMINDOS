@@ -1,22 +1,24 @@
 # 21 · Roadmap: year 1, years 2–3, years 3–5, years 5–10
 
-**Owner:** ROADMAP (synthesis) · **Date:** 2026-11-11 · **Status:** drafted; no refuters (synthesis document, not a P0 decision). It changes no Tier A decision.
-**Grounded in:** [`01-FOUNDATION-DECISION.md`](01-FOUNDATION-DECISION.md) rev. 3 (binding) · [`08-robotics-drones-physical-ai.md`](08-robotics-drones-physical-ai.md) §1, §11–§13 (robotics track and physical-AI outlook) · [`11-hardware-line.md`](11-hardware-line.md) §3, §7 (line and distributor phases) · [`16-world-context-scenarios.md`](16-world-context-scenarios.md) §4–§7 (scenarios SCN-A…D and triggers TRIG-W15-01…16) · [`17-business-licensing-gtm.md`](17-business-licensing-gtm.md) (open core, editions, OEM, segments) · [`29-PLATFORM-ECOSYSTEM-MARKETPLACE.md`](29-PLATFORM-ECOSYSTEM-MARKETPLACE.md) (plugins, certification, revenue share) · [`evidence/lifecycle-cost-2036.md`](evidence/lifecycle-cost-2036.md) (labour model) · [`23-RISK-REGISTER.md`](23-RISK-REGISTER.md) (RR-IDs).
+**Owner:** ROADMAP (synthesis) · **Date:** 2026-11-11 · **Status:** drafted; no refuters (synthesis document, not a P0 decision). It changes no Tier A decision. **Synced to `01` revision 4** (2026-11-11; see the note below the explainer).
+**Grounded in:** [`01-FOUNDATION-DECISION.md`](01-FOUNDATION-DECISION.md) rev. 4 (binding) · [`08-robotics-drones-physical-ai.md`](08-robotics-drones-physical-ai.md) §1, §11–§13 (robotics track and physical-AI outlook) · [`11-hardware-line.md`](11-hardware-line.md) §3, §7 (line and distributor phases) · [`16-world-context-scenarios.md`](16-world-context-scenarios.md) §4–§7 (scenarios SCN-A…D and triggers TRIG-W15-01…16) · [`17-business-licensing-gtm.md`](17-business-licensing-gtm.md) (open core, editions, OEM, segments) · [`29-PLATFORM-ECOSYSTEM-MARKETPLACE.md`](29-PLATFORM-ECOSYSTEM-MARKETPLACE.md) (plugins, certification, revenue share) · [`evidence/lifecycle-cost-2036.md`](evidence/lifecycle-cost-2036.md) (labour model) · [`23-RISK-REGISTER.md`](23-RISK-REGISTER.md) (RR-IDs).
 **Takes over from:** `20-PLAN-180-DAYS.md`, which owns the first 26 weeks in detail. Year 1 below includes those weeks only as a summary and an exit gate.
 **Claims:** new facts are `C-ROADMAP-001…002` ([`evidence/claims/ROADMAP.csv`](evidence/claims/ROADMAP.csv); sources in [`evidence/sources/ROADMAP.md`](evidence/sources/ROADMAP.md), saved text and `SHA256SUMS` in `evidence/sources/ROADMAP/`). Every other fact reuses a claim ID that other workstreams already verified. Anything not backed by a claim is marked **PROPOSAL** (a planning judgement) or **derived** (arithmetic on a cited fact).
 **Serves requirements:** RS-1, RS-4, M-1, M-2, M-4, M-5, M-6, M-7, M-8, R-1, R-2, R-3, N-2, N-3, N-4, N-6, N-7, N-8, N-9, H-1, H-2, H-3, H-4, P-5, P-6, P-7, P-8, A-1, A-5, A-6, A-7, AI-2, AI-4, AI-5, AI-8, AI-9, U-4, UX-6, UX-8, UX-9, W-2, W-8, F-1, F-2, F-3, F-4, F-5, F-6, F-7, F-11, F-12, F-13, F-14, D-001, D-002, D-004, D-006
 **Not legal or financial advice.** Revenue lines are models, not forecasts; no market number here is OneMind's own.
 
 > ### Explain it like I'm the founder
-> A ten-year plan for an operating system is not a list of features. It is a list of **promises you must keep while everything under you changes.** Between now and 2036, Debian will ship about four new major releases, Kubernetes about twenty more minors, ROS 2 four more long-term releases, and NVIDIA will retire the Orin chips your first robots use [C-COST-007, C-W4-012, C-ROADMAP-001, C-W7-001]. None of that is a risk you can remove. What you can do is **build the machine that moves your users across those changes safely** (signed A/B updates, a health gate and restorable backups), and then sell on top of it.
+> A ten-year plan for an operating system is not a list of features. It is a list of **promises you must keep while everything under you changes.** Between now and 2036, Debian will ship about four new major releases and Ubuntu about five more LTS releases, Kubernetes about 25–30 more minors (about three a year [C-REF4-DC-longevity-014]), ROS 2 four more long-term releases, and NVIDIA will retire the Orin chips your first robots use [C-COST-007, C-ROADMAP-002, C-W4-012, C-ROADMAP-001, C-W7-001]. None of that is a risk you can remove. What you can do is **build the machine that moves your users across those changes safely** (signed A/B updates, a health gate and restorable backups), and then sell on top of it.
 >
 > So the roadmap has four phases, and each one has a different job:
 > 1. **Year 1 — prove it works, sell no boxes.** One image family on x86, Pi 5 and Jetson; updates that roll back by themselves; a Market; a certified list of other people's hardware. Your first income is support, pre-orders and teaching, not hardware. You are still solo.
 > 2. **Years 2–3 — become a product.** The EU Cyber Resilience Act starts on 2027-12-11 [C-W6-001], right as year 2 begins, so the first sold image must already meet it. Own boxes from a factory partner (Lite, Edge), the first robot makers building "on OneMind", the Industrial profile, and your first one to three hires.
-> 3. **Years 3–5 — become a platform.** Other companies ship products on OneMind: an OEM programme, a certified partner list, distributors, the public-safety tier. The big test is moving every box from Debian 13 to 14 before Debian 13's free support ends on 2030-06-30 [C-W2-001].
+> 3. **Years 3–5 — become a platform.** Other companies ship products on OneMind: an OEM programme, a certified partner list, distributors, the public-safety tier. The big test is moving every box to the next major release of its base before its support ends, or paying for longer support: on Debian 13 that date is 2030-06-30 [C-W2-001]; on Ubuntu 26.04 coverage reaches May 2036 only with paid Ubuntu Pro, whose price is not published [C-W2-005, C-W2-006].
 > 4. **Years 5–10 — become the default.** Orin robots reach end of supply in 2032 [C-W7-001]; the next NVIDIA generation arrives; humanoid and world-model robots are normal. You win if no customer is ever stranded on an unsupported version, and if a startup's first thought is "we'll ship on OneMind".
 >
 > Every phase has **exit criteria** (numbers that say "done, move on"), **leading indicators** (early signs you are on or off track), and **warning lights** from the world-context file (16) that would make you change course. If a warning light comes on, the response is already written down, so you don't have to improvise.
+
+> **Revision 4 note: which base this roadmap runs on.** `01` rev. 4 makes **Ubuntu 26.04 LTS + RAUC** the base-OS decision of record (the frozen scorecard's result), with three limits: it is **conditional** on Canonical's permission or a debranded rebuild (Z-01) and on scorecard gate G5 (the Jetson flavor); it is **fragile** (Ubuntu wins 11 of 14 weight-shake runs, Debian 2, bootc 1) [C-DEC4-006]; and two pending answers can change it under a map written in advance (`01` §3.1.6 h). If bootc fails on a real Pi 5 (W2-HW-3, before week 4), the base becomes **Debian 13**. If Canonical refuses and Zeus rejects a debranded rebuild, it becomes **RHEL-family bootc**. If both happen, Zeus decides. The image recipe builds a Debian leg and an Ubuntu leg until the base is **locked at gate G6 (2027-04-11)** in `20-…`; a box shipped on either cannot later move to bootc without a reflash [C-STEEL4-bootc-025]. **How to read this file:** rows that name Debian 13 → 14, Debian 13 LTS or ELTS apply if the lock gives Debian; under Ubuntu, the same row means the 26.04 → 28.04 move or a contracted Ubuntu Pro window to May 2036 [C-W2-005]; under bootc, an AlmaLinux 10 minor-release cadence to its 2035-05-31 security end [C-W2-013]. The Jetson flavor stays on NVIDIA's L4T Ubuntu under every base, so Z-01 matters for robots in every branch [C-REF-DC-cost-007]. The rev-3 claim that "Debian is kept" was withdrawn [C-PROTO4-018].
 
 ---
 
@@ -43,9 +45,9 @@
 | Phase | Job | Product and editions | Hardware | Robotics | Team | Revenue model | Hard exit criterion (one of several) |
 |---|---|---|---|---|---|---|---|
 | **Year 1** (2026-11 → 2027-11) | Prove the foundation | OS beta → 1.0 on BYO hardware; Market with seed apps; dashboard; Greenhouse and TAK profiles | No own boxes; "Works with OneMind" list + flash images [C-W10-037] (W10-C5) | Robotics edition beta on Orin; LeRobot-class arm demo | Founder solo, plus contracted counsel | Support, pre-orders, education, grants | First image that passes every release gate, sold or given to ≥ 25 outside users before 2027-12-11 |
-| **Years 2–3** (2027-11 → 2029-11) | Become a product | Editions Lite, Edge, Pro, Robotics as hardware profiles; Industrial (bootc) profile; Mirror; WebXR view | ODM Lite and Edge boxes, direct-to-consumer (11 §7.1 phase 1) | Thor T2000/T3000; drone companion profile; first OEM robot "on OneMind" | 1–3 hires: release engineer first | Boxes, support plans, Link-style service, certification fees | Debian 13 → 14 rebase done in the field on ≥ 95% of active boxes, no reflash |
+| **Years 2–3** (2027-11 → 2029-11) | Become a product | Editions Lite, Edge, Pro, Robotics as hardware profiles; Industrial (bootc) profile; Mirror; WebXR view | ODM Lite and Edge boxes, direct-to-consumer (11 §7.1 phase 1) | Thor T2000/T3000; drone companion profile; first OEM robot "on OneMind" | 1–3 hires: release engineer first | Boxes, support plans, Link-style service, certification fees | The locked base's first major move (Debian 13 → 14, or Ubuntu 26.04 → 28.04 unless Pro is contracted) done in the field on ≥ 95% of active boxes, no reflash |
 | **Years 3–5** (2029-11 → 2031-11) | Become a platform | OEM programme at scale; Cluster; public-safety tier (RKE2/FIPS on demand) | Partners and distributors (11 §7.1 phases 2–3); optional robot reference hardware | Robot fleets; EU Machinery-ready logging in use; meta-tegra decision revisited | 5–12 people (PROPOSAL); a foundation considered | OEM per-device fees, fleet console, partner revenue share | Every shipped SKU still inside its declared CRA support period; ≥ 10 third-party products shipping on OneMind |
-| **Years 5–10** (2031-11 → 2036-11) | Become the default | One OS from Pi to GPU cluster across two more Debian majors and the post-Orin Jetson generation | Second-source silicon (RK3588-class, riscv64 if credible) | Orin end-of-supply migration (2032); humanoid / VLA era | Company or foundation that outlives the founder's attention | Platform economics (OEM, fleet, Market, certification); hardware a minority | No fielded robot or box stranded on an unsupported branch; a third party can rebuild and sign a release without OneMind staff |
+| **Years 5–10** (2031-11 → 2036-11) | Become the default | One OS from Pi to GPU cluster across two more base majors (Debian or Ubuntu, per the G6 lock) and the post-Orin Jetson generation | Second-source silicon (RK3588-class, riscv64 if credible) | Orin end-of-supply migration (2032); humanoid / VLA era | Company or foundation that outlives the founder's attention | Platform economics (OEM, fleet, Market, certification); hardware a minority | No fielded robot or box stranded on an unsupported branch; a third party can rebuild and sign a release without OneMind staff |
 
 ---
 
@@ -57,16 +59,16 @@
 timeline
     title OneMind OS roadmap 2026 to 2036
     section Year 1 · prove it
-        2026-11 to 2027-05 : 180-day plan (20-PLAN) : bake-off on x86, Pi 5, Jetson : RAUC A/B with fresh-signal gate on real hardware : Market seed apps and dashboard MVP
+        2026-11 to 2027-05 : 180-day plan (20-PLAN) : bootc Pi 5 test before week 4 : base locked at G6 (2027-04) : RAUC A/B with fresh-signal gate on real hardware : Market seed apps and dashboard MVP
         2027-05 to 2027-11 : OS 1.0 on BYO hardware : Works-with-OneMind list : Robotics beta on Orin : CRA dossier ready before 2027-12-11
     section Years 2-3 · become a product
-        2028 : ODM Lite and Edge boxes sold direct : Industrial bootc profile : Debian 14 rebase in the field : first hire release engineer
+        2028 : ODM Lite and Edge boxes sold direct : Industrial bootc profile : first base rebase in the field : first hire release engineer
         2029 : Thor T2000 and T3000 support : drone companion profile : first OEM robot ships on OneMind : ROS 2 Jazzy ends May 2029
     section Years 3-5 · become a platform
-        2030 : all boxes off Debian 13 before 2030-06-30 : partners and distributors : public-safety tier on demand
+        2030 : no box on an unsupported base release : partners and distributors : public-safety tier on demand
         2031 : OEM programme at scale : ROS 2 Lyrical ends May 2031 : foundation decision
     section Years 5-10 · become the default
-        2032 to 2033 : Orin end of supply Jan 2032 : post-Orin Jetson migration : next Debian major
+        2032 to 2033 : Orin end of supply Jan 2032 : post-Orin Jetson migration : next base major
         2034 to 2036 : Thor modules to 2035 and 2036 : Pi 5 and CM5 to 2036 : one OS Pi to GPU cluster proven across two rebases
 ```
 
@@ -108,25 +110,28 @@ gantt
 | Date | Event | What the roadmap must have done by then | Claim |
 |---|---|---|---|
 | 2026-10-30 | JetPack 5 (r35) ended | Nothing on r35; Jetson flavor on JetPack 7.2+ | [C-REF-W7L-001] |
+| 2026-12-13 | Gate G1 in `20-…`: bootc on a real Pi 5 (W2-HW-3) read against the pre-registered map | S1 reading recorded; Z-39/Z-40 logged before the test | `01` §3.1.6 (h) |
 | 2027-01-14 | EU Machinery Regulation applies | Robot decision log (W7-R11) in the OS audit layer for any EU robot | [C-W7-045, C-W7-046] |
 | Q1 2027 | Jetson T3000/T2000 scheduled | Test the r39 image on the new modules when dev kits ship | [C-W7-048] |
 | 2027 | Android developer verification goes global | PWA primary; verified Android developer account; APK channel outside Play | [C-W15-010] |
-| ~mid-2027 (derived) | Debian 14 "forky" likely released (Debian released 11, 12 and 13 about two years apart; forky is testing) | Forky CI leg green before release; rebase test T-W3-04 measured | [C-COST-007] |
+| 2027-04-11 | Gate G6 in `20-…`: **shipping base locked** (Ubuntu, Debian or bootc) before anyone else installs OneMind | One base for the alpha and every later image; Z-01 answered or the choice sent to Zeus (Z-38) | REC-DEC-42 |
+| ~mid-2027 (derived) | Debian 14 "forky" likely released (Debian released 11, 12 and 13 about two years apart; forky is testing) | Forky CI leg green before release; rebase test T-W3-04 measured (both legs until the lock) | [C-COST-007] |
 | 2027-12-02 | AI Act Annex III high-risk obligations | Gateway-enforced approvals stay the default everywhere | [C-W6-042] |
 | **2027-12-11** | **EU CRA applies** (reporting already since 2026-09-11) | First sold image CRA-ready: support period per SKU, SBOM, vulnerability handling | [C-W6-001, C-W6-005] |
 | ~Apr–May 2028 (derived) | Ubuntu 28.04 LTS, then the next ROS 2 LTS one month later | Decide the ROS 2 container line for 2028–2033; GPU flavor tracks Ubuntu LTS | [C-ROADMAP-001, C-ROADMAP-002] |
 | 2028-08-02 | AI Act Annex I (product safety) high-risk obligations | Robotics SKUs with AI in a safety path have their conformity route | [C-W6-042] |
-| 2028-08-09 | Debian 13 regular security ends; LTS begins | Most boxes already on Debian 14 | [C-W2-001] |
+| 2028-08-09 | Debian 13 regular security ends; LTS begins | If the base is Debian: most boxes already on Debian 14 | [C-W2-001] |
 | Dec 2028 | Linux 6.12 and 6.18 LTS projected EOL | Kernel hop shipped as an image update (kernel contract, REC-DEC-12) | [C-W18-001] |
 | May 2029 | ROS 2 Jazzy ends | All robot containers on Lyrical or newer | [C-W7-029] |
-| **2030-06-30** | **Debian 13 LTS ends** (ELTS paid to 2035-06-30, not shareable to third parties without a special agreement) | Zero supported boxes on Debian 13 | [C-W2-001, C-REF-W8-longevity-003, C-COST-006, C-W2-004] |
+| **2030-06-30** | **Debian 13 LTS ends** (ELTS paid to 2035-06-30, not shareable to third parties without a special agreement; only amd64 confirmed for the whole period [C-REF4-DC-longevity-003]) | If the base is Debian: zero supported boxes on Debian 13 | [C-W2-001, C-REF-W8-longevity-003, C-COST-006, C-W2-004] |
+| ~Apr 2031 (derived) | Ubuntu 26.04 standard security maintenance ends (five years from release) | If the core is Ubuntu: every box on 28.04, or covered by a contracted Pro for Devices | [C-ROADMAP-002] |
 | May 2031 | ROS 2 Lyrical ends | Next ROS 2 LTS in production | [C-W7-029] |
 | Jan 2032 | Jetson Orin modules end of supply (AGX Orin Industrial Jul 2033) | Post-Orin robot SKU available; Orin fleets on their last planned branch | [C-W7-001, C-W10-029] |
 | Aug 2035 / Jan 2036 | Jetson T5000 / T4000 end of supply | Successor-module support in place | [C-W7-002] |
 | Jan 2036 | Raspberry Pi 5 and CM5 production commitment ends ("at least") | Edge successor board chosen | [C-W2-029, C-W10-035] |
-| May 2036 | Ubuntu 26.04 Pro coverage ends | GPU flavor on a newer Ubuntu LTS | [C-W2-005] |
+| May 2036 | Ubuntu 26.04 Pro coverage ends | GPU flavor on a newer Ubuntu LTS; if the core is Ubuntu, every box on a newer LTS (or on the paid Legacy add-on to May 2041) | [C-W2-005] |
 
-**The arithmetic that shapes the plan (derived):** a box sold in 2028 and supported for the CRA minimum of five years [C-W6-002] lives through at least one Debian rebase, one kernel-series hop, about four k3s minors (each minor lives about 13–18 months [C-W4-012]) and one ROS 2 LTS change. Labour, not licences, dominates that cost: about 1,680 base hours plus 1,480 CRA hours to 2036 on Debian at the middle assumption (computed, not a sourced fact: `evidence/lifecycle-cost-2036.md` COST-1, from `evidence/sources/COST/cost-model.py`). **That is the main reason for every hiring decision below.**
+**The arithmetic that shapes the plan (derived):** a box sold in 2028 and supported for the CRA minimum of five years [C-W6-002] lives through at least one base rebase (or a paid extended-support window), one kernel-series hop, about 15 Kubernetes minors, stepped through in order (about three a year [C-REF4-DC-longevity-014]; corrected in the rev-4 sync: this sentence said "about four", which counted k3s minor lifetimes of 13–18 months [C-W4-012] instead of releases) and one ROS 2 LTS change. Labour, not licences, dominates that cost: about 1,680 base hours plus 1,480 CRA hours to 2036 on Debian at the middle assumption (computed, not a sourced fact: `evidence/lifecycle-cost-2036.md` COST-1, from `evidence/sources/COST/cost-model.py`). The Ubuntu figure is not comparable yet: it depends on a Pro for Devices price that Canonical has not published (RR-09 has no cost bound) [C-W2-006, C-DEC4-010]. **That is the main reason for every hiring decision below.**
 
 ---
 
@@ -146,13 +151,13 @@ gantt
 - **No own-brand boxes** (W10-C5): DRAM contract prices were forecast up 90–95% in one quarter of 2026 [C-W10-037]; the Orin Nano Super kit went from $249 to $399 [C-W10-025, C-W10-026]; the 16 GB Pi 5 went to $385 [C-W10-034].
 - Publish a **"Works with OneMind" certified list** and flash images; sell bundle *guides* that point to vendors' own channels (11 §7.1 phase 0).
 - **ODM shortlist** by month 9 against W10-R9 (TPM 2.0, custom Secure Boot keys, auto power-on, LVFS, embedded-option silicon: N150, not N300 [C-W10-039, C-W10-040]); quotes requested, nothing ordered before the year-1 exit gate.
-- **CI legs:** Debian amd64 and arm64, `FROM ubuntu:26.04` (REC-DEC-17), Fedora IoT bootc canary (REC-DEC-04), and a build-only **riscv64** leg (REC-W15-03; Debian has riscv64 as an official architecture [C-W15-021]).
+- **CI legs:** `FROM ubuntu:26.04` (the decision-of-record leg) and Debian amd64 and arm64, both shipping candidates until the G6 lock (REC-DEC-17, REC-DEC-42), after which the other leg may stay as a canary; AlmaLinux/CentOS bootc canary, with Fedora IoT optional (REC-DEC-04, REC-DEC-49); and a build-only **riscv64** leg (REC-W15-03; Debian has riscv64 as an official architecture [C-W15-021]).
 
 ### 3.3 Robotics
 
 From 08 §13 [C-W7-007, C-W7-008, C-W7-047, C-W7-051]:
 - Every Jetson flashed **A/B from the factory** (REC-DEC-18); Jetson update backend per REC-DEC-35.
-- LAB-W7-1/2/3/6: real time on x86/Pi 5/Orin, container ROS 2, Isaac ROS on Debian x86, and the **meta-tegra + linux-yocto 6.18** Jetson image [C-STEEL-jb-002] as the evaluated alternative to L4T.
+- LAB-W7-1/2/3/6: real time on x86/Pi 5/Orin, container ROS 2, Isaac ROS on the core leg on x86, and the **meta-tegra + linux-yocto 6.18** Jetson image [C-STEEL-jb-002] as the evaluated alternative to L4T.
 - `robot-runtime` namespace class (W7-R9), ROS ↔ NATS robot gateway (W7-R10), robot decision log (W7-R11).
 - First "connect a robot" demo: a LeRobot SO-101-class arm through an MHS-shaped adapter, QR join, observe-only start and approval-gated motion (REC-W19-08).
 - Market lists Isaac ROS, Open-RMF, LeRobot and a MAVLink gateway as apps. Drones only as integrated third-party devices (08 §11.2).
@@ -187,7 +192,8 @@ Security updates are free for the declared support period and are never sold (17
 | EX-Y1-06 | Outside users | ≥ 25 outside users run 1.0 for ≥ 30 days; ≥ 10 pay for support or a pre-order (PROPOSAL thresholds) | 17 §11.3 |
 | EX-Y1-07 | Robots | 3 third-party robots/devices onboarded by QR by a non-developer in < 10 min each; 1 in-field JetPack point upgrade on a test fleet | 08 §13 |
 | EX-Y1-08 | Market | ≥ 30 seed apps signed, digest-pinned, licence rows in the matrix; revocation list drilled once | REC-W19-06, critic N5 |
-| EX-Y1-09 | Founder decisions closed | Z-01 (Canonical), Z-02 (update default), Z-03 (engine), Z-04 (keys), Z-16 answered | 26-… |
+| EX-Y1-09 | Founder decisions closed | Z-01 (Canonical), Z-02 (update default), Z-03 (engine), Z-04 (keys), Z-16, and (rev. 4) Z-38, Z-39, Z-40 answered | 26-… |
+| EX-Y1-10 | Base locked by the rules (rev. 4) | W2-HW-3 run before G1; the shipping base fixed at G6 (or G7) by `01` §3.1.6 (h) or by a founder override logged in `scorecard-weights.md` §8 before the lock; no Ubuntu-based image shipped before Z-01 is answered | REC-DEC-42, REC-DEC-44 |
 
 ### 3.7 Leading indicators (watch monthly)
 
@@ -206,7 +212,7 @@ Security updates are free for the declared support period and are never sold (17
 | TRIG-W15-03 (module allocation, > 30% list rise, > 16-week lead time) | Bake-off continues on owned units; certified list adds a second board per tier |
 | TRIG-W15-13 (Android verification blocks the APK path) | PWA-only client; F-Droid-class channel |
 | TRIG-W15-15 (NVIDIA licence/lifecycle change against custom images) | Promote the meta-tegra image from evaluated target to default (REC-DEC-18) |
-| Canonical says no or overprices (RR-09) | Jetson on meta-tegra; GPU-server tier on Debian + per-image NVIDIA modules (REC-DEC-37) |
+| Canonical says no or overprices (RR-09) | Core: the pre-registered map gives **bootc** if a debranded rebuild is rejected (or Zeus decides, if W2-HW-3 also failed) (`01` §3.1.6 h). Jetson on meta-tegra; GPU-server tier on the new core + per-image NVIDIA modules (REC-DEC-37) |
 
 ---
 
@@ -215,13 +221,13 @@ Security updates are free for the declared support period and are never sold (17
 ### 4.1 Product and editions
 
 - **Editions sold:** Lite, Edge (as "Edge nodes join a OneMind hub"; a sub-4 GB kit is a leaf, not a full node: 17 §6.2 flag), Pro, Robotics (once Z-01 clears the Jetson rootfs or meta-tegra is the default), Omni by quote.
-- **Industrial profile** on bootc (REC-DEC-04), decided by LAB-W8-4 (FDO zero-touch on Debian and EL10 bootc) and the Flight Control simulation; CIP SLTS kernel per industrial customer (REC-W18-5).
+- **Industrial profile** on bootc, built on **AlmaLinux 10 or RHEL 10 image mode**; CentOS Stream 10 (ends 2030-05-31 [C-REF4-DC-longevity-001]) and Fedora IoT only as CI canaries (REC-DEC-04, REC-DEC-49). Decided by LAB-W8-4 (FDO zero-touch on Debian and EL10 bootc) and the Flight Control simulation; CIP SLTS kernel per industrial customer (REC-W18-5).
 - **Mirror** (UX-6): config clone and box-to-box replication from year 1; true HA on 3 etcd servers in Pro/Cluster (12 §9.2; REC-DEC-38).
 - **Fleet and zero-touch:** PXE/fleet install path P7, FDO onboarding, 10k-device design as many site clusters plus NATS [C-W8-049] (09 G4-M4).
 - **Box-to-box update relay** (REC-W15-02) for villages and field teams.
 - **AI:** optional A2A adapter; opt-in on-box face/voice ID behind consent and region gates (REC-W9-11).
 - **XR:** WebXR "spatial ops" view (REC-W11-14).
-- **Debian 14 rebase** shipped as a normal A/B update (REC-DEC-16), with founder-hours recorded.
+- **First base rebase** shipped as a normal A/B update (REC-DEC-16), with founder-hours recorded: Debian 13 → 14 if the base is Debian; under Ubuntu, 26.04 → 28.04 unless a Pro for Devices contract covers the fleet. The old slot's RAUC must install the new release's bundles two releases ahead (DC-05, `22-…` LT-VM-03).
 
 ### 4.2 Hardware
 
@@ -264,7 +270,7 @@ Gate for each hire: the revenue lines in §4.5 cover it for 12 months, or a gran
 
 | ID | Criterion | Measure |
 |---|---|---|
-| EX-Y3-01 | Field rebase | Debian 13 → 14 delivered by A/B update to ≥ 95% of active boxes with 0 reflashes and ≤ 0.5% rollbacks needing support; founder/engineer hours recorded vs the COST model |
+| EX-Y3-01 | Field rebase | The locked base's first major move (Debian 13 → 14, or Ubuntu 26.04 → 28.04 where no Pro contract covers the box) delivered by A/B update to ≥ 95% of active boxes with 0 reflashes and ≤ 0.5% rollbacks needing support; founder/engineer hours recorded vs the COST model |
 | EX-Y3-02 | k3s treadmill | Every k3s minor shipped within 90 days of upstream, none skipped, restore drill green per shipped minor (REC-DEC-28) [C-W4-012] |
 | EX-Y3-03 | Hardware business | ≥ 2 ODM batches sold; RMA rate measured and ≤ the warranty reserve; per-SKU support-end dates honoured |
 | EX-Y3-04 | Robotics | ≥ 1 OEM ships a robot "built on OneMind"; ≥ 1 in-field Jetson **branch** (not point) upgrade on a customer fleet |
@@ -301,7 +307,7 @@ Gate for each hire: the revenue lines in §4.5 cover it for 12 months, or a gran
 
 - **All editions** including **Cluster** (multi-node, multi-site via NATS leaf and, for enterprise fleets, Open Cluster Management-class tooling (05)).
 - **Public-safety / regulated tier**: RKE2 with FIPS 140-3 modules when a buyer requires it (REC-DEC-03, Z-25), CJIS-style TLS profile (REC-DEC-39), NDAA/TAA paperwork (11 §7.1 phase 3).
-- **Debian 13 retirement:** no supported box on Debian 13 after 2030-06-30 [C-W2-001]; the next Debian major canary in CI.
+- **Base retirement:** no supported box on a base release past its free or contracted support (Debian 13: 2030-06-30 [C-W2-001]; Ubuntu 26.04: about April 2031 for standard security maintenance (derived: five years from release [C-ROADMAP-002]), May 2036 with Pro [C-W2-005]); the next major of the locked base as a canary in CI.
 - **OneMind desktop node** on bootc only if demanded (12 option C).
 - **Native XR teleop** apps only where latency requires, behind physical-actuation approval (12 §XR step 3).
 - **Federation / multi-site sharing** (Blueprint M6) between owners and sites, with revocation.
@@ -332,7 +338,7 @@ Shift from hardware margin toward platform revenue: OEM per-device signed-update
 
 | ID | Criterion | Measure |
 |---|---|---|
-| EX-Y5-01 | Support promises kept | 100% of shipped SKUs inside their declared CRA support period receive security updates; 0 boxes on Debian 13 after 2030-06-30 |
+| EX-Y5-01 | Support promises kept | 100% of shipped SKUs inside their declared CRA support period receive security updates; 0 boxes on an unsupported base release (for Debian: 0 on Debian 13 after 2030-06-30) |
 | EX-Y5-02 | Platform | ≥ 10 third-party products (robots, gateways, boxes) shipping with "OneMind OS inside" |
 | EX-Y5-03 | Fleet scale | A real customer fleet of ≥ 1,000 devices across ≥ 10 sites updated in staged waves with ≤ 1% held for manual action |
 | EX-Y5-04 | Revenue mix | Platform revenue (OEM, fleet, certification, support) ≥ 50% of total (PROPOSAL bar) |
@@ -343,7 +349,7 @@ Shift from hardware margin toward platform revenue: OEM per-device signed-update
 
 - Share of new boxes sold by partners vs direct; partner churn.
 - Time to certify a new device; certification backlog.
-- Debian ELTS need (any customer asking to stay on 13 past 2030) as a sign the rebase story is failing.
+- Paid extended-support need (Debian ELTS past 2030, or Ubuntu Pro bought only to avoid a rebase) as a sign the rebase story is failing.
 - Robotics: share of fleets on Thor vs Orin ahead of Jan 2032.
 - Contributor count outside the company (DCO sign-offs) as the open-core health signal.
 
@@ -363,7 +369,7 @@ Shift from hardware margin toward platform revenue: OEM per-device signed-update
 
 ### 6.1 Product and editions
 
-- **One OS from Pi to GPU cluster, proven across at least two Debian rebases** (F-14). The Pi greenhouse and the Isaac-class simulation cluster run the same image families, Market and app contract.
+- **One OS from Pi to GPU cluster, proven across at least two base rebases** (F-14). The Pi greenhouse and the Isaac-class simulation cluster run the same image families, Market and app contract.
 - **Accelerator-neutral app contract enforced** (REC-W15-09): apps ask for capabilities, never a vendor; ONNX + per-backend engines (W7-R13).
 - **Self-hosted build and distribution** is routine: yearly air-gapped rebuild drill (REC-W15-11).
 - **Phones:** OneMind phone OS only if a partner case justifies it (REC-W14-08); otherwise the PWA and managed-device level remain.
@@ -403,7 +409,7 @@ Platform economics dominate: OEM licences and per-device services, fleet, certif
 - NVIDIA lifecycle page changes and new L4T majors (TRIG-W15-15).
 - Share of Market apps that run on ≥ 2 accelerator families.
 - Number of OEMs that would survive OneMind's exit (escrow, owner keys, self-hosted Market).
-- Kubernetes and Debian treadmill cost per year vs revenue per box.
+- Kubernetes and base-OS treadmill cost per year (rebases, or the Pro fee under Ubuntu) vs revenue per box.
 
 ### 6.8 Scenario triggers that would change years 5–10
 
@@ -459,7 +465,7 @@ These are pre-decided so that a bad quarter does not become an improvised pivot.
 |---|---|
 | Founder hours per release rise for 3 straight months, or exceed the COST model's middle case by > 50% | Cut scope to x86 + Pi 5; Jetson moves to partner-maintained images; hire the release engineer before any new feature |
 | EX-Y1-01 fails on a board after two fix cycles | That board leaves the 1.0 support list; ship without it |
-| Canonical answer blocks Ubuntu-based flavors (RR-09) | meta-tegra becomes the Jetson default; GPU tier stays Debian with per-image modules |
+| Canonical answer blocks Ubuntu-based flavors (RR-09) | Before the G6 lock: the map in `01` §3.1.6 (h) decides the core (bootc, or Zeus if W2-HW-3 also failed). After a lock on Ubuntu: Canonical's refusal leaves only a debranded rebuild for fielded boxes, because a move to bootc needs a reflash [C-STEEL4-bootc-025]. In every case meta-tegra becomes the Jetson default, and the GPU tier moves to the new core with per-image modules |
 | EX-Y3-01 rebase fails on > 5% of boxes | Freeze new SKUs until the rebase path is fixed; buy time with ELTS only for internal use, not for redistribution (COST-4) |
 | No OEM or certified partner by end of year 3 | Re-plan the robotics moat: robotics stays a Market + edition, and the company leans on home/homestead and TAK segments |
 | Any physical action executed without a human approval in the field (RR-06) | Stop shipping AI device-control features until the gateway is fixed and audited |
@@ -495,7 +501,8 @@ These are pre-decided so that a bad quarter does not become an improvised pivot.
 - **Derived dates** (Debian 14 mid-2027, Ubuntu 28.04 and the 2028 ROS 2 LTS, Jetson r39 branch end) are arithmetic on stated cadences [C-COST-007, C-ROADMAP-001, C-ROADMAP-002, C-W7-004]; none is a vendor announcement. Re-check by 2027-05-11.
 - **Not modelled:** company cash flow and break-even (landed BOM and OS-support fees are missing, 17 §14); NVIDIA's post-Thor module roadmap (not announced in any source opened); humanoid market forecasts (left as PROPOSAL, 08 §12.3).
 - **KubeCon NA 2026 days 3–4** were not re-checked (critic pass-2 N12); the NVIDIA-on-k3s items in years 2–3 should be re-read against them.
-- **Depends on `20-PLAN-180-DAYS.md`**, which was not yet in the tree when this file was written; if its gates differ, `20-…` wins for the first 26 weeks.
+- **Depends on `20-PLAN-180-DAYS.md`**; if its gates differ, `20-…` wins for the first 26 weeks.
+- **Rev. 4 sync (2026-11-11):** base-specific rows were made conditional on the G6 lock, because `01` rev. 4 makes Ubuntu 26.04 the decision of record while Debian 13 and bootc remain pre-registered outcomes. The Ubuntu 26.04 standard (non-Pro) end, about April 2031, is derived from the five-year rule [C-ROADMAP-002], not a dated vendor statement. The labour model (COST-1) is still Debian-only; an Ubuntu figure needs Canonical's price.
 
 ---
 

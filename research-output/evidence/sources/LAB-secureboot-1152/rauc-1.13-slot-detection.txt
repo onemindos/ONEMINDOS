@@ -1,0 +1,90 @@
+# rauc/rauc@1183a396a2e10e92e428c396a510113edcd9037b (tag v1.13):src/context.c#L61-L141 and #L417-L423
+static gchar* get_cmdline_bootname(void)
+{
+	g_autofree gchar *contents = NULL;
+	g_autofree gchar *realdev = NULL;
+	gchar *bootname = NULL;
+
+	if (context->mock.proc_cmdline)
+		contents = g_strdup(context->mock.proc_cmdline);
+	else if (!g_file_get_contents("/proc/cmdline", &contents, NULL, NULL))
+		return NULL;
+
+	if (strstr(contents, "rauc.external") != NULL)
+		return g_strdup("_external_");
+
+	bootname = regex_match("rauc\\.slot=(\\S+)", contents);
+	if (bootname)
+		return bootname;
+
+	/* For barebox, we check if the bootstate code set the active slot name
+	 * in the command line */
+	if (g_strcmp0(context->config->system_bootloader, "barebox") == 0) {
+		bootname = regex_match(
+				"(?:bootstate|bootchooser)\\.active=(\\S+)",
+				contents);
+		if (bootname)
+			return bootname;
+	}
+
+	bootname = regex_match("root=(\\S+)", contents);
+	if (!bootname)
+		bootname = regex_match("systemd\\.verity_root_data=(\\S+)", contents);
+
+	if (!bootname)
+		return NULL;
+
+	if (strncmp(bootname, "PARTLABEL=", 10) == 0) {
+		gchar *partlabelpath = g_build_filename(
+				"/dev/disk/by-partlabel/",
+				&bootname[10],
+				NULL);
+		if (partlabelpath) {
+			g_free((gchar*) bootname);
+			bootname = partlabelpath;
+		}
+	}
+
+	if (strncmp(bootname, "PARTUUID=", 9) == 0) {
+		gchar *partuuidpath = g_build_filename(
+				"/dev/disk/by-partuuid/",
+				&bootname[9],
+				NULL);
+		if (partuuidpath) {
+			g_free((gchar*) bootname);
+			bootname = partuuidpath;
+		}
+	}
+
+	if (strncmp(bootname, "UUID=", 5) == 0) {
+		gchar *uuidpath = g_build_filename(
+				"/dev/disk/by-uuid/",
+				&bootname[5],
+				NULL);
+		if (uuidpath) {
+			g_free((gchar*) bootname);
+			bootname = uuidpath;
+		}
+	}
+
+	realdev = r_realpath(bootname);
+	if (realdev == NULL) {
+		g_message("Failed to resolve realpath for '%s'", bootname);
+		return bootname;
+	}
+
+	if (g_strcmp0(realdev, bootname) != 0) {
+		g_debug("Resolved bootname %s to %s", bootname, realdev);
+		r_replace_strdup(&bootname, realdev);
+	}
+
+	return bootname;
+}
+...
+	if (context->bootslot == NULL) {
+		context->bootslot = get_cmdline_bootname();
+	}
+
+	if (context->bootslot == NULL && (g_strcmp0(context->config->system_bootloader, "custom") == 0)) {
+		context->bootslot = get_custom_bootname();
+	}

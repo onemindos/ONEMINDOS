@@ -29,7 +29,7 @@
 | E7 | NATS grants inside the locked subject grammar | Frozen v1 | — |
 | E8 | Profiles (confext + sysexts + app set + defaults) | v1-beta | — |
 | E9 | Trust root: signatures, countersignature, revocation, API levels | Frozen v1 | Expiring, rollback-protected revocation list [C-REF-W19-security-008]; signing proves *who*, not *what* [C-REF-W19-security-009] |
-| E10 | Boot-stage overlays (device trees, early drivers) | Frozen v1 | Only through the release pipeline, because sysext cannot reach the boot partition |
+| E10 | Boot-stage overlays (device trees, early drivers) | Frozen v1 | Only through the release pipeline, because sysext cannot reach the boot partition. **Rev. 4:** the Pi EEPROM and Jetson QSPI firmware versions are pinned, gated and recorded per release, kernel × firmware combinations are tested on real boards, and the trial gate checks each profile's overlay device nodes. On a Pi that is not fused, this is a configuration control, not a security control [C-REF4-DC-security-007, C-REF4-DC-security-008] |
 
 **A third-party driver binary cannot drop into any box:** kernel drivers must be built by OneMind's pipeline for each OneMind kernel, which is how Flatcar does it [C-W19-005]. **The one condition on the whole design:** a test must show an attacker cannot make an unsigned extension merge after a reboot or slot switch (T-W19-01). If that fails, host extensions ship only inside the signed image and third-party host plugins wait (Z-22).
 

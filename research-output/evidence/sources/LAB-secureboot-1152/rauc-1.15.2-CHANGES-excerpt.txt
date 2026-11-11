@@ -1,0 +1,139 @@
+# rauc/rauc@4fb7c798d6ae412344fb8f8d310d773046af3441 (tag v1.15.2) CHANGES L1-L48 and L49-L120 (1.15.2, 1.15.1, 1.15 enhancements)
+Release 1.15.2 (released Mar 27, 2026)
+--------------------------------------
+
+.. rubric:: Security
+
+* Reject bundles using the 'plain' format which exceed a payload size of 2 GiB
+  during signing and verification.
+  This fixes an integer overflow which results in a signature which covers only
+  the first few bytes of the payload (CVE-2026-34155).
+  See the advisory for more details:
+  https://github.com/rauc/rauc/security/advisories/GHSA-6hj7-q844-m2hx
+
+Contributions from: Jan Lübbe (@jluebbe)
+
+Release 1.15.1 (released Jan 5, 2026)
+-------------------------------------
+
+.. rubric:: Bug fixes
+
+* Fix compatibility with new dm-verity status output since Linux v6.19-rc1.
+  (in :pr:`1846`)
+* Explicitly handle the case where images have neither a ``type`` nor a
+  ``filename`` option. (in :pr:`1829`)
+* Ignore ``SIGINT`` (Ctrl+C) during installation in the non-service case.
+  This ensures that the normal cleanup of mounts and device-mapper devices
+  happens when the installation completes.
+  When using the systemd service, the cleanup is already handled via a mount
+  namespace and device dependencies. (in :pr:`1849`)
+
+.. rubric:: Testing
+
+* Simplify interactive testing of encrypted bundles by configuring an encryption
+  key and cert for ``./qemu-test system``. (in :pr:`1845`)
+
+.. rubric:: Code
+
+* Improve handling of ``--keyring`` and ``--signing-keyring`` options.
+  (in :pr:`1828`)
+
+.. rubric:: Documentation
+
+* Update sphinx dependencies to current versions. (in :pr:`1843`)
+* Document the ``raw`` image ``type`` correctly. (in :pr:`1827`)
+* Fix some outdated information in the terminology chapter. (in :pr:`1831`)
+* Fix monospaced formatting in the reference chapter. (in :pr:`1848`)
+
+Contributions from: Enrico Jörns (@ejoerns), Jan Lübbe (@jluebbe)
+
+Release 1.15 (released Nov 7, 2025)
+-----------------------------------
+
+.. rubric:: Enhancements
+
+* Add an optional ``type=`` to images in the bundle manifest.
+  This can be used to define the type explicitly, which is useful if the file
+  name extension is not known to RAUC.
+  See the :ref:`documentation for details <sec-ref-supported-image-types>`.
+  (by Lars Schmidt in :pr:`1756`)
+* Add support for an ``emptyfs`` image type, which can be used instead of an
+  emtpy ``tar`` when installing into an ``ext4`` slot.
+  The newly created filesystem can then be customised with a ``post-install``
+  hook.
+  (by Lars Schmidt in :pr:`1759`)
+* The HTTP headers enabled by the ``send-headers`` option in the
+  ``[streaming]`` section are now also sent for ``rauc info``/
+  ``InspectBundle()`` as well.
+  When using the service, this applies also to `custom HTTP headers
+  <https://rauc.readthedocs.io/en/latest/reference.html#handlers-section>`_ set
+  by the ``system-info`` handler.
+  See the :ref:`documentation for details <send-headers>`.
+* Support sending a ``RAUC-System-Version`` HTTP header in the initial
+  streaming/inspect request. (in :pr:`1654`)
+* Set up group memberships of the streaming helper process to allow access to
+  required resources (such as a mTLS private key). (by Omri Sarig in :pr:`1695`)
+* Improve booted slot detection on UEFI systems by reading the ``BootCurrent``
+  variable. (by Pavel Löbl in :pr:`1696`)
+* Refactor boot slot detection to prioritize explicit information from the
+  bootloader backend above the ``root=`` kernel commandline parameter. (in
+  :pr:`1712`)
+* Introduce the ``allowed-signer-cns`` configuration option to restrict which
+  certificates are accepted when verifying bundle signatures using a list of
+  CommonNames. (by Lars Schmidt in :pr:`1710`)
+* Allow (non-hidden) directories as bundle contents.
+  Hidden directories are reserved for internal use by RAUC. (by Jens Kehne in
+  :pr:`1625`)
+* Produce progress updates for adaptive updates during block-hash-index
+  generation. (in :pr:`1734`)
+* Support a ``size-limit`` configuration option for the ``boot-emmc`` slot
+  type.
+  This can be used in cases where unrelated data on the eMMC boot partitions
+  must be preserved and migrating it to a dedicated location is not feasible.
+  Also ensure that the image fits into the slot before attempting to write it.
+  (in :pr:`1740`)
+* Improve handling of A/B/C setups by selecting the slot group with the oldest
+  installation date. (in :pr:`1525`)
+* Handle config overrides set via ``-C``/``--confopt`` even if no config file is
+  available. (in :pr:`1763`)
+* Implement support for appending signatures to existing bundles with ``rauc
+  resign``.
+  This needs new APIs in OpenSSL to become useful.
+  (in :pr:`1810`)
+
+.. rubric:: Bug fixes
+
+* Avoid race with udev during NBD setup. (by Michael Olbrich in :pr:`1741`)
+* Fix memory leak on ``G_IO_ERROR_NO_SPACE`` in ``clear_slot()``. (by Jialu
+  Zhou in :pr:`1706`)
+* Improve error handling for manually modified bundles with unaligned payload.
+  (by Janek Filus in :pr:`1728`)
+* Check exit code of ``barebox-state``.
+  This improves the error message printed by RAUC in cases where
+  ``barebox-state`` fails.
+  (in :pr:`1781`)
+* Fix double close of socket if NBD startup fails. (by Gaël PORTAY in
+  :pr:`1790`)
+* Fix use of PKCS#11-backed keys with streaming. (by Giacomo Dal Sasso in
+  :pr:`1813`)
+
+.. rubric:: Testing
+
+
+# ... CHANGES L195-L210 (1.14 prevent-late-fallback)
+
+  The use-cases for this are very similar to the existing ``tree`` type, but as
+  composefs stores file data separately from metadata, every unique file content
+  is stored in the repository only once and is installed from the bundle only
+  once. This also reduces the amount of data downloaded when using streaming.
+  (in :pr:`1500`)
+* Add ``prevent-late-fallback=true/false`` option to control whether ``rauc
+  status mark-good`` disables the old slot.
+  This prevents fallback to an older version must be prevented after the update
+  is completed successfully. (by Fabian Pfitzner in :pr:`1584`)
+* Show detailed installation progress for images using block hash indices. (by
+  Marcus Hoffmann in :pr:`1619`)
+* Add support to the ``system-info`` handler to provide a "system version".
+  (in :pr:`1621`)
+* Expose ``RAUC_TRANSACTION_ID`` to full custom and system pre/post-install
+  handlers. (by Peter Korsgaard in :pr:`1626`)

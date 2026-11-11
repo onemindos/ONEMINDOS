@@ -11,20 +11,21 @@ gantt
   P6 Appliance beta (M5)                :p6, 2027-04-12, 33d
   section Gates
   G0 Workbench ready                    :milestone, g0, 2026-11-22, 0d
-  G1 x86 update engine                  :milestone, g1, 2026-12-13, 0d
-  G2 Pi 5, Secure Boot, base check      :milestone, g2, 2026-12-27, 0d
+  G1 x86 update engine, S1 reading      :milestone, g1, 2026-12-13, 0d
+  G2 Pi 5, Secure Boot                  :milestone, g2, 2026-12-27, 0d
   G3 Platform floor, Jetson contract    :milestone, g3, 2027-01-10, 0d
   G4 GPU, kernel route, AI actuation    :milestone, g4, 2027-02-14, 0d
   G5 Field profiles and IIoT            :milestone, g5, 2027-03-14, 0d
-  G6 Alpha, Jetson base, backup engine  :milestone, g6, 2027-04-11, 0d
+  G6 Alpha, Jetson, backups, base lock  :milestone, g6, 2027-04-11, 0d
   G7 Beta go or no-go                   :milestone, g7, 2027-05-14, 0d
   section Update engine and base
   Core by script on Debian VM           :2026-11-16, 21d
   Image from same layers, RAUC 1.15.2   :2026-11-30, 35d
   x86 RAUC gate and power pulls         :2026-11-24, 12d
-  Pi 5 tryboot and bootc on Pi          :2026-11-30, 21d
+  Pi 5 tryboot with RAUC                :2026-11-30, 14d
+  bootc on a real Pi 5 (W2-HW-3)        :2026-12-07, 6d
   Secure Boot on the Dell               :2026-12-07, 21d
-  Debian 13 to 14 rebase drill          :2026-12-07, 28d
+  Rebase drill on both legs             :2026-12-07, 28d
   section Kubernetes and backups
   4 GB hardened k3s 30-day soak         :2026-11-30, 35d
   etcd vs SQLite write test             :2026-12-07, 28d
@@ -48,5 +49,5 @@ gantt
   Second operator rehearsal             :2027-05-03, 12d
   section Founder actions
   Canonical, NVIDIA, RPi, MHS questions :2026-11-16, 7d
-  Debian kernel DSA latency log         :2026-11-16, 180d
+  Kernel patch-latency log (DSA, USN)   :2026-11-16, 180d
   Discovery interviews (30)             :2026-11-30, 98d

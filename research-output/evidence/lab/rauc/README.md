@@ -167,7 +167,7 @@ Runs 1–3 failed for reasons that are themselves findings. Each fix is in `scri
 From the Mac (needs Lima ≥ 2.0; all upstream tools run inside the VM):
 
 ```bash
-LAB=~/<lab-dir>/rauc          # outside the repo
+LAB=<lab-dir>/rauc          # outside the repo
 mkdir -p $LAB/scripts $LAB/logs && cp research-output/evidence/lab/rauc/scripts/{build.sh,run-tests.py} $LAB/scripts/
 limactl create --name lab-rauc --tty=false --vm-type vz --cpus 10 --memory 16 --disk 60 \
   --mount-only $LAB:w --mount-type virtiofs template:debian-13 && limactl start lab-rauc

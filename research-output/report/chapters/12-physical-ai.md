@@ -78,6 +78,6 @@ Four scenarios from `16-world-context-scenarios.md`. They are not predictions; r
 | **C · Grey grid** | 313 government internet shutdowns in 2025, including 14 of satellite internet [C-W15-001, C-W15-002]; all of mainland Spain and Portugal went dark in April 2025 [C-W15-003] | Build and update itself with **no internet**; store-and-forward everywhere |
 | **D · Walled AI gardens** | Google will require registered developers for apps installed outside its store, globally from 2027 [C-W15-010] | Keep phones working with boxes: PWA first, an APK channel outside Play |
 
-**The foundation holds in all four**, because Debian, an open image, k3s, NATS and Apache-2.0 belong to no single company or country. The work is at the edges: twelve no-regret moves (`16-…` §6), most of which cost days, not months, if done now.
+**The foundation holds in all four**, because an open image, k3s, NATS and Apache-2.0 belong to no single company or country. The one exception is the base: an Ubuntu 26.04 core depends on one company's permission (Canonical, Z-01), which is why the community-run Debian 13 leg is built alongside it until the base is locked, and why a Canonical refusal moves the base by a rule written in advance (Chapter 4). The work is at the edges: twelve no-regret moves (`16-…` §6), most of which cost days, not months, if done now.
 
 **Requirements served:** F-1, F-2, F-6, M-7, N-1, N-2, N-7, N-8, N-10, AI-2, AI-5, R-3.

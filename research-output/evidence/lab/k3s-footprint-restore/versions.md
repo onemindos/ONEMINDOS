@@ -14,3 +14,5 @@ The authoritative table is README §"Pinned versions and hashes"; this file rest
 | Test images | `nginx:1.29-alpine`, `postgres:17-alpine`, `busybox:1.37` (digests in README) | — |
 
 `SHA256SUMS` hashes the committed scripts and logs.
+
+**Masking (2026-11-11, critic pass-3 P3-10):** `scripts/host-fetch.sh`, `host-restore.sh`, `host-source.sh` and `run-all.sh` no longer default `LAB` to a lab-host path; they now stop with an error unless `LAB` is set (`${LAB:?…}`, pointing at `<lab-dir>/k3s-footprint-restore`). `SHA256SUMS` carries the masked hashes; the original hashes and the unmasked originals (commit `414d60a`) are listed in `../PREREGISTRATION.md` §"Masking log". Nothing was re-run.

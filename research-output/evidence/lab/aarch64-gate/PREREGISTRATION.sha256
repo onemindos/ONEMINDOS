@@ -1,0 +1,3 @@
+01923bee617a75f62023a8a978c267e655f4373f01d5412a6427843cd4cedfd4  README.md (2026-11-11T12:12:00Z)
+# Check (2026-11-11, after results): in README.md replace the Status line up to "Pre-registered: goal," with
+# "**Status:** PRE-REGISTERED. Goal," and truncate after the line "## Results"; the sha256 of that text is the value above.

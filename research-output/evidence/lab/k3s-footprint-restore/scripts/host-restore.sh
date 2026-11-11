@@ -3,7 +3,7 @@
 # Phase 2: install the same k3s (not started) on a FRESH VM, restore from the exported restic repo, verify.
 set -uo pipefail
 VM=$1; MODE=$2
-LAB=${LAB:-$HOME/<lab-dir>/k3s-footprint-restore}; HERE=$(cd "$(dirname "$0")" && pwd)
+LAB=${LAB:?"set LAB to <lab-dir>/k3s-footprint-restore"}; HERE=$(cd "$(dirname "$0")" && pwd)
 sh_() { limactl shell "$VM" sudo bash -c "$*"; }
 limactl shell "$VM" mkdir -p /tmp/kfr
 for f in "$LAB"/dl/k3s-arm64 "$LAB"/dl/install.sh "$LAB"/dl/restic_0.19.1_linux_arm64 "$HERE"/*.sh "$LAB/xfer/$MODE/kfr-restic.tar" "$LAB/xfer/$MODE/restic-pass"; do

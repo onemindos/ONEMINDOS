@@ -1,6 +1,6 @@
 # 04 · Image, Install, Updates and Rollback (W3)
 
-**Workstream:** W3 (Tier A, P0) · **Date:** 2026-11-10 · **Status:** draft for adversarial review (refuter rows pending, lab spikes pending)
+**Workstream:** W3 (Tier A, P0) · **Date:** 2026-11-10, synced to `01` rev. 4 on 2026-11-11 · **Status:** Tier A workstream file; refuted, lab-tested and superseded on the decisions by [`01-FOUNDATION-DECISION.md`](01-FOUNDATION-DECISION.md) rev. 4 (§3.2, §4.2, §5.9.2). Rev. 4 notes below mark where this file's original numbers no longer hold
 **Decision under test:** ADR-001 **D1** (ship our own image) and **D3** (A/B updates with Rugix, RAUC as alternative, "commit only after k3s is healthy")
 **Decision-critical questions owned here:** DC-05 (rebase without reflash), DC-06 (Rugix bus factor), DC-07 (one framework across x86, Pi 5 and Jetson), DC-12 (A/B layer and k3s). Inputs given to DC-01, DC-18, DC-19.
 **Evidence:** `evidence/claims/W3.csv` (C-W3-001 … 073) · `evidence/sources/W3.md` · scoring uses the frozen `evidence/scorecard-weights.md` v1.0
@@ -8,6 +8,8 @@
 
 > ### Explain it like I'm the founder
 > Your box keeps **two copies of its operating system**, A and B. It runs one and writes updates into the other. On the next boot it *tries* the new copy once. If the new copy proves it is healthy, the box **commits** to it. If it doesn't, the box quietly goes back to the old copy. That is how Home Assistant OS and Umbrel never brick a box, and it's what ADR-001 proposed.
+>
+> **Revision 4 (2026-11-11), read this first.** The engine choice still holds, but by less than item 1 says. On the corrected S2 card **Mender scores 62 and RAUC 61, a tie in all 14 weight runs**; RAUC wins the tie-break 5 rows to 3 (Secure Boot, security model, free deltas, Pi 5, three trial boots), and OneMind ships its own RAUC built from v1.15.2 (`01` §3.2) [C-LAB-mender-013, C-LAB-rauc-1152-011]. The base under the engine is now **Ubuntu 26.04 LTS** by the frozen scorecard protocol, conditional on Canonical (Z-01), with Debian 13 as the pre-registered result if bootc fails on a real Pi 5 (`01` §3.1.6). The layout and RAUC work below are the same on either base. The health gate (item 2) is proven **for a single box on SQLite**; the extra conditions from the rev-4 refuters are in §5.4.
 >
 > This report checks the details that decide whether that works for ten years on a Pi, a mini PC and a Jetson robot. What we found:
 > 1. **Swap the update engine from Rugix to RAUC.** Rugix is good, but one person writes almost all of it (303 of 304 commits in the last year), and it reached version 1.0 only in February 2026. RAUC has run Home Assistant OS for years, has 16 active authors, and already has the security features we would otherwise build ourselves (revocation, key rotation, checks that survive a wrong clock). On our frozen scorecard RAUC scores 61, Mender 57 and Rugix 52, and RAUC stays first under every weight change. We keep the disk layout Rugix-compatible, so we can switch engines later with an update, not a reflash.
@@ -46,10 +48,10 @@
 
 | # | Question | Verdict | ADR-001 effect | Confidence |
 |---|---|---|---|---|
-| V1 | Which A/B update client? (S2, DC-06) | **RAUC** is the lead update client. Rugix becomes the documented alternative. The disk layout and boot state stay compatible with both, so the switch is reversible by update. | **D3 changed** (lead tool swapped) | Medium-high: robust in 14/14 weight runs; C3 and C4 cells are documentation-only until the lab runs (§6) |
+| V1 | Which A/B update client? (S2, DC-06) | **RAUC** is the lead update client. Rugix becomes the documented alternative. The disk layout and boot state stay compatible with both, so the switch is reversible by update. | **D3 changed** (lead tool swapped) | ~~Medium-high: robust in 14/14~~ **Rev. 4: medium-low.** Corrected card Mender 62 · RAUC 61, a tie in all 14 runs; RAUC wins the tie-break 5–3 (`01` §3.2) |
 | V2 | One update framework for x86, Pi 5 and Jetson? (DC-07) | **No off-the-shelf engine covers all three with stock NVIDIA Jetson Linux** [C-W3-013, C-W3-021, C-W3-052, C-W3-053]. Use **one OneMind release contract** (one manifest, one signing chain, one health gate, one UI) over **per-board backends**: RAUC on x86 and Pi 5, NVIDIA's rootfs A/B plus image-based OTA on Jetson [C-W3-049, C-W3-050]. | **D3 refined** (Jetson method decided) | Medium: the Jetson wrapper is unbuilt; needs a founder-hardware spike |
-| V3 | Can the OS roll back safely with k3s inside? (DC-12) | **Yes, with a design.** k3s ships inside the image; its datastore lives on the data partition; each trial boot runs k3s against a **copy** of the datastore taken at install time; a k3s-minor guard restores the matching snapshot if the OS falls back [C-W3-063, C-W3-064]. The k3s system-upgrade-controller is **not** used on image-based nodes, because it writes into the host root [C-W3-065]. | **D3/D4 refined** ("k3s updates separately via SUC" dropped for image nodes) | Medium: design from primary docs; lab pending |
-| V4 | Rebase Debian 13 → 14 → 15 without a reflash? (DC-05) | **Yes**, if slot sizes, the ESP and the first-stage bootloader are planned for 2036 now. Evidence: Umbrel moved from Debian 12 to 13 by OTA bundle [C-W3-039]; HAOS has kept fixed 256 MB slots for years [C-W3-023]. A partition-table change *does* need special handling, and Umbrel's cost of one is a permanent extra image variant [C-W3-040]. | **D3 kept**, with layout rules (§11) | Medium-high (documents + competitor code); Debian 14 lab spike pending |
+| V3 | Can the OS roll back safely with k3s inside? (DC-12) | **Yes, with a design, shown for a single box on SQLite (rev. 4).** Cluster rollback goes through `etcd-snapshot` restore, untested (§5.4). k3s ships inside the image; its datastore lives on the data partition; each trial boot runs k3s against a **copy** of the datastore taken at install time; a k3s-minor guard restores the matching snapshot if the OS falls back [C-W3-063, C-W3-064]. The k3s system-upgrade-controller is **not** used on image-based nodes, because it writes into the host root [C-W3-065]. | **D3/D4 refined** ("k3s updates separately via SUC" dropped for image nodes) | Medium: design from primary docs; lab pending |
+| V4 | Rebase Debian 13 → 14 → 15 without a reflash? (DC-05) | *(Rev. 4: partial. Applies to the Debian leg; on Ubuntu 26.04, Pro reaches May 2036 without a rebase at an unpublished price [C-W2-005, C-W2-006]; no RAUC major-rebase precedent exists, §5.1.)* **Yes**, if slot sizes, the ESP and the first-stage bootloader are planned for 2036 now. Evidence: Umbrel moved from Debian 12 to 13 by OTA bundle [C-W3-039]; HAOS has kept fixed 256 MB slots for years [C-W3-023]. A partition-table change *does* need special handling, and Umbrel's cost of one is a permanent extra image variant [C-W3-040]. | **D3 kept**, with layout rules (§11) | Medium-high (documents + competitor code); Debian 14 lab spike pending |
 | V5 | Install paths (P-7) | Flash image (Pi), USB installer ISO (x86, also the rescue disk), VM images (qcow2/vhdx/vmdk/ova), preinstalled boxes, NVIDIA flash for Jetson. A script on an existing distro is **developer mode only** [C-W3-028, C-W3-045]. | **D1 confirmed** | High |
 | V6 | Signing | Offline root, M-of-N online signers, signed release manifest pinning bundle hashes, revocation, root handover (Umbrel 2.1-beta design [C-W3-035]) **plus** a manifest expiry with a long offline grace (TUF lesson [C-W3-067]) **plus** RAUC's signing-time validation for wrong clocks [C-W3-018]. Signed from release 1. | **D3 kept and tightened** | High (design); key ceremony is a founder decision |
 | V7 | Who commits, when? | Commit only after the platform gate passes (k3s Ready, core pods Ready, data partition mounted read-write, OneMind API answers locally). App failures never block the OS commit. | **D3 kept** (made concrete) | High |
@@ -147,6 +149,8 @@ Each block gives the question, the evidence, the verdict, and what would flip it
 **Verdict: flip condition NOT met.** Neither Rugix nor RAUC needs a reflash for a Debian major rebase, provided we (a) size slots for 2036 now, (b) keep the kernel and initrd inside the A/B pair, and (c) treat the ESP/first-stage bootloader as a rarely updated, separately guarded component. A partition-table change would need a reflash or a risky in-place migration with either tool, so the layout in §11 is a **day-one decision**.
 **What would flip it:** a Debian 14 image that cannot fit the slot size chosen in §11, or a required bootloader change that cannot be shipped safely in-band. Lab: build a Debian 14 (testing) bundle and install it over a Debian 13 slot (pending, §15 T-W3-04).
 
+**Rev. 4 (DC-05 refuters, `01` §5.9.2):** status **partial**. umbrelOS's Debian 12 → 13 rebase ran on Rugix/Mender, and afterwards some fielded units could not take the next update and needed a reflash or clean install [C-REF4-DC-technical-006, C-REF4-DC-longevity-006 (SECONDARY: user reports on the Umbrel community forum)]. No RAUC major-rebase precedent was found [C-DEC-013, UNVERIFIED: negative search]. T-W3-04 is extended: the **old** slot's RAUC installs the new release, then two further updates (N+1, N+2) follow, on x86 and Pi 5; CI checks that every bundle installs with the RAUC shipped two releases earlier. On the Ubuntu leg no rebase is needed to May 2036 under Ubuntu Pro.
+
 ### 5.2 DC-06 · Rugix's bus factor, maturity and exit plan (Q4)
 
 | Metric (2025-11-10 → 2026-11-10 unless noted) | Rugix | RAUC | Mender client | SWUpdate | OSTree / bootc |
@@ -166,6 +170,7 @@ Each block gives the question, the evidence, the verdict, and what would flip it
 **Exit plan (needed whichever engine we pick):** Rugix ships **RAUC-compatible boot flows** (`rauc-grub`, `rauc-uboot`) designed for in-field migration from RAUC [C-W3-011]. RAUC reads its slot map from configuration. So if OneMind uses **RAUC's GRUB variables and a partition-label slot map from day one**, either engine can drive the same disk, and switching is an update (Umbrel did exactly this from Mender to Rugix [C-W3-040]).
 
 **Verdict: flip condition MET on primary evidence → D3 lead moves to RAUC.** The DC-06 flip rule was "single-maintainer bus factor with no second adopter, while RAUC is comparable on features". The single maintainer is primary-verified [C-W3-001]. Second adopters exist only as a vendor claim [C-W3-015], which the frozen rules cap and cannot count as proof. RAUC is comparable or better on every feature we need except Rugix's built-in state management and image builder (§4). The scorecard agrees (§6).
+**Rev. 4 (DC-06 refuters):** the move to RAUC rests on the S2 card plus the bus factor, not on DC-06's literal condition, because Rugix has an independent IIoT adopter. RAUC's own concentration is recorded: two Pengutronix engineers write about 91% of human commits [C-REF4-DC-technical-009, C-REF4-DC-technical-010].
 **What would flip it back:** a second named maintainer with commit rights and sustained commits at Rugix, or a primary-verified second appliance/industrial adopter **and** native revocation + multi-signer support in Rugix, **or** RAUC failing the Pi 5/x86 lab spikes that Rugix passes.
 
 ### 5.3 DC-07 · One update framework across x86, Pi 5 and Jetson (Q6, Q47)
@@ -194,8 +199,17 @@ Each block gives the question, the evidence, the verdict, and what would flip it
 
 **The danger, in one sentence:** if release N+1 bumps k3s from 1.35 to 1.36, the trial boot migrates the database, then fails the gate and falls back to release N, whose k3s 1.35 now faces a 1.36 database.
 
-**Verdict: a safe design exists → flip condition NOT met.** The design is in §7. In short: k3s lives inside the image (so OS and k3s roll back together), the datastore lives on the data partition, the trial boot runs against a **copy**, and a minor-version guard restores the right snapshot before k3s starts. Multi-server etcd clusters never auto-roll back across a k3s minor (§7.4).
+**Verdict (rev. 1): a safe design exists → flip condition NOT met.** *(Rev. 4: narrowed to a single box on SQLite; see the conditions below.)* The design is in §7. In short: k3s lives inside the image (so OS and k3s roll back together), the datastore lives on the data partition, the trial boot runs against a **copy**, and a minor-version guard restores the right snapshot before k3s starts. Multi-server etcd clusters never auto-roll back across a k3s minor (§7.4).
 **What would flip it:** the lab showing that k3s 1.N cannot start on a datastore copy taken while 1.N was running (for example, kine/SQLite needs a quiesced copy we can't take quickly), or that the copy step makes updates too slow on a Pi 5 SD card. Lab: §15 T-W3-02, T-W3-03.
+
+**Rev. 4 (three dedicated DC-12 refuters, `01` §5.9.2, REC-DEC-45).** The same unchanged gate passed on Debian (RAUC 1.13 and 1.15.2), Ubuntu 26.04, Mender and native arm64; the naive gate committed a broken kubelet every time [C-LAB-rauc-1152-011, C-LAB-ubuntu-2604-leg-011, C-LAB-mender-014, C-LAB-aarch64-gate-004, C-LAB-aarch64-gate-010]. A safe design is now claimed **only for a single box on SQLite**, with six conditions:
+1. On embedded-etcd servers a per-node file copy is not a supported etcd rollback; cluster rollback goes through `etcd-snapshot` restore (untested).
+2. App and core-service migrations are held until the OS commits.
+3. The gate gives two verdicts: "image bad" (k3s or the kubelet never healthy) is final; "environment bad" (a core pod starved) is re-offered with a bounded counter and an alert, so an app cannot block a security release for good.
+4. After a commit, `prevent-late-fallback` and a version floor raised by security releases retire the old slot [C-LAB-secureboot-1152-010].
+5. Installed charts get a pre-publish API scan against the target k3s minor, and a costed policy says how long stepping-stone images are kept.
+6. The gate deadline is wall-clock time, so a slow host can turn a good trial into a rollback [C-LAB-aarch64-gate-006].
+Rollback across a k3s minor is still not run. Status: **partial** (T-W3-03).
 
 ---
 
@@ -237,6 +251,8 @@ Frozen weights v1.0. **S2 interpretation of the anchors** (stated before scoring
 **Gates relaxed one at a time:** if SWUpdate's Pi 5 gate were proven, it would score 58.0, still below RAUC. bootc would stay below on C2 even with the gate relaxed.
 
 **Rev. 3 (2026-11-11, `evidence/scorecard-rev3.md` §4):** every cell above now cites a claim. The totals in this table are the **frozen W3 scores**. The current S2 totals apply 01's rev. 1 and rev. 2 corrections plus rev. 3: **Mender 62.0 · RAUC 61.0 · OSTree/bootc 58.0 · Rugix 52.0**. bootc's G2 moved from FAIL to CONDITIONAL because the community `rpi-bootc-bootloader` tryboot port [C-SCORE-026] and RHDE on Orin [C-W2-041] are now ledgered, so bootc is ranked. Its C2 stays 1, and it wins none of the 14 ±5 runs (Mender 12, RAUC 2; all 14 inside the tie band). SWUpdate's C2 fell from 2 to 1 because anchor 2 requires Pi 5. Nothing changes the S2 verdict, which rests on the tie-break in `01-…` §3.2.
+
+**Rev. 4:** the S2 cells and totals are unchanged (Mender 62 · RAUC 61 · bootc 58 · Rugix 52), and RAUC still wins the tie-break 5–3. The **Robust: same winner in 14/14** line above describes the frozen W3 table only. S2's bootc C3 = 3 (citing the greenboot power-cut lab row) is now also the reason S1 keeps bootc's C3 at 3: lowering it in S1 alone would break the same-standard rule (`01` §3.1.6 c, S1-13). S2's RAUC C3 = 4 on the Secure Boot lab is likewise why S1 now gives C3 = 4 to every RAUC stack (S1-12).
 
 ---
 
@@ -472,14 +488,14 @@ Rugix is the only engine whose author designed it around exactly our problem: a 
 
 ## 15. Lab spikes and founder-runnable tests
 
-The repo already has pre-registered spikes run by the lab agent: `evidence/lab/debian-rugix/` (Rugix A/B, health gate, power cut) and `evidence/lab/rauc/` (RAUC A/B, forced bad update, unbootable update, power cut). **Results were pending when this file was written**; C3 stays at "doc-only" until they land. Tests below go into `22-HARDWARE-LAB-TEST-PLAN.md`.
+The repo already has pre-registered spikes run by the lab agent: `evidence/lab/debian-rugix/` (Rugix A/B, health gate, power cut) and `evidence/lab/rauc/` (RAUC A/B, forced bad update, unbootable update, power cut). Results were pending when this file was written. **Rev. 4:** both passed, and so did `rauc-k3s-gate`, `secureboot-rauc`, `rauc-1152`, `ubuntu-2604-leg`, `mender`, `aarch64-gate` and `secureboot-1152`; results are in `01` §10, and the founder tests are in `22-HARDWARE-LAB-TEST-PLAN.md` (its T-W3-03 and T-W3-04 rows predate the rev-4 extensions below, which are recorded in `evidence/decision-critical.md`). Tests below go into `22-HARDWARE-LAB-TEST-PLAN.md`.
 
 | ID | Test | Pass | Fail | Decision it informs |
 |---|---|---|---|---|
 | T-W3-01 | RAUC vs Rugix on the Beelink U55 and Dell 5540: install, forced bad update, power cut during write (pull the plug) | Both return to the old slot with no human action; data intact | Any brick or data loss | S2 confirmation (V1) |
 | T-W3-02 | k3s health gate on Pi 5 (SD and NVMe): good update, k3s broken update, gate timeout | Bad update rolls back within timeout + 1 boot; good update commits; time to commit recorded | Commit of a broken k3s, or rollback loop | DC-12, gate timeout value |
-| T-W3-03 | k3s-minor trial copy: release N (k3s 1.N) → N+1 (1.N+1) fails gate → fallback | Old slot's k3s starts on the untouched datastore; workloads intact | k3s refuses to start or datastore corrupt | DC-12 flip condition |
-| T-W3-04 | Debian 13 → Debian 14 (testing) bundle on the x86 layout of §11 | Fits the 10 GiB slot, boots, commits, data intact | Doesn't fit or needs a bootloader change | DC-05 flip condition |
+| T-W3-03 | k3s-minor trial copy: release N (k3s 1.N) → N+1 (1.N+1) fails gate → fallback. **Rev. 4:** run twice, on a single box and on a three-server embedded-etcd cluster, each with a migrating app and an API-removal chart, plus an N → N+3 offline catch-up, with `prevent-late-fallback` on | Old slot's k3s starts on the untouched datastore; workloads intact | k3s refuses to start or datastore corrupt | DC-12 flip condition |
+| T-W3-04 | Debian 13 → Debian 14 (testing) bundle on the x86 layout of §11. **Rev. 4:** installed by the old slot's RAUC, then N+1 and N+2 updates, with an external data disk, on x86 (efi and GRUB) and Pi 5; founder-hours recorded | Fits the 10 GiB slot, boots, commits, data intact | Doesn't fit or needs a bootloader change | DC-05 flip condition |
 | T-W3-05 | Delta update over a throttled link (64 kbps, 10% loss) | Completes or resumes; size and time recorded | Hangs without timeout | Q5 delta |
 | T-W3-06 | Jetson Orin Nano: NVIDIA rootfs A/B with a OneMind gate in `l4t-rootfs-validation-config`; image-based OTA with a power cut | Gate failure falls back; OTA resumes after power cut | Hook can't block commit, or device needs reflash | DC-07 flip condition (blocked: founder-hardware) |
 | T-W3-07 | Offline USB update with RTC set to 2020 and to 2040 | Installs with signing-time validation; expiry prompt shown | Refused outright or installed silently past expiry | §8 |
@@ -503,6 +519,8 @@ The repo already has pre-registered spikes run by the lab agent: `evidence/lab/d
 | W3-REC-11 | Factory reset = state reset with backup, signed request + confirmation; USB installer doubles as rescue disk | R-2, M-2 |
 | W3-REC-12 | Install paths P1–P5 supported; P6 script = developer preview without OS rollback; P7 fleet in year 2 | P-7, P-8, P-9, H-1, F-8 |
 | W3-REC-13 | Give W2's Fedora/bootc track credit for BYO in-place conversion and rebase-by-design; re-score S2 if bootc gains a Pi 5 boot path | F-12, F-11 |
+| W3-REC-14 *(rev. 4)* | DC-12 additions (`01` REC-DEC-45): hold migrations until commit; cluster rollback through `etcd-snapshot` restore; separate "image bad" and "environment bad" verdicts; `prevent-late-fallback` plus a version floor; chart API scan; a costed stepping-image retention policy | R-1, R-2, AI-4, U-4, N-9 |
+| W3-REC-15 *(rev. 4)* | Run W2-HW-3 (bootc on a real Pi 5) before gate G1: a box shipped on Debian/Ubuntu + RAUC cannot move to bootc without a reflash (`01` REC-DEC-44) | F-12, F-14, N-2, H-3 |
 
 ---
 

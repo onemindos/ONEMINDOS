@@ -2,7 +2,7 @@
 # Runs on the macOS HOST (Apple silicon, Lima >= 2.3). Full spike: fetch, 4 disposable VMs, measure, back up,
 # restore, verify, delete. Outputs land in $LAB/xfer. Takes about 20 minutes.
 set -uo pipefail
-HERE=$(cd "$(dirname "$0")" && pwd); LAB=${LAB:-$HOME/<lab-dir>/k3s-footprint-restore}; export LAB
+HERE=$(cd "$(dirname "$0")" && pwd); LAB=${LAB:?"set LAB to <lab-dir>/k3s-footprint-restore"}; export LAB
 "$HERE/host-fetch.sh"
 mk() { limactl create -y --name="$1" --cpus=2 --memory=4 --disk=20 --mount-none --containerd=none template:debian-13 && limactl start "$1"; }
 for v in kfr-sqlite kfr-etcd kfr-sqlite-restore kfr-etcd-restore; do mk $v > "$LAB/xfer/create-$v.log" 2>&1 & done; wait

@@ -1,0 +1,91 @@
+Source: https://www.osadl.org/Latency-plot-of-system-in-rack-2-slot.qa-latencyplot-r2s7.0.html (accessed 2026-11-11; saved as text; emails/MACs/serials masked)
+
+ 
+ Latency plot of system in rack #2, slot #7: OSADL - Open Source Automation Development Lab eG 
+ Jump to content Home | Imprint/Privacy policy | Login/Subscribe 
+ Home 
+ Compliance Services 
+ Technical Services 
+ Search 
+ You are here: Home / Technical Services / OSADL QA Farm Real-time / 
+ 2026-11-11 - 13:11
+ OSADL 
+ What is OSADL 
+ How to join 
+ In the Media 
+ Partners 
+ Jobs@OSADL 
+ Logos 
+ Info Request 
+ Events, Seminars & Workshops 
+ OSADL Members 
+ Regular Members 
+ Associate Members 
+ Academic Members 
+ Employed at OSADL Member? 
+ Job Offerings at OSADL Members 
+ Compliance Services 
+ OSADL Open Source Policy Template 
+ OSADL Open Source License Checklists 
+ OSADL FOSS Legal Knowledge Database 
+ Open Source License Compliance Tool Support 
+ OSSelot – The Open Source Curation Database 
+ CRA Compliance Support Projects 
+ OSADL Container Base Image 
+ License Compliance Audit 
+ FOSS Compliance Check 
+ Technical Services 
+ Zephyr Monitoring 
+ Real-time Linux 
+ OSADL QA Farm Real-time 
+ Quality assurance at the OSADL QA Farm 
+ OSADL Linux Add-on Patches 
+ OPC UA PubSub over TSN 
+ Safety Critical Linux 
+ OSADL Technical Tools 
+ Community Projects 
+ Immediate C 
+ Books 
+ OSADL Academic Works 
+ Other Books 
+ HOWTOs 
+ Downloads 
+ Imprint/Privacy policy 
+ Legal documents 
+ OSADL Datenschutzerklärung 
+ OSADL Privacy policy 
+ Search 
+ Login/Subscribe 
+ OSADL QA Farm on Real-time of Mainline Linux
+ About - Hardware - CPUs - Benchmarks - Graphics - Benchmarks - Kernels - Boards/Distros - Latency monitoring - Latency plots - System data - Profiles - Compare - Awards 
+ Default latency plot of system in rack #2, slot #7
+ Rack #0/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #1/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+ Rack #2/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #3/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+Rack #4/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #5/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+Rack #6/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #7/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+Rack #8/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #9/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+Rack #a/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #b/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+Rack #c/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #d/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+Rack #e/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #f/ #0 #1 #2 #3 #4 #5 #6 #7 #8 
+ Special All - All RT - Optimization - Ethernet - Thumbnails - Next 
+Click here to display the system's profile data or here to proceed to next system.
+ Reduce x scale by 4 
+ Click on a legend element to toggle display of that core, ctrl-click inverts display, shift-click enables all. 
+ Switch to shadow system 
+Note that this system runs a non-RT kernel.
+Data to construct the above plot have been generated using the RT test utility cyclictest .
+Total number of samples: 100 million 
+Resolution of latency scale: normal 
+Duration: 5 hours, 33 minutes, lowest P state: performance 
+ Compare latency of primary with shadow system 
+Characteristics of the 
+ 10 
+ 20 
+ 50 
+ 100 
+ all 
+ highest latencies: 
+ Access: public 
+ Short link to this page 
+ This page was last modified on 2019-05-28 - 00:17 
+ 

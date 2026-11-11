@@ -1,4 +1,4 @@
-"""Draws the OneMind layered architecture (report figure). Content from 01 §1, §8 and 10/29."""
+"""Draws the OneMind layered architecture (report figure). Content from 01 §1, §8 (rev. 4) and 10/29."""
 import sys, matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -16,7 +16,7 @@ layers = [  # (title, fill, edge, boxes)
  ("3 · k3s app platform (every box with ≥ 4 GB RAM and an SSD)", "#E3EDFA", "#2F5D9E",
   ["Market controller\nonemind.app.yaml → Helm", "NATS JetStream\nTHE BUS", "Apps: Home Assistant,\nTAK Server, Frigate …", "Backup agent\nrestic, verified restores", "Capability detection\nNFD + GPU discovery"]),
  ("2 · Node: the OneMind OS image (one per box)", "#ECEFF4", "#5A6B85",
-  ["Debian 13 read-only\nroot, A/B slots", "RAUC updates +\nfresh-signal gate", "LUKS2 data\npartition", "Signed extensions\nsysext · driver packs", "Flavors: Jetson L4T,\nGPU-server Ubuntu"]),
+  ["Read-only root, A/B\nUbuntu 26.04 (Debian leg)", "RAUC updates +\nfresh-signal gate", "LUKS2 data\npartition", "Signed extensions\nsysext · driver packs", "Flavors: Jetson L4T,\nGPU-server Ubuntu"]),
  ("1 · Devices", "#FBEDED", "#B04A4A",
   ["Robots\nROS 2 in containers", "Drones\nPX4 · MAVLink", "IoT: Zigbee, Thread,\nMatter, ESPHome", "IIoT: OPC UA, Modbus,\nSparkplug B, CAN", "Mesh: Meshtastic,\nLoRaWAN, batman-adv", "Small devices\n= NATS leaf"]),
 ]

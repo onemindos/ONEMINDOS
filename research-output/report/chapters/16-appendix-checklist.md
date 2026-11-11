@@ -25,7 +25,7 @@ Built from `context/00-CONVERSATION-RECORD.md` (sections 1–14, numbered in the
 | 3 | NVIDIA lock-in vs hardware-agnostic | [Ch. 12: Non-NVIDIA silicon: the lock-in guard](#sec-non-nvidia) |
 | 3 | Fedora CoreOS / Fedora IoT as a candidate core | [Ch. 4: Your Fedora IoT question (F-12)](#sec-fedora-iot) |
 | 4 | Reverse-engineer competitors | [Ch. 10: What the competitors actually do](#sec-competitors) |
-| 4 | Research all Linux distributions | [Ch. 4: Which Linux, and why Debian fits best](#sec-distros) |
+| 4 | Research all Linux distributions | [Ch. 4: Which Linux, and why Ubuntu wins narrowly](#sec-distros) |
 | 4 | Sell hardware and become a distributor | [Ch. 8: Bundles and the distributor model (A-7, H-1)](#sec-bundles) |
 | 4 | OS profiles (situational awareness / TAK node, greenhouse) | [Ch. 3: IoT, Industrial IoT, mesh, off-grid and TAK](#sec-iot) |
 | 4 | Robotics, drones and physical AI as the moat | [Ch. 12: Physical AI, NVIDIA and the next ten years](#sec-physical-ai) |

@@ -1,0 +1,30 @@
+##### [07:59:12] QEMU START qemu-system-aarch64 -machine virt -accel kvm -cpu host -smp 4 -m 3072 -nodefaults -display none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd -drive if=pflash,
+$ uptime
+uptime; echo __R''C=$?__
+[?2004l 13:03:40 up 4 min,  0 users,  load average: 0.52, 1.24, 0.63
+
+$ journalctl -u k3s -o short-monotonic --no-pager | grep -iE "Imported images|Importing images" | cut -c1-200
+journalctl -u k3s -o short-monotonic --no-pager | grep -iE "Imported images|Importing images" | cut -c1-200; echo __R''C=$?__
+[?2004l[   13.537095] onemind-lab k3s[467]: time="2026-11-11T12:59:43Z" level=info msg="Importing images from /data/k3s/agent/images/k3s-airgap-images.tar.zst"
+
+$ export KUBECONFIG=/run/k3s/k3s.yaml; k3s kubectl get pods -A 2>&1 | tail -7
+export KUBECONFIG=/run/k3s/k3s.yaml; k3s kubectl get pods -A 2>&1 | tail -7; echo __R''C=$?__
+[?2004lNAMESPACE        NAME                                      READY   STATUS         RESTARTS   AGE
+apps             broken-app-5d6b874ccd-c2kt2               0/1     ErrImagePull   0          3m48s
+kube-system      coredns-577d995dff-wgzw5                  1/1     Running        0          3m48s
+kube-system      helm-install-gateway-api-crd-nqpv2        0/1     Completed      0          3m48s
+kube-system      local-path-provisioner-56c6584955-ppkpt   1/1     Running        0          3m48s
+onemind-system   onemind-core-dc87b89b8-vm5rd              1/1     Running        0          3m48s
+
+$ grep -E "level=(error|warning)" /data/k3s/agent/containerd/containerd.log | grep -v fsverity | cut -c1-260 | tail -8
+grep -E "level=(error|warning)" /data/k3s/agent/containerd/containerd.log | grep -v fsverity | cut -c1-260 | tail -8; echo __R''C=$?__
+[?2004ltime="2026-11-11T12:59:42Z" level=warning msg="Configuration migrated from version 3, use `containerd config migrate` to avoid migration" t="24.875��s"
+time="2026-11-11T12:59:42.706464964Z" level=warning msg="failed to load cni during init, please check CRI plugin status before setting up network for pods" error="cni config load failed: no network config found in /data/k3s/agent/etc/cni/net.d: cni plugin not 
+time="2026-11-11T13:00:00.398388097Z" level=error msg="PullImage \"registry.invalid/onemind/broken-app:1\" failed" error="rpc error: code = Unknown desc = failed to pull and unpack image \"registry.invalid/onemind/broken-app:1\": failed to resolve reference \"
+time="2026-11-11T13:00:34.488322280Z" level=error msg="PullImage \"registry.invalid/onemind/broken-app:1\" failed" error="rpc error: code = Unknown desc = failed to pull and unpack image \"registry.invalid/onemind/broken-app:1\": failed to resolve reference \"
+time="2026-11-11T13:01:04.936571086Z" level=error msg="PullImage \"registry.invalid/onemind/broken-app:1\" failed" error="rpc error: code = Unknown desc = failed to pull and unpack image \"registry.invalid/onemind/broken-app:1\": failed to resolve reference \"
+time="2026-11-11T13:01:51.930532192Z" level=error msg="PullImage \"registry.invalid/onemind/broken-app:1\" failed" error="rpc error: code = Unknown desc = failed to pull and unpack image \"registry.invalid/onemind/broken-app:1\": failed to resolve reference \"
+time="2026-11-11T13:03:17.938929566Z" level=error msg="PullImage \"registry.invalid/onemind/broken-app:1\" failed" error="rpc error: code = Unknown desc = failed to pull and unpack image \"registry.invalid/onemind/broken-app:1\": failed to resolve reference \"
+
+##### [08:03:42] POWER CUT: SIGKILL qemu
+no-qemu-left

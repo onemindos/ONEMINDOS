@@ -4,7 +4,7 @@
 # SSH: 127.0.0.1:2222. Registry: guest sees the host's 127.0.0.1:5000 (Lima forward) at 198.18.0.2:5000.
 # Usage: run-vm.sh start|stop|pid
 set -euo pipefail
-LAB=${LAB:-$HOME/<lab-dir>/fedora-bootc}
+LAB=${LAB:?"set LAB to <lab-dir>/fedora-bootc"}
 DISK=$LAB/vm/test.qcow2
 FW=$(brew --prefix qemu)/share/qemu/edk2-aarch64-code.fd
 case "${1:-start}" in

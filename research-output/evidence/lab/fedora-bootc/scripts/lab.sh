@@ -1,6 +1,6 @@
 #!/bin/bash
 # Host-side helpers: ssh into the test VM and wait for it.
-LAB=${LAB:-$HOME/<lab-dir>/fedora-bootc}
+LAB=${LAB:?"set LAB to <lab-dir>/fedora-bootc"}
 vssh() { ssh -q -i "$LAB/vm/lab_ed25519" -p 2222 -o StrictHostKeyChecking=no \
   -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -o BatchMode=yes lab@127.0.0.1 "$@"; }
 # wait_up <timeout-seconds>: prints seconds until SSH answers

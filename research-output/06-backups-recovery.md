@@ -1,12 +1,14 @@
 # 06 · Backups, recovery and data (W5)
 
-**Workstream:** W5 (Tier A, P0) · **Date:** 2026-11-10 · **Owner of:** DC-11 (Q129, Q136), plus Q156, Q281 (backup format part), Q300
+**Workstream:** W5 (Tier A, P0) · **Date:** 2026-11-10, synced to `01` rev. 4 on 2026-11-11 · **Status:** Tier A workstream file; refuted and superseded on the decisions by [`01-FOUNDATION-DECISION.md`](01-FOUNDATION-DECISION.md) rev. 4 (§3.4, §4.6, §5.9.2) · **Owner of:** DC-11 (Q129, Q136), plus Q156, Q281 (backup format part), Q300
 **Claims:** `evidence/claims/W5.csv` (C-W5-001 … 058) · **Sources:** `evidence/sources/W5.md` · **Question statuses:** `evidence/qbank/W5.md`
 **Scorecard:** frozen weights v1.0 (`evidence/scorecard-weights.md`), decision **S4. Backup and restore**
 **Serves requirements:** R-1, R-2, R-3, M-2, M-4, M-6, U-1, U-4, UX-6, AI-4, P-5, P-7, F-11, F-14, H-1, D-001
 **ADR-001 D5 verdict:** **confirmed with changes** (restic stays; the k3s datastore line is wrong for a single box and is replaced; see §2 and §11)
 
 > ### Explain it like I'm the founder
+> **Revision 4 (2026-11-11), read this first.** restic and the single-box SQLite method stand. Three things changed after this file was written. (1) **A clean integrity check is not enough:** a k3s database whose clean-up (compaction) has stalled still passes SQLite's `integrity_check`, so a backup now counts as *verified* only if the database is within a size budget and compaction is not lagging (DC-11 technical refuter; its sources are not ledgered). (2) **Bigger boxes may use etcd from day one:** hub, Pro and Omni servers start on embedded etcd if the corrected 72-hour write test T-W5-03 passes, run under write load (`01` §4.6, §6.12) [C-REF4-DC-longevity-018]. (3) **restic is mostly one maintainer**, about 73% of commits in a year [C-REF4-DC-longevity-017]; that is recorded under the same rule that moved updates off Rugix, with a CI read test by an independent implementation. The base OS under all of this is now Ubuntu 26.04 by the frozen scorecard rules, conditional on Canonical, with Debian 13 as a pre-registered alternative (`01` §3.1.6); nothing in this file depends on which.
+>
 > A backup is only worth something if you can **restore it onto a different machine, with a key you still have**. Everything in this file is built around that one test.
 >
 > ADR-001 said: "back up the k3s datastore with `k3s etcd-snapshot`, and app data with restic". We tested that in two throw-away virtual machines. Result:
@@ -92,6 +94,8 @@
 3. Put all of it inside the same restic snapshot as the app volumes, so one restic snapshot = one consistent restore point.
 4. On clusters (3+ servers, etcd): use `k3s etcd-snapshot save` instead, then restic-wrap the snapshot file, because k3s snapshots are **not encrypted** [C-W5-013, C-W5-014].
 
+**Rev. 4 additions (DC-11 refuters, `01` §4.6, REC-DEC-49):** `PRAGMA integrity_check` also passes a runaway, compaction-stalled datastore, so step 1 adds a size budget for `state.db` and a compaction-lag check before the copy counts as verified; kine is pinned at ≥ v0.13.10 (`05` §2.4). The box gets an on-device offline-compaction procedure with a free-space precheck. On a `restic check` failure the box retries once and runs a memory test before reporting damage. CI restores a multi-GB, compaction-stalled `state.db` within the box's free space.
+
 ### 2.3 Adversarial table (refuter lenses)
 
 > **Method note.** This run had no tool for spawning independent sub-agents, so the passes below were run in-agent, each told only the claim and its sources and asked to disprove it. They are **not independent**. The P0 claims are returned to the orchestrator as standalone statements for independent refuters (brief §2 rule 7). Failure-seeking sources found for this table: C-W5-010, C-W5-018, C-W5-026, C-W5-047, C-W5-052.
@@ -109,6 +113,8 @@
 *Argued for, by design:* one datastore everywhere means one backup command (`etcd-snapshot`) with built-in schedule, retention and S3 upload [C-W5-011], one restore command, no migration step, and every box is already "HA-ready" so a second and third server can join at any time. The founder's cloud cluster already uses etcd. A restore tool that only has to understand one format is simpler to test, which matters for a solo developer (M-6).
 
 *Response:* the convenience is real, but (a) `etcd-snapshot`'s built-in features don't remove the need for restic, because snapshots are unencrypted and must be wrapped anyway [C-W5-013]; (b) the single-box SQLite path is three commands that the backup agent runs, not the user; (c) etcd's write volume is the wrong default for SD/eMMC Lite boxes [C-W5-018]; (d) a two-server household gains nothing from etcd (no quorum), and the third server can trigger the one-restart migration [C-W5-005]. **What would flip it:** a 72-hour founder-hardware measurement (T-W5-03) showing etcd's write rate on Pi 5 NVMe below ~2× SQLite, or a k3s announcement deprecating SQLite.
+
+**Rev. 3 and 4 (`01` §4.6, §6.12):** the independent embedded-etcd steelman moved part of this. SQLite stays the default **until** the corrected T-W5-03 runs (Pi 5 8 GB + NVMe and an x86 mini PC, hardened k3s, 72 h, measured on the datastore device, under write load [C-REF4-DC-longevity-018]). If etcd writes are ≤ 2× SQLite **and** ≤ 5 GB/day, hub, Pro and Omni servers start on embedded etcd; 4 GB slim profiles stay on SQLite [C-STEEL-etcd-every-box-015, C-STEEL-etcd-every-box-025]. The 8.7× idle figure above came from a short window right after a conversion, which is why the test was corrected.
 
 ---
 
@@ -295,7 +301,7 @@ The lab restores reached API-ready in 6–13 s on a tiny dataset [C-W5-054]; rea
 | **W5-R4** | **Three-key repository** (device, owner recovery, optional escrow); emergency kit required to finish setup; never derive keys from short passwords. | M-2, U-4, R-2 | §6, C-W5-023, C-W5-042, C-W5-051 |
 | **W5-R5** | **`backup:` section in `onemind.app.yaml`** (hot/cold, pre/post, sqlite, exclude, restore.post). | A-1, A-5, R-2 | §7, C-W5-036, C-W5-044, C-W5-057 |
 | **W5-R6** | **Two restore modes:** portable (default; cross-arch, cross-version) and exact (same hardware). Restore at onboarding. | P-7, H-1, R-3, F-14 | §9, C-W5-039, C-W5-045 |
-| **W5-R7** | **Verified restores:** daily `check --read-data-subset`, weekly scratch restore with app probes, dashboard "last verified restore", alerts on stale/failing backups. | R-2, AI-4 | §9, C-W5-047, C-W5-053, C-W5-056 |
+| **W5-R7** | **Verified restores:** daily `check --read-data-subset`, weekly scratch restore with app probes, dashboard "last verified restore", alerts on stale/failing backups. **Rev. 4:** a backup is verified only with datastore-health checks (size budget, no compaction lag); one retry plus a memory test before a `restic check` failure is reported; a CI read test of the repository by an independent implementation [C-REF4-DC-longevity-017]. | R-2, AI-4 | §9, C-W5-047, C-W5-053, C-W5-056 |
 | **W5-R8** | **Restore health gate uses fresh signals only** (new heartbeat/Lease, app probes, file read), never restored `.status`. Share this gate with the A/B update commit (W3, DC-12). | R-1, AI-4 | C-W5-010 |
 | **W5-R9** | **OneMind storage class with `Retain`**; app data deleted only through an explicit, backed-up "remove data" action; fixed node name per box. | R-2, M-2 | C-W5-019 |
 | **W5-R10** | **3-2-1 by default:** hourly GFS, 2× space check, off-site to another OneMind box (append-only rest-server) or S3; OneMind-hosted offsite later and optional. | M-1, M-2, UX-6, N-6 | §8, C-W5-024, C-W5-040, C-W5-041 |
@@ -310,7 +316,7 @@ The lab restores reached API-ready in 6–13 s on a tiny dataset [C-W5-054]; rea
 
 ## 12. Lab spike: k3s + restic restore onto a fresh VM
 
-Spike `w5-restore` (brief §7 item 5). README with hypotheses and pass/fail criteria was written **before** running; hashes of the README, script and logs are in `evidence/sources/W5.md`. The spike lives in `work/.lab/w5-restore/` (outside the repo, because this workstream may write only its assigned files); the orchestrator can move a scrubbed copy into `evidence/lab/w5-restore/`.
+Spike `w5-restore` (brief §7 item 5). README with hypotheses and pass/fail criteria was written **before** running; hashes of the README, script and logs are in `evidence/sources/W5.md`. The spike lives in the repo at [`evidence/lab/w5-restore/`](evidence/lab/w5-restore/) (README, scripts, logs, `versions.md` and `SHA256SUMS`), scrubbed of host paths and private addresses (`evidence/hygiene-log.md`).
 
 **Setup:** two disposable Lima VMs (Apple Virtualization, aarch64, Debian 13, 2 vCPU / 4 GiB), only a lab folder mounted. k3s v1.37.2+k3s1 with `--secrets-encryption`; restic 0.18.0; a namespace with a ConfigMap, a Secret and a pod writing a random marker to a local-path PVC.
 
@@ -348,7 +354,7 @@ Spike `w5-restore` (brief §7 item 5). README with hypotheses and pass/fail crit
 |---|---|---|---|
 | **T-W5-01** | Pi 5 (4 GB, NVMe) running k3s + 5 apps; restic backup of ~200 GB to USB, then `restic check --read-data-subset=1/30`; record peak RSS (`/usr/bin/time -v`). | Peak RSS < 1 GB; backup completes; no OOM. | Fail → Kopia re-scored (§4.1 flip) or cap repo size on Lite. |
 | **T-W5-02** | Whole-box drill: Beelink with 10 apps → wipe → **portable restore** onto the Dell 5540 (x86 → x86), then exact restore onto a re-imaged Beelink. Time each step. | All apps and data back; RTO ≤ 4 h; dashboard shows "last verified restore". | Fail → restore design changes before M4. |
-| **T-W5-03** | 72 h idle + light load on Pi 5 NVMe: SQLite vs `--cluster-init` etcd; `cat /proc/diskstats` before/after, `smartctl -a` wear. | Report MiB/day for both. | etcd < 2× SQLite → reconsider etcd default (§2.4 flip). |
+| **T-W5-03** | 72 h idle + light load on Pi 5 NVMe: SQLite vs `--cluster-init` etcd; `cat /proc/diskstats` before/after, `smartctl -a` wear. **Corrected in rev. 3–4:** hardened k3s, a fresh etcd install (not a conversion), measured on the datastore device, Pi 5 8 GB + NVMe and an x86 mini PC, under write load. | Report MiB/day for both. | etcd ≤ 2× SQLite **and** ≤ 5 GB/day → hub, Pro and Omni start on embedded etcd (§2.4, `01` §6.12). |
 | **T-W5-04** | Cross-arch: back up a Pi 5 box, portable-restore onto x86 (and reverse). | Apps reinstall with the right arch images; data intact. | Fail on any app → that app needs a manifest fix or a non-portable flag. |
 | **T-W5-05** | Power cut during a backup (pull the plug mid-upload to USB and to an append-only rest-server), then `restic check`. | Repository consistent; next backup succeeds. | Needed for C3 = 5. |
 | **T-W5-06** | Founder cluster, read-only: `kubectl get replicationsources -A`, `velero backup get`, `kubectl get backups.postgresql.cnpg.io -A` to confirm reported state (context/01). | Matches context/01. | Informs the DOKS conversion plan (W4). |
@@ -369,4 +375,4 @@ Spike `w5-restore` (brief §7 item 5). README with hypotheses and pass/fail crit
 - Per-user repositories (U-1) phase and UX: design only.
 - Whether HA/Umbrel run any scheduled restore test outside the modules read: not found, not proven absent.
 - Cross-arch restore, power-cut during backup, real Pi/Jetson memory: founder-hardware tests above.
-- The lab logs need scrubbing of VM-internal addresses before being copied into `evidence/lab/`.
+- ~~The lab logs need scrubbing of VM-internal addresses before being copied into `evidence/lab/`.~~ Done: the spike is in `evidence/lab/w5-restore/`, scrubbed (`evidence/hygiene-log.md`).

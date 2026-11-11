@@ -81,7 +81,7 @@ v1 boots with digest `9a6054d3…`, not the registry's `98c97af1…`, because th
 Files are in `scripts/`. Everything upstream runs inside the Lima VM; the host only runs QEMU and ssh.
 
 ```bash
-LAB=~/<lab-dir>/fedora-bootc; export LIMA_HOME=$LAB/lima; S=<this dir>/scripts
+LAB=<lab-dir>/fedora-bootc; export LIMA_HOME=$LAB/lima; S=<this dir>/scripts
 limactl create --name=bootc-build --tty=false --cpus=8 --memory=16 --disk=120 --vm-type=vz --mount-none \
   --set '.portForwards=[{"guestPort":5000,"hostPort":5000,"hostIP":"127.0.0.1"}]' template:fedora-44
 limactl start bootc-build

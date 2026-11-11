@@ -11,9 +11,9 @@
 
 | Family | Pi 5 / Jetson | NVIDIA / CUDA | Kubernetes | ROS 2 | Verdict |
 |---|---|---|---|---|---|
-| **Linux** | Mainline device trees and vendor kernels for both [C-W18-018, C-W18-019] | CUDA 13.5 on Debian, Ubuntu, RHEL, Fedora and Jetson [C-W18-027] | Control plane runs only on Linux [C-W18-029] | Tier 1 on Ubuntu [C-W18-034] | **Choose** |
+| **Linux** | Mainline device trees and vendor kernels for both [C-W18-018, C-W18-019] | CUDA 13.5 on Debian, Ubuntu, RHEL and Fedora; on Jetson, Ubuntu 24.04 only [C-CIT4-003] | Control plane runs only on Linux [C-W18-029] | Tier 1 on Ubuntu [C-W18-034] | **Choose** |
 | FreeBSD | No Pi 5 or Jetson evidence | Driver for x64 only, no CUDA [C-W18-028] | Not a node OS [C-W18-029] | Not listed [C-W18-034] | Reject. TrueNAS moved new work to Linux because innovation lands "on Linux first" [C-W18-033] |
-| Darwin/XNU | Apple hardware only | No CUDA [C-W18-027] | No Linux containers natively; Apple runs each in a small VM [C-W18-031] | macOS Tier 3 [C-W18-034] | Reject as a product kernel; it is your **development host** |
+| Darwin/XNU | Apple hardware only | No CUDA: absent from the supported-OS tables of the CUDA 13.5 guide, which list only Linux distributions [C-CIT4-003] | No Linux containers natively; Apple runs each in a small VM [C-W18-031] | macOS Tier 3 [C-W18-034] | Reject as a product kernel; it is your **development host** |
 | seL4 | Pi 4B/5B configs verified, but boot and IOMMU outside the proof [C-W18-035] | None | None | None | Reject for the OS; maybe a future verified safety island |
 | Zircon (Fuchsia) | One consumer device class (SECONDARY) [C-W18-039] | None | None | None | Reject |
 | HongMeng (HarmonyOS) | Huawei devices; kept Linux ABI compatibility to reuse drivers [C-W18-036] | None | None | None | Reject; learn the lesson |
@@ -39,15 +39,15 @@
 
 | Route | What it is | Solo-founder cost | Score |
 |---|---|---|---|
-| **K1 · board maintainer's kernel** | Debian's on PCs, Raspberry Pi's on Pi 5, NVIDIA's on Jetson | Lowest: refresh and rebuild, no kernel compile | **71** |
+| **K1 · board maintainer's kernel** | The base's own on PCs (Canonical's, or Debian's on the Debian leg), Canonical's `linux-raspi` or Raspberry Pi's on Pi 5, NVIDIA's on Jetson | Lowest: refresh and rebuild, no kernel compile | **71** |
 | K2 · OneMind-configured upstream LTS | Home Assistant's way | About one bump a week per kernel line (HAOS: 51 bumps a year [C-W18-010]) | 66 |
 | K3 · CIP super-long-term kernel | Industrial 10-year line, to mid-2035 [C-W18-003] | Like K2 on a slower branch | 61 |
 | K4 · patched OneMind kernel | K2 plus own patches | Highest; not needed for real time | 46 |
 | K5 · microkernel or new kernel | seL4, Zircon, own | Not feasible | Not ranked |
 
-![The kernel route: K1 at launch, a OneMind-built LTS kernel (K2-hybrid) only when Secure Boot is enforced with out-of-tree drivers.](img/kernel-route.png){width=100%}
+![The kernel route: K1 at launch, a OneMind-built LTS kernel (K2-hybrid) only when Secure Boot is enforced with out-of-tree drivers and the shim route fails.](img/kernel-route.png){width=100%}
 
-**Why K1 now and K2 later.** A Secure Boot key placed in the PC firmware cannot sign kernel modules for a stock kernel: the kernel trusts only built-in and "machine owner" keys for modules [C-DEC-008, C-DEC-010]. So the release that *enforces* Secure Boot with NVIDIA or driver-pack modules moves x86 and generic arm64 to a OneMind-built LTS kernel, keeping NVIDIA's L4T on Jetson. A second trigger: if Debian's kernel security fixes lag upstream by more than 7 days on median, K2 comes early (`20-…` §4.1).
+**Why K1 now and K2 later.** A Secure Boot key placed in the PC firmware cannot sign kernel modules for a stock kernel: the kernel trusts only built-in and "machine owner" keys for modules [C-DEC-008, C-DEC-010]. **Revision 4 found a route that may avoid that:** a OneMind *shim* (the small first-stage loader) carrying OneMind's own certificate, which the stock kernel then trusts for modules through its "machine" keyring, with no console step. It is read from source only, not yet run, so it becomes the **first arm** of the Secure Boot test T-W19-03 (`01` R4-10). Only if it fails does the release that *enforces* Secure Boot with NVIDIA or driver-pack modules move x86 and generic arm64 to a OneMind-built LTS kernel (K2-hybrid), keeping NVIDIA's L4T on Jetson. A second trigger: if the base's kernel security fixes lag upstream by more than 7 days on median, K2 comes early (`20-…` §4.1).
 
 **Real time is no longer a custom kernel.** PREEMPT_RT has been a normal option in mainline Linux since 6.12 on x86, arm64 and RISC-V [C-W18-005]; Debian ships an RT kernel package [C-W18-006]; and our lab switched it on for both architectures without a single patch [C-W18-067]. It becomes an image profile with a per-unit latency test.
 
@@ -55,7 +55,7 @@
 
 ## Image build tooling {#sec-image-tooling}
 
-The image is defined like a container build on a snapshot-pinned Debian (the umbrelOS pattern [C-W2-043]), then assembled into A/B disk images and RAUC bundles per board family. umbrelOS uses a Dockerfile root filesystem plus Rugix Bakery [C-W18-015]; Home Assistant uses Buildroot; Kairos uses one Dockerfile and its own tool to produce ISO, raw and UKI images [C-TD-kairos-007]; Jetson uses NVIDIA's flash tools. `28-…` §7 compares debos, mkosi, Rugix Bakery, Buildroot, Yocto, bootc/osbuild and Kairos; the lab used **mkosi** for the minimal Debian image [C-LAB-minimal-image-dc20-011].
+The image is defined like a container build on a snapshot-pinned base, Ubuntu 26.04 or Debian 13 by leg (the umbrelOS pattern [C-W2-043]), then assembled into A/B disk images and RAUC bundles per board family. umbrelOS uses a Dockerfile root filesystem plus Rugix Bakery [C-W18-015]; Home Assistant uses Buildroot; Kairos uses one Dockerfile and its own tool to produce ISO, raw and UKI images [C-TD-kairos-007]; Jetson uses NVIDIA's flash tools. `28-…` §7 compares debos, mkosi, Rugix Bakery, Buildroot, Yocto, bootc/osbuild and Kairos; the lab used **mkosi** for the minimal Debian image [C-LAB-minimal-image-dc20-011].
 
 ## Platform first or image first? {#sec-platform-first}
 
@@ -69,7 +69,7 @@ Both, in that order: develop the platform first as a script on plain Debian and 
 - **k3d or kind** for local Kubernetes app work; **Docker buildx** for multi-arch images.
 - **A Jetson dev kit can now be set up from a Mac** with NVIDIA's new USB installer [C-W18-023]. Production Jetson flashing and fusing still need a Linux host [C-W18-021].
 - **Isaac Sim needs an RTX GPU** [C-W18-058], so it runs on a rented cloud GPU, not the Mac.
-- **CI on native x86 and arm64 runners** builds the root filesystem from one definition (`FROM debian:trixie`, plus the `ubuntu:26.04` leg), assembles images and bundles, runs the QEMU update/rollback/power-cut/restore battery, and produces an SBOM and provenance. Signing happens offline, 2-of-3, with the module key in an HSM.
+- **CI on native x86 and arm64 runners** builds the root filesystem from one definition in two legs (`FROM ubuntu:26.04` and `FROM debian:trixie`, at parity until the base lock), assembles images and bundles, runs the QEMU update/rollback/power-cut/restore battery, and produces an SBOM and provenance. Signing happens offline, 2-of-3, with the module key in an HSM.
 
 ## What competitors do (constraint fit) {#sec-kernel-competitors}
 

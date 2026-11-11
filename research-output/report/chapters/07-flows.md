@@ -15,6 +15,8 @@
 - Accept only **verity** bundles; a validly signed "plain" bundle was refused [C-DEC-005].
 - Ship **OneMind's own RAUC** from a pinned upstream tag: Debian's 1.13 cannot install on kernels ≥ 6.19 [C-LAB-ubuntu-2604-leg-010].
 - **Never auto-retry** a release that failed on this box: bootc's default timer re-staged a known-bad image in our lab [C-LAB-fedora-bootc-009].
+- **The same gate passed on native Arm** (RAUC 1.15.2 + k3s for arm64, gate unchanged) [C-LAB-aarch64-gate-004].
+- **Where "safe" is proven, and where not yet (revision 4).** The design is shown safe for **one box on SQLite**. A multi-server cluster rolls back through k3s's snapshot restore, which is not yet tested. Three more rules came from the refuters: app database migrations wait until the update commits; the gate gives two verdicts, **"image bad"** (final) and **"environment bad"** (for example, a core pod starved by an app: rolled back, then re-offered a limited number of times with an alert, so a hostile app cannot block a security update for ever); and after a commit, RAUC's `prevent-late-fallback` retires the old slot and security releases raise a version floor [C-LAB-secureboot-1152-010, C-REF4-DC-security-001] (`01` R4-8).
 - **Sign from release 1:** offline root, 2-of-3 signers, manifest expiry with an offline grace period, revocation, and a CA rotation drill using Home Assistant's cross-signing method [C-W3-024]. Umbrel's *stable* release still runs a script supplied by its server [C-W3-034].
 
 ## The rollback states {#sec-rollback}
@@ -31,9 +33,9 @@
 |---|---|---|---|
 | Used by | Home Assistant OS, ZimaOS [C-TD-casaos-zimaos-012] | umbrelOS earlier; still a legacy variant [C-W3-040] | umbrelOS 2.0 |
 | Bus factor | Core mostly two engineers at one company [C-REF-W3-longevity-001] | Company-backed | One person wrote 303 of 304 commits in a year [C-W3-001] |
-| Lab on our layout | Real k3s, Secure Boot, 1.15.2: pass [C-LAB-rauc-1152-011] | Pass, with a one-try limit [C-LAB-mender-013] | Pass (x86 and arm64) [C-LAB-debian-rugix-022] |
+| Lab on our layout | Real k3s, Secure Boot, 1.15.2, native arm64: pass [C-LAB-rauc-1152-011, C-LAB-aarch64-gate-004] | Pass, with a one-try limit [C-LAB-mender-013] | Pass (x86 and arm64) [C-LAB-debian-rugix-022] |
 | Deltas, phased rollout | Free | Paid [C-STEEL-updates-mender-015] | — |
-| Debian precedent | **None found** [C-DEC-013] | umbrelOS | umbrelOS |
+| Debian/Ubuntu precedent | **None field-proven** [C-DEC-013 (UNVERIFIED: negative search)]; IronFlockOS pre-1.0 [C-CIT4-001] | umbrelOS | umbrelOS |
 
 RAUC wins the recount 5–3 on Secure Boot, revocation, free deltas, the Pi 5 path and three boot tries. **The disk layout stays engine-neutral**, so switching engines later is an update, not a reflash (Z-03).
 
@@ -58,6 +60,7 @@ Changing a layout after boxes ship means a reflash, so it is fixed on day 1 even
 - **restic over Kopia:** one repository can hold several keys, so the owner gets a printed recovery key beside the box's own [C-W5-023]. restic scores 75, Kopia 66 (`01` §3.4).
 - **The default storage class deletes app data when a volume claim is deleted** [C-W5-019]; OneMind uses a Retain class.
 - **After a restore, Kubernetes briefly reports the old saved status** [C-W5-010], so restore checks use fresh signals too.
+- **A backup counts as "verified" only with datastore-health checks** (revision 4): the k3s database inside a size budget, no compaction lag, and a k3s datastore library (kine) at or above OneMind's pinned floor (`01` §4.6). kine itself is mostly one maintainer's work [C-REF4-DC-longevity-016].
 - **Nobody among the competitors proves a backup can be restored.** Your cloud cluster already does for its databases [C-W5-056]. The dashboard line "last verified restore: 3 hours ago" is the feature to lead with.
 
 | Competitor | What it backs up | Constraint fit |

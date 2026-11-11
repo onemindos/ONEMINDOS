@@ -1,0 +1,477 @@
+ 
+ can-utils package versions - Repology 
+ Toggle navigation 
+ Projects 
+ Maintainers 
+ Repositories 
+ Tools 
+ Security 
+ News 
+ Docs 
+ Versions 
+ Packages 
+ Information 
+ History 
+ Related 
+ Badges 
+ Report 
+ Versions for can-utils 
+ 89 package(s) known 
+ Repository 
+ Package name 
+ Version 
+ Category 
+ Maintainer(s) 
+ Alpine Linux 3.17 community 
+ can-utils 
+ 2021.08.0 
+ - 
+ <email-masked> 
+ Alpine Linux 3.18 community 
+ can-utils 
+ 2023.03 
+ - 
+ <email-masked> 
+ Alpine Linux 3.19 community 
+ can-utils 
+ 2023.03 
+ - 
+ <email-masked> 
+ Alpine Linux 3.20 community 
+ can-utils 
+ 2023.03 
+ - 
+ <email-masked> 
+ Alpine Linux 3.21 community 
+ can-utils 
+ 2023.03 
+ - 
+ <email-masked> 
+ Alpine Linux 3.22 community 
+ can-utils 
+ 2025.01 
+ - 
+ <email-masked> 
+ Alpine Linux 3.23 community 
+ can-utils 
+ 2025.01 
+ - 
+ <email-masked> 
+ Alpine Linux 3.24 community 
+ can-utils 
+ 2025.01 
+ - 
+ <email-masked> 
+ Alpine Linux Edge community 
+ can-utils 
+ 2025.01 
+ - 
+ <email-masked> 
+ ALT Linux p11 
+ can-utils 
+ v2023.03 
+ Development/Tools 
+ <email-masked> 
+ ALT Sisyphus 
+ can-utils 
+ v2023.03 
+ Development/Tools 
+ <email-masked> 
+ Amazon Linux 2 
+ can-utils 
+ 2023.03 
+ Unspecified 
+ - 
+ AOSC 
+ can-utils 
+ 2025.01 
+ utils 
+ fallback-mnt-aosc@repology 
+ Apertis v2023 v2023/target 
+ can-utils 
+ 2020.11.0 
+ - 
+ <email-masked> 
+ Apertis v2024 v2024/target 
+ can-utils 
+ 2020.11.0 
+ - 
+ <email-masked> 
+ Apertis v2025 v2025/target 
+ can-utils 
+ 2020.11.0 
+ - 
+ <email-masked> 
+ Apertis v2026 v2026/target 
+ can-utils 
+ 2023.03 
+ - 
+ <email-masked> 
+ Apertis v2027 Development v2027dev1/target 
+ can-utils 
+ 2023.03 
+ - 
+ <email-masked> 
+ AUR 
+ can-utils-git 
+ 2025.01.r87.g1663fc3 
+ - 
+ taotieren@aur 
+ AUR 
+ can-utils 
+ 2025.01 
+ - 
+ pschichtel@aur 
+ AUR 
+ can-utils-bin 
+ 2025.01 
+ - 
+ pineappletoad@aur 
+ BlackArch 
+ can-utils 
+ 1304.834ceef 
+ - 
+ - 
+ BlackArch 
+ can-utils-debug 
+ 1304.834ceef 
+ - 
+ - 
+ Debian 11 bullseye/main 
+ can-utils 
+ 2020.11.0 
+ misc 
+ <email-masked> 
+ Debian 12 bookworm/main 
+ can-utils 
+ 2020.11.0 
+ misc 
+ <email-masked> 
+ Debian 13 trixie/main 
+ can-utils 
+ 2023.03 
+ misc 
+ <email-masked> 
+ Debian 14 forky/main 
+ can-utils 
+ 2023.03 
+ misc 
+ <email-masked> 
+ Debian Unstable sid/main 
+ can-utils 
+ 2023.03 
+ misc 
+ <email-masked> 
+ deepin 20 main 
+ can-utils 
+ 2018.02.0 
+ - 
+ <email-masked> 
+ deepin 25 main 
+ can-utils 
+ 2023.03 
+ net 
+ <email-masked> 
+ Devuan 4.0 chimaera/main 
+ can-utils 
+ 2020.11.0 
+ misc 
+ <email-masked> 
+ Devuan Unstable unstable/main 
+ can-utils 
+ 2023.03 
+ misc 
+ <email-masked> 
+ EPEL 8 
+ can-utils 
+ 2023.03 
+ Unspecified 
+ - 
+ EPEL 9 
+ can-utils 
+ 2023.03 
+ Unspecified 
+ - 
+ EPEL 10 
+ can-utils 
+ 2025.01 
+ Unspecified 
+ - 
+ Exherbo olesalscheider 
+ net-misc/can-utils 
+ 2025.01 
+ net-misc 
+ fallback-mnt-exherbo@repology 
+ Fedora 39 updates 
+ can-utils 
+ 2023.03 
+ Unspecified 
+ - 
+ Fedora 39 release 
+ can-utils 
+ 2021.08.0 
+ Unspecified 
+ - 
+ Fedora 40 release 
+ can-utils 
+ 2023.03 
+ Unspecified 
+ - 
+ Fedora 41 release 
+ can-utils 
+ 2023.03 
+ Unspecified 
+ - 
+ Fedora 42 release 
+ can-utils 
+ 2025.01 
+ Unspecified 
+ - 
+ Fedora 43 release 
+ can-utils 
+ 2025.01 
+ Unspecified 
+ - 
+ Fedora 44 release 
+ can-utils 
+ 2025.01 
+ Unspecified 
+ - 
+ Fedora Rawhide development 
+ can-utils 
+ 2025.01 
+ Unspecified 
+ - 
+ Gentoo overlay GURU 
+ net-misc/can-utils 
+ 9999 
+ net-misc 
+ <email-masked> 
+ Gentoo overlay GURU 
+ net-misc/can-utils 
+ 2025.01 
+ net-misc 
+ <email-masked> 
+ Gentoo overlay GURU 
+ net-misc/can-utils 
+ 2023.03 
+ net-misc 
+ <email-masked> 
+ Gentoo overlay GURU 
+ net-misc/can-utils 
+ 2021.08.0 
+ net-misc 
+ <email-masked> 
+ Gentoo overlay Pentoo 
+ net-misc/can-utils 
+ 2025.01 
+ net-misc 
+ <email-masked> 
+ Gentoo overlay Pentoo 
+ net-misc/can-utils 
+ 2023.03 
+ net-misc 
+ <email-masked> 
+ GNU Guix 
+ can-utils 
+ 2025.01 
+ - 
+ - 
+ Kali Linux Rolling main 
+ can-utils 
+ 2023.03 
+ misc 
+ <email-masked> 
+ LiGurOS stable 
+ net-misc/can-utils 
+ 9999 
+ net-misc 
+ <email-masked> 
+ LiGurOS stable 
+ net-misc/can-utils 
+ 2023.03 
+ net-misc 
+ <email-masked> 
+ LiGurOS stable 
+ net-misc/can-utils 
+ 2021.08.0 
+ net-misc 
+ <email-masked> 
+ LiGurOS develop 
+ net-misc/can-utils 
+ 9999 
+ net-misc 
+ <email-masked> 
+ LiGurOS develop 
+ net-misc/can-utils 
+ 2025.01 
+ net-misc 
+ <email-masked> 
+ LiGurOS develop 
+ net-misc/can-utils 
+ 2023.03 
+ net-misc 
+ <email-masked> 
+ LiGurOS develop 
+ net-misc/can-utils 
+ 2021.08.0 
+ net-misc 
+ <email-masked> 
+ nixpkgs stable 24.05 
+ can-utils 
+ 2023.03 
+ - 
+ <email-masked> , <email-masked> 
+ nixpkgs stable 24.11 
+ can-utils 
+ 2023.03 
+ - 
+ <email-masked> , <email-masked> 
+ nixpkgs stable 25.05 
+ can-utils 
+ 2025.01 
+ - 
+ <email-masked> , <email-masked> 
+ nixpkgs stable 25.11 
+ can-utils 
+ 2025.01 
+ - 
+ <email-masked> , <email-masked> 
+ nixpkgs stable 26.05 
+ can-utils 
+ 2025.01 
+ - 
+ <email-masked> , <email-masked> 
+ nixpkgs unstable 
+ can-utils 
+ 2025.01 
+ - 
+ <email-masked> , <email-masked> 
+ Pardus 21 main 
+ can-utils 
+ 2020.11.0 
+ misc 
+ <email-masked> 
+ Parrot parrot-updates/main 
+ can-utils 
+ 2023.03 
+ misc 
+ <email-masked> 
+ Parrot parrot/main 
+ can-utils 
+ 2023.03 
+ misc 
+ <email-masked> 
+ PLD Linux 
+ can-utils 
+ 2025.01 
+ - 
+ - 
+ PureOS amber amber/main 
+ can-utils 
+ 2018.02.0 
+ net 
+ <email-masked> 
+ PureOS byzantium byzantium/main 
+ can-utils 
+ 2020.11.0 
+ net 
+ <email-masked> 
+ PureOS landing landing/main 
+ can-utils 
+ 2023.03 
+ net 
+ <email-masked> 
+ Raspbian Oldstable main 
+ can-utils 
+ 2020.11.0 
+ misc 
+ <email-masked> 
+ Raspbian Stable main 
+ can-utils 
+ 2023.03 
+ misc 
+ <email-masked> 
+ Raspbian Testing main 
+ can-utils 
+ 2023.03 
+ misc 
+ <email-masked> 
+ SlackBuilds 
+ system/can-utils 
+ 2021.08.0 
+ system 
+ <email-masked> 
+ T2 SDE 
+ can-utils 
+ 2025.01 
+ extra/base 
+ <email-masked> 
+ Ubuntu 14.04 trusty/universe 
+ can-utils 
+ 0.0+git20140227 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 16.04 xenial/universe 
+ can-utils 
+ 0.0+git20150902 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 18.04 bionic/universe 
+ can-utils 
+ 2018.02.0 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 20.04 focal/universe 
+ can-utils 
+ 2018.02.0 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 22.04 jammy/universe 
+ can-utils 
+ 2020.11.0 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 24.04 noble/universe 
+ can-utils 
+ 2023.03 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 25.04 plucky/universe 
+ can-utils 
+ 2023.03 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 25.10 questing/universe 
+ can-utils 
+ 2023.03 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 26.04 resolute/universe 
+ can-utils 
+ 2023.03 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 26.10 stonking/universe 
+ can-utils 
+ 2023.03 
+ universe/misc 
+ <email-masked> 
+ Ubuntu 27.04 tenacious/universe 
+ can-utils 
+ 2023.03 
+ universe/misc 
+ <email-masked> 
+ Void Linux x86_64 x86_64 
+ can-utils 
+ 2021.08.0 
+ - 
+ <email-masked> 
+ GitHub repositories:
+ webapp ,
+ updater ,
+ ruleset 
+ Copyright (C) 2016-2026 Dmitry Marakasov 
+ Code licensed under GPLv3+.
+ Click me to get banned 
+ 

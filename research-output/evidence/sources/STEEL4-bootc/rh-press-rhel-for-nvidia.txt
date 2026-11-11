@@ -1,0 +1,111 @@
+ 
+ Red Hat Expands Collaboration with NVIDIA to Pair Enterprise Open Source with Rack-Scale AI for Faster, Production-Ready Innovation 
+ Skip to content Navigation Red Hat Menu Explore Red Hat 
+ AI
+ Overview 
+ AI news
+ Technical blog
+ Live AI events
+ Inference explained
+ See our approach Products 
+ Red Hat AI Enterprise
+ Red Hat AI Inference
+ Red Hat OpenShift AI
+ Explore Red Hat AI Engage & learn 
+ Learning hub
+ AI topics
+ AI partners
+ Services for AI
+ Hybrid cloud
+ Platform solutions Artificial intelligence Build, deploy, and monitor AI models and apps. Linux standardization Get consistency across operating environments. Application development Simplify the way you build, deploy, and manage apps. Automation Scale automation and unite tech, teams, and environments. Use cases Virtualization Modernize operations for virtualized and containerized workloads. Digital sovereignty Control and protect critical infrastructure. Security Code, build, deploy, and monitor security-focused software. Edge computing Deploy workloads closer to the source with edge technology. Explore solutions Solutions by industry 
+ Automotive
+ Financial services
+ Healthcare
+ Industrial sector
+ Media and entertainment
+ Public sector (Global)
+ Public sector (U.S.)
+ Telecommunications
+ Discover cloud technologies Learn how to use our cloud products and solutions at your own pace in the Red Hat® Hybrid Cloud Console. 
+ Products
+ Platforms Red Hat AI icon 
+ artificial intelligence, Red Hat Enterprise Linux AI, Red Hat OpenShift AI, RHEL AI, machine learning
+ Red Hat AI Develop and deploy AI solutions across the hybrid cloud. Red Hat Enterprise Linux icon 
+ RHEL, Linux platforms, CentOS
+ Red Hat Enterprise Linux Support hybrid cloud innovation on a flexible operating system. Red Hat OpenShift icon 
+ Cloud, Containers, Kubernetes
+ Red Hat OpenShift Build, modernize, and deploy apps at scale. New version Red Hat Ansible Automation Platform icon 
+ Management, edge
+ Red Hat Ansible Automation Platform Implement enterprise-wide automation. Featured 
+ Lightwell
+ Red Hat AI Enterprise
+ Red Hat OpenShift Virtualization Engine
+ Red Hat Desktop
+ See all products Try & buy 
+ Start a trial
+ Buy online
+ Integrate with major cloud providers
+ Services & support 
+ Consulting
+ Product support
+ Services for AI
+ Technical Account Management
+ Explore services 
+ Training
+ Training & certification 
+ Courses and exams
+ Certifications
+ Skills assessments
+ Red Hat Academy
+ Learning subscription
+ Explore training Featured 
+ Red Hat Certified System Administrator exam
+ Red Hat System Administration I
+ Red Hat Learning Subscription trial (No cost)
+ Red Hat Certified Engineer exam
+ Red Hat Certified OpenShift Administrator exam
+ Services 
+ Consulting
+ Partner training
+ Product support
+ Services for AI
+ Technical Account Management
+ Learn
+ Build your skills 
+ Documentation
+ Hands-on labs
+ Red Hat learning hub
+ Interactive demos
+ Training and certification
+ More ways to learn 
+ Blog
+ Events and webinars
+ Podcasts and video series
+ Red Hat TV
+ Resource library
+ For developers Discover resources and tools to help you build, deliver, and manage cloud-native applications and services. 
+ Partners
+ For customers 
+ Our partners
+ Red Hat Ecosystem Catalog
+ Find a partner For partners 
+ Partner Connect
+ Become a partner
+ Training
+ Support
+ Access the partner portal Build solutions powered by trusted partners Find solutions from our collaborative community of experts and technologies in the Red Hat® Ecosystem Catalog. Console Docs Support 
+ Search
+ × I'd like to: Start a trial Buy a learning subscription Manage subscriptions Contact sales Contact customer service See Red Hat jobs Help me find: Documentation Developer resources Tech topics Architecture center Security updates Customer support I want to learn more about: AI Application modernization Automation Cloud-native applications Linux Virtualization New For you
+ Recommended We'll recommend resources you may like as you browse. Try these suggestions for now. Product trial center Courses and exams All products Tech topics Resource library Log in Get more with a Red Hat account Console access Event registration Training & trials World-class support Explore more account benefits Log in or register A subscription may be required for some services. Change page language 简体中文 English 日本語 한국어 Português Español Contact us [[name]] Edit avatar Login: [[login]] Account number: [[account_number]] [[email]] Change page language 简体中文 English 日本語 한국어 Português Español Log out 
+ Press releases Red Hat Expands Collaboration with NVIDIA to Pair Enterprise Open Sour... Red Hat Expands Collaboration with NVIDIA to Pair Enterprise Open Source with Rack-Scale AI for Faster, Production-Ready Innovation With the goal of accelerating enterprise AI adoption, Red Hat intends to deliver a complete AI stack optimized for the NVIDIA Vera Rubin platform with Red Hat Enterprise Linux, Red Hat OpenShift and Red Hat AI Red Hat Enterprise Linux for NVIDIA aims to provide a Day 0 starting point for faster-moving, customized, open source experiences for rack-scale AI workloads powered by the NVIDIA Rubin platform, backed by Red Hat’s commitment to production stability Raleigh, NC - January 5, 2026 — Red Hat, the world's leading provider of open source solutions, today announced a landmark expansion of its collaboration with NVIDIA to align enterprise open source technologies to the rapidity of enterprise AI evolution and rack-scale AI advances. As the industry moves beyond individual servers toward unified, high-density systems, Red Hat aims to deliver the starting point for this transformation with Red Hat Enterprise Linux for NVIDIA, a specialized edition of the world’s leading enterprise Linux platform that is optimized for the  NVIDIA Rubin platform and tuned to drive future production on Red Hat OpenShift and Red Hat AI. "NVIDIA's architectural breakthroughs have made AI an imperative, proving that the computing stack will define the industry’s future,” said Matt Hicks, president and CEO, Red Hat . “To meet these tectonic shifts at launch, Red Hat and NVIDIA aim to provide Day 0 support for the latest NVIDIA architectures across Red Hat’s hybrid cloud and AI portfolios. Together, we are fueling the next generation of enterprise AI through the power of open source.” "Red Hat revolutionized enterprise computing with industrial-strength open-source software,” said Jensen Huang, founder and CEO, NVIDIA . “In the age of AI, the entire computing stack—from chips and systems to middleware, models, and the AI lifecycle—is being reinvented from the ground up. Together, NVIDIA and Red Hat are industrializing open source to bring AI to the enterprise, starting with the Vera Rubin platform." Moving into 2026, many organizations are poised to move AI from experimentation into production, with  top-down strategies and centralized AI toolboxes that incorporate AI agents and other advances. This shift, however, demands a stable, high-performance and more secure infrastructure stack, from the underlying architecture to the software running on top of it. The NVIDIA Rubin platform, featuring the new NVIDIA Vera CPU and advanced NVIDIA Rubin GPUs, is designed to deliver a giant leap forward in intelligence for agentic AI and advanced reasoning. With Red Hat optimizing its hybrid cloud portfolio for NVIDIA’s breakthroughs, starting with Day 0 support for this new platform, Red Hat intends to empower organizations to scale their AI initiatives more confidently, with enterprise-grade reliability and a consistent operational model across the hybrid cloud. The backbone for gigascale AI factories The NVIDIA Vera Rubin platform introduces transformative innovations, including the Vera CPU, the most power-efficient CPU for gigascale AI factories, the  BlueField-4 data processor, as well as the NVIDIA Vera Rubin NVL72 rack-scale solution. Today, Red Hat is announcing its intention to deliver Day 0 support for the NVIDIA Rubin platform across the Red Hat AI portfolio, encompassing: Red Hat Enterprise Linux serves as a bridge between this advanced hardware and the complex software ecosystems required for modern AI. As the fundamental building block for Red Hat’s robust portfolio of hybrid cloud solutions, including Red Hat OpenShift and Red Hat AI, Red Hat Enterprise Linux will introduce support for  NVIDIA Confidential Computing for the entire AI lifecycle, providing enhanced security capabilities for GPUs, memory and model data while giving organizations cryptographic proof that their most sensitive AI workloads maintain extensive protections. Red Hat OpenShift  provides NVIDIA Rubin platform customers with ready access to the industry’s leading enterprise hybrid cloud platform powered by Kubernetes. To automate deployment, configuration and lifecycle management of accelerated computing, Red Hat OpenShift adds support for NVIDIA infrastructure software and the NVIDIA CUDA X libraries, delivering optimized performance of a wide range of accelerated workloads. Additionally, support for NVIDIA Bluefield delivers enhanced networking, advanced cluster management and improved resource utilization through a more consistent, enterprise-grade operational experience. Red Hat AI , Red Hat’s production-ready enterprise AI platform, will add new integrations with NVIDIA, expanding support for distributed inference with NVIDIA’s open source models on Red Hat AI Inference Server, Red Hat Enterprise Linux AI and Red Hat OpenShift AI. This includes Red Hat and NVIDIA working to expand support beyond the NVIDIA Nemotron family to other NVIDIA open models, including those aimed at vision, robotics and vertical-specific areas. AI innovations served by the world’s leading enterprise Linux platform at Day 0 Red Hat is introducing Red Hat Enterprise Linux for NVIDIA, a new edition of the world’s leading enterprise Linux platform that incorporates the latest NVIDIA platform advancements at launch. In collaboration with NVIDIA, Red Hat Enterprise Linux for NVIDIA will support the platform features of the latest NVIDIA architectures on Day 0 of availability, starting with the NVIDIA Rubin platform. Red Hat Enterprise Linux for NVIDIA remains fully aligned with the main build of the operating system. As improvements from Red Hat Enterprise Linux for NVIDIA make their way into Red Hat Enterprise Linux, customers will be able to easily transition to the traditional Red Hat Enterprise Linux as their specific production demands require with the confidence that production systems will maintain expected performance levels and application compatibility.  With this new focus, Red Hat and NVIDIA are giving customers a launch-ready, enterprise-class Linux platform that fully supports the latest breakthroughs in rack-scale AI. This includes: Validated interoperability : Red Hat Enterprise Linux is a validated operating system for NVIDIA's latest accelerators, helping to ensure that hardware and software capabilities work seamlessly to reduce deployment friction. Streamlined driver management : Organizations can access validated NVIDIA GPU OpenRM drivers and the CUDA toolkit directly through Red Hat Enterprise Linux repositories, simplifying the lifecycle management of AI infrastructure. Enhanced security posture : Red Hat Enterprise Linux provides a hardened foundation with features like SELinux and proactive vulnerability management, critical for protecting sensitive data in AI training and inference environments. Hybrid cloud consistency : Whether on-premises, at the edge or in the public cloud, Red Hat Enterprise Linux offers a unified platform for NVIDIA accelerated computing infrastructure, reducing infrastructure silos and lowering the total cost of ownership. Backed by the industry’s largest commercial open source ecosystem : Red Hat Enterprise Linux is supported across a robust ecosystem of software, hardware and cloud providers to enable greater choice and deeper capabilities across hybrid cloud environments. Availability Red Hat Enterprise Linux support for the NVIDIA Vera Rubin platform will coincide with its general availability in the second half of 2026. Customers will be able to access the latest drivers and integration tools through the Red Hat Customer Portal. Additional Resources Learn more about Red Hat’s collaboration with NVIDIA Watch NVIDIA Live at CES 2026 Connect with Red Hat Learn more about Red Hat Get more news in the Red Hat newsroom Read the Red Hat blog Follow Red Hat on X Follow  Red Hat on Instagram Watch Red Hat videos on YouTube Follow Red Hat on LinkedIn 
+ In short
+ Red Hat announces a landmark expansion of its collaboration with NVIDIA to align enterprise open source technologies to the rapidity of enterprise AI evolution and rack-scale AI advances. 
+ Mentioned in this article
+ NVIDIA, Red Hat Enterprise Linux, Red Hat OpenShift, Red Hat AI 
+ For more information
+ Learn more about Red Hat’s collaboration with NVIDIA Watch NVIDIA Live at CES 2026 Contact Red Hat PR Subscribe to the feed ABOUT RED HAT Red Hat is the open hybrid cloud technology leader, delivering a trusted, consistent and comprehensive foundation for transformative IT innovation and AI applications. Its portfolio of cloud, developer, AI, Linux, automation and application platform technologies enables any application, anywhere—from the datacenter to the edge. As the world's leading provider of enterprise open source software solutions, Red Hat invests in open ecosystems and communities to solve tomorrow's IT challenges. Collaborating with partners and customers, Red Hat helps them build, connect, automate, secure and manage their IT environments, supported by consulting services and award-winning training and certification offerings. FORWARD-LOOKING STATEMENTS Except for the historical information and discussions contained herein, statements contained in this press release may constitute forward-looking statements within the meaning of the Private Securities Litigation Reform Act of 1995. Forward-looking statements are based on the company’s current assumptions regarding future business and financial performance. These statements involve a number of risks, uncertainties and other factors that could cause actual results to differ materially. Any forward-looking statement in this press release speaks only as of the date on which it is made. Except as required by law, the company assumes no obligation to update or revise any forward-looking statements. ### Red Hat, Red Hat Enterprise Linux, OpenShift and the Red Hat logo are trademarks or registered trademarks of Red Hat, Inc. or its subsidiaries in the U.S. and other countries. Linux® is the registered trademark of Linus Torvalds in the U.S. and other countries. 
+ Platforms Red Hat AI Red Hat Enterprise Linux Red Hat OpenShift Red Hat Ansible Automation Platform See all products Tools Training and certification My account Customer support Developer resources Find a partner Red Hat Ecosystem Catalog Documentation Try, buy, & sell Product trial center Red Hat Store Buy online (Japan) Console Communicate Contact sales Contact customer service Contact training Social 
+ About Red Hat
+ Red Hat is an open hybrid cloud technology leader, delivering a consistent, comprehensive foundation for transformative IT and artificial intelligence (AI) applications in the enterprise. As a trusted adviser to the Fortune 500 , Red Hat offers cloud, developer, Linux, automation, and application platform technologies, as well as award-winning services.
+ Our company How we work Customer success stories Newsroom Open source commitments Our social impact Jobs Change page language 简体中文 English 日本語 한국어 Português Español Red Hat legal and privacy links About Red Hat Jobs Events Locations Contact Red Hat Red Hat Blog Inclusion at Red Hat Cool Stuff Store Red Hat Summit Red Hat legal and privacy links Privacy statement Terms of use All policies and guidelines Digital accessibility © 2026 Red Hat 
+

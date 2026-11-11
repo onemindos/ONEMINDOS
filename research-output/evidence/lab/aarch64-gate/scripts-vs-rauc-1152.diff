@@ -1,0 +1,334 @@
+--- rauc-1152/build.sh
++++ aarch64-gate/build.sh
+@@ -1,18 +1,18 @@
+ #!/bin/bash
+-# LAB-rauc-1152 build: Debian 13 amd64 RAUC A/B disk image with k3s and the
+-# fresh-signal health gate, plus 8 bundles, using RAUC 1.15.2 built from the
+-# pinned upstream tag by build-rauc.sh (not Debian's 1.13 package), and a
+-# verity-only bundle policy. Derived from ../../rauc-k3s-gate/scripts/build.sh.
+-# Run as root INSIDE a disposable Debian 13 Lima VM (amd64 is bootstrapped
+-# through qemu-user binfmt). Never run on the host.
+-#   sudo OUT=/var/lab/r1152-out DL=<dir with verified k3s files> ./build.sh
+-# Needs build-rauc.sh to have run with the same OUT (rauc-arm64, rauc-amd64-dest.tar).
++# LAB-aarch64-gate build: Debian 13 **arm64** RAUC A/B disk image with k3s and
++# the fresh-signal health gate, plus 8 bundles, using RAUC 1.15.2 built from the
++# pinned upstream tag by build-rauc.sh, and a verity-only bundle policy.
++# Derived from ../../rauc-1152/scripts/build.sh; only architecture inputs change
++# (diff: CHANGES-vs-rauc-1152.md). Run as root INSIDE the disposable Debian 13
++# arm64 Lima VM (native bootstrap, no qemu-user). Never run on the host.
++#   sudo OUT=/var/lab/a64-out DL=<dir with verified k3s files> ./build.sh
++# Needs build-rauc.sh to have run with the same OUT (rauc-arm64, rauc-arm64-dest.tar).
+ set -euo pipefail
+ S=$(cd "$(dirname "$0")" && pwd); G=$S/guest
+-W=${W:-/var/lab/r1152}             # VM-local work dir
+-OUT=${OUT:?set OUT}; DL=${DL:?set DL (k3s, sha256sum-amd64.txt, k3s-airgap-images-amd64.tar.zst)}
++W=${W:-/var/lab/a64}             # VM-local work dir
++OUT=${OUT:?set OUT}; DL=${DL:?set DL (k3s-arm64, sha256sum-arm64.txt, k3s-airgap-images-arm64.tar.zst)}
+ SUITE=trixie; MIRROR=http://deb.debian.org/debian
+-COMPAT=onemind-lab-x86_64
++COMPAT=onemind-lab-aarch64
+ IMG_MB=1700                      # ext4 image written into each 2 GiB slot
+ PU_A=6e0a8b0e-0000-4a00-8000-00000000000a
+ PU_B=6e0a8b0e-0000-4a00-8000-00000000000b
+@@ -24,7 +24,7 @@
+ rm -rf "$W"; mkdir -p "$W"/{keys,bundles,stage} "$OUT"
+ 
+ log "verify k3s artifacts against the release sha256sum file"
+-( cd "$DL" && grep -E " (k3s|k3s-airgap-images-amd64.tar.zst)\$" sha256sum-amd64.txt | sha256sum -c - )
++( cd "$DL" && grep -E " (k3s-arm64|k3s-airgap-images-arm64.tar.zst)\$" sha256sum-arm64.txt | sha256sum -c - )
+ 
+ # ---------------------------------------------------------------- 1. lab PKI
+ # Throwaway keys in the VM work dir only; never copied out, never committed.
+@@ -39,15 +39,15 @@
+     -extfile <(printf 'keyUsage=critical,digitalSignature\n') 2>/dev/null
+ done
+ 
+-# ---------------------------------------------------------- 2. amd64 rootfs
+-log "mmdebstrap amd64 $SUITE"
+-mmdebstrap --mode=root --arch=amd64 --variant=minbase \
+-  --include=systemd-sysv,udev,dbus,login,linux-image-amd64,initramfs-tools,$(paste -sd, $OUT/rauc-amd64-runtime-pkgs.txt),grub-common,grub-efi-amd64-bin,e2fsprogs,util-linux,procps,kmod,squashfs-tools,iptables,ca-certificates,curl,socat,iproute2 \
++# ---------------------------------------------------------- 2. arm64 rootfs
++log "mmdebstrap arm64 $SUITE"
++mmdebstrap --mode=root --arch=arm64 --variant=minbase \
++  --include=systemd-sysv,udev,dbus,login,linux-image-arm64,initramfs-tools,$(paste -sd, $OUT/rauc-arm64-runtime-pkgs.txt),grub-common,grub-efi-arm64-bin,e2fsprogs,util-linux,procps,kmod,squashfs-tools,iptables,ca-certificates,curl,socat,iproute2 \
+   $SUITE "$W/rootfs" "deb $MIRROR $SUITE main" \
+   "deb http://deb.debian.org/debian-security $SUITE-security main" 2>&1 | tail -3
+ R=$W/rootfs
+-# Upstream RAUC 1.15.2 (amd64) with its D-Bus service, policy and systemd unit.
+-tar -C $R -xf "$OUT/rauc-amd64-dest.tar"
++# Upstream RAUC 1.15.2 (arm64) with its D-Bus service, policy and systemd unit.
++tar -C $R -xf "$OUT/rauc-arm64-dest.tar"
+ if chroot $R ldd /usr/bin/rauc | grep 'not found'; then echo "ERROR: missing RAUC runtime library"; exit 1; fi
+ chroot $R /usr/bin/rauc --version
+ if chroot $R dpkg-query -W rauc rauc-service >/dev/null 2>&1; then echo "ERROR: Debian rauc package present"; exit 1; fi
+@@ -107,15 +107,15 @@
+ mkdir -p $R/etc/systemd/network
+ printf '[Match]\nName=en* eth*\n[Network]\nDHCP=ipv4\n' > $R/etc/systemd/network/50-dhcp.network
+ # Serial autologin (lab only: disposable guest, no route out).
+-mkdir -p $R/etc/systemd/system/serial-getty@ttyS0.service.d
+-cat > $R/etc/systemd/system/serial-getty@ttyS0.service.d/autologin.conf <<'EOF'
++mkdir -p $R/etc/systemd/system/serial-getty@ttyAMA0.service.d
++cat > $R/etc/systemd/system/serial-getty@ttyAMA0.service.d/autologin.conf <<'EOF'
+ [Service]
+ ExecStart=
+ ExecStart=-/sbin/agetty --autologin root --noclear --keep-baud 115200 %I linux
+ EOF
+ # k3s + air-gap images (verified above) + OneMind gate files.
+-install -m 755 "$DL/k3s" $R/usr/local/bin/k3s
+-install -m 644 "$DL/k3s-airgap-images-amd64.tar.zst" $R/usr/lib/onemind/k3s-airgap-images.tar.zst
++install -m 755 "$DL/k3s-arm64" $R/usr/local/bin/k3s
++install -m 644 "$DL/k3s-airgap-images-arm64.tar.zst" $R/usr/lib/onemind/k3s-airgap-images.tar.zst
+ install -m 755 "$G/onemind-k3s-check" "$G/onemind-health-gate" "$G/rauc-pre-install" "$G/onemind-api-respond" $R/usr/lib/onemind/
+ install -m 644 "$G"/manifests/*.yaml $R/usr/lib/onemind/manifests/
+ install -m 644 "$G/k3s.service" "$G/onemind-health-gate.service" "$G/onemind-api.service" $R/etc/systemd/system/
+@@ -125,12 +125,20 @@
+ chroot $R passwd -l root >/dev/null
+ chroot $R systemctl mask systemd-logind.service >/dev/null 2>&1   # restart-loops in this minimal image (LAB-rauc §9.6)
+ chroot $R dpkg-query -W -f='${Package} ${Version}\n' > "$OUT/image-packages.txt"
++log "T0 checks: aarch64 binaries, kernel, watchdog module"
++for f in $R/usr/bin/rauc $R/usr/local/bin/k3s $R/usr/bin/grub-editenv $R/boot/vmlinuz-$KVER; do
++  echo "$(basename $f): $(file -bL $f | cut -c1-90)"
++done
++for f in $R/usr/bin/rauc $R/usr/local/bin/k3s $R/usr/bin/grub-editenv; do
++  file -bL $f | grep -q 'ARM aarch64' || { echo "ERROR: $f is not aarch64"; exit 1; }
++done
++find $R/lib/modules/$KVER -name 'i6300esb.ko*' | sed "s|$R||" | grep . || echo "WARNING: no i6300esb module (T7 BLOCKED)"
+ 
+ # ---------------------------------------------------- 3. GRUB EFI + grub.cfg
+-log "grub-mkstandalone (x86_64-efi)"
++log "grub-mkstandalone (arm64-efi)"
+ printf 'insmod part_gpt\ninsmod fat\ninsmod ext2\ninsmod loadenv\ninsmod test\ninsmod linux\nset root=(hd0,gpt1)\nconfigfile /EFI/BOOT/grub.cfg\n' > $R/tmp/embed.cfg
+-chroot $R grub-mkstandalone -O x86_64-efi -o /tmp/BOOTX64.EFI "boot/grub/grub.cfg=/tmp/embed.cfg"
+-cp $R/tmp/BOOTX64.EFI "$W/stage/"; rm -f $R/tmp/BOOTX64.EFI $R/tmp/embed.cfg
++chroot $R grub-mkstandalone -O arm64-efi -o /tmp/BOOTAA64.EFI "boot/grub/grub.cfg=/tmp/embed.cfg"
++cp $R/tmp/BOOTAA64.EFI "$W/stage/"; rm -f $R/tmp/BOOTAA64.EFI $R/tmp/embed.cfg
+ sed -e "s/@PU_A@/$PU_A/g" -e "s/@PU_B@/$PU_B/g" "$G/grub.cfg.in" > "$W/stage/grub.cfg"
+ grub-editenv "$W/stage/grubenv" create
+ grub-editenv "$W/stage/grubenv" set ORDER="A B" A_OK=1 A_TRY=0 B_OK=0 B_TRY=0
+@@ -193,7 +201,7 @@
+ size(){ sgdisk -i "$1" "$D" | awk '/Partition size/{print $3}'; }
+ rm -f "$W/stage/esp.img"; mkfs.fat -F32 -n ESP -C "$W/stage/esp.img" $(( $(size 1) / 2 )) >/dev/null
+ mmd -i "$W/stage/esp.img" ::/EFI ::/EFI/BOOT
+-mcopy -i "$W/stage/esp.img" "$W/stage/BOOTX64.EFI" "$W/stage/grub.cfg" "$W/stage/grubenv" ::/EFI/BOOT/
++mcopy -i "$W/stage/esp.img" "$W/stage/BOOTAA64.EFI" "$W/stage/grub.cfg" "$W/stage/grubenv" ::/EFI/BOOT/
+ dd if="$W/stage/esp.img" of="$D" bs=512 seek=$(start 1) conv=notrunc,sparse status=none
+ dd if="$W/stage/v1.ext4" of="$D" bs=4M oflag=seek_bytes seek=$(( $(start 2) * 512 )) conv=notrunc,sparse status=none
+ mkdir -p "$W/datafs/bundles" "$W/datafs/rauc" "$W/datafs/onemind"
+--- rauc-1152/run-tests.py
++++ aarch64-gate/run-tests.py
+@@ -1,7 +1,9 @@
+ #!/usr/bin/env python3
+-"""LAB-rauc-1152 test driver (from LAB-rauc-k3s-gate; adds the RAUC version check in T1 and T11). Runs INSIDE the disposable Lima VM.
++"""LAB-aarch64-gate test driver (from LAB-rauc-1152; changes: QEMU aarch64 + KVM
++command line, AAVMF firmware, 60 MiB/s write throttle, T8 kill delay 2 s,
++uname check in T1). Runs INSIDE the disposable Lima VM (nested KVM).
+ 
+-Boots the x86_64 RAUC A/B image under QEMU TCG with user-mode networking
++Boots the arm64 RAUC A/B image under QEMU/KVM (virt machine) with user-mode networking
+ (restrict=on: no route to the LAN or internet) and an i6300esb watchdog,
+ drives the serial console, and runs T1..T11 from README section 3.
+ Power cut = SIGKILL of the QEMU process.
+@@ -13,6 +15,10 @@
+ ANSI = re.compile(rb"\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][0-9A-B]|\r")
+ GATE = r"HEALTH-GATE: \S+ RESULT (\S+) slot=(\w) version=(\d+)"
+ ENV = "grub-editenv /boot/efi/EFI/BOOT/grubenv list"
++ACCEL = os.environ.get("LAB_ACCEL", "kvm")          # "hvf" for the host fallback (README §4)
++CODE_FD = os.environ.get("LAB_CODE_FD", "/usr/share/AAVMF/AAVMF_CODE.fd")
++VARS_FD = os.environ.get("LAB_VARS_FD", "/usr/share/AAVMF/AAVMF_VARS.fd")
++WRITE_BPS = int(os.environ.get("LAB_WRITE_BPS", "62914560"))  # 60 MiB/s (README §4, frozen); 0 = off (diagnosis only)
+ 
+ 
+ def envkv(out):
+@@ -28,18 +34,19 @@
+         self.buf, self.pos, self.lock, self.proc = "", 0, threading.Lock(), None
+ 
+     def start(self):
+-        cmd = ["qemu-system-x86_64", "-machine", "q35", "-accel", "tcg,thread=multi",
+-               "-cpu", "max", "-smp", "4", "-m", "3072", "-nodefaults",
+-               "-display", "none", "-vga", "none",
++        cmd = ["qemu-system-aarch64", "-machine", "virt", "-accel", ACCEL,
++               "-cpu", "host", "-smp", "4", "-m", "3072", "-nodefaults",
++               "-display", "none",
+                "-nic", "user,model=virtio-net-pci,restrict=on",
+                "-device", "i6300esb", "-action", "watchdog=reset",
+-               "-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd",
++               "-drive", f"if=pflash,format=raw,readonly=on,file={CODE_FD}",
+                "-drive", f"if=pflash,format=raw,file={self.vars_fd}",
+-               "-drive", f"if=virtio,format=raw,cache=writeback,file={self.disk}",
++               "-drive", f"if=virtio,format=raw,cache=writeback,{f'throttling.bps-write={WRITE_BPS},' if WRITE_BPS else ''}file={self.disk}",
+                "-serial", "stdio", "-monitor", "none"]
+         self.mark(f"QEMU START {' '.join(cmd)}")
+         self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                      stderr=subprocess.STDOUT, bufsize=0)
++        CHILDREN.append(self.proc)
+         threading.Thread(target=self._reader, daemon=True).start()
+ 
+     def _reader(self):
+@@ -112,6 +119,7 @@
+ 
+ 
+ RESULTS = []
++CHILDREN = []   # every QEMU this driver started
+ 
+ 
+ def record(tid, ok, detail):
+@@ -155,8 +163,8 @@
+     a = ap.parse_args()
+     order = ["T1", "T2", "T11", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10"]
+     upto = order.index(a.upto)
+-    vars_fd = os.path.join(os.path.dirname(a.disk), "OVMF_VARS.fd")
+-    shutil.copy("/usr/share/OVMF/OVMF_VARS_4M.fd", vars_fd)
++    vars_fd = os.path.join(os.path.dirname(a.disk), "AAVMF_VARS.fd")
++    shutil.copy(VARS_FD, vars_fd)
+     logf = open(a.log, "w")
+     t0 = time.time()
+     vm = VM(a.disk, vars_fd, logf)
+@@ -168,10 +176,11 @@
+     f = wait_fresh(vm)
+     vm.shell_ready(); env = state(vm, "T1")
+     _, apps = vm.run("k3s kubectl -n apps get pods --no-headers")
+-    _, ver = vm.run("rauc --version; grep bundle-formats /etc/rauc/system.conf; dpkg-query -W rauc 2>&1 | tail -1")
+-    v1152 = re.search(r"^rauc v?1\.15\.2\s*$", ver, re.M) is not None
++    _, ver = vm.run("rauc --version; grep bundle-formats /etc/rauc/system.conf; dpkg-query -W rauc 2>&1 | tail -1; echo ARCH=$(uname -m) KERNEL=$(uname -r)")
++    ver = re.sub(r"\x1b?\[\?[0-9;]*[A-Za-z]", "", ver)   # bracketed-paste fragments split across reads (run-1 driver bug)
++    v1152 = re.search(r"^rauc v?1\.15\.2\s*$", ver, re.M) is not None and "ARCH=aarch64" in ver
+     record("T1", g == ("committed-boot", "A", 1) and f.startswith("K3S-FRESH ok") and "0/1" in apps and v1152,
+-           f"gate={g} {f[:90]} apps_not_ready={'0/1' in apps} rauc_1.15.2={v1152} t={time.time()-t0:.0f}s")
++           f"gate={g} {f[:90]} apps_not_ready={'0/1' in apps} rauc_1.15.2_and_aarch64={v1152} t={time.time()-t0:.0f}s")
+ 
+     if want("T2"):
+         vm.mark("T2 wrong-key bundle")
+@@ -247,7 +256,7 @@
+         vm.expect(r"trial marker slot=A", 900)
+         vm.expect(r"Marking target slot rootfs\.0 as non-bootable", 900)
+         vm.expect(r"Copying image|writing data to device", 900)
+-        time.sleep(6)
++        time.sleep(2)                       # was 6 s under TCG (README §4)
+         pct = re.findall(r"(\d+)% Copying image", vm.since(0))
+         activated = "as bootable (active/primary)" in vm.since(vm.pos)
+         vm.kill()
+@@ -301,4 +310,9 @@
+ 
+ 
+ if __name__ == "__main__":
++    import atexit, signal
++    # Never leave QEMU running if the driver dies (run-1 lesson: a stray QEMU kept
++    # writing the disk and loading the CPU after the driver was stopped).
++    atexit.register(lambda: [p.kill() for p in CHILDREN if p.poll() is None])   # only our own QEMU
++    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
+     sys.exit(main())
+--- rauc-1152/debug-boot.py
++++ aarch64-gate/debug-boot.py
+@@ -1,9 +1,11 @@
+ import importlib.util, sys, time, shutil
+ spec = importlib.util.spec_from_file_location("rt", sys.argv[1]); rt = importlib.util.module_from_spec(spec); spec.loader.exec_module(rt)
+-shutil.copy("/usr/share/OVMF/OVMF_VARS_4M.fd", "/var/lab/run/OVMF_VARS.fd")
+-vm = rt.VM("/var/lab/run/disk.img", "/var/lab/run/OVMF_VARS.fd", open(sys.argv[2], "w"))
+-vm.start(); vm.wait_gate(); vm.shell_ready()
+-time.sleep(int(sys.argv[3]))
+-for c in sys.argv[4:]:
+-    rc, out = vm.run(c, 300); print("$", c); print(out[-6000:])
+-vm.kill()
++shutil.copy("/usr/share/AAVMF/AAVMF_VARS.fd", "/var/lab/run/AAVMF_VARS.fd")
++vm = rt.VM("/var/lab/run/disk.img", "/var/lab/run/AAVMF_VARS.fd", open(sys.argv[2], "w"))
++try:
++    vm.start(); vm.wait_gate(); vm.shell_ready()
++    time.sleep(int(sys.argv[3]))
++    for c in sys.argv[4:]:
++        rc, out = vm.run(c, 300); print("$", c); print(out[-6000:])
++finally:
++    vm.kill()
+--- rauc-1152/trim-logs.sh
++++ aarch64-gate/trim-logs.sh
+@@ -2,7 +2,7 @@
+ # Trim a raw serial log to the lines that carry evidence, and mask VM-internal
+ # addresses (QEMU user-net 10.0.2.x / fec0:: and any RFC1918) as <vm-private-ip>.
+ #   trim-logs.sh <serial.log> > serial-trimmed.log
+-grep -a -E '#####|GRUB-RAUC|HEALTH-GATE|BAD-BOOT|BAD-HANG|Kernel panic|watchdog|pre-install: trial|Marking target|Copying image|writing data|LastError|signature|not allowed|rauc 1\.15|bundle-formats|--- state|^ONEMIND_VERSION|^ORDER=|^[AB]_(OK|TRY)=|Booted from|boot status|pending|^(apps|kube-system|onemind-system) ' "$1" \
++grep -a -E '#####|GRUB-RAUC|HEALTH-GATE|BAD-BOOT|BAD-HANG|Kernel panic|watchdog|pre-install: trial|Marking target|Copying image|writing data|LastError|signature|not allowed|rauc v?1\.15|ARCH=|bundle-formats|--- state|^ONEMIND_VERSION|^ORDER=|^[AB]_(OK|TRY)=|Booted from|boot status|pending|^(apps|kube-system|onemind-system) ' "$1" \
+  | grep -a -v -E 'echo __R|grep -E' \
+  | sed -E -e 's/10\.0\.2\.[0-9]+/<vm-private-ip>/g' -e 's/fec0:[0-9a-f:]+/<vm-private-ip>/g' \
+          -e 's/(192\.168|172\.(1[6-9]|2[0-9]|3[01]))\.[0-9]+\.[0-9]+/<vm-private-ip>/g' \
+--- rauc-1152/guest/grub.cfg.in
++++ aarch64-gate/guest/grub.cfg.in
+@@ -44,7 +44,7 @@
+ save_env --file=(hd0,gpt1)/EFI/BOOT/grubenv A_TRY A_OK B_TRY B_OK ORDER
+ echo "GRUB-RAUC: ORDER=$ORDER A_OK=$A_OK A_TRY=$A_TRY B_OK=$B_OK B_TRY=$B_TRY default=$default"
+ 
+-CMDLINE="console=ttyS0,115200 panic=5 rootwait loglevel=4"
++CMDLINE="console=ttyAMA0,115200 panic=5 rootwait loglevel=4"
+ 
+ menuentry "No good slot left: A (ungated fallback)" {
+     linux (hd0,gpt2)/boot/vmlinuz root=PARTUUID=@PU_A@ $CMDLINE rauc.slot=A
+--- rauc-1152/build-rauc.sh
++++ aarch64-gate/build-rauc.sh
+@@ -1,9 +1,10 @@
+ #!/bin/bash
+-# LAB-rauc-1152: build RAUC from the pinned upstream tag, for arm64 (this VM,
+-# used to create bundles) and amd64 (installed into the test image), then run
+-# T12 (CVE-2026-34155 regression at bundle creation).
+-# Run as root INSIDE the disposable Debian 13 Lima VM. Never on the host.
+-#   sudo OUT=/var/lab/r1152-out bash build-rauc.sh
++# LAB-aarch64-gate: build RAUC from the pinned upstream tag natively for arm64.
++# The same binary creates the bundles (in the build VM) and is installed into
++# the arm64 test image (meson install --destdir). Derived from
++# ../../rauc-1152/scripts/build-rauc.sh (the amd64 chroot and T12 are dropped).
++# Run as root INSIDE the disposable Debian 13 arm64 Lima VM. Never on the host.
++#   sudo OUT=/var/lab/a64-out bash build-rauc.sh
+ set -euo pipefail
+ TAG=v1.15.2
+ COMMIT=4fb7c798d6ae412344fb8f8d310d773046af3441
+@@ -13,8 +14,8 @@
+  -Dsystemdunitdir=/usr/lib/systemd/system -Dsystemdcatalogdir=/usr/lib/systemd/catalog \
+  -Ddbuspolicydir=/usr/share/dbus-1/system.d -Ddbussystemservicedir=/usr/share/dbus-1/system-services \
+  -Ddbusinterfacesdir=/usr/share/dbus-1/interfaces"
+-DEPS="build-essential meson ninja-build pkgconf libglib2.0-dev libssl-dev libjson-glib-dev libdbus-1-dev libfdisk-dev libcurl4-openssl-dev libnl-genl-3-dev"
+ rm -rf "$B"; mkdir -p "$B" "$OUT"
++[ "$(uname -m)" = aarch64 ] || { echo "ERROR: run on arm64"; exit 1; }
+ 
+ log "clone $TAG (shallow) and check the commit"
+ git clone -q --depth 1 --branch "$TAG" https://github.com/rauc/rauc.git "$B/src"
+@@ -28,34 +29,13 @@
+ ninja -C "$B/arm64" >/dev/null
+ "$B/arm64/rauc" --version
+ install -m 755 "$B/arm64/rauc" "$OUT/rauc-arm64"
+-
+-log "amd64 build chroot (qemu-user)"
+-mmdebstrap --mode=root --arch=amd64 --variant=buildd --include="${DEPS// /,}" \
+-  trixie "$B/chroot-amd64" "deb http://deb.debian.org/debian trixie main" 2>&1 | tail -2
+-cp -a "$B/src" "$B/chroot-amd64/src"
+-chroot "$B/chroot-amd64" sh -c "meson setup $MESON_OPTS /build /src >/dev/null && ninja -C /build >/dev/null && /build/rauc --version && DESTDIR=/dest meson install -C /build --no-rebuild >/dev/null"
+-( cd "$B/chroot-amd64/dest" && find . -type f | sort ) | tee "$OUT/rauc-amd64-files.txt"
+-tar -C "$B/chroot-amd64/dest" -cf "$OUT/rauc-amd64-dest.tar" .
+-chroot "$B/chroot-amd64" sh -c 'ldd /dest/usr/bin/rauc | awk "/=>/{print \$3}" | xargs -r realpath | sed "s|^/lib/|/usr/lib/|" | xargs -r dpkg -S 2>/dev/null | cut -d: -f1 | sort -u' | tee "$OUT/rauc-amd64-runtime-pkgs.txt"
+-chroot "$B/chroot-amd64" dpkg-query -W -f='${Package} ${Version}\n' $DEPS libglib2.0-0t64 libssl3t64 2>/dev/null > "$OUT/rauc-amd64-builddeps.txt" || true
+-( cd "$OUT" && sha256sum rauc-arm64 rauc-amd64-dest.tar ) | tee "$OUT/rauc-build.sha256"
+-
+-# ---------------------------------------------------------------- T12
+-log "T12: CVE-2026-34155 regression at bundle creation (2.1 GiB payload)"
+-T=$B/t12; mkdir -p "$T/keys" "$T/content"; cd "$T/keys"
+-openssl req -x509 -newkey rsa:3072 -nodes -days 3 -sha256 -keyout k.pem -out c.pem -subj "/O=OneMind LAB/CN=t12" 2>/dev/null
+-head -c 2150M /dev/urandom > "$T/content/rootfs.ext4"     # incompressible, > 2 GiB after squashfs
+-mf(){ printf '[update]\ncompatible=t12\nversion=1\n\n[bundle]\nformat=%s\n\n[image.rootfs]\nfilename=rootfs.ext4\n' "$1" > "$T/content/manifest.raucm"; }
+-t12(){ # $1 label $2 rauc-binary $3 format
+-  mf "$3"; rm -f "$T/out.raucb"
+-  if "$2" bundle --cert="$T/keys/c.pem" --key="$T/keys/k.pem" "$T/content" "$T/out.raucb" > "$T/$1.log" 2>&1; then
+-    echo "T12 $1: CREATED $(stat -c %s "$T/out.raucb") bytes"
+-  else echo "T12 $1: REFUSED: $(grep -E -o 'exceeds[^"]*|Error[^"]*' "$T/$1.log" | head -1)"; fi
+-  rm -f "$T/out.raucb"
+-}
+-echo "control binary: $(/usr/bin/rauc --version) ($(dpkg-query -W -f='${Version}' rauc))"
+-t12 debian-1.13-plain /usr/bin/rauc plain
+-t12 upstream-1.15.2-plain "$B/arm64/rauc" plain
+-t12 upstream-1.15.2-verity "$B/arm64/rauc" verity
+-rm -rf "$T/content"
++DESTDIR="$B/dest" meson install -C "$B/arm64" --no-rebuild >/dev/null
++( cd "$B/dest" && find . -type f | sort ) | tee "$OUT/rauc-arm64-files.txt"
++tar -C "$B/dest" -cf "$OUT/rauc-arm64-dest.tar" .
++ldd "$B/arm64/rauc" | awk '/=>/{print $3}' | xargs -r realpath | sed 's|^/lib/|/usr/lib/|' \
++  | xargs -r dpkg -S 2>/dev/null | cut -d: -f1 | sort -u | tee "$OUT/rauc-arm64-runtime-pkgs.txt"
++dpkg-query -W -f='${Package} ${Version}\n' gcc meson ninja-build libglib2.0-dev libssl-dev libcurl4-openssl-dev \
++  libjson-glib-dev libdbus-1-dev libfdisk-dev libnl-genl-3-dev > "$OUT/rauc-arm64-builddeps.txt"
++( cd "$OUT" && sha256sum rauc-arm64 rauc-arm64-dest.tar ) | tee "$OUT/rauc-build.sha256"
++echo "rauc-1152 arm64 binary sha256 for comparison (H3): 7f076b8b8ab7882dd4522952d511354c9d23690280945965ec14ad0009639d1f"
+ log done

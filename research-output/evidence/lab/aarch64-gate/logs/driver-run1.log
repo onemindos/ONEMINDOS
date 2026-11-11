@@ -1,0 +1,10 @@
+##### [07:21:34] T1 first boot
+##### [07:21:34] QEMU START qemu-system-aarch64 -machine virt -accel kvm -cpu host -smp 4 -m 3072 -nodefaults -display none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd -drive if=pflash,format=raw,file=/var/lab/run1/AAVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,throttling.bps-write=62914560,file=/var/lab/run1/disk.img -serial stdio -monitor none
+===> T1: FAIL gate=('committed-boot', 'A', 1) K3S-FRESH ALERT not healthy after 300s on a committed slot: fail: no core pod for kube-sys apps_not_ready=True rauc_1.15.2_and_aarch64=False t=342s
+##### [07:27:16] T2 wrong-key bundle
+##### [07:27:17] install wrong-key.raucb rc=1 in 1s
+===> T2: PASS rc=1 sig_error=True env_unchanged=True marker_written=False
+##### [07:27:17] T11 plain-format bundle, valid signature, verity-only policy
+##### [07:27:24] install plain-good.raucb rc=1 in 7s
+===> T11: PASS rc=1 format_error=True env_unchanged=True marker_written=False
+##### [07:27:24] T3 good update -> B

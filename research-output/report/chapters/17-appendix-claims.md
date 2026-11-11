@@ -1,9 +1,11 @@
 # Appendix C · Sources for every claim ID in this report {#sec-claims .unnumbered}
 
-This report cites **444 claim IDs**. Each row gives the claim's source as recorded in the research ledger (`research-output/evidence/claims/*.csv`), with its source type and status. The ledger also holds the version, release date, support end, pinned commit or tag, re-check date and the files that use each claim; saved page text with SHA-256 hashes is in `research-output/evidence/sources/`. The full bibliography is `research-output/SOURCES.md`. PRIMARY = official docs, legal text or code at a pinned commit; PRIMARY-METADATA = catalogue or metadata page; SECONDARY = press or third party; lab rows are this run's own VM experiments.
+This report cites **466 claim IDs**. Each row gives the claim's source as recorded in the research ledger (`research-output/evidence/claims/*.csv`), with its source type and status. The ledger also holds the version, release date, support end, pinned commit or tag, re-check date and the files that use each claim; saved page text with SHA-256 hashes is in `research-output/evidence/sources/`. The full bibliography is `research-output/SOURCES.md`. PRIMARY = official docs, legal text or code at a pinned commit; PRIMARY-METADATA = catalogue or metadata page; SECONDARY = press or third party; lab rows are this run's own VM experiments.
 
 | Claim ID | Type · status | Accessed | Source |
 |---|---|---|---|
+| C-CIT4-001 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​IronFlock/​ironflockos/​blob/​bb33a82dfa959366bb90896fc69b601604131185/​README.md#L18-L77 |
+| C-CIT4-003 | PRIMARY · verified | 2026-11-11 | https:/​/​docs.nvidia.com/​cuda/​cuda-installation-guide-linux/​index.html |
 | C-COST-002 | PRIMARY · verified | 2026-11-11 | https:/​/​ubuntu.com/​pricing/​devices |
 | C-COST-007 | PRIMARY · verified | 2026-11-11 | https:/​/​www.debian.org/​releases/​ |
 | C-COST-009 | PRIMARY · verified | 2026-11-11 | https:/​/​www.redhat.com/​en/​blog/​red-hat-device-edge-decision-framework |
@@ -13,11 +15,20 @@ This report cites **444 claim IDs**. Each row gives the claim's source as record
 | C-DEC-008 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​torvalds/​linux/​blob/​adc218676eef25575469234709c2d87185ca223a/​kernel/​module/​signing.c#L64-L65 |
 | C-DEC-010 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​torvalds/​linux/​blob/​adc218676eef25575469234709c2d87185ca223a/​security/​integrity/​Kconfig#L65-L75 |
 | C-DEC-013 | UNVERIFIED · partial | 2026-11-11 | https:/​/​rauc.io/​ ; https:/​/​github.com/​rauc/​rauc/​blob/​4fb7c798d6ae412344fb8f8d310d773046af3441/​docs/​integration.rst#L1801-L1833 |
+| C-DEC4-001 | PRIMARY · verified | 2026-11-11 | research-output/​01-FOUNDATION-DECISION.md §3.1.6 (d) and §3.6 script; research-output/​evidence/​scorecard-rev3.md §3.2 |
+| C-DEC4-002 | PRIMARY · verified | 2026-11-11 | research-output/​01-FOUNDATION-DECISION.md L239-L247 |
+| C-DEC4-006 | PRIMARY · verified | 2026-11-11 | research-output/​01-FOUNDATION-DECISION.md §3.1.6 (e)-(f) |
+| C-DEC4-007 | PRIMARY · verified | 2026-11-11 | research-output/​01-FOUNDATION-DECISION.md §3.1.6 (g)-(h) |
+| C-DEC4-010 | PRIMARY · verified | 2026-11-11 | research-output/​23-RISK-REGISTER.md L125; research-output/​evidence/​lifecycle-cost-2036.md L53 |
+| C-FIX4-001 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​canonical/​ubuntu.com/​blob/​ec15716b1c4b95f1860672d4274dda730ee9b4fe/​templates/​pricing/​devices.html |
+| C-FIX4-004 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​canonical/​ubuntu.com/​blob/​ec15716b1c4b95f1860672d4274dda730ee9b4fe/​templates/​pricing/​pro.html |
+| C-FIX4-010 | PRIMARY · verified | 2026-11-11 | research-output/​evidence/​lab/​ubuntu-2604-leg/​versions.md L20-L23 |
+| C-FIX4-014 | PRIMARY · verified | 2026-11-11 | research-output/​evidence/​scorecard-weights.md L106, L159 |
+| C-LAB-aarch64-gate-004 | PRIMARY · verified | 2026-11-11 | evidence/​lab/​aarch64-gate/​logs/​driver-run4.log ; evidence/​lab/​aarch64-gate/​logs/​driver-run5.log ; evidence/​lab/​aarch64-gate/​logs/​serial-run4-trimme… |
 | C-LAB-debian-rugix-022 | PRIMARY · verified | 2026-11-11 | research-output/​evidence/​lab/​debian-rugix/​logs/​run4-arm64/​events.log |
 | C-LAB-debian-rugix-023 | PRIMARY · verified | 2026-11-11 | research-output/​evidence/​lab/​debian-rugix/​logs/​run3-arm64/​events.log |
 | C-LAB-fedora-bootc-009 | PRIMARY · verified | 2026-11-10 | research-output/​evidence/​lab/​fedora-bootc/​logs/​03b-after-rollback.log |
 | C-LAB-fedora-bootc-011 | PRIMARY · verified | 2026-11-10 | research-output/​evidence/​lab/​fedora-bootc/​logs/​04e-finalize-root-cause.log |
-| C-LAB-fedora-bootc-013 | PRIMARY · verified | 2026-11-10 | https:/​/​github.com/​fedora-iot/​greenboot-rs/​blob/​6efc3c109b54fec5e8a0ab575721258d28a85d9d/​src/​main.rs#L223-L249 |
 | C-LAB-fedora-bootc-015 | PRIMARY · verified | 2026-11-10 | research-output/​evidence/​lab/​fedora-bootc/​logs/​05-rebase-and-data.log |
 | C-LAB-k3s-footprint-restore-007 | PRIMARY · verified | 2026-11-10 | evidence/​lab/​k3s-footprint-restore/​logs/​run-sqlite.log |
 | C-LAB-k3s-footprint-restore-008 | PRIMARY · verified | 2026-11-10 | evidence/​lab/​k3s-footprint-restore/​logs/​run-sqlite.log |
@@ -25,13 +36,16 @@ This report cites **444 claim IDs**. Each row gives the claim's source as record
 | C-LAB-mender-013 | PRIMARY · verified | 2026-11-11 | research-output/​evidence/​lab/​mender/​logs/​serial-run1-trimmed.log ; research-output/​evidence/​lab/​mender/​logs/​serial-run2-trimmed.log |
 | C-LAB-minimal-image-dc20-011 | PRIMARY · verified | 2026-11-11 | evidence/​lab/​minimal-image-dc20/​results/​sbom-cve.md |
 | C-LAB-rauc-010 | PRIMARY · verified | 2026-11-10 | https:/​/​github.com/​home-assistant/​operating-system/​blob/​ab7d0f1a0174760353780a21be2befecbc80a672/​buildroot-external/​board/​pc/​grub.cfg#L10-L61 |
-| C-LAB-rauc-015 | PRIMARY · verified | 2026-11-11 | evidence/​lab/​rauc/​logs/​serial-run4-trimmed.log |
 | C-LAB-rauc-1152-011 | PRIMARY · verified | 2026-11-11 | evidence/​lab/​rauc-1152/​logs/​driver-run1.log ; evidence/​lab/​rauc-1152/​logs/​driver-run2.log ; evidence/​lab/​rauc-1152/​logs/​serial-run2-trimmed.log |
 | C-LAB-rauc-1152-012 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​raspberrypi/​documentation/​blob/​21d772e7ee022e36a8f43c3ee75e20ca359fb832/​documentation/​asciidoc/​computers/​raspberry-pi/​bootflow-e… |
 | C-LAB-rauc-k3s-gate-001 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​rauc/​rauc/​blob/​2d17b27041db7fa8b13a61c5e168f49310a06566/​src/​install.c#L1444-L1661 ; https:/​/​github.com/​rauc/​rauc/​blob/​1183a396a2… |
 | C-LAB-rauc-k3s-gate-004 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​k3s-io/​k3s/​blob/​f6973cb850e9b245585363d15bde80904ac862fd/​pkg/​rootless/​mounts.go#L34-L40 ; https:/​/​github.com/​k3s-io/​k3s/​blob/​f69… |
 | C-LAB-rauc-k3s-gate-008 | PRIMARY · verified | 2026-11-11 | research-output/​evidence/​lab/​rauc-k3s-gate/​logs/​serial-run1-trimmed.log and serial-run2-trimmed.log |
+| C-LAB-secureboot-1152-005 | PRIMARY · verified | 2026-11-11 | evidence/​lab/​secureboot-1152/​logs/​driver-run1.log |
+| C-LAB-secureboot-1152-009 | PRIMARY · verified | 2026-11-11 | evidence/​lab/​secureboot-1152/​logs/​driver-e1.log |
+| C-LAB-secureboot-1152-010 | PRIMARY · partial | 2026-11-11 | https:/​/​github.com/​rauc/​rauc/​blob/​4fb7c798d6ae412344fb8f8d310d773046af3441/​src/​mark.c#L235-L243 |
 | C-LAB-secureboot-rauc-003 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​tianocore/​edk2/​blob/​fbe0805b2091393406952e84724188f8c1941837/​MdeModulePkg/​Universal/​BdsDxe/​BdsEntry.c#L1052-L1093 |
+| C-LAB-secureboot-rauc-012 | PRIMARY · verified | 2026-11-11 | evidence/​lab/​secureboot-rauc/​logs/​serial-run1-trimmed.log |
 | C-LAB-secureboot-rauc-013 | PRIMARY · verified | 2026-11-11 | evidence/​lab/​secureboot-rauc/​logs/​serial-run1-trimmed.log |
 | C-LAB-secureboot-rauc-018 | PRIMARY · verified | 2026-11-11 | evidence/​lab/​secureboot-rauc/​logs/​serial-e1-trimmed.log |
 | C-LAB-secureboot-rauc-020 | PRIMARY · verified | 2026-11-11 | evidence/​lab/​secureboot-rauc/​logs/​driver-run1.log |
@@ -44,7 +58,8 @@ This report cites **444 claim IDs**. Each row gives the claim's source as record
 | C-MATRIX-008 | PRIMARY-METADATA · verified | 2026-11-11 | https:/​/​api.github.com/​repos/​IceWhaleTech/​CasaOS/​commits ; research-output/​evidence/​sources/​MATRIX/​commit-author-concentration-2026-11-11.txt |
 | C-PLAN180-001 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​rauc/​rauc (git ls-remote --tags) |
 | C-PLAN180-003 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​coreos/​bootupd/​pull/​935 |
-| C-REF-DC-cost-003 | PRIMARY · verified | 2026-11-10 | https:/​/​www.freexian.com/​blog/​debian-lts-report-2026-09/​ |
+| C-PROTO4-002 | PRIMARY · verified | 2026-11-11 | \<repo>\@414d60a2528a2e0172ff35180c78f6801ec4b1af:research-output/​evidence/​scorecard-weights.md#L35-L41 |
+| C-PROTO4-018 | PRIMARY · verified | 2026-11-11 | \<repo>\@7836316f8e63128fbd3c9095a74770b33cc63597:research-output/​evidence/​scorecard-weights.md#L67;L196 |
 | C-REF-DC-cost-007 | SECONDARY · verified | 2026-11-10 | https:/​/​forums.developer.nvidia.com/​t/​l4t-redistribution-license-issue-for-manually-generated-root-file-system/​306285 |
 | C-REF-DC-cost-009 | PRIMARY · verified | 2026-11-10 | https:/​/​github.com/​NVIDIA/​open-gpu-kernel-modules/​issues/​1258 |
 | C-REF-DC-longevity-004 | PRIMARY · verified | 2026-11-10 | https:/​/​www.home-assistant.io/​blog/​2025/​05/​22/​deprecating-core-and-supervised-installation-methods-and-32-bit-systems/​ |
@@ -70,7 +85,6 @@ This report cites **444 claim IDs**. Each row gives the claim's source as record
 | C-REF-W7-T-004 | PRIMARY · verified | 2026-11-10 | https:/​/​developer.nvidia.com/​embedded/​jetson-linux-archive |
 | C-REF-W7-T-005 | PRIMARY · verified | 2026-11-10 | https:/​/​nvidia.custhelp.com/​app/​answers/​detail/​a_id/​5797/​ |
 | C-REF-W7L-001 | PRIMARY · verified | 2026-11-10 | https:/​/​forums.developer.nvidia.com/​t/​announcing-end-of-life-for-nvidia-jetpack-5-with-the-release-of-jetpack-5-1-8/​387449 |
-| C-REF-W8-security-006 | PRIMARY · verified | 2026-11-10 | https:/​/​www.moxa.com/​en/​products/​industrial-computing/​system-software/​moxa-industrial-linux |
 | C-REF3-DC-cost-001 | SECONDARY · verified | 2026-11-11 | https:/​/​www.theregister.com/​personal-tech/​2026/​11/​03/​raspberry-pi-hikes-prices-again-barely-a-month-after-the-last-round/​5307004 |
 | C-REF3-DC-longevity-008 | SECONDARY · verified | 2026-11-11 | https:/​/​lwn.net/​Articles/​1079808/​ |
 | C-REF3-DC-security-008 | PRIMARY · verified | 2026-11-11 | https:/​/​docs.k3s.io/​security/​secrets-encryption ; https:/​/​docs.k3s.io/​cli/​secrets-encrypt |
@@ -79,15 +93,23 @@ This report cites **444 claim IDs**. Each row gives the claim's source as record
 | C-REF3-DC-technical-005 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​home-assistant/​architecture/​discussions/​1197 |
 | C-REF3-W19-technical-002 | PRIMARY-METADATA · verified | 2026-11-11 | https:/​/​github.com/​omacom/​omarchy-plugin-marketplace/​blob/​d2bf9a7a2005550b705ea271ff5cdd59aac05359/​registry.json |
 | C-REF3-W19-technical-007 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​home-assistant/​core/​tree/​d9115f3e0492aa94b06edb439ab1ebcd594b4738/​homeassistant/​components |
+| C-REF4-DC-longevity-001 | PRIMARY · verified | 2026-11-11 | https:/​/​www.centos.org/​download/​ |
+| C-REF4-DC-longevity-006 | COMMUNITY · verified | 2026-11-11 | https:/​/​community.umbrel.com/​t/​umbreld-crashes-every-36h-with-gpf-in-libc-so-6-node-process-on-amd64-umbrelos-1-5-0-update-system-also-broken/​24970 |
+| C-REF4-DC-longevity-016 | PRIMARY · verified | 2026-11-11 | https:/​/​api.github.com/​repos/​k3s-io/​kine/​commits?​since=2025-11-11T00:00:00Z |
+| C-REF4-DC-security-001 | PRIMARY · verified | 2026-11-11 | https:/​/​rauc.readthedocs.io/​en/​latest/​reference.html |
+| C-REF4-DC-security-007 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​raspberrypi/​usbboot/​blob/​master/​docs/​secure-boot.md |
+| C-REF4-DC-security-008 | PRIMARY · verified | 2026-11-11 | https:/​/​www.raspberrypi.com/​documentation/​security/​security-architecture.html |
 | C-SCORE-023 | PRIMARY · verified | 2026-11-11 | https:/​/​canonical.com/​blog/​bosch-rexroth-adopts-ubuntu-core-and-snaps-for-app-based-ctrlx-automation-platform |
 | C-SCORE-025 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​AlmaLinux/​bootc-images-rpi/​blob/​bb8e83e6b898db63ca2b53a69343f067dfa4f28a/​README.md#L3-L44 |
 | C-SCORE-027 | SECONDARY · verified | 2026-11-11 | https:/​/​nullr0ute.com/​2026/​10/​raspberry-pi-5-on-fedora/​ |
-| C-STEEL-IIOT-008 | PRIMARY · verified | 2026-11-11 | https:/​/​access.redhat.com/​compliance/​iec-62443-4-2 |
 | C-STEEL-jb-002 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​OE4T/​meta-tegra/​blob/​c5efa2ff644b6d90f8ac2ed09f57cbfb22194253/​recipes-kernel/​linux/​linux-yocto-tegra.inc |
 | C-STEEL-jb-010 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​balena-os/​balena-jetson-orin/​blob/​862a3522f4292c6bf8a00432b5087038fae00083/​.gitmodules |
-| C-STEEL-jb-015 | PRIMARY · verified | 2026-11-11 | https:/​/​docs.nvidia.com/​cuda/​cuda-installation-guide-linux/​index.html |
-| C-STEEL-ubu-010 | PRIMARY · verified | 2026-11-11 | https:/​/​canonical.com/​blog/​canonical-iec-62443-4-1 |
+| C-STEEL-ubu-003 | PRIMARY · verified | 2026-11-11 | https:/​/​canonical.com/​blog/​nvidia-gtc-2026 |
+| C-STEEL-ubu-016 | PRIMARY · verified | 2026-11-11 | https:/​/​launchpad.net/​ubuntu/​resolute/​+source/​linux-restricted-modules |
 | C-STEEL-updates-mender-015 | PRIMARY · verified | 2026-11-10 | https:/​/​mender.io/​pricing |
+| C-STEEL4-bootc-013 | PRIMARY · partial | 2026-11-11 | https:/​/​repo.download.nvidia.com/​jetson/​rhel-9.4/​r36.3.1/​nvidia-l4t.repo |
+| C-STEEL4-bootc-014 | PRIMARY · verified | 2026-11-11 | https:/​/​almalinux.org/​p/​the-almalinux-os-trademark-usage-policy/​ |
+| C-STEEL4-bootc-025 | PRIMARY · partial | 2026-11-11 | https:/​/​github.com/​bootc-dev/​bootc/​blob/​27f1e64ea93639929ed0088cdc230c220dac0fe6/​docs/​src/​bootc-installation.7.md#L121-L131 |
 | C-TD-balenaos-003 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​balena-os/​meta-balena/​blob/​48184b689a43b762c5eea6efbc16b018eed70839/​COPYING.Apache-2.0 |
 | C-TD-balenaos-010 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​balena-os/​meta-balena/​blob/​48184b689a43b762c5eea6efbc16b018eed70839/​meta-balena-common/​classes/​image_types_balena.bbclass#L387-L402 |
 | C-TD-balenaos-012 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​balena-os/​meta-balena/​blob/​48184b689a43b762c5eea6efbc16b018eed70839/​meta-balena-common/​recipes-containers/​hostapp-update/​files/​h… |
@@ -264,7 +286,6 @@ This report cites **444 claim IDs**. Each row gives the claim's source as record
 | C-W18-019 | PRIMARY · verified | 2026-11-10 | https:/​/​developer.nvidia.com/​embedded/​jetpack |
 | C-W18-021 | PRIMARY · verified | 2026-11-10 | https:/​/​docs.nvidia.com/​jetson/​archives/​r39.2/​DeveloperGuide/​IN/​QuickStart.html |
 | C-W18-023 | PRIMARY · verified | 2026-11-10 | https:/​/​docs.nvidia.com/​jetson/​orin-nano-devkit/​user-guide/​latest/​quick_start.html |
-| C-W18-027 | PRIMARY · partial | 2026-11-10 | https:/​/​docs.nvidia.com/​cuda/​cuda-installation-guide-linux/​index.html |
 | C-W18-028 | PRIMARY · verified | 2026-11-10 | https:/​/​www.nvidia.com/​en-us/​drivers/​unix/​ |
 | C-W18-029 | PRIMARY · verified | 2026-11-10 | https:/​/​kubernetes.io/​docs/​concepts/​windows/​intro/​ |
 | C-W18-030 | PRIMARY · verified | 2026-11-10 | https:/​/​github.com/​apple-oss-distributions/​xnu/​blob/​f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/​README.md#L3-L4 |
@@ -341,7 +362,6 @@ This report cites **444 claim IDs**. Each row gives the claim's source as record
 | C-W2-054 | PRIMARY · verified | 2026-11-10 | research-output/​evidence/​lab/​w2-fedora-bootc-greenboot/​h2.log |
 | C-W2-056 | PRIMARY · verified | 2026-11-10 | research-output/​evidence/​lab/​w2-fedora-bootc-greenboot/​run-build.sh |
 | C-W2-057 | PRIMARY · verified | 2026-11-10 | https:/​/​ubuntu.com/​download/​raspberry-pi |
-| C-W2-058 | PRIMARY · verified | 2026-11-10 | https:/​/​github.com/​rugix/​rugix/​blob/​c2f5f4f3db45890fe542dbc9608be969a3432cc1/​installer/​README.md#L20 |
 | C-W3-001 | PRIMARY · verified | 2026-11-10 | https:/​/​api.github.com/​repos/​rugix/​rugix/​commits?​since=2025-11-10T00:00:00Z |
 | C-W3-024 | PRIMARY · verified | 2026-11-10 | https:/​/​github.com/​home-assistant/​operating-system/​blob/​fc301f556647b53281e853b9ce7f44915b3c7b14/​buildroot-external/​ota/​rel-ca-xsign-oldroot.cert.p… |
 | C-W3-025 | PRIMARY · verified | 2026-11-10 | https:/​/​github.com/​home-assistant/​supervisor/​blob/​c1c6f0a754c0656eb1af189f11009f1cfc4b3e28/​supervisor/​core.py#L230-L239 ; https:/​/​github.com/​home-a… |
@@ -353,6 +373,7 @@ This report cites **444 claim IDs**. Each row gives the claim's source as record
 | C-W3-049 | PRIMARY · verified | 2026-11-10 | https:/​/​docs.nvidia.com/​jetson/​archives/​r39.2/​DeveloperGuide/​SD/​RootFileSystem.html |
 | C-W3-050 | PRIMARY · verified | 2026-11-10 | https:/​/​docs.nvidia.com/​jetson/​archives/​r39.2/​DeveloperGuide/​SD/​SoftwarePackagesAndTheUpdateMechanism.html |
 | C-W3-052 | PRIMARY · verified | 2026-11-10 | https:/​/​github.com/​OE4T/​tegra-demo-distro/​blob/​e151343f1dd3ff6c19c447214b75ba3150c2d416/​README.md#L14-L90 |
+| C-W3-058 | PRIMARY · verified | 2026-11-10 | https:/​/​github.com/​bootc-dev/​bootc/​blob/​27f1e64ea93639929ed0088cdc230c220dac0fe6/​docs/​src/​bootc-bootloaders.7.md#L8-L16 ; https:/​/​github.com/​bootc-… |
 | C-W4-012 | PRIMARY · verified | 2026-11-10 | https:/​/​www.suse.com/​lifecycle/​ |
 | C-W4-016 | PRIMARY · verified | 2026-11-10 | https:/​/​kubernetes.io/​blog/​2025/​11/​11/​ingress-nginx-retirement/​ |
 | C-W4-022 | PRIMARY · verified | 2026-11-10 | https:/​/​docs.nvidia.com/​datacenter/​cloud-native/​gpu-operator/​latest/​platform-support.html |
@@ -388,6 +409,7 @@ This report cites **444 claim IDs**. Each row gives the claim's source as record
 | C-W6-002 | PRIMARY · verified | 2026-11-10 | https:/​/​eur-lex.europa.eu/​legal-content/​EN/​TXT/​HTML/​?​uri=CELEX:32024R2847 |
 | C-W6-008 | PRIMARY · verified | 2026-11-10 | https:/​/​eur-lex.europa.eu/​legal-content/​EN/​TXT/​HTML/​?​uri=CELEX:32024R2847 |
 | C-W6-011 | PRIMARY · verified | 2026-11-10 | https:/​/​eur-lex.europa.eu/​legal-content/​EN/​TXT/​HTML/​?​uri=CELEX:32024R2847 |
+| C-W6-013 | PRIMARY · verified | 2026-11-10 | https:/​/​eur-lex.europa.eu/​legal-content/​EN/​TXT/​HTML/​?​uri=CELEX:32024R2847 |
 | C-W6-026 | PRIMARY · verified | 2026-11-10 | https:/​/​csrc.nist.gov/​projects/​cryptographic-module-validation-program/​certificate/​4407 |
 | C-W6-042 | PRIMARY · verified | 2026-11-10 | https:/​/​eur-lex.europa.eu/​legal-content/​EN/​TXT/​HTML/​?​uri=CELEX:32026R1744 |
 | C-W6-047 | PRIMARY · verified | 2026-11-10 | https:/​/​www.freedesktop.org/​software/​systemd/​man/​latest/​systemd-cryptenroll.html |

@@ -1,0 +1,8 @@
+grub-common	2.12-9+deb13u2
+grub-efi-arm64-bin	2.12-9+deb13u2
+linux-image-cloud-arm64	6.12.115-2
+mmdebstrap	1.5.7-1+deb13u1
+qemu-efi-aarch64	2025.02-8+deb13u1
+qemu-system-arm	1:10.0.13+ds-0+deb13u1
+QEMU emulator version 10.0.13 (Debian 1:10.0.13+ds-0+deb13u1)
+6.12.115+deb13.1-cloud-arm64

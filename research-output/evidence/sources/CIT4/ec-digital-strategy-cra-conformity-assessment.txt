@@ -1,0 +1,114 @@
+Source: https://digital-strategy.ec.europa.eu/en/policies/cra-conformity-assessment (accessed 2026-11-11; saved as text; emails/MACs/serials masked)
+
+ 
+ Cyber Resilience Act - Conformity assessment | Shaping Europe’s digital future 
+ Skip to main content 
+ en Select your language
+ Close 
+ bg български 
+ es español 
+ cs čeština 
+ da dansk 
+ de Deutsch 
+ et eesti 
+ el ελληνικά 
+ en English 
+ fr français 
+ ga Gaeilge 
+ hr hrvatski 
+ it italiano 
+ lv latviešu 
+ lt lietuvių 
+ hu magyar 
+ mt Malti 
+ nl Nederlands 
+ pl polski 
+ pt português 
+ ro română 
+ sk slovenčina 
+ sl slovenščina 
+ fi suomi 
+ sv svenska 
+ Search 
+ Search 
+ Shaping Europe’s digital future
+ Menu Close Menu
+ Back Previous items Next items Home 
+ Policies 
+ Activities 
+ News 
+ Library 
+ Funding 
+ Calendar 
+ Consultations 
+ AI Office 
+ Home 
+ … 
+ Policies 
+ Cybersecurity 
+ EU cybersecurity policies 
+ Cyber Resilience Act 
+ Cyber Resilience Act - Conformity assessment 
+ Cyber Resilience Act - Conformity assessment 
+ Most products, such as household appliances, computer games or mobile applications, will be subject to a self-assessment by the manufacturer. 
+ However, for certain products deemed important from a cybersecurity point of view, such as anti-virus software, boot managers or network management systems, manufacturers will have to either apply harmonised standards or undergo an assessment by a third party called notified body (a conformity assessment body that is notified under the CRA). In some cases, products, such as secure elements, firewalls or hypervisors, are subject to mandatory third-party conformity assessments. 
+ What are the main rules?
+ Conformity assessment bodies
+ Conformity assessment bodies are, in general terms, private companies that help manufacturers to demonstrate conformity under the CRA. Before they can operate, they have to be assessed, designated, notified and monitored by the Member State where they are established. The interested bodies may contact the relevant notifying authority that will inform them about the relevant procedure. Once a conformity assessment body has become a notified body it will be published on the NANDO website of the European Commission. 
+ Product categories & conformity assessment procedures
+ As a general rule, the manufacturer retains flexibility as to choice of procedure (self-assessment or third-party assessment) through which they demonstrate conformity with the CRA, except for some product categories (important and critical products listed respectively in Annex III and Annex IV of the CRA) for which a stricter conformity assessment is required:
+ Default category of products (e.g., memory chips, mobile apps, smart speakers, computer games): self-assessment is allowed irrespective of the technical specification used by the manufacturer to demonstrate conformity.
+ Important products (e.g., operating systems, anti-virus, routers, firewalls): In some cases, the participation of a notified body is mandatory, especially when the manufacturer has not applied harmonised standards in support of the CRA.
+ Critical products  (e.g., smart cards, secure elements, smart meter gateways): The use of a notified body is mandatory in any case. 
+ The European Commission has specified the technical descriptions of the product category via the Implementing Regulation (EU) 2025/2392 .
+ The conformity assessment procedures are defined in the CRA (see Annex VIII ) and further guidance may support the implementation. In the future, products certified under an EU cybersecurity certification scheme might not need the participation of a notified body. The exact conditions need to be specified by the Commission via a delegated act.
+ Member States play an important role in the management of conformity assessment bodies (CABs). They may choose to assess the competence of CABs through cooperation with national accreditation bodies. 
+ ENISA published a document on the Technical Competence Requirements for CRA Notified Bodies, available at this link . 
+ Relevant cooperation bodies
+ List of designated Notifying Authorities (NAs) 
+ Working Group of Notifying Authorities (restricted)
+ The European co-operation for Accreditation (EA) is the official network of National Accreditation Bodies (NABs) in Europe formally recognised by the European Commission. 
+ Working Group of CRA notified bodies (link available soon) 
+ Reference documents and links
+ The NANDO website lists the notified bodies under European Union legislation, including (once available) for the CRA.
+ ENISA's Technical Competence Requirements for CRA Notified Bodies .
+ Quick Links
+ Cyber Resilience Act - Legal text 
+ Cyber Resilience Act - Summary of the legal text 
+ Commission guidance on the CRA 
+ FAQs on the CRA 
+ Related Content
+ Big Picture
+ Cyber Resilience Act
+ The Cyber Resilience Act (CRA) aims to make sure all digital products are safe from cyber threats. This rulebook requires that devices and software are designed, updated, and maintained to protect users in our increasingly digital world. 
+ Last update
+ 31 July 2026
+ Print as PDF 
+ Shaping Europe’s digital future 
+ This site is managed by:
+Directorate-General for Communications Networks, Content and Technology
+ Digital EU on Mastadon 
+ Digital EU on LinkedIn 
+ Digital EU on Facebook 
+ Digital EU on Youtube 
+ Digital EU on Instagram 
+ Digital EU on X 
+ About us 
+ Privacy statement 
+ Copyright notice 
+ About Directorate-General CONNECT 
+ Language Policy 
+ Follow the European Commission
+ Mastodon 
+ LinkedIn 
+ Bluesky 
+ Facebook 
+ Youtube 
+ Other 
+ Contact us 
+ Report an IT vulnerability 
+ Languages on our websites 
+ Cookies 
+ Privacy policy 
+ Legal notice 
+ Accessibility 

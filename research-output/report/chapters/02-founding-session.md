@@ -120,14 +120,14 @@ ADR-001 was **proposed, not approved**; you said "I have questions". Here are th
 
 | Your question | Short answer | Chapter |
 |---|---|---|
-| Why Ubuntu vs Debian? | Ubuntu scores slightly higher on hardware fit and NVIDIA, but a modified Ubuntu needs Canonical's permission [C-W2-050]; Debian wins the tie-break and the Ubuntu leg stays in CI | 4 |
+| Why Ubuntu vs Debian? | Under the locked rules **Ubuntu 26.04 wins narrowly** (65 vs bootc 64 and Debian 63; 6–4 over bootc on the tie-break) on NVIDIA, ROS 2 and ecosystem, but a modified Ubuntu needs Canonical's permission or a debranded rebuild [C-W2-050]. Debian is built alongside until the base is locked, and becomes the base if bootc fails on a real Pi 5 | 4 |
 | Why do competitors ship their own image? | Because only an image gives atomic updates with rollback; script installs were dropped [C-REF-DC-longevity-004] | 4, 7 |
 | Why k3s when I run full Kubernetes? | Same API and manifests, one binary, about 1 GB of RAM [C-LAB-k3s-footprint-restore-007]; RKE2 is the bigger sibling from the same vendor | 6 |
 | How does the dashboard work? | One web app, role-based "Pro" screens, rescue screen outside Kubernetes | 3 |
 | Backups, rollback, security, updates (your top concerns) | Fresh-signal health gate, restic with a recovery key and verified restores, day-1 Secure Boot layout | 7 |
 | "Use the proven competitors" | Done for 30 products, each with a constraint-fit verdict | 10 |
 
-**Final verdict on ADR-001** (`01` §7): **confirmed** in architecture (own image, Debian core, A/B with a health gate, k3s, restic); **changed** in the update engine (Rugix → RAUC, OneMind-built), the k3s datastore backup method, the RKE2/FIPS text, CRA timing and Secure Boot timing; **overturned** on Kairos for Jetson, the system-upgrade-controller on image nodes, "DOKS converts in three changes" and "no Fedora/RHEL role".
+**Final verdict on ADR-001** (`01` §7): **confirmed** in architecture (own image, A/B with a health gate, k3s, restic); **changed, conditionally,** in the base (Debian 13 → Ubuntu 26.04 by the frozen scorecard, gated on Canonical, Z-01), and **changed** in the update engine (Rugix → RAUC, OneMind-built), the k3s datastore backup method, the RKE2/FIPS text, CRA timing and Secure Boot timing; **overturned** on Kairos for Jetson, the system-upgrade-controller on image nodes, "DOKS converts in three changes" and "no Fedora/RHEL role".
 
 ## The second to sixth briefs {#sec-briefs}
 

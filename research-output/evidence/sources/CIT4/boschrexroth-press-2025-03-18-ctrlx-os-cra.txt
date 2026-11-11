@@ -1,0 +1,101 @@
+Source: https://www.boschrexroth.com/en/at/company/press/ctrlx-os-cra-30528.html (PI 016/25; accessed 2026-11-11; saved as text; emails/MACs/serials masked)
+
+
+        ctrlX OS Cyber Resilience Act           
+ Skip to main content 
+ home> home|https://www.boschrexroth.com/en/at/|press_release<>30528">
+ Home 
+ company> company|https://dc-mkt-prod.cloud.bosch.tech/at/en/company/|press_release<>30528">
+ Company 
+ Press Portal 
+ back_to_overview> back_to_overview|https://www.boschrexroth.com/en/at/company/press/|press_detail_page_global<>2462454">
+ Back to overview
+ Download 
+ download|ctrlx_os_from_bosch_rexroth:_ready_for_the_cyber_resilience_act<>download_(pdf)> download_(pdf)|ctrlx-os-cra-30528.pdf<>pdf">
+ Download (PDF)
+ download|ctrlx_os_from_bosch_rexroth:_ready_for_the_cyber_resilience_act<>download_with_assets_(zip)> download_with_assets_(zip)|https://dc-mkt-prod.cloud.bosch.tech/customer-experience/zip/press-media-assets?index=rb-dc-at-en&_id=05d8173e-f8ef-4502-ae52-93481881e1b2.en_at&mediatype=all<>zip">
+ Download with assets (ZIP)
+ Press release 
+ ctrlX OS from Bosch Rexroth: ready for the Cyber Resilience Act
+ Manuela Kessler 
+ 18.03.2025 
+ Lohr am Main / Germany 
+ | PI 016/25 
+Operating system ctrlX OS is well prepared for the requirements of the CRA
+ctrlX OS is certified according to IEC 62443-4-2 and can be flexibly extended by additional security functions
+As a security gateway, the control system ctrlX CORE enables the secure design of existing and new automation solutions
+ The Linux operating system ctrlX OS from Bosch Rexroth is ready for the requirements of the CRA and is IEC 62443-4-2 certified. (Image source: Bosch Rexroth AG, created with the help of AI) 
+      The Cyber Resilience Act (CRA), which came into force at the end of 2024, presents companies with the challenge of making their digital products comprehensively secure. The Bosch Rexroth operating system ctrlX OS is already well prepared for the requirements of the CRA and shows how manufacturing companies can future-proof themselves with this solution. 
+ The CRA requires manufacturers to design products with digital components in such a way as to ensure a high level of cybersecurity. Firstly, it imposes requirements on the cybersecurity of products with digital elements, and secondly on processes established by manufacturers for dealing with vulnerabilities, in order to ensure cybersecurity during the period of support for products. In addition to a detailed risk assessment, cyber risks must already be taken into account in product development. The products must be designed to be secure by default and capable of being updated. In addition, the CRA requires that critical security incidents and exploited vulnerabilities are reported within 24 hours and remediated quickly through updates.
+ “The Cyber Resilience Act sets mandatory cybersecurity requirements for both manufacturers and resellers throughout the product life cycle – for all products that are linked to another device or network. With ctrlX OS we are already well prepared for the requirements of the CRA. Customers can be confident that our products will set them up for the future,” explains Steffen Winkler, Senior Vice President Sales Business Unit Automation & Electrification Solutions at Bosch Rexroth.
+ ctrlX OS is ready for the CRA 
+ The ctrlX OS Linux-based operating system is a key element in the Bosch Rexroth world of automation. ctrlX OS is secure by design and secure by default and certified according to IEC 62443-4-2 Security Level 2 by TÜV Rheinland. Data that is saved, transferred or otherwise processed is fully protected. It also provides a platform to quickly and reliably issue and apply security patches without impacting operation. 
+ The operating system with ecosystem is provided for the industrial environment and can thus also be used by other providers on their automation components. Consequently, all devices based on ctrlX OS – whether they’re from Bosch Rexroth or third-party vendors – meet very high standards with regard to cybersecurity. For these reasons, ctrlX OS is considered one of the most modern, open, and secure operating systems. 
+ Control system ctrlX CORE provides cybersecurity 
+ One example of a Bosch Rexroth ctrlX OS device is the control system ctrlX CORE, which is designed to be secure as standard. ctrlX CORE ensures a very high level of cybersecurity thanks to secure by default and secure by design and through compliance with international standards. All user access on the devices is subject to strict password rules by default. The level of protection can be increased even more, if necessary. Functional extensions and vulnerability remediation updates are also regularly provided through a secure channel. Access to device data always requires authentication and authorization. The control system uses the ctrlX OS certified according to IEC 62443-4-2 and thus complies with the latest cybersecurity standards. 
+ In addition, the control system can be extended with additional security applications from the ctrlX OS Store as required, for example with the Security Scanner, Firewall and VPN Client apps. These support users in meeting the requirements of the CRA for their machines. The Firewall app reduces vulnerabilities to a minimum. The VPN Client ensures secure remote maintenance and protected access to the devices from external networks. Access can be restricted based on the machine status and on-site approval. As part of the machine acceptance checks at network level, the Security Scanner enables the complete inventory of all components as well as the assessment of the entire machinery’s security status. Potential vulnerabilities can therefore be identified and targeted.
+ Retrofit: the control system also makes existing machines secure 
+ The control system ctrlX CORE provides cybersecurity for both new and existing industrial environments. “To meet the requirements of the CRA and especially in the context of increasing cyber attacks, it is essential to also safeguard existing machines. The ctrlX CORE can also be used as a security gateway in automation solutions with third-party hardware and software to make them secure. With the ctrlX CORE, modern cybersecurity functions can also be integrated into older systems. This is a key advantage in the brownfield environment,” says Winkler.
+ Customized security concepts 
+ Bosch Rexroth also supports companies with comprehensive consulting and services in the area of cybersecurity. This includes, for example, carrying out threat analysis and risk assessments, security scans, and training to build IT security skills. Customized cybersecurity concepts are developed and implemented together with the users. 
+ “We are currently consistently aligning all products and services to ensure that companies comply with the regulations and can thus design their systems securely and robustly in the long term – this is the only way for them to be ready for the future,” says Winkler.
+ back_to_overview> 30528<>back_to_overview|https://www.boschrexroth.com/en/at/company/press/|press_detail_page_global<>2462454">
+ Back to overview
+ Download 
+ download|ctrlx_os_from_bosch_rexroth:_ready_for_the_cyber_resilience_act<>download_(pdf)> 30528<>download_(pdf)|ctrlx-os-cra-30528.pdf<>pdf">
+ Download (PDF)
+ download|ctrlx_os_from_bosch_rexroth:_ready_for_the_cyber_resilience_act<>download_with_assets_(zip)> 30528<>download_with_assets_(zip)|https://dc-mkt-prod.cloud.bosch.tech/customer-experience/zip/press-media-assets?index=rb-dc-at-en&_id=05d8173e-f8ef-4502-ae52-93481881e1b2.en_at&mediatype=all<>zip">
+ Download with assets (ZIP)
+ Media Assets
+ Here you can download the images from this Press Release
+ download|media_assets<>download_all_images> download_all_images|https://www.boschrexroth.com/tt/at/s://dc-mkt-prod.cloud.bosch.tech/customer-experience/zip/press-media-assets?index=rb-dc-at-en&_id=05d8173e-f8ef-4502-ae52-93481881e1b2.en_at&mediatype=images<>zip"> 
+ Download all images 
+ download|media_assets<>operating_system_ctrlx_os_is_already_well_prepared_for_the_requirements_of_the_cra_(image_source:_bosch_rexroth_ag,_created_with_the_help_of_ai)> operating_system_ctrlx_os_is_already_well_prepared_for_the_requirements_of_the_cra_(image_source:_bosch_rexroth_ag,_created_with_the_help_of_ai)|photo_pi_016_25_ctrlx_os_cra<>jpg"> 
+ operating system ctrlX OS is already well prepared for the requirements of the CRA (Image source: Bosch Rexroth AG, created with the help of AI) 
+ icon-dc_down> icon-dc_down">
+ Basic Information Bosch Rexroth
+ As one of the world’s leading suppliers of drive and control technologies, Bosch Rexroth ensures efficient, powerful and safe movement in machines and systems of any size. The company bundles global application experience in the market segments of Mobile and Industrial Applications as well as Factory Automation. With its intelligent components, customized system solutions, engineering and services, Bosch Rexroth is creating the necessary environment for fully connected applications. Bosch Rexroth offers its customers hydraulics, electric drive and control technology, gear technology and linear motion and assembly technology, including software and interfaces to the Internet of Things. With locations in over 80 countries, around 33,800 associates generated sales revenue of 7.6 billion euros in 2023.
+ icon-dc_down> icon-dc_down">
+ Basic Information Bosch
+ The Bosch Group is a leading global supplier of technology and services. It employs roughly 417,900 associates worldwide (as of December 31, 2024). According to preliminary figures, the company generated sales of 90.5 billion euros in 2024. Its operations are divided into four business sectors: Mobility, Industrial Technology, Consumer Goods, and Energy and Building Technology. With its business activities, the company aims to use technology to help shape universal trends such as automation, electrification, digitalization, connectivity, and an orientation to sustainability. In this context, Bosch’s broad diversification across regions and industries strengthens its innovativeness and robustness. Bosch uses its proven expertise in sensor technology, software, and services to offer customers cross-domain solutions from a single source. It also applies its expertise in connectivity and artificial intelligence in order to develop and manufacture user-friendly, sustainable products. With technology that is “Invented for life,” Bosch wants to help improve quality of life and conserve natural resources. The Bosch Group comprises Robert Bosch GmbH and its roughly 470 subsidiary and regional companies in over 60 countries. Including sales and service partners, Bosch’s global manufacturing, engineering, and sales network covers nearly every country in the world. Bosch’s innovative strength is key to the company’s further development. At 136 locations across the globe, Bosch employs some 86,900 associates in research and development, of which nearly 48,000 are software engineers.
+ icon-dc_down> icon-dc_down">
+ Press Contact 
+ Please get in touch with our Press Contact
+ Spokesperson technology topics
+ Manuela Kessler 
+ call|press_contact<>+499352184145|+499352184145"> 
+ +49 9352 18-4145 
+ email|press_contact<><email-masked>|<email-masked>">
+ <email-masked> 
+ Related News
+ <>hannover_messe_2025> hannover_messe_2025|https://www.boschrexroth.com/en/at/company/press/press-kit-bosch-rexroth-hannover-messe-2025-31104.html|bosch_rexroth_presents_future-proof_hydraulics,_open_automation_solutions_and_ai-based_services_at_hannover_messe.<>0<>1"> 
+ Assembly Technology
+ Industrial Hydraulics
+ Linear Motion Technology
+ Electric Drives and Controls
+ 31/03/2025
+ <>hannover_messe_2025> hannover_messe_2025|https://www.boschrexroth.com/en/at/company/press/press-kit-bosch-rexroth-hannover-messe-2025-31104.html|bosch_rexroth_presents_future-proof_hydraulics,_open_automation_solutions_and_ai-based_services_at_hannover_messe.<>0<>1">
+ Hannover Messe 2025
+ Bosch Rexroth presents future-proof hydraulics, open automation solutions and AI-based services at Hannover Messe.
+ hannover_messe_2025><>read_more hannover_messe_2025<>read_more|https://www.boschrexroth.com/en/at/company/press/press-kit-bosch-rexroth-hannover-messe-2025-31104.html|bosch_rexroth_presents_future-proof_hydraulics,_open_automation_solutions_and_ai-based_services_at_hannover_messe.<>0<>1">Read More 
+ <>bosch_rexroth_at_the_logimat:_holistic_automation_solutions_for_mobile_robots> bosch_rexroth_at_the_logimat:_holistic_automation_solutions_for_mobile_robots|https://www.boschrexroth.com/en/at/company/press/automation-for-mobile-robots-29952.html|_at_logimat,_bosch_rexroth_will_be_showcasing_open,_flexible_automation_solutions_for_automated_guided_vehicles_(agv)_and_autonomous_mobile_robots_(amr)._<>1<>1"> 
+ Linear Motion Technology
+ Electric Drives and Controls
+ Materials Handling
+ Intralogistics (Factory Automation)
+ Automation and Electrification Solutions
+ Robotics
+ 11/03/2025
+ <>bosch_rexroth_at_the_logimat:_holistic_automation_solutions_for_mobile_robots> bosch_rexroth_at_the_logimat:_holistic_automation_solutions_for_mobile_robots|https://www.boschrexroth.com/en/at/company/press/automation-for-mobile-robots-29952.html|_at_logimat,_bosch_rexroth_will_be_showcasing_open,_flexible_automation_solutions_for_automated_guided_vehicles_(agv)_and_autonomous_mobile_robots_(amr)._<>1<>1">
+ Bosch Rexroth at the LogiMAT: holistic automation solutions for mobile robots
+ At LogiMAT, Bosch Rexroth will be showcasing open, flexible automation solutions for automated guided vehicles (AGV) and autonomous mobile robots (AMR).
+ bosch_rexroth_at_the_logimat:_holistic_automation_solutions_for_mobile_robots><>read_more bosch_rexroth_at_the_logimat:_holistic_automation_solutions_for_mobile_robots<>read_more|https://www.boschrexroth.com/en/at/company/press/automation-for-mobile-robots-29952.html|_at_logimat,_bosch_rexroth_will_be_showcasing_open,_flexible_automation_solutions_for_automated_guided_vehicles_(agv)_and_autonomous_mobile_robots_(amr)._<>1<>1">Read More 
+ <>coming_together_for_modern_automation:_salesforce_and_sick_join_bosch_rexroth’s_ctrlx_world_> coming_together_for_modern_automation:_salesforce_and_sick_join_bosch_rexroth’s_ctrlx_world_|https://www.boschrexroth.com/en/at/company/press/partner-network-ctrlx-world-11716.html|the_partner_world_ctrlx_world_grows_by_further_partners.<>2<>1"> 
+ Industry 4.0
+ Automation and Electrification Solutions
+ 21/09/2022
+ <>coming_together_for_modern_automation:_salesforce_and_sick_join_bosch_rexroth’s_ctrlx_world_> coming_together_for_modern_automation:_salesforce_and_sick_join_bosch_rexroth’s_ctrlx_world_|https://www.boschrexroth.com/en/at/company/press/partner-network-ctrlx-world-11716.html|the_partner_world_ctrlx_world_grows_by_further_partners.<>2<>1">
+ Coming together for modern automation: Salesforce and SICK join Bosch Rexroth’s ctrlX World
+ The partner world ctrlX World grows by further partners.
+ coming_together_for_modern_automation:_salesforce_and_sick_join_bosch_rexroth’s_ctrlx_world_><>read_more coming_together_for_modern_automation:_salesforce_and_sick_join_bosch_rexroth’s_ctrlx_world_<>read_more|https://www.boschrexroth.com/en/at/company/press/partner-network-ctrlx-world-11716.html|the_partner_world_ctrlx_world_grows_by_further_partners.<>2<>1">Read More 
+ 

@@ -1,13 +1,13 @@
 # 25 · Requirement traceability: every requirement ID → recommendation → file
 
-**Owner:** TRACE · **Date:** 2026-11-11 · **Status:** revision 1, built from `research-output/` as it stood on 2026-11-11 (01 revision 3, 00 revision 2, critic pass 2; `23-RISK-REGISTER.md` had just landed; 20, 21, 22, 24, 30, `REVIEW-CHECKLIST.md` and the PDF did not exist yet)
+**Owner:** TRACE · **Date:** 2026-11-11 · **Status:** revision 2 (2026-11-11, PROP4-d): synced to `01` revision 4 and critic pass 3 (P3-8b). Revision 1 was built when 20, 21, 22, 24, 30, `REVIEW-CHECKLIST.md` and the PDF did not exist yet; all of them exist now
 **Serves requirements:** RS-1, RS-7, F-9, F-10, M-6 (and indexes all 97)
 **Companion:** [`SOURCES.md`](SOURCES.md) (bibliography and ARCHIVE-GAP list)
 
 > ### Explain it like I'm the founder
 > On 2026-11-10 you gave the project **97 numbered requirements** (`docs/REQUIREMENTS.md`): M-1 "local-first is the moat", F-14 "one OS from a Pi to a GPU cluster", and so on. The brief says none of them may be dropped silently. This file is the checklist that proves it: for **each** requirement it names the recommendation(s) that answer it and the exact file and section where you can read the answer.
 >
-> **The short answer:** all 97 are traced. **89 are covered**, 4 are covered but wait on something only you can provide (a founder decision, or read-only access to the live cluster), 3 are only partly covered, and **1 (F-10, the final PDF) has not been started**. The brief's eight "easily-missed" IDs all sit where the brief said they should, with one small labelling gap (P-4 is answered in `05` but `05` never writes the ID down).
+> **The short answer:** all 97 are traced. **90 are covered**, 4 are covered but wait on something only you can provide (a founder decision, or read-only access to the live cluster), and 3 are only partly covered. None is pending: the build brief (F-9) and the PDF (F-10) both exist, though the PDF was built before `01` revision 4 changed the base OS and still needs a rebuild. The brief's eight "easily-missed" IDs all sit where the brief said they should, with one small labelling gap (P-4 is answered in `05` but `05` never writes the ID down).
 >
 > Think of it like a building inspection: each requirement is a line on the inspector's sheet, and each line points to the room where the work was done.
 
@@ -35,15 +35,15 @@
 |---|---|
 | **Requirement ID** | A numbered founder requirement in `docs/REQUIREMENTS.md`, e.g. `M-7`, `UX-8`, `F-14`. Twelve families: M (mission), P (product shape), A (apps), AI, UX, U (users), N (nodes), R (reliability), H (hardware business), W (website), RS (research mandate), F (platform ambition). |
 | **Decision ID** | `D-001`…`D-006` in `docs/DECISIONS.md`. Binding founder decisions, **not** requirement IDs, so they are not counted in the 97 even though many files list them under "Serves". |
-| **Recommendation label** | The ID a research file gives one recommendation. Each family lives in one file: `REC-DEC-##` → 01 · `W2-R#` → 03 · `W3-REC-##` → 04 · `W5-R#` → 06 · `SEC-##` → 07 · `W7-R#` → 08 · `W8-R#` → 09 · `REC-W9-##` → 10 · `W10-R#` → 11 · `REC-W11-##` → 12 · `W12-R#` → 13 · `REC-W13-##` → 14 · `REC-W14-##` → 15 · `REC-W15-##` → 16 · `REC-W16-##` → 17 · `REC-W17-##` → 27 · `REC-W18-#` → 28 · `REC-W19-##` → 29 · `REC-MATRIX-##` → `02-competitors/MATRIX.md` · `REC-FL-#` → `02-competitors/flagged-repos.md`. (05 has no labels of its own; its §15 table maps IDs to sections.) |
+| **Recommendation label** | The ID a research file gives one recommendation. Each family lives in one file: `REC-DEC-##` → 01 · `W2-R#` → 03 · `W3-REC-##` → 04 · `W5-R#` → 06 · `SEC-##` → 07 · `W7-R#` → 08 · `W8-R#` → 09 · `REC-W9-##` → 10 · `W10-R#` → 11 · `REC-W11-##` → 12 · `W12-R#` → 13 · `REC-W13-##` → 14 · `REC-W14-##` → 15 · `REC-W15-##` → 16 · `REC-W16-##` → 17 · `REC-W17-##` → 27 · `REC-W18-#` → 28 · `REC-W19-##` → 29 · `REC-MATRIX-##` → `02-competitors/MATRIX.md` · `REC-FL-#` → `02-competitors/flagged-repos.md` · `REC-RISK-##` → 23 · `REC-PLAN-##` → 20 · `REC-B30-##` → 30 (the last two added in revision 2, for F-9 only; §9 item 7). (05 has no labels of its own; its §15 table maps IDs to sections.) |
 | **Trace** | The chain *requirement → recommendation → file §section*. |
 | **Named home** | The file the brief (§5) says must answer an easily-missed ID. |
 | **Covered** | At least one recommendation names the ID, and a body section answers it with cited evidence. |
 | **Covered · blocked** | Answered as far as the evidence allows; a deciding input is a founder decision (`blocked: founder-decision`) or the live cluster (`blocked: live-cluster`, answered from `context/01` "reported state"). |
-| **Partial** | Addressed, but part of the requirement depends on a deliverable that does not exist yet or on an outside fact that cannot yet be checked. |
+| **Partial** | Addressed, but part of the requirement depends on a deliverable that does not exist yet or is out of date against `01`, or on an outside fact that cannot yet be checked. |
 | **Pending** | Its deliverable has not been started. |
 | **†** | In the matrix: the recommendation serves the ID in substance but does not list it. |
-| **Founder test** | A test only Zeus can run on hardware (named `T-…`, `F-…`, `W2-HW-…`). They are meant for `22-HARDWARE-LAB-TEST-PLAN.md`, which does not exist yet, so today they live in each workstream file's test section. |
+| **Founder test** | A test only Zeus can run on hardware (named `T-…`, `F-…`, `W2-HW-…`). They are collected, with exact commands and pass/fail criteria, in `22-HARDWARE-LAB-TEST-PLAN.md` (as `LT-…` IDs with the old names as aliases) and scheduled against gates in `20-PLAN-180-DAYS.md`. |
 
 ---
 
@@ -75,13 +75,13 @@
 
 | Status | Count | IDs |
 |---|---|---|
-| **Covered** | **89** | all others |
+| **Covered** | **90** | all others |
 | **Covered · blocked** | 4 | P-9 and AI-9 (`blocked: live-cluster`, answered from reported state) · A-4 (first internal app, `blocked: founder-decision`, 26 §B item 5) · UX-10 (Omarchy edition, `blocked: founder-decision`, Q-W11-2) |
-| **Partial** | 3 | F-9 (the build brief `30-…` is not written) · RS-1 (112 ARCHIVE-GAP sources in `SOURCES.md`, and open ledger items in critic pass 2) · N-10 (Anthropic MHS has no public spec yet, so the integration is MHS-*shaped*, not MHS-conformant) |
-| **Pending** | 1 | F-10 (the final PDF and `report/` do not exist) |
+| **Partial** | 3 | RS-1 (112 ARCHIVE-GAP sources in `SOURCES.md`; `01`'s citation item is met only with listed exceptions; the master ledger lacks the rev-4 rows) · N-10 (Anthropic MHS has no public spec yet, so the integration is MHS-*shaped*, not MHS-conformant) · F-10 (the PDF exists but was built from `01` revision 3: its base-OS answer is superseded until it is rebuilt) |
+| **Pending** | 0 | — (revision 1 had F-10 here; F-9 has moved from Partial to Covered) |
 | **Total** | **97** | |
 
-Two caveats apply to many "Covered" rows. (1) Their deciding founder tests are not yet collected in `22-…`. (2) Several P0 answers carry open items from critic pass 2 (for example the RAUC ≥ 1.15.2 and Pi 5 `tryboot` labs, N6/N8). Those caveats are about *how strong* the answer is, not whether the requirement was traced; strength is tracked in `00-…` §5, `01-…` §12 and `23-RISK-REGISTER.md`.
+Two caveats apply to many "Covered" rows. (1) Their deciding founder tests are collected in `22-…` and scheduled in `20-…`, but none has run on real hardware yet. (2) Several P0 answers carry open items from critic pass 3 and from `01` §12 (for example the Pi 5 RAUC `tryboot` test, and the rev-4 base-OS result, which is fragile and conditional on Z-01). Those caveats are about *how strong* the answer is, not whether the requirement was traced; strength is tracked in `00-…` §5, `01-…` §12 and `23-RISK-REGISTER.md`.
 
 ---
 
@@ -107,7 +107,7 @@ Each home was opened and the section read; "verified" means the named file answe
 
 ## 5. The trace matrix: all 97 IDs
 
-"Main recommendations" lists the ones that answer the ID most directly; Appendix A lists **every** label that names it. Where a workstream recommendation conflicts with 01, 01 wins (for example W2-R1 proposed an Ubuntu 26.04 core; REC-DEC-01 decided Debian 13 with recorded re-open conditions). File numbers refer to `research-output/NN-….md`.
+"Main recommendations" lists the ones that answer the ID most directly; Appendix A lists **every** label that names it. Where a workstream recommendation conflicts with 01, 01 wins. (Example: revision 3's REC-DEC-01 decided Debian 13 over W2-R1's Ubuntu 26.04 core; in revision 4, REC-DEC-42 makes Ubuntu 26.04 + RAUC the decision of record under the frozen scorecard protocol, conditional on Z-01, so W2-R1 and 01 now agree and REC-DEC-01 describes the Debian leg.) File numbers refer to `research-output/NN-….md`.
 
 ### 5.1 Mission (M)
 
@@ -144,8 +144,8 @@ Each home was opened and the section read; "verified" means the named file answe
 | A-2 | Plug-and-play for any app, including OneMind's own | W12-R4; REC-W19-01, -04 | 13 §5 · 29 §6 | Covered |
 | A-3 | Learn from and include competitors' catalogs | W12-R1, -R3, -R5; REC-FL-01 | 13 §2–4, §15 · `evidence/license-matrix.csv` | Covered |
 | A-4 | Internal OneMind apps; maybe one unified app | W12-R8, -R9 | 13 §8 (scaffold specs, build order), §9–11 deep dives | Covered · blocked: founder-decision |
-| A-5 | Internal plugin system, also distributed via the website | REC-DEC-24, -40; REC-W19-01…04, -12; W12-R13; REC-W13-10; REC-W9-02 | 01 §4.8 (DC-16, E1–E10) · 29 §3, §6–10 · 14 §6 | Covered |
-| A-6 | Community ecosystem that edits and shares plugins | REC-W19-01, -06, -07, -13; REC-W13-10, -13; REC-MATRIX-04; W12-R6 | 29 §4, §5, §9 · 14 §9 · 13 §6 | Covered |
+| A-5 | Internal plugin system, also distributed via the website | REC-DEC-24, -40, -47; REC-W19-01…04, -12; W12-R13; REC-W13-10; REC-W9-02 | 01 §4.8 (DC-16, E1–E10) · 29 §3, §6–10 · 14 §6 | Covered |
+| A-6 | Community ecosystem that edits and shares plugins | REC-DEC-47; REC-W19-01, -06, -07, -13; REC-W13-10, -13; REC-MATRIX-04; W12-R6 | 29 §4, §5, §9 · 14 §9 · 13 §6 | Covered |
 | A-7 | Bundles of hardware + software | W10-R6; REC-W16-04, -05, -07; REC-W19-09 | **11 §6** · **17 §6** · 29 §13 | Covered |
 | A-8 | Hardware/software recommendations in the platform | W10-R3, -R5; REC-W16-05 | **11 §4.2, §5** · 17 §6 | Covered |
 
@@ -193,7 +193,7 @@ Each home was opened and the section read; "verified" means the named file answe
 | ID | Requirement (short) | Main recommendations | Where addressed | Status |
 |---|---|---|---|---|
 | N-1 | Everything is a node | W10-R1, -R2, -R4; W8-R1, -R3; W7-R7; REC-W14-01, -02 | 08 §5.4 · 11 §3–5 · 09 §2 | Covered |
-| N-2 | Runs on Pis, CPU-only PCs, GPU boxes, edge devices, sensors | REC-DEC-01, -06, -18, -33; REC-W18-02; W10-R1; W8-R4 | 01 §1, §4.1 · 03 §10 · 05 §1.4 · 11 §3 | Covered |
+| N-2 | Runs on Pis, CPU-only PCs, GPU boxes, edge devices, sensors | REC-DEC-42, -01, -06, -18, -33, -44; REC-W18-02; W10-R1; W8-R4 | 01 §1, §4.1 · 03 §10 · 05 §1.4 · 11 §3 | Covered |
 | N-3 | Hardware capability auto-detection | W10-R2, -R3; W12-R4; W7-R13; REC-W15-09 | 11 §5 · 05 §8 · 29 §6 | Covered |
 | N-4 | QR-code onboarding for robots and IoT | REC-W11-16; W8-R6; REC-W13-04; REC-W14-08 | 12 §10 · 29 §11 · 09 §1 (FDO zero-touch) | Covered (T-W11-08 pending) |
 | N-5 | Cloud, local, edge and hybrid modes | REC-W11-18; REC-W19-11† | 05 §3, §9 · 12 §11.2 · 29 §12 | Covered |
@@ -207,9 +207,9 @@ Each home was opened and the section read; "verified" means the named file answe
 
 | ID | Requirement (short) | Main recommendations | Where addressed | Status |
 |---|---|---|---|---|
-| R-1 | Solid, safe updates, when the user wants | REC-DEC-05, -07, -08, -20, -23, -26, -30…32, -34; W3-REC-01, -04, -05, -07…09; SEC-05 | 01 §3.2, §4.2–4.3 · 04 §7–11 · 07 §6 | Covered (release gates F1/F2, F-PI5, F-SB-1…3 are founder tests) |
+| R-1 | Solid, safe updates, when the user wants | REC-DEC-05, -07, -08, -20, -23, -26, -30…32, -34, -45; W3-REC-01, -04, -05, -07…09; SEC-05 | 01 §3.2, §4.2–4.3 · 04 §7–11 · 07 §6 | Covered (release gates F1/F2, F-PI5, F-SB-1…3 are founder tests) |
 | R-2 | A good support system | REC-W13-11, -12; REC-W16-01, -06; REC-W11-04; REC-DEC-07, -11; W5-R1…R9 | 14 §7 · 17 §7 · 06 §9 · 12 §4.1 (rescue console) | Covered |
-| R-3 | Long-term maintainability of hardware OneMind sells | REC-DEC-01, -12, -16, -17, -18, -31, -37, -39; REC-W18-02, -04, -05; W7-R1; SEC-04, -06, -07 | 01 §4.1, §4.7 · 03 §6 · 08 §2 · 28 §6 · 07 §8 | Covered |
+| R-3 | Long-term maintainability of hardware OneMind sells | REC-DEC-42, -01, -12, -16, -17, -18, -31, -37, -39, -49; REC-W18-02, -04, -05; W7-R1; SEC-04, -06, -07 | 01 §4.1, §4.7 · 03 §6 · 08 §2 · 28 §6 · 07 §8 | Covered |
 
 ### 5.9 Hardware business (H)
 
@@ -238,10 +238,10 @@ Each home was opened and the section read; "verified" means the named file answe
 
 | ID | Requirement (short) | Main recommendations | Where addressed | Status |
 |---|---|---|---|---|
-| RS-1 | No guessing: research, cite, find patterns | REC-W17-06; W12-R14; the claims ledger | every file's claim IDs · `evidence/claims/` · [`SOURCES.md`](SOURCES.md) · `evidence/critic/pass-2.md` | **Partial** (112 ARCHIVE-GAP sources; open ledger items in critic pass 2) |
+| RS-1 | No guessing: research, cite, find patterns | REC-W17-06; W12-R14; REC-DEC-42 (scorecard protocol applied as frozen); the claims ledger | every file's claim IDs · `evidence/claims/` · [`SOURCES.md`](SOURCES.md) · `evidence/critic/pass-3.md`, `cit4-mapping.md` · 01 §3.1.6 | **Partial** (112 ARCHIVE-GAP sources; 01's §9 citation item met with listed exceptions; master `claims.csv` lacks the 171 rev-4 rows) |
 | RS-2 | Reverse-engineer the competitors | REC-FL-01; REC-W17-06; W12-R3 | `02-competitors/` (teardowns + `MATRIX.md`) | Covered |
 | RS-3 | Review Olares built-ins (Desktop, Files, Vault, Market, Wise, Settings, Control Hub, Studio) | — (research task, no product recommendation needed) | `02-competitors/olares.md` §3.12 · `research/competitors/olares.md` §2 | Covered |
-| RS-4 | Survey all relevant Linux distributions | REC-DEC-01, -17; W2-R1, -R7; REC-MATRIX-08 | 03 §3–5, §9, §12 · `MATRIX.md` | Covered |
+| RS-4 | Survey all relevant Linux distributions | REC-DEC-42, -01, -17, -46; W2-R1, -R7; REC-MATRIX-08 | 03 §3–5, §9, §12 · 01 §3.1.6 · `MATRIX.md` | Covered |
 | RS-5 | Review the founder-flagged repos | REC-FL-01 | `02-competitors/flagged-repos.md` | Covered |
 | RS-6 | Ask Zeus for source code if needed | — (rule 8 substitution: listed, not asked) | 26 §D and its revision-2 RS-6 list | Covered |
 | RS-7 | Document everything in this repo | REC-W17-01 | the whole `research-output/` tree, including this file | Covered |
@@ -256,14 +256,14 @@ Each home was opened and the section read; "verified" means the named file answe
 | F-4 | Supersede the other OSes; be the default | REC-W19-07, -09; REC-W16-07; REC-W18-06; REC-W15-10; W7-R8 | 29 §13 · 16 §3 · 17 §8 | Covered |
 | F-5 | Third-party ecosystem: SDK, certification, distribution, revenue | REC-DEC-10, -24, -40; REC-W19-01, -07, -09, -10; REC-W16-02, -07; W12-R4, -R6 | 29 §13–14 · 01 §4.8 · 17 §2 | Covered |
 | F-6 | Self-hosted mixed with cloud, hybrid by design | REC-W19-11; REC-W9-01; REC-W11-12, -18; REC-W16-01; W7-R10 | 29 §12 · 05 §3.2 · 12 §11.2 | Covered |
-| F-7 | Evaluate owning the kernel and/or the image | REC-DEC-12, -25; REC-W18-01…04, -06, -07; W7-R3, -R5; W2-R7 | **28 §3–6** · 01 §3.5 | Covered |
+| F-7 | Evaluate owning the kernel and/or the image | REC-DEC-12, -25, -46, -48; REC-W18-01…04, -06, -07; W7-R3, -R5; W2-R7 | **28 §3–6** · 01 §3.5 | Covered |
 | F-8 | Dev toolchain from the Mac, plus CI | REC-W18-07, -09…11; REC-W17-02; REC-DEC-25 | 28 §9–10 · 27 (module L0) | Covered |
-| F-9 | Two-phase execution: this run produces the build brief | REC-W18-08; REC-W17-01, -08 | 01 (the decided core) · `30-NEXT-ULTRACODE-BUILD-BRIEF.md` **not yet written** | **Partial** |
-| F-10 | Final PDF report for the founder | — | `ONEMIND-OS-FOUNDATION-REPORT.pdf` and `report/` **not yet written** | **Pending** |
-| F-11 | IoT and IIoT without limitations | REC-DEC-04, -27, -29; W8-R1, -R5, -R6, -R11; REC-W18-03, -05; W3-REC-08, -10, -13 | **09 §1–4** · 01 §6.11 · 03 §9 | Covered |
-| F-12 | Full, fair evaluation of Fedora IoT and the Red Hat edge lineage | REC-DEC-04, -27, -33; W2-R3, -R4; W3-REC-13; W8-R5 | **03 §9** (§9.5 steelman) · 01 §5.1, §6.1 · `evidence/lab/` (Fedora bootc spike) | Covered (founder test W2-HW-3 may reopen S1 toward bootc: REC-DEC-33) |
+| F-9 | Two-phase execution: this run produces the build brief | REC-B30-01, -15; REC-PLAN-07; REC-W18-08; REC-W17-01, -08 | **`30-NEXT-ULTRACODE-BUILD-BRIEF.md`** (whole file; §14 trace) · 20 §2–4 (gates the build runs against) · 01 (the decided core) | Covered (30 builds both base legs; its default base still reads rev. 3 until its owner applies `01` rev. 4, a follow-up listed in 01 §11) |
+| F-10 | Final PDF report for the founder | — (no recommendation label; the deliverable is the answer, F-T1) | **`ONEMIND-OS-FOUNDATION-REPORT.pdf`** (101 pages) and its source `report/` (chapters, diagrams, `verify_pdf.py`, `checklist.tsv`) | **Partial** (built from `01` rev. 3: the base-OS answer and the tie-band sentence, critic P3-3, need a rebuild from rev. 4) |
+| F-11 | IoT and IIoT without limitations | REC-DEC-04, -27, -29, -49; W8-R1, -R5, -R6, -R11; REC-W18-03, -05; W3-REC-08, -10, -13 | **09 §1–4** · 01 §6.11 · 03 §9 | Covered |
+| F-12 | Full, fair evaluation of Fedora IoT and the Red Hat edge lineage | REC-DEC-04, -27, -33, -42, -44, -49; W2-R3, -R4; W3-REC-13; W8-R5 | **03 §9** (§9.5 steelman) · 01 §3.1.6, §5.1, §6.1, §6.14 (rev-4 bootc steelman) · `evidence/lab/` (Fedora bootc spike) | Covered (bootc is the protocol's runner-up, 64 vs 65. Founder test W2-HW-3, now before gate G1, feeds the pre-registered map: if it fails the base goes to Debian; if Canonical refuses and the debranded rebuild is rejected, to bootc. Industrial profile on AlmaLinux 10 / RHEL 10 image mode: REC-DEC-44, -49) |
 | F-13 | Community-scale resilience; study VillageOS | W8-R2, -R7, -R9, -R12; REC-W15-01, -02; REC-W16-08; REC-W13-07 | 09 §5, §9 · `02-competitors/villageos.md` · 16 §3 | Covered |
-| F-14 | One OS, simple at every scale, Pi to enterprise | REC-DEC-01, -06, -09, -17, -22, -33, -38; W10-R1, -R2; REC-W11-01, -05, -13; W5-R1…R3 | 01 §1, §3 · 05 §1.4 · 03 §10 · 09 §8.1 | Covered |
+| F-14 | One OS, simple at every scale, Pi to enterprise | REC-DEC-42, -01, -06, -09, -17, -22, -33, -38, -44; W10-R1, -R2; REC-W11-01, -05, -13; W5-R1…R3 | 01 §1, §3 · 05 §1.4 · 03 §10 · 09 §8.1 | Covered |
 | F-15 | Compare kernel families before committing to Linux | REC-W18-01; REC-W14-10 | **28 §2** · 15 §10 (HarmonyOS) | Covered |
 
 ---
@@ -272,12 +272,12 @@ Each home was opened and the section read; "verified" means the named file answe
 
 | # | Finding | Evidence | Who should act |
 |---|---|---|---|
-| **F-T1** | **Three IDs have no recommendation label at all:** RS-3, RS-6 and F-10. RS-3 and RS-6 are research-process requirements met by documents (olares.md §3.12; 26 §D), so no product recommendation is needed. F-10 is a real gap: the PDF has not been started. | Appendix A rows for RS-3, RS-6, F-10 | PDF owner (F-10) |
+| **F-T1** | **Three IDs have no recommendation label at all:** RS-3, RS-6 and F-10. RS-3 and RS-6 are research-process requirements met by documents (olares.md §3.12; 26 §D), so no product recommendation is needed. F-10 is met by a document too: the PDF now exists (101 pages), but no recommendation names F-10, and the PDF predates `01` rev. 4 (see §3). | Appendix A rows for RS-3, RS-6, F-10 | PDF owner (F-10): rebuild from rev. 4 |
 | **F-T2** | **P-4's second named home (05) answers it without saying so.** 05 §3.2 compares the federation frameworks, but 05 never writes "P-4" and its §15 trace table omits it. | `05-…` §3.2, §15 | W4 owner: add a `P-4 \| §3.2` row to 05 §15 |
 | **F-T3** | **M-3, "the core goal", is named by only one recommendation** (W12-R1, a seed-catalogue rec). The layer model (REC-DEC-15) and the unified front door (REC-W11-01) serve it but do not list it. Not a coverage hole, but a reader scanning by ID would underrate it. | Appendix A, M-3 row | 01 and 12 owners: add M-3 to REC-DEC-15 and REC-W11-01 |
 | **F-T4** | **Two recommendations carry no requirement ID**, against brief rule 6: **W10-R11** (buy a Pi 5 and a Jetson Orin Nano Super by 2026-11-16; tagged only D-002, D-004, D-006) and **REC-W14-03** (run the GrapheneOS + ATAK test; tagged only Q298). Suggested IDs: W10-R11 → N-2, N-8, H-3; REC-W14-03 → UX-5, M-5. | `11-…` line with W10-R11; `15-…` §1 | W10 and W14 owners |
-| **F-T5** | **Workstream recommendations that 01 overrides are still worded as live.** The clearest case: 03 W2-R1 and P0-1 put the core on Ubuntu 26.04; 01 REC-DEC-01 decided Debian 13 and recorded the Ubuntu re-open conditions. This matrix follows 01. | 03 §1, §13; 01 §11 | W2 owner: mark W2-R1 "superseded by REC-DEC-01" |
-| **F-T6** | **Homes that do not exist yet.** Many recommendations route tests and plans to `20-PLAN-180-DAYS`, `21-ROADMAP`, `22-HARDWARE-LAB-TEST-PLAN`, `24-QUESTION-BANK-ANSWERS` and `30-…`. Until those exist, founder tests live only in each workstream file's test section, so the "Covered" status for R-1, P-1, P-7, N-4, UX-9 and F-12 depends on tests nobody has scheduled. | 00 §7; critic pass 2 N15 | Owners of 20, 22, 24, 30 |
+| **F-T5** | **Workstream recommendations that 01 overrides are still worded as live.** Revision 1's clearest case has reversed: 03 W2-R1 put the core on Ubuntu 26.04 while REC-DEC-01 decided Debian 13; under `01` rev. 4, REC-DEC-42 makes Ubuntu 26.04 + RAUC the decision of record, 03 already says so (W2-R2 now points to the pre-registered map), and REC-DEC-01 is marked superseded. The remaining overrides are in files whose owners `01` §11 lists as follow-ups (00, 20, 22, 30, the PDF). This matrix follows 01. | 03 §13; 01 §11 | Owners named in 01 §11 |
+| **F-T6** | **Closed (revision 2).** Revision 1 found that tests and plans were routed to `20-…`, `21-…`, `22-…`, `24-…` and `30-…`, which did not exist. All five exist now: 22 holds every founder test the DCs name, and 20 schedules them against gates G0–G7. The "Covered" status for R-1, P-1, P-7, N-4, UX-9 and F-12 still depends on tests that have not run on hardware. | 20, 22; critic pass 3 Part 2 | none |
 | **F-T7** | **Decision IDs are mixed into "Serves" lists.** D-001…D-006 appear beside requirement IDs in most file headers. That is fine as long as readers know they are not part of the 97; this file does not count them. | Headers of 03–17, 26–29 | none (documented here) |
 | **F-T8** | **Narrow requirements have few labels, by design.** IDs named by only one or two labels: M-3, P-6, A-2, A-4, AI-6, UX-2, UX-7, UX-9, UX-10, N-5, N-10, H-2, W-1, W-2, W-5, W-6, W-7, W-9, RS-5, RS-7, F-15. Each has a dedicated section, so this is not a gap; it marks where a single file is the only home. | Appendix A, "#" column | none |
 
@@ -302,9 +302,9 @@ A trace table is only as good as the discipline that keeps it current. The prove
 
 | ID | Recommendation | Requirement IDs |
 |---|---|---|
-| **REC-TRACE-01** | Add a traceability check to the repo's CI in the build session: parse `docs/REQUIREMENTS.md` for IDs, parse every recommendation table for ID columns (with range expansion such as `F-3…F-6`), and fail when an ID has zero recommendations or a recommendation has zero IDs. Today's run would fail on F-10 and on W10-R11 and REC-W14-03 (F-T1, F-T4). | RS-1, RS-7, M-6, F-9 |
+| **REC-TRACE-01** | Add a traceability check to the repo's CI in the build session: parse `docs/REQUIREMENTS.md` for IDs, parse every recommendation table for ID columns (with range expansion such as `F-3…F-6`), and fail when an ID has zero recommendations or a recommendation has zero IDs. Today's run would still fail on F-10 (no label) and on W10-R11 and REC-W14-03 (F-T1, F-T4). | RS-1, RS-7, M-6, F-9 |
 | **REC-TRACE-02** | Ask the owners of 05, 01, 12, 11, 15 and 03 to fix the labelling defects F-T2 to F-T5 in their own files (P-4 row in 05 §15; M-3 on REC-DEC-15 and REC-W11-01; IDs on W10-R11 and REC-W14-03; mark W2-R1 superseded). This file does not edit them. | P-4, M-3, RS-1 |
-| **REC-TRACE-03** | When `20-…`, `22-…`, `24-…` and `30-…` land, re-run this trace and move each founder test from "named in a workstream file" to "scheduled in 20/22", and F-9 from Partial to Covered once 30 exists. | F-9, R-1, P-7, RS-7 |
+| **REC-TRACE-03** | When `20-…`, `22-…`, `24-…` and `30-…` land, re-run this trace and move each founder test from "named in a workstream file" to "scheduled in 20/22", and F-9 from Partial to Covered once 30 exists. *(Revision 2: done for F-9, F-10 and F-T6. Still open: a full re-scan of Appendix A so it indexes the labels of 20–24 and 30, see §9.)* | F-9, R-1, P-7, RS-7 |
 | **REC-TRACE-04** | Make the PDF's section 13 (glossary and sources) cite this matrix and `SOURCES.md`, so the founder's report carries the same requirement-to-answer map. | F-10, RS-1 |
 
 ---
@@ -317,6 +317,7 @@ A trace table is only as good as the discipline that keeps it current. The prove
 4. **Sections:** every anchor in §4 and §5 was checked against the file's heading list on 2026-11-11.
 5. **Statuses** were assigned by reading the answering sections and the file's own open-items section, not by counting labels.
 6. **Limits:** the matrix is a snapshot. Other agents were writing deliverables while it was built (`23-RISK-REGISTER.md` appeared mid-run). Section numbers can shift when files are revised; the IDs and labels are the stable keys. A label match shows that a recommendation *names* an ID; whether the recommendation is *right* is the job of the refuters and critics, not of this file.
+7. **Revision 2 (2026-11-11, after `01` rev. 4) was a targeted sync, not a full re-scan.** By hand: the F-9 and F-10 rows (both tables), the coverage counts, REC-DEC-42…49 added to every ID they name (Appendix A counts and the "01" file column updated by script; main-matrix cells only where the rec answers the ID most directly), and findings F-T1, F-T5 and F-T6. **Not re-scanned:** the labels of `20-…` (REC-PLAN), `21-…`, `22-…`, `24-…` and `30-…` (REC-B30) are indexed in Appendix A only for F-9; the "Top-level files" column is unchanged except for F-9, F-10 and the rows that gained a REC-DEC label. A full re-scan would raise label counts but cannot lower coverage, so no status depends on it.
 
 ---
 
@@ -327,12 +328,12 @@ Generated from the scan in §9 on 2026-11-11. "#" is the number of distinct labe
 | ID | Recommendation labels that name this ID | # | Top-level files that mention it | Teardowns |
 |---|---|---|---|---|
 | M-1 | REC-W11-08, 12; REC-W13-07, 08; REC-W15-01, 05; REC-W16-01, 10; REC-W19-11; REC-W9-10; SEC-14; W5-R10 | 12 | 06, 07, 10, 12, 14, 16, 17, 29 | 5 |
-| M-2 | REC-DEC-08, 11, 20, 21, 22, 25, 28, 36; REC-FL-02, 03, 04; REC-W11-08, 11; REC-W13-03, 06, 10, 13, 14; REC-W14-01; REC-W15-05, 07, 08, 10; REC-W16-10; REC-W9-10; SEC-1, 2, 3, 14, 17; W10-R5; W12-R10, 11, 12; W3-REC-7, 9, 11; W5-R4, 9, 10, 14; W7-R9 | 42 | 01, 04, 06, 07, 08, 10, 11, 12, 13, 14, 15, 16, 17, 23 | 13 |
+| M-2 | REC-DEC-08, 11, 20, 21, 22, 25, 28, 36, 47, 48; REC-FL-02, 03, 04; REC-W11-08, 11; REC-W13-03, 06, 10, 13, 14; REC-W14-01; REC-W15-05, 07, 08, 10; REC-W16-10; REC-W9-10; SEC-1, 2, 3, 14, 17; W10-R5; W12-R10, 11, 12; W3-REC-7, 9, 11; W5-R4, 9, 10, 14; W7-R9 | 44 | 01, 04, 06, 07, 08, 10, 11, 12, 13, 14, 15, 16, 17, 23 | 13 |
 | M-3 | W12-R1 | 1 | 13 | 1 |
 | M-4 | REC-DEC-03; REC-W11-19; REC-W14-01, 08; REC-W16-06, 08; SEC-13; W2-R3; W5-R2, 3, 11; W8-R4, 11 | 13 | 01, 03, 05, 06, 07, 09, 11, 12, 14, 15, 16, 17, 23 | 2 |
 | M-5 | REC-W14-05, 06, 07, 10; REC-W15-06, 10; W5-R14 | 7 | 06, 10, 15, 16 | 0 |
-| M-6 | REC-DEC-01, 05, 09, 17, 30, 31, 34, 38, 41; REC-RISK-01, 05; REC-W15-11; REC-W16-08; REC-W17-01; REC-W18-02, 04, 08, 09; REC-W9-07; SEC-10; W10-R7; W12-R5, 9; W2-R2; W3-REC-1, 2; W5-R1 | 27 | 00, 01, 03, 04, 05, 06, 07, 10, 11, 13, 16, 17, 23, 27, 28, 29 | 12 |
-| M-7 | REC-DEC-01, 06, 18, 19, 26, 29, 35, 36; REC-MATRIX-07; REC-W11-14; REC-W15-04; REC-W16-07; REC-W17-05; REC-W18-01, 03, 11; SEC-16; W10-R8; W12-R9; W2-R1; W3-REC-3; W7-R1, 2, 4, 5, 6, 8, 9, 11 | 29 | 00, 01, 03, 04, 05, 07, 08, 09, 11, 12, 13, 16, 17, 23, 27, 28, 29 | 12 |
+| M-6 | REC-DEC-01, 05, 09, 17, 30, 31, 34, 38, 41, 42, 49; REC-RISK-01, 05; REC-W15-11; REC-W16-08; REC-W17-01; REC-W18-02, 04, 08, 09; REC-W9-07; SEC-10; W10-R7; W12-R5, 9; W2-R2; W3-REC-1, 2; W5-R1 | 29 | 00, 01, 03, 04, 05, 06, 07, 10, 11, 13, 16, 17, 23, 27, 28, 29 | 12 |
+| M-7 | REC-DEC-01, 06, 18, 19, 26, 29, 35, 36, 49; REC-MATRIX-07; REC-W11-14; REC-W15-04; REC-W16-07; REC-W17-05; REC-W18-01, 03, 11; SEC-16; W10-R8; W12-R9; W2-R1; W3-REC-3; W7-R1, 2, 4, 5, 6, 8, 9, 11 | 30 | 00, 01, 03, 04, 05, 07, 08, 09, 11, 12, 13, 16, 17, 23, 27, 28, 29 | 12 |
 | M-8 | REC-DEC-12, 14, 16, 39; REC-MATRIX-06; REC-RISK-01, 04; REC-W15-07, 08, 12; REC-W16-01, 10; REC-W17-01; REC-W18-06; SEC-5, 6, 17; W2-R6; W3-REC-1 | 19 | 01, 03, 04, 07, 16, 17, 23, 26, 27, 28 | 15 |
 | P-1 | REC-DEC-32; REC-W11-01, 03, 04, 05, 11 | 6 | 01, 07, 12 | 7 |
 | P-2 | REC-W11-01, 05, 20 | 3 | 05, 12, 13 | 2 |
@@ -341,20 +342,20 @@ Generated from the scan in §9 on 2026-11-11. "#" is the number of distinct labe
 | P-5 | REC-DEC-39; REC-FL-04; REC-W16-04; SEC-13; W10-R1; W12-R1; W2-R1 | 7 | 01, 03, 05, 06, 07, 11, 13, 17 | 1 |
 | P-6 | REC-W16-04; W10-R4 | 2 | 11, 17 | 2 |
 | P-7 | REC-DEC-20, 30, 34; REC-W16-01; REC-W18-08; SEC-1, 3; W10-R6; W3-REC-12; W5-R6 | 10 | 01, 03, 04, 06, 07, 11, 16, 17, 23, 28 | 14 |
-| P-8 | REC-DEC-04, 24; REC-W14-02, 04; REC-W18-03, 07; REC-W19-02; W10-R6; W12-R1; W2-R3; W3-REC-12; W7-R5; W8-R4, 8, 9 | 15 | 01, 03, 04, 05, 06, 08, 09, 11, 12, 13, 15, 28, 29 | 5 |
+| P-8 | REC-DEC-04, 24, 47; REC-W14-02, 04; REC-W18-03, 07; REC-W19-02; W10-R6; W12-R1; W2-R3; W3-REC-12; W7-R5; W8-R4, 8, 9 | 16 | 01, 03, 04, 05, 06, 08, 09, 11, 12, 13, 15, 28, 29 | 5 |
 | P-9 | REC-RISK-03; REC-W17-04; REC-W18-08; W3-REC-12 | 4 | 01, 04, 05, 23, 27, 28 | 1 |
 | A-1 | REC-DEC-10, 15; REC-MATRIX-01; SEC-8, 11; W10-R3; W12-R1, 2, 5, 6; W5-R5 | 11 | 01, 05, 06, 07, 11, 13, 17, 29 | 25 |
 | A-2 | W12-R4 | 1 | 13, 29 | 11 |
 | A-3 | REC-FL-01; W12-R1, 3, 5 | 4 | 13 | 6 |
 | A-4 | W12-R8, 9 | 2 | 13, 23 | 0 |
-| A-5 | REC-DEC-10, 24, 40; REC-FL-05, 06; REC-W11-17; REC-W13-10; REC-W15-09; REC-W16-02; REC-W19-01, 02, 04, 12; REC-W9-02; SEC-10, 11; W12-R13; W5-R5; W8-R1, 3 | 20 | 00, 01, 05, 06, 07, 09, 10, 12, 13, 14, 16, 17, 23, 29 | 19 |
-| A-6 | REC-DEC-24, 40; REC-FL-05; REC-MATRIX-04; REC-W11-17; REC-W13-10, 13; REC-W16-02; REC-W19-01, 04, 06, 07, 13; REC-W9-02; SEC-10, 11; W12-R6; W8-R3 | 18 | 00, 01, 07, 09, 10, 12, 13, 14, 17, 23, 29 | 17 |
+| A-5 | REC-DEC-10, 24, 40, 47; REC-FL-05, 06; REC-W11-17; REC-W13-10; REC-W15-09; REC-W16-02; REC-W19-01, 02, 04, 12; REC-W9-02; SEC-10, 11; W12-R13; W5-R5; W8-R1, 3 | 21 | 00, 01, 05, 06, 07, 09, 10, 12, 13, 14, 16, 17, 23, 29 | 19 |
+| A-6 | REC-DEC-24, 40, 47; REC-FL-05; REC-MATRIX-04; REC-W11-17; REC-W13-10, 13; REC-W16-02; REC-W19-01, 04, 06, 07, 13; REC-W9-02; SEC-10, 11; W12-R6; W8-R3 | 19 | 00, 01, 07, 09, 10, 12, 13, 14, 17, 23, 29 | 17 |
 | A-7 | REC-W13-07; REC-W16-04, 05, 07; REC-W19-09; W10-R6; W8-R4 | 7 | 09, 11, 14, 17, 29 | 2 |
 | A-8 | REC-W16-05; W10-R3, 5 | 3 | 11, 17 | 5 |
 | AI-1 | REC-FL-03; REC-W11-20; REC-W13-12; REC-W9-02, 10; SEC-14; W12-R4, 10, 11, 12 | 10 | 07, 10, 12, 13, 14, 23, 29 | 10 |
 | AI-2 | REC-DEC-15; REC-FL-06, 07; REC-MATRIX-05; REC-W11-02; REC-W16-09; REC-W9-01, 02, 05; W7-R12 | 10 | 01, 08, 10, 12, 17, 23 | 15 |
 | AI-3 | REC-DEC-24; REC-FL-06; REC-W11-02; REC-W19-01, 04; REC-W9-01, 02; SEC-9, 12; W12-R4 | 10 | 01, 07, 10, 12, 13, 29 | 8 |
-| AI-4 | REC-DEC-07, 13; REC-FL-03, 06; REC-MATRIX-05; REC-W11-20; REC-W9-03, 04, 07, 08; SEC-12; W2-R5; W3-REC-4, 5; W5-R7, 8, 13; W7-R11 | 18 | 01, 03, 04, 06, 07, 08, 10, 12, 23 | 19 |
+| AI-4 | REC-DEC-07, 13, 45; REC-FL-03, 06; REC-MATRIX-05; REC-W11-20; REC-W9-03, 04, 07, 08; SEC-12; W2-R5; W3-REC-4, 5; W5-R7, 8, 13; W7-R11 | 19 | 01, 03, 04, 06, 07, 08, 10, 12, 23 | 19 |
 | AI-5 | REC-DEC-13, 24, 40; REC-MATRIX-05; REC-W11-20; REC-W13-03; REC-W19-08; REC-W9-03, 06, 07; SEC-12; W12-R10, 11, 12; W7-R6, 9, 11, 12; W8-R9 | 19 | 01, 07, 08, 09, 10, 12, 13, 14, 23, 29 | 21 |
 | AI-6 | REC-W9-11 | 1 | 10, 12, 23 | 0 |
 | AI-7 | REC-DEC-13; REC-W19-03, 05, 08; REC-W9-08, 12; SEC-12; W2-R3; W7-R10; W8-R1, 3, 9 | 12 | 01, 03, 07, 08, 09, 10, 29 | 2 |
@@ -373,24 +374,24 @@ Generated from the scan in §9 on 2026-11-11. "#" is the number of distinct labe
 | U-1 | REC-W11-03; REC-W13-01, 02; REC-W9-04; SEC-14; W12-R10 | 6 | 06, 07, 10, 12, 13, 14 | 9 |
 | U-2 | REC-W11-19; REC-W13-07; REC-W9-11; SEC-14 | 4 | 07, 10, 12, 14, 23 | 2 |
 | U-3 | REC-W13-01, 03, 04, 05, 06; REC-W14-08; REC-W9-04, 06, 11; SEC-14 | 10 | 07, 10, 12, 13, 14, 15, 23 | 5 |
-| U-4 | REC-DEC-05, 08, 13, 20, 21, 22, 24, 27, 35, 36, 40; REC-FL-02, 03, 07; REC-MATRIX-04, 05; REC-W13-01; REC-W17-03; REC-W18-10; REC-W19-02, 03, 05, 06; REC-W9-03, 04, 05, 08; SEC-1, 2, 8, 9, 11; W3-REC-6, 7; W5-R4, 12, 13; W8-R3 | 38 | 01, 04, 06, 07, 09, 10, 14, 23, 26, 27, 28, 29 | 24 |
+| U-4 | REC-DEC-05, 08, 13, 20, 21, 22, 24, 27, 35, 36, 40, 45, 47; REC-FL-02, 03, 07; REC-MATRIX-04, 05; REC-W13-01; REC-W17-03; REC-W18-10; REC-W19-02, 03, 05, 06; REC-W9-03, 04, 05, 08; SEC-1, 2, 8, 9, 11; W3-REC-6, 7; W5-R4, 12, 13; W8-R3 | 40 | 01, 04, 06, 07, 09, 10, 14, 23, 26, 27, 28, 29 | 24 |
 | U-5 | REC-RISK-03; REC-W11-11, 12; REC-W13-04; REC-W9-05; W8-R7 | 6 | 05, 07, 09, 10, 12, 14, 16, 23 | 3 |
 | N-1 | REC-W14-01, 02, 09, 10; W10-R1, 2, 4; W7-R7; W8-R1, 3 | 10 | 01, 03, 08, 09, 11, 15, 23 | 6 |
-| N-2 | REC-DEC-01, 06, 18, 33, 35; REC-W13-02; REC-W15-03; REC-W18-02, 07; W10-R1; W2-R1; W3-REC-3; W8-R4 | 13 | 01, 03, 04, 05, 08, 09, 11, 14, 16, 23, 28 | 7 |
+| N-2 | REC-DEC-01, 06, 18, 33, 35, 44; REC-W13-02; REC-W15-03; REC-W18-02, 07; W10-R1; W2-R1; W3-REC-3; W8-R4 | 14 | 01, 03, 04, 05, 08, 09, 11, 14, 16, 23, 28 | 7 |
 | N-3 | REC-W15-09; W10-R2, 3; W12-R4; W7-R13 | 5 | 05, 08, 11, 13, 16, 23, 29 | 7 |
 | N-4 | REC-W11-16; REC-W13-04; REC-W14-08; W8-R6 | 4 | 01, 04, 05, 07, 08, 09, 12, 14, 15, 23, 29 | 4 |
 | N-5 | REC-W11-18 | 1 | 05, 12, 16 | 2 |
 | N-6 | REC-DEC-09, 27; REC-W14-04; REC-W15-01, 02; REC-W17-04; REC-W19-11; SEC-15; W3-REC-8, 10; W5-R10; W7-R10; W8-R2, 7, 8, 10 | 16 | 01, 04, 05, 06, 07, 08, 09, 15, 16, 23, 27, 29 | 10 |
 | N-7 | REC-DEC-13, 29, 36; REC-MATRIX-07; REC-W11-07; REC-W15-04; REC-W17-05; REC-W18-03, 09, 11; SEC-12, 16; W10-R8; W2-R1; W7-R8 | 15 | 01, 03, 05, 07, 08, 11, 12, 16, 23, 27, 28, 29 | 7 |
 | N-8 | REC-DEC-03, 19, 37; REC-W16-09; REC-W17-05; REC-W18-01; REC-W9-09; W10-R8; W2-R1; W3-REC-3; W7-R2, 13 | 12 | 01, 03, 04, 05, 08, 10, 11, 17, 23, 27, 28 | 8 |
-| N-9 | REC-DEC-09, 10, 22, 23, 28, 38; REC-W17-04; REC-W18-01; W12-R5; W3-REC-4; W7-R7 | 11 | 00, 01, 04, 05, 08, 13, 23, 26, 27, 28 | 7 |
+| N-9 | REC-DEC-09, 10, 22, 23, 28, 38, 45, 49; REC-W17-04; REC-W18-01; W12-R5; W3-REC-4; W7-R7 | 13 | 00, 01, 04, 05, 08, 13, 23, 26, 27, 28 | 7 |
 | N-10 | REC-W16-09; W7-R12 | 2 | 08, 09, 10, 17, 23, 29 | 0 |
-| R-1 | REC-DEC-05, 07, 08, 14, 20, 21, 23, 26, 30, 31, 32, 34, 35, 36; REC-FL-03; REC-MATRIX-01, 02, 03, 04; REC-RISK-02; REC-W11-04; REC-W15-01; REC-W16-06; REC-W17-03; REC-W18-04, 07, 10; REC-W19-02, 06; SEC-1, 5; W2-R3, 5; W3-REC-1, 4, 5, 7, 8, 9; W5-R2, 8; W7-R4; W8-R11 | 43 | 00, 01, 03, 04, 05, 06, 07, 08, 09, 10, 12, 16, 17, 23, 26, 27, 28, 29 | 27 |
-| R-2 | REC-DEC-07, 11, 23, 28, 32, 38; REC-FL-02; REC-MATRIX-02, 06; REC-RISK-06; REC-W11-04, 07; REC-W13-11, 12, 13; REC-W16-01, 06; REC-W18-10; SEC-5, 6; W10-R7, 10; W12-R6; W3-REC-4, 5, 9, 11; W5-R1, 2, 4, 5, 7, 9; W8-R2 | 34 | 01, 04, 06, 07, 09, 11, 12, 13, 14, 17, 23, 28 | 22 |
-| R-3 | REC-DEC-01, 02, 05, 08, 12, 14, 16, 17, 18, 20, 25, 26, 31, 34, 37, 39, 41; REC-FL-02, 03, 05; REC-MATRIX-01, 03, 04, 06; REC-RISK-01; REC-W13-05; REC-W15-01, 03, 07, 11; REC-W16-06, 10; REC-W17-03; REC-W18-02, 04, 05; SEC-1, 4, 6, 7, 17; W10-R8, 9, 10; W12-R2; W2-R1, 2, 6; W3-REC-1, 2, 6; W5-R1, 6; W7-R1, 3, 11; W8-R5, 11 | 58 | 00, 01, 03, 04, 05, 06, 07, 08, 09, 11, 13, 14, 16, 17, 23, 26, 27, 28 | 25 |
-| H-1 | REC-DEC-02, 14, 39; REC-FL-02, 04; REC-W15-07, 08; REC-W16-01, 03, 05, 08; REC-W18-05, 10; SEC-3, 4, 6, 7, 15; W10-R7; W12-R2; W2-R2; W3-REC-6, 7, 12; W5-R6; W7-R1, 3; W8-R5 | 28 | 01, 03, 04, 06, 07, 08, 09, 11, 13, 16, 17, 23, 26, 28 | 15 |
+| R-1 | REC-DEC-05, 07, 08, 14, 20, 21, 23, 26, 30, 31, 32, 34, 35, 36, 45; REC-FL-03; REC-MATRIX-01, 02, 03, 04; REC-RISK-02; REC-W11-04; REC-W15-01; REC-W16-06; REC-W17-03; REC-W18-04, 07, 10; REC-W19-02, 06; SEC-1, 5; W2-R3, 5; W3-REC-1, 4, 5, 7, 8, 9; W5-R2, 8; W7-R4; W8-R11 | 44 | 00, 01, 03, 04, 05, 06, 07, 08, 09, 10, 12, 16, 17, 23, 26, 27, 28, 29 | 27 |
+| R-2 | REC-DEC-07, 11, 23, 28, 32, 38, 45, 49; REC-FL-02; REC-MATRIX-02, 06; REC-RISK-06; REC-W11-04, 07; REC-W13-11, 12, 13; REC-W16-01, 06; REC-W18-10; SEC-5, 6; W10-R7, 10; W12-R6; W3-REC-4, 5, 9, 11; W5-R1, 2, 4, 5, 7, 9; W8-R2 | 36 | 01, 04, 06, 07, 09, 11, 12, 13, 14, 17, 23, 28 | 22 |
+| R-3 | REC-DEC-01, 02, 05, 08, 12, 14, 16, 17, 18, 20, 25, 26, 31, 34, 37, 39, 41, 42, 43, 46, 48, 49; REC-FL-02, 03, 05; REC-MATRIX-01, 03, 04, 06; REC-RISK-01; REC-W13-05; REC-W15-01, 03, 07, 11; REC-W16-06, 10; REC-W17-03; REC-W18-02, 04, 05; SEC-1, 4, 6, 7, 17; W10-R8, 9, 10; W12-R2; W2-R1, 2, 6; W3-REC-1, 2, 6; W5-R1, 6; W7-R1, 3, 11; W8-R5, 11 | 63 | 00, 01, 03, 04, 05, 06, 07, 08, 09, 11, 13, 14, 16, 17, 23, 26, 27, 28 | 25 |
+| H-1 | REC-DEC-02, 14, 39, 43; REC-FL-02, 04; REC-W15-07, 08; REC-W16-01, 03, 05, 08; REC-W18-05, 10; SEC-3, 4, 6, 7, 15; W10-R7; W12-R2; W2-R2; W3-REC-6, 7, 12; W5-R6; W7-R1, 3; W8-R5 | 29 | 01, 03, 04, 06, 07, 08, 09, 11, 13, 16, 17, 23, 26, 28 | 15 |
 | H-2 | W10-R7 | 1 | 11, 23 | 5 |
-| H-3 | REC-DEC-32, 33; REC-RISK-04; REC-W15-03, 04; REC-W16-04; REC-W18-02; W10-R1; W2-R1; W3-REC-6; W8-R5 | 11 | 01, 03, 04, 08, 09, 11, 16, 17, 23, 28 | 3 |
+| H-3 | REC-DEC-32, 33, 44; REC-RISK-04; REC-W15-03, 04; REC-W16-04; REC-W18-02; W10-R1; W2-R1; W3-REC-6; W8-R5 | 12 | 01, 03, 04, 08, 09, 11, 16, 17, 23, 28 | 3 |
 | H-4 | REC-W16-03, 07; SEC-4; W10-R6, 9 | 5 | 07, 08, 11, 17 | 4 |
 | W-1 | REC-W13-09; REC-W17-07 | 2 | 14, 27 | 0 |
 | W-2 | REC-W13-08; REC-W17-07 | 2 | 14, 27 | 0 |
@@ -401,10 +402,10 @@ Generated from the scan in §9 on 2026-11-11. "#" is the number of distinct labe
 | W-7 | REC-W13-09 | 1 | 14 | 0 |
 | W-8 | REC-W13-10; REC-W19-12; W12-R13 | 3 | 13, 14, 29 | 1 |
 | W-9 | REC-W13-09 | 1 | 14 | 0 |
-| RS-1 | REC-FL-01; REC-RISK-02, 06; REC-W17-06; W12-R14 | 5 | 00, 01, 03, 13, 23, 27 | 5 |
+| RS-1 | REC-DEC-42; REC-FL-01; REC-RISK-02, 06; REC-W17-06; W12-R14 | 6 | 00, 01, 03, 13, 23, 27 | 5 |
 | RS-2 | REC-FL-01; REC-W17-06; W12-R3 | 3 | 01, 03, 13, 27 | 9 |
 | RS-3 | — | 0 | — | 1 |
-| RS-4 | REC-DEC-01, 17, 41; REC-MATRIX-08; W2-R1, 7 | 6 | 00, 01, 03 | 2 |
+| RS-4 | REC-DEC-01, 17, 41, 42, 46; REC-MATRIX-08; W2-R1, 7 | 8 | 00, 01, 03 | 2 |
 | RS-5 | REC-FL-01 | 1 | — | 1 |
 | RS-6 | — | 0 | 00, 26 | 0 |
 | RS-7 | REC-W17-01 | 1 | 23, 27 | 0 |
@@ -414,13 +415,13 @@ Generated from the scan in §9 on 2026-11-11. "#" is the number of distinct labe
 | F-4 | REC-DEC-24; REC-W14-08; REC-W15-10; REC-W16-07; REC-W18-06; REC-W19-07, 09; W7-R8 | 8 | 01, 08, 11, 12, 15, 16, 17, 23, 28, 29 | 4 |
 | F-5 | REC-DEC-10, 24, 40; REC-FL-05; REC-W15-09; REC-W16-02, 07; REC-W19-01, 07, 09, 10; W12-R4, 6; W7-R9, 12; W8-R12 | 16 | 01, 05, 08, 09, 11, 12, 13, 16, 17, 23, 29 | 8 |
 | F-6 | REC-W11-12, 18; REC-W16-01; REC-W19-11; REC-W9-01; W7-R10 | 6 | 01, 05, 07, 08, 10, 11, 12, 16, 17, 29 | 10 |
-| F-7 | REC-DEC-12, 25; REC-W17-03, 08; REC-W18-01, 02, 03, 04, 06, 07, 11; W2-R7; W7-R3, 5 | 14 | 01, 03, 08, 11, 15, 23, 27, 28 | 5 |
-| F-8 | REC-DEC-25; REC-W14-09; REC-W15-11; REC-W17-02; REC-W18-07, 09, 10, 11; W3-REC-12 | 9 | 01, 04, 15, 16, 23, 27, 28 | 5 |
-| F-9 | REC-W17-01, 08; REC-W18-08 | 3 | 27, 28 | 1 |
-| F-10 | — | 0 | — | 0 |
-| F-11 | REC-DEC-04, 26, 27, 29; REC-MATRIX-07; REC-W18-03, 05; W2-R3; W3-REC-8, 10, 13; W7-R5, 6; W8-R1, 5, 6, 11 | 17 | 00, 01, 03, 04, 06, 07, 08, 09, 16, 23, 26, 28 | 4 |
-| F-12 | REC-DEC-04, 27, 33; W2-R3, 4; W3-REC-13; W8-R5 | 7 | 00, 01, 03, 04, 09, 23, 26, 27 | 0 |
-| F-14 | REC-DEC-01, 06, 09, 17, 22, 33, 38; REC-RISK-02; REC-W11-01, 05, 13; REC-W13-02; REC-W15-02, 03; REC-W16-04; REC-W18-01, 02; REC-W9-09; SEC-1, 8, 13; W10-R1, 2; W2-R1; W3-REC-3; W5-R1, 2, 3, 6, 12; W7-R7; W8-R4 | 32 | 00, 01, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 16, 17, 23, 26, 28, 29 | 15 |
+| F-7 | REC-DEC-12, 25, 46, 48; REC-W17-03, 08; REC-W18-01, 02, 03, 04, 06, 07, 11; W2-R7; W7-R3, 5 | 16 | 01, 03, 08, 11, 15, 23, 27, 28 | 5 |
+| F-8 | REC-DEC-25, 48; REC-W14-09; REC-W15-11; REC-W17-02; REC-W18-07, 09, 10, 11; W3-REC-12 | 10 | 01, 04, 15, 16, 23, 27, 28 | 5 |
+| F-9 | REC-B30-01, 15; REC-PLAN-07; REC-W17-01, 08; REC-W18-08 | 6 | 00, 20, 24, 27, 28, 30 | 1 |
+| F-10 | — | 0 | 00, 24 | 0 |
+| F-11 | REC-DEC-04, 26, 27, 29, 49; REC-MATRIX-07; REC-W18-03, 05; W2-R3; W3-REC-8, 10, 13; W7-R5, 6; W8-R1, 5, 6, 11 | 18 | 00, 01, 03, 04, 06, 07, 08, 09, 16, 23, 26, 28 | 4 |
+| F-12 | REC-DEC-04, 27, 33, 42, 44, 49; W2-R3, 4; W3-REC-13; W8-R5 | 10 | 00, 01, 03, 04, 09, 23, 26, 27 | 0 |
+| F-14 | REC-DEC-01, 06, 09, 17, 22, 33, 38, 42, 44; REC-RISK-02; REC-W11-01, 05, 13; REC-W13-02; REC-W15-02, 03; REC-W16-04; REC-W18-01, 02; REC-W9-09; SEC-1, 8, 13; W10-R1, 2; W2-R1; W3-REC-3; W5-R1, 2, 3, 6, 12; W7-R7; W8-R4 | 34 | 00, 01, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 16, 17, 23, 26, 28, 29 | 15 |
 | F-15 | REC-W14-10; REC-W18-01 | 2 | 01, 15, 28 | 0 |
 | F-13 | REC-W13-07; REC-W15-01, 02; REC-W16-08; W3-REC-10; W8-R2, 7, 9, 12 | 9 | 04, 09, 14, 16, 17, 23 | 3 |
 
@@ -431,3 +432,4 @@ Generated from the scan in §9 on 2026-11-11. "#" is the number of distinct labe
 | Date | Change |
 |---|---|
 | 2026-11-11 | Revision 1 (TRACE): all 97 IDs traced; easily-missed homes verified; findings F-T1…F-T8; closes critic pass-2 gap N15 for `25-…`. |
+| 2026-11-11 | Revision 2 (PROP4-d): synced to `01` rev. 4 and closes critic pass-3 P3-8(b). F-9 Partial → **Covered** (30 exists; its base default awaits its owner); F-10 Pending → **Partial** (PDF built from rev. 3); counts now 90 · 4 · 3 · 0. REC-DEC-42…49 traced (REC-DEC-42, the base-OS decision of record, supersedes REC-DEC-01). RS-1 and F-12 notes restated for rev. 4. Every "not yet written" / "does not exist yet" statement about 20, 22, 24, 30 and the PDF removed; F-T6 closed; F-T5 restated. Scope limits in §9 item 7. |

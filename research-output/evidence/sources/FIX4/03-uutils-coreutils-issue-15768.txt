@@ -1,0 +1,159 @@
+Source: https://github.com/uutils/coreutils/issues/15768 (accessed 2026-11-11)
+state: open created 2026-10-25T12:40:42Z
+title: timeout: -s KILL and -k no longer kill the whole process group
+
+```
+============================================================================
+ANT-2026-AP1FE2PN  [NOT SECURITY: ordinary bug]
+timeout: -s KILL and -k no longer kill the whole process group
+Location: src/uucore/src/lib/features/process/unix.rs:60  in send_signal_group()
+Commit:   7bc1eb6d1d6fa2e1dc2c9d2277cf576c05f61e47
+============================================================================
+```
+
+> **Not a security issue.** This is a real, reproducible bug that is NOT a security issue: by your project's own policy nobody gains anything from it that they did not already have. It is not part of the vulnerability report, is in none of its counts, needs no embargo and no advisory, and can be filed and fixed in the open like any bug.
+
+On Unix, `timeout -s KILL` and the `-k DURATION` escalation kill only the command's direct child, not its process group. Any background job, pipeline stage or helper the command started keeps running after `timeout` has exited with 137. A caller capturing the command's output, as in `out=$(timeout -s KILL 0.3 sh -c 'sleep 4 & wait')`, stays blocked until those leftovers exit on their own. GNU `timeout` 9.7 kills the whole group in both cases. The default `TERM` is not affected.
+
+The cause is in `send_signal_group()` in `src/uucore/src/lib/features/process/unix.rs`. Before calling `kill(0, sig)`, it temporarily sets the signal to `SIG_IGN` so `timeout` does not signal itself, and it returns early if that fails. The kernel refuses to change the disposition of `SIGKILL` (and `SIGSTOP`) with `EINVAL`, so the `?` returns before `kill(0, SIGKILL)` is reached. The caller in `timeout` discards the error with `let _ =`, so nothing is reported. This is a regression from `6100aeeb8017` ("refactor: replace unsafe libc calls with safe nix crate wrappers", #11156), which added the error check; it first shipped in 0.7.0. The attached reproducer runs `timeout -k 0.3 0.3` and `timeout -s KILL 0.3` on a job whose background worker writes a file 1.5 s in. Both runs return 137 on time, and the file appears afterwards. A patch that sends `SIGKILL`/`SIGSTOP` to the group without the `SIG_IGN` step, with an accompanying Unix test, is included.
+
+## Details
+
+This is an ordinary bug, not a security issue: the only effect is processes that outlive `timeout` under the caller's own account, and a command that wants to outlive its limit can already do so under GNU `timeout` too (with `setsid`), so no privilege or boundary is crossed.
+
+On Unix, `timeout` never delivers `SIGKILL` to the command's process group. Only the direct child is killed; any other process the command started keeps running after `timeout` has exited.
+
+```
+$ target/debug/coreutils timeout -s KILL 1 sh -c 'sleep 30 & wait'; echo $?
+137
+$ pgrep -x -a sleep
+176 sleep 30
+```
+
+`sleep 30` is still running, reparented to init, in the process group `timeout` created. The same happens on the `-k` escalation path when the command ignores the first signal:
+
+```
+$ target/debug/coreutils timeout -k 1 1 sh -c 'trap "" TERM; sleep 30 & wait'
+```
+
+GNU coreutils 9.7 `timeout` leaves no process behind on either command line. With the default `TERM` and no `trap`, uutils also kills the `sleep`: only `KILL` is affected.
+
+`strace -f -e trace=kill,rt_sigaction` on the `-k` case shows the difference. uutils ends with
+
+```
+kill(119, SIGKILL)                          = 0
+rt_sigaction(SIGKILL, {sa_handler=SIG_IGN, …}, …) = -1 EINVAL
+```
+
+and GNU 9.7 ends with
+
+```
+kill(126, SIGKILL)                          = 0
+rt_sigaction(SIGKILL, {sa_handler=SIG_IGN, …}, …) = -1 EINVAL
+kill(0, SIGKILL)                            = ?
+```
+
+The cause is in how the group signal is sent. `timeout` makes itself leader of a new process group before spawning, so the command and everything it forks share that group:
+
+```rust
+// src/uu/timeout/src/platform/unix.rs:52-54
+if !foreground {
+    let _ = setpgid(Pid::from_raw(0), Pid::from_raw(0));
+}
+```
+
+When the limit expires, `send_signal()` signals the child and then the group, discarding both results:
+
+```rust
+// src/uu/timeout/src/platform/unix.rs:108-112
+let _ = process.send_signal(signal);
+if signal == 0 || foreground {
+    return;
+}
+let _ = process.send_signal_group(signal);
+```
+
+The group delivery is in `uucore`. Because `timeout` is itself a member of the group, it ignores the signal around the `kill(0, …)`:
+
+```rust
+// src/uucore/src/lib/features/process/unix.rs:59-65
+// Ignore the signal temporarily so we don't receive it ourselves.
+let old_handler = unsafe { nix_signal::signal(signal, SigHandler::SigIgn) }
+    .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+let result = nix_signal::kill(Pid::from_raw(0), Some(signal));
+// Restore the old handler
+let _ = unsafe { nix_signal::signal(signal, old_handler) };
+```
+
+For `SIGTERM`, `SIGHUP`, `SIGINT`, … the `signal()` call succeeds and the group is signalled. For `SIGKILL` the kernel rejects any change of disposition with `EINVAL`, the `?` on line 61 returns, and line 62 is never reached. The caller's `let _ =` drops the error, so nothing is reported.
+
+Two paths send `SIGKILL` and both go through this function:
+
+- `-s KILL` / `-s 9`: the first signal, `src/uu/timeout/src/timeout.rs:312`.
+- `-k DURATION`: the escalation in `wait_or_kill_process()`, `src/uu/timeout/src/timeout.rs:244-246`. It is reached when the command is still running `DURATION` after the first signal.
+
+In the `-k` example above, `kill(0, SIGTERM)` does reach `sh` and `sleep`, but both ignore it (an ignored disposition is inherited across `fork` and `exec`). After the kill-after delay `sh` alone receives `SIGKILL`, `process.wait()` returns, and `timeout` exits 137 while `sleep` lives on. In the `-s KILL` example no cooperation from the command is needed: nothing is ever sent to the group.
+
+`SIGSTOP` cannot be ignored either and takes the same early return: `-s STOP` is sent to the direct child only.
+
+The project's own expectation is that the group is covered. The help text for `--foreground` says "in this mode, children of COMMAND will not be timed out" (`src/uu/timeout/locales/en-US.ftl:5`), and the Windows test `test_windows_kills_process_tree` states "The whole process tree must be timed out in non-foreground mode, not just the direct child" (`tests/by-util/test_timeout.rs:429`). There is no Unix test that checks a grandchild after a `KILL`.
+
+The cause does not depend on the build profile, so a release build of `uu_timeout` from this commit is affected in the same way.
+
+The early return was introduced in `6100aeeb8017` ("refactor: replace unsafe libc calls with safe nix crate wrappers (#11156)", 2026-02-28), which added the `?` after `nix_signal::signal(signal, SigHandler::SigIgn)`. Before it, the result of `libc::signal()` was not checked and `kill(0, SIGKILL)` was issued. The regression first shipped in 0.7.0.
+
+## Impact
+
+Anyone who uses `timeout -s KILL`, or `timeout -k` on a command whose processes ignore the first signal, gets a limit that covers only the direct child. Any background job, pipeline stage or helper the command started keeps running after `timeout` has returned 137: it goes on using CPU and memory and can still write files (the reproducer shows such a late write). With `-s KILL` this happens every time the timed-out command has a child process, for example any `sh -c '… | …'` or `sh -c '… & wait'`, so in scripts, cron jobs and CI steps that use `timeout -s KILL` as a hard bound, leftovers that do not finish on their own can accumulate run after run. With the default `TERM` the whole group is signalled and nothing is left behind, so users only meet this when they ask for `KILL` explicitly, which is usually exactly when they need the command gone.
+
+A caller that captures the command's output is not released at the limit at all, because the survivor holds the write end of the pipe: `out=$(timeout -s KILL 0.3 sh -c 'sleep 4 & wait')` returns after 4 s with uutils and after 0.3 s with GNU 9.7. If the surviving process hangs, so does the caller.
+
+## Reproducing
+
+`repro` runs the prebuilt `target/debug/coreutils timeout` twice on the same job: once with `-k 0.3 0.3` and once with `-s KILL 0.3`. These are the two ways `timeout` sends `SIGKILL`. It then checks whether a process started by the job keeps running after `timeout` has returned. It builds nothing and needs no special privileges. The paths are fixed in the script: the checkout at `/src` (`TIMEOUT`) and the companion directory copied to `/tmp/repro.d` (`JOB`).
+
+- `repro.d/job_with_background_worker.sh` is the command being timed. It plays the part of whoever supplies the job, and it does nothing an ordinary script would not do. It ignores `TERM`, starts a background worker (`sleep 1.5; touch "$1"`) and waits for it. The worker creates the file named by its argument 1.5 s after the job starts, which is well past both limits. Ignoring `TERM` is what makes the `-k` run escalate to `KILL`. It plays no part in the `-s KILL` run. The job never leaves the process group that `timeout` created (it does not use `setsid`).
+- `repro` is what the runner does. For each of the two command lines it runs `timeout` on the job with a fresh marker path in a new temporary directory. It records the exit status and how long `timeout` took, checks that the marker does not exist yet at the moment `timeout` returns, then waits 2 s and checks again. If the marker appears only after `timeout` has returned, a member of the job was still alive after `timeout` reported that it had killed the job.
+
+Expected output on this commit: both runs report exit status 137, after 0.6 s and 0.3 s. The worker's file is absent when `timeout` returns and present 2 s later, and the last line is `BUG`. With `TIMEOUT` in the script pointed at `/usr/bin/timeout` (GNU 9.7), both runs are killed by signal 9 at the same points in time, no file is ever created, and the script prints `OK`. The worker finishes by itself, so no process is left behind in either case. The whole run takes about 5 s.
+
+## Suggested fix
+
+The attached patch changes `send_signal_group()` in `src/uucore/src/lib/features/process/unix.rs`. For the two signals whose disposition cannot be changed, `SIGKILL` and `SIGSTOP`, it skips the temporary `SIG_IGN` and sends the signal to the group as it is:
+
+```diff
+--- a/src/uucore/src/lib/features/process/unix.rs
++++ b/src/uucore/src/lib/features/process/unix.rs
+@@ -56,6 +56,13 @@ impl ChildExt for Child {
+         let signal = Signal::try_from(signal as i32)
+             .map_err(|_| io::Error::from_raw_os_error(libc::EINVAL))?;
+ 
++        // SIGKILL and SIGSTOP cannot be ignored, so the group gets them as
++        // they are and this process is killed or stopped along with it.
++        if matches!(signal, Signal::SIGKILL | Signal::SIGSTOP) {
++            return nix_signal::kill(Pid::from_raw(0), Some(signal))
++                .map_err(|e| io::Error::from_raw_os_error(e as i32));
++        }
++
+         // Ignore the signal temporarily so we don't receive it ourselves.
+         let old_handler = unsafe { nix_signal::signal(signal, SigHandler::SigIgn) }
+             .map_err(|e| io::Error::from_raw_os_error(e as i32))?;
+```
+
+This covers both the `-s KILL` and the `-k` path and matches GNU 9.7: no process of the job survives, `-s STOP` stops the whole group, and a `CONT` to the group resumes `timeout`, which then continues the child. The default `TERM` and `--foreground -s KILL` behave as before. With the patch applied to a clean checkout and rebuilt, the reproducer prints `OK`.
+
+The consequence is that `timeout` itself now dies of `SIGKILL` instead of calling `exit(137)`. That is what GNU 9.7 does, and a shell reports 137 in both cases, but a parent that inspects the wait status sees "killed by signal 9" rather than "exited with 137". The exit-137 branch added in `a185142fd` ("timeout: exit with 128+9 when the timeout signal is KILL") is then reachable only with `--foreground`. The patch adjusts `test_kill_signal_reports_signal_exit_code` in `tests/by-util/test_timeout.rs` to expect termination by signal 9 for the three non-foreground `KILL` invocations on Unix (the `--foreground` case still expects 137), and adds `test_kill_signal_reaches_process_group`, a Unix counterpart of `test_windows_kills_process_tree` that checks a grandchild does not survive `-s KILL` or `-k`.
+
+Keeping a normal `exit(137)` would require `timeout` not to be a member of the group when the `SIGKILL` is sent, for example by placing only the command in a new group and signalling that group by id. The command would then no longer share the shell's foreground process group, which breaks interactive use without `--foreground`, so the patch does not take that route.
+
+## Running the reproducer
+
+`bugs-not-security/ANT-2026-AP1FE2PN/repro`, next to this file, with its companion files in `bugs-not-security/ANT-2026-AP1FE2PN/repro.d/` (job_with_background_worker.sh) — the script reads them from `/tmp/repro.d/`. It was written by an automated agent and our check ran it as root in a privileged container: run it INSIDE A THROWAWAY VM, with the image `oss-scan-7bc1eb6d1d6f` built by `bash build/build-image.sh`, from the archive's top directory:
+
+    docker run --rm --network=none --privileged -u 0 -w /src -v "$PWD/bugs-not-security/ANT-2026-AP1FE2PN/repro:/tmp/repro:ro" -v "$PWD/bugs-not-security/ANT-2026-AP1FE2PN/repro.d:/tmp/repro.d:ro" oss-scan-7bc1eb6d1d6f /tmp/repro
+
+It prints its evidence; the last line is `BUG` if the issue triggered, `OK` otherwise.
+
+
+Related: #3489
+

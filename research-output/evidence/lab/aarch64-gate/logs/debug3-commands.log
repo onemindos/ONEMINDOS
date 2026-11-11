@@ -1,0 +1,31 @@
+##### [07:37:03] QEMU START qemu-system-aarch64 -machine virt -accel kvm -cpu host -smp 4 -m 3072 -nodefaults -display none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd -drive if=pflash,
+$ journalctl -u k3s --no-pager | grep -iE "import|airgap|images" | cut -c1-260 | tail -15
+journalctl -u k3s --no-pager | grep -iE "import|airgap|images" | cut -c1-260 | tail -15; echo __R''C=$?__
+[?2004l
+$ grep -iE "import|unpack|pause" /data/k3s/agent/containerd/containerd.log | grep -v level=debug | cut -c1-260 | tail -15
+grep -iE "import|unpack|pause" /data/k3s/agent/containerd/containerd.log | grep -v level=debug | cut -c1-260 | tail -15; echo __R''C=$?__
+[?2004l
+$ export KUBECONFIG=/run/k3s/k3s.yaml; k3s crictl --runtime-endpoint unix:///run/k3s/containerd/containerd.sock images 2>&1 | tail; k3s kubectl get pods -A 2>&1 | tail -6
+
+export KUBECONFIG=/run/k3s/k3s.yaml; k3s crictl --runtime-endpoint unix:///run/k3s/containerd/containerd.sock images 2>&1 | tail; k3s kubectl get pods -A 2>&1 | tail -6; echo __R''C=$?__
+[?2004hroot@onemind-lab:~# export KUBECONFIG=/run/k3s/k3s.yaml; k3s crictl --runtime-endpoint unix:///run/k3s/containerd/containerd.sock images 2>&1 | tail; k3s kubectl get pods -A 2>&1 | tail -6; echo __R''CC=$?__
+[?2004ltime="2026-11-11T12:40:31Z" level=info msg="Acquiring lock file /var/lib/rancher/k3s/data/.lock"
+time="2026-11-11T12:42:25Z" level=warning msg="Config \"\" does not exist, trying next: \"/var/lib/rancher/k3s/data/10bae91d040ed73349935c6d1ce72fe9eedd59996e8758da3b1177613eded6f7/bin/crictl.yaml\""
+time="2026-11-11T12:42:25Z" level=error msg="get server config: load config file: stat /var/lib/rancher/k3s/data/10bae91d040ed73349935c6d1ce72fe9eedd59996e8758da3b1177613eded6f7/bin/crictl.yaml: no such file or directory"
+E1111 12:42:42.147985     612 memcache.go:381] "Couldn't get current server API group list" err="the server is currently unable to handle the request"
+E1111 12:42:42.289825     612 memcache.go:381] "Couldn't get current server API group list" err="the server is currently unable to handle the request"
+E1111 12:42:42.434816     612 memcache.go:381] "Couldn't get current server API group list" err="the server is currently unable to handle the request"
+E1111 12:42:42.707094     612 memcache.go:381] "Couldn't get current server API group list" err="the server is currently unable to handle the request"
+E1111 12:42:43.378152     612 memcache.go:381] "Couldn't get current server API group list" err="the server is currently unable to handle the request"
+Error from server (ServiceUnavailable): the server is currently unable to handle the request
+
+$ zstd -t /usr/lib/onemind/k3s-airgap-images.tar.zst; ls -laL /data/k3s/agent/images/
+zstd -t /usr/lib/onemind/k3s-airgap-images.tar.zst; ls -laL /data/k3s/agent/images/; echo __R''C=$?__
+[?2004hroot@onemind-lab:~# zstd -t /usr/lib/onemind/k3s-airgap-images.tar.zst; ls -laL /data/k3s/agent/images/; echo __R''C=$?__
+[?2004l-bash: zstd: command not found
+total 175280
+drwxr-xr-x 2 root root      4096 Nov 11 12:37 .
+drwxr-xr-x 6 root root      4096 Nov 11 12:40 ..
+-rw-r--r-- 1 root root 179475963 Nov 11 12:17 k3s-airgap-images.tar.zst
+
+##### [07:42:54] POWER CUT: SIGKILL qemu

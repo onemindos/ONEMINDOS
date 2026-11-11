@@ -1,13 +1,13 @@
 # SOURCES · Bibliography of the OneMind OS research run
 
-**Compiled:** 2026-11-11 · **Owner:** TRACE · **Compiled from:** every `evidence/sources/*.md` list (55 files), joined with the per-tag claim ledgers in `evidence/claims/*.csv` (2690 claim rows) · **Companion:** [`25-TRACEABILITY.md`](25-TRACEABILITY.md)
+**Compiled:** 2026-11-11 · **Owner:** TRACE · **Compiled from:** every `evidence/sources/*.md` list (66 files), joined with the per-tag claim ledgers in `evidence/claims/*.csv` (2875 claim rows) · **Companion:** [`25-TRACEABILITY.md`](25-TRACEABILITY.md)
 
 > ### Explain it like I'm the founder
 > Every fact in this research points to a **claim ID** (like `C-W3-017`), and every claim points to a **source** that someone actually opened. This file is the phone book of those sources: where each one lives, when it was read, what kind of source it is, and how we kept a copy so the fact can be checked later even if the web page changes.
 >
 > Web pages change and disappear. The brief says a page that a decision rests on (a *load-bearing* source) must be preserved in one of two ways: a snapshot in the Internet Archive's **Wayback Machine**, or a **saved text copy plus its fingerprint (sha256 hash)** inside this repo. Code is different: a link pinned to a git **commit SHA** can never change, so it is its own archive.
 >
-> **The short answer:** 1451 source entries are listed. Most are preserved: 669 have a saved copy in the repo, 124 have a Wayback capture, and 403 are code pinned to a commit. The **ARCHIVE-GAP** section at the end lists the **112** web sources that support a verified or partly verified claim but have neither a Wayback capture nor a saved copy. 31 of them back claims used in the decision documents (00, 01, 03–07, 28); those should be re-captured or replaced first. This compilation did not check whether any of them is the *only* support for a decision; that check belongs to the next ledger pass. Saving new Wayback snapshots was refused by this environment's permission policy throughout the run, so the gaps can only be closed by saving text copies or by Zeus requesting captures.
+> **The short answer:** 1540 source entries are listed. Most are preserved: 726 have a saved copy in the repo, 124 have a Wayback capture, and 412 are code pinned to a commit. The **ARCHIVE-GAP** section at the end lists the **114** web sources that support a verified or partly verified claim but have neither a Wayback capture nor a saved copy. 31 of them back claims used in the decision documents (00, 01, 03–07, 28); those should be re-captured or replaced first. This compilation did not check whether any of them is the *only* support for a decision; that check belongs to the next ledger pass. Saving new Wayback snapshots was refused by this environment's permission policy throughout the run, so the gaps can only be closed by saving text copies or by Zeus requesting captures.
 
 ## Glossary
 
@@ -37,28 +37,68 @@
 
 | Archive class | Entries |
 |---|---|
-| saved | 669 |
+| saved | 726 |
 | wayback | 124 |
-| sha-pin | 403 |
+| sha-pin | 412 |
 | tag-pin | 2 |
 | api | 11 |
 | hash-only | 21 |
-| none | 221 |
-| **All** | **1451** |
+| none | 244 |
+| **All** | **1540** |
 
 | Source type (as labelled in the row) | Entries |
 |---|---|
-| PRIMARY | 1094 |
-| not stated in row (see tag file) | 198 |
-| PRIMARY-METADATA | 74 |
-| SECONDARY | 70 |
-| UNVERIFIED | 15 |
+| PRIMARY | 1144 |
+| not stated in row (see tag file) | 227 |
+| PRIMARY-METADATA | 79 |
+| SECONDARY | 72 |
+| UNVERIFIED | 18 |
 
-Claim IDs reached through these entries: **1474** of 2690 ledger rows.
+Claim IDs reached through these entries: **1567** of 2875 ledger rows.
 
 ## Bibliography by tag
 
 Columns: **Source** (URL or `repo@sha`) · **Accessed** · **Type** · **Archive** (Wayback link, saved copy and hash prefix, or commit pin) · **Claims supported**. The full row, with notes, is in the linked tag file.
+
+### BRIEF30
+
+Tag file: [`evidence/sources/BRIEF30.md`](evidence/sources/BRIEF30.md) · 3 entries
+
+| # | Source | Accessed | Type | Archive | Claims supported |
+|---|---|---|---|---|---|
+| 1 | kanidm/kanidm@a52b723ce8efb1f4d0a6bc2a2c36b4071f95317d | 2026-11-11 | PRIMARY | commit pin `a52b723ce8ef` | C-BRIEF30-001 |
+| 2 | systemd/systemd@70b5d110be7702afc4dbce012f60d49506d513da | 2026-11-11 | PRIMARY | commit pin `70b5d110be77` | C-BRIEF30-002 |
+| 3 | GitHub releases/latest API for cosign, sigstore-go, Lima, Kanidm, gitleaks, RAUC, k3s, nats-server, restic, Helm, Traefik; tag → commit by g | 2026-11-11 | PRIMARY-METADATA | saved: `BRIEF30/github-releases-latest-2026-11-11.txt` | C-BRIEF30-003…007 |
+
+### CIT4
+
+Tag file: [`evidence/sources/CIT4.md`](evidence/sources/CIT4.md) · 23 entries
+
+| # | Source | Accessed | Type | Archive | Claims supported |
+|---|---|---|---|---|---|
+| 1 | IronFlock/ironflockos@bb33a82dfa959366bb90896fc69b601604131185 | 2026-11-11 | PRIMARY | saved: `CIT4/ironflockos-bb33a82d-README.md.txt` · sha256 `67e7b31855185ede…` | C-CIT4-001, 002 |
+| 2 | GitHub API: repos/IronFlock/ironflockos, /releases, /contributors, tag refs | 2026-11-11 | PRIMARY-METADATA | — | C-CIT4-002 |
+| 3 | https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html | 2026-11-11 | PRIMARY | saved: `CIT4/nvidia-cuda-13.5-install-guide-linux.txt` · sha256 `35c39830dd3903f3…` | C-CIT4-003 |
+| 4 | https://antonio.paolillo.be/publications/workshops/ecrtsOspert2024_dewit_rtlinux_paper.pdf | 2026-11-11 | PRIMARY | saved: `antonio.paolillo.be/publications/workshops/ecrtsOspert2024_dewit_rtlinux_paper.pdf` | C-CIT4-004 |
+| 5 | https://www.osadl.org/…qa-profile-r2s7… | 2026-11-11 | PRIMARY | saved: `CIT4/osadl-qafarm-r2s7-pi5-profile.txt` · sha256 `9b554eeb4fffcab6…` | C-CIT4-005 |
+| 6 | https://docs.nvidia.com/jetson/archives/r36.4.3/DeveloperGuide/SD/Kernel/KernelCustomization.html | 2026-11-11 | PRIMARY | saved: `CIT4/nvidia-jetson-linux-r36.4.3-kernel-customization.txt` · sha256 `3985b8e32c92030f…` | C-CIT4-006 |
+| 7 | https://www.wimcorp.co.kr/tech/en/posts/embedded/preempt-rt-jetson-orin/ | 2026-11-11 | SECONDARY | saved: `CIT4/wimcorp-preempt-rt-jetson-orin.txt` · sha256 `72bc8477aa4acd46…` | C-CIT4-007 |
+| 8 | https://www.raspberrypi.com/news/price-rises-for-some-16gb-raspberry-pi-products/ | 2026-11-11 | PRIMARY | — | C-CIT4-008 |
+| 9 | https://developer.nvidia.com/embedded/faq | 2026-11-11 | PRIMARY | saved: `CIT4/nvidia-jetson-faq-prices.txt` · sha256 `de6b9636eae765e0…` | C-CIT4-009 |
+| 10 | https://digital-strategy.ec.europa.eu/en/policies/cra-conformity-assessment | 2026-11-11 | PRIMARY | saved: `CIT4/ec-digital-strategy-cra-conformity-assessment.txt` · sha256 `a803bd47fbc2d427…` | C-CIT4-010 |
+| 11 | https://www.cencenelec.eu/news-events/events/2026/2026-06-18-cra-unlocked-deep-dive-technical-component-requirements-for-acs/ | 2026-11-11 | PRIMARY | saved: `CIT4/cencenelec-2026-06-18-cra-unlocked-62443-4-2-prAA.txt` · sha256 `c1034ff27f282ecc…` | C-CIT4-011 |
+| 12 | https://www.boschrexroth.com/en/at/company/press/ctrlx-os-cra-30528.html | 2026-11-11 | PRIMARY | saved: `CIT4/boschrexroth-press-2025-03-18-ctrlx-os-cra.txt` · sha256 `f2fe8db38f7d6cca…` | C-CIT4-012 |
+| 13 | GitHub advisories GHSA-vjh7-5r6x-xh6g, GHSA-m5q5-8mfw-p2hr (CasaOS), GHSA-vmg3-7v43-9g23 (NVIDIA Container Toolkit), via gh api /advisories/ | 2026-11-11 | PRIMARY | saved copy in `sources/CIT4/` · sha256 `a5422460343cc283…` | C-CIT4-013, 014 |
+| 14 | http://archive.raspberrypi.com/debian/dists/trixie/main/binary-arm64/Packages.gz | 2026-11-11 | PRIMARY-METADATA | saved: `CIT4/rpi-os-trixie-arm64-kernel-metapackages.txt` · sha256 `c71c794444b05c4f…` | C-CIT4-015 |
+| 15 | https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/Packages.gz | 2026-11-11 | PRIMARY-METADATA | saved: `CIT4/nvidia-cuda-repo-debian13-x86_64-driver-branches.txt` · sha256 `4be06140520acf8a…` | C-CIT4-016 |
+| 16 | https://docs.nvidia.com/jetson/archives/r36.4.3/DeveloperGuide/SD/SoftwarePackagesAndTheUpdateMechanism.html | 2026-11-11 | PRIMARY | saved: `CIT4/nvidia-jetson-linux-r36.4.3-software-packages-update-mechanism.txt` · sha256 `67453dca894347ff…` | C-CIT4-017 |
+| 17 | NANDO (webgate.ec.europa.eu/single-market-compliance-space, notified bodies by legislation) | 2026-11-11 | UNVERIFIED | — | C-STEEL-cra-nb-017 |
+| 18 | apps.boschrexroth.com/microsites/ctrlx-automation/en/cra/ (C-STEEL-ubu-011's URL) | 2026-11-11 | — | — | C-STEEL-ubu-011 |
+| 19 | nvidia.custhelp.com/app/answers/detail/a_id/5659 (CVE-2025-23266 bulletin) | 2026-11-11 | — | — | — |
+| 20 | Raspberry Pi news and product pages by direct download | 2026-11-11 | — | — | — |
+| 21 | OSADL QA Farm, Jetson | 2026-11-11 | — | — | — |
+| 22 | NVIDIA Jetson Linux docs, latency figures | 2026-11-11 | — | — | — |
+| 23 | Extended web search plus GitHub code search for a Debian/Ubuntu + RAUC product (C-DEC-013) | 2026-11-11 | — | — | C-DEC-013 |
 
 ### COST
 
@@ -113,6 +153,16 @@ Tag file: [`evidence/sources/FRAME.md`](evidence/sources/FRAME.md) · 7 entries
 | 5 | docs/REQUIREMENTS.md | 2026-11-10 | — | saved: `docs/REQUIREMENTS.md` | — |
 | 6 | research/platform/fedora-iot-and-redhat-edge-deep-dive.md | 2026-11-10 | — | saved: `research/platform/fedora-iot-and-redhat-edge-deep-dive.md` | — |
 | 7 | research/platform/iiot-landscape-and-requirements.md | 2026-11-10 | — | saved: `research/platform/iiot-landscape-and-requirements.md` | — |
+
+### LAB-aarch64-gate
+
+Tag file: [`evidence/sources/LAB-aarch64-gate.md`](evidence/sources/LAB-aarch64-gate.md) · 3 entries
+
+| # | Source | Accessed | Type | Archive | Claims supported |
+|---|---|---|---|---|---|
+| 1 | https://github.com/rauc/rauc | 2026-11-11 | PRIMARY | commit pin `f1ceebd68b4e` | C-LAB-aarch64-gate-001 |
+| 2 | https://github.com/k3s-io/k3s/releases/download/v1.37.2%2Bk3s1/sha256sum-arm64.txt | 2026-11-11 | PRIMARY | saved: `k3s1-sha256sum-arm64.txt` | C-LAB-aarch64-gate-002 |
+| 3 | raspberrypi/documentation@21d772e7ee022e36a8f43c3ee75e20ca359fb832 | 2026-11-11 | PRIMARY | commit pin `21d772e7ee02` | C-LAB-aarch64-gate-007 |
 
 ### LAB-debian-rugix
 
@@ -247,6 +297,14 @@ Tag file: [`evidence/sources/LAB-rauc.md`](evidence/sources/LAB-rauc.md) · 9 en
 | 8 | https://github.com/home-assistant/supervisor/blob/040f14cd8aa2902401d30aaeb0cb71215854c78c/supervisor/os/manager.py#L467-L478 | 2026-11-10 | PRIMARY | commit pin `040f14cd8aa2` | C-LAB-rauc-011 |
 | 9 | http://deb.debian.org/debian | 2026-11-10 | PRIMARY-METADATA | saved: `../lab/rauc/image-packages.txt` | C-LAB-rauc-002, 012 |
 
+### LAB-secureboot-1152
+
+Tag file: [`evidence/sources/LAB-secureboot-1152.md`](evidence/sources/LAB-secureboot-1152.md) · 1 entries
+
+| # | Source | Accessed | Type | Archive | Claims supported |
+|---|---|---|---|---|---|
+| 1 | https://github.com/rauc/rauc/blob/4fb7c798d6ae412344fb8f8d310d773046af3441/CHANGES | 2026-11-11 | PRIMARY | commit pin `4fb7c798d6ae` | — |
+
 ### LAB-secureboot-rauc
 
 Tag file: [`evidence/sources/LAB-secureboot-rauc.md`](evidence/sources/LAB-secureboot-rauc.md) · 11 entries
@@ -357,6 +415,35 @@ Tag file: [`evidence/sources/LIC.md`](evidence/sources/LIC.md) · 39 entries
 | 38 | activepieces/activepieces@dec8e16d4e02 | 2026-11-11 | — | saved: `LIC/40-activepieces-license.txt` | C-LIC-068 |
 | 39 | u-boot/u-boot@5508406582f6f7120dce0c4b3059819a41788db2 | 2026-11-11 | PRIMARY | commit pin `5508406582f6` | C-LIC-059 |
 
+### LIC4
+
+Tag file: [`evidence/sources/LIC4.md`](evidence/sources/LIC4.md) · 22 entries
+
+| # | Source | Accessed | Type | Archive | Claims supported |
+|---|---|---|---|---|---|
+| 1 | https://www.postgresql.org/about/licence/ | 2026-11-11 | — | saved: `LIC4/01-postgresql-licence-page.txt` | C-LIC4-001 |
+| 2 | https://www.postgresql.org/support/versioning/ | 2026-11-11 | — | saved: `LIC4/02-postgresql-versioning-page.txt` | C-LIC4-002 |
+| 3 | postgres/postgres@724edf9bde9d | 2026-11-11 | — | saved: `LIC4/03-postgresql-COPYRIGHT-REL_18_6.txt` | C-LIC4-001 |
+| 4 | jejb/sbsigntools@9cfca9fe7aa7 | 2026-11-11 | — | saved: `LIC4/04-sbsigntools-COPYING-head.txt` | C-LIC4-004 |
+| 5 | jejb/efitools@392836a46ce3 | 2026-11-11 | — | saved: `LIC4/05-efitools-COPYING-head.txt` | C-LIC4-005 |
+| 6 | xiang/erofs-utils@f36cadb5c563 | 2026-11-11 | — | saved: `LIC4/06-erofs-utils-COPYING.txt` | C-LIC4-007 |
+| 7 | tytso/e2fsprogs@7ee1d505ef3b | 2026-11-11 | — | saved: `LIC4/07-e2fsprogs-NOTICE-head.txt` | C-LIC4-013 |
+| 8 | stefanberger/libtpms@03ff2481e133 | 2026-11-11 | — | saved: `LIC4/08-libtpms-LICENSE.txt` | C-LIC4-016 |
+| 9 | tpm2-software/tpm2-tools@bc25f7149372 | 2026-11-11 | — | saved: `LIC4/09-tpm2-tools-docs-LICENSE.txt` | C-LIC4-006 |
+| 10 | UnifiedPush/android-connector@04820c8cfe11 | 2026-11-11 | — | saved: `LIC4/10-unifiedpush-connector-and-spec.txt` | C-LIC4-008 |
+| 11 | josch/mmdebstrap@a6fcdbc4dde9 | 2026-11-11 | — | saved: `LIC4/11-mmdebstrap-script-header.txt` | C-LIC4-013 |
+| 12 | nodejs/node@18b32a3b1552 | 2026-11-11 | — | saved: `LIC4/12-nodejs-LICENSE-index.txt` | C-LIC4-012 |
+| 13 | SBOM/CVE | 2026-11-11 | — | — | C-LIC4-003 |
+| 14 | UnifiedPush | 2026-11-11 | — | — | C-LIC4-008 |
+| 15 | Sandboxes | 2026-11-11 | — | — | C-LIC4-009 |
+| 16 | Core and dashboard | 2026-11-11 | — | — | C-LIC4-010…012 |
+| 17 | Image build | 2026-11-11 | — | — | C-LIC4-013 |
+| 18 | Boot runtime | 2026-11-11 | — | — | C-LIC4-014 |
+| 19 | Time | 2026-11-11 | — | — | C-LIC4-015 |
+| 20 | CI firmware and rigs | 2026-11-11 | — | — | C-LIC4-016 |
+| 21 | Lab tools | 2026-11-11 | — | — | C-LIC4-017 |
+| 22 | CI scanners and linters | 2026-11-11 | — | — | C-LIC4-018 |
+
 ### MATRIX
 
 Tag file: [`evidence/sources/MATRIX.md`](evidence/sources/MATRIX.md) · 1 entries
@@ -364,6 +451,49 @@ Tag file: [`evidence/sources/MATRIX.md`](evidence/sources/MATRIX.md) · 1 entrie
 | # | Source | Accessed | Type | Archive | Claims supported |
 |---|---|---|---|---|---|
 | 1 | kairos-io/kairos-docs@b1bf8bed | 2026-11-11 | PRIMARY | saved: `MATRIX/casaos-kairos-checks-2026-11-11.txt` | C-MATRIX-014, 015 |
+
+### PLAN180
+
+Tag file: [`evidence/sources/PLAN180.md`](evidence/sources/PLAN180.md) · 5 entries
+
+| # | Source | Accessed | Type | Archive | Claims supported |
+|---|---|---|---|---|---|
+| 1 | https://github.com/rauc/rauc | 2026-11-11 | PRIMARY | saved: `PLAN180/rauc-tags.txt` | C-PLAN180-001 |
+| 2 | https://github.com/fedora-iot/greenboot-rs/issues/219 | 2026-11-11 | PRIMARY | saved: `PLAN180/greenboot-rs-219.txt` | C-PLAN180-002 |
+| 3 | https://github.com/coreos/bootupd/pull/935 | 2026-11-11 | PRIMARY | saved: `PLAN180/bootupd-pr-935.txt` | C-PLAN180-003 |
+| 4 | https://api.launchpad.net/1.0/bugs/2170238/bug_tasks | 2026-11-11 | PRIMARY | saved: `PLAN180/launchpad-2170238.txt` | C-PLAN180-004 |
+| 5 | https://github.com/k3s-io/k3s/releases | 2026-11-11 | PRIMARY | saved: `PLAN180/k3s-releases.txt` | C-PLAN180-005 |
+
+### QBANK
+
+Tag file: [`evidence/sources/QBANK.md`](evidence/sources/QBANK.md) · 15 entries
+
+| # | Source | Accessed | Type | Archive | Claims supported |
+|---|---|---|---|---|---|
+| 1 | https://www.acquisition.gov/far/52.204-25 | 2026-11-11 | PRIMARY | saved: `far-52-204-25.txt` | C-QBANK-001 |
+| 2 | https://www.acquisition.gov/far/25.003 | 2026-11-11 | PRIMARY | saved: `far-25-003.txt` | C-QBANK-002 |
+| 3 | https://www.ecfr.gov/api/versioner/v1/full/2026-11-09/title-14.xml?part=89 | 2026-11-11 | PRIMARY | saved: `ecfr-14-89.txt` | C-QBANK-003 |
+| 4 | https://www.ecfr.gov/api/versioner/v1/full/2026-11-09/title-47.xml?section=15.212 | 2026-11-11 | PRIMARY | saved: `ecfr-47-15-212.txt` | C-QBANK-004 |
+| 5 | https://www.edpb.europa.eu/system/files/documents/files/file1/edpb_guidelines_201903_video_devices_en_0.pdf | 2026-11-11 | PRIMARY | saved: `edpb-3-2019.txt` | C-QBANK-005, 006 |
+| 6 | https://labgrid.readthedocs.io/en/latest/overview.html | 2026-11-11 | PRIMARY | commit pin `b1b5b8e2335b` | C-QBANK-007 |
+| 7 | https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/ | 2026-11-11 | PRIMARY | saved: `metr-2025.txt` | C-QBANK-008 |
+| 8 | https://chaos-mesh.org/docs/simulate-pod-chaos-on-kubernetes/ | 2026-11-11 | PRIMARY | commit pin `8e5a702ee41f` | C-QBANK-009 |
+| 9 | https://docs.digitalocean.com/products/custom-images/details/limits/ | 2026-11-11 | PRIMARY | saved: `do-custom-images.txt` | C-QBANK-010 |
+| 10 | https://www.spamhaus.org/blocklists/policy-blocklist/ | 2026-11-11 | PRIMARY | saved: `spamhaus-pbl.txt` | C-QBANK-011 |
+| 11 | https://github.com/system76/firmware-open | 2026-11-11 | PRIMARY | commit pin `0cf80d89edec` | C-QBANK-012 |
+| 12 | https://openinventionnetwork.com/joining-oin/ | 2026-11-11 | UNVERIFIED | — | C-QBANK-013 |
+| 13 | https://www.fcc.gov/supplychain/coveredlist | 2026-11-11 | SECONDARY | — | C-W15-019 |
+| 14 | https://www.diu.mil/blue-uas | 2026-11-11 | UNVERIFIED | — | — |
+| 15 | EUR-Lex (Product Liability Directive 2024/2853) | 2026-11-11 | — | — | C-STEEL-cra-nb-018 |
+
+### ROADMAP
+
+Tag file: [`evidence/sources/ROADMAP.md`](evidence/sources/ROADMAP.md) · 2 entries
+
+| # | Source | Accessed | Type | Archive | Claims supported |
+|---|---|---|---|---|---|
+| 1 | ros-infrastructure/rep@11ca24a41f31480dfb9562ba99f2a5b93d3ebda5 | 2026-11-11 | PRIMARY | commit pin `11ca24a41f31` | C-ROADMAP-001 |
+| 2 | https://ubuntu.com/about/release-cycle | 2026-11-11 | PRIMARY | saved: `ROADMAP/ubuntu-release-cycle.txt` | C-ROADMAP-002 |
 
 ### SCORE
 
@@ -396,6 +526,28 @@ Tag file: [`evidence/sources/SCORE.md`](evidence/sources/SCORE.md) · 25 entries
 | 23 | https://developer.download.nvidia.com/compute/cuda/repos/ | 2026-11-11 | PRIMARY | saved copy in `sources/SCORE/` · sha256 `e065d0f19ec12628…` | C-SCORE-030 |
 | 24 | https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html | 2026-11-11 | PRIMARY | saved: `docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html` · sha256 `3d75171d2b3ad62b…` | C-SCORE-031 |
 | 25 | kopia/kopia@72ec08fd8edb86c67ed27099bf1b955e1f308ffa | 2026-11-11 | PRIMARY | commit pin `72ec08fd8edb` | C-SCORE-032 |
+
+### STEEL4-bootc
+
+Tag file: [`evidence/sources/STEEL4-bootc.md`](evidence/sources/STEEL4-bootc.md) · 15 entries
+
+| # | Source | Accessed | Type | Archive | Claims supported |
+|---|---|---|---|---|---|
+| 1 | AlmaLinux/bootc-images-rpi@bb8e83e6b898db63ca2b53a69343f067dfa4f28a | 2026-11-11 | PRIMARY | saved: `-issue22.json` | C-STEEL4-bootc-001…003 |
+| 2 | https://repo.almalinux.org/almalinux/10/raspberrypi/aarch64/os/Packages/ | 2026-11-11 | PRIMARY | saved: `alma10-raspberrypi-aarch64-Packages.txt` | C-STEEL4-bootc-004, 005 |
+| 3 | kfox1111/rpi-bootc-bootloader@82739f4c9ae6de9ce071014bff9dee16842fb978 | 2026-11-11 | PRIMARY | saved: `rpi-bootc-bootloader-82739f4c-LICENSE.txt` | C-STEEL4-bootc-006 |
+| 4 | https://repo.almalinux.org/almalinux/10/RT/ | 2026-11-11 | PRIMARY | saved: `alma10-rt-index.txt` | C-STEEL4-bootc-007 |
+| 5 | https://mirror.stream.centos.org/10-stream/RT/ | 2026-11-11 | PRIMARY | saved: `cs10-RT-x86_64-Packages.txt` | C-STEEL4-bootc-008 |
+| 6 | https://www.centos.org/download/ | 2026-11-11 | PRIMARY | saved: `centos-download.txt` | C-STEEL4-bootc-009 |
+| 7 | https://access.redhat.com/support/policy/updates/errata | 2026-11-11 | PRIMARY | saved: `rhel-lifecycle.txt` | C-STEEL4-bootc-010 |
+| 8 | https://www.redhat.com/en/about/press-releases/red-hat-nvidia-pair-enterprise-open-source-rack-scale-ai-faster-production-ready-innovation | 2026-11-11 | PRIMARY | saved: `rh-press-rhel-for-nvidia.txt` | C-STEEL4-bootc-011 |
+| 9 | https://www.redhat.com/en/blog/red-hat-device-edge-now-available-run-nvidia-jetson-orin | 2026-11-11 | PRIMARY | saved: `rh-blog-rhde-orin-ga.txt` | C-STEEL4-bootc-012 |
+| 10 | https://repo.download.nvidia.com/jetson/rhel-9.4/r36.3.1/ | 2026-11-11 | PRIMARY | saved: `nvidia-jetson-rhel-9.4-r36.3.1-primary.xml.txt` | C-STEEL4-bootc-013 |
+| 11 | https://almalinux.org/p/the-almalinux-os-trademark-usage-policy/ | 2026-11-11 | PRIMARY | saved copy in `sources/STEEL4-bootc/` | C-STEEL4-bootc-014 |
+| 12 | https://almalinux.org/blog/future-of-almalinux/ | 2026-11-11 | PRIMARY | saved: `alma-blog-future-2023.txt` | C-STEEL4-bootc-015 |
+| 13 | https://wiki.almalinux.org/release-notes/ | 2026-11-11 | PRIMARY | saved: `alma-release-notes.txt` | C-STEEL4-bootc-016 |
+| 14 | bootc-dev/bootc@27f1e64ea93639929ed0088cdc230c220dac0fe6 | 2026-11-11 | PRIMARY | saved: `bootc-installation.7.md` | C-STEEL4-bootc-017…023, 025 |
+| 15 | GitHub API: fedora-iot/greenboot-rs issue #219 and PR #223 (and the 15 newest PRs), fedora-iot/iot-distro issue #82, coreos/bootupd PR #935 | 2026-11-11 | PRIMARY-METADATA | saved copy in `sources/STEEL4-bootc/` | C-STEEL4-bootc-024 |
 
 ### TD-balenaos
 
@@ -1921,96 +2073,99 @@ Load-bearing web sources (supporting at least one `verified` or `partial` claim)
 | 29 | https://ubuntu.com/security/fips | W6 | C-W6-034 | **yes** | no archive recorded in the tag file |
 | 30 | https://wiki.debian.org/SecureBoot | W6 | C-W6-046 | **yes** | no archive recorded in the tag file |
 | 31 | https://github.com/nats-io/nats-server/releases/tag/v2.15.2 | W8 | C-W4-057 | **yes** | GitHub page, not SHA-pinned |
-| 32 | https://www.dataguard.com/cyber-resilience-act/certification/ | COST | C-COST-013 | no | read through the fetch tool only |
-| 33 | https://deb.debian.org/debian/dists/trixie/Release | LAB-debian-rugix | C-LAB-debian-rugix-015 | no | no archive recorded in the tag file |
-| 34 | https://quay.io/repository/centos-bootc/bootc-image-builder | LAB-fedora-bootc | C-LAB-fedora-bootc-016 | no | content-addressed image digest recorded |
-| 35 | https://quay.io/repository/fedora/fedora-bootc | LAB-fedora-bootc | C-LAB-fedora-bootc-001 | no | content-addressed image digest recorded |
-| 36 | https://downloads.mender.io/repos/device-components/dists/debian/trixie/stable/Release | LAB-mender | C-LAB-mender-005 | no | APT-signed Release file |
-| 37 | https://github.com/balena-os/balena-jetson-orin/issues/636 | TD-balenaos | C-TD-balenaos-046 | no | GitHub page, not SHA-pinned |
-| 38 | https://github.com/balena-os/balena-raspberrypi/issues/1146 | TD-balenaos | C-TD-balenaos-049 | no | GitHub page, not SHA-pinned |
-| 39 | https://github.com/balena-os/meta-balena/issues/2301 | TD-balenaos | C-TD-balenaos-047 | no | GitHub page, not SHA-pinned |
-| 40 | https://github.com/balena-os/meta-balena/issues/2833 | TD-balenaos | C-TD-balenaos-048 | no | GitHub page, not SHA-pinned |
-| 41 | https://get.casaos.io | TD-casaos-zimaos | C-TD-casaos-zimaos-022 | no | no archive recorded in the tag file |
-| 42 | https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32009L0024 | TD-flagged | C-TD-flagged-031 | no | owner judged official legal text stable |
-| 43 | https://www.law.cornell.edu/uscode/text/17/1201 | TD-flagged | C-TD-flagged-030 | no | owner judged official legal text stable |
-| 44 | https://github.com/home-assistant/supervisor/releases/tag/2026.11.0 | TD-home-assistant-os | C-TD-home-assistant-os-002 | no | not archived |
-| 45 | https://www.openhomefoundation.org/structure/ | TD-home-assistant-os | C-TD-home-assistant-os-047; C-W16-012 | no | not archived |
-| 46 | https://github.com/Start9Labs/start-technologies/issues/3881 | TD-startos | C-TD-startos-032, 036 | no | GitHub page, not SHA-pinned |
-| 47 | https://www.xda-developers.com/hexos-finally-manage-nas-locally-instead-cloud-fixes-flaw/ | TD-tier-c-nas | C-TD-tier-c-nas-023 | no | no archive recorded in the tag file |
-| 48 | https://donate.yunohost.org/ | TD-tier-c-selfhost | C-TD-tier-c-selfhost-030 | no | owner marked it "not load-bearing" |
-| 49 | https://forum.yunohost.org/t/yunohost-13-0-trixie-spooky-beta/40656 | TD-tier-c-selfhost | C-TD-tier-c-selfhost-029 | no | hash recorded; copy kept outside the repo |
-| 50 | https://github.com/getumbrel/umbrel/issues/1955 | TD-umbrelos | C-TD-umbrelos-055 | no | GitHub page, not SHA-pinned |
-| 51 | https://github.com/getumbrel/umbrel/issues/2072 | TD-umbrelos | C-TD-umbrelos-050 | no | GitHub page, not SHA-pinned |
-| 52 | https://github.com/getumbrel/umbrel/issues/2124 | TD-umbrelos | C-TD-umbrelos-053 | no | GitHub page, not SHA-pinned |
-| 53 | https://github.com/getumbrel/umbrel/issues/2190 | TD-umbrelos | C-TD-umbrelos-051 | no | GitHub page, not SHA-pinned |
-| 54 | https://github.com/getumbrel/umbrel/issues/2245 | TD-umbrelos | C-TD-umbrelos-052 | no | GitHub page, not SHA-pinned |
-| 55 | https://github.com/getumbrel/umbrel/issues/2298 | TD-umbrelos | C-TD-umbrelos-054 | no | GitHub page, not SHA-pinned |
-| 56 | https://umbrel.com/umbrel-pro | TD-umbrelos | C-TD-umbrelos-046 | no | not archived |
-| 57 | https://github.com/Crosstalk-Solutions/project-nomad | TD-villageos | C-TD-villageos-039 | no | release tag recorded |
-| 58 | https://github.com/OpenEMS/openems | TD-villageos | C-TD-villageos-038 | no | release tag recorded |
-| 59 | https://github.com/ReGen-Villages/VillageOS-API/pull/111 | TD-villageos | C-TD-villageos-029 | no | PR: merge commit SHA recorded |
-| 60 | https://github.com/ReGen-Villages/VillageOS-API/pull/12 | TD-villageos | C-TD-villageos-027 | no | PR: merge commit SHA recorded |
-| 61 | https://github.com/ReGen-Villages/VillageOS-API/pull/121 | TD-villageos | C-TD-villageos-028 | no | PR: merge commit SHA recorded |
-| 62 | https://github.com/ReGen-Villages/VillageOS-API/pull/140 | TD-villageos | C-TD-villageos-030 | no | PR: merge commit SHA recorded |
-| 63 | https://github.com/ReGen-Villages/VillageOS-API/pull/28 | TD-villageos | C-TD-villageos-031 | no | PR: merge commit SHA recorded |
-| 64 | https://github.com/farmOS/farmOS | TD-villageos | C-TD-villageos-037 | no | release tag recorded |
-| 65 | https://www.home-assistant.io/docs/energy/ | TD-villageos | C-TD-villageos-040 | no | owner marked it "not load-bearing" |
-| 66 | https://www.dell.com/support/manuals/en-us/latitude-15-5540-laptop/latitude-5540-owners-manual/system-setup-options?guid… | W10 | C-W10-043 | no | marked ARCHIVE-GAP by the source owner |
-| 67 | https://www.raspberrypi.com/for-industry/integrator-programme/ | W10 | C-W10-049 | no | marked ARCHIVE-GAP by the source owner |
-| 68 | https://www.raspberrypi.com/products/ai-hat-plus-2/ | W10 | C-W10-036 | no | marked ARCHIVE-GAP by the source owner |
-| 69 | https://www.raspberrypi.com/products/compute-module-5/ | W10 | C-W10-035 | no | marked ARCHIVE-GAP by the source owner |
-| 70 | https://github.com/basecamp/omarchy/releases | W11 | C-W11-048 | no | API response; values quoted in the claim |
-| 71 | https://v2.vuejs.org/eol/ | W11 | C-W11-064 | no | no archive recorded in the tag file |
-| 72 | https://www.etsi.org/deliver/etsi_en/301500_301599/301549/03.02.01_60/ | W11 | C-W11-062 | no | no archive recorded in the tag file |
-| 73 | https://www.macrumors.com/2025/10/21/samsung-galaxy-xr-headset/ | W11 | C-W11-046 | no | no archive recorded in the tag file |
-| 74 | https://www.federalregister.gov/documents/2025/08/22/2025-16139/personal-financial-data-rights-reconsideration | W12 | C-W12-067 | no | API response; values quoted in the claim |
-| 75 | https://www.hashicorp.com/en/blog/hashicorp-adopts-business-source-license | W16 | C-W16-007 | no | HTTP 429 |
-| 76 | https://www.raspberrypi.com/for-industry/powered-by/ | W16 | C-W16-036 | no | HTTP 403 |
-| 77 | https://www.raspberrypi.com/products/compute-module-5/ | W16 | C-W16-035 | no | HTTP 403 |
-| 78 | https://www.raspberrypi.com/products/raspberry-pi-5/ | W16 | C-W16-034 | no | HTTP 403 |
-| 79 | https://www.westerndigital.com/support/product-security/wdc-21008-recommended-security-measures-wd-mybooklive-wd-mybookl… | W16 | C-W16-051 | no | script-rendered page |
-| 80 | https://docs.docker.com/build/building/multi-platform/ | W17 | C-W17-012 | no | not saved (large page) |
-| 81 | https://docs.k3s.io/security/hardening-guide | W17 | C-W17-015 | no | not saved (large page) |
-| 82 | https://docs.kernel.org/kbuild/index.html | W17 | C-W17-027 | no | not saved |
-| 83 | https://docs.nats.io/running-a-nats-service/configuration/securing_nats/auth_intro/jwt | W17 | C-W17-018 | no | not saved |
-| 84 | https://docs.sigstore.dev/ | W17 | C-W17-021 | no | not saved |
-| 85 | https://link.springer.com/book/10.1007/978-1-4302-6584-9 | W17 | C-W17-022 | no | bot wall / challenge |
-| 86 | https://slsa.dev/spec/v1.1/ | W17 | C-W17-020 | no | not saved |
-| 87 | https://snapshot.debian.org/ | W17 | C-W17-029 | no | not saved |
-| 88 | https://www.freedesktop.org/software/systemd/man/latest/bootup.html | W17 | C-W17-028 | no | not saved |
-| 89 | https://www.linuxfromscratch.org/lfs/read.html | W17 | C-W17-005 | no | read through the fetch tool only |
-| 90 | https://www.nvidia.com/en-us/training/self-paced-courses/ | W17 | C-W17-026 | no | not saved |
-| 91 | https://lists.archlinux.org/archives/list/<email-masked>/thread/7EZTJXLIAQLARQNTMEW2HBWZYE626IFJ/ | W19 | C-W19-027 | no | bot wall (Anubis), not bypassed |
-| 92 | https://obsidian.md/help/plugin-security | W19 | C-W19-022 | no | script-rendered page |
-| 93 | https://github.com/getumbrel/umbrel/issues/2297 | W3 | C-W3-044 | no | Wayback not looked up |
-| 94 | https://github.com/home-assistant/operating-system/issues/{4995,5036,3995,5098} | W3 | C-W3-030…033 | no | Wayback not looked up |
-| 95 | https://github.com/home-assistant/operating-system/pull/4757 | W3 | C-W3-024 | no | marked ARCHIVE-GAP by the source owner |
-| 96 | https://avweb.com/aviation-news/aviation-law/faa-reopens-part-108-bvlos-comment-period/ | W7 | C-W7-054 | no | read through the fetch tool only |
-| 97 | https://control.ros.org/jazzy/doc/ros2_control/controller_manager/doc/userdoc.html | W7 | C-W7-036 | no | not saved |
-| 98 | https://docs.auterion.com/vehicle-operation/settings-and-maintenance/skynode-software-update | W7 | C-W7-042 | no | not saved |
-| 99 | https://docs.px4.io/main/en/flight_controller/modalai_voxl_2 | W7 | C-W7-041 | no | not saved |
-| 100 | https://docs.px4.io/main/en/middleware/uxrce_dds.html | W7 | C-W7-044 | no | not saved |
-| 101 | https://docs.viam.com/reference/viam-agent/ | W7 | C-W7-043 | no | not saved |
-| 102 | https://kubernetes.io/docs/tasks/administer-cluster/cpu-management-policies/ | W7 | C-W7-035 | no | not saved |
-| 103 | https://www.raspberrypi.com/documentation/computers/linux_kernel.html | W7 | C-W7-025 | no | read through the fetch tool only |
-| 104 | https://github.com/TAK-Product-Center/Server/tags | W8 | C-W8-062 | no | GitHub page, not SHA-pinned |
-| 105 | https://github.com/apache/plc4x/releases | W8 | C-W8-056 | no | GitHub page, not SHA-pinned |
-| 106 | https://github.com/autonomy-logic/openplc-runtime/releases | W8 | C-W8-057 | no | GitHub page, not SHA-pinned |
-| 107 | https://github.com/home-assistant/core/releases | W8 | C-W8-061 | no | API response; values quoted in the claim |
-| 108 | https://github.com/project-akri/akri/releases | W8 | C-W8-058 | no | API response; values quoted in the claim |
-| 109 | https://packages.debian.org/trixie/libopen62541-1.4 | W8 | C-W8-004 | no | no archive recorded in the tag file |
-| 110 | https://sources.debian.org/api/src/mosquitto/ | W8 | C-W8-005 | no | API response; values quoted in the claim |
-| 111 | https://sources.debian.org/api/src/openjdk-17/ | W8 | C-W8-019 | no | API response; values quoted in the claim |
-| 112 | https://www.droid-life.com/2025/10/01/t-mobile-lists-satellite-ready-apps-for-data-connectivity/ | W8 | C-W8-052 | no | no archive recorded in the tag file |
+| 32 | https://www.raspberrypi.com/news/price-rises-for-some-16gb-raspberry-pi-products/ | CIT4 | C-CIT4-008 | no | bot wall / challenge |
+| 33 | https://www.dataguard.com/cyber-resilience-act/certification/ | COST | C-COST-013 | no | read through the fetch tool only |
+| 34 | https://deb.debian.org/debian/dists/trixie/Release | LAB-debian-rugix | C-LAB-debian-rugix-015 | no | no archive recorded in the tag file |
+| 35 | https://quay.io/repository/centos-bootc/bootc-image-builder | LAB-fedora-bootc | C-LAB-fedora-bootc-016 | no | content-addressed image digest recorded |
+| 36 | https://quay.io/repository/fedora/fedora-bootc | LAB-fedora-bootc | C-LAB-fedora-bootc-001 | no | content-addressed image digest recorded |
+| 37 | https://downloads.mender.io/repos/device-components/dists/debian/trixie/stable/Release | LAB-mender | C-LAB-mender-005 | no | APT-signed Release file |
+| 38 | https://www.fcc.gov/supplychain/coveredlist | QBANK | C-W15-019 | no | no archive recorded in the tag file |
+| 39 | https://github.com/balena-os/balena-jetson-orin/issues/636 | TD-balenaos | C-TD-balenaos-046 | no | GitHub page, not SHA-pinned |
+| 40 | https://github.com/balena-os/balena-raspberrypi/issues/1146 | TD-balenaos | C-TD-balenaos-049 | no | GitHub page, not SHA-pinned |
+| 41 | https://github.com/balena-os/meta-balena/issues/2301 | TD-balenaos | C-TD-balenaos-047 | no | GitHub page, not SHA-pinned |
+| 42 | https://github.com/balena-os/meta-balena/issues/2833 | TD-balenaos | C-TD-balenaos-048 | no | GitHub page, not SHA-pinned |
+| 43 | https://get.casaos.io | TD-casaos-zimaos | C-TD-casaos-zimaos-022 | no | no archive recorded in the tag file |
+| 44 | https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32009L0024 | TD-flagged | C-TD-flagged-031 | no | owner judged official legal text stable |
+| 45 | https://www.law.cornell.edu/uscode/text/17/1201 | TD-flagged | C-TD-flagged-030 | no | owner judged official legal text stable |
+| 46 | https://github.com/home-assistant/supervisor/releases/tag/2026.11.0 | TD-home-assistant-os | C-TD-home-assistant-os-002 | no | not archived |
+| 47 | https://www.openhomefoundation.org/structure/ | TD-home-assistant-os | C-TD-home-assistant-os-047; C-W16-012 | no | not archived |
+| 48 | https://github.com/Start9Labs/start-technologies/issues/3881 | TD-startos | C-TD-startos-032, 036 | no | GitHub page, not SHA-pinned |
+| 49 | https://www.xda-developers.com/hexos-finally-manage-nas-locally-instead-cloud-fixes-flaw/ | TD-tier-c-nas | C-TD-tier-c-nas-023 | no | no archive recorded in the tag file |
+| 50 | https://donate.yunohost.org/ | TD-tier-c-selfhost | C-TD-tier-c-selfhost-030 | no | owner marked it "not load-bearing" |
+| 51 | https://forum.yunohost.org/t/yunohost-13-0-trixie-spooky-beta/40656 | TD-tier-c-selfhost | C-TD-tier-c-selfhost-029 | no | hash recorded; copy kept outside the repo |
+| 52 | https://github.com/getumbrel/umbrel/issues/1955 | TD-umbrelos | C-TD-umbrelos-055 | no | GitHub page, not SHA-pinned |
+| 53 | https://github.com/getumbrel/umbrel/issues/2072 | TD-umbrelos | C-TD-umbrelos-050 | no | GitHub page, not SHA-pinned |
+| 54 | https://github.com/getumbrel/umbrel/issues/2124 | TD-umbrelos | C-TD-umbrelos-053 | no | GitHub page, not SHA-pinned |
+| 55 | https://github.com/getumbrel/umbrel/issues/2190 | TD-umbrelos | C-TD-umbrelos-051 | no | GitHub page, not SHA-pinned |
+| 56 | https://github.com/getumbrel/umbrel/issues/2245 | TD-umbrelos | C-TD-umbrelos-052 | no | GitHub page, not SHA-pinned |
+| 57 | https://github.com/getumbrel/umbrel/issues/2298 | TD-umbrelos | C-TD-umbrelos-054 | no | GitHub page, not SHA-pinned |
+| 58 | https://umbrel.com/umbrel-pro | TD-umbrelos | C-TD-umbrelos-046 | no | not archived |
+| 59 | https://github.com/Crosstalk-Solutions/project-nomad | TD-villageos | C-TD-villageos-039 | no | release tag recorded |
+| 60 | https://github.com/OpenEMS/openems | TD-villageos | C-TD-villageos-038 | no | release tag recorded |
+| 61 | https://github.com/ReGen-Villages/VillageOS-API/pull/111 | TD-villageos | C-TD-villageos-029 | no | PR: merge commit SHA recorded |
+| 62 | https://github.com/ReGen-Villages/VillageOS-API/pull/12 | TD-villageos | C-TD-villageos-027 | no | PR: merge commit SHA recorded |
+| 63 | https://github.com/ReGen-Villages/VillageOS-API/pull/121 | TD-villageos | C-TD-villageos-028 | no | PR: merge commit SHA recorded |
+| 64 | https://github.com/ReGen-Villages/VillageOS-API/pull/140 | TD-villageos | C-TD-villageos-030 | no | PR: merge commit SHA recorded |
+| 65 | https://github.com/ReGen-Villages/VillageOS-API/pull/28 | TD-villageos | C-TD-villageos-031 | no | PR: merge commit SHA recorded |
+| 66 | https://github.com/farmOS/farmOS | TD-villageos | C-TD-villageos-037 | no | release tag recorded |
+| 67 | https://www.home-assistant.io/docs/energy/ | TD-villageos | C-TD-villageos-040 | no | owner marked it "not load-bearing" |
+| 68 | https://www.dell.com/support/manuals/en-us/latitude-15-5540-laptop/latitude-5540-owners-manual/system-setup-options?guid… | W10 | C-W10-043 | no | marked ARCHIVE-GAP by the source owner |
+| 69 | https://www.raspberrypi.com/for-industry/integrator-programme/ | W10 | C-W10-049 | no | marked ARCHIVE-GAP by the source owner |
+| 70 | https://www.raspberrypi.com/products/ai-hat-plus-2/ | W10 | C-W10-036 | no | marked ARCHIVE-GAP by the source owner |
+| 71 | https://www.raspberrypi.com/products/compute-module-5/ | W10 | C-W10-035 | no | marked ARCHIVE-GAP by the source owner |
+| 72 | https://github.com/basecamp/omarchy/releases | W11 | C-W11-048 | no | API response; values quoted in the claim |
+| 73 | https://v2.vuejs.org/eol/ | W11 | C-W11-064 | no | no archive recorded in the tag file |
+| 74 | https://www.etsi.org/deliver/etsi_en/301500_301599/301549/03.02.01_60/ | W11 | C-W11-062 | no | no archive recorded in the tag file |
+| 75 | https://www.macrumors.com/2025/10/21/samsung-galaxy-xr-headset/ | W11 | C-W11-046 | no | no archive recorded in the tag file |
+| 76 | https://www.federalregister.gov/documents/2025/08/22/2025-16139/personal-financial-data-rights-reconsideration | W12 | C-W12-067 | no | API response; values quoted in the claim |
+| 77 | https://www.hashicorp.com/en/blog/hashicorp-adopts-business-source-license | W16 | C-W16-007 | no | HTTP 429 |
+| 78 | https://www.raspberrypi.com/for-industry/powered-by/ | W16 | C-W16-036 | no | HTTP 403 |
+| 79 | https://www.raspberrypi.com/products/compute-module-5/ | W16 | C-W16-035 | no | HTTP 403 |
+| 80 | https://www.raspberrypi.com/products/raspberry-pi-5/ | W16 | C-W16-034 | no | HTTP 403 |
+| 81 | https://www.westerndigital.com/support/product-security/wdc-21008-recommended-security-measures-wd-mybooklive-wd-mybookl… | W16 | C-W16-051 | no | script-rendered page |
+| 82 | https://docs.docker.com/build/building/multi-platform/ | W17 | C-W17-012 | no | not saved (large page) |
+| 83 | https://docs.k3s.io/security/hardening-guide | W17 | C-W17-015 | no | not saved (large page) |
+| 84 | https://docs.kernel.org/kbuild/index.html | W17 | C-W17-027 | no | not saved |
+| 85 | https://docs.nats.io/running-a-nats-service/configuration/securing_nats/auth_intro/jwt | W17 | C-W17-018 | no | not saved |
+| 86 | https://docs.sigstore.dev/ | W17 | C-W17-021 | no | not saved |
+| 87 | https://link.springer.com/book/10.1007/978-1-4302-6584-9 | W17 | C-W17-022 | no | bot wall / challenge |
+| 88 | https://slsa.dev/spec/v1.1/ | W17 | C-W17-020 | no | not saved |
+| 89 | https://snapshot.debian.org/ | W17 | C-W17-029 | no | not saved |
+| 90 | https://www.freedesktop.org/software/systemd/man/latest/bootup.html | W17 | C-W17-028 | no | not saved |
+| 91 | https://www.linuxfromscratch.org/lfs/read.html | W17 | C-W17-005 | no | read through the fetch tool only |
+| 92 | https://www.nvidia.com/en-us/training/self-paced-courses/ | W17 | C-W17-026 | no | not saved |
+| 93 | https://lists.archlinux.org/archives/list/<email-masked>/thread/7EZTJXLIAQLARQNTMEW2HBWZYE626IFJ/ | W19 | C-W19-027 | no | bot wall (Anubis), not bypassed |
+| 94 | https://obsidian.md/help/plugin-security | W19 | C-W19-022 | no | script-rendered page |
+| 95 | https://github.com/getumbrel/umbrel/issues/2297 | W3 | C-W3-044 | no | Wayback not looked up |
+| 96 | https://github.com/home-assistant/operating-system/issues/{4995,5036,3995,5098} | W3 | C-W3-030…033 | no | Wayback not looked up |
+| 97 | https://github.com/home-assistant/operating-system/pull/4757 | W3 | C-W3-024 | no | marked ARCHIVE-GAP by the source owner |
+| 98 | https://avweb.com/aviation-news/aviation-law/faa-reopens-part-108-bvlos-comment-period/ | W7 | C-W7-054 | no | read through the fetch tool only |
+| 99 | https://control.ros.org/jazzy/doc/ros2_control/controller_manager/doc/userdoc.html | W7 | C-W7-036 | no | not saved |
+| 100 | https://docs.auterion.com/vehicle-operation/settings-and-maintenance/skynode-software-update | W7 | C-W7-042 | no | not saved |
+| 101 | https://docs.px4.io/main/en/flight_controller/modalai_voxl_2 | W7 | C-W7-041 | no | not saved |
+| 102 | https://docs.px4.io/main/en/middleware/uxrce_dds.html | W7 | C-W7-044 | no | not saved |
+| 103 | https://docs.viam.com/reference/viam-agent/ | W7 | C-W7-043 | no | not saved |
+| 104 | https://kubernetes.io/docs/tasks/administer-cluster/cpu-management-policies/ | W7 | C-W7-035 | no | not saved |
+| 105 | https://www.raspberrypi.com/documentation/computers/linux_kernel.html | W7 | C-W7-025 | no | read through the fetch tool only |
+| 106 | https://github.com/TAK-Product-Center/Server/tags | W8 | C-W8-062 | no | GitHub page, not SHA-pinned |
+| 107 | https://github.com/apache/plc4x/releases | W8 | C-W8-056 | no | GitHub page, not SHA-pinned |
+| 108 | https://github.com/autonomy-logic/openplc-runtime/releases | W8 | C-W8-057 | no | GitHub page, not SHA-pinned |
+| 109 | https://github.com/home-assistant/core/releases | W8 | C-W8-061 | no | API response; values quoted in the claim |
+| 110 | https://github.com/project-akri/akri/releases | W8 | C-W8-058 | no | API response; values quoted in the claim |
+| 111 | https://packages.debian.org/trixie/libopen62541-1.4 | W8 | C-W8-004 | no | no archive recorded in the tag file |
+| 112 | https://sources.debian.org/api/src/mosquitto/ | W8 | C-W8-005 | no | API response; values quoted in the claim |
+| 113 | https://sources.debian.org/api/src/openjdk-17/ | W8 | C-W8-019 | no | API response; values quoted in the claim |
+| 114 | https://www.droid-life.com/2025/10/01/t-mobile-lists-satellite-ready-apps-for-data-connectivity/ | W8 | C-W8-052 | no | no archive recorded in the tag file |
 
-**Gap counts by tag:** W17 12, W6 10, W8 10, TD-villageos 9, W7 8, W2 7, TD-umbrelos 7, W10 5, W4 5, W16 5, W18 4, TD-balenaos 4, W11 4, W3 3, LAB-fedora-bootc 2, TD-flagged 2, TD-home-assistant-os 2, TD-tier-c-selfhost 2, W19 2, DEC 1, LAB-rauc-1152 1, COST 1, LAB-debian-rugix 1, LAB-mender 1, TD-casaos-zimaos 1, TD-startos 1, TD-tier-c-nas 1, W12 1.
+**Gap counts by tag:** W17 12, W6 10, W8 10, TD-villageos 9, W7 8, W2 7, TD-umbrelos 7, W10 5, W4 5, W16 5, W18 4, TD-balenaos 4, W11 4, W3 3, LAB-fedora-bootc 2, TD-flagged 2, TD-home-assistant-os 2, TD-tier-c-selfhost 2, W19 2, DEC 1, LAB-rauc-1152 1, CIT4 1, COST 1, LAB-debian-rugix 1, LAB-mender 1, QBANK 1, TD-casaos-zimaos 1, TD-startos 1, TD-tier-c-nas 1, W12 1.
 
 ## Ledger sources not listed in any tag file
 
-1520 verified or partial claim rows carry a `source_url` that is not an exact URL in any `evidence/sources/*.md` row. Measured breakdown: **917** are a deep link into a repository that is listed (usually at the same pinned commit); **461** are another page on a site that is listed; **129** are a site that no tag file lists; **13** are an anchor variant of a listed page. They are not itemised here because this file is compiled from the tag files, but every one of them is still a row in its claim ledger with its own `source_url`, `commit_or_tag` and `accessed_date`. The **129** on unlisted sites are the ones a ledger pass should list in their tag files first (by tag: W13 17, LIC 11, QBANK 8, TD-tier-c-selfhost 8, STEEL-ubu 5, REF-W19-security 5, REF3-DC-security 5, REF3-DC-longevity 5, REF-W19-longevity 5, REF3-W19-technical 5, STEEL-cra-nb 5, REF-W6-technical 4, REF-W18-robotics 4, REF-W2-robotics 3, REF-W8-security 3, REF-DC-robotics 3, STEEL-IIOT 3, STEEL-updates-mender 3, REF-W4-security 2, REF3-DC-cost 2, REF-W19-cost 2, REF-W3-longevity 2, REF3-DC-technical 2, REF-W7-T 2, REF-W19-technical 2, REF-DC-longevity 2, STEEL-backup-kopia 1, W6 1, REF-DC-cost 1, REF-W8-longevity 1, LAB-ubuntu-2604-leg 1, STEEL-jb 1, STEEL-updates-rugix 1, REF-W5-longevity 1, STEEL-etcd-every-box 1, REF-W7L 1, REF-DC-technical 1).
+1606 verified or partial claim rows carry a `source_url` that is not an exact URL in any `evidence/sources/*.md` row. Measured breakdown: **961** are a deep link into a repository that is listed (usually at the same pinned commit); **512** are another page on a site that is listed; **120** are a site that no tag file lists; **13** are an anchor variant of a listed page. They are not itemised here because this file is compiled from the tag files, but every one of them is still a row in its claim ledger with its own `source_url`, `commit_or_tag` and `accessed_date`. The **120** on unlisted sites are the ones a ledger pass should list in their tag files first (by tag: W13 17, TD-tier-c-selfhost 8, LIC4 5, REF-W19-security 5, REF3-DC-security 5, REF4-DC-longevity 5, REF3-DC-longevity 5, REF-W19-longevity 5, REF3-W19-technical 5, STEEL-cra-nb 5, REF-W6-technical 4, REF-W18-robotics 4, REF-W2-robotics 3, REF-W8-security 3, STEEL-ubu 3, REF-DC-robotics 3, STEEL-IIOT 3, STEEL-updates-mender 3, REF-W4-security 2, REF3-DC-cost 2, REF-W19-cost 2, REF4-DC-security 2, REF-W3-longevity 2, REF3-DC-technical 2, REF-W7-T 2, REF-W19-technical 2, REF-DC-longevity 2, STEEL-backup-kopia 1, W6 1, REF-DC-cost 1, REF-W8-longevity 1, STEEL-jb 1, STEEL-updates-rugix 1, REF-W5-longevity 1, REF4-DC-technical 1, STEEL-etcd-every-box 1, REF-W7L 1, REF-DC-technical 1).
 
 ## Change log
 
 | Date | Change |
 |---|---|
 | 2026-11-11 | First compilation (TRACE), closing critic pass-2 gap N15 for `SOURCES.md`. |
+| 2026-11-11 | Regenerated (PDF4) after the rev-4 ledger writes (PROTO4, DEC4, CIT4, STEEL4, REF4, LIC4, new LAB tags), closing critic pass-3 gap P3-13. |

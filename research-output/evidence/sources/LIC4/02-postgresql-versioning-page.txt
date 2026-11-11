@@ -1,0 +1,82 @@
+The PostgreSQL Global Development Group releases a new major version containing
+new features about once a year. Each major version receives bug fixes and, if
+need be, security fixes that are released at
+least once every three months in what we call a "minor release." For more
+information on the minor release schedule, you can view the
+ minor release roadmap .
+If the release team determines that a critical bug or security fix is too
+important to wait until the regularly scheduled minor release, it may make
+a release available outside of the minor release roadmap.
+The PostgreSQL Global Development Group supports a major version for 5 years
+after its initial release. After this, a final minor version will be released
+and the software will then be unsupported (end-of-life).
+ 
+ld minor version. 
+ We recommend that users always run the current minor release associated
+ with their major version.
+ Releases 
+ Version 
+ Current minor 
+ Supported 
+ First Release 
+ Final Release 
+ 18 
+ 18.6 
+ Yes 
+ September 25, 2025 
+ November 14, 2030 
+ 17 
+ 17.11 
+ Yes 
+ September 26, 2024 
+ November 8, 2029 
+ 16 
+ 16.15 
+ Yes 
+ September 14, 2023 
+ November 9, 2028 
+ 15 
+ 15.19 
+ Yes 
+ October 13, 2022 
+ November 11, 2027 
+ 14 
+ 14.24 
+ Yes 
+ September 30, 2021 
+ November 12, 2026 
+ 13 
+ 13.23 
+ No 
+ September 24, 2020 
+ November 13, 2025 
+ 12 
+ 12.22 
+ No 
+ October 3, 2019 
+ November 21, 2024 
+ 11 
+ 11.22 
+ No 
+ October 18, 2018 
+ November 9, 2023 
+ 10 
+ 10.23 
+ No 
+ October 5, 2017 
+ November 10, 2022 
+ 9.6 
+ 9.6.24 
+ No 
+ September 29, 2016 
+ November 11, 2021 
+ 9.5 
+ 9.5.25 
+ No 
+ January 7, 2016 
+ February 11, 2021 
+ 9.4 
+ 9.4.26 
+ No 
+ December 18, 2014 
+ February 13, 2020 

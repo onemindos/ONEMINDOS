@@ -1,0 +1,7 @@
+Source: https://forums.raspberrypi.com/viewtopic.php?t=398535 ("Update Ubuntu and EEPROM"), opened 2026-11-11 via the fetch tool (quoted extract; full HTML not saved). Forum handles removed except the Raspberry Pi staff role.
+First post: Fri May 22, 2026 11:39 am. Poster runs "a Raspberry Pi 5 with Ubuntu LTS 24.04" and quotes the release upgrader:
+  "Newer Raspberry Pi boot EEPROM required. For Ubuntu 26.04, this Raspberry Pi requires the boot EEPROM"
+  "to be dated at least Tue Feb 11 2025 17:05:19 UTC or later."
+  The upgrader tells the user to run "sudo rpi-eeprom-update -a" and reboot after it exits.
+Reply, Fri May 22, 2026 12:05 pm, by a Raspberry Pi Engineer & Forum Moderator: "You can update the bootloader using a spare sdcard and rpi imager." (links to the official bootloader recovery documentation)
+No reply in the thread confirms the fix worked.

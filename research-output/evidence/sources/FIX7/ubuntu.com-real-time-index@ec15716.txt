@@ -1,0 +1,95 @@
+
+Real-time Ubuntu
+ Real-time Ubuntu: deterministic, low-latency Linux for industrial, telco, automotive, and robotics workloads.
+ https://docs.google.com/document/d/1g9G3r4eJRPGZy5Dyz_GJhUz_iqNn-5QUhG43scnBnUA/edit
+ is-paper
+ Real-time Ubuntu 
+ Run the most exacting workloads for
+ low-latency use cases with Real-time Ubuntu
+ Real-time Ubuntu ensures high-priority processes are executed first, with deterministic response times. 
+ Get in touch 
+ Read the docs 
+ Why use Real-time Ubuntu? 
+ Support for real-time compute with PREEMPT_RT 
+ Time-bound for mission-critical latency requirements 
+ More preemptive than mainline Linux 
+ Up to 15 years of security maintenance 
+ Talk to our team about how Real-time Ubuntu can support your work › 
+ Real-time Ubuntu use cases 
+ Industrial settings 
+ PLCs in assembly lines must deliver and process data in real-time to ensure system
+ integrity and continuous
+ production.
+ Telco 
+ Real-time Ubuntu brings ultra-low latency and enhanced security capabilities to
+ telco workloads and the
+ critical
+ infrastructure they run on.
+ Healthcare robotics 
+ From autonomous mobile robots to life-support medical equipment, healthcare systems
+ must complete tasks within
+ specified deadlines.
+ Automotive 
+ Automotive manufacturers are increasingly reliant on real-time Linux for
+ infotainment systems, HMIs and
+ latency-sensitive scenarios.
+ Not sure real-time is for you?
+ Talk to our team about your use case.
+ Real-time Ubuntu use cases 
+ Industrial settings 
+ PLCs in assembly lines must deliver and process data in real-time to ensure system integrity and
+ continuous production.
+ Telco 
+ Real-time Ubuntu brings ultra-low latency and enhanced security capabilities to telco workloads and the
+ critical infrastructure they run on.
+ Healthcare robotics 
+ From autonomous mobile robots to life-support medical equipment, healthcare systems must complete tasks
+ within specified deadlines.
+ Automotive 
+ Automotive manufacturers are increasingly reliant on real-time Linux for infotainment systems, HMIs and
+ latency-sensitive scenarios.
+ Not sure real-time is for you?
+ Talk to our team about your use case.
+ Video 
+ What is Real-time Ubuntu? 
+ Canonical and Intel collaborate to deliver real-time Ubuntu on 12th Gen Intel® Core™ processors with TSN and TCC Support. Explore how real-time Ubuntu benefits the IoT customers and market as a whole.
+ Getting started 
+ With the PREEMPT_RT patches being fully upstreamed, the real-time kernel is freely available for everyone from the 26.04 release onwards. Simply use the command:
+ sudo apt install ubuntu-realtime 
+ Need earlier versions? 
+ All previous releases of the real-time kernel are available via Ubuntu Pro , Canonical's enterprise security and compliance subscription. Ubuntu Pro is free for personal and small scale commercial use in up to 5 machines.
+ With an Ubuntu Pro subscription, launching the real-time kernel is as easy as: 
+ pro attach
+pro enable realtime-kernel 
+ Discover Ubuntu Pro 
+ Run Real-time Ubuntu on Intel hardware 
+ Optimized Real-time Ubuntu is available on 12th Gen Intel® Core™ processors. Coupled with Intel® Time Coordinated Computing (Intel® TCC) and Time Sensitive Networking (IEEE TSN), the real-time kernel delivers industrial-grade performance to meet stringent latency requirements:
+ Intel-optimized Real-time Ubuntu is available on Intel SoCs via Ubuntu Pro :
+ pro attach
+pro enable realtime-kernel --variant=intel-iotg 
+ Run Real-time Ubuntu on Raspberry Pi 
+ Based on the upstream v6.8 kernel, the 24.04 release of Real-time Ubuntu includes optimized support for Raspberry Pi hardware. Discover the possibilities of optimized real-time compute with enhanced performance on Raspberry Pi 4 and 5:
+ pro attach
+pro enable realtime-kernel --variant=raspi 
+ Learn more about
+ Real-time Ubuntu
+ Whitepaper 
+ A CTO's guide to real-time Linux 
+ Is a real-time OS right for your business? 
+ Webinars 
+ Real-time kernel: use cases and deployment strategies 
+ How real-time Linux accelerates industrial transformation 
+ From our blog 
+ Technical deep-dive into a real-time kernel 
+ Build with confidence on Real-time Ubuntu 
+ Contact our team to get started 
+ @media (min-width: 1032px) {
+ .p-cases {
+ min-height: 130px;
+ }
+ }
+ @media (min-width: 620px) and (max-width: 1032px) {
+ .p-cases {
+ min-height: 105px;
+ }
+ }

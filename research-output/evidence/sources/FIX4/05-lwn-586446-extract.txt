@@ -1,0 +1,4 @@
+Source: https://lwn.net/Articles/586446/ "Ubuntu Community Council statement on Canonical package licensing", LWN.net, posted 2014-02-14 by LWN editor. Opened 2026-11-11 via the fetch tool (quoted extract). SECONDARY: LWN reporting the Ubuntu Community Council's statement (lists.ubuntu.com did not resolve from this session).
+Quoted: "Canonical's requirement that binary redistributors (such as Linux Mint) obtain a license from Canonical."
+Quoted (Council): "We believe there is no ill-will against Linux Mint, from either the Ubuntu community or Canonical." / "What Linux Mint does is appreciated, and we want to see them succeed."
+No fee is mentioned on the page.

@@ -1,13 +1,13 @@
 # 22 · Hardware lab test plan (founder-runnable)
 
-**Date:** 2026-11-11 · **Owner of the tests:** Zeus · **Status:** plan complete; **no test in this file has been run on real hardware yet** · **Read with:** [`01-FOUNDATION-DECISION.md`](01-FOUNDATION-DECISION.md) §10 and §12 (what the VM lab proved and what it left open), [`evidence/decision-critical.md`](evidence/decision-critical.md) (each DC's Result block names its founder test), [`26-OPEN-QUESTIONS-FOR-ZEUS.md`](26-OPEN-QUESTIONS-FOR-ZEUS.md)
+**Date:** 2026-11-11 · **Owner of the tests:** Zeus · **Status:** plan complete; **no test in this file has been run on real hardware yet** · **Synced to `01` revision 4** (2026-11-11): two new emulated results (§1.1), W2-HW-3 before gate G1, the S1 decision map, and the founder tests rev. 4 asks for (LT-PI5-14, LT-VM-20, extended LT-JET-01, LT-VM-03, LT-VM-04, LT-VM-13, LT-X86-12) · **Read with:** [`01-FOUNDATION-DECISION.md`](01-FOUNDATION-DECISION.md) §10 and §12 (what the VM lab proved and what it left open), [`evidence/decision-critical.md`](evidence/decision-critical.md) (each DC's Result block names its founder test), [`26-OPEN-QUESTIONS-FOR-ZEUS.md`](26-OPEN-QUESTIONS-FOR-ZEUS.md)
 **Serves requirements:** R-1, R-2, R-3, M-2, M-6, P-1, P-7, P-9, H-3, N-2, N-7, U-4, F-11, F-12, F-14, AI-9, D-002, D-004
 **Claim IDs** resolve in `evidence/claims/*.csv`; this file's new rows are `C-LABPLAN-###` (sources in `evidence/sources/LABPLAN.md`).
 
 > ### Explain it like I'm the founder
 > Everything we tested so far ran inside **virtual machines** on a Mac. A virtual machine is very good at checking *logic* ("does a bad update roll back?"), but it cannot tell you what a **real** power cord, a **real** PC's firmware, a **real** Raspberry Pi 5 boot chip or a **real** Jetson does. Those are exactly the places where update systems brick devices in the field.
 > This file collects **every test that only you can run**, because only you have (or will buy) the hardware and the access to your live cluster. There were about 150 of them scattered across 20 files under different names. Here each one gets **one stable ID**, the device, the **exact commands**, what counts as **pass or fail**, **which decision it changes**, and **what must be true before you start**.
-> They are sorted so that the tests that could **change the foundation decision** come first. Run the first 12 rows of §1 in the first six weeks and you will know whether the plan (Debian 13 + RAUC A/B + k3s) holds on real metal. Everything else refines settings or validates product features. One rule above all: **on your live cluster you only look, never touch** (§9).
+> They are sorted so that the tests that could **change the foundation decision** come first. Run the first 12 rows of §1 in the first six weeks and you will know whether the plan (a OneMind image on Ubuntu 26.04 or Debian 13 + RAUC A/B + k3s) holds on real metal. One Pi 5 test, bootc on a real Pi (LT-PI5-02), can change which base wins, so it runs before week 4. Everything else refines settings or validates product features. One rule above all: **on your live cluster you only look, never touch** (§9).
 
 ---
 
@@ -41,20 +41,33 @@ Ordered by **decision impact**, then by how early they can run. "Flips" means a 
 | 2 | **LT-X86-01** | Dell or Beelink | RAUC 1.15.2 + fresh-signal k3s gate on real x86 (REC-DEC-05/07/34) | **Flips S2** toward Mender if Mender passes LT-X86-08 | Week 2 |
 | 3 | **LT-X86-02** | same | 10 real power pulls under RAUC (DC-12, REC-DEC-34) | Corrupt grubenv/ESP → **flips S2** or forces a layout change | Week 2 |
 | 4 | **LT-PI5-01** | Pi 5 | RAUC + Pi firmware `tryboot` (F-PI5; DC-19, REC-DEC-32) | Pi 5 tier "not proven"; Rugix (proven tryboot path) re-opens for Pi | Week 3 |
-| 5 | **LT-PI5-02** | Pi 5 | bootc on a real Pi 5 (W2-HW-3; REC-DEC-33) | Pass (with #219 fixed) **re-opens S1 toward bootc** | Week 3 |
-| 6 | **LT-X86-03** | Dell | Secure Boot A/B + TPM unlock on real firmware (F-SB-1; DC-18) | **Re-opens DC-18** (boot route REC-DEC-20) | Week 3 |
+| 5 | **LT-PI5-02** | Pi 5 | bootc on a real Pi 5 (W2-HW-3; REC-DEC-33, REC-DEC-44) | **Fail → S1 result becomes Debian 13** (6–5); pass with #219 fixed and an automatic Pi commit → bootc vs Ubuntu re-count (`01` §3.1.6 h) | Week 3–4, **before G1** |
+| 6 | **LT-X86-03** | Dell | Secure Boot A/B + TPM unlock on real firmware with RAUC 1.15.2 (F-SB-1; DC-18) | **Re-opens DC-18** (boot route REC-DEC-20) | Week 3 |
 | 7 | **LT-X86-04** | Dell | Power pull under Secure Boot (F-SB-3) | Same as #6 | Week 3 |
 | 8 | **LT-VM-01** | VM, then x86/Pi | Unsigned plugins refused across a slot switch (T-W19-01 security variant) | **D3 changes**: extensions only inside the RAUC bundle (01 §4.8) | Week 2 |
-| 9 | **LT-X86-12** | Dell | OneMind-signed kernel module loads under Secure Boot (T-W19-03) | Confirms REC-DEC-25 (OneMind-built kernel for the Secure Boot release) | Week 4 |
+| 9 | **LT-X86-12** | Dell | OneMind-signed kernel module loads under Secure Boot (T-W19-03): first arm, a OneMind shim with its own `vendor_cert` on the stock kernel (REC-DEC-48) | Both arms fail → REC-DEC-25 (OneMind-built kernel for the Secure Boot release) | Week 4 |
 | 10 | **LT-PI5-03** | Pi 5 4 GB | Hardened k3s fits 4 GB over 30 days (DC-10, REC-DEC-22) | Platform-node floor rises to **8 GB** | Week 3 start |
 | 11 | **LT-PI5-04** | Pi 5 8 GB + x86 | etcd vs SQLite write volume, corrected (T-W5-03; REC-DEC-38) | Servers stay on SQLite | Week 3 |
 | 12 | **LT-JET-01** | Orin Nano | NVIDIA A/B + OneMind gate + OTA power cut (T-W3-06; DC-07, REC-DEC-35) | "One release contract" fails for Jetson; beta slips | Week 4 |
-| 13 | **LT-VM-03** | VM, then x86 | Debian 13 → 14 in-place rebase, founder-hours (T-W3-04; DC-05, REC-DEC-16) | > 4–6 founder-weeks weakens Debian (01 §3.1.5) | Week 4 |
-| 14 | **LT-GPU-01** | RTX (cloud) | NVIDIA driver on Debian 13 + k3s, upgrade survival (DC-13, REC-DEC-19/37) | Pro/Omni GPU tiers move to the Ubuntu flavor | Week 6 |
+| 13 | **LT-VM-03** | VM, then x86 | In-place major rebase on both legs, founder-hours, then N → N+2 updates (T-W3-04; DC-05, REC-DEC-16) | Old-slot RAUC cannot install N+1/N+2 → DC-05 re-opens; > 4–6 founder-weeks weakens the Debian leg | Week 4 |
+| 14 | **LT-GPU-01** | RTX (cloud) | NVIDIA driver on the core leg + k3s, upgrade survival (DC-13, REC-DEC-19/37) | On the Debian leg: Pro/Omni GPU tiers move to the Ubuntu flavor | Week 6 |
 | 15 | **LT-VM-05** | VM | Mender 3-try boot script (Mender F3) | Pass removes RAUC's "boot tries" tie-break row (01 §3.2) | Week 2 |
 | 16 | **LT-JET-06** | Build VM + Orin | meta-tegra + 6.18 LTS kernel on Jetson (LAB-W7-6; DC-09, REC-DEC-18) | Jetson stays on L4T Ubuntu (needs Canonical's answer, Z-01) | Week 8–12 |
 
-Two founder actions outrank every lab test because they can flip S1 on their own: **send the Canonical/counsel questions (LT-BIZ-01, Z-01)** and **decide where the Dell's OneMind tests boot from** (a spare USB SSD, so the Omarchy pilot install is never wiped; 11 §10).
+Two founder actions outrank every lab test: **send the Canonical/counsel questions (LT-BIZ-01, Z-01)**, because under `01` rev. 4 Canonical's answer is the condition on the base-OS decision of record and can move S1 to bootc on its own (§3.1.6 h), and **decide where the Dell's OneMind tests boot from** (a spare USB SSD, so the Omarchy pilot install is never wiped; 11 §10).
+
+**Rev. 4 order note.** LT-PI5-02 (W2-HW-3) runs **before gate G1 (week 4)**, after LT-PI5-01 on the same Pi with a separate card or SSD (REC-DEC-44). Its outcome is read against the decision map in `01` §3.1.6 (h), which was written on 2026-11-11, before the test or Canonical's answer exists. A box shipped on Ubuntu or Debian + RAUC cannot move to bootc without a reflash [C-STEEL4-bootc-025], so the test must come before anything ships. Founder decisions **Z-39 and Z-40** (`26-…`) should be logged in `evidence/scorecard-weights.md` §8 **before** LT-PI5-02 runs; otherwise a "pass" can end in a 4–4 draw with no written rule.
+
+### 1.1 What the newest emulated labs already showed (rev. 4)
+
+Two labs ran on 2026-11-11 after this file was first written. Both **passed**. They do not replace any hardware test below, but they narrow what the hardware tests have to find.
+
+| Lab | Result | What it changes in this file | Still needs real hardware |
+|---|---|---|---|
+| **aarch64-gate** ([`evidence/lab/aarch64-gate/`](evidence/lab/aarch64-gate/)): RAUC 1.15.2 + k3s v1.37.2+k3s1 arm64 + the unchanged fresh-signal gate, Debian 13 arm64 guest under native Arm virtualisation (QEMU + HVF), GRUB arm64-efi | **PASS, two full runs (T1–T11)** [C-LAB-aarch64-gate-004]: a good update committed 31 s after the trial gate started [C-LAB-aarch64-gate-005]; k3s-broken and stale-Ready updates rolled back at 300 s with no input; a kernel panic and a hang were each tried 3 times, then dropped; power cuts mid-install and in the commit window recovered; the 9 gate files ran **byte-identical** on x86_64 and arm64 [C-LAB-aarch64-gate-009]; the naive gate again committed a k3s with no kubelet [C-LAB-aarch64-gate-010]. The arm64 RAUC build is reproducible (same hash as rev. 3) [C-LAB-aarch64-gate-001] | LT-VM-08's aarch64 part is **done**. LT-PI5-01 now tests only what an emulator cannot: Pi firmware `tryboot`, the Pi kernel, SD/NVMe and real power. Two lessons enter the tests: (1) the gate deadline is wall-clock time, so a slow host can turn a good trial into a rollback (nested KVM stretched a 300 s window to 411 s) [C-LAB-aarch64-gate-006]; set the production deadline from real timings with ≥ 3× margin, and never run timing-sensitive gate tests on nested virtualisation in CI; (2) the Pi 5 firmware loads `kernel_2712.img` with **16 KiB pages** by default [C-LAB-aarch64-gate-007], while the lab used a 4 KiB generic kernel, so LT-PI5-01 adds step A1 | Pi `tryboot` and `autoboot.txt` writes; the 16 KiB-page kernel with k3s and containerd; one-shot `tryboot` under a power pull during the trial (inferred, not tested: the update is lost and marked bad [C-LAB-aarch64-gate-011]); real power loss on SD/NVMe |
+| **secureboot-1152** ([`evidence/lab/secureboot-1152/`](evidence/lab/secureboot-1152/)): the X-2R Secure Boot suite re-run with RAUC 1.15.2 (`efi` backend, one signed UKI per slot, `bundle-formats=verity`), OVMF with only lab keys + swtpm, x86_64 | **PASS, two runs** [C-LAB-secureboot-1152-005]: enforced Secure Boot with TPM (PCR 7) data unlock; A → B via BootNext; health-gated rollback; the firmware refused a tampered and an unsigned UKI and fell through to the committed slot in the same power-on; data stayed locked with Secure Boot off. EFI variable effects matched RAUC 1.13 step for step [C-LAB-secureboot-1152-006]; a validly signed **plain** bundle was refused under verity-only [C-LAB-secureboot-1152-007]. RAUC 1.15 also finds the booted slot from EFI `BootCurrent` [C-LAB-secureboot-1152-002, C-LAB-secureboot-1152-008]. **The downgrade gap persists:** an old, validly signed factory UKI booted on a newer root and the gate committed it [C-LAB-secureboot-1152-009] | LT-X86-03 and LT-X86-04 now use this kit, so the Dell runs the exact configuration `01` recommends. Every shipped UKI carries `rauc.slot=<bootname>` on its signed command line, so slot detection never depends on a firmware auto-entry (the lab's SB-2′). LT-X86-03 adds an `efibootmgr` + `rauc status` check. The anti-downgrade fixes (recovery-only factory UKI, kernel/root version match before `mark-good`, SBAT or db rotation) stay required; `prevent-late-fallback` (RAUC ≥ 1.14) is documented but untested [C-LAB-secureboot-1152-010] and is tested in LT-VM-04 | Real PC firmware (auto-entries, option ROMs), a power pull under Secure Boot, and Secure Boot on the **Ubuntu** leg (both labs ran Debian guests; LT-VM-20) |
+
+Both labs ran on Debian 13 guests. Under `01` rev. 4, that is why the Secure Boot cell of the Ubuntu, Yocto and Buildroot stacks is marked `doc-only` (S1-12), and why LT-VM-20 repeats the Secure Boot suite on the Ubuntu 26.04 leg. **FIX5 (2026-11-11):** the research run pre-registered LT-VM-20 as spike [`evidence/lab/ubuntu-secureboot/`](evidence/lab/ubuntu-secureboot/) and tried to run it. It is **BLOCKED (environment)**: the Ubuntu archive does not resolve from the research environment, and the run did not bypass that [C-FIX5-001, C-FIX5-002]. The kit is published and ready, but it has never been executed [C-FIX5-003].
 
 ---
 
@@ -172,10 +185,10 @@ sudo tail -1 /data/onemind/gate.log
 
 ### LT-X86-03 · Secure Boot A/B with OneMind keys + TPM-sealed data on real firmware · **G**
 **Aliases:** F-SB-1, X-2, W10-T2, Q206/Q207 · **Prerequisite:** LT-X86-00 shows TPM 2.0 and a custom-key mode (Dell); spare USB SSD; **backup of the firmware's current keys** · **Time:** about 2 hours
-Kit: `evidence/lab/secureboot-rauc/` (passed twice in OVMF + swtpm; RAUC `efi` backend, one signed UKI per slot, data key on PCR 7 + signed PCR 11).
+Kit: **`evidence/lab/secureboot-1152/`** (rev. 4: RAUC 1.15.2 with `bundle-formats=verity`, passed twice in OVMF + swtpm [C-LAB-secureboot-1152-005]); it reuses `evidence/lab/secureboot-rauc/` (RAUC `efi` backend, one signed UKI per slot, data key on PCR 7 + signed PCR 11; build steps in its README §13).
 ```sh
 # Lima VM: build, then create the enrolment files with efitools
-bash scripts/build.sh            # see secureboot-rauc/README.md §13
+bash scripts/build.sh            # secureboot-1152/scripts (see its README §R.7 and secureboot-rauc/README.md §13)
 cert-to-efi-sig-list -g <guid> db.crt db.esl && sign-efi-sig-list -k KEK.key -c KEK.crt db db.esl db.auth
 #   (same for KEK signed by PK, and PK self-signed); copy disk.img, *.crt, *.auth out with limactl copy
 # Firmware setup on the Dell: back up current keys -> clear keys (setup mode) -> enroll db, KEK, then PK last
@@ -184,14 +197,16 @@ cert-to-efi-sig-list -g <guid> db.crt db.esl && sign-efi-sig-list -k KEK.key -c 
 sudo rauc install /mnt/bundles/<bundle>.raucb && sudo systemctl reboot
 efibootmgr; rauc status; mokutil --sb-state
 sudo journalctl -b | grep -E 'DATA:|HEALTH-GATE'
+# rev. 4, after the first boot: rauc status must say "Booted from: rootfs.0 (OneMind-A)";
+# efibootmgr -v shows whether the firmware created its own auto-entries (the downgrade path E1)
 ```
-- **Pass:** the same outcomes as the emulated T1–T5 (A → B, rollback, unhealthy slot rejected) with no keyboard input; the data partition unlocks without a prompt on A, on B and after rollback; the firmware refuses the tampered and unsigned UKIs (v4/v5).
+- **Pass:** the same outcomes as the emulated T1–T5 (A → B, rollback, unhealthy slot rejected) with no keyboard input; the data partition unlocks without a prompt on A, on B and after rollback; the firmware refuses the tampered and unsigned UKIs (v4/v5); the signed plain bundle is refused; `Booted from` names `OneMind-A`.
 - **Fail → consequence:** any difference → record firmware model and BIOS version; **DC-18 re-opens**; fallback is a recovery-key prompt (07 X-2). **Undo:** restore the backed-up keys or "Restore factory keys".
-- **Feeds:** DC-18, REC-DEC-08, -20, -21, -34; Z-18/Z-19. Known gap to watch: an old signed kernel can boot against a newer root [C-LAB-secureboot-rauc-018]; check the version-match gate rule rejects it.
+- **Feeds:** DC-18, REC-DEC-08, -20, -21, -34; Z-18/Z-19. Known gap to watch: an old signed kernel can boot against a newer root, and this persists on RAUC 1.15.2 [C-LAB-secureboot-rauc-018, C-LAB-secureboot-1152-009]; check the version-match gate rule rejects it, and record any firmware auto-entry `efibootmgr -v` shows.
 
 ### LT-X86-04 · Power pull under Secure Boot · **G**
 **Aliases:** F-SB-3 · **Prerequisite:** LT-X86-03 passed · **Time:** 1.5 hours
-PP-10 (§2.4) during `rauc install` and the first boot of the new slot. After each pull: `efibootmgr -v | grep -i bootorder`, `rauc status`, `mokutil --sb-state`, `sudo journalctl -b | grep DATA:`.
+PP-10 (§2.4) during `rauc install` and the first boot of the new slot, on the LT-X86-03 (RAUC 1.15.2) image. After each pull: `efibootmgr -v | grep -i bootorder`, `rauc status`, `mokutil --sb-state`, `sudo journalctl -b | grep DATA:`.
 - **Pass:** 10/10 end on a booting, Secure-Boot-verified, committed slot with data unlocked by the TPM.
 - **Fail:** a corrupted EFI variable store, a refused boot with no fallback, or a recovery-key prompt → DC-18 re-opens. **Feeds:** REC-DEC-34.
 
@@ -230,8 +245,8 @@ Build with `evidence/lab/debian-rugix/scripts/10-build.sh amd64`, write `build/v
 
 ### LT-X86-10 · Same RAUC suite on both bases (Debian 13 and Ubuntu 26.04) · **P**
 **Aliases:** ubuntu-2604-leg §10 hardware row · **Prerequisite:** LT-X86-01 passed
-Build `scripts/build-ubuntu.sh RAUC_MODE=archive` (and, for the 1.15.2 floor, `RAUC_MODE=src RAUC_SRC=<v1.15.2 checkout>`) in `evidence/lab/ubuntu-2604-leg/`; run LT-X86-01 and PP-10 on each image.
-- **Pass:** identical verdicts on both bases. **Consequence:** keeps the Ubuntu switch "a build variable" (REC-DEC-17; 01 §3.1.5); a difference is a new S1 tie-break row.
+Build `scripts/build-ubuntu.sh RAUC_MODE=src RAUC_SRC=<v1.15.2 checkout>` (the version OneMind ships; `RAUC_MODE=archive` only as a reference) in `evidence/lab/ubuntu-2604-leg/`; run LT-X86-01 and PP-10 on each image.
+- **Pass:** identical verdicts on both bases. **Consequence (rev. 4):** both legs build until the G6 base lock (REC-DEC-17, REC-DEC-42), and the Ubuntu leg is the decision-of-record leg. A difference is recorded for the lock gate; it can become an S1 tie-break row only through a `scorecard-weights.md` §8 entry logged **before** the run (`01` §3.1.6 h).
 
 ### LT-X86-11 · Fedora/AlmaLinux bootc + greenboot on x86 hardware · **P**
 **Aliases:** fedora-bootc H1–H5 · **Prerequisite:** LT-X86-00; build `evidence/lab/fedora-bootc/scripts/Containerfile` with `--platform linux/amd64` in a Linux VM, write the disk with bootc-image-builder `--type raw`
@@ -244,18 +259,21 @@ Build `scripts/build-ubuntu.sh RAUC_MODE=archive` (and, for the 1.15.2 floor, `R
 | H4 | `sudo bootc upgrade` (staged), `sudo reboot`, pull the cord 1–2 s after the screen goes dark; power on; `sudo ostree admin status`; reboot again | same version after the second reboot. **Expected FAIL** with stock greenboot 0.16.4/0.16.5 (silent downgrade, #219 [C-LAB-fedora-bootc-011, C-LAB-fedora-bootc-013]) |
 | H5 | `sudo bootc switch <registry>/onemind/lab-alt:latest && sudo reboot` | marker = `alt`; `/var` data intact |
 
-- **Consequence:** H4 failing confirms #219 on hardware, which is one of the two conditions holding S1 away from bootc (01 §3.1.5). **Feeds:** S1, REC-DEC-33, DC-01.
+- **Consequence:** H4 failing confirms #219 on hardware; while #219 is open, a LT-PI5-02 pass does not trigger the bootc re-count in `01` §3.1.6 (h). **Feeds:** S1, REC-DEC-33, DC-01.
 
 ### LT-X86-12 · Signed driver-pack module under Secure Boot · **G**
-**Aliases:** T-W19-03 · **Prerequisite:** LT-X86-03 image with `module.sig_enforce=1` (lockdown on)
+**Aliases:** T-W19-03 · **Prerequisite:** LT-X86-03 image with `module.sig_enforce=1` (lockdown on); the stock kernel of each core leg (Debian 13, Ubuntu 26.04)
+**Arm 0 (baseline, db key only):**
 ```sh
 sudo modprobe <onemind-signed-test-module>     # built and signed with the OneMind module key
 sudo insmod ./unsigned-test.ko                 # must be refused
 sudo dmesg | grep -iE 'module verification|Lockdown|Key was rejected'
 cat /proc/keys | grep -i asymmetri             # which keyrings hold which keys
 ```
-- **Pass:** signed loads, unsigned refused, **on a stock Debian kernel without a console (MOK) step**. **Expected** on a stock kernel: the db key is not trusted for modules [C-DEC-008], so the signed module is refused too.
-- **Consequence:** a console-free route on a stock kernel would drop REC-DEC-25 (OneMind-built kernel); the expected fail confirms it (Z-18/Z-19).
+**Expected:** refused. A key in UEFI db lands in the platform keyring, which is not trusted for modules [C-DEC-008].
+**Arm 1 (rev. 4, REC-DEC-48: the first arm of T-W19-03):** boot through a **OneMind-built shim** whose embedded `vendor_cert` is the OneMind module key, the shim signed with the factory db key. The DC-21 technical refuter found in the source that shim publishes `vendor_cert` in MokListRT and that Linux 6.12 loads it into the `.machine` keyring, which is trusted for modules ([`evidence/adversarial/DC-21-technical.md`](evidence/adversarial/DC-21-technical.md); its sources are cited there under colliding REF4 IDs and are not ledgered, so treat this as **untested**). Repeat the Arm 0 commands, plus `sudo keyctl show %:.machine` and `mokutil --list-enrolled`.
+- **Pass:** on the stock kernel, **without any console (MOK) step**: the OneMind-signed module loads, the unsigned one is refused, and the OneMind key appears in `.machine`. Run on both legs' kernels and record each.
+- **Consequence:** Arm 1 passes → the Secure Boot release keeps the stock kernel (K1), with a OneMind shim fork and its SBAT upkeep as a recurring cost. Arm 1 fails → **Arm 2: K2-hybrid** (a OneMind-built LTS kernel with the module key built in) for the Secure Boot release (REC-DEC-25; Z-18/Z-19).
 
 ### LT-X86-13 · Real-time latency on x86 under k3s · **P**
 **Aliases:** T-W18-7, LAB-W7-1 (x86 part), Q11 · **Prerequisite:** Debian 13 with `linux-image-rt-amd64` and stock kernels; k3s + 10 pods
@@ -271,7 +289,8 @@ sudo cyclictest -m -Sp90 -i200 -h400 -D1h -q > ct-<kernel>-load.txt
 **Aliases:** T-W5-02, T-W5-05, Q136 · **Prerequisite:** OneMind prototype with 10 apps on the Beelink; restic repos on a USB disk and an append-only rest-server
 1. **T-W5-02:** wipe the Beelink → portable restore onto the Dell (x86 → x86) → exact restore onto a re-imaged Beelink; time each step. **Pass:** all apps and data back; RTO ≤ 4 h; the dashboard shows "last verified restore".
 2. **T-W5-05:** pull the plug mid-upload (USB and rest-server), then `restic -r <repo> check` and run the next backup. **Pass:** repository consistent; next backup succeeds.
-- **Fail →** restore design changes before M4; backup engine C3 stays below 5. **Feeds:** DC-11, REC-DEC-11, -28.
+3. **Rev. 4 (DC-11 refuters, REC-DEC-49):** before a backup is reported as verified, check the datastore's health (state.db within its size budget, no kine compaction lag), not only `integrity_check`; read the same repository once with an independent implementation (rustic or Kopia) as a CI-style check. On a `restic check` failure, retry and run a memory test before reporting damage.
+- **Fail →** restore design changes before M4; backup engine C3 stays below 5. **Feeds:** DC-11, REC-DEC-11, -28, -49.
 
 ### LT-X86-15 · Offline USB update with a wrong clock · **P**
 **Aliases:** T-W3-07 · Set the RTC to 2020, install a signed bundle from USB; repeat with 2040 (`sudo date -s 2040-01-01 && sudo hwclock -w`, then reboot).
@@ -306,19 +325,24 @@ lsblk -o NAME,SIZE,MODEL,MOUNTPOINTS               # identify the TARGET disk; c
 sudo TARGET=/dev/<target> CONFIRM=/dev/<target> bash onemind-kit/pi5/prepare-disk.sh   # WIPES the target
 # poweroff, remove the workbench card, boot from the target; then each step is one command:
 sudo onemind-status
+# rev. 4, step A1 before F-P1 (aarch64-gate §9): the Pi 5 default kernel uses 16 KiB pages
+getconf PAGESIZE                                   # expect 16384 with kernel_2712.img
+sudo k3s check-config; # then start k3s once and record whether CoreDNS reaches Ready
+# if k3s or a pod fails: set kernel=kernel8.img (4 KiB pages) in config.txt, repeat, record both
 ```
 Steps **F-P1 … F-P11c** (first boot; wrong-key and plain bundles refused; good update commits only after 3 fresh passes; bad-k3s, stale-Ready, kernel panic and hang each return to the committed slot; power pulls during the write, the trial and the commit window, 5 + 3 times).
-- **Pass:** F-P1–F-P8, F-P9r, F-P10, F-P11a–c all pass with no keyboard input. Record good-commit and bad-decision times. **Expected and accepted:** a pull during the trial abandons that update (the firmware gives **one** chance [C-LAB-rauc-1152-012]).
+- **Pass:** A1 shows k3s fresh-healthy on the kernel you will ship; F-P1–F-P8, F-P9r, F-P10, F-P11a–c all pass with no keyboard input. Record good-commit and bad-decision times and set the Pi gate deadline to ≥ 3× the good-commit time (aarch64-gate L-A2). The same RAUC 1.15.2 + k3s arm64 + gate already passed T1–T11 under emulation [C-LAB-aarch64-gate-004], so a failure here points at the Pi firmware, the Pi kernel or the storage, not the gate logic. **Expected and accepted:** a pull during the trial abandons that update (the firmware gives **one** chance [C-LAB-rauc-1152-012]).
 - **Fail → consequence:** the Pi 5 tier stays "designed, not proven"; REC-DEC-32 (re-offer an abandoned trial) is needed regardless; a brick or a corrupt `autoboot.txt` sends Pi 5 to Rugix's proven tryboot integration (01 §6.7) or HAOS's single-partition variant [C-W3-029].
 - **Feeds:** DC-19, DC-07, REC-DEC-05, -07, -32, -34. **Not covered:** Pi secure boot with tryboot (needs a dedicated Pi with irreversible OTP; out of scope) and an EEPROM update in the same release.
 
-### LT-PI5-02 · bootc on a real Pi 5 · **G**
-**Aliases:** W2-HW-3, DC-01 founder test, REC-DEC-33 · **Prerequisite:** a spare SSD or card; the lab Containerfile rebuilt for aarch64
+### LT-PI5-02 · bootc on a real Pi 5 · **G** · **run before gate G1 (week 4)**
+**Aliases:** W2-HW-3, DC-01 founder test, REC-DEC-33, REC-DEC-44 · **Prerequisite:** a spare SSD or card; the lab Containerfile rebuilt for aarch64; **Z-39 and Z-40 logged** in `scorecard-weights.md` §8 before the run (`26-…`)
 1. Write the **AlmaLinux bootc Raspberry Pi image** (documented as experimental [C-SCORE-025]) or the Fedora IoT 45 raw image; boot; `sudo bootc status`.
 2. `sudo bootc switch <registry>/onemind/lab:aarch64` (the lab Containerfile with greenboot + k3s check); reboot; confirm healthy.
 3. Push a broken image (k3s fails) and `sudo bootc upgrade && sudo reboot`; touch nothing for 10 minutes.
-- **Pass:** automatic return to the good image **with no console and no manual commit step**. Record whether greenboot #219 is fixed in the version used (repeat H4 of LT-X86-11 here).
-- **Consequence:** pass **and** #219 fixed **and** a Pi commit path without manual sync → **re-open S1 toward bootc** (01 §3.1.5, REC-DEC-33). Fail → bootc stays the Industrial profile only (REC-DEC-04).
+4. **(STEEL4 conditions)** Pull the power during the staged update's finalize, as in LT-X86-11 H4, and record whether the Pi commit happens automatically after a power pull.
+- **Pass:** automatic return to the good image **with no console and no manual commit step**. Record whether greenboot #219 is fixed in the version used [C-STEEL4-bootc-024].
+- **Consequence (the pre-registered map, `01` §3.1.6 h, written 2026-11-11):** **Fail** → bootc's Pi 5 cell drops (C·C2 3 → 2) and the S1 result becomes **Debian 13** (Ubuntu 65 · Debian 63 · bootc 60; Debian wins the tie-break 6–5) [C-DEC4-007]; bootc stays the Industrial profile only (REC-DEC-04). **Pass with #219 open or a manual commit step** → no cell or row moves; S1 stays Ubuntu 26.04. **Pass with #219 fixed and an automatic commit** → the DC-19 and lab rows are re-counted for Ubuntu vs bootc: bootc wins 6–4, or a 4–4 draw goes to Zeus under Z-40.
 
 ### LT-PI5-03 · Hardened k3s footprint and 30-day soak on 4 GB · **G**
 **Aliases:** "T-W4 soak" (DC-10), k3s-footprint-restore T2/T3, W4-1 on silicon, Q125, Q154, Q334, DC-17 (part) · **Prerequisite:** Pi 5 **4 GB** + NVMe; the pinned hardened k3s config (REC-DEC-22; CIS hardening adds audit logging and load [C-REF-W4-security-004])
@@ -334,7 +358,8 @@ awk '$3=="nvme0n1"{printf "%.0f MiB written\n", $10*512/1048576}' /proc/diskstat
 sudo smartctl -a /dev/nvme0 | grep -E 'Data Units Written|Percentage Used'
 ```
 - **Pass:** idle increase ≤ 1.2 GiB (default) / ≤ 700 MiB (Lite); over 30 days ≥ 2.0 GiB free with the minimum OneMind stack and ≤ 5 GB/day written. VM baseline: 2.50 GiB free, 2.75 GB/day unhardened [C-W4-078].
-- **Fail → consequence:** < 2.0 GiB free or > 5 GB/day → the platform-node floor becomes **8 GB** (REC-DEC-09/22); 4 GB boards become NATS leaves. Also run once on an SD card to show why NVMe is required [C-W4-002].
+- **Rev. 4 extension (DC-10 refuters, REC-DEC-49):** pin kine ≥ v0.13.10; run the real minimum stack with the hardened profile; record `state.db` size daily; once, inject a compaction failure and check that the compaction-lag alert fires and the database stops growing after recovery.
+- **Fail → consequence:** < 2.0 GiB free or > 5 GB/day → the platform-node floor becomes **8 GB** (REC-DEC-09/22); 4 GB boards become NATS leaves. An unrecovered compaction stall → SQLite is not shipped on that tier until fixed. Also run once on an SD card to show why NVMe is required [C-W4-002].
 
 ### LT-PI5-04 · Datastore write volume: SQLite vs embedded etcd (corrected protocol) · **G**
 **Aliases:** T-W5-03 (corrected, 01 §4.6 and steelman-etcd-every-box), Q129 · **Prerequisite:** Pi 5 8 GB + NVMe, then an x86 mini PC (Beelink); hardened k3s
@@ -352,7 +377,7 @@ restic -r /mnt/usb/repo check --read-data-subset=1/30
 
 ### LT-PI5-06 · Base comparison on the Pi: Ubuntu 26.04 vs Debian trixie + Raspberry Pi kernel · **P**
 **Aliases:** W2-HW-1, W2-HW-2 · Each image + k3s: `free -m` after 5 min idle; reboot × 20; power-cut × 10.
-- **Pass:** k3s Ready after every boot; used RAM < 1.5 GiB. **Consequence:** a difference adds a row to the S1 tie-break.
+- **Pass:** k3s Ready after every boot; used RAM < 1.5 GiB. Record the EEPROM version: Ubuntu 26.04's Pi kernel stalls on EEPROMs older than 2025-02 (LP #2170238, open) [C-DEC-006, C-PLAN180-004]. **Consequence (rev. 4):** a difference is recorded for the G6 base lock; it becomes an S1 tie-break row only through a §8 entry logged before the run (`01` §3.1.6 h).
 
 ### LT-PI5-07 · Gate on SD card vs NVMe · **P**
 **Aliases:** T-W3-02 (SD part), debian-rugix L-3 · Repeat LT-PI5-01's F-P4 and F-P5 with the target on a microSD card. **Pass:** bad update rolls back within the deadline + 1 boot; record commit time. **Consequence:** sets the per-tier gate deadline; a timeout on SD confirms "no SD for platform nodes".
@@ -361,10 +386,10 @@ restic -r /mnt/usb/repo check --read-data-subset=1/30
 **Aliases:** LAB-W7-1 (Pi part), DC-14 founder test, Q48 · Run LT-X86-13's commands for **12 hours** with k3s + 10 pods and a memory stressor, stock vs RT kernel (Raspberry Pi publishes RT builds but no 2712 RT build, and states no support for it [C-REF-DC-technical-001]).
 - **Pass:** max < 250 µs under load with isolated cores. **Fail:** build a `2712` RT kernel in CI or drop Pi 5 from the robot-rt profile; MCU for loops under ~1 ms either way (REC-DEC-29).
 
-### LT-PI5-09 · ROS 2 in containers on Debian 13 + k3s · **G**
+### LT-PI5-09 · ROS 2 in containers on the core leg + k3s · **G**
 **Aliases:** LAB-W7-2, DC-15 founder test, Q43, Q75 · **Prerequisite:** Pi 5 and x86; one USB depth camera (RealSense UVC) and one USB-CAN adapter
 Talker/listener over Fast DDS shared memory with `hostIPC`; rmw_zenoh with a router pod; ros2_control demo with `SYS_NICE` + SCHED_FIFO; camera and CAN via device plugin. Check SHM is used (no UDP fallback): `ss -u -a | grep -c 7400` stays flat while topics flow.
-- **Pass:** all four work; camera at nominal FPS. **Fail that works on an Ubuntu 24.04 host → DC-15 flips for that tier.** Robot pods need host network/IPC and `SYS_NICE` [C-W7-033] (REC-DEC-13/36 exception profile).
+- **Pass:** all four work; camera at nominal FPS. Run on the leg S1 selects (both legs until the G6 lock). **On the Debian leg: a fail that works on an Ubuntu host → DC-15 flips for that tier.** Robot pods need host network/IPC and `SYS_NICE` [C-W7-033] (REC-DEC-13/36 exception profile).
 
 ### LT-PI5-10 · One OS from Pi to x86 to Orin, and cross-arch restore · **G**
 **Aliases:** DC-17 founder test ("minimum OneMind stack on a real 4 GB Pi 5" + "one-cluster test"), T-W5-04 · **Prerequisite:** LT-PI5-03, LT-JET-02
@@ -395,6 +420,19 @@ Talker/listener over Fast DDS shared memory with `hostIPC`; rmw_zenoh with a rou
 | LT-PI5-13k | 05 §14 item 2 | Argo CD Core vs Flux on a Pi 5: RSS after 1 h with 10 apps | Record; the lighter one is the on-box GitOps default | DC-10, P-9 |
 | LT-PI5-13l | DC-21 founder test | Boot a mainline 6.18.y kernel (K2 route) on the Pi 5 | Boots with NVMe, Ethernet, USB | DC-21, REC-DEC-25 |
 
+### LT-PI5-14 · Kernel × firmware matrix and the overlay check (E10) · **G** *(rev. 4)*
+**Aliases:** E10 founder test, REC-DEC-47 · **Prerequisite:** LT-PI5-01's disk; two EEPROM bootloader versions (the pinned one and the newest); two kernels (the shipped one and the next candidate); one HAT or camera that needs an overlay. Why: the Pi 5 EEPROM loads overlays outside the A/B slot, and Home Assistant OS 18 had to revert the Pi 5 over a kernel/EEPROM mismatch (DC-E10 technical refuter, [`evidence/adversarial/DC-E10-technical.md`](evidence/adversarial/DC-E10-technical.md); its sources are not ledgered)
+```sh
+sudo rpi-eeprom-update                            # record the current bootloader version
+vcgencmd bootloader_version
+# for each EEPROM x kernel pair: install the RAUC bundle, reboot, then
+ls -l /dev/<device-node-the-overlay-should-create>  # e.g. the camera or HAT device
+dmesg | grep -iE 'overlay|dtoverlay'
+sudo cat /data/onemind/gate.log | tail -3
+```
+- **Pass:** for every pair, either the overlay's device nodes exist and the gate commits, or they are missing and the gate **refuses** the commit. The EEPROM version is written into the release manifest and checked before an OS update (pin, gate and record). `force_eeprom_read=0` and camera/display auto-detect off stay in effect after each update (01 §4.8).
+- **Fail → consequence:** a pair that boots "healthy" without its overlay devices is barred from release, and the gate's device-node check becomes mandatory (REC-DEC-47). **Limit stated by `01`:** on an unfused Pi, E10 is a configuration control, not an integrity control (anyone with the SD card can change it) [C-REF4-DC-security-007, C-REF4-DC-security-008]. The Jetson half (QSPI version pinned and recorded) is step 6 of LT-JET-01.
+
 ---
 
 ## 5. Jetson Orin Nano Super
@@ -405,10 +443,11 @@ Talker/listener over Fast DDS shared memory with `hostIPC`; rmw_zenoh with a rou
 **Aliases:** T-W3-06 (extended, DC-07 Result block), LAB-W7-4, Q6, Q47, Q58 · **Time:** about 1 day
 1. Flash JetPack 6.2.x with the **redundant (A/B) rootfs layout** (A/B is set at the factory flash, REC-DEC-18 `ROOTFS_AB=1`). Record `cat /etc/nv_tegra_release` and `sudo nvbootctrl dump-slots-info`.
 2. Put the OneMind gate in `l4t-rootfs-validation-config`; install a bad update → **Pass:** gate failure falls back to the good slot.
-3. Image-based OTA to JetPack 7.2.x; **cut power during the capsule/OTA update** → **Pass:** OTA resumes or falls back; no reflash.
+3. Image-based OTA from JetPack 6.2.x (r36) to JetPack 7.2.x (r39); **cut power during the capsule/OTA update** → **Pass:** OTA resumes or falls back; no reflash. **Rev. 4 (DC-08 refuters):** the same r36 → r39 step must also run **unattended, with no console, with `/data` kept**, and record the QSPI bootloader version before and after. The DC-08 refuter found no documented console-free r36 → r39 path that also moves QSPI on production modules. The claim needs a **production Orin NX module** (not in the Day-1 order); the dev kit run is a rehearsal and is recorded as such.
 4. Corrupt slot B → **Pass:** boots A; `nvbootctrl dump-slots-info` shows the expected slot.
 5. Extensions from the refuters: **cold power cycle after a hang** (NVIDIA's retry counter ignores cold resets [C-REF3-DC-technical-001]); a root mount failure with the watchdog armed; after OTA, assert the running version equals the bundle's.
-- **Fail → consequence:** hook cannot block the commit, or a USB reflash is needed → **DC-07 flip condition**: Jetson SKUs need NVIDIA's recovery process or a CRA period limited to one branch; REC-DEC-35 items become release blockers.
+6. *(rev. 4, E10)* Record the QSPI firmware version in the release manifest and refuse an OS bundle built for another QSPI version (REC-DEC-47).
+- **Fail → consequence:** hook cannot block the commit, or a USB reflash is needed → **DC-07 flip condition**: Jetson SKUs need NVIDIA's recovery process or a CRA period limited to one branch; REC-DEC-35 items become release blockers. **Until step 3's r36 → r39 run passes on a production module, every Jetson SKU declares its support period from its current branch only** (DC-08, REC-DEC-49).
 
 ### LT-JET-02 · Jetson baseline: JetPack + k3s + GPU · **G**
 **Aliases:** W2-HW-4, W10-T4 · **Prerequisite:** LT-JET-01 step 1
@@ -451,29 +490,30 @@ These need only the Mac's Lima VMs (the W18 setup: `limactl start --name=onemind
 |---|---|---|---|---|---|---|
 | **LT-VM-01** | T-W19-01 + security variant | **G** | On the RAUC image (x86 VM): install a verity-signed sysext + confext + driver pack; switch slots with the same `SYSEXT_LEVEL`, then a new level. Security variant: drop an **unsigned image**, a **plain directory** and a **tampered image** into the extension paths on the data partition, reboot and switch slots; `systemd-sysext status`, `systemd-dissect --validate <image>` | Extensions re-merge; a level change refuses old ones with a message the gate reports; nothing written to root; **all three bad extensions refused** after reboot and slot switch | **D3 changes:** extensions only inside the RAUC bundle; no runtime host plugins (systemd's default admits unsigned images [C-REF-W19-security-004]) | DC-16, REC-DEC-24, Z-22 |
 | LT-VM-02 | T-W19-02 | P | Two driver-pack sysexts, each with `modules.dep`; `modinfo` modules from both | Expected: only the top pack's modules resolve | Confirms the per-vendor packs + depmod-at-merge rule | E4, REC-DEC-24 |
-| **LT-VM-03** | T-W3-04, DC-05 / DC-03 founder test | **G** | Build a Debian 13 → 14 (testing) bundle for the x86 layout of 04 §11; install, boot, commit; **log founder-hours** for the whole rebase; then on the Pi 5 and x86 hardware | Fits the 10 GiB slot, boots, commits, data intact; hours recorded | Doesn't fit or needs a bootloader change → DC-05 flips; > 4–6 founder-weeks weakens Debian (01 §3.1.5) | DC-05, DC-03, REC-DEC-16 |
-| **LT-VM-04** | T-W3-03, DC-12 | **G** | Release N (k3s 1.N) → N+1 (k3s 1.N+1) that fails the gate → fallback | Old slot's k3s starts on the untouched datastore; workloads intact | k3s refuses to start or datastore corrupt → DC-12 flip; REC-DEC-28 restore drill | DC-12 |
+| **LT-VM-03** | T-W3-04, DC-05 / DC-03 founder test | **G** | Build a major-rebase bundle for the x86 layout of 04 §11 on **both legs** (rev. 4: Debian 13 → 14 testing; Ubuntu 26.04 → the current development series as the closest proxy); install, boot, commit; **log founder-hours** for the whole rebase. **Rev. 4 (DC-05 refuters):** the **old slot's RAUC** must install the new release's bundle, then N+1 and N+2; repeat once with `/data` on an external disk. Then on the Pi 5 and x86 hardware | Fits the 10 GiB slot, boots, commits, data intact; N+1 and N+2 install from the rebased slot; hours recorded | Doesn't fit, needs a bootloader change, or old-slot RAUC cannot read the next bundles (the umbrelOS stranding pattern [C-REF4-DC-longevity-006]) → DC-05 flips; > 4–6 founder-weeks weakens the Debian leg (DC-05's Debian–Ubuntu row is already ≈ in `01` §3.1.6 f) | DC-05, DC-03, REC-DEC-16 |
+| **LT-VM-04** | T-W3-03, DC-12 | **G** | (a) **One box (SQLite):** release N (k3s 1.N) → N+1 (k3s 1.N+1) that fails the gate → fallback. (b) **Rev. 4: three-server embedded-etcd cluster:** the same, where rollback across a k3s minor goes only through `k3s etcd-snapshot` restore, never a per-node slot fallback. (c) Rev. 4 (REC-DEC-45): an app that migrates its data during the trial must hold the migration until commit; turn on RAUC `prevent-late-fallback` and a version floor and check that a committed release cannot fall back to the old slot; starve a core pod for 300 s and check that the gate reports "environment bad" (bounded re-offer plus an alert), not "image bad" for good | (a) Old slot's k3s starts on the untouched datastore; workloads intact. (b) Snapshot restore brings all three servers back on 1.N, objects counted. (c) No migrated app data after a rollback; no post-commit fallback; the starved release is re-offered | k3s refuses to start or datastore corrupt → DC-12 flip; REC-DEC-28 restore drill. (b) fails → multi-server boxes cannot take a k3s minor inside an A/B release until fixed | DC-12, REC-DEC-45 |
 | **LT-VM-05** | Mender F3 | **G** | In a copy of grub-mender-grubenv, allow `bootcount` 0–3 and roll back only at 3; rebuild; `python3 -I run-tests.py` with T6/T7 expecting 3 attempts | T9 commits B v2 on the retry; all else passes | Pass → Mender meets 01 §4.2 item 3 and RAUC loses its "boot tries" tie-break row | S2, REC-DEC-26, Z-03 |
 | LT-VM-06 | Mender F4 | P | mender-convert 5.3.0 (`generic_x86-64_hdd_config`, Docker in Lima) on the same rootfs; embed the gate; rerun T1–T8 | Same results as the hand-built lab | The supported path differs → note in 04 | S2 |
 | LT-VM-07 | F-U1, F-U2 | P | Debian build with `-t trixie-backports linux-image-amd64` + Debian RAUC 1.13, `--upto T3`; Ubuntu leg with dracut instead of initramfs-tools | F-U1 **expected to fail** with `Unexpected dm-verity status 'V -'` [C-LAB-ubuntu-2604-leg-004]; F-U2 same verdicts | F-U1 passing means that claim is wrong | REC-DEC-31 |
-| LT-VM-08 | ubuntu-2604-leg 1.15.2 row; critic N8; DC20-R6 | P | RAUC 1.15.2 on the Ubuntu leg (`RAUC_MODE=src`); an **aarch64 UEFI** RAUC + k3s-gate run in QEMU; aarch64 leg of the minimal-image scripts | Same verdicts as x86 | Fix before LT-PI5-01 | REC-DEC-05, -31, DC-20 |
+| LT-VM-08 | ubuntu-2604-leg 1.15.2 row; critic N8; DC20-R6; aarch64-gate A3 | P | **Rev. 4: the aarch64 UEFI RAUC + k3s-gate run is done** (PASS, two runs [C-LAB-aarch64-gate-004], §1.1). Remaining: RAUC 1.15.2 on the Ubuntu leg (`RAUC_MODE=src`); the aarch64 leg of the minimal-image scripts; the aarch64 suite as a CI job on bare-metal KVM or HVF (`LAB_ACCEL=kvm`), never nested virtualisation [C-LAB-aarch64-gate-006] | Same verdicts as x86 | Fix before LT-PI5-01 | REC-DEC-05, -31, DC-20 |
 | LT-VM-09 | T-W18-1, T-W18-2 | P | `sysctl -n machdep.cpu.brand_string; sw_vers -productVersion`; in Lima `ls /dev/kvm`; full core image rebuild (amd64 + Pi) in Lima and CI, timed | M3+ and macOS 15+ → `/dev/kvm`; < 30 min each | Builds only in CI; K1-C5 stays 4 | 28 §9 |
 | **LT-VM-10** | T-W18-4 | **G** | "HAOS route" dry run: weekly 6.18.y bump + boot test for 4 weeks; record hours per bump | < 1 h per bump | ≥ 1 h → the K2 kernel cost estimate (REC-DEC-25) rises; re-plan Secure Boot release | DC-21, S5 |
 | LT-VM-11 | T-W3-05 | P | Delta update over `tc qdisc add dev eth0 root netem rate 64kbit loss 10%` | Completes or resumes; size and time recorded | Hangs without timeout → fix 04 Q5 | 04 |
 | LT-VM-12 | k3s-footprint-restore T1, T4, T5, T6 | P | `scripts/run-all.sh` end to end; naive `cp -a` SQLite copy while running; restore under a different node name; x86_64 | `IDENTICAL` and 32/32 pods; T4 tells if `.backup` is required; **T5 expected to fail** for local-path pods | Confirms REC-K3S-2/3 (token and stable node name in the recovery kit) [C-LAB-k3s-footprint-restore-013] | DC-11 |
-| LT-VM-13 | DC-20 re-run (`minimal-image-dc20` §7.13) | P | The §7.13 command block on any Debian 13 VM | Same as its §3 | Re-read DC-20 if Buildroot's SBOM IDs fall ≥ 50% below Debian's | DC-20 |
+| LT-VM-13 | DC-20 re-run (`minimal-image-dc20` §7.13) | P | The §7.13 command block on any Debian 13 VM. **Rev. 4 (DC-20 refuters, REC-DEC-46):** re-measure with a **compiled-source kernel filter** (count only CVEs in code the kernel config actually builds), on **both legs**, with a **second scanner**, and a VEX pass for triaged IDs | Same as its §3; filtered counts recorded per leg and scanner | DC-20 is no longer decided on CVE counts: D1 stands on the NVIDIA/CUDA path and one-developer maintainability. A filtered gap ≥ 50% is recorded and re-read by the DEC owner, not an automatic flip | DC-20 |
 | **LT-VM-14** | T-W15-01, W15-N4 | **G** | Air-gapped rebuild: unplug the build VM's network; build from the local forge mirror, Debian snapshot and local registry; sign with the offline key; install from USB; compare SBOM | Builds, boots, passes the k3s gate; package list = online build's | Any step needs the internet → **release blocker** for the first sold image | REC-W15-11 |
 | **LT-VM-15** | LAB-W8-3 | **G** | Sparkplug TCK against the NATS MQTT listener and Mosquitto | TCK "compliant" (and NATS "aware") profiles pass | NATS cannot be the Sparkplug broker → Mosquitto in the IIoT profile | 09 P0-4, DC-02 |
-| **LT-VM-16** | LAB-W8-4, Z-27 | **G** | go-fdo client: DI → TO0/1/2 against a self-hosted owner, on Debian 13 **and** EL10 bootc (VMs first, then the Dell's TPM and a Pi 5 without TPM) | Enrols and receives NATS creds and a WireGuard key with no keyboard | Zero-touch onboarding blocked on Debian → DC-02 (F-11) re-opens; EL10 steelman gains | DC-02, REC-DEC-27 |
+| **LT-VM-16** | LAB-W8-4, Z-27 | **G** | go-fdo client: DI → TO0/1/2 against a self-hosted owner, on the core legs **and** EL10 bootc (VMs first, then the Dell's TPM and a Pi 5 without TPM). Rev. 4: go-fdo has no release and no FIDO interop yet [C-REF4-DC-longevity-005], so also run the **day-one fallback**: IDevID plus a manual claim | Enrols and receives NATS creds and a WireGuard key with no keyboard; the fallback enrols with one owner action | Zero-touch onboarding blocked on the core legs → DC-02 (F-11) re-opens; EL10 steelman gains. FDO stays "experimental" either way (REC-DEC-49) | DC-02, REC-DEC-27, -49 |
 | **LT-VM-17** | LAB-W8-5, Flight Control simulation (Z-27) | **G** | 100 simulated sites (k3s + NATS leaf + update agent in VMs) against one hub; staged OTA wave with 5% injected failures; then Flight Control's `devicesimulator` at 1k+ | Hub CPU/RAM linear; wave completes with gate-driven rollback | Fleet scale fails → DC-02 G4(e) re-opens | DC-02 |
 | LT-VM-18 | S-1, S-2 = T-W9-05, T-W19-04 | G (AI actuation) | Market app with `hostNetwork`, privileged and a hostPath in `market-*` (PSA Restricted); planted email asks the agent to install an OS update, actuate a simulated valve and read Strava; revoke an installed adapter while a sim robot moves | Rejected with a clear error; gateway blocks until phone approval, Strava not listed; robot reaches safe state within its stop time, plugin disabled, audited | **Block release of AI actuation** and any `actuate` plugin | REC-DEC-13, -40, AI-5 |
+| **LT-VM-20** *(rev. 4; FIX5: kit ready, research attempt BLOCKED)* | Ubuntu Secure Boot leg (`01` §10 "not proven"; S1 variant V3; U-SB in `01` §3.1.6 h) | **G**, **week 1**, no hardware: about 1.5–2 h unattended on any machine that reaches `archive.ubuntu.com` | Run the pre-registered kit in [`evidence/lab/ubuntu-secureboot/`](evidence/lab/ubuntu-secureboot/) (README §R.3 has the commands; criteria frozen at 2026-11-11T15:51Z, sha256 `c98a09d1…f8db`) [C-FIX5-002, C-FIX5-003]. It does this: build the `secureboot-1152` kit (RAUC 1.15.2, `efi` backend, signed per-slot UKIs with `rauc.slot=` on the command line, verity-only) from the **Ubuntu 26.04** leg (`ubuntu-2604-leg`), and run the same suite T0–T9 + E1 in OVMF + swtpm | Same verdicts as the Debian run [C-LAB-secureboot-1152-005]; the downgrade gap E1 recorded as it is | Any difference → a rule-6 re-score request for D·C3 goes to the DEC owner (variant V3 in `01` §3.1.6 g: bootc 6–5). Pass → D·C3's `doc-only` mark can be dropped | S1, DC-18, REC-DEC-08 |
 | LT-VM-19 | T-W12-1, T-W12-4, T-W11-05 | V | Import the top 50 CasaOS apps with `onemind app import` (disposable VM); licence linter vs the 70 hand-classified seed repos; axe-core on OneMind/Umbrel/HA/Olares screens | ≥ 80% reach Listed; 100% class match; 0 serious/critical violations | Importer "assistive"; fix linter before public listing | 13, 12 |
 
 ---
 
 ## 7. Cloud or local NVIDIA RTX GPU
 
-No founder GPU exists today (11 §10); rent an Ampere-or-newer x86 instance by the hour, using an image you build (Debian 13), with no founder credentials on it.
+No founder GPU exists today (11 §10); rent an Ampere-or-newer x86 instance by the hour, using an image you build, with no founder credentials on it. **Rev. 4:** run LT-GPU-01/02 on the core leg S1 selects. Under the decision of record (Ubuntu 26.04) the GPU-server flavor is already Ubuntu LTS (`01` §1), so the Debian runs below decide the GPU tier only if the base lock gives Debian.
 
 ### LT-GPU-01 · NVIDIA on Debian 13 + k3s, and surviving upgrades · **G**
 **Aliases:** LAB-W7-3, DC-13 "Pro-box GPU lab", 05 §14 item 5, Q16 · **Time:** half a day
@@ -648,11 +688,11 @@ Listed so nothing named elsewhere is lost. They have no hardware pass/fail.
 
 | ID | Aliases | Action | Done when | Feeds |
 |---|---|---|---|---|
-| **LT-BIZ-01** | T-W16-4, Z-01, O-1 | Send the Canonical, NVIDIA, Raspberry Pi and MHS questions (drafts in `evidence/outreach-drafts.md`, `outreach-drafts-W16.md`); get counsel's view on modified-Ubuntu redistribution | Written answers recorded as claims | **S1** (01 §3.1.5: Z-01 can re-open Ubuntu), Jetson flavor, DC-03 |
+| **LT-BIZ-01** | T-W16-4, Z-01, O-1 | Send the Canonical, NVIDIA, Raspberry Pi and MHS questions (drafts in `evidence/outreach-drafts.md`, `outreach-drafts-W16.md`); get counsel's view on modified-Ubuntu redistribution; ask Canonical for a **written price** (REC-DEC-43) | Written answers recorded as claims | **S1** (rev. 4: Z-01 is the condition on the decision of record; the map in `01` §3.1.6 h gives Ubuntu outright if granted with a price, bootc if refused and a debranded rebuild is rejected), RR-09's cost, Jetson flavor, DC-03 |
 | LT-BIZ-02 | T-W16-1 | Trademark clearance for "OneMind"/"OneMind OS" (classes 9, 42) by an attorney | Written opinion | 17 |
 | LT-BIZ-03 | T-W16-2 | Incorporate; landing page; NVIDIA Inception | Inception acceptance | 11 §10.1 |
 | LT-BIZ-04 | T-W16-3, T-W16-5 | 30 discovery interviews; then a pre-order test | ≥ 30% would pre-order; > 100 paid pre-orders | 17 |
-| LT-BIZ-05 | T-W18-3 | For 6 months, log each Debian `linux` DSA date vs the upstream stable release with the same fix | Median ≤ 7 days; no "high" CVE > 14 days | S5 trigger 2 (K1 → K2) |
+| LT-BIZ-05 | T-W18-3 | For 6 months, log each Debian `linux` DSA date, and (rev. 4, both legs) each Ubuntu `linux` USN date, vs the upstream stable release with the same fix | Median ≤ 7 days; no "high" CVE > 14 days, per leg | S5 trigger 2 (K1 → K2) |
 
 ---
 
@@ -676,11 +716,12 @@ How the proven products test their OS images, and whether that fits a solo found
 
 | ID | Recommendation | Requirement IDs |
 |---|---|---|
-| **REC-LABPLAN-01** | Run §1's critical path in its order; `20-PLAN-180-DAYS.md` makes LT-X86-01/02, LT-PI5-01, LT-X86-03/04 and LT-VM-01 the **week-4 to week-6 update-engine gate**, and LT-PI5-02 the S1 check | R-1, R-3, M-6, F-14 |
+| **REC-LABPLAN-01** | Run §1's critical path in its order; `20-PLAN-180-DAYS.md` makes LT-X86-01/02, LT-PI5-01, LT-X86-03/04 and LT-VM-01 the **week-4 to week-6 update-engine gate**, and (rev. 4) LT-PI5-02 the S1 check **before G1 (week 4)**, read against `01` §3.1.6 (h) | R-1, R-3, M-6, F-14 |
 | **REC-LABPLAN-02** | Turn every passed emulated lab (rauc-1152, secureboot-rauc, mender, ubuntu-2604-leg, k3s-footprint-restore, w19-sysext) into a **CI job** on every image change, the HAOS/umbrelOS pattern [C-LABPLAN-001…003] | R-1, M-6, P-4, RS-4 |
 | **REC-LABPLAN-03** | By month 3, build a minimal **power-pull rig** (switched outlet + USB serial console, scripted with labgrid) so PP-10 runs unattended on x86 and Pi 5; balena's AutoKit is the reference [C-LABPLAN-005] | R-1, R-2, H-3, M-6 |
 | **REC-LABPLAN-04** | Record every result with the §2.5 template in `evidence/lab/founder-hardware/`, under the redaction rules; each result becomes a claim row | RS-6, M-6 |
 | **REC-LABPLAN-05** | Run the §9 live-cluster checks in week 1 (about 1 hour); they feed the DOKS conversion plan (05 §9), the Hermes/NATS migration and the security baseline | P-9, AI-9, M-2 |
+| **REC-LABPLAN-07** *(rev. 4)* | From the two new labs (§1.1): set every gate deadline from measured good-commit times with ≥ 3× margin and log wall-clock time per check; run timing-sensitive gate jobs only on bare-metal KVM/HVF or real arm64 runners; put `rauc.slot=<bootname>` inside every signed UKI command line; keep the Secure Boot anti-downgrade fixes as release blockers, because RAUC 1.15.2 does not close the gap [C-LAB-aarch64-gate-006, C-LAB-secureboot-1152-008, C-LAB-secureboot-1152-009] | R-1, R-2, R-3, M-2, M-6 |
 | **REC-LABPLAN-06** | Buy the Pi 5 8 GB (+ a 4 GB for LT-PI5-03), NVMe kit, Jetson Orin Nano Super, a spare USB SSD and a power meter by 2026-11-16 | D-004, D-006, H-3, N-2 |
 
 ---
@@ -701,13 +742,13 @@ How the proven products test their OS images, and whether that fits a solo found
 | debian-rugix "on real hardware", T-W3-01 (Rugix) | LT-X86-09 | `lab/debian-rugix` §6 |
 | ubuntu-2604-leg hardware row | LT-X86-10 | `lab/ubuntu-2604-leg` §10 |
 | fedora-bootc H1–H5 | LT-X86-11 | `lab/fedora-bootc` |
-| T-W19-03 | LT-X86-12 | 29 §16 |
+| T-W19-03 (arm 1: shim `vendor_cert`, REC-DEC-48; arm 2: K2-hybrid) | LT-X86-12 | 29 §16, 01 §5.9.2 |
 | T-W18-7, LAB-W7-1 (x86) | LT-X86-13 | 28 §9.4, 08 §10 |
 | T-W5-02, T-W5-05 | LT-X86-14 | 06 §14 |
 | T-W3-07 | LT-X86-15 | 04 §15 |
 | T-W9-01, T-W13-1, T-W11-01/02/07, T-W12-3 | LT-X86-16a–f | 10, 14, 12, 13 |
 | F-PI5 (F-P1…F-P11c), T-W3-02 (NVMe) | LT-PI5-01 | `lab/rauc-1152/PI5-TRYBOOT-FOUNDER-TEST.md` |
-| W2-HW-3 | LT-PI5-02 | 03 §13, 01 §3.1.5 |
+| W2-HW-3 | LT-PI5-02 | 03 §13, 01 §3.1.6 (h) (rev. 4: before G1) |
 | T-W4 soak, k3s-footprint-restore T2/T3 | LT-PI5-03 | decision-critical DC-10, `lab/k3s-footprint-restore` |
 | T-W5-03 (corrected) | LT-PI5-04 | 06 §14, 01 §4.6 |
 | T-W5-01 | LT-PI5-05 | 06 §14 |
@@ -719,6 +760,9 @@ How the proven products test their OS images, and whether that fits a solo found
 | P-1 (07) | LT-PI5-11 | 07 §12 |
 | T-W19-01 (Pi half) | LT-PI5-12 | 29 §16 |
 | LAB-W8-1/2/6/7/8, W10-T3/T5/T6, T-W9-02/03/04, T-W13-4, T-W12-2, T-W11-08, T-W19-05, Argo vs Flux, Pi 5 mainline boot | LT-PI5-13a–l | 09 §11, 11 §11, 10 §13, 14, 13, 12, 29, 05 §14 |
+| E10 kernel × EEPROM matrix (rev. 4) | LT-PI5-14 | 01 §5.9.2, REC-DEC-47 |
+| aarch64-gate A1 (16 KiB pages), A2 (Pi trial-boot power pull) | LT-PI5-01 (step A1; A2 = F-P11) | `lab/aarch64-gate` §9 |
+| DC-08 r36 → r39 OTA (rev. 4) | LT-JET-01 step 3 | 01 §5.9.2, decision-critical DC-08 |
 | T-W3-06, LAB-W7-4 | LT-JET-01 | 04 §15, 08 §10 |
 | W2-HW-4, W10-T4 | LT-JET-02 | 03, 11 |
 | T-W18-5, T-W18-6 | LT-JET-03 | 28 §9.4 |
@@ -729,6 +773,10 @@ How the proven products test their OS images, and whether that fits a solo found
 | T-W9-02 (Jetson) | LT-JET-08 | 10 §13 |
 | T-W19-01, T-W19-02, T-W3-04, T-W3-03, mender F3/F4, F-U1/F-U2, N8 aarch64, T-W18-1/2/4, T-W3-05, k3s T1/T4/T5/T6, DC-20 re-run, T-W15-01, LAB-W8-3/4/5, Z-27, S-1, S-2, T-W9-05, T-W19-04, T-W12-1/4, T-W11-05 | LT-VM-01…19 | 29, 04, `lab/*`, 28, 16, 09, 07, 10, 13, 12 |
 | rauc-k3s-gate F3 (RAUC 1.15.x) | **done** by `lab/rauc-1152` [C-LAB-rauc-1152-011] | — |
+| N8 aarch64 RAUC + k3s gate in QEMU | **done** by `lab/aarch64-gate` [C-LAB-aarch64-gate-004]; the rest of LT-VM-08 remains | — |
+| Secure Boot on RAUC 1.15.2 (critic N8) | **done** by `lab/secureboot-1152` [C-LAB-secureboot-1152-005]; hardware stays LT-X86-03/04 | — |
+| T-W3-03 cluster variant (rev. 4) | LT-VM-04 (b) | 01 REC-DEC-45 |
+| Secure Boot on the Ubuntu leg (rev. 4) | LT-VM-20 | 01 §10 |
 | LAB-W7-3, DC-13 GPU lab | LT-GPU-01 | 08, decision-critical |
 | Isaac Sim on Debian (Z-17) | LT-GPU-02 | 26 |
 | T-W9-03 (RTX) | LT-GPU-03 | 10 |
@@ -757,6 +805,11 @@ How the proven products test their OS images, and whether that fits a solo found
 | **cyclictest** | A tool that measures how late the system wakes a high-priority task (latency) |
 | **L4T / JetPack** | NVIDIA's Linux for Jetson and its SDK |
 | **meta-tegra** | The community Yocto layer for building Jetson images from source |
+| **Core leg** | One of the two base versions the same image recipe builds until the base is locked: Ubuntu 26.04 (the decision of record) and Debian 13 |
+| **Decision map** | `01` §3.1.6 (h): what each result of LT-PI5-02 and of Canonical's answer does to the base-OS choice, written before either exists |
+| **shim / `vendor_cert`** | shim is the small signed first-stage loader many distributions use for Secure Boot; `vendor_cert` is a key built into it, which can let the kernel trust modules signed with that key |
+| **Page size (4 KiB / 16 KiB)** | The unit the kernel manages memory in. The Pi 5's default kernel uses 16 KiB; some software assumes 4 KiB |
+| **QSPI** | The flash chip on a Jetson module that holds its boot firmware, outside the A/B root filesystem |
 | **sysext / confext** | systemd features that add files to `/usr` or `/etc` from a separate image without changing the OS copy |
 | **GrapheneOS / EUD** | A hardened Android for Pixels; EUD = end-user device (a phone or tablet running ATAK) |
 | **Read-only check** | A command that only looks at the cluster (get, describe, list) and changes nothing |
@@ -773,4 +826,5 @@ How the proven products test their OS images, and whether that fits a solo found
 - **Not covered:** Pi 5 OTP secure boot combined with tryboot, and an EEPROM update in the same release (critic Q-P2-4; needs a dedicated Pi and irreversible steps); drones (year 2+, 08 §11.2); radio certification.
 - **Live cluster:** secrets encryption at rest and API audit logging are provider-managed and cannot be seen with read-only verbs; LT-CLU-04's `owner=helm` label filter is UNVERIFIED in this pass (if it returns nothing, the founder's existing Helm inventory in `context/01` stands).
 - **Commands from other files** were consolidated, not re-run: their correctness rests on each lab's own desk pre-flight (rauc-1152 §7.4 for the Pi kit) or on the cited docs. The `argocd`, `doctl`, `kubectl` and PSA forms here were checked against current primary docs [C-LABPLAN-006…010].
-- **Status sync for other owners:** 01 §12 ("22 does not exist yet") and each DC Result block in `decision-critical.md` can now point to the LT IDs in §13; the qbank `blocked: founder-hardware` / `live-cluster` rows can cite their LT ID. 09 §8.2/§8.3 acceptance tests still say "Rugix rollback"; under REC-DEC-05 they run on RAUC.
+- **Rev. 4 sync (2026-11-11):** this file follows `01` revision 4. Base-OS wording now reads "the core leg S1 selects" (Ubuntu 26.04 under the decision of record; Debian 13 is the pre-registered result if LT-PI5-02 fails); LT-PI5-02 runs before G1; LT-PI5-14 and LT-VM-20 are new; LT-X86-03/04 use the RAUC 1.15.2 Secure Boot kit; LT-JET-01, LT-VM-03, LT-VM-04, LT-VM-13, LT-VM-16, LT-X86-12, LT-X86-14 and LT-PI5-03 carry the round-4 refuters' extensions. The two new labs ran on Debian guests under emulation only (§1.1). The DC-21, DC-E10 and DC-08 technical refuters' sources are not ledgered (01 §12), so the shim, overlay and r36 → r39 rationales here cite those files by name. **LT-JET-01's r36 → r39 claim needs a production Orin NX module**, which is not in the Day-1 order.
+- **Status sync for other owners:** each DC Result block in `decision-critical.md` can now point to the LT IDs in §13 (01 §12 already notes that 22 exists); the qbank `blocked: founder-hardware` / `live-cluster` rows can cite their LT ID. 09 §8.2/§8.3 acceptance tests still say "Rugix rollback"; under REC-DEC-05 they run on RAUC.

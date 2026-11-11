@@ -1,0 +1,70 @@
+                      CERTIFICATE                                                                                              CERTIFICATE No:
+     CERTIFICATO – ZERTIFIKAT – CERTIFICADO – CERTIFICAT                                                                    EUTC-RCOR4411-CSA-E01
+                                                                                                                                  Revision: 01
+
+                                     BYHON hereby confirms that the:                                                                 Issued:
+                                                                                                                                February 16, 2024
+                                             ReliaCOR 44-11
+                                                                                                                          Application restrictions:
+                                                                                                                          The unit shall be operated in a
+                                              Eurotech                                                                    network and operational
+                                           www.eurotech.com                                                               environmental meeting the
+                                                                                                                          assumptions in the product
+ Conforms to 62443 requirements listed, and to requirements shown in the table:                                           certification report.
+
+        ANSI/ISA-62443-4-1-2018, IEC 62443-4-1:2018 Secure product                                                        Product certificate remain
+                    development lifecycle requirements                                                                    valid under conditions:
+                                                                                     • The following SDLA
+    ANSI/ISA-62443-4-2:2018, IEC 62443-4-2:2018 Technical security                     certificate remains valid:
+                                                                                       ISASecure® Security
+                   requirements for IACS components
+                                                                                       Development Lifecycle
+                                                                                       Assurance certificate
+                         Meeting requirements for:
+                                                                                       EUTC-SEPDP-SDLA issued to
+                                                                                       Eurotech www.eurotech.com
+                        Capability Security Level 2                                  • ReliaCOR 44-11
+                                                                                       Ubuntu Linux 22.04.x LTS ESF
+                                                                                       7.3.x
+The normative documents and issue dates that define this certification are listed at
+                                                                                       remains under the security
+                             www.isasecure.org                                         management practices
+                                                                                       thereby certified
+
+                                                                                                                                  ISASecure®
+   Assessment            Subject under                Requirements               Date           Current release at
+                          Assessment                                                           time of assessment
+                                                                                                                             Chartered Laboratory:
+                                                                                                                             HON CONSULTING dba
+ ISASecure® CSA         ReliaCOR 44-11           ISASecure Component         February 16,       RECOR 44-11-xx(*)
+                                                                                                                                    BYHON
+    evaluation                                  Security Assurance 1.0.0        2024                                          Via Lepanto 23, 59100
+                                               Capability Security Level 2                    Ubuntu Linux 22.04.3               Prato (PO) - ITALY
+                                                 requirements for host                                LTS                      License: ISCI-CL0005
+                                               device, referencing errata
+                                                                                                                              Accreditation ID# 8914
+                                                     CSA-102 v2.5                                    ESF 7.3.1
+
+                                                                                                (*) xx is a suffix that
+
+                                                                                              identifies the product
+                                                                                              variant as explained in
+                                                                                               the ReliaCOR 44-11
+                                                                                                  User's Manual
+
+
+
+
+                         Certified by:                                        BYHON Certification Director:
+
+
+
+                                                                         _________________________________
+                                                                                   <signatory-name-masked>
+
+
+ ISASecure® is a trademark of ASCI. All rights reserved.
+
+
+                                                                             Page 1 of 1
+

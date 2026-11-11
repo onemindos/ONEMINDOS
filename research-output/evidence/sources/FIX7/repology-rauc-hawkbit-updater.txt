@@ -1,0 +1,71 @@
+ 
+ rauc-hawkbit-updater package versions - Repology 
+ Toggle navigation 
+ Projects 
+ Maintainers 
+ Repositories 
+ Tools 
+ Security 
+ News 
+ Docs 
+ Versions 
+ Packages 
+ Information 
+ History 
+ Badges 
+ Report 
+ Versions for rauc-hawkbit-updater 
+ 8 package(s) known 
+ Repository 
+ Package name 
+ Version 
+ Category 
+ Maintainer(s) 
+ Debian 14 forky/main 
+ rauc-hawkbit-updater 
+ 1.4 
+ embedded 
+ <email-masked> 
+ Debian Unstable sid/main 
+ rauc-hawkbit-updater 
+ 1.4 
+ embedded 
+ <email-masked> 
+ Devuan Unstable unstable/main 
+ rauc-hawkbit-updater 
+ 1.4 
+ embedded 
+ <email-masked> 
+ Kali Linux Rolling main 
+ rauc-hawkbit-updater 
+ 1.4 
+ embedded 
+ <email-masked> 
+ PTXdist 
+ rauc-hawkbit-updater 
+ 1.4 
+ - 
+ - 
+ Raspbian Testing main 
+ rauc-hawkbit-updater 
+ 1.4 
+ embedded 
+ <email-masked> 
+ Ubuntu 26.10 stonking/universe 
+ rauc-hawkbit-updater 
+ 1.4 
+ universe/embedded 
+ <email-masked> 
+ Ubuntu 27.04 tenacious/universe 
+ rauc-hawkbit-updater 
+ 1.4 
+ universe/embedded 
+ <email-masked> 
+ GitHub repositories:
+ webapp ,
+ updater ,
+ ruleset 
+ Copyright (C) 2016-2026 Dmitry Marakasov 
+ Code licensed under GPLv3+.
+ Click me to get banned 
+ 

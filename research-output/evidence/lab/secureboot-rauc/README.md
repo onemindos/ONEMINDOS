@@ -170,7 +170,7 @@ E1 was added after run 1, when the logs showed that OVMF re-adds its own entries
 From the Mac (Lima ≥ 2.0; every upstream tool runs inside the VM; about 4 min to build and 14 min to test):
 
 ```bash
-LAB=~/<lab-dir>/secureboot-rauc                      # outside the repo
+LAB=<lab-dir>/secureboot-rauc                      # outside the repo
 mkdir -p $LAB/scripts $LAB/logs && cp research-output/evidence/lab/secureboot-rauc/scripts/* $LAB/scripts/
 limactl create --name lab-sbrauc --tty=false --vm-type vz --cpus 10 --memory 16 --disk 80 \
   --mount-only $LAB:w --mount-type virtiofs template:debian-13 && limactl start lab-sbrauc

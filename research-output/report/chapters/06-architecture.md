@@ -10,7 +10,7 @@ Olares organises itself in five layers (infrastructure, platform, framework, bui
 
 | OneMind layer | What it is | Different from Olares because |
 |---|---|---|
-| **L0 · OS image** | Debian 13 read-only A/B (RAUC), signed releases, health gate, LUKS2 data; Jetson flavor on L4T | Olares has no OS rollback and only same-origin checksums [C-TD-olares-003, C-TD-olares-004] |
+| **L0 · OS image** | Read-only A/B (RAUC) core image on Ubuntu 26.04 (decision of record, conditional on Z-01), with a Debian 13 leg until the base lock; signed releases, health gate, LUKS2 data; Jetson flavor on L4T | Olares has no OS rollback and only same-origin checksums [C-TD-olares-003, C-TD-olares-004] |
 | **L1 · Cluster** | k3s (SQLite on one box, etcd at three servers), Flannel (Cilium on GPU/enterprise), Retain storage, Longhorn on 3+ nodes | Olares ships a Kubernetes minor past its end of life [C-TD-olares-022] |
 | **L2 · Platform services** | NATS JetStream as the authority bus, object storage, restic backup agent, identity store | Each box has its own JetStream domain and leaf links [C-W4-054] |
 | **L2b · Devices and robots** | MCP/MHS device adapters, ROS 2 bridge, MAVLink, MQTT 5 site bus bridged to NATS, TAK | Olares has none |

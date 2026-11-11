@@ -1,0 +1,292 @@
+Source: https://antonio.paolillo.be/publications/workshops/ecrtsOspert2024_dewit_rtlinux_paper.pdf (pdftotext of the PDF, PDF sha256 5ff93b63bac74771a742bc2f8c0b4e56435b259db7e6dec14b06904d00b79d76; accessed 2026-11-11; saved as text; emails/MACs/serials masked)
+
+ A Preliminary Assessment of the real-time
+ capabilities of Real-Time Linux on Raspberry Pi 5
+ Wannes Dewit Antonio Paolillo Joël Goossens
+ SOFT Languages Lab SOFT Languages Lab Département d’Informatique
+ Vrije Universiteit Brussel Vrije Universiteit Brussel Université libre de Bruxelles
+ Brussels, Belgium Brussels, Belgium Brussels, Belgium
+ <email-masked> <email-masked> <email-masked>
+ Abstract—This preliminary study evaluates the practical real- Time Operating System (RTOS). By doing so, we aim to
+time capabilities of Real-Time Linux with the PREEMPT_RT establish a methodology for RTOS assessment enabling us to
+patch on the Raspberry Pi 5, using Cyclictest and various stres- compare, for example, the behaviour of Linux when applying
+sors to simulate extreme operational conditions. By comparing
+the performance and predictability of Linux kernels with and (or not) the PREEMPT_RT patch. This requires the definition
+without the PREEMPT_RT patch, we establish quantifiable met- of metrics adapted to real-time workloads (as “fast” does not
+rics that demonstrate significant improvements in determinism mean “predictable”) and associated benchmarks simulating
+and reduced latency: notably, we observed on Real-Time Linux real-time applications.
+a 294× shorter maximum latency than on regular Linux. Our Overall project. We plan to use existing benchmarking
+findings contribute to a deeper understanding of Real-Time
+Linux’s potential in industrial applications. Our work aims, in tools and suites, like Cyclictest [7], benchkit [8]
+the longer term, to establish a measurement-based assessment RTEval [9], and rtbench [10], to evaluate the impact of
+methodology of the real-time performance and capabilities of the PREEMPT_RT patch on both performance and real-time
+real-time operating systems. metrics. The eventual goals of this project are (1) to produce a
+ Index Terms—Real-Time Linux, PREEMPT RT, scheduling comprehensive analysis detailing the real-time capabilities of
+latency, benchmarking, determinism
+ Real-Time Linux on the chosen platforms, and (2) to provide
+ a benchmarking-based methodology that can be reused for
+ I. I NTRODUCTION
+ different hardware platforms, other versions of the kernel or
+ The explosion of the number of connected devices, au- even for different RTOS.
+tomation, and the increasing need for real-time operations in This paper. In this experience report, we present preliminary
+various sectors have prompted the search for operating systems evaluation results of latencies measured with Cyclictest
+that can meet strict timing requirements. Along proprietary when running on Linux, with and without PREEMPT_RT,
+solutions, Linux, the open-source operating system kernel, has when the system is under heavy stressing conditions, using the
+seen adaptations like Real-Time Linux to address these real- stress-ng and iperf3 stressing tools. Using that setting,
+time demands [1]. Such adaptations are crucial for sectors such applying PREEMPT_RT results in reducing the maximum
+as industrial control [2], automotive [3], and even in video observed latency by a 294× factor. While being currently
+games [4], where milliseconds can make a difference. restricted to a single platform and a single benchmark, these
+ Recently, the PREEMPT_RT patch series, aimed at making results enable us to show key differences between Linux and
+the kernel fully preemptive and real-time but currently not yet its real-time equivalent.
+fully merged into mainline, has gained traction in the Linux
+ II. BACKGROUND
+community [5], [6].
+ Research question. How does the implementation of Real- A. Linux and real-time
+Time Linux with the PREEMPT_RT patch affect the schedul- The main goal of the PREEMPT_RT patch is to make Linux
+ing latency and predictability on the Raspberry Pi 5 compared real-time compliant by making the kernel fully preemptible.
+to previous models and other platforms? The Raspberry Pi In the long term, the patch aims to be upstreamed, merging
+5 introduces significant hardware improvements over its pre- these real-time capabilities as build options available within
+decessors, potentially offering better performance and more mainline Linux. As such, a lot of work from the real-time
+deterministic behavior under real-time conditions. Evaluating Linux community has already been merged [11] and has even
+Real-Time Linux on this updated platform can provide insights improved Linux performance in non-real-time scenarios [12].
+into how these hardware advancements contribute to real- However, notice that it was never the ambition of the real-
+time capabilities and whether they justify (or not) the use time Linux community to make the Linux kernel completely
+of the Raspberry Pi 5 in real-time applications. Our goal hard real-time. This would lead to the loss of a lot of
+is to scrutinize and understand the real-time capabilities of features expected from a modern general-purpose operating
+Real-Time Linux and evaluate whether it qualifies as a Real- system and nowadays considered standard for Linux users.
+For example, in the overloaded case – when the task set We ran our experiments in the following scenarios: (1) with
+utilization is greater than the number of CPUs, i.e. there is a stock kernel, version 6.6.21, and (2) with a PREEMPT_RT
+more work demand than the available processing capacity of patched kernel, with the same version and the compati-
+the multi-core platform – users expect higher latencies and ble patch. We analyzed and compared the real-time perfor-
+generally some performance loss. In a real-time environment, mance of both kernels in order to determine the benefits of
+such scenario must be avoided to meet the tasks’ deadlines. PREEMPT_RT in terms of real-time capabilities. Notice that
+Upstreaming the real-time patch would encourage more users for the stock kernel, we used the vanilla configuration provided
+to try it by simply enabling the build option, therefore making by the instructions on Raspberry Pi website [25]. Further
+the switch as smooth as possible [11], [13]. configuration tuning could lead to better results – we will
+ explore this as future work. To avoid extra interrupt noise due
+B. Assessing real-time capabilities to graphic processing, we disabled the desktop environment
+ Formally verifying Linux real-time capability is a challeng- and ran the experiments on the Raspberry Pi through an ssh
+ing endeavor [14], [15], and we contend that these initiatives terminal.
+must be complemented with practical testing, i.e., benchmark-
+ing, as pursued in prior work [16]. B. Selected software benchmark and stressors
+ In the first iteration of this project, we propose to use Stressors are used in benchmarking practices in order to
+Cyclictest to measure the scheduling latency of tasks generate a computing load to push specific parts of the
+while the system is under heavy load. Cyclictest, devel- system to their limit. Since we aim to assess the real-time
+oped by Thomas Gleixner, is the de facto benchmarking tool capabilities of Linux, we use different stressors concurrently
+for real-time Linux. It was used in many prior work [17]–[23]. with Cyclictest. We expect that the combination of these
+Cyclictest measures the so called scheduling latency of stressors will generate a system wide load to approach the
+a real-time system — i.e., the difference between a thread’s worst-case scenario – this to determine whether the RTOS still
+intended wake-up time and the time at which it actually wakes performs deterministically under pressured circumstances.
+up. The tool gets periodically invoked in order to calculate the To this end, we used stress-ng for generating CPU
+max, min and average scheduling latency [7]. Since the main and I/O load. stress-ng is a library of stressors, ranging
+feature of the PREEMPT_RT patch is to make the Linux kernel from tests stressing the CPU, virtual memory, file system or
+more deterministic, important metrics to benchmark system memory/CPU cache [26], allowing us to generate a diverse
+performance are its response-time latency and jitter [16], set of resource-intensive tasks. We also used iperf3 [27]
+[21], and Cyclictest often gets used to provide these for generating networking load, which comes with its own set
+metrics. Cyclictest “provides an easy-to-interpret metric of interrupts and service routines and thus possible sources of
+that reflects various sources of unpredictability as a single, latency.
+opaque measure.” [23], making it a very useful tool to quickly Cyclictest was configured according to best practices in
+compare, for example, different kernel versions. Since it is the the field [17], [20]–[22], using: sudo cyclictest -vmn
+most widely accepted benchmarking tool for real-time Linux, -i100 -p99 -t --duration=1h. Firstly, memory alloca-
+it is also very easy to compare new benchmarking results with tions were disabled (-m), clock_nanosleep is used in-
+results of prior work. stead of POSIX interval timers (-n) and the output was set to
+ Cyclictest often gets used together with certain stress- verbose in order to correctly gather the needed results (-v).
+ing tools [17], [18], [20]. The decision for which parts of The real-time tasks that are measured by Cyclictest are
+the system need to be stressed is usually application-specific, created every 100 microseconds (-i100) with a priority of
+but in general, studies pick stressers which put a load on 99 (-p99). The amount of tasks that is created every interval
+the CPU (e.g., stress-ng, phoronix-test-suite’s openssl), I/Os is equal to the amount of processors of the system (-t). The
+(e.g., stress-ng, fio, build-linux-kernel), and networking (e.g., tests were run for a duration of 1 hour (--duration=1h).
+iperf ) [17], [19], [20]. As suggested by Adam [22], [28], processor affinity was
+ Since we selected the recently-released Raspberry Pi 5 to intentionally not set with --smp since this would mitigate
+conduct our experiments, notice that existing performance- task migration. This is an important source of possible latency
+related studies exist [24]. To the best of our knowledge, due to potential acquisition of locks, so it should be included
+although many prior work used prior Raspberry Pi models in our tests. Notice that this flag was set in another study by
+to conduct Real-Time Linux studies [22], there are no other Oliveira [19].
+reported studies assessing real-time metrics on this device. stress-ng ran through docker using the following com-
+ mand: sudo docker run --rm colinianking/stress-
+ III. P ROPOSED M ETHODOLOGY
+ ng --all 1 -t1h 1. We decided to run all 320+ stressers
+A. Selected hardware and OS in parallel (--all 1) for a duration of 1 hour (-t1h) [17],
+ We ran the below stressors and benchmark on a Raspberry [20], [29]. Using all stressors in the library in order to generate
+Pi 5 (Model B Rev 1.0) running Debian 12. The platform system wide CPU and I/O load was an idea lent from Delgado,
+has a 2.4 GHz quad-core 64-bit Arm Cortex-A76 CPU and a et al [20], with the only difference being that they execute
+VideoCore VII GPU. all stressors sequentially, whereas we run all of them in
+(a) Latencies for the stock kernel v6.6.21, without the (b) Latencies for the real-time kernel v6.6.21, with the corresponding
+PREEMPT_RT patch. PREEMPT_RT patch applied.
+Fig. 1: Histograms of Cyclictest measured scheduling latencies for both non-real-time/real-time versions of the kernel.
+The real-time kernel shows better observed latencies and better predictability.
+parallel to trigger a highly demanding workload to maximize TABLE I: Observed scheduling latencies with Cyclictest
+the stressing. We expect the system to be able to handle a Average Max Std.
+multitude of different stressors at the same time, and sustain Stock kernel 14.69 µs 36802.00 µs 122.08 µs
+ RT kernel 5.91 µs 124.00 µs 3.25 µs
+its determinism even under heavy load. We acknowledge that
+running all stressors in parallel on a Raspberry Pi 5, an em-
+bedded system, introduces an unrealistic degree of parallelism.
+ running stressors and benchmarks on real-time Linux (or other
+However, our goal was to push the system to its absolute
+ RTOSes) across different hardware platforms. This will enable
+limits to understand the worst-case scenario performance and
+ us to build a large database of experiments that assess the
+to stress test the capabilities of the PREEMPT_RT patch under
+ real-time performance and capabilities of various Platform/OS
+extreme conditions. Future work will involve more realistic
+ combinations.
+stress scenarios that reflect typical workloads encountered in
+embedded systems. IV. R ESULTS
+ iperf3 was run from a remote computer using: iperf3 Cyclictest measures the scheduling latency of four real-
+ -c <IP> -w 64K -P 100 -t 3800. In order to generate time tasks on the system. These tasks are periodically woken
+networking load for our tests, the remote computer sends out up every 100 microseconds for a period of one hour. During
+64KB packets (-w 64K) from 100 different virtual clients (-P our tests, where Cyclictest and the stressors were running
+100) at the same time during more than an hour (-t 3800). concurrently, we observed the system reached 100% CPU
+Notice iperf3 is a client/server application. We configured load and about 70% RAM load. Figures 1a and 1b show
+the Raspberry Pi 5 to act as a server (by running iperf3 with the measured scheduling latencies during our experiment. The
+the -s flag on the Raspberry Pi 5) to receive the networking benefits of PREEMPT_RT in terms of predictability are clear.
+load from the remote computer acting as the client (by running The results for the stock kernel are very scattered, with a maxi-
+iperf3 with the -c flag on the remote computer) [17], [20]. mum observed latency of 36802 microseconds. In contrast, the
+C. Reproducibility negative slope on the graph for the real-time kernel indicates
+ We documented our system settings and reproducible greater stability, with a maximum observed scheduling latency
+methodology on a publicly available repository1 . To reproduce of 125 microseconds – achieving a ×294 improvement of the
+our results, the provided kernel configuration must be used. To maximum observed latency. These observations, together with
+ease the process, we streamlined the process of patching and the general lack of outliers on Figure 1b indicates that the
+building Linux with/without PREEMPT_RT in a Dockerfile PREEMPT_RT patch succeeds in its goal of making the kernel
+and provided a README with the commands to run the more deterministic.
+benchmarks on the target system – here the Raspberry Pi The same results are aggregated in Table I for convenience.
+5. In the future, we aim to create a reusable process for Notice that the average scheduling latency also improved in the
+ patched system, from 14.69 to 5.91 microseconds, with a less
+ 1 https://github.com/apaolillo/rtlinux impressive improvement of ×2.49. This points to the fact that
+ V. F UTURE WORK
+ Avg Max
+ 200 The next step of our project will be to further experiment
+ 175
+ with configuring and tuning the kernel in order to get bet-
+ ter real-time performance results. We are confident that the
+ 150 Raspberry Pi 5 can still be pushed further in order to obtain
+ 125 better results. For example, kernel configuration options that
+ Latency ( s)
+ could be explored are: disabling RT-throttling, disabling CPU
+ 100 frequency scaling, and raising software interrupt priority [29].
+ 75 We are also interested in experimenting with the best practices
+ in configuring the Linux kernel for real-time as described in
+ 50 the Red Hat manual [39].
+ 25 As the goal of the research project is to establish a method-
+ ology for assessing the real-time capabilities of RTOSes, a
+ 0
+ Our EML Dur Ben Mol Ada Balc Aut Riva Lus Fran natural next step for comparison would also be to assess
+ ID r way loy m i osta che kLe
+ tic r e the capabilities of other, non-Linux RTOSes, such as Zephyr,
+ Author FreeRTOS, LITMUSRT , or proprietary products. We also plan
+Fig. 2: Average and maximum observed scheduling latencies
+with Cyclictest in our study and various prior studies. to explore other benchmarking tools such as rt-bench [10]
+Our own measured average and maximum scheduling latencies or RTEval [9]. RTEval also uses Cyclictest as a mea-
+are drawn as horizontal lines across the graph to ease the suring tool but has another approach to stressing the system.
+comparison. In future work, besides scheduling latency, other metrics will
+ be considered to complete our assessment methodology, such
+ as end-to-end response latency and RTOS jitter.
+ We will also consider running our experiments on other
+the goal of the PREEMPT_RT patch is not necessarily to make hardware platforms such as other embedded systems (e.g.,
+the kernel faster but mainly to make it more deterministic for Orange Pi, Raspberry Pi 4, Rock Pi 4) or many-core processors
+real-time tasks. The reduction of the standard deviation further (e.g., AMD EPYC, Huawei Kunpeng, Ampere Altra).
+supports this claim and indicates how much the determinism
+ Finally, we will streamline the process of getting real-time
+of the kernel was improved by the patch.
+ KPIs through the benchkit [8], aiming for a fully open-source
+ In Figure 2, we compare our results obtained with the and reproducible benchmarking pipeline.
+patched kernel to a series of benchmarks gathered by Adam,
+et al. [22], supplemented with some more recent studies [30],
+[31]. These benchmarks were gathered from other stud- R EFERENCES
+ies which benchmarked other Raspberry Pi models with
+ [1] Canonical, “Real-time Ubuntu is now generally available,” February
+Cyclictest [22], [30]–[38]. Notice that the objective of 2023, [Online] Accessed: 2024-05-06. [Online]. Available: https:
+this comparison is primarily to corroborate the validity of our //canonical.com/blog/real-time-ubuntu-is-now-generally-available
+findings, noting that precise quantitative comparisons are not [2] C. S. V. Gutiérrez, L. U. S. Juan, I. Z. Ugarte, and V. M. Vilches,
+ “Towards a distributed and real-time framework for robots: Evaluation
+expected. Instead, an affirmation of the order of magnitude is of ROS 2.0 communications for real-time robotic applications,” CoRR,
+sought, as the referenced benchmarks employed no stressors or vol. abs/1809.02595, 2018. [Online]. Available: http://arxiv.org/abs/
+utilized different ones, yielding varying testing conditions for 1809.02595
+ [3] I. Wind River Systems, “Wind River Acquires Hard Real-Time
+the experiments. It is clear that the average scheduling latency Linux Technology from FSMLabs,” February 2007, [Online] Accessed:
+that we obtained is substantially better than the other results. 2024-05-06. [Online]. Available: https://www.windriver.com/news/press/
+This was to be expected however, since these benchmarks were news-4261
+run on previous iterations of the Raspberry Pi, namely the [4] M. Larabel, “SteamOS Compositor Details, Kernel Patches,
+ Screenshots,” December 2013, [Online] Accessed: 2024-05-06. [Online].
+Raspberry Pi 1, 2, 3 and 4. The Raspberry Pi 5 that we used for Available: https://www.phoronix.com/news/MTU0MzY
+our benchmarks has a CPU with a clock frequency of 2.4 GHz, [5] ——, “PREEMPT RT Might Be Ready To Finally Land In Linux 5.20,”
+which is double the clock frequency of the CPU on for exam- July 2022, [Online] Accessed: 2024-05-06. [Online]. Available: https:
+ //www.phoronix.com/news/520-Maybe-Real-Time-PREEMPT RT
+ple the Raspberry Pi 3. The leap in average scheduling latency [6] ——, “Real-time ”rt” patches updated against linux 6.6 git,”
+could thus be ascribed to the improvement in hardware, but September 2023, [Online] Accessed: 2024-05-06. [Online]. Available:
+also to improvements in the Linux kernel or the PREEMPT_RT https://www.phoronix.com/news/Linux-RT-Patches-Linux-6.6
+ [7] T. L. Foundation, “Linux Foundation Realtime Wiki - HowTo -
+patch (since other studies used different versions of those). Cyclictest,” [Accessed 2024-05-06]. [Online]. Available: https://wiki.
+Results of the maximum observed scheduling latency is quite linuxfoundation.org/realtime/documentation/howto/tools/cyclictest/start
+comparable to the other results, which is a bit disappointing. [8] open s4c, “benchkit: Benchmarking Toolkit for Performance Analysis,”
+We ascribe these subpar results to the fact that we decided to 2024, [Accessed 2024-05-07]. [Online]. Available: https://github.com/
+ open-s4c/benchkit
+run the benchmarks on an untuned kernel for this first iteration [9] “Rteval,” [Online] Accessed: 2024-05-06. [Online]. Available: https:
+of our project. //wiki.linuxfoundation.org/realtime/documentation/howto/tools/rteval
+[10] M. Nicolella, S. Roozkhosh, D. Hoornaert, A. Bastoni, and 9th Annual Workshop on Operating Systems Platforms for Embedded
+ R. Mancuso, “Rt-bench: an extensible benchmark framework for Real-Time applications (OSPERT 2013), 2013. [Online]. Available:
+ the analysis and management of real-time applications,” in Proceedings https://api.semanticscholar.org/CorpusID:14096981
+ of the 30th International Conference on Real-Time Networks and [24] M. Larabel, “Raspberry Pi 5 Benchmarks: Significantly
+ Systems, ser. RTNS ’22. New York, NY, USA: Association Better Performance, Improved I/O,” September 2023, Accessed:
+ for Computing Machinery, 2022, p. 184–195. [Online]. Available: 2024-05-08. [Online]. Available: https://www.phoronix.com/review/
+ https://doi.org/10.1145/3534879.3534888 raspberry-pi-5-benchmarks/4
+[11] J. Perlow. (2021) In the trenches with thomas [25] Raspberry Pi Foundation. Building the Linux Kernel. [Accessed
+ gleixner: Real-time linux kernel patch set. [Accessed 2024-05-09]. [Online]. Available: https://www.raspberrypi.com/
+ 2024-05-06]. [Online]. Available: https://www.linux.com/news/ documentation/computers/linux kernel.html#building
+ in-the-trenches-with-thomas-gleixner-real-time-linux-kernel-patch-set/ [26] C. I. King, “stress-ng (stress next generation),” [Accessed 2024-05-06].
+[12] T. Gleixner. (2022) A guided tour through the preempt rt castle. [Online]. Available: https://github.com/ColinIanKing/stress-ng
+ [Accessed 2024-05-09]. [Online]. Available: https://www.youtube.com/ [27] ESnet, “iPerf - The ultimate speed test tool for TCP, UDP and SCTP,”
+ watch?v=o58ff38eD64&t=440s [Accessed 2024-05-06]. [Online]. Available: https://iperf.fr/
+[13] I. Stoica and H. Abdel-Waheb, “Earliest eligible virtual deadline [28] G. K. Adam, “Real-time performance and response latency
+ first: A flexible and accurate mechanism for proportional share measurements of linux kernels on single-board computers,”
+ resource allocation,” Old Dominion University, USA, Tech. Rep., 1996. Computers, vol. 10, no. 5, 2021. [Online]. Available:
+ [Online]. Available: https://citeseerx.ist.psu.edu/document?repid=rep1& https://www.mdpi.com/2073-431X/10/5/64
+ type=pdf&doi=805acf7726282721504c8f00575d91ebfd750564 [29] P. Karachatzis, J. Ruh, and S. S. Craciunas, “An evaluation of
+[14] S. Rostedt, “Kernel Recipes 2016 - Who needs time-triggered scheduling in the linux kernel,” in Proceedings of
+ a Real-Time Operating System (Not You!),” the 31st International Conference on Real-Time Networks and
+ https://youtu.be/4UY7hQjEW34?si=EL8w75sHzS9WjqwK, 2016, Systems, ser. RTNS ’23. New York, NY, USA: Association
+ [Accessed 2024-05-06]. for Computing Machinery, 2023, p. 119–131. [Online]. Available:
+[15] Bielmeier, Benno and Mauerer, Wolfgang, “Formal Verification https://doi.org/10.1145/3575757.3593660
+ of Embedded Linux Systems Using Trace-Based Models,” [30] M. Lüscher, “Real-Time Linux on the Raspberry Pi,” 2018,
+ https://www.youtube.com/watch?v=w42ab8-CH1o, 2022, [Accessed [Accessed 2024-05-09]. [Online]. Available: https://www.get-edi.io/
+ 2024-05-09]. Real-Time-Linux-on-the-Raspberry-Pi/
+[16] F. Reghenzani, G. Massari, and W. Fornaciari, “The Real-Time Linux
+ [31] F. Lee, “How to optimize real-time performance,” 2023, [Accessed 2024-
+ Kernel: A Survey on PREEMPT RT,” ACM Comput. Surv., vol. 52,
+ 05-09]. [Online]. Available: https://forums.raspberrypi.com/viewtopic.
+ no. 1, 02 2019. [Online]. Available: https://doi.org/10.1145/3297714
+ php?t=363635
+[17] Y. H. Jo and B. W. Choi, “Performance Evaluation of Real-time
+ [32] D. Molloy, Exploring Raspberry Pi Interfacing to the Real World with
+ Linux for an Industrial Real-time Platform,” International Journal
+ Embedded Linux. Indianapolis, IN, USA: John Wiley & Sons, Inc.,
+ of Advanced Smart Convergence, vol. 11, no. 1, pp. 28–35, 2022.
+ 2016.
+ [Online]. Available: https://doi.org/10.7236/IJASC.2022.11.1.28
+[18] K. Koolwal, “Investigating latency effects of the Linux real- [33] EMLID, “EMLID Raspberry Pi Real-Time Kernel,” [Ac-
+ time Preemption Patches ( PREEMPT RT ) on AMD ’ s cessed 03-05-2024]. [Online]. Available: https://emlid.com/
+ GEODE LX Platform Kushal Koolwal,” in Proceedings of the raspberry-pi-real-time-kernel/
+ 11th OSADL Real-Time Linux Workshop, 2009. [Online]. Available: [34] Durr, Frank, “Raspberry Pi Going Realtime with RT Preempt,”
+ https://api.semanticscholar.org/CorpusID:11519524 [Accessed 03-05-2024]. [Online]. Available: http://www.frank-durr.de/
+[19] D. B. de Oliveira, D. Casini, R. S. de Oliveira, and T. Cucinotta, ?p=203
+ “Demystifying the Real-Time Linux Scheduling Latency,” in 32nd [35] Benway, Joel, “Real-Time on Raspberry Pi,” [Accessed
+ Euromicro Conference on Real-Time Systems (ECRTS 2020), ser. 03-05-2024]. [Online]. Available: https://www.distek.com/blog/
+ Leibniz International Proceedings in Informatics (LIPIcs), M. Völp, part-2-real-time-on-raspberry-pi/
+ Ed., vol. 165. Dagstuhl, Germany: Schloss Dagstuhl – Leibniz- [36] Metehan Balci, “Latency of Raspberry Pi3 on Stan-
+ Zentrum für Informatik, 2020, pp. 9:1–9:23. [Online]. Available: https: dard and Real-Time Linux 4.9 Kernel,” [Accessed
+ //drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ECRTS.2020.9 03-05-2024]. [Online]. Available: https://metebalci.com/blog/
+[20] R. Delgado and B. W. Choi, “New Insights Into the Real-Time Perfor- latency-of-raspberry-pi-3-on-standard-and-real-time-linux-4.9-kernel/
+ mance of a Multicore Processor,” IEEE Access, vol. 8, pp. 186 199– [37] AUTOSTATIC, “RPi3 and the Real Time Kernel,” [Accessed
+ 186 211, 2020. 03-05-2024]. [Online]. Available: https://autostatic.com/2017/06/27/
+[21] N. Litayem and S. Ben Saoud, “Impact of the Linux real-time enhance- rpi-3-and-the-real-time-kernel/
+ ments on the system performances for multi-core Intel architectures,” [38] Lema Riva, “Raspberry Pi: Preempt-RT vs. Standard Kernel 4.14.y,”
+ International Journal of Computer Applications, vol. 17, no. 3, pp. 17– [Accessed 03-05-2024]. [Online]. Available: https://lemariva.com/blog/
+ 23, Mar. 2011. 2018/02/raspberry-pi-rt-preempt-vs-standard-kernel-4-14-y
+[22] G. K. Adam, N. Petrellis, and L. T. Doulos, “Performance [39] Red Hat, “Real-Time Kernel Tuning in RHEL
+ assessment of linux kernels with preempt rt on arm-based embedded 8,” [Accessed 03-05-2024]. [Online]. Available:
+ devices,” Electronics, vol. 10, no. 11, 2021. [Online]. Available: https://access.redhat.com/documentation/en-us/red hat enterprise
+ https://www.mdpi.com/2079-9292/10/11/1331 linux for real time/8/html/optimizing rhel 8 for real time
+[23] F. Cerqueira and B. B. Brandenburg, “A comparison of scheduling for low latency operation/real-time-kernel-tuning-in-rhel-8
+ latency in linux, preempt-rt, and litmus rt,” in Proceedings of the optimizing-rhel8-for-real-time-for-low-latency-operation#doc-wrapper
+

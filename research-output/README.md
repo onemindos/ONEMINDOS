@@ -1,6 +1,6 @@
 # research-output/
 
-**Everything the research run produced is here.** Zeus reviews it through the pull request. Brief: [../RESEARCH-MISSION.md](../RESEARCH-MISSION.md) (§6 lists the expected files). **Index updated:** 2026-11-11 (final for this run).
+**Everything the research run produced is here.** Zeus reviews it through the pull request. Brief: [../RESEARCH-MISSION.md](../RESEARCH-MISSION.md) (§6 lists the expected files). **Index updated:** 2026-11-11, after `01` revision 4 (rev. 3 is committed as `7836316`; rev. 4 is not yet committed).
 
 **Start here:** the PR → [`REVIEW-CHECKLIST.md`](REVIEW-CHECKLIST.md) → [`ONEMIND-OS-FOUNDATION-REPORT.pdf`](ONEMIND-OS-FOUNDATION-REPORT.pdf) → [`00`](00-EXECUTIVE-SUMMARY.md) → [`01`](01-FOUNDATION-DECISION.md) → [`26`](26-OPEN-QUESTIONS-FOR-ZEUS.md) → [`20`](20-PLAN-180-DAYS.md) → [`21`](21-ROADMAP-5-10-YEARS.md) → [`30`](30-NEXT-ULTRACODE-BUILD-BRIEF.md)
 
@@ -11,7 +11,7 @@ Rules: cite primary sources, label UNVERIFIED, no secrets or personal data (publ
 | File | What it is | Workstream |
 |---|---|---|
 | [`00-EXECUTIVE-SUMMARY.md`](00-EXECUTIVE-SUMMARY.md) | The answer, top 10 findings and risks, decisions, status per workstream, VM lab, and what remains | all |
-| [`01-FOUNDATION-DECISION.md`](01-FOUNDATION-DECISION.md) | The final foundation decision (rev. 3): scorecards, adversarial tables, steelmen, ADR-001 verdict | DEC |
+| [`01-FOUNDATION-DECISION.md`](01-FOUNDATION-DECISION.md) | The foundation decision (**rev. 4**): scorecards, adversarial tables, steelmen, ADR-001 verdict. Base OS of record: **Ubuntu 26.04 LTS + RAUC**, the frozen scorecard protocol's result, conditional on Canonical's permission (Z-01) and fragile (11 of 14 sensitivity runs); Debian 13 if the bootc Pi 5 test W2-HW-3 fails, by a decision map written in advance (§3.1.6) | DEC |
 | [`02-competitors/`](02-competitors/) | 29 teardowns + `MATRIX.md` (below) | W1 |
 | [`03-base-os.md`](03-base-os.md) | Base OS comparison, including Fedora IoT/bootc | W2 |
 | [`04-image-install-updates-rollback.md`](04-image-install-updates-rollback.md) | Image build, install paths, A/B updates, rollback | W3 |
@@ -28,18 +28,18 @@ Rules: cite primary sources, label UNVERIFIED, no secrets or personal data (publ
 | [`15-phones-field-devices.md`](15-phones-field-devices.md) | GrapheneOS/ATAK, phones, field devices | W14 |
 | [`16-world-context-scenarios.md`](16-world-context-scenarios.md) | 2030–2036 scenarios and triggers | W15 |
 | [`17-business-licensing-gtm.md`](17-business-licensing-gtm.md) | Open core, pricing, segments, partners | W16 |
-| [`20-PLAN-180-DAYS.md`](20-PLAN-180-DAYS.md) | 26-week plan, gates G1–G7, test schedule, days 1–10 | PLAN180 |
+| [`20-PLAN-180-DAYS.md`](20-PLAN-180-DAYS.md) | 26-week plan, gates G0–G7, test schedule, days 1–10 | PLAN180 |
 | [`21-ROADMAP-5-10-YEARS.md`](21-ROADMAP-5-10-YEARS.md) | Year 1 to years 5–10, exit criteria | ROADMAP |
 | [`22-HARDWARE-LAB-TEST-PLAN.md`](22-HARDWARE-LAB-TEST-PLAN.md) | Founder-runnable hardware and live-cluster tests | LABPLAN |
 | [`23-RISK-REGISTER.md`](23-RISK-REGISTER.md) | 62 risks with owners and triggers | RISK |
 | [`24-QUESTION-BANK-ANSWERS.md`](24-QUESTION-BANK-ANSWERS.md) | Status and answer for all 335 questions, plus 34 added | QBANK |
 | [`25-TRACEABILITY.md`](25-TRACEABILITY.md) | All 97 requirement IDs → recommendation → file | TRACE |
-| [`26-OPEN-QUESTIONS-FOR-ZEUS.md`](26-OPEN-QUESTIONS-FOR-ZEUS.md) | Founder decisions Z-01…Z-37, requirements and Blueprint questions, access needs | DEC, FINAL |
+| [`26-OPEN-QUESTIONS-FOR-ZEUS.md`](26-OPEN-QUESTIONS-FOR-ZEUS.md) | Founder decisions Z-01…Z-40 (Z-38…Z-40 added in rev. 4: the base-OS choice and the scoring rules), requirements and Blueprint questions, access needs | DEC, FINAL |
 | [`27-LEARNING-PATH.md`](27-LEARNING-PATH.md) | Curriculum for Zeus | W17 |
 | [`28-KERNEL-IMAGE-OWNERSHIP-AND-DEV-TOOLCHAIN.md`](28-KERNEL-IMAGE-OWNERSHIP-AND-DEV-TOOLCHAIN.md) | Kernel families, kernel/image ownership, Mac toolchain, CI/CD | W18 |
 | [`29-PLATFORM-ECOSYSTEM-MARKETPLACE.md`](29-PLATFORM-ECOSYSTEM-MARKETPLACE.md) | Plugin types, extension points, SDK, Marketplace | W19 |
 | [`30-NEXT-ULTRACODE-BUILD-BRIEF.md`](30-NEXT-ULTRACODE-BUILD-BRIEF.md) | One-shot brief for the build session (F-9) | BRIEF30 |
-| [`ONEMIND-OS-FOUNDATION-REPORT.pdf`](ONEMIND-OS-FOUNDATION-REPORT.pdf) | The standalone founder report (F-10), 101 pages | REPORT |
+| [`ONEMIND-OS-FOUNDATION-REPORT.pdf`](ONEMIND-OS-FOUNDATION-REPORT.pdf) | The standalone founder report (F-10), 101 pages. **Built from rev. 3:** its base-OS answer (Debian 13) and the "all inside the tie band" sentence (critic P3-3) predate `01` rev. 4 until it is rebuilt | REPORT |
 | [`report/`](report/) | PDF source: `chapters/` (15 chapters + 2 generated appendices), `diagrams/`, `charts/`, `img/`, `main.typ`, `build.sh`, `verify_pdf.py`, `checklist.tsv`, `README.md` | REPORT |
 | [`REVIEW-CHECKLIST.md`](REVIEW-CHECKLIST.md) | Reading order and approval boxes | FINAL |
 | [`SOURCES.md`](SOURCES.md) | Bibliography compiled from every `evidence/sources/*.md` | TRACE |
@@ -58,17 +58,17 @@ Rules: cite primary sources, label UNVERIFIED, no secrets or personal data (publ
 
 | Path | What it is |
 |---|---|
-| [`evidence/claims/`](evidence/claims/) | **Per-tag claim ledgers** (92 CSV files, 2,704 rows); the IDs cited everywhere resolve here |
-| [`evidence/claims.csv`](evidence/claims.csv) | The brief's master ledger; **not yet re-merged** (2,039 of 2,704 rows; see `00` §7) |
-| [`evidence/license-matrix.csv`](evidence/license-matrix.csv), [`license-matrix.md`](evidence/license-matrix.md) | Licence matrix (231 rows) and its reading |
-| [`evidence/scorecard-weights.md`](evidence/scorecard-weights.md) | Frozen scorecard weights and change log |
-| [`evidence/scorecard-rev3.md`](evidence/scorecard-rev3.md) | The fully cited scorecard (rev. 3) |
+| [`evidence/claims/`](evidence/claims/) | **Per-tag claim ledgers** (105 CSV files, 2,875 rows); the IDs cited everywhere resolve here |
+| [`evidence/claims.csv`](evidence/claims.csv) | The brief's master ledger: 2,704 rows, re-merged at rev. 3. **The 171 rev-4 rows** (tags DEC4, PROTO4, CIT4, LIC4, STEEL4-bootc, the REF4 refuters and the two rev-4 labs) **are not in it yet** |
+| [`evidence/license-matrix.csv`](evidence/license-matrix.csv), [`license-matrix.md`](evidence/license-matrix.md) | Licence matrix (282 rows, incl. the Ubuntu 26.04 core image of record) and its reading |
+| [`evidence/scorecard-weights.md`](evidence/scorecard-weights.md) | Frozen scorecard weights and change log (§8 logs the rev-4 protocol ruling: the rev-3 pairwise tie-break withdrawn, the C3 re-score) |
+| [`evidence/scorecard-rev3.md`](evidence/scorecard-rev3.md) | The fully cited scorecard (rev. 3). The rev-4 S1 card and decision map are in `01` §3.1.6 |
 | [`evidence/decision-critical.md`](evidence/decision-critical.md) | The 24 decision-critical questions, with Result blocks |
 | [`evidence/lifecycle-cost-2036.md`](evidence/lifecycle-cost-2036.md) | Cost to 2036 per base (DC-03) |
 | [`evidence/outreach-drafts.md`](evidence/outreach-drafts.md), [`outreach-drafts-W16.md`](evidence/outreach-drafts-W16.md) | Vendor outreach drafts (not sent) |
 | [`evidence/hygiene-log.md`](evidence/hygiene-log.md) | Secret, IP and personal-data scans; reviewed false positives; the history leak (Z-28) |
-| [`evidence/adversarial/`](evidence/adversarial/) | 122 refuter and steelman reports |
+| [`evidence/adversarial/`](evidence/adversarial/) | 152 refuter and steelman reports (rev. 4 added the S1 refuters, the bootc steelman and dedicated DC-12, DC-20 and E10 refuters) |
 | [`evidence/qbank/`](evidence/qbank/) | Per-workstream question statuses (19 files) |
-| [`evidence/critic/`](evidence/critic/) | Completeness critics: `tier-a-pass-1.md`, `pass-2.md`, `ledger-audit.md` |
-| [`evidence/sources/`](evidence/sources/) | Per-tag source lists (61 `.md` files) and saved page text with sha256 (55 folders) |
-| [`evidence/lab/`](evidence/lab/) | VM lab spikes, each with README, criteria, scripts and logs: `debian-rugix`, `rauc`, `rauc-k3s-gate`, `secureboot-rauc`, `rauc-1152`, `ubuntu-2604-leg`, `mender`, `minimal-image-dc20`, `fedora-bootc`, `w2-fedora-bootc-greenboot`, `k3s-footprint-restore`, `w4-k3s-footprint`, `w5-restore`, `w8-nats-leaf-buffer`, `w18-mac-toolchain`, `w19-sysext`; index in [`PREREGISTRATION.md`](evidence/lab/PREREGISTRATION.md) |
+| [`evidence/critic/`](evidence/critic/) | Completeness critics: `tier-a-pass-1.md`, `pass-2.md`, `pass-3.md` (gaps P3-1…P3-13), `ledger-audit.md`, and `cit4-mapping.md` (the rev-4 citation relabelling) |
+| [`evidence/sources/`](evidence/sources/) | Per-tag source lists (66 `.md` files) and saved page text with sha256 (60 folders) |
+| [`evidence/lab/`](evidence/lab/) | VM lab spikes, each with README, criteria, scripts and logs: `debian-rugix`, `rauc`, `rauc-k3s-gate`, `secureboot-rauc`, `rauc-1152`, `ubuntu-2604-leg`, `mender`, `minimal-image-dc20`, `aarch64-gate`, `secureboot-1152`, `fedora-bootc`, `w2-fedora-bootc-greenboot`, `k3s-footprint-restore`, `w4-k3s-footprint`, `w5-restore`, `w8-nats-leaf-buffer`, `w18-mac-toolchain`, `w19-sysext`; index in [`PREREGISTRATION.md`](evidence/lab/PREREGISTRATION.md), which also logs the original and masked hashes of the lab files whose host paths were masked (critic P3-10) |

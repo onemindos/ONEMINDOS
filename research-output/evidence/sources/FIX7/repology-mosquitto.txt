@@ -1,0 +1,1176 @@
+ 
+ mosquitto package versions - Repology 
+ Toggle navigation 
+ Projects 
+ Maintainers 
+ Repositories 
+ Tools 
+ Security 
+ News 
+ Docs 
+ Versions 
+ Packages 
+ Information 
+ History 
+ CVEs 
+ Badges 
+ Report 
+ Versions for mosquitto 
+ 229 package(s) known 
+ Repository 
+ Package name 
+ Version 
+ Category 
+ Maintainer(s) 
+ Adélie Linux current user 
+ mosquitto 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Adélie Linux current user 
+ mosquitto-clients 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Adélie Linux current user 
+ mosquitto-dbg 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Adélie Linux current user 
+ mosquitto-dev 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Adélie Linux current user 
+ mosquitto-doc 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Adélie Linux current user 
+ mosquitto-libs 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Adélie Linux current user 
+ mosquitto-openrc 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Alpine Linux 3.17 main 
+ mosquitto 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Alpine Linux 3.17 main 
+ mosquitto-clients 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Alpine Linux 3.17 main 
+ mosquitto-dbg 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Alpine Linux 3.17 main 
+ mosquitto-dev 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Alpine Linux 3.17 main 
+ mosquitto-doc 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Alpine Linux 3.17 main 
+ mosquitto-libs 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Alpine Linux 3.17 main 
+ mosquitto-libs++ 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Alpine Linux 3.17 main 
+ mosquitto-openrc 
+ 2.0.15 
+ - 
+ <email-masked> 
+ Alpine Linux 3.18 main 
+ mosquitto 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.18 main 
+ mosquitto-clients 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.18 main 
+ mosquitto-dbg 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.18 main 
+ mosquitto-dev 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.18 main 
+ mosquitto-doc 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.18 main 
+ mosquitto-libs 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.18 main 
+ mosquitto-libs++ 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.18 main 
+ mosquitto-openrc 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.19 main 
+ mosquitto 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.19 main 
+ mosquitto-clients 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.19 main 
+ mosquitto-dbg 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.19 main 
+ mosquitto-dev 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.19 main 
+ mosquitto-doc 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.19 main 
+ mosquitto-libs 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.19 main 
+ mosquitto-libs++ 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.19 main 
+ mosquitto-openrc 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.20 main 
+ mosquitto 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.20 main 
+ mosquitto-clients 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.20 main 
+ mosquitto-dbg 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.20 main 
+ mosquitto-dev 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.20 main 
+ mosquitto-doc 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.20 main 
+ mosquitto-libs 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.20 main 
+ mosquitto-libs++ 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.20 main 
+ mosquitto-openrc 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Alpine Linux 3.21 main 
+ mosquitto 
+ 2.0.20 
+ - 
+ <email-masked> 
+ Alpine Linux 3.21 main 
+ mosquitto-clients 
+ 2.0.20 
+ - 
+ <email-masked> 
+ Alpine Linux 3.21 main 
+ mosquitto-dbg 
+ 2.0.20 
+ - 
+ <email-masked> 
+ Alpine Linux 3.21 main 
+ mosquitto-dev 
+ 2.0.20 
+ - 
+ <email-masked> 
+ Alpine Linux 3.21 main 
+ mosquitto-doc 
+ 2.0.20 
+ - 
+ <email-masked> 
+ Alpine Linux 3.21 main 
+ mosquitto-libs 
+ 2.0.20 
+ - 
+ <email-masked> 
+ Alpine Linux 3.21 main 
+ mosquitto-libs++ 
+ 2.0.20 
+ - 
+ <email-masked> 
+ Alpine Linux 3.21 main 
+ mosquitto-openrc 
+ 2.0.20 
+ - 
+ <email-masked> 
+ Alpine Linux 3.22 main 
+ mosquitto 
+ 2.0.21 
+ - 
+ <email-masked> 
+ Alpine Linux 3.22 main 
+ mosquitto-clients 
+ 2.0.21 
+ - 
+ <email-masked> 
+ Alpine Linux 3.22 main 
+ mosquitto-dbg 
+ 2.0.21 
+ - 
+ <email-masked> 
+ Alpine Linux 3.22 main 
+ mosquitto-dev 
+ 2.0.21 
+ - 
+ <email-masked> 
+ Alpine Linux 3.22 main 
+ mosquitto-doc 
+ 2.0.21 
+ - 
+ <email-masked> 
+ Alpine Linux 3.22 main 
+ mosquitto-libs 
+ 2.0.21 
+ - 
+ <email-masked> 
+ Alpine Linux 3.22 main 
+ mosquitto-libs++ 
+ 2.0.21 
+ - 
+ <email-masked> 
+ Alpine Linux 3.22 main 
+ mosquitto-openrc 
+ 2.0.21 
+ - 
+ <email-masked> 
+ Alpine Linux 3.23 main 
+ mosquitto 
+ 2.0.22 
+ - 
+ <email-masked> 
+ Alpine Linux 3.23 main 
+ mosquitto-clients 
+ 2.0.22 
+ - 
+ <email-masked> 
+ Alpine Linux 3.23 main 
+ mosquitto-dbg 
+ 2.0.22 
+ - 
+ <email-masked> 
+ Alpine Linux 3.23 main 
+ mosquitto-dev 
+ 2.0.22 
+ - 
+ <email-masked> 
+ Alpine Linux 3.23 main 
+ mosquitto-doc 
+ 2.0.22 
+ - 
+ <email-masked> 
+ Alpine Linux 3.23 main 
+ mosquitto-libs 
+ 2.0.22 
+ - 
+ <email-masked> 
+ Alpine Linux 3.23 main 
+ mosquitto-libs++ 
+ 2.0.22 
+ - 
+ <email-masked> 
+ Alpine Linux 3.23 main 
+ mosquitto-openrc 
+ 2.0.22 
+ - 
+ <email-masked> 
+ Alpine Linux 3.24 main 
+ mosquitto 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux 3.24 main 
+ mosquitto-clients 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux 3.24 main 
+ mosquitto-dbg 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux 3.24 main 
+ mosquitto-dev 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux 3.24 main 
+ mosquitto-doc 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux 3.24 main 
+ mosquitto-libs 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux 3.24 main 
+ mosquitto-libs++ 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux 3.24 main 
+ mosquitto-openrc 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux Edge main 
+ mosquitto 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux Edge main 
+ mosquitto-clients 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux Edge main 
+ mosquitto-dbg 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux Edge main 
+ mosquitto-dev 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux Edge main 
+ mosquitto-doc 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux Edge main 
+ mosquitto-libs 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux Edge main 
+ mosquitto-libs++ 
+ 2.1.2 
+ - 
+ <email-masked> 
+ Alpine Linux Edge main 
+ mosquitto-openrc 
+ 2.1.2 
+ - 
+ <email-masked> 
+ ALT Linux p11 
+ mosquitto 
+ 2.0.15 
+ Development/C++ 
+ <email-masked> 
+ ALT Sisyphus 
+ mosquitto 
+ 2.1.2 
+ Development/C++ 
+ <email-masked> 
+ Apertis v2023 v2023/target 
+ mosquitto 
+ 2.0.11 
+ - 
+ <email-masked> 
+ Apertis v2024 v2024/target 
+ mosquitto 
+ 2.0.11 
+ - 
+ <email-masked> 
+ Apertis v2025 v2025/target 
+ mosquitto 
+ 2.0.11 
+ - 
+ <email-masked> 
+ Apertis v2026 v2026/target 
+ mosquitto 
+ 2.0.21 
+ - 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Apertis v2027 Development v2027dev1/target 
+ mosquitto 
+ 2.0.21 
+ - 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Arch Linux extra 
+ mosquitto 
+ 2.1.2 
+ - 
+ - 
+ AUR 
+ mosquitto-git 
+ r4725.b3b4d77e 
+ - 
+ east_arctica@aur 
+ Artix world 
+ mosquitto 
+ 2.1.2 
+ - 
+ - 
+ ConanCenter 
+ mosquitto 
+ 2.0.22 
+ - 
+ - 
+ ConanCenter 
+ mosquitto 
+ 1.6.12 
+ - 
+ - 
+ Debian 11 bullseye-security/main 
+ mosquitto 
+ 2.0.11 
+ net 
+ <email-masked> 
+ Debian 11 bullseye/main 
+ mosquitto 
+ 2.0.11 
+ net 
+ <email-masked> 
+ Debian 12 bookworm-security/main 
+ mosquitto 
+ 2.0.11 
+ net 
+ <email-masked> 
+ Debian 12 bookworm/main 
+ mosquitto 
+ 2.0.11 
+ net 
+ <email-masked> 
+ Debian 12 Backports bookworm-backports/main 
+ mosquitto 
+ 2.0.21 
+ misc 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Debian 13 trixie/main 
+ mosquitto 
+ 2.0.21 
+ net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Debian 14 forky/main 
+ mosquitto 
+ 2.1.2 
+ net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Debian Unstable sid/main 
+ mosquitto 
+ 2.1.2 
+ net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ deepin 20 main 
+ mosquitto 
+ 1.5.7 
+ net 
+ <email-masked> 
+ deepin 25 main 
+ mosquitto 
+ 2.0.21 
+ - 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Devuan 4.0 chimaera/main 
+ mosquitto 
+ 2.0.11 
+ net 
+ <email-masked> 
+ Devuan Unstable unstable/main 
+ mosquitto 
+ 2.1.2 
+ net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ EPEL 7 
+ mosquitto 
+ 1.6.10 
+ Unspecified 
+ - 
+ EPEL 8 
+ mosquitto 
+ 1.6.15 
+ Unspecified 
+ - 
+ EPEL 9 
+ mosquitto 
+ 2.0.22 
+ Unspecified 
+ - 
+ EPEL 10 
+ mosquitto 
+ 2.0.22 
+ Unspecified 
+ - 
+ Exherbo net 
+ net/mosquitto 
+ 2.1.2 
+ net 
+ fallback-mnt-exherbo@repology 
+ Fedora 39 updates 
+ mosquitto 
+ 2.0.19 
+ Unspecified 
+ - 
+ Fedora 39 release 
+ mosquitto 
+ 2.0.18 
+ Unspecified 
+ - 
+ Fedora 40 updates 
+ mosquitto 
+ 2.0.20 
+ Unspecified 
+ - 
+ Fedora 40 release 
+ mosquitto 
+ 2.0.18 
+ Unspecified 
+ - 
+ Fedora 41 updates 
+ mosquitto 
+ 2.0.22 
+ Unspecified 
+ - 
+ Fedora 41 release 
+ mosquitto 
+ 2.0.19 
+ Unspecified 
+ - 
+ Fedora 42 updates 
+ mosquitto 
+ 2.0.22 
+ Unspecified 
+ - 
+ Fedora 42 release 
+ mosquitto 
+ 2.0.21 
+ Unspecified 
+ - 
+ Fedora 43 release 
+ mosquitto 
+ 2.0.22 
+ Unspecified 
+ - 
+ Fedora 43 updates 
+ mosquitto 
+ 2.0.22 
+ Unspecified 
+ - 
+ Fedora 44 release 
+ mosquitto 
+ 2.1.2 
+ Unspecified 
+ - 
+ Fedora 44 updates 
+ mosquitto 
+ 2.1.2 
+ Unspecified 
+ - 
+ Fedora Rawhide development 
+ mosquitto 
+ 2.1.2 
+ Unspecified 
+ - 
+ FreeBSD Ports 
+ net/mosquitto 
+ 2.1.2 
+ net 
+ <email-masked> 
+ Gentoo 
+ app-misc/mosquitto 
+ 2.0.22 
+ app-misc 
+ <email-masked> 
+ GNU Guix 
+ mosquitto 
+ 2.0.21 
+ - 
+ - 
+ HaikuPorts master 
+ app-misc/mosquitto 
+ 2.0.20 
+ app-misc 
+ - 
+ Homebrew 
+ mosquitto 
+ 2.1.2 
+ - 
+ - 
+ Kali Linux Rolling main 
+ mosquitto 
+ 2.1.2 
+ net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ LiGurOS stable 
+ app-misc/mosquitto 
+ 2.0.22 
+ app-misc 
+ <email-masked> , <email-masked> 
+ LiGurOS stable 
+ app-misc/mosquitto 
+ 2.0.21 
+ app-misc 
+ <email-masked> , <email-masked> 
+ LiGurOS develop 
+ app-misc/mosquitto 
+ 2.1.2 
+ app-misc 
+ <email-masked> , <email-masked> 
+ LiGurOS develop 
+ app-misc/mosquitto 
+ 2.1.1 
+ app-misc 
+ <email-masked> , <email-masked> 
+ MacPorts 
+ mosquitto 
+ 2.1.2 
+ net 
+ slewsys@github 
+ Mageia 9 core/updates 
+ mosquitto 
+ 2.0.21 
+ System/Libraries 
+ - 
+ Mageia 9 core/release 
+ mosquitto 
+ 2.0.15 
+ System/Libraries 
+ - 
+ Mageia 10 core/release 
+ mosquitto 
+ 2.0.22 
+ System/Libraries 
+ - 
+ Mageia cauldron core/release 
+ mosquitto 
+ 2.1.2 
+ System/Libraries 
+ - 
+ Manjaro Stable extra 
+ mosquitto 
+ 2.1.2 
+ - 
+ - 
+ Manjaro Testing extra 
+ mosquitto 
+ 2.1.2 
+ - 
+ - 
+ Manjaro Unstable extra 
+ mosquitto 
+ 2.1.2 
+ - 
+ - 
+ MSYS2 clang64 
+ mingw-w64-clang-x86_64-mosquitto 
+ 2.0.22 
+ - 
+ - 
+ MSYS2 clangarm64 
+ mingw-w64-clang-aarch64-mosquitto 
+ 2.0.22 
+ - 
+ - 
+ MSYS2 msys2 x86_64 
+ mosquitto 
+ 2.1.2 
+ - 
+ - 
+ MSYS2 ucrt64 
+ mingw-w64-ucrt-x86_64-mosquitto 
+ 2.0.22 
+ - 
+ - 
+ nixpkgs stable 24.05 
+ mosquitto 
+ 2.0.20 
+ - 
+ <email-masked> 
+ nixpkgs stable 24.11 
+ mosquitto 
+ 2.0.20 
+ - 
+ <email-masked> 
+ nixpkgs stable 25.05 
+ mosquitto 
+ 2.0.22 
+ - 
+ <email-masked> , <email-masked> 
+ nixpkgs stable 25.11 
+ mosquitto 
+ 2.0.22 
+ - 
+ <email-masked> , <email-masked> 
+ nixpkgs stable 26.05 
+ mosquitto 
+ 2.1.2 
+ - 
+ <email-masked> , <email-masked> 
+ nixpkgs unstable 
+ mosquitto 
+ 2.1.2 
+ - 
+ <email-masked> , <email-masked> 
+ OpenBSD Ports 
+ net/mosquitto 
+ 2.1.2 
+ net 
+ <email-masked> 
+ OpenIndiana packages hipster 
+ mosquitto 
+ 2.0.22 
+ Applications/Internet 
+ - 
+ openKylin 2.0 nile/main 
+ mosquitto 
+ 2.0.18 
+ net 
+ <email-masked> , <email-masked> , <email-masked> 
+ openmamba base 
+ mosquitto 
+ 2.1.2 
+ System/Libraries 
+ <email-masked> 
+ OpenMandriva 6.0 unsupported/release 
+ mosquitto 
+ 2.0.18 
+ System/Libraries 
+ <email-masked> 
+ OpenMandriva Rolling unsupported/release 
+ mosquitto 
+ 2.0.18 
+ System/Libraries 
+ <email-masked> 
+ OpenMandriva Cooker unsupported/release 
+ mosquitto 
+ 2.0.18 
+ System/Libraries 
+ <email-masked> 
+ openSUSE Leap 15.5 updates/backports 
+ mosquitto 
+ 2.0.20 
+ Productivity/Networking/Other 
+ - 
+ openSUSE Leap 15.5 main/oss 
+ mosquitto 
+ 2.0.10 
+ Productivity/Networking/Other 
+ - 
+ openSUSE Leap 15.6 updates/backports 
+ mosquitto 
+ 2.0.23 
+ Productivity/Networking/Other 
+ - 
+ openSUSE Leap 15.6 updates/backports 
+ mosquitto 
+ 2.0.21 
+ Productivity/Networking/Other 
+ - 
+ openSUSE Leap 15.6 updates/backports 
+ mosquitto 
+ 2.0.20 
+ Productivity/Networking/Other 
+ - 
+ openSUSE Leap 15.6 main/oss 
+ mosquitto 
+ 2.0.18 
+ Productivity/Networking/Other 
+ - 
+ openSUSE Tumbleweed src-oss 
+ mosquitto 
+ 2.0.23 
+ Productivity/Networking/Other 
+ - 
+ OpenWrt 23.05 x86_64 packages 
+ libmosquitto-nossl 
+ 2.0.18 
+ libs 
+ <email-masked> 
+ OpenWrt 23.05 x86_64 packages 
+ libmosquitto-ssl 
+ 2.0.18 
+ libs 
+ <email-masked> 
+ OpenWrt 23.05 x86_64 packages 
+ libmosquittopp 
+ 2.0.18 
+ libs 
+ fallback-mnt-openwrt@repology 
+ OpenWrt 23.05 x86_64 packages 
+ mosquitto-client-nossl 
+ 2.0.18 
+ net 
+ <email-masked> 
+ OpenWrt 23.05 x86_64 packages 
+ mosquitto-client-ssl 
+ 2.0.18 
+ net 
+ <email-masked> 
+ OpenWrt 23.05 x86_64 packages 
+ mosquitto-nossl 
+ 2.0.18 
+ net 
+ <email-masked> 
+ OpenWrt 23.05 x86_64 packages 
+ mosquitto-ssl 
+ 2.0.18 
+ net 
+ <email-masked> 
+ OpenWrt 24.10 x86_64 packages 
+ libmosquitto-nossl 
+ 2.0.23 
+ libs 
+ <email-masked> 
+ OpenWrt 24.10 x86_64 packages 
+ libmosquitto-ssl 
+ 2.0.23 
+ libs 
+ <email-masked> 
+ OpenWrt 24.10 x86_64 packages 
+ libmosquittopp 
+ 2.0.23 
+ libs 
+ fallback-mnt-openwrt@repology 
+ OpenWrt 24.10 x86_64 packages 
+ mosquitto-client-nossl 
+ 2.0.23 
+ net 
+ <email-masked> 
+ OpenWrt 24.10 x86_64 packages 
+ mosquitto-client-ssl 
+ 2.0.23 
+ net 
+ <email-masked> 
+ OpenWrt 24.10 x86_64 packages 
+ mosquitto-nossl 
+ 2.0.23 
+ net 
+ <email-masked> 
+ OpenWrt 24.10 x86_64 packages 
+ mosquitto-ssl 
+ 2.0.23 
+ net 
+ <email-masked> 
+ Parabola extra 
+ mosquitto 
+ 2.1.2 
+ - 
+ - 
+ Pardus 21 main 
+ mosquitto 
+ 2.0.11 
+ net 
+ <email-masked> 
+ Pardus 21 updates/main 
+ mosquitto 
+ 2.0.11 
+ net 
+ <email-masked> 
+ Parrot parrot-updates/main 
+ mosquitto 
+ 2.0.21 
+ net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Parrot parrot/main 
+ mosquitto 
+ 2.0.21 
+ net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ PCLinuxOS 
+ mosquitto 
+ 2.0.18 
+ System/Libraries 
+ - 
+ pkgsrc-2026Q2 
+ net/mosquitto 
+ 2.1.2 
+ net 
+ <email-masked> 
+ pkgsrc-2026Q3 
+ net/mosquitto 
+ 2.1.2 
+ net 
+ <email-masked> 
+ pkgsrc current 
+ net/mosquitto 
+ 2.1.2 
+ net 
+ <email-masked> 
+ PLD Linux 
+ mosquitto 
+ 2.0.22 
+ - 
+ - 
+ PTXdist 
+ mosquitto 
+ 2.0.14 
+ - 
+ - 
+ PureOS amber amber/main 
+ mosquitto 
+ 1.5.7 
+ libdevel 
+ <email-masked> 
+ PureOS byzantium byzantium/main 
+ mosquitto 
+ 2.0.11 
+ libdevel 
+ <email-masked> 
+ PureOS landing landing/main 
+ mosquitto 
+ 2.0.21 
+ libdevel 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Raspbian Oldstable main 
+ mosquitto 
+ 2.0.11 
+ net 
+ <email-masked> 
+ Raspbian Stable main 
+ mosquitto 
+ 2.0.21 
+ net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Raspbian Testing main 
+ mosquitto 
+ 2.1.2 
+ net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Ravenports 
+ mosquitto 
+ 2.1.2 
+ net 
+ fallback-mnt-ravenports@repology 
+ Rosa 2021.1 main/release 
+ mosquitto 
+ 2.0.20 
+ System/Libraries 
+ <email-masked> 
+ Rosa 13 contrib/release 
+ mosquitto 
+ 2.0.22 
+ System/Libraries 
+ <email-masked> 
+ Scoop main 
+ mosquitto 
+ 2.1.2 
+ - 
+ - 
+ SlackBuilds 
+ misc/mosquitto 
+ 2.1.2 
+ misc 
+ <email-masked> 
+ Spack 
+ mosquitto 
+ 2.0.18 
+ - 
+ fallback-mnt-spack@repology 
+ T2 SDE 
+ mosquitto 
+ 2.1.2 
+ extra/network 
+ <email-masked> 
+ Termux 
+ libmosquitto 
+ 2.1.2 
+ - 
+ termux@github 
+ Ubuntu 14.04 trusty-updates/universe 
+ mosquitto 
+ 0.15 
+ universe/net 
+ <email-masked> 
+ Ubuntu 14.04 trusty/universe 
+ mosquitto 
+ 0.15 
+ universe/net 
+ <email-masked> 
+ Ubuntu 16.04 xenial-updates/universe 
+ mosquitto 
+ 1.4.8 
+ universe/net 
+ <email-masked> 
+ Ubuntu 16.04 xenial/universe 
+ mosquitto 
+ 1.4.8 
+ universe/net 
+ <email-masked> 
+ Ubuntu 18.04 bionic-updates/universe 
+ mosquitto 
+ 1.4.15 
+ universe/net 
+ <email-masked> 
+ Ubuntu 18.04 bionic/universe 
+ mosquitto 
+ 1.4.15 
+ universe/net 
+ <email-masked> 
+ Ubuntu 20.04 focal/universe 
+ mosquitto 
+ 1.6.9 
+ universe/net 
+ <email-masked> 
+ Ubuntu 22.04 jammy-updates/universe 
+ mosquitto 
+ 2.0.11 
+ universe/net 
+ <email-masked> 
+ Ubuntu 22.04 jammy/universe 
+ mosquitto 
+ 2.0.11 
+ universe/net 
+ <email-masked> 
+ Ubuntu 24.04 noble/universe 
+ mosquitto 
+ 2.0.18 
+ universe/net 
+ <email-masked> , <email-masked> , <email-masked> 
+ Ubuntu 25.04 plucky/universe 
+ mosquitto 
+ 2.0.21 
+ universe/net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Ubuntu 25.10 questing/universe 
+ mosquitto 
+ 2.0.22 
+ universe/net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Ubuntu 26.04 resolute/universe 
+ mosquitto 
+ 2.0.22 
+ universe/net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Ubuntu 26.10 stonking/universe 
+ mosquitto 
+ 2.1.2 
+ universe/net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Ubuntu 27.04 tenacious/universe 
+ mosquitto 
+ 2.1.2 
+ universe/net 
+ <email-masked> , <email-masked> , <email-masked> , <email-masked> 
+ Vcpkg 
+ mosquitto 
+ 2.0.22 
+ - 
+ - 
+ Void Linux x86_64 x86_64 
+ libmosquitto 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Void Linux x86_64 x86_64 
+ libmosquitto-devel 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Void Linux x86_64 x86_64 
+ libmosquittopp 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Void Linux x86_64 x86_64 
+ libmosquittopp-devel 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Void Linux x86_64 x86_64 
+ mosquitto 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Void Linux x86_64 x86_64 
+ mosquitto-clients 
+ 2.0.18 
+ - 
+ <email-masked> 
+ Wikidata 
+ Mosquitto 
+ 2.1.2 
+ - 
+ - 
+ xrepo 
+ mosquitto 
+ 2.1.2 
+ - 
+ - 
+ xrepo 
+ mosquitto 
+ 2.0.18 
+ - 
+ - 
+ xrepo 
+ mosquitto 
+ 2.0.15 
+ - 
+ - 
+ YACP 
+ mosquitto 
+ 2.1.2 
+ Net 
+ - 
+ GitHub repositories:
+ webapp ,
+ updater ,
+ ruleset 
+ Copyright (C) 2016-2026 Dmitry Marakasov 
+ Code licensed under GPLv3+.
+ 

@@ -1,0 +1,48 @@
+# Lab VM (Lima debian-13 template, aarch64, vz)
+13.7
+6.12.115+deb13.1-cloud-arm64
+dosfstools 4.2-1.2
+e2fsprogs 1.47.2-3+b12
+efitools 1.9.2-3.5
+gdisk 1.0.10-2+b1
+libglib2.0-dev 2.84.4-3~deb13u5
+libssl-dev 3.5.7-1~deb13u3
+meson 1.7.0-1
+mmdebstrap 1.5.7-1+deb13u1
+mtools 4.0.48-1
+ninja-build 1.12.1-1+b1
+openssl 3.5.7-1~deb13u3
+ovmf 2025.02-8+deb13u1
+python3 3.13.5-1
+python3-pefile 2024.8.26-2.1
+python3-virt-firmware 24.11-2
+qemu-system-x86 1:10.0.13+ds-0+deb13u1
+qemu-user-binfmt 1:10.0.13+ds-0+deb13u1
+rauc 1.13-3+deb13u1
+sbsigntool 0.9.4-3.2+deb13u1
+squashfs-tools 1:4.6.1-1+b1
+swtpm 0.7.1-1.5
+swtpm-tools 0.7.1-1.5
+systemd 257.13-1~deb13u1
+systemd-ukify 257.13-1~deb13u1
+tpm2-tools 5.7-1+b1
+
+# RAUC build
+0332ba2a5db8a1c43de00951033f463e6b8a6290faba55669a66b2d8f608cf75  rauc-src.tar (git archive)
+7f076b8b8ab7882dd4522952d511354c9d23690280945965ec14ad0009639d1f  rauc-arm64
+7ec9ecf0a063081157f95610a15fb3940f31d296882ad116ade2ccef08880ff4  rauc-amd64-dest.tar
+
+# amd64 build deps (chroot)
+build-essential 12.12
+libcurl4-openssl-dev 8.14.1-2+deb13u5
+libdbus-1-dev 1.16.2-2
+libfdisk-dev 2.41.5-0+deb13u1
+libglib2.0-0t64 2.84.4-3~deb13u5
+libglib2.0-dev 2.84.4-3~deb13u5
+libjson-glib-dev 1.10.6+ds-2
+libnl-genl-3-dev 3.7.0-2
+libssl-dev 3.5.7-1~deb13u2
+libssl3t64 3.5.7-1~deb13u2
+meson 1.7.0-1
+ninja-build 1.12.1-1
+pkgconf 1.8.1-4

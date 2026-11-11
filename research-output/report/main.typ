@@ -52,13 +52,13 @@
   #grid(columns: (auto, 1fr), column-gutter: 12pt, row-gutter: 8pt,
     text(weight: "bold")[Prepared for], [Zeus Delacruz, founder of OneMind OS],
     text(weight: "bold")[Date], [2026-11-11 (research run of 2026-11-10/11)],
-    text(weight: "bold")[Status], [Draft for founder review. Synthesises `research-output/` files 00–30 at foundation decision revision 3.],
+    text(weight: "bold")[Status], [Draft for founder review. Synthesises `research-output/` files 00–30 at foundation decision revision 4.],
     text(weight: "bold")[Evidence], [Every factual sentence carries a claim ID that resolves in the research ledger; Appendix C lists each source.],
   )
   #v(1fr)
   #block(fill: rgb("#F3F6FB"), inset: 12pt, radius: 4pt, width: 100%)[
     #set text(size: 9pt)
-    *The answer in one sentence.* Own a read-only Debian 13 image with two OS slots (RAUC) and a fresh-signal health gate, k3s on every real box, NATS as the bus, one capability gateway in front of every app, device and AI agent, and ten signed plugin sockets, with Ubuntu, Mender and bootc kept as written, testable paths back.
+    *The answer in one sentence.* Own a read-only image with two OS slots (RAUC) and a fresh-signal health gate, on an Ubuntu 26.04 LTS base if Canonical allows it (the locked scorecard's narrow, conditional result, with a Debian 13 version built alongside until the base is locked), k3s on every real box, NATS as the bus, one capability gateway in front of every app, device and AI agent, and ten signed plugin sockets; what each pending test result means for the base was written down in advance.
     #v(4pt)
     Not legal, tax or financial advice. Vendor prices are unpublished where stated. Lab results come from disposable virtual machines unless marked otherwise.
   ]
