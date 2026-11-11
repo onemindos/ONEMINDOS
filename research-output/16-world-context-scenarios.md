@@ -3,7 +3,7 @@
 **Owner:** W15 · **Tier:** C (brief; secondary sources allowed and labelled, primary where load-bearing) · **Date:** 2026-11-11 · **Status:** drafted, no refuters (not required at Tier C)
 **Claims:** new facts are `C-W15-001…024` ([`evidence/claims/W15.csv`](evidence/claims/W15.csv), sources in [`evidence/sources/W15.md`](evidence/sources/W15.md), saved text and hashes in `evidence/sources/W15/`). Facts already verified by other workstreams are reused by their IDs (W2, W6, W7, W8, W9, W10, W16, the refuter files and the teardowns), not re-researched.
 **Feeds:** [`21-ROADMAP-5-10-YEARS.md`](21-ROADMAP-5-10-YEARS.md) uses the scenario IDs (`SCN-A…D`) and trigger IDs (`TRIG-W15-01…16`) in §7. `23-RISK-REGISTER.md` can lift §7 directly.
-**Consistent with:** [`01-FOUNDATION-DECISION.md`](01-FOUNDATION-DECISION.md) revision 2. Nothing here changes a Tier A decision. §5 tests each 01 decision against each scenario, and §6 adds cheap hedges that 01 does not yet name.
+**Consistent with:** [`01-FOUNDATION-DECISION.md`](01-FOUNDATION-DECISION.md) revision 4.1 (synced 2026-11-11, SYNC5-c; first written against revision 2). Since rev. 4 the base-OS decision of record is **Ubuntu 26.04 LTS + RAUC A/B**, fragile and conditional on Canonical's permission (Z-01) and G5, with a **Debian 13 leg** built from the same definition until the base is locked (`01` §1, §3.1.6). The §5 rows for the two bases are updated to match; the scenarios themselves are unchanged. Nothing here changes a Tier A decision. §5 tests each 01 decision against each scenario, and §6 adds cheap hedges that 01 does not yet name.
 **Serves requirements:** M-1, M-2, M-4, M-5, M-8, R-3, H-1, H-3, N-2, N-5, N-6, U-5, UX-8, P-7, A-5, AI-8, F-1, F-2, F-4, F-6, F-11, F-13, F-14, D-001
 **Owns bank questions:** Q198, Q224, Q225, Q226, Q227, Q241, Q245, Q285 (statuses in [`evidence/qbank/W15.md`](evidence/qbank/W15.md)).
 **Not legal advice.** Export-control, trade and EU-law readings are for counsel to confirm.
@@ -209,7 +209,7 @@ Each scenario has: the story, **triggers** (warning lights that mean "this is ha
 2. **Accelerator-neutral app contract** (REC-W15-09): `onemind.app.yaml` asks for *capabilities* (e.g. "vision inference ≥ 20 TOPS"), never a vendor; the lock-in guard in 08 is enforced in Market review (W19).
 3. **Position against the garden, not beside it** (REC-W15-10): the product promise is "your AI, your box, your keys, works offline, leave any time" (REC-W16-10). That is the one thing a platform owner cannot copy without changing its business.
 
-**Stresses in 01:** Jetson L4T and the Ubuntu GPU flavor (Canonical and NVIDIA permissions). **Holds:** Debian core, Apache-2.0, open plugin points.
+**Stresses in 01:** Jetson L4T, the Ubuntu GPU flavor and, since `01` rev. 4, the Ubuntu 26.04 core itself (Canonical and NVIDIA permissions; Canonical's permission "can be revoked at any time" [C-REF5-S1L-002]). **Holds:** the Debian 13 leg, Apache-2.0, open plugin points.
 
 ---
 
@@ -219,8 +219,8 @@ Each scenario has: the story, **triggers** (warning lights that mean "this is ha
 
 | 01 decision | SCN-A Fortress | SCN-B Mandate | SCN-C Grey grid | SCN-D Gardens | Hedge (where) |
 |---|---|---|---|---|---|
-| Debian 13 core (REC-DEC-01) | ✅ community, multi-arch incl. riscv64 [C-W15-021] | ✅ no vendor permission | ✅ mirrorable | ✅ | — |
-| Ubuntu 26.04 CI leg (REC-DEC-17) | ✅ | ⚠️ single-vendor control | ✅ | ⚠️ | Keep it a leg, not the base |
+| Ubuntu 26.04 core, decision of record (REC-DEC-42, rev. 4) | ✅ | ⚠️ single-vendor control; permission revocable [C-REF5-S1L-002] | ✅ | ⚠️ | Keep the Debian 13 leg at parity until the base lock (REC-DEC-17); Z-01 asks about revocation (`01` §5.1.3) |
+| Debian 13 leg (REC-DEC-01; pre-registered result if W2-HW-3 fails) | ✅ community, multi-arch incl. riscv64 [C-W15-021] | ✅ no vendor permission | ✅ mirrorable | ✅ | — |
 | Jetson on L4T Ubuntu (REC-DEC-18) | ❌ export, tariff, price exposure | ⚠️ | ✅ once installed | ❌ licence/lifecycle exposure | meta-tegra route (01), non-NVIDIA SKU (REC-W15-04) |
 | RAUC A/B + health gate (REC-DEC-05/07) | ✅ | ✅ CRA update duty | ✅ offline bundles | ✅ | Box-to-box relay (REC-W15-02) |
 | Secure Boot + own keys (REC-DEC-20/21) | ✅ | ✅ | ⚠️ time and certificate expiry offline | ✅ | Local time, long-lived offline trust (REC-W15-01) |

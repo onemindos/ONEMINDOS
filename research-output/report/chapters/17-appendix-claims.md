@@ -1,6 +1,6 @@
 # Appendix C · Sources for every claim ID in this report {#sec-claims .unnumbered}
 
-This report cites **466 claim IDs**. Each row gives the claim's source as recorded in the research ledger (`research-output/evidence/claims/*.csv`), with its source type and status. The ledger also holds the version, release date, support end, pinned commit or tag, re-check date and the files that use each claim; saved page text with SHA-256 hashes is in `research-output/evidence/sources/`. The full bibliography is `research-output/SOURCES.md`. PRIMARY = official docs, legal text or code at a pinned commit; PRIMARY-METADATA = catalogue or metadata page; SECONDARY = press or third party; lab rows are this run's own VM experiments.
+This report cites **484 claim IDs**. Each row gives the claim's source as recorded in the research ledger (`research-output/evidence/claims/*.csv`), with its source type and status. The ledger also holds the version, release date, support end, pinned commit or tag, re-check date and the files that use each claim; saved page text with SHA-256 hashes is in `research-output/evidence/sources/`. The full bibliography is `research-output/SOURCES.md`. PRIMARY = official docs, legal text or code at a pinned commit; PRIMARY-METADATA = catalogue or metadata page; SECONDARY = press or third party; lab rows are this run's own VM experiments.
 
 | Claim ID | Type · status | Accessed | Source |
 |---|---|---|---|
@@ -24,6 +24,16 @@ This report cites **466 claim IDs**. Each row gives the claim's source as record
 | C-FIX4-004 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​canonical/​ubuntu.com/​blob/​ec15716b1c4b95f1860672d4274dda730ee9b4fe/​templates/​pricing/​pro.html |
 | C-FIX4-010 | PRIMARY · verified | 2026-11-11 | research-output/​evidence/​lab/​ubuntu-2604-leg/​versions.md L20-L23 |
 | C-FIX4-014 | PRIMARY · verified | 2026-11-11 | research-output/​evidence/​scorecard-weights.md L106, L159 |
+| C-FIX5-001 | PRIMARY · verified | 2026-11-11 | research-output/​evidence/​lab/​ubuntu-secureboot/​logs/​env-probe.log |
+| C-FIX5-002 | PRIMARY · verified | 2026-11-11 | research-output/​evidence/​lab/​ubuntu-secureboot/​README.md |
+| C-FIX5-003 | PRIMARY · verified | 2026-11-11 | research-output/​evidence/​lab/​ubuntu-secureboot/​scripts/​ |
+| C-G4U-001 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​canonical/​real-time-ubuntu-docs/​blob/​f8b1bb14746140cbd8442ac3e56543aca4b2180a/​docs/​reference/​releases.rst#L26-L41 |
+| C-G4U-002 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​canonical/​real-time-ubuntu-docs/​blob/​f8b1bb14746140cbd8442ac3e56543aca4b2180a/​docs/​how-to/​enable-real-time-ubuntu.md#L16-L36 |
+| C-G4U-003 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​eclipse-mosquitto/​mosquitto/​blob/​fda14f2c196d9d2fcdd07d6c5d31a673524f7368/​ChangeLog.txt#L1685-L1688 |
+| C-G4U-004 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​fido-device-onboard/​go-fdo-client/​tree/​ce60de283b3ce9ffeed18320308ed30e1cb64bdd/​build/​package |
+| C-G4U-005 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​fido-device-onboard/​go-fdo-server/​tree/​dbe2b32366d0a72a00aeba13ccc34d1c0a6257a8/​build/​package |
+| C-G4U-008 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​canonical/​landscape-documentation/​blob/​466a33a01f980f9e6f9cba7e9a6fdfddb59a1831/​docs/​reference/​api/​rest-api-endpoints/​package-ch… |
+| C-G4U-010 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​rauc/​rauc/​blob/​2d17b27041db7fa8b13a61c5e168f49310a06566/​docs/​advanced.rst#L2043-L2110 |
 | C-LAB-aarch64-gate-004 | PRIMARY · verified | 2026-11-11 | evidence/​lab/​aarch64-gate/​logs/​driver-run4.log ; evidence/​lab/​aarch64-gate/​logs/​driver-run5.log ; evidence/​lab/​aarch64-gate/​logs/​serial-run4-trimme… |
 | C-LAB-debian-rugix-022 | PRIMARY · verified | 2026-11-11 | research-output/​evidence/​lab/​debian-rugix/​logs/​run4-arm64/​events.log |
 | C-LAB-debian-rugix-023 | PRIMARY · verified | 2026-11-11 | research-output/​evidence/​lab/​debian-rugix/​logs/​run3-arm64/​events.log |
@@ -99,6 +109,14 @@ This report cites **466 claim IDs**. Each row gives the claim's source as record
 | C-REF4-DC-security-001 | PRIMARY · verified | 2026-11-11 | https:/​/​rauc.readthedocs.io/​en/​latest/​reference.html |
 | C-REF4-DC-security-007 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​raspberrypi/​usbboot/​blob/​master/​docs/​secure-boot.md |
 | C-REF4-DC-security-008 | PRIMARY · verified | 2026-11-11 | https:/​/​www.raspberrypi.com/​documentation/​security/​security-architecture.html |
+| C-REF5-S1-technical-003 | PRIMARY · verified | 2026-11-11 | https:/​/​developer.nvidia.com/​embedded/​jetpack/​downloads/​archive-7.1.md |
+| C-REF5-S1-technical-004 | PRIMARY · verified | 2026-11-11 | https:/​/​docs.nvidia.com/​jetson/​archives/​r39.2/​ReleaseNotes/​Jetson_Linux_Release_Notes_r39.2.pdf |
+| C-REF5-S1-technical-006 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​rauc/​rauc/​pull/​1599 |
+| C-REF5-S1L-002 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​canonical/​canonical.com/​blob/​eebaf62d63ae3d51bd34f18fdf6e26e35a35dd96/​templates/​legal/​intellectual-property-policy/​index.md#L18 |
+| C-REF5-S1L-009 | PRIMARY · verified | 2026-11-11 | https:/​/​developer.nvidia.com/​embedded/​jetpack |
+| C-REF5S1SEC-001 | PRIMARY · verified | 2026-11-11 | https:/​/​web.archive.org/​web/​20261023180559/​https:/​/​ubuntu.com/​legal/​intellectual-property-policy |
+| C-REF5S1SEC-002 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​rhboot/​shim-review/​blob/​e9b3a73d0e74fb1258a3ef68ea6e79e483134d24/​README.md |
+| C-REF5S1SEC-006 | PRIMARY · verified | 2026-11-11 | https:/​/​web.archive.org/​web/​20261107214224/​https:/​/​ubuntu.com/​pro |
 | C-SCORE-023 | PRIMARY · verified | 2026-11-11 | https:/​/​canonical.com/​blog/​bosch-rexroth-adopts-ubuntu-core-and-snaps-for-app-based-ctrlx-automation-platform |
 | C-SCORE-025 | PRIMARY · verified | 2026-11-11 | https:/​/​github.com/​AlmaLinux/​bootc-images-rpi/​blob/​bb8e83e6b898db63ca2b53a69343f067dfa4f28a/​README.md#L3-L44 |
 | C-SCORE-027 | SECONDARY · verified | 2026-11-11 | https:/​/​nullr0ute.com/​2026/​10/​raspberry-pi-5-on-fedora/​ |

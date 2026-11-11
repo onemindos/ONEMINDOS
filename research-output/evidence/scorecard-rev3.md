@@ -1,5 +1,7 @@
 # Scorecard revision 3: every cell cited, totals and sensitivity recomputed
 
+> **Historical record (marked 2026-11-11, SYNC5-c).** This file is the rev-3 scorecard and is kept unchanged as evidence, except for the P7-1 citation swaps in its S5 table (C-W18-027 → C-CIT4-003; no score moved). **It is not the current S1 card.** `01-FOUNDATION-DECISION.md` revision 4 re-derived S1 under the frozen protocol (card D 65 · C 64 · A 63) and withdrew the rev-3 pairwise tie-break [C-PROTO4-018]. Revision 4.1 kept the result: **Ubuntu 26.04 LTS + RAUC A/B**, fragile (11 of 14 runs), CONDITIONAL on Z-01 and G5 (`01` §3.1.6, §5.1.3). Read `01` §3 for the current cards. The S2–S5 cells here are still the ones `01` §3 adopts by reference unless `01` says otherwise.
+
 **Date:** 2026-11-11 · **Agent:** SCORE · **Closes:** critic pass-2 gap #9 (uncited and SECONDARY-only scorecard cells) and gap #11b (Fedora 45 Pi 5 and bootc-on-Pi 5 sources)
 **Rules applied:** `scorecard-weights.md` v1.0, frozen. **No weight or anchor changed.** Cell changes are logged in that file's §8 as "cells rev-3".
 **New evidence:** 32 claims in `claims/SCORE.csv` (C-SCORE-001…032), sources in `sources/SCORE.md`, saved copies and hashes in `sources/SCORE/`.
@@ -166,11 +168,11 @@ C1 for S4 uses 06's pre-declared reading ("release/format stability, maintainers
 
 | Route | Gates | C1 | C2 | C3 | C4 | C5 | C6 | C7 | Total |
 |---|---|---|---|---|---|---|---|---|---|
-| **K1** board maintainer's kernel | PASS/COND [C-W18-069, C-W18-013, C-W18-019, C-W18-006, C-W18-029] | 3 [C-W18-007] | 4 [C-W18-019, C-W18-027, C-W18-006] | 3 [C-W18-012] | 4 [C-W18-012, C-W18-013, C-W18-009] | 4 [C-W18-015, C-W18-046, C-W18-066] | 3 [C-LIC-017, C-W18-069] | 4 [C-W18-027, C-STEEL-jb-015] | **71.0** |
+| **K1** board maintainer's kernel | PASS/COND [C-W18-069, C-W18-013, C-W18-019, C-W18-006, C-W18-029] | 3 [C-W18-007] | 4 [C-W18-019, C-CIT4-003, C-W18-006] | 3 [C-W18-012] | 4 [C-W18-012, C-W18-013, C-W18-009] | 4 [C-W18-015, C-W18-046, C-W18-066] | 3 [C-LIC-017, C-W18-069] | 4 [C-CIT4-003 (CUDA on Debian 13: x86_64 and SBSA, not Jetson, where CUDA rides the L4T kernel), C-STEEL-jb-015] | **71.0** |
 | K2 OneMind-configured LTS | PASS/COND [C-LIC-017, C-W18-009, C-W18-002, C-W18-005, C-W18-029] | 3 [C-W18-001, C-W18-002] | 3 [C-W18-020] | 3 [C-W18-010] | 5 [C-W18-008, C-W18-010] | 3 [C-W18-066] | 3 [C-LIC-017] | 3 [C-W18-008] | 66.0 |
 | K3 CIP SLTS | PASS/COND [C-LIC-017, C-W2-032, C-W18-003, C-W18-005, C-W18-029] | 4 [C-W18-003] | 3 [C-W18-009, C-W18-019] | 3 [C-REF-W8-security-004] | **2** [C-W8-038] (was 3) | 3 [C-W18-066] | 3 [C-LIC-017] | 3 [C-W8-038, C-REF-W8-longevity-006] | **61.0** (was 64.0) |
 | K4 patched kernel | COND [C-LIC-017, C-W18-009, C-W18-002, C-W18-005, C-W18-029] | 2 [C-W18-002] | 3 [C-W18-020] | 2 [C-W18-011] | 2 [C-W18-011] (re-cited) | 2 [C-W18-010] | 3 [C-LIC-017] | 2 [C-W18-011] | 46.0 |
-| K5 microkernel | FAIL [C-W18-027, C-W18-029]; G3/G4 FAIL (unproven) | | | | | | | | not ranked |
+| K5 microkernel | FAIL [C-CIT4-003, C-W18-029]; G3/G4 FAIL (unproven) | | | | | | | | not ranked |
 
 **K3·C4 3 → 2:** anchor 3 needs "two or more shipping products confirmed from code" or one constraint-matched product. The ledger confirms one: Siemens IOT2050 on isar-cip-core [C-W8-038], an industrial product that is not an appliance match. **K4·C4 re-cited:** its old citation (C-W18-044, SteamOS) is about RAUC A/B, not kernel patches. HAOS carrying 3 kernel patches [C-W18-011] supports the same score. **Sensitivity:** K1 wins all 14 runs. The narrowest is C4 +5 at 3.5 over K2. In the C4 −5 run the runner-up is now K2 (6.5) instead of K3.
 

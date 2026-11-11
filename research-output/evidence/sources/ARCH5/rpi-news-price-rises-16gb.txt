@@ -1,0 +1,22 @@
+# Source: https://www.raspberrypi.com/news/price-rises-for-some-16gb-raspberry-pi-products/
+# Accessed: 2026-11-11 (ARCH5). Plain curl, HTTP 200, no bot challenge met or bypassed. Converted to plain text; article body only (site navigation, related posts and reader comments with commenter names removed). Nothing else masked (no e-mails, tokens or account IDs in the body).
+
+Price rises for some 16GB Raspberry Pi products
+
+2nd Nov 2026
+
+Eben Upton
+
+23 comments
+
+Frequent readers of the blog will know that we have had to make selective price increases on the products most affected by the steep rises in the cost of memory over the past two years. Other businesses in the sector have had to do likewise, and we continue to do everything we can to minimise the costs passed on to our customers, including qualifying alternative parts to give us more flexibility in sourcing. Unfortunately, a lack of alternative  supply for 16GB DRAM, compounded by other ongoing component shortages, means we now need to make further price increases on some of our highest-density products.
+
+From today, we are raising the price of the 16GB variant of Raspberry Pi 5 by $80, to $385. The 16GB Raspberry Pi Compute Module 5 variants are increasing in price by $40, and updated prices for these can be found in the product brief on the Compute Module 5 product page. As with previous price rises, we have avoided making blanket increases across the entire product line, and we are holding the price of Raspberry Pi 500+, our premium all-in-one desktop computer built into a mechanical keyboard, which also features 16GB of RAM.
+
+Though these increases are unavoidable, we know they are unwelcome news for our customers. We encourage you to make sure you’re not paying for more memory than you need; integrating lower-density variants or earlier Raspberry Pi models into your projects, or making memory optimisations in your applications, are among ways you can ensure you have the memory your use case needs at the lowest possible cost. Individual customers can check out Raspberry Pi Official Magazine’s guidance on how to make the most of your memory, or ask other users for advice over on the Raspberry Pi forums. (You can often find our engineers responding to enquiries on the forums, too.) Business customers can get in touch to discuss memory optimisation at [email protected].
+
+We are holding the price of Raspberry Pi 500+, our premium desktop computer
+
+We’re aware that a few bad actors have been taking advantage of the current memory supply circumstances to sell Raspberry Pi products at inflated prices or shift products that aren’t what they seem. All of our products are available to buy at our official prices through our trusted global network of Raspberry Pi Approved Resellers. If in doubt, find your nearest vetted supplier on our Approved Reseller page.
+
+As we’ve said from the beginning, the current memory landscape is difficult but ultimately temporary, and we look forward to rolling back our price increases when memory costs fall once again.

@@ -2,6 +2,7 @@
 
 **Created:** 2026-11-10 by DEC (Tier A). Later workstreams **append** sections; don't reorder the IDs. **Final for this run (2026-11-11, tag FINAL):** §F adds the revision-3 updates and Z-28…Z-37, and §G maps every `blocked: founder-decision` item in `24-…` to a Z-ID, so this file now covers all of brief §6 (REQUIREMENTS open questions 2–5 in §B, the Blueprint questions in §C, RS-6 access in §D, §E and §F). The approval boxes are in [`REVIEW-CHECKLIST.md`](REVIEW-CHECKLIST.md); the week each decision is due is in `20-…` §2.3.
 **Revision 4 (2026-11-11, DEC4):** §H re-states the base-OS question under the frozen scorecard rules and adds **Z-38…Z-40**; it also updates Z-01 and Z-10 (IDs unchanged, appended, not reordered).
+**Revision 4.1 sync (2026-11-11, SYNC5-a):** follows `01` rev. 4.1 (no score or ranking change; D stays the decision of record). §I adds **Z-41** (run the Ubuntu Secure Boot test LT-VM-20 yourself, or approve an Ubuntu mirror for the lab), an RS-6 row for the Ubuntu archive block, and the blind refuters' additions to Z-01. Z-10 and Z-38 now name U-SB as a deciding event, §G maps Q288, and Z-28 names every pushed commit.
 **How to use this file:** each item gives the question, the options, a recommendation, and what is blocked until you answer. Where the brief told us to assume an answer (rule 8), the assumption is stated and the work proceeds on it. Items marked **(legal)** need counsel, which is not legal advice from this research.
 **Serves requirements:** RS-6, R-1, R-3, D-001, H-1, M-8, F-11, F-12, N-9, U-4
 
@@ -207,8 +208,14 @@
 - **Z-10 (bootc):** on the fully cited scorecard, RHEL-family bootc is the raw S1 leader (64 vs 62 vs 60), on one documentation-only Pi 5 cell [C-SCORE-025]. **Approve running W2-HW-3 (bootc on a real Pi 5, `22` LT-PI5-02) early, at gate G2.** It decides whether that lead is real (REC-DEC-33).
 
 ### Z-28 · Purge leaked personal data from the public branch history? · Q-P2-5, critic N1/N2 · **urgent**
-**Why it matters:** commit `414d60a`, already pushed to the public research branch, contains the lab computer's home path and account name in 17 files and VM-internal private addresses in 11 files. The working tree is masked, but git history still serves the old text (`evidence/hygiene-log.md` §3). Removing it requires rewriting history, and the brief forbids force-push (§8) unless you allow it.
-**Options:** (a) allow a one-time history rewrite of `research/ultracode-foundation` (rebuild the branch from masked commits, force-push once, then ask GitHub support to purge cached views); (b) squash-merge the PR and delete the branch, which leaves `414d60a` reachable on GitHub until it is garbage-collected; (c) accept the exposure (the data is a username and throwaway VM addresses, not credentials).
+**Why it matters:** all four commits on the public research branch are pushed (`414d60a`, `ee98bc7`, `7836316`, `b933b86`) [C-SYNC5-a-001]. A per-commit scan (`evidence/hygiene-log.md` §3) found [C-SYNC5-a-002]:
+- **`414d60a`** contains the lab computer's home path and **account name** in 17 files, VM-internal **private addresses** in 11 files, and the host's folder layout in 16 files.
+- **`ee98bc7`** adds the host folder layout (no account name) in 3 files, and its snapshot holds it in 11.
+- **`7836316`** adds it in 2 more (a critic file and the hygiene log's grep pattern); its snapshot holds it in 13.
+- **`b933b86`** (rev. 4, the branch head) holds it in 3 files: two critic files and the hygiene log. These are masked in the working tree (SYNC5-a), but the pushed commit keeps them.
+
+No commit contains a tailnet name or a CGNAT address. The working tree is masked, but git history still serves the old text. A rewrite that only fixes `414d60a` removes the account name; removing the folder layout too means rebuilding all four commits. Removing it requires rewriting history, and the brief forbids force-push (§8) unless you allow it.
+**Options:** (a) allow a one-time history rewrite of `research/ultracode-foundation` (rebuild **all four** pushed commits from masked trees, force-push once, then ask GitHub support to purge cached views); (b) squash-merge the PR and delete the branch, which leaves `414d60a` reachable on GitHub until it is garbage-collected; (c) accept the exposure (the data is a username and throwaway VM addresses, not credentials).
 **Recommendation: (a), before the PR is marked ready or merged.** It is the only option that actually removes the data. The exposure is low-harm, but rule 5 is absolute. **Blocked until answered:** marking the PR ready for review.
 
 ### Z-29 · Trademark clearance for "OneMind" / "OneMind OS" (legal) · Q174
@@ -267,7 +274,7 @@ Four more questions only a lawyer can answer. Recommendation: put them in the sa
 
 ## G. Every `blocked: founder-decision` item in `24-…`, mapped
 
-`24-…` §9 lists 6 bank questions as `blocked: founder-decision`, and §6 lists 15 added questions. Each is decided under the Z-ID shown.
+`24-…` §9 lists 7 bank questions as `blocked: founder-decision` (rev. 4 moved Q288 there), and §6 lists 15 added questions. Each is decided under the Z-ID shown.
 
 | Item in 24 | Question (short) | Decided under |
 |---|---|---|
@@ -277,6 +284,7 @@ Four more questions only a lawyer can answer. Recommendation: put them in the sa
 | Q197 | Entity and jurisdiction | Z-30 |
 | Q282 | First 100 customers and segment | Z-31 |
 | Q284 | Omarchy desktop edition shape | Z-32, Z-26 |
+| Q288 | Fedora IoT / bootc vs the Debian or Ubuntu base (DC-01), now a frozen-protocol finalist | Z-38 (base OS), Z-10 (W2-HW-3), Z-40 (scoring rules); U-SB evidence via Z-41 |
 | Q-W2-1 | Modified Ubuntu without a Canonical agreement | Z-01 |
 | Q-W2-2 | Redistributing Freexian ELTS packages | Z-06, Z-37 |
 | Q-COST-1 | Is a Debian rebase a CRA substantial modification | Z-36, Z-05 |
@@ -302,12 +310,12 @@ Questions that are `partial` with a founder-decision blocker (for example Q35/Q2
 
 **Updates to earlier items (IDs unchanged):**
 - **Z-01 (Canonical and counsel):** this now gates the **decision of record**, not only a re-open. **Assumption meanwhile (rule 8) changes** from "Debian core" to: the protocol result (Ubuntu 26.04 + RAUC) is the default; nothing Ubuntu-based ships before Z-01 is answered; one image definition builds a Debian leg and an Ubuntu leg (`01` REC-DEC-17); and the shipping base is locked at a named gate before the first box ships, using the pre-registered map in `01` §3.1.6 (h). Under that map, a refusal that leaves only debrand-and-recompile, which you reject, gives **bootc**. If W2-HW-3 has also failed, it gives **Debian**, but too narrowly to be settled, so it comes back to you. **Recommendation unchanged: (a), now (week 1)**, and ask for a written price so the risk register's missing cost (RR-09) can be filled [C-DEC4-010].
-- **Z-10 (bootc):** **approve W2-HW-3 before gate G1 (week 4)**, not "early in the 180 days". It now decides between the protocol result and Debian. If it fails, the card becomes Ubuntu 65 · Debian 63 · bootc 60, and the locked tie-break gives **Debian** (6–5) [C-DEC4-007]. It also has to come first because a box shipped on Debian/Ubuntu + RAUC cannot move to bootc without a reflash [C-STEEL4-bootc-025].
+- **Z-10 (bootc):** **approve W2-HW-3 before gate G1 (week 4)**, not "early in the 180 days". It now decides between the protocol result and Debian. If it fails, the card becomes Ubuntu 65 · Debian 63 · bootc 60, and the locked tie-break gives **Debian** (6–5) [C-DEC4-007]. It also has to come first because a box shipped on Debian/Ubuntu + RAUC cannot move to bootc without a reflash [C-STEEL4-bootc-025]. **Rev. 4.1 sync (critic P5-4):** W2-HW-3 is not the only deciding event. The Ubuntu Secure Boot VM test **U-SB (LT-VM-20)** is the other one, and it needs no hardware. If U-SB fails, or passes only after a partition or bootloader change, the map gives **bootc** (C 64 · A 63 · D 62); if U-SB **and** W2-HW-3 both fail, it gives **Debian** (`01` §3.1.6 h). U-SB was attempted and is BLOCKED here, so it has produced no map event yet [C-FIX5-002]; see Z-41.
 
 ### Z-38 · Base OS: accept the frozen-protocol result (Ubuntu 26.04), or override it as your own decision? · Q-P3-1, critic P3-1, ADR-001 D2
 **Why it matters:** this is the hardest decision to undo. The disk layout, update engine and signing work are the same for Debian and Ubuntu, but every shipped box carries its base for years. The locked rules give Ubuntu 26.04 + RAUC (D), but only **fragilely**: D wins 11 of 14 weight-shake runs, Debian 2 and bootc 1, and every run is a tie settled by a 6–4 row count [C-DEC4-006]. Rev. 3's case for Debian was real, but it reached the verdict through a rule invented after scoring [C-PROTO4-018].
 **Options:**
-- **(a) Accept the protocol result as the default, with its conditions** (Z-01 first; both CI legs; base locked at a named gate before the first shipment; the pre-registered map decides on W2-HW-3 and Z-01).
+- **(a) Accept the protocol result as the default, with its conditions** (Z-01 first; both CI legs; base locked at a named gate before the first shipment; the pre-registered map decides on W2-HW-3, Z-01 **and U-SB / LT-VM-20**: U-SB failing gives bootc, `01` §3.1.6 h). Rev. 4.1: three **blind** refuters all returned *weakened*, none refuted, and gate G4 is CONDITIONAL with no failing sub-check, so the result is unchanged [C-G4U-001…011].
 - **(b) Choose Debian 13 now, as a founder decision** logged in `evidence/scorecard-weights.md` §8 with the ranking under both rules. *For:* the core image ships without anyone's permission; umbrelOS is a constraint-matched Debian appliance on Pi 5 and x86 [C-W2-043, C-W3-039]; every lab ran on it, now including native arm64 and Secure Boot on RAUC 1.15.2 [C-LAB-aarch64-gate-004, C-LAB-secureboot-1152-005]; it is cheapest at 10k units ($40 vs $120 per device, `lifecycle-cost-2036.md`). *Against:* it loses the locked tie-break to both rivals; it needs the most in-place rebases to 2036; Debian security after 2028 rests on one paid team (Freexian) [C-REF-DC-cost-003]; there are recent Pi 5 trixie boot regressions [C-REF4-S1R4-technical-004, C-REF4-S1R4-technical-005]; and OneMind must sign its own GPU and driver modules under Secure Boot [C-REF4-S1R4-security-005].
 - **(c) Choose RHEL-family bootc now.** *For:* raw leader on the rev-3 card, rebase built in, no permission needed [C-STEEL4-bootc-014]. *Against:* its Pi 5 path is one person's experimental repo [C-STEEL4-bootc-001], and the power-cut downgrade is unfixed upstream [C-STEEL4-bootc-024].
 - **(d) Defer all choice to the map** at the lock gate. This is the same as (a), but without stating a default.
@@ -343,6 +351,31 @@ Questions that are `partial` with a founder-decision blocker (for example Q35/Q2
 | Bosch ctrlX OS | Ubuntu **Core** (snaps), IEC 62443-4-2 SL 2 per vendor statement [C-SCORE-023, C-CIT4-012] | Large industrial vendor with a Canonical partnership | **Low** for a solo founder: the Canonical relationship is the very thing Z-01 asks about |
 | Red Hat Device Edge | RHEL image mode (bootc) + MicroShift, Orin paid [C-W2-041] | Large vendor, enterprise edge, no Pi | Partial: same update model as option (c), not the same market |
 | IronFlockOS | Debian 13 + RAUC + Docker, pre-1.0 [C-CIT4-001, C-CIT4-002] | Small company, industrial, no hardware acceptance yet | Watch item: the closest design precedent to Debian + RAUC, not yet proof |
+
+## I. Revision 4.1 additions (added 2026-11-11, tag SYNC5-a)
+
+> ### Explain it like I'm the founder
+> Revision 4.1 changed no score. Three new critics who saw only the one-line decision all said "weakened", none "wrong". The test most likely to change the base, the Ubuntu Secure Boot check in a virtual machine (U-SB, lab test LT-VM-20), could not run here: this research computer cannot reach Ubuntu's download servers, and the rules forbid working around that. You can run it on your Mac in about two hours, unattended. That is Z-41.
+
+**Updates to earlier items (IDs unchanged):**
+- **Z-01 (Canonical and counsel):** the blind refuters sharpen the question, not the score (`01` §5.1.3). Ask that the permission be **written, for the 10-year life, and not revocable at Canonical's sole discretion**, because the policy says permission "can be revoked at any time" [C-REF5-S1L-001, C-REF5-S1L-002]. Ask which branch ships: Canonical's signed binaries with Pro, or a debranded rebuild. **The rev-4 scores assume the permission branch.** If Z-01 ends on the rebuild branch, OneMind loses Canonical's signed packages and security notices, the D cells must be re-checked under rule 6 before the base lock, and the choice comes back to you under Z-38/Z-39.
+- **Z-38 (base OS):** see the U-SB note under Z-10 in §H. Until U-SB runs, the lock record must say "U-SB not run" (`01` §3.1.6 i).
+
+### Z-41 · Run the Ubuntu Secure Boot test (LT-VM-20) yourself, or approve an Ubuntu mirror for the lab? · critic P6-2, P5-1, RS-6
+**Why it matters:** U-SB is the one event in the pre-registered base-OS map that needs **no hardware and no vendor**. If it fails, the base of record moves from Ubuntu to bootc (`01` §3.1.6 h). The kit is frozen and ready: its pass/fail rule was registered before any build [C-FIX5-002], and it is the Secure Boot battery that already passed on Debian, with only the pre-registered changes [C-FIX5-003]. It could not run in the research environment because the Ubuntu archive names stopped resolving there during 2026-11-11 [C-FIX5-001, C-FIX5-004]; whether that block is deliberate is not known (README §R.5).
+**Options:**
+- **(a) Run it on your Mac on day 1** (`20` D1): a Lima/QEMU VM with normal internet, about 1.5–2 hours unattended, from `evidence/lab/ubuntu-secureboot/` (README §R.3; access item LT-ACC-01 in `22`). Run it twice, as the map requires two clean passes.
+- **(b) Approve an Ubuntu archive mirror for the research lab** (name the mirror you trust), so the next research pass can run it under the same rules.
+- **(c) Leave it for gate G1 (week 4).** The decision of record then keeps resting on a documentation-only Secure Boot score (D·C3 = 4 `doc-only`).
+**Recommendation: (a), on day 1.** It is the cheapest test that can change the base. Also say whether the Ubuntu block in the research environment is deliberate (for example, to keep the run from contacting Canonical while Z-01 is open): if it is, (b) is not available.
+**Also for you to judge (critic P6-4):** two reads went past that block, and both are disclosed. During U-SB the agent read Ubuntu's 26.04 `Release` file once by IP, through a public resolver, before it recognised the failures as a block. A blind refuter read ubuntu.com through Wayback captures. **Neither is used as evidence** (`evidence/hygiene-log.md` §7). Whether that was acceptable is your call.
+**Blocked until answered:** a U-SB map event, and so a clean base lock at G6.
+
+### Access and inputs added in revision 4.1 (RS-6)
+
+| Needed | Why | What Zeus can do |
+|---|---|---|
+| The Ubuntu archive (`archive.ubuntu.com`, `security.ubuntu.com`) from a lab machine | U-SB / LT-VM-20 decides D·C3 and is a row of the S1 decision map; the research environment cannot resolve Ubuntu or Canonical names, and the run did not bypass that [C-FIX5-001, C-FIX5-004] | Run LT-VM-20 on a networked Mac (Z-41 a), or approve a mirror (Z-41 b) |
 
 ## What competitors do (for the new items, constraint fit)
 

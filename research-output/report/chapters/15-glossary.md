@@ -10,7 +10,7 @@
 | **Base lock (G6)** | The gate (April 2027) after which one base (Ubuntu, Debian or bootc) is the shipping base; changing it later means reflashing boxes. |
 | **bootc / image mode** | Shipping the whole OS as a container image; Red Hat's long-life lineage (Fedora → CentOS Stream → RHEL) uses it. |
 | **BSP** | Board support package: the vendor's kernel, drivers and firmware for a board (for example NVIDIA's L4T). |
-| **Decision map** | The base-OS result for each outcome of the two pending answers (Canonical's reply, the bootc Pi 5 test), written on 2026-11-11 before either is known. |
+| **Decision map** | The base-OS result for each outcome of the three pending results (Canonical's reply, the bootc Pi 5 test, Ubuntu's Secure Boot test U-SB), written on 2026-11-11 before any is known. |
 | **Decision of record** | What the research assumes until you rule otherwise: for the base, the result the frozen rules give (Ubuntu 26.04 + RAUC, conditional). |
 | **Capability gateway** | OneMind's single enforcement point: it turns app capabilities into MCP tools, REST, CLI and Agent Skills, checks permissions, asks for approvals and logs everything. |
 | **CRA** | EU Cyber Resilience Act (Regulation (EU) 2024/2847); main obligations from 2027-12-11. |
@@ -38,7 +38,7 @@
 | **PREEMPT_RT** | Linux's real-time mode, in mainline since 6.12. |
 | **RAUC / Mender / Rugix** | Open-source A/B update engines (Home Assistant OS uses RAUC; umbrelOS uses Rugix; umbrelOS once used Mender). |
 | **Rebase** | Moving a fielded box to a new major OS release (Debian 13 → 14) without wiping it. |
-| **Refuter / steelman** | An agent told to disprove a conclusion / an agent told to argue for the runner-up. |
+| **Refuter / steelman** | An agent told to disprove a conclusion / an agent told to argue for the runner-up. A **blind** refuter sees only the claim, not the research's reasoning. |
 | **restic** | An encrypting, de-duplicating backup program that allows several keys per repository. |
 | **ROS 2** | Robot Operating System 2, the standard robotics framework; Jazzy and Lyrical are long-term releases. |
 | **SBAT** | A generation number inside signed boot files that lets firmware refuse older signed files. |
@@ -47,6 +47,7 @@
 | **SQLite / etcd** | The two k3s databases: SQLite for one server, etcd for several. |
 | **Tie / tie-break** | When the **top two** candidates on the frozen scorecard are less than 3 points apart, they are tied; the tie goes to the decision-critical evidence between those two, counted row by row, never to changed weights or to a third candidate. |
 | **Tryboot** | The Raspberry Pi firmware's one-shot "try this boot partition next" mechanism. |
+| **U-SB / LT-VM-20** | Ubuntu's own Secure Boot test: the Debian Secure Boot lab re-run on Ubuntu 26.04 in a virtual machine. A fail moves the base to bootc. Attempted on 2026-11-11 and blocked; LT-VM-20 is the founder-run version. |
 | **Z-nn** | A founder decision item in `26-OPEN-QUESTIONS-FOR-ZEUS.md`. |
 
 # Appendix B · How this was researched, and its limits {#sec-method .unnumbered}
@@ -64,6 +65,7 @@
 | RAUC 1.15.2 + k3s on native arm64 (rev. 4) | Pass with the unchanged gate [C-LAB-aarch64-gate-004] |
 | RAUC 1.15.2 + real k3s gate | Pass [C-LAB-rauc-1152-011] |
 | Ubuntu 26.04 leg | Pass with RAUC 1.15.1; RAUC 1.13 fails on Linux 7.0 [C-LAB-ubuntu-2604-leg-010] |
+| Ubuntu 26.04 under enforced Secure Boot (U-SB, rev. 4.1) | **Blocked, not run**: rule frozen before the build; Ubuntu's archive does not resolve from the research environment. Founder runs it as LT-VM-20 [C-FIX5-001, C-FIX5-002] |
 | Mender 5.2.0 + same gate | Pass, with the one-try limit [C-LAB-mender-013] |
 | Fedora bootc + greenboot | Mostly pass; power cut in finalize silently downgraded a healthy box [C-LAB-fedora-bootc-011] |
 | Fedora IoT bootc + k3s gate | Automation pass; 32-minute rollback fails the time target [C-W2-054] |

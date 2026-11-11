@@ -1,13 +1,13 @@
 # Review checklist for Zeus
 
-**Owner:** FINAL · **Date:** 2026-11-11 · **Matches:** `01-FOUNDATION-DECISION.md` revision 4 (final for this pass) and `26-OPEN-QUESTIONS-FOR-ZEUS.md` Z-01…Z-40
+**Owner:** FINAL · **Date:** 2026-11-11 · **Matches:** `01-FOUNDATION-DECISION.md` revision 4.1 (no score change from rev. 4) and `26-OPEN-QUESTIONS-FOR-ZEUS.md` Z-01…Z-41
 **Serves requirements:** RS-1, RS-6, RS-7, F-10, D-001
 **How to use it:** read in the order of §1, then tick one box per line in §2 and §3. A ticked **Approve** means "build on this". **Change** means "write your choice next to it"; the plan in `20-…` names the week each decision is needed. Nothing here is legal advice; items marked (legal) need counsel.
 
 > ### Explain it like I'm the founder
 > You don't need to read 30 files. Read the five in bold in §1. That takes about three hours, and the PDF alone is the one-sitting version. Then work down the boxes. The decisions in §2 are the research's recommendations: approving them tells the build session (`30-…`) to go ahead. The ones in §3 are yours alone. Each has a recommendation you can accept, but nobody can make it for you. The first block in §3 is due **this week**.
 >
-> **What changed in revision 4.** Before scoring, the research locked its contest rules. Revision 3 broke one of them to keep Debian, so revision 4 applies the rules as locked. The base OS of record is now **Ubuntu 26.04 LTS + RAUC**. It wins narrowly (11 of 14 sensitivity runs) and only if Canonical allows a modified Ubuntu, or OneMind strips the brand and rebuilds. Debian 13 is still built alongside it, and it becomes the base automatically if bootc's Pi 5 test fails. You can still choose Debian yourself, but then it is your logged decision (Z-38), not the scorecard's result.
+> **What changed in revision 4.** Before scoring, the research locked its contest rules. Revision 3 broke one of them to keep Debian, so revision 4 applies the rules as locked. The base OS of record is now **Ubuntu 26.04 LTS + RAUC**. It wins narrowly (11 of 14 sensitivity runs) and only if Canonical allows a modified Ubuntu, or OneMind strips the brand and rebuilds. Debian 13 is still built alongside it, and it becomes the base automatically if bootc's Pi 5 test fails. You can still choose Debian yourself, but then it is your logged decision (Z-38), not the scorecard's result. **Revision 4.1** changed no score: three critics who saw only the decision all said "weakened", none "wrong". The test most likely to move the base without hardware, the Ubuntu Secure Boot VM test (U-SB, LT-VM-20), could not run here; if it fails, bootc becomes the base. Running it is Z-41.
 
 ---
 
@@ -15,9 +15,9 @@
 
 1. [ ] **The pull request** (draft PR #1, *Research: OneMind OS foundation & 10-year plan*). Its body holds the summary and links. Check the diff list for anything you don't want public.
 2. [ ] **This checklist** (you are here).
-3. [ ] **[`ONEMIND-OS-FOUNDATION-REPORT.pdf`](ONEMIND-OS-FOUNDATION-REPORT.pdf)**: the standalone, visual report (101 pages, F-10). The shortest route is the chapters "Executive answer", "Risks" and "Decisions for Zeus". **It was built from revision 3**, so its base-OS answer (Debian 13) is superseded by `01` rev. 4 until it is rebuilt.
+3. [ ] **[`ONEMIND-OS-FOUNDATION-REPORT.pdf`](ONEMIND-OS-FOUNDATION-REPORT.pdf)**: the standalone, visual report (F-10), 111 pages (rev. 4.1 build), rebuilt from `01` rev. 4.1. The shortest route is the chapters "Executive answer", "Risks" and "Decisions for Zeus".
 4. [ ] **[`00-EXECUTIVE-SUMMARY.md`](00-EXECUTIVE-SUMMARY.md)**: the answer, top findings and risks, and status per workstream, plus what remains (§7).
-5. [ ] **[`01-FOUNDATION-DECISION.md`](01-FOUNDATION-DECISION.md)**: the decision with its scorecards, attacks and steelmen. Read "What changed in revision 4", the founder box, §1, §3.1.6 (the base-OS result and its decision map), §7 and §12; the rest is evidence.
+5. [ ] **[`01-FOUNDATION-DECISION.md`](01-FOUNDATION-DECISION.md)**: the decision with its scorecards, attacks and steelmen. Read "What changed in revision 4" and "What revision 4.1 changed", the founder box, §1, §3.1.6 (the base-OS result and its decision map), §7 and §12; the rest is evidence.
 6. [ ] **[`26-OPEN-QUESTIONS-FOR-ZEUS.md`](26-OPEN-QUESTIONS-FOR-ZEUS.md)**: every decision only you can make, with options and a recommendation.
 7. [ ] [`20-PLAN-180-DAYS.md`](20-PLAN-180-DAYS.md): the next 26 weeks, its gates G0–G7, and days 1–10.
 8. [ ] [`21-ROADMAP-5-10-YEARS.md`](21-ROADMAP-5-10-YEARS.md): year 1 through years 5–10, with exit criteria.
@@ -111,7 +111,8 @@ Tick the recommended option, or write another. "Due" is the week from `20` §2.3
 
 ### 3.1 Due now (week 1)
 
-- [ ] **Z-28** Purge leaked personal data from the branch history (one-time rewrite + force-push) **before the PR is marked ready** · rec. (a)
+- [ ] **Z-28** Purge leaked personal data from the branch history (one-time rewrite of all four pushed commits + force-push) **before the PR is marked ready** · rec. (a)
+- [ ] **Z-41** Run the Ubuntu Secure Boot VM test U-SB (LT-VM-20) on your Mac on day 1, or approve an Ubuntu mirror for the lab; also judge the two disclosed reads past the Ubuntu block (`evidence/hygiene-log.md` §7) · rec. (a) run it day 1. If it fails, the pre-registered map gives bootc
 - [ ] **Z-01** (legal) Ask counsel and Canonical about modified Ubuntu, including Jetson, with a written price · rec. (a) now. **Rev. 4:** this now gates the base of record; meanwhile the default is Ubuntu 26.04 + RAUC, nothing Ubuntu-based ships before an answer, and both CI legs are built
 - [ ] **Z-38** Base OS: accept the frozen-protocol result (Ubuntu 26.04 + RAUC, with its conditions and the pre-registered map), or override it as your own logged decision · rec. (a) accept. It blocks the base-lock gate, the default base in `30-…` and the PDF's base-OS chapter
 - [ ] **Z-37** Approve sending the vendor outreach drafts (Canonical, Freexian, Red Hat, NVIDIA/Inception) · rec. (a)
@@ -187,9 +188,9 @@ Tick the recommended option, or write another. "Due" is the week from `20` §2.3
 ## 4. Before the PR is marked ready
 
 - [ ] Z-28 decided and, if (a), the rewrite done
-- [ ] Working tree committed and pushed (rev. 3 is in `7836316`; **rev. 4 is not committed yet**); `gitleaks` and the hygiene greps clean, or each hit listed in `evidence/hygiene-log.md` (0 gitleaks hits after rev. 4)
-- [ ] The PDF rebuilt from rev. 4 (base-OS chapter and the P3-3 tie-band sentence)
-- [ ] Known gaps accepted: the loop is not dry (critic pass 3 found 13 gaps; rev. 4's own re-scores, recount and decision map have three refuters (FIX4), but they are not blind, `01` §5.1.2 and §12); the master `evidence/claims.csv` lacks the 171 rev-4 rows; every lab in emulation only (`00` §7)
+- [ ] Working tree committed and pushed (rev. 4 is in `b933b86`, pushed; **rev. 4.1 is not committed yet**); `gitleaks` and the hygiene greps clean, or each hit listed in `evidence/hygiene-log.md` (0 gitleaks hits after rev. 4)
+- [ ] The PDF, 111 pages (rev. 4.1 build), checked against `01` rev. 4.1 (base-OS chapter, the U-SB status and the G1/G6 rows)
+- [ ] Known gaps accepted: the loop is not dry (critic pass 7 found 4 new gaps; rev. 4.1 added three blind S1R5 refuters, all *weakened*, none refuted, `01` §5.1.3; U-SB is BLOCKED until Z-41); the master `evidence/claims.csv` lacks the 171 rev-4 rows and the rev-4.1 rows; every lab in emulation only (`00` §7)
 
 ## Glossary
 

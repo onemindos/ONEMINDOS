@@ -17,4 +17,4 @@ Source for [`../ONEMIND-OS-FOUNDATION-REPORT.pdf`](../ONEMIND-OS-FOUNDATION-REPO
 
 **Build:** `sh build.sh <python-with-matplotlib>` (needs pandoc ≥ 3.1, Typst ≥ 0.12, Mermaid CLI, poppler-utils).
 
-**What this report adds:** no new facts. It synthesises `00`–`30` at foundation decision revision 4 and reuses their claim IDs; `../evidence/claims/REPORT.csv` is therefore header-only, as `RISK.csv` is.
+**What this report adds:** no new facts. It synthesises `00`–`30` at foundation decision revision 4.1 and reuses their claim IDs; `../evidence/claims/REPORT.csv` is therefore header-only, as `RISK.csv` is.

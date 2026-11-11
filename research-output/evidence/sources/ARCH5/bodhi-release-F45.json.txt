@@ -1,0 +1,4 @@
+# Source: https://bodhi.fedoraproject.org/releases/F45
+# Accessed: 2026-11-11 (ARCH5). Converted to plain text; masked: {'email': 0, 'token': 0, 'acct': 0, 'ip': 0}
+
+{"name": "F45", "long_name": "Fedora 45", "version": "45", "id_prefix": "FEDORA", "branch": "f45", "dist_tag": "f45", "stable_tag": "f45-updates", "testing_tag": "f45-updates-testing", "candidate_tag": "f45-updates-candidate", "pending_signing_tag": "f45-signing-pending", "pending_testing_tag": "f45-updates-testing-pending", "pending_stable_tag": "f45-updates-pending", "override_tag": "f45-override", "mail_template": "fedora_errata_template", "state": "current", "composed_by_bodhi": true, "create_automatic_updates": false, "package_manager": "dnf", "testing_repository": "updates-testing", "released_on": "2026-11-03", "eol": "2027-12-08", "critpath_mandatory_days_in_testing": 14, "mandatory_days_in_testing": 7, "critpath_min_karma": 2, "min_karma": 1, "setting_status": null}

@@ -69,7 +69,7 @@ ax.set_title("No base reaches 2036 on one free release: plan one or two in-place
 save("chart-lifecycle.png")
 
 # 4. Cost per device to 2036 (base scenario)
-stacks = ["Debian 13\n(chosen)", "AlmaLinux\nbootc (free)", "Ubuntu 26.04\n(Pro for Devices\n≈ $60/box assumed)", "Red Hat\nDevice Edge"]
+stacks = ["Debian 13\n(A leg)", "AlmaLinux\nbootc (free)", "Ubuntu 26.04\n(Pro for Devices\n≈ $60/box assumed)", "Red Hat\nDevice Edge"]
 k1 = [403, 406, 385, 1756]; k10 = [40, 41, 120, 1391]
 fig, ax = plt.subplots(figsize=(8, 3.8)); x = range(len(stacks))
 ax.bar([i - 0.2 for i in x], k1, width=0.38, color=BLUE, label="fleet of 1,000 units"); ax.bar([i + 0.2 for i in x], k10, width=0.38, color=GOLD, label="fleet of 10,000 units")

@@ -52,7 +52,7 @@
   #grid(columns: (auto, 1fr), column-gutter: 12pt, row-gutter: 8pt,
     text(weight: "bold")[Prepared for], [Zeus Delacruz, founder of OneMind OS],
     text(weight: "bold")[Date], [2026-11-11 (research run of 2026-11-10/11)],
-    text(weight: "bold")[Status], [Draft for founder review. Synthesises `research-output/` files 00–30 at foundation decision revision 4.],
+    text(weight: "bold")[Status], [Draft for founder review. Synthesises `research-output/` files 00–30 at foundation decision revision 4.1.],
     text(weight: "bold")[Evidence], [Every factual sentence carries a claim ID that resolves in the research ledger; Appendix C lists each source.],
   )
   #v(1fr)

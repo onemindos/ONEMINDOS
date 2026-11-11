@@ -12,6 +12,8 @@
 | Fedora IoT, Yocto + RAUC, Buildroot + RAUC, Ubuntu Core | Pass or conditional | Conditional | Fedora: about 13 months per release [C-W2-015] | Ranked |
 | Talos, Kairos, SUSE Linux Micro, balenaOS, NixOS, Alpine, CIP Core | — | **Fail**: no merged Orin support in Talos [C-W4-064]; Kairos has no Pi 5 [C-REF-DC-longevity-008] | **Fail** for short-lived ones | Out |
 
+**The IoT/IIoT gate (G4), checked for Ubuntu in revision 4.1.** Revision 4 had scored Ubuntu's IIoT gate from a ROS 2 source only, so revision 4.1 checked its five sub-checks one by one. Result: **conditional, and no sub-check fails**. Industrial protocols pass (an MQTT 5 broker ships in 26.04 [C-G4U-003]). Real time is conditional: Canonical documents a Raspberry Pi real-time kernel for 26.04, but no one has measured it on a Pi 5 [C-G4U-001, C-G4U-002]. Zero-touch onboarding is conditional: the open-source FDO client and server are released, but only as RPM packages [C-G4U-004, C-G4U-005]. Fleet scale is conditional: Canonical's Landscape manages packages but not A/B updates, so the update server is hawkBit [C-G4U-008, C-G4U-010]. Because nothing fails, the gate does not change the result (`01` §3.1.1, `09` §1). The "one OS from Pi to cluster" gate (G5) is conditional for every base, because the Jetson flavor is NVIDIA's Ubuntu 24.04 on all of them.
+
 ## The scores {#sec-distro-scores}
 
 Weights (frozen in `evidence/scorecard-weights.md` before scoring): longevity/support 20, hardware and robotics fit 20, security and update safety 15, proven in production 15, solo-developer operability 10, cost and licensing 10, ecosystem 10.
@@ -59,22 +61,39 @@ The frozen rule settles a tie between the **top two only**, row by row on the de
 
 **The case for Debian is real, but in the rules it is only tie-break rows.** No one's permission is needed to ship its core image; the closest constraint-matched competitor (umbrelOS) runs it; and every lab ran on it, now including native Arm and Secure Boot on RAUC 1.15.2 [C-W2-043, C-LAB-aarch64-gate-004, C-LAB-secureboot-1152-005]. You can still choose Debian yourself: Z-38 sets out the options, and the choice is then logged as yours, not as the scorecard's (Chapter 14).
 
+### Revision 4.1: three blind attacks, no change {#sec-blind-refuters}
+
+Earlier attackers (refuters) had read the research's own reasoning. In revision 4.1 three new ones were given **only the one-line decision** and asked to disprove it with their own sources. All three returned **weakened**; none returned **refuted**, and none found a score that disagrees with its source, so no score moves (`01` §5.1.3).
+
+| Lens | Verdict | Strongest point | What would turn it into "refuted" |
+|---|---|---|---|
+| Technical | Weakened | "One OS" is really a family: a 26.04 core, a 24.04 Jetson flavor whose standard support ends in 2029, and a separate Pi kernel [C-REF5-S1-technical-003, C-REF5-S1-technical-004]. RAUC has no merged Pi firmware fail-safe backend [C-REF5-S1-technical-006] | Refuted if Canonical refuses and the rebuild costs more than Debian with paid extended support, or if RAUC cannot replace Ubuntu's Pi boot fallback while a Debian A/B image passes the same power-cut test |
+| Longevity / vendor | Weakened | Canonical's permission "can be revoked at any time" [C-REF5-S1L-002]; JetPack 7 stays on Ubuntu 24.04 [C-REF5-S1L-009] | Refuted by a refusal, or a revocable-only offer with an unaffordable rebuild, or a Pro for Devices price that breaks the bill of materials |
+| Security | Weakened | If OneMind must strip the brand and rebuild, it loses Canonical's signed boot chain and must get its own shim signed [C-REF5S1SEC-001, C-REF5S1SEC-002]; "supported to 2036" holds only with Ubuntu Pro [C-REF5S1SEC-006] | Refuted if the rebuild route is forced with no shim plan, no hardware key store and no promise on how fast security fixes are rebuilt |
+
+**What this changes:** no score and no ranking. It sharpens two conditions: Canonical's answer (Z-01) must cover revocation and say which route ships, and "one OS" means one app platform over a 26.04 core and a 24.04 Jetson flavor. **The decision of record stays Ubuntu 26.04 + RAUC: fragile (11 of 14 runs), conditional on Z-01 and G5.**
+
 ## What changes the result: written in advance {#sec-decision-map}
 
-Two answers are pending: **Canonical's reply (Z-01)** and **the bootc test on a real Pi 5 (W2-HW-3)**. A third test was added after three refuters attacked this result: Ubuntu's one-point lead rests on a Secure Boot score earned by a lab that ran **Debian**, so **Ubuntu gets its own Secure Boot test** in a virtual machine before week 4 (`01` §5.1.2) [C-FIX4-010, C-FIX4-014]. On 2026-11-11, before either is known, the research applied the frozen rules to each outcome and recorded the result (`01` §3.1.6 h) [C-DEC4-007]:
+Three results are pending: **Canonical's reply (Z-01)**, **the bootc test on a real Pi 5 (W2-HW-3)**, and **Ubuntu's own Secure Boot test (U-SB)**. U-SB was added after three refuters attacked this result: Ubuntu's one-point lead rests on a Secure Boot score earned by a lab that ran **Debian** (`01` §5.1.2) [C-FIX4-010, C-FIX4-014]. On 2026-11-11, before any of the three was known, the research applied the frozen rules to each outcome and recorded the result (`01` §3.1.6 h) [C-DEC4-007]:
 
 | Event | Card | Base-OS result |
 |---|---|---|
-| Neither answer yet (today) | Ubuntu 65 · bootc 64 · Debian 63 | **Ubuntu** (fragile) |
-| Ubuntu fails its own Secure Boot test in a virtual machine (added after three refuters, `01` §5.1.2) | bootc 64 · Debian 63 · Ubuntu 62 | **RHEL-family bootc**, 6–5 over Debian |
-| bootc fails on a real Pi 5 (W2-HW-3) | Ubuntu 65 · Debian 63 · bootc 60 | **Debian 13**, 6–5 over Ubuntu |
-| Canonical refuses, and you reject the debranded rebuild | bootc 64 · Debian 63 | **RHEL-family bootc**, 6–5 over Debian |
-| Both of the above | Debian 63 · bootc 60 | Debian leads, but only in 7 of 14 runs: **unstable, your decision** |
-| Canonical agrees and publishes a price | Ubuntu 67 · bootc 64 · Debian 63 | **Ubuntu outright** |
+| None of the three results yet (today) | Ubuntu 65 · bootc 64 · Debian 63 | **Ubuntu** (fragile) |
+| **U-SB fails**, or passes only after a partition or bootloader change | bootc 64 · Debian 63 · Ubuntu 62 | **RHEL-family bootc**, 6–5 over Debian (bootc 11, Ubuntu 3 of 14 runs) |
+| **U-SB passes** unchanged in two runs | Ubuntu 65 · bootc 64 · Debian 63 | **Ubuntu** (as today; its Secure Boot score is then lab-tested) |
+| **U-SB fails and W2-HW-3 fails** | Debian 63 · Ubuntu 62 · bootc 60 | **Debian 13**, 6–5 over Ubuntu (14 of 14 runs) |
+| **U-SB fails and Canonical refuses** | bootc 64 · Debian 63 | **RHEL-family bootc**, 6–5 (14 of 14 runs) |
+| **W2-HW-3 fails** (bootc on a real Pi 5) | Ubuntu 65 · Debian 63 · bootc 60 | **Debian 13**, 6–5 over Ubuntu |
+| **Canonical refuses**, and you reject the debranded rebuild | bootc 64 · Debian 63 | **RHEL-family bootc**, 6–5 over Debian |
+| **Canonical refuses and W2-HW-3 fails** | Debian 63 · bootc 60 | Debian leads, but only in 7 of 14 runs: **unstable, your decision** |
+| **Canonical agrees** and publishes a price | Ubuntu 67 · bootc 64 · Debian 63 | **Ubuntu outright** |
+
+**U-SB was tried, and is blocked, not failed.** The test's pass/fail rule was frozen at 15:51 UTC on 2026-11-11, before any build, and the run started at once in a disposable virtual machine. It stopped because Ubuntu's download servers do not resolve from the research environment, while Debian, Fedora, kernel.org and GitHub do [C-FIX5-001, C-FIX5-002]. The rules forbid working around a block, so it was not run. **"Blocked" is not an event in the table:** no score moves, and Ubuntu's lead still rests on a Secure Boot score with no Ubuntu lab behind it. The kit is ready, with only the pre-registered Ubuntu changes [C-FIX5-003]: **you can run it as lab test LT-VM-20 on your Mac on day 1 (2026-11-16)**, about 1.5–2 hours unattended, twice (`22` LT-VM-20, `20` D1). That is decision Z-41 (Chapter 14).
 
 **What this means in practice.** One image recipe builds an **Ubuntu 26.04 version and a Debian 13 version** side by side (switching between them costs about 40 lines of bootstrap change and no gate change [C-LAB-ubuntu-2604-leg-011]). Nothing Ubuntu-based ships before Canonical answers. The base is **locked at gate G6** (April 2027), before anyone else installs OneMind. bootc is a different build, and a box shipped on Debian or Ubuntu + RAUC cannot move to bootc without a reflash [C-STEEL4-bootc-025], so the **bootc Pi 5 test runs before week 4**.
 
-**Variants a reviewer might prefer.** Three single judgements change the winner, and none was applied, because each would treat candidates unequally or change a rule after scoring: scoring "experimental" Pi 5 support as 2 for bootc gives **Debian**; cutting bootc's update-safety cell to 2 for the power-cut bug gives **Debian**; scoring "proven in production" on the whole stack including the update engine gives **bootc** outright [C-DEC4-007]. Z-40 asks you to write these readings down **before** W2-HW-3 runs, so no rule is chosen after its result is known.
+**Variants a reviewer might prefer.** At least seven other readings change the winner (`01` §3.1.6 g, V1–V6 and V8), and none was applied, because each would treat candidates unequally or change a rule after scoring [C-DEC4-007]. Scoring "experimental" Pi 5 support as 2 for bootc gives **Debian** (V1); scoring Ubuntu's longevity cell 2 gives **bootc** (V2); keeping Ubuntu's Secure Boot cell at 3 until U-SB runs gives **bootc** (V3); cutting bootc's update-safety cell to 2 for the power-cut bug gives **Debian** (V4); the security refuter's own card gives **Debian** (V5); scoring "proven in production" on the whole stack including the update engine gives **bootc** outright (V6); and reading Canonical's condition as a fail for Ubuntu alone gives **bootc** (V8). Z-40 asks you to write these readings down **before** W2-HW-3 runs, so no rule is chosen after its result is known.
 
 ## Lifecycle and cost to 2036 {#sec-lifecycle}
 

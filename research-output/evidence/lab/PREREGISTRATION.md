@@ -12,6 +12,8 @@ Each row records when a spike's goal, hypotheses and pass/fail criteria were fro
 | secureboot-1152 | 2026-11-11T12:11:49Z | `0e437bd424a122c5c891b7afba38cb84c7eab0f4931a9001da89476e7050ca28` |
 | ubuntu-secureboot (U-SB, FIX5) | 2026-11-11T15:51:12Z | `c98a09d1d89f3b25184986b2711e9276aa548014246b9ede6c34c8e981e8f8db` |
 
+**U-SB's frozen rule (SYNC5 note, 2026-11-11, critic P5-3).** The `ubuntu-secureboot` README §4 freezes the `01` §3.1.6 (h) map rows word for word, and `22` LT-VM-20 and `20` (G1, G6, §5.4) now quote the same rows: **PASS** = T0–T6 and T8 pass in **two** full runs with only the changes its §3 allows → "U-SB passes unchanged in two runs" (D stays; D·C3 loses `doc-only`). **FAIL** = any T1–T6 or T8 guest-side failure in any run, **or** a pass that needs a partition or bootloader change → D·C3 4 → 3 → **C (RHEL-family bootc)**. **BLOCKED** = not run, no map event. Its README was BLOCKED at 15:56Z; on 2026-11-11 SYNC5 edited only text **below** its `## Results` line (a corrected sentence and a timing section R.5). The first 65 lines (through `## Results`) still hash to `c98a09d1…f8db`, checked after the edit.
+
 ## Index of every spike (added 2026-11-11 by the HYG agent, critic pass-2 gap #17)
 
 The table above covers only spikes frozen from 07:12Z on 2026-11-11 onward, and is maintained by those spikes' agents. This index covers **every** spike folder in `evidence/lab/`, including the earlier ones.
@@ -38,6 +40,9 @@ The table above covers only spikes frozen from 07:12Z on 2026-11-11 onward, and 
 | minimal-image-dc20 | `51c48b24d870a8afb1c7cf9ea6232727565ff8e20b53958ca7f5214cfa09cb35` | uncommitted | README §2–3 | registered above | Yes, while unchanged |
 | ubuntu-2604-leg | `1ada29b4e96d57d11e0f5553063c944fcc425d6be5cd6028f32fd307050f75f1` | uncommitted | README §3 | registered above | Yes, while unchanged |
 | mender | `f99e1011e32904bfa67fc493c861d4ba64dbbad9aaee6f5f1926508b7904ca8f` | uncommitted | README §3 (copy in `<lab-dir>/mender/README.prereg.md`) | registered above | Yes, while unchanged |
+| aarch64-gate *(row added by SYNC5)* | `2e4284257f575924a19a9f3a13117543b082f0d940bee5f2d6debbb09098b8b9` | `b933b86` | README up to `## Results` | registered above, 12:12:00Z; `PREREGISTRATION.sha256` | **Yes**, by the recipe in its `PREREGISTRATION.sha256` (restore the Status line, truncate after `## Results`): gives `01923bee…fdd4`, checked 2026-11-11 |
+| secureboot-1152 *(row added by SYNC5)* | `6e44e79076eee9dfe57cb2f12af7cf429d5fbf8b0bca3af3c04c265f9428e2c5` (masked; see Masking log) | `b933b86` | README §4 | registered above, 12:11:49Z | **Yes**: lines 1–59 hash to `0e437bd4…ca28`, checked 2026-11-11 |
+| ubuntu-secureboot (U-SB) *(row added by SYNC5)* | `f8376ec4ee9832aa15d362d2ae0c3ecf14a9767468b99eaf4722172867353761` (after the SYNC5 R.5 edit) | `b933b86` (the frozen part and the BLOCKED result) | README §4 (the `01` §3.1.6 h wording) | registered above, 15:51:12Z | **Yes**: lines 1–65 hash to `c98a09d1…f8db`, checked 2026-11-11 after the SYNC5 edit. Verdict BLOCKED, so no criterion has yet been tested |
 
 ## Masking log (2026-11-11, critic pass-3 P3-10)
 

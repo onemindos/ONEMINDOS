@@ -3,7 +3,7 @@
 **Date:** 2026-11-11 · **Tier:** C (secondary sources allowed when labelled; primary sources for everything the build depends on) · **Status:** draft 1
 **Serves requirements:** F-8, F-7, F-9, M-6, M-8, RS-1, RS-7, D-002, W-2 (input)
 **Claims:** `evidence/claims/W17.csv` (C-W17-001…030), plus reused rows from W5, W7, W8, W18, the teardowns and the labs. **Sources:** `evidence/sources/W17.md`. **Question-bank statuses:** `evidence/qbank/W17.md` (Q321).
-**Consistent with:** `01-FOUNDATION-DECISION.md` revision 2 (Debian 13 core, RAUC A/B, k3s on platform nodes, NATS leaf below, Jetson on L4T with meta-tegra evaluated) and `28-…` §9 (Mac setup).
+**Consistent with:** `01-FOUNDATION-DECISION.md` revision 4.1 (synced 2026-11-11, SYNC5-c; first written against revision 2, when the core was Debian 13) and `28-…` §9 (Mac setup). **What moved:** since `01` rev. 4 the base-OS decision of record is **Ubuntu 26.04 LTS + RAUC A/B**, narrow (it wins 11 of 14 weight-shake runs) and conditional on Canonical's permission (Z-01) and G5. One image definition builds a **Ubuntu 26.04 leg and a Debian 13 leg** at parity until the base is locked before the first box ships (`01` §1, §3.1.6). RAUC A/B, k3s on platform nodes, NATS leaf below, and Jetson on L4T Ubuntu 24.04 are unchanged. **For this path:** every module teaches skills that apply to both legs. Where a module says "Debian", it is the Debian leg. Do the exercises in the Debian 13 VM as written, and keep a second Lima VM on Ubuntu 26.04 so you can repeat L1–L5 on the decision of record.
 
 > ### Explain it like I'm the founder
 > You already run the hard half of OneMind: Kubernetes, NATS, GitOps and the agents. What you have not done yet is the layer *under* Kubernetes: how a box boots, how its disk is laid out, how a whole operating system is built as one file, swapped for a new one, and rolled back when the new one is broken. That layer is what turns "a cluster with a portal" into "an OS".
@@ -125,7 +125,7 @@ The week numbers are this file's mapping onto the sequence that `01-…` and `28
 
 ### L3 · The kernel and its configuration (weeks 2–6)
 
-**Why now.** OneMind's launch kernel route is K1: Debian's kernel on x86/arm64, Raspberry Pi's kernel on the Pi, NVIDIA's L4T kernel on Jetson, plus a **kernel contract** checked in CI (`28-…` §6.2). The Secure Boot release may move x86/arm64 to a OneMind-built LTS kernel (K2) [01 §7.1 R2-10]. You need enough to read a kernel config and run the T-W18-4 bump dry-run.
+**Why now.** OneMind's launch kernel route is K1: the base's stock kernel on x86/arm64 (Canonical's on the Ubuntu leg, Debian's on the Debian leg; `01` §1), Raspberry Pi's kernel on the Pi, NVIDIA's L4T kernel on Jetson, plus a **kernel contract** checked in CI (`28-…` §6.2). The Secure Boot release may move x86/arm64 to a OneMind-built LTS kernel (K2) [01 §7.1 R2-10]. You need enough to read a kernel config and run the T-W18-4 bump dry-run.
 
 **Read.**
 1. Kernel docs, *Kernel Build System* (Kconfig, Kbuild, configuration targets, external modules) [C-W17-027].
@@ -142,7 +142,7 @@ The week numbers are this file's mapping onto the sequence that `01-…` and `28
 
 ### L4 · Image builds (weeks 3–6)
 
-**Why now.** From about week 3, the same Dockerfile layers that install Core on plain Debian also produce the OS image (`28-…` §8). This is the umbrelOS pattern: a multi-stage Docker build of Debian trixie with the base image pinned by digest and apt pinned to snapshot.debian.org dates [C-TD-umbrelos-003].
+**Why now.** From about week 3, the same Dockerfile layers that install Core on plain Debian also produce the OS image (`28-…` §8). This is the umbrelOS pattern: a multi-stage Docker build of Debian trixie (OneMind builds the same layers on `ubuntu:26.04` too, one leg each) with the base image pinned by digest and apt pinned to snapshot.debian.org dates [C-TD-umbrelos-003].
 
 **Read.**
 1. Docker's multi-stage build docs, then the multi-platform guide again [C-W17-012].
@@ -346,7 +346,7 @@ Cost is "free" unless stated. "Freshness" says how close the material is to what
 1. **The Debian Administrator's Handbook online edition is for Debian 11**, two releases behind trixie [C-W17-004]. Use it for concepts only; check commands against Debian 13's own man pages.
 2. **Several official sites block automated readers** (docs.ros.org, wiki.debian.org/SecureBoot, the Linux Foundation RT wiki, raspberrypi.com docs, Springer) [C-W17-030]. They open normally in a browser. This run used source repos at pinned SHAs instead; nothing was bypassed.
 3. **Inconsistency: RAUC's ESP-type advice vs the §4.3 layout (for W3, not changed here).** RAUC's docs say the boot-slot partitions *may omit* the ESP type GUID so firmware does not auto-create boot entries that fight RAUC [C-W17-010]. `01-…` §4.3 gives boot-a/b the ESP type and handles the side effect with rule SB-2 (remove firmware auto-entries and re-check every boot). Both can work, and X-2R passed with the ESP type in OVMF. On real PC firmware (F-SB-1…3 on the Dell 5540) the RAUC-documented option should be tested as a variant. Reported as a follow-up; this file does not change the decision.
-4. **Open point: which tool builds the image now that the engine is RAUC.** `28-…` §7 chose Rugix Bakery, partly because it "pairs with the Rugix updater"; revision 2 of `01-…` switched the engine to RAUC and does not restate the image builder. L4 teaches the shared part (a Dockerfile-defined rootfs, the umbrelOS pattern) and the hand-made path. `30-NEXT-ULTRACODE-BUILD-BRIEF.md` should name the builder explicitly: Rugix Bakery producing images that carry RAUC, or mkosi (the W18 runner-up, strongest on UKIs and verity).
+4. **Resolved (rev. 4.1 sync): `30-…` BD-05 names the builder:** a Containerfile-defined rootfs plus OneMind's own assembler, using the tools the passing labs used; Rugix Bakery (`28-…` §7) is superseded. The original open point follows. **Open point: which tool builds the image now that the engine is RAUC.** `28-…` §7 chose Rugix Bakery, partly because it "pairs with the Rugix updater"; revision 2 of `01-…` switched the engine to RAUC and does not restate the image builder. L4 teaches the shared part (a Dockerfile-defined rootfs, the umbrelOS pattern) and the hand-made path. `30-NEXT-ULTRACODE-BUILD-BRIEF.md` should name the builder explicitly: Rugix Bakery producing images that carry RAUC, or mkosi (the W18 runner-up, strongest on UKIs and verity).
 5. **The week mapping is provisional** until `20-PLAN-180-DAYS.md` exists.
 
 ---

@@ -66,7 +66,7 @@ M-2 (security baseline), R-1 (safe updates), R-3 (maintainability), U-4 (data sa
 
 **Verdict: BLOCKED (environment), not run.** Recorded 2026-11-11T15:56Z under the §4 BLOCKED rule. **No map event:** the S1 decision of record and every cell stay as they are, and U-SB stays open [C-FIX5-001, C-FIX5-002].
 
-> **Explain the result like I'm the founder.** We set the test up exactly as promised and froze the rules first. But the test needs Ubuntu's software, and in this run's environment the Ubuntu and Canonical web addresses are blocked on purpose: every other site we tried still worked, including Debian, Fedora, kernel.org and GitHub. A block on exactly those two names looks deliberate, perhaps to enforce "never contact vendors" now that Canonical is a negotiation party (Z-01). We could have gone around it through another address book or another mirror, but going around a block is not ours to decide, so we did not. The test kit is finished and published here. Anyone with normal internet access can run it in about one and a half to two hours, unattended, with no hardware. Until it runs, the decision still reads "Ubuntu, if this one score holds".
+> **Explain the result like I'm the founder.** We set the test up exactly as promised and froze the rules first. But the test needs Ubuntu's software, and by the afternoon of 2026-11-11 the Ubuntu and Canonical web addresses no longer worked in this run's environment, while every other site we tried still did, including Debian, Fedora, kernel.org and GitHub. *(Corrected by SYNC5, critic P6-3: an earlier draft said "blocked on purpose". That morning the same environment did download Ubuntu 26.04 from the archive for another lab, so the block started during the day, and we do not know whether it is deliberate or a temporary fault. See R.5.)* A block on exactly those names may be deliberate, perhaps to enforce "never contact vendors" now that Canonical is a negotiation party (Z-01). We could have gone around it through another address book or another mirror, but going around a block is not ours to decide, so we did not. The test kit is finished and published here. Anyone with normal internet access can run it in about one and a half to two hours, unattended, with no hardware. Until it runs, the decision still reads "Ubuntu, if this one score holds".
 
 ### R.1 What happened
 
@@ -109,4 +109,22 @@ limactl delete -f lab-usb
 
 ### R.4 Files
 
-`README.md` (this file), `PREREGISTRATION.sha256`, `scripts/` (the kit), `logs/env-probe.log` (host paths masked), `SHA256SUMS`. Claims: `../../claims/FIX5.csv`; sources: `../../sources/FIX5.md`.
+`README.md` (this file), `PREREGISTRATION.sha256`, `scripts/` (the kit), `logs/env-probe.log` (host paths masked), `SHA256SUMS`, `versions.md` (added by SYNC5, critic N11; not in `SHA256SUMS`). Claims: `../../claims/FIX5.csv`, `../../claims/SYNC5-b.csv`; sources: `../../sources/FIX5.md`.
+
+### R.5 When the archive stopped resolving (SYNC5, 2026-11-11, critic P6-3)
+
+The block is **not** a permanent property of this environment. The honest timeline, all times UTC on 2026-11-11:
+
+| Time | What happened | Evidence |
+|---|---|---|
+| 07:15:32 | `ubuntu-2604-leg` started two Ubuntu 26.04 bootstraps in parallel (`mmdebstrap amd64 resolute`, U1 and U2) from `archive.ubuntu.com` and `security.ubuntu.com`. Both finished | `../ubuntu-2604-leg/logs/build-u1.log`, `build-u2.log`; its `versions.md` ("build day 2026-11-11, archive.ubuntu.com + security.ubuntu.com") [C-SYNC5-b-002] |
+| 07:53:08 → 07:59:38 | A third Ubuntu bootstrap (U1p) ran and finished; this is the **last recorded successful use** of the Ubuntu archive in this run | `../ubuntu-2604-leg/logs/build-u1p.log` [C-SYNC5-b-002] |
+| before 15:36 (exact time not logged) | The FIX4 agent found `ubuntu.com`, `launchpad.net`, `packages.ubuntu.com` and other Canonical names not resolving. Its note does not name `archive.ubuntu.com` | `../../sources/FIX4.md` "Access note" [C-FIX5-004] |
+| 15:56:15 | This spike's probe: `archive.ubuntu.com` and `security.ubuntu.com` fail on the host and in a fresh lab VM; Debian, Fedora, kernel.org and GitHub resolve | `logs/env-probe.log` [C-FIX5-001] |
+| 16:12 | Critic pass 7 re-probe: still not resolving | `../../critic/pass-7.md` §3.9 |
+| 16:43:35 | SYNC5 re-probe (host `getaddrinfo`, read-only): `archive.ubuntu.com`, `security.ubuntu.com` and `ubuntu.com` still fail; `deb.debian.org` resolves | [C-SYNC5-b-001] |
+
+**What this means.**
+- The archive stopped resolving at some point **between about 08:00 and 15:56 UTC**. The run cannot tell whether that was a deliberate block or a temporary fault. So "unreachable from the research environment" in C-FIX5-001 and in `01` R4-16 is true **from the afternoon on**, not for the whole day.
+- The morning builds did not keep an Ubuntu rootfs or package cache that U-SB could reuse (critic pass 6, P6-3, checked read-only). They also used a different kit (GRUB, RAUC 1.13/1.15.1, no Secure Boot), so they are not U-SB evidence.
+- Nothing changes in the verdict. **BLOCKED stands, and it is not a map event.** No alternative resolver, IP read, hosts entry or third-party mirror was used after deviation 1 (R.2). The founder step is LT-VM-20 with access item LT-ACC-01 in `22-HARDWARE-LAB-TEST-PLAN.md`: run the kit where the archive resolves, or tell the environment's operator to say whether the block is deliberate.

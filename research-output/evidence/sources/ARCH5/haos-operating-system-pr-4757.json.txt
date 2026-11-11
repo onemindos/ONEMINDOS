@@ -1,0 +1,25 @@
+# Source: https://api.github.com/repos/home-assistant/operating-system/pulls/4757 (gh api), web page https://github.com/home-assistant/operating-system/pull/4757
+# Accessed: 2026-11-11 (ARCH5). Reduced to fact fields with jq; user handles and URL templates dropped. Full raw response sha256 is in SHA256SUMS notes.
+
+{
+  "number": 4757,
+  "title": "Add CAs for new signing certificates to RAUC keyring",
+  "state": "closed",
+  "merged": true,
+  "draft": false,
+  "created_at": "2026-06-09T09:08:27Z",
+  "closed_at": "2026-06-09T16:09:46Z",
+  "merged_at": "2026-06-09T16:09:46Z",
+  "merge_commit_sha": "f561b241afe2b11174709e9b7b923ccabb42dcbd",
+  "head_sha": "5de930f1690a0546128600dff125d73d826583d3",
+  "base_ref": "dev",
+  "commits": 1,
+  "changed_files": 6,
+  "additions": 396,
+  "deletions": 85,
+  "labels": [
+    "cla-signed",
+    "build"
+  ],
+  "body": "Add certificates with new PKI chain to replace the old one. Until May 14th 2028, bundles signed with the old certs will be accepted as well. The transition to the new authority using bundles signed by the new certs is ensured by the intermediate certificate signed by the old CA. This, and the old CA certificates can be removed from the keyring after their expiry.\r\n\r\nThe keyrings no longer contain CRLs, but the validity of the certificates will be shortened to 4 years, as discussed in the linked issue.\r\n\r\nCloses #4743\n\n<!-- This is an auto-generated comment: release notes by coderabbit.ai -->\n\n## Summary by CodeRabbit\n\n## Release Notes\n\n* **Chores**\n  * Updated OTA update certificate configuration to include intermediate CA certificate support for backward compatibility. This addition is scheduled for removal on May 14th, 2028.\n\n<!-- end of auto-generated comment: release notes by coderabbit.ai -->"
+}
