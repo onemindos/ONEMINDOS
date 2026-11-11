@@ -33,7 +33,7 @@ The founder's thesis: **"create the connections of the world and make it into on
 
 | Class | Hypothesis |
 |---|---|
-| Mini PCs, hubs, home servers, Pi 5 | OneMind image (Debian 13 leg / base per Z-38) |
+| Mini PCs, hubs, home servers, Pi 5 | OneMind image (Debian 13, D-007) |
 | Cloud servers | (1) OneMind image as a cloud VM; (2) install on the cloud's stock Ubuntu/Debian; (3) on managed Kubernetes (DOKS/EKS/GKE) |
 | Company and GPU servers OneMind does not own | Install on top of their unmodified OS |
 | Robots and drones (Jetson) | NVIDIA L4T + OneMind agent (k3s agent + NATS); later a OneMind Jetson image via Yocto meta-tegra |
