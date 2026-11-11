@@ -438,4 +438,4 @@ All opened 2026-11-10. Notes: "(search)" = taken from search-result text only.
 - S64 micro-ROS: https://micro.ros.org/
 - S65 SIMATIC IOT2050: https://www.siemens.com/global/en/products/automation/pc-based/iot-gateways/simatic-iot2050.html
 - S66 Yocto releases: https://wiki.yoctoproject.org/wiki/Releases
-- Internal: `/Users/zeus/Desktop/ONEMINDOS/docs/ADR-001-foundation.md`, `/Users/zeus/Desktop/ONEMINDOS/research/platform/base-os-and-orchestration.md`
+- Internal: `docs/ADR-001-foundation.md`, `research/platform/base-os-and-orchestration.md`

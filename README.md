@@ -11,6 +11,7 @@ This repo holds OneMind OS research, requirements and architecture. No product c
 | Path | What |
 |---|---|
 | [RESEARCH-MISSION.md](RESEARCH-MISSION.md) | **The master research brief** for the ultracode research run |
+| [RESEARCH-MISSION-02-ONE-MIND-FABRIC.md](RESEARCH-MISSION-02-ONE-MIND-FABRIC.md) | **Mission 02:** how every machine (cloud, servers, PCs, Pi, robots, drones, vehicles, sensors) joins one OneMind, with phones as clients; output in `research-output/fabric/` |
 | [context/](context/) | Context pack: conversation record, proven cluster, prior planning, findings index, founder/ecosystem, **333-question research bank** |
 | [research-output/](research-output/) | Where the research agent writes its deliverables (reviewed via PR) |
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | Founder requirements with IDs. The source of truth for *what* we build. |
