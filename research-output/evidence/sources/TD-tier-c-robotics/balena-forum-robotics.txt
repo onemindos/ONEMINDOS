@@ -1,0 +1,140 @@
+Source: https://forums.balena.io/t/anyone-here-using-balenaos-for-robotics/36362
+Accessed: 2026-11-11
+
+Anyone here using balenaOS for robotics? - Project help - balenaForums
+
+ balenaForums
+
+ Anyone here using balenaOS for robotics?
+
+ Project help
+
+ rezenders
+
+ October 10, 2019, 7:25pm
+
+ 1
+
+Just curious to know if the robotics community is working with this kind of technology
+
+ CameronDiver
+
+ October 10, 2019, 7:48pm
+
+ 2
+
+Hey, there is definitely some people using rOS for various robotics projects, an example here: Install ROS (Robot operating system)
+
+What sort of project did you have in mind?
+
+ rezenders
+
+ October 10, 2019, 8:04pm
+
+ 4
+
+I’m working in my master thesis with UAVs and I am enjoying so far using balenaOS for this.
+
+Now I just started a new job and we are starting a project for a new robot and I want to use balenaOS, however, this project is bigger and a lot more serious than a msc thesis. Because of this I want to know if more people are doing something similar and if they have had any troubles or have suggestions.
+
+In general, I want to exchange knowledge 
+
+ mhe_lorenz
+
+ October 23, 2019, 10:37pm
+
+ 6
+
+TLDR; Balena, imho, is the way to go if you want a flexible fleet managing system to do whatever you want and perhaps the best support you will ever get.
+
+We are in the process of porting our application from native Ubuntu 16.04 to Balena on a NVIDIA Jetson TX2 with the first production devices expected to ship at new year.
+
+We rely on ROS and other open source tools and most of the porting process has been just as easy as running a sample app with small additions here and there. We have chosen to go with a custom not officially supported device and have received great support from the Balena team in the process - both directly related to the custom device, our application, and anything in between.
+
+We have chosen Balena over AWS RoboMaker, Google Cloud Robotics, or Microsoft Azure IoT Hub (to name a few other options other options which fits well in our technology stack) because it allows us to be technology agnostic. By using Balena we have full freedom to use whichever technology we see fit for our application and not be limited by whatever inherent bias any of the other technology stacks may have.
+
+We have chosen to get custom device support as a service from Balena which is quite a line in the budget. This allows us to focus on our application while utilizing Balena for what they do best: manage a fleet of devices.
+
+Managing 10 devices manually has occupied 20-40% of my time. For a company having only been in business for a few years this was acceptable but it obviously does not scale to even the first production batch.
+
+I’ll be happy to exchange knowledge.
+
+ imrehg
+
+ October 24, 2019, 10:45am
+
+ 8
+
+Thanks a lot for the feedback, @mhe_lorenz, very interesting and glad to hear both where the product/team helped, and where you find it still more difficult than it could be. Looking forward to see what the future will look like 
+
+ Related topics
+
+ Topic
+
+ Replies
+ Views
+ Activity
+
+ Build one (or many) robots with balena: Introducing the tech stack and robot block
+
+ Discussions
+
+ 0
+
+ 263
+
+ November 23, 2021
+
+ Scale and manage your robotics fleets without building custom edge infrastructure
+
+ Discussions
+
+ 0
+
+ 68
+
+ September 15, 2026
+
+ Prototype, deploy, and scale robotics solutions with balena
+
+ Discussions
+
+ 0
+
+ 257
+
+ June 24, 2022
+
+ Deploy custom OS on balena
+
+ balenaOS
+
+ 2
+
+ 144
+
+ June 4, 2024
+
+ Device OS other than BalenaOS?
+
+ Project help
+
+ raspberrypi3
+
+ 4
+
+ 385
+
+ April 14, 2021
+
+ Home 
+
+ Categories 
+
+ Guidelines 
+
+ Terms of Service 
+
+ Privacy Policy 
+
+Powered by Discourse, best viewed with JavaScript enabled

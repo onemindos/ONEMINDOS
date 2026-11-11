@@ -1,0 +1,112 @@
+Source: https://docs.formant.io/docs/agent-faq.md
+Accessed: 2026-11-11
+
+---
+updatedAt: 2026-09-24T14:52:58.000Z
+agentTools:
+  projectIndex: https://docs.formant.io/llms.txt
+---
+
+# Agent FAQ
+
+## Can I limit the Formant agent's bandwidth usage?
+
+Formant provides a few bandwidth control options:
+
+### Cap the agent's upload rate (agent 1.372.0 and later)
+
+Set `FORMANT_UPLOAD_RATE_LIMIT_KBPS` on the device to put a hard ceiling, in kilobits per second, on the agent's asset uploads (video, images, point clouds, large JSON). Optionally set `FORMANT_TELEOP_UPLOAD_RATE_LIMIT_KBPS` to a lower ceiling for while a teleoperation session is open; without it, asset uploads are held during teleop and resume afterwards. The cap is per agent, so on a link shared by several robots, divide the uplink by the robot count, leave headroom for teleop, and set it on every robot. Details, sizing guidance and how to verify: [Environment variables for the agent: Upload pacing](https://docs.formant.io/docs/environment-variables-for-the-agent#upload-pacing-environment-variables).
+
+### 1. Update the Formant agent
+
+In release 1.91 we introduced new protocols between the formant-agent and the backend that reduce the usage of the formant-agent. Update the agent by runing `sudo apt update && sudo apt upgrade formant-agent`
+
+### 2. Low Bandwidth Mode
+
+After release 1.91, in your device's general settings, you can put the formant-agent in low bandwidth mode. This significantly reduces the amount of data the formant-agent uses for its passive duties (i.e., checking in with the formant-cloud)
+
+<Image title="Screen Shot 2022-09-28 at 3.25.57 PM.png" alt={1418} align="center" width="smart" src="https://files.readme.io/85a9dba-Screen_Shot_2022-09-28_at_3.25.57_PM.png" />
+
+### 3. Rate Limiting
+
+Each data stream can be rate-limited, so you don't need to ingest data at high resolution if you don't need it. Find this in the settings for each stream.
+
+<Image title="Screen Shot 2022-09-28 at 3.27.08 PM.png" alt={1258} align="center" width="smart" src="https://files.readme.io/5bc85c8-Screen_Shot_2022-09-28_at_3.27.08_PM.png">
+  In the settings here, we are limiting this stream to 1Hz
+</Image>
+
+### 4. On Demand
+
+Each data stream can be set to on-demand, so it is only ever uploaded if specifically requested (from the Formant UI, or programmatically, or by an event)
+
+### 5. Video Encoding
+
+Instead of using compressed/raw image streams, the formant-agent can encode the video for you to significantly reduce the bandwidth of these streams. This is selected in the video encoding settings on an image stream.
+
+<Image title="Screen Shot 2022-09-28 at 3.28.28 PM.png" alt={1202} align="center" width="smart" src="https://files.readme.io/9b85e5b-Screen_Shot_2022-09-28_at_3.28.28_PM.png">
+  Here the stream of images has been encoded into a 360p video, reducing bandwidth.
+</Image>
+
+## How can I make the "formant" user use a different python than the system level python?
+
+For native installations, export `FORMANT_AGENT_PYTHON_PATH` and `FORMANT_AGENT_PYTHON3_PATH` to the desired values in `/var/lib/formant/.bashrc` to specify the pythons the formant user will use. These values default to `python` and `python3`.
+
+## How can I source a custom script before the Formant agent process starts?
+
+For native installations, export the `SOURCE_SCRIPT` environment variable in `/var/lib/formant/.bashrc` to the location of the custom script. The "formant" user will source the provided script before executing the Formant agent process. See [Environment variables for the agent](https://docs.formant.io/docs/environment-variables-reference).
+
+## What environment variables can I add to /var/lib/formant/.bashrc?
+
+A list of all optional environment variables that affect the behavior of the Formant agent can be found [here](https://docs.formant.io/docs/environment-variables-for-the-agent)
+
+> 📘 Restart agent
+>
+> The agent reads its environment once at startup. Restart it for changes to take effect: `sudo systemctl restart formant-agent` on a native installation, `docker restart formant-agent` on a Docker installation. On Docker the same file is read from the host's `/var/lib/formant`, which the installer mounts into the container; you can also pass variables with `-e` via `--extra-args`. See [Where to set environment variables](https://docs.formant.io/docs/environment-variables-for-the-agent#where-to-set-environment-variables).
+
+## Agent setup troubleshooting
+
+### The Formant agent ROS bridge is not running
+
+Most parts of the formant agent ROS bridge are python3 processes. Try running import rospy in a python3 shell. If this import errors, you may have to install python3-roskpg-modules:
+
+apt install python3-rospkg-modules
+
+Please make sure you have the following packages installed on pyhton3 for ros\_bridge:
+
+rosgraph\
+roslib\
+rostopic\
+std\_msgs\
+GTK\
+gi\
+sensor\_msgs\
+genpy\
+actionlib\_msgs\
+geometry\_msgs\
+sensor\_msgs\
+The following packages need to be installed on python2 for tf2\_bridge:
+
+rosgraph\
+rospy\
+tf2\_ros\
+genpy
+
+### ImportError: cannot import name Gst, introspection typelib not found
+
+Some systems will not have a video streaming dependency installed. To fix, you can install the following:
+
+apt install gir1.2-gst-rtsp-server-1.0
+
+### /usr/sbin/policy-rc.d returned 101, not running 'enable formant-agent.service'
+
+The system's policy-rd.d may be set up to disallow enabling services. Edit /usr/sbin/policy-rc.d to exit 0 instead of 101.
+
+### ROS data not showing up on webapp
+
+If the installation was successful, but the ROS based data is not displaying on the webapp, it is likely that the agent did not detect that it was ROS based device. Check if ROS\_MASTER is set in your environment. If it is not set, then set it as follows:
+
+```shell
+export ROS_MASTER_URI=http://localhost:11311
+```
+
+Then rerun the agent installation command you ran without the token. If you ran the docker based agent installation, rerun the docker based command.

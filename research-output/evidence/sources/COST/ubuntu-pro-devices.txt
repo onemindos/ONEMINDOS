@@ -1,0 +1,29 @@
+Source: https://ubuntu.com/pro/devices
+Accessed: 2026-11-11 (curl + HTML-to-text; excerpt)
+----
+ Learn about IoT device management › 
+ Kernel Livepatch 
+ Livepatch offers a rebootless security patching automation to address high and critical kernel vulnerabilities that surface between scheduled maintenance windows. Eliminate unexpected required reboots for machines requiring mission-critical uptime and maximum security. 
+ Learn about Livepatch › 
+ Compliance and hardening tools 
+ FIPS 140 certified modules, CIS and DISA-STIG hardening profiles, and the automation to apply and audit them at scale, including in air-gapped environments. 
+ Learn about supported security standards › 
+ Real-time and robotics coverage 
+ Long-term maintenance for Real-time Ubuntu and ROS ESM , for latency-critical and robotics workloads. 
+ Pay once per device 
+ Ubuntu Pro for Devices can be purchased for a one-time fee per device, covering security maintenance for its entire lifecycle. 
+ Talk to an expert › 
+ Device management included 
+ Manage, deploy, monitor, and scale your fleet with Landscape Remotely monitor, update, and manage IoT devices with a clearly defined rollout policy. Landscape reduces the cost of managing open source and enables you to proactively manage security for your IoT devices: Get a single pane of glass for managing any Ubuntu instances including system containers, virtual machines, and physical nodes. Scan packages automatically for vulnerable versions, and create reports for any cross-section of your Ubuntu estate. Perform hardening and auditing at scale in air-gapped environments. 
+ Discover Landscape › 
+ Pull all your software from a secure source Access thousands of packages and open source applications, already built into your development environment and benefit from updates and security patches for the applications you use on your device. It's securely maintained IoT, as standard. 
+ Develop at speed with the Ubuntu ecosystem 
+ Speed up go-to-market 
+ Build on the combined expertise of Canonical and hardware partners to get your solution to market faster. Benefit from optimized Ubuntu images for your specific piece of hardware. Canonical continually works to certify the latest hardware for Ubuntu, as well as testing for reliability and performance, ensuring you have the best out-of-the-box experience. 
+ Discover certified hardware › 
+ Ubuntu Core 
+ Ubuntu Core is more than just your embedded Linux OS; it's your whole deployment infrastructure. Build targeted production-ready images, unlock over-the-air (OTA) updates, deploy in air-gapped environments, manage your fleet of devices, achieve real-time operations, comply with cybersecurity requirements and more. 
+ Explore Ubuntu Core › 
+ Want to know more? Contact our team › 
+ Resources 
+ Understand IoT security and IoT compliance across global markets 

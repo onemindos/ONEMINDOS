@@ -1,0 +1,44 @@
+# Website stack fingerprints, fetched 2026-11-11 with curl (public home pages; headers + HTML markers). Body sha256 is of the fetched HTML.
+# host | final HTTP status | stack markers (server/x-* headers, generator meta, asset paths) | body sha256
+community.frame.work | 200 | server,x-discourse-route, nginx, | generator=discourse 2026.11.0-latest - https://git discourse google-tag | 7f08960fe7dd382b889242e247839ee3d5721bb857db8199b8624081ce5102af
+community.home-assistant.io | 200 | server,x-discourse-route, cloudflare, | generator=discourse 2026.8.0-latest.1 - https://gi discourse | 4f8e256dd381e5ec984e2ca426f06a507307731a26e28b650a904c47a0141f5c
+community.start9.com | 200 | server,x-discourse-route, nginx, | generator=discourse 2026.11.0-latest - https://git discourse | f1881a646219a442d49a30278227bc6724bbf6ae8e635ff095ae09f90a305c9a
+community.umbrel.com | 200 | server,x-discourse-route, nginx, | generator=discourse 2026.11.0-latest - https://git discourse | 95ad83c77b7a551076d467cfd6801a0d4752e6e6bb7276961c75efce9395b07b
+community.zimaspace.com | 200 | server,x-discourse-route, nginx, | generator=discourse 2026.9.0-latest - https://gith discourse google-tag | 0a5f56d7fd04d25df152eeb255fb750e8238fc7a7a4c060df2ee42810bdd2575
+developers.home-assistant.io | 200 | server,x-nf-request-id, cloudflare, | astro plausible | 236c0e49f51942650d85cfcc448881e297c3e1130a3a330913fea6547ea473fc
+docs.olares.com | 200 | server, cloudflare, | generator=vitepress v1.6.4 google-tag vitepress | 0b5cad1c8d84feb7e63a0c8526685510e32a60e8f23b6aeca479003f16b27dd1
+docs.start9.com | 200 | server, nginx/1.30.6, |  | 5709fa552abaa4e398d177d618127f1cd5aae8d76b2187785c8a4ea992b9c325
+docs.umbrel.com | 404 | server, Vercel, |  | efc0b4483cea1a7986dd68c8eac0bb072c6e7b14a6530fd4a6baa42d87dba0c2
+download.umbrel.com | 404 | server, Vercel, |  | bbda3328c4a92e84c369ef6a0e8abf2b3b41cd52713c6397aa89040fd910e22b
+forum.olares.com | 200 | server,x-discourse-route, cloudflare, | generator=discourse 2026.9.0-latest - https://gith discourse google-tag | af3fb2067a2aeb474c709f4891242628adf4b2b827fa8f7db0e6436101960ef1
+frame.work_marketplace | 200 | server,via, 2.0 heroku-router,cloudflare, | klaviyo google-tag | b14f9d7cb6449a89838e96531f2490f9c09b8b35ebae1ad74f89a4af6de4ec44
+frame.work | 200 | server,via, 2.0 heroku-router,cloudflare, | klaviyo google-tag | 7e24662817dbacd737b0d680a1ac4a0f0dbdaef2d30074950f08e11ed8f1bb70
+knowledgebase.frame.work | 200 | via, 1.1 631f575b9d9197f6d559ae43cf7859e6.cloudfront.net (CloudFront), | hubspot google-tag stripe | de73790ba359d1911f10d8fc3a35ad34384441eb2e4e69a3b7865015af3be5aa
+olares.com | 200 | server, cloudflare, | klaviyo google-tag | dafa7a9d8d439d9cdf38035b525ddeb1e1805ee1ffd3b18909362d299fb46e2d
+pine64.org_documentation_ | 200 | server, Caddy, | zoho hugo | f27c4f240ce0ab940d3f63f86b3c6af70e3dd3f0116d7469dfe1da8068109546
+pine64.org | 200 | server, Caddy, | zoho hugo | 0815fc067f35a6b8120ce94de901c75e4c4e32248a5dad3598a47bf5f2ded77d
+shop.olares.com | 200 | server,server-timing, cloudflare, | shopify klaviyo google-tag | ca9cfce40f6b135781afffa17c5661819fc77eefd31c1f91b000bb92ba0d20e2
+shop.zimaspace.com | 200 | server,server-timing, cloudflare, | shopify | 5d91b413b4c17423a3d66f55229c8390200870b75fb6ba8920d8d2b93fc73655
+start9.com | 200 | x-powered-by, Express, | ghost | 56dee9d1fba7522d05251bd5b80cfc1510c31e1b4d17a8b7e2a4a8aeb0d54495
+store.openhomefoundation.org | 200 | server,server-timing, cloudflare, | shopify plausible | 532a0edd2bc520819a366de86f2a77b6570bd933b54cc29ee11c3cf410f934f8
+store.start9.com | 200 | x-powered-by, Express, | ghost | a85afbe0dc9ef148cf1476e90f34e78e94e3e87e13bc9b1e68f157772a9daac0
+store.umbrel.com | 200 | server,server-timing, cloudflare, | shopify intercom posthog | e3c955f9df898b3716b106af2cb72a69ceabad6777828c4f8845b96be5ac2e9f
+support.nabucasa.com | 403 | server,server-timing,via,x-zendesk-origin-server, cloudflare,zorg, |  | dc9dd4b441b862494f08408ea9b7a15c2b3da16bda3f3f99c118698a00b6b6fc
+system76.com_support | 200 | server,via, 1.1 cd1a98ac42a21b663c8fc8cd6f37232e.cloudfront.net (CloudFront),AmazonS3, | generator=astro v7.4.4 astro google-tag starlight | cd0ff9b6f15e624b5a1c02d62a80a7562cc89c18c2a80ea8711d177bfb445ec4
+system76.com | 200 | server,via, 1.1 google, 1.1 5fa457dda68a5020725d371f051783e6.cloudfront.net (CloudFront),clo | bigcommerce hubspot google-tag | 3fa85a72dbfe616024d22f33a22c8fe334579baee0d374d394c43ff0685ac3ae
+umbrel.com_blog | 404 | server,x-vercel-cache, Vercel, | next.js | 95f8ff511c9847729fa9be3c595ffc52914e9e71cc044eedfe0ff88bd37ec128
+umbrel.com | 200 | server,x-nextjs-prerender,x-vercel-cache, Vercel, | next.js ghost plausible umami stripe | d2edc37225eeff33a62fe8ba1c9415a9a9d888fd33c59449571b4a7135d10743
+w8_apps_umbrel_com_app_nextcloud | 200 | server,x-nextjs-prerender,x-vercel-cache, Vercel, | next.js posthog | a640650e06dbf227f0a97502a4d74a2ce330a81bd77404bc101156fcdd74cebd
+w8_apps_umbrel_com | 200 | server,x-nextjs-prerender,x-vercel-cache, Vercel, | next.js ghost wordpress posthog plausible umami | 29410704887284d4b014197ed5e56f3374484c7652d1d90888a163eef193c599
+w8_community_obsidian_md_plugins_dataview | 200 | server,x-powered-by, cloudflare,Next.js, | next.js | 586f92a3b27652bd7552ef9b62be4d01301d8a8b15f40611d9103cc608c6126f
+w8_flathub_org_apps_org_kiwix_desktop | 200 | server,via,x-nextjs-prerender,x-powered-by, 1.1 varnish, 1.1 varnish,Next.js,openresty, | next.js stripe | dcef7d61d21087404af82b48e4fd275ec201a2fce8668b1c2c08521415f93808
+w8_hacs_xyz | 200 | server, cloudflare, | generator=mkdocs-1.6.1, mkdocs-material-9.7.7 wordpress discourse plausible | df4614b6d865905e4f5d94d0298a0513011da32dc79130ad1396365017382dbe
+w8_market_olares_com | 200 | server,x-powered-by, cloudflare,Express, | google-tag | b84180757eea2de961aeea9d19bb740b3bc09a5db48daca8e3451755736477fe
+w8_obsidian_md_plugins | 200 | server,x-powered-by, cloudflare,Next.js, | next.js | 0bb41973ed3fb82e0b4eb3f2984ced492c1cdc7ff1602dd2698520e387a007b8
+w8_www_olares_com_market | 200 | server,x-powered-by, cloudflare,Express, | google-tag | 7dd672bb150694b3055560e7ae9b9d11c71da46e872336c1774fbd39d1de16a3
+www.home-assistant.io | 200 | server,x-nf-request-id, cloudflare, | discourse plausible jekyll | 57d46c5e3a8e2a78564ec43ace373881b9e69a8c9dea4ad5357da8b63a2a3f4a
+www.nabucasa.com | 200 | server, cloudflare, | generator=astro v7.4.7 astro | 7f0e96dcbaf0e7094f2315550cec38f1370a092b2533514a94cad8216d8955c7
+www.olares.com_blog_ | 200 | server,x-powered-by, cloudflare,PHP/8.4.27, | generator=wordpress 7.0.8 ghost wordpress google-tag stripe | 29f110e097ad25c0f4ec7905965e6698cee42cfb23661e17e540345ac9fd25a2
+www.projectnomad.us | 200 | server,x-nextjs-prerender,x-vercel-cache, Vercel, | next.js google-tag | 3dc2379c9ad1f778bc99dc8e3d2b903b5539fc2f5a31da4a77c62143582121e6
+www.zimaspace.com_docs_ | 200 | server, cloudflare, | generator=hexo 7.2.0 ghost google-tag hexo | c10d6b827857e529f9ec273d36737fdd0d3baaba23852f88b91a1cd16cb29ae3
+www.zimaspace.com | 200 | server, cloudflare, | nuxt stripe | fd97fe1145200edb98c8874023a84ccc39e916ecfe2f507bb9e2e1a301c4e060

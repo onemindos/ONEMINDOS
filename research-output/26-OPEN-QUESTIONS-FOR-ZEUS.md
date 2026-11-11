@@ -1,6 +1,6 @@
 # 26 · Open questions for Zeus
 
-**Created:** 2026-11-10 by DEC (Tier A). Later workstreams **append** sections; don't reorder the IDs.
+**Created:** 2026-11-10 by DEC (Tier A). Later workstreams **append** sections; don't reorder the IDs. **Final for this run (2026-11-11, tag FINAL):** §F adds the revision-3 updates and Z-28…Z-37, and §G maps every `blocked: founder-decision` item in `24-…` to a Z-ID, so this file now covers all of brief §6 (REQUIREMENTS open questions 2–5 in §B, the Blueprint questions in §C, RS-6 access in §D, §E and §F). The approval boxes are in [`REVIEW-CHECKLIST.md`](REVIEW-CHECKLIST.md); the week each decision is due is in `20-…` §2.3.
 **How to use this file:** each item gives the question, the options, a recommendation, and what is blocked until you answer. Where the brief told us to assume an answer (rule 8), the assumption is stated and the work proceeds on it. Items marked **(legal)** need counsel, which is not legal advice from this research.
 **Serves requirements:** RS-6, R-1, R-3, D-001, H-1, M-8, F-11, F-12, N-9, U-4
 
@@ -14,7 +14,7 @@
 ### Z-01 · Ask Canonical and counsel about redistributing modified Ubuntu (legal) · Q-W2-1, Q168, Q57
 **Why it matters:** Canonical's policy says modified Ubuntu may be redistributed only if "approved, certified or provided by Canonical"; otherwise trademarks must be removed **and** binaries recompiled [C-W2-050]. This decides whether Ubuntu can become the core (it led the raw scorecard) and affects the GPU-server flavor and possibly the Jetson flavor (NVIDIA's L4T Ubuntu, modified by OneMind). Ubuntu Pro for Devices has no public price [C-W2-006].
 **Options:** (a) ask counsel for a reading and Canonical for terms plus a Pro for Devices quote at 1k/10k units; (b) don't ask; ship only Debian and NVIDIA's own images; (c) ship Ubuntu flavors with trademarks stripped and accept the recompile risk.
-**Recommendation: (a), now.** It costs little, and the answer either re-opens Ubuntu as the core or confirms Debian. A draft for Canonical belongs in `evidence/outreach-drafts.md` (not yet written).
+**Recommendation: (a), now.** It costs little, and the answer either re-opens Ubuntu as the core or confirms Debian. A draft for Canonical is in `evidence/outreach-drafts.md` (O-1).
 **Blocked until answered:** shipping any Ubuntu-based OneMind image (GPU-server flavor; check the Jetson flavor too). **Assumption meanwhile:** Debian core; Jetson stays on NVIDIA's L4T.
 
 ### Z-02 · Security updates on by default? (CRA vs R-1) · SEC-05, Q221
@@ -23,7 +23,7 @@
 **Recommendation: (a).** Rollback makes it safe, and R-1's intent (the owner stays in control) is kept by the opt-out and window. Robots and field kits get a "mission-safe reboot" rule.
 **Blocked:** the update UX spec and the CRA technical file.
 
-### Z-03 · Update engine: RAUC (recommended) or Rugix
+### Z-03 · Update engine: RAUC (recommended), Mender or Rugix (see §E and §F for the rev. 2–3 updates)
 **Why it matters:** Rugix is the most convenient fit (Umbrel's tool, builds images from a Mac, free deltas) but has one active developer (303/304 commits) [C-W3-001]. RAUC runs Home Assistant OS. Both passed our lab [C-LAB-rauc-015, C-LAB-debian-rugix-022].
 **Options:** (a) RAUC lead, Rugix-compatible layout; (b) Rugix lead with the same layout and signing design; (c) decide after the Beelink/Dell power-pull test.
 **Recommendation: (a)**, keeping the layout engine-neutral so the switch stays an update, not a reflash.
@@ -85,17 +85,17 @@
 |---|---|---|---|
 | 2 | Kubernetes everywhere, or a hybrid? | see Z-07 | Kubernetes on every box sold; NATS leaf on connected devices |
 | 3 | Licence model for OneMind's own code | Settled by D-001 (Apache-2.0 open core). Still open: which features are "pro" | Write the pro/open ADR before the first paid feature, consistent with Z-05 |
-| 4 | First hardware tier and customer segment | (a) Lite x86 mini PC for homesteaders/self-hosters; (b) Pi 5 Edge greenhouse/TAK profile; (c) Pro GPU box | **(a) first** (most lab-proven path: x86 + RAUC + k3s), **(b) as the second profile** in the same release (D-002 keeps all tiers in design). Final call needs W10/W16, which haven't started |
+| 4 | First hardware tier and customer segment | (a) Lite x86 mini PC for homesteaders/self-hosters; (b) Pi 5 Edge greenhouse/TAK profile; (c) Pro GPU box | **(a) first** (most lab-proven path: x86 + RAUC + k3s), **(b) as the second profile** in the same release (D-002 keeps all tiers in design). **Final pass:** W10 and W16 now agree. Year 1 sells no OneMind-branded box, only a certified-hardware list (`11`, `20` D-P6.6). The first segments are homestead/greenhouse and self-hosting families on Edge/Lite, then TAK field teams (REC-W16-08). The segment is confirmed by interviews (LT-BIZ-04). See Z-31 |
 | 5 | First OneMind internal app | (a) the Blueprint's first vertical slice (sign-in, site status, Legacy summary, an approved HA light toggle, TAK observation, offline sync, restore); (b) a single module | **(a)**: it exercises identity, the capability gateway, approvals, NATS, TAK and restore, i.e. the foundation itself |
 
 ## C. Recurring Blueprint questions (`context/02` §21)
 
 | Question | Options | Recommendation |
 |---|---|---|
-| Is Google/Pixel hardware acceptable (GrapheneOS as the security baseline)? | yes / no / Pixel for field devices only | Not researched yet (W14, Tier C). Provisional: acceptable for field EUDs if an OEM-unlockable SKU is used; decide after the GrapheneOS + ATAK test |
-| What state is the Dell 5540 in? | Known: i5-1345U, 16 GB, Windows. Unknown: BIOS, TPM/Secure Boot state, SSD | Run W6 test X-1 and W2-HW-5 (`mokutil --sb-state`, `systemd-analyze has-tpm2`, `ld.so --help` for x86-64-v3) and record the results |
+| Is Google/Pixel hardware acceptable (GrapheneOS as the security baseline)? | yes / no / Pixel for field devices only | **Yes, for field EUDs (W14, final):** a carrier-unlocked Pixel 9a or 10a with GrapheneOS, which lists 21 supported Pixels [C-W14-001] (REC-W14-01). The Pixel Tablet is a base-station display only, because it has no GPS (REC-W14-02). This becomes the default only after the GrapheneOS + ATAK test (`15` Appendix A, REC-W14-03) passes. Q-W14-2 |
+| What state is the Dell 5540 in? | Known: i5-1345U, 16 GB, Windows, and its BIOS supports custom Secure Boot keys and TPM 2.0 [C-W10-043]. Unknown: whether those are enabled on your unit, and the SSD | Run **LT-X86-00** (`22` §3; 30 min from a Debian 13 live USB, `20` day 2) and record the result. Boot the OneMind tests from a spare USB SSD so the Omarchy pilot install is never wiped (`22` §1) |
 | What is the first vertical slice? | see B-5 | The Blueprint's seven-step slice |
-| Which task system? | Not researched in Tier A | Open; no evidence gathered |
+| Which task system? | (a) Todoist kept; (b) self-hosted Vikunja (AGPL-3.0 [C-W12-114]) or Plane (AGPL-3.0, amd64-only [C-W12-113]); (c) a thin OneMind Tasks module | **(c), with Vikunja as an optional Market app (W12, `13` §8):** build a thin Tasks module over Markdown/SQLite, with a Todoist import, exposed to AI as `tasks.read` / `tasks.create`; deleting a task needs approval. Keep Todoist until the module ships (wave 2 in Q267) |
 
 ## D. Access and inputs we needed but couldn't get (RS-6)
 
@@ -104,7 +104,7 @@
 | Live DOKS cluster (read-only) | Verify storage, LB, ingress and Helm/Argo ownership before the conversion plan | Run the read-only commands in `05-…` §9.2 (kubectl/doctl/argocd) |
 | Founder hardware: Pi 5 (4 and 8 GB, NVMe), Jetson Orin Nano Super, RTX box | Pi 5 tryboot, Jetson A/B gate (T-W3-06), k3s soak, GPU driver on Debian, real-time latency | Buy the Pi 5 and Orin Nano; run the tests listed in each workstream file |
 | Real power pulls on the Beelink U55 / Dell 5540 | QEMU's kill doesn't drop disk write caches | Run T-W3-01 (10 pulls per engine) |
-| Vendor quotes: Canonical Pro for Devices, Freexian ELTS (arm64, redistribution), Red Hat RHEL/RHDE | Cost to 2036 (DC-03) | Approve outreach drafts (to be written in `evidence/outreach-drafts.md`) |
+| Vendor quotes: Canonical Pro for Devices, Freexian ELTS (arm64, redistribution), Red Hat RHEL/RHDE | Cost to 2036 (DC-03) | Approve the outreach drafts already written in `evidence/outreach-drafts.md` (O-1 Canonical, O-2 Freexian, O-3 Red Hat, O-4 NVIDIA) |
 | Counsel | CRA classification, FOSS route with firmware blobs, Ubuntu redistribution, repackaging upstream apps, UK PSTI | Brief counsel with Z-01, Z-05 and 07 §13 |
 | Blueprint originals (Nov 3–4) | Only the summary in `context/02` was available | Share the originals for the plan (A01–A24 tests) |
 | Paywalled standards (EN 18031 clause text, IEC 62443) | Only catalogue metadata could be cited | Buy if a certification route is chosen (Z-11) |
@@ -191,3 +191,127 @@
 | Dell 5540 in firmware setup mode | Secure Boot on real firmware, option ROMs, power cut under Secure Boot (F-SB-1…3) | Run the tests in `evidence/lab/secureboot-rauc/README.md` §11; back up the factory keys first |
 | A RAUC ≥ 1.15.2 package for Debian 13 | Every RAUC lab ran Debian's 1.13 [C-LAB-rauc-k3s-gate-005] | Approve building it from upstream in CI |
 | Counsel time | Image vs box CRA classes, Ubuntu for Jetson, GPL-3 Installation Information on locked boxes | Brief counsel with Z-01, Z-05 and Z-19 |
+
+---
+
+## F. Final pass: revision-3 updates and the remaining founder decisions (added 2026-11-11, tag FINAL)
+
+> ### Explain it like I'm the founder
+> Revision 3 of `01` ran the fair fight the reviewer asked for: Ubuntu and Mender sat the same lab exam that Debian and RAUC had passed. All four passed, so the leads held but got narrower. That changes the evidence behind four earlier items, listed first below. After that come ten new items (Z-28…Z-37). They gather every question in the answer sheet (`24-…`) that only you can settle. Most are small; **Z-28 is the urgent one**, because personal data from an early commit is still readable in the public branch history.
+
+**Updates to earlier items (IDs unchanged):**
+- **Z-03 (engine):** Mender now has a lab pass on the same battery. Stock Mender gives a new version **one** trial boot where RAUC gives three, and a power cut during that boot discarded a good update [C-LAB-mender-013]. RAUC wins the recount 5–3 (`01` §3.2). Whichever engine you pick, OneMind ships **its own RAUC built from a pinned upstream tag** (today v1.15.2), because Debian's RAUC 1.13 cannot install any update on kernels 6.19 or newer [C-LAB-ubuntu-2604-leg-010, C-LAB-rauc-1152-011] (REC-DEC-31). No shipped product combines Debian or Ubuntu with RAUC [C-DEC-013], so the hardware tests are release gates (REC-DEC-34). **Recommendation unchanged: (a) RAUC, decided at gate G1 (week 4).**
+- **Z-05 (CRA route):** add a **notified-body pre-assessment as a parallel track from 2027-Q1**, with the FOSS self-assessment route still primary (`01` §6.13, REC-DEC-39). Also ask counsel **Q-COST-1**: does a major Debian rebase count as a "substantial modification"? (See Z-36.)
+- **Z-06 (support period):** Freexian's ELTS contract is own-use only, so shipping ELTS packages to customers' boxes needs an OEM-style agreement (**Q-W2-2**, [C-W2-004]). The quote request is part of Z-37.
+- **Z-10 (bootc):** on the fully cited scorecard, RHEL-family bootc is the raw S1 leader (64 vs 62 vs 60), on one documentation-only Pi 5 cell [C-SCORE-025]. **Approve running W2-HW-3 (bootc on a real Pi 5, `22` LT-PI5-02) early, at gate G2.** It decides whether that lead is real (REC-DEC-33).
+
+### Z-28 · Purge leaked personal data from the public branch history? · Q-P2-5, critic N1/N2 · **urgent**
+**Why it matters:** commit `414d60a`, already pushed to the public research branch, contains the lab computer's home path and account name in 17 files and VM-internal private addresses in 11 files. The working tree is masked, but git history still serves the old text (`evidence/hygiene-log.md` §3). Removing it requires rewriting history, and the brief forbids force-push (§8) unless you allow it.
+**Options:** (a) allow a one-time history rewrite of `research/ultracode-foundation` (rebuild the branch from masked commits, force-push once, then ask GitHub support to purge cached views); (b) squash-merge the PR and delete the branch, which leaves `414d60a` reachable on GitHub until it is garbage-collected; (c) accept the exposure (the data is a username and throwaway VM addresses, not credentials).
+**Recommendation: (a), before the PR is marked ready or merged.** It is the only option that actually removes the data. The exposure is low-harm, but rule 5 is absolute. **Blocked until answered:** marking the PR ready for review.
+
+### Z-29 · Trademark clearance for "OneMind" / "OneMind OS" (legal) · Q174
+**Why it matters:** the search could not run. The USPTO API and its mirrors refused scripted access, and a similar AI brand ("1mind") reportedly has filings [C-W16-054, UNVERIFIED].
+**Options:** (a) a trademark attorney clears the name (US classes 9, 42, 38, 35; EU and UK) before any public beta branding; (b) proceed and rebrand if challenged.
+**Recommendation: (a)**, scheduled as LT-BIZ-02 in weeks 2–3 (`20` §5). Debian's marks may only be used for factual compatibility statements, never in a product name [C-W16-011]. **Blocked:** packaging, domains and the beta's public name.
+
+### Z-30 · Company entity and jurisdiction (legal/tax) · Q197
+**Why it matters:** NVIDIA Inception requires an incorporated company and its incorporation date [C-W16-031], so D-006 waits on this. Home Assistant's long-term model is a Swiss non-profit foundation funded by commercial partners [C-W16-012]. Some grants depend on the applicant's country, for example NLnet [C-W16-047].
+**Options:** (a) incorporate now (counsel chooses US C-corp or LLC), and consider an EU entity later for CRA representation and a foundation in years 3–5; (b) stay unincorporated until revenue.
+**Recommendation: (a)**, because Inception, vendor agreements (Z-01, Z-37) and CRA manufacturer duties all need a legal entity. Not tax or legal advice.
+
+### Z-31 · First segment and the first 100 customers · Q282, REQUIREMENTS open question 4
+**Options:** (a) homestead/greenhouse and self-hosting families on Edge/Lite first, with TAK field teams second (REC-W16-08); (b) TAK and public safety first; (c) robotics developers first.
+**Recommendation: (a)**, tested before any money is spent: run about 30 interviews (LT-BIZ-04, weeks 3–16), then a pre-order test after the 180 days. Hypothesis: a Greenhouse + TAK field kit (a Lite hub plus Pi leaves), sold direct with a year of support. Olares One raised USD 2.34M on Kickstarter, which shows crowdfunding works in this category [C-W16-018]. Public safety (b) pulls FIPS, NDAA and TAA work forward (Z-08, Z-25, REC-QB-01).
+
+### Z-32 · Desktop (Omarchy/Hyprland) edition: client or its own OS image? · Q284, Q-W11-2 (pairs with Z-26)
+**Options:** (a) a OneMind client and plugin pack for stock Omarchy; (b) a OneMind Arch image; (c) later, a bootc desktop node, only if users ask for it.
+**Recommendation: (a) now, (c) only on demand.** Omarchy ships about 32 releases a year, its Arch mirror runs a month behind, and its plugins are unsandboxed (`12`, C-W11-047…050). Owning that image would be a second OS to maintain.
+
+### Z-33 · Run a minimal OneMind APNs relay now? · Q-W11-1 (D-005 vs M-1)
+**Why it matters:** APNs only accepts pushes signed with the app developer's key [C-W11-027], so instant iOS alerts need a relay that OneMind operates. M-1 says a OneMind cloud comes "later".
+**Options:** (a) yes: content-free and open source; (b) no: iOS fetches alerts when the app opens; (c) use a third-party upstream (ntfy.sh).
+**Recommendation: (a)** (`12` §19). It carries no content, and D-005 already chose APNs.
+
+### Z-34 · Default remote access: Tailscale or Headscale? · Q-W11-3
+**Options:** (a) Tailscale's hosted control plane; (b) Headscale on the box; (c) the user chooses at setup.
+**Recommendation: (c)**, defaulting to Headscale on Pro boxes and Tailscale for the simplest setup (`12`).
+
+### Z-35 · Sell a pre-provisioned kids' tablet bundle? · W13-N3, U-3
+**Why it matters:** an Android device-owner tablet must be provisioned at first setup or after a factory reset [C-W13-008]. On iOS, an outside app needs Apple's Family Controls entitlement and a guardian's approval [C-W13-004].
+**Options:** (a) document bring-your-own on the child-device ladder only (levels L1–L3, REC-W13-04) in year 1; (b) also sell an L4 managed kids' tablet (Headwind MDM, QR provisioning) once T-W13-2 passes; (c) sell the bundle from launch.
+**Recommendation: (a) in year 1, then (b) if T-W13-2 passes** (W13-N2 is blocked on founder hardware). A bundle also adds hardware, support and COPPA scope (Q228).
+
+### Z-36 · Extend the counsel brief (legal) · Q-COST-1, W12-N1, W12-N2, W13-N1 (adds to Z-01, Z-05, Z-19)
+Four more questions only a lawyer can answer. Recommendation: put them in the same counsel engagement as Z-01/Z-05/Z-19.
+1. **Q-COST-1:** is a major Debian rebase (13 → 14) a CRA "substantial modification"?
+2. **W12-N1:** may OneMind offer a runtime converter for a user-supplied Umbrel store URL? umbrel-apps has no licence [C-W12-002]. Until counsel answers: no converter, and nothing copied from umbrel-apps.
+3. **W12-N2:** does a self-hosted wellness module make OneMind a "vendor of personal health records" under 16 CFR 318? Until counsel answers: data stays on the box, and OneMind receives none.
+4. **W13-N1:** is a box seller an "operating system provider" under California AB 1043/AB 1856, and is the Market an "app store" under Texas SB 2420?
+
+### Z-37 · Approve vendor outreach (quotes and programmes) · W16-N1, Q-W2-2, Q-COST-2, RS-6
+**Why it matters:** the brief forbade the research from contacting vendors, so several costs remain unpriced: Ubuntu Pro for Devices, Freexian ELTS for arm64 with redistribution, Red Hat RHDE, a partner to maintain Orin after its last JetPack branch, and whether NVIDIA Inception pricing covers Jetson modules and dev kits.
+**Options:** (a) approve and send the drafts as written (`evidence/outreach-drafts.md` O-1…O-4, `evidence/outreach-drafts-W16.md`); (b) send only Canonical (O-1) now.
+**Recommendation: (a)**, in week 1, with Z-01 (`20` D-P1.7). The answers feed the lifecycle cost model (`evidence/lifecycle-cost-2036.md`) and the S1 re-open triggers.
+
+### Access and inputs added in the final pass (RS-6)
+
+| Needed | Why | What Zeus can do |
+|---|---|---|
+| Read-only access to the live cluster and its private repo | Q80 and Q220 are `blocked: live-cluster`; W12-N3 needs the data sources and licences of the live aircraft/ship/hazard workers; the DOKS conversion plan rests on reported state (context/01) | Run `22` LT-CLU-01…11 (read-only, `20` days 2–3) and share the outputs |
+| Where you saw the GrapheneOS Pixel Tablet ATAK crash (Q-W14-1) | No public report exists [C-W14-018] | Point to the source, or run `15` Appendix A and capture the tombstone if it reproduces |
+| Your ATAK version, plugins and radios (Q-W14-3) | `15` Appendix A needs the real loadout | List them |
+| Sites that blocked automated reading: openinventionnetwork.com, the FCC Covered List, the DIU Blue UAS page, EUR-Lex (AI Act annexes, Product Liability Directive), USPTO search | Claims that depend on them are UNVERIFIED (C-QBANK-013, C-W16-054 and others in `24` §10) | Check them in a browser, or give counsel the list |
+| KubeCon NA 2026 days 3–4 (after 2026-11-12) | The NVIDIA-on-k3s answer was checked mid-event (critic N12) | Nothing; a re-check is scheduled in `20` |
+
+## G. Every `blocked: founder-decision` item in `24-…`, mapped
+
+`24-…` §9 lists 6 bank questions as `blocked: founder-decision`, and §6 lists 15 added questions. Each is decided under the Z-ID shown.
+
+| Item in 24 | Question (short) | Decided under |
+|---|---|---|
+| Q57 | Ubuntu Core / Ubuntu RT as the robot base, once Pro for Devices is priced | Z-01, Z-37 (price), Z-17 |
+| Q167 | CRA support period vs Debian LTS and board kernels | Z-06, Z-05 |
+| Q174 | Trademark registrability | Z-29 |
+| Q197 | Entity and jurisdiction | Z-30 |
+| Q282 | First 100 customers and segment | Z-31 |
+| Q284 | Omarchy desktop edition shape | Z-32, Z-26 |
+| Q-W2-1 | Modified Ubuntu without a Canonical agreement | Z-01 |
+| Q-W2-2 | Redistributing Freexian ELTS packages | Z-06, Z-37 |
+| Q-COST-1 | Is a Debian rebase a CRA substantial modification | Z-36, Z-05 |
+| Q-W11-1 | APNs relay | Z-33 |
+| Q-W11-2 | Omarchy pack or Arch image | Z-32 |
+| Q-W11-3 | Tailscale or Headscale default | Z-34 |
+| Q-W11-4 | What "mirror" means | Z-13 |
+| W12-N1 | Umbrel store converter | Z-36 |
+| W12-N2 | Wellness module under 16 CFR 318 | Z-36 |
+| W13-N1 | CA AB 1043/1856, TX SB 2420 | Z-36 |
+| W13-N3 | Kids' tablet bundle | Z-35 |
+| Q-W14-1 | Where the Pixel Tablet crash was seen | §F access table (information, not a choice) |
+| Q-W14-2 | Is Google/Pixel hardware acceptable | §C (yes, for field EUDs) |
+| W16-N1 | Inception pricing for Jetson | Z-37, Z-30 |
+| Q-P2-5 | Purge personal data from history | Z-28 |
+
+Questions that are `partial` with a founder-decision blocker (for example Q35/Q200 → Z-04, Q215/Q182 → Z-08/Z-25, Q259 → Z-12, Q300 → Z-13, Q335 → Z-21/Z-22, Q289/Q235 → Z-19, Q165/Q212 → Z-05) are already covered by the Z-IDs named in their rows in `24-…`.
+
+## What competitors do (for the new items, constraint fit)
+
+| Item | Competitor | What they did | Their constraints | Fit for OneMind |
+|---|---|---|---|---|
+| Z-30 entity | Home Assistant / Open Home Foundation | A Swiss non-profit Stiftung funded by partner fees; Nabu Casa, the company, licenses its brands [C-W16-012] | Large community; years of revenue before the foundation | **Low now, high in years 3–5**: incorporate first, consider a foundation later |
+| Z-31 first customers | Olares | Olares One raised USD 2.34M on Kickstarter; all backer orders fulfilled [C-W16-018] | Venture-funded (more than USD 100M), with hardware partners | **Medium**: pre-orders validate demand, but a solo founder must not take on fulfilment risk in year 1 |
+| Z-31 first customers | ZimaCube | Kickstarter with about 1,252 backers [C-W16-027, UNVERIFIED] | Hardware company (IceWhale) | **Medium**, same caution |
+| Z-29 name | Debian (as a mark OneMind uses) | Allows factual compatibility statements only, never in a product name [C-W16-011] | Community trademark policy | **High**: "based on Debian" yes, "Debian" in the name no |
+
+## Glossary (sections F and G)
+
+| Term | Meaning |
+|---|---|
+| **History rewrite / force-push** | Replacing commits that are already on GitHub. It is the only way to remove text from git history, and it breaks other people's copies of the branch. |
+| **Counsel** | An outside lawyer engaged by Zeus. Nothing in this research is legal advice. |
+| **APNs** | Apple Push Notification service, the only way to wake an iOS app instantly. |
+| **Headscale** | An open-source, self-hosted control server for Tailscale clients. |
+| **Device owner (Android)** | A fully managed device mode, set up only at first boot or after a factory reset. |
+| **ELTS** | Freexian's paid Extended Long Term Support for old Debian releases. |
+| **Notified body** | An independent organisation the EU authorises to assess a product's conformity under the CRA. |
+| **Substantial modification** | A CRA term: a change after sale that makes the changer responsible as if they were the manufacturer of a new product. |

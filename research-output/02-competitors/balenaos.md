@@ -188,7 +188,7 @@ balenaCloud lists over 150 public device types, including `raspberrypi5`, `gener
 | Supervisor | Apache-2.0 [C-TD-balenaos-004] | Reuse code |
 | balenaEngine | Apache-2.0 [C-TD-balenaos-005] | Reuse; prefer upstream Moby/containerd |
 | openBalena server | **AGPL-3.0** [C-TD-balenaos-006] | Study only (rule 4) |
-| Jetson BSP blobs inside images | NVIDIA terms (see C-W7-056, still UNVERIFIED in W7) | Same open question as OneMind's Jetson flavor |
+| Jetson BSP blobs inside images | NVIDIA Tegra Software License Agreement: redistributable unmodified, NVIDIA hardware only, agreement attached [C-LIC-001] [C-LIC-002] [C-LIC-003] | Same conditions apply to OneMind's Jetson flavor [C-LIC-048] |
 
 ## 13. Business model
 

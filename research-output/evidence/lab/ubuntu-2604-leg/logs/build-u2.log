@@ -1,0 +1,89 @@
+[build 07:15:32] verify k3s artifacts against the release sha256sum file
+k3s-airgap-images-amd64.tar.zst: OK
+k3s: OK
+[build 07:15:32] lab PKI
+[build 07:15:32] mmdebstrap amd64 resolute (RAUC_MODE=archive)
+I: installing remaining packages inside the chroot...
+I: cleaning package lists and apt cache...
+I: success in 266.7862 seconds
+rauc 1.15.1
+0
+[build 07:19:59] Ubuntu-specific observations
+--- os-release
+PRETTY_NAME="Ubuntu 26.04.1 LTS"
+VERSION_ID="26.04"
+VERSION_CODENAME=resolute
+--- kernel
+7.0.0-43-generic
+--- i6300esb module
+/lib/modules/7.0.0-43-generic/kernel/drivers/watchdog/i6300esb.ko.zst
+--- coreutils provider
+coreutils 9.5-1ubuntu2+0.0.0~ubuntu25
+coreutils-from 
+coreutils-from-gnu 
+coreutils-from-uutils 0.0.0~ubuntu25
+rust-coreutils 0.10.0-1ubuntu2~26.04.1
+/usr/lib/cargo/bin/coreutils/date
+date (uutils coreutils) 0.10.0
+--- initramfs generators installed
+dracut  unknown ok not-installed
+dracut-core  unknown ok not-installed
+initramfs-tools 0.151ubuntu1 install ok installed
+--- kernel package initramfs dependency
+Depends: kmod, linux-base (>= 4.5ubuntu1~16.04.1), linux-modules-7.0.0-43-generic
+Recommends: grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub | lilo, dracut | linux-initramfs-tool
+--- snapd / apparmor installed?
+(not installed)
+--- sudo provider
+(no sudo)
+[build 07:20:00] customise rootfs
+i6300esb in initramfs: 1
+[build 07:21:10] grub-mkstandalone (x86_64-efi)
+[build 07:21:10] ext4 images (rootfs 790 MiB)
+[build 07:21:19] rauc bundles
+rauc-Message: 02:21:31.981: No keyring given, skipping signature verification
+rauc-Message: 02:21:43.621: No keyring given, skipping signature verification
+rauc-Message: 02:22:02.130: No keyring given, skipping signature verification
+rauc-Message: 02:22:14.190: No keyring given, skipping signature verification
+rauc-Message: 02:22:25.720: No keyring given, skipping signature verification
+rauc-Message: 02:22:37.962: No keyring given, skipping signature verification
+rauc-Message: 02:22:49.823: No keyring given, skipping signature verification
+[good] rauc-Message: 02:22:49.898: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[good] Version:        '2'
+[bad-k3s] rauc-Message: 02:22:49.905: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-k3s] Version:        '3'
+[bad-noagent] rauc-Message: 02:22:49.913: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-noagent] Version:        '4'
+[bad-boot] rauc-Message: 02:22:49.920: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-boot] Version:        '5'
+[bad-hang] rauc-Message: 02:22:49.927: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-hang] Version:        '6'
+[naive-noagent] rauc-Message: 02:22:49.935: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[naive-noagent] Version:        '7'
+[wrong-key] rejected by rauc info (expected)
+[build 07:22:49] disk image
+
+Number  Start (sector)    End (sector)  Size       Code  Name
+   1            2048          264191   128.0 MiB   EF00  esp
+   2          264192         4458495   2.0 GiB     8300  rootfs-A
+   3         4458496         8652799   2.0 GiB     8300  rootfs-B
+   4         8652800        29360094   9.9 GiB     8300  data
+596265037 /var/lab/out-u2/bad-boot.raucb
+596265037 /var/lab/out-u2/bad-hang.raucb
+596269133 /var/lab/out-u2/bad-k3s.raucb
+596269133 /var/lab/out-u2/bad-noagent.raucb
+596269133 /var/lab/out-u2/good.raucb
+596269133 /var/lab/out-u2/naive-noagent.raucb
+596269139 /var/lab/out-u2/wrong-key.raucb
+[build 07:23:23] kernel 7.0.0-43-generic; done
+112d06f7180789ea7af479aafa95f3bdbf63e841d4d7d08f9dd6892ae5708c6d  disk.img
+a9703561583a8c4dbe5ef735b7031a712a7ad8bc6cfc2d16c9e91a803a945eb8  bad-boot.raucb
+1a9780f5ae87598b8694422ad54cc47f82e01f2591980ff39756d4e2b580ac40  bad-hang.raucb
+b2da1c31e7bfc9a533f22258beb767f4a288a1a3eb4bd51acbe06e1ae1b60826  bad-k3s.raucb
+e8c301a4afcbb6b98f315b9ac2a8593aa5ab4e22065428f6292dcadce418f276  bad-noagent.raucb
+2d89a829d521f3c7686f86b27b3944808f2044b14185a612fbf9b845a4fc52fc  good.raucb
+a69d7c2d83ed17e51f3afc8360a39a34b9288f9b0fadbdc4a52039f8d272b034  naive-noagent.raucb
+fea3e48bfb7eb9afd91d2fefd5a375abb4453fdcb845bc4a409224e9d4f81209  wrong-key.raucb
+004ec1878392c3b00636888515280b5c6aa5113768ca0b7f41c870f9d4e2c033  grub.cfg
+2e1a7933617acf3e5cf9efd2b56824253491a187c69cd0275ca305f002b7d138  lab-ca.cert.pem
+EXIT=0

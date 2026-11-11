@@ -1,0 +1,76 @@
+Cloudron Pricing
+Demo Cloudron
+ Username: <masked>
+ Password: <masked>
+ Go to the Demo Cloudron
+ Cloudron
+ Demo
+ Apps
+ Docs
+ Forum
+ Pricing
+ Install
+ My Account
+Self-hosting has never been simpler
+ Monthly
+ Yearly
+Free
+Try Cloudron today
+0 €/month
+Two apps
+Pro
+Essentials covered. Reliable self-hosting
+15 €/month
+30 €/month
+ excluding VAT where applicable
+Unlimited apps
+Max
+Advanced control and all the features
+25 €/month
+50 €/month
+ excluding VAT where applicable
+Unlimited apps
+User groups and roles
+Directory server
+Multiple backup sites
+VPN-only app access
+ All plans include: app updates, per-app backups, firewall, email solution and Single Sign-On
+ Install now
+Pricing FAQ
+Do you have a per-app pricing model?
+ We are not in the business of reselling apps.
+ We make it simpler to manage self-hosted apps and as such our pricing model is to charge for that solution.
+Do you have access to my server?
+ Cloudron is entirely self-hosted and we do not have access to your server.
+ Just like smartphones, app and platform updates are pulled, not pushed.
+How do I get support?
+ See our support page.
+Thousands of organizations use Cloudron
+ Install now
+About
+ Story
+ Open Source
+ Imprint
+ Brand Assets
+ Privacy Policy
+ Terms of Service
+ Data Processing Agreement
+ Contact us
+Resources
+ Blog
+ Documentation
+ Forum
+ Pricing
+ Apps
+ Community apps
+ App Status
+ Support
+ Security
+ Status
+Follow us
+ Forum
+ Mastodon
+ RSS
+ Copyright © Cloudron 2014 - 2026
+ Mastodon
+ Mastodon

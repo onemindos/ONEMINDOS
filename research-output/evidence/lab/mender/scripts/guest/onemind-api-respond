@@ -1,0 +1,4 @@
+#!/bin/sh
+# Lab stand-in for the local OneMind API: one HTTP response with this boot's ID.
+printf 'HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\n\r\n'
+cat /run/onemind-api/health

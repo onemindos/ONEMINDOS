@@ -1,0 +1,70 @@
+##### [02:49:29] T1 first boot
+##### [02:49:29] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,reado
+MENDER-GRUB: mender_boot_part=2 upgrade_available=0 bootcount=0
+HEALTH-GATE: 07:49:55 start slot=A version=1 mode=committed env=[mender_boot_part=2 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 07:49:55 RESULT committed-boot slot=A version=1
+root@onemind-lab:~# HEALTH-GATE: 07:53:30 K3S-FRESH ok after 215s: ok (fresh: kubelet, heartbeat 2026-11-11T07:52:23Z, core pods, data rw, api)
+[?2004l--- state:T1
+ONEMIND_VERSION=1
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+artifact=unknown
+/dev/vda2
+apps             broken-app-5d6b874ccd-8r225               0/1   ImagePullBackOff   0     95s
+kube-system      coredns-577d995dff-dvclw                  1/1   Running            0     95s
+kube-system      helm-install-gateway-api-crd-jdwsp        1/1   Running            0     95s
+kube-system      local-path-provisioner-56c6584955-s2vpv   1/1   Running            0     95s
+onemind-system   onemind-core-dc87b89b8-s58tj              1/1   Running            0     95s
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+##### [02:53:46] T2 wrong-key artifact
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+record_id=1 severity=error time="2026-Nov-11 07:53:48.361554" name="Global" msg="Signature verification Error: Wrong manifest signature or wrong key" 
+Could not fulfill request: Signature verification Error: Wrong manifest signature or wrong key
+##### [02:53:48] install wrong-key.mender rc=1 in 1s
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+record_id=1 severity=error time="2026-Nov-11 07:53:49.920863" name="Global" msg="No update in progress: Cannot commit" 
+No update in progress.
+##### [02:53:50] T3 good update -> B
+Installed, but not committed.
+At least one payload requested a reboot of the device it updated.
+##### [02:56:53] install good.mender rc=0 in 183s
+[  447.975264] watchdog: watchdog0: watchdog did not stop!
+[  450.326979] watchdog: watchdog0: watchdog did not stop!
+Booting new update...
+MENDER-GRUB: mender_boot_part=3 upgrade_available=1 bootcount=1
+HEALTH-GATE: 07:58:00 start slot=B version=2 mode=trial env=[mender_boot_part=3 upgrade_available=1 bootcount=1]
+root@onemind-lab:~# MENDER-CLI: Committed.
+HEALTH-GATE: 07:58:05 RESULT mark-good slot=B version=2 after 4s (env now upgrade_available=0)
+--- state:T3-after-commit
+ONEMIND_VERSION=2
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+artifact=onemind-v2
+/dev/vda3
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+[   73.321440] watchdog: watchdog0: watchdog did not stop!
+[   74.146742] watchdog: watchdog0: watchdog did not stop!
+MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=1
+HEALTH-GATE: 07:59:13 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=1]
+HEALTH-GATE: 07:59:13 RESULT committed-boot slot=B version=2
+--- state:T3-second-reboot
+ONEMIND_VERSION=2
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+artifact=onemind-v2
+/dev/vda3
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+##### [02:59:28] T4 bad-k3s.mender -> B

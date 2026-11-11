@@ -1,0 +1,55 @@
+PREFLIGHT P-a build RAUC 1.15.2 natively
+rauc v1.15.2
+7f076b8b8ab7882dd4522952d511354c9d23690280945965ec14ad0009639d1f  /var/lab/pi/rauc-dest/usr/bin/rauc
+PREFLIGHT source: Debian GNU/Linux 13 (trixie), kernel files: 2
+PREFLIGHT P-b prepare-disk.sh on /dev/loop1
+[prepare 07:31:27] k3s v1.37.2+k3s1 (arm64): download if missing, verify pinned sha256
+/var/lab/pi/dl/k3s-arm64: OK
+/var/lab/pi/dl/k3s-airgap-images-arm64.tar.zst: OK
+[prepare 07:31:28] partition /dev/loop1 (MBR, label-id 0x4f4d4c31)
+[prepare 07:31:29] copy root tree from /var/lab/pi/src-root
+sent 1,918,677,094 bytes  received 1,239,216 bytes  78,363,931.02 bytes/sec
+total size is 1,933,664,018  speedup is 1.01
+[prepare 07:31:53] runtime packages into the tree (chroot apt)
+[prepare 07:32:03] RAUC 1.15.2, k3s, gate
+rauc v1.15.2
+[prepare 07:32:04] boot tree from /var/lab/pi/src-boot (same files for both slots; cmdline chosen by boot_partition)
+[prepare 07:32:04] rootfs images (3258 MiB each)
+[prepare 07:35:03] bundles
+[good] rauc-Message: 02:48:10.286: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[good] Version:        '2'
+[good] Bundle Format:  verity
+[bad-k3s] rauc-Message: 02:48:10.349: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-k3s] Version:        '3'
+[bad-k3s] Bundle Format:  verity
+[bad-noagent] rauc-Message: 02:48:10.371: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-noagent] Version:        '4'
+[bad-noagent] Bundle Format:  verity
+[bad-boot] rauc-Message: 02:48:10.393: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-boot] Version:        '5'
+[bad-boot] Bundle Format:  verity
+[bad-hang] rauc-Message: 02:48:10.407: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-hang] Version:        '6'
+[bad-hang] Bundle Format:  verity
+[naive-noagent] rauc-Message: 02:48:10.422: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[naive-noagent] Version:        '7'
+[naive-noagent] Bundle Format:  verity
+[plain-good] rauc-Message: 02:48:11.585: Verified detached signature by 'O = OneMind LAB, CN = lab-signer'
+[plain-good] Version:        '2'
+[plain-good] Bundle Format:  plain
+[wrong-key] rejected (expected)
+[prepare 07:48:11] write slot A (boot p2, root p5) and autoboot.txt
+Device       Boot    Start       End   Sectors  Size Id Type
+/dev/loop1p1          2048    133119    131072   64M  c W95 FAT32 (LBA)
+/dev/loop1p2        133120   1181695   1048576  512M  c W95 FAT32 (LBA)
+/dev/loop1p3       1181696   2230271   1048576  512M  c W95 FAT32 (LBA)
+/dev/loop1p4       2230272 134217727 131987456 62.9G  5 Extended
+/dev/loop1p5       2232320  19009535  16777216    8G 83 Linux
+/dev/loop1p6      19011584  35788799  16777216    8G 83 Linux
+/dev/loop1p7      35790848 134217727  98426880 46.9G 83 Linux
+[all]
+tryboot_a_b=1
+boot_partition=2
+[tryboot]
+boot_partition=3
+[prepare 07:48:37] done. Power off, remove the workbench SD card, boot from /dev/loop1.

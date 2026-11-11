@@ -1,0 +1,49 @@
+Source: https://www.freexian.com/lts/extended/
+Accessed: 2026-11-11 (curl + HTML-to-text; excerpt)
+----
+ Debian Extended LTS by Freexian 
+ FAQ 
+ Debian ELTS News 
+ Documentation 
+ Updates 
+ Introduction 
+ This service extends security support for old Debian releases up
+to 10 years. It is an extension of the regular Debian LTS
+support offer which contributes to security
+support during the first 5 years and is made possible thanks
+to the same set of Debian contributors. 
+ To make Extended LTS possible and sustainable, there are supplementary
+restrictions compared to regular LTS: 
+ we support only the packages used by the customers 
+ we provide updates for a limited set of architectures (at least amd64,
+others can be added on request) 
+ we support the Linux kernel only with a backport of a newer kernel
+version 
+ Releases supported 
+ Each Debian release has some peculiarities in terms of support, open
+the associated page to discover them: 
+ Debian 9 Stretch will be supported until 30th June 2027. 
+ Debian 10 Buster will be supported until 30th June 2029. 
+ Debian 11 Bullseye will be supported until 30th June 2031. 
+ Debian 12 Bookworm will be supported until 30th June 2033. 
+ Debian 13 Trixie will be supported until 30th June 2035. 
+ Included services 
+ As part of the ELTS subscription, you have access to: 
+ a private repository containing the security updates 
+ the Freexian security tracker (web interface displaying the status of
+the known vulnerablities) 
+ technical support concerning the provided updates and open vulnerabilities 
+ CSAF/VEX data feeds , machine-readable
+data about vulnerabilities, updates and advisories (free of charge if
+you are also customer of our Debian LTS 
+offer at the silver level or above) 
+ Request a quote 
+ Organizations interested in getting security support for Debian 9, 10 or
+11 should get in touch with us at
+<email-masked> with the
+ subscription form filled (even if not
+yet signed) and with the list of source packages that they want to see
+supported in each of those Debian releases (see instructions
+here for how to build those package
+lists). 
+ We will get back to you with a quote detailing the cost of support

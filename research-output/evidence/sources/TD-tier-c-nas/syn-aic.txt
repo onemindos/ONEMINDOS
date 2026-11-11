@@ -1,0 +1,105 @@
+SOURCE: https://www.synology.com/en-global/dsm/7.4/software_spec/ai_console
+ACCESSED: 2026-11-11 (text extracted from HTML; emails masked)
+
+
+ Synology AI Console Technical Specifications | Synology Inc.
+ Technical Specifications
+ Synology AI Console
+ DSM Version
+ 7.4 
+ 7.3 
+ 7.2 
+ Synology AI Console
+ Package Integration and Administration
+ GPU-Powered Models
+ AI Integration Management
+ De-Identification
+ Auditing and Log Management
+ Synology AI Console
+ Package Integration and Administration
+Administrators can enable AI features for supported Synology packages from a centralized console.
+The console monitors AI integration status and usage.
+AI access can be configured by package.
+Specific users or groups can be excluded from AI access.
+Requirements
+Synology AI Console requires DSM 7.2 or above.
+Model availability depends on the applied models list.
+ GPU-Powered Models
+GPU-powered models are available only on supported Synology storage systems with a GPU.
+The embedding model enables AI-powered search in Synology Drive by understanding document context and intent beyond keyword matching.
+The OCR (Optical Character Recognition) model extracts text from images, scanned documents, and video frames so their content can be searched in Synology Drive.
+OCR language selection includes Simplified Chinese, Traditional Chinese, Czech, Danish, English, French, German, Hungarian, Italian, Japanese, Korean, Dutch, Norwegian, Polish, Portuguese (Brazil), Portuguese (Portugal), Russian, Spanish, Swedish, Thai, and Turkish.
+Selecting more OCR languages increases memory usage.
+The STT (Speech-to-Text) model converts speech in audio and video files into searchable text.
+The image captioning model generates descriptions for images or video frames so users can search by visual description.
+Requirements
+Synology recommends reserving at least 16 GB of system memory because the system and other services also consume memory.
+Estimated memory usage:
+Embedding model: 2 GB
+OCR model: 2 GB
+STT model: 3 GB
+Image captioning model: 3 GB
+ AI Integration Management
+Supported AI providers include Amazon Bedrock, Azure OpenAI, Baidu AI Cloud, Google AI Studio, Google Vertex AI, OpenAI, and other providers with OpenAI-compatible APIs.
+Administrators can set the base URL and rate limits for each integration.
+ De-Identification
+De-identification options help protect data privacy.
+Name entity de-identification uses language models for Chinese, Danish, Dutch, English, French, German, Italian, Japanese, Korean, Norwegian, Polish, Portuguese, Russian, Spanish, and Swedish.
+When a prompt contains multiple detected languages, the AI selects the dominant language and uses the corresponding de-identification model.
+Each de-identification language pack uses approximately 1 GB of memory.
+Supported predefined info types:
+Global predefined info types: Credit card numbers, crypto wallet addresses, dates, email addresses, International Bank Account Numbers (IBAN), IP addresses, URLs, account tokens, and more.
+Region-specific info types: Passport numbers, tax identification numbers, driver's license numbers, Medicare numbers, and more.
+Supported regions include Australia, Austria, Belgium, Bulgaria, Chile, China, Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany, Greece, Hungary, India, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Norway, Poland, Portugal, Romania, Singapore, Slovakia, Slovenia, Spain, Sweden, Taiwan, United Kingdom, and United States.
+Requirements
+Name entity de-identification requires Container Manager on the Synology storage system.
+Name entity de-identification is supported only on devices with 8 GB or more memory.
+The system checks available device memory before enabling name entity de-identification.
+Predefined de-identification types have no package dependencies or memory requirements.
+Limitations
+Info types may vary by Synology AI Console version.
+De-identification relies on AI models or regular expressions and cannot guarantee full masking of sensitive data.
+The accuracy of AI-generated information decreases as more words are de-identified.
+ Auditing and Log Management
+Transaction logs record AI request details including send time, IP address, user, applied packages, applied AI integration, AI provider, used model, action, input tokens, output tokens, total tokens used, and status.
+Admin logs record administrator configuration changes including time, user, IP address, type, and event.
+Log retention policies help administrators manage log storage.
+Administrators can choose whether to log detailed inputs and outputs of AI requests for additional data control.
+ NAS Selector
+ RAID Calculator
+ NVR Selector
+ Knowledge Center
+ Downloads
+ Newsletter
+ Company
+ About Synology
+ Blog
+ Newsroom
+ Media Coverage
+ Customer Stories
+ Office Locations
+ ESG
+ Sales
+ Where to Buy
+ Contact Us
+ Become a Partner
+ Compatibility
+ HDD/SSD
+ IP Cameras
+ Network Cards
+ I/O Modules, IP Speakers, Access Controllers
+ Other Devices
+ Resources
+ Products A-Z
+ Beta Program
+ Bounty Program
+ Community
+ Events
+ Subscribe to Newsletter
+ Copyright © 2026 Synology Inc. All rights reserved.
+ Terms & Conditions
+ | Privacy
+ | Cookie Preference
+ Global - English
+ Continue
+

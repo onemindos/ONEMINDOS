@@ -1,0 +1,9 @@
+time="2026-11-11T08:51:28Z" level=info msg="Starting k3s v1.37.2+k3s1 (f6973cb8)"
+time="2026-11-11T08:51:28Z" level=info msg="Configuring sqlite3 database connection pooling: maxIdle=20, maxOpen=0, maxLifetime=0s, maxIdleTime=2m0s"
+time="2026-11-11T08:51:28Z" level=info msg="Kine built with sqlite from github.com/mattn/go-sqlite3 version 3.53.4"
+time="2026-11-11T08:51:28Z" level=info msg="Configuring database table schema and indexes, this may take a moment..."
+time="2026-11-11T08:51:28Z" level=info msg="Database tables and indexes are up to date"
+...
+time="2026-11-11T08:51:51Z" level=error msg="Sending HTTP/1.1 503 response to 127.0.0.1:41758: runtime core not ready"
+time="2026-11-11T08:51:56Z" level=error msg="Sending HTTP/1.1 503 response to 127.0.0.1:41814: runtime core not ready"
+I1111 08:52:15.823083    1327 kubelet_node_status.go:431] "Fast updating node status as it just became ready"

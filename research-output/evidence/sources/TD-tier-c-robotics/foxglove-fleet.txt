@@ -1,0 +1,157 @@
+Source: https://docs.foxglove.dev/docs/fleet
+Accessed: 2026-11-11
+
+Overview | Foxglove Docs
+
+Skip to main content
+
+DocumentationSDKAPIChangelog
+Back to Foxglove
+
+Search
+
+Getting started
+Overview
+Getting started guide
+Python
+C++
+Rust
+
+Frameworks
+Open a file
+Explore examples
+
+Hardware
+
+Robots
+
+Custom Data
+
+Agents & MCP
+Overview
+Agent sidebar
+MCP server
+Slack
+
+Visualization
+Overview
+
+Connecting to data
+Playback
+Comparison mode
+Layouts
+
+Panels
+Variables
+User Scripts
+FoxQL
+Shareable links
+Video export
+Open via CLI
+Annotate ROS enum fields
+Controls and shortcuts
+Migrate from other tools
+
+Data Platform
+Overview
+Importing data
+Exporting data
+Devices
+Recordings
+Sessions
+Events
+
+Search
+
+Primary Sites
+
+Edge Sites
+
+Fleet
+Overview
+Device Tokens
+
+Foxlet
+Bridge
+Remote Access
+
+Integration
+
+Extensions
+
+Webhooks
+
+Embedding Foxglove
+
+Jupyter notebook
+
+Grafana
+CLI
+OAuth
+Personal access tokens
+Release feeds
+
+Administration
+Settings
+Audit logs
+Pricing
+Standalone License
+Projects
+Roles
+Seat types
+SSO
+
+Fleet
+Overview
+On this page
+
+Overview
+Foxglove provides three fleet software components that run on or alongside your devices. This page describes how they relate to one another.
+
+Foxglove SDK is a library you incorporate into your application, with logging primitives that support both streaming to live connections and logging to local MCAP files.
+
+Foxglove Bridge is a ROS package wrapping the Foxglove SDK.
+
+Foxlet is a process that runs on your device, providing connectivity to Foxglove cloud.
+
+Foxglove SDK​
+
+The Foxglove SDK is an open-source library for streaming bidirectional data over WebSocket and remote access connections, and logging to local MCAP files.
+
+When using the SDK for live visualization, you write the integration layer that reads from your robot's middleware, maps the data into message types that Foxglove can understand, and publishes it through the SDK. You can also use the SDK to log data to MCAP files, and it includes types that make it easier to work with Foxglove messages.
+
+The SDK is available for C++, Python, and Rust.
+
+Foxglove Bridge​
+
+The Foxglove Bridge is the recommended starting point for ROS platforms. It's easy to deploy, requires minimal configuration, and lets you connect to your device to stream real-time ROS data into Foxglove. Use it when you want a ready-made integration for ROS 1 or ROS 2.
+
+The bridge exposes ROS middleware over WebSocket and remote access connections for both ROS 1 and ROS 2. Both bridges are built on top of the SDK.
+
+Foxlet​
+
+Foxlet is a lightweight process you install on each device to provide connectivity between that device and Foxglove cloud. It:
+
+Monitors a local directory for recordings.
+
+Notifies Foxglove of recording metadata.
+
+Automatically imports recordings matching a specified glob pattern.
+
+Imports recordings to Foxglove on request.
+
+Foxlet isn't a live data source, because it isn't directly connected to your data (for example, via ROS middleware). To serve live data, use the Foxglove SDK or Bridge.
+Previous
+FAQ
+Next
+Device Tokens
+Need help? Contact support.
+Chat with the community on Discord.
+See the changelog.
+Interested in buying? See pricing.
+Read the latest on the Foxglove blog.
+LLM? Read llms.txt.
+
+Foxglove SDK
+Foxglove Bridge
+Foxlet

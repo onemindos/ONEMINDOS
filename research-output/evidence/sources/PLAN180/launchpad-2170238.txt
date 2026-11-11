@@ -1,0 +1,2 @@
+# https://api.launchpad.net/1.0/bugs/2170238/bug_tasks (accessed 2026-11-11), fields extracted
+{"bug_target_name": "linux-raspi (Ubuntu)", "status": "New", "importance": "Medium", "date_created": "2026-10-08T19:12:47.580099+00:00", "date_fix_released": null, "date_closed": null}

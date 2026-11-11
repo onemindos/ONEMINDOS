@@ -1,0 +1,4 @@
+NAME            SIZE FSTYPE PARTTYPENAME PARTLABEL
+loop3     1182650368                     
+├─loop3p1  536870912                     
+└─loop3p2  644710400                     

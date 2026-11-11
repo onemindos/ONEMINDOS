@@ -1,0 +1,649 @@
+Source: https://docs.viam.com/build-apps/use-viam-from-an-agent/
+Accessed: 2026-11-11
+
+Use Viam from an AI agent
+| Viam Documentation
+Docs
+
+Workshops
+Courses (opens in a new tab)
+
+Open app 
+
+Viam Documentation
+Overview 
+What is Viam?
+How to use Viam
+Control code
+Try 
+Overview
+Courses
+Quality Inspection
+
+Overview
+Gazebo Simulation Setup
+Part 1: Vision Pipeline
+Part 2: Data Capture
+Part 3: Control Logic
+Part 4: Deploy a Module
+Part 5: Productize
+Set up a machine 
+Set up your first machine
+Set up machines with the CLI
+Simulate a machine
+viam-agent and viam-server
+Configure hardware 
+Overview
+Machine configuration
+AI assistant
+Fragments
+Multi-machine setups 
+Overview
+Add a sub-part
+Add a remote part
+Frames across machines
+Add a component 
+Arm
+Base
+Board
+Button
+Camera
+Encoder
+Gantry
+Generic
+Gripper
+Input controller
+Motor
+Movement sensor
+Power sensor
+Sensor
+Servo
+Switch
+Viam CLI 
+Overview
+Configure machines
+Drive a machine
+Manage data
+Datasets and training
+Data pipelines
+Build and deploy modules
+Manage your fleet
+Administer your organization
+Automate with scripts
+CLI reference
+Manage data 
+Overview
+Capture and query tutorial
+Sequences tutorial
+Capture and sync 
+Overview
+Start data capture
+Stop data capture
+Capture on demand
+Filtered camera
+Conditional sync
+Multi-part capture
+Upload external data
+Sequences
+Query in the app
+Query from code
+Hot data store
+Tag data
+Delete data
+Data pipelines 
+Overview
+Create a pipeline
+Query results
+Manage pipelines
+Examples and tips
+Pipeline reference
+Export data
+Sync to your database
+Visualize data
+Trigger on events
+Captured data schema
+Data reference
+Train ML models 
+Overview
+Create a dataset
+Annotate data
+Built-in training
+Custom training
+Evaluate a model
+Deploy a model
+Automate annotation
+Custom training containers
+Dataset formats
+Computer vision 
+Overview
+How a vision service works
+Configure a vision pipeline
+Classify images
+Object detection 
+Detect objects
+Detect by color
+Tune detection quality
+Track objects
+Act on detections
+Alert on detections
+3D vision 
+Segment 3D objects
+Measure depth
+Deploy and maintain models 
+What's in the registry
+Deploy a model from the registry
+Deploy a custom model
+Retrain a model
+Roll out to a fleet
+Run batch inference
+Build and deploy modules 
+Overview
+Check the registry first
+Anatomy of a module
+Write an inline module
+Write a driver module
+Write a logic module
+Deploy a module
+Update and manage modules
+Use platform APIs
+Module dependencies
+Advanced patterns
+Module reference
+Build apps 
+Overview
+Use Viam from an AI agent
+Concepts 
+Connection model
+Authentication
+App scaffolding 
+Overview
+TypeScript setup
+Node.js setup
+Flutter setup
+React Native setup
+Python setup
+Go setup
+C++ setup
+Common tasks 
+Connect to a machine
+Connect to the Viam cloud
+Handle disconnection and reconnection
+Control components
+Stream video
+Query captured data
+Test against a local machine
+App tutorials 
+Overview
+Tutorial: single-machine dashboard
+Tutorial: Flutter app with widgets
+Tutorial: Python monitoring service
+Tutorial: multi-machine fleet dashboard
+Viam hosting 
+Overview
+Deploy a Viam application
+meta.json schema
+Hosting reference
+Motion planning 
+Quickstarts 
+Move your first arm
+Configure a frame system
+Frame system 
+Overview
+Arm and end effector frames
+Arm with gripper and wrist camera
+Arm with a fixed external camera
+Mobile base with sensors
+Mobile base with arm
+Camera calibration
+Obstacles 
+Overview
+Configure workspace obstacles
+Avoid obstacles
+Verify obstacles
+Attach and detach geometries
+Allow frame collisions
+Move an arm 
+Overview
+Move an arm to a pose
+Move with constraints
+Configure constraints
+Move by joint positions
+Stream joint positions
+Move through waypoints
+Pose clouds
+Pick an object
+Place an object
+Move a gantry
+How planning works
+Verify a plan before running it
+Debug a motion plan
+Visualize a motion plan
+Reference 
+Motion service
+API
+Kinematics
+Frame system API
+Orientation vectors
+CLI commands
+Motion planning algorithms
+Visualization 
+Overview
+3D scene 
+Monitor mode
+Build mode
+Move mode
+Replay mode
+3D scene widgets
+Editing frames visually
+Measuring between frames
+Controls and settings
+Visuals and collisions
+Publish visuals from a module
+Viam Visualization
+Perception 
+Point clouds
+Verify point cloud alignment
+Vision services
+Troubleshoot the 3D scene
+Reference 
+WorldState
+Transform metadata
+draw library
+Geometry constructors
+Fleet deployment 
+Overview
+Reuse configuration
+Provision devices
+End-user device setup
+Deploy software
+Deploy ML models
+Manage versions and rollouts
+Schedule jobs
+Add custom metadata
+System settings
+Change network
+Monitor and operate 
+Overview
+Monitor machine status
+Data dashboards
+
+Overview
+Create dashboards
+Custom queries
+Set up alerts
+Set up custom push notifications
+Default control interface
+Teleop workspaces
+Troubleshoot problems
+Trace requests
+Common errors
+Admin and access 
+Overview
+Control access
+Permissions
+Manage API keys
+OAuth
+Choose data region
+Billing
+White-labeled billing
+Reference 
+Overview
+viam-agent
+viam-server
+APIs 
+Component APIs
+
+Overview
+Arm
+Audio in
+Audio out
+Base
+Board
+Button
+Camera
+Encoder
+Gantry
+Generic
+Gripper
+Input controller
+Motor
+Movement sensor
+Power sensor
+Sensor
+Servo
+Switch
+Service APIs
+
+Overview
+Base remote control
+Data management
+Discovery
+Generic
+ML model
+Motion
+Vision
+World state store
+Fleet management
+Machine management
+Data client
+ML training client
+Session management
+Billing client
+SDKs 
+Python 
+
+Install the Python SDK
+Go 
+TypeScript 
+C++ 
+Flutter 
+DoCommand
+Extra params
+Network connectivity
+Built-in components 
+Arm 
+fake
+Base 
+fake
+wheeled
+sensor-controlled
+Micro-RDK 
+two_wheeled_base
+Board 
+fake
+Micro-RDK 
+esp32
+Button
+Camera 
+fake
+ffmpeg
+image_file
+webcam
+transform
+Micro-RDK 
+fake
+esp32-camera
+Encoder 
+fake
+Micro-RDK 
+incremental
+single
+incremental
+single
+Gantry 
+fake
+single-axis
+multi-axis
+Generic 
+fake
+Gripper 
+fake
+Input controller 
+fake
+gamepad
+gpio
+mux
+webgamepad
+Motor 
+fake
+gpio
+gpiostepper
+DMC4000
+Encoded Motors
+Micro-RDK 
+gpio
+Movement sensor 
+fake
+merged
+Micro-RDK 
+accel-adxl345
+gyro-mpu6050
+wheeled-odometry
+Power sensor 
+fake
+Sensor 
+fake
+Micro-RDK 
+ultrasonic
+Servo 
+fake
+gpio
+Micro-RDK 
+gpio
+Switch 
+fake
+Services 
+Vision 
+mlmodel
+color_detector
+detections-to-segments
+Motion 
+Constraints
+Discovery
+Frame system
+Base remote control
+Generic 
+MCP server
+Machine-to-machine communication
+Device setup 
+Raspberry Pi Setup
+Odroid-C4 Setup
+Orange Pi 3 LTS Setup
+Orange Pi Zero2 Setup
+BeagleBone Setup
+Jetson AGX Orin Setup
+Jetson Nano and Orin Nano Setup
+Pumpkin Board Setup
+SK-TDA4VM Setup
+Set up an ESP32 
+Modules for ESP32
+Micro-RDK Troubleshooting
+Viam Rover 
+Unbox and set up your Viam Rover 2
+Set up your Rover 2 with a Jetson
+Configure your Viam Rover
+Unbox and set up your Viam Rover 1
+Trigger configuration
+Control package
+Glossary
+Courses 
+Discord 
+GitHub 
+Open app 
+
+Ask AI
+
+Viam AI (recommended)
+
+Claude
+
+ChatGPT
+
+Copilot
+
+Use MCP with your IDEOn this page
+
+Give Feedback
+
+Click here to select the relevant text area
+Your Feedback:
+
+Submit Feedback
+
+Click on page content to select
+
+Done Highlighting
+
+ Edit
+Build apps
+Use Viam from an AI agent
+
+Use Viam from an AI agent
+An AI agent with a shell or an SDK can operate a Viam machine the same way a person or a program can.
+This page is written for the agent, or for the person setting one up.
+It covers what a machine is made of, how to reach it, what to do before moving anything, and what the platform does for you when things go wrong.
+If you already have a key and a terminal, the shortest path is Drive a machine from the CLI.
+The model in one screen
+
+A machine is a robot or device running viam-server.
+It has one or more parts; the main part is the one you talk to.
+A part serves resources: components (hardware such as an arm, a camera, a gripper, a motor) and services (software such as motion planning, vision, or data management).
+Every resource has an API (its type, for example rdk:component:arm), a model (the implementation, often from a module), and a name.
+Every API is defined in protobuf and served over gRPC.
+The machine can list its resources and describe its methods at runtime, so you can learn a machine without documentation for its hardware.
+The frame system is the machine’s kinematic tree: where each component is relative to its parent and to the world frame.
+The motion service plans against it.
+A key authenticates you.
+Keys are scoped to a machine, a location, or an organization.
+By default every key has full write access to its scope. Machines can optionally enforce per-resource, per-method restrictions through user_permissions in the machine’s JSON config (see below).
+Ways in
+
+PathUse it whenGuide
+CLIYou have a shell. One command calls any API method with JSON in and JSON out; no code to write.Drive a machine from the CLI
+SDKYou need to hold state across steps (a grasp, then a lift, then a place), stream frames, or run a loop. One long-lived client keeps one session.Connect to a machine, Control components
+MCPYou are an MCP client (Claude, Claude Code, ChatGPT, Codex, or another). Tool calls replace shell commands; no code or CLI needed.MCP server
+All three paths reach the same underlying APIs.
+The CLI and SDK run where the agent runs and open their own connection to the machine, brokered by Viam’s cloud; the MCP server runs in Viam’s cloud and holds that connection for you.
+MCP tools cover fleet and configuration management plus live machine interaction, but do not expose every method the CLI and SDK do. Check the tool list for what is available.
+Look before you move
+
+The order that works, and the reason for each step:
+List the resources (ResourceNames) and their state (GetMachineStatus).
+A resource that is still configuring or unhealthy will fail every call; the status says why.
+Read the frame system (FrameSystemConfig) and each component’s kinematics and geometry.
+That tells you which frames exist, what is attached to what, and what the planner already knows about.
+Observe before acting: an image, a point cloud, a sensor reading.
+A vision service can return an image, detections, and object point clouds in one call (CaptureAllFromCamera).
+Plan motion through the motion service rather than commanding joints or poses directly.
+Move takes a goal pose in any frame, plus obstacles and constraints you declare, and returns collision-checked motion against the frame system’s geometry.
+The arm’s own MoveToPosition is unplanned.
+Verify by observation, not by return value.
+A gripper’s Grab reporting success does not prove it lifted anything; look, or call IsHoldingSomething after the lift.
+Two known limits of perception worth planning around: a 3D segmenter’s bounding-box center can include background points behind an object’s edges, so it reads farther from the camera axis than the object is; and depth is least reliable at the near edge of a camera’s range.
+Observing from directly above an object, from a moderate height, avoids both.
+What the machine will not tell you
+
+Most of what follows holds for any Viam machine, and none of it is discoverable from the machine’s own configuration or method listing. A few points are specific to a cell like this one (an arm with a wrist-mounted camera next to a gripper) and are marked where they appear. Read this before you plan a motion.
+Moving with the motion service
+
+The motion service plans a path for a component and executes it on the arm. Give it the name of the component you want moved, the destination as a pose in a named frame, and any constraints:
+
+from viam.proto.common import Pose, PoseInFrame
+from viam.proto.service.motion import Constraints, LinearConstraint
+from viam.services.motion import MotionClient
+
+motion = MotionClient.from_robot(machine, "builtin")
+
+# Move the gripper's frame to a point 100 mm above the block, pointing straight down.
+above_block = PoseInFrame(
+ reference_frame="world",
+ pose=Pose(x=600, y=100, z=880, o_x=0, o_y=0, o_z=-1, theta=0),
+)
+await motion.move(component_name="pick-grip", destination=above_block)
+
+# Descend on a straight line. Use a linear constraint for the last 100 mm of any
+# approach, and for every move while holding something.
+straight = Constraints(
+ linear_constraint=[LinearConstraint(line_tolerance_mm=5, orientation_tolerance_degs=5)]
+)
+at_grasp = PoseInFrame(reference_frame="world", pose=Pose(x=600, y=100, z=784, o_z=-1))
+await motion.move(component_name="pick-grip", destination=at_grasp, constraints=straight)
+
+Plan the long part of the approach as a free move to the standoff pose, then one linear move straight down, and one linear move back up. Keep the linear constraint for that short final segment. A descent built from many small linear steps tends to fail: with a linear constraint the motion service solves for a direct straight line and will not fall back to a curved path, so a single segment with no direct solution returns linear with cbirrt not allowed and no direct solutions found. Read that as this exact straight line being infeasible, not the goal being unreachable, and either widen the tolerance or plan that segment as a free move.
+component_name is the component’s name as a string. Earlier versions of the SDKs took a ResourceName message here. If you pass one now, the call fails with bad argument type for built-in operation, which is the protobuf library rejecting the message where it expects a string. The same applies to the motion service’s get_pose.
+get_pose on the machine client reports where a component’s frame is, in any other frame (Python SDK v0.83.0 and later):
+
+gripper_in_world = await machine.get_pose(component_name="pick-grip", destination_frame="world")
+
+Units and frames
+
+Poses are in millimeters and degrees. Point clouds are in meters. The orientation of a pose is an orientation vector: o_x, o_y, o_z give the direction the frame’s z axis points, and theta is the roll about it. A gripper pointing straight down at the table has o_z=-1.
+A vision service returns objects in the frame of the camera it read. To use them as motion targets, convert them with transform_pose on the machine client, which applies the frame system:
+
+from viam.proto.common import PoseInFrame
+
+camera_frame_center = PoseInFrame(reference_frame="wrist-cam", pose=obj.geometries.geometries[0].center)
+world_center = await machine.transform_pose(camera_frame_center, "world")
+
+The frame system holds fixed things: the arm’s base, the cameras, the table, a place pad. Read it with get_frame_system_config. Things that move are not in it. Read those from vision services, and pass them to move as obstacles in a WorldState when a path must avoid them.
+Waiting
+
+Pass a timeout on every call. A camera or vision read that takes more than a few seconds is stuck, not slow, and a call without a deadline waits forever. If a call does not return, get_operations on the machine client lists it, and cancel_operation ends it.
+Some drivers report is_moving as true while the arm is still. Judge motion by change in joint positions over a short window, not by that flag.
+Grasping
+
+Grasp at or above the object’s center height. A grasp near the surface it rests on stalls the jaw on that surface, not on the object.
+grab returns whether the gripper holds something. is_holding_something is the check to make after any move while carrying. When a client’s session ends, viam-server stops every actuator that session commanded. Whether a held object survives that stop depends on the gripper model: some models keep holding it, and on others the stop releases the drive and drops it, so check is_holding_something and keep a carry sequence in one session. A gripper that closed on nothing stops where it is, with no force, until the next command.
+Do not read a held object with a wrist-mounted camera: a held object is well under the camera’s safe minimum range, so it fills most of the frame and a segmenter returns a biased center that reads like the grasp shifted when it did not. If you need to check the scene before releasing, read it from a fixed camera the arm does not block, not from the wrist camera.
+Looking
+
+With a wrist-mounted camera, read from 300 mm or more above an object. Closer than that, the gripper’s own fingertips enter the frame and color detectors find them. A fixed overhead camera, or a machine with no gripper, has no such limit. Check a vision result once against an independent depth read, then trust it; the check costs one call, rebuilding perception costs ten minutes. The first frame after a machine boots can be stale. If a reading is far from where the scene should be, read again.
+What the platform does for you
+
+Stops actuators when your session ends.
+Each client connection carries a heartbeat.
+If it lapses because your process exits or crashes, the machine stops the actuators that session commanded, within about two seconds.
+Consequences: from the CLI each command is its own session, so a motion started by one command stops when that command exits; and on some gripper models the stop releases the drive, dropping what it holds.
+Sequences that must hold an object belong in one process with one client.
+Names every operation and lets you cancel it.
+GetOperations lists what is running; CancelOperation stops one; StopAll stops everything in one call.
+Refuses motion it cannot plan.
+A goal inside the table, or inside an obstacle you declared, fails with an error that names the constraint.
+Converges configuration.
+When you add a component or service, the machine applies it within about ten seconds; GetMachineStatus reports the revision it reached and each resource’s state.
+One thing the heartbeat does not cover today: motion-service moves continue after the client that started them disappears.
+Use StopAll when a move must end, and give an agent a machine-scoped key rather than a location or organization key when it only needs one machine.
+Machines can restrict what an API key or user is allowed to do through a user_permissions list in the auth section of the machine’s JSON config.
+This is configured by the machine owner, not something you can set up yourself.
+Users without a matching entry are fully restricted unless a default entry exists, so a permission error on a key that is otherwise valid may mean it is not listed.
+If you hit this, read the machine’s config to see the current user_permissions entries and report what you find (the resources, methods, and the raw api-key-id or app-user-id values you see) to your human operator, who can adjust it through the Viam app’s JSON config editor or the app API.
+You have no way to resolve those identifiers to a person, add a new entry, or change the config yourself.
+Remembering across sessions
+
+Machines, parts, locations, and organizations each carry a metadata document you can read and write through the app API: a place for notes such as calibration offsets or what worked last time.
+It is a single JSON object replaced whole on every write, with no revision check, so two writers can overwrite each other; keep notes small and read before you write.
+Growing the machine
+
+Before building a new capability, check what already exists.
+Viam ships built-in components and built-in services that cover common hardware and software needs, and the Viam registry has hundreds of additional modules maintained by Viam and the community.
+Search the registry before writing a driver or service from scratch; the hardware you need may already be supported.
+When nothing in the registry fits, you can develop your own module.
+viam module generate creates a module skeleton, viam module reload hot-loads it onto the running part, and the new resource then appears in ResourceNames like any built-in.
+Use viam module reload only for testing.
+After a reload, the part keeps running your local build of the module, even if the part’s config specifies a registry version. Note that the CLI has no command to stop reloading, but it can be done with an SDK or MCP server, or by your operator in the Viam app.
+To deploy a module permanently, publish a versioned release to the registry instead.
+See Build and deploy modules.
+Reading errors
+
+ErrorMeaning
+resource rdk:component:arm/my-arm not foundWrong name or not configured; check ResourceNames.
+UnimplementedThis model does not implement that method. No further detail is given.
+all IK solutions failed constraints. Failures: { obstacle constraint: 62.00% }The planner could not reach the goal; the percentages say which constraint blocked most candidates.
+arm stalled at waypoint 2/2 (stuck joints: j3: at 110.0 want 118.8)The arm hit something during execution.
+modular resource config validation error: context deadline exceededThe module did not answer in time, usually because it is still starting.
+Next
+
+Drive a machine from the CLI: every command above, with the exact method names and request shapes.
+Connect to a machine and Control components for the SDK path.
+Motion service for planning, obstacles, and constraints in depth.
+
+Ask AI
+
+Was this page helpful?Yes
+No
+
+Glad to hear it! If you have any other feedback please let us know:
+
+Send
+
+We're sorry about that. To help us improve, please tell us what we can do better:
+
+Send
+
+Thank you!
+
+© 2026 Viam, Inc. - Documentation is licensed under Creative Commons ShareAlike License. All Rights Reserved
+PRIVACY POLICY
+| ABOUT US
+| STATUS
+AI agent guidance: llms.txt

@@ -1,0 +1,60 @@
+GrapheneOS/os-issue-tracker#4306 state:closed created:2024-11-09T19:26:57Z closed:2024-11-15T22:53:56Z
+TITLE: Audio service crashes randomly while starting a call on Pixel Tablet
+
+Initiating a call can crash the audio service, causing the microphone to stop working until a new call is initiated. I noticed this behaviour when using Signal, but other apps may also cause the audio service to crash when accessing the microphone.
+
+```
+type: crash
+osVersion: google/tangorpro/tangorpro:15/AP3A.241105.007/2024110700:user/release-keys
+uid: 1041 (u:r:hal_audio_default:s0)
+cmdline: /vendor/bin/hw/android.hardware.audio.service
+processUptime: 0s
+
+signal: 11 (SIGSEGV), code 2 (SEGV_ACCERR), faultAddr b400d95db3fcbcc4
+threadName: gsenet/15302
+
+backtrace:
+    /vendor/lib64/libedgetpu_util.so (pc 14bf88)
+    /vendor/lib64/libedgetpu_util.so (pc 1307e8)
+    /vendor/lib64/libedgetpu_util.so (pc 130bd0)
+    /vendor/lib64/libedgetpu_util.so (<masked-token>, pc e54b0)
+    /vendor/lib64/libspeechenhancer.so (platforms::darwinn::api2_stable::VirtualDevice::UnregisterGraph(platforms::darwinn::api2_stable::Graph)+20, pc 25c294)
+    /vendor/lib64/libspeechenhancer.so (platforms::darwinn::tflite::DarwinnDelegateKernel::Free()+116, pc 259810)
+    /vendor/lib64/libspeechenhancer.so (platforms::darwinn::tflite::DarwinnDelegateKernel::~DarwinnDelegateKernel()+100, pc 25974c)
+    /vendor/lib64/libspeechenhancer.so (platforms::darwinn::tflite::DarwinnDelegateKernel::~DarwinnDelegateKernel()+8, pc 259994)
+    /vendor/lib64/libspeechenhancer.so (std::__ndk1::vector<std::__ndk1::unique_ptr<audio_dsp::Resampler<float>, std::__ndk1::default_delete<audio_dsp::Resampler<float>>>, std::__ndk1::allocator<std::__ndk1::unique_ptr<audio_dsp::Resampler<float>, std::__ndk1::default_delete<audio_dsp::Resampler<float>>>>>::__base_destruct_at_end[abi:v170000](std::__ndk1::unique_ptr<audio_dsp::Resampler<float>, std::__ndk1::default_delete<audio_dsp::Resampler<float>>>*)+36, pc 213e6c)
+    /vendor/lib64/libspeechenhancer.so (platforms::darwinn::tflite::DarwinnDelegate::~DarwinnDelegate()+40, pc 253628)
+    /vendor/lib64/libspeechenhancer.so (platforms::darwinn::tflite::DarwinnDelegate::~DarwinnDelegate()+8, pc 2536a0)
+    /vendor/lib64/libspeechenhancer.so (std::__ndk1::__shared_weak_count::__release_shared[abi:v170000]()+44, pc 1ea4e8)
+    /vendor/lib64/libspeechenhancer.so (mediapipe::api2::DarwinnInferenceFinishedFunc::~DarwinnInferenceFinishedFunc()+28, pc 24b2dc)
+    /vendor/lib64/libspeechenhancer.so (std::__ndk1::__function::__func<mediapipe::api2::DarwinnInferenceFinishedFunc, std::__ndk1::allocator<mediapipe::api2::DarwinnInferenceFinishedFunc>, bool (bool)>::destroy_deallocate()+12, pc 24c850)
+    /vendor/lib64/libspeechenhancer.so (std::__ndk1::__list_imp<mediapipe::Tensor::AhwbUsage, std::__ndk1::allocator<mediapipe::Tensor::AhwbUsage>>::clear()+68, pc 2d8e7c)
+    /vendor/lib64/libspeechenhancer.so (mediapipe::(anonymous namespace)::CompleteAndEraseUsages(std::__ndk1::list<mediapipe::Tensor::AhwbUsage, std::__ndk1::allocator<mediapipe::Tensor::AhwbUsage>>&)+176, pc 2daf8c)
+    /vendor/lib64/libspeechenhancer.so (std::__ndk1::unique_ptr<mediapipe::(anonymous namespace)::DelayedReleaser, std::__ndk1::default_delete<mediapipe::(anonymous namespace)::DelayedReleaser>>::reset[abi:v170000](mediapipe::(anonymous namespace)::DelayedReleaser*)+28, pc 2dcca4)
+    /vendor/lib64/libspeechenhancer.so (mediapipe::Tensor::ReleaseAhwbStuff()+1248, pc 2da414)
+    /vendor/lib64/libspeechenhancer.so (mediapipe::Tensor::Invalidate()+52, pc 2d8584)
+    /vendor/lib64/libspeechenhancer.so (mediapipe::Tensor::~Tensor()+8, pc 2d8740)
+    /vendor/lib64/libspeechenhancer.so (std::__ndk1::vector<mediapipe::Tensor, std::__ndk1::allocator<mediapipe::Tensor>>::__base_destruct_at_end[abi:v170000](mediapipe::Tensor*)+36, pc 2014b4)
+    /vendor/lib64/libspeechenhancer.so (std::__ndk1::vector<mediapipe::Tensor, std::__ndk1::allocator<mediapipe::Tensor>>::__destroy_vector::operator()[abi:v170000]()+20, pc 20146c)
+    /vendor/lib64/libspeechenhancer.so (std::__ndk1::vector<mediapipe::Tensor, std::__ndk1::allocator<mediapipe::Tensor>>::~vector[abi:v170000]()+8, pc 2007bc)
+    /vendor/lib64/libspeechenhancer.so (void mediapipe::packet_internal::Holder<std::__ndk1::vector<mediapipe::Tensor, std::__ndk1::allocator<mediapipe::Tensor>>>::delete_helper<std::__ndk1::vector<mediapipe::Tensor, std::__ndk1::allocator<mediapipe::Tensor>>>(std::__ndk1::enable_if<!is_array<std::__ndk1::vector<mediapipe::Tensor, std::__ndk1::allocator<mediapipe::Tensor>>>::value, void>::type*)+16, pc 20104c)
+    /vendor/lib64/libspeechenhancer.so (mediapipe::packet_internal::Holder<std::__ndk1::vector<mediapipe::Tensor, std::__ndk1::allocator<mediapipe::Tensor>>>::~Holder()+28, pc 200fc8)
+    /vendor/lib64/libspeechenhancer.so (std::__ndk1::__shared_weak_count::__release_shared[abi:v170000]()+44, pc 1ea4e8)
+    /vendor/lib64/libspeechenhancer.so (std::__ndk1::deque<mediapipe::Packet, std::__ndk1::allocator<mediapipe::Packet>>::pop_front()+44, pc 2e4a40)
+    /vendor/lib64/libspeechenhancer.so (mediapipe::InputStreamHandler::ClearCurrentInputs(mediapipe::CalculatorContext*)+64, pc 31f750)
+    /vendor/lib64/libspeechenhancer.so (mediapipe::CalculatorNode::ProcessNode(mediapipe::CalculatorContext*)+372, pc 3198b4)
+    /vendor/lib64/libspeechenhancer.so (mediapipe::internal::SchedulerQueue::RunCalculatorNode(mediapipe::CalculatorNode*, mediapipe::CalculatorContext*)+200, pc 3088dc)
+    /vendor/lib64/libspeechenhancer.so (mediapipe::internal::SchedulerQueue::RunNextTask()+88, pc 308638)
+    /vendor/lib64/libspeechenhancer.so (drishti::multi_mic::GsenetExecutor::ThreadRun()+124, pc 1fb1b8)
+    /vendor/lib64/libspeechenhancer.so (drishti::multi_mic::GsenetExecutor::ThreadBody(void*)+544, pc 1faee8)
+    /apex/com.android.runtime/lib64/bionic/libc.so (__pthread_start(void*)+200, pc 76188)
+    /apex/com.android.runtime/lib64/bionic/libc.so (__start_thread+64, pc 66eb0)
+```
+
+--- comment 2024-11-10T08:22:43Z
+I'm unable to reproduce this crash on Pixel Tablet by initiating or answering a Signal voice call. How often does it happen? Is it in main or secondary user? Is Bluetooth audio used at the time of the call?
+
+--- comment 2024-11-10T12:23:20Z
+> I'm unable to reproduce this crash on Pixel Tablet by initiating or answering a Signal voice call. How often does it happen? Is it in main or secondary user? Is Bluetooth audio used at the time of the call?
+
+Main profile, no bluetooth used, just the speakers. It happens like every second call you initiate.

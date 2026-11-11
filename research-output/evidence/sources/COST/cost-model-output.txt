@@ -1,0 +1,72 @@
+
+## N=1000
+base|scen|base_hours|base_per_dev|fees_per_dev|cra_hours|cra_per_dev|total_per_dev(base+cra)|per_dev_per_year|jetson_hours|jetson_addon_per_jetson_dev
+A Debian 13 (+LTS, no ELTS)|L|760|49|0|720|50|99|11.0|240|78
+A Debian 13 (+LTS, no ELTS)|B|1680|214|0|1480|190|403|44.8|640|394
+A Debian 13 (+LTS, no ELTS)|H|2960|936|0|3120|966|1902|211.3|1600|2650
+D Ubuntu 26.04 + Pro for Devices (+Legacy)|L|500|48|15|680|47|95|10.5|240|78
+D Ubuntu 26.04 + Pro for Devices (+Legacy)|B|1000|210|90|1360|175|385|42.8|640|394
+D Ubuntu 26.04 + Pro for Devices (+Legacy)|H|2040|987|375|2880|894|1881|209.0|1600|2650
+C Red Hat Device Edge / RHEL bootc|L|840|505|450|700|48|553|61.5|144|47
+C Red Hat Device Edge / RHEL bootc|B|1880|1576|1350|1400|180|1756|195.1|384|240
+C Red Hat Device Edge / RHEL bootc|H|3820|3567|2421|2960|918|4485|498.3|960|1690
+Y Yocto own-BSP (+RAUC)|L|2740|184|0|720|50|234|26.0|192|62
+Y Yocto own-BSP (+RAUC)|B|5720|710|0|1480|190|900|100.0|512|317
+Y Yocto own-BSP (+RAUC)|H|11400|3480|0|3200|990|4470|496.7|1280|2170
+
+## N=10000
+base|scen|base_hours|base_per_dev|fees_per_dev|cra_hours|cra_per_dev|total_per_dev(base+cra)|per_dev_per_year|jetson_hours|jetson_addon_per_jetson_dev
+A Debian 13 (+LTS, no ELTS)|L|760|5|0|720|5|10|1.1|240|8
+A Debian 13 (+LTS, no ELTS)|B|1680|21|0|1480|19|40|4.5|640|48
+A Debian 13 (+LTS, no ELTS)|H|2960|94|0|3120|97|190|21.1|1600|490
+D Ubuntu 26.04 + Pro for Devices (+Legacy)|L|500|18|15|680|5|23|2.6|240|8
+D Ubuntu 26.04 + Pro for Devices (+Legacy)|B|1000|102|90|1360|18|120|13.3|640|48
+D Ubuntu 26.04 + Pro for Devices (+Legacy)|H|2040|436|375|2880|89|526|58.4|1600|490
+C Red Hat Device Edge / RHEL bootc|L|840|455|450|700|5|460|51.1|144|5
+C Red Hat Device Edge / RHEL bootc|B|1880|1373|1350|1400|18|1391|154.5|384|33
+C Red Hat Device Edge / RHEL bootc|H|3820|2536|2421|2960|92|2627|291.9|960|394
+Y Yocto own-BSP (+RAUC)|L|2740|18|0|720|5|23|2.6|192|6
+Y Yocto own-BSP (+RAUC)|B|5720|71|0|1480|19|90|10.0|512|41
+Y Yocto own-BSP (+RAUC)|H|11400|348|0|3200|99|447|49.7|1280|442
+
+## Flip test (base scenario): A / cheapest alternative
+N=1000: A=403 cheapest alt=385 ratio=1.05
+N=10000: A=40 cheapest alt=90 ratio=0.45
+
+## Break-even Pro for Devices fee (10-yr one-time, before Legacy uplift) vs A, by rate
+N=1000 scen=L: A=99, D without fee=80, break-even P=13 (with Legacy 19)
+N=1000 scen=B: A=403, D without fee=295, break-even P=72 (with Legacy 108)
+N=1000 scen=H: A=1902, D without fee=1506, break-even P=264 (with Legacy 396)
+N=10000 scen=L: A=10, D without fee=8, break-even P=1 (with Legacy 2)
+N=10000 scen=B: A=40, D without fee=30, break-even P=7 (with Legacy 11)
+N=10000 scen=H: A=190, D without fee=151, break-even P=26 (with Legacy 40)
+
+## Rate sensitivity (base inputs, base+CRA per device)
+N=1000 rate=65: A=229, D=255, C=1575, Y=504
+N=1000 rate=120: A=403, D=385, C=1756, Y=900
+N=1000 rate=200: A=656, D=574, C=2018, Y=1476
+N=1000 rate=300: A=972, D=810, C=2346, Y=2196
+N=10000 rate=65: A=23, D=107, C=1373, Y=50
+N=10000 rate=120: A=40, D=120, C=1391, Y=90
+N=10000 rate=200: A=66, D=138, C=1417, Y=148
+N=10000 rate=300: A=97, D=162, C=1450, Y=220
+
+## A2 Debian 13 + ELTS: break-even annual ELTS fee vs A (ELTS paid 5 years)
+N=1000 scen=L: A fixed=99200, A2 fixed before ELTS=99200, break-even ELTS fee per year=0, A2 per device before ELTS=99
+N=1000 scen=B: A fixed=403200, A2 fixed before ELTS=379200, break-even ELTS fee per year=4800, A2 per device before ELTS=379
+N=1000 scen=H: A fixed=1902000, A2 fixed before ELTS=1800000, break-even ELTS fee per year=20400, A2 per device before ELTS=1800
+N=10000 scen=L: A fixed=99200, A2 fixed before ELTS=99200, break-even ELTS fee per year=0, A2 per device before ELTS=10
+N=10000 scen=B: A fixed=403200, A2 fixed before ELTS=379200, break-even ELTS fee per year=4800, A2 per device before ELTS=38
+N=10000 scen=H: A fixed=1902000, A2 fixed before ELTS=1800000, break-even ELTS fee per year=20400, A2 per device before ELTS=180
+
+## 25% flip thresholds: max Pro for Devices fee P (pre-Legacy) such that A > 1.25 x D
+N=1000 L: P_max=-0.2
+N=1000 B: P_max=18.2
+N=1000 H: P_max=10.4
+N=10000 L: P_max=-0.0
+N=10000 B: P_max=1.8
+N=10000 H: P_max=1.0
+
+## C-free variant (AlmaLinux 10 bootc, no subscription; same labour as C)
+1000 [103, 406, 2064]
+10000 [10, 41, 206]

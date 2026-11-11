@@ -1,0 +1,82 @@
+The office and collaboration suite for public administration | openDesk
+Official website – Federal Republic of Germany
+ Home 
+ Product 
+ Operating models 
+ FAQ 
+ Blog 
+ Documentation 
+ About 
+ Partner 
+ Select language
+ DE 
+ EN 
+ Book a demo
+Sovereign by design.
+openDesk is the customisable office and collaboration suite designed specifically for your needs in public administration.
+ Book a demo
+Plan, organise, share, discuss, deliver. All in one platform.
+With a focus on digital sovereignty, security, and seamless collaboration, openDesk offers all the familiar tools for your day-to-day operations in one easy and convenient interface. 
+ Start working 
+ Your path to openDesk starts here
+ Get in touch
+ All the tools you need for your day-to-day in the public sector. 
+ openDesk combines all your essential office tools in one clean and intuitive workspace. 
+ Calendar 
+ Chat 
+ Contacts 
+ Docs 
+ Email 
+ File storage 
+ IAM 
+ Knowledge 
+ Notes 
+ Projects 
+ Tasks 
+ Video calls 
+ Overview of all applications 
+ Latest News 
+ 10/11/26
+ openDesk 1.19.4 - Closing several security gaps 
+ This security update addresses several critical security vulnerabilities in multiple components. We recommend updating as soon as possible. 
+ News 
+ 10/11/26
+ openDesk 1.20.1 - Closing several security gaps 
+ This security update addresses several critical security vulnerabilities in multiple components. We recommend updating as soon as possible. 
+ News 
+Insights and Updates from openDesk. openDesk news, best practices, and expert takes on digital transformation in the public sector. 
+ Explore the blog 
+openDesk is more than just a software solution
+openDesk delivers on today’s need for a powerful and sovereign workspace in public administration. 
+ Read more 
+Built for smart workflows and sovereign operations in public administration 
+ Reliable open-source solutions bundled into one application 
+ Open standards and interfaces 
+ Modular, extensible, and customisable 
+ Modern web application, optimised for mobile interfaces 
+ Platform agnostic 
+From idea to innovation: openDesk’s story 
+ openDesk grew out of the 'Sovereign Workplace' initiative launched by the German Federal Ministry of the Interior. 
+ The Centre for Digital Sovereignty (ZenDiS GmbH), a publicly-funded limited liability company of the German Federal Government, took over openDesk’s development in January 2024. 
+ Today, it works closely with German public authorities, established open source companies, and European partners. 
+ Experience openDesk live
+ Book a free demo
+ A product by ZenDiS, commissioned by the German Federal Ministry for Digital Transformation and Government Modernisation 
+ Resources 
+ Documentation
+ Roadmap 
+ Blog 
+ Community 
+ openCode
+ Partner 
+ Company 
+ Contact 
+ Legal 
+ Privacy 
+ Accessibility 
+ ZenDiS
+ Zentrum für Digitale
+ Souveränität der
+ Öffentlichen Verwaltung
+ (ZenDiS) GmbH
+ Hosted with 🤍 by openCode.

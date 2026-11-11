@@ -1,0 +1,212 @@
+Source: https://docs.foxglove.dev/docs/standalone-license
+Accessed: 2026-11-11
+
+Standalone License Activation | Foxglove Docs
+
+Skip to main content
+
+DocumentationSDKAPIChangelog
+Back to Foxglove
+
+Search
+
+Getting started
+Overview
+Getting started guide
+Python
+C++
+Rust
+
+Frameworks
+Open a file
+Explore examples
+
+Hardware
+
+Robots
+
+Custom Data
+
+Agents & MCP
+Overview
+Agent sidebar
+MCP server
+Slack
+
+Visualization
+Overview
+
+Connecting to data
+Playback
+Comparison mode
+Layouts
+
+Panels
+Variables
+User Scripts
+FoxQL
+Shareable links
+Video export
+Open via CLI
+Annotate ROS enum fields
+Controls and shortcuts
+Migrate from other tools
+
+Data Platform
+Overview
+Importing data
+Exporting data
+Devices
+Recordings
+Sessions
+Events
+
+Search
+
+Primary Sites
+
+Edge Sites
+
+Fleet
+Overview
+Device Tokens
+
+Foxlet
+Bridge
+Remote Access
+
+Integration
+
+Extensions
+
+Webhooks
+
+Embedding Foxglove
+
+Jupyter notebook
+
+Grafana
+CLI
+OAuth
+Personal access tokens
+Release feeds
+
+Administration
+Settings
+Audit logs
+Pricing
+Standalone License
+Projects
+Roles
+Seat types
+SSO
+
+Administration
+Standalone License
+On this page
+
+Standalone License Activation
+
+Enterprise
+
+Use standalone mode to run Foxglove desktop with a standalone license instead of signing in with an account.
+
+Before you begin​
+
+Standalone mode is intended for offline and air-gapped workflows.
+
+In standalone mode:
+
+Cloud-based pages and features are unavailable
+
+Users do not sign in with an account
+
+Users cannot sign out to switch accounts
+
+Preloaded layouts and extensions can be used but cannot be modified or removed
+
+To show the Activate License link on the welcome page, create a standalone folder in your Foxglove app data directory.
+
+Windows
+Linux
+macOS
+
+%APPDATA%\Foxglove\standalone\
+
+~/.config/Foxglove/standalone/
+
+~/Library/Application Support/Foxglove/standalone/
+
+After you create the folder, start Foxglove desktop and select Activate License on the welcome page.
+
+Activate online​
+
+Use this flow when the machine can reach the internet.
+
+Open Activate License from the welcome page.
+
+Enter your license key.
+
+Select Activate.
+
+Activate offline​
+
+Use this flow for offline or air-gapped machines.
+
+On the offline machine, open Activate License.
+
+Select use offline activation.
+
+Enter your license key and select Generate .req file.
+
+Transfer the generated .req file to an online machine.
+
+On the online machine, open licensing.foxglove.dev.
+
+Upload the .req file and download the generated .lic file.
+
+Transfer the .lic file back to the offline machine.
+
+Using Foxglove on the offline machine, select Import .lic file and choose the .lic file.
+
+Preload layouts and extensions (optional)​
+
+You can pre-configure standalone installations by placing files in subdirectories under standalone:
+
+.../Foxglove/
+
+└── standalone/
+
+ ├── layouts/
+
+ │ └── My Layout.json
+
+ └── extensions/
+
+ └── mycompany.example-extension-1.0.0.foxe
+
+Put exported layout .json files in standalone/layouts/
+
+Put extension .foxe files in standalone/extensions/
+
+Foxglove loads these files when a valid standalone license is active.
+
+Need help?​
+
+Contact <masked-email>.
+Previous
+Pricing
+Next
+Projects
+Need help? Contact support.
+Chat with the community on Discord.
+See the changelog.
+Interested in buying? See pricing.
+Read the latest on the Foxglove blog.
+LLM? Read llms.txt.
+
+Before you begin
+Activate online
+Activate offline
+Preload layouts and extensions (optional)
+Need help?

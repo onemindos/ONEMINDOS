@@ -1,0 +1,89 @@
+Source: https://www.freexian.com/lts/debian/
+Accessed: 2026-11-11 (curl + HTML-to-text; excerpt)
+----
+support. This is what is presented on this page. 
+ Debian Extended LTS for the organizations that need
+more than 5 years of support; 
+ PHP LTS for organizations that use alternate PHP releases
+(i.e. not shipped by Debian). 
+ Nowadays Debian is providing 5 years of security support thanks to the
+introduction of the Debian LTS team: composed mainly of paid developers,
+most of them are funded by Freexian. Their continued work is critical
+for organizations relying on Debian. 
+ The corporate sponsorship campaign presented on this page is what allows
+Freexian to fund the work of multiple Debian contributors who are
+established as independent workers and who prepares, day after day, the
+required security updates. If you benefit from those updates, we would like
+to invite you to subscribe to this offer. 
+ 100% 
+ 33% (0.5 person/month) 
+ 66% (1 person/month) 
+ &debltsprogress; (&debltsfunded; h) 
+-->
+ If you are not yet convinced, here are seven reasons why you
+should help fund the Debian Long Term Support initiative 
+(LTS): 
+ Ensure prioritized support of the packages that you are using; 
+ Let the LTS team know which packages you are using and ensure that
+ they don’t stop security support before the start of Extended LTS; 
+ Ensure that security updates will not generate regressions in
+ your production infrastructure by providing functional tests to
+ run before release; 
+ Benefit from direct contact to the LTS staff in case
+ of specific queries and requests; 
+ Influence the work of sponsored developers so that Debian continues to
+ fit your needs; 
+ Generate goodwill among the free software community thanks to
+ your appearance in the list of sponsors; 
+ Benefit from the experience of people from other
+ Debian-using companies thanks to a private mailing list. 
+ Join the initiative now! 
+ It's easy: pick a funding level in the table below,
+ download
+the subscription form , fill it and send it back to <email-masked> . 
+ Funding level 
+ Basic 1 Basic 2 Bronze 1 Bronze
+2 Bronze 3 Silver 1 Silver 2 Gold 1
+ Gold 2 Platinum 
+ Benefits ( details ) 
+ Packages to prioritize Weighted on the
+amount sponsored 
+ Thanked as sponsor: 
+ Bronze 
+ Silver Gold 
+ Platinum 
+ Private mailing list 
+ Direct contact to LTS staff 
+ CSAF/VEX data feed 
+ Submit your own test cases 
+ Prices 
+ Monthly payment N/A €255 $300 
+ €340 $400 €510 $600 €680 $800 
+ €1360 $1600 €2040 $2400 
+ Quarterly payment N/A €255 $300 
+ €510 $600 €765 $900 €1020 $1200 
+ €1530 $1800 €2040 $2400 
+ €4080 $4800 €6120 $7200 
+ Biyearly payment N/A €255 $300 
+ €510 $600 €1020 $1200 €1530 $1800 
+ €2040 $2400 €3060 $3600 €4080 $4800 
+ €8160 $9600 €12240 $14400 
+ Yearly payment €255 $300 €510 $600 
+ €1020 $1200 €2040 $2400 €3060 $3600 
+ €4080 $4800 €6120 $7200 €8160 $9600 
+ €16320 $19200 €24480 $28800 
+ Once you have submitted your subscription form , Freexian
+will prepare an invoice and send it to you for immediate payment.
+ Payment methods 
+ You can opt for any of the following payment methods. They are listed by
+order of preference (preferred first): 
+ SEPA Direct Debit (EUR only). For companies in SEPA countries, we can
+automatically debit your bank account. You have to download this SEPA mandate , fill it
+and send it together with the Service Order. 
+ Manual wire transfer (EUR/USD). When you get the invoice, you
+manually initiate a wire transfer on our bank account (IBAN+BIC are on the
+invoice). 
+ Credit/Debit Card (EUR/USD). If you indicate that you want to pay by
+card, we will send you a payment link together with the invoice. 
+ PayPal (EUR/USD). Click here to access
+PayPal payment forms letting you either setup a recurring payment

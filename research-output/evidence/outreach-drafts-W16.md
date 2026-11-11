@@ -7,7 +7,7 @@ Each draft lists the claim IDs it is trying to resolve, so that answers can be r
 
 ## 1. NVIDIA: Inception programme team (after incorporation)
 
-**Channel:** the Inception portal or the programme contact listed on the Inception FAQ page. **Resolves:** W16-N1, Q189, Q59/C-W7-056, C-REF-DC-cost-007.
+**Channel:** the Inception portal or the programme contact listed on the Inception FAQ page. **Resolves:** W16-N1, Q189, Q59 (BSP licence text already verified in C-LIC-001/C-LIC-048; this asks about partner terms), C-REF-DC-cost-007.
 
 > Subject: Inception member question: Jetson pricing and redistribution for a OneMind OS appliance
 >

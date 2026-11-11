@@ -6,12 +6,12 @@
 
 | Repo | Commit | What it is | Local clone |
 |---|---|---|---|
-| kairos-io/kairos | `6f33334a6a6c88a4a38c0b7ec4df1ab0334b830d` (tag v4.4.0, 2026-10-26) | Monorepo: agent, immucore, kcrypt, sdk, kairos-init, installer, provider | `work/.lab/src/kairos-io_kairos-v4.4.0` |
-| kairos-io/kairos | `fa6801435880cdb4fd0c7c3e42577cb5974a3555` (master, 2026-11-10) | Used only to check that `images/Dockerfile` moved its default kairos-init to v4.4.0 after the tag | `work/.lab/src/kairos-io_kairos` |
-| kairos-io/kairos-docs | `b1bf8bedc43697ce552b988a74f0f4e76afaeddf` (2026-11-06) | Documentation source for kairos.io | `work/.lab/src/kairos-io_kairos-docs` |
-| kairos-io/kairos-operator | `7317f4c1ae6ea7e063b8e20ca362aa17f4e33ad4` (2026-11-10) | NodeOp / NodeOpUpgrade CRDs | `work/.lab/src/kairos-io_kairos-operator` |
-| kairos-io/community | `66ce4dd173f71a968b0a37ac8ec02843927d625a` (2026-10-19) | MAINTAINERS, ADOPTERS, GOVERNANCE | `work/.lab/src/kairos-io_community` |
-| kairos-io/AuroraBoot | `c99b1ac6aefad724a73df2cf6054097514358def` (2026-11-10) | Image/ISO/UKI builder and netboot server (cloned; licence checked via API only) | `work/.lab/src/kairos-io_AuroraBoot` |
+| kairos-io/kairos | `6f33334a6a6c88a4a38c0b7ec4df1ab0334b830d` (tag v4.4.0, 2026-10-26) | Monorepo: agent, immucore, kcrypt, sdk, kairos-init, installer, provider | `<lab-dir>/src/kairos-io_kairos-v4.4.0` |
+| kairos-io/kairos | `fa6801435880cdb4fd0c7c3e42577cb5974a3555` (master, 2026-11-10) | Used only to check that `images/Dockerfile` moved its default kairos-init to v4.4.0 after the tag | `<lab-dir>/src/kairos-io_kairos` |
+| kairos-io/kairos-docs | `b1bf8bedc43697ce552b988a74f0f4e76afaeddf` (2026-11-06) | Documentation source for kairos.io | `<lab-dir>/src/kairos-io_kairos-docs` |
+| kairos-io/kairos-operator | `7317f4c1ae6ea7e063b8e20ca362aa17f4e33ad4` (2026-11-10) | NodeOp / NodeOpUpgrade CRDs | `<lab-dir>/src/kairos-io_kairos-operator` |
+| kairos-io/community | `66ce4dd173f71a968b0a37ac8ec02843927d625a` (2026-10-19) | MAINTAINERS, ADOPTERS, GOVERNANCE | `<lab-dir>/src/kairos-io_community` |
+| kairos-io/AuroraBoot | `c99b1ac6aefad724a73df2cf6054097514358def` (2026-11-10) | Image/ISO/UKI builder and netboot server (cloned; licence checked via API only) | `<lab-dir>/src/kairos-io_AuroraBoot` |
 
 ## Code files cited (all at kairos-io/kairos@6f33334a unless noted)
 

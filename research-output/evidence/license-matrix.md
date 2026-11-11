@@ -1,7 +1,7 @@
 # Licence matrix: what OneMind OS may ship, and what it owes
 
-**Owner:** LIC · **Date:** 2026-11-11 · **Status:** complete for every component recommended in 01, 03–09 and 28, plus the Market seed apps from `docs/APPS.md`, W8 and the competitor landscape (`13-apps-market-plugins.md` did not exist when this was written; re-run the method when it lands) · **Data:** [`license-matrix.csv`](license-matrix.csv) (153 rows) · **Claims:** [`claims/LIC.csv`](claims/LIC.csv) (C-LIC-001…055) · **Sources:** [`sources/LIC.md`](sources/LIC.md), archive [`sources/LIC/`](sources/LIC/)
-**Serves requirements:** D-001, M-6, M-8, R-3, H-1, H-4, P-5, P-7, P-8, A-1, A-3, A-5, A-6, F-2, F-4, F-5, N-8, U-4, RS-1
+**Owner:** LIC · **Date:** 2026-11-11 · **Status:** revision 2 (pass-2 gap N5 closed): complete for every component recommended in 01, 03–13, 28 and 29, every Market seed app named in `13-apps-market-plugins.md` §15, and a model-weights block · **Data:** [`license-matrix.csv`](license-matrix.csv) (230 rows) · **Claims:** [`claims/LIC.csv`](claims/LIC.csv) (C-LIC-001…080) · **Sources:** [`sources/LIC.md`](sources/LIC.md), archive [`sources/LIC/`](sources/LIC/)
+**Serves requirements:** D-001, M-6, M-7, M-8, R-3, H-1, H-4, P-5, P-7, P-8, A-1, A-3, A-5, A-6, AI-1, F-2, F-4, F-5, N-8, U-4, W-8, RS-1
 **Not legal advice.** This file says what the licence texts say and where OneMind needs counsel. It does not replace a lawyer.
 
 > ### Explain it like I'm the founder
@@ -10,10 +10,12 @@
 > 1. **The core stack is clean.** Debian, k3s, RAUC, restic, NATS, Traefik, Longhorn and OpenBao are all open-source licences that allow commercial use. 94 of the 153 components can even be mixed into Apache-2.0 code.
 > 2. **The kernel and many Debian programs are GPL.** You may sell them, but **every release must come with its source code** (or a written offer to send it, valid for three years). That is a build-pipeline job, not a legal risk, if it is done from day one [C-LIC-018].
 > 3. **If you lock the boot chain on boxes you sell** (Secure Boot keys you alone hold, Jetson fuses), the GPL-3 programs in the image oblige you to let the owner install their own modified versions. The "owner takeover" procedure already planned (SEC-03) is how you meet that [C-LIC-019].
-> 4. **NVIDIA's Jetson software can be redistributed.** The question left open earlier (C-W7-056) is now answered from NVIDIA's own licence file. You may ship the Jetson BSP **unmodified**, on NVIDIA hardware only, with the licence text attached. NVIDIA can revoke it, and it says the software is not certified for "critical" uses such as navigation, autonomous vehicles or military work [C-LIC-001…005].
+> 4. **NVIDIA's Jetson software can be redistributed.** The question left open earlier (C-W7-056, now `superseded`) is now answered from NVIDIA's own licence file. You may ship the Jetson BSP **unmodified**, on NVIDIA hardware only, with the licence text attached. NVIDIA can revoke it, and it says the software is not certified for "critical" uses such as navigation, autonomous vehicles or military work [C-LIC-001…005].
 > 5. **Two surprises:** NVIDIA's **Isaac ROS is not open source** (it uses a proprietary NVIDIA licence) [C-LIC-021], and **Open WebUI forbids removing its branding** once more than 50 people use it [C-LIC-022]. Both can be offered as Market apps, but they can't be part of the OneMind core or rebranded.
 > 6. **Ubuntu is the real licensing blocker**, and it is a trademark policy, not a code licence: a *modified* Ubuntu image needs Canonical's approval, or a full rebuild with all Ubuntu branding removed [C-LIC-011]. That affects the Jetson flavor and the optional GPU-server flavor. A quote request to Canonical is drafted in [`outreach-drafts.md`](outreach-drafts.md).
 > 7. **Never copy code** from umbrelOS (noncommercial licence), the Umbrel app store (no licence), Olares, Glance or VillageOS (AGPL). Reading it to learn is fine.
+> 8. **Revision 2: the Market and the AI models.** Most of the ~70 seed apps are fine as separate apps, but **seven must never be preinstalled on a box you sell**. Six are "source-available", not open source: n8n (non-commercial distribution only), Outline and Akaunting (BSL), Tandoor (Commons Clause: no selling), Invoice Ninja (Elastic) and monetr (FSL). The seventh is Habitica, whose art is NonCommercial [C-LIC-064…067, C-LIC-061]. Users may still install them themselves.
+> 9. **AI model files have licences too, and they differ from the code.** **Gemma 4 is plain Apache-2.0**, the easiest default for local models [C-LIC-074]. **Llama** requires a "Built with Llama" notice and **forbids military use and operating heavy machinery or transport**, so it can't ship in robot, drone or defence profiles [C-LIC-070, C-LIC-071]. Older Gemma models carry Google's use rules, which you must pass on to your customers [C-LIC-073]. NVIDIA's robot models (GR00T, Cosmos) are commercially usable, but NVIDIA can revoke the licence, and removing their safety guardrails ends it [C-LIC-076].
 
 ---
 
@@ -49,28 +51,36 @@
 | **Trademark policy** | The rules for using a *name* (Ubuntu, Debian, Red Hat). They are separate from the code licence and can block redistribution of a modified image. |
 | **BSL (BUSL-1.1)** | Business Source License: you can read the source, but production use is restricted until a change date. Not open source. |
 | **PolyForm Noncommercial** | Source-available for noncommercial use only (umbrelOS). |
+| **Source-available** | You can read the code, but the licence limits use (for example no selling, no hosting for others, or a user cap). BSL, FSL, Elastic License 2.0, n8n's Sustainable Use License and the Commons Clause are all source-available, not open source. |
+| **FSL (Functional Source License)** | Source-available; you may use it for anything except competing with the author, and each version becomes MIT (or Apache) after two years. |
+| **Commons Clause** | A rider added to an open licence that removes the right to sell the software, including paid hosting or support. |
+| **EUPL-1.2** | The EU's copyleft licence. Like the GPL, you must share source when you distribute, but it lists other licences (GPL, MPL, EPL…) it is compatible with. |
+| **Model weights / model licence** | The trained numbers of an AI model. They are licensed separately from the code that runs them, often under a custom licence (Llama, Gemma, NVIDIA Open Model License). |
+| **AUP (acceptable use policy)** | A list of forbidden uses that a model licence pulls in by reference. Breaking it breaks the licence. |
+| **Archived repository** | The upstream project marked read-only on GitHub: no fixes, including security fixes. |
 
 ## 2. Method
 
-1. **The component list** is the union of every component that is *recommended* in [`01`](../01-FOUNDATION-DECISION.md) (§1 table), 03 (W2-R1…R7), 04 (W3-REC-01…13), 05 (§2.4, §3), 06 (W5-R1…R14), 07 (SEC-01…17), 08 (W7-R1…R13), 09 (W8-R1…R12) and 28 (REC-W18-1…11). The Market seeds are every product named in [`docs/APPS.md`](../../docs/APPS.md) §A–B, the N.O.M.A.D. bundle (`research/competitors/landscape.md`), the W8 apps and the founder-cluster apps that carry forward (AI-9). Transitive runtime pieces are added where the image would carry them: Kubernetes, etcd, CoreDNS, containerd, runc, kine, SQLite, linux-firmware and the Pi Wi-Fi firmware. Competitor code that must not be copied is listed too, so the rule is mechanical.
+1. **The component list** is the union of every component that is *recommended* in [`01`](../01-FOUNDATION-DECISION.md) (§1 table), 03 (W2-R1…R7), 04 (W3-REC-01…13), 05 (§2.4, §3), 06 (W5-R1…R14), 07 (SEC-01…17 and the toolchain row), 08 (W7-R1…R13), 09 (W8-R1…R12), 10 (REC-W9-*), 11 (W10-C*), 12 (REC-W11-*), 13 (W12-R*, §15 seed list), 28 (REC-W18-1…11) and 29. **Revision 2** added the 07 toolchain (Kyverno, Falco, Trivy, go-tuf), NVIDIA GPU Feature Discovery, the Mender-on-Pi-5 runner-up path (SWUpdate, U-Boot, mender-convert), the AI layer (llama.cpp, vLLM, Dynamo, LiteLLM, Kanidm), the client shells (Capacitor, Tauri 2), backup object storage (Garage, MinIO), the ROS 2 DDS layers, every seed in `13-…` §15, and a model-weights block. The Market seeds are every product named in [`docs/APPS.md`](../../docs/APPS.md) §A–B, the N.O.M.A.D. bundle (`research/competitors/landscape.md`), the W8 apps and the founder-cluster apps that carry forward (AI-9). Transitive runtime pieces are added where the image would carry them: Kubernetes, etcd, CoreDNS, containerd, runc, kine, SQLite, linux-firmware and the Pi Wi-Fi firmware. Competitor code that must not be copied is listed too, so the rule is mechanical.
 2. **Pinning.** For each GitHub project: the latest release tag (or the default-branch head where a repo has no releases), resolved to a full commit SHA with `gh api`. The licence file path came from the licence API at that SHA. Non-GitHub sources were pinned the same way through GitLab, Salsa and kernel.org commit IDs, or through the exact NVIDIA `.deb` with its sha256.
 3. **SPDX came from the file text**, never from GitHub's detector. The detector returned `NOASSERTION` or nothing for 48 of the 137 repositories queried, among them Rugix, RAUC's peers, bootc, Tailscale, SQLite, OpenZFS, ESPHome, Mosquitto, TAK Server and the Linux kernel. Every row in the CSV links `blob/<sha>/<file>`.
-4. **Link check:** all 135 GitHub permalinks and the 5 GitLab/Salsa ones returned HTTP 200 on 2026-11-11 ([`sources/LIC.md`](sources/LIC.md) §4).
-5. **Vendor terms** (NVIDIA, Hailo, Rockchip, Canonical, Debian, Red Hat, CentOS) were read in full and archived as text with sha256. Emails were masked; see `sources/LIC/ORIGINAL-HASHES.txt`. The Fedora trademark page sat behind a bot wall and was **not** bypassed [C-LIC-049].
-6. **Safety:** the NVIDIA packages were downloaded into an isolated scratch folder and unpacked with `bsdtar` as data. No package script or binary was run.
-7. **Column meanings in the CSV.** `commercial_redistribution_allowed` says whether OneMind may sell or ship it, and on what condition. `source_offer_obligation` is what OneMind owes recipients. `patent_clause` is what the text grants. `apache2_compatible` uses one of five classes (next section). `blob_eula_terms` holds proprietary conditions. `notes` carries claim IDs and decisions.
+4. **Link check:** all 135 GitHub permalinks and the 5 GitLab/Salsa ones returned HTTP 200 on 2026-11-11 ([`sources/LIC.md`](sources/LIC.md) §4). Revision 2: all 78 new permalinks (GitHub, the Garage Forgejo, Google, NVIDIA and NVIDIA's apt repo) also returned HTTP 200 on 2026-11-11.
+5. **Model weights** (revision 2) were pinned by the licence text, not the code: Meta's `llama-models` repo at a commit SHA, Google's Gemma pages (archived with sha256), and NVIDIA's Open Model License page plus the Hugging Face model card's `license_name` at the model's revision SHA.
+6. **Vendor terms** (NVIDIA, Hailo, Rockchip, Canonical, Debian, Red Hat, CentOS) were read in full and archived as text with sha256. Emails were masked; see `sources/LIC/ORIGINAL-HASHES.txt`. The Fedora trademark page sat behind a bot wall and was **not** bypassed [C-LIC-049].
+7. **Safety:** the NVIDIA packages were downloaded into an isolated scratch folder and unpacked with `bsdtar` as data. No package script or binary was run.
+8. **Column meanings in the CSV.** `commercial_redistribution_allowed` says whether OneMind may sell or ship it, and on what condition. `source_offer_obligation` is what OneMind owes recipients. `patent_clause` is what the text grants. `apache2_compatible` uses one of five classes (next section). `blob_eula_terms` holds proprietary conditions. `notes` carries claim IDs and decisions.
 
 ## 3. The matrix at a glance
 
 | Class (`apache2_compatible`) | Rows | Meaning for OneMind | Examples |
 |---|---|---|---|
-| **Can be combined into Apache-2.0 code** | 94 | Copy, modify, embed; keep notices (Apache-2.0 NOTICE files must travel) | k3s, RKE2, Rugix, restic, NATS, Traefik, Longhorn, Home Assistant Core, ROS 2 core, ChirpStack, Kolibri |
-| **Separate component, file-level copyleft** | 7 | Ship as is; publish changes to *their* files | RAUC (LGPL-2.1), OpenBao (MPL-2.0), systemd (LGPL-2.1+), open62541 (MPL), Tahu (EPL), mkosi, greenboot (shell) |
-| **Separate program only (GPL/AGPL)** | 25 + Debian/Ubuntu aggregates | Fine side by side in the image or as a Market app; never paste code into the Apache core; source duties apply | Linux kernels, GRUB, cryptsetup, AppArmor, TAK Server, OpenTAKServer, CloudTAK, Grafana, Immich, Jellyfin, ESPHome runtime |
-| **Proprietary: ship unmodified under its own terms** | 12 + NVIDIA x86/NGC (UNVERIFIED) | Can't be relicensed or modified; conditions travel with the binary | Jetson BSP, CUDA, Isaac ROS, Raspberry Pi firmware/EEPROM, linux-firmware blobs, Hailo firmware, RKNN |
-| **Never bundle / never copy** | 9 | Study only, or leave for users to install themselves | umbrelOS, umbrel-apps, Olares, Glance, VillageOS-API, Homepage (code), EMQX, Reticulum, Open WebUI (white-label) |
+| **Can be combined into Apache-2.0 code** | 128 | Copy, modify, embed; keep notices (Apache-2.0 NOTICE files must travel) | k3s, RKE2, Rugix, restic, NATS, Traefik, Longhorn, Home Assistant Core, ROS 2 core, Kyverno, Falco, Trivy, llama.cpp, vLLM, Frigate, Gitea, Gemma 4 weights |
+| **Separate component, file-level copyleft** | 9 | Ship as is; publish changes to *their* files | RAUC (LGPL-2.1), OpenBao (MPL-2.0), systemd (LGPL-2.1+), open62541 (MPL), Tahu (EPL), mkosi, greenboot (shell), Kanidm (MPL), Syncthing (MPL) |
+| **Separate program only (GPL/AGPL/EUPL), incl. aggregates** | 60 | Fine side by side in the image or as a Market app; never paste code into the Apache core; source duties apply | Linux kernels, GRUB, U-Boot, SWUpdate, cryptsetup, TAK Server, Grafana, Immich, Nextcloud, Vaultwarden, Garage, Pi-hole (EUPL), Habitica (code) |
+| **Proprietary: ship unmodified under its own terms** | 14 | Can't be relicensed or modified; conditions travel with the binary | Jetson BSP, CUDA, NVIDIA x86 driver (now verified), NGC images, Isaac ROS, Raspberry Pi firmware/EEPROM, linux-firmware blobs, Hailo firmware, RKNN, GR00T and Cosmos weights |
+| **Never bundle / never copy (incl. source-available and restricted models)** | 19 | Study only, or leave for users to install themselves | umbrelOS, umbrel-apps, Olares, Glance, VillageOS-API, Homepage (code), EMQX, Reticulum, Open WebUI (white-label), Runtipi store, n8n, Outline, Akaunting, Tandoor, Invoice Ninja, monetr, Llama 3.2/4 and Gemma 1–3n weights (in restricted SKUs) |
 
-OpenZFS (CDDL-1.0) is in its own class; see H-9.
+OpenZFS (CDDL-1.0) is in its own class; see H-9. Revision 2 counts all 230 rows mechanically from the `apache2_compatible` column (first word of each cell). Revision 1's hand counts (94 / 7 / 25 / 12 / 9) grouped a few rows differently, so the two sets of numbers aren't directly comparable.
 
 ## 4. Licence gate (G1) per recommended layer
 
@@ -91,6 +101,14 @@ This updates the G1 column of 01 §3.1.1 with primary licence text. A layer pass
 | Robotics | ROS 2 Jazzy, rmw_zenoh, Zenoh (Apache option), PX4, MAVLink generated code, Open-RMF, ONNX Runtime | **PASS** | **Isaac ROS is proprietary**: optional Market app only (H-3) | C-LIC-021, 045, 047, 051 |
 | IoT / mesh / TAK | Home Assistant, Mosquitto, NanoMQ, ChirpStack, Node-RED, batman-adv, TAK Server, OpenTAKServer, CloudTAK, Meshtastic, ESPHome | **PASS as separate apps** | GPL/AGPL apps stay separate; EMQX and Reticulum never bundled | C-LIC-026, 044, 046, 047 |
 | Non-NVIDIA accelerators | HailoRT, Hailo firmware, RKNN | **CONDITIONAL** | Vendor-only grants; the Hailo firmware EULA forbids publishing benchmarks (H-7) | C-LIC-024, 025 |
+| Security toolchain (07) | Kyverno, Falco, Trivy, go-tuf, cosign | **PASS** | Falco's kernel driver comes from `falcosecurity/libs` (not re-read); prefer the modern eBPF probe | C-LIC-056 |
+| Updates runner-up path (Mender on Pi 5) | SWUpdate, U-Boot, mender-convert | **PASS with obligations** | GPL-2.0 source offer for SWUpdate and U-Boot; link OneMind tools only to SWUpdate's LGPL client library; a locked U-Boot verified boot counts for H-2 | C-LIC-058…060 |
+| GPU discovery (W10-C2) | NVIDIA GPU Feature Discovery (inside k8s-device-plugin), x86 user-space driver | **PASS; driver CONDITIONAL** | Pin GFD to the device-plugin release; driver s2.8: GeForce software not for datacenter deployment | C-LIC-057, 077 |
+| AI layer (10) | llama.cpp, Ollama, vLLM, Dynamo, LiteLLM (MIT part), Kanidm, Open WebUI (branded) | **PASS** | LiteLLM `enterprise/` never enabled; model weights gated separately (next row) | C-LIC-068, 069, 022 |
+| Model weights (10, 13) | Gemma 4; Llama 3.2/4; Gemma 1–3n; GR00T; Cosmos | **Gemma 4 PASS. Others CONDITIONAL** | Llama: notice, 700M MAU and AUP (no military, ITAR or heavy machinery). Gemma Terms: pass on the restrictions. NVIDIA OML: notice, guardrails kept, revocable (H-11) | C-LIC-070…076 |
+| Clients (12) | Capacitor, Tauri 2 | **PASS** | App-store terms are separate | C-LIC-069 |
+| Backup object storage (05, 06) | Garage (AGPL-3.0); MinIO (archived) | **PASS as a separate service** | Unmodified Garage over the S3 API; do not adopt MinIO (archived) | C-LIC-062, 080 |
+| Market seeds (13 §15) | ~70 apps and 4 stores | **PASS as separate apps for all except:** 7 source-available ones and Habitica's NonCommercial art (user-install only); 6 archived upstreams flagged | H-7, H-8, H-12 | C-LIC-061…068, 080 |
 
 ## 5. High-risk findings
 
@@ -134,16 +152,40 @@ Boot firmware and the Pi 5 EEPROM bootloader may be redistributed unmodified, in
 - **Reticulum** forbids use in systems able to harm humans and use in AI/ML training datasets. That conflicts with OneMind's AI-context promise (AI-1) and with public-safety and defence SKUs. Keep it user-installed only (confirms W8-R7).
 - **Hailo firmware EULA:** revocable, binary-only, Hailo products only, and **no publishing benchmarks or comparative analyses** [C-LIC-025]. OneMind's "can my box run this" scores (N-3, A-8) must not publish Hailo benchmark figures without Hailo's permission.
 - **Rockchip RKNN:** Rockchip products only; no patent licence [C-LIC-024].
-- **Open-core directories:** AFFiNE backend, authentik `enterprise/`, Infisical `ee/` [C-LIC-053]. Never enable or redistribute those directories.
+- **Open-core directories:** AFFiNE backend, authentik `enterprise/`, Infisical `ee/` [C-LIC-053], plus (revision 2) Activepieces `ee/`, LiteLLM `enterprise/` and OpenCTI files headed Enterprise Edition [C-LIC-068]. Never enable or redistribute those directories.
+- **Source-available Market seeds (revision 2).** These are listed in `13-…` §15 but are **not open source**. A box OneMind sells may not preinstall them; the Market may offer them only as a user-initiated install that shows the licence:
+  - **n8n:** Sustainable Use License. Use is limited to internal business or non-commercial/personal purposes, and distribution must be "free of charge for non-commercial purposes" [C-LIC-064]. The founder cluster's own internal use is fine. **Activepieces (MIT core)** is the bundle-safe automation seed.
+  - **Outline:** BSL 1.1. No commercial "Document Service" for third parties; becomes Apache-2.0 on 2030-10-23 [C-LIC-065]. **BookStack (MIT)** and **Trilium (AGPL)** are the bundle-safe alternatives.
+  - **Akaunting:** BSL 1.1 with at most two users, one company or 1,000 invoices, no white-label and no hosted accounting [C-LIC-065]. Drop it from the seeds.
+  - **Tandoor Recipes:** AGPL-3.0 plus the Commons Clause, so no selling, including paid hosting or support [C-LIC-066]. **Mealie (AGPL)** replaces it.
+  - **Invoice Ninja:** Elastic License 2.0. It can't be offered as a hosted service, and its licence-key code must not be circumvented [C-LIC-067].
+  - **monetr:** FSL-1.1-MIT. Anything but a competing use; each version becomes MIT two years after release [C-LIC-067].
+  - **Habitica:** the code is GPL-3.0, but its HabitRPG art is CC BY-NC-SA 3.0 (NonCommercial) [C-LIC-061].
+- **SpiderFoot licence correction:** the last tag, v4.0, is **GPL-2.0**. The project switched to MIT in commit `9aa6ec3af317` on 2022-05-06, after that tag [C-LIC-063]. Build from a pinned post-relicence commit. The W12 seed CSV's "MIT" is correct only for the branch head.
 
 ### H-8 · AGPL Market apps
-Grafana (AGPL since v8; v13.3.1 confirmed [C-LIC-023]), Immich, Firefly III, Plane and CloudTAK [C-LIC-028], plus NetBird's server parts [C-LIC-027]. Shipping them **unmodified** as separate apps is fine. If OneMind **modifies** one and users reach it over a network, including a future OneMind-hosted cloud (M-1, F-6), AGPL s13 requires offering that modified source to those users (LIC-R9).
+Grafana (AGPL since v8; v13.3.1 confirmed [C-LIC-023]), Immich, Firefly III, Plane and CloudTAK [C-LIC-028], plus NetBird's server parts [C-LIC-027]. Revision 2 adds Nextcloud, Vikunja, Trilium, Vaultwarden, SearXNG, Mealie, Homebox, wger, Endurain, FitTrackee, Sure, Ghostfolio, Wealthfolio, rotki, IntelOwl, MISP, FreshRSS and Garage [C-LIC-062]. Shipping them **unmodified** as separate apps is fine. If OneMind **modifies** one and users reach it over a network, including a future OneMind-hosted cloud (M-1, F-6), AGPL s13 requires offering that modified source to those users (LIC-R9).
 
 ### H-9 · OpenZFS (CDDL) with a GPL kernel
 OpenZFS is CDDL-1.0 [C-LIC-031]. Combining CDDL modules with the GPL-2.0 kernel in one distributed binary is a long-disputed question. Debian ships ZFS as DKMS source in `contrib` for this reason. Shipping a **prebuilt, signed `zfs.ko` inside a OneMind image** (which Secure Boot pushes toward) needs counsel first. Until then, keep ZFS an optional Pro feature built on the device (LIC-R10).
 
 ### H-10 · Trademarks are separate from code licences
 Debian: never put "Debian" in the product name; "based on Debian" is fine [C-LIC-012]. Red Hat: rebuilt code is allowed, but all Red Hat marks must be removed [C-LIC-013]. CentOS: no marks with commercial redistribution or rebuilds without permission [C-LIC-014]. Fedora: UNVERIFIED (blocked) [C-LIC-049]. Home Assistant and other apps: list them under their upstream names. That is also what keeps OneMind a CRA *distributor* rather than a *manufacturer* for third-party apps (SEC-11) (LIC-R4).
+
+### H-11 · AI model weights carry their own licences (revision 2)
+Code licences don't cover model files. Olares already ships 58 model packages, many under Gemma or Llama community licences [C-W12-006]. The model licence travels with the weights, not with llama.cpp or Ollama (both MIT).
+
+| Model family | Licence (primary text) | What OneMind must do | Fits robot / drone / defence SKUs? |
+|---|---|---|---|
+| **Gemma 4** | Apache-2.0 (Google's "Gemma 4 license" page) [C-LIC-074] | Keep the notices | **Yes** |
+| Gemma 1–3n, PaliGemma, CodeGemma, EmbeddingGemma, ShieldGemma | Gemma Terms of Use (2026-04-01) [C-LIC-073] | Put the Prohibited Use Policy into OneMind's own terms as an **enforceable** clause; give the Terms; add a Notice file. Google may restrict use remotely. The policy also bars unlicensed professional practice, including medical and financial [C-LIC-075] | Only with counsel |
+| Llama 3.2 / Llama 4 | Llama Community Licenses [C-LIC-070, C-LIC-072] | Ship the licence and a Notice; show "Built with Llama"; derived models are named "Llama…" | **No.** The AUP bans military, warfare, ITAR and the "operation of critical infrastructure, transportation technologies, or heavy machinery". Vision-model rights are not granted to EU-based companies [C-LIC-071] |
+| NVIDIA GR00T N1.7, Cosmos | NVIDIA Open Model License (2025-10-24) [C-LIC-076] | Give the Agreement and a Notice; Cosmos also needs "Built on NVIDIA Cosmos"; never strip guardrails; it is revocable and NVIDIA may update it | Commercial use is allowed, but OneMind carries an indemnity. Pair it with H-3's Critical Application point |
+
+**Do this (LIC-R13):** `model.license` (SPDX or LicenseRef), `model.aup_url` and a `model.sku_allowlist` become required fields in a model app's manifest. The Lite, Edge and Pro default models come from Apache-2.0 families (Gemma 4 first). Llama is blocked by policy in any Robot, Drone, public-safety or defence profile.
+
+### H-12 · Archived upstreams in the recommended set (revision 2)
+Archived means no further fixes, including security fixes [C-LIC-080]. **MinIO** is archived, so use **Garage** for home S3. **NVIDIA GPU Feature Discovery** moved into k8s-device-plugin, so pin it there [C-LIC-057]. **python-matter-server** (moved to `matter-js`), **File Browser**, **Maybe** (use its fork **Sure**) and **Fasten On-Prem** are archived too: drop them from the seeds or label them "unmaintained". SpiderFoot has had no commits since 2023-11. The Market linter should fail any listing whose upstream is archived (LIC-R15).
 
 ## 6. Resolving C-W7-056: the Jetson BSP licence
 
@@ -163,7 +205,7 @@ Debian: never put "Debian" in the product name; "based on Debian" is fine [C-LIC
 | Robots, drones, public safety? | Not tested or certified for Critical Applications; OneMind indemnifies NVIDIA | s2.10–2.11 [C-LIC-004] |
 | Files without their own licence? | Covered by the same NVIDIA EULA | copyright file [C-LIC-006] |
 
-**Verdict.** The **BSP part of G1 passes with conditions** [C-LIC-048]. C-W7-056 should be marked `superseded` by C-LIC-001…005 and C-LIC-048. The Jetson flavor as a whole stays **G1-conditional because of the Ubuntu rootfs (H-4)**, not because of the BSP. Re-check every 6 months, and at each new L4T release (compare the md5).
+**Verdict.** The **BSP part of G1 passes with conditions** [C-LIC-048]. C-W7-056 is marked `superseded` by C-LIC-001 in the ledger (applied 2026-11-11); cite C-LIC-001…005 and C-LIC-048 instead. The Jetson flavor as a whole stays **G1-conditional because of the Ubuntu rootfs (H-4)**, not because of the BSP. Re-check every 6 months, and at each new L4T release (compare the md5).
 
 ## 7. What competitors do (constraint fit)
 
@@ -177,6 +219,9 @@ Debian: never put "Debian" in the product name; "based on Debian" is fine [C-LIC
 | Project N.O.M.A.D. | Apache-2.0 core bundling GPL Kiwix and MIT Kolibri as separate apps (matrix rows) | Volunteer, offline education | **High**: the aggregate model OneMind needs | Core under Apache-2.0, copyleft apps as separate containers |
 | VillageOS | AGPL-3.0 or paid licence with mandatory attribution [C-TD-villageos-025] | Small company, partly closed server | **Low** for code; partner/host model | Host as an app (W8-R12) |
 | NVIDIA JetPack (as a distributor) | Ships an Ubuntu rootfs but tells users to check Canonical's policy themselves [C-REF-DC-cost-007, -008] | Silicon vendor | **Warning**: NVIDIA does not carry the Canonical question for you | Settle it directly (O-1) |
+| Olares (model apps, revision 2) | Ships 58 model packages, many under Gemma or Llama community licences [C-W12-006]; its store repo `beclab/apps` is Apache-2.0 [C-LIC-063] | Venture-backed, Kubernetes, AI-first | **High** for the model-app idea; their per-model licence handling was not audited | Treat models as apps, with a required `model.license` field (LIC-R13) |
+| CasaOS AppStore | Apache-2.0 store repo; each app keeps its upstream licence [C-LIC-063] | IceWhale, Docker Compose, single box | **High** | The importer may read its manifests (with NOTICE) |
+| Runtipi app store | GPL-3.0 store repo [C-LIC-061] | Community, Docker Compose | **Low** for reuse: GPL manifests can't be pulled into Apache-2.0 manifests | Patterns only |
 
 ## 8. Recommendations with requirement IDs
 
@@ -189,24 +234,34 @@ Debian: never put "Debian" in the product name; "based on Debian" is fine [C-LIC
 | **LIC-R5** | NVIDIA components: ship unmodified, with their licences attached, only on NVIDIA hardware, outside OneMind's Apache repos; carry the Critical Application disclaimer into OneMind's robot, drone and public-safety terms | N-8, F-2, M-7, H-3 | H-3, C-LIC-001…010 |
 | **LIC-R6** | Treat the **Ubuntu rootfs** as the open G1 item for the Jetson and GPU-server flavors: send O-1, and prototype a Debian or meta-tegra rootfs on the BSP as the fallback (W7-R3) | F-2, N-8, H-3, R-3 | H-4, C-LIC-011 |
 | **LIC-R7** | CI licence gate on every OneMind repo (ScanCode/REUSE): fail on AGPL, GPL, PolyForm, unlicensed or BSL files in Apache-2.0 packages; an allow-list per app manifest | D-001, A-5, A-6, F-5, M-6 | H-6 |
-| **LIC-R8** | Read and archive the **x86 NVIDIA user-space driver licence** and the **NGC container licence** before shipping a Pro/Omni GPU box or mirroring Isaac/JetPack images | N-8, H-3 | §9 gaps |
+| **LIC-R8** | ~~Read and archive the x86 NVIDIA user-space driver licence~~ (**done, rev. 2** [C-LIC-077]: same Driver License Agreement family; mind s2.8, which bars GeForce software from datacenter deployment). Still open: NGC's registry terms of use; until counsel reads them, pull JetPack and Isaac images on the device and don't mirror them [C-LIC-078] | N-8, H-3 | §9 gaps, C-LIC-077, 078 |
 | **LIC-R9** | Market manifests (`onemind.app.yaml`) carry `license.spdx`, `license.class` (permissive / copyleft / AGPL / proprietary / restricted) and `license.url`; the installer shows proprietary and restricted terms and needs a click to accept; OneMind never modifies AGPL apps without publishing the source | A-1, A-3, A-5, F-5, W-8 | H-7, H-8 |
 | **LIC-R10** | OpenZFS stays an optional, on-device DKMS build until counsel approves a prebuilt signed module | P-5, H-3 | H-9, C-LIC-031 |
 | **LIC-R11** | Isaac ROS, Hailo and RKNN ship as **vendor accelerator packs** (optional Market apps with their EULAs shown); OneMind's own robotics features must also run on the open path (ROS 2 + ONNX Runtime) | N-8, N-3, F-2, F-4, M-7 | C-LIC-021, 024, 025 |
 | **LIC-R12** | Re-run this matrix with every release train: re-pin SHAs, diff licence texts (compare the md5, as for the Tegra SLA), and re-check vendor terms every 6 months | R-3, M-8, RS-1 | §2 |
+| **LIC-R13** | Model manifests need `model.license`, `model.aup_url` and `model.sku_allowlist`. The default local models are Apache-2.0 (Gemma 4 first). Llama is blocked in Robot, Drone, public-safety and defence profiles. Gemma Terms restrictions are passed into OneMind's EULA when those weights ship. NVIDIA OML notices are shown and guardrails kept | AI-1, A-5, F-2, M-7, N-8, D-001 | H-11, C-LIC-070…076 |
+| **LIC-R14** | Source-available seeds (n8n, Outline, Akaunting, Tandoor, Invoice Ninja, monetr) and NonCommercial assets (Habitica) are **user-initiated installs only**: never preinstalled on a sold box or offered in a OneMind-hosted service. Swap the seeds for Activepieces, BookStack/Trilium and Mealie, and drop Akaunting | D-001, A-1, A-5, M-6, W-8 | H-7, C-LIC-061, 064…067 |
+| **LIC-R15** | The Market linter fails a listing whose upstream repo is archived or whose licence changed since the last pin (it compares the LICENSE blob SHA). Replace MinIO with Garage, and pin GFD and SpiderFoot as stated | A-5, A-6, R-3, M-8 | H-12, C-LIC-057, 063, 080 |
 
 ## 9. Gaps, UNVERIFIED items and re-check dates
 
-- **UNVERIFIED:** the x86 NVIDIA proprietary user-space driver licence (it is expected to be the same "NVIDIA Driver License Agreement" family, but not opened); the NGC container licence for JetPack and Isaac images; RHEL and RHDE subscription redistribution terms; the Fedora trademark guidelines (blocked); AlmaLinux trademark terms (404); the AFFiNE backend licence text; Cilium's BPF dual licence (not re-read); per-package licences inside ROS 2 images (needs an SBOM).
+- **Resolved in revision 2:** the x86 NVIDIA user-space driver licence (opened from the 620.70.06 package [C-LIC-077]) and the JetPack container EULA [C-LIC-078]. The three rows that had an empty `source` now have one (Fedora IoT bootc is still blocked [C-LIC-079]).
+- **UNVERIFIED:** NGC's registry terms of use, and why the Isaac ROS dev-base image page says "Apache 2" while the Isaac ROS packages are proprietary [C-LIC-021, C-LIC-078]; the Falco kernel-driver licence in `falcosecurity/libs`; per-model licences of Frigate detector models and LocalAI gallery entries; the Gemma 4 release date (SECONDARY only); RHEL and RHDE subscription redistribution terms; the Fedora trademark guidelines (blocked); AlmaLinux trademark terms (404); the AFFiNE backend licence text; Cilium's BPF dual licence (not re-read); per-package licences inside ROS 2 images (needs an SBOM).
 - **Not checked:** codec patent licences (H.264/H.265 in GStreamer/NVENC). Both NVIDIA texts say these are the distributor's job [C-LIC-005, C-LIC-009]. Add this to 26 if OneMind ships camera/video features on boxes it sells.
 - **Pins use branch heads** where no release exists (Raspberry Pi kernel and firmware, MAVLink, ArduPilot, TAK Server, SQLite mirror, ClickHouse, competitor repos). OneMind's build must record the exact commit it builds.
 - **AppArmor** was pinned to its latest tag, which is an alpha. Re-pin to Debian 13's package version.
 - **Re-check:** BSP, kernel and Kubernetes rows by **2027-05-11**; licence and policy rows by **2027-11-11** (see `recheck_by` in the ledger).
-- **`13-apps-market-plugins.md`** did not exist yet. When it lands, add any new seed apps with the same method; the build is scripted (rows come from `gh api` plus a judgement table).
+- **`13-apps-market-plugins.md` §15** is now fully covered (revision 2). The `LibreChat-AI/LibreChat` path in the W12 seed CSV is not the code repo; the matrix uses `danny-avila/LibreChat`. `home-assistant/python-matter-server` moved to `matter-js/`.
+- **Model rows are per family, not per checkpoint.** A model app must record its own Hugging Face revision SHA and licence (LIC-R13).
 
 ## 10. Hand-off notes (this workstream may not edit other files)
 
-- **Ledger supersessions to apply:** C-W7-056 → superseded by C-LIC-001…005 and C-LIC-048. The RAUC part of C-W2-049 → superseded by C-LIC-034 (pinned). C-W4-075 (k3s, unpinned) → superseded by C-LIC-033. C-W8-011, -013, -014 and -031 are reconfirmed at pinned SHAs (matrix rows).
+- **Revision 2, for 13 (W12):** change the §15 seeds as LIC-R14 says (n8n becomes user-install only with Activepieces as the default; drop Akaunting; Mealie replaces Tandoor; Sure replaces Maybe; drop or mark Fasten, File Browser and python-matter-server unmaintained); fix the SpiderFoot licence (GPL-2.0 at v4.0) [C-LIC-063]; and add the `model.*` manifest fields (LIC-R13).
+- **Revision 2, for 10 (W9) and 08 (W7):** REC-W9-09 should name Gemma 4 (Apache-2.0) as the default open-weights family, and 08 should note that GR00T and Cosmos **weights** are under the NVIDIA Open Model License even though their code is Apache-2.0 [C-LIC-074, C-LIC-076].
+- **Revision 2, for 05 and 06:** MinIO is archived; name Garage as the home S3 target [C-LIC-080].
+- **Revision 2, for 05 (W4) and 11 (W10):** the GeForce clause s2.8 (not for datacenter deployment) applies to Omni/Cluster boxes built on GeForce cards [C-LIC-077].
+
+- **Ledger supersessions (C-W7-056 applied 2026-11-11):** C-W7-056 → superseded by C-LIC-001…005 and C-LIC-048. The RAUC part of C-W2-049 → superseded by C-LIC-034 (pinned). C-W4-075 (k3s, unpinned) → superseded by C-LIC-033. C-W8-011, -013, -014 and -031 are reconfirmed at pinned SHAs (matrix rows).
 - **01 §3.1.1 G1 column:** for Jetson, replace "needs the NVIDIA EULA step" with "BSP licence verified, redistributable unmodified on NVIDIA hardware [C-LIC-048]; rootfs needs Canonical approval [C-LIC-011]".
 - **08 line ~120 and W7-R8:** state that Isaac ROS is proprietary [C-LIC-021], and make the Isaac images an optional app.
 - **07:** add LIC-R3 (GPL-3 Installation Information) next to SEC-03 and SEC-04.

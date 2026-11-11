@@ -1,7 +1,7 @@
 # Sources · TD-casaos-zimaos (CasaOS / ZimaOS, Tier B teardown)
 
 **Accessed:** 2026-11-11 (UTC) · **Used in:** [`02-competitors/casaos-zimaos.md`](../../02-competitors/casaos-zimaos.md) · **Claims:** [`../claims/TD-casaos-zimaos.csv`](../claims/TD-casaos-zimaos.csv) (C-TD-casaos-zimaos-001 … 051)
-**Archive:** Wayback save requests are denied in this environment. Load-bearing web pages and the release-artifact inspection are saved as text in [`TD-casaos-zimaos/`](TD-casaos-zimaos/) with a [`SHA256SUMS`](TD-casaos-zimaos/SHA256SUMS) file. Code is cited at pinned commits (shallow clones in `work/.lab/src/icewhale_*`, outside the repo).
+**Archive:** Wayback save requests are denied in this environment. Load-bearing web pages and the release-artifact inspection are saved as text in [`TD-casaos-zimaos/`](TD-casaos-zimaos/) with a [`SHA256SUMS`](TD-casaos-zimaos/SHA256SUMS) file. Code is cited at pinned commits (shallow clones in `<lab-dir>/src/icewhale_*`, outside the repo).
 
 ## Code (pinned)
 

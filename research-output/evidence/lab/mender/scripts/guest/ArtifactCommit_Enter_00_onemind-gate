@@ -1,0 +1,29 @@
+#!/bin/bash
+# LAB-mender: Mender rootfs state script. Runs inside `mender-update commit`
+# on the trial boot of a new slot, before Mender commits. Same trial logic and
+# thresholds as ../rauc-k3s-gate/scripts/guest/onemind-health-gate (trial mode):
+# STABLE consecutive fresh passes INTERVAL s apart -> exit 0 (Mender commits);
+# deadline -> exit 1 (Mender runs ArtifactRollback). Apps are not checked.
+set -u
+[ -f /etc/default/onemind-health-gate ] && . /etc/default/onemind-health-gate
+TIMEOUT=${ONEMIND_GATE_TIMEOUT:-300}; STABLE=${ONEMIND_GATE_STABLE:-3}; INTERVAL=10
+mkdir -p /data/onemind; LOG=/data/onemind/gate.log
+log() { local m="HEALTH-GATE: $(date -u +%T) $*"; echo "$m" >>"$LOG"; echo "$m" >/dev/console; }
+t0=$SECONDS; ok=0; r="n/a"
+log "ArtifactCommit_Enter: trial checks start (deadline ${TIMEOUT}s, ${STABLE} passes)"
+while [ $((SECONDS - t0)) -lt "$TIMEOUT" ]; do
+  if r=$(/usr/lib/onemind/onemind-k3s-check); then
+    ok=$((ok + 1)); log "CHECK pass $ok/$STABLE at $((SECONDS - t0))s: $r"
+    if [ "$ok" -ge "$STABLE" ]; then
+      apps=$(KUBECONFIG=/run/k3s/k3s.yaml /usr/local/bin/k3s kubectl -n apps get pods --no-headers 2>/dev/null | awk '{printf "%s %s %s; ", $1, $2, $3}')
+      log "APPS (excluded from gate): ${apps:-none}"
+      echo "$((SECONDS - t0))" > /run/onemind-gate-decided
+      exit 0
+    fi
+  else
+    ok=0; log "CHECK fail at $((SECONDS - t0))s: $r"
+  fi
+  sleep "$INTERVAL"
+done
+log "ArtifactCommit_Enter: deadline ${TIMEOUT}s reached (last: $r) -> refuse commit"
+exit 1

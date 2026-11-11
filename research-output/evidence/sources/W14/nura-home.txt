@@ -1,0 +1,38 @@
+Nura // real Linux distribution for phones
+HomeInstallBlogExploreTeamDonate
+ Nura was formerly known as postmarketOS.
+The Linux distribution for mobile devices and beyond…
+Mission
+Nura develops free and open-source software to extend the life of consumer electronics.
+ By empowering people to have full control of their devices, we promote a healthier, more sustainable society.
+User Interfaces
+and more…
+Regain Control
+ We think that the technology you depend on should serve your interests; not of those trying to monitor your every move.
+Nura respects your privacy and gives you full control over your device. Our operating system stands out from those of Amazon, Google and Microsoft, and even Apple; there is no surveillance, no upselling and no "walled gardens".
+ You can adjust it however you want, install whatever you want and update at your own pace. Simple as that.
+Sustainability
+ Your device probably has an expiration date. More often than not, it is set by its manufacturer  who defines when to stop updating it, and prompt you to buy the latest model instead. We think that devices should remain useful until they break. Fixing this is no small feat, as their drivers' source code is either kept secret, or not shared in a reusable manner. Some manufacturers even make updating impossible for anyone but their own teams'; this greatly limits your device's potential lifespan.  By building a reusable, open source operating system, Nura is striving to set a better example.
+Connecting Projects and People
+Nura is proudly built from and contributing back to a whole ecosystem of Linux (Mobile) related components. From the mainline Linux kernel to Alpine Linux on which we are directly based, through various important libraries and daemons like ModemManager up to the user interfaces like GNOME, KDE, Phosh and Sxmo.
+All changes from hardware enablement in the kernel to making sure applications work great with touchscreens start as changes on top of the existing projects — services, libraries, or applications. But instead of keeping those changes to us, we make sure to work closely with the projects in question, helping them excel on mobile, as well as taking responsibility in upstream projects.
+Nura is for You
+Nura is definitely not yet ready for everyone, you can check the state of Nura yourself to understand what we mean by that. But we've come a long way already and have no plans of stopping. Come join us for the ride!
+Explore
+Try it out
+Get involved
+What Others Say
+ [Nura] revolutionizes smartphone hacking
+ — Drew DeVault, SourceHut founder & FLOSS pioneer
+ I think it's really amazing what you do. [...] I have also always thought that it was a goal to have spin-offs or distros that are derived from Alpine, and we have that with [Nura].
+ — Natanael Copa, Alpine Linux founder
+ I feel like every project that's kind of in the Linux Mobile space has some sort of connection to [Nura]. [...] For us in KDE, having always supported Plasma Mobile from its inception, even before I started contributing, to now also helping provide all the resources we use for development.
+ — Devin Lin, Plasma Mobile lead developer
+ Beyond pleasing all tinkerers by bridging the canyon between phones and vanilla Linux, [Nura] creates awesome opportunities in industrially relevant contexts, like end-to-end testing and monitoring, security analysis or even Android application troubleshooting. All this from a brilliant, reactive and friendly community. Kudos!
+ — Alexandre Ferrieux, network performance & debugging, Orange
+ The enthusiasts behind the project are hard at work to port drivers for devices to the mainline Linux kernel. This ensures that devices can be used after vendors do not provide an up-to-date operating system anymore.
+ —  Keywan Tonekaboni, c't (translated)
+ With the widespread move to mobile devices, users lose control over their computing devices. [Nura] gives us the ability to run code that we can read and modify on these devices.
+ — Eric Evenchick, Hackaday
+ContributeFeedPrivacy PolicyCode of Conduct
+ © 2026 Nura.eco contributors design by Dika Setya, Markus Göllnitz and Oliver Smith

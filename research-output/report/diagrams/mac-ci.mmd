@@ -1,0 +1,23 @@
+flowchart LR
+  subgraph MAC["Founder's Mac (Apple silicon)"]
+    ED["Editor + terminal"] --> LIMA["Lima VM (Linux, KVM inside on M3+)<br/>builds kernels, images, runs QEMU labs"]
+    ED --> K3D["k3d / kind<br/>local Kubernetes for app work"]
+    ED --> FL["Flash a Pi (rpi-imager)<br/>Jetson dev kit via NVIDIA USB installer"]
+  end
+  subgraph CI["CI (GitHub Actions: native x86 + arm64 runners)"]
+    B1["Build rootfs from one definition<br/>FROM debian:trixie (+ ubuntu:26.04 leg)"]
+    B2["Assemble A/B images + RAUC bundles<br/>per board family"]
+    B3["Test in QEMU: update, rollback,<br/>power cut, restore, k3s gate"]
+    B4["SBOM + provenance + CVE scan"]
+    B1 --> B2 --> B3 --> B4
+  end
+  subgraph SIGN["Release signing (offline)"]
+    S1["2-of-3 signers, offline root,<br/>HSM for module key"]
+  end
+  subgraph OUT["Distribution"]
+    O1["Update server + Market index<br/>(cloud hub, mirrors, offline bundles)"]
+  end
+  LIMA -->|git push| CI
+  B4 --> S1 --> O1
+  GPU["Cloud RTX GPU<br/>(Isaac Sim tests)"] -.-> B3
+  HW["Founder hardware gates<br/>Beelink · Dell · Pi 5 · Jetson"] -.-> S1

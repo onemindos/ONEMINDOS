@@ -1,0 +1,155 @@
+# Excerpt: systemd/systemd@70b5d110be7702afc4dbce012f60d49506d513da (tag v257.13) man/systemd-sysext.xml, lines 40-130 and 360-420
+# Fetched 2026-11-11 via GitHub contents API. Unmodified excerpt.
+    </cmdsynopsis>
+
+    <para><filename>systemd-confext.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-sysext</command> activates/deactivates system extension images. System extension
+    images may – dynamically at runtime — extend the <filename>/usr/</filename> and
+    <filename>/opt/</filename> directory hierarchies with additional files. This is particularly useful on
+    immutable system images where a <filename>/usr/</filename> and/or <filename>/opt/</filename> hierarchy
+    residing on a read-only file system shall be extended temporarily at runtime without making any
+    persistent modifications.</para>
+
+    <para>System extension images should contain files and directories similar in fashion to regular
+    operating system tree. When one or more system extension images are activated, their
+    <filename>/usr/</filename> and <filename>/opt/</filename> hierarchies are combined via
+    <literal>overlayfs</literal> with the same hierarchies of the host OS, and the host
+    <filename>/usr/</filename> and <filename>/opt/</filename> overmounted with it ("merging"). When they are
+    deactivated, the mount point is disassembled — again revealing the unmodified original host version of
+    the hierarchy ("unmerging"). Merging thus makes the extension's resources suddenly appear below the
+    <filename>/usr/</filename> and <filename>/opt/</filename> hierarchies as if they were included in the
+    base OS image itself. Unmerging makes them disappear again, leaving in place only the files that were
+    shipped with the base OS image itself.</para>
+
+    <para>Files and directories contained in the extension images outside of the <filename>/usr/</filename>
+    and <filename>/opt/</filename> hierarchies are <emphasis>not</emphasis> merged, and hence have no effect
+    when included in a system extension image. In particular, files in the <filename>/etc/</filename> and
+    <filename>/var/</filename> included in a system extension image will <emphasis>not</emphasis> appear in
+    the respective hierarchies after activation.</para>
+
+    <para>System extension images are strictly read-only by default. On mutable host file systems,
+    <filename>/usr/</filename> and <filename>/opt/</filename> hierarchies become read-only while extensions
+    are merged, unless mutability is enabled. Mutability may be enabled via the <option>--mutable=</option>
+    option; see "Mutability" below for more information.</para>
+
+    <para>System extensions are supposed to be purely additive, i.e. they are supposed to include only files
+    that do not exist in the underlying basic OS image. However, the underlying mechanism (overlayfs) also
+    allows overlaying or removing files, but it is recommended not to make use of this.</para>
+
+    <para>System extension images may be provided in the following formats:</para>
+
+    <orderedlist>
+      <listitem><para>Plain directories or btrfs subvolumes containing the OS tree</para></listitem>
+      <listitem><para>Disk images with a GPT disk label, following the <ulink
+      url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink></para></listitem>
+      <listitem><para>Disk images lacking a partition table, with a naked Linux file system (e.g. erofs,
+      squashfs or ext4)</para></listitem>
+    </orderedlist>
+
+    <para>These image formats are the same ones that
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    supports via its <option>--directory=</option>/<option>--image=</option> switches and those that the
+    service manager supports via <option>RootDirectory=</option>/<option>RootImage=</option>. Similar to
+    them they may optionally carry Verity authentication information.</para>
+
+    <para>System extensions are searched for in the directories
+    <filename>/etc/extensions/</filename>, <filename>/run/extensions/</filename> and
+    <filename>/var/lib/extensions/</filename>. The first two listed directories are not suitable for
+    carrying large binary images, however are still useful for carrying symlinks to them. The primary place
+    for installing system extensions is <filename>/var/lib/extensions/</filename>. Any directories found in
+    these search directories are considered directory based extension images; any files with the
+    <filename>.raw</filename> suffix are considered disk image based extension images. When invoked in the
+    initrd, the additional directory <filename>/.extra/sysext/</filename> is included in the directories that
+    are searched for extension images. Note however, that by default a tighter image policy applies to images
+    found there, though, see below. This directory is populated by
+    <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> with
+    extension images found in the system's EFI System Partition.</para>
+
+    <para>During boot OS extension images are activated automatically, if the
+    <filename>systemd-sysext.service</filename> is enabled. Note that this service runs only after the
+    underlying file systems where system extensions may be located have been mounted. This means they are not
+    suitable for shipping resources that are processed by subsystems running in earliest boot. Specifically,
+    OS extension images are not suitable for shipping system services or
+    <citerefentry><refentrytitle>systemd-sysusers</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    definitions. See the <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> page
+    for a simple mechanism for shipping system services in disk images, in a similar fashion to OS
+    extensions. Note the different isolation on these two mechanisms: while system extension directly extend
+    the underlying OS image with additional files that appear in a way very similar to as if they were
+    shipped in the OS image itself and thus imply no security isolation, portable services imply service
+    level sandboxing in one way or another. The <filename>systemd-sysext.service</filename> service is
+    guaranteed to finish start-up before <filename>basic.target</filename> is reached; i.e. at the time
+    regular services initialize (those which do not use <varname>DefaultDependencies=no</varname>), the files
+    and directories system extensions provide are available in <filename>/usr/</filename> and
+    <filename>/opt/</filename> and may be accessed.</para>
+
+    <para>Note that there is no concept of enabling/disabling installed system extension images: all
+    installed extension images are automatically activated at boot. However, you can place an empty directory
+    named like the extension (no <filename>.raw</filename>) in <filename>/etc/extensions/</filename> to "mask"
+    an extension with the same name in a system folder with lower precedence.</para>
+[...]
+        <filename>/opt/</filename> for sysext and <filename>/etc/</filename> for confext,
+        ignore version incompatibilities, i.e. force merging regardless of
+        whether the version information included in the images matches the host or not.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image-policy=<replaceable>policy</replaceable></option></term>
+
+        <listitem><para>Takes an image policy string as argument, as per
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+        policy is enforced when operating on system extension disk images. If not specified, defaults to
+        <literal>root=verity+signed+encrypted+unprotected+absent:usr=verity+signed+encrypted+unprotected+absent</literal>
+        for system extensions, i.e. only the root and <filename>/usr/</filename> file systems in the image
+        are used. For configuration extensions defaults to
+        <literal>root=verity+signed+encrypted+unprotected+absent</literal>. When run in the initrd and
+        operating on a system extension image stored in the <filename>/.extra/sysext/</filename> directory a
+        slightly stricter policy is used by default: <literal>root=signed+absent:usr=signed+absent</literal>,
+        see above for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mutable=<replaceable>BOOL</replaceable>|<replaceable>auto</replaceable>|<replaceable>import</replaceable></option></term>
+        <listitem><para>Set mutable mode.</para>
+
+        <variablelist>
+          <varlistentry>
+            <term><option>no</option></term>
+            <listitem><para>force immutable mode even with write routing directories present.
+            This is the default.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>auto</option></term>
+            <listitem><para>enable mutable mode individually for <filename>/usr/</filename>,
+            <filename>/opt/</filename>, and <filename>/etc/</filename> if write routing sub-directories
+            or symlinks are present in <filename>/var/lib/extensions.mutable/</filename>; disable otherwise.
+            See "Mutability" above for more information on write routing.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>yes</option></term>
+            <listitem><para>force mutable mode. Write routing directories will be created in
+            <filename>/var/lib/extensions.mutable/</filename> if not present.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>import</option></term>
+            <listitem><para>immutable mode, but with contents of write routing directories in
+            <filename>/var/lib/extensions.mutable/</filename> also merged into the host file system.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>ephemeral</option></term>

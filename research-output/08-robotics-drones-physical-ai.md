@@ -23,7 +23,7 @@
 
 | ID | Conclusion | Evidence | Effect on ADR-001 |
 |---|---|---|---|
-| **FF-1** (DC-08) | NVIDIA commits Jetson **hardware** availability (Orin to Jan 2032, AGX Orin Industrial to Jul 2033, T5000 to Aug 2035, T4000 to Jan 2036), but publishes **no software-support period** per Jetson Linux release. Its observed branch lifetimes are about 5.7 years (r32) and 4.5+ years and counting (r35). | [C-W7-001] [C-W7-002] [C-W7-003] [C-W7-004] [C-W7-005] | D2 holds. The CRA support period for any Jetson SKU must be planned on observed history plus at least one in-field branch upgrade, not on a vendor promise. |
+| **FF-1** (DC-08) | NVIDIA commits Jetson **hardware** availability (Orin to Jan 2032, AGX Orin Industrial to Jul 2033, T5000 to Aug 2035, T4000 to Jan 2036), but publishes **no software-support period** per Jetson Linux release. Its observed branch lifetimes are about 5.7 years (r32) and about 4.5 years (r35, ended 2026-10-30 with JetPack 5.1.8, the final JetPack 5 release). | [C-W7-001] [C-W7-002] [C-W7-003] [C-W7-004] [C-REF-W7L-001] [C-STEEL-jb-012] | D2 holds. The CRA support period for any Jetson SKU must be planned on observed history plus at least one in-field branch upgrade, not on a vendor promise. |
 | **FF-2** (DC-08) | Mainline Linux can't replace NVIDIA's Jetson kernel within the planning window. Orin and Thor device trees are upstream, but NVIDIA still ships out-of-tree modules and calls its own kernel "the most complete and best tested". | [C-W7-011] [C-W7-012] | The Jetson flavor stays on NVIDIA's BSP kernel (kernel route (c) in W18). |
 | **FF-3** (DC-09) | The Jetson flavor should stay on **NVIDIA's L4T Ubuntu 24.04 (JetPack 7.2+)**, as ADR-001 proposes. A **Debian rootfs on Jetson is not a supported option**: NVIDIA lists only L4T Ubuntu, Canonical Ubuntu for Jetson and Yocto (OE4T). **Yocto meta-tegra is now NVIDIA-official** and has LTS branches, which makes it the credible runner-up for a product-grade robot image. | [C-W7-007] [C-W7-008] [C-W7-015] | D2 confirmed for Jetson. Add meta-tegra as the named fallback. |
 | **FF-4** (DC-07 input) | **Rugix has no Jetson boot flow**, and RAUC's community layers have no Tegra layer. Mender (JetPack 5/6 layers) and SWUpdate (OE4T's own A/B demo) are the open frameworks with maintained Jetson integrations. NVIDIA's own image-based A/B also exists. Both stock JetPack and OE4T flash a **non-redundant** layout by default. | [C-W7-017] [C-W7-018] [C-W7-019] [C-W7-014] [C-W7-013] | D3 "one updater" fails for Rugix and RAUC on Jetson. W3 must weigh a second updater against Mender or SWUpdate everywhere. Every Jetson must be flashed A/B from day one. |
@@ -50,7 +50,7 @@ ROS 2 Lyrical LTS   ████████████████████
 Jetson Orin modules ████████████████████████████████████ Jan 2032        [C-W7-001]
 AGX Orin Industrial ██████████████████████████████████████████ Jul 2033  [C-W7-001]
 Jetson T5000 / T4000 ████████████████████████████████████████████████████ Aug 2035 / Jan 2036 [C-W7-002]
-L4T branch history  r32: 2019-03 → 2024-11 (≈5.7 y) · r35: 2022-04 → still active 2026-10 (≥4.5 y) [C-W7-004][C-W7-005]
+L4T branch history  r32: 2019-03 → 2024-11 (≈5.7 y) · r35: 2022-04 → EOL 2026-10-30 (≈4.5 y) [C-W7-004][C-REF-W7L-001]
 EU Machinery Reg.   applies from 2027-01-14 ─────────────────────────────────────────────────▶ [C-W7-045]
 ```
 
@@ -75,7 +75,7 @@ EU Machinery Reg.   applies from 2027-01-14 ────────────
 | Branch | JetPack | Base | First listed | Latest listed | Lifetime so far | Claim |
 |---|---|---|---|---|---|---|
 | r32 | 4.x | Ubuntu 18.04 (UNVERIFIED by W7) | 32.1, Mar 2019 | 32.7.6, Nov 2024 | ≈ 5 y 8 m | [C-W7-004] |
-| r34/r35 | 5.x | Ubuntu 20.04 (UNVERIFIED by W7) | 34.1, Apr 2022 | **35.7.0, Oct 2026** | ≥ 4 y 6 m, still active | [C-W7-005] |
+| r34/r35 | 5.x | Ubuntu 20.04 (UNVERIFIED by W7) | 34.1, Apr 2022 | **35.7.0, Oct 2026 (final; JetPack 5 EOL 2026-10-30)** | ≈ 4 y 6 m, ended | [C-REF-W7L-001] [C-STEEL-jb-012] |
 | r36 | 6.x | Ubuntu 22.04, kernel 5.15 (SECONDARY: JetPack 7.2 migration tables) | 36.2, Dec 2023 | 36.5.2, Aug 2026 | ≥ 2 y 8 m, still active | [C-W7-006] |
 | r38 | 7.0/7.1 | Ubuntu 24.04, kernel 6.8 | 38.2, Aug 2025 | 38.4, Jan 2026 | **Thor only**, superseded by r39 | [C-W7-006] [C-W7-015] |
 | r39 | 7.2/7.2.1 | Ubuntu 24.04, kernel 6.8 | 39.2, Jun 2026 | 39.2.1, Aug 2026 | brings **Orin into JetPack 7** | [C-W7-007] [C-W7-008] |
@@ -117,7 +117,7 @@ EU Machinery Reg.   applies from 2027-01-14 ────────────
 - **W7-R2:** keep the Jetson flavor on **NVIDIA L4T Ubuntu 24.04 (JetPack 7.2+)** and make it image-based: a read-only root, A/B slots, and OneMind's agent, k3s agent and NVIDIA container toolkit in the image. Everything else ships as containers. *Serves M-7, N-8, F-2, D-002.*
 - **W7-R3:** build a **meta-tegra `wrynose` spike** in year 1 (LAB-W7-6). Switch to it only if OneMind ships its own Jetson robot hardware and the CRA SBOM work on (a) proves too heavy. *Serves R-3, F-7, H-1.*
 - **Ruled out for now:** Debian on Jetson. Re-open it only if NVIDIA adds Debian to its supported-distro list.
-- **G1 (license) is CONDITIONAL for every Jetson option.** The BSP binaries are covered by NVIDIA's `Tegra_Software_License_Agreement-Tegra-Linux.txt`, whichever rootfs is used [C-W7-056]. W7 did not open the agreement text, so whether OneMind may preinstall the BSP on hardware it sells (Q59) is **UNVERIFIED**. This must be confirmed (license text plus, ideally, NVIDIA partner terms) before any Jetson SKU is sold. It is recorded for `evidence/license-matrix.csv`.
+- **G1 (license) is CONDITIONAL for every Jetson option.** The BSP binaries are covered by NVIDIA's `Tegra_Software_License_Agreement-Tegra-Linux.txt`, whichever rootfs is used [C-LIC-001]. The agreement text has since been opened (license matrix §6): the BSP may be redistributed **unmodified**, on NVIDIA hardware only, with the agreement attached; it is revocable and not certified for "Critical Applications" [C-LIC-002] [C-LIC-003] [C-LIC-004] [C-LIC-005]. So the BSP part of G1 passes with conditions [C-LIC-048]; the Jetson flavor stays G1-conditional because of the Ubuntu rootfs [C-LIC-011]. NVIDIA partner terms (Q59) are still worth confirming before any Jetson SKU is sold.
 
 ### 3.3 What competitors chose for NVIDIA robot computers (constraint fit)
 

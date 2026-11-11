@@ -1,0 +1,56 @@
+##### [03:05:56] T1 first boot
+##### [03:05:56] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/var/lab/run/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/run/disk.img -serial stdio -monitor none
+===> T1: PASS gate=('committed-boot', 'A', 1) K3S-FRESH ok after 113s: ok (fresh: kubelet, heartbeat 2026-11-11T08:07:46Z, core pods, da apps_not_ready=True t=145s
+##### [03:08:22] T2 wrong-key artifact
+##### [03:08:23] install wrong-key.mender rc=1 in 0s
+===> T2: PASS rc=1 sig_error=True env_unchanged=True no_update_in_progress=True err='record_id=1 severity=error time="2026-Nov-11 08:08:22.509272" name="Global" msg="Signature verification Error: Wrong man'
+##### [03:08:23] T3 good update -> B
+##### [03:09:54] install good.mender rc=0 in 90s
+===> T3: PASS rc=0 grub=['MENDER-GRUB: mender_boot_part=3 upgrade_available=1 bootcount=1'] trial=('mark-good', 'B', 2) passes=3 first_fails=['fail: no kubeconfig on this boot (k3s server has not started)', 'fail: no kubeconfig on this boot (k3s server has not started)'] apps='broken-app-5d6b874ccd-4qxbm 0/1 ImagePullBackOff; ' reboot=('committed-boot', 'B', 2)
+##### [03:13:22] T4 bad-k3s.mender -> A
+##### [03:15:00] install bad-k3s.mender rc=0 in 98s
+===> T4: PASS rc=0 trial=('mark-bad', 'A', 3) decided_after~329s(since reboot) last_fail='fail: no kubeconfig on this boot (k3s server has not started)' then=('committed-boot', 'B', 2) env_ok=True K3S-FRESH ok after 54s: ok (fresh: kubel next_reboot=('committed-boot', 'B', 2)
+##### [03:22:17] T5 bad-noagent.mender -> A
+##### [03:23:24] install bad-noagent.mender rc=0 in 67s
+===> T5: PASS rc=0 trial=('mark-bad', 'A', 4) decided_after~330s(since reboot) last_fail='fail: kubelet /healthz not answering' then=('committed-boot', 'B', 2) env_ok=True K3S-FRESH ok after 72s: ok (fresh: kubel next_reboot=('committed-boot', 'B', 2)
+##### [03:31:18] T6 bad-boot.mender -> A
+##### [03:33:02] install bad-boot.mender rc=0 in 104s
+===> T6: PASS rc=0 attempts=1 in 98s grub=['Booting new update...', 'MENDER-GRUB: mender_boot_part=2 upgrade_available=1 bootcount=1', 'Rolling back...', 'MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=0'] result=('fell-back', 'B', 2) retried_next_boot=False
+##### [03:34:41] T7 bad-hang.mender -> A
+##### [03:36:28] install bad-hang.mender rc=0 in 108s
+===> T7: PASS rc=0 attempts=1 in 125s grub=['Booting new update...', 'MENDER-GRUB: mender_boot_part=2 upgrade_available=1 bootcount=1', 'Rolling back...', 'MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=0'] result=('fell-back', 'B', 2) retried_next_boot=False
+##### [03:38:33] T8 power cut during write (target A)
+##### [03:39:01] POWER CUT: SIGKILL qemu
+##### [03:39:01] T8 restart after power cut
+##### [03:39:01] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/var/lab/run/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/run/disk.img -serial stdio -monitor none
+##### [03:41:31] install good.mender rc=0 in 114s
+===> T8: PASS cut_after~403MiB_rw_on_vda2 last='WRITE-PROGRESS vda2 sectors_read=595640 sectors_written=233472 sectors_rw=829112' install_finished_before_cut=False after_cut=('committed-boot', 'B', 2) env_unchanged=True reinstall_rc=0 then=('mark-good', 'A', 2)
+##### [03:44:27] T9 power cut in commit window (target B)
+##### [03:46:07] install good.mender rc=0 in 100s
+##### [03:46:50] POWER CUT: SIGKILL qemu
+##### [03:46:50] T9 restart
+##### [03:46:50] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/var/lab/run/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/run/disk.img -serial stdio -monitor none
+===> T9: FAIL rc=0 killed_before_commit=True next_boot='MENDER-GRUB: mender_boot_part=2 upgrade_available=0 bootcount=0' result=('fell-back', 'A', 2) (H4 predicts fell-back on A)
+===> T9s: PASS ended on ('fell-back', 'A', 2) K3S-FRESH ok after 100s: ok (fresh: kube env_ok=True
+##### [03:49:06] T10 naive gate observation (target B)
+##### [03:50:58] install naive-noagent.mender rc=0 in 112s
+===> T10: OBSERVED naive gate result=('mark-good', 'B', 7) passes=['60', '74', '88'] => COMMITTED A BROKEN SYSTEM
+##### [03:53:21] T10 kubelet on committed naive slot:  NO-KUBELET; echo __R''C=$?__
+NO-KUBELET
+##### [03:55:03] install good.mender rc=0 in 101s
+===> T10r: PASS recovery install rc=0 result=('mark-good', 'A', 2)
+##### [03:58:03] QEMU EXIT (poweroff)
+
+SUMMARY (total 52 min)
+T1 | PASS | gate=('committed-boot', 'A', 1) K3S-FRESH ok after 113s: ok (fresh: kubelet, heartbeat 2026-11-11T08:07:46Z, core pods, da apps_not_ready=True t=145s
+T2 | PASS | rc=1 sig_error=True env_unchanged=True no_update_in_progress=True err='record_id=1 severity=error time="2026-Nov-11 08:08:22.509272" name="Global" msg="Signature verification Error: Wrong man'
+T3 | PASS | rc=0 grub=['MENDER-GRUB: mender_boot_part=3 upgrade_available=1 bootcount=1'] trial=('mark-good', 'B', 2) passes=3 first_fails=['fail: no kubeconfig on this boot (k3s server has not started)', 'fail: no kubeconfig on this boot (k3s server has not started)'] apps='broken-app-5d6b874ccd-4qxbm 0/1 ImagePullBackOff; ' reboot=('committed-boot', 'B', 2)
+T4 | PASS | rc=0 trial=('mark-bad', 'A', 3) decided_after~329s(since reboot) last_fail='fail: no kubeconfig on this boot (k3s server has not started)' then=('committed-boot', 'B', 2) env_ok=True K3S-FRESH ok after 54s: ok (fresh: kubel next_reboot=('committed-boot', 'B', 2)
+T5 | PASS | rc=0 trial=('mark-bad', 'A', 4) decided_after~330s(since reboot) last_fail='fail: kubelet /healthz not answering' then=('committed-boot', 'B', 2) env_ok=True K3S-FRESH ok after 72s: ok (fresh: kubel next_reboot=('committed-boot', 'B', 2)
+T6 | PASS | rc=0 attempts=1 in 98s grub=['Booting new update...', 'MENDER-GRUB: mender_boot_part=2 upgrade_available=1 bootcount=1', 'Rolling back...', 'MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=0'] result=('fell-back', 'B', 2) retried_next_boot=False
+T7 | PASS | rc=0 attempts=1 in 125s grub=['Booting new update...', 'MENDER-GRUB: mender_boot_part=2 upgrade_available=1 bootcount=1', 'Rolling back...', 'MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=0'] result=('fell-back', 'B', 2) retried_next_boot=False
+T8 | PASS | cut_after~403MiB_rw_on_vda2 last='WRITE-PROGRESS vda2 sectors_read=595640 sectors_written=233472 sectors_rw=829112' install_finished_before_cut=False after_cut=('committed-boot', 'B', 2) env_unchanged=True reinstall_rc=0 then=('mark-good', 'A', 2)
+T9 | FAIL | rc=0 killed_before_commit=True next_boot='MENDER-GRUB: mender_boot_part=2 upgrade_available=0 bootcount=0' result=('fell-back', 'A', 2) (H4 predicts fell-back on A)
+T9s | PASS | ended on ('fell-back', 'A', 2) K3S-FRESH ok after 100s: ok (fresh: kube env_ok=True
+T10 | OBSERVED | naive gate result=('mark-good', 'B', 7) passes=['60', '74', '88'] => COMMITTED A BROKEN SYSTEM
+T10r | PASS | recovery install rc=0 result=('mark-good', 'A', 2)

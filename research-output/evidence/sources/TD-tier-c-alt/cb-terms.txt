@@ -1,0 +1,167 @@
+Terms of Service — ClawBox by OpenClaw Hardware
+
+ClawBox v4 is out!ClawBox v4 is out — Memory Shard, voice conversations and a lot more.See what's new→✕
+ClawBox
+
+ClawBox
+ClawBoxClawBox WorkstationClawBox Hermes EditionClawBox PortalClawBox StorePricingLeaderboard
+Compare
+Full ComparisonHermes Agent vs OpenClawvs. Cloud AI (ChatGPT, Claude)vs. Raspberry Pi 5vs. Home Servervs. Mac Mini M4Hermes Agent on a Mac miniBlogDocs
+
+EUR/USD
+ENLoginBuy
+
+Terms of Service
+Last updated: November 2, 2026
+
+1. Acceptance of Terms
+By accessing or purchasing from clawbox.com ("the Website"), you agree to be bound by these Terms of Service. If you do not agree, please do not use our services or purchase our products.
+These terms constitute a legally binding agreement between you and ID Robots OOD (ЕИК: <masked-company-id>), registered at <masked-street-address>, Plovdiv, Bulgaria, EU.
+
+2. Product Description
+ClawBox is a dedicated AI assistant hardware device built on the NVIDIA Jetson Orin Nano platform. It comes pre-configured with OpenClaw software and includes:
+NVIDIA Jetson Orin Nano 8GB (67 TOPS)
+512GB NVMe SSD
+Premium carbon color enclosure
+Power adapter and accessories
+Pre-installed and configured OpenClaw software
+Product specifications, images, and descriptions are provided as accurately as possible. We reserve the right to make minor adjustments to hardware components while maintaining equivalent or better specifications.
+
+3. Pricing & Payment
+ClawBox is priced at €749 EUR. All prices are displayed in Euros (EUR) and include the product and standard packaging.
+Payments are processed securely via Stripe.
+We accept major credit/debit cards and other payment methods supported by Stripe.
+Shipping is free worldwide via DHL Express on every order — no code and no minimum quantity.
+Import duties and taxes (if applicable) are the responsibility of the buyer.
+Prices may change without prior notice. The price at the time of your order confirmation is the price you pay.
+
+4. Shipping
+We ship worldwide via DHL Express to over 108 countries. Estimated delivery time is 3–7 business days from dispatch.
+Orders are typically dispatched within 1–3 business days of payment confirmation.
+A tracking number is provided via email once your order ships.
+Delivery times are estimates and may vary due to customs processing or regional logistics.
+ID Robots OOD is not responsible for delays caused by customs, weather, or carrier issues.
+
+5. Returns & Refunds
+We offer a 30-day money-back guarantee. If you are not satisfied with your ClawBox, you may return it within 30 days of delivery for a full refund. This guarantee is in addition to, and does not limit, your statutory right of withdrawal.
+EU consumers may withdraw from the contract within 14 days of receiving the goods without giving any reason.
+You are only liable for any diminished value of the goods resulting from handling beyond what is necessary to establish their nature, characteristics and functioning.
+You are responsible for return shipping costs unless the product is defective.
+Where the return shipping is yours to pay: Returns go via DHL with a prepaid label we provide; the fixed fee (€35 EU/UK/CH, €40 US/CA) is deducted from the refund.
+Refunds are processed within 14 days of receiving your withdrawal; we may withhold the refund until we have received the goods back or you have supplied evidence of having sent them back.
+Withdraw from contract here (Model withdrawal form). You can also start a return via our return form or contact us at [email protected] with your order number.
+
+6. Warranty
+ClawBox comes with a 2-year manufacturer warranty covering defects in materials and workmanship under normal use.
+The warranty covers hardware components only.
+The warranty does not cover damage from misuse, unauthorized modifications, liquid damage, or power surges.
+Warranty claims should be directed to [email protected].
+We will repair or replace defective units at our discretion.
+
+7. Software
+ClawBox ships with OpenClaw pre-installed. OpenClaw is source-available software — see our license.
+The software is provided "as is" without warranty of any kind, express or implied.
+Software updates and support are provided on a best-effort basis.
+You are free to modify, replace, or remove the software on your device.
+Third-party AI model API keys (OpenAI, Anthropic, etc.) are not included and must be obtained separately.
+
+8. Privacy
+We respect your privacy. For details on how we collect, use, and protect your personal data, please review our Privacy Policy.
+ClawBox is designed for local, private AI processing. Your AI interactions and data remain on your device and are not transmitted to our servers.
+
+9. Intellectual Property
+ClawBox is a trademark of ID Robots OOD
+OpenClaw is source-available software. Free for personal and educational use. Commercial resale requires a license.
+All website content, graphics, and branding are the property of ID Robots OOD and may not be reproduced without permission.
+
+10. Limitation of Liability
+To the maximum extent permitted by law, ID Robots OOD shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of ClawBox or this Website.
+Our total liability for any claim related to a purchase shall not exceed the amount you paid for the product.
+
+11. Governing Law
+These Terms are governed by the laws of the Republic of Bulgaria and applicable European Union consumer protection regulations.
+EU consumers retain all rights provided under the Consumer Rights Directive (2011/83/EU), including the 14-day withdrawal right. Our 30-day money-back guarantee exceeds this minimum requirement.
+Any disputes shall be resolved in the competent courts of Plovdiv, Bulgaria, unless EU consumer protection law mandates otherwise.
+
+12. Contact
+For questions about these Terms, contact us:
+
+ID Robots OOD
+ul. Rogoshko shose 3
+Plovdiv 4003, Bulgaria, EU
+ЕИК: <masked-company-id>
+[email protected]
+
+Get product updates, discounts & ClawBox tips
+Subscribe
+No spam. Unsubscribe anytime.
+Guides
+What Is OpenClaw?
+Setup Guide
+Quick Start
+Requirements
+Telegram Setup
+WhatsApp Setup
+Android Guide
+OpenClaw on Jetson
+Docker Setup
+FAQCompare
+Overview
+Hermes Agent vs OpenClaw
+vs Mac Mini
+Hermes Agent on a Mac mini
+vs Cloud AI
+vs Cloud VPS
+vs Raspberry Pi
+vs Home Server
+ClawBox Review
+ClawBox PricingResources
+ClawBox Workstation
+ClawBox Hermes Edition
+ClawBox Portal
+OpenClaw Hardware
+Best Hardware
+OpenClaw Preinstalled
+GDPR & Private AI
+ClawBox for Teams
+Low Power AI Server
+Self-Hosted AI
+Jetson AI Assistant
+Always-On AI
+Home AI Server
+AI Assistant Box
+AI Computer
+NVIDIA AIMore
+ChatGPT Hardware
+Voice Assistant
+Ships to Asia
+Perplexity Alternative
+Personal AI Device
+AI Assistant for Business
+Private AI
+No-Cloud AI
+AI for Startups
+Run Claude Locally
+Local AI Hardware
+OpenClaw ACP
+Shipping Policy
+Home AI Server: Build a Private, Always-On Assistant at Home
+OpenClaw Hardware Requirements (2026): The Complete Guide
+Raspberry Pi vs Jetson Orin Nano for Local AI: An Honest 2026 Comparison
+BlogCommunity
+Documentation
+Community Forum
+OpenClaw Wallpapers
+🤖 ClawBox Agent
+Support
+Company
+About Us
+Contact
+Terms of Service
+Privacy Policy
+Your Privacy Choices
+Cookie settings
+Returns & Refunds
+Withdraw from contract
+Product safety
+© 2026 clawbox.com. Built with ❤️ for the AI community.We don't log your data — verify the code

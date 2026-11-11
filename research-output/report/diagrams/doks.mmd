@@ -1,0 +1,8 @@
+flowchart LR
+  P0["<b>Phase 0 · weeks 1–4</b><br/>Fix in place: retire public ingress-nginx<br/>(Gateway API + Traefik); finish Helm → Argo<br/>adoption; off-site backup copy"]
+  P1["<b>Phase 1 · weeks 5–10</b><br/>Home box joins as a spoke:<br/>NATS leaf in its own JetStream domain;<br/>Argo reconciles a 'home' overlay"]
+  P2["<b>Phase 2 · weeks 8–16</b><br/>Move local-first apps one by one<br/>by restore-into-new-volume;<br/>cloud copies kept, scaled to zero"]
+  P3["<b>Phase 3 · months 4–6</b><br/>Identity and agents: login works<br/>with WAN off; Hermes body on the box"]
+  P4["<b>Phase 4 · month 6+</b><br/>Flip the bus authority: home NATS<br/>is the hub, cloud becomes a leaf"]
+  P5["<b>Phase 5 · year 1</b><br/>Cloud = OneMind Cloud / Omni tier:<br/>relay, off-site backups, CI, update<br/>server, Backstage"]
+  P0 --> P1 --> P2 --> P3 --> P4 --> P5

@@ -1,0 +1,159 @@
+ClawBox FAQ — Frequently Asked Questions
+
+ClawBox v4 is out!ClawBox v4 is out — Memory Shard, voice conversations and a lot more.See what's new→✕
+ClawBox
+
+ClawBox
+ClawBoxClawBox WorkstationClawBox Hermes EditionClawBox PortalClawBox StorePricingLeaderboard
+Compare
+Full ComparisonHermes Agent vs OpenClawvs. Cloud AI (ChatGPT, Claude)vs. Raspberry Pi 5vs. Home Servervs. Mac Mini M4Hermes Agent on a Mac miniBlogDocs
+
+EUR/USD
+ENLoginBuy
+
+FAQ
+Everything you need to know about ClawBox
+
+🖥️ Hardware & Performance🔧 Setup & Software💰 Pricing & Shipping
+
+🖥️ Hardware & Performance
+
+💾
+What storage does ClawBox use — eMMC or SSD?
+
+ClawBox comes with a 512GB NVMe SSD for significantly better I/O performance when loading AI models and handling database operations. The speed difference is especially noticeable with larger language models.
+⚡
+How much power does it actually use?
+
+ClawBox draws just 20W under normal AI workloads — about €0.80/month in electricity (at €0.25/kWh). Even under heavy inference, it stays below 25W. That's less than most light bulbs. Compare that to a Mac Mini at 65W or a gaming PC at 300W+.
+🌡️
+Does it get hot running 24/7?
+
+The Jetson Orin Nano has excellent thermal design. ClawBox stays cool thanks to its optimized cooling system with a near-silent fan. The carbon color case provides excellent heat dissipation. No thermal throttling even during continuous 24/7 operation.
+🧠
+Can it run larger models?
+
+On the device, ClawBox works best with small models such as the preinstalled Gemma 4 E2B (8 GB unified memory). For bigger tasks you can turn on ClawBox AI or connect another cloud provider. That is optional: local stays the default.
+🤖
+What AI models come pre-installed?
+
+ClawBox ships with Gemma 4 E2B, which runs locally on the device with no account and no internet Whisper speech-to-text is an optional one-click install in the Local AI tab. ClawBox AI (cloud) is optional for heavier tasks, and you can add your own API keys or other local models anytime.
+
+🔧 Setup & Software
+
+📦
+How complex is the initial setup?
+
+Literally 5 minutes: (1) Unbox and connect power + Ethernet (or use built-in dual-band WiFi), (2) Navigate to clawbox.local in your browser, (3) Complete the configuration wizard, (4) Start chatting via Telegram. Bluetooth 5.0 lets you pair speakers, microphones, and other accessories. No Docker, CUDA drivers, or Linux expertise required.View Setup Guide →
+🔐
+Does any data leave my network?
+
+By default, OpenClaw memory, files, automations, and supported local workflows stay on your ClawBox. Cloud API usage is opt-in; Claude runs in Anthropic's cloud and is ideal when you choose premium reasoning for a specific task.
+🏠
+Does it work with my existing smart home setup?
+
+Yes! ClawBox integrates with Home Assistant, MQTT, REST APIs, and most popular smart home platforms. It can control lights, thermostats, security systems, and more through voice commands or automated rules.
+
+💰 Pricing & Shipping
+
+🔄
+Are there any ongoing subscription fees?
+
+ClawBox hardware is €749 one-time. The free plan includes chat, image generation and voice transcription with weekly allowances. Optional Pro (€9/mo) and Max (€49/mo) plans add the Coding Agent, Memory Shard, cloud voice replies, remote access at your own clawbox.tech link and larger allowances; Max also adds a one-click switch between OpenClaw and Hermes. If you also use cloud AI APIs (Claude, GPT, etc.), those are billed directly by the provider.
+Order ClawBox — €749
+📋
+What's included with purchase?
+
+Everything you need: NVIDIA Jetson Orin Nano Super module, 512GB NVMe SSD, carbon color case, power supply, OpenClaw or Hermes Agent pre-installed, 90 days email support, access to community Discord, and free software updates.
+↩️
+Can I return it if not satisfied?
+
+Absolutely — 30-day money-back guarantee. If ClawBox doesn't meet your expectations, return it for a full refund. No questions asked.
+⚖️
+How does this compare to building my own setup?
+
+ClawBox (€749): 5-minute setup, pre-optimized, guaranteed compatibility, 20W power. DIY: 10-20 hours config time, €300–800+ in parts, 100W+ power, no support. You save time and headaches.See full comparison →
+
+Still have questions?
+We're here to help. Reach out directly or join the community.
+💬 Join Discord🤖 ClawBox Agent✉️ Email Support
+
+Related Pages
+Best OpenClaw Hardware →Setup Guide →ClawBox Review →Pricing Breakdown →Best Hardware for OpenClaw →
+
+Ready to get started?
+Your own AI assistant, running 24/7 on your desk.Order ClawBox — €749
+
+Get product updates, discounts & ClawBox tips
+Subscribe
+No spam. Unsubscribe anytime.
+Guides
+What Is OpenClaw?
+Setup Guide
+Quick Start
+Requirements
+Telegram Setup
+WhatsApp Setup
+Android Guide
+OpenClaw on Jetson
+Docker Setup
+FAQCompare
+Overview
+Hermes Agent vs OpenClaw
+vs Mac Mini
+Hermes Agent on a Mac mini
+vs Cloud AI
+vs Cloud VPS
+vs Raspberry Pi
+vs Home Server
+ClawBox Review
+ClawBox PricingResources
+ClawBox Workstation
+ClawBox Hermes Edition
+ClawBox Portal
+OpenClaw Hardware
+Best Hardware
+OpenClaw Preinstalled
+GDPR & Private AI
+ClawBox for Teams
+Low Power AI Server
+Self-Hosted AI
+Jetson AI Assistant
+Always-On AI
+Home AI Server
+AI Assistant Box
+AI Computer
+NVIDIA AIMore
+ChatGPT Hardware
+Voice Assistant
+Ships to Asia
+Perplexity Alternative
+Personal AI Device
+AI Assistant for Business
+Private AI
+No-Cloud AI
+AI for Startups
+Run Claude Locally
+Local AI Hardware
+OpenClaw ACP
+Shipping Policy
+Home AI Server: Build a Private, Always-On Assistant at Home
+OpenClaw Hardware Requirements (2026): The Complete Guide
+Raspberry Pi vs Jetson Orin Nano for Local AI: An Honest 2026 Comparison
+BlogCommunity
+Documentation
+Community Forum
+OpenClaw Wallpapers
+🤖 ClawBox Agent
+Support
+Company
+About Us
+Contact
+Terms of Service
+Privacy Policy
+Your Privacy Choices
+Cookie settings
+Returns & Refunds
+Withdraw from contract
+Product safety
+© 2026 clawbox.com. Built with ❤️ for the AI community.We don't log your data — verify the code

@@ -1,0 +1,6 @@
+flowchart LR
+  T["<b>Thinking brain</b><br/>OneMind box / cluster<br/>AI models, planning, vision, chat<br/>(may be slow; never the safety function)"]
+  B["<b>Body brain</b><br/>Linux on the robot (Jetson / Pi / x86)<br/>ROS 2 in containers, PREEMPT_RT,<br/>k3s agent only, motor loops ≥ 1 ms"]
+  R["<b>Reflex brain</b><br/>MCU firmware<br/>e-stop, motor safety limits,<br/>loops tighter than ~1 ms"]
+  T -- "NATS · approval-gated commands" --> B
+  B -- "serial / CAN / EtherCAT" --> R

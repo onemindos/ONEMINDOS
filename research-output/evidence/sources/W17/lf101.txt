@@ -1,0 +1,338 @@
+
+	Introduction to Linux (LFS101) - Linux Foundation - Education
+	Skip to main content	
+						Training & Certification
+						Catalog
+	See Full Catalog
+	Certifications
+	Instructor-led Courses
+	SkillCreds
+	Subscriptions
+	Search By Technology
+		Cloud & Containers
+		System Administration
+		Cybersecurity
+		AI & ML
+		Emerging Technologies
+		Networking
+		Blockchain & Decentralized Identity
+		Linux Kernel Development
+		IoT & Embedded Development
+		Web & Application Development
+		Systems Engineering
+		DevOps & Site Reliability
+		Open Source Best Practice
+Resources
+	Free Courses
+	State of Tech Talent Report
+	Blog
+	CARE Program
+	Newsletter Sign-Up
+	Webinars
+	Cybersecurity Skills Framework
+	Tux Rewards
+	Digital Badges
+	Support
+Corporate Solutions
+	Learning Solutions
+	Delivery Options
+	Government Solutions
+	Security Workshops
+	Member Benefits
+	AWS Marketplace
+Explore
+	Plan Your IT Career
+		Plan Your IT Career
+		Learning Paths
+		IT Career Roadmap
+		IT Certification Journey
+		Career Path Quiz
+	Get Instant Quote
+	Affiliate Program
+	Regional Training
+	Regional Class Schedule
+	Training Partner Program
+	Kubestronaut & Golden Kubestronaut
+	Verify Certification
+	SMEs & Instructors
+	Scholarships
+	Academic Resources
+	Policies
+	FAQs
+	Contact Us-Support
+	About Us
+							Menu    
+								English
+	Japanese
+My LF Profile
+My LF Profile
+	Manage My LF Profile
+	Logout
+My Training Portal
+				Catalog
+	See Full Catalog
+	Certifications
+	Instructor-led Courses
+	SkillCreds
+	Subscriptions
+	Search By Technology
+		Cloud & Containers
+		System Administration
+		Cybersecurity
+		AI & ML
+		Emerging Technologies
+		Networking
+		Blockchain & Decentralized Identity
+		Linux Kernel Development
+		IoT & Embedded Development
+		Web & Application Development
+		Systems Engineering
+		DevOps & Site Reliability
+		Open Source Best Practice
+Resources
+	Free Courses
+	State of Tech Talent Report
+	Blog
+	CARE Program
+	Newsletter Sign-Up
+	Webinars
+	Cybersecurity Skills Framework
+	Tux Rewards
+	Digital Badges
+	Support
+Corporate Solutions
+	Learning Solutions
+	Delivery Options
+	Government Solutions
+	Security Workshops
+	Member Benefits
+	AWS Marketplace
+Explore
+	Plan Your IT Career
+		Plan Your IT Career
+		Learning Paths
+		IT Career Roadmap
+		IT Certification Journey
+		Career Path Quiz
+	Get Instant Quote
+	Affiliate Program
+	Regional Training
+	Regional Class Schedule
+	Training Partner Program
+	Kubestronaut & Golden Kubestronaut
+	Verify Certification
+	SMEs & Instructors
+	Scholarships
+	Academic Resources
+	Policies
+	FAQs
+	Contact Us-Support
+	About Us
+English
+	Japanese
+My LF Profile
+My LF Profile
+	Manage My LF Profile
+	Logout
+My Training Portal
+						Press enter to begin your search
+						Search						
+			 Close Search
+				Training > System Administration > Introduction to Linux (LFS101)
+		        Training Course
+Introduction to Linux (LFS101)
+	Develop a good working knowledge of Linux using both the graphical interface and command line across the major Linux distribution families with this free training course.
+Este curso también está disponible en español. Haga clic aquí para Introducción a Linux.
+            Who Is It For
+                This Introduction to Linux course is designed for experienced computer users who have limited or no previous exposure to Linux, whether they are working in an individual or enterprise environment.
+                    read less
+                    read more
+            What You’ll Learn
+                This course explores the various tools and techniques commonly used by Linux system administrators and end users to achieve their day-to-day work in a Linux environment. You will gain a good working knowledge of Linux and learn how to navigate through major Linux distributions, system configurations and graphical interface of Linux, basic command line operations, common applications of Linux, and more.
+                    read less
+                    read more
+            What It Prepares You For
+                Upon completion of this Introduction to Linux training you should have a good working knowledge of Linux, from both a graphical and command line perspective, allowing you to easily navigate through any of the major Linux distributions. You will be able to continue your progress as either a user, system administrator or developer using the acquired skill set.
+                    read less
+                    read more
+        Course Outline
+                        Welcome!
+                        Chapter 1. The Linux Foundation
+                        Chapter 2. Linux Philosophy and Concepts
+                        Chapter 3. Linux Basics and System Startup
+                        Chapter 4. Graphical Interface
+                        Chapter 5. System Configuration from the Graphical Interface
+                        Chapter 6. Common Applications
+                        Chapter 7. Command Line Operations
+                        Chapter 8. Finding Linux Documentation
+                        Chapter 9. Processes
+                        Chapter 10. File Operations
+                        Chapter 11. Text Editors
+                        Chapter 12. User Environment
+                        Chapter 13. Manipulating Text
+                        Chapter 14. Network Operations
+                        Chapter 15. The Bash Shell and Basic Scripting
+                        Chapter 16. More on Bash Shell Scripting
+                        Chapter 17. Printing
+                        Chapter 18. Local Security Principles
+    Reviews
+                    Sep 2024
+                    With options for both self-paced and instructor-led formats, the course offered flexibility to accommodate different learning styles and schedules. Overall, the Linux course was a thorough and engaging educational experience, and it equipped me with the skills and knowledge needed to confidently navigate and manage Linux systems.
+                    Sep 2024
+                    Real-world examples and use cases were included, demonstrating how Linux is used in different industries and scenarios. This practical perspective made the learning process more relevant and engaging.
+                    Sep 2024
+                    A supportive community was fostered, where learners could collaborate, share insights, and ask questions. This community aspect enhanced the learning experience, and provided additional support.
+                    Sep 2024
+                    The course provided access to a variety of resources, including documentation, forums, and additional reading material. This accessibility helped in deepening my knowledge, and resolving any issues that arose during the course.
+                    Sep 2024
+                    Emphasis was placed on practical skills, such as scripting, managing system resources, and troubleshooting. These skills are crucial for anyone looking to work with Linux professionally, or for personal projects.
+                    Sep 2024
+                    The instructors provided clear and concise explanations of complex topics. This made it easier to grasp difficult concepts, and helped in developing a solid foundation in Linux.
+                    Sep 2024
+                    The inclusion of practical, hands-on labs was a standout feature. These labs allowed me to apply theoretical concepts in real-world scenarios, reinforcing my understanding, and building my confidence in using Linux.
+                    Sep 2024
+                    The course offered a well-rounded curriculum that covered everything from basic command-line usage, to advanced system administration. This breadth ensured that both beginners and more experienced users could find valuable content.
+                    Sep 2024
+                    Thank you for providing the course, it was quite good, perhaps the practical was what I liked best.  I worked as a web developer in a company for a year and a half using Linux with no prior experience. While I was completing the course, I bitterly regretted that they did not advise me to take a similar Introduction course beforehand! 
+                    Jul 2024
+                    As a complete newcomer to Linux, I was able to learn and understand the Linux Operating System to the extent of an entry-level system administrator, which is what I appreciate about this course.
+                    Jun 2024
+                    I loved how thorough it was. I took a Linux course on another training platform, and although I enjoyed that, it was more interactive than this one. The content on this one was much more thorough and well explained.
+                    Jun 2024
+                    I liked that it did not cover topics in an all-encompassing, encyclopedic way. It focused on the useful parts that we actually use, and left the rest to be explored using man, help, info and other documentation. Very nice!
+                    Jun 2024
+                    It was fun and informative. Easy to start and stop in order to fit into a busy day.
+                    Jun 2024
+                    I liked that it gave me a good overview of all the basics of Linux, so I could check my cobbled together knowledge, supplement it with the course info, and move on from there to more advanced/specified courses, with a good base understanding. Thank you so much for this free course!
+                    Jun 2024
+                    There was more content than I expected - I've been using Linux for more than 20 years, and there were several things I had never used / heard of before, and several "aha" moments. Great content.
+                    Jun 2024
+                    This was my first online course, and it was an excellent experience.
+                    Jun 2024
+                    The course was very in-depth, and the examples and exercises were great. 
+                    Jun 2024
+                    The content was easy to follow, and made simple for people like me who have no computer experience at all! 
+                    Jun 2024
+                    This course was truly great. The videos were engaging and easy to follow, and the labs were set up very well.
+                    Jun 2024
+                    It was a great course overall. I loved the way you explained the Linux concepts, from basic to advanced.
+                    Jun 2024
+                    The try-it-yourself labs were the best part of this course. Besides that, the overall learning experience was excellent.
+                    Jun 2024
+                    This is the most comprehensive and valuable course I’ve ever come across. I had a lot of fun learning about Linux, and I look forward to using it.
+                    Jun 2024
+                    The course was packed with very useful information and examples.
+                    Jun 2024
+                    I’ve been exposed to Linux for a while. This course has helped me to better understand the OS.
+                    Jun 2024
+                    This course really helped me on my journey to learn about Linux.
+                    Jun 2024
+                    The best part was the real-time practice assignments, they were very effective for me. Additionally, I never had to search elsewhere for answers; the lectures provided everything I needed.
+                    Jun 2024
+                    I approached the course with a decent amount of Linux knowledge and experience, yet I still discovered new things, which I highly appreciate!
+                    Jun 2024
+                    I felt over-equipped for home use, which was my original goal. There was a ton of information, and the things I learned left me wanting to explore even more. 
+                    May 2024
+                    It covered my expectations, AND SO MUCH MORE!
+                    May 2024
+                    When I first started the course, I barely knew how to spell LINUX. Now, while I’m not ready to become a System Administrator tomorrow, I loved the process of learning and how much I’ve progressed.
+                    May 2024
+                    The content was interesting, and useful for gaining entry-level knowledge in Linux information and technology.
+                    May 2024
+                    It was useful to learn about various Linux distributions.
+                    Apr 2024
+                    One of the most complete and easy-to-understand courses I have taken on Linux systems.
+                    Apr 2024
+                    As inexperienced as anyone could be, I found the course highly enlightening, easy to follow, and very clearly laid out.
+                    Apr 2024
+                    I liked how the content was broken down into small chunks, with examples for every section.
+                    Apr 2024
+                    I liked the hands-on labs in this course, they allowed me to practice what I had learned in the preceding chapters. 
+                    Mar 2024
+                    I enjoyed how it contemplates many subjects that are really important, and how they are presented with images and examples.
+                    Mar 2024
+                    This course gave me a basis for working with Linux. I also think this will help me with becoming more proficient in PowerShell.
+                    Mar 2024
+                    The course is in-depth, and feels very balanced among different distributions. Explanations are clear, and the examples are helpful in understanding syntax and usage.
+                    Mar 2024
+                    The Try-It-Yourself assignments were really beneficial and easy to use. Also, the content was easy to navigate and practice.
+                    Mar 2024
+                    Very clear, and extremely helpful for beginners, or even a bit more advanced Linux users.
+                    Mar 2024
+                    I loved learning about Linux. The content was laid out logically and professionally. 
+                    Mar 2024
+                    Good solid information is presented in a good way. I like how information is reiterated as the chapters progress.
+                    Mar 2024
+                    The logical flow of the chapters. Thank you guys for your time and effort!
+                    Mar 2024
+                    I liked how detailed and modularized the content was. The pacing is good as well. 
+                    Feb 2024
+                    I've been using Linux for several years but never learned some of the basics. This course provided that for me.
+                    Feb 2024
+                    Gentle introduction to Linux, and the content is very comprehensive.
+            1
+            2
+            3
+            4
+            5
+            6
+            7
+            8
+            9
+										 $0
+											Login Using My Portal Before Enrolling
+					Enroll Today
+		Includes        
+                    Online, Self Paced                                    
+                    60 Hours of Course Material                                    
+                    Hands-on Labs & Assignments                                    
+                    Discussion Forums                                    
+                    90 Days of Access to Online Course                                    
+                    Digital Badge                                    
+	Course Rating	
+		4.6/5 Stars 
+		Experience Level: Beginner
+	Training more than 10 people?Get a corporate quote.
+    Popular Courses and Certifications
+                            LFCS - Linux
+                            Linux Foundation Certified System Administrator (LFCS)
+                                Intermediate
+                            CKA - Kubernetes
+                            Certified Kubernetes Administrator (CKA)
+                                Intermediate
+                            CKAD - Kubernetes
+                            Certified Kubernetes Application Developer (CKAD)
+                                Intermediate
+	Stay Up to Date
+Get early access to the latest Linux Foundation Training news, tutorials and exclusive offers – available only for monthly newsletter subscribers.
+				Get exclusive discounts, news, and more with our free newsletter
+                        Name*
+                                                    First
+                                                    Last
+Email*
+{"image":"/wp-content/themes/lf/images/newsletter.png"}
+This site is protected by reCAPTCHA and the Google Privacy Policy and Terms of Service apply.
+         Submit 
+	We won’t ever send you spam, promise.
+        bluesky
+facebook
+linkedin
+youtube
+tiktok
+		© 2026 Linux Foundation - Education.  The Linux Foundation®. All rights reserved. The Linux Foundation has registered trademarks and uses trademarks. For a list of trademarks of The Linux Foundation, please see our Trademark Usage page. Linux is a registered trademark of Linus Torvalds. Terms of Use | Privacy Policy | Bylaws | Trademark Usage | Antitrust Policy | Good Standing Policy | Cookie SettingsAccelerated by 
+Sign up to get access to exclusive promotions, the latest trainings and news
+Stay up to date with the newest courses, certifications, and promotions from the LF training team.
+                        Name*
+                                                    First
+                                                    Last
+Email*
+Sign up to get access to exclusive promotions, the latest trainings and news
+Stay up to date with the newest courses, certifications, and promotions from the LF training team.
+         Sign up 
+			X			
+    X
+            Thank you for your interest in Linux Foundation training and certification. We think we can better serve you from our China Training site. To access this site please click below. 
+            感谢您对Linux Foundation培训的关注。为了更好地为您服务，我们将您重定向到中国培训网站。
+                我们期待帮助您实现在中国区内所有类型的开源培训目标。
+            Go to Site 前往中文网站
+            Continue to English site

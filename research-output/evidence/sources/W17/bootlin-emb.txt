@@ -1,0 +1,205 @@
+
+Embedded Linux training – Bootlin
+		Skip to content
+											Bootlin
+												Embedded Linux and kernel engineering
+									Menu
+								Home
+Engineering
+Training
+Docs
+Community
+Company
+Youtube
+LinkedIn
+		Embedded Linux training
+		Learn how to develop an embedded Linux system
+Course details
+Duration: 5 days / 40 hours (on-site) – 7 half days / 28 hours (on-line)
+Agenda: on-site – on-line
+Training materials
+Slides
+Practical labs for ST STM32MP1 Discovery, for TI BeagleBone Black, for TI BeaglePlay or for NXP i.MX93 FRDM
+Lab data for ST STM32MP1 Discovery, for TI BeagleBone Black, for TI BeaglePlay or for NXP i.MX93 FRDM
+Written language: English
+Available oral languages: English, French, Italian or Portuguese
+Types of sessions
+Private on-site session, on request
+Private on-line session, on request
+Public on-line session, dates below
+Dates of public on-line sessions
+Type
+Dates
+Time
+Duration
+Language
+Expected
+trainer
+Cost and registration
+    Embedded Linux system development (agenda)      
+    Nov 30, Dec 1, 3, 4, 7, 8, 10, 2026
+ + extra session on Dec 11, 2026 if needed  
+   09:00 – 13:00 (Paris, UTC+1)
+    28 h
+English  
+    Jérémie Dautheribes
+    Discount: 999 EUR*
+    Regular: 1099 EUR*
+    Register now
+    Embedded Linux system development (agenda)    
+FULL  
+    Nov 30, Dec 1, 3, 4, 7, 8, 10, 2026
+ + extra session on Dec 11, 2026 if needed  
+   14:00 – 18:00 (Paris, UTC+1)
+   08:00 AM – 12:00 PM (New York, UTC-5)
+    28 h
+English  
+    Richard Genoud
+    Discount: 999 EUR*
+    Regular: 1099 EUR*
+    Register now
+    Embedded Linux system development (agenda)    
+FULL  
+    Nov 30, Dec 1, 3, 4, 7, 8, 10, 2026
+ + extra session on Dec 11, 2026 if needed  
+   14:00 – 18:00 (Paris, UTC+1)
+   08:00 AM – 12:00 PM (New York, UTC-5)
+    28 h
+English  
+    Miquèl Raynal
+    Discount: 999 EUR*
+    Regular: 1099 EUR*
+    Register now
+    Embedded Linux system development (agenda)      
+    Dec 7, 8, 10, 11, 14, 15, 17, 2026
+ + extra session on Dec 18, 2026 if needed  
+   14:00 – 18:00 (Paris, UTC+1)
+   08:00 AM – 12:00 PM (New York, UTC-5)
+    28 h
+English  
+    Bastien Curutchet
+    Discount: 999 EUR*
+    Regular: 1099 EUR*
+    Register now
+    Embedded Linux system development (agenda)      
+    Jan 18, 19, 21, 22, 25, 26, 28, 2027
+ + extra session on Jan 29, 2027 if needed  
+   14:00 – 18:00 (Paris, UTC+1)
+   08:00 AM – 12:00 PM (New York, UTC-5)
+    28 h
+English  
+    Richard Genoud
+    Discount: 999 EUR*
+    Regular: 1099 EUR*
+    Register now
+Additional sessions at future dates will be announced progressively. We generally announce new sessions when existing ones are either full or already passed.
+*The price is excluding VAT. The online shop charges VAT, except for businesses outside of France if they provide valid company information at registration time. Businesses in France, and individuals registering by themselves must pay VAT.
+The discount rate is applicable at the following conditions:
+Booking at least 1 month prior to the training session start
+Booking and payment made online using credit card
+Limit of 6 seats per training session at the discount rate
+If you are unable to register through our online shop, do not hesitate to contact us, we will be able to provide a training contract and offer alternative payment methods.
+Registration on the online shop remains available until the session starts, subject to seat availability.
+Target audience
+This course targets engineers who wish to use the Linux system in new embedded projects, and people supporting customers developing such systems. In five days, through theory and practical labs, the course makes you familiar with the architecture of an embedded Linux system, how to build such a system, how to take advantage of open source components to implement system features and reduce development costs, and details how to develop and debug your own applications in an embedded environment.
+At the end of this course, you will be ready to start a project using embedded Linux, from system building to application development.
+Objectives
+Be able to understand the overall architecture of Embedded Linux systems.
+Be able to choose, build, setup and use a cross-compilation toolchain.
+Be able to understand the booting sequence of an embedded Linux system, and to set up and use the U-Boot bootloader.
+Be able to select a Linux kernel version, to configure, build and install the Linux kernel on an embedded system.
+Be able to create from scratch a Linux root filesystem, including all its elements: directories, applications, configuration files, libraries.
+Be able to choose and setup the main Linux filesystems for block storage devices, and understand their main characteristics.
+Be able to select, cross-compile and integrate open-source software components (libraries, applications) in an Embedded Linux system.
+Be able to understand the main open-source licenses.
+Be able to setup and use an embedded Linux build system, to build a complete system for an embedded platform.
+Be able to develop and debug applications on an embedded Linux system.
+Training materials
+All the training materials that we use during this course are freely available. Before the session, you can then check that they correspond to your needs.
+Practical labs
+In our on-site courses, each lecture is followed by a practical lab done by the participant. The practical labs represent 50% to 60% of the whole course time. Labs are performed on an embedded ARM board, that the participants will use to progressively implement the different aspects of an embedded Linux system.
+Participants can chose between multiple boards:
+STM32MP157 Discovery (all variants supported: STM32MP157A-DK1, STM32MP157D-DK1, STM32MP157C-DK2, STM32MP157F-DK2)
+BeagleBoneBlack Wireless, based on the ARM TI AM335x processor
+BeaglePlay, based on the ARM64 TI AM6256 processor
+NXP i.MX93 FRDM
+In our on-line courses, the practical labs are performed as live demonstrations by the trainer, so participants do not need special hardware but can ask questions at any time. Optionally, the participants who have access to the necessary hardware accessories can reproduce the labs by themselves, and benefit from support from the trainer.
+Keep in mind that in any case our course is hardware-agnostic, and therefore it is relevant even if the target platform for your next project is not exactly the one used for the practicall labs during our course.
+Prerequisites
+Knowledge and practice of UNIX or GNU/Linux commands: participants must be familiar with the Linux command line. Participants lacking experience on this topic should get trained by themselves, for example with our freely available on-line slides at https://bootlin.com/blog/command-line/
+Minimal English language level: B1, according to the Common European Framework of References for Languages, for our sessions in English. See the CEFR grid for self-evaluation.
+Hardware requirements
+For on-line courses:
+Computer with the operating system of your choice, with the Google Chrome or Chromium browser for videoconferencing.
+Webcam and microphone, from an audio headset
+High speed access to the Internet
+Optionally: the hardware accessories needed for the practical labs, if you want to reproduce the practical labs by yourself. Note that this is not mandatory: you can follow the course without those hardware accessories, as the trainer will perform the practical labs as live demonstrations.
+For on-site courses:
+Training room
+Video projector
+One recent PC computer for each desk (1 or 2 persons) installed with Linux. See the training agenda for detailed requirements.
+Unfiltered and fast connection to the Internet
+Bootlin provides the hardware accessories for the practical labs for the duration of the course
+Customer feedback
+Coming in with only learning embedded linux on the job, this course built a fantastic foundation. Went from guessing “I don’t know” on most of the pre-quiz questions, to actually being able to understand what the questions were even asking.
+Embedded Software Engineer at Texas Instruments, March 2024
+It was a very intensive 2-week training that I definitely recommend to everyone interested in Linux and Embedded Systems
+Prodromos Kampas, Embedded Software Engineer at EVBox, February 2024
+This class is a great value and highly recommended. Compared to other books and videos, this is, by far, the best material available for learning embedded Linux.
+Participant from an Embedded Linux system development training course in December 2022
+This course filled in the gaps in my previous knowledge regarding to the embedded Linux development. Spoken lessons gave me loads of detailed information about which tools to use, what to do, how to do it, what not to do and why. Lab works gave me a lot of good ideas to problem solving at the topics on my every day work.
+Mika Hillukkala – Etteplan Embedded Finland Oy
+In 2023, 95% of the participants were very satisfied with the course, giving a score equal or higher to 8 as the overall rating for our course, on 10 points
+In 2023, 100% of the participants got their training certificate, by having more than 50% of correct answers to our final quiz
+By the way, you can also see evaluations from previous sessions. In the same way we are transparent with our training materials, we share all the evaluations that we collect, not only the best ones.
+Participants with disabilities
+Participants with disabilities who have special needs are invited to contact us to discuss adaptations to the training course.
+Contact
+For any question, registration or comment, you can contact us:
+<email-masked>
+phone : +33 484 258 097
+Further details about our courses
+Frequently asked questions
+Reasons for choosing Bootlin training sessions
+Rating and feedback from participants to our training sessions
+Profile of Bootlin trainers
+			Search for:		
+		Search	
+Next training sessions dates
+Embedded Linux
+Linux kernel
+Buildroot
+Yocto / OpenEmbedded
+Embedded Linux audio
+Real-time Linux with PREEMPT_RT
+Debugging, profiling, tracing in Linux
+Embedded Linux Security
+Embedded Linux Networking
+Linux graphics
+		Useful links
+ Version française
+ Youtube
+ LinkedIn
+  Follow new articles
+		Recent articles
+					sbom-cve-check 1.4.0 released
+					Bootlin at Capitole du Libre in Toulouse, November 14-15
+					A safety net for eBPF: adding KASAN support to JITed programs
+					Yocto Blacksail released, Bootlin contributions inside
+					Rockchip SoCs: a foray into eFuse territory
+					Linux 7.3 released, Bootlin contributions inside
+					Device tree addons: describing non-discoverable addon boards and connectors
+					Welcome to Thomas Païta and Paul Cercueil
+					audio-iio-aux: when IIO meets audio
+					Bootlin toolchains 2026.08 released
+					Home
+Engineering
+Training
+Docs
+Community
+Company
+Youtube
+LinkedIn
+								Bootlin
+				Privacy Policy				
+					Proudly powered by WordPress				

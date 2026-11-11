@@ -2,7 +2,7 @@
 
 **Accessed:** 2026-11-11 · **Claims:** `evidence/claims/TD-project-nomad.csv` (C-TD-project-nomad-001…046) · **Saved copies:** `evidence/sources/TD-project-nomad/` with `SHA256SUMS`. Wayback save requests are denied in this environment. Existing Wayback captures are listed below. The code is pinned to a git commit, which is a stronger archive than a page snapshot.
 
-## Code (shallow clone in `work/.lab/src/project-nomad`, pinned)
+## Code (shallow clone in `<lab-dir>/src/project-nomad`, pinned)
 
 | Repo | Commit | Tag / date | Type | Used for |
 |---|---|---|---|---|

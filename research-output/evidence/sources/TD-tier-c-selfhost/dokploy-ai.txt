@@ -1,0 +1,127 @@
+AI Assistant | Dokploy
+Dokploy
+DokploySearch
+⌘K
+Core
+Essential guides for deploying and managing applications, databases, and server configurations
+IntroductionWelcome to DokployArchitecture of DokployFeaturesComparisonInstallationManual InstallationReset Password & 2FAUninstallVideosGoodiesMulti-Tenancy
+ScreenshotsInterface Overview
+CloudDokploy CloudMonitoringCloud vs Self-Hosted
+ServerAI Assistant
+S3 Destinations
+Git Sources
+Users
+Account Security
+Notifications
+Registry
+Secrets Providers
+DNS Providers
+SSH KeysCertificatesBackupsLogs & MetricsConcurrent Builds
+ServicesEnvironment Variables
+Domains
+Applications
+Docker Compose
+Databases
+Examples
+Auto DeploySchedule JobsPatchesVolume BackupsProvidersWatch Paths
+Remote ServersDeployment OptionsIntroductionDeploy ServerBuild ServerDeploymentsSecurityValidate
+AdvancedCluster
+EnterpriseIntroductionLicense Keys
+SSO
+SCIM ProvisioningWhitelabelingCustom RolesAudit Logs
+TroubleshootingTroubleshootingDomains & TraefikVolumes & MountsNetworking & DNSLogs & MonitoringDokploy Instance
+GuidesProduction Hardening GuideCloudflare TunnelsTailscale
+AI Assistant
+AI AssistantCopy as Markdown
+Generate Docker Compose templates and investigate deployment or runtime logs with AI.
+Dokploy integrates with AI providers to let you generate Docker Compose templates from natural language. Describe what you want to deploy, and the AI generates the configuration for you.
+Dokploy does not include its own AI model. You need to connect an external provider (like OpenAI, Anthropic, or any OpenAI-compatible API) with your own API key.
+Setting up an AI provider
+Go to Settings.
+Navigate to the AI section.
+Click Add AI Provider.
+Fill in the configuration:
+Field
+Description
+Name
+A label for this provider (e.g., "OpenAI", "Claude", "Local LLM")
+API URL
+The API endpoint (e.g., https://api.openai.com/v1 for OpenAI)
+API Key
+Your API key for authentication
+Model
+The model to use (e.g., gpt-4o, claude-sonnet-4-20250514)
+Click Save.
+You can configure multiple providers and switch between them.
+Compatible providers
+Any provider that exposes an OpenAI-compatible API works with Dokploy. Some examples:
+Provider
+API URL
+Models
+OpenAI
+https://api.openai.com/v1
+gpt-4o, gpt-4o-mini, o1, etc.
+Anthropic
+https://api.anthropic.com/v1
+claude-sonnet-4-20250514, claude-haiku-4-5-20251001, etc.
+Ollama (local)
+http://localhost:11434/v1
+llama3, mistral, codellama, etc.
+OpenRouter
+https://openrouter.ai/api/v1
+Multiple providers through one API
+Azure OpenAI
+https://{resource}.openai.azure.com/openai
+gpt-4o, gpt-4, etc.
+Generating Docker Compose templates
+Once you have a provider configured, you can use AI to generate Docker Compose templates when creating a new Compose service.
+How it works
+Create a new Docker Compose service.
+Click the AI Generate button.
+Describe what you want to deploy in natural language.
+The AI generates a complete docker-compose.yml with:
+Service definitions
+Environment variables with sensible defaults
+Volumes and networks
+Any additional config needed
+Review and edit the generated configuration as needed.
+Deploy.
+Example prompts
+"A WordPress site with MySQL and Redis for caching"
+"Grafana with Prometheus for monitoring"
+"A Node.js API with MongoDB and Redis"
+"Plausible Analytics with PostgreSQL and ClickHouse"
+"Gitea with a PostgreSQL database"
+Always review the generated configuration before deploying. The AI provides a starting point — you may need to adjust environment variables, resource limits, or volumes for your specific use case.
+Analyzing deployment and runtime logs
+Open a deployment log dialog or a runtime log viewer, click AI, select a provider, and click Analyze latest N lines. Dokploy fetches recent logs directly for that deployment, container, or Swarm service. The analysis does not depend on the viewer's search, filters, or loaded-line count.
+Configure each provider separately under Settings → AI → Edit AI:
+Setting
+Default
+Behavior
+Log lines sent to AI
+200
+Fetch up to this many recent lines for deployment and runtime analysis. Accepts 1–10,000 lines.
+Inspect source code when analyzing logs
+Off
+Allow the model to list, search, and read relevant source files alongside the logs. Requires a model that supports tool calling.
+The result shows the actual number of log lines analyzed, whether source was inspected, and the inspected file paths. Log content is limited to 1 MiB; any truncation is reported. If your model rejects the context size, lower its log-line limit or disable source inspection.
+Source inspection
+When enabled, the agent reads the application's or Compose service's existing checkout, including checkouts on remote build/deployment servers and preview checkouts. It can follow errors into source files and reference file paths and line numbers in its diagnosis. Access is read-only: the agent cannot edit files, execute commands, or redeploy services.
+Relevant code is sent to the selected AI provider. The available checkout may differ from the revision that produced the logs, particularly for older deployments. Dokploy does not fetch historical revisions for analysis.
+Source access stays within the selected checkout. Credential files, .env files, Git internals, dependencies, generated output, binary files, and symbolic links are excluded. Secrets embedded in otherwise ordinary source or log text may still be sent; consider what your application records and stores before choosing a provider.
+Investigation is bounded to eight tool rounds, twenty file reads, 64 KiB per file, and 256 KiB of source content. The result reports incomplete investigation when a limit is reached. If the checkout is unavailable, the target has no associated source (for example, a standalone Docker image), or the model does not support source tools, Dokploy explains the limitation and analyzes logs alone.
+Older log dialogs without a deployment or service target analyze their currently loaded log text, subject to the provider's line limit, without source access.
+Managing providers
+You can manage your AI providers from Settings → AI:
+Add multiple providers for different use cases
+Edit existing provider configurations
+Delete providers you no longer need
+View available models for each provider
+Enable/Disable providers without deleting them
+Cloud vs Self-Hosted
+Detailed comparison between Dokploy Cloud and the Self-Hosted version.
+Actions
+Manage S3 destinations.
+On this page
+Setting up an AI providerCompatible providersGenerating Docker Compose templatesHow it worksExample promptsAnalyzing deployment and runtime logsSource inspectionManaging providers

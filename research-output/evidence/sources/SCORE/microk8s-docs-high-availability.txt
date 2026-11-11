@@ -1,0 +1,954 @@
+Source: https://canonical.com/microk8s/docs/high-availability
+Fetched 2026-11-11 (HTML stripped to text)
+
+
+ High Availability (HA) | Canonical 
+ it injects into
+ its shadow DOM is allowed by our nonce-based style-src directive.
+ Must run before the deferred lite-youtube module upgrades the
+ element.
+ -->
+ Skip to main content 
+ Your submission was sent successfully! Close 
+ Thank you for signing up for our newsletter!
+ In these regular emails you will find the latest updates from Canonical and upcoming events where you can meet our team. Close 
+ Thank you for contacting us. A member of our team will be in touch shortly. Close 
+ An error occurred while submitting your form.
+ Please try again or
+ file a bug report .
+ Close 
+ Canonical 
+ Menu 
+ Products 
+ Back 
+ Featured 
+ Back 
+ Ubuntu Desktop 
+ Fast, modern and secure Linux 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ MAAS 
+ Bare metal provisioning 
+ Snapcraft 
+ App store for Linux 
+ OpenStack 
+ Private cloud provisioning 
+ MicroCloud 
+ Lightweight, automated clouds 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Enterprise-grade support 
+ 24/7 support for the full-stack 
+ Livepatch 
+ Stay patched and defer reboots 
+ Kubernetes 
+ Containerized workloads 
+ MLOps 
+ Scalable machine learning solutions 
+ Juju 
+ Orchestration engine for operators 
+ Hardware support 
+ Ubuntu hardware you can trust 
+ Canonical Academy 
+ Real-world, industry relevant exams. 
+ Ubuntu OS 
+ Back 
+ Ubuntu Desktop 
+ Fast, modern and secure Linux 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Ubuntu Core 
+ Embedded Linux 
+ FIPS for Ubuntu 
+ Secure Linux for government 
+ WSL 
+ Windows Subsystem for Linux 
+ Multipass 
+ VMs for Windows, macOS & Linux 
+ Quick links 
+ Upgrade Ubuntu 
+ Ubuntu documentation 
+ Desktop install 
+ Server install 
+ Server guide 
+ Ubuntu on public clouds 
+ Private cloud 
+ Back 
+ OpenStack 
+ Enterprise private cloud 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ Landscape 
+ Monitor and manage machines 
+ MAAS 
+ Bare metal provisioning 
+ Ceph 
+ Open source software defined storage 
+ Juju 
+ Orchestrator engine for operators 
+ Private cloud build 
+ OpenStack implementation 
+ MicroStack 
+ Cloud-native OpenStack 
+ MicroCloud 
+ Lightweight, automated clouds 
+ Observability 
+ Open source observability 
+ Quick links 
+ Server documentation 
+ MAAS documentation 
+ MicroStack installation 
+ Data Centre Networking blog 
+ OpenStack pricing 
+ Private cloud consulting 
+ Private cloud: Avoiding the high cost of operations 
+ Public cloud 
+ Back 
+ Ubuntu on public clouds 
+ The most popular cloud OS 
+ Ubuntu on AWS 
+ AWS Marketplace 
+ Ubuntu on Azure 
+ Microsoft Azure Marketplace 
+ Ubuntu on GCP 
+ Google Cloud Marketplace 
+ Ubuntu WorkSpaces 
+ Virtual desktops on AWS 
+ Virtualization 
+ Back 
+ Multipass 
+ VMs for Windows, macOS & Linux 
+ LXD 
+ Linux containers and VMs 
+ WSL 
+ Windows Subsystem for Linux 
+ Anbox Cloud 
+ Run Android at scale in the cloud 
+ Quick links 
+ What is virtualization? 
+ Multipass documentation 
+ Virtualization docs in the server guide 
+ What is WSL? 
+ Install Ubuntu on Windows 11 
+ Install Ubuntu on Windows 10 
+ Security and support 
+ Back 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Ubuntu Pro for Devices 
+ Security & compliance subscription for IoT 
+ Ubuntu Pro + support 
+ 24/7 support for the full-stack 
+ ESM 
+ 10 years of security maintenance 
+ Landscape 
+ Monitor and manage machines 
+ Livepatch 
+ Stay patched without reboots 
+ Ubuntu Pro for AWS 
+ Amazon Web Services support 
+ Ubuntu Pro for Azure 
+ Microsoft Azure cloud support 
+ Ubuntu Pro for GCP 
+ Google Cloud support 
+ Certifications and hardening 
+ CIS, DISA-STIG, FIPS compliance 
+ Confidential computing 
+ Protect your data in use 
+ Firefighting support 
+ Enhanced support coverage 
+ Quick links 
+ Ubuntu Pro pricing 
+ Open infrastructure consulting 
+ Certified hardware 
+ CVE reports 
+ Ubuntu Security Notices (USN) 
+ Ubuntu Pro free trial 
+ Get Ubuntu Pro now 
+ Kubernetes 
+ Back 
+ Kubernetes 
+ Containerized workloads 
+ MicroK8s 
+ Simplest way to get Kubernetes 
+ Charmed Kubernetes 
+ Composable K8s for the enterprise 
+ Kubeflow 
+ Machine learning toolkit for K8s 
+ Quick links 
+ Kubernetes documentation 
+ Getting started with Kubernetes 
+ Distributions comparison 
+ Getting started with MicroK8s 
+ Kubeflow installation tutorial 
+ AI and data 
+ Back 
+ AI/ML 
+ AI and machine learning on Ubuntu 
+ Data solutions 
+ Enterprise data management at scale 
+ Cloud marketplace 
+ Managed solutions on public clouds 
+ Kubeflow 
+ End-to-end MLOps platform 
+ MLflow 
+ Lightweight ML platform 
+ Kafka 
+ Streaming data platform 
+ Spark 
+ Big data processing 
+ MongoDB 
+ NoSQL database management 
+ PostgreSQL 
+ Relational database management 
+ MySQL 
+ Relational database management 
+ OpenSearch 
+ Search and analytics suite 
+ Cassandra 
+ Distributed NoSQL database 
+ Quick links 
+ Kubeflow documentation 
+ MLflow documentation 
+ MLOps toolkit 
+ Guide to big data and AI 
+ Certified hardware 
+ Back 
+ Certified hardware 
+ Ubuntu hardware you can trust 
+ PC and laptops 
+ Certified for Ubuntu 
+ Servers 
+ Hardware for data centers 
+ IoT devices 
+ Stable and secure devices 
+ SoCs 
+ System on a Chip hardware 
+ Raspberry Pi 
+ Certified Pi devices 
+ Quick links 
+ Why use Certified devices? 
+ Certify your device 
+ Why certification matters for AIoT 
+ Industrial Pi use cases webinar 
+ Why buy a preinstalled workstation? 
+ IoT and edge 
+ Back 
+ Ubuntu Core 
+ Embedded Linux 
+ IoT App Store 
+ Private app store for Linux and IoT 
+ Device management 
+ Manage fleets of IoT devices 
+ Cyber Resilience Act 
+ Prepare for the CRA 
+ Certified devices 
+ Hardware/OS compatibility 
+ Ubuntu Frame 
+ Embedded graphical displays 
+ Ubuntu Pro for Devices 
+ Security & compliance subscription for IoT 
+ ROS ESM 
+ Expanded security for robots 
+ Real-time Ubuntu 
+ Low-latency kernel 
+ IoT Professional Services 
+ Bring IoT devices to market 
+ Kernel 
+ Ubuntu kernel on certified hardware 
+ Zephyr LTS 
+ RTOS for MCU-class devices 
+ Quick links 
+ Guide to IoT lifecycle management 
+ Canonical joins the CSA 
+ Pick the OS for your robots 
+ Embedded Linux: make or buy? 
+ Try Ubuntu Core on Raspberry Pi 
+ Industry 4.0 webinar 
+ Developer tools 
+ Back 
+ Snaps 
+ Containerized applications for Linux 
+ Snapcraft 
+ Build and publish your snaps 
+ Snap Store 
+ App store for Linux 
+ Chiseled Ubuntu 
+ Ultra-small containerization 
+ Juju 
+ Orchestrator engine for operators 
+ Charmhub 
+ Software operators collection 
+ JAAS 
+ Auditing and compliance for Juju 
+ Mir 
+ Display server library 
+ Workshop 
+ Sandboxed developer workspaces 
+ Enterprise Store 
+ Proxy for software management 
+ Launchpad 
+ Host and publish software 
+ Quick links 
+ Snap documentation 
+ Create your first snap 
+ Juju documentation 
+ Getting started with Juju 
+ Write your first charm 
+ Featured 
+ Ubuntu OS 
+ Private cloud 
+ Public cloud 
+ Virtualization 
+ Security and support 
+ Kubernetes 
+ AI and data 
+ Certified hardware 
+ IoT and edge 
+ Developer tools 
+ Ubuntu Desktop 
+ Fast, modern and secure Linux 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ MAAS 
+ Bare metal provisioning 
+ Snapcraft 
+ App store for Linux 
+ OpenStack 
+ Private cloud provisioning 
+ MicroCloud 
+ Lightweight, automated clouds 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Enterprise-grade support 
+ 24/7 support for the full-stack 
+ Livepatch 
+ Stay patched and defer reboots 
+ Kubernetes 
+ Containerized workloads 
+ MLOps 
+ Scalable machine learning solutions 
+ Juju 
+ Orchestration engine for operators 
+ Hardware support 
+ Ubuntu hardware you can trust 
+ Canonical Academy 
+ Real-world, industry relevant exams. 
+ We're here to help with any questions and more information. 
+ Contact us 
+ Ubuntu Desktop 
+ Fast, modern and secure Linux 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Ubuntu Core 
+ Embedded Linux 
+ FIPS for Ubuntu 
+ Secure Linux for government 
+ WSL 
+ Windows Subsystem for Linux 
+ Multipass 
+ VMs for Windows, macOS & Linux 
+ Quick links 
+ Upgrade Ubuntu 
+ Ubuntu documentation 
+ Desktop install 
+ Server install 
+ Server guide 
+ Ubuntu on public clouds 
+ OpenStack 
+ Enterprise private cloud 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ Landscape 
+ Monitor and manage machines 
+ MAAS 
+ Bare metal provisioning 
+ Ceph 
+ Open source software defined storage 
+ Juju 
+ Orchestrator engine for operators 
+ Private cloud build 
+ OpenStack implementation 
+ MicroStack 
+ Cloud-native OpenStack 
+ MicroCloud 
+ Lightweight, automated clouds 
+ Observability 
+ Open source observability 
+ Quick links 
+ Server documentation 
+ MAAS documentation 
+ MicroStack installation 
+ Data Centre Networking blog 
+ OpenStack pricing 
+ Private cloud consulting 
+ Private cloud: Avoiding the high cost of operations 
+ Ubuntu on public clouds 
+ The most popular cloud OS 
+ Ubuntu on AWS 
+ AWS Marketplace 
+ Ubuntu on Azure 
+ Microsoft Azure Marketplace 
+ Ubuntu on GCP 
+ Google Cloud Marketplace 
+ Ubuntu WorkSpaces 
+ Virtual desktops on AWS 
+ Multipass 
+ VMs for Windows, macOS & Linux 
+ LXD 
+ Linux containers and VMs 
+ WSL 
+ Windows Subsystem for Linux 
+ Anbox Cloud 
+ Run Android at scale in the cloud 
+ Quick links 
+ What is virtualization? 
+ Multipass documentation 
+ Virtualization docs in the server guide 
+ What is WSL? 
+ Install Ubuntu on Windows 11 
+ Install Ubuntu on Windows 10 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Ubuntu Pro for Devices 
+ Security & compliance subscription for IoT 
+ Ubuntu Pro + support 
+ 24/7 support for the full-stack 
+ ESM 
+ 10 years of security maintenance 
+ Landscape 
+ Monitor and manage machines 
+ Livepatch 
+ Stay patched without reboots 
+ Ubuntu Pro for AWS 
+ Amazon Web Services support 
+ Ubuntu Pro for Azure 
+ Microsoft Azure cloud support 
+ Ubuntu Pro for GCP 
+ Google Cloud support 
+ Certifications and hardening 
+ CIS, DISA-STIG, FIPS compliance 
+ Confidential computing 
+ Protect your data in use 
+ Firefighting support 
+ Enhanced support coverage 
+ Quick links 
+ Ubuntu Pro pricing 
+ Open infrastructure consulting 
+ Certified hardware 
+ CVE reports 
+ Ubuntu Security Notices (USN) 
+ Ubuntu Pro free trial 
+ Get Ubuntu Pro now 
+ Kubernetes 
+ Containerized workloads 
+ MicroK8s 
+ Simplest way to get Kubernetes 
+ Charmed Kubernetes 
+ Composable K8s for the enterprise 
+ Kubeflow 
+ Machine learning toolkit for K8s 
+ Quick links 
+ Kubernetes documentation 
+ Getting started with Kubernetes 
+ Distributions comparison 
+ Getting started with MicroK8s 
+ Kubeflow installation tutorial 
+ AI/ML 
+ AI and machine learning on Ubuntu 
+ Data solutions 
+ Enterprise data management at scale 
+ Cloud marketplace 
+ Managed solutions on public clouds 
+ Kubeflow 
+ End-to-end MLOps platform 
+ MLflow 
+ Lightweight ML platform 
+ Kafka 
+ Streaming data platform 
+ Spark 
+ Big data processing 
+ MongoDB 
+ NoSQL database management 
+ PostgreSQL 
+ Relational database management 
+ MySQL 
+ Relational database management 
+ OpenSearch 
+ Search and analytics suite 
+ Cassandra 
+ Distributed NoSQL database 
+ Quick links 
+ Kubeflow documentation 
+ MLflow documentation 
+ MLOps toolkit 
+ Guide to big data and AI 
+ Certified hardware 
+ Ubuntu hardware you can trust 
+ PC and laptops 
+ Certified for Ubuntu 
+ Servers 
+ Hardware for data centers 
+ IoT devices 
+ Stable and secure devices 
+ SoCs 
+ System on a Chip hardware 
+ Raspberry Pi 
+ Certified Pi devices 
+ Quick links 
+ Why use Certified devices? 
+ Certify your device 
+ Why certification matters for AIoT 
+ Industrial Pi use cases webinar 
+ Why buy a preinstalled workstation? 
+ Ubuntu Core 
+ Embedded Linux 
+ IoT App Store 
+ Private app store for Linux and IoT 
+ Device management 
+ Manage fleets of IoT devices 
+ Cyber Resilience Act 
+ Prepare for the CRA 
+ Certified devices 
+ Hardware/OS compatibility 
+ Ubuntu Frame 
+ Embedded graphical displays 
+ Ubuntu Pro for Devices 
+ Security & compliance subscription for IoT 
+ ROS ESM 
+ Expanded security for robots 
+ Real-time Ubuntu 
+ Low-latency kernel 
+ IoT Professional Services 
+ Bring IoT devices to market 
+ Kernel 
+ Ubuntu kernel on certified hardware 
+ Zephyr LTS 
+ RTOS for MCU-class devices 
+ Quick links 
+ Guide to IoT lifecycle management 
+ Canonical joins the CSA 
+ Pick the OS for your robots 
+ Embedded Linux: make or buy? 
+ Try Ubuntu Core on Raspberry Pi 
+ Industry 4.0 webinar 
+ Snaps 
+ Containerized applications for Linux 
+ Snapcraft 
+ Build and publish your snaps 
+ Snap Store 
+ App store for Linux 
+ Chiseled Ubuntu 
+ Ultra-small containerization 
+ Juju 
+ Orchestrator engine for operators 
+ Charmhub 
+ Software operators collection 
+ JAAS 
+ Auditing and compliance for Juju 
+ Mir 
+ Display server library 
+ Workshop 
+ Sandboxed developer workspaces 
+ Enterprise Store 
+ Proxy for software management 
+ Launchpad 
+ Host and publish software 
+ Quick links 
+ Snap documentation 
+ Create your first snap 
+ Juju documentation 
+ Getting started with Juju 
+ Write your first charm 
+ Solutions 
+ Back 
+ Explore our solutions › 
+ Categories 
+ AI 
+ Bring AI to your enterprise 
+ Data 
+ Data management at scale 
+ Ubuntu OS 
+ An enterprise OS for everyone 
+ Infrastructure 
+ Agile data center operations 
+ Managed IT services 
+ Fully managed open source solutions 
+ Open source security 
+ A trusted software supply chain 
+ IoT and devices 
+ Deploy and manage devices at scale 
+ Cloud-native apps 
+ Build and deploy apps at speed 
+ Automation 
+ Simplify deployment, management, and scaling 
+ Industries 
+ Automotive 
+ Smarter vehicles and factories 
+ Financial services 
+ Modernize with open source 
+ Public sector 
+ Government and federal 
+ Education 
+ Open source for academia 
+ Industrial 
+ The factory of the future 
+ Telco 
+ Carrier-grade solutions 
+ Case studies › 
+ SBI BITS puts business continuity at the heart of its OpenStack migration. 
+ Learn more › 
+ Canonical deploys infrastructure solutions for ESA's space mission operations. 
+ Learn more › 
+ Explore our solutions › 
+ Categories 
+ AI 
+ Bring AI to your enterprise 
+ Data 
+ Data management at scale 
+ Ubuntu OS 
+ An enterprise OS for everyone 
+ Infrastructure 
+ Agile data center operations 
+ Managed IT services 
+ Fully managed open source solutions 
+ Open source security 
+ A trusted software supply chain 
+ IoT and devices 
+ Deploy and manage devices at scale 
+ Cloud-native apps 
+ Build and deploy apps at speed 
+ Automation 
+ Simplify deployment, management, and scaling 
+ Industries 
+ Automotive 
+ Smarter vehicles and factories 
+ Financial services 
+ Modernize with open source 
+ Public sector 
+ Government and federal 
+ Education 
+ Open source for academia 
+ Industrial 
+ The factory of the future 
+ Telco 
+ Carrier-grade solutions 
+ Case studies › 
+ SBI BITS puts business continuity at the heart of its OpenStack migration. 
+ Learn more › 
+ Canonical deploys infrastructure solutions for ESA's space mission operations. 
+ Learn more › 
+ Partners 
+ Back 
+ Explore our partners › 
+ Partner programs 
+ Desktop 
+ Desktop, laptops and workstations 
+ Channel/reseller 
+ Partners on every continent 
+ IoT devices 
+ Robots, edge, development boards 
+ IHV/OEM 
+ Data centres 
+ ISVs 
+ Independent Software Vendors 
+ GSIs 
+ Global Systems Integrators 
+ Public cloud 
+ Ubuntu optimized for the cloud 
+ Silicon 
+ CPUs, boards and SoCs 
+ Quick links 
+ Find a partner 
+ Become a partner 
+ Log in to the partner portal 
+ Explore our partners › 
+ Partner programs 
+ Desktop 
+ Desktop, laptops and workstations 
+ Channel/reseller 
+ Partners on every continent 
+ IoT devices 
+ Robots, edge, development boards 
+ IHV/OEM 
+ Data centres 
+ ISVs 
+ Independent Software Vendors 
+ GSIs 
+ Global Systems Integrators 
+ Public cloud 
+ Ubuntu optimized for the cloud 
+ Silicon 
+ CPUs, boards and SoCs 
+ Quick links 
+ Find a partner 
+ Become a partner 
+ Log in to the partner portal 
+ Careers 
+ Back 
+ Roles by department › 
+ Roles by department 
+ Engineering 
+ Support Engineering 
+ Marketing 
+ Web and Design 
+ Alliances and Channels 
+ Project management 
+ Commercial Operations 
+ Product 
+ Sales 
+ Finance 
+ Legal 
+ Administration 
+ People 
+ Working here 
+ Hiring process 
+ Company culture 
+ Remote work 
+ Progression 
+ Diversity 
+ Sustainability 
+ Early careers 
+ Roles by department › 
+ Roles by department 
+ Engineering 
+ Support Engineering 
+ Marketing 
+ Web and Design 
+ Alliances and Channels 
+ Project management 
+ Commercial Operations 
+ Product 
+ Sales 
+ Finance 
+ Legal 
+ Administration 
+ People 
+ Working here 
+ Hiring process 
+ Company culture 
+ Remote work 
+ Progression 
+ Diversity 
+ Sustainability 
+ Early careers 
+ Company 
+ Back 
+ Get to know us › 
+ Explore Canonical 
+ Open source in your enterprise 
+ Open source projects we support 
+ Company events 
+ Company Trust Center 
+ Latest updates 
+ Blog 
+ Press Center 
+ Company highlights › 
+ Get to know us › 
+ Explore Canonical 
+ Open source in your enterprise 
+ Open source projects we support 
+ Company events 
+ Company Trust Center 
+ Latest updates 
+ Blog 
+ Press Center 
+ Company highlights › 
+ Canonical named a Challenger in the 2026 GartnerⓇ Magic Quadrant™ for Server Virtualization Platforms 
+ Canonical announces Managed Kubeflow on Azure 
+ Canonical releases Ubuntu 26.04 LTS Resolute Raccoon 
+ Search 
+ MicroK8s 
+ Features 
+ Compare 
+ Tutorials 
+ Docs 
+ Resources 
+ Community 
+ Submit 
+ Open side navigation 
+ Close side navigation 
+ Home 
+ Tutorials
+ Getting started
+ How to Guides
+ Installing
+ …on Windows 10/11
+ …on macOS
+ …on a Raspberry Pi 
+ …on NVIDIA DGX
+ …with LXD 
+ …using Multipass
+ … with WSL2
+ …behind a proxy 
+ …offline or airgapped
+ …with strict confinement
+ Additional install notes
+ set channels/versions
+ Addons
+ How to manage Addons
+ Create, edit and use community addons
+ Configuration 
+ Configure services
+ Configure host interfaces
+ Configure CNI
+ Add launch configurations
+ Configure Dual-stack (IPv4I/Pv6)
+ Change the pod CIDR
+ Add an LMA stack
+ Use an external etcd cluster
+ Set up MicroK8s for more users
+ Set up OIDC to work with Dex
+ Clusters 
+ Create a multi-node cluster
+ Upgrade a cluster
+ Get High Availability
+ Recover from a lost quorum on dqlite
+ Cluster API 
+ Provisioning with Cluster API
+ Managing CAPI clusters
+ Upgrading a CAPI cluster
+ Images and registries 
+ Use local images
+ Use a public registry
+ Use the built-in registry
+ Use a private registry
+ Side-load images
+ Upgrading
+ Manage upgrades with a Snap Store Proxy
+ Upgrade a cluster
+ Security 
+ CIS hardening
+ Run security scans with Trivy
+ Storage 
+ Use MicroCeph/Ceph storage
+ Use NFS for Persistent Volumes
+ Installing EKS-D with MicroK8s
+ Use the ingress addon
+ Use authentication and authorization
+ Add Windows workers
+ Backup workloads with Velero
+ Manage DockerHub rate limits
+ Build the MicroK8s snap
+ Troubleshooting
+ Explanation
+ High Availability
+ Snap package refreshes
+ Strict confinement
+ Launch configuration
+ Cluster API (CAPI)
+ Dual-stack (IPv4.IPv6)
+ Security Compliance
+ CIS Hardening
+ Reference
+ Release notes
+ Welcome to the community!
+ Command reference
+ Services and ports used
+ Working with kubectl
+ Addons
+ Launch configuration
+ Build variables
+ Ubuntu Pro for MicroK8s
+ Get in touch
+ Reporting a bug
+ Contributing to docs
+ High Availability (HA) 
+ High availability is automatically enabled on MicroK8s for clusters with three or more nodes. 
+ A highly available Kubernetes cluster is a cluster that can withstand a failure on any one of its components and continue serving workloads without interruption. There are three components necessary for a highly available Kubernetes cluster: 
+ There must be more than one node available at any time. 
+ The control plane must be running on more than one node so that losing a single node would not render the cluster inoperable. 
+ The cluster state must be in a datastore that is itself highly available. 
+ This documentation describes the steps needed to form an HA cluster in MicroK8s and to check its state. 
+ Setting up HA for MicroK8s 
+ To achieve HA, you will need: 
+ To install a 1.19+ version of MicroK8s 
+ At least three nodes. For testing on a single machine, please see the documentation for installing on LXD 
+ Install the first node 
+ On Linux , you can install any 1.19+ by specifying a channel: 
+ sudo snap install microk8s --classic --channel=1.19/stable
+ or update an existing installation with: 
+ sudo snap refresh microk8s --classic --channel=1.19/stable
+ For Windows and macOS , you can update your installation with: 
+ multipass exec microk8s -- sudo snap refresh microk8s --classic --channel=1.19/stable
+ (see the install docs for Windows and macOS if you need to install MicroK8s.) 
+ Add at least two other nodes 
+ As before, install a 1.19+ version of MicroK8s on at least two additional machines (or LXD containers). 
+Follow the usual procedure for clustering (described in the clustering documentation ): 
+ On the initial node, run: 
+ microk8s add-node
+ This will output a command with a generated token such as microk8s join <private-ip-masked>:25000/<token-masked> . Copy this command and run it from the next node. It may take a few minutes to successfully join. 
+Repeat this process (generate a token, run it from the joining node) for the third and any additional nodes. 
+ Set failure domains 
+ Available with 1.20+ 
+ To make MicroK8s failure domain aware associate an integer to each failure domain and update the /var/snap/microk8s/current/args/ha-conf with it. A restart of MicroK8s in the updated nodes is required ( microk8s.stop; microk8s.start ). For example: 
+ echo "failure-domain=42" > /var/snap/microk8s/current/args/ha-conf
+microk8s.stop
+microk8s.start
+ Check the status 
+ Run the status command: 
+ microk8s status
+ From MicroK8s version 1.19, this will now inform you of the HA status and the addresses and roles of additional nodes. For example: 
+ microk8s is running
+high-availability: yes
+ datastore master nodes: <private-ip-masked>:19001 <private-ip-masked>:19001 <private-ip-masked>:19001
+ datastore standby nodes: none
+ Working with HA 
+ All nodes of the HA cluster run the master control plane. A subset of the cluster nodes (at least three) maintain a copy of the Kubernetes dqlite database. Database maintenance involves a voting process through which a leader is elected. Apart from the voting nodes there are non-voting nodes silently keeping a copy of the database. These nodes are on standby to take over the position of a departing voter. Finally, there are nodes that neither vote nor replicate the database. These nodes are called spare . To sum up, the three node roles are: 
+ voters : replicating the database, participating in leader election 
+ standby : replicating the database, not participating in leader election 
+ spare : not replicating the database, not participating in leader election 
+ Cluster formation, database syncing, voter and leader elections are all transparent to the administrator. 
+ The state of the current state of the HA cluster is shown with: 
+ microk8s status
+ The output of the HA inspection reports: 
+ If HA is achieved or not. 
+ The voter and stand-by nodes. 
+ Since all nodes of the HA cluster run the master control plane the microk8s * commands are now available everywhere. Should one of the nodes crash we can move to any other node and continue working without much disruption. 
+ Almost all of the HA cluster management is transparent to the admin and requires minimal configuration. The administrator can only add or remove nodes. To ensure the health of the cluster the following timings should be taken into account: 
+ If the leader node gets “removed” ungracefully, e.g. it crashes and never comes back, it will take up to 5 seconds for the cluster to elect a new leader. 
+ Promoting a non-voter to a voter takes up to 30 seconds. This promotion takes place when a new node enters the cluster or when a voter crashes. 
+ To remove a node gracefully, first run the leave command on the departing node: 
+ microk8s leave
+ The node will be marked as ‘NotReady’ (unreachable) in Kubernetes. To complete the removal of the departing node, issue the following on any of the remaining nodes: 
+ microk8s remove-node <node>
+ In the case we are not able to call microk8s leave from the departing node, e.g. due to a node crash, we need to call microk8s remove-node with the --force flag: 
+ microk8s remove-node <node> --force
+ Add-ons on an HA cluster 
+ Certain add-ons download and “install” client binaries. These binaries will be available only on the node the add-on was enabled from. For example, the helm client that gets installed with microk8s enable helm will be available only on the node the user issued the microk8s enable command. 
+ Upgrading an existing cluster 
+ If you have an existing cluster, you have to refresh all nodes to at least v1.19, for example: 
+ sudo snap refresh microk8s --channel=1.19/stable
+ You then need to enable HA clustering on the master node: 
+ microk8s enable ha-cluster
+ Any machines which are already nodes in a cluster will need to exit and rejoin 
+in order to establish HA. 
+ To do so, cycle through the nodes to drain, remove, and rejoin them: 
+ microk8s kubectl drain <node> --ignore-daemonsets
+ On the node machine, force it to leave the cluster with: 
+ microk8s leave
+ Then enable HA with microk8s enable ha-cluster and re-join the node to the cluster with a microk8s add-node and microk8s join issued on the master and node respectively. 
+ What about an etcd based HA? 
+ MicroK8s ships the upstream Kubernetes so an etcd HA setup is also possible, see the upstream documentation on how this can be achieved: Kubernetes HA topology docs 
+The etcd approach is more involved and outside the scope of this document. Overall you will need to maintain your own etcd HA cluster. You will then need to configure the API server and flannel to point to that etcd. Finally you will need to provide a load balancer in front of the nodes acting as masters and configure the workers to reach the masters through the load-balanced endpoint. 
+ Last updated 2 years ago. Help improve this document in the forum .
+ Setting up HA for MicroK8s 
+ Install the first node 
+ Add at least two other nodes 
+ Set failure domains 
+ Check the status 
+ Working with HA 
+ Add-ons on an HA cluster 
+ Upgrading an existing cluster 
+ What about an etcd based HA? 
+ Copyright © 2026
+ CC-BY-SA 3.0, Canonical Ltd.
+ Legal information 
+ Manage your tracker settings 
+ Report a bug on MicroK8s itself 
+ Report a bug on this site
+ Go to the top of the page 

@@ -1,0 +1,130 @@
+Pricing | Cosmos Cloud
+Cosmos Cloud
+Licence Pricing
+Most of Cosmos Cloud is completely free. Pay only for premium features when you need them. No hidden fees, no data ransom, no vendor lock-in.
+MonthlyYearly(Save 17%)
+Community
+Perfect for getting started
+Free
+Everything you need to begin your self-hosting journey. No credit card required.
+Container management
+Docker/Config Backups
+App Store
+Reverse proxy
+Monitoring
+Storage Management
+Full Security Hardening
+Authentication with 2FA
+Up to 5 usersStart Free
+Most Popular
+Home Premium
+$99.00/year (save 17%)
+$8.25/month
+Advanced features for power users and families who want complete control.
+Everything in Community, plus:
+Constellation VPN
+Remote Storage Access/Shares
+Storage Backups *
+Up to 20 usersGet Started
+Home Lifetime
+One-time payment
+$249.00
+Own it forever. All premium features with lifetime updates and no recurring fees.
+Everything in Home Premium, plus:
+All Home updates included forever
+No subscription, everGet Started
+* Storage Backups means backing up files from your disks. Backing up your Cosmos config and containers is always free and included in the Community edition.
+Business Solutions
+Professional features for organizations that need advanced control, and large scale.
+Pro for Businesses
+From $16.00 /month
+For teams and organizations running Cosmos at scale.
+Base includes 16 GB RAM + 20 users. Beyond that: $1 per GB RAM/month and $5.99 per user/month. No egress fees, no hidden surcharges.
+Everything in Home Premium, plus:
+Cluster-level management
+Multi-server deployments & autoscaling
+Intelligent load balancing
+Managed databases & S3 object storage
+Cloud Functions
+CI/CD & private registries
+Fine-grained permissions
+SSO (coming soon)
+Priority supportGet Started
+Volume & Partners
+Bespoke
+For larger fleets, resellers and partners.
+Custom pricing based on your fleet size — the base commitment can be waived. Get in touch for a quote.
+Everything in Pro, plus:
+Volume licensing
+Automatic provisioning
+Dedicated support
+Training & onboarding resourcesContact Us
+Compare Plans
+A full breakdown of what each licence includes.
+Features
+Community
+Most Popular
+Home Premium
+Home Lifetime
+Pro
+Core
+Container management
+App Store
+Reverse proxy
+Config & container backups
+Monitoring
+Storage management
+Full security hardening
+Authentication with 2FA
+Lazy containers (sleep when idle)
+Access & Storage
+Constellation VPN
+Remote storage access & shares
+Storage backups *
+Cluster Platform
+Multi-server deployments & autoscaling
+Intelligent load balancing
+Managed PostgreSQL databases
+S3 object storage
+Cloud Functions
+CI/CD from git, with PR previews
+Private registries (Docker, npm, PyPI, files, static sites)
+Limits
+Users included
+Up to 5
+Up to 20
+Up to 20
+Unlimited
+Servers
+1
+2
+2
+Unlimited
+Administration
+Cluster-level management
+Fine-grained permissions
+SSO
+Coming soon
+Support
+Community support
+Priority support
+Lifetime updates included
+Why Choose Cosmos Cloud?
+No Lock-in
+Cancel anytime. Your data stays with you always.
+Open Source
+Transparent, auditable, and community-driven.
+Self-Hosted
+Your server, your rules, your complete control.
+Cosmos Cloud
+Self-hosting made simple. Take back control of your data with security-first cloud infrastructure.
+Resources
+Documentation
+GitHub
+App Store
+Community
+Discord
+Reddit
+GitHub Issues
+© 2026 Beyond Cloud ltd. All rights reserved.
+Privacy PolicyTerms of ServiceLicense

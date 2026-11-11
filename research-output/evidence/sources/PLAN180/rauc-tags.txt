@@ -1,0 +1,7 @@
+# git ls-remote --tags https://github.com/rauc/rauc (accessed 2026-11-11, v1.15+ only)
+75e9667ee8a243138df1611052985d0898b3cbf1	refs/tags/v1.15
+db1e1e59c60385fa884781b8ab34a77a02d9b3e5	refs/tags/v1.15^{}
+749a7a2968dd28bd3a9b4e0a35dd2f73df7538cc	refs/tags/v1.15.1
+fac72b8347eed46f300d3a8a06e847ce1aa9d677	refs/tags/v1.15.1^{}
+f1ceebd68b4edcf681c23d6a49aa5322d483c4d9	refs/tags/v1.15.2
+4fb7c798d6ae412344fb8f8d310d773046af3441	refs/tags/v1.15.2^{}

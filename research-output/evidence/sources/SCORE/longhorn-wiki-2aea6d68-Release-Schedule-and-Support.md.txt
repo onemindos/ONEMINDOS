@@ -1,0 +1,41 @@
+# Release Cadence
+
+Longhorn has a consistent release plan with the following cadence:
+
+## Before 1.8
+
+* Two feature (major or minor release) releases per year in June and December.
+* A release that becomes stable will begin its one-year support cycle until it reaches EOL.
+* After the first release of a release branch, it requires at most one to two months to make a release stable. 
+* After the first stable release, it requires three months of patch release cadence for the release branch until it reaches EOL.
+
+## Starting from 1.8
+
+* 4-month minor release cadence. January, May, and September.
+* 2-month patch release cadence with best efforts
+* On-demand monthly security patch release
+
+# Release Types
+
+## Before 1.8
+
+What is latest or stable release?
+
+* Latest release means the version is the latest release of the newest release branch.
+* Stable release means the version is stable and has been widely adopted by users.
+
+## Starting from 1.8
+
+- **x.y.z** release is considered a community release. **x.y** community support ends when version **x.(y+1).1** is released.
+
+# Release Support
+
+## Before 1.8
+
+- Each minor release will receive 12 months of active support, starting from the first stable patch release (x.y.1).
+
+## Starting from 1.8
+
+- Each minor release will receive 6 months of active support, starting from the first stable patch release (x.y.1).
+
+ 

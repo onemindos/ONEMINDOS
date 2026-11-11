@@ -1,0 +1,91 @@
+time="2026-11-11T08:42:18Z" level=info msg="Acquiring lock file /var/lib/rancher/k3s/data/.lock"
+time="2026-11-11T08:42:18Z" level=info msg="Preparing data dir /var/lib/rancher/k3s/data/342d21a06834327c49d125902586b5c58038e4decca01ba829aa819ce4d1b586"
+
+Verifying binaries in /var/lib/rancher/k3s/data/342d21a06834327c49d125902586b5c58038e4decca01ba829aa819ce4d1b586/bin:
+- sha256sum: good
+- links: good
+
+System:
+- /usr/sbin iptables v1.8.11 (legacy): ok
+- swap: disabled
+- routes: ok
+
+Limits:
+- /proc/sys/kernel/keys/root_maxkeys: 1000000
+
+modprobe: FATAL: Module configs not found in directory /lib/modules/6.12.112
+info: reading kernel config from /boot/config-6.12.112 ...
+
+Generally Necessary:
+- cgroup hierarchy: cgroups V2 mounted, cpu|cpuset|memory controllers status: good
+- CONFIG_NAMESPACES: enabled
+- CONFIG_NET_NS: enabled
+- CONFIG_PID_NS: enabled
+- CONFIG_IPC_NS: enabled
+- CONFIG_UTS_NS: enabled
+- CONFIG_CGROUPS: enabled
+- CONFIG_CGROUP_PIDS: enabled
+- CONFIG_CGROUP_CPUACCT: enabled
+- CONFIG_CGROUP_DEVICE: enabled
+- CONFIG_CGROUP_FREEZER: enabled
+- CONFIG_CGROUP_SCHED: enabled
+- CONFIG_CPUSETS: enabled
+- CONFIG_MEMCG: enabled
+- CONFIG_SECCOMP: enabled
+- CONFIG_KEYS: enabled
+- CONFIG_VETH: enabled
+- CONFIG_BRIDGE: enabled
+- CONFIG_BRIDGE_NETFILTER: enabled
+- CONFIG_IP_NF_FILTER: enabled
+- CONFIG_IP_NF_TARGET_MASQUERADE: enabled
+- CONFIG_IP_NF_TARGET_REJECT: enabled
+- CONFIG_NETFILTER_XT_MATCH_ADDRTYPE: enabled
+- CONFIG_NETFILTER_XT_MATCH_CONNTRACK: enabled
+- CONFIG_NETFILTER_XT_MATCH_IPVS: enabled
+- CONFIG_NETFILTER_XT_MATCH_COMMENT: enabled
+- CONFIG_NETFILTER_XT_MATCH_MULTIPORT: enabled
+- CONFIG_NETFILTER_XT_MATCH_STATISTIC: enabled
+- CONFIG_IP_NF_NAT: enabled
+- CONFIG_NF_NAT: enabled
+- CONFIG_POSIX_MQUEUE: enabled
+
+Optional Features:
+- CONFIG_USER_NS: enabled
+- CONFIG_BLK_CGROUP: enabled
+- CONFIG_BLK_DEV_THROTTLING: missing
+- CONFIG_CGROUP_PERF: missing
+- CONFIG_CGROUP_HUGETLB: missing
+- CONFIG_NET_CLS_CGROUP: missing
+- CONFIG_CGROUP_NET_PRIO: missing
+- CONFIG_CFS_BANDWIDTH: enabled
+- CONFIG_FAIR_GROUP_SCHED: enabled
+- CONFIG_RT_GROUP_SCHED: missing
+- CONFIG_IP_NF_TARGET_REDIRECT: missing
+- CONFIG_IP_SET: enabled
+- CONFIG_IP_VS: enabled
+- CONFIG_IP_VS_NFCT: enabled
+- CONFIG_IP_VS_PROTO_TCP: enabled
+- CONFIG_IP_VS_PROTO_UDP: enabled
+- CONFIG_IP_VS_RR: enabled
+- CONFIG_EXT4_FS: enabled
+- CONFIG_EXT4_FS_POSIX_ACL: enabled
+- CONFIG_EXT4_FS_SECURITY: enabled
+- Network Drivers:
+  - "overlay":
+    - CONFIG_VXLAN: enabled
+      Optional (for encrypted networks):
+      - CONFIG_CRYPTO: enabled
+      - CONFIG_CRYPTO_AEAD: enabled (as module)
+      - CONFIG_CRYPTO_GCM: enabled (as module)
+      - CONFIG_CRYPTO_SEQIV: missing
+      - CONFIG_CRYPTO_GHASH: enabled (as module)
+      - CONFIG_XFRM: missing
+      - CONFIG_XFRM_USER: missing
+      - CONFIG_XFRM_ALGO: missing
+      - CONFIG_INET_ESP: missing
+      - CONFIG_INET_XFRM_MODE_TRANSPORT: missing
+- Storage Drivers:
+  - "overlay":
+    - CONFIG_OVERLAY_FS: enabled
+
+STATUS: pass

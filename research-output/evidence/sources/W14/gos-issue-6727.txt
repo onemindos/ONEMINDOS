@@ -1,0 +1,20 @@
+GrapheneOS/os-issue-tracker#6727 state:open created:2025-12-09T00:13:27Z closed:null
+TITLE: Pixel Tablet: system crashes when switching user profiles since 2025112101
+
+Since Nov 29th, running [2025112101](https://grapheneos.org/releases#2025112100) and [2025120401](https://grapheneos.org/releases#2025120400), I have observed 7 system crashes.
+
+All of the crashes had occurred after I switched user profile, it showed the icon and name for the other user profile, stayed there for about 30 seconds, timed out, then showed the GrapheneOS logo and soft reboot the system.
+
+I will read through the logs to attach parts over the course of this week.
+
+I do not have developer options enabled.
+
+As of today, I have en-enabled animations, and will report if any more crashes occur in spite of this.
+
+--- comment 2025-12-20T06:35:15Z
+@thestinger this issue is neither #6845 nor #6846. The issue I've observed here presents with system crash logs and killing all running users, not launcher app failures
+
+--- comment 2025-12-20T16:34:47Z
+Turns out I have 8 System logs with `DeadSystemException` logs. I will send parts of these later tonight.
+
+How does the GrapheneOS team cut through logs? Do you use software for post processing? Anything that could trim out certain buffers, similar to how the log viewer on GrapheneOS already can?

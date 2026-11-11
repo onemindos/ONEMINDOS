@@ -1,0 +1,58 @@
+##### [02:28:51] T1 first boot
+##### [02:28:51] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,reado
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 default=1
+HEALTH-GATE: 07:30:00 start slot=A version=1 mode=committed env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 ]
+HEALTH-GATE: 07:30:02 RESULT committed-boot slot=A version=1
+[  293.724119] watchdog: BUG: soft lockup - CPU#3 stuck for 27s! [kubectl:803]
+HEALTH-GATE: 07:35:31 K3S-FRESH ALERT not healthy after 300s on a committed slot: fail: core pod kube-system/coredns-577d995dff-wbgzv not Ready (no rollback)
+--- state:T1
+ONEMIND_VERSION=1
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+Booted from: rootfs.0 (A)
+      boot status: bad
+      boot status: good
+pending: none
+apps             broken-app-5d6b874ccd-x4fkv               0/1   ImagePullBackOff    0     71s
+kube-system      coredns-577d995dff-wbgzv                  0/1   ContainerCreating   0     71s
+kube-system      helm-install-gateway-api-crd-tngxv        0/1   ContainerCreating   0     72s
+kube-system      local-path-provisioner-56c6584955-kqg5w   0/1   ContainerCreating   0     71s
+onemind-system   onemind-core-dc87b89b8-5gbkm              1/1   Running             0     72s
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+rauc 1.15.2
+bundle-formats=verity
+##### [02:35:56] T2 wrong-key bundle
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+LastError: signature verification failed: Verify error: unable to get local issuer certificate
+##### [02:36:00] install wrong-key.raucb rc=1 in 3s
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [02:36:01] T11 plain-format bundle, valid signature, verity-only policy
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+LastError: Bundle format 'plain' not allowed
+##### [02:36:52] install plain-good.raucb rc=1 in 51s
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [02:36:52] T3 good update -> B
+pre-install: trial marker slot=B version=2

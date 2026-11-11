@@ -1,0 +1,124 @@
+ClawBox Workstation: Private Office AI on NVIDIA DGX Spark
+
+ClawBox
+
+ClawBox
+ClawBoxClawBox WorkstationClawBox Hermes EditionClawBox PortalClawBox StorePricingLeaderboard
+Compare
+Full ComparisonHermes Agent vs OpenClawvs. Cloud AI (ChatGPT, Claude)vs. Raspberry Pi 5vs. Home Servervs. Mac Mini M4Hermes Agent on a Mac miniBlogDocs
+
+EUR/USD
+ENLoginBuy
+
+The AI hub for your entire office.
+Give everyone in your company frontier-model AI — on one ClawBox Workstation you own, not a cloud plan you rent by the seat. Every prompt, file, and customer record stays in the building: no per-seat fees, no rate limits, no vendor changing the terms on you. It’s the NVIDIA DGX Spark with OpenClaw preinstalled, so your whole team is running large models in minutes.
+Talk to sales
+🛡️ 30-day money-back🌍 Free shipping worldwide
+
+Sound familiar?
+Every company wants AI. Few want the cloud bill or the data risk.
+
+Per-seat bills multiply
+Every employee on a hosted AI plan is another monthly seat. Multiply that across the office and the bill compounds — with nothing to own at the end.
+
+Company data leaves the building
+Code, contracts, customer records — handed to someone else's servers the moment your team hits send.
+
+Capped, throttled, and rented
+Small boxes can't load the big models, and cloud APIs rate-limit your team and change pricing and terms whenever they like.
+No company should have to rent its intelligence by the seat — or hand its data to someone else’s servers — just to put real AI in front of every employee.
+
+Why ClawBox Workstation
+The power of the big models, without the cloud trade-off.
+We get it — you want frontier-model AI for everyone in the company, just not the per-seat bill, the rate limits, or your data on someone else’s servers. So we built the ClawBox Workstation on the NVIDIA DGX Spark, with OpenClaw and the full NVIDIA AI stack preinstalled: datacenter-class compute in a box you own, ready to serve the whole team.
+
+See all specifications
+
+The plan
+Your office on private AI in three steps.
+
+1
+Order
+Order your ClawBox Workstation — in stock and shipping in 7–10 business days via DHL. EU invoice-ready, with 30-day returns. No per-seat fees.
+2
+Plug in
+It arrives preconfigured with OpenClaw and the full NVIDIA AI stack. Power on and connect in about five minutes — no setup project, no cloud account.
+3
+Connect your team
+Your whole office works off one private ClawBox Workstation that never leaves the building: inference up to 200B, fine-tune up to 70B, and pair two units over NVIDIA ConnectX for 405B as you grow.
+Contact Sales→
+See the ClawBox Workstation as an AI assistant for business →
+
+Get product updates, discounts & ClawBox tips
+Subscribe
+No spam. Unsubscribe anytime.
+Guides
+What Is OpenClaw?
+Setup Guide
+Quick Start
+Requirements
+Telegram Setup
+WhatsApp Setup
+Android Guide
+OpenClaw on Jetson
+Docker Setup
+FAQCompare
+Overview
+Hermes Agent vs OpenClaw
+vs Mac Mini
+Hermes Agent on a Mac mini
+vs Cloud AI
+vs Cloud VPS
+vs Raspberry Pi
+vs Home Server
+ClawBox Review
+ClawBox PricingResources
+ClawBox Workstation
+ClawBox Hermes Edition
+ClawBox Portal
+OpenClaw Hardware
+Best Hardware
+OpenClaw Preinstalled
+GDPR & Private AI
+ClawBox for Teams
+Low Power AI Server
+Self-Hosted AI
+Jetson AI Assistant
+Always-On AI
+Home AI Server
+AI Assistant Box
+AI Computer
+NVIDIA AIMore
+ChatGPT Hardware
+Voice Assistant
+Ships to Asia
+Perplexity Alternative
+Personal AI Device
+AI Assistant for Business
+Private AI
+No-Cloud AI
+AI for Startups
+Run Claude Locally
+Local AI Hardware
+OpenClaw ACP
+Shipping Policy
+Home AI Server: Build a Private, Always-On Assistant at Home
+OpenClaw Hardware Requirements (2026): The Complete Guide
+Raspberry Pi vs Jetson Orin Nano for Local AI: An Honest 2026 Comparison
+BlogCommunity
+Documentation
+Community Forum
+OpenClaw Wallpapers
+🤖 ClawBox Agent
+Support
+Company
+About Us
+Contact
+Terms of Service
+Privacy Policy
+Your Privacy Choices
+Cookie settings
+Returns & Refunds
+Withdraw from contract
+Product safety
+© 2026 clawbox.com. Built with ❤️ for the AI community.We don't log your data — verify the code

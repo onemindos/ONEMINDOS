@@ -1,0 +1,38 @@
+# F1 run 3 serial log, trimmed: first 15 lines, DC20 markers, last 15 lines
+[=3h[=3h[=3hBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x3,0x0)
+GNU GRUB  version 2.12
+
+┌────────────────────────────────────────────────────────────────────────────────────────────────┐││││││││││││││││││││││││││││││││││││││└────────────────────────────────────────────────────────────────────────────────────────────────┘     Use the ▲ and ▼ keys to select which entry is highlighted.                              
+      Press enter to boot the selected OS, `e' to edit the commands before booting or `c' for 
+      a command-line.                                                                          *OneMind DC20 Buildroot                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             The highlighted entry will be executed automatically in 1s.                                        The highlighted entry will be executed automatically in 0s.                                       Booting `OneMind DC20 Buildroot'
+
+Linux version 6.12.112 (<build-user>@<build-vm>) (x86_64-buildroot-linux-gnu-gcc.br_real (Buildroot 2025.02.19) 13.4.0, GNU ld (GNU Binutils) 2.43.1) #1 SMP PREEMPT_DYNAMIC Wed Nov 11 02:59:31 EST 2026
+Command line: BOOT_IMAGE=/bzImage root=PARTUUID=ccbab7a7-7b32-4f51-a6f5-7f3f5f0638e6 rootwait console=ttyS0,115200 console=tty1
+BIOS-provided physical RAM map:
+BIOS-e820: [mem 0x0000000000000000-0x000000000009ffff] usable
+BIOS-e820: [mem 0x0000000000100000-0x00000000007fffff] usable
+BIOS-e820: [mem 0x0000000000800000-0x0000000000807fff] ACPI NVS
+BIOS-e820: [mem 0x0000000000808000-0x000000000080afff] usable
+...
+DC20-F1 BEGIN 6.12.112 PRETTY_NAME="Buildroot 2025.02.19"
+DC20-F1 uptime-at-start 8.57
+onemind-br login: DC20-F1 check-config done
+DC20-F1 NODE-READY after 40s (uptime 101.89)
+DC20-F1 END
+...
+cfg80211: Loading compiled-in X.509 certificates for regulatory database
+Loaded X.509 cert 'sforshee: 00b28ddf47aef9cea7'
+Loaded X.509 cert 'wens: 61c038651aabdcf94bd0ac7ff06c7248db18c600'
+platform regulatory.0: Direct firmware load for regulatory.db failed with error -2
+cfg80211: failed to load regulatory.db
+DC20-F1 BEGIN 6.12.112 PRETTY_NAME="Buildroot 2025.02.19"
+DC20-F1 uptime-at-start 8.57
+
+Welcome to Buildroot
+onemind-br login: DC20-F1 check-config done
+DC20-F1 NODE-READY after 40s (uptime 101.89)
+DC20-F1 END
+ACPI: PM: Preparing to enter system sleep state S5
+reboot: Power down
+wall 109s

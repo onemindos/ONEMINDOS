@@ -1,0 +1,242 @@
+Google Pixel Tablet technical specifications - Google Pixel Tablet Help Skip to main content
+Google Pixel Tablet Help
+Sign in
+Google Help
+Help Center
+Get started with Google Pixel Tablet
+Use your Google Pixel Tablet
+Change Pixel Tablet settings
+Use and manage apps on your Pixel Tablet
+Use Google Assistant on your Pixel Tablet
+Privacy, protection, and security
+Get support for your Pixel Tablet
+Pixel Tablet accessibility
+Community
+Google Pixel Tablet
+Privacy Policy
+Terms of Service
+Submit feedback
+Send feedback on...
+This help content & information
+General Help Center experience
+CloseNext
+Help Center
+Community
+Google Pixel Tablet
+Get started with Google Pixel Tablet
+Set up your Google Pixel Tablet
+Use your Google Pixel Tablet
+Start using your Google Pixel TabletControl your home in Hub ModeEnjoy movies, music, and moreUse productivity toolsConnect with friends and family
+Change Pixel Tablet settings
+Change your device settingsNetwork and connection settingsChange your account settingsChange your notification settings
+Use and manage apps on your Pixel Tablet
+Change your app settings
+Use Google Assistant on your Pixel Tablet
+Manage who can use Google Assistant on your tabletControl your Assistant settingsUse Assistant to plan your dayUse Assistant to control your smart homeUse Assistant to find info, shop, and make payments
+Privacy, protection, and security
+Manage your security settingsLock and unlock your tabletFind your tabletYour privacy
+Get support for your Pixel Tablet
+Troubleshoot issues with your Pixel TabletTroubleshoot issues with Google Assistant
+Pixel Tablet accessibility
+Google Pixel Tablet technical specifications
+Check out the tech specs for the Google Pixel Tablet. If you're interested in buying a Pixel Tablet, visit the Google Store.
+Note: Some features aren’t available in all countries or languages.
+ Category
+ Details
+ Display
+10.95-inch display1
+LCD
+2560x1600 resolution
+276 pixels per inch density
+16:10 aspect ratio
+500 nits brightness (typical)
+Anti-smudge coating
+Touchscreen display
+Supports USI 2.0 stylus pens
+Full 24-bit depth for 16 million colors
+ Dimensions and weight2
+Pixel Tablet:
+17.39 oz (493 g)
+10.2 width x 6.7 height x 0.3 depth (in)
+258 width x 169 height x 8.1 depth (mm)
+Charging Speaker Dock:
+16.23 oz (460 g)
+5.2 width x 3.7 height x 2.8 depth (in)
+132 width x 94 height x 70.3 depth (mm)
+ Battery and charging
+Pixel Tablet with Charging Speaker Dock: Charging via Charging Speaker Dock (included) or USB-C® cable and power charger (sold separately)
+Pixel Tablet: USB-C® cable and power charger (charger sold separately)
+Up to 12 hours of video streaming3
+Built-in 27-watt-hour battery
+ Memory and storage
+8 GB LPDDR5 RAM
+128 & 256 GB UFS 3.1 storage4
+ Processors
+Google Tensor G2
+Titan M2 security coprocessor
+ Security
+End-to-end security designed by Google
+Multi-layer hardware security
+Tensor security core
+Certified Titan M2 security chip
+Trusty (Trusted Execution Environment)
+Minimum 5 years of security updates5
+Anti-phishing and anti-malware protection
+Automatic security checks and privacy controls with Safety Center
+Camera and microphone toggles
+Private Compute Core
+Android System Intelligence
+Android backup encryption
+Learn more at g.co/privacy and g.co/pixel/certifications.
+ Front camera
+8 megapixels (MP)
+1.12 μm pixel width
+ƒ/2.0 aperture
+Fixed focus
+84° field of view
+1/4" image sensor size
+ Rear camera
+8 megapixels (MP)
+1.12 μm pixel width
+ƒ/2.0 aperture
+Fixed focus
+84° field of view
+1/4" image sensor size
+ Camera features
+Magic Eraser6
+Photo Unblur
+Long Exposure
+Panorama
+Manual white balancing
+Locked Folder
+Night Sight
+Top Shot
+Portrait Mode (front camera only)
+Portrait Light
+Frequent Faces
+Live HDR+
+Guided Frame
+Video and video calling
+Front camera
+1080p video recording at 30 FPS
+Rear camera
+1080p video recording at 30 FPS
+Calling apps
+Google Meet included
+Zoom, WhatsApp, and more available on Google Play
+Features
+Video stabilization
+Live HDR+
+​​Auto Timelapse
+Speech Enhancement
+Video formats: HEVC (H.265) and AVC (H.264)
+ Authentication
+Fingerprint Unlock with power button fingerprint sensor
+Pattern, PIN, password
+ Sensors
+Ambient light sensor
+Accelerometer
+Gyroscope
+Magnetometer
+Hall Sensor
+ Buttons and ports
+Power button
+Volume controls
+USB® Type C 3.2 Gen 1 port
+4-pin accessory connector for charging, data transfer, and audio output
+ Media and audio
+Quad-speaker audio system
+3 microphones for calls, recordings, and Google Assistant
+Noise suppression
+ Connectivity and location
+Wi-Fi 6 (802.11 a/b/g/n/ac/ax) with 2x2 MIMO, simultaneous dual-band (2.4 GHz, 5.0 GHz)
+Bluetooth v5.2
+Ultra-Wideband chip for accurate ranging
+Google Cast
+ Colors
+Porcelain
+Hazel
+Rose (U.S. only)
+ Included in the box
+Pixel Tablet with Charging Speaker Dock:
+Pixel Tablet
+Charging Speaker Dock
+Power Adapter
+Quick Start Guide
+Safety & Warranty Booklet
+Pixel Tablet (tablet only):
+Pixel Tablet
+USB-C cable
+Quick Start Guide
+ Charging Speaker Dock
+Important: To dock your Pixel Tablet or use Hub Mode, you need a Charging Speaker Dock. You can purchase the Pixel Tablet with or without a dock, or purchase a dock separately.
+Magnetic docking interface with pogo pin connection
+15W max charging rate7
+43.5 mm full-range speaker
+ Security and OS updates
+ 5 years of security updates8
+ Materials
+Made with over 30% recycled materials based on product weight and the aluminum in the enclosure is 100% recycled content.9
+Nano-ceramic coating
+ Warranty
+Pixel Tablet and Pixel Tablet with Charging Speaker Dock:
+1 year (United States, Canada, Japan)
+2 years (United Kingdom, EU, Australia)
+ Google Assistant
+ Get hands-free help. Say “Hey Google” to play music and videos, get answers, control smart home devices, manage tasks, and more.
+ Operating system
+ Android
+ Video Playback
+Supports H.263, H.264 AVC, H.265 HEVC, MPEG-4, VP8, VP9, AV1
+Supports HDR10 content
+ Audio playback
+ Supported formats include AAC, MP3, FLAC, and LDAC
+Notes
+1 The screen has rounded corners. When measured diagonally as a rectangle, the screen is 11 inches. Actual viewable area is less. Dimension may vary by configuration and manufacturing process.
+2 Dimensions and weight vary by configuration and manufacturing process.
+3 Battery testing conducted in California in early 2023 on pre-production hardware and software. Video content was streamed via Wi-Fi using the YouTube app at 1080p resolution with Pixel Tablet on default settings, except that brightness was set to 82% and adaptive brightness and Ambient EQ were turned off. Battery life depends upon many factors and usage of certain features will decrease battery life. Actual battery life may be lower.
+4 Storage specifications refer to capacity before formatting. Actual formatted capacity will be less.
+5 Android security updates for at least 5 years from when the device first became available on the Google Store in the US. For details, go to g.co/pixeltablet/updates.
+6 Requires Google Photos app. Magic Eraser may not work on all image elements.
+7 Charging rates vary depending on usage, environment, and other factors.
+8 Pixel security updates for at least 5 years from when the device first became available on the Google Store in the US. Updates may also include feature drops and other software updates. For more information, go to g.co/pixeltablet/updates.
+9 Recycled aluminum is at least 25% of product based on weight.
+USB-C® is a registered trademark of USB Implementers Forum.
+The Bluetooth® word mark and logos are registered trademarks owned by Bluetooth SIG, Inc.
+Was this helpful?
+How can we improve it?
+YesNo
+Submit
+Need more help?
+Try these next steps:
+ Post to the help community Get answers from community members
+ Contact us Tell us more and we’ll help you get there
+true
+Google Pixel Tablet
+1 of 5What is the Google Pixel Tablet?
+2 of 5Google Pixel Tablet technical specifications
+3 of 5Charging Speaker Dock technical specifications
+4 of 5Find answers to frequently asked questions about the Google Pixel Tablet
+5 of 5Set up your Google Pixel Tablet
+ ©2026 Google
+ Privacy Policy
+ Terms of Service Language dansk‎Deutsch‎English (Australia)‎English (Canada)‎English (United Kingdom)‎español‎español (Latinoamérica)‎français‎français (Canada)‎italiano‎Nederlands‎norsk‎svenska‎日本語‎ English‎
+Enable Dark Mode
+Send feedback on... This help content & information General Help Center experience
+Search
+Clear search
+Close search
+Google apps
+Main menu
+11791053097370545642
+true
+Search Help Center
+false
+true
+true
+true
+false
+false
+false
+false
+false

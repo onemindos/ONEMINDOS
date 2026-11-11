@@ -1,0 +1,73 @@
+Custom Images Limits | DigitalOcean Documentation 
+ Docs 
+ Platform 
+ Products 
+ Reference 
+ Support 
+ Sign Up 
+ Details 
+ Limits 
+ Give Feedback 
+ For AI agents: The documentation index is at https://docs.digitalocean.com/llms.txt . Markdown versions of pages use the same URL with index.html.md in place of the HTML page (for example, append index.html.md to the directory path instead of opening the HTML document).
+ Custom Images Limits
+ Last verified 13 Jul 2026
+ Custom images are Linux and Unix-like images you import to DigitalOcean. You can create Droplets based custom images, which lets you migrate and scale your workloads without spending time recreating your environment from scratch.
+ Copy page as Markdown
+ View page as Markdown 
+ Images must be less than 100 GB uncompressed.
+ UEFI boot is not supported. Custom images must boot using BIOS.
+ Windows images are not supported.
+ ISO images are not currently supported, but we’re considering ISO support in the future. In the interim, if you have an ISO image you want to use, you can create a new image using your VM software of choice and save it again in a supported format. For a detailed walk-through, see How to Create a DigitalOcean Droplet from an Ubuntu ISO Format Image .
+ Unlike stock images provided by DigitalOcean, Droplets created from custom images use DHCP to obtain an IP address from the DigitalOcean platform. The custom image’s network configuration doesn’t require any additional setup to use DHCP.
+ You cannot use IPv6 with Droplets created from custom images.
+ You cannot enable monitoring automatically during Droplet creation when using a custom image. Instead, enable monitoring manually .
+ You must add an SSH key when creating Droplets from a custom image. These Droplets have password authentication disabled by default and you cannot use the control panel to reset the root password.
+ Importing a custom image by URL fails if the image is served by a CDN that doesn’t support HEAD requests. If you have trouble importing an image via a URL, try downloading the file and uploading it directly.
+ Droplets created from a custom image do not receive an anchor IP address and do not require one to use a reserved IP . When you assign a reserved IP address to a Droplet created from a custom image, the reserved IP is automatically mapped to the Droplet’s public IPv4 address instead of an anchor IP.
+ DigitalOcean uses DHCP on port 67 to configure networking for Droplets using custom images. If you put a Droplet created from a custom image behind a firewall, including a DIgitalOcean Cloud Firewall , you need to create an outbound UDP rule that opens port 67 .
+ Known Issues
+ You cannot see the total storage used by custom images.
+ The image upload window does not correctly display the size of the image.
+ Product Home 
+ Custom Images 
+ Getting Started 
+ Quickstart 
+ How-Tos 
+ Upload Custom Images 
+ Add Additional Regions 
+ Delete Custom Images 
+ Create Droplets 
+ Reference 
+ API Reference 
+ CLI Reference 
+ Details 
+ Features 
+ Pricing 
+ Availability 
+ Limits 
+ In this article...
+ Known Issues 
+ Company
+ About 
+ Careers 
+ Blog 
+ Docs
+ Docs Home 
+ API Reference 
+ CLI Reference 
+ Release Notes 
+ llms.txt 
+ Trust Platform 
+ Community
+ Tutorials 
+ Q&A 
+ Write for DOnations 
+ Currents Research 
+ Legal 
+ Code of Conduct 
+ Support
+ Support Center 
+ Report Abuse 
+ © 2026 DigitalOcean, LLC. All rights reserved 
+ We can't find any results for your search.
+ Try using different keywords or simplifying your search terms.

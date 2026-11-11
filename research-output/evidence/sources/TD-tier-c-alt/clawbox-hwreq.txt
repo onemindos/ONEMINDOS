@@ -1,0 +1,250 @@
+OpenClaw Hardware Requirements (2026): The Complete Guide
+
+ClawBox v4 is out!ClawBox v4 is out — Memory Shard, voice conversations and a lot more.See what's new→✕
+ClawBox
+
+ClawBox
+ClawBoxClawBox WorkstationClawBox Hermes EditionClawBox PortalClawBox StorePricingLeaderboard
+Compare
+Full ComparisonHermes Agent vs OpenClawvs. Cloud AI (ChatGPT, Claude)vs. Raspberry Pi 5vs. Home Servervs. Mac Mini M4Hermes Agent on a Mac miniBlogDocs
+
+EUR/USD
+ENLoginBuy
+
+Back to Blog
+May 28, 2026•8 min read•by Yanko Aleksandrov
+OpenClaw Hardware Requirements (2026): The Complete Guide
+Everything you need to run OpenClaw: minimum vs recommended specs, GPU/RAM/storage needs, and the simplest plug-and-play box.
+ClawBoxOpenClawLocal AIAI HardwareAutomation
+
+The most common question I get about running your own AI assistant is simple: what are the OpenClaw hardware requirements? The honest answer is that OpenClaw runs on far less than people expect — but there's a real difference between "it boots" and "it runs the full experience 24/7 without you babysitting it." This guide covers exactly what you need and where the trade-offs are.
+
+What OpenClaw needs to run
+
+OpenClaw is a source-available AI assistant platform you run on your own hardware. It handles messaging assistants (Telegram, WhatsApp, Discord, web), real-Chrome browser automation, scheduled tasks, on-device voice with Whisper speech-to-text and Kokoro text-to-speech, email and calendar, local LLM inference, and premium cloud model routing to Claude, GPT, or Gemini using your own API keys.
+
+The platform is local-first and designed to be always-on. That single design choice — always-on — shapes the hardware conversation more than anything else. You're not spinning up a process when you need it; you're running a small server that's awake all the time, listening for messages and firing scheduled jobs. So the real question isn't "can my machine run this once," it's "can it sit there quietly for weeks without falling over or costing a fortune in electricity."
+
+Minimum requirements
+
+Here's the floor. If you meet these, OpenClaw will run:
+
+4GB RAM
+
+Node.js 20 or newer
+
+Always-on internet connection
+
+Linux, macOS, or Windows
+
+That's genuinely it. These are the OpenClaw minimum hardware requirements, and they're modest on purpose. With 4GB of RAM and a recent Node.js runtime, you can run the messaging assistants, scheduled tasks, browser automation, and cloud-routed inference. At this tier you route your heavy thinking to Claude, GPT, or Gemini with your own keys, because 4GB doesn't leave room for serious local model weights. For a lot of people, GPT or Claude as the premium reasoning provider — or Gemini for fast multimodal and Google-connected work — is a perfectly good setup.
+
+The catch is the "always-on internet" line. OpenClaw expects to be reachable and to reach out — a flaky connection or a machine that sleeps gives you a flaky assistant.
+
+Recommended requirements for the full experience
+
+If you want OpenClaw to do everything it can — including local model inference, so sensitive work can stay on your own hardware instead of routing to a cloud provider — aim higher:
+
+8GB+ unified memory
+
+NVIDIA CUDA GPU or Jetson Orin Nano
+
+NVMe SSD
+
+24/7 operation
+
+Minimum
+Recommended
+
+Memory
+4GB RAM
+8GB+ unified memory
+
+Compute
+Any modern CPU
+NVIDIA CUDA GPU or Jetson Orin Nano
+
+Storage
+Standard SSD/disk
+NVMe SSD
+
+Runtime
+Node.js 20+
+Node.js 20+
+
+Network
+Always-on internet
+Always-on internet
+
+Uptime
+As available
+24/7 operation
+
+The jump that matters here is the GPU. Once you have CUDA-capable hardware and 8GB of memory, you can run small local language models on-device and stop sending every prompt to the cloud.
+
+Do you actually need a GPU?
+
+No — and this trips people up, so let me be direct about the OpenClaw GPU requirements.
+
+You do not need a GPU to use OpenClaw. You can route model calls to Claude, GPT, or Gemini with your own API keys, and the platform handles the rest. GPT from OpenAI and Claude from Anthropic are the premium options for the hardest reasoning, Gemini from Google is a first-class choice for fast multimodal and Google-connected work, and all three run fine on the 4GB minimum tier.
+
+You do want a GPU (or a Jetson) if you care about local inference — keeping prompts and data fully on your own hardware. Small local models in the 7-8B class — Llama 3.1 8B, Mistral 7B, Gemma — run comfortably on the 8GB / 67-TOPS class of hardware. Anything substantially larger, you route to the cloud. So the practical strategy is hybrid: small, fast, private models locally for routine work, cloud routing for the heavy lifting. To squeeze the most out of an 8GB device, see my performance guide on optimizing LLMs on the Jetson Orin Nano 8GB.
+
+CPU, RAM and storage explained
+
+Each part does a specific job, and knowing which one is your bottleneck saves money:
+
+CPU runs the OpenClaw runtime — messaging loops, scheduler, browser automation, orchestration glue. None of it is especially demanding; a modern multi-core CPU is plenty. Rarely your constraint.
+
+RAM is where it gets real. OpenClaw's services, a real Chrome instance, and a loaded local model all live in memory at once. This is why the OpenClaw RAM requirements step up sharply for local inference: 4GB runs the platform, 8GB+ runs the platform and a 7-8B model. Memory usually decides what you can do.
+
+Storage holds the OS, the OpenClaw install, your data, and local model weights — the bulk of it. NVMe is recommended because model loading is disk-bound; a slow disk makes a fast GPU wait.
+
+How much disk space does OpenClaw need and how big is it
+
+This is the "how big is OpenClaw" and "how much space does OpenClaw need" question, and the answer depends almost entirely on local models. The platform code itself is light. Your storage budget is dominated by the LLM weights you keep on-device — a single 7-8B model is several gigabytes, and you may want more than one.
+
+For reference, our purpose-built device — ClawBox — ships with a 512GB NVMe SSD, sized to hold the OS, OpenClaw, your data, and a healthy library of local models with room to spare. If you're building your own machine, treat a few gigabytes per local model as your planning unit and give yourself headroom. As for physical size when OpenClaw lives in a dedicated box: ClawBox measures 100×79×31mm and weighs 275g — smaller than a deck of cards.
+
+Can you run OpenClaw on a Raspberry Pi, old PC, or laptop?
+
+Honestly? For light, cloud-routed use — yes, it's possible. If you're running messaging assistants and scheduled tasks with inference routed to the cloud, a Raspberry Pi, an old desktop, or a spare laptop can carry that load.
+
+But two things bite you. First, always-on: a laptop that sleeps, a desktop you reboot for other work, or a Pi on a shaky SD card all undermine an assistant meant to stay awake 24/7. Second, local models: an old PC or Pi without a capable GPU can't do serious on-device inference, so you're cloud-only by necessity.
+
+So it works for tinkering. For a setup you actually rely on, you want a dedicated, low-power, always-on device that won't fight you for resources or run up your power bill.
+
+The plug-and-play option: ClawBox
+
+This is exactly why we built ClawBox. It's a dedicated box that runs OpenClaw, pre-installed, built on the NVIDIA Jetson Orin Nano Super:
+
+67 TOPS of AI compute, 1024-core NVIDIA Ampere GPU, 6-core Arm Cortex-A78AE CPU
+
+8GB LPDDR5 unified memory and 512GB NVMe SSD
+
+7-15W typical power (≤25W peak) — about €1.30-€2.70/month at €0.25/kWh
+
+100×79×31mm, 275g, Ubuntu 22.04
+
+Gigabit Ethernet, WiFi 5, Bluetooth 5.0, USB-A/USB-C, HDMI, microSD
+
+€749 (+VAT in the EU) one-time, ships from Bulgaria (EU) via DHL
+
+It hits the recommended tier exactly — 8GB unified memory, CUDA-class GPU, NVMe, sips power so 24/7 operation costs almost nothing. If you want the deeper rationale, see the Jetson Orin Nano AI assistant complete guide and the ClawBox price breakdown vs Mac Mini and cloud.
+
+Frequently asked questions
+
+What are the OpenClaw system requirements?
+At minimum: 4GB RAM, Node.js 20+, and Linux, macOS, or Windows. Connectivity is needed for email, web, messaging, cloud models, and other network tools. Recommended for local inference: 8GB+ unified memory, a CUDA GPU or Jetson Orin Nano, an NVMe SSD, and reliable 24/7 operation.
+
+What are the OpenClaw RAM requirements?
+4GB is the floor for cloud-routed use. For local model inference, 8GB+ unified memory is recommended so the platform and a 7-8B model can coexist.
+
+Do I need a GPU for OpenClaw?
+Not for cloud routing — you can use your own Claude, GPT, or Gemini keys with no GPU. You need a CUDA GPU or a Jetson Orin Nano only if you want to run local models on-device.
+
+How much space does OpenClaw need?
+The platform itself is small; your disk usage is driven by local model weights (several GB each). ClawBox ships with 512GB of NVMe, which comfortably holds the OS, OpenClaw, your data, and a model library.
+
+How big is OpenClaw / ClawBox physically?
+As a dedicated device, ClawBox is 100×79×31mm and 275g — smaller than a deck of cards.
+
+What's the best hardware for OpenClaw?
+A low-power, always-on device that meets the recommended tier. The Jetson Orin Nano Super class is the sweet spot, which is why ClawBox is built on it. See our best hardware breakdown.
+
+Get started
+
+If you want to run OpenClaw yourself on hardware you already own, the minimum requirements are deliberately low — install Node.js 20+, choose a local or optional cloud model, and build from there. If you want a local-first, always-on experience without sourcing parts and tuning a server, ClawBox provides the hardware and pre-installed stack for €749 (+VAT in the EU). Optional AI plans and external providers are separate.
+
+Related guides
+
+🏆
+Best Hardware for OpenClaw
+Every option ranked and compared
+⚙️
+Hardware Requirements
+What you actually need to run OpenClaw
+🤖
+Run Claude Locally
+Use Claude from your own hardware
+🖥️
+Local AI Hardware
+67 TOPS at 15W, right on your desk
+
+Ready to Experience Edge AI?
+ClawBox brings powerful AI capabilities directly to your home or office. Local-first control with optional cloud providers, complete privacy, and full control over your AI assistant.
+Get ClawBoxRead More Articles
+
+Get product updates, discounts & ClawBox tips
+Subscribe
+No spam. Unsubscribe anytime.
+Guides
+What Is OpenClaw?
+Setup Guide
+Quick Start
+Requirements
+Telegram Setup
+WhatsApp Setup
+Android Guide
+OpenClaw on Jetson
+Docker Setup
+FAQCompare
+Overview
+Hermes Agent vs OpenClaw
+vs Mac Mini
+Hermes Agent on a Mac mini
+vs Cloud AI
+vs Cloud VPS
+vs Raspberry Pi
+vs Home Server
+ClawBox Review
+ClawBox PricingResources
+ClawBox Workstation
+ClawBox Hermes Edition
+ClawBox Portal
+OpenClaw Hardware
+Best Hardware
+OpenClaw Preinstalled
+GDPR & Private AI
+ClawBox for Teams
+Low Power AI Server
+Self-Hosted AI
+Jetson AI Assistant
+Always-On AI
+Home AI Server
+AI Assistant Box
+AI Computer
+NVIDIA AIMore
+ChatGPT Hardware
+Voice Assistant
+Ships to Asia
+Perplexity Alternative
+Personal AI Device
+AI Assistant for Business
+Private AI
+No-Cloud AI
+AI for Startups
+Run Claude Locally
+Local AI Hardware
+OpenClaw ACP
+Shipping Policy
+Home AI Server: Build a Private, Always-On Assistant at Home
+OpenClaw Hardware Requirements (2026): The Complete Guide
+Raspberry Pi vs Jetson Orin Nano for Local AI: An Honest 2026 Comparison
+BlogCommunity
+Documentation
+Community Forum
+OpenClaw Wallpapers
+🤖 ClawBox Agent
+Support
+Company
+About Us
+Contact
+Terms of Service
+Privacy Policy
+Your Privacy Choices
+Cookie settings
+Returns & Refunds
+Withdraw from contract
+Product safety
+© 2026 clawbox.com. Built with ❤️ for the AI community.We don't log your data — verify the code

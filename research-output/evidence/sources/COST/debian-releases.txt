@@ -1,0 +1,94 @@
+Source: https://www.debian.org/releases/
+Accessed: 2026-11-11 (curl + HTML-to-text; excerpt)
+----
+ Debian always has at least
+three releases in active maintenance: stable , testing and
+ unstable . 
+ stable 
+ The stable distribution contains the latest officially
+ released distribution of Debian.
+ This is the production release of Debian, the one which we primarily
+ recommend using.
+ The current stable distribution of Debian is version
+ 13, codenamed trixie .
+It was initially released as version 13.0
+ on August 9th, 2025 and its latest
+ update, version 13.7, was released on September 12th, 2026.
+ testing 
+ The testing distribution contains packages that haven't been
+ accepted into a stable release yet, but they are in the queue for
+ that. The main advantage of using this distribution is that it has more
+ recent versions of software.
+ See the Debian FAQ for more information on
+ what is testing 
+ and how it becomes
+ stable .
+ The current testing distribution is forky .
+ unstable 
+ The unstable distribution is where active development of
+ Debian occurs. Generally, this distribution is run by developers
+ and those who like to live on the edge. It is recommended that users
+ running unstable should subscribe to the debian-devel-announce
+ mailing list to receive notifications of major changes, for example
+ upgrades that may break.
+ The unstable distribution is always called sid .
+ Release life cycle 
+ Debian announces its new stable release on a regular basis. The Debian
+ release life cycle encompasses five years: the first three years of full
+ support followed by two years of Long Term Support (LTS).
+ See Debian Releases 
+ Wiki page and Debian LTS 
+ Wiki page for detailed information.
+ Index of releases 
+ See the Debian FAQ for an explanation of
+ where
+all these codenames came from . 
+ Version 
+ Code Name 
+ Release Date 
+ End of Life (EOL) 
+ End of LTS 
+ End of ELTS 
+ Status 
+ 15 
+ Duke 
+ TBA 
+ TBA 
+ TBA 
+ TBA 
+ Codename announced 
+ 14 
+ Forky 
+ TBA 
+ TBA 
+ TBA 
+ TBA 
+ testing — no release date has been set 
+ 13 
+ Trixie 
+ 2025-08-09 
+ 2028-08-09 
+ 2030-06-30 
+ 2035-06-30 
+ Current stable release 
+ 12 
+ Bookworm 
+ 2023-06-10 
+ 2026-07-11 
+ 2028-06-30 
+ 2033-06-30 
+ Current oldstable release 
+ 11 
+ Bullseye 
+ 2021-08-14 
+ 2024-08-14 
+ 2026-08-31 
+ 2031-06-30 
+ Current oldoldstable release, under LTS support 
+ 10 
+ Buster 
+ 2019-07-06 
+ 2022-09-10 
+ 2024-06-30 
+ 2029-06-30 
+ Archived release, under third-party paid extended LTS support 

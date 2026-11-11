@@ -1,0 +1,103 @@
+Safe and Secure OTA Updates for Embedded Linux | RAUC
+Toggle navigation
+Download
+Documentation
+Media
+Blog
+Support
+-->
+Safe and Secure OTA Updates for Embedded Linux!
+RAUC is a lightweight update client that runs on your Embedded Linux device and
+reliably controls the procedure of updating your device with a new firmware
+revision. RAUC is also the tool on your host system that lets you create, inspect
+and modify update artifacts for your device.
+RAUC is fully open-source and licensed under
+LGPL-2.1
+.
+Download
+Visit on GitHub
+v0.1
+-->
+Secure by Design
+RAUC uses X.509 cryptography to sign and verify your update
+bundles
+Robust
+Fail-safe full system updates of redundant (A/B) systems.
+Also recovery systems are supported.
+Flexible
+RAUC requires no fixed device / partition setup but instead
+can be adapted to your needs
+Encryption
+Optional asymmetric per-recipient encryption supported
+HTTP(S) Streaming
+Allows installing updates over HTTP(S) without intermediate on-target
+storage
+Application Integration
+D-Bus API methods for triggering Installation, obtaining progress,
+or inspecting the system state allow tight integration with custom
+applications.
+Start Using RAUC
+The best ways to dive into RAUC are the first three chapter of the
+RAUC documentation
+.
+Alternatively, you can find a list of talks about RAUC on our
+media
+page.
+For integrating RAUC into your project, using an embedded Linux build
+system such as
+Yocto
+,
+Buildroot
+or
+PTXdist
+is highly recommended.
+General hints for integrating RAUC are available in the
+Integration
+chapter of the RAUC documentation.
+Build System / Distro Support
+meta-rauc
+layer for Yocto/OE integration
+RAUC is supported by
+Buildroot
+Full RAUC support in
+PTXdist
+.
+Arch Linux provides a
+RAUC package
+RAUC packages available for
+Debian
+and
+Ubuntu
+RAUC packages available for
+NixOS
+Need Some Help?
+For community support, join the
+#rauc
+Matrix channel,
+open a GitHub
+Discussion
+,
+post your question to the
+mailing list
+For submitting bug reports, use the GitHub
+Issue Tracker
+For commercial support contact Pengutronix via
+<email-masked>
+.
+Contributing
+Contribute bug fixes or new features as GitHub
+Pull Requests
+.
+Bring up and discuss ideas via
+#rauc
+,
+GitHub
+Discussions
+,
+or GitHub
+Pull Requests
+.
+-->
+Stay connected
+Copyright © 2025 Pengutronix
+Imprint

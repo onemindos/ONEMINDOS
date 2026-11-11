@@ -1,0 +1,1407 @@
+
+  Integration — RAUC 1.15.1.533-2d17 documentation
+            RAUC
+Updating your Embedded Device
+RAUC Basics
+Using RAUC
+Examples
+Scenarios
+Integration
+Partitioning Your Device
+SD Card
+eMMC
+SSD
+NAND
+RAUC System Configuration
+Slot Configuration
+Slot Type
+Grouping Slots
+Artifact Repository Configuration
+Repository Type
+Library Dependencies
+Kernel Configuration
+Required Host Tools
+Required Target Tools
+Interfacing with the Bootloader
+Booted Slot Detection
+Explicit Identification via Kernel Commandline
+Explicit Identification by Bootloader
+Automatic Identification via Kernel Commandline
+Barebox
+Configure Barebox
+Setup Barebox Bootchooser
+Setting up Barebox State for Bootchooser
+Enable Accessing Barebox State for RAUC
+Verify Boot Slot Detection
+Enable Watchdog on Boot
+U-Boot
+Set up U-Boot Boot Script for RAUC
+Setting up the (Fail-Safe) U-Boot Environment
+Enable Accessing U-Boot Environment from Userspace
+Example: Setting up U-Boot Environment on eMMC/SD Card
+GRUB
+EFI
+Custom
+Configure custom bootloader backend
+Custom bootloader backend interface
+Init System and Service Startup
+Systemd Integration
+D-Bus Integration
+Watchdog Configuration
+Bundle Generation
+Yocto
+Target System Setup
+Using RAUC on the Host System
+Bundle Generation
+PTXdist
+Integration into Your RootFS Build
+Create Update Bundles from your RootFS
+Buildroot
+Package-Based Distributions
+Bundle Format Migration
+Advanced Topics
+Design Checklist
+Frequently Asked Questions
+Reference
+Man Page
+Terminology
+Contributing
+Changes in RAUC
+          RAUC
+      Integration
+             View page source
+Integration
+Partitioning Your Device
+SD Card
+eMMC
+SSD
+NAND
+RAUC System Configuration
+Slot Configuration
+Artifact Repository Configuration
+Library Dependencies
+Kernel Configuration
+Required Host Tools
+Required Target Tools
+Interfacing with the Bootloader
+Booted Slot Detection
+Barebox
+U-Boot
+GRUB
+EFI
+Custom
+Init System and Service Startup
+Systemd Integration
+D-Bus Integration
+Watchdog Configuration
+Bundle Generation
+Yocto
+Target System Setup
+Using RAUC on the Host System
+Bundle Generation
+PTXdist
+Integration into Your RootFS Build
+Create Update Bundles from your RootFS
+Buildroot
+Package-Based Distributions
+Bundle Format Migration
+If you intend to prepare your platform for using RAUC as an update framework,
+this chapter will guide you through the required steps and show the different
+ways you can choose.
+To integrate RAUC, you first need to be able to build RAUC as both a host and a
+target application.
+The host application is needed for generating update bundles while the target
+application or service performs the core task of RAUC:
+updating your device.
+In an update system, a lot of components have to play together and have to be
+configured appropriately to interact correctly.
+In principle, these are:
+Hardware setup, devices, partitions, etc.
+The bootloader
+The Linux kernel
+The init system
+System utilities (mount, mkfs, …)
+The update tool, RAUC itself
+Note
+When integrating RAUC into your embedded Linux system, and in general,
+we highly recommend using a Linux system build system like Yocto /
+OpenEmbedded or PTXdist that allows you to have well defined software states
+while easing integration of the different components involved.
+For information about how to integrate RAUC using these tools,
+refer to the sections Yocto or PTXdist.
+Partitioning Your Device
+A basic requirement for a redundant update system is to have your storage set
+up properly.
+In a simple case, this means having two redundant partitions of equal size for
+an A/B setup, or a tiny and a larger partition for a recovery/A setup.
+Partitioning the storage is part of the bootstrap process and not in the
+scope of an update tool like RAUC.
+Additionally, you may also need to reserve space for your bootloader, boot
+state information (such as the state backend for barebox or environment
+partition for U-Boot), data partition(s) or similar.
+Since changing the partition layout is hard or even impossible to change in the
+field, make sure it meets both current and possible future requirements.
+Note
+The /etc/fstab in your system’s root FS (and RAUC’s system.conf)
+should normally use stable paths to refer to partitions or devices.
+Especially filesystem UUIDs (UUID=<uuid> or /dev/disk/by-uuid/<uuid>)
+or labels (/dev/disk/by-label/<label>) should not be used, as they
+depend on the partition contents.
+UUIDs are likely to be different after an update and labels are usually not
+unique in an A/B setup.
+Depending on your system design and firmware, good stable paths can be:
+plain device names: /dev/sda, /dev/mmcblk0p1, /dev/nvme0n1p1,
+/dev/mapper/… (may change depending on enumeration ordering on some
+systems)
+topology-based symlinks: /dev/disk/by-path/… (preferable if available)
+partition-table-UUID-based symlinks: /dev/disk/by-partuuid/… (breaks if
+using the same disk image on e.g. both eMMC & SD card)
+For more details on how to configure udev to generate stable paths, check the
+FAQ entry How can I refer to devices if the numbering is not fixed?.
+SD Card
+Partitioning your SD Card is quite easy as it can simply be done from your host
+system by either using a command-line or graphical tool (fdisk/cfdisk/gparted)
+or by writing a full SD Card image as generated by your embedded Linux build
+system.
+Most modern systems should use GPT for partitioning.
+eMMC
+In contrast to SD cards, an eMMC is fixed to your board and can not be
+easily pre-programmed before soldering (except for very large production
+batches).
+Accordingly, it usually needs to be set up from a Linux factory image booted
+from a secondary boot source such as network (e.g. TFTP), USB (e.g. Android
+fastboot), or other mass storage.
+A useful tool for automating partitioning at runtime is systemd-repart.
+Note that an eMMC also provides dedicated boot partitions that can be selected
+by setting Extended CSD registers and thus, if the SoC supports it, allows
+atomic bootloader updates.
+The eMMC specification also supports changing the operational mode of either
+the entire eMMC or only parts of it to better match requirements such as write
+endurance or data retention, e.g. by switching to pSLC mode.
+SSD
+SSDs can be handled similarly to eMMCs, except that most do not provide boot
+partition or operational mode support.
+Note that you can still make use of atomic bootloader updates here when booting
+from GPT (or MBR).
+NAND
+Raw NAND can either be partitioned by devicetree partitions (as a subnode of
+the NAND controller) or (indirectly) by using UBI, which supports creating
+multiple UBI volumes.
+Note that when using raw NAND, responsibility for bad block and NAND quirks
+handling is on your side (or on side of the NAND handling layer you use).
+Some bugs or misconfigurations will appear to work fine and only manifest as
+sporadic failures much later.
+If in doubt, using eMMC is recommended, especially for devices with normal
+quantity, since debugging NAND issues can be quite time-consuming.
+RAUC System Configuration
+The system configuration file is the central configuration in RAUC that
+abstracts the loosely coupled storage setup, partitioning and boot strategy of
+your board to a coherent redundancy setup world view for RAUC.
+RAUC configuration files are loaded from one of the listed directories in
+order of priority, only the first file found is used:
+/etc/rauc/, /run/rauc/, /usr/lib/rauc/.
+The system.conf is expected to describe the system RAUC runs on in a way
+that all relevant information for performing updates and making decisions are
+given.
+Note
+For a full reference of the system.conf file refer to section
+System Configuration File.
+Similar to other configuration files used by RAUC,
+the system configuration uses a key-value syntax (similar to those known from
+.ini files).
+Slot Configuration
+The most important step is to describe the slots that RAUC should use
+when performing updates.
+Which slots are required and what you have to take care of when designing your
+system will be covered in the chapter Scenarios.
+This section assumes that you have already decided on a setup and want to
+describe it for RAUC.
+A slot is defined by a slot section.
+The naming of the section must follow a simple format:
+[slot.<slot-class>.<slot-index>]
+where <slot-class> describes a class of possibly multiple redundant slots
+(such as rootfs, recovery or appfs)
+and slot-index is the index of the individual slot instance,
+starting with index 0.
+If you have two redundant slots used for the root file system, for example,
+you should name your sections according to this example:
+[slot.rootfs.0]
+device = [...]
+[slot.rootfs.1]
+device = [...]
+RAUC does not have predefined class names.
+The only requirement is that the class names used in the system config match
+those you later use in the update manifests.
+The mandatory settings for each slot are:
+the device that holds the (device) path describing where the slot is
+located,
+the type that defines how to update the target device.
+If the slot is bootable, then you also need
+the bootname which is the name the bootloader uses to refer to this slot
+device.
+Slot Type
+A list of slot storage types currently supported by RAUC:
+Type
+Description
+Tar support
+raw
+A partition holding no (known) file system. Only raw image copies
+may be performed.
+ext4
+A block device holding an ext4 filesystem.
+x
+nand
+A raw NAND flash partition.
+nor
+A raw NOR flash partition.
+ubivol
+An UBI partition in NAND.
+ubifs
+An UBI volume containing an UBIFS in NAND.
+x
+vfat
+A block device holding a vfat filesystem.
+x
+jffs2
+A flash memory holding a JFFS2 filesystem.
+x
+Additionally, there are specific slot types for atomic bootloader updates: boot-emmc, boot-mbr-switch,
+boot-gpt-switch, boot-raw-fallback.
+Depending on this slot storage type and the slot’s image type,
+RAUC determines how to extract the image content to the target slot.
+While the generic filename extension .img is supported for all filesystems,
+it is strongly recommended to use explicit extensions (e.g. .vfat or .ext4)
+when possible, as this allows checking during installation that the slot type is correct.
+Grouping Slots
+If multiple slots belong together in a way that they always have to be updated
+together with the respective other slots, you can ensure this by grouping slots.
+A group must always have a single bootable slot, then all other slots define a
+parent relationship to this bootable slot as follows:
+[slot.rootfs.0]
+...
+[slot.appfs.0]
+parent=rootfs.0
+...
+[slot.rootfs.1]
+...
+[slot.appfs.1]
+parent=rootfs.1
+...
+Artifact Repository Configuration
+To configure Artifact Repositories, you
+first need to have a shared partition which is mounted before starting the RAUC
+service.
+Each artifact repository needs its own directory on this shared partition.
+The directory must be created outside of RAUC.
+For each repository, you need to add an [artifacts.<repo-name>] section to your system.conf.
+An artifact repository is referenced from the manifest using its name, so that
+the name needs to be unique across all slot and repository names.
+[artifacts.add-ons]
+path=/srv/add-ons
+type=trees
+This example specifies one repository stored in the add-ons directory on the
+shared data partition mounted on /srv.
+The directory must exist before starting RAUC as it will not be created
+automatically.
+The name of the repository is add-ons as well, so it could be targeted for
+installation with an [image.add-ons/app-1] section in
+the manifest.
+In that case, RAUC would install the contents of the archive specified in the
+image to the repository and make it available via a link at
+/srv/add-ons/app-1.
+A single bundle can contain images for multiple artifacts across multiple
+repositories.
+The bundle defines the intended target state of each repository mentioned in
+its manifest.
+This means that previously installed artifacts can be removed from a repository
+by installing a bundle which contains a different artifact for that repository.
+Artifacts which are currently in use (i.e. which have open files that can be
+detected by trying to acquire a write lease) will not be deleted, but only their
+symlink is removed or replaced.
+Note
+There is currently no way to remove all artifacts from a repository.
+If you need that functionality, please reach out to us!
+Internally, artifacts are stored under their artifact name and image hash in
+the repository’s directory.
+This means that artifacts are installed only if a given version is not yet
+available in the repository.
+A symlink is created from the image name to the actual artifact, making it
+available to the rest of the system atomically.
+Note
+Currently, you need to ensure that enough space is available on the
+filesystem for all installed artifacts and one temporary copy of a single
+artifact during installation.
+In the future, RAUC could be extended to check that enough space is available
+by itself.
+You can use the post-install handler to notify
+the running system about newly installed artifacts.
+By the time this handler is executed, the symlinks to the artifacts have
+been created.
+For example, you could restart all services or containers running from the
+artifact repositories.
+Repository Type
+Each repository is configured with a type which specifies how it stores and
+manages artifacts.
+filesEach artifact is a single file.
+Possible use-cases for this type are:
+filesystem images for use with systemd-sysext
+large data files such as maps, videos or read-only databases
+disk images for virtual machines
+Note
+In the future, this could be combined with adaptive updates using the
+block-hash-index method.
+treesEach artifact is a directory tree containing files.
+An image should be a tar archive or a tar converted to a directory tree using
+convert=tar-extract in the input manifest.
+Possible use-cases for this type are:
+add-on modules consisting of binaries and some meta-data
+container-like OS trees for use with  systemd-nspawn
+or other runtimes.
+Note
+In the future, this could be combined with adaptive updates using new
+methods which could detect unmodified files.
+Note
+The on-target tar extraction (for unconverted artifacts) requires a full
+tar implementation that supports --acl, --selinux, and
+--xattrs.
+The busybox tar command is not sufficient here.
+composefsEach artifact is a directory containing a composefs metadata image (image.cfs).
+In addition to the metadata image, the repository contains an object store in
+the <repo>/.rauc-cfs-store directory.
+An image should be a converted tar archive using convert=composefs.
+See the composefs README and
+Alexander Larsson’s talk at FOSDEM 2024
+for information on how composefs works and can be used.
+The use-cases for this type are very similar to the tree type above, but as
+composefs stores file data separately from metadata, every unique file content
+is stored in the repository only once and is installed from the bundle only once.
+This also reduces the amount of data downloaded when using streaming.
+To mount an installed composefs artifact called my-app from a composefs
+repository called apps, can use a command like this:
+REPO=/run/rauc/artifacts/apps
+mount -t composefs $REPO/my-app/image.cfs -o basedir=$REPO/.rauc-cfs-store /run/mnt/my-app
+Note
+In the future, this type could be extended to reuse file data from the
+normal slots and with delta compression for large files.
+If that seems interesting to you, please reach out to us.
+Library Dependencies
+The minimal requirement for RAUC regardless of whether intended for the host or
+target side is GLib (minimum version 2.45.8) as utility library and OpenSSL
+(>=1.0) for signature handling.
+Note
+In order to let RAUC detect mounts correctly, GLib must be compiled
+with libmount support (--enable-libmount) and at least be 2.49.5.
+For network support (enabled with --Dnetwork=true), additionally libcurl
+is required.
+This is only useful for the target service.
+For JSON-style support (enabled with -Djson=enabled), additionally
+libjson-glib is required.
+Kernel Configuration
+The kernel used on the target device must support both loop block devices and the
+SquashFS file system to allow installing RAUC bundles.
+For the recommended verity bundle format, dm-verity
+must be supported as well.
+In kernel Kconfig you have to enable the following options as either built-in
+(y) or module (m):
+CONFIG_MD
+CONFIG_BLK_DEV_DM
+CONFIG_BLK_DEV_LOOP
+CONFIG_DM_VERITY
+CONFIG_SQUASHFS
+CONFIG_CRYPTO_SHA256
+For streaming support, you have to add CONFIG_BLK_DEV_NBD.
+Note
+Streaming uses the NBD netlink API, which was introduced with kernel version
+v4.12 (released 2017-07-12).
+As of 2023, all LTS releases on kernel.org support this API.
+For encryption support, you have to add CONFIG_DM_CRYPT, CONFIG_CRYPTO_AES.
+Note
+These drivers may also be loaded as modules. Kernel versions v5.0 to v5.7
+will require the patch 7e81f99afd91c937f0e66dc135e26c1c4f78b003
+backporting to fix a bug where the bundles cannot be mounted in a small
+number of cases.
+Note
+On ARM SoCs, there are optimized alternative SHA256 implementations
+available (for example CONFIG_CRYPTO_SHA2_ARM_CE, CRYPTO_SHA256_ARM
+or hardware accelerators such as CONFIG_CRYPTO_DEV_FSL_CAAM_AHASH_API).
+Required Host Tools
+To be able to generate bundles, RAUC requires at least the following host tools:
+mksquashfs
+unsquashfs
+When using the RAUC casync integration, the casync tool and fakeroot
+(for converting archives to directory tree indexes) must also be available.
+Required Target Tools
+RAUC requires and uses a set of target tools depending on the type of supported
+storage and used image type.
+Mandatory tools for each setup are mount and umount, either from
+Busybox or
+util-linux
+Note that build systems may handle parts of these dependencies automatically,
+but also in this case you will have to select some of them manually as RAUC
+cannot fully know how you intend to use your system.
+NAND Flash:
+flash_erase & nandwrite (from mtd-utils)
+NOR Flash:
+flash_erase & flashcp (from mtd-utils)
+UBIFS:
+mkfs.ubifs (from mtd-utils)
+TAR archives:
+You may either use GNU tar
+or Busybox tar.
+If you intend to use Busybox tar, make sure format autodetection and also the
+compression formats you use are enabled:
+CONFIG_FEATURE_TAR_AUTODETECT=y
+CONFIG_FEATURE_TAR_LONG_OPTIONS=y
+select needed CONFIG_FEATURE_SEAMLESS_*=y options
+It is important to note that BusyBox tar does not support all compression formats.
+Depending on the build system in use, it may be necessary to include additional dependencies
+to support the compression format being used.
+GNU tar is required when working with the following formats:
+lzip: *.lz
+lzop: *.lzo
+zstd: *.zst, *.tzst
+ext4:
+mkfs.ext4 (from e2fsprogs)
+vfat:
+mkfs.vfat (from dosfstools)
+Depending on the bootloader you use on your target, RAUC also needs the right
+tool to interact with it:
+Barebox:
+barebox-state
+(from dt-utils)
+U-Boot:
+fw_setenv/fw_getenv (from u-boot)
+GRUB:
+grub-editenv
+EFI:
+efibootmgr
+Note that for running rauc info on the target (as well as on the host), you
+also need to have the unsquashfs tool installed.
+When using the RAUC casync integration, the casync tool must also be
+available.
+Interfacing with the Bootloader
+RAUC provides support for interfacing with different types of bootloaders.
+To select the bootloader you have or intend to use on your system, set the
+bootloader key in the [system] section of your device’s system.conf.
+Note
+If in doubt about choosing the right bootloader, we recommend to use
+barebox
+as it provides a dedicated boot handling framework, called
+bootchooser.
+To let RAUC handle a bootable slot, you have to mark it as bootable in your
+system.conf and configure the name under which the bootloader identifies this
+specific slot.
+This is both done by setting the bootname property.
+[slot.rootfs.0]
+...
+bootname=system0
+Amongst others, the bootname property also serves as one way to let RAUC know which slot is
+currently booted (running).
+In the following, the different options for letting RAUC detect the currently
+booted slot are described.
+Booted Slot Detection
+For RAUC it is quite essential to know from which slot the system is currently
+running.
+We will refer this as the booted slot.
+Only reliable detection of the booted slot enables RAUC to determine the set of
+currently inactive slots (that it can safely write to).
+If possible, one should always prefer to signal the active slot explicitly from
+the bootloader to the userspace and RAUC.
+Only for cases where this explicit way is not possible or unwanted, some
+alternative approaches of automatically detecting the currently booted slot
+are implemented in RAUC.
+A detailed list of detection mechanism follows.
+Explicit Identification via Kernel Commandline
+RAUC evaluates different kernel commandline parameters in the order they are
+listed below.
+rauc.slot=<bootname/slotname>This is the generic way to explicitly set information about which slot was
+booted by the bootloader.
+For slots that are handled by a bootloader slot selection mechanism (such as
+A+B slots) you should specify the slot’s configured bootname:
+rauc.slot=system0
+For special cases where some slots are not handled by the slot selection
+mechanism (such as a ‘last-resort’ recovery fallback that never gets
+explicitly selected) you can also give the name of the slot:
+rauc.slot=recovery.0
+rauc.externalWhen booting from a source not configured in your system.conf (for
+example from a USB memory stick), you can tell rauc explicitly with this
+flag.
+This means that all slots are known to be inactive and will be valid
+installation targets.
+A possible use case for this is to use RAUC during a bootstrapping procedure
+to perform an initial installation.
+root=/dev/nfsRAUC automatically detects NFS boots (by checking if this parameter is set in
+the kernel command line) and handles this identically to passing
+rauc.external.
+Explicit Identification by Bootloader
+If the booted slot was not explicitly detected from the kernel commandline, the
+configured bootloader backend can provide this information.
+barebox (bootchooser.active=<bootname>)This is the command-line parameter used by barebox’s bootchooser mechanism.
+It will be set automatically by the bootchooser framework and does not need
+any manual configuration.
+RAUC compares this against each slot’s bootname (not the slot’s name as
+above):
+bootchooser.active=system0
+EFIThis backend uses the BootCurrent EFI variable to find the EFI boot entry
+that was selected for booting (as also shown by the efibootmgr CLI tool).
+That EFI boot entry is then used to find the corresponding RAUC slot that was
+booted.
+Custom Bootloader BackendWhen using the custom bootloader backend, RAUC will try to query the custom
+bootloader backend to get this information.
+See the Custom bootloader section on how
+to implement a custom bootloader handler.
+Automatic Identification via Kernel Commandline
+If none of the approaches above are able to find the booted slot, the generic
+parameters in the commandline are evaluated by RAUC.
+The root= entry contains the device from which the kernel (or initramfs)
+should load the rootfs.
+RAUC supports parsing different variants for giving these device as listed below.
+root=/dev/sda1 or root=/dev/ubi0_1Giving the plain device name is supported, of course.
+In this case, RAUC compares the root device with the devices of configured
+slots.
+The alternative UBI rootfs format with root=ubi0:volname is currently
+unsupported.
+If you want to refer to UBI volumes via name in your system.conf, check
+the FAQ entry How can I refer to devices if the numbering is not fixed?.
+root=PARTLABEL=abcde, root=PARTUUID=01234 or root=UUID=01234Parsing the PARTLABEL, PARTUUID and UUID is supported, which
+allows referring to a special partition / file system without having to know
+the enumeration-dependent sdX name.
+RAUC converts the value to the corresponding /dev/disk/by-* symlink name
+and then to the actual device name.
+systemd.verity_root_data=RAUC handles the systemd.verity_root_data= parameter the same as
+root= above.
+See the systemd-veritysetup-generator documentation
+for details.
+Barebox
+The Barebox bootloader,
+which is available for many common embedded platforms,
+provides a dedicated boot source selection framework, called bootchooser,
+backed by an atomic and redundant storage backend, named state.
+Barebox state allows you to save the variables required by bootchooser with
+memory specific storage strategies in all common storage mediums,
+such as block devices, mtd (NAND/NOR), EEPROM, and UEFI variables.
+The Bootchooser framework maintains information about priority and remaining
+boot attempts while being configurable on how to deal with them for different
+strategies.
+To enable the Barebox bootchooser support in RAUC, select it in your
+system.conf:
+[system]
+...
+bootloader=barebox
+Configure Barebox
+As mentioned above, Barebox support requires you to have the bootchooser
+framework with barebox state backend enabled.
+In Barebox’ Kconfig you can enable this by setting:
+CONFIG_BOOTCHOOSER=y
+CONFIG_STATE=y
+CONFIG_STATE_DRV=y
+To debug and interact with bootchooser and state in Barebox,
+you should also enable these tools:
+CONFIG_CMD_STATE=y
+CONFIG_CMD_BOOTCHOOSER=y
+Setup Barebox Bootchooser
+The barebox bootchooser framework allows you to specify a number of redundant
+boot targets that should be automatically selected by an algorithm,
+based on status information saved for each boot target.
+The bootchooser itself can be used as a Barebox boot target.
+This is where we start by setting the barebox default boot target to
+bootchooser:
+nv boot.default="bootchooser"
+Now, when Barebox is initialized it starts the bootchooser logic to select its
+real boot target.
+As a next step, we need to tell bootchooser which boot targets it should
+handle.
+These boot targets can have descriptive names which must not equal any of your
+existing boot targets, we will have a mapping for this later on.
+In this example we call the virtual bootchooser boot targets system0 and
+system1:
+nv bootchooser.targets="system0 system1"
+Now connect each of these virtual boot targets to a real Barebox boot target
+(one of its automagical ones or custom boot scripts):
+nv bootchooser.system0.boot="mmc1.1"
+nv bootchooser.system1.boot="mmc1.2"
+Note
+For most cases, no extra boot entry needs to be configured since
+barebox will match the the given boot target to the corresponding device,
+automatically mount it and attempt to read a matching bootloader
+specification (bootspec) entry from /loader/entries/.
+To configure bootchooser to store the variables in Barebox state, you need to configure the state_prefix:
+nv bootchooser.state_prefix="state.bootstate"
+Beside this very basic configuration variables, you need to set up a set of
+other general and slot-specific variables.
+Warning
+It is highly recommended to read the full Barebox bootchooser
+documentation
+in order to know about the requirements and possibilities in fine-tuning the
+behavior according to your needs.
+Also make sure to have these nv settings in your compiled-in environment,
+not in your device-local environment.
+Setting up Barebox State for Bootchooser
+For storing its status information, the bootchooser framework requires a
+barebox,state instance to be set up with a set of variables matching the set
+of virtual boot targets defined.
+To allow loading the state information in a well-defined format both from
+Barebox and from the kernel,
+we store the state data format definition in the Barebox devicetree.
+Barebox fixups the information into the Linux devicetree when loading the
+kernel.
+This assures having a consistent view on the variables in Barebox and Linux.
+An example devicetree node for our simple redundant setup will have the
+following basic structure
+state {
+  bootstate {
+    system0 {
+    ...
+    };
+    system1 {
+    ...
+    };
+  };
+};
+In the state node, we set the appropriate compatible to tell the barebox,state
+driver to care for it and define where and how we want to store our data.
+This will look similar to this:
+state: state {
+        magic = <0x4d433230>;
+        compatible = "barebox,state";
+        backend-type = "raw";
+        backend = <&state_storage>;
+        backend-stridesize = <0x40>;
+        backend-storage-type = "circular";
+        #address-cells = <1>;
+        #size-cells = <1>;
+        [...]
+}
+where <&state_storage> is a phandle to, e.g. an EEPROM or NAND partition.
+Important
+The devicetree only defines where and in which format the data will
+be stored. By default, no data will be stored in the deviectree itself!
+The rest of the variable set definition will be made in the bootstate
+subnode.
+For each virtual boot target handled by state,
+two uint32 variables remaining_attempts and priority need to be
+defined.:
+bootstate {
+        system0 {
+                #address-cells = <1>;
+                #size-cells = <1>;
+                remaining_attempts@0 {
+                        reg = <0x0 0x4>;
+                        type = "uint32";
+                        default = <3>;
+                };
+                priority@4 {
+                        reg = <0x4 0x4>;
+                        type = "uint32";
+                        default = <20>;
+                };
+        };
+        [...]
+};
+Note
+As the example shows, you must also specify some useful default variables the
+state driver will load in case of uninitialized backend storage.
+Additionally one single variable for storing information about the last chosen
+boot target is required:
+bootstate {
+        [...]
+        last_chosen@10 {
+                reg = <0x10 0x4>;
+                type = "uint32";
+        };
+};
+Warning
+This example shows only a highly condensed excerpt of setting up Barebox
+state for bootchooser.
+For a full documentation on how Barebox state works and how to properly
+integrate it into your platform see the official Barebox State Framework
+user documentation
+as well as the corresponding
+devicetree binding
+reference!
+You can verify your setup by calling devinfo state from Barebox,
+which would print this for example:
+barebox@board:/ devinfo state
+Parameters:
+bootstate.last_chosen: 2 (type: uint32)
+bootstate.system0.priority: 10 (type: uint32)
+bootstate.system0.remaining_attempts: 3 (type: uint32)
+bootstate.system1.priority: 20 (type: uint32)
+bootstate.system1.remaining_attempts: 3 (type: uint32)
+dirty: 0 (type: bool)
+save_on_shutdown: 1 (type: bool)
+Once you have set up bootchooser properly, you finally need to enable RAUC to
+interact with it.
+Enable Accessing Barebox State for RAUC
+For this, you need to specify which (virtual) boot target belongs to which
+of the RAUC slots you defined.
+You do this by assigning the virtual boot target name to the slots bootname
+property:
+[slot.rootfs.0]
+...
+bootname=system0
+[slot.rootfs.1]
+...
+bootname=system1
+For writing the bootchooser’s state variables from userspace,
+RAUC uses the tool barebox-state from the
+dt-utils repository.
+Note
+RAUC requires dt-utils version v2017.03 or later!
+Make sure to have this tool integrated on your target platform.
+You can verify your setup by calling it manually:
+# barebox-state -d
+bootstate.system0.remaining_attempts=3
+bootstate.system0.priority=10
+bootstate.system1.remaining_attempts=3
+bootstate.system1.priority=20
+bootstate.last_chosen=2
+Verify Boot Slot Detection
+As detecting the currently booted rootfs slot from userspace and matching it to
+one of the slots defined in RAUC’s system.conf is not always trivial and
+error-prone, Barebox provides an explicit information about which slot it
+selected for booting adding a bootchooser.active key to the commandline of
+the kernel it boots.
+This key has the virtual bootchooser boot target assigned.
+In our case, if the bootchooser logic decided to boot system0 the kernel
+commandline will contain:
+bootchooser.active=system0
+RAUC uses this information for detecting the active booted slot (based on the
+slot’s bootname property).
+If the kernel commandline of your booted system contains this line, you have
+successfully set up bootchooser to boot your slot:
+# cat /proc/cmdline
+Enable Watchdog on Boot
+When enabled, Barebox will automatically set up the configured watchdog when
+running the boot command.
+To enable this, set the boot.watchdog_timeout variable, preferably in the
+environment:
+nv boot.watchdog_timeout=10
+U-Boot
+To enable handling of redundant booting in U-Boot, manual scripting is
+required.
+U-Boot allows storing and modifying variables in its Environment.
+Properly configured, the environment can be accessed both from U-Boot itself as
+well as from Linux userspace.
+U-Boot also supports setting up the environment redundantly for atomic
+modifications.
+The default RAUC U-Boot boot selection implementation requires a U-Boot
+boot script using specific set of variables that are persisted to the
+environment as stateful slot selection information.
+To enable U-Boot support in RAUC, select it in your system.conf:
+[system]
+...
+bootloader=uboot
+Set up U-Boot Boot Script for RAUC
+U-Boot as the bootloader needs to decide which slot (partition) to boot.
+For this decision it needs to read and process some state information set by
+RAUC or previous boot attempts.
+The U-Boot bootloader interface of RAUC will rely on setting the following
+U-Boot environment variables:
+BOOT_ORDER:
+Contains a space-separated list of boot names in
+the order they should be tried, e.g. A B.
+BOOT_<bootname>_LEFT:
+Contains the number of remaining boot
+attempts to perform for the respective slot.
+An example U-Boot script for handling redundant A/B boot setups is located in
+the contrib/ folder of the RAUC source repository (contrib/uboot.sh).
+Note
+You must adapt the script’s boot commands to match the requirements
+of your platform.
+You should integrate your boot selection script as boot.scr default boot
+script into U-Boot.
+For this you have to convert it to a U-boot readable default script
+(boot.scr) first:
+$ mkimage -A arm -T script -C none -n "Boot script" -d <path-to-input-script> boot.scr
+If you place this on a partition next to U-Boot, it will use it as its boot
+script.
+For more details, refer the
+U-Boot Scripting Capabilities
+chapter in the U-Boot user documentation.
+The example script uses the names A and B as the bootname for the two
+different boot targets.
+These names need to be set in your system.conf as the bootname of the
+respective slots.
+The resulting boot attempts variables will be BOOT_A_LEFT and
+BOOT_B_LEFT.
+The BOOT_ORDER variable will contain A B if A is the primary slot or
+B A if B is the primary slot to boot.
+Note
+For minor changes in boot logic or variable names simply change the boot
+script and/or the RAUC system.conf bootname settings.
+If you want to implement a fully different behavior, you might need to modify
+the uboot_set_state() and uboot_set_primary()
+functions in src/bootchooser.c of RAUC.
+Setting up the (Fail-Safe) U-Boot Environment
+The U-Boot environment is used to store stateful boot selection information and
+serves as the interface between userspace and bootloader.
+The information stored in the environment needs to be preserved, even if the
+bootloader should be updated.
+Thus the environment should be placed outside the bootloader partition!
+The storage location for the environment can be controlled with
+CONFIG_ENV_IS_IN_* U-Boot Kconfig options like CONFIG_ENV_IS_IN_FAT or
+CONFIG_ENV_IS_IN_MMC.
+You may either select a different storage than your bootloader, or a different
+location/partition/volume on the same storage.
+For fail-safe (atomic) updates of the environment, U-Boot can use redundant
+environments that allow to write to one copy while keeping the other as
+fallback if writing fails, e.g. due to sudden power cut.
+In order to enable redundant environment storage, you have to additionally set in your U-Boot config:
+CONFIG_SYS_REDUNDAND_ENVIRONMENT=y
+CONFIG_ENV_SIZE=<size-of-env>
+CONFIG_ENV_OFFSET=<offset-in-device>
+CONFIG_ENV_OFFSET_REDUND=<copy-offset-in-device>
+Note
+Above switches refer to U-Boot >= v2020.01.
+Refer to U-Boot source code and README for more details on this.
+Enable Accessing U-Boot Environment from Userspace
+To enable reading and writing of the U-Boot environment from Linux userspace,
+you need to have:
+U-Boot target tools fw_printenv and fw_setenv available on your device’s rootfs.
+Environment configuration file /etc/fw_env.config in your target root filesystem.
+See the corresponding
+HowTo
+section from the U-Boot documentation for more details on how to set up the
+environment config file for your device.
+Example: Setting up U-Boot Environment on eMMC/SD Card
+For this example we assume a simple redundancy boot partition layout with a
+bootloader partition and two rootfs partitions.
+Another additional partition we use exclusively for storing the environment.
+Note
+It is not strictly required to have the env on an actual MBR/GPT
+partition, but we use this here as it better protects against accidentally
+overwriting relevant data of other partitions.
+Partition table (excerpt with partition offsets):
+/dev/mmcblk0p1 StartLBA:   8192 -> u-boot etc.
+/dev/mmcblk0p2 StartLBA: 114688 -> u-boot environment
+/dev/mmcblk0p3 StartLBA: 139264 -> rootfs A
+/dev/mmcblk0p4 StartLBA: 475136 -> rootfs B
+We enable redundant environment and storage in MMC (not in vfat/ext4 partition)
+in the u-boot config:
+CONFIG_SYS_REDUNDAND_ENVIRONMENT=y
+CONFIG_ENV_IS_IN_MMC=y
+The default should be to use mmc device 0 and HW partition 0.
+Since U-Boot 2020.10.0 we can set this also explicitly if required:
+CONFIG_SYS_MMC_ENV_DEV=0
+CONFIG_SYS_MMC_ENV_PART=0
+Important
+With CONFIG_SYS_MMC_ENV_PART we can specify a eMMC HW
+partition only, not an MBR/GPT partition!
+HW partitions are e.g. 0=user data area, 1=boot partition.
+Then we must specify the env storage size and its offset relative to the
+currently used device.
+Here the device is the eMMC user data area (or SD Card).
+For placing the content in partition 2 now, we must calculate the offset as
+offset=hex(n sector * 512 bytes/sector).
+With n=114688 (start of /dev/mmcblk0p2 according to above partition table)
+we get an offset of 0x3800000.
+As size we pick 0x4000 (16kB) here.
+The offset of the redundant copy must be the offset of the first copy + size of
+first copy.
+This results in:
+CONFIG_ENV_SIZE=0x4000
+CONFIG_ENV_OFFSET=0x3800000
+CONFIG_ENV_OFFSET_REDUND=0x3804000
+Finally, we need to configure userspace to access the same location.
+This can be referenced directly by its partition device name (/dev/mmcblk0p2)
+in the /etc/fw_env.config:
+/dev/mmcblk0p2 0x0000 0x4000
+/dev/mmcblk0p2 0x4000 0x4000
+GRUB
+[system]
+...
+bootloader=grub
+To enable handling of redundant booting in GRUB, manual scripting is required.
+The GRUB bootloader interface of RAUC uses the GRUB environment variables
+<bootname>_OK, <bootname>_TRY and ORDER.
+An exemplary GRUB configuration for handling redundant boot setups is located in the
+contrib/ folder of the RAUC source repository (grub.conf). As the GRUB
+shell only has limited support for scripting, this example uses only one try
+per enabled slot.
+To enable reading and writing of the GRUB environment, you need to have the tool
+grub-editenv available on your target.
+By default RAUC expects the grubenv file to be located at
+/boot/grub/grubenv, you can specify a custom directory by passing
+grubenv=/path/to/grubenv in your system.conf [system] section.
+Make sure that the grubenv file is located outside your redundant rootfs
+partitions as the rootfs needs to be exchangeable without affecting the
+environment content.
+For UEFI systems, a proper location would be to place it on the EFI partition,
+e.g. at /EFI/BOOT/grubenv.
+The same partition can also be used for your grub.cfg (which could be
+placed at /EFI/BOOT/grub.cfg).
+Note that you then also need to manually tell GRUB where to load the grubenv
+from.
+You can do this in your grub.cfg by a adding the --file argument to
+your script’s load_env and save_env calls, like:
+load_env --file=(hd0,2)/grubenv
+save_env --file=(hd0,2)/grubenv A_TRY A_OK B_TRY B_OK ORDER
+EFI
+For x86 systems that boot directly via EFI/UEFI (without an intermediate
+bootloader such as GRUB or systemd-boot), RAUC supports managing EFI boot
+entries using the efibootmgr tool.
+To enable EFI bootloader support in RAUC, write in your system.conf:
+[system]
+...
+bootloader=efi
+To set up a system ready for pure EFI-based redundancy boot without any further
+bootloader or initramfs involved, you have to create an appropriate
+partition layout and either configure boot entries manually or let RAUC do
+that.
+Note
+In this document we intentionally use the term “redundant VFAT partition”
+instead of “EFI System Partition (ESP)”.
+Technically, an ESP is just a VFAT partition marked with the EFI system
+partition GUID.
+Some firmware implementations automatically detect partitions with the ESP
+type GUID and may implicitly create or update boot entries for them.
+While this behavior can be convenient, it may interfere with setups where
+RAUC is expected to manage EFI boot entries explicitly (e.g. for A/B
+redundancy).
+When manual control over EFI boot entry creation is desired (for example
+when using efibootmgr or RAUC’s bootloader=efi integration), the
+ESP type GUID can be omitted so that the partition is treated as a
+regular VFAT partition.
+This prevents firmware auto-detection and ensures that boot entries are
+created and maintained only through the configured tooling.
+Assuming a simple A/B redundancy, you would need:
+Two redundant VFAT partitions, each holding an EFI stub kernel (e.g. at
+EFI/LINUX/BZIMAGE.EFI) or a UKI.
+Two redundant rootfs partitions
+Let RAUC create missing EFI boot entries when marking slots good, bad or active
+with a system.conf such as:
+[system]
+...
+bootloader=efi
+[slot.efi.0]
+...
+bootname=system0
+efi-loader=\\EFI\\LINUX\\BZIMAGE.EFI
+efi-cmdline=root=PARTUUID=<partuuid-of-part-1>
+[slot.efi.1]
+...
+bootname=system1
+efi-loader=\\EFI\\LINUX\\BZIMAGE.EFI
+efi-cmdline=root=PARTUUID=<partuuid-of-part-2>
+Or create boot entries manually beforehand:
+# efibootmgr --create --disk /dev/sda \
+  --part 1 --label "system0" \
+  --loader \\EFI\\LINUX\\BZIMAGE.EFI \
+  --unicode "root=PARTUUID=<partuuid-of-part-1>"
+# efibootmgr --create --disk /dev/sda \
+  --part 2 --label "system1" \
+  --loader \\EFI\\LINUX\\BZIMAGE.EFI \
+  --unicode "root=PARTUUID=<partuuid-of-part-2>"
+where you replace /dev/sda with the name of the disk you use for redundancy
+boot, <partuuid-of-part-1> with the PARTUUID of the first rootfs
+partition and <partuuid-of-part-2> with the PARTUUID of the second rootfs
+partition.
+Note
+When booting UKIs
+from redundant VFAT partitions, the EFI command line (RAUC’s
+efi-cmdline or efibootmgr’s --unicode) can point to a
+UKI profile
+(e.g. @1\s in RAUC’s system configuration) defining the corresponding
+root= and rauc.slot= kernel command line parameters.
+You can inspect and verify your settings by running:
+# efibootmgr -v
+In your system.conf, you have to list both the redundant VFAT partitions
+(each containing one EFI stub kernel or UKI) as well as the rootfs partitions.
+Make the first rootfs partition a child of the first VFAT partition and the
+second rootfs partition a child of the second VFAT partition to have valid slot
+groups.
+Set the EFI slot bootnames to those we have defined with the --label
+argument in the efibootmgr call above:
+[slot.efi.0]
+device=/dev/sdX1
+type=vfat
+bootname=system0
+[slot.efi.1]
+device=/dev/sdX2
+type=vfat
+bootname=system1
+[slot.rootfs.0]
+device=/dev/sdX3
+type=ext4
+parent=efi.0
+[slot.rootfs.1]
+device=/dev/sdX4
+type=ext4
+parent=efi.1
+Custom
+If none of the previously mentioned approaches can be applied on the system,
+RAUC also offers the possibility to use customization scripts or applications
+as bootloader backend.
+To enable the custom bootloader backend support in RAUC, select it in your
+system.conf:
+[system]
+...
+bootloader=custom
+Configure custom bootloader backend
+The custom bootloader backed based on a handler that is called to get the
+desired information or set the appropriate configuration of the custom
+bootloader environment.
+To register the custom bootloader backend handler, assign your handler to the
+bootloader-custom-backend key in section handlers in your system.conf:
+[handlers]
+...
+bootloader-custom-backend=custom-bootloader-script
+Custom bootloader backend interface
+According to Boot Slot Selection the custom bootloader handler is called by
+RAUC to trigger the following actions:
+get the primary slot
+set the primary slot
+get the boot state
+set the boot state
+get the current booted slot (optional)
+To get the primary slot, the handler is called with the argument get-primary.
+The handler must output the current primary slot’s bootname on the stdout,
+and return 0 on exit, if no error occurred.
+In case of failure, the handler must return with non-zero value.
+Accordingly, in order to set the primary slot,
+the custom bootloader handler is called with argument set-primary <slot.bootname>
+where <slot.bootname> matches the bootname= key defined for the
+respective slot in your system.conf.
+If the set was successful, the handler must also return with a 0,
+otherwise the return value must be non-zero.
+In addition to the primary slot,
+RAUC must also be able to determine the boot state of a specific slot.
+RAUC determines the necessary boot state by calling the custom bootloader
+handler with the argument get-state <slot.bootname>.
+Whereupon the handler has to output the state good or bad to stdout
+and exit with the return value 0.
+If the state cannot be determined or another error occurs,
+the custom bootloader handler must exit with non-zero return value.
+To set the boot state to the desire slot,
+the handler is called with argument set-state <slot.bootname> <state>.
+As already mentioned in the paragraph above,
+the <slot.bootname> matches the bootname= key defined for the
+respective slot in your system.conf.
+The <state> argument corresponds to one of the following values:
+good if the last start of the slot was successful or
+bad if the last start of the slot failed.
+The return value must be 0 if the boot state was set successfully,
+or non-zero if an error occurred.
+To get the current running slot, the handler must be called with the argument
+get-current. The handler must output the current running slot’s bootname on
+the stdout, and return 0 on exit, if no error occurred.
+Implementing this is only needed when the /proc/cmdline is not providing
+information about current booted slot.
+Init System and Service Startup
+There are several ways to run the RAUC service on your target.
+The recommended way is to use a systemd-based system and allow to start RAUC
+via D-Bus activation.
+You can start the RAUC service manually by executing:
+# rauc service
+Keep in mind that rauc service reads the system.conf during startup and needs to be
+restarted for changes in the system.conf to take affect.
+Systemd Integration
+When building RAUC, a default systemd rauc.service file will be generated
+in the data/ folder.
+Depending on your configuration make install will place this file in one of
+your system’s service file folders.
+It is a good idea to wait for the system to be fully started before marking it
+as successfully booted.
+In order to achieve this, a smart solution is to create a systemd service that calls
+rauc status mark-good and use systemd’s dependency handling to assure this
+service will not be executed before all relevant other services came up
+successfully.
+It could look similar to this:
+[Unit]
+Description=RAUC Good-marking Service
+ConditionKernelCommandLine=|bootchooser.active
+ConditionKernelCommandLine=|rauc.slot
+[Service]
+ExecStart=/usr/bin/rauc status mark-good
+[Install]
+WantedBy=multi-user.target
+D-Bus Integration
+The D-Bus interface RAUC provides makes it easy to
+integrate it into your customapplication.
+In order to allow sending data, make sure the D-Bus config file
+de.pengutronix.rauc.conf from the data/ dir gets installed properly.
+To only start RAUC when required, using D-Bus activation is a smart solution.
+In order to enable D-Bus activation, properly install the D-Bus service file
+de.pengutronix.rauc.service from the data/ dir.
+Watchdog Configuration
+Detecting system hangs during runtime requires to have a watchdog and to have
+the watchdog configured and handled properly.
+Systemd provides a sophisticated watchdog multiplexing and handling allowing
+you to configure separate timeouts and handlings for each of your services.
+To enable it, you need at least to have these lines in your systemd
+configuration:
+RuntimeWatchdogSec=20
+ShutdownWatchdogSec=10min
+Bundle Generation
+Once RAUC is set up on the target, one might want to actually create update
+bundles for it.
+Note
+Some build systems provide a high-level integration that should be
+used, for example in Yocto or
+PTXdist.
+For generating a bundle, at least the following items are required:
+signing key and certificate
+content directory with manifest file
+The signing key and cert could be created for this specific project or be
+supplied from somewhere else in your project or company.
+They can be provided as PEM files or as PKCS#11 URIs (e.g. if you use a HSM).
+Read the Security chapter for more details on signing bundles.
+For the bundle content, simply create a new directory:
+$ mkdir install-content
+Copy each image that should be installed via the bundle into the content
+directory, for example:
+$ cp /path/to/system-image.ext3 install-content/system-image.ext4
+$ cp /path/to/barebox install-content/barebox.img
+Note
+Since RAUC uses the image’s file name extension for determining the
+correct update handler, make sure that the file name extension used in the
+content directory is supported.
+Create a manifest file called manifest.raucm in the content directory:
+$ vi install-content/manifest.raucm
+A minimal example for a manifest could look as follows:
+[update]
+compatible=Test Platform
+version=2023.11.0
+[bundle]
+format=verity
+[image.rootfs]
+filename=system-image.ext4
+[image.bootloader]
+filename=barebox.img
+Ensure that compatible matches the RAUC compatible in your target’s
+system.conf.
+The system-image.ext4 image will now serve as the update image for the
+rootfs slot class while the barebox.img will be the update image for
+the bootloader slot class.
+Finally, invoke RAUC to create the bundle from the created content directory:
+$ rauc bundle --cert=cert.pem --key=key-pem install-content/ my-update.raucb
+The resulting bundle my-update.raucb is the ready for being deployed to the
+target.
+Yocto
+Yocto support for using RAUC is provided by the meta-rauc layer.
+The layer supports building RAUC both for the target as well as as a host tool.
+With the bundle.bbclass it
+provides a mechanism to specify and build bundles directly with the help of
+Yocto.
+For more information on how to use the layer, also see the layer’s README file.
+Note
+When using the block-hash-index adaptive mode, you may need to set
+IMAGE_ROOTFS_ALIGNMENT = "4" in your machine.conf to ensure that the
+image is padded to full 4 kiB blocks.
+Target System Setup
+Add the meta-rauc layer to your setup:
+$ git submodule add <email-masked>:rauc/meta-rauc.git
+Add the RAUC tool to your image recipe (or package group):
+IMAGE_INSTALL:append = " rauc"
+Append the RAUC recipe from your BSP layer (referred to as meta-your-bsp in the
+following) by creating a meta-your-bsp/recipes-core/rauc/rauc-conf.bbappend
+with the following content:
+FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
+Write a system.conf for your board and place it in the folder you mentioned
+in the recipe (meta-your-bsp/recipes-core/rauc/files).
+This file must provide a system compatible string to identify your system type,
+as well as a definition of all slots in your system.
+By default, the system configuration will be placed in /etc/rauc/system.conf
+on your target rootfs.
+Also place the appropriate keyring file for your target into the directory
+added to FILESEXTRAPATHS above.
+Name it either ca.cert.pem or additionally specify the name of your custom
+file by setting RAUC_KEYRING_FILE.
+If multiple keyring certificates are required on a single system, create a
+keyring directory containing each certificate.
+Note
+For information on how to create a testing / development
+key/cert/keyring, please refer to scripts/README in meta-rauc.
+For a reference of allowed configuration options in system.conf,
+see System Configuration File.
+For a more detailed instruction on how to write a system.conf,
+see Partitioning Your Device.
+Using RAUC on the Host System
+The RAUC recipe allows to compile and use RAUC on your host system.
+Having RAUC available as a host tool is useful for debugging, testing or for
+creating bundles manually.
+For the preferred way of creating bundles automatically, see the chapter
+Bundle Generation.
+In order to compile RAUC for your host system, simply run:
+$ bitbake rauc-native
+This will place a copy of the RAUC binary in tmp/deploy/tools in your
+current build folder.
+To test it, try:
+$ tmp/deploy/tools/rauc --version
+Bundle Generation
+Bundles can be created either manually by building and using RAUC as a native
+tool, or by using the bundle.bbclass that handles most of the basic steps,
+automatically.
+First, create a bundle recipe in your BSP layer.
+A possible location for this could be
+meta-your-bsp/recipes-core/bundles/update-bundle.bb.
+To create your bundle you first have to inherit the bundle class:
+inherit bundle
+To create the manifest file, you may either use the built-in class mechanism,
+or provide a custom manifest.
+For using the built-in bundle generation, you need to specify some variables:
+Note
+For a more comprehensive listing of available variables and classes, see
+the bundle.bbclass inline documentation.
+RAUC_BUNDLE_COMPATIBLESets the compatible string for the bundle.
+This should match the compatible you specified in your system.conf or,
+more generally, the compatible of the target platform you intend to install
+this bundle on.
+RAUC_BUNDLE_SLOTSUse this to list all slot classes for which the bundle should contain images.
+A value of "rootfs appfs" for example will create a manifest with images
+for two slot classes; rootfs and appfs.
+RAUC_BUNDLE_FORMATUse this to choose the Bundle Formats for the generated bundle.
+It currently defaults to "" which will result in a ‘plain’ bundle, but
+you should use "verity" if possible.
+RAUC_SLOT_<slotclass>For each slot class, set this to the recipe name which builds the
+image you intend to place in the slot class.
+RAUC_SLOT_<slotclass>[type]For each slot class, set this to the type of image you intend to place in
+this slot.
+Possible types are: image (default), kernel, boot, or file.
+Note
+For a full list of supported variables, refer to classes-recipe/bundle.bbclass in
+meta-rauc.
+A minimal bundle recipe, such as core-bundle-minimal.bb that is contained in
+meta-rauc will look as follows:
+inherit bundle
+RAUC_BUNDLE_COMPATIBLE ?= "Demo Board"
+RAUC_BUNDLE_SLOTS ?= "rootfs"
+RAUC_BUNDLE_FORMAT ?= "verity"
+RAUC_SLOT_rootfs ?= "core-image-minimal"
+To be able to build a signed image of this, you also need to configure
+RAUC_KEY_FILE and RAUC_CERT_FILE to point to your key and certificate
+files you intend to use for signing.
+You may set them either from your bundle recipe or any global configuration
+(layer, site.conf, etc.), e.g.:
+RAUC_KEY_FILE = "${COREBASE}/meta-<layername>/files/development-1.key.pem"
+RAUC_CERT_FILE = "${COREBASE}/meta-<layername>/files/development-1.cert.pem"
+Note
+For information on how to create a testing / development
+key/cert/keyring, please refer to scripts/README in meta-rauc.
+Based on this information, a call of:
+$ bitbake core-bundle-minimal
+will build all required images and generate a signed RAUC bundle from this.
+The created bundle can be found in
+${DEPLOY_DIR_IMAGE}
+(defaults to tmp/deploy/images/<machine> in your build directory).
+PTXdist
+Note
+RAUC support in PTXdist is available since version 2017.04.0.
+Integration into Your RootFS Build
+To enable building RAUC for your target, set:
+CONFIG_RAUC=y
+in your ptxconfig (by selecting RAUC via ptxdist menuconfig).
+You should also customize the compatible RAUC uses for your system.
+To do this, set PTXCONF_RAUC_COMPATIBLE to a string that uniquely
+identifies your device type.
+The default value will be "${PTXCONF_PROJECT_VENDOR}\ ${PTXCONF_PROJECT}".
+Place your system configuration file in
+$(PTXDIST_PLATFORMCONFIGDIR)/projectroot/etc/rauc/system.conf to let the
+RAUC package install it into the rootfs you build.
+Note
+PTXdist versions since 2020.06.0 use their code signing infrastructure for keyring creation.
+See PTXdist’s Managing Certificate Authority Keyrings for different scenarios (refer to RAUC’s
+CA Configuration).
+Previous PTXdist versions expected the keyring in
+$(PTXDIST_PLATFORMCONFIGDIR)/projectroot/etc/rauc/ca.cert.pem.
+The keyring is installed into the rootfs to /etc/rauc/ca.cert.pem.
+If using systemd, the recipes install both the default systemd.service file
+for RAUC as well as a rauc-mark-good.service file.
+This additional good-marking-service runs after user space is brought up and
+notifies the underlying bootloader implementation about a successful boot of
+the system.
+This is typically used in conjunction with a boot attempts counter in the
+bootloader that is decremented before starting the system and reset by
+rauc status mark-good to indicate a successful system startup.
+Create Update Bundles from your RootFS
+To enable building RAUC bundles, set:
+CONFIG_IMAGE_RAUC=y
+in your platformconfig (by using ptxdist platformconfig).
+This adds a default image recipe for building a RAUC update bundle out of the
+system’s rootfs.
+As for most image recipes, the genimage tool is used to configure
+and generate the update bundle.
+PTXdist’s default bundle configuration is placed in
+config/images/rauc.config.
+You may also copy this to your platform directory to use this as a base for
+custom bundle configuration.
+RAUC enforces signing of update bundles.
+PTXdist versions since 2020.06.0 use its code signing infrastructure for signing and keyring verification.
+Previous versions expected the signing key in
+$(PTXDIST_PLATFORMCONFIGDIR)/config/rauc/rauc.key.pem.
+Once you are done with your setup, PTXdist will automatically create a RAUC
+update bundle for you during the run of ptxdist images.
+It will be placed under $(PTXDIST_PLATFORMDIR)/images/update.raucb.
+Buildroot
+Note
+RAUC support in Buildroot is available since version 2017.08.0.
+To build RAUC using Buildroot, enable BR2_PACKAGE_RAUC in your
+configuration.
+Package-Based Distributions
+Some non-embedded-focused distributions provide RAUC packages.
+An overview can be found on Repology.
+Note that some distributions split the service configuration in a separate
+rauc-service package, as the common use of RAUC on these distributions is
+to create and inspect bundles, for which the D-Bus service is not required.
+Alpine
+https://pkgs.alpinelinux.org/packages?name=rauc
+Arch
+https://archlinux.org/packages/extra/x86_64/rauc/
+Debian
+https://packages.debian.org/search?searchon=sourcenames&keywords=rauc
+https://tracker.debian.org/pkg/rauc
+Nix
+https://github.com/NixOS/nixpkgs/blob/master/pkgs/tools/misc/rauc/default.nix
+Ubuntu
+https://packages.ubuntu.com/search?keywords=rauc&searchon=sourcenames
+Bundle Format Migration
+Migrating from the plain to the verity bundle format should be simple in most cases and can be done in a single
+update.
+The high-level functionality of RAUC (certificate checking, update installation,
+hooks/handlers, …) is independent of the low-level bundle format.
+The required steps are:
+Configure your build system to build RAUC v1.5 (or newer).
+Enable CONFIG_CRYPTO_SHA256, CONFIG_MD, CONFIG_BLK_DEV_DM and
+CONFIG_DM_VERITY in your  kernel configuration.
+These may already be enabled if you are using dm-verity for verified boot.
+Add a new bundle output configured for the verity format by adding the
+following to the manifest:
+[bundle]
+format=verity
+Note
+For OE/Yocto with an up-to-date meta-rauc, you can choose the bundle format
+by adding the RAUC_BUNDLE_FORMAT = "verity" option in your bundle
+recipe.
+The bundle.bbclass will insert the necessary option into the manifest.
+For PTXdist or Buildroot with genimage, you can add the manifest option
+above to the template in your genimage config file.
+With these changes, the build system should produce two bundles (one in either
+format).
+A verity bundle will only be installable on systems that have already
+received the migration update.
+A plain bundle will be installable on both migrated and unmigrated systems.
+You should then test that both bundle formats can be installed on a migrated
+system, as RAUC will now perform additional checks when installing a plain
+bundle to protect against potential modification during installation.
+This testing should include all bundle sources (USB, network, …) that you will
+need in the field to ensure that these new checks don’t trigger in your case
+(which would prohibit further updates).
+Note
+When installing bundles from a FAT filesystem (for example on a USB memory
+stick), check that the mount option fmask is set to 0022 or 0133.
+When you no longer need to be able to install previously built bundles in the
+plain format, you should also disable it in the system.conf:
+[system]
+…
+bundle-formats=-plain
+…
+If you later need to support downgrades, you can use rauc extract and rauc
+bundle to convert a plain bundle to a verity bundle, allowing installation
+to systems that have already been migrated.
+         Previous
+        Next 
+    © Copyright 2016-2026, Jan Luebbe, Enrico Joerns, the RAUC contributors.
+  Built with Sphinx using a
+    theme
+    provided by Read the Docs.

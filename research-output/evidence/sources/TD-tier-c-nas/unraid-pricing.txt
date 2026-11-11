@@ -1,0 +1,92 @@
+SOURCE: https://unraid.net/pricing
+ACCESSED: 2026-11-11 (text extracted from HTML; emails masked)
+
+Storage Freedom Starts Here - Powered by Unraid OS - Unraid.net Account
+Back to Unraid.net
+Storage Freedom Starts Here - Powered by Unraid OS
+ New to Unraid Upgrade or Extend My License
+How many drives do you have?
+8drives
+Getting serious now! Your friends probably ask you to set up their servers too 🤓
+1 drive8 drives15 drives22 drives30+ drives
+ Recommended: Unleashed
+ You'll only be billed for the license today
+Starter
+Perfect for home users
+$49 one-time
+Storage Devices6 devices
+Updates Included1 year of updates 
+License TypePerpetual License
+Select
+Recommended
+Unleashed
+Best value for power users
+$109 one-time
+Storage DevicesUnlimited devices
+Updates Included1 year of updates 
+License TypePerpetual License
+Select
+Lifetime
+Never pay for updates again
+$249 one-time
+Storage DevicesUnlimited devices
+Updates IncludedLifetime updates 
+License TypePerpetual License
+Select
+Not sure yet?Start a free 30-day trial— no credit card required.
+Every License is Fully Loaded
+One Platform. Every Feature. No Subscription. Every license includes the full Unraid experience.
+Network Storage (NAS)
+Your data stays safe and scalable in Unraid's parity-protected Array, along with high-performance storage pools supporting ZFS, BTRFS and XFS.
+Docker Containers
+Run Plex, Jellyfin, Nextcloud, Immich, and thousands more, side by side.
+Virtual Machines
+Full virtualization for Windows, Linux, and beyond.
+Community Apps
+10,000+ apps and plugins.
+VPN & Tailscale
+Encrypted remote access from any device, anywhere.
+Community Support
+Join over half a million users on forums, Discord, and all major socials.
+Loved by the community
+Join Thousands of Happy Customers
+ “The best purchase I have made in 30 years of computing. Nothing even comes close in terms of use/value for money.....” 
+green_handl3
+30-Year Computing Veteran
+ “Wow, what is not to like? Reliability, flexibility, and amazing support. My unRAID server has been one of the best things I have ever built for my home.” 
+@TheExplorographer
+Home Server Builder
+ “Let me say it's been so easy and painless to use. For me at least, this is a huge improvement over running the latest Ubuntu server and apt-get'ing packages I use as compared to VM's, Docker and unraid updates. I would tell anyone on the fence about spending $ for unraid to just do it! You won't regret it.” 
+pepsidrinker916
+Community Member
+ “It has been beautifully dull running an unRAID server. Everything, just, works.” 
+douglasthepug
+Community Member
+ “Thank you UnRaid for keeping the memories of my Family. You give me peace of mind as my backup server. Thank you for a lifetime purchase so that I can take you anywhere! Thank you for being my families' entertainment hub! Thank you for being a Nerd's happy place on a cloudy day!” 
+apemanx
+Family Media User
+ “I've been using Unraid for about three years now. Now I'm happily gaming on a VM while running everything else a lot simpler and safer than before. I have been a victim of 2 drive fail RAID5 before and at the time I did not realizing the importance of a good backup. Nowadays i feel safer than ever before. And the community around Unraid is just the best!” 
+Tarnyd
+3-Year User
+ “Been using you 5 years and this has taught me more than my actual dead end IT infrastructure job. Highlight was getting a replacement key when my USB broke, within the year window, in no less than 5 mins on a saturday.. I mean cmon that's proper customer service.” 
+helin0x
+IT Professional
+ “Great OS. The flexibility and ease of expansion made Unraid the choice for me. I have converted 3 people at my work so far this year. Couldn't ask for a more supportive community!” 
+@Gragorg
+Community Advocate
+ “I put a trial of unRAID on a USB, install was overly easy, and...And now I totally get it. It's so much easier. Whatever money I have to spend for a license is obviously offset by how little time I have to spend setting everything up. unRAID took an hour and I've never used it before.” 
+no_more_secrets
+Community Member
+View Licensing FAQ
+20+ years
+Refined since 2005
+500k+
+Unraiders and counting
+24
+Languages supported
+190+ Countries
+Unraid is global
+Perpetual license
+Secure checkout
+Trusted by 500,000+ Unraiders since 2005
+

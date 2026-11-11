@@ -1,0 +1,201 @@
+Source: https://docs.formant.io/docs/getting-started-install-agent-docker-ros-2.md
+Accessed: 2026-11-11
+
+---
+updatedAt: 2026-09-24T14:54:47.000Z
+agentTools:
+  projectIndex: https://docs.formant.io/llms.txt
+---
+
+# Install the Formant agent via Docker (ROS 2)
+
+This guide will teach you how to install the Formant agent to your device via Docker.
+
+# Prerequisites
+
+### System requirements
+
+The Formant agent is an extremely lightweight tool which sets up data pipelines on your device. The base footprint of the agent itself on a device is minimal. Depending on your application, you can configure the agent and your device to store and transfer large amounts of data (e.g., video cache and streaming), which will require greater memory and CPU capability.
+
+| Supported Operating Systems | Support ROS Version | Supported Architectures |
+| :-------------------------- | :------------------ | :---------------------- |
+| Ubuntu 24.04 ("*Noble*")    | ROS2 ("*Jazzy*")    | `amd64` `arm64`         |
+| Ubuntu 22.04 ("*Jammy*")    | ROS2 ("*Humble*")   | `amd64` `arm64`         |
+| Ubuntu 20.04 ("*Focal*")    | ROS1 ("*Noetic*")   | `amd64` `arm64`         |
+| Ubuntu 18.04 ("*Bionic*")   | ROS1 ("*Melodic*")  | `amd64` `arm64`         |
+
+### Install Docker to your device
+
+You'll need to have Docker installed to your device to install the Formant agent.
+
+### Create a device
+
+Follow the instructions in [Create a device](https://docs.formant.io/docs/getting-started-create-a-device) to add a new device to your Formant organization.
+
+### Internet connectivity
+
+The target device must have connectivity to `app.formant.io` and `api.formant.io`.
+
+You can run the following script on your device terminal to output the robot's details and verify prerequisites:
+
+```shell
+bash <(wget -qO - https://app.formant.io/device-check.sh)
+```
+
+### Terminal access
+
+To install the Formant agent on the target device, you must have terminal access to the device and the ability to run commands.
+
+***
+
+# Step 1: Install the Formant agent (ROS 2)
+
+Following from the instructions in Step 2 of [Create a device](https://docs.formant.io/docs/getting-started-create-a-device): you will see a command which installs the Formant agent to your device.
+
+1. Generate the installation command from the web application and paste it in the target device's terminal, but **do not run it yet**. Copy the provisioning token which is generated. Note the installation command contains of a provisioning token that is unique to the device and expires after 72 hours.
+2. Download **but do not run** the installation script:
+
+```shell
+wget https://app.formant.io/install-agent.sh
+```
+
+3. Identify the Docker container tag you want to install. You can do this by either:
+   1. Referring to our Docker registry here: [Docker Hub: Formant Agent](https://hub.docker.com/r/formant/agent/tags?name=ros2), or
+   2. Using the install script to show available tags, such as:
+
+```shell
+# Example tag search for ROS2 humble agent container images
+./install-agent.sh --show-tags humble
+```
+
+...which might show you a result like:
+
+```
+Fetching Docker image tags...
+Searching for tags matching 'humble' (fetching all available tags via API, this may take a moment for repositories with many tags)...
+latest-humble-arm64
+1.300.0-humble-arm64
+latest-humble-amd64
+1.300.0-humble-amd64
+1.296.3-humble-arm64
+1.296.3-humble-amd64
+1.296.0-humble-arm64
+```
+
+4. Run the installation script with the following flags, such as:
+
+```shell
+./install-agent.sh --method docker --ros 2 \
+--ros-workspace /path/to/colcon_ws \ 
+--tag latest-humble-arm64 \
+YOUR-PROVISIONING-TOKEN
+```
+
+> 📘 Script help
+>
+> You can get help on the installation script:
+>
+> ```shell
+> ./install-agent.sh --help
+> ```
+
+# Step 2: Verify successful installation
+
+If the Formant agent has been installed and connection established, Formant will begin ingesting telemetry for default streams like CPU, Network, Memory, and Disk.
+
+1. In Formant, in the upper-left corner, open the menu. Under the **Observe** tab, click on the name of your device.
+2. Verify that these streams have live telemetry data in the device's telemetry pag
+
+<Image title="4fe2b84-Screen_Shot_2021-09-01_at_7.04.47_PM.png" alt={1192} align="center" src="https://files.readme.io/3cd742f-4fe2b84-Screen_Shot_2021-09-01_at_7.04.47_PM.png">
+  Telemetry data uploaded to a default stream.
+</Image>
+
+***
+
+# Managing a Docker installation
+
+> 🚧
+>
+> Docker installations of the Formant agent do not support automatic, over-the-air (OTA) agent updates.
+>
+> To update the Formant agent, you will have to update the `formant-agent` Docker image on your device.
+>
+> Pull a version-specific or `latest-<ros>-<arch>` tag (for example `latest-humble-amd64`). The bare `latest` tag is not kept current.
+
+### Setting environment variables
+
+The agent's behavior is controlled by [environment variables](https://docs.formant.io/docs/environment-variables-for-the-agent). On a Docker installation you can set them in two ways:
+
+* Pass `-e NAME=value` to the installer through `--extra-args` (for example `--extra-args "-e FORMANT_UPLOAD_RATE_LIMIT_KBPS=750"`). The container environment is fixed when the container is created; to change it, re-run the installer without the provisioning token and with the new `--extra-args`.
+* Add `export NAME=value` lines to `/var/lib/formant/.bashrc` on the host. The installer mounts this directory into the container and the agent sources the file at startup, exactly as a native installation does. Values here override `-e` values.
+
+Either way, the agent only reads its environment when it starts. Run `docker restart formant-agent` after editing `.bashrc`.
+
+### Enabling and disabling the agent running on startup
+
+By default, after installation, the agent runs on startup.
+
+To set the agent to run on startup:
+
+```shell
+docker update --restart=yes formant-agent
+```
+
+To disable the agent from running on startup:
+
+```shell
+docker update --restart=no formant-agent
+```
+
+### Starting and stopping the agent
+
+By default, the agent will be enabled and run on startup.
+
+To start the agent:
+
+```shell
+docker start formant-agent
+```
+
+To stop the agent:
+
+```shell
+docker stop formant-agent
+```
+
+To restart the agent:
+
+```shell
+docker restart formant-agent
+```
+
+### Retrieving agent logs
+
+```shell
+docker logs -f formant-agent
+```
+
+### Uninstalling the Formant agent
+
+This command stops any running `formant-agent` containers and removes the `formant-agent` image:
+
+```shell
+docker rm -f formant-agent
+```
+
+To remove the agent credentials as well, run:
+
+```shell
+rm -rf /var/lib/formant
+```
+
+# See also
+
+* [Install the Formant agent](https://docs.formant.io/docs/getting-started-install-the-formant-agent)
+* [Environment variables for the agent](https://docs.formant.io/docs/environment-variables-for-the-agent)
+* [Troubleshooting an agent installation](https://docs.formant.io/docs/troubleshooting-an-agent-installation)
+* [Error invoking Docker in Formant terminal](https://docs.formant.io/docs/troubleshooting-error-docker-formant-terminal)
+
+<Callout icon="👋" theme="default">
+  ### If you notice an issue with this page or need help, please reach out to us! Use the 'Did this page help you?' buttons below, or get in contact with our Customer Success team via the Intercom messenger in the bottom-right corner of this page, or at [<masked-email>](mailto:<masked-email>).
+</Callout>

@@ -1,0 +1,130 @@
+Coolify Pricing: Cloud from $5/mo, self-hosted free Coolify 
+ Philosophy Pricing Services Docs Changelog Contributors Sponsor us Merch 
+Community 20k+ To Cloud 
+ Philosophy Pricing Services Docs Changelog Contributors Sponsor us Merch 
+Community 20k+ To Cloud 
+Pricing. 
+Pricing that adjusts according to your needs.
+Self-hosted 
+Free forever 
+Deploy Coolify on your infrastructure without any restrictions on
+ features. 
+ Full access to all features
+ Need your own infrastructure for Coolify
+ No limitation or restrictions
+ Community support (20k+ members)
+ Automated or self-managed updates
+ Includes all upcoming features 
+ Start self-hosting 
+Cloud Billing period Monthly Annually -20% 
+$5 /month base price (connect 2 servers) 
++ $3 /month per additional server 
+Just connect your servers, Coolify runs on our managed infrastructure. 
+ Connect unlimited servers
+ Unlimited deployments per server
+ Free email alerts for Coolify events
+ Community + limited email support
+ Founder-tested updates 
+You need to bring your own servers 
+You need to bring your own servers from any cloud provider (such
+ as Hetzner, DigitalOcean, AWS, etc.). 
+ Your apps will be deployed on the server you connect to the cloud,
+ while Coolify runs on our managed server. 
+ (You can connect your RPi, old laptop, or any other device that runs
+ the supported operating systems.) 
+ Get started in the cloud 
+Compare 
+Self-hosted vs Cloud 
+Feature
+Self-hosted
+Cloud
+Application deployments
+Database deployments
+Service/one-click deployments
+API access
+Codebase
+Open source
+Open source
+Coolify hosting
+Self-managed
+Managed
+Coolify dashboard domain
+Custom domain
+app.coolify.io
+Coolify setup
+Manual
+Managed
+Coolify backups
+Self-managed (but automated)
+Managed
+Updates * Limited to Coolify updates, does not include changes to deployed
+ resources.
+Manual (but automated)
+Managed
+Email alerts * Other alerts (Discord, Telegram, etc.) are also supported, but
+ those needs to be configured manually on each type, self-hosted
+ or cloud.
+Manual (requires SMTP/Resend)
+Managed
+Teams
+Unlimited
+Unlimited * Requires an additional subscription per team.
+Team members
+Unlimited
+Unlimited
+Connected servers
+Unlimited
+Unlimited
+Any other upcoming features
+Unlimited & free forever
+Included in the price 
+FAQ 
+Frequently asked questions 
+Do I get any Cloud‑only features? 
+Does Coolify Cloud back up my application data? 
+Can I migrate servers between Coolify instances? 
+How often is Coolify Cloud backed up? 
+Is Coolify Cloud based on the open‑source version? 
+What happens if I cancel my subscription? 
+What if I miss a payment? 
+Are there IPs to whitelist for Coolify Cloud? 
+Do I need to bring my own servers? 
+Why pay if I provide my own servers? 
+What happens if I exceed my server limit? 
+Is there a trial for Coolify Cloud? 
+Are discounts available? 
+Am I locked into Coolify Cloud? 
+Can I use my own domain for the Cloud dashboard? 
+ Coolify 
+Open-source and self-hostable platform to deploy apps, databases and services to your own servers.
+Product 
+Cloud 
+Self-hosted 
+Pricing 
+Services 
+Docs 
+Changelog 
+Guides 
+Deploy on your own VPS 
+Self-host Postgres with backups 
+Free Heroku alternatives 
+Netlify alternatives 
+ Coolify vs alternatives 
+ Coolify vs Dokploy 
+ Vercel alternative 
+ Heroku alternative 
+ Netlify alternative 
+Community 
+Discord 
+GitHub 
+Contributors 
+Sponsor us 
+Merch 
+Company 
+Philosophy 
+Other projects 
+Privacy policy 
+Data processing agreement 
+Terms of service 
+Refund policy 
+© 2026 coolLabs Solutions Kft. All rights reserved.

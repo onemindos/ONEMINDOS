@@ -1,0 +1,12 @@
+[Unit]
+Description=OneMind local API (lab stand-in: reports this boot's ID)
+RequiresMountsFor=/data
+
+[Service]
+RuntimeDirectory=onemind-api
+ExecStartPre=/bin/sh -c 'echo "ok boot_id=$(cat /proc/sys/kernel/random/boot_id)" > /run/onemind-api/health'
+ExecStart=/usr/bin/socat TCP-LISTEN:7070,bind=127.0.0.1,reuseaddr,fork EXEC:/usr/lib/onemind/onemind-api-respond
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

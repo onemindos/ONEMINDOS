@@ -1,0 +1,1380 @@
+Setting up OpenClaw isn’t as straightforward as the internet wants you to think – running local AI on humble hardware | Tom's Hardware
+
+Skip to main content
+
+Become a member for free
+
+Join for quick access. Enter your email below and we'll send confirmation plus sign you up to our newsletter.
+
+Contact me with news and offers from other Future brands
+
+Sign Up
+
+By submitting your information, you confirm you are aged 16 or over,
+have read our
+Privacy Policy
+and agree to the
+Terms & Conditions. Geographical rules apply.
+
+Join Tom’s Hardware today
+
+Upgrade to Tom’s Hardware Premium
+
+Explore
+
+GO PREMIUM
+
+Choose how you want to join Tom’s Hardware
+
+MEMBER
+
+Get started with free access to reviews, badges and discussions.
+
+Become a member
+
+Premium member
+
+Unlock exclusive tools and insights for enthusiasts who want more.
+
+Bench Database
+
+Exclusive Features
+
+Roadmaps
+
+Deep Analysis
+
+Become a premium member
+
+Go beyond the headlines with Tom’s Hardware Premium
+
+Access Bench, Roadmaps, deep analysis and other exclusive tools.
+
+Explore PREMIUM
+
+Bench Performance Database
+
+Dive into our proprietary testing data and compare hardware with detailed benchmarks.
+
+Deep-Dive Analysis
+
+Go beyond the headlines with expert reporting on the hardware industry.
+
+Hardware Roadmaps
+
+Track upcoming CPUs, GPUs and tech releases before they arrive.
+
+Exclusive Long-Form Features
+
+In-depth features, interviews and insider stories from the world of hardware.
+
+Uptime Premium Newsletter
+
+Expert insights and analysis delivered to your inbox.
+
+ of
+
+Bench Performance Database
+
+Dive into our proprietary testing data and compare hardware with detailed benchmarks.
+
+1
+of
+5
+
+Deep-Dive Analysis
+
+Go beyond the headlines with expert reporting on the hardware industry.
+
+2
+of
+5
+
+Hardware Roadmaps
+
+Track upcoming CPUs, GPUs and tech releases before they arrive.
+
+3
+of
+5
+
+Exclusive Long-Form Features
+
+In-depth features, interviews and insider stories from the world of hardware.
+
+4
+of
+5
+
+Uptime Premium Newsletter
+
+Expert insights and analysis delivered to your inbox.
+
+5
+of
+5
+
+Explore PREMIUM
+
+Welcome
+
+to
+Tom's Hardware club!
+
+Hi
+,
+
+Your membership journey starts here.
+
+Keep exploring and earning more as a member.
+
+MY ACCOUNT
+
+Earn your first
+badge
+
+Read 1 article to unlock your first badge.
+
+Keep earning badges
+
+Explore ways to get more involved as a member.
+
+Latest on CPUs
+
+News, reviews, and technical insights.
+
+Explore
+
+GPU Insights
+
+Reviews, benchmarks, and updates on current GPUs.
+
+Explore
+
+See what you’ve unlocked.
+
+Explore your membership
+benefits.
+
+Explore
+
+Unlock Premium
+
+Limited-time Premium offer
+
+Cancel anytime
+
+Explore premium
+
+Sign Out
+
+Premium Member
+
+Hi
+,
+
+Keep exploring with your premium access.
+
+GO TO PREMIUM HUB
+
+Premium Tools
+
+Bench Database
+
+Exclusive Features
+
+Roadmaps
+
+Deep Analysis
+
+My Account
+
+Sign Out
+
+Become a member for free
+
+Join for quick access. Enter your email below and we'll send confirmation plus sign you up to our newsletter.
+
+Contact me with news and offers from other Future brands
+
+Sign Up
+
+By submitting your information, you confirm you are aged 16 or over,
+have read our
+Privacy Policy
+and agree to the
+Terms & Conditions. Geographical rules apply.
+
+Tom's Hardware
+
+US Edition
+
+UK
+
+US
+
+Australia
+
+Canada
+
+RSS
+
+Sign in
+
+View Profile
+
+Sign out
+
+Search
+
+Search Tom's Hardware
+
+Best Picks
+
+CPU Buying Advice
+
+CPU Best Picks
+
+CPU Reviews
+
+GPU Buying Advice
+
+GPU Best Picks
+
+GPU Reviews
+
+Laptop Buying Advice
+
+Laptop Best Picks
+
+Laptop Reviews
+
+More Buying Advice
+
+Keyboard Best Picks
+
+Gaming Monitor Best Picks
+
+Gaming Headset Best Picks
+
+3D Printer Best Picks
+
+Webcam Best Picks
+
+Mice Best Picks
+
+How We Test
+
+CPUs
+
+CPU Brands
+
+Nvidia RTX Spark
+
+AMD Ryzen
+
+Intel Core Ultra
+
+Qualcomm Snapdragon X
+
+Apple Silicon (M-Series)
+
+Platforms
+
+X86
+
+RISC-V
+
+ARM
+
+Zen 5
+
+AM5
+
+Oryon
+
+Chipmaking
+
+DUV
+
+EUV
+
+Rare Earth Metals
+
+Photonics
+
+GPUs
+
+GPU Brands
+
+Nvidia Blackwell
+
+Nvidia GeForce
+
+AMD Radeon
+
+Intel Arc
+
+Memory Tech
+
+GDDR7
+
+GDDR8
+
+HBM
+
+AI Architecture
+
+Nvidia Vera Rubin
+
+Meta MTIA
+
+Google TPU
+
+AMD Instinct
+
+Microsoft Maia
+
+Drivers
+
+PC Components
+
+Memory
+
+RAM
+
+DRAM
+
+DDR5
+
+Storage
+
+HDDs
+
+SSDs
+
+Cooling
+
+Air Cooling
+
+Liquid Cooling
+
+Thermal Paste
+
+Networking
+
+Routers
+
+Motherboards
+
+Overclocking
+
+PC Cases
+
+PC Building
+
+Power Supplies
+
+News
+
+Tech Industry News
+
+CPU News
+
+GPU News
+
+Chips Act
+
+Semiconductors
+
+Cybersecurity
+
+Supercomputers
+
+Quantum Computing
+
+Company News
+
+AMD
+
+Intel
+
+Nvidia
+
+Microsoft
+
+TSMC
+
+IBM
+
+ASML
+
+Newsletters
+
+Laptops
+
+Gaming Laptops
+
+Ultrabooks
+
+Processors
+
+Intel Lunar Lake
+
+Intel Panther Lake
+
+AMD Strix Point
+
+AMD Gorgon Point
+
+Qualcomm Snapdragon X
+
+Qualcomm Snapdragon X2
+
+Laptop Brands
+
+Apple
+
+Asus
+
+HP
+
+Lenovo
+
+Microsoft
+
+MSI
+
+Razer
+
+Desktops
+
+PC Building
+
+PC Cases
+
+Gaming PCs
+
+Monitors
+
+Gaming Monitors
+
+Peripherals
+
+Keyboards
+
+Mice
+
+3D Printers
+
+Headphones
+
+Desktop Brands
+
+Acer
+
+Alienware
+
+Corsair
+
+CyberPowerPC
+
+Gigabyte
+
+MSI
+
+Software & AI
+
+Artificial Intelligence
+
+Machine Learning
+
+R&D
+
+Intel Gaudi
+
+Cerebras
+
+xAI
+
+LLMs
+
+OpenAI
+
+Anthropic
+
+DeepSeek
+
+Gemini
+
+Grok
+
+Operating Systems
+
+Windows
+
+MacOS
+
+iOS
+
+ChromeOS
+
+Linux
+
+Software
+
+Programming
+
+Applications
+
+Microsoft Office
+
+Web Browsers
+
+Coupons
+
+Laptop and PC Coupons
+
+Dell Coupon Codes
+
+Asus Coupon Codes
+
+Logitech Promo Codes
+
+Samsung Promo codes
+
+Hardware Coupons
+
+Newegg Promo Codes
+
+Corsair Discount Codes
+
+Razer Promo Codes
+
+Anycubic Discount codes
+
+Software Coupons
+
+Bitdefender Coupons
+
+Simplisafe Coupons
+
+MacPaw Coupons
+
+Squarespace Coupon Codes
+
+Gaming Coupons
+
+Kinguin Discount Codes
+
+Loaded Discount Codes
+
+Logitech G Promo Codes
+
+SteelSeries Coupons
+
+More
+
+Premium
+
+Forums
+
+Home
+
+Best Picks
+
+View Best Picks
+
+CPU Buying Advice 
+
+CPU Best Picks
+
+CPU Reviews
+
+GPU Buying Advice 
+
+GPU Best Picks
+
+GPU Reviews
+
+Laptop Buying Advice 
+
+Laptop Best Picks
+
+Laptop Reviews
+
+More Buying Advice 
+
+Keyboard Best Picks
+
+Gaming Monitor Best Picks
+
+Gaming Headset Best Picks
+
+3D Printer Best Picks
+
+Webcam Best Picks
+
+Mice Best Picks
+
+How We Test
+
+CPUs
+
+View CPUs
+
+CPU Brands 
+
+Nvidia RTX Spark
+
+AMD Ryzen
+
+Intel Core Ultra
+
+Qualcomm Snapdragon X
+
+Apple Silicon (M-Series)
+
+Platforms 
+
+X86
+
+RISC-V
+
+ARM
+
+Zen 5
+
+AM5
+
+Oryon
+
+Chipmaking 
+
+View Chipmaking
+
+DUV
+
+EUV
+
+Rare Earth Metals
+
+Photonics
+
+GPUs
+
+View GPUs
+
+GPU Brands 
+
+Nvidia Blackwell
+
+Nvidia GeForce
+
+AMD Radeon
+
+Intel Arc
+
+Memory Tech 
+
+GDDR7
+
+GDDR8
+
+HBM
+
+AI Architecture 
+
+Nvidia Vera Rubin
+
+Meta MTIA
+
+Google TPU
+
+AMD Instinct
+
+Microsoft Maia
+
+Drivers
+
+PC Components
+
+View PC Components
+
+Memory 
+
+RAM
+
+DRAM
+
+DDR5
+
+Storage 
+
+View Storage
+
+HDDs
+
+SSDs
+
+Cooling 
+
+View Cooling
+
+Air Cooling
+
+Liquid Cooling
+
+Thermal Paste
+
+Networking 
+
+View Networking
+
+Routers
+
+Motherboards
+
+Overclocking
+
+PC Cases
+
+PC Building
+
+Power Supplies
+
+News
+
+View News
+
+Tech Industry News 
+
+View Tech Industry News
+
+CPU News
+
+GPU News
+
+Chips Act
+
+Semiconductors
+
+Cybersecurity
+
+Supercomputers
+
+Quantum Computing
+
+Company News 
+
+AMD
+
+Intel
+
+Nvidia
+
+Microsoft
+
+TSMC
+
+IBM
+
+ASML
+
+Newsletters
+
+Laptops
+
+View Laptops
+
+Gaming Laptops
+
+Ultrabooks
+
+Processors 
+
+Intel Lunar Lake
+
+Intel Panther Lake
+
+AMD Strix Point
+
+AMD Gorgon Point
+
+Qualcomm Snapdragon X
+
+Qualcomm Snapdragon X2
+
+Laptop Brands 
+
+Apple
+
+Asus
+
+HP
+
+Lenovo
+
+Microsoft
+
+MSI
+
+Razer
+
+Desktops
+
+View Desktops
+
+PC Building 
+
+View PC Building
+
+PC Cases
+
+Gaming PCs
+
+Monitors 
+
+View Monitors
+
+Gaming Monitors
+
+Peripherals 
+
+View Peripherals
+
+Keyboards
+
+Mice
+
+3D Printers
+
+Headphones
+
+Desktop Brands 
+
+Acer
+
+Alienware
+
+Corsair
+
+CyberPowerPC
+
+Gigabyte
+
+MSI
+
+Software & AI
+
+View Software & AI
+
+Artificial Intelligence 
+
+View Artificial Intelligence
+
+Machine Learning
+
+R&D
+
+Intel Gaudi
+
+Cerebras
+
+xAI
+
+LLMs 
+
+View LLMs
+
+OpenAI
+
+Anthropic
+
+DeepSeek
+
+Gemini
+
+Grok
+
+Operating Systems 
+
+View Operating Systems
+
+Windows
+
+MacOS
+
+iOS
+
+ChromeOS
+
+Linux
+
+Software 
+
+View Software
+
+Programming
+
+Applications
+
+Microsoft Office
+
+Web Browsers
+
+Coupons
+
+View Coupons
+
+Laptop and PC Coupons 
+
+View Laptop and PC Coupons
+
+Dell Coupon Codes
+
+Asus Coupon Codes
+
+Logitech Promo Codes
+
+Samsung Promo codes
+
+Hardware Coupons 
+
+View Hardware Coupons
+
+Newegg Promo Codes
+
+Corsair Discount Codes
+
+Razer Promo Codes
+
+Anycubic Discount codes
+
+Software Coupons 
+
+View Software Coupons
+
+Bitdefender Coupons
+
+Simplisafe Coupons
+
+MacPaw Coupons
+
+Squarespace Coupon Codes
+
+Gaming Coupons 
+
+View Gaming Coupons
+
+Kinguin Discount Codes
+
+Loaded Discount Codes
+
+Logitech G Promo Codes
+
+SteelSeries Coupons
+
+Premium
+
+Forums
+
+Stay On the Cutting Edge: Get the Tom's Hardware Newsletter
+
+Get Tom's Hardware's best news and in-depth reviews, straight to your inbox.
+
+Become a Member in Seconds
+
+ Unlock instant access to exclusive member features.
+
+Contact me with news and offers from other Future brands
+
+Receive email from us on behalf of our trusted partners or sponsors
+
+By submitting your information you agree to the Terms & Conditions and Privacy Policy and are aged 16 or over.
+
+You are now subscribed
+
+Your newsletter sign-up was successful
+
+Join the club
+
+Get full access to premium articles, exclusive features and a growing list of member rewards.
+Explore
+
+ An account already exists for this email address, please log in.
+
+Trending
+MacBook PROLED
+Nova Lake
+AI Data Centers
+RTX Spark Deals
+RAM Shortage
+TH App
+RAM Combo Deals
+Vera Rubin
+Tom's 30th Anniversary
+
+Tech Industry
+
+Artificial Intelligence
+
+Setting up OpenClaw isn’t as straightforward as the internet wants you to think – running local AI on humble hardware
+
+News
+
+By
+Sayem Ahmed 
+
+Published
+
+31 July 2026
+
+Lies, deceit, and HammerClaw.
+
+When you purchase through links on our site, we may earn an affiliate commission. Here’s how it works.
+
+ (Image credit: Tom's Hardware)
+
+Copy link
+
+Facebook
+
+X
+
+Whatsapp
+
+Reddit
+
+Pinterest
+
+Flipboard
+
+Email
+
+Share this article
+
+9
+
+Join the conversation
+
+Follow us
+
+Add us as a preferred source on Google
+
+Newsletter
+
+Subscribe to our newsletter
+
+Unless you’ve been living under a rock, OpenClaw has dominated headlines, both good and bad, for much of early 2026. Developed by Peter Steinberger, the tool is an engine that spins up an AI agent that can autonomously act on your behalf, going so far as having the ability to run files, browse the web, and much more. Using a system named “Skills,” you can even teach your AI assistant to perform new tasks, with more integrations popping up daily. But how useful is it for the average person? I took it upon myself to answer that question by using the relatively humble Beelink SER10 MAX mini PC, which comes pre-installed with OpenClaw, to find out.
+
+To kick things off, when setting up your OpenClaw installation, there’s a fairly large decision one has to make: Do you want to rely on Cloud resources and more powerful AI models, or run something locally? Beelink’s SER10 MAX ships with Qwen-3.5 9B, which is a relatively older and more outdated AI model. Since I want to keep things fairly simple, I opted for the local AI route first. To run larger models, you’ll need a lot of memory, so I first tweaked the humble Mini PC’s video memory up to 48GB, which should allow us to keep a larger, more complex model in memory. It also leaves us 16GB of system memory to play around with, which should be more than enough to run the terminal and ensure that everything else works as intended.
+Selecting the ideal local AI model
+Having 48GB of available video memory should allow us to run a fairly powerful AI model on the system. However, the downside of running a larger model is that token speeds are likely to be slightly lower than expected. However, for running the super-smart AI that does things for us locally, we want as much intelligence as we can get. For this exercise, I chose Google Gemma 4 31B (UD-Q8_K_XL), a near-lossless quantization, somewhat ambitiously, as I will learn shortly.
+
+Latest Videos FromTom's Hardware
+
+Watch full video here: 
+After downloading the model and running it in llama.cpp, we managed to attain 2.34 tok/s. On average, everyday queries took 116 tokens to generate, at 2.34 tok/s. That’s still too slow for fast everyday use. So, I took a deep breath and conceded that the humble Ryzen AI 9 HX 470 didn’t have fast enough memory or memory bandwidth to run such a large model at acceptable token speeds. Even if I had dropped the quantization to 4-bit, we’re still looking at the theoretical maximum of around 5 tok/s for that model in particular. If you had a faster machine with rapid RAM speeds, such as a Strix Halo system like the Framework Desktop, it might be more workable, but for a lower-end piece of silicon with relatively humble DDR5-5600 speeds, you’ll just have to accept a slightly more neutered model.
+
+So, I eventually conceded that the smaller Gemma 12B (Q4_K_M) was a much more sensible choice for a device of this caliber. After loading things up into llama.cpp, we managed to get a much more sensible 10.64 tok/s on a general knowledge query: “What is Tom’s Hardware?” Now that I have a little piece of talking electrified sand on my desk, it’s time to configure OpenClaw.
+
+ You may like
+
+ Benchmarking Qwen 3.8 27B on RTX 5090 and beyond 
+
+ Our first step at defining a CPU benchmark for agentic AI
+
+ This week on Tom's Hardware Premium: September 12, 2026
+
+Hatching HammerClaw
+
+(Image credit: OpenClaw)
+The device I am using, the Beelink SER10 MAX, comes with OpenClaw pre-installed. The only real dependency it has is llama.cpp, which we configured earlier while testing which AI model to use. Since the llama.cpp port is open, OpenClaw leverages that to talk to the AI model, with all of its additional fanciness included. The OpenClaw installer is fairly straightforward in getting things up and running, including setting up a Telegram channel to communicate with our AI model remotely and configuring a gateway, so we can configure things without relying on Ubuntu’s terminal commands.
+Within the installer, we start to define our new AI assistant: It asks what its name and identity are, some basic details about the user, as well as what principles it should uphold, in a very extravagant file named SOUL.md. Remember, our talking sand isn’t alive, so it’s all quite dramatic. Generating a SOUL.md file takes a while for our humble local AI model, which I’ve named HammerClaw. But can it do anything useful for me to justify its nascent AI existence? Right now, it’s taken five minutes to think about exactly what it is and what it’s doing.
+
+Stay On the Cutting Edge: Get the Tom's Hardware Newsletter
+
+Get Tom's Hardware's best news and in-depth reviews, straight to your inbox.Contact me with news and offers from other Future brandsReceive email from us on behalf of our trusted partners or sponsorsBy submitting your information you agree to the Terms & Conditions and Privacy Policy and are aged 16 or over.
+After a little while, our little HammerClaw “hatches,” asking what its purpose is, who I am, and how it should talk. Personally, I don’t like it when AI models are verbose, so it’s straight and to the point, and should never, ever lie to me. When AI models can scale to rather humble devices like this one, the smaller, less-intelligent models can be error-prone. With our little local AI agent alive and kicking, it’s time for it to automate a task for us; it couldn't be that difficult… right?
+Stumbling blocks
+HammerClaw quickly wakes up, and I offer it a task: to gather ten news articles from trusted outlets and different parts of the day, ensuring freshness, with a small digest of what’s happened. Since most of my work on Tom’s Hardware Premium is centered around chipmaking and data centers, I want it to focus on those topics. HammerClaw then quickly takes the task and starts working out how to pull it off. It’ll use its built-in cron tools and felo-search to pull stories from the internet.
+Now, here’s where things go bad for poor HammerClaw. It then begins to simulate the action, instead of actually performing it, despite saying that it had set up the cron jobs and skills required for the automated scheduling. Even worse, it hallucinated a list of links that went absolutely nowhere. After pointing the error out, it gets apologetic and investigates why things went wrong. As it turns out, some additional parts need to be configured, which it tried to do and failed once again. Agentic Tool use is now a specific benchmark, but when asking Gemma 4 12B to set up a multi-step task like this, it simply couldn’t manage with the conversational tone of my prompts.
+
+ What to read next
+
+ We tested the RTX Spark Superchip in Microsoft's Surface Laptop Ultra
+
+ ‘This is how AI should be used’ — OpenAI head of hardware breaks down the AI-assisted design of its Jalapeño ASIC
+
+ Firm rents four Nvidia H200s to test '80x cheaper' DeepSeek claim 
+
+Image 1 of 3
+
+(Image credit: OpenClaw)
+
+(Image credit: OpenClaw)
+
+(Image credit: OpenClaw)
+
+Image 1 of 3
+
+View Original
+
+Image 2 of 3
+
+View Original
+
+Image 3 of 3
+
+View Original
+
+It’s at this point that I asked HammerClaw to give itself a grade, to which it offered itself a B- on accuracy for hallucinating and making up news stories. Now, I don’t want to say that all OpenClaw AI agents would do this, as we are running a relatively light local model. I would expect that larger local models would be able to identify what they need to do much more efficiently due to having a significantly higher model parameter count. With that in mind, I wondered if another AI model could help HammerClaw along a little bit with this task. And so, I went onto my OpenRouter account and opened a chat with the big, beefy 2.8 Trillion Parameter Kimi K3.
+Kimi K3 saves the day 
+Comparing a cloud-based frontier model like Kimi K3 and Gemma 4 12B just isn’t fair. One takes up terabytes of RAM to run, while Gemma fits inside a Mini PC that lives on my desk.
+Instead of using Kimi K3 to run the AI itself, I tasked it with actually helping me set up the job that HammerClaw seemingly didn’t have the skills to pull off. This hybrid workflow – of using a local LLM in tandem with a more powerful one in the cloud- is a common setup for many AI enthusiasts. After about a dollar in tokens, it sent me a list of OpenClaw commands, skills, and instructions, after reading the current documentation for OpenClaw CLI to ensure it got everything right. It was flawless. I followed the instructions Kimi K3 gave me and entered them into an Ubuntu Terminal, where it successfully created a new skill for HammerClaw named ‘News-Intel,’ instructed me on how to enable the web-search functions, and set up the Cron jobs for the automated sends. Bearing in mind that I had never used OpenClaw before, it was all surprisingly smooth, even if our local model couldn’t do all of these tasks itself.
+
+(Image credit: OpenClaw)
+With everything set up, the buck is then passed back to our much humbler Gemma 4 12B model-powered HammerClaw to execute the rest – after all, this is supposed to be a test for how Local AI models function. I executed the command for a manual run while checking the operational logs, where it was successfully calling all of the tools, and thought, against all odds, HammerClaw might actually be able to do it. A few minutes later, I received a Telegram message. HammerClaw had managed to locally execute the task and send me a digest of ten news stories.
+
+(Image credit: OpenClaw)
+Of all of the things to automate, this is likely one of the simplest examples of how someone can use OpenClaw. While simple, it’ll also save me a bit of time every day staring at an RSS feed and looking for stories myself. But, it’s quite a distance away from the “speak, and it’ll do whatever you want it to!” promise that drew so many into a frenzy earlier this year.
+Is it worth it for the average person?
+If all you heard about OpenClaw is that it’s a magical AI agent that can do anything, as I’ve learned, it’s not quite the truth. Unless you’re well-versed in several elements, like understanding model choices and getting your head around what models perform well for tool-calling. Running a humble local setup might be fun, or interesting to tinker around with, but the true power for Local AI developers and tinkerers lies with the obvious: More power to run bigger, complex models, and more agents running tasks consecutively. In fact, we’ve taken a look at how these workflows can be used in practice with a mixture of Local and Cloud AI models for Tom’s Hardware Premium.
+The issue here is that for our local model, this simple task – of running and sending us 10 news stories- could not set itself up, and that’s using hardware that already costs north of $1,500. As our resident local AI expert and GPU guru Jeff Kampman has recently tested, for those serious about AI who want real power without relying on the cloud entirely, you might want to save up your pennies to run stronger, faster local models, either using dedicated GPU-accelerated setups, or dedicated boxes such as the DGX Spark, or a cluster of Dell Pro Max GB10s, both of which will cost you north of $5,000. You’d hope that the models capable of running on that hardware wouldn’t fumble the setup of a relatively simple Cron job.
+The real question is, will having a local AI inference box meaningfully change how you work, or the work you do, to pay for itself? For many, that’s the lingering question that many are asking themselves. For now, HammerClaw is sending me more articles every few hours, a task that can be performed by simple scripting. But the manual “sift” is being handled by an LLM. As neat as it is, I wouldn’t pay $1,500 for the privilege. Luckily, it’s not merely a box made for AI inference; there’s a whole computer attached.
+
+See all comments (9)
+
+Sayem Ahmed
+
+Social Links Navigation
+
+Subscription Editor
+
+Sayem Ahmed is the Subscription Editor at Tom's Hardware. He covers a broad range of deep dives into hardware, both new and old, including the CPUs, GPUs, and everything else that uses a semiconductor. He has worked as a professional tech journalist since 2015 and has written for Gamespot, IGN, and Dexerto.
+
+Read more
+
+ Artificial Intelligence
+
+ Benchmarking Qwen 3.8 27B on RTX 5090 and beyond 
+
+ Artificial Intelligence
+
+ Our first step at defining a CPU benchmark for agentic AI
+
+ Tech Industry
+
+ This week on Tom's Hardware Premium: September 12, 2026
+
+ Laptops
+
+ We tested the RTX Spark Superchip in Microsoft's Surface Laptop Ultra
+
+ ASICs
+
+ ‘This is how AI should be used’ — OpenAI head of hardware breaks down the AI-assisted design of its Jalapeño ASIC
+
+ Artificial Intelligence
+
+ Firm rents four Nvidia H200s to test '80x cheaper' DeepSeek claim 
+
+Latest in Artificial Intelligence
+
+ Artificial Intelligence
+
+ Lawyer builds private AI server with eight used Nvidia V100 GPUs 
+
+ Artificial Intelligence
+
+ Homelabber uses second-gen Optane memory sticks to run a 2.8-trillion-parameter AI model on CPU alone
+
+ Artificial Intelligence
+
+ Two Chinese companies cleared to buy banned Nvidia AI chips have empty offices and unknown addresses
+
+ Artificial Intelligence
+
+ US intelligence believes Jensen Huang had affair with Chinese spy in honeypot operation
+
+ Artificial Intelligence
+
+ Rogue AI tasked with renumbering pages accidentally deletes law professor's entire syllabus, one year of lecture notes
+
+ Artificial Intelligence
+
+ Tesla unveils AI accelerator roadmap, adopts new 'SI' branding in 'Super Intelligence' push
+
+Latest in News
+
+ Big Tech
+
+ Law firm files class-action lawsuit against Nvidia after CEO Jensen Huang confirms affair with alleged Chinese spy 
+
+ Cryptocurrency
+
+ Ethereum Foundation sued after firing employee over mandatory 'Source Seppuku' suicide pact 
+
+ Big Tech
+
+ Nvidia CEO Jensen Huang summoned to Congress over affair with alleged Chinese spy
+
+ Data Centers
+
+ Bizarre AI chip demo uses butter to highlight how new chip runs 40 degrees cooler than the competition
+
+ Data Centers
+
+ Anthropic skips six-year waitlist with massive $3.4 billion gas turbine generator deal
+
+ RAM
+
+ Spoof program monitors and emails your RAM usage to Sam Altman if under 90% utilization
+
+9 Comments
+
+Comment from the forums
+
+warezme
+
+Thanks for the realistic perspective.
+
+Reply
+
+Blastomonas
+
+I'm glad that it isn't just me that has issues with these supposedly easy things to setup..
+
+After being impressed by some home automation voice integration demo, I thought id give it ago. Was awful, didn't work anywhere near as well as claimed and took far too much effort for little reward.
+
+Besides help with coding and some casual conversation, what are ppl using these things for?
+
+Surely one wouldn't trust them to do anything important,.
+
+Reply
+
+wussupi83
+
+Blastomonas said:I'm glad that it isn't just me that has issues with these supposedly easy things to setup..
+
+After being impressed by some home automation voice integration demo, I thought id give it ago. Was awful, didn't work anywhere near as well as claimed and took far too much effort for little reward.
+
+Besides help with coding and some casual conversation, what are ppl using these things for?
+
+Surely one wouldn't trust them to do anything important,.
+
+It is kind of ironic. One would think an excellent use of AI would be to write clear and purposeful documentation of how to setup and use said AI. But instead it often feels like the wild west navigating the available documentation, hardware configurations and use cases.
+
+Reply
+
+CelicaGT
+
+Blastomonas said:I'm glad that it isn't just me that has issues with these supposedly easy things to setup..
+
+After being impressed by some home automation voice integration demo, I thought id give it ago. Was awful, didn't work anywhere near as well as claimed and took far too much effort for little reward.
+
+Besides help with coding and some casual conversation, what are ppl using these things for?
+
+Surely one wouldn't trust them to do anything important,.Pretty sure the adoption rates are vastly overstated. My experience with AI in the workplace at least is "faster and better results if I just do it myself". I haven't dabbled much at home with local models but I mean to eventually. I have enough RAM and GPU for some simple stuff I think. I have no idea what I'll do with it, but maybe I'll find something.
+
+Reply
+
+alrighty_then
+
+Agents are the future but just like any early tech I'm not surprised it's rough around the edges and going to take a while to mature. Some people think they can get rich if they get in early, like an early app developer in the Apple store, and some will but most will burn a lot of tokens before they realize it's not what they imagined...
+
+As for LLMs in general, they have come a long way. The days of hallucinations in frontier models are almost completely gone and the model I use at work is incredible. One story another team was facing was estimated at something like 10 weeks of effort, and one of the team leads coded a solution with AI *during the meeting about the work*...10 weeks of work developed in 30 minutes....damn. Might take a couple days to test thoroughly and polish but that is the kind of results the big wigs were hoping for when they shelled out for top AI. Some of the other devs that barely use AI were stunned. It just got real.
+
+In a world where agents match or exceed the hype I figure the client can meet most of their demands without any developer staff. Time will tell if that world materializes but that's the future where it SEEMS like many jobs will disappear...or at least change significantly.
+
+Reply
+
+Pierce2623
+
+CelicaGT said:Pretty sure the adoption rates are vastly overstated. My experience with AI in the workplace at least is "faster and better results if I just do it myself". I haven't dabbled much at home with local models but I mean to eventually. I have enough RAM and GPU for some simple stuff I think. I have no idea what I'll do with it, but maybe I'll find something.If you have a modern 16GB GPU, you can run that Gemma 12b model the author settles on a quite a bit faster than 10TPS.
+
+Reply
+
+derekullo
+
+$1500 AI PC !!!
+
+https://i.imgur.com/4KrZwL2.jpg
+
+With the not 0% chance that what is passed will not be butter !!!
+
+Reply
+
+derekullo
+
+I use LM Studio with my i9-12900k, 64 gigabytes of ram and a Geforce 3080Ti.
+
+Most of the work is handled on the CPU for the 12GB+ models due to vram.
+
+<masked-token> (26.13 gigabyte model)
+
+10.94 Tokens Per Second
+
+qwen3.6-27b-uncensored-hauhaucs-balanced (11.59 gigabyte model)
+
+7.89 Tokens Per Second 
+
+qwen2.5-72b-instruct-abliterated-h-novel (37.4 gigabyte model)
+
+1.09 Tokens Per Second
+
+Stories take a while but they are noticeably better and more detailed than smaller models!
+
+l3-70b-daybreak-abliterated-v0.4-i1@q4_k_s (37.58 gigabyte model)
+
+1.12 Tokens Per Second
+
+Same as big Qwen
+
+<masked-token> (26.13 gigabyte model)
+
+has been my favorite so far .... great quality and speed ... somehow !!!
+
+Reply
+
+ndneubauer2
+
+I find the smarter approach is to use an LLM for what it's good at, not necessarily bouncing requests around an entirely agentic stack. 
+
+Use an LLM for summarising or research, but make this part of a deterministic workflow system. 
+
+Personally, I like Kestra for this, but there are literally dozens of harnesses out there that will make the AI behave as it should and result in an outcome that is reliable and predictable.
+
+Reply
+
+View All 9 Comments
+
+Show more comments 
+
+Tom's Hardware is part of Future US Inc, an international media group and leading digital publisher. Visit our corporate site.
+
+Add as a preferred source on Google
+
+Terms and conditions
+
+Contact Future's experts
+
+Privacy policy
+
+Cookies policy
+
+Accessibility Statement
+
+Advertise with us
+
+About us
+
+Coupons
+
+Careers
+
+©
+Future US, Inc. Full 7th Floor, 130 West 42nd Street,
+New York,
+NY 10036.

@@ -1,0 +1,123 @@
+Simulate Pod Faults | Chaos Mesh 
+ Skip to main content 
+ Chaos Mesh Documentation Blog Community Group Contact Us 
+ 2.8.8 Next 2.8.8 2.7.3 2.6.7 All Versions Supported Releases 
+ English English 简体中文 
+ Search 
+ Chaos Mesh About Chaos Mesh 
+ Getting Started 
+ Installation and Deployment 
+ Quick Start (Deprecated) Install Chaos Mesh using Helm Install Chaos Mesh Offline Uninstall Chaos Mesh Supported Releases Why Chaos Daemon Runs in Privileged Mode Manage User Permissions Configure namespace for Chaos experiments Remote Cluster Management Run Chaos Experiments 
+ Orchestrate Multiple Chaos Experiments 
+ Chaos Dashboard 
+ Types of Chaos Experiments 
+ Kubernetes 
+ Simulate Pod Faults Simulate Network Faults Simulate Stress Scenarios Simulate File I/O Faults Simulate DNS Faults Simulate Time Faults Simulate JVM Application Faults Simulate Linux Kernel Faults Simulate AWS Faults Simulate Azure Faults Simulate GCP Faults Simulate HTTP Faults Simulate Block Device Incidents Physical Nodes 
+ Authentication 
+ Tools Integration 
+ Development Guides 
+ FAQs and Troubleshooting 
+ Release 
+ Types of Chaos Experiments Kubernetes Simulate Pod Faults Version: 2.8.8 On this page 
+ Simulate Pod Faults
+ This document describes how to use Chaos Mesh to inject faults into Kubernetes Pods to simulate Pod or container faults. Chaos Dashboard and YAML files are provided to create PodChaos experiments.
+ PodChaos introduction ​ 
+ PodChaos is a fault type in Chaos Mesh. By creating a PodChaos experiment, you can simulate fault scenarios of the specified Pods or containers. Currently, PodChaos supports the following fault types:
+ Pod Failure : injects fault into a specified Pod to make the Pod unavailable for a period of time.
+ Pod Kill : kills a specified Pod. To ensure that the Pod can be successfully restarted, you need to configure ReplicaSet or similar mechanisms.
+ Container Kill : kills the specified container in the target Pod.
+ Usage restrictions ​ 
+ Chaos Mesh can inject PodChaos into any Pod, no matter whether the Pod is bound to Deployment, StatefulSet, DaemonSet, or other controllers. However, when you inject PodChaos into an independent Pod, some different situations might occur. For example, when you inject "pod-kill" chaos into an independent Pod, Chaos Mesh cannot guarantee that the application recovers from its failure.
+ Notes ​ 
+ Before creating PodChaos experiments, ensure the following:
+ There is no Control Manager of Chaos Mesh running on the target Pod.
+ If the fault type is Pod Kill, ReplicaSet or a similar mechanism is configured to ensure that Pod can restart automatically.
+ Create Experiments Using Chaos Dashboard ​ 
+ info
+ Before create experiments using Chaos Dashboard, ensure the following: 
+ Chaos Dashboard is installed.
+ If Chaos Dashboard is already installed, you can run kubectl port-forward to access Chaos Dashboard: kubectl port-forward -n chaos-mesh svc/chaos-dashboard 2333:2333 . Then you can enter http://localhost:2333 to access Chaos Dashboard.
+ Open Chaos Dashboard, and click NEW EXPERIMENT on the page to create a new experiment.
+ Create a New Experiment 
+ In the Choose a Target area, choose POD FAULT and select a specific behavior, such as POD FAILURE .
+ Fill out the experiment information, and specify the experiment scope and the scheduled experiment duration.
+ Submit the experiment information.
+ Create experiments using YAML configuration files ​ 
+ pod-failure example ​ 
+ Write the experiment configuration to the pod-failure.yaml file:
+ apiVersion : chaos - mesh.org/v1alpha1 
+ kind : PodChaos 
+ metadata : 
+ name : pod - failure - example 
+ namespace : chaos - mesh 
+ spec : 
+ action : pod - failure 
+ mode : one 
+ duration : '30s' 
+ selector : 
+ labelSelectors : 
+ 'app.kubernetes.io/component' : 'tikv' 
+ Based on this example, Chaos Mesh injects pod-failure into the specified Pod and makes the Pod unavailable for 30 seconds.
+ To keep the fault active until you pause or delete the experiment, omit spec.duration and create the PodChaos directly.
+ After the configuration file is prepared, use kubectl to create an experiment:
+ kubectl apply -f ./pod-failure.yaml 
+ pod-kill example ​ 
+ Write the experiment configuration to the pod-kill.yaml file:
+ apiVersion : chaos - mesh.org/v1alpha1 
+ kind : PodChaos 
+ metadata : 
+ name : pod - kill - example 
+ namespace : chaos - mesh 
+ spec : 
+ action : pod - kill 
+ mode : one 
+ selector : 
+ namespaces : 
+ - tidb - cluster - demo 
+ labelSelectors : 
+ 'app.kubernetes.io/component' : 'tikv' 
+ Based on this example, Chaos Mesh injects pod-kill into the specified Pod and kills the Pod once.
+ After the configuration file is prepared, use kubectl to create an experiment:
+ kubectl apply -f ./pod-kill.yaml 
+ container-kill example ​ 
+ Write the experiment configuration to the container-kill.yaml file:
+ apiVersion : chaos - mesh.org/v1alpha1 
+ kind : PodChaos 
+ metadata : 
+ name : container - kill - example 
+ namespace : chaos - mesh 
+ spec : 
+ action : container - kill 
+ mode : one 
+ containerNames : [ 'prometheus' ] 
+ selector : 
+ labelSelectors : 
+ 'app.kubernetes.io/component' : 'monitor' 
+ Based on this example, Chaos Mesh injects container-kill into the specified container and kills the container once.
+ After the configuration file is prepared, use kubectl to create an experiment:
+ kubectl apply -f ./container-kill.yaml 
+ Field description ​ 
+ The following table describes the fields in the YAML configuration file.
+ Parameter Type Description Default value Required Example action string Specifies the fault type to inject. The supported types include pod-failure , pod-kill , and container-kill . None Yes pod-kill mode string Specifies the mode of the experiment. The mode options include one (selecting a random Pod), all (selecting all eligible Pods), fixed (selecting a specified number of eligible Pods), fixed-percent (selecting a specified percentage of Pods from the eligible Pods), and random-max-percent (selecting the maximum percentage of Pods from the eligible Pods). None Yes one value string Provides parameters for the mode configuration, depending on mode . For example, when mode is set to fixed-percent , value specifies the percentage of Pods. None No 1 selector struct Specifies the target Pod. For details, refer to Define the experiment scope . None Yes containerNames []string When you configure action to container-kill , this configuration is mandatory to specify the target container name for injecting faults. None No ['prometheus'] gracePeriod int64 When you configure action to pod-kill , you can specify the grace period before the Pod is deleted. 0 No 0 duration string Sets the time limit for a pod-failure experiment. None No 30s 
+ Notes on the "Pod Failure" Chaos Experiment ​ 
+ TL;DR: There are several suggestions for using "Pod Failure" chaos experiment:
+ Change to an available "pause image" if you are operating an air-gapped Kubernetes cluster.
+ Set up livenessProbe and readinessProbe for containers.
+ The "Pod Failure" Chaos experiment changes the image of each container in the target Pod to the "pause image", a special image that does not perform any operations. We use gcr.io/google-containers/pause:latest as the default "pause image", and you can change it to any other image in helm values controllerManager.podChaos.podFailure.pauseImage .
+ Downloading the "pause image" consumes time, and that duration is counted into the experiment duration. You might find that the "actual effective duration" is shorter than the configured duration. That is another reason why it is recommended to set up an available "pause image".
+ Another ambiguous point is that the "pause image" works "properly well" in containers without a configured command . If a container is created without command , livenessProbe , and readinessProbe , it is inspected as Running and Ready even after it has been changed to the "pause image", even though it no longer provides normal functionality. Therefore, it is recommended to set up livenessProbe and readinessProbe for containers.
+ Edit this page 
+ Previous
+ Persist Chaos Dashboard Data
+ Next
+ Simulate Network Faults
+ PodChaos introduction Usage restrictions Notes Create Experiments Using Chaos Dashboard Create experiments using YAML configuration files pod-failure example pod-kill example container-kill example Field description Notes on the "Pod Failure" Chaos Experiment 
+ Documentation
+ Installation using Helm Run a Chaos Experiment Developer Guide Overview FAQs 
+ Community
+ Blog CNCF Community Group GitHub Slack (#project-chaos-mesh) Twitter 
+ Acknowledgements
+ Technology illustrations by Storyset 
+ Copyright © Chaos Mesh Authors 2026 | Documentation Distributed under CC-BY-4.0
+ © 2026 The Linux Foundation. All rights reserved. The Linux Foundation has registered trademarks and uses trademarks. For a list of trademarks of The Linux Foundation, please see our Trademark Usage page.
+ Schedule a Meeting

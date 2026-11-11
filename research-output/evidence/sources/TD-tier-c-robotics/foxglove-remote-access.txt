@@ -1,0 +1,193 @@
+Source: https://docs.foxglove.dev/docs/fleet/remote-access
+Accessed: 2026-11-11
+
+Remote Access | Foxglove Docs
+
+Skip to main content
+
+DocumentationSDKAPIChangelog
+Back to Foxglove
+
+Search
+
+Getting started
+Overview
+Getting started guide
+Python
+C++
+Rust
+
+Frameworks
+Open a file
+Explore examples
+
+Hardware
+
+Robots
+
+Custom Data
+
+Agents & MCP
+Overview
+Agent sidebar
+MCP server
+Slack
+
+Visualization
+Overview
+
+Connecting to data
+Playback
+Comparison mode
+Layouts
+
+Panels
+Variables
+User Scripts
+FoxQL
+Shareable links
+Video export
+Open via CLI
+Annotate ROS enum fields
+Controls and shortcuts
+Migrate from other tools
+
+Data Platform
+Overview
+Importing data
+Exporting data
+Devices
+Recordings
+Sessions
+Events
+
+Search
+
+Primary Sites
+
+Edge Sites
+
+Fleet
+Overview
+Device Tokens
+
+Foxlet
+Bridge
+Remote Access
+
+Integration
+
+Extensions
+
+Webhooks
+
+Embedding Foxglove
+
+Jupyter notebook
+
+Grafana
+CLI
+OAuth
+Personal access tokens
+Release feeds
+
+Administration
+Settings
+Audit logs
+Pricing
+Standalone License
+Projects
+Roles
+Seat types
+SSO
+
+Fleet
+Remote Access
+On this page
+
+Remote Access
+Remote access lets members of your organization visualize and teleoperate devices through the Foxglove platform. A gateway running on the device authenticates with a device token and connects out to Foxglove, so the device is reachable even when it's behind a firewall or on cellular. This page covers how to set up remote access on a device in your fleet.
+
+Built on WebRTC, remote access is designed for real-world networks:
+
+NAT traversal. The Foxglove platform provides STUN and TURN relays, so the device doesn't need inbound ports or a public IP.
+
+Efficient fan-out. The gateway uploads each stream at most once to a Foxglove-managed SFU (Selective Forwarding Unit), which multicasts to every connected client.
+
+Low-latency delivery. Messages flow over lossy data channels by default to minimize latency on unreliable networks. Topics that need guaranteed delivery (like static transforms) can opt into reliable delivery.
+
+Adaptive-bitrate video. Image data is transcoded into a video track whose quality adapts to available bandwidth on both legs of the connection (device to SFU, SFU to client).
+
+Compressed point clouds. Point-cloud messages are compressed with Draco before delivery, with a per-topic opt-out.
+
+Setting up a gateway​
+
+There are two ways to run a remote access gateway on a device.
+
+Use the Foxglove SDK when you want full control over which data is published, or when working with a custom (non-ROS) robotics stack.
+
+Use the Foxglove Bridge for a quick setup with an existing ROS stack. See the bridge's remote access configuration for setup instructions.
+
+Connecting to a device​
+
+Once a gateway is running, the device appears on the Devices page, where any organization member with access to it can click Connect to open it for live visualization and teleoperation.
+
+Best practices​
+
+Publish images as image topics​
+
+Publish your camera data using raw or compressed image topics. The SDK and Foxglove Bridge automatically transcode these into a WebRTC video track, which is the most efficient way to move image data over remote access: encoding the stream as video lets WebRTC apply adaptive-bitrate streaming, scaling quality up or down to match the available bandwidth on each leg of the connection.
+
+The supported image encodings are the same raw and compressed image encodings listed for the Image panel, with two exceptions: avif compressed images are not transcoded, and compressed video is not transcoded.
+
+Depth images​
+
+Depth images encode distance in their pixel values, which lossy video transcoding would corrupt. Deliver these channels as data instead.
+
+The ROS 2 Foxglove Bridge does this automatically for ROS topics that end in /compressedDepth, the conventional topic suffix used by compressed_depth_image_transport. For other topics that have depth images, add a matching regex to the bridge's video_transcode_topic_denylist. The ROS 1 bridge does not currently support opting topics out of video transcoding.
+
+If you are using the Foxglove SDK, suppress video transcoding for the channel on the gateway.
+
+Point clouds​
+
+Point-cloud channels are compressed with Draco by default before delivery, and advertised with the foxglove.CompressedPointCloud schema. This keeps clouds small enough to transmit reliably over lossy networks. The delivered cloud is not identical to the original: positions are quantized (to 12 bits by default), points may be reordered, and float64 fields are narrowed to float32. Per-point fields that a remote viewer doesn't use are also dropped: per-point timestamps, ranges and angles that are recomputable from the positions, and per-point indices (see the point_cloud_compression API documentation for the exact list). Points containing NaN or infinite values — commonly used to pad invalid returns — are removed, and packed rgb/rgba color fields declared float32 are delivered as uint32, preserving the colors exactly.
+
+Topics that opt into reliable delivery skip compression automatically and always deliver the original cloud.
+
+Compression runs in a background task on the device. If it cannot keep up with the incoming clouds, the oldest waiting cloud is dropped so viewers receive the freshest data; a cloud that cannot be compressed at all (for example, one without x/y/z positions) is dropped with a warning surfaced to viewers.
+
+If a topic's exact values, fields, or point order must be preserved, opt it out of compression: use the SDK gateway's per-channel policy, or the ROS 2 bridge's point_cloud_compression_topic_denylist parameter (bridge configuration). An uncompressed point cloud is subject to the message-size limits described below.
+
+Keep messages small​
+
+By default, messages are delivered over a lossy data channel: effectively UDP without retransmission. A message larger than 1300 bytes is split into multiple fragments, and every fragment must arrive for the client to receive the message. The probability of successful delivery is roughly (1 - loss)^fragments, so it falls off exponentially with both the network loss rate and the number of 1300-byte fragments per message. In practice, large messages will not transmit reliably over a lossy network.
+
+Keep individual messages small so they fit in as few fragments as possible. For image data, prefer image topics (see above) so the gateway can stream it as video rather than as large messages.
+
+Authentication​
+
+Foxglove brokers every connection, so the device and client never connect directly. The gateway authenticates with a device token, and clients connect through their Foxglove session. Only organization members with access to the device's Project can connect.
+
+Encryption​
+
+All traffic is encrypted in transit: signaling uses TLS over WebSocket, media uses SRTP over WebRTC, and data channels use SCTP over DTLS. Streams are not end-to-end encrypted, which means the Foxglove-managed SFU that fans out each stream can see the data it forwards.
+Previous
+Bridge
+Next
+Extensions
+Need help? Contact support.
+Chat with the community on Discord.
+See the changelog.
+Interested in buying? See pricing.
+Read the latest on the Foxglove blog.
+LLM? Read llms.txt.
+
+Setting up a gateway
+Connecting to a device
+Best practices
+Publish images as image topics
+Depth images
+Point clouds
+Keep messages small
+Authentication
+Encryption

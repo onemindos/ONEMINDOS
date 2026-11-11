@@ -1,0 +1,921 @@
+Source: https://canonical.com/microk8s/docs/upgrading
+Fetched 2026-11-11 (HTML stripped to text)
+
+
+ Upgrading MicroK8s | Canonical 
+ it injects into
+ its shadow DOM is allowed by our nonce-based style-src directive.
+ Must run before the deferred lite-youtube module upgrades the
+ element.
+ -->
+ Skip to main content 
+ Your submission was sent successfully! Close 
+ Thank you for signing up for our newsletter!
+ In these regular emails you will find the latest updates from Canonical and upcoming events where you can meet our team. Close 
+ Thank you for contacting us. A member of our team will be in touch shortly. Close 
+ An error occurred while submitting your form.
+ Please try again or
+ file a bug report .
+ Close 
+ Canonical 
+ Menu 
+ Products 
+ Back 
+ Featured 
+ Back 
+ Ubuntu Desktop 
+ Fast, modern and secure Linux 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ MAAS 
+ Bare metal provisioning 
+ Snapcraft 
+ App store for Linux 
+ OpenStack 
+ Private cloud provisioning 
+ MicroCloud 
+ Lightweight, automated clouds 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Enterprise-grade support 
+ 24/7 support for the full-stack 
+ Livepatch 
+ Stay patched and defer reboots 
+ Kubernetes 
+ Containerized workloads 
+ MLOps 
+ Scalable machine learning solutions 
+ Juju 
+ Orchestration engine for operators 
+ Hardware support 
+ Ubuntu hardware you can trust 
+ Canonical Academy 
+ Real-world, industry relevant exams. 
+ Ubuntu OS 
+ Back 
+ Ubuntu Desktop 
+ Fast, modern and secure Linux 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Ubuntu Core 
+ Embedded Linux 
+ FIPS for Ubuntu 
+ Secure Linux for government 
+ WSL 
+ Windows Subsystem for Linux 
+ Multipass 
+ VMs for Windows, macOS & Linux 
+ Quick links 
+ Upgrade Ubuntu 
+ Ubuntu documentation 
+ Desktop install 
+ Server install 
+ Server guide 
+ Ubuntu on public clouds 
+ Private cloud 
+ Back 
+ OpenStack 
+ Enterprise private cloud 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ Landscape 
+ Monitor and manage machines 
+ MAAS 
+ Bare metal provisioning 
+ Ceph 
+ Open source software defined storage 
+ Juju 
+ Orchestrator engine for operators 
+ Private cloud build 
+ OpenStack implementation 
+ MicroStack 
+ Cloud-native OpenStack 
+ MicroCloud 
+ Lightweight, automated clouds 
+ Observability 
+ Open source observability 
+ Quick links 
+ Server documentation 
+ MAAS documentation 
+ MicroStack installation 
+ Data Centre Networking blog 
+ OpenStack pricing 
+ Private cloud consulting 
+ Private cloud: Avoiding the high cost of operations 
+ Public cloud 
+ Back 
+ Ubuntu on public clouds 
+ The most popular cloud OS 
+ Ubuntu on AWS 
+ AWS Marketplace 
+ Ubuntu on Azure 
+ Microsoft Azure Marketplace 
+ Ubuntu on GCP 
+ Google Cloud Marketplace 
+ Ubuntu WorkSpaces 
+ Virtual desktops on AWS 
+ Virtualization 
+ Back 
+ Multipass 
+ VMs for Windows, macOS & Linux 
+ LXD 
+ Linux containers and VMs 
+ WSL 
+ Windows Subsystem for Linux 
+ Anbox Cloud 
+ Run Android at scale in the cloud 
+ Quick links 
+ What is virtualization? 
+ Multipass documentation 
+ Virtualization docs in the server guide 
+ What is WSL? 
+ Install Ubuntu on Windows 11 
+ Install Ubuntu on Windows 10 
+ Security and support 
+ Back 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Ubuntu Pro for Devices 
+ Security & compliance subscription for IoT 
+ Ubuntu Pro + support 
+ 24/7 support for the full-stack 
+ ESM 
+ 10 years of security maintenance 
+ Landscape 
+ Monitor and manage machines 
+ Livepatch 
+ Stay patched without reboots 
+ Ubuntu Pro for AWS 
+ Amazon Web Services support 
+ Ubuntu Pro for Azure 
+ Microsoft Azure cloud support 
+ Ubuntu Pro for GCP 
+ Google Cloud support 
+ Certifications and hardening 
+ CIS, DISA-STIG, FIPS compliance 
+ Confidential computing 
+ Protect your data in use 
+ Firefighting support 
+ Enhanced support coverage 
+ Quick links 
+ Ubuntu Pro pricing 
+ Open infrastructure consulting 
+ Certified hardware 
+ CVE reports 
+ Ubuntu Security Notices (USN) 
+ Ubuntu Pro free trial 
+ Get Ubuntu Pro now 
+ Kubernetes 
+ Back 
+ Kubernetes 
+ Containerized workloads 
+ MicroK8s 
+ Simplest way to get Kubernetes 
+ Charmed Kubernetes 
+ Composable K8s for the enterprise 
+ Kubeflow 
+ Machine learning toolkit for K8s 
+ Quick links 
+ Kubernetes documentation 
+ Getting started with Kubernetes 
+ Distributions comparison 
+ Getting started with MicroK8s 
+ Kubeflow installation tutorial 
+ AI and data 
+ Back 
+ AI/ML 
+ AI and machine learning on Ubuntu 
+ Data solutions 
+ Enterprise data management at scale 
+ Cloud marketplace 
+ Managed solutions on public clouds 
+ Kubeflow 
+ End-to-end MLOps platform 
+ MLflow 
+ Lightweight ML platform 
+ Kafka 
+ Streaming data platform 
+ Spark 
+ Big data processing 
+ MongoDB 
+ NoSQL database management 
+ PostgreSQL 
+ Relational database management 
+ MySQL 
+ Relational database management 
+ OpenSearch 
+ Search and analytics suite 
+ Cassandra 
+ Distributed NoSQL database 
+ Quick links 
+ Kubeflow documentation 
+ MLflow documentation 
+ MLOps toolkit 
+ Guide to big data and AI 
+ Certified hardware 
+ Back 
+ Certified hardware 
+ Ubuntu hardware you can trust 
+ PC and laptops 
+ Certified for Ubuntu 
+ Servers 
+ Hardware for data centers 
+ IoT devices 
+ Stable and secure devices 
+ SoCs 
+ System on a Chip hardware 
+ Raspberry Pi 
+ Certified Pi devices 
+ Quick links 
+ Why use Certified devices? 
+ Certify your device 
+ Why certification matters for AIoT 
+ Industrial Pi use cases webinar 
+ Why buy a preinstalled workstation? 
+ IoT and edge 
+ Back 
+ Ubuntu Core 
+ Embedded Linux 
+ IoT App Store 
+ Private app store for Linux and IoT 
+ Device management 
+ Manage fleets of IoT devices 
+ Cyber Resilience Act 
+ Prepare for the CRA 
+ Certified devices 
+ Hardware/OS compatibility 
+ Ubuntu Frame 
+ Embedded graphical displays 
+ Ubuntu Pro for Devices 
+ Security & compliance subscription for IoT 
+ ROS ESM 
+ Expanded security for robots 
+ Real-time Ubuntu 
+ Low-latency kernel 
+ IoT Professional Services 
+ Bring IoT devices to market 
+ Kernel 
+ Ubuntu kernel on certified hardware 
+ Zephyr LTS 
+ RTOS for MCU-class devices 
+ Quick links 
+ Guide to IoT lifecycle management 
+ Canonical joins the CSA 
+ Pick the OS for your robots 
+ Embedded Linux: make or buy? 
+ Try Ubuntu Core on Raspberry Pi 
+ Industry 4.0 webinar 
+ Developer tools 
+ Back 
+ Snaps 
+ Containerized applications for Linux 
+ Snapcraft 
+ Build and publish your snaps 
+ Snap Store 
+ App store for Linux 
+ Chiseled Ubuntu 
+ Ultra-small containerization 
+ Juju 
+ Orchestrator engine for operators 
+ Charmhub 
+ Software operators collection 
+ JAAS 
+ Auditing and compliance for Juju 
+ Mir 
+ Display server library 
+ Workshop 
+ Sandboxed developer workspaces 
+ Enterprise Store 
+ Proxy for software management 
+ Launchpad 
+ Host and publish software 
+ Quick links 
+ Snap documentation 
+ Create your first snap 
+ Juju documentation 
+ Getting started with Juju 
+ Write your first charm 
+ Featured 
+ Ubuntu OS 
+ Private cloud 
+ Public cloud 
+ Virtualization 
+ Security and support 
+ Kubernetes 
+ AI and data 
+ Certified hardware 
+ IoT and edge 
+ Developer tools 
+ Ubuntu Desktop 
+ Fast, modern and secure Linux 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ MAAS 
+ Bare metal provisioning 
+ Snapcraft 
+ App store for Linux 
+ OpenStack 
+ Private cloud provisioning 
+ MicroCloud 
+ Lightweight, automated clouds 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Enterprise-grade support 
+ 24/7 support for the full-stack 
+ Livepatch 
+ Stay patched and defer reboots 
+ Kubernetes 
+ Containerized workloads 
+ MLOps 
+ Scalable machine learning solutions 
+ Juju 
+ Orchestration engine for operators 
+ Hardware support 
+ Ubuntu hardware you can trust 
+ Canonical Academy 
+ Real-world, industry relevant exams. 
+ We're here to help with any questions and more information. 
+ Contact us 
+ Ubuntu Desktop 
+ Fast, modern and secure Linux 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Ubuntu Core 
+ Embedded Linux 
+ FIPS for Ubuntu 
+ Secure Linux for government 
+ WSL 
+ Windows Subsystem for Linux 
+ Multipass 
+ VMs for Windows, macOS & Linux 
+ Quick links 
+ Upgrade Ubuntu 
+ Ubuntu documentation 
+ Desktop install 
+ Server install 
+ Server guide 
+ Ubuntu on public clouds 
+ OpenStack 
+ Enterprise private cloud 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ Landscape 
+ Monitor and manage machines 
+ MAAS 
+ Bare metal provisioning 
+ Ceph 
+ Open source software defined storage 
+ Juju 
+ Orchestrator engine for operators 
+ Private cloud build 
+ OpenStack implementation 
+ MicroStack 
+ Cloud-native OpenStack 
+ MicroCloud 
+ Lightweight, automated clouds 
+ Observability 
+ Open source observability 
+ Quick links 
+ Server documentation 
+ MAAS documentation 
+ MicroStack installation 
+ Data Centre Networking blog 
+ OpenStack pricing 
+ Private cloud consulting 
+ Private cloud: Avoiding the high cost of operations 
+ Ubuntu on public clouds 
+ The most popular cloud OS 
+ Ubuntu on AWS 
+ AWS Marketplace 
+ Ubuntu on Azure 
+ Microsoft Azure Marketplace 
+ Ubuntu on GCP 
+ Google Cloud Marketplace 
+ Ubuntu WorkSpaces 
+ Virtual desktops on AWS 
+ Multipass 
+ VMs for Windows, macOS & Linux 
+ LXD 
+ Linux containers and VMs 
+ WSL 
+ Windows Subsystem for Linux 
+ Anbox Cloud 
+ Run Android at scale in the cloud 
+ Quick links 
+ What is virtualization? 
+ Multipass documentation 
+ Virtualization docs in the server guide 
+ What is WSL? 
+ Install Ubuntu on Windows 11 
+ Install Ubuntu on Windows 10 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Ubuntu Pro for Devices 
+ Security & compliance subscription for IoT 
+ Ubuntu Pro + support 
+ 24/7 support for the full-stack 
+ ESM 
+ 10 years of security maintenance 
+ Landscape 
+ Monitor and manage machines 
+ Livepatch 
+ Stay patched without reboots 
+ Ubuntu Pro for AWS 
+ Amazon Web Services support 
+ Ubuntu Pro for Azure 
+ Microsoft Azure cloud support 
+ Ubuntu Pro for GCP 
+ Google Cloud support 
+ Certifications and hardening 
+ CIS, DISA-STIG, FIPS compliance 
+ Confidential computing 
+ Protect your data in use 
+ Firefighting support 
+ Enhanced support coverage 
+ Quick links 
+ Ubuntu Pro pricing 
+ Open infrastructure consulting 
+ Certified hardware 
+ CVE reports 
+ Ubuntu Security Notices (USN) 
+ Ubuntu Pro free trial 
+ Get Ubuntu Pro now 
+ Kubernetes 
+ Containerized workloads 
+ MicroK8s 
+ Simplest way to get Kubernetes 
+ Charmed Kubernetes 
+ Composable K8s for the enterprise 
+ Kubeflow 
+ Machine learning toolkit for K8s 
+ Quick links 
+ Kubernetes documentation 
+ Getting started with Kubernetes 
+ Distributions comparison 
+ Getting started with MicroK8s 
+ Kubeflow installation tutorial 
+ AI/ML 
+ AI and machine learning on Ubuntu 
+ Data solutions 
+ Enterprise data management at scale 
+ Cloud marketplace 
+ Managed solutions on public clouds 
+ Kubeflow 
+ End-to-end MLOps platform 
+ MLflow 
+ Lightweight ML platform 
+ Kafka 
+ Streaming data platform 
+ Spark 
+ Big data processing 
+ MongoDB 
+ NoSQL database management 
+ PostgreSQL 
+ Relational database management 
+ MySQL 
+ Relational database management 
+ OpenSearch 
+ Search and analytics suite 
+ Cassandra 
+ Distributed NoSQL database 
+ Quick links 
+ Kubeflow documentation 
+ MLflow documentation 
+ MLOps toolkit 
+ Guide to big data and AI 
+ Certified hardware 
+ Ubuntu hardware you can trust 
+ PC and laptops 
+ Certified for Ubuntu 
+ Servers 
+ Hardware for data centers 
+ IoT devices 
+ Stable and secure devices 
+ SoCs 
+ System on a Chip hardware 
+ Raspberry Pi 
+ Certified Pi devices 
+ Quick links 
+ Why use Certified devices? 
+ Certify your device 
+ Why certification matters for AIoT 
+ Industrial Pi use cases webinar 
+ Why buy a preinstalled workstation? 
+ Ubuntu Core 
+ Embedded Linux 
+ IoT App Store 
+ Private app store for Linux and IoT 
+ Device management 
+ Manage fleets of IoT devices 
+ Cyber Resilience Act 
+ Prepare for the CRA 
+ Certified devices 
+ Hardware/OS compatibility 
+ Ubuntu Frame 
+ Embedded graphical displays 
+ Ubuntu Pro for Devices 
+ Security & compliance subscription for IoT 
+ ROS ESM 
+ Expanded security for robots 
+ Real-time Ubuntu 
+ Low-latency kernel 
+ IoT Professional Services 
+ Bring IoT devices to market 
+ Kernel 
+ Ubuntu kernel on certified hardware 
+ Zephyr LTS 
+ RTOS for MCU-class devices 
+ Quick links 
+ Guide to IoT lifecycle management 
+ Canonical joins the CSA 
+ Pick the OS for your robots 
+ Embedded Linux: make or buy? 
+ Try Ubuntu Core on Raspberry Pi 
+ Industry 4.0 webinar 
+ Snaps 
+ Containerized applications for Linux 
+ Snapcraft 
+ Build and publish your snaps 
+ Snap Store 
+ App store for Linux 
+ Chiseled Ubuntu 
+ Ultra-small containerization 
+ Juju 
+ Orchestrator engine for operators 
+ Charmhub 
+ Software operators collection 
+ JAAS 
+ Auditing and compliance for Juju 
+ Mir 
+ Display server library 
+ Workshop 
+ Sandboxed developer workspaces 
+ Enterprise Store 
+ Proxy for software management 
+ Launchpad 
+ Host and publish software 
+ Quick links 
+ Snap documentation 
+ Create your first snap 
+ Juju documentation 
+ Getting started with Juju 
+ Write your first charm 
+ Solutions 
+ Back 
+ Explore our solutions › 
+ Categories 
+ AI 
+ Bring AI to your enterprise 
+ Data 
+ Data management at scale 
+ Ubuntu OS 
+ An enterprise OS for everyone 
+ Infrastructure 
+ Agile data center operations 
+ Managed IT services 
+ Fully managed open source solutions 
+ Open source security 
+ A trusted software supply chain 
+ IoT and devices 
+ Deploy and manage devices at scale 
+ Cloud-native apps 
+ Build and deploy apps at speed 
+ Automation 
+ Simplify deployment, management, and scaling 
+ Industries 
+ Automotive 
+ Smarter vehicles and factories 
+ Financial services 
+ Modernize with open source 
+ Public sector 
+ Government and federal 
+ Education 
+ Open source for academia 
+ Industrial 
+ The factory of the future 
+ Telco 
+ Carrier-grade solutions 
+ Case studies › 
+ SBI BITS puts business continuity at the heart of its OpenStack migration. 
+ Learn more › 
+ Canonical deploys infrastructure solutions for ESA's space mission operations. 
+ Learn more › 
+ Explore our solutions › 
+ Categories 
+ AI 
+ Bring AI to your enterprise 
+ Data 
+ Data management at scale 
+ Ubuntu OS 
+ An enterprise OS for everyone 
+ Infrastructure 
+ Agile data center operations 
+ Managed IT services 
+ Fully managed open source solutions 
+ Open source security 
+ A trusted software supply chain 
+ IoT and devices 
+ Deploy and manage devices at scale 
+ Cloud-native apps 
+ Build and deploy apps at speed 
+ Automation 
+ Simplify deployment, management, and scaling 
+ Industries 
+ Automotive 
+ Smarter vehicles and factories 
+ Financial services 
+ Modernize with open source 
+ Public sector 
+ Government and federal 
+ Education 
+ Open source for academia 
+ Industrial 
+ The factory of the future 
+ Telco 
+ Carrier-grade solutions 
+ Case studies › 
+ SBI BITS puts business continuity at the heart of its OpenStack migration. 
+ Learn more › 
+ Canonical deploys infrastructure solutions for ESA's space mission operations. 
+ Learn more › 
+ Partners 
+ Back 
+ Explore our partners › 
+ Partner programs 
+ Desktop 
+ Desktop, laptops and workstations 
+ Channel/reseller 
+ Partners on every continent 
+ IoT devices 
+ Robots, edge, development boards 
+ IHV/OEM 
+ Data centres 
+ ISVs 
+ Independent Software Vendors 
+ GSIs 
+ Global Systems Integrators 
+ Public cloud 
+ Ubuntu optimized for the cloud 
+ Silicon 
+ CPUs, boards and SoCs 
+ Quick links 
+ Find a partner 
+ Become a partner 
+ Log in to the partner portal 
+ Explore our partners › 
+ Partner programs 
+ Desktop 
+ Desktop, laptops and workstations 
+ Channel/reseller 
+ Partners on every continent 
+ IoT devices 
+ Robots, edge, development boards 
+ IHV/OEM 
+ Data centres 
+ ISVs 
+ Independent Software Vendors 
+ GSIs 
+ Global Systems Integrators 
+ Public cloud 
+ Ubuntu optimized for the cloud 
+ Silicon 
+ CPUs, boards and SoCs 
+ Quick links 
+ Find a partner 
+ Become a partner 
+ Log in to the partner portal 
+ Careers 
+ Back 
+ Roles by department › 
+ Roles by department 
+ Engineering 
+ Support Engineering 
+ Marketing 
+ Web and Design 
+ Alliances and Channels 
+ Project management 
+ Commercial Operations 
+ Product 
+ Sales 
+ Finance 
+ Legal 
+ Administration 
+ People 
+ Working here 
+ Hiring process 
+ Company culture 
+ Remote work 
+ Progression 
+ Diversity 
+ Sustainability 
+ Early careers 
+ Roles by department › 
+ Roles by department 
+ Engineering 
+ Support Engineering 
+ Marketing 
+ Web and Design 
+ Alliances and Channels 
+ Project management 
+ Commercial Operations 
+ Product 
+ Sales 
+ Finance 
+ Legal 
+ Administration 
+ People 
+ Working here 
+ Hiring process 
+ Company culture 
+ Remote work 
+ Progression 
+ Diversity 
+ Sustainability 
+ Early careers 
+ Company 
+ Back 
+ Get to know us › 
+ Explore Canonical 
+ Open source in your enterprise 
+ Open source projects we support 
+ Company events 
+ Company Trust Center 
+ Latest updates 
+ Blog 
+ Press Center 
+ Company highlights › 
+ Get to know us › 
+ Explore Canonical 
+ Open source in your enterprise 
+ Open source projects we support 
+ Company events 
+ Company Trust Center 
+ Latest updates 
+ Blog 
+ Press Center 
+ Company highlights › 
+ Canonical named a Challenger in the 2026 GartnerⓇ Magic Quadrant™ for Server Virtualization Platforms 
+ Canonical announces Managed Kubeflow on Azure 
+ Canonical releases Ubuntu 26.04 LTS Resolute Raccoon 
+ Search 
+ MicroK8s 
+ Features 
+ Compare 
+ Tutorials 
+ Docs 
+ Resources 
+ Community 
+ Submit 
+ Open side navigation 
+ Close side navigation 
+ Home 
+ Tutorials
+ Getting started
+ How to Guides
+ Installing
+ …on Windows 10/11
+ …on macOS
+ …on a Raspberry Pi 
+ …on NVIDIA DGX
+ …with LXD 
+ …using Multipass
+ … with WSL2
+ …behind a proxy 
+ …offline or airgapped
+ …with strict confinement
+ Additional install notes
+ set channels/versions
+ Addons
+ How to manage Addons
+ Create, edit and use community addons
+ Configuration 
+ Configure services
+ Configure host interfaces
+ Configure CNI
+ Add launch configurations
+ Configure Dual-stack (IPv4I/Pv6)
+ Change the pod CIDR
+ Add an LMA stack
+ Use an external etcd cluster
+ Set up MicroK8s for more users
+ Set up OIDC to work with Dex
+ Clusters 
+ Create a multi-node cluster
+ Upgrade a cluster
+ Get High Availability
+ Recover from a lost quorum on dqlite
+ Cluster API 
+ Provisioning with Cluster API
+ Managing CAPI clusters
+ Upgrading a CAPI cluster
+ Images and registries 
+ Use local images
+ Use a public registry
+ Use the built-in registry
+ Use a private registry
+ Side-load images
+ Upgrading
+ Manage upgrades with a Snap Store Proxy
+ Upgrade a cluster
+ Security 
+ CIS hardening
+ Run security scans with Trivy
+ Storage 
+ Use MicroCeph/Ceph storage
+ Use NFS for Persistent Volumes
+ Installing EKS-D with MicroK8s
+ Use the ingress addon
+ Use authentication and authorization
+ Add Windows workers
+ Backup workloads with Velero
+ Manage DockerHub rate limits
+ Build the MicroK8s snap
+ Troubleshooting
+ Explanation
+ High Availability
+ Snap package refreshes
+ Strict confinement
+ Launch configuration
+ Cluster API (CAPI)
+ Dual-stack (IPv4.IPv6)
+ Security Compliance
+ CIS Hardening
+ Reference
+ Release notes
+ Welcome to the community!
+ Command reference
+ Services and ports used
+ Working with kubectl
+ Addons
+ Launch configuration
+ Build variables
+ Ubuntu Pro for MicroK8s
+ Get in touch
+ Reporting a bug
+ Contributing to docs
+ Upgrading MicroK8s 
+ As detailed in the documentation for selecting a channel , patch release updates (e.g 1.20.x to 1.20.x+1) happen automatically for the installed version of MicroK8s. This page covers intentionally upgrading to a new minor version (e.g. 1.20 to 1.21). 
+ MicroK8s makes use of snap channels . This restricts automatic updates to new versions published in that channel , providing users with a way of making sure version upgrades only occur when the user asks for them. 
+ MicroK8s channels follow the upstream release versions of Kubernetes. This makes it easy to specify a version of Kubernetes to use when installing MicroK8s, and to restrict updates to non-breaking changes within the same minor version. To upgrade to a new version, it is necessary to refresh the snap to point to a different channel, but some additional steps may be required on a running cluster to minimise disruption (as detailed below). 
+ IMPORTANT NOTE: Workloads running in the cluster, unless specified otherwise in the documentation, will NOT be upgraded as part of a MicroK8s upgrade. This includes both enabled add-ons and the CNI. Currently, the most effective way to upgrade add-ons is to use microk8s disable <add-on> and then re-enable them. Please make sure to read the release notes for specific details referring to add-ons before upgrading. The latest manifest of the default CNI (calico) is always under /snap/microk8s/current/upgrade-scripts/000-switch-to-calico/resources/calico.yaml . Before applying it, please make sure you patch it with any customizations needed in your current setup. 
+ Holding upgrades 
+ By default, upgrades are delivered by the snapd daemon, which checks the store regularly to see if an updated version of the snap is available (for the currently installed channel). This is an important part of the security mechanism of delivering MicroK8s as a snap - making sure users get timely updates to resolve security issues and bugs. 
+However, it can be the case that you may not want a running unit or cluster of MicroK8s to upgrade on the default schedule, to mitigate against unexpected downtime. 
+For this reason, snap upgrades can be held to specific times/dates: 
+ To delay any refreshes for a specified period… 
+ sudo snap refresh --hold=24hr microk8s
+ …to set a specific date… 
+ sudo snap refresh --hold=2023-02-18T15:22:04+00:00
+ …or simply to stop updates altogether… 
+ sudo snap refresh --hold microk8s
+ More specifics on setting the refresh parameters, including more detailed examples of using --hold can be found in the Snap documentation . 
+ If you hold or turn off snap refreshes, it is important to remember that the software you are running may no longer be the most up to date patched version available. 
+ Cluster upgrades 
+ The Kubenetes project releases strive to be API backwards compatible, so upgrading a cluster should be possible. However, as a cluster administrator you should be aware of changes introduced on every release before attempting one. There are often important changes that affect the behavior of the cluster and the workloads it can serve. Please, consult the upstream release notes of the release you are targeting. Pay particular attention to the deprecation notices for a release you intend to upgrade to 
+ Be also aware of the following constraints set by MicroK8s during an upgrade: 
+ “skip-level” updates are NOT tested. Only upgrade through one minor release (e.g. 1.19 to 1.20) at a time. 
+ Downgrading (e.g. 1.20 to 1.19) is not tested or supported. 
+ Any configuration changes must be migrated incrementally across multiple versons to ensure the configuration is retained. 
+ Customisation (e.g. changes to the arguments for kubernetes services) WILL be carried over to upgraded version, but please be aware that version changes may make these customisations incompatible with the updated cluster. 
+ If an upgrade is not possible it is possible to re-install MicroK8s targetting the desired version. 
+ Upgrade a single node cluster 
+ Refreshing the MicroK8s snap to the desired channel effectively upgrades the cluster. For instance, to upgrade a v1.20 cluster to v1.21 simply run snap refresh with the new channel name: 
+ sudo snap refresh microk8s --channel=1.21/stable
+ Upgrade a multi-node cluster 
+ Kubernetes allows for some degree of service skew This allows a multi-node cluster to be upgraded one at a time. 
+ For instance, if you have an existing cluster on v1.19 and you want to upgrade to v1.20, you should perform the following on each node: 
+ microk8s kubectl drain <node> --ignore-daemonsets
+ At this point the node you drained should have no workload pods. Running the command: 
+ microk8s kubectl get po -A -o wide
+ …should only show daemon set pods. 
+ To upgrade the node, run: 
+ sudo snap refresh microk8s --channel=1.21/stable
+ After the new version has been fetched and the snap is updated, the node should register with the new version: 
+ microk8s.kubectl get no
+ The last step is to resume pod scheduling on the upgraded node with: 
+ microk8s kubectl uncordon <node>
+ These steps should be repeated on all the nodes in the cluster. 
+ A detailed example of upgrading a three node cluster is available in our How to section. 
+ Revert a failed upgrade attempt 
+ If for any reason an upgrade does not result in a working cluster, you can revert the node to its state before the latest refresh with: 
+ sudo snap revert microk8s
+ For diagnostic purposes, you may wish to run: 
+ microk8s inspect
+ …before reverting the upgrade. This collects a tarball of information about the running cluster/node. 
+ Last updated 3 years ago. Help improve this document in the forum .
+ Holding upgrades 
+ Cluster upgrades 
+ Upgrade a single node cluster 
+ Upgrade a multi-node cluster 
+ Revert a failed upgrade attempt 
+ Copyright © 2026
+ CC-BY-SA 3.0, Canonical Ltd.
+ Legal information 
+ Manage your tracker settings 
+ Report a bug on MicroK8s itself 
+ Report a bug on this site
+ Go to the top of the page 

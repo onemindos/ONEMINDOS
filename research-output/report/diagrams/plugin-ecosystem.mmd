@@ -1,0 +1,38 @@
+flowchart TB
+  subgraph Publisher["Third-party publisher"]
+    SDK["onemind plugin init / validate / test / pack / publish"]
+  end
+  subgraph Store["OneMind Market (online or offline bundle)"]
+    REV["Automated review + human tier review"]
+    SIG["OneMind countersignature + digest pin"]
+    KILL["Revocation / kill list (expiring, signed)"]
+  end
+  subgraph Box["OneMind box: RAUC read-only image + data partition"]
+    direction TB
+    subgraph Host["Host OS"]
+      E3["E3 sysext / confext images"]
+      E4["E4 driver packs (per kernel, signed)"]
+      E8["E8 profiles = confext + sysexts + app set"]
+      E10["E10 boot overlays (only via release pipeline)"]
+    end
+    subgraph K3s["k3s"]
+      E1["E1 Market controller (onemind.app.yaml → Helm)"]
+      E2["E2 capability broker (device, host network, GPU, RT grants)"]
+    end
+    E6["E6 capability registry + approval gateway (MCP, REST, CLI, Skills)"]
+    E7["E7 NATS grants inside the locked subject grammar"]
+    E5["E5 dashboard UI slot (sandboxed iframe, MCP Apps)"]
+    E9["E9 trust root: signatures, revocation, API levels"]
+  end
+  SDK --> REV --> SIG --> E1
+  SIG --> E3
+  SIG --> E4
+  KILL -.->|disable / remove| E9
+  E9 -.-> E1
+  E9 -.-> E3
+  E8 --> E3
+  E8 --> E1
+  E1 --> E2
+  E1 --> E6
+  E1 --> E7
+  E6 --> E5

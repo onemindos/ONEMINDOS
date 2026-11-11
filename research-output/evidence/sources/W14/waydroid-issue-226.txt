@@ -1,0 +1,4 @@
+waydroid/waydroid#226 state:open created:2021-11-13T17:09:48Z updated:2026-05-19T14:11:45Z comments:91
+TITLE: pass location/gps info to waydroid
+
+This would be really handy for navigation apps like OsmAnd since all the Linux native alternatives are far behind there Android competitors.

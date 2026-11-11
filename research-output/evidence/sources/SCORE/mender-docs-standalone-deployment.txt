@@ -1,0 +1,291 @@
+Source: https://docs.mender.io/artifact-creation/standalone-deployment
+Fetched 2026-11-11 (HTML stripped to text)
+
+ 
+ Standalone deployment | Mender documentation 
+ docs 
+ Advanced search 
+ 1. Get started 
+ Preparation 
+ Prepare a Raspberry Pi device 
+ Prepare a virtual device 
+ Deploy an Application update 
+ Deploy an Operating System update 
+ Monitor your device 
+ Microcontroller 
+ Prepare an ESP32-S3 with Zephyr 
+ Deploy a firmware update 
+ 2. Overview 
+ Introduction 
+ Device Support 
+ Artifact 
+ Device Group 
+ Deployment 
+ Delta update 
+ Identity 
+ Inventory 
+ Customize the update process 
+ Security 
+ Role-Based Access Control 
+ Multi-tenancy 
+ Device Authentication 
+ Compatibility policy 
+ Taxonomy 
+ Device tiers 
+ Requirements 
+ Limits 
+ Regions 
+ Audit Logs 
+ 3. Client installation 
+ Overview 
+ Installing 
+ Upgrading 
+ Identity 
+ Inventory 
+ Use an Update Module 
+ Use the Device-side API 
+ Configuration 
+ Polling intervals 
+ Configuration options 
+ Integration checklist 
+ 4. Operating System updates: Debian family 
+ Overview 
+ Convert a Mender Debian image 
+ Customization 
+ State scripts 
+ Manual package installation 
+ Customize Mender 
+ Delta update support 
+ Mender-monitor support 
+ docker-compose Update Modules 
+ Provision a new device 
+ Secure Boot 
+ Variables 
+ 5. Operating System updates: Yocto Project 
+ Overview 
+ Board integration 
+ Partition configuration 
+ Bootloader support 
+ GRUB 
+ U-Boot 
+ Manual U-Boot integration 
+ Raw flash 
+ Example: QEMU 
+ Secure Boot 
+ Building for demo 
+ Image customization 
+ Features 
+ Read-only root filesystem 
+ State scripts 
+ Customize Mender 
+ Delta update support 
+ docker-compose Update Modules 
+ Building for production 
+ Provisioning a new device 
+ Variables 
+ 6. Operating System updates: Zephyr 
+ Overview 
+ Board integration 
+ Bootloader support (MCUBoot) 
+ Customize Mender MCU 
+ Configuration 
+ 7. Orchestrate updates 
+ Overview 
+ Manifest 
+ Create a Manifest Artifact 
+ Topology 
+ Interface Protocol 
+ Installation 
+ Yocto Project 
+ Debian family 
+ Upgrade a device to the system tier 
+ Examples 
+ Mock components 
+ Update an ESP32-S3 with a Raspberry Pi 
+ Update a Raspberry Pi with a Raspberry Pi over MQTT 
+ Artifacts handling 
+ Caching 
+ Streaming 
+ Compatibility checks 
+ Artifact selection 
+ Configuration 
+ Configuration options 
+ Standalone mode 
+ Inventory 
+ State script support 
+ 8. Artifact creation 
+ Create an Artifact 
+ Create an Artifact with system snapshot 
+ Combining Operating System and Application updates 
+ Modify an Artifact 
+ State scripts 
+ Create a docker-compose update Artifact 
+ Create a Delta update Artifact 
+ Server-side generation of Delta Artifacts 
+ Standalone deployment 
+ Sign and verify 
+ Create a custom Update Module 
+ Software versioning 
+ Advanced versioning 
+ CI/CD pipelines 
+ GitHub Actions 
+ GitLab CI/CD 
+ Azure DevOps 
+ 9. Server installation 
+ Overview 
+ Architecture 
+ Certificates and keys 
+ Evaluation with Docker Compose 
+ Upgrading from previous versions 
+ Upgrading to Mender 3.7 
+ Upgrading to Mender Server 4.0 
+ Production installation with Kubernetes 
+ Kubernetes 
+ Storage 
+ Mender Server 
+ Backup and Restore 
+ Device license count 
+ Direct Upload 
+ 10. Server integration 
+ Using the APIs 
+ Preauthorizing devices 
+ Mender Gateway 
+ Mutual TLS authentication 
+ Prerequisites 
+ Evaluation with docker 
+ Production installation with Kubernetes 
+ MTLS Ambassador migration guide 
+ Configuration file 
+ Azure IoT Hub integration 
+ AWS IoT Core integration 
+ Webhooks 
+ SAML Federated Authentication 
+ OpenID Connect Federated Authentication 
+ 11. Add-ons 
+ Overview 
+ Configure 
+ How to make an apply-device-config script 
+ Monitor 
+ Installation 
+ Concepts 
+ Supported subsystems 
+ Configuration 
+ Advanced use cases 
+ File Transfer 
+ Installation 
+ Security 
+ Troubleshooting File Transfer 
+ Port forward 
+ Remote Terminal 
+ Installation 
+ Security 
+ Troubleshooting Remote Terminal 
+ Mender Connect 
+ 12. Download 
+ Disk images 
+ Workstation tools 
+ Device components 
+ 13. Server-side API 
+ 14. Device-side API 
+ Overview 
+ Mender Authentication API v1 
+ 15. Troubleshoot 
+ Yocto Project build 
+ Yocto Project runtime 
+ Mender Client 
+ Mender Server 
+ Workstation Tools 
+ Device Runtime 
+ Mender MCU 
+ mender-convert 
+ Hosted Mender - tenant migration 
+ 16. Release information 
+ Supported releases 
+ Deprecations 
+ Release notes & changelog 
+ Mender Server 
+ Mender Server Enterprise 
+ Hosted Mender 
+ Mender Client 
+ mender-update / mender-auth 
+ mender-connect 
+ monitor-client 
+ mender-flash 
+ mender-configure-module 
+ mender-binary-delta 
+ mender-container-modules 
+ mender-delta-container-modules 
+ mender-setup 
+ mender-snapshot 
+ mender-artifact 
+ mender-cli 
+ mender-convert 
+ meta-mender 
+ Mender Gateway 
+ mender-client-subcomponents 
+ Mender Orchestrator 
+ mender-ci-workflows 
+ Mender MCU 
+ Open Source Licenses 
+ Mender Server 
+ Mender Server Enterprise 
+ Mender Client 
+ Mender Gateway 
+ Mender Orchestrator 
+ mender-setup 
+ mender-artifact 
+ mender-cli 
+ mender-convert 
+ mender-snapshot 
+ Clear History
+ Mender on Github
+ Artifact creation 
+ Standalone deployment 
+ Edit 
+ Standalone deployment 
+ tutorial 
+ This document will show how standalone deployments work with Mender,
+where no Mender Server is used and the deployments are triggered at the
+device, either manually in the terminal or by custom scripts. This can be useful in order
+to deploy updates to devices which do not have network connectivity or
+are updated through external storage like a USB stick. 
+ For an explanation of the difference between managed and standalone deployments, please see
+ Modes of operation . 
+ Note that state scripts work slightly differently in standalone mode, see state scripts and standalone mode for more information. 
+ Setting Mender up for standalone mode 
+ If you would like to run Mender in standalone mode, you
+must make sure that the mender-updated service isn't running. If you want to check if Mender is running as a daemon, you can try the following command: 
+ pi@raspberrypi:~$ sudo systemctl status mender-updated
+● mender-updated.service - Mender OTA update service
+ Loaded: loaded (/lib/systemd/system/mender-updated.service; enabled; vendor preset: enabled)
+ Active: active (running) since Thu 2020-07-23 03:24:54 BST; 16h ago
+ Main PID: 320 (mender)
+ Tasks: 9 (limit: 1012)
+ Memory: 7.5M
+ CGroup: /system.slice/mender-updated.service
+ └─320 /usr/bin/mender-update daemon 
+ Before mender-update 4.0.0, the service was called mender-client . Please replace mender-updated with mender-client in the snippets if you are using such a version. 
+ The status reported as active indicates that in order to use standalone mode you have to stop and disable Mender running as a daemon. 
+ pi@raspberrypi:~$ sudo systemctl stop mender-updated
+pi@raspberrypi:~$ sudo systemctl disable mender-updated
+pi@raspberrypi:~$ sudo systemctl mask mender-updated 
+ Deploy an Artifact to a device 
+ To deploy the new Artifact to your device, run the following command in the
+device terminal: 
+ mender-update install <URI> 
+ Before mender-update 4.0.0, the command was just called mender . Please replace mender-update with mender in the snippet above if you are using such a version. This applies to the snippets below as well. 
+ <URI> can be any type of file-based storage or an HTTP/HTTPS URL.
+For example, if you are updating from a USB stick, you could use /mnt/usb1/release1.mender .
+To use HTTPS, simply replace it with a URL like https://fileserver.example.com/mender/release1.mender . 
+ If you are doing an Operating System update, now run the reboot command to boot into the new filesystem. 
+ Make the deployment permanent 
+ If you are happy with the deployment, you can make it permanent by running the following command in your device terminal: 
+ mender-update commit 
+ By running this command, Mender will mark the update as successful and permanent. 
+ To deploy another update, simply run mender-update install <URI> again, then reboot and commit. 
+ We welcome contributions to improve this documentation. To submit a change, use the Edit link at the top of the page or email us at .
+ Mender is developed and maintained by Northern.tech . 
+ Legal 
+ Privacy Policy 
+ | 
+ © 2026 Northern.tech AS 

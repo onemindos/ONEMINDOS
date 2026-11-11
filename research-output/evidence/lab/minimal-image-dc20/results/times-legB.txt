@@ -1,0 +1,5 @@
+clean_with_downloads 1716
+incremental_one_package 29
+clean_downloads_cached 779
+1.1G	/var/lab/dc20/in/buildroot-2025.02.19/dl
+14G	/var/lab/dc20/build-b

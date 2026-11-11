@@ -1,0 +1,495 @@
+Android developer verification  |  Android Developers
+ Skip to main content
+ Essentials
+Build AI experiences
+Build AI-powered Android apps with Gemini APIs and more.
+ Get started
+Get started
+Create your first app. Use Compose for UI and adaptive app development to support multiple device form factors.
+ Hello, world!
+ Adaptive apps
+ Compose for UI
+ AI-powered IDE
+ Monetization with Play ↗️
+ Developer Verification
+ Registered App Stores
+Optimize by form factor
+Build apps that optimize the user experience on phones, tablets, foldables, cars, XR, and more.
+ Phones, tablets, foldables
+ Android for Cars
+ Android TV
+ Android XR
+ Googlebook
+ ChromeOS
+ Wear OS
+Build by category
+Learn to build for your use case by following Google's prescriptive and opinionated guidance.
+ Games
+ Camera & media
+ Social & messaging
+ Health & fitness
+ Productivity
+ Enterprise apps
+Get the latest
+Stay in touch with the latest releases throughout the year, join our preview programs, and give us your feedback.
+ Latest updates
+ Experimental updates
+ Android Studio preview
+ Jetpack & Compose libraries
+ Wear OS releases
+ Privacy Sandbox ↗️
+ Design & Plan
+Excellent Experiences
+Build the best experiences for your best users.
+ Learn more
+UI Design
+Design a beautiful user interface using Android best practices.
+ Design for Android
+ Mobile
+ Desktop experiences
+ XR Headsets & XR Glasses
+ AI Glasses
+ Widgets
+ Wear OS
+ Android TV
+ Android for Cars
+Architecture
+Design robust, testable, and maintainable app logic and services.
+ Introduction
+ Libraries
+ Navigation
+ Modularization
+ Testing
+ Kotlin Multiplatform
+Quality
+Plan for app quality and align with Play store guidelines.
+ Overview
+ Core value
+ User experience
+ Accessibility
+ Technical quality
+ Excellent Experiences
+Security
+Safeguard users against threats and ensure a secure Android experience.
+ Overview
+ Privacy
+ Permissions
+ Identity
+ Fraud prevention
+ Develop
+Build more with agents in Android
+Turn prompts into real Android experiences using your favorite agents.
+ Learn more
+ Get Android CLI
+Core areas
+Get the samples and docs for the features you need.
+ Samples
+ Multidevice support
+ User interfaces
+ Background work
+ Data and files
+ Connectivity
+ All core areas ⤵️
+Tools and workflow
+Use the IDE to write and build your app, or create your own pipeline.
+ Write and debug code
+ Build projects
+ Test your app
+ Performance
+ Command-line tools
+ Gradle plugin API
+ Android Bench
+ Build with agents
+Device tech
+Write code for form factors. Connect devices and share data.
+ Phones, tablets, foldables
+ Googlebook
+ ChromeOS
+ Android for Cars
+ Android TV
+ Android XR
+ Wear OS
+ Android Health
+ Better Together
+ All devices ⤵️
+Libraries
+Browse API reference documentation with all the details.
+ Android platform
+ Jetpack libraries
+ Compose libraries
+ Google Play services ↗️
+ Google Play SDK index ↗️
+ Google Play
+Play Console
+Publish your app or game and grow your business on Google Play.
+ Learn more ↗️
+ Go to Play Console
+Fundamentals
+Learn how to engage users, monitize, and secure your app.
+ Play Monetization
+ Play Integrity
+ Android vitals
+ Play Policies
+ Play Programs ↗️
+Games Dev Center
+Develop and deliver games. Get tools, downloads, and samples.
+ Overview
+ Play Asset Delivery
+ Play Games Services
+ Play Games on PC
+ Level Up guidelines
+ All Play guides ⤵️
+Libraries
+Browse API reference documentation with all the details.
+ Play Feature Delivery
+ Play In-app Updates
+ Play In-app Reviews
+ Play Install Referrer
+ Google Play services ↗️
+ Google Play SDK index ↗️
+ All Play libraries ⤵️
+Tools & resources
+Tools for publishing, promoting, and managing your app.
+ Android App Bundles
+ Brand & marketing
+ Play Console APIs ↗️
+ Blog
+the Android Developer's Blog
+ Read the latest
+ Explore the authors →
+Explore categories
+ Product News
+ Stay in the loop with the latest updates, feature releases, and behind-the-scenes looks at how we’re evolving.
+ Community
+ Discover stories from our users, spotlight features, and the collaborative projects that bring us all together.
+ How-tos
+ From quick tips to deep-dive tutorials, these step-by-step guides are designed to help you work smarter and faster.
+ Case Studies
+ Real-world results from real-world users. Explore how different teams use our tools to achieve their goals.
+ Events & Programs
+ Get the details on upcoming webinars, workshops, meetups, and special initiatives designed to help you grow.
+ Documentation
+ Access detailed manuals, API references, and technical specifications to help you build and integrate with confidence.
+ /
+ English
+ Deutsch
+ Español – América Latina
+ Français
+ Indonesia
+ Italiano
+ Polski
+ Português – Brasil
+ Tiếng Việt
+ Türkçe
+ Русский
+ עברית
+ العربيّة
+ فارسی
+ हिंदी
+ বাংলা
+ ภาษาไทย
+ 中文 – 简体
+ 中文 – 繁體
+ 日本語
+ 한국어
+ Android Studio
+ Sign in
+ Android developer verification
+ Overview
+ Guides
+ Reference
+ Essentials
+ More
+ Overview
+ Guides
+ Reference
+ Design & Plan
+ More
+ Develop
+ More
+ Google Play
+ More
+ Blog
+ More
+ Android Studio
+ Build AI experiences
+ Get started
+ Get started
+ Hello, world!
+ Adaptive apps
+ Compose for UI
+ AI-powered IDE
+ Monetization with Play ↗️
+ Developer Verification
+ Registered App Stores
+ Optimize by form factor
+ Phones, tablets, foldables
+ Android for Cars
+ Android TV
+ Android XR
+ Googlebook
+ ChromeOS
+ Wear OS
+ Build by category
+ Games
+ Camera & media
+ Social & messaging
+ Health & fitness
+ Productivity
+ Enterprise apps
+ Get the latest
+ Latest updates
+ Experimental updates
+ Android Studio preview
+ Jetpack & Compose libraries
+ Wear OS releases
+ Privacy Sandbox ↗️
+ Excellent Experiences
+ Learn more
+ UI Design
+ Design for Android
+ Mobile
+ Desktop experiences
+ XR Headsets & XR Glasses
+ AI Glasses
+ Widgets
+ Wear OS
+ Android TV
+ Android for Cars
+ Architecture
+ Introduction
+ Libraries
+ Navigation
+ Modularization
+ Testing
+ Kotlin Multiplatform
+ Quality
+ Overview
+ Core value
+ User experience
+ Accessibility
+ Technical quality
+ Excellent Experiences
+ Security
+ Overview
+ Privacy
+ Permissions
+ Identity
+ Fraud prevention
+ Build more with agents in Android
+ Learn more
+ Get Android CLI
+ Core areas
+ Samples
+ Multidevice support
+ User interfaces
+ Background work
+ Data and files
+ Connectivity
+ All core areas ⤵️
+ Tools and workflow
+ Write and debug code
+ Build projects
+ Test your app
+ Performance
+ Command-line tools
+ Gradle plugin API
+ Android Bench
+ Build with agents
+ Device tech
+ Phones, tablets, foldables
+ Googlebook
+ ChromeOS
+ Android for Cars
+ Android TV
+ Android XR
+ Wear OS
+ Android Health
+ Better Together
+ All devices ⤵️
+ Libraries
+ Android platform
+ Jetpack libraries
+ Compose libraries
+ Google Play services ↗️
+ Google Play SDK index ↗️
+ Play Console
+ Learn more ↗️
+ Go to Play Console
+ Fundamentals
+ Play Monetization
+ Play Integrity
+ Android vitals
+ Play Policies
+ Play Programs ↗️
+ Games Dev Center
+ Overview
+ Play Asset Delivery
+ Play Games Services
+ Play Games on PC
+ Level Up guidelines
+ All Play guides ⤵️
+ Libraries
+ Play Feature Delivery
+ Play In-app Updates
+ Play In-app Reviews
+ Play Install Referrer
+ Google Play services ↗️
+ Google Play SDK index ↗️
+ All Play libraries ⤵️
+ Tools & resources
+ Android App Bundles
+ Brand & marketing
+ Play Console APIs ↗️
+ the Android Developer's Blog
+ Read the latest
+ Explore the authors →
+ Explore categories
+ Product News
+ Community
+ How-tos
+ Case Studies
+ Events & Programs
+ Documentation
+ Android Developers
+ Essentials
+ Android developer verification
+ Stay organized with collections
+ Save and categorize content based on your preferences.
+ Android developer verification
+ By making Android safer, we're protecting an environment for developers and users to confidently create and connect. This extra layer of security helps deter bad actors and makes it harder for them to repeatedly spread harm.
+ Effective September 30, 2026
+ Protections begin for users installing apps from participating stores in select regions on certified Android devices. We'll continue rolling out user protections globally in 2027.
+ Choose your verification path
+ Wherever you choose to distribute your apps, Google supports you in your developer journey. Review the guides to
+ understand your account options and potential fees.
+ Android Developer Console
+ Distribute exclusively outside Google Play
+ For developers distributing apps exclusively outside of Google Play.
+ Guide
+ Console
+ Google Play Console
+ Distribute on and outside Google Play
+ Google Play automatically registers 99% of apps. Use Play Console to manually register remaining apps or those distributed outside Google Play.
+ Guide
+ Console
+ Timeline
+We're announcing these changes early and incorporating developer feedback to help keep the Android ecosystem safe and sustainable. 
+ Milestone
+ Details
+ August 2026
+ Developer APIs, limited distribution accounts, and power user advanced flow launch.
+ September 30, 2026
+ Protections begin for all users who install apps from participating stores in Brazil, Indonesia, Singapore, and Thailand on certified devices running Android 7+.
+ 2027 and beyond
+ Verification capability will be expanded globally for all apps on certified
+ Android devices in 2027.
+ Get support
+ Guides
+ Explore technical documentation and video guides.
+ FAQ
+ Find quick answers about registration fees, requirements, and signing keys.
+ Help Center
+ Visit the Android Developer Console Help Center or Play Console Help Center for account troubleshooting and support.
+ Advanced Flow: Explore how we'll serve power users who want the ability to download unverified apps.
+ Latest News
+ Guide
+ Register an app on open-source registry
+ Learn how to register both existing and new open source apps for distribution.
+ Guide
+ Limited distribution accounts are now available
+ Learn how students, teachers, and hobbyists can share apps with up to 20 devices without a government-issued ID or registration fee.
+ Blog
+ Android developer verification: Building a safer ecosystem together
+ An update on developer verification, including regional enforcement details starting September 30, 2026, for select stores, and new APIs to automate workflows.
+ Blog
+ Rolling out to all developers on Play and Android consoles
+ Over the next few weeks, we're opening the verification process to everyone through Android Developer Console and the Play Console.
+ Blog
+ Balancing openness and choice with safety
+ Preview our advanced flow to ensure power users can sideload apps from unverified developers.
+ YouTube
+ Preview how users can sideload your apps
+ Watch a quick explainer on how the new advanced flow works.
+ YouTube
+ Android developer verification
+ To protect users from malware and scams, Android has launched Android developer verification, a program that verifies developers identities.
+ [[["Easy to understand","easyToUnderstand","thumb-up"],["Solved my problem","solvedMyProblem","thumb-up"],["Other","otherUp","thumb-up"]],[["Missing the information I need","missingTheInformationINeed","thumb-down"],["Too complicated / too many steps","tooComplicatedTooManySteps","thumb-down"],["Out of date","outOfDate","thumb-down"],["Samples / code issue","samplesCodeIssue","thumb-down"],["Other","otherDown","thumb-down"]],[],[],[]]
+ X
+Follow @AndroidDev on X
+ YouTube
+Check out Android Developers on YouTube
+ LinkedIn
+Connect with the Android Developers community on LinkedIn
+More Android
+ Android
+ Android for Enterprise
+ Security
+ Source
+ News
+ Blog
+ Podcasts
+Discover
+ Gaming
+ Machine Learning
+ Health & Fitness
+ Camera & Media
+ Privacy
+ 5G
+Android Devices
+ Large screens
+ Wear OS
+ ChromeOS devices
+ Android for cars
+ Android TV
+Releases
+ Android 17
+ Android 16
+ Android 15
+ Android 14
+ Android 13
+ Android 12
+ Android 11
+Documentation and Downloads
+ Android Studio guide
+ Developers guides
+ API reference
+ Download Studio
+ Android NDK
+Support
+ Report platform bug
+ Report documentation bug
+ Google Play support
+ Join research studies
+ Android
+ Chrome
+ Firebase
+ Google Cloud Platform
+ All products
+ Privacy
+ License
+ Brand guidelines
+ Manage cookies
+ Get news and tips by email
+ Subscribe
+ English
+ Deutsch
+ Español – América Latina
+ Français
+ Indonesia
+ Italiano
+ Polski
+ Português – Brasil
+ Tiếng Việt
+ Türkçe
+ Русский
+ עברית
+ العربيّة
+ فارسی
+ हिंदी
+ বাংলা
+ ภาษาไทย
+ 中文 – 简体
+ 中文 – 繁體
+ 日本語
+ 한국어

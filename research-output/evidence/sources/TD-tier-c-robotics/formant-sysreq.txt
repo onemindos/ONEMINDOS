@@ -1,0 +1,120 @@
+Source: https://docs.formant.io/docs/system-requirements.md
+Accessed: 2026-11-11
+
+---
+updatedAt: 2025-11-11T01:45:51.000Z
+agentTools:
+  projectIndex: https://docs.formant.io/llms.txt
+---
+
+# System requirements
+
+# Formant web application
+
+### Supported browser
+
+Formant supports Google Chrome.
+
+### Allowed domains
+
+For best performance, allow the following domains:
+
+* `googleapis.com`
+* `ducalis.io`
+* `statuspage.io`
+* `intercom.io`
+* `intercomcdn.com`
+* `github.io`
+
+# Formant agent
+
+### Supported operating systems
+
+| Supported target operating systems |
+| :--------------------------------- |
+| Ubuntu 22.04 ("Jammy")             |
+| Ubuntu 20.04 ("Focal")             |
+| Ubuntu 18.04 ("Bionic")            |
+| Debian 11 ("Bullseye")             |
+| Debian 10 ("Buster")               |
+| Debian 9 ("Stretch")               |
+
+| Supported architectures |
+| :---------------------- |
+| `amd64`                 |
+| `arm64`                 |
+
+### CPU and memory requirements
+
+The memory and CPU footprint of the agent itself on a device is minimal. Depending on your application, you can configure the agent and your device to store and transfer large amounts of data. This can greatly increase the memory, CPU usage, and data throughput of your device. For example, streaming high-quality data from several video sources at once will greatly increase your device's data consumption and may require increased processor power.
+
+### Network requirements
+
+During installation, Internet access is required to install the Formant agent.
+
+Once the agent is installed, data streams will upload to the Formant cloud at 0.5 Hz by default. You can configure this ingestion rate. For more information, see [Configure stream ingestion rate](https://docs.formant.io/docs/configure-stream-rate).
+
+A consistent internet connection is not required to collect telemetry data. The agent can be configured to store data in a buffer on the device and only upload to the Formant cloud when requested by an operator. For more information, see [On-demand streams](https://docs.formant.io/docs/on-demand-streams). This functionality also ensures data is not lost during network disruptions.
+
+# Teleoperation
+
+### Twilio connectivity
+
+Run the following test on both the operator computer and on your robot: [Twillio: Network test](https://networktest.twilio.com).
+
+If all tests pass, a teleoperation connection can be established between Formant and your device.
+
+On restricted networks, the TURN UDP Connectivity test may fail, which means that UDP traffic is being blocked. See the Allowed ports and domains section below for more details.
+
+### Bandwidth
+
+Realtime teleoperation connections can often require considerable bandwidth, especially when handling rich data types such as high-quality video and point clouds. You'll want to make sure that both your operator computer *and* your robot have sufficient bandwidth to handle your teleoperation streams.
+
+You can test the upload and download bandwidth of both your operator computer and your robot using speed test tools such as this one: [GitHub: speedtest-cli](https://github.com/sivel/speedtest-cli).
+
+The following table approximates the upload requirements of a single video stream by video quality:
+
+| Video quality, standard frame rate (24, 25, 30) | Minimum bandwidth |
+| :---------------------------------------------- | :---------------- |
+| 360p                                            | 1Mbps             |
+| 480p                                            | 2.5Mpbs           |
+| 720p                                            | 5Mbps             |
+| 1080p                                           | 8Mpbs             |
+
+> 👍
+>
+> A good rule of thumb is that the robot and operator should have a consistent 3Mbps connection in both directions, plus whatever the additional upload requirements of your video streams and point clouds are.
+
+## Allowed ports and domains
+
+For best performance, allow the following ports and domains:
+
+### Ports
+
+* TCP: 443, 3478
+* UDP: 443, 1024 - 65535
+
+> 🚧 Avoiding relays via TURN
+>
+> UDP traffic over these ports is outgoing only.
+>
+> Your browser and operating system will dynamically establish a UDP connection on a port in this range. If ports on this range are blocked, your teleoperation connection will be relayed via TURN, which will degrade your connection quality and performance.
+>
+> If your teleoperation connection is being relayed despite these ports being open, check your firewall or other network security settings.
+
+### Domains
+
+* Allow `*.twilio.com`
+* Allow `*.formant.io`
+
+## Choose a network interface
+
+By default, any network interface may be used to make a WebRTC connection between your device and the Formant web application.
+
+You can use the `WEBRTC_INTERFACE` environment variable to force WebRTC traffic over a specified network interface. This can be used to route WebRTC traffic around a VPN, or to keep traffic on a consistent interface if there are multiple internet links.
+
+For more information, see [Environment variables for the agent](https://docs.formant.io/docs/environment-variables-for-the-agent#general-environment-variables).
+
+<Callout icon="👋" theme="default">
+  ### If you notice an issue with this page or need help, please reach out to us! Use the 'Did this page help you?' buttons below, or get in contact with our Customer Success team via the Intercom messenger in the bottom-right corner of this page, or at [<masked-email>](mailto:<masked-email>).
+</Callout>

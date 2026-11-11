@@ -1,0 +1,60 @@
+[build 07:15:32] verify k3s artifacts against the release sha256sum file
+k3s-airgap-images-amd64.tar.zst: OK
+k3s: OK
+[build 07:15:32] lab PKI
+[build 07:15:32] mmdebstrap amd64 resolute (RAUC_MODE=src)
+I: installing remaining packages inside the chroot...
+I: cleaning package lists and apt cache...
+I: success in 262.3342 seconds
+[build 07:19:55] build RAUC from 1183a396a2e10e92e428c396a510113edcd9037b in the chroot
+E: Can not write log (Is /dev/pts mounted?) - posix_openpt (19: No such device)
+rauc runtime packages: libatomic1 libblkid1 libbrotli1 libc6 libcom-err2 libcurl4t64 libfdisk1 libffi8 libglib2.0-0t64 libgmp10 libgnutls30t64 libgssapi-krb5-2 libhogweed6t64 libidn2-0 libjson-glib-1.0-0 libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0 libldap2 libmount1 libnettle8t64 libnghttp2-14 libnl-3-200 libnl-genl-3-200 libp11-kit0 libpcre2-8-0 libpsl5t64 librtmp1 libsasl2-2 libselinux1 libssh2-1t64 libssl3t64 libtasn1-6 libunistring5 libuuid1 libzstd1 zlib1g 
+E: Can not write log (Is /dev/pts mounted?) - posix_openpt (19: No such device)
+dpkg: warning: while removing xml-core, directory '/etc/sgml' not empty so not removed
+rauc 1.13
+0
+[build 07:22:41] Ubuntu-specific observations
+--- os-release
+PRETTY_NAME="Ubuntu 26.04.1 LTS"
+VERSION_ID="26.04"
+VERSION_CODENAME=resolute
+--- kernel
+7.0.0-43-generic
+--- i6300esb module
+/lib/modules/7.0.0-43-generic/kernel/drivers/watchdog/i6300esb.ko.zst
+--- coreutils provider
+coreutils 9.5-1ubuntu2+0.0.0~ubuntu25
+coreutils-from 
+coreutils-from-gnu 
+coreutils-from-uutils 0.0.0~ubuntu25
+rust-coreutils 0.10.0-1ubuntu2~26.04.1
+/usr/lib/cargo/bin/coreutils/date
+date (uutils coreutils) 0.10.0
+--- initramfs generators installed
+dracut  unknown ok not-installed
+dracut-core  unknown ok not-installed
+initramfs-tools 0.151ubuntu1 install ok installed
+--- kernel package initramfs dependency
+Depends: kmod, linux-base (>= 4.5ubuntu1~16.04.1), linux-modules-7.0.0-43-generic
+Recommends: grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub | lilo, dracut | linux-initramfs-tool
+--- snapd / apparmor installed?
+(not installed)
+--- sudo provider
+(no sudo)
+[build 07:22:42] customise rootfs
+i6300esb in initramfs: 1
+[build 07:23:59] grub-mkstandalone (x86_64-efi)
+[build 07:23:59] ext4 images (rootfs 805 MiB)
+[build 07:24:09] rauc bundles
+rauc-Message: 02:24:20.291: No keyring given, skipping signature verification
+rauc-Message: 02:24:32.486: No keyring given, skipping signature verification
+rauc-Message: 02:24:44.717: No keyring given, skipping signature verification
+rauc-Message: 02:24:57.607: No keyring given, skipping signature verification
+rauc-Message: 02:25:10.346: No keyring given, skipping signature verification
+rauc-Message: 02:25:22.772: No keyring given, skipping signature verification
+rauc-Message: 02:25:38.700: No keyring given, skipping signature verification
+[good] rauc-Message: 02:25:38.772: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[good] Version:        '2'
+[bad-k3s] rauc-Message: 02:25:38.779: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-k3s] Version:        '3'
+[bad-noagent] rauc-Message: 02:25:38.786: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'

@@ -1,0 +1,29 @@
+--- os-release
+PRETTY_NAME="Ubuntu 26.04.1 LTS"
+VERSION_ID="26.04"
+VERSION_CODENAME=resolute
+--- kernel
+7.0.0-43-generic
+--- i6300esb module
+/lib/modules/7.0.0-43-generic/kernel/drivers/watchdog/i6300esb.ko.zst
+--- coreutils provider
+coreutils 9.5-1ubuntu2+0.0.0~ubuntu25
+coreutils-from 
+coreutils-from-gnu 
+coreutils-from-uutils 0.0.0~ubuntu25
+rust-coreutils 0.10.0-1ubuntu2~26.04.1
+/usr/lib/cargo/bin/coreutils/date
+date (uutils coreutils) 0.10.0
+--- initramfs generators installed
+dracut  unknown ok not-installed
+dracut-core  unknown ok not-installed
+initramfs-tools 0.151ubuntu1 install ok installed
+--- kernel package initramfs dependency
+Depends: kmod, linux-base (>= 4.5ubuntu1~16.04.1), linux-modules-7.0.0-43-generic
+Recommends: grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub | lilo, dracut | linux-initramfs-tool
+--- snapd / apparmor installed?
+(not installed)
+--- sudo provider
+(no sudo)
+i6300esb in initramfs: 1
+[build 08:02:44] ext4 images (rootfs 805 MiB)

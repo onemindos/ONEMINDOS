@@ -1,0 +1,353 @@
+Policy Blocklist (PBL) | DNSBL for effective email filtering 
+ Resources Resource Hub 
+ All Resources 
+ DNS Blocklists 
+ IP & domain reputation 
+ Malware 
+ Service providers 
+ Threat intelligence 
+ More Resources 
+ Events 
+ FAQs 
+ Glossary 
+ Restrict Port 25 
+ Sender Guidelines 
+ Reputation Data About the Research 
+ About Spamhaus Research 
+ Domain Reputation 
+ IP Reputation 
+ Reputation Statistics 
+ Overview 
+ Countries 
+ Country code top-level domains (ccTLD) 
+ General top-level domains (gTLD) 
+ Networks 
+ Registrars 
+ About Us Who Is Spamhaus? 
+ History 
+ Media Centre 
+ Affiliates 
+ Threat Intel Community Community Home 
+ Guest Submission 
+ Login 
+ Free Datasets and Tools Blocklists 
+ Spamhaus' Blocklists 
+ Combined Spam Sources (CSS) Email Spam IPs
+ Domain Blocklist (DBL) Low Reputation Domains
+ Exploits Blocklist (XBL) Compromised IPs
+ Policy Blocklist (PBL) Non-mail Emitting IPs
+ Spamhaus Blocklist (SBL) Malicious Network Ranges
+ ZEN Blocklist 
+ DNSBL Fair Use Policy 
+ Commercial Datasets 
+ Commercial-Grade Reputation Data 
+ Blocklists via DNS Query | Commercial (Data Query Service)
+ Blocklists via DNS Query | Free (Data Query Service)
+ DNS Response Policy Zones | Commercial (DNS Firewall)
+ DNS Response Policy Zones | Free (DNS Firewall)
+ Intelligence API | Commercial (IP & Domain Intelligence)
+ Intelligence API | Free (IP & Domain Intelligence)
+ Network Protection 
+ Datasets for network protection 
+ Botnet Controller List (BCL) Botnet C2s
+ Do Not Route or Peer (DROP) Highly Malicious Networks
+ DROP Fair Use Policy 
+ Tools & Portals 
+ Blocklist Tester 
+ CERT Portal 
+ DNS Checker 
+ ISP Portal 
+ Reputation Checker 
+ Policy Blocklist (PBL) 
+ Non-mail Emitting IPs 
+ About the Data 
+ The Policy Blocklist is a dataset containing end-user IP address ranges from which email should never be sent directly to the final destination. This is predominantly IPv4-based, though does include IPv6 ranges - with most listings in Classless Inter Domain Routing (CIDR) format.
+ Policy statement
+ The PBL detects end-user IP address ranges which should not be attempting to directly deliver unauthenticated SMTP email to any Internet mail server. All the email originated by an IP listed in PBL is expected to be submitted - using authentication - to a SMTP server which delivers it to destination. The SMTP server can be either supplied by the ISP connecting the IP or by an external mail service.
+ The PBL can list both dynamic and static IPs; any IP which by policy (whether the block owner's or - interim in its absence - Spamhaus' policy) should not be sending email directly to the MX servers of third parties. The PBL helps networks enforce their Acceptable Use Policy for dynamic and non-MTA customer IP ranges.
+ If the Policy for a particular network allows it, end users can have their IP excluded from PBL. Use this link https://check.spamhaus.org/ , then enter your IP and follow the steps provided.
+ Benefits of this data
+ The IPs in this dataset are not necessarily “bad” - simply, they should never be sending email. Networks directly add and maintain many of these ranges, resulting in strong data efficacy. With highly skilled research, Spamhaus supplements this information, identifying end-user IP space which is observed as having high concentrations of "botnet zombies", a major source of spam. This dataset provides valuable protection by containing more than 1.4 billion IPv4s, corresponding to almost 40% of the routable IPv4 space. It is actively maintained and keeps growing.
+ Email administrators can apply this real time DNSBL to reduce the overflow of inbound email traffic associated with spam and other malicious emails emanating from residential address spaces. User-generated exclusions contribute to prevent rejections of legitimate mail coming from listed blocks. Gain industry-leading catch rates with extremely low false positives to reduce risk of security incidents, reduce email infrastructure costs, and reduce human resource requirements.
+ How to utilize this dataset
+ To make the best use of Spamhaus' data, blocklists should be utilized at specific points during the email filtering process.
+ PBL is a unique dataset that must be used exclusively in a single point: against the connecting IP in the initial SMTP connection.
+ For more information on this, read this best practice .
+ Get more protection, for free
+ Each blocklist targets a specific type of behavior. Using one blocklist independently limits the effectiveness of the data. Spamhaus offers three other IP-based blocklists for free:
+ Spamhaus Blocklist (SBL) 
+ Combined Spam Sources blocklist (CSS) (dataset included in the SBL DNSBL zone)
+ Exploits Blocklist (XBL) 
+ These IP blocklists can be used via ZEN which combines the above datasets for easier and faster querying.
+ The majority of malicious email is dropped at the SMTP transaction, however many bad actors invest time and money to evade IP-detection. So to gain the best catch rates, domain and hash blocklists should also be used to filter email, once the email has been accepted. For this, Spamhaus provides the Domain Blocklist (DBL) for free. Find more on why you should use domain and hash blocklists here. 
+ Technical information
+ You can utilize the data via the SMTP server configuration for connection and SMTP transaction checks, and via open source tools, such as SpamAssassin and Rspamd , for content analysis.
+ Downloadable plugins for SpamAssasin and Rspamd are readily available to minimize configuration time, for users of Spamhaus Technology's real-time DNS Blocklists.
+ Alternatively, integrate with your existing anti-spam platforms with technical information to support here . Set up takes minutes and you instantly gain real time protection.
+ Accessing the data
+ Use of the Spamhaus DNSBLs is free of charge for low-volume, non-commercial users. If you’re unsure, please check our DNSBL usage criteria . Free accounts are made available through our partner, Spamhaus Technology - sign up to access the data via the free real-time DNS Blocklists .
+ Where data is being used for commercial purposes, an annual subscription-based service is required. Sign up for a free 30-day trial .
+ Take control of your PBL ranges
+ Network owners and ISPs can submit PBL ranges to gain control of your network's IP space. Add, edit, and delete IP ranges under your control, setting specific policies for specific ranges (including allowing or disallowing removals from certain ranges). Sign up for a PBL ISP account here .
+ Best practices to maintain a positive IP reputation
+ Spamhaus’ data protects billions of mailboxes globally. To avoid getting listed and your email service being impacted, some important best practices are:
+ Restrict outbound SMTP traffic - configure your firewall to allow outbound SMTP traffic (destination port 25) only if originated from your mail server internal IP (if you have one).
+ Segment - so your email infrastructure is separate from the rest of your network’s IP space.
+ Infrastructure - check your internet infrastructure providers, e.g. ISPs. See reputation statistics on ISPs/networks .
+ Use double opt-in – to avoid spam traps and ensure only real and interested recipients are sent your emails.
+ Configuration – ensure that your hostname and your HELO match, and that your reverse DNS (PTR record) is defined and pointing to the same hostname.
+ N.B. We recognize these are not all managed by email administrators; where applicable, communicating with other functions, like network administrators and deliverability specialists, is critical.
+ Removal
+ Do note, IPs in this dataset are not necessarily “bad”, but if your IP is incorrectly listed on the Policy Blocklist, you should visit https://check.spamhaus.org . This will take you to our IP and Domain Reputation Checker for more information, and the only place where PBL removals are handled.
+ FAQs 
+ Definition: Policy Blocklist (PBL) 
+ What is the Policy Blocklist (PBL)? 
+ The Policy Blocklist (PBL) lists IP space that should not be sending email directly to the Internet/direct-to-mx: often these are IP ranges assigned by ISPs to broadband or dial-up customers, but the PBL does include other types of IP space.
+ Any IP space that should not be sending email directly to the Internet should be listed in PBL.
+ PBL listings do not prevent the sending of email unless the user’s email program is not authenticating correctly when connecting to their ISP or company’s mail server. Possible causes for this happening suddenly: changing settings or email software, forgetting to turn “SMTP Authentication” on, or switching “SMTP Authentication” off.
+ Listed on PBL Q&A 
+ Enabling SMTP Authentication 
+ SMTP Authentication (SMTP AUTH) is required when sending email using most major ISP mail servers and corporate mail servers. SMTP Authentication is a username+password system which ensures only authorised senders (i.e: the ISP’s customers) can use the outgoing email server.
+ If SMTP Authentication is not enabled in the user’s email program or App (e.g: Outlook, Apple Mail, Thunderbird, etc.), or if the SMTP Authentication process fails (such as due to a wrong or mistyped username or password) most ISP email servers will not accept outbound email from the connection.
+ Unfortunately, mail servers are not very good at explaining why they have refused a connection, and because the Spamhaus PBL is used by mail servers to determine what to do with ‘unauthenticated’ connections, when Authentication fails, the error/reject messages (over which we have no control) tend to say “Blah blah, blocked… blah blah …Spamhaus” without explaining that all the user actually needs to do is turn SMTP Authentication on.
+ Things to double check if enabling SMTP Authentication does not work as expected:
+ Is the information provided for the outgoing email server hostname, username, and password correct?
+ Is SMTP Authentication working correctly on the email server? This may be a question for your ISP.
+ Is the port number in use correct? For SMTP Authentication to function correctly, the port should be 587 or 465, not 25.
+ For help with configuring specific email software for SMTP Authentication, please consult your ISP user manuals or help webpages. Most companies publish a user portal with instructions that can be easily found with a websearch.
+ Help! My IP address is on the Policy Blocklist (PBL)! 
+ If a mail program such as Apple Mail, Thunderbird, or Outlook is being used, and the sending of email is failing due to a PBL listing, the solution is to ensure that SMTP Authentication is enabled and working correctly: this will immediately correct the problem. Please see Enabling SMTP Authentication for more information.
+ What if I want to run a mail server on IPs listed in the Policy Blocklist (PBL)? 
+ If you have a dynamic IP, the best solution is to use your ISP’s outgoing mail relay as a smarthost . If your ISP does not provide an outgoing mail relay, there are many inexpensive commercial smarthost providers, which can be located by doing a websearch, or asking your ISP or hosting company.
+ If there is a need to run a mail server, it needs to be on a static IP with appropriate forward (A record) and reverse DNS (rDNS). Your ISP can help you get set up with that.
+ If you choose to run a mail server on a dynamic IP anyway, be prepared to face a lot of challenges.
+ Single IP removal for outbound email server administrators 
+ It is quick and easy for mail server administrators to exclude their static IP address from a PBL Zone Listing.
+ Look up the IP in the IP and Domain Reputation Checker , and click “show details” then follow the steps for removal. Please allow approximately 15 minutes for DNS propagation.
+ Only IP addresses that meet all of the following criteria should be removed; the IP must be:
+ Static – not dynamic!
+ An outbound mail server
+ Configured with appropriate forward (A record) and reverse DNS (rDNS)
+ Assigned to the individual or company performing the removal
+ Only single IP addresses that are assigned to mail servers should be removed; IPs that do not run an outbound email server are not appropriate for removal.
+ NOTE: If it is necessary to remove multiple IPs, the ISP that is assigned those IPs should request the removals. Individuals that remove many IPs may find their removal access revoked, and their removals reversed.
+ End-user single-IP exclusions from PBL Zone Listings expire after one year, and will be immediately reversed if spam is detected from them.
+ ISPs with PBL Accounts may select shorter expiration periods for exclusions, and may add or remove lists of many such single-IP exclusions.
+ What IPs should be removed from the Policy Blocklist (PBL)? 
+ IPs should only be removed from the Policy Blocklist (PBL) if:
+ a mail server will be run on the IP
+ appropriate forward (A record) and reverse DNS (rDNS) are set up for the IP
+ port 25 outbound is closed for use by any device other than that mail server.
+ Why can't freemail addresses be used to request removals? 
+ All legitimate mail servers have proper hostnames, and the server administrator should have an email address that corresponds to the mail server. Any email address with a domain that matches the email server will be accepted for a removal request.
+ The PBL removal system does not process removal requests that come from free email accounts such as Gmail.com, Hotmail.com, Yahoo.com, or any other free email domain. Any removals that are made using free email addresses are automatically invalidated by the PBL removal system security checks.
+ Why is Port 25 for email transmission no longer widely supported? 
+ Email is used for important communications, and ISPs want to ensure that these communications remain as secure and private as possible. Many ISPs no longer support port 25 for the transmission of email by their residential Internet customers.
+ Much of the current use of port 25 is conducted by devices that have been infected by malware and are sending spam without the knowledge of their users. Requiring the use of SMTP authentication helps to prevent infected computers and other devices connected to the Internet from being able to freely transmit spam and malware.
+ It has been a long standing recommendation from M3AAWG , a highly regarded international working group of anti-abuse professionals, and the Internet Engineering Task Force (IETF) , that outbound port 25 should be limited to mail servers only.
+ We encourage any company that runs a mail server to follow suit and allow only end-user mail submission via encrypted and authenticated connections on port 465 and/or 587.
+ ISP PBL accounts 
+ "[CIDR range] conflicts with other Policy Block List (PBL) master records." What does this error mean? 
+ When an ISP requests an IP range to be assigned to its PBL Account, and that range is already assigned to another ISP, the following error message is generated: “[CIDR range] conflicts with other PBL master records.”
+ This can happen if “Example ISP” gets its IPs from a “Bigger Upstream Network”, and that “Bigger Network’s” PBL Account claims their full allocated IP ranges including the parts which they delegate to “Example ISP” , then we can’t assign those delegated ranges to “Example Company’s” PBL Account. The best thing to do in this situation is to contact the Bigger Upstream Network and discuss it with them.
+ This scenario can also happen when an ISP has returned its IP ranges to its Regional Internet Registry , and has not yet deleted those ranges from the PBL. In this case, the ISP which has been newly assigned those IPs may contact Spamhaus directly to obtain control of those Master Ranges. The contact email address is available in your PBL Account.
+ Confirmation code missing or password reset 
+ The Primary Domain for the PBL Account must have a functional “ abuse@yourprimarydomain ” email address, and it must use the correct domain for the network in question.
+ The confirmation code will be sent to that “ abuse@yourprimarydomain” email address.
+ Ensure that email address can recieve email, and then request a new confirmation code .
+ The confirmation step must be completed correctly before our system will send a password.
+ As soon as the confirmation is completed, our systems will send you a password for your PBL Account. If necessary, a new password can be requested.
+ The password will be sent to “ abuse@yourprimarydomain” .
+ Ensure that email address can receive email, and then request a new password .
+ Passwords are only sent to domains which already have authorized PBL Accounts.
+ Does the Policy Block List (PBL) only contain dynamic IP ranges? 
+ The Policy Block List (PBL) is a list of IP space that should not be sending email directly to the Internet/direct-to-MX: often these are IP ranges assigned by ISPs to broadband or dial-up customers, but PBL does include other types of IP space.
+ Any IP space that should not be sending email directly to the Internet should be listed in PBL. 
+ How do I remove a Spamhaus-created PBL Zone Listing from my ISP Account? 
+ ISPs with a PBL Account may remove any CIDR range, from their PBL Zone Listings, if it falls within their Master Range.
+ Tick the box next to the relevant CIDR range, then click “Remove selected listings”.
+ PBL Zone Listing(s) made by Spamhaus within your Master Ranges can be claimed, and your own PBL Policy applied, by following the links on the left-hand side of your PBL Account.
+ How does an ISP add or remove IP ranges from the Policy Block List (PBL)? 
+ An ISP with a PBL Account can remove or add any IP range within their assigned Master Ranges .
+ To remove a range from a Master Range:
+ Tick the checkbox next to the desired the CIDR range(s);
+ Click the “Remove selected listings” button. Removed PBL Zone Listings will disappear from the PBL in just a few minutes
+ NOTE: Please be sure to keep all IPs that are not outbound email servers in a PBL Zone Listing!
+ To remove a partial IP range from a Master Range:
+ First, remove the old PBL Zone listing
+ Then use the “Add PBL Zone Listing” link on the left-hand side of your PBL account to add the desired CIDR ranges to the PBL Zone Listing
+ The “Add PBL Zone Listing” link also allows the addition or removal of many CIDR ranges at once, or even to add and exclude many CIDR ranges at the same time. For example, an ISP may need to list around one or more small chunks of IP space used for outbound email servers, in a range that should otherwise be listed.
+ For example:
+ 192.0.2.0/24
+!192.0.2.16/31
+!192.0.2.248/29
+ This would list 192.0.2.0 – 192.0.2.15 and 192.0.2.18 – 192.0.2.247 in the PBL Zone Listing, but it would not list 192.0.2.16/31 or 192.0.2.248/29. ( Using the “!” exclusion in front of a CIDR range means “do not list the following CIDR” ) Many ranges and “!” exclusions may be listed in one entry form.
+ To remove many PBL Zone Listings at once:
+ List the entire CIDR range and then quickly delete that range.
+ Be sure to tick the checkbox labeled “Overwrite conflicting listings”.
+ Users with a single IP address (or any CIDR range smaller than /24) must use the single IP removal form , not the ISP Account form.
+ Instructions for creating and setting up an ISP PBL Account 
+ Here are step-by-step instructions for ISP PBL Accounts. There is also inline help on each ISP PBL Account page.
+ PBL ACCOUNT CREATION 
+ Read the ISP Account description 
+ Fill out the ISP Account application form 
+ The Primary Domain should be chosen carefully: Spamhaus must be able to verify that the Primary Domain matches domains found in the IP-Whois, rWhois or rDNS records for the requested Master Range.
+ An applicant must be able to read email sent to the “ abuse@yourprimarydomain” account;
+ All communication regarding the new account will be sent to this email address! * The confirmation message will come from “<masked-email>” * Please follow the instructions in the confirmation email.
+ NEW PBL ACCOUNT SET UP 
+ NOTE: If a new confirmation code or a password reset is required, see this FAQ 
+ Important: Make sure that the difference between “Master Ranges” and “PBL Zone Listings” is clearly understood before any IP range(s) are entered in this next step.
+ Click the “Add Master Range” link in the list on the left-hand side, and follow the instructions on that page to claim a Master Range. Any or all ranges which are allocated to you may be claimed, and more of your allocated IP ranges may be added at any time.
+ We will look up each claimed range, confirm ownership, and add it as a Master Range to your account. It may take us a day or two to verify ownership and approve new ranges.
+ Master Ranges will be marked “approved” as soon as we verify them. Log in to the new PBL Account.
+ Once the Master Range(s) are approved, PBL Zone Listings may be entered. They will be kept in “Status: Pending” and not entered in the PBL until the related Master Range for your account is approved.
+ Be sure that PBL Zone Listings do not include IPs that are intended for outbound mail servers. Spamhaus encourages ISPs to add any and all IP ranges that are not intended to send outbound mail as PBL Zone Listings.
+ PBL Zone Listings will only be added to the PBL after Spamhaus has verified that the IPs belong to your Master Ranges.
+ Within approved Master Ranges, PBL Zone Listing additions or removals will take place immediately.
+ Once logged into your PBL Account, there is a link to “Policy Records” on the left-hand side of the page. This link allows: The text of one or more policies to be entered;
+ The determination in regard to whether or not end-users are allowed to remove individual IPs;
+ The specification of the length of time before such removals expire.
+ Any Policy can be applied to any PBL Listing within your range and the Policy can be changed at any time, but only one policy at a time per listing .
+ Any existing Spamhaus listings within a Master Range may be claimed as your own, and a PBL Policy of your choice assigned.
+ They may be left as-is, under the default Spamhaus policy which allows end-user removals, or they may be removed if they are to host outbound email servers.
+ Each PBL Zone Listing must have a PBL Policy that applies to that Listing.
+ That’s it! Changes can be made to your PBL Account at any time as changes are made to your network. Thank you for helping make the Internet a better, more spam-free place!
+ "PBL Zone Listing" vs. "Master Range" - What is the difference? 
+ A “PBL Zone Listing” is a subset of a “PBL Master Range”.
+ PBL Zone Listing 
+ “PBL Zone Listing” refers to subsets of Master Ranges which are intended for inclusion in the PBL.
+ “PBL Zone Listings” are IP addresses that are listed in the DNSBL zone pbl.spamhaus.org Email sent from outbound email servers running on IP addresses listed in the DNSBL pbl.spamhaus.org (PBL Zone Listings) may be rejected by any server using PBL or Zen data.
+ Authorized ISPs may add or remove any IP range(s) from the subset PBL Zones Listings that are within their Master Ranges.
+ Master Range 
+ A “Master Range” is typically the same as the allocation the ISP is granted by their Regional Internet Registry (RIR)
+ “Master Ranges” are the IP ranges assigned to a PBL account by Spamhaus, and define the IP ranges in which that account is authorized to create PBL Zone Listing records; Spamhaus assigns Master Ranges based on information gathered from Whois, rWhois or rDNS after the application for that range is received.
+ None, some, or all IPs in a Master Range may be listed in PBL Zone Listings by the ISP at their discretion, as long as the changes remain within the guidelines expressed previously. 
+ NOTE: 
+ Changes to Master Ranges can only be requested by entities who are authorized.
+ Once an ISP requests and is granted authority over their Master Range(s), and Spamhaus validates that request, ISP can change “PBL Zones Listings” within their “Master Range(s)”.
+ Such changes will become active after the next zone build, within 15 minutes of the change.
+ What is the "Primary Domain" for ISP Accounts? 
+ The Primary Domain that is used to sign up for a PBL Account must be clearly published in the IP-Whois, rWhois or rDNS (PTR) of all requested IP Master Ranges, as Spamhaus uses those network records to verify that the Primary Domain is authoritative for those ranges.
+ The Primary Domain must have a functional “abuse@yourprimarydomain ” account that can be accessed and read by a human: “abuse@yourprimarydomain” is where we will send the confirmation code required to verify the application.
+ Domains with anonymized whois may not be eligible for PBL Accounts. The PBL Account Primary Domain should be chosen carefully so that we can identify the correct ranges for the account, and so that the PBL Account application can be successfully confirmed.
+ Who is eligible for an ISP PBL Account? 
+ ISPs may claim all of their full and entire allocated IP range(s) within a single PBL account and then make additions and removals of any size CIDR blocks of IP addresses within those allocated IP range(s). Instructions on how to create a PBL Account are below.
+ Criteria the ISP must meet in order to be eligible for a PBL Account:
+ Have at least one IPv4 /24 or IPv6 /48 allocation identifiable by IP-Whois, rWhois or rDNS;
+ Network records for that allocation must contain and clearly identify their Primary Domain;
+ Must have a working “abuse@yourprimarydomain” e-mail for that Primary Domain;
+ Email addresses used to fill in the “Your Work Email” and “Role Contact Email Address” fields in the PBL Account application should also use the Primary Domain of the PBL Account application, or a domain we can easily identify as being related to the ISP making the request.
+ We do not assign “sub-nets.” If “Example Company A” gets its IPs from “Bigger Network B”, and its PBL Account claims their full IP ranges including the parts which they delegate to Example Company , then we can’t assign those delegated ranges to “Example Company A’s”  PBL Account. Note : This is not usually an issue, but it can happen.
+ Please ensure that the difference between “Master Ranges” and “PBL Zone Listings” is fully understood before entering IP ranges in a PBL account.
+ PBL usage questions 
+ Avoid common errors: how the Policy Block List (PBL) should not be used 
+ The Policy Block List (PBL) should not be used to block an ISPs own users from accessing their smarthost email servers .
+ ISPs should ensure that: Their smarthost email servers are configured to use SMTP Authentication ;
+ Specific instructions are published for their users regarding the configuration of SMTP Auth in their local email program;
+ Their users are otherwise allowed access to the servers (for example: whitelisting of local dynamic ranges).
+ PBL (and, therefore, Zen) should not be used to check all the IP addresses appearing in mail headers.
+ It is normal for legitimate emails to originate from an IP listed in PBL;
+ That IP will usually appear in the message headers, and should not be used as a basis for blocking;
+ In order to be effective, PBL must be used exclusively for checks at the SMTP connection level.
+ PBL should not be used to block access to webservers and blogs because the majority of legitimate web access comes from end-user IP space: that end-user space should be listed in PBL.
+ PBL should not be used for URL-based blocking.
+ Using it to block URLs will lead to potentially large numbers of false positives
+ Legitimate webservers are often hosted with dynamic DNS services such as dyndns.org, noip.com, freedns.afraid.org, etc.
+ ISPs and other networks are encouraged to list any IP ranges which should not send mail, and that should include web servers.
+ SBL or XBL (or sbl-xbl.spamhaus.org) should be used for URL blocking as described in our Effective Spam Filtering section.
+ Some post-delivery filters use what they call “full Received line parsing” or “deep parsing”, in which the post-delivery filter reads all the IPs in the “Received” lines.
+ Legitimate users will have PBL-listed IPs showing in the first (lowest) “Received header” where their personal computer hands off the email to the ISP.
+ Email should NOT be blocked for this! 
+ PBL policy is based on ranges which should not directly deliver e-mail to the internet , so any other use will be riskier and subject to more false positives.
+ Can I nominate IP addresses or ranges for inclusion? 
+ We do not accept third-party nominations to the Policy Block List . Only Spamhaus and authorized ISP PBL Accounts may make changes to PBL database listings.
+ ISPs can only make changes within their claimed and authorized network ranges (Master Ranges).
+ How often is the Policy Block List (PBL) zone updated? 
+ The Policy Block List (PBL) DNSBL zone is rebuilt and reloaded every 15 minutes, 24/7.
+ To ensure high redundancy, Spamhaus has over 100 public DNSBL mirror servers located around the world. Each mirror is independently run as a free service to the Internet community, and all of them respond in realtime to public queries.
+ How to correctly use the Policy Block List (PBL) 
+ The best way to use the Policy Block List (PBL) is at the mail server as part of the Spamhaus Zen zone, during the realtime SMTP session. The composite Zen zone is designed to work most effectively for most networks as a complete system.
+ Zen contains the SBL , SBLCSS , XBL and PBL blocklists.
+ Connections from IP addresses listed in Zen can safely be rejected during the SMTP transaction.
+ PBL should only be used for SMTP (email).
+ Please see the DNSBL Usage FAQ for general information on using Spamhaus DNSBL zones.
+ NOTE: 
+ PBL is included in Zen: Zen should not be applied to filtering decisions where PBL would not make sense, unless your application can distinguish between specific Zen return codes. PBL is designed to check only the connecting IP address during a SMTP transaction.
+ Should an ISP use the Policy Block List (PBL) to block its own users? 
+ The Policy Blocklist (PBL) should not be used by an ISP to block its own users.
+ Using PBL in this way will create a large number of false positives as it was not designed for this use.
+ PBL is only designed to be used on incoming email.
+ If the same server is being used for incoming and outgoing email, then the administrator must ensure that authenticated clients are exempted from PBL checks. A user may connect from a dynamic IP address that is in PBL and should remain in PBL;
+ For users outside of locally whitelisted ranges, use Authenticated SMTP; 
+ Do NOT use PBL exemptions for this situation: this is not a problem that the use of PBL exemptions was designed to solve.
+ NOTE : This also applies to using the PBL to deny access to web-forums, journals or blogs.
+ Should I use the Policy Block List (PBL) to block access to my webserver? 
+ The Policy Block List (PBL) should not be used to block access to webservers, web-forums, journals, blogs, or anything else of this type.
+ A PBL listing is NOT a result of any actions undertaken by the end users.
+ The Spamhaus PBL is a list of IP space that should not be sending email direct to MX. Often these are IP ranges assigned by ISPs to broadband or dial-up customers, but the PBL does include other types of IP space.
+ Any IP space that should not be sending email directly to the Internet should be listed in PBL.
+ The majority of legitimate connections to webservers come from IPs listed in PBL, and should NOT be blocked because of their inclusion in the PBL.
+ Using SpamAssassin and Rspamd with Spamhaus data for the Policy Block List (PBL) 
+ We have developed our datasets with the final goal of being the most compatible with existing software. The two biggest open source antispam projects are SpamAssassin and Rspamd .
+ To show the best way to use our data with these products, we have created two dedicated Github projects. The projects contain instructions, rulesets, and code to make the best out of our DQS product.
+ SpamAssassin-DQS 
+ Rspamd-DQS 
+ What do the different return codes mean in the Policy Block List (PBL)? 
+ If an IP address is listed in PBL, a DNS query will return either 127.0.0.10 or 127.0.0.11 depending upon whether the range was entered by Spamhaus or the ISP:
+ NS lookup of an inverse address which is not listed in PBL will return NXDOMAIN, like any other Spamhaus zone:
+ What zone should my server or spam filter query for the Policy Block List (PBL)? 
+ The Spamhaus PBL can be queried at the DNS zone pbl.spamhaus.org.
+ Like other Spamhaus DNS zones, it has is no ‘A’ record 
+ For information about the technicalities of deploying and using PBL (and other Spamhaus DNSBLs), there is an extensive FAQ .
+ Other Blocklists Available From Spamhaus 
+ CSS 
+ Combined Spam Sources
+ Learn more 
+ DBL 
+ Domain Blocklist
+ Learn more 
+ XBL 
+ Exploits Blocklist
+ Learn more 
+ PBL 
+ Policy Blocklist
+ Learn more 
+ SBL 
+ Spamhaus Blocklist
+ Learn more 
+ ZEN 
+ PBL, SBL & XBL combines
+ Learn more 
+ Home 
+ Home 
+ ... 
+ Home 
+ Follow us
+ twitter 
+ linkedin 
+ mastodon 
+ rss 
+ Resources
+ Resource Hub Events FAQs Glossary 
+ Reputation Data
+ About the Research Reputation Statistics 
+ About Us
+ Who Is Spamhaus? History Media Centre Affiliates Contact Us 
+ Threat Intel Community
+ Community Home Guest Submission Login 
+ Free Datasets and Tools
+ Blocklists Commercial Datasets Network Protection Reputation Checker 
+ Resources
+ Reputation Data
+ About Us
+ Threat Intel Community
+ Free Datasets and Tools
+ Follow us
+ twitter 
+ linkedin 
+ mastodon 
+ rss 
+ Privacy Notice 
+ Cookie Policy 
+ Terms & conditions 
+ Site map

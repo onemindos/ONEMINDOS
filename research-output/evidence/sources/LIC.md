@@ -1,6 +1,6 @@
 # Sources · LIC (licence matrix, outreach drafts)
 
-**Accessed:** 2026-11-11 (UTC) · **Owner:** LIC · **Claims:** [`../claims/LIC.csv`](../claims/LIC.csv) (C-LIC-001…055) · **Archive:** [`LIC/`](LIC/) holds saved text with a `SHA256SUMS` file and `ORIGINAL-HASHES.txt`. Email addresses in saved texts are masked as `<email-masked>`, so each file's saved hash differs from the original; both hashes are recorded. Wayback save requests are denied in this environment and no existing captures were used.
+**Accessed:** 2026-11-11 (UTC) · **Owner:** LIC · **Claims:** [`../claims/LIC.csv`](../claims/LIC.csv) (C-LIC-001…080; 056…080 added in revision 2 for pass-2 gap N5) · **Archive:** [`LIC/`](LIC/) holds saved text with a `SHA256SUMS` file and `ORIGINAL-HASHES.txt`. Email addresses in saved texts are masked as `<email-masked>`, so each file's saved hash differs from the original; both hashes are recorded. Wayback save requests are denied in this environment and no existing captures were used.
 
 ## 1. NVIDIA primary texts (load-bearing; archived)
 
@@ -49,3 +49,44 @@ Method for every row: `gh api repos/<o>/<r>/releases/latest` (or the default bra
 ## 5. Re-used claims from other workstreams (not re-fetched)
 
 C-W2-001…006, C-W2-041, C-W2-050, C-REF-DC-cost-001…003 and 007…008, C-W8-011, C-W8-013, C-W8-014, C-W8-031, C-TD-olares-047, C-TD-villageos-025, C-TD-flagged-032, C-W18-056. These are cited in `license-matrix.md` and `outreach-drafts.md` as their owners recorded them.
+
+## 6. Revision 2 (pass-2 gap N5), accessed 2026-11-11
+
+Method as in §4: `gh api` resolves the latest stable release tag (or the default-branch head) to a full SHA, then the licence path at that SHA, and the **file text** is read. Pre-release "latest" tags were replaced with the newest stable tag (Tauri v2.12.5 instead of the v3 alpha; vLLM v0.32.0 instead of v0.33.0rc3). Every pinned permalink in the 78 new matrix rows returned HTTP 200. Downloads were kept in an isolated scratch folder as data; no package scripts or binaries were run. Emails in the saved texts are masked, and gitleaks found no leaks in the new files.
+
+### 6.1 Archived (load-bearing, non-standard or vendor texts)
+
+| # | Source | Archive | Claims |
+|---|---|---|---|
+| 23 | `nvidia-driver-libs_620.70.06-1_amd64.deb` from NVIDIA's CUDA apt repo (`developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/`), deb sha256 `847a3a5d20174de4cffb336366c44e8baf208f2fda68360b8fb81cb6aff71878`, `/usr/share/doc/nvidia-driver-libs/copyright` | [`LIC/22-…`](LIC/22-nvidia-driver-libs-620.70.06-copyright.txt) | C-LIC-077 |
+| 24 | https://docs.nvidia.com/jetson/jetpack/eula/index.html (Driver License Agreement v. 2023-11-23 + CUDA EULA 2025-01-07) | [`LIC/23-…`](LIC/23-jetpack-eula-web.txt) | C-LIC-078 |
+| 25 | `api.ngc.nvidia.com/v2/repos/nvidia/l4t-base`, `…/nvidia/l4t-jetpack`, `…/nvidia/isaac/ros` (licence sections of the catalogue descriptions) | [`LIC/24-…`](LIC/24-ngc-container-license-excerpts.txt) | C-LIC-078 |
+| 26 | https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/ (last modified 2025-10-24) | [`LIC/25-…`](LIC/25-nvidia-open-model-license.txt) | C-LIC-076 |
+| 27 | https://ai.google.dev/gemma/terms (last modified 2026-04-01) | [`LIC/26-…`](LIC/26-gemma-terms-of-use.txt) | C-LIC-073, 074 |
+| 28 | https://ai.google.dev/gemma/prohibited_use_policy (last modified 2024-02-21) | [`LIC/27-…`](LIC/27-gemma-prohibited-use-policy.txt) | C-LIC-075 |
+| 29 | https://ai.google.dev/gemma/apache_2 (Gemma 4 licence page, head) | [`LIC/28-…`](LIC/28-gemma4-apache-page-head.txt) | C-LIC-074 |
+| 30 | `meta-llama/llama-models@0e0b8c519242d5833d8c11bffc1232b77ad7f301:models/llama3_2/{LICENSE,USE_POLICY.md}` | [`LIC/29-…`](LIC/29-llama-3.2-community-license.txt), [`LIC/30-…`](LIC/30-llama-3.2-acceptable-use-policy.txt) | C-LIC-070, 071 |
+| 31 | same commit, `models/llama4/{LICENSE,USE_POLICY.md}` | [`LIC/31-…`](LIC/31-llama-4-community-license.txt), [`LIC/32-…`](LIC/32-llama-4-acceptable-use-policy.txt) | C-LIC-071, 072 |
+| 32 | `n8n-io/n8n@cc8686c5f01069714f69056112aec28f789f79e6:LICENSE.md` | [`LIC/33-…`](LIC/33-n8n-sustainable-use-license.txt) | C-LIC-064 |
+| 33 | `outline/outline@09f11188b87b0220fa318dfa6fdd0fa9772195dd:LICENSE`; `akaunting/akaunting@67baffd56038bc1ed6b473f865cc36b32bf865a4:LICENSE.txt` | [`LIC/34-…`](LIC/34-outline-bsl-1.1.txt), [`LIC/35-…`](LIC/35-akaunting-bsl-1.1.txt) | C-LIC-065 |
+| 34 | `TandoorRecipes/recipes@d0a587832523a3e561932ce649c018b535fd43b5:LICENSE.md` (head) | [`LIC/36-…`](LIC/36-tandoor-commons-clause-head.txt) | C-LIC-066 |
+| 35 | `invoiceninja/invoiceninja@2e52eca85aa5…:LICENSE`; `monetr/monetr@fa46e2c590f8…:LICENSE.md` | [`LIC/37-…`](LIC/37-invoiceninja-elastic-2.0.txt), [`LIC/38-…`](LIC/38-monetr-fsl-1.1-mit.txt) | C-LIC-067 |
+| 36 | `HabitRPG/habitica@12091ca02990…:LICENSE` | [`LIC/39-…`](LIC/39-habitica-license.txt) | C-LIC-061 |
+| 37 | `activepieces/activepieces@dec8e16d4e02…`, `BerriAI/litellm@55c9c6af17a9…`, `OpenCTI-Platform/opencti@0c082590581b…` LICENSE files | [`LIC/40-…`](LIC/40-activepieces-license.txt), [`LIC/41-…`](LIC/41-litellm-license.txt), [`LIC/42-…`](LIC/42-opencti-license-head.txt) | C-LIC-068 |
+| 38 | `u-boot/u-boot@5508406582f6f7120dce0c4b3059819a41788db2:Licenses/README` (v2026.10) | [`LIC/43-…`](LIC/43-u-boot-Licenses-README.txt) | C-LIC-059 |
+
+Hashes for 22–43 were appended to `LIC/SHA256SUMS` (saved file) and `LIC/ORIGINAL-HASHES.txt` (file before trimming or masking).
+
+### 6.2 Read at pinned SHAs or revisions (the permalink is the archive)
+
+- **Toolchain, updates, GPU:** Kyverno, Falco, Trivy, go-tuf (C-LIC-056); k8s-device-plugin `487d7a93…` and the archived GFD README (C-LIC-057); SWUpdate `9000ecb5…` README L80-83, REUSE.toml and SPDX headers (C-LIC-058); mender-convert (C-LIC-060).
+- **AI, clients, DDS:** llama.cpp, vLLM, Dynamo, Kanidm, Capacitor, Tauri, Fast DDS, Cyclone DDS (C-LIC-069).
+- **Market seeds:** every row tagged C-LIC-061, 062 and 063 in the matrix; Garage from `git.deuxfleurs.fr/Deuxfleurs/garage` at `586726ed…` (Forgejo API, tag v2.5.0).
+- **Model cards:** Hugging Face API `cardData.license_name` for `nvidia/GR00T-N1.7-3B@373d34e2…`, `nvidia/Cosmos-Predict2.5-2B@85f8ae7b…` and `nvidia/Cosmos-Reason2-2B@9ce19a19…` (C-LIC-076).
+- **Archived status:** `gh api repos/<o>/<r> .archived` (C-LIC-080).
+
+### 6.3 Blocked or SECONDARY
+
+- Fedora trademark page: still blocked by an Anubis proof-of-work wall on retry; not bypassed (C-LIC-079).
+- The Gemma 4 release date (2026-04-02) comes only from SECONDARY sources (Wikipedia; a vendor blog at blog.google, read in search results only). The licence itself is PRIMARY (C-LIC-074).
+

@@ -1,0 +1,10 @@
+time="2026-11-11T08:41:14Z" level=info msg="Starting k3s v1.37.2+k3s1 (f6973cb8)"
+time="2026-11-11T08:41:14Z" level=info msg="Configuring sqlite3 database connection pooling: maxIdle=20, maxOpen=0, maxLifetime=0s, maxIdleTime=2m0s"
+time="2026-11-11T08:41:14Z" level=info msg="Kine built with sqlite from github.com/mattn/go-sqlite3 version 3.53.4"
+time="2026-11-11T08:41:14Z" level=info msg="Configuring database table schema and indexes, this may take a moment..."
+time="2026-11-11T08:41:14Z" level=info msg="Database tables and indexes are up to date"
+...
+time="2026-11-11T08:41:34Z" level=error msg="Sending HTTP/1.1 503 response to 127.0.0.1:45948: runtime core not ready"
+time="2026-11-11T08:41:38Z" level=error msg="Sending HTTP/1.1 503 response to 127.0.0.1:45988: runtime core not ready"
+time="2026-11-11T08:41:49Z" level=error msg="Error while syncing ConfigMap" configmap=kube-system/kube-apiserver-legacy-service-account-token-tracking error="namespaces \"kube-system\" not found" logger=k3s/UnhandledError
+I1111 08:41:54.513996    1222 kubelet_node_status.go:431] "Fast updating node status as it just became ready"

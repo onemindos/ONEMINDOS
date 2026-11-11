@@ -1,0 +1,9 @@
+flowchart LR
+  A["onemind plugin init<br/>(scaffold manifest, chart, tests, CI)"] --> B["onemind plugin validate<br/>(same validator as the store)"]
+  B --> C["onemind plugin test<br/>(conformance, sim robot)"]
+  C --> D["publish from CI only<br/>(OIDC trusted publishing)"]
+  D --> E["Store review<br/>automatic + human for grants"]
+  E --> F["Tier: Community → Verified → Certified<br/>(Bronze → Gold quality ladder)"]
+  F --> G["Countersigned, digest-pinned<br/>listing + website page<br/>'Open in OneMind'"]
+  G --> H["Owner installs: sees declared<br/>permissions, approves grants"]
+  H --> I["Box re-validates each new digest;<br/>kill list can disable to a safe state"]

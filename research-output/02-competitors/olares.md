@@ -27,7 +27,7 @@
 | Market charts | `beclab/apps@37a1fb4f44b2428feb7978b25fdc798d6d6310ed` (Apache-2.0) | 2026-11-10 | sparse clone, [C-TD-olares-031] |
 | Kubernetes EOL data | `kubernetes/website@4c77b36e` `data/releases/eol.yaml` | 2026-11-11 (UTC) | [C-TD-olares-022] |
 
-Code citations below use `repo@sha:path#Lx-Ly`. Main-branch code is newer than 1.12.7; where a behaviour may have changed since 1.12.7 (the cluster-wide upgrade orchestrator), that is flagged.
+Code citations below use `repo@sha:path#Lx-Ly`. Main-branch code is newer than 1.12.7; where a behaviour may have changed since 1.12.7 (the cluster-wide upgrade orchestrator), that is flagged. **§3.5a re-checks every update-client, signing, health-check and rollback citation at the 1.12.7 release commit `e4a353df`** (added 2026-11-11): the conclusions (MD5 only, owner-signed requests, version written before the health check, retry forward, no rollback, no pre-upgrade snapshot) all hold at 1.12.7, but the 11-stage pipeline, the reboot-then-verify order and the cluster orchestrator exist only on main.
 
 ---
 
@@ -119,6 +119,26 @@ So Olares answers "who may start an update?" well (only the owner's phone key) a
 - **No rollback.** The upgrade pipeline is designed to be *re-entrant* (the comment at `base.go#L149-L152` says the version CR is written last "to make the whole pipeline reentrant"). On failure, olaresd schedules another attempt with backoff: `daemon/internel/watcher/upgrade/upgrade_watcher.go#L248-L254`, and `daemon/pkg/cluster/clusterop/upgrade.go#L247-L251` says it outright: "The watcher's answer to a failed upgrade is to start another one seconds later" [C-TD-olares-014].
 - The task engine inherited from KubeSphere's KubeKey (Apache-2.0 header) has a `Rollback` hook, but `BaseRollback.Execute` returns `nil` (`cli/pkg/core/rollback/base.go#L35-L37`) and no upgrade task sets one [C-TD-olares-015].
 - Nothing takes a backup or snapshot before upgrading (grep of `cli/pkg/upgrade`, `daemon/pkg/commands/upgrade`, `clusterop/upgrade*.go`: the only hits install the periodic etcd backup unit).
+
+### 3.5a Same at 1.12.7? (re-check at the release commit)
+
+§3.3–3.5 cite `main` at `e7fe1c96`. The latest stable release a customer actually runs is **1.12.7**, whose tag points to `beclab/Olares@e4a353dfe737d1dd924b609b7576c047153a85b9` (committed 2026-09-22; also tagged `1.12.7-rc.4`) [C-TD-olares-001]. Each citation was re-read at that commit on 2026-11-11 [C-HYG-001…004]. Paths below are at `e4a353df` unless marked.
+
+| Citation in §3.3–3.5 (main) | At 1.12.7 (`e4a353df`) | Same at 1.12.7? |
+|---|---|---|
+| Runner: olaresd runs `olares-cli upgrade --base-dir …` and tails the log for keywords (`daemon/pkg/commands/upgrade/upgrade.go#L31-L97`) [C-TD-olares-011] | File exists (contents differ from main). Same runner; progress keywords are the task names `ClearAppChartValues success` … `UpdateOlaresVersion success` (`upgrade.go#L38-L46`) [C-HYG-001] | **Yes** in behaviour |
+| 11 fixed stages, reboot-nodes before verify-cluster (`cli/pkg/upgrade/stage.go#L38-L84`) [C-TD-olares-010, C-TD-olares-013] | **`stage.go` does not exist.** One module `UpgradeOlares` runs Prepare → ClearAppChartValues → ClearBFLChartValues → UpdateChartsInAppService → UpgradeSystemComponents → UpgradeUserComponents → UpdateReleaseFile → UpdateOlaresVersion → PostUpgrade, after an `UpgradePrecheck` (master node Ready, root-partition free space) (`cli/pkg/upgrade/modules.go#L18-L53`). There is no reboot stage; a `NeedRestart` flag is only recorded in the version spec (`version.go#L182`) [C-HYG-001] | **No.** The 11 stages and the reboot-then-verify order are main-only (post-1.12.7) |
+| Cluster-wide orchestrator with per-stage barriers (`daemon/pkg/cluster/clusterop/upgrade.go#L128-L138`) | **File does not exist** at 1.12.7 [C-HYG-001] | **No** (main-only, as §0 already flagged) |
+| Breaking-version gate (`cli/pkg/upgrade/version.go#L83-L117`) [C-TD-olares-016] | File byte-identical to main | **Yes** |
+| MD5 from the same origin, no signature (`cli/pkg/terminus/tasks.go#L138-L170`) [C-TD-olares-005] | File byte-identical to main | **Yes** |
+| Owner JWS on upgrade (`daemon/pkg/cluster/clusterop/module_upgrade.go#L15-L23`) [C-TD-olares-017] | `module_upgrade.go` does not exist; the same owner-signature gate sits on the daemon routes `POST /upgrade`, `DELETE /upgrade` and `POST /upgrade/confirm`, each wrapped in `RequireSignature` + `RequireOwner` (`daemon/internel/apiserver/handlers/command_group.go#L38-L48`). `middlewares.go` and `checkjws.go` are byte-identical to main [C-HYG-003] | **Yes** in effect (different file) |
+| Health check after the version flip: `CheckSystemComponentsReady`, 3-min timeout, 60 retries, 15 s apart (`base.go#L196-L214`, `tasks.go#L107-L127`) [C-TD-olares-012] | `PostUpgrade` = `EnsureSystemComponentsUpAndRunningAgain`, `Delay 15s`, `Retry 60` (`cli/pkg/upgrade/base.go#L179-L188`); 3-min timeout in `tasks.go#L107-L127` (identical); it runs after `UpdateOlaresVersion` (`modules.go#L29-L30`) [C-HYG-001] | **Yes** (line numbers differ) |
+| "Reentrant" comment: version written last (`base.go#L149-L152`) | Same comment at `base.go#L123-L126` | **Yes** |
+| Retry forward on failure (`upgrade_watcher.go#L248-L254`; the explicit comment in `clusterop/upgrade.go#L247-L251`) [C-TD-olares-014] | `doUpgradeWithRetry` calls `incrementRetry`, which schedules the next attempt with `state.CalculateNextRetryTime` (`daemon/internel/watcher/upgrade/upgrade_watcher.go#L186-L212`, `daemon/pkg/cluster/state/retry.go#L39`). The explicit comment is main-only [C-HYG-002] | **Yes** in behaviour |
+| No-op rollback (`cli/pkg/core/rollback/base.go#L35-L37`) [C-TD-olares-015] | File byte-identical to main | **Yes** |
+| No pre-upgrade backup or snapshot | 1.12.7's `PrepareForUpgrade` starts with `RefreshBackupETCDScript`, but that task only rewrites and `chmod`s `etcd-backup.sh` (`cli/pkg/upgrade/1_12_7.go#L37-L71`, `cli/pkg/etcd/tasks.go#L386-L408`); it takes no snapshot [C-HYG-002] | **Yes** |
+
+**What this changes:** nothing in §4's diagram except the `reboot-nodes` step, which applies only to post-1.12.7 builds, and §5 row 5, where the orchestrator is confirmed main-only. The OneMind lessons in §9 (own A/B rollback, signed artifacts, snapshot before upgrade) rest only on rows marked **Yes**.
 
 ### 3.6 App manifest: OAC and its linter
 - `framework/oac/chart.go#L20-L49` lists the lint pipeline: folder layout, manifest schema, permission vs data cross-checks, Helm dry-run, **no hostNetwork/hostPID/hostIPC**, namespace check, container **limits required**, Chart/manifest version match, ServiceAccount RBAC inspection, privileged check [C-TD-olares-028]. `internal/resources/hostnetwork.go#L11-L29` judges the *rendered* values, not template text.

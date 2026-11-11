@@ -1,0 +1,72 @@
+
+	NATS by Example
+     by Example
+      Learn NATS by Example
+      An evolving collection of runnable, cross-client reference examples for NATS.
+      $ nbe run messaging/pub-sub/{cli,go,rust,python,deno,...}
+        Check out the 6m intro video, read the getting started guide, or just start browsing the examples below 👇!
+        Sign-up for the NATS Monthly Newsletter to get all the updates!
+            Messaging
+            The core messaging capabilities of NATS including
+pub-sub, request-reply, and queue groups.
+              Core Publish-Subscribe
+              Request-Reply
+              JSON for Message Payloads
+              Protobuf for Message Payloads
+              Concurrent Message Processing
+              Iterating Over Multiple Subscriptions
+            JetStream
+            An integrated subsystem providing distributed persistence.
+              Limits-based Stream
+              Interest-based Stream
+              Work-queue Stream
+              Pull Consumers
+              Pull Consumer - Applying Limits
+              Push Consumers (legacy)
+              Queue Push Consumers (legacy)
+              Multi-Stream Consumption (legacy)
+              Migration to new JetStream API
+              Consumer - Fetch Messages
+              Subject-Mapped Partitions
+              List Subjects for a Specific Stream
+              Confirmed Message Ack
+            Authentication and Authorization
+            Topics related to authentication and authorization.
+              Programmatic NKeys and JWTs
+              Configuring the System Account
+              Private Inbox
+              Auth Callout - Centralized
+              Auth Callout - Decentralized
+              Private Inbox using JWT
+            Topologies
+            Examples showcasing various deployment topologies NATS supports including
+clusters, superclusters, and leaf nodes.
+              Simple Leafnode
+              Leafnode with JWT Auth
+              Supercluster
+              Supercluster with JetStream
+              Supercluster Arbiter
+            Use Cases
+            Cross-functional examples satisfying a use case.
+              Regional and Cross Region Streams (Supercluster)
+              Regional and Cross Region Streams (Cluster)
+            Key-Value
+            A layer on top of JetStream for utilizing a stream as
+a key-value store.
+              Key-Value Intro
+            Object-Store
+            A layer on top of JetStream for utilizing a stream as
+an object store.
+              Object-Store Intro
+            Embedded
+            The NATS server can be embedded in the Go language.
+              Mutual TLS
+            Integrations
+            Examples of various integrations with NATS.
+              Change Data Capture via Debezium
+            Operations
+              NATS Streaming to JetStream Migration
+            Services Framework
+            A layer on top of core NATS for building services in a
+simple and consistent way.
+              Intro

@@ -1,0 +1,847 @@
+
+  CalyxOS News
+    CalyxOS
+             Search
+        Features
+Community
+Documentation
+News
+        Get CalyxOS
+          CalyxOS News
+          📰 Read about what we're working on, important announcements, and upcoming events.
+      📰
+      November 2026 Security updates
+      2026-11-10
+  CalyxOS 8.0.5.20, 8.0.5.21: included November 2026 Security updates with ASB platform patches and device-specific kernel security patches
+  Updated proprietary files and firmware from the October 2026 Android 17 QPR1 build on Pixels 6 - 10a
+  Keyboard improvements: added the swipe-down for numbers feature; supported inline autofill suggestions and recently copied text suggestions
+  Fixed microG crashes in map apps and issues with account logins
+      📰
+      October 2026 Feature update, with the new CalyxOS App Updater
+      2026-10-30
+  CalyxOS 8.0.4.50 available for all supported devices
+  This release introduces the CalyxOS App Updater, which enables system apps such as Chromium and microG to be updated without waiting for a full system update
+  Compromised eMudhra certificate authorities (CAs) have been removed and added to the system blocklist
+      📰
+      CalyxOS 8.0.0.0 - Android 17 rollout begins, with more devices to follow
+      2026-10-01
+  Update on 5 October 2026: new device-specific release schedule
+      📰
+      September 2026 Security update
+      2026-09-10
+  CalyxOS 7.2.5.20 - Android 16 - available for all supported devices
+  September security update
+      📰
+      August 2026 Feature update
+      2026-08-28
+  CalyxOS 7.2.4.50 - Android 16 - available for all supported devices
+  August feature update
+      📰
+      August 2026 Security update
+      2026-08-07
+  CalyxOS 7.2.4.20 - Android 16 - available for all supported devices
+  August security update
+      📰
+      CalyxOS is back – download release 7.2.2.0 with full maintenance support
+      2026-07-01
+  CalyxOS 7.2.2.0 is up online. This release will receive all future updates.
+  If you haven’t previously installed 7.2.1.0 (test build) and want to start or continue using CalyxOS, you need to flash your phone and install 7.2.2.0.
+  With CalyxOS releases back to normal, we will continue with other backlog issues. Join the Matrix channel for our progress and user support.
+      📰
+      CalyxOS progress report - our test build with Android 16 is here
+      2026-05-04
+  CalyxOS Android 16 test build (7.2.1.0) is released for community testing
+  Read the known issues, notes, and recommendations about this release carefully
+  Join our Matrix CalyxOS Testers room to help us test CalyxOS to prepare for the official release
+      📰
+      CalyxOS progress report - a detailed breakdown
+      2026-04-01
+  Responses to popular questions from our community, such as “What exactly happened with the signing process” and “What is still needed for CalyxOS to be back”
+  Further breakdown of the impact of AOSP changes going forward
+  What you can do to help us bridge development gaps
+      📰
+      CalyxOS progress report - final steps to set CalyxOS back on track
+      2026-02-24
+  We have completed the setup of the new HSM-based signing process
+  Current work focuses on a new release server and Gerrit instance
+  A new dedicated sysadmin has joined the team
+      📰
+      Lessons from CalyxOS signing process redesign
+      2026-02-10
+  This post is based on the talk our team gave at FOSDEM 2026.
+  It provides a deep dive into our HSM-based signing redesign.
+  Video recording of this talk is available here.
+      📰
+      CalyxOS progress report - ceremony preparation, QPR ports, and FOSDEM
+      2025-12-17
+  Our final open HSM-based key provisioning plan is undergoing auditing before the key ceremony
+  CalyxOS devices, including extended support, are being ported to Android 16 QPR1 while QPR2 support plan is being developed
+  We are improving community support with the new Community Coordinator
+  Catch up with us at FOSDEM in Brussels on January 31 2026!
+      📰
+      CalyxOS progress report — signing, team capacity, and more
+      2025-11-10
+  CalyxOS is working seamlessly with our security consultants to finalize the HSM signing solution.
+  The Calyx engineering is fixing our data infrastructure.
+  Three new roles are open for CalyxOS.
+      📰
+      An update on how to reach the CalyxOS team
+      2025-09-30
+  An update on how CalyxOS will provide support on each community channel
+  Team support will withdraw from the Telegram channel
+      📰
+      Last OTA update before the new CalyxOS release
+      2025-08-27
+  This is the last over-the-air (OTA) update to all current and supported CalyxOS devices, before CalyxOS resumes development from its current hiatus.
+  The OTA update warns people of the risk of running the current, unmaintained version of CalyxOS.
+  It also includes a patch to enable Moto and Fairphone users to install CalyxOS while the project is on pause in response to emerging public requests.
+      📰
+      A letter to the CalyxOS community
+      2025-08-01
+      📰
+      Community update - our progress on CalyxOS after the release of Android 16
+      2025-06-26
+  We have analyzed the potential impact on CalyxOS that the release of Android 16 will have, and the future trends it may be imply.
+  Given the upstream changes and internal needs, the CalyxOS team is revising our development methodologies and processes for secure and streamlined future updates.
+  In the last two weeks, we have made significant progress in building and running Android 16 on Pixel 6 and newer Pixels.
+  We are working to bring up the rest of modern Pixels before shifting focus to Motorola and Fairphone devices.
+      📰
+      Android 16 and Pixel Support
+      2025-06-11
+  On June 10th, Google released Android 16 to AOSP - but without Pixel device-specific source code.
+  This unexpected change impacts all custom Android ROM development, including CalyxOS.
+  We’re adapting our plans and will share updates as development progresses.
+      📰
+      Pixel 9a
+      2025-06-09
+  Google Pixel 9a is now officially supported by CalyxOS
+  CalyxOS 6.8.10 - Android 15, QPR1, June 2025 Security update (2025-06-01)
+  We welcome feedback at [[community]]
+      📰
+      June 2025 Security update
+      2025-06-09
+  CalyxOS 6.8.20 and 6.8.21 - Android 15 is now available for all supported devices
+  June security update (2025-06-01)
+      📰
+      Four new Motorola devices added to CalyxOS support list
+      2025-05-28
+  Four new devices, moto g 5G - 2024, g34 5G, g45 5G, g84 5G, are now on CalyxOS support list for Motorola phones
+  We welcome feedback at [[community]]
+      📰
+      May 2025 Feature update
+      2025-05-28
+  CalyxOS 6.7.23 - May 2025 Feature update for all supported devices
+  Smaller update as we prepare for Android 16 with upstream release due next week
+      📰
+      Important notice regarding external storage bypass vulnerability
+      2025-05-21
+  An AOSP security vulnerability allows third-party apps to bypass external storage restrictions and access sensitive folders without permissions.
+  Google has received at least two reports of this issue, however, they have not released any public disclosure about status of the issue to this date.
+  CalyxOS has released a fix to this issue with CalyxOS 6.6.22 and 6.6.23 in April 2025.
+      📰
+      May 2025 Security update - take two
+      2025-05-09
+  CalyxOS 6.7.21-2 - Android 15 is now available for the FP5, FP4, Moto G32, G42, G52, Pixel 5a, 5, 4a (5G)
+  May security update (2025-05-05)
+      📰
+      May 2025 Security update - Pixel 6 - 9
+      2025-05-07
+  CalyxOS 6.7.20 - Android 15 is now available for Pixel 6 - 9 devices
+  May security update (2025-05-05)
+  IMPORTANT: Certain Pixel devices won’t be able to downgrade after this update
+      📰
+      Why we are phasing out the Cleartext Restriction feature
+      2025-05-06
+  An in-depth explanation of our decision to retire the “Restrict cleartext network traffic” feature
+  Next steps for users who are using this feature
+      📰
+      April 2025 Feature update
+      2025-04-25
+  CalyxOS 6.6.22 - April 2025 Feature update for FP5, FP4, Moto g32, g42, g52, Pixel 4a (5G) - 9
+  One of our biggest yet with a lot of features and long-pending bug fixes
+  Upcoming devices are work in progress
+      📰
+      April 2025 Security update - take two
+      2025-04-17
+  CalyxOS 6.6.21 - Android 15 is now available for the FP5, FP4, Moto G32, G42, G52, Pixel 5a, 5, 4a (5G)
+  April security update (2025-04-05)
+      📰
+      April 2025 Security update - Pixel 6 - 9
+      2025-04-11
+  CalyxOS 6.6.20 - Android 15 is now available for the Pixel 6 - 9
+  April security update (2025-04-05)
+      📰
+      Android 15, March 2025 Quarterly Platform Release for Fairphone, Motorola, Pixel 5 series
+      2025-04-09
+  CalyxOS 6.5.21 - Android 15 is now available for the FP5, FP4, Moto G52, G42, G32, Pixel 5a, 4a (5G), 5
+      📰
+      Android 14, Final CalyxOS update for Pixel 3 - 4a and SHIFT6MQ
+      2025-03-31
+  CalyxOS 5.17.1 - Android 14, March 2025 Security update (2025-05-01)
+  End of CalyxOS support for Pixel 3, 3 XL, 3a, 3a XL, 4, 4 XL, 4a, and SHIFT6MQ
+  Pixel 4a (5G), 5 and 5a, and other newer Pixels are still supported.
+      📰
+      Android 15, March 2025 Quarterly Platform Release & Security update
+      2025-03-27
+  CalyxOS 6.5.20 - Android 15 is now available for the Pixel 6 - 9
+  Full security update (2025-03-05)
+      📰
+      Android 15, March 2025 Security update
+      2025-03-13
+  CalyxOS 6.5.10 - Android 15 is now available for the Pixel 5 - 9, FP5, FP4, Moto G32, G42, G52
+  Partial security update (2025-03-01)
+  Full security update work in progress, coming soon (2025-03-05) for Pixel 6 - 9
+      📰
+      Android 15, February Feature update
+      2025-02-22
+  CalyxOS 6.4.2 - Android 15 is now available for FP5, FP4, Moto G52, G42, G32, Pixel 5 - 9
+  Android Auto support, better accessibility, bugfixes, and more!
+      📰
+      Important Notice Regarding CalyxOS USB Restriction on Fairphone 5 Devices
+      2025-02-20
+  Security Disclosure from the CalyxOS team
+  USB restriction issue on Fairphone 5 fixed in CalyxOS 6.4.1 or newer.
+  Update now!
+      📰
+      Android 15 for FP5, FP4, Moto G52, G42, G32, Pixel 5a, 5, 4a (5G)
+      2025-02-19
+  CalyxOS 6.4.1 - Android 15 upgrade is now available for these devices
+      📰
+      Android 15, February 2025 Security update
+      2025-02-11
+  CalyxOS 6.4.0 - Android 15 is now available for the Pixel 6 - 9
+  All other devices, work in progress
+      📰
+      Android 15, January 2025 Security update
+      2025-01-08
+  CalyxOS 6.3.0 - Android 15 is now available for the Pixel 6 - 9
+  All other devices, work in progress
+      📰
+      December 2024 Feature update
+      2024-12-31
+  CalyxOS 6.2.3 - Android 15 for Pixel 6 - 9
+  CalyxOS 5.14.2 - Android 14 for FP5, FP4, Moto G52, G42, G32, Pixel 3 - 5
+  New microG, SeedVault, and more
+      📰
+      Android 15, December 2024 Quarterly Platform Release & Security update
+      2024-12-13
+  CalyxOS 6.2.1 - Android 15 for Pixel 6 - 9
+  The full December 2024 Security update (2024-12-05)
+      📰
+      Android 15, December 2024 Security update, Partial
+      2024-12-05
+  CalyxOS 6.2.0 - Android 15 for Pixel 6 - 9
+  Contains security fixes for open source components, hence partial
+  Will release 6.2.1 will the full security update as well ASAP.
+      📰
+      Android 14, December 2024 Security update
+      2024-12-04
+  CalyxOS 5.14.0 - Android 14 for FP5, FP4, Moto G52, G42, G32, Pixel 4 - 5a
+  Will determine Android 15 status for the above devices after the Android 15 QPR1 release
+  Still waiting for Google to release the Android 15 update for Pixel 6 - 9
+      📰
+      Android 14, November 2024 Security update
+      2024-11-26
+  CalyxOS 5.13.0 - Android 14 for FP5, FP4, Moto G52, G42, G32, Pixel 3 - 5a, SHIFT6MQ
+  Delayed
+      📰
+      Android 15, November 2024 Security update
+      2024-11-12
+  CalyxOS 6.1.0 - Android 15 is now available for the Pixel 6 - 8a
+  Pixel 9 builds will be released this week
+  Will also release Android 14 builds with the security update for other devices this week
+      📰
+      Android 15 test builds for Pixel 6a, 7a, 8a
+      2024-10-19
+  CalyxOS 6.0.1 - Android 15 is now available for testing for the Pixel 6a, 7a, 8a. Please report any issues to the testers channel.
+  Pixel 6 - 8, Tab, Fold builds will be available shortly, after testing and feedback from the above
+  Pixel 9 builds will be available shortly after that as well.
+      📰
+      October 2024 Security update, take two
+      2024-10-11
+  CalyxOS 5.12.1 - October 2024 Security update for Pixel 3 - 5, Fairphone 4, 5, Motos & SHIFT6MQ
+  Pixel 3, 3 XL, 3a, 3a XL and SHIFT6MQ are no longer supported
+      📰
+      Partial October 2024 Security update
+      2024-10-09
+  CalyxOS 5.12.0 - Partial October 2024 Security update for Pixel 6 and newer devices
+  Other devices work in progress
+  Android 15 also work in progress
+      📰
+      Bugfix for September 2024 Feature update
+      2024-10-04
+  CalyxOS 5.11.3 - Bugfix for September 2024 Feature update for Pixel 4 and newer, Fairphone, Motorola
+  Fixes a bug in the previous update due to which we halted rollout to security express and stable
+      📰
+      September 2024 Feature update
+      2024-09-25
+  CalyxOS 5.11.2 - September 2024 Feature update for Pixel 4 and newer, Fairphone, Motorola
+  Android 15, Pixel 9 work in progress
+  Pixel 3, 3a, SHIFT6MQ are EOL, but will receive another update
+      📰
+      September 2024 Security update, take two
+      2024-09-08
+  CalyxOS 5.11.1 - September 2024 Security update for Pixel 3 - 5, FP4, FP5, motorola & SHIFT6mq
+  Android 15 work in progress
+      📰
+      September 2024 Security update
+      2024-09-05
+  CalyxOS 5.11.0 - September 2024 Security update for Pixel 6 and newer Pixels
+  Other devices work in progress
+  Android 15 also work in progress
+      📰
+      August updates
+      2024-08-23
+  CalyxOS 5.10.1 for Pixel 4a (5G) and newer Pixels
+  CalyxOS 5.10.3 for all other devices
+      📰
+      August 2024 Security update
+      2024-08-07
+  CalyxOS 5.10.0 - August 2024 Security update
+  Available for Pixel 4a (5G) and newer pixels.
+  Other devices to be announced as soon as they’re ready in the coming week.
+      📰
+      July 2024 Security update
+      2024-07-03
+  CalyxOS 5.9.0 - July 2024 Security update
+  Available for all 27 supported devices!
+      📰
+      June 2024 Feature update
+      2024-06-29
+  New features for all 27 supported devices!
+  Firewall now supports controlling internet access for newly installed apps
+  Switch to a brand-new Gallery app, Glimpse from LineageOS
+      📰
+      Another June 2024 Quarterly Platform Release & Security update
+      2024-06-21
+  Pixel 3, 3a, 4, 4a, FP5, FP4, Moto G52, G42, G32, SHIFT6mq
+  Other devices should have already received the update
+      📰
+      June 2024 Quarterly Platform Release & Security update
+      2024-06-13
+  Pixel 5 and newer pixels
+  Other devices work in progress
+      📰
+      May 2024 Bugfix update
+      2024-05-30
+  CalyxOS 5.7.3 for FP5, FP4, Pixel 3a, 3a XL, 3, 3 XL
+  Bugfixes, mostly
+      📰
+      May 2024 Feature update
+      2024-05-24
+  CalyxOS 5.7.2 for all supported devices except Pixel 8a, 3a, 3a XL, 3, 3 XL
+  SeedVault, microG, Chromium updates and more
+      📰
+      Pixel 8a
+      2024-05-17
+  CalyxOS is now available for the Pixel 8a
+  Marked as Release Candidate (RC) currently, as a cautionary measure
+      📰
+      May 2024 Security update
+      2024-05-08
+  CalyxOS 5.7.0
+  Available for all supported devices
+      📰
+      April 2024 Feature update
+      2024-04-27
+  CalyxOS 5.6.3
+  Available for all supported devices
+      📰
+      Pixel 3, 3a, Fairphone, Motorola updates
+      2024-04-18
+  CalyxOS 5.6.2
+  Pixel 3, 3 XL, 3a, 3a XL, FP4, FP5, Moto G32, G42, G52
+      📰
+      Fairphone 5 IMEI Hotfix
+      2024-04-10
+  CalyxOS 5.6.1
+  Fairphone 5 only
+  Now rolling out to all update channels
+      📰
+      April 2024 Security update
+      2024-04-03
+  CalyxOS 5.6.0
+  Pixel 4 and newer pixels, Fairphone and Motorola
+  Pixel 3, 3a work in progress
+      📰
+      Bugfix update
+      2024-04-01
+  Pixel 4 and newer, FP4, FP5, Moto
+  Pixel 3, 3a work in progress
+  Waiting for Google to release the April Security update
+      📰
+      March 2024 Quarterly Platform Release & Security update
+      2024-03-08
+  Pixel 5a and newer pixels
+  Also coming soon for Pixel 4a (5G), 5, Fairphone and Motorola
+  Pixel 3, 3a, 4, 4a work in progress
+      📰
+      Fairphone 5, March update progress
+      2024-03-05
+  Fairphone 5 is now officially supported
+  CalyxOS 5.4.2 - Android 14
+      📰
+      Android 14 for everyone
+      2024-03-01
+  Android 14 for all supported devices
+  Test release today, beta and stable next week if all goes well!
+      📰
+      Pixel 4, SHIFT6MQ - February 2024 Security update
+      2024-02-15
+  CalyxOS 4.18.0 for Pixel 4, 4 XL and SHIFT6MQ
+  Last Android 13 build, next will be Android 14
+      📰
+      February 2024 Security update
+      2024-02-08
+  CalyxOS 5.4.0
+  Pixel 4a and newer, Moto G32, G42, G52, FP4
+      📰
+      CalyxOS stand @ FOSDEM 2024, Brussels, Belgium
+      2024-01-30
+  This celebration of free and open-source software is this weekend, 3 & 4 February 2024
+  Like the site says: “FOSDEM is free to attend. There is no registration. Just turn up!”
+      📰
+      January 2024 Feature update - CalyxOS 5.3.2
+      2024-01-27
+  CalyxOS will have a stand at FOSDEM, Brussels, 3 & 4 February, 2024.
+  SeedVault Backup can now backup even more apps, even when they don’t allow backup.
+      📰
+      Android 14 for more devices
+      2024-01-16
+      Android 14 is now available for most of our supported devices
+      📰
+      January 2024 Security update
+      2024-01-06
+      CalyxOS 5.3.0 - Android 14 is now available
+      📰
+      December 2023 Quarterly Platform Release & Security update
+      2023-12-11
+      CalyxOS 5.2.0 - Android 14 is now available
+      📰
+      November Feature update
+      2023-11-30
+      CalyxOS 5.1.2 - Android 14 and CalyxOS 4.15.1 - Android 13 is now available
+      📰
+      Motorola Moto G32, G42, G52 support
+      2023-11-20
+      CalyxOS 4.15.0 - Android 13 is now available for Motorola Moto G32, G42 and G52.
+      📰
+      Pixel 8 & 8 Pro
+      2023-11-17
+      CalyxOS is now available for the Pixel 8 and 8 Pro
+      📰
+      November Security update
+      2023-11-09
+      CalyxOS 5.1.0 - Android 14 and CalyxOS 4.15.0 - Android 13; now available for all supported devices.
+      📰
+      Another Android 14 update
+      2023-11-04
+      CalyxOS 5.0.3 - Android 14 is now available for the Pixels 4a (5G) and newer.
+      📰
+      Android 14 update
+      2023-10-26
+      CalyxOS 5.0.2 - Android 14 is now available for the Pixels 5 and newer.
+      📰
+      Android 14 for Pixels 5 and newer
+      2023-10-20
+      CalyxOS 5.0.1 - Android 14 is now available for the Pixels 5 and newer.
+      📰
+      October update, Android 14 preparation
+      2023-10-18
+      CalyxOS 4.14.1 is now available for Pixels 5 and newer.
+      📰
+      Android 14 test build for Pixel 6a
+      2023-10-14
+      CalyxOS 5.0.0 - Android 14 is now available for testing for the Pixel 6a.
+      📰
+      October Security update, Android 14 WiP, Pixel 8
+      2023-10-04
+      CalyxOS 4.14.0 - October 2023 Security update (partial) is now available for all supported devices.
+      📰
+      September Feature Update
+      2023-09-29
+      CalyxOS 4.13.4 - September feature update is now available for all supported devices.
+      📰
+      Fairphone 5 will be supported
+      2023-09-28
+      CalyxOS will support the Fairphone 5
+      📰
+      September Security Update Two
+      2023-09-22
+      CalyxOS 4.13.3 - September Security Update Two is now available for all supported devices
+      📰
+      Another September Update
+      2023-09-14
+      CalyxOS 4.13.2 - September update is now available for all supported devices.
+      📰
+      September Security Update and longer device support
+      2023-09-08
+      CalyxOS 4.13.0 - September 2023 Security update (partial) is now available for all supported devices.
+      📰
+      CalyxOS & F-Droid
+      2023-09-04
+      CalyxOS has always shipped with 2 app stores - F-Droid, and Aurora Store.
+      📰
+      Feature update
+      2023-09-02
+      CalyxOS 4.12.2 - Feature update is now available for all supported devices.
+      📰
+      August 2023 Security update
+      2023-08-10
+      CalyxOS 4.12.0 - August 2023 is now available for all supported devices.
+      📰
+      July 2023 Feature update
+      2023-07-31
+      CalyxOS 4.11.3 - July 2023 Feature update is now available for Pixels 4+, FP4 and SHIFT6MQ
+      📰
+      Pixel Tablet & Fold
+      2023-07-25
+      CalyxOS is now available for the Pixel Tablet and Pixel Fold.
+      📰
+      July 2023 Security update
+      2023-07-07
+      CalyxOS 4.11.0 - July 2023 is now available for all supported devices.
+      📰
+      June 2023 Feature update
+      2023-06-28
+      CalyxOS 4.10.2 - June 2023 Feature update is now available for the Pixels, FP4 and SHIFT6MQ
+      📰
+      June 2023 Quarterly Platform Release and Security update
+      2023-06-15
+      CalyxOS 4.10.1 - June 2023 Quarterly Platform Release and Security update
+      📰
+      NOT June 2023 Security update
+      2023-06-08
+      CalyxOS 4.10.0 - NOT June 2023 Security update is now available for the Pixels, Fairphone 4, and SHIFT6mq
+      📰
+      Feature update
+      2023-06-02
+      CalyxOS 4.9.4 - Feature update is now available for the Pixels, Fairphone 4, and SHIFT6mq
+      📰
+      Pixel 7a
+      2023-05-19
+      CalyxOS 4.9.3 is now available for the Pixel 7a
+      📰
+      May update - FP4, SHIFT6mq and new Pixels
+      2023-05-12
+      CalyxOS 4.9.2 is now available for Fairphone 4 and SHIFT6mq
+      📰
+      May Security update - Security express
+      2023-05-02
+      CalyxOS 4.9.0 and 4.9.1 - May 2023  Security update is now available for Pixels, Fairphone 4, and SHIFT6mq
+      📰
+      April Feature update
+      2023-04-21
+      CalyxOS 4.8.3 - April 2023 feature update is now available for Pixels, Fairphone 4 and SHIFT6mq
+      📰
+      April Security update - Security Express
+      2023-04-12
+      CalyxOS 4.8.0 (and 4.8.1) - April 2023 Security update is now available for Pixels, Fairphone 4, and SHIFT6mq
+      📰
+      Another March update
+      2023-04-06
+      CalyxOS 4.7.7 - March 2023 Feature update is now available in beta for the Pixels and the Fairphone 4
+      📰
+      March Feature update
+      2023-03-30
+      CalyxOS 4.7.6 - March 2023 Feature update is now available in beta for the Pixels and the Fairphone 4
+      📰
+      March update bugfix
+      2023-03-23
+      CalyxOS 4.7.5 - Bugfix for March 2023 Quarterly Platform Release and Security update is now available for the Pixels and the Fairphone 4
+      📰
+      Another March update
+      2023-03-18
+      CalyxOS 4.7 - March 2023 Quarterly Platform Release and Security update is now available for the Pixels and the Fairphone 4
+      📰
+      March update
+      2023-03-16
+      CalyxOS 4.7.0 (and 4.7.1) - March 2023 Quarterly Platform Release and Security update is now available for the Pixels 3, 3a, 5 - 7, and the Fairphone 4
+      📰
+      February Security update
+      2023-02-08
+      CalyxOS 4.6.0 - February 2023 Security update is now available for the Pixels 3 - 7, and the Fairphone 4
+      📰
+      Another January update - Bugfixes and new features!
+      2023-01-20
+      CalyxOS 4.5.1 - January 2023 Security update - Bugfixes and new features is now available for the Pixels 3 - 7, and the Fairphone 4
+      📰
+      January Security update
+      2023-01-05
+      CalyxOS 4.5.0 - January 2023 Security update is now available for the Pixels 3 - 7, and the Fairphone 4
+      📰
+      December bugfix update
+      2022-12-24
+      Happy Holidays!
+      📰
+      December QPR and Security update
+      2022-12-09
+      CalyxOS 4.4.0 - December 2022 Quarterly Platform Release and Security update is now available for the Pixels 3 - 7, and the Fairphone 4
+      📰
+      4.3.2 - Bugfixes and improvements
+      2022-12-03
+      CalyxOS 4.3.2 is now available for all supported Pixels, and the Fairphone 4.
+      📰
+      November 2022 Security update
+      2022-11-10
+      CalyxOS 4.3.0 - Android 13 is now available for the Pixels 3 - 7, and the Fairphone 4
+      📰
+      New builds for Pixel 3 - 7, FP4
+      2022-11-01
+      CalyxOS 4.2.7 - Android 13 is now available for the Pixels 3 - 7, and also the Fairphone 4.
+      📰
+      Pixel 7, Fairphone 4 Beta
+      2022-10-20
+      CalyxOS 4.2 - Android 13 is now available for Pixel 7, 7 Pro and also the Fairphone 4.
+      📰
+      Another October update
+      2022-10-13
+      CalyxOS 4.2 - Android 13 is now available for the Google supported Pixels, i.e. Pixel 4 - 6a, and the Fairphone 4
+      📰
+      Android 13 - October Security update
+      2022-10-07
+      CalyxOS 4.2 - Android 13 is now available for the Google supported Pixels, i.e. Pixel 4 - 6a
+      📰
+      Android 13 - Tiramisu status update
+      2022-09-29
+      CalyxOS 4.1 - Android 13 has been available for testing and then later beta (for some devices) since September 15
+      📰
+      Tiramisu Beta - Android 13
+      2022-09-21
+      CalyxOS 4.1.6 - Android 13 is now available as a beta release for some devices.
+      📰
+      More Tiramisu - Android 13 - Pixel 3 - 6a
+      2022-09-21
+      CalyxOS 4.1 - Android 13 is now available for testing for all Google Pixels.
+      📰
+      Tiramisu - Android 13 - Pixel 4 - 6a
+      2022-09-15
+      CalyxOS 4.1 - Android 13 is now avaiable for testing for the Google supported Pixels, i.e. Pixel 4 - 6a
+      📰
+      September Security update, Android 12L - Pixels, FP4
+      2022-09-10
+      CalyxOS 3.9.0 - Android 12L is now available for all supported Pixels, i.e. Pixel 3 - 6a, and the Fairphone 4
+      📰
+      August Security update, Android 12L - Pixels, FP4
+      2022-09-02
+      CalyxOS 3.8.0 - Android 12L is now available for all supported Pixels, i.e. Pixel 3 - 6a, and the Fairphone 4
+      📰
+      Android 13 plans and important information
+      2022-08-15
+      Hello,
+      📰
+      July 2022 Security update - Pixels
+      2022-07-08
+      CalyxOS 3.7.0 - Android 12L  is now available for all supported Pixels, i.e. Pixel 3 - Pixel 6
+      📰
+      OnePlus Android 12 firmware - relocking no longer works
+      2022-07-06
+      CalyxOS test builds for the OnePlus 8T, 9 and 9 Pro have been shipping with the Android 11 firmware, since at the time the work to update custom ROMs to be based on that was still work in progress for some models, and for others full kernel source code was not available until recently.
+      📰
+      CalyxOS Status update - June
+      2022-06-24
+      This is the first in a series of regular updates from the CalyxOS team.
+      📰
+      Chromium based on Bromite
+      2022-06-14
+      We’ve entirely reworked our Chromium fork to be based on Bromite
+      📰
+      CalyxOS software support timeline
+      2022-06-09
+      CalyxOS currently supports 12 Pixels (3 and newer), and we’ve got test builds available for 1 Fairphone and 3 OnePlus devices. That’s a total of 16 devices.
+      📰
+      June 2022 Security update - Pixels
+      2022-06-08
+      CalyxOS 3.6.0 - Android 12L  is now available for all supported Pixels, i.e. Pixel 3 - Pixel 6
+      📰
+      Location indicator and Safetynet fix
+      2022-05-07
+      CalyxOS 3.5.1 - Android 12L is now available for all supported devices, i.e. Pixel 3 - Pixel 6, and Fairphone 4, OnePlus 8T, 9 and 9 Pro
+      📰
+      May 2022 Security update - Pixels
+      2022-05-04
+      CalyxOS 3.5.0 - Android 12L is now available for all supported Pixels, i.e. Pixel 3 - Pixel 6
+      📰
+      May 2022 Security update - Fairphone 4, OnePlus 8T, 9, 9 Pro
+      2022-05-04
+      CalyxOS 3.5.0 - Android 12L is now available for Fairphone 4
+      📰
+      April 2022 Security update - Pixels
+      2022-04-05
+      CalyxOS 3.4.0 - Android 12L is now available for all supported Pixels, i.e. Pixel 3 - Pixel 6
+      📰
+      Fairphone 4, OnePlus 8T, OnePlus 9 test builds now available
+      2022-04-01
+      CalyxOS 3.3.2 - Android 12L is now available for testing for the Fairphone 4, OnePlus 8T, OnePlus 9
+      📰
+      March 2022 Security update - Pixel 6
+      2022-03-23
+      CalyxOS 3.3.1 - Android 12L is now avilable for Pixel 6
+      📰
+      Android 12L for Pixels
+      2022-03-14
+      CalyxOS 3.3.0 - Android 12L is now available for all supported Pixels, i.e. Pixel 3 - Pixel 6
+      📰
+      Pixel 6 Dirty Pipe Vulnerability fix
+      2022-03-07
+      CalyxOS 3.2.2 - Pixel 6, and 6 Pro is now available directly in the stable channel. Beta also has the same build if you want to stay on that.
+      📰
+      microG push notification fixes for Android 12
+      2022-03-03
+      We’ve seen the many reports of push notification delays, and experienced them ourselves as well.
+      📰
+      Future device support
+      2022-02-25
+      Background
+      📰
+      Android 12, Pixel 6 update
+      2022-02-20
+      CalyxOS 3.2.1 - February 2022 Security update, take two, Pixel 6 and 6 Pro
+      📰
+      Android 11 February Security update for Pixel 2, Mi A2
+      2022-02-11
+      CalyxOS 2.14.0 - Android 11, February 2022 Security update is now available for the Pixel 2, 2 XL and Mi A2.
+      📰
+      Android 12 February 2022 Security update
+      2022-02-09
+      CalyxOS 3.2.0 - February 2022 Security update
+      📰
+      Android 12 changelog, now stable
+      2022-01-19
+      CalyxOS 3, Android 12 is now available for Pixel 3 and above. Pixel 6 and 6 Pro are supported.
+      📰
+      Android 11 January Security update for Pixel 2, Mi A2
+      2022-01-19
+      CalyxOS 2.13.0 - Android 11, January 2022 Security update is now available for the Pixel 2, 2 XL and Mi A2.
+It also includes the December 2021 Security update patches.
+      📰
+      Android 12 January Security update
+      2022-01-16
+      CalyxOS 3.1.0 - Android 12, January 2022 Security update is now available for Pixel 3 and above.
+      📰
+      Android 12, Pixel 6
+      2022-01-08
+      CalyxOS 3.0.0 - Android 12 is finally here, for Pixel 3 and above.
+      📰
+      November Security update
+      2021-11-08
+      The Android 11 November Security update is finally here.
+      📰
+      microG push notification fixes
+      2021-10-13
+      The October update included some push notification fixes, however it turned out that they didn’t work as well as expected for everyone.
+      📰
+      October Security update
+      2021-10-08
+      The October Security update is here. It also contains some bugfixes and minor features that we had been working on.
+      📰
+      Android 12 update plans
+      2021-10-05
+      Google has released Android 12 to AOSP. They are yet to release the Android 12 update for the Pixels though, stating that it’ll be available in the next few weeks.
+      📰
+      Introducing GCam Photos Preview
+      2021-09-30
+      The Pixels have great cameras, and Google Camera works really well on them.
+      📰
+      September Security update
+      2021-09-09
+      The September Security update is here. It’s basically the last update (2.8.2/.3) with the September 2021 security patches applied on top.
+      📰
+      Pixel 5a
+      2021-09-08
+      CalyxOS 2.8.3 is now available for the Pixel 5a - codename barbet.
+      📰
+      Feature update
+      2021-09-02
+      The promised feature update is here. It will be last big update for Android 11, we will not be developing any more features and instead focusing on making an Android 11 build available for the Pixel 5a, and also preparing for Android 12.
+      📰
+      August Security update
+      2021-08-05
+      The August update is here. It’s mostly identical to the Special Pixel 4a release (2.7.1), with the only addition being the security updates.
+      📰
+      Verifying CalyxOS builds
+      2021-08-04
+      The official CalyxOS builds are signed with our private keys.
+Over-the-air (OTA) updates are also signed with the same keys, and once you install the OS, only updates signed with the same key can be installed.
+      📰
+      Minor update for Pixel 4a
+      2021-07-21
+      A small update is now available for the Pixel 4a (sunfish).
+It mostly contains bugfixes.
+      📰
+      July Security update
+      2021-07-09
+      The July update is here, with some new features and bug fixes all around the place.
+      📰
+      June Security update and Feature drop
+      2021-06-10
+      The June update is here, with even more features and bug fixes.
+      📰
+      CalyxOS Emulator Images
+      2021-05-27
+      CalyxOS Emulator images are now available, which can be used with the Emulator present in Android Studio.
+      📰
+      Community update
+      2021-05-27
+      We have changed how the setup of the various [[communication channels => community]] over the last week.
+      📰
+      Security updates
+      2021-05-14
+      Monthly security updates are an important tool to keep users safe and protect their devices. CalyxOS provides timely monthly updates for all supported devices. Let’s walk through how the process works.
+      📰
+      Work profiles fix
+      2021-05-13
+      The May update introduced a new Work Profile feature, allowing you to create a work profile directly from the Settings app without having to install any third party apps.
+      📰
+      May Security update
+      2021-05-06
+      With May comes another security update packed to the brim with new features.
+      📰
+      microG Google Account Login fix, take two
+      2021-04-16
+      CalyxOS includes microG by default, and you get [[three choices => microg]]. You can either keep it enabled (the default), disable it, or login with a Google account.
+      📰
+      Chromium 90 available for testing
+      2021-04-13
+      Google released Chrome 90 (90.0.4430.66) yesterday, and we have updated our Chromium fork (and the patches applied on top) to pull in all the changes, and created a new build.
+      📰
+      The Big April update
+      2021-04-08
+      April is amongst us, and with it comes a security update, but wait, there’s more.
+      📰
+      Mi A2 10.0 Firmware
+      2021-03-29
+      A new experimental build has been released for the Xiaomi Mi A2 which contains firmware from the stock 10.0 release.
+      📰
+      Mi A2 Charging fix
+      2021-03-18
+      A build with a charging fix for the Xiaomi Mi A2 has been released.
+      📰
+      March Security update and Feature drop
+      2021-03-04
+      The March Security update is now available for all supported devices.
+      📰
+      February Security update
+      2021-02-03
+      The February Security update is now available for all supported devices.
+      📰
+      Pixel 5 and Pixel 4a (5G) support
+      2021-01-26
+      The wait is over, we have builds available for the new Pixels!
+      📰
+      New website
+      2020-09-01
+      Yippie! We have a new website. It is static generated and anyone can contribute through gerrit. See [[https://gitlab.com/CalyxOS/calyxos.org]] and https://review.calyxos.org/q/project:CalyxOS/calyxos.org.
+      📰
+      Some phones may have stopped updating and need intervention
+      2020-05-08
+      The April 2020 build of Calyxos (build 2020.04.07.17) did not include the OTA Updater due to a misconfiguration.
+        About Calyx
+        Join Calyx
+        Contact Us
+        Privacy Policy
+        Terms of Service
+        Donate
+      © 2021-2026 Calyx Institute
+      •
+      Edit page

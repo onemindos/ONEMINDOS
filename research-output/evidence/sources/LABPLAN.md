@@ -1,0 +1,16 @@
+# Sources: LABPLAN (`22-HARDWARE-LAB-TEST-PLAN.md`)
+
+All accessed 2026-11-11. Web pages were saved as text (HTML stripped) in `LABPLAN/` with hashes in `LABPLAN/SHA256SUMS`; `gitleaks dir` on that folder found no leaks. The Argo CD pages' example default config path was masked as `<home>` before hashing. Code was read in shallow clones under `<lab-dir>/src/` at the pinned commits. New Wayback captures are blocked in this environment (ARCHIVE-GAP for S1–S5; the saved text plus sha256 stands in).
+
+| # | Source | Type | Pin / capture | Used for |
+|---|---|---|---|---|
+| S1 | DigitalOcean doctl reference, `doctl kubernetes cluster get`: https://docs.digitalocean.com/reference/doctl/reference/kubernetes/cluster/get/ (page "generated on 5 Nov 2026") | PRIMARY | `LABPLAN/doctl-kubernetes-cluster-get.txt` | Read-only verb, `--format` columns, default output shows the API server IPv4 (C-LABPLAN-006) |
+| S2 | doctl reference, `doctl kubernetes cluster list`: https://docs.digitalocean.com/reference/doctl/reference/kubernetes/cluster/list/ | PRIMARY | `LABPLAN/doctl-kubernetes-cluster-list.txt` | Read-only verb (C-LABPLAN-007) |
+| S3 | Argo CD CLI reference, `argocd app list` and `argocd app get`: https://argo-cd.readthedocs.io/en/stable/user-guide/commands/argocd_app_list/ , …/argocd_app_get/ | PRIMARY | `LABPLAN/argocd-app-list.txt`, `LABPLAN/argocd-app-get.txt` | Read-only verbs; `--refresh`/`--hard-refresh` exist and are excluded (C-LABPLAN-008) |
+| S4 | Kubernetes reference, `kubectl get`: https://kubernetes.io/docs/reference/kubectl/generated/kubectl_get/ | PRIMARY | `LABPLAN/kubectl-get.txt` | `-A`, custom-columns (C-LABPLAN-009) |
+| S5 | Kubernetes concepts, Pod Security Admission: https://kubernetes.io/docs/concepts/security/pod-security-admission/ | PRIMARY | `LABPLAN/k8s-pod-security-admission.txt` | Label form and levels for the Q220 check (C-LABPLAN-010) |
+| S6 | home-assistant/operating-system@ab7d0f1a0174760353780a21be2befecbc80a672: `tests/requirements.txt` L1; `tests/qemu-strategy.yaml` L6-L31; `tests/smoke_test/test_os_update.py` L12, L43, L110; `.github/workflows/test.yaml` L32-L77 | PRIMARY | local clone `<lab-dir>/src/home-assistant_operating-system` | How HAOS tests images (C-LABPLAN-001, -002) |
+| S7 | getumbrel/umbrel@c43beed964074d08865d648ca9ac3359826a14ff: `.github/workflows/ci.yml` L95-L104, L413; `packages/umbreld/source/modules/**/*.vm.test.ts` (116 files) | PRIMARY | local clone `<lab-dir>/src/getumbrel_umbrel` | How umbrelOS tests images (C-LABPLAN-003) |
+| S8 | balena-os/meta-balena@48184b689a43b762c5eea6efbc16b018eed70839: `tests/README.md` L5-L52; `.gitmodules` (Leviathan submodule) | PRIMARY | local clone `<lab-dir>/src/balena-os_meta-balena` | balenaOS QEMU + physical-rig testing (C-LABPLAN-004, -005) |
+| S9 | beclab/Olares@e7fe1c9634f26530386c2033a33be7a9495704f3: `.github/workflows/` file list | PRIMARY (names only) | local clone `<lab-dir>/src/beclab_Olares` | C-LABPLAN-011 (partial) |
+| S10 | This repo: `research-output/` 03–17, 26, 28, 29; `evidence/lab/*/README.md`; `evidence/lab/rauc-1152/PI5-TRYBOOT-FOUNDER-TEST.md`; `evidence/qbank/*.md`; `evidence/decision-critical.md`; `context/01-proven-infrastructure-cluster.md`; `context/05-research-questions.md` | Internal | working tree on `research/ultracode-foundation`, 2026-11-11 | The test inventory this plan consolidates |

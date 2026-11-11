@@ -1,0 +1,354 @@
+SOURCE: https://www.synology.com/api/releaseNote/findChangeLog?identify=DSM&lang=en-global&model=DS925%2B&version=all_versions (Synology DSM release notes for DS925+, JSON endpoint behind https://www.synology.com/en-global/releaseNote/DSM)
+
+=== 7.4.1-90080 Update 1 (2026-10-12) security=True
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed security vulnerabilities.
+
+
+=== 7.4.1-90080 (2026-07-23) security=True
+
+## Important Note
+- After installing this update, you will not be able to downgrade to a previous DSM version.
+- This update will restart your Synology NAS.
+- If auto update does not run, perform a manual update in Control Panel. Before updating, follow the instructions and complete the required actions to ensure success.
+- To uphold our commitment to quality, every DSM release undergoes rigorous validation. To ensure optimal stability, the models listed below will not receive this update on your device and will remain on their most suitable version. You can only download the upgrade patch from Synology Download Center  because you won't receive notifications for this update on your DSM.
+- FS Series: FS3017, FS2017, FS1018
+- XS Series: RS18016xs+, RS4017xs+, RS3617xs+, RS3617xs, RS3617RPxs, RS18017xs+, DS3617xs, DS3617xsII, DS3018xs
+- Plus Series: RS2416RP+, RS2416+, DS916+, DS716+II, DS716+, DS216+II, DS216+, DS1817+, DS1517+, RS2818RP+, RS2418RP+, RS2418+, RS818RP+, RS818+, DS1618+, DS918+, DS718+, DS218+, RS1219+
+- Value Series: DS116, DS216, DS216play, DS416, DS416play, DS1517, DS1817, DS418play, RS217, RS816
+- J Series: DS216j, DS416j, DS416slim, DS419slim, DS418j, DS218j, DS119j
+- Enhanced KMIP certificate handling to comply with updated certificate issuance policies for public certificate authorities (CAs). KMIP client authentication now requires certificates issued by a private CA. Synology default certificates, the QuickConnect certificate, and certificates issued by public CAs (e.g., Let's Encrypt, SSL.com, and Sectigo) are not supported for KMIP client authentication. For detailed configuration instructions, refer to this article. To generate self-signed certificate files for KMIP client authentication, refer to this article.
+## Compatibility & Installation
+- To ensure compatibility, the following packages will be automatically updated or will require a manual update to a compatible version: SnapshotReplication
+## Fixed Issues
+- Fixed an issue where a USB UPS could not be recognized after updating to DSM 7.4.
+- Fixed an issue where USB devices could not be used on certain models after updating to DSM 7.4.
+- Improved cache handling to enhance system stability.
+
+
+=== 7.4-90075 (2026-06-16) security=False
+
+## Important Note
+- After installing this update, you will not be able to downgrade to a previous DSM version.
+- This update will restart your Synology NAS.
+- If auto update does not run, perform a manual update in Control Panel. Before updating, follow the instructions and complete the required actions to ensure success.
+- To uphold our commitment to quality, every DSM release undergoes rigorous validation. To ensure optimal stability, the models listed below will not receive this update on your device and will remain on their most suitable version. You can only download the upgrade patch from Synology Download Center  because you won't receive notifications for this update on your DSM.
+- FS Series: FS3017, FS2017, FS1018
+- XS Series: RS18016xs+, RS4017xs+, RS3617xs+, RS3617xs, RS3617RPxs, RS18017xs+, DS3617xs, DS3617xsII, DS3018xs
+- Plus Series: RS2416RP+, RS2416+, DS916+, DS716+II, DS716+, DS216+II, DS216+, DS1817+, DS1517+, RS2818RP+, RS2418RP+, RS2418+, RS818RP+, RS818+, DS1618+, DS918+, DS718+, DS218+, RS1219+
+- Value Series: DS116, DS216, DS216play, DS416, DS416play, DS1517, DS1817, DS418play, RS217, RS816
+- J Series: DS216j, DS416j, DS416slim, DS419slim, DS418j, DS218j, DS119j
+- For the following models, DSM 7.4 will be the last upgradable version.
+- FS Series: FS3017, FS2017, FS1018
+- XS Series: DS3018xs, DS3617xs, DS3617xsII, RS18016xs+, RS18017xs+, RS3617xs, RS3617RPxs, RS3617xs+, RS3618xs, RS4017xs+
+- Plus Series: DS216+, DS216+II, DS716+, DS716+II, DS916+, DS718+, DS918+, DS1019+, DS218+, DS1517+, DS1817+, DS1618+, DS1819+, DS2419+, DS2419+II, RS2416+, RS2416RP+, RS2418+, RS2418RP+, RS2818RP+, RS818+, RS818RP+, RS1219+
+- Value Series: DS116, DS216, DS216play, DS416, DS416play, RS816, DS118, DS218, DS218play, DS418, DS418play, DS1517, DS1817, RS819, RS217
+- J Series: DS216j, DS416j, DS416slim, DS419slim, DS418j, DS218j, DS119j
+## Compatibility & Installation
+- To ensure compatibility, the following packages will be automatically updated or will require a manual update to a compatible version: Synology Chat Server, HighAvailability(SHA), Synology MailPlus Server, PACS, QuickConnect, ReplicationService, SecureSignIn, SnapshotReplication, WebStation
+- PHP 8.1, Mail Station, and Synology Mail Server are no longer supported.
+## What's New
+- When DSM joins an LDAP server, it now displays the supported SMB authentication methods, allowing you to identify whether LDAP users can use NTLM, CIFS plaintext authentication, or Kerberos.
+- Added display for GPU information in Info Center.
+## Fixed Issues
+- Enhanced message clarity and error handling in the SSO client.
+- Improved authentication stability when DSM acts as a CAS SSO client.
+- Fixed an issue where signing in to DSM could result in an infinite redirect loop when it was configured as both an SSO Server and client pointing to the same server.
+- Fixed an issue where SAML-authenticated usernames were not shown in Log Center when DSM, acting as a SAML SSO client, could not match them to any local or directory user.
+- Fixed an issue where sign-ins could fail when usernames contain special characters.
+- Fixed an issue where files uploaded via NFS to WriteOnce shared folders might not be locked correctly.
+- Fixed an issue where an extra Kerberos integrity (krb5i) option might be incorrectly displayed in NFS permission security settings.
+- Fixed an issue where IEEE 802.3ad Link Aggregation might fail to be created or function properly at certain network interface speeds after updating to DSM 7.3.
+- Fixed an issue where enabling IPv6 might cause the system to shut down improperly under certain circumstances.
+- Fixed an issue where external network access might still be available after all gateways were deleted.
+- Fixed an issue where licenses might be missing on Virtual DSM after system restart.
+- Fixed an issue where Synology Drive Admin Console might not function properly after installing or updating to DSM 7.3.
+- Fixed an issue where DSM updates might be incorrectly blocked by a false insufficient-space precheck.
+- Fixed an issue where Package Center might not be able to connect to Synology servers in IPv6 network environments.
+- Fixed an issue where system logs could not be attached to support tickets in Support Center.
+- Fixed security vulnerabilities regarding Ghostscript (CVE-2023-43115).
+- Fixed multiple security vulnerabilities.
+
+
+=== 7.3.2-86009 Update 5 (2026-10-12) security=True
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed security vulnerabilities.
+
+
+=== 7.3.2-86009 Update 4 (2026-06-30) security=True
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed security vulnerabilities (Synology-SA-26:06).
+
+
+=== 7.3.2-86009 Update 3 (2026-03-19) security=True
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed a security vulnerability regarding Telnetd (CVE-2026-32746)(Synology-SA-26:03).
+
+
+=== 7.3.2-86009 Update 2 (2026-03-16) security=True
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed multiple security vulnerabilities.
+
+
+=== 7.3.2-86009 Update 1 (2026-01-29) security=True
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed a security vulnerability regarding telnetd (CVE-2026-24061).
+
+
+=== 7.3.2-86009 (2025-12-02) security=True
+
+## Important Note
+- After installing this update, you will not be able to downgrade to a previous DSM version.
+- This update will restart your Synology NAS.
+- If auto update does not run, perform a manual update in Control Panel. Before updating, follow the instructions and complete the required actions to ensure success.
+- To uphold our commitment to quality, every DSM release undergoes rigorous validation. To ensure optimal stability, the models listed below will not receive this update on your device and will remain on their most suitable version. You can only download the upgrade patch from Synology Download Center  because you won't receive notifications for this update on your DSM.
+- FS Series: FS3017, FS2017, FS1018
+- XS Series: RS18016xs+, RS4017xs+, RS3617xs+, RS3617xs, RS3617RPxs, RS18017xs+, DS3617xs, DS3617xsII, DS3018xs
+- Plus Series: RS2416RP+, RS2416+, DS916+, DS716+II, DS716+, DS216+II, DS216+, DS1817+, DS1517+, RS2818RP+, RS2418RP+, RS2418+, RS818RP+, RS818+, DS1618+, DS918+, DS718+, DS218+, RS1219+
+- Value Series: DS116, DS216, DS216play, DS416, DS416play, DS1517, DS1817, DS418play, RS217, RS816
+- J Series: DS216j, DS416j, DS416slim, DS419slim, DS418j, DS218j, DS119j
+## Fixed Issues
+- Fixed an issue where backup files containing encrypted volumes might not function properly when restored to DSM 7.3.
+- Fixed an issue where users might be required to re-enter their license keys after updating to DSM 7.3 when migrating a system or operating in an SHA-enabled environment.
+- Fixed an issue where users could not authenticate using Approve sign-in or FIDO2-compliant hardware security keys before authorization in OAuth Service.
+- Fixed an issue where users might fail to authenticate when configuring SSO clients to use C2 Identity as the identity provider with the SAML protocol.
+- Fixed an issue where DSM might fail to send files from File Station as attachments when accounts were configured through Outlook.
+- Fixed an issue where notification profiles might be incorrect when restoring from configuration backup files.
+- Fixed an issue that prevented certain UPnP renderers from playing MP3 files after updating to DSM 7.3.
+- Fixed a security vulnerability.
+
+
+=== 7.3.1-86003 Update 1 (2025-11-18) security=True
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed a security vulnerabilities (Synology-SA-25:14).
+
+
+=== 7.3.1-86003 (2025-10-28) security=False
+
+## Important Note
+- After installing this update, you will not be able to downgrade to a previous DSM version.
+- This update will restart your Synology NAS.
+- If auto update does not run, perform a manual update in Control Panel. Before updating, follow the instructions and complete the required actions to ensure success.
+- To uphold our commitment to quality, every DSM release undergoes rigorous validation. To ensure optimal stability, the models listed below will not receive this update on your device and will remain on their most suitable version. You can only download the upgrade patch from Synology Download Center  because you won't receive notifications for this update on your DSM.
+- FS Series: FS3017, FS2017, FS1018
+- XS Series: RS18016xs+, RS4017xs+, RS3617xs+, RS3617xs, RS3617RPxs, RS18017xs+, DS3617xs, DS3617xsII, DS3018xs
+- Plus Series: RS2416RP+, RS2416+, DS916+, DS716+II, DS716+, DS216+II, DS216+, DS1817+, DS1517+, RS2818RP+, RS2418RP+, RS2418+, RS818RP+, RS818+, DS1618+, DS918+, DS718+, DS218+, RS1219+
+- Value Series: DS116, DS216, DS216play, DS416, DS416play, DS1517, DS1817, DS418play, RS217, RS816
+- J Series: DS216j, DS416j, DS416slim, DS419slim, DS418j, DS218j, DS119j
+## Compatibility & Installation
+- To ensure compatibility, Replication Service will be automatically updated or will require a manual update to a compatible version.
+## Fixed Issues
+- Fixed an issue where the LED brightness adjustment function might stop working on certain models.
+- Fixed an issue where connected external devices might not appear when selecting files or folders.
+- Fixed an issue where external storage devices might trigger false alerts.
+- Fixed an issue where a UPS connected via USB might fail to function after a system update.
+
+
+=== 7.3-81180 (2025-10-08) security=False
+
+## Important Note
+- After installing this update, you will not be able to downgrade to a previous DSM version.
+- This update will restart your Synology NAS.
+- If auto update does not run, perform a manual update in Control Panel. Before updating, follow the instructions and complete the required actions to ensure success.
+- To uphold our commitment to quality, every DSM release undergoes rigorous validation. To ensure optimal stability, the models listed below will not receive this update on your device and will remain on their most suitable version. You can only download the upgrade patch from Synology Download Center  because you won't receive notifications for this update on your DSM.
+- FS Series: FS3017, FS2017, FS1018
+- XS Series: RS18016xs+, RS4017xs+, RS3617xs+, RS3617xs, RS3617RPxs, RS18017xs+, DS3617xs, DS3617xsII, DS3018xs
+- Plus Series: RS2416RP+, RS2416+, DS916+, DS716+II, DS716+, DS216+II, DS216+, DS1817+, DS1517+, RS2818RP+, RS2418RP+, RS2418+, RS818RP+, RS818+, DS1618+, DS918+, DS718+, DS218+, RS1219+
+- Value Series: DS116, DS216, DS216play, DS416, DS416play, DS1517, DS1817, DS418play, RS217, RS816
+- J Series: DS216j, DS416j, DS416slim, DS419slim, DS418j, DS218j, DS119j
+- Introduced in DSM 7.2.2 and continued in DSM 7.3, media file processing for HEVC (H.265), AVC (H.264), and VC-1 codecs is now handled by end devices to improve system efficiency. These codecs are widely supported on end devices such as smartphones, tablets, computers, and smart TVs. If the end device does not support the required codecs, the use of media files may be limited. Refer to this article for workarounds.
+In addition, please note the following exceptions:
+- Surveillance Station on DSM will continue to support server-side processing of AVC (H.264) streams, see the release notes.
+- Deep Video Analytics (DVA) series models and VisualStation clients will retain support for AVC (H.264) and HEVC (H.265) codecs.
+- PetaSpace has reached end of life and is no longer supported. To create a large volume, see this article.
+## Compatibility & Installation
+- Node.js v14, Node.js v16, PHP7.3, PHP7.4, and PHP8.0 are no longer supported.
+- To ensure compatibility, the following packages will be automatically updated or will require a manual update to a compatible version: Active Backup for Business 3.1.0, Active Backup for Google Workspace 2.2.6, Active Backup for Microsoft 365 2.6.1, Advanced Media Extensions, Antivirus by McAfee, Antivirus Essential, Cloud Sync, Container Manager, Download Station, File Station, Hyper Backup, Hyper Backup Vault, Log Center, Media Server, Note Station, PACS, Presto File Server, Snapshot Replication, Storage Analyzer, Surveillance Station 9.2.0 or below, Synology Chat Server, Synology Drive, Synology Mail Server, Synology Mail Station, Synology Photos, Universal Search, and Web Station.
+## What's New
+- Added an option to postpone important DSM auto-updates for up to 28 days after the first notification.
+- Added support for Synology Tiering and Synology Tiering Vault.
+- Added native exFAT support for external devices, allowing seamless access without additional packages. The exFAT Access package has been discontinued.
+- Added support for backing up and restoring the "Verify server certificate" setting in LDAP directory service. Restoring this setting requires both the export and import systems to run DSM 7.3 or above.
+- Added support for selecting organizational units (OUs) to synchronize when joining a domain. In this version, if you need to modify the OU synchronization list after joining the domain, you must leave and rejoin the domain.
+- Added an option to automatically lock encrypted storage entities during a manual reset (Mode 1). After the reset, the key vault is erased and disabled, and encrypted volumes and shared folders are locked to prevent unauthorized access. This option is set to disabled by default.
+- Added support for sending OTP emergency recovery codes by email if users cannot receive their OTP during 2-factor authentication for OS login.
+## Fixed Issues
+- Fixed an issue where DSM configuration backups or Hyper Backup could fail while Shared Folder Sync tasks were running.
+- Fixed an issue where residual snapshots from previous backup tasks might cause entire system backups in Active Backup for Business or Hyper Backup to fail.
+- Fixed an issue where Snapshot Replication tasks might fail due to unexpected errors.
+- Fixed a security vulnerability regarding curl (CVE-2023-38545).
+- Fixed a security vulnerability regarding AppleTalk (CVE-2023-51781).
+- Fixed a security vulnerability regarding krb5 (CVE-2024-37371).
+- Fixed a security vulnerability regarding PostgreSQL (CVE-2025-1094).
+- Fixed multiple security vulnerabilities (CVE-2024-12085, CVE-2020-22218, CVE-2024-24806, and CVE-2023-37920).
+
+
+=== 7.2.2-72806 Update 10 (2026-10-12) security=True
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed security vulnerabilities.
+
+
+=== 7.2.2-72806 Update 9 (2026-06-30) security=True
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed security vulnerabilities (Synology-SA-26:06).
+
+
+=== 7.2.2-72806 Update 8 (2026-03-19) security=True
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed a security vulnerability regarding Telnetd (CVE-2026-32746)(Synology-SA-26:03).
+
+
+=== 7.2.2-72806 Update 7 (2026-03-16) security=True
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed multiple security vulnerabilities.
+
+
+=== 7.2.2-72806 Update 6 (2026-01-30) security=True
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed a security vulnerability regarding telnetd (CVE-2026-24061).
+
+
+=== 7.2.2-72806 Update 5 (2025-11-18) security=False
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed a security vulnerability.
+
+
+=== 7.2.2-72806 Update 4 (2025-07-31) security=True
+
+## Important notes
+- Your Synology NAS may not notify you of this DSM update because of the following reasons. If you want to update your DSM to this version now, please click here to update it manually.
+- The update is not available in your region yet. The update is expected to be available for all regions within the next few days, although the time of release in each region may vary slightly.
+- Your DSM is working fine without having to update. The system evaluates service statuses and system settings to determine whether it needs to update to this version.
+- This update will restart the device. 
+## Fixed Issues
+- Fixed a security vulnerability regarding SDK library (CVE-2025-8024).
+- Fixed multiple security vulnerabilities.
+
+
+=== 7.2.2-72806 (2025-04-23) security=False
+
+## Important Note
+- After installing this update, you will not be able to downgrade to a previous DSM version.
+- This update will restart your Synology NAS.
+- For the models below, you can only download the upgrade patch from Synology Download Center  because you won't receive notifications for this update on your DSM.
+- FS Series: FS3017, FS2017, FS1018
+- XS Series: RS18016xs+, RS4017xs+, RS3617xs+, RS3617xs, RS3617RPxs, RS18017xs+, DS3617xs, DS3617xsII, DS3018xs
+- Plus Series: RS2416RP+, RS2416+, DS916+, DS716+II, DS716+, DS216+II, DS216+, DS1817+, DS1517+, RS2818RP+, RS2418RP+, RS2418+, RS818RP+, RS818+, DS1618+, DS918+, DS718+, DS218+, RS1219+
+- Value Series: DS416, DS416play, DS216, DS216play, DS116, RS816, DS1817, DS1517, RS217, DS418play
+- J Series: DS416slim, DS416j, DS216j, DS418j, DS218j, DS419slim, DS119j
+- Starting from this version, the processing of media files using HEVC (H.265), AVC (H.264), and VC-1 codecs will be transitioned from the server to end devices to reduce unnecessary resource usage on the system and enhance system efficiency.
+These codecs are widespread on end devices such as smartphones, tablets, computers, and smart TVs. If the end device does not support the required codecs, the use of media files may be limited. Refer to this article for workarounds.
+In addition, please note the following exceptions:
+- Surveillance Station on DSM will continue to support server-side processing of AVC (H.264) streams, see the release notes.
+- Deep Video Analytics (DVA) series models and VisualStation clients will retain support for AVC (H.264) and HEVC (H.265) codecs.
+- To ensure package compatibility, Advanced Media Extensions (AME), File Station, Media Server, Surveillance Station, Synology Drive, Universal Search, Synology Photos and Snapshot Replication will automatically update to the latest version.
+- Video Station is not available on DSM 7.2.2. Refer to this article for workarounds to stream videos to end devices.
+- Updated Storage Manager to 1.0.0-00502 to fix issues. For more information, see the release notes.
+## What's New
+- Added support for selecting whether to verify response or assertion signatures for SAML SSO clients.
+- Supports customization of package installation, upgrade, and uninstallation wizards for third-party package developers. Learn more
+## Fixed Issues
+- Enhanced protection against deletion of immutable snapshots.
+- Enhanced file system error recoverability.
+- Fixed an issue where backing up WriteOnce shared folders in Hyper Backup might occupy extra space.
+- Enhanced the performance of Thick Provisioned LUNs when the volume is nearly full.
+- Enhanced file search performance when there are a large number of files with the same name.
+- Fixed an issue where restarting the system during an entire system backup could prevent volumes from mounting properly.
+- Fixed an issue where scheduled tasks of emptying recycle bins might fail to delete folders only containing the "desktop.ini" file.
+- Fixed an issue where triggering Adaptive MFA or entering incorrect account credentials might cause the auto block function to count login attempts abnormally.
+- Fixed an issue where users might not be able to set up OTP for login.
+- Fixed an issue where uploading IdP metadata might fail when setting up SAML SSO clients.
+- Fixed an issue where users might not return to DS cam or DS finder after using OIDC SSO login.
+- Fixed an issue where users might not receive emails with emergency codes when using 2FA for DSM login.
+- Fixed an issue where data synchronization might fail when creating backup or replication tasks to a remote target server via Snapshot Replication, Hyper Backup, or other packages.
+- Fixed an issue where login might fail when creating backup or replication tasks to a remote target server via Snapshot Replication, Hyper Backup, or other packages.
+- Fixed an issue where OpenVPN might fail to disable gateways.
+- Fixed an issue where using SAML SSO for DSM login might fail if the IdP's response was too long.
+- Fixed an issue where the system might become unresponsive when setting up OIDC SSO clients.
+- Fixed an issue where Resource Monitor might display abnormal connection times in Connections > Connected Users.
+- Fixed an issue where users might not be able to use a hardware security key for DSM login.
+- Fixed a security vulnerability regarding ghostscript (CVE-2024-29510).
+- Fixed security vulnerabilities regarding netatalk (CVE-2024-38439, CVE-2024-38440, CVE-2024-38441).
+- Fixed a security vulnerability regarding Terrapin Attack (CVE-2023-48795).
+- Fixed a security vulnerability regarding glibc (CVE-2023-4911).
+- Minor bug fixes.
+
+

@@ -1,0 +1,82 @@
+## legA-debian
+- syft-rootfs: 4388 artifacts; by type {'linux-kernel-module': 4230, 'deb': 139, 'go-module': 18, 'linux-kernel': 1}
+- syft-rootfs-nok3s: 4370 artifacts; by type {'linux-kernel-module': 4230, 'deb': 139, 'linux-kernel': 1}
+- grype-syft-rootfs-nok3s-onlyfixed: matches 361, unique (id,pkg,ver) 361, unique vuln IDs 361 (CVE 361); by severity {'Critical': 18, 'High': 114, 'Medium': 229, 'Low': 0, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 361)]
+- grype-syft-rootfs-nok3s: matches 884, unique (id,pkg,ver) 884, unique vuln IDs 589 (CVE 589); by severity {'Critical': 19, 'High': 167, 'Medium': 327, 'Low': 17, 'Negligible': 48, 'Unknown': 11}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 428), ('openssh-client', 30), ('openssh-server', 30), ('openssh-sftp-server', 30), ('libgssapi-krb5-2', 23), ('libk5crypto3', 23), ('libkrb5-3', 23), ('libkrb5support0', 23)]
+- grype-syft-rootfs-onlyfixed: matches 362, unique (id,pkg,ver) 362, unique vuln IDs 362 (CVE 361); by severity {'Critical': 18, 'High': 115, 'Medium': 229, 'Low': 0, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 361), ('github.com/klauspost/compress', 1)]
+- grype-syft-rootfs: matches 885, unique (id,pkg,ver) 885, unique vuln IDs 590 (CVE 589); by severity {'Critical': 19, 'High': 168, 'Medium': 327, 'Low': 17, 'Negligible': 48, 'Unknown': 11}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 428), ('openssh-client', 30), ('openssh-server', 30), ('openssh-sftp-server', 30), ('libgssapi-krb5-2', 23), ('libk5crypto3', 23), ('libkrb5-3', 23), ('libkrb5support0', 23)]
+
+## legA2-debian-apparmor
+- syft-rootfs: 4389 artifacts; by type {'linux-kernel-module': 4230, 'deb': 140, 'go-module': 18, 'linux-kernel': 1}
+- syft-rootfs-nok3s: 4371 artifacts; by type {'linux-kernel-module': 4230, 'deb': 140, 'linux-kernel': 1}
+- grype-syft-rootfs-nok3s-onlyfixed: matches 361, unique (id,pkg,ver) 361, unique vuln IDs 361 (CVE 361); by severity {'Critical': 18, 'High': 114, 'Medium': 229, 'Low': 0, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 361)]
+- grype-syft-rootfs-nok3s: matches 884, unique (id,pkg,ver) 884, unique vuln IDs 589 (CVE 589); by severity {'Critical': 19, 'High': 167, 'Medium': 327, 'Low': 17, 'Negligible': 48, 'Unknown': 11}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 428), ('openssh-client', 30), ('openssh-server', 30), ('openssh-sftp-server', 30), ('libgssapi-krb5-2', 23), ('libk5crypto3', 23), ('libkrb5-3', 23), ('libkrb5support0', 23)]
+- grype-syft-rootfs-onlyfixed: matches 362, unique (id,pkg,ver) 362, unique vuln IDs 362 (CVE 361); by severity {'Critical': 18, 'High': 115, 'Medium': 229, 'Low': 0, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 361), ('github.com/klauspost/compress', 1)]
+- grype-syft-rootfs: matches 885, unique (id,pkg,ver) 885, unique vuln IDs 590 (CVE 589); by severity {'Critical': 19, 'High': 168, 'Medium': 327, 'Low': 17, 'Negligible': 48, 'Unknown': 11}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 428), ('openssh-client', 30), ('openssh-server', 30), ('openssh-sftp-server', 30), ('libgssapi-krb5-2', 23), ('libk5crypto3', 23), ('libkrb5-3', 23), ('libkrb5support0', 23)]
+
+## legB-buildroot
+- syft-rootfs: 80 artifacts; by type {'linux-kernel-module': 59, 'go-module': 18, 'binary': 2, 'linux-kernel': 1}
+- syft-rootfs-nok3s: 62 artifacts; by type {'linux-kernel-module': 59, 'binary': 2, 'linux-kernel': 1}
+- buildroot.cdx.json: 87 components, 58 with a CPE
+- grype-buildroot-cdx-onlyfixed: matches 465, unique (id,pkg,ver) 452, unique vuln IDs 445 (CVE 445); by severity {'Critical': 22, 'High': 137, 'Medium': 271, 'Low': 14, 'Negligible': 1, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 373), ('openssh', 29), ('util-linux', 12), ('python3', 11), ('glibc', 11), ('util-linux-libs', 6), ('systemd', 6), ('binutils', 4)]
+- grype-buildroot-cdx: matches 629, unique (id,pkg,ver) 594, unique vuln IDs 585 (CVE 585); by severity {'Critical': 24, 'High': 184, 'Medium': 351, 'Low': 25, 'Negligible': 1, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 440), ('openssh', 40), ('grub2', 34), ('glibc', 31), ('binutils', 16), ('util-linux', 16), ('python3', 11), ('expat', 8)]
+- grype-buildroot-target-cdx-onlyfixed: matches 432, unique (id,pkg,ver) 432, unique vuln IDs 426 (CVE 426); by severity {'Critical': 21, 'High': 133, 'Medium': 260, 'Low': 12, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 373), ('openssh', 29), ('glibc', 11), ('util-linux', 6), ('util-linux-libs', 6), ('systemd', 3), ('expat', 2), ('gcc-final', 1)]
+- grype-buildroot-target-cdx: matches 557, unique (id,pkg,ver) 557, unique vuln IDs 549 (CVE 549); by severity {'Critical': 23, 'High': 172, 'Medium': 331, 'Low': 23, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 440), ('openssh', 40), ('glibc', 31), ('grub2', 17), ('util-linux', 8), ('util-linux-libs', 8), ('expat', 4), ('busybox', 3)]
+- grype-syft-rootfs-nok3s-onlyfixed: matches 379, unique (id,pkg,ver) 379, unique vuln IDs 379 (CVE 379); by severity {'Critical': 20, 'High': 121, 'Medium': 238, 'Low': 0, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 373), ('util-linux', 6)]
+- grype-syft-rootfs-nok3s: matches 451, unique (id,pkg,ver) 451, unique vuln IDs 451 (CVE 451); by severity {'Critical': 20, 'High': 139, 'Medium': 285, 'Low': 7, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 440), ('util-linux', 8), ('busybox', 3)]
+- grype-syft-rootfs-onlyfixed: matches 380, unique (id,pkg,ver) 380, unique vuln IDs 380 (CVE 379); by severity {'Critical': 20, 'High': 122, 'Medium': 238, 'Low': 0, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 373), ('util-linux', 6), ('github.com/klauspost/compress', 1)]
+- grype-syft-rootfs: matches 452, unique (id,pkg,ver) 452, unique vuln IDs 452 (CVE 451); by severity {'Critical': 20, 'High': 140, 'Medium': 285, 'Low': 7, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 440), ('util-linux', 8), ('busybox', 3), ('github.com/klauspost/compress', 1)]
+- grype-buildroot-cdx-onlyfixed-minus-BR-resolved: matches 435, unique (id,pkg,ver) 427, unique vuln IDs 424 (CVE 424); by severity {'Critical': 21, 'High': 132, 'Medium': 261, 'Low': 9, 'Negligible': 1, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 373), ('openssh', 14), ('python3', 11), ('glibc', 6), ('util-linux-libs', 6), ('systemd', 6), ('binutils', 4), ('expat', 4)]
+- grype-buildroot-cdx-minus-BR-resolved: matches 554, unique (id,pkg,ver) 538, unique vuln IDs 534 (CVE 534); by severity {'Critical': 22, 'High': 166, 'Medium': 327, 'Low': 18, 'Negligible': 1, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 440), ('openssh', 25), ('binutils', 16), ('glibc', 12), ('python3', 11), ('expat', 8), ('grub2', 8), ('util-linux-libs', 8)]
+- grype-buildroot-target-cdx-onlyfixed-minus-BR-resolved: matches 407, unique (id,pkg,ver) 407, unique vuln IDs 405 (CVE 405); by severity {'Critical': 20, 'High': 128, 'Medium': 250, 'Low': 7, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 373), ('openssh', 14), ('glibc', 6), ('util-linux-libs', 6), ('systemd', 3), ('expat', 2), ('util-linux', 2), ('gcc-final', 1)]
+- grype-buildroot-target-cdx-minus-BR-resolved: matches 501, unique (id,pkg,ver) 501, unique vuln IDs 498 (CVE 498); by severity {'Critical': 21, 'High': 154, 'Medium': 307, 'Low': 16, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 440), ('openssh', 25), ('glibc', 12), ('util-linux-libs', 8), ('expat', 4), ('grub2', 4), ('util-linux', 3), ('systemd', 3)]
+
+## legB-buildroot-k6.12.117
+- syft-rootfs: 139 artifacts; by type {'linux-kernel-module': 118, 'go-module': 18, 'binary': 2, 'linux-kernel': 1}
+- syft-rootfs-nok3s: 121 artifacts; by type {'linux-kernel-module': 118, 'binary': 2, 'linux-kernel': 1}
+- buildroot.cdx.json: 87 components, 58 with a CPE
+- grype-buildroot-cdx-onlyfixed: matches 453, unique (id,pkg,ver) 440, unique vuln IDs 433 (CVE 433); by severity {'Critical': 20, 'High': 134, 'Medium': 264, 'Low': 14, 'Negligible': 1, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 361), ('openssh', 29), ('util-linux', 12), ('python3', 11), ('glibc', 11), ('util-linux-libs', 6), ('systemd', 6), ('binutils', 4)]
+- grype-buildroot-cdx: matches 617, unique (id,pkg,ver) 582, unique vuln IDs 573 (CVE 573); by severity {'Critical': 22, 'High': 181, 'Medium': 344, 'Low': 25, 'Negligible': 1, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 428), ('openssh', 40), ('grub2', 34), ('glibc', 31), ('binutils', 16), ('util-linux', 16), ('python3', 11), ('expat', 8)]
+- grype-buildroot-target-cdx-onlyfixed: matches 420, unique (id,pkg,ver) 420, unique vuln IDs 414 (CVE 414); by severity {'Critical': 19, 'High': 130, 'Medium': 253, 'Low': 12, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 361), ('openssh', 29), ('glibc', 11), ('util-linux', 6), ('util-linux-libs', 6), ('systemd', 3), ('expat', 2), ('gcc-final', 1)]
+- grype-buildroot-target-cdx: matches 545, unique (id,pkg,ver) 545, unique vuln IDs 537 (CVE 537); by severity {'Critical': 21, 'High': 169, 'Medium': 324, 'Low': 23, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 428), ('openssh', 40), ('glibc', 31), ('grub2', 17), ('util-linux', 8), ('util-linux-libs', 8), ('expat', 4), ('busybox', 3)]
+- grype-syft-rootfs-nok3s-onlyfixed: matches 367, unique (id,pkg,ver) 367, unique vuln IDs 367 (CVE 367); by severity {'Critical': 18, 'High': 118, 'Medium': 231, 'Low': 0, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 361), ('util-linux', 6)]
+- grype-syft-rootfs-nok3s: matches 439, unique (id,pkg,ver) 439, unique vuln IDs 439 (CVE 439); by severity {'Critical': 18, 'High': 136, 'Medium': 278, 'Low': 7, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 428), ('util-linux', 8), ('busybox', 3)]
+- grype-syft-rootfs-onlyfixed: matches 368, unique (id,pkg,ver) 368, unique vuln IDs 368 (CVE 367); by severity {'Critical': 18, 'High': 119, 'Medium': 231, 'Low': 0, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 361), ('util-linux', 6), ('github.com/klauspost/compress', 1)]
+- grype-syft-rootfs: matches 440, unique (id,pkg,ver) 440, unique vuln IDs 440 (CVE 439); by severity {'Critical': 18, 'High': 137, 'Medium': 278, 'Low': 7, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux-kernel', 428), ('util-linux', 8), ('busybox', 3), ('github.com/klauspost/compress', 1)]
+- grype-buildroot-cdx-onlyfixed-minus-BR-resolved: matches 423, unique (id,pkg,ver) 415, unique vuln IDs 412 (CVE 412); by severity {'Critical': 19, 'High': 129, 'Medium': 254, 'Low': 9, 'Negligible': 1, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 361), ('openssh', 14), ('python3', 11), ('glibc', 6), ('util-linux-libs', 6), ('systemd', 6), ('binutils', 4), ('expat', 4)]
+- grype-buildroot-cdx-minus-BR-resolved: matches 542, unique (id,pkg,ver) 526, unique vuln IDs 522 (CVE 522); by severity {'Critical': 20, 'High': 163, 'Medium': 320, 'Low': 18, 'Negligible': 1, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 428), ('openssh', 25), ('binutils', 16), ('glibc', 12), ('python3', 11), ('expat', 8), ('grub2', 8), ('util-linux-libs', 8)]
+- grype-buildroot-target-cdx-onlyfixed-minus-BR-resolved: matches 395, unique (id,pkg,ver) 395, unique vuln IDs 393 (CVE 393); by severity {'Critical': 18, 'High': 125, 'Medium': 243, 'Low': 7, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 361), ('openssh', 14), ('glibc', 6), ('util-linux-libs', 6), ('systemd', 3), ('expat', 2), ('util-linux', 2), ('gcc-final', 1)]
+- grype-buildroot-target-cdx-minus-BR-resolved: matches 489, unique (id,pkg,ver) 489, unique vuln IDs 486 (CVE 486); by severity {'Critical': 19, 'High': 151, 'Medium': 300, 'Low': 16, 'Negligible': 0, 'Unknown': 0}; db built 2026-11-11T06:21:32Z
+  top packages: [('linux', 428), ('openssh', 25), ('glibc', 12), ('util-linux-libs', 8), ('expat', 4), ('grub2', 4), ('util-linux', 3), ('systemd', 3)]
+

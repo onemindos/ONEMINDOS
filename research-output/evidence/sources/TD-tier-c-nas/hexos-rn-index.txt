@@ -1,0 +1,77 @@
+SOURCE: https://docs.hexos.com/release-notes/command-deck
+ACCESSED: 2026-11-11 (text extracted from HTML; emails masked)
+
+Command Deck Release Notes | HexOS Docs
+¶ Command Deck Release Notes
+Stay up to date with HexOS Command Deck updates, new features, and improvements.
+Subscribe by RSS at feeds.hexos.com to get each release note in your feed reader.
+¶ How Updates Work
+Command Deck updates are automatically deployed by the HexOS development team. You don't need to take any action to receive these updates - they will appear automatically when you next visit the Command Deck.
+For users who are actively connected during an update, there may be a brief downtime of a minute or two as the new version is deployed.
+¶ 2026 Releases
+2026-11-10 - Automatic app updates, fan curves, game servers, and more
+2026-11-06 - Local AI and app collections, more folders for Plex VMs, live GPU usage, and more
+2026-11-03 - Restore points, Recently deleted folders, Jellyfin hardware transcoding, and more
+2026-10-30 - Network UPS setup, a Valheim server, Mac drives in Bring over, and more
+2026-10-28 - Bring over for everyone, UPS monitoring, nine new apps, and more
+2026-10-16 - Rename your server, a tabbed app pane, live backup speeds, and more
+2026-10-13 - Smarter Custom VMs, Safer Graphics Card Sharing & More
+2026-10-09 - Open beta for Buddy Backups and Virtual Machines, a smarter server setup, and much more
+2026-10-06 - Pool repair tools, Repair access for folders, and a date format setting
+2026-10-02 - Clearer storage health, folder encryption improvements, and achievements
+2026-09-29 - Managed folder encryption and recovery keys
+2026-09-27 - Public beta for Virtual Machines and Buddy Backup, restart history, and protected app data
+2026-09-18 - A clearer walk through multi-step screens
+2026-09-17 - Multiple authenticators, folder and app fixes, and server reliability
+2026-09-09 - New app curations (Donetick & RomM)
+2026-09-03 - Automatic timezone detection, storage safety, and setup recovery
+2026-08-28 - Dashboard widgets, install scripts v6, cross-app linking, and storage polish
+2026-08-27 - ZFS pool import, Update all, and server reliability
+2026-08-24 - Danish language support, storage improvements, and dashboard polish
+2026-08-21 - Introducing HexOS Imager, smarter uploads, and storage safety improvements
+2026-08-21 - New app curations (Ratelog & Swiparr)
+2026-08-20 - File browser upgrades, instant app details, and reliability improvements
+2026-08-17 - File browser, USB burning, URL downloads, and app install improvements
+2026-08-14 - New App Curation (Palworld Server)
+2026-08-07 - Redesigned navigation, community translations, and stability hardening
+2026-08-01 - New App Curations (Actual Budget, Firefly 3 and Sure)
+2026-07-26 - New App Curations (BentoPDF & Paperless-ngx)
+2026-07-19 - New App Curations (AFFiNE & Sportarr)
+2026-07-16 - Performance telemetry, live app metrics, international keyboard support, and storage intelligence
+2026-07-09 - New App Curations (Rackula, Warracker & Wiki.js)
+2026-07-06 - DIF drive support, new curated apps, and self-healing improvements
+2026-06-26 - Onboarding redesign, live storage progress, and app preconfiguration improvements
+2026-06-06 - New App Curations (MKVToolNix & qui)
+2026-05-29 - New App Curations (Fladder, Jellystat & Seerr)
+2026-05-20 - App install script v4, New app curations, Curation beta program
+2026-05-13 - TrueNAS Compatibility, App Install Improvements & Buddy Backup Foundations
+2026-04-21 - HexOS 1.0 Local Rollout Complete
+2026-03-27 - Hotfix : Apps Newly Curated
+2026-03-24 - Local Foundations & UI Polish
+2026-01-21 - Mobile Dialogs, App Lifecycle, Polish, HexOS Local Prep
+2026-01-13 - UI Improvements & Goldeye System Updates
+2026-01-08 - HexOS Curated Apps & Enhanced Diagnostics
+¶ 2025 Releases
+2025-12-30 - Hotfix : App Configuration Updates
+2025-12-28 - Hotfix : Apps Overhaul
+2025-12-26 - Apps Overhaul, 2FA, GPU Detection, Goldeye Compatibility
+2025-11-25 - New Apps Sonarr, Radarr and Prowlarr
+2025-11-12 - Hotfix : Fangtooth Compatibility, Server Actions
+2025-11-08 - Hotfix : Server monitoring scalability improvements
+2025-11-07 - Hotfix : Upgrade timeout improvements
+2025-11-06 - Install Scripts v2, Fangtooth Support, Enhanced User Management
+2025-10-07 - Hotfix : App installations
+2025-09-29 - New Apps Curation Process, Jellyfin/Home Assistant/qBittorrent Apps, Folder Wizard
+2025-07-28 - Networking Fixes, Performance Improvements, Folder Loading Optimization
+2025-07-07 - Observability Improvements, Request Timing Instrumentation
+2025-06-27 - Q2 Command Deck Update - Manual Pool Configuration, Activity Center, TrueNAS SCALE 24.10.2.2 Update
+2025-02-07 - Improved Setup wizard w/ existing data detection
+2025-01-08 - Manual WAN IP Specification, Additional Confirmations for Destructive Actions
+¶ 2024 Releases
+2024-11-29 - Beta Launch - Road to 1.0
+¶ Need Help?
+If you encounter any issues after an update:
+Try clearing your browser cache first
+Check the troubleshooting guide for common solutions
+Visit the HexOS Community for additional support
+

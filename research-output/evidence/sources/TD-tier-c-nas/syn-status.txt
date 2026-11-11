@@ -1,0 +1,82 @@
+SOURCE: https://www.synology.com/en-global/products/status
+ACCESSED: 2026-11-11 (text extracted from HTML; emails masked)
+
+
+ Synology Product Support Status | Synology Inc.
+ Reset
+ Reset Filter
+ No results.
+ No results.
+ Documents
+ Spare Parts
+Download Center
+Find the documents and files for your Synology product.
+Compatibility
+Find the compatibility list for drives, USB devices, and network peripherals.
+Spare Parts
+Find the spare parts of your Synology product.
+ Notes:
+ Product Availability:
+Generally Available: The product is still in production and available through retail channels or partners.
+Discontinued: The product is no longer manufactured.
+ DSM/APM/SRM/Software/Firmware Update:
+Full: Firmware and software updates will be continuously provided.
+Limited: Only security updates will be provided.
+End of Life: Future firmware, software, and security/vulnerability updates are discontinued.
+Refer to Synology Software Life Cycle Policy.
+ Technical Support:
+Full: Technical support and hardware repair/replacement services will be provided within the product warranty period.
+Limited: If the operating system of your product has reached the End of Extended Life Phase, only basic consultation services will be provided (e.g., feature setup and operational guidance). Hardware repair/replacement services may be available but are subject to the availability of replacement materials and components, and may incur an associated cost or fee.
+ Product Warranty:
+The product warranty period shall commence on the purchase date as indicated on the purchase receipt. All Synology Certified Refurbished products come with a 2-year warranty. For more details, please visit LIMITED PRODUCT WARRANTY.
+Announcement
+ Date
+ Information
+Date
+Information
+Download Center
+Find the documents and files for your Synology product.
+Packages
+Find the add-on packages available in Package Center.
+Product Support Status
+At the heart of excellent customer experience is our dedication to continued software updates and technical support, even years after your initial purchase. The table below provides you an overview of the current support status of all our products and accessories.
+ Hardware
+ Software
+ NAS Selector
+ RAID Calculator
+ NVR Selector
+ Knowledge Center
+ Downloads
+ Newsletter
+ Company
+ About Synology
+ Blog
+ Newsroom
+ Media Coverage
+ Customer Stories
+ Office Locations
+ ESG
+ Sales
+ Where to Buy
+ Contact Us
+ Become a Partner
+ Compatibility
+ HDD/SSD
+ IP Cameras
+ Network Cards
+ I/O Modules, IP Speakers, Access Controllers
+ Other Devices
+ Resources
+ Products A-Z
+ Beta Program
+ Bounty Program
+ Community
+ Events
+ Subscribe to Newsletter
+ Copyright © 2026 Synology Inc. All rights reserved.
+ Terms & Conditions
+ | Privacy
+ | Cookie Preference
+ Global - English
+ Continue
+

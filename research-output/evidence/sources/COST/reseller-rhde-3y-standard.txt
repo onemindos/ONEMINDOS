@@ -1,0 +1,33 @@
+Source: https://www.cdw.com/product/red-hat-device-edge-standard-subscription-3-years-1-socket-up-to-32/7504915 (reseller, SECONDARY; no price rendered)
+Accessed: 2026-11-11 (curl + HTML-to-text; excerpt)
+----
+
+ Red Hat Device Edge - standard subscription (3 years) - 1 socket, up to 32 cores - MW02241F3 - Linux - CDW.com 
+ Skip to Main Content 
+ Cancel 
+ Notifications 
+ Notifications 
+ Sign In 
+ Cart 
+ Hardware 
+ Software 
+ Solutions 
+ Services 
+ Industries 
+ Partners 
+ Insights 
+ Why CDW 
+ Home 
+ Software 
+ Operating Systems 
+ Linux 
+ Red Hat Device Edge - standard subscription (3 years) - 1 socket, up to 32 cores 
+ Mfg # MW02241F3 
+ CDW # 7504915 
+ Software Details 
+ Standard subscription (3 years) 
+ 1 socket, up to 32 cores 
+ View Tech Specs 
+ Know your gear 
+ Red Hat Device Edge extends operational consistency across edge and hybrid cloud environments, no matter where devices are deployed in the field. Red Hat Device Edge combines enterprise-ready lightweight Kubernetes container orchestrations using MicroShift with Red Hat Enterprise Linux to support different use cases and workloads on small, resource-constrained devices at the further edge. 
+ Enhance your purchase 

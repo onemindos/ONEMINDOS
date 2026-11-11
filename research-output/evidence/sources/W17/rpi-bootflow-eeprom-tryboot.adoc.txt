@@ -1,0 +1,25 @@
+
+* The power button is used to wake up from PMIC `STANDBY` or `HALT` instead of `GPIO 3`.
+* Instead of loading `start.elf`, the firmware loads the Linux kernel. Effectively, the bootloader has an embedded version of `start.elf`.
+* USB boot is disabled by default when connected to a 3A power supply. Set `usb_max_current_enable=1` in `/boot/firmware/config.txt` to enable USB boot. Alternatively, you can press the power button a single time on a failed USB boot to temporarily enable `usb_max_current_enable` and continue booting. However, this setting will not persist after a reboot if enabled by pressing the power button.
+
+=== Fail-safe OS updates (`tryboot`)
+
+The bootloader/firmware provide a one-shot flag which, if set, is cleared but causes `tryboot.txt` to be loaded instead of `config.txt`. This alternate config would specify the pending OS update firmware, cmdline, kernel and os_prefix parameters. Since the flag is cleared before starting the firmware, a crash or reset will cause the original `config.txt` file to be loaded on the next reboot.
+
+To set the `tryboot` flag, add `tryboot` after the partition number in the `reboot` command. Normally, the partition number defaults to zero but it must be specified if extra arguments are added. Always use quotes when passing arguments to `reboot`: it accepts only a single argument:
+
+[source,console]
+----
+$ sudo reboot '0 tryboot'
+----
+
+All Raspberry Pi models support `tryboot`, however, on Raspberry Pi 4 Model B revision 1.0 and 1.1 the EEPROM must not be write protected. This is because older Raspberry Pi 4B devices have to reset the power supply (losing the tryboot state), so this is stored inside the EEPROM instead.
+
+If `secure-boot` is enabled, then `tryboot` mode will cause `tryboot.img` to be loaded instead of `boot.img`.
+
+=== `tryboot_a_b` mode
+If the `tryboot_a_b` property in xref:config_txt.adoc#autoboot-txt[autoboot.txt] is set to `1` then `config.txt` is loaded instead of `tryboot.txt`. This is because the `tryboot` switch has already been made at a higher level (the partition),  so it's unnecessary to have a `tryboot.txt` file within alternate partition itself.
+
+The `tryboot_a_b` property is implicitly set to `1` when loading files from within a `boot.img` ramdisk.
+

@@ -91,49 +91,49 @@ Score = Σ(weight × score)/5. "doc-only" = documentation evidence, hardware not
 
 | Candidate | G1 | G2 | G3 | G4 | G5 | C1 Longevity (20) | C2 HW & robotics (20) | C3 Security & update (15) | C4 Proven (15) | C5 Solo ops (10) | C6 Cost & licence (10) | C7 Ecosystem (10) | **Total** | **Rank** |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **D. Ubuntu 26.04 + own A/B + JetPack** | COND [C-W2-050] | PASS [C-W2-057] | COND [C-W2-006] | COND | PASS [C-W2-026] | **3** free to 2031, Pro to 2036 at list-price-bounded cost [C-W2-005] | **3** x86 + Pi 5 + Jetson same family; GPU Operator on K3s; ROS Tier 1; 4 needs "one update framework on all three", unproven (DC-07) [C-W2-026, 028] | **3** atomic signed A/B with health-gated commit (Rugix supports apt systems "such as Debian or Ubuntu"; RAUC is distro-agnostic), doc-only, pending-lab (W3) [C-W2-058] | **3** Ubuntu-based shipping products: JetPack and DGX OS (prior-verified context/03 §1.5; re-open pending) [C-W2-028] | **3** one apt userland; Jetson flashing still uses NVIDIA tools [C-W2-043 pattern] | **2** Pro years 2031–36 at an unpublished per-device price [C-W2-006] | **5** default target for NVIDIA (GPU Operator K3s column) and ROS 2 Tier 1; open packaging [C-W2-026, 028] | **62.0** | **1** |
-| **C. RHEL-family bootc (+RHDE on Orin)** | COND | COND [C-W2-041] | COND [C-W2-013] | PASS [C-W2-042] | COND | **3** Alma 10 to 2035 free; RHEL ten years + ELCP; RHEL price not public [C-W2-013, 010] | **1** x86 and Orin are official, but no Pi 5 (anchor 2 needs Pi 5) [C-W2-041, 011] | **3** bootc atomic + greenboot auto-rollback gated on k3s, **shown in our lab** [C-W2-052, 054] | **3** RHCOS/OpenShift and RHDE ship on the ostree/bootc lineage [C-W2-025, 041] | **4** one Containerfile toolchain, lab image built in minutes [C-W2-056] | **3** free (Alma) with paid support optional [C-W2-013] | **4** NVIDIA validates RHEL 10 (K8s/RKE2); ROS 2 Tier 2; Red Hat partner programs [C-W2-026, 028] | **56.0** | **2 (tie)** |
-| **A. Debian 13 + Rugix (+L4T flavor)**: ADR-001 | COND [C-W2-048] | COND [C-W2-044] | COND [C-W2-004] | COND [C-W2-033] | COND | **2** free to 2030; ELTS unbounded quote; rebase path undocumented (DC-05) [C-W2-001, 003] | **3** x86 + Pi 5 (Pi kernel) + Jetson flavor; NVIDIA not validated; ROS 2 Tier 3; RT packages [C-W2-026, 033, 044] | **3** Rugix A/B, integrator-defined commit; doc-only, pending-lab (W3) [C-W2-046] | **3** umbrelOS is a constraint-matched appliance on exactly this stack [C-W2-043] | **3** Dockerfile + Rugix Bakery is declarative, but two flavors plus a carried NVIDIA DKMS patch [C-W2-045] | **3** free to 2030; paid ELTS after [C-W2-001] | **3** large community; vendors publish containers but don't certify Debian [C-W2-026] | **56.0** | **2 (tie)** |
-| **G. Yocto + RAUC** | PASS | COND | COND [C-W2-034] | COND | COND | **2** LTS to 2030-04 [C-W2-034] | **3** BSP layers for all three; RT available; one framework possible (DC-07) [C-W2-049] | **3** RAUC signed A/B (W3) [C-W2-049] | **2** balenaOS is Yocto A/B [C-W2-040] | **2** specialist knowledge (layers) | **4** free, permissive/LGPL [C-W2-049] | **2** few robotics/AI vendors target Yocto images | **51.0** | 4 |
-| **B. Fedora IoT / fedora-bootc** | PASS [C-W2-024] | COND [C-W2-018] | COND [C-W2-015] | COND [C-W2-021] | COND | **3** free, kept current by a documented in-place upgrade path, rebase every ≤13 months [C-W2-015, 024] | **1** x86 + Pi 4 + (untested) Orin; **no Pi 5**; no GPU Operator; ROS not tiered [C-W2-016, 026, 028] | **3** same mechanism as C, lab-shown [C-W2-052, 054] | **1** no shipping product on the Fedora IoT edition found [C-W2-019] | **4** Containerfile toolchain [C-W2-056] | **4** free [C-W2-024] | **2** big Fedora community but robotics vendors don't target it [C-W2-028] | **48.0** | 5 |
-| **F. Buildroot + RAUC (HAOS)** | PASS | COND [C-W2-047] | COND [C-W2-035] | COND | COND | **1** Buildroot LTS to 2028-03; beyond that self-maintained [C-W2-035] | **2** x86 + Pi 5; no Jetson, no NVIDIA, no ROS [C-W2-047] | **3** RAUC verity bundles, rollback (HAOS) [C-W2-047] | **3** HAOS: constraint-matched appliance [C-W2-047] | **2** forked Buildroot, per-board kernel configs [C-W2-047] | **4** free [C-W2-049] | **2** no robotics/AI package ecosystem | **46.0** | 6 (tie) |
-| **E. Ubuntu Core 24/26** | PASS | COND [C-W2-009] | COND [C-W2-008] | COND | COND | **3** Core 26 to 2036, Legacy 2041, single vendor [C-W2-008] | **2** x86 + Pi 5; Jetson unverified [C-W2-009] | **4** transactional snaps with rollback, FDE + Secure Boot documented [C-W2-006] | **0** no Core-based shipping product verified in this run (unverified = 0) | **2** snapcraft + brand store tooling [C-W2-006] | **2** price unpublished; dedicated store from $3,000 [C-W2-006] | **3** snap ecosystem | **46.0** | 6 (tie) |
-| H. CIP Core / Isar | PASS | FAIL | COND [C-W2-032] | — | — | — | — | — | — | — | — | — | not ranked | — |
-| I. Talos | PASS | FAIL [C-W2-038] | — | — | — | — | — | — | — | — | — | — | not ranked | — |
-| J. Kairos | PASS | FAIL [C-W2-039] | — | — | — | — | — | — | — | — | — | — | not ranked | — |
-| K. SUSE SL Micro | PASS | unproven | FAIL [C-W2-037] | — | — | — | — | — | — | — | — | — | not ranked | — |
-| L. balenaOS | PASS | PASS [C-W2-040] | FAIL | — | FAIL | — | — | — | — | — | — | — | not ranked | — |
+| **D. Ubuntu 26.04 + own A/B + JetPack** | COND [C-W2-050] | PASS [C-W2-057] | COND [C-W2-006] | COND [C-W18-060, C-STEEL-ubu-007] | PASS [C-W2-026] | **3** free to 2031, Pro to 2036 at list-price-bounded cost [C-W2-005] | **3** x86 + Pi 5 + Jetson same family; GPU Operator on K3s; ROS Tier 1; 4 needs "one update framework on all three", unproven (DC-07) [C-W2-026, 028] | **3** atomic signed A/B with health-gated commit (Rugix supports apt systems "such as Debian or Ubuntu"; RAUC is distro-agnostic), doc-only, pending-lab (W3) [C-W2-058] | **3** Ubuntu-based shipping products: JetPack and DGX OS (prior-verified context/03 §1.5; re-open pending) [C-W2-028] | **3** one apt userland; Jetson flashing still uses NVIDIA tools [C-W2-043 pattern] | **2** Pro years 2031–36 at an unpublished per-device price [C-W2-006] | **5** default target for NVIDIA (GPU Operator K3s column) and ROS 2 Tier 1; open packaging [C-W2-026, 028] | **62.0** | **2 (tie, rev. 3)** |
+| **C. RHEL-family bootc (+RHDE on Orin)** | COND [C-W2-041] | COND [C-W2-041] | COND [C-W2-013] | PASS [C-W2-042] | COND [C-SCORE-025, C-W2-041] | **3** Alma 10 to 2035 free; RHEL ten years + ELCP; RHEL price not public [C-W2-013, 010] | **3** (rev. 3; was 1) x86 and Orin official; Pi 5 has a documented path through AlmaLinux's *experimental* bootc RPi images, tested on Pi 5 (doc-only); NVIDIA CUDA `rhel10` repo and Container Toolkit `dnf` path; `kernel-rt` in AlmaLinux 10 [C-W2-041, C-SCORE-025, C-SCORE-030, C-SCORE-031, C-SCORE-029] | **3** bootc atomic + greenboot auto-rollback gated on k3s, **shown in our lab** [C-W2-052, 054] | **3** RHCOS/OpenShift and RHDE ship on the ostree/bootc lineage [C-W2-025, 041] | **4** one Containerfile toolchain, lab image built in minutes [C-W2-056] | **3** free (Alma) with paid support optional [C-W2-013] | **4** NVIDIA validates RHEL 10 (K8s/RKE2); ROS 2 Tier 2; Red Hat partner programs [C-W2-026, 028] | **64.0** (rev. 3; was 56.0) | **1 (tie, rev. 3)** |
+| **A. Debian 13 + Rugix (+L4T flavor)**: ADR-001 | COND [C-W2-048] | COND [C-W2-044] | COND [C-W2-004] | COND [C-W2-033] | COND [C-W7-007] | **2** free to 2030; ELTS unbounded quote; rebase path undocumented (DC-05) [C-W2-001, 003] | **3** x86 + Pi 5 (Pi kernel) + Jetson flavor; NVIDIA not validated; ROS 2 Tier 3; RT packages [C-W2-026, 033, 044] | **3** Rugix A/B, integrator-defined commit; doc-only, pending-lab (W3) [C-W2-046] | **3** umbrelOS is a constraint-matched appliance on exactly this stack [C-W2-043] | **3** Dockerfile + Rugix Bakery is declarative, but two flavors plus a carried NVIDIA DKMS patch [C-W2-045] | **3** free to 2030; paid ELTS after [C-W2-001] | **3** large community; vendors publish containers but don't certify Debian [C-W2-026] | **56.0** | 3 |
+| **G. Yocto + RAUC** | PASS [C-W2-049] | COND [C-W3-052, C-SCORE-022] | COND [C-W2-034] | COND [C-W18-005] | COND [C-W7-007] | **2** LTS to 2030-04 [C-W2-034] | **3** BSP layers for all three; RT available; one framework possible (DC-07) [C-W2-049] | **3** RAUC signed A/B (W3) [C-W2-049] | **2** balenaOS is Yocto A/B [C-W2-040] | **2** specialist knowledge (layers) [C-W18-050] | **4** free, permissive/LGPL [C-W2-049] | **2** few robotics/AI vendors target Yocto images [C-W7-007, C-W3-052] | **51.0** | 6 |
+| **B. Fedora IoT / fedora-bootc** | PASS [C-W2-024] | COND [C-W2-018] | COND [C-W2-015] | COND [C-W2-021] | COND [C-W2-016] | **3** free, kept current by a documented in-place upgrade path, rebase every ≤13 months [C-W2-015, 024] | **2** (rev. 3; was 1) x86 + Pi 5B from Fedora 45 per the Fedora ARM lead (SECONDARY; no sound, no USB boot, CM5 WIP); Orin listed but untested; no GPU Operator; no `kernel-rt` in Fedora [C-SCORE-027, C-W2-016, C-W2-028] | **3** same mechanism as C, lab-shown [C-W2-052, 054] | **1** no shipping product on the Fedora IoT edition found [C-W2-019] | **4** Containerfile toolchain [C-W2-056] | **4** free [C-W2-024] | **2** big Fedora community but robotics vendors don't target it [C-W2-028] | **52.0** (rev. 3; was 48.0) | 4 (tie) |
+| **F. Buildroot + RAUC (HAOS)** | PASS [C-W2-049] | COND [C-W2-047] | COND [C-W2-035] | COND [C-W18-005] | COND [C-W2-047] | **1** Buildroot LTS to 2028-03; beyond that self-maintained [C-W2-035] | **2** x86 + Pi 5; no Jetson, no NVIDIA, no ROS [C-W2-047] | **3** RAUC verity bundles, rollback (HAOS) [C-W2-047] | **3** HAOS: constraint-matched appliance [C-W2-047] | **2** forked Buildroot, per-board kernel configs [C-W2-047] | **4** free [C-W2-049] | **2** no robotics/AI package ecosystem [C-W4-044, C-W2-047] | **46.0** | 7 |
+| **E. Ubuntu Core 24/26** | PASS [C-W2-049] | COND [C-W2-009] | COND [C-W2-008] | COND [C-W18-060] | COND [C-W2-006] | **3** Core 26 to 2036, Legacy 2041, single vendor [C-W2-008] | **2** x86 + Pi 5; Jetson unverified [C-W2-009] | **4** transactional snaps with rollback, FDE + Secure Boot documented [C-W2-006] | **2** (rev. 3; was 0) ctrlX OS ships on ctrlX CORE and ctrlX DRIVE; Bosch Rexroth selected Ubuntu Core for it (Canonical, 2020) and Canonical services ctrlX OS (Bosch; partial) [C-SCORE-023, C-SCORE-024] | **2** snapcraft + brand store tooling [C-W2-006] | **2** price unpublished; dedicated store from $3,000 [C-W2-006] | **3** snap ecosystem [C-SCORE-023] | **52.0** (rev. 3; was 46.0) | 4 (tie) |
+| H. CIP Core / Isar | not assessed (moot: G2 FAIL) | FAIL [C-W2-032] | COND [C-W2-032] | — | — | — | — | — | — | — | — | — | not ranked | — |
+| I. Talos | PASS [C-TD-talos-035] | FAIL [C-W2-038] | — | — | — | — | — | — | — | — | — | — | not ranked | — |
+| J. Kairos | PASS [C-W2-049] | FAIL [C-W2-039] | — | — | — | — | — | — | — | — | — | — | not ranked | — |
+| K. SUSE SL Micro | not assessed (moot: G3 FAIL) | FAIL (unproven = FAIL, weights §2) | FAIL [C-W2-037] | — | — | — | — | — | — | — | — | — | not ranked | — |
+| L. balenaOS | PASS [C-TD-balenaos-003] | PASS [C-W2-040] | FAIL (unproven = FAIL) [C-TD-balenaos-040] | — | FAIL [C-TD-balenaos-031] | — | — | — | — | — | — | — | not ranked | — |
 
 **pending-lab / doc-only cells:** A-C3 and D-C3 (Rugix/RAUC power-cut and forced rollback: W3 lab); all C2 cells (Pi 5 and Jetson are doc-only; founder hardware); C-C5 and B-C5 (rebuild time measured in a VM; the "<2 h/month" dry run is not done). D-C4 relies on prior-verified facts that must be re-opened before `01-…` cites them.
 
-**Anchor notes a refuter should check.** (1) C-C2 = 1 looks harsh for a stack with *official* Jetson Orin support, but anchor 2 requires Pi 5 and the rule says to take the lower anchor. At C2 = 2, C scores 60.0 and still loses to D (62.0), a tie under 3 points. (2) D-C2 = 3, not 4, only because "one update framework across all three boards" is unproven. If W3 proves Rugix or RAUC on Jetson, D-C2 = 4 and D = 66.0.
+**Anchor notes a refuter should check.** (1) **Rev. 3 (2026-11-11, `evidence/scorecard-rev3.md`):** C-C2 moved 1 → 3. The AlmaLinux bootc RPi images, tested on Pi 5 [C-SCORE-025], now give Pi 5 a ledgered documented path. RHDE covers Orin [C-W2-041], NVIDIA publishes `rhel10` CUDA and `dnf` toolkit packages [C-SCORE-030, C-SCORE-031], and AlmaLinux 10 ships `kernel-rt` [C-SCORE-029]. That meets every clause of anchor 3, scored doc-only under weights §5 rule 5. The Pi 5 route is labelled *experimental* and its firmware updates are manual; if a refuter discounts it, C2 = 2 and C = 60.0. (2) D-C2 = 3, not 4, only because "one update framework across all three boards" is unproven. If W3 proves Rugix or RAUC on Jetson, D-C2 = 4 and D = 66.0. (3) Rev. 3 also moved B-C2 1 → 2 (Fedora 45 on Pi 5B, SECONDARY [C-SCORE-027]) and E-C4 0 → 2 (ctrlX OS [C-SCORE-023, C-SCORE-024]), and cited every remaining cell.
 
 ---
 
 ## 5. Sensitivity analysis (mandatory)
 
-Each weight ±5, the others rescaled to keep 100 (scorecard §6).
+Each weight ±5, the others rescaled to keep 100 (scorecard §6). **Rev. 3** (2026-11-11): recomputed after the C-C2, B-C2 and E-C4 re-scores. The original W2 table (D winning 14/14) is superseded; the full history is in `evidence/scorecard-rev3.md` §3.
 
-| Perturbation | Winner | Score | Runner-up | Margin |
-|---|---|---|---|---|
-| C1 +5 | D | 61.9 | C | 5.6 |
-| C1 −5 | D | 62.1 | A | 5.1 |
-| C2 +5 | D | 61.9 | A | 5.6 |
-| C2 −5 | D | 62.1 | C | 3.9 |
-| C3 +5 | D | 61.9 | A = C | 5.6 |
-| C3 −5 | D | 62.1 | A = C | 6.4 |
-| C4 +5 | D | 61.9 | A = C | 5.6 |
-| C4 −5 | D | 62.1 | A = C | 6.4 |
-| C5 +5 | D | 61.9 | C | 4.6 |
-| C5 −5 | D | 62.1 | A | 6.3 |
-| C6 +5 | D | 60.8 | A | 4.6 |
-| C6 −5 | D | 63.2 | C | 7.4 |
-| C7 +5 | D | 64.1 | C | 6.8 |
-| C7 −5 | D | 59.9 | A | 4.1 |
+| Perturbation | Winner | Score | Runner-up | Margin | Third |
+|---|---|---|---|---|---|
+| C1 +5 | C | 63.8 | D | 1.9 | A 55.0 |
+| C1 −5 | C | 64.2 | D | 2.1 | A 57.0 |
+| C2 +5 | C | 63.8 | D | 1.9 | A 56.2 |
+| C2 −5 | C | 64.2 | D | 2.1 | A 55.8 |
+| C3 +5 | C | 63.8 | D | 1.9 | A 56.2 |
+| C3 −5 | C | 64.2 | D | 2.1 | A 55.8 |
+| C4 +5 | C | 63.8 | D | 1.9 | A 56.2 |
+| C4 −5 | C | 64.2 | D | 2.1 | A 55.8 |
+| C5 +5 | C | 64.9 | D | 3.0 | A 56.2 |
+| C5 −5 | C | 63.1 | D | 1.0 | A 55.8 |
+| C6 +5 | C | 63.8 | D | 3.0 | A 56.2 |
+| C6 −5 | C | 64.2 | D | 1.0 | A 55.8 |
+| C7 +5 | C | 64.9 | D | 0.8 | A 56.2 |
+| C7 −5 | C | 63.1 | D | 3.2 | A 55.8 |
 
-**Verdict: robust** (same winner in 14/14). Script: `evidence/lab/w2-fedora-bootc-greenboot/score.py`.
+**Verdict (rev. 3): C leads on raw score in 14/14 runs, but C and D are inside the 3-point tie band in 11 of 14.** Under the frozen protocol that is a **tie between C (RHEL-family bootc) and D (Ubuntu 26.04)**, settled by decision-critical evidence, not by raw order. With 01's corrected A-C1 = 3, A scores 60.0 and sits 4.0 behind C. If C-C2 is discounted to 2, the pre-rev. 3 order returns (D 62.0, C 60.0, A 60.0). The script is in `evidence/scorecard-rev3.md` §10. The original W2 script was `evidence/lab/w2-fedora-bootc-greenboot/score.py`.
 
-**What flips it (cell sensitivity, more informative than weight sensitivity here):**
+**What flips it (cell sensitivity, more informative than weight sensitivity here):** *(written for the pre-rev. 3 card. The current flip conditions are in `evidence/scorecard-rev3.md` §3.4: C-C2 is the swing cell.)*
 - **D drops out entirely if G1 or G3 turns to FAIL**, meaning Canonical refuses redistribution or prices Pro for Devices beyond what H-1 margins allow. Then **A and C tie at 56.0**. Per the scorecard, a tie is settled by decision-critical evidence: DC-05 (Rugix rebase without reflash) favours whichever stack proves it; bootc rebases by design [C-W2-024].
 - If W3 proves Rugix rebase (A-C1 → 3), A = 60.0, still under D but within 3 points: a tie, decided by Q-W2-1.
 - If D-C6 falls to 1 (Pro for Devices over $50/device/year), D = 60.0: a tie with A at 60 only if A-C1 also rises.

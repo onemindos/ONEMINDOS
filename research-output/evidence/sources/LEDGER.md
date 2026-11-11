@@ -24,7 +24,7 @@ Linux tags resolved to commits: v6.18 = `7d0a66e4bb9081d75c82ec4957c50034cb0ea44
 
 ## 3. Source copies moved in from the lab workspace
 
-Text copies were made from `work/.lab/` (outside the public repo). Each folder has an `INDEX.md` that maps every file to its original URL, Wayback capture (where one exists), lab path, raw sha256 (which matches the prefixes quoted in the owning sources file) and text sha256, plus a `SHA256SUMS`. HTML was converted to text. Discourse forum JSON was reduced to post text and dates. E-mail addresses, private IP addresses, tailnet host names and forum user names were masked. Every file is under 1 MB, and gitleaks found nothing.
+Text copies were made from `<lab-dir>/` (outside the public repo). Each folder has an `INDEX.md` that maps every file to its original URL, Wayback capture (where one exists), lab path, raw sha256 (which matches the prefixes quoted in the owning sources file) and text sha256, plus a `SHA256SUMS`. HTML was converted to text. Discourse forum JSON was reduced to post text and dates. E-mail addresses, private IP addresses, tailnet host names and forum user names were masked. Every file is under 1 MB, and gitleaks found nothing.
 
 | Folder | Files | From |
 |---|---|---|

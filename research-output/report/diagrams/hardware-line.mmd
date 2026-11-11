@@ -1,0 +1,8 @@
+flowchart LR
+  N["<b>Node</b> (leaf)<br/>ESP32 · Pi Zero class<br/>≤ 4 GB or no SSD<br/><i>Sensor gateway</i><br/>NATS leaf only"]
+  E["<b>Edge</b><br/>Pi 5 8 GB / CM5 + NVMe<br/><i>Hub · greenhouse · TAK</i><br/>Debian (Pi kernel)<br/>k3s server"]
+  L["<b>Lite</b><br/>Intel N150, 16 GB, 2× NVMe,<br/>TPM 2.0<br/><i>Home cloud / vault</i><br/>Debian · k3s server"]
+  P["<b>Pro</b><br/>x86 + RTX ≥ 16 GB VRAM,<br/>64 GB RAM (or GB10)<br/><i>Private AI</i><br/>Debian or GPU flavor"]
+  R["<b>Robotics</b><br/>Production Jetson Orin NX /<br/>AGX Orin / T4000 on a carrier<br/><i>Robot brain</i><br/>L4T Ubuntu · k3s agent"]
+  O["<b>Omni</b><br/>RTX PRO 6000 workstation<br/>or DGX Spark pair<br/><i>Simulator</i><br/>GPU-server Ubuntu · k3s/RKE2"]
+  N --> E --> L --> P --> R --> O

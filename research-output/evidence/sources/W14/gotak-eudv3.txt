@@ -1,0 +1,397 @@
+
+    GoTAK EUD V3 — De-Googled GrapheneOS ATAK EUD
+      Skip to content
+Order processing: 2–3 weeks
+Equipment
+EUDs
+Sensors
+Trackers
+Communications
+Command & Deployment
+Antennas
+All equipment
+Which EUD should I buy?
+TAK Plugins
+Radio Relay
+Radio Relay Bridge
+RIDAR
+SPECTRUM
+3D Tiles
+Satellites
+STARSYNC
+Repeaters
+HAIL
+KrakenSDR
+Clusters
+Hyper Location
+Address
+Trackers
+ECHO
+All plugins
+My licenses
+<masked-token>
+GoTAKAbout UsNewsroomDisaster ReliefKnowledge baseCommunity
+Talk to our team
+Sign In
+Equipment
+EUDs
+Sensors
+Trackers
+Communications
+Command & Deployment
+Antennas
+All equipment
+Which EUD should I buy?
+TAK Plugins
+Radio Relay
+Radio Relay Bridge
+RIDAR
+SPECTRUM
+3D Tiles
+Satellites
+STARSYNC
+Repeaters
+HAIL
+KrakenSDR
+Clusters
+Hyper Location
+Address
+Trackers
+ECHO
+All plugins
+My licenses
+<masked-token>
+GoTAKAbout UsNewsroomDisaster ReliefKnowledge baseCommunity
+Talk to our team
+  Equipment / EUD V3ConfigureCapabilities
+          Secure End-User Device
+          EUD V3
+$1,500.00
+Out of stock
+OD GreenCase / Mount / Module
+            Secure End-User Device
+            EUD V3
+Hardened GrapheneOS hardware running the full TAK OS stack — cognitive layer, multi-domain feeds, RF coverage modeling, and drone detection — pre-loaded and ready on first boot.
+OSGrapheneOS
+HardwarePixel 9
+ConnectivityCarrier Unlocked
+            $1,500.00Out of stock
+            Specs — GrapheneOS / Pixel 9 / Carrier Unlocked
+          Hardened GrapheneOS hardware running the full TAK OS stack — cognitive layer, multi-domain feeds, RF coverage modeling, and drone detection — pre-loaded and ready on first boot.
+Download spec sheet
+            Kit Color — OD Green
+                  OD GreenCoyote TanGraphite
+Attachments
+Case / Mount / ModuleMAAK case, chest mount and field module mount
+Case / Mount / Module / BatteryAdds the 10,000mAh Scout Battery — Pre-Order: Delivery 2027
+Storage
+128GBOnboard storage, as shipped1TB1TB onboard storage
+              How many
+              1Single2xSame kit each3xSame kit each4xSame kit each5xSame kit each
+Each unit ships with the same add-ons, plugins and accessories selected above.
+              Add-ons
+                          RIDAR
+                            +$700.00
+                          Every Remote ID drone — aircraft and pilot position — on this EUD's map. MJF-printed Nylon 12, passive, RX-only, powered by the device.
+                      RIDAR-FMRIDAR-U
+Every Remote ID drone in range on your map within seconds — the aircraft, its track, and where the pilot is standing. MJF-printed Nylon 12, passive and receive-only, powered by the device. It never transmits, so it never gives you away.
+        MOHOC 2+$1,099.00
+        UVC-USB helmet camera · ATAK, TAK_OS and ECHO compatible. Built to order: approximately 120 days.
+BlackTanMIL Green
+Live USB-UVC video from a low-profile helmet camera. Fully compatible with ATAK, TAK_OS and ECHO by GoTAK. Standard USB-A cable; a compatible USB host or adapter and configured video workflow are required. Manufacturer-estimated lead time: approximately 120 days from order.
+        MAAK NavBoard+$600.00
+        Modular MFF and land-nav board — retains GPS, compass and light, and moves between MAAK platforms tool-free.
+GPS, compass and a red LED illuminator on one board for free-fall, recon and land nav. Moves between the chest mount, belt clip, MOLLE or an Adventure Clip with no tools, and back again in seconds.
+        EUD Faraday Sleeve+$50.00
+        Signal-blocking sleeve — no emissions, no tracking, no remote access.
+Slide the device in and it goes dark — no cellular, no Wi-Fi, no Bluetooth, no GPS, no remote wake. Made in Norfolk, Virginia. The simplest way to be certain a device is off the air.
+Each add-on is a separate line in your cart. Lead times vary by product. Mission Kit pricing applies automatically at checkout.
+              Comms
+        Beartooth MKII Plus+$1,250.00
+        Off-grid mesh text and position with no cell network, no subscription and nothing to stand up. Pick your antenna and how many units.
+      Units123
+StandardWearable · $1,350
+Text and position for the whole team with no cell network, no subscription and nothing to stand up. Meshes over 100 devices automatically and feeds straight into ATAK. Field-tested by first responders.
+Comms ship with your device as a separate line in your cart.
+              Plugins
+                          HAIL+$210.00
+                          Live biometrics from Garmin and Samsung smartwatches on the ATAK map, shared to the team as CoT.
+Heart rate and vitals from Garmin and Samsung watches, on the ATAK map beside everything else. See a teammate go down before they can call it in, shared to the team as standard CoT.
+                          STARSYNC+$200.00
+                          Encrypted CoT over SMS and MMS — ATAK keeps working on direct-to-cell satellite and no-data cellular.
+Encrypted CoT over SMS and MMS. When the data plan is saturated, deprioritised or gone, positions, chat and alerts still land — on 2G through 5G and direct-to-cell satellite. No data plan, no cloud relay.
+                          Radio Relay+$200.00
+                          Bridges BTECH UV-PRO radios into TAK over Bluetooth — position, chat and CoT with no data connection.
+Bridges BTECH UV-PRO radios into TAK over Bluetooth. Position, chat and CoT keep flowing with no data connection at all — the radio you already carry becomes the network.
+                          KrakenSDR+$250.00
+                          Radio direction finding and transmitter geolocation drawn straight on the map.
+Turns a KrakenSDR into an ATAK sensor: direction-of-arrival bearings and RSSI breadcrumbs drawn on the map, accumulating into a running estimate of where the transmitter actually is. Shared to the team as CoT.
+                          Hyper Location+$200.00
+                          GPS-denied positioning in ATAK — on-device sensor fusion holds a 3D, floor-level fix underground, indoors and under jamming, shared to the team as CoT.
+Holds a 3D, floor-level position where GPS dies — underground, indoors, in city canyons and under jamming. All of it runs on the device, so there are no beacons to install and no site survey.
+                          3D Tiles+$50.00
+                          Photorealistic 3D cities streamed onto the ATAK map.
+Google Photorealistic 3D Tiles and Cesium OSM Buildings streamed straight onto the ATAK map, sharpening as you zoom. Brief against the real buildings instead of a flat image. Requires your own Cesium ion access token.
+Plugins are delivered as license keys to your order email. Installed on the EUD before it ships when ordered together.
+              Scout Battery — Pre-Order: Delivery 2027
+              10,000mAh lithium-ion, 75W output, IP67-rated. Engineered for sustained field operations in the harshest conditions. Nearly 2 full recharges in the field.
+              Add to Cart — $1,500.00
+          Ships within 3–5 business days
+            Included in your kit
+            EUD V3
+Case
+Chest Mount
+33W USB-C Cable
+Screen Protector
+Scout Battery — Pre-Order: Delivery 2027
+        Deployed bySOFLaw EnforcementSARDefense ContractorsPublic Safety
+    Why the EUD V3
+    Built for ^privacy^. Hardened GrapheneOS with ATAK and GoTAK plugins ^ready to deploy^.
+        0
+        Google dependency — fully degoogled
+        5
+        Layers of hardened defense
+        6
+        Apps and plugins installed and licensed out of the box
+        2 days
+        Factory-direct dispatch
+    First boot
+    Operational on first boot.
+Power on, log in, operate. Every unit ships fully provisioned — ATAK, the TAK OS platform, encrypted comms, and your TAK server already paired. No Google account. No setup. No app store.
+    Security architecture
+    Your threat modelis your baseline.
+Consumer phones defend against opportunistic malware. The EUD V3 defends against targeted exploitation, post-compromise persistence, and physical coercion. Security isn't a feature here — it's the architecture.
+        Five layers of defense
+          01Sandboxing
+          02Modem isolation
+          03Duress
+          04Forensic resistance
+          05App permissions
+            The threat
+            Your phone is exposing you.
+            Zero-click exploits. Silent network signaling. Baseband-level attacks. Every app you install widens the attack surface.
+This is not theoretical.
+            The EUD V3 response
+            Strict application sandboxing.
+            GrapheneOS enforces strict application sandboxing — each app operates in its own isolated environment, restricted from interacting with other apps or accessing sensitive system resources without explicit user consent.
+All apps run in isolated sandbox environments.
+Compromised apps cannot access external resources or memory.
+Google Play Services run inside the sandbox — no elevated privileges.
+Most phones let one compromised app become a system-wide breach. This one doesn't.
+            The threat
+            The cellular modem is a black box.
+            Cellular modems run outside the OS on closed-source firmware, in their own execution environment, with persistent network exposure whenever they're on. On most phones the modem is inherently trusted with direct memory access.
+Unavoidable risk — as documented in Google's Project Zero CVE reports.
+            The EUD V3 response
+            The modem is treated as untrusted hardware.
+            The EUD V3 hardware-isolates the cellular modem from the application processor, so a compromised baseband has no path into OS or app memory.
+Hardware-isolates the modem from the application processor.
+Prevents modem access to OS and app memory.
+Zero-click baseband attacks can't escalate into full device compromise.
+A modem exploit stays a modem exploit.
+            The threat
+            The classic five-dollar wrench attack.
+            Security often fails under physical pressure. Users can be coerced to unlock devices. Biometric access can be forced. Standard locks offer no safe exit.
+Border crossings, detentions, and checkpoints are security events.
+            The EUD V3 response
+            A safe exit under coercion.
+            GrapheneOS is designed for real-world hostile scenarios — digital and physical. A pre-configured duress PIN triggers an irreversible process that destroys all hardware keystore keys, disk encryption keys, and eSIMs, then shuts the device down.
+Duress PIN entry immediately wipes all user data under coercion.
+Renders every encrypted byte permanently inaccessible.
+Nothing left to extract, nothing left to negotiate.
+Breaches happen under threat and pressure, not just malware.
+            The threat
+            Forensic extraction after unlock.
+            Once unlocked, most phones become dramatically easier to extract from. Commercial forensic tools read active memory, capture running services, and exploit the expanded post-unlock window.
+Time after unlock favors the attacker.
+            The EUD V3 response
+            Back to locked, automatically.
+            The EUD V3 shrinks After-First-Unlock exposure — the window where decryption keys live in memory. Automatic reboot intervals return the device to the locked Before-First-Unlock state, the safest a device can be.
+Automatic reboot intervals return the device to a locked state.
+Rapid return to Before-First-Unlock — the safest device state.
+Fewer persistence opportunities for forensic tools.
+Smaller attack windows, less recoverable data.
+            The threat
+            Your apps are reporting back.
+            Default smartphone permissions grant apps broad access to microphones, cameras, GPS, and the network. Most users never audit them. Apps routinely collect and transmit far beyond their stated function.
+Data exfiltration usually happens in plain sight.
+            The EUD V3 response
+            You decide what each app can see, hear, and transmit.
+            GrapheneOS provides per-app control over network connectivity, file access, and every device sensor. Cut an app off from the internet entirely, or deny it the microphone and accelerometer, with one toggle.
+Per-app network toggles — block any app from reaching the internet.
+Sensor controls for microphone, camera, accelerometer, and GPS.
+Prevents unauthorized collection or transmission.
+Nothing leaves the device unless you allow it.
+          ← Prev
+          01 / 05
+          Next →
+        From trust root to user space.
+        Trust root ↑ · User space ↓
+          01
+          Hardware
+          Pixel 9 · Titan M2 security chip
+Hardware-backed key storage, a verified boot chain, and a tamper-resistant secure element. Every cryptographic operation is isolated from the main processor.
+          VERIFIED
+          02
+          OS kernel
+          GrapheneOS hardened Linux kernel
+Exploit mitigations, a reduced attack surface, improved memory safety, and strict SELinux policy — patched independently of upstream Android on an accelerated schedule.
+          ENFORCED
+          03
+          Sandbox layer
+          App isolation · permission gates · profile separation
+Every app runs in its own sandbox behind strict permission gates, with per-app network toggles, sensor controls, storage scopes, and profile separation.
+          ISOLATED
+          04
+          ATAK + plugins
+          ATAK + GoTAK Plugin Suite
+ATAK, RIDAR, Address, Clusters, ECHO PTT and the GoTAK Launcher installed and licensed on every device. HAIL, STARSYNC, Radio Relay and KrakenSDR activated when ordered with it. Operational on first boot.
+          LOADED
+      GoTAK Launcher · installed and set as the home screen
+Made forEUDs.
+Every GoTAK EUD boots into our own launcher, not Samsung's or Google's. Landscape-first, ATAK dead centre, targets sized for gloves — and one tap that takes the whole screen red.
+      Tap to switchHome screen · day
+Platform Android · GoTAK EUDsVersion v1.0.1 stableSize 8.1 MBLicense Free — none required
+One tap to red.
+The quick actions ring the hawk on the home screen: night mode, search, settings, lock. Night mode washes the whole interface red — launcher, labels, icons — so nothing on the device blows your light discipline. AUTO sits under the hawk for hands-off switching.
+Your stack, up front.
+The home screen carries the five apps you actually open in the field, ATAK in the middle. Everything else is one swipe away in a searchable drawer — no grid of icons to hunt through, and nothing buried three screens deep.
+      MAAK Field Module Interface
+Quick swapfield modules.
+The chest mount's Field Module Mount lets you pull one module and seat the next as the mission changes — no tools, no re-rigging, without taking the carrier off. The module you are not running stores on a MAAK Adventure Clip.
+01One interface, every platform
+The NavBoard, the EUD and every other MAAK field module share the same mount. What rides on the chest mount also fits the belt clip, standard MOLLE, and the Adventure Clip.
+02Swap in seconds
+Press, lift, seat the next module. Gloved, in the dark, on the move — the retention is positive and you feel it lock.
+03Nothing gets left behind
+The inactive module rides on an Adventure Clip, so what is not in use is still on you and still ready.
+Build your loadout →
+          Field module swap
+        Field tested
+        Trustedin the field.
+Deployed by defense, law enforcement, and search and rescue teams worldwide — and provisioned for each of them in Virginia Beach.
+        “Real-time SA, secure comms, and geospatial intelligence on objective. Directly enabled safe recovery with minimal risk to the team.”
+        SFRTJosiah L.
+        “Since introducing ATAK, my department is now looking at EUDs for every officer and SWAT team. GoTAK makes equipping a department reasonable, affordable, and possible.”
+        Upstate NY Police DepartmentPatrol Officer Marco S.
+        “Currently deployed at platoon level in a Tier 1 Special Forces unit of a European country. Reliable in the most demanding environments.”
+        Defense contractorA.K.
+        “SAR is a volunteer program with a very limited budget. GoTAK enabled the whole team to have tracking and information sharing with a few clicks.”
+        Boonville Search & RescueTrevor Beebe
+    The difference
+    A stock phone.Or a tactical operating system.
+    A consumer device shares everything by default and runs disconnected apps. The EUD V3 ships with a hardened OS, a cognitive layer, and one unified platform for situational awareness, RF planning, drone detection, and fleet management.
+                Consumer
+                Stock phone
+                GoTAK
+                EUD V3
+                This device
+              Google telemetry
+                Stock phone
+                Active by default — location, identifiers, and usage reported continuously.
+                EUD V3
+                Zero Google dependency. Nothing reports home.
+              Cellular modem
+                Stock phone
+                Trusted with direct memory access to the OS.
+                EUD V3
+                Hardware-isolated — treated as untrusted by design.
+              Under duress
+                Stock phone
+                No safe exit — unlock can be forced or coerced.
+                EUD V3
+                Duress PIN destroys every key and shuts the device down.
+              App permissions
+                Stock phone
+                Broad defaults — apps collect beyond their function.
+                EUD V3
+                Per-app network and sensor control, down to the accelerometer.
+              Forensic resistance
+                Stock phone
+                Expanded extraction window after first unlock.
+                EUD V3
+                Auto-reboot returns the device to its most protected state.
+              Mission software
+                Stock phone
+                Manual install, per device, licenses chased by hand.
+                EUD V3
+                ATAK + plugins provisioned and TAK server paired before it ships.
+              AI tactical advisor
+                Stock phone
+                Generic chatbot apps with no map awareness.
+                EUD V3
+                CORTEX — agentic, tool-calling, ATAK-aware.
+              RF coverage
+                Stock phone
+                Line-of-sight guesses.
+                EUD V3
+                SOOTHSAYER terrain heatmaps in seconds.
+              Drone awareness
+                Stock phone
+                None.
+                EUD V3
+                RIDAR Remote ID with IFF and spoof scoring.
+              Multi-domain feeds
+                Stock phone
+                App by app, account by account.
+                EUD V3
+                ADS-B, AIS, APRS, IPAWS — one platform, pushed to the team.
+              Fleet management
+                Stock phone
+                Manual configuration, per device.
+                EUD V3
+                WARDEN MDM — push a policy to every EUD in about three seconds.
+      Built for operators who can't afford compromise. NDAA & TAA compliant.
+      Explore the full EUD lineup →
+    FAQ
+    The questionsoperators ask first.
+Full documentation in the GoTAK knowledge base. Community support on Discord. Procurement support direct from sales.
+        Can I use the EUD V3 as my everyday phone?+
+        Yes. It's a full smartphone — calls, messages, and any app you want to install — plus the complete TAK OS platform: CORTEX, Overwatch, RIDAR drone detection, SOOTHSAYER RF modeling, AOIs, and WARDEN device management. GrapheneOS runs Android apps natively, including a sandboxed, zero-privilege compatibility layer for apps that expect Google Play Services.
+        What is CORTEX, and how is it different from a generic AI chatbot?+
+        CORTEX is the cognitive layer of TAK OS — an agentic tactical advisor that runs on your EUD V3 with first-class TAK awareness. It can call tools (live KML overlays, threat graphs, WARDEN device status), bridge ATAK GeoChat conversations into its context, render inline maps, video, PDFs, and CoT bundles, and compose live dashboards on demand. It runs on pre-paid tokens, so there are no API keys to manage.
+        Can I model RF coverage from the device?+
+        Yes. SOOTHSAYER ships pre-loaded and is integrated into the Overwatch map. Drop a transmitter, pick a radio template — Silvus, TrellisWare, Harris AN/PRC, goTenna, Beartooth, or a custom build from a datasheet — and get a real-terrain coverage heatmap, a point-to-point link margin in dB, or a multisite composite, directly on the tactical map.
+        Which carriers does it work with?+
+        All of them. Every EUD V3 is carrier unlocked — Verizon, T-Mobile, AT&T, Mint, Google Fi, Vodafone, Orange, Movistar, or any other carrier worldwide. Dual SIM slots let you run two carriers at once, and our eSIM solution activates service in minutes. The only carriers we recommend avoiding are MVNOs that refuse out-of-network devices, such as Total Wireless.
+        Can I use it outside the US?+
+        Yes. Carrier unlocked means globally unlocked, and we ship to most countries with insured global transport. There are no import restrictions or usage regulations attached to the device.
+        Does it work with my mesh network?+
+        Yes. Out of the box the EUD V3 supports traditional mesh networks from Silvus, MPU5 and others, plus Beartooth MKII, goTenna Pro X2, and Meshtastic-based off-grid solutions. Grid down is no longer a factor for live mapping, tracking, voice, or UAS telemetry.
+        Can I manage a fleet of EUD V3 devices remotely?+
+        Yes. WARDEN MDM is built into TAK OS. Enroll devices from a QR code in device-owner mode, push policies that control the launcher, kiosk apps, network restrictions, and security settings, and issue lock, wipe, ring, or reboot commands that land in roughly three seconds. A full audit log is included.
+        What happens if the device is taken?+
+        You have a safe exit. Entering the pre-configured duress PIN irreversibly destroys all hardware keystore keys, disk encryption keys, and eSIMs, then powers the device down — leaving nothing to extract. Between unlocks, automatic reboots return the device to its most protected state, shrinking the window commercial forensic tools depend on.
+        How long does shipping take?+
+        Standard orders ship within 3–5 business days via UPS with 2–3 day delivery. Larger field kits are built to order and can take 7–30 days depending on configuration and stock. Expedited military procurement is available — contact sales.
+        Is the EUD V3 NDAA compliant?+
+        Yes. GoTAK devices are NDAA Section 889 compliant with no chips, modems, or components from banned vendors. TAA-compliant configurations and compliance documentation are available on request — email <email>
+        What is the return policy?+
+        Because every device is custom-provisioned and built to order, all sales are final — we don't offer refunds or returns. Choose your configuration carefully, and if you're unsure which setup fits your mission, talk to sales before ordering. The full refund policy is linked at the bottom of every page.
+      More questions? Ask on Discord or email <email>
+GoTAK Discord →
+    GoTAK EUD V3 · Provisioned in Virginia Beach
+      Hardware, hardened.
+      Platform, operational.
+Pixel 9 hardware. GrapheneOS hardening. The full TAK OS stack — CORTEX cognitive layer, Overwatch COP, SOOTHSAYER RF heatmaps, RIDAR drone detection, AOIs, WARDEN MDM — pre-loaded and licensed, with the MAAK ecosystem to mount it anywhere. Security isn't a feature here — it's the architecture.
+      Buy EUD V3 →
+      Volume quote
+    From $1,500 · ships in 3–5 business days · NDAA & TAA compliant
+    GrapheneOSTAK OS pre-loadedDuress PINDual SIM + eSIMNDAA & TAAMAAK ready
+            EUD V3
+              $1,500.00
+            In Stock
+              Add to Cart
+              →
+The Mission Awareness Company
+Equipment
+<masked-token> & DeploymentEUD Guide
+Capabilities
+TAK_OS - Situational awarenessECHO - Video + voiceFORGE - Custom integrationWARDEN - Device management
+GoTAK
+Our companyNewsroomCommunityDisaster Relief
+Support
+Knowledge baseShippingReturnsVirginia Beach, USA.
+Copyright © 2026 GoTAK. [footer with business registration identifiers masked]
+PrivacyTermsAccessibility
+      Choosing a selection results in a full page refresh.

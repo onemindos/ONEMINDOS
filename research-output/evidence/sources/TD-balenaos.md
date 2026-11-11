@@ -2,7 +2,7 @@
 
 **Accessed:** 2026-11-11 unless noted · **Claims:** `evidence/claims/TD-balenaos.csv` (C-TD-balenaos-001…060) · **Saved copies:** `evidence/sources/TD-balenaos/` with `SHA256SUMS`. Wayback save requests are denied in this environment; the docs are pinned to a git commit instead, which is a stronger archive than a page snapshot.
 
-## Code (shallow clones in `work/.lab/src/`, pinned)
+## Code (shallow clones in `<lab-dir>/src/`, pinned)
 
 | Repo | Commit | Tag / date | Type | Used for |
 |---|---|---|---|---|

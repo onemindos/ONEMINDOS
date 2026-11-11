@@ -1,0 +1,60 @@
+# LAB-ubuntu-2604-leg hashes (sha256). Build artifacts are not committed; scripts and inputs are.
+## leg U1 (RAUC v1.13 from tag, failed T3) build outputs
+u1  a0043803c26fac02bd95441c4bfef721b770533acd0348aaa30111b6450b2027  disk.img
+u1  21c157888355337c92bfb352f1e31eb8d2b7ad4df198ef440bbb2662c189b27c  bad-boot.raucb
+u1  94ea83ddf68394a6ca238ece036d925c72a1b0a46e17b9abaa233f539cb816de  bad-hang.raucb
+u1  f27a79fecf133fdbaa9d5911459728d5edcc4371d181e5cb0be03f7ac23454dd  bad-k3s.raucb
+u1  9a4bd8f806328c2e086f2374fcca25cf71a4216d33841c30b8648b2750991e14  bad-noagent.raucb
+u1  422719dae7cd33552e505c6e779d0c318af09eb34093204c7521e648e2fe0c5e  good.raucb
+u1  0858ae79ed8fe1e225f9ba8d6ba3a66bfe3f161b646090d9cdf8d40f56de0feb  naive-noagent.raucb
+u1  bb67d32cef55ccb6e5a5dfcd8c6ac4492a699e14e65966b39fb86742e5e0b947  wrong-key.raucb
+u1  004ec1878392c3b00636888515280b5c6aa5113768ca0b7f41c870f9d4e2c033  grub.cfg
+u1  d22befa2a32fc06a69d47f34e28dd5688f29f033915029736904845603a28a58  lab-ca.cert.pem
+## leg U1p (RAUC v1.13 + dm-verity fix series) build outputs
+u1p aa3caa6c4a28a2578aa1eedda599de4e592f29ca4f845dfb31bef2131013216d  disk.img
+u1p 2db54ee8eee3ebfe0b3597560bf0fb35b466ddcb54af62bfaf2126cf77550d72  bad-boot.raucb
+u1p b924f64d84b2dd32f45d14f792e2a6964ec7b00d6e110e3aac52562909846cf8  bad-hang.raucb
+u1p 652359e2c1fa4d4194921b173e61edd9d67e854c6cab97568c28614d0926a0a7  bad-k3s.raucb
+u1p 97139c0414e3a95542c3819daa41863d2605d2e25bea8cdba6116c688d372631  bad-noagent.raucb
+u1p b28d06c066f44515a9a4972984bd146df29962435bbf66f8c3b900c27b1fa390  good.raucb
+u1p 713a899fb5c0562b13c345bcb85390f8990fe29ef7bb2121ee282f25422cf026  naive-noagent.raucb
+u1p ab2011c3b0a2fffb2416df9ba45c1f12f0d470e54102cacfe42b11a9c03706af  wrong-key.raucb
+u1p 004ec1878392c3b00636888515280b5c6aa5113768ca0b7f41c870f9d4e2c033  grub.cfg
+u1p eb985a9e1cdda411a9d37820ad2d80277f800eae8e0d1885125f5f9351a4789b  lab-ca.cert.pem
+## leg U2 (Ubuntu archive rauc 1.15.1-1) build outputs
+u2  112d06f7180789ea7af479aafa95f3bdbf63e841d4d7d08f9dd6892ae5708c6d  disk.img
+u2  a9703561583a8c4dbe5ef735b7031a712a7ad8bc6cfc2d16c9e91a803a945eb8  bad-boot.raucb
+u2  1a9780f5ae87598b8694422ad54cc47f82e01f2591980ff39756d4e2b580ac40  bad-hang.raucb
+u2  b2da1c31e7bfc9a533f22258beb767f4a288a1a3eb4bd51acbe06e1ae1b60826  bad-k3s.raucb
+u2  e8c301a4afcbb6b98f315b9ac2a8593aa5ab4e22065428f6292dcadce418f276  bad-noagent.raucb
+u2  2d89a829d521f3c7686f86b27b3944808f2044b14185a612fbf9b845a4fc52fc  good.raucb
+u2  a69d7c2d83ed17e51f3afc8360a39a34b9288f9b0fadbdc4a52039f8d272b034  naive-noagent.raucb
+u2  fea3e48bfb7eb9afd91d2fefd5a375abb4453fdcb845bc4a409224e9d4f81209  wrong-key.raucb
+u2  004ec1878392c3b00636888515280b5c6aa5113768ca0b7f41c870f9d4e2c033  grub.cfg
+u2  2e1a7933617acf3e5cf9efd2b56824253491a187c69cd0275ca305f002b7d138  lab-ca.cert.pem
+## inputs
+265b3ee6a3198ef14033c63ef46cbb32370d83795199fb6d1b01f21575eddbda  k3s
+35a5af1e69b57b8b627a4f6b1c29ea104209b661067b8c97fd40dc3f860bfcd2  k3s-airgap-images-amd64.tar.zst
+15b696115bae3642056cef479bf5bfe758a13eaf54b925662f0560758b7c393d  k3s-images.txt
+7e877d2b7f7382ec8beda56492ecccc439a053839c54609bf393f1280d6dc1b8  sha256sum-amd64.txt
+deca4b43112d4518d29657a866e6c903be9d558507e54fd5f20399a3551dadbc  abeccdc5406e.patch
+998150f59f3f95f78be17b838264308df13609248d32067472ab75b010a3ea05  a40986fe3ab2.patch
+465698b27295768769146789636253ae4c0a42cdd94bdf59c7b8e9ee0b1a597a  a45cdb14df26.patch
+## scripts (this spike)
+b0869a1a38f8f5f6ba68462e7d74354c4cc0a8583bb21f4083a35bfda85a6236  build-ubuntu.sh
+27312c22c45345ca2df41a0fef84206e917f6abd2a461f5b81225c59a95d1ac9  run-tests.py
+48d0033df821cffd8dc7b3ead391a16b9c0024e1d5fa32b44dbe43bf493cdb43  trim-logs-ubuntu.sh
+## Debian spike files reused unchanged (HU1)
+be60c20246b1a2dfc0fa90d027f7ad4b0c0d3c93f8567250ecab6baf1858f17c  ../rauc-k3s-gate/scripts/guest/bad-hang-init
+724d235a297879ce5d91e877dd8a970423dea47d277ec2fc5ef2204e0057340d  ../rauc-k3s-gate/scripts/guest/grub.cfg.in
+16fe8833b9cc674e5e06d0c4caca94074088d2cd874eac864b933b6dd714270a  ../rauc-k3s-gate/scripts/guest/k3s.service
+65f3669f6cbd85aa76d0c717e5e9a51aaa00d1bf33828dc7bf1af5568edc562f  ../rauc-k3s-gate/scripts/guest/manifests/broken-app.yaml
+ae74425a5a14acb2d1376bec9eed6e790a660d2dbc2bf659869c348481d4f42b  ../rauc-k3s-gate/scripts/guest/manifests/onemind-core.yaml
+2ae240d492aee65a408744bd1cef07233b88eef68811c328b4df5bfe2ecdb5bd  ../rauc-k3s-gate/scripts/guest/onemind-api-respond
+f01b7da7f7abc372de326e4517b743f93c5a46611453f106f8c34b8d240277ab  ../rauc-k3s-gate/scripts/guest/onemind-api.service
+562cce0b5ff1e077195b79985325f84dbace28e89d72470a74fb2862ab09fc5d  ../rauc-k3s-gate/scripts/guest/onemind-health-gate
+14cc7b4f61fc5efe5d6ae6446c0ff0bf46043d358bf44e26afc3c902fbc2e3bb  ../rauc-k3s-gate/scripts/guest/onemind-health-gate.service
+37cfc219732e68cfceb16a788b137616f37728a298516e11d2013ef7707e771d  ../rauc-k3s-gate/scripts/guest/onemind-k3s-check
+74f721ac3248da60350f93e9a67c019c9222496ac99d7f6fbbe647f4abe4af39  ../rauc-k3s-gate/scripts/guest/rauc-pre-install
+484bc649307add52f9eefddcc6c206006c9ea07926ed8ee29312dbf0841c075c  ../rauc-k3s-gate/scripts/run-tests.py
+247651e5f6f41b05319d307a3282cd04fb5caa8446be6af588faabc46673e0fa  ../rauc-k3s-gate/scripts/trim-logs.sh

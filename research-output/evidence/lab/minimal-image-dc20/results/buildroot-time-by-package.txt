@@ -1,0 +1,27 @@
+# Buildroot per-package step time (s), last build in the build dir (the cached clean rebuild + kernel bump); top 25
+   244.6   linux
+   183.0   host-cmake
+   148.7   host-gcc-initial
+   140.6   host-libopenssl
+   138.3   libopenssl
+   135.2   host-gcc-final
+   116.3   grub2
+    71.5   glibc
+    69.4   host-util-linux
+    68.8   host-python3
+    68.1   host-binutils
+    58.1   util-linux-libs
+    57.7   host-m4
+    55.0   host-elfutils
+    47.9   host-grub2
+    44.7   host-gawk
+    41.3   host-gmp
+    38.3   systemd
+    34.2   host-zstd
+    31.7   iproute2
+    31.7   host-systemd
+    31.5   host-bison
+    30.5   openssh
+    27.8   iptables
+    25.5   util-linux
+  2422.4  TOTAL (sum of serial step times; wall time is lower with -j)

@@ -1,0 +1,91 @@
+SOURCE: https://www.synology.com/en-global/products/status/eol-dsm62
+ACCESSED: 2026-11-11 (text extracted from HTML; emails masked)
+
+
+ Synology Inc.
+ Announcement List
+End-of-Life Announcement for DSM 6.2
+ Published: 2023-10-01
+DSM 6.2 will reach the end of the Extended Life Phase on October 1, 2024. After which, DSM 6.2 and related packages or applications will no longer receive functionality, security, and package updates. Synology's technical assistance will also become more limited for devices still running DSM 6.2.
+Applications reaching end-of-life:
+Synology Moments
+Synology Photo Station
+DS Photo
+Java8
+DokuWiki
+SVN
+Tomcat 7
+Moodle
+Docker-Redmine
+Docker-Gitlab
+Docker-LXQt
+GLPI
+OrangeHRM
+osTicket
+MariaDB 5
+Node.js v8
+PHP Pear
+Administrators of eligible devices for the DSM 7 platform should plan and upgrade at their earliest convenience.
+DSM 6.2 and packages for it will remain available through Synology Download Center.
+More information on software life cycles can be found in the Synology Security White Paper.
+Following models are limited with up to version 6.2. Check the latest available models here.
+11-12 Series
+XS Series : RS3412xs, RS3412RPxs, RS3411xs, RS3411RPxs, DS3612xs, DS3611xs
+Plus Series : RS2212+, RS2212RP+, RS2211+, RS2211RP+, RS812+, RS812RP+,　DS2411+, DS1812+, DS1512+, DS1511+, DS712+, DS412+, DS411+II, DS411+, DS213+, DS212+, DS211+, DS112+
+Value Series : RS812, RS212, RS411, DS413, DS411, DS213, DS212, DS211, DS112, DS111
+J Series : DS413j, DS411j, DS411slim, DS213air, DS212j, DS211j, DS112j
+Others : NVR216, NVR1218, DDSM
+Following models are suggested to be upgraded to version 7.1. Learn more about new features here.
+13-15 Series
+XS Series: RS3413xs+, RS10613xs+, RS3614xs+, RS3614xs, RS3614RPxs, RC18015xs+, DS3615xs, DS2015xs
+Plus Series: DS2413+, DS1813+, DS1513+, DS713+, RS2414RP+, RS2414+, RS814RP+, RS814+, DS214+, RS815RP+, RS815+, DS2415+, DS1815+, DS1515+, DS415+, DS215+
+Value Series: RS814, RS214, DS414, DS214, DS214play, DS114, RS815, DS1515,DS715, DS415play, DS115
+J Series: DS213j, DS414slim, DS414j, DS214se, DS215j, DS115j, DS216se
+Following models are suggested to be upgraded to version 7.2. Learn more about new features here.
+16-21 Series
+XS Series: RS18016xs+, RS4017xs+,RS3617xs+, RS3617xs, RS3617RPx, RS18017xs+, DS3617xs, DS3617xsII, RS3618xs, DS3018xs, RS1619xs+, DS1621xs+, RS4021xs+, RS3621xs+, RS3621RPxs
+Plus Series: RS2416RP+, RS2416+, DS916+, DS716+II, DS716+, DS216+II, DS216+, DS1517+, RS2818RP+, RS2418RP+, RS2418+, RS818RP+, RS818+, DS1618+, DS918+, DS718+, DS218+, DS2419+II, DS2419+, DS1819+, DS1019+, RS820RP+, RS820+, DS1520+, DS920+, DS720+, DS420+, DS220+, RS2821RP+, RS2421RP+, RS2421+, RS1221RP+, RS1221+, DS1821+, DS1621+
+Value Series: RS816, DS416, DS416play, DS216, DS216play, DS116, RS217, DS1817, DS1517, DS418, DS418play, DS218, DS218play, DS118, RS819
+J Series: DS416slim, DS416j, DS216j, DS218j, DS218j, DS419slim, DS119j, DS620slim, DS420j, DS220j, DS120j
+SA Series: SA6400, SA3610, SA3600, SA3410, SA3400, SA3200D
+FS Series: FS6400, FS3600, FS3410, FS3400, FS3017, FS2017, FS1018, FS2500
+HD Series: HD6500
+Others : DVA3219, DVA3221
+ NAS Selector
+ RAID Calculator
+ NVR Selector
+ Knowledge Center
+ Downloads
+ Newsletter
+ Company
+ About Synology
+ Blog
+ Newsroom
+ Media Coverage
+ Customer Stories
+ Office Locations
+ ESG
+ Sales
+ Where to Buy
+ Contact Us
+ Become a Partner
+ Compatibility
+ HDD/SSD
+ IP Cameras
+ Network Cards
+ I/O Modules, IP Speakers, Access Controllers
+ Other Devices
+ Resources
+ Products A-Z
+ Beta Program
+ Bounty Program
+ Community
+ Events
+ Subscribe to Newsletter
+ Copyright © 2026 Synology Inc. All rights reserved.
+ Terms & Conditions
+ | Privacy
+ | Cookie Preference
+ Global - English
+ Continue
+

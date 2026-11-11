@@ -1,0 +1,180 @@
+Home AI Server — Run AI 24/7 at Just 20W | ClawBox
+
+ClawBox v4 is out!ClawBox v4 is out — Memory Shard, voice conversations and a lot more.See what's new→✕
+ClawBox
+
+ClawBox
+ClawBoxClawBox WorkstationClawBox Hermes EditionClawBox PortalClawBox StorePricingLeaderboard
+Compare
+Full ComparisonHermes Agent vs OpenClawvs. Cloud AI (ChatGPT, Claude)vs. Raspberry Pi 5vs. Home Servervs. Mac Mini M4Hermes Agent on a Mac miniBlogDocs
+
+EUR/USD
+ENLoginBuy
+
+The Home AI Server That Runs All Day on 20W
+67 TOPS. Near-silent. Always on. €749 once.
+ClawBox is the most efficient home AI server available. NVIDIA Jetson Orin Nano Super, 67 TOPS of AI compute, 512GB NVMe — running Llama, Whisper, and full browser automation at the power draw of a dim light bulb.
+Get Your ClawBox — €749
+
+⚡
+20 Watts. 24/7. About €3/Month in Electricity.
+Most home servers draw 65-300W. ClawBox runs the same AI workloads on just 20W — that's less than a dim light bulb. Run it all year for less than you pay for a single cloud API call session.
+
+20W
+Power draw
+
+~€3
+Per month electricity
+
+67 TOPS
+AI performance
+
+The Best Home AI Server for Most People
+Purpose-built for home use — efficient, quiet, private, and easy to set up.
+
+🔇
+Near-Silent Operation
+Optimized fan runs at near-zero noise levels. You won't hear it from across the desk — let alone across the room.
+⚡
+20W — Lowest in Class
+Mac Mini draws 65W. Gaming PCs 300W+. ClawBox runs full AI workloads on 20W — cheaper to run than your router.
+🤖
+Real AI Performance
+67 TOPS NVIDIA GPU. Not a Raspberry Pi pretending. Runs 1-4B models at 22-45 tok/s, Whisper real-time, LLaVA vision models.
+🔐
+100% Local by Default
+All AI runs on-device. Your conversations, voice, and data never leave your home network.
+📦
+5-Minute Setup
+Pre-installed Ubuntu + OpenClaw. Plug in, go to clawbox.local, done. No Docker, no terminal, no Linux expertise.
+💰
+€749 one-time hardware
+One hardware purchase. Optional Pro/Max plans for higher usage and backup. Cloud APIs are your choice.
+
+AI Models Included
+ClawBox comes pre-configured with local models and optional cloud AI integration.
+
+ModelSpeed / LatencyBest For
+Qwen2.5 3B~23 tok/sConversations, summaries, Q&A
+Whisper STTReal-timeSpeech-to-text, voice commands (local)
+Kokoro TTSReal-timeText-to-speech, voice responses (local)
+LLaVA 7B~5 tok/sImage understanding, visual Q&A
+CodeLlama 7B~10 tok/sCode generation and debugging
+Claude / GPT-5Fast (cloud)Complex reasoning, large context (optional)
+
+A Personal AI Server, Not a Rack in the Basement
+A personal AI server used to mean a loud tower, a 300W power bill, and a weekend of Linux setup. ClawBox shrinks all of that to a book-sized box on your shelf: 67 TOPS of NVIDIA Jetson compute, a 512GB NVMe SSD, and OpenClaw pre-installed — serving you on Telegram, WhatsApp, Discord, email, and voice, around the clock.
+It runs local models for private tasks, and when you want frontier-level reasoning, OpenClaw works with Claude as its premium reasoning provider — Anthropic is the main supported cloud provider — called per request while your files and memory stay on your server.
+Best hardware for OpenClawLow-power AI serverSelf-hosted AI guideGet ClawBox — €749
+
+ClawBox vs Other Home AI Servers
+
+🖥️ Typical Home AI Setup
+✗ 65-300W power consumption
+✗ Hours of setup and configuration
+✗ Fan noise from desktop hardware
+✗ No pre-installed AI models or software
+✗ No messaging integration out of the box
+✗ No browser automation without custom setup
+
+🦞 ClawBox Home AI Server
+✓ Just 20W — runs on any outlet, any UPS
+✓ Pre-configured, ready in 5 minutes
+✓ Near-silent optimized cooling
+✓ Llama, Whisper, Kokoro, LLaVA pre-installed
+✓ Telegram, Discord, WhatsApp ready on day 1
+✓ Full browser automation built-in
+
+ClawBox Specifications
+
+AI Performance67 TOPS (NVIDIA Jetson Orin Nano Super)
+CPU6-core ARM Cortex-A78AE
+Memory8GB LPDDR5 Unified
+Storage512GB NVMe SSD
+Power Consumption20W typical / 25W max
+Noise LevelNear-silent — optimized fan
+CasePremium Carbon Color
+Price€749 one-time
+
+Home AI Server FAQ
+What is a home AI server?▼
+A home AI server is an always-on computer in your house that runs your AI assistant, local models, and automations — instead of renting that capability from a cloud provider. ClawBox is a home AI server that draws just 7-25W, runs near-silent, and comes with OpenClaw pre-installed, so it's serving your whole household about 5 minutes after you plug it in.Can ClawBox be my personal AI server?▼
+Yes — that's exactly what it's built for. As a personal AI server, ClawBox watches your inbox, automates browser tasks, controls your smart home, transcribes voice locally with Whisper, and answers you on Telegram, WhatsApp, or Discord. You get full SSH root access, so you can host anything else on it too.How much does it cost to run a home AI server 24/7?▼
+On ClawBox, almost nothing: at 7-25W, running 24/7 costs about €0.80 per month in electricity (~€10/year at €0.25/kWh). A repurposed desktop or GPU tower draws 10-20x more. The hardware itself is €749 one-time — there are no monthly fees for the box.
+
+Start Your Home AI Server Today
+ClawBox ships pre-configured and ready to run. The most efficient home AI server available — plug in and your AI is running in minutes.Get Your ClawBox — €749
+
+Get product updates, discounts & ClawBox tips
+Subscribe
+No spam. Unsubscribe anytime.
+Guides
+What Is OpenClaw?
+Setup Guide
+Quick Start
+Requirements
+Telegram Setup
+WhatsApp Setup
+Android Guide
+OpenClaw on Jetson
+Docker Setup
+FAQCompare
+Overview
+Hermes Agent vs OpenClaw
+vs Mac Mini
+Hermes Agent on a Mac mini
+vs Cloud AI
+vs Cloud VPS
+vs Raspberry Pi
+vs Home Server
+ClawBox Review
+ClawBox PricingResources
+ClawBox Workstation
+ClawBox Hermes Edition
+ClawBox Portal
+OpenClaw Hardware
+Best Hardware
+OpenClaw Preinstalled
+GDPR & Private AI
+ClawBox for Teams
+Low Power AI Server
+Self-Hosted AI
+Jetson AI Assistant
+Always-On AI
+Home AI Server
+AI Assistant Box
+AI Computer
+NVIDIA AIMore
+ChatGPT Hardware
+Voice Assistant
+Ships to Asia
+Perplexity Alternative
+Personal AI Device
+AI Assistant for Business
+Private AI
+No-Cloud AI
+AI for Startups
+Run Claude Locally
+Local AI Hardware
+OpenClaw ACP
+Shipping Policy
+Home AI Server: Build a Private, Always-On Assistant at Home
+OpenClaw Hardware Requirements (2026): The Complete Guide
+Raspberry Pi vs Jetson Orin Nano for Local AI: An Honest 2026 Comparison
+BlogCommunity
+Documentation
+Community Forum
+OpenClaw Wallpapers
+🤖 ClawBox Agent
+Support
+Company
+About Us
+Contact
+Terms of Service
+Privacy Policy
+Your Privacy Choices
+Cookie settings
+Returns & Refunds
+Withdraw from contract
+Product safety
+© 2026 clawbox.com. Built with ❤️ for the AI community.We don't log your data — verify the code

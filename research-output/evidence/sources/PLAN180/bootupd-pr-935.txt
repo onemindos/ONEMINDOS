@@ -1,0 +1,2 @@
+# gh api repos/coreos/bootupd/pulls/935 (accessed 2026-11-11)
+{"created_at":"2025-05-27T11:34:22Z","head_sha":"fdf4b312035adcb5dfd83c4fc354a7121ae2f1f4","merged_at":null,"state":"open","title":"extend-payload-to-esp:  extends any src_input_dir to esp ","updated_at":"2026-03-23T17:15:10Z","url":"https://github.com/coreos/bootupd/pull/935"}

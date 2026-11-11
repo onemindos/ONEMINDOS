@@ -1,0 +1,1569 @@
+Ubuntu release cycle | Ubuntu
+
+ Your submission was sent successfully!
+ Close
+
+ Thank you for contacting us. A member of our team will be in touch shortly.
+ Close
+
+ You have successfully unsubscribed!
+ Close
+
+ Thank you for signing up for our newsletter!
+
+ In these regular emails you will find the latest updates about
+ Ubuntu and upcoming events where you can meet our team.Close
+
+ Your preferences have been successfully updated. Close notification
+
+ Please try again or 
+ file a bug report.
+
+ Close
+
+ Canonical Ubuntu
+
+ Menu
+
+ Products
+
+ Use cases
+
+ Support
+
+ Community
+
+ Get Ubuntu
+
+ Careers
+
+ About Ubuntu
+
+ Release cycle
+
+ Know what's supported
+
+ Find out which versions of Ubuntu and Canonical products are supported, for how long, and what's best for your deployment – from LTS versions to available security coverage options.
+
+Find out your current coverage
+
+Not sure if your product version is still supported? Let's walk through a few simple questions to help you find out.
+
+ Product
+
+ Ubuntu
+
+ Anbox Cloud
+
+ Canonical Observability Stack
+
+ Ceph
+
+ etcd
+
+ Juju
+
+ Kubernetes
+
+ Landscape Server
+
+ LXD
+
+ MAAS
+
+ MicroCloud
+
+ MongoDB
+
+ MySQL
+
+ OpenStack
+
+ PostgreSQL
+
+ Ubuntu
+
+ Ubuntu Kernel
+
+ Release type
+
+ Ubuntu
+
+ Anbox Cloud Snap
+
+ Anbox Cloud LXD Image
+
+ Anbox Cloud Charm
+
+ COS (charmed)
+
+ Charmed Ceph
+
+ MicroCeph
+
+ etcd-snap
+
+ etcd-rock
+
+ Charmed etcd for VM
+
+ Juju
+
+ Canonical Kubernetes
+
+ Charmed Kubernetes
+
+ MicroK8s
+
+ Landscape Server
+
+ LXD
+
+ MAAS (deb)
+
+ MAAS (snap)
+
+ MicroCloud
+
+ Charmed MongoDB for VM
+
+ Charmed MongoDB for K8s
+
+ MySQL (deb)
+
+ MySQL (snap)
+
+ MySQL (rock)
+
+ Charmed MySQL for VM
+
+ Charmed MySQL for K8s
+
+ Canonical OpenStack (based on Sunbeam)
+
+ Charmed OpenStack
+
+ OpenStack packages
+
+ PostgreSQL (deb)
+
+ PostgreSQL (snap)
+
+ PostgreSQL (rock)
+
+ Charmed PostgreSQL for VM
+
+ Charmed PostgreSQL for K8s
+
+ Ubuntu
+
+ Ubuntu Kernel
+
+ Version
+
+ All versions
+
+ All versions
+
+ 1.30
+
+ 1.29
+
+ 1.28
+
+ 1.27
+
+ 1.30
+
+ 1.29
+
+ 1.28
+
+ 1.27
+
+ 1.30
+
+ 1.29
+
+ 1.28
+
+ 1.27
+
+ Track 2
+
+ Track 1
+
+ 19.2.x
+
+ 17.2.x
+
+ 15.2.x
+
+ 12.2.x
+
+ 19.2.x
+
+ 3.6
+
+ 3.4
+
+ 3.6
+
+ 3.6
+
+ 3.6 LTS
+
+ 2.9 LTS
+
+ 1.35.x
+
+ 1.34.x
+
+ 1.33.x
+
+ 1.32.x LTS
+
+ 1.35.x
+
+ 1.34.x
+
+ 1.33.x
+
+ 1.36.x
+
+ 1.35.x
+
+ 1.34.x
+
+ 1.33.x
+
+ 26.04 LTS
+
+ 24.04 LTS
+
+ 6.10 LTS
+
+ 5.21 LTS
+
+ 5.0 LTS
+
+ 3.7
+
+ 3.6
+
+ 3.5
+
+ 3.4
+
+ 3.7
+
+ 3.6
+
+ 3.5
+
+ 3.4
+
+ 3.4 LTS
+
+ 2.1 LTS
+
+ 6
+
+ 8
+
+ 6
+
+ 8
+
+ 8.0
+
+ 5.7
+
+ 8.0
+
+ 8.0
+
+ 8.0
+
+ 8.0
+
+ 2024.1 LTS
+
+ 2024.1
+
+ Yoga LTS
+
+ Ussuri LTS
+
+ Queens LTS
+
+ 2024.1 LTS
+
+ 2024.1
+
+ Yoga LTS
+
+ Ussuri LTS
+
+ Queens LTS
+
+ 16
+
+ 14
+
+ 12
+
+ 10
+
+ 16
+
+ 16
+
+ 14
+
+ 16
+
+ 14
+
+ 16
+
+ 26.10
+
+ 26.04 LTS
+
+ 24.04 LTS
+
+ 22.04 LTS
+
+ 20.04 LTS
+
+ 18.04 LTS
+
+ 16.04 LTS
+
+ 14.04 LTS
+
+ 7.3
+
+ 7.0 (HWE)
+
+ 7.0
+
+ 6.8 (HWE)
+
+ 6.8
+
+ 5.15 (HWE)
+
+ 5.15
+
+ 5.4 (HWE)
+
+ 5.4
+
+ 4.15 (HWE)
+
+ 4.15
+
+ 4.4 (HWE)
+
+ 4.4
+
+ 3.13
+
+ Active compliance standards
+
+ Compliance standards
+
+ None
+
+ CIS
+
+ DISA-STIG
+
+ FIPS 140-2
+
+ FIPS 140-3
+
+ Select all
+
+ View coverage
+
+ Version
+
+ Standard
+
+ Ubuntu Pro
+
+Subscribe to Ubuntu Pro to stay secure and supported. Start a 30-day Ubuntu Pro free trial › 
+
+ Compliance
+
+ Version
+
+ Standard security
+
+ maintenance
+
+ Expanded security
+
+ maintenance
+
+ Break/bug support
+
+ Legacy add on
+ for security maintenance and support
+
+ Compliance 
+ Standards status
+
+ 26.10
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ riscv64, 
+
+ ppc64el-p9
+
+ Ubuntu 26.10
+
+ Released: Oct 2026
+
+ Jul 2027
+
+ Not applicable
+
+ Not applicable
+
+ Not applicable
+
+None
+
+ 26.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ riscv64, 
+
+ ppc64el-p9
+
+ Upgrade path
+
+ 26.10
+
+ Ubuntu 26.04 LTS
+
+ Released: Apr 2026
+
+ May 2031
+
+ May 2036
+
+ May 2036
+
+ May 2041
+
+ FIPS 140-3: Planned
+
+ DISA-STIG: Planned
+
+ CIS: Planned
+
+ 24.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ riscv64, 
+
+ ppc64el-p9
+
+ Upgrade path
+
+ 24.10, 26.04 LTS
+
+ Ubuntu 24.04 LTS
+
+ Released: Apr 2024
+
+ May 2029
+
+ May 2034
+
+ May 2034
+
+ May 2039
+
+ FIPS 140-3: Pending
+
+ DISA-STIG: Achieved
+
+ CIS: Achieved
+
+ 22.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ riscv64, 
+
+ ppc64el-p9
+
+ Upgrade path
+
+ 24.04 LTS
+
+ Ubuntu 22.04 LTS
+
+ Released: Apr 2022
+
+ May 2027
+
+ May 2032
+
+ May 2032
+
+ May 2037
+
+ FIPS 140-3: Achieved
+
+ DISA-STIG: Achieved
+
+ CIS: Achieved
+
+ 20.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ riscv64, 
+
+ ppc64el-p8
+
+ Upgrade path
+
+ 22.04 LTS
+
+ Ubuntu 20.04 LTS
+
+ Released: Apr 2020
+
+ May 2025
+
+ With Ubuntu Pro
+
+ May 2030
+
+ May 2030
+
+ May 2035
+
+ FIPS 140-2: Expired
+
+ DISA-STIG: Achieved
+
+ CIS: Achieved
+
+ 18.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ i386, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ ppc64el-p8
+
+ Upgrade path
+
+ 20.04 LTS
+
+ Ubuntu 18.04 LTS
+
+ Released: Apr 2018
+
+ May 2023
+
+ With Ubuntu Pro
+
+ May 2028
+
+ May 2028
+
+ May 2033
+
+ FIPS 140-2: Expired
+
+ DISA-STIG: Achieved
+
+ CIS: Achieved
+
+ 16.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ i386, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ ppc64el-p8
+
+ Upgrade path
+
+ 18.04 LTS
+
+ Ubuntu 16.04 LTS
+
+ Released: Apr 2016
+
+ Apr 2021
+
+ With Ubuntu Pro
+
+ May 2026
+
+ With legacy add-on
+
+ May 2026
+
+ With legacy add-on
+
+ May 2031
+
+ FIPS 140-2: Expired
+
+ DISA-STIG: Achieved
+
+ CIS: Achieved
+
+ 14.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ i386, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ ppc64el-p8
+
+ Upgrade path
+
+ 16.04 LTS
+
+ Ubuntu 14.04 LTS
+
+ Released: Apr 2014
+
+ Apr 2019
+
+ With Ubuntu Pro
+
+ May 2024
+
+ With legacy add-on
+
+ May 2024
+
+ With legacy add-on
+
+ May 2029
+
+None
+
+ Version
+ Standard
+
+ Ubuntu Pro
+
+ Subscribe to Ubuntu Pro to stay secure and supported. Start a 30-day Ubuntu Pro free trial ›
+
+ 26.10
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ riscv64, 
+
+ ppc64el-p9
+
+Ubuntu 26.10
+
+ Released: Oct 2026
+
+Standard security maintenance
+ Jul 2027
+
+Expanded security maintenance
+
+Not applicable
+
+Break/bug support
+
+Not applicable
+
+Legacy add-on
+
+ Not applicable
+
+Compliance standards status
+
+None
+
+ 26.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ riscv64, 
+
+ ppc64el-p9
+
+ Upgrade path
+
+ 26.10
+
+Ubuntu 26.04 LTS
+
+ Released: Apr 2026
+
+Standard security maintenance
+ May 2031
+
+Expanded security maintenance
+
+May 2036
+
+Break/bug support
+
+May 2036
+
+Legacy add-on
+
+ May 2041
+
+Compliance standards status
+
+ FIPS 140-3: Planned
+
+ DISA-STIG: Planned
+
+ CIS: Planned
+
+ 24.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ riscv64, 
+
+ ppc64el-p9
+
+ Upgrade path
+
+ 24.10, 26.04 LTS
+
+Ubuntu 24.04 LTS
+
+ Released: Apr 2024
+
+Standard security maintenance
+ May 2029
+
+Expanded security maintenance
+
+May 2034
+
+Break/bug support
+
+May 2034
+
+Legacy add-on
+
+ May 2039
+
+Compliance standards status
+
+ FIPS 140-3: Pending
+
+ DISA-STIG: Achieved
+
+ CIS: Achieved
+
+ 22.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ riscv64, 
+
+ ppc64el-p9
+
+ Upgrade path
+
+ 24.04 LTS
+
+Ubuntu 22.04 LTS
+
+ Released: Apr 2022
+
+Standard security maintenance
+ May 2027
+
+Expanded security maintenance
+
+May 2032
+
+Break/bug support
+
+May 2032
+
+Legacy add-on
+
+ May 2037
+
+Compliance standards status
+
+ FIPS 140-3: Achieved
+
+ DISA-STIG: Achieved
+
+ CIS: Achieved
+
+ 20.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ riscv64, 
+
+ ppc64el-p8
+
+ Upgrade path
+
+ 22.04 LTS
+
+Ubuntu 20.04 LTS
+
+ Released: Apr 2020
+
+Standard security maintenance
+ May 2025
+
+ With Ubuntu Pro
+
+Expanded security maintenance
+
+May 2030
+
+Break/bug support
+
+May 2030
+
+Legacy add-on
+
+ May 2035
+
+Compliance standards status
+
+ FIPS 140-2: Expired
+
+ DISA-STIG: Achieved
+
+ CIS: Achieved
+
+ 18.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ i386, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ ppc64el-p8
+
+ Upgrade path
+
+ 20.04 LTS
+
+Ubuntu 18.04 LTS
+
+ Released: Apr 2018
+
+Standard security maintenance
+ May 2023
+
+ With Ubuntu Pro
+
+Expanded security maintenance
+
+May 2028
+
+Break/bug support
+
+May 2028
+
+Legacy add-on
+
+ May 2033
+
+Compliance standards status
+
+ FIPS 140-2: Expired
+
+ DISA-STIG: Achieved
+
+ CIS: Achieved
+
+ 16.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ i386, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ ppc64el-p8
+
+ Upgrade path
+
+ 18.04 LTS
+
+Ubuntu 16.04 LTS
+
+ Released: Apr 2016
+
+Standard security maintenance
+ Apr 2021
+
+ With Ubuntu Pro
+
+Expanded security maintenance
+
+May 2026
+
+ With legacy add-on
+
+Break/bug support
+
+May 2026
+
+ With legacy add-on
+
+Legacy add-on
+
+ May 2031
+
+Compliance standards status
+
+ FIPS 140-2: Expired
+
+ DISA-STIG: Achieved
+
+ CIS: Achieved
+
+ 14.04 LTS
+
+ Ubuntu
+
+ Supported architectures
+
+ amd64, 
+
+ i386, 
+
+ armhf, 
+
+ arm64, 
+
+ s390x, 
+
+ ppc64el-p8
+
+ Upgrade path
+
+ 16.04 LTS
+
+Ubuntu 14.04 LTS
+
+ Released: Apr 2014
+
+Standard security maintenance
+ Apr 2019
+
+ With Ubuntu Pro
+
+Expanded security maintenance
+
+May 2024
+
+ With legacy add-on
+
+Break/bug support
+
+May 2024
+
+ With legacy add-on
+
+Legacy add-on
+
+ May 2029
+
+Compliance standards status
+
+None
+
+Canonical Ubuntu lifecycle
+
+ and release cadence key concepts
+
+Canonical publishes new releases of Ubuntu and other products in our portfolio on a regular cadence, enabling the community, businesses and developers to plan their roadmaps with the certainty of access to newer open source upstream capabilities.
+
+ Ubuntu releases
+
+ Repository coverage
+
+ Packaging formats
+
+ Editions and flavors
+
+Ubuntu release cycle
+
+ Ubuntu releases a new version every six months. Releases of Ubuntu get a development codename ('Stonking Stingray') and are versioned by the year and month of delivery – for example, Ubuntu 26.10 was released in October 2026.
+
+ Each version includes the latest features, updates, and security patches during its supported lifecycle.
+
+ The Ubuntu Releases wiki has current information on previous and upcoming versions ›
+
+Interim releases
+
+ Ubuntu's interim releases are designed for users and teams who move fast and need access to the latest kernels, languages, and toolchains. They provide cutting-edge features and hardware support every six months, but with only 9 months of updates. For long-term stability, production environments should use the LTS version, while interim releases suit those prioritizing speed and rapid feature testing.
+
+LTS releases
+
+ LTS are released every two years and receive 5 years of standard security maintenance.
+
+ LTS releases are the go-to choice for users who value stability and extended support. These versions are security maintained for 5 years with CVE patches for packages in the Main repository. They are recommended for production environments, enterprises, and long-term projects.
+
+Ubuntu Pro
+
+ Ubuntu Pro is Canonical's enhanced security and support subscription for Ubuntu systems. It includes up to 15 years of security coverage (ESM and Legacy add-on), Kernel Livepatch, Landscape, FIPS 140-3 certified packages, and CIS hardening, and optional enterprise-grade support.
+
+ Ubuntu Pro subscriptions are free for personal use on up to five machines.
+
+ Learn more about Ubuntu Pro ›
+
+Ubuntu package categories
+
+Ubuntu packages are grouped into four main categories: 'Main' and 'Restricted' (the base system), and 'Universe' and 'Multiverse' (community and extra packages). 'Main' and 'Universe' are open source, while 'Restricted' and 'Multiverse' contain some non-open source software.
+
+Expanded Security Maintenance (ESM)
+
+ ESM extends the life of LTS releases by providing 10 years of security updates for the 'Main' repository and also adds 10 years of security coverage for the 'Universe' repository.
+
+ Available through Ubuntu Pro, it provides continued critical and high security patches after standard security maintenance ends for packages in Main, and for thousands of open-source packages in the Universe repository.
+
+Support
+
+ Full phone and ticketing break and bug fix support is available for Ubuntu Main and Universe repositories and the full open source stack, from infrastructure to applications, with Ubuntu Pro + Support.
+
+Legacy add-on
+
+ At the end of the 10 year ESM period, the Legacy add-on can be purchased to cover additional 5 years of the lifetime of Ubuntu LTS, giving a total of 15 years security maintenance and support for LTS releases.
+
+Security and support coverage for LTS releases
+
+ Standard Security Maintenance for packages in Main
+
+ Expanded Security Maintenance for packages in Universe
+
+ Ubuntu Pro
+
+ Expanded Security Maintenance for packages in Main and Universe 
+
+ Ubuntu Pro
+
+ Break and bug fix support
+
+ Ubuntu Pro
+
+ Legacy add-on for security coverage and support
+
+ Ubuntu Pro
+
+1-5 years
+
+Security:
+
+ Standard Security Maintenance for packages in Main
+
+ Expanded Security Maintenance for packages in Universe
+
+ Ubuntu Pro
+
+Support:
+
+ Break fix and bug support
+
+ Ubuntu Pro
+
+6-10 years
+
+Security:
+
+ Expanded Security Maintenance for packages in Universe
+
+ Ubuntu Pro
+
+Support:
+
+ Break fix and bug support
+
+ Ubuntu Pro
+
+11-15 years
+
+Security:
+
+ Legacy add-on for security coverage and support
+
+ Ubuntu Pro
+
+Support:
+
+ Legacy coverage for break fix and bug support
+
+ Ubuntu Pro
+
+Deb packages
+
+At the core of every Ubuntu release is a collection of 'deb' packages. Carefully tested for compatibility, debs use structured dependency management so all necessary software is installed and works together seamlessly.
+
+Snap packages
+
+Ubuntu supports 'snap' packages, ideal for apps and tools that update frequently and independently from the main system. Snaps offer access to the latest versions of popular software, with strong security and easy version control.
+
+Snaps can run in a secure, confined environment with limited system access, or as 'classic' snaps with broader access – similar to debs. Choose snaps from trusted publishers, especially when using classic confinement.
+
+Charms
+
+Charms are software operators – business logic encapsulated in reusable software packages that automate every aspect of an application's life.
+
+Rocks
+
+Rocks are minimal, optimized container images built from Debian packages, designed for secure, stable, and efficient containerized deployments. They are compatible with popular container tools like Docker and Kubernetes, helping administrators manage infrastructure with lightweight, focused images that reduce vulnerabilities and overhead.
+
+Chiseled Rocks take this approach further by removing shells, package managers, and other non-essential components, offering ultra-minimal images with an even smaller attack surface for high-security, production-grade environments.
+
+Ubuntu Classic
+
+Ubuntu comes in various editions and minimal installs. “Classic” Ubuntu uses deb packages and supports snaps for specific apps, available across different desktop flavors and server/cloud images.
+
+Ubuntu Core
+
+Ubuntu Core is an all-snap edition designed for appliances and IoT. With a lightweight, strictly confined architecture, it's highly secure and reliable – perfect for large-scale, embedded deployments.
+
+ Learn more about Ubuntu Core ›
+
+Ubuntu Minimal
+
+Ubuntu Minimal is a lightweight image that includes only the essential packages, making it ideal for building custom environments or optimizing deployments for performance and footprint. It provides an efficient foundation for containers, virtual machines, and specialized workloads requiring fine-grained control. Ubuntu Minimal images are available for all major public clouds, including AWS, Google Cloud and Azure.
+
+Ubuntu Flavors
+
+Ubuntu flavors are community-maintained variants that offer different desktop environments and user experiences. The release cycle for flavours may differ from those described here. For release details and support policies specific to a flavor, please consult its official website or documentation.
+
+ Learn more about Ubuntu flavors ›
+
+ OpenStack
+
+ OpenStack
+
+Install
+
+Support
+
+ Ceph
+
+ Ceph
+
+What is Ceph
+
+Managed
+
+Consulting
+
+Docs
+
+Install
+
+ Kubernetes
+
+ Kubernetes
+
+What is Kubernetes
+
+Managed
+
+Install
+
+Docs
+
+Resources
+
+ Managed infrastructure
+
+ Managed infrastructure
+
+Managed apps
+
+ AI / ML
+
+ AI / ML
+
+Consulting
+
+Data Science
+
+ Robotics
+
+ Robotics
+
+ROS ESM
+
+What is ROS
+
+Community
+
+Docs
+
+ IoT
+
+ IoT
+
+App store
+
+Embedded Linux
+
+Management
+
+ Ubuntu Core
+
+ Ubuntu Core
+
+Features
+
+Success stories
+
+Services
+
+Docs
+
+ Ubuntu Desktop
+
+ Ubuntu Desktop
+
+Organizations
+
+Developers
+
+Flavors
+
+ Ubuntu Server
+
+ Ubuntu Server
+
+Hyperscale
+
+Docs
+
+ Cloud
+
+ Cloud
+
+What is cloud computing
+
+What is private cloud
+
+What is hybrid cloud
+
+What is multi-cloud
+
+Public cloud
+
+ Security
+
+ Security
+
+Platform Security
+
+ESM
+
+Livepatch
+
+Security standards
+
+CVEs
+
+Notices
+
+Assurances
+
+ Landscape
+
+ Landscape
+
+Features
+
+Managed
+
+Compare
+
+Install
+
+Docs
+
+Log in to Landscape
+
+ Containers
+
+ Containers
+
+What are containers
+
+Chiseled Ubuntu
+
+Chiseled and .NET
+
+Container Build Service
+
+Rockcraft
+
+Docs
+
+ Downloads
+
+ Downloads
+
+Desktop
+
+Server
+
+WSL
+
+Core
+
+Cloud
+
+ Support
+
+ Support
+
+Your subscriptions
+
+Account users
+
+Pricing
+
+Discourse
+
+Firefighting support
+
+ Pricing
+
+ Pricing
+
+Ubuntu Pro Subscription
+
+Desktop provisioning
+
+Devices
+
+ Solutions
+
+ AI
+
+ Data
+
+ Infrastructure
+
+ Managed Infrastructure
+
+ Open source security
+
+ IoT and devices
+
+ Cloud native development
+
+Sectors
+
+ Automotive
+
+ Industrial
+
+ Public sector
+
+ Telco
+
+ Finance
+
+ Contact us
+
+ About us
+
+ Community
+
+ Careers
+
+ Blog
+
+ Resources
+
+ Press center
+
+© 2026 Canonical Ltd.
+
+Ubuntu and Canonical are registered trademarks of Canonical Ltd.
+
+ Legal information
+
+ Data privacy
+
+ Manage your tracker settings
+
+ Report a bug on this site
+
+ Back to top
+
+ Go to the top of the page

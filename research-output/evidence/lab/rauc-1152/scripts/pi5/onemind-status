@@ -1,0 +1,11 @@
+#!/bin/sh
+# LAB-rauc-1152 Pi 5: one-screen status for the founder test (read-only).
+dt() { f=/proc/device-tree/chosen/bootloader/$1; [ -f "$f" ] && printf '%d' "0x$(od "$f" -v -An -t x1 | tr -d ' \n')" || echo '?'; }
+echo "release:      $(cat /etc/onemind-release 2>/dev/null)   cmdline slot: $(sed -n 's/.*rauc\.slot=\([A-Z]\).*/\1/p' /proc/cmdline)"
+echo "firmware:     tryboot=$(dt tryboot) partition=$(dt partition)   (partition 2 = A, 3 = B)"
+echo "autoboot.txt: $(tr '\n' ' ' < /mnt/autoboot/autoboot.txt)"
+echo "good marks:   $(cd /mnt/autoboot && ls slot-*.good 2>/dev/null | tr '\n' ' ')"
+echo "pending:      $(cat /data/onemind/pending 2>/dev/null || echo none)   reboot-param: $(cat /run/systemd/reboot-param 2>/dev/null || echo none)"
+echo "rauc:         $(rauc --version)"
+rauc status 2>&1 | grep -E 'Booted from|Activated|boot status|\[(boot|rootfs)\.' | sed 's/^/  /'
+echo "gate (last 6):"; tail -n 6 /data/onemind/gate.log 2>/dev/null | cut -c1-200 | sed 's/^/  /'

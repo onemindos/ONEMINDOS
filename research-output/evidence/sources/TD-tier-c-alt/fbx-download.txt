@@ -1,0 +1,183 @@
+Download | FreedomBox - Personal Server at Home
+
+ Buy
+
+ Download
+
+ Features
+
+ Apps
+
+ Support
+
+ About
+
+ Albanian
+
+ Catalan
+
+ Chinese (Simplified)
+
+ Czech
+
+ Dutch
+
+ Estonian
+
+ English
+
+ French
+
+ German
+
+ Hungarian
+
+ Indonesian
+
+ Italian
+
+ Norwegian Bokmål
+
+ Persian
+
+ Polish
+
+ Portuguese
+
+ Russian
+
+ Spanish
+
+ Swedish
+
+ Tamil
+
+ Telugu
+
+ Turkish
+
+ Ukrainian
+
+ Translate…
+
+Download
+
+ Download a video on how to set up a FreedomBox.
+
+ See further instructions on how to build your own FreedomBox by downloading and setting up on your hardware of choice.
+
+ The FreedomBox operating system is compatible with any hardware that Debian is compatible with, but we also target our system for specific models of single-board computers for ease of setup and consistent experience. Single-board computers are affordable, increasingly fast, and power-efficient, which makes them great hardware for FreedomBox. You can download Stable and Testing versions of FreedomBox for the hardware models listed below.
+
+32-bit ARM (armhf)
+
+32-bit x86 (i386)
+
+64-bit ARM (arm64)
+
+64-bit x86 (amd64)
+
+A20 OLinuXino Lime
+
+A20 OLinuXino Lime 2
+
+A20 OLinuXino MICRO
+
+Beagle Bone Black
+
+Cubieboard 2
+
+Cubietruck (Cubieboard 3)
+
+Debian
+
+Lamobo R1
+
+LeMaker Banana Pro
+
+LinkSprite pcDuino3S
+
+Orange Pi Zero
+
+PC Engines APU 1D
+
+Pine A64 LTS
+
+Pine A64+
+
+Pioneer Edition FreedomBox
+
+QEMU/KVM amd64
+
+QEMU/KVM i386
+
+Raspberry Pi 2
+
+Raspberry Pi 3 Model B
+
+Raspberry Pi 3 Model B+
+
+Raspberry Pi 4 Model B
+
+Rock64
+
+RockPro64
+
+VirtualBox for amd64
+
+VirtualBox for i386
+
+ Get
+
+Buy
+
+Download
+
+Demo
+
+Cloud Trial
+
+ Learn
+
+About
+
+Features
+
+Apps
+
+ Vision
+
+ Manual
+
+ E-Book for Communities
+
+ Contact
+
+ Get Support
+
+ Forum
+
+ Matrix
+
+ Mailing List
+
+ IRC
+
+ Foundation
+
+ Report Issues
+
+ Contribute
+
+ Guide for Contributors
+
+ Donate
+
+ Project
+
+ Source Code
+
+Code Of Conduct
+
+ Community Governance
+
+ Wiki

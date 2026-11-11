@@ -1,0 +1,61 @@
+Source: https://github.com/torvalds/linux/commit/ae97648e14f7907f4b0e0b295eb2fdcf43806f9d (GitHub mirror of torvalds/linux; git.kernel.org returned 403 to the fetcher)
+Accessed: 2026-11-11 via authenticated GitHub API. Emails masked.
+
+author date: 2025-11-05T14:06:44Z
+dm verity fec: Expose corrected block count via status
+
+Enhance visibility into dm-verity Forward Error Correction (FEC)
+activity. While FEC can correct on-disk corruptions, the number of
+successful correction events is not readily exposed through a standard
+interface.
+
+This change integrates FEC statistics into the verity target's
+.status handler for STATUSTYPE_INFO. The info output now
+includes count of corrected block by FEC.
+
+The counter is a per-device instance atomic64_t, maintained within
+the struct dm_verity_fec, tracking blocks successfully repaired by FEC
+on this specific device instance since it was created.
+
+This approach aligns with the standard Device Mapper mechanism for
+targets to report runtime information, as used by other targets like
+dm-integrity.
+
+This patch also updates Documentation/admin-guide/device-mapper/verity.rst
+to reflect the new status information.
+
+Tested:
+  Induced single-bit errors on a block device protected by dm-verity
+  with FEC on android phone. Confirmed 'dmctl status <device>' on Android
+  reports an incrementing 'fec_corrected_blocks' count after the
+  corrupted blocks were accessed.
+
+Signed-off-by: Shubhankar Mishra <<email-masked>>
+Signed-off-by: Mikulas Patocka <<email-masked>>
+
+--- Documentation/admin-guide/device-mapper/verity.rst
+@@ -236,8 +236,10 @@ is available at the cryptsetup project's wiki page
+ 
+ Status
+ ======
+-V (for Valid) is returned if every check performed so far was valid.
+-If any check failed, C (for Corruption) is returned.
++1. V (for Valid) is returned if every check performed so far was valid.
++   If any check failed, C (for Corruption) is returned.
++2. Number of corrected blocks by Forward Error Correction.
++   '-' if Forward Error Correction is not enabled.
+ 
+ Example
+ =======
+--- drivers/md/dm-verity-target.c
+@@ -848,6 +848,10 @@ static void verity_status(struct dm_target *ti, status_type_t type,
+ 	switch (type) {
+ 	case STATUSTYPE_INFO:
+ 		DMEMIT("%c", v->hash_failed ? 'C' : 'V');
++		if (verity_fec_is_enabled(v))
++			DMEMIT(" %lld", atomic64_read(&v->fec->corrected));
++		else
++			DMEMIT(" -");
+ 		break;
+ 	case STATUSTYPE_TABLE:
+ 		DMEMIT("%u %s %s %u %u %llu %llu %s ",

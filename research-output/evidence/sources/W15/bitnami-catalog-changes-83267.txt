@@ -1,0 +1,309 @@
+Upcoming changes to the Bitnami catalog (effective August 28th, 2025) · Issue #83267 · bitnami/containers · GitHub
+ Skip to content
+Navigation Menu
+Sign in
+Products
+Platform
+GitHubRepository hosting, code review, and collaboration
+CopilotAI coding agent for tasks, projects, and automated work
+Build & Ship
+ActionsCI/CD and automation
+Code QualityQuality analysis, fixes, and enforcement
+CodespacesCloud development environments
+Secure
+Code SecurityVulnerability detection and remediation
+Secret ProtectionSecret scanning and leak prevention
+All Features
+Developers
+Learn
+Documentation
+Training
+Certifications
+Build
+Build with Copilot
+Customize Copilot
+Integrations
+Explore
+Trending repos
+GitHub Sponsors
+Developer articles
+Changelog
+ChangelogYour source for the latest features, improvements, and fixes across GitHub products, all in one place.
+Businesses
+By Stage
+Enterprises
+Team
+Startups
+Nonprofits
+By Industry
+Healthcare
+Financial services
+Manufacturing
+Government
+See all industries
+Evaluate GitHub
+Why GitHub
+Customer Stories
+Business insights
+Trust Center
+Add-ons
+GitHub Advanced SecurityEnterprise-grade code security
+Copilot for businessEnterprise-grade AI features
+Premium SupportEnterprise-grade 24/7 support
+Resources
+Learn & Connect
+Documentation
+Resource center
+Blog
+Events & webinars
+Community Forum
+Customer Stories
+Integrations
+Support
+Customer support
+Training
+GitHub Status
+Company
+About
+Partners
+Changelog
+GitHub Universe
+GitHub UniverseThe event for developers, by developers — talks, workshops, and what’s next for GitHub.
+Pricing
+Search/
+Sign inSign up
+Appearance settings
+ You signed in with another tab or window. Reload to refresh your session.
+ You signed out in another tab or window. Reload to refresh your session.
+ You switched accounts on another tab or window. Reload to refresh your session.
+Dismiss alert
+{{ message }}
+bitnami
+containers
+Repository navigation
+Code
+Issues
+Pull requests59 (59)
+Actions
+Projects
+Security and quality3 (3)
+Insights
+More items
+Upcoming changes to the Bitnami catalog (effective August 28th, 2025) #83267
+New issueCopy link
+New issueCopy link
+Closed
+Closed
+Upcoming changes to the Bitnami catalog (effective August 28th, 2025)#83267
+Copy link
+Labels
+solved
+Description
+wjimenez5271
+opened on Jul 16, 2025
+Issue body actions
+Important
+After evaluating the impact and community feedback, the Bitnami team has postponed the deletion of the Bitnami public catalog (docker.io/bitnami) until September 29th to give users more time to adapt to the upcoming changes.
+To raise awareness before the registry deletion, we will run a series of brownouts over the coming weeks. During each brownout, a set of 10 container images from docker.io/bitnami will be temporarily unavailable for 24 hours. The scheduled brownouts are:
+August 28, 08:00 UTC → August 29, 08:00 UTC
+September 2, 08:00 UTC → September 3, 08:00 UTC
+September 17, 08:00 UTC → September 19, 08:00 UTC
+The list of affected applications will be published on the day of each brownout via our usual channels.
+As previously announced, since August 28th, we have not published new Bitnami container images or Helm charts to Docker Hub in OCI format. The source code for containers and Helm charts remains available on GitHub under the Apache 2.0 license.
+📢 Overview
+As of August 28th, 2025, the Bitnami public catalog will undergo the following changes:
+Community catalog
+Disable images generation for Debian-based images and gradually move existing ones to a Bitnami Legacy repository.
+A focused set of more hardened, more secure images. These free images are intended for development and are only available on the “latest” tag. You can find them at https://hub.docker.com/u/bitnamisecure.
+Helm charts and container images' open-source code will continue to be maintained up-to-date and accessible on GitHub under the Apache 2 license.
+Bitnami Secure Images
+Production-ready, enterprise-grade containers and Helm charts will move under the Bitnami Secure Images offering.
+Benefits include:
+Hardened, low-attack-surface operating system
+Continuous rebuilds with the latest security patches (SLSA Level 3)
+Industry-standard CVE transparency (VEX, KEV)
+SBOMs and compliance artifacts
+Enterprise support and LTS branches
+Access to the entire catalog of applications (over 280)
+Minimal distroless runtime images
+Legacy repository migration
+All existing container images, including older or versioned tags (e.g., 2.50.0, 10.6), will be moved from the public catalog (docker.io/bitnami) to the Bitnami Legacy repository (docker.io/bitnamilegacy). This legacy catalog will receive no further updates or support and should only be used for temporary migration purposes.
+Exception: Images based on distros deprecated from the Bitnami catalog more than 3 years ago (tags: debian-8, debian-9, debian-10, centos-7, ol-7) will not be copied.
+Suppose your deployed Helm chart is failing to pull images from docker.io/bitnami. In that case, you can resolve this by subscribing to Bitnami Secure Images, ensuring that the Helm charts receive continued support and security updates. As a temporary workaround, you can upgrade to the same version and update the repository parameter for each container image to the Bitnami Legacy repository.
+🗓️ Timeline
+Now – August 28th, 2025
+You will see deprecation notices in READMEs and documentation.
+Plan your migration: Update CI/CD pipelines, Helm repos, and image references.
+Start trying out the new hardened images available to the community today at https://hub.docker.com/u/bitnamisecure.
+August 28th, 2025
+The public catalog switches to the limited community-tier subset of container images (the same images that are initially available at https://hub.docker.com/u/bitnamisecure).
+Legacy assets are archived in the Bitnami Legacy repository.
+Post-August 28th, 2025
+For development purposes, community-tier users are restricted to pulling only the most recent ‘latest’ tags of the limited community-tier subset of container images.
+Production users should subscribe to Bitnami Secure Images for full version support at https://go-vmware.broadcom.com/contact-us.
+FAQ
+Q: What is the Bitnami Legacy repository?
+A: The Bitnami Legacy repository is an archive that will host all older container images, including versioned tags (e.g., 2.50.0, 10.6) that are no longer maintained in the main Bitnami catalog. These images will not receive updates, fixes, or support and should only be used as a temporary fallback for migration purposes. Although there are no updates to the container images, the Bitnami project continues to make its source code available at bitnami/containers under the Apache 2 license.
+Q: How is Bitnami Legacy repository different than Bitnami Mainline repository?
+A:
+The Bitnami Mainline repository (docker.io/bitnami) currently hosts regularly updated and supported container images, including free and enterprise-grade offerings.
+The Bitnami Legacy repository will contain archived versions that will no longer receive updates. It is provided solely to help with migration during the transition.
+After August 28th, 2025, only a limited set of hardened images will remain in the Bitnami Mainline repository. All others will be moved to the Bitnami Legacy repository.
+Q: What do users of Bitnami Mainline repository need to do before August 28th, 2025?
+A: Users should:
+Review and update CI/CD pipelines to avoid relying on deprecated images.
+Consider subscribing to Bitnami Secure Images if they need continued support, security updates, or access to full version history at https://go-vmware.broadcom.com/contact-us.
+Upgrade their deployments
+If the deployed application belongs to the limited set of hardened images available under the new free community tier, double-check that the used tags are still updated.
+Otherwise, point to the Bitnami Legacy repository as a temporary workaround.
+Q: Are Bitnami’s free images going away?
+A: Not entirely. Bitnami will continue to offer a limited subset of free, latest-version images intended for development use. These images will be more hardened and secure, but older versions and many applications will be removed from the free tier and moved to the Bitnami Legacy repository. You can browse the images available for free at https://hub.docker.com/u/bitnamisecure until August 28th, after which the main Bitnami registry will have the same content.
+Q: How can I obtain continued support for an application that is no longer available for free?
+A: To continue receiving updates, security patches, and enterprise support for older or specific versions of an application, you can subscribe to the Bitnami Secure Images offering. This includes access to:
+Long-term support (LTS) branches
+Distroless and hardened images
+SBOMs, CVE transparency (VEX/KEV), and compliance artifacts
+SLSA Level 3 build processes
+The Bitnami project continues to make its source available at bitnami/containers under the Apache 2 license; images can be built from source.
+Q: What will happen to the existing OCI Helm charts?
+A: The already packaged Helm charts will remain available at docker.io/bitnamicharts as OCI artifacts, but they will no longer receive updates*. Deploying these charts will not work out-of-the-box* unless you override the bundled images with valid ones.
+*except for the BSI images included in the free community-tier subset.
+Q: What will happen to the Helm charts source code?
+A: No changes are being made to the helm chart source code on https://github.com/bitnami/charts. It continues to be available under the Apache 2 license.
+Q: How can I get a complete list of what images and charts are available from Bitnami, both free and commercial?
+A: We are working on an enhanced public directory that inventories everything available from Bitnami. In the meantime, you can determine the subset of images that will remain free/community by looking at what is in this registry: BSI Dockerhub. All remaining Bitnami images/charts, as well as new ones being developed, are available via custom private registries provided as part of a BSI commercial subscription.
+Q: How can I get continued support for Helm charts?
+A: If your deployed Helm chart is failing to pull images from docker.io/bitnami, to ensure continued support and access to security updates, we recommend subscribing to Bitnami Secure Images at https://go-vmware.broadcom.com/contact-us.
+As a temporary workaround, you can keep using the same Helm chart version by pointing it to the “Bitnami Legacy repository, which hosts archived images with no further updates. For that, you can upgrade to the same chart version and update the repository parameter of each container image to the Bitnami Legacy repository:
+List container images: grep 'repository.*REPOSITORY_NAME/' postgresql/README.md | awk -F'\`' '{print $2, $(NF-1)}'
+Upgrade modifying repositories: helm upgrade RELEASE_NAME oci://registry-1.docker.io/bitnamicharts/CHART_NAME --version SAME_VERSION --set REPOSITORY_REFERENCE=bitnamilegacy
+REPOSITORY_REFERENCE is the path to the repository parameter as it is in the values.yaml for each container image.
+Example:
+$ grep 'repository.*REPOSITORY_NAME/' postgresql/README.md | awk -F'\`' '{print $2, $(NF-1)}'
+image.repository REPOSITORY_NAME/postgresql
+volumePermissions.image.repository REPOSITORY_NAME/os-shell
+metrics.image.repository REPOSITORY_NAME/postgres-exporter
+$ helm upgrade mypostgres oci://registry-1.docker.io/bitnamicharts/postgresql \
+--version 16.7.0 \
+--set image.repository=bitnamilegacy/postgresql \
+--set volumePermissions.image.repository=bitnamilegacy/os-shell \
+--set metrics.image.repository=bitnamilegacy/postgres-exporter \
+--set global.security.allowInsecureImages=true
+Note
+Sealed Secrets, charts-syncer and minideb remain unaffected by these changes. Container images for those projects will continue to be released on docker.io/bitnami as usual without any modifications.
+Activity
+wjimenez5271added 
+feature-request on Jul 16, 2025
+github-actionsadded 
+triageTriage is neededTriage is needed on Jul 16, 2025
+github-actionsassigned 
+carrodheron Jul 16, 2025
+carrodher
+removed their assignmenton Jul 17, 2025
+carrodherchanged the title [-]Test Issue[/-] [+]Upcoming changes to the Bitnami catalog (effective August 28th, 2025)[/+] on Jul 17, 2025
+bitnamilocked and limited conversation to collaborators on Jul 17, 2025
+carrodherpinned this issue on Jul 17, 2025
+carrodherremoved 
+triageTriage is neededTriage is needed 
+feature-request on Jul 17, 2025
+carrodherclosed this as completedon Jul 17, 2025
+github-actionsadded 
+solved on Jul 17, 2025
+carrodher commented on Aug 28, 2025 
+carrodher
+on Aug 28, 2025
+Last edited by carrodher
+Contributor
+More actions
+Brownout 1
+The container images part of the first brownout (August 28, 08:00 UTC → August 29, 08:00 UTC) are:
+external-dns
+kafka
+memcached
+wordpress
+grafana
+cassandra
+prometheus
+openldap
+thanos
+python
+Update: All tags have been restored (except the ones based on distros deprecated from the Bitnami catalog more than 3 years ago (debian-8, debian-9, debian-10, centos-7, ol-7)
+carrodher commented on Sep 2, 2025 
+carrodher
+on Sep 2, 2025
+Last edited by carrodher
+Contributor
+More actions
+Brownout 2
+The container images part of the second brownout (September 2, 08:00 UTC → September 3, 08:00 UTC) are:
+mariadb
+rabbitmq
+nginx
+zookeeper
+etcd
+apache
+git
+pgpool
+mariadb-galera
+ruby
+Update: All tags have been restored (except the ones based on distros deprecated from the Bitnami catalog more than 3 years ago (debian-8, debian-9, debian-10, centos-7, ol-7)
+carrodher commented on Sep 16, 2025 
+carrodher
+on Sep 16, 2025
+Last edited by carrodher
+Contributor
+More actions
+Brownout 3
+The container images part of the third brownout (September 17, 08:00 UTC → September 19, 08:00 UTC):
+kubectl
+redis
+postgresql
+mongodb
+minio
+node-exporter
+redis-exporter
+keycloak
+os-shell
+redis-sentinel
+mysql
+node
+elasticsearch
+redis-cluster
+pgbouncer
+jmx-exporter
+php-fpm
+fluent-bit
+postgres-exporter
+postgresql-repmgr
+azure-cli
+valkey
+matomo
+kube-state-metrics
+oauth2-proxy
+Update: All tags have been restored (except the ones based on distros deprecated from the Bitnami catalog more than 3 years ago (debian-8, debian-9, debian-10, centos-7, ol-7)
+Sign up for free to join this conversation on GitHub. Already have an account? Sign in to comment
+Metadata
+Metadata
+AssigneesNo one assigned
+Labels
+solved
+TypeNo type
+ProjectsNo projects
+MilestoneNo milestone
+RelationshipsNone yet
+DevelopmentNo branches or pull requests
+Issue actions
+Open in GitHub Copilot app
+Footer
+ © 2026 GitHub, Inc.
+Footer navigation
+ Terms
+ Privacy
+ Security
+ Status
+ Community
+ Docs
+ Contact
+ Manage cookies
+ Do not share my personal information
+ You can’t perform that action at this time.

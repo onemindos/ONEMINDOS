@@ -1,0 +1,374 @@
+Source: https://www.therobotreport.com/formant-brings-in-21m-to-expand-enterprise-focus/
+Accessed: 2026-11-11
+
+Formant brings in $21M to expand enterprise focus - The Robot Report
+
+The Robot Report
+
+→
+
+Home
+
+News
+
+Technologies
+
+Batteries / Power Supplies
+
+Cameras / Imaging / Vision
+
+Controllers
+
+End Effectors
+
+Microprocessors / SoCs
+
+Motion Control
+
+Sensors
+
+Soft Robotics
+
+Software / Simulation
+
+Development
+
+Artificial Intelligence
+
+Human Robot Interaction / Haptics
+
+Mobility / Navigation
+
+Research
+
+Robots
+
+AGVs
+
+AMRs
+
+Consumer
+
+Collaborative Robots
+
+Drones
+
+Humanoids
+
+Industrial
+
+Self-Driving Vehicles
+
+Unmanned Maritime Systems
+
+Business
+
+Financial
+
+Investments
+
+Mergers & Acquisitions
+
+Earnings
+
+Markets
+
+Agriculture
+
+Healthcare
+
+Logistics
+
+Manufacturing
+
+Mining
+
+Security
+
+RBR50
+
+RBR50 Winners 2025
+
+RBR50 Winners 2024
+
+RBR50 Winners 2023
+
+RBR50 Winners 2022
+
+RBR50 Winners 2021
+
+Resources
+
+Automated Warehouse Research Reports
+
+Digital Issues
+
+eBooks
+
+Publications
+
+Automated Warehouse
+
+Collaborative Robotics Trends
+
+Search Robotics Database
+
+Videos
+
+Webinars / Digital Events
+
+Events
+
+Robotics Summit & Expo West
+
+Robotics Summit & Expo
+
+DeviceTalks
+
+R&D 100
+
+Robotics Weeks
+
+Podcast
+
+Episodes
+
+Advertisers
+
+Advertise
+
+PR Submissions
+
+Eblast Submissions
+
+Subscribe
+
+→ 
+
+Formant brings in $21M to expand enterprise focus
+
+By Brianna Wessling | October 11, 2023
+
+Formant’s data platform can operate fleets of robots at any scale. | Source: Formant
+
+Formant, a company that offers a robotics data and operations platform, brought in $21 million in funding. The round comes after a year of record growth for the company, during which Formant increased revenue by more than 500% year-over-year. 
+
+BMW i Ventures led the investment round, which also included participation from new investors Intel Capital, GS Futures. The round also included previous investors SignalFire, Hillsven, Pelion Ventures, Holman, Ericsson, Goodyear Ventures, PICUS Capital, and Thursday Ventures.
+
+“Autonomous robotic systems have broken free from R&D departments and are now being deployed at scale to drive business outcomes and resilient operations,” Kasper Sage, Managing Partner at BMW i Ventures, said. “Their proliferation across mission-critical functions as well as support tasks for humans in various industries underscores the urgent need for seamless data management and orchestration across robotic endpoints. Formant is the operating system underpinning the future of the automated enterprise.”
+
+Much of Formant’s recent growth has come from blue-chip enterprises like Blue River Technology, a subsidiary of John Deere, and BP. It has also come from leaders in the robotics industry like Burro, Scythe, and Knightscope. 
+
+In the last year, Formant has also expanded its focus to enterprise customers, taking advantage of the accelerating adoption of intelligent robots across large organizations. Formant’s secure data platform can operate fleets of robots at any scale through a single pane of glass. 
+
+“Formant is uniquely positioned to meet the business objectives and technical requirements of large enterprise companies operating at global scale looking to expand their robotics footprint,” Jeff Linnell, CEO and Founder of Formant, said. “Our platform now powers tens of thousands of production robots around the world across dozens of different industries.”
+
+The company’s growth has been supported by its recent product introductions and integrations, which include enterprise-grade tools and account management features to empower enterprise customers. Earlier this year, Formant launched Theopolis, an AI language interface that enables non-technical users to interact directly with robot data and build visualizations inside Formant. 
+
+“In the ever-evolving landscape of robotics and AI integration, Formant stands ready to take center stage. As industries embrace large-scale automation, the role of data becomes paramount in fleet optimization and AI model training,” Kate MeLynda, President of Formant, said. “Formant’s cutting-edge platform simplifies the collection and management of robot data on a grand scale, ushering in a new era where AI seamlessly enhances physical automation.”
+
+Jeff Linnell, the CEO and co-founder of Formant, was recently featured on The Robot Report podcast. Linnell discussed Formant’s recent funding as well as the company’s growth over the last year. 
+
+The Robot Report Podcast · RGO Robotics and Verizon on the future of robotics perception and AI compute on the edge
+
+About The Author
+Brianna Wessling
+Brianna Wessling is an Associate Editor, Robotics, WTWH Media. She joined WTWH Media in November 2021, after graduating from the University of Kansas with degrees in Journalism and English. She covers a wide range of robotics topics, but specializes in women in robotics, robotics in healthcare, and space robotics.
+
+She can be reached at [email protected]
+
+Tell Us What You Think! Cancel reply
+Comment * 
+Name * 
+
+Email * 
+
+Website 
+
+Δ
+
+This site uses Akismet to reduce spam. Learn how your comment data is processed.
+
+Related Articles Read More >
+
+Dynamic Creatures partners with Sixth Wall Studio to bring Hasbro characters to life with robotsWhy predictive maintenance matters more as factories add robotsIntel and Altera expand collaboration to simplify sensor integration for physical AIAxon invests $1.2B into Skydio and becomes its U.S. public safety distributor
+
+RBR50 Innovation Awards
+
+EXPAND YOUR KNOWLEDGE AND STAY CONNECTED
+
+Get the latest info on technologies, tools and strategies for Robotics Professionals. 
+
+GET THE ENEWSLETTER
+
+Latest Episode of The Robot Report Podcast
+
+Sponsored Content
+
+ LiberAI Unveils Liber-0, a World Action Model That Grounds Human Experience in Robot Action
+
+ 28 Zero-Day Findings in Less Than Two Days: What AI-Speed Discovery Means for Robotics
+
+ Solving the Interconnect Challenge in Modern Robotics: How 3M Is Engineering for Motion, Density, and Uptime
+
+ WorldOracle Tests Whether World Models Can Reliably Predict Real-World Executions
+
+ Webinar to discuss how the FCC robotics ruling affects automation buyers
+More Sponsored Content >
+
+Connect with The Robot Report 
+
+The Robot Report
+
+Automated Warehouse
+
+Robotics Summit & Expo West
+
+Robotics Summit & Expo
+
+About The Robot Report
+
+Subscribe
+
+Contact Us
+
+Copyright © 2026 Arrowfly LLC. All Rights Reserved. The material on this site may not be reproduced, distributed, transmitted, cached or otherwise used, except with the prior written permission of Arrowfly
+ Privacy Policy | Advertising | About Us 
+
+Search The Robot Report
+
+Home
+
+News
+
+Technologies
+
+Batteries / Power Supplies
+
+Cameras / Imaging / Vision
+
+Controllers
+
+End Effectors
+
+Microprocessors / SoCs
+
+Motion Control
+
+Sensors
+
+Soft Robotics
+
+Software / Simulation
+
+Development
+
+Artificial Intelligence
+
+Human Robot Interaction / Haptics
+
+Mobility / Navigation
+
+Research
+
+Robots
+
+AGVs
+
+AMRs
+
+Consumer
+
+Collaborative Robots
+
+Drones
+
+Humanoids
+
+Industrial
+
+Self-Driving Vehicles
+
+Unmanned Maritime Systems
+
+Business
+
+Financial
+
+Investments
+
+Mergers & Acquisitions
+
+Earnings
+
+Markets
+
+Agriculture
+
+Healthcare
+
+Logistics
+
+Manufacturing
+
+Mining
+
+Security
+
+RBR50
+
+RBR50 Winners 2025
+
+RBR50 Winners 2024
+
+RBR50 Winners 2023
+
+RBR50 Winners 2022
+
+RBR50 Winners 2021
+
+Resources
+
+Automated Warehouse Research Reports
+
+Digital Issues
+
+eBooks
+
+Publications
+
+Automated Warehouse
+
+Collaborative Robotics Trends
+
+Search Robotics Database
+
+Videos
+
+Webinars / Digital Events
+
+Events
+
+Robotics Summit & Expo West
+
+Robotics Summit & Expo
+
+DeviceTalks
+
+R&D 100
+
+Robotics Weeks
+
+Podcast
+
+Episodes
+
+Advertisers
+
+Advertise
+
+PR Submissions
+
+Eblast Submissions
+
+Subscribe

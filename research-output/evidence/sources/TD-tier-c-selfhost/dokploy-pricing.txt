@@ -1,0 +1,242 @@
+Dokploy Pricing—Simple, Affordable Pricing. For Your Team | Dokploy
+Features 
+Pricing
+Solutions 
+Docs
+Careers
+Resources 
+Stars...Sign InContact
+Sign Up
+7-day free trial · No credit card required
+Simple Affordable Pricing.
+Infrastructure, we take care of it for you.
+Yearly (20% discount)Monthly
+Hobby
+Everything an individual developer needs
+$4.50/moper server (add as many servers as you'd like for $4.50/mo)
+Unlimited Deployments
+Unlimited Databases
+Unlimited Applications
+Setup 1 Server
+1 Organization
+1 User
+2 Environments
+1 Volume Backup per Application
+1 Backup per Database
+1 Scheduled Job per Application
+Community Support (Discord)
+Get Started
+Recommended
+Startup
+Perfect for small to mid-size teams
+Starting at $15/mo
+Add more servers as you'd like for $4.50/mo
+All the features of Hobby, plus…
+Setup up to 3 Servers
+3 Organizations
+Unlimited Users
+Unlimited Environments
+Unlimited Volume Backups
+Unlimited Database Backups
+Unlimited Scheduled Jobs
+Basic RBAC (Admin, Developer)
+2FA
+Email and Chat Support
+Get Started
+Enterprise
+For large organizations who want more control
+Cloud
+We host and manage everything for you
+Self Hosted
+Install on-prem or in your own cloud
+All the features of Startup, plus…
+Setup Unlimited Servers
+Up to Unlimited Organizations
+Fine-grained RBAC
+Complete Hosting Flexibility
+SSO / SAML (Azure, OKTA, etc)
+SCIM User Provisioning
+Audit Logs
+MSA/SLA
+White Labeling
+Priority Support and Services
+Contact Sales
+Agency
+Our Agency plan is uniquely tailored to the needs of agencies. Please contact us below to learn more about this option, as well as about becoming a certified Dokploy partner. Learn more here
+Contact The Partner Team
+Feature breakdown by plan
+Features
+Hobby
+Startup
+Enterprise
+Application and Compose Deployment
+Application Deployment
+Multiple Build Types
+Docker Compose Support (Stack & Compose)
+Git Integration
+Docker Registry Support
+Auto Deploy via Webhooks
+Preview Deployments
+One-Click Templates
+Watch Paths
+Database Management
+Supported Databases
+Database Management
+Terminal Access
+Database Backups
+1 backup per database
+Unlimited Backups
+Unlimited Backups
+Backup Logs
+Custom Docker Images
+Resource Limits
+Infrastructure and Scaling
+Multi-Server Support
+Docker Swarm Clusters
+Build Server Support
+Traefik Integration
+Custom Domain Management
+Auto SSL/TLS
+Zero Downtime Deployments
+Registry-based Rollbacks
+Resource Limits
+Volume Management
+Volume Backups
+1 backup per volume
+Unlimited Backups
+Unlimited Backups
+Monitoring and Logging
+Real-time Monitoring
+Application Logs
+Deployment Logs
+Deployment History
+Queue Management
+Automation and Scheduling
+Scheduled Jobs
+1 job per server or container
+Unlimited Jobs
+Unlimited Jobs
+Docker Cleanup Jobs
+Custom Scripts
+CI/CD Integration
+Run Commands
+Notifications and Alerts
+Slack Notifications
+Discord Notifications
+Telegram Notifications
+Email Notifications
+Webhook Notifications
+Lark Notifications
+Gotify Integration
+Ntfy Integration
+Event Triggers
+Security
+Two-Factor Authentication
+API Key Authentication
+SSH Key Management
+Certificate Management
+Security Audits
+UFW Firewall Guidance
+User and Organization Management
+User Management
+1 user
+Unlimited
+Unlimited
+Organizations
+1 Organizations
+3 Organizations
+10+ Organizations
+Projects
+Environment
+2 Environments
+Unlimited
+Unlimited
+Role-based Permissions
+NA
+Admin, Developer
+Admin, Developer
+Social Login
+Google, Github, Gitlab
+Google, Github, Gitlab
+SSO (Okta, Azure, and more)
+Developer Tools
+REST API
+CLI Tool
+Environment Variables
+Container Terminal
+Keyboard Shortcuts
+Swagger Documentation
+Advanced Configuration
+Swarm Settings
+Health Checks
+Network Configuration
+Container Labels
+Traefik File Editor
+Port Configuration
+Security Headers
+Redirects
+Support and Services
+Community Support
+Email and Chat Support
+—
+Phone & Video Support
+—
+—
+SLA
+Online T&C's
+Online T&C's
+MSA
+Online T&C's
+Online T&C's
+Frequently asked questions
+Have a different question? Contact us via Discord or email.
+What happens if I need more than one server?
+How does the annual billing discount work?
+Can I switch between plans?
+Is there a limit on the number of deployments?
+What's included in the Enterprise plan?
+Do you offer refunds?
+What kind of support do I get with each plan?
+Do I need to provide my own server?
+DokployDeploy your applications with ease
+Product
+Home
+Features
+Templates
+Pricing
+Application Deployment Platform
+Databases
+Deploy AI
+Sandbox Software
+Self-Hosted PaaS
+Enterprise
+Contact
+Enterprise Features
+Security
+RBAC
+SSO
+Audit Logs
+White Labeling
+Industries
+Finance & Banking
+Agencies
+Healthcare
+Government
+Manufacturing
+Pharmaceuticals
+Higher Education
+Compare & Learn
+Dokploy vs. Coolify
+Dokploy vs. Portainer
+Dokploy vs. CapRover
+Dokploy vs. Dokku
+Dokploy vs. Render
+Dokploy vs. Railway
+Dokploy vs. Vercel
+Blog
+Documentation
+Company
+Careers
+Terms of Service
+Privacy Policy
+© 2026 Dokploy. All rights reserved.

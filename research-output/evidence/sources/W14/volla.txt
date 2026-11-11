@@ -1,0 +1,216 @@
+
+	Volla Mobile Devices
+          +
+            Shop
+DevicesOverview
+Volla Phone Quintus
+Volla Phone Plinius
+Volla Phone X23
+Volla Tablet
+Operating SystemsOverview
+Volla OS
+Ubuntu Touch
+Volla Cloud
+For Business
+News
+AboutAbout us
+On site
+Press
+SupportFAQs
+Wiki
+Forum
+DownloadsVolla Phone Quintus
+Volla Phone 22
+Volla Phone
+Volla Phone Plinius
+Volla Phone X23
+Volla Phone X
+Volla Tablet
+Contact
+DE / EN
+              Imprint
+ Contact us
+ Cancellation Policy
+ General Terms and Conditions Enduser License Agreement
+ Privacy Policy Statement
+ Business Ethics
+ Copyright 2019 - 2026 Volla Systeme GmbH
+                0
+        Your Freedom
+ Volla Mobile Devices
+#vollaMoments      #vollaPrivacy
+Our big fall sale. For a limited time only.
+Get 50 euros off when you buy a smartphone or tablet using the code AUTUMN26
+Volla Phone Quintus
+Volla Tablet
+Volla Phone Plinius
+Volla Phone X23
+Accessories
+Shop
+  The perfect combination of simplicity and security
+  Experience a new ease, comfort and privacy with an intelligent user interface, a unique security mode and a distributed cloud that emerges from the networked devices of those you choose.
+Volla Phone Quintus
+Completed elegance
+and performance
+€ 719,00 Buy now
+Learn more
+Volla Phone Plinius
+The all-rounder:
+robust and sporty
+€ 598,00 Buy now
+Learn more
+Volla Phone Plinius Plus
+More storage
+Ready for accessory modules
+€ 698,00 Buy now
+Learn more
+Volla Phone X23
+Robust powerhouse
+for sports and outdoor
+€ 564,00 Buy now
+Learn more
+Volla Phone Tablet
+Mobile productivity
+at the pro level
+€ 698,00 Buy now
+Learn more
+Volla Phone Quintus
+Completed elegance
+and performance
+€ 719,00 Buy now
+Learn more
+Volla Phone Plinius
+The all-rounder:
+Robust and sporty
+€ 598,00 Buy now
+Learn more
+Volla Phone Plinius Plus
+More storage
+Ready for accessory modules
+€ 698,00 Buy now
+Learn more
+Volla Phone X23
+Robust powerhouse
+for sports and outdoor
+€ 564,00 Buy now
+Order now
+Volla Phone Tablet
+Mobile productivity
+at the pro level
+€ 698,00 Buy now
+Learn more
+  The new ease. Back to life.
+Free up time and attention for what matters with a Volla phone and Volla tablet. And that's not the digital world. The new operating concept with a clear, puristic design and intelligent interface helps you to keep a clear head in everyday life.
+Picture Text
+Picture Text
+  Volla OS relies on instant operation instead of countless apps, on focus instead of distraction. People, content and activities are at the center.
+1,5+
+hours/day
+In Germany, users spend more than 1.5 hours a day on their smartphones, younger people more than 2 hours. That adds up to a whole month in a year.
+53
+times/day
+According to a study by the University of Bonn, people look at their smartphones up to 53 times a day.
+1,5M+
+Android Apps
+There are more than 1.5 million Android apps competing for users' time and attention.
+  Life has become more complicated. It's time for a change.
+The Volla OS springboard is the starting point for all important everyday functions that don't even require you to open an app
+The intelligent text field that understands you, for calls, messages, search and more.
+The quick menu for your important everyday functions with a single gesture.
+Picture Text
+Picture Text
+  Design.Made for your life
+Clear, minimalist design for less distraction
+Automatic compilations of your most recent contacts, messages, news and notes.
+Automatically grouped apps with a focus on frequently used ones
+Eye-friendly black and white user interface with a bold accent color
+Optimized font and size for best readability
+Picture Text
+Find out more …
+  Stay up to date by subscribing our newsletter
+ Order the English newsletter
+{{email}}
+Consent to the privacy policy:
+{{accept}}
+ Dear interested party,
+Thank you for subscribing to the newsletter for our Kickstarter campaign.
+Your Volla team
+    I agree to the privacy policy and the terms of use.
+          Send
+          Previous
+          Next
+    Submit
+  Uncompromising
+privacy
+  With Volla OS, you decide for yourself what data you share with whom and when. It is based on the open source Android without Google Apps, Google Play Services and Google Cloud. There is also no Volla account. Your data belongs to you.
+You can still use app that requires Google Play services with the open-source alternative microG.
+Picture Text
+  Protect your smartphone from surveillance, data thieves and malware with the unique security mode
+Block specific apps that you don't trust but sometimes need to use.
+Block specific Internet addresses of trackers, phishing, malware and more.
+Block specific Internet connections from apps.
+  Security Mode is perfect for protecting children or for ensuring that smartphones are used in a privacy-compliant manner in small businesses.
+Picture Text
+Find out more …
+Longevity
+  For the sake of the environment. Volla stands for longevity and long-term value.
+High-quality hardware components and manufacturing
+Long-term system updates of at least 5 years.
+By cleaning the operating system of Google apps and services, data traffic to data centers is reduced by up to 80%, which are operated with a high energy consumption of small towns.
+  Volla Cloud.Part of Volla OS
+Common cloud services are processing and storing data in data centers with a central point of control. Operators can gain access to your data or be forced to provide access for 3rd parties.
+Volla Cloud is created by networked smartphones and other devices without a single data center for storing and processing data. No third party even not Volla can access your data.
+This gives the Volla Cloud a unique independence and security. It forms the digital ecosystem of the future.
+Picture Text
+  Volla Cloud Apps
+One of the first applications is the secure Volla Messages app, which allows both highly encrypted exchange of messages to contacts with secure identity and moderated groups.
+For each message exchange, whether to a person or a group, a separate network is created for maximum cyber security.
+The Volla Cloud is based on the post-blockchain technology of Holochain, which uses the best of the blockchain concept while overcoming its disadvantages and limitations.
+Picture Text
+Find out more …
+  Ubuntu Touch
+  Freedom also means freedom of choice. Get a Volla phone or tablet with the mobile version of the popular Ubuntu Linux.
+Picture Text
+  If you already use Ubuntu Linux, you will feel right at home.
+The handy sidebar allows you to quickly and easily access or switch between apps in any situation.
+The fan view allows you to scroll through open apps.
+As a Linux expert, you have full control over your device including root rights via the terminal app, the command line interface.
+Ubuntu Touch adapts perfectly to the size of the display and transforms the Volla tablet with keyboard into a laptop for unrestricted productivity.
+Convergence is the name of the concept that the future belongs to and Ubuntu Touch has already implemented.
+Picture Text
+Picture Text
+  Two operating systems or more on one device
+With the unique multi-boot function, you can install Volla OS and Ubuntu Touch on the same device. Then simply decide which operating system you want to use when starting up.
+Other operating systems are also available for some models or are being prepared by the Volla developer community.
+Find out more …
+  Community
+Volla products are developed with and for users. That's why Volla works with a large community of users, developers and partners.
+For maximum transparency, verifiability and collaboration, both Volla OS and Ubuntu Touch are open source. You can find the source code on the popular platform Github. Discuss with us on Telegram as a user or developer.
+Business Customers
+Picture Text
+  Benefit from our smartphones and tablets for your business:
+Low total cost of ownership through high quality and long-term updates
+Full compliance with the General Data Protection Regulation
+Increased efficiency through supportive intelligence
+Customer-specific extensions through open plugin API
+Rugged phone for industrial and clinical applications
+Mobile device management as open source software as a service or on premise
+  We offer the unique opportunity of a customized operating system for your business success. We develop your Corporate OS with dual branding and special features for industrial and consumer solutions. Take advantage of our experience in solutions for fire departments, emergency doctors, ambulances, mobile POS systems, control units for wheelchairs and much more.
+Our distributors for trade:
+Herweck (EU)
+Libratek (Norway)
+Picture Text
+Find out more …
+          Modal Title
+          Modal content..
+            OK
+    Imprint
+ Contact us
+ Cancellation Policy
+ General Terms and Conditions Enduser License Agreement
+ Privacy Policy Statement
+ Business Ethics
+ Copyright 2019 - 2026 Volla Systeme GmbH
+    With your consent, we use cookies for anonymized statistics about visits to our website.  The anonymized data is evaluated exclusively with the open source software Matomo, which we have set up ourselves and is managed by us. For more information, please see our privacy policy
+.
+    Agree

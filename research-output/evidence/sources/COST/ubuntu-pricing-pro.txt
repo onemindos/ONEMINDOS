@@ -1,0 +1,74 @@
+Source: https://ubuntu.com/pricing/pro
+Accessed: 2026-11-11 (curl + HTML-to-text; excerpt)
+----
+ Ubuntu Pro pricing
+ Evaluate Ubuntu Pro pricing and get comprehensive open source security and support. Find the subscription that fits
+ your needs.
+ Get in touch 
+ Subscribe now 
+ Looking for a free trial?  › 
+ Ubuntu Pro 
+ Enterprise 
+ Personal 
+ Workstation 
+ $25 
+ per machine per year 
+ Server with unlimited VMs 
+ $500 
+ per machine per year 
+ Personal 
+ For up to 5 machines 
+ Community 
+ up to 50 machines for active 
+ Ubuntu community members › 
+ Does not include knowledge base access, Certified Windows drivers for KVM guests and Ubuntu Assurance
+ Program 
+ Ubuntu Pro with 24/7 Enterprise support 
+ Weekday support is 50% price of 24/7 support 
+ Workstation 
+ $300 
+ full support per machine per year 
+ Server with unlimited VMs 
+ $1,775 
+ infra support per machine per year 
+ $3,400 full support per machine per year
+ Looking for Ubuntu Pro on public clouds? 
+ Ubuntu Pro on public clouds is metered by the hour and charged through your cloud provider’s bill. Pricing is
+ relative to your compute cost, typically between 3–4.5% of the list price. For exact rates, please refer to the
+ pricing pages for AWS , Azure and GCP .
+ Please note, you can also deprecate your committed spend with Ubuntu Pro.
+ Coverage for both open source infrastructure and applications 
+ Ubuntu Pro covers Canonical’s complete open source portfolio, including infrastructure automation, scalable
+ storage, private and edge clouds, container orchestration, and applications.
+ Security and compliance 
+ Operations and management 
+ Infrastructure 
+ Applications 
+ Services 
+ Security 
+ Livepatch 
+ Compliance and
+ hardening 
+ Security 
+ Expanded Security Maintenance for Ubuntu and open source software 
+ Availability 
+ Details 
+ Included in an Ubuntu Pro subscription
+ Expanded Security Maintenance for Ubuntu’s Main repository for an additional 5 years beyond Ubuntu LTS
+ end of standard support (infra-only)
+ Security patching for the Ubuntu Universe repository for 10 years (Ubuntu 16.04 LTS onwards) 
+ Ubuntu Pro subscription with Legacy price is 50% more 
+ 5-year Legacy add-on: an additional five years of security maintenance and support, extending total
+ coverage to 15 years 
+ Coverage levels 
+ Infra-only coverage 
+ Encompasses over 4,700 open source deb packages in Ubuntu’s Main repository for an additional 5 years,
+ including: 
+ Full-stack coverage 
+ Provides security maintenance for over 36,000 open source deb packages in the Ubuntu Universe
+ repository for up to 10 years, including: 
+ Check the coverage for your packages › 
+ What are main and universe repositories? › 
+ Get security maintenance 
+ Learn more › 
+ Livepatch 

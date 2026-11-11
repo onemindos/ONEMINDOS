@@ -1,0 +1,180 @@
+Source: https://docs.foxglove.dev/docs/agents/agent-sidebar
+Accessed: 2026-11-11
+
+Agent sidebar | Foxglove Docs
+
+Skip to main content
+
+DocumentationSDKAPIChangelog
+Back to Foxglove
+
+Search
+
+Getting started
+Overview
+Getting started guide
+Python
+C++
+Rust
+
+Frameworks
+Open a file
+Explore examples
+
+Hardware
+
+Robots
+
+Custom Data
+
+Agents & MCP
+Overview
+Agent sidebar
+MCP server
+Slack
+
+Visualization
+Overview
+
+Connecting to data
+Playback
+Comparison mode
+Layouts
+
+Panels
+Variables
+User Scripts
+FoxQL
+Shareable links
+Video export
+Open via CLI
+Annotate ROS enum fields
+Controls and shortcuts
+Migrate from other tools
+
+Data Platform
+Overview
+Importing data
+Exporting data
+Devices
+Recordings
+Sessions
+Events
+
+Search
+
+Primary Sites
+
+Edge Sites
+
+Fleet
+Overview
+Device Tokens
+
+Foxlet
+Bridge
+Remote Access
+
+Integration
+
+Extensions
+
+Webhooks
+
+Embedding Foxglove
+
+Jupyter notebook
+
+Grafana
+CLI
+OAuth
+Personal access tokens
+Release feeds
+
+Administration
+Settings
+Audit logs
+Pricing
+Standalone License
+Projects
+Roles
+Seat types
+SSO
+
+Agents & MCP
+Agent sidebar
+On this page
+
+Agent sidebar Beta
+
+The agent sidebar is where you work with Foxglove's built-in AI agent. It answers questions about data, including topics, schemas, and messages, and can perform actions on your behalf, like building a layout or writing a user script. Answers are grounded in real data, not guesses. It draws on the same tool catalog an external agent reaches over MCP, so if you'd rather work from an AI tool you already use, see Connect your own agent (MCP).
+
+Organization admins can turn the agent sidebar on or off for everyone in the organization, under Settings → Organization → AI. It's on by default, except on Enterprise plans, which opt in. The agent sidebar is not available in every region.
+
+Open the agent sidebar​
+
+Click Show agent sidebar in the top-right corner of the app, or press Cmd+J (macOS) or Ctrl+J (Windows/Linux).
+
+The chat opens as a resizable panel on the right side of the app.
+
+Ask a question​
+
+Type a question, or click one of the suggested prompts to get started. For ideas, see the example workflows on the overview page.
+
+Type @ in the composer to mention a specific topic from the data source, and the agent will focus its answer on that topic.
+
+While the agent is working, you can click Stop to end its turn. If a response fails, click Retry.
+
+Answers can include links that act on the app rather than opening a web page: a timestamp seeks the playhead to that moment, a panel reference selects that panel, and a device, recording, session, or event opens its page in Foxglove.
+
+At the top of the chat panel, the conversation name opens a dropdown of past chats, and New chat beside it starts a fresh one. Each conversation carries its full context, so start over when a chat goes off track or when you move to an unrelated task, rather than trying to steer it back.
+
+Choose a model​
+
+A new chat starts on the organization's default model. Before you send the first message, the model name appears under the composer, and clicking it opens the choices:
+
+Auto: let Foxglove pick. This follows Foxglove's current recommended default, so it can change as new models ship.
+
+Claude Sonnet 5.5: balances speed and capability, and suits most questions.
+
+Claude Opus 5.5: the stronger reasoning model, worth choosing for longer multi-step investigations.
+
+Sending the first message locks the chat to the model it started with, and the name under the composer becomes a plain label rather than a menu. To use a different model, start a new chat.
+
+Organization admins set the default in Settings → Organization → AI. The same default governs replies from the Slack integration.
+
+See what it did​
+
+The agent sidebar usually answers by calling tools, like "List topics" or "Read messages", to inspect the data. A run of calls collapses behind a Used n tools line. Expand it to see every call in order along with the agent's reasoning between them, then expand an individual call to see the exact Parameters it sent and the Result it got back. If you're wondering why the agent said something, this is the place to look.
+
+A call that fails is marked in the list, and the agent usually adjusts and tries again: a failure part-way through a turn isn't necessarily a problem with the answer. Expand the failed call to see the error it got.
+
+Approving changes​
+
+Read-only tools run automatically. Any action that changes something, like saving a layout, editing a panel, writing a user script, or updating an event, pauses on an Allow this action? prompt that names what the agent wants to do. Skip turns the action down. To allow it, choose how long the permission lasts:
+
+Allow once: run this action now; ask again next time.
+
+Allow for this chat: stop asking for this tool until you close the conversation.
+
+Always allow: stop asking for this tool on this device. Review or revoke these choices anytime in Settings → Personal → Agents & MCP, where the Chat card lists every allowed tool.
+
+When several actions are waiting at once, a single prompt covers them all, with Skip all and Allow all to answer for the whole set.
+
+Layout and panel changes add an optional review step. When there's a current layout to compare against, the prompt carries a Review changes button, which replaces the prompt with a summary of the panels it would change, each marked Added, Removed, or Changed, and the field-level edits within them. From there, Accept applies the change and Reject turns it down. Allowing the action without reviewing applies it directly.
+Previous
+Overview
+Next
+MCP server
+Need help? Contact support.
+Chat with the community on Discord.
+See the changelog.
+Interested in buying? See pricing.
+Read the latest on the Foxglove blog.
+LLM? Read llms.txt.
+
+Open the agent sidebar
+Ask a question
+Choose a model
+See what it did
+Approving changes

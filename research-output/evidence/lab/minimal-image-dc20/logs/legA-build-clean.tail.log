@@ -1,0 +1,30 @@
+‣  Running modinfo to fetch kernel module dependencies
+‣  Calculating required kernel modules and firmware
+‣ sha256 is a dependency of cifs but is not installed, ignoring 
+‣ sha512 is a dependency of cifs but is not installed, ignoring 
+‣ aead2 is a dependency of cifs but is not installed, ignoring 
+‣ aes is a dependency of cifs but is not installed, ignoring 
+‣ nls is a dependency of cifs but is not installed, ignoring 
+‣  Creating cpio archive /var/tmp/mkosi-workspace-9pw_9tir/kernel-modules-6.12.116+deb13-amd64.initrd…
+‣  Compressing /var/tmp/mkosi-workspace-9pw_9tir/kernel-modules-6.12.116+deb13-amd64.initrd with zstd
+‣  Generating unified kernel image for kernel version 6.12.116+deb13-amd64
+Wrote unsigned /work/var/tmp/mkosi-workspace-9pw_9tir/root/boot/EFI/Linux/onemind-deb-6.12.116+deb13-amd64.efi
+‣  /var/tmp/mkosi-workspace-9pw_9tir/root/boot/EFI/Linux/onemind-deb-6.12.116+deb13-amd64.efi size is 136.3M, consumes 136.3M.
+‣  Formatting ESP/XBOOTLDR partitions
+Automatically determined minimal disk image size as 1.1G, current image size is 1.1G.
+File '/work/var/tmp/mkosi-workspace-9pw_9tir/staging/onemind-deb.raw' already is of requested size or larger, not growing. (1.1G >= 1.1G)
+Applying changes to /work/var/tmp/mkosi-workspace-9pw_9tir/staging/onemind-deb.raw.
+Successfully wiped file system signatures from future partition 0.
+Successfully discarded data from future partition 0.
+Formatting future partition 0.
+Preparing to populate vfat filesystem.
+Ready to populate vfat filesystem.
+mkfs.fat 4.2 (2021-01-31)
+/var/tmp/repart-iQon3f successfully formatted as vfat (label "ESP", uuid 30a84ebb)
+Successfully formatted future partition 0.
+Syncing future partition 0 contents to disk.
+Adding new partition 0 to partition table.
+Writing new partition table.
+All done.
+‣  /var/lab/dc20/legA/onemind-deb.raw size is 1.1G, consumes 764.4M.
+clean_with_downloads 180

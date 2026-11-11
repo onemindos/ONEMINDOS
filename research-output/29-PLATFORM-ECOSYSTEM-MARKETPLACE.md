@@ -1,6 +1,6 @@
 # 29 · Platform and plugin ecosystem: OneMind as the robot and physical-AI OS (W19)
 
-**Date:** 2026-11-11 · **Workstream:** W19 (Tier B; the extension points are P0 and answer **DC-16**) · **Status:** draft complete; DC-16 answered with code, a VM lab and primary sources; **independent refuters still to run** (§17)
+**Date:** 2026-11-11 · **Workstream:** W19 (Tier B; the extension points are P0 and answer **DC-16**) · **Status:** draft complete; DC-16 answered with code, a VM lab and primary sources; **15 independent refuters ran after this draft** and their results, including the new E10 and the per-vendor driver packs, are in `01` rev. 2 §4.8 and §5.10, which supersede this file where they differ (§17)
 **Requirements served:** A-1, A-2, A-5, A-6, AI-1, AI-3, AI-5, AI-7, P-4, P-8, F-3, F-4, F-5, F-6, F-14, W-8, R-1, U-4, M-1, M-6, M-7, N-3, N-4, N-10 (see §19)
 **Claims:** `evidence/claims/W19.csv` (C-W19-001…049) plus earlier IDs from the Tier A ledgers · **Sources:** `evidence/sources/W19.md` · **Lab:** `evidence/lab/w19-sysext/` · **Question statuses:** `evidence/qbank/W19.md`
 **Builds on:** `01-FOUNDATION-DECISION.md` (Debian 13 core, RAUC A/B read-only image, k3s on ≥ 4 GB + SSD nodes, NATS leaves below, restic), the Tier A teardowns (HAOS, umbrelOS, Olares) and the `onemind.app.yaml` draft in `research/platform/ai-native-protocols-and-ux.md` §10.
@@ -386,7 +386,7 @@ Modelled on Works with Home Assistant [C-W19-020] and the Android CDD idea that 
 
 ## 17. Adversarial status (honest)
 
-The research protocol asks for three or more **independent** refuters per P0 conclusion. This session could not spawn independent agents, so **those refuters have not run yet**. What was done instead (not a substitute):
+The research protocol asks for three or more **independent** refuters per P0 conclusion. This session could not spawn independent agents, so those refuters did not run while this file was written. **Update 2026-11-11:** 15 independent refuters have since run; see `01-FOUNDATION-DECISION.md` §5.10 for their verdicts and the written responses (C-W19-011…028 has one refuter and E9 two, so those stay below the ≥ 3 target). What was done at writing time (not a substitute):
 - **Failure-seeking evidence was gathered on purpose:** ecosystems that are unsandboxed and unpinned [C-W19-011, C-W19-012, C-W19-021, C-W19-022, C-W19-033], three supply-chain incidents [C-W19-025, C-W19-026, C-W19-027], a governance abuse case [C-W19-028] and a vendor self-exemption [C-TD-olares-029].
 - **The strongest counter-argument found:** "sysext adds a second update channel next to RAUC; extensions can drift from the OS and break boot or k3s." Response: `SYSEXT_LEVEL` matching refuses mismatched extensions (lab [C-W19-009]); driver packs ship *with* the OS release (Flatcar [C-W19-005]); the health gate checks re-merge (T-W19-01).
 - **What would flip DC-16:** (a) T-W19-01 shows extensions can't re-merge reliably across RAUC slot switches; (b) Secure Boot + RAUC can't verify sysext verity signatures with the OneMind key; (c) a required day-one device class needs an out-of-tree kernel module whose licence forbids OneMind from building and redistributing it (then only a "bring your own driver" unsigned mode would remain).

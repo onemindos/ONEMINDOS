@@ -1,0 +1,312 @@
+
+	loop_.Run();
+}
+
+error::Error StateMachine::SetStartStateFromStateData(const string &in_state) {
+	if (in_state == StateData::kBeforeStateArtifactInstall_Enter) {
+		start_state_ = &save_before_artifact_install_state_;
+	} else if (in_state == StateData::kInStateArtifactInstall_Enter) {
+		start_state_ = &save_artifact_rollback_state_;
+	} else if (in_state == StateData::kBeforeStateArtifactCommit_Enter) {
+		start_state_ = &save_before_artifact_commit_state_;
+	} else if (in_state == StateData::kInStateArtifactCommit_Enter) {
+		start_state_ = &save_artifact_rollback_state_;
+	} else if (in_state == StateData::kBeforeStateArtifactCommit_Leave) {
+		start_state_ = &save_before_artifact_commit_leave_state_;
+	} else if (in_state == StateData::kInStateArtifactCommit_Leave) {
+		start_state_ = &artifact_commit_leave_state_;
+	} else if (in_state == StateData::kInStateCleanup) {
+		start_state_ = &save_cleanup_state_;
+	} else if (in_state == StateData::kInStateArtifactRollback_Enter) {
+		start_state_ = &save_artifact_rollback_state_;
+	} else if (in_state == StateData::kInStateArtifactFailure_Enter) {
+		start_state_ = &save_artifact_failure_state_;
+	} else {
+		return context::MakeError(
+			context::DatabaseValueError, "Invalid InState in database " + in_state);
+	}
+
+	return error::NoError;
+}
+
+error::Error StateMachine::AddStopBeforeState(const string &state) {
+	using tf = common::state_machine::TransitionFlag;
+	using se = StateEvent;
+	auto &s = state_machine_;
+
+	// Replace transition in state machine in order to exit at given point.
+	if (state == "ArtifactInstall_Enter") {
+		s.AddTransition(
+			save_before_artifact_install_state_, se::Success, exit_state_, tf::Immediate);
+
+	} else if (state == "ArtifactCommit_Enter") {
+		s.AddTransition(
+			save_before_artifact_commit_state_, se::Success, exit_state_, tf::Immediate);
+
+	} else if (state == "ArtifactCommit_Leave") {
+		s.AddTransition(
+			save_before_artifact_commit_leave_state_, se::Success, exit_state_, tf::Immediate);
+
+	} else if (state == "ArtifactRollback_Enter") {
+		s.AddTransition(save_artifact_rollback_state_, se::Success, exit_state_, tf::Immediate);
+		s.AddTransition(save_artifact_rollback_state_, se::Failure, exit_state_, tf::Immediate);
+
+	} else if (state == "ArtifactFailure_Enter") {
+		s.AddTransition(save_artifact_failure_state_, se::Success, exit_state_, tf::Immediate);
+		s.AddTransition(save_artifact_failure_state_, se::Failure, exit_state_, tf::Immediate);
+
+	} else if (state == "Cleanup") {
+		s.AddTransition(save_cleanup_state_, se::Success, exit_state_, tf::Immediate);
+		s.AddTransition(save_cleanup_state_, se::Failure, exit_state_, tf::Immediate);
+
+	} else if (state != "") {
+		return context::MakeError(
+			context::ValueError, "Cannot stop before unsupported state " + state);
+	}
+
+	return error::NoError;
+}
+
+void StateMachine::StartOnRollback() {
+	start_state_ = &rollback_query_state_;
+}
+
+error::Error PrepareContext(Context &ctx) {
+	const auto &conf = ctx.main_context.GetConfig();
+	const auto &paths {conf.paths};
+	ctx.script_runner.reset(new executor::ScriptRunner(
+		ctx.loop,
+		chrono::seconds {conf.state_script_timeout_seconds},
+		chrono::seconds {conf.state_script_retry_interval_seconds},
+		chrono::seconds {conf.state_script_retry_timeout_seconds},
+		paths.GetArtScriptsPath(),
+		paths.GetRootfsScriptsPath()));
+
+	return error::NoError;
+}
+
+error::Error PrepareContextFromStateData(Context &ctx, const StateData &data) {
+	auto exp_update_module =
+		update_module::UpdateModule::Create(ctx.main_context, data.payload_types[0]);
+	if (!exp_update_module.has_value()) {
+		return exp_update_module.error();
+	}
+	ctx.update_module = std::move(exp_update_module.value());
+
+	if (data.payload_types[0] == "rootfs-image") {
+		// Special case for rootfs-image upgrades. See comments inside the function.
+		auto err = ctx.update_module->EnsureRootfsImageFileTree(
+			ctx.update_module->GetUpdateModuleWorkDir());
+		if (err != error::NoError) {
+			return err;
+		}
+	}
+
+	if (data.failed) {
+		ctx.result_and_error.result = ctx.result_and_error.result | Result::Failed;
+	}
+
+	if (data.rolled_back) {
+		ctx.result_and_error.result = ctx.result_and_error.result | Result::RolledBack;
+	}
+
+	return error::NoError;
+}
+
+ResultAndError Install(
+	Context &ctx,
+	const string &src,
+	const artifact::config::Signature verify_signature,
+	InstallOptions options) {
+	auto exp_in_progress = LoadStateData(ctx.main_context.GetMenderStoreDB());
+	if (!exp_in_progress) {
+		return {Result::Failed, exp_in_progress.error()};
+	}
+	auto &in_progress = exp_in_progress.value();
+
+	if (in_progress) {
+		return {
+			Result::Failed | Result::NoRollbackNecessary,
+			error::Error(
+				make_error_condition(errc::operation_in_progress),
+				"Update already in progress. Please commit or roll back first")};
+	}
+
+	auto err = PrepareContext(ctx);
+	if (err != error::NoError) {
+		return {Result::Failed, err};
+	}
+
+	ctx.artifact_src = src;
+	ctx.verify_signature = verify_signature;
+	ctx.options = options;
+
+	StateMachine state_machine {ctx};
+
+	for (const auto &state : ctx.stop_before) {
+		err = state_machine.AddStopBeforeState(state);
+		if (err != error::NoError) {
+			return {Result::Failed, err};
+		}
+	}
+
+	state_machine.Run();
+
+	return ctx.result_and_error;
+}
+
+ResultAndError Resume(Context &ctx) {
+	auto exp_in_progress = LoadStateData(ctx.main_context.GetMenderStoreDB());
+	if (!exp_in_progress) {
+		return {Result::Failed, exp_in_progress.error()};
+	}
+	auto &in_progress = exp_in_progress.value();
+
+	if (!in_progress) {
+		return {
+			Result::NoUpdateInProgress,
+			context::MakeError(context::NoUpdateInProgressError, "Cannot resume")};
+	}
+	ctx.state_data = in_progress.value();
+
+	auto err = PrepareContext(ctx);
+	if (err != error::NoError) {
+		return {Result::Failed, err};
+	}
+
+	err = PrepareContextFromStateData(ctx, ctx.state_data);
+	if (err != error::NoError) {
+		return {Result::Failed, err};
+	}
+
+	StateMachine state_machine {ctx};
+
+	err = state_machine.SetStartStateFromStateData(ctx.state_data.in_state);
+	if (err != error::NoError) {
+		return {Result::Failed, err};
+	}
+
+	for (const auto &state : ctx.stop_before) {
+		err = state_machine.AddStopBeforeState(state);
+		if (err != error::NoError) {
+			return {Result::Failed, err};
+		}
+	}
+
+	state_machine.Run();
+
+	return ctx.result_and_error;
+}
+
+ResultAndError Commit(Context &ctx) {
+	auto exp_in_progress = LoadStateData(ctx.main_context.GetMenderStoreDB());
+	if (!exp_in_progress) {
+		return {Result::Failed, exp_in_progress.error()};
+	}
+	auto &in_progress = exp_in_progress.value();
+
+	if (!in_progress) {
+		return {
+			Result::NoUpdateInProgress,
+			context::MakeError(context::NoUpdateInProgressError, "Cannot commit")};
+	}
+	ctx.state_data = in_progress.value();
+
+	if (ctx.state_data.in_state != StateData::kBeforeStateArtifactCommit_Enter
+		and ctx.state_data.in_state != StateData::kInStateArtifactCommit_Enter) {
+		return {
+			Result::Failed,
+			context::MakeError(
+				context::WrongOperationError,
+				"Cannot commit from this state. "
+				"Make sure that the `install` command has run successfully and the device is expecting a commit.")};
+	}
+
+	auto err = PrepareContext(ctx);
+	if (err != error::NoError) {
+		return {Result::Failed, err};
+	}
+
+	err = PrepareContextFromStateData(ctx, ctx.state_data);
+	if (err != error::NoError) {
+		return {Result::Failed, err};
+	}
+
+	StateMachine state_machine {ctx};
+
+	err = state_machine.SetStartStateFromStateData(ctx.state_data.in_state);
+	if (err != error::NoError) {
+		return {Result::Failed, err};
+	}
+
+	for (const auto &state : ctx.stop_before) {
+		err = state_machine.AddStopBeforeState(state);
+		if (err != error::NoError) {
+			return {Result::Failed, err};
+		}
+	}
+
+	state_machine.Run();
+
+	return ctx.result_and_error;
+}
+
+ResultAndError Rollback(Context &ctx) {
+	auto exp_in_progress = LoadStateData(ctx.main_context.GetMenderStoreDB());
+	if (!exp_in_progress) {
+		return {Result::Failed, exp_in_progress.error()};
+	}
+	auto &in_progress = exp_in_progress.value();
+
+	if (!in_progress) {
+		return {
+			Result::NoUpdateInProgress,
+			context::MakeError(context::NoUpdateInProgressError, "Cannot roll back")};
+	}
+	ctx.state_data = in_progress.value();
+
+	if (ctx.state_data.in_state != StateData::kBeforeStateArtifactInstall_Enter
+		and ctx.state_data.in_state != StateData::kInStateArtifactInstall_Enter
+		and ctx.state_data.in_state != StateData::kBeforeStateArtifactCommit_Enter
+		and ctx.state_data.in_state != StateData::kInStateArtifactCommit_Enter
+		and ctx.state_data.in_state != StateData::kBeforeStateArtifactCommit_Leave
+		and ctx.state_data.in_state != StateData::kInStateArtifactRollback_Enter) {
+		return {
+			Result::Failed,
+			context::MakeError(
+				context::WrongOperationError,
+				"Cannot roll back from this state. "
+				"Use `resume` to complete the current install in order to start a new one.")};
+	}
+
+	auto err = PrepareContext(ctx);
+	if (err != error::NoError) {
+		return {Result::Failed, err};
+	}
+
+	err = PrepareContextFromStateData(ctx, ctx.state_data);
+	if (err != error::NoError) {
+		return {Result::Failed, err};
+	}
+
+	StateMachine state_machine {ctx};
+	state_machine.StartOnRollback();
+	if (err != error::NoError) {
+		return {Result::Failed, err};
+	}
+
+	for (const auto &state : ctx.stop_before) {
+		err = state_machine.AddStopBeforeState(state);
+		if (err != error::NoError) {
+			return {Result::Failed, err};
+		}
+	}
+
+	state_machine.Run();
+
+	return ctx.result_and_error;
+}
+
+} // namespace standalone
+} // namespace update
+} // namespace mender

@@ -1,0 +1,196 @@
+GitHub - system76/firmware-open: System76 Open Firmware · GitHub 
+ Skip to content 
+ Navigation Menu
+ Sign in 
+ Products Platform GitHub Repository hosting, code review, and collaboration 
+ Copilot AI coding agent for tasks, projects, and automated work 
+ Build & Ship Actions CI/CD and automation 
+ Code Quality Quality analysis, fixes, and enforcement 
+ Codespaces Cloud development environments 
+ Secure Code Security Vulnerability detection and remediation 
+ Secret Protection Secret scanning and leak prevention 
+ All Features 
+ Developers Learn Documentation 
+ Training 
+ Certifications 
+ Build Build with Copilot 
+ Customize Copilot 
+ Integrations 
+ Explore Trending repos 
+ GitHub Sponsors 
+ Developer articles 
+ Changelog Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place. 
+ Businesses By Stage Enterprises 
+ Team 
+ Startups 
+ Nonprofits 
+ By Industry Healthcare 
+ Financial services 
+ Manufacturing 
+ Government 
+ See all industries 
+ Evaluate GitHub Why GitHub 
+ Customer Stories 
+ Business insights 
+ Trust Center 
+ Add-ons GitHub Advanced Security Enterprise-grade code security 
+ Copilot for business Enterprise-grade AI features 
+ Premium Support Enterprise-grade 24/7 support 
+ Resources Learn & Connect Documentation 
+ Resource center 
+ Blog 
+ Events & webinars 
+ Community Forum 
+ Customer Stories 
+ Integrations 
+ Support Customer support 
+ Training 
+ GitHub Status 
+ Company About 
+ Partners 
+ Changelog 
+ GitHub Universe GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub. 
+ Pricing 
+ Search / 
+ Sign in 
+ Sign up Appearance settings
+ You signed in with another tab or window. Reload to refresh your session. 
+ You signed out in another tab or window. Reload to refresh your session. 
+ You switched accounts on another tab or window. Reload to refresh your session. 
+ Dismiss alert 
+ {{ message }}
+ system76 
+ firmware-open 
+ Repository navigation
+ Code 
+ Issues 110  ( 110 ) 
+ Pull requests 9  ( 9 ) 
+ Actions 
+ Projects 
+ Security and quality 
+ Insights 
+ More items 
+ firmware-open 
+ Public 
+ Notifications You must be signed in to change notification settings 
+ Fork 102  ( 102 ) 
+ Star 1.1k  ( 1.1k ) You must be signed in to star a repository 
+ About 
+ System76 Open Firmware
+ Resources 
+ Readme 
+ License 
+ Activity 
+ Custom properties 
+ Stars 
+ 1.1k stars 
+ Watchers 
+ 44 watching 
+ Forks 
+ 102 forks 
+ Report repository 
+ master 
+ Branches Tags 
+ Go to file 
+ Code Open more actions menu 
+ Latest commit
+ History
+ 974 Commits 
+ 974 Commits 
+ Folders and files
+ Name Name Last commit message 
+ Last commit date 
+ .devcontainer 
+ .devcontainer 
+ .github/ ISSUE_TEMPLATE 
+ .github/ ISSUE_TEMPLATE 
+ LICENSES 
+ LICENSES 
+ apps 
+ apps 
+ coreboot @ 28fb508 
+ coreboot @ 28fb508 
+ docs 
+ docs 
+ ec @ 5f36175 
+ ec @ 5f36175 
+ edk2 @ d2e0329 
+ edk2 @ d2e0329 
+ fsp 
+ fsp 
+ models 
+ models 
+ scripts 
+ scripts 
+ tools 
+ tools 
+ .editorconfig 
+ .editorconfig 
+ .gitattributes 
+ .gitattributes 
+ .gitignore 
+ .gitignore 
+ .gitmodules 
+ .gitmodules 
+ CHANGELOG.md 
+ CHANGELOG.md 
+ Cargo.lock 
+ Cargo.lock 
+ Cargo.toml 
+ Cargo.toml 
+ Jenkinsfile 
+ Jenkinsfile 
+ LICENSE.md 
+ LICENSE.md 
+ README.md 
+ README.md 
+ rust-toolchain.toml 
+ rust-toolchain.toml 
+ rustfmt.toml 
+ rustfmt.toml 
+ View all files 
+ Repository files navigation
+ README 
+ License 
+ More items 
+ System76 Open Firmware
+ An open source distribution of firmware utilizing coreboot, EDK2, and System76
+firmware applications.
+ Resources
+ Project site 
+ Documentation 
+ Issue tracker 
+ Changelog 
+ Legal information 
+ About 
+ System76 Open Firmware
+ Resources 
+ Readme 
+ License 
+ Activity 
+ Custom properties 
+ Stars 
+ 1.1k stars 
+ Watchers 
+ 44 watching 
+ Forks 
+ 102 forks 
+ Report repository 
+ Releases 
+ Packages 
+ Used by 
+ Contributors 
+ Languages 
+ Footer
+ © 2026 GitHub, Inc.
+ Footer navigation
+ Terms 
+ Privacy 
+ Security 
+ Status 
+ Community 
+ Docs 
+ Contact 
+ Manage cookies
+ Do not share my personal information
+ You can’t perform that action at this time.

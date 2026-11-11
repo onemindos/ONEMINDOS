@@ -1,0 +1,100 @@
+SOURCE: https://hexos.com/hardware
+ACCESSED: 2026-11-11 (text extracted from HTML; emails masked)
+
+HexOS | Your Hardware
+ Skip to content 
+FeaturesAppsVMsYour HardwarePricingDocsDiscord
+Get HexOSGet HexOS
+Bring your own hardware.We'll take it from there.
+See the requirements
+Three ways to get there.
+No hardware lock-in. Pick the solution that matches your budget and how hands-on you like to be. HexOS works the same regardless of which path you choose.
+Buy one ready-made
+TrueNAS's own servers are tested to run HexOS. Any off-the-shelf Intel or AMD PC that meets the requirements will work, too.Browse TrueNAS servers 
+Build your own
+Meet the requirements below, and you can bring your own hardware. If you're unsure, share your parts list on our Discord for a second opinion before you buy.
+Repurpose an old PC
+The desktop in the closet makes a great first home server. Add a small SSD to boot from and a couple of drives for your data, and you're most of the way there.
+What do you need to get started?It may be less than you'd think.
+The short answer is that a mid-range PC from the last ten years will probably do. The long answer is the same baseline as TrueNAS, which HexOS runs on. Meet these requirements and you're ready to install; go further and you'll have room for more apps and VMs.
+ProcessorDual-core Intel or AMD CPU*,**More cores enable you to run more capable VMs and apps, and more of them.
+Memory8 GB8 GB is enough to get started with apps and lightweight virtual machines. Add more RAM as your needs grow.
+Boot drive20 GB SSDA small boot drive dedicated just to HexOS, separate from the drives you intend to use for storage or apps. A small, inexpensive SSD is ideal.
+Storage drives1 to try, 3 to growYou can get started with just one drive. Add another to create a mirror with extra data protection. Start with three or more to create a pool that can be expanded in the future.
+Installer8 GB USB stickA high-quality USB flash drive.
+*HexOS only supports x86 CPUs that support SSE4.2 and POPCNT. ARM processors, like on many single-board computers and some off-the-shelf NAS products, are not currently supported.
+**A quad-core CPU or greater is required to install Virtual Machines.
+The details, and what to check in your BIOS, are in the docs. Full system requirements 
+ Coming soon
+The HexOS Hardware Database.Know exactly what parts work before you buy.
+Every server that shares with the Hardware Advisor teaches HexOS what works and what doesn't. We're opening that up on this site, so you can check a part before it's in your cart.
+Look up a part
+Search for drives, network cards, motherboards, processors, and anything else you want to install in your system.
+See what others run
+There's safety in numbers. See how many other users use the hardware you're researching so you can know if you should, too.
+Build with proven hardware
+Parts with a proven track record are given our seal of approval for an extra layer of trust.
+Tell me when it opens 
+Answers to things you might be wondering.
+When is the Hardware Database coming?
+Soon. We began collecting hardware data from servers that share in October 2026, and we're
+waiting until there's enough of it for what it says to be worth trusting.
+Sign up below and we'll tell you when it opens.
+Can I run HexOS in a virtual machine?
+Yes. Bare metal is preferred, but HexOS also runs well with hypervisors like Proxmox. There
+is some additional configuration that is required to get the most out of VMs that run
+inside HexOS under this setup.
+Learn more about how to tune Proxmox for HexOS.
+Which drives should I buy?
+Just about any drive will work with HexOS, but for hard drives with spinning disks, we
+recommend looking for CMR (Conventional Magnetic Recording) drives as opposed to SMR
+(Shingled Magnetic Recording) drives. Due to the nature of the technology, SMR drives tend
+to struggle when performing heavy write operations, which you'll probably be doing quite
+often with a NAS.
+If you plan on creating a pool from SSDs we recommend avoiding drives labelled as "QLC" or
+"DRAM-less". While these are cheaper, they slow down significantly under sustained write
+loads.
+For the boot drive, we recommend a small, inexpensive SSD; not one that you plan on using
+in a pool. Your NAS won't be able to use the boot drive as part of a storage pool, so the
+excess capacity of a large boot drive would just be left unused.
+Check out our documentation to learn more about how to choose the right drives for your situation.
+Can I build my pool on USB drives?
+No. If you need to import data from an external drive or large flash drive, then our Bring
+Over feature has you covered, but we strongly discourage the use of USB flash drives and
+external drives as your primary storage medium.
+Read more about why USB drives and storage pools don't mix.
+Can I mix drive sizes?
+Not currently, no. To take advantage of all the benefits of ZFS, your pools have to contain
+drives that are the same capacity. Mixing drive capacities will limit all of the drives in
+the pool to act as though they're the same size as the smallest drive in the pool.
+AnyRAID, which is in development but not yet in HexOS, aims to solve this problem by
+allowing you to combine drives of different sizes in the same storage pool.
+You can follow AnyRAID's progress and discover more here.
+Will a NAS box from another brand work?
+Often, yes: if it's an Intel or AMD-based system that allows you to access the BIOS and
+install a new operating system. Typically you will be required to make some changes to the
+BIOS settings. Certain devices, such as those with locked-down firmware or ARM CPUs, are not
+compatible. Check with our community on Discord before you buy.
+Can I use the drives I already have?
+Yes. Drive Certification will run a quick reliability check first to ensure that any drives
+you bring to HexOS are ready-to-go. Older drives can be tested more thoroughly and wiped to
+prepare them to store your data.
+Learn more about Drive Certification.
+I have a question about a part. Where do I ask?
+Message the community on our Discord, where people who run
+HexOS at home engage with hardware discussions every day. We're active there too, and are
+happy to answer any questions you may have.
+Planning a build? Get a second opinion.
+Share your parts list on Discord with people who run HexOS at home.
+ Join our DiscordOr enter your email to get updates about the hardware database.
+Sign up
+No spam. We never share your address with anyone. 
+Features 
+StorageFoldersAppsVirtual MachinesBackupsHealth
+Get started 
+PricingYour HardwareDownload
+Community 
+DocsBlogForumsDiscord
+Copyright © 2026 Eshtek Inc. All rights reserved.
+FAQTerms of ServicePrivacy PolicyCookie settings
+

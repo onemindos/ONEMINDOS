@@ -1,0 +1,163 @@
+Source: https://foxglove.dev/blog/reduced-self-service-pricing
+Accessed: 2026-11-11
+
+We're reducing self-service prices for Foxglove | Foxglove
+
+Skip to main content
+
+ Product 
+ Visualization Data Management Fleet Agents 
+ Customers 
+ Customer stories 
+
+Industries 
+ Automotive Defense Manufacturing Logistics & Supply Chain Agriculture & Forestry Marine Construction & Mining 
+Docs
+
+ Resources 
+ Changelog Blog API Reference Example datasets Community Status 
+ Contact Us 
+Pricing
+
+Sign in
+
+Get started for free
+
+Product
+
+ Visualization 
+ Data Management 
+ Fleet 
+ Agents 
+Customers
+
+Customer stories
+
+Industries
+
+ Automotive 
+ Defense 
+ Manufacturing 
+ Logistics & Supply Chain 
+ Agriculture & Forestry 
+ Marine 
+ Construction & Mining 
+Docs
+
+Resources
+
+ Changelog 
+ Blog 
+ API Reference 
+ Example datasets 
+ Community 
+ Status 
+ Contact Us Pricing 
+
+Book a demo
+ Sign in Get started for free 
+ New Agentic data platform Introducing the Agentic Data Platform for Physical AI Read more 
+
+ We're reducing self-service prices for Foxglove 
+ Pro now starts at $20/month for 1 TB storage and 3 Developer Seats. 
+
+ Author: Adrian Macneil 
+ April 20, 2026 
+
+ Share this post 
+ Product 
+
+We’re lowering self-service prices for Foxglove to make it easier for robotics teams to get started and scale. Pro now starts at a lower price, includes more users, and we’ve introduced volume-based discounts so data pricing decreases as usage grows. All paid plans now also include unlimited Basic Seats at no additional cost, so teams can share access more broadly across engineering, operations, and leadership.
+
+What’s changing
+
+A new name: Our Team plan has been renamed to Pro, to reflect the fact that it’s useful to both individuals and organizations.
+
+Lower entry price: Pro now starts at $20/month and includes 1 TB storage plus 3 Developer Seats (previously $126/month for 3 seats, over $100/month savings!).
+
+Free Basic Seats: Bring in more teammates without paying for every user.
+
+Simpler options: We’ve deprecated our Starter plan, which was capped at 10 users and 100 GB storage. All customers now benefit from a low base price and usage-based pricing.
+
+Decoupled meters: Storage, query, indexing, and bandwidth are now priced independently, so you only pay for what you actually use in each category.
+
+Volume-based discounts: As your usage grows on each meter, your per-unit rate for that meter automatically drops.
+
+Who this helps
+
+Individuals or small teams getting started: Upgrade from Free to Pro for just $20/month
+
+Fast-growing organizations: Easily add seats and data usage, with volume-based discounts kicking in as you scale
+
+Cross-functional teams: Share access with occasional users through Basic Seats while keeping Developer Seats for users who author and edit layouts
+
+What this means for existing customers
+
+For existing customers on the Pro (formerly Team) plan, you will see the new prices reflected in your next full billing cycle.
+
+With the new pricing meters and volume-based discounts, we think nearly all Pro plan customers will see a lower bill. If you’d like to preview what your pricing looks like under the new plan, check out our cost calculator, and if you have any questions please drop us a line!
+
+Existing Starter plan customers may remain on their existing plan and will not be automatically migrated, but will not benefit from the new volume-based discounts until they upgrade to the new Pro plan. We recommend comparing prices to see if the new Pro plan will save you money.
+
+Getting started
+
+Our updated pricing is available to new customers immediately, and will be rolled out to existing customers after your next billing cycle. If your team has been considering Foxglove, we now provide a lower-cost entry point, with room to grow to petabyte-scale.
+
+Have questions? Check out our pricing page, read the pricing docs, or contact sales and we’d be happy to help! 
+
+ Share this post 
+
+Read more
+
+ Introducing 3D Maps in Foxglove 
+ProductOct 6, 2026
+ Add photorealistic 3D Maps to your Foxglove visualization, connecting geographic location to local robot frames for a clearer view of outdoor operations. 
+
+ Introducing the Agentic Data Platform for Physical AI 
+ProductAug 18, 2026
+ Closing the simulation-to-real performance gap can take months. Today we are introducing new capabilities that make Foxglove the agentic data platform for physical AI. 
+
+ Foxglove goes agentic 
+ProductAug 18, 2026
+ Work with your robotics data in natural language—ask questions, build layouts, write user scripts, and search recordings from the Foxglove app or through MCP. 
+
+All blog posts →
+
+Start building with Foxglove.
+
+Get started for free
+
+The agentic data platform for Physical AI
+
+Product 
+ Visualization 
+ Data Management 
+ Fleet 
+ MCAP 
+ Integrations 
+ Extensibility 
+ Pricing 
+
+Company 
+ About Us 
+ Customers 
+ Careers 
+ Media Kit 
+ Community 
+ Actuate 
+ Contact Us 
+
+Resources 
+ Documentation 
+ Changelog 
+ Blog 
+ Status 
+ Security 
+ Trust Center 
+ API Reference 
+ Why Foxglove? 
+ Desktop app 
+
+© 2026 Foxglove Technologies, Inc.
+
+ Privacy Policy Terms of Service Data Processing Addendum Cookie Settings Trust Center

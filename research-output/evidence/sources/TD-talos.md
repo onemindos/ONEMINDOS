@@ -18,7 +18,7 @@ Used in: `research-output/02-competitors/talos.md`. Claims: `evidence/claims/TD-
 | github.com/siderolabs/talos/releases/tag/v1.14.5 | release body via GitHub API | 2026-11-11 | PRIMARY |
 | GitHub API: `repos/siderolabs/talos/commits?since=2025-11-11`, `/contributors` | n/a | 2026-11-11 | PRIMARY-METADATA |
 
-Local shallow clones: `work/.lab/src/siderolabs_talos-v1.14.5`, `siderolabs_extensions`, `siderolabs_image-factory`, `siderolabs_docs` (outside the repo, read-only research copies).
+Local shallow clones: `<lab-dir>/src/siderolabs_talos-v1.14.5`, `siderolabs_extensions`, `siderolabs_image-factory`, `siderolabs_docs` (outside the repo, read-only research copies).
 
 ## Web pages (saved text)
 

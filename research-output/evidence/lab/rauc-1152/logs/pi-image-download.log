@@ -1,0 +1,10 @@
+483db18a48da399b5b7022ffae9a07bc6d99daab30e593aedac09b69ff422843  2026-10-06-raspios-trixie-arm64-lite.img.xz
+483db18a48da399b5b7022ffae9a07bc6d99daab30e593aedac09b69ff422843  img.xz
+483db18a48da399b5b7022ffae9a07bc6d99daab30e593aedac09b69ff422843  img.xz
+b8a393dc1c3701450b5fffbfe74368a98fb6eab7415ce456cc0cead886ea8780  img
+total 2631252
+drwxr-xr-x 2 root root       4096 Nov 11 02:23 .
+drwxr-xr-x 6 root root       4096 Nov 11 02:22 ..
+-rw-r--r-- 1 root root 3078619136 Nov 11 02:23 img
+-rw-r--r-- 1 root root  550466056 Nov 11 02:23 img.xz
+-rw-r--r-- 1 root root        110 Nov 11 02:23 img.xz.sha256

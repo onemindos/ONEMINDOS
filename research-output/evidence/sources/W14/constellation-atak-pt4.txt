@@ -1,0 +1,165 @@
+
+    ATAK Quick-Start Guide Part 4: GrapheneOS Issues
+      Skip to content
+                Home
+Electronics
+Radios
+Drones
+NDAA Drones
+Accessories
+Kit
+Slings
+Packs
+Pouches
+                Merch
+                Journal
+                About Us
+        Constellation Response
+Search
+            Cart
+            Cart(0)0 items
+      Constellation Response
+        Cart
+  Constellation Response
+                Home
+                    Electronics
+                  Radios
+Drones
+NDAA Drones
+Accessories
+                        View All
+                    Kit
+                  Slings
+Packs
+Pouches
+                        View All
+                Merch
+                Journal
+                About Us
+                      Join Our Constellation
+                      Get the latest updates on our journal, new products and deals!
+                            E-mail
+                          Subscribe
+Twitter
+Facebook
+Instagram
+                      Home
+                      News
+                     ATAK Quick Start Guide Pt 4: Technical Difficulties
+                        October 25, 2024
+                          by Constellation Response
+                    ATAK Quick Start Guide Pt 4: Technical Difficulties
+                      GrapheneOS and ATAK - Trouble in Paradise?
+                            Link copied to clipboard!
+    ATAK Quick-Start Guide Series
+    Part 1: Getting Started
+    Part 2: Comms and Offline Maps
+    Part 3
+    Part 4: Technical Difficulties
+    Part 5: Joining Open TAK Server
+    Part 6: Turn-by-Turn Navigation with VNS Plugin
+Running a mesh radio in the field? Browse the mesh radio lineup — and if you need to flash new firmware, check out our firmware update guide. Need more than Meshtastic can carry? The Nucleus MANET radio gives your team a WiFi mesh for ATAK and is available with OpenTAK Server installed.
+If you have followed those guides and found them helpful, please, please, please, follow us on Facebook, Instagram and X! It really helps us when this content gets shared!And of course, don't forget to grab a meshtastic node while you're here. Now - on with the guide.
+If you’re like me, you wanted ATAK because you wanted to be like the other cool guys - and the first thing you want to do with that Google spy device on your chest is de-google it and put Graphene on it, right? Well - maybe not. Here’s why.
+You probably already know what Graphene is, but if you don't: GrapheneOS is a privacy and security-focused mobile operating system based on Android. It aims to provide enhanced protection against various security threats and minimize data collection by removing Google services. GrapheneOS emphasizes user control and data privacy while maintaining compatibility with many Android applications.
+Basically, it’s a privacy-focused OS for your phone that tries to balance usability with privacy. We all know that advertisers know way too much about our personal information, so using a phone that tries to limit that information gathering is desirable.
+After all, you are getting this phone to do super-cool guy stuff with it, so you want the phone to be super secret and not dox you to everyone on the planet. At least, that was my reasoning.
+But privacy and convenience are diametrically opposed, especially when you start stacking privacy measures on top of each other, that fortress of privacy starts turning into a deck of cards.
+For instance - Our home wifi network has privacy measures on it - I have to manually allow every new device to access the network when it tries to connect for the first time. Not a big deal as once I’ve whitelisted the device, I never have manage its access to the network again if I don’t want to. I like this feature - I know who is accessing my network and I can limit or cut off certain devices from doing things I don't want them to.
+But this gets tricky with my graphene phone. Graphene changes its ID information constantly - so every time I restart it, or just give it some time, my network boots the phone off the wifi, and sends a notification to my other devices that a stranger is trying to access the network.
+I honestly wouldn’t mind this if the phone was my daily driver, but if you’re running ATAK on it and doing things like downloading maps or other operations that require the device to be powered on for long periods of time - things start to get frustrating quickly.
+Like real estate, navigation is all about Location, Location... Location?
+I have two phones for the tests I did with ATAK. On the Graphene phone, I could see the other phone (a Samsung running stock Android) and its location on the map within ATAK. This is great and what I wanted. The other phone for the sake of the test was a fellow team member - and I want to keep track of my buddy - but the Samsung phone - it didn't see the Graphene phone's location, no matter how much I told GrapheneOS to allow ATAK location sharing permissions, or how much I told ATAK to share my position. The Graphene phone never appeared in the Samsung phone's ATAK. I haven't had this issue with other Samsung phones running ATAK.
+These two softwares are diametrically opposed on their philosophy. One is designed to obscure, hide and block your personal information from getting out, and the other is designed to control your entire phone and share your information with your team mates.
+STR vs Int
+I had some other issues as well when running Graphene in ATAK. Little things, that wouldn't normally be an issue for a daily driver on a phone, but they can (and did) break functionality in ATAK.
+Let's talk about the "Hop Limit" Setting in the Meshtastic ATAK plugin for a second. The hop setting controls how many times a message will get repeated throughout the network.
+Now, when you think of this setting, counting, you think the value the setting's going to expect is a number - and that's exactly what the Plugin expects, a number (specifically, an integer). But Graphene's keyboard formats the numbers as a string - a format that allows for letters, numbers, spaces between those letters and numbers and more.
+If I lost you, all you need to know is that when you change the hop limit using GrapheneOS, you completely break the plugin's ability to talk with Meshtastic, and thus, you undo everything you've worked for in the last three guides. The way around this is to not ever change the setting from its default, but boy, is that annoying.
+... What are we doing here?
+If you are following these guides because you want to use this tech on the front lines of a conflict zone - I can’t recommend Graphene, or ATAK, or Meshtastic. Any cheap, available tool that you have access to is a massive liability. I’ve probably seen a few hundred videos of soldiers in Ukraine getting hit by artillery while recording selfie videos. Things that produce RF signals are basically blinking “shoot me” signs on the battlefield, unless they cost ten’s of thousands of dollars. If you want to take on an advanced military, you need advanced tools.
+So is all of this useless?
+No - After getting to use ATAK I really think there's a ton of value for the average prepared civilian. Let's look at a few:
+Disaster Preparedness: The ability to have offline maps on a phone, use it for navigation when all other infrastructure is down, and communicate with Meshtastic is huge. Dropping markers, sharing safe routes, showing (rather than trying to tell) other responders where victims are and sharing that information quickly is invaluable. GPS on your phone is always going to be faster and more precise than figuring out your coordinates on a map.
+Hunting and Hiking: I’m going to do more posts soon on ATAK vs Apple maps, but sufficed to say, not the least of which is that it works offline and needs no connection to the internet to work.
+Security when you're not up against a first world country: There are a lot of reasons why you might want to use this in a security role if you're going up against a threat that isn't as sophisticated as a major power's military. We'll follow up on this in another post, but Meshtastic is a pretty great tool if you use it right in a bug-in scenario.
+So now you know what not to do - but what should you do? If I were doing it all over again, I'd get an older Samsung Galaxy and leave it stock. For the above purposes, ATAK is going to make you much more effective than not having ATAK.
+Thanks for reading. If you found this useful, please like and share it on your favorite social media platform.
+Also, if you're starting now and haven't picked up a Meshtastic node from us, what are you waiting for? Go grab one!
+And if you're not subscribed to our mailing list, or not following us on social media, I don't know what to tell ya other than SUBSCRIBE!
+        Join our constellation!
+            Subscribe
+        Get updates like this in your mailbox
+          Check Out Our Collections
+                  Drones
+                  Radios
+                  Kit / Nylon
+                  Merch
+                  Constellation Response
+                      Semper Promptus
+                          Navigation
+                                Search
+                                Electronics
+                                NDAA-compliant drones
+                                Kit
+                                Home
+Navigation
+                            Search
+                            Electronics
+                            NDAA-compliant drones
+                            Kit
+                            Home
+Follow Us
+Twitter
+Facebook
+Instagram
+                          More Links
+                                Contact Us
+                                About Us
+                                Terms of Service
+                                Privacy Policy
+More Links
+                            Contact Us
+                            About Us
+                            Terms of Service
+                            Privacy Policy
+                    Join the Constellation
+                          E-mail
+                        subscribe
+                    Subscribe for updates, new products, and more.
+                      Amazon
+                      American Express
+                      Apple Pay
+                      Discover
+                      Google Pay
+                      Mastercard
+                      PayPal
+                      Shop Pay
+                      Visa
+                      Refund policy
+                      Privacy policy
+                      Terms of service
+                      Shipping policy
+                      Contact information
+                      Cancellation policy
+                      Legal notice
+            © Copyright,
+            Constellation Response,
+              2026
+            Powered by Shopify
+          Your Cart (0)
+          Looks like you haven’t added anything yet, let’s get you started!
+            Start shopping
+              Loading...
+              Discount
+              Calculated at checkout
+              Shipping
+              Calculated at checkout
+              Subtotal
+              $0.00 USD
+              Checkout
+              View My Cart
+      Search
+              Search
+              Search
+        Choosing a selection results in a full page refresh.

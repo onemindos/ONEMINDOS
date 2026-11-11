@@ -1,0 +1,635 @@
+##### [04:08:48] T1 first boot
+##### [04:08:48] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,reado
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 default=1
+HEALTH-GATE: 09:09:12 start slot=A version=1 mode=committed env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 ]
+HEALTH-GATE: 09:09:12 RESULT committed-boot slot=A version=1
+root@onemind-lab:~# HEALTH-GATE: 09:11:06 K3S-FRESH ok after 114s: ok (fresh: kubelet, heartbeat 2026-11-11T09:10:52Z, core pods, data rw, api)
+--- state:T1
+ONEMIND_VERSION=1
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+Booted from: rootfs.0 (A)
+      boot status: bad
+      boot status: good
+pending: none
+apps             broken-app-5d6b874ccd-wk489               0/1   ImagePullBackOff   0     39s
+kube-system      coredns-577d995dff-c59db                  1/1   Running            0     39s
+kube-system      helm-install-gateway-api-crd-5nqhg        1/1   Running            0     39s
+kube-system      local-path-provisioner-56c6584955-nx8mh   1/1   Running            0     39s
+onemind-system   onemind-core-dc87b89b8-lttd6              1/1   Running            0     39s
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [04:11:14] T2 wrong-key bundle
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+LastError: signature verification failed: Verify error: unable to get local issuer certificate
+##### [04:11:15] install wrong-key.raucb rc=1 in 0s
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [04:11:15] T3 good update -> B
+pre-install: trial marker slot=B version=2
+ 99% Copying image to rootfs.1 done.
+##### [04:13:46] install good.raucb rc=0 in 150s
+GRUB-RAUC: ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 default=2
+HEALTH-GATE: 09:14:25 start slot=B version=2 mode=trial env=[ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:14:26 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+root@onemind-lab:~# HEALTH-GATE: 09:14:36 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:14:46 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:15:07 CHECK fail at 42s: fail: apiserver /readyz not ok
+HEALTH-GATE: 09:15:28 CHECK fail at 63s: fail: core pod kube-system/coredns-577d995dff-c59db not Ready
+HEALTH-GATE: 09:15:49 CHECK pass 1/3 at 84s: ok (fresh: kubelet, heartbeat 2026-11-11T09:15:17Z, core pods, data rw, api)
+HEALTH-GATE: 09:16:07 CHECK pass 2/3 at 102s: ok (fresh: kubelet, heartbeat 2026-11-11T09:15:17Z, core pods, data rw, api)
+HEALTH-GATE: 09:16:25 CHECK pass 3/3 at 120s: ok (fresh: kubelet, heartbeat 2026-11-11T09:15:17Z, core pods, data rw, api)
+HEALTH-GATE: 09:16:27 APPS (excluded from gate): broken-app-5d6b874ccd-wk489 0/1 ImagePullBackOff; 
+HEALTH-GATE: 09:16:28 RESULT mark-good slot=B version=2 after 123s
+--- state:T3-after-commit
+ONEMIND_VERSION=2
+ORDER=B A
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+Booted from: rootfs.1 (B)
+      boot status: good
+      boot status: good
+pending: none
+apps             broken-app-5d6b874ccd-wk489               0/1   ImagePullBackOff   0               6m2s
+kube-system      coredns-577d995dff-c59db                  1/1   Running            1 (2m49s ago)   6m2s
+kube-system      helm-install-gateway-api-crd-5nqhg        0/1   Completed          0               6m2s
+kube-system      local-path-provisioner-56c6584955-nx8mh   1/1   Running            1 (2m49s ago)   6m2s
+onemind-system   onemind-core-dc87b89b8-lttd6              1/1   Running            1 (2m49s ago)   6m2s
+ORDER=B A
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+GRUB-RAUC: ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 default=2
+HEALTH-GATE: 09:17:08 start slot=B version=2 mode=committed env=[ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:17:09 RESULT committed-boot slot=B version=2
+--- state:T3-second-reboot
+ONEMIND_VERSION=2
+ORDER=B A
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+Booted from: rootfs.1 (B)
+      boot status: good
+      boot status: good
+pending: none
+ORDER=B A
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+##### [04:17:22] T4 bad-k3s.raucb -> A
+pre-install: trial marker slot=A version=3
+HEALTH-GATE: 09:18:46 K3S-FRESH ok after 97s: ok (fresh: kubelet, heartbeat 2026-11-11T09:18:02Z, core pods, data rw, api)
+ 99% Copying image to rootfs.0 done.
+##### [04:20:03] install bad-k3s.raucb rc=0 in 160s
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 default=1
+HEALTH-GATE: 09:20:38 start slot=A version=3 mode=trial env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 ]
+HEALTH-GATE: 09:20:38 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+root@onemind-lab:~# HEALTH-GATE: 09:20:49 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:20:59 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:21:09 CHECK fail at 31s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:21:19 CHECK fail at 41s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:21:30 CHECK fail at 51s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:21:40 CHECK fail at 62s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:21:50 CHECK fail at 72s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:22:00 CHECK fail at 82s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:22:10 CHECK fail at 92s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:22:21 CHECK fail at 103s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:22:31 CHECK fail at 113s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:22:41 CHECK fail at 123s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:22:51 CHECK fail at 133s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:23:01 CHECK fail at 143s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:23:12 CHECK fail at 154s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:23:22 CHECK fail at 164s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:23:32 CHECK fail at 174s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:23:42 CHECK fail at 184s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:23:52 CHECK fail at 194s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:24:03 CHECK fail at 205s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:24:13 CHECK fail at 215s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:24:23 CHECK fail at 225s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:24:33 CHECK fail at 235s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:24:44 CHECK fail at 246s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:24:54 CHECK fail at 256s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:25:04 CHECK fail at 266s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:25:14 CHECK fail at 276s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:25:25 CHECK fail at 286s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:25:35 CHECK fail at 297s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:25:46 RESULT mark-bad slot=A version=3 after 300s (last: fail: no kubeconfig on this boot (k3s server has not started)) -> reboot to B
+GRUB-RAUC: ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 default=2
+HEALTH-GATE: 09:26:31 start slot=B version=2 mode=committed env=[ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:26:32 RESULT committed-boot slot=B version=2
+root@onemind-lab:~# HEALTH-GATE: 09:27:59 K3S-FRESH ok after 87s: ok (fresh: kubelet, heartbeat 2026-11-11T09:27:29Z, core pods, data rw, api)
+--- state:T4-end
+ONEMIND_VERSION=2
+ORDER=A B
+A_OK=0
+A_TRY=0
+B_OK=1
+B_TRY=0
+Booted from: rootfs.1 (B)
+      boot status: good
+      boot status: bad
+pending: none
+apps             broken-app-5d6b874ccd-wk489               0/1   ImagePullBackOff   0              17m
+kube-system      coredns-577d995dff-c59db                  1/1   Running            3 (8m6s ago)   17m
+kube-system      helm-install-gateway-api-crd-5nqhg        0/1   Completed          0              17m
+kube-system      local-path-provisioner-56c6584955-nx8mh   1/1   Running            3 (8m6s ago)   17m
+onemind-system   onemind-core-dc87b89b8-lttd6              1/1   Running            3 (8m6s ago)   17m
+ORDER=A B
+A_OK=0
+A_TRY=0
+B_OK=1
+B_TRY=0
+##### [04:28:11] T5 bad-noagent.raucb -> A
+pre-install: trial marker slot=A version=4
+ 99% Copying image to rootfs.0 done.
+##### [04:30:51] install bad-noagent.raucb rc=0 in 160s
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 default=1
+HEALTH-GATE: 09:31:22 start slot=A version=4 mode=trial env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 ]
+HEALTH-GATE: 09:31:22 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+root@onemind-lab:~# HEALTH-GATE: 09:31:32 CHECK fail at 10s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:31:42 CHECK fail at 20s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:31:59 CHECK fail at 37s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:32:10 CHECK fail at 48s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:32:22 CHECK fail at 60s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:32:33 CHECK fail at 71s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:32:45 CHECK fail at 83s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:32:56 CHECK fail at 94s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:33:08 CHECK fail at 106s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:33:19 CHECK fail at 117s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:33:31 CHECK fail at 129s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:33:42 CHECK fail at 140s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:33:54 CHECK fail at 152s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:34:06 CHECK fail at 164s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:34:18 CHECK fail at 176s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:34:29 CHECK fail at 187s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:34:41 CHECK fail at 199s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:34:52 CHECK fail at 210s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:35:04 CHECK fail at 222s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:35:16 CHECK fail at 234s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:35:28 CHECK fail at 246s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:35:40 CHECK fail at 258s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:35:52 CHECK fail at 270s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:36:04 CHECK fail at 282s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:36:15 CHECK fail at 293s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:36:26 RESULT mark-bad slot=A version=4 after 300s (last: fail: kubelet /healthz not answering) -> reboot to B
+GRUB-RAUC: ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 default=2
+HEALTH-GATE: 09:37:01 start slot=B version=2 mode=committed env=[ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:37:01 RESULT committed-boot slot=B version=2
+root@onemind-lab:~# HEALTH-GATE: 09:38:47 K3S-FRESH ok after 106s: ok (fresh: kubelet, heartbeat 2026-11-11T09:38:10Z, core pods, data rw, api)
+--- state:T5-end
+ONEMIND_VERSION=2
+ORDER=A B
+A_OK=0
+A_TRY=0
+B_OK=1
+B_TRY=0
+Booted from: rootfs.1 (B)
+      boot status: good
+      boot status: bad
+pending: none
+apps             broken-app-5d6b874ccd-wk489               0/1   ImagePullBackOff   0              28m
+kube-system      coredns-577d995dff-c59db                  1/1   Running            4 (8m5s ago)   28m
+kube-system      helm-install-gateway-api-crd-5nqhg        0/1   Completed          0              28m
+kube-system      local-path-provisioner-56c6584955-nx8mh   1/1   Running            4 (8m5s ago)   28m
+onemind-system   onemind-core-dc87b89b8-lttd6              1/1   Running            4 (8m5s ago)   28m
+ORDER=A B
+A_OK=0
+A_TRY=0
+B_OK=1
+B_TRY=0
+##### [04:38:59] T6 bad-boot.raucb -> A
+pre-install: trial marker slot=A version=5
+ 99% Copying image to rootfs.0 done.
+##### [04:41:26] install bad-boot.raucb rc=0 in 148s
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 default=1
+BAD-BOOT: broken init exiting
+[    9.008661] Kernel panic - not syncing: Attempted to kill init! exitcode=0x00000100
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=2 B_OK=1 B_TRY=0 default=1
+BAD-BOOT: broken init exiting
+[    9.914281] Kernel panic - not syncing: Attempted to kill init! exitcode=0x00000100
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=0 default=1
+BAD-BOOT: broken init exiting
+[   12.608782] Kernel panic - not syncing: Attempted to kill init! exitcode=0x00000100
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 default=2
+HEALTH-GATE: 09:43:09 start slot=B version=2 mode=fell-back env=[ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:43:10 RESULT fell-back slot=B version=2; slot A (v5) marked bad, never retried (trial boots used up (crash/hang/power cut) with A_TRY=3)
+--- state:T6-end
+ONEMIND_VERSION=2
+ORDER=A B
+A_OK=0
+A_TRY=0
+B_OK=1
+B_TRY=0
+Booted from: rootfs.1 (B)
+      boot status: good
+      boot status: bad
+pending: none
+ORDER=A B
+A_OK=0
+A_TRY=0
+B_OK=1
+B_TRY=0
+GRUB-RAUC: ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 default=2
+HEALTH-GATE: 09:43:50 start slot=B version=2 mode=committed env=[ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:43:51 RESULT committed-boot slot=B version=2
+##### [04:44:04] T7 bad-hang.raucb -> A
+pre-install: trial marker slot=A version=6
+HEALTH-GATE: 09:45:42 K3S-FRESH ok after 111s: ok (fresh: kubelet, heartbeat 2026-11-11T09:45:00Z, core pods, data rw, api)
+ 99% Copying image to rootfs.0 done.
+##### [04:46:56] install bad-hang.raucb rc=0 in 172s
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 default=1
+BAD-HANG: arming watchdog, then freezing
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=2 B_OK=1 B_TRY=0 default=1
+BAD-HANG: arming watchdog, then freezing
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=0 default=1
+BAD-HANG: arming watchdog, then freezing
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 default=2
+HEALTH-GATE: 09:49:45 start slot=B version=2 mode=fell-back env=[ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:49:46 RESULT fell-back slot=B version=2; slot A (v6) marked bad, never retried (trial boots used up (crash/hang/power cut) with A_TRY=3)
+--- state:T7-end
+ONEMIND_VERSION=2
+ORDER=A B
+A_OK=0
+A_TRY=0
+B_OK=1
+B_TRY=0
+Booted from: rootfs.1 (B)
+      boot status: good
+      boot status: bad
+pending: none
+ORDER=A B
+A_OK=0
+A_TRY=0
+B_OK=1
+B_TRY=0
+GRUB-RAUC: ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 default=2
+HEALTH-GATE: 09:50:39 start slot=B version=2 mode=committed env=[ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:50:40 RESULT committed-boot slot=B version=2
+##### [04:50:53] T8 power cut during write (target A)
+ 10% Verifying signature
+ 20% Verifying signature done.
+Verifying bundle signature... 
+Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+pre-install: trial marker slot=A version=2
+ 46% Copying image to rootfs.0
+Marking target slot rootfs.0 as non-bootable (bad)...
+writing data to device /dev/disk/by-partlabel/rootfs-A
+ 47% Copying image to rootfs.0
+##### [04:51:02] POWER CUT: SIGKILL qemu
+##### [04:51:02] T8 restart after power cut
+##### [04:51:02] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,reado
+GRUB-RAUC: ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 default=2
+HEALTH-GATE: 09:51:28 start slot=B version=2 mode=fell-back env=[ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:51:30 RESULT fell-back slot=B version=2; slot A (v2) marked bad, never retried (gate rejected it or install was interrupted)
+--- state:T8-after-cut
+ONEMIND_VERSION=2
+ORDER=A B
+A_OK=0
+A_TRY=0
+B_OK=1
+B_TRY=0
+Booted from: rootfs.1 (B)
+      boot status: good
+      boot status: bad
+pending: none
+ORDER=A B
+A_OK=0
+A_TRY=0
+B_OK=1
+B_TRY=0
+pre-install: trial marker slot=A version=2
+HEALTH-GATE: 09:52:44 K3S-FRESH ok after 74s: ok (fresh: kubelet, heartbeat 2026-11-11T09:52:19Z, core pods, data rw, api)
+ 99% Copying image to rootfs.0 done.
+##### [04:54:12] install good.raucb rc=0 in 152s
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 default=1
+HEALTH-GATE: 09:54:56 start slot=A version=2 mode=trial env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 ]
+HEALTH-GATE: 09:54:56 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+root@onemind-lab:~# HEALTH-GATE: 09:55:07 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:55:17 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:55:27 CHECK fail at 31s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:55:42 CHECK fail at 46s: fail: apiserver /readyz not ok
+HEALTH-GATE: 09:55:59 CHECK fail at 63s: fail: core pod kube-system/coredns-577d995dff-c59db not Ready
+HEALTH-GATE: 09:56:17 CHECK pass 1/3 at 81s: ok (fresh: kubelet, heartbeat 2026-11-11T09:55:47Z, core pods, data rw, api)
+HEALTH-GATE: 09:56:34 CHECK pass 2/3 at 98s: ok (fresh: kubelet, heartbeat 2026-11-11T09:55:47Z, core pods, data rw, api)
+HEALTH-GATE: 09:56:51 CHECK pass 3/3 at 115s: ok (fresh: kubelet, heartbeat 2026-11-11T09:55:47Z, core pods, data rw, api)
+HEALTH-GATE: 09:56:52 APPS (excluded from gate): broken-app-5d6b874ccd-wk489 0/1 ImagePullBackOff; 
+HEALTH-GATE: 09:56:53 RESULT mark-good slot=A version=2 after 117s
+--- state:T8-after-reinstall
+ONEMIND_VERSION=2
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+Booted from: rootfs.0 (A)
+      boot status: good
+      boot status: good
+pending: none
+apps             broken-app-5d6b874ccd-wk489               0/1   ImagePullBackOff   0               46m
+kube-system      coredns-577d995dff-c59db                  1/1   Running            7 (2m45s ago)   46m
+kube-system      helm-install-gateway-api-crd-5nqhg        0/1   Completed          0               46m
+kube-system      local-path-provisioner-56c6584955-nx8mh   1/1   Running            7 (2m45s ago)   46m
+onemind-system   onemind-core-dc87b89b8-lttd6              1/1   Running            7 (2m45s ago)   46m
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+##### [04:56:59] T9 power cut in commit window (target B)
+pre-install: trial marker slot=B version=2
+##### [04:59:22] install good.raucb rc=0 in 144s
+GRUB-RAUC: ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 default=2
+HEALTH-GATE: 09:59:49 start slot=B version=2 mode=trial env=[ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:59:49 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+##### [04:59:51] POWER CUT: SIGKILL qemu
+##### [04:59:51] T9 restart
+##### [04:59:51] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,reado
+GRUB-RAUC: ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=2 default=2
+HEALTH-GATE: 10:00:13 start slot=B version=2 mode=trial env=[ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=2 ]
+HEALTH-GATE: 10:00:13 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+root@onemind-lab:~# HEALTH-GATE: 10:00:24 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:00:34 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:00:49 CHECK fail at 36s: fail: apiserver /readyz not ok
+HEALTH-GATE: 10:01:06 CHECK fail at 53s: fail: core pod kube-system/coredns-577d995dff-c59db not Ready
+HEALTH-GATE: 10:01:26 CHECK pass 1/3 at 73s: ok (fresh: kubelet, heartbeat 2026-11-11T10:00:57Z, core pods, data rw, api)
+HEALTH-GATE: 10:01:42 CHECK pass 2/3 at 89s: ok (fresh: kubelet, heartbeat 2026-11-11T10:00:57Z, core pods, data rw, api)
+HEALTH-GATE: 10:01:59 CHECK pass 3/3 at 106s: ok (fresh: kubelet, heartbeat 2026-11-11T10:00:57Z, core pods, data rw, api)
+HEALTH-GATE: 10:02:00 APPS (excluded from gate): broken-app-5d6b874ccd-wk489 0/1 ErrImagePull; 
+HEALTH-GATE: 10:02:00 RESULT mark-good slot=B version=2 after 107s
+--- state:T9-end
+ONEMIND_VERSION=2
+ORDER=B A
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+Booted from: rootfs.1 (B)
+      boot status: good
+      boot status: good
+pending: none
+apps             broken-app-5d6b874ccd-wk489               0/1   ImagePullBackOff   0               51m
+kube-system      coredns-577d995dff-c59db                  1/1   Running            8 (2m44s ago)   51m
+kube-system      helm-install-gateway-api-crd-5nqhg        0/1   Completed          0               51m
+kube-system      local-path-provisioner-56c6584955-nx8mh   1/1   Running            8 (2m44s ago)   51m
+onemind-system   onemind-core-dc87b89b8-lttd6              1/1   Running            8 (2m44s ago)   51m
+ORDER=B A
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+##### [05:02:07] T10 naive gate observation (target A)
+pre-install: trial marker slot=A version=7
+ 99% Copying image to rootfs.0 done.
+##### [05:04:24] install naive-noagent.raucb rc=0 in 138s
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 default=1
+HEALTH-GATE: 10:04:55 start slot=A version=7 mode=trial env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 ]
+HEALTH-GATE: 10:04:55 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+root@onemind-lab:~# HEALTH-GATE: 10:05:06 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:05:16 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:05:30 CHECK fail at 35s: fail: apiserver /readyz not ok
+HEALTH-GATE: 10:05:44 CHECK pass 1/3 at 49s: ok (NAIVE: freshness off)
+HEALTH-GATE: 10:05:57 CHECK pass 2/3 at 62s: ok (NAIVE: freshness off)
+HEALTH-GATE: 10:06:11 CHECK pass 3/3 at 76s: ok (NAIVE: freshness off)
+HEALTH-GATE: 10:06:12 APPS (excluded from gate): broken-app-5d6b874ccd-wk489 0/1 ImagePullBackOff; 
+HEALTH-GATE: 10:06:13 RESULT mark-good slot=A version=7 after 78s
+--- state:T10-after
+ONEMIND_VERSION=7
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+Booted from: rootfs.0 (A)
+      boot status: good
+      boot status: good
+pending: none
+apps             broken-app-5d6b874ccd-wk489               0/1   ImagePullBackOff   0               55m
+kube-system      coredns-577d995dff-c59db                  1/1   Running            8 (6m56s ago)   55m
+kube-system      helm-install-gateway-api-crd-5nqhg        0/1   Completed          0               55m
+kube-system      local-path-provisioner-56c6584955-nx8mh   1/1   Running            8 (6m56s ago)   55m
+onemind-system   onemind-core-dc87b89b8-lttd6              1/1   Running            8 (6m56s ago)   55m
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+pre-install: trial marker slot=B version=2
+ 99% Copying image to rootfs.1 done.
+##### [05:08:45] install good.raucb rc=0 in 146s
+GRUB-RAUC: ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 default=2
+HEALTH-GATE: 10:09:12 start slot=B version=2 mode=trial env=[ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 10:09:12 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+root@onemind-lab:~# HEALTH-GATE: 10:09:22 CHECK fail at 10s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:09:33 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:09:43 CHECK fail at 31s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:09:57 CHECK fail at 45s: fail: apiserver /readyz not ok
+HEALTH-GATE: 10:10:14 CHECK fail at 62s: fail: core pod kube-system/coredns-577d995dff-c59db not Ready
+HEALTH-GATE: 10:10:32 CHECK pass 1/3 at 80s: ok (fresh: kubelet, heartbeat 2026-11-11T10:10:05Z, core pods, data rw, api)
+HEALTH-GATE: 10:10:48 CHECK pass 2/3 at 96s: ok (fresh: kubelet, heartbeat 2026-11-11T10:10:05Z, core pods, data rw, api)
+HEALTH-GATE: 10:11:05 CHECK pass 3/3 at 113s: ok (fresh: kubelet, heartbeat 2026-11-11T10:10:05Z, core pods, data rw, api)
+HEALTH-GATE: 10:11:06 APPS (excluded from gate): broken-app-5d6b874ccd-wk489 0/1 ImagePullBackOff; 
+HEALTH-GATE: 10:11:06 RESULT mark-good slot=B version=2 after 114s
+--- state:T10r-end
+ONEMIND_VERSION=2
+ORDER=B A
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+Booted from: rootfs.1 (B)
+      boot status: good
+      boot status: good
+pending: none
+apps             broken-app-5d6b874ccd-wk489               0/1   ImagePullBackOff   0               60m
+kube-system      coredns-577d995dff-c59db                  1/1   Running            9 (6m48s ago)   60m
+kube-system      helm-install-gateway-api-crd-5nqhg        0/1   Completed          0               60m
+kube-system      local-path-provisioner-56c6584955-nx8mh   1/1   Running            9 (6m48s ago)   60m
+onemind-system   onemind-core-dc87b89b8-lttd6              1/1   Running            9 (6m48s ago)   60m
+ORDER=B A
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+HEALTH-GATE: 09:09:12 start slot=A version=1 mode=committed env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 ]
+HEALTH-GATE: 09:09:12 RESULT committed-boot slot=A version=1
+HEALTH-GATE: 09:11:06 K3S-FRESH ok after 114s: ok (fresh: kubelet, heartbeat 2026-11-11T09:10:52Z, core pods, data rw, api)
+HEALTH-GATE: 09:14:25 start slot=B version=2 mode=trial env=[ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:14:26 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:14:36 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:14:46 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:15:07 CHECK fail at 42s: fail: apiserver /readyz not ok
+HEALTH-GATE: 09:15:28 CHECK fail at 63s: fail: core pod kube-system/coredns-577d995dff-c59db not Ready
+HEALTH-GATE: 09:15:49 CHECK pass 1/3 at 84s: ok (fresh: kubelet, heartbeat 2026-11-11T09:15:17Z, core pods, data rw, api)
+HEALTH-GATE: 09:16:07 CHECK pass 2/3 at 102s: ok (fresh: kubelet, heartbeat 2026-11-11T09:15:17Z, core pods, data rw, api)
+HEALTH-GATE: 09:16:25 CHECK pass 3/3 at 120s: ok (fresh: kubelet, heartbeat 2026-11-11T09:15:17Z, core pods, data rw, api)
+HEALTH-GATE: 09:16:27 APPS (excluded from gate): broken-app-5d6b874ccd-wk489 0/1 ImagePullBackOff; 
+HEALTH-GATE: 09:16:28 RESULT mark-good slot=B version=2 after 123s
+HEALTH-GATE: 09:17:08 start slot=B version=2 mode=committed env=[ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:17:09 RESULT committed-boot slot=B version=2
+HEALTH-GATE: 09:18:46 K3S-FRESH ok after 97s: ok (fresh: kubelet, heartbeat 2026-11-11T09:18:02Z, core pods, data rw, api)
+HEALTH-GATE: 09:20:38 start slot=A version=3 mode=trial env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 ]
+HEALTH-GATE: 09:20:38 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:20:49 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:20:59 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:21:09 CHECK fail at 31s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:21:19 CHECK fail at 41s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:21:30 CHECK fail at 51s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:21:40 CHECK fail at 62s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:21:50 CHECK fail at 72s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:22:00 CHECK fail at 82s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:22:10 CHECK fail at 92s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:22:21 CHECK fail at 103s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:22:31 CHECK fail at 113s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:22:41 CHECK fail at 123s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:22:51 CHECK fail at 133s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:23:01 CHECK fail at 143s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:23:12 CHECK fail at 154s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:23:22 CHECK fail at 164s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:23:32 CHECK fail at 174s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:23:42 CHECK fail at 184s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:23:52 CHECK fail at 194s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:24:03 CHECK fail at 205s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:24:13 CHECK fail at 215s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:24:23 CHECK fail at 225s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:24:33 CHECK fail at 235s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:24:44 CHECK fail at 246s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:24:54 CHECK fail at 256s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:25:04 CHECK fail at 266s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:25:14 CHECK fail at 276s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:25:25 CHECK fail at 286s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:25:35 CHECK fail at 297s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:25:46 RESULT mark-bad slot=A version=3 after 300s (last: fail: no kubeconfig on this boot (k3s server has not started)) -> reboot to B
+HEALTH-GATE: 09:26:31 start slot=B version=2 mode=committed env=[ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:26:32 RESULT committed-boot slot=B version=2
+HEALTH-GATE: 09:27:59 K3S-FRESH ok after 87s: ok (fresh: kubelet, heartbeat 2026-11-11T09:27:29Z, core pods, data rw, api)
+HEALTH-GATE: 09:31:22 start slot=A version=4 mode=trial env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 ]
+HEALTH-GATE: 09:31:22 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:31:32 CHECK fail at 10s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:31:42 CHECK fail at 20s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:31:59 CHECK fail at 37s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:32:10 CHECK fail at 48s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:32:22 CHECK fail at 60s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:32:33 CHECK fail at 71s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:32:45 CHECK fail at 83s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:32:56 CHECK fail at 94s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:33:08 CHECK fail at 106s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:33:19 CHECK fail at 117s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:33:31 CHECK fail at 129s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:33:42 CHECK fail at 140s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:33:54 CHECK fail at 152s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:34:06 CHECK fail at 164s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:34:18 CHECK fail at 176s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:34:29 CHECK fail at 187s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:34:41 CHECK fail at 199s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:34:52 CHECK fail at 210s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:35:04 CHECK fail at 222s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:35:16 CHECK fail at 234s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:35:28 CHECK fail at 246s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:35:40 CHECK fail at 258s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:35:52 CHECK fail at 270s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:36:04 CHECK fail at 282s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:36:15 CHECK fail at 293s: fail: kubelet /healthz not answering
+HEALTH-GATE: 09:36:26 RESULT mark-bad slot=A version=4 after 300s (last: fail: kubelet /healthz not answering) -> reboot to B
+HEALTH-GATE: 09:37:01 start slot=B version=2 mode=committed env=[ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:37:01 RESULT committed-boot slot=B version=2
+HEALTH-GATE: 09:38:47 K3S-FRESH ok after 106s: ok (fresh: kubelet, heartbeat 2026-11-11T09:38:10Z, core pods, data rw, api)
+HEALTH-GATE: 09:43:09 start slot=B version=2 mode=fell-back env=[ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:43:10 RESULT fell-back slot=B version=2; slot A (v5) marked bad, never retried (trial boots used up (crash/hang/power cut) with A_TRY=3)
+HEALTH-GATE: 09:43:50 start slot=B version=2 mode=committed env=[ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:43:51 RESULT committed-boot slot=B version=2
+HEALTH-GATE: 09:45:42 K3S-FRESH ok after 111s: ok (fresh: kubelet, heartbeat 2026-11-11T09:45:00Z, core pods, data rw, api)
+HEALTH-GATE: 09:49:45 start slot=B version=2 mode=fell-back env=[ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:49:46 RESULT fell-back slot=B version=2; slot A (v6) marked bad, never retried (trial boots used up (crash/hang/power cut) with A_TRY=3)
+HEALTH-GATE: 09:50:39 start slot=B version=2 mode=committed env=[ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:50:40 RESULT committed-boot slot=B version=2
+HEALTH-GATE: 09:51:28 start slot=B version=2 mode=fell-back env=[ORDER=A B A_OK=0 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 09:51:30 RESULT fell-back slot=B version=2; slot A (v2) marked bad, never retried (gate rejected it or install was interrupted)
+HEALTH-GATE: 09:52:44 K3S-FRESH ok after 74s: ok (fresh: kubelet, heartbeat 2026-11-11T09:52:19Z, core pods, data rw, api)
+HEALTH-GATE: 09:54:56 start slot=A version=2 mode=trial env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 ]
+HEALTH-GATE: 09:54:56 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:55:07 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:55:17 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:55:27 CHECK fail at 31s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 09:55:42 CHECK fail at 46s: fail: apiserver /readyz not ok
+HEALTH-GATE: 09:55:59 CHECK fail at 63s: fail: core pod kube-system/coredns-577d995dff-c59db not Ready
+HEALTH-GATE: 09:56:17 CHECK pass 1/3 at 81s: ok (fresh: kubelet, heartbeat 2026-11-11T09:55:47Z, core pods, data rw, api)
+HEALTH-GATE: 09:56:34 CHECK pass 2/3 at 98s: ok (fresh: kubelet, heartbeat 2026-11-11T09:55:47Z, core pods, data rw, api)
+HEALTH-GATE: 09:56:51 CHECK pass 3/3 at 115s: ok (fresh: kubelet, heartbeat 2026-11-11T09:55:47Z, core pods, data rw, api)
+HEALTH-GATE: 09:56:52 APPS (excluded from gate): broken-app-5d6b874ccd-wk489 0/1 ImagePullBackOff; 
+HEALTH-GATE: 09:56:53 RESULT mark-good slot=A version=2 after 117s
+HEALTH-GATE: 10:00:13 start slot=B version=2 mode=trial env=[ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=2 ]
+HEALTH-GATE: 10:00:13 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:00:24 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:00:34 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:00:49 CHECK fail at 36s: fail: apiserver /readyz not ok
+HEALTH-GATE: 10:01:06 CHECK fail at 53s: fail: core pod kube-system/coredns-577d995dff-c59db not Ready
+HEALTH-GATE: 10:01:26 CHECK pass 1/3 at 73s: ok (fresh: kubelet, heartbeat 2026-11-11T10:00:57Z, core pods, data rw, api)
+HEALTH-GATE: 10:01:42 CHECK pass 2/3 at 89s: ok (fresh: kubelet, heartbeat 2026-11-11T10:00:57Z, core pods, data rw, api)
+HEALTH-GATE: 10:01:59 CHECK pass 3/3 at 106s: ok (fresh: kubelet, heartbeat 2026-11-11T10:00:57Z, core pods, data rw, api)
+HEALTH-GATE: 10:02:00 APPS (excluded from gate): broken-app-5d6b874ccd-wk489 0/1 ErrImagePull; 
+HEALTH-GATE: 10:02:00 RESULT mark-good slot=B version=2 after 107s
+HEALTH-GATE: 10:04:55 start slot=A version=7 mode=trial env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=1 B_TRY=0 ]
+HEALTH-GATE: 10:04:55 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:05:06 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:05:16 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:05:30 CHECK fail at 35s: fail: apiserver /readyz not ok
+HEALTH-GATE: 10:05:44 CHECK pass 1/3 at 49s: ok (NAIVE: freshness off)
+HEALTH-GATE: 10:05:57 CHECK pass 2/3 at 62s: ok (NAIVE: freshness off)
+HEALTH-GATE: 10:06:11 CHECK pass 3/3 at 76s: ok (NAIVE: freshness off)
+HEALTH-GATE: 10:06:12 APPS (excluded from gate): broken-app-5d6b874ccd-wk489 0/1 ImagePullBackOff; 
+HEALTH-GATE: 10:06:13 RESULT mark-good slot=A version=7 after 78s
+HEALTH-GATE: 10:09:12 start slot=B version=2 mode=trial env=[ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 10:09:12 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:09:22 CHECK fail at 10s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:09:33 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:09:43 CHECK fail at 31s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 10:09:57 CHECK fail at 45s: fail: apiserver /readyz not ok
+HEALTH-GATE: 10:10:14 CHECK fail at 62s: fail: core pod kube-system/coredns-577d995dff-c59db not Ready
+HEALTH-GATE: 10:10:32 CHECK pass 1/3 at 80s: ok (fresh: kubelet, heartbeat 2026-11-11T10:10:05Z, core pods, data rw, api)
+HEALTH-GATE: 10:10:48 CHECK pass 2/3 at 96s: ok (fresh: kubelet, heartbeat 2026-11-11T10:10:05Z, core pods, data rw, api)
+HEALTH-GATE: 10:11:05 CHECK pass 3/3 at 113s: ok (fresh: kubelet, heartbeat 2026-11-11T10:10:05Z, core pods, data rw, api)
+HEALTH-GATE: 10:11:06 APPS (excluded from gate): broken-app-5d6b874ccd-wk489 0/1 ImagePullBackOff; 
+HEALTH-GATE: 10:11:06 RESULT mark-good slot=B version=2 after 114s
+##### [05:11:20] QEMU EXIT (poweroff)
+[extra] 195:root@onemind-lab:~# HEALTH-GATE: 09:11:06 K3S-FRESH ok after 114s: ok (fresh: kubelet, heartbeat 2026-11-11T09:10:52Z, core pods, data rw, api)
+[extra] 271:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+[extra] 655:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+[extra] 1032:HEALTH-GATE: 09:18:46 K3S-FRESH ok after 97s: ok (fresh: kubelet, heartbeat 2026-11-11T09:18:02Z, core pods, data rw, api)
+[extra] 1042:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+[extra] 1695:root@onemind-lab:~# HEALTH-GATE: 09:27:59 K3S-FRESH ok after 87s: ok (fresh: kubelet, heartbeat 2026-11-11T09:27:29Z, core pods, data rw, api)
+[extra] 1740:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+[extra] 2388:root@onemind-lab:~# HEALTH-GATE: 09:38:47 K3S-FRESH ok after 106s: ok (fresh: kubelet, heartbeat 2026-11-11T09:38:10Z, core pods, data rw, api)
+[extra] 2433:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+[extra] 3012:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+[extra] 3297:HEALTH-GATE: 09:45:42 K3S-FRESH ok after 111s: ok (fresh: kubelet, heartbeat 2026-11-11T09:45:00Z, core pods, data rw, api)
+[extra] 3307:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+[extra] 3739:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+[extra] 4304:HEALTH-GATE: 09:52:44 K3S-FRESH ok after 74s: ok (fresh: kubelet, heartbeat 2026-11-11T09:52:19Z, core pods, data rw, api)
+[extra] 4315:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+[extra] 4713:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+[extra] 5278:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+[extra] 5676:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+[extra] 6003:HEALTH-GATE: 09:11:06 K3S-FRESH ok after 114s: ok (fresh: kubelet, heartbeat 2026-11-11T09:10:52Z, core pods, data rw, api)
+[extra] 6017:HEALTH-GATE: 09:18:46 K3S-FRESH ok after 97s: ok (fresh: kubelet, heartbeat 2026-11-11T09:18:02Z, core pods, data rw, api)
+[extra] 6052:HEALTH-GATE: 09:27:59 K3S-FRESH ok after 87s: ok (fresh: kubelet, heartbeat 2026-11-11T09:27:29Z, core pods, data rw, api)
+[extra] 6083:HEALTH-GATE: 09:38:47 K3S-FRESH ok after 106s: ok (fresh: kubelet, heartbeat 2026-11-11T09:38:10Z, core pods, data rw, api)
+[extra] 6088:HEALTH-GATE: 09:45:42 K3S-FRESH ok after 111s: ok (fresh: kubelet, heartbeat 2026-11-11T09:45:00Z, core pods, data rw, api)
+[extra] 6095:HEALTH-GATE: 09:52:44 K3S-FRESH ok after 74s: ok (fresh: kubelet, heartbeat 2026-11-11T09:52:19Z, core pods, data rw, api)

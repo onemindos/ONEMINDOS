@@ -1,0 +1,421 @@
+Source: https://foxglove.dev/pricing
+Accessed: 2026-11-11
+
+Pricing | Foxglove
+
+Skip to main content
+
+ Product 
+ Visualization Data Management Fleet Agents 
+ Customers 
+ Customer stories 
+
+Industries 
+ Automotive Defense Manufacturing Logistics & Supply Chain Agriculture & Forestry Marine Construction & Mining 
+Docs
+
+ Resources 
+ Changelog Blog API Reference Example datasets Community Status 
+ Contact Us 
+Pricing
+
+Sign in
+
+Get started for free
+
+Product
+
+ Visualization 
+ Data Management 
+ Fleet 
+ Agents 
+Customers
+
+Customer stories
+
+Industries
+
+ Automotive 
+ Defense 
+ Manufacturing 
+ Logistics & Supply Chain 
+ Agriculture & Forestry 
+ Marine 
+ Construction & Mining 
+Docs
+
+Resources
+
+ Changelog 
+ Blog 
+ API Reference 
+ Example datasets 
+ Community 
+ Status 
+ Contact Us Pricing 
+
+Book a demo
+ Sign in Get started for free 
+ New Agentic data platform Introducing the Agentic Data Platform for Physical AI Read more 
+
+ Pricing 
+
+ Flexible pricing plans for organizations of any size. 
+
+ Free 
+ Perfect for individuals and hobbyists. 
+
+ $0 
+ /month Get started for free 
+
+ Data Platform 10 GB storage 
+
+ Visualization 3 users 
+
+ Fleet Management 5 devices 
+
+ Projects 1 
+
+ Pro 
+ Designed for professional teams scaling from prototype to production. 
+
+ $20 
+ /month + additional usage Get started 
+
+ Data Platform 1 TB storage included
++ additional usage 
+
+ Visualization 
+
+Developer seats include full access to all data sources and visualization features.
+Plan includes unlimited free Basic seats. 3 users included
++ $42/user/mo 
+
+ Fleet Management 
+
+Monthly Active Devices connected to the platform.
+Devices that are not connected or are inactive during the billing cycle are not charged. 5 devices included
++ $20/device/mo 
+
+ Projects 3 
+ Estimate costs 
+
+ Enterprise 
+ Dedicated support, customization, and compliance for large organizations. 
+
+ Custom   Contact us 
+
+ Data Platform Custom 
+
+ Visualization 
+
+Developer seats include full access to all data sources and visualization features.
+Plan includes unlimited free Basic seats. Custom 
+
+ Fleet Management 
+
+Monthly Active Devices connected to the platform.
+Devices that are not connected or are inactive during the billing cycle are not charged. Custom 
+
+ Projects Unlimited 
+
+ Self-hosted data Available 
+
+ Forward-deployed engineers Available 
+
+ Academic 
+ $0 
+
+Students, researchers, and educators can sign up using your .edu or .ac email address to
+ gain access to Foxglove at no cost. Not using an .edu or .ac email address?
+ Contact us.
+ Get started for free 
+
+Included features: 
+ 1 TB storage 
+ Webhooks 
+ 1 TB bandwidth 
+ Personal access tokens 
+ 3 projects 
+ User Scripts 
+ Unlimited users 
+ Timeline 
+ 10 devices 
+ Events 
+ Private extensions 
+
+Leading Physical AI companies build with Foxglove. 
+
+ Compare plans 
+ Free Pro Enterprise 
+
+ Free 
+$0/mo Get started for free 
+ Pro 
+$20/mo + usage Get started 
+ Enterprise 
+Custom Contact us 
+ Data Platform 
+
+ Storage 10 GB 1 TB included + usage Custom 
+
+ Storage region US 🇺🇸
+EU 🇪🇺 US 🇺🇸
+EU 🇪🇺 Any
+(AWS, GCP, Azure) 
+
+ Query 
+
+All data requests (including search and visualization) consume query time. 1 hour 1 hour included + usage Custom 
+
+ Indexing 
+
+Data uploaded or indexed. 100 GB 1 TB included + usage Custom 
+
+ Bandwidth 
+
+Bandwidth is charged for egress only. 100 GB 100 GB included + usage Custom 
+
+ Projects 
+
+Keep data isolated and access controlled by grouping resources into separate workspaces. 1 3 Unlimited 
+
+ Custom device properties 
+
+ Devices 
+
+Group and organize recordings by device.
+Does not include Fleet Management features. 5 Unlimited Unlimited 
+
+ Sessions 
+
+Group and navigate through recordings by session metadata. 
+
+ Events 
+
+Annotate logical time segments with additional metadata. Unlimited Unlimited Unlimited 
+
+ Custom event types 
+
+ Timeline 
+
+View and navigate through recordings using a timeline view. 
+
+ BYO Storage 
+
+Index, search, and visualize data by connecting your existing AWS S3, Google Cloud Storage, or Azure Blob Storage bucket. — — Custom 
+
+ On-premises deployment — — Custom 
+ Visualization 
+
+ Developer Seats 
+
+Developer seats include full access to all data sources and visualization features. 3 3 included,
+then $42/user/mo Custom 
+
+ Basic Seats 
+
+Basic seats are restricted to Foxglove Data Platform and view-only access to visualization layouts. — $0 $0 
+
+ Desktop app 
+
+ 20+ visualization panels 
+
+ Comparison mode 
+
+Load multiple recordings at once and compare them overlaid or side by side. — 
+
+ Personal layouts — Unlimited Unlimited 
+
+ Organization layouts 10 Unlimited Unlimited 
+
+ User scripts 
+
+ Layout version history — 
+
+ Python notebook integration — 
+
+ Embedded (iframe) viewer — 
+ Fleet Management 
+
+ Connected Devices 
+
+Monthly Active Devices connected to the platform.
+Devices that are not connected or are inactive during the billing cycle are not charged. 5 5 included,
+then $20/device/mo Custom 
+
+ Edge data indexing 
+
+ Upload recordings 
+
+ Remote access (teleop) — 300 min/device,
+then $0.05/min Custom 
+ Agents & MCP 
+
+ Agent sidebar 
+
+ Slack agent — 
+
+ AI usage 
+
+Measured by the tokens consumed by LLM requests, across both the agent sidebar and the Slack agent. Included usage is not pooled across users.
+MTok = million tokens. Provider cost = pass-through LLM API cost, billed at cost with no markup. $5/user/mo included $5/user/mo included + usage Custom 
+
+ Local MCP 
+
+Connect your local AI client to Foxglove's local Model Context Protocol (MCP) server to work with your data from your own tools. — 
+ Extensibility 
+
+ REST API 
+
+ Personal access tokens 
+
+Authenticate scripts and tools with the REST API as your own user, instead of an organization API key. — 
+
+ SDK 
+
+ Webhooks — 
+
+ Local extension development 
+
+ Community extensions 
+
+ Organization extensions — 
+
+ Local data loaders 
+
+Add support for reading custom file types via WASM. 
+
+ Remote data loaders 
+
+Add support for any upstream data source with custom authentication. — — 
+ Security & Compliance 
+
+ Email authentication 
+
+ Google SSO 
+
+ Microsoft SSO 
+
+ Custom OIDC 
+
+Add support for Okta, Microsoft Entra ID, or other OIDC-compatible identity provider. — — 
+
+ Enforce single sign-on — — 
+
+ New member approval — — 
+
+ SOC 2 
+
+SOC 2 report available in the Trust Center at trust.foxglove.ai. — 
+
+ Audit logs — — 
+ Support & Billing 
+
+ Email support 
+
+ Discord community 
+
+ Private Slack / Teams support — — 
+
+ Customer success engineer — — 
+
+ Forward-deployed engineers — — Custom 
+
+ Annual contract — — 
+
+ Cost calculator 
+
+ Developer seats 
+ Devices 
+
+ Data Platform 
+
+ Storage (TB) 
+
+ Query (hours) 
+
+ Indexing (TB) 
+
+ Bandwidth (TB) 
+
+Estimated Monthly Costs 
+
+ Pro base $20 
+
+ Total $0 
+
+Contact us
+
+Get started
+
+Planning $10k+/mo usage?
+
+Contact us for annual commit pricing tailored to your needs.
+
+Contact us
+
+ Not sure which plan to pick? 
+
+Discuss Enterprise needs with us, learn about custom pricing, or get a demo.
+ Contact us 
+
+ FAQ 
+ Can I try Foxglove for free? 
+
+Yes, absolutely. Foxglove's free plan is available to everyone and will remain free forever. Are academic discounts available to students and researchers? 
+
+Yes. Students, professors, and researchers alike—anyone using Foxglove for academic purposes—can access Foxglove free of charge. Invite your entire lab or team, leverage the data platform, and take advantage of all Foxglove features to help advance the robotics community at large. Can Foxglove be used for my particular robotics application? 
+
+Most likely, yes. Foxglove supports a wide range of data formats and offers several connection options, including the ability to use local files with no internet connectivity. Foxglove's extensibility also allows you to build bespoke panels, convert custom messages, alias topic names, and configure layouts to suit your unique needs. For more details about connection options and supported data formats, read the documentation at docs.foxglove.dev/docs/connecting-to-data/introduction. What data formats does Foxglove support? 
+
+Foxglove natively supports MCAP, ROS 1, ROS 2, and custom formats like Protobuf, JSON, or FlatBuffers, using an encoding-agnostic WebSocket connection or a local or remote MCAP file. What development workflows can Foxglove help my team with? 
+
+Foxglove's primary use cases include multimodal data visualization and management. Visualizing all your robotic data on a single screen enables you to troubleshoot and debug issues more quickly. Managing data through Foxglove's connections and platform creates seamless development loops: while your robot operates and records data, you identify issues, make improvements, redeploy, and repeat. Are data recordings uploaded to Foxglove secure? 
+
+Yes, absolutely. Foxglove enforces HTTPS on all connections, encrypts data in transit with TLS 1.2, and secures data at rest with AES 256-bit encryption. Foxglove also uses single sign-on (SSO) and Security Assertion Markup Language (SAML) for secure authentication. Additionally, Foxglove is SOC 2 Type II certified and General Data Protection Regulation (GDPR) compliant. For more information about Foxglove's security standards, view the security page at foxglove.dev/security. How long does it take to integrate and start using the Foxglove platform? 
+
+You can start using the Foxglove platform instantly. Simply drag .bag or .mcap files onto the screen to begin visualizing your data. Connecting to your robot is just as easy—use a WebSocket, the Foxglove Rosbridge, or Foxlet. Do I need to sign up for a paid plan for my team to use Foxglove? 
+
+Not if your team has 3 or fewer developer seats. If your team needs more seats, you will need to sign up for the Pro plan to continue using Foxglove. How can I unsubscribe from Pro plans? 
+
+Pro plans are month-to-month and can be canceled at any time. 
+
+Start building with Foxglove.
+
+Get started for free
+
+The agentic data platform for Physical AI
+
+Product 
+ Visualization 
+ Data Management 
+ Fleet 
+ MCAP 
+ Integrations 
+ Extensibility 
+ Pricing 
+
+Company 
+ About Us 
+ Customers 
+ Careers 
+ Media Kit 
+ Community 
+ Actuate 
+ Contact Us 
+
+Resources 
+ Documentation 
+ Changelog 
+ Blog 
+ Status 
+ Security 
+ Trust Center 
+ API Reference 
+ Why Foxglove? 
+ Desktop app 
+
+© 2026 Foxglove Technologies, Inc.
+
+ Privacy Policy Terms of Service Data Processing Addendum Cookie Settings Trust Center

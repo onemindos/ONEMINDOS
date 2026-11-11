@@ -1,0 +1,10 @@
+Source: https://download.kiwix.org/zim/ directory listings (fetched 2026-11-11), lines kept verbatim
+wikipedia_en_all_maxi_2026-02.zim             2026-02-26 02:08  115G
+wikipedia_en_all_maxi_2026-08.zim             2026-09-08 18:38  119G
+wikipedia_en_all_mini_2026-06.zim             2026-06-18 13:38   12G
+wikipedia_en_all_mini_2026-09.zim             2026-09-17 04:44   13G
+wikipedia_en_all_nopic_2026-03.zim            2026-03-28 00:38   48G
+wikipedia_en_all_nopic_2026-06.zim            2026-06-26 09:02   49G
+khanacademy_en_all_2023-03.zim                             2023-03-27 15:10  168G
+gutenberg_en_all_2025-11.zim    2025-11-26 19:31  206G
+phet_en_all_2026-08.zim    2026-08-25 08:54  104M

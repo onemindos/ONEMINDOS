@@ -1,0 +1,505 @@
+Source: https://docs.formant.io/llms.txt
+Accessed: 2026-11-11
+
+# Formant Documentation
+
+> The Formant software platform allows companies to run fleets of robots or advanced connected devices, and implements workflows in remote monitoring, interventions, data management, teleoperation, tech-support investigations, and business analysis. It also provides the extensible cloud infrastructure that can be built upon to create custom robot management experiences.
+
+## Documentation: Getting started with formant
+- [Overview](https://docs.formant.io/docs/getting-started-overview.md)
+- [System requirements](https://docs.formant.io/docs/system-requirements.md)
+- [Receiving the introductory email](https://docs.formant.io/docs/getting-started-receiving-the-introductory-email.md)
+- [Setting up your device](https://docs.formant.io/docs/getting-started-setting-up-your-device.md)
+  - [Create a device](https://docs.formant.io/docs/getting-started-create-a-device.md)
+  - [Install the Formant agent via Docker (ROS 2)](https://docs.formant.io/docs/getting-started-install-agent-docker-ros-2.md)
+  - [Install the Formant agent via Docker (ROS1)](https://docs.formant.io/docs/getting-started-install-the-formant-agent-via-docker.md): Install the Formant agent on a ROS1 device with Docker, including provisioning, updates, image tags, and extra Docker arguments.
+  - [Install the Formant agent for Debian](https://docs.formant.io/docs/getting-started-install-the-formant-agent.md)
+  - [Delete a device](https://docs.formant.io/docs/getting-started-delete-a-device.md)
+- [Ingesting telemetry data](https://docs.formant.io/docs/getting-started-ingesting-telemetry-data.md)
+  - [Add a ROS topic stream](https://docs.formant.io/docs/getting-started-add-a-ros-topic-stream.md)
+  - [Add a ROS localization stream](https://docs.formant.io/docs/getting-started-add-a-ros-localization-stream.md)
+  - [Add a ROS transform tree stream](https://docs.formant.io/docs/getting-started-add-a-ros-transform-tree-stream.md)
+  - [Add a non-ROS data stream](https://docs.formant.io/docs/getting-started-add-a-non-ros-data-stream.md)
+  - [Add a video stream](https://docs.formant.io/docs/getting-started-add-a-video-stream.md)
+  - [Add a file tail stream](https://docs.formant.io/docs/getting-started-add-a-file-tail-stream.md)
+  - [Add a directory watch stream](https://docs.formant.io/docs/getting-started-add-a-directory-watch-stream.md)
+  - [Configure a stream](https://docs.formant.io/docs/configure-a-stream.md)
+  - [Configure stream ingestion rate](https://docs.formant.io/docs/configure-stream-rate.md)
+  - [How telemetry streams work](https://docs.formant.io/docs/how-telemetry-streams-work.md)
+  - [Default streams](https://docs.formant.io/docs/default-streams.md)
+  - [On-demand streams](https://docs.formant.io/docs/on-demand-streams.md)
+  - [Orientation and Altitude](https://docs.formant.io/docs/orientation-and-altitude.md)
+- [Viewing data in Formant](https://docs.formant.io/docs/getting-started-viewing-data-in-formant.md)
+  - [The overview page](https://docs.formant.io/docs/getting-started-the-overview-page.md)
+  - [The device sidebar](https://docs.formant.io/docs/getting-started-device-sidebar.md)
+  - [The timeline](https://docs.formant.io/docs/getting-started-the-timeline.md)
+  - [Views and modules](https://docs.formant.io/docs/getting-started-views-and-modules.md)
+    - [Create a view and add modules](https://docs.formant.io/docs/getting-started-create-a-view-and-add-modules.md)
+      - [Heatmap overlay for the Map module](https://docs.formant.io/docs/getting-started-map-heatmap-overlay.md): Visualize where a robot dwells or stops using the built-in heatmap overlay on the Map module.
+  - [Events and notifications](https://docs.formant.io/docs/getting-started-events-and-notifications.md)
+    - [Create an event and configure notifications](https://docs.formant.io/docs/getting-started-create-an-event-and-configure-notifications.md)
+    - [Create a custom event](https://docs.formant.io/docs/getting-started-create-a-custom-event.md)
+  - [Annotations and annotation templates](https://docs.formant.io/docs/annotations.md)
+  - [Multi-device observability](https://docs.formant.io/docs/getting-started-multi-device-observability.md)
+- [Commands](https://docs.formant.io/docs/getting-started-commands.md)
+  - [Create a command template](https://docs.formant.io/docs/getting-started-create-a-command.md)
+  - [Issue a command](https://docs.formant.io/docs/getting-started-issue-a-command.md)
+  - [Schedule a command](https://docs.formant.io/docs/getting-started-schedule-a-command.md)
+  - [Intervention requests](https://docs.formant.io/docs/intervention-requests.md)
+- [Teleoperation](https://docs.formant.io/docs/getting-started-teleoperation.md)
+  - [Set up real-time connections](https://docs.formant.io/docs/getting-started-set-up-real-time-connections.md)
+  - [Build a teleoperation interface](https://docs.formant.io/docs/getting-started-build-a-teleoperation-interface.md)
+  - [Add a URDF file](https://docs.formant.io/docs/urdf.md)
+- [Setting up your Formant organization](https://docs.formant.io/docs/getting-started-setting-up-your-formant-organization.md)
+  - [Configure access levels](https://docs.formant.io/docs/getting-started-configure-access-levels.md)
+    - [Create and apply tags](https://docs.formant.io/docs/getting-started-create-and-apply-tags.md)
+  - [Users, roles, and teams](https://docs.formant.io/docs/getting-started-users-roles-and-teams.md)
+    - [Create a user](https://docs.formant.io/docs/getting-started-create-a-user.md)
+    - [Create a custom role](https://docs.formant.io/docs/getting-started-create-a-custom-role.md)
+    - [Create a team](https://docs.formant.io/docs/getting-started-create-a-team.md)
+    - [Create a service account](https://docs.formant.io/docs/getting-started-create-a-service-account.md)
+  - [Protect your users' Personally Identifiable Information (PII)](https://docs.formant.io/docs/protect-your-users-personally-identifiable-information-pii.md)
+- [Fleet management](https://docs.formant.io/docs/getting-started-fleet-management.md)
+  - [Create a device configuration template](https://docs.formant.io/docs/getting-started-create-a-configuration-template.md)
+  - [Create a device group](https://docs.formant.io/docs/getting-started-create-a-device-group.md)
+  - [Create a channel](https://docs.formant.io/docs/getting-started-create-a-channel.md)
+
+## Documentation: The Formant Agent
+- [The Formant agent](https://docs.formant.io/docs/the-formant-agent.md)
+- Advanced agent provisioning
+  - [Install the Formant agent via Apt](https://docs.formant.io/docs/install-formant-agent-apt.md)
+  - [Re-provisioning an agent](https://docs.formant.io/docs/re-provisioning-an-agent.md)
+  - [Bulk provisioning](https://docs.formant.io/docs/bulk-provisioning.md)
+  - [Automated provisioning](https://docs.formant.io/docs/automated-provisioning.md)
+- [Video encoding with the Formant agent](https://docs.formant.io/docs/video-encoding.md)
+  - [Reduce bandwidth in constrained situations](https://docs.formant.io/docs/faq-reduce-bandwidth-in-constrained-situations.md)
+  - [Bypass Formant video encoder](https://docs.formant.io/docs/faq-bypass-formant-video-encoder.md)
+  - [Video no longer ingesting](https://docs.formant.io/docs/troubleshooting-video-no-longer-ingesting.md)
+  - [Video performing poorly](https://docs.formant.io/docs/troubleshooting-video-performing-poorly.md)
+  - [Generate media encoder logs](https://docs.formant.io/docs/faq-generate-media-encoder-logs.md)
+  - [Images black, glitchy, out of order when ingesting pre-encoded video](https://docs.formant.io/docs/troubleshooting-images-black-glitchy-out-of-order-when-ingesting-pre-encoded-video.md)
+- [Environment variables for the agent](https://docs.formant.io/docs/environment-variables-for-the-agent.md)
+- [Terminal and port forwarding security](https://docs.formant.io/docs/terminal-and-port-forwarding-security.md)
+- [Set custom directories for agent data operations](https://docs.formant.io/docs/set-custom-directories-for-agent-data-operations.md)
+- [Agent FAQ](https://docs.formant.io/docs/agent-faq.md)
+
+## Documentation: Formant Analytics
+- [Analytics overview](https://docs.formant.io/docs/analytics.md)
+- [Create an Analytics view and add modules](https://docs.formant.io/docs/create-an-analytics-view-and-add-modules.md)
+- [Custom SQL queries in Formant Analytics](https://docs.formant.io/docs/custom-sql-queries-for-analytics.md)
+  - [Query events in Analytics](https://docs.formant.io/docs/query-events-in-analytics.md)
+  - [Query datapoints in Analytics](https://docs.formant.io/docs/query-datapoints-in-analytics.md)
+  - [Querying entities in Analytics](https://docs.formant.io/docs/querying-entities-in-analytics.md)
+- [Task summaries](https://docs.formant.io/docs/task-summaries.md)
+  - [Create a task summary](https://docs.formant.io/docs/create-a-task-summary.md)
+- FAQs & troubleshooting
+  - [Data not showing up in Formant Analytics](https://docs.formant.io/docs/troubleshooting-data-not-showing-up-in-formant-analytics.md)
+
+## Documentation: Embedded views
+- [Embedded views](https://docs.formant.io/docs/embedded-views.md)
+- [Embed a Formant view in an external site](https://docs.formant.io/docs/embed-a-formant-view-in-an-external-site.md)
+- [Publish a module](https://docs.formant.io/docs/publish-a-module.md)
+- [Custom CSS variables](https://docs.formant.io/docs/custom-theme.md)
+- [Teleoperate from an embedded view](https://docs.formant.io/docs/teleoperate-from-embedded-view.md)
+
+## Documentation: Legacy experience
+- [Overview](https://docs.formant.io/docs/legacy-experience-overview.md)
+- [Create a view and add modules](https://docs.formant.io/docs/legacy-create-view-add-modules.md)
+- [The overview page](https://docs.formant.io/docs/legacy-overview-page.md)
+- [Teleoperation](https://docs.formant.io/docs/legacy-teleoperation.md)
+  - [Telemetry vs. realtime data streams](https://docs.formant.io/docs/getting-started-telemetry-vs-realtime-data-streams.md)
+  - [Add a teleoperation image stream](https://docs.formant.io/docs/legacy-teleoperation-image-stream.md)
+  - [Add a real-time numeric stream](https://docs.formant.io/docs/legacy-real-time-numeric.md)
+  - [Add a mouse click stream](https://docs.formant.io/docs/legacy-mouse-click-stream.md)
+  - [Add an audio stream](https://docs.formant.io/docs/legacy-audio-stream.md)
+  - Configure joystick control
+    - [Joystick: Twist messages](https://docs.formant.io/docs/legacy-joystick-twist.md)
+    - [Joystick: Joy messages](https://docs.formant.io/docs/legacy-joystick-joy.md)
+  - [Add a joint states stream](https://docs.formant.io/docs/legacy-joint-states-stream.md)
+  - [Add a point cloud stream](https://docs.formant.io/docs/legacy-point-cloud-stream.md)
+  - [Add a realtime odometry stream](https://docs.formant.io/docs/legacy-realtime-odometry-stream.md)
+  - [Add buttons to your teleoperation interface](https://docs.formant.io/docs/legacy-buttons-teleoperation-interface.md)
+  - [Configure localization for teleoperation](https://docs.formant.io/docs/legacy-localization-stream.md)
+  - [Add a relocalization stream](https://docs.formant.io/docs/legacy-relocalization-stream.md)
+  - [Localization and relocalization workflows](https://docs.formant.io/docs/legacy-relocalization-workflow.md)
+  - [Create a teleoperation interface](https://docs.formant.io/docs/legacy-teleoperation-interface.md)
+  - [Monitor network statistics during teleoperation](https://docs.formant.io/docs/legacy-network-statistics-during-teleoperation.md)
+
+## Documentation: Advanced modules
+- [Overview](https://docs.formant.io/docs/views-and-modules-overview.md)
+- [3D scene module](https://docs.formant.io/docs/3d-scene-module.md)
+  - [Add and configure a 3D Scene module](https://docs.formant.io/docs/3d-scene-configuration.md)
+  - [Plan a mission](https://docs.formant.io/docs/plan-a-mission.md)
+  - [Marker arrays in the Scene module](https://docs.formant.io/docs/marker-arrays-in-the-scene-module.md)
+  - [Develop custom 3D Scene maps and layers](https://docs.formant.io/docs/develop-custom-3d-viewer-layers.md)
+- [Command buttons module](https://docs.formant.io/docs/command-buttons-module.md)
+- [Heatmap module](https://docs.formant.io/docs/heatmap-module.md)
+- [Realtime video module](https://docs.formant.io/docs/realtime-video-module.md)
+- [ROS diagnostic message module](https://docs.formant.io/docs/ros-diagnostic-message-module.md)
+- [Stream last value table module](https://docs.formant.io/docs/stream-last-value-table-module.md)
+- [Terminal module](https://docs.formant.io/docs/terminal-module.md)
+- [Add a custom module](https://docs.formant.io/docs/add-a-custom-module.md)
+
+## Documentation: Identity and Access Management (IAM)
+- Single sign-on
+  - [Configure Google SSO](https://docs.formant.io/docs/configure-google-sso.md)
+  - [Configure OpenID Connect (OIDC) SSO](https://docs.formant.io/docs/configure-openid-connect-oidc-sso.md)
+- [Audit changes to your Formant organization](https://docs.formant.io/docs/audit-changes-to-your-formant-organization.md)
+
+## Documentation: Build a custom portal
+- [Build a white-labeled robotics interface](https://docs.formant.io/docs/build-a-white-labeled-robotics-interface.md)
+- [Create a custom workflow email template](https://docs.formant.io/docs/create-a-custom-workflow-email-template.md)
+
+## Documentation: Applying Formant
+- [Incident management](https://docs.formant.io/docs/incident-management.md)
+- [Fleet observability](https://docs.formant.io/docs/fleet-observability.md)
+
+## Documentation: Advanced Telemetry Guide
+- Data ingestion from anywhere
+  - [Ingest from the Cloud SDK](https://docs.formant.io/docs/ingest-from-the-python-cloud-sdk.md)
+  - [Ingest from Capture](https://docs.formant.io/docs/ingest-from-capture.md)
+  - [Ingest from SMS](https://docs.formant.io/docs/ingest-from-sms.md)
+  - [Ingest from fctl](https://docs.formant.io/docs/ingest-from-the-fctl-command-line-tool.md)
+- [Data visualization](https://docs.formant.io/docs/visualizing-data-in-formant.md)
+  - [Default visualization types](https://docs.formant.io/docs/default-data-visualization-types.md)
+  - [Custom views](https://docs.formant.io/docs/custom-web-views.md)
+- [Telemetry streams FAQ](https://docs.formant.io/docs/telemetry-streams-faq.md)
+- Data export
+  - [How data export works](https://docs.formant.io/docs/how-data-export-works.md)
+  - [From the web application](https://docs.formant.io/docs/exporting-data-from-the-web-application.md)
+  - [Using the Cloud SDK](https://docs.formant.io/docs/data-export-with-the-python-cloud-sdk.md)
+  - [Export to Google Sheets](https://docs.formant.io/docs/google-sheets-export.md)
+  - [Export to AWS S3](https://docs.formant.io/docs/export-to-aws-s3.md)
+  - [Export to local machine](https://docs.formant.io/docs/export-to-local-machine-1.md)
+- [Data FAQ](https://docs.formant.io/docs/data-faq.md)
+- Data share
+  - [Share with external users](https://docs.formant.io/docs/share-to-external-users.md)
+  - [Deep Linking - Share with Formant users](https://docs.formant.io/docs/share-with-other-formant-users.md)
+- [Adapters](https://docs.formant.io/docs/adapters.md)
+  - [Add an adapter](https://docs.formant.io/docs/add-an-adapter.md)
+  - [ROS 2 Adapter](https://docs.formant.io/docs/ros-2-adapter.md)
+    - [ROS 2 Getting Started Guide](https://docs.formant.io/docs/ros2-getting-started-guide.md): Learn the essentials of using Formant in your ROS2 enviroment
+  - [JSON decomposition adapter](https://docs.formant.io/docs/json-decomposition-adapter.md)
+  - [ROS service adapter](https://docs.formant.io/docs/ros-service-adapter.md)
+  - [ZeroMQ adapter](https://docs.formant.io/docs/zeromq-adapter.md)
+
+## Documentation: Advanced Teleoperation Guide
+- [Introduction](https://docs.formant.io/docs/advanced-teleoperation-introduction.md)
+- [Sending more than two images](https://docs.formant.io/docs/sending-more-than-two-images-over-webrtc.md)
+- [Handle disconnections safely](https://docs.formant.io/docs/handle-disconnections-safely.md)
+- [Adding a custom view to the sidebar](https://docs.formant.io/docs/adding-a-custom-view-to-the-sidebar.md)
+
+## Documentation: Working with the Formant app
+- [Upload files to Formant Cloud](https://docs.formant.io/docs/uploading-files-to-formant-cloud.md)
+- [Hot keys](https://docs.formant.io/docs/hot-keys.md)
+
+## Documentation: Integrations
+- [Overview](https://docs.formant.io/docs/integrations-overview.md)
+- [Send events to PagerDuty](https://docs.formant.io/docs/send-events-to-pagerduty.md)
+- [Trigger webhooks from events](https://docs.formant.io/docs/trigger-webhooks-from-events.md)
+- [Send events to Slack](https://docs.formant.io/docs/send-events-to-slack.md)
+- [Integrate with Google Sheets](https://docs.formant.io/docs/integrate-with-google-sheets.md)
+- [Event-triggered SMS alerts](https://docs.formant.io/docs/event-triggered-sms-alerts.md)
+
+## Documentation: Tutorials
+- [Install docker-based TurtleBot3 simulator](https://docs.formant.io/docs/install-docker-based-turtlebot3-simulator.md)
+- [Assign v4l2 device a static name](https://docs.formant.io/docs/assign-v4l2-device-a-static-name.md)
+- [Video: Custom Teleoperation View](https://docs.formant.io/docs/video-custom-teleoperation-view.md)
+
+## Documentation: FAQ & Troubleshooting
+- [Overview](https://docs.formant.io/docs/troubleshooting-faq-overview.md)
+- Telemetry
+  - FAQs
+    - [Handling text logs in Formant](https://docs.formant.io/docs/faq-handling-text-logs-in-formant.md)
+    - [Hardware acceleration of video encoding without Jetson GPU](https://docs.formant.io/docs/faq-hardware-acceleration-of-video-encoding-without-jetson-gpu.md)
+    - [Overlay timestamp on video](https://docs.formant.io/docs/faq-overlay-timestamp-on-video.md)
+    - [Change ROS workspace URI for agent after installation](https://docs.formant.io/docs/faq-change-ros-workspace-uri-for-agent-after-installation.md)
+    - [Add GeoJSON information to a location module](https://docs.formant.io/docs/faq-add-geojson-information-to-a-location-module.md)
+    - [Latency of Formant features](https://docs.formant.io/docs/faq-latency-of-formant-features.md)
+    - [Reduce the density of point cloud data](https://docs.formant.io/docs/reduce-the-density-of-point-cloud-data.md)
+    - [Create view of a particular stream from all devices in a group](https://docs.formant.io/docs/faq-create-view-of-a-particular-stream-from-all-devices-in-a-group.md)
+    - [Visualize a numeric without a chart](https://docs.formant.io/docs/faq-visualize-a-numeric-without-a-chart.md)
+    - [Does map consume bandwidth even though ROS topic is not updating?](https://docs.formant.io/docs/faq-does-map-consume-bandwidth-ros-topic-not-updating.md)
+    - [Change time zone in observability](https://docs.formant.io/docs/faq-change-time-zone-in-observability.md)
+    - [Resize and reorder modules in a device view](https://docs.formant.io/docs/faq-resize-and-reorder-modules-in-a-device-view.md)
+  - Troubleshooting
+    - [Module shows “Seek” even though data is ingested](https://docs.formant.io/docs/troubleshooting-module-shows-seek-data-ingested.md)
+    - [Cannot add multiple topics to a stream](https://docs.formant.io/docs/troubleshooting-cannot-add-multiple-topics-to-a-stream.md)
+    - [ROS topic cannot be ingested as both image and video](https://docs.formant.io/docs/troubleshooting-ros-topic-cannot-be-ingested-as-both-image-and-video.md)
+    - [Cannot access directory watch files](https://docs.formant.io/docs/troubleshooting-cannot-access-directory-watch-files.md)
+    - [I don't see ROS data in Formant](https://docs.formant.io/docs/troubleshooting-dont-see-ros-data.md)
+- Teleoperation
+  - FAQs
+    - [Use formant.run_script in teleop](https://docs.formant.io/docs/faq-use-formantrun_script-in-teleop.md)
+    - [Difference in video quality between telemetry and teleoperation](https://docs.formant.io/docs/faq-difference-in-video-quality-between-telemetry-and-teleoperation.md)
+    - [Stamp twist data](https://docs.formant.io/docs/faq-stamp-twist-data.md)
+  - Troubleshooting
+    - [Issues connecting to device via teleop](https://docs.formant.io/docs/troubleshooting-issues-connecting-to-device-via-teleop.md)
+    - [RTSP camera not working](https://docs.formant.io/docs/troubleshooting-rtsp-camera-not-working.md)
+- Formant web app
+  - FAQs
+    - [Supported browser](https://docs.formant.io/docs/faq-supported-browser.md)
+    - [Searching events](https://docs.formant.io/docs/faq-searching-events.md)
+    - [Logout due to inactivity](https://docs.formant.io/docs/faq-logout-due-to-inactivity.md)
+    - [Send a text message from Formant with more data](https://docs.formant.io/docs/faq-send-a-text-message-from-formant-with-more-data.md)
+    - [Disable and remove notifications for old interventions](https://docs.formant.io/docs/faqs-disable-and-remove-notifications-for-old-interventions.md)
+    - [Enable command buttons only during interventions](https://docs.formant.io/docs/faq-enable-command-buttons-only-during-interventions.md)
+    - [Create annotation when template does not exist](https://docs.formant.io/docs/faq-create-annotation-when-template-does-not-exist.md)
+    - [Pull reports from Formant](https://docs.formant.io/docs/faq-pull-reports-from-formant.md)
+    - [Exporting asset data to external cloud storage](https://docs.formant.io/docs/exporting-asset-data-to-external-cloud-storage.md)
+  - Troubleshooting
+    - [Position layer is at 0 in 3D Scene module](https://docs.formant.io/docs/troubleshooting-position-layer-is-at-0-in-3d-scene-module.md)
+    - [Scheduled command sends unexpected parameter](https://docs.formant.io/docs/troubleshooting-scheduled-command-sends-unexpected-parameter.md)
+    - [Overview page: map displays devices in wrong location](https://docs.formant.io/docs/troubleshooting-overview-page-map-devices-wrong-location.md)
+    - [Value does not persist in view despite 'persist last known value'](https://docs.formant.io/docs/troubleshooting-value-does-not-persist-in-view.md)
+    - [Can't export images, video, JSON via Google Cloud Platform integration](https://docs.formant.io/docs/troubleshooting-cant-export-images-video-json-via-google-cloud-platform-integration.md)
+    - [Export Events not working](https://docs.formant.io/docs/troubleshooting-export-events-not-working.md)
+    - [Can't mark notifications as read](https://docs.formant.io/docs/troubleshooting-cant-mark-notifications-as-read.md)
+    - [3D Scene: Only first field in marker array rendered](https://docs.formant.io/docs/troubleshooting-only-first-field-marker-array-scene.md)
+    - [3D Scene: Realtime odometry doesn't work in teleop](https://docs.formant.io/docs/troubleshooting-3d-scene-realtime-odometry-doesnt-work-in-teleop.md)
+    - [Cannot delete group](https://docs.formant.io/docs/troubleshooting-cannot-delete-group.md)
+- Formant agent
+  - FAQs
+    - [Link roslaunch with Docker](https://docs.formant.io/docs/faq-link-roslaunch-with-docker.md)
+    - [Does the agent restart adapters?](https://docs.formant.io/docs/faq-does-the-agent-restart-adapters.md)
+    - [Device states](https://docs.formant.io/docs/faq-device-states.md)
+  - Troubleshooting
+    - [Troubleshooting an agent installation](https://docs.formant.io/docs/troubleshooting-an-agent-installation.md)
+    - [Generate Formant agent logs](https://docs.formant.io/docs/troubleshooting-generate-formant-agent-logs.md)
+    - [Datapoint not being uploaded](https://docs.formant.io/docs/troubleshooting-datapoint-not-being-uploaded.md)
+    - [Error: context deadline exceeded](https://docs.formant.io/docs/troubleshooting-error-context-deadline-exceeded.md)
+    - [ImportError in Formant agent log: cannot import name 'cygrpc' from 'grpc._cython'](https://docs.formant.io/docs/troubleshooting-importerror-cannot-import-name-cygrpc-from-grpc_cython.md)
+    - [Error installing or uninstalling agent: mv: cannot stat '/usr/lib/formant/sidecar/sudoers.d/formant': No such file or directory dpkg: error processing package formant-sidecar (--configure):](https://docs.formant.io/docs/troubleshooting-mv-cannot-stat-usrlibformantsidecarsudoersdformant-no-such-file-or-directory-dpkg-error-processing-package-formant-sidecar-configure.md)
+    - [Formant agent occupies port 9090](https://docs.formant.io/docs/troubleshooting-formant-agent-occupies-port-9090.md)
+    - [Cannot connect to Formant agent on different network](https://docs.formant.io/docs/troubleshooting-cannot-connect-agent-different-network.md)
+    - [Error invoking Docker in Formant terminal](https://docs.formant.io/docs/troubleshooting-error-docker-formant-terminal.md)
+    - [Expired key incident](https://docs.formant.io/docs/expired-key-incident.md)
+- APIs & SDKs
+  - FAQs
+    - [Programmatically update tags on a device](https://docs.formant.io/docs/faq-programmatically-update-tags-on-a-device.md)
+    - [Forward a local web page or port to your client device](https://docs.formant.io/docs/faq-forward-a-local-web-page-or-port-to-your-client-device.md)
+    - [Add dropdown to selection intervention request](https://docs.formant.io/docs/faq-add-dropdown-to-selection-intervention-request.md)
+    - [Get the name of a user's role using the Admin API](https://docs.formant.io/docs/faq-get-the-name-of-a-users-role-using-the-admin-api.md)
+  - Troubleshooting
+    - [post_text data gets truncated](https://docs.formant.io/docs/troubleshooting-post-text-data-gets-truncated.md)
+    - [Using getLatestTelemetry in Data SDK isn't updating](https://docs.formant.io/docs/troubleshooting-using-getlatesttelemetry-in-data-sdk-isnt-updating.md)
+    - [Error 422 when creating device with fctl](https://docs.formant.io/docs/error-422-when-creating-device-with-fctl.md)
+    - [Cloud SDK not always returning all info](https://docs.formant.io/docs/troubleshooting-cloud-sdk-not-always-returning-all-info.md)
+    - [Timeout error during SSH via fctl](https://docs.formant.io/docs/troubleshooting-timeout-error-during-ssh-via-fctl.md): Troubleshoot timeout errors, WebRTC data-channel failures, and repeated TURN CreatePermission messages when connecting to a robot with SSH via fctl.
+
+## APIs & SDKs: Overview
+- [Formant API & SDK Overview](https://docs.formant.io/reference/api-sdk-overview.md)
+
+## APIs & SDKs: Agent SDK
+- [Agent SDK installation and overview](https://docs.formant.io/reference/agent-sdk-installation-and-overview.md)
+- Telemetry data ingestion
+  - [Ingesting basic datapoints](https://docs.formant.io/reference/sending-basic-datapoints.md)
+  - [Managing datapoint throttling](https://docs.formant.io/reference/managing-datapoint-throttling.md)
+  - [Charting numeric data](https://docs.formant.io/reference/charting-numeric-data.md)
+- [Streaming image and video data](https://docs.formant.io/reference/sending-image-datapoints.md)
+- Teleop
+  - [Handling teleop command streams](https://docs.formant.io/reference/integrating-with-formant-teleop.md)
+  - [Sending teleop observe streams](https://docs.formant.io/reference/sending-teleop-observe-streams.md)
+  - [Example of sending and receiving data](https://docs.formant.io/reference/example.md)
+  - [Receiving teleop heartbeats](https://docs.formant.io/reference/receiving-formant-teleop-heartbeats.md)
+  - [Teleop Button Status](https://docs.formant.io/reference/teleop-button-status.md)
+- [Handling commands](https://docs.formant.io/reference/handling-commands.md)
+- [Creating events](https://docs.formant.io/reference/creating-events.md)
+- [Reading application configuration](https://docs.formant.io/reference/reading-application-configuration.md)
+- [Buffering and retrying API calls](https://docs.formant.io/reference/buffering-and-retrying-api-calls.md)
+- [Use the Formant agent to authenticate API calls](https://docs.formant.io/reference/use-the-formant-agent-to-authenticate-api-calls.md)
+- [Agent SDK reference](https://docs.formant.io/reference/agent-sdk-reference.md)
+- [Troubleshooting](https://docs.formant.io/reference/agent-sdk-troubleshooting.md)
+  - [Detect if agent is unable to upload data](https://docs.formant.io/reference/agent-sdk-faqs-detect-agent-unable-to-upload.md)
+- [Protos](https://docs.formant.io/reference/agent-sdk-protos.md)
+
+## APIs & SDKs: Cloud SDK
+- [Cloud SDK installation and overview](https://docs.formant.io/reference/cloud-sdk-installation-and-overview.md)
+- [Cloud SDK reference](https://docs.formant.io/reference/cloud-sdk-reference.md)
+- [Troubleshooting](https://docs.formant.io/reference/cloud-sdk-troubleshooting.md)
+
+## APIs & SDKs: Web Toolkit
+- [Web Toolkit Overview](https://docs.formant.io/reference/web-toolkit-overview.md): SDKs and prebuilt components to create your own views or interactions with any device
+- [Data SDK](https://docs.formant.io/reference/data-sdk-1.md)
+  - [A tour of the Data SDK](https://docs.formant.io/reference/data-sdk-tour.md): This page gives an overview of some key capabilities with the Javascript Data SDK
+  - [Intermodule Communication](https://docs.formant.io/reference/intermodule-communication.md): A method that allows modules in a custom view to communicate with each other.
+  - [Real-Time Connections with WebRTC](https://docs.formant.io/reference/create-a-real-time-connection.md)
+  - [Connect over a local network](https://docs.formant.io/reference/data-sdk-connect-over-a-local-network.md)
+  - [Build a React Native app with Formant functionality](https://docs.formant.io/reference/data-sdk-build-a-react-native-app-with-formant-functionality.md)
+  - [Build a Node.js app with Formant functionality](https://docs.formant.io/reference/build-a-nodejs-app-with-formant-functionality.md)
+- [UI SDK](https://docs.formant.io/reference/ui-toolkit.md)
+  - [Adding a custom view to Formant](https://docs.formant.io/reference/adding-a-custom-view.md)
+  - [URL Query Parameters](https://docs.formant.io/reference/url-query-parameters.md)
+- [SDK Versions, Distributions, Changelogs, and Licensing](https://docs.formant.io/reference/sdk-versions-distributions-changelogs-and-licensing.md)
+
+## APIs & SDKs: fctl
+- [fctl overview and installation](https://docs.formant.io/reference/fctl-overview-and-installation.md)
+- [SSH to your robot via fctl](https://docs.formant.io/reference/ssh-to-your-robot-via-fctl.md)
+- [Port forwarding via fctl](https://docs.formant.io/reference/port-forwarding-via-fctl.md)
+- [File transfer over Secure Copy Protocol (SCP) via fctl](https://docs.formant.io/reference/file-transfer-over-secure-copy-protocol-scp-via-fctl.md)
+- [Create and configure devices programmatically via fctl](https://docs.formant.io/reference/create-and-configure-devices-programmatically-via-fctl.md)
+- [Create service account using fctl](https://docs.formant.io/reference/create-service-account-using-fctl.md)
+- [Query data via fctl](https://docs.formant.io/reference/query-data-via-fctl.md)
+- [Configure a VPN connection to your robot via SSH](https://docs.formant.io/reference/configure-a-vpn-connection-to-your-robot-via-ssh.md)
+- [Troubleshooting fctl](https://docs.formant.io/reference/troubleshooting-fctl.md)
+
+## APIs & SDKs: SSO
+- [Configure OpenID Connect (OIDC) SSO via API](https://docs.formant.io/reference/configure-openid-connect-oidc-sso-via-api.md)
+
+## APIs & SDKs: Formant admin-api
+- Adapter
+  - [Post](https://docs.formant.io/reference/adaptercontrollerpost.md): Create a new adapter. Resource: integrations Authorized roles: administrator
+  - [List](https://docs.formant.io/reference/adaptercontrollerlist.md): List all adapters for this Formant organization. Resource: integrations Authorized roles: viewer
+- Annotation
+  - [Post](https://docs.formant.io/reference/annotationcontrollerpost.md): Create a new annotation. Resource: annotations Authorized roles: operator, device
+  - [Get one](https://docs.formant.io/reference/annotationcontrollergetone.md): Get an existing annotation by annotation ID. Resource: annotations Authorized roles: viewer, device
+  - [Patch](https://docs.formant.io/reference/annotationcontrollerpatch.md): Update an existing annotation. Resource: annotations Authorized roles: operator, device
+  - [Delete](https://docs.formant.io/reference/annotationcontrollerdelete.md): Delete an annotation. Resource: annotations Authorized roles: operator, device
+- Annotation Template
+  - [Post](https://docs.formant.io/reference/annotationtemplatecontrollerpost.md): Create a new annotation template. Resource: annotations Authorized roles: administrator
+  - [Get one](https://docs.formant.io/reference/annotationtemplatecontrollergetone.md): Get an existing annotation template. Resource: annotations Authorized roles: viewer, device
+  - [Patch](https://docs.formant.io/reference/annotationtemplatecontrollerpatch.md): Update an existing annotation template. Resource: annotations Authorized roles: administrator
+  - [Delete](https://docs.formant.io/reference/annotationtemplatecontrollerdelete.md): Delete an annotation template. Resource: annotations Authorized roles: administrator
+  - [List](https://docs.formant.io/reference/annotationtemplatecontrollerlist.md): List annotation templates in your organization. Resource: annotations Authorized roles: viewer, device
+  - [Query annotation field values](https://docs.formant.io/reference/annotationtemplatecontrollerqueryannotationfieldvalues.md): Query annotation template field values Resource: annotations Authorized roles: viewer, device
+  - [Inspect spreadsheet](https://docs.formant.io/reference/annotationtemplatecontrollerinspectspreadsheet.md): Returns information about the Spreadsheet and its content Resource: annotations Authorized roles: viewer
+- Auth
+  - [Generate an auth token for an embedded view](https://docs.formant.io/reference/generate-auth-token-for-embedded-view.md)
+  - [Login](https://docs.formant.io/reference/authcontrollerlogin.md): Log into your Formant organization.
+  - [Check sso](https://docs.formant.io/reference/authcontrollerchecksso.md): Initiate an SSO login flow to fetch SSO configuration information.
+  - [Login sso](https://docs.formant.io/reference/authcontrollerloginsso.md): Log in with an SSO token.
+  - [Login google](https://docs.formant.io/reference/authcontrollerlogingoogle.md): Log in with a Google token.
+  - [Refresh](https://docs.formant.io/reference/authcontrollerrefresh.md): Refresh
+  - [Create service account](https://docs.formant.io/reference/authcontrollercreateserviceaccount.md): Create a new service account. Resource: users Authorized roles: administrator
+  - [Forgot password](https://docs.formant.io/reference/authcontrollerforgotpassword.md): Initiate the 'forgot password?' workflow.
+  - [Resend invitation](https://docs.formant.io/reference/authcontrollerresendinvitation.md): Resend the invitation to your Formant organization.
+  - [Confirm forgot password](https://docs.formant.io/reference/authcontrollerconfirmforgotpassword.md): Complete the 'forgot password?' workflow with the confirmation code received in an email.
+  - [Change password](https://docs.formant.io/reference/authcontrollerchangepassword.md): Change the password of your Formant account.
+  - [Device credentials](https://docs.formant.io/reference/authcontrollerdevicecredentials.md): Device Credentials Resource: devices Authorized roles: device
+  - [Get features](https://docs.formant.io/reference/authcontrollergetfeatures.md): Get enabled features Resource: devices Authorized roles: viewer, device
+- Command
+  - [Post](https://docs.formant.io/reference/commandcontrollerpost.md): Create a new command instance. Resource: commands Authorized roles: operator
+  - [Patch](https://docs.formant.io/reference/commandcontrollerpatch.md): Update an existing command instance. Resource: commands Authorized roles: operator
+  - [Get one](https://docs.formant.io/reference/commandcontrollergetone.md): Get an existing command instance. Resource: commands Authorized roles: viewer
+  - [Query](https://docs.formant.io/reference/commandcontrollerquery.md): Query undelivered commands. Resource: commands Authorized roles: viewer
+- Command Template
+  - [Post](https://docs.formant.io/reference/commandtemplatecontrollerpost.md): Create a new command template. Resource: commands Authorized roles: administrator
+  - [Get one](https://docs.formant.io/reference/commandtemplatecontrollergetone.md): Get a command template by command template ID. Resource: commands Authorized roles: viewer
+  - [Patch](https://docs.formant.io/reference/commandtemplatecontrollerpatch.md): Update an existing command template. Resource: commands Authorized roles: administrator
+  - [Delete](https://docs.formant.io/reference/commandtemplatecontrollerdelete.md): Delete a command template. Resource: commands Authorized roles: administrator
+  - [List](https://docs.formant.io/reference/commandtemplatecontrollerlist.md): List command templates in your organization. Resource: commands Authorized roles: viewer
+- Custom Event
+  - [Post](https://docs.formant.io/reference/customeventcontrollerpost.md): Create a new custom event. Resource: events Authorized roles: administrator, device
+- Device
+  - [Post](https://docs.formant.io/reference/devicecontrollerpost.md): Create a new device. Resource: devices Authorized roles: administrator
+  - [Provision device](https://docs.formant.io/reference/devicecontrollerprovisiondevice.md): Provision an existing device.
+  - [Filter](https://docs.formant.io/reference/devicecontrollerfilter.md): Query devices by name and/or tags Resource: devices Authorized roles: viewer
+  - [Query](https://docs.formant.io/reference/devicecontrollerquery.md): Query devices by name and/or tags Resource: devices Authorized roles: viewer
+  - [Count](https://docs.formant.io/reference/devicecontrollercount.md): Count devices Resource: devices Authorized roles: viewer
+  - [Get tags](https://docs.formant.io/reference/devicecontrollergettags.md): Get tags across all devices Resource: devices Authorized roles: viewer
+  - [Get one](https://docs.formant.io/reference/devicecontrollergetone.md): Get a device by device ID. Resource: devices Authorized roles: viewer, device
+  - [Patch](https://docs.formant.io/reference/devicecontrollerpatch.md): Update an existing device. Resource: devices Authorized roles: administrator, device
+  - [Disable](https://docs.formant.io/reference/devicecontrollerdisable.md): Disable a device. Resource: devices Authorized roles: administrator
+  - [Put configuration](https://docs.formant.io/reference/devicecontrollerputconfiguration.md): Update a device's configuration. Resource: devices Authorized roles: administrator
+  - [Get commands](https://docs.formant.io/reference/devicecontrollergetcommands.md): List device commands Resource: commands Authorized roles: viewer, device
+  - [Get views](https://docs.formant.io/reference/devicecontrollergetviews.md): List device views Resource: views Authorized roles: device
+  - [Generate device provisioning token](https://docs.formant.io/reference/devicecontrollergeneratedeviceprovisioningtoken.md): Generate a device provisioning token. Resource: devices Authorized roles: administrator
+  - [Unprovision device](https://docs.formant.io/reference/devicecontrollerunprovisiondevice.md): Unprovision a device by device ID. Resource: devices Authorized roles: administrator
+  - [Post configuration](https://docs.formant.io/reference/devicecontrollerpostconfiguration.md): Create a device configuration Resource: devices Authorized roles: administrator
+  - [Validate stream configuration](https://docs.formant.io/reference/devicecontrollervalidatestreamconfiguration.md): Validate a device stream configuration Resource: devices Authorized roles: administrator
+  - [Get configuration](https://docs.formant.io/reference/devicecontrollergetconfiguration.md): Get a device configuration Resource: devices Authorized roles: viewer
+  - [Get updated configuration](https://docs.formant.io/reference/devicecontrollergetupdatedconfiguration.md): Check for updated device configuration Resource: devices Authorized roles: device
+  - [Get geo ip](https://docs.formant.io/reference/devicecontrollergetgeoip.md): Get GeoIP for device Resource: devices Authorized roles: device
+  - [Get updated agent version](https://docs.formant.io/reference/devicecontrollergetupdatedagentversion.md): Check for agent version updates Resource: devices Authorized roles: device
+- Event
+  - [Get one](https://docs.formant.io/reference/eventcontrollergetone.md): Get an event Resource: events Authorized roles: viewer
+  - [Query](https://docs.formant.io/reference/eventcontrollerquery.md): Query events Resource: events Authorized roles: viewer
+  - [Count](https://docs.formant.io/reference/eventcontrollercount.md): Count events Resource: events Authorized roles: viewer, device
+  - [Counts by device](https://docs.formant.io/reference/eventcontrollercountsbydevice.md): Count events by device Resource: events Authorized roles: viewer, device
+  - [Tags](https://docs.formant.io/reference/eventcontrollertags.md): Distinct values of event tags Resource: events Authorized roles: viewer
+  - [View](https://docs.formant.io/reference/eventcontrollerview.md): Mark events as read Resource: events Authorized roles: viewer
+  - [Seek](https://docs.formant.io/reference/eventcontrollerseek.md): Seek event Resource: events Authorized roles: viewer
+- File
+  - [Begin upload](https://docs.formant.io/reference/filecontrollerbeginupload.md): Initiate a file upload. Must be followed by Complete Upload endpoint call. Resource: fileStorage Authorized roles: administrator
+  - [Complete upload](https://docs.formant.io/reference/filecontrollercompleteupload.md): Complete a file upload. Must be preceded by Begin Upload endpoint call. Resource: fileStorage Authorized roles: administrator
+- Intervention Request
+  - [Get one](https://docs.formant.io/reference/interventionrequestcontrollergetone.md): Get an intervention request by intervention request ID. Resource: interventions Authorized roles: viewer, device
+  - [Patch](https://docs.formant.io/reference/interventionrequestcontrollerpatch.md): Update an existing intervention request. Resource: interventions Authorized roles: administrator
+  - [Post](https://docs.formant.io/reference/interventionrequestcontrollerpost.md): Create a new intervention request. Resource: interventions Authorized roles: administrator, device
+- Intervention Response
+  - [Post](https://docs.formant.io/reference/interventionresponsecontrollerpost.md): Create a new intervention response. Resource: interventions Authorized roles: viewer
+- Key Value
+  - [Store item](https://docs.formant.io/reference/keyvaluecontrollerstoreitem.md): Create a new key-value pair. Resource: keyValueStorage Authorized roles: operator
+  - [List](https://docs.formant.io/reference/keyvaluecontrollerlist.md): List all keys in your organization. Resource: keyValueStorage Authorized roles: viewer
+  - [Query](https://docs.formant.io/reference/keyvaluecontrollerquery.md): List key-value pairs, optionally filtering by key. Resource: keyValueStorage Authorized roles: viewer
+  - [Remove item](https://docs.formant.io/reference/keyvaluecontrollerremoveitem.md): Delete a key-value pair. Resource: keyValueStorage Authorized roles: operator
+- Role
+  - [Post](https://docs.formant.io/reference/rolecontrollerpost.md): Create a new role. Resource: roles Authorized roles: administrator
+  - [List](https://docs.formant.io/reference/rolecontrollerlist.md): List all roles in your organization. Resource: roles Authorized roles: viewer
+  - [Get one](https://docs.formant.io/reference/rolecontrollergetone.md): Get a role name by role ID. Resource: roles Authorized roles: viewer
+  - [Patch](https://docs.formant.io/reference/rolecontrollerpatch.md): Update an existing role. Resource: roles Authorized roles: administrator
+  - [Delete](https://docs.formant.io/reference/rolecontrollerdelete.md): Delete a role. Resource: roles Authorized roles: administrator
+- Schedule
+  - [Post](https://docs.formant.io/reference/schedulecontrollerpost.md): Create a new command schedule. Resource: schedules Authorized roles: administrator
+  - [Get one](https://docs.formant.io/reference/schedulecontrollergetone.md): Get a command schedule by command schedule ID. Resource: schedules Authorized roles: viewer
+  - [Patch](https://docs.formant.io/reference/schedulecontrollerpatch.md): Update an existing command schedule. Resource: schedules Authorized roles: administrator
+  - [Delete](https://docs.formant.io/reference/schedulecontrollerdelete.md): Delete a command schedule. Resource: schedules Authorized roles: administrator
+  - [Query](https://docs.formant.io/reference/schedulecontrollerquery.md): Query command schedules for an organization. Resource: schedules Authorized roles: viewer
+- Tag Template
+  - [Post](https://docs.formant.io/reference/tagtemplatecontrollerpost.md): Create a new tag template. Resource: streams Authorized roles: administrator
+  - [List](https://docs.formant.io/reference/tagtemplatecontrollerlist.md): List all tag templates in your organization. Resource: streams Authorized roles: viewer
+  - [Get one](https://docs.formant.io/reference/tagtemplatecontrollergetone.md): Get a tag template by tag template ID. Resource: streams Authorized roles: viewer
+  - [Delete](https://docs.formant.io/reference/tagtemplatecontrollerdelete.md): Delete a tag template. Resource: streams Authorized roles: administrator
+- Teleop View
+  - [Get all](https://docs.formant.io/reference/teleopviewcontrollergetall.md): List all teleop views Resource: views Authorized roles: viewer
+  - [Get one](https://docs.formant.io/reference/teleopviewcontrollergetone.md): Get a teleop view Resource: views Authorized roles: viewer
+- User
+  - [Post](https://docs.formant.io/reference/usercontrollerpost.md): Create a new user. Resource: users Authorized roles: administrator
+  - [Get all](https://docs.formant.io/reference/usercontrollergetall.md): List all users in your organization. Resource: users Authorized roles: viewer
+  - [Get one](https://docs.formant.io/reference/usercontrollergetone.md): Get a user by ID. Resource: users Authorized roles: viewer
+  - [Patch](https://docs.formant.io/reference/usercontrollerpatch.md): Update an existing user. Resource: users Authorized roles: viewer
+  - [Get strategy](https://docs.formant.io/reference/usercontrollergetstrategy.md): Get a strategy breakdown of a user. Resource: users Authorized roles: viewer
+  - [Query](https://docs.formant.io/reference/usercontrollerquery.md): Query users Resource: users Authorized roles: viewer
+  - [Get user count per account id](https://docs.formant.io/reference/usercontrollergetusercountperaccountid.md): Get User Count per Account Resource: users Authorized roles: viewer
+- View
+  - [Get all](https://docs.formant.io/reference/viewcontrollergetall.md): List all device layouts Resource: views Authorized roles: viewer
+  - [Post](https://docs.formant.io/reference/viewcontrollerpost.md): Create a view Resource: views Authorized roles: administrator
+  - [Get one](https://docs.formant.io/reference/viewcontrollergetone.md): Get a device layout Resource: views Authorized roles: viewer
+  - [Patch](https://docs.formant.io/reference/viewcontrollerpatch.md): Update a device layout Resource: views Authorized roles: administrator
+  - [Delete](https://docs.formant.io/reference/viewcontrollerdelete.md): Delete a view Resource: views Authorized roles: administrator
+
+## APIs & SDKs: Formant query-api
+- Analytics
+  - [List new rows](https://docs.formant.io/reference/analyticscontrollerlistnewrows.md): Will Execute Analytics Queries Resource: organization Authorized roles: viewer
+  - [List tables with columns](https://docs.formant.io/reference/analyticscontrollerlisttableswithcolumns.md): Retrieves all tables with columns and data types Resource: organization Authorized roles: viewer
+- Metadata
+  - [List metadata](https://docs.formant.io/reference/metadatacontrollerlistmetadata.md): Resource: streams Authorized roles: viewer
+  - [List metadata with current value](https://docs.formant.io/reference/metadatacontrollerlistmetadatawithcurrentvalue.md): Resource: streams Authorized roles: viewer
+  - [List stream names](https://docs.formant.io/reference/metadatacontrollerliststreamnames.md): Resource: streams Authorized roles: viewer
+  - [Lastest value for metadata id](https://docs.formant.io/reference/metadatacontrollerlastestvalueformetadataid.md): Resource: streams Authorized roles: viewer
+- Online Devices
+  - [Online](https://docs.formant.io/reference/onlinedevicescontrolleronline.md): Resource: devices Authorized roles: viewer
+- Presence
+  - [Count](https://docs.formant.io/reference/presencecontrollercount.md): Resource: streams Authorized roles: viewer
+- Query
+  - [Query](https://docs.formant.io/reference/querycontrollerquery.md): Resource: streams Authorized roles: viewer
+- Seek
+  - [Seek](https://docs.formant.io/reference/seekcontrollerseek.md): Resource: streams Authorized roles: viewer
+- Stream Current Value
+  - [Query](https://docs.formant.io/reference/streamcurrentvaluecontrollerquery.md): Resource: streams Authorized roles: viewer
+
+## Recipes
+- [Communicate Between Modules in Custom Views with the Data SDK](https://docs.formant.io/recipes/communicate-between-modules-in-custom-views-with-the-data-sdk.md)
+- [Create a data-driven 3D Scene custom layer](https://docs.formant.io/recipes/create-a-data-driven-3d-scene-custom-layer.md)
+- [Create a simple 3D Scene custom layer](https://docs.formant.io/recipes/create-a-simple-3d-scene-custom-layer.md)
+- [Create a simple module configuration](https://docs.formant.io/recipes/create-a-simple-module-configuration.md)
+- [Display real-time video with the Data SDK and UI SDK](https://docs.formant.io/recipes/display-real-time-video-with-the-data-sdk-and-ui-sdk.md)
+- [Get a module configuration and updates](https://docs.formant.io/recipes/get-a-module-configuration-and-updates.md)
+- [How To Build a Login Module with the Data SDK and UI SDK](https://docs.formant.io/recipes/how-to-build-a-login-module-with-the-data-sdk-and-ui-sdk.md)
+- [How To Use the Agent SDK to send ROS Topic Data to Formant](https://docs.formant.io/recipes/how-to-use-the-agent-sdk-to-send-ros-topic-data-to-formant.md)
+- [How To Use the Data SDK to build a module to display ROS Topic information](https://docs.formant.io/recipes/how-to-use-the-data-sdk-to-build-a-module-to-display-ros-topic-information.md)
+- [Perform Authentication with the Data SDK in a Custom View](https://docs.formant.io/recipes/perform-authentication-with-the-data-sdk-in-a-custom-view.md)
+- [Programmatically update device tags](https://docs.formant.io/recipes/programmatically-update-device-tags.md)
+- [Render Formant data in a React app](https://docs.formant.io/recipes/render-formant-data-in-a-react-app.md)
+- [Sync Formant data to the timeline in a custom module](https://docs.formant.io/recipes/sync-formant-data-to-the-timeline-in-a-custom-module.md)
+- [Using the Task Summary Format and Task Summary APIs](https://docs.formant.io/recipes/using-the-task-summary-format-and-task-summary-apis.md)

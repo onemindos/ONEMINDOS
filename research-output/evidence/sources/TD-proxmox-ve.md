@@ -2,7 +2,7 @@
 
 Used in `research-output/02-competitors/proxmox-ve.md`. Claim rows are in `evidence/claims/TD-proxmox-ve.csv`.
 
-**Code was read from shallow clones** (`--depth 1`) in `work/.lab/src/proxmox/`, outside the repo. Nothing was built or run. The GitHub `proxmox/*` repositories are Proxmox's official read-only mirrors of git.proxmox.com, so their commit SHAs match upstream. `proxmox-kernel-helper` has no GitHub mirror and is cited on git.proxmox.com with `hb=<sha>`. SHA permalinks serve as their own archive.
+**Code was read from shallow clones** (`--depth 1`) in `<lab-dir>/src/proxmox/`, outside the repo. Nothing was built or run. The GitHub `proxmox/*` repositories are Proxmox's official read-only mirrors of git.proxmox.com, so their commit SHAs match upstream. `proxmox-kernel-helper` has no GitHub mirror and is cited on git.proxmox.com with `hb=<sha>`. SHA permalinks serve as their own archive.
 
 **Saved web pages** are in `evidence/sources/TD-proxmox-ve/`, with hashes in `TD-proxmox-ve/SHA256SUMS`. They were fetched with curl on 2026-11-11 and stripped to plain text. Emails are redacted, and one private IP address in a Proxmox example log is masked. Forum threads are saved as **short excerpts only**: user handles, host names and partition UUIDs are removed. Wayback save requests are denied in this environment, and no existing captures were checked.
 

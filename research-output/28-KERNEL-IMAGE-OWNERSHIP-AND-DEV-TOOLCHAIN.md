@@ -152,10 +152,10 @@ Candidates are complete per-board routes, because no single kernel source covers
 | Candidate | G1 License | G2 Hardware | G3 Support to 2036 | G4 IoT/IIoT (kernel parts: RT) | G5 One OS Pi→cluster |
 |---|---|---|---|---|---|
 | K1 | PASS: GPL-2.0 with syscall note, standard source offer [C-W18-069] | CONDITIONAL: three kernel sources (flavor split), Pi via Raspberry Pi's repo as umbrelOS does [C-W18-013]; Jetson via L4T [C-W18-019] | CONDITIONAL: Debian LTS to 2030, ELTS to 2035 at unpublished price (context/03); series-hop precedent [C-W18-007]; L4T horizon unknown | PASS: RT packages for Debian [C-W18-006] and Jetson [C-W18-020]; Pi RT must be built (CONDITIONAL sub-check) | PASS: Linux at both ends [C-W18-029] |
-| K2 | PASS | CONDITIONAL: Pi fork and L4T still required [C-W18-009, C-W18-020] | CONDITIONAL: LTS hops every ~2 years at our cost [C-W18-002]; Jetson still on L4T | PASS: RT is a config option [C-W18-005, C-W18-067] | PASS |
-| K3 | PASS | CONDITIONAL: CIP board coverage for Pi 5/Jetson not shown; vendor kernels there | CONDITIONAL: 6.12-cip to mid-2035 [C-W18-003], one hop to cover 2036; Jetson still on L4T | PASS (CIP RT not verified; mainline RT applies) [C-W18-005] | PASS |
-| K4 | PASS | CONDITIONAL (as K2) | CONDITIONAL (as K2, plus patch debt) | PASS | PASS |
-| K5 | PASS (seL4 GPLv2/BSD) [C-W18-035] | **FAIL**: no CUDA/Jetson path [C-W18-027] | **FAIL**: no documented path | **FAIL**: no industrial drivers | **FAIL**: no Kubernetes [C-W18-029] |
+| K2 | PASS [C-LIC-017] | CONDITIONAL: Pi fork and L4T still required [C-W18-009, C-W18-020] | CONDITIONAL: LTS hops every ~2 years at our cost [C-W18-002]; Jetson still on L4T | PASS: RT is a config option [C-W18-005, C-W18-067] | PASS [C-W18-029] |
+| K3 | PASS [C-LIC-017] | CONDITIONAL: CIP board coverage for Pi 5/Jetson not shown; vendor kernels there [C-W2-032, C-W18-009, C-W18-019] | CONDITIONAL: 6.12-cip to mid-2035 [C-W18-003], one hop to cover 2036; Jetson still on L4T | PASS (CIP RT not verified; mainline RT applies) [C-W18-005] | PASS [C-W18-029] |
+| K4 | PASS [C-LIC-017] | CONDITIONAL (as K2) [C-W18-009, C-W18-020] | CONDITIONAL (as K2, plus patch debt) [C-W18-002] | PASS [C-W18-005] | PASS [C-W18-029] |
+| K5 | PASS (seL4 GPLv2/BSD) [C-W18-035] | **FAIL**: no CUDA/Jetson path [C-W18-027, C-STEEL-jb-015] | **FAIL**: no documented path (unproven = FAIL) | **FAIL**: no industrial drivers (unproven = FAIL) | **FAIL**: no Kubernetes [C-W18-029] |
 
 K5 is **not ranked** (gate failures), but evaluated above so the founder can see it was considered.
 
@@ -163,10 +163,10 @@ K5 is **not ranked** (gate failures), but evaluated above so the founder can see
 
 | Candidate | C1 (20) | C2 (20) | C3 (15) | C4 (15) | C5 (10) | C6 (10) | C7 (10) | Total | Rank |
 |---|---|---|---|---|---|---|---|---|---|
-| **K1** | 3: Debian LTS to 2030 + paid ELTS; documented series hop [C-W18-007] | 4: official Jetson kernel [C-W18-019]; NVIDIA CUDA for Debian 13 [C-W18-027]; RT available [C-W18-006] | 3: distro-signed kernels, distro security flow; A/B handled by S2 [C-W18-012] | 4: umbrelOS (code) [C-W18-012, C-W18-013]; HAOS also uses the Pi vendor kernel [C-W18-009]; Jetson products on L4T | 4: no kernel compile; Dockerfile/Bakery declarative image [C-W18-015]; Mac-capable via VM [C-W18-046, C-W18-066] (`pending-lab` for 5) | 3: GPLv2 source offer duty | 4: Debian/Ubuntu/NVIDIA ecosystems; NVIDIA lists Debian 13 [C-W18-027] | **71.0** | **1** |
-| **K2** | 3: free LTS hops at our cost [C-W18-001, C-W18-002] | 3: x86 fine; custom configs on Jetson diverge from the vendor-tested build [C-W18-020] | 3: own signing needed; bump cadence ours [C-W18-010] | 5: HAOS, constraint-matched, years in production, code at SHA [C-W18-008, C-W18-010]; ChromeOS [C-W18-043] | 3: weekly bumps; kernel builds in CI under 1 h (lab: 2–6 min per arch) [C-W18-066] | 3: GPLv2 | 3: vendors certify distros, not our config | 66.0 | 2 |
-| **K3** | 4: 10-year SLTS, multi-member foundation [C-W18-003] | 3: Pi/Jetson coverage not shown | 3: as K2 | 3: industrial adopters (CIP members), not appliance-matched [C-W18-003] | 3: own kernel build from CIP branch | 3: GPLv2 | 3: industrial vendor ecosystem | 64.0 | 3 |
-| **K4** | 2: patch debt shortens practical support | 3: as K2 | 2: patches delay fixes | 2: SteamOS-style (SECONDARY) [C-W18-044] | 2: rebase every patch every bump | 3: GPLv2 | 2 | 46.0 | 4 |
+| **K1** | 3: Debian LTS to 2030 + paid ELTS; documented series hop [C-W18-007] | 4: official Jetson kernel [C-W18-019]; NVIDIA CUDA for Debian 13 [C-W18-027]; RT available [C-W18-006] | 3: distro-signed kernels, distro security flow; A/B handled by S2 [C-W18-012] | 4: umbrelOS (code) [C-W18-012, C-W18-013]; HAOS also uses the Pi vendor kernel [C-W18-009]; Jetson products on L4T | 4: no kernel compile; Dockerfile/Bakery declarative image [C-W18-015]; Mac-capable via VM [C-W18-046, C-W18-066] (`pending-lab` for 5) | 3: GPLv2 source offer duty [C-LIC-017, C-W18-069] | 4: Debian/Ubuntu/NVIDIA ecosystems; NVIDIA lists Debian 13 [C-W18-027] [C-STEEL-jb-015] | **71.0** | **1** |
+| **K2** | 3: free LTS hops at our cost [C-W18-001, C-W18-002] | 3: x86 fine; custom configs on Jetson diverge from the vendor-tested build [C-W18-020] | 3: own signing needed; bump cadence ours [C-W18-010] | 5: HAOS, constraint-matched, years in production, code at SHA [C-W18-008, C-W18-010]; ChromeOS [C-W18-043] | 3: weekly bumps; kernel builds in CI under 1 h (lab: 2–6 min per arch) [C-W18-066] | 3: GPLv2 [C-LIC-017] | 3: vendors certify distros, not our config; HAOS builds this way [C-W18-008] | 66.0 | 2 |
+| **K3** | 4: 10-year SLTS, multi-member foundation [C-W18-003] | 3: Pi/Jetson through vendor kernels; CIP coverage of them not shown [C-W18-009, C-W18-019] | 3: CIP secure development process (62443-4-1 scope) [C-REF-W8-security-004] | **2** (rev. 3; was 3): one industrial product confirmed from code (Siemens IOT2050 on isar-cip-core); anchor 3 needs two [C-W8-038] | 3: own kernel build from the CIP branch; kernel builds in CI under 1 h [C-W18-066] | 3: GPLv2 [C-LIC-017] | 3: industrial vendor ecosystem [C-W8-038, C-REF-W8-longevity-006] | 61.0 (rev. 3; was 64.0) | 3 |
+| **K4** | 2: patch debt shortens practical support [C-W18-002] | 3: as K2 [C-W18-020] | 2: patches delay fixes [C-W18-011] | 2: HAOS ships a kernel with carried patches [C-W18-011] (rev. 3: was SteamOS, whose cited claim is about A/B, not kernel patches) | 2: rebase every patch every bump [C-W18-010] | 3: GPLv2 [C-LIC-017] | 2 [C-W18-011] | 46.0 | 4 |
 
 Formula: total = Σ(weight × score) / 5 (frozen protocol).
 
@@ -179,12 +179,12 @@ Formula: total = Σ(weight × score) / 5 (frozen protocol).
 | C1 +5 / −5 | K1 / K1 | 4.69 / 5.31 | K2 / K2 |
 | C2 +5 / −5 | K1 / K1 | 5.94 / 4.06 | K2 / K2 |
 | C3 +5 / −5 | K1 / K1 | 4.70 / 5.30 | K2 / K2 |
-| C4 +5 / −5 | K1 / K1 | **3.53** / 6.23 | K2 / K3 |
+| C4 +5 / −5 | K1 / K1 | **3.53** / 6.5 (rev. 3; was 6.23) | K2 / K2 (rev. 3; was K3) |
 | C5 +5 / −5 | K1 / K1 | 5.83 / 4.17 | K2 / K2 |
 | C6 +5 / −5 | K1 / K1 | 4.72 / 5.28 | K2 / K2 |
 | C7 +5 / −5 | K1 / K1 | 5.83 / 4.17 | K2 / K2 |
 
-**Robust:** K1 wins all 14 runs. The closest case is more weight on "proven in production" (C4 +5), because HAOS proves K2 so well. **Gate relaxation:** no ranked candidate failed a gate; K5 fails four, so relaxing one gate does not rank it.
+**Robust:** K1 wins all 14 runs (rev. 3 re-checked: every cell is cited, K3 fell to 61.0, and the K1-vs-K2 runs are unchanged; `evidence/scorecard-rev3.md` §7). The closest case is more weight on "proven in production" (C4 +5), because HAOS proves K2 so well. **Gate relaxation:** no ranked candidate failed a gate; K5 fails four, so relaxing one gate does not rank it.
 
 **Pending-lab cells:** K1-C5 (a 30-minute image rebuild and <2 h/month maintenance dry run would lift it to 5); K2-C5 (dry-run weekly bump cost). Both are in §9.4.
 

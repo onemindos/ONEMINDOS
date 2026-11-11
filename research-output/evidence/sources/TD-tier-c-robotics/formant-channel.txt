@@ -1,0 +1,38 @@
+Source: https://docs.formant.io/docs/getting-started-create-a-channel.md
+Accessed: 2026-11-11
+
+---
+updatedAt: 2025-11-11T01:46:52.000Z
+agentTools:
+  projectIndex: https://docs.formant.io/llms.txt
+---
+
+# Create a channel
+
+A channel allows you to view a set of data streams, events, and notifications across devices. Just as we saw in [Create a view and add modules](https://docs.formant.io/docs/getting-started-create-a-view-and-add-modules), you can customize this interface to visualize data streams as you see fit.
+
+# Step 1: Create a channel
+
+1. In Formant, in the upper-left corner, open the menu.
+2. Hover over the **Channels** section, and click the **plus icon** that appears to create a new channel.
+
+<Image alt="Creating a new channel" align="center" src="https://files.readme.io/8fd0939-Screenshot_2023-10-27_at_3.05.12_PM.png">
+  Creating a new channel.
+</Image>
+
+3. Give your channel a name and click **Continue**.
+4. Select the data streams you want to monitor in this channel. You can either select the data streams manually, or choose a tag which relates to the relevant data streams.
+5. Edit the layout of your channel view. You can add data modules as seen in [Create a view and add modules](https://docs.formant.io/docs/getting-started-create-a-view-and-add-modules).
+6. Click **Save** to create your channel.
+
+# Step 2: Verify your work
+
+You'll now see your new channel in the **Channels** section of the Formant menu. You will see notifications for all data streams configured for this channel. By clicking on the channel, you can quickly access the view you created.
+
+# Deleting a channel
+
+To delete a channel, enter into the channel, click the three dots in the top right, and then click "Edit channel". Now, once in the edit mode, you will see a trash can icon. Click this to delete a channel.
+
+<Callout icon="👋" theme="default">
+  ### If you notice an issue with this page or need help, please reach out to us! Use the 'Did this page help you?' buttons below, or get in contact with our Customer Success team via the Intercom messenger in the bottom-right corner of this page, or at [<masked-email>](mailto:<masked-email>).
+</Callout>
