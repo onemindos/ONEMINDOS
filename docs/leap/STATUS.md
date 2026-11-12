@@ -224,7 +224,7 @@
 | CORE-DEPLOY-3 | Revisions, history and rollback | todo | – | – |
 | CORE-DEPLOY-4 | Write-only secrets | todo | – | – |
 | CORE-DEPLOY-5 | Watched Git source with a diff card | todo | – | – |
-| CORE-DEPLOY-6 | Migration kit (`onemind migrate role/plan/import/copy/cutover/revert`) | review | `feat/migrate-kit` (orchestrator) | – |
+| CORE-DEPLOY-6 | Migration kit (`onemind migrate role/plan/import/copy/cutover/revert`) | review | `feat/migrate-kit` (orchestrator) | [#76](https://github.com/onemindos/ONEMINDOS/pull/76) |
 | DEV-CLI-10 | `app scaffold/validate/gate/dev`, one validator shared with Python | todo | – | – |
 | DEV-PLG-1 | Manifest `extensions`, `permissions`, `plugin`, `compat` + Go valid… | todo | – | – |
 | DEV-PLG-2 | TypeScript `@onemind/plugin` (server and widget) | todo | – | – |
