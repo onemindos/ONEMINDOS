@@ -1,6 +1,6 @@
 # Lab spike LAB-fb2-fdo-enroll: zero-touch enrollment with FIDO Device Onboard, owner approval and revocation
 
-**Status:** PRE-REGISTERED (criteria frozen before any VM, download or build).
+**Status:** COMPLETE: **PASS**. T0–T5 all passed in run 2 (2026-11-12 10:28–10:33 UTC). Pre-registered and pushed as `b5eaa3b` before any VM existed. Run 1 stopped on a lab-script omission (§8).
 
 **Serves:** fabric mission 02 (`RESEARCH-MISSION-02-ONE-MIND-FABRIC.md`) §5 lab spike 3 ("Zero-touch enrollment") and workstream FB-2; `docs/architecture/FABRIC.md` §4 (owner-approved join) and H-23; research 30 B9 (identity), mission 01 claims C-G4U-004…006 and C-REF4-DC-longevity-005 (go-fdo maturity).
 
@@ -65,3 +65,46 @@ Answer with a run whether FDO 1.1 (go-fdo-server v1.0.2 and go-fdo-client v1.0.0
 ---
 
 ## Results
+
+**Verdict: PASS.** Every pre-registered test passed in run 2: T0 (pins and builds), T1 (DI), T2 (no approval, no onboarding), T3 (approval, then zero touch), T4 (wrong owner refused), T5 (revocation). T5 passed but is **uninformative** (§7.2 E5). Full data: `run-2/results.json`, `run-2/res/`, ledger `../../claims/LAB-fb2-fdo-enroll.csv`.
+
+> **Explain the result like I'm the founder.** The standard works as a front door for boxes OneMind sells. A "factory" made a device credential and a voucher. While the hub had not accepted the voucher, the device kept asking for two minutes and got nowhere. The moment the stand-in for your phone approved, the same device, untouched, finished joining **18 seconds** later and received the OneMind join file byte for byte. Another owner's hub refused the voucher outright. Two warnings: once a device has joined, the client refuses to join again, so after that point removing it is OneMind's job, not FDO's; and the owner's setup step runs commands **as root** on the device, so only your own hub may ever hold its voucher.
+
+### 7.1 Test results (run 2)
+
+| ID | Result | Evidence (in `run-2/`) |
+|---|---|---|
+| T0 | **PASS** | Go 1.27.4 matched the fb3 pin; `go install` built go-fdo-server **v1.0.2** (`h1:ebAliL6t…`, go-fdo `v0.0.0-20260908145651-65061850e1c9`) and go-fdo-client **v1.0.0** (`h1:9AafFxNu…`, go-fdo `v0.0.0-20260204145003-2d3d7c734680`) with the checksum database on; binaries `15e7dd75…` (server) and `69ffc8a3…` (client) [C-LAB-fb2-fdo-enroll-001]. `../logs/fetch.log` |
+| T1 | **PASS** | four services healthy (`200 200 200 200`); DI exit 0; GUID `500379ed…`; voucher HTTP 200 [-002]. `res/T1.json` |
+| T2 | **PASS** | 120 s after starting `onboard` with no voucher at the owner: no completion, no file, 26 logged "TO1 failed" lines (`not found` at the rendezvous), process still running [-003]. `res/T2.json`, `onboard-t2t3.log` |
+| T3 | **PASS** | approval card printed (`approval-card.txt`), owner import HTTP 200; the **same** process (not restarted) logged `FIDO Device Onboard Complete` **18 s** later; join bundle sha256 `0ec1cb88…` identical on owner and device; `fdo.command` marker present, ran as uid 0 [-004]. `res/T3.json` |
+| T4 | **PASS** | second owner (different key) answered `400 Invalid ownership voucher` [-005]. `res/T4.json` |
+| T5 | **PASS (uninformative)** | after clearing the owner's `vouchers`, `replacement_vouchers`, `incomplete_vouchers` and session tables (go-fdo-server v1.0.2 has no delete API), a fresh `onboard` did not complete in 120 s; but the control E5 shows the client refuses any second onboarding anyway [-006]. `res/T5.json`, `revoke.txt` |
+
+### 7.2 Exploratory (not pass/fail)
+
+- **E1 reflash:** with the credential blob gone the client stops at once: `device has not been properly initialized: run device-init first` [-008]. FDO identity does not survive a disk wipe unless its secrets live in a TPM (E2).
+- **E2 TPM:** not run. The client rejects the `simulator` TPM and needs a TPM character device; the VM had none (`res/E2.json`).
+- **E3 credential replacement:** TO2 replaced the device GUID (`500379ed…` → `7b0f4784…`); the owner lists the device under the new GUID with `old_guid` [-009]. `owner-devices-before-revoke.json`
+- **E4 owner power:** the owner's `fdo.command` ran a shell as **root** on the device [-004].
+- **E5 control for T5:** before any revocation, a second `onboard` exits at once with `FDO in Idle State. Device Onboarding already completed` [-006].
+- **E6 revoke before first power-on:** a second device was approved (import HTTP 200), then its voucher was deleted before it first ran `onboard`. TO1 still succeeded (the rendezvous kept the owner's registration) and TO2 was refused: `error retrieving voucher for device … not found`; no completion in 120 s [-007]. This is the meaningful FDO revocation.
+
+### 7.3 What this means for the design (refinements; nothing in FABRIC.md is changed)
+
+1. **FDO is a front end, not a replacement.** The voucher import is the approval moment; after TO2 the normal `node.join` and OneMind's deny-list take over (`research-output/fabric/03-IDENTITY-AND-ENROLLMENT.md`).
+2. **OneMind must own the voucher store** (import, list, delete, resale), because go-fdo-server v1.0.2 exposes only `POST /owner/vouchers`, `POST /owner/resell/{guid}` and `GET /owner/devices` [-010].
+3. **A rendezvous trusts only listed device CAs** (run 1): OneMind's rendezvous must be loaded with the CAs of the factories it serves.
+4. **Owner service info is root on the device**: OneMind's owner role sends only the fixed join step.
+
+### 8. Deviations, failed attempts and fixes
+
+| # | What | Effect |
+|---|---|---|
+| 1 | **Run 1** stopped at T3: the owner's TO0 to the rendezvous failed with `cryptographic verification failed: x509: certificate signed by unknown authority` because the lab script never added the device CA to the rendezvous's trusted list (`POST /api/v1/device-ca`, documented in `api/device-ca.yaml` at the tag, not in the README quick start). T1 and T2 had passed. | Lab-script omission, fixed (one `curl` line); the whole run repeated as run 2. Logs in `history/attempt1/` |
+| 2 | T5 "deletes every voucher" was done in the owner's SQLite database (tables `vouchers`, `replacement_vouchers`, `incomplete_vouchers`, `sessions`, `to0_sessions`, `to1_sessions`, `to2_sessions`), because v1.0.2 has no delete endpoint | Method detail, not a criterion change; schema in `owner-db-schema.sql` |
+| 3 | Not committed: the device credential prints (they contain the HMAC secret and private key), raw server debug dumps (session bearer tokens), keys and databases. Server logs are committed trimmed (`*-trimmed.log`) | Hygiene |
+
+### 9. Reproduce
+
+Inside a disposable Debian 13 arm64 VM: `LAB=<lab-dir> scripts/fetch.sh`, then `LAB=<lab-dir> scripts/fdo.sh 2`. The scripts write only under `/opt/fb` and `<lab-dir>/out`; they need root inside the VM and must not be run on a host.
