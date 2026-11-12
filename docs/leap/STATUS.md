@@ -194,11 +194,11 @@
 | C12-C | Contract §12-c: deployments, manifest `health`, `settings`, `secret… | todo | – | – |
 | C12-F | Contract §12-f: automation | todo | – | – |
 | C12-PLG | Contract plugins amendment: `kind: plugin`, `plugin.invoke`, `plugi… | todo | – | – |
-| CORE-AUTO-2 | Scheduler and event/webhook triggers that create actions | todo | – | – |
-| CORE-AUTO-3 | Standing approvals with ledger-counted limits | todo | – | – |
-| CORE-AUTO-4 | Dry run, CLI (`auto`, `policy`) and Automations page | todo | – | – |
-| CORE-AUTO-5 | Failure and recovery notifications, repairs hook-up | todo | – | – |
-| DEV-API-13 | Automation and OS update route shapes | todo | built inside CORE-AUTO-2, CORE-UPDATE-2 | – |
+| CORE-AUTO-2 | Scheduler and event/webhook triggers that create actions | in-progress (schedule and event rules built; webhook triggers and the NATS JetStream consumer not yet) | `feat/automation` | – |
+| CORE-AUTO-3 | Standing approvals with ledger-counted limits | in-progress (built with windows, F-6 and kill switch; passkey step-up waits for identity) | `feat/automation` | – |
+| CORE-AUTO-4 | Dry run, CLI (`auto`, `policy`) and Automations page | in-progress (dry run and enable gate built; CLI and page not yet) | `feat/automation` | – |
+| CORE-AUTO-5 | Failure and recovery notifications, repairs hook-up | in-progress (breaker publishes `automation.breaker.opened`; notification routing not yet) | `feat/automation` | – |
+| DEV-API-13 | Automation and OS update route shapes | in-progress (automation routes of §12.17 on `feat/automation`) | built inside CORE-AUTO-2, CORE-UPDATE-2 | – |
 | DEV-CLI-9 | `notify test`, `tokens list/create/revoke`, `rules` alias | todo | – | – |
 | CORE-DASH-6 | Settings (sessions, tokens, pairing) and Automations screens | todo | – | – |
 | CORE-DEPLOY-1 | `onemind deploy` (kustomize, Helm, Compose) → private app | todo | – | – |
