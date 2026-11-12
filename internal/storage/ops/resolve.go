@@ -297,6 +297,12 @@ func (e *Engine) rollback(ctx context.Context, op *Op, why string) {
 			stuck(fmt.Sprintf("%s is %s; not wiping it", d.Path, d.Role))
 			return
 		}
+		if s.Path != "" && s.FSType == "crypto_LUKS" && !undo("cryptsetup", "erase", "--batch-mode", s.Path) {
+			if ctx.Err() == nil {
+				stuck("cryptsetup erase " + s.Path)
+			}
+			return
+		}
 		if s.Path != "" && !undo("wipefs", "--all", s.Path) {
 			if ctx.Err() == nil {
 				stuck("wipefs " + s.Path)

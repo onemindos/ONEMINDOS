@@ -96,6 +96,9 @@ type Engine struct {
 	// HoldDir/hold-before-<step id> exists the engine waits before that step,
 	// so a lab can cut power at an exact point. Root-only tmpfs in production.
 	HoldDir string
+	// Exclusive overrides how the kernel's running exclusive operation is
+	// read (/sys/fs/btrfs/<fsid>/exclusive_operation); tests set it.
+	Exclusive func(fsid string) string
 
 	mu     sync.Mutex
 	active *Op
@@ -378,6 +381,21 @@ func (e *Engine) execute(ctx context.Context, op *Op) {
 				sr.State = StepFailed
 			}
 		})
+		if !ok && st.ID == "replace" {
+			// The kernel may have been finishing a resumed replace when this
+			// attempt started ("another exclusive operation"): if the new disk
+			// now holds the devid, the step's effect is in place.
+			if run, note, err := e.waitReplace(ctx, op.Plan.Mount, st.Cmd[len(st.Cmd)-2], st.Cmd[len(st.Cmd)-3]); err == nil && !run {
+				e.update(op, func() {
+					op.Steps[i].State, op.Steps[i].Note = StepDone, "attempt failed but "+note
+					op.Next = i + 1
+				})
+				continue
+			}
+			if ctx.Err() != nil {
+				return
+			}
+		}
 		if !ok {
 			why := fmt.Sprintf("step %d %s exited %d", i+1, st.ID, exit)
 			if msg != "" {
@@ -393,6 +411,17 @@ func (e *Engine) execute(ctx context.Context, op *Op) {
 // fail rolls back when nothing has moved yet (prepare and join steps), else
 // stops forward-only: commit steps are restartable, the set stays usable.
 func (e *Engine) fail(ctx context.Context, op *Op, i int, why string) {
+	if s := op.Plan.Steps[i]; s.ID == "replace" {
+		// A replace that failed without the new disk taking the devid moved
+		// nothing onto it (btrfs reads the old member or its mirror copy, and
+		// cancels cleanly): undo the prepared disk like a prepare failure.
+		if m, err := e.Facts.Mirror(ctx, op.Plan.Mount); err == nil && !replaced(m, s.Cmd[len(s.Cmd)-2], s.Cmd[len(s.Cmd)-3]) {
+			if run, _, err := e.waitReplace(ctx, op.Plan.Mount, s.Cmd[len(s.Cmd)-2], s.Cmd[len(s.Cmd)-3]); err == nil && run {
+				e.rollback(ctx, op, why)
+				return
+			}
+		}
+	}
 	switch op.Plan.Steps[i].Phase {
 	case storage.PhasePrepare, storage.PhaseJoin:
 		e.rollback(ctx, op, why)
@@ -591,7 +620,24 @@ func (e *Engine) probe(ctx context.Context, op *Op, i int) (run bool, note strin
 	case "balance":
 		return e.waitBalance(ctx, mount)
 	case "replace":
-		return e.waitReplace(ctx, mount)
+		return e.waitReplace(ctx, mount, s.Cmd[len(s.Cmd)-2], s.Cmd[len(s.Cmd)-3])
+	case "token-member":
+		// In a replace, the tokens written after the replace demote the old
+		// member: only once the new disk really holds its devid.
+		if op.Plan.Kind == "replace" && s.Phase == storage.PhaseCommit {
+			for _, r := range op.Plan.Steps {
+				if r.ID != "replace" {
+					continue
+				}
+				m, err := e.Facts.Mirror(ctx, mount)
+				if err != nil {
+					return false, "", err
+				}
+				if !replaced(m, r.Cmd[len(r.Cmd)-2], r.Cmd[len(r.Cmd)-3]) {
+					return false, "", fmt.Errorf("devid %s is not on %s: the replace has not finished, so the old member keeps its token", r.Cmd[len(r.Cmd)-3], r.Cmd[len(r.Cmd)-2])
+				}
+			}
+		}
 	case "scrub":
 		return e.waitScrub(ctx, mount)
 	}
@@ -658,28 +704,71 @@ func (e *Engine) waitBalance(ctx context.Context, mount string) (bool, string, e
 	}
 }
 
-func (e *Engine) waitReplace(ctx context.Context, mount string) (bool, string, error) {
-	note := ""
+// waitReplace decides on the replace step from the set itself: done when the
+// new device holds the source devid. `btrfs replace status` keeps reporting
+// the last replace ever run on the filesystem ("finished" from a previous
+// operation), and right at completion its text can say "finished" while the
+// kernel still holds the replace lock (lab, log 19). So "running" comes from
+// the kernel's exclusive-operation flag when it has one, and the membership is
+// re-checked for a few polls after the replace stops before re-running it.
+func (e *Engine) waitReplace(ctx context.Context, mount, target, devid string) (bool, string, error) {
+	note, settle := "", 0
 	for {
+		m, err := e.Facts.Mirror(ctx, mount)
+		if err != nil {
+			return false, "", err
+		}
+		if replaced(m, target, devid) {
+			return false, "devid " + devid + " is already on " + target + note, nil
+		}
 		out, _, err := e.Run.Exec(ctx, "", "btrfs", "replace", "status", "-1", mount)
 		if err != nil {
 			return false, "", err
 		}
 		s := strings.ToLower(string(out))
-		switch {
-		case strings.Contains(s, "finished"):
-			return false, "replace already finished" + note, nil
-		case strings.Contains(s, "never started"), strings.Contains(s, "canceled"):
-			return true, note, nil
-		case strings.Contains(s, "% done"), strings.Contains(s, "started"):
-			note = "; waited for the replace the kernel resumed at mount"
-			if !e.sleep(ctx) {
-				return false, "", ctx.Err()
-			}
+		running := strings.Contains(s, "% done") && !strings.Contains(s, "finished") && !strings.Contains(s, "canceled")
+		switch ex := e.exclusive(m.UUID); ex {
+		case "device replace":
+			running = true
+		case "":
 		default:
+			running = false
+		}
+		if running {
+			note, settle = "; waited for the replace the kernel resumed at mount", 0
+		} else if settle++; settle > 2 {
 			return true, note, nil
 		}
+		if !e.sleep(ctx) {
+			return false, "", ctx.Err()
+		}
 	}
+}
+
+// exclusive reads the kernel's running exclusive operation for the set
+// ("none", "balance", "device replace", ...), "" when unknown.
+func (e *Engine) exclusive(fsid string) string {
+	if e.Exclusive != nil {
+		return e.Exclusive(fsid)
+	}
+	if fsid == "" {
+		return ""
+	}
+	b, err := os.ReadFile("/sys/fs/btrfs/" + fsid + "/exclusive_operation")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+// replaced: the member with devid holds target (btrfs replace keeps the devid).
+func replaced(m *storage.Mirror, target, devid string) bool {
+	for _, mem := range m.Members {
+		if !mem.Missing && mem.Path == target && fmt.Sprint(mem.DevID) == devid {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) waitScrub(ctx context.Context, mount string) (bool, string, error) {

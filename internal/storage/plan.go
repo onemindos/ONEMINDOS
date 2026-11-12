@@ -392,7 +392,7 @@ func verifyStep(mount string) Step {
 // returned disk from the good one) then a soft-convert balance (rewrites
 // single-copy chunks created while degraded).
 func PlanRepair(m *Mirror) Plan {
-	p := Plan{Kind: "repair", Mount: m.Mount}
+	p := Plan{Kind: "repair", Mount: m.Mount, Encrypted: m.Encrypted}
 	missing := 0
 	for _, mem := range m.Members {
 		if mem.Missing {
@@ -417,6 +417,11 @@ func PlanRepair(m *Mirror) Plan {
 			Why: "rewrite chunks written with one copy while degraded; soft skips chunks already mirrored"},
 		verifyStep(m.Mount),
 		{ID: "stats-reset", Phase: PhaseVerify, Cmd: []string{"btrfs", "device", "stats", "--reset", m.Mount}, Why: "record and zero the error counters after the repair so new errors stand out"},
+	}
+	if m.Encrypted {
+		// Re-stamp every present member at one generation, so a member whose
+		// token fell behind (an interrupted operation) is unlocked at boot.
+		p.Steps = append(p.Steps, TokenSteps(m, newMember{}, -1, m.Generation+1, PhaseCommit)...)
 	}
 	if m.NeedsScrub {
 		p.Steps = append(p.Steps, Step{ID: "marker-clear", Phase: PhaseVerify, Cmd: []string{"rm", "-f", m.Mount + "/" + NeedsScrubMarker}, Why: "clear the degraded marker: the scrub verified every copy"})

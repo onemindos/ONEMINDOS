@@ -4,6 +4,7 @@ package storage
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -141,6 +142,13 @@ func TestPlanReplace(t *testing.T) {
 	}
 	if !strings.Contains(stepIDs(p), "luks-open,token,token-member,token-member,replace,resize,balance,token-member,token-member,old-close") {
 		t.Error(stepIDs(p))
+	}
+	// No headroom on the member that stays: blocked before anything runs.
+	full := *set
+	full.Members = append([]Member(nil), set.Members...)
+	full.Members[0].UsedBytes = full.Members[0].SizeBytes - 100<<20
+	if bad := PlanReplace(ds, &full, "2", "/dev/vde", false, PlanOptions{}); !bad.Blocked || !strings.Contains(fmt.Sprint(bad.Checks), "headroom:devid1") {
+		t.Errorf("full member not blocked: %+v", bad.Checks)
 	}
 	// Too small, a member as target, unknown member: blocked.
 	small := append([]Disk(nil), ds...)

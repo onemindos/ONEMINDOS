@@ -40,6 +40,9 @@ type box struct {
 	cutBal   string // a cut during "balance start" leaves the kernel balance in this state
 	fail     map[string]int
 	cancel   context.CancelFunc
+	// lastReplace: btrfs replace status keeps reporting the last replace
+	// ever run ("finished"), which the lab found the engine trusting.
+	lastReplace string
 }
 
 type fdisk struct {
@@ -81,7 +84,7 @@ func (b *box) Disks(_ context.Context, m *storage.Mirror) ([]storage.Disk, error
 	defer b.mu.Unlock()
 	out := []storage.Disk{{Path: "/dev/vda", ID: "/dev/vda", SizeBytes: 12 << 30, Role: storage.RoleSystem,
 		Holds: []storage.Signature{{Path: "/dev/vda1", Type: "part", Mountpoints: []string{"/"}}}}}
-	for _, path := range []string{"/dev/vdb", "/dev/vdc", "/dev/vdd", "/dev/vde"} {
+	for _, path := range []string{"/dev/vdb", "/dev/vdc", "/dev/vdd", "/dev/vde", "/dev/vdf"} {
 		d := b.disks[path]
 		if d == nil {
 			continue
@@ -197,6 +200,16 @@ func (b *box) apply(name string, args []string) (string, int) {
 			fmt.Fprintf(&sb, "%s, %s: total=1, used=1\n", k, strings.ToUpper(b.profiles[k]))
 		}
 		return sb.String(), 0
+	case name == "btrfs" && args[0] == "replace" && args[1] == "status":
+		if b.lastReplace != "" {
+			return "Started on 12.Nov 05:23:35, finished on 12.Nov 05:23:37, 0 write errs, 0 uncorr. read errs", 0
+		}
+		return "Never started", 0
+	case name == "btrfs" && args[0] == "replace" && args[1] == "start":
+		var devid int
+		fmt.Sscan(args[len(args)-3], &devid)
+		b.members[devid-1] = args[len(args)-2]
+		b.lastReplace = args[len(args)-2]
 	case name == "cryptsetup" && args[0] == "status":
 		if _, ok := b.mapped[last]; ok {
 			return last + " is active", 0
@@ -472,6 +485,24 @@ func TestRemoveAndReplaceRun(t *testing.T) {
 	if op = finished(t, e, op.ID); op.State != StateSucceeded || !b.ran("btrfs replace start -B -f 2 /dev/vdd1 /data") {
 		t.Fatalf("replace: %s %s", op.State, op.Error)
 	}
+	// A second replace on the same filesystem: the status still says the
+	// first one "finished"; the engine must run the new one anyway.
+	b.disks["/dev/vde"] = &fdisk{size: 4 << 30}
+	op, err = e.Start(context.Background(), approved(t, e, Request{Kind: KindReplace, Member: "2", Device: "/dev/vde", ActionID: "r2"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if op = finished(t, e, op.ID); op.State != StateSucceeded || b.members[1] != "/dev/vde1" {
+		t.Fatalf("second replace: %s %s members=%v", op.State, op.Error, b.members)
+	}
+	// A replace that fails before the new disk takes the devid rolls back.
+	b.disks["/dev/vdf"] = &fdisk{size: 4 << 30}
+	b.fail["btrfs replace start"] = 1
+	op, _ = e.Start(context.Background(), approved(t, e, Request{Kind: KindReplace, Member: "2", Device: "/dev/vdf", ActionID: "r3"}))
+	if op = finished(t, e, op.ID); op.State != StateRolledBack || b.disks["/dev/vdf"].part != "" || b.members[1] != "/dev/vde1" {
+		t.Fatalf("failed replace: %s %s part=%q members=%v", op.State, op.Error, b.disks["/dev/vdf"].part, b.members)
+	}
+	delete(b.fail, "btrfs replace start")
 	if _, err := e.Start(context.Background(), Request{Kind: KindRemove, Member: "2", PlanSHA256: "x"}); err == nil {
 		t.Error("remove to one member without unprotect must be refused")
 	}
@@ -481,6 +512,41 @@ func TestRemoveAndReplaceRun(t *testing.T) {
 	}
 	if op = finished(t, e, op.ID); op.State != StateSucceeded || len(b.members) != 1 || b.profiles["Data"] != "single" {
 		t.Fatalf("remove: %s %s %v %v", op.State, op.Error, b.members, b.profiles)
+	}
+}
+
+// The lab race (log 19): after a power cut the kernel resumes the replace at
+// mount; the status text reads "finished" while the kernel still holds the
+// replace lock, a second start fails, and only then does the devid move.
+func TestResumedReplaceRaceCompletes(t *testing.T) {
+	b := newBox()
+	b.members = []string{"/dev/vdb1", "/dev/vdc1"}
+	b.disks["/dev/vdc"].part, b.disks["/dev/vdc"].partuuid = "/dev/vdc1", "aaaaaaaa-0000-4000-8000-000000000002"
+	b.profiles = map[string]string{"Data": "raid1", "Metadata": "raid1", "System": "raid1"}
+	b.lastReplace = "earlier"
+	e := newEngine(t, b, t.TempDir())
+	req := approved(t, e, Request{Kind: KindReplace, Member: "2", Device: "/dev/vdd", ActionID: "race"})
+	calls := 0
+	e.Exclusive = func(string) string {
+		calls++
+		if calls == 3 { // the kernel finishes its resumed replace
+			b.mu.Lock()
+			b.members[1] = "/dev/vdd1"
+			b.mu.Unlock()
+		}
+		if calls <= 3 {
+			return "device replace"
+		}
+		return "none"
+	}
+	b.fail["btrfs replace start"] = 1 // "another exclusive operation in progress"
+	op, err := e.Start(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	op = finished(t, e, op.ID)
+	if op.State != StateSucceeded || b.members[1] != "/dev/vdd1" {
+		t.Fatalf("%s %s members=%v", op.State, op.Error, b.members)
 	}
 }
 

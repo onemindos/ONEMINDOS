@@ -94,6 +94,16 @@ func PlanReplace(disks []Disk, m *Mirror, old, device string, wipeOld bool, o Pl
 	p.Checks = append(p.Checks, targetChecks(d, o)...)
 	p.Checks = append(p.Checks, Check{ID: "big-enough:" + d.Path, OK: d.SizeBytes >= mem.SizeBytes,
 		Detail: fmt.Sprintf("disk %d bytes, the member it replaces is %d (btrfs replace needs at least that)", d.SizeBytes, mem.SizeBytes)})
+	// btrfs replace marks block groups read-only as it copies them, which
+	// needs unallocated room on the members (lab: ENOSPC at 94 % allocated).
+	for _, x := range m.Members {
+		if x.Missing || x.DevID == mem.DevID {
+			continue
+		}
+		free, need := x.SizeBytes-min(x.UsedBytes, x.SizeBytes), Headroom(x.SizeBytes)
+		p.Checks = append(p.Checks, Check{ID: fmt.Sprintf("headroom:devid%d", x.DevID), OK: free >= need,
+			Detail: fmt.Sprintf("%d bytes unallocated, needs %d; free space or compact with a filtered balance first", free, need)})
+	}
 	var clone string
 	var encOK bool
 	o.Encrypt, clone, encOK = followEncryption(disks, m, mem.DevID)
@@ -246,4 +256,10 @@ func PlanRemove(disks []Disk, m *Mirror, old string, unprotect, wipe bool, o Pla
 	}
 	p.Steps = append(p.Steps, verifyStep(m.Mount))
 	return finish(p)
+}
+
+// Headroom is the unallocated space a member needs for btrfs to move chunks
+// around (replace, balance): 10 % of the device, at most 1 GiB.
+func Headroom(size uint64) uint64 {
+	return min(size/10, 1<<30)
 }
