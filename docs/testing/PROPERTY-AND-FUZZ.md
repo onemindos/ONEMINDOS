@@ -3,24 +3,55 @@
 
 **Date:** 2026-11-12 · Branch `feat/test-property-fuzz`, PR #55. Other files in `docs/testing/` belong to other streams.
 
-**Agent A scope-2 revalidation:** #40's checker/rules are required at collection. Production fixes accompany removal of the thirteen expanded F-LIC-1/F-AUD-1..3/F-SBX-1 expected failures: strict UTF-8/object/duplicate-key audit decoding (verification and resume), conservative licence confirmation plus full token coverage, and policy-v3 pod/container checks. The API and Go fuzz workflows check out the PR head explicitly. The shared temporal oracle rejects dispatch-before-approval, duplicate dispatch/decision, and ledger/audit decider mismatch; pure positive and negative controls exercise it. These changes do not establish full-suite acceptance. The action and HTTP property factories still use SQLite, the owner state-machine rule still needs a non-vacuous functional reference model, deterministic API approval/refusal canaries are outstanding, and fresh exact-head backend/fuzz CI is required. Running destructive test setup/cleanup also requires specific owner authorization; no broad suite result is claimed here.
+**Agent A revalidation:** #40's checker/rules are required at collection. Production fixes accompany removal of the thirteen expanded F-LIC-1/F-AUD-1..3/F-SBX-1 expected failures: strict UTF-8/object/duplicate-key audit decoding (verification and resume), conservative licence confirmation plus full token coverage, and policy-v3 pod/container checks. Core/API/Go fuzz test jobs check out the PR head explicitly. The temporal oracle rejects dispatch-before-approval, duplicates and ledger/audit decider mismatch. Action properties now predict exact request/decision results independently before each call, mandate successful owner decisions and agent refusals in every machine, and compare per-action dispatch identities with executor type/app calls. Fresh retained SQL resources replace hard-coded SQLite/shared HTTP state: PostgreSQL legs require the actual psycopg dialect and verify isolated schemas on two simultaneous connections. Boundary and mutation controls cover pending caps, expiry equality, replay ordering, scan-age/skew limits, crashes, and blanket-refusal mutants. These changes are not full-suite acceptance: exact-final-head backend/API/Go CI and independent review remain required. Existing broad-suite setup and successful remove paths delete test data; restricted local diagnostics do not replace those full suites.
 
 > **Explain it like I am the founder**
 > A normal test checks one example: "an agent that approves action 42 gets 403". A **property test** states a rule and lets a tool invent hundreds of examples to break it: "whoever the principal is, whatever happened before, an action is only ever approved by a person with role owner". When it finds a counter-example it **shrinks** it to the smallest one that still fails, so the bug report is short.
 > **Fuzzing** is the same idea aimed at parsers and APIs: feed them random, broken and hostile input and check they never crash or accept something they should refuse.
-> The **oracle** is how the test knows the right answer. It must come from the contract, not from the code under test, or a bug in the code also bends the test. Every suite below was checked by breaking the code on purpose ("mutation check") and watching the test fail.
+> The **oracle** is how the test knows the right answer. It must come from the contract, not from the code under test, or a bug in the code also bends the test. Mutation controls deliberately break selected behaviors and require the oracle to reject them; they do not establish that every possible bug is caught.
 
 ## What runs where
 
 | Suite | Tool | Files | When | Budget |
 |---|---|---|---|---|
-| Gateway and SDK properties | Hypothesis 6.170.15 | `core/tests/test_properties_*.py` | every `make -C core test`, so every PR touching `core/` or `sdk/` (`ci-core.yml`, SQLite and PostgreSQL legs) | about 20 s |
-| Same, deep | Hypothesis | same | nightly, `api-fuzz.yml` job `properties` | 20x examples, about 10 min |
+| Gateway and SDK properties | Hypothesis 6.170.15 | `core/tests/test_properties_*.py`, resource and action-model controls | every `make -C core test`, so every PR touching `core/` or `sdk/` (`ci-core.yml`, actual SQLite and PostgreSQL legs) | PR example budgets; runtime depends on backend |
+| Same, deep | Hypothesis | same | nightly, `api-fuzz.yml` job `properties` (SQLite; PostgreSQL runs at PR depth in `ci-core`) | 20x property examples; deterministic boundary controls unchanged |
 | API fuzzing | Schemathesis 4.33.1 | `.github/workflows/api-fuzz.yml`, `core/tests/api_fuzz_check.py` | PRs touching `core/`, `sdk/schema/`, `sdk/tools/applib/` or app manifests; nightly | 40 cases per operation on a PR, 400 at night |
 | Go fuzz targets | `go test -fuzz` | `internal/{heartbeat,detect,update}/fuzz_test.go` | seed corpus in every `go test` (`ci-onemindd.yml`); exploration in `go-fuzz.yml` on PRs touching `internal/` or `go.mod`, and nightly | 30 s per target on a PR, 8 min at night |
 | Dependency licences | pytest | `core/tests/test_dependency_licences.py` | every core test run; again after the fuzz group is installed | – |
 
 ## How to run them
+
+### Backend isolation and retained diagnostics
+
+`property_resources.py` allocates a new file-backed SQLite database or PostgreSQL
+schema **inside each generated example** (including replay/shrinking). Gateway
+restarts within that example keep the same ledger and audit. HTTP discovery caches
+only the OpenAPI operation description; generated requests get fresh app/guard state.
+PostgreSQL uses a validated random schema and connection-startup `search_path` with
+no `public` fallback, verifies the live database/schema on two simultaneous connections,
+and verifies registered tables resolve there. It never resets or drops schemas.
+`ONEMIND_TEST_DB_URL` must identify a designated test PostgreSQL database with CREATE
+SCHEMA permission. `ONEMIND_PROPERTY_BACKEND=postgresql` fails if the URL is absent or
+selects another backend; it never silently falls back. This namespace isolation is
+not a security boundary against hostile SQL under the same database role.
+
+Set `ONEMIND_PROPERTY_ARTIFACTS` to an explicitly retained directory for diagnostic
+runs. The allocator records sanitized per-example manifests, closes handles only,
+and retains files, schemas and rows. A factory stops at
+`ONEMIND_PROPERTY_MAX_ALLOCATIONS` (default 25000) rather than reusing or pruning old
+examples. With this directory set, Hypothesis cache persistence is disabled, not its
+budgets/assertions/shrinking. CI uploads **only allocation manifests**, never database
+files or notification key files. The HTTP protocol harness uses the supported
+`notify.worker=false` setting: it does not cover delivery/retention worker behavior.
+
+Retention is **not** permission to run deleting application paths. The full state
+machine still exercises successful remove (which deletes a test-created app-state
+row); ordinary PostgreSQL suite fixtures still drop tables. Obtain explicit bounded
+deletion authority before running those locally, or use the exact-head existing CI.
+Non-deleting `test_property_resources.py` and `test_action_model_controls.py` canaries
+prove backend isolation, functional HTTP decisions, model positive/negative controls
+and boundaries, not the complete state machine or complete backend suite.
 
 Nothing here needs a tool installed on the Mac beyond what the repo already uses (uv, Go). Schemathesis is never installed on the Mac: it runs in CI, or in a Lima VM you create and delete.
 
@@ -70,7 +101,10 @@ gh workflow run api-fuzz.yml --ref <branch>
 
 ### Mutation checks (do the tests have teeth?)
 
-Each line: the code was broken on purpose, the suite run, the change reverted.
+The older rows below record original branch mutation experiments, not fresh final-head
+acceptance. Current executable controls in `test_property_resources.py` and
+`test_action_model_controls.py` require the model to reject blanket request 404/409
+and owner decision 409 mutants, alongside real owner-success and failed-agent controls.
 
 | Broken on purpose | Caught by |
 |---|---|
@@ -102,7 +136,7 @@ One mutation survived and is harmless: ingest no longer dropping a sender's `las
 | Note | – | Audit lines hold U+0085 and U+2028 raw (canonical JSON with `ensure_ascii=False`). Readers must split the file on `\n` only; Python's `str.splitlines()` breaks such a record in two | For the audit readers (`onemind audit tail`, DEV-API-9) | CLI, gateway |
 | Note | – | `BadReleases.Excluded` matches the exact version string, while the version order treats `v0.2.0`, `0.2.0.0` and `0.2.0+b1` as equal to `0.2.0`: a signed re-release under an equivalent string is offered again after the gate marked `0.2.0` image-bad. Only the release signer can publish one; whether a rebuild should be retried is a policy question | For the updater owner | updater (`internal/update`) |
 
-All thirteen expanded cases now have production fixes and ordinary regression tests, with no expected-failure markers in these three property modules. This does not certify unrelated expected failures on other branches. The stricter licence normalizer deliberately does not treat arbitrary research prose as confirmation of a shorter expression; only the reviewed EDL/BSD alias remains. The sandbox rule version is 3, based on the Kubernetes v1.37 baseline values; it is not a promise of complete parity with future PSA versions. No existing app manifest changes are bundled; affected-app rendered-object checks remain a review gate.
+All thirteen expanded cases now have production fixes and ordinary regression tests, with no expected-failure markers in these three property modules. This does not certify unrelated expected failures on other branches. The stricter licence normalizer deliberately does not treat arbitrary research prose as confirmation of a shorter expression; only the reviewed EDL/BSD alias remains. The sandbox rule version is 3, based on the Kubernetes v1.37 baseline values; it is not a promise of complete parity with future PSA versions. No existing app manifest changes are bundled. A real Kustomize v5.8.3 render of all nine current apps and live upstream SPDX metadata produced no policy-result or licence-class change relative to main during revalidation; this is not a complete scan or live-cluster gate, and final-head CI remains required.
 
 ## Test-only dependencies
 

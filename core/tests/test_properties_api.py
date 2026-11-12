@@ -14,46 +14,24 @@ runs in every `make -C core test`:
 from __future__ import annotations
 
 import re
-import shutil
-from datetime import timedelta
 
 import pytest
-from fastapi.testclient import TestClient
+
 from hypothesis import given
 from hypothesis import strategies as st
 
-from conftest import AGENT, EXAMPLES, FIXTURES, OWNER, Clock, write_scan
-from onemind_core.app import create_app
-from onemind_core.config import Settings
-from onemind_core.guard import LimitSettings
+from conftest import AGENT, OWNER
 from props import budget
 
 METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "TRACE"]
 
 
 @pytest.fixture(scope="module")
-def gateway(tmp_path_factory):
-    root = tmp_path_factory.mktemp("api")
-    shutil.copytree(FIXTURES / "apps", root / "apps")
-    clock = Clock()
-    for app_id in ("uptime-kuma", "whoami", "hermes-like"):
-        write_scan(root / "apps" / app_id, clock.now - timedelta(days=1))
-    settings = Settings(
-        tokens_file=EXAMPLES / "tokens.example.yaml", db_url=f"sqlite:///{root / 'db.sqlite'}",
-        apps_dir=root / "apps", dashboard_dist=None, executor="noop", nats_url=None,
-        audit_path=root / "audit.jsonl", node_id="abc123def456", instance_name="Test OneMind",
-        app_schema_path=None, kubectl="kubectl", executor_timeout_s=5, host="127.0.0.1", port=8080,
-        # Hypothesis fires requests faster than a person: rate buckets wide open (test_guard.py has the real limits).
-        sections={"limits": LimitSettings(read_burst=100_000, request_burst=100_000, auth_failures_per_min=100_000)},
-    )
-    with TestClient(create_app(settings, clock=clock), raise_server_exceptions=False) as client:
-        yield client
-
-
-@pytest.fixture(scope="module")
-def operations(gateway):
+def operations(property_resources):
     """(concrete path, template, {METHOD: documented statuses}) for every documented path but /mcp."""
-    spec = gateway.get("/openapi.json").json()
+    # Cache only the operation description, never a live client's mutable state.
+    with property_resources.example() as sample, sample.http() as gateway:
+        spec = gateway.get("/openapi.json").json()
     out = []
     for path, ops in spec["paths"].items():
         if path == "/mcp":  # JSON-RPC over one POST; api-fuzz.yml checks it for server errors only
@@ -63,31 +41,34 @@ def operations(gateway):
     return out
 
 
-def test_every_undocumented_method_is_405_with_allow(gateway, operations):
+def test_every_undocumented_method_is_405_with_allow(property_resources, operations):
     def matching(path):
         """Methods of every documented template that matches this concrete path: a sibling route with
         a path parameter also answers it (GET /v1/notifications/{id} takes "send"), so its methods
         are neither 405 here nor missing from Allow."""
         return {m for _, t, d in operations if re.fullmatch(re.sub(r"\{[^/]+\}", "[^/]+", t), path) for m in d}
 
-    for path, _, documented in operations:
-        methods = matching(path)
-        for method in METHODS:
-            if method in methods:
-                continue
-            r = gateway.request(method, path, headers=OWNER)
-            assert r.status_code == 405, (method, path, r.status_code)
-            allow = {m.strip() for m in r.headers.get("allow", "").split(",") if m.strip()}
-            assert allow - {"HEAD"} == methods, (method, path, r.headers.get("allow"))
-            assert r.json()["error"] == "not_found"  # §12.2: method_not_allowed is opt-in
+    with property_resources.example() as sample, sample.http() as gateway:
+        for path, _, documented in operations:
+            methods = matching(path)
+            for method in METHODS:
+                if method in methods:
+                    continue
+                r = gateway.request(method, path, headers=OWNER)
+                assert r.status_code == 405, (method, path, r.status_code)
+                allow = {m.strip() for m in r.headers.get("allow", "").split(",") if m.strip()}
+                assert allow - {"HEAD"} == methods, (method, path, r.headers.get("allow"))
+                assert r.json()["error"] == "not_found"  # §12.2: method_not_allowed is opt-in
 
 
 @budget(150)
 @given(data=st.data(), body=st.binary(max_size=300) | st.text(max_size=200).map(str.encode), who=st.sampled_from([OWNER, AGENT]))
-def test_any_body_gets_a_documented_status(gateway, operations, data, body, who):
+def test_any_body_gets_a_documented_status(property_resources, operations, data, body, who):
     posts = [(p, d["POST"]) for p, _, d in operations if "POST" in d]
     path, documented = data.draw(st.sampled_from(posts), label="operation")
-    r = gateway.post(path, content=body, headers={**who, "Content-Type": "application/json"})
+    # Allocate inside @given: shrinking/replay must not reuse database/guard state.
+    with property_resources.example() as sample, sample.http() as gateway:
+        r = gateway.post(path, content=body, headers={**who, "Content-Type": "application/json"})
     assert r.status_code < 500, (path, body, r.text)
     assert r.status_code in documented, (path, body, r.status_code, r.text)
     if r.status_code >= 400:

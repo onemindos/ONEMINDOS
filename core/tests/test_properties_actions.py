@@ -27,26 +27,25 @@
 from __future__ import annotations
 
 import json
-import shutil
-import tempfile
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+
 
 import pytest
 from hypothesis import event, example, given
 from hypothesis import strategies as st
 from pydantic import ValidationError
-from hypothesis.stateful import Bundle, RuleBasedStateMachine, invariant, multiple, rule
+from hypothesis.stateful import Bundle, RuleBasedStateMachine, initialize, invariant, multiple, rule, run_state_machine_as_test
 from sqlalchemy import select
 
-from conftest import FIXTURES, Clock, ScriptedExecutor, write_scan
+from conftest import Clock, ScriptedExecutor
 from onemind_core.actions import ActionRequest, ActionService
 from onemind_core.audit import AuditLog, verify
 from onemind_core.auth import Principal
 from onemind_core.catalog import Catalog
 from onemind_core.errors import ApiError
-from onemind_core.ledger import ALLOWED, STATES, TERMINAL, AgentTokenRow, SqlActionRepository, make_engine, utc
+from onemind_core.ledger import ALLOWED, STATES, TERMINAL, AgentTokenRow, utc
 from props import budget
 from api_fuzz_check import decision_problems
 
@@ -70,11 +69,20 @@ REQUESTERS = {OWNER, SECOND_OWNER, PRINCIPALS[4], PRINCIPALS[5]}
 APPROVED = frozenset({"accepted", "dispatched", "succeeded", "failed", "outcome_unknown"})
 APPS = ["uptime-kuma", "hermes-like", "whoami", "no-such-app"]  # whoami has no scan record
 
+# Contract §3 lifecycle plus pre-dispatch cancellation/failure and interrupted
+# acceptance recovery. Pin the reviewed edges independently of production ALLOWED.
+EXPECTED_EDGES = {
+    "requested": {"awaiting_approval", "cancelled", "expired"},
+    "awaiting_approval": {"accepted", "cancelled", "expired"},
+    "accepted": {"dispatched", "failed", "outcome_unknown"},
+    "dispatched": {"succeeded", "failed", "outcome_unknown"},
+}
+
 
 def reachable(src: str) -> set[str]:
     seen, todo = {src}, [src]
     while todo:
-        for nxt in ALLOWED.get(todo.pop(), ()):
+        for nxt in EXPECTED_EDGES.get(todo.pop(), ()):
             if nxt not in seen:
                 seen.add(nxt)
                 todo.append(nxt)
@@ -84,6 +92,7 @@ def reachable(src: str) -> set[str]:
 # ---- 1. the table ------------------------------------------------------------------------------
 
 def test_transition_table_shape():
+    assert ALLOWED == EXPECTED_EDGES
     assert set(ALLOWED) | {s for v in ALLOWED.values() for s in v} <= set(STATES)
     assert not TERMINAL & set(ALLOWED), "a terminal state has an outgoing edge"
     assert all(TERMINAL & reachable(s) for s in STATES), "a state that can never finish"
@@ -95,36 +104,34 @@ def test_transition_table_shape():
 
 @budget(100)
 @given(src=st.sets(st.sampled_from(STATES), min_size=1, max_size=3), dst=st.sampled_from(STATES))
-def test_repository_refuses_every_transition_the_table_does_not_list(src, dst):
-    repo = SqlActionRepository(make_engine("sqlite://"))
-    try:
-        legal = all(dst in ALLOWED.get(s, set()) for s in src)
+def test_repository_refuses_every_transition_the_table_does_not_list(property_resources, src, dst):
+    with property_resources.example() as sample:
+        repo = sample.repo
+        legal = all(dst in EXPECTED_EDGES.get(s, set()) for s in src)
         if legal:  # a legal pair on a missing action is a lost compare-and-swap, not an error
             assert repo.transition("missing", src, dst, Clock()()) is None
         else:
             with pytest.raises(ValueError, match="illegal transition"):
                 repo.transition("missing", src, dst, Clock()())
-    finally:
-        repo.close()
+
 
 
 # ---- 2. the stateful model ---------------------------------------------------------------------
 
 class Gateway:
-    """An ActionService on an in-memory ledger, a temporary catalog and audit file."""
+    """One real backend namespace per machine; restart retains its history."""
 
-    def __init__(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        root = Path(self.tmp.name)
-        self.apps = root / "apps"
-        shutil.copytree(FIXTURES / "apps", self.apps)
-        self.clock = Clock()
-        for app in ("uptime-kuma", "hermes-like"):
-            write_scan(self.apps / app, self.clock.now - timedelta(days=1))
-        self.audit_path = root / "audit.jsonl"
-        self.repo = SqlActionRepository(make_engine("sqlite://"))
+    def __init__(self, resources):
+        self.handle = resources.example()
+        self.sample = self.handle.__enter__()
+        self.apps, self.clock = self.sample.apps, self.sample.clock
+        self.audit_path, self.repo = self.sample.audit_path, self.sample.repo
         self.executor = ScriptedExecutor()
-        self.start()
+        try:
+            self.start()
+        except BaseException:
+            self.handle.__exit__(*sys.exc_info())
+            raise
 
     def start(self) -> None:
         """(Re)start: a fresh AuditLog resumes the chain, then the service reconciles."""
@@ -133,8 +140,7 @@ class Gateway:
         self.svc.reconcile_interrupted()
 
     def close(self) -> None:
-        self.repo.close()
-        self.tmp.cleanup()
+        self.handle.__exit__(None, None, None)
 
     def audit_records(self) -> list[dict]:
         if not self.audit_path.exists():  # nothing audited yet
@@ -145,14 +151,40 @@ class Gateway:
 class ActionMachine(RuleBasedStateMachine):
     actions = Bundle("actions")
 
-    def __init__(self):
+    def __init__(self, resources):
         super().__init__()
-        self.gw = Gateway()
+        self.gw = Gateway(resources)
         self.seen: dict[str, str] = {}
         self.keys = 0
+        self.model: dict[str, dict] = {}
+        self.app_states: dict[str, str] = {}
+        self.expected_calls: list[tuple[str, str]] = []
+        self.expected_dispatches: list[str] = []
 
     def teardown(self):
         self.gw.close()
+
+    def _expire_model(self, action):
+        if action["state"] == "awaiting_approval" and self.gw.clock.now >= action["expires"]:
+            action["state"] = "expired"
+
+    def _app_allowed(self, type_, app):
+        status = self.app_states.get(app)
+        if type_ == "app.install":
+            return status in (None, "failed", "unknown")
+        return status in ("installed", "failed", "unknown")
+
+    @initialize(target=actions)
+    def mandatory_authorized_decisions(self):
+        """Every machine must prove functional success, not only universal refusal."""
+        denied = self.request(OWNER, "hermes-like", "app.install", 600)
+        approved = self.request(SECOND_OWNER, "uptime-kuma", "app.install", 600)
+        self._decide("approve", PRINCIPALS[4], approved)
+        self._decide("deny", PRINCIPALS[4], denied)
+        self._decide("deny", OWNER, denied)
+        self._decide("approve", SECOND_OWNER, approved)
+        self._decide("approve", SECOND_OWNER, approved)  # no duplicate dispatch
+        return multiple(denied, approved)
 
     # -- rules --
     @rule(target=actions, who=st.sampled_from(PRINCIPALS), app=st.sampled_from(APPS),
@@ -162,33 +194,80 @@ class ActionMachine(RuleBasedStateMachine):
         self.keys += 1
         req = ActionRequest(type=type_, params={"app_id": app}, idempotency_key=f"k{self.keys}",
                             expires_at=self.gw.clock.now + timedelta(seconds=ttl))
+        expected_error = None
+        if who not in REQUESTERS:
+            expected_error = (403, "permission_denied")
+        elif ttl <= 0:
+            expected_error = (409, "expired")
+        else:
+            if who not in OWNERS:
+                pending = [a for a in self.model.values() if a["who"] == who and a["state"] == "awaiting_approval"]
+                for a in pending:
+                    self._expire_model(a)
+                if sum(a["state"] == "awaiting_approval" for a in pending) >= 10:
+                    expected_error = (429, "rate_limited")
+            if expected_error is None:
+                if app == "no-such-app":
+                    expected_error = (404, "not_found")
+                elif not self._app_allowed(type_, app):
+                    expected_error = (409, "stale_precondition")
         try:
             action, created = self.gw.svc.create(who, req)
         except ApiError as e:
-            if who not in REQUESTERS:
-                assert e.status == 403 and e.error == "permission_denied"
-            else:
-                assert e.status in (404, 409), e
+            assert expected_error is not None, f"unexpected request refusal: {e.status} {e.error}"
+            assert (e.status, e.error) == expected_error
             return multiple()
+        assert expected_error is None, f"request should have failed with {expected_error}"
         assert who in REQUESTERS and created
         assert action["state"] == "awaiting_approval" and action["decided_by"] is None
+        self.model[action["id"]] = {"state": "awaiting_approval", "expires": req.expires_at,
+                                   "type": type_, "app": app, "who": who, "decider": None}
         return action["id"]
 
     def _decide(self, op: str, who: Principal, action_id: str) -> None:
-        before = self.gw.repo.get(action_id).state
+        model = self.model[action_id]
+        before = model["state"]
+        expected_error = None
+        if who not in OWNERS:
+            expected_error = (403, "permission_denied")
+        else:
+            self._expire_model(model)
+            if model["state"] == "expired":
+                expected_error = (409, "expired")
+            elif model["state"] != "awaiting_approval":
+                expected_error = (409, "conflict")
+            elif op == "approve":
+                scan_stale = self.gw.clock.now - self.gw.sample.scan_time > timedelta(days=7)
+                if (model["type"] == "app.install" and (model["app"] == "whoami" or scan_stale)
+                        or not self._app_allowed(model["type"], model["app"])):
+                    expected_error = (409, "stale_precondition")
         try:
             after = getattr(self.gw.svc, op)(who, action_id)["state"]
             event(f"{op} by {who.kind}/{who.role}: {before} -> {after}")
         except ApiError as e:
             event(f"{op} by {who.kind}/{who.role}: {e.status} {e.error}")
+            assert expected_error is not None, f"unexpected owner refusal: {e.status} {e.error}"
+            assert (e.status, e.error) == expected_error
             if who not in OWNERS:
-                assert (e.status, e.error) == (403, "permission_denied")
                 after = self.gw.repo.get(action_id).state
                 assert after == before, f"a refused {op} by {who} moved {before} -> {after}"
-            else:
-                assert e.status == 409, e
             return
-        assert who in OWNERS, f"{op} by {who} was not refused"
+        assert expected_error is None, f"{op} should have failed with {expected_error}"
+        model["decider"] = who.as_dict()
+        if op == "deny":
+            model["state"] = "cancelled"
+        else:
+            self.expected_calls.append((model["type"], model["app"]))
+            self.expected_dispatches.append(action_id)
+            model["state"] = "outcome_unknown" if self.gw.executor.raise_exc else self.gw.executor.outcome
+            if model["state"] == "succeeded":
+                if model["type"] == "app.install":
+                    self.app_states[model["app"]] = "installed"
+                else:
+                    self.app_states.pop(model["app"], None)
+            else:
+                self.app_states[model["app"]] = "failed" if model["state"] == "failed" else "unknown"
+        assert after == model["state"]
 
     # Owners and everyone else get separate rules so owner decisions are as frequent as refusals.
     @rule(who=st.sampled_from(OWNERS), action_id=actions)
@@ -222,11 +301,17 @@ class ActionMachine(RuleBasedStateMachine):
     @rule()
     def someone_lists_actions(self):
         self.gw.svc.list()  # lazy expiry happens here
+        for action in self.model.values():
+            self._expire_model(action)
 
     # -- invariants --
     @invariant()
     def states_follow_the_table(self):
+        assert set(self.model) == {a.id for a in self.gw.repo.list()}
+        assert {k: v.status for k, v in self.gw.repo.list_app_states().items()} == self.app_states
         for a in self.gw.repo.list():
+            assert a.state == self.model[a.id]["state"]
+            assert a.decided_by == self.model[a.id]["decider"]
             assert a.state in STATES
             prev = self.seen.get(a.id, "awaiting_approval")
             assert a.state in reachable(prev), f"{a.id}: {prev} -> {a.state}"
@@ -254,6 +339,8 @@ class ActionMachine(RuleBasedStateMachine):
     def executor_ran_once_per_owner_approved_dispatch(self):
         dispatched = [r["action_id"] for r in self.gw.audit_records() if r["event"] == "action.dispatched"]
         assert len(dispatched) == len(set(dispatched)) == len(self.gw.executor.calls)
+        assert dispatched == self.expected_dispatches
+        assert self.gw.executor.calls == self.expected_calls
         assert decision_problems(self.gw.audit_records(), [a.to_json() for a in self.gw.repo.list()]) == []
 
     @invariant()
@@ -270,8 +357,9 @@ class ActionMachine(RuleBasedStateMachine):
         assert ok, reason
 
 
-TestActionStateMachine = ActionMachine.TestCase
-TestActionStateMachine.settings = budget(40, stateful_step_count=30)
+def test_action_state_machine(property_resources):
+    run_state_machine_as_test(lambda: ActionMachine(property_resources),
+                              settings=budget(40, stateful_step_count=30))
 
 
 # ---- 3. any expiry --------------------------------------------------------------------------------
@@ -291,14 +379,14 @@ naive = (st.datetimes(min_value=datetime.max - timedelta(days=2))
        who=st.sampled_from([OWNER, PRINCIPALS[4]]))
 @example(expires=datetime(9999, 12, 31, 23, 59, 59, tzinfo=timezone(-timedelta(hours=23, minutes=59))), who=OWNER)
 @example(expires=datetime(1, 1, 1, tzinfo=timezone(timedelta(hours=23, minutes=59))), who=PRINCIPALS[4])
-def test_any_expiry_gets_an_answer_not_a_crash(expires, who):
+def test_any_expiry_gets_an_answer_not_a_crash(property_resources, expires, who):
     """Finding F-API-1: 9999-12-31T23:59:59-23:59 overflowed to year 10000 in utc() and the
     gateway answered 500 (owner and agent alike), with nothing in the audit log."""
     try:
         req = ActionRequest(type="app.install", params={"app_id": "uptime-kuma"}, idempotency_key="k", expires_at=expires)
     except ValidationError:
         return  # refused by the request model: HTTP 422
-    gw = Gateway()
+    gw = Gateway(property_resources)
     try:
         try:
             action, _ = gw.svc.create(who, req)
@@ -337,8 +425,8 @@ REQS = st.builds(
 
 @budget(60)
 @given(reqs=st.lists(REQS, min_size=1, max_size=12))
-def test_idempotency_keys(reqs):
-    gw = Gateway()
+def test_idempotency_keys(property_resources, reqs):
+    gw = Gateway(property_resources)
     start = gw.clock.now
     first: dict[str, tuple[Req, str]] = {}  # key -> (the request that created it, action id)
     try:

@@ -30,6 +30,10 @@ def budget(examples: int, **kw) -> settings:
     The deadline is off because the stateful tests touch SQLite and fsync the audit file, whose
     speed depends on the runner, not on the code under test.
     """
+    if os.environ.get("ONEMIND_PROPERTY_ARTIFACTS"):
+        # Retained diagnostic runs must not mutate/delete Hypothesis cache entries.
+        # This changes persistence only, never examples, shrinking or assertions.
+        kw.setdefault("database", None)
     return settings(
         max_examples=examples * SCALE,
         deadline=None,

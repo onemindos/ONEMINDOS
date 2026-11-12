@@ -9,6 +9,8 @@ A plain-language record of everything added to this repo, newest first.
 
 Agent A landing, [#55](https://github.com/onemindos/ONEMINDOS/pull/55): refreshed the property/fuzz branch against current main. Sandbox properties require #40's checker and rules, and fuzz workflows check out the exact PR head. Fixes the thirteen expanded audit/licence/sandbox expected-failure cases with production changes and regression tests, plus the licence tokenizer's ignored punctuation. Audit verification and recovery share a duplicate-key-aware object decoder; policy version 3 checks the previously missed pod/container fields. The temporal approval oracle now rejects dispatch-before-approval, duplicates and ledger/audit decider mismatch. Full backend suites, functional positive canaries, PostgreSQL property factories and exact-head CI remain acceptance gates; this is not an all-green delivery.
 
+PR #55 follow-up: real per-example SQLite/PostgreSQL resources with live schema assertions, fresh HTTP property clients, independent request/decision predictions, mandatory owner-success/agent-refusal initialization, per-action dispatch mapping, scan/expiry/cap/replay/crash boundaries and blanket-refusal mutation controls. No test data is cleaned up by the allocator. Full state-machine and backend acceptance still requires exact-head CI; this is not a merge or delivery claim.
+
 Branches with work that is not on `main` yet (as of 2026-11-12):
 
 | Branch | PR | What it adds |
