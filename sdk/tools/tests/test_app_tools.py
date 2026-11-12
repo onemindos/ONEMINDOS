@@ -231,6 +231,25 @@ class RenovateTests(unittest.TestCase):
         self.assertTrue(validate.renovate_check(cfg, tmp, dirs))
 
 
+class IsolationTests(unittest.TestCase):
+    def test_isolation(self):
+        def errs(pod=None, **obj):
+            o = {"kind": "Deployment", "metadata": {"name": "a"},
+                 "spec": {"template": {"spec": pod or {"containers": [{"name": "c"}]}}}}
+            o.update(obj)
+            out: list[str] = []
+            validate.AppChecker.isolation_checks([o], out)
+            return out
+        self.assertEqual(errs(), [])
+        self.assertTrue(errs(kind="ClusterRoleBinding"))
+        self.assertTrue(errs(kind="Secret"))
+        self.assertTrue(errs(metadata={"name": "a", "namespace": "kube-system"}))
+        self.assertTrue(errs({"hostNetwork": True, "containers": []}))
+        self.assertTrue(errs({"volumes": [{"name": "r", "hostPath": {"path": "/"}}], "containers": []}))
+        self.assertTrue(errs({"containers": [{"name": "c", "securityContext": {"privileged": True}}]}))
+        self.assertTrue(errs({"containers": [{"name": "c", "ports": [{"containerPort": 1, "hostPort": 1}]}]}))
+
+
 class ReadmeTests(unittest.TestCase):
     def test_notes_roundtrip(self):
         text = f"head\n{readme.NOTES_BEGIN}\n## First run\n\n1. Open it.\n{readme.NOTES_END}\ntail\n"

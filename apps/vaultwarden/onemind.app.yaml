@@ -31,5 +31,5 @@ spec:
   requires: {gpu: false, minMemoryMb: 256}
   web: {port: 8080}
   manifests: manifests/
-  # automerge stays none until renovate.json lists this app (validate-apps check 8).
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
   updates: {channel: stable, automerge: none}

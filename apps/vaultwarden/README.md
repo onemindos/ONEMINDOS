@@ -72,7 +72,7 @@ Source: the upstream [README](https://github.com/dani-garcia/vaultwarden/blob/1.
 - No HTTPS or `DOMAIN`: OneMind v0 has no ingress or certificates for apps, so the web vault works only through `localhost` until a reverse proxy exists.
 - No SMTP: email verification, invitations by email and password hints by email are off.
 - `readOnlyRootFilesystem` is not set: it has not been tested against this image.
-- `spec.updates.automerge` is `none`: patch automerge needs this app added to the automerge list in `renovate.json` (validate-apps check 8), a separate change outside this app directory.
+- `spec.updates.automerge` is `none`: patch automerge needs this app added to the automerge list in `renovate.json` (validate-apps check 9), a separate change outside this app directory.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

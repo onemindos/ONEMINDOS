@@ -30,4 +30,4 @@ spec:
   requires: {gpu: false, minMemoryMb: 256}
   web: {port: 8080}
   manifests: manifests/
-  updates: {channel: stable, automerge: none}   # patch automerge needs a renovate.json entry (validate-apps check 8)
+  updates: {channel: stable, automerge: none}   # patch automerge needs a renovate.json entry (validate-apps check 9)
