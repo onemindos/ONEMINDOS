@@ -34,13 +34,13 @@ onemind update check      # is there something newer?
 onemind update apply      # install now (inside your policy)
 ```
 
-## Nightly security rebuilds <span class="om-tag om-tag--warn">in review</span>
+## Nightly security rebuilds <span class="om-tag om-tag--unknown">being built</span>
 
-CI checks the Debian security tracker against the packages in the current image. When a fix exists, it rebuilds from a new, pinned Debian snapshot and runs the SBOM, a CVE scan, ClamAV over the root filesystem and the QEMU boot battery. Only then does it sign the bundle and publish it to the security channel.
+The pipeline is on `main`; it publishes nothing yet. CI checks the Debian security tracker against the packages in the current image. When a fix exists, it rebuilds from a new, pinned Debian snapshot and runs the SBOM, a CVE scan, ClamAV over the root filesystem and the QEMU boot battery. Only then does it sign the bundle and publish it to the security channel.
 
 ## On a developer install
 
-`deploy/install.sh` runs on a stock OS, so there is no second slot and no rollback. It turns on Debian's `unattended-upgrades` for security updates only. Treat it as the weaker path it is.
+`deploy/install.sh` runs on a stock OS, so there is no second slot and no rollback. It turns on Debian's `unattended-upgrades` for security updates only. Treat it as the weaker path it is. How to keep one up to date: [Updates and rollback guide](../../guides/updates/).
 
 ## Apps
 
