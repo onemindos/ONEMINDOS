@@ -1,0 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Demo-only: the state switcher above the Appearance screen. Tokens only. */
+.cz-demo-states { display: flex; flex-wrap: wrap; align-items: center; gap: var(--om-space-1) var(--om-space-3); font-size: var(--om-font-size-sm); }
+.cz-demo-states a { min-height: 32px; display: inline-flex; align-items: center; padding: 0 var(--om-space-2); border-radius: var(--om-radius-sm); }
+.cz-demo-states a[aria-current='page'] { background: var(--om-color-accent-soft); font-weight: var(--om-font-weight-semibold); text-decoration: none; }

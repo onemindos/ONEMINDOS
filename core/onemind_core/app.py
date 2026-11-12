@@ -1,4 +1,4 @@
-"""FastAPI application: the REST surface of contract section 3, plus the dashboard static files."""
+"""FastAPI application: the REST surface of contract §3, the MCP endpoint of §11.3, and the dashboard."""
 
 from __future__ import annotations
 
@@ -10,18 +10,20 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from . import __version__
 from .actions import ActionRequest, ActionService
 from .audit import AuditLog
-from .auth import Principal, TokenStore
+from .auth import Principal, TokenStore, agent_principal, token_hash
 from .bus import NatsBus
 from .catalog import Catalog
 from .config import Settings
 from .errors import ApiError, error_responses, install_handlers
-from .executors import Executor, make_executor
+from .executors import Executor, NoopExecutor, make_executor
 from .ledger import ActionRepository, SqlActionRepository
+from .mcp import McpEndpoint
+from .models import CatalogApp
 from .nodes import NodeRegistry
 
 log = logging.getLogger("onemind.gateway")
@@ -30,7 +32,7 @@ UNAUTH_AUDIT_INTERVAL_S = 60
 
 # Paths the SPA fallback never answers: the API tree (whole segment) and the open meta routes.
 API_TREES = ("v1",)
-API_EXACT = ("healthz", "openapi.json")
+API_EXACT = ("healthz", "openapi.json", "mcp")
 
 
 def is_api_path(full_path: str) -> bool:
@@ -49,6 +51,7 @@ def create_app(
     repo: ActionRepository | None = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
+    settings.check()  # refuses ONEMIND_ALLOW_UNSCANNED with the kubernetes executor
     tokens = TokenStore(settings.tokens_file)
     registry = NodeRegistry(clock)
     bus = NatsBus(settings.nats_url, registry)
@@ -57,13 +60,29 @@ def create_app(
     owns_repo = repo is None
     repo = repo or SqlActionRepository.from_url(settings.db_url)
     executor = executor or make_executor(settings.executor, settings.kubectl, settings.executor_timeout_s)
-    actions = ActionService(repo, catalog, executor, audit, clock)
+    # §11.1: the scan check is skipped only on explicit request, and only when nothing real runs.
+    skip_scan = settings.allow_unscanned and settings.executor == "noop" and isinstance(executor, NoopExecutor)
+    if settings.allow_unscanned and not skip_scan:
+        raise ValueError("ONEMIND_ALLOW_UNSCANNED=1 is honoured only with the noop executor")
+    if skip_scan:
+        log.warning(
+            "ONEMIND_ALLOW_UNSCANNED=1: installs are approved WITHOUT a passing scan (dev only, noop executor)"
+        )
+    gateway_url = settings.gateway_url()
+    if settings.public_url is None:
+        log.info("ONEMIND_PUBLIC_URL not set; app agent Secrets will use %s", gateway_url)
+    actions = ActionService(
+        repo, catalog, executor, audit, clock, gateway_url=gateway_url, require_scan=not skip_scan
+    )
     actions.reconcile_interrupted()  # finish what a crashed or killed process left mid-dispatch
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         await bus.start()
-        audit.append("gateway.started", None, None, {"version": __version__, "executor": executor.name})
+        audit.append(
+            "gateway.started", None, None,
+            {"version": __version__, "executor": executor.name, "scan_check": not skip_scan},
+        )
         try:
             yield
         finally:
@@ -114,7 +133,11 @@ def create_app(
         scheme, _, token = header.partition(" ")
         if scheme.lower() != "bearer" or not token.strip():
             raise reject_unauthenticated(request, "missing bearer token")
-        p = tokens.lookup(token.strip())
+        token = token.strip()
+        p = tokens.lookup(token)
+        if p is None:  # §11.2: agent principals issued to apps, stored hashed in the database
+            principal_id = repo.agent_principal_for(token_hash(token))
+            p = agent_principal(principal_id) if principal_id else None
         if p is None:
             raise reject_unauthenticated(request, "unknown token")
         return p
@@ -150,9 +173,34 @@ def create_app(
             rows.append({**entry.summary(), "installed": status == "installed", "status": status})
         return rows
 
-    @app.get("/v1/apps", tags=["apps"], responses=error_responses(401))
+    @app.get("/v1/apps", tags=["apps"], response_model=list[CatalogApp], responses=error_responses(401))
     def list_apps(_: Principal = Depends(principal)):
         return _app_rows()
+
+    # ---- MCP (§11.3): agent principals only ------------------------------------------------
+    mcp = McpEndpoint(
+        list_nodes=registry.list, list_apps=_app_rows, actions=actions, clock=clock,
+        deny=lambda p, what: actions._deny(p, what),
+    )
+
+    @app.post(
+        "/mcp",
+        tags=["mcp"],
+        summary="MCP Streamable HTTP endpoint (protocol 2025-06-18), agents only",
+        description=(
+            "One JSON-RPC 2.0 message per request: initialize, ping, tools/list, tools/call. "
+            "Tools: list_nodes, list_apps, request_action. No approve tool. Notifications get 202."
+        ),
+        openapi_extra={"requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}}},
+        responses={202: {"description": "Notification or response accepted"}, **error_responses(401, 403)},
+    )
+    async def mcp_post(request: Request, p: Principal = Depends(principal)):
+        return await mcp.handle(request, p)
+
+    @app.api_route("/mcp", methods=["GET", "DELETE"], include_in_schema=False)
+    def mcp_other(_: Principal = Depends(principal)):
+        # No server-initiated SSE stream and no sessions (Streamable HTTP allows 405 for both).
+        return Response(status_code=405, headers={"Allow": "POST"})
 
     # ---- actions ------------------------------------------------------------------------
     @app.post(

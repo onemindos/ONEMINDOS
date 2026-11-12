@@ -1,4 +1,5 @@
 import type { OneMindApi } from './client';
+import { installBlockReason } from '../lib/scan';
 import { DEMO_TOKENS, INSTANCE, makeActions, makeApps, makeNodes } from './fixtures';
 import { ApiError, type Action, type ActionRequest, type CatalogApp, type Principal } from './types';
 
@@ -6,7 +7,8 @@ import { ApiError, type Action, type ActionRequest, type CatalogApp, type Princi
  * In-memory stand-in for the gateway (VITE_MOCK=1). It follows the §3 rules that
  * matter for the UI: unknown token → 401, only owner/agent may request, only
  * the owner may approve or deny, the idempotency key returns the same action,
- * approving after expires_at → 409 expired. Approval runs the `noop` executor
+ * approving after expires_at → 409 expired, approving an install without a fresh
+ * passing scan → 409 stale_precondition (§10.3). Approval runs the `noop` executor
  * path (accepted → dispatched → succeeded) instantly.
  */
 export class MockApi implements OneMindApi {
@@ -19,7 +21,7 @@ export class MockApi implements OneMindApi {
   constructor(token: string, opts: { now?: () => number } = {}) {
     this.principal = DEMO_TOKENS[token];
     this.now = opts.now ?? (() => Date.now());
-    this.catalog = makeApps();
+    this.catalog = makeApps(this.now());
     this.actionsList = makeActions(this.now());
   }
 
@@ -99,6 +101,9 @@ export class MockApi implements OneMindApi {
       a.state = 'expired';
       throw new ApiError(409, 'expired', 'The approval window has passed');
     }
+    const app = this.catalog.find((x) => x.id === a.params.app_id);
+    const blocked = a.type === 'app.install' && app ? installBlockReason(app, this.now()) : undefined;
+    if (blocked) throw new ApiError(409, 'stale_precondition', blocked);
     a.state = 'succeeded';
     a.result = { outcome: 'succeeded', message: 'noop executor', steps: [] };
     a.decided_by = p;
