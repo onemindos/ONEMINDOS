@@ -236,6 +236,7 @@ The mesh adds one block to the FABRIC §4.1 bundle and two steps to the node's s
 ```
 
 - `tailscale up --auth-key file:<path>` reads the key from a file (`cmd/tailscale/cli/up.go:102` at v1.104.6), so it never appears in argv or shell history (H-09).
+- The gateway mints join keys for `worker` and `leaf` only (`mesh.JOIN_ROLES`); a `node.join` asking for `hub` is refused, because the hub enrolls itself (§5.2). `set_role` likewise moves a node only between `worker` and `leaf`.
 - Tags are set **only** by the pre-auth key (`docs/ref/registration.md`, tagged keys). `tagOwners` lists no person for any OneMind tag, so no phone or laptop can claim a machine role. **UNVERIFIED:** Headscale accepts empty `tagOwners` lists (NT-4); fallback is a dedicated `custodian` user as the only tag owner.
 - Fabric `node_id` ↔ Headscale node id ↔ mesh IP are stored in `fabric_nodes` (`mesh_node_id`, `mesh_ip`; FABRIC §12). The custodian matches by the pre-auth key id it minted (Headscale's node record carries its pre-auth key).
 
@@ -392,7 +393,7 @@ node-name: node-<node_id>           # FABRIC §4.1
 
 - avahi publishes the box as `<box>.local` and adds `onemind.local` plus one name per installed app with a web UI, `<app>.onemind.local`, through `/etc/avahi/hosts` (address = the hub's LAN address). `onemindd` on the hub rewrites that file from the edge route table when apps are installed or removed. RFC 6762 allows multi-label names under `.local`.
 - **Conflicts:** if another device already answers `onemind.local` (a second OneMind box, or a renamed one), avahi does not publish it; `onemindd` detects this with `avahi-resolve` and raises `lan.name_conflict`. The box stays reachable as `<box>.local`, apps as `<app>.<box>.local`, and the dashboard shows the names in use. The edge's certificate covers both forms.
-- Nodes resolve `.local` through `libnss-mdns`. **UNVERIFIED:** multi-label `.local` resolution on Android, Windows and some Linux desktops (NT-13). Fallback for those: path routes `https://onemind.local/apps/<app>/` (apps that break under a sub-path say so in the catalog).
+- Nodes resolve `.local` through `libnss-mdns`. **UNVERIFIED:** multi-label `.local` resolution on Android, Windows and some Linux desktops (NT-13). Fallback for those: path routes `https://onemind.local/apps/<app>/` (apps that break under a sub-path say so in the catalog). **Path routes are off by default** (`AppProxy(path_routes=False)`): they serve the app on the dashboard's own origin, where the app's scripts can read the dashboard token from `sessionStorage` and call the gateway API as the person. Turn them on only for trusted apps, or after the dashboard moves to an `HttpOnly` session cookie and the gateway checks `Origin` on its own API (CORE-SEC).
 - Over the mesh the same apps are `<app>.apps.onemind.internal` (Headscale extra records → the hub's mesh IP).
 
 ### 9.2 The edge (`onemind-edge`, Go, hub only)
@@ -420,6 +421,9 @@ For every app request the edge calls the gateway on loopback: `GET /v1/auth/forw
 | 204 + `X-OneMind-Principal: person:<id>` | proxies to the app, adding `X-OneMind-Principal` and `X-OneMind-Role` and stripping any such header the client sent |
 | 401 | redirects to `https://onemind.local/login?next=<url>` |
 | 403 | shows "You do not have access to <app>" (the app's `access` setting: owner only, adults, everyone signed in; default adults) |
+
+- Sign-in is checked before the app is looked up, so an unauthenticated caller gets 401 for every name and cannot list installed apps.
+- All `*.onemind.local` names are **one site**, so `SameSite=Lax` does not stop one app's page from posting to another app as the person. The proxy refuses any WebSocket, and any request with a method other than GET/HEAD/OPTIONS, whose `Origin` is not the host it is sent to (403, audited `proxy.denied`). It also drops an app's `Set-Cookie` for the session cookie's name, so an app cannot plant a session for every app name (cookie tossing).
 
 Decisions are cached by the edge for 30 s per session and app, so a revoked session stops working within 30 s. Agent tokens are never accepted on app hosts.
 
@@ -578,7 +582,7 @@ Part 1 must not edit these files. Line references are to the in-flight branches 
 | `core/onemind_core/app.py` | `app.include_router(mesh.router(settings, ledger, custodian))` | before the SPA catch-all `@app.get("/{full_path:path}")` (`feat/gateway-agent-mcp`, ~line 238) |
 | `core/onemind_core/app.py` | `app.include_router(forward_auth.router(settings, sessions))` | same place |
 | `core/onemind_core/app.py` | `box_ca = BoxCA(data_dir / "tls", settings.box_name); box_ca.ensure_gateway_cert(); box_ca.ensure_wildcard_cert()` | in `create_app`, after `settings.check()` |
-| `core/onemind_core/app.py` | `app_proxy = AppProxy(catalog, lambda i: (st := repo.get_app_state(i)) and st.status, token_session_resolver(tokens), KubectlServiceResolver(settings.kubectl), box_domains=("onemind.local", f"{settings.box_name}.local", "apps.onemind.internal"), audit=audit.append)` | after `tokens`/`repo`/`catalog` are built |
+| `core/onemind_core/app.py` | `app_proxy = AppProxy(catalog, lambda i: (st := repo.get_app_state(i)) and st.status, token_session_resolver(tokens), KubectlServiceResolver(settings.kubectl), box_domains=("onemind.local", f"{settings.box_name}.local", "apps.onemind.internal"), audit=audit.append)` (leave `path_routes` at its default `False`, §9.1) | after `tokens`/`repo`/`catalog` are built |
 | `core/onemind_core/app.py` | `app.add_middleware(AppProxyMiddleware, proxy=app_proxy)` | right after `install_handlers(app)` (a middleware, so it sees app hosts and `/apps/<id>/` before any route, HTTP and WebSocket) |
 | `core/onemind_core/app.py` | `mesh_service = MeshService(HeadscaleClient.from_key_file("http://127.0.0.1:8085", settings.headscale_key_file), audit, clock) if settings.mesh_enabled else None` | after `audit` is built; handed to the `node.join` / `mesh.*` handlers |
 | `core/onemind_core/app.py` | `GET /v1/tls/ca.crt` → `Response(box_ca.ca_der(), media_type="application/x-x509-ca-cert")` and the fingerprint in `/v1/instance` | with the instance routes. Phones fetch it before they can sign in, so it is the second open route after `/healthz`: needs the contract §3 change (§15) |

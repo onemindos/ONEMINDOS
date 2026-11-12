@@ -71,8 +71,15 @@ async def ws_echo(ws: WebSocket):
         return
 
 
+async def set_cookies(_: Request):
+    r = JSONResponse({"ok": True})
+    r.set_cookie("onemind_session", "planted", domain="onemind.local")
+    r.set_cookie("theme", "dark")
+    return r
+
+
 UPSTREAM = Starlette(routes=[
-    Route("/stream", stream), Route("/slow", slow), WebSocketRoute("/ws", ws_echo),
+    Route("/set-cookies", set_cookies), Route("/stream", stream), Route("/slow", slow), WebSocketRoute("/ws", ws_echo),
     Route("/{path:path}", echo, methods=["GET", "POST", "PUT", "DELETE", "HEAD"]),
 ])
 
@@ -140,7 +147,7 @@ def env(tmp_path: Path, upstream_port):
         Catalog(apps), status.get, token_session_resolver(TokenStore(tmp_path / "tokens.yaml")), resolver,
         box_domains=("onemind.local", "box1.local", "apps.onemind.internal"),
         timeouts=Timeouts(connect=1, read=0.5, ws_open=2), max_body=1024, route_ttl=0,
-        audit=lambda *a: audit_lines.append(a),
+        audit=lambda *a: audit_lines.append(a), path_routes=True,
     )
     gw = FastAPI()
 
@@ -185,6 +192,56 @@ def test_path_route_fallback(env):
     assert r.status_code == 308 and r.headers["location"] == "/apps/kuma/"
     # the gateway still answers everything else
     assert c.get("/v1/instance").json() == {"gateway": "v1/instance"}
+
+
+def test_path_routes_off_by_default(env):
+    proxy = env["app"].user_middleware[0].kwargs["proxy"]
+    default = AppProxy(proxy.catalog, proxy.app_status, proxy.resolve_session, proxy.resolve_service,
+                       box_domains=("onemind.local",))
+    gw = FastAPI()
+
+    @gw.get("/{rest:path}")
+    def gateway(rest: str):
+        return {"gateway": rest}
+
+    gw.add_middleware(AppProxyMiddleware, proxy=default)
+    c = TestClient(gw, base_url="http://onemind.local")
+    # same origin as the dashboard: not proxied unless path_routes=True
+    assert c.get("/apps/kuma/x", headers=bearer(env, "owner")).json() == {"gateway": "apps/kuma/x"}
+    assert TestClient(gw, base_url="http://kuma.onemind.local").get(
+        "/x", headers=bearer(env, "owner")).json()["path"] == "/x"
+
+
+def test_raw_path_not_matching_prefix(env):
+    # %61 decodes to "a": the route matches /apps/kuma, and the upstream still gets the right remainder
+    r = client(env, host="onemind.local").get("/apps/kum%61/x/y", headers=bearer(env, "adult"))
+    assert r.status_code == 200 and r.json()["path"] == "/x/y"
+
+
+def test_app_cannot_set_session_cookie(env):
+    r = client(env).get("/set-cookies", headers=bearer(env, "owner"))
+    assert r.status_code == 200
+    cookies = r.headers.get_list("set-cookie")
+    assert any(c.startswith("theme=") for c in cookies)
+    assert not any("onemind_session" in c for c in cookies)
+
+
+def test_cross_origin_unsafe_method_refused(env):
+    c = client(env)
+    c.cookies.set("onemind_session", env["tokens"]["owner"])
+    # another app (same site, different origin) posting as the person
+    assert c.post("/form", content=b"a=1", headers={"Origin": "http://evil.onemind.local"}).status_code == 403
+    assert c.post("/form", content=b"a=1", headers={"Origin": "null"}).status_code == 403
+    assert env["audit"][-1][0] == "proxy.denied"
+    # same origin and non-browser clients (no Origin) still work; safe methods are not checked
+    assert c.post("/form", content=b"a=1", headers={"Origin": "http://kuma.onemind.local"}).status_code == 200
+    assert c.post("/form", content=b"a=1").status_code == 200
+    assert c.get("/x", headers={"Origin": "http://evil.onemind.local"}).status_code == 200
+
+
+def test_unauthenticated_cannot_list_apps(env):
+    for host in ("kuma.onemind.local", "nosuch.onemind.local", "notinst.onemind.local"):
+        assert client(env, host).get("/").status_code == 401
 
 
 def test_other_box_domains(env):

@@ -4,7 +4,10 @@
 Routing (an ASGI middleware, so HTTP and WebSocket share one code path):
 - by host: <app>.<box-domain> (for example uptime-kuma.onemind.local or <app>.apps.onemind.internal);
 - by path, as a fallback for clients without multi-label mDNS: /apps/<app>/... on any host the
-  gateway answers, with the /apps/<app> prefix removed before the request goes upstream.
+  gateway answers, with the /apps/<app> prefix removed before the request goes upstream. **Off by
+  default** (`path_routes=True` turns it on): a path route serves the app on the gateway's own
+  origin, so the app's scripts could read the dashboard's token from sessionStorage and call the
+  gateway API as the person. Only host routes give each app its own origin.
 
 What it refuses (no open proxy):
 - the upstream is never taken from the request. It is the app's Service in namespace app-<id>,
@@ -15,7 +18,13 @@ What it refuses (no open proxy):
   decides 403;
 - the client's Authorization header, the gateway session cookie and any X-OneMind-* header are
   removed; the proxy adds X-OneMind-Principal and X-OneMind-Role itself;
-- a WebSocket whose Origin is not the host it connects to is refused (cross-site hijacking).
+- an app's response cannot set or overwrite the gateway session cookie (Set-Cookie for that name
+  is dropped), so one app cannot plant a session for every *.onemind.local name;
+- a WebSocket, or a request with an unsafe method (anything but GET/HEAD/OPTIONS), whose Origin
+  is not the host it is sent to is refused (cross-site hijacking and CSRF: app names share one
+  site, so SameSite=Lax alone would let one app post to another as the person);
+- an unauthenticated request gets 401 whether or not the app exists, so installed apps cannot be
+  listed without signing in.
 
 Timeouts: connect, idle read and total request body size are bounded (H-20). The decision
 `AppProxy.decide()` is the same one the Go edge will ask for through /v1/auth/forward (§9.3).
@@ -34,7 +43,7 @@ import time
 from collections.abc import Awaitable, Callable, MutableMapping
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import h11
 from websockets.asyncio.client import connect as ws_connect
@@ -50,6 +59,7 @@ Receive = Callable[[], Awaitable[dict]]
 Send = Callable[[dict], Awaitable[None]]
 
 SESSION_COOKIE = "onemind_session"
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 ACCESS_LEVELS = ("owner", "adults", "signed_in")
 DEFAULT_ACCESS = "adults"
 PATH_PREFIX = "/apps/"
@@ -184,11 +194,14 @@ class AppProxy:
         max_ws_message: int = 16 * 1024 * 1024,
         route_ttl: float = 5.0,
         audit: Callable[[str, dict | None, str | None, dict], Any] | None = None,
+        path_routes: bool = False,
     ):
         """app_status(app_id) returns the ledger status ("installed", ...) or None.
 
         box_domains: the suffixes app hosts live under, for example ("onemind.local",
         "box1.local", "apps.onemind.internal").
+        path_routes: also serve /apps/<id>/ on the gateway host (same origin as the dashboard;
+        see the module docstring before turning it on).
         """
         self.catalog = catalog
         self.app_status = app_status
@@ -200,6 +213,7 @@ class AppProxy:
         self.max_ws_message = max_ws_message
         self.route_ttl = route_ttl
         self.audit = audit
+        self.path_routes = path_routes
         self._routes: dict[str, tuple[float, AppRoute | None]] = {}
         self._lock = threading.Lock()
 
@@ -212,7 +226,7 @@ class AppProxy:
                 label = host[: -len(domain) - 1]
                 return (label, "") if "." not in label else None
         path = scope.get("path", "")
-        if path.startswith(PATH_PREFIX):
+        if self.path_routes and path.startswith(PATH_PREFIX):
             app_id = path[len(PATH_PREFIX):].split("/", 1)[0]
             return app_id, PATH_PREFIX + app_id
         return None
@@ -250,13 +264,16 @@ class AppProxy:
         return AppRoute(app_id=app_id, host=host, port=port, access=access)
 
     def decide(self, headers: dict[str, str], app_id: str) -> tuple[int, Principal | None, AppRoute | None]:
-        """Forward-auth decision: 204 allow, 401 not signed in, 403 not allowed, 404 no such app."""
-        route = self.route_for(app_id)
-        if route is None:
-            return Decision.NOT_FOUND, None, None
+        """Forward-auth decision: 204 allow, 401 not signed in, 403 not allowed, 404 no such app.
+
+        Sign-in is checked first, so a caller without a session cannot tell installed apps apart.
+        """
         principal = self.resolve_session(headers, parse_cookies(headers.get("cookie", "")))
         if principal is None:
-            return Decision.UNAUTHENTICATED, None, route
+            return Decision.UNAUTHENTICATED, None, None
+        route = self.route_for(app_id)
+        if route is None:
+            return Decision.NOT_FOUND, principal, None
         if not allowed(principal, route.access):
             return Decision.FORBIDDEN, principal, route
         return Decision.ALLOW, principal, route
@@ -296,6 +313,18 @@ class AppProxy:
         return out
 
 
+def _same_origin(origin: str | None, scope: Scope) -> bool:
+    """True when there is no Origin header (not a browser cross-site request) or it names this host."""
+    return origin is None or (urlsplit(origin).hostname or "") == _host(scope)
+
+
+def _sets_session_cookie(name: bytes, value: bytes) -> bool:
+    if name.lower() != b"set-cookie":
+        return False
+    cookie_name = value.decode("latin-1").split(";", 1)[0].partition("=")[0].strip()
+    return cookie_name == SESSION_COOKIE
+
+
 def _host(scope: Scope) -> str:
     for name, value in scope.get("headers", []):
         if name == b"host":
@@ -308,9 +337,12 @@ def _host(scope: Scope) -> str:
 
 
 def _upstream_target(scope: Scope, prefix: str) -> bytes:
-    raw = scope.get("raw_path") or scope.get("path", "/").encode()
+    raw = scope.get("raw_path") or quote(scope.get("path", "/")).encode()
     if prefix:
-        raw = raw[len(prefix.encode()):]
+        # The route matched the decoded path; strip the prefix from the raw path only when the
+        # raw form starts with it, else re-encode the decoded remainder.
+        raw = raw[len(prefix.encode()):] if raw.startswith(prefix.encode()) else \
+            quote(scope.get("path", "/")[len(prefix):]).encode()
     if not raw.startswith(b"/"):
         raw = b"/" + raw
     qs = scope.get("query_string") or b""
@@ -348,6 +380,9 @@ class AppProxyMiddleware:
         status, principal, route = self.proxy.decide(headers, app_id)
         if scope["type"] == "websocket":
             return await self._websocket(scope, receive, send, app_id, status, principal, route, prefix, headers)
+        if status == Decision.ALLOW and scope.get("method", "GET") not in SAFE_METHODS \
+                and not _same_origin(headers.get("origin"), scope):
+            status = Decision.FORBIDDEN
         if status != Decision.ALLOW:
             self.proxy._audit_denied(principal, app_id, status, scope)
             extra = [(b"www-authenticate", b"Bearer")] if status == 401 else None
@@ -404,7 +439,8 @@ class AppProxyMiddleware:
                 if isinstance(event, h11.InformationalResponse):
                     continue
                 if isinstance(event, h11.Response):
-                    out = [(k.lower(), v) for k, v in event.headers if k.lower().decode("latin-1") not in HOP_BY_HOP]
+                    out = [(k.lower(), v) for k, v in event.headers
+                           if k.lower().decode("latin-1") not in HOP_BY_HOP and not _sets_session_cookie(k, v)]
                     await send({"type": "http.response.start", "status": event.status_code, "headers": out})
                     started = True
                 elif isinstance(event, h11.Data):
@@ -433,7 +469,7 @@ class AppProxyMiddleware:
         if msg["type"] != "websocket.connect":
             return
         origin = headers.get("origin")
-        if status == Decision.ALLOW and origin is not None and (urlsplit(origin).hostname or "") != _host(scope):
+        if status == Decision.ALLOW and not _same_origin(origin, scope):
             status = Decision.FORBIDDEN
         if status != Decision.ALLOW:
             self.proxy._audit_denied(principal, app_id, status, scope)
