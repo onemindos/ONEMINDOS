@@ -97,3 +97,22 @@ clean:
 .PHONY: jetson-layer
 jetson-layer: | $(OUT)
 	os/boards/jetson-orin/make-layer.sh $(OUT) $(VERSION)
+
+# Cloud images (docs/leap/core/CLOUD-IMAGES.md): one `cloud` rootfs (amd64), one image per cloud in
+# the format that cloud imports. Uploads are os/cloud/*-import.sh scripts run with the owner's accounts.
+#   make cloud-image CLOUD=aws|gcp|azure|hetzner|proxmox -> out/image-cloud-<cloud>/ (+ SHA256SUMS)
+#   make cloud-test  CLOUD=aws                           -> out/cloudboot-<cloud>/ (C0-C6, CRITERIA-CLOUD.md)
+CLOUD ?= aws
+.PHONY: cloud-image cloud-test
+cloud-image cloud-test: BOARD = cloud
+cloud-image: tools
+	@test -f $(OUT)/rootfs-$(LEG)-cloud.tar || $(MAKE) rootfs BOARD=cloud LEG=$(LEG)
+	$(DOCKER_RUN) -e VERSION=$(VERSION) -e ROOTFS=/out/rootfs-$(LEG)-cloud.tar $(TOOLS) \
+	  /src/os/cloud/cloud-image.sh $(CLOUD) /out/image-cloud-$(CLOUD)
+
+cloud-test:
+	@test -f $(OUT)/image-cloud-$(CLOUD)/SHA256SUMS || $(MAKE) cloud-image CLOUD=$(CLOUD)
+	mkdir -p $(OUT)/cloudboot-$(CLOUD)
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/cloudboot.py --cloud $(CLOUD) \
+	  --image-dir /out/image-cloud-$(CLOUD) --work /out/cloudboot-$(CLOUD)/work \
+	  --log /out/cloudboot-$(CLOUD)/serial.log --results /out/cloudboot-$(CLOUD)/results.json

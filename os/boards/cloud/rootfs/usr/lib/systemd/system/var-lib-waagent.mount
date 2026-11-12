@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# cloud-init's Azure datasource keeps the provisioning document (ovf-env.xml) here. Persisted on
+# /data; harmless on other clouds.
+[Unit]
+Description=Azure provisioning data on the data partition
+Requires=onemind-cloud-home.service
+After=onemind-cloud-home.service
+Before=local-fs.target cloud-init-local.service
+
+[Mount]
+What=/data/state/var-lib-waagent
+Where=/var/lib/waagent
+Type=none
+Options=bind
+
+[Install]
+WantedBy=local-fs.target

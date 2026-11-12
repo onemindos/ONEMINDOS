@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# dhcpcd writes its lease here when cloud-init brings up ephemeral DHCP to reach a metadata
+# service (Ec2Local, GCELocal, Azure, Hetzner). Leases are per boot: a tmpfs.
+[Unit]
+Description=Writable /var/lib/dhcpcd for cloud-init's ephemeral DHCP (tmpfs)
+DefaultDependencies=no
+Conflicts=umount.target
+Before=local-fs.target umount.target cloud-init-local.service
+
+[Mount]
+What=tmpfs
+Where=/var/lib/dhcpcd
+Type=tmpfs
+Options=mode=0755,size=1M,nosuid,nodev,noexec
+
+[Install]
+WantedBy=local-fs.target
