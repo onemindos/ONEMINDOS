@@ -17,7 +17,7 @@
 - {name: Linkwarden, github: linkwarden/linkwarden, priority: 2, status: in-pr, notes: "market batch 4"}
 - {name: LibreSpeed, github: librespeed/speedtest, priority: 2, status: in-pr, notes: "market batch 4"}
 - {name: Mealie, github: mealie-recipes/mealie, priority: 2, status: in-pr, notes: "market batch 4"}
-- {name: Grocy, github: grocy/grocy, priority: 2, status: in-pr, notes: "market batch 4"}
+- {name: Grocy, github: grocy/grocy, priority: 2, status: "blocked: the only image Grocy points to (linuxserver/grocy) needs root at start: its init replaces /app/www/data with a symlink (rm -Rf, then ln -s). Non-root mode answered HTTP 500 on a k3s smoke test, and mounting the data path instead would let that rm -Rf delete user data. Needs a non-root image or an upstream fix", notes: "market batch 4"}
 - {name: Lobe Hub, github: lobehub/lobehub, priority: 2, status: "blocked: LICENSE at v2.3.2 is the LobeHub Community License (Apache-2.0 plus extra conditions: a commercial licence for derivative works), not Apache-2.0 as candidates.csv says; L?, list-only (TAXONOMY §2)", notes: "market batch 4"}
 - {name: Netdata, github: netdata/netdata, priority: 2, status: "blocked: the agent image redistributes the Netdata Cloud UI under NCUL1, a non-open licence (REDISTRIBUTED.md at v2.12.3); also needs host PID, network and /proc access, which apps may not use", notes: "market batch 5"}
 - {name: AnythingLLM, github: Mintplex-Labs/anything-llm, priority: 2, status: in-pr, notes: "market batch 5"}
