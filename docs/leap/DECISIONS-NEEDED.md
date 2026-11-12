@@ -110,3 +110,4 @@ The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs
 - `onemind fabric join <code>` needs the hub address when mDNS cannot find it; CLI.md now takes `--hub`, but the QR content rule ("no network details") should be settled in C12-B.
 - API.md §17 follow-ups remain: `errors.py` maps 405 to `not_found` and 422 to `conflict`; the event stream must read from the same append path as NATS `onemind.audit`.
 - The leap branch was cut before PR #15 merged; rebase before merging it.
+- Golden-path e2e (`tests/e2e/`, E2E-GOLDEN) relies on two defaults: **F-7** (no unscanned installs in v0, so the harness gives only the test app a marked stand-in `scan.json` until the §9.4 app-gate runs on the hub, and checks every other app stays blocked; no owner override is used) and **F-1** (its HTTPS step expects `/v1/tls` names to include `onemind.local`). A different founder answer changes those two steps only.

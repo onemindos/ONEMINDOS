@@ -64,6 +64,7 @@
 | CORE-NET-P1 | Mesh (Headscale + DERP), NATS leaf, app proxy, box CA, NAT lab | in-progress | `feat/core-net` | – |
 | UI-LEAP | Parity audit, customization, Home widgets, Store + app management, shell, Settings | in-progress | `feat/ui-leap` | – |
 | MKT-TAXONOMY | App and deployment categories | in-progress | `feat/app-taxonomy` | – |
+| E2E-GOLDEN | Golden-path e2e: `install.sh` hub in a VM (Lima, QEMU/KVM), Playwright dashboard + MCP agent + audit, `verify.sh`; `e2e.yml` on PRs and nightly. Green in Lima 2026-11-12 | in-progress | `feat/e2e-golden-path` | – |
 | PLAN-E1 | Workbench (G0) and gate content re-synced to D-007 | todo | founder lab kit | – |
 | LEAP-DOCS | Leap specs, workstreams, backlog, status, decisions, CHANGELOG | done | `docs/leap` | [#16](https://github.com/onemindos/ONEMINDOS/pull/16) |
 
