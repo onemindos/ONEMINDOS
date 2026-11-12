@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router';
 import { useSignedIn } from '../session';
 import { usePoll } from '../lib/hooks';
+import { brand } from '../brand.generated';
 
 export function Layout() {
   const { api, principal, signOut, mock } = useSignedIn();
@@ -14,8 +15,8 @@ export function Layout() {
       </a>
       <header className="topbar">
         <span className="brand">
-          <span className="brand-mark" aria-hidden="true" />
-          OneMind
+          <img className="brand-mark" src={brand.logo.onDark} alt="" />
+          {brand.shortName}
         </span>
         <nav aria-label="Main">
           <ul className="nav">

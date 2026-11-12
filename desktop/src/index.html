@@ -1,0 +1,42 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OneMind</title>
+    <link rel="stylesheet" href="tokens.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="top" data-tauri-drag-region>
+        <div class="brand" data-tauri-drag-region>
+          <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+            <circle cx="32" cy="32" r="21" fill="none" stroke="currentColor" stroke-width="6" />
+            <circle cx="32" cy="32" r="7" fill="currentColor" />
+          </svg>
+          <span>OneMind</span>
+        </div>
+        <div class="top-actions">
+          <button class="icon-btn" id="btn-add" title="Add a box" aria-label="Add a box">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+          </button>
+          <button class="icon-btn" id="btn-refresh" title="Check now" aria-label="Check now">
+            <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" /></svg>
+          </button>
+          <button class="icon-btn" id="btn-close" title="Close" aria-label="Close">
+            <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+      </header>
+      <main id="view" aria-live="polite"></main>
+      <div id="toast" class="error toast hidden" role="alert"></div>
+      <footer class="foot">
+        <span id="foot-note"></span>
+        <button class="link" id="btn-quit">Quit</button>
+      </footer>
+    </div>
+  </body>
+</html>
