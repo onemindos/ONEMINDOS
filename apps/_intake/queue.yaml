@@ -6,5 +6,5 @@
 - {name: Eclipse Mosquitto, github: eclipse-mosquitto/mosquitto, priority: 1, status: "blocked: licence gate - research licence-matrix row writes EPL-2.0 OR EDL-1.0 (not SPDX); upstream LICENSE.txt is EPL-2.0 OR BSD-3-Clause. All other checks pass"}
 - {name: Vaultwarden, github: dani-garcia/vaultwarden, priority: 1, status: verified}
 - {name: Actual Budget, github: actualbudget/actual, priority: 1, status: queued}
-- {name: Zigbee2MQTT, github: Koenkk/zigbee2mqtt, priority: 1, status: queued}
+- {name: Zigbee2MQTT, github: Koenkk/zigbee2mqtt, priority: 1, status: verified}
 # Founder: paste the rest of the 100+ list below (name + github owner/repo is enough).
