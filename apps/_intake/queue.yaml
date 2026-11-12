@@ -18,3 +18,4 @@
 - {name: Ollama, github: ollama/ollama, priority: 1, status: in-pr, notes: "market batch 1"}
 - {name: LibreChat, github: LibreChat-AI/LibreChat, priority: 1, status: in-pr, notes: "market batch 1"}
 - {name: SearXNG, github: searxng/searxng, priority: 1, status: in-pr, notes: "market batch 1"}
+- {name: AdGuard Home, github: AdguardTeam/AdGuardHome, priority: 1, status: in-pr, notes: "market batch 1"}
