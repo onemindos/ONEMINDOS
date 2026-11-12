@@ -22,42 +22,16 @@ spec:
     spec:
       automountServiceAccountToken: false
       enableServiceLinks: false
-      # The image runs as root so it can bind DNS on port 53. Here it runs as UID 1000 instead,
-      # with no capabilities: the namespaced sysctl net.ipv4.ip_unprivileged_port_start (in the
-      # Kubernetes "safe" set) lets an unprivileged process bind ports below 1024 in this pod's
-      # own network namespace only.
+      # The image runs as root and cannot run as any other user here: on its first launch (no
+      # AdGuardHome.yaml yet) AdGuard Home exits with "you must run it as administrator" unless
+      # it is UID 0 or holds CAP_NET_BIND_SERVICE in the *ambient* set (internal/home/home.go
+      # checkNetworkPermissions, internal/aghnet/net_linux.go canBindPrivilegedPorts at v0.107.80),
+      # and Kubernetes cannot give a non-root container ambient capabilities. So runAsNonRoot is
+      # not set (contract §9.4 check 8: non-root "where the image allows"), as for home-assistant.
+      # Root here holds only NET_BIND_SERVICE (see the container) and cannot gain more.
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
-        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
-        sysctls:
-          - name: net.ipv4.ip_unprivileged_port_start
-            value: "0"
-      initContainers:
-        # Creates the subPath directories as the app user. Without this the kubelet creates a
-        # missing subPath as root, which the non-root app cannot write on volumes that do not
-        # apply fsGroup (k3s local-path).
-        - name: volume-dirs
-          image: docker.io/adguard/adguardhome:v0.107.80@sha256:e2e1b48c832f7705be915873f95de0d5114de573736441d7f2923a8a6293027c
-          command: ["sh", "-c", "mkdir -p /mnt/conf /mnt/work"]
-          resources:
-            requests:
-              cpu: 10m
-              memory: 16Mi
-            limits:
-              cpu: 100m
-              memory: 64Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-          volumeMounts:
-            - name: data
-              mountPath: /mnt
       containers:
         - name: adguard-home
           image: docker.io/adguard/adguardhome:v0.107.80@sha256:e2e1b48c832f7705be915873f95de0d5114de573736441d7f2923a8a6293027c
@@ -106,10 +80,16 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
+          # NET_BIND_SERVICE binds DNS on port 53. It is also required to start at all: the image
+          # marks its binary with a file capability (Dockerfile: `setcap 'cap_net_bind_service=+eip'
+          # /opt/adguardhome/AdGuardHome`), and with every capability dropped the kernel refuses to
+          # exec such a file ("operation not permitted"). Every other capability is dropped.
           securityContext:
             allowPrivilegeEscalation: false
+            privileged: false
             capabilities:
               drop: ["ALL"]
+              add: ["NET_BIND_SERVICE"]
           volumeMounts:
             - name: data
               mountPath: /opt/adguardhome/conf

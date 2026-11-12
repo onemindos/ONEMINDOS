@@ -26,7 +26,6 @@ The Market lists `minMemoryMb: 256`, no GPU.
 
 | Workload | Container | Requests (CPU / memory) | Limits (CPU / memory) |
 |---|---|---|---|
-| Deployment/adguard-home | volume-dirs | 10m / 16Mi | 100m / 64Mi |
 | Deployment/adguard-home | adguard-home | 50m / 64Mi | 1 / 512Mi |
 
 Storage: PVC `adguard-home-data` 2Gi.
@@ -51,10 +50,10 @@ AdGuard Home is a DNS server that blocks ads and trackers for every device on th
 
 ## How it runs here
 
-- One `Deployment` (`Recreate`), one container. The image runs as root to bind port 53; here it runs as UID 1000 with all capabilities dropped and no privilege escalation, and the pod sets the namespaced sysctl `net.ipv4.ip_unprivileged_port_start=0` (Kubernetes safe set) so DNS can still use port 53 inside the pod.
+- One `Deployment` (`Recreate`), one container, **as root** (the image's user), with every capability dropped except `NET_BIND_SERVICE` and no privilege escalation. A non-root user does not work: on its first launch AdGuard Home exits with "you must run it as administrator" unless it is UID 0 or holds `CAP_NET_BIND_SERVICE` as an *ambient* capability (`checkNetworkPermissions` in internal/home/home.go and `canBindPrivilegedPorts` in internal/aghnet/net_linux.go, v0.107.80), which Kubernetes cannot give a non-root container. `NET_BIND_SERVICE` binds port 53 and is also needed to start: the binary carries the file capability `cap_net_bind_service=+eip` (upstream Dockerfile), and the kernel refuses to run such a file when that capability is dropped. Checked in a container with exactly these settings: first launch, setup wizard, DNS on 53/udp and 53/tcp, and a restart. Pod Security `restricted` (planned, CORE-SANDBOX-3) refuses root, so this app needs user-namespaced pods or an upstream change before that profile is enforced.
 - The image command plus `--web-addr 0.0.0.0:3000` (upstream options.go), which pins the web UI to port 3000 on every start, before and after setup.
 - Service: 3000 (web UI) and 53 UDP/TCP (DNS).
-- Volume: `adguard-home-data` (2 GiB) as `conf/` and `work/` (configuration, filters, query log). An init container creates both as UID 1000.
+- Volume: `adguard-home-data` (2 GiB) as `conf/` and `work/` (configuration, filters, query log).
 - Probes: `GET /` (a redirect to the setup or login page).
 
 ## First run
