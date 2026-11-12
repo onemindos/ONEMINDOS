@@ -28,6 +28,8 @@ type Signature struct {
 	Label       string   `json:"label,omitempty"`
 	UUID        string   `json:"uuid,omitempty"`
 	PartLabel   string   `json:"partlabel,omitempty"`
+	PartUUID    string   `json:"partuuid,omitempty"`
+	Parent      string   `json:"parent,omitempty"` // lsblk PKNAME: the partition under a crypt layer, the disk under a partition
 	Mountpoints []string `json:"mountpoints,omitempty"`
 }
 
@@ -53,7 +55,7 @@ var systemMounts = map[string]bool{"/": true, "/boot": true, "/boot/efi": true, 
 
 // LsblkArgs is the exact lsblk call (util-linux 2.37+ for MOUNTPOINTS).
 var LsblkArgs = []string{"--json", "--bytes", "--paths", "-o",
-	"NAME,KNAME,PKNAME,TYPE,SIZE,MODEL,SERIAL,WWN,TRAN,ROTA,RM,RO,FSTYPE,LABEL,UUID,PARTLABEL,MOUNTPOINTS"}
+	"NAME,KNAME,PKNAME,TYPE,SIZE,MODEL,SERIAL,WWN,TRAN,ROTA,RM,RO,FSTYPE,LABEL,UUID,PARTLABEL,PARTUUID,MOUNTPOINTS"}
 
 // Inventory lists whole disks. set (may be nil) marks the disks of the
 // mounted data set as RoleMember, by filesystem UUID or by member device
@@ -97,6 +99,7 @@ func (u *flexUint) UnmarshalJSON(p []byte) error {
 
 type lsblkDev struct {
 	Name        string     `json:"name"`
+	PKName      *string    `json:"pkname"`
 	Type        string     `json:"type"`
 	Size        flexUint   `json:"size"`
 	Model       *string    `json:"model"`
@@ -110,6 +113,7 @@ type lsblkDev struct {
 	Label       *string    `json:"label"`
 	UUID        *string    `json:"uuid"`
 	PartLabel   *string    `json:"partlabel"`
+	PartUUID    *string    `json:"partuuid"`
 	Mountpoints []*string  `json:"mountpoints"`
 	Children    []lsblkDev `json:"children"`
 }
@@ -162,7 +166,8 @@ func ParseLsblk(data []byte, set *Mirror) ([]Disk, error) {
 
 // collect records d (when it carries anything) and all its children.
 func collect(d lsblkDev, out *[]Signature, top bool) {
-	s := Signature{Path: d.Name, Type: d.Type, FSType: str(d.FSType), Label: str(d.Label), UUID: str(d.UUID), PartLabel: str(d.PartLabel)}
+	s := Signature{Path: d.Name, Type: d.Type, FSType: str(d.FSType), Label: str(d.Label), UUID: str(d.UUID), PartLabel: str(d.PartLabel),
+		PartUUID: strings.ToLower(str(d.PartUUID)), Parent: str(d.PKName)}
 	for _, m := range d.Mountpoints {
 		if v := str(m); v != "" {
 			s.Mountpoints = append(s.Mountpoints, v)
@@ -239,4 +244,39 @@ func tail(s string, n int) string {
 		return s
 	}
 	return s[len(s)-n:]
+}
+
+// BackingOf returns the LUKS partition under a dm-crypt member path
+// (/dev/mapper/x → /dev/vdb1), or "" when the member is not encrypted.
+func BackingOf(disks []Disk, member string) string {
+	if _, s, ok := containing(disks, member); ok && s.Type == "crypt" {
+		return s.Parent
+	}
+	return ""
+}
+
+// PartitionByUUID finds the partition with GPT unique id partuuid and the
+// disk that holds it. Plans give each new member a partuuid derived from the
+// set and the disk, so an interrupted operation finds its target again after
+// a reboot renamed the disks (vdb ↔ vdc).
+func PartitionByUUID(disks []Disk, partuuid string) (Disk, Signature, bool) {
+	partuuid = strings.ToLower(partuuid)
+	for _, d := range disks {
+		for _, s := range d.Holds {
+			if s.Type == "part" && s.PartUUID != "" && s.PartUUID == partuuid {
+				return d, s, true
+			}
+		}
+	}
+	return Disk{}, Signature{}, false
+}
+
+// CryptChild returns the dm-crypt mapping opened on partition part, if any.
+func CryptChild(d Disk, part string) (Signature, bool) {
+	for _, s := range d.Holds {
+		if s.Type == "crypt" && s.Parent == part {
+			return s, true
+		}
+	}
+	return Signature{}, false
 }

@@ -45,11 +45,32 @@ type Check struct {
 }
 
 // Step is one command. Destructive steps erase what is on a target disk.
+//
+// ID names what the step does ("wipe", "device-add", "balance", ...); the
+// operation engine (internal/storage/ops) keys its resume probes and its
+// rollback on it, so behaviour after a power cut lives in code, never in the
+// plan. Phase says how far the operation has gone when the step runs:
+//
+//	prepare  the target is not part of the set yet: undo = wipe the target
+//	join     the target is in the set but nothing moved: undo = device remove
+//	commit   data moves: from here the operation only goes forward (resume)
+//	verify   checks the result; re-run freely
 type Step struct {
+	ID          string   `json:"id,omitempty"`
+	Phase       string   `json:"phase,omitempty"`
 	Cmd         []string `json:"cmd"`
+	Stdin       string   `json:"stdin,omitempty"` // small JSON for the command (LUKS2 token); never a key
 	Why         string   `json:"why"`
 	Destructive bool     `json:"destructive,omitempty"`
 }
+
+// Step phases (see Step).
+const (
+	PhasePrepare = "prepare"
+	PhaseJoin    = "join"
+	PhaseCommit  = "commit"
+	PhaseVerify  = "verify"
+)
 
 // String renders the command for a shell, quoting where needed.
 func (s Step) String() string {
@@ -67,9 +88,12 @@ func (s Step) String() string {
 type PlanOptions struct {
 	Mount   string // where the data set is (or will be) mounted, e.g. /data
 	Label   string // filesystem label; default onemind-data
-	Encrypt bool   // LUKS2 under each new member (create); protect follows the existing set
-	// KeyFile unlocks new LUKS2 members in this slice. TPM2 enrolment and the
-	// one-time recovery key replace it in STOR-1/STOR-2.
+	Encrypt bool   // LUKS2 under each new member (create); protect, replace follow the existing set
+	// KeyFile is the set key: a random key in a LUKS2 keyslot of every
+	// member, kept inside the unlocked set (SetKeyPath) so onemindd can open
+	// a new member it has just cloned. The owner's recovery key and the TPM2
+	// slot reach new members by cloning an existing member's header
+	// (luks.go), so neither is ever needed here.
 	KeyFile string
 	Health  map[string]Health // by disk path; a failing disk blocks the plan
 }
@@ -85,7 +109,7 @@ func (o *PlanOptions) defaults() {
 		o.Mount = "/data"
 	}
 	if o.KeyFile == "" {
-		o.KeyFile = "/run/onemind/storage/new-member.key"
+		o.KeyFile = o.Mount + "/" + SetKeyPath
 	}
 }
 
@@ -160,24 +184,38 @@ func mapperName(d Disk) string {
 	return "onemind-data-" + strings.ToLower(t)
 }
 
-// prepareMember partitions a disk and, when encrypting, opens LUKS2 on it.
-// It returns the steps and the block device btrfs should use.
-func prepareMember(d Disk, o PlanOptions) ([]Step, string) {
-	part := partPath(d.Path)
+// newMember is the identity a plan gives a disk it prepares.
+type newMember struct {
+	Part, Dev, Mapper, PartUUID, LUKSUUID string
+}
+
+// prepareMember partitions a disk and, when encrypting, puts LUKS2 on it and
+// opens it. seed binds the derived ids to the set (its btrfs UUID, or the
+// label for a new set). cloneFrom, when set, is an existing member's LUKS2
+// partition whose header is copied (CloneHeaderSteps).
+func prepareMember(d Disk, o PlanOptions, seed, cloneFrom string) ([]Step, newMember) {
+	nm := newMember{Part: partPath(d.Path), PartUUID: DerivedUUID(seed, d.ID, "part"), LUKSUUID: DerivedUUID(seed, d.ID, "luks")}
+	nm.Dev = nm.Part
 	steps := []Step{
-		{Cmd: []string{"sgdisk", "--zap-all", d.Path}, Why: "erase the partition tables on " + label(d), Destructive: true},
-		{Cmd: []string{"sgdisk", "--new=1:0:0", "--typecode=1:" + typecode(o.Encrypt), "--change-name=1:" + o.Label, d.Path}, Why: "one partition over the whole disk, labelled " + o.Label + " so it is found by label, not by sdX order", Destructive: true},
-		{Cmd: []string{"udevadm", "settle"}, Why: "wait for the kernel to create " + part},
+		{ID: "wipe", Phase: PhasePrepare, Cmd: []string{"sgdisk", "--zap-all", d.Path}, Why: "erase the partition tables on " + label(d), Destructive: true},
+		{ID: "partition", Phase: PhasePrepare, Cmd: []string{"sgdisk", "--new=1:0:0", "--typecode=1:" + typecode(o.Encrypt), "--change-name=1:" + o.Label, "--partition-guid=1:" + nm.PartUUID, d.Path},
+			Why: "one partition over the whole disk, labelled " + o.Label + " so it is found by label, not by sdX order; its fixed id finds it again after a reboot", Destructive: true},
+		{ID: "settle", Phase: PhasePrepare, Cmd: []string{"udevadm", "settle"}, Why: "wait for the kernel to create " + nm.Part},
 	}
 	if !o.Encrypt {
-		return steps, part
+		return steps, nm
 	}
-	mapper := mapperName(d)
-	steps = append(steps,
-		Step{Cmd: []string{"cryptsetup", "luksFormat", "--type", "luks2", "--batch-mode", "--key-file", o.KeyFile, part}, Why: "LUKS2 encryption on the new member", Destructive: true},
-		Step{Cmd: []string{"cryptsetup", "open", "--key-file", o.KeyFile, part, mapper}, Why: "unlock it as /dev/mapper/" + mapper},
-	)
-	return steps, "/dev/mapper/" + mapper
+	nm.Mapper = mapperName(d)
+	nm.Dev = "/dev/mapper/" + nm.Mapper
+	if cloneFrom != "" {
+		steps = append(steps, CloneHeaderSteps(cloneFrom, nm.Part, nm.LUKSUUID)...)
+	} else {
+		steps = append(steps, Step{ID: "luks-format", Phase: PhasePrepare, Cmd: []string{"cryptsetup", "luksFormat", "--type", "luks2", "--batch-mode", "--uuid", nm.LUKSUUID, "--key-file", o.KeyFile, nm.Part},
+			Why: "LUKS2 encryption on the new member", Destructive: true})
+	}
+	steps = append(steps, Step{ID: "luks-open", Phase: PhasePrepare, Cmd: []string{"cryptsetup", "open", "--key-file", o.KeyFile, nm.Part, nm.Mapper},
+		Why: "unlock it as " + nm.Dev + " with the set key"})
+	return steps, nm
 }
 
 func typecode(enc bool) string {
@@ -233,31 +271,38 @@ func PlanCreate(disks []Disk, devices []string, o PlanOptions) Plan {
 	var members []string
 	for _, d := range targets {
 		p.Targets = append(p.Targets, ref(d))
-		st, dev := prepareMember(d, o)
+		st, nm := prepareMember(d, o, o.Label, "")
 		p.Steps = append(p.Steps, st...)
-		members = append(members, dev)
+		members = append(members, nm.Dev)
 	}
 	mkfs := append([]string{"mkfs.btrfs", "--label", o.Label, "--data", p.DataProfile, "--metadata", p.MetaProfile}, members...)
 	p.Steps = append(p.Steps,
-		Step{Cmd: mkfs, Why: "one btrfs filesystem across the members", Destructive: true},
-		Step{Cmd: []string{"mkdir", "-p", o.Mount}, Why: "mount point"},
+		Step{ID: "mkfs", Phase: PhaseCommit, Cmd: mkfs, Why: "one btrfs filesystem across the members", Destructive: true},
+		Step{ID: "mountpoint", Phase: PhaseCommit, Cmd: []string{"mkdir", "-p", o.Mount}, Why: "mount point"},
 	)
 	if len(members) > 0 {
-		p.Steps = append(p.Steps, Step{Cmd: []string{"mount", "-o", MountOptions, members[0], o.Mount}, Why: "mount the set (any member mounts all of them)"})
+		p.Steps = append(p.Steps, Step{ID: "mount", Phase: PhaseCommit, Cmd: []string{"mount", "-o", MountOptions, members[0], o.Mount}, Why: "mount the set (any member mounts all of them)"})
 	}
 	for _, sv := range []string{"@", "@storage", "@snapshots"} {
-		p.Steps = append(p.Steps, Step{Cmd: []string{"btrfs", "subvolume", "create", o.Mount + "/" + sv}, Why: "subvolume layout (storage.md §4.2)"})
+		p.Steps = append(p.Steps, Step{ID: "subvolume", Phase: PhaseCommit, Cmd: []string{"btrfs", "subvolume", "create", o.Mount + "/" + sv}, Why: "subvolume layout (storage.md §4.2)"})
 	}
-	p.Steps = append(p.Steps, Step{Cmd: []string{"btrfs", "filesystem", "df", o.Mount}, Why: "verify: every line shows the planned profile"})
+	p.Steps = append(p.Steps, verifyStep(o.Mount))
 	return finish(p)
 }
 
 // PlanProtect plans adding one blank disk to the mounted set and converting
 // it to raid1 (raid1c3 metadata at three disks). On a set that is already
-// raid1 it is the "add" operation.
+// raid1 it is the "add" operation (storage.mirror.add); from one disk it is
+// storage.mirror.create.
+//
+// On an encrypted set the new member gets a copy of an existing member's
+// LUKS2 header (same keyslots: TPM2, recovery key, set key), a fresh UUID
+// and the OneMind token, and every member's token moves to the next
+// generation before the disk joins, so a power cut never leaves a member the
+// boot assembly does not know about.
 func PlanProtect(disks []Disk, m *Mirror, device string, o PlanOptions) Plan {
-	o.defaults()
 	o.Mount = m.Mount
+	o.defaults()
 	p := Plan{Kind: "protect", Mount: m.Mount}
 	mounted := m.State != StateUnavailable
 	p.Checks = append(p.Checks, Check{ID: "set-mounted", OK: mounted, Detail: m.Mount + " " + string(m.State) + reasons(m.Reasons)})
@@ -275,6 +320,7 @@ func PlanProtect(disks []Disk, m *Mirror, device string, o PlanOptions) Plan {
 	)
 	d, ok := Find(disks, device)
 	p.Checks = append(p.Checks, Check{ID: "exists:" + device, OK: ok, Detail: "whole disk from lsblk"})
+	var clone string
 	if ok {
 		p.Checks = append(p.Checks, targetChecks(d, o)...)
 		// Each raid1 chunk needs a copy on a different disk. With one member
@@ -285,15 +331,13 @@ func PlanProtect(disks []Disk, m *Mirror, device string, o PlanOptions) Plan {
 		}
 		p.Checks = append(p.Checks, Check{ID: "big-enough:" + d.Path, OK: d.SizeBytes >= need,
 			Detail: fmt.Sprintf("disk %d bytes, needs at least %d (allocated on the current member)", d.SizeBytes, need)})
-		// Follow the set: encrypt the new member when the existing ones are.
-		for _, mem := range m.Members {
-			if _, s, ok := containing(disks, mem.Path); ok && s.Type == "crypt" || strings.HasPrefix(mem.Path, "/dev/mapper/") {
-				o.Encrypt = true
-			}
-		}
+		var encOK bool
+		o.Encrypt, clone, encOK = followEncryption(disks, m, -1)
 		p.Encrypted = o.Encrypt
-		if !o.Encrypt {
-			p.Warnings = append(p.Warnings, "the existing set is not encrypted, so the new member is not either (LUKS2 for every member lands with STOR-1)")
+		if o.Encrypt {
+			p.Checks = append(p.Checks, Check{ID: "luks-source", OK: encOK, Detail: "an unlocked member's LUKS2 partition to copy the header from: " + clone})
+		} else {
+			p.Warnings = append(p.Warnings, "the existing set is not encrypted, so the new member is not either (LUKS2 for the data partition comes with the image, H-11)")
 		}
 		if d.Transport == "usb" {
 			p.Warnings = append(p.Warnings, "USB disk: keep it connected; an unplug makes the set degraded")
@@ -303,15 +347,44 @@ func PlanProtect(disks []Disk, m *Mirror, device string, o PlanOptions) Plan {
 	p.DataProfile, p.MetaProfile = profilesFor(len(m.Members) + 1)
 	if ok {
 		warnSizes(&p, append(diskOfMembers(disks, m), d))
-		st, dev := prepareMember(d, o)
-		p.Steps = append(st,
-			Step{Cmd: []string{"btrfs", "device", "add", dev, m.Mount}, Why: "join the new member to the set"},
-			Step{Cmd: []string{"btrfs", "balance", "start", "-dconvert=" + p.DataProfile + ",soft", "-mconvert=" + p.MetaProfile + ",soft", m.Mount},
+		st, nm := prepareMember(d, o, m.UUID, clone)
+		p.Steps = st
+		if o.Encrypt {
+			p.Steps = append(p.Steps, TokenSteps(m, nm, -1)...)
+		}
+		p.Steps = append(p.Steps,
+			Step{ID: "device-add", Phase: PhaseJoin, Cmd: []string{"btrfs", "device", "add", nm.Dev, m.Mount}, Why: "join the new member to the set"},
+			Step{ID: "balance", Phase: PhaseCommit, Cmd: []string{"btrfs", "balance", "start", "-dconvert=" + p.DataProfile + ",soft", "-mconvert=" + p.MetaProfile + ",soft", m.Mount},
 				Why: "write a second copy of every chunk on the other disk (soft: skips chunks already converted, so a restart after a power cut resumes)"},
-			Step{Cmd: []string{"btrfs", "filesystem", "df", m.Mount}, Why: "verify: Data, Metadata and System show the new profile"},
+			verifyStep(m.Mount),
 		)
 	}
 	return finish(p)
+}
+
+// followEncryption reports whether the set is encrypted and, if so, the
+// LUKS2 partition of a present member (other than devid skip) to clone.
+func followEncryption(disks []Disk, m *Mirror, skip int) (enc bool, clone string, ok bool) {
+	for _, mem := range m.Members {
+		if mem.Missing {
+			continue
+		}
+		b := mem.Backing
+		if b == "" {
+			b = BackingOf(disks, mem.Path)
+		}
+		if b != "" || strings.HasPrefix(mem.Path, "/dev/mapper/") {
+			enc = true
+			if b != "" && mem.DevID != skip && clone == "" {
+				clone = b
+			}
+		}
+	}
+	return enc, clone, clone != ""
+}
+
+func verifyStep(mount string) Step {
+	return Step{ID: "verify", Phase: PhaseVerify, Cmd: []string{"btrfs", "filesystem", "df", "-b", mount}, Why: "verify: Data, Metadata and System show the planned profile"}
 }
 
 // PlanRepair plans bringing a degraded set back to protected after its
@@ -339,14 +412,14 @@ func PlanRepair(m *Mirror) Plan {
 		p.Warnings = append(p.Warnings, "mounted with -o degraded: remount without it once the member is back, so a new failure is not silent")
 	}
 	p.Steps = []Step{
-		{Cmd: []string{"btrfs", "scrub", "start", "-B", m.Mount}, Why: "read every copy, verify checksums and rewrite bad or stale copies from the good one"},
-		{Cmd: []string{"btrfs", "balance", "start", "-dconvert=" + p.DataProfile + ",soft", "-mconvert=" + p.MetaProfile + ",soft", m.Mount},
+		{ID: "scrub", Phase: PhaseCommit, Cmd: []string{"btrfs", "scrub", "start", "-B", m.Mount}, Why: "read every copy, verify checksums and rewrite bad or stale copies from the good one"},
+		{ID: "balance", Phase: PhaseCommit, Cmd: []string{"btrfs", "balance", "start", "-dconvert=" + p.DataProfile + ",soft", "-mconvert=" + p.MetaProfile + ",soft", m.Mount},
 			Why: "rewrite chunks written with one copy while degraded; soft skips chunks already mirrored"},
-		{Cmd: []string{"btrfs", "filesystem", "df", m.Mount}, Why: "verify: no single or dup lines remain"},
-		{Cmd: []string{"btrfs", "device", "stats", "--reset", m.Mount}, Why: "record and zero the error counters after the repair so new errors stand out"},
+		verifyStep(m.Mount),
+		{ID: "stats-reset", Phase: PhaseVerify, Cmd: []string{"btrfs", "device", "stats", "--reset", m.Mount}, Why: "record and zero the error counters after the repair so new errors stand out"},
 	}
 	if m.NeedsScrub {
-		p.Steps = append(p.Steps, Step{Cmd: []string{"rm", "-f", m.Mount + "/" + NeedsScrubMarker}, Why: "clear the degraded marker: the scrub verified every copy"})
+		p.Steps = append(p.Steps, Step{ID: "marker-clear", Phase: PhaseVerify, Cmd: []string{"rm", "-f", m.Mount + "/" + NeedsScrubMarker}, Why: "clear the degraded marker: the scrub verified every copy"})
 	}
 	return finish(p)
 }

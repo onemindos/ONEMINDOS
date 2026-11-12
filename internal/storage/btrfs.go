@@ -34,7 +34,9 @@ type Member struct {
 	Missing   bool             `json:"missing"`
 	SizeBytes uint64           `json:"size_bytes"`
 	UsedBytes uint64           `json:"allocated_bytes"`
-	Errors    map[string]int64 `json:"errors"` // write_io_errs, read_io_errs, flush_io_errs, corruption_errs, generation_errs
+	Errors    map[string]int64 `json:"errors"`              // write_io_errs, read_io_errs, flush_io_errs, corruption_errs, generation_errs
+	Backing   string           `json:"backing,omitempty"`   // LUKS2 partition under a dm-crypt member (Collector.LUKS)
+	LUKSUUID  string           `json:"luks_uuid,omitempty"` // that partition's LUKS UUID
 }
 
 // Profile is one allocation class (Data, Metadata, System) and its profile.
@@ -60,6 +62,8 @@ type Mirror struct {
 	State        State     `json:"state"`
 	Reasons      []string  `json:"reasons,omitempty"`
 	Repair       []string  `json:"repair,omitempty"` // what PlanRepair would do: "reconnect", "scrub", "soft-convert"
+	Encrypted    bool      `json:"encrypted"`        // members are dm-crypt (Collector.LUKS)
+	Generation   int       `json:"generation"`       // newest OneMind LUKS2 token generation; 0 = none
 }
 
 // NeedsScrubMarker (relative to the mount) records that the set was mounted
