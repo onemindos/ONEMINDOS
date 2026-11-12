@@ -52,6 +52,7 @@
 | OS-SECPIPE | OS security pipeline: nightly Debian check, rebuild, SBOM/CVE+VEX/C… | done | `feat/os-security-pipeline` | [#14](https://github.com/onemindos/ONEMINDOS/pull/14) |
 | CORE-UPDATE-1 | Land both update branches with CI green | done | (both update branches) | #15 and [#14](https://github.com/onemindos/ONEMINDOS/pull/14) merged |
 | QUALITY-SLOP-FIX | Re-verify the slop audit (code, docs, drift) against current `main` and fix what is still valid | review | `docs/slop-audit` | PR pending |
+| QUALITY-SLOP-2 | Slop pass 2 (Wave G #4): re-run code, docs and drift audits on current `main`, with owner column; fix orchestrator-owned docs/site/apps findings | in-progress (orchestrator) | `docs/slop-audit-2` | PR pending |
 | W2-GW | Gateway wave 2: scan gate, app agent principals, `/mcp` with 3 tool… | done | `feat/gateway-agent-mcp` | [#24](https://github.com/onemindos/ONEMINDOS/pull/24) |
 | W2-PIPE | App pipeline: scaffolder, app-gate (§9.4), `scan.json` (§11.1), k3d… | done | `feat/app-pipeline` | [#25](https://github.com/onemindos/ONEMINDOS/pull/25) |
 | CI-APP-PATHS | Narrow app-gate triggers without weakening §9.4 checks | in-progress (agent A) | `ci/narrow-app-gate-paths` | [#74](https://github.com/onemindos/ONEMINDOS/pull/74) |
