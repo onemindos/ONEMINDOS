@@ -276,7 +276,7 @@ These study epics duplicated an existing epic and were folded into it; the targe
 
 | Id | Title | Size | Depends on | Owner paths | Acceptance |
 |---|---|---|---|---|---|
-| UMB-STOR-0 | Contract: storage reads, `storage.*` action types, heartbeat `storage`, `storage:*` scopes; decision record (btrfs, no ZFS in v1) | S | C12-A, F-32 | `sdk/contracts/poc-v0.md` (contract owner), `docs/DECISIONS.md` | Contract merged; OpenAPI lists the routes; heartbeat validates with and without `storage` |
+| UMB-STOR-0 | Contract: storage reads, `storage.*` action types, heartbeat `storage`, `storage:*` scopes; decision record (btrfs, no ZFS in v1) | S | C12-A, F-60 | `sdk/contracts/poc-v0.md` (contract owner), `docs/DECISIONS.md` | Contract merged; OpenAPI lists the routes; heartbeat validates with and without `storage` |
 | UMB-STOR-3 | onemindd storage inventory and health collector (lsblk, smartctl, nvme) | M | UMB-STOR-0 | `internal/storage/{inventory,health}/**`, one line in `cmd/onemindd/main.go`, `cmd/onemind/cli/storage.go` | Recorded NVMe, SATA and USB-SAT fixtures parse; system and foreign roles correct; QEMU heartbeat shows `storage.state=unprotected` |
 | UMB-FILES-0 | Contract 12-files: roots, file API, action types, MCP tools, manifest `spec.folders` | S | C12-A, F-39, F-40 | contract, `sdk/schema/onemind.app.schema.json` (contract owner) | Schema accepts `spec.folders`, rejects an unknown `access` |
 | UMB-ACCT-1 | Kanidm spike: host service, offline first boot, groups, OIDC client, reset link, expiry, TOTP replay, backup and restore | M | F-34 | `research-output/evidence/lab/acct-kanidm/**` | Owner passkey enrolled with the network unplugged; restored box accepts the same passkey; reused TOTP refused |
