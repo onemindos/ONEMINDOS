@@ -9,17 +9,32 @@ from fastapi.responses import Response
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
-from ..mcp import McpEndpoint
+from .. import __version__
+from ..auditread import AuditReader
+from ..mcp import Catalogue, Limits, McpEndpoint, McpSettings, Services
 from .apps import app_rows
+from .audit import owned_action_ids
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
     actions = gw.actions
     principal = gw.principal
-    mcp = McpEndpoint(
-        list_nodes=gw.registry.list, list_apps=lambda: app_rows(gw), actions=actions, clock=gw.clock,
-        deny=lambda p, what: actions._deny(p, what),
+    reader = AuditReader(gw.settings.audit_path, gw.clock, owned_action_ids(gw))
+    own_ids = owned_action_ids(gw)
+    services = Services(
+        instance=lambda: {"name": gw.settings.instance_name, "version": __version__,
+                          "hub_node_id": gw.settings.node_id},
+        list_nodes=gw.registry.list,
+        get_node=gw.registry.get,
+        list_apps=lambda: app_rows(gw),
+        own_actions=lambda pid: [a for a in actions.list() if a["id"] in own_ids(pid)],
+        get_action=actions.get,
+        request=lambda p, req, reason: actions.create(p, req, reason=reason),
+        audit_list=reader.list,
+        clock=gw.clock,
     )
+    limits = Limits(gw.settings.section(McpSettings), gw.clock)
+    mcp = McpEndpoint(Catalogue(services, limits), limits, refuse=lambda p, what: actions._deny(p, what))
 
     @app.post(
         "/mcp",
@@ -28,10 +43,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
         summary="MCP Streamable HTTP endpoint (protocol 2025-06-18), agents only",
         description=(
             "One JSON-RPC 2.0 message per request: initialize, ping, tools/list, tools/call. "
-            "Tools: list_nodes, list_apps, request_action. No approve tool. Notifications get 202."
+            "Read tools (get_instance, list_nodes, get_node, list_apps, get_app, list_actions, get_action, "
+            "search_audit), one request-only tool (request_action) and onemind:// resources. No approve tool. "
+            "Notifications get 202; over the per-agent message limit, 429."
         ),
         openapi_extra={"requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}}},
-        responses={202: {"description": "Notification or response accepted"}, **error_responses(401, 403)},
+        responses={202: {"description": "Notification or response accepted"}, **error_responses(401, 403, 429)},
     )
     async def mcp_post(request: Request, p: Principal = Depends(principal)):
         return await mcp.handle(request, p)

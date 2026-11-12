@@ -859,7 +859,7 @@
     },
     "/mcp": {
       "post": {
-        "description": "One JSON-RPC 2.0 message per request: initialize, ping, tools/list, tools/call. Tools: list_nodes, list_apps, request_action. No approve tool. Notifications get 202.",
+        "description": "One JSON-RPC 2.0 message per request: initialize, ping, tools/list, tools/call. Read tools (get_instance, list_nodes, get_node, list_apps, get_app, list_actions, get_action, search_audit), one request-only tool (request_action) and onemind:// resources. No approve tool. Notifications get 202; over the per-agent message limit, 429.",
         "operationId": "mcp.post",
         "requestBody": {
           "content": {
@@ -902,6 +902,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests or open streams (rate_limited); see Retry-After"
           }
         },
         "summary": "MCP Streamable HTTP endpoint (protocol 2025-06-18), agents only",
