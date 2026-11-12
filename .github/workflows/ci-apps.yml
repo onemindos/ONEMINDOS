@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
-# App CI gate, wave 1 (sdk/contracts/poc-v0.md §9.4 checks 1, 3 (pinning), 6 (gitleaks) and 8).
-# Licence, Trivy, ClamAV, cosign/Scorecard and the k3d smoke test are later waves.
+# App CI gate (sdk/contracts/poc-v0.md §9.4, §11.1) on every PR that touches apps/ or the app tools.
+#   validate: unit tests, validate-apps (schema, pins, limits, kubeconform, Renovate list),
+#             generated READMEs up to date, gitleaks over the PR's commits
+#   gate:     sdk/tools/app-gate for each changed app (licence, pinning + archs, Trivy CVE + secrets,
+#             ClamAV, cosign, Scorecard, non-root) plus the k3d smoke test (check 9)
+# The scan.json each gate run writes is uploaded as an artifact; the committed scan.json is refreshed
+# by .github/workflows/apps-rescan.yml.
 name: ci-apps
 
 on:
@@ -8,6 +13,7 @@ on:
     paths:
       - "apps/**"
       - "sdk/**"
+      - "renovate.json"
       - ".github/workflows/ci-apps.yml"
 
 permissions:
@@ -17,21 +23,15 @@ concurrency:
   group: ci-apps-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
-env:
-  KUSTOMIZE_VERSION: "5.8.3"
-  KUSTOMIZE_SHA256: "cb9e31198d3f63b44848bd0afc4c8efc56e6cfef9c93a4a39a211940e6decd61"
-  KUBECONFORM_VERSION: "0.8.0"
-  KUBECONFORM_SHA256: "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883"
-  GITLEAKS_VERSION: "8.30.1"
-  GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
-
 jobs:
-  validate-apps:
+  validate:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    outputs:
+      apps: ${{ steps.changed.outputs.apps }}
     steps:
       - name: Check out
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -41,32 +41,102 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install Python dependencies
-        run: python3 -m pip install --disable-pip-version-check -r sdk/tools/requirements.txt
-
-      - name: Install kustomize, kubeconform and gitleaks (pinned by version and sha256)
+      - name: Install Python dependencies and pinned tools
         run: |
-          set -euo pipefail
-          bin="$RUNNER_TEMP/bin"; dl="$RUNNER_TEMP/dl"
-          mkdir -p "$bin" "$dl"
-          fetch() { # url sha256 file
-            curl -fsSL --retry 3 -o "$dl/$3" "$1"
-            echo "$2  $dl/$3" | sha256sum -c -
-            tar -xzf "$dl/$3" -C "$bin"
-          }
-          fetch "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" \
-            "$KUSTOMIZE_SHA256" kustomize.tar.gz
-          fetch "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
-            "$KUBECONFORM_SHA256" kubeconform.tar.gz
-          fetch "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            "$GITLEAKS_SHA256" gitleaks.tar.gz
-          echo "$bin" >> "$GITHUB_PATH"
+          python3 -m pip install --disable-pip-version-check -r sdk/tools/requirements.txt
+          sdk/tools/ci/install-tools.sh "$RUNNER_TEMP/bin" kustomize kubeconform gitleaks
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Unit tests (sdk/tools)
+        run: python3 -I -m unittest discover -s sdk/tools/tests -v
 
       - name: Validate apps
         run: python3 -I sdk/tools/validate-apps
+
+      - name: Generated READMEs are up to date
+        run: python3 -I sdk/tools/app-readme --check
 
       - name: Gitleaks (commits in this PR)
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: gitleaks git --redact --no-banner --log-opts="${BASE_SHA}..${HEAD_SHA}" .
+
+      - name: Changed apps
+        id: changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          # A change to the gate itself re-gates every app; otherwise only the apps the PR touches.
+          if grep -qE '^(sdk/tools/(app-gate|validate-apps|applib/)|sdk/schema/|\.github/workflows/ci-apps\.yml)' <<<"$files"; then
+            ids=$(find apps -mindepth 1 -maxdepth 1 -type d ! -name '_*' ! -name '.*' -printf '%f\n' | sort)
+          else
+            ids=$(grep -oE '^apps/[^/_.][^/]*/' <<<"$files" | cut -d/ -f2 | sort -u || true)
+          fi
+          # Deleted apps have nothing left to gate.
+          ids=$(for id in $ids; do [ -f "apps/$id/onemind.app.yaml" ] && echo "$id"; done || true)
+          echo "apps=$(jq -cn '$ARGS.positional' --args $ids)" >> "$GITHUB_OUTPUT"
+          echo "apps to gate: ${ids:-none}"
+
+  gate:
+    needs: validate
+    if: needs.validate.outputs.apps != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        app: ${{ fromJSON(needs.validate.outputs.apps) }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Install the gate's tools (pinned by version and sha256)
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check -r sdk/tools/requirements.txt
+          sdk/tools/ci/install-tools.sh "$RUNNER_TEMP/bin" trivy crane cosign k3d kubectl kustomize kubeconform
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          # ClamAV from the Ubuntu archive (apt-verified); signatures are updated in this job (§9.4 check 5).
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq clamav clamav-freshclam
+          sudo systemctl stop clamav-freshclam || true
+          for i in 1 2 3; do sudo freshclam --stdout && break; sleep $((i * 20)); done
+          clamscan --version
+
+      - name: Throwaway k3s cluster (k3d)
+        run: |
+          k3d cluster create gate --wait --timeout 300s --no-lb \
+            --image docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
+          kubectl get nodes
+
+      - name: App gate (§9.4 checks 2-9)
+        env:
+          APP: ${{ matrix.app }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          python3 -I sdk/tools/app-gate "$APP" --smoke --tier check --clamav-db /var/lib/clamav \
+            --workdir "$RUNNER_TEMP" --report "$RUNNER_TEMP/out/report.json" --sbom-dir "$RUNNER_TEMP/out/sbom"
+
+      - name: Upload scan results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: app-gate-${{ matrix.app }}
+          path: |
+            apps/${{ matrix.app }}/scan.json
+            ${{ runner.temp }}/out/
+          if-no-files-found: ignore
+          retention-days: 30
