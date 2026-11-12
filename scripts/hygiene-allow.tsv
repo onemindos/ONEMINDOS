@@ -38,3 +38,5 @@ docs/architecture/NETWORKING.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 docs/leap/core/NETWORKING.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 docs/architecture/NETWORKING.md	10\.4[23]\.0\.0	B-FP-9
 scripts/hygiene-allow.tsv	(100\.64\.0\.0|/home/runner)	B-FP-9
+# B-FP-10: Market app manifests and READMEs name the home directory of the user an upstream image runs as (node in Node.js images, coder in the code-server image). They are paths inside the container, not host home directories.
+apps/*	/home/(node|coder)	B-FP-10

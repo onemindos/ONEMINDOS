@@ -1,0 +1,167 @@
+# SPDX-License-Identifier: Apache-2.0
+# Karakeep 0.34.1 (github.com/karakeep-app/karakeep, docker/Dockerfile and docker/docker-compose.yml at tag
+# v0.34.1, docs/docs/03-configuration/01-environment-variables.md). The aio image runs web and workers under
+# s6-overlay; upstream chowns /run to node so it starts as UID 1000 under runAsNonRoot (Dockerfile comment).
+# Meilisearch v1.41.0 (MIT), the version upstream's compose pins, is a native sidecar on 127.0.0.1 only, so
+# no master key is needed. The secret init container creates NEXTAUTH_SECRET once on the data volume.
+# Not packaged: upstream's karakeep-chrome image, which installs Google Chrome (proprietary) on amd64; the
+# workers then fetch pages over plain HTTP, without screenshots or JavaScript (BROWSER_WEB_URL unset).
+# Optional AI tagging keys (OPENAI_API_KEY, OLLAMA_BASE_URL, ...) come from the Secret karakeep-credentials
+# that the owner may create in app-karakeep; the pod starts without it.
+#
+# Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: karakeep
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: karakeep
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: karakeep
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      - name: secret
+        image: ghcr.io/karakeep-app/karakeep:0.34.1@sha256:69ae5315c618b7c14c1af3e34c6e211acdb231793af424ecd1cab0b70691d987
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - -c
+        - |
+          set -e
+          umask 077
+          mkdir -p /data/.onemind
+          # NEXTAUTH_SECRET is required (docs: environment variables); generated once, kept on the data volume.
+          [ -s /data/.onemind/nextauth-secret ] || node -e 'process.stdout.write(require("crypto").randomBytes(36).toString("base64"))' > /data/.onemind/nextauth-secret
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      - name: meilisearch
+        image: docker.io/getmeili/meilisearch:v1.41.0@sha256:860fa4baed04ae1c235de870edab0c8006227546dea1bbb6411fbfc5e27cf1db
+        imagePullPolicy: IfNotPresent
+        restartPolicy: Always
+        command:
+        - /bin/meilisearch
+        args:
+        - --http-addr
+        - 127.0.0.1:7700
+        - --db-path
+        - /meili_data/data.ms
+        - --dump-dir
+        - /meili_data/dumps
+        - --snapshot-dir
+        - /meili_data/snapshots
+        - --no-analytics
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: '1'
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: meili
+          mountPath: /meili_data
+      containers:
+      - name: karakeep
+        image: ghcr.io/karakeep-app/karakeep:0.34.1@sha256:69ae5315c618b7c14c1af3e34c6e211acdb231793af424ecd1cab0b70691d987
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - -c
+        - |
+          NEXTAUTH_SECRET="$(cat /data/.onemind/nextauth-secret)"
+          export NEXTAUTH_SECRET
+          exec /init
+        envFrom:
+        - secretRef:
+            name: karakeep-credentials
+            optional: true
+        env:
+        - name: DATA_DIR
+          value: /data
+        - name: NEXTAUTH_URL
+          value: http://localhost:3000
+        - name: MEILI_ADDR
+          value: http://127.0.0.1:7700
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: '2'
+            memory: 2Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: karakeep-data
+      - name: meili
+        persistentVolumeClaim:
+          claimName: karakeep-meili

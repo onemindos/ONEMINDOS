@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# /config: database, settings and backups.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prowlarr-config
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# /var/opt/memos holds the SQLite database and local attachments (the image's VOLUME).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: memos-data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi

@@ -1,0 +1,192 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/linkwarden/linkwarden (contract §9.2), then
+# completed from upstream at tag v2.17.0: docker-compose.yml (postgres:16, port 3000, volume
+# /data/data, DATABASE_URL to database "postgres"), .env.sample (NEXTAUTH_URL, NEXTAUTH_SECRET) and
+# Dockerfile (CMD runs prisma migrate deploy, then the web app and the archiving worker;
+# PLAYWRIGHT_BROWSERS_PATH=/ms-playwright; .next/cache is world-writable "so it also works when the
+# container runs as a non-root user").
+#
+# PostgreSQL 16 runs as a native sidecar on 127.0.0.1 only and trusts local connections, so no
+# database password or Secret exists. NEXTAUTH_SECRET has no file variant: it is generated once onto
+# the data volume and exported by the container command before upstream's own CMD runs.
+# Meilisearch (full-text search) is optional upstream and not packaged.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkwarden
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: linkwarden
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: linkwarden
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # UID 1000 is the node user of the node:22 base image.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Generates NEXTAUTH_SECRET once (outside the archive folder) and creates the subPath
+        # directories as the app user: the kubelet would create a missing subPath as root, which
+        # the app cannot write on volumes without fsGroup (k3s local-path).
+        - name: secret
+          image: ghcr.io/linkwarden/linkwarden:v2.17.0@sha256:7c11fde57d1a0c819b6de0079966eba3a33584d718464af7dacde22bd470ae46
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              mkdir -p /mnt/storage /mnt/onemind
+              f=/mnt/onemind/nextauth-secret
+              if [ ! -s "$f" ]; then
+                umask 077
+                head -c 96 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 64 > "$f"
+              fi
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /mnt
+        - name: db
+          image: docker.io/library/postgres:16.15-trixie@sha256:f9a7b9ebf6f56201f949db745e47bc423c0f0f8294bafe991cc10bf74b029657
+          restartPolicy: Always
+          args: ["postgres", "-c", "listen_addresses=127.0.0.1"]
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_DB
+              value: postgres
+            # Only 127.0.0.1 and the pod's own socket reach this server.
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: trust
+            # A subdirectory, so the data directory is owned by the postgres user even when the
+            # volume root is not.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "postgres"]
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "postgres"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: db
+              mountPath: /var/lib/postgresql/data
+      containers:
+        - name: linkwarden
+          image: ghcr.io/linkwarden/linkwarden:v2.17.0@sha256:7c11fde57d1a0c819b6de0079966eba3a33584d718464af7dacde22bd470ae46
+          # Upstream's CMD, unchanged, after exporting the generated secret.
+          args:
+            - sh
+            - -c
+            - >-
+              export NEXTAUTH_SECRET="$(cat /onemind/nextauth-secret)" &&
+              export PATH=/data/node_modules/.bin:$PATH &&
+              prisma migrate deploy --schema=/data/packages/prisma/schema.prisma &&
+              exec concurrently -k -n web,worker "cd /data/apps/web && exec next start" "cd /data/apps/worker && exec tsx worker.ts"
+          env:
+            - name: DATABASE_URL
+              value: postgresql://postgres@127.0.0.1:5432/postgres
+            # The URL the browser uses: the port-forward in README.md "First run".
+            - name: NEXTAUTH_URL
+              value: http://localhost:3000/api/v1/auth
+            - name: HOME
+              value: /tmp
+            - name: NEXT_TELEMETRY_DISABLED
+              value: "1"
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          # Database migrations run on the first start. The image's HEALTHCHECK requests GET /.
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # The worker runs a headless Chromium to archive pages (screenshot, PDF, readable copy).
+          # Upstream publishes no sizing; a OneMind choice.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /data/data
+              subPath: storage
+            - name: data
+              mountPath: /onemind
+              subPath: onemind
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: linkwarden-data
+        - name: db
+          persistentVolumeClaim:
+            claimName: linkwarden-db
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi
