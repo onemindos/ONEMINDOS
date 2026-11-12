@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: c
+spec:
+  schedule: '@daily'
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: main
+            image: docker.io/library/busybox:1.37.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+          hostNetwork: true

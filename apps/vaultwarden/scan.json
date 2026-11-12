@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-12T07:25:57Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "docker.io/vaultwarden/server:1.37.5@sha256:4fe17f415f90087377d37c755e0ea3cf189dcc6794e49cdd2a9adbb4937d9e1f",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 4,
+        "high": 134
+      },
+      "clamav": {
+        "signatures": "daily-28181",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "AGPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

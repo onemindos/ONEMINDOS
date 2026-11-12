@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# /data holds server-files/account.sqlite (hashed server password, file list, sessions) and
+# user-files/ (the budget files). Upstream gives no size; budgets are small SQLite files.
+# No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: actual-budget-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi

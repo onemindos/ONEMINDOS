@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/eclipse-mosquitto/mosquitto (contract §9.2),
+# then completed from primary sources, read 2026-11-12:
+# - version/release: tag v2.1.2 (annotated tag 691eab38b43c, tagger date 2026-02-09); upstream publishes
+#   no GitHub releases, and ChangeLog.txt at that tag lists "2.1.2 - 2026-02-09".
+# - licence: LICENSE.txt at v2.1.2 ("SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause"); the image's
+#   org.opencontainers.image.licenses label says the same.
+# - image: docker/2.1-alpine/Dockerfile in the upstream repo builds docker.io/library/eclipse-mosquitto;
+#   only the 2.1.2-alpine tag exists for 2.1.2. Digest and archs from `crane manifest`.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: mosquitto
+  name: "Eclipse Mosquitto"
+  version: "2.1.2"
+  description: "Eclipse Mosquitto - An open source MQTT broker"
+  category: iot   # GitHub topics: iot, mqtt, mqtt-broker, messaging
+  icon: icon.svg
+  license: "EPL-2.0 OR BSD-3-Clause"
+  source: https://github.com/eclipse-mosquitto/mosquitto
+  links:
+    docs: "https://mosquitto.org/documentation/"
+    github: "https://github.com/eclipse-mosquitto/mosquitto"
+    website: "https://mosquitto.org"
+    support: "https://github.com/eclipse-mosquitto/mosquitto/issues"
+  upstream: {release: "v2.1.2", released_at: "2026-02-09T11:24:30Z", archived: false}
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 128}   # the container's memory limit; upstream publishes no sizing
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}

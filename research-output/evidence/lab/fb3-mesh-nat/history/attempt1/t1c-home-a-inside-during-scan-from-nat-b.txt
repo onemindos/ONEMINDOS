@@ -1,0 +1,6 @@
+02:48:47.103093 IP 203.0.113.10.8443 > 192.0.2.10.40580: Flags [.], ack 3898951042, win 635, options [nop,nop,TS val 4246868550 ecr 2593601759], length 0
+02:48:50.396062 ARP, Reply 192.0.2.1 is-at 02:b3:ea:bb:5e:df, length 28
+02:48:53.171438 IP 203.0.113.10.8443 > 192.0.2.10.40580: Flags [P.], seq 1:86, ack 1, win 635, options [nop,nop,TS val 4246874617 ecr 2593616867], length 85
+02:48:55.324591 IP 203.0.113.10.443 > 192.0.2.10.39318: Flags [.], ack 2313358754, win 639, options [nop,nop,TS val 2629810494 ecr 2632126623], length 0
+02:49:08.348440 IP 203.0.113.10.8443 > 192.0.2.10.40580: Flags [.], ack 1, win 635, options [nop,nop,TS val 4246889794 ecr 2593622936], length 0
+

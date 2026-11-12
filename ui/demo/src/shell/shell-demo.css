@@ -1,0 +1,7 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Layout helpers for the shell demo screens only. Tokens only. */
+.d-shell-bar { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--om-space-4); }
+.d-shell-bar .om-page-head { flex: 1; }
+.d-shell-frame { border: 1px solid var(--om-color-border); border-radius: var(--om-radius-lg); overflow: hidden; background: var(--om-color-surface-raised); }
+a.d-chip { text-decoration: none; }
+a.d-chip[aria-current='page'] { background: var(--om-color-accent-soft); color: var(--om-color-accent); border-color: var(--om-color-accent); font-weight: var(--om-font-weight-semibold); }

@@ -127,6 +127,9 @@ def builtin_check(doc: object) -> list[str]:
     for key in ("name", "version"):
         if md.get(key) in (None, ""):
             errs.append(f"metadata.{key} is required")
+    # H-18: the Market renders source as a link; only https:// (never javascript: or data:).
+    if md.get("source") is not None and not (isinstance(md.get("source"), str) and md["source"].startswith("https://")):
+        errs.append("metadata.source must be an https:// URL")
     archs = spec.get("archs")
     if not isinstance(archs, list) or not archs or not all(a in ("amd64", "arm64") for a in archs):
         errs.append("spec.archs must be a non-empty list of amd64/arm64")

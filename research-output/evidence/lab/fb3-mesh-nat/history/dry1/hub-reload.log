@@ -1,0 +1,1 @@
+[ERR] Failed to reload server configuration: /opt/fb3/run/nats/hub.conf:9:28: unknown field "permissions"

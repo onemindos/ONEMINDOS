@@ -1,0 +1,490 @@
+#!/usr/bin/env -S python3 -I
+# SPDX-License-Identifier: Apache-2.0
+"""App CI gate (contract sdk/contracts/poc-v0.md §9.4 checks 2-9) -> apps/<id>/scan.json (§11.1).
+
+Per app:
+  1+8  schema, id, kustomize build | kubeconform, limits, pins (sdk/tools/validate-apps)
+  2    licence class from GitHub's SPDX id + research-output/evidence/license-matrix.csv
+  3    every image tag+digest pinned; the digest's index has every declared spec.archs (crane)
+  4+6  Trivy over each image and declared arch: CVEs (CRITICAL with a fix fails) and secrets
+  5    ClamAV over each image's exported filesystem (`crane export`); any hit fails and blocks
+  7    cosign verify when the upstream signs (else "unsigned"); OpenSSF Scorecard (informational);
+       archived upstream or no release in 18 months caps the tier at community
+  8    non-root where the image allows it
+  9    --smoke: install into namespace app-<id> with the current kubectl context, wait for
+       rollout, HTTP 200/3xx from spec.web.port (skipped when the app has no spec.web)
+
+Run with: python3 -I sdk/tools/app-gate [options] APP_ID [APP_ID ...]
+Exit codes: 0 every app passes, 1 at least one app fails, 2 usage or environment error.
+With --fail-on claim (pull requests), 1 means only that a committed claim is higher than the gate's
+verdict: metadata.tier above the computed tier, or a committed scan.json saying "pass" for an app
+that fails. An app that honestly fails (tier blocked or community, scan.json not "pass") can merge;
+the gateway refuses to install it (§10.3, §11.1).
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import re
+import socket
+import subprocess
+import sys
+import tarfile
+import tempfile
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path, PurePosixPath
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    from applib import common, licence, readme  # noqa: E402
+except ImportError as exc:  # pragma: no cover
+    sys.stderr.write(f"error: missing dependency ({exc.name}); install sdk/tools/requirements.txt\n")
+    sys.exit(2)
+
+TOOLS_DIR = Path(__file__).resolve().parent
+TIER_RANK = {"blocked": 0, "community": 1, "verified": 2}
+STALE_RELEASE_DAYS = 548  # 18 months (§9.4 check 7)
+COSIGN_ISSUER = "https://token.actions.githubusercontent.com"
+SMOKE_SECRET_PLACEHOLDER = "smoke-test-placeholder"
+
+
+def now() -> str:
+    return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+class Check:
+    def __init__(self, name: str):
+        self.name, self.ok, self.notes = name, True, []
+
+    def fail(self, msg: str) -> None:
+        self.ok = False
+        self.notes.append(f"FAIL: {msg}")
+
+    def note(self, msg: str) -> None:
+        self.notes.append(msg)
+
+
+class Gate:
+    def __init__(self, app_dir: Path, args: argparse.Namespace, registry: common.Registry, gh: common.GitHub):
+        self.app_dir, self.args, self.reg, self.gh = app_dir, args, registry, gh
+        self.manifest = common.load_manifest(app_dir)
+        self.meta, self.spec = self.manifest["metadata"], self.manifest["spec"]
+        self.id = self.meta["id"]
+        self.checks: dict[str, Check] = {}
+        self.report: dict = {"app": self.id, "checks": {}}
+
+    def check(self, name: str) -> Check:
+        return self.checks.setdefault(name, Check(name))
+
+    # -- 1 + 8: validate-apps ----------------------------------------------------------------
+    def validate(self) -> list[dict]:
+        c = self.check("manifests")
+        proc = common.run([sys.executable, "-I", str(TOOLS_DIR / "validate-apps"),
+                           "--apps-dir", str(self.app_dir.parent), self.id], timeout=600)
+        if proc.returncode != 0:
+            c.fail("validate-apps failed:\n" + (proc.stdout + proc.stderr).strip())
+        return common.render(self.app_dir / self.spec["manifests"])
+
+    # -- 2: licence ---------------------------------------------------------------------------
+    def licence_gate(self, repo_info: dict | None, repo: str | None) -> dict:
+        c = self.check("licence")
+        gh_spdx = (repo_info or {}).get("license", {}) or {}
+        gh_spdx = gh_spdx.get("spdx_id") if isinstance(gh_spdx, dict) else None
+        rows = licence.matrix_rows(common.MATRIX_CSV, repo) if repo else []
+        cls, notes = licence.gate(self.meta["license"], gh_spdx, rows)
+        for n in notes:
+            c.note(n)
+        if cls == "blocked":
+            c.fail(f"licence '{self.meta['license']}' is not allowed (class blocked)")
+        return {"spdx": self.meta["license"], "class": cls}
+
+    # -- 3: pinning and archs -----------------------------------------------------------------
+    def pin_check(self, ref: str) -> tuple[list[str], dict[str, str]]:
+        c = self.check("pinning")
+        name, tag, digest = common.split_image(ref)
+        if not tag or not digest:
+            c.fail(f"{ref}: not pinned as name:tag@sha256:<digest>")
+            return [], {}
+        archs, children = self.reg.platforms(f"{name}@{digest}")
+        if not archs:
+            c.fail(f"{ref}: digest not found in the registry")
+            return [], {}
+        missing = [a for a in self.spec["archs"] if a not in archs]
+        if missing:
+            c.fail(f"{ref}: declared archs {missing} are not in the image (has {archs})")
+        tag_digest = self.reg.digest(f"{name}:{tag}")
+        if tag_digest != digest:
+            c.note(f"{ref}: tag {tag} now points to {tag_digest} (the pinned digest still decides)")
+        return [a for a in self.spec["archs"] if a in archs], children
+
+    # -- 4 + 6: Trivy ---------------------------------------------------------------------------
+    def trivy(self, ref: str, archs: list[str]) -> tuple[dict, int]:
+        c = self.check("vulnerabilities")
+        s = self.check("secrets")
+        exe = common.which("trivy")
+        ver = json.loads(common.run([exe, "--version", "--format", "json"]).stdout or "{}").get("Version", "unknown")
+        vulns: dict[tuple, dict] = {}
+        secrets: set[tuple] = set()
+        for arch in archs:
+            argv = [exe, "image", "--quiet", "--format", "json", "--scanners", "vuln,secret",
+                    "--platform", f"linux/{arch}", "--image-src", "remote", "--timeout", "60m",
+                    "--skip-version-check"]
+            if self.args.trivy_cache:
+                argv += ["--cache-dir", str(self.args.trivy_cache)]
+            proc = common.run(argv + [ref], timeout=7200)
+            if proc.returncode != 0:
+                raise common.ToolError(f"trivy {ref} ({arch}): {proc.stderr.strip()[-2000:]}")
+            for res in json.loads(proc.stdout).get("Results") or []:
+                for v in res.get("Vulnerabilities") or []:
+                    vulns[(v["VulnerabilityID"], v.get("PkgName"), v.get("InstalledVersion"))] = v
+                for sec in res.get("Secrets") or []:
+                    secrets.add((res.get("Target"), sec.get("RuleID"), sec.get("StartLine")))
+                    s.note(f"{arch}: {res.get('Target')}: {sec.get('RuleID')} ({sec.get('Severity')})")
+            if self.args.sbom_dir:
+                out = Path(self.args.sbom_dir) / f"{self.id}-{re.sub(r'[^A-Za-z0-9._-]', '_', ref)[:120]}-{arch}.cdx.json"
+                out.parent.mkdir(parents=True, exist_ok=True)
+                sb = argv[:2] + ["--quiet", "--format", "cyclonedx", "--output", str(out),
+                                 "--platform", f"linux/{arch}", "--image-src", "remote", "--skip-version-check"]
+                common.run(sb + [ref], timeout=3600)
+        crit = [v for v in vulns.values() if v.get("Severity") == "CRITICAL"]
+        fixable = [v for v in crit if v.get("FixedVersion")]
+        for v in fixable:
+            c.fail(f"{ref}: {v['VulnerabilityID']} in {v.get('PkgName')} {v.get('InstalledVersion')}, fixed in {v['FixedVersion']}")
+        for v in crit:
+            if not v.get("FixedVersion"):
+                c.note(f"{ref}: CRITICAL without a fix: {v['VulnerabilityID']} in {v.get('PkgName')}")
+        if secrets:
+            s.fail(f"{ref}: {len(secrets)} secret finding(s) in the image")
+        result = {"version": ver, "critical_fixable": len(fixable), "critical": len(crit),
+                  "high": sum(1 for v in vulns.values() if v.get("Severity") == "HIGH")}
+        return result, len(secrets)
+
+    # -- 5: ClamAV ------------------------------------------------------------------------------
+    def clamav(self, ref: str, archs: list[str]) -> dict:
+        c = self.check("malware")
+        clamscan, crane = common.which("clamscan"), common.which("crane")
+        db = ["--database", str(self.args.clamav_db)] if self.args.clamav_db else []
+        m = re.search(r"/(\d+)/", common.run([clamscan, *db, "--version"]).stdout)
+        sigs = f"daily-{m.group(1)}" if m else "daily-unknown"
+        if not m:
+            c.fail("ClamAV signature database not found (run freshclam first)")
+        infected = 0
+        for arch in archs:
+            with tempfile.TemporaryDirectory(prefix="onemind-clam-", dir=self.args.workdir) as tmp:
+                root = Path(tmp)
+                proc = subprocess.Popen([crane, "export", "--platform", f"linux/{arch}", ref, "-"],
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                files = 0
+                with tarfile.open(fileobj=proc.stdout, mode="r|") as tar:
+                    for member in tar:
+                        if not member.isreg():
+                            continue
+                        rel = PurePosixPath(member.name.lstrip("/"))
+                        if ".." in rel.parts or not rel.parts:
+                            continue
+                        dest = root.joinpath(*rel.parts)
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        src = tar.extractfile(member)
+                        if src is None:
+                            continue
+                        with dest.open("wb") as fh:
+                            while chunk := src.read(1 << 20):
+                                fh.write(chunk)
+                        files += 1
+                if proc.wait() != 0:
+                    raise common.ToolError(f"crane export {ref} ({arch}): {proc.stderr.read().decode()[-1000:]}")
+                scan = common.run([clamscan, *db, "-r", "--infected", "--no-summary",
+                                   "--max-filesize=1000M", "--max-scansize=4000M", str(root)], timeout=7200)
+                hits = [ln for ln in scan.stdout.splitlines() if ln.endswith(" FOUND")]
+                infected += len(hits)
+                for h in hits:
+                    c.fail(f"{ref} ({arch}): {h.replace(str(root), '')}")
+                if scan.returncode not in (0, 1):
+                    c.fail(f"{ref} ({arch}): clamscan error: {(scan.stderr or scan.stdout).strip()[-1000:]}")
+                c.note(f"{ref} ({arch}): {files} files scanned with {sigs}")
+        return {"signatures": sigs, "infected": infected}
+
+    # -- 7: cosign, Scorecard, upstream health --------------------------------------------------
+    def cosign(self, ref: str, children: dict[str, str], owner: str | None) -> str:
+        c = self.check("supply-chain")
+        name, _, digest = common.split_image(ref)
+        signed = [d for d in [digest, *children.values()]
+                  if self.reg.digest(f"{name}:{d.replace(':', '-')}.sig")]
+        if not signed:
+            c.note(f"{ref}: no cosign signature published (recorded as unsigned)")
+            return "unsigned"
+        if not owner:
+            c.fail(f"{ref}: signed, but no GitHub owner to verify the signing identity against")
+            return "failed"
+        exe = common.which("cosign")
+        for d in signed:
+            proc = common.run([exe, "verify", "--certificate-identity-regexp",
+                               rf"^https://github\.com/{re.escape(owner)}/",
+                               "--certificate-oidc-issuer", COSIGN_ISSUER, f"{name}@{d}"], timeout=600)
+            if proc.returncode != 0:
+                c.fail(f"{ref}: cosign verify of {d} failed: {proc.stderr.strip()[-500:]}")
+                return "failed"
+        c.note(f"{ref}: cosign keyless signature verified for {len(signed)} digest(s)")
+        return "verified"
+
+    def upstream_health(self, repo: str | None, repo_info: dict | None) -> bool:
+        """Return True if nothing caps the tier (not archived, a release in the last 18 months)."""
+        c = self.check("supply-chain")
+        healthy = True
+        if repo_info is None:
+            c.note("UNVERIFIED: upstream GitHub repository could not be read")
+            return False
+        if repo_info.get("archived"):
+            c.note("upstream is archived: tier capped at community")
+            healthy = False
+        rel = self.gh.latest_release(repo) if repo else None
+        published = (rel or {}).get("published_at") or common.dig(self.meta, ("upstream", "released_at"))
+        try:
+            age = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(published.replace("Z", "+00:00"))).days
+        except (AttributeError, ValueError):
+            c.note("no upstream release date: tier capped at community")
+            return False
+        self.report["upstream_latest_release"] = (rel or {}).get("tag_name")
+        if age > STALE_RELEASE_DAYS:
+            c.note(f"latest upstream release is {age} days old (> 18 months): tier capped at community")
+            healthy = False
+        try:
+            body = self.gh.fetch(f"https://api.securityscorecards.dev/projects/github.com/{repo}")
+            score = json.loads(body).get("score") if body else None
+        except (common.ToolError, ValueError):
+            score = None
+        self.report["scorecard"] = score
+        c.note(f"OpenSSF Scorecard: {score if score is not None else 'not published'} (informational)")
+        return healthy
+
+    # -- 8: non-root ----------------------------------------------------------------------------
+    def nonroot(self, objects: list[dict]) -> None:
+        c = self.check("manifests")
+        user_cache: dict[str, str] = {}
+        for obj, pod in common.workloads(objects):
+            psc = pod.get("securityContext") or {}
+            for cont in common.containers(pod):
+                csc = cont.get("securityContext") or {}
+                where = f"{obj['kind']}/{common.dig(obj, ('metadata', 'name'))} container '{cont.get('name')}'"
+                run_as_nonroot = csc.get("runAsNonRoot", psc.get("runAsNonRoot"))
+                uid = csc.get("runAsUser", psc.get("runAsUser"))
+                if run_as_nonroot is True or (isinstance(uid, int) and uid > 0):
+                    continue
+                img = cont.get("image", "")
+                if img not in user_cache:
+                    cfg = self.reg.config(img, self.spec["archs"][0]) or {}
+                    user_cache[img] = (cfg.get("config") or {}).get("User") or ""
+                image_user = user_cache[img]
+                image_root = image_user.split(":")[0] in ("", "0", "root")
+                if uid == 0 and not image_root:
+                    c.fail(f"{where}: forces UID 0, but the image runs as '{image_user}'")
+                elif not image_root:
+                    c.note(f"{where}: runs as the image's non-root user '{image_user}'")
+                elif (csc.get("allowPrivilegeEscalation") is False and not csc.get("privileged")
+                      and "ALL" in ((csc.get("capabilities") or {}).get("drop") or [])):
+                    c.note(f"{where}: the image runs as root; accepted because privilege escalation "
+                           "is off and all capabilities are dropped")
+                else:
+                    c.fail(f"{where}: runs as root without runAsNonRoot; either run non-root or set "
+                           "allowPrivilegeEscalation: false and drop ALL capabilities")
+
+    # -- 9: smoke test --------------------------------------------------------------------------
+    def smoke(self, objects: list[dict]) -> str:
+        c = self.check("smoke")
+        if not self.spec.get("web"):
+            c.note("no spec.web: smoke test skipped")
+            return "skipped"
+        if not self.args.smoke:
+            c.fail("smoke test not run (pass --smoke with a throwaway cluster)")
+            return "skipped"
+        kubectl = common.which("kubectl")
+        ns = f"app-{self.id}"
+        k = lambda *a, t=900: common.run([kubectl, "-n", ns, *a], timeout=t)  # noqa: E731
+        common.run([kubectl, "create", "namespace", ns])
+        try:
+            agent = self.spec.get("agent") or {}
+            if agent.get("principal"):
+                k("create", "secret", "generic", agent["secret"],
+                  "--from-literal=ONEMIND_GATEWAY_URL=http://onemind-gateway.invalid:8080",
+                  f"--from-literal=ONEMIND_AGENT_TOKEN={SMOKE_SECRET_PLACEHOLDER}")
+            proc = k("apply", "-k", str(self.app_dir / self.spec["manifests"]))
+            if proc.returncode != 0:
+                c.fail(f"kubectl apply -k failed: {proc.stderr.strip()}")
+                return "fail"
+            for obj in objects:
+                if obj.get("kind") in ("Deployment", "StatefulSet", "DaemonSet"):
+                    ref = f"{obj['kind'].lower()}/{obj['metadata']['name']}"
+                    r = k("rollout", "status", ref, f"--timeout={self.args.smoke_timeout}s",
+                          t=self.args.smoke_timeout + 60)
+                    if r.returncode != 0:
+                        c.fail(f"{ref} not ready: {r.stderr.strip()}")
+                        c.note(k("get", "pods", "-o", "wide").stdout)
+                        c.note(k("describe", "pods").stdout[-4000:])
+                        return "fail"
+            port = self.spec["web"]["port"]
+            svc = next((o["metadata"]["name"] for o in objects if o.get("kind") == "Service"
+                        and any(p.get("port") == port for p in common.dig(o, ("spec", "ports")) or [])), None)
+            if not svc:
+                c.fail(f"no Service exposes port {port}")
+                return "fail"
+            with socket.socket() as s:
+                s.bind(("127.0.0.1", 0))
+                local = s.getsockname()[1]
+            pf = subprocess.Popen([kubectl, "-n", ns, "port-forward", f"svc/{svc}", f"{local}:{port}"],
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            try:
+                status = http_status(f"http://127.0.0.1:{local}/", deadline=time.time() + 120)
+            finally:
+                pf.terminate()
+                pf.wait(timeout=30)
+            if status is not None and 200 <= status < 400:
+                c.note(f"GET / on Service {svc}:{port} returned {status}")
+                return "pass"
+            c.fail(f"GET / on Service {svc}:{port} returned {status}")
+            return "fail"
+        finally:
+            if not self.args.smoke_keep:
+                common.run([kubectl, "delete", "namespace", ns, "--wait=true", "--timeout=300s"], timeout=400)
+
+    # -- driver ---------------------------------------------------------------------------------
+    def run(self) -> tuple[dict, str]:
+        objects = self.validate()
+        repo = common.owner_repo(self.manifest)
+        repo_info = self.gh.repo(repo) if repo else None
+        lic = self.licence_gate(repo_info, repo)
+        healthy = self.upstream_health(repo, repo_info)
+        self.nonroot(objects)
+        owner = repo.split("/")[0] if repo else None
+        images = []
+        for ref in common.images(objects):
+            archs, children = self.pin_check(ref)
+            if not archs:
+                continue
+            trivy, secrets = self.trivy(ref, archs)
+            clam = self.clamav(ref, archs)
+            images.append({"ref": ref, "archs": archs, "trivy": trivy, "clamav": clam,
+                           "secrets": secrets, "cosign": self.cosign(ref, children, owner)})
+        smoke = self.smoke(objects) if self.check("manifests").ok and self.check("pinning").ok else "fail"
+        if smoke == "fail" and "smoke" not in self.checks:
+            self.check("smoke").fail("not run because the manifest or pinning checks failed")
+        result = "pass" if all(c.ok for c in self.checks.values()) else "fail"
+        scan = {"scanned_at": now(), "result": result, "images": images, "licence": lic, "smoke": smoke}
+
+        unverified = common.unverified_files(self.app_dir)
+        if unverified:
+            self.check("unverified").note("UNVERIFIED in " + ", ".join(unverified) + ": tier capped at community")
+        if lic["class"] == "blocked" or any(i["clamav"]["infected"] or i["trivy"]["critical_fixable"] for i in images):
+            tier = "blocked"
+        elif result == "pass" and healthy and not unverified:
+            tier = "verified"
+        else:
+            tier = "community"
+        self.report["checks"] = {n: {"ok": c.ok, "notes": c.notes} for n, c in self.checks.items()}
+        self.report.update({"result": result, "computed_tier": tier})
+        return scan, tier
+
+
+def http_status(url: str, deadline: float) -> int | None:
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *a, **kw):
+            return None
+    opener = urllib.request.build_opener(NoRedirect)
+    status = None
+    while time.time() < deadline:
+        try:
+            with opener.open(url, timeout=10) as resp:
+                return resp.status
+        except urllib.error.HTTPError as exc:
+            status = exc.code
+            if 300 <= exc.code < 400:
+                return exc.code
+        except (urllib.error.URLError, OSError):
+            pass
+        time.sleep(3)
+    return status
+
+
+def scan_claim_error(committed: dict | None, result: str) -> str | None:
+    """A committed scan.json may not claim a pass that the gate does not reproduce."""
+    if isinstance(committed, dict) and committed.get("result") == "pass" and result != "pass":
+        return "the committed scan.json says result 'pass' but the gate computes 'fail'"
+    return None
+
+
+def apply_tier(path: Path, declared: str, computed: str, mode: str) -> str | None:
+    """Return an error message, or None. 'write' never lifts a human 'blocked'."""
+    if mode == "check":
+        if TIER_RANK[declared] > TIER_RANK[computed]:
+            return f"metadata.tier is '{declared}' but the gate computes '{computed}'"
+    elif mode == "write" and declared != computed and not (declared == "blocked" and computed != "blocked"):
+        common.set_tier(path, computed)
+    return None
+
+
+def main(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="app-gate", description=__doc__.split("\n")[0])
+    p.add_argument("app_ids", nargs="+")
+    p.add_argument("--apps-dir", type=Path, default=common.APPS_DIR)
+    p.add_argument("--smoke", action="store_true", help="run check 9 against the current kubectl context")
+    p.add_argument("--smoke-timeout", type=int, default=900)
+    p.add_argument("--smoke-keep", action="store_true", help="keep the app-<id> namespace afterwards")
+    p.add_argument("--clamav-db", type=Path, help="ClamAV database directory (default: clamscan's)")
+    p.add_argument("--trivy-cache", type=Path, help="Trivy cache directory")
+    p.add_argument("--sbom-dir", type=Path, help="also write a CycloneDX SBOM per image and arch")
+    p.add_argument("--workdir", help="where image filesystems are unpacked for ClamAV")
+    p.add_argument("--report", type=Path, help="write the detailed findings (JSON) here")
+    p.add_argument("--tier", choices=("check", "write", "ignore"), default="check",
+                   help="check: fail if metadata.tier claims more than the gate computes (default); "
+                        "write: set metadata.tier to the computed tier (never lifts 'blocked')")
+    p.add_argument("--no-write", action="store_true", help="do not write scan.json or README.md")
+    p.add_argument("--fail-on", choices=("fail", "claim"), default="fail",
+                   help="fail: exit 1 when an app fails (default); claim: exit 1 only when the committed "
+                        "metadata.tier or scan.json claims more than the gate computes (with --tier check)")
+    args = p.parse_args(argv)
+
+    reg, gh = common.Registry(), common.GitHub()
+    reports, failed, overclaimed = [], 0, 0
+    for app_id in args.app_ids:
+        app_dir = args.apps_dir / app_id
+        if not (app_dir / common.MANIFEST_NAME).is_file():
+            sys.stderr.write(f"error: apps/{app_id}/{common.MANIFEST_NAME} not found\n")
+            return 2
+        try:
+            committed = json.loads((app_dir / "scan.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            committed = None
+        try:
+            gate = Gate(app_dir, args, reg, gh)
+            scan, tier = gate.run()
+        except (common.ToolError, subprocess.TimeoutExpired, OSError, tarfile.TarError, ValueError) as exc:
+            sys.stderr.write(f"error: apps/{app_id}: {exc}\n")
+            return 2
+        errs = [apply_tier(app_dir / common.MANIFEST_NAME, gate.meta.get("tier", "community"), tier, args.tier)]
+        if args.tier == "check":
+            errs.append(scan_claim_error(committed, scan["result"]))
+        errs = [e for e in errs if e]
+        if errs:
+            gate.report["checks"].setdefault("tier", {"ok": False, "notes": []})["notes"].extend(errs)
+            scan["result"] = gate.report["result"] = "fail"
+            overclaimed += 1
+        if not args.no_write:
+            (app_dir / "scan.json").write_text(json.dumps(scan, indent=2) + "\n", encoding="utf-8")
+            (app_dir / "README.md").write_text(readme.render(app_dir), encoding="utf-8")
+        reports.append(gate.report)
+        print(f"{'PASS' if scan['result'] == 'pass' else 'FAIL'} apps/{app_id}/ (tier {tier}, smoke {scan['smoke']})")
+        for name, c in gate.report["checks"].items():
+            for n in c["notes"]:
+                print(f"  [{name}] {n}")
+        failed += scan["result"] != "pass"
+    if args.report:
+        args.report.write_text(json.dumps(reports, indent=2) + "\n", encoding="utf-8")
+    if args.fail_on == "claim":
+        return 1 if overclaimed else 0
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
