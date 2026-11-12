@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+# Run every automated test workflow on a ref and summarise pass/fail per workflow
+# (docs/testing/README.md §2, register rows TR-260 to TR-263). Manual only.
+name: test-all
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        type: string
+        default: main
+        description: 'Branch or tag to test (workflow_dispatch needs a branch or tag, not a SHA)'
+      heavy:
+        type: boolean
+        default: true
+        description: 'Also run the image build, the nightly battery and the security pipeline (dry run, never publishes)'
+      wait_minutes:
+        type: number
+        default: 300
+        description: 'Minutes to wait before reporting runs as still running'
+permissions: {}
+concurrency:
+  group: test-all
+  cancel-in-progress: false
+jobs:
+  dispatch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    permissions:
+      actions: write    # gh workflow run, gh run list/view
+      contents: read    # checkout
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - name: Dispatch, wait, summarise
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REF: ${{ inputs.ref }}
+          HEAVY: ${{ inputs.heavy }}
+          WAIT_MINUTES: ${{ inputs.wait_minutes }}
+        run: bash scripts/test-all.sh
