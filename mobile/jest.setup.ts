@@ -15,5 +15,16 @@ jest.mock('expo-notifications', () => ({
   scheduleNotificationAsync: jest.fn(async () => 'id'),
   setBadgeCountAsync: jest.fn(async () => true),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  getDevicePushTokenAsync: jest.fn(async () => ({ type: 'ios', data: 'test-token' })),
+  unregisterForNotificationsAsync: jest.fn(async () => undefined),
   AndroidImportance: { HIGH: 4 },
+}));
+
+// Native passkeys and the CSPRNG: no authenticator in tests; randomness from Node's WebCrypto.
+jest.mock('react-native-passkey', () => ({
+  Passkey: { isSupported: jest.fn(() => false), get: jest.fn(), create: jest.fn() },
+}));
+jest.mock('expo-crypto', () => ({
+  getRandomBytes: (n: number) => globalThis.crypto.getRandomValues(new Uint8Array(n)),
 }));

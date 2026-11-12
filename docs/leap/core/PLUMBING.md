@@ -137,18 +137,23 @@ Domain and name are lower-case tokens (`[a-z][a-z0-9_]*`, name up to four dotted
 // SPDX-License-Identifier: Apache-2.0
 package cli
 
-func backupCommands() []Command {
-	return []Command{{
-		Path:  []string{"backup", "now"},
-		Usage: "onemind backup now --hub URL",
-		Run:   func(env *Env, args []string) error { return backupNow(args, env.Stdout) },
-	}}
+func backupCommands(a *App) []*cobra.Command {
+	backup := &cobra.Command{Use: "backup", Short: "Snapshots of app data"}
+	backup.AddCommand(&cobra.Command{
+		Use: "now", Short: "Take a snapshot now", Args: cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			c, _, err := a.client() // the Go SDK client for the selected box (context, --hub, token)
+			if err != nil {
+				return err
+			}
+			...
+		},
+	})
+	return []*cobra.Command{backup}
 }
 ```
 
-Add `backupCommands,` to `groups` in `cli/root.go`; its order is the usage order. The longest matching path wins, so `node info deep` and `node info` can coexist. A command returns an error to print `onemind: <err>` and exit 1; unknown input prints the usage and exits 2. Shared helpers (`httpGet`, `printJSON`, `dash`, `envOr`) are in `cli/helpers.go`. `cmd/onemind/main.go` only calls `cli.Run`.
-
-Founder decision F-8 allows `cobra`. This change keeps stdlib `flag` because the task required identical output and cobra rewrites usage, help and error text. Moving to cobra later is a change to `root.go` alone (DEV-CLI-1), since groups only declare `Path`, `Usage` and `Run`.
+Add `backupCommands,` to `groups` in `cli/root.go`; its order is the help order. The CLI is built with cobra (F-8, DEV-CLI-1) on the Go SDK (`sdk/go`): global flags (`--context`, `--hub`, `--json`, `--timeout`, ...) are on `a.G`, `a.client()` resolves the box, `printJSON`/`table`/`kv` print (gateway strings pass through `sanitize`), and a command returns an error whose exit code comes from `cli/exit.go` (the CLI.md §4.2 table; `exitWith(code, name, msg)` for an explicit one). Unknown input prints the usage and exits 2. `cmd/onemind/main.go` only calls `cli.Run`.
 
 ## 7. `onemindd`: subcommands and optional services
 

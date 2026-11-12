@@ -15,7 +15,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,89 +24,98 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
-func migrateCommands() []Command {
-	return []Command{
-		{
-			Path:  []string{"migrate", "role"},
-			Usage: "onemind migrate role --namespace NS [--copy] [--cutover]",
-			Run:   func(env *Env, args []string) error { return migrateRole(args, env.Stdout) },
-		},
-		{
-			Path:  []string{"migrate", "plan"},
-			Usage: "onemind migrate plan --hub URL --kubeconfig FILE --namespace NS [--context C] [--app ID] [--name NAME] [--json]",
-			Run:   func(env *Env, args []string) error { return migratePlan(args, env.Stdout) },
-		},
-		{
-			Path:  []string{"migrate", "list"},
-			Usage: "onemind migrate list --hub URL [--json]",
-			Run:   func(env *Env, args []string) error { return migrateList(args, env.Stdout) },
-		},
-		{
-			Path:  []string{"migrate", "show"},
-			Usage: "onemind migrate show PLAN --hub URL [--json]",
-			Run:   func(env *Env, args []string) error { return migrateShow(args, env.Stdout) },
-		},
-		{
-			Path:  []string{"migrate", "import"},
-			Usage: "onemind migrate import PLAN --hub URL [--wait] [--json]",
-			Run:   func(env *Env, args []string) error { return migrateStep("import", args, env.Stdout) },
-		},
-		{
-			Path:  []string{"migrate", "copy"},
-			Usage: "onemind migrate copy PLAN --hub URL --kubeconfig FILE [--pvc NAME]... [--wait] [--json]",
-			Run:   func(env *Env, args []string) error { return migrateStep("copy", args, env.Stdout) },
-		},
-		{
-			Path:  []string{"migrate", "cutover"},
-			Usage: "onemind migrate cutover PLAN --hub URL --kubeconfig FILE [--stop-old] [--wait] [--json]",
-			Run:   func(env *Env, args []string) error { return migrateStep("cutover", args, env.Stdout) },
-		},
-		{
-			Path:  []string{"migrate", "revert"},
-			Usage: "onemind migrate revert PLAN --hub URL [--kubeconfig FILE] [--wait] [--json]",
-			Run:   func(env *Env, args []string) error { return migrateStep("revert", args, env.Stdout) },
-		},
+func migrateCommands(a *App) []*cobra.Command {
+	m := &cobra.Command{Use: "migrate", Short: "Move a namespace of an existing Kubernetes cluster onto this box as a private app"}
+
+	var ns string
+	var cp, cut bool
+	role := &cobra.Command{
+		Use:   "role --namespace NS [--copy] [--cutover]",
+		Short: "Print the minimal RBAC to apply on the old cluster (kubectl apply -f -)",
+		Args:  cobra.NoArgs,
+		RunE:  func(*cobra.Command, []string) error { return migrateRole(ns, cp, cut, a.Stdout) },
 	}
+	role.Flags().StringVar(&ns, "namespace", "", "the namespace to move")
+	role.Flags().BoolVar(&cp, "copy", false, "also allow the copy step (create and delete its own helper pods, read their logs)")
+	role.Flags().BoolVar(&cut, "cutover", false, "also allow OneMind to scale the old workloads at switch-over")
+
+	var pKube, pCtx, pApp, pName, pNS string
+	plan := &cobra.Command{
+		Use:   "plan --kubeconfig FILE --namespace NS [--kube-context C] [--app ID] [--name NAME]",
+		Short: "Read the old namespace (dry run) and print the report; nothing is changed",
+		Args:  cobra.NoArgs,
+		RunE:  func(*cobra.Command, []string) error { return migratePlan(a, pKube, pNS, pCtx, pApp, pName) },
+	}
+	plan.Flags().StringVar(&pKube, "kubeconfig", "", "self-contained kubeconfig of the cluster you are moving off")
+	plan.Flags().StringVar(&pNS, "namespace", "", "namespace to move")
+	plan.Flags().StringVar(&pCtx, "kube-context", "", "kubeconfig context (default: current-context)")
+	plan.Flags().StringVar(&pApp, "app", "", "app id on the box (default: the namespace)")
+	plan.Flags().StringVar(&pName, "name", "", "display name (default: the namespace)")
+
+	list := &cobra.Command{
+		Use:   "list",
+		Short: "Migration plans on this box",
+		Args:  cobra.NoArgs,
+		RunE:  func(*cobra.Command, []string) error { return migrateList(a) },
+	}
+	show := &cobra.Command{
+		Use:   "show PLAN",
+		Short: "One plan: report, state, copies",
+		Args:  cobra.ExactArgs(1),
+		RunE:  func(_ *cobra.Command, args []string) error { return migrateShow(a, args[0]) },
+	}
+	m.AddCommand(role, plan, list, show)
+
+	for _, step := range []string{"import", "copy", "cutover", "revert"} {
+		step := step
+		var o stepOpts
+		c := &cobra.Command{
+			Use:  step + " PLAN",
+			Args: cobra.ExactArgs(1),
+			RunE: func(_ *cobra.Command, args []string) error { return migrateStep(a, step, args[0], o) },
+		}
+		c.Flags().BoolVar(&o.wait, "wait", false, "wait until the step is approved and finished")
+		c.Flags().DurationVar(&o.waitTimeout, "wait-timeout", 24*time.Hour, "how long --wait waits")
+		c.Flags().StringVar(&o.reason, "reason", "", "why (shown on the approval card)")
+		switch step {
+		case "import":
+			c.Short = "File the import step (an owner approves it)"
+		case "copy":
+			c.Short = "File the data copy step (an owner approves it)"
+			c.Flags().StringArrayVar(&o.pvcs, "pvc", nil, "copy only this volume (repeatable; default: all)")
+		case "cutover":
+			c.Short = "File the switch-over step (an owner approves it)"
+			c.Flags().BoolVar(&o.stopOld, "stop-old", false, "let OneMind scale the old workloads to 0 (needs onemind migrate role --cutover)")
+		case "revert":
+			c.Short = "File the undo step (an owner approves it)"
+		}
+		if step == "copy" || step == "cutover" || step == "revert" {
+			c.Flags().StringVar(&o.kubeconfig, "kubeconfig", "", "self-contained kubeconfig of the old cluster")
+			c.Flags().StringVar(&o.kubeContext, "kube-context", "", "kubeconfig context (default: current-context)")
+		}
+		m.AddCommand(c)
+	}
+	return []*cobra.Command{m}
 }
 
 // ---- shared ------------------------------------------------------------------
 
-type hubFlags struct {
-	hub, token *string
-	asJSON     *bool
+type gatewayError struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
 }
 
-func addHubFlags(fs *flag.FlagSet) hubFlags {
-	return hubFlags{
-		hub:    fs.String("hub", os.Getenv("ONEMIND_HUB"), "gateway URL, e.g. http://hub.local:8080"),
-		token:  fs.String("token", os.Getenv("ONEMIND_TOKEN"), "owner bearer token (or ONEMIND_TOKEN)"),
-		asJSON: fs.Bool("json", false, "print the raw JSON response"),
+// hub resolves the box and token with the usual precedence (flag, environment, context).
+func (a *App) migHub() (base, token string, err error) {
+	t, err := a.resolve()
+	if err != nil {
+		return "", "", err
 	}
-}
-
-func (h hubFlags) base() (string, error) {
-	if *h.hub == "" {
-		return "", errors.New("--hub is required (or set ONEMIND_HUB)")
-	}
-	return strings.TrimRight(*h.hub, "/"), nil
-}
-
-// parseWithPositional lets flags come before or after the positional args
-// (flag.Parse stops at the first non-flag).
-func parseWithPositional(fs *flag.FlagSet, args []string) ([]string, error) {
-	var pos []string
-	for {
-		if err := fs.Parse(args); err != nil {
-			return nil, err
-		}
-		if fs.NArg() == 0 {
-			return pos, nil
-		}
-		pos = append(pos, fs.Arg(0))
-		args = fs.Args()[1:]
-	}
+	return strings.TrimRight(t.hub, "/"), t.token, nil
 }
 
 var planIDRe = regexp.MustCompile(`^mig_[0-9A-Z]{26}$`)
@@ -201,18 +209,11 @@ func printRaw(out io.Writer, body []byte) error {
 
 // ---- role ---------------------------------------------------------------------
 
-func migrateRole(args []string, out io.Writer) error {
-	fs := flag.NewFlagSet("migrate role", flag.ContinueOnError)
-	ns := fs.String("namespace", "", "the namespace to move")
-	cp := fs.Bool("copy", false, "also allow the copy step (create and delete its own helper pods, read their logs)")
-	cut := fs.Bool("cutover", false, "also allow OneMind to scale the old workloads at switch-over")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	if !regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`).MatchString(*ns) {
+func migrateRole(ns string, cp, cut bool, out io.Writer) error {
+	if !regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`).MatchString(ns) {
 		return errors.New("--namespace must be a namespace name")
 	}
-	_, err := io.WriteString(out, roleYAML(*ns, *cp, *cut))
+	_, err := io.WriteString(out, roleYAML(ns, cp, cut))
 	return err
 }
 
@@ -334,46 +335,36 @@ type planView struct {
 	} `json:"copies"`
 }
 
-func migratePlan(args []string, out io.Writer) error {
-	fs := flag.NewFlagSet("migrate plan", flag.ContinueOnError)
-	h := addHubFlags(fs)
-	kc := fs.String("kubeconfig", "", "self-contained kubeconfig of the cluster you are moving off")
-	ns := fs.String("namespace", "", "namespace to move")
-	ctxName := fs.String("context", "", "kubeconfig context (default: current-context)")
-	app := fs.String("app", "", "app id on the box (default: the namespace)")
-	name := fs.String("name", "", "display name (default: the namespace)")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	base, err := h.base()
+func migratePlan(a *App, kc, ns, ctxName, app, name string) error {
+	base, token, err := a.migHub()
 	if err != nil {
 		return err
 	}
-	if *ns == "" {
+	if ns == "" {
 		return errors.New("--namespace is required")
 	}
-	text, err := readKubeconfig(*kc)
+	text, err := readKubeconfig(kc)
 	if err != nil {
 		return err
 	}
-	body := map[string]any{"kubeconfig": text, "namespace": *ns}
-	for k, v := range map[string]string{"context": *ctxName, "app_id": *app, "name": *name} {
+	body := map[string]any{"kubeconfig": text, "namespace": ns}
+	for k, v := range map[string]string{"context": ctxName, "app_id": app, "name": name} {
 		if v != "" {
 			body[k] = v
 		}
 	}
-	raw, _, err := send(http.MethodPost, base+"/v1/migrate/plans", *h.token, body)
+	raw, _, err := send(http.MethodPost, base+"/v1/migrate/plans", token, body)
 	if err != nil {
 		return err
 	}
-	if *h.asJSON {
-		return printRaw(out, raw)
+	if a.G.JSON {
+		return printRaw(a.Stdout, raw)
 	}
 	var p planView
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return fmt.Errorf("gateway returned invalid JSON: %w", err)
 	}
-	return printPlan(out, p, true)
+	return printPlan(a.Stdout, p, true)
 }
 
 func printPlan(out io.Writer, p planView, findings bool) error {
@@ -439,28 +430,23 @@ func nextHint(p planView) string {
 	return ""
 }
 
-func migrateList(args []string, out io.Writer) error {
-	fs := flag.NewFlagSet("migrate list", flag.ContinueOnError)
-	h := addHubFlags(fs)
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	base, err := h.base()
+func migrateList(a *App) error {
+	base, token, err := a.migHub()
 	if err != nil {
 		return err
 	}
-	raw, _, err := send(http.MethodGet, base+"/v1/migrate/plans", *h.token, nil)
+	raw, _, err := send(http.MethodGet, base+"/v1/migrate/plans", token, nil)
 	if err != nil {
 		return err
 	}
-	if *h.asJSON {
-		return printRaw(out, raw)
+	if a.G.JSON {
+		return printRaw(a.Stdout, raw)
 	}
 	var plans []planView
 	if err := json.Unmarshal(raw, &plans); err != nil {
 		return fmt.Errorf("gateway returned invalid JSON: %w", err)
 	}
-	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+	w := tabwriter.NewWriter(a.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "PLAN\tAPP\tNAMESPACE\tSTATE\tBLOCKING\tNEXT")
 	for _, p := range plans {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%s\n", p.ID, p.AppID, p.Namespace, p.State, p.Report.Blocking, dash(p.Next))
@@ -468,41 +454,37 @@ func migrateList(args []string, out io.Writer) error {
 	return w.Flush()
 }
 
-func migrateShow(args []string, out io.Writer) error {
-	fs := flag.NewFlagSet("migrate show", flag.ContinueOnError)
-	h := addHubFlags(fs)
-	pos, err := parseWithPositional(fs, args)
+func migrateShow(a *App, planArg string) error {
+	id, err := onePlan([]string{planArg})
 	if err != nil {
 		return err
 	}
-	id, err := onePlan(pos)
+	base, token, err := a.migHub()
 	if err != nil {
 		return err
 	}
-	base, err := h.base()
+	raw, _, err := send(http.MethodGet, base+"/v1/migrate/plans/"+id, token, nil)
 	if err != nil {
 		return err
 	}
-	raw, _, err := send(http.MethodGet, base+"/v1/migrate/plans/"+id, *h.token, nil)
-	if err != nil {
-		return err
-	}
-	if *h.asJSON {
-		return printRaw(out, raw)
+	if a.G.JSON {
+		return printRaw(a.Stdout, raw)
 	}
 	var p planView
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return fmt.Errorf("gateway returned invalid JSON: %w", err)
 	}
-	return printPlan(out, p, true)
+	return printPlan(a.Stdout, p, true)
 }
 
 // ---- steps ------------------------------------------------------------------------
 
-type pvcList []string
-
-func (p *pvcList) String() string     { return strings.Join(*p, ",") }
-func (p *pvcList) Set(v string) error { *p = append(*p, v); return nil }
+type stepOpts struct {
+	kubeconfig, kubeContext, reason string
+	wait, stopOld                   bool
+	waitTimeout                     time.Duration
+	pvcs                            []string
+}
 
 type actionView struct {
 	ID     string `json:"id"`
@@ -518,75 +500,57 @@ var terminal = map[string]bool{"succeeded": true, "failed": true, "outcome_unkno
 // pollInterval is how often --wait asks; tests shorten it.
 var pollInterval = 3 * time.Second
 
-func migrateStep(step string, args []string, out io.Writer) error {
-	fs := flag.NewFlagSet("migrate "+step, flag.ContinueOnError)
-	h := addHubFlags(fs)
-	kc := fs.String("kubeconfig", "", "self-contained kubeconfig of the old cluster")
-	ctxName := fs.String("context", "", "kubeconfig context (default: current-context)")
-	reason := fs.String("reason", "", "why (shown on the approval card)")
-	wait := fs.Bool("wait", false, "wait until the step is approved and finished")
-	timeout := fs.Duration("timeout", 24*time.Hour, "how long --wait waits")
-	var pvcs pvcList
-	stopOld := false
-	if step == "copy" {
-		fs.Var(&pvcs, "pvc", "copy only this volume (repeatable; default: all)")
-	}
-	if step == "cutover" {
-		fs.BoolVar(&stopOld, "stop-old", false, "let OneMind scale the old workloads to 0 (needs onemind migrate role --cutover)")
-	}
-	pos, err := parseWithPositional(fs, args)
+func migrateStep(a *App, step, planArg string, o stepOpts) error {
+	id, err := onePlan([]string{planArg})
 	if err != nil {
 		return err
 	}
-	id, err := onePlan(pos)
+	base, token, err := a.migHub()
 	if err != nil {
 		return err
 	}
-	base, err := h.base()
-	if err != nil {
-		return err
-	}
+	out := a.Stdout
 	body := map[string]any{}
-	if *reason != "" {
-		body["reason"] = *reason
+	if o.reason != "" {
+		body["reason"] = o.reason
 	}
-	needsKube := step == "copy" || step == "cutover"
-	if needsKube || (*kc != "" && step == "revert") {
-		text, err := readKubeconfig(*kc)
+	if step == "copy" || step == "cutover" || (o.kubeconfig != "" && step == "revert") {
+		text, err := readKubeconfig(o.kubeconfig)
 		if err != nil {
 			return err
 		}
 		body["kubeconfig"] = text
-		if *ctxName != "" {
-			body["context"] = *ctxName
+		if o.kubeContext != "" {
+			body["context"] = o.kubeContext
 		}
 	}
-	if len(pvcs) > 0 {
-		sort.Strings(pvcs)
-		body["pvcs"] = []string(pvcs)
+	if len(o.pvcs) > 0 {
+		pv := append([]string(nil), o.pvcs...)
+		sort.Strings(pv)
+		body["pvcs"] = pv
 	}
 	if step == "cutover" {
-		body["stop_old"] = stopOld
+		body["stop_old"] = o.stopOld
 	}
-	raw, _, err := send(http.MethodPost, base+"/v1/migrate/plans/"+id+"/"+step, *h.token, body)
+	raw, _, err := send(http.MethodPost, base+"/v1/migrate/plans/"+id+"/"+step, token, body)
 	if err != nil {
 		return err
 	}
-	var a actionView
-	if err := json.Unmarshal(raw, &a); err != nil {
+	var act actionView
+	if err := json.Unmarshal(raw, &act); err != nil {
 		return fmt.Errorf("gateway returned invalid JSON: %w", err)
 	}
-	if *h.asJSON && !*wait {
+	if a.G.JSON && !o.wait {
 		return printRaw(out, raw)
 	}
-	fmt.Fprintf(out, "action %s  %s  %s\n", a.ID, a.Type, a.State)
-	if a.State == "awaiting_approval" {
-		fmt.Fprintf(out, "approve it in the dashboard or on your phone (POST /v1/actions/%s/approve)\n", a.ID)
+	fmt.Fprintf(out, "action %s  %s  %s\n", act.ID, act.Type, act.State)
+	if act.State == "awaiting_approval" {
+		fmt.Fprintf(out, "approve it in the dashboard or on your phone (POST /v1/actions/%s/approve)\n", act.ID)
 	}
-	if !*wait {
+	if !o.wait {
 		return nil
 	}
-	return waitAction(out, base, *h.token, a.ID, *timeout, *h.asJSON)
+	return waitAction(out, base, token, act.ID, o.waitTimeout, a.G.JSON)
 }
 
 func waitAction(out io.Writer, base, token, id string, timeout time.Duration, asJSON bool) error {

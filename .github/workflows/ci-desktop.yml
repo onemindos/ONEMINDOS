@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: Apache-2.0
+# Desktop client (CLIENT-8): unit tests and an unsigned build on macOS and Windows.
+# Signing, notarization and the signed updater are CLIENT-12 (desktop-release.yml), not here.
+name: ci-desktop
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - 'ui/src/tokens/tokens.css'   # desktop/src/tokens.css must stay an exact copy (npm run check:ui)
+      - '.github/workflows/ci-desktop.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'ui/src/tokens/tokens.css'
+      - '.github/workflows/ci-desktop.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15        # Apple silicon runner; the app targets macOS 14+
+            bundles: app,dmg
+            pattern: '*.dmg'
+          - os: windows-2025    # Windows 11 class; WebView2 is part of the OS
+            bundles: nsis
+            pattern: '*-setup.exe'
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Rust toolchain (version from src-tauri/rust-toolchain.toml)
+        working-directory: desktop/src-tauri
+        run: rustup show active-toolchain || rustup toolchain install
+      - run: npm ci
+      - name: Icons from the brand sources (desktop/assets, written by scripts/brand-sync.py)
+        run: npm run icons && npm run icons:tray
+      - name: UI checks
+        run: npm run check:ui
+      - name: Rust unit tests
+        working-directory: desktop/src-tauri
+        run: cargo test --locked
+      - name: Build (unsigned)
+        run: npx tauri build --bundles ${{ matrix.bundles }} -- --locked
+      - name: Installer under 25 MB (CLIENT-8 acceptance)
+        run: |
+          f=$(find src-tauri/target/release/bundle -type f -name '${{ matrix.pattern }}' | head -1)
+          test -n "$f" || { echo "no installer found"; exit 1; }
+          size=$(wc -c < "$f")
+          echo "$f: $size bytes"
+          test "$size" -lt 26214400
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: onemind-desktop-${{ matrix.os }}
+          path: |
+            desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+          retention-days: 14

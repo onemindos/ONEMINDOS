@@ -100,7 +100,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
     step_errors = error_responses(401, 403, 404, 409, 422)
 
-    @app.post("/v1/migrate/plans", tags=["migrate"], status_code=201, responses=error_responses(401, 403, 409, 422))
+    @app.post("/v1/migrate/plans", operation_id="migrate.plan", tags=["migrate"], status_code=201, responses=error_responses(401, 403, 409, 422))
     def create_plan(body: PlanBody, p: Principal = Depends(principal)):
         """Read a namespace of another cluster (GET only) and write a private app bundle plus a dry-run report."""
         return JSONResponse(status_code=201, content=svc.plan(
@@ -108,18 +108,18 @@ def register(app: FastAPI, gw: Gateway) -> None:
             app_id=body.app_id, name=body.name,
         ))
 
-    @app.get("/v1/migrate/plans", tags=["migrate"], responses=error_responses(401, 403))
+    @app.get("/v1/migrate/plans", operation_id="migrate.list", tags=["migrate"], responses=error_responses(401, 403))
     def list_plans(p: Principal = Depends(principal)):
         """Owners, adults and agents; guests get 403."""
         svc.check_read(p)
         return svc.list()
 
-    @app.get("/v1/migrate/plans/{plan_id}", tags=["migrate"], responses=error_responses(401, 403, 404))
+    @app.get("/v1/migrate/plans/{plan_id}", operation_id="migrate.get", tags=["migrate"], responses=error_responses(401, 403, 404))
     def get_plan(plan_id: str, p: Principal = Depends(principal)):
         svc.check_read(p)
         return svc.get(plan_id)
 
-    @app.get("/v1/migrate/plans/{plan_id}/helper", tags=["migrate"], responses=error_responses(401, 403, 404))
+    @app.get("/v1/migrate/plans/{plan_id}/helper", operation_id="migrate.helper", tags=["migrate"], responses=error_responses(401, 403, 404))
     def helper_preview(plan_id: str, pvc: str, p: Principal = Depends(principal)):
         """The helper pod the copy step creates in the old cluster (credentials shown as placeholders)."""
         svc.check_read(p)
@@ -128,7 +128,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def key(given: str | None) -> str:
         return given or f"migrate-{uuid.uuid4()}"
 
-    @app.post("/v1/migrate/plans/{plan_id}/import", tags=["migrate"], status_code=202, responses=step_errors)
+    @app.post("/v1/migrate/plans/{plan_id}/import", operation_id="migrate.import", tags=["migrate"], status_code=202, responses=step_errors)
     def request_import(plan_id: str, body: ImportBody, p: Principal = Depends(principal),
                        idempotency_key: str | None = Header(default=None, max_length=200)):
         bundle = body.bundle_sha256
@@ -139,7 +139,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             idempotency_key=key(idempotency_key), expires_at=_expiry(gw, body.expires_at), reason=body.reason,
         ))
 
-    @app.post("/v1/migrate/plans/{plan_id}/copy", tags=["migrate"], status_code=202, responses=step_errors)
+    @app.post("/v1/migrate/plans/{plan_id}/copy", operation_id="migrate.copy", tags=["migrate"], status_code=202, responses=step_errors)
     def request_copy(plan_id: str, body: CopyBody, p: Principal = Depends(principal),
                      idempotency_key: str | None = Header(default=None, max_length=200)):
         params = {"pvcs": sorted(set(body.pvcs))} if body.pvcs else {}
@@ -148,7 +148,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             idempotency_key=key(idempotency_key), expires_at=_expiry(gw, body.expires_at), reason=body.reason,
         ))
 
-    @app.post("/v1/migrate/plans/{plan_id}/cutover", tags=["migrate"], status_code=202, responses=step_errors)
+    @app.post("/v1/migrate/plans/{plan_id}/cutover", operation_id="migrate.cutover", tags=["migrate"], status_code=202, responses=step_errors)
     def request_cutover(plan_id: str, body: CutoverBody, p: Principal = Depends(principal),
                         idempotency_key: str | None = Header(default=None, max_length=200)):
         return _accepted(*svc.request(
@@ -157,7 +157,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             reason=body.reason,
         ))
 
-    @app.post("/v1/migrate/plans/{plan_id}/revert", tags=["migrate"], status_code=202, responses=step_errors)
+    @app.post("/v1/migrate/plans/{plan_id}/revert", operation_id="migrate.revert", tags=["migrate"], status_code=202, responses=step_errors)
     def request_revert(plan_id: str, body: RevertBody, p: Principal = Depends(principal),
                        idempotency_key: str | None = Header(default=None, max_length=200)):
         return _accepted(*svc.request(

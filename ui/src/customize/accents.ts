@@ -5,15 +5,18 @@
 // as the shipped tokens (ui/src/tokens/tokens.test.ts):
 //   accent >= 4.5:1 on bg, surface, surface-raised and accent-soft;
 //   accent-text >= 4.5:1 on accent and on accent-hover.
+import { brand } from '../tokens/brand.generated.ts';
 import { dark, light } from '../tokens/tokens';
 import { contrast, hexToOklch, mix, normalizeHex, withLightness } from './color';
 
 export type ThemeName = 'light' | 'dark';
 
-/** Curated presets. Violet, red, amber and green hues are left out on purpose: they are
+/** Curated presets. The first, `onemind`, is the brand accent (OneMind Red from brand/brand.json)
+ * and the default. Other violet, red, amber and green hues are left out on purpose: they are
  * reserved for the agent tone and the status tones (PRINCIPLES P3), so an accent never
- * reads as "an agent did this" or "this failed". */
-export const ACCENT_IDS = ['teal', 'lagoon', 'ink', 'graphite', 'moss', 'copper', 'rose', 'orchid'] as const;
+ * reads as "an agent did this" or "this failed". The brand red is the one exception, by
+ * founder decision; status tones always carry an icon and a label, never colour alone. */
+export const ACCENT_IDS = ['onemind', 'teal', 'lagoon', 'ink', 'graphite', 'moss', 'copper', 'rose', 'orchid'] as const;
 export type AccentId = (typeof ACCENT_IDS)[number];
 
 export interface AccentPreset {
@@ -24,7 +27,11 @@ export interface AccentPreset {
   dark: string;
 }
 
+/** The accent a new box starts with: the brand accent. */
+export const DEFAULT_ACCENT: AccentId = 'onemind';
+
 export const ACCENTS: Record<AccentId, AccentPreset> = {
+  onemind: { id: 'onemind', name: brand.accent.name, light: brand.accent.light.accent, dark: brand.accent.dark.accent },
   teal: { id: 'teal', name: 'Teal', light: '#1f6a66', dark: '#6db8b0' },
   lagoon: { id: 'lagoon', name: 'Lagoon', light: '#0b6283', dark: '#6cc0e0' },
   ink: { id: 'ink', name: 'Ink', light: '#34488f', dark: '#a6b6ec' },
@@ -81,10 +88,10 @@ export function accentWorstRatio(set: AccentSet, theme: ThemeName): number {
 /**
  * Turn any colour into an accent set that passes AA in `theme`. Hue and chroma are kept; only
  * OKLCH lightness moves (darker on light surfaces, lighter on dark ones) in small steps until
- * every pair passes. A colour that cannot pass at any lightness falls back to the brand teal.
+ * every pair passes. A colour that cannot pass at any lightness falls back to the brand accent.
  */
 export function deriveAccent(seed: string, theme: ThemeName): DerivedAccent {
-  const requested = normalizeHex(seed) ?? ACCENTS.teal[theme];
+  const requested = normalizeHex(seed) ?? ACCENTS[DEFAULT_ACCENT][theme];
   const start = hexToOklch(requested).l;
   const step = theme === 'light' ? -0.01 : 0.01;
   for (let i = 0; i <= 100; i++) {
@@ -95,7 +102,7 @@ export function deriveAccent(seed: string, theme: ThemeName): DerivedAccent {
     const ratio = accentWorstRatio(set, theme);
     if (ratio >= AA) return { set, requested, adjusted: i > 0, ratio };
   }
-  const fallback = build(ACCENTS.teal[theme], theme);
+  const fallback = build(ACCENTS[DEFAULT_ACCENT][theme], theme);
   return { set: fallback, requested, adjusted: true, ratio: accentWorstRatio(fallback, theme) };
 }
 

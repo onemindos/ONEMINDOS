@@ -91,8 +91,12 @@ func (f *fakeHub) handler(t *testing.T) http.Handler {
 	})
 }
 
+var migTok = "owner-test"
+
 func runCLI(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
+	isolate(t)
+	t.Setenv("ONEMIND_TOKEN", migTok)
 	var out, errb bytes.Buffer
 	code := Run(args, Env{Stdout: &out, Stderr: &errb})
 	return code, out.String(), errb.String()
@@ -102,7 +106,6 @@ func TestMigratePlanPrintsReport(t *testing.T) {
 	hub := &fakeHub{}
 	srv := httptest.NewServer(hub.handler(t))
 	defer srv.Close()
-	t.Setenv("ONEMIND_TOKEN", "owner-test")
 	kc := writeTemp(t, "kc", goodKubeconfig)
 	code, out, errOut := runCLI(t, "migrate", "plan", "--hub", srv.URL, "--kubeconfig", kc, "--namespace", "legacy", "--app", "notes")
 	if code != 0 {
@@ -124,7 +127,6 @@ func TestMigratePlanPrintsReport(t *testing.T) {
 }
 
 func TestMigrateRefusesKubeconfigWithFilesOrExec(t *testing.T) {
-	t.Setenv("ONEMIND_TOKEN", "owner-test")
 	for _, bad := range []string{
 		strings.Replace(goodKubeconfig, `certificate-authority-data: "eA=="`, `certificate-authority: /etc/ca.crt`, 1),
 		strings.Replace(goodKubeconfig, `{token: "generated-at-test-time"}`, "\n    exec: {command: aws}", 1),
@@ -141,7 +143,6 @@ func TestMigrateStepsSendTheRightBodies(t *testing.T) {
 	hub := &fakeHub{}
 	srv := httptest.NewServer(hub.handler(t))
 	defer srv.Close()
-	t.Setenv("ONEMIND_TOKEN", "owner-test")
 	kc := writeTemp(t, "kc", goodKubeconfig)
 	pollInterval = time.Millisecond
 	cases := []struct {
@@ -184,7 +185,6 @@ func TestMigrateWait(t *testing.T) {
 	hub := &fakeHub{}
 	srv := httptest.NewServer(hub.handler(t))
 	defer srv.Close()
-	t.Setenv("ONEMIND_TOKEN", "owner-test")
 	pollInterval = time.Millisecond
 	kc := writeTemp(t, "kc", goodKubeconfig)
 	code, out, errOut := runCLI(t, "migrate", "copy", testPlan, "--hub", srv.URL, "--kubeconfig", kc, "--wait")
@@ -197,12 +197,12 @@ func TestMigrateListAndAuth(t *testing.T) {
 	hub := &fakeHub{}
 	srv := httptest.NewServer(hub.handler(t))
 	defer srv.Close()
-	t.Setenv("ONEMIND_TOKEN", "owner-test")
 	code, out, _ := runCLI(t, "migrate", "list", "--hub", srv.URL)
 	if code != 0 || !strings.Contains(out, testPlan) || !strings.Contains(out, "cutover") {
 		t.Fatalf("exit %d\n%s", code, out)
 	}
-	t.Setenv("ONEMIND_TOKEN", "wrong")
+	migTok = "wrong"
+	defer func() { migTok = "owner-test" }()
 	code, _, errOut := runCLI(t, "migrate", "list", "--hub", srv.URL)
 	if code != 1 || !strings.Contains(errOut, "unauthenticated") {
 		t.Errorf("exit %d %s", code, errOut)

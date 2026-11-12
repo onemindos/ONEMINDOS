@@ -5,7 +5,7 @@
 // The stylesheet lives with the engine (not the barrel index.ts): package.json marks only
 // *.css as side-effectful, so a CSS import in a re-export-only module is tree-shaken away.
 import './customize.css';
-import { customAccent, isAccentId, presetAccent, type AccentId, type DerivedAccent, type ThemeName } from './accents';
+import { ACCENTS, DEFAULT_ACCENT, customAccent, isAccentId, presetAccent, type AccentId, type DerivedAccent, type ThemeName } from './accents';
 import { normalizeHex } from './color';
 import { WALLPAPERS, isWallpaperChoice, minDim, type WallpaperChoice } from './wallpapers';
 
@@ -49,9 +49,10 @@ export const DEFAULT_PREFERENCES: AppearancePreferences = {
   version: 1,
   theme: 'system',
   schedule: { darkFrom: '19:00', lightFrom: '07:00' },
-  accentSource: 'wallpaper',
-  accentPreset: 'teal',
-  accentCustom: '#1f6a66',
+  // The brand accent is the default; a person can still follow the wallpaper or pick another.
+  accentSource: 'preset',
+  accentPreset: DEFAULT_ACCENT,
+  accentCustom: ACCENTS[DEFAULT_ACCENT].light,
   wallpaper: 'aurora',
   wallpaperBlur: 0,
   wallpaperDim: 0.2,
@@ -134,7 +135,7 @@ export function resolveThemeAttr(p: AppearancePreferences, at: Date): ThemeName 
 export function accentSeed(p: AppearancePreferences): { kind: 'preset'; id: AccentId } | { kind: 'custom'; hex: string } {
   if (p.accentSource === 'custom') return { kind: 'custom', hex: p.accentCustom };
   if (p.accentSource === 'wallpaper' && p.wallpaper !== 'none' && p.wallpaper !== 'custom') return { kind: 'preset', id: WALLPAPERS[p.wallpaper].accent };
-  return { kind: 'preset', id: p.accentSource === 'wallpaper' ? 'teal' : p.accentPreset };
+  return { kind: 'preset', id: p.accentSource === 'wallpaper' ? DEFAULT_ACCENT : p.accentPreset };
 }
 
 export function resolveAccent(p: AppearancePreferences): Record<ThemeName, DerivedAccent> {
