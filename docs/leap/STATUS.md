@@ -48,7 +48,7 @@
 
 | Id | Title | State | Branch | PR |
 |---|---|---|---|---|
-| TEST-CI-A3 | CI test matrix: 3-engine browser tests (axe + visual baseline), weekly amd64+arm64 app gate, mobile builds, site link check | in-progress (orchestrator) | `feat/test-ci-matrix` | [#42](https://github.com/onemindos/ONEMINDOS/pull/42) |
+| TEST-CI-A3 | CI test matrix: 3-engine browser tests (axe + visual baseline), weekly amd64+arm64 app gate, mobile builds, site link check | review | `feat/test-ci-matrix` | [#42](https://github.com/onemindos/ONEMINDOS/pull/42) |
 | OS-UPDATER | onemindd OS updater: TUF-verified, policy and window, restic pre-sn… | done | `feat/onemindd-updater` | [#15](https://github.com/onemindos/ONEMINDOS/pull/15) |
 | OS-SECPIPE | OS security pipeline: nightly Debian check, rebuild, SBOM/CVE+VEX/C… | done | `feat/os-security-pipeline` | [#14](https://github.com/onemindos/ONEMINDOS/pull/14) |
 | CORE-UPDATE-1 | Land both update branches with CI green | done | (both update branches) | #15 and [#14](https://github.com/onemindos/ONEMINDOS/pull/14) merged |
