@@ -112,7 +112,14 @@ when Go is installed); `--no-airgap` leaves the images out (k3s then pulls them)
 ### Tokens
 - **Owner token:** 256 random bits, printed once. `/etc/onemind/tokens.yaml` stores only
   `sha256:<hex>` (the gateway supports that form), so the file holds no usable secret. Lost it?
-  `--uninstall` then install again, or add a new `sha256:` entry by hand.
+  Remove `tokens.yaml` and run the install again (it prints a new one), or add a new `sha256:` entry by hand.
+- **Agent token** (`--with-agent-token`, ported from PR #27): the same for principal `dev-agent`
+  (`kind: agent`), which may request actions but never approve or deny them (§3, §7). On a re-run it
+  is added only if `tokens.yaml` has no agent yet. `verify.sh --agent-token-file` uses it for the
+  agent-403 and §11.3 MCP checks.
+- **No raw API token on disk.** Before printing new tokens the script searches `/etc/onemind`,
+  `/var/lib/onemind`, `/var/cache/onemind`, `/etc/systemd/system` and `/etc/rancher` for them and
+  stops if one is found. Copy each token into a password manager; the script keeps no copy.
 - **Join token:** the k3s `agent-token` in the full `K10<CA hash>::node:<secret>` form, so the node
   also checks it talks to the right server. The hub prints the join command on every run.
 

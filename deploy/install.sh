@@ -30,12 +30,12 @@ BIN=/usr/local/bin
 BANNER="unsupported developer install, no OS rollback"
 
 ROLE="" HUB="" TOKEN="" UNINSTALL=0 PURGE=0 ONEMINDD_BIN="" DASH_DIST="" BIND="0.0.0.0" FORCE_OS=0
-DRY_RUN=0 TARGET="" ARCH_OVERRIDE="" BUNDLE="" GATEWAY_RUNTIME=""
+DRY_RUN=0 TARGET="" ARCH_OVERRIDE="" BUNDLE="" GATEWAY_RUNTIME="" WITH_AGENT=0
 
 usage() {
   cat <<EOF
 Usage:
-  $0 --role hub  [--hub URL] [--gateway-bind ADDR] [--dashboard-dist DIR] [--onemindd-bin FILE]
+  $0 --role hub  [--hub URL] [--gateway-bind ADDR] [--with-agent-token] [--dashboard-dist DIR] [--onemindd-bin FILE]
   $0 --role node --hub URL --token JOIN_TOKEN [--onemindd-bin FILE]
   $0 --uninstall [--purge]
   $0 ... --dry-run [--target debian13|rpi5|jetson|do [--arch amd64|arm64]]
@@ -45,6 +45,9 @@ Usage:
   --hub URL              hub gateway URL, e.g. http://hub.local:8080 (the host part also gives
                          k3s https://HOST:6443 and NATS nats://HOST:4222). Optional on the hub.
   --token T              the join token the hub install printed (node only).
+  --with-agent-token     hub: also issue an API token for an AI agent (principal dev-agent: may
+                         request actions, never approve). Like the owner token it is printed once
+                         and only its sha256 is stored. On a re-run it is added if none exists.
   --gateway-bind ADDR    gateway listen address (default 0.0.0.0; 127.0.0.1 keeps it local,
                          but then app pods and other machines cannot reach it).
   --onemindd-bin FILE    use a prebuilt static onemindd (make -C cmd/onemindd build) instead of Go.
@@ -76,6 +79,7 @@ while [ $# -gt 0 ]; do
     --onemindd-bin) ONEMINDD_BIN=${2:-}; shift 2 ;;
     --dashboard-dist) DASH_DIST=${2:-}; shift 2 ;;
     --force-os) FORCE_OS=1; shift ;;
+    --with-agent-token) WITH_AGENT=1; shift ;;
     --uninstall) UNINSTALL=1; shift ;;
     --purge) PURGE=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
@@ -777,29 +781,57 @@ EOF
   chgrp onemind "$ETC/gateway.kubeconfig.new"; mv "$ETC/gateway.kubeconfig.new" "$ETC/gateway.kubeconfig"
 }
 
-# Owner token: 256 random bits, printed once, stored only as its sha256 (core/onemind_core/auth.py).
-OWNER_TOKEN=""
+# API tokens (contract §3): 256 random bits each, printed once at the end, and only their sha256
+# is stored (core/onemind_core/auth.py reads "sha256:<hex>" keys). No raw token stays on disk.
+OWNER_TOKEN="" AGENT_TOKEN=""
+new_token() { od -An -N32 -tx1 /dev/urandom | tr -d ' \n'; }
+token_hash() { printf '%s' "$1" | sha256sum | cut -d' ' -f1; }
+tokens_header() {
+  cat <<'EOF'
+# OneMind gateway principals (contract §3; v0 static tokens, Kanidm later: BD-03).
+# Keys are "sha256:<hex of token>", so this file holds no usable secret.
+# Add a principal: printf %s "$TOKEN" | sha256sum  ->  "sha256:<hex>": {id: ..., kind: ..., role: ...}
+tokens:
+EOF
+}
 gateway_tokens() {
   local f="$ETC/tokens.yaml"
   if [ "$DRY_RUN" = 1 ]; then
-    step "API tokens (contract §3)"
-    plan "if $f is missing: make the owner token (32 random bytes), store only its sha256 in"
-    plan "  $f (0640 root:onemind), and print the token once at the end"
+    step "API tokens (contract §3; printed once, only their sha256 is stored)"
+    { tokens_header
+      printf '  "sha256:<sha256 of the owner token>": {id: owner, kind: person, role: owner}\n'
+      [ "$WITH_AGENT" = 0 ] || printf '  "sha256:<sha256 of the agent token>": {id: dev-agent, kind: agent, role: agent}\n'
+    } | show_file "$f (only if missing; with --with-agent-token an agent line is added if none exists)" 0640 root:onemind
     return 0
   fi
-  if [ -f "$f" ]; then log "tokens: $f exists, owner token kept (it was printed at the first install)"; return 0; fi
-  OWNER_TOKEN=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
-  local h; h=$(printf '%s' "$OWNER_TOKEN" | sha256sum | cut -d' ' -f1)
-  (umask 027
-   cat > "$f" <<EOF
-# OneMind gateway principals (contract §3; v0 static tokens, Kanidm later: BD-03).
-# Keys are "sha256:<hex of token>", so this file holds no usable secret.
-# Add a principal: printf %s "\$TOKEN" | sha256sum  ->  "sha256:<hex>": {id: ..., kind: ..., role: ...}
-tokens:
-  "sha256:$h": {id: owner, kind: person, role: owner}
-EOF
-  )
-  chgrp onemind "$f"
+  if [ -f "$f" ]; then
+    log "tokens: $f exists, owner token kept (it was printed at the first install)"
+  else
+    OWNER_TOKEN=$(new_token)
+    (umask 027
+     { tokens_header; printf '  "sha256:%s": {id: owner, kind: person, role: owner}\n' "$(token_hash "$OWNER_TOKEN")"; } > "$f")
+    chgrp onemind "$f"
+  fi
+  if [ "$WITH_AGENT" = 1 ]; then
+    if grep -q 'kind: agent' "$f"; then
+      log "tokens: an agent principal exists, kept"
+    else
+      AGENT_TOKEN=$(new_token)
+      printf '  "sha256:%s": {id: dev-agent, kind: agent, role: agent}\n' "$(token_hash "$AGENT_TOKEN")" >> "$f"
+      log "tokens: added the agent principal dev-agent"
+    fi
+  fi
+}
+
+# Before printing new tokens: make sure none of them reached a file (only hashes may be on disk).
+no_raw_tokens_on_disk() {
+  local t
+  for t in "$OWNER_TOKEN" "$AGENT_TOKEN"; do
+    [ -n "$t" ] || continue
+    if grep -rqsF -- "$t" "$ETC" "$STATE" "$CACHE" /etc/systemd/system /etc/rancher 2>/dev/null; then
+      die "a raw API token was found on disk under $ETC, $STATE or $CACHE; not printing it (remove $ETC/tokens.yaml and re-run)"
+    fi
+  done
 }
 
 gateway_env() {
@@ -874,15 +906,23 @@ if [ "$ROLE" = hub ]; then
   gateway_service "$HUB_URL"
   if [ "$DRY_RUN" = 1 ]; then
     step "Finish"
-    plan "print the owner token (first install only) and the join command with the k3s agent token"
+    plan "check that no new API token is on disk, then print it once (and the agent token with --with-agent-token)"
+    plan "print the join command with the k3s agent token"
     do_firewall_reminder
     exit 0
   fi
   JOIN=$(cat /var/lib/rancher/k3s/server/agent-token)
+  no_raw_tokens_on_disk
   banner
   log "hub ready: dashboard and API at $HUB_URL (and http://127.0.0.1:8080 on this box)"
   if [ -n "$OWNER_TOKEN" ]; then
     printf '\nOWNER TOKEN (shown once; only its sha256 is stored in %s):\n\n    %s\n\n' "$ETC/tokens.yaml" "$OWNER_TOKEN"
+  fi
+  if [ -n "$AGENT_TOKEN" ]; then
+    printf 'AGENT TOKEN for an AI agent (dev-agent: may request actions, never approve; shown once):\n\n    %s\n\n' "$AGENT_TOKEN"
+  fi
+  if [ -n "$OWNER_TOKEN$AGENT_TOKEN" ]; then
+    printf 'Save them in a password manager now. Lost? Remove %s and run this again.\n\n' "$ETC/tokens.yaml"
   fi
   printf 'Join another machine (run there, from a checkout of this repo):\n\n'
   printf '    sudo deploy/install.sh --role node --hub %s --token %s\n\n' "$HUB_URL" "$JOIN"
