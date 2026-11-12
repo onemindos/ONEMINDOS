@@ -218,6 +218,8 @@ No commit contains a tailnet name or a CGNAT address. The working tree is masked
 **Options:** (a) allow a one-time history rewrite of `research/ultracode-foundation` (rebuild **all four** pushed commits from masked trees, force-push once, then ask GitHub support to purge cached views); (b) squash-merge the PR and delete the branch, which leaves `414d60a` reachable on GitHub until it is garbage-collected; (c) accept the exposure (the data is a username and throwaway VM addresses, not credentials).
 **Recommendation: (a), before the PR is marked ready or merged.** It is the only option that actually removes the data. The exposure is low-harm, but rule 5 is absolute. **Blocked until answered:** marking the PR ready for review.
 
+> **✅ DECIDED 2026-11-11 by Zeus: (a), and done.** All six branch commits were rewritten and force-pushed once; the new head is `8922454`. The head content is unchanged, and the scan and gitleaks find 0 hits (`evidence/hygiene-log.md` §3 has the old→new SHA table). **Remaining:** Zeus asks GitHub Support to purge the old SHAs, and every pre-rewrite clone resets to the new head. PR #1 is no longer blocked by Z-28.
+
 ### Z-29 · Trademark clearance for "OneMind" / "OneMind OS" (legal) · Q174
 **Why it matters:** the search could not run. The USPTO API and its mirrors refused scripted access, and a similar AI brand ("1mind") reportedly has filings [C-W16-054, UNVERIFIED].
 **Options:** (a) a trademark attorney clears the name (US classes 9, 42, 38, 35; EU and UK) before any public beta branding; (b) proceed and rebrand if challenged.

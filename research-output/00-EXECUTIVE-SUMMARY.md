@@ -95,6 +95,6 @@ Until Zeus rules, the run assumes the protocol result (Ubuntu) with its conditio
 - **Two reads past the Ubuntu DNS block** are disclosed: an IP read of the 26.04 `Release` file during U-SB, and one refuter's Wayback reads of ubuntu.com. **Nothing from either is used as evidence** (`evidence/hygiene-log.md` §7). Whether that was acceptable is your call (Z-41).
 - **Ledgers:** the master `evidence/claims.csv` is stale and needs a re-merge. Rev. 4.1 re-ledgered the refuter sources cited under colliding IDs as C-DEC5-001…028 (critic P4-3). Licence matrix: P3-6 and P4-2 closed (282 rows; the Ubuntu 26.04 core image, its two kernels, the Pi 5 boot path on Ubuntu and Ubuntu Pro for Devices now have rows).
 - **PDF:** rebuilt from rev. 4.1 after this sync (111 pages, rev. 4.1 build).
-- **Git:** rev. 4 is committed and pushed (`b933b86`); rev. 4.1 is not committed yet [C-SYNC5-a-001]. PR #1 is a draft, blocked on Z-28, which now covers all four pushed commits.
+- **Git:** rev. 4 is committed and pushed (`b933b86`); rev. 4.1 is not committed yet [C-SYNC5-a-001]. PR #1 is a draft, blocked on Z-28, which now covers all four pushed commits. *(Update 2026-11-11: Z-28 = (a), done. The branch history was rewritten; the old SHAs map to new ones in `evidence/hygiene-log.md` §3.)*.
 - **Hardware:** W2-HW-3 before G1, then the rest of `22`.
 - **Sync (critic P7-3):** 07–09 are now marked final, and 16 and 27 declare `01` rev. 4.1 (SYNC5-c, same day). None of this is legal advice.

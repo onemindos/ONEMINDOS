@@ -55,7 +55,18 @@ So removing the account name needs only `414d60a` rewritten, but removing the ho
 - Commits `ee98bc7`, `7836316` and `b933b86` (all pushed) and the working tree have **no** home-path, account-name or private-address hits (re-checked 2026-11-11 after rev. 4.1; the only `/Users/` string is FP-11). Commit `7836316` still carries ten of the eleven lab-layout paths masked in §4.1 (`secureboot-1152` was never committed); they name no account. `b933b86` carries the layout only in the three quotations listed in the table above.
 - The masked lab files no longer match the hashes written at run time; each lab's `versions.md` says which files differ and why.
 
-**History was not rewritten.** The brief (§8) forbids force-push, so `414d60a` still holds the unmasked text and anyone can read it from the branch history. Masking applies going forward only. Removing it needs a history rewrite and force-push of the research branch (or squash-merging the PR and deleting the branch, which keeps the commit reachable on GitHub until garbage-collected). That is the founder decision in critic pass-2 Q-P2-5, listed as Z-28 in `26-OPEN-QUESTIONS-FOR-ZEUS.md` with all four commits named.
+**Update 2026-11-11: history rewritten (Z-28 = a, founder-approved).** Zeus allowed the one-time rewrite. All six commits on `research/ultracode-foundation` were rebuilt with `git filter-repo --replace-text`. The rules were home path → `<home>`, account name → `<user>`, lab folder → `<lab-dir>` (and the bare host folder name in grep patterns → `<lab-host-folder>`), the Lima gateway → `<vm-private-ip>`, and `10.42.0.x` → `<vm-ip>`. The branch was then force-pushed once, with a lease on the old head. **Checks after the rewrite:** (1) `git log -p` over the branch range has 0 hits for the account name, the host folder name, the home path or the private addresses; (2) the head tree is byte-identical to the pre-rewrite head (`git diff --quiet` passes), so no research content changed; (3) `gitleaks git` over the 6 commits finds no leaks. Commits that were already on `main` were not touched; `main` had already removed its own home-path line in PR #3. **Still open:** GitHub keeps the old commits readable by SHA until GitHub Support purges cached views. Zeus files that request. Every clone made before the rewrite must be reset to the new head and must never push the old branch back. The SHAs elsewhere in this log are the **old** ones; map them with this table:
+
+| Old SHA (purged) | New SHA | Commit |
+|---|---|---|
+| `414d60a` | `d6620f9` | Tier A |
+| `ee98bc7` | `ce42a47` | wave 2 |
+| `7836316` | `03d8d00` | wave 3, rev. 3 |
+| `b933b86` | `7a337a7` | wave 4, rev. 4 |
+| `66db1ac` | `859eec1` | wave 5, rev. 4.1 |
+| `6eeaf04` | `8922454` | founder decision Z-38 |
+
+**Before the rewrite (kept for the record):** the brief (§8) forbade force-push, so `414d60a` still held the unmasked text and anyone can read it from the branch history. Masking applies going forward only. Removing it needs a history rewrite and force-push of the research branch (or squash-merging the PR and deleting the branch, which keeps the commit reachable on GitHub until garbage-collected). That is the founder decision in critic pass-2 Q-P2-5, listed as Z-28 in `26-OPEN-QUESTIONS-FOR-ZEUS.md` with all four commits named.
 
 ## 4. Changes made in this pass
 

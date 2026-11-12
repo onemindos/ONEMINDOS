@@ -111,7 +111,7 @@ Tick the recommended option, or write another. "Due" is the week from `20` §2.3
 
 ### 3.1 Due now (week 1)
 
-- [ ] **Z-28** Purge leaked personal data from the branch history (one-time rewrite of all four pushed commits + force-push) **before the PR is marked ready** · rec. (a)
+- [x] **Z-28** (DECIDED 2026-11-11: (a), rewrite done, head `8922454`; GitHub Support purge pending) Purge leaked personal data from the branch history (one-time rewrite of all four pushed commits + force-push) **before the PR is marked ready** · rec. (a)
 - [ ] **Z-41** Run the Ubuntu Secure Boot VM test U-SB (LT-VM-20) on your Mac on day 1, or approve an Ubuntu mirror for the lab; also judge the two disclosed reads past the Ubuntu block (`evidence/hygiene-log.md` §7) · rec. (a) run it day 1. If it fails, the pre-registered map gives bootc
 - [ ] **Z-01** (legal) Ask counsel and Canonical about modified Ubuntu, including Jetson, with a written price · rec. (a) now. **Rev. 4:** this now gates the base of record; meanwhile the default is Ubuntu 26.04 + RAUC, nothing Ubuntu-based ships before an answer, and both CI legs are built
 - [x] **Z-38** ✅ **Decided 2026-11-11: (b) Debian 13 (founder override).** Base OS: accept the frozen-protocol result (Ubuntu 26.04 + RAUC, with its conditions and the pre-registered map), or override it as your own logged decision · rec. (a) accept. It blocks the base-lock gate, the default base in `30-…` and the PDF's base-OS chapter
@@ -187,7 +187,7 @@ Tick the recommended option, or write another. "Due" is the week from `20` §2.3
 
 ## 4. Before the PR is marked ready
 
-- [ ] Z-28 decided and, if (a), the rewrite done
+- [x] Z-28 decided and, if (a), the rewrite done (2026-11-11)
 - [ ] Working tree committed and pushed (rev. 4 is in `b933b86`, pushed; **rev. 4.1 is not committed yet**); `gitleaks` and the hygiene greps clean, or each hit listed in `evidence/hygiene-log.md` (0 gitleaks hits after rev. 4)
 - [ ] The PDF, 111 pages (rev. 4.1 build), checked against `01` rev. 4.1 (base-OS chapter, the U-SB status and the G1/G6 rows)
 - [ ] Known gaps accepted: the loop is not dry (critic pass 7 found 4 new gaps; rev. 4.1 added three blind S1R5 refuters, all *weakened*, none refuted, `01` §5.1.3; U-SB is BLOCKED until Z-41); the master `evidence/claims.csv` lacks the 171 rev-4 rows and the rev-4.1 rows; every lab in emulation only (`00` §7)
