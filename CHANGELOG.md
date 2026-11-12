@@ -18,6 +18,7 @@ Branches with work that is not on `main` yet (as of 2026-11-12):
 | `feat/core-net` | – | Internal networking and mesh: a WireGuard mesh with a self-hosted Headscale coordinator and relay, NATS leaf links with TLS and per-node credentials, the app reverse proxy with login, a per-box CA, and the NAT lab test |
 | `feat/ui-leap` | – | UI leap: umbrelOS parity audit, customization (themes, accents, wallpapers, density), Home with widgets and dock, App Store with install progress and app management, command palette, notifications, onboarding, and Settings |
 | `feat/app-taxonomy` | – | App and deployment categories (`docs/design/TAXONOMY.md`), applied to the candidate list |
+| `feat/migrate-kit` | – | Migration kit (CORE-DEPLOY-6): `onemind migrate role/plan/import/copy/cutover/revert` moves a namespace of an existing Kubernetes cluster onto the box as a private app. The plan reads the namespace with GET only through an owner-provided kubeconfig (never Secrets) and prints a dry-run report; import, copy, switch-over and revert are owner-approved actions. Data moves with a restic helper pod into an append-only repository on the gateway and is checked file by file (sha256) before old and new run side by side; switch-over stops the old writers, copies the last changes and checks them again. Adds a stopgap feature-action hook in `actions.py` and a Lima e2e on pinned k3s. Guide: [`docs/leap/core/MIGRATE.md`](docs/leap/core/MIGRATE.md) |
 
 ## 2026-11-12
 
