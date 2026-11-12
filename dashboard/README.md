@@ -7,7 +7,9 @@ single-page app built with Vite. The hub's gateway (`core/`) serves the built fi
 
 **Build step:** brief 30 **B11 · Dashboard MVP** (REC-B30-12, REC-W11-01), implemented against the
 binding contract [`sdk/contracts/poc-v0.md`](../sdk/contracts/poc-v0.md) §5 (screens), §3 (API),
-§2 (heartbeat) and §4 (app fields). Language choice follows BD-02 (TypeScript + React for the UI).
+§2 (heartbeat) and §4 (app fields), plus the wave-2 Market additions of §9.3, §10.3 and §11.4
+(links, licence, tier and last scan next to Install). Language choice follows BD-02 (TypeScript +
+React for the UI).
 
 ## Why it is built this way (plain English)
 
@@ -28,6 +30,14 @@ binding contract [`sdk/contracts/poc-v0.md`](../sdk/contracts/poc-v0.md) §5 (sc
   clock that is off does not mark healthy machines stale. Stale and
   offline cards say "values below are the last report, not live", have a dashed border, and show
   "last seen N ago".
+- **Nothing unscanned is offered for install.** Every app in the Market goes through a security
+  gate (CVE scan, malware scan, licence check; contract §9.4) that writes a scan record. The hub
+  refuses to install an app whose last scan is missing, failed, or older than 7 days (§10.3). The
+  Market card and the app page show the licence, the **tier** (verified, community or blocked,
+  set by that gate) and the **last scan date**, and grey out Install with the reason written next
+  to it (also read out by screen readers as the button's description). Remove is never blocked.
+  The hub stays the authority: if a scan goes stale after the request, approving returns
+  `409 stale_precondition`.
 - **Accessibility (WCAG 2.2 AA) from the first screen:** status is always written in words, not just
   colour; every button has a name a screen reader can read; there is a "skip to content" link; tap
   targets are at least 44 px; and the layout works on a 375 px phone, because phones are clients.
@@ -63,11 +73,14 @@ npm run typecheck           # tsc --noEmit
 |---|---|
 | `src/api/types.ts` | Types for contract §2 heartbeat, §3 routes/actions/errors, §4 app fields |
 | `src/api/client.ts` | `OneMindApi` interface (one method per §3 route) and `HttpApi` (bearer token, §3 error bodies → `ApiError`) |
-| `src/api/mock.ts`, `fixtures.ts` | Mock gateway for `VITE_MOCK=1`: hub x86, Raspberry Pi 5, Jetson Orin (stale), DigitalOcean droplet (offline); Uptime Kuma, Jellyfin, Ollama; one pending agent request |
+| `src/api/mock.ts`, `fixtures.ts` | Mock gateway for `VITE_MOCK=1`: hub x86, Raspberry Pi 5, Jetson Orin (stale), DigitalOcean droplet (offline); Uptime Kuma, Jellyfin, Ollama (fresh passing scans), Node-RED (scan older than 7 days), Mosquitto (never scanned), Zigbee2MQTT (failed scan, tier blocked); one pending agent request. Approving an install without a fresh passing scan answers 409 `stale_precondition`, like the gateway |
+| `src/lib/scan.ts` | §10.3 rule in the UI (`installBlockReason`), UTC scan date, http(s)-only link filter |
+| `src/lib/useAppRequest.ts` | Install/Remove → action with a stable idempotency key, shared by Market and the app page |
+| `src/components/AppTrust.tsx` | Links list, licence/tier/last-scan facts, Install/Remove button with its block reason |
 | `src/session.tsx` | Token sign-in, kept in `sessionStorage` (cleared when the tab closes) |
 | `src/lib/time.ts` | Freshness rules (30 s / 120 s) and "N ago" text |
-| `src/pages/*` | Sign-in, Home, Nodes, Market, Approvals |
-| `src/ui.test.tsx`, `src/api/api.test.ts`, `src/lib/time.test.ts` | Tests |
+| `src/pages/*` | Sign-in, Home, Nodes, Market, app page (`/market/<app-id>`), Approvals |
+| `src/ui.test.tsx`, `src/api/api.test.ts`, `src/lib/*.test.ts` | Tests (52) |
 
 ## Roles in the UI
 
@@ -95,6 +108,12 @@ The gateway is the security boundary; the UI only avoids offering what will be r
   missing. It also reads `result` as `{outcome, message, steps}` (what the wave-1 gateway returns)
   and shows `message` on failed and outcome-unknown requests. The gateway stream should return
   these, or the contract should name them.
+- **The app page is built from `GET /v1/apps`** (the contract has no single-app route), so it
+  refreshes the whole catalog every 30 s. It does not show the generated `apps/<id>/README.md` or
+  the full scan report (images, CVE counts); the catalog carries only `{scanned_at, result}`.
+- **Scan age is judged on the hub's clock** (learned from the response `Date` header) so a browser
+  with a wrong clock does not grey out a valid app; before the first response it uses the
+  browser's clock.
 - **App icons:** v0 draws an original monogram tile per app because no §3 route serves the
   manifest's `icon` file yet.
 - **Open app links** use `http://<dashboard host>:<web_port>/`; that depends on how apps are exposed
