@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# Holds DATA_FOLDER (/data, the image's VOLUME): db.sqlite3, rsa_key*, attachments, sends,
+# icon_cache and config.json (.env.template "DATA_FOLDER"). Upstream gives no size; 1Gi is a
+# OneMind choice for a household vault. No storageClassName: the cluster default class is used
+# (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vaultwarden-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
