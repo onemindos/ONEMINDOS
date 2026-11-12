@@ -3,6 +3,8 @@
 // Landing page. Pattern (not code) from omarchy.org: install first, one command, then proof.
 // Every status below must match the docs page "What works today" (src/content/docs/docs/index.md).
 import { loadApps } from '../lib/apps';
+import brand from '../brand.generated.json';
+import '../styles/brand.generated.css';
 
 const base = import.meta.env.BASE_URL;
 const REPO = 'https://github.com/onemindos/ONEMINDOS';
@@ -34,9 +36,11 @@ const label = { works: 'Works today', review: 'In review', building: 'Being buil
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>OneMind OS</title>
-    <meta name="description" content="A local-first home and edge cloud OS. AI can ask. Only you approve. Apache-2.0." />
+    <title>{brand.name}</title>
+    <meta name="description" content={`${brand.description} Apache-2.0.`} />
+    <meta name="theme-color" content={brand.themeColor} />
     <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
+    {brand.faviconPngSizes.map((s) => <link rel="icon" href={`${base}favicon-${s}.png`} sizes={`${s}x${s}`} type="image/png" />)}
     <style is:global>
       :root {
         --bg: #0b0f14;
@@ -44,7 +48,8 @@ const label = { works: 'Works today', review: 'In review', building: 'Being buil
         --line: #243041;
         --text: #e6edf3;
         --muted: #9aa7b4;
-        --accent: #14b8a6;
+        --accent: var(--om-brand-accent-dark);
+        --accent-ink: var(--om-brand-accent-ink-dark);
         --ok: #22c55e;
         --warn: #eab308;
         --info: #60a5fa;
@@ -59,7 +64,8 @@ const label = { works: 'Works today', review: 'In review', building: 'Being buil
           --line: #e2e5e9;
           --text: #111827;
           --muted: #4b5563;
-          --accent: #0f766e;
+          --accent: var(--om-brand-accent-light);
+          --accent-ink: var(--om-brand-accent-ink-light);
           --ok: #15803d;
           --warn: #a16207;
           --info: #1d4ed8;
@@ -90,7 +96,7 @@ const label = { works: 'Works today', review: 'In review', building: 'Being buil
       .warn { border-left: 3px solid var(--warn); padding: 0.25rem 0 0.25rem 0.75rem; margin-top: 1rem; color: var(--muted); font-size: 0.9rem; }
       .ctas { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
       .btn { display: inline-block; padding: 0.55rem 1rem; border-radius: 8px; border: 1px solid var(--line); text-decoration: none; color: var(--text); }
-      .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
       section { padding: 2.5rem 0; border-top: 1px solid var(--line); }
       section h2 { font-size: 1.6rem; margin: 0 0 0.5rem; }
       section > .wrap > p { color: var(--muted); max-width: 44rem; }
@@ -119,7 +125,7 @@ const label = { works: 'Works today', review: 'In review', building: 'Being buil
   <body>
     <div class="wrap">
       <nav aria-label="Main">
-        <a class="brand" href={base}><img src={`${base}favicon.svg`} alt="" width="24" height="24" /> OneMind OS</a>
+        <a class="brand" href={base}><img src={`${base}favicon.svg`} alt="" width="24" height="24" /> {brand.name}</a>
         <a href={`${base}docs/`}>Docs</a>
         <a href={`${base}apps/`}>Apps</a>
         <a href={`${base}blog/`}>Blog</a>
@@ -271,7 +277,7 @@ sudo deploy/install.sh --role hub</code></pre>
 
     <footer>
       <div class="wrap">
-        <span>OneMind OS · Apache-2.0</span>
+        <span>{brand.name} · Apache-2.0</span>
         <a href={`${base}docs/`}>Docs</a>
         <a href={`${base}apps/`}>Apps</a>
         <a href={`${base}docs/concepts/security/`}>Security</a>

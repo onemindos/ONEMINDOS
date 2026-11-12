@@ -4,6 +4,7 @@
 // skip link. Router-agnostic: items are plain links; pass onNavigate to intercept clicks.
 import { useState, type MouseEvent, type ReactNode } from 'react';
 import { cx } from '../lib/cx';
+import { BrandMark, BRAND } from './BrandMark';
 import { Icon, type IconName } from './Icon';
 
 export interface NavItem {
@@ -73,9 +74,9 @@ export function AppShell({ boxName, status, account, nav, current, onNavigate, c
       </a>
       <aside className="om-sidebar">
         <div className="om-brand">
-          <span className="om-brand-mark" aria-hidden="true" />
+          <BrandMark className="om-brand-mark" />
           <span className="om-brand-text">
-            <span className="om-brand-name">OneMind</span>
+            <span className="om-brand-name">{BRAND.shortName}</span>
             <span className="om-brand-box">{boxName}</span>
           </span>
         </div>

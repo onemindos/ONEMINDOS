@@ -1,0 +1,14 @@
+{
+  "_note": "Generated from brand/brand.json by scripts/brand-sync.py. Do not edit by hand.",
+  "name": "OneMind OS",
+  "shortName": "OneMind",
+  "tagline": "AI can ask. Only you approve.",
+  "description": "A local-first home and edge cloud OS where AI can ask, and only you approve.",
+  "homepage": "https://github.com/onemindos/ONEMINDOS",
+  "logoAlt": "OneMind",
+  "themeColor": "#000000",
+  "faviconPngSizes": [
+    32,
+    64
+  ]
+}

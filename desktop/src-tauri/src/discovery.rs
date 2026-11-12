@@ -11,7 +11,10 @@ use std::time::{Duration, Instant};
 
 pub const SERVICE: &str = "_onemind._tcp.local.";
 pub const WELL_KNOWN: &str = "onemind.local";
-pub const DEFAULT_PORT: u16 = 8080;
+/// §12.7: the gateway serves HTTPS on 8443; 8080 is the v0 plain-HTTP port (loopback-only on
+/// boxes with HTTPS).
+pub const HTTPS_PORT: u16 = 8443;
+pub const V0_PORT: u16 = 8080;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Found {
@@ -72,8 +75,8 @@ pub async fn probe(c: &reqwest::Client, base: &str) -> bool {
 /// Candidate URLs for the well-known name, HTTPS first.
 pub fn well_known_candidates() -> [String; 2] {
     [
-        format!("https://{WELL_KNOWN}:{DEFAULT_PORT}"),
-        format!("http://{WELL_KNOWN}:{DEFAULT_PORT}"),
+        format!("https://{WELL_KNOWN}:{HTTPS_PORT}"),
+        format!("http://{WELL_KNOWN}:{V0_PORT}"),
     ]
 }
 

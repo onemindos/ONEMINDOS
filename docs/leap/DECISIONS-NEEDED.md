@@ -74,6 +74,7 @@ F-1 to F-7 keep the numbers used in [core/README.md](core/README.md). The rest g
 | F-57 | Do Machines enter the leap? (The agents study accepted VMs as a gap; the machines study plans them) | After the leap's S1 core; lab UMB-MACH-1 may start now | UMB-MACH-0 and later | S2 | umbrel2 machines F-MACH-2 |
 | F-58 | Machines on a Pi 5: headless Linux on 16 GB only (never Windows); ship a 4 KiB-page kernel if the 16 KiB one fails | Yes on 16 GB if LT-MACH-3 passes; the kernel change only if that test needs it (image stream) | UMB-MACH-2 | S3 | umbrel2 machines F-MACH-3, F-MACH-4 |
 | F-59 | Desktop release signing: Apple Developer ID (shares the account in F-4) and a Windows code-signing account | Get both before the first public desktop build | UMB-CLIENT-12 | S3 | umbrel2 clients |
+| F-61 | Desktop app updates: who holds the updater signing key (Ed25519, Tauri updater) and its offline backup, and where updates are hosted | Key in a GitHub environment `desktop-release` with you as required reviewer, plus an offline backup; host on GitHub Releases now, the box as a local mirror later. The updater stays off until this and F-59 are answered | UMB-CLIENT-12 | S3 | `desktop/docs/UPDATER.md` |
 
 ### 1.1 Defaults applied in contract §12 (2026-11-12)
 
