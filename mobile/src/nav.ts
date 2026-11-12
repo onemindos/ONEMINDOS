@@ -13,6 +13,8 @@ export type RootParams = {
   Tabs: NavigatorScreenParams<TabParams> | undefined;
   AppDetail: { id: string };
   Settings: undefined;
+  PhotoBackup: undefined;
+  PhotoAlbums: undefined;
 };
 
 declare global {

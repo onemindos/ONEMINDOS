@@ -401,9 +401,10 @@ describe('first-run logic', () => {
       "onemind init --name home-hub --timezone Europe/London --owner 'Dana O'\\''Neil' --accent orchid --backup usb --request-apps home-assistant",
     );
   });
-  it('re-tints with the Appearance presets in both themes; teal is the default', () => {
+  it('re-tints with the Appearance presets in both themes; the brand accent is the default', () => {
+    expect(ACCENT_IDS).toContain('onemind');
     expect(ACCENT_IDS).toContain('teal');
-    expect(accentVars('teal')).toEqual({});
+    expect(accentVars('onemind')).toEqual({});
     const v = accentVars('orchid') as Record<string, string>;
     expect(v['--om-color-accent']).toMatch(/^light-dark\(#[0-9a-f]{6}, #[0-9a-f]{6}\)$/i);
     expect(Object.keys(v)).toEqual(['--om-color-accent', '--om-color-accent-hover', '--om-color-accent-text', '--om-color-accent-soft']);

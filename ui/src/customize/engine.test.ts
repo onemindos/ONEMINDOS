@@ -3,7 +3,7 @@
 // preferences validation, schedule, CSS output, DOM application and both store adapters.
 import { describe, expect, it, vi } from 'vitest';
 import { dark, light } from '../tokens/tokens';
-import { AA, ACCENTS, ACCENT_IDS, accentWorstRatio, customAccent, deriveAccent, presetAccent } from './accents';
+import { AA, ACCENTS, ACCENT_IDS, DEFAULT_ACCENT, accentWorstRatio, customAccent, deriveAccent, presetAccent } from './accents';
 import { contrast, hexToOklch, mix, normalizeHex, oklchToHex } from './color';
 import {
   DEFAULT_PREFERENCES,
@@ -48,8 +48,9 @@ describe('colour maths', () => {
 });
 
 describe('accents', () => {
-  it('ships 8 curated presets that pass AA untouched in both themes', () => {
-    expect(ACCENT_IDS).toHaveLength(8);
+  it('ships the brand accent plus 8 curated presets, all passing AA untouched in both themes', () => {
+    expect(ACCENT_IDS).toHaveLength(9);
+    expect(ACCENT_IDS[0]).toBe('onemind');
     for (const id of ACCENT_IDS) {
       const a = presetAccent(id);
       for (const t of THEMES) {
@@ -59,9 +60,12 @@ describe('accents', () => {
       }
     }
   });
-  it('the teal preset equals the shipped tokens', () => {
-    expect(ACCENTS.teal.light).toBe(light.accent);
-    expect(ACCENTS.teal.dark).toBe(dark.accent);
+  it('the default (brand) preset equals the shipped tokens, all four roles', () => {
+    expect(DEFAULT_ACCENT).toBe('onemind');
+    const a = presetAccent(DEFAULT_ACCENT);
+    for (const [t, theme] of [['light', light], ['dark', dark]] as const) {
+      expect(a[t].set).toEqual({ accent: theme.accent, hover: theme['accent-hover'], text: theme['accent-text'], soft: theme['accent-soft'] });
+    }
   });
   it('fixes any custom colour to AA, keeping its hue', () => {
     const samples = ['#ffff00', '#ffffff', '#000000', '#00ff00', '#ff00ff', '#7fdbff', '#ff851b', '#111111', '#e0e0e0', '#2ecc40'];
@@ -163,8 +167,9 @@ describe('preferences', () => {
     expect(resolveThemeAttr(DEFAULT_PREFERENCES, at)).toBeNull();
     expect(resolveThemeAttr({ ...DEFAULT_PREFERENCES, theme: 'dark' }, at)).toBe('dark');
     expect(resolveThemeAttr({ ...DEFAULT_PREFERENCES, theme: 'schedule' }, at)).toBe('dark');
-    expect(accentSeed({ ...DEFAULT_PREFERENCES, wallpaper: 'dunes' })).toEqual({ kind: 'preset', id: 'copper' });
-    expect(accentSeed({ ...DEFAULT_PREFERENCES, wallpaper: 'none' })).toEqual({ kind: 'preset', id: 'teal' });
+    expect(accentSeed({ ...DEFAULT_PREFERENCES, accentSource: 'wallpaper', wallpaper: 'dunes' })).toEqual({ kind: 'preset', id: 'copper' });
+    expect(accentSeed(DEFAULT_PREFERENCES)).toEqual({ kind: 'preset', id: 'onemind' });
+    expect(accentSeed({ ...DEFAULT_PREFERENCES, accentSource: 'wallpaper', wallpaper: 'none' })).toEqual({ kind: 'preset', id: 'onemind' });
     expect(accentSeed({ ...DEFAULT_PREFERENCES, accentSource: 'custom', accentCustom: '#123456' })).toEqual({ kind: 'custom', hex: '#123456' });
   });
   it('writes CSS that mirrors the token theme selectors', () => {

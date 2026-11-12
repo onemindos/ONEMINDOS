@@ -1,0 +1,58 @@
+{
+  "_note": "Generated from brand/brand.json by scripts/brand-sync.py. Do not edit by hand.",
+  "name": "OneMind OS",
+  "shortName": "OneMind",
+  "colors": {
+    "red": "#ff333a",
+    "black": "#000000",
+    "white": "#ffffff"
+  },
+  "foregrounds": {
+    "red": {
+      "foreground": "#000000",
+      "ratio": 5.79
+    },
+    "black": {
+      "foreground": "#ffffff",
+      "ratio": 21.0
+    },
+    "white": {
+      "foreground": "#000000",
+      "ratio": 21.0
+    }
+  },
+  "accent": {
+    "id": "onemind",
+    "name": "OneMind Red",
+    "seed": "#ff333a",
+    "ui": {
+      "light": {
+        "accent": "#d11826",
+        "hover": "#b4101e",
+        "text": "#ffffff",
+        "soft": "#fae8e9",
+        "ratio": 4.6
+      },
+      "dark": {
+        "accent": "#fb605a",
+        "hover": "#fd8b82",
+        "text": "#0c1214",
+        "soft": "#3d2728",
+        "ratio": 4.56
+      }
+    },
+    "site": {
+      "dark": {
+        "low": "#5d2025",
+        "accent": "#fe726a",
+        "high": "#fdc9c3"
+      },
+      "light": {
+        "low": "#ffe7e7",
+        "accent": "#d11826",
+        "high": "#72030d"
+      }
+    }
+  },
+  "rule": "WCAG 2.2 AA: accent >= 4.5:1 on its surfaces and on accent-soft; accent-text >= 4.5:1 on accent and hover"
+}
