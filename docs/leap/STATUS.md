@@ -287,8 +287,13 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-AGT-4 | Persistent MCP client identity, capped agent_clients, agent.ident… | todo | – | – |
 | UMB-APP-0 | Contract: app lifecycle action types, /v1/apps/{id} detail, /plan… | todo | – | – |
 | C12-APPSTORE | Contract §12.22: app store depth (logs, settings, dependencies, host ports, Compose import, community sources, exposure tiers) | done | `contract/12-appstore` | [#47](https://github.com/onemindos/ONEMINDOS/pull/47) |
+| APPSTORE-DEPTH | App store depth (contract §12.22): logs, settings + `app.configure`, dependencies with alternatives, host ports, Compose import, community sources, exposure tiers (PD-08…PD-13, PD-17) | done | `feat/appstore-depth` | [#57](https://github.com/onemindos/ONEMINDOS/pull/57) |
+| PD-09 | Settings schema rendered as a form; saving is one `app.configure` request (API; dashboard form with the wiring pass) | done | `feat/appstore-depth` | [#57](https://github.com/onemindos/ONEMINDOS/pull/57) |
+| PD-10 | Dependencies with alternatives and "remove these first" | done | `feat/appstore-depth` | [#57](https://github.com/onemindos/ONEMINDOS/pull/57) |
+| PD-13 | Compose import into a private app (`POST /v1/deploy/compose`; install of private bundles with CORE-DEPLOY-1) | done | `feat/appstore-depth` | [#57](https://github.com/onemindos/ONEMINDOS/pull/57) |
+| PD-17 | Exposure tiers private / mesh / public as separate requests (public parked behind the relay) | done | `feat/appstore-depth` | [#57](https://github.com/onemindos/ONEMINDOS/pull/57) |
 | UMB-APP-2 | Signed catalog: CI builds `catalog.json` with a cosign signature; ga… | todo | – | – |
-| UMB-APP-12 | Logs endpoint, redacted | todo | – | – |
+| UMB-APP-12 | Logs endpoint, redacted (PD-08) | done | `feat/appstore-depth` | [#57](https://github.com/onemindos/ONEMINDOS/pull/57) |
 | UMB-APP-3 | Plan endpoint with dependency resolution, alternatives and dependant… | todo | – | – |
 | UMB-APP-18 | Schema: tagline, category, tags, developer, gallery, rela… | todo | – | – |
 | UMB-CLIENT-0 | Contract 12-clients: discovery, devices, photo sources, shares, even… | todo | – | – |
@@ -337,7 +342,7 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-APP-1 | App gate computes install size, archs, release notes, gallery checks | todo | – | – |
 | UMB-APP-4 | Lifecycle actions start, stop, restart, update, configure with progr… | todo | – | – |
 | UMB-APP-5 | Remove keeps data; separate owner-only data delete with typed confir… | todo | – | – |
-| UMB-APP-9 | Host ports with conflict check in the plan; avahi name per app | todo | – | – |
+| UMB-APP-9 | Host ports with conflict check in the plan; avahi name per app (PD-11: declarations, CI and per-node checks done; avahi names with CORE-NET) | in-review | `feat/appstore-depth` | [#57](https://github.com/onemindos/ONEMINDOS/pull/57) |
 | UMB-APP-13 | App page and Market polish: facts band, permissions, notes, related… | todo | – | – |
 | UMB-AGT-5 | `onemind mcp pair` and `onemind mcp setup <client>`; keychain; confi… | todo | – | – |
 | UMB-AGT-6 | Troubleshooting tools: app status and logs, node logs, system health… | todo | – | – |
@@ -375,7 +380,7 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-PHOTO-10 | Photos CLI | todo | – | – |
 | UMB-PHOTO-11 | Importers: USB and SD card, folder, Google Takeout, iCloud Photos ex… | todo | – | – |
 | UMB-PHOTO-13 | Immich Market app with read-only attach to the OneMind library | todo | – | – |
-| UMB-APP-10 | Community sources pinned to a commit, `source.*` actions, on-box sca… | todo | – | – |
+| UMB-APP-10 | Community sources pinned to a commit, `source.*` actions, on-box scan (PD-12; install needs the CORE-DEPLOY-2 image scanner) | done | `feat/appstore-depth` | [#57](https://github.com/onemindos/ONEMINDOS/pull/57) |
 | UMB-APP-14 | CLI `onemind app` lifecycle verbs and `onemind source` (extends DEV-… | todo | – | – |
 | UMB-APP-17 | Image cleanup on nodes after update and remove | todo | – | – |
 | UMB-AGT-8 | Files read tools and `files.apply_plan` with snapshot and Undo | todo | – | – |
