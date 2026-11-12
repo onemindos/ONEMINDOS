@@ -1,0 +1,242 @@
+# SPDX-License-Identifier: Apache-2.0
+# Weekly full app gate on BOTH architectures (docs/testing/CI-MATRIX.md §2; contract
+# sdk/contracts/poc-v0.md §9.4 checks 2-9). Every app in apps/ runs through sdk/tools/app-gate with
+# --smoke on a throwaway k3d cluster on ubuntu-24.04 (amd64) and on ubuntu-24.04-arm (arm64), so each
+# app's images actually start on the CPU a Pi 5 or a Jetson has, not only on x86.
+#   plan:       the app list (all of apps/, or the ids given to a manual run)
+#   signatures: ClamAV signatures fetched once, shared by every gate job (same signatures everywhere,
+#               one download instead of one per job)
+#   gate:       one job per app and architecture; read-only (--tier check --no-write); report.json,
+#               gate.log and status.json uploaded as apps-gate-<app>-<arch>
+#   report:     one issue, "App gate on every app (amd64 + arm64): failures", opened or rewritten with
+#               every failing cell and closed when everything passes (full runs only)
+# How it differs from its neighbours: ci-apps.yml gates only the apps a PR changes (amd64);
+# apps-rescan.yml rescans daily on amd64 and writes the refreshed scan.json and tiers into a PR.
+# This workflow writes nothing to the repository.
+name: apps-gate-all
+
+on:
+  schedule:
+    - cron: '23 5 * * 1'   # Mondays 05:23 UTC (the daily rescan runs at 04:17)
+  workflow_dispatch:
+    inputs:
+      apps:
+        type: string
+        default: ''
+        description: 'Space-separated app ids to gate (empty: every app; only a full run updates the issue)'
+
+permissions: {}
+
+concurrency:
+  group: apps-gate-all
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      apps: ${{ steps.list.outputs.apps }}
+      ids: ${{ steps.list.outputs.ids }}
+      full: ${{ steps.list.outputs.full }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: List the apps
+        id: list
+        env:
+          REQUESTED: ${{ inputs.apps }}
+        run: |
+          set -euo pipefail
+          all=$(find apps -mindepth 2 -maxdepth 2 -name onemind.app.yaml -printf '%h\n' | cut -d/ -f2 | grep -vE '^[_.]' | sort)
+          full=true
+          ids=$all
+          if [ -n "${REQUESTED// /}" ]; then
+            full=false
+            ids=""
+            for id in $REQUESTED; do
+              if [[ ! "$id" =~ ^[a-z0-9][a-z0-9-]*$ ]] || ! grep -qx -- "$id" <<<"$all"; then
+                echo "::error::unknown app id: $id"
+                exit 1
+              fi
+              ids="$ids $id"
+            done
+            ids=$(tr ' ' '\n' <<<"$ids" | sed '/^$/d' | sort -u)
+          fi
+          [ -n "$ids" ] || { echo "::error::no apps found"; exit 1; }
+          # shellcheck disable=SC2086 # one argument per id
+          echo "apps=$(jq -cn '$ARGS.positional' --args $ids)" >> "$GITHUB_OUTPUT"
+          echo "ids=$(echo $ids)" >> "$GITHUB_OUTPUT"
+          echo "full=$full" >> "$GITHUB_OUTPUT"
+          echo "apps to gate (full run: $full):" $ids
+
+  signatures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Fetch the current ClamAV signatures (freshclam from the Ubuntu archive, apt-verified)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq clamav-freshclam
+          sudo systemctl stop clamav-freshclam || true
+          ok=false
+          for i in 1 2 3; do
+            if sudo freshclam --stdout; then ok=true; break; fi
+            sleep $((i * 30))
+          done
+          $ok || { echo "::error::freshclam failed three times"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/clamav"
+          sudo find /var/lib/clamav -maxdepth 1 -type f \( -name '*.cvd' -o -name '*.cld' \) -exec cp {} "$RUNNER_TEMP/clamav/" \;
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/clamav"
+          ls -l "$RUNNER_TEMP/clamav"
+          for db in main daily bytecode; do
+            ls "$RUNNER_TEMP/clamav/$db".c[vl]d >/dev/null || { echo "::error::$db signatures missing"; exit 1; }
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: clamav-signatures
+          path: ${{ runner.temp }}/clamav/
+          if-no-files-found: error
+          retention-days: 1
+
+  gate:
+    name: ${{ matrix.app }} (${{ matrix.platform.arch }})
+    needs: [plan, signatures]
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        app: ${{ fromJSON(needs.plan.outputs.apps) }}
+        platform:
+          - { runner: ubuntu-24.04, arch: amd64 }
+          - { runner: ubuntu-24.04-arm, arch: arm64 }
+    env:
+      APP: ${{ matrix.app }}
+      ARCH: ${{ matrix.platform.arch }}
+      RUNNER_LABEL: ${{ matrix.platform.runner }}
+    steps:
+      - name: Record "not finished" (replaced when app-gate exits)
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          python3 -c 'import json, os; print(json.dumps({"app": os.environ["APP"], "arch": os.environ["ARCH"], "runner": os.environ["RUNNER_LABEL"], "rc": None}))' > "$RUNNER_TEMP/out/status.json"
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Install the gate's tools (pinned per architecture by version and sha256)
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "$( [ "$ARCH" = amd64 ] && echo x86_64 || echo aarch64 )"
+          python3 -m pip install --disable-pip-version-check -r sdk/tools/requirements.txt
+          sdk/tools/ci/install-tools.sh "$RUNNER_TEMP/bin" trivy crane cosign k3d kubectl kustomize kubeconform
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          # clamscan from the Ubuntu archive (apt-verified); signatures come from the signatures job.
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq clamav
+          clamscan --version
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: clamav-signatures
+          path: ${{ runner.temp }}/clamav
+
+      - name: Throwaway k3s cluster (k3d, same k3s as the OS image)
+        run: |
+          k3d cluster create gate --wait --timeout 300s --no-lb \
+            --image docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
+          kubectl get nodes
+
+      - name: App gate (§9.4 checks 2-9, smoke test on this architecture)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          out="$RUNNER_TEMP/out"
+          python3 -I sdk/tools/app-gate "$APP" --smoke --tier check --no-write --clamav-db "$RUNNER_TEMP/clamav" \
+            --workdir "$RUNNER_TEMP" --report "$out/report.json" 2>&1 | tee "$out/gate.log"
+          rc=${PIPESTATUS[0]}
+          RC=$rc python3 -c 'import json, os; print(json.dumps({"app": os.environ["APP"], "arch": os.environ["ARCH"], "runner": os.environ["RUNNER_LABEL"], "rc": int(os.environ["RC"])}))' > "$out/status.json"
+          echo "app-gate exit code $rc (0 pass, 1 fail, 2 tool or input error)"
+          exit "$rc"
+
+      - name: Upload the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: apps-gate-${{ matrix.app }}-${{ matrix.platform.arch }}
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: error
+          retention-days: 30
+
+  report:
+    needs: [plan, gate]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read   # checkout for the summary script
+      issues: write    # open, rewrite or close the one tracking issue
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true   # no artifact at all still yields a table of NO RESULT cells
+        with:
+          pattern: apps-gate-*
+          path: ${{ runner.temp }}/reports
+
+      - name: Summarise every app and architecture
+        id: sum
+        env:
+          APPS: ${{ needs.plan.outputs.ids }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/reports"
+          # shellcheck disable=SC2086 # one argument per id
+          python3 -I sdk/tools/ci/gate_summary.py "$RUNNER_TEMP/reports" --apps $APPS --archs amd64 arm64 \
+            --run-url "$RUN_URL" --sha "$GITHUB_SHA" --out "$RUNNER_TEMP/body.md" | tee -a "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/body.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open, rewrite or close the tracking issue
+        if: needs.plan.outputs.full == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PROBLEMS: ${{ steps.sum.outputs.problems }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: 'App gate on every app (amd64 + arm64): failures'
+        run: |
+          set -euo pipefail
+          num=$(gh issue list --state open --limit 1000 --json number,title \
+                  --jq '[.[] | select(.title == env.TITLE)] | sort_by(.number) | .[0].number // empty')
+          if [ "$PROBLEMS" -gt 0 ]; then
+            if [ -n "$num" ]; then
+              gh issue edit "$num" --body-file "$RUNNER_TEMP/body.md"
+              gh issue comment "$num" --body "Rewritten by $RUN_URL: $PROBLEMS run(s) not passing."
+            else
+              gh issue create --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"
+            fi
+          elif [ -n "$num" ]; then
+            gh issue comment "$num" --body "Every app passes on amd64 and arm64 in $RUN_URL. Closing."
+            gh issue close "$num"
+          else
+            echo "every app passes; no open issue"
+          fi
