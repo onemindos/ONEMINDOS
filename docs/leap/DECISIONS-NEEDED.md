@@ -124,6 +124,8 @@ The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs
 
 ## 4. Loose ends found, not fixed here
 
+- Core plumbing (`feat/core-plumbing`, [core/PLUMBING.md](core/PLUMBING.md)) changes three WORKSTREAMS §4 hotspot rules; update them when it merges: routes register in `ROUTERS` in `app.py` (not a `routes.py`); `ledger.py` gets no numbered migration files (each feature has its own `FeatureSchema` step chain in its module); the CLI registry is `groups` in `cmd/onemind/cli/root.go` with stdlib `flag`. F-8 (cobra) is allowed but not used yet, because the refactor had to keep the CLI output identical. DEV-CLI-1 can switch `root.go` to cobra without touching the group files. `onemindd` registrations go in `cmd/onemindd/registry.go`, not `main.go`.
+
 - `feat/app-hermes` and `feat/apps-wave2` have no work yet, so W2-HERMES and W2-SEEDS may slip into S1.
 - `feat/app-pipeline` has an uncommitted `renovate.json`; `feat/design-system`, `feat/mobile-shell` and the arch branch's `docs/architecture/` are untracked. Commit and push them so they are not lost.
 - The updater merged as PR #15 after the specs were written. The review corrected the "what exists" rows in API, CLI, SDK, MCP, PLUGIN-SDK, UPDATES and BACKUPS; FABRIC and UPDATES still name the heartbeat `update` object's branch. STATUS.md has the live state.

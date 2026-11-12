@@ -39,7 +39,10 @@ is where that rule is enforced in code, not in a prompt:
 
 | File | Job |
 |---|---|
-| `onemind_core/app.py` | FastAPI routes of contract §3, dashboard static files with SPA fallback |
+| `onemind_core/app.py` | Builds the gateway and holds `ROUTERS`, the router registry ([how to add a feature](../docs/leap/core/PLUMBING.md)) |
+| `onemind_core/routers/` | One module per route group: `instance`, `nodes`, `apps`, `mcp`, `actions`, `static` (dashboard files with SPA fallback, last) |
+| `onemind_core/context.py` | `Gateway`, the shared services every router gets, and the bearer-token dependency |
+| `onemind_core/store.py`, `sections.py`, `events.py` | Per-feature tables and upgrade steps; per-feature settings sections; `publish_event` |
 | `onemind_core/auth.py` | Token file → principals; agents can never be owners |
 | `onemind_core/actions.py` | Request / approve / deny, expiry, preconditions, dispatch |
 | `onemind_core/ledger.py` | `ActionRepository` interface + SQLAlchemy implementation (SQLite or PostgreSQL) |
