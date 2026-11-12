@@ -536,3 +536,53 @@ func TestLockExcludesConcurrentRuns(t *testing.T) {
 		t.Fatalf("err = %v, want ErrBusy", err)
 	}
 }
+
+// Rollback (replay) attack: after the box trusted version-2 metadata, a
+// mirror that serves the older, still unexpired and validly signed
+// version-1 metadata again must be refused, so an attacker cannot hide a
+// newer security release by replaying an old index.
+func TestReplayedOlderMetadataRefused(t *testing.T) {
+	f := newFixture(t, "security", "window = any\npolicy = off\n")
+	f.add("vm", "0.1.1", true)
+	old := filepath.Join(f.dir, "old")
+	if err := f.repo.Publish(old, 0); err != nil { // version 1
+		t.Fatal(err)
+	}
+	f.add("vm", "0.1.2", true)
+	f.publish(0) // version 2, served
+	if _, err := f.run(ModeScheduled); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"timestamp.json", "snapshot.json", "targets.json"} {
+		b, err := os.ReadFile(filepath.Join(old, n))
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.write(filepath.Join("repo", n), string(b))
+	}
+	_, err := f.run(ModeScheduled)
+	if err == nil || !strings.Contains(err.Error(), "timestamp version") {
+		t.Fatalf("replayed version-1 metadata accepted: err = %v", err)
+	}
+	wantCalls(t, f.calls)
+}
+
+func TestSnapshotExcludesLocalRepository(t *testing.T) {
+	for repo, want := range map[string]bool{
+		"/data/backup/restic":         true,
+		"local:/data/backup/restic/":  true,
+		"sftp:backup:/srv/restic":     false,
+		"rest:https://backup.invalid": false,
+	} {
+		c := Defaults(ChannelSecurity)
+		c.ResticRepository = repo
+		ex := snapshotExcludes(&c)
+		got := false
+		for _, e := range ex {
+			got = got || e == "/data/backup/restic"
+		}
+		if got != want || ex[0] != c.DownloadDir || ex[1] != c.StateDir {
+			t.Errorf("%s: excludes %v", repo, ex)
+		}
+	}
+}

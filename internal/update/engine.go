@@ -10,6 +10,8 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/onemindos/onemindos/internal/heartbeat"
@@ -52,9 +54,22 @@ func New(c *Config, log *slog.Logger) *Engine {
 	}
 	if c.ResticConfigured() {
 		e.Snapshotter = Restic{Binary: c.ResticBinary, Repository: c.ResticRepository, PasswordFile: c.ResticPasswordFile,
-			Paths: []string{"/data"}, Excludes: []string{c.DownloadDir, c.StateDir}}
+			Paths: []string{"/data"}, Excludes: snapshotExcludes(c)}
 	}
 	return e
+}
+
+// snapshotExcludes is what the pre-update snapshot of /data leaves out: the
+// bundles, the update state and, when the restic repository is a local
+// directory (a bare path or "local:<path>", e.g. /data/backup/restic), the
+// repository itself, which would otherwise be copied into itself every time.
+func snapshotExcludes(c *Config) []string {
+	ex := []string{c.DownloadDir, c.StateDir}
+	repo := strings.TrimPrefix(c.ResticRepository, "local:")
+	if filepath.IsAbs(repo) {
+		ex = append(ex, filepath.Clean(repo))
+	}
+	return ex
 }
 
 // Result is what one run did.

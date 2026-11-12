@@ -64,7 +64,7 @@ go run ./internal/update/tuftest/devrepo -out /tmp/repo -bundle some.raucb -vers
 # rauc_binary = a script that writes "<slot> <version>" to <gate_dir>/pending, reboot_command = /bin/true
 onemind update check --config update.conf
 ```
-The unit tests do the same in-process (`engine_test.go`): verify OK, expired timestamp, wrong root, wrong board, tampered bundle, consistent-snapshot paths, window/policy/postpone, pending-trial refusal, commit and rollback verdicts, reboot inhibit, the lock, and the "no snapshot" rules.
+The unit tests do the same in-process (`engine_test.go`): verify OK, expired timestamp, replayed older metadata (rollback), wrong root, wrong board, tampered bundle, consistent-snapshot paths, window/policy/postpone, pending-trial refusal, commit and rollback verdicts, reboot inhibit, the lock, the "no snapshot" rules, and that a local restic repository under `/data` is excluded from its own snapshot.
 
 ## v0 shortcuts and open items
 - **Gateway approval (REC-DEC-13) is not wired.** B4.2 says OS updates are approval-gated through the gateway; v0 follows BD-09's "security auto by default" on the box and treats `onemind update apply` at the console as the owner's approval. The `/v1/os/*` gateway API and the local Unix socket API come later.
