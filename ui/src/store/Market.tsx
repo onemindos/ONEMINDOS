@@ -17,6 +17,8 @@ export interface MarketHandlers {
   /** Opens the install review for `app` (the request is created after review). */
   onRequestInstall: (app: CatalogApp) => void;
   onOpen: (app: CatalogApp) => void;
+  /** Asks to remove an installed app. Optional: only the screens that can send the request pass it. */
+  onRequestRemove?: (app: CatalogApp) => void;
   /** Link to the app page. */
   appHref: (id: string) => string;
 }
@@ -34,9 +36,12 @@ export interface MarketProps extends MarketHandlers {
   approvalsHref?: string;
 }
 
+/** Category rails on Discover (CRITIQUE #19); the rest sit behind a chip each. */
+export const DISCOVER_RAILS = 4;
+
 // ---------------------------------------------------------------- app card
 
-export function AppCard({ app, now, onRequestInstall, onOpen, appHref, disabled }: MarketHandlers & { app: CatalogApp; now: number; disabled?: string }) {
+export function AppCard({ app, now, onRequestInstall, onRequestRemove, onOpen, appHref, disabled }: MarketHandlers & { app: CatalogApp; now: number; disabled?: string }) {
   const action = primaryAction(app, now);
   const reasonId = useId();
   const cat = CATEGORY_BY_SLUG[app.category];
@@ -60,14 +65,27 @@ export function AppCard({ app, now, onRequestInstall, onOpen, appHref, disabled 
       </div>
       <p className="om-store-card-desc">{app.tagline ?? app.description}</p>
       <ClassPills app={app} />
+      {/* The trust facts the owner decides on, on the card itself (contract §10.3, §11.4). */}
+      <p className="om-store-card-trust">
+        Licence: {app.license}
+        {app.scan && <> · Scan {app.scan.result === 'pass' ? 'passed' : 'failed'}</>}
+        {app.installed && <> · <strong>Installed</strong></>}
+      </p>
       <div className="om-store-card-foot">
         <FitLine fit={app.fit} listOnly={app.deploy_class === 'list-only'} />
         <div className="om-store-card-action">
           {action.kind === 'open' ? (
-            <Button size="sm" icon="external" onClick={() => onOpen(app)} disabled={!!disabled} aria-describedby={disabled ? reasonId : undefined}>
-              Open
-            </Button>
-          ) : action.kind === 'upstream' ? (
+            <>
+              <Button size="sm" icon="external" onClick={() => onOpen(app)} disabled={!!disabled} aria-describedby={disabled ? reasonId : undefined}>
+                Open
+              </Button>
+              {onRequestRemove && (
+                <Button size="sm" variant="ghost" disabled={!!disabled} onClick={() => onRequestRemove(app)}>
+                  Remove<span className="om-visually-hidden"> {app.name}</span>
+                </Button>
+              )}
+            </>
+          ) :action.kind === 'upstream' ? (
             action.href ? (
               <a className="om-btn om-btn-secondary om-btn-sm" href={action.href} target="_blank" rel="noreferrer noopener">
                 Get it upstream
@@ -255,9 +273,25 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
   const waiting = jobs.filter((j) => j.type === 'app.install' && j.state === 'awaiting_approval');
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
 
+  // CRITIQUE #19: Discover is the editorial rails plus the DISCOVER_RAILS fullest categories;
+  // the other categories are chips that open their full list.
+  const withApps = CATEGORIES.filter((c) => result.apps.some((a) => a.category === c.slug));
+  const fullest = new Set([...withApps].sort((a, b) => (counts[b.slug] ?? 0) - (counts[a.slug] ?? 0)).slice(0, DISCOVER_RAILS));
+  const railCats = withApps.filter((c) => fullest.has(c));
+  const moreCats = withApps.filter((c) => !railCats.includes(c));
+
   const visible = (ids: string[]) => {
     const shown = new Set(result.apps.map((a) => a.id));
     return ids.map((id) => byId.get(id)).filter((a): a is CatalogApp => !!a && shown.has(a.id));
+  };
+
+  // On Discover an app is shown once: in the first rail that has it. The same card twice would
+  // list the same Install button twice and make a page of rails look longer than the catalog.
+  const placed = new Set<string>();
+  const place = (list: CatalogApp[]) => {
+    const fresh = list.filter((a) => !placed.has(a.id));
+    fresh.forEach((a) => placed.add(a.id));
+    return fresh;
   };
 
   return (
@@ -329,15 +363,15 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
               </Rail>
             )}
             {collections.map((c) => {
-              const list = visible(c.app_ids);
+              const list = place(visible(c.app_ids));
               return list.length ? (
                 <Rail key={c.id} title={c.title} blurb={c.blurb}>
                   <RailRow apps={list} label={c.title} {...hh} />
                 </Rail>
               ) : null;
             })}
-            {CATEGORIES.map((c) => {
-              const list = result.apps.filter((a) => a.category === c.slug).slice(0, 8);
+            {railCats.map((c) => {
+              const list = place(result.apps.filter((a) => a.category === c.slug).slice(0, 8));
               return list.length ? (
                 <Rail
                   key={c.slug}
@@ -354,6 +388,18 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
                 </Rail>
               ) : null;
             })}
+            {moreCats.length > 0 && (
+              <Rail title="More categories" blurb="Discover shows the four fullest categories. Every app is one tap away.">
+                <div className="om-store-cats om-store-cats-wrap" role="group" aria-label="More categories">
+                  {moreCats.map((c) => (
+                    <button key={c.slug} type="button" className="om-store-chip" aria-pressed={false} onClick={() => set({ category: c.slug })}>
+                      <CategoryIcon name={c.icon} size={16} />
+                      {c.label} <span className="om-store-chip-n">{counts[c.slug]}</span>
+                    </button>
+                  ))}
+                </div>
+              </Rail>
+            )}
             {result.apps.length === 0 && <NoResults f={f} hidden={result.hiddenByFit} reset={() => setF({ ...DEFAULT_FILTERS })} />}
           </div>
         ) : (

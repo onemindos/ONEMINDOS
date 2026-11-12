@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /** RFC 4122 v4 UUID for idempotency keys. Uses crypto.randomUUID when present. */
 export function uuidv4(): string {
   const c = globalThis.crypto;

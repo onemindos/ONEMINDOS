@@ -1,8 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { HttpApi, type OneMindApi } from './api/client';
 import { DEMO_TOKENS } from './api/fixtures';
 import { MockApi } from './api/mock';
 import type { Principal } from './api/types';
+import { personKey } from './data/prefs';
 
 /**
  * Can the signed-in principal approve or deny?
@@ -18,6 +20,8 @@ export interface Session {
   token: string;
   api: OneMindApi;
   principal: Principal | undefined;
+  /** Whose preferences this browser shows: the principal id, or a token fingerprint (prefs.ts). */
+  person: string;
   canDecide: DecideAbility;
   canRequest: DecideAbility;
   mock: boolean;
@@ -65,7 +69,7 @@ function build(token: string, deps: SessionDeps): Session {
       ? 'yes'
       : 'no'
     : 'unknown';
-  return { token, api, principal, canDecide, canRequest, mock: deps.mock };
+  return { token, api, principal, person: personKey(principal?.id, token), canDecide, canRequest, mock: deps.mock };
 }
 
 export function SessionProvider({ deps, children }: { deps: SessionDeps; children: ReactNode }) {

@@ -178,7 +178,7 @@ export interface PaletteApp {
   category: string;
   tagline?: string;
   installed: boolean;
-  status?: 'running' | 'starting' | 'stopped' | 'unhealthy';
+  status?: 'running' | 'installed' | 'starting' | 'stopped' | 'unhealthy';
   deployClass?: DeployClass;
   plugin?: boolean;
   updateAvailable?: string;
@@ -195,6 +195,7 @@ export interface PaletteData {
 
 const APP_STATUS: Record<NonNullable<PaletteApp['status']>, { tone: Tone; label: string }> = {
   running: { tone: 'ok', label: 'Running' },
+  installed: { tone: 'info', label: 'Installed' },
   starting: { tone: 'info', label: 'Starting' },
   stopped: { tone: 'neutral', label: 'Stopped' },
   unhealthy: { tone: 'bad', label: 'Unhealthy' },
