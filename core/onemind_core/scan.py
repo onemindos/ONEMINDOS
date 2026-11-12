@@ -32,6 +32,9 @@ RESULTS = ("pass", "fail")
 class ScanRecord:
     scanned_at: datetime
     result: str
+    # ClamAV hits summed over images[].clamav.infected; None when an image entry has no readable
+    # count, so "no malware" is never assumed from a record that does not say it (F-7 override).
+    malware: int | None = 0
 
     def summary(self) -> dict:
         """The §11.4 catalog field: {scanned_at, result}."""
@@ -63,7 +66,22 @@ def read_scan(app_dir: Path) -> ScanRecord | None:
     if ts is None or ts.tzinfo is None:
         log.warning("ignoring %s/%s: scanned_at is not an RFC 3339 timestamp", app_dir.name, SCAN_FILE)
         return None
-    return ScanRecord(scanned_at=ts, result=result)
+    return ScanRecord(scanned_at=ts, result=result, malware=_malware(doc.get("images")))
+
+
+def _malware(images: object) -> int | None:
+    if images is None:
+        return 0
+    if not isinstance(images, list):
+        return None
+    total = 0
+    for img in images:
+        clamav = img.get("clamav") if isinstance(img, dict) else None
+        infected = clamav.get("infected") if isinstance(clamav, dict) else None
+        if not isinstance(infected, int) or isinstance(infected, bool) or infected < 0:
+            return None
+        total += infected
+    return total
 
 
 def scan_problem(app_id: str, record: ScanRecord | None, now: datetime) -> str | None:
