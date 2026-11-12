@@ -14,7 +14,7 @@ This page says plainly what is protected now and what is not, because a security
 - **Tamper-evident audit log.** Hash-chained, so edits, deletions and reordering are detectable.
 - **No usable secrets at rest for tokens.** The gateway's tokens file stores only SHA-256 hashes of tokens.
 - **Privacy in heartbeats.** No serials, MACs, IPs or user names leave a node.
-- **Pinned supply chain for the OS build.** The Debian base, k3s, RAUC and every CI action are pinned by digest, hash or commit in [`os/versions.lock.yaml`](https://github.com/onemindos/ONEMINDOS/blob/main/os/versions.lock.yaml), and CI fails if a file uses a pin that is not listed there.
+- **Pinned supply chain for the OS build.** The Debian base, k3s, RAUC and every CI action are pinned by digest, hash or commit in [`os/versions.lock.yaml`](https://github.com/onemindos/ONEMINDOS/blob/main/os/versions.lock.yaml). CI checks the installer's k3s and Debian pins in `deploy/` against that file (`deploy/check-pins.py`).
 - **Public-repo hygiene.** gitleaks and pattern checks for secrets, private addresses and host paths run on every pull request.
 - **Scan gate for apps.** No install without a passing Trivy and ClamAV scan newer than 7 days, checked again at the moment of approval.
 

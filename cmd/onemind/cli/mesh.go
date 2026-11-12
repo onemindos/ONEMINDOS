@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package cli
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/onemindos/onemindos/internal/leaf"
 	"github.com/onemindos/onemindos/internal/mesh"
 )
@@ -21,7 +23,7 @@ var newMeshClient = mesh.NewClient
 
 // meshCmd implements `onemind mesh status [--json] [--leaf-monitor ADDR]`
 // (docs/architecture/NETWORKING.md §12): this machine's mesh state and the
-// health of its local NATS leaf. Registered in main.go with one line (§18).
+// health of its local NATS leaf. Registered as the `mesh` group in cli/root.go.
 // Mesh addresses are printed because this is the owner at the box; they are
 // never part of the heartbeat.
 func meshCmd(args []string, out io.Writer) error {
@@ -58,4 +60,17 @@ func meshCmd(args []string, out io.Writer) error {
 	}
 	fmt.Fprintln(out)
 	return nil
+}
+
+// meshCommands registers `onemind mesh` (a group line in root.go). The command keeps its own
+// flag handling (meshCmd), so cobra passes the arguments through untouched.
+func meshCommands(a *App) []*cobra.Command {
+	return []*cobra.Command{{
+		Use:                "mesh status [--json] [--leaf-monitor ADDR]",
+		Short:              "Show this machine's mesh and NATS leaf state",
+		DisableFlagParsing: true,
+		RunE: func(_ *cobra.Command, args []string) error {
+			return meshCmd(args, a.Stdout)
+		},
+	}}
 }

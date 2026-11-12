@@ -484,6 +484,9 @@ func (a *Agent) Heartbeat() Heartbeat {
 		}
 		at := r.StartedAt.UTC().Format(time.RFC3339)
 		h.LastRunAt, h.LastResult = &at, r.State
+		if r.State == StateRefused { // contract §12.10 allows succeeded|failed|partial|none
+			h.LastResult = StateFailed
+		}
 		break
 	}
 	return h
