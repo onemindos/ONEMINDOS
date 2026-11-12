@@ -7,11 +7,13 @@ on:
   pull_request:
     paths:
       - 'desktop/**'
+      - 'ui/src/tokens/tokens.css'   # desktop/src/tokens.css must stay an exact copy (npm run check:ui)
       - '.github/workflows/ci-desktop.yml'
   push:
     branches: [main]
     paths:
       - 'desktop/**'
+      - 'ui/src/tokens/tokens.css'
       - '.github/workflows/ci-desktop.yml'
 
 permissions:
