@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: Apache-2.0
+[package]
+name = "onemind-desktop"
+version = "0.1.0"
+description = "OneMind desktop client: tray app for your OneMind box"
+license = "Apache-2.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+
+[lib]
+name = "onemind_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "=2.7.4", features = [] }
+
+# Every pin is exact and was released at least two weeks before it was added (2026-11-12).
+# Licences are listed in desktop/README.md §Licences.
+[dependencies]
+tauri = { version = "=2.12.5", features = ["tray-icon", "image-png"] }
+tauri-plugin-notification = "=2.8.0"
+tauri-plugin-opener = "=2.7.2"
+tauri-plugin-single-instance = "=2.5.5"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+tokio = { version = "=1.54.1", features = ["time", "sync", "macros"] }
+reqwest = { version = "=0.13.5", default-features = false, features = ["json", "rustls", "http2"] }
+mdns-sd = "=0.21.6"
+url = "=2.5.8"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "=3.6.3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "=3.6.3", features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "=3.6.3", features = ["sync-secret-service", "crypto-rust"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
