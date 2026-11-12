@@ -12,7 +12,15 @@
 | Is the data protected? | `findmnt --json`, `btrfs filesystem show --raw`, `btrfs filesystem df -b`, `btrfs device stats` | `Collector.MirrorStatus`, `Evaluate` |
 | What would it take to protect it? | none: it computes | `PlanCreate`, `PlanProtect`, `PlanRepair` |
 
-**Nothing in this package changes a disk.** A plan is a list of exact commands plus the safety checks they passed, sealed with `plan_sha256` over the target disks' identity (id, size, serial tail) and the commands, so a swapped disk produces a different hash. In STOR-4/5 an owner approves the plan as a `storage.*` action and `onemindd` runs it from a journal; agents can only request it.
+**Nothing in this package changes a disk; `ops/` does, and only with an approved plan.** A plan is a list of exact commands plus the safety checks they passed, sealed with `plan_sha256` over the target disks' identity (id, size, serial tail) and the commands, so a swapped disk produces a different hash. An owner approves the plan as a `storage.mirror.*` action; `onemindd storage serve` renders it again, checks the hash and runs it from a journal (`ops/`). Agents can only request. Full design, interfaces and resume rules: [`docs/leap/core/STORAGE-ACTIONS.md`](../../docs/leap/core/STORAGE-ACTIONS.md).
+
+| Since STORAGE-ACT-1 | Where |
+|---|---|
+| `replace` and `remove` plans; step `id` and `phase` on every step; partition and LUKS UUIDs derived from the set and the disk | `plan.go`, `plan_ops.go` |
+| LUKS2: first-boot format (recovery key shown once, set key, TPM2), header copy for new members, the OneMind token (set, member, partition id, generation) | `luks.go` |
+| Operation engine: journal, single-operation lock, resume probes, rollback, disks found again after a rename | `ops/engine.go`, `ops/resolve.go`, `ops/journal.go` |
+| Boot assembly: unlock the current members (TPM2, else the recovery key once), mount normal, degraded or recovery mode | `ops/assemble.go` |
+| Local socket API for the gateway | `ops/server.go` |
 
 Tools run as separate processes (no linking); all are GPL-family packages in Debian main (versions in the lab notes).
 
@@ -47,7 +55,9 @@ Tools run as separate processes (no linking); all are GPL-family packages in Deb
 | Plan | Use | Steps (abridged) |
 |---|---|---|
 | `create` | new set on blank disks | per disk: `sgdisk` GPT + partlabel `onemind-data` → (`--encrypt`) `cryptsetup luksFormat --type luks2` + `open` → `mkfs.btrfs -d raid1 -m raid1` (raid1c3 metadata at 3+, single/dup for 1 disk with a warning) → mount → subvolumes `@`, `@storage`, `@snapshots` |
-| `protect` | add a disk to the mounted set (1 → 2 is "protect", n → n+1 is "add") | prepare as above (encrypted when the set is) → `btrfs device add` → `btrfs balance start -dconvert=raid1,soft -mconvert=…,soft` |
+| `protect` | add a disk to the mounted set (1 → 2 is `storage.mirror.create`, n → n+1 is `storage.mirror.add`) | prepare as above (on an encrypted set: copy a member's LUKS2 header, new UUID, open with the set key, tokens) → `btrfs device add` → `btrfs balance start -dconvert=raid1,soft -mconvert=…,soft` |
+| `replace` | swap a member (failed, missing or healthy) for a blank disk | prepare → tokens → `btrfs replace start -B -f <devid>` → resize → soft-convert → demote the old member's token → optional wipe of the old disk |
+| `remove` | take a member out (below two only with `unprotect`) | convert first when needed (single/dup at one, raid1c3 → raid1 at two) → `btrfs device remove` → tokens → optional wipe |
 | `repair` | after a missing member is back | `btrfs scrub start -B` → soft-convert balance → `btrfs device stats --reset` → remove the needs-scrub marker |
 
 Checks that block a plan: disk exists and is listed once; not `system`; `unused`; not read-only; SMART not critical; (protect) no missing member, no raid5/6, the new disk can hold what is already allocated; (repair) every member present.
@@ -93,5 +103,4 @@ The lab built exactly this with `go build -overlay` (a patched copy of `main.go`
 
 - STOR-2: the initrd unit writes `<data>/onemind/storage/needs-scrub` on every degraded mount (lab finding 1).
 - STOR-1: pin the LUKS2 PBKDF memory cost for 4 GiB boards; decide `discard` on dm-crypt.
-- STOR-4: execute plans from a journal, re-checking `plan_sha256` against a fresh inventory just before step 1 (`stale_precondition`); `replace` and `remove` plans.
 - STOR-10: real NVMe, SATA and USB-SAT `smartctl` recordings to replace the synthetic fixtures.
