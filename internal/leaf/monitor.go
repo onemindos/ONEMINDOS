@@ -24,6 +24,10 @@ type Monitor struct {
 	ConfPath string
 	Addr     string
 	Interval time.Duration
+	// Enabled overrides the default check (ConfPath exists). onemindd uses
+	// the node's fabric state instead: its sandbox has no CAP_DAC_OVERRIDE,
+	// so it cannot stat inside /etc/onemind/nats (0750, onemind-nats).
+	Enabled func() bool
 
 	mu   sync.Mutex
 	last Health
@@ -71,6 +75,9 @@ func (m *Monitor) Service() service.Service {
 	return service.Service{
 		Name: "leaf",
 		Enabled: func() bool {
+			if m.Enabled != nil {
+				return m.Enabled()
+			}
 			_, err := os.Stat(m.ConfPath)
 			return err == nil
 		},

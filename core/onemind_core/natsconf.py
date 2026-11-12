@@ -140,3 +140,22 @@ def write_accounts(path: Path, nodes: Iterable[NodeAccount]) -> bool:
     os.chmod(tmp, 0o644)
     os.replace(tmp, path)  # a rename, so the systemd path unit sees one change and NATS never half a file
     return True
+
+
+def main(argv: list[str] | None = None) -> int:
+    """`python -m onemind_core.natsconf PATH`: the installer writes the empty accounts file (hub
+    account only) before the hub NATS first starts; the gateway rewrites it from the ledger."""
+    import sys
+
+    args = sys.argv[1:] if argv is None else argv
+    if len(args) != 1:
+        print("usage: python -m onemind_core.natsconf ACCOUNTS_FILE", file=sys.stderr)
+        return 2
+    path = Path(args[0])
+    if not path.exists():
+        write_accounts(path, [])
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

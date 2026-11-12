@@ -712,10 +712,19 @@ class FabricService:
         finally:
             self._tick_lock.release()
 
+    def _k3s_ready(self, req: dict) -> bool:
+        """A worker that got a k3s ticket is joined only once its agent runs (§12.11: "for a worker,
+        k3s Ready"); until then the 1-hour token must stay, or the agent cannot use it."""
+        if req["role"] != "worker" or not req.get("k3s_token_id"):
+            return True
+        k3s = (self.d.registry.get(req["node_id"]) or {}).get("k3s") or {}
+        return bool(k3s.get("ready"))
+
     def _check_joined(self, req: dict, now: datetime) -> None:
-        if not self._heard_from(req["node_id"], req["delivered_at"]):
+        if not self._heard_from(req["node_id"], req["delivered_at"]) or not self._k3s_ready(req):
             if req["delivered_at"] and now - req["delivered_at"] > FIRST_HEARTBEAT_TTL:
-                self._fail(req, "failed", "no heartbeat from the node after it collected its credentials")
+                self._fail(req, "failed", "the node did not come up (heartbeat, and k3s for a worker) "
+                                          "after it collected its credentials")
             return
         mesh_node = None
         if self.d.mesh_settings.enabled and self.d.mesh is not None and req.get("mesh_key_id"):

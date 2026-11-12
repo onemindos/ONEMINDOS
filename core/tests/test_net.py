@@ -137,8 +137,9 @@ def ticket(client, role="worker", **kw):
     return r.json()
 
 
-def heartbeat(client, node_id):
+def heartbeat(client, node_id, k3s_ready=True):
     hb = {"schema": "onemind.node.status/v1", "node_id": node_id, "hostname": "mini-pc", "role": "node",
+          "k3s": {"present": True, "role": "agent", "ready": k3s_ready},
           "mesh": {"state": "up", "path": "direct"}, "fabric": {"role": "worker", "leaf_link": "up"}}
     assert client.app.state.registry.ingest(f"onemind.node.{node_id}.status", json.dumps(hb).encode())
 
@@ -256,6 +257,10 @@ def test_join_end_to_end(nc, hs, kube, clock, net_settings):
     fab.tick()
     assert nc.get(f"/v1/actions/{aid}", headers=OWNER).json()["state"] == "dispatched"
     hs.add_node(f"node-{node.node_id}", key_id=key["id"], tags=["tag:onemind-worker", "tag:onemind-k3s"])
+    heartbeat(nc, node.node_id, k3s_ready=False)  # leaf and mesh up, k3s agent still joining
+    fab.tick()
+    assert nc.get(f"/v1/actions/{aid}", headers=OWNER).json()["state"] == "dispatched"
+    assert kube.deleted == []  # the agent still needs its 1-hour token (found in the lab)
     heartbeat(nc, node.node_id)
     fab.tick()
     done = nc.get(f"/v1/actions/{aid}", headers=OWNER).json()

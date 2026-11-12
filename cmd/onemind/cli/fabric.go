@@ -260,10 +260,19 @@ func fabricStatus(args []string, out io.Writer) error {
 	}
 	var v struct {
 		Nodes []struct {
-			NodeID, Hostname, Role, State, LeafLink string
+			NodeID   string `json:"node_id"`
+			Hostname string `json:"hostname"`
+			Role     string `json:"role"`
+			State    string `json:"state"`
+			LeafLink string `json:"leaf_link"`
 		} `json:"nodes"`
 		Joining []struct {
-			NodeID, Hostname, Role, State, MatchCode, ActionID string
+			NodeID    string `json:"node_id"`
+			Hostname  string `json:"hostname"`
+			Role      string `json:"role"`
+			State     string `json:"state"`
+			MatchCode string `json:"match_code"`
+			ActionID  string `json:"action_id"`
 		} `json:"joining"`
 	}
 	raw := map[string]any{}

@@ -16,10 +16,12 @@ Design: docs/architecture/NETWORKING.md §5 (enrollment), §6 (access rules), §
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import logging
 import os
 import re
+import ssl
 import stat
 import threading
 import urllib.error
@@ -121,6 +123,41 @@ def urllib_transport(method: str, url: str, headers: Mapping[str, str], body: by
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
+
+
+class _NamedHTTPS(http.client.HTTPSConnection):
+    """HTTPS to a loopback address, verifying the certificate for another name (SNI + hostname)."""
+
+    def __init__(self, host: str, port: int, *, context: ssl.SSLContext, server_name: str, timeout: float):
+        super().__init__(host, port, context=context, timeout=timeout)
+        self._server_name = server_name
+
+    def connect(self) -> None:
+        http.client.HTTPConnection.connect(self)
+        self.sock = self._context.wrap_socket(self.sock, server_hostname=self._server_name)
+
+
+def tls_transport(ca_file: Path, server_name: str) -> Transport:
+    """Headscale's own TLS listener on loopback, verified against the box CA as `server_name`.
+
+    Until onemind-edge (CORE-NET-5) terminates TLS in front of it, Headscale serves TLS itself on
+    the control port (deploy/install.sh); the gateway still talks to it on 127.0.0.1 only.
+    """
+    ctx = ssl.create_default_context(cafile=str(ca_file))
+
+    def transport(method: str, url: str, headers: Mapping[str, str], body: bytes | None, timeout: float):
+        parts = urlsplit(url)
+        conn = _NamedHTTPS(parts.hostname or "", parts.port or 443, context=ctx, server_name=server_name,
+                           timeout=timeout)
+        try:
+            target = parts.path + (f"?{parts.query}" if parts.query else "")
+            conn.request(method, target, body=body, headers=dict(headers))
+            resp = conn.getresponse()
+            return resp.status, resp.read()
+        finally:
+            conn.close()
+
+    return transport
 
 
 def _is_loopback(host: str | None) -> bool:

@@ -18,7 +18,11 @@ func runMesh(args []string) int { return mesh.RunCLI(args, os.Stdout, os.Stderr)
 
 // leafMonitor watches the local NATS leaf of a joined node; the heartbeat's
 // fabric.leaf_link reads it.
-var leafMonitor = leaf.NewMonitor(leaf.DefaultConfPath, leaf.DefaultMonitor)
+var leafMonitor = func() *leaf.Monitor {
+	m := leaf.NewMonitor(leaf.DefaultConfPath, leaf.DefaultMonitor)
+	m.Enabled = func() bool { _, err := fabric.LoadState("/"); return err == nil } // a joined node
+	return m
+}()
 
 // netReports are the heartbeat's mesh and fabric objects (contract §12.10).
 func netReports(role string, log *slog.Logger) (func() *mesh.Heartbeat, func() *heartbeat.Fabric) {

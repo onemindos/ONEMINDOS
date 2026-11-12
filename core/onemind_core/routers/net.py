@@ -16,6 +16,7 @@ import contextlib
 import ipaddress
 import logging
 import socket
+from urllib.parse import urlsplit
 
 from fastapi import Body, Depends, FastAPI, Header, Request, Response
 from fastapi.responses import JSONResponse
@@ -26,7 +27,7 @@ from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..fabric import FabricDeps, FabricService, JoinRequestBody, K3sBootstrapTokens, TicketRequest
 from ..lan import AvahiPublisher, desired_names
-from ..mesh import TAG_HUB, HeadscaleClient, HeadscaleError, MeshService
+from ..mesh import TAG_HUB, HeadscaleClient, HeadscaleError, MeshService, tls_transport
 from ..netconf import FabricSettings, MeshSettings, NetSettings
 from ..proxy import SESSION_COOKIE, AppProxy, AppProxyMiddleware, KubectlServiceResolver, token_session_resolver
 
@@ -69,8 +70,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     box_ca = BoxCA(net.tls_dir or settings.audit_path.parent / "tls", box, clock=gw.clock)
     mesh: MeshService | None = None
     if mesh_cfg.enabled:
-        assert mesh_cfg.headscale_key_file is not None  # NetSettings.validate
-        mesh = MeshService(HeadscaleClient.from_key_file(mesh_cfg.headscale_url, mesh_cfg.headscale_key_file),
+        assert mesh_cfg.headscale_key_file is not None  # MeshSettings.validate
+        extra = {}
+        if mesh_cfg.headscale_url.startswith("https:"):  # Headscale's own TLS, verified with the box CA
+            extra["transport"] = tls_transport(box_ca.dir / "ca.crt", urlsplit(mesh_cfg.control_url).hostname or "")
+        mesh = MeshService(HeadscaleClient.from_key_file(mesh_cfg.headscale_url, mesh_cfg.headscale_key_file, **extra),
                            gw.audit, gw.clock)
     fabric = FabricService(FabricDeps(
         actions=gw.actions, audit=gw.audit, events=gw.events, registry=gw.registry, db=gw.db, clock=gw.clock,
@@ -115,10 +119,22 @@ def register(app: FastAPI, gw: Gateway) -> None:
         gw.events.publish_event("lan", "name_conflict", {"name": name, "fallback": f"{box}.local"},
                                 severity="warning", dedupe_key=f"lan:{name}")
 
+    def push_policy() -> None:
+        """The mesh access rules from OneMind roles (NETWORKING §6). lan mode has no people's devices
+        yet, so only the machine grants; a rejected policy leaves the old one in force (audited)."""
+        assert mesh is not None
+        try:
+            digest = mesh.push_policy([])
+            log.info("mesh policy applied (%s)", digest[:12])
+        except Exception as exc:
+            log.warning("mesh policy not applied: %s", exc)
+
     def start() -> None:
         nonlocal publisher
         fabric.reconcile()
         tasks.append(asyncio.ensure_future(fabric_loop()))
+        if mesh is not None:
+            tasks.append(asyncio.ensure_future(asyncio.to_thread(push_policy)))
         if net.mdns and net.lan_addr:
             publisher = AvahiPublisher(net.lan_addr, on_conflict=conflict)
             tasks.append(asyncio.ensure_future(lan_loop()))
