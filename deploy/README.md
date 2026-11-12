@@ -11,8 +11,8 @@ brief 30 **D-B2.4** (developer install P6) and **REC-DEC-30** (P6 is labelled un
 | [`bundle.sh`](bundle.sh) | Builds an offline bundle on your Mac for `install.sh --bundle` |
 | [`pins.env`](pins.env) | Every download `install.sh` makes: version + sha256 |
 | [`systemd/`](systemd/) | Units for `onemindd`, the hub NATS and the gateway |
-| [`compose/`](compose/) | The hub on a Mac with Docker (noop executor, one simulated node) |
-| [`verify/verify.sh`](verify/verify.sh) | Scripted PASS/FAIL of the contract against any hub |
+| [`compose/`](compose/) | The hub on a Mac with Docker (noop executor, one node and two simulated machines) |
+| [`verify/verify.sh`](verify/verify.sh) | Scripted PASS/FAIL of the contract against any hub ([tests](verify/tests/)) |
 | [`verify/node-check.sh`](verify/node-check.sh), [`verify/natscheck.py`](verify/natscheck.py) | Run on a machine: is this hub or node healthy (services, k3s, NATS auth, own heartbeat) |
 | [`check-pins.py`](check-pins.py) | CI: `pins.env` and the compose images match `os/versions.lock.yaml` |
 
