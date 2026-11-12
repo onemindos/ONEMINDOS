@@ -8,6 +8,7 @@ import "github.com/onemindos/onemindos/internal/service"
 // process with its own systemd unit and privileges. One line per feature.
 var subcommands = map[string]func(args []string) int{
 	"update": runUpdate,
+	"backup": runBackup, // backup.go: own process, own unit (onemind-backup.service)
 }
 
 // optionalServices run inside the heartbeat agent's process, next to it.

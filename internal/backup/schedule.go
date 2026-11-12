@@ -92,9 +92,16 @@ func (a *Agent) Tick(ctx context.Context, now time.Time) {
 }
 
 func (a *Agent) runJob(ctx context.Context, job string) {
-	primary, _ := a.Cfg.Primary()
+	c := a.conf()
+	primary, ok := c.Primary()
+	if !ok {
+		return // no destination yet: nothing to back up to
+	}
 	switch job {
 	case jobHourly:
+		if c.Schedule.GatewayHourly {
+			return // the gateway runs the apps' hooks, then sends backup.run
+		}
 		if _, err := a.Run(ctx, RunRequest{Reason: ReasonScheduled, Wait: true}); err != nil {
 			a.Log.Warn("scheduled backup", "error", err)
 		}
@@ -104,7 +111,7 @@ func (a *Agent) runJob(ctx context.Context, job string) {
 		}
 		// Off-site copy as a direct run to every other target (BACKUPS.md
 		// §3 allows a direct run instead of `restic copy`).
-		for _, t := range a.Cfg.Targets {
+		for _, t := range c.Targets {
 			if !t.Primary {
 				if _, err := a.Run(ctx, RunRequest{Reason: ReasonScheduled, TargetID: t.ID, Wait: true}); err != nil {
 					a.Log.Warn("off-site backup", "target", t.ID, "error", err)
@@ -122,7 +129,7 @@ func (a *Agent) runJob(ctx context.Context, job string) {
 				a.Log.Warn("verified restore", "unit", u.Name, "error", err)
 			}
 		}
-		for _, t := range a.Cfg.Targets {
+		for _, t := range c.Targets {
 			if t.AppendOnly {
 				continue // pruning an append-only target is an owner job on that node
 			}

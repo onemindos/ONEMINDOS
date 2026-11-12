@@ -86,6 +86,16 @@ type Status struct {
 	// optional and additive: omitted when the box has no update service
 	// configured, so heartbeats without it stay valid.
 	Update *Update `json:"update,omitempty"`
+	// Backup is the backup agent's last result (contract §12.10); omitted
+	// when the box has no backup agent configured.
+	Backup *Backup `json:"backup,omitempty"`
+}
+
+// Backup is the heartbeat's optional "backup" object (contract §12.10).
+type Backup struct {
+	Running    bool    `json:"running"`
+	LastRunAt  *string `json:"last_run_at"`
+	LastResult string  `json:"last_result"` // succeeded | failed | partial | none
 }
 
 // Update states (internal/update keeps the state machine).

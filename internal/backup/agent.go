@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -35,9 +36,14 @@ type Agent struct {
 	FreeBytes func(path string) (int64, error)
 	IsMount   func(path string) (bool, error)
 	Log       *slog.Logger
+	// Jobs verifies the gateway's signed jobs (job.go); nil refuses them.
+	Jobs *JobVerifier
 
 	lock    chan struct{}
 	running atomic.Value // run id of the job in progress ("" = idle)
+	// cfgMu guards Cfg.Targets and Cfg.Units.Apps, which the gateway can
+	// replace at run time (managed.go). Read them through conf().
+	cfgMu sync.RWMutex
 }
 
 // New builds an agent from validated settings: it checks the restic binary
@@ -64,9 +70,10 @@ func New(cfg Config) (*Agent, error) {
 		return nil, err
 	}
 	a := newAgent(cfg, st)
-	a.OpenRepo = func(t Target) (Repo, error) { return NewRestic(&a.Cfg, t, ExecRunner{}) }
-	units := BuildUnits(&a.Cfg, ExecRunner{})
-	a.Units = func(context.Context) ([]Unit, error) { return units, nil }
+	a.OpenRepo = func(t Target) (Repo, error) { c := a.conf(); return NewRestic(&c, t, ExecRunner{}) }
+	a.Units = func(context.Context) ([]Unit, error) { c := a.conf(); return BuildUnits(&c, ExecRunner{}), nil }
+	a.Jobs = &JobVerifier{PubKeyFile: cfg.JobPubKeyFile, DonePath: filepath.Join(cfg.StateDir, "jobs-done.json"),
+		Now: func() time.Time { return a.Now() }}
 	return a, nil
 }
 
@@ -231,10 +238,11 @@ func (a *Agent) runLocked(ctx context.Context, req RunRequest) (Run, error) {
 }
 
 func (a *Agent) target(id string) (Target, bool) {
+	c := a.conf()
 	if id == "" {
-		return a.Cfg.Primary()
+		return c.Primary()
 	}
-	return a.Cfg.Target(id)
+	return c.Target(id)
 }
 
 func (a *Agent) selectUnits(ctx context.Context, names []string) ([]Unit, error) {
@@ -475,15 +483,28 @@ func GenerateKey(path string) error {
 
 // Heartbeat returns the heartbeat `backup` object.
 func (a *Agent) Heartbeat() Heartbeat {
-	h := Heartbeat{Running: a.Running() != "", LastResult: "none"}
-	st := a.Store.View()
+	h := HeartbeatFromState(a.Store.View())
+	h.Running = a.Running() != ""
+	return h
+}
+
+// HeartbeatFromState builds the heartbeat `backup` object from the state
+// file alone, for the heartbeat agent, which runs in another process.
+// last_result is succeeded|failed|partial|none (contract §12.10); a run
+// refused by the space check or the fence reports failed.
+func HeartbeatFromState(st State) Heartbeat {
+	h := Heartbeat{LastResult: "none"}
 	for i := len(st.Runs) - 1; i >= 0; i-- {
 		r := st.Runs[i]
 		if r.State == StateRunning {
+			h.Running = true
 			continue
 		}
 		at := r.StartedAt.UTC().Format(time.RFC3339)
 		h.LastRunAt, h.LastResult = &at, r.State
+		if r.State == StateRefused {
+			h.LastResult = StateFailed
+		}
 		break
 	}
 	return h
@@ -512,7 +533,7 @@ func (a *Agent) Status(ctx context.Context) (Status, error) {
 		return Status{}, err
 	}
 	s := Status{Units: map[string]Badge{}, NextRun: a.nextHourly(now), Running: a.Running(),
-		Generation: a.Cfg.Generation, Fenced: st.FencedBy > a.Cfg.Generation, Copies: len(a.Cfg.Targets),
+		Generation: a.Cfg.Generation, Fenced: st.FencedBy > a.Cfg.Generation, Copies: len(a.conf().Targets),
 		LastVerified: st.LastVerified}
 	order := map[string]int{BadgeFailing: 4, BadgeStale: 3, BadgeUnverified: 2, BadgeVerified: 1, BadgeNone: 0}
 	s.Box.State = BadgeNone

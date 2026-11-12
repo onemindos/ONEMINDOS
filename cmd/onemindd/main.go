@@ -30,6 +30,7 @@ import (
 	"syscall"
 
 	"github.com/onemindos/onemindos/internal/agent"
+	"github.com/onemindos/onemindos/internal/backup"
 	"github.com/onemindos/onemindos/internal/detect"
 	"github.com/onemindos/onemindos/internal/heartbeat"
 	"github.com/onemindos/onemindos/internal/service"
@@ -137,7 +138,8 @@ func main() {
 
 	log.Info("onemindd starting", "version", version.Version, "node_id", col.ID(), "role", *role, "board", col.Board())
 	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, Interval: *interval, Collector: col, Logger: log,
-		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log)})
+		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log),
+		BackupReport: backupReport(env("ONEMIND_BACKUP_CONF", backup.DefaultConfigPath))})
 	wait := service.Start(ctx, log, optionalServices) // registry.go
 	err := a.Run(ctx)
 	stop()

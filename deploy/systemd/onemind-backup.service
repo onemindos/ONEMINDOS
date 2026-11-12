@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind backup agent (internal/backup; docs/architecture/BACKUPS.md, contract §12.11, §12.12).
+# `onemindd backup` runs restic on a schedule and answers the gateway's signed jobs on
+# 127.0.0.1:7481 (loopback only, H-24). Settings: /data/onemind/backup/agent.json
+# (ONEMIND_BACKUP_CONF), written by deploy/backup.sh or the image.
+#
+# Why its own unit: the heartbeat agent (onemindd.service) has no capabilities and a read-only
+# filesystem. Backing up must read every app's files, and restoring must write them back with
+# their owners. This unit gets exactly those four capabilities and nothing else, and may write
+# only the backup state, scratch space, app volumes and the backup disks' mount points.
+
+[Unit]
+Description=OneMind backup agent (restic; loopback API on 127.0.0.1:7481)
+Documentation=https://github.com/onemindos/ONEMINDOS/tree/main/internal/backup
+After=network-online.target local-fs.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/onemind/onemindd.env
+ExecStartPre=/usr/local/bin/onemindd backup init
+ExecStart=/usr/local/bin/onemindd backup
+Restart=always
+RestartSec=10s
+# restic and the scratch restores are bulk work: never starve the apps.
+Nice=10
+IOSchedulingClass=idle
+
+User=root
+NoNewPrivileges=yes
+# Read any file (backup), write files back as their owners (restore).
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER
+AmbientCapabilities=
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=-/data/onemind -/var/lib/rancher/k3s/storage -/run/onemind/backup
+# SQLite online copies open the live database; in WAL mode (k3s) even a reader writes the -shm file.
+ReadWritePaths=-/var/lib/onemind -/var/lib/rancher/k3s/server/db
+CacheDirectory=onemind-backup
+StateDirectory=onemind-backup
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+# @system-service already allows chown; @privileged is not denied as a whole because it contains
+# @chown, so its other groups are listed one by one.
+SystemCallFilter=@system-service
+SystemCallFilter=~@clock @cpu-emulation @debug @module @mount @obsolete @raw-io @reboot @swap
+SystemCallErrorNumber=EPERM
+UMask=0077
+# TCP for S3 and other OneMind boxes (rest-server), the loopback API.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

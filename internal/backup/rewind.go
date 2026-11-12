@@ -225,7 +225,7 @@ func (a *Agent) preRestoreSnapshot(ctx context.Context, repo Repo, u Unit, dest 
 	run := Run{ID: NewRunID(a.Now()), Reason: ReasonPreRestore, ActionID: req.ActionID, TargetID: req.TargetID,
 		StartedAt: a.Now().UTC()}
 	if run.TargetID == "" {
-		p, _ := a.Cfg.Primary()
+		p, _ := a.target("")
 		run.TargetID = p.ID
 	}
 	tags := append(a.baseTags(u.Name), "run="+run.ID, "reason="+ReasonPreRestore, "keep="+keepClass(ReasonPreRestore))

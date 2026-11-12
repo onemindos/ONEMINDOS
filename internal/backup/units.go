@@ -66,12 +66,22 @@ func BuildUnits(c *Config, r Runner) []Unit {
 		units = append(units, u)
 	}
 	for _, a := range c.Units.Apps {
-		u := Unit{Name: "app:" + a.ID, Paths: a.Paths, Excludes: a.Excludes, Tags: []string{"app=" + a.ID}}
+		u := Unit{Name: "app:" + a.ID, Paths: append([]string{}, a.Paths...), Excludes: a.Excludes, Tags: []string{"app=" + a.ID}}
 		if a.Revision != "" {
 			u.Tags = append(u.Tags, "rev="+a.Revision)
 		}
+		for _, v := range a.Volumes {
+			u.Paths = append(u.Paths, volumeDir(c.StorageRoots, v))
+		}
+		for _, f := range a.Files {
+			u.Paths = append(u.Paths, volumeFilePath(c.StorageRoots, f))
+		}
 		for _, f := range a.SQLite {
 			u.Hooks = append(u.Hooks, &SQLiteHook{Binary: c.SQLite3Binary, Path: f.Path, Name: f.Name, Runner: r})
+		}
+		for _, f := range a.VolumeSQLite {
+			name := strings.NewReplacer("/", "_").Replace(f.Claim + "_" + f.Path)
+			u.Hooks = append(u.Hooks, &SQLiteHook{Binary: c.SQLite3Binary, Path: volumeFilePath(c.StorageRoots, f), Name: name, Runner: r})
 		}
 		units = append(units, u)
 	}
