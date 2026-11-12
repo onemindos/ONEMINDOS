@@ -17,6 +17,8 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 SRC=$(cd "$SCRIPT_DIR/.." && pwd)
 # shellcheck source=deploy/pins.env
 . "$SCRIPT_DIR/pins.env"
+# shellcheck source=deploy/backup.sh
+. "$SCRIPT_DIR/backup.sh"
 
 PREFIX=/opt/onemind
 ETC=/etc/onemind
@@ -85,7 +87,7 @@ banner
 # ------------------------------------------------------------------------------------------
 uninstall() {
   log "stopping and removing OneMind services"
-  for u in onemind-gateway onemindd onemind-nats; do
+  for u in onemind-gateway onemind-backup onemindd onemind-nats; do
     systemctl disable --now "$u" 2>/dev/null || true
     rm -f "/etc/systemd/system/$u.service"
   done
@@ -94,9 +96,9 @@ uninstall() {
   if [ -x "$BIN/k3s-uninstall.sh" ]; then log "removing k3s server (and its data)"; "$BIN/k3s-uninstall.sh"; fi
   if [ -x "$BIN/k3s-agent-uninstall.sh" ]; then log "removing k3s agent"; "$BIN/k3s-agent-uninstall.sh"; fi
   rm -f /etc/apt/apt.conf.d/52onemind-security-only /etc/needrestart/conf.d/50-onemind.conf
-  rm -rf "$PREFIX" "$ETC" "$CACHE" /var/lib/onemind-nats /var/lib/private/onemind-nats
+  rm -rf "$PREFIX" "$ETC" "$CACHE" /var/lib/onemind-nats /var/lib/private/onemind-nats /usr/lib/onemind/restic
   if [ "$PURGE" = 1 ]; then
-    rm -rf "$STATE" /var/lib/onemindd
+    rm -rf "$STATE" /var/lib/onemindd /var/lib/onemind-backup
     id onemind >/dev/null 2>&1 && userdel onemind
     log "purged $STATE (database, audit log)"
   else
@@ -556,6 +558,7 @@ if [ "$ROLE" = hub ]; then
   gateway_tokens
   HUB_URL=${HUB:-"http://$(primary_ip):8080"}
   gateway_service "$HUB_URL"
+  backup_setup
   JOIN=$(cat /var/lib/rancher/k3s/server/agent-token)
   banner
   log "hub ready: dashboard and API at $HUB_URL (and http://127.0.0.1:8080 on this box)"
