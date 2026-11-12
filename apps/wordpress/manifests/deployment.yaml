@@ -42,8 +42,11 @@ spec:
           - name: net.ipv4.ip_unprivileged_port_start
             value: "0"
       initContainers:
-        # Generates the database password once. Mode 0640 with group 33: the MariaDB sidecar reads it
-        # through the pod's fsGroup.
+        # Generates the database password once. Mode 0640 with group 33: the MariaDB sidecar (UID 999)
+        # reads it through the pod's fsGroup. The data directory is made group-writable for the same
+        # reason (the kubelet would create a missing subPath as root, and this step runs as UID 33).
+        # It also creates the web root owned by UID 33: on first start the image's entrypoint copies
+        # WordPress in with tar, which must be able to chmod the target directory.
         - name: db-password
           image: docker.io/library/wordpress:7.1.4-php8.4-apache@sha256:63dbbdf2c9ea29a2e4f417c0d4e7c4b821725d115127f70838dbbc5051ee4db0
           command:
@@ -51,7 +54,8 @@ spec:
             - -c
             - |
               set -eu
-              mkdir -p /mnt/mysql /mnt/onemind
+              mkdir -p /mnt/mysql /mnt/onemind /html/html
+              chmod 0770 /mnt/mysql
               f=/mnt/onemind/db-password
               if [ ! -s "$f" ]; then
                 umask 027
@@ -71,6 +75,8 @@ spec:
           volumeMounts:
             - name: db
               mountPath: /mnt
+            - name: html
+              mountPath: /html
         - name: db
           image: docker.io/library/mariadb:11.8.9-noble@sha256:d36f18d65a0459510b8b0f643b226a6d299e3206486e2b64ff20754a6d291707
           restartPolicy: Always
@@ -168,6 +174,7 @@ spec:
           volumeMounts:
             - name: html
               mountPath: /var/www/html
+              subPath: html
             - name: db
               mountPath: /onemind
               subPath: onemind
