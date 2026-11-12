@@ -7,6 +7,13 @@ A plain-language record of everything added to this repo, newest first.
 
 ## Unreleased / in progress
 
+A5 / #56 integration checkpoint: preserves main's H-31 alert-fix scope/passkey gates
+and H-32 node cap with the canonical route-authz inventory. Requires the shipped
+sandbox checker/rules and adds direct production-boundary regression controls for
+SSRF, bounded MCP copying and denial audit. Full backend/HTTP/security acceptance
+is still open; existing strict-xfail findings are not an all-green delivery, and
+cleanup-dependent tests require their bounded deletion authorization.
+
 Branches with work that is not on `main` yet (as of 2026-11-12):
 
 | Branch | PR | What it adds |
