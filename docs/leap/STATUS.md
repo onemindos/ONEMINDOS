@@ -54,14 +54,18 @@
 | W2-DEPLOY | Developer install: `install.sh --role hub` or `node`, compose dev hub… | in-progress | `feat/deploy-v0` | – (6 commits) |
 | W2-HERMES | Hermes packaged as `apps/hermes-agent`, an agent principal | todo | `feat/app-hermes` (empty) | – |
 | W2-SEEDS | Wave-2 seed apps | todo | `feat/apps-wave2` (empty) | – |
-| PA-ALIGN | Core alignment against the leading self-hosted OSes | in-progress | `docs/core-architecture` | – (2 commits with PA-ARCH) |
-| PA-ARCH | Phase-B architecture docs and `CONTRACT-12-DRAFT.md` | in-progress | `docs/core-architecture` | – (committed, with PA-ALIGN) |
-| PA-THREAT | Threat model and ranked hardening backlog (H-ids) | in-progress | `docs/security-threat-model` | – (1 commit) |
-| PA-UI | Design system `@onemind/ui`: tokens and components, light and dark | in-progress | `feat/design-system` | – (2 commits) |
-| PA-SITE | Website (Astro + Starlight) committed | in-progress | `feat/website` | – (1 commit) |
-| PA-MOBILE | Mobile shell (Expo) committed | in-progress | `feat/mobile-shell` | – (1 commit) |
+| PA-ALIGN | Core alignment against the leading self-hosted OSes | done | `docs/core-architecture` | [#17](https://github.com/onemindos/ONEMINDOS/pull/17) |
+| PA-ARCH | Phase-B architecture docs and `CONTRACT-12-DRAFT.md` | done | `docs/core-architecture` | [#17](https://github.com/onemindos/ONEMINDOS/pull/17) |
+| PA-THREAT | Threat model and ranked hardening backlog (H-ids) | done | `docs/security-threat-model` | [#18](https://github.com/onemindos/ONEMINDOS/pull/18) |
+| PA-UI | Design system `@onemind/ui`: tokens and components, light and dark | done | `feat/design-system` | [#20](https://github.com/onemindos/ONEMINDOS/pull/20) |
+| PA-SITE | Website (Astro + Starlight) committed | done | `feat/website` | [#19](https://github.com/onemindos/ONEMINDOS/pull/19) |
+| PA-MOBILE | Mobile shell (Expo) committed | done | `feat/mobile-shell` | [#21](https://github.com/onemindos/ONEMINDOS/pull/21) |
+| MKT-CANDIDATES | Ranked Market candidate list from 7 competitor stores | done | `feat/app-candidates` | [#22](https://github.com/onemindos/ONEMINDOS/pull/22) |
+| CORE-NET-P1 | Mesh (Headscale + DERP), NATS leaf, app proxy, box CA, NAT lab | in-progress | `feat/core-net` | – |
+| UI-LEAP | Parity audit, customization, Home widgets, Store + app management, shell, Settings | in-progress | `feat/ui-leap` | – |
+| MKT-TAXONOMY | App and deployment categories | in-progress | `feat/app-taxonomy` | – |
 | PLAN-E1 | Workbench (G0) and gate content re-synced to D-007 | todo | founder lab kit | – |
-| LEAP-DOCS | Leap specs, workstreams, backlog, status, decisions, CHANGELOG | in-progress | `docs/leap` | – (committed, not pushed) |
+| LEAP-DOCS | Leap specs, workstreams, backlog, status, decisions, CHANGELOG | done | `docs/leap` | [#16](https://github.com/onemindos/ONEMINDOS/pull/16) |
 
 ### S1: contract §12, plumbing, sandbox, SDK/CLI/MCP foundations (weeks 1–5)
 
