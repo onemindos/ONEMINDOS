@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# Test fixture: an app that declares its own agent principal (contract §11.2).
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: hermes-like
+  name: Hermes-like agent
+  version: "0.0.1"
+  description: Test app that gets an agent principal at install
+  category: ai
+  icon: icon.svg
+  license: MIT
+  source: https://example.com/hermes-like
+  links:
+    docs: https://example.com/docs
+    github: https://github.com/example/hermes-like
+    website: javascript:alert(1)
+  tier: community
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 64}
+  web: {port: 8642}
+  manifests: manifests/
+  agent: {principal: true, secret: hermes-like-onemind}

@@ -132,6 +132,87 @@ describe('Market → Approvals', () => {
   });
 });
 
+describe('Market trust info (§11.4)', () => {
+  it('a card shows links, licence, tier and last scan next to Install', async () => {
+    renderApp({ token: 'owner-demo', route: '/market' });
+    const card = await screen.findByRole('article', { name: 'Jellyfin' });
+    const links = within(card).getByRole('list', { name: 'Links for Jellyfin' });
+    expect(within(links).getByRole('link', { name: /^Docs/ })).toHaveAttribute('href', 'https://jellyfin.org/docs/');
+    expect(within(links).getByRole('link', { name: /^GitHub/ })).toHaveAttribute(
+      'href',
+      'https://github.com/jellyfin/jellyfin',
+    );
+    expect(within(links).getByRole('link', { name: /^Website/ })).toBeInTheDocument();
+    expect(within(links).getByRole('link', { name: /^Support/ })).toBeInTheDocument();
+    expect(within(card).getByText('GPL-2.0-only')).toBeInTheDocument();
+    expect(within(card).getByText('Community')).toBeInTheDocument();
+    expect(within(card).getByText(/^\d{1,2} \w{3} \d{4} · passed$/)).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Install Jellyfin' })).toBeEnabled();
+    expect(await seriousViolations()).toEqual([]);
+  });
+
+  it.each([
+    ['Node-RED', /more than 7 days ago/],
+    ['Mosquitto', /Not scanned yet/],
+    ['Zigbee2MQTT', /Failed its last security scan/],
+  ])('disables Install for %s and says why', async (name, reason) => {
+    renderApp({ token: 'owner-demo', route: '/market' });
+    const card = await screen.findByRole('article', { name });
+    const button = within(card).getByRole('button', { name: `Install ${name}` });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(reason);
+    expect(within(card).getByText(reason)).toBeInTheDocument();
+  });
+
+  it('a missing scan and tier read as such; Remove is never blocked by a scan', async () => {
+    const spy = vi.spyOn(MockApi.prototype, 'apps').mockImplementation(async () =>
+      makeApps().map((a) => (a.id === 'uptime-kuma' ? { ...a, scan: null } : a)),
+    );
+    try {
+      renderApp({ token: 'owner-demo', route: '/market' });
+      const mosq = await screen.findByRole('article', { name: 'Mosquitto' });
+      expect(within(mosq).getByText('Not scanned')).toBeInTheDocument();
+      expect(within(mosq).getByText('Not rated')).toBeInTheDocument();
+      const kuma = screen.getByRole('article', { name: 'Uptime Kuma' });
+      expect(within(kuma).getByRole('button', { name: 'Remove Uptime Kuma' })).toBeEnabled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe('App page', () => {
+  it('opens from the Market card and installs from there', async () => {
+    const { getApi } = renderApp({ token: 'owner-demo', route: '/market' });
+    const user = userEvent.setup();
+    const card = await screen.findByRole('article', { name: 'Jellyfin' });
+    await user.click(within(card).getByRole('link', { name: 'Jellyfin' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Jellyfin' })).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Links for Jellyfin' })).toBeInTheDocument();
+    expect(screen.getByText('Community')).toBeInTheDocument();
+    expect(screen.getByText(/· passed$/)).toBeInTheDocument();
+    expect(await seriousViolations()).toEqual([]);
+    await user.click(screen.getByRole('button', { name: 'Install Jellyfin' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Approvals' })).toBeInTheDocument();
+    expect((await getApi().actions()).some((a) => a.params.app_id === 'jellyfin')).toBe(true);
+  });
+
+  it('disables Install with the reason for a failed scan', async () => {
+    renderApp({ token: 'owner-demo', route: '/market/zigbee2mqtt' });
+    const button = await screen.findByRole('button', { name: 'Install Zigbee2MQTT' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(/Failed its last security scan/);
+    expect(screen.getByText('Blocked')).toBeInTheDocument();
+    expect(await seriousViolations()).toEqual([]);
+  });
+
+  it('says so for an unknown app', async () => {
+    renderApp({ token: 'owner-demo', route: '/market/no-such-app' });
+    expect(await screen.findByRole('heading', { level: 1, name: 'App not found' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to the Market' })).toBeInTheDocument();
+  });
+});
+
 describe('Approvals', () => {
   it('shows requester kind, exact params and expiry; the owner can approve', async () => {
     const { getApi } = renderApp({ token: 'owner-demo', route: '/approvals' });

@@ -109,6 +109,9 @@ class ActionRepository(Protocol):
     def get_app_state(self, app_id: str) -> AppState | None: ...
     def set_app_state(self, app_id: str, status: str | None, now: datetime, action_id: str | None = None) -> None: ...
     def list_app_states(self) -> dict[str, AppState]: ...
+    def issue_agent_token(self, principal_id: str, app_id: str, token_hash: str, now: datetime) -> None: ...
+    def agent_principal_for(self, token_hash: str) -> str | None: ...
+    def revoke_agent_token(self, principal_id: str, now: datetime) -> bool: ...
 
 
 class Base(DeclarativeBase):
@@ -138,6 +141,17 @@ class AppStateRow(Base):
     status: Mapped[str] = mapped_column(String(32))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     action_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+
+class AgentTokenRow(Base):
+    """§11.2 agent principals issued to apps. Only the sha256 of the token is stored."""
+
+    __tablename__ = "agent_tokens"
+    principal_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    app_id: Mapped[str] = mapped_column(String(64))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 def _to_action(r: ActionRow) -> Action:
@@ -311,6 +325,38 @@ class SqlActionRepository:
                 r.app_id: AppState(r.app_id, r.status, utc(r.updated_at), r.action_id)
                 for r in s.scalars(select(AppStateRow))
             }
+
+
+    # ---- §11.2 agent principals ---------------------------------------------------------
+    def issue_agent_token(self, principal_id: str, app_id: str, token_hash: str, now: datetime) -> None:
+        """Store (or replace, on reinstall) the token hash of an app's agent principal."""
+        values = {"app_id": app_id, "token_hash": token_hash, "issued_at": now, "revoked_at": None}
+        with self._session.begin() as s:
+            s.execute(
+                self._insert()(AgentTokenRow)
+                .values(principal_id=principal_id, **values)
+                .on_conflict_do_update(index_elements=[AgentTokenRow.principal_id], set_=values)
+            )
+
+    def agent_principal_for(self, token_hash: str) -> str | None:
+        """The principal id whose live (not revoked) token has this hash."""
+        with self._session() as s:
+            return s.scalars(
+                select(AgentTokenRow.principal_id).where(
+                    AgentTokenRow.token_hash == token_hash, AgentTokenRow.revoked_at.is_(None)
+                )
+            ).first()
+
+    def revoke_agent_token(self, principal_id: str, now: datetime) -> bool:
+        """Revoke; True if a live token was revoked. The row stays as a record of the grant."""
+        with self._session.begin() as s:
+            res = s.execute(
+                update(AgentTokenRow)
+                .where(AgentTokenRow.principal_id == principal_id, AgentTokenRow.revoked_at.is_(None))
+                .values(revoked_at=now)
+                .returning(AgentTokenRow.principal_id)
+            )
+            return res.first() is not None
 
 
 def new_action_id() -> str:

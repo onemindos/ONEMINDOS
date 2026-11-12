@@ -457,6 +457,54 @@ a.app-tile:hover {
   gap: 12px;
 }
 
+.app-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 4px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.app-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.request {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.install-reason {
+  margin: 0;
+  max-width: 34ch;
+}
+.app-detail-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.6rem;
+}
+.app-detail h2 {
+  font-size: 1.1rem;
+  margin: 20px 0 6px;
+}
+.app-detail-install {
+  margin: 12px 0;
+}
+.badge-tier-verified {
+  background: var(--ok-bg);
+  color: var(--ok-ink);
+}
+.badge-tier-community,
+.badge-tier-none {
+  background: var(--off-bg);
+  color: var(--off-ink);
+}
+.badge-tier-blocked {
+  background: var(--err-bg);
+  color: var(--err-ink);
+}
+
 /* ---------- approvals ---------- */
 .action-new {
   box-shadow: 0 0 0 3px var(--focus), 0 10px 30px rgba(0, 0, 0, 0.18);

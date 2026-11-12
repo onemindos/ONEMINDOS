@@ -15,11 +15,45 @@ from pathlib import Path
 
 import yaml
 
+from .scan import ScanRecord, read_scan
+
 log = logging.getLogger("onemind.catalog")
 
 # app-<id> must stay a valid Kubernetes namespace (DNS label, max 63 chars).
 APP_ID_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$")
 MANIFEST = "onemind.app.yaml"
+# Kubernetes Secret names are DNS-1123 subdomains.
+SECRET_NAME_RE = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
+LINK_KEYS = ("docs", "github", "website", "support")
+TIERS = ("verified", "community", "blocked")
+
+
+def _http_url(value: object) -> str | None:
+    """Only absolute http(s) links reach the dashboard (never javascript: or data: URLs)."""
+    if isinstance(value, str) and re.match(r"^https?://[^\s/]+", value, re.IGNORECASE):
+        return value
+    return None
+
+
+@dataclass(frozen=True)
+class AgentSpec:
+    """§11.2 spec.agent: the app gets its own agent principal, delivered in Secret `secret`."""
+
+    principal_id: str
+    secret: str
+
+
+def agent_spec_errors(spec: object) -> list[str]:
+    agent = spec.get("agent") if isinstance(spec, dict) else None
+    if agent is None:
+        return []
+    if not isinstance(agent, dict) or not isinstance(agent.get("principal", False), bool):
+        return ["spec.agent must be a mapping {principal: bool, secret: <name>}"]
+    if agent.get("principal"):
+        secret = agent.get("secret")
+        if not isinstance(secret, str) or len(secret) > 253 or not SECRET_NAME_RE.match(secret):
+            return ["spec.agent.secret must be a Kubernetes Secret name (DNS-1123 subdomain)"]
+    return []
 
 
 @dataclass(frozen=True)
@@ -36,11 +70,24 @@ class AppEntry:
             raise ValueError(f"app {self.id}: spec.manifests escapes the app folder")
         return path
 
+    @property
+    def agent(self) -> AgentSpec | None:
+        agent = (self.manifest.get("spec") or {}).get("agent")
+        if isinstance(agent, dict) and agent.get("principal") is True:
+            return AgentSpec(principal_id=f"agent:{self.id}", secret=str(agent["secret"]))
+        return None
+
+    @property
+    def scan(self) -> ScanRecord | None:
+        return read_scan(self.dir)
+
     def summary(self) -> dict:
         md = self.manifest.get("metadata") or {}
         spec = self.manifest.get("spec") or {}
         # Defensive: a JSON Schema from the apps stream may be looser than builtin_check.
         requires, web, archs = spec.get("requires"), spec.get("web"), spec.get("archs")
+        links = md.get("links") if isinstance(md.get("links"), dict) else {}
+        scan = self.scan
         return {
             "id": self.id,
             "name": md.get("name"),
@@ -53,6 +100,10 @@ class AppEntry:
             "archs": list(archs) if isinstance(archs, list) else [],
             "requires": dict(requires) if isinstance(requires, dict) else {},
             "web_port": web.get("port") if isinstance(web, dict) else None,
+            # §11.4 additions.
+            "links": {k: _http_url(links.get(k)) for k in LINK_KEYS},
+            "tier": md.get("tier") if md.get("tier") in TIERS else None,
+            "scan": scan.summary() if scan is not None else None,
         }
 
 
@@ -85,6 +136,7 @@ def builtin_check(doc: object) -> list[str]:
     port = (spec.get("web") or {}).get("port") if isinstance(spec.get("web"), dict) else None
     if port is not None and not (isinstance(port, int) and 1 <= port <= 65535):
         errs.append("spec.web.port must be 1-65535")
+    errs.extend(agent_spec_errors(spec))
     return errs
 
 
@@ -120,6 +172,7 @@ class Catalog:
             app_id = md.get("id") if isinstance(md, dict) else None
             if not isinstance(app_id, str) or not APP_ID_RE.match(app_id):
                 errs.append("metadata.id must be a lowercase DNS label (max 59 chars)")
+            errs.extend(agent_spec_errors(doc.get("spec") if isinstance(doc, dict) else None))
         return errs
 
     def load(self) -> dict[str, AppEntry]:
