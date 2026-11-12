@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# Raspberry Pi 5 layout = BD-07 (brief 30): the F-PI5 kit's layout with 04 §11's labels. MBR, as the
+# kit desk-checked it [C-LAB-rauc-1152-017]; the firmware reads autoboot.txt from partition 1 and
+# boots partition 2 or 3. Pi 5 tryboot on a GPT disk is UNVERIFIED, so GPT is not used.
+# One image for SD, USB SSD and NVMe: root=PARTUUID works on all three; partitions 4 and 7 grow to
+# the device at first boot (onemind-rpi5-grow). Platform nodes (hub) belong on NVMe or USB SSD
+# (BD-07); SD suits worker and leaf.
+# MBR has no partition names, so "label" is the contract name used by docs and tests; on disk the
+# partitions are found by PARTUUID 4f4d5035-NN (board.yaml disk_id) and the filesystem labels below.
+table: mbr
+disk_size: 20GiB            # 17.1 GiB of slots; data starts at ~2.9 GiB and grows. Needs a >= 32 GB card or disk.
+partitions:
+  - {label: onemind-autoboot, number: 1, size: 64MiB,  type: fat32,    fs: vfat, fs_label: ONEMIND}  # autoboot.txt, slot-X.good, onemind.conf
+  - {label: onemind-boot-a,   number: 2, size: 512MiB, type: fat32,    fs: vfat, fs_label: OM-BOOT, slot: A}  # same image in both slots (a bundle writes it to the other)
+  - {label: onemind-boot-b,   number: 3, size: 512MiB, type: fat32,    fs: vfat, fs_label: OM-BOOT, slot: B}
+  - {label: onemind-extended, number: 4, size: rest,   type: extended}
+  - {label: onemind-system-a, number: 5, size: 8GiB,   type: linux,    fs: rootfs, slot: A}
+  - {label: onemind-system-b, number: 6, size: 8GiB,   type: linux,    fs: rootfs, slot: B}
+  - {label: onemind-data,     number: 7, size: rest,   type: linux,    fs: ext4, fs_label: onemind-data}

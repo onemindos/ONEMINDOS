@@ -113,6 +113,29 @@ firmware:
   ovmf: from the Debian snapshot above (lab hash of OVMF_CODE_4M.fd 624e06de…e4e0, ovmf 2025.02-8+deb13u1)
   seabios: from the Debian snapshot above (bios-256k.bin shipped with qemu-system-x86)
 
+rpi5:               # board rpi5 (brief 30 B2 rpi5 row, BD-07); os/boards/rpi5/fetch-rpi.sh, pin-rpi.sh
+  archive:
+    url: https://archive.raspberrypi.com/debian  # suite trixie, component main; no snapshot service, but the pool keeps old versions
+    key_fingerprint: CF8A1AF502A2AA2D763BAE7E82B129927FA3303E   # "Raspberry Pi Archive Signing Key"; signing subkey DE5C1FD28F18825391E92B58F7BB0489EDD83D6C
+    keyring_deb: pool/main/r/raspberrypi-archive-keyring/raspberrypi-archive-keyring_2025.1+rpt1_all.deb
+    keyring_deb_sha256: 2e727149d7acb8cc7f604e66d0049161039c8aa1eaf1175e54f9e69d963d60e4
+    source: InRelease dated 2026-11-12T09:00:22Z verified with gpgv against that key; Packages.gz (arm64) sha256 7c6985732fb21d3cd25ab38b59aba36c6b69a36682e588199d139f1e6e14657e from it, read 2026-11-12
+  kernel:           # both flavours ship in each boot slot: kernel_2712.img (16 KiB pages, default) and kernel8.img (4 KiB)
+    version: 6.18.60-1+rpt1
+    debs:
+      - {path: pool/main/l/linux/linux-base-6.18.60+rpt-rpi-2712_6.18.60-1+rpt1_arm64.deb,  sha256: c2406f32e9653b01095a3d9561d01bcf3f2960f204e42ce36ced8aab24fa9518}
+      - {path: pool/main/l/linux/linux-image-6.18.60+rpt-rpi-2712_6.18.60-1+rpt1_arm64.deb, sha256: 663099a4badd7e583ae28bbb0ef60fc3b6d1faafabbb8c6252a989730b9224e9}
+      - {path: pool/main/l/linux/linux-base-6.18.60+rpt-rpi-v8_6.18.60-1+rpt1_arm64.deb,    sha256: 0d27ecbe7e8e48328d4c293e9c61e8e0e1b0536d63bb3194b8d0050b24b96626}
+      - {path: pool/main/l/linux/linux-image-6.18.60+rpt-rpi-v8_6.18.60-1+rpt1_arm64.deb,   sha256: fbd80d4c6b488b099cfd17370a9b219b17215ee1c909c1839f8c040d098acf73}
+    source: the arm64 Packages index above (Filename + SHA256), files re-hashed after download, 2026-11-12
+  eeprom:           # the bootloader the image targets; NOT shipped (no rpi-eeprom, no auto-update, E10). Updated by the owner on purpose.
+    release: "2026-09-25"
+    package: rpi-eeprom 28.36-1 (pool/main/r/rpi-eeprom/rpi-eeprom_28.36-1_all.deb, sha256 46f3726ea2d76f836c8368cedf7cb151ce0bd0f4028da39e5d026959285a40b7)
+    image: firmware/raspberrypi/bootloader-2712/default/pieeprom-2026-09-25.bin
+    image_sha256: 02c4daa25df5af66af50da63ee97dfd03b21a40ac5b495a1c447979a2aa00edd
+    build_timestamp: 1790351949     # BUILD_TIMESTAMP in that image; compared with /proc/device-tree/chosen/bootloader/build-timestamp
+    status: untested on hardware until LT-PI5-01 records the EEPROM in use
+
 jetson:             # os/boards/jetson-orin (D-007: NVIDIA L4T on Jetson). Never redistributed by OneMind: the owner's
                     # host downloads these (build-flash-package.sh checks every sha256; pins.sh carries the same values).
   target: "39.2.1"  # JetPack 7.2.1, the OneMind Jetson target (brief 30 §6 B2 "JetPack 7.2+")
