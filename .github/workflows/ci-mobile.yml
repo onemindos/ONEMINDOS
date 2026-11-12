@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: Apache-2.0
+# Phone app (mobile/): tests on every change, and an Android debug build that compiles the native
+# modules (UnifiedPush, passkeys) and checks that no Google Play Services auth library is linked.
+name: ci-mobile
+
+on:
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - 'ui/src/tokens/**'
+      - '.github/workflows/ci-mobile.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - 'ui/src/tokens/**'
+      - '.github/workflows/ci-mobile.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Design tokens match ui/src/tokens/tokens.ts
+        run: npm run tokens -- --check
+      - run: npm run typecheck
+      - run: npm test -- --ci
+
+  android:
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Generate the Android project (not committed; Expo continuous native generation)
+        run: npx expo prebuild --platform android --no-install
+      - name: Build a debug APK (JDK 17 and the Android SDK come with the runner image)
+        run: |
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          cd android && ./gradlew --no-daemon assembleDebug
+      - name: No Google Play Services auth library in the app (plugins/withoutPlayServicesCredentials.js)
+        run: |
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          cd android && ./gradlew --no-daemon -q :app:dependencies --configuration releaseRuntimeClasspath > deps.txt
+          if grep -E "play-services-auth|credentials-play-services-auth" deps.txt; then
+            echo "a proprietary Play Services auth library is linked" >&2
+            exit 1
+          fi
