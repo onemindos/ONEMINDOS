@@ -13,6 +13,8 @@ export const href = {
   approval: (id: string) => `/approvals?highlight=${encodeURIComponent(id)}`,
   activity: '/activity',
   nodes: '/nodes',
+  alerts: '/alerts',
+  coming: '/coming',
   settings: '/settings',
   setting: (id: string) => `/settings/${id}`,
 };

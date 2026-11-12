@@ -322,7 +322,7 @@ export function NotificationsSection({ data, now, onIntent, onRetry }: SectionPr
           const validQuiet = Number.isFinite(minutesOf(d.quiet.start)) && Number.isFinite(minutesOf(d.quiet.end));
           return (
             <>
-              <Group title="Channels" aside={<Button size="sm" icon="plus" disabled={!live} onClick={() => onIntent({ type: 'notify.route.add', params: {}, mode: 'request', title: 'Add a notification channel', call: 'POST /v1/notify/routes' })}>Add</Button>}>
+              <Group title="Channels" aside={<Button size="sm" icon="plus" disabled={!live} onClick={() => onIntent({ type: 'notify.route.add', params: {}, mode: 'request', title: 'Add a notification channel', call: 'POST /v1/notifications/channels' })}>Add</Button>}>
                 {d.channels.length === 0 ? (
                   <Empty icon="bell" title="Only in the app" command="onemind notify routes add">
                     Add your phone so a backup failure or a waiting request reaches you away from the screen.
@@ -346,7 +346,7 @@ export function NotificationsSection({ data, now, onIntent, onRetry }: SectionPr
                               <select
                                 value={c.minSeverity}
                                 disabled={!live || c.kind === 'in-app'}
-                                onChange={(e) => onIntent({ type: 'notify.route.set', params: { id: c.id, min_severity: e.target.value }, mode: 'instant', title: `${c.label}: ${SEV_LABEL[e.target.value as Severity]}`, call: `PUT /v1/notify/routes/${c.id}` })}
+                                onChange={(e) => onIntent({ type: 'notify.route.set', params: { id: c.id, min_severity: e.target.value }, mode: 'instant', title: `${c.label}: ${SEV_LABEL[e.target.value as Severity]}`, call: `PUT /v1/notifications/channels/${c.id}` })}
                               >
                                 {SEVERITY.map((s) => (
                                   <option key={s} value={s}>
@@ -356,7 +356,7 @@ export function NotificationsSection({ data, now, onIntent, onRetry }: SectionPr
                               </select>
                             </label>
                             {c.kind !== 'in-app' && (
-                              <Button size="sm" variant="ghost" disabled={!live} onClick={() => onIntent({ type: 'notify.test', params: { id: c.id }, mode: 'instant', title: `Test sent to ${c.label}`, call: `POST /v1/notify/routes/${c.id}/test` })}>
+                              <Button size="sm" variant="ghost" disabled={!live} onClick={() => onIntent({ type: 'notify.test', params: { id: c.id }, mode: 'instant', title: `Test sent to ${c.label}`, call: `POST /v1/notifications/channels/${c.id}/test` })}>
                                 Test
                               </Button>
                             )}
@@ -373,13 +373,13 @@ export function NotificationsSection({ data, now, onIntent, onRetry }: SectionPr
                     icon="clock"
                     title={validQuiet ? `From ${d.quiet.start} to ${d.quiet.end}` : 'Quiet hours are not set correctly'}
                     description="Pushes wait until the morning; they still appear in the app."
-                    trailing={<Switch checked={d.quiet.enabled} label="Quiet hours" disabled={!live} onToggle={() => onIntent({ type: 'notify.quiet.set', params: { enabled: !d.quiet.enabled }, mode: 'instant', title: d.quiet.enabled ? 'Quiet hours off' : 'Quiet hours on', call: 'PUT /v1/notify/quiet' })} />}
+                    trailing={<Switch checked={d.quiet.enabled} label="Quiet hours" disabled={!live} onToggle={() => onIntent({ type: 'notify.quiet.set', params: { enabled: !d.quiet.enabled }, mode: 'instant', title: d.quiet.enabled ? 'Quiet hours off' : 'Quiet hours on', call: 'PUT /v1/notifications/preferences' })} />}
                   />
                   <Row
                     icon="alert"
                     title="Critical alerts break through"
                     description="A failing disk or a broken audit chain wakes you even during quiet hours."
-                    trailing={<Switch checked={d.quiet.allowCritical} label="Critical alerts break through" disabled={!live} onToggle={() => onIntent({ type: 'notify.quiet.set', params: { allow_critical: !d.quiet.allowCritical }, mode: 'instant', title: 'Changed critical alerts', call: 'PUT /v1/notify/quiet' })} />}
+                    trailing={<Switch checked={d.quiet.allowCritical} label="Critical alerts break through" disabled={!live} onToggle={() => onIntent({ type: 'notify.quiet.set', params: { allow_critical: !d.quiet.allowCritical }, mode: 'instant', title: 'Changed critical alerts', call: 'PUT /v1/notifications/preferences' })} />}
                   />
                 </Rows>
               </Group>
@@ -387,7 +387,7 @@ export function NotificationsSection({ data, now, onIntent, onRetry }: SectionPr
           );
         }}
       </Async>
-      <CallHint calls={['GET /v1/notify/routes', 'POST /v1/notify/routes/{id}/test', 'PUT /v1/notify/quiet']} />
+      <CallHint calls={['GET /v1/notifications/channels', 'POST /v1/notifications/channels/{id}/test', 'PUT /v1/notifications/preferences']} />
     </>
   );
 }
@@ -430,14 +430,14 @@ export function AutomationSection({ data, now, onIntent, onRetry }: SectionProps
                   }
                   description={`${TRIGGER[r.trigger.kind]}: ${r.trigger.detail} → requests ${r.creates}`}
                   meta={`Last run ${ago(r.last_run_at, now)}${r.next_run_at ? ` · next ${formatIn(r.next_run_at, now)}` : ''}`}
-                  trailing={<Switch checked={r.state === 'on'} label={`Rule ${r.name}`} disabled={!live} onToggle={() => onIntent({ type: 'automation.set', params: { id: r.id, state: r.state === 'on' ? 'paused' : 'on' }, mode: r.state === 'on' ? 'instant' : 'request', title: r.state === 'on' ? `Paused ${r.name}` : `Turn on ${r.name}`, call: `PUT /v1/automations/${r.id}` })} />}
+                  trailing={<Switch checked={r.state === 'on'} label={`Rule ${r.name}`} disabled={!live} onToggle={() => onIntent({ type: 'automation.set', params: { id: r.id, state: r.state === 'on' ? 'paused' : 'on' }, mode: r.state === 'on' ? 'instant' : 'request', title: r.state === 'on' ? `Paused ${r.name}` : `Turn on ${r.name}`, call: `PUT /v1/automation/rules/${r.id}` })} />}
                 />
               ))}
             </Rows>
           </Group>
         )}
       </Async>
-      <CallHint calls={['GET /v1/automations', 'POST /v1/automations/{id}/dry-run', 'PUT /v1/automations/{id}   (pausing is instant; turning on is a request)']} />
+      <CallHint calls={['GET /v1/automation/rules', 'POST /v1/automation/rules/{id}/dry-run', 'PUT /v1/automation/rules/{id}   (pausing is instant; turning on is a request)']} />
     </>
   );
 }
