@@ -68,17 +68,22 @@ LibreChat is a web chat for AI models with agents, MCP tools, file uploads, pres
 Source: [librechat.ai/docs](https://www.librechat.ai/docs) and the docs page "Ollama".
 
 1. Install Ollama and pull a model (see its README), then install LibreChat and approve the action. It installs into `app-librechat`.
-2. Forward the port and open http://localhost:3080:
+2. Create your account. Sign-up is off (`ALLOW_REGISTRATION: "false"`, also upstream's behaviour when unset), so nobody who reaches the page first can claim it. Accounts are made with upstream's `create-user` script (`config/create-user.js`), which asks for the password or generates one when left blank. The first account becomes the administrator:
+   ```sh
+   kubectl -n app-librechat exec -it deploy/librechat -c api -- npm run create-user -- <email> "<name>" <username>
+   ```
+   Repeat for each household member.
+3. Forward the port, open http://localhost:3080 and sign in:
    ```sh
    kubectl -n app-librechat port-forward svc/librechat 3080:3080
    ```
-3. Register the first account; upstream allows registration by default (`ALLOW_REGISTRATION`). Set `ALLOW_REGISTRATION` to `"false"` in the Deployment once every household member has an account.
 4. Pick "Ollama" as the endpoint and a pulled model.
 
 ## Not done yet
 
 - Meilisearch (message search), the RAG API and the admin panel are not packaged.
 - Hosted providers need their keys in `librechat.yaml` or the environment; none is configured.
+- Scheduled chats are off: without Redis the log says "scheduler NOT started" at every start. This pod is one process, the case `.env.example` describes for `SCHEDULES_SINGLE_PROCESS=true`; turning them on is a later, deliberate choice.
 - No HTTPS or LAN hostname: OneMind v0 has no ingress or certificates for apps, so the web UI is reached through a port-forward until the app proxy exists.
 - `readOnlyRootFilesystem` is not set: it has not been tested against this image.
 - Resource figures are OneMind choices where upstream gives none; they are checked against real use when the CI smoke test (contract §9.4 check 9) runs.

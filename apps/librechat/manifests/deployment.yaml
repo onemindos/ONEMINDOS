@@ -153,6 +153,12 @@ spec:
             # Message search needs Meilisearch, which is not packaged.
             - name: SEARCH
               value: "false"
+            # Sign-up is off, which is also upstream's behaviour when the variable is unset
+            # (api/server/middleware/validateRegistration.js answers 403). The owner creates
+            # accounts with upstream's create-user script (README "First run"), so nobody who
+            # reaches the page first can register and become the admin.
+            - name: ALLOW_REGISTRATION
+              value: "false"
             # CREDS_KEY, CREDS_IV, JWT_SECRET and JWT_REFRESH_SECRET are left unset, so LibreChat
             # generates them on the first start and keeps them in this file (mode 0600, on the
             # data volume), as upstream's docker-compose.yml does (packages/api/src/credentials.ts).
