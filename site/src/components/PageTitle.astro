@@ -1,0 +1,27 @@
+---
+// SPDX-License-Identifier: Apache-2.0
+// Starlight PageTitle override: adds an honest status badge (frontmatter `status`) and a blog byline.
+import Default from '@astrojs/starlight/components/PageTitle.astro';
+
+const data = Astro.locals.starlightRoute.entry.data as {
+  status?: 'works-today' | 'in-review' | 'planned' | 'mixed';
+  date?: Date;
+  author?: string;
+};
+const labels = {
+  'works-today': 'Works today (on main)',
+  'in-review': 'In review (open pull request)',
+  planned: 'Planned (design only)',
+  mixed: 'Partly works today: see the labels below',
+} as const;
+---
+
+<Default />
+{data.status && <p class={`om-status om-status--${data.status}`}>{labels[data.status]}</p>}
+{
+  data.date && (
+    <p class="om-byline">
+      {data.author ?? 'OneMind'} · <time datetime={data.date.toISOString()}>{data.date.toISOString().slice(0, 10)}</time>
+    </p>
+  )
+}

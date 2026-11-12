@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: Apache-2.0
+# Website build check (site/README.md). Builds on PRs; never deploys (hosting is a founder decision).
+# The apps catalog is generated from apps/, so app changes rebuild the site too.
+name: site
+
+on:
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'apps/**'
+      - '.github/workflows/site.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'apps/**'
+      - '.github/workflows/site.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          ASTRO_TELEMETRY_DISABLED: '1'

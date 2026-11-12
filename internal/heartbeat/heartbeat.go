@@ -82,6 +82,33 @@ type Status struct {
 	UptimeS        int64   `json:"uptime_s"`
 	AgentVersion   string  `json:"agent_version"`
 	ObservedAt     string  `json:"observed_at"`
+	// Update is the OS update state (contract §10.1, brief 30 B4.2). It is
+	// optional and additive: omitted when the box has no update service
+	// configured, so heartbeats without it stay valid.
+	Update *Update `json:"update,omitempty"`
+}
+
+// Update states (internal/update keeps the state machine).
+const (
+	UpdateIdle          = "idle"
+	UpdateDownloading   = "downloading"
+	UpdateInstalling    = "installing"
+	UpdatePendingReboot = "pending_reboot"
+	UpdateTrial         = "trial"
+	UpdateCommitted     = "committed"
+	UpdateRolledBack    = "rolled_back"
+	UpdateError         = "error"
+)
+
+// Update reports the box's OS update channel and progress. AvailableVersion
+// and LastCheck are null until a check found something / ran.
+type Update struct {
+	Channel          string  `json:"channel"`
+	CurrentVersion   string  `json:"current_version"`
+	AvailableVersion *string `json:"available_version"`
+	State            string  `json:"state"`
+	LastCheck        *string `json:"last_check"`
+	LastResult       string  `json:"last_result"`
 }
 
 // OS is parsed from /etc/os-release.

@@ -1,0 +1,187 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Generated from src/tokens/tokens.ts by `npm run tokens`. Do not edit by hand. */
+:root {
+  --om-font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --om-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --om-font-size-xs: 0.75rem;
+  --om-font-size-sm: 0.875rem;
+  --om-font-size-md: 1rem;
+  --om-font-size-lg: 1.125rem;
+  --om-font-size-xl: 1.25rem;
+  --om-font-size-2xl: 1.5rem;
+  --om-font-size-3xl: 1.875rem;
+  --om-font-size-4xl: 2.25rem;
+  --om-font-weight-regular: 400;
+  --om-font-weight-medium: 500;
+  --om-font-weight-semibold: 600;
+  --om-font-weight-bold: 700;
+  --om-line-height-tight: 1.25;
+  --om-line-height-normal: 1.5;
+  --om-space-0: 0;
+  --om-space-1: 4px;
+  --om-space-2: 8px;
+  --om-space-3: 12px;
+  --om-space-4: 16px;
+  --om-space-5: 20px;
+  --om-space-6: 24px;
+  --om-space-8: 32px;
+  --om-space-10: 40px;
+  --om-space-12: 48px;
+  --om-space-16: 64px;
+  --om-space-0-5: 2px;
+  --om-radius-xs: 4px;
+  --om-radius-sm: 6px;
+  --om-radius-md: 10px;
+  --om-radius-lg: 14px;
+  --om-radius-xl: 20px;
+  --om-radius-pill: 999px;
+  --om-motion-duration-fast: 120ms;
+  --om-motion-duration-base: 200ms;
+  --om-motion-duration-slow: 320ms;
+  --om-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --om-motion-ease-exit: cubic-bezier(0.3, 0, 1, 1);
+  --om-layout-content-max: 1200px;
+  --om-layout-nav-width: 232px;
+  --om-layout-tabbar-height: 64px;
+  --om-layout-touch-target: 44px;
+  --om-layout-bp-compact: 720px;
+  --om-z-nav: 10;
+  --om-z-dialog: 40;
+  --om-z-toast: 50;
+  --om-color-bg: #f7f9f9;
+  --om-color-surface: #ffffff;
+  --om-color-surface-sunken: #f0f3f3;
+  --om-color-surface-raised: #ffffff;
+  --om-color-border: #e3e8e9;
+  --om-color-border-strong: #cdd5d7;
+  --om-color-text: #131a1d;
+  --om-color-text-muted: #475459;
+  --om-color-text-subtle: #5e6b70;
+  --om-color-accent: #1f6a66;
+  --om-color-accent-hover: #1b5653;
+  --om-color-accent-text: #ffffff;
+  --om-color-accent-soft: #e8f4f3;
+  --om-color-focus: #2f5bea;
+  --om-color-danger: #b42318;
+  --om-color-danger-hover: #8f1c13;
+  --om-color-danger-text: #ffffff;
+  --om-color-overlay: rgba(12, 18, 20, 0.48);
+  --om-color-ok-fg: #166236;
+  --om-color-ok-bg: #e7f6ec;
+  --om-color-ok-border: #c9ecd4;
+  --om-color-warn-fg: #6b4500;
+  --om-color-warn-bg: #fdf4dc;
+  --om-color-warn-border: #f6e2a6;
+  --om-color-bad-fg: #8f1c13;
+  --om-color-bad-bg: #fdeceb;
+  --om-color-bad-border: #f9d1ce;
+  --om-color-info-fg: #2447b8;
+  --om-color-info-bg: #e8effd;
+  --om-color-info-border: #cfdcfb;
+  --om-color-neutral-fg: #475459;
+  --om-color-neutral-bg: #f0f3f3;
+  --om-color-neutral-border: #e3e8e9;
+  --om-color-agent-fg: #47359c;
+  --om-color-agent-bg: #efecfc;
+  --om-color-agent-border: #ddd6f8;
+  --om-shadow-1: 0 1px 2px rgba(19, 26, 29, 0.06), 0 1px 3px rgba(19, 26, 29, 0.08);
+  --om-shadow-2: 0 4px 8px -2px rgba(19, 26, 29, 0.08), 0 8px 20px -4px rgba(19, 26, 29, 0.12);
+  --om-shadow-3: 0 12px 24px -6px rgba(19, 26, 29, 0.16), 0 24px 48px -12px rgba(19, 26, 29, 0.24);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --om-color-bg: #0c1214;
+    --om-color-surface: #131a1d;
+    --om-color-surface-sunken: #0f1517;
+    --om-color-surface-raised: #1a2226;
+    --om-color-border: #222b2f;
+    --om-color-border-strong: #343f44;
+    --om-color-text: #e8eeef;
+    --om-color-text-muted: #a9b6b9;
+    --om-color-text-subtle: #8a989c;
+    --om-color-accent: #6db8b0;
+    --om-color-accent-hover: #9fd2cc;
+    --om-color-accent-text: #0c1214;
+    --om-color-accent-soft: #12302e;
+    --om-color-focus: #9bb5ff;
+    --om-color-danger: #ff9087;
+    --om-color-danger-hover: #ffb0a9;
+    --om-color-danger-text: #0c1214;
+    --om-color-overlay: rgba(0, 0, 0, 0.6);
+    --om-color-ok-fg: #7ad69c;
+    --om-color-ok-bg: #10291a;
+    --om-color-ok-border: #1d4a2e;
+    --om-color-warn-fg: #f2c661;
+    --om-color-warn-bg: #2e2309;
+    --om-color-warn-border: #523f12;
+    --om-color-bad-fg: #ff9087;
+    --om-color-bad-bg: #3a1512;
+    --om-color-bad-border: #63231d;
+    --om-color-info-fg: #9bb5ff;
+    --om-color-info-bg: #15213f;
+    --om-color-info-border: #253a70;
+    --om-color-neutral-fg: #b5c0c3;
+    --om-color-neutral-bg: #1a2226;
+    --om-color-neutral-border: #2a353a;
+    --om-color-agent-fg: #b9a9ff;
+    --om-color-agent-bg: #1f1940;
+    --om-color-agent-border: #382d70;
+    --om-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --om-shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5);
+    --om-shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.7);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --om-color-bg: #0c1214;
+  --om-color-surface: #131a1d;
+  --om-color-surface-sunken: #0f1517;
+  --om-color-surface-raised: #1a2226;
+  --om-color-border: #222b2f;
+  --om-color-border-strong: #343f44;
+  --om-color-text: #e8eeef;
+  --om-color-text-muted: #a9b6b9;
+  --om-color-text-subtle: #8a989c;
+  --om-color-accent: #6db8b0;
+  --om-color-accent-hover: #9fd2cc;
+  --om-color-accent-text: #0c1214;
+  --om-color-accent-soft: #12302e;
+  --om-color-focus: #9bb5ff;
+  --om-color-danger: #ff9087;
+  --om-color-danger-hover: #ffb0a9;
+  --om-color-danger-text: #0c1214;
+  --om-color-overlay: rgba(0, 0, 0, 0.6);
+  --om-color-ok-fg: #7ad69c;
+  --om-color-ok-bg: #10291a;
+  --om-color-ok-border: #1d4a2e;
+  --om-color-warn-fg: #f2c661;
+  --om-color-warn-bg: #2e2309;
+  --om-color-warn-border: #523f12;
+  --om-color-bad-fg: #ff9087;
+  --om-color-bad-bg: #3a1512;
+  --om-color-bad-border: #63231d;
+  --om-color-info-fg: #9bb5ff;
+  --om-color-info-bg: #15213f;
+  --om-color-info-border: #253a70;
+  --om-color-neutral-fg: #b5c0c3;
+  --om-color-neutral-bg: #1a2226;
+  --om-color-neutral-border: #2a353a;
+  --om-color-agent-fg: #b9a9ff;
+  --om-color-agent-bg: #1f1940;
+  --om-color-agent-border: #382d70;
+  --om-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --om-shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5);
+  --om-shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --om-motion-duration-fast: 0ms;
+    --om-motion-duration-base: 0ms;
+    --om-motion-duration-slow: 0ms;
+  }
+}

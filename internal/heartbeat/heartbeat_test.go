@@ -1,6 +1,10 @@
 package heartbeat
 
-import "testing"
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
 
 func TestValidateNodeID(t *testing.T) {
 	for _, id := range []string{"3f9c2a1b7d4e", "beelink", "Node_01-a"} {
@@ -29,5 +33,17 @@ func TestValidateRole(t *testing.T) {
 		if ValidateRole(r) == nil {
 			t.Errorf("ValidateRole(%q) = nil, want error", r)
 		}
+	}
+}
+
+// The "update" object is optional and additive (contract §2 stays valid).
+func TestUpdateObjectOptional(t *testing.T) {
+	b, _ := json.Marshal(Status{})
+	if strings.Contains(string(b), `"update"`) {
+		t.Fatalf("update present without update service: %s", b)
+	}
+	b, _ = json.Marshal(Status{Update: &Update{Channel: "security", State: UpdateIdle}})
+	if !strings.Contains(string(b), `"update":{"channel":"security","current_version":"","available_version":null,"state":"idle","last_check":null,"last_result":""}`) {
+		t.Fatalf("update object shape: %s", b)
 	}
 }

@@ -50,12 +50,39 @@ tools:
     linux_x64_tarball: gitleaks_8.30.1_linux_x64.tar.gz
     sha256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
     source: https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1 checksums file [C-BRIEF30-006]
+  trivy:            # CVE scan with Debian tracker VEX (brief 30 D-B1.5 [C-LIC-056]); os/update/fetch-tools.sh
+    version: 0.76.2
+    linux_amd64_tarball: trivy_0.76.2_Linux-64bit.tar.gz
+    linux_amd64_sha256: bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf
+    linux_arm64_tarball: trivy_0.76.2_Linux-ARM64.tar.gz
+    linux_arm64_sha256: ab9d51f86e6a5fb936f605faff6b593ac51bc378fff4d3e8b9d58358b9c367c3
+    source: https://github.com/aquasecurity/trivy/releases/tag/v0.76.2 checksums file, read 2026-11-12
+  syft:             # SBOM (SPDX JSON) per rootfs; os/update/fetch-tools.sh
+    version: 1.55.0
+    linux_amd64_tarball: syft_1.55.0_linux_amd64.tar.gz
+    linux_amd64_sha256: bb65249542db5fedeeb4d3f9b018b75e7264dbfbbb10486f044581a92f90490d
+    linux_arm64_tarball: syft_1.55.0_linux_arm64.tar.gz
+    linux_arm64_sha256: 929bd163db2d7cd2255d3bcb8967208079813d7b46b0c952f7b794d8e2c7d304
+    source: https://github.com/anchore/syft/releases/tag/v1.55.0 checksums file, read 2026-11-12 (released 2026-10-19)
+  clamav:           # malware scan; signatures refreshed by freshclam on every run; os/update/scan-rootfs.sh
+    version: 1.5.3
+    clamav_image: docker.io/clamav/clamav-debian:1.5.3@sha256:741e6c447241220e0792a901befcaec1d55a755c5097fc9cd88d7fd8be251a5c
+    source: registry-1.docker.io manifest index (amd64 + arm64), read with crane 2026-11-12
+  python_tuf:       # TUF metadata (os/update/tuf-repo.py); every wheel hash in os/update/requirements-tuf.txt
+    tuf: 7.0.1
+    securesystemslib: 1.6.0
+    cryptography: 50.0.2
+    source: PyPI JSON API, read 2026-11-12
   github_actions:   # tag -> commit read with the GitHub API 2026-11-11
     actions/checkout: 11bd71901bbe5b1630ceea73d27597364c9af683        # v4.2.2
     actions/upload-artifact: ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
     actions/download-artifact: d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
     docker/setup-buildx-action: e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
-    actions/setup-python: 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0      # v7.1.0 (git ls-remote 2026-11-12)
+    docker/setup-qemu-action: c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+    actions/setup-go: d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+    actions/setup-node: 49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+    actions/setup-python: 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+    astral-sh/setup-uv: d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
   app_gate:   # sdk/tools/ci/install-tools.sh (linux amd64), sha256 from each release's checksums file, read 2026-11-12
     trivy: {version: 0.76.2, file: trivy_0.76.2_Linux-64bit.tar.gz, sha256: bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf}   # D-B1.5
     crane: {version: v0.22.1, file: go-containerregistry_Linux_x86_64.tar.gz, sha256: 0ab7a1d6932a213aed964ce97666c3077fe691c8606413674a8b3e0b9ec4cda0}
