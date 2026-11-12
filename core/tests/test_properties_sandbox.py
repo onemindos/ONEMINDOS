@@ -16,8 +16,8 @@ storage classes, Roles and RoleBindings that stay in the app's namespace. Then:
 - the host-level rules (F-, I-, K-, N-, V-, P-, R-) are refused at PSA baseline too: the reviewed
   baseline exemption (home-assistant) relaxes only the restricted-profile rules (S-).
 
-The checker is onemind_core/policy.py from the install-sandbox work (PR #40); until that is on main,
-this module is skipped.
+The checker and its rule file shipped in PR #40. Missing either must now fail collection,
+not silently skip the sandbox properties.
 """
 
 from __future__ import annotations
@@ -29,12 +29,10 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
+from onemind_core import policy
 from props import budget
 
-policy = pytest.importorskip("onemind_core.policy", reason="install sandbox checker (PR #40) not on this branch")
 RULES_FILE = Path(__file__).resolve().parents[2] / "sdk" / "policy" / "app-objects.yaml"
-if not RULES_FILE.is_file():
-    pytest.skip("sdk/policy/app-objects.yaml not on this branch", allow_module_level=True)
 RULES = policy.load_rules(RULES_FILE)
 
 # ---- allowed objects ---------------------------------------------------------------------------
