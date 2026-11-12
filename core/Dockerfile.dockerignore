@@ -1,0 +1,10 @@
+# BuildKit reads this file for `-f core/Dockerfile` (repo-root context).
+# Send only what the image needs.
+*
+!core/pyproject.toml
+!core/uv.lock
+!core/README.md
+!core/onemind_core/**
+!sdk/**
+**/__pycache__
+**/*.pyc

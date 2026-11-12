@@ -1,0 +1,6 @@
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: broken
+spec:
+  archs: [sparc]

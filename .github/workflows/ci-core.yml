@@ -1,0 +1,46 @@
+name: ci-core
+
+on:
+  pull_request:
+    paths: ["core/**", "sdk/**", ".github/workflows/ci-core.yml"]
+  push:
+    branches: [main]
+    paths: ["core/**", "sdk/**", ".github/workflows/ci-core.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      nats:
+        image: nats:2.10-alpine
+        ports: ["4222:4222"]
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: onemind
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Unit + contract tests (SQLite, no NATS)
+        run: make -C core test
+      - name: Same suite on PostgreSQL + real NATS
+        env:
+          ONEMIND_TEST_DB_URL: postgresql://postgres:test@127.0.0.1:5432/onemind
+          ONEMIND_TEST_NATS_URL: nats://127.0.0.1:4222
+        run: cd core && uv run pytest -q
+
+  image:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build amd64 + arm64 (no push)
+        run: docker buildx build --platform linux/amd64,linux/arm64 -f core/Dockerfile -t onemind-core:ci .
