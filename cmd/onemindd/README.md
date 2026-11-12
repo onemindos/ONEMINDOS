@@ -16,7 +16,7 @@ Every OneMind machine (Beelink, Pi 5, Jetson, droplet, a VM) runs one small prog
 **Why it never queues heartbeats while the hub is down.** If the agent stored them and sent them later, the hub would receive a burst of old "I'm alive" messages and could show a dead period as healthy. So while NATS is down it skips; when the link comes back it publishes at once. The local API keeps working the whole time, so someone at the box can still see its state.
 
 ## Privacy rules (contract §2), and how they are kept
-- `node_id` is the first 12 hex characters of **sha256(`/etc/machine-id`)**. The raw machine-id never leaves the box; a hash cannot be turned back into it. `ONEMIND_NODE_ID` overrides it. A machine with no machine-id (a Mac, a bare container) hashes `hostname:<name>` instead, so the id is stable but says nothing about the hardware.
+- `node_id` is the first 12 hex characters of **sha256(`/etc/machine-id`)**. The raw machine-id never leaves the box; a hash cannot be turned back into it. `ONEMIND_NODE_ID` overrides it; the override must be 1-64 characters of `A-Z a-z 0-9 _ -` (one NATS subject token, the same rule the gateway applies), or onemindd exits with code 2. A machine with no machine-id (a Mac, a bare container) hashes `hostname:<name>` instead, so the id is stable but says nothing about the hardware.
 - No serial numbers, MAC addresses, IP addresses or user names. Concretely: the RAUC slot **device path** is dropped (it is often `/dev/disk/by-id/…` which contains the disk serial), and only the `Model:` line of the NVIDIA info file is read (the same file holds the GPU UUID). A test (`TestJSONShapeAndPrivacy`) fails if a MAC, IPv4, raw machine-id, `serial`, `by-id` or GPU UUID shows up in any fixture's JSON.
 
 ## How each field is detected

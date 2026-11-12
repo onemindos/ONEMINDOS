@@ -23,6 +23,7 @@ import (
 
 	"github.com/onemindos/onemindos/internal/agent"
 	"github.com/onemindos/onemindos/internal/detect"
+	"github.com/onemindos/onemindos/internal/heartbeat"
 	"github.com/onemindos/onemindos/internal/version"
 )
 
@@ -31,6 +32,21 @@ func env(k, def string) string {
 		return v
 	}
 	return def
+}
+
+// validate checks the role and the optional ONEMIND_NODE_ID override. The id
+// becomes a NATS subject token, so a bad one would make the node invisible
+// to the hub (the gateway drops subjects it cannot parse).
+func validate(role, nodeID string) error {
+	if err := heartbeat.ValidateRole(role); err != nil {
+		return err
+	}
+	if nodeID != "" {
+		if err := heartbeat.ValidateNodeID(nodeID); err != nil {
+			return fmt.Errorf("ONEMIND_NODE_ID: %w", err)
+		}
+	}
+	return nil
 }
 
 func main() {
@@ -45,8 +61,9 @@ func main() {
 		fmt.Println("onemindd", version.Version)
 		return
 	}
-	if *role != "hub" && *role != "node" {
-		fmt.Fprintf(os.Stderr, "onemindd: role must be hub or node, got %q\n", *role)
+	nodeID := os.Getenv("ONEMIND_NODE_ID")
+	if err := validate(*role, nodeID); err != nil {
+		fmt.Fprintln(os.Stderr, "onemindd:", err)
 		os.Exit(2)
 	}
 
@@ -58,7 +75,7 @@ func main() {
 
 	col := detect.New()
 	col.Role = *role
-	col.NodeID = os.Getenv("ONEMIND_NODE_ID")
+	col.NodeID = nodeID
 	col.DiskPath = env("ONEMIND_DISK_PATH", "/")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

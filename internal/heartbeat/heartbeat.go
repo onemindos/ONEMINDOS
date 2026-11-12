@@ -6,13 +6,38 @@
 // addresses, IP addresses or user names. Add a field only if it keeps that rule.
 package heartbeat
 
-import "fmt"
+import (
+	"fmt"
+	"regexp"
+)
 
 // Schema is the value of the "schema" field.
 const Schema = "onemind.node.status/v1"
 
 // Subject returns the NATS subject a node publishes its heartbeat on.
 func Subject(nodeID string) string { return fmt.Sprintf("onemind.node.%s.status", nodeID) }
+
+// nodeIDRe is the node id charset the gateway accepts on ingest: one NATS
+// subject token, no '.', '*', '>' or whitespace.
+var nodeIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+// ValidateNodeID reports whether id can be used as node_id and as the
+// <node_id> token of Subject. Derived ids (12 hex characters) always pass;
+// the check matters for the ONEMIND_NODE_ID override.
+func ValidateNodeID(id string) error {
+	if !nodeIDRe.MatchString(id) {
+		return fmt.Errorf("node id must be 1-64 characters of A-Z, a-z, 0-9, '_' or '-', got %q", id)
+	}
+	return nil
+}
+
+// ValidateRole reports whether role is one of the contract §1 roles.
+func ValidateRole(role string) error {
+	if role != "hub" && role != "node" {
+		return fmt.Errorf("role must be hub or node, got %q", role)
+	}
+	return nil
+}
 
 // Board values (contract §2).
 const (
