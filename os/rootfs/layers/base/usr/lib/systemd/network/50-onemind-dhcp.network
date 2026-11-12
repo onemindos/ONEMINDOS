@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Default network: DHCP on wired interfaces. ClientIdentifier=mac keeps the lease (and so the
+# k3s node IP) stable across reboots, because /etc/machine-id is transient on a read-only root.
+[Match]
+Name=en* eth*
+
+[Network]
+DHCP=yes
+
+[DHCPv4]
+ClientIdentifier=mac

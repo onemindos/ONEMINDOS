@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind OS pins (brief 30 §2 rule 2). Machine-readable twin of handbook/versions.md.
+# Every entry: version + digest/commit/sha256 + where it came from. Never "latest", never a branch.
+# The build reads these values; CI (test/unit/test_versions_lock.py) fails if a file uses a pin
+# that is not listed here.
+schema: onemind.io/versions-lock/v1
+updated: 2026-11-11
+
+base:
+  debian:
+    image: docker.io/library/debian:trixie
+    digest: sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
+    source: registry-1.docker.io manifest index HEAD, read 2026-11-11 (C-BUILD-001)
+    snapshot: "20261111T000000Z"     # snapshot.debian.org timestamp (debian + debian-security) [C-W17-029]
+    role: shipping base (D-007, Z-38 = b)
+  ubuntu:
+    image: docker.io/library/ubuntu:26.04
+    digest: sha256:065aa8626841f16057b78b027b464cd59c4fac36c204c72dcbf48d66f5fa8a96
+    source: registry-1.docker.io manifest index HEAD, read 2026-11-11 (C-BUILD-001)
+    snapshot: none                   # UNVERIFIED: no Ubuntu snapshot service verified (handbook/findings.md F-03)
+    role: nightly CI hedge only, never published (Z-01)
+
+rauc:
+  repo: https://github.com/rauc/rauc.git
+  tag: v1.15.2
+  tag_object: f1ceebd68b4edcf681c23d6a49aa5322d483c4d9
+  commit: 4fb7c798d6ae412344fb8f8d310d773046af3441
+  git_archive_sha256: 0332ba2a5db8a1c43de00951033f463e6b8a6290faba55669a66b2d8f608cf75
+  meson_options: >-
+    --prefix=/usr --buildtype=release -Dtests=false -Dhtmldocs=false -Dmanpages=false
+    -Dsystemdunitdir=/usr/lib/systemd/system -Dsystemdcatalogdir=/usr/lib/systemd/catalog
+    -Ddbuspolicydir=/usr/share/dbus-1/system.d -Ddbussystemservicedir=/usr/share/dbus-1/system-services
+    -Ddbusinterfacesdir=/usr/share/dbus-1/interfaces
+  source: research-output/evidence/lab/rauc-1152/versions.md [C-LAB-rauc-1152-010]
+
+k3s:
+  version: v1.37.2+k3s1
+  url: https://github.com/k3s-io/k3s/releases/download/v1.37.2%2Bk3s1/
+  amd64:
+    k3s: 265b3ee6a3198ef14033c63ef46cbb32370d83795199fb6d1b01f21575eddbda
+    k3s-airgap-images-amd64.tar.zst: 35a5af1e69b57b8b627a4f6b1c29ea104209b661067b8c97fd40dc3f860bfcd2
+  arm64:
+    k3s-arm64: a779ccf1e5e2e33a62f5a29c2f1c0bbf99431e100579d4c10f0aa0742a6aa84b
+    k3s-airgap-images-arm64.tar.zst: ca384f1a77aa83024bd82ad26fa4774971adb038e656a3b5b9af926be445a442
+  source: rauc-k3s-gate/versions.md and rauc-1152/versions.md; arm64 re-read from sha256sum-arm64.txt 2026-11-11
+
+tools:
+  gitleaks:
+    version: 8.30.1
+    linux_x64_tarball: gitleaks_8.30.1_linux_x64.tar.gz
+    sha256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    source: https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1 checksums file [C-BRIEF30-006]
+  github_actions:   # tag -> commit read with the GitHub API 2026-11-11
+    actions/checkout: 11bd71901bbe5b1630ceea73d27597364c9af683        # v4.2.2
+    actions/upload-artifact: ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+    actions/download-artifact: d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+    docker/setup-buildx-action: e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+firmware:
+  # Debian 13 ovmf / qemu-efi-aarch64 / seabios packages in the tools container (same snapshot).
+  ovmf: from the Debian snapshot above (lab hash of OVMF_CODE_4M.fd 624e06de…e4e0, ovmf 2025.02-8+deb13u1)
+  seabios: from the Debian snapshot above (bios-256k.bin shipped with qemu-system-x86)

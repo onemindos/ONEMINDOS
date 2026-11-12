@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Ubuntu 26.04 nightly CI hedge only; never published while Z-01 is open.
+BASE=docker.io/library/ubuntu:26.04@sha256:065aa8626841f16057b78b027b464cd59c4fac36c204c72dcbf48d66f5fa8a96
+LEG=ubuntu
+SNAPSHOT=none

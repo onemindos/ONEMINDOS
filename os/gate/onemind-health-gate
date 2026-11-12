@@ -1,0 +1,91 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# OneMind health gate: commit or reject the booted RAUC slot (brief 30 B5).
+# Port of research-output/evidence/lab/rauc-1152/scripts/guest/onemind-health-gate,
+# plus: version match (G7), the two verdicts "image-bad" / "environment-bad"
+# (rev. 4, REC-DEC-45) and a per-device bad-releases list.
+# Modes (from the trial marker written by RAUC's pre-install handler):
+#   trial      marker names the booted slot -> fresh checks; STABLE passes in a row
+#              -> mark-good; deadline -> mark-bad + reboot (the old slot boots)
+#   fell-back  marker names the other slot -> that trial (or install) failed before a
+#              decision: mark it bad so it is never retried
+#   committed  no marker -> mark-good now (resets GRUB's try counter); check k3s for
+#              the log only; never roll back a committed OS
+set -u
+GRUBENV=/boot/efi/EFI/BOOT/grubenv
+[ -f /etc/default/onemind-health-gate ] && . /etc/default/onemind-health-gate
+TIMEOUT=${ONEMIND_GATE_TIMEOUT:-300}; STABLE=${ONEMIND_GATE_STABLE:-3}; INTERVAL=${ONEMIND_GATE_INTERVAL:-10}
+STATE=/data/onemind; PENDING=$STATE/pending; BAD=$STATE/bad-releases
+mkdir -p "$STATE"; LOG=$STATE/gate.log
+log() { local m="HEALTH-GATE: $(date -u +%T) $*"; echo "$m" >>"$LOG"; echo "$m" >/dev/console; }
+SLOT=$(sed -n 's/.*rauc\.slot=\([A-Z]\).*/\1/p' /proc/cmdline); OTHER=A; [ "$SLOT" = A ] && OTHER=B
+VER=$(. /usr/lib/os-release; echo "${ONEMIND_VERSION:-unknown}")
+envget() { grub-editenv "$GRUBENV" list | sed -n "s/^$1=//p"; }
+P=""; PV=""; [ -s "$PENDING" ] && read -r P PV < "$PENDING"
+if [ -z "$P" ]; then MODE=committed; elif [ "$P" = "$SLOT" ]; then MODE=trial; else MODE=fell-back; fi
+log "start slot=$SLOT version=$VER mode=$MODE host_cpus=$(nproc) env=[$(grub-editenv "$GRUBENV" list | tr '\n' ' ')]"
+
+commit() { # mark-good booted; never fail silently (LAB-rauc finding 4)
+  local e; if e=$(rauc status mark-good booted 2>&1); then return 0; fi
+  log "COMMIT-ERROR: $(echo "$e" | tail -n1)"; return 1
+}
+watch_only() { # committed/fell-back boots: report k3s health, no action
+  local t0=$SECONDS r
+  while [ $((SECONDS - t0)) -lt "$TIMEOUT" ]; do
+    r=$(/usr/lib/onemind/onemind-k3s-check) && { log "K3S-FRESH ok after $((SECONDS - t0))s: $r"; return; }
+    sleep "$INTERVAL"
+  done
+  log "K3S-FRESH ALERT not healthy after ${TIMEOUT}s on a committed slot: $r (no rollback)"
+}
+remember_bad() { echo "$(date -u +%FT%TZ) version=$1 verdict=$2" >> "$BAD"; sync "$BAD" 2>/dev/null || sync; }
+
+case $MODE in
+committed)
+  commit && log "RESULT committed-boot slot=$SLOT version=$VER"
+  watch_only ;;
+fell-back)
+  why="gate rejected it or install was interrupted"
+  [ "$(envget "${P}_OK")" = 1 ] && why="trial boots used up (crash/hang/power cut) with ${P}_TRY=$(envget "${P}_TRY")"
+  rauc status mark-bad other >/dev/null 2>&1
+  rm -f "$PENDING"; sync
+  remember_bad "$PV" image-bad
+  commit && log "RESULT fell-back slot=$SLOT version=$VER; slot $P (v$PV) marked bad, never retried ($why)"
+  watch_only ;;
+trial)
+  t0=$SECONDS; ok=0; r="n/a"; worst=0   # worst = highest check stage that failed after G1-G3 passed
+  if [ "$PV" != "$VER" ]; then          # G7: the marker's bundle version must be what booted (SB-4 on GRUB route)
+    r="fail G7: booted version $VER != bundle version $PV"; worst=7
+  else
+    while [ $((SECONDS - t0)) -lt "$TIMEOUT" ]; do
+      if r=$(/usr/lib/onemind/onemind-k3s-check); then
+        ok=$((ok + 1)); log "CHECK pass $ok/$STABLE at $((SECONDS - t0))s: $r"
+        if [ "$ok" -ge "$STABLE" ]; then
+          apps=$(KUBECONFIG=/run/k3s/k3s.yaml /usr/local/bin/k3s kubectl -n apps get pods --no-headers 2>/dev/null | awk '{printf "%s %s %s; ", $1, $2, $3}')
+          log "APPS (excluded from gate): ${apps:-none}"
+          log "G8 n/a: no extensions in v0"
+          if commit; then
+            rm -f "$PENDING"; sync
+            log "RESULT mark-good slot=$SLOT version=$VER after $((SECONDS - t0))s"; exit 0
+          fi
+          ok=0   # refused commit: keep trying until the deadline [C-LAB-debian-rugix-024]
+        fi
+      else
+        ok=0; log "CHECK fail at $((SECONDS - t0))s: $r"
+        g=$(echo "$r" | sed -n 's/^fail G\([0-9]\).*/\1/p'); [ "${g:-0}" -gt "$worst" ] && worst=$g
+      fi
+      sleep "$INTERVAL"
+    done
+  fi
+  # Verdict (rev. 4): only a round that got past G1-G3 and then failed on a core pod (G4)
+  # is "environment-bad" (re-offered, bounded); everything else is "image-bad" (final).
+  verdict=image-bad; [ "$worst" = 4 ] && verdict=environment-bad
+  if [ "$(envget "${OTHER}_OK")" = 1 ]; then
+    rauc status mark-bad booted >/dev/null 2>&1
+    rm -f "$PENDING"; sync
+    remember_bad "$VER" "$verdict"
+    log "RESULT mark-bad slot=$SLOT version=$VER verdict=$verdict after $((SECONDS - t0))s (last: $r) -> reboot to $OTHER"
+    systemctl reboot
+  else
+    log "RESULT unhealthy slot=$SLOT version=$VER verdict=$verdict but $OTHER is not good: staying (alert)"; exit 1
+  fi ;;
+esac

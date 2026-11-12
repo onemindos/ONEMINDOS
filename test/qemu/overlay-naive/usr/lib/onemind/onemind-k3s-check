@@ -1,0 +1,12 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# TEST FIXTURE ONLY (T10): the NAIVE check, freshness off (API status only). It reproduces the
+# stale-Ready trap [C-LAB-rauc-k3s-gate-008]. The assembler refuses a non-test tree containing it.
+export KUBECONFIG=/run/k3s/k3s.yaml
+K="/usr/local/bin/k3s kubectl --request-timeout=5s"
+fail() { echo "fail G$1: $2"; exit 1; }
+[ -r "$KUBECONFIG" ] || fail 1 "no kubeconfig on this boot (k3s server has not started)"
+$K get --raw=/readyz >/dev/null 2>&1 || fail 1 "apiserver /readyz not ok"
+[ "$($K get node "$(hostname)" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)" = True ] || fail 3 "node not Ready"
+[ "$($K -n kube-system get deploy coredns -o jsonpath='{.status.availableReplicas}' 2>/dev/null)" -ge 1 ] 2>/dev/null || fail 4 "coredns not available"
+echo "ok (NAIVE: freshness off)"

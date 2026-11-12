@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Watchdog drivers loaded in the initramfs (brief 30 B5): QEMU i6300esb, Intel iTCO_wdt, AMD sp5100_tco.
+i6300esb
+iTCO_wdt
+sp5100_tco

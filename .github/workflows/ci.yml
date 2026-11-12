@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: Apache-2.0
+# Lint, unit tests, DCO, and OneMind's RAUC build on native runners (brief 30 D-B1.2, D-B1.4, B4.1).
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - run: scripts/lint.sh
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - run: sudo apt-get install -y python3-yaml
+      - run: python3 -I -m unittest discover -s test/unit -v
+  dco:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Every commit carries a DCO sign-off (CONTRIBUTING.md)
+        run: |
+          bad=0
+          for c in $(git rev-list --no-merges origin/${{ github.base_ref }}..${{ github.event.pull_request.head.sha }}); do
+            git show -s --format=%B "$c" | grep -q '^Signed-off-by: ' || { echo "missing sign-off: $(git show -s --format='%h %s' "$c")"; bad=1; }
+          done
+          exit $bad
+  rauc-build:
+    # B4.1: RAUC v1.15.2 from tag + pinned commit 4fb7c798…, on both native architectures.
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Build RAUC (stage rauc-build)
+        run: |
+          docker buildx build -f os/rootfs/Containerfile --target rauc-build --progress plain \
+            $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) . 2>&1 | tee rauc-build.log
+          grep -q 'HEAD=4fb7c798d6ae412344fb8f8d310d773046af3441' rauc-build.log
+          grep -E 'built: rauc v?1\.15\.2' rauc-build.log

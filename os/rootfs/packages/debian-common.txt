@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Base layer, Debian 13 leg (brief 30 B2). Versions come from the pinned snapshot
+# (os/versions.lock.yaml); the resolved list is exported as /usr/lib/onemind/packages.txt.
+systemd systemd-sysv systemd-resolved udev dbus login passwd
+kmod iproute2 iptables procps util-linux mount e2fsprogs dosfstools
+ca-certificates curl socat zstd squashfs-tools
+apparmor
+initramfs-tools
+grub-common
+# RAUC 1.15.2 runtime libraries (RAUC itself is built from source; Debian's rauc is never installed)
+libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200

@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind OS: the slot root is mounted read-only (no "rw" on the kernel command line).
+# Labels are the contract (01 §4.3); see os/boards/<board>/layout.yaml.
+PARTLABEL=onemind-esp   /boot/efi  vfat  umask=0077                          0 1
+PARTLABEL=onemind-data  /data      ext4  defaults                            0 2
+# Writable state lives on onemind-data and is bind-mounted over the read-only root.
+# k3s writes outside --data-dir by default [C-LAB-rauc-k3s-gate-004].
+/data/state/etc-rancher-node     /etc/rancher/node     none bind,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-rancher      /var/lib/rancher      none bind,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-kubelet      /var/lib/kubelet      none bind,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-cni          /var/lib/cni          none bind,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-log              /var/log              none bind,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-systemd      /var/lib/systemd      none bind,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-tmp              /var/tmp              none bind,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/home                 /home                 none bind,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/root                 /root                 none bind,x-systemd.requires=onemind-data-layout.service 0 0

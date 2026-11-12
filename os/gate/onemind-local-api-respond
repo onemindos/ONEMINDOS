@@ -1,0 +1,5 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# One HTTP response with this boot's ID (stand-in for onemindd's /health).
+printf 'HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\n\r\n'
+cat /run/onemind-api/health

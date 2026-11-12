@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# Ubuntu 26.04 CI hedge only (founder override Z-38 = b): same definition, never published (Z-01).
+systemd systemd-sysv systemd-resolved udev dbus login passwd
+kmod iproute2 iptables procps util-linux mount e2fsprogs dosfstools
+ca-certificates curl socat zstd squashfs-tools
+apparmor
+# Ubuntu 26.04 defaults to dracut; we name initramfs-tools explicitly [C-LAB-ubuntu-2604-leg-001]
+initramfs-tools
+grub-common
+libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200

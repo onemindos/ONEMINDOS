@@ -1,0 +1,88 @@
+# syntax=docker/dockerfile:1.7
+# SPDX-License-Identifier: Apache-2.0
+#
+# OneMind OS: one Containerfile, many boards (brief 30 B2, BD-05, D-B2.1).
+# Build context = the repo root. Targets:
+#   rauc-build  OneMind's RAUC v1.15.2 from the pinned commit (B4.1)
+#   rootfs      the OS tree for one board; exported as a tar and assembled by os/assemble/
+#   tools       the assembler's own toolbox (sgdisk, mkfs, mtools, RAUC 1.15.2, QEMU + firmware)
+# Build args (os/rootfs/debian.args or ubuntu.args): BASE (image@digest), LEG, SNAPSHOT; BOARD.
+#   docker buildx build -f os/rootfs/Containerfile --target rootfs --build-arg BOARD=x86_64-efi \
+#     $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) --output type=tar,dest=rootfs.tar .
+ARG BASE=docker.io/library/debian:trixie@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
+
+# ---------------------------------------------------------------- base: pinned archive
+FROM ${BASE} AS base
+ARG LEG=debian
+ARG SNAPSHOT=20261111T000000Z
+ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8
+COPY os/rootfs/sources/configure-apt.sh /usr/local/sbin/onemind-configure-apt
+RUN onemind-configure-apt "$LEG" "$SNAPSHOT"
+
+# ---------------------------------------------------------------- RAUC from source (B4.1)
+FROM base AS rauc-build
+RUN apt-get update && apt-get install -y ca-certificates git build-essential meson ninja-build pkgconf \
+      libglib2.0-dev libssl-dev libjson-glib-dev libdbus-1-dev libfdisk-dev libcurl4-openssl-dev libnl-genl-3-dev \
+ && rm -rf /var/lib/apt/lists/*
+COPY os/rauc/build-rauc.sh /usr/local/sbin/build-rauc.sh
+RUN build-rauc.sh /opt/rauc-dest
+
+# ---------------------------------------------------------------- the OS tree
+FROM base AS rootfs
+ARG LEG=debian
+ARG BOARD=x86_64-efi
+ARG TARGETARCH
+COPY os/rootfs/packages/ /tmp/onemind/packages/
+COPY os/boards/${BOARD}/ /tmp/onemind/board/
+# Watchdog drivers must be listed before the kernel's initramfs is generated.
+COPY os/rootfs/layers/base/usr/share/initramfs-tools/ /usr/share/initramfs-tools/
+RUN set -eu; \
+    cat /tmp/onemind/packages/${LEG}-common.txt /tmp/onemind/packages/${LEG}-${TARGETARCH}.txt \
+        $(ls /tmp/onemind/board/packages-${LEG}.txt 2>/dev/null) | sed 's/#.*//' | tr -s ' \n' '\n' | sed '/^$/d' > /tmp/onemind/pkgs; \
+    apt-get update; \
+    apt-get install -y $(cat /tmp/onemind/pkgs); \
+    rm -rf /var/lib/apt/lists/*
+
+# OneMind's RAUC; the distribution's rauc / rauc-service must be absent (B4.1, T0).
+COPY --from=rauc-build /opt/rauc-dest/ /
+RUN set -eu; \
+    if ldd /usr/bin/rauc | grep 'not found'; then echo "ERROR: missing RAUC runtime library" >&2; exit 1; fi; \
+    rauc --version | grep -qxE 'rauc v?1\.15\.2'; \
+    if dpkg-query -W rauc rauc-service >/dev/null 2>&1; then echo "ERROR: distribution rauc installed" >&2; exit 1; fi; \
+    echo "RAUC: $(rauc --version) from source; distribution rauc package: not installed"
+
+# k3s + air-gap images, sha256-checked against os/versions.lock.yaml.
+COPY os/rootfs/fetch-k3s.sh /tmp/onemind/fetch-k3s.sh
+RUN /tmp/onemind/fetch-k3s.sh "${TARGETARCH}" /
+
+# Gate, handler and the base layer's config files, then the board's own files.
+COPY --chmod=755 os/gate/onemind-health-gate os/gate/onemind-k3s-check os/gate/onemind-local-api-respond \
+     os/rauc/handlers/rauc-pre-install /usr/lib/onemind/
+COPY os/gate/onemind-health-gate.service os/gate/onemind-local-api.service /usr/lib/systemd/system/
+COPY os/rootfs/layers/base/ /
+COPY os/boards/${BOARD}/rootfs/ /
+RUN set -eu; \
+    rm -f /.keep; \
+    if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
+    systemctl enable systemd-networkd.service systemd-resolved.service onemind-data-layout.service \
+      k3s.service onemind-local-api.service onemind-health-gate.service >/dev/null; \
+    systemctl mask systemd-firstboot.service >/dev/null 2>&1 || true; \
+    passwd -l root >/dev/null; \
+    kver=$(ls /lib/modules | sort -V | tail -n1); \
+    ln -sf "vmlinuz-$kver" /boot/vmlinuz; ln -sf "initrd.img-$kver" /boot/initrd.img; \
+    update-initramfs -u -k "$kver"; \
+    mkdir -p /data /boot/efi /etc/rancher/node /var/lib/rancher /var/lib/kubelet /var/lib/cni; \
+    dpkg-query -W -f='${Package} ${Version} ${Architecture}\n' | sort > /usr/lib/onemind/packages.txt; \
+    printf 'leg=%s board=%s arch=%s kernel=%s\n' "${LEG}" "${BOARD}" "${TARGETARCH}" "$kver" > /usr/lib/onemind/build-info.txt; \
+    rm -rf /tmp/onemind /var/cache/apt/*.bin /var/log/apt /var/log/dpkg.log; \
+    cat /usr/lib/onemind/build-info.txt
+
+# ---------------------------------------------------------------- assembler / test toolbox
+FROM base AS tools
+RUN apt-get update && apt-get install -y python3 python3-yaml gdisk dosfstools mtools e2fsprogs \
+      squashfs-tools openssl openssh-client xz-utils zstd qemu-utils grub-common file cpio \
+      libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200 \
+      qemu-system-x86 qemu-system-arm ovmf qemu-efi-aarch64 seabios ipxe-qemu \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=rauc-build /opt/rauc-dest/ /
+RUN rauc --version | grep -qxE 'rauc v?1\.15\.2' && rauc --version

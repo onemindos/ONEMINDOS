@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: x86_64-efi
+arch: amd64
+compatible: onemind-x86_64-efi
+route: grub-efi                 # grub-efi | grub-bios (BD-08: the efi + UKI route arrives with B4.4 in BM2)
+rauc_bootloader: grub
+grub_target: x86_64-efi
+efi_binary: BOOTX64.EFI
+console: "console=tty0 console=ttyS0,115200"
+layout: layout.yaml
+outputs: [raw]

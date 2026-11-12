@@ -1,0 +1,10 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# TEST FIXTURE ONLY (T7). Copied unchanged in logic from evidence/lab/rauc-1152/scripts/guest/.
+# bad-hang variant: stands in for "PID 1 froze after arming the watchdog".
+echo "BAD-HANG: arming watchdog, then freezing" > /dev/console
+mountpoint -q /proc || mount -t proc proc /proc
+mountpoint -q /sys || mount -t sysfs sys /sys
+modprobe i6300esb 2>/dev/null
+exec 3>/dev/watchdog || echo "BAD-HANG: no /dev/watchdog" > /dev/console
+while :; do sleep 3600; done

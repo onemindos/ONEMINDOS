@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# The 01 §4.3 x86 layout (brief 30 B2), for generic arm64 UEFI. Labels are the contract; RAUC, fstab and GRUB find
+# partitions by these labels. test/unit/test_layouts.py checks this file against 01 §4.3.
+table: gpt
+disk_size: 24GiB
+partitions:
+  - {label: onemind-esp,      size: 1GiB,   type: esp,   fs: vfat, volume_id: 4F4E454D}  # GRUB + grubenv
+  - {label: onemind-boot-a,   size: 512MiB, type: esp,   fs: vfat, fs_label: BOOT-A}     # UKI of slot A (efi route, BM2)
+  - {label: onemind-boot-b,   size: 512MiB, type: esp,   fs: vfat, fs_label: BOOT-B}     # UKI of slot B (efi route, BM2)
+  - {label: onemind-system-a, size: 10GiB,  type: linux, fs: rootfs, slot: A}           # read-only root, slot A
+  - {label: onemind-system-b, size: 10GiB,  type: linux, fs: rootfs, slot: B}           # read-only root, slot B
+  - {label: onemind-recovery, size: 1GiB,   type: linux, fs: none}                       # rescue system (D-B2.3), empty in v0
+  - {label: onemind-data,     size: rest,   type: linux, fs: ext4}                       # LUKS2 planned (SB-5, BM2; findings F-04)

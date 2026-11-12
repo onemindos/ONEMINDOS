@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+# Core platform pod stand-in (until the Core chart, B9). The gate's G4 checks it.
+apiVersion: v1
+kind: Namespace
+metadata: {name: onemind-system}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: onemind-core, namespace: onemind-system}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: onemind-core}}
+  template:
+    metadata: {labels: {app: onemind-core}}
+    spec:
+      containers:
+        - name: core
+          image: docker.io/rancher/mirrored-pause:3.10.2
+          imagePullPolicy: Never
+          resources: {requests: {cpu: 1m, memory: 8Mi}, limits: {memory: 32Mi}}

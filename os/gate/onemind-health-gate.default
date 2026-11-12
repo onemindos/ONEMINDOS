@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# /etc/default/onemind-health-gate: gate tuning. The deadline is wall-clock time; on
+# hardware set it to about 3x the good-commit time measured by LT-X86-01 (brief 30 B5).
+ONEMIND_GATE_TIMEOUT=300
+ONEMIND_GATE_STABLE=3
+ONEMIND_GATE_INTERVAL=10

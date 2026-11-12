@@ -1,2 +1,12 @@
 .DS_Store
 *.filled.md
+# build outputs (never committed; brief 30 rule 9)
+/out/
+/work/
+*.img
+*.img.xz
+*.raucb
+*.qcow2
+*.tar
+*.pem
+*.key
