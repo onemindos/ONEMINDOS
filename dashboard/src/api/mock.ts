@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import type { OneMindApi } from './client';
 import { installBlockReason } from '../lib/scan';
 import { DEMO_TOKENS, INSTANCE, makeActions, makeApps, makeNodes } from './fixtures';
@@ -9,7 +10,8 @@ import { ApiError, type Action, type ActionRequest, type CatalogApp, type Princi
  * the owner may approve or deny, the idempotency key returns the same action,
  * approving after expires_at → 409 expired, approving an install without a fresh
  * passing scan → 409 stale_precondition (§10.3). Approval runs the `noop` executor
- * path (accepted → dispatched → succeeded) instantly.
+ * path (accepted → dispatched → succeeded), one step every `stepMs`, applied on the next read, so
+ * the dashboard's live progress can be seen in the demo. `stepMs: 0` finishes on the next read.
  */
 export class MockApi implements OneMindApi {
   private readonly principal: Principal | undefined;
@@ -17,10 +19,14 @@ export class MockApi implements OneMindApi {
   private catalog: CatalogApp[];
   private actionsList: Action[];
   private seq = 2;
+  private readonly stepMs: number;
+  /** When each approved action was accepted (mock clock, ms). */
+  private readonly acceptedAt = new Map<string, number>();
 
-  constructor(token: string, opts: { now?: () => number } = {}) {
+  constructor(token: string, opts: { now?: () => number; stepMs?: number } = {}) {
     this.principal = DEMO_TOKENS[token];
     this.now = opts.now ?? (() => Date.now());
+    this.stepMs = opts.stepMs ?? 0;
     this.catalog = makeApps(this.now());
     this.actionsList = makeActions(this.now());
   }
@@ -33,7 +39,27 @@ export class MockApi implements OneMindApi {
   private find(id: string): Action {
     const a = this.actionsList.find((x) => x.id === id);
     if (!a) throw new ApiError(404, 'not_found', `No action ${id}`);
+    this.advance(a);
     return a;
+  }
+
+  /** The noop executor's steps, by elapsed mock time since approval. */
+  private advance(a: Action) {
+    const at = this.acceptedAt.get(a.id);
+    if (at === undefined) return;
+    const steps = this.stepMs <= 0 ? 2 : Math.floor((this.now() - at) / this.stepMs);
+    const next = steps >= 2 ? 'succeeded' : steps >= 1 ? 'dispatched' : 'accepted';
+    if (next === a.state) return;
+    a.state = next;
+    a.updated_at = new Date(this.now()).toISOString();
+    if (next !== 'succeeded') return;
+    this.acceptedAt.delete(a.id);
+    a.result = { outcome: 'succeeded', message: 'noop executor', steps: [] };
+    this.catalog = this.catalog.map((app) =>
+      app.id === a.params.app_id
+        ? { ...app, installed: a.type === 'app.install', status: a.type === 'app.install' ? 'installed' : 'not_installed' }
+        : app,
+    );
   }
 
   private ownerOnly(): Principal {
@@ -64,6 +90,7 @@ export class MockApi implements OneMindApi {
   }
   async apps() {
     this.auth();
+    this.actionsList.forEach((a) => this.advance(a));
     return this.catalog.map((a) => ({ ...a }));
   }
   async createAction(req: ActionRequest) {
@@ -87,6 +114,7 @@ export class MockApi implements OneMindApi {
   }
   async actions() {
     this.auth();
+    this.actionsList.forEach((a) => this.advance(a));
     return this.actionsList.map((a) => ({ ...a }));
   }
   async action(id: string) {
@@ -104,15 +132,13 @@ export class MockApi implements OneMindApi {
     const app = this.catalog.find((x) => x.id === a.params.app_id);
     const blocked = a.type === 'app.install' && app ? installBlockReason(app, this.now()) : undefined;
     if (blocked) throw new ApiError(409, 'stale_precondition', blocked);
-    a.state = 'succeeded';
-    a.result = { outcome: 'succeeded', message: 'noop executor', steps: [] };
+    const ts = this.now();
+    a.state = 'accepted';
     a.decided_by = p;
-    a.updated_at = new Date(this.now()).toISOString();
-    this.catalog = this.catalog.map((app) =>
-      app.id === a.params.app_id
-        ? { ...app, installed: a.type === 'app.install', status: a.type === 'app.install' ? 'installed' : 'not_installed' }
-        : app,
-    );
+    a.decided_at = new Date(ts).toISOString();
+    a.updated_at = a.decided_at;
+    this.acceptedAt.set(a.id, ts);
+    this.advance(a);
     return { ...a };
   }
   async deny(id: string) {
@@ -121,6 +147,7 @@ export class MockApi implements OneMindApi {
     if (a.state !== 'awaiting_approval') throw new ApiError(409, 'conflict', `Action is ${a.state}`);
     a.state = 'cancelled';
     a.decided_by = p;
+    a.decided_at = new Date(this.now()).toISOString();
     a.updated_at = new Date(this.now()).toISOString();
     return { ...a };
   }
