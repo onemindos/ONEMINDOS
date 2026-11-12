@@ -14,16 +14,16 @@ const rows: Row[] = [
   { what: 'Approval gate and audit log', state: 'works', note: 'Every change is an action; only an owner approves; hash-chained audit.' },
   { what: 'Dashboard', state: 'works', note: 'Home, Nodes, Market and Approvals. Stale data is never shown as live.' },
   { what: 'CLI', state: 'works', note: 'onemind node info, onemind nodes.' },
-  { what: `Apps (${apps.length})`, state: 'works', note: apps.map((a) => a.name).join(', ') + '.' },
-  { what: 'One-command developer install', state: 'review', note: 'deploy/install.sh on stock Debian 13, hub or node. No OS rollback.' },
-  { what: 'Scan gate, AI agents over MCP', state: 'review', note: 'No install without a fresh passing scan; agents can request, never approve.' },
-  { what: 'App intake at scale', state: 'review', note: 'Scaffolder + CI gate: licence, digest pins, Trivy, ClamAV, smoke test.' },
+  { what: `Apps (${apps.length})`, state: 'works', note: apps.map((a) => a.name).join(', ') + '. Each installs only while its latest scan passes.' },
+  { what: 'One-command developer install', state: 'works', note: 'deploy/install.sh on stock Debian 13, hub or node, plus a Mac practice hub. No OS rollback.' },
+  { what: 'Scan gate, AI agents over MCP', state: 'works', note: 'No install without a fresh passing scan; agents can request, never approve.' },
+  { what: 'App intake at scale', state: 'works', note: 'Scaffolder + CI gate: licence, digest pins, Trivy, ClamAV, smoke test; daily rescan.' },
   { what: 'OS updates with rollback', state: 'building', note: 'Update client (signed TUF channel, policy, pre-update snapshot) is on main; it needs the image. Kept only after k3s and core services prove healthy.' },
   { what: 'OneMind image (Debian 13)', state: 'building', note: 'Read-only image built and boot-tested in CI. No download yet.' },
-  { what: 'Backups', state: 'planned', note: 'restic, 3-2-1 by default, verified restores.' },
-  { what: 'Multi-site fabric', state: 'planned', note: 'NATS leaf nodes with store-and-forward; private mesh.' },
+  { what: 'Backups', state: 'building', note: 'restic, 3-2-1 by default, verified restores. The agent is on main but not switched on: no backups yet.' },
+  { what: 'Multi-site fabric', state: 'building', note: 'NATS leaf nodes with store-and-forward; private mesh. On main, not switched on.' },
   { what: 'Notifications', state: 'planned', note: 'ntfy alerts for waiting approvals, blocked apps and failed backups.' },
-  { what: 'Phone apps', state: 'planned', note: 'Android and iPhone shells for nodes, apps, approvals, activity and notifications.' },
+  { what: 'Phone apps', state: 'building', note: 'Android and iPhone app for nodes, apps, approvals and activity. On main; build it yourself, no store release.' },
   { what: 'Plugin UI extension points', state: 'planned', note: 'Dashboard plugins on top of the same API; headless stays first-class.' },
 ];
 const label = { works: 'Works today', review: 'In review', building: 'Being built', planned: 'Planned' } as const;
@@ -144,7 +144,7 @@ sudo deploy/install.sh --role hub</code></pre>
           <pre><code>sudo deploy/install.sh --role node --hub http://&lt;hub&gt;:8080 --token &lt;join-token&gt;</code></pre>
           <p class="warn">
             This is the <strong>developer install</strong>: it upgrades packages in place on a stock OS, so nothing can
-            roll the OS back. The install script is in review and not yet on <code>main</code>. The OneMind image, with
+            roll the OS back. The OneMind image, with
             A/B updates and automatic rollback, is being built.
           </p>
           <div class="ctas">
