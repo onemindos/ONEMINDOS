@@ -18,6 +18,7 @@
 | DigitalOcean droplet (BIOS, cloud-init) | `vm-do` | yes | T0–T5 + TC1; first-boot test not run on it yet (cloud-init's user-data path is supported, §3) | kit LT-DO-01, not yet run | founder runs LT-DO-01; put `onemind: {role: hub}` in the droplet's user-data |
 | Raspberry Pi 5 (also CM5, Pi 500) | `rpi5` | yes (`image.yml`, arm64 runner): `.img.xz` + Raspberry Pi Imager entry; structure test in CI (§8) | not possible (QEMU cannot run the Pi firmware); desk check of the A/B path in a VM (§8) | kit LT-PI5-01 route P, not yet run | founder runs LT-PI5-01 route P |
 | Jetson Orin (dev kit) | `jetson-orin` | OneMind **layer** only (`make jetson-layer`); the flash package is built on the owner's x86 Linux host from the owner's own NVIDIA downloads and never published (D-007, Z-01; §7) | no (NVIDIA boot chain; gate and verifier unit-tested) | LT-JET-01 steps 1–6 runnable, not yet run | founder runs LT-JET-01 |
+| Clouds: AWS, Google Cloud, Azure, Hetzner, Proxmox VE | `cloud-aws`, `cloud-gcp`, `cloud-azure`, `cloud-hetzner`, `cloud-proxmox` (one `cloud` rootfs) | yes (`image.yml` job `cloud`) | C0–C4 PASS on each uploaded artifact, C5 (Hetzner) and C6 A/B update (AWS) PASS (`CLOUD-IMAGES.md` §5) | no real account yet | founder runs `os/cloud/<cloud>-import.sh` (`CLOUD-IMAGES.md` §3) |
 | Machines OneMind does not own | none | — | — | — | developer install (`deploy/install.sh`, branch `feat/deploy-v0`) |
 
 ## 2. What is in the image (the OneMind layer)
@@ -138,3 +139,7 @@ The existing battery on the same image, T0, T1, T2, T11, T3, T4, T4v, T5, T5v: *
 - **Not tested:** anything on a real Pi 5 (firmware `tryboot`, the watchdog, 16 KiB pages with k3s, NVMe/SD boot). That is LT-PI5-01 route P.
 
 **Known limits (v0):** one tryboot try per update, so a power cut during the trial abandons the update (expected; re-offering it is B4.2/REC-DEC-32, not built); no Wi-Fi or Bluetooth firmware yet (Debian `main` only; Ethernet works); no Pi secure boot (irreversible OTP, out of scope); the console is `serial0` + HDMI `tty1`.
+
+## Cloud images (AWS, Google Cloud, Azure, Hetzner, Proxmox), 2026-11-12
+
+One `cloud` rootfs (the `vm-do` cloud layer: cloud-init on a read-only root, sshd, `admin` user) and five boards assembled from it, each with its own cloud-init datasource order and RAUC `compatible`, packaged in the format that cloud imports (raw, `disk.raw` in a tar.gz, fixed VHD, qcow2; Hetzner by rescue-mode snapshot). The role comes from user-data as in §3; the owner token is on the serial console and, until the first reboot, in `/run/onemind/owner-token` over SSH. Details, import scripts and results: [`CLOUD-IMAGES.md`](CLOUD-IMAGES.md).
