@@ -156,9 +156,16 @@ def c0(cloud, image_dir):
         c["one_member_disk_raw"] = [x.name for x in m] == ["disk.raw"]
         c["whole_GiB"] = bool(m) and m[0].size % GIB == 0
     elif cloud == "azure":
-        info = json.loads(sh("qemu-img", "info", "--output=json", art).stdout)
+        # A fixed VHD has its only footer at the end, so qemu-img never auto-probes it (it says "raw");
+        # -f vpc makes qemu-img open it as VHD, which fails unless the footer is valid.
+        r = sh("qemu-img", "info", "-f", "vpc", "--output=json", art)
+        info = json.loads(r.stdout) if r.returncode == 0 else {}
         vs = info.get("virtual-size", 0)
         c["vpc"] = info.get("format") == "vpc"
+        with open(art, "rb") as f:
+            f.seek(-512, 2)
+            foot = f.read(512)
+        c["footer_conectix_fixed"] = foot[:8] == b"conectix" and int.from_bytes(foot[60:64], "big") == 2
         c["fixed_footer"] = os.path.getsize(art) == vs + 512
         c["whole_MiB"] = vs > 0 and vs % (1 << 20) == 0
     elif cloud == "proxmox":
