@@ -352,6 +352,39 @@ def test_database_restored_without_its_key_is_refused_clearly(settings, clock, t
         assert r.status_code == 409 and "does not open with this box's key" in r.json()["message"]
 
 
+def test_values_lost_with_the_key_are_replaced_by_entering_them_again(settings, clock, tmp_path):
+    with TestClient(create_app(settings, clock=clock, executor=ScriptedExecutor())) as c:
+        install(c, clock, {CRED: {"PROVIDER_API_KEY": API_KEY}})
+    other = replace(settings, sections={"secrets": SecretsSettings(key_file=tmp_path / "other.key")})
+    ex = ScriptedExecutor()
+    with TestClient(create_app(other, clock=clock, executor=ex)) as c:
+        # Re-entering the owner key is not enough: the generated one does not open either.
+        body = {"sealed": sealed_for(c, {CRED: {"PROVIDER_API_KEY": NEW_KEY}})}
+        r = c.post(f"/v1/apps/{APP}/secrets", json=body, headers=OWNER)
+        r = c.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER)
+        assert r.status_code == 409, r.text
+        assert f"{INTERNAL}/SESSION_SECRET" in r.json()["message"] and "rotate it" in r.json()["message"]
+        # Entering one and rotating the other replaces every value the lost key protected.
+        body = {"sealed": sealed_for(c, {CRED: {"PROVIDER_API_KEY": NEW_KEY}}), "generate": [f"{INTERNAL}/SESSION_SECRET"]}
+        r = c.post(f"/v1/apps/{APP}/secrets", json=body, headers=OWNER)
+        r = c.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER)
+        assert r.status_code == 200 and r.json()["state"] == "succeeded", r.text
+        cred, internal = ex.secrets[-1]
+        assert cred.data == {"PROVIDER_API_KEY": NEW_KEY} and len(internal.data["SESSION_SECRET"]) >= 40
+
+
+def test_reinstall_after_key_loss_names_the_generated_value(settings, clock, tmp_path):
+    with TestClient(create_app(settings, clock=clock, executor=ScriptedExecutor())) as c:
+        install(c, clock, {CRED: {"PROVIDER_API_KEY": API_KEY}})
+        rid = request(c, clock, key="rm", type_="app.remove")
+        assert c.post(f"/v1/actions/{rid}/approve", headers=OWNER).json()["state"] == "succeeded"
+    other = replace(settings, sections={"secrets": SecretsSettings(key_file=tmp_path / "other.key")})
+    with TestClient(create_app(other, clock=clock, executor=ScriptedExecutor())) as c:
+        _, r = install(c, clock, {CRED: {"PROVIDER_API_KEY": NEW_KEY}}, key="again")
+        assert r.status_code == 409 and f"{INTERNAL}/SESSION_SECRET" in r.json()["message"]
+        assert "restore the key file" in r.json()["message"]
+
+
 # ---- change and rotate: app.configure -------------------------------------------------------
 def installed(client, clock):
     install(client, clock, {CRED: {"PROVIDER_API_KEY": API_KEY, "ADMIN_PASSWORD": PASSWORD}})

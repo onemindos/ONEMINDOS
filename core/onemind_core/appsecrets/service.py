@@ -216,15 +216,32 @@ class AppSecretsService:
     def _missing_required(self, app: AppEntry, have: set[Ref]) -> list[Ref]:
         return [(s.name, k.key) for s in app.secrets for k in s.keys if k.required and (s.name, k.key) not in have]
 
-    def _check_current_opens(self, app_id: str, current: dict[Ref, StoredValue]) -> None:
+    def _check_current_opens(
+        self, app: AppEntry, current: dict[Ref, StoredValue], replaced: set[Ref], can_rotate: bool
+    ) -> None:
+        """Refuse when a stored value that this approval keeps cannot be opened.
+
+        Values the approval replaces (entered, rotated or cleared) are not checked, so entering a
+        value again is how the owner recovers after a restore without the key file. Rows the
+        manifest no longer declares are never applied, so they are not checked either.
+        """
         for ref, v in current.items():
+            decl = self._decl(app, ref)
+            if ref in replaced or decl is None:
+                continue
             try:
-                self.key.decrypt(v.nonce, v.ciphertext, _aad(app_id, ref, v.version))
+                self.key.decrypt(v.nonce, v.ciphertext, _aad(app.id, ref, v.version))
             except InvalidTag:
+                if not decl.generate:
+                    fix = "enter it again"
+                elif can_rotate:
+                    fix = "rotate it in the same change"
+                else:
+                    fix = "restore the key file (a generated value cannot be entered)"
                 raise ApiError(
                     409, "stale_precondition",
                     f"stored secret {ref_text(ref)} does not open with this box's key "
-                    "(was the database restored without its key file?); enter it again",
+                    f"(was the database restored without its key file?); {fix}",
                 ) from None
 
     # ---- change requests (app.configure) -----------------------------------------------------
@@ -314,7 +331,7 @@ class AppSecretsService:
                 return None
             sets = self.open_form(app, sealed) if sealed is not None else {}
             current = self.repo.current(app.id)
-            self._check_current_opens(app.id, current)
+            self._check_current_opens(app, current, set(sets), can_rotate=False)
             missing = self._missing_required(app, set(current) | set(sets))
             if missing:
                 raise ApiError(409, "stale_precondition", "enter the required secrets before approving: "
@@ -347,13 +364,13 @@ class AppSecretsService:
                     raise ApiError(409, "stale_precondition", "the entered values do not open with this box's key; "
                                    "submit the secrets form again") from None
         current = self.repo.current(app.id)
-        self._check_current_opens(app.id, current)
         clear = frozenset(r for r, v in staged.items() if v.op == "clear")
+        gen = frozenset(r for r, v in staged.items() if v.op == "generate")
+        self._check_current_opens(app, current, set(sets) | gen | clear, can_rotate=True)
         missing = self._missing_required(app, (set(current) - clear) | set(sets))
         if missing:
             raise ApiError(409, "stale_precondition", "required secrets would be unset: "
                            + ", ".join(ref_text(r) for r in missing))
-        gen = frozenset(r for r, v in staged.items() if v.op == "generate")
         return Prepared(app.id, sets, gen, clear)
 
     def commit(self, a: Action, app: AppEntry, prep: Prepared, approver: Principal) -> list[AppSecret]:
