@@ -5,8 +5,8 @@
 #
 #   ./gen-tokens.sh                 # once: random owner + agent tokens into ./local/ (gitignored)
 #   docker compose up -d --build    # from this directory
-#   ../verify/verify.sh http://127.0.0.1:8080 --token "$(cat local/owner.token)" \
-#       --agent-token "$(cat local/agent.token)"
+#   ../verify/verify.sh http://127.0.0.1:8080 --token-file local/owner.token \
+#       --agent-token-file local/agent.token
 #   docker compose down -v
 name: onemind-dev
 

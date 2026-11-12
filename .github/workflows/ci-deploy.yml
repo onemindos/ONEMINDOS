@@ -38,7 +38,7 @@ jobs:
         run: ./gen-tokens.sh && docker compose up -d --build --wait gateway node-sim
       - name: verify.sh against the compose hub
         working-directory: deploy/compose
-        run: ../verify/verify.sh http://127.0.0.1:8080 --token "$(cat local/owner.token)" --agent-token "$(cat local/agent.token)"
+        run: ../verify/verify.sh http://127.0.0.1:8080 --token-file local/owner.token --agent-token-file local/agent.token
       - name: logs on failure
         if: failure()
         working-directory: deploy/compose
