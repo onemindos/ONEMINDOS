@@ -1,0 +1,331 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/penpot/penpot (contract §9.2), then completed
+# from upstream at tag 2.19.1:
+# - docker/images/docker-compose.yaml: frontend (port 8080), backend, exporter, postgres:15,
+#   valkey:8.1 with "--maxmemory 128mb --maxmemory-policy volatile-lfu", the shared assets volume
+#   /opt/data/assets, PENPOT_FLAGS, PENPOT_PUBLIC_URI, PENPOT_SECRET_KEY.
+# - Dockerfile.frontend/backend/exporter: all three run as user penpot, UID 1001.
+# - files/nginx-entrypoint.sh: PENPOT_BACKEND_URI and PENPOT_EXPORTER_URI default to the compose
+#   service names and can be set; "disable-admin-console" in PENPOT_FLAGS drops the admin console
+#   proxy; PENPOT_DISABLE_IPV6_LISTEN drops the [::] listener.
+# - backend/src/app/health.clj and exporter/src/app/http.cljs: GET /readyz on 6060 and 6061.
+#
+# One pod: every container reaches the others on 127.0.0.1. PostgreSQL and Valkey are native
+# sidecars bound to 127.0.0.1, and PostgreSQL trusts local connections, so no database password or
+# Secret exists (the backend's default database user and password are both "penpot"; with trust the
+# password is not checked). PENPOT_SECRET_KEY is generated once onto the assets volume, outside the
+# folder the frontend serves, and loaded by the backend and exporter commands.
+# Not packaged (optional upstream): the admin console, the MCP server and the mail catcher.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: penpot
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: penpot
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: penpot
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: secret-key
+          image: docker.io/penpotapp/backend:2.19.1@sha256:bc26c263b33f107a63868ed298bebd9089f252c3799872c31ec1266fef321d29
+          command:
+            - bash
+            - -c
+            - |
+              set -eu
+              mkdir -p /mnt/assets /mnt/onemind
+              f=/mnt/onemind/penpot.env
+              if [ ! -s "$f" ]; then
+                umask 077
+                printf 'export PENPOT_SECRET_KEY=%s\n' "$(head -c 96 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 64)" > "$f"
+              fi
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /mnt
+        - name: db
+          image: docker.io/library/postgres:15.19-trixie@sha256:1aac5b49cefd627f02816141ca4ad012d6cc19460dfe02a9b5168a105be3fc53
+          restartPolicy: Always
+          args: ["postgres", "-c", "listen_addresses=127.0.0.1"]
+          env:
+            - name: POSTGRES_USER
+              value: penpot
+            - name: POSTGRES_DB
+              value: penpot
+            - name: POSTGRES_INITDB_ARGS
+              value: --data-checksums
+            # Only 127.0.0.1 and the pod's own socket reach this server.
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: trust
+            # A subdirectory, so the data directory is owned by the postgres user even when the
+            # volume root is not.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "penpot", "-d", "penpot"]
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "penpot", "-d", "penpot"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: db
+              mountPath: /var/lib/postgresql/data
+        - name: valkey
+          image: docker.io/valkey/valkey:8.1.11-trixie@sha256:8f836008e0986c36adf50da714c7060cf689dbb335f61fe077939d90fa650809
+          restartPolicy: Always
+          # recommended-settings.md: cap Valkey at 128 MB with volatile-lfu, as the compose file does.
+          args: ["valkey-server", "--bind", "127.0.0.1", "--maxmemory", "128mb", "--maxmemory-policy", "volatile-lfu"]
+          startupProbe:
+            exec:
+              command: ["valkey-cli", "-h", "127.0.0.1", "ping"]
+            periodSeconds: 2
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 192Mi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: valkey
+              mountPath: /data
+      containers:
+        - name: frontend
+          image: docker.io/penpotapp/frontend:2.19.1@sha256:b5b363a4bd38bf2aa781c6255e5208b4b305fa3f12fae1170abeb705ce510032
+          env:
+            - name: PENPOT_FLAGS
+              value: disable-email-verification disable-secure-session-cookies disable-admin-console
+            - name: PENPOT_PUBLIC_URI
+              value: http://localhost:9001
+            - name: PENPOT_BACKEND_URI
+              value: http://127.0.0.1:6060
+            - name: PENPOT_EXPORTER_URI
+              value: http://127.0.0.1:6061
+            - name: PENPOT_DISABLE_IPV6_LISTEN
+              value: "true"
+            - name: PENPOT_HTTP_SERVER_MAX_BODY_SIZE
+              value: "367001600"
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          # GET / is the static app; /readyz is proxied to the backend.
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /opt/data/assets
+              subPath: assets
+        - name: backend
+          image: docker.io/penpotapp/backend:2.19.1@sha256:bc26c263b33f107a63868ed298bebd9089f252c3799872c31ec1266fef321d29
+          # The image's CMD (bash run.sh in /opt/penpot/backend) after loading the generated key.
+          command: ["bash", "-c", ". /onemind/penpot.env && exec bash run.sh"]
+          env:
+            - name: PENPOT_FLAGS
+              value: disable-email-verification disable-secure-session-cookies disable-admin-console
+            - name: PENPOT_PUBLIC_URI
+              value: http://localhost:9001
+            - name: PENPOT_DATABASE_URI
+              value: postgresql://127.0.0.1/penpot
+            - name: PENPOT_REDIS_URI
+              value: redis://127.0.0.1/0
+            - name: PENPOT_OBJECTS_STORAGE_BACKEND
+              value: fs
+            - name: PENPOT_OBJECTS_STORAGE_FS_DIRECTORY
+              value: /opt/data/assets
+            - name: PENPOT_HTTP_SERVER_MAX_BODY_SIZE
+              value: "367001600"
+            - name: PENPOT_HTTP_SERVER_MAX_MULTIPART_BODY_SIZE
+              value: "367001600"
+            # Upstream's compose file turns telemetry on; OneMind sends none.
+            - name: PENPOT_TELEMETRY_ENABLED
+              value: "false"
+            # run.template.sh appends JAVA_OPTS; the JVM sizes its heap from the container limit.
+            - name: JAVA_OPTS
+              value: -XX:MaxRAMPercentage=75
+          ports:
+            - name: backend
+              containerPort: 6060
+              protocol: TCP
+          # Database migrations run on the first start.
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: backend
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: backend
+            periodSeconds: 10
+            timeoutSeconds: 5
+          # recommended-settings.md: 4 CPUs and 16 GB "are sufficient to support thousands of
+          # users"; a home box needs far less. A OneMind choice for a few editors.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /opt/data/assets
+              subPath: assets
+            - name: data
+              mountPath: /onemind
+              subPath: onemind
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+        - name: exporter
+          image: docker.io/penpotapp/exporter:2.19.1@sha256:bb25e0ee63ec37228848c714c7b60998d9c9d07f998ab7aebe2e3281d39b2962
+          # The image's CMD (node app.js in /opt/penpot/exporter) after loading the generated key.
+          command: ["bash", "-c", ". /onemind/penpot.env && exec node app.js"]
+          env:
+            - name: PENPOT_FLAGS
+              value: disable-email-verification disable-secure-session-cookies disable-admin-console
+            - name: PENPOT_PUBLIC_URI
+              value: http://localhost:9001
+            - name: PENPOT_INTERNAL_URI
+              value: http://127.0.0.1:8080
+            - name: PENPOT_REDIS_URI
+              value: redis://127.0.0.1/0
+          ports:
+            - name: exporter
+              containerPort: 6061
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: exporter
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: exporter
+            periodSeconds: 10
+            timeoutSeconds: 5
+          # Exports render pages in a headless Chromium. A OneMind choice.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /onemind
+              subPath: onemind
+              readOnly: true
+            - name: exporter-tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: penpot-data
+        - name: db
+          persistentVolumeClaim:
+            claimName: penpot-db
+        # Valkey holds websocket notifications and a cache only (recommended-settings.md: "disk
+        # storage will not be necessary").
+        - name: valkey
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: exporter-tmp
+          emptyDir:
+            sizeLimit: 1Gi
