@@ -31,6 +31,7 @@ from .routers import actions as actions_routes
 from .routers import apps as apps_routes
 from .routers import instance as instance_routes
 from .routers import mcp as mcp_routes
+from .routers import monitoring as monitoring_routes
 from .routers import nodes as nodes_routes
 from .routers import notifications as notifications_routes
 from .routers import static as static_routes
@@ -49,6 +50,7 @@ ROUTERS: list[Register] = [
     mcp_routes.register,
     actions_routes.register,
     notifications_routes.register,
+    monitoring_routes.register,
     static_routes.register,
 ]
 

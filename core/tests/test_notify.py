@@ -495,3 +495,45 @@ def test_default_worker_runs_in_background(settings, clock, executor, http, tmp_
         assert len(http.requests) == 1
 
 
+
+
+def test_nats_listener_subscribes_and_ingests(nclient):
+    """The NATS path without a server: a fake connection records the subscription and its callback."""
+    import asyncio
+
+    class Msg:
+        def __init__(self, subject, data):
+            self.subject, self.data = subject, data
+
+    class FakeNc:
+        is_connected = True
+
+        def __init__(self):
+            self.subs = []
+
+        async def subscribe(self, subject, cb):
+            self.subs.append((subject, cb))
+
+    s = svc(nclient)
+    bus = nclient.app.state.bus
+    nc = FakeNc()
+    bus.nc = nc
+    env = {"type": "backup.run.failed", "data": {"target": "usb", "reason": "disk full"}}
+
+    async def run():
+        task = asyncio.create_task(s._nats_listener())
+        for _ in range(50):
+            if nc.subs:
+                break
+            await asyncio.sleep(0.05)
+        task.cancel()
+        subject, cb = nc.subs[0]
+        assert subject == "onemind.node.*.event.>"
+        await cb(Msg("onemind.node.n2.event.backup.run.failed", json.dumps(env).encode()))
+
+    try:
+        asyncio.run(run())
+    finally:
+        bus.nc = None
+    [a] = open_alerts(nclient)
+    assert a["dedupe_key"] == "backup:usb" and a["source_id"] == "node:n2"
