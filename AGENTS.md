@@ -16,6 +16,7 @@
 - **The stack:** own read-only image, RAUC A/B with health-gated rollback, k3s, NATS, restic, plugin sockets E1–E10, and the capability gateway. **AI never actuates without human approval.**
 
 ## Continuing work (read first in a new session)
+- **[docs/leap/HANDOFF.md](docs/leap/HANDOFF.md)** is the full hand-off: everything left, split between two agents, with their prompts.
 - **[docs/leap/CONTINUE.md](docs/leap/CONTINUE.md)** lists what is left of the started waves, sorted quick / medium / heavy, and the order to finish them. Merge ownership and the next wave are in [docs/leap/NEXT-WAVE.md](docs/leap/NEXT-WAVE.md).
 
 ## Which brief to follow

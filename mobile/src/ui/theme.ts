@@ -1,49 +1,78 @@
 // SPDX-License-Identifier: Apache-2.0
-// Minimal tokens. A later design pass restyles the app; screens use only these.
+// The phone's theme comes from the OneMind design tokens (ui/src/tokens/tokens.ts → tokens.generated.ts,
+// docs/design/TOKENS.md): the same colour roles, spacing, radii and type scale as the dashboard.
+// Screens use only these names; they never pick raw colours.
 import { useColorScheme } from 'react-native';
+import { tokens } from './tokens.generated';
 
-const light = {
-  bg: '#F6F7F9',
-  card: '#FFFFFF',
-  text: '#14171C',
-  muted: '#5C6470',
-  border: '#E3E6EA',
-  accent: '#2F5BEA',
-  accentText: '#FFFFFF',
-  ok: '#1E7F4F',
-  okBg: '#E3F4EA',
-  warn: '#8A5A00',
-  warnBg: '#FFF2D6',
-  bad: '#B42318',
-  badBg: '#FDE7E5',
-  info: '#2F5BEA',
-  infoBg: '#E6ECFD',
-  neutralBg: '#EEF0F3',
-};
+type Roles = { [K in keyof typeof tokens.light]: string };
+
+function fromRoles(r: Roles) {
+  return {
+    bg: r.bg,
+    card: r.surface,
+    sunken: r['surface-sunken'],
+    raised: r['surface-raised'],
+    text: r.text,
+    muted: r['text-muted'],
+    subtle: r['text-subtle'],
+    border: r.border,
+    borderStrong: r['border-strong'],
+    accent: r.accent,
+    accentText: r['accent-text'],
+    accentSoft: r['accent-soft'],
+    focus: r.focus,
+    danger: r.danger,
+    dangerText: r['danger-text'],
+    ok: r['ok-fg'],
+    okBg: r['ok-bg'],
+    okBorder: r['ok-border'],
+    warn: r['warn-fg'],
+    warnBg: r['warn-bg'],
+    warnBorder: r['warn-border'],
+    bad: r['bad-fg'],
+    badBg: r['bad-bg'],
+    badBorder: r['bad-border'],
+    info: r['info-fg'],
+    infoBg: r['info-bg'],
+    infoBorder: r['info-border'],
+    neutral: r['neutral-fg'],
+    neutralBg: r['neutral-bg'],
+    neutralBorder: r['neutral-border'],
+    /** Anything an AI agent did or asked for (docs/design/TOKENS.md). */
+    agent: r['agent-fg'],
+    agentBg: r['agent-bg'],
+    agentBorder: r['agent-border'],
+  };
+}
+
+const light = fromRoles(tokens.light);
 export type Palette = typeof light;
-
-const dark: Palette = {
-  bg: '#0F1115',
-  card: '#181B21',
-  text: '#ECEEF1',
-  muted: '#9AA3AF',
-  border: '#2A2F37',
-  accent: '#7C9BFF',
-  accentText: '#0F1115',
-  ok: '#5FD394',
-  okBg: '#14301F',
-  warn: '#F2C14E',
-  warnBg: '#3A2E10',
-  bad: '#FF7B70',
-  badBg: '#3D1714',
-  info: '#7C9BFF',
-  infoBg: '#1A2442',
-  neutralBg: '#22262D',
-};
+const dark: Palette = fromRoles(tokens.dark);
 
 export function useTheme(): Palette {
   return useColorScheme() === 'dark' ? dark : light;
 }
 
-export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };
-export const radius = 12;
+/** px from a token value ('16px', '1.125rem'). */
+const px = (v: string) => Number.parseFloat(v) * (v.endsWith('rem') ? 16 : 1);
+const S = tokens.scale;
+
+export const space = { xs: px(S.space['1']), sm: px(S.space['2']), md: px(S.space['3']), lg: px(S.space['4']), xl: px(S.space['6']) };
+/** Cards use radius-lg, controls radius-md (ui/src/styles/components.css). */
+export const radius = px(S.radius.lg);
+export const radiusControl = px(S.radius.md);
+export const touchTarget = px(S.layout['touch-target']);
+export const font = {
+  xs: px(S['font-size'].xs),
+  sm: px(S['font-size'].sm),
+  md: px(S['font-size'].md),
+  lg: px(S['font-size'].lg),
+  xl: px(S['font-size'].xl),
+  xxl: px(S['font-size']['2xl']),
+  semibold: S['font-weight'].semibold as '600',
+  bold: S['font-weight'].bold as '700',
+};
+
+/** OneMind Red exactly as the logo draws it (brand/brand.json). Controls use the tokens' `accent`, the same red moved for contrast. */
+export const BRAND_RED = '#FF333A';
