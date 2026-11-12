@@ -7,7 +7,8 @@ import "github.com/onemindos/onemindos/internal/service"
 // subcommands are separate onemindd modes (`onemindd <name> ...`), each its own
 // process with its own systemd unit and privileges. One line per feature.
 var subcommands = map[string]func(args []string) int{
-	"update": runUpdate,
+	"update":  runUpdate,
+	"storage": runStorage,
 }
 
 // optionalServices run inside the heartbeat agent's process, next to it.

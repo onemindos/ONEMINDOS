@@ -477,3 +477,11 @@ func finish(p Plan) Plan {
 	p.SHA256 = hex.EncodeToString(sum[:])
 	return p
 }
+
+// WithChecks adds checks made outside the plan generators (the operation
+// engine's: operation kind, set key present) and seals the plan again; a
+// failed check blocks it and drops its steps.
+func WithChecks(p Plan, cs ...Check) Plan {
+	p.Checks = append(p.Checks, cs...)
+	return finish(p)
+}
