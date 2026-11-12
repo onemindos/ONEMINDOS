@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: Apache-2.0
+# Release (HANDOFF B2). Publishing is GATED on founder item F-27 (OS signing key and TUF root): this
+# workflow refuses to publish anything unsigned. Until the founder commits os/release/release-pubkey.pem
+# and adds the `release` environment with its signing secret, every run stops in the `gate` job.
+# Never runs on a PR. The image artefacts come from an image.yml run named by `image_run_id`.
+# UNPROVEN end to end: the publish job cannot run before F-27; the check script has unit tests.
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version, e.g. 0.1.0'
+        required: true
+      image_run_id:
+        description: 'image.yml run whose artefacts to release'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Refuse without the release public key (F-27)
+        run: |
+          test -f os/release/release-pubkey.pem || { echo "REFUSED: os/release/release-pubkey.pem is not committed (founder item F-27: signing key and TUF root). Nothing is published."; exit 2; }
+          grep -q "BEGIN PUBLIC KEY" os/release/release-pubkey.pem || { echo "REFUSED: release-pubkey.pem is not a public key"; exit 2; }
+          if grep -q "PRIVATE KEY" os/release/release-pubkey.pem; then echo "REFUSED: a private key is committed"; exit 2; fi
+      - name: Check script self-test
+        run: python3 -I -m unittest discover -s test/unit -p 'test_release.py'
+
+  publish:
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: release           # reviewers and the signing secret live here (separate from RAUC/TUF jobs, H-07)
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Fetch the image artefacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.image_run_id }}
+        run: |
+          mkdir -p dl rel
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir dl
+          find dl -type f \( -name '*.xz' -o -name '*.raw' -o -name '*.img' -o -name '*.raucb' \) -exec cp {} rel/ \;
+      - name: Sign SHA256SUMS (key from the release environment; never printed)
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          test -n "$RELEASE_SIGNING_KEY" || { echo "REFUSED: RELEASE_SIGNING_KEY is not set (F-27)"; exit 2; }
+          (cd rel && sha256sum -- * > ../SHA256SUMS) && mv SHA256SUMS rel/
+          umask 077
+          printf '%s' "$RELEASE_SIGNING_KEY" > "$RUNNER_TEMP/k.pem"
+          openssl dgst -sha256 -sign "$RUNNER_TEMP/k.pem" -out rel/SHA256SUMS.sig rel/SHA256SUMS
+          rm -f "$RUNNER_TEMP/k.pem"
+      - name: Verify before publishing (refuses unsigned)
+        env:
+          VERSION: ${{ inputs.version }}
+        run: python3 -I scripts/release/check-signed.py --dir rel --pubkey os/release/release-pubkey.pem --manifest-out rel-manifest.json --version "$VERSION"
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: gh release create "v$VERSION" rel/* --repo "$GITHUB_REPOSITORY" --title "OneMind OS $VERSION" --notes "Signed release. Verify SHA256SUMS.sig against os/release/release-pubkey.pem."

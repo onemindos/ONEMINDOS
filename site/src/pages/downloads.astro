@@ -1,0 +1,73 @@
+---
+// SPDX-License-Identifier: Apache-2.0
+// Downloads. Lists signed release artefacts from src/data/releases.json, which release.yml's
+// check-signed.py produces (scripts/release/check-signed.py). Empty until the first signed release:
+// signing is founder item F-27, so no download link is ever shown for an unsigned file.
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import data from '../data/releases.json';
+
+const REPO = 'https://github.com/onemindos/ONEMINDOS';
+const releases = (data.releases as any[]).filter((r) => r.signed === true);
+const boards = [
+  ['x86_64-efi', 'PC or mini PC (Beelink, NUC): write to the internal disk with the USB installer'],
+  ['installer-x86_64', 'USB installer stick for x86_64 PCs'],
+  ['rpi5', 'Raspberry Pi 5'],
+  ['jetson-orin', 'NVIDIA Jetson Orin (dev kit)'],
+  ['cloud', 'Cloud images: AWS, Google Cloud, Azure, Hetzner, Proxmox'],
+];
+---
+
+<StarlightPage
+  frontmatter={{ title: 'Downloads', description: 'OneMind OS images, with checksums and signatures.' }}
+  headings={[
+    { depth: 2, slug: 'releases', text: 'Releases' },
+    { depth: 2, slug: 'images', text: 'Which image' },
+    { depth: 2, slug: 'verify', text: 'Check what you downloaded' },
+  ]}
+>
+  <h2 id="releases">Releases</h2>
+  {releases.length === 0 ? (
+    <p>
+      <strong>No signed release yet.</strong> OneMind OS only publishes images signed with the project's release key,
+      and that key is not set up yet. Development images from CI are on the
+      <a href={`${REPO}/actions/workflows/image.yml`}> image workflow page</a>; they are signed with throwaway keys,
+      so use them only for testing.
+    </p>
+  ) : (
+    releases.map((r) => (
+      <section>
+        <h3>OneMind OS {r.version}</h3>
+        <table>
+          <thead><tr><th>File</th><th>Size</th><th>SHA-256</th></tr></thead>
+          <tbody>
+            {r.artefacts.map((a: any) => (
+              <tr>
+                <td><a href={`${REPO}/releases/download/v${r.version}/${a.name}`}>{a.name}</a></td>
+                <td>{(a.bytes / 1e6).toFixed(0)} MB</td>
+                <td><code>{a.sha256}</code></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p>
+          <a href={`${REPO}/releases/download/v${r.version}/SHA256SUMS`}>SHA256SUMS</a> and
+          <a href={`${REPO}/releases/download/v${r.version}/SHA256SUMS.sig`}> SHA256SUMS.sig</a>
+        </p>
+      </section>
+    ))
+  )}
+
+  <h2 id="images">Which image</h2>
+  <table>
+    <thead><tr><th>Board</th><th>For</th></tr></thead>
+    <tbody>{boards.map(([b, d]) => <tr><td><code>{b}</code></td><td>{d}</td></tr>)}</tbody>
+  </table>
+
+  <h2 id="verify">Check what you downloaded</h2>
+  <p>
+    Compare the file's SHA-256 with the table, and verify the signature on <code>SHA256SUMS</code> with the release
+    public key (<code>os/release/release-pubkey.pem</code> in the repository):
+  </p>
+  <pre><code>openssl dgst -sha256 -verify release-pubkey.pem -signature SHA256SUMS.sig SHA256SUMS
+sha256sum -c SHA256SUMS</code></pre>
+</StarlightPage>
