@@ -190,10 +190,10 @@
 | DEV-SDK-7 | SSE in all three SDKs, polling fallback, React Native transport | in-progress | `feat/devsurface` (local) | – |
 | CORE-MOBILE-1 | Shell on the generated `sdk/ts`; icon and splash | todo | – | – |
 | CORE-MOBILE-2 | QR pairing with CA pinning, HTTPS only | todo | – | – |
-| CORE-MOBILE-3 | Passkey sign-in and signed approvals; plan card | todo | – | – |
-| CORE-MOBILE-4 | Android UnifiedPush | todo | – | – |
-| CORE-MOBILE-5 | iOS service extension and relay registration (with NOTIFY-4) | todo | – | – |
-| CORE-MOBILE-6 | Alerts and Activity tabs, offline cache, checkpoint store | todo | – | – |
+| CORE-MOBILE-3 | Passkey sign-in and signed approvals; plan card | in-review | `feat/mobile-v1` | [#63](https://github.com/onemindos/ONEMINDOS/pull/63) |
+| CORE-MOBILE-4 | Android UnifiedPush | in-review | `feat/mobile-v1` | [#63](https://github.com/onemindos/ONEMINDOS/pull/63) |
+| CORE-MOBILE-5 | iOS service extension and relay registration (with NOTIFY-4) | in-progress | `feat/mobile-v1`: phone-side relay client; the hub refuses `apns` until CORE-NOTIFY-4 | [#63](https://github.com/onemindos/ONEMINDOS/pull/63) |
+| CORE-MOBILE-6 | Alerts and Activity tabs, offline cache, checkpoint store | in-review | `feat/mobile-v1` | [#63](https://github.com/onemindos/ONEMINDOS/pull/63) |
 | CORE-NOTIFY-7 | Actionable notifications open the approval card | todo | – | – |
 | DEV-MCP-3 | Request-only writes: `withdraw_request`, `preview_action`, `plan_sh… | todo | – | – |
 | DEV-MCP-6 | MCP audit entries, read summaries, trace context, audit tools | in-progress | `feat/devsurface` (local) | – |
