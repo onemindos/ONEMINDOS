@@ -84,7 +84,7 @@ The first poll after launch raises nothing (no burst of old news on every start)
 
 ## How this compares (patterns only, no code copied)
 
-- **Home Assistant** ships separate native Swift and Kotlin companion apps and pushes through Firebase **unencrypted** (research 12, C-W11-015/016). OneMind keeps one TypeScript codebase for both phones and never puts alert content in a vendor push.
+- **Home Assistant** ships separate native Swift and Kotlin companion apps and sends remote pushes through Google's Firebase Cloud Messaging, where the notification **content is not encrypted** and can be read by Google (TLS protects only the transport; research 12, C-W11-015/016). OneMind keeps one TypeScript codebase for both phones and never puts alert content in a vendor push.
 - **Olares** ships its phone app (LarePass) from one web codebase (C-W11-011). Same one-codebase idea here, on React Native instead of a WebView.
 - **umbrelOS** has no phone push at all; its notifications are text lines on the box (C-W11-003/004). Studied only: umbrelOS is PolyForm Noncommercial, so nothing is copied from it.
 - **What the phone adds that none of them show on a phone:** every change is an approval card with the exact request and whether a **person or an AI agent** asked, and an agent can never approve.
@@ -102,7 +102,7 @@ When the dashboard's copies change, copy them again. A shared `sdk/js` package i
 
 ## Dependencies and licences
 
-All direct dependencies are **MIT** and pinned to exact versions in `package.json` (Expo SDK 58, React Native 0.88, React 19.3, React Navigation 7, `expo-secure-store`, `expo-notifications`, `expo-build-properties`; dev: jest 30, jest-expo, React Native Testing Library 14, `test-renderer`, TypeScript 6). The transitive tree is permissive (MIT, ISC, BSD, Apache-2.0); the non-MIT entries (`lightningcss` MPL-2.0, `caniuse-lite` CC-BY-4.0, `argparse` Python-2.0, `node-forge` BSD-3-Clause OR GPL-2.0) are Expo CLI build tools that do not ship inside the app. No third-party code is copied into this directory, so there is no NOTICE entry.
+All direct runtime dependencies are **MIT** (the dev dependency TypeScript is **Apache-2.0**) and all are pinned to exact versions in `package.json` (Expo SDK 58, React Native 0.88, React 19.3, React Navigation 7, `expo-secure-store`, `expo-notifications`, `expo-build-properties`; dev: jest 30, jest-expo, React Native Testing Library 14, `test-renderer`, TypeScript 6). The transitive tree is permissive (MIT, ISC, BSD, Apache-2.0); the non-MIT entries (`lightningcss` MPL-2.0, `caniuse-lite` CC-BY-4.0, `argparse` Python-2.0, `node-forge` BSD-3-Clause OR GPL-2.0) are Expo CLI build tools that do not ship inside the app. No third-party code is copied into this directory, so there is no NOTICE entry.
 
 ## Known gaps
 
