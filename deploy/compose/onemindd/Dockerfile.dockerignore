@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# BuildKit reads this file for `-f deploy/compose/onemindd/Dockerfile` (repo-root context).
+# Send only the Go sources onemindd needs.
+*
+!go.mod
+!go.sum
+!cmd/**
+!internal/**
