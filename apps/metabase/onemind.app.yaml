@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# Metabase: Market batch 5 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: LICENSE.txt,
+# bin/docker/Dockerfile and bin/docker/run_metabase.sh at v0.65.3.
+# Image digests and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: metabase
+  name: "Metabase"
+  version: "0.65.3"
+  description: "Business intelligence: ask questions of your databases and build charts and dashboards."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: monitoring
+  icon: icon.svg
+  # LICENSE.txt: "Binaries located at hub.docker.com/metabase/metabase ... are released under the
+  # AGPL"; only the separate metabase-enterprise image carries the commercial licence.
+  license: "AGPL-3.0"
+  source: https://github.com/metabase/metabase
+  # §9.3 facts from the GitHub API (repos/metabase/metabase), read 2026-11-12.
+  links:
+    docs: "https://www.metabase.com/docs/latest/"
+    github: "https://github.com/metabase/metabase"
+    website: "https://www.metabase.com"
+    support: "https://github.com/metabase/metabase/issues"
+  upstream: {release: "v0.65.3", released_at: "2026-11-06T15:53:47Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 2048}
+  web: {port: 3000}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
