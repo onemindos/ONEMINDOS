@@ -20,6 +20,9 @@ ERROR_CODES = {
     "outcome_unknown",
     "not_found",
     "unauthenticated",
+    # §12.2 additions, used by the routes that ship them (fabric joins: §12.11)
+    "rate_limited",
+    "unavailable",
 }
 
 
@@ -28,9 +31,10 @@ class ErrorBody(BaseModel):
 
     error: Literal[
         "permission_denied", "stale_precondition", "expired", "conflict",
-        "outcome_unknown", "not_found", "unauthenticated",
+        "outcome_unknown", "not_found", "unauthenticated", "rate_limited", "unavailable",
     ]
     message: str
+    reason: str | None = None
 
 
 _DESCRIPTIONS = {
@@ -39,6 +43,8 @@ _DESCRIPTIONS = {
     404: "No such resource (not_found)",
     409: "stale_precondition, expired or conflict",
     422: "Request failed validation (conflict, with the bad fields in message)",
+    429: "Too many requests from this source (rate_limited, §12.2)",
+    503: "A dependency is down (unavailable, §12.2)",
 }
 
 
@@ -48,24 +54,33 @@ def error_responses(*statuses: int) -> dict[int, dict]:
 
 
 class ApiError(Exception):
-    def __init__(self, status: int, error: str, message: str):
+    def __init__(self, status: int, error: str, message: str, *, reason: str | None = None,
+                 retry_after_s: int | None = None):
         assert error in ERROR_CODES, error
         super().__init__(message)
         self.status = status
         self.error = error
         self.message = message
+        self.reason = reason  # §12.2 optional reason slug
+        self.retry_after_s = retry_after_s
 
 
-def error_response(status: int, error: str, message: str) -> JSONResponse:
-    body = {"error": error, "message": message}
-    headers = {"WWW-Authenticate": "Bearer"} if status == 401 else None
-    return JSONResponse(status_code=status, content=body, headers=headers)
+def error_response(status: int, error: str, message: str, *, reason: str | None = None,
+                   retry_after_s: int | None = None) -> JSONResponse:
+    body: dict = {"error": error, "message": message}
+    if reason:
+        body["reason"] = reason
+    headers = {"WWW-Authenticate": "Bearer"} if status == 401 else {}
+    if retry_after_s is not None:
+        body["retry_after_s"] = retry_after_s
+        headers["Retry-After"] = str(retry_after_s)
+    return JSONResponse(status_code=status, content=body, headers=headers or None)
 
 
 def install_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, exc: ApiError):
-        return error_response(exc.status, exc.error, exc.message)
+        return error_response(exc.status, exc.error, exc.message, reason=exc.reason, retry_after_s=exc.retry_after_s)
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError):

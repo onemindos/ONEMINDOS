@@ -43,6 +43,7 @@ def test_openapi_documents_contract_statuses_and_error_body(client):
     assert set(err["properties"]["error"]["enum"]) == {
         "permission_denied", "stale_precondition", "expired", "conflict",
         "outcome_unknown", "not_found", "unauthenticated",
+        "rate_limited", "unavailable",  # §12.2, used by the fabric join routes (§12.11)
     }
 
 
