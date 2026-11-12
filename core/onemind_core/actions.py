@@ -3,7 +3,10 @@
 This is where "AI never actuates without human approval" is enforced:
 - owners and agents may *request* an action (it lands in awaiting_approval);
 - only a person with role owner may approve or deny; an agent always gets 403 permission_denied;
-- nothing reaches the executor until an approval has moved the action to accepted.
+- nothing reaches the executor until an approval has moved the action to accepted;
+- an app.install is approved only for an app with a passing scan newer than 7 days (§10.3);
+- an app that declares spec.agent gets its own agent principal at install, revoked at removal
+  (§11.2), so the AI inside it can request actions but, like every agent, never approve them.
 """
 
 from __future__ import annotations
@@ -16,10 +19,11 @@ from typing import Literal
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from .audit import AuditLog
-from .auth import Principal
+from .auth import Principal, new_agent_token, token_hash
 from .catalog import APP_ID_RE, AppEntry, Catalog
 from .errors import ApiError
-from .executors import ExecResult, Executor
+from .executors import AgentSecret, ExecResult, Executor
+from .scan import scan_problem
 from .ledger import Action, ActionRepository, iso, new_action_id, utc
 
 log = logging.getLogger("onemind.actions")
@@ -55,7 +59,12 @@ class ActionService:
         executor: Executor,
         audit: AuditLog,
         clock: Callable[[], datetime],
+        *,
+        gateway_url: str = "http://localhost:8080",
+        require_scan: bool = True,
     ):
+        self.gateway_url = gateway_url
+        self.require_scan = require_scan
         self.repo = repo
         self.catalog = catalog
         self.executor = executor
@@ -119,10 +128,16 @@ class ActionService:
                 )
             raise
 
-    def create(self, principal: Principal, req: ActionRequest) -> tuple[dict, bool]:
-        """Returns (action, created). created=False means an idempotent replay (HTTP 200)."""
+    def create(self, principal: Principal, req: ActionRequest, reason: str | None = None) -> tuple[dict, bool]:
+        """Returns (action, created). created=False means an idempotent replay (HTTP 200).
+
+        reason (from the MCP request_action tool) is written to the audit log only; the §3 action
+        shape has no field for it.
+        """
         data = {"type": req.type, "params": req.params.model_dump(), "idempotency_key": req.idempotency_key}
-        return self._audited(principal, "request action", None, data, lambda: self._create(principal, req))
+        return self._audited(
+            principal, "request action", None, data, lambda: self._create(principal, req, reason)
+        )
 
     def deny(self, principal: Principal, action_id: str) -> dict:
         return self._audited(principal, "deny action", action_id, {}, lambda: self._cancel(principal, action_id))
@@ -130,7 +145,7 @@ class ActionService:
     def approve(self, principal: Principal, action_id: str) -> dict:
         return self._audited(principal, "approve action", action_id, {}, lambda: self._approve(principal, action_id))
 
-    def _create(self, principal: Principal, req: ActionRequest) -> tuple[dict, bool]:
+    def _create(self, principal: Principal, req: ActionRequest, reason: str | None = None) -> tuple[dict, bool]:
         if not principal.can_request_actions:
             raise self._deny(principal, "request actions")
         params = req.params.model_dump()
@@ -164,7 +179,11 @@ class ActionService:
             "action.requested",
             principal.as_dict(),
             stored.id,
-            {"type": stored.type, "params": stored.params, "expires_at": iso(stored.expires_at)},
+            {
+                "type": stored.type, "params": stored.params, "expires_at": iso(stored.expires_at),
+                "requested_by": principal.id,
+                **({"reason": reason} if reason else {}),
+            },
         )
         moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
         self.audit.append("action.awaiting_approval", None, stored.id, {})
@@ -212,6 +231,10 @@ class ActionService:
         app = self.catalog.get(app_id)
         claim, allowed, allow_absent = APP_CLAIMS[a.type]
         now = self.clock()
+        if a.type == "app.install" and app is not None and self.require_scan:
+            problem = scan_problem(app_id, app.scan, now)
+            if problem:  # §10.3: nothing unscanned runs; the action stays awaiting_approval
+                raise ApiError(409, "stale_precondition", problem)
         outcome = "stale" if app is None else self.repo.accept_and_claim(
             a.id, now, principal.as_dict(), app_id, claim, set(allowed), allow_absent
         )
@@ -220,38 +243,77 @@ class ActionService:
         if outcome == "stale":
             problem = self._precondition(a.type, app_id)[1] or f"app {app_id!r} changed state concurrently"
             raise ApiError(409, "stale_precondition", problem)
-        self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params})
+        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id}
+        self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params, **ids})
 
         try:
-            return self._dispatch(a, app)
+            return self._dispatch(a, app, ids)
         except Exception as exc:  # anything after accepted: the effect is unknown, never retry
             log.exception("dispatch interrupted")
             self._mark_outcome_unknown(a, f"dispatch error: {exc.__class__.__name__}")
             return self._get(a.id).to_json()
 
-    def _dispatch(self, a: Action, app: AppEntry) -> dict:
+    def _dispatch(self, a: Action, app: AppEntry, ids: dict) -> dict:
         dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
         if dispatched is None:
             raise RuntimeError("accepted action could not move to dispatched")
-        self.audit.append("action.dispatched", None, a.id, {"executor": self.executor.name})
+        self.audit.append("action.dispatched", None, a.id, {"executor": self.executor.name, **ids})
 
+        agent = self._agent_grant(a, app)
         try:
-            result = self.executor.run(a.type, app)
+            result = self.executor.run(a.type, app, agent=agent)
         except Exception as exc:  # unknown effect: never retry automatically
             log.exception("executor crashed")
             result = ExecResult("outcome_unknown", f"executor error: {exc.__class__.__name__}")
+        if a.type == "app.install" and agent is not None and result.outcome != "succeeded":
+            # A failed or unknown install must not leave a live credential behind; a new install
+            # issues a fresh one.
+            self._revoke_agent(a, f"install {result.outcome}")
 
         final = self.repo.transition(a.id, {"dispatched"}, result.outcome, self.clock(), result=result.to_json())
         self._record_app_state(a, result.outcome)
         self.audit.append(
-            f"action.{result.outcome}", None, a.id, {"executor": self.executor.name, "message": result.message}
+            f"action.{result.outcome}", None, a.id,
+            {"executor": self.executor.name, "message": result.message, **ids},
         )
         return (final or self._get(a.id)).to_json()
+
+    # ---- §11.2 agent principals ------------------------------------------------------------
+    def _agent_grant(self, a: Action, app: AppEntry) -> AgentSecret | None:
+        """Issue (install) or revoke (remove) the app's agent principal, before the executor runs.
+
+        On removal the principal is revoked first and whatever the executor then manages to do,
+        so a removed app's credential is dead even when deleting its resources fails. Removal
+        revokes agent:<app-id> even if the manifest no longer declares spec.agent.
+        """
+        spec = app.agent
+        if a.type == "app.remove":
+            self._revoke_agent(a, "app.remove")
+            return AgentSecret(name=spec.secret, principal_id=spec.principal_id) if spec else None
+        if spec is None:
+            return None
+        token = new_agent_token()
+        self.repo.issue_agent_token(spec.principal_id, app.id, token_hash(token), self.clock())
+        self.audit.append(
+            "agent.principal.issued", None, a.id,
+            {"principal": {"id": spec.principal_id, "kind": "agent", "role": "agent"},
+             "app_id": app.id, "secret": spec.secret, "namespace": f"app-{app.id}"},
+        )
+        return AgentSecret(spec.secret, spec.principal_id, gateway_url=self.gateway_url, token=token)
+
+    def _revoke_agent(self, a: Action, reason: str) -> None:
+        principal_id = f"agent:{a.params['app_id']}"
+        if self.repo.revoke_agent_token(principal_id, self.clock()):
+            self.audit.append(
+                "agent.principal.revoked", None, a.id, {"principal_id": principal_id, "reason": reason}
+            )
 
     def _mark_outcome_unknown(self, a: Action, message: str) -> None:
         result = {"outcome": "outcome_unknown", "message": message}
         moved = self.repo.transition(a.id, {"accepted", "dispatched"}, "outcome_unknown", self.clock(), result=result)
         self.repo.set_app_state(a.params["app_id"], "unknown", self.clock(), a.id)
+        if a.type == "app.install":
+            self._revoke_agent(a, "install outcome unknown")
         if moved is not None:
             self.audit.append("action.outcome_unknown", None, a.id, {"message": message})
 

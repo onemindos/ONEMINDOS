@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import secrets
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,6 +53,18 @@ class Principal:
 
 def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+token_hash = _hash
+
+
+def new_agent_token() -> str:
+    """A fresh 256-bit bearer token for an app's agent principal (§11.2)."""
+    return secrets.token_urlsafe(32)
+
+
+def agent_principal(principal_id: str) -> Principal:
+    return Principal(id=principal_id, kind="agent", role="agent")
 
 
 def _principal(entry: dict, where: str) -> Principal:
