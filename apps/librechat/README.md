@@ -9,7 +9,7 @@ Self-hosted AI chat with agents, MCP, model switching and message search, for lo
 |---|---|
 | Version | 0.8.8 (upstream release `v0.8.8`, published 2026-10-01) |
 | Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | ai |
 | GitHub | <https://github.com/LibreChat-AI/LibreChat> |
 | Website | <https://librechat.ai/> |
@@ -88,6 +88,19 @@ Source: [librechat.ai/docs](https://www.librechat.ai/docs) and the docs page "Ol
 - `readOnlyRootFilesystem` is not set: it has not been tested against this image.
 - Resource figures are OneMind choices where upstream gives none; they are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212765046, job `gate (librechat)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `registry.librechat.ai/librechat-ai/librechat:v0.8.8`: GHSA-cg2g-xh64-v4q7 in `dompurify` 3.4.16 (fixed 3.4.17); CVE-2026-106445 and CVE-2026-106446 in `handlebars` 4.7.9 (fixed 4.7.10); CVE-2026-125120 in `mongoose` 8.24.1 (fixed 8.24.3); CVE-2026-90711 in `proxy-addr` 2.0.7 (fixed 2.0.8); CVE-2026-59873 in `tar` 7.5.13 (fixed 7.5.19).
+- Vulnerability: `ghcr.io/ferretdb/ferretdb:2.7.0`: CVE-2026-33815 and CVE-2026-33816 in `github.com/jackc/pgx/v5` v5.7.6 (fixed 5.9.0); CVE-2026-33186 in `google.golang.org/grpc` v1.75.0 (fixed 1.79.3); CVE-2025-68121 in Go `stdlib` v1.25.4.
+- Vulnerability: `ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0` (Debian 12 base): CVE-2026-13221, CVE-2026-42496 and CVE-2026-8376 in perl (`perl`, `perl-base`, `perl-modules-5.36`, `libperl5.36`); CVE-2026-33845 and CVE-2026-42010 in `libgnutls30`; CVE-2026-44172 and CVE-2026-49261 in `libmariadb3` and `mariadb-common`; CVE-2026-2781 in `libnss3`; CVE-2026-31789 in `openssl`, `libssl3` and `libssl-dev`; CVE-2026-23112, CVE-2026-43037 and CVE-2026-98432 in `linux-libc-dev`; CVE-2026-111497 in `libbrotli1`; CVE-2025-68121 in Go `stdlib` v1.24.6. Each has a fixed version in the Debian archive.
+- Secret finding (Trivy): `jwt-token` (MEDIUM) in `/app/packages/data-schemas/src/config/parsers.spec.ts` of the librechat image (a test fixture).
+- Licence: no row for LibreChat in `research-output/evidence/license-matrix.csv`, so the app is not preinstallable on sold boxes until one is added (brief 30 B10). GitHub reports MIT, which matches the manifest. The app still carries `UNVERIFIED` markers (README, deployment.yaml), which also cap the tier at community.
+- Passed: ClamAV (0 infected), smoke test (GET / returned 200).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

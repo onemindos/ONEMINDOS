@@ -9,7 +9,7 @@ Nextcloud server, a safe home for all your data
 |---|---|
 | Version | 33.0.10 (upstream release `v33.0.10`, published 2026-10-15) |
 | Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/nextcloud/server> |
 | Website | <https://nextcloud.com> |
@@ -82,6 +82,17 @@ Source: the nextcloud/docker [README](https://github.com/nextcloud/docker#readme
 - `readOnlyRootFilesystem` is not set: it has not been tested against this image.
 - Resource figures are OneMind choices where upstream gives none; they are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212765046, job `gate (nextcloud)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/library/nextcloud:33.0.10-apache`: CRITICAL CVE-2026-42216 and CVE-2026-42217 in `libopenexr-3-1-30` 3.1.13-2, fixed in 3.2.12-1~deb13u1.
+- Vulnerability: `docker.io/library/postgres:18.6-trixie`: CRITICAL CVE-2025-68121 in the Go `stdlib` v1.24.6, fixed in 1.24.13, 1.25.7 or 1.26.0-rc.3.
+- Secret finding (Trivy): the nextcloud image has a rule hit `azure-storage-account-key` (CRITICAL) in `/usr/src/nextcloud/3rdparty/microsoft/azure-storage-common/src/Common/Internal/Resources.php`; the postgres image has `private-key` (HIGH) in `/etc/ssl/private/ssl-cert-snakeoil.key` (Debian's ssl-cert package). Both are in upstream images we do not build. The gate counts any finding as a failure and is not relaxed.
+- Passed: licence AGPL-3.0, ClamAV (0 infected), smoke test (GET / returned 200).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

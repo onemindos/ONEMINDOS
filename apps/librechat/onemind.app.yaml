@@ -22,7 +22,8 @@ metadata:
     website: "https://librechat.ai/"
     support: "https://github.com/LibreChat-AI/LibreChat/issues"
   upstream: {release: "v0.8.8", released_at: "2026-10-01T02:49:17Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL CVEs in librechat, ferretdb and the documentdb image, a secret finding, no licence-matrix row (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 1536}

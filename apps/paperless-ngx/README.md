@@ -9,7 +9,7 @@ A community-supported supercharged document management system: scan, index and a
 |---|---|
 | Version | 3.4.2 (upstream release `v3.4.2`, published 2026-11-03) |
 | Licence | `GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/paperless-ngx/paperless-ngx> |
 | Website | <https://docs.paperless-ngx.com/> |
@@ -82,6 +82,16 @@ Source: [docs.paperless-ngx.com](https://docs.paperless-ngx.com/setup/) "After i
 - `readOnlyRootFilesystem` is not set: it has not been tested against this image.
 - Resource figures are OneMind choices where upstream gives none; they are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212765046, job `gate (paperless-ngx)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/library/postgres:18.6-trixie`: CRITICAL CVE-2025-68121 in the Go `stdlib` v1.24.6, fixed in 1.24.13, 1.25.7 or 1.26.0-rc.3.
+- Secret finding (Trivy): the same postgres image has `private-key` (HIGH) in `/etc/ssl/private/ssl-cert-snakeoil.key` (Debian's ssl-cert package).
+- Passed: licence GPL-3.0, ClamAV (0 infected), smoke test (GET / returned 302). The paperless-ngx 3.4.2 image itself has no CRITICAL with a fix (CRITICALs without a fix are recorded only: libmariadb3 CVE-2026-44172 and CVE-2026-49261, libxml2 CVE-2026-6653).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

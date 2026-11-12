@@ -9,7 +9,7 @@ Git with a cup of tea! Painless self-hosted all-in-one software development serv
 |---|---|
 | Version | 28.3.0 (upstream release `v28.3.0`, published 2026-11-01) |
 | Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | developer |
 | GitHub | <https://github.com/go-gitea/gitea> |
 | Website | <https://gitea.com> |
@@ -75,6 +75,15 @@ Source: [docs.gitea.com](https://docs.gitea.com/installation/install-with-docker
 - `readOnlyRootFilesystem` is not set: it has not been tested against this image.
 - Resource figures are OneMind choices where upstream gives none; they are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212765046, job `gate (gitea)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/gitea/gitea:28.3.0-rootless`: CRITICAL CVE-2026-123158 in `openssh-keygen` 10.3_p1-r1, fixed in 10.3_p1-r2. A CRITICAL with a fix fails the gate (§9.4 check 3).
+- Passed: licence MIT matches, ClamAV (0 infected, amd64 and arm64), smoke test (GET / returned 200). Not signed with cosign (recorded as unsigned, informational).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -22,7 +22,8 @@ metadata:
     website: "https://nextcloud.com"
     support: "https://github.com/nextcloud/server/issues"
   upstream: {release: "v33.0.10", released_at: "2026-10-15T08:37:28Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL CVEs and secret findings in the nextcloud and postgres images (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 1024}
