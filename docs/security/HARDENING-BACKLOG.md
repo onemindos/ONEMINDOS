@@ -39,7 +39,7 @@ Inside a tier, items are in the order to build them. **Owner** is the build stre
 | H-22 | P2 | Per-tool capability scopes for agents (SEC-12 item 1) | gateway | `core/onemind_core/mcp.py`, `auth.py` |
 | H-23 | P1 | Owner-approved node join; short-lived join token; CA-pinned token | deploy, gateway | `deploy/install.sh`, `core/onemind_core/actions.py` |
 | H-24 | P1 | `onemindd` local API on loopback by default | onemindd | `internal/agent/agent.go`, `deploy/systemd/onemindd.service` |
-| H-25 | P0 | Fix `ONEMIND_GATEWAY_URL` / `ONEMIND_PUBLIC_URL` mismatch | deploy | `deploy/install.sh` |
+| H-25 | P0 (done: `deploy/install.sh` writes `ONEMIND_PUBLIC_URL`) | Fix `ONEMIND_GATEWAY_URL` / `ONEMIND_PUBLIC_URL` mismatch | deploy | `deploy/install.sh` |
 | H-26 | P1 | `/data` override of `update.conf` may set policy keys only | updater, image | `internal/update/config.go`, `os/.../etc/onemind/update.conf` |
 | H-27 | P2 | Lock the boot line (UKI + Secure Boot route, SB-1/SB-7) | image | `os/assemble/`, `os/boards/x86_64-efi/` |
 | H-28 | P1 | Alert the owner on update freeze, scan expiry, audit break | updater, gateway | `internal/update/engine.go`, notifications |
@@ -104,6 +104,7 @@ Inside a tier, items are in the order to build them. **Owner** is the build stre
 **Acceptance test:** `k3s secrets-encrypt status` → `Encryption Status: Enabled`; after creating a Secret with value `canary-…`, `grep -a canary- <data-dir>/server/db/state.db` finds nothing (`/data/k3s` on the image, `/var/lib/rancher/k3s` on the developer install).
 
 ### H-25 · Installer writes the variable the gateway reads
+**Status: done.** `deploy/install.sh` now writes `ONEMIND_PUBLIC_URL` (the line after the comment about `ONEMIND_GATEWAY_URL`); verified 2026-11-12 on `main`.
 **Why:** `install.sh:509` writes `ONEMIND_GATEWAY_URL`, but the gateway reads `ONEMIND_PUBLIC_URL` (`feat/gateway-agent-mcp`: `core/onemind_core/config.py:101`), so the installer's URL is ignored and agent Secrets get `http://<hostname>:8080`. Small, but it decides which URL carries an agent token.
 **Files:** `deploy/install.sh` (`gateway_service`).
 **Acceptance test:** after install, the gateway's startup log does not print "ONEMIND_PUBLIC_URL not set", and the agent Secret's `ONEMIND_GATEWAY_URL` equals the URL the installer printed.
