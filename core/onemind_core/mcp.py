@@ -237,6 +237,8 @@ class McpEndpoint:
             raise _RpcError(INVALID_PARAMS, f"unknown arguments: {sorted(extra)}")
         if reason is not None and (not isinstance(reason, str) or len(reason) > MAX_REASON):
             raise _RpcError(INVALID_PARAMS, f"reason must be a string of at most {MAX_REASON} characters")
+        if args.get("type") not in ("app.install", "app.remove"):  # the tool's enum (§11.3)
+            raise _RpcError(INVALID_PARAMS, "type must be app.install or app.remove")
         try:
             req = ActionRequest(
                 type=args.get("type"),

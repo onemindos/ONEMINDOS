@@ -7,16 +7,23 @@ This is where "AI never actuates without human approval" is enforced:
 - an app.install is approved only for an app with a passing scan newer than 7 days (§10.3);
 - an app that declares spec.agent gets its own agent principal at install, revoked at removal
   (§11.2), so the AI inside it can request actions but, like every agent, never approve them.
+
+Feature modules add action types through `register_type` (contract §12.5 registry entries): each
+names who may request it, the app it claims while it runs, a precondition checked at request and
+again at approval, and the gateway-side effect. They also add precondition hooks to app.install
+and app.remove (`app_checks`) and hooks that run after a dispatch (`after_dispatch`). The rule
+above holds for every type: only an owner approves, and nothing runs before the approval.
 """
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from .audit import AuditLog
 from .auth import Principal, new_agent_token, token_hash
@@ -43,12 +50,43 @@ class ActionParams(BaseModel):
     app_id: str = Field(min_length=1, max_length=59, pattern=APP_ID_RE.pattern)
 
 
+TYPE_RE = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,3}$"
+
+
 class ActionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    type: ActionType
-    params: ActionParams
+    type: str = Field(
+        min_length=1, max_length=64, pattern=TYPE_RE,
+        description="app.install | app.remove (§3), or a type a feature registered (§12.5, §12.22)",
+    )
+    params: dict[str, Any] = Field(description="Per type; app.install and app.remove take {app_id}")
     idempotency_key: str = Field(min_length=1, max_length=200)
     expires_at: AwareDatetime
+
+    @field_validator("params", mode="before")
+    @classmethod
+    def _params_as_dict(cls, value: Any) -> Any:
+        return value.model_dump() if isinstance(value, BaseModel) else value
+
+
+@dataclass(frozen=True)
+class ActionTypeSpec:
+    """An action type served by a feature module (one contract §12.5 registry entry)."""
+
+    type: str
+    params: type[BaseModel]
+    risk: str  # read | write | sensitive | destructive (§12.3)
+    # The gateway-side effect, run once after approval. An exception means outcome_unknown.
+    run: Callable[[Action], ExecResult]
+    # Who may request it: "owner" (a person with role owner) and/or "agent".
+    requesters: frozenset[str] = frozenset({"owner"})
+    # (app status while it runs, statuses it may start from), on params["app_id"]; None = no app claim.
+    claim: tuple[str, frozenset[str]] | None = None
+    # Precondition at request and again at approval: fn(params, principal, phase) raises ApiError to
+    # refuse; phase is "request" or "approve".
+    check: Callable[[dict, Principal, str], None] | None = None
+    # The app's status after an outcome (claiming types). Default: installed, or unknown.
+    settle: Callable[[Action, str], str | None] | None = None
 
 
 class ActionService:
@@ -70,6 +108,20 @@ class ActionService:
         self.executor = executor
         self.audit = audit
         self.clock = clock
+        self.types: dict[str, ActionTypeSpec] = {}
+        # Extra preconditions for app.install / app.remove: fn(type, params, app, phase) raises
+        # ApiError; phase is "request" or "approve".
+        self.app_checks: list[Callable[[str, dict, AppEntry, str], None]] = []
+        # Run after every dispatch with (action, outcome); a failing hook is logged and skipped.
+        self.after_dispatch: list[Callable[[Action, str], None]] = []
+        self.transient_app_statuses: set[str] = {"installing", "removing"}
+
+    def register_type(self, spec: ActionTypeSpec) -> None:
+        if spec.type in APP_CLAIMS or spec.type in self.types:
+            raise ValueError(f"action type {spec.type} is already registered")
+        if spec.claim is not None:
+            self.transient_app_statuses.add(spec.claim[0])
+        self.types[spec.type] = spec
 
     # ---- helpers -------------------------------------------------------------------------
     def _deny(self, principal: Principal, what: str, action_id: str | None = None) -> ApiError:
@@ -134,7 +186,7 @@ class ActionService:
         reason (from the MCP request_action tool) is written to the audit log only; the §3 action
         shape has no field for it.
         """
-        data = {"type": req.type, "params": req.params.model_dump(), "idempotency_key": req.idempotency_key}
+        data = {"type": req.type, "params": dict(req.params), "idempotency_key": req.idempotency_key}
         return self._audited(
             principal, "request action", None, data, lambda: self._create(principal, req, reason)
         )
@@ -145,10 +197,42 @@ class ActionService:
     def approve(self, principal: Principal, action_id: str) -> dict:
         return self._audited(principal, "approve action", action_id, {}, lambda: self._approve(principal, action_id))
 
+    def _may_request(self, principal: Principal, spec: ActionTypeSpec | None) -> bool:
+        if spec is None:
+            return principal.can_request_actions
+        return (principal.is_owner and "owner" in spec.requesters) or (
+            principal.kind == "agent" and principal.role == "agent" and "agent" in spec.requesters
+        )
+
+    def _params(self, spec: ActionTypeSpec | None, raw: dict) -> dict:
+        model = spec.params if spec is not None else ActionParams
+        try:
+            return model.model_validate(raw).model_dump()
+        except ValidationError as exc:
+            problems = "; ".join(
+                f"params.{'.'.join(str(x) for x in e.get('loc', []))}: {e.get('msg', '')}" for e in exc.errors()
+            )
+            raise ApiError(422, "conflict", f"request failed validation: {problems}"[:1000]) from exc
+
+    def _ext_precondition(self, spec: ActionTypeSpec, params: dict, principal: Principal, phase: str) -> None:
+        if spec.claim is not None:
+            app_id = params["app_id"]
+            if self.catalog.get(app_id) is None:
+                raise ApiError(404, "not_found", f"app {app_id!r} is not in the catalog")
+            state = self.repo.get_app_state(app_id)
+            status = state.status if state else None
+            if status not in spec.claim[1]:
+                raise ApiError(409, "stale_precondition", f"app {app_id!r} is {status or 'not installed'}")
+        if spec.check is not None:
+            spec.check(params, principal, phase)
+
     def _create(self, principal: Principal, req: ActionRequest, reason: str | None = None) -> tuple[dict, bool]:
-        if not principal.can_request_actions:
-            raise self._deny(principal, "request actions")
-        params = req.params.model_dump()
+        spec = self.types.get(req.type)
+        if spec is None and req.type not in APP_CLAIMS:
+            raise ApiError(422, "conflict", f"request failed validation: type: unknown action type {req.type!r}")
+        if not self._may_request(principal, spec):
+            raise self._deny(principal, "request actions" if spec is None else f"request {req.type}")
+        params = self._params(spec, req.params)
         existing = self.repo.get_by_idempotency_key(req.idempotency_key)
         if existing is not None:
             return self._replay(principal, req, params, existing)
@@ -156,11 +240,16 @@ class ActionService:
         expires_at = utc(req.expires_at)
         if expires_at <= now:
             raise ApiError(409, "expired", "expires_at is already in the past")
-        app, problem = self._precondition(req.type, params["app_id"])
-        if app is None:
-            raise ApiError(404, "not_found", problem or "unknown app")
-        if problem:
-            raise ApiError(409, "stale_precondition", problem)
+        if spec is None:
+            app, problem = self._precondition(req.type, params["app_id"])
+            if app is None:
+                raise ApiError(404, "not_found", problem or "unknown app")
+            if problem:
+                raise ApiError(409, "stale_precondition", problem)
+            for hook in self.app_checks:
+                hook(req.type, params, app, "request")
+        else:
+            self._ext_precondition(spec, params, principal, "request")
         action = Action(
             id=new_action_id(),
             type=req.type,
@@ -223,6 +312,9 @@ class ActionService:
             raise ApiError(409, "expired", "action expired before approval")
         if a.state != "awaiting_approval":
             raise ApiError(409, "conflict", f"action is {a.state}, not awaiting_approval")
+        spec = self.types.get(a.type)
+        if spec is not None:
+            return self._approve_ext(principal, a, spec)
 
         # Check current conditions again: the world may have changed since the request. The claim
         # on the app is made atomically with "accepted", so two actions for one app cannot both
@@ -235,6 +327,9 @@ class ActionService:
             problem = scan_problem(app_id, app.scan, now)
             if problem:  # §10.3: nothing unscanned runs; the action stays awaiting_approval
                 raise ApiError(409, "stale_precondition", problem)
+        if app is not None:
+            for hook in self.app_checks:  # the world may have changed since the request
+                hook(a.type, a.params, app, "approve")
         outcome = "stale" if app is None else self.repo.accept_and_claim(
             a.id, now, principal.as_dict(), app_id, claim, set(allowed), allow_absent
         )
@@ -276,7 +371,59 @@ class ActionService:
             f"action.{result.outcome}", None, a.id,
             {"executor": self.executor.name, "message": result.message, **ids},
         )
+        self._after(a, result.outcome)
         return (final or self._get(a.id)).to_json()
+
+    # ---- registered types ------------------------------------------------------------------
+    def _approve_ext(self, principal: Principal, a: Action, spec: ActionTypeSpec) -> dict:
+        self._ext_precondition(spec, a.params, principal, "approve")  # refused: stays awaiting_approval
+        now = self.clock()
+        if spec.claim is not None:
+            outcome = self.repo.accept_and_claim(
+                a.id, now, principal.as_dict(), a.params["app_id"], spec.claim[0], set(spec.claim[1]), False
+            )
+        else:
+            moved = self.repo.transition(
+                a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now
+            )
+            outcome = "accepted" if moved is not None else "conflict"
+        if outcome == "conflict":
+            raise ApiError(409, "conflict", "action was decided concurrently")
+        if outcome == "stale":
+            raise ApiError(409, "stale_precondition", f"app {a.params['app_id']!r} changed state concurrently")
+        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id}
+        self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params, **ids})
+        try:
+            return self._dispatch_ext(a, spec, ids)
+        except Exception as exc:  # anything after accepted: the effect is unknown, never retry
+            log.exception("dispatch interrupted")
+            self._mark_outcome_unknown(a, f"dispatch error: {exc.__class__.__name__}")
+            return self._get(a.id).to_json()
+
+    def _dispatch_ext(self, a: Action, spec: ActionTypeSpec, ids: dict) -> dict:
+        if self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock()) is None:
+            raise RuntimeError("accepted action could not move to dispatched")
+        self.audit.append("action.dispatched", None, a.id, {"executor": "gateway", **ids})
+        try:
+            result = spec.run(a)
+        except Exception as exc:  # unknown effect: never retry automatically
+            log.exception("%s crashed", a.type)
+            result = ExecResult("outcome_unknown", f"{a.type} error: {exc.__class__.__name__}")
+        final = self.repo.transition(a.id, {"dispatched"}, result.outcome, self.clock(), result=result.to_json())
+        if spec.claim is not None:
+            status = (spec.settle(a, result.outcome) if spec.settle is not None
+                      else "unknown" if result.outcome == "outcome_unknown" else "installed")
+            self.repo.set_app_state(a.params["app_id"], status, self.clock(), a.id)
+        self.audit.append(f"action.{result.outcome}", None, a.id, {"executor": "gateway", "message": result.message, **ids})
+        self._after(a, result.outcome)
+        return (final or self._get(a.id)).to_json()
+
+    def _after(self, a: Action, outcome: str) -> None:
+        for hook in self.after_dispatch:
+            try:
+                hook(a, outcome)
+            except Exception:  # a follow-up must never change the recorded outcome
+                log.exception("after-dispatch hook %r failed for %s", hook, a.id)
 
     # ---- §11.2 agent principals ------------------------------------------------------------
     def _agent_grant(self, a: Action, app: AppEntry) -> AgentSecret | None:
@@ -311,7 +458,9 @@ class ActionService:
     def _mark_outcome_unknown(self, a: Action, message: str) -> None:
         result = {"outcome": "outcome_unknown", "message": message}
         moved = self.repo.transition(a.id, {"accepted", "dispatched"}, "outcome_unknown", self.clock(), result=result)
-        self.repo.set_app_state(a.params["app_id"], "unknown", self.clock(), a.id)
+        spec = self.types.get(a.type)
+        if (spec is None or spec.claim is not None) and isinstance(a.params.get("app_id"), str):
+            self.repo.set_app_state(a.params["app_id"], "unknown", self.clock(), a.id)
         if a.type == "app.install":
             self._revoke_agent(a, "install outcome unknown")
         if moved is not None:
@@ -328,7 +477,7 @@ class ActionService:
             self._mark_outcome_unknown(a, f"gateway restarted while the action was {a.state}")
         now = self.clock()
         for app_id, st in self.repo.list_app_states().items():
-            if st.status in ("installing", "removing"):
+            if st.status in self.transient_app_statuses:
                 self.repo.set_app_state(app_id, "unknown", now, st.action_id)
                 self.audit.append(
                     "app.reconciled", None, st.action_id,

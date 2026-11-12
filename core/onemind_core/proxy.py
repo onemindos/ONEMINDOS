@@ -195,6 +195,8 @@ class AppProxy:
         route_ttl: float = 5.0,
         audit: Callable[[str, dict | None, str | None, dict], Any] | None = None,
         path_routes: bool = False,
+        exposure: Callable[[str], str] | None = None,
+        mesh_domains: tuple[str, ...] = ("apps.onemind.internal",),
     ):
         """app_status(app_id) returns the ledger status ("installed", ...) or None.
 
@@ -202,6 +204,8 @@ class AppProxy:
         "box1.local", "apps.onemind.internal").
         path_routes: also serve /apps/<id>/ on the gateway host (same origin as the dashboard;
         see the module docstring before turning it on).
+        exposure(app_id) -> private | mesh | public (contract §12.22): a request on a mesh_domains
+        name is answered 404 unless the app's tier includes the mesh.
         """
         self.catalog = catalog
         self.app_status = app_status
@@ -214,6 +218,8 @@ class AppProxy:
         self.route_ttl = route_ttl
         self.audit = audit
         self.path_routes = path_routes
+        self.exposure = exposure
+        self.mesh_domains = tuple(d.lower().strip(".") for d in mesh_domains)
         self._routes: dict[str, tuple[float, AppRoute | None]] = {}
         self._lock = threading.Lock()
 
@@ -272,11 +278,21 @@ class AppProxy:
         if principal is None:
             return Decision.UNAUTHENTICATED, None, None
         route = self.route_for(app_id)
-        if route is None:
+        if route is None or not self._exposed(headers.get("host", ""), app_id):
             return Decision.NOT_FOUND, principal, None
         if not allowed(principal, route.access):
             return Decision.FORBIDDEN, principal, route
         return Decision.ALLOW, principal, route
+
+    def _exposed(self, host: str, app_id: str) -> bool:
+        """False for a mesh name of an app that is not exposed on the mesh (§12.22)."""
+        if self.exposure is None:
+            return True
+        name = host.lower().rsplit(":", 1)[0] if not host.startswith("[") else host.lower()
+        name = name.rstrip(".")
+        if not any(name.endswith("." + d) for d in self.mesh_domains):
+            return True
+        return self.exposure(app_id) in ("mesh", "public")
 
     def _audit_denied(self, principal: Principal | None, app_id: str, status: int, scope: Scope) -> None:
         if self.audit is not None and principal is not None and status == Decision.FORBIDDEN:

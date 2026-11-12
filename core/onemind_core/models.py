@@ -24,6 +24,14 @@ class ScanSummary(BaseModel):
     result: Literal["pass", "fail"]
 
 
+class CatalogSource(BaseModel):
+    """§12.22: the community source an app comes from, pinned to a commit."""
+
+    id: str
+    name: str
+    commit: str
+
+
 class CatalogApp(BaseModel):
     """One GET /v1/apps entry: the §3 fields plus links, tier and scan (§11.4)."""
 
@@ -47,4 +55,7 @@ class CatalogApp(BaseModel):
     scan: ScanSummary | None = Field(
         description="Last scan, or null when apps/<id>/scan.json is missing or invalid. Install is "
         "refused (409 stale_precondition) unless result is pass and scanned_at is at most 7 days old"
+    )
+    catalog_source: CatalogSource | None = Field(
+        default=None, description="§12.22: the community source and pinned commit; null for the official catalog"
     )

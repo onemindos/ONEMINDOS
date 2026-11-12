@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -104,6 +105,8 @@ class AppEntry:
             "links": {k: _http_url(links.get(k)) for k in LINK_KEYS},
             "tier": md.get("tier") if md.get("tier") in TIERS else None,
             "scan": scan.summary() if scan is not None else None,
+            # §12.22: set by a community source's entry; the official catalog has none.
+            "catalog_source": None,
         }
 
 
@@ -156,6 +159,13 @@ class Catalog:
         else:
             log.info("no app schema found; using the built-in manifest check")
         self.errors: dict[str, list[str]] = {}
+        # More apps from elsewhere (community sources, §12.22): fn(official ids) -> {id: AppEntry}.
+        # An id the official folder already has always wins.
+        self.providers: list[Callable[[set[str]], dict[str, AppEntry]]] = []
+
+    def validate(self, doc: object) -> list[str]:
+        """The same manifest check the apps folder gets (schema, or the built-in one)."""
+        return self._validate(doc)
 
     @property
     def validation_mode(self) -> str:
@@ -198,6 +208,14 @@ class Catalog:
                 continue
             apps[folder] = AppEntry(id=folder, dir=path.parent, manifest=doc)
         self.errors = errors
+        for provide in self.providers:
+            try:
+                extra = provide(set(apps))
+            except Exception:  # one broken source must not hide the official Market
+                log.exception("catalog provider %r failed", provide)
+                continue
+            for app_id, entry in extra.items():
+                apps.setdefault(app_id, entry)
         return apps
 
     def get(self, app_id: str) -> AppEntry | None:

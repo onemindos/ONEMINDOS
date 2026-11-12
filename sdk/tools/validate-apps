@@ -17,6 +17,8 @@ Checks, per app directory (directories whose name starts with "_", such as apps/
      volumes, no hostPort and no privileged containers
   9. renovate.json automerges exactly the apps with tier verified and spec.updates.automerge: patch
      (contract §10.2; checked when renovate.json exists and every app is validated)
+ 10. no two apps declare the same spec.hostPorts port/protocol, and none declares a port OneMind
+     itself uses (sdk/policy/host-ports.yaml; contract §12.22). Always checked across every app.
 
 Run with: python3 -I sdk/tools/validate-apps [--apps-dir DIR] [APP_ID ...]
 Exit codes: 0 all apps pass, 1 at least one check failed, 2 usage or environment error.
@@ -41,6 +43,7 @@ except ImportError as exc:  # pragma: no cover - environment problem
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = REPO_ROOT / "sdk" / "schema" / "onemind.app.schema.json"
 RENOVATE_PATH = REPO_ROOT / "renovate.json"
+HOST_PORTS_PATH = REPO_ROOT / "sdk" / "policy" / "host-ports.yaml"
 RENOVATE_APP_RE = re.compile(r"^apps/([^/]+)/manifests/\*\*$")
 MANIFEST_NAME = "onemind.app.yaml"
 
@@ -336,6 +339,35 @@ def renovate_check(renovate_path: Path, apps_dir: Path, app_dirs: list[Path]) ->
     return errors
 
 
+def host_ports_check(app_dirs: list[Path], reserved_path: Path) -> list[str]:
+    """Contract §12.22: a declared host port is held by one app at most, and never by OneMind."""
+    try:
+        doc = yaml.safe_load(reserved_path.read_text(encoding="utf-8"))
+        reserved = {(int(e["port"]), str(e["protocol"])): str(e.get("what") or "onemind")
+                    for e in doc["reserved"]}
+    except (OSError, yaml.YAMLError, KeyError, TypeError, ValueError) as exc:
+        return [f"{reserved_path.name} cannot be read: {exc}"]
+    held: dict[tuple[int, str], str] = {}
+    errors = []
+    for d in app_dirs:
+        try:
+            manifest = yaml.safe_load((d / MANIFEST_NAME).read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError):
+            continue
+        for e in dig(manifest, ("spec", "hostPorts")) or []:
+            if not isinstance(e, dict) or not isinstance(e.get("port"), int):
+                continue  # the schema check reports it
+            key = (e["port"], str(e.get("protocol")))
+            label = f"{key[0]}/{key[1]}"
+            if key in reserved:
+                errors.append(f"apps/{d.name}/ declares host port {label}, which OneMind uses ({reserved[key]})")
+            elif key in held:
+                errors.append(f"apps/{d.name}/ and apps/{held[key]}/ both declare host port {label}")
+            else:
+                held[key] = d.name
+    return errors
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="validate-apps", description=__doc__.split("\n")[0])
     parser.add_argument("--apps-dir", type=Path, default=REPO_ROOT / "apps",
@@ -395,6 +427,16 @@ def main(argv: list[str]) -> int:
                 print(f"  - {msg}")
         else:
             print(f"ok   apps/{app_dir.name}/")
+
+    all_dirs = sorted(d for d in apps_dir.iterdir() if d.is_dir() and not d.name.startswith(("_", ".")))
+    port_errors = host_ports_check(all_dirs, HOST_PORTS_PATH)
+    if port_errors:
+        failed += 1
+        print("FAIL host ports")
+        for msg in port_errors:
+            print(f"  - {msg}")
+    else:
+        print("ok   host ports (no app declares a reserved or already declared port)")
 
     renovate_failed = False
     if not args.app_ids and args.apps_dir.resolve() == (REPO_ROOT / "apps").resolve() and RENOVATE_PATH.is_file():
