@@ -155,3 +155,22 @@ The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs
 - BACKLOG.md has no rows for MKT-CANDIDATES, CORE-NET-P1, UI-LEAP and MKT-TAXONOMY, which STATUS.md lists in S0; UMB rows depend on CORE-NET-P1 and UI-LEAP.
 - The umbrel2 studies propose five streams (Storage, Files, Clients, Photos, Machines) that WORKSTREAMS.md §2 does not list yet.
 - STATUS.md's summary counts predate the PRs merged since (#14, #16–#22); recount when the next STATUS PR lands.
+
+## 5. Notifications and monitoring: choices made in the build (2026-11-12)
+
+Branch `feat/notify-monitor` (CORE-NOTIFY-1/2/3/6, CORE-MON-1). Each is a default the founder or the contract owner may change; none reopens a founder decision. Founder decisions relied on: **F-11** (an alert's fix is filed as a normal request, never auto-approved by the notifier) and **D-005** (push payloads carry only `{notification_id, box_id}`).
+
+| Id | Choice | Why | Alternative |
+|---|---|---|---|
+| N-1 | A person with no preferences gets warning and above, and every approval, on all their channels and devices; `info` stays in the inbox | Otherwise nothing is pushed until someone writes routes | Inbox only until configured (NOTIFICATIONS.md §5.1) |
+| N-2 | Every matching route adds its channels (union) | A critical approval should reach both the "approvals" and the "critical" channels | First match wins (NOTIFICATIONS.md §5.1) |
+| N-3 | The catalogue's `error` level maps to `warning`; `critical` is kept for "act now" (outcome unknown, failed scan, overheating) | Contract §12.14 alerts have three levels; quiet hours let `critical` through | Map `error` to `critical` |
+| N-4 | A pending approval is an alert (`approval:<action_id>`), resolved by approve, deny, expiry or success | BACKLOG CORE-NOTIFY-1 acceptance ("one alert for a pending approval") | No alert (NOTIFICATIONS.md §3) |
+| N-5 | Automatic alert transitions are not written to the audit log (the events behind them are); a person's acknowledge or resolve is. Every transition is published on `onemind.alert.<type>` (§12.9) | Keeps the decision trail readable | Audit every transition |
+| N-6 | Agents send only under `plugin.<own id>`, at `info` or `warning`, to owners | An agent must not phish under `approvals` or bypass quiet hours | Allow agents any topic |
+| N-7 | Only owners may point a channel or push endpoint at the local network or plain `http://`; link-local and metadata addresses are always refused; redirects are not followed | A channel is a way out of the box, and a guest's webhook must not reach internal services | Owner-only channels |
+| N-8 | The daily digest holds `info` items only (approvals never wait) | Contract §12.14 leaves the digest's content open | Digest per route |
+| N-9 | App log lines are redacted for secrets and also for e-mail and IPv4 addresses | Logs reach adults and, later, agents | Secrets only |
+| N-10 | Superseded when identity merged: `GET /v1/apps/{id}` needs `apps:read` and honours per-app sharing (`404` when the app is hidden from the caller); app and node metrics and the summary need `monitoring:read`, as contract §12.15 says. Static-file principals keep reading every app (F-14) | Built before identity existed, when every principal saw every app | Owners and adults only |
+| N-11 | Heartbeat gains the optional `metrics` object `{cpu_pct, load1, temp_c}` (contract §12.10, additive) | CPU and temperature thresholds need a source on leaf nodes without metrics-server | metrics-server only (no temperature) |
+| N-12 | Without a Kubernetes API, log and health routes answer `404 not_found` / `health.state: unknown` | `errors.py` has no `unavailable` code yet; switch to `503 unavailable` (§12.2) when gateway-core adds it | — |

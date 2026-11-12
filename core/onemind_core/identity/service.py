@@ -155,6 +155,10 @@ class IdentityService:
     def active_owner_ids(self) -> list[str]:
         return list(self.repo.all(select(UserRow.id).where(UserRow.role == "owner", UserRow.disabled.is_(False))))
 
+    def people(self) -> dict[str, str]:
+        """Every active household account (user id -> role), for features that address people."""
+        return {u.id: u.role for u in self.repo.all(select(UserRow).where(UserRow.disabled.is_(False)))}
+
     def passkeys_active(self) -> bool:
         """F-2: once any active owner has a passkey, owner approvals and administration need one."""
         owners = self.active_owner_ids()
@@ -875,6 +879,10 @@ class IdentityService:
             if u is not None:
                 out.append({"id": u.id, "display_name": u.display_name})
         return out
+
+    def shared_roles(self, app_id: str) -> list[str]:
+        """Roles an app is shared with (§12.6), for other features to show (GET /v1/apps/{id})."""
+        return self._access(app_id)["roles"]
 
     def get_access(self, p: Principal, app_id: str) -> dict:
         if app_id not in self.gw.catalog.load():

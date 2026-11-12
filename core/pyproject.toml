@@ -13,6 +13,7 @@ dependencies = [
   "pyyaml>=6.0.1,<7",
   "jsonschema>=4.22,<5",
   "pydantic>=2.7,<3",
+  # VAPID and Web Push encryption (RFC 8291/8292), sealed channel secrets; also passkeys. Apache-2.0 OR BSD-3-Clause.
   "cryptography>=50.0.2,<51",
   "h11>=0.16,<1",
   "websockets>=15,<18",

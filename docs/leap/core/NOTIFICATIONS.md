@@ -138,3 +138,20 @@ A notification for a pending approval opens the approval card in the app; **the 
 | `feat/mobile-shell` | `mobile/src/notify.ts`, native module for UnifiedPush, iOS service extension |
 | `feat/onemindd-updater` follow-up | emit `onemind.alert.update.*` from `internal/update/engine.go` |
 | Hotspots (serialized) | `core/onemind_core/app.py`, contract §1/§3 |
+
+## 9. First build (branch `feat/notify-monitor`, 2026-11-12)
+
+> **Explain it like I am the founder**
+> The box now notices things by itself. Every minute it looks at each machine (is it answering, is the disk filling up, is it too hot, is the CPU stuck at 100 %) and at each installed app (are its parts running, did one crash or run out of memory, is its security scan still good). Anything wrong becomes one alert that stays until it is fixed, and closes itself when it is. You get one message, not one per minute; again after 30 minutes if it is still wrong; at once if it gets worse.
+> Messages go to the inbox in the dashboard, and to the channels you add: your own ntfy (Android, UnifiedPush), a webhook, e-mail, or browser push. Browser push is encrypted with keys made on your box, and the push carries only an id: the phone or browser fetches the text from your box. At night, non-urgent messages wait and arrive as one summary in the morning.
+
+| Piece | Where |
+|---|---|
+| Event catalogue (which events become alerts, for whom, with which fix) | `core/onemind_core/notify/catalogue.py` |
+| Alerts, inbox, routing, delivery worker with retry | `core/onemind_core/notify/service.py`, `routing.py`, `store.py` |
+| Channels and Web Push encryption | `core/onemind_core/notify/channels.py`, `crypto.py` |
+| Monitoring of nodes and apps, thresholds, log redaction | `core/onemind_core/monitoring/` |
+| Routes (§12.14, §12.15) | `core/onemind_core/routers/notifications.py`, `routers/monitoring.py` |
+| CPU, load and temperature in the heartbeat | `internal/detect/metrics.go` |
+
+Choices made while building are in [DECISIONS-NEEDED.md](../DECISIONS-NEEDED.md) §5. Still open: Matrix and Telegram channels, the iOS relay (NOTIFY-4), repairs (NOTIFY-5), the audit-chain alert (H-28), `onemind alerts` / `notify test` in the CLI (DEV-CLI-9), and the dashboard and phone screens.

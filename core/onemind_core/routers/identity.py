@@ -98,6 +98,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.authenticators.append(svc.authenticate)
     gw.approval_guards.append(svc.approval_guard)
     gw.app_filters.append(svc.app_filter)
+    gw.people_sources.append(svc.people)
     app.state.identity = svc
     principal = gw.principal
     cfg = svc.cfg

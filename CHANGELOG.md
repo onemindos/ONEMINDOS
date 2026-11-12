@@ -21,6 +21,7 @@ Branches with work that is not on `main` yet (as of 2026-11-12):
 | `feat/deploy-v0` | – | Developer install on Debian (`install.sh --role hub` or `node`), a compose dev hub for a Mac and `verify.sh` contract checks |
 | `feat/core-net` | – | Internal networking and mesh: a WireGuard mesh with a self-hosted Headscale coordinator and relay, NATS leaf links with TLS and per-node credentials, the app reverse proxy with login, a per-box CA, and the NAT lab test |
 | `feat/ui-leap` | – | UI leap: umbrelOS parity audit, customization (themes, accents, wallpapers, density), Home with widgets and dock, App Store with install progress and app management, command palette, notifications, onboarding, and Settings |
+| `feat/notify-monitor` | – | Notifications and monitoring (contract §12.14, §12.15): an event catalogue fed by events, the action ledger and node outbox events; alerts with dedupe, re-notify, escalation and flap marking; an inbox API; ntfy/UnifiedPush, webhook, e-mail and Web Push (per-box VAPID keys, encrypted, ids only) with per-person routes, quiet hours, digest and rate caps; app health, restarts, crash loops, redacted logs, app and node metrics with threshold alerts; the heartbeat reports CPU, load and temperature |
 | `feat/app-taxonomy` | – | App and deployment categories (`docs/design/TAXONOMY.md`), applied to the candidate list |
 
 ## 2026-11-12
