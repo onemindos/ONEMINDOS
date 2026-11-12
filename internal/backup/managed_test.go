@@ -92,7 +92,7 @@ func TestConfigureWritesCredentialsAndKeepsThemOutOfManaged(t *testing.T) {
 			{"id": "dst_box", "kind": "node", "name": "Garage box", "url": "https://garage.example:8000/b/", "user": "box1", "append_only": true}},
 		"secrets": map[string]any{"dst_box": map[string]string{"password": "s3cr3t-value-for-test"}},
 	})
-	pw := m.path("state/secrets/dst_box.password")
+	pw := m.path("state/target-secrets/dst_box.password")
 	fi, err := os.Stat(pw)
 	if err != nil || fi.Mode().Perm() != 0o600 {
 		t.Fatalf("password file: %v %v", fi, err)
@@ -110,6 +110,25 @@ func TestConfigureWritesCredentialsAndKeepsThemOutOfManaged(t *testing.T) {
 	m.ok(t, KindConfigure, usbTarget())
 	if _, err := os.Stat(pw); !os.IsNotExist(err) {
 		t.Fatalf("removed destination's password kept: %v", err)
+	}
+}
+
+// The e2e run found this: the device key beside destination credentials was
+// pruned as "a removed destination's file" by the first configure.
+func TestConfigureNeverTouchesTheDeviceKey(t *testing.T) {
+	m := newManagedFixture(t)
+	key := filepath.Join(m.cfg.StateDir, "secrets", "device.key")
+	m.write("state/secrets/device.key", "k")
+	m.agent.Cfg.DeviceKeyFile = key
+	m.ok(t, KindConfigure, usbTarget())
+	m.ok(t, KindConfigure, map[string]any{"targets": []any{}})
+	if _, err := os.Stat(key); err != nil {
+		t.Fatalf("device key removed by configure: %v", err)
+	}
+	c := m.cfg
+	c.DeviceKeyFile = filepath.Join(c.StateDir, "target-secrets", "device.key")
+	if err := c.Validate(); err == nil {
+		t.Fatal("a device key among destination credentials must be refused")
 	}
 }
 

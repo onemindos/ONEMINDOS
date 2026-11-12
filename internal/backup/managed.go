@@ -23,7 +23,10 @@ type Managed struct {
 	Apps    []AppSpec `json:"apps"`
 }
 
-const managedName = "managed.json"
+const (
+	managedName      = "managed.json"
+	targetSecretsDir = "target-secrets"
+)
 
 func readManaged(stateDir string) (*Managed, error) {
 	b, err := os.ReadFile(filepath.Join(stateDir, managedName))
@@ -57,7 +60,9 @@ type TargetSpec struct {
 }
 
 // secretFields are the credential fields a destination kind takes; each is
-// stored as <state_dir>/secrets/<target-id>.<field> with mode 0600.
+// stored as <state_dir>/target-secrets/<target-id>.<field> with mode 0600.
+// The directory holds nothing else: Configure deletes the files of removed
+// destinations from it, so the device key must never live there.
 var secretFields = map[string][]string{
 	KindUSB:  nil,
 	KindNode: {"password", "ca"},
@@ -85,7 +90,7 @@ func (a *Agent) conf() Config {
 // only the credential files of removed targets are deleted.
 func (a *Agent) Configure(req ConfigureRequest) (Config, error) {
 	cur := a.conf()
-	secretDir := filepath.Join(cur.StateDir, "secrets")
+	secretDir := filepath.Join(cur.StateDir, targetSecretsDir)
 	var targets []Target
 	keep := map[string]bool{}
 	for _, s := range req.Targets {

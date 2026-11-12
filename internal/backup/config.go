@@ -302,6 +302,9 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("storage_roots must be absolute paths, got %q", r)
 		}
 	}
+	if filepath.Dir(c.DeviceKeyFile) == filepath.Join(c.StateDir, targetSecretsDir) {
+		return fmt.Errorf("device_key_file must not be in %s/%s (destination credentials are pruned there)", c.StateDir, targetSecretsDir)
+	}
 	if c.JobPubKeyFile != "" && !filepath.IsAbs(c.JobPubKeyFile) {
 		return fmt.Errorf("job_pubkey_file must be an absolute path")
 	}
