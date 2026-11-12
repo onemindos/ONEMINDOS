@@ -1,0 +1,22 @@
+{
+  "schema": "onemind.update-channel-config/v1",
+  "comment": "CI settings for the TUF update channels. Interface: os/update/CHANNEL.md. Hosting is a founder decision; this is the documented default (GitHub Releases on this repo).",
+  "base_version": "0.1",
+  "min_from_version": "0.1.0",
+  "keep_versions_per_board": 3,
+  "boards": ["x86_64-efi", "arm64-efi", "vm", "vm-do"],
+  "expiry_days": {"root": 365, "targets": 30, "snapshot": 7, "timestamp": 1},
+  "refresh_within_days": {"targets": 10, "snapshot": 3, "timestamp": 1},
+  "channels": {
+    "security": {
+      "url": "https://github.com/onemindos/ONEMINDOS/releases/download/os-channel-security",
+      "channel_release_tag": "os-channel-security",
+      "build_release_tag_prefix": "os-security-"
+    },
+    "stable": {
+      "url": "https://github.com/onemindos/ONEMINDOS/releases/download/os-channel-stable",
+      "channel_release_tag": "os-channel-stable",
+      "build_release_tag_prefix": "os-stable-"
+    }
+  }
+}
