@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# /etc/onemind/update.conf: OS update settings read by `onemindd update`
+# and `onemind update` (internal/update/README.md; channel format in
+# os/update/CHANNEL.md). Lines are "key = value"; unknown keys are an error.
+
+# security (BD-09 default policy: auto) or stable (default policy: notify).
+channel = security
+# The channel's TUF repository. Placeholder: the public hosting is a founder
+# decision (os/update/CHANNEL.md); the image sets the real value.
+url = https://updates.example.invalid/onemind/security
+# Optional: where bundles are fetched from (default <url>/targets/). A template
+# with {path} {board} {version} {name} {sha256} supports flat hosts such as
+# GitHub Releases assets.
+#targets_url = https://github.com/OWNER/REPO/releases/download/os-{version}/{name}
+
+# Local-time maintenance window (HH:MM-HH:MM, may wrap midnight) or "any".
+window = 02:00-05:00
+# auto | notify | off. Omit to use the channel default (BD-09).
+#policy = auto
+# Refuse to install without a pre-update restic snapshot.
+# Default: false on security (install, log a warning), true on stable.
+#require_snapshot = false
+
+# Pre-update snapshot of /data (B4.2, D-B7.5). Leave unset = "no snapshot".
+#restic_binary = /usr/bin/restic
+#restic_repository = /data/backup/restic
+#restic_password_file = /etc/onemind/restic.password
+
+# A robot or field kit creates this file while it must not restart; the
+# reboot then waits (mission-safe reboot, BD-09).
+#reboot_inhibit_file = /run/onemind/reboot-inhibit
+#check_interval = 1h
