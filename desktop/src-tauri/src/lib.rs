@@ -493,7 +493,7 @@ pub fn run() {
             let quit = MenuItem::with_id(app, "quit", "Quit OneMind", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &dash, &files, &sep, &quit])?;
 
-            let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
+            let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray/44x44.png"))?;
             TrayIconBuilder::with_id("main")
                 .icon(icon)
                 .icon_as_template(true)

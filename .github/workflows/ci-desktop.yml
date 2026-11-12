@@ -47,6 +47,8 @@ jobs:
         working-directory: desktop/src-tauri
         run: rustup show active-toolchain || rustup toolchain install
       - run: npm ci
+      - name: Icons from the brand sources (desktop/assets, written by scripts/brand-sync.py)
+        run: npm run icons && npm run icons:tray
       - name: UI checks
         run: npm run check:ui
       - name: Rust unit tests

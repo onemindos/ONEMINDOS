@@ -20,7 +20,7 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 
 .top { display: flex; align-items: center; justify-content: space-between; padding: var(--om-space-3) var(--om-space-4); background: var(--om-color-surface); border-bottom: 1px solid var(--om-color-border); }
 .brand { display: flex; align-items: center; gap: var(--om-space-2); font-weight: var(--om-font-weight-semibold); font-size: var(--om-font-size-md); color: var(--om-color-text); }
-.mark { width: 20px; height: 20px; color: var(--om-color-accent); }
+.mark { width: 22px; height: 22px; flex: none; } /* fills: brand.generated.css */
 .top-actions { display: flex; gap: var(--om-space-1); }
 
 .icon-btn { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: var(--om-radius-sm); background: transparent; color: var(--om-color-text-muted); cursor: pointer; }

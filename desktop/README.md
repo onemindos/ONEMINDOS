@@ -59,7 +59,8 @@ desktop/
   src/                 popover UI: plain HTML, CSS and ES modules, no bundler
     app.js             rendering and events; box text only ever goes through textContent
     format.js          pure wording/tone helpers (tested with node --test)
-    tokens.css         copy of ui/src/tokens/tokens.css (npm run sync:tokens)
+    tokens.css         exact copy of ui/src/tokens/tokens.css (npm run sync:tokens; check:ui fails on drift)
+    brand.generated.css  logo colours; the header logo and name in index.html are generated too
   src-tauri/           Rust core: everything that touches the network, the keychain or the OS
     src/lib.rs         commands, tray, popover placement, poller, event followers, banners
     src/api.rs         gateway client, status parsing, the id rule for URL paths
@@ -73,7 +74,8 @@ desktop/
   tools/               browser preview with a fixture bridge (used for the screenshots)
   docs/                FILES.md (WebDAV mount plan), UPDATER.md (update channels and signing)
   test/                UI unit tests
-  assets/              our own icon sources (SVG); src-tauri/icons is generated from them
+  assets/              icon sources (SVG) written by scripts/brand-sync.py from brand/brand.json; src-tauri/icons
+                       is rendered from them with the Tauri CLI (npm run icons, npm run icons:tray; CI does it again)
 ```
 
 **Why this split.** The web view draws the UI. All network calls, tokens and OS actions stay in Rust and are reached only through named commands. A bug in the page therefore cannot read a token or open arbitrary URLs. The content security policy allows scripts and styles only from the app itself.

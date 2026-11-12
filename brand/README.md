@@ -73,7 +73,7 @@ The logo itself always uses the exact `#FF333A`; only text and controls use the 
 | Website `site/` | `src/brand.generated.json`, `src/styles/brand.generated.css`, `src/assets/brand/*.svg`, `public/favicon.svg`, `public/favicon-*.png` | `astro.config.mjs` (title, description, Starlight logo light/dark, PNG favicons), landing page (title, nav, theme colour, accent), blog byline fallback |
 | OS image | `brand/generated/os/*` (below) | the image stream, see next section |
 | Phone app `mobile/` | not wired yet | see "Not wired yet" |
-| Desktop app `desktop/` | not wired yet | see "Not wired yet" |
+| Desktop app `desktop/` | `src/brand.generated.css`, the `brand:start…brand:end` block in `src/index.html` (logo and name), its `<title>`, `productName` and the window title in `src-tauri/tauri.conf.json` (`shortName`: the app is a client of the OS, like the phone app), `assets/app-icon.svg` (`appIcon.dark` on its tile), `assets/tray-icon.svg` (one-colour mark; macOS draws it as a template) | raster icons rendered from the two SVGs with the Tauri CLI (`npm run icons`, `npm run icons:tray` in `desktop/`, again in the desktop CI before each build); the accent through `src/tokens.css`, an exact copy of `ui/src/tokens/tokens.css` checked by `npm run check:ui` |
 | Icon sizes not in `logo/png/` | made in CI by `scripts/brand-icons.py` (Pillow), artifact `brand-icons` of the `brand` workflow | iOS `AppIcon-1024.png` (opaque), Android adaptive foreground and monochrome (inside the 66/108 safe zone), `apple-touch-icon-180.png`, `desktop/app-icon-1024.png` (the source for `tauri icon`) |
 
 The favicon (`favicon.svg`) is generated from the logo paths: the colour variant, switching to the on-dark variant when the browser is in dark mode.
@@ -92,10 +92,9 @@ The favicon (`favicon.svg`) is generated from the logo paths: the colour variant
 None of this has been booted yet: the Plymouth script and GRUB colours need a test on the VM board.
 
 ## Not wired yet
-- **Phone app (`mobile/`)** and **desktop app (`desktop/`)**: #34 (photos backup, changes `mobile/app.json`) merged into `main` after this branch was cut; #33 (adds `desktop/`) is not on `main` yet. Wire each one after this branch is rebased on a `main` that has it, by adding to `scripts/brand-sync.py`:
+- **Phone app (`mobile/`)**: #34 (photos backup, changes `mobile/app.json`) merged into `main` after the brand branch was cut. Wire it by adding to `scripts/brand-sync.py` (the desktop app is wired, see the table above):
   - `mobile/src/brand.generated.ts` (name, accent from `brand.tokens.json`) for `mobile/src/ui/theme.ts`, which still uses a blue accent;
   - copies of `appIcon.light` 1024 and the `splash` PNG into `mobile/assets/brand/`, and in `mobile/app.json`: `expo.name` = `shortName`, `expo.icon`, the splash (Expo 58: the `expo-splash-screen` config plugin with `image`, `backgroundColor`, `imageWidth`; UNVERIFIED, check the Expo 58 docs), `android.adaptiveIcon` (`foregroundImage`, `monochromeImage`, `backgroundColor`) from the CI `brand-icons` artifact;
-  - `desktop/src-tauri/tauri.conf.json` `productName` = `name`, and run `npx tauri icon <brand-icons>/desktop/app-icon-1024.png` in the desktop CI to replace `desktop/src-tauri/icons/` and `desktop/assets/app-icon.svg` / `tray-icon.svg`.
 - **Product wording**: sentences such as "this OneMind" or "Welcome to OneMind" in the UI text still name the product in prose. Headers, titles and logos come from `brand.json`; a rename would also need a copy pass over the prose.
 - **Design docs**: `docs/design/PRINCIPLES.md` and `docs/design/TOKENS.md` still say the accent is teal and red is only for status. The red default accent is the founder's decision (2026-11-12); those docs need a founder-approved update (see "Open questions").
 
@@ -104,7 +103,7 @@ None of this has been booted yet: the Plymouth script and GRUB colours need a te
 - Dashboard: the manifest is served as `application/manifest+json` by the gateway (`core/`), and the web app installs with the right icon.
 - `scripts/brand-icons.py` in CI (`brand` workflow) and the artifact's icons on a real phone home screen (iOS mask, Android adaptive mask).
 - OS: Plymouth theme and GRUB colours on the VM board (above).
-- Mobile and desktop, once wired.
+- Mobile, once wired. Desktop: the tray icon and app icon on a real Mac and Windows 11 (light and dark menu bar / taskbar).
 
 ## Open questions for the founder
 - **Red accent vs. red status.** The UI rule (PRINCIPLES P3) kept red for errors and danger. The UI accent is now `#d11826` and the danger colour is `#b42318`, close in hue. Status pills always carry a text label, so meaning does not depend on colour alone, but a "Delete" button and a primary button will look alike. Options: keep it, use a darker or more orange danger red, or keep red only for the logo and pick another accent default.
