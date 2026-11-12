@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -34,15 +35,17 @@ const (
 )
 
 // Config is /etc/onemind/update.conf. The file is "key = value" lines;
-// '#' starts a comment. Unknown keys are an error, so a typo cannot silently
-// leave a box on a default it was meant to change.
+// '#' starts a comment. Unknown keys are ignored (os/update/CHANNEL.md §4, so
+// an older updater still reads a newer image's file) but recorded in Ignored,
+// and the service logs them, so a typo stays visible.
 type Config struct {
 	Channel string // security | stable
 	// URL is the channel's TUF metadata base URL (timestamp.json lives at URL/timestamp.json).
 	URL string
-	// TargetsURL is where bundles are downloaded from. Default URL + "/targets/".
-	// It may be a template with {path} {board} {version} {name} {sha256}
-	// (for hosts with flat file names such as GitHub Releases assets).
+	// TargetsURL is the base of the flat target files: a bundle is fetched
+	// from TargetsURL/<basename(target path)> (CHANNEL.md §3). Default URL.
+	// It may instead be a template with {path} {board} {version} {name}
+	// {sha256} (e.g. a mirror that keeps the <board>/<version>/ directories).
 	TargetsURL string
 	Window     Window
 	Policy     Policy
@@ -67,6 +70,8 @@ type Config struct {
 	// BD-09: a robot or field kit creates it while it must not restart).
 	RebootInhibitFile string
 	CheckInterval     time.Duration
+	// Ignored lists the unknown keys found in the file (sorted).
+	Ignored []string
 }
 
 // Defaults returns the configuration for channel before the file is applied.
@@ -183,7 +188,7 @@ func ParseConfig(b []byte) (*Config, error) {
 				err = fmt.Errorf("must be at least 1m")
 			}
 		default:
-			err = fmt.Errorf("unknown key")
+			c.Ignored = append(c.Ignored, k)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("%s = %q: %w", k, v, err)
@@ -192,8 +197,9 @@ func ParseConfig(b []byte) (*Config, error) {
 	if err := checkURL(c.URL); err != nil {
 		return nil, fmt.Errorf("url: %w", err)
 	}
+	sort.Strings(c.Ignored)
 	if c.TargetsURL == "" {
-		c.TargetsURL = c.URL + "/targets/"
+		c.TargetsURL = c.URL
 	} else if err := checkURL(strings.NewReplacer("{", "", "}", "").Replace(c.TargetsURL)); err != nil {
 		return nil, fmt.Errorf("targets_url: %w", err)
 	}

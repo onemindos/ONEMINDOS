@@ -8,12 +8,16 @@ import (
 	"strings"
 )
 
-// version is a SemVer 2.0.0 version (an optional leading "v" is accepted;
-// build metadata after '+' is ignored for ordering, as SemVer says).
-// OneMind image versions look like 0.1.0, 0.1.0-dev, 0.1.1-sec.20261112.
+// version is a OneMind release version (os/update/CHANNEL.md §5): one or
+// more dot-separated decimal integers, compared numerically part by part
+// (a missing part counts as 0), e.g. 0.1.20261112025704 =
+// <base_version>.<snapshot YYYYMMDDHHMMSS>. Developer images carry a SemVer
+// pre-release suffix (0.1.0-dev); it ranks below the same version without
+// one, as in SemVer. An optional leading "v" and build metadata after '+' are
+// accepted and ignored for ordering.
 type version struct {
-	major, minor, patch uint64
-	pre                 []string
+	nums []uint64
+	pre  []string
 }
 
 func parseVersion(s string) (version, error) {
@@ -22,22 +26,14 @@ func parseVersion(s string) (version, error) {
 		s = s[:i]
 	}
 	core, pre, hasPre := strings.Cut(s, "-")
-	parts := strings.Split(core, ".")
-	if len(parts) != 3 {
-		return version{}, fmt.Errorf("version %q is not MAJOR.MINOR.PATCH", s)
-	}
-	var n [3]uint64
-	for i, p := range parts {
-		if p == "" || (len(p) > 1 && p[0] == '0') {
-			return version{}, fmt.Errorf("version %q: bad number %q", s, p)
-		}
-		v, err := strconv.ParseUint(p, 10, 64)
+	var v version
+	for _, p := range strings.Split(core, ".") {
+		n, err := strconv.ParseUint(p, 10, 64)
 		if err != nil {
-			return version{}, fmt.Errorf("version %q: bad number %q", s, p)
+			return version{}, fmt.Errorf("version %q is not dot-separated integers", s)
 		}
-		n[i] = v
+		v.nums = append(v.nums, n)
 	}
-	v := version{major: n[0], minor: n[1], patch: n[2]}
 	if hasPre {
 		if pre == "" {
 			return version{}, fmt.Errorf("version %q: empty pre-release", s)
@@ -52,7 +48,7 @@ func parseVersion(s string) (version, error) {
 	return v, nil
 }
 
-// compareVersions returns -1, 0 or 1 (SemVer precedence).
+// compareVersions returns -1, 0 or 1.
 func compareVersions(a, b string) (int, error) {
 	va, err := parseVersion(a)
 	if err != nil {
@@ -76,14 +72,17 @@ func cmpU(a, b uint64) int {
 }
 
 func (a version) cmp(b version) int {
-	if c := cmpU(a.major, b.major); c != 0 {
-		return c
-	}
-	if c := cmpU(a.minor, b.minor); c != 0 {
-		return c
-	}
-	if c := cmpU(a.patch, b.patch); c != 0 {
-		return c
+	for i := 0; i < len(a.nums) || i < len(b.nums); i++ {
+		var x, y uint64
+		if i < len(a.nums) {
+			x = a.nums[i]
+		}
+		if i < len(b.nums) {
+			y = b.nums[i]
+		}
+		if c := cmpU(x, y); c != 0 {
+			return c
+		}
 	}
 	// A version without pre-release ranks above one with it.
 	switch {

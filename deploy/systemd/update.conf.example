@@ -1,17 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
 # /etc/onemind/update.conf: OS update settings read by `onemindd update`
 # and `onemind update` (internal/update/README.md; channel format in
-# os/update/CHANNEL.md). Lines are "key = value"; unknown keys are an error.
+# os/update/CHANNEL.md). Lines are "key = value"; unknown keys are ignored
+# (CHANNEL.md §4) and logged as a warning.
 
 # security (BD-09 default policy: auto) or stable (default policy: notify).
 channel = security
 # The channel's TUF repository. Placeholder: the public hosting is a founder
 # decision (os/update/CHANNEL.md); the image sets the real value.
 url = https://updates.example.invalid/onemind/security
-# Optional: where bundles are fetched from (default <url>/targets/). A template
-# with {path} {board} {version} {name} {sha256} supports flat hosts such as
-# GitHub Releases assets.
-#targets_url = https://github.com/OWNER/REPO/releases/download/os-{version}/{name}
+# Optional: where bundles are fetched from. Default: the flat layout of
+# CHANNEL.md §3, <url>/<file name>. A template with {path} {board} {version}
+# {name} {sha256} supports other mirrors, e.g. one that keeps directories.
+#targets_url = https://mirror.example.invalid/onemind/security/targets/{path}
 
 # Local-time maintenance window (HH:MM-HH:MM, may wrap midnight) or "any".
 window = 02:00-05:00

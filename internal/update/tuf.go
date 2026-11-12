@@ -167,7 +167,10 @@ func applicable(c *Config, t *Target, box Box, bad BadReleases) string {
 	return ""
 }
 
-// downloadURL is where the bundle for t is fetched from.
+// downloadURL is where the bundle for t is fetched from: by default the flat
+// layout of CHANNEL.md §3, <base>/<basename(target path)> (hash-prefixed
+// basename when the root sets consistent_snapshot, TUF spec 5.7.3). The
+// file is checked against the signed length and hashes whatever served it.
 func downloadURL(c *Config, idx *Index, t *Target) string {
 	name := path.Base(t.Path)
 	sha := t.Hashes["sha256"]
@@ -175,9 +178,8 @@ func downloadURL(c *Config, idx *Index, t *Target) string {
 		return strings.NewReplacer("{path}", t.Path, "{board}", t.Meta.Board, "{version}", t.Meta.Version,
 			"{name}", name, "{sha256}", sha).Replace(c.TargetsURL)
 	}
-	rel := t.Path
-	if idx.ConsistentSnapshot && sha != "" { // TUF spec 5.7.3: <dir>/<hash>.<name>
-		rel = path.Join(path.Dir(t.Path), sha+"."+name)
+	if idx.ConsistentSnapshot && sha != "" {
+		name = sha + "." + name
 	}
-	return strings.TrimRight(c.TargetsURL, "/") + "/" + rel
+	return strings.TrimRight(c.TargetsURL, "/") + "/" + name
 }

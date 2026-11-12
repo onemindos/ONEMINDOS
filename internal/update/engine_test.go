@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -257,7 +258,7 @@ func TestTamperedBundleRefused(t *testing.T) {
 	f := newFixture(t, "security", "window = any\n")
 	p := f.add("vm", "0.1.1", true)
 	f.publish(0)
-	f.write(filepath.Join("repo", "targets", p), "bundle 0.1.X") // same length, different bytes
+	f.write(filepath.Join("repo", path.Base(p)), "bundle 0.1.X") // same length, different bytes
 	_, err := f.run(ModeScheduled)
 	if err == nil || !strings.Contains(err.Error(), "sha256 mismatch") {
 		t.Fatalf("err = %v", err)
@@ -275,6 +276,42 @@ func TestConsistentSnapshotDownload(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantCalls(t, f.calls, "snapshot 0.1.0->0.1.1", "install onemind-vm-0.1.1.raucb", "reboot")
+}
+
+// The channel as the release pipeline publishes it (os/update/CHANNEL.md
+// §3, §5): flat files, pipeline version format, and target files served
+// through a redirect as GitHub Release assets are.
+func TestFlatChannelWithRedirect(t *testing.T) {
+	f := newFixture(t, "security", "window = any\n")
+	v := "0.1.20261112025704"
+	f.add("vm", v, true)
+	f.publish(0)
+	files := http.FileServer(http.Dir(f.served))
+	var redirected int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/assets/"):
+			http.StripPrefix("/assets", files).ServeHTTP(w, r)
+		case strings.HasSuffix(r.URL.Path, ".raucb"):
+			if strings.Count(r.URL.Path, "/") != 1 {
+				t.Errorf("target fetched by path, not basename: %s", r.URL.Path)
+			}
+			redirected++
+			http.Redirect(w, r, "/assets"+r.URL.Path, http.StatusFound)
+		default:
+			files.ServeHTTP(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	f.cfg.URL, f.cfg.TargetsURL, f.eng.HTTP = srv.URL, srv.URL, srv.Client()
+	res, err := f.run(ModeScheduled)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Candidate == nil || res.Candidate.Meta.Version != v || redirected != 1 {
+		t.Fatalf("candidate %+v, redirects %d", res.Candidate, redirected)
+	}
+	wantCalls(t, f.calls, "snapshot 0.1.0->"+v, "install onemind-vm-"+v+".raucb", "reboot")
 }
 
 func TestPendingTrialRefusesEvenExplicit(t *testing.T) {

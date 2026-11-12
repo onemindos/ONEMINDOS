@@ -92,6 +92,9 @@ func runUpdate(args []string) int {
 		log.Error("onemindd update: cannot start", "err", err)
 		return 2
 	}
+	if len(c.Ignored) > 0 {
+		log.Warn("update.conf: unknown keys ignored", "keys", c.Ignored)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	log.Info("update service starting", "version", version.Version, "channel", c.Channel, "url", c.URL,

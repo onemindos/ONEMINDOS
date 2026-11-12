@@ -108,8 +108,10 @@ func (r *Repo) RootJSON() ([]byte, error) {
 	return r.root.ToBytes(true)
 }
 
-// Publish writes metadata to dir and targets to dir/targets (hash-prefixed
-// names when ConsistentSnapshot), bumping targets/snapshot/timestamp versions.
+// Publish writes metadata and targets side by side in dir, each target under
+// the basename of its path (the flat layout of os/update/CHANNEL.md §3;
+// hash-prefixed basename when ConsistentSnapshot), bumping the
+// targets/snapshot/timestamp versions.
 // tsExpiry overrides the timestamp expiry when non-zero (negative = expired).
 func (r *Repo) Publish(dir string, tsExpiry time.Duration) error {
 	if tsExpiry == 0 {
@@ -132,9 +134,9 @@ func (r *Repo) Publish(dir string, tsExpiry time.Duration) error {
 		raw := json.RawMessage(cj)
 		tf.Custom = &raw
 		tg.Signed.Targets[p] = tf
-		out := filepath.Join(dir, "targets", filepath.FromSlash(p))
+		out := filepath.Join(dir, path.Base(p))
 		if r.ConsistentSnapshot {
-			out = filepath.Join(dir, "targets", filepath.FromSlash(path.Dir(p)), hex.EncodeToString(tf.Hashes["sha256"])+"."+path.Base(p))
+			out = filepath.Join(dir, hex.EncodeToString(tf.Hashes["sha256"])+"."+path.Base(p))
 		}
 		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return err

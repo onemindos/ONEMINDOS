@@ -68,7 +68,7 @@ func TestParseConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	if c.Policy != PolicyAuto || c.RequireSnapshot || c.Window.String() != "02:00-05:00" ||
-		c.TargetsURL != "https://example.org/tuf/security/targets/" || c.CheckInterval != time.Hour {
+		c.TargetsURL != "https://example.org/tuf/security" || c.CheckInterval != time.Hour {
 		t.Fatalf("security defaults wrong: %+v", c)
 	}
 	c, err = ParseConfig([]byte("channel = stable\nurl = https://example.org/s\nwindow = 01:00-03:30\n"))
@@ -82,7 +82,6 @@ func TestParseConfig(t *testing.T) {
 		"channel = beta\nurl = https://x",
 		"channel = security",
 		"channel = security\nurl = http://example.org",
-		"channel = security\nurl = https://x\npolciy = off",
 		"channel = security\nurl = https://x\npolicy = sometimes",
 		"channel = security\nurl = https://x\nrestic_binary = /usr/bin/restic",
 		"channel = security\nurl = https://x\nurl = https://y",
@@ -94,10 +93,19 @@ func TestParseConfig(t *testing.T) {
 	if _, err := ParseConfig([]byte("channel = security\nurl = http://127.0.0.1:8000")); err != nil {
 		t.Errorf("loopback http refused: %v", err)
 	}
+	// CHANNEL.md §4: unknown keys are ignored, but recorded for the log.
+	c, err = ParseConfig([]byte("channel=security\nurl=https://x\npolciy=off\nfuture_key=1\n"))
+	if err != nil {
+		t.Fatalf("unknown key refused: %v", err)
+	}
+	if c.Policy != PolicyAuto || strings.Join(c.Ignored, ",") != "future_key,polciy" {
+		t.Fatalf("unknown keys: policy %s, ignored %v", c.Policy, c.Ignored)
+	}
 }
 
 func TestCompareVersions(t *testing.T) {
-	ordered := []string{"0.1.0-dev", "0.1.0-dev-next", "0.1.0-rc.1", "0.1.0-rc.2", "0.1.0-rc.10", "0.1.0", "0.1.1", "0.2.0", "1.0.0"}
+	ordered := []string{"0.1.0-dev", "0.1.0-dev-next", "0.1.0-rc.1", "0.1.0-rc.2", "0.1.0-rc.10", "0.1.0", "0.1.1",
+		"0.1.20261112025704", "0.1.20261113000000", "0.2.0", "0.2.0.1", "1.0.0"}
 	for i := 0; i+1 < len(ordered); i++ {
 		if c, err := compareVersions(ordered[i], ordered[i+1]); err != nil || c != -1 {
 			t.Errorf("%s < %s: got %d %v", ordered[i], ordered[i+1], c, err)
@@ -106,7 +114,14 @@ func TestCompareVersions(t *testing.T) {
 	if c, _ := compareVersions("v1.2.3+build.5", "1.2.3"); c != 0 {
 		t.Error("build metadata must not order")
 	}
-	for _, bad := range []string{"unknown", "1.2", "01.2.3", "1.2.3-", "1.2.3-a..b"} {
+	// CHANNEL.md §5: dot-separated integers of any length; a missing part is 0.
+	if c, _ := compareVersions("0.1", "0.1.0"); c != 0 {
+		t.Error("0.1 == 0.1.0")
+	}
+	if c, _ := compareVersions("0.1.0.20261112025704", "0.1.20261112025704"); c != -1 {
+		t.Error("parts compare positionally")
+	}
+	for _, bad := range []string{"unknown", "", "1..2", "1.2.x", "-1.2", "1.2.3-", "1.2.3-a..b"} {
 		if _, err := compareVersions(bad, "1.0.0"); err == nil {
 			t.Errorf("accepted %q", bad)
 		}
@@ -156,15 +171,19 @@ func TestSelectRules(t *testing.T) {
 func TestDownloadURL(t *testing.T) {
 	tg := &Target{Path: "vm/0.1.1/onemind-vm-0.1.1.raucb", Hashes: map[string]string{"sha256": "ab"},
 		Meta: TargetMeta{Board: "vm", Version: "0.1.1"}}
-	c := &Config{TargetsURL: "https://h/tuf/targets/"}
-	if u := downloadURL(c, &Index{}, tg); u != "https://h/tuf/targets/vm/0.1.1/onemind-vm-0.1.1.raucb" {
+	// CHANNEL.md §3: flat layout, <url>/<basename(target path)>.
+	c, err := ParseConfig([]byte("channel=security\nurl=https://github.com/o/r/releases/download/os-channel-security/\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u := downloadURL(c, &Index{}, tg); u != "https://github.com/o/r/releases/download/os-channel-security/onemind-vm-0.1.1.raucb" {
 		t.Error(u)
 	}
-	if u := downloadURL(c, &Index{ConsistentSnapshot: true}, tg); u != "https://h/tuf/targets/vm/0.1.1/ab.onemind-vm-0.1.1.raucb" {
+	if u := downloadURL(c, &Index{ConsistentSnapshot: true}, tg); u != "https://github.com/o/r/releases/download/os-channel-security/ab.onemind-vm-0.1.1.raucb" {
 		t.Error(u)
 	}
-	c.TargetsURL = "https://github.com/o/r/releases/download/os-{version}/{name}"
-	if u := downloadURL(c, &Index{}, tg); u != "https://github.com/o/r/releases/download/os-0.1.1/onemind-vm-0.1.1.raucb" {
+	c.TargetsURL = "https://mirror.example/tuf/targets/{path}"
+	if u := downloadURL(c, &Index{}, tg); u != "https://mirror.example/tuf/targets/vm/0.1.1/onemind-vm-0.1.1.raucb" {
 		t.Error(u)
 	}
 }
