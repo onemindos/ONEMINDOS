@@ -8,3 +8,6 @@ lab-kits/*	/home/onemind	B-FP-1
 handbook/*	/home/onemind	B-FP-1
 *	noreply@anthropic\.com	B-FP-2
 scripts/hygiene.py	/home/[a-z]	B-FP-3
+scripts/hygiene-allow.tsv	/home/onemind	B-FP-1
+scripts/hygiene-selftest.sh	t@t\.invalid	B-FP-4
+scripts/hygiene.py	rpi-otp-private-key|odmfuse	B-FP-3

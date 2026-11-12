@@ -26,7 +26,8 @@ def files(root, base):
     allf = [f for f in git("ls-files", "-co", "--exclude-standard").splitlines() if f]
     changed = set(git("diff", "--name-only", f"{base}...HEAD").splitlines()) | set(
         git("ls-files", "-mo", "--exclude-standard").splitlines())
-    return [f for f in allf if not f.startswith("research-output/") or f in changed]
+    inputs = ("research-output/", "research/", "context/", "docs/")   # founder/research inputs: scan only what changed
+    return [f for f in allf if not f.startswith(inputs) or f in changed]
 
 
 def load_allow(root):
