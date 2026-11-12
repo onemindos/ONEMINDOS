@@ -12,6 +12,7 @@ on:
       leg: {type: string, default: debian}
       runner: {type: string, default: ubuntu-24.04}
       snapshot: {type: string, default: ''}
+      firstboot: {type: boolean, default: false}
   workflow_dispatch:
     inputs:
       board: {type: string, default: x86_64-efi}
@@ -60,6 +61,9 @@ jobs:
             --load -t onemind-tools:ci .
       - name: Fixtures (T0 build checks)
         run: make fixtures BOARD=${{ inputs.board }} LEG=${{ inputs.leg }} UPTO=${{ inputs.upto }} TOOLS=onemind-tools:ci
+      - name: First boot into OneMind (F0-F4, test/qemu/CRITERIA-FIRSTBOOT.md)
+        if: inputs.firstboot
+        run: make firstboot BOARD=${{ inputs.board }} TOOLS=onemind-tools:ci
       - name: Battery up to ${{ inputs.upto }}
         run: |
           sudo rm -f out/rootfs-*.tar
@@ -70,12 +74,17 @@ jobs:
           d=out/battery-${{ inputs.board }}
           if [ -f $d/serial.log ]; then sudo chmod -R a+r out; test/qemu/trim-log.sh $d/serial.log > $d/serial-trimmed.log; rm -f $d/serial.log; fi
           if [ -f $d/results.json ]; then python3 -I test/qemu/summary.py $d/results.json >> "$GITHUB_STEP_SUMMARY"; fi
+          f=out/firstboot-${{ inputs.board }}
+          if [ -f $f/results.json ]; then python3 -I test/qemu/summary.py $f/results.json >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -f $f/serial.log ]; then test/qemu/trim-log.sh $f/serial.log > $f/serial-trimmed.log; rm -f $f/serial.log; fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: battery-${{ inputs.leg }}-${{ inputs.board }}-${{ inputs.upto }}${{ inputs.snapshot != '' && '-security' || '' }}
           path: |
             out/battery-${{ inputs.board }}/
+            out/firstboot-${{ inputs.board }}/results.json
+            out/firstboot-${{ inputs.board }}/serial-trimmed.log
             out/fx-${{ inputs.board }}/t0.json
             out/fx-${{ inputs.board }}/SHA256SUMS
           retention-days: 30

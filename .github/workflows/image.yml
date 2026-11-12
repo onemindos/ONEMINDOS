@@ -4,10 +4,10 @@
 name: image
 on:
   pull_request:
-    paths: ['os/**', 'test/qemu/**', 'Makefile', '.github/workflows/image.yml', '.github/workflows/battery.yml']
+    paths: ['os/**', 'test/qemu/**', 'cmd/**', 'internal/**', 'core/**', 'dashboard/**', 'apps/**', 'go.mod', 'go.sum', '.dockerignore', 'Makefile', '.github/workflows/image.yml', '.github/workflows/battery.yml']
   push:
     branches: [main]
-    paths: ['os/**', 'test/qemu/**', 'Makefile', '.github/workflows/image.yml', '.github/workflows/battery.yml']
+    paths: ['os/**', 'test/qemu/**', 'cmd/**', 'internal/**', 'core/**', 'dashboard/**', 'apps/**', 'go.mod', 'go.sum', '.dockerignore', 'Makefile', '.github/workflows/image.yml', '.github/workflows/battery.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -64,11 +64,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {board: x86_64-efi, upto: T5, runner: ubuntu-24.04}
-          - {board: vm-do,      upto: T5, runner: ubuntu-24.04}
-          - {board: arm64-efi,  upto: T1, runner: ubuntu-24.04-arm}
+          - {board: x86_64-efi, upto: T5, runner: ubuntu-24.04, firstboot: true}
+          - {board: vm-do,      upto: T5, runner: ubuntu-24.04, firstboot: false}
+          - {board: arm64-efi,  upto: T1, runner: ubuntu-24.04-arm, firstboot: true}
     uses: ./.github/workflows/battery.yml
     with:
       board: ${{ matrix.board }}
       upto: ${{ matrix.upto }}
       runner: ${{ matrix.runner }}
+      firstboot: ${{ matrix.firstboot }}
