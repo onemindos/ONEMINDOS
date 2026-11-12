@@ -1,0 +1,1 @@
+ExecStart=/usr/local/bin/onemindd storage assemble --key-file /root/lab/recovery.key --mount-normal --wait 20s

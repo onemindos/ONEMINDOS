@@ -1,0 +1,7 @@
+time=2026-11-12T06:06:31.961-05:00 level=INFO msg="member unlocked" part=/dev/vdb1 as=onemind-data-64abeb67 generation=17
+time=2026-11-12T06:06:33.000-05:00 level=INFO msg="member unlocked" part=/dev/vdc1 as=onemind-data-d8af25e1 generation=17
+time=2026-11-12T06:06:34.262-05:00 level=INFO msg="member unlocked" part=/dev/vdd1 as=onemind-data-a3e280b6 generation=17
+{"state":"mounted","set_uuid":"f587b105-7dd7-49f2-ae22-975c78079dbd","members":["/dev/mapper/onemind-data-64abeb67","/dev/mapper/onemind-data-a3e280b6","/dev/mapper/onemind-data-d8af25e1"]}
+{"state":"protected","reasons":null,"encrypted":true,"generation":17,"members":["1:/dev/mapper/onemind-data-64abeb67","2:/dev/mapper/onemind-data-d8af25e1","3:/dev/mapper/onemind-data-a3e280b6"],"profiles":["Data=raid1","System=raid1c3","Metadata=raid1c3"]}
+{"needs_scrub":false,"mounted_degraded":false}
+corpus OK: 40 files match their checksums
