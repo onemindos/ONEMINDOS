@@ -39,9 +39,16 @@ const PHONE = [
   { name: 'dash-home', theme: 'light' },
 ] as const;
 
+// WK-1 (docs/testing/CI-MATRIX.md §1.5): WebKit on the Linux runner never completes a screenshot of
+// these screens. They are skipped in WebKit only; flows.spec.ts "WK-1 ratchet" turns red when fixed.
+const WK1 = new Set(['ui-home', 'ui-appearance', 'ui-store']);
+const wk1 = (browserName: string, name: string) =>
+  test.skip(browserName === 'webkit' && WK1.has(name), 'WK-1: WebKit stops producing frames on this screen');
+
 test.describe('visual', { tag: '@visual' }, () => {
   for (const name of DESKTOP_LIGHT) {
-    test(`${name} light`, async ({ page }) => {
+    test(`${name} light`, async ({ page, browserName }) => {
+      wk1(browserName, name);
       await open(page, byName(name), 'light');
       await wholePage(page, `${name}.png`);
     });
@@ -49,7 +56,8 @@ test.describe('visual', { tag: '@visual' }, () => {
   test.describe('dark', () => {
     test.use({ colorScheme: 'dark' });
     for (const name of DESKTOP_DARK) {
-      test(`${name} dark`, async ({ page }) => {
+      test(`${name} dark`, async ({ page, browserName }) => {
+        wk1(browserName, name);
         await open(page, byName(name), 'dark');
         await wholePage(page, `${name}-dark.png`);
       });
@@ -58,7 +66,8 @@ test.describe('visual', { tag: '@visual' }, () => {
   test.describe('phone', () => {
     test.use({ viewport: { width: 390, height: 844 } });
     for (const { name, theme } of PHONE) {
-      test(`${name} ${theme} phone`, async ({ page }) => {
+      test(`${name} ${theme} phone`, async ({ page, browserName }) => {
+        wk1(browserName, name);
         await page.emulateMedia({ colorScheme: theme });
         await open(page, byName(name), theme as Theme);
         await expect(page).toHaveScreenshot(`${name}${theme === 'dark' ? '-dark' : ''}-phone.png`);

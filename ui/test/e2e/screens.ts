@@ -89,7 +89,6 @@ export async function open(page: Page, s: Screen, theme: Theme): Promise<void> {
     await page.addInitScript((token) => window.sessionStorage.setItem('onemind.token', token), DASH_TOKEN);
   }
   await page.goto(urlFor(s, theme));
-  await stillFrames(page);
   if (s.target === 'ui') {
     await expect(page.locator('#om-main')).toBeVisible();
   } else {
@@ -98,17 +97,6 @@ export async function open(page: Page, s: Screen, theme: Theme): Promise<void> {
     await expect(page.getByRole('status').filter({ hasText: /^Loading / })).toHaveCount(0);
   }
   await settle(page);
-}
-
-// WebKit on the Linux runner stops completing frames once the blurred wallpaper and the frosted-glass
-// surfaces (filter / backdrop-filter blur) are on screen: clicks never pass Playwright's stability check
-// and screenshots never settle (docs/testing/CI-MATRIX.md §1.5, WK-1). WebKit visits run with blur off.
-const NO_BLUR_CSS =
-  '*, *::before, *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }\n' +
-  '.om-cz-wallpaper-img { filter: none !important; }';
-
-export async function stillFrames(page: Page): Promise<void> {
-  if (page.context().browser()?.browserType().name() === 'webkit') await page.addStyleTag({ content: NO_BLUR_CSS });
 }
 
 export async function settle(page: Page): Promise<void> {

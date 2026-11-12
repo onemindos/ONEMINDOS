@@ -11,10 +11,12 @@ What runs (CI: [`.github/workflows/ui-quality.yml`](../../.github/workflows/ui-q
 | `e2e/screens.ts` | The list of every screen: 67 `ui/` demo routes and 6 dashboard pages. **A new screen gets a line here.** |
 | `e2e/a11y.spec.ts` | axe-core on every screen, light and dark, at 1280 px and 375 px. Any **serious** or **critical** finding fails, and so does an uncaught exception or a `console.error`. The full axe result is attached to the report, so moderate and minor findings stay visible. |
 | `e2e/known-a11y.ts` | The defects the first run found in `ui/` (A11Y-1 to A11Y-5, [CI-MATRIX §1.4](../../docs/testing/CI-MATRIX.md)). The list is a ratchet: a finding that is not on it fails, and a listed one that no longer reproduces fails too, so **the PR that fixes one deletes its entry**. |
-| `e2e/flows.spec.ts` | Dashboard: a bad token is refused, `owner-demo` signs in, the menu reaches Nodes, Market, Approvals and Home, then sign-out. Demo: every main menu entry opens its screen. |
-| `e2e/visual.spec.ts` | 29 screenshots per engine compared with `visual/<browser>/*.png`. More than 0.1 % of pixels different fails. Desktop shots stretch the viewport to the page's height, so fixed layers (wallpaper, Home dock) sit where a person sees them. |
+| `e2e/flows.spec.ts` | Dashboard: a bad token is refused, `owner-demo` signs in, the menu reaches Nodes, Market, Approvals and Home, then sign-out. Demo: every main menu entry opens its screen. The WK-1 ratchet. |
+| `e2e/visual.spec.ts` | 29 screenshots per engine (24 in WebKit, see WK-1 below) compared with `visual/<browser>/*.png`. More than 0.1 % of pixels different fails. Desktop shots stretch the viewport to the page's height, so fixed layers (wallpaper, Home dock) sit where a person sees them. |
 
-The clock is fixed at 2026-11-12 15:05 UTC, so every "5 min ago" renders the same way each run. Animations are off. In WebKit, blur filters are switched off, because WebKit on the Linux runner stops drawing frames while the blurred wallpaper is on screen ([CI-MATRIX §1.5](../../docs/testing/CI-MATRIX.md), WK-1).
+The clock is fixed at 2026-11-12 15:05 UTC, so every "5 min ago" renders the same way each run. Animations are off.
+
+**WebKit and WK-1:** WebKit on the Linux runner stops producing frames on Home, Appearance and the App Store (CI-MATRIX §1.5). axe still runs there. Those 5 screenshots are skipped in WebKit only, and the menu flow starts on Activity. `flows.spec.ts` "WK-1 ratchet" is expected to fail in WebKit; once it passes there, delete its `test.fail` line and the skips.
 
 ## Run locally
 

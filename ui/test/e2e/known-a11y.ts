@@ -39,7 +39,7 @@ export const KNOWN_A11Y: KnownFinding[] = [
     rule: 'label-content-name-mismatch',
     target: '.oms-kbd-btn',
     screens: ['ui-shell-palette', 'ui-shell-palette-search'],
-    widths: ['desktop'],
+    widths: ['desktop', 'phone'],
     themes: BOTH_THEMES,
     why: 'the palette close button shows "esc" but is named "Close" (WCAG 2.5.3 Label in Name)',
   },
