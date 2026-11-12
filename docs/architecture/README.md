@@ -61,6 +61,8 @@ Identity (backlog item 1, SEC-P1) and HTTPS (item 2, SEC-P2) are **prerequisites
 
 ## In-flight work these docs build on (not merged on 2026-11-12)
 
+`feat/onemindd-updater` merged to `main` as PR #15 after these docs were written; the other branches below are still open.
+
 | Branch | What it adds that these docs use |
 |---|---|
 | `feat/deploy-v0` | `deploy/install.sh --role hub|node`, separate k3s agent token, gateway ServiceAccount, NATS unit (no auth yet) |

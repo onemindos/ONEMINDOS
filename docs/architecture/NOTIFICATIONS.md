@@ -67,6 +67,7 @@
 | `security.audit_chain_broken` | critical | yes (`audit`) | owners | — | `/security` (H-28) |
 | `security.login_new_device` | warning | no | that person | revoke session | `/me/sessions` |
 | `automation.paused` | warning | yes (`auto:<id>`) | owners | `automation.enable` | `/automations/<id>` |
+| `notify.channel_failing` | warning, **in-app only** | yes (`channel:<id>`) | owners | `notify.channel.update` | `/settings/notifications` |
 | `repair.*` | per check | yes (`repair:<check>:<context>`) | per check | per check | `/repairs/<id>` |
 | `hook.received` | debug, never notified | no | — | — | — |
 

@@ -96,7 +96,7 @@ Private keys never leave the node. The hub signs only public halves. Where `tpm2
                                     and (worker) the k3s Node object are seen
 ```
 
-- **Pairing code:** the first 6 digits of `sha256(ticket_id ‖ node public key)` as a decimal number. Both sides compute it, so the owner can tell that the machine they approve is the one in front of them. This is the Bluetooth pairing pattern. It defends against a leaked ticket being used by another machine first.
+- **Pairing code:** `sha256(ticket_id ‖ node public key)`, first 4 bytes read as a big-endian unsigned integer, modulo 1 000 000, shown as 6 digits with leading zeros. Both sides compute it, so the owner can tell that the machine they approve is the one in front of them. This is the Bluetooth pairing pattern. It defends against a leaked ticket being used by another machine first.
 - **Why approval and a ticket:** the ticket alone only lets a machine *ask*. That stops strangers on the LAN from filling the Approvals screen. The approval decides. A ticket from a QR code photographed off the screen is harmless without the owner's approval of a matching code.
 - **Headless:** `onemind node join --hub https://<hub> --ticket-file <file> --ca-sha256 <hex>`. The ticket is read from a file or stdin, never a command-line argument, so it stays out of shell history and `ps` (H-09). The owner approves with `onemind actions approve <id>` on any machine that has an owner session.
 - **k3s bootstrap token:** `k3s token create --ttl 15m --description onemind-node-<node_id>`. k3s's `token create` takes `--ttl` (default 24 h; `pkg/cli/cmds/token.go` in `k3s-io/k3s`, Apache-2.0, read at `f6973cb`). It replaces the long-lived agent token that `feat/deploy-v0` prints today. **UNVERIFIED** until step F2's test: that a bootstrap token created this way is accepted by `k3s agent` on v1.37.2+k3s1. If it is not, the fallback is the agent token sent once inside the approved bundle (still never printed).
@@ -135,8 +135,8 @@ None of them shows the joining machine to the owner and asks for approval with a
 
 | Allow | Subjects |
 |---|---|
-| publish | `onemind.node.<id>.status`, `onemind.node.<id>.event.>`, `onemind.node.<id>.jobresult.>`, `$JS.ACK.ONEMIND_JOBS.>` |
-| subscribe | `_INBOX.>`; JetStream pull on its own consumer: `$JS.API.CONSUMER.MSG.NEXT.ONEMIND_JOBS.node-<id>` |
+| publish | `onemind.node.<id>.status`, `onemind.node.<id>.event.>`, `onemind.node.<id>.jobresult.>`; JetStream pull on its own consumer, which is a publish request: `$JS.API.CONSUMER.MSG.NEXT.ONEMIND_JOBS.node-<id>`; acks `$JS.ACK.ONEMIND_JOBS.node-<id>.>` |
+| subscribe | `_INBOX.>` (pull replies arrive on the request's inbox) |
 | deny | everything else, notably `onemind.audit`, `onemind.event.>`, other nodes' subjects, `onemind.node.<id>.job.>` (only the gateway publishes jobs) |
 
 So node A cannot pretend to be node B, cannot forge audit lines and cannot hand itself work. The gateway re-publishes each validated node event to `onemind.event.<domain>.<name>` with `source_id` set to the node id. Consumers then read one stream and the source cannot be forged.
@@ -194,7 +194,7 @@ The gateway has the Kubernetes credentials; nodes have the files. Backups, resto
 - **Phone (MOB-P1):** the same Nodes list, cached and labelled with its age when offline (MOB-B2).
 - **`onemind nodes`** prints the same states.
 
-Alerts (NOTIFICATIONS.md): `node.offline` (raised after 120 s, resolved on return), `node.degraded` with the reason, `node.cert_expiring`, `node.clock_skew`. **Stale alone never alerts**, so a Wi-Fi blip does not page anyone.
+Alerts (NOTIFICATIONS.md §3): `node.offline` (raised after 120 s, resolved on return), `node.degraded` with the reason (including `clock_skew` and `outbox_full`), `node.cert_expiring`. **Stale alone never alerts**, so a Wi-Fi blip does not page anyone.
 
 ## 7. Placement (FAB-P3, APP-B3)
 

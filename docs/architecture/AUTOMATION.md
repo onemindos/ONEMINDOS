@@ -31,7 +31,7 @@
 | **Policy** | rules under which a matching request is approved without a person | decides as `policy:<id>@<rev>` |
 | **Window** | named recurring time ranges (e.g. `nightly` 02:00–05:00 local) | — |
 
-**Why the automation is its own principal:** the audit log must show *what* asked, not the person who once set it up (context/02 §7: "an agent acting for Zeus is not Zeus"). The automation's record names its owner (`created_by`), so responsibility is still traceable.
+**Why the automation is its own principal:** the audit log must show *what* asked, not the person who once set it up (context/02 §7: an agent acting for the owner is not the owner). The automation's record names its owner (`created_by`), so responsibility is still traceable.
 
 ## 3. Design
 
@@ -44,10 +44,12 @@ trigger fires ──► render template (typed substitution) ──► POST acti
                                                                 │
                                          policy engine ◄────────┘
                     ┌────────────────────┼─────────────────────────────┐
-              hard-deny list       matching policy within limits     no match / over limit
-                    │                    │                              │
-            action.rejected        accepted (decided_by policy)   awaiting_approval → notify
-            (403, audited)         → held until window? → dispatched
+   requester may not request   never-automatable type    matching policy    no match / over limit
+   this type (registry)        (registry "never")        within limits             │
+          │                          │                        │                    │
+   403 permission_denied      awaiting_approval →      accepted (decided_by   awaiting_approval
+   (audited, no action)       notify a person          policy) → held until   → notify
+                                                       window? → dispatched
 ```
 
 The policy engine sits in the **approval step** of the existing action service, so it also applies to requests from agents and people, not only automations. An agent's `backup.run` can be auto-approved by the same policy.
@@ -78,7 +80,7 @@ The OS ships **system automations** (read-only, can be paused only with an owner
 | System automation | Trigger | Action |
 |---|---|---|
 | backup hourly | schedule `@hourly` (fixed random minute) | `backup.run` |
-| backup off-site | daily, window `nightly` | `backup.run {target: offsite}` |
+| backup off-site | daily, window `nightly` | `backup.run {target_id: <off-site target>}` |
 | backup check | daily, window | `backup.verify {kind: check}` |
 | verified restore | weekly, window | `backup.verify {kind: restore}` |
 | repairs scan | every 15 min | `system.check` (read-only; produces alerts, NOTIFICATIONS.md §4) |
@@ -179,7 +181,7 @@ None of them offers dry run against real history, or auto-approval with counted 
 |---|---|---|
 | AT-1 | Schedule with fake clock | Fires at the right local times across a DST change (Europe/London, America/New_York fixtures); `catch_up: none` skips missed fires, `last` fires once |
 | AT-2 | Policy within limit | 3 `app.restart` requests approved by the policy with `decided_by policy:<id>@<rev>`; the 4th awaits a person with "limit reached" |
-| AT-3 | Hard deny | `policy.create` for `backup.restore` is refused; an automation requesting `node.remove` lands in `awaiting_approval`, never auto-approved |
+| AT-3 | Hard deny | `policy.create` for `backup.restore` is refused; an automation requesting `node.remove` (owner-only in the registry) → 403 `permission_denied`, no action row; an automation's `os.update.apply` on the `stable` channel lands in `awaiting_approval` even when a policy names that type (policies cover the security channel only) |
 | AT-4 | Agent and policies | Agent `policy.create` → 403; an agent's `backup.run` matching a policy that lists that agent → auto-approved; with a wildcard requester → needs a person |
 | AT-5 | Window hold | Approved at 14:00 with window `nightly` → stays `accepted` with hold; a gateway restart keeps it `accepted`; dispatched at 02:00; past `expires_at` → `expired` |
 | AT-6 | Event rule debounce and loop guard | 20 `app.unhealthy` events in 5 min → 1 request; an event caused by the rule's own restart does not fire it again |

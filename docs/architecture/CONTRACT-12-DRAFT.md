@@ -3,7 +3,7 @@
 
 **Status:** DRAFT, not binding (2026-11-12). It proposes §12 of [`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md). It follows the contract's rule: "a change to it is a separate PR that all streams adopt". Each sub-section below is meant to be merged **on its own**, when the build step that needs it starts (§12.15). Until then, streams build against §1–§11.
 **Design rationale:** [FABRIC.md](FABRIC.md), [BACKUPS.md](BACKUPS.md), [DEPLOYMENTS.md](DEPLOYMENTS.md), [AUTOMATION.md](AUTOMATION.md), [NOTIFICATIONS.md](NOTIFICATIONS.md).
-**Compatibility:** everything here is **additive**. No §3 path, field, state or error changes meaning. Clients written for §3 and §11 keep working.
+**Compatibility:** everything here is **additive**. No §3 path, field, state or error changes meaning. Clients written for §3 and §11 keep working. Two changes alter behaviour and are listed for an explicit decision at the end: the `reconcile_interrupted` amendment (§12.2 `hold`) and `acknowledge_unscanned` (open item 4).
 
 ## 12.1 Conventions
 
@@ -139,7 +139,7 @@ Node permissions: FABRIC.md §5.2. App streams and app subjects stay in the lock
 | `POST /v1/fabric/join-tickets` | owner | body `{role: worker|leaf, ttl_s ≤ 3600 (default 900)}` → 201 `{id, role, expires_at, qr_text}` + `one_time: {ticket}`. `qr_text` = `onemind-join:v1?hub=<url>&ca=<sha256>&t=<ticket>&role=<role>` |
 | `GET /v1/fabric/join-tickets` | owner | tickets without secrets: `{id, role, created_by, expires_at, used_at}` |
 | `DELETE /v1/fabric/join-tickets/{id}` | owner | 204; revokes an unused ticket (audited; not an action, it only removes a right to ask) |
-| `POST /v1/fabric/join` | **no session**; the ticket authenticates; `rate_limited` after 10/min per source | body `{ticket, node_id, role, node_pubkey, tls_pubkey, nats_pubkey, facts: <§2 heartbeat>, sig}` (`sig` = Ed25519 by `node_pubkey` over the canonical body without `sig`) → 202 `{join_id, action_id, pairing_code}`. Errors: 409 `ticket_used` / `duplicate_node_id`, 409 `expired`, 404 `ticket_unknown` |
+| `POST /v1/fabric/join` | **no session**; the ticket authenticates; `rate_limited` after 10/min per source | body `{ticket, node_id, role, node_pubkey, tls_pubkey, nats_pubkey, facts: <§2 heartbeat>, sig}` (`sig` = Ed25519 by `node_pubkey` over the canonical body without `sig`) → 202 `{join_id, action_id, pairing_code}`. Errors: 409 `conflict` (reason `ticket_used` or `duplicate_node_id`), 409 `expired`, 404 `not_found` (reason `ticket_unknown`) |
 | `GET /v1/fabric/join/{join_id}` | the joining node: header `X-OneMind-Node-Sig` over `join_id ‖ timestamp` | `{state: requested|approved|denied|expired}`; when `approved`, once: `{bundle: {node_cert, ca_cert, nats: {url, creds_jwt?, user_pubkey}, job_pubkey, k3s?: {server_url, token}}}`; later calls return `{state: "delivered"}` |
 | `POST /v1/fabric/nodes/{id}/renew` | that node, mutual TLS with its current certificate | body `{csr}` → `{node_cert}`; 403 if deny-listed |
 | `GET /v1/fabric` | any principal | `{hub_node_id, roles: {hub: 1, worker: n, leaf: n}, nodes: [{node_id, role, state, leaf_link, outbox_pending, cert_expires_at}]}` |
@@ -332,3 +332,4 @@ Every write verb creates the same action as the dashboard, and `--json` prints t
 1. Whether `node` belongs in the principal kinds, or join requests should be a separate ledger. The draft chooses the ledger, so join approvals appear in Approvals like everything else.
 2. Whether `rate_limited` and `unavailable` are added, or mapped onto `conflict` as §3 does today for validation errors.
 3. The `plan_sha256` requirement moving from optional (v0, H-13 logs `plan_unchecked`) to required.
+4. `acknowledge_unscanned` on `app.install` for owner-uploaded private bundles relaxes contract §10.3 ("nothing unscanned runs"). It is **not** purely additive and needs an explicit decision (DEPLOYMENTS.md §6, FOUNDER CALL). Until then, private bundles stay blocked unless the on-box scan (DEPLOYMENTS D6) passes.

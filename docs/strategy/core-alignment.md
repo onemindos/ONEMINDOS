@@ -28,7 +28,7 @@
 > - a design system;
 > - adding a node from the screen.
 >
-> umbrelOS now has phone apps for iPhone and Android. Home Assistant OS has a repairs inbox. Coolify sends notifications through seven channels.
+> umbrelOS now has phone apps for iPhone and Android. Home Assistant OS has a repairs inbox. Coolify sends notifications through six channels (email, Discord, Slack, Telegram, Pushover, webhook).
 >
 > The plan in §5: get to **parity on those first**, and build each one on the parts where we already lead, so it also **beats** the leaders. Examples: a backup is shown as verified only after a test restore passes; an app update is kept only if the app is still healthy afterwards; you approve actions from your phone with Face ID.
 
@@ -51,7 +51,7 @@
   - **M**: 1 to 2 weeks.
   - **L**: 3 weeks or more.
 - **Depends on** names other item IDs or the brief-30 deliverables (`D-B…`).
-- **Code reuse:** we copy **patterns** from any project. We copy **code** only from MIT, BSD or Apache-2.0 sources, at the commit in §2, with a `NOTICE` entry (the repository has no `NOTICE` file yet; the first copy creates it). Per D-001, licences that rule out copying code are:
+- **Code reuse:** we copy **patterns** from any project. We copy **code** only from MIT, BSD or Apache-2.0 sources, at the commit in §2, with a `NOTICE` entry (the repository has no `NOTICE` file yet; the first copy creates it). D-001's guardrail names PolyForm-NC, AGPL, GPL and unlicensed sources; the same reasoning covers LGPL and the Commons Clause. Licences that rule out copying code:
   - umbrelOS (PolyForm Noncommercial);
   - Olares (AGPL-3.0 plus its own non-commercial licence);
   - TrueNAS middleware (LGPL-3.0);
@@ -83,7 +83,7 @@ Every repository below was read in a shallow clone outside this repository. **Co
 **What changed since the teardowns (2026-11-10):**
 1. **umbrelOS 2.1 beta 1 adds native phone and desktop apps.**
    - The iPhone app existed already. The new Android app backs up photos and videos and opens umbrelOS and its apps already signed in.
-   - New Windows and Mac apps add the box's shared folders to the file manager ([release notes](https://github.com/getumbrel/umbrel/releases/tag/2.1.0-beta.1)).
+   - A new Windows app adds the box's shared folders to File Explorer, as the existing Mac app already does in Finder ([release notes](https://github.com/getumbrel/umbrel/releases/tag/2.1.0-beta.1)).
    - **The mobile bar has moved: a phone app is now table stakes for this market.**
 2. **ZimaOS 1.8.0 is about media and hardware** (AI photo gallery, Spotlight search, fan policies). It has no core changes to updates, backups or security.
 3. **Home Assistant now calls add-ons "apps".** The Supervisor tree has `supervisor/apps/` where it used to have `addons/`.
@@ -119,7 +119,7 @@ Every repository below was read in a shallow clone outside this repository. **Co
 - 3 apps (`apps/`).
 - Image + RAUC + health gate (`os/`).
 
-**In flight (wave 2):**
+**In flight (wave 2):** (status when this page was written; `feat/onemindd-updater` has since merged to `main` as PR #15, so rebase before relying on the "in flight" labels below)
 - `feat/app-pipeline`: schema fields, `app-gate`, `app-scaffold`, `app-readme`.
 - `feat/gateway-agent-mcp`:
   - scan gate (§11.1);
@@ -151,7 +151,7 @@ Every repository below was read in a shallow clone outside this repository. **Co
 |---|---|---|---|---|
 | ONB-P1 | PARITY | First-boot web wizard: name the box, create the owner, set the time zone, choose the data disk | M | SEC-P1 |
 | ONB-P2 | PARITY | Find the box on the LAN as `onemind.local` (mDNS) and print its address on the console | S | — |
-| ONB-P3 | PARITY | Restore from a backup during onboarding (new hardware, same data) | M | BAK-P4 |
+| ONB-P3 | PARITY | Restore from a backup during onboarding (new hardware, same data) | M | BAK-P4, ONB-P1 |
 | ONB-B1 | BEAT | **Headless twin:** `onemind init` runs the same wizard steps from a terminal or a config file, so a box can be set up without a screen (none of the leaders treats headless setup as equal) | S | ONB-P1 |
 | ONB-B2 | BEAT | **Emergency kit cannot be skipped** (owner recovery key + backup key, D-B7.2), and onboarding ends with a first backup that a test restore has checked | M | BAK-P1, BAK-B1 |
 | ONB-B3 | BEAT | **Verified installer:** `install.sh` checks a signed manifest of the pinned versions before it changes the host, not just checksums | S | deploy-v0, TUF keys |
@@ -289,7 +289,7 @@ The founder runs his own services today, not only store apps, so this area is ad
 | BAK-P1 | PARITY | Backup agent: restic, hourly with grandfather-father-son retention, encrypted; covers app volumes and the k3s datastore (online `.backup` + `integrity_check`, D-B7.3) | L | D-B7.1 |
 | BAK-P2 | PARITY | Destinations: USB disk, another OneMind box (append-only rest-server), S3-compatible | M | BAK-P1 |
 | BAK-P3 | PARITY | Browse snapshots and restore one file or one app (approval-gated) | M | BAK-P1 |
-| BAK-P4 | PARITY | Full restore to new hardware, including from onboarding | M | BAK-P1, ONB-P3 |
+| BAK-P4 | PARITY | Full restore to new hardware (onboarding entry point: ONB-P3) | M | BAK-P1 |
 | BAK-P5 | PARITY | App hooks from the manifest `backup:` block (pre/post, database dumps, excludes) | M | BAK-P1 |
 | BAK-B1 | BEAT | **Verified-restore badge:** each week, restore into a scratch namespace, run the app's probes with fresh signals, and show "last verified restore" per app and per box. A backup that has not passed this test restore is never shown as green (D-B7.6). No leader proves its restores | M | BAK-P1 |
 | BAK-B2 | BEAT | **Three keys + emergency kit:** device, owner recovery and optional escrow keys; the owner key alone restores | S | BAK-P1 |
@@ -355,7 +355,7 @@ The founder runs his own services today, not only store apps, so this area is ad
 | SEC-B1 | BEAT | **Per-action approvals bound to exact parameters**, expiry and grant revision (D-B9.6); already the core model, now visible on every surface. No leader has per-agent scopes, approvals and an audit log together (MATRIX §4.6) | S | — |
 | SEC-B2 | BEAT | **Passkey-signed approvals:** the approval carries a WebAuthn assertion over the action hash, so a stolen session cannot approve | M | SEC-P1 |
 | SEC-B3 | BEAT | **Agent console:** list agent principals, their grants, recent requests and approval rate; revoke in one tap (D-B9.3) | S | gwmcp |
-| SEC-B4 | BEAT | **Security posture page:** shows the signing state, the last scan, open CVEs with VEX, exposed apps, the audit chain check and the backup check, each with a fix action | S | OSU-B2, REM-B1 |
+| SEC-B4 | BEAT | **Security posture page:** shows the signing state, the last scan, open CVEs with VEX, exposed apps, the audit chain check and the backup check, each with a fix action | S | REM-B1; OSU-B2 for the CVE panel |
 
 ### 4.9 Notifications
 
@@ -410,7 +410,7 @@ The founder runs his own services today, not only store apps, so this area is ad
 | Leader | What they do | Source |
 |---|---|---|
 | StartOS | StartTunnel: a self-hosted WireGuard "virtual private router" on a VPS; TLS ends at the service | `projects/start-tunnel/README.md` (MIT) |
-| umbrelOS | Tor; HTTPS access settings; Tailscale as an app | `packages/ui/src/routes/settings/tor.tsx`, `https-access.tsx` |
+| umbrelOS | Tor; HTTPS access settings; Tailscale as an app | `packages/ui/src/routes/settings/advanced.tsx` (Tor toggle, `hooks/use-tor-enabled.ts`), `routes/settings/https-access.tsx` |
 | Home Assistant | Paid cloud relay (Nabu Casa) | 12 §8.2 |
 | Olares | Tailscale/Headscale reached through the LarePass app | olares.md |
 | Unraid | Connect service + Tailscale integration | unraid.md |
@@ -501,8 +501,8 @@ Each item builds a parity feature on top of a part we already lead in, so one ch
 | 2 | HTTPS on the LAN (per-box CA) and per-app subdomains behind the gateway login | SEC-P2, UX-P2 | M | 1 |
 | 3 | Backup agent v0: restic, k3s datastore + app volumes, hourly, USB / other box / S3 | BAK-P1, BAK-P2, BAK-B2 | L | D-B7.1 |
 | 4 | Verified-restore badge: weekly scratch restore with fresh probes | BAK-B1 | M | 3 |
-| 5 | Restore one app or the whole box, approval-gated, including restore during onboarding | BAK-P3, BAK-P4, BAK-B4 | M | 3 |
-| 6 | First-boot wizard with emergency kit, plus `onemind init` for headless setup | ONB-P1, ONB-B1, ONB-B2, ONB-P2 | M | 1, 3 |
+| 5 | Restore one file, one app or the whole box, approval-gated | BAK-P3, BAK-P4, BAK-B4 | M | 3 |
+| 6 | First-boot wizard with emergency kit and "restore from a backup", plus `onemind init` for headless setup | ONB-P1, ONB-B1, ONB-B2, ONB-P2, ONB-P3 | M | 1, 3, 5 |
 | 7 | Design system v0 (tokens, dark mode, components) applied to the 5 existing screens | UX-P1 | M | — |
 | 8 | Alert centre + delivery (in-app, Web Push, ntfy, email/webhook/Telegram/Matrix) | NOT-P1, NOT-P2, NOT-P3 | M | 1 |
 | 9 | Activity timeline over the audit chain, with "chain verified" | UX-B1 | S | — |
@@ -521,7 +521,7 @@ Each item builds a parity feature on top of a part we already lead in, so one ch
 | 22 | Remote access app (Tailscale/Headscale, off by default) + exposure review | REM-P1, REM-B1 | M | 2 |
 | 23 | Fleet-staged OS updates (canary node, gate verdict releases the rest) | OSU-B1 | M | 10, 15 |
 | 24 | Home widgets v0: manifest-declared typed widgets, then sandboxed custom widgets | PLG-P1, PLG-P2, PLG-B1 | M | 2, 7 |
-| 25 | Agent console + security posture page | SEC-B3, SEC-B4 | S | 8, 22 |
+| 25 | Agent console + security posture page (CVE panel waits for OSU-B2) | SEC-B3, SEC-B4 | S | 8, 22 |
 
 **Left for later** (keep the IDs):
 - UX-P3, UX-P4, UX-B2, UX-B3;
@@ -533,7 +533,7 @@ Each item builds a parity feature on top of a part we already lead in, so one ch
 - SEC-P3, SEC-B1 (already the model; only the surfaces remain);
 - REM-B2;
 - PLG-B2, PLG-B3;
-- ONB-P3, ONB-B3;
+- ONB-B3;
 - DOC-*.
 
 Robotics, drones, physical actuation and TAK items stay out until the founder reopens them.
