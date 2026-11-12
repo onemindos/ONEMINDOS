@@ -26,7 +26,8 @@ metadata:
     website: "https://wordpress.org"
     support: "https://wordpress.org/support/forums/"
   upstream: {release: "7.1.4", released_at: "2026-10-28T16:12:44Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL CVE-2025-68121 in the bundled mariadb image, fix exists (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 1024}

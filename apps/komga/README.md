@@ -9,7 +9,7 @@ Media server for comics, manga, magazines and e-books, with a web reader and OPD
 |---|---|
 | Version | 1.30.1 (upstream release `1.30.1`, published 2026-11-10) |
 | Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/gotson/komga> |
 | Website | <https://komga.org> |
@@ -74,6 +74,16 @@ Source: [komga.org docs](https://komga.org/docs/introduction).
 - `readOnlyRootFilesystem` is not set: it has not been tested against this image.
 - Resource figures are OneMind choices; upstream publishes none. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212771377, job `gate (komga)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/gotson/komga:1.30.1`: CVE-2026-75595 in `io.netty:netty-handler` 4.1.135.Final (fixed 4.1.137.Final); CVE-2026-55276, CVE-2026-65182, CVE-2026-65637, CVE-2026-65905 and CVE-2026-68525 in `tomcat-embed-core` 10.1.55 (fixed 10.1.56 to 10.1.59); CVE-2026-47890 and CVE-2026-47892 in `spring-webflux` 6.2.19 and CVE-2026-47884 and CVE-2026-47890 in `spring-webmvc` 6.2.19 (fixed 7.0.9).
+- Licence: GitHub MIT matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10).
+- Passed: ClamAV (0 infected), smoke test (GET / returned 200).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

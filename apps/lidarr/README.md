@@ -9,7 +9,7 @@ Music collection manager: watches for new albums by your artists and organises y
 |---|---|
 | Version | 3.1.6.5079 (upstream release `v3.1.6.5079`, published 2026-10-26) |
 | Licence | `GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/Lidarr/Lidarr> |
 | Website | <https://lidarr.audio> |
@@ -74,6 +74,16 @@ Source: [Servarr wiki, Lidarr Quick Start Guide](https://wiki.servarr.com/lidarr
 - `readOnlyRootFilesystem` is not set (linuxserver documents a separate read-only mode; not tested here).
 - Resource figures are OneMind choices; upstream publishes none. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212771377, job `gate (lidarr)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `lscr.io/linuxserver/lidarr:3.1.6.5079-ls48`: CVE-2026-70188 and CVE-2026-88092 in `Microsoft.AspNetCore.App.Runtime.linux-musl-x64` and `-arm64` 8.0.27 (fixed 8.0.32, 9.0.21, 10.0.13).
+- Licence: GitHub GPL-3.0 matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10).
+- Passed: ClamAV (0 infected), smoke test (GET / returned 200).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

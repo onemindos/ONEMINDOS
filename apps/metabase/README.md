@@ -9,7 +9,7 @@ Business intelligence: ask questions of your databases and build charts and dash
 |---|---|
 | Version | 0.65.3 (upstream release `v0.65.3`, published 2026-11-06) |
 | Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | monitoring |
 | GitHub | <https://github.com/metabase/metabase> |
 | Website | <https://www.metabase.com> |
@@ -79,6 +79,16 @@ Source: [Metabase docs, Running Metabase on Docker](https://www.metabase.com/doc
 - `readOnlyRootFilesystem` is not set: Metabase writes its plugins to `/plugins` in the image.
 - Resource figures are OneMind choices; upstream publishes none for containers. Idle memory was measured on a k3s smoke test (arm64, 2026-11-12) and the figures were raised to leave headroom above it. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212771377, job `gate (metabase)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/library/postgres:18.6-trixie`: CVE-2025-68121 in the Go `stdlib` v1.24.6, fixed in 1.24.13, 1.25.7 or 1.26.0-rc.3.
+- Secret finding (Trivy): the same postgres image has `private-key` (HIGH) in `/etc/ssl/private/ssl-cert-snakeoil.key` (Debian's ssl-cert package).
+- Passed: the metabase v0.65.3 image, licence (matrix row matches), ClamAV (0 infected), smoke test (GET / returned 200).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

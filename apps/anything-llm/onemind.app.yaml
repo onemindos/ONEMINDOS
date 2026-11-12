@@ -24,7 +24,8 @@ metadata:
     website: "https://anythingllm.com"
     support: "https://github.com/Mintplex-Labs/anything-llm/issues"
   upstream: {release: "v1.19.0", released_at: "2026-10-26T16:14:51Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: many CRITICAL CVEs with a fix in the image, and a gitlab-pat finding (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 2048}

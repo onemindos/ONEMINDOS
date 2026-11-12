@@ -9,7 +9,7 @@ Virtual whiteboard for hand-drawn style sketches and diagrams.
 |---|---|
 | Version | 0.18.1+b2b2815 (upstream release `v0.18.1`, published 2026-04-21) |
 | Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | notes |
 | GitHub | <https://github.com/excalidraw/excalidraw> |
 | Website | <https://excalidraw.com> |
@@ -75,6 +75,16 @@ The built app keeps excalidraw.com's own services for "Live collaboration" and "
 - No HTTPS or LAN hostname: OneMind v0 has no ingress or certificates for apps, so the app is reached through a port-forward until the app proxy exists.
 - Resource figures are OneMind choices; upstream publishes none. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212771377, job `gate (excalidraw)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/excalidraw/excalidraw:latest` (pinned by digest; upstream publishes only a floating tag): CVE-2026-111497 in `brotli-libs` 1.1.0-r2 (fixed 1.1.1-r0); CVE-2026-31789 in `libcrypto3` and `libssl3` 3.3.3-r0 (fixed 3.3.7-r0).
+- Licence: GitHub MIT matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10). The app still carries `UNVERIFIED` markers (README, deployment.yaml).
+- Passed: ClamAV (0 infected), smoke test (GET / returned 200).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

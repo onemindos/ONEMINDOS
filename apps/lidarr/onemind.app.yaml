@@ -24,7 +24,8 @@ metadata:
     website: "https://lidarr.audio"
     support: "https://github.com/Lidarr/Lidarr/issues"
   upstream: {release: "v3.1.6.5079", released_at: "2026-10-26T01:51:41Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL CVE-2026-70188 and CVE-2026-88092 in the .NET runtime, fixes exist (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 512}

@@ -9,7 +9,7 @@ Privacy-focused website analytics without cookies.
 |---|---|
 | Version | 3.5.0 (upstream release `v3.5.0`, published 2026-11-12) |
 | Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | monitoring |
 | GitHub | <https://github.com/umami-software/umami> |
 | Website | <https://umami.is> |
@@ -78,6 +78,17 @@ Source: [Umami README](https://github.com/umami-software/umami/blob/v3.5.0/READM
 - `readOnlyRootFilesystem` is not set: the start script updates the tracker file in the image.
 - Resource figures are OneMind choices; upstream publishes none. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212771377, job `gate (umami)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/library/postgres:15.19-trixie`: CVE-2025-68121 in the Go `stdlib` v1.24.6, fixed in 1.24.13, 1.25.7 or 1.26.0-rc.3.
+- Secret finding (Trivy): the same postgres image has `private-key` (HIGH) in `/etc/ssl/private/ssl-cert-snakeoil.key` (Debian's ssl-cert package).
+- Licence: GitHub MIT matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10).
+- Passed: ClamAV (0 infected), smoke test (GET / returned 200).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

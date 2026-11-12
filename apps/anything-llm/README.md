@@ -9,7 +9,7 @@ Chat with your documents using a local or hosted language model, with agents and
 |---|---|
 | Version | 1.19.0 (upstream release `v1.19.0`, published 2026-10-26) |
 | Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | ai |
 | GitHub | <https://github.com/Mintplex-Labs/anything-llm> |
 | Website | <https://anythingllm.com> |
@@ -77,6 +77,17 @@ Source: [docs.anythingllm.com](https://docs.anythingllm.com) (Docker quickstart)
 - `readOnlyRootFilesystem` is not set: the entrypoint runs `prisma generate`, which writes into the image.
 - Resource figures follow upstream's minimum (2 GB, 2 cores); they are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212771377, job `gate (anything-llm)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/mintplexlabs/anythingllm:1.19.0`: CRITICAL with a fix: `linux-libc-dev` 6.8.0-147.147 (fixed 6.8.0-149.149; for example CVE-2026-89708, CVE-2026-90037, CVE-2026-98365, CVE-2026-98432, CVE-2026-98621, CVE-2026-98725, CVE-2026-98805); `basic-ftp` 5.0.5 CVE-2026-27699 (fixed 5.2.0); `fast-xml-parser` 4.5.0 CVE-2026-25896 (fixed 4.5.4); `protobufjs` CVE-2026-41242 and CVE-2023-36665; `proxy-addr` 2.0.7 CVE-2026-90711 (fixed 2.0.8); `tar` 6.2.1 CVE-2026-59873 (fixed 7.5.19). The full list is in the CI job log.
+- Secret finding (Trivy): `gitlab-pat` (CRITICAL) in `/app/server/public/assets/index-fadede8f.js` (a pattern match inside upstream's built front-end bundle).
+- Recorded only (no fix available): `decompress` CVE-2026-101894 and CVE-2026-53486, `expr-eval` CVE-2026-12866, more `linux-libc-dev` CVEs. The app still carries `UNVERIFIED` markers (README).
+- Passed: ClamAV (0 infected), smoke test (GET / returned 200).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

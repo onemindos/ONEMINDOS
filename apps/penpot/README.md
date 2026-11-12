@@ -9,7 +9,7 @@ Design and prototyping platform for teams, working with open standards (SVG, CSS
 |---|---|
 | Version | 2.19.1 (upstream release `2.19.1`, published 2026-11-11) |
 | Licence | `MPL-2.0`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | developer |
 | GitHub | <https://github.com/penpot/penpot> |
 | Website | <https://penpot.app> |
@@ -86,6 +86,17 @@ Source: [docs/technical-guide/getting-started/docker.md](https://github.com/penp
 - `readOnlyRootFilesystem` is not set: the frontend's entrypoint writes its nginx configuration at start.
 - Resource figures are OneMind choices below upstream's server guidance (4 CPUs, 16 GB for thousands of users). Idle memory was measured on a k3s smoke test (arm64, 2026-11-12) and the figures were raised to leave headroom above it. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212771377, job `gate (penpot)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/library/postgres:15.19-trixie`: CVE-2025-68121 in the Go `stdlib` v1.24.6, fixed in 1.24.13, 1.25.7 or 1.26.0-rc.3.
+- Secret finding (Trivy): the same postgres image has `private-key` (HIGH) in `/etc/ssl/private/ssl-cert-snakeoil.key` (Debian's ssl-cert package).
+- Licence: GitHub MPL-2.0 matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10).
+- Passed: the penpot backend, frontend and exporter 2.19.1 images (no CRITICAL with a fix), valkey, ClamAV (0 infected), smoke test (GET / returned 200).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

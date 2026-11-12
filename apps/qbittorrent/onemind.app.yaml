@@ -26,7 +26,8 @@ metadata:
     website: "https://www.qbittorrent.org"
     support: "https://github.com/qbittorrent/qBittorrent/issues"
   upstream: {release: "release-5.3.0", released_at: "2026-10-20T12:57:33Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL CVE-2026-111497 in brotli-libs, and the smoke test gets HTTP 401 (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 1024}

@@ -9,7 +9,7 @@ BitTorrent client with a web interface (qbittorrent-nox).
 |---|---|
 | Version | 5.3.0 (upstream release `release-5.3.0`, published 2026-10-20) |
 | Licence | `GPL-3.0-or-later`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/qbittorrent/qBittorrent> |
 | Website | <https://www.qbittorrent.org> |
@@ -79,6 +79,16 @@ Source: [docker-qbittorrent-nox Readme](https://github.com/qbittorrent/docker-qb
 - No HTTPS or LAN hostname: OneMind v0 has no ingress or certificates for apps, so the web UI is reached through a port-forward until the app proxy exists.
 - Resource figures are OneMind choices; upstream publishes none. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212771377, job `gate (qbittorrent)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/qbittorrentofficial/qbittorrent-nox:5.3.0-2`: CVE-2026-111497 in `brotli-libs` 1.2.0-r1, fixed in 1.2.1-r0.
+- Smoke test failed: `GET /` on Service `qbittorrent:8080` returned 401 (the web UI wants a login; the gate accepts 2xx and 3xx). The process is up. Whether a different smoke path or setting is right needs a look at the app's first-run behaviour.
+- Passed: licence (matrix row for qBittorrent matches), ClamAV (0 infected).
+
+To unblock: move the image pin to a release that fixes the CVE (tag verified with `crane`), and make the smoke test pass (for example by having the manifest start the web UI without an auth wall on `/`, if upstream supports it safely; do not weaken the login). Then rerun `sdk/tools/app-gate`.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

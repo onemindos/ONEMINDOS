@@ -9,7 +9,7 @@ Finds and downloads subtitles for the films and series that Sonarr and Radarr ma
 |---|---|
 | Version | 1.6.2 (upstream release `v1.6.2`, published 2026-09-26) |
 | Licence | `GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/morpheus65535/bazarr> |
 | Website | <https://www.bazarr.media> |
@@ -74,6 +74,16 @@ Source: [Bazarr wiki](https://wiki.bazarr.media) (Setup Guide).
 - `readOnlyRootFilesystem` is not set (linuxserver documents a separate read-only mode; not tested here).
 - Resource figures are OneMind choices; upstream publishes none. Idle memory was measured on a k3s smoke test (arm64, 2026-11-12) and the figures were raised to leave headroom above it. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212771377, job `gate (bazarr)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `lscr.io/linuxserver/bazarr:v1.6.2-ls372`: GHSA-6q48-6c7w-9gw2 in `certifi` 2026.6.17, fixed in 2026.10.18.
+- Licence: GitHub GPL-3.0 matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10).
+- Passed: ClamAV (0 infected), smoke test (GET / returned 200).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

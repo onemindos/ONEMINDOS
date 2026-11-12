@@ -23,7 +23,8 @@ metadata:
     website: "https://komga.org"
     support: "https://github.com/gotson/komga/issues"
   upstream: {release: "1.30.1", released_at: "2026-11-10T05:59:30Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL CVEs in the Java dependencies (netty, tomcat, spring), fixes exist (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 1024}

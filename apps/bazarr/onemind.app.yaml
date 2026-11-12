@@ -25,7 +25,8 @@ metadata:
     website: "https://www.bazarr.media"
     support: "https://github.com/morpheus65535/bazarr/issues"
   upstream: {release: "v1.6.2", released_at: "2026-09-26T01:37:28Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL GHSA-6q48-6c7w-9gw2 in certifi, fix exists (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 512}

@@ -24,7 +24,8 @@ metadata:
     website: "https://firefly-iii.org"
     support: "https://github.com/firefly-iii/firefly-iii/issues"
   upstream: {release: "v6.7.9", released_at: "2026-10-11T19:16:51Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL CVEs in the firefly and postgres images and a private-key finding (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 1024}

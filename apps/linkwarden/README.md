@@ -9,7 +9,7 @@ Bookmark manager that saves a copy of every page you keep.
 |---|---|
 | Version | 2.17.0 (upstream release `v2.17.0`, published 2026-11-10) |
 | Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | notes |
 | GitHub | <https://github.com/linkwarden/linkwarden> |
 | Website | <https://linkwarden.app> |
@@ -79,6 +79,18 @@ Source: [docs.linkwarden.app](https://docs.linkwarden.app) (self-hosting with Do
 - `readOnlyRootFilesystem` is not set: it has not been tested against this image.
 - Resource figures are OneMind choices; upstream publishes none. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212771377, job `gate (linkwarden)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `ghcr.io/linkwarden/linkwarden:v2.17.0`: CVE-2025-68121 in the Go `stdlib` v1.23.7 (fixed 1.24.13, 1.25.7, 1.26.0-rc.3).
+- Vulnerability: `docker.io/library/postgres:16.15-trixie`: CVE-2025-68121 in the Go `stdlib` v1.24.6.
+- Secret finding (Trivy): the postgres image has `private-key` (HIGH) in `/etc/ssl/private/ssl-cert-snakeoil.key` (Debian's ssl-cert package).
+- Licence: GitHub AGPL-3.0 matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10).
+- Passed: ClamAV (0 infected), smoke test (GET / returned 200).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
