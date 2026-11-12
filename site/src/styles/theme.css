@@ -1,0 +1,59 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* OneMind accent on Starlight's tokens (dark is Starlight's default; light below). */
+:root {
+  --sl-color-accent-low: #0b3b37;
+  --sl-color-accent: #14b8a6;
+  --sl-color-accent-high: #99f6e4;
+  --om-ok: #22c55e;
+  --om-warn: #eab308;
+  --om-fail: #ef4444;
+  --om-unknown: #94a3b8;
+}
+:root[data-theme='light'] {
+  --sl-color-accent-low: #ccfbf1;
+  --sl-color-accent: #0f766e;
+  --sl-color-accent-high: #134e4a;
+  --om-ok: #15803d;
+  --om-warn: #a16207;
+  --om-fail: #b91c1c;
+  --om-unknown: #64748b;
+}
+
+.om-status {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: var(--sl-text-sm);
+  border: 1px solid currentColor;
+}
+.om-status--works-today { color: var(--om-ok); }
+.om-status--in-review { color: var(--om-warn); }
+.om-status--planned { color: var(--om-unknown); }
+.om-status--mixed { color: var(--sl-color-accent); }
+.om-byline { color: var(--sl-color-gray-3); font-size: var(--sl-text-sm); margin-top: 0.5rem; }
+
+/* Inline status tags used inside docs tables: <span class="om-tag om-tag--ok">works</span> */
+.om-tag { font-size: var(--sl-text-xs); padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.om-tag--ok { color: var(--om-ok); }
+.om-tag--warn { color: var(--om-warn); }
+.om-tag--fail { color: var(--om-fail); }
+.om-tag--unknown { color: var(--om-unknown); }
+
+/* Apps catalog */
+.om-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.om-card { border: 1px solid var(--sl-color-gray-5); border-radius: 0.75rem; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; text-decoration: none; color: inherit; }
+.om-card:hover { border-color: var(--sl-color-accent); }
+.om-card h3 { margin: 0; font-size: var(--sl-text-lg); }
+.om-card p { margin: 0; color: var(--sl-color-gray-2); font-size: var(--sl-text-sm); }
+.om-card__head { display: flex; align-items: center; gap: 0.75rem; }
+.om-card__head img { width: 2.5rem; height: 2.5rem; border-radius: 0.5rem; }
+.om-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; font-size: var(--sl-text-xs); color: var(--sl-color-gray-3); margin-top: auto; }
+.om-trust { width: 100%; }
+.om-trust td:first-child { white-space: nowrap; }
+.om-dot { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; margin-right: 0.4rem; }
+.om-dot--ok { background: var(--om-ok); }
+.om-dot--warn { background: var(--om-warn); }
+.om-dot--fail { background: var(--om-fail); }
+.om-dot--unknown { background: var(--om-unknown); }
+.om-install { border: 1px solid var(--sl-color-gray-5); border-radius: 0.75rem; padding: 0.75rem 1rem; }

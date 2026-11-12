@@ -1,0 +1,412 @@
+# SPDX-License-Identifier: Apache-2.0
+# OS security channel (poc-v0 §10.1; brief 30 B4.3, D-B1.5, BD-09, B4.6). Nightly:
+#   check   the image's packages against the Debian security tracker (os/update/check-security.py)
+#   decide  pick a newer snapshot.debian.org timestamp that carries the fixes (pick-snapshot.py)
+#   build   rootfs per board from the commit + that generated change; SBOM, Trivy + Debian VEX,
+#           ClamAV, scan gate; signed RAUC bundle (os/update/scan-rootfs.sh, build-release.sh)
+#   battery QEMU battery via battery.yml: T0-T5 (+T4v/T5v; TC1 on vm-do) on x86_64-efi and vm-do,
+#           T0-T1 on arm64-efi; any FAIL blocks publishing
+#   tuf     TUF metadata for the channel, verified by a client before anything leaves (tuf-repo.py)
+#   publish GitHub Releases on this repo, ONLY when every key secret exists, the repository
+#           variable ONEMIND_SECURITY_PUBLISH is "true", and the run is not a dry run
+# Every 6 hours: re-sign timestamp.json (1-day expiry), and snapshot/targets when near expiry.
+# Without the secrets everything runs with throwaway keys and publishes nothing (dry run).
+# Secrets, hosting and how to move it: os/update/README.md. Interface: os/update/CHANNEL.md.
+name: security-nightly
+on:
+  schedule:
+    - cron: '23 2 * * *'      # security build
+    - cron: '41 */6 * * *'    # timestamp re-sign
+  workflow_dispatch:
+    inputs:
+      force_rebuild: {type: boolean, default: false, description: 'Rebuild even if no new fix is found'}
+      dry_run: {type: boolean, default: true, description: 'Never publish, even with keys and the switch on'}
+  pull_request:
+    paths: ['os/update/**', '.github/workflows/security-nightly.yml']
+permissions:
+  contents: read
+concurrency:
+  # One writer for the channel; PR runs (unit tests only) get their own group so a PR push can never
+  # displace a pending timestamp re-sign or nightly run.
+  group: ${{ github.event_name == 'pull_request' && format('security-pr-{0}', github.ref) || 'security-channel' }}
+  cancel-in-progress: false
+env:
+  CHANNEL: security
+  CHANNEL_TAG: os-channel-security
+  TRACKER_URL: https://security-tracker.debian.org/tracker/data/json
+jobs:
+  unit:
+    if: github.event.schedule != '41 */6 * * *'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Unit tests (stdlib scripts, then TUF with the pinned python-tuf)
+        run: |
+          python3 -I -m unittest discover -s os/update/tests -p 'test_*.py' -v
+          python3 -m venv "$RUNNER_TEMP/tuf"
+          "$RUNNER_TEMP/tuf/bin/pip" install -q --require-hashes --only-binary :all: -r os/update/requirements-tuf.txt
+          "$RUNNER_TEMP/tuf/bin/python" -I -m unittest discover -s os/update/tests -p 'test_tuf_repo.py' -v
+
+  check:
+    needs: unit
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {board: x86_64-efi, runner: ubuntu-24.04}
+          - {board: vm,         runner: ubuntu-24.04}
+          - {board: vm-do,      runner: ubuntu-24.04}
+          - {board: arm64-efi,  runner: ubuntu-24.04-arm}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Package list of the last published build (falls back to a fresh rootfs build)
+        id: published
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BOARD: ${{ matrix.board }}
+        run: |
+          mkdir -p pk
+          if gh release download "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" -D pk \
+               -p "current-$BOARD.packages.txt" -p "current-$BOARD.dpkg-status" -p "current.snapshot" 2>/dev/null \
+             && [ -s "pk/current-$BOARD.dpkg-status" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"; echo "source: published build $(cat pk/current.snapshot)"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"; echo "source: fresh rootfs build of this commit"
+          fi
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        if: steps.published.outputs.found != 'true'
+      - name: Build rootfs and extract its package lists
+        if: steps.published.outputs.found != 'true'
+        env:
+          BOARD: ${{ matrix.board }}
+        run: |
+          docker buildx build -f os/rootfs/Containerfile --target rootfs --progress plain \
+            --build-arg BOARD="$BOARD" $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) \
+            --cache-from type=gha,scope=rootfs-debian-$BOARD \
+            --output type=tar,dest=rootfs.tar .
+          tar -xf rootfs.tar usr/lib/onemind/packages.txt var/lib/dpkg/status
+          mv usr/lib/onemind/packages.txt "pk/current-$BOARD.packages.txt"
+          mv var/lib/dpkg/status "pk/current-$BOARD.dpkg-status"
+          sed -n 's/^SNAPSHOT=//p' os/rootfs/debian.args > pk/current.snapshot
+          rm -f rootfs.tar
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: packages-${{ matrix.board }}
+          path: pk/
+          retention-days: 7
+
+  decide:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      rebuild: ${{ steps.pick.outputs.rebuild }}
+      snapshot: ${{ steps.pick.outputs.snapshot }}
+      version: ${{ steps.pick.outputs.version }}
+      publish: ${{ steps.switch.outputs.publish }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: packages-*
+          path: pk
+          merge-multiple: true
+      - name: Debian security tracker -> per-board report
+        run: |
+          mkdir -p decide
+          curl -fsSL --retry 5 -o decide/tracker.json "$TRACKER_URL"
+          for st in pk/current-*.dpkg-status; do
+            b=$(basename "$st" .dpkg-status); b=${b#current-}
+            python3 -I os/update/check-security.py --packages "pk/current-$b.packages.txt" --status "$st" \
+              --tracker decide/tracker.json --out "decide/check-$b.json"
+          done
+          gzip -9 decide/tracker.json
+      - name: Pick the snapshot
+        id: pick
+        env:
+          FORCE: ${{ inputs.force_rebuild && 'true' || 'false' }}
+        run: |
+          cur=$(cat pk/current.snapshot 2>/dev/null || sed -n 's/^SNAPSHOT=//p' os/rootfs/debian.args)
+          python3 -I os/update/pick-snapshot.py pick --current "$cur" --out decide/pick.json \
+            $(for f in decide/check-*.json; do printf -- '--report %s ' "$f"; done)
+          snap=$(python3 -I -c 'import json;print(json.load(open("decide/pick.json"))["snapshot"])')
+          useful=$(python3 -I -c 'import json;print(str(json.load(open("decide/pick.json"))["rebuild_useful"]).lower())')
+          python3 -I os/update/pick-snapshot.py apply --snapshot "$snap"
+          ver=$(python3 -I os/update/pick-snapshot.py version)
+          git diff > decide/snapshot.patch
+          rebuild=false; { [ "$useful" = true ] || [ "$FORCE" = true ]; } && rebuild=true
+          { echo "snapshot=$snap"; echo "version=$ver"; echo "rebuild=$rebuild"; } >> "$GITHUB_OUTPUT"
+          { echo "### Security check"; echo; echo "snapshot \`$cur\` -> \`$snap\`, version \`$ver\`, rebuild: **$rebuild**"; echo;
+            echo '```json'; python3 -I -c 'import json;r=json.load(open("decide/pick.json"));print(json.dumps({k:r[k] for k in ("new_fixes","not_picked_by_build","missing","rebuild_useful")},indent=1))'; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish switch (all keys present + ONEMIND_SECURITY_PUBLISH + not a dry run)
+        id: switch
+        env:
+          SW: ${{ vars.ONEMIND_SECURITY_PUBLISH }}
+          DRY: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
+          # presence only: the secret values never enter this job
+          KEYS: ${{ secrets.ONEMIND_RAUC_SIGNING_KEY != '' && secrets.ONEMIND_RAUC_SIGNING_CERT != '' && secrets.ONEMIND_TUF_TARGETS_KEY != '' && secrets.ONEMIND_TUF_SNAPSHOT_KEY != '' && secrets.ONEMIND_TUF_TIMESTAMP_KEY != '' }}
+        run: |
+          keys=false; [ "$KEYS" = true ] && keys=true
+          root=false; [ -s "os/rootfs/layers/base/usr/lib/onemind/tuf/$CHANNEL/root.json" ] && root=true
+          publish=false
+          [ "$keys" = true ] && [ "$root" = true ] && [ "$SW" = true ] && [ "$DRY" != true ] && publish=true
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish (keys=$keys committed_root=$root switch=${SW:-unset} dry_run=$DRY)" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: decide
+          path: decide/
+          retention-days: 30
+
+  build:
+    needs: decide
+    if: needs.decide.outputs.rebuild == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {board: x86_64-efi, runner: ubuntu-24.04}
+          - {board: vm,         runner: ubuntu-24.04}
+          - {board: vm-do,      runner: ubuntu-24.04}
+          - {board: arm64-efi,  runner: ubuntu-24.04-arm}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    env:
+      BOARD: ${{ matrix.board }}
+      SNAPSHOT: ${{ needs.decide.outputs.snapshot }}
+      VERSION: ${{ needs.decide.outputs.version }}
+      PUBLISH: ${{ needs.decide.outputs.publish }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+      - name: Apply the security snapshot (generated change)
+        run: python3 -I os/update/pick-snapshot.py apply --snapshot "$SNAPSHOT" && git diff --stat
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: decide
+          path: decide
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Build rootfs and tools image
+        run: |
+          mkdir -p out
+          docker buildx build -f os/rootfs/Containerfile --target rootfs --progress plain \
+            --build-arg BOARD="$BOARD" $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) \
+            --cache-from type=gha,scope=rootfs-debian-$BOARD --cache-to type=gha,mode=max,scope=rootfs-debian-$BOARD \
+            --output type=tar,dest=out/rootfs.tar .
+          docker buildx build -f os/rootfs/Containerfile --target tools --progress plain \
+            $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) \
+            --cache-from type=gha,scope=tools-${{ matrix.runner }} --cache-to type=gha,mode=max,scope=tools-${{ matrix.runner }} \
+            --load -t onemind-tools:ci .
+      - name: Scan (check, VEX, SBOM, Trivy, ClamAV) and gate
+        run: |
+          os/update/fetch-tools.sh "$RUNNER_TEMP/bin"
+          gunzip -k decide/tracker.json.gz
+          mkdir -p rel "$RUNNER_TEMP/rootfs"
+          sudo tar --numeric-owner -xpf out/rootfs.tar -C "$RUNNER_TEMP/rootfs"
+          cp "$RUNNER_TEMP/rootfs/var/lib/dpkg/status" "rel/onemind-$BOARD-$VERSION.dpkg-status"
+          TRACKER=decide/tracker.json BIN="$RUNNER_TEMP/bin" \
+            os/update/scan-rootfs.sh "$RUNNER_TEMP/rootfs" "$BOARD" rel "onemind-$BOARD-$VERSION"
+      - name: Release keys (only when publishing; written to a private temp dir, removed below)
+        if: env.PUBLISH == 'true'
+        env:
+          RAUC_KEY: ${{ secrets.ONEMIND_RAUC_SIGNING_KEY }}
+          RAUC_CERT: ${{ secrets.ONEMIND_RAUC_SIGNING_CERT }}
+          RAUC_KEYRING: ${{ secrets.ONEMIND_RAUC_KEYRING_CERT }}
+        run: |
+          umask 077; mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s\n' "$RAUC_KEY" > "$RUNNER_TEMP/keys/signer.key"
+          printf '%s\n' "$RAUC_CERT" > "$RUNNER_TEMP/keys/signer.pem"
+          if [ -n "$RAUC_KEYRING" ]; then printf '%s\n' "$RAUC_KEYRING" > "$RUNNER_TEMP/keys/keyring.pem"; fi
+      - name: Assemble and sign the RAUC bundle
+        run: |
+          k=(); [ -d "$RUNNER_TEMP/keys" ] && k=(-v "$RUNNER_TEMP/keys:/keys:ro" -e KEYDIR=/keys)
+          docker run --rm -v "$PWD":/src:ro -v "$PWD/out":/out -v "$PWD/rel":/rel "${k[@]}" \
+            -e BOARD -e VERSION -e SNAPSHOT -e ROOTFS=/out/rootfs.tar onemind-tools:ci /src/os/update/build-release.sh /rel
+          rm -rf "$RUNNER_TEMP/keys"
+          if [ "$PUBLISH" = true ] && grep -q '"dry_run": true' "rel/release-$BOARD.json"; then
+            echo "publishing run produced a dry-run bundle" >&2; exit 1; fi
+          sudo rm -rf out "$RUNNER_TEMP/rootfs"
+          ls -la rel; cat "rel/onemind-$BOARD-$VERSION.gate.json" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove release keys
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-${{ matrix.board }}
+          path: rel/
+          retention-days: 14
+          compression-level: 0
+
+  battery-x86_64-efi:
+    needs: decide
+    if: needs.decide.outputs.rebuild == 'true'
+    uses: ./.github/workflows/battery.yml
+    with: {board: x86_64-efi, upto: T5, runner: ubuntu-24.04, snapshot: '${{ needs.decide.outputs.snapshot }}'}
+  battery-vm-do:
+    needs: decide
+    if: needs.decide.outputs.rebuild == 'true'
+    uses: ./.github/workflows/battery.yml
+    with: {board: vm-do, upto: T5, runner: ubuntu-24.04, snapshot: '${{ needs.decide.outputs.snapshot }}'}
+  battery-arm64-efi:
+    needs: decide
+    if: needs.decide.outputs.rebuild == 'true'
+    uses: ./.github/workflows/battery.yml
+    with: {board: arm64-efi, upto: T1, runner: ubuntu-24.04-arm, snapshot: '${{ needs.decide.outputs.snapshot }}'}
+
+  tuf:
+    needs: [decide, build, battery-x86_64-efi, battery-vm-do, battery-arm64-efi]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PUBLISH: ${{ needs.decide.outputs.publish }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: release-*
+          path: rel
+          merge-multiple: true
+      - name: Previous channel metadata (if the channel exists)
+        if: env.PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p prev
+          # A channel that exists MUST come down complete: starting again at version 1 would be
+          # rejected by every box (TUF rollback protection) and freeze the channel for good.
+          if gh release view "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release download "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" -D prev \
+              -p '[0-9]*.root.json' -p targets.json -p snapshot.json -p timestamp.json
+            for f in targets snapshot timestamp; do [ -s "prev/$f.json" ] || { echo "channel lacks $f.json" >&2; exit 1; }; done
+          else
+            echo "no published channel yet: this build starts it"
+          fi
+          ls prev
+      - name: TUF metadata (release keys when publishing, else throwaway keys) and client verification
+        env:
+          # the online TUF keys reach this job only on a publishing run
+          TK: ${{ needs.decide.outputs.publish == 'true' && secrets.ONEMIND_TUF_TARGETS_KEY || '' }}
+          SK: ${{ needs.decide.outputs.publish == 'true' && secrets.ONEMIND_TUF_SNAPSHOT_KEY || '' }}
+          XK: ${{ needs.decide.outputs.publish == 'true' && secrets.ONEMIND_TUF_TIMESTAMP_KEY || '' }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/tuf"
+          "$RUNNER_TEMP/tuf/bin/pip" install -q --require-hashes --only-binary :all: -r os/update/requirements-tuf.txt
+          T="$RUNNER_TEMP/tuf/bin/python -I os/update/tuf-repo.py"
+          rels=$(for f in rel/release-*.json; do printf -- '--release %s ' "$f"; done)
+          if [ "$PUBLISH" = true ]; then
+            root="os/rootfs/layers/base/usr/lib/onemind/tuf/$CHANNEL/root.json"
+            $T build --repo repo --root "$root" --prev prev $rels --targets-key env:TK --snapshot-key env:SK --timestamp-key env:XK
+          else
+            echo "DRY RUN: throwaway TUF root and keys, made here and deleted below"
+            umask 077; K="$RUNNER_TEMP/ephemeral-tuf"
+            $T keygen --out-dir "$K"
+            ONEMIND_TUF_EPHEMERAL=1 $T init-root --root-key "$K/root.key" --targets-pub "$K/targets.pub" \
+              --snapshot-pub "$K/snapshot.pub" --timestamp-pub "$K/timestamp.pub" --out dry-root
+            root=dry-root/root.json
+            $T build --repo repo --root "$root" $rels --allow-dry-run --targets-key "$K/targets.key" --snapshot-key "$K/snapshot.key" --timestamp-key "$K/timestamp.key"
+            rm -rf "$K"
+          fi
+          $T verify --repo repo --root "$root" --allow-absent
+          mkdir -p meta; cp repo/*.json meta/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tuf-${{ env.CHANNEL }}-metadata
+          path: meta/
+          retention-days: 30
+
+  publish:
+    needs: [decide, tuf]
+    if: needs.decide.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      SNAPSHOT: ${{ needs.decide.outputs.snapshot }}
+      VERSION: ${{ needs.decide.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: release-*
+          path: rel
+          merge-multiple: true
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: tuf-${{ env.CHANNEL }}-metadata
+          path: meta
+      - name: Tag the exact source (commit + generated snapshot change)
+        run: |
+          python3 -I os/update/pick-snapshot.py apply --snapshot "$SNAPSHOT"
+          git -c user.name="onemind-security-bot" -c user.email="${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com" \
+            commit -q --allow-empty -am "os: security snapshot $SNAPSHOT (generated by security-nightly run $GITHUB_RUN_ID)"
+          git tag "os-$CHANNEL-$VERSION"
+          git push origin "refs/tags/os-$CHANNEL-$VERSION"
+      - name: Build release (one per security build)
+        run: |
+          cd rel
+          gh release create "os-$CHANNEL-$VERSION" -R "$GITHUB_REPOSITORY" --verify-tag --latest=false \
+            --title "OneMind OS $VERSION ($CHANNEL)" \
+            --notes "Security rebuild from snapshot.debian.org $SNAPSHOT. Install through the $CHANNEL channel (TUF-verified); see os/update/CHANNEL.md." \
+            ./*.raucb ./*.spdx.json ./*.cve-report.json ./*.vex.json ./*.gate.json ./*.packages.txt ../meta/*.json
+      - name: Update the channel (targets first, timestamp.json last)
+        run: |
+          gh release view "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" --latest=false --title "OneMind OS $CHANNEL channel" \
+              --notes "TUF repository of the $CHANNEL update channel (os/update/CHANNEL.md). Do not download by hand; boxes verify every file."
+          up() { gh release upload "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" --clobber "$@"; }
+          up rel/*.raucb rel/*.spdx.json rel/*.cve-report.json
+          for b in rel/release-*.json; do
+            bd=$(python3 -I -c 'import json,sys;print(json.load(open(sys.argv[1]))["board"])' "$b")
+            cp "rel/onemind-$bd-$VERSION.packages.txt" "current-$bd.packages.txt"
+            cp "rel/onemind-$bd-$VERSION.dpkg-status" "current-$bd.dpkg-status"
+            up "current-$bd.packages.txt" "current-$bd.dpkg-status"
+          done
+          echo "$SNAPSHOT" > current.snapshot && up current.snapshot
+          up meta/[0-9]*.root.json meta/root.json meta/targets.json
+          up meta/snapshot.json
+          up meta/timestamp.json
+      - name: Drop channel files no longer listed in targets.json
+        run: |
+          keep=$(python3 -I -c 'import json,os;t=json.load(open("meta/targets.json"))["signed"]["targets"];print("\n".join(os.path.basename(p) for p in t))')
+          gh release view "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | while read -r a; do
+            case "$a" in *.json|current*) continue ;; esac
+            echo "$keep" | grep -qxF "$a" || gh release delete-asset "$CHANNEL_TAG" "$a" -R "$GITHUB_REPOSITORY" -y
+          done
+
+  timestamp:
+    if: github.event.schedule == '41 */6 * * *'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SW: ${{ vars.ONEMIND_SECURITY_PUBLISH }}
+      TK: ${{ secrets.ONEMIND_TUF_TARGETS_KEY }}
+      SK: ${{ secrets.ONEMIND_TUF_SNAPSHOT_KEY }}
+      XK: ${{ secrets.ONEMIND_TUF_TIMESTAMP_KEY }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Re-sign timestamp (and snapshot/targets near expiry)
+        run: |
+          if [ "$SW" != true ] || [ -z "$XK" ]; then echo "publishing is off or the timestamp key is missing: nothing to re-sign"; exit 0; fi
+          mkdir -p repo
+          if ! gh release download "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" -D repo -p '*.json' 2>/dev/null; then
+            echo "no published channel yet"; exit 0; fi
+          python3 -m venv "$RUNNER_TEMP/tuf"
+          "$RUNNER_TEMP/tuf/bin/pip" install -q --require-hashes --only-binary :all: -r os/update/requirements-tuf.txt
+          T="$RUNNER_TEMP/tuf/bin/python -I os/update/tuf-repo.py"
+          a=(--timestamp-key env:XK); [ -n "$SK" ] && a+=(--snapshot-key env:SK); [ -n "$TK" ] && a+=(--targets-key env:TK)
+          root="os/rootfs/layers/base/usr/lib/onemind/tuf/$CHANNEL/root.json"
+          $T refresh --repo repo --root "$root" "${a[@]}"   # verifies the downloaded metadata first
+          $T verify --repo repo --root "os/rootfs/layers/base/usr/lib/onemind/tuf/$CHANNEL/root.json" --metadata-only
+          gh release upload "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" --clobber repo/targets.json
+          gh release upload "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" --clobber repo/snapshot.json
+          gh release upload "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" --clobber repo/timestamp.json

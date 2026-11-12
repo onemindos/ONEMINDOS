@@ -2,6 +2,9 @@
 //
 //	onemind node info [--root DIR] [--arch A] [--agent URL]
 //	onemind nodes --hub URL [--token T] [--json]
+//	onemind update status [--config F] [--json]
+//	onemind update check  [--config F]
+//	onemind update apply  [--config F] [--no-reboot]
 //	onemind version
 //
 // The gateway token can come from --token or the ONEMIND_TOKEN environment
@@ -31,6 +34,9 @@ import (
 const usage = `usage:
   onemind node info [--root DIR] [--arch amd64|arm64] [--agent URL]
   onemind nodes --hub URL [--token TOKEN] [--json]
+  onemind update status [--config FILE] [--json]
+  onemind update check  [--config FILE]
+  onemind update apply  [--config FILE] [--no-reboot]
   onemind version
 `
 
@@ -52,6 +58,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		err = nodeInfo(args[2:], stdout)
 	case args[0] == "nodes":
 		err = nodes(args[1:], stdout)
+	case args[0] == "update" && len(args) > 1 && (args[1] == "status" || args[1] == "check" || args[1] == "apply"):
+		err = updateCmd(args[1], args[2:], stdout, stderr)
 	default:
 		fmt.Fprint(stderr, usage)
 		return 2

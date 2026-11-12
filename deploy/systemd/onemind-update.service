@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind OS update service (brief 30 B4.2, contract sdk/contracts/poc-v0.md §10.1).
+# Same binary as the heartbeat agent, separate process: `onemindd update`.
+# Settings: /etc/onemind/update.conf (example: deploy/systemd/update.conf.example).
+# Only for OneMind images (RAUC A/B + health gate). Developer installs on stock
+# Debian use unattended-upgrades instead (contract §10.1) and must not enable this.
+#
+# Why a second unit instead of more rights for onemindd.service: the heartbeat
+# agent stays read-only with no capabilities. This one must write /data
+# (bundles, state, restic cache), read every file under /data for the restic
+# snapshot, ask RAUC to install over D-Bus and ask systemd to reboot.
+# See deploy/systemd/README.md.
+
+[Unit]
+Description=OneMind OS update service (TUF check, restic snapshot, RAUC install)
+Documentation=https://github.com/onemindos/ONEMINDOS/tree/main/internal/update
+After=network-online.target rauc.service onemind-health-gate.service
+Wants=network-online.target
+ConditionPathExists=/etc/onemind/update.conf
+RequiresMountsFor=/data
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/onemindd update
+Restart=on-failure
+RestartSec=30s
+Environment=HOME=/var/lib/onemind-update
+Environment=RESTIC_CACHE_DIR=/var/cache/onemind-update
+StateDirectory=onemind-update
+CacheDirectory=onemind-update
+
+# --- identity / privileges ---
+User=root
+NoNewPrivileges=yes
+# restic must read files under /data that belong to other users (app volumes).
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=
+
+# --- filesystem: read-only except /data ---
+ProtectSystem=strict
+ReadWritePaths=/data
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+UMask=0022
+
+# --- kernel / syscalls ---
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+
+# --- network: HTTPS to the channel, AF_UNIX for D-Bus (rauc, systemd reboot) ---
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
