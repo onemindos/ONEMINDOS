@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# Komga: Market batch 5 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: komga/docker/Dockerfile.tpl and
+# komga/src/main/resources/application.yml at 1.30.1.
+# Image digest and archs from crane; licence from the GitHub licence API.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: komga
+  name: "Komga"
+  version: "1.30.1"
+  description: "Media server for comics, manga, magazines and e-books, with a web reader and OPDS."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: media
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/gotson/komga
+  # §9.3 facts from the GitHub API (repos/gotson/komga), read 2026-11-12.
+  links:
+    docs: "https://komga.org/docs/introduction"
+    github: "https://github.com/gotson/komga"
+    website: "https://komga.org"
+    support: "https://github.com/gotson/komga/issues"
+  upstream: {release: "1.30.1", released_at: "2026-11-10T05:59:30Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 1024}
+  web: {port: 25600}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
