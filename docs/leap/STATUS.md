@@ -42,6 +42,12 @@
 
 ## Every epic
 
+### Agent A landing mission
+
+| Id | Title | State | Branch | PR |
+|---|---|---|---|---|
+| A2 | Property and fuzz tests (security and API invariants) | in-progress (agent A) | `feat/test-property-fuzz` | [#55](https://github.com/onemindos/ONEMINDOS/pull/55) |
+
 ### S0: land the in-flight work (weeks 0–2)
 
 | Id | Title | State | Branch | PR |
