@@ -40,7 +40,7 @@ describe('Approvals screen', () => {
     expect(screen.getByText(/cannot approve its own request/)).toBeTruthy();
 
     await fireEvent.press(screen.getByTestId('approve-act-0001'));
-    expect(await screen.findByText('Approved and done: Install ollama.')).toBeTruthy();
+    expect(await screen.findByText('Approved (without a passkey) and done: Install ollama.')).toBeTruthy();
     expect(screen.queryByTestId('pending-act-0001')).toBeNull();
     expect(screen.getByText('Nothing is waiting.')).toBeTruthy();
   });
