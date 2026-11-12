@@ -122,6 +122,13 @@ describe('approval with passkey step-up (§12.3, §12.4)', () => {
     expect(approve).toHaveBeenCalledWith('act-0001', { plan_sha256: 'sha256:p', webauthn: assertion });
   });
 
+  it('sends no plan hash when the hub has none for the action (approve-options answers null)', async () => {
+    const approve = jest.fn(async () => ({ ...pending(), state: 'accepted' as const }));
+    const api = v0Api({ approveOptions: async () => ({ ...opts, plan_sha256: null }), approve });
+    await decide(api, pending({ plan_sha256: null }), 'approve', { features: v1, ownerHasPasskey: false });
+    expect(approve).toHaveBeenCalledWith('act-0001', {});
+  });
+
   it('refuses locally when the hub plan is not the plan on the card', async () => {
     const approve = jest.fn();
     const api = v0Api({ approveOptions: async () => opts, approve });

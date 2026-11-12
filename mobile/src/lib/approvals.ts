@@ -101,7 +101,7 @@ async function approveBound(api: OneMindApi, a: Action, ctx: StepUp): Promise<Ac
     const opts = await api.approveOptions(a.id);
     if (a.plan_sha256 && opts.plan_sha256 !== a.plan_sha256)
       throw new ApiError(409, 'stale_precondition', 'the plan changed since this card was loaded', { reason: 'plan_changed' });
-    const body: ApproveBody = { plan_sha256: opts.plan_sha256 };
+    const body: ApproveBody = opts.plan_sha256 ? { plan_sha256: opts.plan_sha256 } : {};
     if (withPasskey) body.webauthn = await sign(a, ctx, opts);
     return api.approve(a.id, body);
   };

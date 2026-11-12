@@ -216,8 +216,11 @@ export interface Plan {
 export interface ApproveOptions {
   challenge: string;
   action_sha256: string;
-  plan_sha256: string;
+  /** null when the action has no plan (the hub's identity module sends null, not ""). */
+  plan_sha256: string | null;
   expires_at: string;
+  /** The hub's challenge record (login and passkey-register options carry it too). */
+  challenge_id?: string;
   rpId?: string;
   allowCredentials?: Array<{ id: string; type: 'public-key'; transports?: string[] }>;
   userVerification?: 'required' | 'preferred' | 'discouraged';
@@ -274,11 +277,13 @@ export interface ApproveBody {
 
 /** §12.6 `GET /v1/me`. */
 export interface Me {
-  principal: { id: string; kind: PrincipalKind; role: PrincipalRole; display_name?: string };
-  token: { id: string; scopes: string[]; expires_at: string | null } | null;
-  session: { id: string; expires_at: string } | null;
+  principal: { id: string; kind: PrincipalKind; role: PrincipalRole; display_name?: string; username?: string };
+  token: { id: string; scopes: string[]; expires_at: string | null; source?: string } | null;
+  session: { id: string; expires_at: string; auth_method?: string; passkey_at?: string | null } | null;
   passkeys: number;
+  scopes?: string[];
   capabilities: string[];
+  step_up?: { passkeys_active: boolean; require_passkey_approval: boolean };
 }
 
 /** §12.6 login answer for apps and the CLI (bearer, not cookie). */
@@ -286,6 +291,10 @@ export interface LoginResult {
   access_token: string;
   expires_at: string;
   refresh_token?: string;
+  refresh_expires_at?: string;
+  session?: { id: string; expires_at: string };
+  /** Sent on sign-in (not on refresh). */
+  principal?: { id: string; kind: PrincipalKind; role: PrincipalRole; display_name?: string };
 }
 
 /** §12.14 severities and inbox item. */
@@ -323,9 +332,16 @@ export interface AlertRecord {
   flapping?: boolean;
   fix: { type: string; params: Record<string, unknown> } | null;
   learn_more_url?: string | null;
+  topic?: string;
+  link?: string | null;
+  acked_by?: string | null;
+  acked_at?: string | null;
 }
 
-/** §12.14 push registration. `environment` and `bundle_id` are mobile proposals for the APNs relay (mobile/docs/push.md). */
+/**
+ * §12.14 push registration. `environment` and `bundle_id` are mobile proposals for the APNs relay (mobile/docs/push.md):
+ * today's hub accepts only webpush and unifiedpush and refuses unknown fields, so the client sends them only for apns.
+ */
 export interface PushRegistrationRequest {
   platform: 'webpush' | 'unifiedpush' | 'apns';
   endpoint?: string;
@@ -336,9 +352,14 @@ export interface PushRegistrationRequest {
   bundle_id?: string;
 }
 
-export interface PushRegistration extends PushRegistrationRequest {
+/** What the hub answers (device_json): the endpoint and keys are sealed on the box and never returned. */
+export interface PushRegistration {
   id: string;
+  platform: PushRegistrationRequest['platform'];
+  label: string;
+  state?: string;
   created_at?: string;
+  last_seen_at?: string | null;
 }
 
 /**

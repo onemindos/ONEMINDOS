@@ -8,12 +8,14 @@ on:
     paths:
       - 'mobile/**'
       - 'ui/src/tokens/**'
+      - 'sdk/openapi/**'
       - '.github/workflows/ci-mobile.yml'
   push:
     branches: [main]
     paths:
       - 'mobile/**'
       - 'ui/src/tokens/**'
+      - 'sdk/openapi/**'
       - '.github/workflows/ci-mobile.yml'
 
 permissions:

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { UnifiedPushNative, UpEndpoint } from '../../modules/onemind-unifiedpush';
 import { Features, OP } from '../api/client';
+import { ApiError } from '../api/types';
 import { v0Api } from '../test/fakes';
 import {
   apnsTransport,
@@ -119,6 +120,20 @@ describe('registering push with the box', () => {
     expect(pushUnregister).toHaveBeenCalledWith('dev_push_1');
     expect(up.unregister).toHaveBeenCalled();
     expect(await loadPushRecord('https://h')).toBeUndefined();
+  });
+
+  it('says the hub cannot push to iPhones when it refuses apns (no relay yet)', async () => {
+    const pushRegister = jest.fn(async () => {
+      throw new ApiError(422, 'conflict', 'apns needs the iOS relay');
+    });
+    const api = v0Api({ pushRegister });
+    const N = {
+      getPermissionsAsync: async () => ({ granted: true, canAskAgain: true }),
+      requestPermissionsAsync: async () => ({ granted: true, canAskAgain: true }),
+      getDevicePushTokenAsync: async () => ({ type: 'ios', data: 'a1b2c3' }),
+      unregisterForNotificationsAsync: async () => undefined,
+    } as never;
+    await expect(enablePush(api, apnsTransport(N, true), opts)).rejects.toMatchObject({ blocker: 'hub_unsupported' });
   });
 
   it('re-registers when the distributor moves the endpoint', async () => {

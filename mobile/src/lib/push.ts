@@ -14,7 +14,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { unifiedPush as defaultUp, type UnifiedPushNative, type UpEndpoint } from '../../modules/onemind-unifiedpush';
 import { OP, type Features, type OneMindApi } from '../api/client';
-import type { PushRegistration, PushRegistrationRequest } from '../api/types';
+import { ApiError, type PushRegistration, type PushRegistrationRequest } from '../api/types';
 import { deleteSecret, loadSecret, saveSecret } from '../storage';
 
 export type PushBlocker =
@@ -165,7 +165,15 @@ export async function enablePush(api: OneMindApi, t: PushTransport | undefined, 
   if (blocked || !t) throw new PushError(blocked ?? 'no_module', `Push is not available: ${blocked}`);
   const vapid = t.platform === 'unifiedpush' && o.features.has(OP.vapidKey) ? (await api.vapidPublicKey()).key : undefined;
   const h = await t.obtain(vapid);
-  const reg: PushRegistration = await api.pushRegister({ ...h, label: o.label });
+  let reg: PushRegistration;
+  try {
+    reg = await api.pushRegister({ ...h, label: o.label });
+  } catch (e) {
+    // Today's hub refuses apns with 422 until its iOS relay ships (CORE-NOTIFY-4); say so plainly.
+    if (h.platform === 'apns' && e instanceof ApiError && e.status === 422)
+      throw new PushError('hub_unsupported', 'This hub cannot push to iPhones yet');
+    throw e;
+  }
   const rec: PushRecord = {
     hubUrl: o.hubUrl,
     id: reg.id,
