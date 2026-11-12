@@ -83,6 +83,13 @@ export interface TokenSource {
   refresh?(): Promise<string | undefined>;
 }
 
+/** `POST /v1/auth/login` with a passkey. `client: 'app'` asks for a bearer and a refresh token instead of a cookie. */
+export interface LoginBody {
+  passkey: WebAuthnAssertion;
+  client: 'app';
+  client_name?: string;
+}
+
 /** WebAuthn options as the gateway sends them: bare JSON, or wrapped in `publicKey` (both are common). */
 export type LoginOptions = Partial<WebAuthnRequestOptions> & { publicKey?: Partial<WebAuthnRequestOptions> };
 export type RegisterOptions = Partial<WebAuthnCreationOptions> & { publicKey?: Partial<WebAuthnCreationOptions> };
@@ -125,11 +132,12 @@ export interface OneMindApi {
   pushUnregister(id: string): Promise<void>;
   vapidPublicKey(): Promise<{ key: string }>;
   loginOptions(): Promise<LoginOptions>;
-  login(body: { webauthn: WebAuthnAssertion; client: 'mobile'; device_name?: string }): Promise<LoginResult>;
+  /** Field names as the hub's identity module reads them: `passkey`, `client: 'app'` (bearer + refresh), `client_name`. */
+  login(body: LoginBody): Promise<LoginResult>;
   refreshSession(refreshToken: string): Promise<LoginResult>;
   logout(): Promise<void>;
   passkeyRegisterOptions(): Promise<RegisterOptions>;
-  passkeyRegister(body: { webauthn: WebAuthnAttestation; label: string }): Promise<{ credential_id: string; label: string }>;
+  passkeyRegister(body: { credential: WebAuthnAttestation; label: string }): Promise<{ credential_id: string; label: string }>;
   deviceRequest(body: DeviceRequestBody): Promise<DeviceRequest>;
   deviceRequestStatus(id: string, pollCode?: string): Promise<DeviceRequest>;
   /** Device-bound renewal (RFC 9449 DPoP proof in the `DPoP` header). */
@@ -410,7 +418,7 @@ export class HttpApi implements OneMindApi {
   loginOptions() {
     return this.req<LoginOptions>('POST', '/v1/auth/login/options', {}, 'object', { auth: false });
   }
-  login(body: { webauthn: WebAuthnAssertion; client: 'mobile'; device_name?: string }) {
+  login(body: LoginBody) {
     return this.req<LoginResult>('POST', '/v1/auth/login', body, 'object', { auth: false });
   }
   refreshSession(refreshToken: string) {
@@ -422,7 +430,7 @@ export class HttpApi implements OneMindApi {
   passkeyRegisterOptions() {
     return this.req<RegisterOptions>('POST', '/v1/auth/passkeys/register/options', {});
   }
-  passkeyRegister(body: { webauthn: WebAuthnAttestation; label: string }) {
+  passkeyRegister(body: { credential: WebAuthnAttestation; label: string }) {
     return this.req<{ credential_id: string; label: string }>('POST', '/v1/auth/passkeys/register', body);
   }
   deviceRequest(body: DeviceRequestBody) {

@@ -46,7 +46,7 @@ export async function passkeySignIn(rawHubUrl: string, passkeys: Passkeys | unde
   if (!passkeys || !passkeys.supported()) throw new PasskeyError('not_supported', 'no platform authenticator');
   const options = await api.loginOptions();
   const webauthn = await passkeys.get(requestOptionsFrom(options, rpIdFor(hubUrl)));
-  const r = await api.login({ webauthn, client: 'mobile', ...(o.deviceName ? { device_name: o.deviceName } : {}) });
+  const r = await api.login({ passkey: webauthn, client: 'app', ...(o.deviceName ? { client_name: o.deviceName } : {}) });
   return {
     mode: 'live',
     hubUrl,

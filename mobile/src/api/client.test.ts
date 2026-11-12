@@ -211,6 +211,16 @@ describe('contract §12 additions', () => {
     expect(JSON.parse(calls[2]!.init!.body as string)).toEqual({ reason: 'not now' });
   });
 
+  it('names the sign-in and passkey-registration fields as the hub identity module reads them', async () => {
+    const { fn, calls } = fakeFetch(200, { access_token: 'at', expires_at: 'x', credential_id: 'c', label: 'l' });
+    const api = new HttpApi({ token: 't', baseUrl: 'https://h', fetchFn: fn });
+    const cred = { id: 'c', clientDataJSON: 'd', authenticatorData: 'e', signature: 'f' };
+    await api.login({ passkey: cred, client: 'app', client_name: 'Pixel' });
+    await api.passkeyRegister({ credential: { id: 'c', clientDataJSON: 'd', attestationObject: 'a' }, label: 'Pixel' });
+    expect(JSON.parse(calls[0]!.init!.body as string)).toEqual({ passkey: cred, client: 'app', client_name: 'Pixel' });
+    expect(JSON.parse(calls[1]!.init!.body as string)).toEqual({ credential: { id: 'c', clientDataJSON: 'd', attestationObject: 'a' }, label: 'Pixel' });
+  });
+
   it('calls the inbox, push and device routes as §12.14 and clients.md name them', async () => {
     const { fn, calls } = fakeFetch(200, {});
     const api = new HttpApi({ token: 't', baseUrl: 'https://h', fetchFn: fn });

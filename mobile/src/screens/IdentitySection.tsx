@@ -24,7 +24,7 @@ export function IdentitySection({ deviceName }: { deviceName: string }) {
       if (!passkeys?.supported()) throw new PasskeyError('not_supported', 'no platform authenticator');
       const opts = await api.passkeyRegisterOptions();
       const webauthn = await passkeys.create(creationOptionsFrom(opts, rpIdFor(hubUrl)));
-      const r = await api.passkeyRegister({ webauthn, label: deviceName });
+      const r = await api.passkeyRegister({ credential: webauthn, label: deviceName });
       setMsg({ text: `Passkey "${r.label}" added. Approvals from this phone now use it.`, ok: true });
       await refreshIdentity();
     } catch (e) {

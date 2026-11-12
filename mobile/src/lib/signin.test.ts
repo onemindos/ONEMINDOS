@@ -29,7 +29,7 @@ describe('passkey sign-in (§12.6)', () => {
     const c = await passkeySignIn('https://onemind.local:8443/', pk, { fetchFn: fn, deviceName: 'Pixel' });
     expect(c).toEqual({ mode: 'live', hubUrl: 'https://onemind.local:8443', token: 'at', auth: 'passkey', expiresAt: '2030-01-01T00:00:00Z', refreshToken: 'rt' });
     expect(pk.get).toHaveBeenCalledWith({ challenge: 'Q2g-', rpId: 'onemind.local', timeout: 60_000, userVerification: 'required' });
-    expect(calls.at(-1)).toMatchObject({ url: 'https://onemind.local:8443/v1/auth/login', body: { webauthn: assertion, client: 'mobile', device_name: 'Pixel' } });
+    expect(calls.at(-1)).toMatchObject({ url: 'https://onemind.local:8443/v1/auth/login', body: { passkey: assertion, client: 'app', client_name: 'Pixel' } });
     expect(calls.every((x) => x.auth === undefined)).toBe(true);
   });
 
