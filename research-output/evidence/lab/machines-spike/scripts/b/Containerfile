@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# LAB-machines-spike option B: QEMU for one machine per pod. Built inside the lab VM with podman.
+# Base digest and Debian snapshot are the pins in os/versions.lock.yaml.
+FROM docker.io/library/debian:trixie@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
+ARG SNAPSHOT=20261111T000000Z
+RUN printf 'Types: deb\nURIs: http://snapshot.debian.org/archive/debian/%s\nSuites: trixie trixie-updates\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n\nTypes: deb\nURIs: http://snapshot.debian.org/archive/debian-security/%s\nSuites: trixie-security\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n' "$SNAPSHOT" "$SNAPSHOT" > /etc/apt/sources.list.d/debian.sources \
+ && apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Retries=5 update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends qemu-system-arm qemu-utils qemu-efi-aarch64 python3-minimal \
+ && dpkg-query -W qemu-system-arm qemu-utils qemu-efi-aarch64 python3-minimal > /pkg-versions.txt \
+ && rm -rf /var/lib/apt/lists/*
+COPY run-qemu.sh qga.py /usr/local/bin/
