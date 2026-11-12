@@ -13,6 +13,7 @@ brief 30 **D-B2.4** (developer install P6) and **REC-DEC-30** (P6 is labelled un
 | [`systemd/`](systemd/) | Units for `onemindd`, the hub NATS and the gateway |
 | [`compose/`](compose/) | The hub on a Mac with Docker (noop executor, one simulated node) |
 | [`verify/verify.sh`](verify/verify.sh) | Scripted PASS/FAIL of the contract against any hub |
+| [`verify/node-check.sh`](verify/node-check.sh), [`verify/natscheck.py`](verify/natscheck.py) | Run on a machine: is this hub or node healthy (services, k3s, NATS auth, own heartbeat) |
 | [`check-pins.py`](check-pins.py) | CI: `pins.env` and the compose images match `os/versions.lock.yaml` |
 
 ## Why a "developer install" at all (plain English)
@@ -170,6 +171,30 @@ Services: `nats` (2.15.2), `dashboard` (builds `dashboard/` into a volume, then 
 `ONEMIND_NODE_ID=compose-node-1`). All images are pinned by digest; every port is bound to
 `127.0.0.1`. `ONEMIND_ALLOW_UNSCANNED=1` is set and marked **dev only**: the seed apps have no
 `scan.json` yet, and the contract allows the flag only with the noop executor.
+
+## verify/node-check.sh and natscheck.py (ported from PR #27)
+Run **on** a hub or node after the install: `sudo deploy/verify/node-check.sh`. One line per check,
+a table at the end, exit 0 when nothing failed:
+- `onemindd` active; its local API `:7480/api/v1/node` answers with the §2 schema and the configured role.
+- k3s at the `pins.env` version. Hub: `k3s` active, `/readyz`, nodes Ready, `onemind-nats` and
+  `onemind-gateway` active, gateway `/healthz`. Node: `k3s-agent` active, and **no** admin
+  kubeconfig or server data on the node (D-B6.2).
+- NATS, with the auth main has today. `natscheck.py` reads `ONEMIND_NATS_URL` from
+  `/etc/onemind/onemindd.env` (`--env-file`), so a URL with a token or `user:pass` never reaches a
+  command line, and it never prints credentials. A hub NATS that requires none is a **WARN**
+  ("v0 shortcut until per-node users, H-06"), not a pass. Then the machine's own heartbeat must
+  arrive on `onemind.node.<id>.status` within 25 s.
+- Leaf link (H-06): on a node that has the `onemind-nats-leaf` unit, the loopback leaf's `/leafz`
+  must show a connection to the hub (`natscheck.py leafz`, the same signal as `internal/leaf`);
+  without that unit it is SKIP (v0 nodes publish straight to the hub).
+- Clock synchronised (WARN if not: stale and offline come from timestamps).
+
+`natscheck.py` (standard library only) also works by hand: `ping` and `watch` take `nats://`,
+`nats://TOKEN@`, `nats://USER:PASS@` or `tls://` with `--ca <box CA>`; against a server that wants
+nkey users it says so (it signs no nonces) and points at `leafz`.
+```sh
+python3 -I deploy/verify/natscheck.py watch nats://hub.local:4222 --count 3   # heartbeats of 3 machines
+```
 
 ## verify/verify.sh
 Needs `bash`, `curl`, `python3` (stdlib only). It talks to the hub only over HTTP and NATS, so it

@@ -931,6 +931,7 @@ if [ "$ROLE" = hub ]; then
     printf '    sudo BUNDLE/src/deploy/install.sh --role node --hub %s --token %s --bundle BUNDLE\n\n' "$HUB_URL" "$JOIN"
   fi
   printf 'Check this hub:  ONEMIND_TOKEN=<owner token> deploy/verify/verify.sh http://127.0.0.1:8080\n'
+  printf 'Check a machine: sudo deploy/verify/node-check.sh   (services, k3s, NATS auth, own heartbeat)\n'
   printf 'Hermes agent (contract §7) model credentials, created by the owner at install time:\n\n'
   printf '    sudo k3s kubectl create namespace app-hermes-agent --dry-run=client -o yaml | sudo k3s kubectl apply -f -\n'
   printf '    read -rs KEY   # paste the key; it stays out of shell history and the process list\n'
@@ -947,5 +948,6 @@ else
   fi
   banner
   log "node joined: k3s agent -> https://$(hub_host "$HUB"):6443, heartbeats -> nats://$(hub_host "$HUB"):4222"
+  log "check it: sudo $SCRIPT_DIR/verify/node-check.sh"
   do_firewall_reminder
 fi
