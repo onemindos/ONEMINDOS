@@ -72,8 +72,12 @@ root-only. `kubectl` is k3s's own (same version as the cluster), called through 
   URL app pods use to reach the gateway, which the wave-2 gateway writes into each agent app's
   Secret as `ONEMIND_GATEWAY_URL`. The wave-1 gateway ignores the variable.
 - The ServiceAccount above can create and delete Secrets in `app-<id>`, which §11.2 needs.
-- The hub install prints the command with which the **owner** creates `hermes-agent-credentials`
-  (model-provider keys never come from the repo).
+- The **owner** enters Hermes's model-provider keys (`hermes-agent-credentials`, declared in its
+  `spec.secrets`) in the dashboard's install approval; the gateway stores them encrypted and writes
+  the Secret ([SECRETS.md](../docs/leap/core/SECRETS.md)). Until the dashboard shows that form, the
+  hub install prints the terminal equivalent, `onemind-secrets approve <action id> <secret>/<key>`,
+  which reads the key without echo and seals it the same way. Keys never come from the repo, and
+  no `kubectl create secret` command is printed any more.
 - `ONEMIND_ALLOW_UNSCANNED` is **not** set on the hub (the contract refuses it with the kubernetes
   executor). With the wave-2 gateway, installs of apps without a fresh passing `scan.json` return
   `409 stale_precondition`; `verify.sh` counts that as the §10.3 check passing.

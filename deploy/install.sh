@@ -565,10 +565,10 @@ if [ "$ROLE" = hub ]; then
   printf 'Join another machine (run there, from a checkout of this repo):\n\n'
   printf '    sudo deploy/install.sh --role node --hub %s --token %s\n\n' "$HUB_URL" "$JOIN"
   printf 'Check this hub:  ONEMIND_TOKEN=<owner token> deploy/verify/verify.sh http://127.0.0.1:8080\n'
-  printf 'Hermes agent (contract §7) model credentials, created by the owner at install time:\n\n'
-  printf '    sudo k3s kubectl create namespace app-hermes-agent --dry-run=client -o yaml | sudo k3s kubectl apply -f -\n'
-  printf '    read -rs KEY   # paste the key; it stays out of shell history and the process list\n'
-  printf "    printf '<PROVIDER>_API_KEY=%%s\\\\n' \"\$KEY\" | sudo k3s kubectl -n app-hermes-agent create secret generic hermes-agent-credentials --from-env-file=/dev/stdin\n\n"
+  printf 'Hermes agent (contract §7): enter its model key in the install approval form, or on this hub with:\n'
+  printf '    read -rs ONEMIND_TOKEN && export ONEMIND_TOKEN   # paste the owner token; it stays out of history\n'
+  printf '    %s/venv/bin/onemind-secrets approve <action id> hermes-agent-credentials/OPENROUTER_API_KEY\n' "$PREFIX"
+  printf 'The value is read without echo, sealed to this box and stored encrypted (docs/leap/core/SECRETS.md).\n\n'
 else
   k3s_agent
   onemindd_install
