@@ -1,0 +1,228 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/LibreChat-AI/LibreChat (contract §9.2), then
+# completed from upstream at tag v0.8.8: docker-compose.yml (api on PORT 3080, MONGO_URI, volumes
+# /app/data, /app/uploads, /app/client/public/images, /app/logs), .env.example (CREDS_KEY,
+# CREDS_IV, JWT_SECRET, JWT_REFRESH_SECRET, SEARCH), packages/api/src/credentials.ts and
+# api/server/index.js (GET /health).
+#
+# Database: upstream's compose runs MongoDB, whose server licence (SSPL-1.0) is not one the Market
+# can ship. This package uses FerretDB (Apache-2.0), a MongoDB-protocol proxy, on PostgreSQL with
+# the DocumentDB extension (FerretDB's postgres-documentdb image). Upstream keeps FerretDB
+# compatibility tests in packages/data-schemas/misc/ferretdb/, which "are NOT run in CI":
+# UNVERIFIED until the OneMind smoke test and a real chat have run.
+# Both run as native sidecars on 127.0.0.1 only, so no database password or Secret exists.
+# Meilisearch (message search) and the RAG API are optional upstream and not packaged.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: librechat
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: librechat
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: librechat
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # The image runs as "node" (UID 1000); the compose file runs it as ${UID}:${GID}.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Creates the subPath directories as the app user: the kubelet would create a missing
+        # subPath as root, which the app cannot write on volumes without fsGroup (k3s local-path).
+        - name: volume-dirs
+          image: registry.librechat.ai/librechat-ai/librechat:v0.8.8@sha256:5b706bcee1ca154a1e2987303aaeca0eb27f97919cccee4bb604226c2f8abf61
+          command: ["sh", "-c", "mkdir -p /mnt/data /mnt/uploads /mnt/images"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /mnt
+        - name: postgres
+          image: ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0@sha256:2386795ec2aa7ae559304361979f1dc5708d383ee9020ae63dadc2940dfe58f7
+          restartPolicy: Always
+          args: ["postgres", "-c", "listen_addresses=127.0.0.1"]
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_DB
+              value: postgres
+            # Only 127.0.0.1 and the pod's own socket reach this server.
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: trust
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "postgres"]
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "postgres"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: db
+              mountPath: /var/lib/postgresql/data
+        - name: ferretdb
+          image: ghcr.io/ferretdb/ferretdb:2.7.0@sha256:5706414241eb84f0515512c37b46db0f1b1eac9e5ceb7e4c2523211c184b1985
+          restartPolicy: Always
+          # Flags from cmd/ferretdb/main.go at v2.7.0, as FERRETDB_* variables.
+          env:
+            - name: FERRETDB_POSTGRESQL_URL
+              value: postgres://postgres@127.0.0.1:5432/postgres
+            - name: FERRETDB_LISTEN_ADDR
+              value: 127.0.0.1:27017
+            - name: FERRETDB_DEBUG_ADDR
+              value: 127.0.0.1:8088
+            # MongoDB-protocol authentication off: only this pod can connect.
+            - name: FERRETDB_AUTH
+              value: "false"
+            - name: FERRETDB_TELEMETRY
+              value: disable
+            - name: FERRETDB_STATE_DIR
+              value: /state
+          # The image's own HEALTHCHECK.
+          startupProbe:
+            exec:
+              command: ["/ferretdb", "ping"]
+            periodSeconds: 5
+            failureThreshold: 60
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: ferretdb-state
+              mountPath: /state
+      containers:
+        - name: api
+          image: registry.librechat.ai/librechat-ai/librechat:v0.8.8@sha256:5b706bcee1ca154a1e2987303aaeca0eb27f97919cccee4bb604226c2f8abf61
+          env:
+            - name: HOST
+              value: 0.0.0.0
+            - name: PORT
+              value: "3080"
+            - name: MONGO_URI
+              value: mongodb://127.0.0.1:27017/LibreChat
+            - name: CONFIG_PATH
+              value: /app/librechat.yaml
+            # Message search needs Meilisearch, which is not packaged.
+            - name: SEARCH
+              value: "false"
+            # CREDS_KEY, CREDS_IV, JWT_SECRET and JWT_REFRESH_SECRET are left unset, so LibreChat
+            # generates them on the first start and keeps them in this file (mode 0600, on the
+            # data volume), as upstream's docker-compose.yml does (packages/api/src/credentials.ts).
+            - name: LIBRECHAT_TEMP_CREDENTIALS_PATH
+              value: /app/data/.env.temp
+          ports:
+            - name: http
+              containerPort: 3080
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream publishes no sizing; a OneMind choice. Inference runs elsewhere (Ollama or a
+          # provider), so this is a Node.js web server.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+              subPath: data
+            - name: data
+              mountPath: /app/uploads
+              subPath: uploads
+            - name: data
+              mountPath: /app/client/public/images
+              subPath: images
+            - name: logs
+              mountPath: /app/logs
+            - name: config
+              mountPath: /app/librechat.yaml
+              subPath: librechat.yaml
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: librechat-data
+        - name: db
+          persistentVolumeClaim:
+            claimName: librechat-db
+        - name: ferretdb-state
+          emptyDir:
+            sizeLimit: 16Mi
+        - name: logs
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: config
+          configMap:
+            name: librechat-config

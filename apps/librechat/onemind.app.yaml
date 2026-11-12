@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# LibreChat: Market batch 1 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: docker-compose.yml, .env.example, librechat.example.yaml and api/server/index.js at v0.8.8, and the LibreChat docs page for Ollama.
+# Image digests and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: librechat
+  name: "LibreChat"
+  version: "0.8.8"
+  description: "Self-hosted AI chat with agents, MCP, model switching and message search, for local models and many AI providers."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: ai
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/LibreChat-AI/LibreChat
+  # §9.3 facts from the GitHub API (repos/LibreChat-AI/LibreChat), read 2026-11-12.
+  links:
+    docs: "https://www.librechat.ai/docs"
+    github: "https://github.com/LibreChat-AI/LibreChat"
+    website: "https://librechat.ai/"
+    support: "https://github.com/LibreChat-AI/LibreChat/issues"
+  upstream: {release: "v0.8.8", released_at: "2026-10-01T02:49:17Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 1536}
+  web: {port: 3080}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
