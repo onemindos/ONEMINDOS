@@ -269,6 +269,8 @@ def cmd_disk(a):
     run("grub-editenv", env, "create")
     run("grub-editenv", env, "set", "ORDER=A B", "A_OK=1", "A_TRY=0", "B_OK=0", "B_TRY=0")
     files["EFI/BOOT/grubenv"] = env
+    # First-boot settings a user can edit after flashing (all commented out: the wizard runs).
+    files["onemind.conf"] = os.path.join(HERE, "onemind.conf.in")
 
     disk = a.out
     if os.path.exists(disk):

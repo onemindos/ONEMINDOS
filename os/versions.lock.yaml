@@ -84,6 +84,30 @@ tools:
     actions/setup-python: 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
     astral-sh/setup-uv: d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
 
+onemind_layer:      # the OneMind layer of the image (os/rootfs/fetch-onemind.sh, Containerfile onemind-* stages)
+  nats_server:      # ships in the image as /usr/bin/nats-server (brief 30 D-B6.5)
+    version: v2.15.2
+    tag_commit: ffbde89370bc3cbef677e86fd4a6134fa5f18f9d
+    amd64: {tarball: 67cb8e10bc6f0c4b47f75a728529a20953dbae2a4f9a4a52ae8517d65ae303ff, binary: 33f3fe3fed80b2b229bd9fe4b735257ad8583cd2349452a0c74f3d768b593e66}
+    arm64: {tarball: bc2c788dcbf2849af749564e06a0d48c19bced851f2d68a2e21c54d078949b28, binary: 9f03b5f7b53b1d3dd3474dce5744b4b55149ceafd8bbeded0ae4c27695c4aeb4}
+    source: release SHA256SUMS (tarballs) and sha256 of the extracted binary, read 2026-11-12
+  go:               # builds onemindd + onemind (static, CGO_ENABLED=0); builder stage only
+    version: 1.26.11
+    amd64: 9849f4e04ee35303714e34fbc3ac8ab44ea3e448a95aa182f91e3b9b79c710ec
+    arm64: 6c2f29b458b5add0835f18b776f69c8881a6d88428f1484a6da55755e620757e
+    source: https://go.dev/dl/?mode=json, read 2026-11-12 (same as deploy/pins.env)
+  node:             # builds the dashboard (npm ci from dashboard/package-lock.json); builder stage only
+    version: v24.22.3
+    amd64: 061ec3e3062115705b56b51fa9cc330ab50d34b6969387d4e4b1a50c6809acc2
+    arm64: 261af2af250dfd7e9f25cf151d1b2713a0adf8f10a9ad116c4947f68627affe8
+    source: https://nodejs.org/dist/v24.22.3/SHASUMS256.txt, read 2026-11-12
+  uv:               # installs the gateway from core/uv.lock (--frozen) with a uv-managed Python 3.12
+    version: 0.13.7
+    amd64: c5221ff41b7892bfc223543883600125f6a47fe845093e0f5bdff4f359196d83
+    arm64: 71279f8d3c67241e807b9d8db872d1bf541579fb9f08b7d1eb1682196d1e57dc
+    python: cpython-3.12.16 (uv python install, for the target arch; uv pins and hash-checks the download)
+    source: release .sha256 files, read 2026-11-12 (same version as core/Dockerfile)
+
 firmware:
   # Debian 13 ovmf / qemu-efi-aarch64 / seabios packages in the tools container (same snapshot).
   ovmf: from the Debian snapshot above (lab hash of OVMF_CODE_4M.fd 624e06de…e4e0, ovmf 2025.02-8+deb13u1)

@@ -27,6 +27,83 @@ RUN apt-get update && apt-get install -y ca-certificates git build-essential mes
 COPY os/rauc/build-rauc.sh /usr/local/sbin/build-rauc.sh
 RUN build-rauc.sh /opt/rauc-dest
 
+# ---------------------------------------------------------------- OneMind layer: builder stages
+# docs/leap/core/IMAGES.md §2. Toolchains are pinned downloads (os/rootfs/fetch-onemind.sh,
+# os/versions.lock.yaml onemind_layer). Go and the dashboard build on the build machine's arch
+# (Go cross-compiles statically; the dashboard is arch-independent). The gateway venv has native
+# wheels: uv runs on the build machine only (fetch the target's Python, export core/uv.lock with
+# hashes, build the project wheel), then the target's own Python and pip make the venv with
+# --require-hashes (uv itself crashes under qemu-user emulation; docs/leap/core/IMAGES.md §2).
+FROM --platform=$BUILDPLATFORM ${BASE} AS onemind-buildbase
+ARG SNAPSHOT=20261111T000000Z
+ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8
+COPY os/rootfs/sources/configure-apt.sh /usr/local/sbin/onemind-configure-apt
+RUN onemind-configure-apt debian "$SNAPSHOT" && apt-get update \
+ && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
+COPY --chmod=755 os/rootfs/fetch-onemind.sh /usr/local/sbin/fetch-onemind
+
+FROM onemind-buildbase AS onemind-fetch
+ARG TARGETARCH
+RUN fetch-onemind nats "$TARGETARCH" /opt/nats
+
+FROM onemind-buildbase AS onemind-go
+ARG BUILDARCH
+ARG TARGETARCH
+ARG ONEMIND_VERSION=0.1.0-dev
+RUN fetch-onemind go "$BUILDARCH" /opt/go
+ENV PATH=/opt/go/bin:$PATH GOTOOLCHAIN=local GOFLAGS=-mod=readonly CGO_ENABLED=0 GOCACHE=/tmp/go-build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
+COPY cmd/ cmd/
+COPY internal/ internal/
+RUN for b in onemindd onemind; do \
+      GOOS=linux GOARCH="$TARGETARCH" go build -trimpath -buildvcs=false \
+        -ldflags "-s -w -buildid= -X github.com/onemindos/onemindos/internal/version.Version=$ONEMIND_VERSION" \
+        -o "/out/$b" "./cmd/$b" || exit 1; \
+    done; ls -la /out
+
+FROM onemind-buildbase AS onemind-dashboard
+ARG BUILDARCH
+RUN fetch-onemind node "$BUILDARCH" /opt/node
+ENV PATH=/opt/node/bin:$PATH npm_config_update_notifier=false npm_config_fund=false npm_config_audit=false
+WORKDIR /src/dashboard
+COPY dashboard/package.json dashboard/package-lock.json ./
+RUN npm ci --loglevel=error
+COPY dashboard/ ./
+RUN npm run build && test -f dist/index.html
+
+FROM onemind-buildbase AS onemind-pyprep
+ARG BUILDARCH
+ARG TARGETARCH
+RUN fetch-onemind uv "$BUILDARCH" /opt/uv
+WORKDIR /src/core
+COPY core/pyproject.toml core/uv.lock core/README.md ./
+COPY core/onemind_core/ onemind_core/
+# Python 3.12.16 for the TARGET arch (uv pins and hash-checks the python-build-standalone download),
+# installed at its final path; the locked dependency set with hashes; the project as a wheel.
+RUN set -eu; case "$TARGETARCH" in amd64) T=x86_64 ;; arm64) T=aarch64 ;; esac; \
+    UV_PYTHON_INSTALL_DIR=/usr/lib/onemind/gateway/python UV_PYTHON_BIN_DIR=/tmp/uv-bin UV_CACHE_DIR=/tmp/uv-cache \
+      /opt/uv/uv python install "cpython-3.12.16-linux-$T-gnu"; \
+    mkdir -p /out; \
+    UV_CACHE_DIR=/tmp/uv-cache /opt/uv/uv export --frozen --no-dev --no-emit-project --format requirements.txt -o /out/requirements.txt; \
+    UV_CACHE_DIR=/tmp/uv-cache UV_PYTHON_INSTALL_DIR=/tmp/uv-python /opt/uv/uv build --wheel --python 3.12 -o /out/dist; \
+    rm -rf /tmp/uv-cache /tmp/uv-python /tmp/uv-bin; ls /out/dist
+
+FROM base AS onemind-gateway
+COPY --from=onemind-pyprep /usr/lib/onemind/gateway/python/ /usr/lib/onemind/gateway/python/
+COPY --from=onemind-pyprep /out/ /tmp/py/
+RUN set -eu; \
+    py=$(ls -d /usr/lib/onemind/gateway/python/cpython-3.12.16-linux-*/bin/python3.12); \
+    "$py" -m venv /usr/lib/onemind/gateway/venv; \
+    V=/usr/lib/onemind/gateway/venv/bin/python3; \
+    "$V" -m pip install --no-cache-dir --disable-pip-version-check --require-hashes --no-deps --only-binary :all: \
+      -r /tmp/py/requirements.txt; \
+    "$V" -m pip install --no-cache-dir --disable-pip-version-check --no-deps --no-index /tmp/py/dist/*.whl; \
+    "$V" -m pip check; \
+    rm -rf /tmp/py; \
+    "$V" -I -c "import onemind_core, yaml, sys; print('gateway venv ok', sys.version.split()[0])"
+
 # ---------------------------------------------------------------- the OS tree
 FROM base AS rootfs
 ARG LEG=debian
@@ -61,9 +138,24 @@ COPY --chmod=755 os/gate/onemind-health-gate os/gate/onemind-k3s-check os/gate/o
      os/rauc/handlers/rauc-pre-install /usr/lib/onemind/
 COPY os/gate/onemind-health-gate.service os/gate/onemind-local-api.service /usr/lib/systemd/system/
 COPY os/rootfs/layers/base/ /
+# OneMind layer (docs/leap/core/IMAGES.md): agent + CLI, NATS, gateway venv, dashboard, catalog,
+# first boot. Every role unit ships disabled; onemind-firstboot starts them once the box has a role.
+COPY --from=onemind-go /out/onemindd /out/onemind /usr/bin/
+COPY --from=onemind-fetch /opt/nats/nats-server /usr/bin/nats-server
+COPY --from=onemind-gateway /usr/lib/onemind/gateway/ /usr/lib/onemind/gateway/
+COPY --from=onemind-dashboard /src/dashboard/dist/ /usr/lib/onemind/dashboard/
+COPY sdk/schema/ /usr/lib/onemind/sdk/schema/
+COPY apps/ /usr/lib/onemind/apps/
+COPY os/rootfs/layers/onemind/ /
 COPY os/boards/${BOARD}/rootfs/ /
 RUN set -eu; \
-    rm -f /.keep; \
+    rm -f /.keep /usr/lib/onemind/apps/README.md; \
+    groupadd --system --gid 961 onemind; \
+    useradd --system --uid 961 --gid onemind --home-dir /data/onemind/gateway --no-create-home \
+      --shell /usr/sbin/nologin onemind; \
+    systemctl enable onemind-firstboot.service avahi-daemon.service >/dev/null; \
+    /usr/bin/nats-server --version; \
+    /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
     systemctl enable systemd-networkd.service systemd-resolved.service onemind-data-layout.service \
       k3s.service onemind-local-api.service onemind-health-gate.service >/dev/null; \

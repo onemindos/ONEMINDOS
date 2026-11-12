@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind OS update service in the image (deploy/systemd/onemind-update.service adapted to a
+# read-only root: /usr/bin, home and restic cache on /data). Inert until the image carries a TUF
+# root for a channel (/usr/lib/onemind/tuf/<channel>/root.json, os/update/CHANNEL.md) and
+# onemind-firstboot has configured the box. Not enabled in the image.
+[Unit]
+Description=OneMind OS update service (TUF check, restic snapshot, RAUC install)
+After=network-online.target rauc.service onemind-health-gate.service onemind-firstboot.service
+Wants=network-online.target
+ConditionPathExists=/etc/onemind/update.conf
+ConditionPathExists=/data/onemind/firstboot/state.json
+ConditionPathExistsGlob=/usr/lib/onemind/tuf/*/root.json
+RequiresMountsFor=/data
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/onemindd update
+Restart=on-failure
+RestartSec=30s
+Environment=HOME=/data/onemind/update-home
+Environment=RESTIC_CACHE_DIR=/data/onemind/update-cache
+ExecStartPre=/bin/mkdir -p /data/onemind/update-home /data/onemind/update-cache
+User=root
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=
+ProtectSystem=strict
+ReadWritePaths=/data
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+UMask=0022
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX

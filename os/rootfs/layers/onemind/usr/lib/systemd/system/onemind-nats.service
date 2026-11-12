@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: Apache-2.0
+# NATS on a hub (clients :4222, leaf nodes :7422) or a leaf (local :4222, forwards to the hub).
+# Config with credentials: /data/onemind/etc/nats.conf, written by onemind-firstboot, handed in
+# as a systemd credential so a throw-away user can read it. Started by onemind-firstboot.
+[Unit]
+Description=OneMind NATS server
+After=network-online.target onemind-firstboot.service
+Wants=network-online.target
+RequiresMountsFor=/data
+ConditionPathExists=/data/onemind/etc/nats.conf
+
+[Service]
+Type=simple
+LoadCredential=nats.conf:/data/onemind/etc/nats.conf
+ExecStart=/usr/bin/nats-server -c ${CREDENTIALS_DIRECTORY}/nats.conf
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=2s
+DynamicUser=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+UMask=0077
+LimitNOFILE=65536
