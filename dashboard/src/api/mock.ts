@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { OneMindApi } from './client';
+import { MockWiringBase } from './mockWiring';
 import { installBlockReason } from '../lib/scan';
 import { DEMO_TOKENS, INSTANCE, makeActions, makeApps, makeNodes } from './fixtures';
 import { ApiError, type Action, type ActionRequest, type CatalogApp, type Principal } from './types';
@@ -13,9 +14,9 @@ import { ApiError, type Action, type ActionRequest, type CatalogApp, type Princi
  * path (accepted → dispatched → succeeded), one step every `stepMs`, applied on the next read, so
  * the dashboard's live progress can be seen in the demo. `stepMs: 0` finishes on the next read.
  */
-export class MockApi implements OneMindApi {
-  private readonly principal: Principal | undefined;
-  private readonly now: () => number;
+export class MockApi extends MockWiringBase implements OneMindApi {
+  protected readonly principal: Principal | undefined;
+  protected readonly now: () => number;
   private catalog: CatalogApp[];
   private actionsList: Action[];
   private seq = 2;
@@ -24,6 +25,7 @@ export class MockApi implements OneMindApi {
   private readonly acceptedAt = new Map<string, number>();
 
   constructor(token: string, opts: { now?: () => number; stepMs?: number } = {}) {
+    super();
     this.principal = DEMO_TOKENS[token];
     this.now = opts.now ?? (() => Date.now());
     this.stepMs = opts.stepMs ?? 0;
@@ -31,7 +33,7 @@ export class MockApi implements OneMindApi {
     this.actionsList = makeActions(this.now());
   }
 
-  private auth(): Principal {
+  protected auth(): Principal {
     if (!this.principal) throw new ApiError(401, 'unauthenticated', 'Unknown token');
     return this.principal;
   }
@@ -60,6 +62,28 @@ export class MockApi implements OneMindApi {
         ? { ...app, installed: a.type === 'app.install', status: a.type === 'app.install' ? 'installed' : 'not_installed' }
         : app,
     );
+  }
+
+  /** An alert fix is only ever a request: awaiting approval, requested by the caller. */
+  protected fileAction(type: string, params: Record<string, unknown>): Action {
+    const p = this.auth();
+    const key = `fix:${type}:${JSON.stringify(params)}:${p.id}`;
+    const existing = this.actionsList.find((a) => a.idempotency_key === key);
+    if (existing) return { ...existing };
+    const ts = new Date(this.now()).toISOString();
+    const action: Action = {
+      id: `act-${String(this.seq++).padStart(4, '0')}`,
+      type: type as Action['type'],
+      params: params as Action['params'],
+      idempotency_key: key,
+      expires_at: new Date(this.now() + 86_400_000).toISOString(),
+      state: 'awaiting_approval',
+      requested_by: p,
+      created_at: ts,
+      updated_at: ts,
+    };
+    this.actionsList = [action, ...this.actionsList];
+    return { ...action };
   }
 
   private ownerOnly(): Principal {

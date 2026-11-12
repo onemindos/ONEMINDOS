@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# Gitea: Market batch 1 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: the rootless image (docker.io/gitea/gitea:<version>-rootless: USER 1000:1000, volumes /var/lib/gitea and /etc/gitea, ports 3000 and 2222) and docs.gitea.com.
+# Image digests and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: gitea
+  name: "Gitea"
+  version: "28.3.0"
+  description: "Git with a cup of tea! Painless self-hosted all-in-one software development service, including Git hosting, code review, team collaboration, package registry and CI/CD"
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: developer
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/go-gitea/gitea
+  # §9.3 facts from the GitHub API (repos/go-gitea/gitea), read 2026-11-12.
+  links:
+    docs: "https://docs.gitea.com/"
+    github: "https://github.com/go-gitea/gitea"
+    website: "https://gitea.com"
+    support: "https://github.com/go-gitea/gitea/issues"
+  upstream: {release: "v28.3.0", released_at: "2026-11-01T09:55:07Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVE-2026-123158 in the image, fix exists (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 512}
+  web: {port: 3000}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

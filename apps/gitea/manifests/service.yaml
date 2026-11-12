@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# 3000 serves the web UI and Git over HTTP; 2222 is the built-in SSH server of the rootless image.
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: gitea
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP
+    - name: ssh
+      port: 2222
+      targetPort: ssh
+      protocol: TCP
