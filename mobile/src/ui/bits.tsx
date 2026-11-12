@@ -5,7 +5,7 @@ import type { ActionState, NodeStatus, PrincipalKind } from '../api/types';
 import { useHubData } from '../data';
 import { safeHttpUrl } from '../lib/scan';
 import { formatAgo } from '../lib/time';
-import { radius, space, useTheme, type Palette } from './theme';
+import { font, radius, radiusControl, space, touchTarget, useTheme, type Palette } from './theme';
 
 export function Screen({ children, testID }: { children: ReactNode; testID?: string }) {
   const t = useTheme();
@@ -30,7 +30,7 @@ export function DataAge() {
   if (!error) return null;
   const age = fetchedAt ? formatAgo(Math.floor((Date.now() - fetchedAt) / 1000)) : undefined;
   return (
-    <View style={[s.note, { backgroundColor: t.warnBg }]} accessibilityRole="alert">
+    <View style={[s.note, { backgroundColor: t.warnBg, borderColor: t.warnBorder }]} accessibilityRole="alert">
       <Text style={{ color: t.warn, fontWeight: '600' }}>Could not refresh from the hub</Text>
       <Text style={{ color: t.warn }}>
         {error.message}
@@ -52,7 +52,7 @@ export function Card({ children, testID }: { children: ReactNode; testID?: strin
 export function H1({ children }: { children: ReactNode }) {
   const t = useTheme();
   return (
-    <Text accessibilityRole="header" style={{ color: t.text, fontSize: 22, fontWeight: '700' }}>
+    <Text accessibilityRole="header" style={{ color: t.text, fontSize: font.xxl, fontWeight: font.bold }}>
       {children}
     </Text>
   );
@@ -61,7 +61,7 @@ export function H1({ children }: { children: ReactNode }) {
 export function H2({ children }: { children: ReactNode }) {
   const t = useTheme();
   return (
-    <Text accessibilityRole="header" style={{ color: t.text, fontSize: 17, fontWeight: '600', marginTop: space.sm }}>
+    <Text accessibilityRole="header" style={{ color: t.text, fontSize: font.lg, fontWeight: font.semibold, marginTop: space.sm }}>
       {children}
     </Text>
   );
@@ -69,40 +69,45 @@ export function H2({ children }: { children: ReactNode }) {
 
 export function P({ children, muted, small }: { children: ReactNode; muted?: boolean; small?: boolean }) {
   const t = useTheme();
-  return <Text style={{ color: muted ? t.muted : t.text, fontSize: small ? 13 : 15, lineHeight: small ? 18 : 21 }}>{children}</Text>;
+  return (
+    <Text style={{ color: muted ? t.muted : t.text, fontSize: small ? font.sm : font.md, lineHeight: (small ? font.sm : font.md) * 1.5 }}>{children}</Text>
+  );
 }
 
 export function Row({ label, value }: { label: string; value: ReactNode }) {
   const t = useTheme();
   return (
     <View style={s.row}>
-      <Text style={{ color: t.muted, fontSize: 14 }}>{label}</Text>
-      <Text style={{ color: t.text, fontSize: 14, flexShrink: 1, textAlign: 'right' }}>{value}</Text>
+      <Text style={{ color: t.muted, fontSize: font.sm }}>{label}</Text>
+      <Text style={{ color: t.text, fontSize: font.sm, flexShrink: 1, textAlign: 'right' }}>{value}</Text>
     </View>
   );
 }
 
-type Tone = 'ok' | 'warn' | 'bad' | 'info' | 'neutral';
-function tone(t: Palette, x: Tone) {
+/** The design system's status tones; `agent` marks anything an AI agent did or asked for. */
+export type Tone = 'ok' | 'warn' | 'bad' | 'info' | 'neutral' | 'agent';
+export function tone(t: Palette, x: Tone) {
   switch (x) {
     case 'ok':
-      return { fg: t.ok, bg: t.okBg };
+      return { fg: t.ok, bg: t.okBg, border: t.okBorder };
     case 'warn':
-      return { fg: t.warn, bg: t.warnBg };
+      return { fg: t.warn, bg: t.warnBg, border: t.warnBorder };
     case 'bad':
-      return { fg: t.bad, bg: t.badBg };
+      return { fg: t.bad, bg: t.badBg, border: t.badBorder };
     case 'info':
-      return { fg: t.info, bg: t.infoBg };
+      return { fg: t.info, bg: t.infoBg, border: t.infoBorder };
+    case 'agent':
+      return { fg: t.agent, bg: t.agentBg, border: t.agentBorder };
     default:
-      return { fg: t.muted, bg: t.neutralBg };
+      return { fg: t.neutral, bg: t.neutralBg, border: t.neutralBorder };
   }
 }
 
 export function Badge({ label, tone: x = 'neutral' }: { label: string; tone?: Tone }) {
   const c = tone(useTheme(), x);
   return (
-    <View style={[s.badge, { backgroundColor: c.bg }]}>
-      <Text style={{ color: c.fg, fontSize: 12, fontWeight: '600' }}>{label}</Text>
+    <View style={[s.badge, { backgroundColor: c.bg, borderColor: c.border }]}>
+      <Text style={{ color: c.fg, fontSize: font.xs, fontWeight: font.semibold }}>{label}</Text>
     </View>
   );
 }
@@ -125,7 +130,7 @@ export function StateBadge({ state }: { state: ActionState }) {
 
 /** person/agent is shown on every request: the whole point of approvals (§3). */
 export function KindBadge({ kind }: { kind: PrincipalKind | undefined }) {
-  return <Badge label={kind ?? 'unknown'} tone={kind === 'agent' ? 'warn' : 'neutral'} />;
+  return <Badge label={kind ?? 'unknown'} tone={kind === 'agent' ? 'agent' : 'neutral'} />;
 }
 
 export function Button({
@@ -142,8 +147,10 @@ export function Button({
   testID?: string;
 }) {
   const t = useTheme();
-  const bg = variant === 'primary' ? t.accent : variant === 'danger' ? t.badBg : t.neutralBg;
-  const fg = variant === 'primary' ? t.accentText : variant === 'danger' ? t.bad : t.text;
+  // ui/src/styles/components.css: primary = accent, secondary = surface with a strong border, danger = danger.
+  const bg = variant === 'primary' ? t.accent : variant === 'danger' ? t.danger : t.card;
+  const fg = variant === 'primary' ? t.accentText : variant === 'danger' ? t.dangerText : t.text;
+  const border = variant === 'secondary' ? t.borderStrong : bg;
   return (
     <Pressable
       testID={testID}
@@ -151,9 +158,9 @@ export function Button({
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [s.btn, { backgroundColor: bg, opacity: disabled ? 0.45 : pressed ? 0.8 : 1 }]}
+      style={({ pressed }) => [s.btn, { backgroundColor: bg, borderColor: border, opacity: disabled ? 0.55 : pressed ? 0.85 : 1 }]}
     >
-      <Text style={{ color: fg, fontWeight: '600', fontSize: 15 }}>{label}</Text>
+      <Text style={{ color: fg, fontWeight: font.semibold, fontSize: font.sm }}>{label}</Text>
     </Pressable>
   );
 }
@@ -163,8 +170,8 @@ export function LinkChip({ label, url }: { label: string; url: string | null | u
   const safe = safeHttpUrl(url);
   if (!safe) return null;
   return (
-    <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(safe)} style={[s.badge, { backgroundColor: t.infoBg }]}>
-      <Text style={{ color: t.info, fontSize: 13, fontWeight: '600' }}>{label} ↗</Text>
+    <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(safe)} style={[s.badge, { backgroundColor: t.accentSoft, borderColor: t.accentSoft }]}>
+      <Text style={{ color: t.accent, fontSize: font.sm, fontWeight: font.semibold }}>{label} ↗</Text>
     </Pressable>
   );
 }
@@ -172,7 +179,7 @@ export function LinkChip({ label, url }: { label: string; url: string | null | u
 export function Notice({ text, tone: x = 'info' }: { text: string; tone?: Tone }) {
   const c = tone(useTheme(), x);
   return (
-    <View style={[s.note, { backgroundColor: c.bg }]} accessibilityLiveRegion="polite">
+    <View style={[s.note, { backgroundColor: c.bg, borderColor: c.border }]} accessibilityLiveRegion="polite">
       <Text style={{ color: c.fg }}>{text}</Text>
     </View>
   );
@@ -189,10 +196,18 @@ export function Loading({ what }: { what: string }) {
 }
 
 export const s = StyleSheet.create({
-  card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radius, padding: space.lg, gap: space.sm },
+  card: { borderWidth: 1, borderRadius: radius, padding: space.lg, gap: space.sm },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: space.md },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center' },
-  badge: { paddingHorizontal: space.sm, paddingVertical: 3, borderRadius: 999, alignSelf: 'flex-start' },
-  btn: { paddingVertical: space.md, paddingHorizontal: space.lg, borderRadius: 10, alignItems: 'center', flexGrow: 1 },
-  note: { padding: space.md, borderRadius: 10, gap: 2 },
+  badge: { paddingHorizontal: space.sm, paddingVertical: 3, borderRadius: 999, borderWidth: 1, alignSelf: 'flex-start' },
+  btn: {
+    minHeight: touchTarget,
+    justifyContent: 'center',
+    paddingHorizontal: space.lg,
+    borderRadius: radiusControl,
+    borderWidth: 1,
+    alignItems: 'center',
+    flexGrow: 1,
+  },
+  note: { padding: space.md, borderRadius: radiusControl, borderWidth: 1, gap: 2 },
 });

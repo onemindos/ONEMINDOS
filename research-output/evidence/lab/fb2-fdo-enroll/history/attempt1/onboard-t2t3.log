@@ -1,0 +1,280 @@
+[05:23:41] INFO: Attempting TO1 protocol
+[05:23:41] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:23:41 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:23:41] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:23:41 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:23:41] INFO: All TO1 attempts failed for this directive
+[05:23:41] INFO: Applying directive delay
+  delay: 8.880429241s
+[05:23:50] INFO: Attempting TO1 protocol
+[05:23:50] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:23:50 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:23:50] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:23:50 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:23:50] INFO: All TO1 attempts failed for this directive
+[05:23:50] INFO: Applying directive delay
+  delay: 7.506550447s
+[05:23:57] INFO: Attempting TO1 protocol
+[05:23:57] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:23:57 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:23:57] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:23:57 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:23:57] INFO: All TO1 attempts failed for this directive
+[05:23:57] INFO: Applying directive delay
+  delay: 11.761720231s
+[05:24:09] INFO: Attempting TO1 protocol
+[05:24:09] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:24:09 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:24:09] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:24:09 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:24:09] INFO: All TO1 attempts failed for this directive
+[05:24:09] INFO: Applying directive delay
+  delay: 12.02013004s
+[05:24:21] INFO: Attempting TO1 protocol
+[05:24:21] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:24:21 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:24:21] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:24:21 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:24:21] INFO: All TO1 attempts failed for this directive
+[05:24:21] INFO: Applying directive delay
+  delay: 9.987901882s
+[05:24:31] INFO: Attempting TO1 protocol
+[05:24:31] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:24:31 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:24:31] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:24:31 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:24:31] INFO: All TO1 attempts failed for this directive
+[05:24:31] INFO: Applying directive delay
+  delay: 10.237170441s
+[05:24:42] INFO: Attempting TO1 protocol
+[05:24:42] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:24:42 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:24:42] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:24:42 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:24:42] INFO: All TO1 attempts failed for this directive
+[05:24:42] INFO: Applying directive delay
+  delay: 7.626688922s
+[05:24:49] INFO: Attempting TO1 protocol
+[05:24:49] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:24:49 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:24:49] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:24:49 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:24:49] INFO: All TO1 attempts failed for this directive
+[05:24:49] INFO: Applying directive delay
+  delay: 11.991041882s
+[05:25:01] INFO: Attempting TO1 protocol
+[05:25:01] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:01 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:01] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:01 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:01] INFO: All TO1 attempts failed for this directive
+[05:25:01] INFO: Applying directive delay
+  delay: 7.619765918s
+[05:25:09] INFO: Attempting TO1 protocol
+[05:25:09] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:09 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:09] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:09 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:09] INFO: All TO1 attempts failed for this directive
+[05:25:09] INFO: Applying directive delay
+  delay: 11.883848975s
+[05:25:21] INFO: Attempting TO1 protocol
+[05:25:21] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:21 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:21] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:21 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:21] INFO: All TO1 attempts failed for this directive
+[05:25:21] INFO: Applying directive delay
+  delay: 8.709942111s
+[05:25:30] INFO: Attempting TO1 protocol
+[05:25:30] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:30 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:30] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:30 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:30] INFO: All TO1 attempts failed for this directive
+[05:25:30] INFO: Applying directive delay
+  delay: 10.355476863s
+[05:25:40] INFO: Attempting TO1 protocol
+[05:25:40] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:40 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:40] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:40 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:40] INFO: All TO1 attempts failed for this directive
+[05:25:40] INFO: Applying directive delay
+  delay: 7.859324422s
+[05:25:48] INFO: Attempting TO1 protocol
+[05:25:48] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:48 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:48] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:48 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:48] INFO: All TO1 attempts failed for this directive
+[05:25:48] INFO: Applying directive delay
+  delay: 11.473000972s
+[05:25:59] INFO: Attempting TO1 protocol
+[05:25:59] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:59 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:59] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:25:59 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:25:59] INFO: All TO1 attempts failed for this directive
+[05:25:59] INFO: Applying directive delay
+  delay: 11.276648858s
+[05:26:11] INFO: Attempting TO1 protocol
+[05:26:11] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:26:11 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:26:11] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:26:11 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:26:11] INFO: All TO1 attempts failed for this directive
+[05:26:11] INFO: Applying directive delay
+  delay: 9.615042136s
+[05:26:20] INFO: Attempting TO1 protocol
+[05:26:20] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:26:20 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:26:20] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:26:20 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:26:20] INFO: All TO1 attempts failed for this directive
+[05:26:20] INFO: Applying directive delay
+  delay: 10.284781274s
+[05:26:31] INFO: Attempting TO1 protocol
+[05:26:31] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:26:31 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:26:31] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:26:31 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:26:31] INFO: All TO1 attempts failed for this directive
+[05:26:31] INFO: Applying directive delay
+  delay: 8.86473616s
+[05:26:39] INFO: Attempting TO1 protocol
+[05:26:39] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:26:39 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:26:40] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:26:39 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:26:40] INFO: All TO1 attempts failed for this directive
+[05:26:40] INFO: Applying directive delay
+  delay: 7.963334061s
+[05:26:47] INFO: Attempting TO1 protocol
+[05:26:47] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:26:47 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:26:47] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:26:47 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:26:47] INFO: All TO1 attempts failed for this directive
+[05:26:47] INFO: Applying directive delay
+  delay: 9.666102424s
+[05:26:57] INFO: Attempting TO1 protocol
+[05:26:57] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:26:57 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:26:57] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:26:57 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:26:57] INFO: All TO1 attempts failed for this directive
+[05:26:57] INFO: Applying directive delay
+  delay: 7.681693379s
+[05:27:05] INFO: Attempting TO1 protocol
+[05:27:05] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:27:05 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:27:05] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:27:05 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:27:05] INFO: All TO1 attempts failed for this directive
+[05:27:05] INFO: Applying directive delay
+  delay: 10.053947413s
+[05:27:15] INFO: Attempting TO1 protocol
+[05:27:15] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:27:15 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:27:15] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:27:15 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:27:15] INFO: All TO1 attempts failed for this directive
+[05:27:15] INFO: Applying directive delay
+  delay: 9.212096424s
+[05:27:24] INFO: Attempting TO1 protocol
+[05:27:24] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:27:24 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:27:24] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:27:24 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:27:24] INFO: All TO1 attempts failed for this directive
+[05:27:24] INFO: Applying directive delay
+  delay: 10.34253915s
+[05:27:35] INFO: Attempting TO1 protocol
+[05:27:35] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:27:35 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:27:35] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:27:35 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:27:35] INFO: All TO1 attempts failed for this directive
+[05:27:35] INFO: Applying directive delay
+  delay: 10.194971841s
+[05:27:45] INFO: Attempting TO1 protocol
+[05:27:45] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:27:45 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:27:45] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:27:45 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:27:45] INFO: All TO1 attempts failed for this directive
+[05:27:45] INFO: Applying directive delay
+  delay: 7.726490876s
+[05:27:53] INFO: Attempting TO1 protocol
+[05:27:53] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:27:53 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:27:53] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:27:53 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:27:53] INFO: All TO1 attempts failed for this directive
+[05:27:53] INFO: Applying directive delay
+  delay: 10.296303434s
+[05:28:03] INFO: Attempting TO1 protocol
+[05:28:03] ERROR: TO1 failed
+  base URL: http://localhost:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:28:03 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:28:03] ERROR: TO1 failed
+  base URL: http://127.0.0.1:8041
+  error: error received from TO1.HelloRV request: 2026-11-12 05:28:03 -0500 EST [code=6,prevMsgType=30,id=0] not found
+[05:28:03] INFO: All TO1 attempts failed for this directive
+[05:28:03] INFO: Applying directive delay
+  delay: 9.268848928s

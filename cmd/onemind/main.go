@@ -1,14 +1,9 @@
-// Command onemind is the OneMind command-line tool (v0: node commands only).
+// Command onemind is the OneMind command-line tool: talk to a box's gateway (login, status,
+// nodes, apps, actions, audit), run the MCP bridge for AI agents, and manage OS updates on the
+// box itself. The command tree, --json and exit codes are specified in docs/leap/dev/CLI.md.
 //
-//	onemind node info [--root DIR] [--arch A] [--agent URL]
-//	onemind nodes --hub URL [--token T] [--json]
-//	onemind update status [--config F] [--json]
-//	onemind update check  [--config F]
-//	onemind update apply  [--config F] [--no-reboot]
-//	onemind version
-//
-// The gateway token can come from --token or the ONEMIND_TOKEN environment
-// variable (prefer the variable: flags end up in shell history).
+// The gateway token comes from the context saved by `onemind login`, ONEMIND_TOKEN or
+// --token-stdin (--token works but lands in shell history).
 //
 // The commands live in package cli, one file per group (cli/root.go has the registry).
 package main

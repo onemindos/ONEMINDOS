@@ -1,0 +1,118 @@
+# SPDX-License-Identifier: Apache-2.0
+# The gateway's Kubernetes identity without cluster-wide rights (hardening H-03,
+# docs/leap/core/SANDBOX.md §3.4). Applied by deploy/install.sh with the k3s admin kubeconfig.
+#
+# Three fences, each enough to stop a different mistake:
+# 1. RBAC: cluster-wide the gateway may only manage namespaces, create RoleBindings and bind
+#    one ClusterRole (onemind-app-deployer). It reads and writes app objects only inside a
+#    namespace where it bound that role to itself (the executor does this per app-<id>).
+# 2. The ValidatingAdmissionPolicy below: every write the gateway makes must be in an app-*
+#    namespace (or be an app-* Namespace), a Namespace must carry onemind.io/app and a Pod
+#    Security level of restricted or baseline, and a RoleBinding may only grant a namespaced
+#    Role or onemind-app-deployer. RBAC cannot express "namespaces named app-*"; this can.
+# 3. Kubernetes' own escalation check: a RoleBinding can grant nothing the gateway lacks.
+# The kubeconfig carries a 24-hour bound token, refreshed by onemind-gateway-token.timer.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: onemind-system
+  labels: {app.kubernetes.io/part-of: onemind}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: onemind-gateway, namespace: onemind-system}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: {name: onemind-gateway-namespaces}
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, watch, create, update, patch, delete]
+  # Only to create the per-app binding below; the admission policy limits it to app-* and to
+  # onemind-app-deployer or a namespaced Role.
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources: [rolebindings]
+    verbs: [get, create, update, patch]
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources: [clusterroles]
+    resourceNames: [onemind-app-deployer]
+    verbs: [bind]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: {name: onemind-gateway-namespaces}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: onemind-gateway-namespaces}
+subjects: [{kind: ServiceAccount, name: onemind-gateway, namespace: onemind-system}]
+---
+# What the gateway may do inside one app-<id> namespace, granted per namespace by a RoleBinding
+# the executor creates at install. The kinds match sdk/policy/app-objects.yaml `allow`, plus the
+# NetworkPolicies the gateway writes itself and read access to pods and their logs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: {name: onemind-app-deployer}
+rules:
+  - apiGroups: [""]
+    resources: [services, configmaps, secrets, persistentvolumeclaims, serviceaccounts]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [pods, pods/log, events]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [deployments, statefulsets]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [batch]
+    resources: [jobs, cronjobs]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [autoscaling]
+    resources: [horizontalpodautoscalers]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources: [roles, rolebindings]
+    verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata: {name: onemind-gateway-fence}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["*"]
+        apiVersions: ["*"]
+        operations: [CREATE, UPDATE, DELETE, CONNECT]
+        resources: ["*/*"]  # every resource and subresource
+  matchConditions:
+    - name: is-the-gateway
+      expression: request.userInfo.username == "system:serviceaccount:onemind-system:onemind-gateway"
+  validations:
+    - expression: >-
+        request.namespace.startsWith("app-") ||
+        (request.resource.resource == "namespaces" && request.subResource == "" && request.name.startsWith("app-"))
+      message: the OneMind gateway may only change app-* namespaces and what is inside them
+    - expression: >-
+        request.resource.resource != "namespaces" || request.operation == "DELETE" ||
+        (has(object.metadata.labels) && "onemind.io/app" in object.metadata.labels &&
+         "pod-security.kubernetes.io/enforce" in object.metadata.labels &&
+         object.metadata.labels.all(k, !k.startsWith("pod-security.kubernetes.io/") || k.endsWith("-version") ||
+           object.metadata.labels[k] in ["restricted", "baseline"]))
+      message: an app namespace needs onemind.io/app and a Pod Security level of restricted or baseline
+    - expression: >-
+        request.resource.resource != "rolebindings" || request.operation == "DELETE" ||
+        object.roleRef.kind == "Role" ||
+        (object.roleRef.kind == "ClusterRole" && object.roleRef.name == "onemind-app-deployer")
+      message: the gateway may only bind a namespaced Role or onemind-app-deployer
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata: {name: onemind-gateway-fence}
+spec:
+  policyName: onemind-gateway-fence
+  validationActions: [Deny]

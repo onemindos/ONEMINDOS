@@ -1,0 +1,47 @@
+{
+  "id": "T3",
+  "verdict": "PASS",
+  "at": "2026-11-12T11:08:44Z",
+  "data": {
+    "seconds_until_box1_shows_v2bad": 17,
+    "later_ring_received_v2bad": false,
+    "box1_after_10min": "v2-bad|no",
+    "bundle_summary": {
+      "desiredReady": 3,
+      "nonReadyResources": [
+        {
+          "bundleState": "WaitApplied",
+          "name": "fleet-default/cluster-147ddd51cd13"
+        },
+        {
+          "bundleState": "NotReady",
+          "name": "fleet-default/cluster-59f4f90f77c2",
+          "nonReadyStatus": [
+            {
+              "apiVersion": "apps/v1",
+              "kind": "Deployment",
+              "name": "demo",
+              "namespace": "demo",
+              "summary": {
+                "error": true,
+                "message": [
+                  "ReplicaSet \"demo-65b5c9b978\" has timed out progressing.",
+                  "Progress deadline exceeded"
+                ],
+                "state": "error"
+              },
+              "uid": "c47bcff1-d695-416f-b4fc-55e081478768"
+            }
+          ]
+        },
+        {
+          "bundleState": "WaitApplied",
+          "name": "fleet-default/cluster-fce6a6f77c6a"
+        }
+      ],
+      "notReady": 1,
+      "ready": 0,
+      "waitApplied": 2
+    }
+  }
+}

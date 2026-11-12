@@ -1,0 +1,8 @@
+2026-11-12T10:37:40Z == fleet setup 1
+net.bridge.bridge-nf-call-iptables = 1
+ec7b5401a4f311483054a2c2a0d3565cc92fce8b8a82bbd29be9b502e04485ed
+docker.io/rancher/k3s:v1.37.2-k3s1
+k3s image RepoDigests: rancher/k3s@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
+k3s image digest matches os/versions.lock.yaml pin
+2026-11-12T10:37:55Z cluster hub created in 9 s
+Mem:            3922         765        2773           0         546        3157
