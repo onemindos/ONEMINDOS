@@ -1,0 +1,176 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind gateway + dashboard on the hub's k3s (developer install, contract section 6).
+# deploy/install.sh fills in the image, apps-dir and dashboard-dir placeholders below
+# and applies this file. The Secret onemind-system/onemind-gateway (tokens.yaml,
+# nats-url) is created by install.sh from root-only files on the hub.
+#
+# v0 shortcuts (listed in deploy/README.md):
+# - hostNetwork so the gateway answers on <hub>:8080 and reaches NATS on 127.0.0.1:4222
+# - the ServiceAccount can manage the resource kinds the seed apps use in every
+#   namespace (RBAC cannot scope to "app-*" by name); the capability broker replaces this
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: onemind-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: onemind-gateway
+  namespace: onemind-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: onemind-gateway-app-executor
+rules:
+  - apiGroups: [""]
+    resources: [namespaces, services, persistentvolumeclaims, configmaps, serviceaccounts, secrets]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [pods, pods/log, nodes]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [deployments, statefulsets, daemonsets, replicasets]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [batch]
+    resources: [jobs, cronjobs]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies, ingresses]
+    verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: onemind-gateway-app-executor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: onemind-gateway-app-executor
+subjects:
+  - kind: ServiceAccount
+    name: onemind-gateway
+    namespace: onemind-system
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: onemind-gateway-data
+  namespace: onemind-system
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: onemind-gateway
+  namespace: onemind-system
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: onemind-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: onemind-gateway
+    spec:
+      serviceAccountName: onemind-gateway
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        onemind.io/role: hub
+      containers:
+        - name: gateway
+          image: __GATEWAY_IMAGE__
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ONEMIND_NODE_ROLE
+              value: hub
+            - name: ONEMIND_EXECUTOR
+              value: kubernetes
+            - name: ONEMIND_APPS_DIR
+              value: /srv/onemind/apps
+            - name: ONEMIND_DASHBOARD_DIST
+              value: /srv/onemind/dashboard
+            - name: ONEMIND_TOKENS_FILE
+              value: /run/onemind/tokens.yaml
+            - name: ONEMIND_DB_URL
+              value: sqlite:////var/lib/onemind/ledger.db
+            - name: ONEMIND_AUDIT_PATH
+              value: /var/lib/onemind/audit.jsonl
+            - name: ONEMIND_NATS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: onemind-gateway
+                  key: nats-url
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: apps
+              mountPath: /srv/onemind/apps
+              readOnly: true
+            - name: dashboard
+              mountPath: /srv/onemind/dashboard
+              readOnly: true
+            - name: tokens
+              mountPath: /run/onemind
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/onemind
+            # The host's machine-id, so hub_node_id (sha256, first 12 hex) equals the
+            # node_id the hub's onemindd publishes (contract section 1). Never sent raw.
+            - name: machine-id
+              mountPath: /etc/machine-id
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 5
+      volumes:
+        - name: apps
+          hostPath:
+            path: __APPS_DIR__
+            type: Directory
+        - name: dashboard
+          hostPath:
+            path: __DASHBOARD_DIR__
+            type: DirectoryOrCreate
+        - name: tokens
+          secret:
+            secretName: onemind-gateway
+            items:
+              - key: tokens.yaml
+                path: tokens.yaml
+        - name: data
+          persistentVolumeClaim:
+            claimName: onemind-gateway-data
+        - name: machine-id
+          hostPath:
+            path: /etc/machine-id
+            type: File
