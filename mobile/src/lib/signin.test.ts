@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { FetchLike } from '../api/client';
-import { hubOffersPasskeys, passkeySignIn, SignInError } from './signin';
+import { hubOffersPasskeys, passkeySignIn, plainHttpOffDevice, SignInError } from './signin';
 import type { Passkeys } from './webauthn';
 
 const assertion = { id: 'cred', clientDataJSON: 'cd', authenticatorData: 'ad', signature: 'sig', userHandle: 'uh' };
@@ -37,6 +37,17 @@ describe('passkey sign-in (§12.6)', () => {
     const { fn } = hub([]);
     await expect(passkeySignIn('https://h', passkeys(), { fetchFn: fn })).rejects.toBeInstanceOf(SignInError);
     expect(await hubOffersPasskeys('https://h', fn)).toBe(false);
+  });
+
+  it('refuses plain HTTP to another machine before any request (§12.7: HTTP only on loopback)', async () => {
+    const { fn, calls } = hub(['/v1/auth/login/options', '/v1/auth/login']);
+    const pk = passkeys();
+    await expect(passkeySignIn('http://onemind.local:8080', pk, { fetchFn: fn })).rejects.toMatchObject({ kind: 'insecure' });
+    expect(calls).toHaveLength(0);
+    expect(pk.get).not.toHaveBeenCalled();
+    expect([plainHttpOffDevice('http://localhost:8080'), plainHttpOffDevice('http://127.0.0.1:8080'), plainHttpOffDevice('http://[::1]:8080')]).toEqual([false, false, false]);
+    expect(plainHttpOffDevice('https://onemind.local:8443')).toBe(false);
+    await expect(passkeySignIn('http://localhost:8080', pk, { fetchFn: fn })).resolves.toMatchObject({ auth: 'passkey' });
   });
 
   it('refuses before contacting the authenticator when the phone has none', async () => {
