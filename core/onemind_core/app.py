@@ -54,6 +54,7 @@ def create_app(
     repo = repo or SqlActionRepository.from_url(settings.db_url)
     executor = executor or make_executor(settings.executor, settings.kubectl, settings.executor_timeout_s)
     actions = ActionService(repo, catalog, executor, audit, clock)
+    actions.reconcile_interrupted()  # finish what a crashed or killed process left mid-dispatch
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):

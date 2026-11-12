@@ -275,6 +275,43 @@ def test_concurrent_approvals_dispatch_once(client, clock, executor):
     assert len(executor.calls) == 1
 
 
+def test_error_after_accepted_marks_outcome_unknown(client, clock, executor):
+    aid = create(client, clock).json()["id"]
+    svc = client.app.state.actions
+    real = svc.audit.append
+
+    def flaky(event, *a, **kw):
+        if event == "action.dispatched":
+            raise OSError("disk full")
+        return real(event, *a, **kw)
+
+    svc.audit.append = flaky
+    a = client.post(f"/v1/actions/{aid}/approve", headers=OWNER).json()
+    svc.audit.append = real
+    assert a["state"] == "outcome_unknown"
+    app = {x["id"]: x for x in client.get("/v1/apps", headers=OWNER).json()}["uptime-kuma"]
+    assert app["status"] == "unknown"
+    assert executor.calls == []
+    # the app is not stuck: a removal can be requested
+    assert create(client, clock, key="r", type_="app.remove").status_code == 201
+
+
+def test_startup_reconciles_interrupted_dispatch(settings, clock):
+    with TestClient(create_app(settings, clock=clock, executor=ScriptedExecutor())) as c:
+        aid = create(c, clock).json()["id"]
+        repo = c.app.state.repo
+        # simulate a process killed after dispatch, before the outcome was recorded
+        assert repo.accept_and_claim(aid, clock(), {"id": "owner"}, "uptime-kuma", "installing", set(), True) == "accepted"
+        repo.transition(aid, {"accepted"}, "dispatched", clock())
+    with TestClient(create_app(settings, clock=clock, executor=ScriptedExecutor())) as c:
+        a = c.get(f"/v1/actions/{aid}", headers=OWNER).json()
+        assert a["state"] == "outcome_unknown"
+        app = {x["id"]: x for x in c.get("/v1/apps", headers=OWNER).json()}["uptime-kuma"]
+        assert app["status"] == "unknown"
+        events = settings.audit_path.read_text()
+        assert "action.outcome_unknown" in events and "gateway restarted" in events
+
+
 # ---- deny -----------------------------------------------------------------------------
 
 def test_owner_deny_cancels(client, clock, executor):

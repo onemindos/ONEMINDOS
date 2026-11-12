@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
-from sqlalchemy import JSON, DateTime, Integer, String, create_engine, select, update
+from sqlalchemy import JSON, DateTime, Integer, String, create_engine, delete, select, update
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.exc import IntegrityError
@@ -38,7 +38,7 @@ TERMINAL = frozenset({"succeeded", "failed", "outcome_unknown", "expired", "canc
 ALLOWED = {
     "requested": {"awaiting_approval", "expired", "cancelled"},
     "awaiting_approval": {"accepted", "expired", "cancelled"},
-    "accepted": {"dispatched", "failed"},
+    "accepted": {"dispatched", "failed", "outcome_unknown"},
     "dispatched": {"succeeded", "failed", "outcome_unknown"},
 }
 
@@ -98,7 +98,7 @@ class ActionRepository(Protocol):
     def create(self, action: Action) -> tuple[Action, bool]: ...
     def get(self, action_id: str) -> Action | None: ...
     def get_by_idempotency_key(self, key: str) -> Action | None: ...
-    def list(self, limit: int = 200) -> list[Action]: ...
+    def list(self, limit: int = 200, states: set[str] | None = None) -> list[Action]: ...
     def transition(
         self, action_id: str, from_states: set[str], to_state: str, now: datetime, **fields
     ) -> Action | None: ...
@@ -204,9 +204,12 @@ class SqlActionRepository:
             r = s.scalars(select(ActionRow).where(ActionRow.idempotency_key == key)).first()
             return _to_action(r) if r else None
 
-    def list(self, limit: int = 200) -> list[Action]:
+    def list(self, limit: int = 200, states: set[str] | None = None) -> list[Action]:
+        q = select(ActionRow).order_by(ActionRow.created_at.desc()).limit(limit)
+        if states is not None:
+            q = q.where(ActionRow.state.in_(states))
         with self._session() as s:
-            rows = s.scalars(select(ActionRow).order_by(ActionRow.created_at.desc()).limit(limit))
+            rows = s.scalars(q)
             return [_to_action(r) for r in rows]
 
     def transition(
@@ -282,17 +285,17 @@ class SqlActionRepository:
             return AppState(r.app_id, r.status, utc(r.updated_at), r.action_id) if r else None
 
     def set_app_state(self, app_id: str, status: str | None, now: datetime, action_id: str | None = None) -> None:
-        """status=None removes the row (app not installed)."""
+        """Upsert (INSERT ... ON CONFLICT DO UPDATE); status=None removes the row (not installed)."""
         with self._session.begin() as s:
-            r = s.get(AppStateRow, app_id)
             if status is None:
-                if r is not None:
-                    s.delete(r)
+                s.execute(delete(AppStateRow).where(AppStateRow.app_id == app_id))
                 return
-            if r is None:
-                s.add(AppStateRow(app_id=app_id, status=status, updated_at=now, action_id=action_id))
-            else:
-                r.status, r.updated_at, r.action_id = status, now, action_id
+            values = {"status": status, "updated_at": now, "action_id": action_id}
+            s.execute(
+                self._insert()(AppStateRow)
+                .values(app_id=app_id, **values)
+                .on_conflict_do_update(index_elements=[AppStateRow.app_id], set_=values)
+            )
 
     def list_app_states(self) -> dict[str, AppState]:
         with self._session() as s:

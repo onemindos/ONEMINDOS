@@ -198,8 +198,17 @@ class ActionService:
             raise ApiError(409, "stale_precondition", problem)
         self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params})
 
+        try:
+            return self._dispatch(a, app)
+        except Exception as exc:  # anything after accepted: the effect is unknown, never retry
+            log.exception("dispatch interrupted")
+            self._mark_outcome_unknown(a, f"dispatch error: {exc.__class__.__name__}")
+            return self._get(a.id).to_json()
+
+    def _dispatch(self, a: Action, app: AppEntry) -> dict:
         dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
-        assert dispatched is not None
+        if dispatched is None:
+            raise RuntimeError("accepted action could not move to dispatched")
         self.audit.append("action.dispatched", None, a.id, {"executor": self.executor.name})
 
         try:
@@ -214,6 +223,31 @@ class ActionService:
             f"action.{result.outcome}", None, a.id, {"executor": self.executor.name, "message": result.message}
         )
         return (final or self._get(a.id)).to_json()
+
+    def _mark_outcome_unknown(self, a: Action, message: str) -> None:
+        result = {"outcome": "outcome_unknown", "message": message}
+        moved = self.repo.transition(a.id, {"accepted", "dispatched"}, "outcome_unknown", self.clock(), result=result)
+        self.repo.set_app_state(a.params["app_id"], "unknown", self.clock(), a.id)
+        if moved is not None:
+            self.audit.append("action.outcome_unknown", None, a.id, {"message": message})
+
+    def reconcile_interrupted(self) -> None:
+        """Startup: whatever a previous gateway process left mid-dispatch has an unknown effect.
+
+        Actions still accepted/dispatched become outcome_unknown and apps still installing/removing
+        become unknown, each with an audit entry, so later installs or removals are not refused
+        forever. (v0 runs one gateway per ledger; several would need leases first.)
+        """
+        for a in self.repo.list(states={"accepted", "dispatched"}):
+            self._mark_outcome_unknown(a, f"gateway restarted while the action was {a.state}")
+        now = self.clock()
+        for app_id, st in self.repo.list_app_states().items():
+            if st.status in ("installing", "removing"):
+                self.repo.set_app_state(app_id, "unknown", now, st.action_id)
+                self.audit.append(
+                    "app.reconciled", None, st.action_id,
+                    {"app_id": app_id, "from": st.status, "to": "unknown", "reason": "gateway restarted"},
+                )
 
     def _record_app_state(self, a: Action, outcome: str) -> None:
         app_id, now = a.params["app_id"], self.clock()
