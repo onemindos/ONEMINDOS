@@ -97,7 +97,7 @@
 | CORE-SEC-7 | Pending cap, plan card fields, "written by agent" label | todo | – | – |
 | CORE-SEC-8 | Signing keys in GitHub environments, split jobs | todo | – | – |
 | CORE-SEC-9 | CSP and security headers, body and rate limits | todo | – | – |
-| CORE-SEC-10 | Security attack suite in the core CI: authorization matrix over every route and 13 principal kinds, install-sandbox escape fixtures, traversal/header/SSRF/body-limit attacks, MCP prompt injection; fixes 2 SSRF holes (6to4/Teredo, 0.0.0.0/8, fec0::/10), audits handler-raised 403s, MCP deep-nesting crash | in-review | `feat/test-security` | [#56](https://github.com/onemindos/ONEMINDOS/pull/56) |
+| CORE-SEC-10 | Security attack suite in the core CI: authorization matrix over every route and 13 principal kinds, install-sandbox escape fixtures, traversal/header/SSRF/body-limit attacks, MCP prompt injection; fixes 2 SSRF holes (6to4/Teredo, 0.0.0.0/8, fec0::/10), audits handler-raised 403s, MCP deep-nesting crash | in-progress (agent A; narrowed A5) | `feat/test-security` | [#56](https://github.com/onemindos/ONEMINDOS/pull/56) |
 | DEV-API-6 | Tokens API and per-plugin tokens from manifest `spec.api` scopes | todo | – | – |
 | DEV-API-8 | Events stream over SSE with resume and scope filtering | in-progress | `feat/devsurface` (local) | – |
 | DEV-API-9 | Audit read, verify and signed off-box checkpoints | todo | – | – |
