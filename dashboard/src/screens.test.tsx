@@ -113,8 +113,14 @@ describe('Installed', () => {
 });
 
 describe('Activity, Nodes, Settings', () => {
-  it('Activity says it is not the audit chain and lists decisions', async () => {
+  it('the owner sees the verified audit chain from GET /v1/audit/events', async () => {
     renderApp({ token: 'owner-demo', route: '/activity' });
+    expect(await screen.findByText(/auth\.login\.succeeded/, {}, T)).toBeInTheDocument();
+    expect(screen.queryByText('Not the audit chain')).not.toBeInTheDocument();
+  });
+
+  it('a person who cannot read the audit log gets an Activity that says it is not the audit chain and lists decisions', async () => {
+    renderApp({ token: 'adult-demo', route: '/activity' });
     expect(await screen.findByText('Not the audit chain', {}, T)).toBeInTheDocument();
     expect(screen.getAllByText(/kubectl delete exited with status 1/).length).toBeGreaterThan(0);
   });
