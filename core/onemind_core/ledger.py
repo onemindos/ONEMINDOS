@@ -276,8 +276,11 @@ class SqlActionRepository:
                         self._insert()(AppStateRow)
                         .values(app_id=app_id, status=claim, updated_at=now, action_id=action_id)
                         .on_conflict_do_nothing(index_elements=[AppStateRow.app_id])
+                        .returning(AppStateRow.app_id)
                     )
-                    claimed = res.rowcount == 1
+                    # rowcount is -1 for INSERT ... ON CONFLICT under psycopg 3; RETURNING tells us
+                    # whether the row was inserted on both PostgreSQL and SQLite.
+                    claimed = res.first() is not None
                 if not claimed:
                     raise _Lost  # roll back the accepted transition too
         except _Lost:
