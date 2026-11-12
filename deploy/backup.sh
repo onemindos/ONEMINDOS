@@ -32,6 +32,14 @@ backup_setup() {
     chmod 0755 /usr/lib/onemind/restic.new && mv /usr/lib/onemind/restic.new /usr/lib/onemind/restic
   fi
 
+  # The agent may write only where its unit says (ReadWritePaths). systemd silently drops a path
+  # that does not exist when the service starts, which would leave app volumes read-only for a
+  # restore: create them now and at every boot (/run is emptied on reboot).
+  printf '%s\n' '# OneMind backup agent (deploy/backup.sh): folders onemind-backup.service may write.' \
+    'd /run/onemind/backup 0755 root root -' 'd /var/lib/rancher/k3s/storage 0700 root root -' \
+    > /etc/tmpfiles.d/onemind-backup.conf
+  systemd-tmpfiles --create /etc/tmpfiles.d/onemind-backup.conf
+
   $k apply -f "$SCRIPT_DIR/platform/storage/storageclass-onemind-local.yaml" >/dev/null
   install -d -m0755 "$PREFIX/platform"
   copy_tree "$SCRIPT_DIR/platform/postgres" "$PREFIX/platform/postgres"

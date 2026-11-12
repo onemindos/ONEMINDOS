@@ -95,7 +95,7 @@ uninstall() {
   rm -f "$BIN/onemindd" "$BIN/onemind" "$BIN/nats-server"
   if [ -x "$BIN/k3s-uninstall.sh" ]; then log "removing k3s server (and its data)"; "$BIN/k3s-uninstall.sh"; fi
   if [ -x "$BIN/k3s-agent-uninstall.sh" ]; then log "removing k3s agent"; "$BIN/k3s-agent-uninstall.sh"; fi
-  rm -f /etc/apt/apt.conf.d/52onemind-security-only /etc/needrestart/conf.d/50-onemind.conf
+  rm -f /etc/apt/apt.conf.d/52onemind-security-only /etc/needrestart/conf.d/50-onemind.conf /etc/tmpfiles.d/onemind-backup.conf
   rm -rf "$PREFIX" "$ETC" "$CACHE" /var/lib/onemind-nats /var/lib/private/onemind-nats /usr/lib/onemind/restic
   if [ "$PURGE" = 1 ]; then
     rm -rf "$STATE" /var/lib/onemindd /var/lib/onemind-backup

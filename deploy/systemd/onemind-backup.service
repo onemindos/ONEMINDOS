@@ -35,6 +35,8 @@ AmbientCapabilities=
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
+# "-": skipped when missing. A skipped path stays read-only for the whole run of the service, so
+# the installer creates these at boot (tmpfiles.d, deploy/backup.sh) before the service starts.
 ReadWritePaths=-/data/onemind -/var/lib/rancher/k3s/storage -/run/onemind/backup
 # SQLite online copies open the live database; in WAL mode (k3s) even a reader writes the -shm file.
 ReadWritePaths=-/var/lib/onemind -/var/lib/rancher/k3s/server/db
