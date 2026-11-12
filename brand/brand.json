@@ -1,0 +1,76 @@
+{
+  "schema": "onemind.io/brand/v1",
+  "name": "OneMind OS",
+  "shortName": "OneMind",
+  "tagline": "AI can ask. Only you approve.",
+  "description": "A local-first home and edge cloud OS where AI can ask, and only you approve.",
+  "homepage": "https://github.com/onemindos/ONEMINDOS",
+  "trademark": "OneMind and the OneMind logo are trademarks of OneMind. The Apache-2.0 licence of this repository does not grant use of the name or logo (Apache-2.0 section 6). Name clearance (Z-29) is still open.",
+  "colors": {
+    "red": { "name": "OneMind Red", "hex": "#FF333A" },
+    "black": { "name": "Black", "hex": "#000000" },
+    "white": { "name": "White", "hex": "#FFFFFF" }
+  },
+  "accent": {
+    "id": "onemind",
+    "name": "OneMind Red",
+    "seed": "red"
+  },
+  "logo": {
+    "alt": "OneMind",
+    "sizes": [1191, 1024, 512, 256, 128, 64, 32],
+    "variants": {
+      "color": {
+        "use": "light backgrounds (primary)",
+        "svg": "logo/svg/onemind-mark-color.svg",
+        "png": "logo/png/color/onemind-mark-color-{size}.png",
+        "fills": { "brain": "black", "circuit": "red" }
+      },
+      "on-dark": {
+        "use": "dark backgrounds",
+        "svg": "logo/svg/onemind-mark-on-dark.svg",
+        "png": "logo/png/on-dark/onemind-mark-on-dark-{size}.png",
+        "fills": { "brain": "red", "circuit": "white" }
+      },
+      "white": {
+        "use": "one colour on dark",
+        "svg": "logo/svg/onemind-mark-white.svg",
+        "png": "logo/png/white/onemind-mark-white-{size}.png",
+        "fills": { "brain": "white", "circuit": "white" }
+      },
+      "black": {
+        "use": "one colour on light",
+        "svg": "logo/svg/onemind-mark-black.svg",
+        "png": "logo/png/black/onemind-mark-black-{size}.png",
+        "fills": { "brain": "black", "circuit": "black" }
+      }
+    }
+  },
+  "favicon": {
+    "light": "color",
+    "dark": "on-dark",
+    "png": { "variant": "color", "sizes": [32, 64] }
+  },
+  "webManifest": {
+    "themeColor": "black",
+    "backgroundColor": "black",
+    "icons": { "variant": "on-dark", "sizes": [128, 256, 512] }
+  },
+  "appIcon": {
+    "light": { "variant": "color", "tile": "white" },
+    "dark": { "variant": "on-dark", "tile": "black" },
+    "size": 1024
+  },
+  "splash": {
+    "variant": "on-dark",
+    "background": "black",
+    "size": 512
+  },
+  "os": {
+    "name": "OneMind OS",
+    "prettyName": "OneMind OS",
+    "ansiColor": "red",
+    "boot": { "variant": "white", "size": 256, "background": "black" },
+    "grub": { "variant": "white", "size": 128, "foreground": "white", "background": "black", "highlight": "light-red" }
+  }
+}
