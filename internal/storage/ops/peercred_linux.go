@@ -9,6 +9,9 @@ import (
 	"syscall"
 )
 
+// peerCredSupported: a failed SO_PEERCRED lookup refuses the connection.
+const peerCredSupported = true
+
 // peerCred returns the connecting process's uid and gid (SO_PEERCRED).
 func peerCred(c *net.UnixConn) (uid, gid int, ok bool) {
 	raw, err := c.SyscallConn()

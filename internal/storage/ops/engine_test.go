@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -43,6 +44,7 @@ type box struct {
 	// lastReplace: btrfs replace status keeps reporting the last replace
 	// ever run ("finished"), which the lab found the engine trusting.
 	lastReplace string
+	ids         map[string]string // stable disk ids (WWN, serial); default the path
 }
 
 type fdisk struct {
@@ -90,6 +92,9 @@ func (b *box) Disks(_ context.Context, m *storage.Mirror) ([]storage.Disk, error
 			continue
 		}
 		disk := storage.Disk{Path: path, ID: path, SizeBytes: d.size, Role: storage.RoleUnused}
+		if id := b.ids[path]; id != "" {
+			disk.ID = id
+		}
 		if d.part != "" {
 			disk.Role = storage.RoleHasData
 			disk.Holds = append(disk.Holds, storage.Signature{Path: d.part, Type: "part", Parent: path, PartUUID: d.partuuid, FSType: "btrfs"})
@@ -642,5 +647,97 @@ func TestServerAPI(t *testing.T) {
 	}
 	if _, err := os.Stat(keyFile); !errors.Is(err, os.ErrNotExist) {
 		t.Error("recovery key file not removed")
+	}
+}
+
+// Two disks behind cheap USB bridges can report the same serial. A rollback
+// or a resumed step must never pick the other one by that id.
+func TestDuplicateSerialNeverWipesTheOtherDisk(t *testing.T) {
+	b := newBox()
+	b.disks["/dev/vdc"] = &fdisk{size: 4 << 30, part: "/dev/vdc1", partuuid: "cccccccc-0000-4000-8000-00000000000c"}
+	b.ids = map[string]string{"/dev/vdc": "SAME-SERIAL", "/dev/vdd": "SAME-SERIAL"}
+	e := newEngine(t, b, t.TempDir())
+	b.fail["sgdisk --new"] = 1 // the target's partition step fails: rollback
+	op, err := e.Start(context.Background(), approved(t, e, Request{Kind: KindCreate, Device: "/dev/vdd", ActionID: "dup"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	op = finished(t, e, op.ID)
+	if b.ran("--zap-all /dev/vdc") || b.disks["/dev/vdc"].part == "" {
+		t.Fatalf("rollback wiped /dev/vdc, which only shares the target's serial: %s %q", op.State, op.Error)
+	}
+	if op.State != StateRolledBack {
+		t.Errorf("nothing of ours is on any disk: want rolled_back, got %s %q", op.State, op.Error)
+	}
+
+	// The ref of a whole-disk path does not resolve to an ambiguous id.
+	disks, _ := b.Disks(context.Background(), nil)
+	if p, ok := resolveRef(disks, Ref{Kind: "disk-id", Key: "SAME-SERIAL"}); ok {
+		t.Errorf("ambiguous disk id resolved to %s", p)
+	}
+}
+
+// A target matched only by its (unique) stable id is blanked only when what
+// it holds can be ours: partitions udev has not given an id yet.
+func TestRollbackByDiskIDOnlyBlanksWhatCanBeOurs(t *testing.T) {
+	disks := []storage.Disk{{Path: "/dev/vdx", ID: "SER-X", SizeBytes: 4 << 30, Role: storage.RoleHasData,
+		Holds: []storage.Signature{{Path: "/dev/vdx1", Type: "part", PartUUID: "dddddddd-0000-4000-8000-00000000000d", FSType: "ext4"}}}}
+	tg := Target{Path: "/dev/vdx", Part: "/dev/vdx1", DiskID: "SER-X", PartUUID: "aaaaaaaa-0000-4000-8000-00000000000a", Size: 4 << 30}
+	if _, ok, why := targetByID(disks, tg); ok || why == "" {
+		t.Errorf("a disk holding another partition id must not count as the target (ok=%t why=%q)", ok, why)
+	}
+	disks[0].Holds[0].PartUUID, disks[0].Holds[0].FSType = "", ""
+	if d, ok, why := targetByID(disks, tg); !ok || d.Path != "/dev/vdx" {
+		t.Errorf("a partition without an id yet is ours to blank: ok=%t why=%q", ok, why)
+	}
+	disks[0].Role, disks[0].Holds = storage.RoleUnused, nil
+	if _, ok, why := targetByID(disks, tg); ok || why != "" {
+		t.Errorf("a blank disk needs nothing: ok=%t why=%q", ok, why)
+	}
+}
+
+// The storage unit runs with UMask=0077 and the boot assembly may have made
+// /run/onemind 0700: the gateway (group onemind) must still reach the socket.
+func TestListenKeepsTheSocketReachable(t *testing.T) {
+	old := syscall.Umask(0o077)
+	defer syscall.Umask(old)
+	base, err := os.MkdirTemp("/tmp", "om-sock-") // Unix socket paths are short
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(base)
+	dir := filepath.Join(base, "onemind")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	l, err := Listen(filepath.Join(dir, "storage.sock"), -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	fi, _ := os.Stat(dir)
+	sock, _ := os.Stat(filepath.Join(dir, "storage.sock"))
+	if fi.Mode().Perm() != 0o755 || sock.Mode().Perm() != 0o660 {
+		t.Errorf("folder %v socket %v", fi.Mode().Perm(), sock.Mode().Perm())
+	}
+	// A folder that already lets the group in is left as the image made it.
+	if err := os.Chmod(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := searchableDir(dir); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(dir); fi.Mode().Perm() != 0o750 {
+		t.Errorf("0750 changed to %v", fi.Mode().Perm())
+	}
+	// The boot assembly's markers folder: its parent stays enterable.
+	run := filepath.Join(base, "run2", "storage")
+	if err := storage.MakeRunDir(run); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := os.Stat(filepath.Dir(run))
+	r, _ := os.Stat(run)
+	if p.Mode().Perm() != 0o755 || r.Mode().Perm() != 0o700 {
+		t.Errorf("parent %v run dir %v", p.Mode().Perm(), r.Mode().Perm())
 	}
 }

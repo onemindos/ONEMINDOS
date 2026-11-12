@@ -37,7 +37,7 @@ func InitData(ctx context.Context, r Runner, o storage.InitOptions, force bool) 
 	if t := strings.TrimSpace(string(out)); t != "" && !force {
 		return "", fmt.Errorf("%s already holds %s; refusing to format it (force overrides)", o.Part, t)
 	}
-	if err := os.MkdirAll(storage.RunDir, 0o700); err != nil {
+	if err := storage.MakeRunDir(storage.RunDir); err != nil {
 		return "", err
 	}
 	rk, err := storage.NewRecoveryKey()

@@ -108,10 +108,51 @@ func resolveRef(disks []storage.Disk, r Ref) (string, bool) {
 			return c.Path, ok
 		}
 	case "disk-id":
-		d, ok := storage.Find(disks, r.Key)
+		d, ok := uniqueByID(disks, r.Key)
 		return d.Path, ok
 	}
 	return "", false
+}
+
+// uniqueByID finds the one disk with stable id id. Some USB bridges report
+// the same serial for every disk behind them: an id two disks share names
+// neither.
+func uniqueByID(disks []storage.Disk, id string) (storage.Disk, bool) {
+	var found []storage.Disk
+	for _, d := range disks {
+		if d.ID == id {
+			found = append(found, d)
+		}
+	}
+	if len(found) != 1 {
+		return storage.Disk{}, false
+	}
+	return found[0], true
+}
+
+// targetByID finds a target that has no partition with our id (at most its
+// "wipe" step ran, or udev has not published the new partition's id yet) by
+// its stable disk id. ok: blank this disk. A blank disk needs nothing (ok
+// false, why ""). A disk that holds anything else is not provably the target:
+// why says so, and the rollback stops for the owner instead of wiping it.
+func targetByID(disks []storage.Disk, t Target) (storage.Disk, bool, string) {
+	if t.DiskID == "" || t.DiskID == t.Path {
+		return storage.Disk{}, false, ""
+	}
+	d, ok := uniqueByID(disks, t.DiskID)
+	if !ok || d.Role == storage.RoleUnused {
+		return storage.Disk{}, false, ""
+	}
+	for _, s := range d.Holds {
+		if s.Type == "part" && s.PartUUID == "" && s.FSType == "" && len(s.Mountpoints) == 0 {
+			continue
+		}
+		if s.Type != "part" && s.Parent != "" {
+			continue // a mapping on one of its partitions (closed above when ours)
+		}
+		return d, false, fmt.Sprintf("%s (id %s) holds %s, which this operation did not make; not wiping it", d.Path, t.DiskID, s.Path)
+	}
+	return d, true, ""
 }
 
 // relocate rewrites the operation's device paths to where the same devices
@@ -287,8 +328,12 @@ func (e *Engine) rollback(ctx context.Context, op *Op, why string) {
 	}
 	for _, t := range op.Targets {
 		d, s, ours := storage.PartitionByUUID(disks, t.PartUUID)
-		if !ours && t.DiskID != t.Path {
-			d, ours = storage.Find(disks, t.DiskID)
+		if !ours {
+			var why string
+			if d, ours, why = targetByID(disks, t); why != "" {
+				stuck(why)
+				return
+			}
 		}
 		if !ours {
 			continue // gone, or never partitioned: nothing of ours on it

@@ -247,7 +247,7 @@ func Assemble(ctx context.Context, r Runner, o AssembleOptions) (AssembleResult,
 	}
 	_ = os.MkdirAll(filepath.Join(o.Mount, filepath.Dir(storage.NeedsScrubMarker)), 0o755)
 	_ = os.WriteFile(filepath.Join(o.Mount, storage.NeedsScrubMarker), nil, 0o644)
-	_ = os.MkdirAll(o.RunDir, 0o700)
+	_ = storage.MakeRunDir(o.RunDir)
 	_ = os.WriteFile(o.RunDir+"/degraded", nil, 0o644)
 	res.State, res.Detail = "degraded", fmt.Sprintf("%d of %d members missing; mounted degraded, needs-scrub marker written", missing, total)
 	return res, nil
@@ -387,7 +387,7 @@ func mount(ctx context.Context, r Runner, dev, at, extra string) error {
 
 func unavailable(ctx context.Context, r Runner, o AssembleOptions, res AssembleResult, why string) (AssembleResult, error) {
 	res.State, res.Detail = "unavailable", why
-	_ = os.MkdirAll(o.RunDir, 0o700)
+	_ = storage.MakeRunDir(o.RunDir)
 	_ = os.WriteFile(o.RunDir+"/unavailable", []byte(why+"\n"), 0o644)
 	_ = os.MkdirAll(o.Mount, 0o755)
 	_, _, _ = r.Exec(ctx, "", "mount", "-t", "tmpfs", "-o", "mode=0755,size=256m", "onemind-recovery", o.Mount)

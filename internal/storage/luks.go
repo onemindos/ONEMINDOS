@@ -33,7 +33,9 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -210,6 +212,23 @@ func NewRecoveryKey() (string, error) {
 		sb.WriteByte(modhex[x&0x0f])
 	}
 	return sb.String(), nil
+}
+
+// MakeRunDir creates dir (RunDir, or a lab's) with mode 0700. A missing parent
+// (/run/onemind) is made 0755 whatever the umask: other services' sockets
+// live there and the gateway must reach them, while MkdirAll alone would give
+// the parent dir's 0700.
+func MakeRunDir(dir string) error {
+	parent := filepath.Dir(dir)
+	if _, err := os.Stat(parent); errors.Is(err, fs.ErrNotExist) {
+		if err := os.MkdirAll(parent, 0o755); err != nil {
+			return err
+		}
+		if err := os.Chmod(parent, 0o755); err != nil {
+			return err
+		}
+	}
+	return os.MkdirAll(dir, 0o700)
 }
 
 // TPM2Present reports a TPM 2.0 the kernel exposes through the resource manager.

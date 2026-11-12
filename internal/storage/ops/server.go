@@ -58,7 +58,7 @@ type ctxKey struct{}
 
 // Listen opens the socket at path with mode 0660 and group gid (-1: keep).
 func Listen(path string, gid int) (net.Listener, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := searchableDir(filepath.Dir(path)); err != nil {
 		return nil, err
 	}
 	if fi, err := os.Lstat(path); err == nil && fi.Mode()&os.ModeSocket != 0 {
@@ -79,6 +79,25 @@ func Listen(path string, gid int) (net.Listener, error) {
 		}
 	}
 	return l, nil
+}
+
+// searchableDir makes the socket's folder and lets the gateway reach the
+// socket through it. MkdirAll honours the umask (the unit runs with
+// UMask=0077) and the boot assembly may have made /run/onemind 0700 first; a
+// folder nobody but its owner can enter gets group and other search
+// permission. A folder that already grants either is left as it is.
+func searchableDir(dir string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	fi, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if perm := fi.Mode().Perm(); perm&0o011 == 0 {
+		return os.Chmod(dir, perm|0o055)
+	}
+	return nil
 }
 
 // Serve runs the API on l until ctx ends.
@@ -111,7 +130,9 @@ func (s *Server) peerAllowed(r *http.Request) bool {
 	}
 	uid, gid, known := peerCred(uc)
 	if !known {
-		return true // no SO_PEERCRED on this OS: the socket's mode is the only gate (dev only)
+		// No SO_PEERCRED on this OS: the socket's mode is the only gate (dev
+		// only). On Linux a failed lookup refuses the connection.
+		return !peerCredSupported
 	}
 	return uid == 0 || (s.AllowUID >= 0 && uid == s.AllowUID) || (s.AllowGID >= 0 && gid == s.AllowGID)
 }

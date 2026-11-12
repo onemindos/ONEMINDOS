@@ -236,8 +236,16 @@ func (e *Engine) Start(ctx context.Context, req Request) (*Op, error) {
 	for i := range op.Steps {
 		op.Steps[i].State = StepPending
 	}
-	m, _ := e.Facts.Mirror(ctx, e.Mount)
-	disks, _ := e.Facts.Disks(ctx, m)
+	// The identities that find these devices again after a reboot: without
+	// them a resume or rollback cannot tell the target from another disk.
+	m, err := e.Facts.Mirror(ctx, e.Mount)
+	if err != nil {
+		return nil, err
+	}
+	disks, err := e.Facts.Disks(ctx, m)
+	if err != nil {
+		return nil, err
+	}
 	op.Targets, op.Refs = targetsAndRefs(p, disks)
 	if err := e.save(op); err != nil {
 		return nil, err
