@@ -17,6 +17,12 @@ from ..auditread import MAX_LIMIT, AuditReader, can_read_all, can_read_own
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
+from ..identity.scopes import register_route_scope
+
+# §12.16: audit:read (owner, adult) for household accounts and identity tokens. A narrowed
+# audit:read:own (the agent reader bundle) is refused here (fail closed) until this module
+# checks the narrowing itself rather than the principal's role.
+register_route_scope("GET,HEAD", r"/v1/audit/(events(/[^/]+)?|verify)", ("audit:read",))
 
 
 def owned_action_ids(gw: Gateway):

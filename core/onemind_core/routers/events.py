@@ -10,7 +10,11 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
 from ..eventstream import EventStream, StreamSlots
+from ..identity.scopes import register_route_scope
 from .audit import owned_action_ids
+
+# §12.9: events:read for household accounts and identity tokens (not a guest or child scope).
+register_route_scope("GET,HEAD", r"/v1/events", ("events:read",))
 
 
 def register(app: FastAPI, gw: Gateway) -> None:

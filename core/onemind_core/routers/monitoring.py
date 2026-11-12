@@ -89,7 +89,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return mon.kube
 
     # ---- apps ---------------------------------------------------------------------------
-    @app.get("/v1/apps/{app_id}", tags=["apps"], responses=error_responses(401, 404))
+    @app.get("/v1/apps/{app_id}", operation_id="apps.get", tags=["apps"], responses=error_responses(401, 404))
     def get_app(app_id: str, request: Request, p: Principal = Depends(principal)):
         row = app_entry(app_id, request, p)
         health, components = mon.app_view(app_id, row["installed"])
@@ -103,7 +103,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             "backup": None, "access": {"roles": roles, "shared_with_me": shared},
         }
 
-    @app.get("/v1/apps/{app_id}/logs", tags=["apps"], response_class=PlainTextResponse,
+    @app.get("/v1/apps/{app_id}/logs", operation_id="apps.logs", tags=["apps"], response_class=PlainTextResponse,
              responses={200: {"content": {"text/plain": {}, "text/event-stream": {}}},
                         429: {"description": "rate_limited: too many open log streams"},
                         **error_responses(401, 403, 404, 422)})
@@ -162,7 +162,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return StreamingResponse(gen(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
-    @app.get("/v1/apps/{app_id}/metrics", tags=["apps"], responses=error_responses(401, 404))
+    @app.get("/v1/apps/{app_id}/metrics", operation_id="apps.metrics", tags=["apps"], responses=error_responses(401, 404))
     def app_metrics(app_id: str, request: Request, p: Principal = Depends(principal)):
         app_entry(app_id, request, p)
         out = {"app_id": app_id, "at": iso(gw.clock()), "components": []}
@@ -185,7 +185,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return out
 
     # ---- nodes --------------------------------------------------------------------------
-    @app.get("/v1/nodes/{node_id}/metrics", tags=["nodes"], responses=error_responses(401, 404, 422))
+    @app.get("/v1/nodes/{node_id}/metrics", operation_id="nodes.metrics", tags=["nodes"], responses=error_responses(401, 404, 422))
     def node_metrics(node_id: str, window: str | None = None, _: Principal = Depends(principal)):
         now = gw.clock()
         secs = parse_window(window, now, 3600, 24 * 3600)
@@ -195,7 +195,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return {"node_id": node_id, "source": source, "samples": samples}
 
     # ---- summary ------------------------------------------------------------------------
-    @app.get("/v1/monitoring/summary", tags=["monitoring"], responses=error_responses(401))
+    @app.get("/v1/monitoring/summary", operation_id="monitoring.summary", tags=["monitoring"], responses=error_responses(401))
     def summary(_: Principal = Depends(principal)):
         nodes = gw.registry.list()
         counts = {"online": 0, "stale": 0, "offline": 0}
