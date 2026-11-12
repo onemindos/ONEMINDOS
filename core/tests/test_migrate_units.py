@@ -176,6 +176,8 @@ def test_mapper_report_and_objects():
     assert next(s for s in r.secrets if s["name"] == "notes-extra")["all_keys"] is True
     assert {w["name"]: w["selector"] for w in r.workloads} == {"notes": {"app": "notes"}, "db": {"app": "db"}}
     assert r.findings[0].level in ("move", "fixed")  # blocking first, then actionable
+    placement = next(f for f in r.findings if f.kind == "Deployment" and f.level == "drop" and "places" in f.message)
+    assert "nodeSelector" in placement.message and "schedulerName" not in placement.message  # server default
 
 
 def test_mapper_blocks_unsafe_workloads():
@@ -225,14 +227,14 @@ def test_manifest_and_bundle(tmp_path):
     assert e.manifests_dir == (root / "staging").resolve()
     assert bundle.entry(root, m, staging=False).manifests_dir == (root / "manifests").resolve()
     for f in root.rglob("*.yaml"):
-        assert "10.0.0.9" not in f.read_text()  # the old cluster's addresses never reach the bundle
+        assert "198.51.100.9" not in f.read_text()  # the old cluster's addresses never reach the bundle
 
 
 # ---- job specs and results -----------------------------------------------------------------------
 def test_helper_pod_is_minimal():
     pod = copyjobs.helper_pod(
         name="onemind-migrate-copy-x", plan_id="mig_1", copy_id="cpy_1", pvc="notes-data", node="node-a",
-        image="img@sha256:" + "0" * 64, repository="rest:https://u:p@box.example.test/v1/migrate/repo/mig_1/",
+        image="img@sha256:" + "0" * 64, repository="rest:https://user:secret@box/v1/migrate/repo/mig_1/",
         repo_password="pw", tags=["onemind"], ca_pem=None, deadline_s=60,
     )
     spec = pod["spec"]

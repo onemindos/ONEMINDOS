@@ -53,6 +53,16 @@ def test_restic_round_trip(repo):
     assert on_disk.read_bytes() == data  # restic's own local layout
 
 
+def test_init_saves_the_key_before_the_config(repo):
+    client, base, users, _ = repo
+    w = users["w"]
+    key = b"key"
+    assert client.post(f"{base}/keys/{_blob(key)}", headers=w, content=key).status_code == 404  # no create yet
+    assert client.post(f"{base}/?create=true", headers=w).status_code == 200
+    assert client.post(f"{base}/keys/{_blob(key)}", headers=w, content=key).status_code == 200
+    assert client.post(f"{base}/config", headers=w, content=b"cfg").status_code == 200
+
+
 def test_append_only_rules(repo):
     client, base, users, _ = repo
     w, r = users["w"], users["r"]

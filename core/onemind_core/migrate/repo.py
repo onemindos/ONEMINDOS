@@ -52,7 +52,8 @@ class Repo:
 
     @property
     def exists(self) -> bool:
-        return (self.root / "config").is_file()
+        """Created by `POST /?create=true`. restic init then saves the key before the config."""
+        return (self.root / "keys").is_dir()
 
     def create(self) -> None:
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)

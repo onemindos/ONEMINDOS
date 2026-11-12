@@ -32,6 +32,8 @@ SAFE_CAPS = {
     "AUDIT_WRITE", "CHOWN", "DAC_OVERRIDE", "FOWNER", "FSETID", "KILL", "MKNOD", "NET_BIND_SERVICE",
     "SETFCAP", "SETGID", "SETPCAP", "SETUID", "SYS_CHROOT",
 }
+# Values the API server fills in by itself: removing them is not worth a report line.
+SERVER_DEFAULTS = {"schedulerName": "default-scheduler", "priority": 0, "preemptionPolicy": "PreemptLowerPriority"}
 DEFAULT_MEMORY_LIMIT = "1Gi"
 DEFAULT_CPU_LIMIT = "1"
 SKIP_CONFIGMAPS = {"kube-root-ca.crt"}
@@ -273,13 +275,15 @@ class _Mapper:
             if spec.get(flag):
                 r.add("fail", kind, name, f"{flag}: true is not allowed (apps never share the host's namespaces)")
                 ok = False
+        original = dict(spec)
         dropped = [f for f in POD_DROP_FIELDS if f in spec]
         sa = spec.get("serviceAccountName") or spec.get("serviceAccount")
         for f in dropped:
             spec.pop(f, None)
         if spec.get("dnsPolicy") == "ClusterFirstWithHostNet":
             spec.pop("dnsPolicy")
-        placement = [f for f in dropped if f not in ("serviceAccountName", "serviceAccount", "priority")]
+        placement = [f for f in dropped if f not in ("serviceAccountName", "serviceAccount")
+                     and SERVER_DEFAULTS.get(f, object()) != original.get(f)]
         if placement:
             r.add("drop", kind, name, f"{', '.join(placement)} removed; OneMind places apps on its own nodes")
         if sa and sa != "default":

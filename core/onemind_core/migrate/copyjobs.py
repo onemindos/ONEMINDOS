@@ -32,8 +32,8 @@ _CA = (
 
 HELPER_SCRIPT = (
     "set -eu\numask 077\n" + _CA
-    + "export RESTIC_CACHE_DIR=/work/cache\n"
-    "mkdir -p /work/meta\n"
+    + "export RESTIC_CACHE_DIR=/work/cache TMPDIR=/work/tmp\n"
+    "mkdir -p /work/meta /work/tmp\n"
     "cd /src\n"
     "find . -type f -exec sha256sum {} + > /work/meta/manifest.sha256\n"
     "files=$(wc -l < /work/meta/manifest.sha256 | tr -d ' ')\n"
@@ -46,7 +46,8 @@ HELPER_SCRIPT = (
 
 RESTORE_SCRIPT = (
     "set -eu\n" + _CA
-    + "export RESTIC_CACHE_DIR=/work/cache\n"
+    + "export RESTIC_CACHE_DIR=/work/cache TMPDIR=/work/tmp\n"
+    "mkdir -p /work/tmp\n"
     'restic restore --no-lock "$ONEMIND_SNAPSHOT:/src" --target /data --delete > /work/restore.log 2>&1 '
     "|| { tail -n 20 /work/restore.log; exit 1; }\n"
     'restic dump --no-lock "$ONEMIND_SNAPSHOT" /work/meta/manifest.sha256 > /work/manifest.sha256\n'
@@ -54,8 +55,9 @@ RESTORE_SCRIPT = (
     "msha=$(sha256sum /work/manifest.sha256 | cut -d' ' -f1)\n"
     "cd /data\n"
     "failed=0\n"
-    'if [ "$files" -gt 0 ]; then failed=$( (sha256sum -c /work/manifest.sha256 2>&1 || true) '
-    "| grep -c -v ': OK$' || true); fi\n"
+    # every manifest line that is not reported OK (changed, missing or unreadable) counts once
+    'if [ "$files" -gt 0 ]; then good=$( (sha256sum -c /work/manifest.sha256 2>/dev/null || true) '
+    "| grep -c ': OK$' || true); failed=$((files - good)); fi\n"
     "present=$(find . -type f | wc -l | tr -d ' ')\n"
     'printf \'ONEMIND-RESULT {"files":%s,"failed":%s,"present":%s,"manifest_sha256":"%s"}\\n\' '
     '"$files" "$failed" "$present" "$msha"\n'

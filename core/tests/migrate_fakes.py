@@ -56,6 +56,7 @@ def namespace_objects() -> dict[str, list[dict]]:
                 "metadata": {"labels": {"app": "notes"}},
                 "spec": {
                     "serviceAccountName": "notes-sa", "nodeSelector": {"disk": "ssd"},
+                    "schedulerName": "default-scheduler",
                     "imagePullSecrets": [{"name": "regcred"}],
                     "containers": [{
                         "name": "notes", "image": "registry.example.test/notes:1.4",
@@ -92,7 +93,7 @@ def namespace_objects() -> dict[str, list[dict]]:
         "statefulsets": [db],
         "daemonsets": [{"metadata": {"name": "log-agent"}, "spec": {}}],
         "services": [
-            {"metadata": {"name": "notes"}, "spec": {"type": "NodePort", "clusterIP": "10.0.0.9", "selector": {"app": "notes"},
+            {"metadata": {"name": "notes"}, "spec": {"type": "NodePort", "clusterIP": "198.51.100.9", "selector": {"app": "notes"},
                                                      "ports": [{"name": "http", "port": 80, "targetPort": 8080, "nodePort": 30080}]}},
             {"metadata": {"name": "db"}, "spec": {"clusterIP": "None", "selector": {"app": "db"}, "ports": [{"port": 5432}]}},
             {"metadata": {"name": "external"}, "spec": {"type": "ExternalName", "externalName": "db.example.test"}},
@@ -191,6 +192,7 @@ class FakeBox(BoxKube):
         self.restore_failed = 0
         self.job_ok = True
         self.pods_left: list[dict] = []
+        self.storage_class = True
 
     def apply(self, namespace, doc):
         self.calls.append(("apply", namespace, doc["kind"], doc["metadata"]["name"]))
@@ -201,6 +203,8 @@ class FakeBox(BoxKube):
 
     def get(self, namespace, kind, name):
         self.calls.append(("get", namespace, kind, name))
+        if kind == "storageclass":
+            return {"metadata": {"name": name}} if self.storage_class else None
         return {"status": {"succeeded": 1} if self.job_ok else {"failed": 1}}
 
     def pods(self, namespace, selector):

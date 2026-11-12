@@ -115,6 +115,38 @@ def test_import_needs_scan_and_owner_approval(client, world, clock, executor):
     assert client.app.state.repo.get_app_state("notes").status == "stopped"
 
 
+def test_import_fails_without_the_platform_storage_class(client, world, clock, executor):
+    svc, _, box = world
+    box.storage_class = False
+    plan = _plan(client)
+    write_scan(svc.bundle_dir(plan["id"]), clock.now)
+    r = client.post(f"/v1/migrate/plans/{plan['id']}/import", headers=OWNER, json={})
+    got = _approve(client, r.json()["id"])
+    assert got["state"] == "failed" and "onemind-local" in got["result"]["message"]
+    assert executor.calls == []  # nothing applied
+
+
+def test_unschedulable_helper_fails_instead_of_waiting(client, world, clock):
+    svc, cluster, _ = world
+    plan = _imported(client, svc, clock)
+    cluster.helper_phase = "Pending"
+    svc.settings = type(svc.settings)(rollout_timeout_s=0, poll_s=0.01)
+    real_send = cluster.send
+
+    def send(method, url, headers, body):
+        status, raw = real_send(method, url, headers, body)
+        for pod in cluster.helpers.values():
+            pod["status"]["conditions"] = [{"type": "PodScheduled", "status": "False", "message": "0/1 nodes are available"}]
+        return status, raw
+
+    svc.transport = lambda target: send
+    r = client.post(f"/v1/migrate/plans/{plan['id']}/copy", headers=OWNER,
+                    json={"kubeconfig": kubeconfig(), "pvcs": ["notes-data"]})
+    got = _approve(client, r.json()["id"])
+    assert got["state"] == "failed" and "could not be scheduled" in got["result"]["message"]
+    assert not cluster.helpers  # deleted even so
+
+
 def test_import_refused_when_bundle_changed(client, world, clock):
     svc, _, _ = world
     plan = _plan(client)

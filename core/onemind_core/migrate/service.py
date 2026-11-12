@@ -47,7 +47,7 @@ from .kube import (
     HELPER, SCALE, FenceError, KubeApiError, KubeClient, KubeconfigError, KubeTarget, KubeUnreachable,
     Transport, parse_kubeconfig,
 )
-from .mapper import app_manifest, map_namespace
+from .mapper import STORAGE_CLASS, app_manifest, map_namespace
 from .store import MigrateCopyRow, MigratePlanRow, MigrateStore, copy_json, new_id, plan_json
 
 log = logging.getLogger("onemind.migrate")
@@ -393,6 +393,9 @@ class MigrateService:
     def _run_import(self, a: Action) -> ExecResult:
         def go(row: MigratePlanRow) -> tuple[str, list[dict]]:
             manifest = self._manifest(row)
+            if self.box is not None and self.box.get("default", "storageclass", STORAGE_CLASS) is None:
+                # Without it the volumes never bind and the copy would wait for nothing.
+                raise StepError(f"this box has no StorageClass {STORAGE_CLASS} (the OS platform layer creates it)")
             res = self.gw.executor.run("app.install", bundlemod.entry(self.bundle_dir(row.id), manifest, staging=True))
             if res.outcome != "succeeded":
                 self.gw.repo.set_app_state(row.app_id, "failed" if res.outcome == "failed" else "unknown",
@@ -574,6 +577,14 @@ class MigrateService:
         steps.append({"old": "no old pods left"})
         return old
 
+    def _check_scheduled(self, status: dict, started: float, what: str) -> None:
+        """A pod still unschedulable after the rollout timeout fails the step instead of waiting hours."""
+        if time.monotonic() - started <= self.settings.rollout_timeout_s:
+            return
+        for cond in status.get("conditions") or []:
+            if cond.get("type") == "PodScheduled" and cond.get("status") == "False":
+                raise StepError(f"{what} could not be scheduled: {str(cond.get('message') or cond.get('reason'))[:300]}")
+
     def _wait(self, done: Callable[[], bool], timeout_s: float, what: str) -> None:
         deadline = time.monotonic() + timeout_s
         while not done():
@@ -646,8 +657,12 @@ class MigrateService:
         try:
             phase = {"v": None}
 
+            started = time.monotonic()
+
             def finished() -> bool:
-                phase["v"] = ((client.get_pod(name).get("status") or {}).get("phase"))
+                status = client.get_pod(name).get("status") or {}
+                phase["v"] = status.get("phase")
+                self._check_scheduled(status, started, f"helper pod {name} in the old cluster")
                 return phase["v"] in ("Succeeded", "Failed")
 
             self._wait(finished, self.settings.copy_timeout_s, f"helper pod {name} did not finish")
@@ -675,10 +690,17 @@ class MigrateService:
             ))
             state = {"job": None}
 
+            started = time.monotonic()
+
             def finished() -> bool:
                 state["job"] = box.get(ns, "job", name)
                 st = (state["job"] or {}).get("status") or {}
-                return bool(st.get("succeeded") or st.get("failed"))
+                if st.get("succeeded") or st.get("failed"):
+                    return True
+                if time.monotonic() - started > self.settings.rollout_timeout_s:
+                    for pod in box.pods(ns, f"job-name={name}"):
+                        self._check_scheduled(pod.get("status") or {}, started, f"restore pod for {pvc}")
+                return False
 
             self._wait(finished, self.settings.copy_timeout_s, f"restore job {name} did not finish")
             logs = box.logs(ns, name)
