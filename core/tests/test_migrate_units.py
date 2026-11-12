@@ -197,6 +197,59 @@ def test_mapper_blocks_unsafe_workloads():
     assert not any(o["kind"] == "Deployment" for o in r.objects)  # a blocked workload is not written
 
 
+@pytest.mark.parametrize("where, patch, words", [
+    ("container", {"seccompProfile": {"type": "Unconfined"}}, "seccompProfile Unconfined"),
+    ("container", {"appArmorProfile": {"type": "Unconfined"}}, "appArmorProfile Unconfined"),
+    ("container", {"procMount": "Unmasked"}, "procMount Unmasked"),
+    ("container", {"seLinuxOptions": {"type": "spc_t"}}, "seLinuxOptions"),
+    ("pod", {"seccompProfile": {"type": "Unconfined"}}, "pod seccompProfile Unconfined"),
+    ("pod", {"windowsOptions": {"hostProcess": True}}, "hostProcess"),
+    ("pod", {"sysctls": [{"name": "kernel.msgmax", "value": "1"}]}, "sysctls kernel.msgmax"),
+    ("annotation", {"container.apparmor.security.beta.kubernetes.io/notes": "unconfined"}, "AppArmor profile unconfined"),
+])
+def test_mapper_blocks_what_psa_baseline_forbids(where, patch, words):
+    objs = FakeCluster().objects
+    tpl = objs["deployments"][0]["spec"]["template"]
+    if where == "container":
+        tpl["spec"]["containers"][0]["securityContext"] = patch
+    elif where == "pod":
+        tpl["spec"]["securityContext"] = patch
+    else:
+        tpl["metadata"]["annotations"] = patch
+    client = KubeClient(parse_kubeconfig(kubeconfig()), NS, transport=FakeCluster(objs).send)
+    r = map_namespace(read_namespace(client), "notes")
+    fails = [f.message for f in r.findings if f.level == "fail"]
+    assert len(fails) == 1 and words in fails[0], fails
+    assert not any(o["kind"] == "Deployment" for o in r.objects)
+
+
+def test_mapper_allows_baseline_profiles_and_safe_sysctls():
+    objs = FakeCluster().objects
+    tpl = objs["deployments"][0]["spec"]["template"]
+    tpl["metadata"]["annotations"] = {"container.apparmor.security.beta.kubernetes.io/notes": "runtime/default"}
+    tpl["spec"]["securityContext"] = {"seccompProfile": {"type": "RuntimeDefault"},
+                                      "seLinuxOptions": {"type": "container_t", "level": "s0:c1,c2"},
+                                      "sysctls": [{"name": "net.ipv4.ip_unprivileged_port_start", "value": "0"}]}
+    client = KubeClient(parse_kubeconfig(kubeconfig()), NS, transport=FakeCluster(objs).send)
+    assert map_namespace(read_namespace(client), "notes").blocking == 0
+
+
+def test_mapper_removes_projected_service_account_tokens():
+    objs = FakeCluster().objects
+    vols = objs["deployments"][0]["spec"]["template"]["spec"]["volumes"]
+    token = {"serviceAccountToken": {"path": "token", "expirationSeconds": 3600}}
+    vols.append({"name": "mixed", "projected": {"sources": [token, {"configMap": {"name": "notes-config"}}]}})
+    vols.append({"name": "only-token", "projected": {"sources": [token]}})
+    client = KubeClient(parse_kubeconfig(kubeconfig()), NS, transport=FakeCluster(objs).send)
+    r = map_namespace(read_namespace(client), "notes")
+    dep = next(o for o in r.objects if o["kind"] == "Deployment")
+    out = {v["name"]: v for v in dep["spec"]["template"]["spec"]["volumes"]}
+    assert out["mixed"]["projected"]["sources"] == [{"configMap": {"name": "notes-config"}}]
+    assert out["only-token"] == {"name": "only-token", "emptyDir": {}}
+    assert "serviceAccountToken" not in json.dumps(dep)
+    assert sum(1 for f in r.findings if f.level == "drop" and "service account tokens" in f.message) == 2
+
+
 def test_mapper_empty_namespace_blocks():
     r = map_namespace(Inventory(namespace=NS), "empty")
     assert r.blocking == 1

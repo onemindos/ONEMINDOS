@@ -32,6 +32,16 @@ SAFE_CAPS = {
     "AUDIT_WRITE", "CHOWN", "DAC_OVERRIDE", "FOWNER", "FSETID", "KILL", "MKNOD", "NET_BIND_SERVICE",
     "SETFCAP", "SETGID", "SETPCAP", "SETUID", "SYS_CHROOT",
 }
+# The rest of PSA "baseline": isolation a pod may not switch off. App namespaces do not enforce
+# Pod Security yet (SANDBOX), so the import refuses these itself.
+SAFE_SELINUX_TYPES = {"", "container_t", "container_init_t", "container_kvm_t", "container_engine_t"}
+SAFE_SYSCTLS = {
+    "kernel.shm_rmid_forced", "net.ipv4.ip_local_port_range", "net.ipv4.ip_unprivileged_port_start",
+    "net.ipv4.tcp_syncookies", "net.ipv4.ping_group_range", "net.ipv4.ip_local_reserved_ports",
+    "net.ipv4.tcp_keepalive_time", "net.ipv4.tcp_fin_timeout", "net.ipv4.tcp_keepalive_intvl",
+    "net.ipv4.tcp_keepalive_probes", "net.ipv4.tcp_rmem", "net.ipv4.tcp_wmem",
+}
+APPARMOR_ANNOTATION = "container.apparmor.security.beta.kubernetes.io/"
 # Values the API server fills in by itself: removing them is not worth a report line.
 SERVER_DEFAULTS = {"schedulerName": "default-scheduler", "priority": 0, "preemptionPolicy": "PreemptLowerPriority"}
 DEFAULT_MEMORY_LIMIT = "1Gi"
@@ -161,6 +171,27 @@ def _pin(image: str, digest: str | None) -> str | None:
     return f"{image}@{digest}"
 
 
+def _dict(value: object) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _weakened(sc: object) -> list[str]:
+    """What a pod or container securityContext switches off that PSA baseline keeps on."""
+    sc = _dict(sc)
+    out = []
+    for key in ("seccompProfile", "appArmorProfile"):
+        if str(_dict(sc.get(key)).get("type", "")).lower() == "unconfined":
+            out.append(f"{key} Unconfined")
+    se = _dict(sc.get("seLinuxOptions"))
+    if se.get("type", "") not in SAFE_SELINUX_TYPES or se.get("user") or se.get("role"):
+        out.append("a custom seLinuxOptions type, user or role")
+    if sc.get("procMount") not in (None, "Default"):
+        out.append(f"procMount {sc.get('procMount')}")
+    if _dict(sc.get("windowsOptions")).get("hostProcess"):
+        out.append("windowsOptions.hostProcess")
+    return out
+
+
 def _running_digests(pods: list[dict], container: str) -> list[str]:
     out = []
     for pod in pods:
@@ -217,6 +248,9 @@ class _Mapper:
         bad = sorted(cap for cap in added if str(cap).upper().removeprefix("CAP_") not in SAFE_CAPS)
         if bad:
             r.add("fail", "Container", f"{where}/{cname}", f"capabilities {', '.join(bad)} are not allowed")
+            ok = False
+        for what in _weakened(sc):
+            r.add("fail", "Container", f"{where}/{cname}", f"{what} is not allowed (it switches off app isolation)")
             ok = False
         for p in c.get("ports") or []:
             if "hostPort" in p:
@@ -275,6 +309,15 @@ class _Mapper:
             if spec.get(flag):
                 r.add("fail", kind, name, f"{flag}: true is not allowed (apps never share the host's namespaces)")
                 ok = False
+        psc = _dict(spec.get("securityContext"))
+        for what in _weakened(psc):
+            r.add("fail", kind, name, f"pod {what} is not allowed (it switches off app isolation)")
+            ok = False
+        unsafe = sorted(str(s.get("name")) for s in psc.get("sysctls") or []
+                        if not isinstance(s, dict) or s.get("name") not in SAFE_SYSCTLS)
+        if unsafe:
+            r.add("fail", kind, name, f"sysctls {', '.join(unsafe)} are not allowed (only the PSA baseline set is)")
+            ok = False
         original = dict(spec)
         dropped = [f for f in POD_DROP_FIELDS if f in spec]
         sa = spec.get("serviceAccountName") or spec.get("serviceAccount")
@@ -314,11 +357,21 @@ class _Mapper:
                     else:
                         self.secret_ref(str(sec["secretName"]), None, bool(sec.get("optional")), where)
             elif "projected" in v:
-                for src in (v["projected"] or {}).get("sources") or []:
+                kept = []
+                for src in _dict(v["projected"]).get("sources") or []:
+                    if not isinstance(src, dict):
+                        continue
+                    if "serviceAccountToken" in src:  # removed: a projected token works without automount
+                        r.add("drop", kind, name, f"volume {vname}: service account tokens are not given to apps")
+                        continue
                     if "secret" in src and (src["secret"] or {}).get("name"):
                         self.secret_ref(str(src["secret"]["name"]), None, bool(src["secret"].get("optional")), where)
-                    if "serviceAccountToken" in src:
-                        r.add("drop", kind, name, f"volume {vname}: service account tokens are not given to apps")
+                    kept.append(src)
+                if kept:
+                    v["projected"] = {**_dict(v["projected"]), "sources": kept}
+                else:
+                    v.pop("projected")
+                    v["emptyDir"] = {}
             elif any(k in v for k in ("configMap", "emptyDir", "downwardAPI")):
                 pass
             else:
@@ -356,6 +409,13 @@ class _Mapper:
         ok = self.pod_spec(kind, name, pod_spec, pods)
         template_meta = _clean_meta(template, keep_annotations=True)
         template_meta.pop("name", None)
+        for key, value in (template_meta.get("annotations") or {}).items():
+            profile = str(value)
+            if str(key).startswith(APPARMOR_ANNOTATION) and profile != "runtime/default" \
+                    and not profile.startswith("localhost/"):
+                r.add("fail", kind, name, f"AppArmor profile {profile} for container "
+                      f"{str(key).removeprefix(APPARMOR_ANNOTATION)} is not allowed (it switches off app isolation)")
+                ok = False
         template["metadata"] = template_meta
         spec.pop("revisionHistoryLimit", None)
         if kind == "StatefulSet":
