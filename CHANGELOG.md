@@ -18,6 +18,7 @@ Branches with work that is not on `main` yet (as of 2026-11-12):
 | `feat/core-net` | – | Internal networking and mesh: a WireGuard mesh with a self-hosted Headscale coordinator and relay, NATS leaf links with TLS and per-node credentials, the app reverse proxy with login, a per-box CA, and the NAT lab test |
 | `feat/ui-leap` | – | UI leap: umbrelOS parity audit, customization (themes, accents, wallpapers, density), Home with widgets and dock, App Store with install progress and app management, command palette, notifications, onboarding, and Settings |
 | `feat/app-taxonomy` | – | App and deployment categories (`docs/design/TAXONOMY.md`), applied to the candidate list |
+| `feat/app-secrets` | – | App secrets (CORE-SECRETS-1): manifests declare `spec.secrets`; the owner enters values in the install approval or files a change, sealed in the browser to the box's key; stored AES-256-GCM with a key from the box key store; applied as Kubernetes Secrets by server-side apply; never shown again, never to agents, never logged; rotatable. Hermes declares its model-provider keys instead of a printed kubectl command, with `onemind-secrets` as the terminal stand-in until the dashboard shows the form. F-7 owner override (APP-OVERRIDE-1), off unless `ONEMIND_ALLOW_OWNER_OVERRIDE=1`, with a red audit mark. UI form, dialog and demo in `ui/src/secrets`. Guide: [`docs/leap/core/SECRETS.md`](docs/leap/core/SECRETS.md) |
 
 ## 2026-11-12
 
