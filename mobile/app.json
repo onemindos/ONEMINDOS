@@ -24,7 +24,6 @@
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
-        "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
@@ -34,6 +33,18 @@
     },
     "plugins": [
       "expo-secure-store",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "OneMind backs up the photos and videos you choose to your own OneMind box.",
+          "savePhotosPermission": false,
+          "isAccessMediaLocationEnabled": true,
+          "granularPermissions": [
+            "photo",
+            "video"
+          ]
+        }
+      ],
       [
         "expo-notifications",
         {
@@ -47,7 +58,8 @@
             "usesCleartextTraffic": true
           }
         }
-      ]
+      ],
+      "expo-background-task"
     ]
   }
 }
