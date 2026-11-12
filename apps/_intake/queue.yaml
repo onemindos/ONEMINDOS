@@ -13,3 +13,4 @@
 - {name: Immich, github: immich-app/immich, priority: 1, status: in-pr, notes: "market batch 1"}
 - {name: Syncthing, github: syncthing/syncthing, priority: 1, status: in-pr, notes: "market batch 1"}
 - {name: Paperless-ngx, github: paperless-ngx/paperless-ngx, priority: 1, status: in-pr, notes: "market batch 1"}
+- {name: Gitea, github: go-gitea/gitea, priority: 1, status: in-pr, notes: "market batch 1"}
