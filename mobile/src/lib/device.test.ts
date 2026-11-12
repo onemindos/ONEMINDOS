@@ -55,8 +55,8 @@ describe('device request: an owner-approved action (clients.md §4.4)', () => {
         return { id: 'dreq_1', state: 'active', device_id: 'dev_7k2m', one_time: { refresh_token: 'rt1' } };
       },
     });
-    const link = await requestDevice(api, 'https://h', 'Zeus phone', { random: seed, now: 0 });
-    expect(body).toMatchObject({ name: 'Zeus phone', kind: 'phone', jwk: (await loadKey())!.jwk });
+    const link = await requestDevice(api, 'https://h', 'Ana phone', { random: seed, now: 0 });
+    expect(body).toMatchObject({ name: 'Ana phone', kind: 'phone', jwk: (await loadKey())!.jwk });
     expect(JSON.stringify(body)).not.toMatch(/"d"/); // never the private key
     expect(link).toMatchObject({ state: 'pending', actionId: 'act-9' });
     const after = await pollDevice(api, link);

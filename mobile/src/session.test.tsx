@@ -76,7 +76,7 @@ describe('identity (§12.6)', () => {
   it('reads features and /v1/me after connecting, so the role is known before any 403', async () => {
     const api = v0Api({
       features: async () => new Features([OP.me], 'openapi'),
-      me: async () => me({ id: 'zeus', role: 'adult' }, []),
+      me: async () => me({ id: 'ana', role: 'adult' }, []),
     });
     const wrapper = ({ children }: { children: ReactNode }) => (
       <SessionProvider deps={{ load: async () => null, save: async () => undefined, clear: async () => undefined, makeApi: () => api }}>{children}</SessionProvider>
@@ -85,7 +85,7 @@ describe('identity (§12.6)', () => {
     await act(async () => {
       await result.current.connect({ mode: 'live', hubUrl: 'https://hub.example', token: 't' });
     });
-    expect(result.current.session?.principal).toEqual({ id: 'zeus', kind: 'person', role: 'adult' });
+    expect(result.current.session?.principal).toEqual({ id: 'ana', kind: 'person', role: 'adult' });
     expect(result.current.session?.canDecide).toBe('no');
     expect(result.current.session?.features.has(OP.me)).toBe(true);
   });
