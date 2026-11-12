@@ -280,8 +280,16 @@ secrets_encryption_check() {
     || die "k3s secrets encryption is not enabled (k3s secrets-encrypt status)"
   if [ ! -f "$ETC/k3s-secrets-reencrypted" ]; then
     log "k3s: rewriting existing Secrets so they are stored encrypted"
-    "$BIN/k3s" kubectl get secrets -A -o json | "$BIN/k3s" kubectl replace -f - >/dev/null \
-      || die "rewriting existing Secrets failed"
+    # k3s itself updates a few Secrets right after start (the node password), so a replace of a
+    # stale copy can answer "Conflict". Read again and retry; replacing is safe to repeat.
+    local ok=""
+    for i in 1 2 3 4 5; do
+      if "$BIN/k3s" kubectl get secrets -A -o json | "$BIN/k3s" kubectl replace -f - >/dev/null; then
+        ok=1; break
+      fi
+      sleep 2
+    done
+    [ -n "$ok" ] || die "rewriting existing Secrets failed"
     : > "$ETC/k3s-secrets-reencrypted"
   fi
 }

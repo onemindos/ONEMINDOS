@@ -166,7 +166,7 @@
 | CORE-NET-11 | Installer and image wiring | todo | – | – |
 | CORE-NET-12 | Gateway + onemindd registration; join bundle `mesh` | todo | – | – |
 | CORE-NET-13 | Dashboard Network page, Add a device, app links | todo | – | – |
-| CORE-NET-14 | Pi budget, throughput and phone matrix on hardware | todo | – | – |
+| CORE-NET-14 | Pi budget, throughput and phone matrix on hardware (VM budget + perf-smoke CI: `feat/perf-budget`; Pi numbers wait on F-25) | review | feat/perf-budget | [#68](https://github.com/onemindos/ONEMINDOS/pull/68) |
 | CORE-NET-15 | Public app exposure through the relay | parked | – | – |
 | DEV-CLI-8 | `fabric qr/join/leave/remove` and `node join` alias | todo | – | – |
 | CORE-BACKUP-1 | `onemind-local` Retain StorageClass as default | todo | – | – |
