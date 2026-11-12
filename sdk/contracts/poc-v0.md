@@ -188,3 +188,31 @@ spec:
 - **On the box:** the catalog update arrives through the gateway. Installed apps follow their `spec.updates.channel`. Security-channel app updates install automatically within the owner's policy; everything else is an action awaiting approval (§3).
 
 **10.3 Nothing unscanned runs.** The gateway refuses to install an app whose catalog entry lacks a passing scan newer than 7 days (error `stale_precondition`).
+
+## 11. Wave-2 interfaces (amendment 2026-11-12; binding for the wave-2 streams)
+These fill in what §7, §9 and §10 leave open, so that the pipeline, gateway, dashboard and app streams build against one definition.
+
+**11.1 Scan record.** The §9.4 gate and the §10.2 daily rescan write `apps/<id>/scan.json` (generated, never edited by hand):
+```json
+{"scanned_at": "RFC3339", "result": "pass|fail",
+ "images": [{"ref": "repo:tag@sha256:…", "archs": ["amd64", "arm64"],
+             "trivy": {"version": "0.76.2", "critical_fixable": 0, "critical": 0, "high": 0},
+             "clamav": {"signatures": "daily-NNNNN", "infected": 0},
+             "secrets": 0, "cosign": "verified|unsigned|failed"}],
+ "licence": {"spdx": "MIT", "class": "L1|L2|blocked"},
+ "smoke": "pass|fail|skipped"}
+```
+`result` is `pass` only if every §9.4 check passed. **§10.3:** `POST /v1/actions/{id}/approve` for `app.install` returns 409 `stale_precondition` when `scan.json` is missing, `result` is not `pass`, or `scanned_at` is more than 7 days old. **Dev only:** when the executor is `noop`, `ONEMIND_ALLOW_UNSCANNED=1` disables this check and the gateway logs a warning at startup. It is refused with the `kubernetes` executor.
+
+**11.2 Agent principals for apps.** A manifest may declare `spec.agent: {principal: true, secret: <name>}`. When the gateway installs such an app (kubernetes executor), it:
+1. creates the principal `{id: "agent:<app-id>", kind: agent, role: agent}` with a fresh random token, stored hashed in the gateway's database next to the static tokens file (both are honoured);
+2. creates the Secret `<name>` in `app-<id>` with `ONEMIND_GATEWAY_URL` and `ONEMIND_AGENT_TOKEN`, before applying the manifests;
+3. revokes the principal and deletes the Secret on `app.remove`.
+
+The audit log records the requester of an action as the principal id (e.g. `agent:hermes-agent`) and the approver as the owner's id.
+
+**11.3 MCP endpoint (§7).** `POST /mcp`, Streamable HTTP (MCP 2025-06-18), bearer token, `kind: agent` principals only (anything else → 403 `permission_denied`). Tools: `list_nodes` (= `GET /v1/nodes`), `list_apps` (= `GET /v1/apps`), `request_action` (`{type, app_id, reason?}` → creates an action exactly like `POST /v1/actions` with a generated idempotency key and a 24 h expiry; it returns the action id and state). There is no approve or deny tool.
+
+**11.4 Catalog fields.** `GET /v1/apps` adds to each entry `links` (§9.3), `tier`, and `scan: {scanned_at, result} | null`. The dashboard's Market card and app page show the docs, GitHub, website and support links, the licence, the tier and the last scan date next to Install, and disable Install with the reason when the scan is missing, failing or stale.
+
+**11.5 Namespaces.** App `<id>` installs into namespace `app-<id>`; ids are at most 59 characters (§4 schema).
