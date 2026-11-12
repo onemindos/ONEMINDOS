@@ -115,7 +115,7 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 | `ONEMIND_EXECUTOR` | `noop` | `noop` or `kubernetes` |
 | `ONEMIND_NATS_URL` | `nats://127.0.0.1:4222` | empty string disables NATS |
 | `ONEMIND_AUDIT_PATH` | `./data/audit.jsonl` | audit log |
-| `ONEMIND_NODE_ID` | sha256(`/etc/machine-id`)[:12] | hub id in `/v1/instance` (null if neither exists) |
+| `ONEMIND_NODE_ID` | sha256 of `/etc/machine-id`, else `/var/lib/dbus/machine-id`, else `"hostname:"+hostname`, first 12 hex | hub id in `/v1/instance`; same chain as `onemindd`. In a container, mount the host's `/etc/machine-id` read-only or set this, or the id will not match the hub's `onemindd` |
 | `ONEMIND_APP_SCHEMA` | `sdk/schema/onemind.app.schema.json` if present | manifest JSON Schema |
 | `ONEMIND_DATA_DIR`, `ONEMIND_HOST`, `ONEMIND_PORT`, `ONEMIND_INSTANCE_NAME`, `ONEMIND_KUBECTL`, `ONEMIND_EXECUTOR_TIMEOUT_S` | `./data`, `0.0.0.0`, `8080`, `OneMind`, `kubectl`, `300` | |
 

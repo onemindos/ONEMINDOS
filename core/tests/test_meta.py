@@ -76,6 +76,22 @@ def test_instance_for_any_principal(client, headers):
     assert body == {"name": "Test OneMind", "version": "0.1.0", "hub_node_id": "abc123def456"}
 
 
+def test_node_id_fallback_chain_matches_onemindd(tmp_path):
+    import hashlib
+
+    from onemind_core.config import derive_node_id
+
+    etc, dbus = tmp_path / "etc-machine-id", tmp_path / "dbus-machine-id"
+    h = lambda v: hashlib.sha256(v.encode()).hexdigest()[:12]
+    dbus.write_text("dbus-id\n")
+    assert derive_node_id((etc, dbus), "box") == h("dbus-id")  # /etc/machine-id missing
+    etc.write_text("etc-id\n")
+    assert derive_node_id((etc, dbus), "box") == h("etc-id")
+    etc.write_text("")
+    dbus.unlink()
+    assert derive_node_id((etc, dbus), "box") == h("hostname:box")
+
+
 def test_spa_serves_index_and_assets(client):
     r = client.get("/")
     assert r.status_code == 200 and "onemind-test-dist" in r.text

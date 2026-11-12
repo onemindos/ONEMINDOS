@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import socket
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,15 +15,27 @@ _REPO_SCHEMA = Path(__file__).resolve().parents[2] / "sdk" / "schema" / "onemind
 _IMAGE_SCHEMA = Path("/opt/onemind/sdk/schema/onemind.app.schema.json")
 
 
-def derive_node_id(machine_id_path: Path = Path("/etc/machine-id")) -> str | None:
-    """Stable node id: sha256 of /etc/machine-id, first 12 hex chars. Never the raw machine-id."""
-    try:
-        raw = machine_id_path.read_text().strip()
-    except OSError:
-        return None
-    if not raw:
-        return None
-    return hashlib.sha256(raw.encode()).hexdigest()[:12]
+MACHINE_ID_PATHS = (Path("/etc/machine-id"), Path("/var/lib/dbus/machine-id"))
+
+
+def _hash_id(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()[:12]
+
+
+def derive_node_id(paths: tuple[Path, ...] = MACHINE_ID_PATHS, hostname: str | None = None) -> str:
+    """Stable node id, the same chain onemindd uses (contract section 1); never the raw machine-id.
+
+    sha256(/etc/machine-id), else sha256(/var/lib/dbus/machine-id), else sha256("hostname:" +
+    hostname), first 12 hex characters each. Never None, so /v1/instance always has a string.
+    """
+    for path in paths:
+        try:
+            raw = path.read_text().strip()
+        except OSError:
+            continue
+        if raw:
+            return _hash_id(raw)
+    return _hash_id("hostname:" + (hostname or socket.gethostname() or "unknown"))
 
 
 def _opt_path(value: str | None) -> Path | None:
