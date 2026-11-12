@@ -286,7 +286,7 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-AGT-3 | Agent pairing (device-code shape): `/v1/agent-pairings*`, limits, pa… | todo | – | – |
 | UMB-AGT-4 | Persistent MCP client identity, capped agent_clients, agent.ident… | todo | – | – |
 | UMB-APP-0 | Contract: app lifecycle action types, /v1/apps/{id} detail, /plan… | todo | – | – |
-| C12-APPSTORE | Contract §12.22: app store depth (logs, settings, dependencies, host ports, Compose import, community sources, exposure tiers) | done | `contract/12-appstore` | PRNUM |
+| C12-APPSTORE | Contract §12.22: app store depth (logs, settings, dependencies, host ports, Compose import, community sources, exposure tiers) | done | `contract/12-appstore` | [#47](https://github.com/onemindos/ONEMINDOS/pull/47) |
 | UMB-APP-2 | Signed catalog: CI builds `catalog.json` with a cosign signature; ga… | todo | – | – |
 | UMB-APP-12 | Logs endpoint, redacted | todo | – | – |
 | UMB-APP-3 | Plan endpoint with dependency resolution, alternatives and dependant… | todo | – | – |
