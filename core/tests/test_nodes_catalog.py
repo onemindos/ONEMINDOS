@@ -93,7 +93,7 @@ def test_forbidden_fields_are_stripped(clock):
 
 CATALOG_KEYS = {
     "id", "name", "version", "description", "category", "icon", "license", "source",
-    "archs", "requires", "web_port", "installed", "status",
+    "archs", "requires", "web_port", "installed", "status", "data_kept",
     "links", "tier", "scan",  # §11.4
 }
 VALID_APPS = {"uptime-kuma", "whoami", "hermes-like"}

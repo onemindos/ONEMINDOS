@@ -147,6 +147,9 @@ _R("GET,HEAD", r"/v1/apps(/.*)?", ("apps:read",))
 _R("GET,HEAD", r"/v1/actions(/.*)?", ("actions:read",))
 _R("POST", r"/v1/actions", ("actions:request",))
 _R("POST", r"/v1/actions/[^/]+/(approve|deny|approve-options)", ("actions:approve",))
+_R("POST", r"/v1/plans", ("actions:request",))  # a plan preview files nothing (contract §12.4)
+# An app's generated login: owner only (PD-07). The handler also checks, this keeps scoped tokens out.
+_R("GET,HEAD", r"/v1/apps/[^/]+/credentials", ("actions:approve",))
 # /mcp's request_action is not scope-aware yet (DEV-MCP-2), so an identity-issued agent needs
 # actions:request to use it at all; a reader-grant agent is refused rather than over-granted.
 _R("POST,GET,DELETE", r"/mcp", ("actions:request",))

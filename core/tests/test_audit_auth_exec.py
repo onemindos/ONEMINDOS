@@ -246,7 +246,14 @@ def test_kubernetes_remove_commands(kuma):
     run = FakeKubectl()
     res = KubernetesExecutor(runner=run).run("app.remove", kuma)
     assert res.outcome == "succeeded"
-    assert [a for a, _ in run.calls] == [["kubectl", "delete", "namespace", "app-uptime-kuma", "--ignore-not-found=true"]]
+    calls = [a for a, _ in run.calls]
+    assert len(calls) == 1 and calls[0][:2] == ["kubectl", "delete"] and calls[0][3:] == [
+        "--all", "-n", "app-uptime-kuma", "--ignore-not-found=true"]
+    # Contract 12.5: plain app.remove keeps the data. Never the namespace, never a PVC, never the
+    # gateway's own RoleBinding.
+    kinds = calls[0][2].split(",")
+    assert "namespace" not in kinds and "persistentvolumeclaims" not in kinds and "pvc" not in kinds
+    assert "rolebindings" not in kinds and "networkpolicies" not in kinds
 
 
 @pytest.mark.parametrize(
