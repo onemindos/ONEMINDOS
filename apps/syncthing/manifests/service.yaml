@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# 8384 is the web GUI. 22000 TCP/UDP is the sync protocol (README-Docker.md); inside the cluster
+# it reaches only other pods. Local discovery (21027/udp broadcast) cannot leave the pod network,
+# so it is not exposed (see README "Not done yet").
+apiVersion: v1
+kind: Service
+metadata:
+  name: syncthing
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: syncthing
+  ports:
+    - name: http
+      port: 8384
+      targetPort: http
+      protocol: TCP
+    - name: sync-tcp
+      port: 22000
+      targetPort: sync-tcp
+      protocol: TCP
+    - name: sync-udp
+      port: 22000
+      targetPort: sync-udp
+      protocol: UDP

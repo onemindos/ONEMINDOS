@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# Syncthing: Market batch 1 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: README-Docker.md and script/docker-entrypoint.sh at v2.1.7.
+# Image digests and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: syncthing
+  name: "Syncthing"
+  version: "2.1.7"
+  description: "Open Source Continuous File Synchronization"
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: files
+  icon: icon.svg
+  license: "MPL-2.0"
+  source: https://github.com/syncthing/syncthing
+  # §9.3 facts from the GitHub API (repos/syncthing/syncthing), read 2026-11-12.
+  links:
+    docs: "https://docs.syncthing.net/"
+    github: "https://github.com/syncthing/syncthing"
+    website: "https://syncthing.net/"
+    support: "https://github.com/syncthing/syncthing/issues"
+  upstream: {release: "v2.1.7", released_at: "2026-10-21T06:09:14Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}
+  web: {port: 8384}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
