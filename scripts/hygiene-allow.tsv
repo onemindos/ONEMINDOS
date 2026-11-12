@@ -11,3 +11,4 @@ scripts/hygiene.py	/home/[a-z]	B-FP-3
 scripts/hygiene-allow.tsv	/home/onemind	B-FP-1
 scripts/hygiene-selftest.sh	t@t\.invalid	B-FP-4
 scripts/hygiene.py	rpi-otp-private-key|odmfuse	B-FP-3
+scripts/hygiene-allow.tsv	rpi-otp-private-key|odmfuse	B-FP-3
