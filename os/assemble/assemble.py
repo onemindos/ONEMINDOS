@@ -163,7 +163,8 @@ def apply_brand(tree, brand_dir=BRAND_DIR):
     osr, motd = os.path.join(brand_dir, "os-release"), os.path.join(brand_dir, "motd")
     if os.path.exists(osr):
         dst = os.path.join(tree, "usr/lib/os-release")
-        open(dst, "w").write(brand_os_release(open(dst).read(), open(osr).read()))
+        merged = brand_os_release(open(dst).read(), open(osr).read())   # read both before truncating dst
+        open(dst, "w").write(merged)
     if os.path.exists(motd):
         shutil.copyfile(motd, os.path.join(tree, "etc/motd"))
 

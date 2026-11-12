@@ -32,7 +32,10 @@ class Brand(unittest.TestCase):
             open(os.path.join(t, "usr/lib/os-release"), "w").write(DEBIAN_OSR)
             assemble.apply_brand(t)
             self.assertIn("OneMind OS", open(os.path.join(t, "etc/motd")).read())
-            self.assertIn('PRETTY_NAME="OneMind OS"', open(os.path.join(t, "usr/lib/os-release")).read())
+            out = open(os.path.join(t, "usr/lib/os-release")).read()
+            self.assertIn('PRETTY_NAME="OneMind OS"', out)
+            self.assertIn('ONEMIND_VERSION="x"', out)      # the health gate reads this; losing it broke T1 in CI
+            self.assertIn("ID=debian", out)
 
     def test_no_generated_files_changes_nothing(self):
         with tempfile.TemporaryDirectory() as t, tempfile.TemporaryDirectory() as empty:
