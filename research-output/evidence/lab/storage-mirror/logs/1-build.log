@@ -1,0 +1,258 @@
+
+### tool versions
+btrfs-progs	6.14-1
+cryptsetup-bin	2:2.7.5-2
+gdisk	1.0.10-2+b1
+smartmontools	7.4-3
+util-linux	2.41.5-0+deb13u1
+6.12.115+deb13.1-cloud-arm64
+
+### inventory
+$ onemind storage disks
+DISK      SIZE      TRAN    MODEL  SERIAL  ROLE
+/dev/vda  12.0GiB   virtio  -      -       system
+/dev/vdb  6.0GiB    virtio  -      -       unused
+/dev/vdc  6.0GiB    virtio  -      -       unused
+/dev/vdd  277.2MiB  virtio  -      -       in-use
+
+### health
+$ onemind storage health
+DISK      VERDICT  TEMP  WEAR  HOURS  REASONS
+/dev/vda  unknown  -     -     -      /dev/vda: Unable to detect device type
+/dev/vdb  unknown  -     -     -      /dev/vdb: Unable to detect device type
+/dev/vdc  unknown  -     -     -      /dev/vdc: Unable to detect device type
+/dev/vdd  unknown  -     -     -      /dev/vdd: Unable to detect device type
+
+### refused: system disk
+PLAN create on /data (dry run, nothing was changed)
+  profile: data single, metadata dup, encrypted false
+  WILL ERASE: /dev/vda  12.0GiB  -  serial …-
+checks:
+  [ok  ] exists:/dev/vda: whole disk from lsblk
+  [FAIL] not-system:/dev/vda: system
+  [FAIL] unused:/dev/vda: holds: /dev/vda1 part ext4 mounted at /; /dev/vda15 part vfat mounted at /boot/efi
+  [ok  ] writable:/dev/vda: read_only=false
+  [ok  ] healthy:/dev/vda: unknown: /dev/vda: Unable to detect device type
+  [ok  ] no-parity-raid: profiles single/dup; raid5/6 are never generated
+  warning: one disk: the data has one copy; add a second disk to protect it
+BLOCKED: a check failed, no steps generated
+plan_sha256: 4420a0c832d6af4bc3d4942912fcaa7039c675eeed9203ecc072283b430067f7
+
+### refused: read-only cloud-init disk
+PLAN create on /data (dry run, nothing was changed)
+  profile: data single, metadata dup, encrypted false
+  WILL ERASE: /dev/vdd  277.2MiB  -  serial …-
+checks:
+  [ok  ] exists:/dev/vdd: whole disk from lsblk
+  [ok  ] not-system:/dev/vdd: in-use
+  [FAIL] unused:/dev/vdd: holds: /dev/vdd disk iso9660 label=cidata mounted at /mnt/lima-cidata
+  [FAIL] writable:/dev/vdd: read_only=true
+  [ok  ] healthy:/dev/vdd: unknown: /dev/vdd: Unable to detect device type
+  [ok  ] no-parity-raid: profiles single/dup; raid5/6 are never generated
+  warning: one disk: the data has one copy; add a second disk to protect it
+BLOCKED: a check failed, no steps generated
+plan_sha256: d93f8557cb89f3a8cad2b8f08f1bd789fe52562deb67b61b0f8fffa094659c1c
+
+### create a one-disk encrypted set on vdb
+PLAN create on /data (dry run, nothing was changed)
+  profile: data single, metadata dup, encrypted true
+  WILL ERASE: /dev/vdb  6.0GiB  -  serial …-
+checks:
+  [ok  ] exists:/dev/vdb: whole disk from lsblk
+  [ok  ] not-system:/dev/vdb: unused
+  [ok  ] unused:/dev/vdb: no partitions or filesystem signatures
+  [ok  ] writable:/dev/vdb: read_only=false
+  [ok  ] healthy:/dev/vdb: unknown: /dev/vdb: Unable to detect device type
+  [ok  ] no-parity-raid: profiles single/dup; raid5/6 are never generated
+  warning: one disk: the data has one copy; add a second disk to protect it
+steps:
+   1. sgdisk --zap-all /dev/vdb  # ERASES DATA
+      # erase the partition tables on /dev/vdb
+   2. sgdisk --new=1:0:0 --typecode=1:8309 --change-name=1:onemind-data /dev/vdb  # ERASES DATA
+      # one partition over the whole disk, labelled onemind-data so it is found by label, not by sdX order
+   3. udevadm settle
+      # wait for the kernel to create /dev/vdb1
+   4. cryptsetup luksFormat --type luks2 --batch-mode --key-file /root/lab.key /dev/vdb1  # ERASES DATA
+      # LUKS2 encryption on the new member
+   5. cryptsetup open --key-file /root/lab.key /dev/vdb1 onemind-data-vdb
+      # unlock it as /dev/mapper/onemind-data-vdb
+   6. mkfs.btrfs --label onemind-data --data single --metadata dup /dev/mapper/onemind-data-vdb  # ERASES DATA
+      # one btrfs filesystem across the members
+   7. mkdir -p /data
+      # mount point
+   8. mount -o noatime,compress=zstd:1,space_cache=v2,discard=async /dev/mapper/onemind-data-vdb /data
+      # mount the set (any member mounts all of them)
+   9. btrfs subvolume create /data/@
+      # subvolume layout (storage.md §4.2)
+  10. btrfs subvolume create /data/@storage
+      # subvolume layout (storage.md §4.2)
+  11. btrfs subvolume create /data/@snapshots
+      # subvolume layout (storage.md §4.2)
+  12. btrfs filesystem df /data
+      # verify: every line shows the planned profile
+plan_sha256: 75f820ca07a606232e1bd3dca56e2885a40d1ee6e6f6e6906ab1205fbc0c648d
+
+### applying plan 75f820ca07a606232e1bd3dca56e2885a40d1ee6e6f6e6906ab1205fbc0c648d
+$ 'sgdisk' '--zap-all' '/dev/vdb'
+Creating new GPT entries in memory.
+GPT data structures destroyed! You may now partition the disk using fdisk or
+other utilities.
+$ 'sgdisk' '--new=1:0:0' '--typecode=1:8309' '--change-name=1:onemind-data' '/dev/vdb'
+Creating new GPT entries in memory.
+The operation has completed successfully.
+$ 'udevadm' 'settle'
+$ 'cryptsetup' 'luksFormat' '--type' 'luks2' '--batch-mode' '--key-file' '/root/lab.key' '/dev/vdb1'
+$ 'cryptsetup' 'open' '--key-file' '/root/lab.key' '/dev/vdb1' 'onemind-data-vdb'
+Warning: keyslot operation could fail as it requires more than available memory.
+$ 'mkfs.btrfs' '--label' 'onemind-data' '--data' 'single' '--metadata' 'dup' '/dev/mapper/onemind-data-vdb'
+btrfs-progs v6.14
+See https://btrfs.readthedocs.io for more information.
+
+NOTE: several default settings have changed in version 5.15, please make sure
+      this does not affect your deployments:
+      - DUP for metadata (-m dup)
+      - enabled no-holes (-O no-holes)
+      - enabled free-space-tree (-R free-space-tree)
+
+Label:              onemind-data
+UUID:               9638a938-d632-41e3-aa7f-7a1cace9bd76
+Node size:          16384
+Sector size:        4096	(CPU page size: 4096)
+Filesystem size:    5.98GiB
+Block group profiles:
+  Data:             single            8.00MiB
+  Metadata:         DUP             256.00MiB
+  System:           DUP               8.00MiB
+SSD detected:       no
+Zoned device:       no
+Features:           extref, skinny-metadata, no-holes, free-space-tree
+Checksum:           crc32c
+Number of devices:  1
+Devices:
+   ID        SIZE  PATH                        
+    1     5.98GiB  /dev/mapper/onemind-data-vdb
+
+$ 'mkdir' '-p' '/data'
+$ 'mount' '-o' 'noatime,compress=zstd:1,space_cache=v2,discard=async' '/dev/mapper/onemind-data-vdb' '/data'
+$ 'btrfs' 'subvolume' 'create' '/data/@'
+Create subvolume '/data/@'
+$ 'btrfs' 'subvolume' 'create' '/data/@storage'
+Create subvolume '/data/@storage'
+$ 'btrfs' 'subvolume' 'create' '/data/@snapshots'
+Create subvolume '/data/@snapshots'
+$ 'btrfs' 'filesystem' 'df' '/data'
+Data, single: total=8.00MiB, used=0.00B
+System, DUP: total=8.00MiB, used=16.00KiB
+Metadata, DUP: total=256.00MiB, used=128.00KiB
+GlobalReserve, single: total=5.50MiB, used=16.00KiB
+$ onemind storage status
+/data: UNPROTECTED
+  ! one copy of the data only: a disk failure loses it
+  Data      single   0B used of 8.0MiB
+  System    dup      16.0KiB used of 8.0MiB
+  Metadata  dup      128.0KiB used of 256.0MiB
+  devid 1  /dev/mapper/onemind-data-vdb 6.0GiB
+
+### refused: protect with a disk that is already a member
+PLAN protect on /data (dry run, nothing was changed)
+  profile: data raid1, metadata raid1, encrypted true
+  WILL ERASE: /dev/vdb  6.0GiB  -  serial …-
+checks:
+  [ok  ] set-mounted: /data unprotected: one copy of the data only: a disk failure loses it
+  [ok  ] no-missing-members: 0 missing; reconnect or replace first
+  [ok  ] no-parity-raid: unprotected
+  [ok  ] exists:/dev/vdb: whole disk from lsblk
+  [ok  ] not-system:/dev/vdb: member
+  [FAIL] unused:/dev/vdb: holds: /dev/vdb1 part crypto_LUKS; /dev/mapper/onemind-data-vdb crypt btrfs label=onemind-data mounted at /data
+  [ok  ] writable:/dev/vdb: read_only=false
+  [ok  ] healthy:/dev/vdb: unknown: /dev/vdb: Unable to detect device type
+  [ok  ] big-enough:/dev/vdb: disk 6442450944 bytes, needs at least 562036736 (allocated on the current member)
+BLOCKED: a check failed, no steps generated
+plan_sha256: 6977f0350f8de1a173abc7f33d3b9ed0c1092f8d5f47f38ca4af17344a4e0888
+
+### checksummed corpus (400 MiB)
+$ onemind storage status
+/data: UNPROTECTED
+  ! one copy of the data only: a disk failure loses it
+  Data      single   400.0MiB used of 632.0MiB
+  System    dup      16.0KiB used of 8.0MiB
+  Metadata  dup      736.0KiB used of 256.0MiB
+  devid 1  /dev/mapper/onemind-data-vdb 6.0GiB
+
+### protect: add vdc and convert to raid1
+PLAN protect on /data (dry run, nothing was changed)
+  profile: data raid1, metadata raid1, encrypted true
+  WILL ERASE: /dev/vdc  6.0GiB  -  serial …-
+checks:
+  [ok  ] set-mounted: /data unprotected: one copy of the data only: a disk failure loses it
+  [ok  ] no-missing-members: 0 missing; reconnect or replace first
+  [ok  ] no-parity-raid: unprotected
+  [ok  ] exists:/dev/vdc: whole disk from lsblk
+  [ok  ] not-system:/dev/vdc: unused
+  [ok  ] unused:/dev/vdc: no partitions or filesystem signatures
+  [ok  ] writable:/dev/vdc: read_only=false
+  [ok  ] healthy:/dev/vdc: unknown: /dev/vdc: Unable to detect device type
+  [ok  ] big-enough:/dev/vdc: disk 6442450944 bytes, needs at least 1216348160 (allocated on the current member)
+steps:
+   1. sgdisk --zap-all /dev/vdc  # ERASES DATA
+      # erase the partition tables on /dev/vdc
+   2. sgdisk --new=1:0:0 --typecode=1:8309 --change-name=1:onemind-data /dev/vdc  # ERASES DATA
+      # one partition over the whole disk, labelled onemind-data so it is found by label, not by sdX order
+   3. udevadm settle
+      # wait for the kernel to create /dev/vdc1
+   4. cryptsetup luksFormat --type luks2 --batch-mode --key-file /root/lab.key /dev/vdc1  # ERASES DATA
+      # LUKS2 encryption on the new member
+   5. cryptsetup open --key-file /root/lab.key /dev/vdc1 onemind-data-vdc
+      # unlock it as /dev/mapper/onemind-data-vdc
+   6. btrfs device add /dev/mapper/onemind-data-vdc /data
+      # join the new member to the set
+   7. btrfs balance start -dconvert=raid1,soft -mconvert=raid1,soft /data
+      # write a second copy of every chunk on the other disk (soft: skips chunks already converted, so a restart after a power cut resumes)
+   8. btrfs filesystem df /data
+      # verify: Data, Metadata and System show the new profile
+plan_sha256: a46a43772d7cf6319f8976d9af387f74c694177d26b2e98b77749726aef676aa
+
+### applying plan a46a43772d7cf6319f8976d9af387f74c694177d26b2e98b77749726aef676aa
+$ 'sgdisk' '--zap-all' '/dev/vdc'
+Creating new GPT entries in memory.
+GPT data structures destroyed! You may now partition the disk using fdisk or
+other utilities.
+$ 'sgdisk' '--new=1:0:0' '--typecode=1:8309' '--change-name=1:onemind-data' '/dev/vdc'
+Creating new GPT entries in memory.
+The operation has completed successfully.
+$ 'udevadm' 'settle'
+$ 'cryptsetup' 'luksFormat' '--type' 'luks2' '--batch-mode' '--key-file' '/root/lab.key' '/dev/vdc1'
+$ 'cryptsetup' 'open' '--key-file' '/root/lab.key' '/dev/vdc1' 'onemind-data-vdc'
+Warning: keyslot operation could fail as it requires more than available memory.
+$ 'btrfs' 'device' 'add' '/dev/mapper/onemind-data-vdc' '/data'
+$ 'btrfs' 'balance' 'start' '-dconvert=raid1,soft' '-mconvert=raid1,soft' '/data'
+Done, had to relocate 4 out of 4 chunks
+$ 'btrfs' 'filesystem' 'df' '/data'
+Data, RAID1: total=2.00GiB, used=400.00MiB
+System, RAID1: total=32.00MiB, used=16.00KiB
+Metadata, RAID1: total=512.00MiB, used=672.00KiB
+GlobalReserve, single: total=5.50MiB, used=0.00B
+$ onemind storage status
+/data: PROTECTED
+  Data      raid1    400.0MiB used of 2.0GiB
+  System    raid1    16.0KiB used of 32.0MiB
+  Metadata  raid1    672.0KiB used of 512.0MiB
+  devid 1  /dev/mapper/onemind-data-vdb 6.0GiB
+  devid 2  /dev/mapper/onemind-data-vdc 6.0GiB
+$ onemind storage disks
+DISK      SIZE      TRAN    MODEL  SERIAL  ROLE
+/dev/vda  12.0GiB   virtio  -      -       system
+/dev/vdb  6.0GiB    virtio  -      -       member
+/dev/vdc  6.0GiB    virtio  -      -       has-data
+/dev/vdd  277.2MiB  virtio  -      -       in-use
+$ btrfs scrub start -B /data
+Starting scrub on devid 1
+Starting scrub on devid 2
+scrub done for 9638a938-d632-41e3-aa7f-7a1cace9bd76
+Scrub started:    Thu Nov 12 03:16:08 2026
+Status:           finished
+Duration:         0:00:00
+Total to scrub:   801.34MiB
+Rate:             801.34MiB/s
+Error summary:    no errors found
+corpus OK

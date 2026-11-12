@@ -82,15 +82,23 @@ dropped. Fields the contract forbids (MAC, serial, IP, user names) are stripped 
 
 ### Kubernetes executor (exact commands)
 ```
-install: kubectl apply -f -   (Namespace app-<id>, label onemind.io/app=<id>)
+install: (kustomization tree checked: no URLs, git refs, helm, plugins or paths outside the app)
+         kubectl kustomize --load-restrictor=LoadRestrictionsRootOnly <apps_dir>/<id>/manifests
+         (every rendered object checked against sdk/policy/app-objects.yaml; any violation:
+          action failed, approve -> 409 policy_refused, nothing below runs)
+         kubectl apply -f -   (Namespace app-<id>: onemind.io/app=<id>, pod-security enforce=restricted
+                               or a reviewed baseline, audit/warn=restricted)
+         kubectl apply -n app-<id> -f -   (RoleBinding onemind-gateway, only with ONEMIND_SANDBOX_GATEWAY_SA)
+         kubectl apply -n app-<id> -f -   (NetworkPolicy onemind-default-deny + onemind-allow)
          kubectl apply --server-side --field-manager=onemind-gateway --force-conflicts -n app-<id> -f -
                        (only with spec.agent: the agent Secret, see below; server-side so the token
                         is not copied into a last-applied-configuration annotation)
-         kubectl apply -k <apps_dir>/<id>/manifests -n app-<id>
+         kubectl apply -n app-<id> -f -   (exactly the rendered bytes that were checked)
 remove:  kubectl delete secret <spec.agent.secret> -n app-<id> --ignore-not-found=true   (only with spec.agent)
-         kubectl delete -k <apps_dir>/<id>/manifests -n app-<id> --ignore-not-found=true
          kubectl delete namespace app-<id> --ignore-not-found=true
 ```
+The install sandbox's rules and rule ids: `sdk/policy/app-objects.yaml`; design:
+`docs/leap/core/SANDBOX.md`; what is enforced: `docs/leap/core/SECURITY.md` §7a.
 The `noop` executor changes nothing and returns the same plan as `{"would": "..."}` steps in the
 action's `result`, so a demo shows what a real box would do.
 
@@ -196,6 +204,9 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 | `ONEMIND_PUBLIC_URL` | derived (see "Agent principals") | gateway URL written into app agent Secrets |
 | `ONEMIND_ALLOW_UNSCANNED` | `0` | `1` skips the §10.3 scan check; dev only, refused with `kubernetes` |
 | `ONEMIND_APP_SCHEMA` | `sdk/schema/onemind.app.schema.json` if present | manifest JSON Schema |
+| `ONEMIND_SANDBOX_RULES` | `sdk/policy/app-objects.yaml` (repo or image) | install sandbox rule file; the `kubernetes` executor refuses to start without it (and without `ONEMIND_APP_SCHEMA`) |
+| `ONEMIND_SANDBOX_GATEWAY_SA` | unset | `<namespace>/<serviceaccount>` the executor binds to `onemind-app-deployer` in each `app-<id>` (`deploy/install.sh` sets it) |
+| `ONEMIND_LIMITS_*` | `MAX_BODY_BYTES=262144`, `READ_RATE=20`/`READ_BURST=60`, `REQUEST_RATE=2`/`REQUEST_BURST=10`, `MAX_PENDING=10`, `AUTH_FAILURES_PER_MIN=10`, `AUTH_BACKOFF_S=900`, `ENABLED=1` | contract §12.1 limits (`core/onemind_core/guard.py`) |
 | `ONEMIND_DATA_DIR`, `ONEMIND_HOST`, `ONEMIND_PORT`, `ONEMIND_INSTANCE_NAME`, `ONEMIND_KUBECTL`, `ONEMIND_EXECUTOR_TIMEOUT_S` | `./data`, `0.0.0.0`, `8080`, `OneMind`, `kubectl`, `300` | |
 
 ## v0 shortcuts (from the contract; must be removed before a box ships)

@@ -42,7 +42,8 @@ def test_openapi_documents_contract_statuses_and_error_body(client):
     err = doc["components"]["schemas"]["ErrorBody"]
     assert set(err["properties"]["error"]["enum"]) == {
         "permission_denied", "stale_precondition", "expired", "conflict",
-        "outcome_unknown", "not_found", "unauthenticated", "rate_limited",  # §12.2
+        "outcome_unknown", "not_found", "unauthenticated",
+        "rate_limited", "payload_too_large", "policy_refused",  # contract §12.2
     }
 
 

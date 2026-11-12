@@ -1,0 +1,25 @@
+04:00:18 Subscribing on onemind.node.*.event.e2 
+[#1] Received on "onemind.node.home-b.event.e2"
+a-as-b-1
+
+
+[#2] Received on "onemind.node.home-a.event.e2"
+a-as-a-1
+
+
+[#3] Received on "onemind.node.home-b.event.e2"
+a-as-b-2
+
+
+[#4] Received on "onemind.node.home-a.event.e2"
+a-as-a-2
+
+
+[#5] Received on "onemind.node.home-b.event.e2"
+a-as-b-3
+
+
+[#6] Received on "onemind.node.home-a.event.e2"
+a-as-a-3
+
+

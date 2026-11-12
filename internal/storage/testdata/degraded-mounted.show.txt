@@ -1,0 +1,4 @@
+Label: 'onemind-data'  uuid: 9638a938-d632-41e3-aa7f-7a1cace9bd76
+	Total devices 2 FS bytes used 420134912
+	devid    1 size 6424604672 used 2751463424 path /dev/mapper/onemind-data-vdb
+	devid    2 size 0 used 0 path  MISSING
