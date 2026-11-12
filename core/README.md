@@ -52,6 +52,7 @@ is where that rule is enforced in code, not in a prompt:
 | `onemind_core/catalog.py` | App catalog from `ONEMIND_APPS_DIR/*/onemind.app.yaml`, incl. `links`, `tier`, `scan`, `spec.agent` |
 | `onemind_core/scan.py` | Reads `apps/<id>/scan.json` (§11.1) and decides whether an install may run (§10.3) |
 | `onemind_core/mcp.py` | `POST /mcp`: MCP Streamable HTTP for agent principals (§11.3) |
+| `onemind_core/photos/` | Phone photo backup, box side: resumable digest-verified uploads, per-person libraries, receipts with backup levels (`/v1/photos/...`, off unless `ONEMIND_PHOTOS_ENABLED=1`; [PHOTOS.md](../docs/leap/core/PHOTOS.md)) |
 | `onemind_core/models.py` | OpenAPI response models for `GET /v1/apps` |
 
 ### Action states
@@ -187,6 +188,7 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 | `ONEMIND_PUBLIC_URL` | derived (see "Agent principals") | gateway URL written into app agent Secrets |
 | `ONEMIND_ALLOW_UNSCANNED` | `0` | `1` skips the §10.3 scan check; dev only, refused with `kubernetes` |
 | `ONEMIND_APP_SCHEMA` | `sdk/schema/onemind.app.schema.json` if present | manifest JSON Schema |
+| `ONEMIND_PHOTOS_ENABLED`, `ONEMIND_PHOTOS_DIR`, `ONEMIND_PHOTOS_*` | `0`, none | Photos backup routes and library folder; the rest in [PHOTOS.md §6](../docs/leap/core/PHOTOS.md#6-settings-config_sectionphotos) |
 | `ONEMIND_DATA_DIR`, `ONEMIND_HOST`, `ONEMIND_PORT`, `ONEMIND_INSTANCE_NAME`, `ONEMIND_KUBECTL`, `ONEMIND_EXECUTOR_TIMEOUT_S` | `./data`, `0.0.0.0`, `8080`, `OneMind`, `kubectl`, `300` | |
 
 ## v0 shortcuts (from the contract; must be removed before a box ships)
