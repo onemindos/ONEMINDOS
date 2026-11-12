@@ -35,3 +35,10 @@ docs/architecture/NETWORKING.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 docs/leap/core/NETWORKING.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 docs/architecture/NETWORKING.md	10\.4[23]\.0\.0	B-FP-9
 scripts/hygiene-allow.tsv	(100\.64\.0\.0|/home/runner)	B-FP-9
+research-output/evidence/lab/net-p2/*	(100\.64\.[0-9]+\.[0-9]+|10\.4[23]\.[0-9]+\.[0-9]+)	B-FP-9
+cmd/onemind/cli/mesh*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+core/onemind_core/netconf.py	100\.64\.0\.0	B-FP-9
+deploy/install.sh	100\.64\.0\.0	B-FP-9
+internal/fabric/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+ui/src/network/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+ui/demo/src/network/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
