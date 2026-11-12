@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# /data holds settings.js, flows.json, the encrypted credentials file and any nodes installed
+# from the palette (/data/node_modules). Upstream gives no size; 2Gi leaves room for added nodes.
+# No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: node-red-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi

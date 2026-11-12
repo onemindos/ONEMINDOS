@@ -1,0 +1,7 @@
+PING 203.0.113.10 (203.0.113.10) 56(84) bytes of data.
+From 203.0.113.21 icmp_seq=1 Destination Host Unreachable
+From 203.0.113.21 icmp_seq=2 Destination Host Unreachable
+
+--- 203.0.113.10 ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 1028ms
+pipe 2

@@ -1,0 +1,2 @@
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 131ms
+direct connection not established

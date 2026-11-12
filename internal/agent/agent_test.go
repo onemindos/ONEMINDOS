@@ -262,3 +262,14 @@ func TestHealthzNotBlockedByCollect(t *testing.T) {
 		t.Fatalf("runner called %d times, want 1 (shared collection)", n)
 	}
 }
+
+// H-24: the unauthenticated local API is loopback-only unless an operator says otherwise.
+func TestDefaultListenIsLoopback(t *testing.T) {
+	host, port, err := net.SplitHostPort(DefaultListen)
+	if err != nil || port != "7480" {
+		t.Fatalf("DefaultListen %q: want host:7480 (%v)", DefaultListen, err)
+	}
+	if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
+		t.Fatalf("DefaultListen %q is not a loopback address", DefaultListen)
+	}
+}

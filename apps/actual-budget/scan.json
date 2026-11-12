@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-12T07:32:37Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "docker.io/actualbudget/actual-server:26.11.0@sha256:06cf186569cf58d93e12659ff1a517b65b5b0ebee7050a3991d4bd8a1d398da6",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 1,
+        "high": 44
+      },
+      "clamav": {
+        "signatures": "daily-28181",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "MIT",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

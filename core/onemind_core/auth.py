@@ -29,7 +29,7 @@ import yaml
 log = logging.getLogger("onemind.auth")
 
 KINDS = {"person", "agent"}
-ROLES = {"owner", "adult", "guest", "agent"}
+ROLES = {"owner", "adult", "guest", "child", "agent"}
 
 
 @dataclass(frozen=True)
@@ -154,6 +154,11 @@ class TokenStore:
         """Every principal in the file (never a token), e.g. to find the owners to notify."""
         self._reload_if_changed()
         return list(self._by_hash.values())
+
+    def entries(self) -> list[tuple[str, Principal]]:
+        """(sha256 hex, principal) of every loaded file token, for read-only listing (§12.6)."""
+        self._reload_if_changed()
+        return sorted(self._by_hash.items(), key=lambda kv: kv[1].id)
 
     def lookup(self, token: str) -> Principal | None:
         if not token:

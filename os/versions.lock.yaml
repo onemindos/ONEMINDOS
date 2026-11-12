@@ -83,6 +83,15 @@ tools:
     actions/setup-node: 49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
     actions/setup-python: 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
     astral-sh/setup-uv: d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+  app_gate:   # sdk/tools/ci/install-tools.sh (linux amd64), sha256 from each release's checksums file, read 2026-11-12
+    trivy: {version: 0.76.2, file: trivy_0.76.2_Linux-64bit.tar.gz, sha256: bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf}   # D-B1.5
+    crane: {version: v0.22.1, file: go-containerregistry_Linux_x86_64.tar.gz, sha256: 0ab7a1d6932a213aed964ce97666c3077fe691c8606413674a8b3e0b9ec4cda0}
+    cosign: {version: v3.1.4, file: cosign-linux-amd64, sha256: 424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa}
+    k3d: {version: v5.9.0, file: k3d-linux-amd64, sha256: 06d8f25bc3a971c4eb29e0ff08429b180402db0f4dec838c9eac427e296800a0}
+    kubectl: {version: v1.37.2, file: kubectl (dl.k8s.io linux/amd64), sha256: c04487523e7aa7d1493f7808174c899db93d7a9cf57531420cd76b9bd415f8f4}
+    kustomize: {version: v5.8.3, file: kustomize_v5.8.3_linux_amd64.tar.gz, sha256: cb9e31198d3f63b44848bd0afc4c8efc56e6cfef9c93a4a39a211940e6decd61}
+    kubeconform: {version: v0.8.0, file: kubeconform-linux-amd64.tar.gz, sha256: 9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883}
+    k3s_image: docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332   # k3d smoke cluster, same k3s as above
 
 firmware:
   # Debian 13 ovmf / qemu-efi-aarch64 / seabios packages in the tools container (same snapshot).

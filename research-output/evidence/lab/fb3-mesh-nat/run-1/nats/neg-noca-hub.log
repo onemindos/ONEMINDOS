@@ -1,0 +1,30 @@
+[INF] 100.64.0.2:39296 - lid:15 - Leafnode connection created 
+[ERR] 100.64.0.2:39296 - lid:15 - TLS leafnode handshake error: remote error: tls: bad certificate
+[INF] 100.64.0.2:39296 - lid:15 - Leafnode connection closed: TLS Handshake Failure
+[INF] 100.64.0.2:39298 - lid:16 - Leafnode connection created 
+[ERR] 100.64.0.2:39298 - lid:16 - TLS leafnode handshake error: remote error: tls: bad certificate
+[INF] 100.64.0.2:39298 - lid:16 - Leafnode connection closed: TLS Handshake Failure
+[INF] 100.64.0.2:39308 - lid:17 - Leafnode connection created 
+[ERR] 100.64.0.2:39308 - lid:17 - TLS leafnode handshake error: remote error: tls: bad certificate
+[INF] 100.64.0.2:39308 - lid:17 - Leafnode connection closed: TLS Handshake Failure
+[INF] 100.64.0.2:39314 - lid:18 - Leafnode connection created 
+[ERR] 100.64.0.2:39314 - lid:18 - TLS leafnode handshake error: remote error: tls: bad certificate
+[INF] 100.64.0.2:39314 - lid:18 - Leafnode connection closed: TLS Handshake Failure
+[INF] 100.64.0.2:39324 - lid:19 - Leafnode connection created 
+[ERR] 100.64.0.2:39324 - lid:19 - TLS leafnode handshake error: remote error: tls: bad certificate
+[INF] 100.64.0.2:39324 - lid:19 - Leafnode connection closed: TLS Handshake Failure
+[INF] 100.64.0.2:39326 - lid:20 - Leafnode connection created 
+[ERR] 100.64.0.2:39326 - lid:20 - TLS leafnode handshake error: remote error: tls: bad certificate
+[INF] 100.64.0.2:39326 - lid:20 - Leafnode connection closed: TLS Handshake Failure
+[INF] 100.64.0.2:51786 - lid:21 - Leafnode connection created 
+[ERR] 100.64.0.2:51786 - lid:21 - TLS leafnode handshake error: remote error: tls: bad certificate
+[INF] 100.64.0.2:51786 - lid:21 - Leafnode connection closed: TLS Handshake Failure
+[INF] 100.64.0.2:51796 - lid:22 - Leafnode connection created 
+[ERR] 100.64.0.2:51796 - lid:22 - TLS leafnode handshake error: remote error: tls: bad certificate
+[INF] 100.64.0.2:51796 - lid:22 - Leafnode connection closed: TLS Handshake Failure
+[INF] 100.64.0.2:51810 - lid:23 - Leafnode connection created 
+[ERR] 100.64.0.2:51810 - lid:23 - TLS leafnode handshake error: remote error: tls: bad certificate
+[INF] 100.64.0.2:51810 - lid:23 - Leafnode connection closed: TLS Handshake Failure
+[INF] 100.64.0.2:51812 - lid:24 - Leafnode connection created 
+[ERR] 100.64.0.2:51812 - lid:24 - TLS leafnode handshake error: remote error: tls: bad certificate
+[INF] 100.64.0.2:51812 - lid:24 - Leafnode connection closed: TLS Handshake Failure

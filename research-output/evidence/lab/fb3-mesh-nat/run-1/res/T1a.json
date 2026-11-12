@@ -1,0 +1,32 @@
+{
+  "id": "T1a",
+  "verdict": "PASS",
+  "detail": {
+    "nodes": [
+      {
+        "n": "hub",
+        "o": true,
+        "t": [
+          "tag:hub"
+        ]
+      },
+      {
+        "n": "home-a",
+        "o": true,
+        "t": [
+          "tag:leaf"
+        ]
+      },
+      {
+        "n": "home-b",
+        "o": true,
+        "t": [
+          "tag:leaf"
+        ]
+      }
+    ],
+    "reused_key": "refused",
+    "reuse_error": "backend error: authkey already used",
+    "single_use_keys_used": 3
+  }
+}

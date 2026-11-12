@@ -1,0 +1,27 @@
+sha256 OK pin headscale_0.29.7_linux_arm64 4357b38ac63c1e425f190819fd2ee078f13e01a6d7559b15811154e2475df5e4
+sha256 OK upstream-file headscale-checksums.txt contains pin
+sha256 OK pin tailscale_1.104.6_arm64.tgz d0e4f297da3c428d02162c6235b9948e4ddc245c64502b7b05647da9b96a0971
+sha256 OK upstream-file tailscale.sha256 contains pin
+sha256 OK pin nats-server-v2.15.2-linux-arm64.tar.gz bc2c788dcbf2849af749564e06a0d48c19bced851f2d68a2e21c54d078949b28
+sha256 OK upstream-file nats-server-SHA256SUMS contains pin
+sha256 OK pin nats-0.5.1-linux-arm64.zip 91c661f1173ee9bfe07514eef55a29d25ac7757a0868c179e825eba976073adc
+sha256 OK upstream-file natscli-SHA256SUMS contains pin
+sha256 OK pin go1.27.4.linux-arm64.tar.gz 3392582988a273a87ab5043ee1b2c9c17a2c3c00580bf9326c47a2e0aaaeac92
+== versions
+go version go1.27.4 linux/arm64
+headscale version v0.29.7
+commit: c9cf210b8bc84d13177e18b91f555788a44b47b6
+build time: 2026-10-30T09:33:17Z
+1.104.6
+1.104.6
+1.104.6-ERR-BuildInfo
+	path	tailscale.com/cmd/derper
+	mod	tailscale.com	v1.104.6	h1:VjIuSsyFQ2Bp+HOtgbZCCJ7ZFTL+fULop5gmUF2bBIA=
+nats-server: v2.15.2
+0.5.1
+12ab8be0740e98645412926e33fe521a605af4f63f84054c586680dbbfc28fca  /opt/fb3/bin/derper
+4357b38ac63c1e425f190819fd2ee078f13e01a6d7559b15811154e2475df5e4  /opt/fb3/bin/headscale
+11a53f1a178726c8be9730cf18db15c79e1acc0a635864b58db567504d7cd3f0  /opt/fb3/bin/nats
+9f03b5f7b53b1d3dd3474dce5744b4b55149ceafd8bbeded0ae4c27695c4aeb4  /opt/fb3/bin/nats-server
+2e547c5e8acb4e9dc7c3ae576c302346044bd2f30958515cca5b7a91fb5cd636  /opt/fb3/bin/tailscale
+904044a58d6b22426fa2ff2307f774dc69c0edda0c5053bc3de53fb11a0b8e40  /opt/fb3/bin/tailscaled
