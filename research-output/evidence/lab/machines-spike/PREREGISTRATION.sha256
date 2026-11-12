@@ -1,0 +1,2 @@
+66dad152319a9587bf0916c910d42783cba9b394ca0d3cc8e3287d5d34aa8fca  README.md (2026-11-12T11:23:12Z)
+# Check: truncate README.md after the line "## Results" and set its Status line back to the pre-registered text; the sha256 of that text is the value above.

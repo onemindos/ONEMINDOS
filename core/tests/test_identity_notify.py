@@ -16,7 +16,7 @@ from conftest import AGENT, GUEST, OWNER, action_body
 from onemind_core.app import create_app
 from onemind_core.monitoring import MonitoringSettings
 from onemind_core.notify import NotifySettings
-from test_identity import csrf, enrol, id_settings, setup_owner
+from test_identity import SoftAuthenticator, csrf, enrol, id_settings, register_passkey, setup_owner
 
 
 @pytest.fixture
@@ -99,3 +99,45 @@ def test_sharing_gates_the_per_app_routes(hc):
     r = hc.get("/v1/apps/whoami", headers=GUEST)
     assert r.status_code == 200 and r.json()["access"]["shared_with_me"] is False
     assert guest.get("/v1/apps/whoami").status_code == 404  # unsharing is instant
+
+
+def _fixable_alert(hc, clock):
+    """An installed app whose scan went stale: the alert carries an app.remove fix."""
+    hc.post("/v1/actions", headers=OWNER, json=action_body(clock))
+    aid = hc.get("/v1/actions", headers=OWNER).json()[0]["id"]
+    assert hc.post(f"/v1/actions/{aid}/approve", headers=csrf(hc)).status_code == 200  # no passkey yet
+    hc.app.state.events.publish_event("app", "scan_blocked", {"app_id": "uptime-kuma"}, severity="critical")
+    return next(a for a in hc.get("/v1/alerts", headers=OWNER).json() if a["type"] == "app.scan_blocked")
+
+
+def test_fix_with_approve_cannot_skip_the_approval_gates(hc, clock):
+    """/v1/alerts/{id}/fix {"approve": true} is an approval path: it needs the approve scope and,
+    once an owner has a passkey, a passkey assertion, exactly like POST /v1/actions/{id}/approve."""
+    setup_owner(hc)
+    alert = _fixable_alert(hc, clock)
+    fix = f"/v1/alerts/{alert['id']}/fix"
+
+    # 1. A narrowed owner token (actions:request only) may file the fix but not approve it.
+    pat = hc.post("/v1/tokens", headers=csrf(hc),
+                  json={"name": "narrow", "scopes": ["actions:request", "alerts:read"]}).json()["one_time"]["token"]
+    bearer = {"Authorization": f"Bearer {pat}"}
+    r = hc.post(fix, headers=bearer, json={"approve": True})
+    assert r.status_code == 403, r.text
+    filed = hc.post(fix, headers=bearer)  # without approve it is an ordinary request
+    assert filed.status_code == 202 and filed.json()["state"] == "awaiting_approval"
+
+    # 2. Once the owner has a passkey, no credential can approve through this route.
+    register_passkey(hc, SoftAuthenticator())
+    r = hc.post(fix, headers=OWNER, json={"approve": True})
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    # The signed-in owner already has this fix pending (filed above), which a repeat call returns as is.
+    again = hc.post(fix, headers=csrf(hc), json={"approve": True})
+    assert again.status_code == 202 and again.json()["state"] == "awaiting_approval"
+    assert hc.get(f"/v1/actions/{filed.json()['id']}", headers=OWNER).json()["state"] == "awaiting_approval"
+
+
+def test_fix_with_approve_still_works_without_passkeys(hc, clock):
+    setup_owner(hc)
+    alert = _fixable_alert(hc, clock)
+    r = hc.post(f"/v1/alerts/{alert['id']}/fix", headers=csrf(hc), json={"approve": True})
+    assert r.status_code == 202 and r.json()["type"] == "app.remove" and r.json()["state"] == "succeeded", r.text
