@@ -202,6 +202,20 @@ export function makeActions(now: number): Action[] {
       decided_by: DEMO_TOKENS['owner-demo'],
       created_at: iso(now, 86400),
       updated_at: iso(now, 86400 - 30),
+      result: { outcome: 'succeeded', message: 'applied', steps: [] },
+    },
+    {
+      id: 'act-ffff',
+      type: 'app.remove',
+      params: { app_id: 'uptime-kuma' },
+      idempotency_key: '00000000-0000-4000-8000-00000000ffff',
+      expires_at: iso(now, 2 * 86400 - 3600),
+      state: 'failed',
+      requested_by: DEMO_TOKENS['owner-demo'],
+      decided_by: DEMO_TOKENS['owner-demo'],
+      created_at: iso(now, 2 * 86400),
+      updated_at: iso(now, 2 * 86400 - 30),
+      result: { outcome: 'failed', message: 'kubectl delete exited with status 1', steps: [] },
     },
   ];
 }

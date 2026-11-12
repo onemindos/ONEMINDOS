@@ -105,6 +105,16 @@ export interface ActionRequest {
 }
 
 /**
+ * Executor outcome attached to a finished action. Not named in §3; this is what
+ * the wave-1 gateway returns (`{outcome, message, steps}`), see README "Known gaps".
+ */
+export interface ActionResult {
+  outcome: string;
+  message: string;
+  steps?: unknown[];
+}
+
+/**
  * §3 action as returned by the gateway.
  * The contract names the request fields and the states but not the full response
  * shape. `requested_by`, `created_at` and `updated_at` are this dashboard's
@@ -118,7 +128,7 @@ export interface Action extends ActionRequest {
   created_at?: string;
   updated_at?: string;
   decided_by?: Principal;
-  result?: string | null;
+  result?: ActionResult | null;
 }
 
 /** §3 error body. */

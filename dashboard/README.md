@@ -92,7 +92,9 @@ The gateway is the security boundary; the UI only avoids offering what will be r
   Suggested contract change (separate PR, not made here): `GET /v1/me` → `{id, kind, role}`.
 - **The action response shape is not fully specified** in §3. The UI expects `requested_by
   {id, kind, role}`, `created_at` and `decided_by`, and shows "Unknown requester" if they are
-  missing. The gateway stream should return these, or the contract should name them.
+  missing. It also reads `result` as `{outcome, message, steps}` (what the wave-1 gateway returns)
+  and shows `message` on failed and outcome-unknown requests. The gateway stream should return
+  these, or the contract should name them.
 - **App icons:** v0 draws an original monogram tile per app because no §3 route serves the
   manifest's `icon` file yet.
 - **Open app links** use `http://<dashboard host>:<web_port>/`; that depends on how apps are exposed

@@ -64,6 +64,11 @@ function ActionCard({
             </dd>
           </div>
         </dl>
+        {(action.state === 'failed' || action.state === 'outcome_unknown') && (
+          <p className="note note-error">
+            {action.result?.message ? `What the hub reported: ${action.result.message}` : 'The hub gave no reason.'}
+          </p>
+        )}
         <p className="small params-label">Exact parameters</p>
         <pre className="params">
           {JSON.stringify(action.params, null, 2)}

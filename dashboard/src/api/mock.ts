@@ -100,6 +100,7 @@ export class MockApi implements OneMindApi {
       throw new ApiError(409, 'expired', 'The approval window has passed');
     }
     a.state = 'succeeded';
+    a.result = { outcome: 'succeeded', message: 'noop executor', steps: [] };
     a.decided_by = p;
     a.updated_at = new Date(this.now()).toISOString();
     this.catalog = this.catalog.map((app) =>

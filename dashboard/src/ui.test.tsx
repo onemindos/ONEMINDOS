@@ -161,6 +161,13 @@ describe('Approvals', () => {
     expect(within(within(history).getByRole('article', { name: 'Install ollama' })).getByText('succeeded')).toBeInTheDocument();
   });
 
+  it('shows why a finished action failed', async () => {
+    renderApp({ token: 'owner-demo', route: '/approvals' });
+    const card = await screen.findByRole('article', { name: 'Remove uptime-kuma' });
+    expect(within(card).getByText(/kubectl delete exited with status 1/)).toBeInTheDocument();
+    expect(await seriousViolations()).toEqual([]);
+  });
+
   it('the owner can deny', async () => {
     renderApp({ token: 'owner-demo', route: '/approvals' });
     const user = userEvent.setup();
