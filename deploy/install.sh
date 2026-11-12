@@ -69,6 +69,9 @@ EOF
 log()  { printf '==> %s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
 die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+# one_line VALUE ERE: VALUE is a single line and matches ERE as a whole. grep -x alone checks each
+# line, so "good<newline>KEY=other" would pass and KEY=other would land in an env or config file.
+one_line() { case "$1" in *$'\n'*) return 1 ;; esac; printf '%s' "$1" | LC_ALL=C grep -Eqx "$2"; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -163,11 +166,11 @@ if [ "$ROLE" = node ]; then
   [ -n "$TOKEN" ] || die "--token is required for --role node (the hub install prints it)"
   # The token goes into k3s's env file and the URL into config files: allow only plain characters.
   # (Length checked apart: BSD grep, used for --dry-run on a Mac, caps {m,n} at 255.)
-  { [ "${#TOKEN}" -ge 8 ] && [ "${#TOKEN}" -le 512 ] && printf '%s' "$TOKEN" | grep -Eqx '[A-Za-z0-9:._-]+'; } \
+  { [ "${#TOKEN}" -ge 8 ] && [ "${#TOKEN}" -le 512 ] && one_line "$TOKEN" '[A-Za-z0-9:._-]+'; } \
     || die "--token has unexpected characters or length"
 fi
 if [ -n "$HUB" ]; then
-  printf '%s' "$HUB" | grep -Eqx 'https?://[][A-Za-z0-9.:-]+/?' \
+  one_line "$HUB" 'https?://[][A-Za-z0-9.:-]+/?' \
     || die "--hub must look like http://HOST:8080 (got: $HUB)"
 fi
 
@@ -825,13 +828,14 @@ gateway_tokens() {
 
 # Before printing new tokens: make sure none of them reached a file (only hashes may be on disk).
 no_raw_tokens_on_disk() {
-  local t
-  for t in "$OWNER_TOKEN" "$AGENT_TOKEN"; do
-    [ -n "$t" ] || continue
-    if grep -rqsF -- "$t" "$ETC" "$STATE" "$CACHE" /etc/systemd/system /etc/rancher 2>/dev/null; then
-      die "a raw API token was found on disk under $ETC, $STATE or $CACHE; not printing it (remove $ETC/tokens.yaml and re-run)"
-    fi
-  done
+  local pats
+  # One token per line, no empty line (an empty pattern would match every file).
+  pats=$(for t in "$OWNER_TOKEN" "$AGENT_TOKEN"; do [ -z "$t" ] || printf '%s\n' "$t"; done)
+  [ -n "$pats" ] || return 0
+  # The tokens reach grep on stdin (-f -), never as arguments: any local user can read /proc/*/cmdline.
+  if printf '%s\n' "$pats" | grep -rqsF -f - "$ETC" "$STATE" "$CACHE" /etc/systemd/system /etc/rancher 2>/dev/null; then
+    die "a raw API token was found on disk under $ETC, $STATE or $CACHE; not printing it (remove $ETC/tokens.yaml and re-run)"
+  fi
 }
 
 gateway_env() {
