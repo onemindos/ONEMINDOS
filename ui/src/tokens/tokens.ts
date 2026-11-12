@@ -2,7 +2,9 @@
 // OneMind design tokens: the single source of truth (docs/design/TOKENS.md).
 // `npm run tokens` writes src/tokens/tokens.css from this file; a unit test fails when they drift.
 // Mobile (React Native) reads the same values from dist/tokens.json.
-// This file has no imports so Node can run the generator on it directly.
+// Its only import is the generated brand file (brand/brand.json via scripts/brand-sync.py), with
+// an explicit .ts extension so Node can run the generator on it directly.
+import { brand } from './brand.generated.ts';
 
 /** Raw colour ramps. Components never use these; they use the semantic roles below. */
 export const palette = {
@@ -47,6 +49,8 @@ export type ColorRole =
   | 'accent-hover'
   | 'accent-text'
   | 'accent-soft'
+  | 'logo-brain'
+  | 'logo-circuit'
   | 'focus'
   | 'danger'
   | 'danger-hover'
@@ -72,10 +76,13 @@ export const light: Theme = {
   text: p.neutral[900],
   'text-muted': p.neutral[600],
   'text-subtle': p.neutral[500],
-  accent: p.teal[600],
-  'accent-hover': p.teal[700],
-  'accent-text': p.neutral[0],
-  'accent-soft': p.teal[50],
+  // Default accent: OneMind Red, made AA-safe for this theme by scripts/brand-sync.py.
+  accent: brand.accent.light.accent,
+  'accent-hover': brand.accent.light.hover,
+  'accent-text': brand.accent.light.text,
+  'accent-soft': brand.accent.light.soft,
+  'logo-brain': brand.logo.light.brain,
+  'logo-circuit': brand.logo.light.circuit,
   focus: p.blue[600],
   danger: p.red[600],
   'danger-hover': p.red[700],
@@ -111,10 +118,12 @@ export const dark: Theme = {
   text: '#e8eeef',
   'text-muted': '#a9b6b9',
   'text-subtle': '#8a989c',
-  accent: p.teal[300],
-  'accent-hover': p.teal[200],
-  'accent-text': p.neutral[950],
-  'accent-soft': '#12302e',
+  accent: brand.accent.dark.accent,
+  'accent-hover': brand.accent.dark.hover,
+  'accent-text': brand.accent.dark.text,
+  'accent-soft': brand.accent.dark.soft,
+  'logo-brain': brand.logo.dark.brain,
+  'logo-circuit': brand.logo.dark.circuit,
   focus: p.blue[300],
   danger: p.red[300],
   'danger-hover': '#ffb0a9',

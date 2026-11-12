@@ -1,0 +1,5 @@
+APPROVAL CARD (stand-in for the phone): node.join via FDO
+ device GUID: 500379ed6e6b79a28df7d10b48cd3732
+ device info: fb2-lab-device  serial: LAB-0001
+ manufacturer cert sha256: 86f6ec9f7c3c93b4…
+ decision: APPROVED by owner (stand-in)

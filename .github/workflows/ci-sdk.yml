@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: Apache-2.0
+# Developer surface (docs/leap/dev/SDK.md §7, CLI.md, MCP.md): the OpenAPI export and the three
+# generated SDKs must be current, the SDKs and the CLI must pass their tests, and all of them must
+# pass conformance against a live gateway.
+name: ci-sdk
+
+on:
+  pull_request:
+    paths: ["sdk/**", "core/onemind_core/**", "cmd/onemind/**", "internal/mcpbridge/**", "go.mod", "go.sum",
+            ".github/workflows/ci-sdk.yml"]
+  push:
+    branches: [main]
+    paths: ["sdk/**", "core/onemind_core/**", "cmd/onemind/**", "internal/mcpbridge/**", "go.mod", "go.sum",
+            ".github/workflows/ci-sdk.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  stale:
+    name: generated code is current
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sdk/ts/package-lock.json
+      - run: npm ci --ignore-scripts
+        working-directory: sdk/ts
+      - name: OpenAPI export and generated SDK code match the commit
+        run: make -C sdk check-stale
+      - name: aio client matches client.py
+        run: python3 sdk/python/scripts/make_aio.py --check
+
+  test:
+    name: SDKs, CLI and bridge
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sdk/ts/package-lock.json
+      - run: npm ci --ignore-scripts
+        working-directory: sdk/ts
+      - name: Go SDK, TS SDK, Python SDK
+        run: make -C sdk test
+      - name: CLI and MCP bridge
+        run: |
+          go vet ./cmd/onemind/... ./internal/mcpbridge/...
+          go test -race -count=1 ./cmd/onemind/... ./internal/mcpbridge/...
+      - name: Conformance against a live gateway (Python, Go, TS SDKs; CLI; MCP through the stdio bridge)
+        run: |
+          cd core && uv sync --quiet
+          uv run pytest -q tests/test_sdk_conformance.py tests/test_mcp.py tests/test_mcp_catalogue.py tests/test_devsurface_api.py

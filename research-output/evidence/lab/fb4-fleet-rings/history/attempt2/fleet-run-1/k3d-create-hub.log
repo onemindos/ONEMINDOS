@@ -1,0 +1,18 @@
+[36mINFO[0m[0000] Prep: Network                                
+[36mINFO[0m[0000] Re-using existing network 'fb4net' (235d7ca53d74692de5cbaabbfe34e3f53fe0cb5c96efb673cbcfcf466b0382a2) 
+[36mINFO[0m[0000] Created image volume k3d-hub-images          
+[36mINFO[0m[0000] Starting new tools node...                   
+[36mINFO[0m[0000] Starting node 'k3d-hub-tools'                
+[36mINFO[0m[0001] Creating node 'k3d-hub-server-0'             
+[36mINFO[0m[0001] Using the k3d-tools node to gather environment information 
+[36mINFO[0m[0001] HostIP: using network gateway 198.51.100.1 address 
+[36mINFO[0m[0001] Starting cluster 'hub'                       
+[36mINFO[0m[0001] Starting servers...                          
+[36mINFO[0m[0001] Starting node 'k3d-hub-server-0'             
+[36mINFO[0m[0007] All agents already running.                  
+[36mINFO[0m[0007] All helpers already running.                 
+[36mINFO[0m[0007] Injecting records for hostAliases (incl. host.k3d.internal) and for 1 network members into CoreDNS configmap... 
+[36mINFO[0m[0009] Cluster 'hub' created successfully!          
+[36mINFO[0m[0009] You can now use it like this:                
+export KUBECONFIG=$(k3d kubeconfig write hub)
+kubectl cluster-info

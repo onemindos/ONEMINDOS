@@ -7,7 +7,7 @@
 //	ONEMIND_NATS_URL    hub NATS URL, e.g. nats://hub.local:4222 (empty = API only)
 //	ONEMIND_NODE_ROLE   hub | node (default node)
 //	ONEMIND_NODE_ID     override the id derived from /etc/machine-id
-//	ONEMIND_AGENT_ADDR  local API address (default :7480)
+//	ONEMIND_AGENT_ADDR  local API address (default 127.0.0.1:7480, loopback only)
 //	ONEMIND_DISK_PATH   filesystem measured for disk_* (default /)
 //	ONEMIND_LOG_LEVEL   debug | info | warn | error (default info)
 //	ONEMIND_UPDATE_CONF OS update settings (default /etc/onemind/update.conf);

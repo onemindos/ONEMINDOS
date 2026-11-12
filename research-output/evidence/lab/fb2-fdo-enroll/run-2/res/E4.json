@@ -1,0 +1,9 @@
+{
+  "id": "E4",
+  "verdict": "OBS",
+  "at": "2026-11-12T10:30:27Z",
+  "data": {
+    "fdo_command_executed_on_device_as_uid": "0",
+    "note": "owner-supplied shell ran on the device during TO2"
+  }
+}

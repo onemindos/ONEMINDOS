@@ -1,0 +1,100 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Minimal sign-in page served by the gateway (contract §12.6) until the new UI wires its screens. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OneMind sign-in</title>
+<style>
+  :root { --bg: #f6f7f9; --fg: #15171a; --muted: #5b6270; --card: #fff; --line: #d9dde3; --accent: #2457d6; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111317; --fg: #e8eaee; --muted: #9aa1ad; --card: #1a1d23; --line: #2c313a; --accent: #7aa2ff; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.45 system-ui, sans-serif; }
+  main { max-width: 420px; margin: 0 auto; padding: 32px 16px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin: 0 0 16px; }
+  h1 { font-size: 22px; margin: 0 0 16px; } h2 { font-size: 16px; margin: 0 0 12px; }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px; }
+  input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+  button { margin-top: 12px; padding: 8px 14px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
+  #msg { min-height: 1.5em; color: var(--muted); } [hidden] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>OneMind</h1>
+  <p id="msg" role="status"></p>
+  <section id="who" hidden><h2>Signed in</h2><p id="whoami"></p>
+    <label for="pklabel">Passkey name</label><input id="pklabel" value="this device">
+    <button id="addpk">Add a passkey</button> <button id="logout">Sign out</button></section>
+  <section id="enrol" hidden><h2>Finish your account</h2>
+    <label for="eu">Username</label><input id="eu" autocomplete="username">
+    <label for="ep">Password (at least 10 characters)</label><input id="ep" type="password" autocomplete="new-password">
+    <button id="enrolbtn">Create account</button></section>
+  <section id="login"><h2>Sign in</h2>
+    <button id="pklogin">Sign in with a passkey</button>
+    <label for="u">Username</label><input id="u" autocomplete="username">
+    <label for="p">Password</label><input id="p" type="password" autocomplete="current-password">
+    <label for="t">Authenticator code (if set up)</label><input id="t" inputmode="numeric" autocomplete="one-time-code">
+    <button id="pwlogin">Sign in with password</button></section>
+  <section id="setup"><h2>First owner (new box)</h2>
+    <label for="st">Install owner token</label><input id="st" type="password" autocomplete="off">
+    <label for="su">Username</label><input id="su" autocomplete="username">
+    <label for="sp">Password (at least 10 characters)</label><input id="sp" type="password" autocomplete="new-password">
+    <button id="setupbtn">Create the owner account</button></section>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const say = (t) => { $("msg").textContent = t; };
+const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64u = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
+const csrf = () => (document.cookie.split("; ").find((c) => /onemind_csrf=/.test(c)) || "").split("=")[1] || "";
+async function api(path, body, extra) {
+  const r = await fetch(path, { method: "POST", credentials: "same-origin",
+    headers: Object.assign({ "Content-Type": "application/json", "OneMind-CSRF": csrf() }, extra || {}),
+    body: JSON.stringify(body || {}) });
+  const data = r.status === 204 ? {} : await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.message || r.statusText);
+  return data;
+}
+function credJSON(c) {
+  const r = c.response, out = { id: c.id, rawId: b64u(c.rawId), type: c.type, response: { clientDataJSON: b64u(r.clientDataJSON) } };
+  if (r.attestationObject) { out.response.attestationObject = b64u(r.attestationObject); out.response.transports = r.getTransports ? r.getTransports() : []; }
+  if (r.authenticatorData) { out.response.authenticatorData = b64u(r.authenticatorData); out.response.signature = b64u(r.signature);
+    if (r.userHandle) out.response.userHandle = b64u(r.userHandle); }
+  return out;
+}
+async function refresh() {
+  const r = await fetch("/v1/me", { credentials: "same-origin" });
+  const signedIn = r.ok;
+  $("who").hidden = !signedIn; $("login").hidden = signedIn; $("setup").hidden = signedIn;
+  if (signedIn) { const me = await r.json(); $("whoami").textContent = `${me.principal.display_name || me.principal.id} (${me.principal.role}), ${me.passkeys} passkey(s)`; }
+}
+$("pwlogin").onclick = () => api("/v1/auth/login", { username: $("u").value, password: $("p").value, totp: $("t").value || null })
+  .then(() => { say("Signed in."); refresh(); }, (e) => say(e.message));
+$("setupbtn").onclick = () => api("/v1/auth/setup", { username: $("su").value, password: $("sp").value }, { Authorization: "Bearer " + $("st").value })
+  .then(() => { $("st").value = ""; say("Owner account created. Add a passkey now."); refresh(); }, (e) => say(e.message));
+$("enrolbtn").onclick = () => api("/v1/auth/enrol", { code: location.hash.split("enrol=")[1] || "", username: $("eu").value, password: $("ep").value })
+  .then(() => { history.replaceState(null, "", location.pathname); $("enrol").hidden = true; say("Account ready. Add a passkey now."); refresh(); }, (e) => say(e.message));
+$("addpk").onclick = async () => {
+  try {
+    const o = await api("/v1/auth/passkeys/register/options"); const pk = o.publicKey;
+    pk.challenge = unb64u(pk.challenge); pk.user.id = unb64u(pk.user.id);
+    (pk.excludeCredentials || []).forEach((c) => { c.id = unb64u(c.id); });
+    const c = await navigator.credentials.create({ publicKey: pk });
+    await api("/v1/auth/passkeys/register", { credential: credJSON(c), label: $("pklabel").value });
+    say("Passkey added."); refresh();
+  } catch (e) { say(e.message); }
+};
+$("pklogin").onclick = async () => {
+  try {
+    const o = await api("/v1/auth/login/options"); const pk = o.publicKey; pk.challenge = unb64u(pk.challenge);
+    const c = await navigator.credentials.get({ publicKey: pk });
+    await api("/v1/auth/login", { passkey: credJSON(c) }); say("Signed in."); refresh();
+  } catch (e) { say(e.message); }
+};
+$("logout").onclick = () => api("/v1/auth/logout").then(() => { say("Signed out."); refresh(); }, (e) => say(e.message));
+if (location.hash.includes("enrol=")) { $("enrol").hidden = false; $("login").hidden = true; $("setup").hidden = true; } else { refresh(); }
+</script>
+</body>
+</html>

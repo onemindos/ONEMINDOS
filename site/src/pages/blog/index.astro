@@ -3,13 +3,14 @@
 // Blog index: every entry under src/content/docs/blog/, newest first.
 import { getCollection } from 'astro:content';
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import brand from '../../brand.generated.json';
 
 const base = import.meta.env.BASE_URL;
 const posts = (await getCollection('docs', (e) => e.id.startsWith('blog/') && e.data.date))
   .sort((a, b) => b.data.date!.getTime() - a.data.date!.getTime());
 ---
 
-<StarlightPage frontmatter={{ title: 'Blog', description: 'News and notes from the people building OneMind OS.', tableOfContents: false }}>
+<StarlightPage frontmatter={{ title: 'Blog', description: `News and notes from the people building ${brand.name}.`, tableOfContents: false }}>
   <p>Release notes, design decisions and what we learned on real hardware.</p>
   {
     posts.map((p) => (
@@ -18,7 +19,7 @@ const posts = (await getCollection('docs', (e) => e.id.startsWith('blog/') && e.
           <a href={`${base}${p.id}/`}>{p.data.title}</a>
         </h2>
         <p class="om-byline">
-          {p.data.author ?? 'OneMind'} · <time datetime={p.data.date!.toISOString()}>{p.data.date!.toISOString().slice(0, 10)}</time>
+          {p.data.author ?? brand.shortName} · <time datetime={p.data.date!.toISOString()}>{p.data.date!.toISOString().slice(0, 10)}</time>
         </p>
         {p.data.description && <p>{p.data.description}</p>}
       </article>

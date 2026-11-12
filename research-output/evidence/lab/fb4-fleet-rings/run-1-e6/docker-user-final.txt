@@ -1,0 +1,8 @@
+Chain DOCKER-USER (1 references)
+    pkts      bytes target     prot opt in     out     source               destination         
+      10      600 RETURN     tcp  --  *      *       198.51.100.0/24      <hub-ip>         tcp dpt:6443 ctstate NEW /* fb4 site->hub api (count) */
+       0        0 DROP       all  --  *      *       <hub-ip>         198.51.100.5         ctstate NEW /* fb4 hub->k3d-site-a-server-0 */
+       0        0 DROP       all  --  *      *       <hub-ip>         198.51.100.6         ctstate NEW /* fb4 hub->k3d-site-a-agent-0 */
+       0        0 DROP       all  --  *      *       <hub-ip>         198.51.100.4         ctstate NEW /* fb4 hub->k3d-site-b-server-0 */
+       0        0 DROP       all  --  *      *       <hub-ip>         198.51.100.3         ctstate NEW /* fb4 hub->k3d-box-1-server-0 */
+  239013 1272575001 RETURN     all  --  *      *       0.0.0.0/0            0.0.0.0/0           

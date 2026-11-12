@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# A Role on `namespaces` in app-<id> lets the app's ServiceAccount relabel its own Namespace
+# (Pod Security enforce=privileged, or the gateway-proxy label).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: relabel-own-namespace
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - patch

@@ -10,7 +10,7 @@ import { Icon } from '../components/Icon';
 import { StatusPill } from '../components/StatusPill';
 import { cx } from '../lib/cx';
 import { formatAgo, secondsSince } from '../lib/time';
-import { ACCENTS, ACCENT_IDS, presetAccent, type AccentId } from './accents';
+import { ACCENTS, ACCENT_IDS, DEFAULT_ACCENT, presetAccent, type AccentId } from './accents';
 import { normalizeHex } from './color';
 import { ChoiceGroup, RangeField, SettingRow } from './controls';
 import { useCustomize } from './CustomizeProvider';
@@ -185,7 +185,7 @@ function AccentSection() {
   const name = useId();
   const [draft, setDraft] = useState<string | null>(null);
   const resolved = resolveAccent(prefs);
-  const wpAccent = prefs.wallpaper !== 'none' && prefs.wallpaper !== 'custom' ? WALLPAPERS[prefs.wallpaper].accent : 'teal';
+  const wpAccent = prefs.wallpaper !== 'none' && prefs.wallpaper !== 'custom' ? WALLPAPERS[prefs.wallpaper].accent : DEFAULT_ACCENT;
   const wp = presetAccent(wpAccent);
   const selected = prefs.accentSource === 'preset' ? prefs.accentPreset : prefs.accentSource;
   const custom = resolveAccent({ ...prefs, accentSource: 'custom' });

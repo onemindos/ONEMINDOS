@@ -23,16 +23,16 @@ Each app page shows a **trust card**: the facts you would want before you instal
 | Smoke test | Installed on a throwaway k3s in CI; the web port must answer HTTP 200. | `scan.json` |
 | Scan age | The gateway refuses to install an app without a passing scan newer than 7 days. | `scan.json` |
 
-<span class="om-tag om-tag--ok">works today</span> manifests, digest pins and the generated catalog. <span class="om-tag om-tag--warn">in review</span> the CI gate that writes `scan.json`, the daily rescan, and the gateway check that refuses unscanned apps (`409 stale_precondition`). Until that lands, cards show "no scan record yet". We would rather show a grey dot than a green one we haven't earned.
+<span class="om-tag om-tag--ok">works today</span> all of it: manifests, digest pins, the generated catalog, the CI gate that writes `scan.json`, the daily rescan, and the gateway check that refuses unscanned apps (`409 stale_precondition`). An app with no scan record shows "Not scanned" and cannot be installed. We would rather show a grey dot than a green one we haven't earned. Step by step in the dashboard: [Apps](../../guides/apps/).
 
-## Adding apps at scale <span class="om-tag om-tag--warn">in review</span>
+## Adding apps at scale <span class="om-tag om-tag--ok">works today</span>
 
 The goal is 100+ apps, added continuously, without hand-crafting YAML:
 
 1. **Queue.** One line per app in [`apps/_intake/queue.yaml`](https://github.com/onemindos/ONEMINDOS/blob/main/apps/_intake/queue.yaml): name, GitHub repo, optional docs link.
 2. **Scaffolder.** Fills the manifest from primary sources only: the GitHub API, the upstream's own compose file or Helm chart, and the registry for digests and architectures. Anything it cannot verify is written as `UNVERIFIED` and blocks the `verified` tier. It never guesses an image name.
 3. **CI gate.** Runs every check above on each pull request.
-4. **Updates.** Renovate opens pull requests that bump tag and digest. The gate runs again. Patch bumps of verified apps can merge automatically when green; minor and major bumps wait for a human. A new critical CVE or malware hit marks the app `blocked` and alerts owners who have it installed.
+4. **Updates.** Renovate opens pull requests that bump tag and digest. The gate runs again. Patch bumps of verified apps can merge automatically when green; minor and major bumps wait for a human. A new critical CVE or malware hit marks the app `blocked`. Alerting the owners who have it installed is planned.
 
 ## Tiers
 
