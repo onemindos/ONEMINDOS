@@ -50,21 +50,60 @@ class AuditLog:
         self.publish = publish
         self._lock = threading.Lock()
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._seq, self._last_hash = self._resume()
+        self._seq, self._last_hash, recovered = self._resume()
+        if recovered is not None:
+            log.warning("audit log had an incomplete tail; moved it to %s", recovered["moved_to"])
+            self.append("audit.recovered", None, None, recovered)
 
-    def _resume(self) -> tuple[int, str]:
-        """Continue the chain after a restart from the last line on disk."""
+    @staticmethod
+    def _parse_record(line: bytes) -> dict | None:
+        """A line that parses and whose own hash is right, else None."""
+        try:
+            rec = json.loads(line)
+            body = {k: v for k, v in rec.items() if k not in ("prev_hash", "hash")}
+            if isinstance(rec["seq"], int) and chain_hash(rec["prev_hash"], body) == rec["hash"]:
+                return rec
+        except (ValueError, KeyError, TypeError):
+            pass
+        return None
+
+    def _resume(self) -> tuple[int, str, dict | None]:
+        """Continue the chain after a restart from the last complete, self-consistent line.
+
+        A crash or power loss can leave a partial last line. Instead of refusing to start, the
+        bytes after the last good line are moved to <name>.corrupt (appended, never lost), the
+        file is truncated there, and the caller writes an audit.recovered event. Damage earlier
+        in the file is left in place for verify() to report.
+        """
         if not self.path.exists():
-            return 0, GENESIS
-        last = None
-        with self.path.open("rb") as fh:
-            for line in fh:
-                if line.strip():
-                    last = line
-        if last is None:
-            return 0, GENESIS
-        rec = json.loads(last)
-        return int(rec["seq"]), rec["hash"]
+            return 0, GENESIS, None
+        data = self.path.read_bytes()
+        seq, last_hash, good_end, pos = 0, GENESIS, 0, 0
+        for line in data.splitlines(keepends=True):
+            pos += len(line)
+            if line.strip():
+                rec = self._parse_record(line)
+                if rec is not None:
+                    seq, last_hash, good_end = rec["seq"], rec["hash"], pos
+        tail = data[good_end:]
+        if not tail.strip():
+            if data and not data.endswith(b"\n"):
+                with self.path.open("ab") as fh:
+                    fh.write(b"\n")
+            return seq, last_hash, None
+        corrupt = self.path.with_name(self.path.name + ".corrupt")
+        with corrupt.open("ab") as fh:
+            fh.write(tail if tail.endswith(b"\n") else tail + b"\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        with self.path.open("r+b") as fh:
+            fh.truncate(good_end)
+            if good_end and not data[:good_end].endswith(b"\n"):
+                fh.seek(good_end)
+                fh.write(b"\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        return seq, last_hash, {"moved_bytes": len(tail), "moved_to": corrupt.name}
 
     def append(
         self,

@@ -119,6 +119,21 @@ def test_chain_resumes_after_restart(tmp_path, clock):
     assert audit_main([str(p)]) == 0
 
 
+@pytest.mark.parametrize("tail", [b'{"seq": 4, "ts": "2026-11', b"\x00\x00\x00", b'{"seq": 4}\n'])
+def test_partial_last_line_is_recovered_not_fatal(tmp_path, clock, tail):
+    p = tmp_path / "a.jsonl"
+    _write_some(p, clock, 3)
+    with p.open("ab") as fh:
+        fh.write(tail)  # crash mid-write
+    log = AuditLog(p, clock)  # must not raise
+    log.append("after.restart")
+    ok, n, reason = verify(p)
+    assert ok and n == 5, reason
+    events = [json.loads(l)["event"] for l in p.read_text().splitlines()]
+    assert events[-2:] == ["audit.recovered", "after.restart"]
+    assert (tmp_path / "a.jsonl.corrupt").read_bytes().startswith(tail)
+
+
 def test_audit_publishes_to_nats_subject(tmp_path, clock):
     sent = []
     log = AuditLog(tmp_path / "a.jsonl", clock, publish=lambda s, d: sent.append((s, d)))
