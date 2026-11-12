@@ -251,6 +251,7 @@ class NatscheckAgainstMock(unittest.TestCase):
             self.assertEqual(code, 1, out)
         finally:
             srv.shutdown()
+            srv.server_close()
 
 
 def docker_ok():
