@@ -10,6 +10,7 @@
 !core/
 !dashboard/
 !sdk/schema/
+!sdk/go/
 !apps/
 **/node_modules
 **/dist

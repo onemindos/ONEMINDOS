@@ -54,6 +54,7 @@ RUN fetch-onemind go "$BUILDARCH" /opt/go
 ENV PATH=/opt/go/bin:$PATH GOTOOLCHAIN=local GOFLAGS=-mod=readonly CGO_ENABLED=0 GOCACHE=/tmp/go-build
 WORKDIR /src
 COPY go.mod go.sum ./
+COPY sdk/go/ sdk/go/
 RUN go mod download && go mod verify
 COPY cmd/ cmd/
 COPY internal/ internal/
