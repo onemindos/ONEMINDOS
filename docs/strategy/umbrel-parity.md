@@ -17,6 +17,82 @@
 
 ---
 
+## 0. Re-score against `main` (2026-11-12, Wave G #5)
+
+> ### In plain words
+> This page was written when `main` had only a five-screen dashboard. A lot has merged since, so this section re-scores every P0 row and the main P1 rows against what is **actually in the code on `origin/main`** (`ad81f84`), not against the status tracker. The headline: **the look and customization layer is now real and wired** (dashboard v2 on `@onemind/ui`, wallpapers and accents, Home launcher, command palette, jobs tray, a Market driven by the taxonomy). **The deploy layer is still the weak side**: `main` can still only install and remove an app. The lifecycle work (start, stop, restart, update, configure, plan binding, credentials) is in open PR #72, and the app-store depth work (logs UI, settings, dependencies, host ports, community sources, exposure) is in open PRs #47 and #57. The other big gap is that the **backend already knows passkeys, sessions and users, but the dashboard still signs in with a static token**, so a person cannot use any of it from the browser yet.
+>
+> Why this matters: umbrelOS feels finished because every button does something. A screen that shows "Restart" but cannot restart anything is worse than no screen, so the next streams are ordered by "which unwired screen blocks the most daily use".
+
+**Marks:** `done-on-main` = code and tests are on `origin/main`; `in-open-PR (#n)` = built, not merged; `not started` = no code on `main` or in an open PR. "(partial)" says what is missing. Open PRs were listed with the GitHub API on 2026-11-12: #72 app lifecycle, #57 app store depth, #47 contract §12.22, #77 files, #75 automation, #62 and #49 Market batches, #42 test matrix, #78 and #76 deploy kits.
+
+### 0.1 P0 rows (§5, same order)
+
+| # | ID | Mark | Evidence |
+|---|---|---|---|
+| 1 | PD-01 categories, tags, kind in manifest | **not started** (partial: UI side done) | UI list and tags in `ui/src/store/taxonomy.ts`; adapter in `dashboard/src/data/adapters.ts` (maps legacy slugs); candidate list normalised by `scripts/app-taxonomy.py` (run from `.github/workflows/ci.yml`); design in `docs/design/TAXONOMY.md`. But `sdk/schema/onemind.app.schema.json` still has `category` as a free-text slug with no `tags`, `tagline`, `gallery` or `releaseNotes`, and the validator in `sdk/tools/` checks no category list. The apps in `apps/` still use legacy slugs (`home-automation`, `iot`, `passwords`, `network`) |
+| 2 | PU-01 dashboard on `@onemind/ui` | **done-on-main** (#73) | `dashboard/src/pages/{Home,Market,Installed,Approvals,Activity,Nodes,Settings}.tsx` import from `@onemind/ui`; demo-data flag kept (`dashboard/src/api/mock.ts`). Limit: `dashboard/src/api/client.ts` only calls `/v1/instance`, `/v1/nodes`, `/v1/apps` and `/v1/actions*`; nothing from §12.6, §12.14 or §12.15 |
+| 3 | PU-02 Market categories and rails | **done-on-main** | `ui/src/store/{Market,CategoryIcon,taxonomy}.tsx`, `dashboard/src/pages/Market.tsx`; tests `ui/src/store/store.test.tsx`, `logic.test.ts`. The "Your deployments" rail waits for D4/D5 (PD-13) |
+| 4 | PU-03 Appearance | **done-on-main** (partial: browser only) | 14 own generated wallpapers, accents, density in `ui/src/customize/` (`wallpapers.ts`, `accents.ts`, `AppearanceSettings.tsx`, contrast guard `color.ts`, `engine.test.ts`). Stored per person in the browser's localStorage only (`dashboard/src/data/prefs.ts`); the hub copy needs `/v1/me/home` (UMB-DESK-0/1, todo), so the phone does not match yet |
+| 5 | PD-03 lifecycle actions with progress | **in-open-PR (#72)** | On `main` the executor only runs `app.install` and `app.remove` (`core/onemind_core/executors.py`; agent scopes in `identity/scopes.py`). Contract §12.5 lists `app.update/restart/configure/rollback`, but nothing executes them; the notify catalogue already offers an `app.restart` fix (`notify/catalogue.py`) with no executor behind it |
+| 6 | PD-02 per-app URL behind gateway login | **not started** (module written, not mounted) | `core/onemind_core/proxy.py` and `core/tests/test_proxy.py` exist, but the module says "NOT MOUNTED YET (CORE-NET-8)" and `core/onemind_core/app.py` does not register it. The box CA is on main (`core/onemind_core/ca.py`, `internal/mesh`) |
+| 7 | PU-06 + PD-04 install review, plan endpoint, jobs tray | UI **done-on-main**; plan endpoint and progress **in-open-PR (#72)** | `ui/src/store/InstallReview.tsx`, `Jobs.tsx`, `JobsTray` in `dashboard/src/shell/Shell.tsx`. No `/v1/apps/{id}/plan` route on `main` (only `/v1/apps`, `/v1/apps/{id}`, `/access`, `/logs`, `/metrics`) and the executor reports no step or percent, so the tray shows approval state only |
+| 8 | PU-07 + PD-06 + PD-07 app detail, keep-data remove, credentials | PD-06 and UI **done-on-main**; PD-07 **in-open-PR (#72)** | Plain `app.remove` keeps data and `delete_data` is a separate parameter (`executors.py`, contract §12.5); `ui/src/store/AppDetail.tsx`, `LogViewer.tsx`; `GET /v1/apps/{id}/logs` (`core/onemind_core/routers/monitoring.py`, owner and adult only). Stop, Start, Restart and Update have nothing to call yet |
+| 9 | PU-04 Home as launcher | **done-on-main** (partial) | `ui/src/home/{HomeScreen,AppGrid,Dock,WidgetGrid,greeting}`, wired in `dashboard/src/pages/Home.tsx`. The person's name needs `/v1/me`, which the dashboard does not read; widgets whose API is missing name the stream that brings them |
+| 10 | PU-05 + PU-09 first-run wizard and real login | backend **done-on-main**; dashboard **not started** | Backend: `POST /v1/auth/setup`, `/login`, `/login/options`, passkey register, TOTP, sessions, `/v1/me`, users (`core/onemind_core/routers/identity.py`, `identity/passkeys.py`, #41). The wizard exists as a component (`ui/src/shell/Onboarding.tsx`, `firstRun.ts`) but no dashboard file imports it, and `dashboard/src/pages/SignIn.tsx` still asks for a static bearer token |
+| 11 | PD-05 + PU-08 health-gated app update with revert | **in-open-PR (#72)** | Nothing on `main` runs `app.update`. (The OS-level A/B update with health gate is separate and **done-on-main**: `internal/update`, #15) |
+| 12 | PU-10 command palette, PU-31 PWA | PU-10 **done-on-main**; PU-31 **not started** (partial) | `ui/src/shell/CommandPalette.tsx`, `palette.ts`, `dashboard/src/shell/Shell.tsx`. PWA: only `dashboard/public/manifest.webmanifest` (black theme colour); no service worker, no offline "last known" cache (STATUS CORE-DASH-7 is todo) |
+
+### 0.2 P1 rows that moved
+
+| ID | Mark | Evidence |
+|---|---|---|
+| PD-08 logs API | done-on-main | `GET /v1/apps/{id}/logs`, `routers/monitoring.py` |
+| PU-12, PU-17 system widgets, live usage | API done-on-main; UI per app not started | `GET /v1/nodes/{id}/metrics`, `/v1/apps/{id}/metrics`, `/v1/monitoring/summary`; the dashboard client does not call them |
+| PU-18 sessions and tokens | API done-on-main; UI not started | `/v1/auth/sessions`, `/v1/tokens` (+ rotate); Settings shows "coming" (`dashboard/src/pages/Settings.tsx`, `COMING`) |
+| PU-28 multi-user | API done-on-main; UI not started | `/v1/users`, disable, `PATCH` |
+| PU-30 notifications | API done-on-main (alerts, channels, push registration); dashboard inbox not started; phone partial | `routers/notifications.py`; `mobile/src/screens/InboxScreen.tsx`, `PushSection.tsx` (#63) |
+| Passkey-signed approvals | API done-on-main | `POST /v1/actions/{id}/approve-options` |
+| PD-09 settings schema, PD-10 dependencies, PD-11 host ports, PD-12 pinned community sources, PD-17 exposure tiers | in-open-PR (#57, contract #47) | "app store depth (§12.22)" |
+| PD-13 custom apps | Compose import in-open-PR (#57); Git deploy, history, rollback not started | |
+| PD-14 app backups | agent done-on-main; gateway route and UI not started | `internal/backup` (restic, verify, rewind, #32); no `/v1/backups` route on `main` |
+| PD-15, PU-24 restore at onboarding, move to new hardware | not started | |
+| PD-16 widget data from apps | not started | |
+| PD-18 stuck-app repair | not started | |
+| PD-19 OS update channel | daemon done-on-main; gateway route and UI not started | `internal/update`; no `/v1/os/*` route |
+| PU-20 i18n | not started | no i18n layer in `dashboard/` or `ui/` |
+| PU-33 browser a11y | axe on components done-on-main (`ui/src/components/components.test.tsx`); browser matrix in-open-PR (#42) | |
+| PU-34 perf budgets | done-on-main | #68, `.github/workflows/perf-smoke.yml`, `test/perf` |
+| PU-19, PU-21, PU-25, PU-26, PU-27 | not started | |
+| P2 rows (PU-13 to 16, PU-22, PD-20 to 23) | not started, unchanged | |
+
+### 0.3 Proposed next build streams (ordered by user value)
+
+Order rule: first make the screens that already exist actually work, then what a household notices in week one, then reach. Effort: S ≤ 2 days, M ≤ 1 week, L > 1 week.
+
+| # | Stream | Scope | Depends on | Effort | Why this rank |
+|---|---|---|---|---|---|
+| 1 | **Land app lifecycle**, then wire it | Review and merge #72 (start, stop, restart, update, configure, delete_data, `/v1/apps/{id}/plan`, health-gated update with revert, sealed credentials); wire Installed and AppDetail buttons (`dashboard/src/pages/Installed.tsx`) | #72 review; contract §12.5 | M | Every P0 app-management row is blocked on it: the biggest "buttons do nothing" gap |
+| 2 | **Dashboard login and first run** (PU-05, PU-09, PU-18, PU-28) | Replace the token SignIn with passkey/password, mount `Onboarding.tsx` on first run, read `/v1/me` for name and role, Settings sections for Account, Sessions, People on routes already on `main`; keep the static token as a documented fallback | identity routes (on `main`) | M | The backend is built and unused; this is the first minute of the product |
+| 3 | **Mount the per-app proxy** (PD-02, CORE-NET-8, CORE-DASH-7) | Register `proxy.py` for host routes, honest "starting / stopped / unreachable" page, working Open button | CA and mesh (on `main`); #72 for the true state | M | Opening an installed app is the daily action and has no URL today |
+| 4 | **Manifest taxonomy amendment** (PD-01) | `tags`, `tagline`, `gallery`, `releaseNotes` and the category list in schema and validator; migrate the apps off legacy slugs; CI check | founder sign-off on `docs/design/TAXONOMY.md` §5 (do not build before it); contract #47 | S | Small; unblocks catalog quality and Market batches (#49, #62) |
+| 5 | **Hub-side preferences** (PU-03 rest, UMB-DESK-0/1) | `/v1/me/home` stored per person with ETag; switch `prefs.ts` to `ApiPreferencesStore` when `me.preferences` is advertised | stream 2 | M | Phone matches desktop; survives a browser clear |
+| 6 | **Wire read-only screens whose APIs are served** (PU-17, PU-30) | Dashboard calls for `/v1/alerts`, `/v1/notifications`, `/v1/monitoring/summary`, node and app metrics; bell fed by alerts, not only approvals | none | S | Cheap and visible; shows the honest stale/offline story |
+| 7 | **PWA** (PU-31) | Service worker, "last known" cache labelled with its age, theme colour from the accent | none hard | S | Fastest phone presence |
+| 8 | **Backups and Updates screens** (PU-23, PU-25, PD-14, PD-19, CORE-DASH-5) | Gateway routes in front of `internal/backup` and `internal/update` (`/v1/backups/*`, `/v1/os/*`), dashboard screens, verified-restore badge | contract §12.12 and §12.13 handlers | L | Losing data is the founder's biggest fear; the agent exists but the owner cannot see or run it |
+| 9 | **App store depth** (PD-09 to PD-12, PD-17) | Review and land #47 then #57; dashboard settings form, dependencies, ports, add a community source | #72 | L | Parity within weeks, not days |
+| 10 | **Restore and move to new hardware** (PD-15, PU-24, PD-18) | Restore at onboarding, node drain, stuck-app Repair request | streams 2 and 8 | M | Backs the claim "lose a disk and come back" |
+| 11 | **i18n scaffolding** (PU-20) | String catalog, `Intl` dates and numbers, English only | none | M | Cheap now, L once the dashboard grows |
+| 12 | **System controls** (PU-19, PU-26, PU-27) | Troubleshoot and redacted diagnostic bundle, factory reset, restart and shutdown, all as approvals | streams 2 and 8 | M | Table stakes |
+
+Not proposed now: Files in the core (PU-16; #77 is open and should be judged on its own), terminal (PU-15), VMs (PD-23, F-57).
+
+**Conflicts to flag for Zeus (nothing decided here):**
+(a) `docs/leap/STATUS.md` is behind `main`: CORE-SEC-2, CORE-NOTIFY-1 and CORE-DASH-2 still read `in-progress` or `review` though their code (#41, #44, #73) is merged, so the tracker alone under-reports progress.
+(b) The category table in §2.1 below (14 slugs) is not what ships: `ui/src/store/taxonomy.ts` has 16 slugs (for example `notes`, `news`, `family`, `communication`). `docs/design/TAXONOMY.md` is the authority; treat §2.1 as superseded once the founder signs off TAXONOMY §5.
+
+---
+
 ## 1. Method and pinned sources
 
 Every row below names the file or doc read. **Licence rule:** umbrelOS is PolyForm Noncommercial 1.0.0 (`getumbrel/umbrel@c43beed:LICENSE.md`): **studied, nothing copied** (no code, assets, icons, wallpapers or text). Only MIT/BSD/Apache-2.0 code may be copied, with a `NOTICE` entry; no code is copied by this document.
