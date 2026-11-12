@@ -229,7 +229,7 @@ def main():
     if want("TC1") and os.path.exists(os.path.join(a.fixtures, "seed.img")):
         vm.mark("TC1 cloud first boot (NoCloud seed)")
         _, st = vm.run("cloud-init status --wait --long 2>&1 | head -12", 900)
-        _, keys = vm.run("grep -c onemind-tc1 /home/onemind/.ssh/authorized_keys")
+        _, keys = vm.run("grep -c onemind-tc1 /home/admin/.ssh/authorized_keys")
         _, ssh = vm.run("systemctl is-active ssh.service")
         _, hk = vm.run("ls /data/onemind/ssh/ssh_host_ed25519_key; echo SLOTKEYS=$(ls /etc/ssh/ssh_host_* 2>/dev/null | wc -l)")
         done = re.search(r"^status: done", st, re.M) is not None

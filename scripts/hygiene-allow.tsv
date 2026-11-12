@@ -42,3 +42,5 @@ scripts/hygiene-allow.tsv	(100\.64\.0\.0|/home/runner)	B-FP-9
 os/boards/cloud/*	/home/admin	B-FP-6
 scripts/hygiene-allow.tsv	/home/admin	B-FP-6
 test/qemu/CRITERIA-CLOUD.md	10\.0\.2\.0	B-FP-6
+os/boards/vm-do/*	/home/admin	B-FP-6
+test/qemu/*	/home/admin	B-FP-6
