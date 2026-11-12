@@ -27,6 +27,7 @@ SUBJECT_RE = re.compile(r"^onemind\.node\.([A-Za-z0-9_-]{1,64})\.status$")
 MAX_HEARTBEAT_BYTES = 64 * 1024
 STALE_AFTER_S = 30
 OFFLINE_AFTER_S = 120
+MAX_NODES = 256  # a household fabric is a handful of machines; more ids than this are noise or an attack
 # Fields the contract forbids in heartbeats; dropped defensively if a node sends them.
 FORBIDDEN_KEYS = {"serial", "serial_number", "mac", "mac_address", "macs", "ip", "ips", "ip_address", "user", "users", "username"}
 
@@ -68,8 +69,18 @@ class NodeRegistry:
             hb.pop(k)
         hb.pop("status", None)
         hb.pop("last_seen", None)
+        now = self.clock()
         with self._lock:
-            self._nodes[hb["node_id"]] = (hb, self.clock())
+            if hb["node_id"] not in self._nodes and len(self._nodes) >= MAX_NODES:
+                # NATS has no users yet (H-06), so any LAN device can invent node ids. Never let that
+                # grow the registry (64 KiB each) without bound: make room by dropping the node
+                # unheard of for longest, but only if it is already offline; else refuse the newcomer.
+                oldest = min(self._nodes, key=lambda n: self._nodes[n][1])
+                if (now - self._nodes[oldest][1]).total_seconds() <= OFFLINE_AFTER_S:
+                    log.warning("node registry full (%d); dropping heartbeat from a new node id", MAX_NODES)
+                    return False
+                del self._nodes[oldest]
+            self._nodes[hb["node_id"]] = (hb, now)
         return True
 
     def _view(self, hb: dict, seen: datetime, now: datetime) -> dict:

@@ -39,7 +39,7 @@ from ..notify.store import (
     ChannelRow, DeviceRow, alert_json, channel_json, decode_cursor, device_json, encode_cursor,
     notification_json,
 )
-from ..identity.scopes import ALL, register_route_scope
+from ..identity.scopes import ALL, has_any, register_route_scope
 
 TAG = "notifications"
 
@@ -205,12 +205,17 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/alerts/{alert_id}/fix", operation_id="alerts.fix", tags=["alerts"], status_code=202,
               responses=error_responses(401, 403, 404, 409, 422))
-    def fix_alert(alert_id: str, body: FixIn | None = None, p: Principal = Depends(principal)):
+    def fix_alert(alert_id: str, request: Request, body: FixIn | None = None, p: Principal = Depends(principal)):
         body = body or FixIn()
         if not (p.is_owner or p.kind == "agent"):
             raise ApiError(403, "permission_denied", "only owners and agents request fixes")
         if body.approve and not p.is_owner:
             raise ApiError(403, "permission_denied", "only an owner may approve in the same call")
+        ctx = getattr(request.state, "identity", None)
+        if body.approve and ctx is not None and not has_any(ctx.scopes, ("actions:approve",)):
+            # The route table only asks for actions:request here; an approval needs the approve scope
+            # exactly as POST /v1/actions/{id}/approve does (a narrowed owner token must not approve).
+            raise ApiError(403, "permission_denied", "this credential may request fixes but not approve them")
         row = alert_for(p, alert_id)
         fix = json.loads(row.fix_json) if row.fix_json else None
         if fix is None:
@@ -237,6 +242,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(409, "conflict", f"the fix {fix['type']!r} cannot be requested on this box yet") from None
         action, _ = gw.actions.create(p, req, reason=body.reason or f"fix for alert {row.id}")
         if body.approve:
+            # Same gates as POST /v1/actions/{id}/approve: once an owner has a passkey, an approval
+            # needs a passkey assertion, which this call cannot carry, so it is refused (401
+            # step_up_required) and the fix stays a pending request to approve the normal way.
+            for guard in gw.approval_guards:
+                guard(p, action["id"], {}, request)
             action = gw.actions.approve(p, action["id"])
         return JSONResponse(status_code=202, content=action, headers={"Location": f"/v1/actions/{action['id']}"})
 
