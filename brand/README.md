@@ -28,13 +28,86 @@ Every file has a **transparent background**.
 
 These were measured from the founder's master file. The portal's dark logo used `#FF333A` too.
 
-## Where it goes in the OS (for the build and UI streams)
-- **Boot:** a Plymouth theme and the GRUB background use `white` or `on-dark` PNGs (owner: `os/`, image stream).
-- **Dashboard and rescue console:** use the `color` and `on-dark` SVGs; the favicon uses `color` 32/64 (owners: `dashboard/`, `ui/`).
-- **Phone apps:** the app icon comes from `color` 1024 on a white tile, or `on-dark` on a black tile (owner: `mobile/`).
-- **Website:** `site/src/assets/mark.svg` and `site/public/favicon.svg` should become `onemind-mark-color.svg` (owner: `site/`).
+## How to change the brand (one place, one command)
+Everything that shows the name, the colours or the logo is **generated** from this folder. To change the brand:
 
-The swap in each place is left to the stream that owns that folder, so this PR does not touch their files.
+1. Edit `brand/brand.json` (name, tagline, colours, which logo variant goes where), and/or replace the files in `brand/logo/` (keep the file names; each variant needs the PNG sizes listed in `logo.sizes`).
+2. Run, from the repository root:
+   ```sh
+   python3 -I scripts/brand-sync.py
+   ```
+   It needs only Python 3.11+ (standard library). If Node 22.6+ is installed it also refreshes `ui/src/tokens/tokens.css`; if not, run `npm run tokens` in `ui/`.
+3. Commit what changed. CI (`.github/workflows/brand.yml`) runs `python3 -I scripts/brand-sync.py --check` and fails if a derived file was not regenerated.
+
+**Never edit a generated file by hand.** Each one says "Generated from brand/brand.json" at the top (or between the `brand:start` / `brand:end` comments in `dashboard/index.html`). The copied logo files (SVG, PNG) and `dashboard/public/manifest.webmanifest` (plain JSON) have no room for that note; the table in "Where the brand goes" lists them.
+
+### What `brand.json` holds
+| Key | Meaning |
+|---|---|
+| `name`, `shortName`, `tagline`, `description`, `homepage` | Product name ("OneMind OS"), short name ("OneMind") for tight spaces, one-line tagline, longer description, project URL |
+| `trademark` | The trademark note (see Licence below) |
+| `colors` | The brand colours by name (`red` is OneMind Red `#FF333A`, `black`, `white`). Other keys refer to them by name |
+| `accent` | The default UI accent: preset id `onemind`, its display name and the colour it is derived from (`seed`) |
+| `logo` | Alt text, the PNG sizes that exist, and for each variant its SVG, PNG pattern and which colour each layer (brain, circuit) has |
+| `favicon` | Variant for light and for dark browser themes, and the PNG favicon sizes |
+| `webManifest` | Theme and background colour and the icon variant/sizes for the dashboard's web-app manifest |
+| `appIcon` | Phone and desktop app icon: variant on a coloured tile, light and dark |
+| `splash` | Phone app splash: variant, background colour and size |
+| `os` | OS names for `os-release`, terminal colour, and the boot (Plymouth) and GRUB logo/colours |
+
+### The derived colours (why the UI red is not exactly `#FF333A`)
+Text and controls must stay readable: WCAG 2.2 AA needs a contrast of at least 4.5:1. `#FF333A` on white is only about 3.6:1, so the generator moves the red's **lightness** (keeping its hue) until every pair passes: darker on light backgrounds, lighter on dark ones. It uses the same maths as the UI's Appearance settings (OKLCH lightness), so the accent a new box starts with is exactly the "OneMind Red" preset. The numbers, with their contrast ratios, are in `brand/generated/brand.tokens.json`:
+
+| Where | Light theme | Dark theme |
+|---|---|---|
+| UI accent (`ui/`, `dashboard/`) | `#d11826` (white text on it) | `#fb605a` (near-black text on it) |
+| Website accent (`site/`) | `#d11826` | `#fe726a` |
+
+The logo itself always uses the exact `#FF333A`; only text and controls use the adjusted shades.
+
+## Where the brand goes
+| Surface | Generated files (by `scripts/brand-sync.py`) | What reads them |
+|---|---|---|
+| UI kit `ui/` | `ui/src/tokens/brand.generated.ts` | `tokens.ts` (accent roles and the `logo-brain` / `logo-circuit` roles, then `tokens.css` via `npm run tokens`), `customize/accents.ts` (the `onemind` preset, default), `BrandMark` (the logo drawn inline, colour variant in light, on-dark in dark), `AppShell` and onboarding headers, the OS name in Settings (About, Updates) and the Home updates widget |
+| Dashboard `dashboard/` | `src/brand.generated.ts`, `src/brand.generated.css`, `src/assets/brand/*.svg`, `public/brand/*` (favicons, manifest icons), `public/manifest.webmanifest`, the `brand:start…brand:end` block in `index.html` | `main.tsx` (CSS), top bar (on-dark logo), sign-in card (colour logo), home page fallback name |
+| Website `site/` | `src/brand.generated.json`, `src/styles/brand.generated.css`, `src/assets/brand/*.svg`, `public/favicon.svg`, `public/favicon-*.png` | `astro.config.mjs` (title, description, Starlight logo light/dark, PNG favicons), landing page (title, nav, theme colour, accent), blog byline fallback |
+| OS image | `brand/generated/os/*` (below) | the image stream, see next section |
+| Phone app `mobile/` | not wired yet | see "Not wired yet" |
+| Desktop app `desktop/` | not wired yet | see "Not wired yet" |
+| Icon sizes not in `logo/png/` | made in CI by `scripts/brand-icons.py` (Pillow), artifact `brand-icons` of the `brand` workflow | iOS `AppIcon-1024.png` (opaque), Android adaptive foreground and monochrome (inside the 66/108 safe zone), `apple-touch-icon-180.png`, `desktop/app-icon-1024.png` (the source for `tauri icon`) |
+
+The favicon (`favicon.svg`) is generated from the logo paths: the colour variant, switching to the on-dark variant when the browser is in dark mode.
+
+## What the image stream must wire (`os/`)
+`brand-sync.py` never writes into `os/` (the image stream owns it). It writes a ready-to-use file set to `brand/generated/os/`; the image build should copy it in like this:
+
+| Generated file | Put it at (in the image) | How |
+|---|---|---|
+| `os-release` | merge its keys into `/usr/lib/os-release` | In `os/assemble/assemble.py` `finalize()`, next to the existing `ONEMIND_VERSION` lines: drop existing `NAME=`, `PRETTY_NAME=`, `HOME_URL=`, `ANSI_COLOR=` lines and append these. Keep Debian's `ID=` and `VERSION_ID=` (tools such as apt and k3s read them) |
+| `motd` | `/etc/motd` | copy (replaces Debian's default text) |
+| `plymouth/onemind/onemind.plymouth`, `onemind.script` | `/usr/share/plymouth/themes/onemind/` | copy, then copy the PNG named by `ONEMIND_BRAND_BOOT_LOGO` in `brand.env` there as `logo.png`; install `plymouth` + `plymouth-themes`, run `plymouth-set-default-theme onemind` and rebuild the initramfs; add `splash quiet` to the kernel command line in `os/assemble/grub.cfg.in` |
+| `grub/onemind-brand.cfg` | `/boot/grub/onemind-brand.cfg` (or inline) | `source` it from `os/assemble/grub.cfg.in` before the first `menuentry`. For a logo, load `gfxterm` + `png` and use `ONEMIND_BRAND_GRUB_LOGO` as `background_image` |
+| `brand.env` | build-time only | shell-sourceable names, colour and the repo paths of the boot/GRUB logos |
+
+None of this has been booted yet: the Plymouth script and GRUB colours need a test on the VM board.
+
+## Not wired yet
+- **Phone app (`mobile/`)** and **desktop app (`desktop/`)**: #34 (photos backup, changes `mobile/app.json`) merged into `main` after this branch was cut; #33 (adds `desktop/`) is not on `main` yet. Wire each one after this branch is rebased on a `main` that has it, by adding to `scripts/brand-sync.py`:
+  - `mobile/src/brand.generated.ts` (name, accent from `brand.tokens.json`) for `mobile/src/ui/theme.ts`, which still uses a blue accent;
+  - copies of `appIcon.light` 1024 and the `splash` PNG into `mobile/assets/brand/`, and in `mobile/app.json`: `expo.name` = `shortName`, `expo.icon`, the splash (Expo 58: the `expo-splash-screen` config plugin with `image`, `backgroundColor`, `imageWidth`; UNVERIFIED, check the Expo 58 docs), `android.adaptiveIcon` (`foregroundImage`, `monochromeImage`, `backgroundColor`) from the CI `brand-icons` artifact;
+  - `desktop/src-tauri/tauri.conf.json` `productName` = `name`, and run `npx tauri icon <brand-icons>/desktop/app-icon-1024.png` in the desktop CI to replace `desktop/src-tauri/icons/` and `desktop/assets/app-icon.svg` / `tray-icon.svg`.
+- **Product wording**: sentences such as "this OneMind" or "Welcome to OneMind" in the UI text still name the product in prose. Headers, titles and logos come from `brand.json`; a rename would also need a copy pass over the prose.
+- **Design docs**: `docs/design/PRINCIPLES.md` and `docs/design/TOKENS.md` still say the accent is teal and red is only for status. The red default accent is the founder's decision (2026-11-12); those docs need a founder-approved update (see "Open questions").
+
+## Testing still to do (not run in this change)
+- Look at the UI, dashboard and site in a browser, light and dark: the logo, favicon (both themes), the red accent next to the red "danger"/"bad" status colours.
+- Dashboard: the manifest is served as `application/manifest+json` by the gateway (`core/`), and the web app installs with the right icon.
+- `scripts/brand-icons.py` in CI (`brand` workflow) and the artifact's icons on a real phone home screen (iOS mask, Android adaptive mask).
+- OS: Plymouth theme and GRUB colours on the VM board (above).
+- Mobile and desktop, once wired.
+
+## Open questions for the founder
+- **Red accent vs. red status.** The UI rule (PRINCIPLES P3) kept red for errors and danger. The UI accent is now `#d11826` and the danger colour is `#b42318`, close in hue. Status pills always carry a text label, so meaning does not depend on colour alone, but a "Delete" button and a primary button will look alike. Options: keep it, use a darker or more orange danger red, or keep red only for the logo and pick another accent default.
 
 ## How these were made (reproducible)
 - **Source:** the founder's transparent master PNG of the mark (3000×2000).

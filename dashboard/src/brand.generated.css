@@ -1,0 +1,9 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Generated from brand/brand.json by scripts/brand-sync.py. Do not edit by hand. */
+:root {
+  --brand-red: #ff333a;
+  --accent: #d11826;
+  --accent-hover: #b4101e;
+  --accent-ink: #ffffff;
+  --accent-soft: #fae8e9;
+}

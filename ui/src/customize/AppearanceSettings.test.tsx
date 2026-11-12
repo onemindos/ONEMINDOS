@@ -145,7 +145,7 @@ describe('AppearanceSettings', () => {
     const user = userEvent.setup();
     mount(new MemoryStore('local', saved({ accentSource: 'preset', accentPreset: 'moss' })));
     await user.click(await screen.findByRole('button', { name: 'Reset to defaults' }));
-    expect(screen.getByRole('radio', { name: /Match wallpaper/ })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'OneMind Red' })).toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Undo' }));
     expect(screen.getByRole('radio', { name: 'Moss' })).toBeChecked();
   });

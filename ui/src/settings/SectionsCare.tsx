@@ -2,6 +2,7 @@
 // Settings sections that keep the box healthy: Backups, Updates, Notifications, Automation.
 import { useState } from 'react';
 import { formatAgo, formatDay, formatIn, secondsSince } from '../lib/time';
+import { BRAND } from '../components/BrandMark';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
 import { StatusPill } from '../components/StatusPill';
@@ -201,7 +202,7 @@ export function UpdatesSection({ data, now, onIntent, onRetry }: SectionProps<Up
             </div>
             {d.available ? (
               <Group
-                title={`OneMind OS ${d.available.version} is ready`}
+                title={`${BRAND.name} ${d.available.version} is ready`}
                 description={`${d.available.channel} channel · ${d.available.size_mb} MB · fixes ${d.available.cvesFixed} known vulnerabilit${d.available.cvesFixed === 1 ? 'y' : 'ies'}`}
                 aside={
                   <Button variant="primary" size="sm" disabled={!live} onClick={() => onIntent({ type: 'os.update', params: { to: d.available!.version, when: 'window' }, mode: 'request', title: `Update to ${d.available!.version} in the window`, call: `onemind os update --to ${d.available!.version} --in-window` })}>
