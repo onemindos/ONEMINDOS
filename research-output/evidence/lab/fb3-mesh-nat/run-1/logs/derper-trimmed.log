@@ -1,0 +1,6 @@
+2026/11/12 03:09:29 no config path specified; using /var/lib/derper/derper.key
+2026/11/12 03:09:29 STUN server listening on 203.0.113.10:3478
+2026/11/12 03:09:29 No mesh key configured
+2026/11/12 03:09:29 derper: serving on 203.0.113.10:443 with TLS
+2026/11/12 03:29:15 derp: 203.0.113.22:58108: client [<k>]: readFrameHeader: read tcp 203.0.113.10:443->203.0.113.22:58108: read: connection timed out
+2026/11/12 03:29:15 derp client 203.0.113.21:60924[<k>]: sender failed: write tcp 203.0.113.10:443->203.0.113.21:60924: write: connection timed out

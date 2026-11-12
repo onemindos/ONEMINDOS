@@ -1,0 +1,21 @@
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 128ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 129ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 129ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 127ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 131ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 138ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 135ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 127ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 138ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 132ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 126ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 135ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 130ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 130ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 129ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 129ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 130ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 131ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 132ms
+pong from home-b (100.64.0.3) via DERP(onemind-hub) in 129ms
+direct connection not established

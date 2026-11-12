@@ -1,0 +1,43 @@
+[<k>] 2026/11/12 03:16:21.803087 [INF] Starting nats-server
+[<k>] 2026/11/12 03:16:21.803115 [INF]   Version:  2.15.2
+[<k>] 2026/11/12 03:16:21.803117 [INF]   Git:      [5a815f1]
+[<k>] 2026/11/12 03:16:21.803118 [INF]   Name:     neg-noca
+[<k>] 2026/11/12 03:16:21.803119 [INF]   ID:       NC7XFPBWW25MWSXJTAWG4E7CAG33FKN3SQFNUSBT7OMZ6RH7UZ5DZYUR
+[<k>] 2026/11/12 03:16:21.803123 [INF] Using configuration file: /opt/fb3/run/nats-t/neg-noca.conf (sha256:4ed987fb1f3f21a2d381c95521822b586210734ca9cb9d4e1ce23007c0b02be6)
+[<k>] 2026/11/12 03:16:21.803413 [INF] Listening for client connections on 127.0.0.1:4299
+[<k>] 2026/11/12 03:16:21.803424 [INF] Server is ready
+[<k>] 2026/11/12 03:16:21.867503 [INF] 100.64.0.1:7422 - lid:5 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:22.010423 [ERR] 100.64.0.1:7422 - lid:5 - TLS leafnode handshake error: tls: failed to verify certificate: x509: certificate signed by unknown authority (CN=nats-hub SHA-256: <lab-cert>)
+[<k>] 2026/11/12 03:16:22.010448 [INF] 100.64.0.1:7422 - lid:5 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:23.077092 [INF] 100.64.0.1:7422 - lid:6 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:23.203246 [ERR] 100.64.0.1:7422 - lid:6 - TLS leafnode handshake error: tls: failed to verify certificate: x509: certificate signed by unknown authority (CN=nats-hub SHA-256: <lab-cert>)
+[<k>] 2026/11/12 03:16:23.203277 [INF] 100.64.0.1:7422 - lid:6 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:24.267198 [INF] 100.64.0.1:7422 - lid:7 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:24.393903 [ERR] 100.64.0.1:7422 - lid:7 - TLS leafnode handshake error: tls: failed to verify certificate: x509: certificate signed by unknown authority (CN=nats-hub SHA-256: <lab-cert>)
+[<k>] 2026/11/12 03:16:24.393929 [INF] 100.64.0.1:7422 - lid:7 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:25.456735 [INF] 100.64.0.1:7422 - lid:8 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:25.593708 [ERR] 100.64.0.1:7422 - lid:8 - TLS leafnode handshake error: tls: failed to verify certificate: x509: certificate signed by unknown authority (CN=nats-hub SHA-256: <lab-cert>)
+[<k>] 2026/11/12 03:16:25.593727 [INF] 100.64.0.1:7422 - lid:8 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:26.662935 [INF] 100.64.0.1:7422 - lid:9 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:26.802260 [ERR] 100.64.0.1:7422 - lid:9 - TLS leafnode handshake error: tls: failed to verify certificate: x509: certificate signed by unknown authority (CN=nats-hub SHA-256: <lab-cert>)
+[<k>] 2026/11/12 03:16:26.802281 [INF] 100.64.0.1:7422 - lid:9 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:27.867220 [INF] 100.64.0.1:7422 - lid:10 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:27.994699 [ERR] 100.64.0.1:7422 - lid:10 - TLS leafnode handshake error: tls: failed to verify certificate: x509: certificate signed by unknown authority (CN=nats-hub SHA-256: <lab-cert>)
+[<k>] 2026/11/12 03:16:27.994722 [INF] 100.64.0.1:7422 - lid:10 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:29.062403 [INF] 100.64.0.1:7422 - lid:11 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:29.195760 [ERR] 100.64.0.1:7422 - lid:11 - TLS leafnode handshake error: tls: failed to verify certificate: x509: certificate signed by unknown authority (CN=nats-hub SHA-256: <lab-cert>)
+[<k>] 2026/11/12 03:16:29.195784 [INF] 100.64.0.1:7422 - lid:11 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:30.262510 [INF] 100.64.0.1:7422 - lid:12 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:30.396534 [ERR] 100.64.0.1:7422 - lid:12 - TLS leafnode handshake error: tls: failed to verify certificate: x509: certificate signed by unknown authority (CN=nats-hub SHA-256: <lab-cert>)
+[<k>] 2026/11/12 03:16:30.396605 [INF] 100.64.0.1:7422 - lid:12 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:31.463758 [INF] 100.64.0.1:7422 - lid:13 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:31.597914 [ERR] 100.64.0.1:7422 - lid:13 - TLS leafnode handshake error: tls: failed to verify certificate: x509: certificate signed by unknown authority (CN=nats-hub SHA-256: <lab-cert>)
+[<k>] 2026/11/12 03:16:31.597979 [INF] 100.64.0.1:7422 - lid:13 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:32.669575 [INF] 100.64.0.1:7422 - lid:14 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:32.802243 [ERR] 100.64.0.1:7422 - lid:14 - TLS leafnode handshake error: tls: failed to verify certificate: x509: certificate signed by unknown authority (CN=nats-hub SHA-256: <lab-cert>)
+[<k>] 2026/11/12 03:16:32.802287 [INF] 100.64.0.1:7422 - lid:14 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:33.805183 [INF] Trapped "terminated" signal
+[<k>] 2026/11/12 03:16:33.805412 [INF] Initiating Shutdown...
+[<k>] 2026/11/12 03:16:33.873086 [INF] 100.64.0.1:7422 - lid:15 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:33.873126 [INF] 100.64.0.1:7422 - lid:15 - Leafnode connection closed: Server Shutdown
+[<k>] 2026/11/12 03:16:33.873228 [INF] Server Exiting..

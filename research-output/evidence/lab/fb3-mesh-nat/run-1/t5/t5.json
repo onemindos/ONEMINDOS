@@ -1,0 +1,25 @@
+{
+ "window_s": 600,
+ "samples": 21,
+ "tailscaled": {
+  "pss_mib_mean": 29.1,
+  "rss_mib_max": 47.2,
+  "cpu_pct_one_vcpu": 0.135,
+  "cpu_s": 0.81
+ },
+ "nats_leaf": {
+  "pss_mib_mean": 27.3,
+  "rss_mib_max": 39.2,
+  "cpu_pct_one_vcpu": 0.286,
+  "cpu_s": 1.72
+ },
+ "combined": {
+  "pss_mib_max": 60.3,
+  "pss_mib_mean": 56.4,
+  "cpu_pct_one_vcpu": 0.421
+ },
+ "budget": {
+  "pss_mib": 128,
+  "cpu_pct": 2
+ }
+}
