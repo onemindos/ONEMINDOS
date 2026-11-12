@@ -103,3 +103,7 @@ def test_update_kind():
     assert update_kind("1.10.1", "1.10.1") is None
     assert update_kind(None, "1.0.0") is None
     assert update_kind("1.2", "1.2.1") is None
+    # F-6 covers released patch versions only: a pre-release or a non-string is not a patch.
+    assert update_kind("1.10.1", "1.10.2-rc1") is None
+    assert update_kind("1.10.1-rc1", "1.10.1") is None
+    assert update_kind("1.10.1", 5) is None

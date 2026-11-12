@@ -114,9 +114,14 @@ def _param_ok(value: object, c: dict) -> bool:
     return True
 
 
-def update_kind(installed: str | None, target: str | None) -> str | None:
-    """`patch`, `minor` or `major` between two semver versions; None when either is unknown."""
-    a, b = SEMVER_RE.match(installed or ""), SEMVER_RE.match(target or "")
+def update_kind(installed: object, target: object) -> str | None:
+    """`patch`, `minor` or `major` between two release versions; None when either is unknown.
+
+    A pre-release (`1.10.2-rc1`) on either side is never a patch update (F-6 covers releases only).
+    """
+    if not isinstance(installed, str) or not isinstance(target, str) or "-" in installed + target:
+        return None
+    a, b = SEMVER_RE.match(installed), SEMVER_RE.match(target)
     if not a or not b:
         return None
     x, y = tuple(map(int, a.groups())), tuple(map(int, b.groups()))

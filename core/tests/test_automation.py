@@ -190,6 +190,19 @@ def test_missed_fires_after_downtime(client, clock, catch_up, expected):
     assert len(fired) == expected
 
 
+def test_a_late_tick_fires_a_rule_once(client, clock):
+    install(client, clock)
+    rule = create_rule(client, remove_rule({"schedule": {"cron": "* * * * *"}}))
+    enable(client, rule["id"])
+    clock.now = datetime(2026, 11, 11, 22, 0, 30, tzinfo=UTC)
+    svc(client).tick()
+    clock.advance(100)  # 22:01 and 22:02 are both due, both inside the grace period
+    fired = svc(client).tick()
+    assert [f["outcome"] for f in fired] == ["requested"]
+    action = client.get(f"/v1/actions/{fired[0]['action_ids'][0]}", headers=OWNER).json()
+    assert action["requested_by"]["id"] == f"automation:{rule['id']}"
+
+
 def test_concurrency_one(client, clock):
     install(client, clock)
     rule = create_rule(client, remove_rule({"schedule": {"cron": "*/5 * * * *"}}))

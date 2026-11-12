@@ -544,7 +544,10 @@ class AutomationService:
                 if paused or cursor >= now:
                     continue
                 due = list(Cron.parse(sched["cron"]).fire_times(self.tz(sched["tz"]), cursor, now))
-                on_time = [d for d in due if now - d[0] <= grace]
+                # At most one fire per rule per tick: a late tick fires the latest due slot only
+                # (an auto-approved request finishes at once, so concurrency 1 alone would not stop
+                # a burst).
+                on_time = [d for d in due if now - d[0] <= grace][-1:]
                 if not on_time and due and rule.options.get("catch_up") == "last":
                     on_time = [due[-1]]
                 for when, slot in on_time:
