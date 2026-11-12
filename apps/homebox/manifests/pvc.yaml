@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# /data: homebox.db (SQLite, WAL) and uploaded attachments.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: homebox-data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
