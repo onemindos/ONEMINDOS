@@ -8,8 +8,8 @@ Self-hosted uptime monitoring for websites, ports and services, with status page
 | | |
 |---|---|
 | Version | 2.5.10 (upstream release `2.5.10`, published 2026-11-12) |
-| Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-12) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | monitoring |
 | GitHub | <https://github.com/louislam/uptime-kuma> |
 | Website | <https://uptime.kuma.pet> |
@@ -71,4 +71,10 @@ From the upstream install guide, https://github.com/louislam/uptime-kuma/wiki/%F
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-12T06:39:05Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/louislam/uptime-kuma:2.5.10-rootless@sha256:0df77d22bb9284368f4a6541197dd413051b13de63615145c24a889f97c7e724` | amd64, arm64 | 13 (4) | 473 | 0 infected (daily-28180) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

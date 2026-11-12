@@ -20,7 +20,7 @@ metadata:
     website: https://www.home-assistant.io
     support: https://github.com/home-assistant/core/issues
   upstream: {release: "2026.11.1", released_at: "2026-11-09T18:52:28Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 2048}
