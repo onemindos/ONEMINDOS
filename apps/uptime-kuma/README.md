@@ -7,7 +7,7 @@ Self-hosted uptime monitoring for websites, ports and services, with status page
 
 | | |
 |---|---|
-| Version | 2.5.11 (upstream release `2.5.11`; the date is the image build time, registry config, 2026-11-12) |
+| Version | 2.5.11 (upstream release `2.5.11`, published 2026-11-12) |
 | Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-12) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | monitoring |
