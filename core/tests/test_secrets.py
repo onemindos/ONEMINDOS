@@ -585,6 +585,20 @@ def test_kubectl_output_is_scrubbed_of_every_value(settings):
     assert API_KEY not in text and b64 not in text and "[redacted]" in text
 
 
+def test_value_cut_by_the_output_tail_is_still_scrubbed(settings):
+    # The value starts just before the last 2000 characters kept: only its end would remain.
+    tail = API_KEY[4:]
+
+    def outputs(argv):
+        return 1, "", "x" * 3000 + API_KEY + "y" * (2000 - len(tail))
+
+    run, _ = fake_runner(outputs)
+    res = KubernetesExecutor(kubectl="kubectl", runner=run).run(
+        "app.configure", kube_app(settings), None, [AppSecret(CRED, {"PROVIDER_API_KEY": API_KEY})])
+    text = json.dumps(res.to_json())
+    assert tail not in text and "[redacted]" in text
+
+
 def test_nothing_to_restart_is_not_a_failure(settings):
     def outputs(argv):
         if argv[1:3] == ["rollout", "restart"]:

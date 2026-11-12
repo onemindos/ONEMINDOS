@@ -239,11 +239,11 @@ class KubernetesExecutor(Executor):
                 return ExecResult("failed", f"{self.kubectl} not found on PATH", steps)
             except subprocess.TimeoutExpired as exc:
                 step["error"] = f"timeout after {self.timeout_s}s"
-                step["stderr"] = _scrub(_tail(exc.stderr), hidden)
+                step["stderr"] = _tail(_scrub(exc.stderr, hidden))
                 return ExecResult("outcome_unknown", f"kubectl timed out after {self.timeout_s}s", steps)
             step["returncode"] = cp.returncode
-            step["stdout"] = _scrub(_tail(cp.stdout), hidden)
-            step["stderr"] = _scrub(_tail(cp.stderr), hidden)
+            step["stdout"] = _tail(_scrub(cp.stdout, hidden))
+            step["stderr"] = _tail(_scrub(cp.stderr, hidden))
             if cp.returncode != 0 and argv[1:3] == ["rollout", "restart"] and NOTHING_TO_RESTART in (cp.stderr or ""):
                 step["note"] = "no Deployment or StatefulSet to restart"
                 continue
@@ -259,8 +259,14 @@ def _sensitive(agent: AgentSecret | None, secrets: Sequence[AppSecret]) -> list[
     return sorted({form for v in values for form in (v, _b64(v))}, key=len, reverse=True)
 
 
-def _scrub(text: str, hidden: Sequence[str]) -> str:
+def _scrub(text: str | bytes | None, hidden: Sequence[str]) -> str:
     # kubectl does not echo Secret data, but an error message must never carry a value anyway.
+    # Scrub the whole output before _tail cuts it: a value cut at the tail's edge would no
+    # longer match and its end would be kept.
+    if text is None:
+        return ""
+    if isinstance(text, bytes):
+        text = text.decode("utf-8", "replace")
     for form in hidden:
         text = text.replace(form, "[redacted]")
     return text
