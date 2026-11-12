@@ -19,7 +19,8 @@ export function Home() {
   const actions = usePoll(() => api.actions());
 
   const counts: Record<NodeStatus, number> = { online: 0, stale: 0, offline: 0 };
-  for (const n of nodes.data ?? []) counts[effectiveStatus(n.status, n.last_seen, now)]++;
+  const fresh = { fetchedAt: nodes.fetchedAt, hubOffsetMs: api.hubOffsetMs() };
+  for (const n of nodes.data ?? []) counts[effectiveStatus(n.status, n.last_seen, now, fresh)]++;
   const installed = (apps.data ?? []).filter((a) => a.installed);
   const pending = (actions.data ?? []).filter((a) => a.state === 'awaiting_approval').length;
   const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';

@@ -32,15 +32,41 @@ export function formatIn(iso: string, now: number): string {
 
 const RANK: Record<NodeStatus, number> = { online: 0, stale: 1, offline: 2 };
 
+function fromAge(ageS: number): NodeStatus {
+  return ageS >= OFFLINE_AFTER_S ? 'offline' : ageS >= STALE_AFTER_S ? 'stale' : 'online';
+}
+
+function worse(a: NodeStatus, b: NodeStatus): NodeStatus {
+  return RANK[a] >= RANK[b] ? a : b;
+}
+
+/** What the browser knows about the hub's answer and the hub's clock. */
+export interface Freshness {
+  /** Browser time (ms) when the node list on screen was fetched. */
+  fetchedAt?: number;
+  /** Hub clock minus browser clock (ms), from the response Date header; undefined if unknown. */
+  hubOffsetMs?: number;
+}
+
+/** "now" on the hub's clock when the offset is known, else the browser's (display only). */
+export function hubNow(now: number, f: Freshness): number {
+  return now + (f.hubOffsetMs ?? 0);
+}
+
 /**
- * The status we show. The gateway decides freshness, but its answer itself ages
- * in the browser (a tab left open, a failed poll). So we take the WORSE of the
- * gateway's status and what last_seen says right now. A value is never shown
- * as live just because the last response said so.
+ * The status we show. The gateway decides freshness on its own clock (§3), and
+ * `last_seen` is stamped by that clock, so it is never compared with the
+ * browser's clock directly (a skewed browser would mark healthy nodes stale).
+ * The gateway's answer can only get worse, by:
+ * - the time since it was fetched (browser clock at both ends, so skew-free),
+ *   for a tab left open or a failed poll;
+ * - `last_seen` aged against hub time, when the hub clock offset is known.
+ * A value is never shown as live just because the last response said so.
  */
-export function effectiveStatus(server: NodeStatus, lastSeen: string, now: number): NodeStatus {
-  const age = secondsSince(lastSeen, now);
-  let local: NodeStatus = 'offline';
-  if (age !== null) local = age >= OFFLINE_AFTER_S ? 'offline' : age >= STALE_AFTER_S ? 'stale' : 'online';
-  return RANK[local] > RANK[server] ? local : server;
+export function effectiveStatus(server: NodeStatus, lastSeen: string, now: number, f: Freshness = {}): NodeStatus {
+  if (Number.isNaN(Date.parse(lastSeen))) return 'offline';
+  let status = server;
+  if (f.fetchedAt !== undefined) status = worse(status, fromAge(Math.max(0, (now - f.fetchedAt) / 1000)));
+  if (f.hubOffsetMs !== undefined) status = worse(status, fromAge(secondsSince(lastSeen, hubNow(now, f)) ?? Infinity));
+  return status;
 }

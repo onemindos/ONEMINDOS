@@ -22,7 +22,10 @@ binding contract [`sdk/contracts/poc-v0.md`](../sdk/contracts/poc-v0.md) §5 (sc
   not create a second action). Then it takes you to Approvals, where only the owner can approve.
 - **Stale data is never shown as live.** A machine sends a heartbeat every 10 s. The hub marks it
   *stale* after 30 s and *offline* after 120 s without one. The dashboard also re-checks the age
-  itself every second, because the hub's last answer gets older while the tab is open. Stale and
+  every second, because the hub's last answer gets older while the tab is open. It never compares
+  `last_seen` with the browser's clock: it ages the answer by the time since it was fetched, and
+  ages `last_seen` on the hub's clock (learned from the response `Date` header), so a browser
+  clock that is off does not mark healthy machines stale. Stale and
   offline cards say "values below are the last report, not live", have a dashed border, and show
   "last seen N ago".
 - **Accessibility (WCAG 2.2 AA) from the first screen:** status is always written in words, not just

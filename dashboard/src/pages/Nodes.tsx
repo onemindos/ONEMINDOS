@@ -1,7 +1,7 @@
 import type { Board, NodeRecord } from '../api/types';
 import { ErrorNote, Loading, StatusBadge } from '../components/bits';
 import { useNow, usePoll } from '../lib/hooks';
-import { effectiveStatus, formatAgo, secondsSince } from '../lib/time';
+import { effectiveStatus, formatAgo, hubNow, secondsSince, type Freshness } from '../lib/time';
 import { useSignedIn } from '../session';
 
 const BOARD_LABEL: Record<Board, string> = {
@@ -18,10 +18,10 @@ function gb(mb: number) {
   return `${(mb / 1024).toFixed(1)} GB`;
 }
 
-function NodeCard({ node, now }: { node: NodeRecord; now: number }) {
-  const status = effectiveStatus(node.status, node.last_seen, now);
+function NodeCard({ node, now, fresh }: { node: NodeRecord; now: number; fresh: Freshness }) {
+  const status = effectiveStatus(node.status, node.last_seen, now, fresh);
   const live = status === 'online';
-  const ago = formatAgo(secondsSince(node.last_seen, now));
+  const ago = formatAgo(secondsSince(node.last_seen, hubNow(now, fresh)));
   const titleId = `node-${node.node_id}`;
   return (
     <li>
@@ -112,6 +112,7 @@ export function Nodes() {
   const { api } = useSignedIn();
   const now = useNow();
   const nodes = usePoll(() => api.nodes());
+  const fresh: Freshness = { fetchedAt: nodes.fetchedAt, hubOffsetMs: api.hubOffsetMs() };
   return (
     <div className="page">
       <h1>Machines</h1>
@@ -127,7 +128,7 @@ export function Nodes() {
       ) : (
         <ul className="card-grid">
           {(nodes.data ?? []).map((n) => (
-            <NodeCard key={n.node_id} node={n} now={now} />
+            <NodeCard key={n.node_id} node={n} now={now} fresh={fresh} />
           ))}
         </ul>
       )}

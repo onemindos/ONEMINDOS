@@ -23,6 +23,8 @@ export interface OneMindApi {
   action(id: string): Promise<Action>;
   approve(id: string): Promise<Action>;
   deny(id: string): Promise<Action>;
+  /** Hub clock minus browser clock (ms), learned from responses; undefined until known. */
+  hubOffsetMs(): number | undefined;
 }
 
 const KNOWN_CODES = new Set([
@@ -51,6 +53,7 @@ export class HttpApi implements OneMindApi {
   private readonly base: string;
   private readonly token: string;
   private readonly fetchFn: FetchLike;
+  private offsetMs: number | undefined;
 
   constructor(opts: { token: string; baseUrl?: string; fetchFn?: FetchLike }) {
     this.base = (opts.baseUrl ?? '').replace(/\/$/, '');
@@ -73,6 +76,11 @@ export class HttpApi implements OneMindApi {
     } catch (e) {
       throw new ApiError(0, 'network', e instanceof Error ? e.message : 'Network error');
     }
+    // The hub stamps last_seen with its own clock; the Date header lets the UI
+    // age it on that clock instead of the browser's (1 s resolution is enough
+    // for the 30 s / 120 s thresholds).
+    const hubDate = Date.parse(res.headers.get('Date') ?? '');
+    if (!Number.isNaN(hubDate)) this.offsetMs = hubDate - Date.now();
     const text = await res.text();
     let data: unknown = undefined;
     if (text) {
@@ -90,6 +98,9 @@ export class HttpApi implements OneMindApi {
     return data as T;
   }
 
+  hubOffsetMs() {
+    return this.offsetMs;
+  }
   healthz() {
     return this.req<{ ok: boolean }>('GET', '/healthz');
   }

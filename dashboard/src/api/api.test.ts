@@ -53,6 +53,18 @@ describe('HttpApi (contract §3)', () => {
     await expect(apiNet.instance()).rejects.toMatchObject({ code: 'network', status: 0 });
   });
 
+  it('learns the hub clock offset from the Date header', async () => {
+    const hub = Date.now() + 5 * 60_000;
+    const res = new Response('[]', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', Date: new Date(hub).toUTCString() },
+    });
+    const api = new HttpApi({ token: 't', fetchFn: vi.fn().mockResolvedValue(res) });
+    expect(api.hubOffsetMs()).toBeUndefined();
+    await api.nodes();
+    expect(Math.abs(api.hubOffsetMs()! - 5 * 60_000)).toBeLessThan(2_000);
+  });
+
   it('URL-encodes path ids', async () => {
     const f = vi.fn().mockResolvedValue(jsonResponse(200, {}));
     await new HttpApi({ token: 't', fetchFn: f }).node('a/b');

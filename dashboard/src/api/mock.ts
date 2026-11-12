@@ -40,6 +40,9 @@ export class MockApi implements OneMindApi {
     return p;
   }
 
+  hubOffsetMs() {
+    return this.now() - Date.now();
+  }
   async healthz() {
     return { ok: true };
   }
