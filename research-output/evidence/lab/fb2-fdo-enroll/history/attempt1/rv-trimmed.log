@@ -1,0 +1,78 @@
+[05:23:39] INFO: trying to resolve absolute path
+  path: $HOME/.config/go-fdo-server/
+[05:23:39] INFO: adding path to search paths
+  path: /root/.config/go-fdo-server
+[05:23:39] INFO: trying to resolve absolute path
+  path: /etc/go-fdo-server/
+[05:23:39] INFO: adding path to search paths
+  path: /etc/go-fdo-server
+[05:23:39] INFO: trying to resolve absolute path
+  path: /usr/share/go-fdo-server/
+[05:23:39] INFO: adding path to search paths
+  path: /usr/share/go-fdo-server
+[05:23:39] INFO: attempting to read in config file
+[05:23:39] INFO: searching for config in paths
+  paths:
+[05:23:39] INFO: configuration file not found
+[05:23:39] INFO: Initializing rendezvous server
+[05:23:39] INFO: TO0 wait time limits configured
+  minWaitSecs: 0
+  maxWaitSecs: 86400
+[05:23:39] INFO: Database initialized successfully
+  type: sqlite
+[05:23:39] INFO: Listening
+  local: 127.0.0.1:8041
+[05:25:49] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:25:49] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:25:59] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:25:59] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:26:19] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:26:19] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:26:29] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:26:29] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:26:49] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:26:49] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:09] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:09] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:19] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:19] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:29] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:29] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:49] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:49] ERROR: TO0 device certificate chain verification failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: cryptographic verification failed: x509: certificate signed by unknown authority

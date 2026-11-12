@@ -1,0 +1,719 @@
+# Source: https://fidoalliance.org/device-onboarding-overview/
+# Accessed: 2026-11-12 (fabric mission 02). Converted to plain text; masked: {'email': 0, 'ip': 0, 'token': 0}
+
+FIDO Device Onboard (FDO) Overview | FIDO Alliance
+
+FIDO Alliance Overview
+
+FIDO Leadership
+
+Logo Usage and Legal
+
+Brand and Logo Usage Guidelines
+
+FIDO® Trademark and Service Mark Usage Agreement for Manufacturers Implementing FIDO Certified Level 1 Authenticators
+
+FIDO Trademark License Agreement: Exhibit B
+
+FIDO Logo Trademark Usage Agreement for Press and Educational Purposes
+
+Certified Logo Violation
+
+FIDO Alliance Privacy Principles
+
+Privacy Policy
+
+Code of Conduct
+
+FIDO Official Merch Store
+
+Careers
+
+Contact Us
+
+Alliance Membership
+
+Membership Benefits
+
+FIDO Alliance Member Application
+
+FIDO Alliance Members
+
+Liaison Partners
+
+FIDO Groups and Committees
+
+Working Groups
+
+Committees and Special Interest Groups
+
+FIDO Alliance Focus Areas
+
+Passkeys
+
+Passkey Use Cases
+
+Automotive Use Cases
+
+Consumer Use Cases
+
+Enterprise Use Cases
+
+Government Use Cases
+
+Government Showcase
+
+Passkey Directory
+
+Passkey Implementation Guide
+
+The Passkey Pledge
+
+Get the FIDO Passkey Icon
+
+Passkey Icon Download
+
+Digital Credentials
+
+Payments
+
+Agentic AI
+
+FIDO Device Onboard
+
+FIDO® Certified FDO Products
+
+FIDO Alliance Metadata Service
+
+MDS Portal User Guide for Vendor Admins
+
+MDS Portal User Guide for Vendor Users
+
+Metadata Submission Terms (for Authenticator Vendors)
+
+Metadata Usage Terms (for Relying Parties or Service Providers)
+
+Metadata Usage Terms (for Developers)
+
+MDS Legal Terms
+
+MDS Changelog
+
+FIDO Certification
+
+FIDO Certified Products Directory
+
+FIDO Certified Showcase
+
+Certification Mark Usage
+
+Getting Started
+
+FIDO Accredited Laboratories
+
+Certification Maintenance and Updates
+
+Derivative Certification
+
+Accreditation Process – Security Labs
+
+Accreditation Process – Biometric Labs
+
+Lab Accreditation Request
+
+Certification Program Secretariat
+
+Certification Account Request
+
+FIDO Certification Request
+
+User Auth
+
+User Authentication Certification Programs
+
+Functional Certification: Authenticators/Clients
+
+Functional Certification Process: Servers
+
+Security Certification: Authenticator Security Levels
+
+Authenticator Security Levels
+
+Authenticator Level 1
+
+FIDO® Trademark and Service Mark Usage Agreement for Manufacturers Implementing FIDO Certified Level 1 Authenticators
+
+Authenticator Level 1+
+
+Authenticator Level 2
+
+Authenticator Level 3
+
+Authenticator Level 3+
+
+Companion Programs
+
+Conformance Self‐Validation Testing
+
+Tool Request Agreement
+
+Interoperability Testing
+
+User Authentication Certification Registration
+
+FIDO Certification Request Agreement
+
+FIDO Certification Request
+
+FIDO Certification Fees
+
+FIDO Device Onboard Certification
+
+FIDO® Certified FDO Products
+
+FDO Resource Documentation
+
+FIDO Device Onboard
+
+Interoperability Testing
+
+FIDO Functional Certification: Authenticators/Clients
+
+Get Started With FDO Functional Certification
+
+Functional Certification: Servers
+
+User Authentication Certification Registration
+
+FDO Certification Process
+
+FIDO Certification Fees
+
+Conformance Self‐Validation Testing
+
+Certification Account Request
+
+Password Recovery
+
+Implementer Dashboard
+
+Biometric Component Certification
+
+FIDO Accredited Laboratories
+
+Biometrics Certification Process Overview
+
+Biometric Certification Resource Documentation
+
+Biometric Dashboard
+
+Get Certified for Biometric Components
+
+FIDO Certification Fees
+
+FIDO Biometric Certification FAQ
+
+Identity Verification Certifications
+
+Document Authenticity (DocAuth) Certification Program
+
+DocAuth Certification Process Overview
+
+DocAuth Resource Documentation
+
+Get Certified for DocAuth
+
+FIDO Accredited Laboratories
+
+FIDO Certification Fees
+
+Face Verification
+
+FIDO Accredited Laboratories
+
+Face Verification Certification Process Overview
+
+Get Certified for Face Verification
+
+FIDO Certification Fees
+
+Face Verification Resource Documentation
+
+FIDO® Certified IDV Face Verification Products
+
+Specifications
+
+FIDO Alliance Privacy Principles
+
+User Authentication Specifications Overview
+
+Download Authentication Specifications
+
+Download FDO Specifications
+
+FIDO Alliance Credential Exchange Specifications Overview
+
+Download Credential Exchange Specifications
+
+FIDO News and Events
+
+FIDO In The News
+
+FIDO Updates Center
+
+FIDO Events Center
+
+Newsletter Sign-Up
+
+FIDO Resources
+
+FIDO Case Studies
+
+FIDO Presentations
+
+FIDO Alliance Public Policy Program and Submissions
+
+FIDO Research
+
+FIDO Videos
+
+FIDO White Papers
+
+FIDO Device Onboard
+
+FIDO Alliance Overview
+
+FIDO Leadership
+
+Logo Usage and Legal
+
+Brand and Logo Usage Guidelines
+
+FIDO® Trademark and Service Mark Usage Agreement for Manufacturers Implementing FIDO Certified Level 1 Authenticators
+
+FIDO Trademark License Agreement: Exhibit B
+
+FIDO Logo Trademark Usage Agreement for Press and Educational Purposes
+
+Certified Logo Violation
+
+FIDO Alliance Privacy Principles
+
+Privacy Policy
+
+Code of Conduct
+
+FIDO Official Merch Store
+
+Careers
+
+Contact Us
+
+Alliance Membership
+
+Membership Benefits
+
+FIDO Alliance Member Application
+
+FIDO Alliance Members
+
+Liaison Partners
+
+FIDO Groups and Committees
+
+Working Groups
+
+Committees and Special Interest Groups
+
+FIDO Alliance Focus Areas
+
+Passkeys
+
+Passkey Use Cases
+
+Automotive Use Cases
+
+Consumer Use Cases
+
+Enterprise Use Cases
+
+Government Use Cases
+
+Government Showcase
+
+Passkey Directory
+
+Passkey Implementation Guide
+
+The Passkey Pledge
+
+Get the FIDO Passkey Icon
+
+Passkey Icon Download
+
+Digital Credentials
+
+Payments
+
+Agentic AI
+
+FIDO Device Onboard
+
+FIDO® Certified FDO Products
+
+FIDO Alliance Metadata Service
+
+MDS Portal User Guide for Vendor Admins
+
+MDS Portal User Guide for Vendor Users
+
+Metadata Submission Terms (for Authenticator Vendors)
+
+Metadata Usage Terms (for Relying Parties or Service Providers)
+
+Metadata Usage Terms (for Developers)
+
+MDS Legal Terms
+
+MDS Changelog
+
+FIDO Certification
+
+FIDO Certified Products Directory
+
+FIDO Certified Showcase
+
+Certification Mark Usage
+
+Getting Started
+
+FIDO Accredited Laboratories
+
+Certification Maintenance and Updates
+
+Derivative Certification
+
+Accreditation Process – Security Labs
+
+Accreditation Process – Biometric Labs
+
+Lab Accreditation Request
+
+Certification Program Secretariat
+
+Certification Account Request
+
+FIDO Certification Request
+
+User Auth
+
+User Authentication Certification Programs
+
+Functional Certification: Authenticators/Clients
+
+Functional Certification Process: Servers
+
+Security Certification: Authenticator Security Levels
+
+Authenticator Security Levels
+
+Authenticator Level 1
+
+FIDO® Trademark and Service Mark Usage Agreement for Manufacturers Implementing FIDO Certified Level 1 Authenticators
+
+Authenticator Level 1+
+
+Authenticator Level 2
+
+Authenticator Level 3
+
+Authenticator Level 3+
+
+Companion Programs
+
+Conformance Self‐Validation Testing
+
+Tool Request Agreement
+
+Interoperability Testing
+
+User Authentication Certification Registration
+
+FIDO Certification Request Agreement
+
+FIDO Certification Request
+
+FIDO Certification Fees
+
+FIDO Device Onboard Certification
+
+FIDO® Certified FDO Products
+
+FDO Resource Documentation
+
+FIDO Device Onboard
+
+Interoperability Testing
+
+FIDO Functional Certification: Authenticators/Clients
+
+Get Started With FDO Functional Certification
+
+Functional Certification: Servers
+
+User Authentication Certification Registration
+
+FDO Certification Process
+
+FIDO Certification Fees
+
+Conformance Self‐Validation Testing
+
+Certification Account Request
+
+Password Recovery
+
+Implementer Dashboard
+
+Biometric Component Certification
+
+FIDO Accredited Laboratories
+
+Biometrics Certification Process Overview
+
+Biometric Certification Resource Documentation
+
+Biometric Dashboard
+
+Get Certified for Biometric Components
+
+FIDO Certification Fees
+
+FIDO Biometric Certification FAQ
+
+Identity Verification Certifications
+
+Document Authenticity (DocAuth) Certification Program
+
+DocAuth Certification Process Overview
+
+DocAuth Resource Documentation
+
+Get Certified for DocAuth
+
+FIDO Accredited Laboratories
+
+FIDO Certification Fees
+
+Face Verification
+
+FIDO Accredited Laboratories
+
+Face Verification Certification Process Overview
+
+Get Certified for Face Verification
+
+FIDO Certification Fees
+
+Face Verification Resource Documentation
+
+FIDO® Certified IDV Face Verification Products
+
+Specifications
+
+FIDO Alliance Privacy Principles
+
+User Authentication Specifications Overview
+
+Download Authentication Specifications
+
+Download FDO Specifications
+
+FIDO Alliance Credential Exchange Specifications Overview
+
+Download Credential Exchange Specifications
+
+FIDO News and Events
+
+FIDO In The News
+
+FIDO Updates Center
+
+FIDO Events Center
+
+Newsletter Sign-Up
+
+FIDO Resources
+
+FIDO Case Studies
+
+FIDO Presentations
+
+FIDO Alliance Public Policy Program and Submissions
+
+FIDO Research
+
+FIDO Videos
+
+FIDO White Papers
+
+What is FIDO Device Onboard (FDO)?
+
+The FIDO Device Onboard (FDO) specification offers an automatic onboarding protocol for edge nodes, datacenter servers, and IoT devices. This protocol facilitates secure installation of secrets and configuration data into devices to allow for seamless connection to cloud and edge management platforms.
+
+Key benefits of FDO include scalable passwordless authentication, zero-touch onboarding, and zero-trust security. Another benefit is late binding, which allows devices to be manufactured without first identifying the end customer or management platform that they will use.
+
+Watch FIDO FDO Workshop – What is FDO?
+
+How FDO works
+
+The following graphic shows an FDO device moving through the supply chain lifecycle from manufacture to deployment with zero-touch provisioning in the client’s environment.
+
+Stage 1: Place FDO agent and FDO credentials in device and create Ownership Voucher (OV).
+The device is injected with initial cryptographic keys and a software agent at a manufacturing or at a second touch facility. Simultaneously, a digital certificate called an Ownership Voucher is generated, cryptographically linking the physical device to its digital identity.
+
+Stage 2: Ship device in box to the installation location
+The physical device is transported through the supply chain. At this point, it is secure but not yet configured for its final operating environment.
+
+Stage 3: Load Ownership Voucher (OV) to cloud
+The buyer or owner of the device takes the digital Ownership Voucher created in Stage 1 and uploads it to their chosen management platform (the target cloud). This tells the cloud, “I own this device.”
+
+Stage 4: Register OV with rendezvous server
+The target cloud communicates with a specialized directory service called the rendezvous server (RV). It registers the device’s Ownership Voucher so the server knows which cloud platform the device should connect to once it comes online.
+
+Stage 5: Device network connectivity and power up
+The physical device reaches its final destination, is plugged in, and connected to the local network (like Wi-Fi or Ethernet).
+
+Stage 6: Device contacts the RV and is re-directed to cloud
+Upon waking up, the device doesn’t know where its management cloud is. It has a hardcoded address to call the RV server. The RV server checks its records (from Stage 4) and tells the device the exact address of its designated target cloud.
+
+Stage 7: Mutual authentication takes place, secure channel is established, and onboarding takes place using using extendable operations called FIDO Service Info Modules (FSIMs)
+The device connects directly to the target cloud. The device and cloud verify each other’s cryptographic identities (mutual authentication) to ensure neither is an imposter . Once verified, a secure, encrypted tunnel is created. The device then receives its final configuration, software updates, and operational credentials.
+
+Stage 8: Cloud management active and device data flows
+The onboarding process is complete. The device is now fully operational, securely managed by the target cloud, and actively sending telemetry or operational data back to the owner’s systems.
+
+Explanation of major functions within an FDO system
+
+FDO Client (the device): The secure software agent and the cryptographic credentials embedded within the physical IoT/edge device at the time of manufacturing. The FDO client’s main function is to securely introduce the device to the network, prove the device’s identity using its embedded credentials, and receive final operational configurations once a trusted connection is established.
+
+Ownership Voucher (OV): Think of this as a digital deed of trust or receipt. It is created during manufacturing and cryptographically linked to the specific device. As the physical device moves through the supply chain, the OV is passed digitally through the supply chain to the end user (or directly to the end user if known). The end user uploads the OV to their FDO Owner platform, mathematically proving they have the right to manage that specific device.
+
+Rendezvous Server (RV): Acts as a secure matchmaker or directory service. When a device leaves a factory we don’t know who will eventually buy it, so it is hardcoded to call the RV server when it first connects to the internet/network. Meanwhile, the FDO owner has registered their Ownership Voucher with the RV server. When the device calls in, the RV server looks up the match and gives the device the exact web address of the FDO owner.  A local rendezvous server permits onboarding to closed networks.
+
+FDO specifications and application notes
+
+Visit the Download FDO Specifications page to view the full FDO v1.1 specification, current FDO v2.0 specification, and application notes on topics including TPM usage.
+
+Open source implementations of FDO
+
+While the FIDO Alliance does not provide FDO software, there are open source implementations of FDO available in multiple languages including Go, Rust, and C. Many of these implementations are included in the Linux Foundation’s  LFEdge project FIDO Device Onboard.
+
+FDO Certification
+
+The FIDO Alliance’s FIDO Device Onboard (FDO) Certification program validates that edge and IoT devices securely and seamlessly connect to cloud or on-premise management platforms.
+
+The program rigorously tests implementations for compliance, interoperability, and robust security standards.
+
+FDO Certification covers three main components:
+
+FDO-enabled devices
+
+Device onboarding services
+
+Rendezvous servers
+
+By achieving certification, vendors demonstrate that their products are interoperable and meet the requirements of the FDO specification. For deploying organizations, this certification ensures that devices and platforms that they purchase have been independently tested to ensure that they are compatible with FDO and will interoperate with other FDO certified products, thereby reducing technical risks during the deployment phase.
+
+Current work areas of the Device Onboarding Working Group
+
+As of March 2026, the Device Onboarding Working Group is actively working on a number of new, high impact projects. These include:
+
+UEFI FDO applications
+
+Bare Metal Onboarding (BMO)
+
+Supply Chain
+
+Ownership Voucher management
+
+Device Initialization simplification
+
+Supply chain resilience including the EU Cyber Resilience Act (CRA)
+
+UEFI FDO applications
+
+In his Authenticate 2025 presentation, FDO at Scale: UEFI-based FIDO Device Onboarding, Microsoft’s Gerardo Diaz Cuellar introduces a highly optimized method for securing and automating device provisioning based on FDO. 
+
+Current FIDO Device Onboarding (FDO) solutions rely on a Restricted Operating Environment (ROE) – typically a 400MB Linux image which needs to be installed on the device together with the FDO Client and the associated FDO credentials. This approach requires OEMs to partition physical disks and patch OS vulnerabilities.
+
+To solve this, Microsoft prototyped integrating the FDO client directly into the device’s standard Unified Extensible Firmware Interface (UEFI). This shrinks the FDO application down to about 4MB. By embedding it natively in firmware, OEMs no longer need to manually install an ROE, simplifying the factory manufacturing process. Additionally, this minimal footprint reduces the attack surface, strengthening the overall security of the device
+
+During a demonstration, the prototype successfully used UEFI firmware to securely connect to a server, download an OS installer into memory, and boot the operating system completely hands-free. Microsoft has said that they plan to open-source this technology to establish a secure, industry-wide standard.
+
+Bare Metal Onboarding (BMO)
+
+Bare Metal Onboarding (BMO) is the process of taking a bare metal piece of hardware (a server, IoT gateway, or industrial PC with no operating system) and automatically installing a full software stack (OS, drivers, applications) without any human interaction. The goal of BMO is zero-touch deployment: A technician plugs in the power and network cables and the device autonomously configures itself securely, whether it is in a data center or on a remote oil rig.
+
+Refer to the document FIDO Bare Metal Onboarding for more information. 
+
+Supply Chain
+
+Ownership Voucher management
+
+The FDO specification does not specify how Ownership Vouchers should pass through the supply chain. A new effort is underway to normalize this process. 
+
+Device Initialization simplification
+
+At manufacture, or at a later step, FDO enabled devices must have their credentials generated and placed inside the device (in a TPM or similar) and an Ownership Voucher generated. The working group is seeking to simplify this process.
+
+Supply chain resilience including CRA
+
+Supply chain resilience is increasingly becoming a critical element in the manufacture and transport of devices. Legislation such as the EU Cyber Resilience Act (CRA) highlights this need. The cryptographic nature of the FDO Ownership Voucher makes it a powerful element to address legislation such as CRA.
+
+Learn more about FDO
+
+Visit FIDO Device Onboarding Resources for the adoption guide, technical white papers, and on-demand videos
+
+Discover FIDO Certified FDO Products
+
+Get your product FDO Certified
+
+Get involved with a FIDO Alliance Membership
+
+Subscribe to the FIDO newsletter
+Stay Connected, Stay Engaged
+Receive the latest news, events, research and implementation guidance from the FIDO Alliance. Learn about digital identity and fast, phishing-resistant authentication with passkeys.
+
+"*" indicates required fields
+
+First Name*
+
+Last Name*
+
+Email Address*
+
+FIDO Alliance is committed to protecting your privacy.
+Learn more in our Privacy Policy.Subscribe › 
+
+ Close this module
+
+Sign up for updates!
+Get news from FIDO Alliance in your inbox.
+
+By submitting this form, you are consenting to receive communications from: FIDO Alliance, 3855 SW 153rd Drive, Beaverton, OR 97003, US, http://www.fidoalliance.org. You can revoke your consent to receive emails at any time by using the unsubscribe link found at the bottom of every email.
+
+First NameFirst Name
+Last NameLast Name
+Your emailEmail
+CountryCountry
+CompanyCompany
+Job TitleJob TitleSUBMIT
+
+ English
+
+ 简体中文 (Chinese (Simplified))
+
+ 日本語 (Japanese)
+
+ 한국어 (Korean)

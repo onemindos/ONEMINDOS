@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# Install sandbox fixture (core/tests/test_policy.py). Expected: G-01.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: bad-psa-unreviewed
+  name: bad-psa-unreviewed
+  version: 0.0.1
+  description: Install sandbox test fixture
+  category: test
+  icon: icon.svg
+  license: Apache-2.0
+  source: https://github.com/onemindos/ONEMINDOS
+spec:
+  archs:
+  - amd64
+  - arm64
+  requires:
+    gpu: false
+    minMemoryMb: 64
+  manifests: manifests/
+  security:
+    podSecurity: baseline

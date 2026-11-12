@@ -3,16 +3,37 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.app.schema.json",
   "title": "OneMind app manifest (onemind.app/v1alpha1)",
-  "description": "apps/<id>/onemind.app.yaml, as fixed by sdk/contracts/poc-v0.md section 4. The top level, spec.requires and spec.web are closed because the contract fixes their shape. metadata and spec stay open because contract section 9.3 extends them (metadata.links, metadata.upstream, metadata.tier, spec.updates) in wave 2.",
+  "description": "apps/<id>/onemind.app.yaml, as fixed by sdk/contracts/poc-v0.md section 4, extended by section 9.3 (metadata.links, metadata.upstream, metadata.tier, spec.updates) and section 11.2 (spec.agent). Every object is closed: a new field is a contract change first. The value UNVERIFIED marks a fact the scaffolder could not confirm from a primary source; it caps the app's tier at community.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
   "properties": {
-    "apiVersion": {"const": "onemind.app/v1alpha1"},
-    "kind": {"const": "App"},
+    "apiVersion": {
+      "const": "onemind.app/v1alpha1"
+    },
+    "kind": {
+      "const": "App"
+    },
     "metadata": {
       "type": "object",
-      "required": ["id", "name", "version", "description", "category", "icon", "license", "source"],
+      "required": [
+        "id",
+        "name",
+        "version",
+        "description",
+        "category",
+        "icon",
+        "license",
+        "source",
+        "links",
+        "upstream",
+        "tier"
+      ],
       "properties": {
         "id": {
           "description": "DNS-1123 label; equals the apps/<id>/ directory name. At most 59 characters so the install namespace app-<id> (contract section 3) stays within the 63-character label limit.",
@@ -21,7 +42,12 @@
           "maxLength": 59,
           "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
         },
-        "name": {"description": "Display name.", "type": "string", "minLength": 1, "maxLength": 80},
+        "name": {
+          "description": "Display name.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
         "version": {
           "description": "Upstream app version, as a string (quote it in YAML).",
           "type": "string",
@@ -29,7 +55,12 @@
           "maxLength": 64,
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$"
         },
-        "description": {"description": "One-line summary.", "type": "string", "minLength": 1, "maxLength": 300},
+        "description": {
+          "description": "One-line summary.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
         "category": {
           "description": "Market category slug, e.g. monitoring.",
           "type": "string",
@@ -51,44 +82,231 @@
           "type": "string",
           "format": "uri",
           "pattern": "^https://[^\\s/?#]+[^\\s]*$"
+        },
+        "links": {
+          "description": "Upstream links shown in the Market (contract 9.3, 11.4).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "docs",
+            "github",
+            "website",
+            "support"
+          ],
+          "properties": {
+            "docs": {
+              "type": "string",
+              "anyOf": [
+                {
+                  "format": "uri",
+                  "pattern": "^https://[^\\s/?#]+[^\\s]*$"
+                },
+                {
+                  "const": "UNVERIFIED"
+                }
+              ],
+              "description": "Upstream documentation."
+            },
+            "github": {
+              "description": "https://github.com/<owner>/<repo>, or UNVERIFIED when the upstream is not on GitHub.",
+              "type": "string",
+              "anyOf": [
+                {
+                  "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+                },
+                {
+                  "const": "UNVERIFIED"
+                }
+              ]
+            },
+            "website": {
+              "type": "string",
+              "anyOf": [
+                {
+                  "format": "uri",
+                  "pattern": "^https://[^\\s/?#]+[^\\s]*$"
+                },
+                {
+                  "const": "UNVERIFIED"
+                }
+              ],
+              "description": "Project website."
+            },
+            "support": {
+              "type": "string",
+              "anyOf": [
+                {
+                  "format": "uri",
+                  "pattern": "^https://[^\\s/?#]+[^\\s]*$"
+                },
+                {
+                  "const": "UNVERIFIED"
+                }
+              ],
+              "description": "Where users report problems, usually the issue tracker."
+            }
+          }
+        },
+        "upstream": {
+          "description": "Upstream release facts read from the GitHub API (contract 9.2, 9.3).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "release",
+            "released_at",
+            "archived"
+          ],
+          "properties": {
+            "release": {
+              "description": "Upstream release tag, exactly as published.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "released_at": {
+              "description": "Release publication time (RFC 3339), or UNVERIFIED.",
+              "type": "string",
+              "anyOf": [
+                {
+                  "format": "date-time"
+                },
+                {
+                  "const": "UNVERIFIED"
+                }
+              ]
+            },
+            "archived": {
+              "description": "The upstream repository is archived.",
+              "type": "boolean"
+            }
+          }
+        },
+        "tier": {
+          "description": "Set by CI (sdk/tools/app-gate), not by hand: verified, community or blocked (contract 9.4).",
+          "enum": [
+            "verified",
+            "community",
+            "blocked"
+          ]
         }
-      }
+      },
+      "additionalProperties": false
     },
     "spec": {
       "type": "object",
-      "required": ["archs", "requires", "manifests"],
+      "required": [
+        "archs",
+        "requires",
+        "manifests",
+        "updates"
+      ],
       "properties": {
         "archs": {
           "description": "CPU architectures the pinned images support.",
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": {"enum": ["amd64", "arm64"]}
+          "items": {
+            "enum": [
+              "amd64",
+              "arm64"
+            ]
+          }
         },
         "requires": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["gpu", "minMemoryMb"],
+          "required": [
+            "gpu",
+            "minMemoryMb"
+          ],
           "properties": {
-            "gpu": {"type": "boolean"},
-            "minMemoryMb": {"type": "integer", "minimum": 1}
+            "gpu": {
+              "type": "boolean"
+            },
+            "minMemoryMb": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         },
         "web": {
           "description": "Web UI port. A Service in the rendered manifests must expose it.",
           "type": "object",
           "additionalProperties": false,
-          "required": ["port"],
+          "required": [
+            "port"
+          ],
           "properties": {
-            "port": {"type": "integer", "minimum": 1, "maximum": 65535}
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            }
           }
         },
         "manifests": {
           "description": "Kustomization directory relative to apps/<id>/ (no leading slash, no '..').",
           "type": "string",
           "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[A-Za-z0-9._/-]+$"
+        },
+        "updates": {
+          "description": "Update policy (contract 9.3, 10.2): security-channel updates install automatically within the owner's policy; automerge patch lets Renovate merge green patch and digest bumps of a verified app.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "channel",
+            "automerge"
+          ],
+          "properties": {
+            "channel": {
+              "enum": [
+                "security",
+                "stable"
+              ]
+            },
+            "automerge": {
+              "enum": [
+                "patch",
+                "none"
+              ]
+            }
+          }
+        },
+        "agent": {
+          "description": "Agent principal for the app (contract 11.2): the gateway creates agent:<id> and the Secret <secret> in app-<id> at install.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "principal"
+          ],
+          "properties": {
+            "principal": {
+              "type": "boolean"
+            },
+            "secret": {
+              "description": "Secret name (DNS-1123 subdomain) that receives ONEMIND_GATEWAY_URL and ONEMIND_AGENT_TOKEN.",
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+            }
+          },
+          "if": {
+            "properties": {
+              "principal": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "principal",
+              "secret"
+            ]
+          }
         }
-      }
+      },
+      "additionalProperties": false
     }
   }
 }

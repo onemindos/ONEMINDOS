@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# Only the dashboard (spec.web.port 9119) is exposed. The API server (8642) listens on the pod
+# IP so the kubelet can probe /health, but it is left out of the Service: every other route
+# drives an agent with terminal access (key-protected, still not worth publishing in-cluster).
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes-agent
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: hermes-agent
+  ports:
+    - name: dashboard
+      port: 9119
+      targetPort: dashboard
+      protocol: TCP

@@ -1,0 +1,48 @@
+#!/usr/bin/env -S python3 -I
+# SPDX-License-Identifier: Apache-2.0
+"""Regenerate apps/<id>/README.md (contract §9.3); --check fails if a README is out of date.
+
+Run with: python3 -I sdk/tools/app-readme [--check] [--apps-dir DIR] [APP_ID ...]
+Exit codes: 0 ok, 1 a README is out of date (--check), 2 usage or environment error.
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from applib import common, readme  # noqa: E402
+
+
+def main(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="app-readme", description=__doc__.split("\n")[0])
+    p.add_argument("--apps-dir", type=Path, default=common.APPS_DIR)
+    p.add_argument("--check", action="store_true", help="do not write; exit 1 if a README differs")
+    p.add_argument("app_ids", nargs="*")
+    args = p.parse_args(argv)
+    ids = args.app_ids or sorted(d.name for d in args.apps_dir.iterdir()
+                                 if d.is_dir() and not d.name.startswith(("_", ".")))
+    stale = 0
+    for app_id in ids:
+        app_dir = args.apps_dir / app_id
+        try:
+            text = readme.render(app_dir)
+        except (OSError, KeyError, common.ToolError) as exc:
+            sys.stderr.write(f"error: apps/{app_id}: {exc}\n")
+            return 2
+        path = app_dir / "README.md"
+        current = path.read_text(encoding="utf-8") if path.is_file() else ""
+        if current == text:
+            print(f"ok      apps/{app_id}/README.md")
+        elif args.check:
+            stale += 1
+            print(f"STALE   apps/{app_id}/README.md (run: python3 -I sdk/tools/app-readme {app_id})")
+        else:
+            path.write_text(text, encoding="utf-8")
+            print(f"written apps/{app_id}/README.md")
+    return 1 if stale else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

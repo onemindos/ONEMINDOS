@@ -1,0 +1,65 @@
+[
+  {
+    "c": "hub",
+    "name": "helmops",
+    "pod": "helmops-795dc58c94-rskmh",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 16
+  },
+  {
+    "c": "hub",
+    "name": "fleet-cleanup",
+    "pod": "fleet-controller-5dfc89cd-2g5vv",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 24
+  },
+  {
+    "c": "hub",
+    "name": "fleet-agent",
+    "pod": "fleet-agent-669dbfc67d-wbz2q",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 43
+  },
+  {
+    "c": "hub",
+    "name": "fleet-controller",
+    "pod": "fleet-controller-5dfc89cd-2g5vv",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 30
+  },
+  {
+    "c": "hub",
+    "name": "gitjob",
+    "pod": "gitjob-6b954fc79f-66xxf",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 22
+  },
+  {
+    "c": "hub",
+    "name": "fleet-agentmanagement",
+    "pod": "fleet-controller-5dfc89cd-2g5vv",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 34
+  },
+  {
+    "c": "box-1",
+    "name": "fleet-agent",
+    "pod": "fleet-agent-84865466fd-9fbfx",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 51
+  },
+  {
+    "c": "site-b",
+    "name": "fleet-agent",
+    "pod": "fleet-agent-84865466fd-2trlx",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 75
+  },
+  {
+    "c": "site-a",
+    "name": "fleet-agent",
+    "pod": "fleet-agent-84865466fd-qbgs9",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 55
+  }
+]

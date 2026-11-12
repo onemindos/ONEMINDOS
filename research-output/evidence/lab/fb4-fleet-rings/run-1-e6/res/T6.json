@@ -1,0 +1,8 @@
+{
+  "id": "T6",
+  "verdict": "PASS",
+  "at": "2026-11-12T11:15:27Z",
+  "data": {
+    "seconds_after_restart_all_v4_available": 48
+  }
+}

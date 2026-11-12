@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/eclipse-mosquitto/mosquitto (contract §9.2),
+# completed from upstream docker/2.1-alpine/{Dockerfile,README.md,docker-entrypoint.sh} at v2.1.2.
+# Recreate: the sqlite persistence file and dynamic-security.json on a ReadWriteOnce volume have
+# one writer, so the old pod stops first.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mosquitto
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mosquitto
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # The image sets no USER: its entrypoint runs as root only to chown /mosquitto/data to
+      # 1883:1883, and mosquitto then drops to its `mosquitto` user (UID/GID 1883, created in the
+      # Dockerfile). Here it starts as 1883 directly; fsGroup gives it the volume instead of chown.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1883
+        runAsGroup: 1883
+        fsGroup: 1883
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: mosquitto
+        image: docker.io/library/eclipse-mosquitto:2.1.2-alpine@sha256:75d6662dee52c947dc9dd9c29f1d8d7ffef78ddaf38001caa09755681e8bbc98
+        ports:
+        - name: mqtt
+          containerPort: 1883
+          protocol: TCP
+        # Upstream defines no health endpoint for MQTT; the listener accepting TCP is the signal.
+        readinessProbe:
+          tcpSocket:
+            port: mqtt
+          initialDelaySeconds: 2
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        livenessProbe:
+          tcpSocket:
+            port: mqtt
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        # Upstream publishes no sizing. Measured idle in the smoke test (README "Sizing"); the limit
+        # leaves room for many clients and retained messages on a home network.
+        resources:
+          requests:
+            cpu: 25m
+            memory: 32Mi
+          limits:
+            cpu: 500m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: config
+          mountPath: /mosquitto/config
+          readOnly: true
+        - name: data
+          mountPath: /mosquitto/data
+      volumes:
+      - name: config
+        configMap:
+          name: mosquitto-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: mosquitto-data
