@@ -1,0 +1,601 @@
+# Source: https://www.easa.europa.eu/en/domains/drones-air-mobility/operating-drone/open-category-low-risk-civil-drones
+# Accessed: 2026-11-12 (fabric mission 02). Converted to plain text; masked: {'email': 0, 'ip': 0, 'token': 0}
+
+Open Category — Low Risk — Civil Drones | EASA
+
+ Skip to main content
+
+ Drones & Air Mobility
+
+ Drones & Air Mobility home
+
+ Drones & Air Mobility Landscape
+
+ Innovative Air Mobility (IAM) Hub
+
+ Basics explained
+
+ Innovative Air Mobility and Services
+
+ Benefits
+
+ Air Transport by VTOL-capable aircraft
+
+ Urban Air Mobility (UAM)
+
+ Role of cities
+
+ Hamburg
+
+ Helsinki
+
+ Torsby
+
+ Trondheim, Lillehammer
+
+ Noise & Sustainability
+
+ Environmental Footprint Aviation Study
+
+ IAM for City Transport Ecosystems 
+
+ IAM for Sustainability Planning
+
+ Financing IAM and Services
+
+ Drone Community Engagement
+
+ Drones & eVTOL Designs
+
+ Drones for EU Operations
+
+ Operating a drone
+
+ Drone Rule Navigator
+
+ Open Category — Low Risk
+
+ Specific Category — Medium Risk
+
+ Operational Authorisation
+
+ Standard Scenario (STS)
+
+ Predefined Risk Assessment (PDRA) 
+
+ Specific Operations Risk Assessment (SORA)
+
+ Critical Area Assessment Tool (CAAT)
+
+ Light UAS operator Certificate (LUC)
+
+ Design verification report
+
+ Operations in the specific category in a state different from the one of registration
+
+ Forms
+
+ Certified Category — High Risk
+
+ Flying in your country — National Aviation Authorities
+
+ Flying in your country — Drone Economy Dashboard 
+
+ Flying in your country — Population density
+
+ Flying in your country — Geo Zones
+
+ Flying during major events
+
+ Rules & Standards
+
+ Drone Regulatory System
+
+ Drone Operator Registration, Authorisations and Pilot Competency
+
+ Privacy
+
+ Case Studies
+
+ Inspecting Infrastructure
+
+ Mapping
+
+ At an event
+
+ Filming a historical/cultural site
+
+ Rescue mission
+
+ Providing Internet or other wireless services
+
+ Code of Conduct
+
+ Data Protection Impact Assessment
+
+ Privacy by Design
+
+ Privacy Handbook
+
+ Privacy Impact Assessment Checklist
+
+ Insurance
+
+ Insurance Checklist
+
+ FAQ
+
+ News
+
+ Events
+
+ Event Proceedings
+
+ Regulations
+
+ Easy Access Rules
+
+ Popular
+
+Downloads
+Related Content
+
+The ‘open’ category is the main reference for the majority of leisure drone activities and low-risk commercial activities.                  
+As a drone operator, remember to check if you need to register yourself. See the registration FAQ.                 
+
+The ‘open’ category is in turn subdivided in three sub-categories – A1, A2, A3 -- which may be summarised as follows:
+
+A1: fly over people but not over assemblies of people
+
+A2: fly close to people
+
+A3: fly far from people
+
+Each subcategory comes with its own set of requirements. Therefore, in the ‘open’ category, it is important to identify the subcategory of operation your activities will fall under, to determine which rules apply to you, and the type of training the remote pilot needs to undertake. See the FaQ ‘Which training I need to fly my drone in the open category’                 
+
+Start by identifying the type of drone you own. 
+Table for ‘Open’ category applicable since 1 January 2024
+
+Drones with a class identification label  (i.e. ,, , , , ,) are already available on the market. Please see the Approved Drones for EU Operations page that includes the list of drones that received the class identification label. If you want to purchase a drone with class identification, please check that the drone shows on its body the class identification and make sure that the drone has an EU Declaration of Conformity. Several versions of the same drone may be available, with and without class mark. You can find additional information on drones with a class identification label in the Drones Information Notices webpage.
+
+Operations in the open category must be conducted with a drone:
+
+bearing a C0 to C4 class identification label, or;
+
+being privately built (built for your own use), or;
+
+even without class identification label, but only if placed on the market before 31 December 2023.
+
+Drones bearing a class identification label can be already utilised in accordance with the conditions shown in the menus below. Be aware that ‘privately built’ means that you built the drone for your own personal use, so it was not purchased; it does not refer to UASs assembled from sets of parts placed on the market as a single, ready-to-assemble kit.
+
+How to operate drones in the open category
+
+Privately built and drones placed on the market before 01/01/2024 (under 250 g)
+
+Subcategory
+A1 (can also fly in subcategory A3)
+
+Operational restrictions
+
+May fly over uninvolved people (should be avoided when possible)
+
+No flight over assemblies of people
+
+Drone operator registration
+No, unless camera / sensor on board and a drone is not a toy
+
+Remote pilot competence
+No training required
+
+Remote pilot minimum age
+No minimum age
+
+C0   (under 250 g)
+
+Subcategory
+A1 (can also fly in subcategory A3)
+
+Operational restrictions
+
+No flight over assemblies of people;
+
+Maintain flight altitude below 120m above ground level.
+
+Drone operator registration
+No, unless camera / sensor on board and a drone is not a toy
+
+Remote pilot competence
+Read carefully the user manual
+
+Remote pilot minimum age
+16*, no minimum age if drone is a toy
+
+C1   (under 900 g)
+
+Subcategory
+A1 (can also fly in subcategory A3)
+
+Operational restrictions
+
+No flight expected over uninvolved people (if it happens, overflight should be minimised);
+
+No flight over assemblies of people;
+
+Maintain flight altitude below 120m above ground level.
+
+Drone operator registration
+Yes
+
+Remote pilot competence
+
+Read carefully the user manual
+
+Obtain a ‘Proof of completion for online training’ for A1/A3 ‘open’ subcategory by:
+
+Completing the online training
+
+Passing the online theoretical exam
+
+Remote pilot minimum age
+16*
+
+C2   (under 4 kg)
+
+Subcategory
+A2 (can also fly in subcategory A3)
+
+Operational restrictions
+
+Must not overfly uninvolved people;
+
+Maintain a horizontal distance of 30 m from uninvolved people (can be reduced to 5 m if the low-speed function is activated);
+
+Maintain flight altitude below 120m above ground level.
+
+Drone operator registration
+Yes
+
+Remote pilot competence
+
+Read carefully the user manual
+
+Obtain a ’Remote pilot certificate of competency’ for A2 ‘open’ subcategory by:
+
+Having a ‘Proof of completion for online training’ for A1/A3 ‘open’ subcategory
+
+Conducting and declare a practical self- training
+
+Passing an additional theoretical exam at the NAA or proctored online
+
+Remote pilot minimum age
+16*
+
+C3   (under 25 kg)
+
+Subcategory
+A3
+
+Operational restrictions
+
+Must not overfly uninvolved people;
+
+Maintain a horizontal distance of 150 m from uninvolved people and urban areas;
+
+Maintain flight altitude below 120m above ground level.
+
+Drone operator registration
+Yes
+
+Remote pilot competence
+
+Read carefully the user manual
+
+Obtain a ‘Proof of completion for online training’ for A1/A3 ‘open’ subcategory by:
+
+Completing the online training
+
+Passing the online theoretical exam
+
+Remote pilot minimum age
+16*
+
+C4   (under 25 kg)
+
+Subcategory
+A3
+
+Operational restrictions
+
+Must not overfly uninvolved people;
+
+Maintain a horizontal distance of 150 m from uninvolved people and urban areas;
+
+Maintain flight altitude below 120m above ground level.
+
+Drone operator registration
+Yes
+
+Remote pilot competence
+
+Read carefully the user manual
+
+Obtain a ‘Proof of completion for online training’ for A1/A3 ‘open’ subcategory by:
+
+Completing the online training
+
+Passing the online theoretical exam
+
+Remote pilot minimum age
+16*
+
+Privately built and drones placed on the market before 01/01/2024 (under 25 kg)
+
+Subcategory
+A3
+
+Operational restrictions
+
+Must not overfly uninvolved people;
+
+Maintain a horizontal distance of 150 m from uninvolved people and urban areas;
+
+Maintain flight altitude below 120m above ground level.
+
+Drone operator registration
+Yes
+
+Remote pilot competence
+
+Read carefully the user manual
+
+Obtain a ‘Proof of completion for online training’ for A1/A3 ‘open’ subcategory by:
+
+Completing the online training
+
+Passing the online theoretical exam
+
+Remote pilot minimum age
+16*
+
+‘Open’ category using drones with a class identification label                 
+
+* A State may lower the remote pilot minimum age to 12. In that case, the lowered age limit will apply only in that State.
+
+You are invited to consult the Provisions applicable to both ‘open’ and ‘specific’ category FAQs  as well as Understanding the ‘open’ category FAQs for more details. These FAQs take you through all the steps you need to take to be fully compliant and help you identify the regulations that are applicable to the drone operations you intend to conduct.
+
+For all our amateur drone pilots, Paul and his new drone Donnie will help you see how easy it is to become a safe and responsible drone pilot.
+
+Remote identification
+
+All drones operating in the open category (with limited exceptions) need to be equipped with a remote identification system. Some companies have already placed on the market modules providing a direct remote identification system, providing the ‘EU Declaration of Conformity’ and you can find a list below. Please be aware that EASA did not verify the compliance of such components and the declaration of conformity is submitted under the sole responsibility of the manufacturer.
+
+EU Declaration of Conformity list
+
+Manufacturer
+
+Module name & website link
+
+Function
+
+EU Declaration of Conformity
+
+Aerobits
+idME (Remote ID)
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Aerobits
+idME+ (Remote ID)
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Aerobits
+
+idME PRO (Remote ID)
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+AirPlate
+AirPlate (Remote ID Pro)
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Bluemark
+DroneBeacon db120
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Bluemark
+DroneBeacon db121 
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Bluemark
+DroneBeacon db121PCB 
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Bluemark
+DroneBeacon db121FPV 
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Bluemark
+DroneBeacon db150FVP
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Bluemark
+DroneBeacon db152FVP 
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Bluemark
+DroneBeacon db153FVP 
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Dronavia
+Fly ID & Fly ID Light Direct Remote ID (DRI) 
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Drone Defence
+ Aeroping — Air traffic monitoring platform
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Dronetag
+Dronetag BS (Bare minimum for Remote ID)
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Dronetag
+Dronetag Beacon
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Dronetag
+Dronetag Mini
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Dronetag
+Dronetag Mini 4G
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+FLARM
+Atom UAV
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+FLARM
+Aurora
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Italdron
+Italdron professional drones and UAV 
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+PrimeCor
+
+PrimeCor Tracker 
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+TopView
+
+TopView Pollicino
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+Zing Drone Solutions
+
+Zingdrones Z-RID LITE
+
+Direct remote identification
+
+EU Declaration of Conformity
+
+For additional information please contact the team.
+
+Stay informed on Civil drones:
+
+Create an EASA account
+
+Follow the category "Civil drones (Unmanned aircraft)"
+
+Decide how you want to be notified
+
+Downloads
+
+[pdf] 
+
+ Guidelines for UAS operations in the open and specific categories
+
+[external] 
+
+ What is U-space 
+
+Related Content
+
+30 Jun 2026
+
+Easy Access Rules
+
+ Popular 
+
+ Easy Access Rules for Unmanned Aircraft Systems 
+
+Revision from June 2026 — Available in pdf, xml, and online format
+
+FAQs Open category
+
+24 Nov 2020
+
+General Publication
+
+ Popular 
+
+ Drone Class Identification Labels and Information Notices 
+
+Classes 0-6
+
+Video: Technical workshop on UAS operations in the open category - Stream 1A - EASA HLC on Drones 2019
+
+Video: Explanation of Open category
+
+Video: Flying a Drone for fun - Get to know how to become a good drone pilot
+
+20 Nov 2023
+
+General Publication
+
+ Drones Class 0: Basics and height limit of 120 m

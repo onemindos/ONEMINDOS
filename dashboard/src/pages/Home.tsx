@@ -4,6 +4,7 @@ import { AppIcon, ErrorNote, Loading, StatusBadge } from '../components/bits';
 import { useNow, usePoll } from '../lib/hooks';
 import { effectiveStatus, formatAgo } from '../lib/time';
 import { useSignedIn } from '../session';
+import { brand } from '../brand.generated';
 
 function greeting(now: number) {
   const h = new Date(now).getHours();
@@ -29,7 +30,7 @@ export function Home() {
     <div className="page home">
       <section className="hero" aria-labelledby="home-title">
         <p className="hero-greeting">{greeting(now)}</p>
-        <h1 id="home-title">{instance.data?.name ?? 'OneMind'}</h1>
+        <h1 id="home-title">{instance.data?.name ?? brand.shortName}</h1>
         {instance.data && (
           <p className="muted-on-wall">
             Version {instance.data.version} · hub node <code>{instance.data.hub_node_id}</code>

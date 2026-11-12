@@ -1,0 +1,18 @@
+[36mINFO[0m[0000] Prep: Network                                
+[36mINFO[0m[0000] Re-using existing network 'fb4net' (33ac73f5f2c53936d931811733b0762e1f1e643ed34a9f758d9e7498d035da69) 
+[36mINFO[0m[0000] Created image volume k3d-site-b-images       
+[36mINFO[0m[0000] Starting new tools node...                   
+[36mINFO[0m[0000] Starting node 'k3d-site-b-tools'             
+[36mINFO[0m[0001] Creating node 'k3d-site-b-server-0'          
+[36mINFO[0m[0001] Using the k3d-tools node to gather environment information 
+[36mINFO[0m[0001] HostIP: using network gateway 198.51.100.1 address 
+[36mINFO[0m[0001] Starting cluster 'site-b'                    
+[36mINFO[0m[0001] Starting servers...                          
+[36mINFO[0m[0001] Starting node 'k3d-site-b-server-0'          
+[36mINFO[0m[0007] All agents already running.                  
+[36mINFO[0m[0007] All helpers already running.                 
+[36mINFO[0m[0007] Injecting records for hostAliases (incl. host.k3d.internal) and for 3 network members into CoreDNS configmap... 
+[36mINFO[0m[0009] Cluster 'site-b' created successfully!       
+[36mINFO[0m[0009] You can now use it like this:                
+export KUBECONFIG=$(k3d kubeconfig write site-b)
+kubectl cluster-info

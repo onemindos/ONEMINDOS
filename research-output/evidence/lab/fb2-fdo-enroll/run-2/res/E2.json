@@ -1,0 +1,8 @@
+{
+  "id": "E2",
+  "verdict": "OBS",
+  "at": "2026-11-12T10:32:43Z",
+  "data": {
+    "note": "no TPM character device in the VM; swtpm socket mode cannot be opened by linuxtpm.Open (client rejects 'simulator'), so E2 not run"
+  }
+}

@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from 'react';
 import { ApiError } from '../api/types';
 import { useSession } from '../session';
+import { brand } from '../brand.generated';
 
 export function SignIn({ mock }: { mock: boolean }) {
   const { signIn } = useSession();
@@ -31,8 +32,8 @@ export function SignIn({ mock }: { mock: boolean }) {
   return (
     <main id="main" className="signin">
       <div className="signin-card">
-        <span className="brand-mark brand-mark-lg" aria-hidden="true" />
-        <h1>Welcome to OneMind</h1>
+        <img className="brand-mark brand-mark-lg" src={brand.logo.color} alt="" />
+        <h1>Welcome to {brand.shortName}</h1>
         <p className="muted">Sign in with the access token your hub gave you.</p>
         <form onSubmit={onSubmit} noValidate>
           <label htmlFor="token">Access token</label>
