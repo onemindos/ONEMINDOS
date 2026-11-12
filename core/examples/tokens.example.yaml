@@ -1,0 +1,13 @@
+# DEV ONLY. Static bearer tokens (contract v0 shortcut; Kanidm replaces this, BD-03).
+# These placeholder tokens are public in the repo: never use them on a box that is reachable
+# from another machine. For a real box, generate tokens with `openssl rand -hex 32` and, better,
+# store only their hash:  "sha256:<output of: printf %s TOKEN | shasum -a 256>".
+tokens:
+  "dev-owner-token-change-me":
+    {id: owner, kind: person, role: owner}
+  "dev-adult-token-change-me":
+    {id: adult, kind: person, role: adult}
+  "dev-guest-token-change-me":
+    {id: guest, kind: person, role: guest}
+  "dev-agent-token-change-me":
+    {id: hermes, kind: agent, role: agent}
