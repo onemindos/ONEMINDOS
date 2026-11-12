@@ -7,6 +7,7 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type React
 import { cx } from '../lib/cx';
 import { applyTheme, type ThemeChoice } from '../lib/theme';
 import { dark, light } from '../tokens/tokens';
+import { BrandMark, BRAND } from '../components/BrandMark';
 import { StatusPill } from '../components/StatusPill';
 import { ShellIcon, type ShellIconName } from './icons';
 import { CATEGORY_ORDER, category, deployClass, deployClassLabel, type CategorySlug } from './taxonomy';
@@ -563,9 +564,9 @@ export function Onboarding({
     <div className="oms-onb" style={accentVars(d.accent)}>
       <aside className="oms-onb-side" aria-label="Setup progress">
         <div className="oms-onb-brand">
-          <span className="om-brand-mark" aria-hidden="true" />
+          <BrandMark className="om-brand-mark" />
           <span>
-            <span className="oms-onb-brand-name">OneMind</span>
+            <span className="oms-onb-brand-name">{BRAND.shortName}</span>
             <span className="oms-onb-brand-sub">Setting up {d.boxName || 'a new box'}</span>
           </span>
         </div>
