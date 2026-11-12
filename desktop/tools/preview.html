@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- UI preview without Tauri: loads the real src/ files with a fixture bridge (mock-bridge.js).
+     Serve desktop/ over HTTP (npm run preview) and open /tools/preview.html?scene=status. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OneMind preview</title>
+    <link rel="stylesheet" href="../src/tokens.css" />
+    <link rel="stylesheet" href="../src/styles.css" />
+    <script src="mock-bridge.js"></script>
+  </head>
+  <body>
+    <script type="module">
+      const html = await (await fetch('../src/index.html')).text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      document.body.innerHTML = doc.body.innerHTML;
+      await import('../src/app.js');
+    </script>
+  </body>
+</html>

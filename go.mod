@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/nats-io/nats-server/v2 v2.15.3
 	github.com/nats-io/nats.go v1.55.0
+	github.com/nats-io/nkeys v0.4.17
 	github.com/sigstore/sigstore v1.10.6
 	github.com/theupdateframework/go-tuf/v2 v2.4.2
 )
@@ -17,7 +18,6 @@ require (
 	github.com/klauspost/compress v1.20.4 // indirect
 	github.com/minio/highwayhash v1.0.4 // indirect
 	github.com/nats-io/jwt/v2 v2.8.3 // indirect
-	github.com/nats-io/nkeys v0.4.17 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.11.0 // indirect

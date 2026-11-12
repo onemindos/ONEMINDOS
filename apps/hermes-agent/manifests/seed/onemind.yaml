@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# --- OneMind defaults (apps/hermes-agent, contract sdk/contracts/poc-v0.md §7, §11.3) ---
+# Appended once, on first boot, to Hermes's own example config (cli-config.yaml.example).
+# After that config.yaml on the volume belongs to the owner; OneMind never rewrites it.
+#
+# The OneMind gateway's MCP endpoint (Streamable HTTP). It offers list_nodes, list_apps and
+# request_action, and no approve tool: Hermes can ask, only the owner approves.
+# ${VAR} is expanded by Hermes from the environment when it connects (Hermes docs,
+# website/docs/user-guide/features/mcp.md, "Runtime ${ENV_VAR} substitution"). Both values
+# come from the Secret hermes-agent-onemind that the gateway creates at install (§11.2).
+mcp_servers:
+  onemind:
+    url: "${ONEMIND_GATEWAY_URL}/mcp"
+    headers:
+      Authorization: "Bearer ${ONEMIND_AGENT_TOKEN}"

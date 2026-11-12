@@ -14,7 +14,8 @@ export const TOUR_STEP_MS = 8000;
 export type TourStep =
   | { tab: 'Home' | 'Nodes' | 'Apps' | 'Approvals' | 'Activity' }
   | { app: string }
-  | { settings: true };
+  | { settings: true }
+  | { photos: 'screen' | 'enable' | 'albums' | 'cellular' | 'wifi' };
 
 export const TOUR: TourStep[] = [
   { tab: 'Home' },
@@ -25,4 +26,13 @@ export const TOUR: TourStep[] = [
   { tab: 'Approvals' },
   { tab: 'Activity' },
   { settings: true },
+  { photos: 'screen' },
+  { photos: 'enable' },
+  { photos: 'albums' },
+  { photos: 'cellular' },
+  { photos: 'wifi' },
+  { photos: 'screen' },
+  { photos: 'screen' },
+  { photos: 'screen' },
+  { tab: 'Home' },
 ];

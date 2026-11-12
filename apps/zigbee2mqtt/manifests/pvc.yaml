@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# /app/data holds configuration.yaml, the Zigbee network state (database.db, coordinator_backup.json)
+# and logs (upstream docker/docker-entrypoint.sh and the Docker install guide). No storageClassName:
+# k3s's default local-path class is used.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zigbee2mqtt-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

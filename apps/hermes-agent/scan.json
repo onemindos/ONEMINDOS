@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-12T08:01:00Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/nousresearch/hermes-agent:v0.23.0@sha256:adb7890916de63245523492be8f68f9d2095fecbec4e2a6dab7960381f0fc002",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 1,
+        "critical": 3,
+        "high": 291
+      },
+      "clamav": {
+        "signatures": "daily-28181",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "MIT",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

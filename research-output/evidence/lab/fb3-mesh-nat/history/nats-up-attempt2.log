@@ -1,0 +1,9 @@
+2026-11-12T07:46:08Z hub enrolled: 100.64.0.1
+2026-11-12T07:46:14Z home-a enrolled: 100.64.0.2
+2026-11-12T07:46:17Z home-b enrolled: 100.64.0.3
+2026-11-12T07:46:18Z T1a reuse: refused: backend error: authkey already used 
+2026-11-12T07:46:24Z hub leaf listener: LISTEN 0 4096 100.64.0.1:7422 0.0.0.0:* 
+2026-11-12T07:46:24Z home-a ONEMIND_NODE_OUTBOX created
+2026-11-12T07:46:24Z home-b ONEMIND_NODE_OUTBOX created
+2026-11-12T07:46:24Z hub NODE_EVENTS created
+2026-11-12T07:46:24Z leafz: [{"name":"leaf-home-a","account":"$G","ip":"<mesh>","port":36590},{"name":"leaf-home-b","account":"$G","ip":"<mesh>","port":33740}]

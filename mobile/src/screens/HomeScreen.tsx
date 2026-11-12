@@ -5,6 +5,8 @@ import type { NodeStatus } from '../api/types';
 import { useHubData, useNow } from '../data';
 import { actionTitle, principalLabel, sortByRecent } from '../lib/approvals';
 import { effectiveStatus, formatAgo, secondsSince } from '../lib/time';
+import { usePhotoBackup } from '../photos/context';
+import { summarize } from '../photos/status';
 import { useSignedIn } from '../session';
 import { Badge, Card, H1, H2, Loading, P, Row, Screen, STATUS_TONE, StateBadge, s } from '../ui/bits';
 import { space, useTheme } from '../ui/theme';
@@ -15,6 +17,7 @@ export function HomeScreen() {
   const now = useNow();
   const { label } = useSignedIn();
   const { instance, nodes, apps, actions, fetchedAt, hubOffsetMs, pendingCount, loading } = useHubData();
+  const photos = usePhotoBackup();
   if (loading && !instance) return <Loading what="your hub" />;
 
   const counts: Record<NodeStatus, number> = { online: 0, stale: 0, offline: 0 };
@@ -56,6 +59,16 @@ export function HomeScreen() {
               <Badge key={k} label={`${counts[k]} ${k}`} tone={counts[k] ? STATUS_TONE[k] : 'neutral'} />
             ))}
           </View>
+        </Card>
+      </Pressable>
+
+      <Pressable accessibilityRole="button" onPress={() => nav.navigate('PhotoBackup')} testID="photos-card">
+        <Card>
+          <View style={s.row}>
+            <Text style={{ color: t.text, fontSize: 17, fontWeight: '600' }}>Photo backup</Text>
+            <Text style={{ color: t.muted }}>›</Text>
+          </View>
+          <P muted small>{summarize({ ...photos, now }).headline}</P>
         </Card>
       </Pressable>
 

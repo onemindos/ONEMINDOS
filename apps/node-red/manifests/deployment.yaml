@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/node-red/node-red (contract §9.2), then completed.
+# Upstream references (5.0.9): github.com/node-red/node-red-docker README ("Quick Start", "Managing User
+# Data", "Healthcheck") and nodered.org/docs/getting-started/docker.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-red
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  # Flows, credentials and installed nodes live on a ReadWriteOnce volume: one writer at a time.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-red
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: node-red
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # The image runs as USER node-red; upstream documents its uid as 1000 and requires /data
+      # to be owned by 1000:1000 ("Managing User Data"). fsGroup makes the fresh volume writable.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: node-red
+          image: docker.io/nodered/node-red:5.0.9@sha256:2ccd38b4066648bd5e17430c50a2f8102c566a82fd4f2fc5c342e61664d6896f
+          ports:
+            - name: http
+              containerPort: 1880
+              protocol: TCP
+          # The image's own HEALTHCHECK (healthcheck.js) treats any HTTP answer below 500 from
+          # port 1880 as healthy; GET / serves the editor (200, also with adminAuth enabled).
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 4
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 4
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 4
+            failureThreshold: 3
+          # Upstream publishes no sizing. Measured 54Mi idle with no flows on k3s (2026-11-12, README
+          # "How it is packaged"); the limit leaves room for added palette nodes and flows.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: node-red-data
