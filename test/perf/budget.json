@@ -1,5 +1,7 @@
 {
-  "_doc": "placeholder",
-  "idle_memory_mib": {"hub-total": 1, "k3s": 1, "k3s-addons": 1, "gateway": 1, "onemindd": 1, "nats": 1},
-  "api_p95_ms": {"idle": 1, "load": 1}
+  "_doc": "Ceilings for the hub on a CI arm64 VM (4 vCPU, 16 GB): about 1.3x to 2x what perf-smoke measured. VM-measured, UNVERIFIED on a real Pi (F-25 hardware pending). Rationale: docs/testing/PERF-BUDGET.md",
+  "idle_memory_mib": {"hub-total": 1000, "k3s": 820, "k3s-addons": 80, "gateway": 100, "onemindd": 10, "nats": 8},
+  "api_p95_ms": {"idle": 40, "load": 45},
+  "api_read_errors": {"idle": 0, "load": 0},
+  "gateway_cold_start_s": 10
 }
