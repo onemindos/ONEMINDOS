@@ -5,6 +5,7 @@
  * name is in GET /v1/instance `features` (§12.1), and is skipped with the reason until then. When a
  * stream lands, its step runs here without anyone editing the suite; the owning stream then deepens it.
  */
+import { randomBytes } from 'node:crypto';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { APPROVE_TIMEOUT_MS, hubEnv, type HubEnv } from '../lib/env';
 import { Hub } from '../lib/hub';
@@ -56,14 +57,31 @@ test('GET /v1/me names the owner and the agent correctly (§12.6)', async ({ req
   }
 });
 
-test('passkey registration options are offered to the owner (§12.6)', async ({ request }) => {
+test('the first owner signs in as a household account and is offered a passkey (§12.6)', async ({ request }) => {
   test.skip(
-    !paths.has('/v1/auth/passkeys/register/options'),
+    !paths.has('/v1/auth/setup') || !paths.has('/v1/auth/passkeys/register/options'),
     'not merged yet: owner passkeys and passkey-signed approvals (CORE-SEC-2, F-2); household accounts (CORE-SEC-10)',
   );
-  const r = await hubFor(request).postAs(E.ownerToken, '/v1/auth/passkeys/register/options', {});
+  const hub = hubFor(request);
+  // A static token never changes sign-in credentials (§12.6); it may only create the first owner.
+  const refused = await hub.postAs(E.ownerToken, '/v1/auth/passkeys/register/options', {});
+  expect(refused.status).toBe(403);
+  // A fresh password per run, kept only in memory: nothing here reaches a file, a log or an artifact.
+  const password = randomBytes(24).toString('base64url');
+  const setup = await hub.postAs(E.ownerToken, '/v1/auth/setup', { username: 'e2e-owner', password, client: 'cli' });
+  test.skip(setup.status === 409, 'this hub already has a household owner (re-run on a reused hub); needs a fresh hub');
+  expect(setup.status).toBe(201);
+  const session = (setup.body as { access_token: string }).access_token;
+  expect(session).toBeTruthy();
+
+  const me = await hubFor(request, session).get<{ principal: { kind: string; role: string }; session: unknown }>('/v1/me');
+  expect(me.principal).toMatchObject({ kind: 'person', role: 'owner' });
+  expect(me.session).toBeTruthy();
+  const r = await hub.postAs(session, '/v1/auth/passkeys/register/options', {});
   expect(r.status).toBe(200);
   expect(JSON.stringify(r.body)).toContain('challenge');
+  expect((await hub.postAs(session, '/v1/auth/logout', {})).status).toBe(204);
+  expect((await hub.postAs(session, '/v1/auth/passkeys/register/options', {})).status).toBe(401);
 });
 
 test('the box CA is published for pairing (§12.7, F-1)', async ({ request }) => {
