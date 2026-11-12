@@ -125,6 +125,29 @@ def test_catalog_reports_errors(settings):
     assert cat.validation_mode == "builtin"
 
 
+@pytest.mark.parametrize("bad", ["  requires: [gpu]\n", "  web: 3001\n"])
+@pytest.mark.parametrize("use_schema", [False, True])
+def test_malformed_spec_field_never_hides_the_market(client, settings, tmp_path, bad, use_schema):
+    folder = settings.apps_dir / "odd"
+    folder.mkdir()
+    (folder / "onemind.app.yaml").write_text(
+        "apiVersion: onemind.app/v1alpha1\nkind: App\nmetadata:\n  id: odd\n  name: Odd\n"
+        "  version: '1'\nspec:\n  archs: [amd64]\n" + bad
+    )
+    if use_schema:  # a permissive schema lets the manifest through; summary() must still cope
+        p = tmp_path / "schema.json"
+        p.write_text(json.dumps({"type": "object"}))
+        rows = [Catalog(settings.apps_dir, p).load()[a].summary() for a in ("odd", "whoami")]
+        assert rows[0]["requires"] == {} and rows[0]["web_port"] is None
+        return
+    r = client.get("/v1/apps", headers=OWNER)
+    assert r.status_code == 200
+    assert {a["id"] for a in r.json()} == {"uptime-kuma", "whoami"}
+    cat = Catalog(settings.apps_dir)
+    cat.load()
+    assert any("must be a mapping" in e for e in cat.errors["odd"])
+
+
 def test_catalog_missing_dir_is_empty(tmp_path):
     assert Catalog(tmp_path / "none").load() == {}
 

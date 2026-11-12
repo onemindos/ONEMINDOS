@@ -39,6 +39,8 @@ class AppEntry:
     def summary(self) -> dict:
         md = self.manifest.get("metadata") or {}
         spec = self.manifest.get("spec") or {}
+        # Defensive: a JSON Schema from the apps stream may be looser than builtin_check.
+        requires, web, archs = spec.get("requires"), spec.get("web"), spec.get("archs")
         return {
             "id": self.id,
             "name": md.get("name"),
@@ -48,9 +50,9 @@ class AppEntry:
             "icon": md.get("icon"),
             "license": md.get("license"),
             "source": md.get("source"),
-            "archs": list(spec.get("archs") or []),
-            "requires": dict(spec.get("requires") or {}),
-            "web_port": (spec.get("web") or {}).get("port"),
+            "archs": list(archs) if isinstance(archs, list) else [],
+            "requires": dict(requires) if isinstance(requires, dict) else {},
+            "web_port": web.get("port") if isinstance(web, dict) else None,
         }
 
 
@@ -77,6 +79,9 @@ def builtin_check(doc: object) -> list[str]:
     archs = spec.get("archs")
     if not isinstance(archs, list) or not archs or not all(a in ("amd64", "arm64") for a in archs):
         errs.append("spec.archs must be a non-empty list of amd64/arm64")
+    for key in ("requires", "web"):
+        if spec.get(key) is not None and not isinstance(spec.get(key), dict):
+            errs.append(f"spec.{key} must be a mapping")
     port = (spec.get("web") or {}).get("port") if isinstance(spec.get("web"), dict) else None
     if port is not None and not (isinstance(port, int) and 1 <= port <= 65535):
         errs.append("spec.web.port must be 1-65535")
