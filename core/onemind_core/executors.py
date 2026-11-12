@@ -115,8 +115,9 @@ def _ssa(kubectl: str, ns: str) -> list[str]:
     return [kubectl, "apply", "--server-side", "--field-manager=onemind-gateway", "--force-conflicts", "-n", ns, "-f", "-"]
 
 
-# `kubectl rollout restart` with no matching workload exits 1 with this text; for an app made only
-# of Jobs or CronJobs there is nothing to restart, which is not a failure.
+# An app made only of Jobs or CronJobs has nothing to restart, which is not a failure. kubectl
+# v1.37 (k3s v1.37.2, Lima check 2026-11-12) exits 0 with "No resources found"; this guards
+# kubectl versions that exit 1 with this text instead (UNVERIFIED for any current version).
 NOTHING_TO_RESTART = "no objects passed to restart"
 
 
