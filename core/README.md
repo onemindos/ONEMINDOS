@@ -125,8 +125,11 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 - Audit is a local JSONL file + best-effort NATS publish, not yet a JetStream stream (D-B9.7).
 - Dispatch runs synchronously inside the approve request (no transactional outbox yet, D-B9.5).
 
-## Additions beyond the contract (flagged for the contract owner)
-- `422 {"error": "invalid_request"}` for malformed bodies (the §3 error set has no code for it).
+## v0 deviations (flagged for the contract owner)
+- §3 has no error code for a malformed body or a wrong method. The gateway uses only §3 codes:
+  a body that fails validation gets HTTP 422 `{"error": "conflict"}` with the bad fields named in
+  `message`; a wrong method gets HTTP 405 `{"error": "not_found"}`. A dedicated code
+  (e.g. `invalid_request`) needs a poc-v0.md amendment PR that the dashboard adopts too.
 - `401` responses carry `WWW-Authenticate: Bearer`.
 
 ## Known gaps

@@ -7,7 +7,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-# Contract error codes, plus "invalid_request" for malformed bodies (v0 addition, see README).
+# Exactly the contract section 3 error codes. Cases the contract has no code for are mapped onto
+# these (see install_handlers and the README's "v0 deviations"); adding a code needs a contract PR.
 ERROR_CODES = {
     "permission_denied",
     "stale_precondition",
@@ -16,7 +17,6 @@ ERROR_CODES = {
     "outcome_unknown",
     "not_found",
     "unauthenticated",
-    "invalid_request",
 }
 
 
@@ -29,8 +29,8 @@ class ApiError(Exception):
         self.message = message
 
 
-def error_response(status: int, error: str, message: str, **extra) -> JSONResponse:
-    body = {"error": error, "message": message, **extra}
+def error_response(status: int, error: str, message: str) -> JSONResponse:
+    body = {"error": error, "message": message}
     headers = {"WWW-Authenticate": "Bearer"} if status == 401 else None
     return JSONResponse(status_code=status, content=body, headers=headers)
 
@@ -42,15 +42,18 @@ def install_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError):
-        details = [
-            {"loc": list(e.get("loc", [])), "msg": e.get("msg", "")} for e in exc.errors()
-        ]
-        return error_response(422, "invalid_request", "request body failed validation", details=details)
+        # §3 has no "invalid request" code: a body that does not fit the schema is reported as a
+        # conflict with it, keeping HTTP 422 and naming the offending fields in the message.
+        problems = "; ".join(
+            f"{'.'.join(str(x) for x in e.get('loc', []))}: {e.get('msg', '')}" for e in exc.errors()
+        )
+        return error_response(422, "conflict", f"request failed validation: {problems}"[:1000])
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(_: Request, exc: StarletteHTTPException):
         if exc.status_code == 404:
             return error_response(404, "not_found", "no such resource")
         if exc.status_code == 405:
-            return error_response(405, "invalid_request", "method not allowed")
-        return error_response(exc.status_code, "invalid_request", str(exc.detail))
+            return error_response(405, "not_found", "method not allowed on this resource")
+        code = {401: "unauthenticated", 403: "permission_denied"}.get(exc.status_code, "conflict")
+        return error_response(exc.status_code, code, str(exc.detail))

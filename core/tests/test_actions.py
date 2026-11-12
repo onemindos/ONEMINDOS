@@ -80,7 +80,15 @@ def test_malformed_request_is_422(client, clock, mutate):
     mutate(body)
     r = client.post("/v1/actions", json=body, headers=OWNER)
     assert r.status_code == 422
-    assert r.json()["error"] == "invalid_request"
+    # Only section 3 codes and only the {error, message} envelope.
+    assert r.json()["error"] == "conflict"
+    assert set(r.json()) == {"error", "message"} and r.json()["message"]
+
+
+def test_wrong_method_uses_a_contract_code(client):
+    r = client.delete("/v1/actions", headers=OWNER)
+    assert r.status_code == 405
+    assert r.json() == {"error": "not_found", "message": "method not allowed on this resource"}
 
 
 def test_remove_of_not_installed_app_is_stale_precondition(client, clock):
