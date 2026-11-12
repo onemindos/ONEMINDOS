@@ -33,6 +33,7 @@ from .routers import instance as instance_routes
 from .routers import mcp as mcp_routes
 from .routers import nodes as nodes_routes
 from .routers import static as static_routes
+from .routers import storage as storage_routes
 from .routers.static import API_EXACT, API_TREES, is_api_path
 from .store import Database, migrate
 
@@ -47,6 +48,7 @@ ROUTERS: list[Register] = [
     apps_routes.register,
     mcp_routes.register,
     actions_routes.register,
+    storage_routes.register,
     static_routes.register,
 ]
 
