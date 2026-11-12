@@ -7,6 +7,8 @@
 > **Explain it like I am the founder**
 > Two AIs finish the job. **Agent A (GPT via Hermes)** lands everything that is already built: it merges, fixes conflicts and makes CI green. **Agent B (Claude)** does the heavy engineering and the work that was never started. They split the work by branch so they never edit the same thing, and they claim each item on the board before starting it.
 
+**Private material:** the founder's private cluster migration map and the build session's notes live in the private repo `onemindos/onemind-private` (org members only). Never copy anything from it into this public repo.
+
 ## 1. State at hand-off
 - **On main (merged):** PRs #1–#26, #28–#41, #44–#46, #48, #50–#54, #59, #60. Highlights: the OS image and A/B updates, the OS security pipeline and updater, the gateway (approvals, audit, MCP, scan gate, install sandbox, identity/passkeys, notifications/monitoring, plumbing, contract §11–§12), node agent + CLI, SDKs, the app pipeline and 9 apps, the design system and UI leap, the website and guides, phone and desktop shells, branding, the test register, the golden-path e2e, fabric research, networking modules (#37).
 - **Rules that stay in force:** the repo is public (no secrets, private IPs, host paths, emails, tailnet names; `scripts/hygiene.py` + gitleaks before every push); never force-push; merge only when every check is green (`scripts/merge/merge-when-green.sh`); umbrelOS is PolyForm-NC (study only, never copy); AI never actuates without human approval; nothing is installed on the founder's computer; each merged item gets its CHANGELOG entry and STATUS row in the same PR.
