@@ -1,0 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Neutral generated icon (initials). Not the Home Assistant logo, which is a trademark that the Apache-2.0 licence does not grant. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Home Assistant">
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#2f6f8f"/>
+  <text x="32" y="41" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="24" font-weight="700" fill="#ffffff">HA</text>
+</svg>

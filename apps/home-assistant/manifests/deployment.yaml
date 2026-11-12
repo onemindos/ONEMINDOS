@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: Apache-2.0
+# Home Assistant Core (the container install type), not Home Assistant OS or the Supervisor.
+# Upstream install doc: https://www.home-assistant.io/installation/linux (Container section).
+# Deliberate v0 differences from the upstream compose file, explained in ../README.md:
+#   - no hostNetwork (upstream uses network_mode: host for discovery)
+#   - not privileged, all capabilities dropped (upstream uses privileged: true for USB/Bluetooth)
+#   - no /run/dbus or /etc/localtime host mounts (no host paths); TZ is set by env instead
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: home-assistant
+spec:
+  replicas: 1
+  # One writer for /config and its SQLite recorder database: stop the old pod before the new one starts.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: home-assistant
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: home-assistant
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # Upstream asks for stop_grace_period: 60s so the recorder database closes cleanly.
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: home-assistant
+          image: ghcr.io/home-assistant/home-assistant:2026.11.1@sha256:6785d1eca68747a524c156faae1b139ed415c07357386ae6fe17291986e59e82
+          ports:
+            - name: http
+              containerPort: 8123
+              protocol: TCP
+          env:
+            - name: TZ
+              value: Etc/UTC
+          # The image starts s6-overlay (/init) as root and documents no non-root mode,
+          # so runAsNonRoot is not set. Root here has no capabilities and cannot gain any.
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            capabilities:
+              drop: [ALL]
+          # GET /manifest.json is public (requires_auth = False in the frontend component);
+          # upstream's own landing page reads it to detect that Core is up.
+          startupProbe:
+            httpGet:
+              path: /manifest.json
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /manifest.json
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /manifest.json
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          # Upstream minimum for a Home Assistant system is 2 GB RAM and 2 vCPUs.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: home-assistant-config

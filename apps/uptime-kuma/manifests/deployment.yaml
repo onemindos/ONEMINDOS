@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: Apache-2.0
+# Uptime Kuma 2.5.10, upstream rootless image (docker/dockerfile target "rootless": USER node).
+# The node user is UID/GID 1000 (nodejs/docker-node Dockerfile; Uptime Kuma wiki "Docker Tags":
+# the data directory must be owned by node:node 1000:1000), so the UID is set numerically for runAsNonRoot.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uptime-kuma
+spec:
+  replicas: 1
+  # One writer: SQLite in /app/data must never be opened by two pods during a rollout.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: uptime-kuma
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: uptime-kuma
+    spec:
+      automountServiceAccountToken: false
+      # Without this, Kubernetes injects UPTIME_KUMA_PORT=tcp://... for a Service named uptime-kuma,
+      # which the app also reads as its listen port (upstream issue #2083; server/config.js).
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: uptime-kuma
+          image: docker.io/louislam/uptime-kuma:2.5.10-rootless@sha256:0df77d22bb9284368f4a6541197dd413051b13de63615145c24a889f97c7e724
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: UPTIME_KUMA_PORT
+              value: "3001"
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+          # /api/entry-page answers 200 JSON both in the first-run database-setup server and in the
+          # running app (server/setup-database.js, server/routers/api-router.js at tag 2.5.10).
+          # Upstream's Docker HEALTHCHECK allows a 180 s start period; the startup probe allows 300 s.
+          startupProbe:
+            httpGet:
+              path: /api/entry-page
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /api/entry-page
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/entry-page
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 30
+            failureThreshold: 5
+          # Upstream publishes no sizing. Values follow the OneMind research budget for this app
+          # (research-output/13-apps-market-plugins.md: 512Mi).
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: uptime-kuma-data

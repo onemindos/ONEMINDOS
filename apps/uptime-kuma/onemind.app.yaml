@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind app manifest (sdk/contracts/poc-v0.md §4). Upstream facts verified 2026-11-12:
+#   release 2.5.10 (github.com/louislam/uptime-kuma/releases/tag/2.5.10, commit fc96c63bf31e)
+#   licence MIT (LICENSE at tag 2.5.10); research licence class L1 (research-output/13-apps-market-plugins.md §4,
+#   row in research-output/evidence/license-matrix.csv)
+#   image docker.io/louislam/uptime-kuma:2.5.10-rootless, multi-arch index with linux/amd64 and linux/arm64
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: uptime-kuma
+  name: Uptime Kuma
+  version: "2.5.10"
+  description: Self-hosted uptime monitoring for websites, ports and services, with status pages and notifications
+  category: monitoring
+  icon: icon.svg
+  license: MIT
+  source: https://github.com/louislam/uptime-kuma
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}
+  web: {port: 3001}
+  manifests: manifests/

@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+# ntfy seed app (contract sdk/contracts/poc-v0.md §4, §8 wave 1).
+# Sources: github.com/binwiederhier/ntfy release v2.37.2 (tag commit 05109571fd09),
+# LICENSE + LICENSE.GPLv2 at that tag; image digest from `crane digest`.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: ntfy
+  name: ntfy
+  version: "2.37.2"
+  description: Send push notifications to your phone or desktop using PUT/POST
+  category: notifications
+  icon: icon.svg
+  license: Apache-2.0 OR GPL-2.0
+  source: https://github.com/binwiederhier/ntfy
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}
+  web: {port: 8080}
+  manifests: manifests/
