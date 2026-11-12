@@ -69,6 +69,7 @@
 | PA-SITE | Website (Astro + Starlight) committed | done | `feat/website` | [#19](https://github.com/onemindos/ONEMINDOS/pull/19) |
 | PA-MOBILE | Mobile shell (Expo) committed | done | `feat/mobile-shell` | [#21](https://github.com/onemindos/ONEMINDOS/pull/21) |
 | MKT-CANDIDATES | Ranked Market candidate list from 7 competitor stores | done | `feat/app-candidates` | [#22](https://github.com/onemindos/ONEMINDOS/pull/22) |
+| MKT-BATCH-2-3 | Market batches 2 and 3: 17 apps; the 12 the CI gate failed are `tier: blocked` with the reason in manifest and README; Stirling-PDF, Docmost, Duplicati queued as licence-blocked | in-progress (agent A) | `feat/market-batch-2-3` | [#49](https://github.com/onemindos/ONEMINDOS/pull/49) |
 | CORE-NET-P1 | Mesh (Headscale + DERP), NATS leaf, app proxy, box CA, NAT lab (+ UMB-APP-7, UMB-APP-8) | done | `feat/core-net` | [#37](https://github.com/onemindos/ONEMINDOS/pull/37) |
 | UI-LEAP | Parity audit, customization, Home widgets, Store + app management, shell, Settings (+ UMB-DESK-2, -3, -4, -8) | done | `feat/ui-leap` | [#29](https://github.com/onemindos/ONEMINDOS/pull/29) |
 | MKT-TAXONOMY | App and deployment categories | done | `feat/app-taxonomy` | [#28](https://github.com/onemindos/ONEMINDOS/pull/28) |

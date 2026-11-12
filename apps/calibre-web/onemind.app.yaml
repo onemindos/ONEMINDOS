@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# calibre-web: Market batch 2 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by sdk/tools/app-scaffold
+# (§9.2) and completed from primary sources: README.md (Docker Images, Configure Calibre Database) at 0.6.27 and the LinuxServer image repo linuxserver/docker-calibre-web.
+# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-12.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: calibre-web
+  name: "Calibre-Web"
+  version: "0.6.27"
+  description: "Web app for browsing, reading and downloading eBooks stored in a Calibre database"
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (books) are listed in README.md
+  # until the schema has metadata.tags.
+  category: media
+  icon: icon.svg
+  license: "GPL-3.0"
+  source: https://github.com/janeczku/calibre-web
+  links:
+    docs: "https://github.com/janeczku/calibre-web/wiki"
+    github: "https://github.com/janeczku/calibre-web"
+    website: "https://github.com/janeczku/calibre-web"
+    support: "https://github.com/janeczku/calibre-web/issues"
+  upstream: {release: "0.6.27", released_at: "2026-08-08T16:09:50Z", archived: false}
+  # blocked by the CI app gate: CRITICAL certifi and zip findings plus private-key files in the image (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 192}   # sum of the memory requests in manifests/
+  web: {port: 8083}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
