@@ -70,8 +70,21 @@ From the upstream documentation, https://esphome.io/guides/getting_started_comma
 
 The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (esphome)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
 
-- Vulnerability: `ghcr.io/esphome/esphome:2026.10.2`: CVE-2026-13221, CVE-2026-42496 and CVE-2026-8376 in `perl-modules-5.40` 5.40.1-6 (fixed 5.40.1-6+deb13u1; the same perl CVEs apply to the other perl packages); CVE-2026-112393, CVE-2026-112398, CVE-2026-112403, CVE-2026-112900 and CVE-2026-96639 in `pillow` 12.3.0 (fixed 13.0.0); GHSA-hq85-5cpj-mr62 in `uv` 0.10.1 (fixed 0.13.4). The full list is in the CI job log.
-- Passed: ClamAV (0 infected), smoke test (GET / returned 200).
+The complete **CRITICAL findings reported by the gate** for the pinned image above are transcribed from the `app-gate-esphome` artifact's `report.json` in [ci-apps run 43216348408](https://github.com/onemindos/ONEMINDOS/actions/runs/43216348408). This is the gate's CRITICAL list, not an inventory of every lower-severity vulnerability in the image.
+
+| Package(s) | Installed version | Reported identifier(s) | Scanner-reported fixed version |
+|---|---|---|---|
+| `libbrotli1` | `1.1.0-2+b7` | CVE-2026-111497 | `1.1.0-2+deb13u1` |
+| `libperl5.40`, `perl`, `perl-base`, `perl-modules-5.40` (each package has all three findings) | `5.40.1-6` | CVE-2026-13221, CVE-2026-42496, CVE-2026-8376 | `5.40.1-6+deb13u1` |
+| `linux-libc-dev` | `6.12.94-1` | CVE-2026-98432 | `6.12.113-1` |
+| `linux-libc-dev` | `6.12.94-1` | CVE-2026-99083 | `6.12.115-2` |
+| `pillow` | `12.3.0` | CVE-2026-112393, CVE-2026-112398, CVE-2026-112403, CVE-2026-112900, CVE-2026-96639 | `13.0.0` |
+| `uv` | `0.10.1` | GHSA-hq85-5cpj-mr62 | `0.13.4` |
+| `openssh-client` | not recorded in the gate report note | CVE-2026-60002 | no fix reported |
+
+There are 21 fixable package/identifier pairs (the Perl findings count once per package), plus the unfixed OpenSSH finding. These are scanner results, not independently validated upstream advisory claims. Fixed package versions are **not** verified replacement image tags. The fixable CRITICAL findings keep this app blocked; the unfixed finding is recorded too, not hidden.
+
+- Passed in that run: licence and image pinning checks, secret scan (0 findings), ClamAV (0 infected on amd64 and arm64), smoke test (GET / returned 200). A working dashboard does not clear the vulnerability block.
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
