@@ -36,7 +36,7 @@ Storage: PVC `paperless-ngx-data` 20Gi, PVC `paperless-ngx-db` 5Gi.
 Images:
 
 - `ghcr.io/paperless-ngx/paperless-ngx:3.4.2@sha256:d704e84f88300eb6ab001ab15720a2330ff99169cf9f94d6b8fcc44b63a84c84`
-- `docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42`
+- `docker.io/library/postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b`
 - `docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7`
 
 <!-- onemind:notes:begin -->
@@ -58,7 +58,7 @@ Paperless-ngx turns paper and PDFs into a searchable archive: it OCRs scans, tag
 - One `Deployment` (`Recreate`) with three containers: `webserver`, and native sidecars `db` (PostgreSQL 18) and `broker` (Valkey 9), the three services of upstream's `docker-compose.postgres.yml`.
 - The database runs as a native sidecar in the same pod and listens on 127.0.0.1 only, so no other pod can reach it. For that reason PostgreSQL trusts local connections and there is no database password and no Secret (contract §11.2 forbids committed Secrets; §12.18 `spec.secrets` with generated values is not in the schema yet). When `spec.secrets` exists, a generated password can replace `trust`.
 - `PAPERLESS_SECRET_KEY` is required and has no default (configuration.md). An init container generates a random key once onto the data volume (mode 0600) and Paperless reads it through `PAPERLESS_SECRET_KEY_FILE`.
-- Rootless, as docs/setup.md "Rootless" describes: the webserver runs as UID 1000, PostgreSQL and Valkey as UID 999. No privilege escalation, all capabilities dropped. Rootless mode cannot install extra OCR languages (`PAPERLESS_OCR_LANGUAGES`); the image includes English, German, Italian, Spanish and French.
+- Rootless, as docs/setup.md "Rootless" describes: the webserver runs as UID 1000, PostgreSQL as UID 70 (the Alpine image's `postgres` user) and Valkey as UID 999. No privilege escalation, all capabilities dropped. Rootless mode cannot install extra OCR languages (`PAPERLESS_OCR_LANGUAGES`); the image includes English, German, Italian, Spanish and French.
 - Volumes: `paperless-ngx-data` (20 GiB: `data/`, `media/`, `consume/`, `export/`) and `paperless-ngx-db` (5 GiB). Valkey's queue is in memory-backed scratch space.
 - Probes: `GET /` (what the image HEALTHCHECK requests); startup allows 10 minutes for migrations.
 
@@ -90,6 +90,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Vulnerability: `docker.io/library/postgres:18.6-trixie`: CRITICAL CVE-2025-68121 in the Go `stdlib` v1.24.6, fixed in 1.24.13, 1.25.7 or 1.26.0-rc.3.
 - Secret finding (Trivy): the same postgres image has `private-key` (HIGH) in `/etc/ssl/private/ssl-cert-snakeoil.key` (Debian's ssl-cert package).
 - Passed: licence GPL-3.0, ClamAV (0 infected), smoke test (GET / returned 302). The paperless-ngx 3.4.2 image itself has no CRITICAL with a fix (CRITICALs without a fix are recorded only: libmariadb3 CVE-2026-44172 and CVE-2026-49261, libxml2 CVE-2026-6653).
+
+**Unblock attempt (apps/market-unblock-1, 2026-11-12):** the database sidecar moved from `postgres:18.6-trixie` to `postgres:18.6-alpine` (tag and digest read from the Docker Hub registry; image built 2026-11-05). The Alpine image uses `su-exec` (written in C) instead of the Go helper `gosu`, and has no Debian `ssl-cert` package, which is where the two blocker findings came from. It has not been scanned by us yet: the CI gate run on the pull request decides the tier, and this app stays `blocked` until that run passes. Alpine uses musl, so text sorting differs from the Debian image; this is safe only because nobody has installed this app yet (a database made by one image must not be opened by the other).
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->

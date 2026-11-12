@@ -7,7 +7,7 @@ Self-hosted uptime monitoring for websites, ports and services, with status page
 
 | | |
 |---|---|
-| Version | 2.5.10 (upstream release `2.5.10`, published 2026-11-12) |
+| Version | 2.5.11 (upstream release `2.5.11`; the date is the image build time, registry config, 2026-11-12) |
 | Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-12) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | monitoring |
@@ -32,7 +32,7 @@ Storage: PVC `uptime-kuma-data` 2Gi.
 
 Images:
 
-- `docker.io/louislam/uptime-kuma:2.5.10-rootless@sha256:0df77d22bb9284368f4a6541197dd413051b13de63615145c24a889f97c7e724`
+- `docker.io/louislam/uptime-kuma:2.5.11-rootless@sha256:d213a1d2b6a7d7c00afbcb936b53f585afea3e1620432b3a161b68bfffa13dac`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -43,7 +43,7 @@ Images:
 
 ## How it is packaged
 
-- **Image:** the upstream **rootless** full image. The default `2.5.10` tag runs as root; the `-rootless` tag is the same release with `USER node` (upstream `docker/dockerfile`). The pod runs as UID/GID 1000, which upstream documents as the owner the data directory needs ([Docker Tags](https://github.com/louislam/uptime-kuma/wiki/Docker-Tags)). The full image (not `-slim`) keeps the embedded MariaDB option and the Chromium "Browser Engine" monitor.
+- **Image:** the upstream **rootless** full image. The default `2.5.11` tag runs as root; the `-rootless` tag is the same release with `USER node` (upstream `docker/dockerfile`). The pod runs as UID/GID 1000, which upstream documents as the owner the data directory needs ([Docker Tags](https://github.com/louislam/uptime-kuma/wiki/Docker-Tags)). The full image (not `-slim`) keeps the embedded MariaDB option and the Chromium "Browser Engine" monitor.
 - **Security:** `runAsNonRoot`, `allowPrivilegeEscalation: false`, all Linux capabilities dropped, `RuntimeDefault` seccomp, no service-account token.
 - **State:** one PVC `uptime-kuma-data` (2 Gi, the k3s default `local-path` class) on `/app/data`. Upstream warns that the data folder needs POSIX file locks, so not NFS. One replica with the `Recreate` strategy, so two pods never write the database at once.
 - **Network:** Service `uptime-kuma`, port 3001 (HTTP and WebSocket). `enableServiceLinks: false` stops Kubernetes injecting `UPTIME_KUMA_PORT=tcp://…`, which the app would otherwise read as its port (upstream issue #2083).
