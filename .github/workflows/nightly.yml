@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+# Nightly: the full Debian battery (T0-T11) on x86_64-efi, and the Ubuntu 26.04 hedge
+# (T0-T5 on x86_64-efi only; founder override Z-38 = b: informational, blocks nothing).
+name: nightly
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  debian-full:
+    uses: ./.github/workflows/battery.yml
+    with: {board: x86_64-efi, upto: T10, leg: debian}
+  debian-vm-do-full:
+    uses: ./.github/workflows/battery.yml
+    with: {board: vm-do, upto: T10, leg: debian}
+  ubuntu-hedge:
+    uses: ./.github/workflows/battery.yml
+    with: {board: x86_64-efi, upto: T5, leg: ubuntu}

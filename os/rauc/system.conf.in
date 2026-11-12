@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind RAUC system configuration (brief 30 B4.1). Rendered by os/assemble/assemble.py
+# from os/boards/<board>/board.yaml. Keys: https://rauc.readthedocs.io/en/v1.15.2/reference.html#system-configuration-file
+[system]
+compatible=@COMPATIBLE@
+bootloader=@BOOTLOADER@
+grubenv=/boot/efi/EFI/BOOT/grubenv
+data-directory=/data/rauc
+# Refuse every bundle that is not dm-verity protected (REC-DEC-05; lab T11).
+bundle-formats=verity
+
+[keyring]
+path=/etc/rauc/keyring.pem
+
+[handlers]
+# Writes the trial marker BEFORE any slot is touched (lab finding [C-LAB-rauc-k3s-gate-001]).
+pre-install=/usr/lib/onemind/rauc-pre-install
+
+[slot.rootfs.0]
+device=/dev/disk/by-partlabel/onemind-system-a
+type=ext4
+bootname=A
+
+[slot.rootfs.1]
+device=/dev/disk/by-partlabel/onemind-system-b
+type=ext4
+bootname=B

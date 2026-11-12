@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: Apache-2.0
+# Images per board from one Containerfile (brief 30 D-B1.5, D-B2.1, D-B2.2), then the battery.
+# Debian 13 only (D-007). Artifacts are development images signed with throwaway keys.
+name: image
+on:
+  pull_request:
+    paths: ['os/**', 'test/qemu/**', 'Makefile', '.github/workflows/image.yml', '.github/workflows/battery.yml']
+  push:
+    branches: [main]
+    paths: ['os/**', 'test/qemu/**', 'Makefile', '.github/workflows/image.yml', '.github/workflows/battery.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  image:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {board: x86_64-efi, runner: ubuntu-24.04}
+          - {board: vm,         runner: ubuntu-24.04}
+          - {board: vm-do,      runner: ubuntu-24.04}
+          - {board: arm64-efi,  runner: ubuntu-24.04-arm}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Build rootfs
+        run: |
+          mkdir -p out
+          docker buildx build -f os/rootfs/Containerfile --target rootfs --progress plain \
+            --build-arg BOARD=${{ matrix.board }} $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) \
+            --cache-from type=gha,scope=rootfs-debian-${{ matrix.board }} \
+            --cache-to type=gha,mode=max,scope=rootfs-debian-${{ matrix.board }} \
+            --output type=tar,dest=out/rootfs-debian-${{ matrix.board }}.tar .
+      - name: Build tools image
+        run: |
+          docker buildx build -f os/rootfs/Containerfile --target tools --progress plain \
+            $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) \
+            --cache-from type=gha,scope=tools-${{ matrix.runner }} --cache-to type=gha,mode=max,scope=tools-${{ matrix.runner }} \
+            --load -t onemind-tools:ci .
+      - name: Assemble (throwaway dev keys, destroyed in the container)
+        run: make image BOARD=${{ matrix.board }} TOOLS=onemind-tools:ci VERSION=0.1.0-dev.${{ github.run_number }}
+      - name: Convert (raw.xz; VM formats for vm / vm-do)
+        run: |
+          sudo rm -f out/rootfs-*.tar
+          make convert BOARD=${{ matrix.board }} TOOLS=onemind-tools:ci
+          sudo rm -f out/image-${{ matrix.board }}/*.img
+          cat out/image-${{ matrix.board }}/SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: image-debian-${{ matrix.board }}
+          path: out/image-${{ matrix.board }}/
+          retention-days: 14
+          compression-level: 0
+  battery:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {board: x86_64-efi, upto: T5, runner: ubuntu-24.04}
+          - {board: vm-do,      upto: T5, runner: ubuntu-24.04}
+          - {board: arm64-efi,  upto: T1, runner: ubuntu-24.04-arm}
+    uses: ./.github/workflows/battery.yml
+    with:
+      board: ${{ matrix.board }}
+      upto: ${{ matrix.upto }}
+      runner: ${{ matrix.runner }}

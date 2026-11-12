@@ -1,0 +1,57 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# OneMind health gate: one round of checks (brief 30 B5, G1-G6). Exit 0 only if the
+# platform is healthy *on this boot* (01 §4.2 item 5, REC-DEC-07). Prints one line:
+#   "ok (...)"  or  "fail G<n>: <reason>"   (the gate uses <n> for its verdict).
+# Port of research-output/evidence/lab/rauc-1152/scripts/guest/onemind-k3s-check.
+# There is deliberately NO switch that turns freshness off: the naive check exists
+# only in test/qemu/overlay-naive/ (T10) and CI fails a rootfs that ships one.
+[ -f /etc/default/onemind-health-gate ] && . /etc/default/onemind-health-gate
+export KUBECONFIG=/run/k3s/k3s.yaml     # written by k3s on this boot (the root is read-only)
+K="/usr/local/bin/k3s kubectl --request-timeout=5s"
+fail() { echo "fail G$1: $2"; exit 1; }
+BOOT=$(awk '/^btime/{print $2}' /proc/stat)          # this boot's start (epoch s)
+BOOT_ID=$(cat /proc/sys/kernel/random/boot_id)
+fresh() { [ -n "$1" ] && [ "$(date -d "$1" +%s)" -ge "$BOOT" ]; }
+
+# G1. Kubeconfig of this boot + API server answers (necessary, never sufficient:
+#     the API serves stored status from before the reboot).
+[ -r "$KUBECONFIG" ] || fail 1 "no kubeconfig on this boot (k3s server has not started)"
+[ "$(stat -c %Y "$KUBECONFIG")" -ge "$BOOT" ] || fail 1 "kubeconfig older than this boot"
+$K get --raw=/readyz >/dev/null 2>&1 || fail 1 "apiserver /readyz not ok"
+
+# G2. Local kubelet answers on this boot. It may bind only [::1]
+#     [C-LAB-debian-rugix-025], so use "localhost", not 127.0.0.1.
+curl -fsS -m 3 http://localhost:10248/healthz >/dev/null 2>&1 || fail 2 "kubelet /healthz not answering"
+
+# G3. Node Ready with a heartbeat newer than this boot.
+read -r RS HB < <($K get node "$(hostname)" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}{" "}{.status.conditions[?(@.type=="Ready")].lastHeartbeatTime}' 2>/dev/null)
+[ "$RS" = True ] || fail 3 "node not Ready (${RS:-?})"
+fresh "$HB" || fail 3 "node heartbeat ${HB:-none} older than this boot (stale)"
+
+# G4. Core pods: every Running/Pending pod matching a core selector is Ready, and its
+#     Ready condition turned True since this boot; at least one pod per selector.
+#     Market apps (other namespaces) are never checked. The NATS selector joins when
+#     B6 ships NATS (handbook/findings.md F-06).
+for want in ${ONEMIND_GATE_CORE_SELECTORS:-kube-system:k8s-app=kube-dns kube-system:app=local-path-provisioner onemind-system:app=onemind-core}; do
+  ns=${want%%:*}; sel=${want#*:}; n=0
+  while read -r name phase st t; do
+    [ -z "$name" ] && continue
+    case "$phase" in Running|Pending) ;; *) continue ;; esac
+    n=$((n + 1))
+    [ "$st" = True ] || fail 4 "core pod $ns/$name not Ready"
+    fresh "$t" || fail 4 "core pod $ns/$name Ready since $t, before this boot (stale)"
+  done < <($K -n "$ns" get pods -l "$sel" -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{" "}{.status.conditions[?(@.type=="Ready")].status}{" "}{.status.conditions[?(@.type=="Ready")].lastTransitionTime}{"\n"}{end}' 2>/dev/null)
+  [ "$n" -ge 1 ] || fail 4 "no core pod for $ns/$sel"
+done
+
+# G5. Data partition read-write: mount flag and a real write + fsync + read-back.
+findmnt -no OPTIONS /data | grep -qE '(^|,)rw(,|$)' || fail 5 "/data not mounted rw"
+P=/data/onemind/.rw-probe
+echo "$BOOT_ID $(date +%s%N)" > "$P.new" 2>/dev/null && sync "$P.new" && mv "$P.new" "$P" \
+  && grep -q "$BOOT_ID" "$P" || fail 5 "/data write/read-back failed"
+
+# G6. Local OneMind API answers with this boot's ID (stand-in until onemindd, B4.2).
+curl -fsS -m 3 http://127.0.0.1:7070/health 2>/dev/null | grep -q "boot_id=$BOOT_ID" || fail 6 "local OneMind API not answering for this boot"
+
+echo "ok (fresh: kubelet, heartbeat $HB, core pods, data rw, api)"

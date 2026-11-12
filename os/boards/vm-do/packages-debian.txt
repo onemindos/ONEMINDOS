@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# vm-do extras (BD-DO-1): BIOS GRUB modules, the cloud layer (cloud-init + sshd), growpart for /data.
+grub-pc-bin
+cloud-init openssh-server cloud-guest-utils sudo

@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# vm-do (BD-DO-1): the same labels as the 01 §4.3 x86 layout, booted by BIOS GRUB (i386-pc).
+# Differences, and why:
+#  - a 2 MiB BIOS boot partition first: GRUB's core.img lives there on a GPT disk under BIOS;
+#  - 4 GiB system slots and a 16 GiB disk instead of 10 GiB / 24+ GiB: DigitalOcean's smallest
+#    droplet disk is 25 GB and a custom image must fit it (handbook/findings.md F-07, founder to confirm).
+#    A v0 rootfs is about 1.5 GiB, so 4 GiB keeps more than 2x headroom.
+table: gpt
+disk_size: 16GiB
+partitions:
+  - {label: onemind-bios,     size: 2MiB,   type: bios,  fs: none}                       # GRUB core.img (BIOS)
+  - {label: onemind-esp,      size: 1GiB,   type: esp,   fs: vfat, volume_id: 4F4E454D}  # grub.cfg, grubenv, i386-pc modules
+  - {label: onemind-boot-a,   size: 512MiB, type: esp,   fs: vfat, fs_label: BOOT-A}     # kept for one layout contract
+  - {label: onemind-boot-b,   size: 512MiB, type: esp,   fs: vfat, fs_label: BOOT-B}
+  - {label: onemind-system-a, size: 4GiB,   type: linux, fs: rootfs, slot: A}
+  - {label: onemind-system-b, size: 4GiB,   type: linux, fs: rootfs, slot: B}
+  - {label: onemind-recovery, size: 1GiB,   type: linux, fs: none}
+  - {label: onemind-data,     size: rest,   type: linux, fs: ext4}                       # grown to the droplet disk at first boot

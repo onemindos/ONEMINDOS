@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: Apache-2.0
+# Extra k3s server flags (test fixtures set this; production leaves it empty).
+K3S_EXTRA_ARGS=

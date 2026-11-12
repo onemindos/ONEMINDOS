@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Creates the bind-mount sources on onemind-data before the binds in /etc/fstab run, so a
+# freshly made data partition (factory reset, restore) still boots.
+[Unit]
+Description=OneMind: create state directories on the data partition
+DefaultDependencies=no
+RequiresMountsFor=/data
+Before=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'for d in etc-rancher-node var-lib-rancher var-lib-kubelet var-lib-cni var-log var-tmp var-lib-systemd home root var-lib-cloud; do mkdir -p /data/state/$$d; done; mkdir -p /data/onemind /data/rauc /data/k3s; chmod 1777 /data/state/var-tmp; chmod 0700 /data/state/root'

@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# docker buildx --build-arg values for the Debian 13 leg (shipping base, D-007). Pins: os/versions.lock.yaml.
+BASE=docker.io/library/debian:trixie@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
+LEG=debian
+SNAPSHOT=20261111T000000Z

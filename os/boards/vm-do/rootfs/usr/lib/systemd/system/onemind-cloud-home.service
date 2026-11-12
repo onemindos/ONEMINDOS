@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# Home of the cloud admin user on /data (cloud-init writes ~/.ssh/authorized_keys there).
+[Unit]
+Description=OneMind: home directory of the cloud admin user
+DefaultDependencies=no
+RequiresMountsFor=/home /root
+Before=cloud-init-local.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'install -d -o onemind -g onemind -m 0750 /home/onemind; install -d -m 0700 /root'

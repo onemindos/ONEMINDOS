@@ -1,0 +1,2 @@
+# SPDX-License-Identifier: Apache-2.0
+linux-image-arm64 grub-efi-arm64-bin

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: vm-do
+arch: amd64
+compatible: onemind-vm-do
+route: grub-bios                 # grub-efi | grub-bios (BD-08: the efi + UKI route arrives with B4.4 in BM2)
+rauc_bootloader: grub
+grub_target: i386-pc
+efi_binary: none
+console: "console=tty0 console=ttyS0,115200"
+layout: layout.yaml
+outputs: [raw, qcow2]
+cloud: true             # adds cloud-init (ConfigDrive first) + sshd (BD-DO-1)
+secure_boot: none       # BIOS only on DigitalOcean: no Secure Boot or measured boot (documented cloud-node limit)

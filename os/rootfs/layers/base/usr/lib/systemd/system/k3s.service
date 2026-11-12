@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: Apache-2.0
+# k3s server on a read-only root, state on /data (lab rauc-1152 guest/k3s.service).
+# Hardened config (B6) replaces the flags below in BM2.
+[Unit]
+Description=Lightweight Kubernetes (k3s server, data on /data)
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/data /etc/rancher/node /var/lib/rancher /var/lib/kubelet /var/lib/cni /var/log
+
+[Service]
+Type=notify
+EnvironmentFile=-/etc/default/k3s
+ExecStartPre=-/sbin/modprobe br_netfilter
+ExecStartPre=-/sbin/modprobe overlay
+# Air-gap images and the core manifests ship in the slot (they belong to the OS release).
+ExecStartPre=/bin/sh -c 'mkdir -p /data/k3s/agent/images /data/k3s/server/manifests && ln -sf /usr/lib/onemind/k3s-airgap-images.tar.zst /data/k3s/agent/images/k3s-airgap-images.tar.zst && cp /usr/lib/onemind/manifests/*.yaml /data/k3s/server/manifests/'
+ExecStart=/usr/local/bin/k3s server --data-dir /data/k3s --disable=traefik --disable=servicelb --disable=metrics-server --write-kubeconfig /run/k3s/k3s.yaml --write-kubeconfig-mode=0600 $K3S_EXTRA_ARGS
+KillMode=process
+Delegate=yes
+LimitNOFILE=1048576
+LimitNPROC=infinity
+LimitCORE=infinity
+TasksMax=infinity
+TimeoutStartSec=0
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

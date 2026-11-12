@@ -1,0 +1,4 @@
+# Build context = only what the image needs.
+*
+!os/
+!test/qemu/

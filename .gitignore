@@ -1,2 +1,15 @@
 .DS_Store
 *.filled.md
+# build outputs (never committed; brief 30 rule 9)
+/out/
+/work/
+*.img
+*.img.xz
+*.raucb
+*.qcow2
+*.tar
+*.pem
+*.key
+# Python bytecode (lint byte-compiles; never commit or lint it)
+__pycache__/
+*.pyc
