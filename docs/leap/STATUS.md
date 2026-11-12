@@ -78,6 +78,10 @@
 | E2E-GOLDEN | Golden-path e2e: `install.sh` hub in a VM (Lima, QEMU/KVM), Playwright dashboard + MCP agent + audit, `verify.sh`; `e2e.yml` on PRs and nightly. Green in Lima 2026-11-12 | in-progress | `feat/e2e-golden-path` | – |
 | MKT-BATCH-1 | Market batch 1: 10 apps from CANDIDATES.md (§9.5); apps the CI gate failed are `tier: blocked` with the reason in manifest and README | in-progress (agent A) | `feat/market-batch-1` | [#61](https://github.com/onemindos/ONEMINDOS/pull/61) |
 | MKT-UNBLOCK-1 | Market unblock part 1 (Wave G #7): per blocked app, is a fixed image published? Only verified pins bumped (uptime-kuma 2.5.11, paperless-ngx postgres Alpine); `apps/_intake/UNBLOCK.md` lists every blocked app | review | `apps/market-unblock-1` | [#80](https://github.com/onemindos/ONEMINDOS/pull/80) |
+| MKT-BATCH-4-5 | Market batches 4 and 5: 17 apps; the 15 the CI gate failed are `tier: blocked` with the reason in manifest and README | in-progress (orchestrator) | `feat/market-batch-4-5` | [#62](https://github.com/onemindos/ONEMINDOS/pull/62) |
+| CORE-NET-P1 | Mesh (Headscale + DERP), NATS leaf, app proxy, box CA, NAT lab (+ UMB-APP-7, UMB-APP-8) | in-progress | `feat/core-net` | – |
+| UI-LEAP | Parity audit, customization, Home widgets, Store + app management, shell, Settings (+ UMB-DESK-2, -3, -4, -8) | in-progress | `feat/ui-leap` | – |
+| MKT-TAXONOMY | App and deployment categories | in-progress | `feat/app-taxonomy` | – |
 | PLAN-E1 | Workbench (G0) and gate content re-synced to D-007 | todo | founder lab kit | – |
 | LEAP-DOCS | Leap specs, workstreams, backlog, status, decisions, CHANGELOG | done | `docs/leap` | [#16](https://github.com/onemindos/ONEMINDOS/pull/16) |
 

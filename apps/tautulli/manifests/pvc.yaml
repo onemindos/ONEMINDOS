@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# tautulli-config: /config (the image's VOLUME and --datadir): settings, the history database,
+# cache and logs. 2Gi is a OneMind choice. No storageClassName: the cluster default class is used
+# (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tautulli-config
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
