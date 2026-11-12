@@ -358,10 +358,8 @@ def test_baseline_relaxes_only_the_restricted_rules(data):
     assert_refused(policy.check_objects(objs, app_id, manifest, RULES), objs, i, rule)
 
 
-# ---- known gap: fields Pod Security Admission checks and the checker does not ----------------
-# PSA on the app namespace still refuses these pods (deploy/k8s/psa.yaml), but only at pod
-# admission: the Deployment is applied and its pods never start, instead of a refusal with a rule
-# id before anything reaches the cluster. Finding F-SBX-1 in docs/testing/PROPERTY-AND-FUZZ.md;
+# ---- regressions: reject the formerly missed fields before apply ------------------------------
+# Finding F-SBX-1 in docs/testing/PROPERTY-AND-FUZZ.md;
 # field list from kubernetes.io/docs/concepts/security/pod-security-standards.
 
 def _deployment(pod_sc: dict | None = None, **container_sc) -> list[dict]:

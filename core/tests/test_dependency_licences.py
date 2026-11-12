@@ -115,4 +115,3 @@ def test_installed_distribution_has_an_accepted_licence(name, dist):
     )
     cls = classify(expr)
     assert cls == "L1", f"{name} {dist.version}: {expr} ({source}) is {cls}; add a reviewed entry or drop it"
-

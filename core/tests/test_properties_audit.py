@@ -154,7 +154,7 @@ def test_a_line_that_is_not_json_is_reported_at_its_line(entries, data):
         lines = write_log(Path(d) / "audit.jsonl", entries)
     i = data.draw(st.integers(0, len(lines) - 1), label="line")
     junk = data.draw(st.text(min_size=1).filter(lambda s: s.strip() and "\n" not in s and "\r" not in s))
-    assume(not is_json(junk))  # valid JSON is one of the edits above, or the F-AUD-2 xfail below
+    assume(not is_json(junk))  # valid JSON is covered by the edits and non-object regressions
     lines[i] = junk
     assert check(lines) == (False, i, f"line {i + 1}: not JSON")
 
@@ -175,7 +175,7 @@ def test_a_one_character_edit_is_reported_or_changes_no_content(entries, data):
         assert len(after) == len(before) and all(same(a, b) for a, b in zip(after, before))
 
 
-# ---- known gaps (strict xfail: each one fails loudly once it is fixed) -----------------------
+# ---- checkpoint limitation and malformed-record regressions ---------------------------------
 
 def three_lines(tmp_path: Path) -> list[str]:
     return write_log(tmp_path / "audit.jsonl", [("action.requested", None, None, {"n": n}) for n in range(3)])
