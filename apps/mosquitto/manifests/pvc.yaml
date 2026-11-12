@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Holds dynamic-security.json (users, groups, roles) and the persist-sqlite database (retained
+# messages, persistent sessions). Upstream publishes no size; 1Gi is ample for a home broker.
+# No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mosquitto-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi

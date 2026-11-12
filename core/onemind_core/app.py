@@ -1,40 +1,67 @@
-"""FastAPI application: the REST surface of contract section 3, plus the dashboard static files."""
+"""FastAPI application: the REST surface of contract §3, the MCP endpoint of §11.3, and the dashboard.
+
+Route groups live in routers/<area>.py; ROUTERS below is the one registry (one import and one
+entry per feature, `static` last). How to add a feature: docs/leap/core/PLUMBING.md.
+"""
 
 from __future__ import annotations
 
 import logging
-import threading
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from pathlib import Path
 
-from fastapi import Depends, FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI
 
-from . import __version__
-from .actions import ActionRequest, ActionService
+from . import __version__, ledger
+from .actions import ActionService
 from .audit import AuditLog
-from .auth import Principal, TokenStore
+from .auth import TokenStore
 from .bus import NatsBus
 from .catalog import Catalog
 from .config import Settings
-from .errors import ApiError, error_responses, install_handlers
-from .executors import Executor, make_executor
+from .context import UNAUTH_AUDIT_INTERVAL_S, Gateway, principal_dependency
+from .errors import install_handlers
+from .events import EventHub
+from .executors import Executor, NoopExecutor, make_executor
 from .ledger import ActionRepository, SqlActionRepository
 from .nodes import NodeRegistry
+from .policy import SandboxSettings
+from .routers import Register
+from .routers import actions as actions_routes
+from .routers import apps as apps_routes
+from .routers import audit as audit_routes
+from .routers import events as events_routes
+from .routers import guard as guard_routes
+from .routers import identity as identity_routes
+from .routers import instance as instance_routes
+from .routers import mcp as mcp_routes
+from .routers import monitoring as monitoring_routes
+from .routers import nodes as nodes_routes
+from .routers import notifications as notifications_routes
+from .routers import static as static_routes
+from .routers.static import API_EXACT, API_TREES, is_api_path
+from .store import Database, migrate
+
+__all__ = ["API_EXACT", "API_TREES", "ROUTERS", "UNAUTH_AUDIT_INTERVAL_S", "create_app", "is_api_path", "utcnow"]
 
 log = logging.getLogger("onemind.gateway")
 
-UNAUTH_AUDIT_INTERVAL_S = 60
-
-# Paths the SPA fallback never answers: the API tree (whole segment) and the open meta routes.
-API_TREES = ("v1",)
-API_EXACT = ("healthz", "openapi.json")
-
-
-def is_api_path(full_path: str) -> bool:
-    return full_path in API_EXACT or any(full_path == p or full_path.startswith(p + "/") for p in API_TREES)
+# The router registry. Order is route order (and /openapi.json order); static must stay last.
+ROUTERS: list[Register] = [
+    guard_routes.register,  # limits and security headers; adds no routes
+    instance_routes.register,
+    nodes_routes.register,
+    apps_routes.register,
+    mcp_routes.register,
+    actions_routes.register,
+    audit_routes.register,
+    events_routes.register,
+    notifications_routes.register,
+    monitoring_routes.register,
+    identity_routes.register,
+    static_routes.register,
+]
 
 
 def utcnow() -> datetime:
@@ -49,6 +76,7 @@ def create_app(
     repo: ActionRepository | None = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
+    settings.check()  # refuses ONEMIND_ALLOW_UNSCANNED with the kubernetes executor
     tokens = TokenStore(settings.tokens_file)
     registry = NodeRegistry(clock)
     bus = NatsBus(settings.nats_url, registry)
@@ -56,20 +84,53 @@ def create_app(
     catalog = Catalog(settings.apps_dir, settings.app_schema_path)
     owns_repo = repo is None
     repo = repo or SqlActionRepository.from_url(settings.db_url)
-    executor = executor or make_executor(settings.executor, settings.kubectl, settings.executor_timeout_s)
-    actions = ActionService(repo, catalog, executor, audit, clock)
+    # Feature tables share the ledger's engine; a repo without one (a test double) gets its own.
+    engine = getattr(repo, "engine", None)
+    owns_engine = engine is None
+    db = Database(engine if engine is not None else ledger.make_engine(settings.db_url))
+    migrate(db.engine)
+    executor = executor or make_executor(
+        settings.executor, settings.kubectl, settings.executor_timeout_s, settings.section(SandboxSettings)
+    )
+    # §11.1: the scan check is skipped only on explicit request, and only when nothing real runs.
+    skip_scan = settings.allow_unscanned and settings.executor == "noop" and isinstance(executor, NoopExecutor)
+    if settings.allow_unscanned and not skip_scan:
+        raise ValueError("ONEMIND_ALLOW_UNSCANNED=1 is honoured only with the noop executor")
+    if skip_scan:
+        log.warning(
+            "ONEMIND_ALLOW_UNSCANNED=1: installs are approved WITHOUT a passing scan (dev only, noop executor)"
+        )
+    gateway_url = settings.gateway_url()
+    if settings.public_url is None:
+        log.info("ONEMIND_PUBLIC_URL not set; app agent Secrets will use %s", gateway_url)
+    actions = ActionService(
+        repo, catalog, executor, audit, clock, gateway_url=gateway_url, require_scan=not skip_scan
+    )
     actions.reconcile_interrupted()  # finish what a crashed or killed process left mid-dispatch
+    gw = Gateway(
+        settings=settings, clock=clock, tokens=tokens, registry=registry, bus=bus, audit=audit,
+        events=EventHub(audit, clock, publish=bus.publish_threadsafe, instance_id=settings.node_id),
+        catalog=catalog, repo=repo, db=db, executor=executor, actions=actions, skip_scan=skip_scan,
+    )
+    gw.principal = principal_dependency(gw)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         await bus.start()
-        audit.append("gateway.started", None, None, {"version": __version__, "executor": executor.name})
+        audit.append(
+            "gateway.started", None, None,
+            {"version": __version__, "executor": executor.name, "scan_check": not skip_scan},
+        )
         try:
+            await gw.run_startup()
             yield
         finally:
+            await gw.run_shutdown()
             await bus.stop()
             if owns_repo and hasattr(repo, "close"):
                 repo.close()
+            if owns_engine:
+                db.engine.dispose()
 
     app = FastAPI(
         title="OneMind OS Core gateway",
@@ -89,117 +150,9 @@ def create_app(
     app.state.repo = repo
     app.state.bus = bus
     app.state.tokens = tokens
+    app.state.gateway = gw
+    app.state.events = gw.events
 
-    # 401s are decisions too, but an unauthenticated poller must not flood the log: at most one
-    # auth.rejected line per minute, carrying how many were suppressed since the previous one.
-    unauth = {"last": None, "suppressed": 0}
-    unauth_lock = threading.Lock()
-
-    def reject_unauthenticated(request: Request, message: str) -> ApiError:
-        now = clock()
-        with unauth_lock:
-            last = unauth["last"]
-            if last is not None and (now - last).total_seconds() < UNAUTH_AUDIT_INTERVAL_S:
-                unauth["suppressed"] += 1
-                return ApiError(401, "unauthenticated", message)
-            suppressed, unauth["last"], unauth["suppressed"] = unauth["suppressed"], now, 0
-        audit.append(
-            "auth.rejected", None, None,
-            {"reason": message, "method": request.method, "path": request.url.path, "suppressed_since_last": suppressed},
-        )
-        return ApiError(401, "unauthenticated", message)
-
-    def principal(request: Request) -> Principal:
-        header = request.headers.get("authorization", "")
-        scheme, _, token = header.partition(" ")
-        if scheme.lower() != "bearer" or not token.strip():
-            raise reject_unauthenticated(request, "missing bearer token")
-        p = tokens.lookup(token.strip())
-        if p is None:
-            raise reject_unauthenticated(request, "unknown token")
-        return p
-
-    # ---- open ---------------------------------------------------------------------------
-    @app.get("/healthz", tags=["meta"])
-    def healthz():
-        return {"ok": True}
-
-    # ---- instance and nodes ---------------------------------------------------------------
-    @app.get("/v1/instance", tags=["instance"], responses=error_responses(401))
-    def instance(_: Principal = Depends(principal)):
-        return {"name": settings.instance_name, "version": __version__, "hub_node_id": settings.node_id}
-
-    @app.get("/v1/nodes", tags=["nodes"], responses=error_responses(401))
-    def list_nodes(_: Principal = Depends(principal)):
-        return registry.list()
-
-    @app.get("/v1/nodes/{node_id}", tags=["nodes"], responses=error_responses(401, 404, 422))
-    def get_node(node_id: str, _: Principal = Depends(principal)):
-        node = registry.get(node_id)
-        if node is None:
-            raise ApiError(404, "not_found", "no such node")
-        return node
-
-    # ---- apps ---------------------------------------------------------------------------
-    def _app_rows() -> list[dict]:
-        states = repo.list_app_states()
-        rows = []
-        for app_id, entry in catalog.load().items():
-            st = states.get(app_id)
-            status = st.status if st else "not_installed"
-            rows.append({**entry.summary(), "installed": status == "installed", "status": status})
-        return rows
-
-    @app.get("/v1/apps", tags=["apps"], responses=error_responses(401))
-    def list_apps(_: Principal = Depends(principal)):
-        return _app_rows()
-
-    # ---- actions ------------------------------------------------------------------------
-    @app.post(
-        "/v1/actions",
-        tags=["actions"],
-        status_code=201,
-        responses={
-            200: {"description": "Idempotent replay: the action created earlier with this idempotency_key"},
-            **error_responses(401, 403, 404, 409, 422),
-        },
-    )
-    def create_action(req: ActionRequest, p: Principal = Depends(principal)):
-        body, created = actions.create(p, req)
-        return JSONResponse(status_code=201 if created else 200, content=body)
-
-    @app.get("/v1/actions", tags=["actions"], responses=error_responses(401))
-    def list_actions(_: Principal = Depends(principal)):
-        return actions.list()
-
-    @app.get("/v1/actions/{action_id}", tags=["actions"], responses=error_responses(401, 404, 422))
-    def get_action(action_id: str, _: Principal = Depends(principal)):
-        return actions.get(action_id)
-
-    @app.post("/v1/actions/{action_id}/approve", tags=["actions"], responses=error_responses(401, 403, 404, 409, 422))
-    def approve_action(action_id: str, p: Principal = Depends(principal)):
-        return actions.approve(p, action_id)
-
-    @app.post("/v1/actions/{action_id}/deny", tags=["actions"], responses=error_responses(401, 403, 404, 409, 422))
-    def deny_action(action_id: str, p: Principal = Depends(principal)):
-        return actions.deny(p, action_id)
-
-    # ---- dashboard static with SPA fallback (registered last) ----------------------------
-    dist = settings.dashboard_dist.resolve() if settings.dashboard_dist else None
-
-    @app.get("/{full_path:path}", include_in_schema=False)
-    def spa(full_path: str):
-        if is_api_path(full_path) or dist is None or not dist.is_dir():
-            raise ApiError(404, "not_found", "no such resource")
-        candidate = (dist / full_path).resolve()
-        if full_path and candidate.is_relative_to(dist) and candidate.is_file():
-            return FileResponse(candidate)
-        # A missing file that looks like an asset is a real 404, not the SPA shell.
-        if "." in Path(full_path).name:
-            raise ApiError(404, "not_found", "no such file")
-        index = dist / "index.html"
-        if not index.is_file():
-            raise ApiError(404, "not_found", "dashboard not built")
-        return FileResponse(index, headers={"Cache-Control": "no-cache"})
-
+    for register in ROUTERS:
+        register(app, gw)
     return app

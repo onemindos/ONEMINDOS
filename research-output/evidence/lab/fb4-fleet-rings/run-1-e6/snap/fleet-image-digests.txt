@@ -1,0 +1,2 @@
+docker.io/rancher/fleet-agent                v0.16.3                 a657a2a3a93ae       23f8ff7b1b9f6       23MB
+docker.io/rancher/fleet                      v0.16.3                 a1696682faa60       92eaf0c8bf492       42.5MB

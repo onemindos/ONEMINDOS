@@ -2,7 +2,8 @@
 
 The **gateway** is the front door of a OneMind hub. Every screen of the dashboard, every node
 heartbeat and every AI agent talks to the box through it. It implements
-[`sdk/contracts/poc-v0.md`](../sdk/contracts/poc-v0.md) **section 3** exactly and is the v0
+[`sdk/contracts/poc-v0.md`](../sdk/contracts/poc-v0.md) **section 3** exactly, plus the wave-2
+interfaces of **§11** (scan gate, app agent principals, the MCP endpoint, catalog fields), and is the v0
 subset of workstream **B9** (D-B9.5 ledger, D-B9.6 approvals, D-B9.7 audit, D-B9.8 routes) in
 [brief 30](../research-output/30-NEXT-ULTRACODE-BUILD-BRIEF.md). Language and framework follow
 **BD-02** (Python + FastAPI for the Core); the datastore follows **BD-04** (PostgreSQL target).
@@ -38,14 +39,23 @@ is where that rule is enforced in code, not in a prompt:
 
 | File | Job |
 |---|---|
-| `onemind_core/app.py` | FastAPI routes of contract §3, dashboard static files with SPA fallback |
+| `onemind_core/app.py` | Builds the gateway and holds `ROUTERS`, the router registry ([how to add a feature](../docs/leap/core/PLUMBING.md)) |
+| `onemind_core/routers/` | One module per route group: `instance`, `nodes`, `apps`, `mcp`, `actions`, `static` (dashboard files with SPA fallback, last) |
+| `onemind_core/context.py` | `Gateway`, the shared services every router gets, and the bearer-token dependency |
+| `onemind_core/store.py`, `sections.py`, `events.py` | Per-feature tables and upgrade steps; per-feature settings sections; `publish_event` |
 | `onemind_core/auth.py` | Token file → principals; agents can never be owners |
 | `onemind_core/actions.py` | Request / approve / deny, expiry, preconditions, dispatch |
 | `onemind_core/ledger.py` | `ActionRepository` interface + SQLAlchemy implementation (SQLite or PostgreSQL) |
 | `onemind_core/executors.py` | `noop` and `kubernetes` executors and their outcome rules |
 | `onemind_core/audit.py` | Hash-chained JSONL log, `verify()`, `onemind-audit-verify` CLI |
 | `onemind_core/nodes.py`, `bus.py` | Heartbeat registry (online/stale/offline) and the NATS connection |
-| `onemind_core/catalog.py` | App catalog from `ONEMIND_APPS_DIR/*/onemind.app.yaml` |
+| `onemind_core/catalog.py` | App catalog from `ONEMIND_APPS_DIR/*/onemind.app.yaml`, incl. `links`, `tier`, `scan`, `spec.agent` |
+| `onemind_core/scan.py` | Reads `apps/<id>/scan.json` (§11.1) and decides whether an install may run (§10.3) |
+| `onemind_core/mcp/` | `POST /mcp`: MCP Streamable HTTP for agent principals (§11.3, §12.19): `server.py`, `tools.py` (catalogue), `untrusted.py`, `limits.py` |
+| `onemind_core/auditread.py`, `routers/audit.py` | §12.16 `GET /v1/audit/events[/{seq}]`, `/v1/audit/verify` |
+| `onemind_core/eventstream.py`, `routers/events.py` | §12.8 `GET /v1/events` (SSE, audit-derived ids, resume, `node.status`) |
+| `onemind_core/apimodels.py`, `openapi.py` | Documented response bodies and stable `operationId`s; `python -m onemind_core.openapi` exports `sdk/openapi/onemind-v1.json` |
+| `onemind_core/models.py` | OpenAPI response models for `GET /v1/apps` |
 
 ### Action states
 ```
@@ -72,19 +82,93 @@ dropped. Fields the contract forbids (MAC, serial, IP, user names) are stripped 
 
 ### Kubernetes executor (exact commands)
 ```
-install: kubectl apply -f -   (Namespace app-<id>, label onemind.io/app=<id>)
-         kubectl apply -k <apps_dir>/<id>/manifests -n app-<id>
-remove:  kubectl delete -k <apps_dir>/<id>/manifests -n app-<id> --ignore-not-found=true
+install: (kustomization tree checked: no URLs, git refs, helm, plugins or paths outside the app)
+         kubectl kustomize --load-restrictor=LoadRestrictionsRootOnly <apps_dir>/<id>/manifests
+         (every rendered object checked against sdk/policy/app-objects.yaml; any violation:
+          action failed, approve -> 409 policy_refused, nothing below runs)
+         kubectl apply -f -   (Namespace app-<id>: onemind.io/app=<id>, pod-security enforce=restricted
+                               or a reviewed baseline, audit/warn=restricted)
+         kubectl apply -n app-<id> -f -   (RoleBinding onemind-gateway, only with ONEMIND_SANDBOX_GATEWAY_SA)
+         kubectl apply -n app-<id> -f -   (NetworkPolicy onemind-default-deny + onemind-allow)
+         kubectl apply --server-side --field-manager=onemind-gateway --force-conflicts -n app-<id> -f -
+                       (only with spec.agent: the agent Secret, see below; server-side so the token
+                        is not copied into a last-applied-configuration annotation)
+         kubectl apply -n app-<id> -f -   (exactly the rendered bytes that were checked)
+remove:  kubectl delete secret <spec.agent.secret> -n app-<id> --ignore-not-found=true   (only with spec.agent)
          kubectl delete namespace app-<id> --ignore-not-found=true
 ```
+The install sandbox's rules and rule ids: `sdk/policy/app-objects.yaml`; design:
+`docs/leap/core/SANDBOX.md`; what is enforced: `docs/leap/core/SECURITY.md` §7a.
+The `noop` executor changes nothing and returns the same plan as `{"would": "..."}` steps in the
+action's `result`, so a demo shows what a real box would do.
+
+### No install without a fresh passing scan (§10.3, §11.1)
+The app CI gate writes `apps/<id>/scan.json` (`{"scanned_at", "result": "pass"|"fail", ...}`).
+`POST /v1/actions/{id}/approve` for `app.install` answers **409 `stale_precondition`** when that
+file is missing, unreadable, says `fail`, or is more than 7 days old (a timestamp more than
+5 minutes in the future counts as invalid). The action stays in `awaiting_approval`, so the owner
+can approve again once a new scan lands, or deny it. Requesting is still allowed; removing is
+never gated. **Dev only:** `ONEMIND_ALLOW_UNSCANNED=1` turns the check off, and only with the
+`noop` executor: the gateway logs a warning and records `"scan_check": false` in the
+`gateway.started` audit line. With `ONEMIND_EXECUTOR=kubernetes` the gateway refuses to start.
+
+### Agent principals for apps (§11.2)
+An app whose manifest says `spec.agent: {principal: true, secret: <name>}` (the Hermes agent,
+§7) gets its own identity, so the AI inside it can ask for things through the same approval path
+as everyone else:
+1. At approval of `app.install`, before the executor runs, the gateway creates the principal
+   `{id: "agent:<app-id>", kind: agent, role: agent}` with a fresh random 256-bit token. The
+   database (`agent_tokens` table) stores **only the sha256 of the token**; tokens from
+   `ONEMIND_TOKENS_FILE` keep working next to it.
+2. The kubernetes executor writes Secret `<name>` in `app-<id>` with `ONEMIND_GATEWAY_URL` and
+   `ONEMIND_AGENT_TOKEN` **before** applying the manifests, so the pods start with it. The token
+   travels on kubectl's stdin only: it is never in the action's `result`, the audit log or a log
+   line (kubectl output is scrubbed too).
+3. If the install fails or its outcome is unknown, the principal is revoked at once (a new install
+   issues a new token). `app.remove` revokes it **first**, then deletes the Secret, the manifests
+   and the namespace, so a removed app's credential is dead even if a delete step fails.
+
+`ONEMIND_GATEWAY_URL` is `ONEMIND_PUBLIC_URL` when set, else `http://<ONEMIND_HOST>:<ONEMIND_PORT>`,
+with a wildcard host (`0.0.0.0`) replaced by the machine's hostname (k3s's CoreDNS resolves node
+hostnames for pods). Set `ONEMIND_PUBLIC_URL` when pods reach the gateway another way.
+
+The audit log names the requester and approver of every action by principal id: `action.requested`
+carries `requested_by`, and `action.approved`, `action.dispatched` and the outcome line carry both
+`requested_by` (e.g. `agent:hermes-agent`) and `approved_by` (e.g. `owner`).
+
+### MCP endpoint (§11.3)
+**MCP** (Model Context Protocol) is the standard way an AI agent discovers and calls tools.
+`POST /mcp` speaks MCP **Streamable HTTP, revision 2025-06-18**: each request is one JSON-RPC 2.0
+message, answered with one JSON body (no SSE stream, no session id; `GET`/`DELETE /mcp` → 405).
+- **Who:** principals with `kind: agent` only. A person gets 403 `permission_denied` (audited),
+  a missing or unknown token 401. A browser `Origin` that is not the gateway's host gets 403.
+- **Methods:** `initialize`, `ping`, `tools/list`, `tools/call`, `resources/list`, `resources/templates/list`,
+  `resources/read`; notifications get 202.
+- **Read tools** (each = a `/v1` route): `get_instance`, `list_nodes`, `get_node`, `list_apps`, `get_app`, and,
+  for the calling agent's own requests and records only, `list_actions`, `get_action`, `search_audit`.
+  Resources: `onemind://catalog[/{app_id}]`, `onemind://nodes[/{node_id}]`, `onemind://actions/{id}`, `onemind://audit/recent`.
+- **Third-party text** (app names and descriptions, hostnames, agents' reasons) is stripped of control and bidi
+  characters, listed in `_meta["onemind/untrusted"]` and wrapped as `<untrusted source=…>` in the text content.
+- **Limits per agent** (`ONEMIND_MCP_*`): 120 messages/min (HTTP 429), 60 reads/min, 10 requests/hour, 10 pending.
+- **The one write tool:** `request_action {type, app_id, reason?}`, which files an action exactly like `POST /v1/actions`
+  with a generated idempotency key and a 24 h expiry and returns `{action_id, state}`. A refusal
+  (unknown app, app busy) is a tool result with `isError: true` and the §3 error body. `reason`
+  is written to the audit log (the §3 action shape has no field for it).
+- **There is no approve or deny tool.** An agent requests; a person approves on the dashboard.
+
+Point an MCP client at it, e.g. Hermes's `mcp_servers.onemind` entry, with
+`url: <ONEMIND_GATEWAY_URL>/mcp` and header `Authorization: Bearer <ONEMIND_AGENT_TOKEN>`.
+The test suite drives it with the official MCP Python SDK client (`tests/test_mcp.py`).
 
 ## Run it
 
 Needs [uv](https://docs.astral.sh/uv/) (it downloads Python 3.12 itself).
 
 ```sh
-make -C core test               # 146 tests, SQLite, no NATS (1 NATS test skipped)
-make -C core test-integration   # all 147 tests on PostgreSQL 17 + real NATS 2.10 (needs Docker)
+make -C core test               # 211 tests, SQLite, no NATS (1 NATS test skipped)
+make -C core test-integration   # all 212 tests on PostgreSQL 17 + real NATS 2.10 (needs Docker)
+# Without Docker: point ONEMIND_TEST_DB_URL=postgresql://user@127.0.0.1:<port>/<db> at any
+# throwaway PostgreSQL and run `cd core && uv run pytest -q` (every test starts from empty tables).
 make -C core run                # gateway on http://127.0.0.1:8080, noop executor, DEV tokens
 curl -s localhost:8080/healthz
 TOKEN=...   # the owner token from examples/tokens.example.yaml (dev only)
@@ -94,7 +178,8 @@ make -C core image              # docker image for this machine
 make -C core image-multiarch    # amd64 + arm64 via buildx
 ```
 `make run` uses `apps/` and `dashboard/dist/` from the repo when those streams have landed them,
-else the test fixtures in `core/tests/fixtures/`.
+else the test fixtures in `core/tests/fixtures/`. Apps without a fresh `scan.json` cannot be
+installed; for a local click-through only, use `ONEMIND_ALLOW_UNSCANNED=1 make -C core run`.
 
 Container (build context is the repo root, so `sdk/schema` gets copied in when it exists):
 ```sh
@@ -116,7 +201,12 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 | `ONEMIND_NATS_URL` | `nats://127.0.0.1:4222` | empty string disables NATS |
 | `ONEMIND_AUDIT_PATH` | `./data/audit.jsonl` | audit log |
 | `ONEMIND_NODE_ID` | sha256 of `/etc/machine-id`, else `/var/lib/dbus/machine-id`, else `"hostname:"+hostname`, first 12 hex | hub id in `/v1/instance`; same chain as `onemindd`. In a container, mount the host's `/etc/machine-id` read-only or set this, or the id will not match the hub's `onemindd` |
+| `ONEMIND_PUBLIC_URL` | derived (see "Agent principals") | gateway URL written into app agent Secrets |
+| `ONEMIND_ALLOW_UNSCANNED` | `0` | `1` skips the §10.3 scan check; dev only, refused with `kubernetes` |
 | `ONEMIND_APP_SCHEMA` | `sdk/schema/onemind.app.schema.json` if present | manifest JSON Schema |
+| `ONEMIND_SANDBOX_RULES` | `sdk/policy/app-objects.yaml` (repo or image) | install sandbox rule file; the `kubernetes` executor refuses to start without it (and without `ONEMIND_APP_SCHEMA`) |
+| `ONEMIND_SANDBOX_GATEWAY_SA` | unset | `<namespace>/<serviceaccount>` the executor binds to `onemind-app-deployer` in each `app-<id>` (`deploy/install.sh` sets it) |
+| `ONEMIND_LIMITS_*` | `MAX_BODY_BYTES=262144`, `READ_RATE=20`/`READ_BURST=60`, `REQUEST_RATE=2`/`REQUEST_BURST=10`, `MAX_PENDING=10`, `AUTH_FAILURES_PER_MIN=10`, `AUTH_BACKOFF_S=900`, `ENABLED=1` | contract §12.1 limits (`core/onemind_core/guard.py`) |
 | `ONEMIND_DATA_DIR`, `ONEMIND_HOST`, `ONEMIND_PORT`, `ONEMIND_INSTANCE_NAME`, `ONEMIND_KUBECTL`, `ONEMIND_EXECUTOR_TIMEOUT_S` | `./data`, `0.0.0.0`, `8080`, `OneMind`, `kubectl`, `300` | |
 
 ## v0 shortcuts (from the contract; must be removed before a box ships)
@@ -137,7 +227,13 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 
 ## Known gaps
 - No `expected_version` on `POST /v1/actions` (D-B9.5 asks for it; contract v0 does not).
-- No policy engine (D-B9.4), MCP façade (D-B9.2), approvals push to phone (D-B9.6) or offline sync.
+- No policy engine (D-B9.4), approvals push to phone (D-B9.6) or offline sync.
+- MCP is the §11.3 v0 slice only: static or app-issued bearer tokens, no authorization-server
+  façade (RFC 9728 metadata, RFC 8707 audience binding; D-B9.2), no SSE stream, no resources or
+  prompts. D-B9.2 targets newer MCP revisions; 2025-06-18 is what the contract fixes for v0.
+- An app agent token does not expire; it lives until the app is removed or reinstalled.
+- `tier: blocked` is shown in the catalog but does not by itself refuse an install; the scan
+  record does (a blocked app's rescan should say `fail`).
 - The kubernetes executor is tested with a fake runner and a missing binary, not against a live k3s yet.
 - 401s are audited at most once a minute (`auth.rejected`, with a `suppressed_since_last` count),
   so an unauthenticated poller cannot flood the log. Refused action requests, approvals and

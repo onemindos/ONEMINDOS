@@ -94,14 +94,16 @@ def test_forbidden_fields_are_stripped(clock):
 CATALOG_KEYS = {
     "id", "name", "version", "description", "category", "icon", "license", "source",
     "archs", "requires", "web_port", "installed", "status",
+    "links", "tier", "scan",  # §11.4
 }
+VALID_APPS = {"uptime-kuma", "whoami", "hermes-like"}
 
 
 def test_apps_catalog_shape(client):
     r = client.get("/v1/apps", headers=GUEST)
     assert r.status_code == 200
     apps = {a["id"]: a for a in r.json()}
-    assert set(apps) == {"uptime-kuma", "whoami"}  # broken + wrong-folder are skipped
+    assert set(apps) == VALID_APPS  # broken + wrong-folder are skipped
     ku = apps["uptime-kuma"]
     assert set(ku) == CATALOG_KEYS
     assert ku["version"] == "2.0.2" and ku["web_port"] == 3001
@@ -110,9 +112,9 @@ def test_apps_catalog_shape(client):
     assert ku["installed"] is False and ku["status"] == "not_installed"
 
 
-@pytest.mark.parametrize("path", ["/v1/apps/uptime-kuma", "/v1/apps/uptime-kuma/icon"])
+@pytest.mark.parametrize("path", ["/v1/apps/uptime-kuma/icon"])
 def test_no_routes_beyond_contract(client, path):
-    # Section 3 lists only GET /v1/apps; an open icon route would also break "only /healthz is open".
+    # §12.15 adds GET /v1/apps/{id}; an open icon route would still break "only /healthz is open".
     assert client.get(path).status_code in (401, 404)
     assert client.get(path, headers=OWNER).status_code == 404
 
@@ -120,7 +122,7 @@ def test_no_routes_beyond_contract(client, path):
 def test_catalog_reports_errors(settings):
     cat = Catalog(settings.apps_dir)
     apps = cat.load()
-    assert set(apps) == {"uptime-kuma", "whoami"}
+    assert set(apps) == VALID_APPS
     assert "broken" in cat.errors and "wrong-folder" in cat.errors
     assert cat.validation_mode == "builtin"
 
@@ -142,7 +144,7 @@ def test_malformed_spec_field_never_hides_the_market(client, settings, tmp_path,
         return
     r = client.get("/v1/apps", headers=OWNER)
     assert r.status_code == 200
-    assert {a["id"] for a in r.json()} == {"uptime-kuma", "whoami"}
+    assert {a["id"] for a in r.json()} == VALID_APPS
     cat = Catalog(settings.apps_dir)
     cat.load()
     assert any("must be a mapping" in e for e in cat.errors["odd"])
@@ -170,7 +172,7 @@ def test_catalog_uses_json_schema_when_present(settings, tmp_path):
     assert cat.validation_mode == "schema"
     apps = cat.load()
     # whoami has a license, uptime-kuma too; broken lacks name/version/license
-    assert set(apps) == {"uptime-kuma", "whoami"}
+    assert set(apps) == VALID_APPS
     assert any("license" in e or "name" in e for e in cat.errors["broken"])
 
 

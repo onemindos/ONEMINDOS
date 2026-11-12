@@ -1,0 +1,38 @@
+table inet fw {
+	counter wan_new_in {
+		packets 1 bytes 152
+	}
+
+	counter wan_new_fwd {
+		packets 0 bytes 0
+	}
+
+	counter lan_udp_blocked {
+		packets 0 bytes 0
+	}
+
+	chain udpblock {
+	}
+
+	chain input {
+		type filter hook input priority filter; policy drop;
+		iif "lo" accept
+		ct state established,related accept
+		iifname "lan" accept
+		iifname "wan" ct state new counter name "wan_new_in" drop
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy drop;
+		iifname "lan" oifname "wan" meta l4proto udp jump udpblock
+		ct state established,related accept
+		iifname "lan" oifname "wan" accept
+		iifname "wan" counter name "wan_new_fwd" drop
+	}
+}
+table ip nat {
+	chain postrouting {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "wan" masquerade
+	}
+}

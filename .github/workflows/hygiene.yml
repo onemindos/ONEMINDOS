@@ -2,6 +2,7 @@
 # Public-repo hygiene gate (brief 30 §2 rule 9, D-B1.3). Make this a required check on main.
 name: hygiene
 on:
+  workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
   push:
     branches: [main]

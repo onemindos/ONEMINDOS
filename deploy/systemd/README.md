@@ -2,7 +2,11 @@
 
 **Serves:** contract §6 (`deploy/install.sh` installs `onemindd` as a systemd service), brief 30 B6 hardening spirit (least privilege for host services).
 
-## Install by hand (the install script will do this)
+## Other units here
+`onemind-nats.service` (hub NATS) and `onemind-gateway.service` (gateway + dashboard) are installed by
+[`deploy/install.sh`](../install.sh); see [`deploy/README.md`](../README.md).
+
+## Install by hand (`deploy/install.sh` does this for you)
 ```sh
 sudo install -m0755 onemindd-linux-$(dpkg --print-architecture) /usr/local/bin/onemindd
 sudo install -D -m0644 onemindd.service /etc/systemd/system/onemindd.service

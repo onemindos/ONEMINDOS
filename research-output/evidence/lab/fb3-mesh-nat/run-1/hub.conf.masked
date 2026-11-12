@@ -1,0 +1,12 @@
+server_name: hub
+listen: 127.0.0.1:4222
+http: 127.0.0.1:8222
+jetstream { store_dir: "/opt/fb3/run/nats/hubstore", domain: hub }
+leafnodes {
+  listen: "100.64.0.1:7422"
+  tls { cert_file: "/opt/fb3/run/ca/natshub.crt", key_file: "/opt/fb3/run/ca/natshub.key", timeout: 5 }
+  authorization { users: [
+    { user: "leaf-home-a", password: "<generated-at-run-time>" }
+    { user: "leaf-home-b", password: "<generated-at-run-time>" }
+  ] }
+}

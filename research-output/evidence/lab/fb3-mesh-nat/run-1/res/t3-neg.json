@@ -1,0 +1,12 @@
+{
+  "leaf_listener_on_mesh_ip": 1,
+  "other_7422_listeners": 0,
+  "public_ip_7422": "closed",
+  "plaintext_connect_accepted": 0,
+  "plaintext_reason": "tls_required_in_INFO=True answer=b'' [INF] 100.64.0.2:39290 - lid:14 - Leafnode connection created  [INF] 100.64.0.2:39290 - lid:14 - Leafnode connection closed: TLS Handshake Failure ",
+  "no_ca_leaf_connected": 0,
+  "no_ca_reason": "[ERR] 100.64.0.1:7422 - lid:5 - TLS leafnode handshake error: tls: failed to verify certificate: x509: certificate signed by unknown authority (CN=nats-hub SHA-256: 519aa64097708ac1982bc3169531deb19e8e31380d22a8495004a05a11e850ed)",
+  "wrong_password_leaf_connected": 0,
+  "wrong_password_reason": "[ERR] 100.64.0.2:51822 - lid:26 - authentication error - User \"leaf-home-a\"",
+  "obs_leaf_without_tls_block_auto_upgraded_and_connected": 1
+}

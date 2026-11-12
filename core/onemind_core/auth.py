@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import secrets
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,7 +29,7 @@ import yaml
 log = logging.getLogger("onemind.auth")
 
 KINDS = {"person", "agent"}
-ROLES = {"owner", "adult", "guest", "agent"}
+ROLES = {"owner", "adult", "guest", "child", "agent"}
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,18 @@ class Principal:
 
 def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+token_hash = _hash
+
+
+def new_agent_token() -> str:
+    """A fresh 256-bit bearer token for an app's agent principal (§11.2)."""
+    return secrets.token_urlsafe(32)
+
+
+def agent_principal(principal_id: str) -> Principal:
+    return Principal(id=principal_id, kind="agent", role="agent")
 
 
 def _principal(entry: dict, where: str) -> Principal:
@@ -136,6 +149,16 @@ class TokenStore:
                 return
             self._by_hash, self._mtime = by_hash, mtime
             log.info("loaded %d principals from tokens file", len(self._by_hash))
+
+    def principals(self) -> list[Principal]:
+        """Every principal in the file (never a token), e.g. to find the owners to notify."""
+        self._reload_if_changed()
+        return list(self._by_hash.values())
+
+    def entries(self) -> list[tuple[str, Principal]]:
+        """(sha256 hex, principal) of every loaded file token, for read-only listing (§12.6)."""
+        self._reload_if_changed()
+        return sorted(self._by_hash.items(), key=lambda kv: kv[1].id)
 
     def lookup(self, token: str) -> Principal | None:
         if not token:

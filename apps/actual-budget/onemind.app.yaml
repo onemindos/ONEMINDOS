@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/actualbudget/actual (contract §9.2).
+# Every value comes from the GitHub API, the upstream files or the registry. Completed by hand from
+# upstream v26.11.0: packages/docs/docusaurus.config.js (docs URL) and
+# packages/sync-server/docker-compose.yml (port 5006); repo topics: budgeting, finance, personal-finance.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: actual-budget
+  name: "Actual Budget"
+  version: "26.11.0"
+  description: "A local-first personal finance app"
+  category: finance
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/actualbudget/actual
+  links:
+    docs: "https://actualbudget.org/docs/"
+    github: "https://github.com/actualbudget/actual"
+    website: "https://actualbudget.org"
+    support: "https://github.com/actualbudget/actual/issues"
+  upstream: {release: "v26.11.0", released_at: "2026-11-02T01:54:02Z", archived: false}
+  tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 512}   # the container's memory limit; upstream publishes no sizing
+  web: {port: 5006}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}

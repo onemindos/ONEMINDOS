@@ -86,6 +86,19 @@ type Status struct {
 	// optional and additive: omitted when the box has no update service
 	// configured, so heartbeats without it stay valid.
 	Update *Update `json:"update,omitempty"`
+	// Metrics are the node's live load figures (contract §12.10 "metrics"),
+	// read at each heartbeat. Optional: omitted when none can be read.
+	Metrics *Metrics `json:"metrics,omitempty"`
+}
+
+// Metrics feeds the gateway's per-node history and threshold alerts
+// (contract §12.15). CPUPct is busy time since the previous heartbeat (null
+// on the first), Load1 the 1-minute load average, TempC the hottest thermal
+// zone in °C. Each is null when this node cannot read it.
+type Metrics struct {
+	CPUPct *float64 `json:"cpu_pct"`
+	Load1  *float64 `json:"load1"`
+	TempC  *float64 `json:"temp_c"`
 }
 
 // Update states (internal/update keeps the state machine).

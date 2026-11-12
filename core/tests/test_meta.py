@@ -43,7 +43,23 @@ def test_openapi_documents_contract_statuses_and_error_body(client):
     assert set(err["properties"]["error"]["enum"]) == {
         "permission_denied", "stale_precondition", "expired", "conflict",
         "outcome_unknown", "not_found", "unauthenticated",
+        "rate_limited", "payload_too_large", "policy_refused",  # contract §12.2
     }
+
+
+def test_every_error_is_documented_as_json_error_body(client):
+    # The gateway answers every error, validation failures included, with a JSON ErrorBody. Routes
+    # that do not list 422 must not advertise FastAPI's HTTPValidationError (and its `loc` union),
+    # and a text route (app logs) must not file its errors under text/plain.
+    doc = client.get("/openapi.json").json()
+    for path, ops in doc["paths"].items():
+        for method, op in ops.items():
+            for code, r in op["responses"].items():
+                if code >= "400" and r.get("content"):
+                    assert set(r["content"]) == {"application/json"}, (method, path, code)
+                    assert r["content"]["application/json"]["schema"]["$ref"].endswith("/ErrorBody"), (method, path)
+    assert "HTTPValidationError" not in doc["components"]["schemas"]
+    assert "ValidationError" not in doc["components"]["schemas"]
 
 
 @pytest.mark.parametrize(

@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind hub on a Mac with Docker (contract sdk/contracts/poc-v0.md §6): NATS, the gateway with
+# the noop executor, the dashboard (built once, served by the gateway) and one simulated node.
+# DEVELOPMENT ONLY. Every port is bound to 127.0.0.1, so nothing is reachable from the network.
+#
+#   ./gen-tokens.sh                 # once: random owner + agent tokens into ./local/ (gitignored)
+#   docker compose up -d --build    # from this directory
+#   ../verify/verify.sh http://127.0.0.1:8080 --token-file local/owner.token \
+#       --agent-token-file local/agent.token
+#   docker compose down -v
+name: onemind-dev
+
+services:
+  nats:
+    image: docker.io/library/nats:2.15.2-alpine@sha256:afae2fdbe2e326c65e1246cb83b9d05d319188734f3bd577ac8072daae78a10f
+    command: ["-p", "4222", "-m", "8222"]
+    ports: ["127.0.0.1:4222:4222"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Builds dashboard/ into the shared volume once per `up`, then exits.
+  dashboard:
+    image: docker.io/library/node:24.22.3-trixie-slim@sha256:af02d57b57719b9657a45199a79264a9437940cd55b3c7b3fc99615654f124a0
+    working_dir: /build
+    command:
+      - sh
+      - -ec
+      - |
+        cp -R /src/. /build/ && rm -rf /build/node_modules /build/dist
+        npm ci --no-audit --no-fund --loglevel=error
+        npm run build
+        rm -rf /out/* && cp -R dist/. /out/ && chmod -R a+rX /out
+    environment:
+      npm_config_update_notifier: "false"
+    volumes:
+      - ../../dashboard:/src:ro
+      - dashboard-dist:/out
+
+  gateway:
+    build:
+      context: ../..
+      dockerfile: core/Dockerfile
+    image: onemind-core:compose-dev
+    depends_on:
+      nats: {condition: service_healthy}
+      dashboard: {condition: service_completed_successfully}
+    environment:
+      ONEMIND_TOKENS_FILE: /cfg/tokens.yaml
+      ONEMIND_NATS_URL: nats://nats:4222
+      ONEMIND_EXECUTOR: noop
+      ONEMIND_APPS_DIR: /opt/onemind/apps
+      ONEMIND_DASHBOARD_DIST: /opt/onemind/dashboard
+      ONEMIND_NODE_ID: compose-hub
+      ONEMIND_INSTANCE_NAME: OneMind (compose dev)
+      # DEV ONLY (contract §11.1): the apps on main have no scan.json yet, so a wave-2 gateway
+      # would refuse every install. Allowed only with the noop executor; the gateway refuses it
+      # with the kubernetes executor and logs a warning at startup.
+      ONEMIND_ALLOW_UNSCANNED: "1"
+    volumes:
+      - ./local/tokens.yaml:/cfg/tokens.yaml:ro
+      - ../../apps:/opt/onemind/apps:ro
+      - dashboard-dist:/opt/onemind/dashboard:ro
+      - gateway-data:/var/lib/onemind
+    ports: ["127.0.0.1:8080:8080"]
+    restart: unless-stopped
+
+  # One simulated node: onemindd in a container, publishing heartbeats to the hub's NATS.
+  node-sim:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/onemindd.Dockerfile
+    image: onemindd:compose-dev
+    depends_on:
+      nats: {condition: service_healthy}
+    environment:
+      ONEMIND_NATS_URL: nats://nats:4222
+      ONEMIND_NODE_ROLE: node
+      ONEMIND_NODE_ID: compose-node-1
+      # Inside the container: every interface, so the loopback-only port mapping below works.
+      ONEMIND_AGENT_ADDR: ":7480"
+    hostname: node-sim
+    ports: ["127.0.0.1:7480:7480"]
+    restart: unless-stopped
+
+volumes:
+  dashboard-dist:
+  gateway-data:

@@ -1,0 +1,6 @@
+# Generated from brand/brand.json by scripts/brand-sync.py. Do not edit by hand.
+# Keys to merge into /usr/lib/os-release (brand/README.md, "What the image stream wires").
+NAME="OneMind OS"
+PRETTY_NAME="OneMind OS"
+HOME_URL="https://github.com/onemindos/ONEMINDOS"
+ANSI_COLOR="38;2;255;51;58"

@@ -1,0 +1,7 @@
+# BuildKit reads this for `-f deploy/compose/onemindd.Dockerfile` (repo-root context).
+*
+!go.mod
+!go.sum
+!cmd/**
+!internal/**
+!sdk/go/**

@@ -1,0 +1,179 @@
+{
+ "spike": "fb3-mesh-nat",
+ "verdict": "PASS",
+ "tests": {
+  "T0": {
+   "verdict": "PASS",
+   "detail": {
+    "pinned_hash_matches": 5,
+    "upstream_checksum_file_matches": 4,
+    "versions": "== versions;go version go1.27.4 linux/arm64;headscale version v0.29.7;commit: c9cf210b8bc84d13177e18b91f555788a44b47b6;build time: 2026-10-30T09:33:17Z;1.104.6;1.104.6;1.104.6-ERR-BuildInfo;nats-server: v2.15.2;0.5.1;",
+    "derper_built_sha256": "12ab8be0740e98645412926e33fe521a605af4f63f84054c586680dbbfc28fca"
+   }
+  },
+  "T1a": {
+   "verdict": "PASS",
+   "detail": {
+    "nodes": [
+     {
+      "n": "hub",
+      "o": true,
+      "t": [
+       "tag:hub"
+      ]
+     },
+     {
+      "n": "home-a",
+      "o": true,
+      "t": [
+       "tag:leaf"
+      ]
+     },
+     {
+      "n": "home-b",
+      "o": true,
+      "t": [
+       "tag:leaf"
+      ]
+     }
+    ],
+    "reused_key": "refused",
+    "reuse_error": "backend error: authkey already used",
+    "single_use_keys_used": 3
+   }
+  },
+  "T1b": {
+   "verdict": "PASS",
+   "detail": {
+    "a_to_b_9001": "allowed-9001-home-b",
+    "b_to_a_9001": "allowed-9001-home-a",
+    "a_hub_7422_tls": "INFO tls_required=True | TLSv1.3 TLS_AES_128_GCM_SHA256 | cert subject nats-hub",
+    "b_hub_7422_tls": "INFO tls_required=True | TLSv1.3 TLS_AES_128_GCM_SHA256 | cert subject nats-hub",
+    "direct_pongs": 1,
+    "median_direct_ms": "48"
+   }
+  },
+  "T1c": {
+   "verdict": "PASS",
+   "detail": {
+    "forward_rules": 0,
+    "wan_new_accepts": 0,
+    "direct_udp_packets_natA_wan": 31,
+    "outside_scans_no_answer": true,
+    "home_udp_flows_checked": 6,
+    "home_flows_originated_outside": {
+     "a": 0,
+     "b": 0
+    },
+    "wan_new_drop_counters": "packets 4114 packets 0 packets 4113 packets 0 "
+   }
+  },
+  "T2": {
+   "verdict": "PASS",
+   "detail": {
+    "derp_path_after_s": 10,
+    "a_to_b_9001": "allowed-9001-home-b",
+    "a_hub_7422_tls": "INFO tls_required=True | TLSv1.3 TLS_AES_128_GCM_SHA256 | cert subject nats-hub",
+    "via_derp_pongs_of_20": 20,
+    "median_ms": {
+     "direct": "48",
+     "derp": "139"
+    },
+    "udp_from_natA_wan": 0,
+    "tcp443_to_hub": 70,
+    "udp_block_counter": "packets 53",
+    "back_to_direct_after_s": "0"
+   }
+  },
+  "T3": {
+   "verdict": "PASS",
+   "detail": {
+    "negative_checks": {
+     "leaf_listener_on_mesh_ip": 1,
+     "other_7422_listeners": 0,
+     "public_ip_7422": "closed",
+     "plaintext_connect_accepted": 0,
+     "plaintext_reason": "tls_required_in_INFO=True answer=b'' [INF] 100.64.0.2:39290 - lid:14 - Leafnode connection created  [INF] 100.64.0.2:39290 - lid:14 - Leafnode connection closed: TLS Handshake Failure ",
+     "no_ca_leaf_connected": 0,
+     "no_ca_reason": "[ERR] 100.64.0.1:7422 - lid:5 - TLS leafnode handshake error: tls: failed to verify certificate: x509: certificate signed by unknown authority (CN=nats-hub SHA-256: <lab-cert>)",
+     "wrong_password_leaf_connected": 0,
+     "wrong_password_reason": "[ERR] 100.64.0.2:51822 - lid:26 - authentication error - User \"leaf-home-a\"",
+     "obs_leaf_without_tls_block_auto_upgraded_and_connected": 1
+    },
+    "hub_messages": 1200,
+    "seconds_to_sync_after_restore": 44,
+    "per_node": {
+     "home-a": {
+      "received": 600,
+      "unique": 600,
+      "exactly_1_to_600_in_order": true,
+      "local_acks_during_outage": 500,
+      "unacked_during_outage": 0
+     },
+     "home-b": {
+      "received": 600,
+      "unique": 600,
+      "exactly_1_to_600_in_order": true,
+      "local_acks_during_outage": 500,
+      "unacked_during_outage": 0
+     }
+    }
+   }
+  },
+  "T4": {
+   "verdict": "PASS",
+   "detail": {
+    "allowed_b_9001_ok": 3,
+    "denied_b_9002_blocked": 3,
+    "denied_hub_9002_blocked": 3,
+    "attempts": 3
+   }
+  },
+  "T5": {
+   "verdict": "PASS",
+   "detail": {
+    "window_s": 600,
+    "samples": 21,
+    "tailscaled": {
+     "pss_mib_mean": 29.1,
+     "rss_mib_max": 47.2,
+     "cpu_pct_one_vcpu": 0.135,
+     "cpu_s": 0.81
+    },
+    "nats_leaf": {
+     "pss_mib_mean": 27.3,
+     "rss_mib_max": 39.2,
+     "cpu_pct_one_vcpu": 0.286,
+     "cpu_s": 1.72
+    },
+    "combined": {
+     "pss_mib_max": 60.3,
+     "pss_mib_mean": 56.4,
+     "cpu_pct_one_vcpu": 0.421
+    },
+    "budget": {
+     "pss_mib": 128,
+     "cpu_pct": 2
+    }
+   }
+  },
+  "E1": {
+   "verdict": "OBSERVED",
+   "detail": {
+    "path": "derp",
+    "a_to_b_9001": "allowed-9001-home-b",
+    "last_pong": "pong from home-b (100.64.0.3) via DERP(onemind-hub) in 130ms"
+   }
+  },
+  "E2": {
+   "verdict": "OBSERVED",
+   "detail": {
+    "hub_received_a_publishing_as_b": 3,
+    "hub_received_a_publishing_as_a": 3,
+    "of": 3,
+    "hub_log_violations": "[ERR] Failed to reload server configuration: /opt/fb3/run/nats/hub.conf:9:28: unknown field \"permissions\"",
+    "reload_log": "[ERR] Failed to reload server configuration: /opt/fb3/run/nats/hub.conf:9:28: unknown field \"permissions\""
+   }
+  }
+ }
+}

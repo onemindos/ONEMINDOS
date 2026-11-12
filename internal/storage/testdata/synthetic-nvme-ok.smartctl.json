@@ -1,0 +1,36 @@
+{
+ "json_format_version": [
+  1,
+  0
+ ],
+ "smartctl": {
+  "version": [
+   7,
+   4
+  ],
+  "exit_status": 0
+ },
+ "device": {
+  "name": "/dev/x",
+  "protocol": "NVMe"
+ },
+ "model_name": "Example NVMe 1TB",
+ "serial_number": "SYNTH0001",
+ "smart_status": {
+  "passed": true
+ },
+ "temperature": {
+  "current": 41
+ },
+ "power_on_time": {
+  "hours": 3120
+ },
+ "nvme_smart_health_information_log": {
+  "critical_warning": 0,
+  "temperature": 41,
+  "available_spare": 100,
+  "available_spare_threshold": 10,
+  "percentage_used": 3,
+  "media_errors": 0
+ }
+}

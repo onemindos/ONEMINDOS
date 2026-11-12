@@ -1,0 +1,180 @@
+# Source: https://fleet.rancher.io/explanations/architecture
+# Accessed: 2026-11-12 (fabric mission 02). Converted to plain text; masked: {'email': 0, 'ip': 0, 'token': 0}
+
+Architecture :: Fleet
+
+ Fleet
+ 0.16
+
+Fleet
+
+ Next
+
+ 0.16
+
+ 0.15
+
+ 0.14
+
+ 0.13
+
+ 0.12
+
+ 0.11
+
+ 0.10
+
+ 0.9
+
+ 0.16
+
+ Next
+ 0.16
+ 0.15
+ 0.14
+ 0.13
+ 0.12
+ 0.11
+ 0.10
+ 0.9
+
+Edit this Page
+
+Architecture
+
+Fleet has two primary components. The Fleet controller and the cluster agents. These
+components work in a two-stage pull model. The Fleet controller will pull from git and the
+cluster agents will pull from the Fleet controller.
+
+Fleet Controller
+
+The Fleet controller is a set of Kubernetes controllers running in any standard Kubernetes
+cluster. The only API exposed by the Fleet controller is the Kubernetes API, there is no
+custom API for the fleet controller.
+
+Cluster Agents
+
+One cluster agent runs in each cluster and is responsible for talking to the Fleet controller.
+The only communication from cluster to Fleet controller is by this agent and all communication
+goes from the managed cluster to the Fleet controller. The fleet controller does not initiate
+connections to downstream clusters. This means managed clusters can run in private networks and behind
+NATs. The only requirement is the cluster agent needs to be able to communicate with the
+Kubernetes API of the cluster running the Fleet controller. The one exception to this is if you use
+the manager-initiated registration. cluster registration flow. This is not required, but
+an optional pattern.
+
+The cluster agents are not assumed to have an "always on" connection. They will resume operation as
+soon as they can connect. Future enhancements will probably add the ability to schedule times of when
+the agent checks in, as it stands right now they will always attempt to connect.
+
+Security
+
+The Fleet controller dynamically creates service accounts, manages their RBAC and then gives the
+tokens to the downstream clusters. Clusters are registered by optionally expiring cluster registration tokens.
+The cluster registration token is used only during the registration process to generate a credential specific
+to that cluster. After the cluster credential is established the cluster "forgets" the cluster registration
+ token.
+
+The service accounts given to the clusters only have privileges to list BundleDeployment in the namespace created
+specifically for that cluster. It can also update the status subresource of BundleDeployment and the status
+subresource of it’s Cluster resource.
+
+Component Overview
+
+An overview of the components and how they interact on a high level.
+
+Service accounts
+
+Fleet creates and uses several Kubernetes service accounts to securely manage the GitOps lifecycle. Understanding these service accounts and their permissions helps you maintain a least-privilege security model.
+
+Management cluster service accounts
+
+When you install Fleet on the upstream management cluster, Fleet creates service accounts for its core controllers. As you register downstream clusters and add Git repositories, Fleet dynamically creates additional service accounts with restricted permissions.
+
+fleet-controller service account
+
+Namespace: cattle-fleet-system
+
+The fleet-controller service account is used by the main Fleet controller pod. It manages bundles, clusters, and cluster groups, reconciles Fleet resources, and runs GitJobs to process Git repositories.
+
+gitjob service account
+
+Namespace: cattle-fleet-system
+
+The gitjob service account is used to run the GitJob controller and the internal background jobs responsible for cleaning up completed Git jobs.
+
+This service account is not used to execute the temporary pods that clone Git repositories and generate bundles. Instead, those operational pods run under a dedicated service account created automatically for each Git repository, named git-<gitrepo_name>.
+
+import service account
+
+Namespace: fleet-default
+
+The import service account is created temporarily during downstream cluster registration. Its name is dynamically generated and derived from the cluster registration token (resulting in a format like import-<token-id>).
+
+Fleet only grants permissions to:
+
+create ClusterRegistration requests
+
+read secrets within the cattle-fleet-clusters-system namespace
+
+After cluster registration completes, the downstream agent removes the service account and no longer uses it.
+
+request service account
+
+Namespace: fleet-default
+
+The request service account becomes the permanent identity of a registered downstream cluster.
+
+Fleet restricts this account using least-privilege RBAC policies. The account can:
+
+list BundleDeployment resources within its assigned cluster namespace
+
+list Content resources
+
+update the status subresources of BundleDeployment and Cluster resources
+
+The account cannot:
+
+access data from other clusters
+
+modify desired state resources
+
+manage resources outside its assigned namespace
+
+GitRepo service accounts
+
+Namespace: fleet-default
+
+Fleet automatically creates a dedicated service account, role, and role binding for each GitRepo resource. This isolation helps separate permissions between Git repositories and reduces cross-repository access.
+
+Downstream cluster service accounts
+
+Downstream clusters run Fleet agents that retrieve configuration from the management cluster and perform Helm deployments.
+
+fleet-agent service account
+
+Namespace: cattle-fleet-system
+
+The fleet-agent service account is used by the Fleet agent running on downstream clusters. It enables the agent to communicate with the upstream management cluster, to monitor its corresponding cluster namespace for new BundleDeployment resources in the upstream cluster, and to report deployment status changes.
+
+The agent authenticates using the credentials associated with the request service account.
+
+Deployment service accounts
+
+When Fleet deploys workloads to a downstream cluster, it uses a deployment service account to execute the deployment.
+
+You can explicitly configure which downstream service account Fleet should use by setting the serviceAccount field in:
+
+fleet.yaml
+
+GitRepo resources
+
+All service accounts referenced by a GitRepo must exist in the cattle-fleet-system namespace on the downstream cluster.
+
+Restrict allowed service accounts
+
+In multi-tenant environments, restrict which service accounts users can reference in Git repositories.
+
+Use a GitRepoRestriction resource to define an allowedServiceAccounts allowlist. If a GitRepo references an unauthorized service account, Fleet blocks the deployment.
+
+Support for GitRepoRestriction is deprecated in favor of the Policy resource. For multi-tenant environment , use Policy resources to define restrictions across all Fleet components, including bundles and Helm operations.

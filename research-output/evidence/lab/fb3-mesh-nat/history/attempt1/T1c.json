@@ -1,0 +1,15 @@
+{
+  "id": "T1c",
+  "verdict": "FAIL",
+  "detail": {
+    "forward_rules": 0,
+    "wan_new_accepts": 0,
+    "direct_udp_packets_natA_wan": 31,
+    "outside_scans_no_answer": false,
+    "outside_originated_udp_flows": {
+      "a": 7,
+      "b": 0
+    },
+    "wan_new_drop_counters": "packets 4114 packets 0 packets 4114 packets 0 "
+  }
+}
