@@ -43,7 +43,7 @@ Images:
 
 Immich backs up and browses photos and videos from phones, with albums, sharing, a map and a timeline ([immich-app/immich](https://github.com/immich-app/immich)).
 
-**Licence:** `AGPL-3.0` (GitHub licence API; license-matrix row "Immich" [C-LIC-028]). Market class **L2**. The upstream FAQ "Commercial Guidelines" adds reseller and trademark guidelines for commercial products: OneMind ships the unmodified image as a separate program and uses a neutral icon, and the founder should read those guidelines before Immich is sold preinstalled.
+**Licence:** `AGPL-3.0` (GitHub licence API; license-matrix row "Immich" [C-LIC-028]). Market class **L2**. The upstream FAQ "Commercial Guidelines" adds reseller and trademark guidelines for commercial products: OneMind ships the unmodified image as a separate program and uses a neutral icon, and the founder should read those guidelines before Immich is sold preinstalled. The database image (`ghcr.io/immich-app/postgres`, from immich-app/base-images, AGPL-3.0) bundles VectorChord 0.4.3, which is dual-licensed AGPL-3.0 or Elastic License 2.0 (its LICENSE at tag 0.4.3); the AGPL-3.0 option is the one compatible with the Market's L2 class. The Valkey sidecar is BSD-3-Clause.
 
 **Icon:** a neutral generated icon with initials; no upstream logo is shipped.
 

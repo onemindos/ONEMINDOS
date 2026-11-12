@@ -52,6 +52,7 @@ Ollama downloads and runs open language models locally and serves them over an H
 
 - One `Deployment` (`Recreate`), one container, on the CPU. The image runs as root; here it runs as UID 1000 with `HOME=/var/lib/ollama` and `OLLAMA_MODELS=/var/lib/ollama/models`, so the key pair and models live on the volume (upstream mounts `/root/.ollama`). No privilege escalation, all capabilities dropped.
 - Service `ollama` on 11434: other apps reach it at `http://ollama.app-ollama.svc.cluster.local:11434`. `spec.web` points at this API so the smoke test checks it; `GET /` answers "Ollama is running".
+- **The API has no authentication** (upstream has no sign-in of any kind). Anything that can reach the Service can pull and delete models and use the CPU. Until OneMind isolates app namespaces (CORE-SANDBOX-5), that is every pod on the box, agent apps included.
 - Volume: `ollama-data` (50 GiB).
 - Memory follows the model: the 6 GiB limit fits small models (around 3B parameters at 4-bit) on an 8 GB node. Larger models need the limit and `minMemoryMb` raised.
 
