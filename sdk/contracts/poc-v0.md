@@ -102,3 +102,24 @@ spec:
   It is labelled **unsupported developer install, no OS rollback** (REC-DEC-30).
 - `deploy/compose/`: the hub on a Mac with Docker (NATS, gateway with the `noop` executor, dashboard, one simulated node).
 - `deploy/verify/verify.sh <hub-url>`: a scripted pass/fail check of everything in this contract.
+
+## 7. First founder app: Hermes agent (wave 2; founder choice, 2026-11-11)
+**Why Hermes:** it is the founder's working AI agent. Running it as a OneMind app proves the core rule end to end: an **AI agent requests, a human approves, the OS executes**.
+- **App:** `apps/hermes-agent/`, from the public image `nousresearch/hermes-agent:v0.23.0@sha256:adb7890916de63245523492be8f68f9d2095fecbec4e2a6dab7960381f0fc002`. This is the version and digest the founder's cluster runs today (read-only check, 2026-11-11). Verify the upstream licence before packaging.
+- **Runtime facts to keep:**
+  - args `gateway run`
+  - `HERMES_HOME=/opt/data` on a PVC
+  - API server on `:8642`, with readiness `GET /health`
+  - dashboard on `:9119` (`HERMES_DASHBOARD=true`)
+  - `Recreate` strategy
+  - `allowPrivilegeEscalation: false`
+  - `automountServiceAccountToken: false`
+  - limits 2 CPU / 3 GiB, requests 250m / 1.75 GiB, so the app sets `requires.minMemoryMb: 2048` and a Pi 5 needs 8 GB
+- **Clean packaging only.** Copy nothing from the founder's private deployment: no Zoho, Whop or Todoist entries, Mac SSH material, tailnet names, OIDC issuer, owner name or Langfuse. Model-provider credentials come from a Kubernetes Secret `hermes-agent-credentials` that the **owner creates at install time** (`deploy/` prints the command), never from the repo.
+- **Agent principal:** at install the gateway creates a token with `kind: agent`, `role: agent` for Hermes and stores it in Secret `hermes-agent-onemind` (`ONEMIND_GATEWAY_URL`, `ONEMIND_AGENT_TOKEN`). Hermes can then **request** actions (`POST /v1/actions`) and read nodes and apps. It can never approve (403, contract §3).
+- **Agent tools (gateway, wave 2):** a minimal MCP endpoint `POST /mcp` (Streamable HTTP) on the gateway, for agent principals only, with tools `list_nodes`, `list_apps` and `request_action`. It has no approve tool. Hermes's default config points one `mcp_servers.onemind` entry at it. This is the v0 slice of D-B9.2; the authorization-server façade comes later.
+- **Demo to prove:** ask Hermes "install ntfy". An action appears in Approvals as requested by an agent. The owner approves, ntfy is installed, and the audit chain records requester `agent:hermes` and approver `person:owner`.
+
+## 8. Seed apps (B10 list; the wave-1 apps PR ships 3, wave 2 adds 5)
+- **Wave 1:** uptime-kuma, ntfy, home-assistant.
+- **Wave 2:** node-red, mosquitto, vaultwarden, actual-budget, zigbee2mqtt (each with a licence row; arm64 + amd64; images pinned by digest).
