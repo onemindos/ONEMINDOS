@@ -55,7 +55,7 @@ Usage:
   --hub URL              hub gateway URL that app pods use (default http://<lan addr>:8080).
   --box-name NAME        the box's name: https://NAME.local and <app>.NAME.local (default: hostname).
   --lan-addr IP          the hub's LAN IPv4 (default: the address of the default route).
-  --join PAYLOAD         the join code text from `onemind fabric ticket` or the dashboard's QR (node).
+  --join PAYLOAD         the join code text from "onemind fabric ticket" or the dashboard's QR (node).
   --hub-addr IP          the hub's LAN IPv4, when this LAN has no working mDNS for NAME.local (node).
   --with-agent-token     hub: also issue an API token for an AI agent (principal dev-agent: may
                          request actions, never approve). Like the owner token it is printed once
