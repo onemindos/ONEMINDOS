@@ -165,19 +165,27 @@ export type ApiErrorCode =
   | 'conflict'
   | 'outcome_unknown'
   | 'not_found'
-  | 'unauthenticated';
+  | 'unauthenticated'
+  | 'rate_limited'
+  | 'payload_too_large'
+  | 'policy_refused';
 
 export interface ApiErrorBody {
   error: ApiErrorCode;
   message: string;
+  /** Machine-readable detail, e.g. step_up_required (sign in again with your passkey). */
+  reason?: string | null;
+  retry_after_s?: number | null;
 }
 
 export class ApiError extends Error {
   readonly status: number;
   readonly code: ApiErrorCode | 'network' | 'unknown';
+  readonly reason: string | undefined;
 
-  constructor(status: number, code: ApiError['code'], message: string) {
+  constructor(status: number, code: ApiError['code'], message: string, reason?: string | null) {
     super(message);
+    this.reason = reason ?? undefined;
     this.name = 'ApiError';
     this.status = status;
     this.code = code;

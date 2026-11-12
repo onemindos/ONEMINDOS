@@ -194,6 +194,10 @@
 | CORE-DASH-2 | Move the 5 existing screens onto `@onemind/ui` (dashboard v2: Home, Market, Installed, Approvals, Activity, Nodes, Settings, ⌘K, bell; CRITIQUE #19–#26 fixed; PR open) | done | `feat/dashboard-v2` | [#73](https://github.com/onemindos/ONEMINDOS/pull/73) |
 | CORE-DASH-5 | Alerts, Updates and Backups screens | todo | – | – |
 | CORE-DASH-7 | PWA and per-app subdomain launcher | todo | – | – |
+| CORE-DASH-2 | Move the 5 existing screens onto `@onemind/ui` (dashboard v2: Home, Market, Installed, Approvals, Activity, Nodes, Settings, ⌘K, bell; CRITIQUE #19–#26 fixed; PR open) | review | `feat/dashboard-v2` | – |
+| CORE-DASH-5 | Alerts, Updates and Backups screens | review | `feat/dashboard-wiring` | – |
+| CORE-DASH-9 | Dashboard wiring pass (HANDOFF B5): pages for every API on main, first-run wizard, passkey sign-in, PWA, i18n scaffold; "coming soon" for APIs not on main | review | `feat/dashboard-wiring` | – |
+| CORE-DASH-7 | PWA and per-app subdomain launcher | review | `feat/dashboard-wiring` | – |
 | CORE-DASH-8 | Typed widgets on Home; "show the equivalent call" toggle | todo | – | – |
 | DEV-SDK-4 | Dashboard and mobile moved onto `@onemind/sdk` | todo | – | – |
 | DEV-SDK-7 | SSE in all three SDKs, polling fallback, React Native transport | in-progress (merged in #48; rest unverified) | `feat/devsurface` | [#48](https://github.com/onemindos/ONEMINDOS/pull/48) |
