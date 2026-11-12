@@ -54,6 +54,13 @@ class ActionRequest(BaseModel):
     expires_at: AwareDatetime
 
 
+def _never_by_policy(a: Action) -> bool:
+    """True unless the §12.3 risk class of this request lets a standing approval accept it."""
+    from .automation import registry  # imported late: the registry imports ActionType from here
+
+    return registry.policy_may_cover(a.type, a.params) is not None
+
+
 @dataclass(frozen=True)
 class StandingGrant:
     """A standing approval (contract §12.17) covering one request; built by the automation module."""
@@ -205,7 +212,13 @@ class ActionService:
         return self._standing_approve(action) or action.to_json(), True
 
     def _standing_approve(self, a: Action) -> dict | None:
-        """Accept a fresh request under an owner-set standing approval, or leave it for a person."""
+        """Accept a fresh request under an owner-set standing approval, or leave it for a person.
+
+        The risk ceiling is checked here as well as in the policy module, so no hook can make a
+        policy accept a sensitive, destructive or actuate request (docs/leap/core/AUTOMATION.md §4).
+        """
+        if not self.standing_approvals or _never_by_policy(a):
+            return None
         for decide in self.standing_approvals:
             try:
                 grant = decide(a)
@@ -222,6 +235,16 @@ class ActionService:
             except ApiError:  # e.g. a stale precondition: the action stays awaiting_approval
                 grant.release()
                 return None
+            except Exception:  # the request is filed: never fail it; give the use back unless accepted
+                log.exception("standing approval failed")
+                try:
+                    now = self._get(a.id)
+                except Exception:
+                    return None
+                if now.state == "awaiting_approval":
+                    grant.release()
+                    return None
+                return now.to_json()
         return None
 
     def _replay(self, principal: Principal, req: ActionRequest, params: dict, existing: Action) -> tuple[dict, bool]:

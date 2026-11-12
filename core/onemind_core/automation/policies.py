@@ -9,7 +9,8 @@ A standing approval is the owner's "yes, in advance" for a narrow set of request
 
 Hard limits, checked when it is created and again on every match:
 - it covers only `read` and `write` requests (§12.3); a request whose parameters make it
-  `sensitive` or `destructive` (e.g. `app.remove` with `delete_data`) is never covered;
+  `sensitive` or `destructive` (e.g. `app.remove` with `delete_data`) is never covered, nor is
+  `automation.rule.*` (registry.NEVER_BY_POLICY); actions.py checks the same again;
 - it always expires, at most 90 days ahead;
 - it covers an agent or a plugin only when it names it exactly (`agent:*` is refused);
 - `per_day` is counted in the database over the last 24 hours, so a restart keeps the count;
@@ -191,11 +192,9 @@ class PolicyService:
         now = self.clock()
         try:
             for t in body.allow.types:
-                if not registry.known(t):
-                    raise ValueError(f"unknown action type {t!r}")
-                risk = registry.risk_of(t)
-                if not registry.at_most(risk, registry.POLICY_MAX_RISK):
-                    raise ValueError(f"{t} is {risk}; a standing approval covers only read and write types (§12.3)")
+                problem = registry.policy_may_cover(t)
+                if problem:
+                    raise ValueError(problem)
             if len(set(body.allow.types)) != len(body.allow.types):
                 raise ValueError("allow.types lists a type twice")
             for r in body.allow.requested_by:
@@ -267,7 +266,7 @@ class PolicyService:
             return [], "automation_paused"
         if not registry.known(action_type):
             return [], "no_policy"
-        if not registry.at_most(registry.risk_of(action_type, params), registry.POLICY_MAX_RISK):
+        if registry.policy_may_cover(action_type, params):
             return [], "never_by_policy"
         who = requester_key(requested_by)
         kind = who.split(":", 1)[0]

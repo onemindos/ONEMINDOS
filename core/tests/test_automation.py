@@ -18,8 +18,10 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
+from onemind_core.actions import StandingGrant
 from onemind_core.app import create_app
 from onemind_core.audit import verify
+from onemind_core.auth import Principal
 from onemind_core.automation import AutomationSettings
 
 from conftest import AGENT, GUEST, OWNER, action_body
@@ -206,6 +208,7 @@ def test_concurrency_one(client, clock):
     ({"types": ("nope.nope",)}, 422, "unknown action type"),
     ({"params": {"app_id": {"regex": "x"}}}, 422, "takes const"),
     ({"types": ("app.update",)}, 422, "window_id"),
+    ({"types": ("automation.rule.enable",), "requested_by": ("agent:hermes",)}, 422, "always waits"),
     ({"window_id": "win_missing"}, 404, "no window"),
     ({"headers": AGENT}, 403, "may not"),
 ])
@@ -274,6 +277,38 @@ def test_sensitive_requests_are_never_auto_approved(client, clock):
     fired = svc(client).process_events()
     a = client.get(f"/v1/actions/{fired[0]['action_ids'][0]}", headers=OWNER).json()
     assert a["type"] == "app.install" and a["state"] == "awaiting_approval"
+
+
+def test_action_path_never_lets_a_policy_accept_above_write(client, clock):
+    # docs/leap/core/AUTOMATION.md §4: enforced in the action path, not only where policies are made.
+    install(client, clock)
+    s, gw = svc(client), client.app.state.gateway
+    s.repo.add_policy(  # written past validation, as a bug or a hand-edited database would
+        id="pol_forged", name=None, per_day=10, window_id=None, expires_at=clock.now + timedelta(days=1),
+        allow={"types": ["app.install"], "requested_by": ["agent:hermes"], "params": {}},
+        created_by={"id": "owner"}, created_at=clock.now)
+    rogue = StandingGrant(Principal("policy:pol_rogue@1", "policy", "policy"), {"approved_via": "policy"}, lambda: None)
+    gw.actions.standing_approvals.insert(0, lambda a: rogue)
+    r = client.post("/v1/actions", json=action_body(clock, "uptime-kuma", key="x1"), headers=AGENT)
+    assert r.status_code == 201 and r.json()["state"] == "awaiting_approval"
+    assert s.repo.count_uses("pol_forged", clock.now - timedelta(days=1)) == 0
+    # The same hook does accept a write request, so the refusal above is the risk ceiling.
+    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="x2"), headers=AGENT)
+    assert r.json()["state"] == "succeeded"
+
+
+def test_a_failing_policy_approval_leaves_the_request_filed(client, clock, monkeypatch):
+    install(client, clock)
+    policy(client, clock, requested_by=("agent:hermes",))
+    gw = client.app.state.gateway
+
+    def boom(*_a, **_k):
+        raise RuntimeError("database went away")
+
+    monkeypatch.setattr(gw.actions.repo, "accept_and_claim", boom)
+    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="f1"), headers=AGENT)
+    assert r.status_code == 201 and r.json()["state"] == "awaiting_approval"
+    assert client.get("/v1/approval-policies", headers=OWNER).json()[0]["uses_24h"] == 0  # the use came back
 
 
 def test_window_bound_policy_and_revision_bump(client, clock):

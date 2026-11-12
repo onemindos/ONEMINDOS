@@ -88,6 +88,24 @@ def at_most(risk: str, ceiling: str) -> bool:
     return RISKS.index(risk) <= RISKS.index(ceiling)
 
 
+# `write` types a standing approval still never covers: an agent proposes an automation and the
+# owner approves it; it never creates, edits or enables one itself (docs/leap/core/AUTOMATION.md
+# §1, §3). A policy here would also let an agent-made rule borrow an `automation:*` approval.
+NEVER_BY_POLICY = frozenset({"automation.rule.create", "automation.rule.update", "automation.rule.enable"})
+
+
+def policy_may_cover(action_type: str, params: dict | None = None) -> str | None:
+    """Why no standing approval may accept this request, or None (§12.3: read and write only)."""
+    if action_type not in TYPES:
+        return f"unknown action type {action_type!r}"
+    if action_type in NEVER_BY_POLICY:
+        return f"{action_type} always waits for the owner; a standing approval never covers it"
+    risk = risk_of(action_type, params)
+    if not at_most(risk, POLICY_MAX_RISK):
+        return f"{action_type} is {risk}; a standing approval covers only read and write types (§12.3)"
+    return None
+
+
 def automatable(action_type: str, params: dict | None = None) -> str | None:
     """Why an automation may not request this, or None (§12.1: Au types, never destructive)."""
     if action_type not in TYPES:
