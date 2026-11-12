@@ -8,6 +8,7 @@ brief 30 **D-B2.4** (developer install P6) and **REC-DEC-30** (P6 is labelled un
 | Path | What it is |
 |---|---|
 | [`install.sh`](install.sh) | P6 developer install on a stock OS: `--role hub` or `--role node` |
+| [`bundle.sh`](bundle.sh) | Builds an offline bundle on your Mac for `install.sh --bundle` |
 | [`pins.env`](pins.env) | Every download `install.sh` makes: version + sha256 |
 | [`systemd/`](systemd/) | Units for `onemindd`, the hub NATS and the gateway |
 | [`compose/`](compose/) | The hub on a Mac with Docker (noop executor, one simulated node) |
@@ -64,6 +65,38 @@ deploy/install.sh --role node --dry-run --target jetson --hub http://hub.local:8
   plain HTTP and NATS without auth. On `do` the script prints, at the start and the end, that ports
   8080, 4222, 6443, 10250 and 8472/udp must be closed to the internet with a DigitalOcean Cloud
   Firewall (allow them only from your VPC or Tailscale range). It changes no firewall itself.
+
+### Offline bundle (`bundle.sh`, ported from PR #27)
+Without a bundle, the box downloads k3s and NATS and **builds** onemindd (Go), the gateway (uv,
+Python, PyPI wheels) and the dashboard (Node, npm) itself. That needs the internet, a few minutes
+and some RAM, which a Pi does not love. `bundle.sh` does all of it once on your Mac instead:
+```sh
+deploy/bundle.sh --arch amd64                      # Beelink, droplet (arm64: Pi 5, Jetson)
+scp -r out/onemind-bundle-amd64 <user>@<box>:      # or rsync, or a USB stick
+sudo ./onemind-bundle-amd64/src/deploy/install.sh --role hub --bundle ./onemind-bundle-amd64   # on the box
+```
+| In the bundle | What it is |
+|---|---|
+| `onemindd-linux-<arch>`, `onemind-linux-<arch>` | node agent and CLI, static, built from `cmd/` (local Go, or the pinned Go container) |
+| `gateway-runtime-linux-<arch>.tar.gz` | Python 3.12 + the gateway venv: install.sh's own `uv sync --frozen` step, run for `/opt/onemind` in the pinned Debian container |
+| `dashboard/` | the built dashboard (`npm ci --ignore-scripts`, in the pinned Node container) |
+| `downloads/` | k3s, its pinned `install.sh`, **k3s airgap images** (pause, CoreDNS, ...) and NATS: the same files and sha256 as `pins.env` |
+| `src/` | `deploy/`, `apps/`, `sdk/schema/` from your checkout (tracked and new files; gitignored ones such as compose tokens never) |
+| `BUNDLE.txt` | arch, full or `--node-only`, git commit, versions |
+| `SHA256SUMS` | a checksum for every other file |
+
+`install.sh --bundle DIR` (found by itself when run from `DIR/src/deploy/`) first runs
+`sha256sum --strict -c SHA256SUMS` and refuses a bundle with any file that list does not name, the
+wrong architecture, or `--node-only` contents on a hub. Pinned files from `downloads/` are checked
+again against `pins.env`, as a download would be. With a bundle nothing is downloaded or built on the
+box except Debian packages that are missing (apt) and the app images k3s pulls when you install an
+app. `--node-only` makes a smaller bundle for nodes (no gateway, dashboard or NATS; no Docker needed
+when Go is installed); `--no-airgap` leaves the images out (k3s then pulls them).
+- **SHA256SUMS proves the copy is intact, not who built it.** Build your own bundle, and keep it in a
+  folder only you and root can write until the install is done. Signed releases come with the update
+  pipeline (TUF), not here.
+- Building for the other architecture runs the gateway step under emulation: Docker Desktop does that
+  out of the box; on Linux it needs QEMU binfmt.
 
 ### What it installs, and where
 | Piece | How | Where |

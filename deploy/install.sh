@@ -8,9 +8,11 @@
 #   sudo deploy/install.sh --role node --hub http://<hub>:8080 --token <join-token>
 #   sudo deploy/install.sh --uninstall [--purge]
 #   deploy/install.sh --role hub --dry-run [--target debian13|rpi5|jetson|do]   # plan only
+#   sudo BUNDLE/src/deploy/install.sh --role hub --bundle BUNDLE                # offline bundle
 #
 # Run it from a checkout of this repository (it builds onemindd, the gateway and the dashboard
-# from that checkout). Re-running it is safe: every step checks what is already there.
+# from that checkout), or from an offline bundle made by deploy/bundle.sh (nothing is built on the
+# box). Re-running it is safe: every step checks what is already there.
 # See deploy/README.md for what it installs, where, and why.
 set -euo pipefail
 
@@ -28,7 +30,7 @@ BIN=/usr/local/bin
 BANNER="unsupported developer install, no OS rollback"
 
 ROLE="" HUB="" TOKEN="" UNINSTALL=0 PURGE=0 ONEMINDD_BIN="" DASH_DIST="" BIND="0.0.0.0" FORCE_OS=0
-DRY_RUN=0 TARGET="" ARCH_OVERRIDE=""
+DRY_RUN=0 TARGET="" ARCH_OVERRIDE="" BUNDLE="" GATEWAY_RUNTIME=""
 
 usage() {
   cat <<EOF
@@ -37,6 +39,7 @@ Usage:
   $0 --role node --hub URL --token JOIN_TOKEN [--onemindd-bin FILE]
   $0 --uninstall [--purge]
   $0 ... --dry-run [--target debian13|rpi5|jetson|do [--arch amd64|arm64]]
+  $0 ... --bundle DIR
 
   --role hub|node        hub: k3s server, NATS, onemindd, gateway + dashboard. node: k3s agent + onemindd.
   --hub URL              hub gateway URL, e.g. http://hub.local:8080 (the host part also gives
@@ -46,6 +49,9 @@ Usage:
                          but then app pods and other machines cannot reach it).
   --onemindd-bin FILE    use a prebuilt static onemindd (make -C cmd/onemindd build) instead of Go.
   --dashboard-dist DIR   use a prebuilt dashboard/dist instead of building it with Node.
+  --bundle DIR           use an offline bundle from deploy/bundle.sh (checked against its SHA256SUMS
+                         first): onemindd, gateway runtime, dashboard, k3s with airgap images, NATS.
+                         Found by itself when this script runs from DIR/src/deploy/.
   --force-os             continue on an OS this script was not written for.
   --uninstall            remove everything this script installed (k3s and its data included).
   --purge                with --uninstall: also delete $STATE (gateway database and audit log).
@@ -75,6 +81,7 @@ while [ $# -gt 0 ]; do
     --dry-run) DRY_RUN=1; shift ;;
     --target) TARGET=${2:-}; shift 2 ;;
     --arch) ARCH_OVERRIDE=${2:-}; shift 2 ;;
+    --bundle) BUNDLE=${2:-}; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; die "unknown argument: $1" ;;
   esac
@@ -184,8 +191,9 @@ else
   # shellcheck disable=SC1091
   . /etc/os-release
   [ -f /etc/nv_tegra_release ] && JETSON=1
-  MODEL=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || true)
-  VENDOR=$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || true)
+  MODEL="" VENDOR=""
+  [ -r /proc/device-tree/model ] && MODEL=$(tr -d '\0' < /proc/device-tree/model)
+  [ -r /sys/class/dmi/id/sys_vendor ] && VENDOR=$(cat /sys/class/dmi/id/sys_vendor)
   case "$MODEL" in
     *"Raspberry Pi 5"*) TARGET_KIND=rpi5 BOARD=rpi5 ;;
     *"Raspberry Pi"*) warn "this Raspberry Pi is not a Pi 5; only the Pi 5 is a v0 board" ;;
@@ -228,6 +236,40 @@ if [ "$TARGET_KIND" = jetson ]; then
   warn "Jetson: k3s runs ordinary pods, but GPU pods need the NVIDIA container runtime set up for k3s's containerd (not done in v0)"
 fi
 
+# ------------------------------------------------------------------------------------------
+# Offline bundle (deploy/bundle.sh): check it before anything is used or changed
+# ------------------------------------------------------------------------------------------
+if [ -z "$BUNDLE" ] && [ -f "$SRC/../BUNDLE.txt" ] && [ -f "$SRC/../SHA256SUMS" ]; then
+  BUNDLE=$(cd "$SRC/.." && pwd); log "running from the offline bundle $BUNDLE"
+fi
+if [ -n "$BUNDLE" ]; then
+  [ -d "$BUNDLE" ] || die "--bundle $BUNDLE is not a directory"
+  BUNDLE=$(cd "$BUNDLE" && pwd)
+  { [ -f "$BUNDLE/SHA256SUMS" ] && [ -f "$BUNDLE/BUNDLE.txt" ]; } \
+    || die "$BUNDLE is not a deploy/bundle.sh bundle (no SHA256SUMS or BUNDLE.txt)"
+  B_ARCH=$(sed -n 's/^arch=//p' "$BUNDLE/BUNDLE.txt"); B_CONTENTS=$(sed -n 's/^contents=//p' "$BUNDLE/BUNDLE.txt")
+  [ "$B_ARCH" = "$ARCH" ] || die "the bundle is for $B_ARCH, this machine is $ARCH (deploy/bundle.sh --arch $ARCH)"
+  [ "$ROLE" = node ] || [ "$B_CONTENTS" = full ] || die "this bundle was built with --node-only; a hub needs a full bundle"
+  if [ "$DRY_RUN" = 1 ]; then
+    step "Offline bundle $BUNDLE ($(sed -n 's/^commit=//p' "$BUNDLE/BUNDLE.txt"))"
+    plan "sha256sum --strict -c SHA256SUMS, and refuse any file SHA256SUMS does not list"
+  else
+    log "bundle: checking every file against $BUNDLE/SHA256SUMS"
+    (cd "$BUNDLE" && sha256sum --strict --quiet -c SHA256SUMS) || die "bundle checksum mismatch in $BUNDLE: copy it again"
+    # Nothing unlisted either (a stray or added file is refused, not silently used).
+    [ "$(cd "$BUNDLE" && sed 's/^[0-9a-f]\{64\}  //' SHA256SUMS | LC_ALL=C sort)" = \
+      "$(cd "$BUNDLE" && find . -type f ! -path ./SHA256SUMS | LC_ALL=C sort)" ] \
+      || die "$BUNDLE has files that SHA256SUMS does not list (or lists files it lacks)"
+    log "bundle: ok (commit $(sed -n 's/^commit=//p' "$BUNDLE/BUNDLE.txt"))"
+  fi
+  # Explicit --onemindd-bin / --dashboard-dist still win.
+  [ -n "$ONEMINDD_BIN" ] || ONEMINDD_BIN="$BUNDLE/onemindd-linux-$ARCH"
+  if [ "$ROLE" = hub ]; then
+    [ -n "$DASH_DIST" ] || DASH_DIST="$BUNDLE/dashboard"
+    GATEWAY_RUNTIME="$BUNDLE/gateway-runtime-linux-$ARCH.tar.gz"
+  fi
+fi
+
 hub_host() { # host part of --hub (scheme, port and path removed)
   local h=${1#*://}; h=${h%%/*}
   case "$h" in \[*\]*) h=${h%%]*}; h=${h#[} ;; *) h=${h%%:*} ;; esac
@@ -238,13 +280,23 @@ primary_ip() { ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<NF;i++) if(
 pick() { eval "printf '%s' \"\${$1_$ARCH}\""; }   # pick K3S_SHA256 -> value for this arch
 
 # fetch URL SHA256 DEST: download, check the hash, then move into place (never runs unchecked bytes).
+# With a bundle, the same file comes from BUNDLE/downloads/ and gets the same check against the pin.
 fetch() {
-  local url=$1 sum=$2 dest=$3 tmp
-  if [ "$DRY_RUN" = 1 ]; then plan "download $url"; printf '      -> %s (sha256 must be %s)\n' "$dest" "$sum"; return 0; fi
+  local url=$1 sum=$2 dest=$3 tmp from=""
+  [ -n "$BUNDLE" ] && [ -f "$BUNDLE/downloads/${dest##*/}" ] && from="$BUNDLE/downloads/${dest##*/}"
+  if [ "$DRY_RUN" = 1 ]; then
+    if [ -n "$from" ]; then plan "take ${dest##*/} from the bundle"; else plan "download $url"; fi
+    printf '      -> %s (sha256 must be %s)\n' "$dest" "$sum"; return 0
+  fi
   if [ -f "$dest" ] && echo "$sum  $dest" | sha256sum -c --status; then return 0; fi
   tmp=$(mktemp "$CACHE/dl.XXXXXX")
-  log "download $url"
-  curl -fsSL --retry 3 --proto '=https' -o "$tmp" "$url"
+  if [ -n "$from" ]; then
+    log "from the bundle: ${dest##*/}"
+    cp "$from" "$tmp"
+  else
+    log "download $url"
+    curl -fsSL --retry 3 --proto '=https' -o "$tmp" "$url"
+  fi
   if ! echo "$sum  $tmp" | sha256sum -c --status; then
     rm -f "$tmp"; die "sha256 mismatch for $url (expected $sum)"
   fi
@@ -369,6 +421,12 @@ k3s_binary() {
   fi
   fetch "https://raw.githubusercontent.com/k3s-io/k3s/$K3S_INSTALL_COMMIT/install.sh" \
     "$K3S_INSTALL_SHA256" "$CACHE/k3s-install-$K3S_INSTALL_COMMIT.sh"
+  # Offline bundle: k3s's own images (pause, CoreDNS, ...), imported by k3s when it starts.
+  if [ -n "$BUNDLE" ] && [ -f "$BUNDLE/downloads/k3s-airgap-images-$ARCH.tar.zst" ]; then
+    [ "$DRY_RUN" = 1 ] || install -d -m0755 /var/lib/rancher/k3s/agent/images
+    fetch "$K3S_URL_BASE/k3s-airgap-images-$ARCH.tar.zst" "$(pick K3S_AIRGAP_SHA256)" \
+      "/var/lib/rancher/k3s/agent/images/k3s-airgap-images-$ARCH.tar.zst"
+  fi
 }
 
 k3s_server_config() { printf '# Written by deploy/install.sh\nwrite-kubeconfig-mode: "0600"\nagent-token: "%s"\n' "$1"; }
@@ -566,7 +624,38 @@ gateway_user() {
   install -d -m0750 -o onemind -g onemind "$STATE"
 }
 
+# Offline bundle: unpack the runtime deploy/bundle.sh built with this same uv step for /opt/onemind.
+gateway_runtime_from_bundle() {
+  local stamp="$PREFIX/.gateway-runtime-sha256" sum new="$PREFIX/.runtime.new"
+  if [ "$DRY_RUN" = 1 ]; then
+    step "Gateway runtime from the bundle"
+    plan "unpack ${GATEWAY_RUNTIME##*/} (Python 3.12 + venv, built for $PREFIX) -> $PREFIX/python, $PREFIX/venv"
+    plan "copy sdk/schema -> $PREFIX/sdk/schema and apps/ -> $PREFIX/apps"
+    return 0
+  fi
+  [ -f "$GATEWAY_RUNTIME" ] || die "the bundle has no ${GATEWAY_RUNTIME##*/}"
+  sum=$(sha256sum "$GATEWAY_RUNTIME" | cut -d' ' -f1)
+  if [ "$(cat "$stamp" 2>/dev/null)" = "$sum" ]; then
+    log "gateway: runtime from the bundle is up to date"
+  else
+    log "gateway: unpacking the bundle's prebuilt runtime into $PREFIX"
+    rm -rf "$new"; mkdir -p "$new"
+    tar -xzf "$GATEWAY_RUNTIME" -C "$new" --no-same-owner
+    [ -f "$new/opt/onemind/venv/pyvenv.cfg" ] && [ -d "$new/opt/onemind/python" ] \
+      || die "${GATEWAY_RUNTIME##*/} does not hold opt/onemind/{python,venv}"
+    rm -rf "$PREFIX/python" "$PREFIX/venv" "$PREFIX/core"
+    mv "$new/opt/onemind/python" "$PREFIX/python"; mv "$new/opt/onemind/venv" "$PREFIX/venv"; rm -rf "$new"
+    printf '%s\n' "$sum" > "$stamp"
+  fi
+  "$PREFIX/venv/bin/python" -c 'import onemind_core' || die "the bundle's gateway runtime does not run here"
+  install -d -m0755 "$PREFIX/sdk"
+  copy_tree "$SRC/sdk/schema" "$PREFIX/sdk/schema"
+  copy_tree "$SRC/apps" "$PREFIX/apps"
+  chmod -R a+rX "$PREFIX"
+}
+
 gateway_python() {
+  if [ -n "$GATEWAY_RUNTIME" ]; then gateway_runtime_from_bundle; return 0; fi
   if [ "$DRY_RUN" = 1 ]; then
     step "Gateway (core/) into $PREFIX/venv"
     uv_toolchain
@@ -797,6 +886,10 @@ if [ "$ROLE" = hub ]; then
   fi
   printf 'Join another machine (run there, from a checkout of this repo):\n\n'
   printf '    sudo deploy/install.sh --role node --hub %s --token %s\n\n' "$HUB_URL" "$JOIN"
+  if [ -n "$BUNDLE" ]; then
+    printf 'or from an offline bundle for that machine'"'"'s architecture (deploy/bundle.sh --arch ...):\n\n'
+    printf '    sudo BUNDLE/src/deploy/install.sh --role node --hub %s --token %s --bundle BUNDLE\n\n' "$HUB_URL" "$JOIN"
+  fi
   printf 'Check this hub:  ONEMIND_TOKEN=<owner token> deploy/verify/verify.sh http://127.0.0.1:8080\n'
   printf 'Hermes agent (contract §7) model credentials, created by the owner at install time:\n\n'
   printf '    sudo k3s kubectl create namespace app-hermes-agent --dry-run=client -o yaml | sudo k3s kubectl apply -f -\n'
