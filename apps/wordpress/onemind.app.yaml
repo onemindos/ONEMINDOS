@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# WordPress: Market batch 4 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: license.txt at tag 7.1.4 of
+# github.com/WordPress/WordPress, and the image config of the Docker Official Image
+# wordpress:7.1.4-php8.4-apache (crane).
+# Image digests and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: wordpress
+  name: "WordPress"
+  version: "7.1.4"
+  description: "Website and blog publishing software."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: productivity
+  icon: icon.svg
+  # license.txt: "either version 2 of the License, or (at your option) any later version".
+  license: "GPL-2.0-or-later"
+  source: https://github.com/WordPress/WordPress
+  # github.com/WordPress/WordPress is a read-only mirror: it has tags (7.1.4, commit date below) but
+  # no GitHub releases and no issues; support links point at wordpress.org.
+  links:
+    docs: "https://wordpress.org/documentation/"
+    github: "https://github.com/WordPress/WordPress"
+    website: "https://wordpress.org"
+    support: "https://wordpress.org/support/forums/"
+  upstream: {release: "7.1.4", released_at: "2026-10-28T16:12:44Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 1024}
+  web: {port: 8080}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
