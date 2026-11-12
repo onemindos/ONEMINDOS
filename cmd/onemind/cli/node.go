@@ -6,47 +6,84 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
-	"flag"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"runtime"
 	"strings"
-	"text/tabwriter"
+	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/onemindos/onemindos/internal/detect"
 	"github.com/onemindos/onemindos/internal/heartbeat"
+	onemind "github.com/onemindos/onemindos/sdk/go"
 )
 
-func nodeCommands() []Command {
-	return []Command{
-		{
-			Path:  []string{"node", "info"},
-			Usage: "onemind node info [--root DIR] [--arch amd64|arm64] [--agent URL]",
-			Run:   func(env *Env, args []string) error { return nodeInfo(args, env.Stdout) },
-		},
-		{
-			Path:  []string{"nodes"},
-			Usage: "onemind nodes --hub URL [--token TOKEN] [--json]",
-			Run:   func(env *Env, args []string) error { return nodes(args, env.Stdout) },
-		},
+func envOr(k, def string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
 	}
+	return def
 }
 
-// nodeInfo prints this machine's heartbeat. By default it collects locally
-// (the same code onemindd runs); --agent asks a running onemindd instead;
-// --root reads a fixture tree (useful to see what a board would report).
-func nodeInfo(args []string, out io.Writer) error {
-	fs := flag.NewFlagSet("node info", flag.ContinueOnError)
-	root := fs.String("root", "/", "filesystem root to inspect")
-	arch := fs.String("arch", runtime.GOARCH, "architecture to report with --root")
-	agentURL := fs.String("agent", "", "read from a running onemindd, e.g. http://127.0.0.1:7480")
-	if err := fs.Parse(args); err != nil {
-		return err
+func nodeCommands(a *App) []*cobra.Command {
+	var root, arch, agentURL string
+	var local bool
+	info := &cobra.Command{
+		Use:   "info",
+		Short: "This machine's heartbeat (collected locally, or from a running onemindd with --agent)",
+		Args:  cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			_ = local // today's `node info` is always local; --local is accepted for the CLI.md spelling
+			return nodeInfo(root, arch, agentURL, a.Stdout)
+		},
 	}
-	if *agentURL != "" {
-		body, err := httpGet(strings.TrimRight(*agentURL, "/")+"/api/v1/node", "")
+	info.Flags().StringVar(&root, "root", "/", "filesystem root to inspect")
+	info.Flags().StringVar(&arch, "arch", runtime.GOARCH, "architecture to report with --root")
+	info.Flags().StringVar(&agentURL, "agent", "", "read from a running onemindd, e.g. http://127.0.0.1:7480")
+	info.Flags().BoolVar(&local, "local", true, "this machine (the default)")
+	node := &cobra.Command{Use: "node", Short: "This machine (local, no gateway)"}
+	node.AddCommand(info)
+
+	var status string
+	list := func(*cobra.Command, []string) error { return a.nodesList(status) }
+	nodes := &cobra.Command{
+		Use:   "nodes",
+		Short: "Machines in this OneMind (GET /v1/nodes)",
+		Args:  cobra.NoArgs,
+		RunE:  list,
+	}
+	nodes.Flags().StringVar(&status, "status", "", "only online, stale or offline")
+	ls := &cobra.Command{Use: "list", Short: "List nodes", Args: cobra.NoArgs, RunE: list}
+	ls.Flags().StringVar(&status, "status", "", "only online, stale or offline")
+	get := &cobra.Command{
+		Use:   "info NODE_ID",
+		Short: "One node (GET /v1/nodes/{id})",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			var raw any
+			if err := c.Do(bg(), http.MethodGet, "/v1/nodes/"+url.PathEscape(args[0]), nil, &raw); err != nil {
+				return err
+			}
+			return printJSON(a.Stdout, raw)
+		},
+	}
+	nodes.AddCommand(ls, get)
+	return []*cobra.Command{nodes, node}
+}
+
+// nodeInfo prints this machine's heartbeat. By default it collects locally (the same code
+// onemindd runs); --agent asks a running onemindd instead; --root reads a fixture tree.
+func nodeInfo(root, arch, agentURL string, out io.Writer) error {
+	if agentURL != "" {
+		body, err := httpGetPlain(strings.TrimRight(agentURL, "/") + "/api/v1/node")
 		if err != nil {
 			return err
 		}
@@ -58,10 +95,10 @@ func nodeInfo(args []string, out io.Writer) error {
 		return err
 	}
 	var col *detect.Collector
-	if *root == "/" {
+	if root == "/" {
 		col = detect.New()
 	} else {
-		col = detect.NewFixture(*root, *arch)
+		col = detect.NewFixture(root, arch)
 	}
 	col.Role = envOr("ONEMIND_NODE_ROLE", "node")
 	if err := heartbeat.ValidateRole(col.Role); err != nil {
@@ -76,65 +113,76 @@ func nodeInfo(args []string, out io.Writer) error {
 	return printJSON(out, col.Collect(context.Background()))
 }
 
-// nodeRow is the subset of a gateway node (contract §3 GET /v1/nodes) the
-// table shows. The JSON output passes the gateway's objects through unchanged.
-type nodeRow struct {
-	NodeID   string `json:"node_id"`
-	Hostname string `json:"hostname"`
-	Role     string `json:"role"`
-	Board    string `json:"board"`
-	Arch     string `json:"arch"`
-	Status   string `json:"status"`
-	LastSeen string `json:"last_seen"`
-	OS       struct {
-		ID        string `json:"id"`
-		VersionID string `json:"version_id"`
-	} `json:"os"`
-	K3s struct {
-		Present bool `json:"present"`
-		Ready   bool `json:"ready"`
-	} `json:"k3s"`
+// httpGetPlain reads onemindd's local status endpoint (no token, no gateway).
+func httpGetPlain(url string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, exitWith(ExitUnreachable, "network", err.Error())
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%s: HTTP %d", url, resp.StatusCode)
+	}
+	return body, nil
 }
 
-func nodes(args []string, out io.Writer) error {
-	fs := flag.NewFlagSet("nodes", flag.ContinueOnError)
-	hub := fs.String("hub", os.Getenv("ONEMIND_HUB"), "gateway URL, e.g. http://hub.local:8080")
-	token := fs.String("token", os.Getenv("ONEMIND_TOKEN"), "bearer token (or ONEMIND_TOKEN)")
-	asJSON := fs.Bool("json", false, "print the raw JSON list")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	if *hub == "" {
-		return errors.New("--hub is required (or set ONEMIND_HUB)")
-	}
-	body, err := httpGet(strings.TrimRight(*hub, "/")+"/v1/nodes", *token)
+func (a *App) nodesList(status string) error {
+	c, _, err := a.client()
 	if err != nil {
 		return err
 	}
-	if *asJSON {
-		var v any
-		if err := json.Unmarshal(body, &v); err != nil {
-			return fmt.Errorf("gateway returned invalid JSON: %w", err)
+	if a.G.JSON { // the gateway's objects, unchanged (today's behaviour)
+		var raw []any
+		if err := c.Do(bg(), http.MethodGet, "/v1/nodes", nil, &raw); err != nil {
+			return err
 		}
-		return printJSON(out, v)
-	}
-	var rows []nodeRow
-	if err := json.Unmarshal(body, &rows); err != nil {
-		return fmt.Errorf("gateway returned unexpected JSON: %w", err)
-	}
-	tw := tabwriter.NewWriter(out, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(tw, "NODE_ID\tHOSTNAME\tROLE\tBOARD\tARCH\tOS\tK3S\tSTATUS\tLAST_SEEN")
-	for _, r := range rows {
-		k3s := "-"
-		if r.K3s.Present {
-			k3s = "not-ready"
-			if r.K3s.Ready {
-				k3s = "ready"
+		if status != "" {
+			kept := raw[:0]
+			for _, n := range raw {
+				if m, ok := n.(map[string]any); ok && m["status"] == status {
+					kept = append(kept, n)
+				}
 			}
+			raw = kept
 		}
-		osName := strings.TrimSpace(r.OS.ID + " " + r.OS.VersionID)
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			r.NodeID, r.Hostname, r.Role, r.Board, r.Arch, dash(osName), k3s, dash(r.Status), dash(r.LastSeen))
+		return printJSON(a.Stdout, raw)
 	}
-	return tw.Flush()
+	nodes, err := c.Nodes.List(bg())
+	if err != nil {
+		return err
+	}
+	var rows [][]string
+	for _, n := range nodes {
+		if status != "" && n.Status != status {
+			continue
+		}
+		rows = append(rows, nodeRow(n))
+	}
+	return table(a.Stdout, "NODE_ID\tHOSTNAME\tROLE\tBOARD\tARCH\tOS\tK3S\tSTATUS\tLAST_SEEN", rows)
+}
+
+func nodeRow(n onemind.Node) []string {
+	k3s := "-"
+	if n.K3s != nil && n.K3s.Present != nil && *n.K3s.Present {
+		k3s = "not-ready"
+		if n.K3s.Ready != nil && *n.K3s.Ready {
+			k3s = "ready"
+		}
+	}
+	osName := ""
+	if n.Os != nil {
+		osName = strings.TrimSpace(deref(n.Os.Id) + " " + deref(n.Os.VersionId))
+	}
+	return []string{n.NodeId, deref(n.Hostname), deref(n.Role), deref(n.Board), deref(n.Arch), dash(osName), k3s,
+		dash(n.Status), dash(n.LastSeen)}
 }

@@ -1,0 +1,49 @@
+apiVersion: fleet.cattle.io/v1alpha1
+kind: Bundle
+metadata:
+  name: demo
+  namespace: fleet-default
+spec:
+  defaultNamespace: demo
+  resources:
+  - content: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata: {name: demo-version}
+      data: {version: "v2-bad"}
+      ---
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata: {name: demo}
+      spec:
+        replicas: 1
+        progressDeadlineSeconds: 120
+        selector: {matchLabels: {app: demo}}
+        template:
+          metadata: {labels: {app: demo}, annotations: {fb4/version: "v2-bad"}}
+          spec:
+            containers:
+              - name: demo
+                image: docker.io/rancher/mirrored-pause:fb4-does-not-exist
+                resources: {requests: {cpu: 1m, memory: 8Mi}, limits: {memory: 32Mi}}
+    name: demo.yaml
+  rolloutStrategy:
+    maxUnavailable: 0
+    maxUnavailablePartitions: 1
+    partitions:
+    - clusterSelector:
+        matchLabels:
+          ring: "0"
+      name: ring0
+    - clusterSelector:
+        matchLabels:
+          ring: "1"
+      name: ring1
+    - clusterSelector:
+        matchLabels:
+          ring: "2"
+      name: ring2
+  targets:
+  - clusterSelector:
+      matchLabels:
+        fb4: "yes"

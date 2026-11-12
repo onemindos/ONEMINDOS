@@ -6,7 +6,7 @@
 // stale and offline nodes stay stale and offline whenever the demo is opened.
 // No real host data: ids, hostnames and models are made up.
 
-import type { Action, CatalogApp, Instance, NodeHeartbeat, NodeRecord, Principal } from './types';
+import type { Action, AlertRecord, CatalogApp, InboxItem, Instance, NodeHeartbeat, NodeRecord, Principal } from './types';
 
 export const DEMO_TOKENS: Record<string, Principal> = {
   'owner-demo': { id: 'owner', kind: 'person', role: 'owner' },
@@ -255,6 +255,19 @@ export function makeActions(now: number): Action[] {
       requested_by: DEMO_TOKENS['agent-demo'],
       created_at: iso(now, 120),
       updated_at: iso(now, 120),
+      // Mobile addition: §12.4 fields, so the demo shows the v1 approval card.
+      risk: 'sensitive',
+      reason: 'You asked me for a local model to summarise the camera alerts. Ollama runs models on this box.',
+      target: { kind: 'app', id: 'ollama', node_id: '3f9c2a1b7d4e' },
+      plan: {
+        summary: 'Install Ollama 0.5.7 on hub: one Deployment, one Service, one 40 GiB volume.',
+        objects: ['Deployment ollama/ollama', 'Service ollama/ollama', 'PersistentVolumeClaim ollama/models'],
+        images: ['docker.io/ollama/ollama@sha256:4e1b…c2d0'],
+        volumes: ['models: 40 GiB on do-not-delete storage'],
+        nodes: ['hub'],
+        warnings: ['Uses up to 8 GiB of memory while a model is loaded.'],
+      },
+      plan_sha256: 'sha256:9a1e5c0b7f3d2a6e8c4b1d0f9e7a5c3b2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a',
     },
     {
       id: 'act-0000',
@@ -281,6 +294,89 @@ export function makeActions(now: number): Action[] {
       created_at: iso(now, 2 * 86400),
       updated_at: iso(now, 2 * 86400 - 30),
       result: { outcome: 'failed', message: 'kubectl delete exited with status 1', steps: [] },
+    },
+  ];
+}
+
+/** Mobile addition: §12.14 inbox items per demo person (agents have no inbox). */
+export function makeInbox(now: number, principalId: string): InboxItem[] {
+  if (principalId === 'owner')
+    return [
+      {
+        id: 'ntf_demo_01',
+        severity: 'warning',
+        topic: 'approvals',
+        title: 'Approval needed',
+        body: 'agent ops-agent asks to install ollama.',
+        link: null,
+        source: 'actions',
+        action_id: 'act-0001',
+        created_at: iso(now, 120),
+        read_at: null,
+      },
+      {
+        id: 'ntf_demo_02',
+        severity: 'warning',
+        topic: 'nodes',
+        title: 'Node cloud-1 is offline',
+        body: 'No heartbeat for 15 minutes. Apps on it are not reachable.',
+        link: null,
+        source: 'nodes',
+        alert_id: 'alrt_demo_01',
+        created_at: iso(now, 900),
+        read_at: null,
+      },
+      {
+        id: 'ntf_demo_03',
+        severity: 'info',
+        topic: 'backups',
+        title: 'Backup verified',
+        body: 'Last night\'s backup of uptime-kuma was restored to a scratch space and checked.',
+        link: null,
+        source: 'backups',
+        created_at: iso(now, 8 * 3600),
+        read_at: iso(now, 7 * 3600),
+      },
+    ];
+  return [
+    {
+      id: 'ntf_demo_11',
+      severity: 'info',
+      topic: 'apps',
+      title: 'Uptime Kuma is ready',
+      body: 'The owner installed Uptime Kuma. You can open it from Apps.',
+      link: null,
+      source: 'apps',
+      created_at: iso(now, 86400 - 60),
+      read_at: null,
+    },
+  ];
+}
+
+/** Mobile addition: §12.14 open alerts (owners see all; others see none in the demo). */
+export function makeAlerts(now: number): AlertRecord[] {
+  return [
+    {
+      id: 'alrt_demo_01',
+      type: 'node.offline',
+      severity: 'warning',
+      title: 'Node cloud-1 is offline',
+      body: 'No heartbeat since 15 minutes ago.',
+      subject: { node_id: 'c4e8019ab6f2' },
+      state: 'open',
+      opened_at: iso(now, 900),
+      fix: null,
+    },
+    {
+      id: 'alrt_demo_02',
+      type: 'repair:scan_stale:node-red',
+      severity: 'info',
+      title: 'Node-RED scan is older than 7 days',
+      body: 'Updates and new installs of Node-RED wait until it is scanned again.',
+      subject: { app_id: 'node-red' },
+      state: 'open',
+      opened_at: iso(now, 3 * 3600),
+      fix: { type: 'catalog.refresh', params: {} },
     },
   ];
 }

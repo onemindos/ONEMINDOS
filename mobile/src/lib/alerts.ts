@@ -2,7 +2,7 @@
 // What changed between two polls, phrased as phone notifications. Pure, so it is
 // tested without a device. v0 delivery is poll + local notification; the push
 // path (UnifiedPush on Android, an APNs ping on iOS, D-005) is in mobile/README.md.
-import type { Action, NodeRecord, NodeStatus } from '../api/types';
+import type { Action, InboxItem, NodeRecord, NodeStatus } from '../api/types';
 import { actionTitle, principalLabel } from './approvals';
 
 export interface Snapshot {
@@ -16,7 +16,7 @@ export interface Alert {
   title: string;
   body: string;
   /** Deep link target inside the app. */
-  route: 'approvals' | 'nodes' | 'activity';
+  route: 'approvals' | 'nodes' | 'activity' | 'inbox';
 }
 
 export function snapshot(actions: Action[] | undefined, nodes: NodeRecord[] | undefined): Snapshot {
@@ -69,4 +69,16 @@ export function diffAlerts(prev: Snapshot | undefined, next: Snapshot, actions: 
     }
   }
   return out;
+}
+
+/**
+ * Hub inbox (§12.14) → phone notifications for items that are new since the last refresh and unread.
+ * The first refresh (`seen` undefined) raises nothing, for the same reason as diffAlerts.
+ * The text comes from the hub over HTTPS; nothing about it passed through a push service.
+ */
+export function inboxAlerts(seen: Set<string> | undefined, inbox: InboxItem[]): Alert[] {
+  if (!seen) return [];
+  return inbox
+    .filter((n) => !seen.has(n.id) && !n.read_at)
+    .map((n) => ({ id: `ntf:${n.id}`, title: n.title, body: n.body, route: n.action_id ? 'approvals' : 'inbox' }));
 }

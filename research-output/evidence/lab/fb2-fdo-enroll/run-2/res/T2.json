@@ -1,0 +1,11 @@
+{
+  "id": "T2",
+  "verdict": "PASS",
+  "at": "2026-11-12T10:30:07Z",
+  "data": {
+    "complete_lines": 0,
+    "bundle_file": "no",
+    "to1_failures_in_120s": 26,
+    "process_alive": "yes"
+  }
+}
