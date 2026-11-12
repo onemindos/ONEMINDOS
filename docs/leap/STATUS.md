@@ -12,10 +12,10 @@
 
 | State | Epics |
 |---|---|
-| done | 1 (OS-UPDATER) |
+| done | 3 (OS-UPDATER, UMB-CLIENT-8, UMB-CLIENT-10) |
 | in-review | 2 (OS-SECPIPE, CORE-UPDATE-1) |
-| in-progress | 14 (W2-GW, W2-PIPE, W2-DEPLOY, PA-ALIGN, PA-ARCH, PA-THREAT, PA-UI, PA-SITE, PA-MOBILE, LEAP-DOCS, CORE-BACKUP-2, UMB-STOR-3, UMB-CLIENT-8, UMB-PHOTO-4) |
-| todo | 163 + 113 UMB |
+| in-progress | 13 (W2-GW, W2-PIPE, W2-DEPLOY, PA-ALIGN, PA-ARCH, PA-THREAT, PA-UI, PA-SITE, PA-MOBILE, LEAP-DOCS, CORE-BACKUP-2, UMB-STOR-3, UMB-PHOTO-4) |
+| todo | 163 + 112 UMB |
 | parked | 4 (PLAN-E7-LAB, PLAN-E14, PLAN-E15, PH2-DESKTOP) |
 | superseded | 1 (DEV-API-14) |
 
@@ -343,8 +343,8 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-AGT-10 | Agents page, Connect wizard, pairing card, agent activity, "Agent at… | todo | – | – |
 | UMB-AGT-9 | `request_access` deep links and the access landing | todo | – | – |
 | UMB-AGT-11 | Agent tokens wiped on restore; conformance for pairing and new tools | todo | – | – |
-| UMB-CLIENT-8 | Desktop app v1 (Tauri): tray, discovery, pairing, status, open in br… | in-progress | `feat/desktop-client` | – |
-| UMB-CLIENT-10 | Desktop approvals, alerts and events | todo | – | – |
+| UMB-CLIENT-8 | Desktop app v1 (Tauri): tray, discovery, pairing, status, open in br… | done (v1; owner-approved device pairing CLIENT-2/3, CA pin and Ubuntu CI still open) | `feat/desktop-v1` (includes `feat/desktop-client`, #33) | [#51](https://github.com/onemindos/ONEMINDOS/pull/51) |
+| UMB-CLIENT-10 | Desktop approvals, alerts and events | done (passkey approvals hand off to the browser; native passkeys a follow-up spike) | `feat/desktop-v1` | [#51](https://github.com/onemindos/ONEMINDOS/pull/51) |
 | UMB-CLIENT-13 | MCP read tools `list_devices`, `photo_backup_status` | todo | – | – |
 | UMB-CLIENT-14 | Dashboard Devices page | todo | – | – |
 | UMB-DESK-6 | Jobs tray bound to `action.progress` | todo | – | – |
@@ -378,9 +378,9 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-APP-14 | CLI `onemind app` lifecycle verbs and `onemind source` (extends DEV-… | todo | – | – |
 | UMB-APP-17 | Image cleanup on nodes after update and remove | todo | – | – |
 | UMB-AGT-8 | Files read tools and `files.apply_plan` with snapshot and Undo | todo | – | – |
-| UMB-CLIENT-9 | Desktop mounts of SMB shares with per-device credentials | todo | – | – |
+| UMB-CLIENT-9 | Desktop mounts of SMB shares with per-device credentials | todo (WebDAV mount plan: `desktop/docs/FILES.md`; waits on UMB-FILES-5) | – | – |
 | UMB-CLIENT-11 | Laptop folder backup with restic to the box (includes UMB-PHOTO-14) | todo | – | – |
-| UMB-CLIENT-12 | Desktop release: signing, notarization, MSIX, DMG, AppImage, signed… | todo | – | – |
+| UMB-CLIENT-12 | Desktop release: signing, notarization, MSIX, DMG, AppImage, signed… | todo (updater design: `desktop/docs/UPDATER.md`; waits on F-59, F-61) | – | – |
 | UMB-DESK-12 | Live usage across fleet, node and app (includes UMB-SYS-5) | todo | – | – |
 | UMB-DESK-13 | CLI `onemind home` and `onemind usage` | todo | – | – |
 | UMB-DESK-14 | MCP `get_usage` and `home.change` requests | todo | – | – |
