@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Recorded from github.com/louislam/uptime-kuma compose.yaml at tag 2.5.10 (upstream MIT) for the scaffolder tests.
 services:
   uptime-kuma:
     image: louislam/uptime-kuma:2
