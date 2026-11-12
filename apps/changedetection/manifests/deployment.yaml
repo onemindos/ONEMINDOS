@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/dgtlmoon/changedetection.io (contract §9.2),
+# then completed from upstream at tag 0.70.3: docker-compose.yml (port 5000, volume /datastore),
+# Dockerfile (CMD python ./changedetection.py -d /datastore) and docker-entrypoint.sh (it only
+# runs pip for EXTRA_PACKAGES, then execs the command, so any UID works).
+# The optional Playwright browser (JavaScript pages, screenshots) is a separate upstream service
+# and is not packaged: plain HTTP fetching is used.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: changedetection
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: changedetection
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: changedetection
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # The image has no USER; the app writes only to /datastore, so it runs as an unprivileged UID.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: changedetection
+          image: ghcr.io/dgtlmoon/changedetection.io:0.70.3@sha256:47b1e9cc3eff820e6022b655e3fcc948625f60c1770ae8b9c30aa3bf104dc255
+          env:
+            # HOME for Python caches; the image's root home is not writable by UID 1000.
+            - name: HOME
+              value: /tmp
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream publishes no sizing; a OneMind choice for a few hundred watches without a browser.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: datastore
+              mountPath: /datastore
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: datastore
+          persistentVolumeClaim:
+            claimName: changedetection-data
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
