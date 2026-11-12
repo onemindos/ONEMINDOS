@@ -39,7 +39,7 @@ Everything that shows the name, the colours or the logo is **generated** from th
    It needs only Python 3.11+ (standard library). If Node 22.6+ is installed it also refreshes `ui/src/tokens/tokens.css`; if not, run `npm run tokens` in `ui/`.
 3. Commit what changed. CI (`.github/workflows/brand.yml`) runs `python3 -I scripts/brand-sync.py --check` and fails if a derived file was not regenerated.
 
-**Never edit a generated file by hand.** Each one says "Generated from brand/brand.json" at the top (or between the `brand:start` / `brand:end` comments in `dashboard/index.html`).
+**Never edit a generated file by hand.** Each one says "Generated from brand/brand.json" at the top (or between the `brand:start` / `brand:end` comments in `dashboard/index.html`). The copied logo files (SVG, PNG) and `dashboard/public/manifest.webmanifest` (plain JSON) have no room for that note; the table in "Where the brand goes" lists them.
 
 ### What `brand.json` holds
 | Key | Meaning |
@@ -68,9 +68,9 @@ The logo itself always uses the exact `#FF333A`; only text and controls use the 
 ## Where the brand goes
 | Surface | Generated files (by `scripts/brand-sync.py`) | What reads them |
 |---|---|---|
-| UI kit `ui/` | `ui/src/tokens/brand.generated.ts` | `tokens.ts` (accent roles and the `logo-brain` / `logo-circuit` roles, then `tokens.css` via `npm run tokens`), `customize/accents.ts` (the `onemind` preset, default), `BrandMark` (the logo drawn inline, colour variant in light, on-dark in dark), `AppShell` and onboarding headers |
+| UI kit `ui/` | `ui/src/tokens/brand.generated.ts` | `tokens.ts` (accent roles and the `logo-brain` / `logo-circuit` roles, then `tokens.css` via `npm run tokens`), `customize/accents.ts` (the `onemind` preset, default), `BrandMark` (the logo drawn inline, colour variant in light, on-dark in dark), `AppShell` and onboarding headers, the OS name in Settings (About, Updates) and the Home updates widget |
 | Dashboard `dashboard/` | `src/brand.generated.ts`, `src/brand.generated.css`, `src/assets/brand/*.svg`, `public/brand/*` (favicons, manifest icons), `public/manifest.webmanifest`, the `brand:start…brand:end` block in `index.html` | `main.tsx` (CSS), top bar (on-dark logo), sign-in card (colour logo), home page fallback name |
-| Website `site/` | `src/brand.generated.json`, `src/styles/brand.generated.css`, `src/assets/brand/*.svg`, `public/favicon.svg`, `public/favicon-*.png` | `astro.config.mjs` (title, description, Starlight logo light/dark, PNG favicons), landing page (title, nav, theme colour, accent) |
+| Website `site/` | `src/brand.generated.json`, `src/styles/brand.generated.css`, `src/assets/brand/*.svg`, `public/favicon.svg`, `public/favicon-*.png` | `astro.config.mjs` (title, description, Starlight logo light/dark, PNG favicons), landing page (title, nav, theme colour, accent), blog byline fallback |
 | OS image | `brand/generated/os/*` (below) | the image stream, see next section |
 | Phone app `mobile/` | not wired yet | see "Not wired yet" |
 | Desktop app `desktop/` | not wired yet | see "Not wired yet" |
@@ -92,7 +92,7 @@ The favicon (`favicon.svg`) is generated from the logo paths: the colour variant
 None of this has been booted yet: the Plymouth script and GRUB colours need a test on the VM board.
 
 ## Not wired yet
-- **Phone app (`mobile/`)** and **desktop app (`desktop/`)**: both have open PRs (#34 photos backup changes `mobile/app.json`; #33 adds `desktop/`). They were not merged during this change, so wiring them now would conflict. After they merge, add to `scripts/brand-sync.py`:
+- **Phone app (`mobile/`)** and **desktop app (`desktop/`)**: #34 (photos backup, changes `mobile/app.json`) merged into `main` after this branch was cut; #33 (adds `desktop/`) is not on `main` yet. Wire each one after this branch is rebased on a `main` that has it, by adding to `scripts/brand-sync.py`:
   - `mobile/src/brand.generated.ts` (name, accent from `brand.tokens.json`) for `mobile/src/ui/theme.ts`, which still uses a blue accent;
   - copies of `appIcon.light` 1024 and the `splash` PNG into `mobile/assets/brand/`, and in `mobile/app.json`: `expo.name` = `shortName`, `expo.icon`, the splash (Expo 58: the `expo-splash-screen` config plugin with `image`, `backgroundColor`, `imageWidth`; UNVERIFIED, check the Expo 58 docs), `android.adaptiveIcon` (`foregroundImage`, `monochromeImage`, `backgroundColor`) from the CI `brand-icons` artifact;
   - `desktop/src-tauri/tauri.conf.json` `productName` = `name`, and run `npx tauri icon <brand-icons>/desktop/app-icon-1024.png` in the desktop CI to replace `desktop/src-tauri/icons/` and `desktop/assets/app-icon.svg` / `tray-icon.svg`.
