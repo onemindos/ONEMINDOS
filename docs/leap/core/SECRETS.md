@@ -51,7 +51,7 @@ Removing an app keeps its stored values, like its data, so a reinstall finds bot
 | `POST /v1/actions/{id}/approve` | owner | optional body `{sealed?, override?, webauthn?}` |
 | `GET /v1/apps/{id}/owner-override` | owner | `{enabled, scan_problem, eligible, refusal, confirm, reason_length, step_up}` for the approval card |
 
-`app.configure` is not accepted by `POST /v1/actions` or the MCP `request_action` tool: only an owner files it, through the secrets route. Agents can read which keys are set (as contract §12.18's `GET /v1/apps/{id}` allows) and nothing else.
+`app.configure` is not accepted by `POST /v1/actions` or the MCP `request_action` tool: only an owner files it, through the secrets route. Agents can read which keys are set (as contract §12.18's `GET /v1/apps/{id}` allows) and nothing else. This is narrower than contract §12.5, whose `app.configure` takes `{app_id, settings, sealed?}` and may be requested by agents without `sealed`: here the params are `{app_id, secrets: [...]}` and only an owner files it. `spec.settings` and agent requests join the same type when settings land.
 
 **Sealed input** (contract §12.1): `shared = X25519(ephemeral, box)`, `k = HKDF-SHA256(shared, salt = epk ‖ box_pub, info = "onemind sealed-input v1")`, `ct = nonce(12) ‖ AES-256-GCM(k, nonce, {"values": {<secret>: {<key>: <value>}}}, aad = "onemind/app-secrets/<app-id>")`; `epk` and `ct` are base64url without padding, `kid` is optional. The AAD binds a sealed form to one app, so it cannot be replayed into another. The browser side is `ui/src/secrets/seal.ts` (WebCrypto); a one-off run on 2026-11-12 sealed with that file under Node and opened with the gateway's Python code.
 
@@ -74,7 +74,7 @@ When on, an owner adds `"override": {"reason": "...", "confirm": "<app id>"}` to
 |---|---|
 | The approver is an owner | `403` (as every approval) |
 | The install was **requested by a person**: an agent cannot ask for a scan-failed app and have it waved through | `409`; the owner can request it themselves |
-| A scan record exists and its ClamAV count is known and zero: an override covers vulnerabilities and age, never malware | `409` naming the reason |
+| A scan record exists, lists at least one image, and every image has a ClamAV count from a known signature database, all zero: an override covers vulnerabilities and age, never malware and never a record that does not prove ClamAV ran (no images, or app-gate's `daily-unknown`) | `409` naming the reason |
 | The reason has 10–500 characters and `confirm` is the app id typed exactly | `422` |
 | Once the owner has passkeys, the approval carries a passkey assertion | `401` (`step_up_required` in the message) |
 
@@ -116,6 +116,9 @@ Why fingerprints are keyed: contract §12.1 suggests recording a value's sha256.
 - Revisions and plans (DEPLOYMENTS D2): record secret fingerprints in the revision and the plan, so approval binds to them.
 - A Go `onemind secrets` command group when DEV-CLI lands.
 - Image: see [`SECRETS-os.patch.md`](SECRETS-os.patch.md).
+- Scan evidence for the override (review, 2026-11-12): app-gate leaves out an image whose pin check failed and writes `infected: 0` when `clamscan` itself errors, so a record can look clean for an image ClamAV never scanned. app-gate should list every image with `clamav: null` (or an `error`) when the scan did not run; the gateway already refuses an image entry without a count. Until then the override can accept an unpinned image's install.
+- Passkey step-up: the override checks only that a `webauthn` object came with the approval. That is safe only once the identity guard verifies every approval that carries an override; check this when `feat/identity` sets `step_up`.
+- Recovery when a generated value is lost with the key and the app is not installed: install refuses it (it cannot be entered, and regenerating it could break data its old value protects). Adopting the value from the app's Secret in the cluster, or an owner-confirmed regenerate, needs a decision.
 
 ## 9. Files
 

@@ -100,7 +100,7 @@ export function OwnerOverrideDialog({ open, app, info, requestedBy, busy = false
       }
     >
       <ul className="om-sec-facts">
-        <li>It installs exactly the image that was scanned. Nothing else is relaxed.</li>
+        <li>It accepts every finding of this scan, for this install only. Malware is never overridden.</li>
         <li>
           Your reason is written to the activity log as a red <strong>owner override</strong> mark that every owner sees.
         </li>
