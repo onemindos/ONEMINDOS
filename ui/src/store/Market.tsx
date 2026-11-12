@@ -285,6 +285,15 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
     return ids.map((id) => byId.get(id)).filter((a): a is CatalogApp => !!a && shown.has(a.id));
   };
 
+  // On Discover an app is shown once: in the first rail that has it. The same card twice would
+  // list the same Install button twice and make a page of rails look longer than the catalog.
+  const placed = new Set<string>();
+  const place = (list: CatalogApp[]) => {
+    const fresh = list.filter((a) => !placed.has(a.id));
+    fresh.forEach((a) => placed.add(a.id));
+    return fresh;
+  };
+
   return (
     <div className="om-store">
       <div className="om-store-toolbar">
@@ -354,7 +363,7 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
               </Rail>
             )}
             {collections.map((c) => {
-              const list = visible(c.app_ids);
+              const list = place(visible(c.app_ids));
               return list.length ? (
                 <Rail key={c.id} title={c.title} blurb={c.blurb}>
                   <RailRow apps={list} label={c.title} {...hh} />
@@ -362,7 +371,7 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
               ) : null;
             })}
             {railCats.map((c) => {
-              const list = result.apps.filter((a) => a.category === c.slug).slice(0, 8);
+              const list = place(result.apps.filter((a) => a.category === c.slug).slice(0, 8));
               return list.length ? (
                 <Rail
                   key={c.slug}
