@@ -62,6 +62,13 @@ POST /v1/actions/7f3c/approve
 - `POST /v1/tokens {name, principal: "self" | {kind: "agent", id: "agent:<name>"}, scopes?, expires_in_days?}` → `201` with `one_time.token`. Person tokens: up to 365 days (default 90), default scopes = the creator's. Agent tokens (F-15): the `reader` bundle, 90 days at most. Nobody can grant a scope they do not hold. `actions:approve`, `*:admin`, `users:*` and `tokens:*` are never minted for an agent (`403`).
 - An agent or person token is checked against its owner's **current** role on every request; disabling the person kills their tokens.
 - `POST /v1/tokens/{id}/rotate {grace_s ≤ 3600}`, `DELETE /v1/tokens/{id}`. `GET /v1/tokens` lists file tokens read-only (`source: file`) to the owner.
+- Guard rails (review of 2026-11-12):
+  - Only the person who holds a token may rotate it, because rotating returns a working secret. An owner may still revoke anyone's token (`403` on rotate).
+  - A token minting a token cannot give the new one a later expiry than its own.
+  - A personal agent id cannot reuse an app's agent principal (`agent:<app-id>`), a static-file principal id or another person's agent id (`409`, `agent_id_taken`). Otherwise its requests would show up as that principal's.
+  - Changing your own sign-in credentials needs a signed-in session, not an API token (`403`, `session_required`). This covers adding or removing a passkey, the password and TOTP. With a narrowed owner token you see and revoke only your own sessions; you need a full owner session or token to revoke anyone else's.
+  - An approval with a passkey is refused (`409 plan_changed`) when the action's `plan_sha256`, or the one in the body, differs from the hash the challenge was issued for.
+  - `POST /v1/auth/login/options` returns `429` once 1,000 unused sign-in challenges are open.
 
 ## 5. Per-app sharing
 

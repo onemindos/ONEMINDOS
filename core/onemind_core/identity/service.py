@@ -68,6 +68,8 @@ ENROL_TTL = timedelta(hours=24)
 PAT_DEFAULT_DAYS, PAT_MAX_DAYS = 90, 365
 AGENT_DEFAULT_DAYS = AGENT_MAX_DAYS = 90  # F-15: personal agent tokens, renewable
 MAX_GRACE_S = 3600
+MAX_OPEN_LOGIN_CHALLENGES = 1000  # unauthenticated: bound the rows an anonymous caller can create
+MAX_CREDENTIAL_ID = 512  # PasskeyRow.id width; WebAuthn allows longer ids, which we refuse with a 422
 
 
 @dataclass
@@ -315,10 +317,16 @@ class IdentityService:
                 "auth_method": s.auth_method, "created_at": iso(s.created_at), "last_seen_at": iso(s.last_seen_at),
                 "expires_at": iso(s.expires_at), "current": current is not None and current.id == s.id}
 
+    @staticmethod
+    def _owner_wide(ctx: AuthContext | None, p: Principal) -> bool:
+        """Owner-wide session control: a static owner token or a full owner session/token, never a
+        narrowed owner PAT (scopes are the token's ceiling, also on self-service routes)."""
+        return p.is_owner and (ctx is None or sc.ALL in ctx.scopes)
+
     def list_sessions(self, ctx: AuthContext | None, p: Principal) -> list[dict]:
         now = self.now()
         q = select(SessionRow).where(SessionRow.revoked_at.is_(None)).order_by(SessionRow.created_at)
-        if not p.is_owner:
+        if not self._owner_wide(ctx, p):
             if ctx is None or ctx.user is None:
                 return []
             q = q.where(SessionRow.user_id == ctx.user.id)
@@ -328,7 +336,7 @@ class IdentityService:
     def revoke_session(self, ctx: AuthContext | None, p: Principal, session_id: str) -> None:
         s = self.repo.get(SessionRow, session_id)
         mine = s is not None and ctx is not None and ctx.user is not None and s.user_id == ctx.user.id
-        if s is None or not (mine or p.is_owner):
+        if s is None or not (mine or self._owner_wide(ctx, p)):
             raise ApiError(404, "not_found", "no such session")
         self.repo.update(SessionRow, [SessionRow.id == s.id, SessionRow.revoked_at.is_(None)], {"revoked_at": self.now()})
         self.emit("auth", "session.revoked", {"session_id": s.id, "user_id": s.user_id}, p)
@@ -411,6 +419,12 @@ class IdentityService:
 
     def login_options(self, request: Request) -> dict:
         rp_id, _ = self.rp(request)
+        now = self.now()
+        open_ = self.repo.count(ChallengeRow, ChallengeRow.purpose == "login", ChallengeRow.used_at.is_(None),
+                                ChallengeRow.expires_at > now)
+        if open_ >= MAX_OPEN_LOGIN_CHALLENGES:
+            raise ApiError(429, "rate_limited", "too many sign-in attempts in progress; try again shortly",
+                           reason="too_many_pending", retry_after_s=int(CHALLENGE_TTL.total_seconds()))
         row, raw = self._new_challenge("login")
         return {"challenge_id": row.id, "expires_at": iso(row.expires_at),
                 "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=[])}
@@ -526,8 +540,16 @@ class IdentityService:
             raise ApiError(403, "permission_denied", "sign in with a household account (not a static token) to do this")
         return ctx.user
 
-    def passkey_register_options(self, request: Request, ctx: AuthContext | None) -> dict:
+    def _account(self, ctx: AuthContext | None, what: str) -> UserRow:
+        """Changing a person's own sign-in credentials needs a signed-in session, never an API token:
+        a narrowly scoped PAT must not be able to add a passkey or TOTP, or change the password."""
         user = self._person(ctx)
+        if ctx.session is None:
+            raise self.deny(ctx.principal, what, reason="session_required")
+        return user
+
+    def passkey_register_options(self, request: Request, ctx: AuthContext | None) -> dict:
+        user = self._account(ctx, "register a passkey")
         existing = list(self.repo.all(select(PasskeyRow.id).where(PasskeyRow.user_id == user.id)))
         if existing:  # adding a second key is adding power: prove you hold the first
             self.require_step_up(ctx, ctx.principal, "register a passkey")
@@ -539,7 +561,7 @@ class IdentityService:
         return {"challenge_id": row.id, "expires_at": iso(row.expires_at), "publicKey": opts}
 
     def passkey_register(self, request: Request, ctx: AuthContext | None, credential: dict, label: str | None) -> dict:
-        user = self._person(ctx)
+        user = self._account(ctx, "register a passkey")
         try:
             credential = pk.normalize(credential)
             row = self._consume_challenge(credential, "register")
@@ -555,6 +577,8 @@ class IdentityService:
             self.emit("auth", "passkey.rejected", {"user_id": user.id, "reason": "registration_invalid"},
                       ctx.principal, severity="warning")
             raise ApiError(422, "conflict", str(exc)[:300], reason="assertion_invalid") from None
+        if len(v["id"]) > MAX_CREDENTIAL_ID:
+            raise ApiError(422, "conflict", "credential id is too long", reason="assertion_invalid")
         if self.repo.get(PasskeyRow, v["id"]) is not None:
             raise ApiError(409, "conflict", "this passkey is already registered")
         now = self.now()
@@ -574,7 +598,7 @@ class IdentityService:
                  "last_used_at": iso(r.last_used_at)} for r in rows]
 
     def delete_passkey(self, ctx: AuthContext | None, credential_id: str) -> None:
-        user = self._person(ctx)
+        user = self._account(ctx, "remove a passkey")
         row = self.repo.get(PasskeyRow, credential_id)
         if row is None or row.user_id != user.id:
             raise ApiError(404, "not_found", "no such passkey")
@@ -588,7 +612,7 @@ class IdentityService:
 
     # ---- password and TOTP -------------------------------------------------------------------------
     def change_password(self, request: Request, ctx: AuthContext | None, current: str, new: str) -> None:
-        user = self._person(ctx)
+        user = self._account(ctx, "change the password")
         now, src = self.now(), source_of(request)
         self.limiter.check(src, now)
         if not verify_password(current or "", user.password_hash):
@@ -603,7 +627,7 @@ class IdentityService:
         self.emit("auth", "password.changed", {"user_id": user.id, "other_sessions_revoked": True}, ctx.principal)
 
     def totp_setup(self, ctx: AuthContext | None) -> dict:
-        user = self._person(ctx)
+        user = self._account(ctx, "set up an authenticator")
         if user.totp_secret:
             raise ApiError(409, "conflict", "an authenticator is already set up; turn it off first")
         secret = new_totp_secret()
@@ -612,7 +636,7 @@ class IdentityService:
                              "otpauth_uri": otpauth_uri(secret, user.username or user.id, self.cfg.rp_name)}}
 
     def totp_confirm(self, ctx: AuthContext | None, code: str) -> None:
-        user = self._person(ctx)
+        user = self._account(ctx, "set up an authenticator")
         fresh = self.user(user.id)
         if not fresh.totp_pending:
             raise ApiError(409, "conflict", "start authenticator setup first")
@@ -624,7 +648,7 @@ class IdentityService:
         self.emit("auth", "totp.enabled", {"user_id": user.id}, ctx.principal)
 
     def totp_disable(self, request: Request, ctx: AuthContext | None, password: str) -> None:
-        user = self._person(ctx)
+        user = self._account(ctx, "turn off the authenticator")
         now, src = self.now(), source_of(request)
         self.limiter.check(src, now)
         if not verify_password(password or "", user.password_hash):
@@ -753,6 +777,7 @@ class IdentityService:
             principal_id = str(principal.get("id") or "")
             if not AGENT_ID_RE.fullmatch(principal_id):
                 raise ApiError(422, "conflict", "agent id must look like agent:<name> (a-z, 0-9, '.', '_', '-')")
+            self._check_agent_id(principal_id, user, p)
             kind, default_days, max_days = "agent", AGENT_DEFAULT_DAYS, AGENT_MAX_DAYS
             default_scopes = list(sc.BUNDLES["reader"])  # F-15
         else:
@@ -770,15 +795,36 @@ class IdentityService:
         if not 1 <= days <= max_days:
             raise ApiError(422, "conflict", f"expires_in_days must be 1 to {max_days} for a {kind} token")
         now = self.now()
+        expires_at = now + timedelta(days=days)
+        if ctx is not None and ctx.token is not None and ctx.token.expires_at is not None:
+            # A token never mints a token that outlives it (no lifetime laundering with a stolen PAT).
+            expires_at = min(expires_at, utc(ctx.token.expires_at))
         secret = new_secret(TOKEN_KINDS[kind])
         t = TokenRow(id=new_id("tok"), prefix=secret[:11], name=(name or "token").strip()[:100] or "token",
                      hash=sha256_hex(secret), kind=kind, principal_id=principal_id,
                      owner_user_id=user.id if user else None, scopes=wanted, source="api", created_by=p.id,
-                     created_at=now, expires_at=now + timedelta(days=days))
+                     created_at=now, expires_at=expires_at)
         self.repo.add(t)
         self.emit("auth", "token.created", {"token_id": t.id, "kind": kind, "principal_id": principal_id,
                                             "scopes": wanted, "expires_at": iso(t.expires_at)}, p)
         return {**self.token_json(t), "one_time": {"token": secret}}
+
+    def _check_agent_id(self, principal_id: str, user: UserRow | None, p: Principal) -> None:
+        """A personal agent id must not reuse an app's agent principal (agent:<app-id>, §11.2), a
+        static-file principal, or another person's agent: its requests would be shown and audited
+        as that principal's."""
+        app_id = principal_id.partition(":")[2]
+        taken = app_id in self.gw.catalog.load() or any(fp.id == principal_id for _, fp in self.gw.tokens.entries())
+        if not taken:
+            owner_id = user.id if user else None
+            others = self.repo.all(select(TokenRow.owner_user_id).where(TokenRow.kind == "agent",
+                                                                         TokenRow.principal_id == principal_id))
+            taken = any(o != owner_id for o in others)
+        if taken:
+            self.emit("authz", "denied", {"attempted": "mint agent token", "principal_id": principal_id,
+                                          "reason": "agent_id_taken"}, p, severity="warning")
+            raise ApiError(409, "conflict", f"agent id {principal_id!r} belongs to an app or another principal",
+                           reason="agent_id_taken")
 
     def _token_for_write(self, ctx: AuthContext | None, p: Principal, token_id: str, what: str) -> TokenRow:
         t = self.repo.get(TokenRow, token_id)
@@ -791,6 +837,11 @@ class IdentityService:
 
     def rotate_token(self, ctx: AuthContext | None, p: Principal, token_id: str, grace_s: int) -> dict:
         t = self._token_for_write(ctx, p, token_id, "rotate tokens")
+        uid = ctx.user.id if ctx and ctx.user else None
+        if t.owner_user_id is not None and t.owner_user_id != uid:
+            # Rotation hands out the new secret: an owner may revoke another person's token, but not
+            # obtain a working secret for it (that would let them act as that person).
+            raise self.deny(p, "rotate another person's token", token_id=t.id)
         if not 0 <= grace_s <= MAX_GRACE_S:
             raise ApiError(422, "conflict", f"grace_s must be 0 to {MAX_GRACE_S}")
         now = self.now()
@@ -925,8 +976,12 @@ class IdentityService:
             raise self._step_up_failed(p, action_id, exc.message) from None
         if row.action_id != action_id:
             raise self._step_up_failed(p, action_id, "challenge was issued for another action")
-        if row.data.get("action_sha256") != self.action_sha256(self.gw.actions.get(action_id)):
+        current = self.gw.actions.get(action_id)
+        if row.data.get("action_sha256") != self.action_sha256(current) or \
+                (row.data.get("plan_sha256") or None) != (current.get("plan_sha256") or None):
             raise self._step_up_failed(p, action_id, "the action changed since the challenge", reason="plan_changed")
+        if body.get("plan_sha256") and body["plan_sha256"] != (row.data.get("plan_sha256") or None):
+            raise self._step_up_failed(p, action_id, "plan_sha256 differs from the one signed", reason="plan_changed")
         try:
             cred = self._assert(request, credential, row)
         except ApiError as exc:

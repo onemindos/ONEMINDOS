@@ -484,3 +484,79 @@ def test_openapi_lists_identity_routes(idc):
 
 def test_unb64url_roundtrip():
     assert unb64url(b64url(b"\x00\xffabc")) == b"\x00\xffabc"
+
+
+# ---- review fixes ---------------------------------------------------------------------------------
+def test_api_tokens_cannot_change_sign_in_credentials(idc):
+    setup_owner(idc)
+    reader = idc.post("/v1/tokens", json={"name": "r", "scopes": ["reader"]}, headers=csrf(idc)).json()["one_time"]["token"]
+    h = {"Authorization": f"Bearer {reader}"}
+    for path, body in (("/v1/auth/passkeys/register/options", None), ("/v1/auth/totp/setup", None),
+                       ("/v1/auth/password", {"current_password": PASSWORD, "new_password": "x" * 12}),
+                       ("/v1/auth/totp/disable", {"password": PASSWORD})):
+        r = idc.post(path, json=body, headers=h)
+        assert r.status_code == 403, (path, r.text)
+    assert idc.get("/v1/auth/passkeys", headers=h).status_code == 200  # reading own list is fine
+    # A narrowed owner PAT sees and revokes only its own person's sessions, not everyone's.
+    adult = enrol(idc, "adult", "ana")
+    adult_sid = adult.get("/v1/me").json()["session"]["id"]
+    assert all(s["principal_id"] != adult.get("/v1/me").json()["principal"]["id"]
+               for s in idc.get("/v1/auth/sessions", headers=h).json())
+    assert idc.delete(f"/v1/auth/sessions/{adult_sid}", headers=h).status_code == 404
+    assert adult.get("/v1/me").status_code == 200
+    assert idc.delete(f"/v1/auth/sessions/{adult_sid}", headers=csrf(idc)).status_code == 204  # full session
+
+
+def test_personal_agent_ids_cannot_impersonate(idc):
+    setup_owner(idc)
+    adult = enrol(idc, "adult", "ana")
+    for agent_id in ("agent:uptime-kuma",):  # an app's §11.2 agent principal
+        r = adult.post("/v1/tokens", json={"name": "x", "principal": {"kind": "agent", "id": agent_id}},
+                       headers=csrf(adult))
+        assert r.status_code == 409 and r.json()["reason"] == "agent_id_taken"
+    assert idc.post("/v1/tokens", json={"name": "a", "principal": {"kind": "agent", "id": "agent:mine"}},
+                    headers=csrf(idc)).status_code == 201
+    r = adult.post("/v1/tokens", json={"name": "b", "principal": {"kind": "agent", "id": "agent:mine"}},
+                   headers=csrf(adult))
+    assert r.status_code == 409  # another person's agent
+    assert idc.post("/v1/tokens", json={"name": "c", "principal": {"kind": "agent", "id": "agent:mine"}},
+                    headers=csrf(idc)).status_code == 201  # the same person may hold several
+
+
+def test_owner_cannot_rotate_another_persons_token(idc):
+    setup_owner(idc)
+    adult = enrol(idc, "adult", "ana")
+    tid = adult.post("/v1/tokens", json={"name": "x", "scopes": ["nodes:read"]}, headers=csrf(adult)).json()["id"]
+    assert idc.post(f"/v1/tokens/{tid}/rotate", json={}, headers=csrf(idc)).status_code == 403
+    assert adult.post(f"/v1/tokens/{tid}/rotate", json={}, headers=csrf(adult)).status_code == 201
+    assert idc.delete(f"/v1/tokens/{tid}", headers=csrf(idc)).status_code == 204  # revoking is removing power
+
+
+def test_a_token_never_mints_a_longer_lived_token(idc, clock):
+    setup_owner(idc)
+    short = idc.post("/v1/tokens", json={"name": "s", "expires_in_days": 1}, headers=csrf(idc)).json()
+    h = {"Authorization": "Bearer " + short["one_time"]["token"]}
+    r = idc.post("/v1/tokens", json={"name": "long", "expires_in_days": 365}, headers=h)
+    assert r.status_code == 201 and r.json()["expires_at"] == short["expires_at"]
+
+
+def test_approval_is_bound_to_the_plan_hash(idc, clock):
+    setup_owner(idc)
+    key = SoftAuthenticator()
+    register_passkey(idc, key)
+    aid = idc.post("/v1/actions", json=action_body(clock), headers=OWNER).json()["id"]
+    opts = idc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(idc)).json()
+    r = idc.post(f"/v1/actions/{aid}/approve", headers=csrf(idc),
+                 json={"webauthn": key.assert_(opts["challenge"]), "plan_sha256": "sha256:" + "0" * 64})
+    assert r.status_code == 409 and r.json()["reason"] == "plan_changed"
+    assert idc.get(f"/v1/actions/{aid}").json()["state"] == "awaiting_approval"
+
+
+def test_open_login_challenges_are_capped(idc, monkeypatch):
+    from onemind_core.identity import service
+
+    monkeypatch.setattr(service, "MAX_OPEN_LOGIN_CHALLENGES", 3)
+    for _ in range(3):
+        assert idc.post("/v1/auth/login/options").status_code == 200
+    r = idc.post("/v1/auth/login/options")
+    assert r.status_code == 429 and r.json()["error"] == "rate_limited"
