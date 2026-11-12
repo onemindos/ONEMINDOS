@@ -79,6 +79,8 @@ class MigrateSettings:
                 raise ValueError("ONEMIND_MIGRATE_REPO_URL must be http(s)://host[:port][/prefix]")
         if "@sha256:" not in self.helper_image:
             raise ValueError("ONEMIND_MIGRATE_HELPER_IMAGE must be pinned by digest (@sha256:...)")
+        if self.ca_file is not None and not self.ca_file.is_file():
+            raise ValueError("ONEMIND_MIGRATE_CA_FILE does not name a readable file")
         if self.poll_s <= 0 or self.copy_timeout_s < 60:
             raise ValueError("ONEMIND_MIGRATE_POLL_S must be > 0 and COPY_TIMEOUT_S >= 60")
 
@@ -256,6 +258,9 @@ class MigrateService:
         if not p.is_owner:  # checked first, so an agent learns nothing about the plan or the cluster
             raise self._deny(p, f"request {action_type}")
         row = self._plan(plan_id)
+        if action_type == "migrate.revert" and row.old_replicas and kubeconfig is None:
+            raise ApiError(409, "stale_precondition",
+                           "OneMind stopped the old app, so scaling it back up needs the old cluster's kubeconfig")
         extra: dict = {}
         target = None
         if kubeconfig is not None:

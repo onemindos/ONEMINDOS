@@ -263,6 +263,23 @@ def test_cutover_stops_old_copies_final_and_revert(client, world, clock, setting
     assert ("scale", "app-notes", "Deployment", "notes", 0) in box.calls
 
 
+def test_revert_needs_kubeconfig_when_onemind_stopped_the_old_app(client, world, clock):
+    svc, _, _ = world
+    plan = _copied(client, svc, clock)
+    r = client.post(f"/v1/migrate/plans/{plan['id']}/cutover", headers=OWNER,
+                    json={"kubeconfig": kubeconfig(), "stop_old": True})
+    _approve(client, r.json()["id"])
+    r = client.post(f"/v1/migrate/plans/{plan['id']}/revert", headers=OWNER, json={})
+    assert r.status_code == 409 and "kubeconfig" in r.json()["message"]
+
+
+def test_missing_ca_file_refuses_startup(tmp_path):
+    from onemind_core.migrate.service import MigrateSettings
+
+    with pytest.raises(ValueError, match="CA_FILE"):
+        MigrateSettings(ca_file=tmp_path / "nope.pem").validate()
+
+
 def test_cutover_without_stop_old_needs_old_app_stopped(client, world, clock):
     svc, cluster, _ = world
     plan = _copied(client, svc, clock)
