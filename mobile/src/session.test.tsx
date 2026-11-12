@@ -124,6 +124,41 @@ describe('identity (§12.6)', () => {
     expect(result.current.session?.connection).toMatchObject({ token: 'fresh' });
   });
 
+  it('renews even when the hub routes were not known yet at start (first /openapi.json read failed)', async () => {
+    let openapiCalls = 0;
+    const fn: FetchLike = async (url, init) => {
+      const auth = (init?.headers as Record<string, string>)?.Authorization;
+      if (url.endsWith('/openapi.json'))
+        return ++openapiCalls === 1
+          ? new Response('busy', { status: 503 })
+          : new Response(JSON.stringify({ paths: { '/v1/auth/refresh': { post: {} } } }), { status: 200 });
+      if (url.endsWith('/v1/auth/refresh')) return new Response(JSON.stringify({ access_token: 'fresh', expires_at: 'x' }), { status: 200 });
+      if (auth === 'Bearer fresh') return new Response(JSON.stringify({ name: 'Home', version: '1', hub_node_id: 'h' }), { status: 200 });
+      return new Response(JSON.stringify({ error: 'unauthenticated', message: 'expired' }), { status: 401 });
+    };
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SessionProvider
+        deps={{
+          load: async () => ({ mode: 'live', hubUrl: 'https://hub.example', token: 'old', auth: 'passkey', refreshToken: 'r1' }),
+          save: async () => undefined,
+          clear: async () => undefined,
+          makeApi: (c, tokens) => new HttpApi({ tokens, baseUrl: (c as { hubUrl: string }).hubUrl, fetchFn: fn }),
+        }}
+      >
+        {children}
+      </SessionProvider>
+    );
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(result.current.session?.features.source).toBe('unknown');
+    await act(async () => {
+      await expect(result.current.session!.api.instance()).resolves.toMatchObject({ name: 'Home' });
+    });
+    expect(openapiCalls).toBe(2);
+  });
+
   it('an expired sign-in returns to Connect with the hub address kept', async () => {
     const clear = jest.fn(async () => undefined);
     const wrapper = ({ children }: { children: ReactNode }) => (

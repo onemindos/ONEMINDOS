@@ -119,13 +119,15 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
         const c = conn.current;
         const s = live.current;
         if (!c || c.mode !== 'live' || c.auth !== 'passkey' || !s) return undefined;
+        // Right after start the session may not know the hub's routes yet (enrich still running): ask now.
+        const features = s.features.source === 'unknown' ? await s.api.features().catch(() => s.features) : s.features;
         let r: LoginResult | undefined;
         try {
-          r = await renewWithDevice?.(s.api, s.features, c.hubUrl);
+          r = await renewWithDevice?.(s.api, features, c.hubUrl);
         } catch {
           r = undefined;
         }
-        if (!r && c.refreshToken && s.features.has(OP.authRefresh)) r = await s.api.refreshSession(c.refreshToken).catch(() => undefined);
+        if (!r && c.refreshToken && features.has(OP.authRefresh)) r = await s.api.refreshSession(c.refreshToken).catch(() => undefined);
         if (!r) return undefined;
         const next: LiveConnection = { ...c, token: r.access_token, expiresAt: r.expires_at, refreshToken: r.refresh_token ?? c.refreshToken };
         conn.current = next;

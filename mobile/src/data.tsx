@@ -55,7 +55,7 @@ export function HubDataProvider({
   onAlerts?: (alerts: Alert[]) => void;
   intervalMs?: number;
 }) {
-  const { api, features, principal, connection } = useSignedIn();
+  const { api, features, principal, connection, refreshIdentity } = useSignedIn();
   const { disconnect, expire } = useSession();
   const [state, setState] = useState<State>({ loading: true });
   const [refreshing, setRefreshing] = useState(false);
@@ -65,6 +65,7 @@ export function HubDataProvider({
   const seq = useRef(0);
   const lastLoad = useRef(0);
   const streamOpen = useRef(false);
+  const lastIdentityTry = useRef(0);
   const alertsRef = useRef(onAlerts);
   alertsRef.current = onAlerts;
 
@@ -106,6 +107,11 @@ export function HubDataProvider({
         loading: false,
       }));
       if (raised.length) alertsRef.current?.(raised);
+      // Started while the hub was unreachable? Its routes were unknown then; read them now (at most once a minute).
+      if (features.source === 'unknown' && connection.mode === 'live' && Date.now() - lastIdentityTry.current > 60_000) {
+        lastIdentityTry.current = Date.now();
+        void refreshIdentity();
+      }
     } catch (e) {
       if (mine !== seq.current) return;
       const err = e instanceof ApiError ? e : new ApiError(0, 'unknown', String(e));
@@ -116,7 +122,7 @@ export function HubDataProvider({
       }
       setState((s) => ({ ...s, error: err, loading: false }));
     }
-  }, [api, hasInbox, hasAlerts, connection.mode, disconnect, expire]);
+  }, [api, hasInbox, hasAlerts, features.source, connection.mode, disconnect, expire, refreshIdentity]);
 
   const reload = useCallback(async () => {
     setRefreshing(true);
