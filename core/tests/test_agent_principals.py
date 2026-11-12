@@ -3,19 +3,21 @@
 
 import base64
 import json
-import subprocess
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from conftest import AGENT, OWNER, ScriptedExecutor, action_body, make_client
+from conftest import AGENT, OWNER, FakeKubectl, ScriptedExecutor, action_body, make_client
 from onemind_core.app import create_app
 from onemind_core.audit import verify
 from onemind_core.catalog import Catalog, agent_spec_errors
 from onemind_core.config import Settings
 from onemind_core.executors import KubernetesExecutor
+
+SCHEMA = Path(__file__).resolve().parents[2] / "sdk" / "schema" / "onemind.app.schema.json"
 from onemind_core.ledger import AgentTokenRow
 
 APP = "hermes-like"
@@ -181,33 +183,26 @@ def test_invalid_spec_agent_skips_the_app(settings):
     assert APP not in cat.load() and APP in cat.errors
 
 
-class FakeRun:
-    def __init__(self, rc=0):
-        self.rc = rc
-        self.calls = []
-
-    def __call__(self, argv, **kw):
-        self.calls.append((argv, kw.get("input")))
-        stdin = kw.get("input") or ""
-        # a hostile kubectl that echoes its input must not leak the token into the result
-        return subprocess.CompletedProcess(argv, self.rc, stdout=stdin, stderr="")
-
-
 def test_kubernetes_executor_creates_secret_before_manifests(settings, clock):
-    run = FakeRun()
-    ex = KubernetesExecutor(runner=run)
-    s = replace(settings, executor="kubernetes", public_url="http://hub.example.test:8080")
+    # a hostile kubectl that echoes its input must not leak the token into the result
+    run = FakeKubectl(echo=True)
+    ex = KubernetesExecutor(runner=run, resolve=lambda host: ["192.0.2.10"])
+    s = replace(settings, executor="kubernetes", public_url="http://hub.example.test:8080", app_schema_path=SCHEMA)
     with TestClient(create_app(s, clock=clock, executor=ex)) as c:
         action = run_action(c, clock)
         assert action["state"] == "succeeded"
-        argvs = [argv for argv, _ in run.calls]
+        calls = run.cluster_calls
+        argvs = [argv for argv, _ in calls]
         assert argvs[0] == ["kubectl", "apply", "-f", "-"]  # namespace
-        assert argvs[1] == [  # agent Secret, server-side so no last-applied annotation holds the token
+        assert "onemind-allow" in calls[1][1]  # network policy, with egress to the gateway only
+        allow = json.loads(calls[1][1].split("---")[1])
+        assert {"to": [{"ipBlock": {"cidr": "192.0.2.10/32"}}], "ports": [{"protocol": "TCP", "port": 8080}]} in allow["spec"]["egress"]
+        assert argvs[2] == [  # agent Secret, server-side so no last-applied annotation holds the token
             "kubectl", "apply", "--server-side", "--field-manager=onemind-gateway", "--force-conflicts",
             "-n", "app-hermes-like", "-f", "-",
         ]
-        assert argvs[2][:3] == ["kubectl", "apply", "-k"]  # then the manifests
-        secret = json.loads(run.calls[1][1])
+        assert argvs[3] == ["kubectl", "apply", "-n", "app-hermes-like", "-f", "-"]  # then the checked render
+        secret = json.loads(calls[2][1])
         assert secret["kind"] == "Secret" and secret["metadata"]["name"] == SECRET
         assert secret["metadata"]["namespace"] == "app-hermes-like"
         assert "stringData" not in secret
@@ -223,8 +218,7 @@ def test_kubernetes_executor_creates_secret_before_manifests(settings, clock):
         assert run_action(c, clock, type_="app.remove", key="k2")["state"] == "succeeded"
         argvs = [argv for argv, _ in run.calls]
         assert argvs[0] == ["kubectl", "delete", "secret", SECRET, "-n", "app-hermes-like", "--ignore-not-found=true"]
-        assert argvs[1][:3] == ["kubectl", "delete", "-k"]
-        assert argvs[2][:3] == ["kubectl", "delete", "namespace"]
+        assert argvs[1][:3] == ["kubectl", "delete", "namespace"]
         assert c.get("/v1/nodes", headers=bearer(token)).status_code == 401
 
 

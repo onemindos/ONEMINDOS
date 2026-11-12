@@ -22,7 +22,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         status_code=201,
         responses={
             200: {"description": "Idempotent replay: the action created earlier with this idempotency_key"},
-            **error_responses(401, 403, 404, 409, 422),
+            **error_responses(401, 403, 404, 409, 422, 429),
         },
     )
     def create_action(req: ActionRequest, p: Principal = Depends(principal)):
