@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind Core gateway (contract §3, :8080; serves the dashboard at /).
+# Installed by deploy/install.sh --role hub. Config: /etc/onemind/gateway.env.
+# Runs as the unprivileged "onemind" user. Its only power over the cluster is the
+# onemind-gateway ServiceAccount in /etc/onemind/gateway.kubeconfig (see deploy/README.md).
+[Unit]
+Description=OneMind Core gateway (:8080)
+Documentation=https://github.com/onemindos/ONEMINDOS/tree/main/core
+After=network-online.target onemind-nats.service k3s.service
+Wants=network-online.target onemind-nats.service
+
+[Service]
+Type=simple
+User=onemind
+Group=onemind
+EnvironmentFile=/etc/onemind/gateway.env
+Environment=HOME=/var/lib/onemind PYTHONUNBUFFERED=1
+WorkingDirectory=/var/lib/onemind
+ExecStart=/opt/onemind/venv/bin/python -m onemind_core
+Restart=always
+RestartSec=3s
+StateDirectory=onemind
+StateDirectoryMode=0750
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
