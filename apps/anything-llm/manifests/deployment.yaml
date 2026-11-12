@@ -1,0 +1,129 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/Mintplex-Labs/anything-llm (contract §9.2),
+# then completed from upstream at tag v1.19.0: docker/Dockerfile (USER anythingllm, UID 1000),
+# docker/docker-compose.yml (port 3001; .env mounted at /app/server/.env; storage at
+# /app/server/storage), docker/docker-entrypoint.sh (warns that STORAGE_DIR must be set; runs
+# prisma migrate deploy, the server and the collector), docker/docker-healthcheck.sh
+# (GET /api/ping) and server/utils/http/index.js (makeJWT throws when JWT_SECRET is unset).
+#
+# AnythingLLM saves the settings chosen in its UI into /app/server/.env, so that file lives on the
+# volume, as in upstream's quickstart. The init container creates it and adds a random JWT_SECRET
+# once; nothing secret is committed.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: anything-llm
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: anything-llm
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: anything-llm
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Also creates the subPath directory and file as the app user: the kubelet would create a
+        # missing subPath as a root-owned directory (k3s local-path).
+        - name: env-file
+          image: docker.io/mintplexlabs/anythingllm:1.19.0@sha256:daf5a6ae9d363ed578e7d41e2d0668c7eaa604bd90b0ff27435f893b0906833e
+          command:
+            - bash
+            - -c
+            - |
+              set -eu
+              mkdir -p /mnt/storage
+              f=/mnt/storage/.env
+              umask 077
+              touch "$f"
+              if ! grep -q '^JWT_SECRET=' "$f"; then
+                printf "JWT_SECRET='%s'\n" "$(head -c 96 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 48)" >> "$f"
+              fi
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /mnt
+      containers:
+        - name: anything-llm
+          image: docker.io/mintplexlabs/anythingllm:1.19.0@sha256:daf5a6ae9d363ed578e7d41e2d0668c7eaa604bd90b0ff27435f893b0906833e
+          env:
+            - name: STORAGE_DIR
+              value: /app/server/storage
+            - name: SERVER_PORT
+              value: "3001"
+            # Upstream sends anonymous usage telemetry unless this is set.
+            - name: DISABLE_TELEMETRY
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+          # Database migrations run on the first start.
+          startupProbe:
+            httpGet:
+              path: /api/ping
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/ping
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/ping
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # docs.anythingllm.com system requirements: 2 GB RAM and 2 CPU cores minimum, with the
+          # model running elsewhere (Ollama or a provider). The built-in embedder and vector
+          # database run in this container.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /app/server/storage
+              subPath: storage
+            - name: data
+              mountPath: /app/server/.env
+              subPath: storage/.env
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: anything-llm-data
