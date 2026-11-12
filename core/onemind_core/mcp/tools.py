@@ -339,10 +339,14 @@ class Catalogue:
 
     def t_search_audit(self, p, args):
         _args(args, {"event", "since", "until", "after_seq", "limit"})
-        rows, more = self.svc.audit_list(
-            p, event=_str(args, "event"), since=_str(args, "since", max_len=40), until=_str(args, "until", max_len=40),
-            after_seq=_int(args, "after_seq", 0, None), limit=_int(args, "limit", 1, AUDIT_MAX) or AUDIT_MAX,
-        )
+        try:
+            rows, more = self.svc.audit_list(
+                p, event=_str(args, "event"), since=_str(args, "since", max_len=40),
+                until=_str(args, "until", max_len=40),
+                after_seq=_int(args, "after_seq", 0, None), limit=_int(args, "limit", 1, AUDIT_MAX) or AUDIT_MAX,
+            )
+        except ValueError as e:
+            raise RpcError(INVALID_PARAMS, str(e)) from None
         s: dict[str, Any] = {"entries": rows}
         if more and rows:
             s["next_cursor"] = str(rows[-1]["seq"])

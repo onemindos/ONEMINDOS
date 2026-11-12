@@ -30,6 +30,8 @@ KEEPALIVE_S = 15.0
 POLL_S = 0.5
 NODE_POLL_S = 2.0
 MAX_STREAMS_PER_PRINCIPAL = 5
+# Person roles whose §12.6 defaults include nodes:read (agents have it in every grant bundle).
+NODE_READERS = {"owner", "adult", "guest"}
 
 # audit event -> the action state it moves to (§3 states).
 ACTION_STATES = {
@@ -107,8 +109,25 @@ class EventStream:
         self.clock = clock
 
     def _allowed(self, p: Principal) -> Callable[[dict], bool]:
-        """Per-principal filter (§12.8): audit.* needs audit:read; agents see their own actions."""
+        """Per-principal filter (§12.8): audit.* needs audit:read; agents see their own actions;
+        node.status needs nodes:read (§12.6 role defaults: not a child, nor an unknown role)."""
         full = can_read_all(p)
+        nodes = p.kind == "agent" or (p.kind == "person" and p.role in NODE_READERS)
+        # An agent's own action ids, looked up once and again only when an unknown id shows up
+        # (its own new request). A lookup reads the whole ledger, so never once per event.
+        own: set[str] | None = None
+        foreign: set[str] = set()
+
+        def owns(action_id: str | None) -> bool:
+            nonlocal own
+            if not action_id or action_id in foreign:
+                return False
+            if own is None or action_id not in own:
+                own = self.owned_action_ids(p.id)
+            if action_id in own:
+                return True
+            foreign.add(action_id)  # ownership is fixed at creation, before the audit line
+            return False
 
         def ok(ev: dict) -> bool:
             t = ev["type"]
@@ -118,9 +137,11 @@ class EventStream:
                 if full or (p.kind == "person" and p.role == "owner"):
                     return True
                 if p.kind == "agent":
-                    return ev["subject"].get("action_id") in self.owned_action_ids(p.id)
+                    return owns(ev["subject"].get("action_id"))
                 return False
-            return True  # node.status, stream.reset
+            if t == "node.status":
+                return nodes
+            return t == "stream.reset"
 
         return ok
 

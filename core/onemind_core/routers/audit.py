@@ -55,10 +55,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
         p: Principal = Depends(principal),
     ):
         readable(p)
-        rows, more = reader.list(
-            p, after_seq=after_seq, before_seq=before_seq, event=event, principal_id=principal_id,
-            action_id=action_id, since=since, until=until, limit=limit,
-        )
+        try:
+            rows, more = reader.list(
+                p, after_seq=after_seq, before_seq=before_seq, event=event, principal_id=principal_id,
+                action_id=action_id, since=since, until=until, limit=limit,
+            )
+        except ValueError as e:
+            raise ApiError(422, "conflict", str(e)) from None
         headers = {}
         if more and rows:
             q = {k: v for k, v in request.query_params.items() if k != "after_seq"}

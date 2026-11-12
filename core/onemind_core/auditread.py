@@ -13,7 +13,7 @@ from __future__ import annotations
 import fnmatch
 import json
 from collections.abc import Callable, Iterator
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .audit import GENESIS, chain_hash
@@ -51,6 +51,31 @@ def iter_records(path: Path, start: int = 0) -> Iterator[tuple[int, dict]]:
                 continue
             if isinstance(rec, dict) and isinstance(rec.get("seq"), int):
                 yield pos, rec
+
+
+def parse_time(value: str | None, name: str) -> datetime | None:
+    """An RFC 3339 filter bound as an aware UTC datetime; ValueError names the bad parameter.
+
+    Records are compared as instants, not strings: "...12Z" and "...12.5Z" or "+01:00" offsets
+    do not sort correctly as text.
+    """
+    if value is None or value == "":
+        return None
+    try:
+        t = datetime.fromisoformat(value)
+    except ValueError:
+        raise ValueError(f"{name} must be an RFC 3339 time, e.g. 2026-11-12T09:00:00Z") from None
+    if t.tzinfo is None:
+        raise ValueError(f"{name} must carry a time zone (Z or an offset)")
+    return t.astimezone(UTC)
+
+
+def _record_time(rec: dict) -> datetime | None:
+    try:
+        t = datetime.fromisoformat(str(rec.get("ts", "")))
+    except ValueError:
+        return None
+    return t if t.tzinfo is not None else t.replace(tzinfo=UTC)
 
 
 def glob_any(patterns: str | None, value: str | None) -> bool:
@@ -93,7 +118,11 @@ class AuditReader:
         until: str | None = None,
         limit: int = DEFAULT_LIMIT,
     ) -> tuple[list[dict], bool]:
-        """Matching records in seq order and whether more follow the last one returned."""
+        """Matching records in seq order and whether more follow the last one returned.
+
+        Raises ValueError for a `since` or `until` that is not an RFC 3339 time.
+        """
+        t_since, t_until = parse_time(since, "since"), parse_time(until, "until")
         ok = self.visible(p)
         out: list[dict] = []
         for _, rec in iter_records(self.path):
@@ -108,9 +137,10 @@ class AuditReader:
                 continue
             if action_id and rec.get("action_id") != action_id:
                 continue
-            ts = str(rec.get("ts", ""))
-            if (since and ts < since) or (until and ts >= until):
-                continue
+            if t_since or t_until:
+                ts = _record_time(rec)
+                if ts is None or (t_since and ts < t_since) or (t_until and ts >= t_until):
+                    continue
             if len(out) == limit:
                 return out, True
             out.append(rec)

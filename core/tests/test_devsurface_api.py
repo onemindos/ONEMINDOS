@@ -209,3 +209,78 @@ def test_events_stream_reset_and_limit(live):
         for s in streams:
             s.__exit__(None, None, None)
         assert c.get("/v1/events", headers={}).status_code == 401
+
+
+# ---- review fixes ------------------------------------------------------------------------------
+def test_audit_time_filters_are_instants_and_validated(client, clock):
+    _request(client, clock)
+    rows = client.get("/v1/audit/events", headers=OWNER).json()
+    ts = rows[0]["ts"]
+    # The same instant written with an offset selects the same records as the Z form.
+    from datetime import datetime, timedelta, timezone
+
+    t = datetime.fromisoformat(ts)
+    shifted = t.astimezone(timezone(timedelta(hours=2))).isoformat()
+    a = client.get("/v1/audit/events", params={"since": ts}, headers=OWNER).json()
+    b = client.get("/v1/audit/events", params={"since": shifted}, headers=OWNER).json()
+    assert a and [x["seq"] for x in a] == [x["seq"] for x in b]
+    assert client.get("/v1/audit/events", params={"until": ts}, headers=OWNER).json() == [
+        x for x in rows if datetime.fromisoformat(x["ts"]) < t
+    ]
+    for bad in ("yesterday", "2026-11-12T09:00:00"):  # not RFC 3339; no zone
+        r = client.get("/v1/audit/events", params={"since": bad}, headers=OWNER)
+        assert r.status_code == 422 and r.json()["error"] == "conflict", bad
+
+
+def test_event_filter_reads_the_ledger_once_not_per_event():
+    from onemind_core.auth import Principal
+    from onemind_core.eventstream import EventStream
+
+    calls = []
+
+    def owned(pid):
+        calls.append(pid)
+        return {"mine-1", "mine-2"}
+
+    es = EventStream(Path("/nonexistent"), lambda: [], owned, lambda: None)
+    ok = es._allowed(Principal(id="hermes", kind="agent", role="agent"))
+
+    def ev(t, aid=None):
+        return {"type": t, "subject": {"action_id": aid} if aid else {"node_id": "n"}}
+
+    assert ok(ev("action.requested", "mine-1")) and ok(ev("action.state_changed", "mine-2"))
+    for _ in range(50):
+        assert not ok(ev("action.state_changed", "theirs"))
+    assert len(calls) == 2  # first lookup, plus one refresh for the unknown id
+    assert ok(ev("node.status")) and not ok(ev("audit.appended")) and not ok(ev("backup.run.finished"))
+
+    guest = es._allowed(Principal(id="g", kind="person", role="guest"))
+    assert guest(ev("node.status")) and not guest(ev("action.requested", "mine-1"))
+    child = es._allowed(Principal(id="c", kind="person", role="child"))  # §12.6: no nodes:read
+    assert not child(ev("node.status"))
+
+
+def test_mcp_search_audit_rejects_bad_times():
+    import pytest as _pytest
+
+    from onemind_core.auth import Principal
+    from onemind_core.mcp.tools import Catalogue, RpcError
+
+    class Svc:
+        @staticmethod
+        def audit_list(p, **kw):
+            from onemind_core.auditread import parse_time
+
+            parse_time(kw.get("since"), "since")
+            return [], False
+
+    class Lim:
+        class reads:
+            @staticmethod
+            def hit(_):
+                return 0
+
+    cat = Catalogue(Svc(), Lim())
+    with _pytest.raises(RpcError) as e:
+        cat.call(Principal(id="hermes", kind="agent", role="agent"), "search_audit", {"since": "soon"})
+    assert e.value.code == -32602 and "RFC 3339" in e.value.message
