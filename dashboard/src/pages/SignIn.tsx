@@ -1,4 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
+// Sign-in with the static bearer token of contract §3 (passkeys come with CORE-SEC-2).
 import { useId, useState, type FormEvent } from 'react';
+import { BrandMark, Button } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { useSession } from '../session';
 import { brand } from '../brand.generated';
@@ -30,12 +33,12 @@ export function SignIn({ mock }: { mock: boolean }) {
   }
 
   return (
-    <main id="main" className="signin">
-      <div className="signin-card">
-        <img className="brand-mark brand-mark-lg" src={brand.logo.color} alt="" />
+    <main id="main" className="dash-signin">
+      <div className="dash-signin-card">
+        <BrandMark className="om-brand-mark dash-signin-mark" />
         <h1>Welcome to {brand.shortName}</h1>
-        <p className="muted">Sign in with the access token your hub gave you.</p>
-        <form onSubmit={onSubmit} noValidate>
+        <p className="om-hint">Sign in with the access token your hub gave you.</p>
+        <form onSubmit={onSubmit} noValidate className="dash-signin-form">
           <label htmlFor="token">Access token</label>
           <input
             id="token"
@@ -48,21 +51,21 @@ export function SignIn({ mock }: { mock: boolean }) {
             aria-describedby={[mock ? hintId : '', error ? errId : ''].filter(Boolean).join(' ') || undefined}
           />
           {mock && (
-            <p id={hintId} className="hint">
+            <p id={hintId} className="om-hint">
               Demo mode: try <code>owner-demo</code>, <code>agent-demo</code> or <code>adult-demo</code>.
             </p>
           )}
           {error && (
-            <p id={errId} className="note note-error" role="alert">
+            <p id={errId} className="om-note om-tone-bad" role="alert">
               {error}
             </p>
           )}
-          <button type="submit" className="btn btn-primary" disabled={busy}>
+          <Button type="submit" variant="primary" disabled={busy}>
             {busy ? 'Signing in…' : 'Sign in'}
-          </button>
+          </Button>
         </form>
-        <p className="fineprint">
-          v0 uses a static token. Passkeys and accounts come later.
+        <p className="om-hint">
+          This hub version uses a static token. Passkeys and accounts come with CORE-SEC-2.
         </p>
       </div>
     </main>
