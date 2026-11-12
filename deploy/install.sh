@@ -114,6 +114,12 @@ case "$ROLE" in hub|node) ;; *) usage >&2; die "--role hub or --role node is req
 if [ "$ROLE" = node ]; then
   [ -n "$HUB" ] || die "--hub is required for --role node"
   [ -n "$TOKEN" ] || die "--token is required for --role node (the hub install prints it)"
+  # The token goes into k3s's env file and the URL into config files: allow only plain characters.
+  printf '%s' "$TOKEN" | grep -Eqx '[A-Za-z0-9:._-]{8,512}' || die "--token has unexpected characters"
+fi
+if [ -n "$HUB" ]; then
+  printf '%s' "$HUB" | grep -Eqx 'https?://[][A-Za-z0-9.:-]+/?' \
+    || die "--hub must look like http://HOST:8080 (got: $HUB)"
 fi
 
 ARCH=$(dpkg --print-architecture 2>/dev/null || true)
@@ -256,7 +262,7 @@ k3s_server() {
 k3s_agent() {
   local host env=/etc/systemd/system/k3s-agent.service.env; host=$(hub_host "$HUB")
   # Re-join when the hub URL or token changed: "active" alone only means it is retrying.
-  if ! grep -qx "K3S_URL='https://$host:6443'" "$env" 2>/dev/null || ! grep -qx "K3S_TOKEN='$TOKEN'" "$env" 2>/dev/null; then
+  if ! grep -qxF "K3S_URL='https://$host:6443'" "$env" 2>/dev/null || ! grep -qxF "K3S_TOKEN='$TOKEN'" "$env" 2>/dev/null; then
     K3S_CHANGED=1
   fi
   if [ "${K3S_CHANGED:-0}" = 1 ] || ! systemctl is-active --quiet k3s-agent; then
@@ -394,14 +400,19 @@ dashboard_build() {
     log "dashboard: using prebuilt $DASH_DIST"
     copy_tree_plain "$DASH_DIST" "$PREFIX/dashboard"; return 0
   fi
-  sum=$(cd "$SRC/dashboard" && find . -path ./node_modules -prune -o -path ./dist -prune -o -type f -print \
-        | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -d' ' -f1)
+  sum=$(cd "$SRC/dashboard" && find . -path ./node_modules -prune -o -path ./dist -prune -o -type f -print0 \
+        | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$sum" ]; then log "dashboard: up to date"; return 0; fi
   node_toolchain
-  log "dashboard: npm ci + vite build with Node $NODE_VERSION"
+  log "dashboard: npm ci + vite build with Node $NODE_VERSION (as user onemind, no install scripts)"
   copy_tree "$SRC/dashboard" "$CACHE/dashboard-src"
-  (cd "$CACHE/dashboard-src" && env PATH="$NODE_DIR/bin:$PATH" HOME="$CACHE" npm_config_cache="$CACHE/npm" npm_config_update_notifier=false \
-     npm ci --no-audit --no-fund --loglevel=error >/dev/null && env PATH="$NODE_DIR/bin:$PATH" HOME="$CACHE" npm_config_update_notifier=false npm run build >/dev/null)
+  # npm packages are third-party code: never run them as root. --ignore-scripts skips dependency
+  # lifecycle scripts (esbuild's is an optional speed-up; its platform binary comes as a package).
+  install -d -o onemind -g onemind -m0700 "$CACHE/npm-home"
+  chown -R onemind:onemind "$CACHE/dashboard-src"
+  (cd "$CACHE/dashboard-src" && runuser -u onemind -- env -i PATH="$NODE_DIR/bin:/usr/bin:/bin" HOME="$CACHE/npm-home" \
+     npm_config_cache="$CACHE/npm-home/cache" npm_config_update_notifier=false sh -ec \
+     'npm ci --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null; npm run build >/dev/null')
   copy_tree_plain "$CACHE/dashboard-src/dist" "$PREFIX/dashboard"
   printf '%s\n' "$sum" > "$stamp"
   rm -rf "$CACHE/dashboard-src"
@@ -505,8 +516,9 @@ KUBECONFIG=$ETC/gateway.kubeconfig
 ONEMIND_NATS_URL=nats://127.0.0.1:4222
 ONEMIND_HOST=$BIND
 ONEMIND_PORT=8080
-# §11.2: the URL app pods use to reach this gateway (written into each agent app's Secret).
-ONEMIND_GATEWAY_URL=$url
+# §11.2: the URL app pods use to reach this gateway (written into each agent app's Secret as
+# ONEMIND_GATEWAY_URL). The wave-2 gateway reads it from ONEMIND_PUBLIC_URL (core/README.md).
+ONEMIND_PUBLIC_URL=$url
 EOF
   chmod 0640 "$ETC/gateway.env"; chgrp onemind "$ETC/gateway.env"
   # kubectl for the gateway: the k3s multi-call binary run as "kubectl" (same version as the
@@ -552,10 +564,11 @@ if [ "$ROLE" = hub ]; then
   fi
   printf 'Join another machine (run there, from a checkout of this repo):\n\n'
   printf '    sudo deploy/install.sh --role node --hub %s --token %s\n\n' "$HUB_URL" "$JOIN"
-  printf 'Check this hub:  deploy/verify/verify.sh http://127.0.0.1:8080 --token <owner token>\n'
+  printf 'Check this hub:  ONEMIND_TOKEN=<owner token> deploy/verify/verify.sh http://127.0.0.1:8080\n'
   printf 'Hermes agent (contract §7) model credentials, created by the owner at install time:\n\n'
   printf '    sudo k3s kubectl create namespace app-hermes-agent --dry-run=client -o yaml | sudo k3s kubectl apply -f -\n'
-  printf '    sudo k3s kubectl -n app-hermes-agent create secret generic hermes-agent-credentials --from-literal=<PROVIDER>_API_KEY=<key>\n\n'
+  printf '    read -rs KEY   # paste the key; it stays out of shell history and the process list\n'
+  printf "    printf '<PROVIDER>_API_KEY=%%s\\\\n' \"\$KEY\" | sudo k3s kubectl -n app-hermes-agent create secret generic hermes-agent-credentials --from-env-file=/dev/stdin\n\n"
 else
   k3s_agent
   onemindd_install
