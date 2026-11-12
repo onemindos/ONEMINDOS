@@ -537,3 +537,109 @@ def test_nats_listener_subscribes_and_ingests(nclient):
         bus.nc = None
     [a] = open_alerts(nclient)
     assert a["dedupe_key"] == "backup:usb" and a["source_id"] == "node:n2"
+
+
+# ---- review fixes: SSRF, header injection, throttling, privacy, node outbox, fix retries ------
+
+def _ip(*parts) -> str:
+    return ".".join(str(x) for x in parts)       # built at runtime: no address literals in the repo
+
+
+def test_non_owner_destinations_must_be_globally_routable():
+    import ipaddress
+
+    from onemind_core.notify.channels import DeliveryError, check_address
+
+    tailnet = ipaddress.ip_address(_ip(100, 64, 0, 1))        # CGNAT / tailnet: not is_private
+    mapped_metadata = ipaddress.ip_address("::ffff:" + _ip(169, 254, 169, 254))
+    mapped_lan = ipaddress.ip_address("::ffff:" + _ip(10, 0, 0, 1))
+    with pytest.raises(DeliveryError):
+        check_address(tailnet, lan_ok=False)
+    check_address(tailnet, lan_ok=True)
+    for lan_ok in (False, True):
+        with pytest.raises(DeliveryError):
+            check_address(mapped_metadata, lan_ok=lan_ok)
+    with pytest.raises(DeliveryError):
+        check_address(mapped_lan, lan_ok=False)
+    check_address(ipaddress.ip_address("2606:4700::1"), lan_ok=False)  # a global address passes
+
+
+def test_peer_is_checked_after_connect_so_dns_rebinding_fails(http, monkeypatch):
+    import ipaddress
+
+    from onemind_core.notify import channels
+
+    # The early check sees a public address; the connection then lands on the loopback server.
+    monkeypatch.setattr(channels, "_addresses", lambda host: [ipaddress.ip_address("2606:4700::1")])
+    url = http.url.replace("http://", "https://")
+    with pytest.raises(channels.DeliveryError, match="local network"):
+        channels.http_post(url, b"{}", {}, timeout=5, lan_ok=False)
+    assert http.requests == []                                  # nothing reached the server
+    assert channels.http_post(http.url, b"{}", {}, timeout=5, lan_ok=True) == 200
+
+
+def test_secret_with_control_characters_is_refused(nclient, http):
+    r = nclient.post("/v1/notifications/channels", headers=OWNER, json={
+        "kind": "ntfy", "label": "p", "config": {"url": http.url}, "secret": "tok\r\nX-Injected: 1"})
+    assert r.status_code == 422
+    ch = add_channel(nclient, {"kind": "ntfy", "label": "p", "config": {"url": http.url}})
+    r = nclient.patch(f"/v1/notifications/channels/{ch['id']}", headers=OWNER, json={"secret": "a\nb"})
+    assert r.status_code == 422
+
+
+def test_channel_test_is_rate_limited(nclient, http):
+    ch = add_channel(nclient, {"kind": "webhook", "label": "hook", "config": {"url": http.url}})
+    codes = [nclient.post(f"/v1/notifications/channels/{ch['id']}/test", headers=OWNER).status_code
+             for _ in range(6)]
+    assert codes == [200] * 5 + [429]
+    assert len(http.requests) == 5
+
+
+def test_owner_listing_hides_other_peoples_destinations(nclient):
+    mine = add_channel(nclient, {"kind": "ntfy", "label": "mine", "config": {"url": "https://ntfy.sh/owner-topic"}})
+    add_channel(nclient, {"kind": "ntfy", "label": "theirs", "config": {"url": "https://ntfy.sh/adult-secret-topic"}},
+                headers=ADULT)
+    listed = nclient.get("/v1/notifications/channels", headers=OWNER).json()
+    assert "adult-secret-topic" not in json.dumps(listed)
+    own = next(c for c in listed if c["id"] == mine["id"])
+    assert own["config"] == {"url": "https://ntfy.sh/owner-topic"}  # no internal "lan" flag
+    theirs = nclient.get("/v1/notifications/channels", headers=ADULT).json()
+    assert theirs[0]["config"]["url"].endswith("adult-secret-topic")
+
+
+def test_node_outbox_cannot_raise_or_resolve_gateway_alerts(nclient):
+    s = svc(nclient)
+    publish(nclient, "app", "scan_blocked", {"app_id": "whoami"}, "critical")
+
+    def env(type_, **data):
+        return json.dumps({"schema": "onemind.event/v1", "type": type_, "data": data}).encode()
+
+    for type_, data in [
+        ("app.scan_ok", {"app_id": "whoami"}),                   # would silence a security alert
+        ("approval.requested", {"action_id": "act_x", "action_type": "app.remove", "app_id": "whoami"}),
+        ("action.succeeded", {"action_id": "act_x", "requested_by": "guest"}),
+        ("notify.channel_failing", {"channel_id": "chn_x", "label": "x", "reason": "x", "person_id": "guest"}),
+    ]:
+        assert not s.on_node_event(f"onemind.node.n7.event.{type_}", env(type_, **data))
+    assert [a["type"] for a in open_alerts(nclient)] == ["app.scan_blocked"]
+    assert inbox(nclient, GUEST) == []
+    # node conditions still work, and a node cannot attach an action or a recipient
+    assert s.on_node_event("onemind.node.n7.event.disk.low",
+                           env("disk.low", free_pct=5, mount="/data", free_gb=3, action_id="act_x"))
+    disk = next(a for a in open_alerts(nclient) if a["type"] == "disk.low")
+    assert disk["dedupe_key"] == "node:n7:disk" and "action_id" not in disk["subject"]
+
+
+def test_fix_can_be_requested_again_after_a_denial(nclient, clock):
+    nclient.post("/v1/actions", headers=OWNER, json=action_body(clock))
+    a = nclient.get("/v1/actions", headers=OWNER).json()[0]
+    nclient.post(f"/v1/actions/{a['id']}/approve", headers=OWNER)
+    publish(nclient, "app", "scan_blocked", {"app_id": "uptime-kuma"}, "critical")
+    alert = next(x for x in open_alerts(nclient) if x["type"] == "app.scan_blocked")
+    first = nclient.post(f"/v1/alerts/{alert['id']}/fix", headers=AGENT).json()
+    assert nclient.post(f"/v1/actions/{first['id']}/deny", headers=OWNER).status_code == 200
+    second = nclient.post(f"/v1/alerts/{alert['id']}/fix", headers=AGENT)
+    assert second.status_code == 202 and second.json()["id"] != first["id"]
+    assert second.json()["state"] == "awaiting_approval"
+    again = nclient.post(f"/v1/alerts/{alert['id']}/fix", headers=AGENT)
+    assert again.json()["id"] == second.json()["id"]            # still idempotent while pending

@@ -157,7 +157,7 @@ def notification_json(r: NotificationRow) -> dict:
 def channel_json(r: ChannelRow) -> dict:
     return {
         "id": r.id, "kind": r.kind, "label": r.label, "content_level": r.content_level,
-        "config": json.loads(r.config_json), "verified": r.verified, "state": r.state,
+        "config": {k: v for k, v in json.loads(r.config_json).items() if k != "lan"}, "verified": r.verified, "state": r.state,
         "last_error": r.last_error, "owner_person_id": r.person_id,
         "secret": "provided" if r.secret_enc else None,
         "created_at": iso(r.created_at), "updated_at": iso(r.updated_at),

@@ -174,6 +174,19 @@ for _s in _SPECS:
 # Types whose alerts reach only the in-app inbox (a failing channel must not hide behind itself).
 INAPP_ONLY_ALERTS = {"notify.channel_failing"}
 
+# Types a node may raise through its NATS outbox (§12.9: the gateway validates them). Only
+# conditions of the node itself, whose alert keys carry the node id taken from the subject, plus
+# backup results from the node's backup agent. Never approvals, actions, app health, scans or the
+# notifier's own alerts: a node (or anything able to publish on its subject) must not be able to
+# resolve a security alert, forge an approval prompt or address a notification to a person.
+NODE_SOURCED = frozenset({
+    "disk.low", "disk.ok", "memory.high", "memory.ok", "temperature.high", "temperature.ok",
+    "cpu.high", "cpu.ok", "update.available", "update.applied", "update.rolled_back",
+    "backup.failed", "backup.succeeded", "backup.verify_failed", "backup.verified",
+})
+# Fields a node never sets: they pick recipients or link the item to an action.
+NODE_RESERVED_FIELDS = frozenset({"person_id", "requested_by", "requested_by_kind", "action_id", "channel_id"})
+
 
 def lookup(event_type: str) -> Spec | None:
     return CATALOGUE.get(event_type)

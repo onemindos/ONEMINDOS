@@ -12,7 +12,10 @@ Who may do what (v0 static principals; scopes arrive with CORE-SEC):
 
 from __future__ import annotations
 
+import hashlib
 import json
+import threading
+from collections import defaultdict, deque
 from datetime import timedelta
 from typing import Literal
 
@@ -24,7 +27,7 @@ from ..actions import ActionRequest
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
-from ..ledger import utc
+from ..ledger import TERMINAL, utc
 from ..notify import NotifyService, RateLimited
 from ..notify import routing
 from ..notify.channels import (
@@ -38,6 +41,8 @@ from ..notify.store import (
 )
 
 TAG = "notifications"
+MAX_FIX_ATTEMPTS = 20  # fix requests per alert and requester
+TESTS_PER_MIN = 5  # POST …/channels/{id}/test per person: each one is a synchronous outbound request
 
 
 class ChannelIn(BaseModel):
@@ -81,6 +86,13 @@ class FixIn(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
 
+def _check_secret(secret: str | None) -> None:
+    # Secrets go into HTTP headers and SMTP AUTH: a CR/LF or other control character there is
+    # header injection (and http.client raises on it), so refuse it here.
+    if secret and any(ord(ch) < 32 or ord(ch) == 127 for ch in secret):
+        raise ApiError(422, "conflict", "secret must not contain control characters")
+
+
 def _person(p: Principal) -> None:
     if p.kind != "person":
         raise ApiError(403, "permission_denied", "only people have an inbox, channels and preferences")
@@ -111,6 +123,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     app.state.notify = svc
     principal = gw.principal
     repo = svc.repo
+    tests: dict[str, deque] = defaultdict(deque)
+    tests_lock = threading.Lock()
 
     def audit(p: Principal, name: str, payload: dict) -> None:
         gw.events.publish_event("notify", name, payload, principal=p.as_dict())
@@ -180,11 +194,21 @@ def register(app: FastAPI, gw: Gateway) -> None:
         fix = json.loads(row.fix_json) if row.fix_json else None
         if fix is None:
             raise ApiError(409, "conflict", "this alert has no fix")
-        key = f"fix:{row.id}:{p.id}"[:200]
-        existing = gw.repo.get_by_idempotency_key(key)
-        if existing is not None:
-            return JSONResponse(status_code=202, content=gw.actions.get(existing.id),
-                                headers={"Location": f"/v1/actions/{existing.id}"})
+        if row.state == "resolved":
+            raise ApiError(409, "conflict", "the alert is resolved")
+        who = hashlib.sha256(p.id.encode()).hexdigest()[:16]  # keeps the key under 200 chars
+        # A repeat tap returns the pending fix; once it failed, was denied or expired, the next
+        # generation of the key files a fresh one.
+        for gen in range(1, MAX_FIX_ATTEMPTS + 1):
+            key = f"fix:{row.id}:{who}" + (f":{gen}" if gen > 1 else "")
+            existing = gw.repo.get_by_idempotency_key(key)
+            if existing is None:
+                break
+            if existing.state not in TERMINAL:
+                return JSONResponse(status_code=202, content=gw.actions.get(existing.id),
+                                    headers={"Location": f"/v1/actions/{existing.id}"})
+        else:
+            raise ApiError(409, "conflict", "this alert's fix was already tried too many times")
         try:
             req = ActionRequest(type=fix["type"], params=fix["params"], idempotency_key=key,
                                 expires_at=gw.clock() + timedelta(hours=24))
@@ -199,7 +223,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.get("/v1/notifications/channels", tags=[TAG], responses=error_responses(401, 403))
     def list_channels(p: Principal = Depends(principal)):
         _person(p)
-        return [channel_json(c) for c in repo.list_channels(None if p.is_owner else p.id)]
+        out = []
+        for c in repo.list_channels(None if p.is_owner else p.id):
+            doc = channel_json(c)
+            if c.person_id != p.id:  # another person's URL or address can be a capability (ntfy topic)
+                doc.pop("config", None)
+            out.append(doc)
+        return out
 
     def own_channel(p: Principal, cid: str) -> ChannelRow:
         _person(p)
@@ -220,6 +250,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/notifications/channels", tags=[TAG], status_code=201, responses=error_responses(401, 403, 422))
     def add_channel(body: ChannelIn, p: Principal = Depends(principal)):
         _person(p)
+        _check_secret(body.secret)
         kind = KIND_ALIASES.get(body.kind, body.kind)
         if kind not in CHANNEL_KINDS:
             raise ApiError(422, "conflict", f"kind must be one of {CHANNEL_KINDS} (or ntfy)")
@@ -246,6 +277,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.patch("/v1/notifications/channels/{channel_id}", tags=[TAG], responses=error_responses(401, 403, 404, 422))
     def patch_channel(channel_id: str, body: ChannelPatch, p: Principal = Depends(principal)):
         ch = own_channel(p, channel_id)
+        _check_secret(body.secret)
         if body.config is not None:
             try:
                 cfg = validate_config(ch.kind, body.config)
@@ -276,9 +308,18 @@ def register(app: FastAPI, gw: Gateway) -> None:
         audit(p, "channel.removed", {"channel_id": ch.id})
         return Response(status_code=204)
 
-    @app.post("/v1/notifications/channels/{channel_id}/test", tags=[TAG], responses=error_responses(401, 403, 404))
+    @app.post("/v1/notifications/channels/{channel_id}/test", tags=[TAG],
+              responses={429: {"description": "rate_limited (Retry-After)"}, **error_responses(401, 403, 404)})
     def test_channel(channel_id: str, p: Principal = Depends(principal)):
         ch = own_channel(p, channel_id)
+        now = gw.clock()
+        with tests_lock:
+            q = tests[p.id]
+            while q and (now - q[0]).total_seconds() >= 60:
+                q.popleft()
+            if len(q) >= TESTS_PER_MIN:
+                return _rate_limited(max(1, int(60 - (now - q[0]).total_seconds())))
+            q.append(now)
         return svc.test_target(ch.id, p.id)
 
     # ---- preferences --------------------------------------------------------------------

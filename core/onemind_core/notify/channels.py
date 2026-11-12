@@ -18,8 +18,10 @@ Nothing here logs a secret, an endpoint or a message body.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import hmac
+import http.client
 import ipaddress
 import json
 import smtplib
@@ -81,16 +83,46 @@ def _addresses(host: str) -> list[ipaddress._BaseAddress]:
     return [ipaddress.ip_address(info[4][0].split("%")[0]) for info in infos]
 
 
+def check_address(addr: ipaddress._BaseAddress, lan_ok: bool) -> None:
+    """Refuse link-local (cloud metadata), multicast, unspecified and reserved addresses always;
+    anything that is not globally routable (private, loopback, CGNAT/tailnet 100.64/10, ...)
+    unless the channel was added by an owner (`lan_ok`)."""
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
+        addr = addr.ipv4_mapped  # ::ffff:169.254.169.254 is 169.254.169.254
+    if addr.is_link_local or addr.is_multicast or addr.is_unspecified or addr.is_reserved:
+        raise DeliveryError("destination address is not allowed")
+    if not lan_ok and not addr.is_global:
+        raise DeliveryError("destination is on the local network; only an owner may add such a channel")
+
+
 def check_host(host: str | None, lan_ok: bool) -> None:
-    """Refuse link-local (cloud metadata), multicast and unspecified addresses always; private and
-    loopback addresses unless the channel was added by an owner (`lan_ok`)."""
+    """check_address for every address `host` resolves to (a fast early check; the address
+    actually connected to is checked again in `_check_peer`, so DNS rebinding cannot bypass it)."""
     if not host:
         raise DeliveryError("no host")
     for addr in _addresses(host):
-        if addr.is_link_local or addr.is_multicast or addr.is_unspecified or addr.is_reserved:
-            raise DeliveryError("destination address is not allowed")
-        if not lan_ok and (addr.is_private or addr.is_loopback):
-            raise DeliveryError("destination is on the local network; only an owner may add such a channel")
+        check_address(addr, lan_ok)
+
+
+def _check_peer(sock: socket.socket, lan_ok: bool) -> None:
+    try:
+        peer = sock.getpeername()[0]
+    except OSError:
+        raise DeliveryError("connection failed (no peer)") from None
+    check_address(ipaddress.ip_address(str(peer).split("%")[0]), lan_ok)
+
+
+def _guarded_create_connection(lan_ok: bool):
+    """socket.create_connection that refuses a peer check_address refuses, before any byte is sent."""
+    def create(address, timeout=socket._GLOBAL_DEFAULT_TIMEOUT, source_address=None, *args, **kwargs):
+        sock = socket.create_connection(address, timeout, source_address, *args, **kwargs)
+        try:
+            _check_peer(sock, lan_ok)
+        except BaseException:
+            sock.close()
+            raise
+        return sock
+    return create
 
 
 def check_url(url: str, lan_ok: bool) -> None:
@@ -109,14 +141,51 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-_OPENER = urllib.request.build_opener(_NoRedirect)
+class _GuardedHTTPConnection(http.client.HTTPConnection):
+    def __init__(self, *args, lan_ok: bool, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._create_connection = _guarded_create_connection(lan_ok)
+
+
+class _GuardedHTTPSConnection(http.client.HTTPSConnection):
+    def __init__(self, *args, lan_ok: bool, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._create_connection = _guarded_create_connection(lan_ok)
+
+
+class _GuardedHTTPHandler(urllib.request.HTTPHandler):
+    def __init__(self, lan_ok: bool):
+        super().__init__()
+        self._lan_ok = lan_ok
+
+    def http_open(self, req):
+        return self.do_open(functools.partial(_GuardedHTTPConnection, lan_ok=self._lan_ok), req)
+
+
+class _GuardedHTTPSHandler(urllib.request.HTTPSHandler):
+    def __init__(self, lan_ok: bool):
+        super().__init__()
+        self._lan_ok = lan_ok
+
+    def https_open(self, req):
+        return self.do_open(functools.partial(_GuardedHTTPSConnection, lan_ok=self._lan_ok), req,
+                            context=self._context)
+
+
+def _opener(lan_ok: bool) -> urllib.request.OpenerDirector:
+    # No environment proxies: the peer check must see the real destination, not a proxy.
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect,
+                                       _GuardedHTTPHandler(lan_ok), _GuardedHTTPSHandler(lan_ok))
+
+
+_OPENERS = {True: _opener(True), False: _opener(False)}
 
 
 def http_post(url: str, body: bytes, headers: dict[str, str], timeout: float, lan_ok: bool) -> int:
     check_url(url, lan_ok)
     req = urllib.request.Request(url, data=body, method="POST", headers={"User-Agent": "onemind-notify/1", **headers})
     try:
-        with _OPENER.open(req, timeout=timeout) as resp:
+        with _OPENERS[bool(lan_ok)].open(req, timeout=timeout) as resp:
             resp.read(MAX_RESPONSE)
             return resp.status
     except urllib.error.HTTPError as exc:
@@ -224,7 +293,7 @@ def _send_email(config: dict, secret: str | None, level: str, msg: Message, time
         raise DeliveryError("plain SMTP is allowed only to a relay on this machine")
     title, body, link = render(level, msg)
     em = EmailMessage()
-    em["Subject"] = title.replace("\n", " ")[:200]
+    em["Subject"] = " ".join(title.splitlines())[:200]  # node-supplied names may carry CR or LF
     em["From"] = config["from"]
     em["To"] = config["to"]
     text = body or title
@@ -234,11 +303,19 @@ def _send_email(config: dict, secret: str | None, level: str, msg: Message, time
         text = f"{msg.count} notifications while you were away.\n\n{text}"
     em.set_content(text + "\n\n-- \nSent by your OneMind box. Change this in Settings > Notifications.\n")
     ctx = ssl.create_default_context()
+
+    def peer_ok(sock: socket.socket) -> None:
+        _check_peer(sock, lan_ok)
+        if security == "none":
+            peer = ipaddress.ip_address(str(sock.getpeername()[0]).split("%")[0])
+            if not peer.is_loopback:
+                raise DeliveryError("plain SMTP is allowed only to a relay on this machine")
+
     try:
         if security == "tls":
-            client = smtplib.SMTP_SSL(host, port, timeout=timeout, context=ctx)
+            client = _GuardedSMTPSSL(host, port, timeout=timeout, context=ctx, peer_check=peer_ok)
         else:
-            client = smtplib.SMTP(host, port, timeout=timeout)
+            client = _GuardedSMTP(host, port, timeout=timeout, peer_check=peer_ok)
         with client:
             client.ehlo()
             if security == "starttls":
@@ -251,6 +328,36 @@ def _send_email(config: dict, secret: str | None, level: str, msg: Message, time
         raise DeliveryError(f"SMTP {exc.smtp_code}") from None
     except (smtplib.SMTPException, OSError, ssl.SSLError) as exc:
         raise DeliveryError(f"SMTP failed ({exc.__class__.__name__})") from None
+
+
+class _GuardedSMTP(smtplib.SMTP):
+    def __init__(self, *args, peer_check, **kwargs):
+        self._peer_check = peer_check
+        super().__init__(*args, **kwargs)
+
+    def _get_socket(self, host, port, timeout):
+        sock = super()._get_socket(host, port, timeout)
+        try:
+            self._peer_check(sock)
+        except BaseException:
+            sock.close()
+            raise
+        return sock
+
+
+class _GuardedSMTPSSL(smtplib.SMTP_SSL):
+    def __init__(self, *args, peer_check, **kwargs):
+        self._peer_check = peer_check
+        super().__init__(*args, **kwargs)
+
+    def _get_socket(self, host, port, timeout):
+        sock = super()._get_socket(host, port, timeout)
+        try:
+            self._peer_check(sock)
+        except BaseException:
+            sock.close()
+            raise
+        return sock
 
 
 # ---- push devices ------------------------------------------------------------------------

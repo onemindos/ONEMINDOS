@@ -181,9 +181,10 @@ class NotifyService:
         if not isinstance(env, dict) or env.get("type") != event_type or not isinstance(env.get("data", {}), dict):
             return False
         spec = catalogue.lookup(event_type)
-        if spec is None:
+        if spec is None or spec.type not in catalogue.NODE_SOURCED:
             return False
-        data = {k: v for k, v in (env.get("data") or {}).items() if not k.startswith("_")}
+        data = {k: v for k, v in (env.get("data") or {}).items()
+                if not k.startswith("_") and k not in catalogue.NODE_RESERVED_FIELDS}
         data["node_id"] = node_id
         node = self.gw.registry.get(node_id)
         data.setdefault("hostname", (node or {}).get("hostname") or node_id)
@@ -469,8 +470,11 @@ class NotifyService:
         except Exception as exc:  # a bug in a sender must not kill the worker
             log.exception("sender crashed")
             d.attempts += 1
-            d.state, d.last_error = "failed", f"internal error ({exc.__class__.__name__})"
-            d.next_attempt_at = now + timedelta(seconds=BACKOFF_S[min(d.attempts, len(BACKOFF_S)) - 1])
+            d.last_error = f"internal error ({exc.__class__.__name__})"
+            if d.attempts > len(BACKOFF_S):  # same schedule as a failed send, then dead
+                d.state, d.next_attempt_at = "dead", None
+            else:
+                d.state, d.next_attempt_at = "failed", now + timedelta(seconds=BACKOFF_S[d.attempts - 1])
             self.repo.save_delivery(d)
             return
         d.state, d.sent_at, d.attempts, d.last_error, d.next_attempt_at = "sent", now, d.attempts + 1, None, None
