@@ -22,7 +22,9 @@ metadata:
     website: "https://immich.app"
     support: "https://github.com/immich-app/immich/issues"
   upstream: {release: "v3.4.1", released_at: "2026-11-11T18:27:16Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # CI run 43230560410 completed the re-gate: fixable CRITICAL CVEs in postgres and server.
+  # Keep blocked until verified fixed image pins pass a fresh gate; details in README.md.
+  tier: blocked
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 4096}

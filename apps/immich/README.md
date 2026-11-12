@@ -9,7 +9,7 @@ High performance self-hosted photo and video management solution.
 |---|---|
 | Version | 3.4.1 (upstream release `v3.4.1`, published 2026-11-11) |
 | Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/immich-app/immich> |
 | Website | <https://immich.app> |
@@ -50,7 +50,7 @@ Immich backs up and browses photos and videos from phones, with albums, sharing,
 ## Market listing
 
 - Category and sub-tags (docs/design/TAXONOMY.md §1): files: photos, backup. The sub-tags go into `metadata.tags` once the schema has it.
-- Deployment class (TAXONOMY §2): **Market · community** until CI writes a passing scan (contract §9.4), then Market · verified if every check passes.
+- Deployment class (TAXONOMY §2): **Market · blocked** following the completed CI re-gate below. The gateway lists it but refuses installation; a passing smoke test alone does not clear security findings.
 
 ## How it runs here
 
@@ -80,7 +80,30 @@ Source: [docs.immich.app](https://docs.immich.app/) "Post installation steps".
 - No HTTPS or LAN hostname: OneMind v0 has no ingress or certificates for apps, so the web UI is reached through a port-forward until the app proxy exists.
 - `readOnlyRootFilesystem` is not set: it has not been tested against this image.
 - Resource figures are OneMind choices where upstream gives none; they are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
-- `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+- `metadata.tier` stays `blocked` until verified fixed image pins clear a fresh security gate and the block is explicitly reviewed. `spec.updates.automerge` remains `none`.
+
+## Why this app is blocked
+
+The original GHCR rate-limit error was transient. The [completed re-gate](https://github.com/onemindos/ONEMINDOS/actions/runs/43230560410/job/131228916989) on 2026-11-12 (PR head `202758b124be1535b9d6e3b39e73bca9f33f9448`, checkout `ca9c5870e8f980118b980e4dbd3ecdb29f6d9c8d`) scanned the unchanged pins and computed **blocked**, not a registry error. Its [artifact](https://github.com/onemindos/ONEMINDOS/actions/runs/43230560410/artifacts/13954321221) contains `report.json`, `scan.json` and the per-image, per-architecture SBOMs. The gateway lists this app but refuses installation (contract §10.3, §11.1).
+
+Trivy 0.76.2 reported these fixable CRITICAL findings (package versions and fixes are scan evidence, not verified replacement image tags):
+
+| Image | Package(s) | Installed | Fixed | CVEs |
+|---|---|---|---|---|
+| `immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0` | `libgnutls30` | `3.7.9-2+deb12u5` | `3.7.9-2+deb12u7` | CVE-2026-33845, CVE-2026-42010 |
+| same | `libperl5.36`, `perl`, `perl-base`, `perl-modules-5.36` | `5.36.0-7+deb12u2` | `5.36.0-7+deb12u4` | CVE-2026-13221, CVE-2026-42496, CVE-2026-8376 (each package) |
+| same | `libssl3`, `openssl` | `3.0.17-1~deb12u2` | `3.0.19-1~deb12u2` | CVE-2026-31789 (each package) |
+| same | Go `stdlib` | `v1.18.2` | `1.19.8`, `1.20.3` | CVE-2023-24538 |
+| same | Go `stdlib` | `v1.18.2` | `1.19.9`, `1.20.4` | CVE-2023-24540 |
+| same | Go `stdlib` | `v1.18.2` | `1.21.11`, `1.22.4` | CVE-2024-24790 |
+| same | Go `stdlib` | `v1.18.2` | `1.24.13`, `1.25.7`, `1.26.0-rc.3` | CVE-2025-68121 |
+| `immich-app/immich-server:v3.4.1` | `libopenexr-3-1-30` | `3.1.13-2` | `3.2.12-1~deb13u1` | CVE-2026-42216, CVE-2026-42217 |
+
+The scan counts 20 fixable CRITICAL package/CVE pairs in PostgreSQL and two in the server. It also records CRITICAL findings without a fix: CVE-2025-7458 (`libsqlite3-0`), CVE-2026-6653 (`libxml2`) and CVE-2023-45853 (`zlib1g`) in PostgreSQL; CVE-2026-6653 (`libxml2`) in the server. Valkey has no CRITICAL findings in that scan.
+
+Licence, pinning, secrets and ClamAV checks passed for amd64 and arm64 (zero infected, signatures `daily-28181`). The smoke test returned HTTP 200. Images are unsigned (informational). None of these successes overrides the vulnerability block.
+
+To unblock: verify compatible upstream image tags and multi-architecture digests that fix the findings, rerun the full gate, and review the block explicitly. No pins were changed here; no scan pass is fabricated. The CI scan remains an artifact rather than a committed `scan.json`, so the generated section below describes committed scan availability, not absence of a CI run.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
