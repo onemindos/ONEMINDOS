@@ -89,10 +89,10 @@ func (h *fakeHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodPost && r.URL.Path == "/v1/fabric/join-requests":
 		var body struct {
-			Code   string    `json:"join_code"`
-			Node   NodeFacts `json:"node"`
-			CSR    string    `json:"csr_pem"`
-			Nkey   string    `json:"nats_pubkey"`
+			Code string    `json:"join_code"`
+			Node NodeFacts `json:"node"`
+			CSR  string    `json:"csr_pem"`
+			Nkey string    `json:"nats_pubkey"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		if body.Code != "7KQ4-M2XP-9D3F" {

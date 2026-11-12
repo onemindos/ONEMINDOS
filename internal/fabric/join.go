@@ -129,7 +129,7 @@ func NewIdentity(nodeID, hostname string) (*Identity, error) {
 	pubDER, _ := x509.MarshalPKIXPublicKey(&key.PublicKey)
 	return &Identity{
 		Key: key, CSRPEM: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csr}),
-		KeyPEM: pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: kder}),
+		KeyPEM:   pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: kder}),
 		NkeySeed: seed, NkeyPub: pub, NodeID: nodeID, Hostname: hostname, PublicDER: pubDER,
 	}, nil
 }
