@@ -4,6 +4,8 @@ This is where "AI never actuates without human approval" is enforced:
 - owners and agents may *request* an action (it lands in awaiting_approval);
 - only a person with role owner may approve or deny; an agent always gets 403 permission_denied;
 - nothing reaches the executor until an approval has moved the action to accepted;
+- a standing approval the owner set in advance (§12.17, automation/policies.py) may accept a
+  matching read or write request; it is recorded as approved_by policy:<id>@<revision>;
 - an app.install is approved only for an app with a passing scan newer than 7 days (§10.3);
 - an app that declares spec.agent gets its own agent principal at install, revoked at removal
   (§11.2), so the AI inside it can request actions but, like every agent, never approve them.
@@ -13,6 +15,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
@@ -51,6 +54,15 @@ class ActionRequest(BaseModel):
     expires_at: AwareDatetime
 
 
+@dataclass(frozen=True)
+class StandingGrant:
+    """A standing approval (contract §12.17) covering one request; built by the automation module."""
+
+    principal: Principal  # kind "policy", id "policy:<id>@<revision>"
+    audit: dict  # added to the approval's audit lines (approved_via, policy, uses, created_by)
+    release: Callable[[], None]  # gives the reserved use back when the approval does not go through
+
+
 class ActionService:
     def __init__(
         self,
@@ -70,6 +82,8 @@ class ActionService:
         self.executor = executor
         self.audit = audit
         self.clock = clock
+        # Contract §12.17: checked right after a request is filed; the first grant accepts it.
+        self.standing_approvals: list[Callable[[Action], StandingGrant | None]] = []
 
     # ---- helpers -------------------------------------------------------------------------
     def _deny(self, principal: Principal, what: str, action_id: str | None = None) -> ApiError:
@@ -187,7 +201,28 @@ class ActionService:
         )
         moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
         self.audit.append("action.awaiting_approval", None, stored.id, {})
-        return (moved or stored).to_json(), True
+        action = moved or stored
+        return self._standing_approve(action) or action.to_json(), True
+
+    def _standing_approve(self, a: Action) -> dict | None:
+        """Accept a fresh request under an owner-set standing approval, or leave it for a person."""
+        for decide in self.standing_approvals:
+            try:
+                grant = decide(a)
+            except Exception:  # a broken policy store must not approve, nor fail the filed request
+                log.exception("standing approval check failed")
+                continue
+            if grant is None:
+                continue
+            try:
+                return self._audited(
+                    grant.principal, "approve action", a.id, {},
+                    lambda: self._approve(grant.principal, a.id, standing=grant.audit),
+                )
+            except ApiError:  # e.g. a stale precondition: the action stays awaiting_approval
+                grant.release()
+                return None
+        return None
 
     def _replay(self, principal: Principal, req: ActionRequest, params: dict, existing: Action) -> tuple[dict, bool]:
         same = (
@@ -215,8 +250,8 @@ class ActionService:
         self.audit.append("action.denied", principal.as_dict(), a.id, {"params": a.params})
         return moved.to_json()
 
-    def _approve(self, principal: Principal, action_id: str) -> dict:
-        if not principal.is_owner:
+    def _approve(self, principal: Principal, action_id: str, standing: dict | None = None) -> dict:
+        if standing is None and not principal.is_owner:
             raise self._deny(principal, "approve actions", action_id)
         a = self.expire_if_due(self._get(action_id))
         if a.state == "expired":
@@ -243,7 +278,7 @@ class ActionService:
         if outcome == "stale":
             problem = self._precondition(a.type, app_id)[1] or f"app {app_id!r} changed state concurrently"
             raise ApiError(409, "stale_precondition", problem)
-        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id}
+        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id, **(standing or {})}
         self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params, **ids})
 
         try:
