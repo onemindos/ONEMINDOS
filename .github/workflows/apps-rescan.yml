@@ -7,6 +7,8 @@
 # A new CRITICAL with a fix or a ClamAV hit sets the app's tier to blocked (app-gate --tier write) and,
 # if the repository secret ONEMIND_NTFY_URL (a full ntfy topic URL) is set, posts an alert there.
 # ONEMIND_NTFY_TOKEN (optional) is sent as a bearer token. No secret values live in this repository.
+# The scan job runs every app's third-party images on a k3d cluster, so it holds a read-only token;
+# only the publish job, which runs no app code, can write the branch and the pull request.
 name: apps-rescan
 
 on:
@@ -15,8 +17,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: apps-rescan
@@ -26,6 +27,11 @@ jobs:
   rescan:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
+    permissions:
+      contents: read
+    outputs:
+      errors: ${{ steps.scan.outputs.errors }}
+      newly_blocked: ${{ steps.scan.outputs.newly_blocked }}
     steps:
       - name: Check out
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -90,13 +96,65 @@ jobs:
           path: ${{ runner.temp }}/out/
           retention-days: 30
 
+      - name: Collect the refreshed app files
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/changed"
+          git diff --name-only -- apps > "$RUNNER_TEMP/changed/files.txt"
+          if [ -s "$RUNNER_TEMP/changed/files.txt" ]; then
+            tar -cf "$RUNNER_TEMP/changed/apps.tar" -T "$RUNNER_TEMP/changed/files.txt"
+          fi
+
+      - name: Upload the refreshed app files
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: apps-rescan-changes
+          path: ${{ runner.temp }}/changed/
+          retention-days: 7
+
+  publish:
+    needs: rescan
+    if: always() && needs.rescan.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Download the refreshed app files
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: apps-rescan-changes
+          path: ${{ runner.temp }}/changed
+
       - name: Open or update the rescan pull request
         env:
           GH_TOKEN: ${{ github.token }}
-          BLOCKED: ${{ steps.scan.outputs.newly_blocked }}
+          BLOCKED: ${{ needs.rescan.outputs.newly_blocked }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          changed="$RUNNER_TEMP/changed"
+          if [ ! -s "$changed/files.txt" ]; then echo "no changes"; exit 0; fi
+          # Only regenerated files under apps/<id>/ are taken from the scan job.
+          if grep -vE '^apps/[a-z0-9][a-z0-9-]*/(onemind\.app\.yaml|scan\.json|README\.md)$' "$changed/files.txt"; then
+            echo "the scan job changed files other than scan.json, the tier or the README" >&2
+            exit 1
+          fi
+          # Copy only the listed regular files out of the archive (no links, nothing else).
+          mkdir "$changed/x"
+          tar -xf "$changed/apps.tar" -C "$changed/x" --no-same-owner
+          while IFS= read -r f; do
+            if [ -L "$changed/x/$f" ] || [ ! -f "$changed/x/$f" ]; then echo "not a regular file: $f" >&2; exit 1; fi
+            cp "$changed/x/$f" "$f"
+          done < "$changed/files.txt"
           if git diff --quiet -- apps; then echo "no changes"; exit 0; fi
           branch=bot/apps-rescan
           git config user.name "github-actions[bot]"
@@ -113,15 +171,16 @@ jobs:
           if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
             gh pr edit "$branch" --body "$body"
           else
-            gh pr create --head "$branch" --base main --title "apps: daily rescan" --body "$body" --label apps
+            gh pr create --head "$branch" --base main --title "apps: daily rescan" --body "$body"
+            gh pr edit "$branch" --add-label apps || echo "label 'apps' not added (does it exist?)"
           fi
 
       - name: Alert on newly blocked apps (ntfy)
-        if: steps.scan.outputs.newly_blocked != ''
+        if: needs.rescan.outputs.newly_blocked != ''
         env:
           NTFY_URL: ${{ secrets.ONEMIND_NTFY_URL }}
           NTFY_TOKEN: ${{ secrets.ONEMIND_NTFY_TOKEN }}
-          BLOCKED: ${{ steps.scan.outputs.newly_blocked }}
+          BLOCKED: ${{ needs.rescan.outputs.newly_blocked }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ -z "$NTFY_URL" ]; then echo "ONEMIND_NTFY_URL is not set; no alert sent"; exit 0; fi
@@ -131,9 +190,9 @@ jobs:
             -d "Daily rescan blocked: $BLOCKED. $RUN_URL" "$NTFY_URL" >/dev/null
 
       - name: Fail on tool errors
-        if: steps.scan.outputs.errors != ''
+        if: needs.rescan.outputs.errors != ''
         env:
-          ERRORS: ${{ steps.scan.outputs.errors }}
+          ERRORS: ${{ needs.rescan.outputs.errors }}
         run: |
           echo "app-gate could not scan: $ERRORS (tool or network error; their scan.json was not refreshed)" >&2
           exit 1
