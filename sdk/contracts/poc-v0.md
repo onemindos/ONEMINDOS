@@ -650,3 +650,41 @@ Still `kind: agent` only and still **no approve, deny, policy, grant or token to
 | Audit | `/v1/audit/events\|verify\|checkpoints`; the draft's `/v1/audit/status` is `GET /v1/audit/verify` | API.md |
 | Heartbeat mesh | top-level `mesh: {state, path}` | one object per subsystem, like `update`, `backup`, `storage`; NETWORKING.md's proposed `fabric.mesh` moves here |
 | Decider field | `approved_by` | SDK names (DECISIONS-NEEDED §3) |
+
+### 12.22 App store depth (amendment 2026-11-12; binding)
+Gaps PD-08…PD-13 and PD-17 of [`docs/strategy/umbrel-parity.md`](../../docs/strategy/umbrel-parity.md) §4.3. Additive: no §1–§12.21 path, field, state or error changes meaning. Where this section and §12.15 or §12.18 differ, this section is the newer statement.
+
+**Manifest** (`spec`, the schema follows; each list is optional):
+- `spec.settings` (≤ 50): `{name, env, type, title?, description?, default?, enum?, minimum?, maximum?, minLength?, maxLength?, pattern?, restart?}`, a JSON Schema subset per field. `type` is `string|integer|number|boolean`; §12.18's `int`, `bool` and `enum` are accepted as aliases (`enum` is a `string` with `enum`). `name` matches `^[a-z][a-z0-9_]{0,62}$`, `env` matches `^[A-Z][A-Z0-9_]{0,62}$`, both unique. `restart` (default `true`) says a change restarts the app's workloads. **Settings are not secret:** a `name` or `env` containing `password`, `secret`, `token`, `api_key`, `apikey` or `private_key` (any case) is refused; secrets go through `spec.secrets` and `sealed` (§12.1). The gateway delivers the values as ConfigMap `onemind-settings` in `app-<id>` (one key per `env`, booleans as `true`/`false`); workloads read it with `envFrom: [{configMapRef: {name: onemind-settings, optional: true}}]`.
+- `spec.dependencies` (≤ 10): `{id, alternatives?: [app ids], reason?}`. Satisfied when `id` or any alternative is installed.
+- `spec.hostPorts` (≤ 10): `{port, protocol: tcp|udp, description}`. The default is no host port: apps are reached through the gateway. A declaration is conflict-checked against every other app's declaration and the ports OneMind itself uses (`sdk/policy/host-ports.yaml`): by the app CI gate across the catalog, and by the gateway per node at request and at approval. **Declaring a port does not let the manifests bind it:** the install sandbox still refuses `hostPort` and `hostNetwork` (rules F-05, F-01) until a reviewed exception exists.
+
+**Catalog entries** (`GET /v1/apps`, `GET /v1/apps/{id}`) gain `catalog_source: {id, name, commit} | null` (null for the official catalog).
+
+| Method and path | Who | Returns |
+|---|---|---|
+| `GET /v1/apps/{id}/logs?component=&tail=&since=` | person owner or adult; agents and plugins `403` until §12.6 scopes grant `logs:read:<app-id>` | `text/plain`, one line per log line. `component` is a container name (DNS label); without it every container is read and each line is prefixed `<pod>/<container> `. `tail` default 200, at most 2000 lines per request; `since` is RFC 3339; the body is at most 1 MiB and lines over 4 KiB are cut. Known credential shapes (bearer tokens, `om_*` tokens, JWTs, `password=`-style pairs, URL userinfo, private key blocks, cloud and forge keys) are replaced by `[redacted]`. Every read is audited `app.logs.read` with the line and redaction counts. `follow` (SSE) is not served yet (`422`). An app that is not installed → `404` |
+| `GET /v1/apps/{id}/settings` | any principal; `values` only for person owner or adult (others get `null`) | `{app_id, fields: [<spec.settings field>], values: {name: value} \| null, updated_at, action_id}` |
+| `GET /v1/apps/{id}/dependencies` | any principal | `{app_id, requires: [{id, alternatives, reason, satisfied_by: <app id> \| null, choices: [{id, name, in_catalog, installed}]}], dependents: [{id, name}]}`; `dependents` are installed apps that would lose their last provider if this app were removed |
+| `GET /v1/apps/{id}/host-ports?node_id=` | any principal | `{app_id, node_id, declared: [{port, protocol, description}], conflicts: [{port, protocol, with}]}`; `with` is an app id or `onemind:<what>` |
+| `GET /v1/apps/{id}/exposure` | any principal | `{app_id, tier: private\|mesh\|public, names: [host names], updated_at, action_id}` |
+| `POST /v1/deploy/compose` | person owner | body `{app_id, name?, compose}` (Compose YAML text ≤ 256 KiB) → `200 {ok, app_id, files: {path: text}, refusals: [{service, rule, field, message}], warnings: [..]}`. Converts to a private app folder (manifest with `metadata.origin: private`, kustomization, Deployments, Services, PVCs). **No side effects**: nothing is written or installed. Anything the install sandbox would refuse is a refusal naming its rule (F-01…F-07, S-01, I-01) and `ok` is `false`; keys it does not understand are refused too. Audited `deploy.compose.converted` |
+| `GET /v1/sources`, `GET /v1/sources/{id}` | any principal | `[{id, name, url, commit, state, added_by, added_at, updated_at, action_id, apps: [{id, version, scan}]}]` |
+
+**Action types** (extend §12.5; agents never request `source.*` or `exposure.*`: `403 permission_denied` before anything is filed):
+
+| Type | Params | Risk | Requested by | Runs on |
+|---|---|---|---|---|
+| `app.configure` | `{app_id, settings}`: a partial map of `spec.settings` names to values, validated at request and again at approval (`sealed` is not served yet: `422`) | write | O, A | G |
+| `source.add` | `{name, url, commit}` | sensitive | O | G |
+| `source.move` | `{source_id, to_commit}` | sensitive | O | G |
+| `source.remove` | `{source_id}` | write | O | G |
+| `exposure.private` | `{app_id}` | write | O | G |
+| `exposure.mesh` | `{app_id}` | sensitive | O | G |
+| `exposure.public` | `{app_id}` | sensitive | O | refused: `409 stale_precondition`, reason `parked`, until the relay (CORE-NET-15) |
+
+**Preconditions** (`409 stale_precondition`, checked at request and again at approval): `app.install` with an unsatisfied dependency (reason `dependency_missing`, message names the choices) or a host-port conflict on the node (`host_port_conflict`); `app.remove` while installed apps depend on it (`has_dependents`, message "remove these first: …"); `app.configure`, `exposure.*` on an app that is not installed; `source.remove` while apps from the source are installed (`has_installed_apps`).
+
+**Community sources.** `name` is a DNS label of at most 20 characters, unique; `url` is `https://` with no user info, query or fragment; `commit` is 40 hex characters. The gateway fetches exactly that commit (never a branch head) with hooks, symlinks, submodules and LFS off, and refuses a checkout over its size limits. App ids from a source must start with `<name>-`; an id the official catalog already has is ignored. A source app's tier is at most `community`, and its repository's `scan.json` is ignored: `app.install` needs an **on-box scan record** for the pinned commit (static checks plus an image scan) that passed and is at most 7 days old (§10.3). The box scans when a source is added or moved and again at an install request when the record is missing or stale. Without an image scanner on the box (CORE-DEPLOY-2) the record is `fail` and the install is refused. Moving a source reports which apps were added, removed or changed.
+
+**Exposure.** `private`: the LAN names only (`<app>.onemind.local`); `mesh`: also the mesh name `<app>.apps.onemind.internal` (§12.11, NETWORKING §9); `public`: parked. Every install starts `private`; a removal resets it. The gateway's app proxy and forward-auth answer `404` for a mesh name of an app that is not `mesh` or `public`. A change is published as event `app.exposure.changed`.
