@@ -7,7 +7,7 @@ status: planned
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 :::note[Planned]
-Backups are designed and researched, not built. The one piece in review is the snapshot the update client takes before every OS update. Everything below is the plan, from [research 06](https://github.com/onemindos/ONEMINDOS/blob/main/research-output/06-backups-recovery.md).
+Backups are designed and researched, not built. The one piece on `main` is the restic snapshot the update client takes before every OS update. Everything below is the plan, from [research 06](https://github.com/onemindos/ONEMINDOS/blob/main/research-output/06-backups-recovery.md).
 :::
 
 ## What we will build

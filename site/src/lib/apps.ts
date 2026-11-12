@@ -171,7 +171,12 @@ export function loadApps(now = new Date()): App[] {
         throw new Error(`apps/${dirName}/scan.json is not valid JSON: ${(e as Error).message}`);
       }
     }
-    const links: Record<string, string> = { ...(md.links ?? {}) };
+    // Only https links reach the page: a manifest is data, and an href is not the place to trust it.
+    const links: Record<string, string> = Object.fromEntries(
+      Object.entries((md.links ?? {}) as Record<string, unknown>).filter(
+        (e): e is [string, string] => typeof e[1] === 'string' && /^https:\/\//.test(e[1]),
+      ),
+    );
     if (!links.github && /^https:\/\/github\.com\//.test(md.source)) links.github = md.source;
 
     const base = {

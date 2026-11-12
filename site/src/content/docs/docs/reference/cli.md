@@ -27,13 +27,15 @@ NODE_ID       HOSTNAME  ROLE  BOARD       ARCH   OS         K3S    STATUS  LAST_
 
 Gateway errors are printed with the contract's error code, for example `HTTP 401 unauthenticated: …`.
 
-## Updates <span class="om-tag om-tag--warn">in review</span>
+## Updates <span class="om-tag om-tag--unknown">being built</span>
 
 ```sh
 onemind update status
 onemind update check
 onemind update apply
 ```
+
+The commands are on `main`. They report and install OneMind image updates, so on a developer install there is nothing for them to do.
 
 See [Updates and rollback](../../concepts/updates-and-rollback/).
 

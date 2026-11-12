@@ -13,13 +13,13 @@ There are good projects that solve part of this. Before we wrote any code we too
 
 ## 1. Nobody checks that an update worked before keeping it
 
-Several of these systems keep two copies of the OS and switch between them on update. That's the right idea. But every one we read marks the new copy good as soon as one of its own programs starts, or when boot reaches a certain point. None waits until the box is actually doing its job.
+Several of these systems keep two copies of the OS and switch between them on update. That's the right idea. But most of them (Home Assistant OS, umbrelOS, ZimaOS, Kairos) mark the new copy good as soon as one of their own programs starts, or when boot reaches a certain point. The two that check more, Talos and balenaOS, trust a readiness signal that may be stale or leave the apps unchecked. None we read waits for fresh proof that the box is doing its job ([the update slice of the matrix](https://github.com/onemindos/ONEMINDOS/blob/main/research-output/02-competitors/MATRIX.md#22-slice-2-updates-and-trust-engine-health-gate-signing)).
 
 OneMind keeps an update only after fresh signs that k3s and the core services are healthy, measured after this boot. If they aren't, the box rolls back by itself. The gate is on `main` today and runs in our QEMU boot tests.
 
 ## 2. AI agents are being given the keys
 
-Agents are getting good, and every home-server project is adding them. Some let an agent install updates and reboot the box, with only a hint in the AI client as a brake. Prompt injection cannot be reliably prevented today. So the brake has to be in the OS.
+Agents are getting good, and every home-server project is adding them. At least one lets an agent install an OS update and reboot the box, with only a hint to the AI client as a brake ([research 07](https://github.com/onemindos/ONEMINDOS/blob/main/research-output/07-security-compliance.md)). Prompt injection cannot be reliably prevented today. So the brake has to be in the OS.
 
 In OneMind an agent can **ask**: it files an action with exact parameters and an expiry. Only a person with the owner role can **approve**. The agent's MCP tools include `request_action` and nothing that approves. Every request and every decision lands in a hash-chained audit log. That is the core of the system, and it works today.
 

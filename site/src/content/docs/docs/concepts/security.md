@@ -20,7 +20,9 @@ This page says plainly what is protected now and what is not, because a security
 ## In review <span class="om-tag om-tag--warn">in review</span>
 
 - **Scan gate for apps**: no install without a passing Trivy and ClamAV scan newer than 7 days.
-- **Signed OS updates** with TUF metadata, and nightly rebuilds when Debian ships a security fix.
+- **Nightly security rebuilds** of the image when Debian ships a fix, signed and published to the security channel.
+
+The box side, the update client that verifies signed TUF metadata, is on `main` but has nothing to install until the image ships ([Updates and rollback](../updates-and-rollback/)).
 
 ## Not protected yet
 

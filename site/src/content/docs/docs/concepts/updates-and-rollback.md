@@ -15,7 +15,7 @@ Most systems that do A/B updates mark the new copy good as soon as one of their 
 - **RAUC** manages the slots.
 - **Debian 13** is the base. The root filesystem is read-only, so packages are never upgraded in place.
 
-## Update policy <span class="om-tag om-tag--warn">in review</span>
+## Update policy <span class="om-tag om-tag--unknown">being built</span>
 
 Updates are automatic **by a policy the owner set**:
 
@@ -26,7 +26,7 @@ Updates are automatic **by a policy the owner set**:
 
 You can postpone, set the window, or turn automatic installs off. The EU Cyber Resilience Act asks for automatic security updates on by default, with an easy opt-out; this policy is built to meet that.
 
-On the box, `onemindd` checks the channel, verifies the signed metadata (**TUF**, The Update Framework), takes a backup snapshot first, installs into the other slot, reboots at a safe point, and records whether the update was **committed** or **rolled back**:
+On the box, `onemindd` checks the channel, verifies the signed metadata (**TUF**, The Update Framework), takes a backup snapshot first, installs into the other slot, reboots at a safe point, and records whether the update was **committed** or **rolled back**. This client is on `main` in [`internal/update/`](https://github.com/onemindos/ONEMINDOS/tree/main/internal/update); it has nothing to install until the OneMind image and a signed channel are published:
 
 ```sh
 onemind update status     # booted slot, channel, last result

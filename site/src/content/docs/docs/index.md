@@ -27,7 +27,7 @@ This page is the single source of truth for status. The landing page repeats it.
 | Developer install `deploy/install.sh` (hub and node), Mac compose hub, `verify.sh` | <span class="om-tag om-tag--warn">in review</span> | [Install](getting-started/install/) |
 | Scan gate, agent identities for apps, MCP endpoint for agents, catalog links and trust fields | <span class="om-tag om-tag--warn">in review</span> | [Approvals and agents](concepts/approvals-and-agents/) |
 | App intake: scaffolder, generated READMEs, CI gate (licence, pins, Trivy, ClamAV, smoke test) | <span class="om-tag om-tag--warn">in review</span> | [Apps and trust cards](concepts/apps-and-trust-cards/) |
-| OS update client: signed channel (TUF), policy, pre-update snapshot, RAUC install, `onemind update` | <span class="om-tag om-tag--warn">in review</span> | [Updates and rollback](concepts/updates-and-rollback/) |
+| OS update client: signed channel (TUF), policy, pre-update snapshot, RAUC install, `onemind update`. On `main`; it has nothing to install until the image and a signed channel are published | <span class="om-tag om-tag--unknown">being built</span> | [Updates and rollback](concepts/updates-and-rollback/) |
 | OneMind image on Debian 13: read-only root, RAUC A/B slots, health gate, boot tests in QEMU in CI | <span class="om-tag om-tag--unknown">being built</span> | [`os/`](https://github.com/onemindos/ONEMINDOS/tree/main/os) |
 | Nightly security rebuilds of the image (CVE scan, ClamAV, signed security channel) | <span class="om-tag om-tag--warn">in review</span> | [Security](concepts/security/) |
 
@@ -39,6 +39,7 @@ This page is the single source of truth for status. The landing page repeats it.
 | Multi-site fabric: NATS leaf nodes, private mesh, store-and-forward | <span class="om-tag om-tag--unknown">planned</span> | [Fabric](concepts/fabric/) |
 | Single sign-on and household roles (Owner, Adult, Teen, Child, Guest) | <span class="om-tag om-tag--unknown">planned</span> | v0 uses static bearer tokens |
 | Android and iPhone apps: nodes, apps, approvals, activity, notifications | <span class="om-tag om-tag--unknown">planned</span> | approvals as push notifications, content fetched from your box |
+| Notifications: ntfy alerts for waiting approvals, blocked apps and failed backups; phone push that says only "something needs you" | <span class="om-tag om-tag--unknown">planned</span> | [Approvals and agents](concepts/approvals-and-agents/) |
 | Plugin UI extension points for the dashboard | <span class="om-tag om-tag--unknown">planned</span> | headless operation stays first-class |
 | Downloadable, signed OneMind images | <span class="om-tag om-tag--unknown">planned</span> | after the image passes its hardware gates |
 

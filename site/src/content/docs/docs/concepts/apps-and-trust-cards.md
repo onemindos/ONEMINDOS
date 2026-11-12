@@ -4,6 +4,8 @@ description: How an app gets into OneMind, what is checked, and what the trust c
 status: mixed
 ---
 
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 Every OneMind app is a directory in the repository, `apps/<id>/`, with a manifest (`onemind.app.yaml`), an icon and plain Kubernetes manifests. The [apps catalog](../../../apps/) on this site is generated from those files at build time, so it can never list an app that does not exist.
 
 ## The trust card

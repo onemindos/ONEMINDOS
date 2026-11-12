@@ -4,6 +4,8 @@ description: The onemind.app.yaml format that every Market app uses.
 status: mixed
 ---
 
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 Every app lives in `apps/<id>/` with an `onemind.app.yaml`, an icon and a `manifests/` directory (a `kustomization.yaml` plus plain Kubernetes objects). The JSON Schema is `sdk/schema/onemind.app.schema.json`. The format is Apache-2.0, like the rest of OneMind.
 
 ## Version 1 alpha 1 <span class="om-tag om-tag--ok">works today</span>
