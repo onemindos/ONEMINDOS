@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package cli
 
 import (
 	"context"
@@ -16,13 +16,25 @@ import (
 	"github.com/onemindos/onemindos/internal/update"
 )
 
-// newEngine is replaced in tests (fake rauc, restic and reboot).
-var newEngine = func(c *update.Config, log *slog.Logger) *update.Engine { return update.New(c, log) }
+func updateCommands() []Command {
+	sub := func(name, usage string) Command {
+		return Command{
+			Path:  []string{"update", name},
+			Usage: usage,
+			Run:   func(env *Env, args []string) error { return updateCmd(env, name, args, env.Stdout, env.Stderr) },
+		}
+	}
+	return []Command{
+		sub("status", "onemind update status [--config FILE] [--json]"),
+		sub("check", "onemind update check  [--config FILE]"),
+		sub("apply", "onemind update apply  [--config FILE] [--no-reboot]"),
+	}
+}
 
 // updateCmd implements `onemind update status|check|apply` (brief 30 B4.2,
 // contract §10.1). check and apply need root: they write the update state
 // under /data and apply installs with RAUC.
-func updateCmd(sub string, args []string, out, errw io.Writer) error {
+func updateCmd(env *Env, sub string, args []string, out, errw io.Writer) error {
 	fs := flag.NewFlagSet("update "+sub, flag.ContinueOnError)
 	conf := fs.String("config", envOr("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), "update.conf path")
 	asJSON := fs.Bool("json", false, "status: print status.json as is")
@@ -44,7 +56,7 @@ func updateCmd(sub string, args []string, out, errw io.Writer) error {
 	if sub == "apply" {
 		mode = update.ModeApply
 	}
-	res, err := newEngine(c, log).Run(ctx, mode, *noReboot)
+	res, err := env.NewEngine(c, log).Run(ctx, mode, *noReboot)
 	if res != nil && res.Decision != "" {
 		fmt.Fprintf(out, "decision: %s (%s)\n", res.Decision, res.Reason)
 		for _, s := range res.Skips {

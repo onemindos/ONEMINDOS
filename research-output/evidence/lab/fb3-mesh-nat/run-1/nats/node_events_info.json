@@ -1,0 +1,80 @@
+{
+  "config": {
+    "name": "NODE_EVENTS",
+    "retention": "limits",
+    "max_consumers": -1,
+    "max_msgs_per_subject": -1,
+    "max_msgs": -1,
+    "max_bytes": -1,
+    "max_age": 0,
+    "max_msg_size": -1,
+    "storage": "file",
+    "discard": "old",
+    "num_replicas": 1,
+    "sources": [
+      {
+        "name": "ONEMIND_NODE_OUTBOX",
+        "external": {
+          "api": "$JS.node-home-a.API",
+          "deliver": ""
+        }
+      },
+      {
+        "name": "ONEMIND_NODE_OUTBOX",
+        "external": {
+          "api": "$JS.node-home-b.API",
+          "deliver": ""
+        }
+      }
+    ],
+    "sealed": false,
+    "deny_delete": false,
+    "deny_purge": false,
+    "allow_rollup_hdrs": false,
+    "allow_direct": false,
+    "mirror_direct": false,
+    "metadata": {
+      "_nats.level": "5",
+      "_nats.req.level": "0",
+      "_nats.ver": "2.15.2"
+    },
+    "consumer_limits": {}
+  },
+  "created": "2026-11-12T08:09:46.434711797Z",
+  "state": {
+    "messages": 1200,
+    "bytes": 229968,
+    "first_seq": 1,
+    "first_ts": "2026-11-12T08:16:57.950772512Z",
+    "last_seq": 1200,
+    "last_ts": "2026-11-12T08:59:43.573616816Z",
+    "num_subjects": 2,
+    "consumer_count": 0
+  },
+  "domain": "hub",
+  "cluster": {
+    "leader": "hub"
+  },
+  "sources": [
+    {
+      "name": "ONEMIND_NODE_OUTBOX",
+      "external": {
+        "api": "$JS.node-home-a.API",
+        "deliver": ""
+      },
+      "lag": 0,
+      "active": 410023476
+    },
+    {
+      "name": "ONEMIND_NODE_OUTBOX",
+      "external": {
+        "api": "$JS.node-home-b.API",
+        "deliver": ""
+      },
+      "lag": 0,
+      "active": 476103653
+    }
+  ],
+  "ts": "2026-11-12T08:59:44.918625663Z"
+}
+

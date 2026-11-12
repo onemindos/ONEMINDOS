@@ -1,0 +1,126 @@
+{
+   "blockdevices": [
+      {
+         "name": "/dev/vda",
+         "kname": "/dev/vda",
+         "pkname": null,
+         "type": "disk",
+         "size": 12884901888,
+         "model": null,
+         "serial": null,
+         "wwn": null,
+         "tran": "virtio",
+         "rota": true,
+         "rm": false,
+         "ro": false,
+         "fstype": null,
+         "label": null,
+         "uuid": null,
+         "partlabel": null,
+         "mountpoints": [],
+         "children": [
+            {
+               "name": "/dev/vda1",
+               "kname": "/dev/vda1",
+               "pkname": "/dev/vda",
+               "type": "part",
+               "size": 12750667264,
+               "model": null,
+               "serial": null,
+               "wwn": null,
+               "tran": "virtio",
+               "rota": true,
+               "rm": false,
+               "ro": false,
+               "fstype": "ext4",
+               "label": null,
+               "uuid": "d1b898ed-e894-4bbb-9df9-45e8fd51dd8a",
+               "partlabel": null,
+               "mountpoints": [
+                  "/"
+               ]
+            },
+            {
+               "name": "/dev/vda15",
+               "kname": "/dev/vda15",
+               "pkname": "/dev/vda",
+               "type": "part",
+               "size": 133169152,
+               "model": null,
+               "serial": null,
+               "wwn": null,
+               "tran": "virtio",
+               "rota": true,
+               "rm": false,
+               "ro": false,
+               "fstype": "vfat",
+               "label": null,
+               "uuid": "97F8-537E",
+               "partlabel": null,
+               "mountpoints": [
+                  "/boot/efi"
+               ]
+            }
+         ]
+      },
+      {
+         "name": "/dev/vdb",
+         "kname": "/dev/vdb",
+         "pkname": null,
+         "type": "disk",
+         "size": 6442450944,
+         "model": null,
+         "serial": null,
+         "wwn": null,
+         "tran": "virtio",
+         "rota": true,
+         "rm": false,
+         "ro": false,
+         "fstype": null,
+         "label": null,
+         "uuid": null,
+         "partlabel": null,
+         "mountpoints": []
+      },
+      {
+         "name": "/dev/vdc",
+         "kname": "/dev/vdc",
+         "pkname": null,
+         "type": "disk",
+         "size": 6442450944,
+         "model": null,
+         "serial": null,
+         "wwn": null,
+         "tran": "virtio",
+         "rota": true,
+         "rm": false,
+         "ro": false,
+         "fstype": null,
+         "label": null,
+         "uuid": null,
+         "partlabel": null,
+         "mountpoints": []
+      },
+      {
+         "name": "/dev/vdd",
+         "kname": "/dev/vdd",
+         "pkname": null,
+         "type": "disk",
+         "size": 290637824,
+         "model": null,
+         "serial": null,
+         "wwn": null,
+         "tran": "virtio",
+         "rota": true,
+         "rm": false,
+         "ro": true,
+         "fstype": "iso9660",
+         "label": "cidata",
+         "uuid": "2026-11-12-03-10-25-21",
+         "partlabel": null,
+         "mountpoints": [
+            "/mnt/lima-cidata"
+         ]
+      }
+   ]
+}

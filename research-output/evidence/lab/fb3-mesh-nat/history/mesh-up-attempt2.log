@@ -1,0 +1,21 @@
+/dev/stdin:8:63-63: Error: syntax error, unexpected '}', expecting newline or semicolon
+    iifname "wan" ct state new counter name "wan_new_in" drop }
+                                                              ^
+/dev/stdin:9:3-7: Error: syntax error, unexpected chain
+  chain forward { type filter hook forward priority 0; policy drop;
+  ^^^^^
+/dev/stdin:9:56-66: Error: you cannot set chain policy twice
+  chain forward { type filter hook forward priority 0; policy drop;
+                                                       ^^^^^^^^^^^
+/dev/stdin:13:51-51: Error: syntax error, unexpected '}', expecting newline or semicolon
+    iifname "wan" counter name "wan_new_fwd" drop }
+                                                  ^
+/dev/stdin:15:1-5: Error: syntax error, unexpected table
+table ip nat { chain postrouting { type nat hook postrouting priority 100; oifname "wan" masquerade } }
+^^^^^
+/dev/stdin:15:76-82: Error: syntax error, unexpected oifname
+table ip nat { chain postrouting { type nat hook postrouting priority 100; oifname "wan" masquerade } }
+                                                                           ^^^^^^^
+/dev/stdin:16:1-1: Error: syntax error, unexpected end of file
+table ip nat { chain postrouting { type nat hook postrouting priority 100; oifname "wan" masquerade } }
+^
