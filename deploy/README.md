@@ -37,6 +37,34 @@ checks what is there; it restarts a service only when its binary or config chang
 Options: `--gateway-bind ADDR`, `--onemindd-bin FILE` (skip Go, use `make -C cmd/onemindd build`
 output), `--dashboard-dist DIR` (skip Node), `--hub URL` on the hub (the address it advertises).
 
+### Dry run and targets (ported from PR #27)
+`--dry-run` prints every step the install would take (each download with its URL and sha256, each
+file with its content, each service it would enable) and changes nothing; it needs no root. With
+`--target` it plans for another machine, so you can read the plan on a Mac before touching the box:
+```sh
+deploy/install.sh --role hub  --dry-run --target rpi5
+deploy/install.sh --role node --dry-run --target jetson --hub http://hub.local:8080 --token <join token>
+```
+| `--target` | Machine | What changes in the plan |
+|---|---|---|
+| `debian13` | Beelink or any Debian 13 PC or VM (amd64) | nothing special |
+| `rpi5` | Raspberry Pi 5, Raspberry Pi OS trixie (arm64) | memory cgroup step, below |
+| `jetson` | Jetson Linux (L4T) Ubuntu (arm64) | note: GPU pods need the NVIDIA runtime in k3s's containerd (not done in v0) |
+| `do` | DigitalOcean Debian 13 droplet (amd64) | firewall reminder, below |
+
+`--arch amd64|arm64` overrides the target's usual architecture. A real run (no `--dry-run`) refuses
+`--target` and detects the machine itself: `/proc/device-tree/model` says Raspberry Pi 5,
+`/etc/nv_tegra_release` means Jetson, DMI vendor `DigitalOcean` means a droplet.
+- **Pi 5 memory cgroup.** k3s needs the memory cgroup, and the Raspberry Pi kernel turns it off by
+  default. If `/sys/fs/cgroup/cgroup.controllers` lacks `memory`, the script copies
+  `/boot/firmware/cmdline.txt` to `cmdline.txt.onemind-backup` (once), appends
+  `cgroup_memory=1 cgroup_enable=memory` (docs.k3s.io, Raspberry Pi), and stops with **exit code 3**:
+  reboot, then run the same command again. This runs before anything else is installed.
+- **DigitalOcean firewall reminder.** A droplet has a public address, and v0 serves the gateway on
+  plain HTTP and NATS without auth. On `do` the script prints, at the start and the end, that ports
+  8080, 4222, 6443, 10250 and 8472/udp must be closed to the internet with a DigitalOcean Cloud
+  Firewall (allow them only from your VPC or Tailscale range). It changes no firewall itself.
+
 ### What it installs, and where
 | Piece | How | Where |
 |---|---|---|

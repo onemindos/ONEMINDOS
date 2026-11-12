@@ -7,6 +7,7 @@
 #   sudo deploy/install.sh --role hub  [--hub http://<this-box>:8080]
 #   sudo deploy/install.sh --role node --hub http://<hub>:8080 --token <join-token>
 #   sudo deploy/install.sh --uninstall [--purge]
+#   deploy/install.sh --role hub --dry-run [--target debian13|rpi5|jetson|do]   # plan only
 #
 # Run it from a checkout of this repository (it builds onemindd, the gateway and the dashboard
 # from that checkout). Re-running it is safe: every step checks what is already there.
@@ -27,6 +28,7 @@ BIN=/usr/local/bin
 BANNER="unsupported developer install, no OS rollback"
 
 ROLE="" HUB="" TOKEN="" UNINSTALL=0 PURGE=0 ONEMINDD_BIN="" DASH_DIST="" BIND="0.0.0.0" FORCE_OS=0
+DRY_RUN=0 TARGET="" ARCH_OVERRIDE=""
 
 usage() {
   cat <<EOF
@@ -34,6 +36,7 @@ Usage:
   $0 --role hub  [--hub URL] [--gateway-bind ADDR] [--dashboard-dist DIR] [--onemindd-bin FILE]
   $0 --role node --hub URL --token JOIN_TOKEN [--onemindd-bin FILE]
   $0 --uninstall [--purge]
+  $0 ... --dry-run [--target debian13|rpi5|jetson|do [--arch amd64|arm64]]
 
   --role hub|node        hub: k3s server, NATS, onemindd, gateway + dashboard. node: k3s agent + onemindd.
   --hub URL              hub gateway URL, e.g. http://hub.local:8080 (the host part also gives
@@ -46,6 +49,11 @@ Usage:
   --force-os             continue on an OS this script was not written for.
   --uninstall            remove everything this script installed (k3s and its data included).
   --purge                with --uninstall: also delete $STATE (gateway database and audit log).
+  --dry-run              print every step this run would take, and change nothing (no root needed).
+  --target T             with --dry-run: plan for T instead of this machine. debian13 (a Beelink or
+                         any Debian 13 PC), rpi5 (Raspberry Pi OS trixie), jetson (Jetson Linux),
+                         do (a DigitalOcean Debian 13 droplet).
+  --arch amd64|arm64     with --target: another CPU architecture than the target's usual one.
 EOF
 }
 
@@ -64,6 +72,9 @@ while [ $# -gt 0 ]; do
     --force-os) FORCE_OS=1; shift ;;
     --uninstall) UNINSTALL=1; shift ;;
     --purge) PURGE=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    --target) TARGET=${2:-}; shift 2 ;;
+    --arch) ARCH_OVERRIDE=${2:-}; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; die "unknown argument: $1" ;;
   esac
@@ -77,13 +88,38 @@ banner() {
   printf '************************************************************\n\n'
 }
 
-[ "$(id -u)" -eq 0 ] || die "run as root (sudo)"
+# --dry-run: each step prints what it would change (plan, show_file) and returns before
+# changing anything; the real code path below each dry-run block is unchanged.
+STEP=0
+step() { STEP=$((STEP + 1)); printf '\n[%d] %s\n' "$STEP" "$*"; }
+plan() { printf '  + %s\n' "$*"; }
+show_file() { # show_file PATH MODE [OWNER]: print the content (stdin) this run would write
+  printf '  + write %s (mode %s%s)\n' "$1" "$2" "${3:+, $3}"
+  sed 's/^/      | /'
+}
+
+if [ "$DRY_RUN" = 1 ]; then
+  printf 'DRY RUN: nothing on this machine is changed; this is the plan.\n'
+else
+  [ "$(id -u)" -eq 0 ] || die "run as root (sudo), or add --dry-run to see the plan"
+  [ -z "$TARGET" ] || die "--target is only for --dry-run; a real install detects the machine it runs on"
+fi
 banner
 
 # ------------------------------------------------------------------------------------------
 # Uninstall
 # ------------------------------------------------------------------------------------------
 uninstall() {
+  if [ "$DRY_RUN" = 1 ]; then
+    step "Uninstall"
+    plan "systemctl disable --now onemind-gateway onemindd onemind-nats; remove their unit files"
+    plan "rm $BIN/onemindd $BIN/onemind $BIN/nats-server"
+    plan "run k3s-uninstall.sh / k3s-agent-uninstall.sh if present (k3s and its data)"
+    plan "rm /etc/apt/apt.conf.d/52onemind-security-only /etc/needrestart/conf.d/50-onemind.conf"
+    plan "rm -r $PREFIX $ETC $CACHE /var/lib/onemind-nats"
+    if [ "$PURGE" = 1 ]; then plan "rm -r $STATE /var/lib/onemindd; userdel onemind"; else plan "keep $STATE"; fi
+    return 0
+  fi
   log "stopping and removing OneMind services"
   for u in onemind-gateway onemindd onemind-nats; do
     systemctl disable --now "$u" 2>/dev/null || true
@@ -115,29 +151,82 @@ if [ "$ROLE" = node ]; then
   [ -n "$HUB" ] || die "--hub is required for --role node"
   [ -n "$TOKEN" ] || die "--token is required for --role node (the hub install prints it)"
   # The token goes into k3s's env file and the URL into config files: allow only plain characters.
-  printf '%s' "$TOKEN" | grep -Eqx '[A-Za-z0-9:._-]{8,512}' || die "--token has unexpected characters"
+  # (Length checked apart: BSD grep, used for --dry-run on a Mac, caps {m,n} at 255.)
+  { [ "${#TOKEN}" -ge 8 ] && [ "${#TOKEN}" -le 512 ] && printf '%s' "$TOKEN" | grep -Eqx '[A-Za-z0-9:._-]+'; } \
+    || die "--token has unexpected characters or length"
 fi
 if [ -n "$HUB" ]; then
   printf '%s' "$HUB" | grep -Eqx 'https?://[][A-Za-z0-9.:-]+/?' \
     || die "--hub must look like http://HOST:8080 (got: $HUB)"
 fi
 
-ARCH=$(dpkg --print-architecture 2>/dev/null || true)
+# TARGET_KIND is the §6 target this machine is: debian13 (any Debian 13 PC or VM, the Beelink),
+# rpi5, jetson or do. It decides the Pi 5 memory-cgroup step, the Jetson GPU note and the
+# DigitalOcean firewall reminder. JETSON=1 stands in for /etc/nv_tegra_release under --target.
+TARGET_KIND="" BOARD="" JETSON=0
+if [ -n "$TARGET" ]; then
+  case "$TARGET" in
+    debian13) ID=debian VERSION_CODENAME=trixie PRETTY_NAME="Debian GNU/Linux 13 (trixie)" BOARD=x86_64-efi ARCH=amd64 ;;
+    rpi5)     ID=debian VERSION_CODENAME=trixie PRETTY_NAME="Raspberry Pi OS (trixie)" BOARD=rpi5 ARCH=arm64 ;;
+    jetson)   ID=ubuntu VERSION_CODENAME=jammy PRETTY_NAME="Ubuntu 22.04 (Jetson Linux)" BOARD=jetson-orin ARCH=arm64 JETSON=1 ;;
+    do)       ID=debian VERSION_CODENAME=trixie PRETTY_NAME="Debian GNU/Linux 13 (trixie)" BOARD=vm-do ARCH=amd64 ;;
+    *) die "--target must be debian13, rpi5, jetson or do (got: $TARGET)" ;;
+  esac
+  TARGET_KIND=$TARGET
+  [ -z "$ARCH_OVERRIDE" ] || ARCH=$ARCH_OVERRIDE
+else
+  [ -z "$ARCH_OVERRIDE" ] || die "--arch goes with --target (a real install uses this machine's architecture)"
+  [ -r /etc/os-release ] || die "/etc/os-release not found: not a Linux this script knows (use --dry-run --target to plan for one)"
+  ARCH=$(dpkg --print-architecture 2>/dev/null || true)
+  if [ -z "$ARCH" ] && [ "$DRY_RUN" = 1 ]; then
+    case "$(uname -m)" in x86_64) ARCH=amd64 ;; aarch64|arm64) ARCH=arm64 ;; esac
+  fi
+  # shellcheck disable=SC1091
+  . /etc/os-release
+  [ -f /etc/nv_tegra_release ] && JETSON=1
+  MODEL=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || true)
+  VENDOR=$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || true)
+  case "$MODEL" in
+    *"Raspberry Pi 5"*) TARGET_KIND=rpi5 BOARD=rpi5 ;;
+    *"Raspberry Pi"*) warn "this Raspberry Pi is not a Pi 5; only the Pi 5 is a v0 board" ;;
+  esac
+  if [ -z "$TARGET_KIND" ]; then
+    if [ "$JETSON" = 1 ]; then TARGET_KIND=jetson BOARD=jetson-orin
+    elif [ "$VENDOR" = DigitalOcean ]; then TARGET_KIND='do' BOARD=vm-do
+    else TARGET_KIND=debian13 BOARD=$(systemd-detect-virt -q 2>/dev/null && echo vm || echo "$ARCH")
+    fi
+  fi
+fi
 case "$ARCH" in amd64|arm64) ;; *) die "architecture '$ARCH' is not supported (amd64 or arm64 only)" ;; esac
 
-# shellcheck disable=SC1091
-. /etc/os-release
 OS_DESC="${PRETTY_NAME:-unknown}"
 OS_OK=0
 case "${ID:-}" in
   debian|raspbian) [ "${VERSION_CODENAME:-}" = trixie ] && OS_OK=1 ;;   # Debian 13, Raspberry Pi OS trixie
-  ubuntu) [ -f /etc/nv_tegra_release ] && OS_OK=1 ;;                     # Jetson Linux (L4T) Ubuntu
+  ubuntu) [ "$JETSON" = 1 ] && OS_OK=1 ;;                                # Jetson Linux (L4T) Ubuntu
 esac
 if [ "$OS_OK" = 0 ]; then
   [ "$FORCE_OS" = 1 ] || die "$OS_DESC is not a target of this script (Debian 13, Raspberry Pi OS trixie, Jetson L4T Ubuntu). --force-os to try anyway"
   warn "continuing on $OS_DESC (--force-os)"
 fi
-log "platform: $OS_DESC, $ARCH, role $ROLE"
+log "platform: $OS_DESC, $ARCH, target $TARGET_KIND ($BOARD), role $ROLE"
+
+do_firewall_reminder() {
+  [ "$TARGET_KIND" = 'do' ] || return 0
+  cat <<'EOF'
+
+  DigitalOcean: this droplet has a public address. Ports 8080 (gateway, plain HTTP), 4222 (NATS,
+  no auth in v0), 6443 (k3s API), 10250 (kubelet) and 8472/udp (flannel) must NOT be open to the
+  internet. Put a DigitalOcean Cloud Firewall in front of the droplet that allows them only from
+  your VPC or Tailscale range, and SSH only from your own address. This script does not change
+  any firewall.
+
+EOF
+}
+do_firewall_reminder
+if [ "$TARGET_KIND" = jetson ]; then
+  warn "Jetson: k3s runs ordinary pods, but GPU pods need the NVIDIA container runtime set up for k3s's containerd (not done in v0)"
+fi
 
 hub_host() { # host part of --hub (scheme, port and path removed)
   local h=${1#*://}; h=${h%%/*}
@@ -151,6 +240,7 @@ pick() { eval "printf '%s' \"\${$1_$ARCH}\""; }   # pick K3S_SHA256 -> value for
 # fetch URL SHA256 DEST: download, check the hash, then move into place (never runs unchecked bytes).
 fetch() {
   local url=$1 sum=$2 dest=$3 tmp
+  if [ "$DRY_RUN" = 1 ]; then plan "download $url"; printf '      -> %s (sha256 must be %s)\n' "$dest" "$sum"; return 0; fi
   if [ -f "$dest" ] && echo "$sum  $dest" | sha256sum -c --status; then return 0; fi
   tmp=$(mktemp "$CACHE/dl.XXXXXX")
   log "download $url"
@@ -161,16 +251,88 @@ fetch() {
   mv "$tmp" "$dest"
 }
 
-install -d -m0755 "$PREFIX" "$TOOLS" "$CACHE"
-# 0755: services read their own files here (NATS as a dynamic user, the gateway as "onemind");
-# each secret file below is 0600/0640 on its own.
-install -d -m0755 "$ETC"
+if [ "$DRY_RUN" = 1 ]; then
+  step "Directories"
+  plan "install -d -m0755 $PREFIX $TOOLS $CACHE $ETC"
+else
+  install -d -m0755 "$PREFIX" "$TOOLS" "$CACHE"
+  # 0755: services read their own files here (NATS as a dynamic user, the gateway as "onemind");
+  # each secret file below is 0600/0640 on its own.
+  install -d -m0755 "$ETC"
+fi
+
+# ------------------------------------------------------------------------------------------
+# 0. Memory cgroup (k3s needs it; off by default on the Raspberry Pi kernel)
+# ------------------------------------------------------------------------------------------
+memory_cgroup_check() {
+  local cmdline=/boot/firmware/cmdline.txt
+  if [ "$DRY_RUN" = 1 ]; then
+    step "Memory cgroup (k3s needs it)"
+    if [ "$TARGET_KIND" = rpi5 ]; then
+      plan "if /sys/fs/cgroup/cgroup.controllers lacks \"memory\" (the Raspberry Pi kernel default):"
+      plan "  copy $cmdline to $cmdline.onemind-backup (once)"
+      plan "  append \"cgroup_memory=1 cgroup_enable=memory\" to the single line of $cmdline"
+      plan "  stop with exit code 3: reboot, then run this command again"
+    else
+      plan "check that /sys/fs/cgroup/cgroup.controllers lists \"memory\"; stop if it does not"
+    fi
+    return 0
+  fi
+  grep -qw memory /sys/fs/cgroup/cgroup.controllers 2>/dev/null && return 0
+  if [ -f "$cmdline" ]; then   # Raspberry Pi: k3s needs the memory cgroup (docs.k3s.io, Raspberry Pi)
+    if ! grep -q 'cgroup_enable=memory' "$cmdline"; then
+      [ -f "$cmdline.onemind-backup" ] || cp -p "$cmdline" "$cmdline.onemind-backup"
+      sed -i '1 s/$/ cgroup_memory=1 cgroup_enable=memory/' "$cmdline"
+      log "$cmdline updated (the old one is $cmdline.onemind-backup)"
+    fi
+    printf '\nThe memory cgroup is off; it is turned on at the next boot. Reboot, then run this script again.\n' >&2
+    exit 3
+  fi
+  die "the memory cgroup is not available; k3s cannot run"
+}
 
 # ------------------------------------------------------------------------------------------
 # 1. OS packages + automatic security updates (contract §10.1, developer installs)
 # ------------------------------------------------------------------------------------------
+APT_PKGS="ca-certificates curl tar gzip iproute2 unattended-upgrades needrestart apt-listchanges"
+apt_security_conf() {
+  if [ "${ID:-}" = ubuntu ]; then
+    cat <<'EOF'
+// OneMind developer install (deploy/install.sh): automatic updates from security origins only.
+#clear Unattended-Upgrade::Allowed-Origins;
+#clear Unattended-Upgrade::Origins-Pattern;
+Unattended-Upgrade::Allowed-Origins { "${distro_id}:${distro_codename}-security"; };
+EOF
+  else
+    cat <<'EOF'
+// OneMind developer install (deploy/install.sh): automatic updates from security origins only.
+#clear Unattended-Upgrade::Allowed-Origins;
+#clear Unattended-Upgrade::Origins-Pattern;
+Unattended-Upgrade::Origins-Pattern {
+  "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+  "origin=Debian,codename=${distro_codename},label=Debian-Security";
+};
+EOF
+  fi
+}
+needrestart_conf() {
+  cat <<'EOF'
+# OneMind developer install: restart affected services automatically.
+$nrconf{restart} = 'a';
+EOF
+}
+
 apt_setup() {
-  local pkgs="ca-certificates curl tar gzip iproute2 unattended-upgrades needrestart apt-listchanges"
+  local pkgs=$APT_PKGS
+  if [ "$DRY_RUN" = 1 ]; then
+    step "OS packages and automatic security updates (contract §10.1)"
+    plan "apt-get install --no-install-recommends $pkgs (only if one is missing)"
+    plan "debconf: unattended-upgrades/enable_auto_updates=true; dpkg-reconfigure unattended-upgrades"
+    apt_security_conf | show_file /etc/apt/apt.conf.d/52onemind-security-only 0644
+    needrestart_conf | show_file /etc/needrestart/conf.d/50-onemind.conf 0644
+    plan "systemctl enable --now apt-daily.timer apt-daily-upgrade.timer"
+    return 0
+  fi
   # shellcheck disable=SC2086
   if ! dpkg -s $pkgs >/dev/null 2>&1; then
     log "apt: installing $pkgs"
@@ -183,30 +345,10 @@ apt_setup() {
   echo 'unattended-upgrades unattended-upgrades/enable_auto_updates boolean true' | debconf-set-selections
   DEBIAN_FRONTEND=noninteractive dpkg-reconfigure -f noninteractive unattended-upgrades
   # Security origins only (contract §10.1). '#clear' drops the distro list, then we add ours.
-  if [ "${ID:-}" = ubuntu ]; then
-    cat > /etc/apt/apt.conf.d/52onemind-security-only <<'EOF'
-// OneMind developer install (deploy/install.sh): automatic updates from security origins only.
-#clear Unattended-Upgrade::Allowed-Origins;
-#clear Unattended-Upgrade::Origins-Pattern;
-Unattended-Upgrade::Allowed-Origins { "${distro_id}:${distro_codename}-security"; };
-EOF
-  else
-    cat > /etc/apt/apt.conf.d/52onemind-security-only <<'EOF'
-// OneMind developer install (deploy/install.sh): automatic updates from security origins only.
-#clear Unattended-Upgrade::Allowed-Origins;
-#clear Unattended-Upgrade::Origins-Pattern;
-Unattended-Upgrade::Origins-Pattern {
-  "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
-  "origin=Debian,codename=${distro_codename},label=Debian-Security";
-};
-EOF
-  fi
+  apt_security_conf > /etc/apt/apt.conf.d/52onemind-security-only
   # needrestart: restart services that still use replaced libraries, without asking.
   install -d -m0755 /etc/needrestart/conf.d
-  cat > /etc/needrestart/conf.d/50-onemind.conf <<'EOF'
-# OneMind developer install: restart affected services automatically.
-$nrconf{restart} = 'a';
-EOF
+  needrestart_conf > /etc/needrestart/conf.d/50-onemind.conf
   systemctl enable --now apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 || true
 }
 
@@ -215,8 +357,11 @@ EOF
 # ------------------------------------------------------------------------------------------
 k3s_binary() {
   local name=k3s; [ "$ARCH" = arm64 ] && name=k3s-arm64
+  [ "$DRY_RUN" = 1 ] && step "k3s $K3S_VERSION binary and its upstream install.sh (both sha256-pinned)"
   fetch "$K3S_URL_BASE/$name" "$(pick K3S_SHA256)" "$CACHE/k3s-$K3S_VERSION-$ARCH"
-  if ! cmp -s "$CACHE/k3s-$K3S_VERSION-$ARCH" "$BIN/k3s" 2>/dev/null; then
+  if [ "$DRY_RUN" = 1 ]; then
+    plan "install -m0755 $CACHE/k3s-$K3S_VERSION-$ARCH $BIN/k3s (if it differs; refuse a k3s this script did not install)"
+  elif ! cmp -s "$CACHE/k3s-$K3S_VERSION-$ARCH" "$BIN/k3s" 2>/dev/null; then
     [ -e "$BIN/k3s" ] && ! systemctl list-unit-files k3s.service k3s-agent.service 2>/dev/null | grep -q k3s \
       && die "$BIN/k3s exists but was not installed by this script; remove it first"
     install -m0755 "$CACHE/k3s-$K3S_VERSION-$ARCH" "$BIN/k3s"
@@ -226,23 +371,23 @@ k3s_binary() {
     "$K3S_INSTALL_SHA256" "$CACHE/k3s-install-$K3S_INSTALL_COMMIT.sh"
 }
 
-memory_cgroup_check() {
-  grep -qw memory /sys/fs/cgroup/cgroup.controllers 2>/dev/null && return 0
-  local cmdline=/boot/firmware/cmdline.txt
-  if [ -f "$cmdline" ]; then   # Raspberry Pi: k3s needs the memory cgroup (docs.k3s.io, Raspberry Pi)
-    grep -q 'cgroup_enable=memory' "$cmdline" || sed -i '1 s/$/ cgroup_memory=1 cgroup_enable=memory/' "$cmdline"
-    die "the memory cgroup is off; $cmdline was updated. Reboot, then run this script again."
-  fi
-  die "the memory cgroup is not available; k3s cannot run"
-}
+k3s_server_config() { printf '# Written by deploy/install.sh\nwrite-kubeconfig-mode: "0600"\nagent-token: "%s"\n' "$1"; }
 
 k3s_server() {
   local cfg=/etc/rancher/k3s/config.yaml agent_token new_cfg
+  if [ "$DRY_RUN" = 1 ]; then
+    step "k3s server (the hub)"
+    plan "generate the k3s agent token once (32 random bytes) -> $ETC/k3s-agent-token (0600)"
+    k3s_server_config "<the agent token, generated on the machine>" | show_file "$cfg" 0600
+    plan "INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_EXEC=server sh $CACHE/k3s-install-$K3S_INSTALL_COMMIT.sh (if k3s changed or is not running)"
+    plan "wait until the k3s node is Ready (up to 180 s)"
+    return 0
+  fi
   install -d -m0700 /etc/rancher/k3s
   # A separate agent token: nodes can join as agents but can never join as servers (D-B6.2).
   if [ -f "$ETC/k3s-agent-token" ]; then agent_token=$(cat "$ETC/k3s-agent-token")
   else agent_token=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n'); (umask 077; printf '%s' "$agent_token" > "$ETC/k3s-agent-token"); fi
-  new_cfg=$(printf '# Written by deploy/install.sh\nwrite-kubeconfig-mode: "0600"\nagent-token: "%s"\n' "$agent_token")
+  new_cfg=$(k3s_server_config "$agent_token")
   if [ "$(cat "$cfg" 2>/dev/null)" != "$new_cfg" ]; then (umask 077; printf '%s\n' "$new_cfg" > "$cfg"); K3S_CHANGED=1; fi
   if [ "${K3S_CHANGED:-0}" = 1 ] || ! systemctl is-active --quiet k3s; then
     log "k3s $K3S_VERSION server: install/restart"
@@ -261,6 +406,12 @@ k3s_server() {
 
 k3s_agent() {
   local host env=/etc/systemd/system/k3s-agent.service.env; host=$(hub_host "$HUB")
+  if [ "$DRY_RUN" = 1 ]; then
+    step "k3s agent (joins the hub)"
+    plan "K3S_URL=https://$host:6443 K3S_TOKEN=<the --token value> INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_EXEC=agent sh $CACHE/k3s-install-$K3S_INSTALL_COMMIT.sh"
+    plan "(only if the hub URL or token changed, or k3s-agent is not running; the token lands in $env, 0600)"
+    return 0
+  fi
   # Re-join when the hub URL or token changed: "active" alone only means it is retrying.
   if ! grep -qxF "K3S_URL='https://$host:6443'" "$env" 2>/dev/null || ! grep -qxF "K3S_TOKEN='$TOKEN'" "$env" 2>/dev/null; then
     K3S_CHANGED=1
@@ -276,20 +427,31 @@ k3s_agent() {
 # ------------------------------------------------------------------------------------------
 # 3. NATS on the hub (contract §1 :4222; v0 shortcut: no auth/TLS, nodes publish directly)
 # ------------------------------------------------------------------------------------------
-nats_install() {
-  local tgz="nats-server-$NATS_VERSION-linux-$ARCH.tar.gz"
-  fetch "https://github.com/nats-io/nats-server/releases/download/$NATS_VERSION/$tgz" "$(pick NATS_SHA256)" "$CACHE/$tgz"
-  if ! "$BIN/nats-server" --version 2>/dev/null | grep -q "${NATS_VERSION#v}"; then
-    tar -xzf "$CACHE/$tgz" -C "$CACHE" "nats-server-$NATS_VERSION-linux-$ARCH/nats-server"
-    install -m0755 "$CACHE/nats-server-$NATS_VERSION-linux-$ARCH/nats-server" "$BIN/nats-server"
-    rm -rf "$CACHE/nats-server-$NATS_VERSION-linux-$ARCH"
-  fi
-  cat > "$ETC/nats.conf" <<'EOF'
+nats_conf() {
+  cat <<'EOF'
 # OneMind hub NATS (deploy/install.sh). v0 shortcut: no auth/TLS, no leaf nodes (contract header).
 listen: 0.0.0.0:4222
 http: 127.0.0.1:8222
 max_payload: 1MB
 EOF
+}
+
+nats_install() {
+  local tgz="nats-server-$NATS_VERSION-linux-$ARCH.tar.gz"
+  [ "$DRY_RUN" = 1 ] && step "NATS $NATS_VERSION on the hub (:4222)"
+  fetch "https://github.com/nats-io/nats-server/releases/download/$NATS_VERSION/$tgz" "$(pick NATS_SHA256)" "$CACHE/$tgz"
+  if [ "$DRY_RUN" = 1 ]; then
+    plan "extract nats-server -> $BIN/nats-server (if the version differs)"
+    nats_conf | show_file "$ETC/nats.conf" 0644
+    plan "install $SCRIPT_DIR/systemd/onemind-nats.service; systemctl enable onemind-nats; restart"
+    return 0
+  fi
+  if ! "$BIN/nats-server" --version 2>/dev/null | grep -q "${NATS_VERSION#v}"; then
+    tar -xzf "$CACHE/$tgz" -C "$CACHE" "nats-server-$NATS_VERSION-linux-$ARCH/nats-server"
+    install -m0755 "$CACHE/nats-server-$NATS_VERSION-linux-$ARCH/nats-server" "$BIN/nats-server"
+    rm -rf "$CACHE/nats-server-$NATS_VERSION-linux-$ARCH"
+  fi
+  nats_conf > "$ETC/nats.conf"
   chmod 0644 "$ETC/nats.conf"
   install -m0644 "$SCRIPT_DIR/systemd/onemind-nats.service" /etc/systemd/system/onemind-nats.service
   systemctl daemon-reload
@@ -302,8 +464,9 @@ EOF
 # ------------------------------------------------------------------------------------------
 go_toolchain() {
   GO_DIR=$TOOLS/go-$GO_VERSION
-  [ -x "$GO_DIR/bin/go" ] && return 0
+  [ "$DRY_RUN" = 0 ] && [ -x "$GO_DIR/bin/go" ] && return 0
   fetch "https://go.dev/dl/go$GO_VERSION.linux-$ARCH.tar.gz" "$(pick GO_SHA256)" "$CACHE/go$GO_VERSION.tgz"
+  [ "$DRY_RUN" = 1 ] && { plan "extract Go $GO_VERSION -> $GO_DIR"; return 0; }
   rm -rf "$GO_DIR.tmp"; mkdir -p "$GO_DIR.tmp"
   tar -xzf "$CACHE/go$GO_VERSION.tgz" -C "$GO_DIR.tmp" --strip-components=1
   mv "$GO_DIR.tmp" "$GO_DIR"
@@ -312,8 +475,9 @@ go_toolchain() {
 node_toolchain() {
   local na=x64; [ "$ARCH" = arm64 ] && na=arm64
   NODE_DIR=$TOOLS/node-$NODE_VERSION
-  [ -x "$NODE_DIR/bin/node" ] && return 0
+  [ "$DRY_RUN" = 0 ] && [ -x "$NODE_DIR/bin/node" ] && return 0
   fetch "https://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION-linux-$na.tar.gz" "$(pick NODE_SHA256)" "$CACHE/node-$NODE_VERSION.tgz"
+  [ "$DRY_RUN" = 1 ] && { plan "extract Node $NODE_VERSION -> $NODE_DIR"; return 0; }
   rm -rf "$NODE_DIR.tmp"; mkdir -p "$NODE_DIR.tmp"
   tar -xzf "$CACHE/node-$NODE_VERSION.tgz" -C "$NODE_DIR.tmp" --strip-components=1
   mv "$NODE_DIR.tmp" "$NODE_DIR"
@@ -322,8 +486,9 @@ node_toolchain() {
 uv_toolchain() {
   local ua=x86_64; [ "$ARCH" = arm64 ] && ua=aarch64
   UV=$TOOLS/uv-$UV_VERSION/uv
-  [ -x "$UV" ] && return 0
+  [ "$DRY_RUN" = 0 ] && [ -x "$UV" ] && return 0
   fetch "https://github.com/astral-sh/uv/releases/download/$UV_VERSION/uv-$ua-unknown-linux-gnu.tar.gz" "$(pick UV_SHA256)" "$CACHE/uv-$UV_VERSION.tgz"
+  [ "$DRY_RUN" = 1 ] && { plan "extract uv $UV_VERSION -> $TOOLS/uv-$UV_VERSION"; return 0; }
   mkdir -p "$TOOLS/uv-$UV_VERSION"
   tar -xzf "$CACHE/uv-$UV_VERSION.tgz" -C "$TOOLS/uv-$UV_VERSION" --strip-components=1
 }
@@ -331,8 +496,24 @@ uv_toolchain() {
 # ------------------------------------------------------------------------------------------
 # 5. onemindd (+ the onemind CLI) as a systemd service, on every machine
 # ------------------------------------------------------------------------------------------
+onemindd_env() { printf '# Written by deploy/install.sh (contract §1)\nONEMIND_NATS_URL=%s\nONEMIND_NODE_ROLE=%s\n' "$1" "$ROLE"; }
+
 onemindd_install() {
   local out="$CACHE/build" nats_url
+  if [ "$ROLE" = hub ]; then nats_url=nats://127.0.0.1:4222; else nats_url="nats://$(hub_host "$HUB"):4222"; fi
+  if [ "$DRY_RUN" = 1 ]; then
+    step "onemindd node agent + onemind CLI (systemd service, local API :7480)"
+    if [ -n "$ONEMINDD_BIN" ]; then
+      plan "use the prebuilt $ONEMINDD_BIN (and onemind-linux-$ARCH next to it, if there)"
+    else
+      go_toolchain
+      plan "go build -trimpath ./cmd/onemindd ./cmd/onemind (CGO_ENABLED=0, from $SRC)"
+    fi
+    plan "install -m0755 onemindd onemind -> $BIN/ (if they differ)"
+    onemindd_env "$nats_url" | show_file "$ETC/onemindd.env" 0644
+    plan "install $SCRIPT_DIR/systemd/onemindd.service; systemctl enable onemindd; restart if anything changed"
+    return 0
+  fi
   mkdir -p "$out"
   if [ -n "$ONEMINDD_BIN" ]; then
     log "onemindd: using prebuilt $ONEMINDD_BIN"
@@ -354,8 +535,7 @@ onemindd_install() {
   local changed=0
   cmp -s "$out/onemindd" "$BIN/onemindd" 2>/dev/null || { install -m0755 "$out/onemindd" "$BIN/onemindd"; changed=1; }
   [ -f "$out/onemind" ] && install -m0755 "$out/onemind" "$BIN/onemind"
-  if [ "$ROLE" = hub ]; then nats_url=nats://127.0.0.1:4222; else nats_url="nats://$(hub_host "$HUB"):4222"; fi
-  printf '# Written by deploy/install.sh (contract §1)\nONEMIND_NATS_URL=%s\nONEMIND_NODE_ROLE=%s\n' "$nats_url" "$ROLE" > "$ETC/onemindd.env.new"
+  onemindd_env "$nats_url" > "$ETC/onemindd.env.new"
   cmp -s "$ETC/onemindd.env.new" "$ETC/onemindd.env" 2>/dev/null || changed=1
   mv "$ETC/onemindd.env.new" "$ETC/onemindd.env"; chmod 0644 "$ETC/onemindd.env"
   cmp -s "$SCRIPT_DIR/systemd/onemindd.service" /etc/systemd/system/onemindd.service 2>/dev/null || changed=1
@@ -376,11 +556,25 @@ copy_tree() { # copy_tree SRC_DIR DEST_DIR: replace DEST with SRC, leaving dev c
 }
 
 gateway_user() {
+  if [ "$DRY_RUN" = 1 ]; then
+    step "Gateway user"
+    plan "useradd --system --home-dir $STATE --shell /usr/sbin/nologin onemind (if missing)"
+    plan "install -d -m0750 -o onemind -g onemind $STATE"
+    return 0
+  fi
   id onemind >/dev/null 2>&1 || useradd --system --home-dir "$STATE" --shell /usr/sbin/nologin onemind
   install -d -m0750 -o onemind -g onemind "$STATE"
 }
 
 gateway_python() {
+  if [ "$DRY_RUN" = 1 ]; then
+    step "Gateway (core/) into $PREFIX/venv"
+    uv_toolchain
+    plan "copy core/ -> $PREFIX/core; uv sync --frozen --no-dev --no-editable --managed-python --python 3.12"
+    plan "  (uv.lock hash-checks every wheel; uv downloads Python 3.12 into $PREFIX/python and checks its hash)"
+    plan "copy sdk/schema -> $PREFIX/sdk/schema and apps/ -> $PREFIX/apps"
+    return 0
+  fi
   uv_toolchain
   log "gateway: installing core/ with uv $UV_VERSION into $PREFIX/venv"
   copy_tree "$SRC/core" "$PREFIX/core"
@@ -395,6 +589,13 @@ gateway_python() {
 
 dashboard_build() {
   local stamp="$PREFIX/dashboard/.onemind-source-sha256" sum
+  if [ "$DRY_RUN" = 1 ]; then
+    step "Dashboard -> $PREFIX/dashboard (served by the gateway)"
+    if [ -n "$DASH_DIST" ]; then plan "copy the prebuilt $DASH_DIST"; return 0; fi
+    node_toolchain
+    plan "as user onemind: npm ci --ignore-scripts && npm run build (skipped when dashboard/ is unchanged)"
+    return 0
+  fi
   if [ -n "$DASH_DIST" ]; then
     [ -f "$DASH_DIST/index.html" ] || die "--dashboard-dist $DASH_DIST has no index.html"
     log "dashboard: using prebuilt $DASH_DIST"
@@ -424,6 +625,13 @@ copy_tree_plain() { rm -rf "$2.new"; mkdir -p "$2.new"; cp -R "$1/." "$2.new/"; 
 # cannot touch nodes, CRDs or cluster roles. The k3s admin kubeconfig stays root-only.
 gateway_kubeconfig() {
   local k="$BIN/k3s kubectl" ca token i
+  if [ "$DRY_RUN" = 1 ]; then
+    step "Gateway Kubernetes identity"
+    plan "kubectl apply: namespace onemind-system, ServiceAccount onemind-gateway + token Secret,"
+    plan "  ClusterRole/Binding for namespaces, ClusterRoleBinding to \"admin\" (deploy/README.md explains the scope)"
+    plan "write $ETC/gateway.kubeconfig (0640 root:onemind) with that ServiceAccount's token"
+    return 0
+  fi
   $k apply -f - >/dev/null <<'EOF'
 apiVersion: v1
 kind: Namespace
@@ -484,6 +692,12 @@ EOF
 OWNER_TOKEN=""
 gateway_tokens() {
   local f="$ETC/tokens.yaml"
+  if [ "$DRY_RUN" = 1 ]; then
+    step "API tokens (contract §3)"
+    plan "if $f is missing: make the owner token (32 random bytes), store only its sha256 in"
+    plan "  $f (0640 root:onemind), and print the token once at the end"
+    return 0
+  fi
   if [ -f "$f" ]; then log "tokens: $f exists, owner token kept (it was printed at the first install)"; return 0; fi
   OWNER_TOKEN=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')
   local h; h=$(printf '%s' "$OWNER_TOKEN" | sha256sum | cut -d' ' -f1)
@@ -499,9 +713,8 @@ EOF
   chgrp onemind "$f"
 }
 
-gateway_service() {
-  local url=$1
-  cat > "$ETC/gateway.env" <<EOF
+gateway_env() {
+  cat <<EOF
 # Written by deploy/install.sh (core/README.md "Environment"; contract §1, §3, §11).
 ONEMIND_TOKENS_FILE=$ETC/tokens.yaml
 ONEMIND_DATA_DIR=$STATE
@@ -518,13 +731,27 @@ ONEMIND_HOST=$BIND
 ONEMIND_PORT=8080
 # §11.2: the URL app pods use to reach this gateway (written into each agent app's Secret as
 # ONEMIND_GATEWAY_URL). The wave-2 gateway reads it from ONEMIND_PUBLIC_URL (core/README.md).
-ONEMIND_PUBLIC_URL=$url
+ONEMIND_PUBLIC_URL=$1
 EOF
+}
+kubectl_wrapper() { printf '#!/bin/sh\n# kubectl from k3s for the OneMind gateway (deploy/install.sh)\nexec %s kubectl "$@"\n' "$BIN/k3s"; }
+
+gateway_service() {
+  local url=$1
+  if [ "$DRY_RUN" = 1 ]; then
+    step "Gateway service (:8080, systemd unit onemind-gateway, user onemind)"
+    gateway_env "$url" | show_file "$ETC/gateway.env" 0640 root:onemind
+    kubectl_wrapper | show_file "$PREFIX/bin/kubectl" 0755
+    plan "install $SCRIPT_DIR/systemd/onemind-gateway.service; systemctl enable onemind-gateway; restart"
+    plan "wait for http://127.0.0.1:8080/healthz (up to 60 s)"
+    return 0
+  fi
+  gateway_env "$url" > "$ETC/gateway.env"
   chmod 0640 "$ETC/gateway.env"; chgrp onemind "$ETC/gateway.env"
   # kubectl for the gateway: the k3s multi-call binary run as "kubectl" (same version as the
   # cluster). A wrapper, not a symlink, so it never falls back to the root-only k3s.yaml.
   install -d -m0755 "$PREFIX/bin"
-  printf '#!/bin/sh\n# kubectl from k3s for the OneMind gateway (deploy/install.sh)\nexec %s kubectl "$@"\n' "$BIN/k3s" > "$PREFIX/bin/kubectl"
+  kubectl_wrapper > "$PREFIX/bin/kubectl"
   chmod 0755 "$PREFIX/bin/kubectl"
   install -m0644 "$SCRIPT_DIR/systemd/onemind-gateway.service" /etc/systemd/system/onemind-gateway.service
   systemctl daemon-reload
@@ -542,8 +769,8 @@ EOF
 # Main
 # ------------------------------------------------------------------------------------------
 K3S_CHANGED=0
-apt_setup
 memory_cgroup_check
+apt_setup
 k3s_binary
 if [ "$ROLE" = hub ]; then
   k3s_server
@@ -554,8 +781,14 @@ if [ "$ROLE" = hub ]; then
   dashboard_build
   gateway_kubeconfig
   gateway_tokens
-  HUB_URL=${HUB:-"http://$(primary_ip):8080"}
+  if [ "$DRY_RUN" = 1 ]; then HUB_URL=${HUB:-"http://<this machine's address>:8080"}; else HUB_URL=${HUB:-"http://$(primary_ip):8080"}; fi
   gateway_service "$HUB_URL"
+  if [ "$DRY_RUN" = 1 ]; then
+    step "Finish"
+    plan "print the owner token (first install only) and the join command with the k3s agent token"
+    do_firewall_reminder
+    exit 0
+  fi
   JOIN=$(cat /var/lib/rancher/k3s/server/agent-token)
   banner
   log "hub ready: dashboard and API at $HUB_URL (and http://127.0.0.1:8080 on this box)"
@@ -569,9 +802,17 @@ if [ "$ROLE" = hub ]; then
   printf '    sudo k3s kubectl create namespace app-hermes-agent --dry-run=client -o yaml | sudo k3s kubectl apply -f -\n'
   printf '    read -rs KEY   # paste the key; it stays out of shell history and the process list\n'
   printf "    printf '<PROVIDER>_API_KEY=%%s\\\\n' \"\$KEY\" | sudo k3s kubectl -n app-hermes-agent create secret generic hermes-agent-credentials --from-env-file=/dev/stdin\n\n"
+  do_firewall_reminder
 else
   k3s_agent
   onemindd_install
+  if [ "$DRY_RUN" = 1 ]; then
+    step "Finish"
+    plan "print where this node sends its k3s join and heartbeats"
+    do_firewall_reminder
+    exit 0
+  fi
   banner
   log "node joined: k3s agent -> https://$(hub_host "$HUB"):6443, heartbeats -> nats://$(hub_host "$HUB"):4222"
+  do_firewall_reminder
 fi

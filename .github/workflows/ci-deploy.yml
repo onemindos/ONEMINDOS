@@ -19,6 +19,20 @@ jobs:
         run: shellcheck -x deploy/install.sh deploy/verify/verify.sh deploy/compose/gen-tokens.sh
       - name: pins match os/versions.lock.yaml
         run: python3 -I deploy/check-pins.py
+      - name: install.sh --dry-run for every target and role (no root, changes nothing)
+        run: |
+          set -eu
+          for t in debian13 rpi5 jetson do; do
+            bash deploy/install.sh --role hub --dry-run --target "$t" > "hub-$t.log"
+            bash deploy/install.sh --role node --dry-run --target "$t" --hub http://hub.example.invalid:8080 \
+              --token K10example::node:example > "node-$t.log"
+            grep -q 'unsupported developer install, no OS rollback' "hub-$t.log"
+            if grep -q 'K10example' "node-$t.log"; then echo "dry run printed the join token" >&2; exit 1; fi
+          done
+          grep -q 'cgroup_memory=1 cgroup_enable=memory' hub-rpi5.log
+          grep -q 'DigitalOcean Cloud' hub-do.log && grep -q 'DigitalOcean Cloud' node-do.log
+          ! grep -q 'DigitalOcean Cloud' hub-debian13.log
+          if bash deploy/install.sh --role hub --target rpi5 >/dev/null 2>&1; then echo "--target without --dry-run must fail" >&2; exit 1; fi
       - name: systemd units
         run: |
           sudo touch /usr/local/bin/onemindd /usr/local/bin/nats-server && sudo chmod +x /usr/local/bin/onemindd /usr/local/bin/nats-server
