@@ -16,7 +16,7 @@ mod store;
 use serde::Serialize;
 use serde_json::json;
 use std::collections::{HashMap, HashSet};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -39,6 +39,9 @@ struct App {
     /// Boxes with a live `/v1/events` stream right now.
     live: Mutex<HashSet<String>>,
     followers: Mutex<HashMap<String, tauri::async_runtime::JoinHandle<()>>>,
+    /// One refresh at a time per box, so a slow poll cannot overwrite the newer status an event
+    /// just fetched (and so banner bookkeeping always sees statuses in order).
+    refreshing: Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
 }
 
 #[derive(Serialize)]
@@ -133,6 +136,7 @@ fn remove_box(app_handle: AppHandle, app: State<'_, App>, id: String) -> Result<
     app.store.remove(&id)?;
     app.last.lock().unwrap().remove(&id);
     app.inbox_primed.lock().unwrap().remove(&id);
+    app.refreshing.lock().unwrap().remove(&id);
     ensure_followers(&app_handle);
     update_tray(&app_handle);
     Ok(())
@@ -263,6 +267,8 @@ fn quit(app_handle: AppHandle) {
 
 async fn refresh_one(app_handle: &AppHandle, b: &store::SavedBox) {
     let app = app_handle.state::<App>();
+    let gate = app.refreshing.lock().unwrap().entry(b.id.clone()).or_default().clone();
+    let _turn = gate.lock().await;
     let st = match store::token(&b.id) {
         Some(t) => api::status(&app.http, &b.id, &b.url, &t).await,
         None => {
@@ -290,7 +296,17 @@ fn notify_new(app_handle: &AppHandle, b: &store::SavedBox, st: &api::Status) {
         inbox::banners(&b.id, name, &st.pending, st.inbox.as_deref(), &mut seen, quiet_backlog)
     };
     for x in banners {
-        let _ = app_handle.notification().builder().title(x.title).body(x.body).show();
+        let _ = app_handle.notification().builder().title(plain(&x.title)).body(plain(&x.body)).show();
+    }
+}
+
+/// Banner text from the box stays text. Linux notification servers may render a subset of HTML
+/// in the body (freedesktop `body-markup`), so markup characters are escaped there.
+fn plain(s: &str) -> String {
+    if cfg!(target_os = "linux") {
+        s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    } else {
+        s.to_string()
     }
 }
 
@@ -467,6 +483,7 @@ pub fn run() {
                 inbox_primed: Mutex::new(HashSet::new()),
                 live: Mutex::new(HashSet::new()),
                 followers: Mutex::new(HashMap::new()),
+                refreshing: Mutex::new(HashMap::new()),
             });
 
             let show = MenuItem::with_id(app, "show", "Show OneMind", true, None::<&str>)?;
