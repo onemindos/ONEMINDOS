@@ -21,6 +21,11 @@ Branches with work that is not on `main` yet (as of 2026-11-12):
 
 ## 2026-11-12
 
+### [#43](https://github.com/onemindos/ONEMINDOS/pull/43) The development board shows everything
+- `docs/leap/STATUS.md` now matches the repo: merged PRs on their rows, partly merged epics marked with what is still pending, every running stream on its rows, and a summary with counts per state, open PRs and what waits on the founder.
+- 46 rows added for streams and gaps that had no row (image line, brand, tests, Market batches, secrets, shared database, backup and storage wiring, the deploy-kit parts of #27, UI parity, founder blockers). Their size, dependencies, owner paths and acceptance are in `docs/leap/BACKLOG.md`.
+- New board rule: a stream gets its row the day it starts, and moves to done with the PR link in the same PR as its CHANGELOG entry.
+
 ### [#22](https://github.com/onemindos/ONEMINDOS/pull/22) Market candidate list from competitor stores
 - `apps/_intake/candidates.csv` and `CANDIDATES.md`: 1,199 unique upstream apps drawn from 7 competitor stores (umbrel, Olares, CasaOS, Runtipi, YunoHost, Cosmos, Coolify), facts only. Each app's licence, stars, archived flag and latest release were checked on GitHub.
 - Tiers: 849 ready to queue, 59 list-only, 73 parked (crypto), 218 excluded. It also proposes the first 5 batches of 10, starting with daily essentials: Nextcloud, Immich, Syncthing, Paperless-ngx, Gitea, Grafana, Ollama, LibreChat, SearXNG and AdGuard Home.

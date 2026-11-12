@@ -8,32 +8,32 @@
 > **Explain it like I am the founder**
 > One row per epic, saying where it stands: `todo`, `in-progress` (being built on a branch, or partly merged with the rest pending; the note says which), `in-review` (a PR is open), `done` (merged), `blocked: founder` (waits on your decision or hardware), `parked` or `superseded`.
 > Branch "(local)" means the work is only in a worktree on the build machine, not on GitHub yet.
-> Today: 35 of 40 PRs merged, 4 open, 1 closed; 21 stream branches running and one queued; 30 epics done; 9 rows wait on you (F-25 hardware, F-27 signing keys, F-7 override, F-5 website host, and the photos server choice).
+> Today: 35 of 43 PRs merged, 7 open (this one included), 1 closed; 21 stream branches running and one queued; 30 epics done; 9 rows wait on you (F-25 hardware, F-27 signing keys, F-7 override, F-5 website host, and the photos server choice).
 
 ## Summary
 
 | State | Rows | Which |
 |---|---|---|
 | done | 30 | S0 landed (OS-UPDATER, OS-SECPIPE, CORE-UPDATE-1, W2-GW, W2-PIPE, W2-DEPLOY, W2-HERMES, W2-SEEDS, PA-ALIGN, PA-ARCH, PA-THREAT, PA-UI, PA-SITE, PA-MOBILE, MKT-CANDIDATES, MKT-TAXONOMY, UI-LEAP, CORE-NET-P1, LEAP-DOCS), contract §12 (C12-A…H), CORE-PLUMB, UMB-STUDY, BRAND-0 |
-| in-review | 9 | CORE-SANDBOX-1…5, CORE-SEC-9, CORE-SEC-5 (#40); UMB-CLIENT-8 (#33); UMB-PHOTO-4 (#34) |
-| in-progress | 69 (64 + 5 UMB) | 50 on running branches (see "Running now"); 12 partly merged with the rest pending (DEV-API-1, CORE-NET-3, -4, -8, -9, CORE-BACKUP-2, -3, -4, -7, UMB-STOR-3, UMB-FILES-7, PLAN-E5); 7 streams started with no commits yet |
+| in-review | 14 | CORE-SANDBOX-1…5, CORE-SEC-9, CORE-SEC-5 (#40); CORE-SEC-2, -3, -10, DEV-API-5 (#41); TEST-CI-1 (#42); UMB-CLIENT-8 (#33); UMB-PHOTO-4 (#34) |
+| in-progress | 64 (59 + 5 UMB) | 46 on running branches (see "Running now"); 12 partly merged with the rest pending (DEV-API-1, CORE-NET-3, -4, -8, -9, CORE-BACKUP-2, -3, -4, -7, UMB-STOR-3, UMB-FILES-7, PLAN-E5); 6 streams started with no commits yet |
 | todo | 240 (131 + 109 UMB) | |
 | blocked: founder | 9 | F-25, F-27, F-7, F-5; CORE-UPDATE-4, CORE-NET-14 (F-25); CORE-WEB-1 (F-5); APP-OVERRIDE-1 (F-7); PHOTOS-SRV-1 (Immich vs built-in) |
 | parked | 5 | CORE-NET-15, PH2-DESKTOP, PLAN-E7-LAB, PLAN-E14, PLAN-E15 |
 | superseded | 1 | DEV-API-14 |
 | **total** | **363** | Alias ids (the last table under "Added 2026-11-12") are not counted again |
 
-**PRs.** 35 merged (#1–#39 except the four below). Open: [#40](https://github.com/onemindos/ONEMINDOS/pull/40) security P0 (checks green), [#34](https://github.com/onemindos/ONEMINDOS/pull/34) phone photo backup, [#33](https://github.com/onemindos/ONEMINDOS/pull/33) desktop client, [#27](https://github.com/onemindos/ONEMINDOS/pull/27) deploy kit (overlaps #26; its useful parts are DEPLOY-PORT27-1…7). Closed without merge: #35 (replaced by #36).
+**PRs.** 35 merged (#1–#39 except #27, #33, #34, #35). Open: this PR (#43), [#42](https://github.com/onemindos/ONEMINDOS/pull/42) CI test matrix, [#41](https://github.com/onemindos/ONEMINDOS/pull/41) identity, [#40](https://github.com/onemindos/ONEMINDOS/pull/40) security P0 (checks green), [#34](https://github.com/onemindos/ONEMINDOS/pull/34) phone photo backup, [#33](https://github.com/onemindos/ONEMINDOS/pull/33) desktop client, [#27](https://github.com/onemindos/ONEMINDOS/pull/27) deploy kit (overlaps #26; its useful parts are DEPLOY-PORT27-1…7). Closed without merge: #35 (replaced by #36).
 
 ### Running now
 
-"Ahead" is commits on the branch that are not on `main`. Every branch below except `feat/sec-p0` is local only: push it so it is not lost.
+"Ahead" is commits on the branch that are not on `main`. Branches with no PR are local only: push them so the work is not lost.
 
 | Stream branch | What | Rows it moves | Ahead | PR |
 |---|---|---|---|---|
 | `feat/e2e-golden-path` | Golden-path e2e (being integrated now) | E2E-GOLDEN | 6 | – |
 | `feat/sec-p0` | Install sandbox, gateway RBAC, k3s secrets encryption, limits, headers | CORE-SANDBOX-1…5, CORE-SEC-9, CORE-SEC-5 (part) | 8 | [#40](https://github.com/onemindos/ONEMINDOS/pull/40) |
-| `feat/identity` | Household identity, passkeys, sessions, scoped tokens (§12.6); carries #40 merged in | CORE-SEC-2, -3, -10, DEV-API-5 | 14 | – |
+| `feat/identity` | Household identity, passkeys, sessions, scoped tokens (§12.6); carries #40 merged in | CORE-SEC-2, -3, -10, DEV-API-5 | 14 | [#41](https://github.com/onemindos/ONEMINDOS/pull/41) |
 | `feat/devsurface` | OpenAPI export, SDKs (TS, Python, Go), cobra CLI, MCP catalogue v1, stdio bridge, events, audit read | DEV-SDK-1…3, -5…8, DEV-API-8, -9, DEV-CLI-1…5, -12, -13, DEV-MCP-1, -4…8 | 9 | – |
 | `feat/notify-monitor` | Notifications, alerts, channels (§12.14); monitoring (§12.15) | CORE-NOTIFY-1, -2, -3, -6, DEV-API-12, CORE-MON-1 | 8 | – |
 | `feat/automation` | Rules, standing approvals, dry run, kill switch (§12.17) | CORE-AUTO-2…5, DEV-API-13 | 5 | – |
@@ -46,7 +46,7 @@
 | `test/register` | Test register and `test-all` | TEST-REG-1 | 1 | – |
 | `feat/test-security` | Security tests | TEST-SEC-1 | 0 | – |
 | `feat/test-property-fuzz` | Property and fuzz tests | TEST-PROP-1 | 0 | – |
-| `feat/test-ci-matrix` | CI matrix | TEST-CI-1 | 0 | – |
+| `feat/test-ci-matrix` | CI test matrix: browsers, axe, visual, apps on amd64/arm64, mobile builds, site links | TEST-CI-1 | pushed | [#42](https://github.com/onemindos/ONEMINDOS/pull/42) |
 | `docs/slop-audit` | Slop audit and fixer | QUAL-SLOP-1, -2 | 0 | – |
 | `feat/plugin-sdk-v0` | Plugin SDK v0 | DEV-PLG-0 | 0 | – |
 | `docs/site-user-guides` | Website user guides | CORE-WEB-G | 0 | – |
@@ -143,7 +143,7 @@ Empty branches with no stream: `feat/app-hermes` and `feat/apps-wave2` (both del
 | DEV-API-2 | OpenAPI compat gate (oasdiff) and `x-onemind` extension linter | todo | – | – |
 | DEV-SDK-2 | Generation toolchain and CI staleness check | in-progress | `feat/devsurface` (local) | – |
 | DEV-API-4 | Pagination (Link), filters, ETag/If-Match, `Idempotency-Key` header | todo | – | – |
-| DEV-API-5 | Scopes, role defaults, `/v1/me`, step-up hook | in-progress: `/v1/me` on the branch; scope matrix open | `feat/identity` (local) | – |
+| DEV-API-5 | Scopes, role defaults, `/v1/me`, step-up hook | in-review: `/v1/me` on the branch; scope matrix open | `feat/identity` | [#41](https://github.com/onemindos/ONEMINDOS/pull/41) |
 | CORE-SANDBOX-1 | Rule file and pure-Python checker with fixtures | in-review | `feat/sec-p0` | [#40](https://github.com/onemindos/ONEMINDOS/pull/40) |
 | CORE-SANDBOX-2 | Gateway renders, checks and stores the plan; `apply -f -` with the… | in-review (render, check, `apply -f -`, `policy_refused`; stored plan and `plan_sha256` still open) | `feat/sec-p0` | [#40](https://github.com/onemindos/ONEMINDOS/pull/40) |
 | CORE-SANDBOX-3 | PSA `restricted` in the image and `install.sh` | in-review (`install.sh` and app namespaces; image change recorded in SECURITY.md §7a) | `feat/sec-p0` | [#40](https://github.com/onemindos/ONEMINDOS/pull/40) |
@@ -153,8 +153,8 @@ Empty branches with no stream: `feat/app-hermes` and `feat/apps-wave2` (both del
 | CORE-AUTO-1 | Risk classes on action types, enforced in the approve path | todo | – | – |
 | DEV-API-7 | Actions v1: risk, `plan_sha256` binding, preview, cancel, action-ty… | todo | – | – |
 | CORE-SEC-1 | HTTPS with a per-box CA, loopback-only HTTP, pairing QR | todo | – | – |
-| CORE-SEC-2 | Owner passkey, sessions, passkey-signed approvals (`approve-options`) | in-progress: passkeys, sessions, household accounts, password + TOTP (`docs/leap/core/IDENTITY.md` on the branch) | `feat/identity` (local) | – |
-| CORE-SEC-3 | Token lifecycle: create, rotate, expire, revoke, CLI | in-progress: API done, `onemind tokens` CLI not yet | `feat/identity` (local) | – |
+| CORE-SEC-2 | Owner passkey, sessions, passkey-signed approvals (`approve-options`) | in-review: passkeys, sessions, household accounts, password + TOTP (`docs/leap/core/IDENTITY.md` on the branch) | `feat/identity` | [#41](https://github.com/onemindos/ONEMINDOS/pull/41) |
+| CORE-SEC-3 | Token lifecycle: create, rotate, expire, revoke, CLI | in-review: API done, `onemind tokens` CLI not yet | `feat/identity` | [#41](https://github.com/onemindos/ONEMINDOS/pull/41) |
 | CORE-SEC-4 | NATS nkeys and TLS | todo | – | – |
 | CORE-SEC-6 | `onemind audit verify`, signed checkpoints, agent kill switch | todo | – | – |
 | CORE-SEC-7 | Pending cap, plan card fields, "written by agent" label | todo | – | – |
@@ -199,7 +199,7 @@ Empty branches with no stream: `feat/app-hermes` and `feat/apps-wave2` (both del
 | C12-E | Contract §12-e: notifications, activity, repairs | done (§12.14) | `contract/s12` | [#39](https://github.com/onemindos/ONEMINDOS/pull/39) |
 | C12-G | Contract §12-g: approval challenge and iOS relay contract | done (`approve-options` challenge §12.4, iOS relay §12.14) | `contract/s12` | [#39](https://github.com/onemindos/ONEMINDOS/pull/39) |
 | CORE-SEC-5 | LUKS2 data, k3s secrets encryption, WireGuard pod traffic | in-review: k3s secrets encryption in #40; LUKS2 data (H-11, STORAGE-LUKS-1) and WireGuard pod traffic todo | `feat/sec-p0` | [#40](https://github.com/onemindos/ONEMINDOS/pull/40) |
-| CORE-SEC-10 | Identity floor: on-box IdP, roles, retire v0 tokens | in-progress: household accounts, roles and sessions in the gateway; on-box IdP and v0-token retirement open | `feat/identity` (local) | – |
+| CORE-SEC-10 | Identity floor: on-box IdP, roles, retire v0 tokens | in-review: household accounts, roles and sessions in the gateway; on-box IdP and v0-token retirement open | `feat/identity` | [#41](https://github.com/onemindos/ONEMINDOS/pull/41) |
 | CORE-FABRIC-1 | `node.join` action, join tickets and requests, `onemind fabric join… | todo | – | – |
 | DEV-API-10 | Fabric route shapes | todo | built inside CORE-FABRIC-1 | – |
 | CORE-FABRIC-2 | Per-node identity (nkey, cert, principal) and revocation | todo | – | – |
@@ -370,7 +370,7 @@ Every stream that was running without a row, every merged PR that had no row, an
 | TEST-REG-1 | Test register, results log, test-result issue form and `test-all` workflow | in-progress | `test/register` (local) | – |
 | TEST-SEC-1 | Security test suite against the threat model's attack paths | in-progress (started, no commits yet) | `feat/test-security` (local) | – |
 | TEST-PROP-1 | Property-based and fuzz tests | in-progress (started, no commits yet) | `feat/test-property-fuzz` (local) | – |
-| TEST-CI-1 | CI matrix across operating systems and architectures | in-progress (started, no commits yet) | `feat/test-ci-matrix` (local) | – |
+| TEST-CI-1 | CI test matrix: browsers with axe and visual checks, every app on amd64 and arm64, mobile builds, site links | in-review | `feat/test-ci-matrix` | [#42](https://github.com/onemindos/ONEMINDOS/pull/42) |
 | QUAL-SLOP-1 | Slop audit: unverified claims, filler, stale or duplicated text, ranked with file:line | in-progress (started, no commits yet) | `docs/slop-audit` (local) | – |
 | QUAL-SLOP-2 | Slop fixer: apply the audit's fixes | todo | `docs/slop-audit` | – |
 
