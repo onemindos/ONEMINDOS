@@ -15,5 +15,8 @@ jest.mock('expo-notifications', () => ({
   scheduleNotificationAsync: jest.fn(async () => 'id'),
   setBadgeCountAsync: jest.fn(async () => true),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  getDevicePushTokenAsync: jest.fn(async () => ({ type: 'ios', data: 'test-token' })),
+  unregisterForNotificationsAsync: jest.fn(async () => undefined),
   AndroidImportance: { HIGH: 4 },
 }));
