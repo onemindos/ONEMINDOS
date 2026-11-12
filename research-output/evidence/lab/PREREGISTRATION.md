@@ -12,6 +12,8 @@ Each row records when a spike's goal, hypotheses and pass/fail criteria were fro
 | secureboot-1152 | 2026-11-11T12:11:49Z | `0e437bd424a122c5c891b7afba38cb84c7eab0f4931a9001da89476e7050ca28` |
 | ubuntu-secureboot (U-SB, FIX5) | 2026-11-11T15:51:12Z | `c98a09d1d89f3b25184986b2711e9276aa548014246b9ede6c34c8e981e8f8db` |
 | fb3-mesh-nat (fabric mission 02, lab test 1) | 2026-11-12T07:37:48Z | `52573fc062cbf02a06884a5235d46c2b5884a9be3e046185d05abb3626cff39b` |
+| fb2-fdo-enroll (fabric mission 02, lab test 3) | 2026-11-12T10:15:48Z | `ba6d675118f41eb64b42a2c5c43f1f23c30855346d1f3f2b76f6590eab046bfd` |
+| fb4-fleet-rings (fabric mission 02, lab test 2) | 2026-11-12T10:15:48Z | `db4d3a63e268b6b6536f5847a8644434eb1b8489695750a346a5508ca78cb386` |
 
 **U-SB's frozen rule (SYNC5 note, 2026-11-11, critic P5-3).** The `ubuntu-secureboot` README §4 freezes the `01` §3.1.6 (h) map rows word for word, and `22` LT-VM-20 and `20` (G1, G6, §5.4) now quote the same rows: **PASS** = T0–T6 and T8 pass in **two** full runs with only the changes its §3 allows → "U-SB passes unchanged in two runs" (D stays; D·C3 loses `doc-only`). **FAIL** = any T1–T6 or T8 guest-side failure in any run, **or** a pass that needs a partition or bootloader change → D·C3 4 → 3 → **C (RHEL-family bootc)**. **BLOCKED** = not run, no map event. Its README was BLOCKED at 15:56Z; on 2026-11-11 SYNC5 edited only text **below** its `## Results` line (a corrected sentence and a timing section R.5). The first 65 lines (through `## Results`) still hash to `c98a09d1…f8db`, checked after the edit.
 
