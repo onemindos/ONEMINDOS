@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# Linkwarden: Market batch 4 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: docker-compose.yml,
+# .env.sample and Dockerfile at v2.17.0.
+# Image digests and archs from crane; licence from the GitHub licence API.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: linkwarden
+  name: "Linkwarden"
+  version: "2.17.0"
+  description: "Bookmark manager that saves a copy of every page you keep."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: notes
+  icon: icon.svg
+  license: "AGPL-3.0"
+  source: https://github.com/linkwarden/linkwarden
+  # §9.3 facts from the GitHub API (repos/linkwarden/linkwarden), read 2026-11-12.
+  links:
+    docs: "https://docs.linkwarden.app"
+    github: "https://github.com/linkwarden/linkwarden"
+    website: "https://linkwarden.app"
+    support: "https://github.com/linkwarden/linkwarden/issues"
+  upstream: {release: "v2.17.0", released_at: "2026-11-10T18:30:29Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 2048}
+  web: {port: 3000}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
