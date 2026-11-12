@@ -60,10 +60,10 @@ npm run typecheck           # tsc --noEmit
 | `src/api/` | Contract types, `HttpApi` (bearer token, §3 errors → `ApiError`, hub clock from `Date`), `MockApi` + fixtures for `VITE_MOCK=1` (10 apps incl. legacy category slugs; the noop executor steps every 1.5 s in the demo) |
 | `src/data/adapters.ts` | Pure mappings: catalog → Market/Home/Installed, actions → approvals, progress, notifications, activity; TAXONOMY legacy slugs |
 | `src/data/hub.tsx` | Shared poll of `/v1/instance`, `/v1/nodes`, `/v1/apps`, `/v1/actions`; `request` (idempotency key per app until a definite answer) and `decide` |
-| `src/data/prefs.ts` | Per-person localStorage (appearance, Home layout, read notifications, recent commands); switches to the hub store once `/v1/instance` lists the `me.preferences` feature (§12) |
+| `src/data/prefs.ts` | Per-person localStorage (appearance, Home layout, read notifications, recent commands). The slot is the principal id, or on a v0 gateway (no `GET /v1/me`) a short fingerprint of the token. A hub copy is not in §12; the switch to it waits behind a PROPOSED `me.preferences` feature |
 | `src/shell/` | `AppShell`, ⌘K palette, notification bell (fed by actions until the notifications API), jobs tray; ui hash links → routes |
 | `src/pages/` | Home, Market (+ app page), Installed (+ manage), Approvals, Activity, Nodes, Settings, Sign-in |
-| `src/*.test.ts(x)` | vitest: adapters, routes, API client, mock rules, every screen with axe (58 tests) |
+| `src/*.test.ts(x)` | vitest: adapters, routes, API client, mock rules, every screen with axe (63 tests) |
 
 Routes: `/`, `/market`, `/market/<app>`, `/installed`, `/installed/<app>`, `/approvals?highlight=<id>`,
 `/activity`, `/nodes`, `/settings/<section>`.
@@ -96,7 +96,7 @@ The gateway is the security boundary; the UI only avoids offering what will be r
   no steps or health in v0. "Installed" is shown, never "Running".
 - **No placement plan:** the install review skips the node step and says the hub picks the node.
 - **Open** uses `http(s)://<this host>:<web_port>/`; per-app addresses behind the gateway login are §12 / SEC-P2.
-- **Notifications** are derived from actions and offline nodes; read state is per browser.
+- **Notifications** are derived from actions and offline nodes; read state is per person, in this browser only.
 - **Bundle size** is ~530 kB (168 kB gzip) in one chunk; route-level code splitting is a follow-up.
 - Colour contrast is not measurable in jsdom (axe's `color-contrast` is off in unit tests); the ui
   package tests token contrast in both themes.

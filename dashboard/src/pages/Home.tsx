@@ -48,11 +48,10 @@ export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>): H
 
 export function Home() {
   const hub = useHub();
-  const { principal } = useSignedIn();
+  const { principal, person } = useSignedIn();
   const shell = useShell();
   const toast = useToast();
   const customize = useOptionalCustomize();
-  const person = principal?.id ?? 'me';
   const store = useMemo(() => homeLayoutStore(), []);
   const [layout, setLayout] = useState<HomeLayout>(() => store.load(person) ?? DASHBOARD_HOME_LAYOUT);
   const entries = useActivity();

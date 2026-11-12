@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { makeActions, makeApps, makeNodes } from '../api/fixtures';
 import type { Action } from '../api/types';
 import { toRoute } from '../shell/routes';
-import { activityFrom, categorySlug, deployClass, iconOf, jobState, notificationsFrom, openUrl, runState, toActionSummary, toInstalled, toJob, toStoreApp } from './adapters';
-import { personStorage } from './prefs';
+import { activityFrom, categorySlug, deployClass, DIRECT_URL_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionSummary, toInstalled, toJob, toStoreApp } from './adapters';
+import { personKey, personStorage } from './prefs';
 
 const NOW = Date.parse('2026-11-12T12:00:00Z');
 const names = (id: string) => ({ ollama: 'Ollama', 'uptime-kuma': 'Uptime Kuma' })[id] ?? id;
@@ -61,6 +61,14 @@ describe('catalog → Market (TAXONOMY §1, §11.4)', () => {
     expect(runState('removing')).toBe('unknown');
     expect(toInstalled(makeApps(NOW)[0]!, new Date(NOW).toISOString()).state).toBe('installed');
   });
+
+  it('never calls the direct app port "behind the OneMind sign-in"', () => {
+    const loc = { protocol: 'http:', hostname: 'onemind.local' };
+    const inst = toInstalled(makeApps(NOW)[0]!, new Date(NOW).toISOString(), loc);
+    expect(inst.url).toBe('http://onemind.local:3001/');
+    expect(inst.url_note).toBe(DIRECT_URL_NOTE);
+    expect(inst.url_note).toMatch(/not behind the OneMind sign-in/);
+  });
 });
 
 describe('actions → approvals, progress, notifications, activity', () => {
@@ -104,6 +112,20 @@ describe('actions → approvals, progress, notifications, activity', () => {
     expect(agentAsk.text).toBe('asked to install Ollama');
   });
 
+  it('does not crash or mislabel on §12.5 action types and §12.1 principal kinds (additive)', () => {
+    const drain = { ...actions[0]!, id: 'act-drain', type: 'node.drain', params: { node_id: 'pi5' }, requested_by: { id: 'automation:rule_1', kind: 'automation' } } as unknown as Action;
+    const plugin = { ...actions[0]!, id: 'act-plug', state: 'succeeded', requested_by: { id: 'plugin:hermes', kind: 'plugin' } } as unknown as Action;
+    const entries = activityFrom([drain, plugin], names);
+    expect(entries.find((e) => e.kind === 'request' && e.text.includes('pi5'))?.text).toBe('asked to node.drain pi5');
+    expect(entries.every((e) => e.actor.kind !== 'person')).toBe(true);
+    const list = notificationsFrom([drain], [], names, new Set());
+    expect(list[0]!.title).toBe('node.drain pi5 is waiting for approval');
+    // An automation or plugin must never read "Person" on the approval card.
+    expect(toActionSummary(drain).requested_by?.kind).toBe('agent');
+    expect(toActionSummary(plugin).requested_by?.kind).toBe('agent');
+    expect(toJob(drain, 'x').app_id).toBe('');
+  });
+
   it('records a denial as a decision, not a result', () => {
     const denied: Action = { ...actions[0]!, state: 'cancelled', decided_by: { id: 'owner', kind: 'person', role: 'owner' }, decided_at: new Date(NOW).toISOString() };
     const e = activityFrom([denied], names);
@@ -128,6 +150,11 @@ describe('routes from ui links', () => {
     expect(toRoute('https://example.org')).toBeUndefined();
     expect(toRoute('//example.org/x')).toBeUndefined();
     expect(toRoute('javascript:alert(1)')).toBeUndefined();
+    // Browsers read "\\" as "/" and drop tabs/newlines: both would leave the origin.
+    expect(toRoute('/\\evil.example')).toBeUndefined();
+    expect(toRoute('#/\\evil.example/x')).toBeUndefined();
+    expect(toRoute('/\t/evil.example')).toBeUndefined();
+    expect(toRoute('/\n/evil.example')).toBeUndefined();
   });
 });
 
@@ -140,5 +167,14 @@ describe('per-person storage', () => {
     a.setItem('k', '1');
     expect(b.getItem('k')).toBeNull();
     expect(a.getItem('k')).toBe('1');
+  });
+
+  it('gives each token its own slot when the gateway cannot say who is signed in (v0)', () => {
+    const t1 = 'a'.repeat(64);
+    const t2 = 'b'.repeat(64); // same length: the old key collapsed these two people
+    expect(personKey(undefined, t1)).not.toBe(personKey(undefined, t2));
+    expect(personKey(undefined, t1)).toBe(personKey(undefined, t1));
+    expect(personKey(undefined, t1)).toMatch(/^token-[0-9a-f]{8}$/);
+    expect(personKey('owner', t1)).toBe('owner');
   });
 });

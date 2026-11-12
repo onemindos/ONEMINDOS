@@ -7,7 +7,7 @@ import { useHub } from '../data/hub';
 import { useActivity } from '../shell/Shell';
 
 export const CHAIN_NOTE =
-  'Built from the requests on this hub (GET /v1/actions). The hash-chained audit log, with sign-ins and settings changes, comes with CORE-SEC-6 (GET /v1/audit).';
+  'Built from the requests on this hub (GET /v1/actions). The hash-chained audit log, with sign-ins and settings changes, comes with CORE-SEC-6 (GET /v1/audit/events, GET /v1/audit/verify).';
 
 export function Activity() {
   const hub = useHub();

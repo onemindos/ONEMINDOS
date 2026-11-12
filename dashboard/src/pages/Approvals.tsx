@@ -7,7 +7,7 @@ import { toActionSummary } from '../data/adapters';
 import { errorText, useHub } from '../data/hub';
 
 export const PLAN_NOTE =
-  'This hub does not compute a plan for requests yet (§12.4, CORE-SANDBOX). What it will do is exactly the request above: install or remove that app from the Market catalog, after its scan check.';
+  'This hub does not compute a plan for requests yet (§12.4, CORE-SANDBOX), so check the exact request above. An app.install or app.remove applies or deletes that app from the Market catalog; an install runs only after its scan check.';
 export const APPROVE_HINT = 'Approving uses your sign-in token for now. Passkey approval, bound to the plan, comes with CORE-SEC-2 (§12.3).';
 
 export function Approvals() {

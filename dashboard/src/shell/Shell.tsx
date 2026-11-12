@@ -44,8 +44,7 @@ const CONTRACT_TYPES = new Set(['app.install', 'app.remove']);
 
 export function Shell({ children }: { children: ReactNode }) {
   const hub = useHub();
-  const { principal, signOut, mock } = useSignedIn();
-  const person = principal?.id ?? 'me';
+  const { principal, person, signOut, mock } = useSignedIn();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();

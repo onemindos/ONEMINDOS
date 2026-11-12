@@ -26,7 +26,10 @@ const SETTINGS_ALIAS: Record<string, string> = { people: 'users', security: 'acc
  */
 export function toRoute(link: string): string | undefined {
   let p = link.startsWith('#/') ? link.slice(1) : link;
-  if (!p.startsWith('/') || p.startsWith('//')) return undefined;
+  // Browsers read a backslash as "/" and drop tabs and newlines, so "/\host" is protocol-relative too;
+  // react-router falls back to location.assign when pushState refuses another origin.
+  // eslint-disable-next-line no-control-regex
+  if (!p.startsWith('/') || p.startsWith('//') || /[\\\u0000-\u001f\u007f]/.test(p)) return undefined;
   const [path = '/', query = ''] = p.split('?');
   const parts = path.split('/').filter(Boolean);
   const q = query ? `?${query}` : '';

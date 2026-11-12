@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Per-person preferences: appearance, Home layout, read notifications, recent palette commands.
-// Today they live in this browser's localStorage, one slot per signed-in principal, so two people
-// sharing a browser keep their own. The hub copy (§12, `GET/PUT /v1/me/preferences`) is not on
-// main yet: `preferenceStores` switches to it once `GET /v1/instance` lists the feature
-// (§12.1 `features`), keeping the browser copy as the fallback cache.
+// Today they live in this browser's localStorage, one slot per signed-in person (`personKey`), so
+// two people sharing a browser keep their own. A hub copy is not in contract §12 (its `/v1/me/…`
+// paths are not used, §12.21); `preferenceStores` switches to the ui's ApiPreferencesStore only if
+// `GET /v1/instance` lists the `me.preferences` feature, which needs a contract PR first.
 import {
   ApiPreferencesStore,
   LocalPreferencesStore,
@@ -12,8 +12,22 @@ import {
   type PreferencesStore,
 } from '@onemind/ui';
 
-/** The §12.1 feature name the gateway will list when it stores preferences per person. */
+/** PROPOSED feature name (not in §12) for a gateway that stores preferences per person. */
 export const PREFERENCES_FEATURE = 'me.preferences';
+
+/**
+ * Whose slot this browser uses. Contract v0 has no "who am I" route (§12.6 adds `GET /v1/me`), so
+ * against a real gateway the principal is unknown; a short fingerprint of the token then keeps
+ * two people who share a browser apart. It is 32-bit FNV-1a: the token cannot be read back from
+ * it, and hub tokens are 32 random bytes (deploy/install.sh, gen-tokens.sh), so it does not help
+ * anyone guess one. (`crypto.subtle` is missing on a plain-HTTP v0 dashboard, hence no SHA-256.)
+ */
+export function personKey(principalId: string | undefined, token: string): string {
+  if (principalId) return principalId;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < token.length; i++) h = Math.imul(h ^ token.charCodeAt(i), 0x01000193) >>> 0;
+  return `token-${h.toString(16).padStart(8, '0')}`;
+}
 
 function storage(): Storage | null {
   try {

@@ -77,14 +77,42 @@ describe('Approvals', () => {
   it('an agent sees the queue but cannot approve', async () => {
     renderApp({ token: 'agent-demo', route: '/approvals' });
     expect(await screen.findByText(/Only the owner can approve/, {}, T)).toBeInTheDocument();
-    const approve = screen.queryByRole('button', { name: /^Approve/ });
-    if (approve) expect(approve).toBeDisabled();
+    const approve = screen.getAllByRole('button', { name: /^Approve/ });
+    expect(approve.length).toBeGreaterThan(0);
+    approve.forEach((b) => expect(b).toBeDisabled());
+  });
+
+  it('against a real gateway (role unknown in v0) the hub refuses an agent and the buttons turn off', async () => {
+    const u = userEvent.setup();
+    const { getApi } = renderApp({ token: 'agent-demo', route: '/approvals', knownRole: false });
+    const [approve] = await screen.findAllByRole('button', { name: /^Approve/ }, T);
+    expect(approve).toBeEnabled();
+    await u.click(approve!);
+    expect(await screen.findByText('Could not approve', {}, T)).toBeInTheDocument();
+    await waitFor(() => screen.getAllByRole('button', { name: /^Approve/ }).forEach((b) => expect(b).toBeDisabled()), T);
+    expect((await getApi().action('act-0001')).state).toBe('awaiting_approval');
   });
 
   it('passes axe', async () => {
     const { container } = renderApp({ token: 'owner-demo', route: '/approvals' });
     await screen.findByRole('heading', { name: /Waiting/ }, T);
     expect(await seriousViolations(container)).toEqual([]);
+  });
+});
+
+describe('Installed', () => {
+  it('Manage says Open is not behind the sign-in, and Remove promises no kept data and sends only app_id', async () => {
+    const u = userEvent.setup();
+    const { getApi } = renderApp({ token: 'owner-demo', route: '/installed/uptime-kuma' });
+    expect(await screen.findByText(/not behind the OneMind sign-in/, {}, T)).toBeInTheDocument();
+    await u.click(screen.getByRole('button', { name: /^Remove/ }));
+    const dlg = await screen.findByRole('alertdialog');
+    expect(within(dlg).queryByRole('radio')).toBeNull();
+    expect(dlg).toHaveTextContent(/namespace is deleted/);
+    await u.click(within(dlg).getByRole('button', { name: 'Request removal' }));
+    expect(await screen.findByText('Request sent', {}, T)).toBeInTheDocument();
+    const sent = (await getApi().actions()).find((a) => a.type === 'app.remove' && a.state === 'awaiting_approval');
+    expect(sent?.params).toEqual({ app_id: 'uptime-kuma' });
   });
 });
 

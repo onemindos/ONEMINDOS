@@ -27,7 +27,7 @@ export function Installed() {
   const state = loadState(hub.apps, hub);
   const checkedAt = hub.asOf ?? new Date(0).toISOString();
   const installed: InstalledApp[] = (hub.apps.data ?? []).filter((a) => a.installed || a.status === 'removing').map((a) => toInstalled(a, checkedAt));
-  const jobs = hub.actionList.map((a) => toJob(a, hub.appName(a.params.app_id)));
+  const jobs = hub.actionList.filter((a) => a.type === 'app.install' || a.type === 'app.remove').map((a) => toJob(a, hub.appName(a.params.app_id)));
 
   const onOpen = (inst: InstalledApp) => {
     if (inst.url) window.open(inst.url, '_blank', 'noopener');
@@ -35,7 +35,7 @@ export function Installed() {
   const onRequest = (req: StoreActionRequest) => {
     if (req.type === 'app.remove') {
       if (req.params.keep_data === false) {
-        toast.show({ tone: 'neutral', title: 'Not sent', body: 'Deleting an app’s data with the removal comes with §12.5. Remove it (data kept) instead.' });
+        toast.show({ tone: 'neutral', title: 'Not sent', body: 'Deleting an app’s data with the removal comes with §12.5. Nothing was sent.' });
         return;
       }
       void shell.requestApp('app.remove', req.params.app_id).then((id) => id && navigate(href.manage(req.params.app_id)));
@@ -62,6 +62,7 @@ export function Installed() {
           onOpen={onOpen}
           onRequest={onRequest}
           onCopied={(label) => toast.show({ tone: 'ok', title: `${label} copied` })}
+          removeNote={REMOVE_NOTE}
         />
         {removeJob && removeJob.state !== 'succeeded' && (
           <p className="om-note om-tone-info" role="status">

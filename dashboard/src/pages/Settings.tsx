@@ -7,18 +7,18 @@ import { AppearanceSettings, Card, EmptyState, PageHeader, SETTINGS_SECTIONS, Se
 import { useHub } from '../data/hub';
 import { href } from '../shell/routes';
 
-/** Section → the work stream (docs/leap/STATUS.md epic) and the §12 API that brings it. */
-export const COMING: Record<Exclude<SettingsSectionId, 'appearance' | 'about'>, { stream: string; api: string }> = {
+/** Section → the work stream (docs/leap/STATUS.md epic) and the §12 API that brings it (§12 owns the paths). */
+export const COMING: Record<Exclude<SettingsSectionId, 'appearance' | 'about'>, { stream: string; api: string | null }> = {
   account: { stream: 'CORE-SEC-2 (identity)', api: '/v1/auth/passkeys, /v1/auth/sessions' },
-  users: { stream: 'UMB-ACCT (identity)', api: '/v1/people' },
-  agents: { stream: 'CORE-SEC (identity)', api: '/v1/tokens, /v1/agents' },
-  devices: { stream: 'CORE-FABRIC (core-net)', api: '/v1/fabric/join-codes' },
+  users: { stream: 'UMB-ACCT (identity)', api: '/v1/users' },
+  agents: { stream: 'CORE-SEC (identity)', api: '/v1/tokens, /v1/agents/{id}/suspend' },
+  devices: { stream: 'CORE-FABRIC (core-net)', api: '/v1/fabric/join-tickets' },
   network: { stream: 'CORE-FABRIC (core-net)', api: '/v1/fabric, /v1/tls' },
-  storage: { stream: 'UMB-STOR', api: '/v1/storage' },
-  backups: { stream: 'CORE-BACKUP', api: '/v1/backups' },
-  updates: { stream: 'CORE-UPDATE', api: '/v1/os/status' },
-  notifications: { stream: 'CORE-NOTIFY (notify-monitor)', api: '/v1/notify/routes' },
-  automation: { stream: 'CORE-AUTO', api: '/v1/automations, /v1/policies' },
+  storage: { stream: 'UMB-STOR', api: null },
+  backups: { stream: 'CORE-BACKUP', api: '/v1/backups/status, /v1/backups/destinations' },
+  updates: { stream: 'CORE-UPDATE', api: '/v1/os/status, /v1/os/history' },
+  notifications: { stream: 'CORE-NOTIFY (notify-monitor)', api: '/v1/notifications/channels, /v1/notifications/preferences' },
+  automation: { stream: 'CORE-AUTO', api: '/v1/automation/rules, /v1/approval-policies' },
 };
 
 const IDS = new Set(SETTINGS_SECTIONS.map((s) => s.id));
@@ -73,9 +73,9 @@ export function Settings() {
   else {
     const c = COMING[current];
     body = (
-      <EmptyState icon="settings" title={`${meta.label}: coming with ${c.stream}`} command={`GET ${c.api.split(',')[0]!.trim()}`}>
+      <EmptyState icon="settings" title={`${meta.label}: coming with ${c.stream}`} command={c.api ? `GET ${c.api.split(',')[0]!.trim()}` : undefined}>
         <p>
-          This hub does not serve these settings yet. They arrive with the {c.stream} work stream ({c.api}, contract §12). Nothing here is a placeholder control that would do
+          This hub does not serve these settings yet. They arrive with the {c.stream} work stream ({c.api ? `${c.api}, contract §12` : 'its API is not in contract §12 yet'}). Nothing here is a placeholder control that would do
           nothing.
         </p>
       </EmptyState>

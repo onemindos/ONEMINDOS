@@ -19,9 +19,8 @@ import { useSession, useSignedIn } from './session';
 import { Shell } from './shell/Shell';
 
 function Appearance({ children }: { children: React.ReactNode }) {
-  const { principal, token, api } = useSignedIn();
+  const { person, token, api } = useSignedIn();
   const hub = useHub();
-  const person = principal?.id ?? `token-${token.length}`;
   const features = hub.instance.data?.features;
   const stores = useMemo(() => preferenceStores(person, { features, token }), [person, features, token]);
   useEffect(() => () => clearPreferences(), []);

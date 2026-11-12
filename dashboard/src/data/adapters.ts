@@ -122,14 +122,19 @@ export function toHomeApp(a: CatalogApp, loc?: Pick<Location, 'protocol' | 'host
   };
 }
 
+/** What `openUrl` is: the app's own port, which no OneMind sign-in guards on a v0 hub. */
+export const DIRECT_URL_NOTE = 'the app’s own port on this host, not behind the OneMind sign-in';
+
 /** An installed app for the manager. The hub reports no node or health per app in v0. */
 export function toInstalled(a: CatalogApp, checkedAt: string, loc?: Pick<Location, 'protocol' | 'hostname'>): InstalledApp {
+  const url = openUrl(a, loc);
   return {
     app: toStoreApp(a),
     node: 'this OneMind (the hub places it)',
     state: runState(a.status),
     checked_at: checkedAt,
-    url: openUrl(a, loc),
+    url,
+    url_note: url ? DIRECT_URL_NOTE : undefined,
   };
 }
 
@@ -152,6 +157,15 @@ export function toHomeNode(n: NodeRecord, status: NodeStatus = n.status): HomeNo
 
 const RESULT_MESSAGE: ReadonlySet<ActionState> = new Set(['failed', 'outcome_unknown']);
 
+/**
+ * §12.1 adds the principal kinds `plugin`, `automation` and `node`; the ui pills know only person
+ * and agent. Anything that is not a person is shown as not a person, so an automation or a plugin
+ * never reads "Person" on an approval card.
+ */
+export function requesterKind(kind: string | undefined): 'person' | 'agent' {
+  return kind === 'person' ? 'person' : 'agent';
+}
+
 export function toActionSummary(a: Action): ActionSummary {
   const rb = a.requested_by;
   const db = a.decided_by;
@@ -162,7 +176,7 @@ export function toActionSummary(a: Action): ActionSummary {
     state: a.state,
     expires_at: a.expires_at,
     created_at: a.created_at,
-    requested_by: rb ? { id: rb.id, kind: rb.kind, role: rb.role } : undefined,
+    requested_by: rb ? { id: rb.id, kind: requesterKind(rb.kind), role: rb.role } : undefined,
     decided_by: db ? { id: db.id, kind: db.kind } : undefined,
     message: RESULT_MESSAGE.has(a.state) ? (a.result?.message ?? undefined) : undefined,
   };
@@ -199,7 +213,7 @@ const JOB_MESSAGE: Partial<Record<ActionState, string>> = {
 export function toJob(a: Action, appName: string): StoreJob {
   return {
     action_id: a.id,
-    app_id: a.params.app_id,
+    app_id: appIdOf(a) ?? '',
     app_name: appName,
     type: a.type,
     state: jobState(a.state),
@@ -212,8 +226,26 @@ export function toJob(a: Action, appName: string): StoreJob {
 export const TERMINAL: ReadonlySet<ActionState> = new Set(['succeeded', 'failed', 'outcome_unknown', 'expired', 'cancelled']);
 export const isActive = (a: Pick<Action, 'state'>) => !TERMINAL.has(a.state);
 
-const VERB: Record<Action['type'], string> = { 'app.install': 'Install', 'app.remove': 'Remove' };
+const VERB: Partial<Record<string, string>> = { 'app.install': 'Install', 'app.remove': 'Remove' };
 const timeOf = (a: Action) => a.updated_at ?? a.created_at ?? a.expires_at;
+
+/**
+ * The app an action is about, if any. §12.5 adds types (additive, §12.1) whose params carry a
+ * node_id or nothing, so neither `params.app_id` nor the type is assumed.
+ */
+export function appIdOf(a: Pick<Action, 'params'>): string | undefined {
+  const id = (a.params as Record<string, unknown> | undefined)?.app_id;
+  return typeof id === 'string' ? id : undefined;
+}
+
+/** "Install Ollama" for the §3 types; any other type is named as the hub sent it. */
+function describe(a: Action, names: (id: string) => string): { verb: string; subject: string; what: string } {
+  const appId = appIdOf(a);
+  const nodeId = (a.params as Record<string, unknown> | undefined)?.node_id;
+  const subject = appId ? names(appId) : typeof nodeId === 'string' ? nodeId : '';
+  const verb = VERB[a.type] ?? a.type;
+  return { verb, subject, what: `${verb} ${subject}`.trim() };
+}
 
 /**
  * The notification centre until the notifications API lands (§12, CORE-NOTIFY): built from
@@ -222,14 +254,14 @@ const timeOf = (a: Action) => a.updated_at ?? a.created_at ?? a.expires_at;
 export function notificationsFrom(actions: Action[], nodes: Array<Pick<NodeRecord, 'node_id' | 'hostname' | 'last_seen'> & { status: NodeStatus }>, names: (id: string) => string, read: ReadonlySet<string>): ShellNotification[] {
   const out: ShellNotification[] = [];
   for (const a of actions) {
-    const app = names(a.params.app_id);
-    const what = `${VERB[a.type]} ${app}`;
+    const { subject: app, what } = describe(a, names);
+    const appId = appIdOf(a);
     const base = { source: 'approvals', created: timeOf(a), actionId: a.id };
     let n: Omit<ShellNotification, 'read'> | undefined;
     if (a.state === 'awaiting_approval')
       n = { ...base, id: `act:${a.id}:waiting`, kind: 'approval_waiting', severity: 'warning', title: `${what} is waiting for approval`, body: a.requested_by ? `Asked by ${a.requested_by.id}.` : undefined, href: `/approvals?highlight=${encodeURIComponent(a.id)}` };
     else if (a.state === 'succeeded')
-      n = { ...base, id: `act:${a.id}:done`, kind: a.type === 'app.install' ? 'app_installed' : 'info', severity: 'info', title: a.type === 'app.install' ? `${app} installed` : `${app} removed`, href: a.type === 'app.install' ? `/installed/${encodeURIComponent(a.params.app_id)}` : '/activity' };
+      n = { ...base, id: `act:${a.id}:done`, kind: a.type === 'app.install' ? 'app_installed' : 'info', severity: 'info', title: a.type === 'app.install' ? `${app} installed` : a.type === 'app.remove' ? `${app} removed` : `${what}: done`, href: a.type === 'app.install' && appId ? `/installed/${encodeURIComponent(appId)}` : '/activity' };
     else if (a.state === 'failed' || a.state === 'outcome_unknown')
       n = { ...base, id: `act:${a.id}:failed`, kind: 'info', severity: 'critical', title: `${what} ${a.state === 'failed' ? 'failed' : 'has an unknown outcome'}`, body: a.result?.message ?? undefined, href: '/activity' };
     else if (a.state === 'expired')
@@ -252,19 +284,21 @@ export function activityFrom(actions: Action[], names: (id: string) => string): 
   type Row = Omit<AuditEntry, 'seq'>;
   const rows: Row[] = [];
   for (const a of actions) {
-    const app = names(a.params.app_id);
-    const verb = VERB[a.type].toLowerCase();
+    const d = describe(a, names);
+    const app = d.subject;
+    const appId = appIdOf(a);
+    const verb = VERB[a.type] ? d.verb.toLowerCase() : d.verb;
     const who = a.requested_by ?? { id: 'unknown requester', kind: 'person' as const };
-    if (a.created_at) rows.push({ at: a.created_at, actor: { id: who.id, kind: who.kind }, kind: 'request', text: `asked to ${verb} ${app}`, app: a.params.app_id, hash: '' });
+    if (a.created_at) rows.push({ at: a.created_at, actor: { id: who.id, kind: requesterKind(who.kind) }, kind: 'request', text: `asked to ${verb} ${app}`.trim(), app: appId, hash: '' });
     if (a.decided_by && (a.decided_at ?? a.updated_at)) {
       const denied = a.state === 'cancelled';
-      rows.push({ at: (a.decided_at ?? a.updated_at)!, actor: { id: a.decided_by.id, kind: a.decided_by.kind }, kind: 'decision', text: `${denied ? 'denied' : 'approved'}: ${verb} ${app}`, app: a.params.app_id, result: denied ? 'info' : 'ok', resultLabel: denied ? 'Denied' : 'Approved', hash: '' });
+      rows.push({ at: (a.decided_at ?? a.updated_at)!, actor: { id: a.decided_by.id, kind: a.decided_by.kind }, kind: 'decision', text: `${denied ? 'denied' : 'approved'}: ${verb} ${app}`.trim(), app: appId, result: denied ? 'info' : 'ok', resultLabel: denied ? 'Denied' : 'Approved', hash: '' });
     }
     const end = a.updated_at;
     if (end && (a.state === 'succeeded' || a.state === 'failed' || a.state === 'outcome_unknown' || a.state === 'expired')) {
       const ok = a.state === 'succeeded';
       const label = ok ? 'Done' : a.state === 'expired' ? 'Expired' : a.state === 'failed' ? 'Failed' : 'Outcome unknown';
-      rows.push({ at: end, actor: { id: 'system:executor', kind: 'system' }, kind: 'result', text: `${verb} ${app}${a.result?.message && !ok ? `: ${a.result.message}` : ''}`, app: a.params.app_id, result: ok ? 'ok' : a.state === 'expired' ? 'info' : 'bad', resultLabel: label, hash: '' });
+      rows.push({ at: end, actor: { id: 'system:executor', kind: 'system' }, kind: 'result', text: `${`${verb} ${app}`.trim()}${a.result?.message && !ok ? `: ${a.result.message}` : ''}`, app: appId, result: ok ? 'ok' : a.state === 'expired' ? 'info' : 'bad', resultLabel: label, hash: '' });
     }
   }
   rows.sort((x, y) => Date.parse(x.at) - Date.parse(y.at));
