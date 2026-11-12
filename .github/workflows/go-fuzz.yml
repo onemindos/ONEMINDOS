@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: Apache-2.0
+# Native Go fuzzing (go test -fuzz) of the parsers and checks onemindd trusts least: heartbeat and
+# NATS subject handling, the heartbeat's RAUC and os-release parsers, and TUF metadata (version
+# order, target selection, tampered channel files). ci-onemindd.yml already runs every target's
+# seed corpus as a unit test; this job explores. Targets and their properties:
+# docs/testing/PROPERTY-AND-FUZZ.md.
+name: go-fuzz
+
+on:
+  pull_request:
+    paths: ["internal/**", "go.mod", "go.sum", ".github/workflows/go-fuzz.yml"]
+  schedule:
+    - cron: "41 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: go-fuzz-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {pkg: heartbeat, target: FuzzNodeIDSubject}
+          - {pkg: heartbeat, target: FuzzStatusJSON}
+          - {pkg: detect, target: FuzzParseRAUC}
+          - {pkg: detect, target: FuzzParseKV}
+          - {pkg: update, target: FuzzCompareVersions}
+          - {pkg: update, target: FuzzSelect}
+          - {pkg: update, target: FuzzTUFMetadataTampering}
+    name: ${{ matrix.pkg }} ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: go test -fuzz (30 s on a PR, 8 min at night)
+        env:
+          FUZZTIME: ${{ github.event_name == 'pull_request' && '30s' || '8m' }}
+        run: go test -run '^$' -fuzz "^${{ matrix.target }}\$" -fuzztime "$FUZZTIME" "./internal/${{ matrix.pkg }}"
+      # A failure writes the input to internal/<pkg>/testdata/fuzz/<target>/. Commit that file with
+      # the fix: it then runs as a regression case in every `go test`.
+      - name: Keep the failing input
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fuzz-${{ matrix.pkg }}-${{ matrix.target }}
+          path: internal/${{ matrix.pkg }}/testdata/fuzz/
+          retention-days: 30
+          if-no-files-found: ignore
