@@ -164,6 +164,13 @@ func (e *Engine) relocate(ctx context.Context, op *Op) error {
 	if len(subst) == 0 {
 		return nil
 	}
+	e.substitute(op, subst)
+	return nil
+}
+
+// substitute rewrites device paths in the operation (all steps, targets and
+// refs) and records it.
+func (e *Engine) substitute(op *Op, subst map[string]string) {
 	var moved []string
 	for o, n := range subst {
 		moved = append(moved, o+"→"+n)
@@ -195,8 +202,7 @@ func (e *Engine) relocate(ctx context.Context, op *Op) error {
 		op.Refs = refs
 		op.Relocated = append(op.Relocated, moved...)
 	})
-	e.log().Warn("storage operation: devices renamed since the plan was made", "op", op.ID, "moved", strings.Join(moved, ", "))
-	return nil
+	e.log().Warn("storage operation: device paths changed since the plan was made", "op", op.ID, "moved", strings.Join(moved, ", "))
 }
 
 func targetFor(op *Op, path string) (Target, bool) {

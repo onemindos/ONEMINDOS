@@ -109,7 +109,10 @@ func PlanReplace(disks []Disk, m *Mirror, old, device string, wipeOld bool, o Pl
 	st, nm := prepareMember(d, o, m.UUID, clone)
 	p.Steps = st
 	if o.Encrypt {
-		p.Steps = append(p.Steps, TokenSteps(m, nm, mem.DevID)...)
+		// The old member stays current until the replace has finished: a
+		// power cut mid-replace must boot with it unlocked (the kernel
+		// resumes the replace at mount and may still read from it).
+		p.Steps = append(p.Steps, TokenSteps(m, nm, -1, m.Generation+1, PhasePrepare)...)
 	}
 	src := strconv.Itoa(mem.DevID)
 	p.Steps = append(p.Steps,
@@ -119,6 +122,10 @@ func PlanReplace(disks []Disk, m *Mirror, old, device string, wipeOld bool, o Pl
 		Step{ID: "balance", Phase: PhaseCommit, Cmd: []string{"btrfs", "balance", "start", "-dconvert=" + p.DataProfile + ",soft", "-mconvert=" + p.MetaProfile + ",soft", m.Mount},
 			Why: "rewrite any chunk written with one copy while the set was degraded; soft skips chunks already mirrored"},
 	)
+	if o.Encrypt {
+		// Now the old member leaves the set for the boot assembly too.
+		p.Steps = append(p.Steps, TokenSteps(m, nm, mem.DevID, m.Generation+2, PhaseCommit)...)
+	}
 	if !mem.Missing && mem.Backing != "" {
 		p.Steps = append(p.Steps, Step{ID: "old-close", Phase: PhaseCommit, Cmd: []string{"cryptsetup", "close", mem.Path}, Why: "lock the replaced member"})
 	}
@@ -229,12 +236,7 @@ func PlanRemove(disks []Disk, m *Mirror, old string, unprotect, wipe bool, o Pla
 		Why: "move every chunk off devid " + strconv.Itoa(mem.DevID) + " and drop it from the set; a restart continues where it stopped"})
 	if m.Encrypted {
 		p.Encrypted = true
-		p.Steps = append(p.Steps, TokenSteps(m, newMember{}, mem.DevID)...)
-		for i := range p.Steps {
-			if p.Steps[i].ID == "token-member" {
-				p.Steps[i].Phase = PhaseCommit
-			}
-		}
+		p.Steps = append(p.Steps, TokenSteps(m, newMember{}, mem.DevID, m.Generation+1, PhaseCommit)...)
 	}
 	if !mem.Missing && mem.Backing != "" {
 		p.Steps = append(p.Steps, Step{ID: "old-close", Phase: PhaseCommit, Cmd: []string{"cryptsetup", "close", mem.Path}, Why: "lock the removed member"})

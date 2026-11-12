@@ -59,6 +59,10 @@ func InitData(ctx context.Context, r Runner, o storage.InitOptions, force bool) 
 	if o.SetUUID == "" {
 		o.SetUUID = NewUUID()
 	}
+	if o.PartUUID == "" {
+		out, _, _ := r.Exec(ctx, "", "blkid", "-o", "value", "-s", "PARTUUID", o.Part)
+		o.PartUUID = strings.ToLower(strings.TrimSpace(string(out)))
+	}
 	for _, st := range storage.InitSteps(o) {
 		if !allowed[st.Cmd[0]] {
 			return "", fmt.Errorf("step %s: program not allowed", st.ID)

@@ -37,6 +37,7 @@ type Member struct {
 	Errors    map[string]int64 `json:"errors"`              // write_io_errs, read_io_errs, flush_io_errs, corruption_errs, generation_errs
 	Backing   string           `json:"backing,omitempty"`   // LUKS2 partition under a dm-crypt member (Collector.LUKS)
 	LUKSUUID  string           `json:"luks_uuid,omitempty"` // that partition's LUKS UUID
+	PartUUID  string           `json:"partuuid,omitempty"`  // that partition's GPT id
 }
 
 // Profile is one allocation class (Data, Metadata, System) and its profile.

@@ -26,6 +26,7 @@ func encryptedSet(t *testing.T) ([]Disk, *Mirror) {
 	for i := range set.Members {
 		set.Members[i].Backing = BackingOf(ds, set.Members[i].Path)
 		set.Members[i].LUKSUUID = "luks-" + set.Members[i].Backing
+		set.Members[i].PartUUID = "part-" + set.Members[i].Backing
 	}
 	set.Encrypted, set.Generation = true, 4
 	ds = append(ds, Disk{Path: "/dev/vde", ID: "/dev/vde", Role: RoleUnused, SizeBytes: 8 << 30})
@@ -71,7 +72,7 @@ func TestPlanProtectEncryptedClonesHeader(t *testing.T) {
 	for _, s := range p.Steps {
 		if strings.HasPrefix(s.ID, "token") {
 			var tok Token
-			if err := json.Unmarshal([]byte(s.Stdin), &tok); err != nil || tok.Generation != 5 || tok.SetUUID != set.UUID || tok.Type != TokenType {
+			if err := json.Unmarshal([]byte(s.Stdin), &tok); err != nil || tok.Generation != 5 || tok.SetUUID != set.UUID || tok.Type != TokenType || tok.PartUUID == "" {
 				t.Errorf("token %q: %+v %v", s.Stdin, tok, err)
 			}
 		}
@@ -117,18 +118,29 @@ func TestPlanReplace(t *testing.T) {
 			t.Errorf("missing %q in\n%s", w, c)
 		}
 	}
-	// The replaced member's token is not rewritten (it becomes stale).
-	n := 0
+	// Before the replace every member (the old one too) moves to generation
+	// 5; after it, the others move to 6 without the old one, which becomes
+	// stale for the boot assembly only once the replace has finished.
+	replaced := false
 	for _, s := range p.Steps {
-		if s.ID == "token-member" {
-			n++
-			if strings.Contains(strings.Join(s.Cmd, " "), "/dev/vdc1") {
-				t.Error("token rewritten on the replaced member")
-			}
+		if s.ID == "replace" {
+			replaced = true
+		}
+		if !strings.HasPrefix(s.ID, "token") {
+			continue
+		}
+		var tok Token
+		_ = json.Unmarshal([]byte(s.Stdin), &tok)
+		onOld := strings.Contains(strings.Join(s.Cmd, " "), "/dev/vdc1")
+		switch {
+		case !replaced && tok.Generation != 5, replaced && tok.Generation != 6:
+			t.Errorf("%s gen %d (after replace: %t)", s.ID, tok.Generation, replaced)
+		case replaced && onOld:
+			t.Error("old member promoted after the replace")
 		}
 	}
-	if n != 1 {
-		t.Errorf("%d token-member steps", n)
+	if !strings.Contains(stepIDs(p), "luks-open,token,token-member,token-member,replace,resize,balance,token-member,token-member,old-close") {
+		t.Error(stepIDs(p))
 	}
 	// Too small, a member as target, unknown member: blocked.
 	small := append([]Disk(nil), ds...)

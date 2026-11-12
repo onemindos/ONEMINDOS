@@ -61,7 +61,7 @@ func storageServe(args []string) int {
 	defer stop()
 	col := storage.New()
 	e := &ops.Engine{Facts: ops.CollectorFacts{C: col}, Run: ops.ExecRunner{}, Mount: *mount,
-		Options: storage.PlanOptions{KeyFile: *keyFile}, Log: log, Context: ctx, Poll: *poll}
+		Options: storage.PlanOptions{KeyFile: *keyFile}, Log: log, Context: ctx, Poll: *poll, HoldDir: storage.RunDir}
 	if m, err := col.MirrorStatus(ctx, *mount); err == nil && m.State != storage.StateUnavailable {
 		st, err := ops.OpenStore(*journal)
 		if err != nil {

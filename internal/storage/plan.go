@@ -350,7 +350,7 @@ func PlanProtect(disks []Disk, m *Mirror, device string, o PlanOptions) Plan {
 		st, nm := prepareMember(d, o, m.UUID, clone)
 		p.Steps = st
 		if o.Encrypt {
-			p.Steps = append(p.Steps, TokenSteps(m, nm, -1)...)
+			p.Steps = append(p.Steps, TokenSteps(m, nm, -1, m.Generation+1, PhasePrepare)...)
 		}
 		p.Steps = append(p.Steps,
 			Step{ID: "device-add", Phase: PhaseJoin, Cmd: []string{"btrfs", "device", "add", nm.Dev, m.Mount}, Why: "join the new member to the set"},

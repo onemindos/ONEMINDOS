@@ -63,6 +63,11 @@ type Token struct {
 	Keyslots   []int  `json:"keyslots"`
 	SetUUID    string `json:"set_uuid"`
 	MemberUUID string `json:"member_uuid"`
+	// PartUUID is the member's own GPT partition id. A header copied onto
+	// another partition carries the wrong one, so the boot assembly never
+	// opens a half-prepared disk (one cut between the header copy and its
+	// own token) as a member.
+	PartUUID   string `json:"partuuid"`
 	Generation int    `json:"generation"`
 }
 
@@ -95,25 +100,34 @@ func CloneHeaderSteps(src, part, luksUUID string) []Step {
 	}
 }
 
-// TokenSteps write the next-generation OneMind token on every present member
-// except devid skip (-1: none), and on the new member nm when it is set.
-func TokenSteps(m *Mirror, nm newMember, skip int) []Step {
-	gen := m.Generation + 1
+// TokenSteps write OneMind token generation gen on every present member
+// except devid skip (-1: none), and on the new member nm when it is set. The
+// boot assembly unlocks the members of the newest generation only, so a
+// member leaves the set (for the boot) when the others move past it.
+func TokenSteps(m *Mirror, nm newMember, skip, gen int, phase string) []Step {
 	var steps []Step
 	if nm.Part != "" {
-		steps = append(steps, tokenStep("token", PhasePrepare, m.UUID, nm.LUKSUUID, nm.Part, gen))
+		id := "token"
+		if phase != PhasePrepare {
+			id = "token-member"
+		}
+		steps = append(steps, tokenStep(id, phase, m.UUID, nm.LUKSUUID, nm.PartUUID, nm.Part, gen))
 	}
 	for _, mem := range m.Members {
 		if mem.Missing || mem.DevID == skip || mem.Backing == "" {
 			continue
 		}
-		steps = append(steps, tokenStep("token-member", PhaseJoin, m.UUID, mem.LUKSUUID, mem.Backing, gen))
+		p := phase
+		if p == PhasePrepare {
+			p = PhaseJoin
+		}
+		steps = append(steps, tokenStep("token-member", p, m.UUID, mem.LUKSUUID, mem.PartUUID, mem.Backing, gen))
 	}
 	return steps
 }
 
-func tokenStep(id, phase, set, member, part string, gen int) Step {
-	b, _ := json.Marshal(Token{Type: TokenType, Keyslots: []int{}, SetUUID: set, MemberUUID: member, Generation: gen})
+func tokenStep(id, phase, set, member, partuuid, part string, gen int) Step {
+	b, _ := json.Marshal(Token{Type: TokenType, Keyslots: []int{}, SetUUID: set, MemberUUID: member, PartUUID: partuuid, Generation: gen})
 	return Step{ID: id, Phase: phase, Cmd: []string{"cryptsetup", "token", "import", "--token-replace", "--token-id", fmt.Sprint(TokenID), part},
 		Stdin: string(b), Why: fmt.Sprintf("OneMind token on %s: set %s, generation %d (the boot assembly unlocks the members of the newest generation)", part, short(set), gen)}
 }
@@ -158,7 +172,7 @@ func (c *Collector) LUKS(ctx context.Context, m *Mirror, disks []Disk) {
 		}
 		m.Encrypted = true
 		if _, s, ok := containing(disks, mem.Backing); ok {
-			mem.LUKSUUID = s.UUID
+			mem.LUKSUUID, mem.PartUUID = s.UUID, s.PartUUID
 		}
 		out, code, err := c.Run.Run(ctx, "cryptsetup", "luksDump", "--dump-json-metadata", mem.Backing)
 		if err != nil || code != 0 {
@@ -210,13 +224,14 @@ const PCRPublicKey = "/etc/systemd/tpm2-pcr-public-key.pem"
 
 // InitOptions describe a fresh data partition (first boot, H-11).
 type InitOptions struct {
-	Part    string // the onemind-data partition, e.g. /dev/disk/by-partlabel/onemind-data
-	Mapper  string // default onemind-data
-	Label   string // default onemind-data
-	TPM2    bool   // enrol a TPM2 keyslot (systemd-cryptenroll)
-	PCRKey  string // signed PCR 11 policy public key, if the image has one
-	Top     string // where the top-level btrfs is mounted while subvolumes are created
-	SetUUID string // btrfs fsid; random when empty
+	Part     string // the onemind-data partition, e.g. /dev/disk/by-partlabel/onemind-data
+	PartUUID string // its GPT partition id (blkid PARTUUID), recorded in the token
+	Mapper   string // default onemind-data
+	Label    string // default onemind-data
+	TPM2     bool   // enrol a TPM2 keyslot (systemd-cryptenroll)
+	PCRKey   string // signed PCR 11 policy public key, if the image has one
+	Top      string // where the top-level btrfs is mounted while subvolumes are created
+	SetUUID  string // btrfs fsid; random when empty
 }
 
 // InitSteps are the first-boot steps for onemind-data: LUKS2 with the
@@ -250,7 +265,7 @@ func InitSteps(o InitOptions) []Step {
 		}
 		steps = append(steps, Step{ID: "luks-tpm2", Cmd: append(cmd, o.Part), Why: "unlock at boot with the TPM2 when the firmware and signed system are unchanged"})
 	}
-	b, _ := json.Marshal(Token{Type: TokenType, Keyslots: []int{}, SetUUID: o.SetUUID, MemberUUID: luksUUID, Generation: 1})
+	b, _ := json.Marshal(Token{Type: TokenType, Keyslots: []int{}, SetUUID: o.SetUUID, MemberUUID: luksUUID, PartUUID: o.PartUUID, Generation: 1})
 	steps = append(steps,
 		Step{ID: "token", Cmd: []string{"cryptsetup", "token", "import", "--token-id", fmt.Sprint(TokenID), o.Part}, Stdin: string(b), Why: "OneMind token, generation 1"},
 		Step{ID: "luks-open", Cmd: []string{"cryptsetup", "open", "--key-file", sk, o.Part, o.Mapper}, Why: "unlock it"},

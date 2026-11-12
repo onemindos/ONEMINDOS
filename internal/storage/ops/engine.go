@@ -91,6 +91,11 @@ type Engine struct {
 	Context context.Context
 	// OnChange, when set, sees a copy of the operation after every journal write.
 	OnChange func(Op)
+	// HoldDir, when set, is the fault-injection point of the power-cut
+	// battery (STOR-4, research-output/evidence/lab/storage-actions): while
+	// HoldDir/hold-before-<step id> exists the engine waits before that step,
+	// so a lab can cut power at an exact point. Root-only tmpfs in production.
+	HoldDir string
 
 	mu     sync.Mutex
 	active *Op
@@ -332,6 +337,9 @@ func (e *Engine) execute(ctx context.Context, op *Op) {
 			})
 			continue
 		}
+		if !e.hold(ctx, st.ID) {
+			return
+		}
 		if len(st.Cmd) == 0 || !allowed[st.Cmd[0]] {
 			e.fail(ctx, op, i, fmt.Sprintf("step %d %s: program not allowed", i+1, st.ID))
 			return
@@ -475,12 +483,21 @@ func (e *Engine) restartPrepare(ctx context.Context, op *Op) error {
 		if s.ID == "device-add" && isMember(m, s.Cmd[3]) {
 			return fmt.Errorf("the new disk is already in the set before its prepare steps finished")
 		}
-		if s.ID == "luks-open" { // close our half-made mapping before wiping under it
-			name := s.Cmd[len(s.Cmd)-1]
-			if _, code, err := e.Run.Exec(ctx, "", "cryptsetup", "status", name); err == nil && code == 0 {
-				if out, code, err := e.Run.Exec(ctx, "", "cryptsetup", "close", name); err != nil || code != 0 {
-					return fmt.Errorf("cryptsetup close %s: %s", name, tail(out, 200))
-				}
+	}
+	// Close any mapping on the target (ours, or one a boot opened under
+	// another name) before wiping under it.
+	disks, err := e.Facts.Disks(ctx, m)
+	if err != nil {
+		return err
+	}
+	for _, t := range op.Targets {
+		d, ok := storage.Find(disks, t.Path)
+		if !ok {
+			continue
+		}
+		if c, ok := storage.CryptChild(d, t.Part); ok {
+			if out, code, err := e.Run.Exec(ctx, "", "cryptsetup", "close", c.Path); err != nil || code != 0 {
+				return fmt.Errorf("cryptsetup close %s: %s", c.Path, tail(out, 200))
 			}
 		}
 	}
@@ -497,22 +514,48 @@ func (e *Engine) restartPrepare(ctx context.Context, op *Op) error {
 }
 
 // reopen re-opens the new member's dm-crypt mapping when a reboot closed it
-// and the operation is past its prepare phase.
+// and the operation is past its prepare phase. When the boot assembly already
+// opened it under its own name, the operation adopts that mapping instead.
 func (e *Engine) reopen(ctx context.Context, op *Op) error {
 	for j := 0; j < op.Next && j < len(op.Plan.Steps); j++ {
 		s := op.Plan.Steps[j]
 		if s.ID != "luks-open" {
 			continue
 		}
-		name := s.Cmd[len(s.Cmd)-1]
+		name, part := s.Cmd[len(s.Cmd)-1], s.Cmd[len(s.Cmd)-2]
 		if _, code, err := e.Run.Exec(ctx, "", "cryptsetup", "status", name); err == nil && code == 0 {
 			continue
+		}
+		m, err := e.Facts.Mirror(ctx, e.Mount)
+		if err != nil {
+			return err
+		}
+		disks, err := e.Facts.Disks(ctx, m)
+		if err != nil {
+			return err
+		}
+		if d, _, ok := containingPart(disks, part); ok {
+			if c, ok := storage.CryptChild(d, part); ok {
+				e.substitute(op, map[string]string{"/dev/mapper/" + name: c.Path})
+				continue
+			}
 		}
 		if out, code, err := e.Run.Exec(ctx, s.Stdin, s.Cmd[0], s.Cmd[1:]...); err != nil || code != 0 {
 			return fmt.Errorf("re-open %s: %s", name, tail(out, 200))
 		}
 	}
 	return nil
+}
+
+func containingPart(disks []storage.Disk, part string) (storage.Disk, storage.Signature, bool) {
+	for _, d := range disks {
+		for _, s := range d.Holds {
+			if s.Path == part {
+				return d, s, true
+			}
+		}
+	}
+	return storage.Disk{}, storage.Signature{}, false
 }
 
 // probe decides whether step i must run, and waits for kernel work a power
@@ -553,6 +596,25 @@ func (e *Engine) probe(ctx context.Context, op *Op, i int) (run bool, note strin
 		return e.waitScrub(ctx, mount)
 	}
 	return true, "", nil
+}
+
+// hold waits while a hold file for step id exists; false when ctx ended.
+func (e *Engine) hold(ctx context.Context, id string) bool {
+	if e.HoldDir == "" {
+		return true
+	}
+	f := e.HoldDir + "/hold-before-" + id
+	for logged := false; ; logged = true {
+		if _, err := os.Stat(f); err != nil {
+			return true
+		}
+		if !logged {
+			e.log().Warn("storage operation held before a step (fault injection)", "step", id, "file", f)
+		}
+		if !e.sleep(ctx) {
+			return false
+		}
+	}
 }
 
 func (e *Engine) sleep(ctx context.Context) bool {
