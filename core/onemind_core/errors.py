@@ -50,7 +50,7 @@ _DESCRIPTIONS = {
     409: "stale_precondition, expired, conflict or policy_refused",
     413: "Request body over its limit (payload_too_large)",
     422: "Request failed validation (conflict, with the bad fields in message)",
-    429: "A rate limit or the pending-action cap (rate_limited); see Retry-After",
+    429: "Too many attempts, a rate limit or the pending-action cap (rate_limited); see Retry-After",
 }
 
 
