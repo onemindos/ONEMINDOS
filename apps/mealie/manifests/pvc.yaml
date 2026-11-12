@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# mealie-data: /app/data (the image's VOLUME): the SQLite database, recipe images and backups.
+# 5Gi is a OneMind choice. No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mealie-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi

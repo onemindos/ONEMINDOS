@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+# Mealie: Market batch 4 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: docker/Dockerfile,
+# docker/entry.sh, docker/healthcheck.sh, docker/docker-compose.yml and the installation docs at
+# v3.30.0.
+# Image digest and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: mealie
+  name: "Mealie"
+  version: "3.30.0"
+  description: "Recipe manager and meal planner with shopping lists; imports recipes from a URL."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: family
+  icon: icon.svg
+  license: "AGPL-3.0"
+  source: https://github.com/mealie-recipes/mealie
+  # §9.3 facts from the GitHub API (repos/mealie-recipes/mealie), read 2026-11-12.
+  links:
+    docs: "https://docs.mealie.io"
+    github: "https://github.com/mealie-recipes/mealie"
+    website: "https://docs.mealie.io"
+    support: "https://github.com/mealie-recipes/mealie/issues"
+  upstream: {release: "v3.30.0", released_at: "2026-10-31T23:57:31Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 1024}
+  web: {port: 9000}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
