@@ -24,8 +24,8 @@ spec:
       enableServiceLinks: false
       # The image runs as root and cannot run as any other user here: on its first launch (no
       # AdGuardHome.yaml yet) AdGuard Home exits with "you must run it as administrator" unless
-      # it is UID 0 or holds CAP_NET_BIND_SERVICE in the *ambient* set (internal/home/home.go
-      # checkNetworkPermissions, internal/aghnet/net_linux.go canBindPrivilegedPorts at v0.107.80),
+      # it is UID 0 or holds CAP_NET_BIND_SERVICE in the *ambient* set (checkNetworkPermissions in
+      # package internal/home, canBindPrivilegedPorts in internal/aghnet/net_linux.go, v0.107.80),
       # and Kubernetes cannot give a non-root container ambient capabilities. So runAsNonRoot is
       # not set (contract §9.4 check 8: non-root "where the image allows"), as for home-assistant.
       # Root here holds only NET_BIND_SERVICE (see the container) and cannot gain more.
