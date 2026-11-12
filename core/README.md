@@ -51,7 +51,10 @@ is where that rule is enforced in code, not in a prompt:
 | `onemind_core/nodes.py`, `bus.py` | Heartbeat registry (online/stale/offline) and the NATS connection |
 | `onemind_core/catalog.py` | App catalog from `ONEMIND_APPS_DIR/*/onemind.app.yaml`, incl. `links`, `tier`, `scan`, `spec.agent` |
 | `onemind_core/scan.py` | Reads `apps/<id>/scan.json` (§11.1) and decides whether an install may run (§10.3) |
-| `onemind_core/mcp.py` | `POST /mcp`: MCP Streamable HTTP for agent principals (§11.3) |
+| `onemind_core/mcp/` | `POST /mcp`: MCP Streamable HTTP for agent principals (§11.3, §12.19): `server.py`, `tools.py` (catalogue), `untrusted.py`, `limits.py` |
+| `onemind_core/auditread.py`, `routers/audit.py` | §12.16 `GET /v1/audit/events[/{seq}]`, `/v1/audit/verify` |
+| `onemind_core/eventstream.py`, `routers/events.py` | §12.8 `GET /v1/events` (SSE, audit-derived ids, resume, `node.status`) |
+| `onemind_core/apimodels.py`, `openapi.py` | Documented response bodies and stable `operationId`s; `python -m onemind_core.openapi` exports `sdk/openapi/onemind-v1.json` |
 | `onemind_core/models.py` | OpenAPI response models for `GET /v1/apps` |
 
 ### Action states
@@ -139,9 +142,15 @@ carries `requested_by`, and `action.approved`, `action.dispatched` and the outco
 message, answered with one JSON body (no SSE stream, no session id; `GET`/`DELETE /mcp` → 405).
 - **Who:** principals with `kind: agent` only. A person gets 403 `permission_denied` (audited),
   a missing or unknown token 401. A browser `Origin` that is not the gateway's host gets 403.
-- **Methods:** `initialize`, `ping`, `tools/list`, `tools/call`; notifications get 202.
-- **Tools:** `list_nodes` (= `GET /v1/nodes`), `list_apps` (= `GET /v1/apps`), and
-  `request_action {type, app_id, reason?}`, which files an action exactly like `POST /v1/actions`
+- **Methods:** `initialize`, `ping`, `tools/list`, `tools/call`, `resources/list`, `resources/templates/list`,
+  `resources/read`; notifications get 202.
+- **Read tools** (each = a `/v1` route): `get_instance`, `list_nodes`, `get_node`, `list_apps`, `get_app`, and,
+  for the calling agent's own requests and records only, `list_actions`, `get_action`, `search_audit`.
+  Resources: `onemind://catalog[/{app_id}]`, `onemind://nodes[/{node_id}]`, `onemind://actions/{id}`, `onemind://audit/recent`.
+- **Third-party text** (app names and descriptions, hostnames, agents' reasons) is stripped of control and bidi
+  characters, listed in `_meta["onemind/untrusted"]` and wrapped as `<untrusted source=…>` in the text content.
+- **Limits per agent** (`ONEMIND_MCP_*`): 120 messages/min (HTTP 429), 60 reads/min, 10 requests/hour, 10 pending.
+- **The one write tool:** `request_action {type, app_id, reason?}`, which files an action exactly like `POST /v1/actions`
   with a generated idempotency key and a 24 h expiry and returns `{action_id, state}`. A refusal
   (unknown app, app busy) is a tool result with `isError: true` and the §3 error body. `reason`
   is written to the audit log (the §3 action shape has no field for it).

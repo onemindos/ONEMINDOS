@@ -80,6 +80,8 @@ F-1 to F-7 keep the numbers used in [core/README.md](core/README.md). The rest g
 
 Contract §12 was written against these proposed defaults; a different answer is a follow-up contract PR. **F-1** is applied as: per-box CA by default, and optional Let's Encrypt (DNS-01) when the owner brings a domain (§12.7); a Tailscale certificate may still serve the mesh name when remote access is on. Also applied as listed above: F-2, F-6, F-7, F-8, F-9, F-11, F-12, F-14, F-15, F-16, F-19, F-24.
 
+**Relied on by the developer surface** (`feat/devsurface`, 2026-11-12): **F-8**, the `onemind` CLI now runs on cobra (the §4 note below about stdlib `flag` is superseded). **F-15**, `onemind mcp login` stores a personal agent token as a context and checks that it is an agent's; creating one (default `reader`, 90 days) waits for `POST /v1/tokens` (§12.6). Until scopes exist, every agent on `/mcp` gets the `v0` bundle plus own-only reads (`actions:read:own`, `audit:read:own`, F-19).
+
 ### 1.2 Identity choices made on `feat/identity` (2026-11-12)
 
 The identity stream relies on F-2 (passkey on every owner approval once one exists), F-12 (token approvals accepted, and audited, until then), F-14 (role scopes) and F-15 (personal agent tokens: `reader`, 90 days). It also made these calls; each is reversible in one module ([core/IDENTITY.md](core/IDENTITY.md) §7):

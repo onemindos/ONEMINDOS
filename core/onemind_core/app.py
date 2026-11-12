@@ -30,6 +30,8 @@ from .policy import SandboxSettings
 from .routers import Register
 from .routers import actions as actions_routes
 from .routers import apps as apps_routes
+from .routers import audit as audit_routes
+from .routers import events as events_routes
 from .routers import guard as guard_routes
 from .routers import identity as identity_routes
 from .routers import instance as instance_routes
@@ -53,6 +55,8 @@ ROUTERS: list[Register] = [
     apps_routes.register,
     mcp_routes.register,
     actions_routes.register,
+    audit_routes.register,
+    events_routes.register,
     notifications_routes.register,
     monitoring_routes.register,
     identity_routes.register,

@@ -78,7 +78,10 @@ class UserPatchBody(BaseModel):
 
 class TokenCreateBody(BaseModel):
     name: str = Field(max_length=100)
-    principal: Literal["self"] | dict[str, Any] = "self"
+    # "self" or {kind: "agent", id: "agent:<name>"}. Go gets `any`: oapi-codegen would need its
+    # runtime package for a union, and the Go SDK stays standard-library only (SDK.md §1).
+    principal: Literal["self"] | dict[str, Any] = Field(
+        default="self", json_schema_extra={"x-go-type": "any", "x-go-type-skip-optional-pointer": True})
     scopes: list[str] | None = Field(default=None, max_length=64)
     expires_in_days: int | None = None
 
@@ -119,18 +122,18 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     R = error_responses
     # ---- sign-in (no principal) ----------------------------------------------------------------------
-    @app.post("/v1/auth/setup", tags=["auth"], status_code=201, responses=R(401, 409, 422, 429))
+    @app.post("/v1/auth/setup", operation_id="auth.setup", tags=["auth"], status_code=201, responses=R(401, 409, 422, 429))
     def setup(body: SetupBody, request: Request):
         """First owner: needs the install owner token (or the first-boot token) as the bearer."""
         token = request.headers.get("authorization", "").partition(" ")[2].strip()
         user = svc.setup(request, token, body.username, body.display_name or body.username, body.password)
         return start(request, user, "setup", body.client, None, passkey=False, status=201)
 
-    @app.post("/v1/auth/login/options", tags=["auth"], responses=R(429))
+    @app.post("/v1/auth/login/options", operation_id="auth.login_options", tags=["auth"], responses=R(429))
     def login_options(request: Request):
         return svc.login_options(request)
 
-    @app.post("/v1/auth/login", tags=["auth"], responses=R(401, 422, 429))
+    @app.post("/v1/auth/login", operation_id="auth.login", tags=["auth"], responses=R(401, 422, 429))
     def login(body: LoginBody, request: Request):
         if body.passkey is not None:
             user = svc.login_passkey(request, body.passkey)
@@ -139,17 +142,17 @@ def register(app: FastAPI, gw: Gateway) -> None:
         method = "password+totp" if user.totp_secret else "password"
         return start(request, user, method, body.client, body.client_name, passkey=False)
 
-    @app.post("/v1/auth/enrol", tags=["auth"], status_code=201, responses=R(401, 409, 422, 429))
+    @app.post("/v1/auth/enrol", operation_id="auth.enrol", tags=["auth"], status_code=201, responses=R(401, 409, 422, 429))
     def enrol(body: EnrolBody, request: Request):
         user = svc.enrol(request, body.code, body.username or "", body.password)
         return start(request, user, "enrolment", body.client, None, passkey=False, status=201)
 
-    @app.post("/v1/auth/refresh", tags=["auth"], responses=R(401, 429))
+    @app.post("/v1/auth/refresh", operation_id="auth.refresh", tags=["auth"], responses=R(401, 429))
     def refresh(body: RefreshBody, request: Request):
         return svc.refresh(request, body.refresh_token)
 
     # ---- the signed-in person ----------------------------------------------------------------------
-    @app.post("/v1/auth/logout", tags=["auth"], status_code=204, responses=R(401, 403, 409))
+    @app.post("/v1/auth/logout", operation_id="auth.logout", tags=["auth"], status_code=204, responses=R(401, 403, 409))
     def logout(request: Request, _: Principal = Depends(principal)):
         svc.logout(ctx_of(request))
         resp = Response(status_code=204)
@@ -157,101 +160,101 @@ def register(app: FastAPI, gw: Gateway) -> None:
             resp.delete_cookie(name, path="/", secure=cfg.cookie_secure, samesite="strict")
         return resp
 
-    @app.get("/v1/auth/sessions", tags=["auth"], responses=R(401, 403))
+    @app.get("/v1/auth/sessions", operation_id="auth.sessions.list", tags=["auth"], responses=R(401, 403))
     def sessions(request: Request, p: Principal = Depends(principal)):
         return svc.list_sessions(ctx_of(request), p)
 
-    @app.delete("/v1/auth/sessions/{session_id}", tags=["auth"], status_code=204, responses=R(401, 403, 404))
+    @app.delete("/v1/auth/sessions/{session_id}", operation_id="auth.sessions.revoke", tags=["auth"], status_code=204, responses=R(401, 403, 404))
     def revoke_session(session_id: str, request: Request, p: Principal = Depends(principal)):
         svc.revoke_session(ctx_of(request), p, session_id)
         return Response(status_code=204)
 
-    @app.post("/v1/auth/passkeys/register/options", tags=["auth"], responses=R(401, 403))
+    @app.post("/v1/auth/passkeys/register/options", operation_id="auth.passkeys.register_options", tags=["auth"], responses=R(401, 403))
     def passkey_options(request: Request, _: Principal = Depends(principal)):
         return svc.passkey_register_options(request, ctx_of(request))
 
-    @app.post("/v1/auth/passkeys/register", tags=["auth"], status_code=201, responses=R(401, 403, 409, 422))
+    @app.post("/v1/auth/passkeys/register", operation_id="auth.passkeys.register", tags=["auth"], status_code=201, responses=R(401, 403, 409, 422))
     def passkey_register(body: PasskeyRegisterBody, request: Request, _: Principal = Depends(principal)):
         return svc.passkey_register(request, ctx_of(request), body.credential, body.label)
 
-    @app.get("/v1/auth/passkeys", tags=["auth"], responses=R(401, 403))
+    @app.get("/v1/auth/passkeys", operation_id="auth.passkeys.list", tags=["auth"], responses=R(401, 403))
     def passkeys(request: Request, _: Principal = Depends(principal)):
         return svc.list_passkeys(ctx_of(request))
 
-    @app.delete("/v1/auth/passkeys/{credential_id}", tags=["auth"], status_code=204, responses=R(401, 403, 404, 409))
+    @app.delete("/v1/auth/passkeys/{credential_id}", operation_id="auth.passkeys.delete", tags=["auth"], status_code=204, responses=R(401, 403, 404, 409))
     def passkey_delete(credential_id: str, request: Request, _: Principal = Depends(principal)):
         svc.delete_passkey(ctx_of(request), credential_id)
         return Response(status_code=204)
 
-    @app.post("/v1/auth/password", tags=["auth"], status_code=204, responses=R(401, 403, 422, 429))
+    @app.post("/v1/auth/password", operation_id="auth.password.change", tags=["auth"], status_code=204, responses=R(401, 403, 422, 429))
     def password(body: PasswordBody, request: Request, _: Principal = Depends(principal)):
         svc.change_password(request, ctx_of(request), body.current_password, body.new_password)
         return Response(status_code=204)
 
-    @app.post("/v1/auth/totp/setup", tags=["auth"], responses=R(401, 403, 409))
+    @app.post("/v1/auth/totp/setup", operation_id="auth.totp.setup", tags=["auth"], responses=R(401, 403, 409))
     def totp_setup(request: Request, _: Principal = Depends(principal)):
         return svc.totp_setup(ctx_of(request))
 
-    @app.post("/v1/auth/totp/confirm", tags=["auth"], status_code=204, responses=R(401, 403, 409, 422))
+    @app.post("/v1/auth/totp/confirm", operation_id="auth.totp.confirm", tags=["auth"], status_code=204, responses=R(401, 403, 409, 422))
     def totp_confirm(body: CodeBody, request: Request, _: Principal = Depends(principal)):
         svc.totp_confirm(ctx_of(request), body.code)
         return Response(status_code=204)
 
-    @app.post("/v1/auth/totp/disable", tags=["auth"], status_code=204, responses=R(401, 403, 429))
+    @app.post("/v1/auth/totp/disable", operation_id="auth.totp.disable", tags=["auth"], status_code=204, responses=R(401, 403, 429))
     def totp_disable(body: PasswordOnlyBody, request: Request, _: Principal = Depends(principal)):
         svc.totp_disable(request, ctx_of(request), body.password)
         return Response(status_code=204)
 
-    @app.get("/v1/me", tags=["auth"], responses=R(401, 403))
+    @app.get("/v1/me", operation_id="me.get", tags=["auth"], responses=R(401, 403))
     def me(request: Request, p: Principal = Depends(principal)):
         return svc.me(request, p)
 
     # ---- users (owner) -------------------------------------------------------------------------------
-    @app.get("/v1/users", tags=["users"], responses=R(401, 403))
+    @app.get("/v1/users", operation_id="users.list", tags=["users"], responses=R(401, 403))
     def users(p: Principal = Depends(principal)):
         return svc.list_users(p)
 
-    @app.post("/v1/users", tags=["users"], status_code=201, responses=R(401, 403, 409, 422))
+    @app.post("/v1/users", operation_id="users.create", tags=["users"], status_code=201, responses=R(401, 403, 409, 422))
     def create_user(body: UserCreateBody, request: Request, p: Principal = Depends(principal)):
         return svc.create_user(request, ctx_of(request), p, body.display_name, body.role, body.username)
 
-    @app.patch("/v1/users/{user_id}", tags=["users"], responses=R(401, 403, 404, 409, 422))
+    @app.patch("/v1/users/{user_id}", operation_id="users.update", tags=["users"], responses=R(401, 403, 404, 409, 422))
     def update_user(user_id: str, body: UserPatchBody, request: Request, p: Principal = Depends(principal)):
         return svc.update_user(ctx_of(request), p, user_id, body.display_name, body.role)
 
-    @app.post("/v1/users/{user_id}/disable", tags=["users"], responses=R(401, 403, 404, 409))
+    @app.post("/v1/users/{user_id}/disable", operation_id="users.disable", tags=["users"], responses=R(401, 403, 404, 409))
     def disable_user(user_id: str, p: Principal = Depends(principal)):
         return svc.disable_user(p, user_id)
 
     # ---- API tokens (H-09) ---------------------------------------------------------------------------
-    @app.get("/v1/tokens", tags=["tokens"], responses=R(401, 403))
+    @app.get("/v1/tokens", operation_id="tokens.list", tags=["tokens"], responses=R(401, 403))
     def tokens(request: Request, p: Principal = Depends(principal)):
         return svc.list_tokens(ctx_of(request), p)
 
-    @app.post("/v1/tokens", tags=["tokens"], status_code=201, responses=R(401, 403, 422))
+    @app.post("/v1/tokens", operation_id="tokens.create", tags=["tokens"], status_code=201, responses=R(401, 403, 422))
     def create_token(body: TokenCreateBody, request: Request, p: Principal = Depends(principal)):
         return svc.create_token(ctx_of(request), p, body.name, body.principal, body.scopes, body.expires_in_days)
 
-    @app.post("/v1/tokens/{token_id}/rotate", tags=["tokens"], status_code=201, responses=R(401, 403, 404, 409, 422))
+    @app.post("/v1/tokens/{token_id}/rotate", operation_id="tokens.rotate", tags=["tokens"], status_code=201, responses=R(401, 403, 404, 409, 422))
     def rotate_token(token_id: str, request: Request, body: RotateBody | None = None, p: Principal = Depends(principal)):
         return svc.rotate_token(ctx_of(request), p, token_id, body.grace_s if body else 0)
 
-    @app.delete("/v1/tokens/{token_id}", tags=["tokens"], status_code=204, responses=R(401, 403, 404))
+    @app.delete("/v1/tokens/{token_id}", operation_id="tokens.revoke", tags=["tokens"], status_code=204, responses=R(401, 403, 404))
     def revoke_token(token_id: str, request: Request, p: Principal = Depends(principal)):
         svc.revoke_token(ctx_of(request), p, token_id)
         return Response(status_code=204)
 
     # ---- per-app sharing -----------------------------------------------------------------------------
-    @app.get("/v1/apps/{app_id}/access", tags=["apps"], responses=R(401, 403, 404))
+    @app.get("/v1/apps/{app_id}/access", operation_id="apps.access.get", tags=["apps"], responses=R(401, 403, 404))
     def get_access(app_id: str, p: Principal = Depends(principal)):
         return svc.get_access(p, app_id)
 
-    @app.put("/v1/apps/{app_id}/access", tags=["apps"], responses=R(401, 403, 404, 422))
+    @app.put("/v1/apps/{app_id}/access", operation_id="apps.access.set", tags=["apps"], responses=R(401, 403, 404, 422))
     def put_access(app_id: str, body: AccessBody, request: Request, p: Principal = Depends(principal)):
         return svc.put_access(ctx_of(request), p, app_id, body.roles, body.people, body.auth)
 
     # ---- approval step-up challenge (§12.4) ----------------------------------------------------------
-    @app.post("/v1/actions/{action_id}/approve-options", tags=["actions"], responses=R(401, 403, 404, 409))
+    @app.post("/v1/actions/{action_id}/approve-options", operation_id="actions.approve_options", tags=["actions"], responses=R(401, 403, 404, 409))
     def approve_options(action_id: str, request: Request, p: Principal = Depends(principal)):
         return svc.approve_options(request, p, action_id)
 

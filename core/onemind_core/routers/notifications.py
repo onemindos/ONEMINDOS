@@ -157,7 +157,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return row
 
     # ---- alerts -------------------------------------------------------------------------
-    @app.get("/v1/alerts", tags=["alerts"], responses=error_responses(401))
+    @app.get("/v1/alerts", operation_id="alerts.list", tags=["alerts"], responses=error_responses(401))
     def list_alerts(
         state: str | None = Query(default=None, description="open (open + acknowledged), acknowledged, resolved; comma = OR"),
         p: Principal = Depends(principal),
@@ -172,11 +172,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
         rows = repo.list_alerts(states)
         return [alert_json(r) for r in rows if _can_see(p, json.loads(r.audience_json or "{}"))]
 
-    @app.get("/v1/alerts/{alert_id}", tags=["alerts"], responses=error_responses(401, 404))
+    @app.get("/v1/alerts/{alert_id}", operation_id="alerts.get", tags=["alerts"], responses=error_responses(401, 404))
     def get_alert(alert_id: str, p: Principal = Depends(principal)):
         return alert_json(alert_for(p, alert_id))
 
-    @app.post("/v1/alerts/{alert_id}/ack", tags=["alerts"], responses=error_responses(401, 403, 404, 409))
+    @app.post("/v1/alerts/{alert_id}/ack", operation_id="alerts.ack", tags=["alerts"], responses=error_responses(401, 403, 404, 409))
     def ack_alert(alert_id: str, p: Principal = Depends(principal)):
         if not (p.kind == "person" and p.role in ("owner", "adult")):
             raise ApiError(403, "permission_denied", "only owners and adults acknowledge alerts")
@@ -190,7 +190,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             svc._alert_event("acknowledged", row, by=p.id)
         return alert_json(row)
 
-    @app.post("/v1/alerts/{alert_id}/resolve", tags=["alerts"], responses=error_responses(401, 403, 404, 409))
+    @app.post("/v1/alerts/{alert_id}/resolve", operation_id="alerts.resolve", tags=["alerts"], responses=error_responses(401, 403, 404, 409))
     def resolve_alert(alert_id: str, p: Principal = Depends(principal)):
         if not p.is_owner:
             raise ApiError(403, "permission_denied", "only owners resolve alerts")
@@ -203,7 +203,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             row = svc._resolve(row, by=p.id)
         return alert_json(row)
 
-    @app.post("/v1/alerts/{alert_id}/fix", tags=["alerts"], status_code=202,
+    @app.post("/v1/alerts/{alert_id}/fix", operation_id="alerts.fix", tags=["alerts"], status_code=202,
               responses=error_responses(401, 403, 404, 409, 422))
     def fix_alert(alert_id: str, body: FixIn | None = None, p: Principal = Depends(principal)):
         body = body or FixIn()
@@ -241,7 +241,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return JSONResponse(status_code=202, content=action, headers={"Location": f"/v1/actions/{action['id']}"})
 
     # ---- channels (before /v1/notifications/{id}) ----------------------------------------
-    @app.get("/v1/notifications/channels", tags=[TAG], responses=error_responses(401, 403))
+    @app.get("/v1/notifications/channels", operation_id="notifications.channels.list", tags=[TAG], responses=error_responses(401, 403))
     def list_channels(p: Principal = Depends(principal)):
         _person(p)
         out = []
@@ -268,7 +268,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         except DeliveryError as exc:
             raise ApiError(422, "conflict", f"config: {exc}") from None
 
-    @app.post("/v1/notifications/channels", tags=[TAG], status_code=201, responses=error_responses(401, 403, 422))
+    @app.post("/v1/notifications/channels", operation_id="notifications.channels.create", tags=[TAG], status_code=201, responses=error_responses(401, 403, 422))
     def add_channel(body: ChannelIn, p: Principal = Depends(principal)):
         _person(p)
         _check_secret(body.secret)
@@ -295,7 +295,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                    "credentials": "provided" if body.secret else "none"})
         return channel_json(row)
 
-    @app.patch("/v1/notifications/channels/{channel_id}", tags=[TAG], responses=error_responses(401, 403, 404, 422))
+    @app.patch("/v1/notifications/channels/{channel_id}", operation_id="notifications.channels.update", tags=[TAG], responses=error_responses(401, 403, 404, 422))
     def patch_channel(channel_id: str, body: ChannelPatch, p: Principal = Depends(principal)):
         ch = own_channel(p, channel_id)
         _check_secret(body.secret)
@@ -320,7 +320,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                      **({"credentials": "provided"} if body.secret else {})})
         return channel_json(ch)
 
-    @app.delete("/v1/notifications/channels/{channel_id}", tags=[TAG], status_code=204,
+    @app.delete("/v1/notifications/channels/{channel_id}", operation_id="notifications.channels.delete", tags=[TAG], status_code=204,
                 responses=error_responses(401, 403, 404))
     def delete_channel(channel_id: str, p: Principal = Depends(principal)):
         ch = own_channel(p, channel_id)
@@ -329,7 +329,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         audit(p, "channel.removed", {"channel_id": ch.id})
         return Response(status_code=204)
 
-    @app.post("/v1/notifications/channels/{channel_id}/test", tags=[TAG],
+    @app.post("/v1/notifications/channels/{channel_id}/test", operation_id="notifications.channels.test", tags=[TAG],
               responses={429: {"description": "rate_limited (Retry-After)"}, **error_responses(401, 403, 404)})
     def test_channel(channel_id: str, p: Principal = Depends(principal)):
         ch = own_channel(p, channel_id)
@@ -344,13 +344,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.test_target(ch.id, p.id)
 
     # ---- preferences --------------------------------------------------------------------
-    @app.get("/v1/notifications/preferences", tags=[TAG], responses=error_responses(401, 403))
+    @app.get("/v1/notifications/preferences", operation_id="notifications.preferences.get", tags=[TAG], responses=error_responses(401, 403))
     def get_preferences(p: Principal = Depends(principal)):
         _person(p)
         doc, tag = svc.preferences(p.id)
         return JSONResponse(content=doc, headers={"ETag": tag})
 
-    @app.put("/v1/notifications/preferences", tags=[TAG], responses=error_responses(401, 403, 409, 422),
+    @app.put("/v1/notifications/preferences", operation_id="notifications.preferences.set", tags=[TAG], responses=error_responses(401, 403, 409, 422),
              openapi_extra={"requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}}})
     async def put_preferences(request: Request, if_match: str | None = Header(default=None),
                               p: Principal = Depends(principal)):
@@ -372,7 +372,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return JSONResponse(content=doc, headers={"ETag": tag})
 
     # ---- send (agents) ------------------------------------------------------------------
-    @app.post("/v1/notifications/send", tags=[TAG], status_code=202,
+    @app.post("/v1/notifications/send", operation_id="notifications.send", tags=[TAG], status_code=202,
               responses={429: {"description": "rate_limited (Retry-After)"}, **error_responses(401, 403, 422)})
     def send(body: SendIn, p: Principal = Depends(principal)):
         try:
@@ -388,7 +388,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return JSONResponse(status_code=202, content={"accepted": True, **out})
 
     # ---- inbox --------------------------------------------------------------------------
-    @app.get("/v1/notifications", tags=[TAG], responses=error_responses(401, 403, 422))
+    @app.get("/v1/notifications", operation_id="notifications.list", tags=[TAG], responses=error_responses(401, 403, 422))
     def inbox(
         response: Response,
         unread: bool | None = None,
@@ -417,12 +417,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
             response.headers["Link"] = f'</v1/notifications?limit={n}&cursor={nxt}>; rel="next"'
         return [notification_json(r) for r in rows]
 
-    @app.post("/v1/notifications/read-all", tags=[TAG], responses=error_responses(401, 403))
+    @app.post("/v1/notifications/read-all", operation_id="notifications.read_all", tags=[TAG], responses=error_responses(401, 403))
     def read_all(p: Principal = Depends(principal)):
         _person(p)
         return {"marked": repo.mark_read(p.id, None, gw.clock())}
 
-    @app.get("/v1/notifications/{notification_id}", tags=[TAG], responses=error_responses(401, 403, 404))
+    @app.get("/v1/notifications/{notification_id}", operation_id="notifications.get", tags=[TAG], responses=error_responses(401, 403, 404))
     def get_notification(notification_id: str, p: Principal = Depends(principal)):
         _person(p)
         row = repo.get_notification(notification_id)
@@ -430,7 +430,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(404, "not_found", "no such notification")
         return notification_json(row)
 
-    @app.post("/v1/notifications/{notification_id}/read", tags=[TAG], responses=error_responses(401, 403, 404))
+    @app.post("/v1/notifications/{notification_id}/read", operation_id="notifications.read", tags=[TAG], responses=error_responses(401, 403, 404))
     def read_one(notification_id: str, p: Principal = Depends(principal)):
         _person(p)
         row = repo.get_notification(notification_id)
@@ -440,11 +440,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return notification_json(repo.get_notification(row.id))
 
     # ---- push registrations -------------------------------------------------------------
-    @app.get("/v1/push/vapid-public-key", tags=["push"], responses=error_responses(401))
+    @app.get("/v1/push/vapid-public-key", operation_id="push.vapid_key", tags=["push"], responses=error_responses(401))
     def vapid_key(_: Principal = Depends(principal)):
         return {"key": svc.vapid.public_key}
 
-    @app.post("/v1/push/registrations", tags=["push"], status_code=201, responses=error_responses(401, 403, 422))
+    @app.post("/v1/push/registrations", operation_id="push.registrations.create", tags=["push"], status_code=201, responses=error_responses(401, 403, 422))
     def add_device(body: PushIn, p: Principal = Depends(principal)):
         _person(p)
         try:
@@ -463,12 +463,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
         audit(p, "device.added", {"device_id": did, "platform": body.platform})
         return device_json(row)
 
-    @app.get("/v1/push/registrations", tags=["push"], responses=error_responses(401, 403))
+    @app.get("/v1/push/registrations", operation_id="push.registrations.list", tags=["push"], responses=error_responses(401, 403))
     def list_devices(p: Principal = Depends(principal)):
         _person(p)
         return [device_json(d) for d in repo.list_devices(p.id)]
 
-    @app.delete("/v1/push/registrations/{device_id}", tags=["push"], status_code=204,
+    @app.delete("/v1/push/registrations/{device_id}", operation_id="push.registrations.delete", tags=["push"], status_code=204,
                 responses=error_responses(401, 403, 404))
     def delete_device(device_id: str, p: Principal = Depends(principal)):
         _person(p)
