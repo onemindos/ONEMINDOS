@@ -96,6 +96,11 @@ class LicenceTests(unittest.TestCase):
         # A matrix row for the whole expression confirms every term.
         self.assertEqual(licence.gate("Apache-2.0 OR GPL-2.0", "GPL-2.0", row)[0], "L1")
 
+
+    def test_edl_is_bsd3(self):
+        # Mosquitto: the research matrix writes "EPL-2.0 OR EDL-1.0 (BSD-3-Clause)".
+        row = [{"component": "mosquitto", "version": "master", "SPDX": "EPL-2.0 OR EDL-1.0 (BSD-3-Clause)"}]
+        self.assertEqual(licence.gate("EPL-2.0 OR BSD-3-Clause", "NOASSERTION", row)[0], "L1")
     def test_matrix_rows(self):
         rows = licence.matrix_rows(common.MATRIX_CSV, "binwiederhier/ntfy")
         self.assertTrue(rows and rows[0]["SPDX"] == "Apache-2.0 OR GPL-2.0")

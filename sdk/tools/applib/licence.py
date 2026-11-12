@@ -107,6 +107,9 @@ def ids_in(expr: str) -> set[str]:
 def normalise(expr: str) -> str:
     """Drop parenthetical notes the research matrix adds, e.g. 'MIT (test data)'."""
     expr = re.sub(r"\s*\((?![A-Za-z0-9.+-]+ (?:AND|OR|WITH) )[^()]*\)", "", expr or "")
+    # The Eclipse Distribution License 1.0 is the BSD-3-Clause text; SPDX has no separate id for it
+    # (https://www.eclipse.org/org/documents/edl-v10.php), so research rows written "EDL-1.0" match it.
+    expr = re.sub(r"\bEDL-1\.0\b", "BSD-3-Clause", expr)
     return " ".join(expr.split())
 
 
