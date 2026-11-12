@@ -8,10 +8,15 @@ import (
 	"testing"
 )
 
-// The usage text from before the split into groups; it must not change.
+// The usage text: the groups from before the split, plus fabric and mesh (NET-P2).
 const wantUsage = `usage:
   onemind node info [--root DIR] [--arch amd64|arm64] [--agent URL]
   onemind nodes --hub URL [--token TOKEN] [--json]
+  onemind fabric join 'onemind-join:v1?…' [--hub-addr IP] [--timeout 20m]
+  onemind fabric ticket [--hub URL] [--role worker|leaf] [--ttl 15m] [--token T] [--json]
+  onemind fabric approve ACTION_ID [--hub URL] [--token T]
+  onemind fabric status [--hub URL] [--token T] [--json]
+  onemind mesh status [--json] [--leaf-monitor 127.0.0.1:8222]
   onemind update status [--config FILE] [--json]
   onemind update check  [--config FILE]
   onemind update apply  [--config FILE] [--no-reboot]

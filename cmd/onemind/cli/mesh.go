@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package cli
 
 import (
 	"context"
@@ -19,9 +19,17 @@ import (
 // newMeshClient is replaced in tests (fake tailscale CLI).
 var newMeshClient = mesh.NewClient
 
+func meshCommands() []Command {
+	return []Command{{
+		Path:  []string{"mesh", "status"},
+		Usage: "onemind mesh status [--json] [--leaf-monitor 127.0.0.1:8222]",
+		Run:   func(env *Env, args []string) error { return meshCmd(append([]string{"status"}, args...), env.Stdout) },
+	}}
+}
+
 // meshCmd implements `onemind mesh status [--json] [--leaf-monitor ADDR]`
 // (docs/architecture/NETWORKING.md §12): this machine's mesh state and the
-// health of its local NATS leaf. Registered in main.go with one line (§18).
+// health of its local NATS leaf.
 // Mesh addresses are printed because this is the owner at the box; they are
 // never part of the heartbeat.
 func meshCmd(args []string, out io.Writer) error {

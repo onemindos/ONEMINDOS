@@ -31,6 +31,8 @@ type Command struct {
 // groups is the registry, in the order the usage text lists them.
 var groups = []func() []Command{
 	nodeCommands,
+	fabricCommands,
+	meshCommands,
 	updateCommands,
 	versionCommands,
 }
