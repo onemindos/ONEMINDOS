@@ -154,7 +154,16 @@ def test_deny_works_for_feature_actions(client, clock, demo):
     a, _ = _file(client, clock)
     r = client.post(f"/v1/actions/{a['id']}/deny", headers=OWNER)
     assert r.status_code == 200 and r.json()["state"] == "cancelled"
-    assert demo.runs == []
+    assert demo.runs == [] and demo.released == [a["id"]]  # the module drops what it held for it
+
+
+def test_expiry_releases_feature_actions(client, clock, demo):
+    a, _ = _file(client, clock)
+    clock.advance(11 * 60)
+    assert client.get(f"/v1/actions/{a['id']}", headers=OWNER).json()["state"] == "expired"
+    assert demo.released == [a["id"]]
+    client.get(f"/v1/actions/{a['id']}", headers=OWNER)
+    assert demo.released == [a["id"]]  # once, when it expires
 
 
 def test_restart_marks_dispatched_feature_action_unknown(settings, clock, demo, client):

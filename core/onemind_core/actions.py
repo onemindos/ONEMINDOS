@@ -146,6 +146,7 @@ class ActionService:
             moved = self.repo.transition(a.id, {a.state}, "expired", now)
             if moved is not None:
                 self.audit.append("action.expired", None, a.id, {"expires_at": iso(a.expires_at)})
+                self._release_unaccepted(a)
                 return moved
             return self.repo.get(a.id) or a
         return a
@@ -273,7 +274,19 @@ class ActionService:
         if moved is None:
             raise ApiError(409, "conflict", f"action is {self._get(action_id).state}, not awaiting_approval")
         self.audit.append("action.denied", principal.as_dict(), a.id, {"params": a.params})
+        self._release_unaccepted(a)
         return moved.to_json()
+
+    def _release_unaccepted(self, a: Action) -> None:
+        """A feature action denied or expired before approval: let its module drop what it holds
+        for it (e.g. migrate's in-memory kubeconfig). A failing release never fails the caller."""
+        ft = self.feature_types.get(a.type)
+        if ft is None:
+            return
+        try:
+            ft.release(a)
+        except Exception:
+            log.exception("release of %s %s failed", a.type, a.id)
 
     def _approve(self, principal: Principal, action_id: str) -> dict:
         if not principal.is_owner:

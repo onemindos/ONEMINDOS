@@ -14,7 +14,7 @@ from datetime import timedelta
 
 import pytest
 
-from conftest import ADULT, AGENT, OWNER, write_scan
+from conftest import ADULT, AGENT, GUEST, OWNER, write_scan
 from migrate_fakes import NS, TOKEN, FakeBox, FakeCluster, kubeconfig
 
 
@@ -340,3 +340,90 @@ def test_restart_releases_plan_and_fails_running_copies(client, world, clock, se
     with TestClient(create_app(settings, clock=clock)) as c2:
         assert c2.get(f"/v1/actions/{r.json()['id']}", headers=OWNER).json()["state"] == "outcome_unknown"
         assert c2.get(f"/v1/migrate/plans/{plan['id']}", headers=OWNER).json()["busy_action_id"] is None
+
+
+def test_guests_cannot_read_plans(client, world, settings):
+    plan = _plan(client)
+    for path in ("/v1/migrate/plans", f"/v1/migrate/plans/{plan['id']}", f"/v1/migrate/plans/{plan['id']}/helper?pvc=notes-data"):
+        assert client.get(path, headers=GUEST).status_code == 403, path
+        assert client.get(path, headers=ADULT).status_code == 200, path
+    assert "read migration plans" in _audit_text(settings)
+
+
+def test_denied_or_expired_step_drops_the_held_kubeconfig(client, world, clock):
+    svc, _, _ = world
+    plan = _imported(client, svc, clock)
+    r = client.post(f"/v1/migrate/plans/{plan['id']}/copy", headers=OWNER, json={"kubeconfig": kubeconfig()})
+    assert r.json()["id"] in svc._held
+    assert client.post(f"/v1/actions/{r.json()['id']}/deny", headers=OWNER).status_code == 200
+    assert r.json()["id"] not in svc._held
+    r = client.post(f"/v1/migrate/plans/{plan['id']}/copy", headers=OWNER, json={"kubeconfig": kubeconfig()})
+    clock.advance(25 * 3600)
+    assert client.get(f"/v1/actions/{r.json()['id']}", headers=OWNER).json()["state"] == "expired"
+    assert r.json()["id"] not in svc._held
+
+
+def _failing_scale(cluster, kind: str, when):
+    """Make PATCH .../<kind>/<name>/scale answer 500 while when(replicas) is true."""
+    send = cluster.send
+
+    def wrapped(method, url, headers, body):
+        if method == "PATCH" and f"/{kind}/" in url and when(json.loads(body)["spec"]["replicas"]):
+            cluster.requests.append((method, url))
+            return 500, b'{"message":"injected failure"}'
+        return send(method, url, headers, body)
+
+    return wrapped
+
+
+def test_cutover_failing_while_stopping_old_puts_it_back(client, world, clock):
+    svc, cluster, _ = world
+    plan = _copied(client, svc, clock)
+    svc.transport = lambda target: _failing_scale(cluster, "statefulsets", lambda n: n == 0)
+    r = client.post(f"/v1/migrate/plans/{plan['id']}/cutover", headers=OWNER,
+                    json={"kubeconfig": kubeconfig(), "stop_old": True})
+    got = _approve(client, r.json()["id"])
+    assert got["state"] == "failed" and "injected failure" in got["result"]["message"]
+    assert cluster.objects["deployments"][0]["spec"]["replicas"] == 1  # stopped, then scaled back
+    view = client.get(f"/v1/migrate/plans/{plan['id']}", headers=OWNER).json()
+    assert view["state"] == "running" and view["old_replicas"] is None and view["busy_action_id"] is None
+
+
+def test_old_app_left_stopped_is_remembered_and_revert_restarts_it(client, world, clock):
+    svc, cluster, box = world
+    plan = _copied(client, svc, clock)
+    box.restore_failed = 2  # the final copy does not verify, so the switch-over is undone ...
+    svc.transport = lambda target: _failing_scale(cluster, "deployments", lambda n: n > 0)  # ... but not fully
+    r = client.post(f"/v1/migrate/plans/{plan['id']}/cutover", headers=OWNER,
+                    json={"kubeconfig": kubeconfig(), "stop_old": True})
+    assert _approve(client, r.json()["id"])["state"] == "failed"
+    assert cluster.objects["deployments"][0]["spec"]["replicas"] == 0
+    view = client.get(f"/v1/migrate/plans/{plan['id']}", headers=OWNER).json()
+    assert view["state"] == "running" and view["old_replicas"] == {"Deployment/notes": 1}
+    # A second switch-over reads 0 replicas there, but keeps the count the plan remembers.
+    svc.transport = lambda target: _failing_scale(cluster, "deployments", lambda n: n > 0)
+    r = client.post(f"/v1/migrate/plans/{plan['id']}/cutover", headers=OWNER,
+                    json={"kubeconfig": kubeconfig(), "stop_old": True})
+    assert _approve(client, r.json()["id"])["state"] == "failed"
+    view = client.get(f"/v1/migrate/plans/{plan['id']}", headers=OWNER).json()
+    assert view["old_replicas"] == {"Deployment/notes": 1}
+    # Revert is the way back from there: the old app gets its replicas again.
+    svc.transport = lambda target: cluster.send
+    r = client.post(f"/v1/migrate/plans/{plan['id']}/revert", headers=OWNER, json={"kubeconfig": kubeconfig()})
+    assert r.status_code == 202, r.text
+    got = _approve(client, r.json()["id"])
+    assert got["state"] == "succeeded", got
+    assert cluster.objects["deployments"][0]["spec"]["replicas"] == 1
+    view = client.get(f"/v1/migrate/plans/{plan['id']}", headers=OWNER).json()
+    assert view["state"] == "staged" and view["old_replicas"] is None
+
+
+def test_revert_after_switch_over_warns_about_box_changes(client, world, clock):
+    svc, _, _ = world
+    plan = _copied(client, svc, clock)
+    r = client.post(f"/v1/migrate/plans/{plan['id']}/cutover", headers=OWNER,
+                    json={"kubeconfig": kubeconfig(), "stop_old": True})
+    _approve(client, r.json()["id"])
+    r = client.post(f"/v1/migrate/plans/{plan['id']}/revert", headers=OWNER, json={"kubeconfig": kubeconfig()})
+    got = _approve(client, r.json()["id"])
+    assert "since the switch-over are not in the old app" in got["result"]["message"]

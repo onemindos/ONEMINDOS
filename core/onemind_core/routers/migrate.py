@@ -108,17 +108,21 @@ def register(app: FastAPI, gw: Gateway) -> None:
             app_id=body.app_id, name=body.name,
         ))
 
-    @app.get("/v1/migrate/plans", tags=["migrate"], responses=error_responses(401))
-    def list_plans(_: Principal = Depends(principal)):
+    @app.get("/v1/migrate/plans", tags=["migrate"], responses=error_responses(401, 403))
+    def list_plans(p: Principal = Depends(principal)):
+        """Owners, adults and agents; guests get 403."""
+        svc.check_read(p)
         return svc.list()
 
-    @app.get("/v1/migrate/plans/{plan_id}", tags=["migrate"], responses=error_responses(401, 404))
-    def get_plan(plan_id: str, _: Principal = Depends(principal)):
+    @app.get("/v1/migrate/plans/{plan_id}", tags=["migrate"], responses=error_responses(401, 403, 404))
+    def get_plan(plan_id: str, p: Principal = Depends(principal)):
+        svc.check_read(p)
         return svc.get(plan_id)
 
-    @app.get("/v1/migrate/plans/{plan_id}/helper", tags=["migrate"], responses=error_responses(401, 404))
-    def helper_preview(plan_id: str, pvc: str, _: Principal = Depends(principal)):
+    @app.get("/v1/migrate/plans/{plan_id}/helper", tags=["migrate"], responses=error_responses(401, 403, 404))
+    def helper_preview(plan_id: str, pvc: str, p: Principal = Depends(principal)):
         """The helper pod the copy step creates in the old cluster (credentials shown as placeholders)."""
+        svc.check_read(p)
         return svc.helper_preview(plan_id, pvc)
 
     def key(given: str | None) -> str:
@@ -128,7 +132,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def request_import(plan_id: str, body: ImportBody, p: Principal = Depends(principal),
                        idempotency_key: str | None = Header(default=None, max_length=200)):
         bundle = body.bundle_sha256
-        if bundle is None and p.is_owner:
+        if bundle is None and p.is_owner:  # others are refused (403) by svc.request below
             bundle = svc.get(plan_id)["bundle_sha256"]
         return _accepted(*svc.request(
             p, "migrate.import", plan_id, params={"bundle_sha256": bundle}, kubeconfig=None, context=None,

@@ -184,6 +184,13 @@ class MigrateService:
         self.gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": what, "reason": "permission_denied"})
         return ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not {what}")
 
+    def check_read(self, p: Principal) -> None:
+        """Plans name the old cluster's API host, its secrets and hostnames: owners, adults and
+        agents read them; guests and children do not (contract §12.6 role defaults)."""
+        if p.kind == "agent" or (p.kind == "person" and p.role in ("owner", "adult")):
+            return
+        raise self._deny(p, "read migration plans")
+
     # ---- plan (direct, owner) ----------------------------------------------------------------
     def plan(self, p: Principal, *, kubeconfig: str, namespace: str, context: str | None,
              app_id: str | None, name: str | None) -> dict:
@@ -257,6 +264,7 @@ class MigrateService:
                 context: str | None, idempotency_key: str, expires_at: datetime, reason: str | None) -> tuple[dict, bool]:
         if not p.is_owner:  # checked first, so an agent learns nothing about the plan or the cluster
             raise self._deny(p, f"request {action_type}")
+        self._prune_held()
         row = self._plan(plan_id)
         if action_type == "migrate.revert" and row.old_replicas and kubeconfig is None:
             raise ApiError(409, "stale_precondition",
@@ -276,6 +284,12 @@ class MigrateService:
         if target is not None and action["state"] in ("requested", "awaiting_approval"):
             self._held[action["id"]] = Held(target, utc(expires_at))
         return action, created
+
+    def _prune_held(self) -> None:
+        """Drop credentials of actions past their expiry (deny and expiry also release them)."""
+        now = self._now()
+        for action_id in [k for k, h in list(self._held.items()) if h.expires_at <= now]:
+            self._held.pop(action_id, None)
 
     def _take_held(self, action_id: str) -> KubeTarget | None:
         held = self._held.get(action_id)
@@ -376,7 +390,9 @@ class MigrateService:
         row = self.store.get_plan(str(params.get("plan_id")))
         if row is None:
             return "no such migration plan"
-        if row.state != "switched":
+        # "running" with old_replicas: a switch-over stopped the old app and could not start it
+        # again (a restart, or the undo failed); revert is then the one-step way back.
+        if row.state != "switched" and not (row.state == "running" and row.old_replicas):
             return f"the plan is {row.state}; only a switched migration can be reverted"
         return None
 
@@ -460,8 +476,9 @@ class MigrateService:
             grants = frozenset({HELPER, SCALE}) if stop_old else frozenset({HELPER})
             client = self.client(target, row.namespace, grants)
             steps: list[dict] = []
-            old = self._stop_old(client, row, stop_old, steps)
+            old: dict[str, int] = {}  # filled by _stop_old before it scales anything, so undo sees it
             try:
+                self._stop_old(client, row, stop_old, steps, old)
                 self._stop_new(box, row, steps)
                 results = [self._copy_volume(client, box, row, a, v["pvc"], "final", steps)
                            for v in row.report["volumes"]]
@@ -486,14 +503,17 @@ class MigrateService:
     def _undo_cutover(self, client, box, row, a, old: dict, steps: list[dict], exc: Exception) -> None:
         """Put old and new back side by side after a failed switch-over (best effort, each step logged)."""
         log.warning("cutover of %s failed (%s); restoring the side-by-side state", row.id, exc)
+        left: dict[str, int] = {}
         for key, replicas in old.items():
             kind, name = key.split("/", 1)
             try:
                 client.scale(kind, name, replicas)
                 steps.append({"undo": f"old {key} scaled back to {replicas}"})
-            except Exception as undo_exc:  # report, keep going
+            except Exception as undo_exc:  # report, keep going; keep it recorded for revert
+                left[key] = replicas
                 steps.append({"undo": f"old {key} could not be scaled back: {undo_exc.__class__.__name__}"})
-        self.store.update_plan(row.id, self._now(), old_replicas=None)
+        if old:  # nothing scaled: leave what an earlier switch-over recorded as it is
+            self.store.update_plan(row.id, self._now(), old_replicas=left or None)
         try:
             self._start_new(box, row, a, steps)
         except Exception as undo_exc:
@@ -517,6 +537,9 @@ class MigrateService:
                 msg = "the new app is stopped and the old app runs again"
             else:
                 msg = "the new app is stopped; start the old app yourself (OneMind did not stop it)"
+            if row.state == "switched":
+                msg += (". Changes made on this box since the switch-over are not in the old app; they stay "
+                        "in the box's volumes until the next copy replaces them")
             self.store.update_plan(row.id, self._now(), state="staged", old_replicas=None)
             self._event("reverted", {"plan_id": row.id, "app_id": row.app_id}, severity="warning", action_id=a.id)
             return msg + "; copy again before the next switch-over", steps
@@ -547,28 +570,35 @@ class MigrateService:
         self.gw.repo.set_app_state(row.app_id, "installed", self._now(), a.id)
         steps.append({"new": f"{row.app_id} started in {ns}", "workloads": len(self._workloads(row))})
 
-    def _stop_old(self, client: KubeClient, row: MigratePlanRow, stop_old: bool, steps: list[dict]) -> dict:
-        """Scale the old workloads to 0 (stop_old) or check that the owner did; wait for their pods to end."""
-        old: dict[str, int] = {}
+    def _stop_old(self, client: KubeClient, row: MigratePlanRow, stop_old: bool, steps: list[dict],
+                  old: dict[str, int]) -> None:
+        """Scale the old workloads to 0 (stop_old) or check that the owner did; wait for their pods to end.
+
+        `old` receives what OneMind must scale back on undo or revert, before anything is scaled:
+        the workloads running now plus those an earlier, unfinished switch-over already stopped
+        (they read 0 now, so only the plan remembers their counts).
+        """
+        current: dict[str, int] = {}
         running = []
         for w in self._workloads(row):
             obj = client.get_workload(w["kind"], w["name"])
             replicas = (obj.get("spec") or {}).get("replicas", 1)
             if replicas:
-                old[f"{w['kind']}/{w['name']}"] = int(replicas)
+                current[f"{w['kind']}/{w['name']}"] = int(replicas)
                 running.append(w)
         if running and not stop_old:
             cmds = "; ".join(f"kubectl -n {row.namespace} scale {w['kind'].lower()}/{w['name']} --replicas=0"
                              for w in running)
             raise StepError(f"the old app still runs; stop it first ({cmds}) or request the switch-over with stop_old")
+        old.update({k: int(v) for k, v in (row.old_replicas or {}).items()})
+        old.update(current)
+        # Recorded before anything is scaled, so revert can restore them.
         self.store.update_plan(row.id, self._now(), old_replicas=old or None)
-        if old:
-            # The old replica counts are recorded (above) before anything is scaled, so revert can
-            # restore them.
-            for key in old:
+        if current:
+            for key in current:
                 kind, name = key.split("/", 1)
                 client.scale(kind, name, 0)
-            steps.append({"old": f"scaled to 0: {', '.join(sorted(old))}"})
+            steps.append({"old": f"scaled to 0: {', '.join(sorted(current))}"})
         selectors = [w.get("selector") or {} for w in self._workloads(row)]
 
         def gone() -> bool:
@@ -580,7 +610,6 @@ class MigrateService:
 
         self._wait(gone, self.settings.rollout_timeout_s, "the old app's pods did not stop")
         steps.append({"old": "no old pods left"})
-        return old
 
     def _check_scheduled(self, status: dict, started: float, what: str) -> None:
         """A pod still unschedulable after the rollout timeout fails the step instead of waiting hours."""
