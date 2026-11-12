@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 from .audit import AuditLog
 from .auth import Principal, new_agent_token, token_hash
@@ -49,6 +49,17 @@ class ActionRequest(BaseModel):
     params: ActionParams
     idempotency_key: str = Field(min_length=1, max_length=200)
     expires_at: AwareDatetime
+
+    @field_validator("expires_at")
+    @classmethod
+    def _expires_at_in_range(cls, v: datetime) -> datetime:
+        # 9999-12-31T23:59:59-23:59 is a valid RFC 3339 time whose UTC instant is past year 9999:
+        # converting it raised OverflowError, an unaudited 500 (finding F-API-1). Refuse it here.
+        try:
+            v.astimezone(UTC)
+        except OverflowError:
+            raise ValueError("expires_at is outside the supported date range") from None
+        return v
 
 
 class ActionService:
