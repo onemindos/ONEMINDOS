@@ -178,7 +178,10 @@ class ActionService:
         )
 
     def deny(self, principal: Principal, action_id: str) -> dict:
-        return self._audited(principal, "deny action", action_id, {}, lambda: self._cancel(principal, action_id))
+        out = self._audited(principal, "deny action", action_id, {}, lambda: self._cancel(principal, action_id))
+        if self.app_secrets is not None:  # values entered for a denied change are not kept
+            self.app_secrets.discard(action_id)
+        return out
 
     def approve(self, principal: Principal, action_id: str, extra: ApprovalInput | None = None) -> dict:
         return self._audited(

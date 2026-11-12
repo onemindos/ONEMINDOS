@@ -470,9 +470,8 @@ def test_denied_change_is_purged(client, clock):
     r = client.post(f"/v1/apps/{APP}/secrets", json={"sealed": sealed_for(client, {CRED: {"PROVIDER_API_KEY": NEW_KEY}})},
                     headers=OWNER)
     aid = r.json()["id"]
-    assert client.post(f"/v1/actions/{aid}/deny", headers=OWNER).status_code == 200
     assert len(stored(client)[1]) == 1
-    assert client.app.state.app_secrets.purge() == 1
+    assert client.post(f"/v1/actions/{aid}/deny", headers=OWNER).status_code == 200
     rows, staged = stored(client)
     assert staged == [] and rows[(CRED, "PROVIDER_API_KEY")].version == 1
 

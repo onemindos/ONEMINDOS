@@ -312,6 +312,10 @@ class AppSecretsService:
         nonce, ct = self.key.encrypt(value.encode("utf-8"), _staged_aad(action_id, app_id, ref))
         return StagedValue(ref[0], ref[1], op, ct, nonce, self.key.key_id, self._fp(app_id, ref, value))
 
+    def discard(self, action_id: str) -> int:
+        """Drop one decided action's staged values (deny)."""
+        return self.repo.drop_staged({action_id})
+
     def purge(self) -> int:
         """Drop staged values whose action was denied, expired, failed or is gone."""
         stale = set()
