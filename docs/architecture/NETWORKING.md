@@ -2,7 +2,7 @@
 # Networking: one private network across every OneMind machine
 
 **Status:** design for build agents (2026-11-12). Founder request: internal networking and the mesh are core, needed now, so the founder can replace his own cluster.
-**Leap spec:** [`docs/leap/core/NETWORKING.md`](../leap/core/NETWORKING.md) (CORE-NET). **API:** §15 below is proposed text for contract §12.16.
+**Leap spec:** [`docs/leap/core/NETWORKING.md`](../leap/core/NETWORKING.md) (CORE-NET). **API:** §15 below is proposed text for contract §12.22.
 **Builds on:** [FABRIC.md](FABRIC.md) (join, identity, NATS leaf, jobs), [CONTRACT-12-DRAFT.md](CONTRACT-12-DRAFT.md) §12.2–§12.4, contract §1–§3; hardening H-04, H-05, H-06, H-17, H-23, H-24, H-29 ([HARDENING-BACKLOG.md](../security/HARDENING-BACKLOG.md)); research 09 §5 (P0-6: "WireGuard/Headscale + NATS leaf"), research 12 §8 (REC-W11-11, REC-W11-12), mission 02 FB-3; lab W8-1 (`research-output/evidence/lab/w8-nats-leaf-buffer/`, 600/600).
 **Open founder questions it touches:** Z-34 (Tailscale or Headscale default), F-1 (phone HTTPS), and the new coordinator decision in [DECISIONS-NEEDED.md](../leap/DECISIONS-NEEDED.md).
 
@@ -505,9 +505,9 @@ Numbers below are **targets**, not measurements. NT-10 measures RSS and idle CPU
 
 If a target is missed by more than 25 %, the step stops and the number goes to the founder with options (e.g. leaf without local JetStream, FABRIC §5.1; flannel `vxlan` on `tailscale0`, §8).
 
-## 15. Contract §12.16 networking (proposed text, adopted in Part 2)
+## 15. Contract §12.22 networking (proposed text, adopted in Part 2)
 
-> **12.16 Networking.** Additive.
+> **12.22 Networking.** Additive.
 > **Action types** (added to §12.2's registry): `mesh.device.add {person_id, method: auth_key|register, auth_id?, label}` — risk high, may request O, policy **never**, runs on G (custodian), result carries `one_time: {control_url, auth_key?}`; `mesh.relay.add {pairing}` — critical, O, never, G; `mesh.relay.remove {}` — medium, O, yes, G; `mesh.reach.set {mode: lan|relay|direct|hosted, public_name?}` — critical, O, never, G; `mesh.ssh.set {enabled}` — high, O, no, G. `node.join`'s bundle gains `mesh` (below). `system.restart_unit`'s allowlist gains `tailscaled`, `onemind-headscale`, `onemind-edge`.
 > **Routes:** `GET /v1/mesh` (any principal) → `{mode, control: {state, checked_at}, relay: {state, checked_at} | null, derp: [{region, state}], nodes: [{node_id, state: up|down, path: direct|relayed|none, last_handshake_at}], devices: [{id, person_id, label, os, online, last_seen}], names: {lan: [...], mesh: [...]}}`; with `?addresses=1` (owner only) each node and device adds `mesh_ip`. `GET /v1/mesh/devices` (owner: all; person: own). `DELETE /v1/mesh/devices/{id}` (owner, or the device's person) → 204, audited, not an action. `GET /v1/auth/forward` (loopback only; the edge) → 204 with `X-OneMind-Principal` / 401 / 403.
 > **Join bundle** (§12.4) gains `mesh: {control_url, control_addrs: [..], ca_sha256, auth_key, hostname, hub_mesh_ip, tags}`; `auth_key` is a one-time output.
@@ -564,7 +564,7 @@ Sizes as the leap: S ≤ 1 day, M 2–4 days, L 1–2 weeks. **Part 1** adds new
 
 | Id | Step | Size | Depends on |
 |---|---|---|---|
-| CORE-NET-10 | Contract PR §12.16 (text in §15) | S | NET-9 |
+| CORE-NET-10 | Contract PR §12.22 (text in §15) | S | NET-9 |
 | CORE-NET-11 | Installer and image: pins, packages, units, hub bootstrap order, k3s mesh config, NATS leaf config, `--rebuild-cluster` | M | NET-10, W2-DEPLOY merged, CORE-SEC-1 |
 | CORE-NET-12 | Gateway and onemindd registration; join bundle `mesh` block; FABRIC join/remove/set_role hooks | M | NET-10, CORE-FABRIC-1, W2-GW merged |
 | CORE-NET-13 | Dashboard: Network page, Add a device, relay pairing, app links to `urls` | M | NET-12, CORE-DASH (design system) |
@@ -592,12 +592,12 @@ Part 1 must not edit these files. Line references are to the in-flight branches 
 | `core/pyproject.toml` + `uv.lock` | **already changed on this branch:** runtime deps `cryptography>=50.0.2,<51` (Apache-2.0 OR BSD-3; pulls `cffi` MIT, `pycparser` BSD-3), and `h11>=0.16,<1` (MIT) and `websockets>=15,<18` (BSD-3), which were already installed through `uvicorn[standard]` and are now declared because `proxy.py` imports them. `httpx` was **not** made a runtime dependency because it requires `certifi` (MPL-2.0). `feat/gateway-agent-mcp` also edits both files: whichever merges second re-runs `uv lock` | `[project] dependencies` |
 | `deploy/install.sh` (hub) | `headscale apikeys create --expiration 90d` → `/etc/onemind/headscale.key` (0600, owner = the gateway's user), set `ONEMIND_HEADSCALE_KEY_FILE` | `mesh_install`, after Headscale starts |
 | `core/onemind_core/catalog.py` | each entry gains `urls: {lan, mesh}` | catalog builder |
-| `cmd/onemindd/main.go` | `if len(os.Args) > 1 && os.Args[1] == "mesh" { os.Exit(mesh.RunCLI(os.Args[2:], os.Stdout, os.Stderr)) }` (`enroll`, `wait-ip`, `status` exist in `internal/mesh/cli.go`; `resolve`, `hub-init` added there later) | next to the `update` dispatch |
+| `cmd/onemindd/registry.go` | **Done:** `"mesh": func(a []string) int { return mesh.RunCLI(a, os.Stdout, os.Stderr) }` in `subcommands` (`enroll`, `wait-ip`, `status` exist in `internal/mesh/cli.go`; `resolve`, `hub-init` added there later) | `subcommands` |
 | `cmd/onemindd/main.go` | `agent.Config{…, MeshReport: mesh.Reporter(log)}` (when `ONEMIND_MESH=on`) | `agent.New(...)` call |
 | `cmd/onemindd/main.go` | on nodes with a join bundle: `sup := &leaf.Supervisor{ConfPath: "/etc/onemind/nats/leaf.conf", Config: cfg, Reload: leaf.SystemdReload("onemind-nats-leaf.service"), Log: log}; go sup.Run(ctx)` and `agent.Config{…, LeafReport: sup.Last}`; `cfg` comes from the bundle (hub URL `tls://<hub_mesh_ip>:7422`, CA, node cert, `leaf.WriteNkeyFile` beside `leaf.conf`) | after `agent.New(...)` |
 | `internal/agent/agent.go` | `Config` gains `MeshReport func() *mesh.Heartbeat` and `LeafReport func() leaf.Health`; `collect` sets `c.st.Fabric` when either is set (same pattern as `UpdateReport`) | `Config`, `collect` |
 | `internal/heartbeat/heartbeat.go` | optional `Fabric *Fabric` (JSON `fabric,omitempty`) with `Mesh *mesh.Heartbeat` and `Leaf *leaf.Health` (§15) | heartbeat struct |
-| `cmd/onemind/main.go` | `case args[0] == "mesh": err = meshCmd(args[1:], stdout)` (in `cmd/onemind/mesh.go`) and one usage line `onemind mesh status [--json] [--leaf-monitor ADDR]` | `run` switch, `usage` |
+| `cmd/onemind/cli/root.go` | **Done:** `meshCommands` in `groups` (`cmd/onemind/cli/mesh.go`: `onemind mesh status [--json] [--leaf-monitor ADDR]`) | `groups` |
 | `deploy/pins.env` | `HEADSCALE_VERSION`, `HEADSCALE_SHA256_{amd64,arm64}`, `TAILSCALE_VERSION`, `TAILSCALE_SHA256_{amd64,arm64}` (values in §4.1) | new block |
 | `deploy/install.sh` | `apt_setup` pkgs += `avahi-daemon libnss-mdns sqlite3 nftables` | `apt_setup` |
 | `deploy/install.sh` | hub main: `mesh_install` before `k3s_server`; node main: `mesh_install` before `k3s_agent` | `# Main` |
@@ -611,7 +611,7 @@ Part 1 must not edit these files. Line references are to the in-flight branches 
 | `os/rootfs` package list | `avahi-daemon`, `libnss-mdns`, `sqlite3` | base layer |
 | `dashboard/src/pages/Home.tsx` | app link `http://host:port` → `app.urls.lan` (or `.mesh` off-LAN) | ~line 83 |
 | `dashboard/src/App.tsx` (router) | add the Network route | routes list |
-| `sdk/contracts/poc-v0.md` | §12.16 from §15 | new section |
+| `sdk/contracts/poc-v0.md` | §12.22 from §15 | new section |
 | `sdk/schema/onemind.app.schema.json` | `spec.web.access: owner|adults|signed_in` (default adults); later `spec.network.mesh` | `spec.web` |
 | `docs/security/HARDENING-BACKLOG.md` | H-04: default egress also denies `100.64.0.0/10` and the mesh ULA; nftables drops pod → `tailscale0` | H-04 change text |
 

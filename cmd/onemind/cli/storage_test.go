@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package cli
 
 import (
 	"bytes"
@@ -24,7 +24,7 @@ func (r replay) Run(_ context.Context, name string, args ...string) ([]byte, int
 	if name == "btrfs" {
 		file = r.prefix + map[string]string{"show": ".show.txt", "df": ".df.txt", "stats": ".stats.txt"}[args[1]]
 	}
-	b, err := os.ReadFile(filepath.Join("..", "..", "internal", "storage", "testdata", file))
+	b, err := os.ReadFile(filepath.Join("..", "..", "..", "internal", "storage", "testdata", file))
 	if name == "smartctl" {
 		return b, 1, err
 	}

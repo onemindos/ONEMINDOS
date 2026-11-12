@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // Types for the proof-of-concept v0 contract (sdk/contracts/poc-v0.md).
 // Section numbers below refer to that file.
 
@@ -53,6 +54,8 @@ export interface Instance {
   name: string;
   version: string;
   hub_node_id: string;
+  /** §12.1: features this gateway serves; absent on a v0 gateway. */
+  features?: string[];
 }
 
 /** §9.3 `metadata.links`; the gateway passes only absolute http(s) URLs, else null. */
@@ -75,13 +78,14 @@ export interface ScanSummary {
 /** §3 `GET /v1/apps` item, built from §4 `onemind.app.yaml`, plus the §11.4 fields. */
 export interface CatalogApp {
   id: string;
-  name: string;
-  version: string;
-  description: string;
-  category: string;
-  icon: string;
-  license: string;
-  source: string;
+  /** The gateway sends null when the manifest leaves a field out (core/onemind_core/models.py). */
+  name: string | null;
+  version: string | null;
+  description: string | null;
+  category: string | null;
+  icon: string | null;
+  license: string | null;
+  source: string | null;
   archs: string[];
   requires: { gpu?: boolean; minMemoryMb?: number };
   web_port: number | null;
@@ -148,7 +152,8 @@ export interface Action extends ActionRequest {
   requested_by?: Principal;
   created_at?: string;
   updated_at?: string;
-  decided_by?: Principal;
+  decided_by?: Principal | null;
+  decided_at?: string | null;
   result?: ActionResult | null;
 }
 

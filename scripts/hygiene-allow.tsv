@@ -28,7 +28,7 @@ docs/design/screens/*.png	[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+	B-FP-7
 docs/*	/home/(layout|types|fixtures|shoot\.mjs|edit|offline|loading|errors|fresh|home\.css)	B-FP-8
 # B-FP-9: the FB-3 mesh lab ran in an isolated, deleted VM; its logs carry the mesh range Headscale assigns (100.64.0.0/10, the documented default), the k3s default pod/service ranges and the lab VM user home. Mesh code and tests use that documented default prefix. None of it describes a real network.
 research-output/evidence/lab/fb3-mesh-nat/*	(100\.64\.[0-9]+\.[0-9]+|10\.4[23]\.[0-9]+\.[0-9]+|/home/runner)	B-FP-9
-cmd/onemind/mesh*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+cmd/onemind/cli/mesh*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/onemind_core/ca.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/onemind_core/mesh.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/tests/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9

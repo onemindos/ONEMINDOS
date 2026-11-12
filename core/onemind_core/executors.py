@@ -5,7 +5,7 @@
 - kubernetes: renders `kubectl kustomize <app>/manifests`, checks every object against the
   install sandbox's rule file (policy.py), then applies the namespace (Pod Security labels), the
   gateway's RoleBinding, the default-deny NetworkPolicy and the checked render with
-  `kubectl apply -f -`; removal deletes the namespace. For an app with `spec.agent.principal` it
+  `kubectl apply -f -`; removal deletes the workloads and keeps the data volumes. For an app with `spec.agent.principal` it
   creates the agent Secret before the manifests (so the app's pods start with it) and deletes it
   first on removal.
 
@@ -130,11 +130,19 @@ class NoopExecutor(Executor):
         elif action_type == "app.remove":
             if agent is not None:
                 steps.append({"would": f"delete Secret {agent.name} in {ns}", "principal": agent.principal_id})
-            steps.append({"would": f"delete manifests of {app.id} and namespace {ns}"})
+            steps.append({"would": f"delete the workloads of {app.id} in {ns}; its data (PersistentVolumeClaims) is kept"})
         return ExecResult("succeeded", f"noop executor: {action_type} {app.id} recorded, nothing changed", steps)
 
 
 Runner = Callable[..., subprocess.CompletedProcess]
+
+# Namespaced kinds app.remove deletes: the app kinds of sdk/policy/app-objects.yaml minus
+# PersistentVolumeClaim (data is kept, contract 12.5) and minus RoleBinding (the gateway's own
+# binding lives there). Pods go with their controllers.
+REMOVABLE_KINDS = (
+    "deployments", "statefulsets", "jobs", "cronjobs", "services", "configmaps", "secrets",
+    "serviceaccounts", "poddisruptionbudgets", "horizontalpodautoscalers", "roles",
+)
 
 
 def _tail(text: str | bytes | None, limit: int = 2000) -> str:
@@ -259,9 +267,14 @@ class KubernetesExecutor(Executor):
             first = []
             if agent is not None:
                 first = [([k, "delete", "secret", agent.name, "-n", ns, "--ignore-not-found=true"], None)]
-            # Deleting the namespace deletes everything the app created in it (it may create
-            # nothing elsewhere). No re-render: a changed or broken manifest cannot block removal.
-            return first + [([k, "delete", "namespace", ns, "--ignore-not-found=true"], None)]
+            # Contract 12.5: a plain app.remove keeps the app's data. Deleting the namespace would
+            # delete its PersistentVolumeClaims, and k3s's local-path volumes are reclaimed on
+            # delete. So delete every kind an app may ship (sdk/policy/app-objects.yaml) except
+            # PersistentVolumeClaim, and keep the namespace, the gateway's own RoleBinding and the
+            # default-deny NetworkPolicies. Reinstalling picks the volumes up again. No re-render:
+            # a changed or broken manifest cannot block removal.
+            kinds = ",".join(REMOVABLE_KINDS)
+            return first + [([k, "delete", kinds, "--all", "-n", ns, "--ignore-not-found=true"], None)]
         raise ValueError(f"unsupported action type {action_type}")
 
     # ---- running ------------------------------------------------------------------------------
