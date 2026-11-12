@@ -148,6 +148,19 @@ describe('Approvals', () => {
     expect((await getApi().apps()).find((a) => a.id === 'ollama')?.installed).toBe(true);
   });
 
+  it('a list fetched before the decision does not bring back live buttons', async () => {
+    const { getApi } = renderApp({ token: 'owner-demo', route: '/approvals' });
+    const user = userEvent.setup();
+    const card = await screen.findByRole('article', { name: 'Install ollama' });
+    const api = getApi();
+    vi.spyOn(api, 'actions').mockResolvedValue(await api.actions()); // every later poll is stale
+    await user.click(within(card).getByRole('button', { name: 'Approve Install ollama' }));
+    expect(await screen.findByText('Install ollama: succeeded.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve Install ollama' })).toBeNull();
+    const history = screen.getByRole('region', { name: 'History' });
+    expect(within(within(history).getByRole('article', { name: 'Install ollama' })).getByText('succeeded')).toBeInTheDocument();
+  });
+
   it('the owner can deny', async () => {
     renderApp({ token: 'owner-demo', route: '/approvals' });
     const user = userEvent.setup();

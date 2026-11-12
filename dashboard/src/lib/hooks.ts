@@ -36,16 +36,22 @@ export function usePoll<T>(fn: () => Promise<T>, intervalMs = 10_000): Polled<T>
   const fnRef = useRef(fn);
   fnRef.current = fn;
   const alive = useRef(true);
+  // Requests can overlap (interval plus a manual reload) and land out of order.
+  // Only a response newer than the last one applied may replace the data.
+  const sent = useRef(0);
+  const applied = useRef(0);
 
   const reload = useCallback(async () => {
+    const seq = ++sent.current;
     try {
       const d = await fnRef.current();
-      if (!alive.current) return;
+      if (!alive.current || seq < applied.current) return;
+      applied.current = seq;
       setData(d);
       setError(undefined);
       setFetchedAt(Date.now());
     } catch (e) {
-      if (!alive.current) return;
+      if (!alive.current || seq < applied.current) return;
       const err = e instanceof ApiError ? e : new ApiError(0, 'unknown', String(e));
       if (err.code === 'unauthenticated') signOut();
       setError(err);

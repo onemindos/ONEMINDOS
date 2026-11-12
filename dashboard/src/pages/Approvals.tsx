@@ -104,12 +104,16 @@ export function Approvals() {
   const actions = usePoll(() => api.actions(), 5_000);
   const [busy, setBusy] = useState<string>();
   const [message, setMessage] = useState<{ text: string; error: boolean }>();
+  // Decisions the hub has confirmed. An action never returns to awaiting_approval,
+  // so a list fetched before the decision must not bring back live buttons.
+  const [decided, setDecided] = useState<Record<string, Action>>({});
 
   async function decide(a: Action, d: 'approve' | 'deny') {
     setBusy(a.id);
     setMessage(undefined);
     try {
       const res = d === 'approve' ? await api.approve(a.id) : await api.deny(a.id);
+      setDecided((m) => ({ ...m, [res.id]: res }));
       setMessage({ text: `${title(a)}: ${res.state.replace(/_/g, ' ')}.`, error: false });
     } catch (e) {
       if (e instanceof ApiError && e.code === 'permission_denied') {
@@ -121,12 +125,12 @@ export function Approvals() {
         setMessage({ text: `Could not ${d}: ${e instanceof Error ? e.message : String(e)}`, error: true });
       }
     } finally {
-      setBusy(undefined);
       await actions.reload();
+      setBusy(undefined);
     }
   }
 
-  const all = actions.data ?? [];
+  const all = (actions.data ?? []).map((a) => (a.state === 'awaiting_approval' && decided[a.id]) || a);
   const pending = all.filter((a) => a.state === 'awaiting_approval');
   const history = all.filter((a) => a.state !== 'awaiting_approval');
 
