@@ -357,7 +357,7 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-SYS-6 | Wi-Fi and static IP with automatic revert | todo | – | – |
 | UMB-SYS-8 | Factory reset as a critical action | todo | – | – |
 | UMB-SYS-10 | Restart and shut down a node | todo | – | – |
-| UMB-MACH-1 | Machines lab kit and feasibility (LT-MACH-1…3) | in-progress (agent B) | spike/machines | – |
+| UMB-MACH-1 | Machines lab kit and feasibility (LT-MACH-1…3) | review | spike/machines | – |
 
 #### UMB in S3
 

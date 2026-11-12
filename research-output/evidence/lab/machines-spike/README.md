@@ -124,3 +124,7 @@ B runs first so that its measurements are taken on a node with no KubeVirt insta
 ---
 
 ## Results
+
+### Run status (added 2026-11-12, agent B; nothing above this heading changed)
+
+The tests above were **not run**. The session that continued this spike had no `/dev/kvm`, no Docker daemon and no access to `quay.io`. M1-M5 are BLOCKED, not PASS or FAIL. What could be checked, the extra criteria and the recommendation are in [PREREGISTRATION-ADDENDUM.md](PREREGISTRATION-ADDENDUM.md) and [RECOMMENDATION.md](RECOMMENDATION.md). Deviation: the addendum was committed after some manifests and docs had been read (disclosed in its section 0).
