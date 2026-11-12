@@ -2,6 +2,8 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+// Name, description and logo come from brand/brand.json via scripts/brand-sync.py.
+import brand from './src/brand.generated.json' with { type: 'json' };
 
 const REPO = 'https://github.com/onemindos/ONEMINDOS';
 
@@ -13,13 +15,17 @@ export default defineConfig({
   trailingSlash: 'always',
   integrations: [
     starlight({
-      title: 'OneMind OS',
-      description: 'A local-first home and edge cloud OS where AI can ask, and only you approve.',
-      logo: { src: './src/assets/mark.svg', alt: 'OneMind' },
+      title: brand.name,
+      description: brand.description,
+      logo: { light: './src/assets/brand/onemind-mark-color.svg', dark: './src/assets/brand/onemind-mark-on-dark.svg', alt: brand.logoAlt },
+      head: brand.faviconPngSizes.map((s) => ({
+        tag: 'link',
+        attrs: { rel: 'icon', href: `${process.env.BASE_PATH || '/'}favicon-${s}.png`.replace(/\/\/+/g, '/'), sizes: `${s}x${s}`, type: 'image/png' },
+      })),
       social: [{ icon: 'github', label: 'GitHub', href: REPO }],
       editLink: { baseUrl: `${REPO}/edit/main/site/` },
       lastUpdated: false,
-      customCss: ['./src/styles/theme.css'],
+      customCss: ['./src/styles/brand.generated.css', './src/styles/theme.css'],
       components: {
         PageTitle: './src/components/PageTitle.astro',
       },

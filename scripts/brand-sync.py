@@ -440,6 +440,8 @@ def outputs(b):
          f"  --om-brand-red: {seed};\n"
          f"  --om-brand-accent-dark: {site['dark']['accent']};\n"
          f"  --om-brand-accent-light: {site['light']['accent']};\n"
+         f"  --om-brand-accent-ink-dark: {best_foreground(site['dark']['accent'])[0]};\n"
+         f"  --om-brand-accent-ink-light: {best_foreground(site['light']['accent'])[0]};\n"
          "}\n"
          ":root[data-theme='light'] {\n"
          f"  --sl-color-accent-low: {site['light']['low']};\n"
