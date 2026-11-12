@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/onemindos/onemindos/internal/detect"
+	"github.com/onemindos/onemindos/internal/heartbeat"
 	"github.com/onemindos/onemindos/internal/version"
 )
 
@@ -92,7 +93,15 @@ func nodeInfo(args []string, out io.Writer) error {
 		col = detect.NewFixture(*root, *arch)
 	}
 	col.Role = envOr("ONEMIND_NODE_ROLE", "node")
+	if err := heartbeat.ValidateRole(col.Role); err != nil {
+		return fmt.Errorf("ONEMIND_NODE_ROLE: %w", err)
+	}
 	col.NodeID = os.Getenv("ONEMIND_NODE_ID")
+	if col.NodeID != "" {
+		if err := heartbeat.ValidateNodeID(col.NodeID); err != nil {
+			return fmt.Errorf("ONEMIND_NODE_ID: %w", err)
+		}
+	}
 	return printJSON(out, col.Collect(context.Background()))
 }
 

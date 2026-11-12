@@ -89,6 +89,22 @@ func TestNodeInfoFixture(t *testing.T) {
 	}
 }
 
+func TestNodeInfoRejectsBadEnv(t *testing.T) {
+	for _, c := range []struct{ k, v string }{
+		{"ONEMIND_NODE_ROLE", "worker"},
+		{"ONEMIND_NODE_ID", "bad.id"},
+	} {
+		t.Run(c.k, func(t *testing.T) {
+			t.Setenv(c.k, c.v)
+			var out, errb bytes.Buffer
+			code := run([]string{"node", "info", "--root", "../../internal/detect/testdata/jetson", "--arch", "arm64"}, &out, &errb)
+			if code != 1 || !strings.Contains(errb.String(), c.k) || out.Len() != 0 {
+				t.Fatalf("exit %d, stderr %q, stdout %q", code, errb.String(), out.String())
+			}
+		})
+	}
+}
+
 func TestNodeInfoFromAgent(t *testing.T) {
 	ag := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/node" {
