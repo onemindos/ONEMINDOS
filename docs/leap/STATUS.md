@@ -63,6 +63,7 @@
 | PA-ALIGN | Core alignment against the leading self-hosted OSes | done | `docs/core-architecture` | [#17](https://github.com/onemindos/ONEMINDOS/pull/17) |
 | PA-ARCH | Phase-B architecture docs and `CONTRACT-12-DRAFT.md` | done | `docs/core-architecture` | [#17](https://github.com/onemindos/ONEMINDOS/pull/17) |
 | PA-THREAT | Threat model and ranked hardening backlog (H-ids) | done | `docs/security-threat-model` | [#18](https://github.com/onemindos/ONEMINDOS/pull/18) |
+| SEC-REREVIEW | Security re-review (Wave G #3): threat model refresh, route/authz inventory, fresh P0/P1/P2 backlog, P0 fixes | review | `docs/threat-model-refresh` | PR pending |
 | PA-UI | Design system `@onemind/ui`: tokens and components, light and dark | done | `feat/design-system` | [#20](https://github.com/onemindos/ONEMINDOS/pull/20) |
 | PA-SITE | Website (Astro + Starlight) committed | done | `feat/website` | [#19](https://github.com/onemindos/ONEMINDOS/pull/19) |
 | PA-MOBILE | Mobile shell (Expo) committed | done | `feat/mobile-shell` | [#21](https://github.com/onemindos/ONEMINDOS/pull/21) |
@@ -276,6 +277,25 @@
 | PLAN-E15 | Robot in simulation | parked | – | – |
 | DEV-API-14 | Superseded by DEV-SDK-1…10 | superseded | – | – |
 
+### Fabric follow-through (Wave G #8)
+
+Plan: [fabric/EPICS.md](fabric/EPICS.md). First stream: [fabric/STREAM-1.md](fabric/STREAM-1.md).
+
+| Id | Title | State | Branch | PR |
+|---|---|---|---|---|
+| FAB-PLAN | Fabric epics and first build stream (docs) | in-progress (agent B) | `docs/fabric-epics` | – |
+| FAB-1 | Fabric contract PR: `site_id`, heartbeat `fabric`, naming reservation | todo | – | – |
+| FAB-2 | F1 conformance suite (FT/NT list plus negative tests) | todo | – | – |
+| FAB-3 | Leaf soak, 7 days, production permissions | todo | – | – |
+| FAB-4 | Installer mode on stock Debian and Ubuntu | todo | – | – |
+| FAB-5 | AI-door rules A1 to A10 in the gateway | todo | – | – |
+| FAB-6 | 24-hour WAN-cut lab | todo | – | – |
+| FAB-7 | Re-run fabric refuters with separate agents | todo | – | – |
+| CORE-ADAPT-1…4 | Adapter profile, MQTT/Sparkplug, Modbus, capability registry | todo | – | – |
+| MULTI-CLUSTER-1…8 | Sites, summaries, rings, Sites view, grants, scale | todo | – | – |
+| CORE-ROBOT-1…3 | Jetson companion leaf, MAVLink missions, ROS 2 bridge | todo | – | – |
+| CORE-FDO-1 | FDO zero-touch front end | todo | – | – |
+
 ### UMB: umbrelOS 2 study epics
 
 From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.md](BACKLOG.md#umb-umbrelos-2-study-epics); study epics merged into existing rows are listed there and have no row here. 116 rows: 3 in-progress (build slices on unpushed branches), 113 todo. UMB-MACH rows wait on founder decision F-57.
@@ -363,7 +383,7 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-SYS-6 | Wi-Fi and static IP with automatic revert | todo | – | – |
 | UMB-SYS-8 | Factory reset as a critical action | todo | – | – |
 | UMB-SYS-10 | Restart and shut down a node | todo | – | – |
-| UMB-MACH-1 | Machines lab kit and feasibility (LT-MACH-1…3) | todo | – | – |
+| UMB-MACH-1 | Machines lab kit and feasibility (LT-MACH-1…3) | review | spike/machines | – |
 
 #### UMB in S3
 
