@@ -9,7 +9,7 @@ ESPHome is a system to control your ESP32, ESP8266, BK72xx, RP2040 by simple yet
 |---|---|
 | Version | 2026.10.2 (upstream release `2026.10.2`, published 2026-11-02) |
 | Licence | `MIT AND GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | home |
 | GitHub | <https://github.com/esphome/esphome> |
 | Website | <https://esphome.io/> |
@@ -65,6 +65,15 @@ From the upstream documentation, https://esphome.io/guides/getting_started_comma
 - No mDNS discovery: the pod is not on the host network, so the dashboard cannot see `.local` devices announce themselves; use fixed IP addresses in the device YAML for over-the-air updates.
 - The dashboard has no login of its own; access is whatever OneMind gives the app's web port.
 - Compiling firmware is CPU and memory heavy: the first build downloads toolchains into `/cache`.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (esphome)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `ghcr.io/esphome/esphome:2026.10.2`: CVE-2026-13221, CVE-2026-42496 and CVE-2026-8376 in `perl-modules-5.40` 5.40.1-6 (fixed 5.40.1-6+deb13u1; the same perl CVEs apply to the other perl packages); CVE-2026-112393, CVE-2026-112398, CVE-2026-112403, CVE-2026-112900 and CVE-2026-96639 in `pillow` 12.3.0 (fixed 13.0.0); GHSA-hq85-5cpj-mr62 in `uv` 0.10.1 (fixed 0.13.4). The full list is in the CI job log.
+- Passed: ClamAV (0 infected), smoke test (GET / returned 200).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

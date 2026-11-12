@@ -9,7 +9,7 @@ Smart PVR for newsgroup and bittorrent users.
 |---|---|
 | Version | 4.0.20.3014 (upstream release `v4.0.20.3014`, published 2026-09-16) |
 | Licence | `GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/Sonarr/Sonarr> |
 | Website | <https://sonarr.tv> |
@@ -61,6 +61,16 @@ From the upstream documentation, https://wiki.servarr.com/sonarr/quick-start-gui
 ## Known limits in this package
 
 - Each OneMind app has its own namespace and volumes, so this app cannot yet see another app's download folder (for example qBittorrent's). Imports from a download client need a shared folder, which OneMind does not offer yet.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (sonarr)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `ghcr.io/linuxserver/sonarr:4.0.20.3014-ls329`: CVE-2026-111497 in `brotli-libs` 1.2.0-r1 (fixed 1.2.1-r0).
+- Smoke test failed: the pod ran but port 8989 refused connections for 10 minutes (startup probe `/ping`), no restarts. The LinuxServer s6 init with the non-root settings does not reach the app. The container's own log is not in the CI summary, so the cause is not yet known.
+- Licence: GitHub GPL-3.0 matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10). ClamAV 0 infected.
+
+To unblock: find why the process does not listen (run it on a k3d cluster and read `kubectl logs`), fix the manifest, move the image pin to a release with the fix (tag verified with `crane`), and add a licence-matrix row. Then rerun `sdk/tools/app-gate`.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

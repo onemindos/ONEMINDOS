@@ -9,7 +9,7 @@ A free, self-hostable news aggregator…
 |---|---|
 | Version | 1.30.4 (upstream release `1.30.4`, published 2026-10-21) |
 | Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | news |
 | GitHub | <https://github.com/FreshRSS/FreshRSS> |
 | Website | <https://freshrss.org> |
@@ -66,6 +66,15 @@ From the upstream documentation, https://freshrss.github.io/FreshRSS/en/admins/0
 
 - As non-root, the entrypoint cannot write `/etc` (timezone links, `php.ini` upload limit of 32M); it logs those errors and carries on, so PHP keeps its default upload limit and the time zone is UTC.
 - OpenID Connect (`OIDC_ENABLED`) is not configured by this package.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (freshrss)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/freshrss/freshrss:1.30.4`: CVE-2026-111497 in `libbrotli1` 1.1.0-2+b7, fixed in 1.1.0-2+deb13u1.
+- Passed: licence AGPL-3.0 (matrix row matches), ClamAV (0 infected), smoke test (GET / returned 302). CRITICALs without a fix are recorded only (apache2 CVE-2026-119618, libxml2 CVE-2026-6653).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -9,7 +9,7 @@ The AI that really does things. Any OS. Any Platform. The lobster way. 🦞
 |---|---|
 | Version | 2026.11.3 (upstream release `v2026.11.3`, published 2026-11-10) |
 | Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | ai |
 | GitHub | <https://github.com/openclaw/openclaw> |
 | Website | <https://openclaw.ai> |
@@ -67,6 +67,17 @@ From the upstream documentation, https://docs.openclaw.ai/web/control-ui/connect
 - The agent runs tools inside this container only: no Docker sandbox, no host access, no browser automation beyond what the image ships.
 - Plain HTTP on the LAN works (device identity is signed in the browser), but upstream recommends HTTPS; the token is visible to anyone who can watch that traffic.
 - OneMind does not yet route OpenClaw's actions through its own approvals: treat it as an app with its own permissions, not as a OneMind agent principal (contract §11.2).
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (openclaw)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `ghcr.io/openclaw/openclaw:2026.11.3`: GHSA-cg2g-xh64-v4q7 in `dompurify` 3.4.16 (fixed 3.4.17).
+- Secret finding (Trivy): `slack-access-token` (HIGH) in `/app/qa/scenarios/channels/slack-blocked-lifecycle-no-restart.yaml` (a QA test scenario shipped in the upstream image).
+- Smoke test failed: the pod never became ready in 10 minutes (0/1, one restart; the exec probe against `/startupz` on port 18789 kept failing, then the kubelet killed the container). The container's own log is not in the CI summary, so the cause is not yet known.
+- Licence: GitHub MIT matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10). ClamAV 0 infected.
+
+To unblock: find why the gateway does not report ready (run it on a k3d cluster and read `kubectl logs`; it may need a provider key or a longer startup window), fix the manifest, and move the image pin to a release without these findings (tag verified with `crane`). Then rerun `sdk/tools/app-gate`.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

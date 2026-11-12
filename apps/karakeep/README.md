@@ -9,7 +9,7 @@ A self-hostable bookmark-everything app (links, notes and images) with AI-based 
 |---|---|
 | Version | 0.34.1 (upstream release `v0.34.1`, published 2026-10-22) |
 | Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | notes |
 | GitHub | <https://github.com/karakeep-app/karakeep> |
 | Website | <https://karakeep.com> |
@@ -69,6 +69,17 @@ From the upstream documentation, https://docs.karakeep.app/installation/docker:
 
 - `NEXTAUTH_URL` is `http://localhost:3000`; sign-in works from other addresses because `AUTH_TRUSTED_ORIGINS` defaults to `*`, but links in emails use that value.
 - No screenshots or JavaScript rendering of saved pages (see above).
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (karakeep)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `ghcr.io/karakeep-app/karakeep:0.34.1`: CVE-2026-111497 in `libbrotli1` 1.0.9-2+b6 (fixed 1.0.9-2+deb12u1); GHSA-cg2g-xh64-v4q7 in `dompurify` 3.4.16 (fixed 3.4.17); CVE-2024-24790 and CVE-2025-68121 in Go `stdlib` v1.20.7, CVE-2025-68121 in Go `stdlib` v1.23.10.
+- Vulnerability: `docker.io/getmeili/meilisearch:v1.41.0`: CVE-2026-31789 in `libcrypto3` and `libssl3` 3.5.5-r0 (fixed 3.5.6-r0).
+- Supply chain: cosign verification of `docker.io/getmeili/meilisearch:v1.41.0` failed. The image is signed, by the `meilisearch/meilisearch` workflow `publish-docker-images.yml@refs/tags/v1.41.0`, but the gate expects the signer identity of the app's own upstream owner (karakeep-app), so the identity does not match. The gate was not changed.
+- Passed: licence AGPL-3.0 matches GitHub (there is no research licence-matrix row yet, so the app is also not preinstallable on sold boxes, brief 30 B10), ClamAV (0 infected), smoke test (GET / returned 307).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

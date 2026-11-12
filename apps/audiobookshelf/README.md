@@ -9,7 +9,7 @@ Self-hosted audiobook and podcast server
 |---|---|
 | Version | 2.37.2 (upstream release `v2.37.2`, published 2026-10-23) |
 | Licence | `GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/advplyr/audiobookshelf> |
 | Website | <https://audiobookshelf.org> |
@@ -61,6 +61,15 @@ From the upstream documentation, https://www.audiobookshelf.org/docs:
 ## Known limits in this package
 
 - Files reach the library volumes through the app's own upload where it has one, or with `kubectl cp` into the pod, until OneMind can share folders between apps.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (audiobookshelf)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `ghcr.io/advplyr/audiobookshelf:2.37.2`: CVE-2025-7783 in `form-data` 4.0.0 (fixed 4.0.4); CVE-2026-90711 in `proxy-addr` 2.0.7 (fixed 2.0.8); CVE-2026-69240 in `sequelize` 6.35.2 (fixed 6.37.4); CVE-2026-59873 in `tar` 6.1.15 (fixed 7.5.19).
+- Passed: licence GPL-3.0 (matrix row matches), ClamAV (0 infected), smoke test (GET / returned 200). Not signed with cosign (informational).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -9,7 +9,7 @@ Independent technology for modern publishing, memberships, subscriptions and new
 |---|---|
 | Version | 6.77.0 (upstream release `v6.77.0`, published 2026-11-11) |
 | Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | productivity |
 | GitHub | <https://github.com/TryGhost/Ghost> |
 | Website | <https://ghost.org> |
@@ -67,6 +67,17 @@ From the upstream documentation, https://docs.ghost.org/install/docker:
 - The `url` above is the one setting that needs the real address; until then, links and redirects point at `localhost`.
 - No mail is configured, so staff invites and newsletters do not send.
 - Upstream's Caddy (TLS) and the optional ActivityPub and analytics services are not packaged.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (ghost)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/library/ghost:6.77.0-alpine`: CVE-2025-68121 in Go `stdlib` v1.24.6 (fixed 1.24.13, 1.25.7, 1.26.0-rc.3).
+- Vulnerability: `docker.io/library/mysql:8.0.46`: GHSA-6q48-6c7w-9gw2 in `certifi` 2026.2.25 (fixed 2026.10.18); CVE-2025-68121 in Go `stdlib` v1.24.6.
+- Secret findings (Trivy): 13 in the ghost image: `jwt-token` and `sendgrid-api-token` (MEDIUM) and one `private-key` (HIGH), under `/var/lib/ghost/.pnpm-store/` and in the built admin assets `/var/lib/ghost/versions/6.77.0/core/built/admin/assets/*.js` (strings in upstream's own JavaScript and dependencies).
+- Passed: ClamAV (0 infected), smoke test (GET / returned 200).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

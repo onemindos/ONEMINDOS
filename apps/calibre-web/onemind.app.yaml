@@ -21,7 +21,8 @@ metadata:
     website: "https://github.com/janeczku/calibre-web"
     support: "https://github.com/janeczku/calibre-web/issues"
   upstream: {release: "0.6.27", released_at: "2026-08-08T16:09:50Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL certifi and zip findings plus private-key files in the image (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 192}   # sum of the memory requests in manifests/

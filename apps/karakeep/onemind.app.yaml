@@ -21,7 +21,8 @@ metadata:
     website: "https://karakeep.com"
     support: "https://github.com/karakeep-app/karakeep/issues"
   upstream: {release: "v0.34.1", released_at: "2026-10-22T06:42:02Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL CVEs in the karakeep and meilisearch images, and the meilisearch cosign identity check fails (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 640}   # sum of the memory requests in manifests/

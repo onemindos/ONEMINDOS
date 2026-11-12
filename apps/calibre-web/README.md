@@ -9,7 +9,7 @@ Web app for browsing, reading and downloading eBooks stored in a Calibre databas
 |---|---|
 | Version | 0.6.27 (upstream release `0.6.27`, published 2026-08-08) |
 | Licence | `GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/janeczku/calibre-web> |
 | Website | <https://github.com/janeczku/calibre-web> |
@@ -66,6 +66,16 @@ From the upstream documentation, https://github.com/janeczku/calibre-web/wiki/Co
 - **Default password:** the account above exists until you change it.
 - No Calibre e-book converter: LinuxServer's optional converter is a Docker mod, which this package does not run. Kepubify is in the image at `/usr/bin/kepubify`; set that path under **External binaries**.
 - LinuxServer's ImageMagick policy is not applied (its init script needs root), so cover extraction from PDF files may fail.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (calibre-web)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `ghcr.io/linuxserver/calibre-web:0.6.27-ls394`: GHSA-6q48-6c7w-9gw2 in `certifi` 2026.5.20 (fixed 2026.10.18); CVE-2026-115905 in `zip` 8.6.0 (fixed 9.0.5).
+- Secret finding (Trivy): 2 `private-key` (HIGH) files, `/lsiopy/lib/python3.12/site-packages/slapdtest/certs/client.key` and `.../server.key` (test certificates of a Python package inside the image).
+- Passed: the smoke test now passes (GET / returned 302), so the earlier manifest fix works. ClamAV 0 infected. The tag `0.6.27-ls394` now points to a newer digest than the pinned one; the pinned digest still decides what runs.
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

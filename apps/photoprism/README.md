@@ -9,7 +9,7 @@ AI-Powered Photos App 🌈💎✨
 |---|---|
 | Version | 261029-963b58c50 (upstream release `261029-963b58c50`, published 2026-10-29) |
 | Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/photoprism/photoprism> |
 | Website | <https://www.photoprism.app> |
@@ -72,6 +72,17 @@ From the upstream documentation, https://docs.photoprism.app/getting-started/fir
 - No hardware video transcoding; the optional Ollama vision service is not packaged.
 - PhotoPrism wants at least 3 GB of memory for large libraries; the limit is 4 Gi.
 - Files reach the library volumes through the app's own upload where it has one, or with `kubectl cp` into the pod, until OneMind can share folders between apps.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (photoprism)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/photoprism/photoprism:261029`: CVE-2026-90162, CVE-2026-98432, CVE-2026-98725 and CVE-2026-98805 in `linux-libc-dev` 7.0.0-42.42 (fixed 7.0.0-43.43).
+- Vulnerability: `docker.io/library/mariadb:12.3.3`: CVE-2025-68121 in Go `stdlib` v1.24.6 (fixed 1.24.13, 1.25.7, 1.26.0-rc.3).
+- Smoke test failed: the pod stayed at 1/2 ready in CrashLoopBackOff (the `photoprism` container restarted 6 times in 10 minutes; its startup probe on `/api/v1/status` was refused). The container's own log is not in the CI summary, so the cause is not yet known; it needs a run on a cluster (k3d) with `kubectl logs`.
+- Passed: licence (matrix row for PhotoPrism matches), ClamAV (0 infected).
+
+To unblock: find why the photoprism container exits (run the app on a k3d cluster and read `kubectl logs`), fix the manifest, and move the image pins to upstream releases that fix the CVEs (tags verified with `crane`). Then rerun `sdk/tools/app-gate`.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -9,7 +9,7 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 |---|---|
 | Version | 2.7.0.5723 (upstream release `v2.7.0.5723`, published 2026-10-27) |
 | Licence | `GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/Prowlarr/Prowlarr> |
 | Website | <https://prowlarr.com> |
@@ -61,6 +61,16 @@ From the upstream documentation, https://wiki.servarr.com/prowlarr/quick-start-g
 ## Known limits in this package
 
 - Prowlarr reaches Sonarr and Radarr through their OneMind service addresses (`http://sonarr.app-sonarr.svc:8989`, `http://radarr.app-radarr.svc:7878`), if the box's network policy allows traffic between apps.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (prowlarr)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `ghcr.io/linuxserver/prowlarr:2.7.0.5723-ls168`: CVE-2026-70188 and CVE-2026-88092 in `Microsoft.AspNetCore.App.Runtime.linux-musl-x64` and `-arm64` 8.0.27 (fixed 8.0.32, 9.0.21, 10.0.13).
+- Smoke test failed: the pod ran but port 9696 refused connections for 10 minutes (startup probe `/ping`), no restarts. The LinuxServer s6 init with the non-root settings does not reach the app. The container's own log is not in the CI summary, so the cause is not yet known.
+- Licence: GitHub GPL-3.0 matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10). ClamAV 0 infected.
+
+To unblock: find why the process does not listen (run it on a k3d cluster and read `kubectl logs`), fix the manifest, move the image pin to a release with the patched .NET runtime (tag verified with `crane`), and add a licence-matrix row. Then rerun `sdk/tools/app-gate`.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

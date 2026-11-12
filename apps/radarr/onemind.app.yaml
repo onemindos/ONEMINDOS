@@ -21,7 +21,8 @@ metadata:
     website: "https://radarr.video"
     support: "https://github.com/Radarr/Radarr/issues"
   upstream: {release: "v6.4.4.10685", released_at: "2026-09-16T18:13:40Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL CVE-2026-70188 and CVE-2026-88092 in the .NET runtime, and the pod never becomes ready (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 256}   # sum of the memory requests in manifests/

@@ -21,7 +21,8 @@ metadata:
     website: "https://www.photoprism.app"
     support: "https://github.com/photoprism/photoprism/issues"
   upstream: {release: "261029-963b58c50", released_at: "2026-10-29T22:20:43Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL CVEs in the photoprism and mariadb images, and the pod crash-loops in the smoke test (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 1280}   # sum of the memory requests in manifests/

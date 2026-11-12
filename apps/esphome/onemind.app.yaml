@@ -21,7 +21,8 @@ metadata:
     website: "https://esphome.io/"
     support: "https://github.com/esphome/esphome/issues"
   upstream: {release: "2026.10.2", released_at: "2026-11-02T21:30:29Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL CVEs in perl, pillow and uv inside the image, fixes exist (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 256}   # sum of the memory requests in manifests/

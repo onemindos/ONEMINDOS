@@ -21,7 +21,8 @@ metadata:
     website: "https://audiobookshelf.org"
     support: "https://github.com/advplyr/audiobookshelf/issues"
   upstream: {release: "v2.37.2", released_at: "2026-10-23T20:18:17Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL CVEs in node dependencies of the image, fixes exist (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 256}   # sum of the memory requests in manifests/

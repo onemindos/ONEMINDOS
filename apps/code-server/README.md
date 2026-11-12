@@ -9,7 +9,7 @@ VS Code in the browser
 |---|---|
 | Version | 4.145.2 (upstream release `v4.145.2`, published 2026-11-07) |
 | Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | developer |
 | GitHub | <https://github.com/coder/code-server> |
 | Website | <https://coder.com> |
@@ -62,6 +62,15 @@ From the upstream documentation, https://coder.com/docs/code-server/FAQ:
 
 - `sudo` does not work (privilege escalation is off), so tools cannot be installed system-wide; install them under `/home/coder`.
 - The terminal runs inside this pod only: no Docker, no host access.
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (code-server)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+
+- Vulnerability: `docker.io/codercom/code-server:4.145.2`: CVE-2024-24790 in Go `stdlib` v1.20.7 (fixed 1.21.11, 1.22.4); CVE-2025-68121 in Go `stdlib` v1.20.7 (fixed 1.24.13, 1.25.7, 1.26.0-rc.3).
+- Passed: licence MIT (matrix row matches), ClamAV (0 infected), smoke test (GET / returned 302).
+
+To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -21,7 +21,8 @@ metadata:
     website: "https://ghost.org"
     support: "https://github.com/TryGhost/Ghost/issues"
   upstream: {release: "v6.77.0", released_at: "2026-11-11T21:54:20Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # blocked by the CI app gate: CRITICAL CVEs in the ghost and mysql images and 13 secret findings (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 640}   # sum of the memory requests in manifests/
