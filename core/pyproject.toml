@@ -28,6 +28,14 @@ dev = [
   "httpx>=0.27,<1",
   "psycopg[binary]>=3.2,<4",
   "mcp>=1.20,<2",
+  # Property-based tests (tests/test_properties_*.py). MPL-2.0, test-only: never shipped in the
+  # gateway image. Recorded in docs/testing/PROPERTY-AND-FUZZ.md.
+  "hypothesis==6.170.15",
+]
+# API fuzzing (.github/workflows/api-fuzz.yml). MIT, test-only, CI-only: `uv sync --group fuzz`.
+# Not in the default groups, so `make -C core test` never installs it.
+fuzz = [
+  "schemathesis==4.33.1",
 ]
 
 [project.scripts]
