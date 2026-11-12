@@ -29,12 +29,13 @@ class Instance(BaseModel):
 
 
 class PrincipalRef(BaseModel):
-    """{id, kind, role} of contract §3; kind and role may gain values (§12.1)."""
+    """{id, kind, role} of contract §3; kind and role may gain values (§12.1). An action's
+    `requested_by` carries only {id, kind} (§12.4), so role is optional."""
 
     model_config = ConfigDict(extra="allow")
     id: str
     kind: str = Field(json_schema_extra=OPEN_ENUM)
-    role: str = Field(json_schema_extra=OPEN_ENUM)
+    role: str | None = Field(default=None, json_schema_extra=OPEN_ENUM)
 
 
 class NodeOS(BaseModel):
