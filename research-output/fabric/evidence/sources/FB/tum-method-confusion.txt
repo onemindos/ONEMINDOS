@@ -1,0 +1,64 @@
+# Source: https://www.sec.in.tum.de/i20/publications/method-confusion-attack-on-bluetooth-pairing
+# Accessed: 2026-11-12 (fabric mission 02). Converted to plain text; masked: {'email': 0, 'ip': 0, 'token': 0}
+
+Method Confusion Attack on Bluetooth Pairing — Chair for IT Security
+
+Method Confusion Attack on Bluetooth Pairing
+
+IEEE Symposium on Security and Privacy (Oakland)
+
+ Authors:
+ Maximilian Tschirschnitz, Ludwig Peuckert, Fabian Franzen, and Jens Grossklags
+
+ Year/month:
+ 2021/5
+
+ Booktitle:
+ IEEE Symposium on Security and Privacy (Oakland)
+
+ Fulltext:
+
+ conference-proceeding.pdf
+
+Abstract
+
+ Bluetooth provides encryption, authentication, and integrity protection of its connections. These protection mechanisms require that Bluetooth devices initially establish trust on first use through a process called pairing. Throughout this process, multiple alternative pairing methods are supported. In this paper, we describe a design flaw in the pairing mechanism of Bluetooth. This flaw permits two devices to perform pairing using differing methods. While successfully interacting with each other, the devices are not aware of the Method Confusion. We explain how an attacker can cause and abuse this Method Confusion to mount a Method Confusion Attack. In contrast to other attacks targeting the pairing method, our attack applies even in Bluetooth's highest security mode and cannot be mitigated in the protocol. Through the Method Confusion Attack, an adversary can infiltrate the secured connection between the victims and intercept all traffic. Our attack is successful in practically relevant scenarios. We implemented it as an end-to-end Proof of Concept for Bluetooth Low Energy and tested it with off-the-shelf smartphones, a smartwatch and a banking device. Furthermore, we performed a user study where none of the 40 participants noticed the ongoing attack, and 37 (92.5\%) of the users completed the pairing process. Finally, we propose changes to the Bluetooth specification that immunize it against our attack.
+
+Bibtex:
+
+ @inproceedings {
+
+ author = { Maximilian Tschirschnitz and Ludwig Peuckert and Fabian Franzen and Jens Grossklags},
+
+ title = { Method Confusion Attack on Bluetooth Pairing },
+
+ year = { 2021 },
+
+ month = {
+ May },
+
+ booktitle = { IEEE Symposium on Security and Privacy (Oakland) },
+
+ url = {https://www.sec.in.tum.de/i20/publications/method-confusion-attack-on-bluetooth-pairing/@@download/file/conference-proceeding.pdf}
+
+ } 
+
+ Willkommen, Professorin Franziska Boenisch
+
+ Nov 03, 2026
+
+ Vorlesung - Netzwerke fuer den Zahlungsverkehr
+
+ Feb 05, 2026
+
+ Prof. Claudia Eckert erhält den TeachInf Award für die beste Pflichtveranstaltung im Wintersemester 2024/25.
+
+ Aug 14, 2025
+
+ Termin VL Netzwerke für den Zahlungsverkehr - Wiederholungsklausur WiSe24/25
+
+ May 28, 2025
+
+ acatech Präsidium wählt Claudia Eckert zur Präsidentin der Deutschen Akademie der Technikwissenschaften
+
+ May 23, 2025

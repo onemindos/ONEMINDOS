@@ -1,0 +1,162 @@
+# Source: https://developer.nvidia.com/embedded/lifecycle
+# Accessed: 2026-11-12 (fabric mission 02). Converted to plain text; masked: {'email': 0, 'ip': 0, 'token': 0}
+
+Jetson Product Lifecycle | NVIDIA Developer
+
+Jetson Product Lifecycle 
+
+Jetson Modules
+
+ Commercial Module
+
+ Available through
+
+ Jetson T4000
+
+ January 2036
+
+ Jetson T5000
+
+ August 2035
+
+ Jetson AGX Orin 64GB
+
+ January 2032
+
+ Jetson AGX Orin 32GB
+
+ January 2032
+
+ Jetson Orin NX 16GB
+
+ January 2032
+
+ Jetson Orin NX 8GB
+
+ January 2032
+
+ Jetson Orin Nano 8GB
+
+ January 2032
+
+ Jetson Orin Nano 4GB
+
+ January 2032
+
+ Jetson AGX Xavier 32GB
+
+ July 2027
+
+ Jetson Xavier NX 16GB
+
+ July 2027
+
+ Jetson Xavier NX 8GB
+
+ July 2027
+
+ Jetson TX2 NX
+
+ July 2027
+
+ Jetson Nano
+
+ January 2027
+
+ Industrial Module
+
+ Available through
+
+ Jetson AGX Orin Industrial
+
+ July 2033
+
+ Jetson AGX Xavier Industrial
+
+ July 2027
+
+ Jetson TX2i
+
+ July 2027
+
+Learn more about Jetson ruggedized systems here.
+
+These are modules that have reached End of Life status:
+
+ Module
+
+ Date of EOL
+
+ Jetson TX2 4GB/8GB
+
+ January 2025
+
+ Jetson AGX Xavier 64GB
+
+ January 2025
+
+ Jetson TX1
+
+ January 2021
+
+Learn more about our product life cycle here.
+
+Tegra Processors
+
+ Processor
+
+ Available through
+
+ Tegra 2 industrial
+
+ January 2024
+
+ Tegra 2 commercial
+
+ January 2024
+
+ Tegra 3 industrial
+
+ January 2024
+
+ Tegra 3 commercial
+
+ January 2024
+
+ Tegra K1 industrial
+
+ January 2024
+
+ Tegra K1 commercial
+
+ January 2024
+
+Product Change Notifications
+
+Hardware component changes with possible corresponding software changes may occur during the product lifecycle (e.g. memory component updates). NVIDIA complies with JEDEC JESD-046 for notification requirements and posts public Product Change Notifications (PCNs) to the Jetson Download Center.
+
+Product End of Life Notifications
+
+Official End of Life notice will be sent a minimum of 8 months prior to the last shipment.
+
+Jetson Developer Kits
+
+NVIDIA does not specify Lifecycle information for Jetson developer kits, which are intended for software development and system prototyping, not production use. Learn more here.
+
+The following Jetson Developer Kits have reached End of Life:
+
+ Jetson AGX Xavier Developer Kit
+
+ Jetson Xavier NX Developer Kit
+
+ Jetson TX2 Developer Kit
+
+ Jetson TX1 Developer Kit
+
+ Jetson Nano Developer Kit
+
+ Jetson Nano 2GB Developer Kit
+
+ Jetson TK1 Developer Kit
+
+ Join now
