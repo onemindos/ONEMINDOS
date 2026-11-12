@@ -3,14 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "license": "Apache-2.0",
+  "type": "module",
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",
     "build:app": "tauri build --bundles app",
-    "check:ui": "node --check src/app.js && node --test \"test/**/*.test.mjs\"",
+    "check:ui": "node --check src/app.js && node --check src/format.js && node tools/tokens.mjs --check && node --test \"test/**/*.test.mjs\"",
     "icons": "tauri icon assets/app-icon.svg -o src-tauri/icons",
-    "sync:tokens": "cp ../ui/src/tokens/tokens.css src/tokens.css && sed -i.bak '2s#.*#/* Copied from ui/src/tokens/tokens.css by `npm run sync:tokens` (OneMind design tokens). Do not edit by hand. */#' src/tokens.css && rm src/tokens.css.bak",
+    "icons:tray": "tauri icon assets/tray-icon.svg -o src-tauri/icons/tray -p 44",
+    "sync:tokens": "node tools/tokens.mjs",
     "preview": "python3 -m http.server 4780 --bind 127.0.0.1"
   },
   "devDependencies": {
