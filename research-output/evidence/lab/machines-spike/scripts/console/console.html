@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- LAB-machines-spike M2: minimal console page on unmodified noVNC core. Query: ?ws=<websocket url>&proto=<subprotocol> -->
+<html lang="en"><head><meta charset="utf-8"><title>machlab console</title>
+<style>html,body{margin:0;background:#202020}#screen{width:100vw;height:100vh}</style></head>
+<body><div id="screen"></div>
+<script type="module">
+import RFB from './novnc/core/rfb.js';
+const q = new URLSearchParams(location.search);
+const st = window.__st = {state: 'init', events: []};
+const opts = q.get('proto') ? {wsProtocols: [q.get('proto')]} : {};
+const rfb = window.__rfb = new RFB(document.getElementById('screen'), q.get('ws'), opts);
+rfb.scaleViewport = false;
+rfb.addEventListener('connect', () => { st.state = 'connected'; st.events.push(['connect', Date.now()]); rfb.focus(); });
+rfb.addEventListener('disconnect', e => { st.state = 'disconnected'; st.events.push(['disconnect', Date.now(), e.detail.clean]); });
+rfb.addEventListener('securityfailure', e => st.events.push(['securityfailure', e.detail.reason]));
+rfb.addEventListener('desktopname', e => st.events.push(['desktopname', e.detail.name]));
+const px = () => { const c = document.querySelector('#screen canvas');
+  return c ? [c, c.getContext('2d').getImageData(0, 0, c.width, c.height).data] : [null, null]; };
+window.__stats = () => { const [c, d] = px(); if (!c) return null; let nb = 0;
+  for (let i = 0; i < d.length; i += 4) if (d[i] | d[i + 1] | d[i + 2]) nb++;
+  return {w: c.width, h: c.height, nonblack: nb}; };
+window.__keep = () => { window.__prev = Uint8ClampedArray.from(px()[1]); return window.__prev.length; };
+window.__diff = () => { const d = px()[1], p = window.__prev; if (!p || d.length !== p.length) return -1; let n = 0;
+  for (let i = 0; i < d.length; i += 4) if (d[i] !== p[i] || d[i + 1] !== p[i + 1] || d[i + 2] !== p[i + 2]) n++;
+  return n; };
+</script></body></html>
