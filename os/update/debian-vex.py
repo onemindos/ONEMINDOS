@@ -51,7 +51,6 @@ def statements(status, tracker, release="trixie"):
     out = []
     for src in sorted(by_src):
         bins = sorted(by_src[src])
-        inst = cs.vmax(s["source_version"] for _, s in bins)
         products = [{"@id": purl(b, s["version"], s["arch"])} for b, s in bins]
         for cve, data in sorted(tracker.get(src, {}).items()):
             if not cve.startswith("CVE-"):
@@ -65,8 +64,13 @@ def statements(status, tracker, release="trixie"):
                 st.update(status="not_affected", justification="vulnerable_code_not_present",
                           impact_statement=f"Debian security tracker: {release} never shipped the vulnerable code "
                                            f"(source {src}, fixed_version 0)")
-            elif rel.get("status") == "resolved" and fixed and cs.vercmp(inst, fixed) >= 0:
-                st.update(status="fixed",
+            elif rel.get("status") == "resolved" and fixed and any(cs.vercmp(s["source_version"], fixed) >= 0
+                                                                   for _, s in bins):
+                # Per binary: a binary still built from an older source version stays unsuppressed
+                # (mixed versions after a partial upgrade must not be hidden by a newer sibling).
+                done = [(b, s) for b, s in bins if cs.vercmp(s["source_version"], fixed) >= 0]
+                inst = cs.vmin(s["source_version"] for _, s in done)
+                st.update(products=[{"@id": purl(b, s["version"], s["arch"])} for b, s in done], status="fixed",
                           status_notes=f"Debian security tracker: fixed in {src} {fixed}; installed {inst}")
             elif rel.get("nodsa") is not None:
                 reason = rel.get("nodsa_reason") or "no-dsa"

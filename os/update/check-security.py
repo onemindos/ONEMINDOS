@@ -72,7 +72,7 @@ def _cmp_part(a, b):
 
 def _split(v):
     v = v.strip()
-    epoch, _, rest = v.rpartition(":") if ":" in v else ("0", "", v)
+    epoch, _, rest = v.partition(":") if ":" in v else ("0", "", v)   # epoch = up to the FIRST colon
     upstream, _, rev = rest.rpartition("-") if "-" in rest else (rest, "", "0")
     return int(epoch or 0), upstream, rev
 
@@ -84,6 +84,14 @@ def vercmp(a, b):
     if ea != eb:
         return ea - eb
     return _cmp_part(ua, ub) or _cmp_part(ra, rb)
+
+
+def vmin(versions):
+    best = None
+    for v in versions:
+        if v and (best is None or vercmp(v, best) < 0):
+            best = v
+    return best
 
 
 def vmax(versions):

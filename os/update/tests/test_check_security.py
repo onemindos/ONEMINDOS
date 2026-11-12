@@ -28,6 +28,12 @@ class Matching(unittest.TestCase):
         self.st = cs.parse_status(open(fixture("status-small.txt")).read())
         self.tr = json.load(open(fixture("tracker-small.json")))
 
+    def test_epoch_ends_at_the_first_colon(self):
+        # deb-version(7): with an epoch, the upstream part may itself contain colons
+        self.assertEqual(cs._split("1:2.0:3-1"), (1, "2.0:3", "1"))
+        self.assertLess(cs.vercmp("1:2.0:3-1", "1:2.0:4-1"), 0)
+        self.assertEqual(cs.vmin(["1.0-2", "1.0-1", ""]), "1.0-1")
+
     def test_status_maps_sources(self):
         self.assertEqual(self.st["zlib1g"]["source"], "zlib")
         self.assertEqual(self.st["zlib1g"]["source_version"], "1:1.3.dfsg+really1.3.1-1")

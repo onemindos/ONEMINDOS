@@ -143,6 +143,27 @@ def _meta_for(path, version):
     return MetaFile(version=version, length=len(data), hashes={"sha256": hashlib.sha256(data).hexdigest()})
 
 
+def verify_existing(root_md, tmd, smd, xmd, snapshot_path):
+    """Signatures and cross-references of channel metadata we are about to build on or re-sign,
+    against the TRUSTED root (the committed one), ignoring expiry (an expired channel must still be
+    recoverable). The files come from the hosting (release assets): never re-sign what we cannot
+    verify, or a planted targets.json would be laundered into a validly signed one."""
+    try:
+        root_md.verify_delegate(Targets.type, tmd)
+        root_md.verify_delegate(Snapshot.type, smd)
+        root_md.verify_delegate(Timestamp.type, xmd)
+    except Exception as e:
+        raise SystemExit(f"existing channel metadata does not verify against the trusted root ({e}); refusing "
+                         f"to build on it (after an online-key rotation, rebuild the channel by hand)")
+    if smd.signed.meta.get("targets.json") is None or smd.signed.meta["targets.json"].version != tmd.signed.version:
+        raise SystemExit("existing snapshot.json does not reference this targets.json version")
+    sm = xmd.signed.snapshot_meta
+    have = _meta_for(snapshot_path, smd.signed.version)
+    if sm.version != smd.signed.version or (sm.hashes and sm.hashes != have.hashes) or \
+            (sm.length is not None and sm.length != have.length):
+        raise SystemExit("existing timestamp.json does not match snapshot.json")
+
+
 def copy_roots(src, dst, root_md):
     if src:
         for f in os.listdir(src):
@@ -153,7 +174,7 @@ def copy_roots(src, dst, root_md):
 
 
 # ------------------------------------------------------------------ build
-def build(repo, root_path, prev, releases, tk, sk, xk, keep=None):
+def build(repo, root_path, prev, releases, tk, sk, xk, keep=None, allow_dry_run=False):
     keep = keep or CONF["keep_versions_per_board"]
     os.makedirs(repo, exist_ok=True)
     root_md = Metadata[Root].from_file(root_path)
@@ -165,6 +186,14 @@ def build(repo, root_path, prev, releases, tk, sk, xk, keep=None):
     old_t = _load(os.path.join(prev, "targets.json")) if prev else None
     old_s = _load(os.path.join(prev, "snapshot.json")) if prev else None
     old_x = _load(os.path.join(prev, "timestamp.json")) if prev else None
+    if old_t or old_s or old_x:
+        if not (old_t and old_s and old_x):
+            raise SystemExit(f"{prev}: incomplete channel metadata (need targets, snapshot and timestamp.json)")
+        verify_existing(root_md, old_t, old_s, old_x, os.path.join(prev, "snapshot.json"))
+    for rel_path in releases:
+        if json.load(open(rel_path)).get("dry_run") is not False and not allow_dry_run:
+            raise SystemExit(f"{rel_path}: a dry-run (throwaway-key) bundle or no dry_run field; "
+                             f"only --allow-dry-run (throwaway TUF keys) may list it")
     t = Targets(version=(old_t.signed.version + 1) if old_t else 1, spec_version=SPEC, expires=expires("targets"),
                 targets=dict(old_t.signed.targets) if old_t else {})
     for rel_path in releases:
@@ -217,11 +246,14 @@ def build(repo, root_path, prev, releases, tk, sk, xk, keep=None):
 
 
 # ------------------------------------------------------------------ refresh (daily job)
-def refresh(repo, xk, sk=None, tk=None, force=False):
-    root = Metadata[Root].from_file(os.path.join(repo, "root.json")).signed
+def refresh(repo, xk, sk=None, tk=None, force=False, root_path=None):
+    """root_path: the TRUSTED root (committed); defaults to the repo's copy (local use only)."""
+    root_md = Metadata[Root].from_file(root_path or os.path.join(repo, "root.json"))
+    root = root_md.signed
     tmd = Metadata[Targets].from_file(os.path.join(repo, "targets.json"))
     smd = Metadata[Snapshot].from_file(os.path.join(repo, "snapshot.json"))
     xmd = Metadata[Timestamp].from_file(os.path.join(repo, "timestamp.json"))
+    verify_existing(root_md, tmd, smd, xmd, os.path.join(repo, "snapshot.json"))
     soon = lambda md, role: md.signed.expires - now() <= datetime.timedelta(days=REFRESH[role])
     done = []
     if tk and (force or soon(tmd, "targets")):
@@ -315,7 +347,9 @@ def main(argv=None):
     for role in ("targets", "snapshot", "timestamp"):
         b.add_argument(f"--{role}-key", required=True)
     b.add_argument("--keep", type=int)
+    b.add_argument("--allow-dry-run", action="store_true", help="accept dry_run releases (throwaway keys only)")
     f = sub.add_parser("refresh"); f.add_argument("--repo", required=True)
+    f.add_argument("--root", help="trusted root.json (default: the repo's copy)")
     f.add_argument("--timestamp-key", required=True); f.add_argument("--snapshot-key"); f.add_argument("--targets-key")
     f.add_argument("--force", action="store_true")
     v = sub.add_parser("verify"); v.add_argument("--repo", required=True); v.add_argument("--root", required=True)
@@ -332,10 +366,12 @@ def main(argv=None):
         print(f"root v{md.signed.version}: {len(md.signed.roles['root'].keyids)} root key(s), threshold "
               f"{md.signed.roles['root'].threshold}, expires {md.signed.expires.isoformat()}", file=sys.stderr)
     elif a.cmd == "build":
-        res = build(a.repo, a.root, a.prev, a.release, a.targets_key, a.snapshot_key, a.timestamp_key, a.keep)
+        res = build(a.repo, a.root, a.prev, a.release, a.targets_key, a.snapshot_key, a.timestamp_key, a.keep,
+                    a.allow_dry_run)
         print(json.dumps(res, indent=1))
     elif a.cmd == "refresh":
-        print("re-signed: " + ", ".join(refresh(a.repo, a.timestamp_key, a.snapshot_key, a.targets_key, a.force)))
+        print("re-signed: " + ", ".join(refresh(a.repo, a.timestamp_key, a.snapshot_key, a.targets_key, a.force,
+                                                a.root)))
     elif a.cmd == "verify":
         checked, problems = verify(a.repo, a.root, a.metadata_only, a.allow_absent)
         for p in problems:

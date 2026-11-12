@@ -36,6 +36,18 @@ class Vex(unittest.TestCase):
         g = sorted(p["@id"] for p in self.by["CVE-2099-0002"]["products"])
         self.assertEqual(len(g), 2)
 
+    def test_fixed_only_for_binaries_built_from_the_fixed_source(self):
+        # libfoo1 still comes from foo 1.0-1 while foo-bin was upgraded to 1.0-2 (the fix): only
+        # foo-bin may be suppressed; the older binary stays visible to the scanner.
+        st = {"foo-bin": {"version": "1.0-2", "arch": "amd64", "source": "foo", "source_version": "1.0-2"},
+              "libfoo1": {"version": "1.0-1", "arch": "amd64", "source": "foo", "source_version": "1.0-1"}}
+        tr = {"foo": {"CVE-2099-0100": {"releases": {"trixie": {"status": "resolved", "fixed_version": "1.0-2"}}}}}
+        (s,) = vex.statements(st, tr)
+        self.assertEqual(s["status"], "fixed")
+        self.assertEqual([p["@id"] for p in s["products"]], ["pkg:deb/debian/foo-bin@1.0-2?arch=amd64"])
+        st["foo-bin"].update(version="1.0-1", source_version="1.0-1")
+        self.assertEqual(vex.statements(st, tr), [])
+
     def test_document_is_deterministic_openvex(self):
         a = vex.document(self.stm, "2026-11-12T00:00:00Z", "vm")
         b = vex.document(vex.statements(self.st, self.tr), "2026-11-12T00:00:00Z", "vm")

@@ -17,7 +17,7 @@ The interface between this pipeline and the updater is **[CHANNEL.md](CHANNEL.md
 | `decide` | Debian security tracker JSON → per-board report; choose a newer snapshot.debian.org timestamp that carries the fixes; publish switch | `check-security.py`, `pick-snapshot.py` |
 | `build` (per board: x86_64-efi, vm, vm-do, arm64-efi) | Rootfs from the commit plus the generated snapshot change; post-build check; OpenVEX from the tracker; SBOM (syft); CVE scan (Trivy v0.76.2 with the VEX); ClamAV with fresh signatures; scan gate; signed RAUC bundle | `scan-rootfs.sh`, `debian-vex.py`, `scan-gate.py`, `build-release.sh` |
 | `battery-*` | QEMU battery through `battery.yml` (new optional `snapshot` input): T0–T5 incl. T4v/T5v on x86_64-efi and vm-do (+TC1), T0–T1 on arm64-efi. Any FAIL fails the job, and `tuf`/`publish` depend on it | `test/qemu/` (unchanged) |
-| `tuf` | TUF targets/snapshot/timestamp on top of the published channel; a python-tuf client then verifies every new file | `tuf-repo.py` |
+| `tuf` | TUF targets/snapshot/timestamp on top of the published channel; a python-tuf client then verifies every new file. The downloaded channel metadata is verified against the committed root first (never re-signed blind), an existing channel must download completely (restarting at version 1 would freeze every box), and only throwaway-key runs may list `dry_run` bundles (`--allow-dry-run`) | `tuf-repo.py` |
 | `publish` | Only when the switch is on (below). Tags the exact source, creates release `os-security-<version>`, updates the rolling release `os-channel-security` (targets first, `timestamp.json` last) | — |
 | `timestamp` (every 6 h) | Re-signs `timestamp.json` (1-day expiry), and `snapshot`/`targets` near expiry | `tuf-repo.py refresh` |
 

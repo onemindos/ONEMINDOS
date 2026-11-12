@@ -13,13 +13,13 @@ except ImportError as e:          # pragma: no cover
     WHY = str(e)
 
 
-def release(d, board, ver, payload=b"bundle"):
+def release(d, board, ver, payload=b"bundle", dry_run=False):
     b = f"onemind-{board}-{ver}"
     for ext, data in ((".raucb", payload), (".spdx.json", b"{}"), (".cve-report.json", b"{}")):
         open(os.path.join(d, b + ext), "wb").write(data)
     p = os.path.join(d, f"release-{board}-{ver}.json")
     json.dump({"board": board, "version": ver, "compatible": f"onemind-{board}", "snapshot": "20261112T025704Z",
-               "security": True, "files": {"bundle": b + ".raucb", "sbom": b + ".spdx.json",
+               "security": True, "dry_run": dry_run, "files": {"bundle": b + ".raucb", "sbom": b + ".spdx.json",
                                            "cve_report": b + ".cve-report.json"}}, open(p, "w"))
     return p
 
@@ -41,7 +41,54 @@ class Channel(unittest.TestCase):
     def build(self, repo, rels, prev=None, **kw):
         with contextlib.redirect_stdout(io.StringIO()):
             return tr.build(os.path.join(self.d, repo), self.root, prev and os.path.join(self.d, prev), rels,
-                            kw.get("tk", self.key("targets")), self.key("snapshot"), self.key("timestamp"), kw.get("keep"))
+                            kw.get("tk", self.key("targets")), self.key("snapshot"), self.key("timestamp"), kw.get("keep"),
+                            kw.get("allow_dry_run", False))
+
+    def test_dry_run_release_needs_allow_flag(self):
+        rel = release(self.rel, "vm", "0.1.1", dry_run=True)
+        with self.assertRaises(SystemExit):
+            self.build("repo", [rel])
+        p = os.path.join(self.rel, "release-vm-0.1.1.json")
+        r = json.load(open(p)); del r["dry_run"]; json.dump(r, open(p, "w"))     # missing field = dry run
+        with self.assertRaises(SystemExit):
+            self.build("repo", [p])
+        self.assertEqual(self.build("repo", [p], allow_dry_run=True)["targets"], 1)
+
+    def forge(self, repo, name, mutate, key="rogue"):
+        """Rewrite one role file in repo, re-signed with `key` (rogue = not trusted by root)."""
+        from tuf.api.metadata import Metadata
+        p = os.path.join(self.d, repo, name)
+        md = Metadata.from_file(p)
+        mutate(md.signed)
+        md.signatures.clear()
+        md.sign(tr.load_signer(self.key(key)))
+        md.to_file(p, tr.SER)
+
+    def test_previous_metadata_must_verify(self):
+        self.build("r1", [release(self.rel, "vm", "0.1.1")])
+        evil = tr.TargetFile.from_data("vm/9.9.9/onemind-vm-9.9.9.raucb", b"evil", ["sha256"])
+        self.forge("r1", "targets.json", lambda t: t.targets.__setitem__(evil.path, evil))
+        with self.assertRaises(SystemExit):                       # planted targets.json is not re-signed
+            self.build("r2", [release(self.rel, "vm", "0.1.2")], prev="r1")
+        self.build("r3", [release(self.rel, "vm", "0.1.1")])
+        os.remove(os.path.join(self.d, "r3", "timestamp.json"))
+        with self.assertRaises(SystemExit):                       # partial previous channel
+            self.build("r4", [release(self.rel, "vm", "0.1.2")], prev="r3")
+
+    def test_refresh_refuses_forged_metadata(self):
+        self.build("repo", [release(self.rel, "vm", "0.1.1")])
+        repo = os.path.join(self.d, "repo")
+        # targets.json swapped for one signed by the real targets key but not matching snapshot.json
+        self.forge("repo", "targets.json", lambda t: setattr(t, "version", t.version + 5), key="targets")
+        with self.assertRaises(SystemExit):
+            tr.refresh(repo, self.key("timestamp"), self.key("snapshot"), self.key("targets"), force=True,
+                       root_path=self.root)
+        # a root.json planted next to the metadata is not trusted: the committed root is
+        self.build("repo2", [release(self.rel, "vm", "0.1.1")])
+        repo2 = os.path.join(self.d, "repo2")
+        self.forge("repo2", "snapshot.json", lambda s: None)       # rogue-signed snapshot
+        with self.assertRaises(SystemExit):
+            tr.refresh(repo2, self.key("timestamp"), root_path=self.root)
 
     def test_root_threshold(self):
         r = json.load(open(self.root))
@@ -101,7 +148,8 @@ class Channel(unittest.TestCase):
         self.assertEqual(tr.refresh(repo, self.key("timestamp")), ["timestamp"])
         os.environ["ONEMIND_TUF_NOW"] = (tr.now() + tr.datetime.timedelta(days=5)).isoformat()
         try:
-            done = tr.refresh(repo, self.key("timestamp"), self.key("snapshot"), self.key("targets"))
+            done = tr.refresh(repo, self.key("timestamp"), self.key("snapshot"), self.key("targets"),
+                              root_path=self.root)
             self.assertEqual(done, ["snapshot", "timestamp"])
             _, problems = tr.verify(repo, self.root)
             self.assertEqual(problems, [])

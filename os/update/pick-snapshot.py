@@ -12,7 +12,7 @@ A security rebuild therefore means "move the pinned timestamp forward", as a rev
            trixie, trixie-updates and trixie-security per arch, and checks that every fix the
            check reports as available is there. Also checks the CURRENT snapshot: a fix already in
            it but not in the image means the rebuild alone will not pick it up (reported as
-           "not_picked_by_build"; scan-gate.py then fails the run).
+           "not_picked_by_build"; scan-gate.py fails the run only if one of them is CRITICAL in Trivy).
   apply    --snapshot TS [--root .]    rewrite SNAPSHOT= in os/rootfs/debian.args and
            base.debian.snapshot in os/versions.lock.yaml (the generated change; both must agree,
            test/unit/test_versions_lock.py)
