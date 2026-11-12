@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 from dataclasses import replace
@@ -44,9 +45,11 @@ class ScriptedExecutor(Executor):
         self.outcome = outcome
         self.raise_exc = raise_exc
         self.calls: list[tuple[str, str]] = []
+        self.agents: list = []  # the AgentSecret grant of each call (None for apps without spec.agent)
 
-    def run(self, action_type, app):
+    def run(self, action_type, app, agent=None):
         self.calls.append((action_type, app.id))
+        self.agents.append(agent)
         if self.raise_exc:
             raise RuntimeError("boom")
         return ExecResult(self.outcome, f"scripted {self.outcome}")
@@ -76,10 +79,25 @@ def clock() -> Clock:
     return Clock()
 
 
+def write_scan(app_dir: Path, scanned_at: datetime | None, result: str = "pass") -> None:
+    """Write a §11.1 scan record (scanned_at=None removes it)."""
+    path = app_dir / "scan.json"
+    if scanned_at is None:
+        path.unlink(missing_ok=True)
+        return
+    path.write_text(json.dumps({
+        "scanned_at": scanned_at.isoformat().replace("+00:00", "Z"), "result": result, "images": [],
+        "licence": {"spdx": "MIT", "class": "L1"}, "smoke": "pass",
+    }))
+
+
 @pytest.fixture
-def settings(tmp_path: Path) -> Settings:
+def settings(tmp_path: Path, clock) -> Settings:
     apps = tmp_path / "apps"
     shutil.copytree(FIXTURES / "apps", apps)
+    # §10.3: installs need a passing scan newer than 7 days. Every valid fixture app gets one.
+    for app_id in ("uptime-kuma", "whoami", "hermes-like"):
+        write_scan(apps / app_id, clock.now - timedelta(days=1))
     db_url = os.environ.get("ONEMIND_TEST_DB_URL")
     if db_url:
         # Run the whole suite against PostgreSQL (BD-04): start every test from empty tables.
