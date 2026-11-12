@@ -14,3 +14,7 @@ scripts/hygiene.py	rpi-otp-private-key|odmfuse	B-FP-3
 scripts/hygiene-allow.tsv	rpi-otp-private-key|odmfuse	B-FP-3
 # B-FP-5: npm registry metadata in lock files lists package authors' public addresses (e.g. the npm founder's); not personal data of this project.
 *package-lock.json	i@izs\.me	B-FP-5
+# B-FP-6: cloud images. /home/admin is the admin user's home inside the image (as B-FP-1), and the QEMU user-network subnet in CRITERIA-CLOUD.md §6 is QEMU's built-in default, not a real network.
+os/boards/cloud/*	/home/admin	B-FP-6
+scripts/hygiene-allow.tsv	/home/admin	B-FP-6
+test/qemu/CRITERIA-CLOUD.md	10\.0\.2\.0	B-FP-6
