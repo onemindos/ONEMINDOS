@@ -45,6 +45,7 @@ F-1 to F-7 keep the numbers used in [core/README.md](core/README.md). The rest g
 | F-29 | Launch rules: channels; no update claim before G1, no actuation claim before G4; demos on lab hardware with mock data only | Confirm | CORE-WEB-5 | S3 | plan §5.9–§5.10 |
 | F-30 | Defer revenue share, certification fee and the D-001 pro/open ADR | Defer past the leap | – | – | plan §5.11 |
 | F-31 | TAK licensing (GPL/AGPL servers only as separate apps; official TAK Server bring-your-own-licence?) and drones (no agent flight commands; MAVLink read-only) | Confirm when PLAN-E14/E15 leave parking | PLAN-E14, PLAN-E15 | S4+ | plan §5.7, §5.12 |
+| F-32 | Mesh coordinator: Headscale (default) vs NetBird vs Nebula vs plain WireGuard | Headscale v0.29.7 (BSD-3) on the hub with the official Tailscale clients (BSD-3), embedded DERP, optional owner relay; Tailscale hosted only as an opt-in (Z-34 stays open) | CORE-NET-1, CORE-NET-11, CORE-NET-12 | S1 (before NET-11; flannel backend and node IPs are cluster-creation settings) | `docs/architecture/NETWORKING.md` §2.1, §19; research 09 P0-6; research 12 REC-W11-12 |
 
 ## 2. For the contract owner: leap specs vs the contract §12 draft
 

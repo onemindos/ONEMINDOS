@@ -138,6 +138,21 @@
 | CORE-FABRIC-3 | `node.remove` with drain | todo | – | – |
 | CORE-FABRIC-4 | Capability labels, affinity from `requires`, Market verdict | todo | – | – |
 | CORE-FABRIC-5 | Leaf mode in onemindd (no k3s) | todo | – | – |
+| CORE-NET-1 | Headscale adapter and config/DERP-map renderer | todo | – | – |
+| CORE-NET-2 | Mesh policy generated from OneMind roles | todo | – | – |
+| CORE-NET-3 | Node mesh enrollment and LAN-first coordinator resolver | todo | – | – |
+| CORE-NET-4 | NATS hub users + leaf listener and node leaf config renderers | todo | – | – |
+| CORE-NET-5 | `onemind-edge`: SNI/host routes, forward-auth, upgrades, ACME | todo | – | – |
+| CORE-NET-6 | LAN names: avahi hosts, conflict check, mesh extra records | todo | – | – |
+| CORE-NET-7 | Relay: SNI router, setup endpoint, WireGuard link, derper build | todo | – | – |
+| CORE-NET-8 | Gateway mesh routes, forward-auth, `mesh.*` handlers | todo | – | – |
+| CORE-NET-9 | Lima lab NT-1…NT-8, NT-17 | todo | – | – |
+| CORE-NET-10 | Contract §12.16 networking PR | todo | – | – |
+| CORE-NET-11 | Installer and image wiring | todo | – | – |
+| CORE-NET-12 | Gateway + onemindd registration; join bundle `mesh` | todo | – | – |
+| CORE-NET-13 | Dashboard Network page, Add a device, app links | todo | – | – |
+| CORE-NET-14 | Pi budget, throughput and phone matrix on hardware | todo | – | – |
+| CORE-NET-15 | Public app exposure through the relay | parked | – | – |
 | DEV-CLI-8 | `fabric qr/join/leave/remove` and `node join` alias | todo | – | – |
 | CORE-BACKUP-1 | `onemind-local` Retain StorageClass as default | todo | – | – |
 | CORE-BACKUP-2 | `internal/backup` agent: restic, schedule, three keys, emergency kit | todo | – | – |
