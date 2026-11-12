@@ -6,15 +6,20 @@ This is where "AI never actuates without human approval" is enforced:
 - nothing reaches the executor until an approval has moved the action to accepted;
 - an app.install is approved only for an app with a passing scan newer than 7 days (§10.3);
 - an app that declares spec.agent gets its own agent principal at install, revoked at removal
-  (§11.2), so the AI inside it can request actions but, like every agent, never approve them.
+  (§11.2), so the AI inside it can request actions but, like every agent, never approve them;
+- an app's declared secrets are entered by the owner with the approval itself (or filed as an
+  app.configure the owner approves) and reach the executor only after acceptance (appsecrets/);
+- an owner may approve an install whose scan failed only through the F-7 owner override, which
+  is off unless ONEMIND_ALLOW_OWNER_OVERRIDE=1 and leaves a red audit mark (override.py).
 """
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
@@ -28,6 +33,8 @@ from .ledger import Action, ActionRepository, iso, new_action_id, utc
 
 log = logging.getLogger("onemind.actions")
 
+# What POST /v1/actions and the MCP request_action tool accept. app.configure is filed only by the
+# secrets router (POST /v1/apps/{id}/secrets, owner): its params carry the change list.
 ActionType = Literal["app.install", "app.remove"]
 
 # Per action type: (app status while it runs, app statuses it may start from, may the app have no
@@ -35,7 +42,25 @@ ActionType = Literal["app.install", "app.remove"]
 APP_CLAIMS: dict[str, tuple[str, frozenset[str], bool]] = {
     "app.install": ("installing", frozenset({"failed", "unknown"}), True),
     "app.remove": ("removing", frozenset({"installed", "failed", "unknown"}), False),
+    "app.configure": ("configuring", frozenset({"installed"}), False),
 }
+# App statuses that only exist while a dispatch runs; a restart finds them interrupted.
+IN_FLIGHT = frozenset(claim for claim, _, _ in APP_CLAIMS.values())
+
+
+@dataclass(frozen=True)
+class ApprovalInput:
+    """What the owner sends with an approval besides the action id.
+
+    sealed: the app's secrets form, sealed in the browser (app.install only; appsecrets/).
+    override: the F-7 owner override {reason, confirm} for an install whose scan failed.
+    webauthn: whether a passkey assertion came with the approval. The identity feature's approval
+      guard verifies it before the action service runs; the override only checks it was there.
+    """
+
+    sealed: dict | None = None
+    override: dict | None = None
+    webauthn: bool = False
 
 
 class ActionParams(BaseModel):
@@ -70,6 +95,9 @@ class ActionService:
         self.executor = executor
         self.audit = audit
         self.clock = clock
+        # Set by feature routers at registration (routers/secrets.py, routers/override.py).
+        self.app_secrets: Any = None  # appsecrets.service.AppSecretsService
+        self.owner_override: Any = None  # override.OwnerOverride
 
     # ---- helpers -------------------------------------------------------------------------
     def _deny(self, principal: Principal, what: str, action_id: str | None = None) -> ApiError:
@@ -134,47 +162,61 @@ class ActionService:
         reason (from the MCP request_action tool) is written to the audit log only; the §3 action
         shape has no field for it.
         """
-        data = {"type": req.type, "params": req.params.model_dump(), "idempotency_key": req.idempotency_key}
+        return self.request(principal, req.type, req.params.model_dump(), req.idempotency_key, req.expires_at, reason)
+
+    def request(
+        self, principal: Principal, type_: str, params: dict, idempotency_key: str, expires_at: datetime,
+        reason: str | None = None,
+    ) -> tuple[dict, bool]:
+        """create() for feature routers whose action params are more than {app_id} (app.configure)."""
+        if type_ not in APP_CLAIMS:
+            raise ValueError(f"unknown action type {type_}")
+        data = {"type": type_, "params": params, "idempotency_key": idempotency_key}
         return self._audited(
-            principal, "request action", None, data, lambda: self._create(principal, req, reason)
+            principal, "request action", None, data,
+            lambda: self._create(principal, type_, params, idempotency_key, expires_at, reason),
         )
 
     def deny(self, principal: Principal, action_id: str) -> dict:
         return self._audited(principal, "deny action", action_id, {}, lambda: self._cancel(principal, action_id))
 
-    def approve(self, principal: Principal, action_id: str) -> dict:
-        return self._audited(principal, "approve action", action_id, {}, lambda: self._approve(principal, action_id))
+    def approve(self, principal: Principal, action_id: str, extra: ApprovalInput | None = None) -> dict:
+        return self._audited(
+            principal, "approve action", action_id, {}, lambda: self._approve(principal, action_id, extra or ApprovalInput())
+        )
 
-    def _create(self, principal: Principal, req: ActionRequest, reason: str | None = None) -> tuple[dict, bool]:
+    def _create(
+        self, principal: Principal, type_: str, params: dict, idempotency_key: str, expires_at: datetime,
+        reason: str | None = None,
+    ) -> tuple[dict, bool]:
         if not principal.can_request_actions:
             raise self._deny(principal, "request actions")
-        params = req.params.model_dump()
-        existing = self.repo.get_by_idempotency_key(req.idempotency_key)
+        existing = self.repo.get_by_idempotency_key(idempotency_key)
         if existing is not None:
-            return self._replay(principal, req, params, existing)
+            return self._replay(principal, type_, params, expires_at, existing)
         now = self.clock()
-        expires_at = utc(req.expires_at)
+        expires_at = utc(expires_at)
         if expires_at <= now:
             raise ApiError(409, "expired", "expires_at is already in the past")
-        app, problem = self._precondition(req.type, params["app_id"])
+        app, problem = self._precondition(type_, params["app_id"])
         if app is None:
             raise ApiError(404, "not_found", problem or "unknown app")
         if problem:
             raise ApiError(409, "stale_precondition", problem)
         action = Action(
             id=new_action_id(),
-            type=req.type,
+            type=type_,
             params=params,
             state="requested",
             requested_by={"id": principal.id, "kind": principal.kind},
-            idempotency_key=req.idempotency_key,
+            idempotency_key=idempotency_key,
             created_at=now,
             updated_at=now,
             expires_at=expires_at,
         )
         stored, created = self.repo.create(action)
         if not created:  # lost an insert race on the same idempotency key
-            return self._replay(principal, req, params, stored)
+            return self._replay(principal, type_, params, expires_at, stored)
         self.audit.append(
             "action.requested",
             principal.as_dict(),
@@ -189,12 +231,14 @@ class ActionService:
         self.audit.append("action.awaiting_approval", None, stored.id, {})
         return (moved or stored).to_json(), True
 
-    def _replay(self, principal: Principal, req: ActionRequest, params: dict, existing: Action) -> tuple[dict, bool]:
+    def _replay(
+        self, principal: Principal, type_: str, params: dict, expires_at: datetime, existing: Action
+    ) -> tuple[dict, bool]:
         same = (
-            existing.type == req.type
+            existing.type == type_
             and existing.params == params
             and existing.requested_by.get("id") == principal.id
-            and existing.expires_at == utc(req.expires_at)
+            and existing.expires_at == utc(expires_at)
         )
         if not same:
             raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
@@ -215,7 +259,7 @@ class ActionService:
         self.audit.append("action.denied", principal.as_dict(), a.id, {"params": a.params})
         return moved.to_json()
 
-    def _approve(self, principal: Principal, action_id: str) -> dict:
+    def _approve(self, principal: Principal, action_id: str, extra: ApprovalInput) -> dict:
         if not principal.is_owner:
             raise self._deny(principal, "approve actions", action_id)
         a = self.expire_if_due(self._get(action_id))
@@ -231,10 +275,22 @@ class ActionService:
         app = self.catalog.get(app_id)
         claim, allowed, allow_absent = APP_CLAIMS[a.type]
         now = self.clock()
+        if extra.override is not None and a.type != "app.install":
+            raise ApiError(422, "conflict", "an owner override applies only to app.install")
+        override = None
         if a.type == "app.install" and app is not None and self.require_scan:
             problem = scan_problem(app_id, app.scan, now)
-            if problem:  # §10.3: nothing unscanned runs; the action stays awaiting_approval
+            if problem and extra.override is None:  # §10.3: nothing unscanned runs; stays awaiting_approval
                 raise ApiError(409, "stale_precondition", problem)
+            if problem:  # F-7: refuses (and audits) unless the box allows it and every check passes
+                if self.owner_override is None:
+                    raise self._deny(principal, "override a failed scan (no owner override on this gateway)", a.id)
+                override = self.owner_override.check(principal, a, app, problem, extra)
+        prepared = None
+        if app is not None and self.app_secrets is not None:
+            prepared = self.app_secrets.prepare(a, app, extra.sealed)  # refuses before anything is claimed
+        elif extra.sealed is not None:
+            raise ApiError(422, "conflict", "this gateway has no secret store")
         outcome = "stale" if app is None else self.repo.accept_and_claim(
             a.id, now, principal.as_dict(), app_id, claim, set(allowed), allow_absent
         )
@@ -244,24 +300,33 @@ class ActionService:
             problem = self._precondition(a.type, app_id)[1] or f"app {app_id!r} changed state concurrently"
             raise ApiError(409, "stale_precondition", problem)
         ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id}
-        self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params, **ids})
+        self.audit.append(
+            "action.approved", principal.as_dict(), a.id,
+            {"type": a.type, "params": a.params, **ids, **({"owner_override": True} if override else {})},
+        )
+        if override is not None:
+            self.owner_override.record(principal, a, override)
 
         try:
-            return self._dispatch(a, app, ids)
+            return self._dispatch(a, app, ids, principal, prepared, override)
         except Exception as exc:  # anything after accepted: the effect is unknown, never retry
             log.exception("dispatch interrupted")
             self._mark_outcome_unknown(a, f"dispatch error: {exc.__class__.__name__}")
             return self._get(a.id).to_json()
 
-    def _dispatch(self, a: Action, app: AppEntry, ids: dict) -> dict:
+    def _dispatch(
+        self, a: Action, app: AppEntry, ids: dict, approver: Principal, prepared=None, override: dict | None = None
+    ) -> dict:
         dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
         if dispatched is None:
             raise RuntimeError("accepted action could not move to dispatched")
         self.audit.append("action.dispatched", None, a.id, {"executor": self.executor.name, **ids})
 
         agent = self._agent_grant(a, app)
+        # The approved values become current only now, after acceptance (appsecrets/service.py).
+        secrets = self.app_secrets.commit(a, app, prepared, approver) if prepared is not None else []
         try:
-            result = self.executor.run(a.type, app, agent=agent)
+            result = self.executor.run(a.type, app, agent=agent, **({"secrets": secrets} if secrets else {}))
         except Exception as exc:  # unknown effect: never retry automatically
             log.exception("executor crashed")
             result = ExecResult("outcome_unknown", f"executor error: {exc.__class__.__name__}")
@@ -270,7 +335,10 @@ class ActionService:
             # issues a fresh one.
             self._revoke_agent(a, f"install {result.outcome}")
 
-        final = self.repo.transition(a.id, {"dispatched"}, result.outcome, self.clock(), result=result.to_json())
+        stored = result.to_json()
+        if override is not None:  # shown on the action itself, not only in the audit log
+            stored["owner_override"] = {"mark": override["mark"], "approved_by": ids["approved_by"]}
+        final = self.repo.transition(a.id, {"dispatched"}, result.outcome, self.clock(), result=stored)
         self._record_app_state(a, result.outcome)
         self.audit.append(
             f"action.{result.outcome}", None, a.id,
@@ -290,7 +358,7 @@ class ActionService:
         if a.type == "app.remove":
             self._revoke_agent(a, "app.remove")
             return AgentSecret(name=spec.secret, principal_id=spec.principal_id) if spec else None
-        if spec is None:
+        if spec is None or a.type != "app.install":
             return None
         token = new_agent_token()
         self.repo.issue_agent_token(spec.principal_id, app.id, token_hash(token), self.clock())
@@ -328,7 +396,7 @@ class ActionService:
             self._mark_outcome_unknown(a, f"gateway restarted while the action was {a.state}")
         now = self.clock()
         for app_id, st in self.repo.list_app_states().items():
-            if st.status in ("installing", "removing"):
+            if st.status in IN_FLIGHT:
                 self.repo.set_app_state(app_id, "unknown", now, st.action_id)
                 self.audit.append(
                     "app.reconciled", None, st.action_id,
@@ -337,7 +405,11 @@ class ActionService:
 
     def _record_app_state(self, a: Action, outcome: str) -> None:
         app_id, now = a.params["app_id"], self.clock()
-        if outcome == "succeeded":
+        if a.type == "app.configure" and outcome in ("succeeded", "failed"):
+            # A configure that failed left the app installed (with old or partly new values); the
+            # action's result says what happened, and the owner can submit the change again.
+            self.repo.set_app_state(app_id, "installed", now, a.id)
+        elif outcome == "succeeded":
             self.repo.set_app_state(app_id, "installed" if a.type == "app.install" else None, now, a.id)
         elif outcome == "failed":
             self.repo.set_app_state(app_id, "failed", now, a.id)

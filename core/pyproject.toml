@@ -33,6 +33,7 @@ dev = [
 [project.scripts]
 onemind-gateway = "onemind_core.__main__:main"
 onemind-audit-verify = "onemind_core.audit:main"
+onemind-secrets = "onemind_core.appsecrets.cli:main"
 
 [build-system]
 requires = ["hatchling>=1.24"]
