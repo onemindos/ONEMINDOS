@@ -53,14 +53,16 @@ requested → awaiting_approval ─┬→ accepted → dispatched ─┬→ succ
                                │                         ├→ failed
                                │                         └→ outcome_unknown
                                ├→ expired     (expires_at passed; approving then → 409 expired)
-                               ├→ cancelled   (owner denied)
-                               └→ failed      (stale_precondition found at approval time)
+                               └→ cancelled   (owner denied)
 ```
 - Executor exit 0 → `succeeded`; non-zero exit or missing kubectl → `failed`;
   timeout or crash → `outcome_unknown` (we cannot know what was applied). **Nothing is ever
   re-dispatched automatically**; a person decides.
 - Preconditions are checked twice: when the request is filed and again at approval
-  (e.g. two install requests for the same app: the second one fails with `stale_precondition`).
+  (e.g. two install requests for the same app: approving the second returns
+  `409 stale_precondition` and leaves it in `awaiting_approval`, for the owner to deny or let expire).
+  At approval the app is claimed (`installing`/`removing`) by a compare-and-swap in the same
+  transaction as `accepted`, so two different actions for one app cannot both reach the executor.
 
 ### Node status
 `last_seen` is when the *gateway* received the heartbeat (its own clock, so a node with a wrong

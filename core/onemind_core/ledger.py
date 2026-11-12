@@ -16,11 +16,13 @@ from typing import Protocol
 
 from sqlalchemy import JSON, DateTime, Integer, String, create_engine, select, update
 from sqlalchemy.engine import Engine, make_url
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 # requested -> awaiting_approval -> accepted -> dispatched -> succeeded | failed | outcome_unknown
-# awaiting_approval -> expired | cancelled ; a failed precondition at approval -> failed
+# awaiting_approval -> expired | cancelled (contract section 3). A stale precondition at approval
+# leaves the action in awaiting_approval and answers 409 stale_precondition.
 STATES = (
     "requested",
     "awaiting_approval",
@@ -35,7 +37,7 @@ STATES = (
 TERMINAL = frozenset({"succeeded", "failed", "outcome_unknown", "expired", "cancelled"})
 ALLOWED = {
     "requested": {"awaiting_approval", "expired", "cancelled"},
-    "awaiting_approval": {"accepted", "expired", "cancelled", "failed"},
+    "awaiting_approval": {"accepted", "expired", "cancelled"},
     "accepted": {"dispatched", "failed"},
     "dispatched": {"succeeded", "failed", "outcome_unknown"},
 }
@@ -100,6 +102,10 @@ class ActionRepository(Protocol):
     def transition(
         self, action_id: str, from_states: set[str], to_state: str, now: datetime, **fields
     ) -> Action | None: ...
+    def accept_and_claim(
+        self, action_id: str, now: datetime, decided_by: dict, app_id: str,
+        claim: str, allowed: set[str], allow_absent: bool,
+    ) -> str: ...
     def get_app_state(self, app_id: str) -> AppState | None: ...
     def set_app_state(self, app_id: str, status: str | None, now: datetime, action_id: str | None = None) -> None: ...
     def list_app_states(self) -> dict[str, AppState]: ...
@@ -219,6 +225,56 @@ class SqlActionRepository:
             if res.rowcount != 1:
                 return None
         return self.get(action_id)
+
+    def _insert(self):
+        return (postgresql if self.engine.dialect.name == "postgresql" else sqlite).insert
+
+    def accept_and_claim(
+        self, action_id: str, now: datetime, decided_by: dict, app_id: str,
+        claim: str, allowed: set[str], allow_absent: bool,
+    ) -> str:
+        """In one transaction: move the action awaiting_approval -> accepted and claim its app.
+
+        The claim is a compare-and-swap on app_states: UPDATE ... WHERE status IN allowed, or (when
+        the app may have no row, i.e. a fresh install) INSERT ... ON CONFLICT DO NOTHING. Two
+        different actions for one app therefore cannot both reach the executor.
+        Returns "accepted", "conflict" (the action was no longer awaiting_approval) or "stale"
+        (the app was not in an allowed state; nothing is changed).
+        """
+
+        class _Lost(Exception):
+            pass
+
+        try:
+            with self._session.begin() as s:
+                res = s.execute(
+                    update(ActionRow)
+                    .where(ActionRow.id == action_id, ActionRow.state == "awaiting_approval")
+                    .values(
+                        state="accepted", updated_at=now, version=ActionRow.version + 1,
+                        decided_by=decided_by, decided_at=now,
+                    )
+                )
+                if res.rowcount != 1:
+                    return "conflict"
+                res = s.execute(
+                    update(AppStateRow)
+                    .where(AppStateRow.app_id == app_id, AppStateRow.status.in_(allowed))
+                    .values(status=claim, updated_at=now, action_id=action_id)
+                )
+                claimed = res.rowcount == 1
+                if not claimed and allow_absent:
+                    res = s.execute(
+                        self._insert()(AppStateRow)
+                        .values(app_id=app_id, status=claim, updated_at=now, action_id=action_id)
+                        .on_conflict_do_nothing(index_elements=[AppStateRow.app_id])
+                    )
+                    claimed = res.rowcount == 1
+                if not claimed:
+                    raise _Lost  # roll back the accepted transition too
+        except _Lost:
+            return "stale"
+        return "accepted"
 
     def get_app_state(self, app_id: str) -> AppState | None:
         with self._session() as s:

@@ -26,6 +26,13 @@ log = logging.getLogger("onemind.actions")
 
 ActionType = Literal["app.install", "app.remove"]
 
+# Per action type: (app status while it runs, app statuses it may start from, may the app have no
+# state row at all). The same table drives the request-time check and the atomic claim at approval.
+APP_CLAIMS: dict[str, tuple[str, frozenset[str], bool]] = {
+    "app.install": ("installing", frozenset({"failed", "unknown"}), True),
+    "app.remove": ("removing", frozenset({"installed", "failed", "unknown"}), False),
+}
+
 
 class ActionParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -85,11 +92,10 @@ class ActionService:
             return None, f"app {app_id!r} is not in the catalog"
         state = self.repo.get_app_state(app_id)
         status = state.status if state else None
-        if action_type == "app.install" and status in ("installed", "installing", "removing"):
-            return app, f"app {app_id!r} is {status}"
-        if action_type == "app.remove" and status not in ("installed", "failed", "unknown"):
-            return app, f"app {app_id!r} is {status or 'not installed'}"
-        return app, None
+        _, allowed, allow_absent = APP_CLAIMS[action_type]
+        if status in allowed or (status is None and allow_absent):
+            return app, None
+        return app, f"app {app_id!r} is {status or 'not installed'}"
 
     # ---- API operations ------------------------------------------------------------------
     def list(self) -> list[dict]:
@@ -174,34 +180,26 @@ class ActionService:
         if a.state != "awaiting_approval":
             raise ApiError(409, "conflict", f"action is {a.state}, not awaiting_approval")
 
-        # Check current conditions again: the world may have changed since the request.
-        app, problem = self._precondition(a.type, a.params["app_id"])
-        if problem:
-            now = self.clock()
-            moved = self.repo.transition(
-                a.id, {"awaiting_approval"}, "failed", now,
-                decided_by=principal.as_dict(), decided_at=now,
-                result={"outcome": "failed", "error": "stale_precondition", "message": problem},
-            )
-            if moved is None:
-                raise ApiError(409, "conflict", "action changed state during approval")
+        # Check current conditions again: the world may have changed since the request. The claim
+        # on the app is made atomically with "accepted", so two actions for one app cannot both
+        # pass. A stale action stays in awaiting_approval (the owner may deny it or let it expire).
+        app_id = a.params["app_id"]
+        app = self.catalog.get(app_id)
+        claim, allowed, allow_absent = APP_CLAIMS[a.type]
+        now = self.clock()
+        outcome = "stale" if app is None else self.repo.accept_and_claim(
+            a.id, now, principal.as_dict(), app_id, claim, set(allowed), allow_absent
+        )
+        if outcome == "conflict":  # someone else decided first (compare-and-swap lost)
+            raise ApiError(409, "conflict", "action was decided concurrently")
+        if outcome == "stale":
+            problem = self._precondition(a.type, app_id)[1] or f"app {app_id!r} changed state concurrently"
             self.audit.append("action.stale_precondition", principal.as_dict(), a.id, {"message": problem})
             raise ApiError(409, "stale_precondition", problem)
-
-        now = self.clock()
-        accepted = self.repo.transition(
-            a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now
-        )
-        if accepted is None:  # someone else decided first (compare-and-swap lost)
-            raise ApiError(409, "conflict", "action was decided concurrently")
         self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params})
 
         dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
         assert dispatched is not None
-        app_id = a.params["app_id"]
-        self.repo.set_app_state(
-            app_id, "installing" if a.type == "app.install" else "removing", self.clock(), a.id
-        )
         self.audit.append("action.dispatched", None, a.id, {"executor": self.executor.name})
 
         try:

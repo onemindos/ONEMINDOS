@@ -204,7 +204,46 @@ def test_stale_precondition_at_approval(client, clock, executor):
     r = client.post(f"/v1/actions/{second}/approve", headers=OWNER)
     assert r.status_code == 409 and r.json()["error"] == "stale_precondition"
     a = client.get(f"/v1/actions/{second}", headers=OWNER).json()
-    assert a["state"] == "failed" and a["result"]["error"] == "stale_precondition"
+    # No awaiting_approval -> failed edge in the contract: the action stays undecided.
+    assert a["state"] == "awaiting_approval" and a["result"] is None and a["decided_by"] is None
+    assert len(executor.calls) == 1
+    assert client.post(f"/v1/actions/{second}/deny", headers=OWNER).json()["state"] == "cancelled"
+
+
+def test_two_actions_for_one_app_approved_concurrently_dispatch_once(client, clock, executor):
+    first = create(client, clock, key="a").json()["id"]
+    second = create(client, clock, key="b").json()["id"]
+    svc = client.app.state.actions
+    barrier = threading.Barrier(2, timeout=5)
+    real_get = svc.catalog.get
+    seen = threading.local()
+
+    def get_after_both_checked(app_id):
+        entry = real_get(app_id)
+        if not getattr(seen, "done", False):
+            seen.done = True
+            barrier.wait()  # both approvals have passed every read before either claims the app
+        return entry
+
+    svc.catalog.get = get_after_both_checked
+    results = {}
+
+    def go(aid):
+        from onemind_core.auth import Principal
+        from onemind_core.errors import ApiError
+
+        try:
+            results[aid] = svc.approve(Principal("owner", "person", "owner"), aid)["state"]
+        except ApiError as e:
+            results[aid] = e.error
+
+    threads = [threading.Thread(target=go, args=(aid,)) for aid in (first, second)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    svc.catalog.get = real_get
+    assert sorted(results.values()) == ["stale_precondition", "succeeded"]
     assert len(executor.calls) == 1
 
 
