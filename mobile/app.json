@@ -6,6 +6,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "os.onemind.mobile",
       "supportsTablet": true,
@@ -14,6 +15,10 @@
           "NSAllowsLocalNetworking": true
         },
         "NSLocalNetworkUsageDescription": "OneMind connects to your own hub on your local network."
+      },
+      "icon": {
+        "light": "./assets/icon.png",
+        "dark": "./assets/icon-dark.png"
       }
     },
     "android": {
@@ -29,7 +34,11 @@
         "android.permission.USE_FINGERPRINT",
         "com.google.android.c2dm.permission.RECEIVE",
         "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"
-      ]
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
     },
     "plugins": [
       "expo-secure-store",
