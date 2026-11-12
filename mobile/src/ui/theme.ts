@@ -74,5 +74,5 @@ export const font = {
   bold: S['font-weight'].bold as '700',
 };
 
-/** OneMind Red (brand/README.md). Only the logo uses it: red is the danger colour everywhere else. */
+/** OneMind Red exactly as the logo draws it (brand/brand.json). Controls use the tokens' `accent`, the same red moved for contrast. */
 export const BRAND_RED = '#FF333A';
