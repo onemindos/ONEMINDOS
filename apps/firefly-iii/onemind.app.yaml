@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+# Firefly III: Market batch 4 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: .env.example at v6.7.9 and the
+# image config of fireflyiii/core:version-6.7.9 (crane).
+# Image digests and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: firefly-iii
+  name: "Firefly III"
+  version: "6.7.9"
+  description: "Personal finance manager: accounts, budgets, categories and reports."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: finance
+  icon: icon.svg
+  license: "AGPL-3.0"
+  source: https://github.com/firefly-iii/firefly-iii
+  # §9.3 facts from the GitHub API (repos/firefly-iii/firefly-iii), read 2026-11-12. The newest
+  # GitHub release is a nightly develop build; v6.7.9 is the newest stable release.
+  links:
+    docs: "https://docs.firefly-iii.org/"
+    github: "https://github.com/firefly-iii/firefly-iii"
+    website: "https://firefly-iii.org"
+    support: "https://github.com/firefly-iii/firefly-iii/issues"
+  upstream: {release: "v6.7.9", released_at: "2026-10-11T19:16:51Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 1024}
+  web: {port: 8080}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
