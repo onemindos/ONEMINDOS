@@ -98,7 +98,7 @@ class ActionRepository(Protocol):
     def create(self, action: Action) -> tuple[Action, bool]: ...
     def get(self, action_id: str) -> Action | None: ...
     def get_by_idempotency_key(self, key: str) -> Action | None: ...
-    def list(self, limit: int = 200, states: set[str] | None = None) -> list[Action]: ...
+    def list(self, states: set[str] | None = None) -> list[Action]: ...
     def transition(
         self, action_id: str, from_states: set[str], to_state: str, now: datetime, **fields
     ) -> Action | None: ...
@@ -204,8 +204,9 @@ class SqlActionRepository:
             r = s.scalars(select(ActionRow).where(ActionRow.idempotency_key == key)).first()
             return _to_action(r) if r else None
 
-    def list(self, limit: int = 200, states: set[str] | None = None) -> list[Action]:
-        q = select(ActionRow).order_by(ActionRow.created_at.desc()).limit(limit)
+    def list(self, states: set[str] | None = None) -> list[Action]:
+        """Every action, newest first (section 3 defines no pagination or limit)."""
+        q = select(ActionRow).order_by(ActionRow.created_at.desc())
         if states is not None:
             q = q.where(ActionRow.state.in_(states))
         with self._session() as s:

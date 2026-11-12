@@ -106,6 +106,13 @@ def test_any_principal_can_read_actions(client, clock, headers):
     assert r.status_code == 200 and r.json()["id"] == aid
 
 
+def test_list_returns_every_action(client, clock):
+    for i in range(205):
+        assert create(client, clock, key=f"k{i}", app_id="whoami").status_code == 201
+        clock.advance(0.001)
+    assert len(client.get("/v1/actions", headers=OWNER).json()) == 205
+
+
 def test_get_unknown_action_404(client):
     r = client.get("/v1/actions/does-not-exist", headers=OWNER)
     assert r.status_code == 404 and r.json()["error"] == "not_found"
