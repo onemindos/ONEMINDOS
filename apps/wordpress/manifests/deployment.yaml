@@ -8,7 +8,9 @@
 #
 # The database is MariaDB (the Official Image), a native sidecar bound to 127.0.0.1. Its password is
 # generated once onto the database volume and read by both containers through *_FILE variables, so
-# no password is committed and no Secret exists.
+# no password is committed and no Secret exists. The MariaDB root password is generated the same
+# way into a folder only the database container mounts: the image's MARIADB_RANDOM_ROOT_PASSWORD
+# would print it to the container log ("GENERATED ROOT PASSWORD", docker-entrypoint.sh).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -42,8 +44,8 @@ spec:
           - name: net.ipv4.ip_unprivileged_port_start
             value: "0"
       initContainers:
-        # Generates the database password once. Mode 0640 with group 33: the MariaDB sidecar (UID 999)
-        # reads it through the pod's fsGroup. The data directory is made group-writable for the same
+        # Generates the database and root passwords once. Mode 0640 with group 33: the MariaDB sidecar
+        # (UID 999) reads them through the pod's fsGroup; the WordPress container mounts only onemind/. The data directory is made group-writable for the same
         # reason (the kubelet would create a missing subPath as root, and this step runs as UID 33).
         # It also creates the web root owned by UID 33: on first start the image's entrypoint copies
         # WordPress in with tar, which must be able to chmod the target directory.
@@ -54,13 +56,14 @@ spec:
             - -c
             - |
               set -eu
-              mkdir -p /mnt/mysql /mnt/onemind /html/html
+              mkdir -p /mnt/mysql /mnt/onemind /mnt/onemind-db /html/html
               chmod 0770 /mnt/mysql
-              f=/mnt/onemind/db-password
-              if [ ! -s "$f" ]; then
-                umask 027
-                head -c 96 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 40 > "$f"
-              fi
+              umask 027
+              for f in /mnt/onemind/db-password /mnt/onemind-db/root-password; do
+                if [ ! -s "$f" ]; then
+                  head -c 96 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 40 > "$f"
+                fi
+              done
           resources:
             requests:
               cpu: 10m
@@ -88,8 +91,8 @@ spec:
               value: wordpress
             - name: MARIADB_PASSWORD_FILE
               value: /onemind/db-password
-            - name: MARIADB_RANDOM_ROOT_PASSWORD
-              value: "1"
+            - name: MARIADB_ROOT_PASSWORD_FILE
+              value: /onemind-db/root-password
           # healthcheck.sh ships in the image (its documented HEALTHCHECK command).
           startupProbe:
             exec:
@@ -121,6 +124,10 @@ spec:
             - name: db
               mountPath: /onemind
               subPath: onemind
+              readOnly: true
+            - name: db
+              mountPath: /onemind-db
+              subPath: onemind-db
               readOnly: true
       containers:
         - name: wordpress
