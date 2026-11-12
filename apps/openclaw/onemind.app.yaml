@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# openclaw: Market batch 2 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by sdk/tools/app-scaffold
+# (§9.2) and completed from primary sources: scripts/k8s/manifests, docs/install/kubernetes.md, docs/gateway/config-gateway.md and docs/web/control-ui/connect-and-pair.md at v2026.11.3.
+# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-12.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: openclaw
+  name: "OpenClaw"
+  version: "2026.11.3"
+  description: "The AI that really does things. Any OS. Any Platform. The lobster way. 🦞"
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (agents) are listed in README.md
+  # until the schema has metadata.tags.
+  category: ai
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/openclaw/openclaw
+  links:
+    docs: "https://docs.openclaw.ai/"
+    github: "https://github.com/openclaw/openclaw"
+    website: "https://openclaw.ai"
+    support: "https://github.com/openclaw/openclaw/issues"
+  upstream: {release: "v2026.11.3", released_at: "2026-11-10T18:53:07Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 512}   # sum of the memory requests in manifests/
+  web: {port: 18789}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
