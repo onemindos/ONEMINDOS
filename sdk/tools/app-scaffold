@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 import re
 import shlex
@@ -38,6 +39,7 @@ U = common.UNVERIFIED
 COMPOSE_RE = re.compile(r"(^|/)(docker-)?compose(\.[\w-]+)?\.ya?ml$")
 GENERIC_REPO_NAMES = {"core", "server", "app", "backend", "main", "docker", "web"}
 HOST_PATH_PREFIXES = ("/var/run", "/run", "/etc", "/dev", "/sys", "/proc", "/lib/modules")
+ID_RE = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")  # the schema's metadata.id (max 59)
 NO_ARG_FLAGS = {"-d", "-i", "-t", "-it", "-ti", "--rm", "--detach", "--init", "--privileged",
                 "--interactive", "--tty"}
 
@@ -141,7 +143,9 @@ def from_helm(chart: str, values: str) -> dict | None:
         c, v = yaml.safe_load(chart) or {}, yaml.safe_load(values) or {}
     except yaml.YAMLError:
         return None
-    img = v.get("image") if isinstance(v, dict) else None
+    if not isinstance(c, dict) or not isinstance(v, dict):
+        return None
+    img = v.get("image")
     if not isinstance(img, dict) or not img.get("repository"):
         return None
     repo = img["repository"] if not img.get("registry") else f"{img['registry']}/{img['repository']}"
@@ -407,7 +411,7 @@ class Scaffold:
 
 
 def icon_svg(app_id: str, name: str) -> str:
-    initials = "".join(w[0] for w in re.split(r"[\s_-]+", name) if w)[:2] or app_id[:2]
+    initials = html.escape("".join(w[0] for w in re.split(r"[\s_-]+", name) if w)[:2] or app_id[:2])
     hue = int(hashlib.sha256(app_id.encode()).hexdigest()[:4], 16) % 360
     return ("<!-- SPDX-License-Identifier: Apache-2.0 -->\n"
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="{app_id}">\n'
@@ -446,8 +450,11 @@ def main(argv: list[str]) -> int:
     p.add_argument("--force", action="store_true", help="overwrite an existing apps/<id>/")
     p.add_argument("--no-queue", action="store_true", help="do not set the queue entry to in-pr")
     args = p.parse_args(argv)
-    if not re.match(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", args.repo):
+    if not re.match(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", args.repo) or ".." in args.repo:
         sys.stderr.write("error: repo must be owner/repo\n")
+        return 2
+    if args.id is not None and (len(args.id) > 59 or not ID_RE.match(args.id)):
+        sys.stderr.write("error: --id must be a DNS-1123 label of at most 59 characters (contract §11.5)\n")
         return 2
     queue = args.apps_dir / "_intake" / "queue.yaml"
     entry = queue_entry(queue, args.repo)

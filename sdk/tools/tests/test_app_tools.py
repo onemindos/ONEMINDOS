@@ -166,6 +166,13 @@ class ScaffoldTests(unittest.TestCase):
         got = scaffold.from_compose(compose, "widget")
         self.assertEqual((got["image"], got["ports"], got["other_services"]), ("ghcr.io/acme/widget:2", [80], ["db"]))
 
+    def test_bad_input(self):
+        self.assertEqual(scaffold.main(["owner/repo", "--id", "../../etc", "--apps-dir", str(self.tmp)]), 2)
+        self.assertEqual(scaffold.main(["../..", "--apps-dir", str(self.tmp)]), 2)
+        self.assertEqual(list(self.tmp.iterdir()), [])
+        self.assertIsNone(scaffold.from_helm("- not a mapping\n", "image: {repository: x}\n"))
+        self.assertIn(">&lt;x<", scaffold.icon_svg("x", "<script> x"))
+
     def test_queue_status(self):
         q = self.tmp / "queue.yaml"
         q.write_text("- {name: Uptime Kuma, github: louislam/uptime-kuma, priority: 1, status: queued}\n"
