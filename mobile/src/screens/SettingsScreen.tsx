@@ -15,6 +15,7 @@ const LIVE_LABEL: Record<string, string> = {
   connecting: 'connecting to the event stream…',
   retrying: 'reconnecting; checking every 10 s meanwhile',
   unsupported: 'checking every 10 s (this hub has no event stream)',
+  forbidden: 'checking every 10 s (your account has no live updates)',
   off: 'checking every 10 s',
   stopped: 'paused',
   unauthenticated: 'signed out',

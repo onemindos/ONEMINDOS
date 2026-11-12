@@ -149,6 +149,18 @@ describe('EventStream', () => {
     expect(FakeXhr.all).toHaveLength(1);
   });
 
+  it('a 403 (no events:read, e.g. a child or guest) stops the stream without signing out or renewing', async () => {
+    let refreshed = 0;
+    const { states, last } = open({ refresh: async () => (refreshed++, 'fresh') });
+    last().answer(403);
+    await Promise.resolve();
+    expect(states[states.length - 1]).toBe('forbidden');
+    expect(states).not.toContain('unauthenticated');
+    expect(refreshed).toBe(0);
+    jest.advanceTimersByTime(60_000);
+    expect(FakeXhr.all).toHaveLength(1);
+  });
+
   it('renews an expired session once, then reconnects with the new token', async () => {
     let refreshed = 0;
     const h = open({

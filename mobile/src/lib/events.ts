@@ -83,7 +83,12 @@ export interface XhrLike {
   getResponseHeader(name: string): string | null;
 }
 
-export type StreamState = 'connecting' | 'open' | 'retrying' | 'stopped' | 'unsupported' | 'unauthenticated';
+/**
+ * `forbidden`: the hub answered 403 because this person may not read the stream (§12.6 role defaults give a
+ * child or a guest no `events:read`, nor does an agent's `reader` grant). The session is fine; the app polls.
+ * `unauthenticated`: the hub answered 401 and the session could not be renewed.
+ */
+export type StreamState = 'connecting' | 'open' | 'retrying' | 'stopped' | 'unsupported' | 'forbidden' | 'unauthenticated';
 
 export interface EventStreamOptions {
   url: string;
@@ -227,8 +232,13 @@ export class EventStream {
       this.stopped = true;
       return this.setState('unsupported');
     }
-    if (status === 401 || status === 403) {
-      if (status === 401 && this.o.refresh && !this.renewed) {
+    if (status === 403) {
+      // Not allowed to read the stream is not "signed out": stop it and let polling carry on.
+      this.stopped = true;
+      return this.setState('forbidden');
+    }
+    if (status === 401) {
+      if (this.o.refresh && !this.renewed) {
         this.renewed = true;
         void this.o.refresh().then((t) => {
           if (this.stopped) return;

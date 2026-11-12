@@ -46,6 +46,17 @@ const EVENT_DEBOUNCE_MS = 300;
 
 type State = Omit<HubData, 'reload' | 'pendingCount' | 'unreadCount' | 'refreshing' | 'live'>;
 
+/**
+ * A list this person may not read is left out, not an error: §12.6 role defaults give a child no
+ * `nodes:read` or `actions:read`, and a guest no `actions:read`. Any other failure still fails the refresh.
+ */
+function unlessForbidden<T>(p: Promise<T>): Promise<T | undefined> {
+  return p.catch((e: unknown) => {
+    if (e instanceof ApiError && e.code === 'permission_denied') return undefined;
+    throw e;
+  });
+}
+
 export function HubDataProvider({
   children,
   onAlerts,
@@ -76,7 +87,12 @@ export function HubDataProvider({
     const mine = ++seq.current;
     lastLoad.current = Date.now();
     try {
-      const [instance, nodes, apps, actions] = await Promise.all([api.instance(), api.nodes(), api.apps(), api.actions()]);
+      const [instance, nodes, apps, actions] = await Promise.all([
+        api.instance(),
+        unlessForbidden(api.nodes()),
+        unlessForbidden(api.apps()),
+        unlessForbidden(api.actions()),
+      ]);
       // Optional §12 parts: a failure here keeps the old values instead of failing the whole refresh.
       const [inboxR, alertsR] = await Promise.allSettled([
         hasInbox ? api.notifications({ limit: 100 }) : Promise.resolve(undefined),
@@ -91,8 +107,8 @@ export function HubDataProvider({
         raised = inboxAlerts(seenInbox.current, inbox);
         seenInbox.current = new Set(inbox.map((n) => n.id));
       } else {
-        const snap = snapshot(actions, nodes);
-        raised = diffAlerts(prev.current, snap, actions, nodes);
+        const snap = snapshot(actions ?? [], nodes ?? []);
+        raised = diffAlerts(prev.current, snap, actions ?? [], nodes ?? []);
         prev.current = snap;
       }
       setState((s) => ({
