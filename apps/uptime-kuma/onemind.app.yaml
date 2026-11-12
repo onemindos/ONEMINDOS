@@ -15,8 +15,17 @@ metadata:
   icon: icon.svg
   license: MIT
   source: https://github.com/louislam/uptime-kuma
+  # §9.3 facts from the GitHub API (repos/louislam/uptime-kuma and its releases/latest), read 2026-11-12.
+  links:
+    docs: https://github.com/louislam/uptime-kuma/wiki
+    github: https://github.com/louislam/uptime-kuma
+    website: https://uptime.kuma.pet
+    support: https://github.com/louislam/uptime-kuma/issues
+  upstream: {release: "2.5.10", released_at: "2026-11-12T03:53:19Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 256}
   web: {port: 3001}
   manifests: manifests/
+  updates: {channel: stable, automerge: patch}

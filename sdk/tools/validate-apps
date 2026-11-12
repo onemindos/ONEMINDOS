@@ -11,6 +11,8 @@ Checks, per app directory (directories whose name starts with "_", such as apps/
   6. every container sets cpu and memory in both resources.requests and resources.limits
   7. a Service exposes spec.web.port (when spec.web is set), selects a workload's pods and
      targets a port that one of that workload's containers declares
+  8. renovate.json automerges exactly the apps with tier verified and spec.updates.automerge: patch
+     (contract §10.2; checked when renovate.json exists and every app is validated)
 
 Run with: python3 -I sdk/tools/validate-apps [--apps-dir DIR] [APP_ID ...]
 Exit codes: 0 all apps pass, 1 at least one check failed, 2 usage or environment error.
@@ -34,6 +36,8 @@ except ImportError as exc:  # pragma: no cover - environment problem
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = REPO_ROOT / "sdk" / "schema" / "onemind.app.schema.json"
+RENOVATE_PATH = REPO_ROOT / "renovate.json"
+RENOVATE_APP_RE = re.compile(r"^apps/([^/]+)/manifests/\*\*$")
 MANIFEST_NAME = "onemind.app.yaml"
 
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -256,6 +260,41 @@ class AppChecker:
             errors.append(f"no Service exposes spec.web.port {port}")
 
 
+def renovate_check(renovate_path: Path, apps_dir: Path, app_dirs: list[Path]) -> list[str]:
+    """Contract §10.2: Renovate automerges patch/digest bumps only for verified apps whose manifest
+    says automerge: patch. renovate.json cannot read the manifests, so the list is kept in sync here."""
+    try:
+        cfg = json.loads(renovate_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return [f"renovate.json cannot be read: {exc}"]
+    listed: set[str] = set()
+    for rule in cfg.get("packageRules") or []:
+        if rule.get("automerge") is True:
+            for pattern in rule.get("matchFileNames") or []:
+                m = RENOVATE_APP_RE.match(pattern)
+                if not m:
+                    return [f"renovate.json automerge rule matches '{pattern}', not apps/<id>/manifests/**"]
+                listed.add(m.group(1))
+            if set(rule.get("matchUpdateTypes") or []) - {"patch", "digest"}:
+                return ["renovate.json automerge rule must be limited to matchUpdateTypes patch and digest"]
+    expected = set()
+    for d in app_dirs:
+        try:
+            doc = yaml.safe_load((d / MANIFEST_NAME).read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError):
+            continue
+        if dig(doc, ("metadata", "tier")) == "verified" and dig(doc, ("spec", "updates", "automerge")) == "patch":
+            expected.add(d.name)
+    errors = []
+    if listed - expected:
+        errors.append("renovate.json automerges apps that are not verified with automerge: patch: "
+                      + ", ".join(sorted(listed - expected)))
+    if expected - listed:
+        errors.append("verified apps with automerge: patch missing from the renovate.json automerge rule: "
+                      + ", ".join(sorted(expected - listed)))
+    return errors
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="validate-apps", description=__doc__.split("\n")[0])
     parser.add_argument("--apps-dir", type=Path, default=REPO_ROOT / "apps",
@@ -316,8 +355,19 @@ def main(argv: list[str]) -> int:
         else:
             print(f"ok   apps/{app_dir.name}/")
 
+    renovate_failed = False
+    if not args.app_ids and args.apps_dir.resolve() == (REPO_ROOT / "apps").resolve() and RENOVATE_PATH.is_file():
+        renovate_errors = renovate_check(RENOVATE_PATH, apps_dir, app_dirs)
+        if renovate_errors:
+            renovate_failed = True
+            print("FAIL renovate.json")
+            for msg in renovate_errors:
+                print(f"  - {msg}")
+        else:
+            print("ok   renovate.json (automerge list matches the verified apps)")
+
     print(f"validate-apps: {len(app_dirs) - failed} passed, {failed} failed")
-    return 1 if failed else 0
+    return 1 if failed or renovate_failed else 0
 
 
 if __name__ == "__main__":

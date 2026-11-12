@@ -13,8 +13,17 @@ metadata:
   icon: icon.svg
   license: Apache-2.0 OR GPL-2.0
   source: https://github.com/binwiederhier/ntfy
+  # §9.3 facts from the GitHub API (repos/binwiederhier/ntfy and its releases/latest), read 2026-11-12.
+  links:
+    docs: https://docs.ntfy.sh/
+    github: https://github.com/binwiederhier/ntfy
+    website: https://ntfy.sh
+    support: https://github.com/binwiederhier/ntfy/issues
+  upstream: {release: "v2.37.2", released_at: "2026-11-04T01:45:20Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 256}
   web: {port: 8080}
   manifests: manifests/
+  updates: {channel: stable, automerge: patch}
