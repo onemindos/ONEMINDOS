@@ -169,6 +169,17 @@ def asgi_patch(c: TestClient, url: str, headers: dict, parts: list[bytes], end: 
     return start["status"], {k.decode().lower(): v.decode() for k, v in start["headers"]}
 
 
+def verified_snapshot(events, snapshot_id: str, started, target: str = "usb") -> None:
+    """A backup run of the photos unit that started at `started`, then its passed restore check."""
+    events.publish_event("backup", "run.finished", {
+        "result": "succeeded", "snapshot_id": snapshot_id, "target_id": target,
+        "started_at": started.isoformat(), "units": ["photos"],
+    })
+    events.publish_event("backup", "verify.finished", {
+        "result": "passed", "snapshot_id": snapshot_id, "target_id": target, "unit": "photos",
+    })
+
+
 # ---- switched off, who may use it ---------------------------------------------------------------
 
 def test_off_by_default_routes_404_but_documented(client):
@@ -529,6 +540,45 @@ def test_a_receipt_alone_is_no_proof(pc, root):
     assert phone.check([(key, data)]) == ["have"]
 
 
+def test_a_damaged_copy_is_healed_in_the_persons_own_file(pc, root, clock):
+    """Healing the shared copy is not enough: the person's file is a hard link to the old inode."""
+    phone = Phone(pc, OWNER)
+    events = pc.app.state.gateway.events
+    data, key = blob(25, 3000), phone.key("a")
+    phone.upload(key, data)
+    clock.advance(60)
+    verified_snapshot(events, "s-before", clock.now)
+    assert phone.levels()["items"][0]["level"] == "in_verified_backup"
+    os.truncate(store_files(root)[0], 100)  # one inode: the person's file is damaged with it
+    (mine,) = library_files(root, "owner")
+    assert mine.stat().st_size == 100
+    assert phone.check([(key, data)]) == ["need"]
+    clock.advance(60)
+    assert phone.upload(key, data)["deduped"] is True
+    assert library_files(root, "owner") == [mine] and mine.read_bytes() == data
+    assert store_files(root)[0].read_bytes() == data
+    assert phone.check([(key, data)]) == ["have"]
+    # The snapshot held the damaged bytes: the healed photo is only on the box until the next one.
+    assert phone.levels()["items"][0]["level"] == "on_box"
+    clock.advance(60)
+    verified_snapshot(events, "s-after", clock.now)
+    assert phone.levels()["items"][0]["level"] == "in_verified_backup"
+
+
+def test_a_deleted_library_file_is_asked_for_again(pc, root):
+    phone = Phone(pc, OWNER)
+    data, key = blob(26, 2000), phone.key("a")
+    phone.upload(key, data)
+    (mine,) = library_files(root, "owner")
+    mine.unlink()  # the shared copy alone is not the person's photo
+    assert phone.check([(key, data)]) == ["need"]
+    assert phone.upload(key, data)["deduped"] is True
+    assert library_files(root, "owner") == [mine] and mine.read_bytes() == data
+    assert len(store_files(root)) == 1 and not list((root / "staging").iterdir())
+    assert not [p for p in mine.parent.iterdir() if p.name.startswith(".")]  # no temporary file left
+    assert phone.check([(key, data)]) == ["have"]
+
+
 def test_an_edited_photo_is_a_new_upload_for_the_same_key(pc):
     phone = Phone(pc, OWNER)
     key = phone.key("a")
@@ -585,6 +635,37 @@ def test_receipt_levels_follow_backup_snapshots_and_restore_checks(pc, clock):
     events.publish_event("backup", "snapshot.removed", {"snapshot_id": "4f2a9c", "target_id": "usb"})
     assert {k: phone.coverage()[k] for k in ("backed_up", "verified")} == {"backed_up": 0, "verified": 0}
     assert {i["level"] for i in phone.levels()["items"]} == {"on_box"}
+
+
+def test_a_snapshot_that_starts_while_the_file_is_stored_does_not_count(pc, clock, monkeypatch):
+    """The asset's time is read after its file is linked and fsynced, never before."""
+    phone = Phone(pc, OWNER)
+    svc, events = pc.app.state.photos, pc.app.state.gateway.events
+    link = svc.files.link_into_library
+
+    def slow_link(*args, **kw):  # e.g. a copy on a filesystem without hard links
+        clock.advance(5)
+        started = clock.now  # a backup run starts before the file exists
+        clock.advance(5)
+        out = link(*args, **kw)
+        verified_snapshot(events, "s-during", started)
+        return out
+
+    monkeypatch.setattr(svc.files, "link_into_library", slow_link)
+    phone.upload(phone.key("a"), blob(27, 500))
+    assert phone.levels()["items"][0]["level"] == "on_box"
+    assert phone.coverage()["verified"] == 0
+
+
+def test_a_removed_snapshot_without_a_target_stops_counting(pc, clock):
+    phone = Phone(pc, OWNER)
+    events = pc.app.state.gateway.events
+    phone.upload(phone.key("a"), blob(28, 400))
+    clock.advance(60)
+    verified_snapshot(events, "s1", clock.now, target="usb")
+    assert phone.coverage()["verified"] == 1
+    events.publish_event("backup", "snapshot.removed", {"snapshot_ids": ["s1"]})
+    assert phone.coverage()["verified"] == phone.coverage()["backed_up"] == 0
 
 
 def test_receipts_page_by_cursor(pc):

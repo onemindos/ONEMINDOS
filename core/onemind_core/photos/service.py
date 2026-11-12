@@ -243,7 +243,7 @@ class PhotosService:
                 raise PhotosError(422, "conflict", "each item needs client_key (64 hex), size and hash (sha256:<64 hex>)")
             parsed.append((key, size, m.group(1)))
         now = self.clock()
-        held = self.repo.check(src, parsed, self.files.blob_present, now) if parsed else []
+        held = self.repo.check(src, parsed, self.files.asset_present, now) if parsed else []
         self.repo.touch_source(src.id, now)
         return [{"client_key": k, "status": "have" if ok else "need"} for (k, _, _), ok in zip(parsed, held)]
 
@@ -385,16 +385,28 @@ class PhotosService:
             )
             raise PhotosError(409, "conflict", "the bytes do not match OneMind-Content-Hash; nothing was kept, create a new upload")
         library_path = None
-        if self.repo.person_asset(up.owner, up.hash) is None:
+        healed = False
+        asset = self.repo.person_asset(up.owner, up.hash)
+        if asset is None:
             self.files.place_blob(staged, up.hash, up.length)
             src = self.repo.get_source(up.owner, up.source_id)
             when = up.taken_at if up.taken_at is not None and up.taken_at.year >= 1970 and up.taken_at <= now + timedelta(days=1) else now
             folder = PurePosixPath(person_folder(up.owner), src.folder if src else "phone", f"{when:%Y}", f"{when:%m}")
             library_path = self.files.link_into_library(up.hash, folder, up.file_name)
-        elif not self.files.blob_present(up.hash, up.length):
-            self.files.place_blob(staged, up.hash, up.length)  # the shared copy was damaged: heal it
+        else:  # the person has this photo: heal whatever check found missing or damaged
+            if not self.files.blob_present(up.hash, up.length):
+                self.files.place_blob(staged, up.hash, up.length)
+                healed = True
+            if not self.files.library_file_present(asset[1], up.length):
+                self.files.restore_library_file(up.hash, asset[1])
+                healed = True
         self.files.discard(staged)
-        _, deduped = self.repo.commit_upload(up, library_path, lambda: new_id("ast"), now, now + self.ttl)
+        # Read the clock only now, after every file is linked and fsynced: a backup snapshot that
+        # started before this moment may not hold the file, so it must not raise the receipt level.
+        stored_at = self.clock()
+        _, deduped = self.repo.commit_upload(
+            up, library_path, lambda: new_id("ast"), stored_at, stored_at + self.ttl, healed=healed
+        )
         if deduped and library_path is not None:  # another of this person's uploads won the race
             self.files.discard(self.files.root / library_path)
         return {"client_key": up.client_key, "hash": "sha256:" + up.hash, "deduped": deduped}

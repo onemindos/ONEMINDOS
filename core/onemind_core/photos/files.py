@@ -140,6 +140,18 @@ class PhotoFiles:
             return False
         return stat.S_ISREG(st.st_mode) and st.st_size == size
 
+    def library_file_present(self, library_path: str, size: int) -> bool:
+        """The person's own file (a path under <dir> from link_into_library) is a regular file of size."""
+        try:
+            st = os.lstat(self.root / library_path)
+        except FileNotFoundError:
+            return False
+        return stat.S_ISREG(st.st_mode) and st.st_size == size
+
+    def asset_present(self, h: str, size: int, library_path: str) -> bool:
+        """Both the stored copy and the person's own file hold size bytes: what `check` calls "have"."""
+        return self.blob_present(h, size) and self.library_file_present(library_path, size)
+
     def place_blob(self, staged: Path, h: str, size: int) -> None:
         """Make the verified, fsynced staged file the stored copy of h, unless a good one exists."""
         dest = self.store_path(h)
@@ -180,6 +192,29 @@ class PhotoFiles:
             fsync_dir(folder)
             return target.relative_to(self.root).as_posix()
         raise FileExistsError(f"no free file name for {name!r}")
+
+    def restore_library_file(self, h: str, library_path: str) -> None:
+        """Put the stored copy of h back at the person's own path, replacing a missing or damaged file.
+
+        A damaged stored copy is healed by a new inode (place_blob), so the person's old hard link
+        still holds the damaged bytes until it is replaced here. The new file is made under a
+        temporary name (library names never start with ".") and renamed over the old one.
+        """
+        target = self.root / library_path
+        target.parent.mkdir(mode=0o750, parents=True, exist_ok=True)
+        tmp = target.parent / f".heal-{secrets.token_hex(8)}"
+        try:
+            try:
+                os.link(self.store_path(h), tmp)
+            except OSError as exc:
+                if exc.errno not in _NO_LINK:
+                    raise
+                self._copy_into(self.store_path(h), tmp)
+            os.replace(tmp, target)
+        except BaseException:
+            self.discard(tmp)
+            raise
+        fsync_dir(target.parent)
 
     def _copy_into(self, src: Path, dest: Path) -> None:
         """Copy for filesystems without hard links: create dest exclusively, copy, fsync.

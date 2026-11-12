@@ -60,6 +60,8 @@ class PhotoAssetRow(Base):
     library_path: Mapped[str] = mapped_column(String(1024))
     file_name: Mapped[str] = mapped_column(String(255))
     taken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # When the person's file last got verified bytes, read after it was linked and fsynced (and
+    # reset when a damaged copy is healed). Backup levels count only snapshots that started later.
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
@@ -190,9 +192,11 @@ class PhotosRepository(SqlRepository):
     # ---- check --------------------------------------------------------------------------------
     def check(
         self, source: Source, items: list[tuple[str, int, str]],
-        present: Callable[[str, int], bool], now: datetime,
+        present: Callable[[str, int, str], bool], now: datetime,
     ) -> list[bool]:
         """For each (client_key, size, hash): True when this person holds those bytes on disk.
+
+        present(hash, size, library_path) checks the stored copy and the person's own file.
 
         Only the source owner's own assets are consulted, so the answer never depends on what
         another person holds (no hash oracle). A hit without a receipt (a duplicate on the phone,
@@ -211,8 +215,8 @@ class PhotosRepository(SqlRepository):
                         )
                     }
                     held = {
-                        h: (aid, size) for aid, h, size in s.execute(
-                            select(PhotoAssetRow.id, PhotoAssetRow.blob_hash, PhotoBlobRow.size)
+                        h: (aid, size, path) for aid, h, size, path in s.execute(
+                            select(PhotoAssetRow.id, PhotoAssetRow.blob_hash, PhotoBlobRow.size, PhotoAssetRow.library_path)
                             .join(PhotoBlobRow, PhotoBlobRow.hash == PhotoAssetRow.blob_hash)
                             .where(PhotoAssetRow.owner == source.owner, PhotoAssetRow.blob_hash.in_(hashes))
                         )
@@ -220,7 +224,7 @@ class PhotosRepository(SqlRepository):
                     out: list[bool] = []
                     for key, size, h in items:
                         hit = held.get(h)
-                        ok = hit is not None and hit[1] == size and present(h, size)
+                        ok = hit is not None and hit[1] == size and present(h, size, hit[2])
                         if ok:
                             r = receipts.get(key)
                             if r is None:
@@ -300,19 +304,25 @@ class PhotosRepository(SqlRepository):
                 )
             ]
 
-    def person_asset(self, owner: str, h: str) -> str | None:
+    def person_asset(self, owner: str, h: str) -> tuple[str, str] | None:
+        """(asset id, library path) of this person's photo with these bytes, if they have one."""
         with self.db.session() as s:
-            return s.execute(
-                select(PhotoAssetRow.id).where(PhotoAssetRow.owner == owner, PhotoAssetRow.blob_hash == h)
-            ).scalar_one_or_none()
+            row = s.execute(
+                select(PhotoAssetRow.id, PhotoAssetRow.library_path)
+                .where(PhotoAssetRow.owner == owner, PhotoAssetRow.blob_hash == h)
+            ).one_or_none()
+            return (row[0], row[1]) if row else None
 
     def commit_upload(
         self, up: Upload, library_path: str | None, new_id: Callable[[], str], now: datetime, keep_until: datetime,
+        healed: bool = False,
     ) -> tuple[str, bool]:
         """Record a verified, fsynced upload: blob, asset, receipt and the upload's own receipt.
 
         Returns (asset_id, deduped). deduped is True when this person already held these bytes
         (from this or another of their phones); the caller then drops its new library file.
+        healed: the person's existing photo was missing or damaged on disk and was rewritten now,
+        so snapshots taken before now do not hold it (its backup level starts again).
         """
         ins = self.db.insert()
         with self.db.session.begin() as s:
@@ -334,6 +344,8 @@ class PhotosRepository(SqlRepository):
                 asset_id = s.execute(
                     select(PhotoAssetRow.id).where(PhotoAssetRow.owner == up.owner, PhotoAssetRow.blob_hash == up.hash)
                 ).scalar_one()
+                if healed:
+                    s.execute(update(PhotoAssetRow).where(PhotoAssetRow.id == asset_id).values(created_at=now))
             s.execute(
                 ins(PhotoReceiptRow).values(
                     source_id=up.source_id, client_key=up.client_key, blob_hash=up.hash, asset_id=asset_id, received_at=now,
@@ -419,9 +431,11 @@ class PhotosRepository(SqlRepository):
         return bool(res.rowcount)
 
     def mark_removed(self, target_id: str, snapshot_ids: Iterable[str], at: datetime) -> None:
+        """Stop counting these snapshots. Without a target id, the ids match on every target: a
+        removal must never be missed, while a wrongly removed snapshot only lowers a level."""
         S = PhotoSnapshotRow
+        where = [S.snapshot_id.in_(list(snapshot_ids)), S.removed_at.is_(None)]
+        if target_id:
+            where.append(S.target_id == target_id)
         with self.db.session.begin() as s:
-            s.execute(
-                update(S).where(S.target_id == target_id, S.snapshot_id.in_(list(snapshot_ids)), S.removed_at.is_(None))
-                .values(removed_at=at)
-            )
+            s.execute(update(S).where(*where).values(removed_at=at))
