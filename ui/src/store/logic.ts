@@ -202,7 +202,7 @@ export function buildRequest(type: StoreActionType, app: Pick<CatalogApp, 'id' |
   const params = { app_id: app.id, ...extra };
   const summary: Record<StoreActionType, string> = {
     'app.install': `Install ${app.name}${extra.node ? ` on ${String(extra.node)}` : ''}`,
-    'app.remove': `Remove ${app.name}${extra.keep_data === false ? ' and delete its data' : ' (its data is kept)'}`,
+    'app.remove': `Remove ${app.name}${extra.keep_data === false ? ' and delete its data' : extra.keep_data === true ? ' (its data is kept)' : ''}`,
     'app.start': `Start ${app.name}`,
     'app.stop': `Stop ${app.name}`,
     'app.restart': `Restart ${app.name}`,

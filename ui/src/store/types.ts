@@ -184,6 +184,8 @@ export interface InstalledApp {
   checked_at: string;
   /** PROPOSED per-app URL behind the gateway login (PD-02). */
   url?: string;
+  /** Replaces "behind the OneMind sign-in" (and its lock) when `url` is not behind it, e.g. a v0 hub's direct app port. */
+  url_note?: string;
   update?: ReleaseNote;
   data_size?: string;
   last_backup?: string | null;

@@ -230,6 +230,24 @@ describe('Installed', () => {
     expect(onRequest.mock.calls.map((c) => c[0].type)).toEqual(['app.remove', 'app.delete_data']);
     expect(onRequest.mock.calls[0]![0].params.keep_data).toBe(false);
   });
+  it('with removeNote (a hub that cannot keep data) promises nothing: no keep choice, only app_id sent', async () => {
+    const u = userEvent.setup();
+    const note = 'This hub deletes the app’s namespace on removal.';
+    const { onRequest } = manage({ removeNote: note });
+    await u.click(screen.getByRole('button', { name: /Remove/ }));
+    const dlg = screen.getByRole('alertdialog');
+    expect(dlg).toHaveTextContent(note);
+    expect(within(dlg).queryByRole('radio')).toBeNull();
+    expect(dlg).not.toHaveTextContent('its data is kept');
+    await u.click(within(dlg).getByRole('button', { name: 'Request removal' }));
+    expect(onRequest.mock.calls.map((c) => c[0].type)).toEqual(['app.remove']);
+    expect(onRequest.mock.calls[0]![0].params).toEqual({ app_id: installed[0]!.app.id });
+  });
+  it('says when the app address is not behind the OneMind sign-in', () => {
+    manage({ inst: { ...installed[0]!, url: 'http://box:8123/', url_note: 'the app’s own port' } });
+    expect(screen.getByText(/box:8123\/ · the app’s own port/)).toBeInTheDocument();
+    expect(screen.queryByText(/behind the OneMind sign-in/)).toBeNull();
+  });
   it('update shows release notes and the health-gated steps', async () => {
     const u = userEvent.setup();
     const { onRequest } = manage();
