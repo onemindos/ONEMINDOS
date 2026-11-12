@@ -8,3 +8,24 @@
 - {name: Actual Budget, github: actualbudget/actual, priority: 1, status: verified}
 - {name: Zigbee2MQTT, github: Koenkk/zigbee2mqtt, priority: 1, status: verified}
 # Founder: paste the rest of the 100+ list below (name + github owner/repo is enough).
+# Market batches 4 and 5 (contract §9.5; apps/_intake/CANDIDATES.md "Proposed queue batches").
+- {name: Penpot, github: penpot/penpot, priority: 2, status: in-pr, notes: "market batch 4"}
+- {name: qBittorrent, github: qbittorrent/qBittorrent, priority: 2, status: in-pr, notes: "market batch 4"}
+- {name: changedetection.io, github: dgtlmoon/changedetection.io, priority: 2, status: in-pr, notes: "market batch 4"}
+- {name: Firefly III, github: firefly-iii/firefly-iii, priority: 2, status: in-pr, notes: "market batch 4"}
+- {name: WordPress, github: WordPress/WordPress, priority: 2, status: in-pr, notes: "market batch 4"}
+- {name: Linkwarden, github: linkwarden/linkwarden, priority: 2, status: in-pr, notes: "market batch 4"}
+- {name: LibreSpeed, github: librespeed/speedtest, priority: 2, status: in-pr, notes: "market batch 4"}
+- {name: Mealie, github: mealie-recipes/mealie, priority: 2, status: in-pr, notes: "market batch 4"}
+- {name: Grocy, github: grocy/grocy, priority: 2, status: in-pr, notes: "market batch 4"}
+- {name: Lobe Hub, github: lobehub/lobehub, priority: 2, status: "blocked: LICENSE at v2.3.2 is the LobeHub Community License (Apache-2.0 plus extra conditions: a commercial licence for derivative works), not Apache-2.0 as candidates.csv says; L?, list-only (TAXONOMY §2)", notes: "market batch 4"}
+- {name: Netdata, github: netdata/netdata, priority: 2, status: "blocked: the agent image redistributes the Netdata Cloud UI under NCUL1, a non-open licence (REDISTRIBUTED.md at v2.12.3); also needs host PID, network and /proc access, which apps may not use", notes: "market batch 5"}
+- {name: AnythingLLM, github: Mintplex-Labs/anything-llm, priority: 2, status: in-pr, notes: "market batch 5"}
+- {name: Komga, github: gotson/komga, priority: 2, status: in-pr, notes: "market batch 5"}
+- {name: Tautulli, github: Tautulli/Tautulli, priority: 2, status: in-pr, notes: "market batch 5"}
+- {name: Lidarr, github: Lidarr/Lidarr, priority: 2, status: in-pr, notes: "market batch 5"}
+- {name: Metabase, github: metabase/metabase, priority: 2, status: in-pr, notes: "market batch 5"}
+- {name: copyparty, github: 9001/copyparty, priority: 2, status: in-pr, notes: "market batch 5"}
+- {name: Bazarr, github: morpheus65535/bazarr, priority: 2, status: in-pr, notes: "market batch 5"}
+- {name: Excalidraw, github: excalidraw/excalidraw, priority: 2, status: in-pr, notes: "market batch 5"}
+- {name: Umami, github: umami-software/umami, priority: 2, status: in-pr, notes: "market batch 5"}
