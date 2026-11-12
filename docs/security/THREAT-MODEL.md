@@ -7,13 +7,13 @@
 | Branch | Head | What it adds |
 |---|---|---|
 | `feat/gateway-agent-mcp` | `951470f` | `POST /mcp`, app agent principals (§11.2), scan check (§11.1) |
-| `feat/deploy-v0` | `2ceea93` | `deploy/install.sh`, gateway and NATS units, compose dev hub |
-| `feat/onemindd-updater` | `8bf2fbc` | `onemindd update`: TUF client, RAUC install, reboot |
-| `feat/app-pipeline` | `0aa6d93` (+ uncommitted `app-gate`) | app CI gate, scaffolder |
-| `feat/os-security-pipeline` | uncommitted on `69c5890` | nightly security channel, TUF repo tooling, image `update.conf` |
-| `feat/mobile-shell` | uncommitted on `8838a28` | an Expo skeleton only (no screens yet) |
+| `feat/deploy-v0` | `fa24b0a` | `deploy/install.sh`, gateway and NATS units, compose dev hub |
+| `feat/onemindd-updater` | `8bf2fbc` (merged into `main` as #15 since) | `onemindd update`: TUF client, RAUC install, reboot |
+| `feat/app-pipeline` | `3c22f91` | app CI gate (`sdk/tools/app-gate`), scaffolder |
+| `feat/os-security-pipeline` | `a1f1fbf` | nightly security channel, TUF repo tooling, image `update.conf` |
+| `feat/mobile-shell` | `cc62069` | Android and iPhone shells (Expo): connect, home, nodes, apps, approvals, activity, settings |
 
-Line references such as `core/onemind_core/auth.py:144` point at `main`. References into a wave-2 branch name the branch first. A branch may change before it merges, so re-check a cited line when you act on it.
+Line references such as `core/onemind_core/auth.py:144` point at `main`. References into a wave-2 branch name the branch first. Branch line numbers were re-checked against the heads in this table on 2026-11-12. A branch may change before it merges, so re-check a cited line when you act on it.
 
 **Serves:** brief 30 B6 (D-B6.1, D-B6.2, D-B6.5), B4.5 (SB-1…SB-10), B9 (gateway), SEC-01…SEC-12 in [`research-output/07-security-compliance.md`](../../research-output/07-security-compliance.md) §10, and the founder focus of 2026-11-12: replace the founder's own Kubernetes cluster with OneMind OS and use it every day.
 **Companion:** [`HARDENING-BACKLOG.md`](HARDENING-BACKLOG.md) holds the ranked fixes (`H-xx`) that this document refers to.
@@ -68,7 +68,7 @@ A **trust boundary** is a line where data passes from something we trust less to
 | Audit chain | `ONEMIND_AUDIT_PATH`, default `data/audit.jsonl` (`core/onemind_core/config.py:80`) | The record that an agent asked and a human approved. |
 | App agent tokens | hashed in the ledger; plain in Secret `<name>` in `app-<id>` (`feat/gateway-agent-mcp`: `core/onemind_core/executors.py:52-66`) | Let an app's AI request actions. |
 | Model-provider keys (Hermes) | Secret `hermes-agent-credentials`, created by the owner (`sdk/contracts/poc-v0.md` §7) | Cost money and can leak data if stolen. |
-| Signing keys (RAUC, TUF targets/snapshot/timestamp) | GitHub repository secrets (`feat/os-security-pipeline`: `.github/workflows/security-nightly.yml:148-152, 218-220, 284-286`) | Whoever holds them can push an OS image to every box. |
+| Signing keys (RAUC, TUF targets/snapshot/timestamp) | GitHub repository secrets (`feat/os-security-pipeline`: `.github/workflows/security-nightly.yml:151, 217-219, 293-295, 392-394`) | Whoever holds them can push an OS image to every box. |
 | User data (`/data`) | ext4, not encrypted (`os/boards/x86_64-efi/layout.yaml:13`, "LUKS2 planned") | Photos, home data, app volumes, backups' source. |
 
 ### 2.2 Attackers we design for now
@@ -93,11 +93,11 @@ Ranked by how directly they lead to full control, for the founder's goal of runn
 
 | # | Finding | Severity | Attacker | Evidence | Fix |
 |---|---|---|---|---|---|
-| 1 | **The executor applies any manifest.** `kubectl apply -k <app>/manifests -n app-<id>` applies whatever the kustomization renders: privileged pods, `hostPath: /`, `hostNetwork`, `NodePort`, and cluster-scoped kinds such as `Namespace`. No Pod Security admission is configured. A pod with `hostPath` on `/data` reads `/data/k3s` (cluster CA keys) and `/etc/onemind` (tokens file) and owns the box. | Critical | A2, A5 | `core/onemind_core/executors.py:74-82`; `os/.../k3s.service:17` (no PSA flags); `feat/app-pipeline`: `sdk/tools/app-gate` checks non-root only (`nonroot`, lines 259-288) | H-01, H-02, H-03, H-04 |
+| 1 | **The executor applies any manifest.** `kubectl apply -k <app>/manifests -n app-<id>` applies whatever the kustomization renders: privileged pods, `hostPath: /`, `hostNetwork`, `NodePort`, and cluster-scoped kinds such as `Namespace`. No Pod Security level is enforced (the admission plugin defaults to `privileged`). A pod with `hostPath` on `/data` reads `/data/k3s` (cluster CA keys) and `/etc/onemind` (tokens file) and owns the box. | Critical | A2, A5 | `core/onemind_core/executors.py:74-82`; `os/.../k3s.service:17` (no PSA flags); `feat/app-pipeline`: `sdk/tools/app-gate` checks only for root (`nonroot`, lines 260-288), and accepts root when privilege escalation is off and all capabilities are dropped | H-01, H-02, H-03, H-04 |
 | 2 | **The gateway's Kubernetes identity is `admin` in every namespace**, bound by a `ClusterRoleBinding`, plus create/delete on all namespaces. A gateway bug or a stolen kubeconfig gives `kube-system`, so node root. | Critical | A1 (via a gateway bug), A2 | `feat/deploy-v0`: `deploy/install.sh:436-451` | H-03 |
 | 3 | **Owner token in clear text on the LAN.** The gateway serves plain HTTP on `0.0.0.0:8080`; anyone who can sniff the LAN or Wi-Fi reads the bearer token. Brief 30 (P6, REC-DEC-30) says the developer install binds the dashboard to localhost; `install.sh` binds `0.0.0.0` by default. | High | A1 | `core/onemind_core/config.py:86`; `feat/deploy-v0`: `deploy/install.sh:29`; brief 30 line 225 | H-05 |
 | 4 | **NATS has no authentication and listens on every interface.** Any LAN device or any pod can publish fake heartbeats for any node id (including the hub's), read `onemind.audit`, or flood the bus. | High | A1, A2, A6 | `feat/deploy-v0`: `deploy/install.sh:281-285` ("no auth/TLS"); `core/onemind_core/bus.py:50-58` (no credentials) | H-06 |
-| 5 | **Signing keys are plain repository secrets.** RAUC and all three online TUF keys are read by one workflow with no protected `environment:`. Anyone who can push a workflow to any branch of the repo can read them and sign an OS update for every box. | High | A5 | `feat/os-security-pipeline`: `.github/workflows/security-nightly.yml:148-152` | H-07 |
+| 5 | **Signing keys are plain repository secrets.** RAUC and all three online TUF keys are read by one workflow with no protected `environment:`. Anyone who can push a workflow to any branch of the repo can read them and sign an OS update for every box. | High | A5 | `feat/os-security-pipeline`: `.github/workflows/security-nightly.yml:151, 217-219, 293-295, 392-394` | H-07 |
 | 6 | **Scan records are not bound to what is installed.** `scan.json` holds a date and `pass`, not a digest of the rendered manifests or images. A manifest edited after the scan still installs as "scanned". Kustomize can also pull remote bases at apply time. | High | A5 | `feat/gateway-agent-mcp`: `core/onemind_core/scan.py:31-66` | H-08, H-02 |
 | 7 | **The audit chain proves order, not authorship.** Anyone who can write the file can rewrite it from the first line with fresh hashes, or cut the tail, and `verify()` still says OK. The NATS copy is not stored anywhere. | Medium | A2 (via #1), insider | `core/onemind_core/audit.py:37-38, 140-163` | H-10 |
 | 8 | **Secrets at rest are not encrypted.** `/data` is plain ext4; k3s runs without `--secrets-encryption`, so model keys and agent tokens sit readable in the k3s datastore on disk. | Medium (High once the box holds the founder's real secrets) | A7, A2 | `os/boards/*/layout.yaml:13`; `k3s.service:17` | H-11, H-12 |
@@ -149,7 +149,7 @@ What it is: `POST /mcp`, so an AI agent can list nodes and apps and **request** 
 | T | Tokens file edited to add an owner | File mode 0640 root:onemind (`feat/deploy-v0`: `install.sh:474-490`) | Any pod with `hostPath` on `/etc` (finding #1) or the gateway user can add a hash; mtime reload picks it up silently (`auth.py:110-138`) | H-01, H-09 (audit token-set changes) |
 | R | Unknown who used a token | Principal id in each audit line | No "last used" record; no token id in the audit | H-09 |
 | I | Owner token leaks from the terminal or a screenshot | Printed once (`install.sh:551`) | Terminal scrollback and CI logs keep it; join token printed in the same banner | H-09 |
-| I | Agent token readable in the app namespace | That is the delivery mechanism (§11.2); `automountServiceAccountToken: false` on Hermes | Any pod in `app-<id>` reads it; cross-node pod traffic is unencrypted (§4.8) | H-17 |
+| I | Agent token readable in the app namespace | That is the delivery mechanism (§11.2); `automountServiceAccountToken: false` is required for Hermes (`sdk/contracts/poc-v0.md:116`) and set by the three wave-1 apps | Any pod in `app-<id>` reads it; cross-node pod traffic is unencrypted (§4.8) | H-17 |
 | D | A broken tokens file locks the owner out | Keeps the last good set (`auth.py:125-136`) | none | — |
 | E | A static-file agent with id `agent:<app>` collides with a DB agent | Ids are separate maps | Static ids are not checked against the `agent:` prefix | H-09 |
 
@@ -183,7 +183,7 @@ kubectl apply -k <apps_dir>/<id>/manifests -n app-<id>     (executors.py:81; bra
 What `-n app-<id>` does and does not do:
 - For **namespaced** objects (Deployment, Secret, RoleBinding…), kubectl refuses an object whose `metadata.namespace` differs from `-n`. So an app cannot write into `kube-system` by naming it. This is kubectl client behaviour, not a server rule.
 - For **cluster-scoped** objects (Namespace, ClusterRole, ClusterRoleBinding, CustomResourceDefinition, PersistentVolume, StorageClass, webhooks, PriorityClass, RuntimeClass) `-n` does nothing. They are sent as written. Whether they succeed depends only on the gateway's RBAC.
-- **Inside** its namespace, nothing limits the pod spec. There is no Pod Security admission (k3s ships none by default: k3s CIS hardening guide, docs.k3s.io/security/hardening-guide) and the image's `k3s.service:17` sets no admission config.
+- **Inside** its namespace, nothing limits the pod spec. The Kubernetes PodSecurity admission plugin is on, but with no `AdmissionConfiguration` every namespace without labels is `privileged` (kubernetes.io/docs/concepts/security/pod-security-admission; the k3s CIS hardening guide, docs.k3s.io/security/hardening-guide, adds the config file). The image's `k3s.service:17` and the developer install set none.
 
 **Attack paths that work today** with the `feat/deploy-v0` RBAC (`admin` everywhere + namespaces):
 
@@ -200,10 +200,10 @@ What `-n app-<id>` does and does not do:
 
 The CI gate on `feat/app-pipeline` checks schema, pins, limits and non-root (`sdk/tools/app-gate`, `nonroot`), but has no kind allowlist and no check for `hostPath`, `hostNetwork`, `hostPID`, `hostIPC`, `privileged`, added capabilities, `NodePort`, `hostPort` or remote bases. The three wave-1 apps are clean (`apps/*/manifests/service.yaml` are `ClusterIP`, no host access), so the gap is in the gate, not in today's catalog.
 
-**The fix (three layers, any one of which stops E1-E8 on its own once all are in place):**
+**The fix (three layers; each closes a different subset of E1-E8, so all three are needed):**
 
 1. **Allowlist, in the CI gate and again on the box.** The box renders the kustomization itself (`kubectl kustomize`, local files only), parses every object, and refuses the action before `kubectl apply` if any object is outside the allowlist. Allowed kinds for v0: `Deployment`, `StatefulSet`, `Service` (`ClusterIP` only), `ConfigMap`, `Secret`, `PersistentVolumeClaim`, `ServiceAccount`, `NetworkPolicy`, `Job`, `CronJob`, `PodDisruptionBudget`, `HorizontalPodAutoscaler`, `Ingress` (when the gateway proxy exists). Refused: every cluster-scoped kind, `Role`/`RoleBinding` (until the permission model of SEC-11 exists), `DaemonSet`, bare `Pod`, `Endpoints`/`EndpointSlice`, `NodePort`/`LoadBalancer`/`ExternalName` Services, `hostPort`, any image without `@sha256:`, and any `kustomization.yaml` with a non-local resource. The same rule file runs in CI (`sdk/tools/app-gate`) and in the gateway, so CI and box can never disagree. (H-02)
-2. **Pod Security Admission `restricted`, cluster-wide, from the API server.** Not by namespace label (E5 defeats labels). k3s takes an `AdmissionConfiguration` file through `--kube-apiserver-arg=admission-control-config-file=…` (k3s hardening guide). Default `enforce: restricted` for every namespace, exemptions listed by name for `kube-system` and `onemind-system` only. Restricted forbids `privileged`, every `host*` field, `hostPath`, added capabilities and running as root (kubernetes.io/docs/concepts/security/pod-security-standards). (H-01)
+2. **Pod Security Admission, cluster-wide, from the API server.** A cluster default covers every namespace that sets no label, including any namespace created later. It does **not** stop E5 on its own: a namespace label overrides the cluster default, so E5 is closed by layer 1 (no `Namespace` objects in apps) and layer 3 (the gateway may not change `pod-security.kubernetes.io/*` labels). k3s takes an `AdmissionConfiguration` file through `--kube-apiserver-arg=admission-control-config-file=…` (k3s hardening guide). Default `enforce: baseline`, `audit`/`warn: restricted`, exemptions listed by name for `kube-system` and `onemind-system` only; the gateway labels each `app-<id>` `restricted` unless the app runs as root. Baseline already forbids `privileged`, host namespaces, `hostPath`, `hostPort` and added capabilities beyond the default set (E1-E3); restricted also forbids running as root (kubernetes.io/docs/concepts/security/pod-security-standards). `restricted` cannot be the cluster default yet because the gate accepts root apps with no capabilities, and `apps/home-assistant` is one (`apps/home-assistant/manifests/deployment.yaml:42-48`). (H-01)
 3. **No cluster-scoped RBAC for the gateway.** Replace the two `ClusterRoleBinding`s with: one `ClusterRole` that can only `create` namespaces and `delete` namespaces carrying the label `onemind.io/app` (delete needs a small validating policy because RBAC cannot filter by label), and a `RoleBinding` per `app-<id>` created at install, to a namespaced role that covers the allowlist above and nothing else. The gateway then cannot touch `kube-system` even if it is fully compromised. (H-03)
 
 Plus, for the pod ↔ host boundary (E3 and pods reaching host ports through the node IP): a **default-deny NetworkPolicy** in every `app-<id>` (D-B6.1, SEC-08), and a **host firewall** that drops traffic from the pod CIDR to `:4222`, `:6443`, `:7480`, `:8080`, `:10250` except from allowed sources. NetworkPolicy alone does not cover traffic to the node's own addresses in every CNI, so the host rule is required. (H-04)
@@ -222,10 +222,10 @@ Plus, for the pod ↔ host boundary (E3 and pods reaching host ports through the
 
 | | Threat | Control today | Gap | Fix |
 |---|---|---|---|---|
-| S | An app impersonates a known one | Licence and GitHub owner checked in the gate (`app-gate` licence check, line ~221) | No publisher signature on the app package (SEC-11) | H-19 |
+| S | An app impersonates a known one | Licence checked in the gate (`app-gate` `licence_gate`, lines 88-98); a cosign signature must come from the source repo's GitHub owner (lines 207-221) | No publisher signature on the app package (SEC-11) | H-19 |
 | T | Upstream swaps an image | Digest pinning required (contract §9.4 check 3; `validate-apps`) | The box does not re-check that every image is pinned | H-02 |
 | T | Manifests edited after scanning | Scan freshness ≤ 7 days (`scan.py:69-80`) | `scan.json` has no digest of the rendered manifests or of `onemind.app.yaml` | H-08 |
-| T | `javascript:` URL in `source` or `links` → script in the dashboard | Schema pattern `^https://` (`sdk/schema/onemind.app.schema.json:49-54`) | The built-in fallback check (`catalog.py:59-88`) does not check URLs; it runs when the schema file is missing | H-18 |
+| T | `javascript:` URL in `source` or `links` → script in the dashboard (`dashboard/src/pages/Market.tsx:136` renders `source` as a link) | Schema pattern `^https://` on `source` only (`sdk/schema/onemind.app.schema.json:49-54`) | `metadata.links` is not in the schema at all (metadata stays open, schema line 6); the built-in fallback check (`catalog.py:59-88`) checks no URL; it runs when the schema file is missing | H-18 |
 | R | Who approved an app into the Market | Git history and PR review | — | — |
 | I | Secrets in an image | Trivy secret scan (§9.4 check 6) | Wave-1 CI runs gitleaks only (`.github/workflows/ci-apps.yml:2-3`) | pipeline stream |
 | D | One broken manifest hides the Market | Invalid apps skipped and listed (`catalog.py:125-148`) | none | — |
@@ -236,7 +236,7 @@ Plus, for the pod ↔ host boundary (E3 and pods reaching host ports through the
 | | Threat | Control today | Gap | Fix |
 |---|---|---|---|---|
 | S | A LAN device or pod publishes heartbeats as any node, including the hub | Subject must match `node_id` in the body (`nodes.py:64-66`) | Nothing proves the publisher is that node: NATS has no users (`install.sh:281-285`) | H-06 |
-| S | A rogue machine joins k3s with a leaked join token | Separate agent token, so a node can never join as a server (`install.sh:236-238`) | Joining needs no owner approval; the token never expires; check that the printed token carries the CA hash (`K10<hash>::`), otherwise the agent does not verify the server's certificate (k3s docs, "Token" CLI reference) | H-23 |
+| S | A rogue machine joins k3s with a leaked join token | Separate agent token, so a node can never join as a server (`install.sh:236-238`) | Joining needs no owner approval; the token never expires; the printed token carries the CA hash (`K10<hash>::`, see §7), so the agent verifies the server's certificate | H-23 |
 | T | Fake audit lines on `onemind.audit` | none | Subscribers (future phone app) cannot tell real from fake | H-06, H-10 |
 | R | — | — | — | — |
 | I | `:7480` serves hardware, versions and update state to the whole LAN without auth | Heartbeat forbids serials, MACs, IPs, user names (`nodes.py:31`; `internal/heartbeat`) | Binds every interface (`internal/agent/agent.go:29`); versions help an attacker pick exploits | H-24 |
@@ -253,12 +253,12 @@ Plus, for the pod ↔ host boundary (E3 and pods reaching host ports through the
 
 ### 4.9 OS image, RAUC, health gate, updater, TUF (`os/`, `feat/onemindd-updater`, `feat/os-security-pipeline`)
 
-What is already strong: RAUC accepts only `verity` bundles (`os/rauc/system.conf.in:9-10`) checked against the image keyring; the trial marker is written before any slot is touched (`os/rauc/handlers/rauc-pre-install`); the updater trusts only the `root.json` inside the read-only image and walks root rotations from it (`feat/onemindd-updater`: `internal/update/tuf.go:55-80`), checks length and sha256 before RAUC sees a bundle (`download.go:23-130`), refuses plain HTTP except to loopback (`config.go:206-230`), and runs with only `CAP_DAC_READ_SEARCH` (`deploy/systemd/onemind-update.service:32-37`). The TUF root ceremony refuses to run in CI (`scripts/tuf-bootstrap-root.sh`). These follow the TUF design and are ahead of most competitors (`research-output/07-security-compliance.md` §9: TrueNAS has "no client check found" for signatures; HAOS has no Secure Boot).
+What is already strong: RAUC accepts only `verity` bundles (`os/rauc/system.conf.in:9-10`) checked against the image keyring; the trial marker is written before any slot is touched (`os/rauc/handlers/rauc-pre-install`); the updater trusts only the `root.json` inside the read-only image and walks root rotations from it (`feat/onemindd-updater`: `internal/update/tuf.go:55-80`), checks length and sha256 before RAUC sees a bundle (`download.go:23-130`), refuses plain HTTP except to loopback (`config.go:206-230`), and runs with only `CAP_DAC_READ_SEARCH` (`deploy/systemd/onemind-update.service:32-37`). The TUF root ceremony refuses to run in CI (`scripts/tuf-bootstrap-root.sh`). These follow the TUF design and are ahead of most competitors (TrueNAS: "signature produced optionally, no client check found", `research-output/02-competitors/MATRIX.md` [C-TD-truenas-scale-007, -008]; HAOS: no Secure Boot or TPM integration found, `research-output/07-security-compliance.md` §9 [C-W6-053]).
 
 | | Threat | Control today | Gap | Fix |
 |---|---|---|---|---|
 | S | A fake update server | TUF + RAUC signatures | none on the box | — |
-| T | **CI is compromised and signs a malicious release** | Keys only used when every secret exists and a publish switch is on (`security-nightly.yml:143`) | All signing keys in plain repository secrets, no protected environment, no second signer; RAUC key and TUF targets key leak together | H-07 |
+| T | **CI is compromised and signs a malicious release** | Keys only used when every secret exists and a publish switch is on (`security-nightly.yml:145-151`) | All signing keys in plain repository secrets, no protected environment, no second signer; RAUC key and TUF targets key leak together; the unattended 6-hourly `timestamp` job also holds the targets and snapshot keys (`security-nightly.yml:392-394`, it re-signs targets near expiry) | H-07 |
 | T | `/data` override of `update.conf` changes `tuf_root_dir`, `rauc_binary` or `reboot_command` | The updater reads only `/etc/onemind/update.conf` today (`config.go:18`) | The image file promises "an owner's copy under /data overrides" (`feat/os-security-pipeline`: `etc/onemind/update.conf:5`). If that is built with all keys, a write to `/data` (finding #1) becomes root code execution, because `rauc_binary` runs as root | H-26 |
 | T | Gate markers in `/data/onemind` (`pending`, `bad-releases`) edited to block security updates or commit a bad slot | root-only files | Any `hostPath` pod (finding #1) | H-01 |
 | T | Console boot-line edit (`init=/bin/sh`) | none | GRUB has no superuser password (`os/assemble/grub.cfg.in:63-71`); the UKI + Secure Boot route is planned (SB-1, SB-7) | H-27 |
@@ -289,14 +289,14 @@ The compose dev hub binds every port to `127.0.0.1` and uses the noop executor (
 | | Threat | Control today | Gap | Fix |
 |---|---|---|---|---|
 | S | Phishing page asks for the token | — | Sign-in is "paste a token" (contract §5); later OIDC/passkeys (BD-03) | H-09 |
-| T | Script injection from catalog fields | React escapes text; schema forces `https://` on links | No Content-Security-Policy header from the gateway | H-18 |
+| T | Script injection from catalog fields | React escapes text; schema forces `https://` on `source` (not yet on `links`) | No Content-Security-Policy header from the gateway | H-18 |
 | I | Token stolen by injected script | `sessionStorage`, per tab (`session.tsx:41-57`), not `localStorage` | Any script on the origin reads it; a CSP is the main control | H-18 |
 | I | App links open plain `http://host:port` (`pages/Home.tsx:83`) | — | App UIs on the LAN have no auth in front; target is a gateway reverse proxy with forward-auth | H-29 |
 | E | UI shows approve to a non-owner | Gateway enforces owner-only; UI follows a 403 (`session.tsx:7-14`) | none | — |
 
-### 4.12 Mobile shells (planned; `feat/mobile-shell` has an Expo skeleton with `expo-secure-store` only)
+### 4.12 Mobile shells (`feat/mobile-shell` at `cc62069`)
 
-Nothing is built yet, so this is the design the shell must meet before it can approve anything.
+What the branch does today: the hub URL and token are kept in the Keychain / Android Keystore through `expo-secure-store` with `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`, never AsyncStorage (`mobile/src/storage.ts:1-15`); the connect screen warns when the hub URL is plain HTTP to anything but loopback (`mobile/src/screens/ConnectScreen.tsx:15-20`); agent requests are labelled as AI-written (`mobile/src/screens/ApprovalsScreen.tsx:49`). Gaps: plain HTTP is allowed (Android `usesCleartextTraffic: true`, `mobile/app.json:47`; iOS `NSAllowsLocalNetworking`), and Approve sends the decision with no biometric or passcode check (`ApprovalsScreen.tsx:52`). The table is what the shell must meet before it approves anything on a real hub.
 
 | | Threat | Requirement |
 |---|---|---|
@@ -315,7 +315,7 @@ Nothing is built yet, so this is the design the shell must meet before it can ap
 Today: static hashed tokens in a YAML file, hot-reloaded; app agent tokens hashed in the ledger; no expiry; no rotation command; no per-device tokens. Target (H-09): a `onemind token` command and API (`create`, `list`, `revoke`, `rotate`), tokens with a recognisable prefix (`om_…`) so secret scanners catch leaks, an expiry per token (owner tokens long, device tokens renewable), a `last_used` record and token id in every audit line, and a token-set-changed audit event on file reload. Kanidm/OIDC with passkeys (BD-03) replaces person tokens later; agent and device tokens stay.
 
 ### 5.2 TLS / HTTPS on the LAN
-Today: none. Target (H-05): the gateway serves HTTPS on `:8443` with a certificate from a **per-box CA** created at first boot (the private key never leaves `/data`, later sealed by the TPM); `:8080` answers only on `127.0.0.1` (health checks, the local CLI) or redirects. Phones and browsers trust the box through **QR pairing** that carries the CA fingerprint. On a tailnet the owner may use the tailnet's certificates instead. This is the pattern of Caddy's internal CA and of Home Assistant's "trust this device" flows; no code is copied.
+Today: none. Target (H-05): the gateway serves HTTPS on `:8443` with a certificate from a **per-box CA** created at first boot (the private key never leaves `/data`, later sealed by the TPM); `:8080` answers only on `127.0.0.1` (health checks, the local CLI) or redirects. Phones and browsers trust the box through **QR pairing** that carries the CA fingerprint. On a tailnet the owner may use the tailnet's certificates instead. This is the pattern of Caddy's internal CA (`tls internal`); no code is copied.
 
 ### 5.3 NATS authentication
 Today: anonymous, `0.0.0.0:4222`. Target (H-06): `nats.conf` with `authorization` users or nkeys: one credential per node (issued at join, after owner approval) allowed to **publish only** `onemind.node.<its-id>.status`; the gateway allowed to subscribe to heartbeats and publish `onemind.audit`; everyone else denied. TLS on the listener with the box CA. Later this becomes NATS accounts with JWTs and leaf nodes (D-B6.5).
@@ -342,8 +342,8 @@ Sources are the claim ids in `research-output/02-competitors/MATRIX.md` and `res
 | Extension path allow-list | Talos [C-TD-talos-024] | Kind and field allowlist for app manifests | H-02 |
 | Role-scoped mTLS API, no shell | Talos [C-TD-talos-028] | Per-device and per-node credentials; mTLS for nodes later | H-06, H-23 |
 | App ID = signing key; M-of-N release key | Sandstorm [C-TD-tier-c-alt-022, -020] | Publisher keys for apps; threshold root for TUF (already in `tuf-repo.py init-root --threshold`) | H-07, H-19 |
-| TOTP / WebAuthn for owners | Proxmox, Synology, umbrelOS [C-TD-proxmox-ve-031] | Passkeys with OIDC (BD-03); step-up at approval | H-09, H-13 |
-| Encrypted backups (SecureTar, Kopia, restic) | HAOS, umbrelOS, Cosmos | restic with three keys (REC-DEC-11) | backups stream |
+| TOTP / WebAuthn for owners | Proxmox (TOTP, WebAuthn) [C-TD-proxmox-ve-031], Synology (2FA) [C-TD-tier-c-nas-031], umbrelOS (TOTP) [C-TD-umbrelos-033] | Passkeys with OIDC (BD-03); step-up at approval | H-09, H-13 |
+| Encrypted backups (SecureTar, Kopia, restic) | HAOS, umbrelOS [C-TD-umbrelos-030], Cosmos [C-TD-tier-c-selfhost-008] (`MATRIX.md` backups column) | restic with three keys (REC-DEC-11) | backups stream |
 
 **Where OneMind is already ahead, and must stay ahead:**
 - **Agents never approve, enforced by the gateway.** umbrelOS's MCP agents act as the owner with one shared grant set and can install an OS update with only a client-side hint [C-TD-umbrelos-037, C-W6-052]; ZimaOS's MCP server logs in with the admin password [C-TD-casaos-zimaos-038]. OneMind: per-app agent principals, no approve tool, 403 in code.
@@ -361,7 +361,7 @@ Sources are the claim ids in `research-output/02-competitors/MATRIX.md` and `res
 
 ## 7. Assumptions, limits and UNVERIFIED items
 
-- **UNVERIFIED:** whether the join token printed by `install.sh:554` (read from `/var/lib/rancher/k3s/server/agent-token`) is the secure `K10<ca-hash>::` form. The acceptance test in H-23 settles it on a real install.
+- **Checked in the k3s source (v1.37.2+k3s1, the version `deploy/pins.env` pins; Apache-2.0):** when `agent-token` is set, as `install.sh` does, k3s writes `<data-dir>/server/agent-token` through `FormatToken` with the server CA (`pkg/server/server.go:375-385`, `pkg/server/handlers/token.go:56-65`), giving `K10<sha256 of CA>::<creds>` (`pkg/clientaccess/token.go:614-625`). So the join token printed by `install.sh:547-554` does pin the CA. H-23's test still confirms it on a real install.
 - **UNVERIFIED:** kubectl's client-side namespace mismatch refusal is recalled from kubectl behaviour, not re-run here. H-02's test covers it by applying a cross-namespace object.
 - The image's core platform pod is still a `pause` stand-in (`os/rootfs/layers/base/usr/lib/onemind/manifests/onemind-core.yaml:2`); the gateway's RBAC **on the OS image** is not defined yet. H-03 must apply there too.
 - Not modelled: robots, drones, TAK, the plugin UI (phase 2), multi-user households (roles `adult`/`guest` exist but have no distinct rights yet).
