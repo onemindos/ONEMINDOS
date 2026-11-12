@@ -47,6 +47,14 @@ jobs:
                --token "$(printf 'K10example\nX=1')" >/dev/null 2>&1; then
             echo "a two-line --token was accepted" >&2; exit 1
           fi
+      - name: bundle.sh refuses an --out folder it did not make (it empties --out before a build)
+        run: |
+          set -eu
+          d=$(mktemp -d); touch "$d/keep.txt"
+          if bash deploy/bundle.sh --arch amd64 --node-only --go local --out "$d" >/dev/null 2>&1; then
+            echo "bundle.sh accepted a folder with other files as --out" >&2; exit 1
+          fi
+          test -f "$d/keep.txt"
       - name: verify.sh against a mock hub (every broken-hub case) and natscheck (mock + real NATS with TLS)
         run: python3 -I deploy/verify/tests/test_verify.py -v
       - name: systemd units

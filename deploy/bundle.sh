@@ -69,6 +69,17 @@ fetch() {
   mv "$WORK/dl" "$3"
 }
 
+# The build empties --out (keeping downloads/), so it must be new, empty or an earlier bundle: a
+# mistyped --out such as a home or project folder is refused, never wiped.
+if [ -n "$(ls -A "$OUT")" ]; then
+  STRAY=$(find "$OUT" -mindepth 1 -maxdepth 1 ! -name downloads ! -name src ! -name dashboard ! -name BUNDLE.txt \
+    ! -name SHA256SUMS ! -name 'onemindd-linux-*' ! -name 'onemind-linux-*' ! -name 'gateway-runtime-linux-*' \
+    ! -name .DS_Store -print | head -n 1)
+  if [ -n "$STRAY" ] || [ ! -d "$OUT/downloads" ]; then
+    die "--out $OUT is not empty and not an earlier bundle${STRAY:+ (it holds ${STRAY##*/})}; give a new or empty folder"
+  fi
+fi
+
 if [ "$NODE_ONLY" = 0 ] || [ "$GO_MODE" = docker ]; then
   if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
     die "Docker is needed (gateway runtime and dashboard, or onemindd without a local Go)"
