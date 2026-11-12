@@ -10,7 +10,7 @@
 
 **Effort:** S ≤ 1 day, M 2–4 days, L 1–2 weeks, for one builder with an agent. **Sprint dates** assume the 90-day plan (Day 1 = 2026-11-16) and about 23 build hours a week: S0 weeks 0–2, S1 weeks 1–5, S2 weeks 5–9, S3 weeks 9–13, S4+ after 2027-02-14. Sprints overlap at the edges; dependencies, not dates, decide what starts.
 
-**Spec keys:** SANDBOX, SEC, FABRIC, BACKUP, DEPLOY, AUTO, NOTIFY, UPDATE, DASH, MOBILE, WEB, DOGFOOD are in [`core/`](core/README.md); API, SDK, CLI, MCP, PLG are in [`dev/`](README.md#4-every-spec). Ids without a prefix in "Depends on" refer to the same spec family (for example `SEC-2` = CORE-SEC-2). "F-n" are founder decisions in [DECISIONS-NEEDED.md](DECISIONS-NEEDED.md). `UMB-<area>-n` rows come from the umbrelOS 2 studies in [`docs/umbrel2/`](../umbrel2/README.md) and are listed in their own section at the end, by sprint.
+**Spec keys:** SANDBOX, SEC, FABRIC, BACKUP, DEPLOY, AUTO, NOTIFY, UPDATE, DASH, MOBILE, WEB, DOGFOOD are in [`core/`](core/README.md); API, SDK, CLI, MCP, PLG are in [`dev/`](README.md#4-every-spec). Ids without a prefix in "Depends on" refer to the same spec family (for example `SEC-2` = CORE-SEC-2). "F-n" are founder decisions in [DECISIONS-NEEDED.md](DECISIONS-NEEDED.md). `UMB-<area>-n` rows come from the umbrelOS 2 studies in [`docs/umbrel2/`](../umbrel2/README.md) and are listed in their own section at the end, by sprint. Rows added on 2026-11-12 for streams that started without a row, and for gaps found in merged work, are in [their own section](#added-2026-11-12-streams-and-epics-missing-from-the-board) just before the UMB rows.
 
 ## S0: land the in-flight work (weeks 0–2)
 
@@ -233,6 +233,129 @@
 | PLAN-E14 | TAK field kit preview | L | PLAN-E5, PLAN-E7-LAB, PLAN-E10 | parked by founder focus | – |
 | PLAN-E15 | Robot in simulation | XL | PLAN-E7-LAB | parked | – |
 | DEV-API-14 | Superseded by DEV-SDK-1…10 | – | – | – | – |
+
+## Added 2026-11-12: streams and epics missing from the board
+
+Streams that started without a row, merged PRs that had none, and gaps found in merged work. State per row: [STATUS.md](STATUS.md#added-2026-11-12-streams-and-epics-that-were-missing-from-the-board). **Scope marked "proposed"** was written from the stream's name and brief because the branch has no commits yet; the stream's first PR confirms or corrects it here. Sprint is the earliest sprint the dependencies allow.
+
+### Merged work that had no row (done)
+
+| Id | Title | Size | Depends on | Owner paths | Acceptance |
+|---|---|---|---|---|---|
+| CORE-PLUMB | Core plumbing (PR #38) | M | – | `core/onemind_core/{routers,store,sections}.py`, `cmd/onemind/cli/`, `cmd/onemindd/registry.go`, `internal/service/` | Done: OpenAPI and CLI output identical before and after; guide in [`core/PLUMBING.md`](core/PLUMBING.md) |
+| UMB-STUDY | umbrelOS 2 deep dive and UMB backlog (PR #30) | M | – | `docs/umbrel2/**` | Done: 10 area studies; UMB rows below |
+| BRAND-0 | OneMind logo, SVG and PNG, 4 variants (PR #36) | S | – | brand assets | Done |
+
+### Image line, S1–S2 (`feat/image-line`)
+
+| Id | Title | Size | Depends on | Owner paths | Acceptance |
+|---|---|---|---|---|---|
+| IMG-1 | OneMind baked into the image: onemindd, NATS, gateway and dashboard installed and enabled; first boot lands in OneMind | M | image stream (#10), W2-DEPLOY (#26) | `os/**`, `test/qemu/**`, `test/unit/test_firstboot.py`, `docs/IMAGES.md`, `Makefile` | QEMU first-boot battery F0–F4 (pre-registered on the branch) passes on x86_64 EFI and arm64; `/healthz` answers and the dashboard loads with no manual step |
+| IMG-2 | Raspberry Pi 5 board image | M | IMG-1 | `os/boards/rpi5/**`, `test/unit/test_rpi5.py` | Image builds in CI; unit tests pass; the hardware run is PLAN-E10 (needs F-25) |
+| IMG-3 | Jetson Orin board image on NVIDIA L4T (D-007) | M | IMG-1 | `os/boards/jetson-orin/**` | Image builds in CI; the hardware run is PLAN-E11 (needs F-25) |
+| IMG-4 | USB installer for x86_64 that writes OneMind to the internal disk | M | IMG-1 | `os/boards/installer-x86_64/**`, `test/qemu/installer.py`, `test/unit/test_installer.py` | QEMU criteria I1–I5 (pre-registered) pass |
+| IMG-5 | Cloud images: generic, AWS, Azure, GCP, Hetzner, Proxmox | M | IMG-1, BD-DO-1 (`vm-do`, #10) | `os/boards/cloud*/**`, `os/cloud/**` | QEMU criteria C0–C6 (pre-registered) pass for each image |
+| IMG-6 | Releases and downloads: signed images with checksums on GitHub Releases; a downloads page | M | IMG-1…5, OS-SECPIPE, F-27, F-5 | release workflow, `site/**` downloads page | Every asset has a checksum and a verifiable signature; the page lists only images whose battery passed |
+
+### Brand, S1
+
+| Id | Title | Size | Depends on | Owner paths | Acceptance |
+|---|---|---|---|---|---|
+| BRAND-1 | One brand source: `brand.json` and `brand-sync`; ui, dashboard and site take name, logo, favicon, manifest and accent from it | M | BRAND-0 | `brand/**`, `ui/src/{tokens,customize,shell}/**`, `dashboard/public/brand/**`, `dashboard/src/**`, `site/public/**`, one CI workflow | Changing `brand.json` and running the sync updates every consumer; CI fails when a generated file drifts |
+| MOBILE-V1-1 | Phone app restyle from `brand.json`: icon, splash, colours, logo | S | BRAND-1, PA-MOBILE (#21) | `mobile/**` | Android and iOS builds show the brand assets; the drift check covers `mobile/` |
+
+### Testing and quality, S1
+
+| Id | Title | Size | Depends on | Owner paths | Acceptance |
+|---|---|---|---|---|---|
+| E2E-GOLDEN | Golden-path e2e: `install.sh` hub in a VM (Lima, QEMU/KVM), Playwright through dashboard, MCP agent request, owner approval and audit; `verify.sh` | M | W2-DEPLOY, W2-GW | `tests/e2e/**`, `.github/workflows/e2e.yml` | Green on PRs and nightly; agent approve → 403 on the real hub; no owner token in uploaded artifacts |
+| TEST-REG-1 | Test register: every suite with owner and run command, a results log, a test-result issue form, `test-all` workflow | S | – | `docs/testing/**`, `.github/ISSUE_TEMPLATE/test-result.yml`, `.github/workflows/**` (one line each), `scripts/` | `test-all` runs every registered suite; a suite missing from the register fails the check |
+| TEST-SEC-1 | Security test suite against the threat model's attack paths (proposed: approval bypass, token scope, sandbox escape, secret leakage) | M | PA-THREAT, SEC-P0 (#40) | `tests/security/**` (proposed) | Each H-id marked fixed has a test that fails on the old code; runs on every PR |
+| TEST-PROP-1 | Property-based and fuzz tests (proposed: manifest validator, sandbox checker, heartbeat parser, path confinement) | M | – | test directories of each component (proposed) | Bounded run on PRs, longer run nightly; every crash found is kept as a fixture |
+| TEST-CI-1 | CI matrix across operating systems and architectures (proposed: amd64 and arm64, Debian 13 and the Ubuntu hedge, macOS for the developer path) | M | – | `.github/workflows/**` | Matrix green on `main`; every action pinned by SHA from `os/versions.lock.yaml`; run time recorded |
+| QUAL-SLOP-1 | Slop audit: unverified claims, filler, stale or duplicated text in docs and comments, ranked with file:line | S | – | audit report under `docs/` (proposed) | Every finding has file:line, a class and a fix |
+| QUAL-SLOP-2 | Slop fixer: apply the audit's fixes as `fix(docs):` commits with evidence | M | QUAL-SLOP-1 | files the audit names | Each finding fixed or recorded as won't-fix with a reason; hygiene and gitleaks clean |
+
+### Market, apps and secrets, S1–S3
+
+| Id | Title | Size | Depends on | Owner paths | Acceptance |
+|---|---|---|---|---|---|
+| MKT-BATCH-1 | Market batch 1: Nextcloud, Immich, Syncthing, Paperless-ngx, Gitea, Grafana, Ollama, LibreChat, SearXNG, AdGuard Home (tier community until CI scans) | M | W2-PIPE (#25), MKT-CANDIDATES (#22) | `apps/<id>/**` | Each app passes app-gate and the k3d smoke test in CI and has a `scan.json` |
+| MKT-BATCH-2-3 | Market batches 2 and 3: the next 20 apps from `CANDIDATES.md` | L | MKT-BATCH-1 | `apps/<id>/**` | As MKT-BATCH-1 |
+| MKT-BATCH-4 | Market batch 4 | M | MKT-BATCH-2-3 | `apps/<id>/**` | As MKT-BATCH-1 |
+| MKT-BATCH-5 | Market batch 5 | M | MKT-BATCH-4 | `apps/<id>/**` | As MKT-BATCH-1 |
+| CORE-SECRETS-1 | Owner-entered app secrets: the install review asks for the secrets an app declares (for example the Hermes model key); stored encrypted on the box; given to the app only as a Kubernetes Secret | M | CORE-SEC-2, CORE-SEC-5 (k3s secrets encryption, #40), C12-C (#39) | `core/onemind_core/` secrets module, install review in `dashboard/**` | Installing `hermes-agent` asks for the model key; no route, log or MCP tool returns the value; agents get 403 on set; the value survives a backup restore |
+| DB-SHARED-1 | Shared PostgreSQL for apps: one managed PostgreSQL; an app that declares it gets its own database and role | L | CORE-SANDBOX-2, CORE-BACKUP-5, a contract amendment for the manifest field | system app `apps/postgres` (proposed), schema via the contract owner | Two apps get separate databases and credentials and cannot read each other's; backups use the manifest `backup:` hook; remove keeps the database until a data delete |
+| APP-OVERRIDE-1 | Owner override for an app or image the scan blocked: typed confirmation, red "owner override" mark in the audit and on the app page | S | F-7, CORE-SEC-2, CORE-DEPLOY-2 | approve path in `core/onemind_core/`, dashboard plan card | Only with a passkey step-up; never by an agent or a standing approval; audit and app page show the override |
+
+### Core gaps found in merged work, S2–S3
+
+| Id | Title | Size | Depends on | Owner paths | Acceptance |
+|---|---|---|---|---|---|
+| BACKUP-WIRE-1 | Wire `internal/backup` (#32): onemindd service and loopback API, heartbeat `backup`, the updater's pre-update snapshot, image pins (steps 1–4 of "Wiring still needed" in `internal/backup/README.md`); then the gateway backups router and the Backups screen (delivers CORE-BACKUP-8) | M | #32, C12-D (#39), CORE-PLUMB (#38) | `cmd/onemindd/registry.go`, `internal/heartbeat/**`, `internal/update/**`, `os/versions.lock.yaml` (add-only), `core/onemind_core/routers/`, `dashboard/src/pages/Backups.tsx` | QEMU: a configured box takes its hourly snapshot; heartbeat carries `backup`; the updater's snapshot goes through the agent; the Backups screen shows last run and last verified restore with no credentials |
+| STORAGE-ACT-1 | Mirror create, add disk and replace disk as approved `storage.*` actions that execute #31's dry-run plans (first slice of UMB-STOR-4 and -5) | L | UMB-STOR-3 (#31), UMB-STOR-0, CORE-SEC-2, DEV-API-7 | `internal/storage/**`, `core/onemind_core/storage.py` | Plan names model, size and serial tail; agents can request, never approve; wiping steps need a passkey step-up; a power cut mid-operation resumes or rolls back in QEMU |
+| PHOTOS-SRV-1 | Box side of the phone photo backup (#34): built-in receiver (UMB-PHOTO-1…3) or Immich (UMB-PHOTO-13), by founder decision | L | founder decision (Immich vs built-in, F-47) | per the decision | #34's client uploads 1,000 photos to a real box, resumes after a drop, dedupes by hash and gets a receipt per file |
+| CORE-MON-1 | Monitoring: app health, restarts, logs, app and node metrics, thresholds (contract §12.15) | M | C12 (#39), CORE-NOTIFY-1 | `core/onemind_core/monitoring/**`, `internal/detect/**`, heartbeat metrics | A failing app raises one alert that resolves by itself; the heartbeat carries CPU, load and temperature; thresholds configurable |
+| DOGFOOD-MIGRATE-1 | Import from an existing Kubernetes cluster: read workloads, config and volumes (read-only on the source), turn them into private OneMind apps, copy the data, cut over | L | CORE-DEPLOY-1, CORE-DEPLOY-6, CORE-BACKUP-2 | `cmd/onemind/cli/`, `internal/migrate/**` (proposed) | A generic fixture cluster (k3d) imports with identical data; the source is never written; each app passes the sandbox checker or is listed as refused with the reason |
+
+### Developer surface and website, S1–S3
+
+| Id | Title | Size | Depends on | Owner paths | Acceptance |
+|---|---|---|---|---|---|
+| DEV-PLG-0 | Plugin SDK v0: first runnable slice ahead of DEV-PLG-1…8 (proposed: hello plugin, mock hub, write call that waits for approval) | M | C12-PLG | `sdk/plugin-*/**`, `sdk/templates/plugin-hello/` (proposed) | Hello plugin runs against a mock hub; its write call creates an action that waits for owner approval |
+| CORE-WEB-G | Website user guides for owners (proposed: install per target, first steps, apps, approvals, backups, phone app) | M | PA-SITE (#19) | `site/src/content/docs/**` | Each guide's commands match current `main`; link check and axe clean; no claim without a test or doc link |
+
+### Deploy kit parts of PR #27, S1
+
+PR #27 is open and overlaps #26 (merged). Port these parts onto `main`'s `deploy/`, then close #27.
+
+| Id | Title | Size | Depends on | Owner paths | Acceptance |
+|---|---|---|---|---|---|
+| DEPLOY-PORT27-1 | `deploy/bundle.sh --arch amd64\|arm64` (onemindd, gateway image tar, dashboard dist, `SHA256SUMS`) and `install.sh --bundle` | M | W2-DEPLOY (#26) | `deploy/bundle.sh`, `deploy/install.sh` | `--bundle` refuses a bundle whose `SHA256SUMS` does not match; an offline hub install from a bundle reaches `/healthz` |
+| DEPLOY-PORT27-2 | `install.sh --target debian13\|rpi5\|jetson\|do` and `--dry-run`; Pi 5 memory cgroup; DigitalOcean firewall reminder | S | #26 | `deploy/install.sh` | Dry run for hub and node on all 4 targets exits 0 and changes nothing; on rpi5 the memory cgroup is on before k3s starts |
+| DEPLOY-PORT27-3 | Hashed tokens throughout: join, owner and agent tokens printed once, only sha256 on disk | S | #26 | `deploy/install.sh` | After an install and a re-run, no raw token is found under the install's state directory |
+| DEPLOY-PORT27-4 | NATS token auth for nodes on the developer install (step before nkeys, CORE-SEC-4) | S | #26 | `deploy/install.sh`, `deploy/systemd/onemind-nats.service` | Anonymous NATS connect refused; node heartbeats still arrive |
+| DEPLOY-PORT27-5 | `deploy/verify/node-check.sh` and `natscheck.py` (standard library only) | S | #26 | `deploy/verify/**` | Passes on hub and node; fails with a named check when NATS is down |
+| DEPLOY-PORT27-6 | Mock gateway for the `verify.sh` tests; e2e-systemd harness (real `install.sh` and bundle on two Debian 13 systemd containers) | M | DEPLOY-PORT27-1, -5 | `deploy/verify/tests/**`, `.github/workflows/ci-deploy.yml` | Verify tests catch the 7 broken-hub cases; e2e-systemd: 2 k3s nodes Ready, owner-approved ntfy Available |
+| DEPLOY-PORT27-7 | Simulated rpi5 and jetson-orin nodes in the compose dev hub | S | #26 | `deploy/compose/**` | `up.sh` shows 3 online machines; their heartbeats validate against §2 |
+
+### UI parity, S1–S2 (from [`docs/strategy/umbrel-parity.md`](../strategy/umbrel-parity.md))
+
+| Id | Title | Size | Depends on | Owner paths | Acceptance |
+|---|---|---|---|---|---|
+| PU-31 | PWA: manifest, icons, accent theme colour, installable over HTTPS, offline "last known" view labelled with its age (first slice of CORE-DASH-7, no Web Push) | S | CORE-SEC-1, BRAND-1 | `dashboard/public/**`, service worker in `dashboard/src/**` | Installs on Android Chrome over HTTPS with the box CA; the offline view shows its age; approve disabled offline |
+| PU-09 | Login UI: passkey sign-in, TOTP fallback, first-run owner setup (UI side of CORE-SEC-2) | M | CORE-SEC-2 | `dashboard/src/pages/SignIn*.tsx`, onboarding in `ui/**` | Owner enrols a passkey at first run; TOTP fallback works; repeated wrong codes are rate-limited; axe clean |
+| PU-20 | i18n scaffolding: string catalog, locale switch, English as source | M | CORE-DASH-2 | `ui/**`, `dashboard/**` | A lint rule finds no hard-coded user-facing string in dashboard pages; a pseudo-locale renders without truncation |
+
+### Founder blockers
+
+| Id | Decision | Blocks | Acceptance |
+|---|---|---|---|
+| F-25 | Day-1 hardware (Pi 5 16 GB + NVMe, 4 GB Pi 5 for the soak, Jetson Orin Nano Super) | CORE-UPDATE-4, CORE-NET-14, PLAN-E10, PLAN-E11, IMG-2 and IMG-3 hardware runs | Hardware on the bench; Pi soak started by 2026-12-11 |
+| F-27 | Offline TUF root ceremony and signing secrets | OS-SECPIPE publishing, CORE-SEC-8, IMG-6 | Root signed offline; secrets only in protected GitHub environments |
+| F-7 | Owner override for scan-failed installs | APP-OVERRIDE-1 | Answer recorded in `docs/DECISIONS.md` |
+| F-5 | Website domain and host | CORE-WEB-1, CORE-WEB-4, IMG-6 downloads page | Answer recorded; deploy target set |
+
+### Stream ids that map onto existing rows
+
+No second row; the existing row's acceptance applies, with the additions noted.
+
+| Stream id | Existing row(s) | Adds to that row's acceptance |
+|---|---|---|
+| MKT-B1, MKT-B23, MKT-B4, MKT-B5 | MKT-BATCH-1, MKT-BATCH-2-3, MKT-BATCH-4, MKT-BATCH-5 | – (ids used on the branches) |
+| SEC-P0 (PR #40) | CORE-SANDBOX-1…5, CORE-SEC-9, k3s part of CORE-SEC-5 | – |
+| APP-LIFE-1 (PD-03) | UMB-APP-4 | – |
+| APP-LIFE-2 (PD-04) | UMB-APP-3 | – |
+| APP-LIFE-3 (PD-05) | CORE-UPDATE-5, CORE-UPDATE-6 | Release notes shown before the update |
+| APP-LIFE-4 (PD-06) | UMB-APP-5 | – |
+| APP-LIFE-5 (PD-07) | CORE-DEPLOY-4 (includes UMB-APP-11) | – |
+| MOBILE-V1-2 | CORE-MOBILE-2, CORE-MOBILE-3, UMB-ACCT-11 | – |
+| MOBILE-V1-3 | CORE-MOBILE-4, CORE-MOBILE-5 | – |
+| MOBILE-V1-4 | CORE-MOBILE-6, CORE-NOTIFY-7 | – |
+| NET-P2-1…4 | CORE-NET-10, -11, -12 (with the rest of CORE-NET-8), -13 | – |
+| FILES-1, -2, -4, -6 | UMB-FILES-1, -2, -4, -6 | – |
+| STORAGE-LUKS-1 (H-11) | CORE-SEC-5 (LUKS part, includes UMB-STOR-1) | Recovery key shown once at install; unlock by passphrase on boards without a TPM |
+| DESKTOP-FILES-1 | UMB-CLIENT-9; server side UMB-FILES-5 | A WebDAV mount as an option next to SMB |
 
 ## UMB: umbrelOS 2 study epics
 
