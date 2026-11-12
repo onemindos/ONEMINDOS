@@ -154,18 +154,28 @@ uninstall() {
   log "stopping and removing OneMind services"
   systemctl disable --now onemind-gateway-token.timer 2>/dev/null || true
   rm -f /etc/systemd/system/onemind-gateway-token.timer
-  if command -v tailscale >/dev/null 2>&1; then tailscale logout >/dev/null 2>&1 || true; fi
-  for u in onemind-gateway onemind-gateway-token onemindd onemind-nats onemind-nats-leaf onemind-headscale onemind-nats-accounts.path tailscaled; do
+  # The Tailscale client goes only if OneMind installed it (tailscale_install's marker).
+  local units="onemind-gateway onemind-gateway-token onemindd onemind-nats onemind-nats-leaf onemind-headscale onemind-nats-accounts.path" ts=0
+  [ -f "$ETC/mesh-client" ] && ts=1
+  if [ "$ts" = 1 ]; then
+    if command -v tailscale >/dev/null 2>&1; then tailscale logout >/dev/null 2>&1 || true; fi
+    units="$units tailscaled"
+  fi
+  for u in $units; do
     case "$u" in *.path) ;; *) u="$u.service" ;; esac
     systemctl disable --now "$u" 2>/dev/null || true
     rm -f "/etc/systemd/system/$u"
   done
   rm -rf /etc/systemd/system/onemindd.service.d  # the backup drop-in (deploy/backup.sh)
-  rm -rf /etc/systemd/system/onemind-nats-reload.service /etc/systemd/system/tailscaled.service.d \
+  rm -rf /etc/systemd/system/onemind-nats-reload.service \
     /etc/systemd/system/onemind-nats.service.d /etc/systemd/system/k3s.service.d /etc/systemd/system/k3s-agent.service.d
+  if [ "$ts" = 1 ]; then
+    rm -rf /etc/systemd/system/tailscaled.service.d /var/lib/tailscale
+    rm -f /usr/bin/tailscale /usr/sbin/tailscaled /etc/default/tailscaled
+  fi
   systemctl daemon-reload
-  rm -f "$BIN/onemindd" "$BIN/onemind" "$BIN/nats-server" "$BIN/headscale" /usr/bin/tailscale /usr/sbin/tailscaled /etc/default/tailscaled
-  rm -rf /var/lib/tailscale /var/lib/private/onemind-headscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf
+  rm -f "$BIN/onemindd" "$BIN/onemind" "$BIN/nats-server" "$BIN/headscale"
+  rm -rf /var/lib/private/onemind-headscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf
   hosts_block ""
   if [ -x "$BIN/k3s-uninstall.sh" ]; then log "removing k3s server (and its data)"; "$BIN/k3s-uninstall.sh"; fi
   if [ -x "$BIN/k3s-agent-uninstall.sh" ]; then log "removing k3s agent"; "$BIN/k3s-agent-uninstall.sh"; fi
@@ -701,12 +711,22 @@ nats_leaf_install() {  # node
 tailscale_install() {
   local tgz="tailscale_${TAILSCALE_VERSION}_$ARCH.tgz" d
   [ "$DRY_RUN" = 1 ] && step "Mesh client: Tailscale $TAILSCALE_VERSION (static tarball, sha256-pinned; no log upload)"
+  # The mesh client must be OneMind's own. On a machine that already runs Tailscale (its own package,
+  # or logged in to another network), `tailscale up --reset` below would log it out of that network,
+  # possibly cutting the SSH session running this script, and --uninstall would delete its state.
+  # The marker is written before anything is installed, so a re-run after a failure goes on.
+  if [ "$DRY_RUN" = 0 ] && [ ! -f "$ETC/mesh-client" ]; then
+    if command -v tailscale >/dev/null 2>&1 || [ -e /usr/sbin/tailscaled ] || [ -d /var/lib/tailscale ]; then
+      die "this machine already has Tailscale; OneMind's mesh client would replace it and log it out of its network. Remove it first (apt purge tailscale; rm -rf /var/lib/tailscale) or use another machine"
+    fi
+    printf '# Written by deploy/install.sh: OneMind installed and owns the Tailscale client here.\n' > "$ETC/mesh-client"
+  fi
   fetch "https://pkgs.tailscale.com/stable/$tgz" "$(pick TAILSCALE_SHA256)" "$CACHE/$tgz"
   if [ "$DRY_RUN" = 1 ]; then
     plan "install tailscale, tailscaled and tailscaled.service (never replacing a Tailscale client this machine already had); SSL_CERT_FILE = the box CA"
     return 0
   fi
-  if !/usr/sbin/tailscaled --version 2>/dev/null | head -1 | grep -qxF "$TAILSCALE_VERSION"; then
+  if ! /usr/sbin/tailscaled --version 2>/dev/null | head -1 | grep -qxF "$TAILSCALE_VERSION"; then
     d="$CACHE/tailscale_${TAILSCALE_VERSION}_$ARCH"; rm -rf "$d"
     tar -xzf "$CACHE/$tgz" -C "$CACHE"
     install -m0755 "$d/tailscale" /usr/bin/tailscale
