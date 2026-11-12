@@ -41,71 +41,71 @@ def register(app: FastAPI, gw: Gateway) -> None:
     tags = ["automation"]
 
     # ---- rules ---------------------------------------------------------------------------------
-    @app.get("/v1/automation/rules", tags=tags, responses=error_responses(401))
+    @app.get("/v1/automation/rules", operation_id="automation.rules.list", tags=tags, responses=error_responses(401))
     def list_rules(_: Principal = Depends(principal)):
         return svc.list()
 
-    @app.post("/v1/automation/rules", tags=tags, status_code=201, responses=error_responses(401, 403, 404, 422))
+    @app.post("/v1/automation/rules", operation_id="automation.rules.create", tags=tags, status_code=201, responses=error_responses(401, 403, 404, 422))
     def create_rule(body: RuleBody, p: Principal = Depends(principal)):
         return JSONResponse(status_code=201, content=svc.create(p, body))
 
-    @app.get("/v1/automation/rules/{rule_id}", tags=tags, responses=error_responses(401, 404))
+    @app.get("/v1/automation/rules/{rule_id}", operation_id="automation.rules.get", tags=tags, responses=error_responses(401, 404))
     def get_rule(rule_id: str, _: Principal = Depends(principal)):
         return svc.get(rule_id)
 
-    @app.patch("/v1/automation/rules/{rule_id}", tags=tags, responses=error_responses(401, 403, 404, 409, 422))
+    @app.patch("/v1/automation/rules/{rule_id}", operation_id="automation.rules.update", tags=tags, responses=error_responses(401, 403, 404, 409, 422))
     def update_rule(rule_id: str, body: RulePatch, p: Principal = Depends(principal)):
         return svc.update(p, rule_id, body)
 
-    @app.post("/v1/automation/rules/{rule_id}/enable", tags=tags, responses=error_responses(401, 403, 404, 409))
+    @app.post("/v1/automation/rules/{rule_id}/enable", operation_id="automation.rules.enable", tags=tags, responses=error_responses(401, 403, 404, 409))
     def enable_rule(rule_id: str, p: Principal = Depends(principal)):
         return svc.enable(p, rule_id)
 
-    @app.post("/v1/automation/rules/{rule_id}/disable", tags=tags, responses=error_responses(401, 403, 404))
+    @app.post("/v1/automation/rules/{rule_id}/disable", operation_id="automation.rules.disable", tags=tags, responses=error_responses(401, 403, 404))
     def disable_rule(rule_id: str, p: Principal = Depends(principal)):
         return svc.disable(p, rule_id)
 
-    @app.delete("/v1/automation/rules/{rule_id}", tags=tags, status_code=204, responses=error_responses(401, 403, 404))
+    @app.delete("/v1/automation/rules/{rule_id}", operation_id="automation.rules.delete", tags=tags, status_code=204, responses=error_responses(401, 403, 404))
     def delete_rule(rule_id: str, p: Principal = Depends(principal)):
         svc.delete(p, rule_id)
         return Response(status_code=204)
 
-    @app.post("/v1/automation/rules/{rule_id}/dry-run", tags=tags, responses=error_responses(401, 404, 422))
+    @app.post("/v1/automation/rules/{rule_id}/dry-run", operation_id="automation.rules.dry_run", tags=tags, responses=error_responses(401, 404, 422))
     def dry_run(rule_id: str, body: DryRunBody | None = None, p: Principal = Depends(principal)):
         return svc.dry_run(p, rule_id, body or DryRunBody())
 
-    @app.get("/v1/automation/runs", tags=tags, responses=error_responses(401, 422))
+    @app.get("/v1/automation/runs", operation_id="automation.runs.list", tags=tags, responses=error_responses(401, 422))
     def list_runs(rule_id: str | None = None, limit: int = Query(100, ge=1, le=500),
                   _: Principal = Depends(principal)):
         return svc.runs(rule_id, limit)
 
-    @app.get("/v1/automation/schedules", tags=tags, responses=error_responses(401))
+    @app.get("/v1/automation/schedules", operation_id="automation.schedules.list", tags=tags, responses=error_responses(401))
     def list_schedules(_: Principal = Depends(principal)):
         return svc.schedules()
 
     # ---- kill switch ---------------------------------------------------------------------------
-    @app.get("/v1/automation/state", tags=tags, responses=error_responses(401))
+    @app.get("/v1/automation/state", operation_id="automation.state.get", tags=tags, responses=error_responses(401))
     def get_state(_: Principal = Depends(principal)):
         return svc.state()
 
-    @app.post("/v1/automation/pause", tags=tags, responses=error_responses(401, 403, 422))
+    @app.post("/v1/automation/pause", operation_id="automation.pause", tags=tags, responses=error_responses(401, 403, 422))
     def pause(body: PauseBody | None = None, p: Principal = Depends(principal)):
         return svc.set_paused(p, True, (body or PauseBody()).reason)
 
-    @app.post("/v1/automation/resume", tags=tags, responses=error_responses(401, 403, 422))
+    @app.post("/v1/automation/resume", operation_id="automation.resume", tags=tags, responses=error_responses(401, 403, 422))
     def resume(body: PauseBody | None = None, p: Principal = Depends(principal)):
         return svc.set_paused(p, False, (body or PauseBody()).reason)
 
     # ---- standing approvals --------------------------------------------------------------------
-    @app.get("/v1/approval-policies", tags=tags, responses=error_responses(401))
+    @app.get("/v1/approval-policies", operation_id="approvals.policies.list", tags=tags, responses=error_responses(401))
     def list_policies(_: Principal = Depends(principal)):
         return [policies.to_json(x) for x in svc.repo.list_policies()]
 
-    @app.post("/v1/approval-policies", tags=tags, status_code=201, responses=error_responses(401, 403, 404, 422))
+    @app.post("/v1/approval-policies", operation_id="approvals.policies.create", tags=tags, status_code=201, responses=error_responses(401, 403, 404, 422))
     def create_policy(body: PolicyBody, p: Principal = Depends(principal)):
         return JSONResponse(status_code=201, content=policies.create(p, body))
 
-    @app.delete("/v1/approval-policies/{policy_id}", tags=tags, status_code=204,
+    @app.delete("/v1/approval-policies/{policy_id}", operation_id="approvals.policies.delete", tags=tags, status_code=204,
                 responses=error_responses(401, 403, 404))
     def delete_policy(policy_id: str, p: Principal = Depends(principal)):
         policies.delete(p, policy_id)
@@ -116,11 +116,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return {"id": w["id"], "name": w["name"], "tz": w["tz"], "ranges": w["ranges"],
                 "updated_at": iso(w["updated_at"]), "open_now": policies.window_is_open(w["id"], gw.clock())}
 
-    @app.get("/v1/windows", tags=tags, responses=error_responses(401))
+    @app.get("/v1/windows", operation_id="windows.list", tags=tags, responses=error_responses(401))
     def list_windows(_: Principal = Depends(principal)):
         return [window_json(w) for w in svc.repo.list_windows()]
 
-    @app.put("/v1/windows/{window_id}", tags=tags, responses=error_responses(401, 403, 422))
+    @app.put("/v1/windows/{window_id}", operation_id="windows.put", tags=tags, responses=error_responses(401, 403, 422))
     def put_window(window_id: str, body: WindowBody, p: Principal = Depends(principal)):
         if not p.is_owner:
             gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "edit windows", "reason": "permission_denied"})
