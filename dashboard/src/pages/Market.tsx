@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Market: Discover (editorial rails + category rails from TAXONOMY §1), search and filters, and the
 // app page with its trust card (scan, tier, licence, links; §11.4). Install is a request (§3):
-// review → POST /v1/actions → the app page follows the action live until it ends.
-import { useMemo, useState } from 'react';
+// POST /v1/actions → Approvals, then the app page follows the action live until it ends.
+import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { AppDetail, InstallReview, Market as StoreMarket, PageHeader, type CatalogApp as StoreApp, type Collection, type LoadState } from '@onemind/ui';
+import { AppDetail, Market as StoreMarket, PageHeader, type Collection, type LoadState } from '@onemind/ui';
 import { toJob, toStoreApp } from '../data/adapters';
 import { useHub, type Hub } from '../data/hub';
 import type { Polled } from '../lib/hooks';
@@ -50,7 +50,6 @@ export function Market() {
   const shell = useShell();
   const navigate = useNavigate();
   const { appId } = useParams();
-  const [review, setReview] = useState<StoreApp | null>(null);
   const apps = useMemo(() => (hub.apps.data ?? []).map(toStoreApp), [hub.apps.data]);
   const state = loadState(hub.apps, hub);
   const byId = (id: string) => hub.apps.data?.find((a) => a.id === id);
@@ -62,19 +61,12 @@ export function Market() {
   const jobs = hub.actionList.filter((a) => a.type === 'app.install').map((a) => toJob(a, hub.appName(a.params.app_id)));
   const blockedForYou = hub.canRequest === 'no' ? 'Your account can look but not request installs. Ask the owner.' : undefined;
 
-  const reviewDialog = review && (
-    <InstallReview
-      key={review.id}
-      app={review}
-      open
-      now={hub.now}
-      placementNote={PLACEMENT_NOTE}
-      onClose={() => setReview(null)}
-      onSubmit={(r) => {
-        void shell.requestApp('app.install', r.params.app_id).then((id) => id && navigate(href.app(r.params.app_id)));
-      }}
-    />
-  );
+  // A request goes straight to the hub and lands in Approvals, where the owner sees the exact
+  // request (type, app, who asked) before anything runs. Nothing is installed until it is approved.
+  const request = (type: 'app.install' | 'app.remove', id: string) => {
+    if (blockedForYou) return;
+    void shell.requestApp(type, id).then((actionId) => actionId && navigate(href.approval(actionId)));
+  };
 
   if (appId) {
     const app = apps.find((a) => a.id === appId);
@@ -88,12 +80,11 @@ export function Market() {
           now={hub.now}
           backHref={href.market}
           manageHref={href.manage}
-          onRequestInstall={(a) => (blockedForYou ? undefined : setReview(a))}
+          onRequestInstall={(a) => request('app.install', a.id)}
           onOpen={(a) => open(a.id)}
           onRetry={hub.reloadAll}
         />
         {blockedForYou && <p className="om-note om-tone-info">{blockedForYou}</p>}
-        {reviewDialog}
       </>
     );
   }
@@ -113,10 +104,10 @@ export function Market() {
         appHref={href.app}
         approvalsHref={href.approvals}
         onOpen={(a) => open(a.id)}
-        onRequestInstall={(a) => (blockedForYou ? undefined : setReview(a))}
+        onRequestRemove={(a) => request('app.remove', a.id)}
+        onRequestInstall={(a) => request('app.install', a.id)}
         onRetry={hub.reloadAll}
       />
-      {reviewDialog}
     </>
   );
 }

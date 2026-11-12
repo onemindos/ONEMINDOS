@@ -17,6 +17,8 @@ export interface MarketHandlers {
   /** Opens the install review for `app` (the request is created after review). */
   onRequestInstall: (app: CatalogApp) => void;
   onOpen: (app: CatalogApp) => void;
+  /** Asks to remove an installed app. Optional: only the screens that can send the request pass it. */
+  onRequestRemove?: (app: CatalogApp) => void;
   /** Link to the app page. */
   appHref: (id: string) => string;
 }
@@ -39,7 +41,7 @@ export const DISCOVER_RAILS = 4;
 
 // ---------------------------------------------------------------- app card
 
-export function AppCard({ app, now, onRequestInstall, onOpen, appHref, disabled }: MarketHandlers & { app: CatalogApp; now: number; disabled?: string }) {
+export function AppCard({ app, now, onRequestInstall, onRequestRemove, onOpen, appHref, disabled }: MarketHandlers & { app: CatalogApp; now: number; disabled?: string }) {
   const action = primaryAction(app, now);
   const reasonId = useId();
   const cat = CATEGORY_BY_SLUG[app.category];
@@ -63,14 +65,27 @@ export function AppCard({ app, now, onRequestInstall, onOpen, appHref, disabled 
       </div>
       <p className="om-store-card-desc">{app.tagline ?? app.description}</p>
       <ClassPills app={app} />
+      {/* The trust facts the owner decides on, on the card itself (contract §10.3, §11.4). */}
+      <p className="om-store-card-trust">
+        Licence: {app.license}
+        {app.scan && <> · Scan {app.scan.result === 'pass' ? 'passed' : 'failed'}</>}
+        {app.installed && <> · <strong>Installed</strong></>}
+      </p>
       <div className="om-store-card-foot">
         <FitLine fit={app.fit} listOnly={app.deploy_class === 'list-only'} />
         <div className="om-store-card-action">
           {action.kind === 'open' ? (
-            <Button size="sm" icon="external" onClick={() => onOpen(app)} disabled={!!disabled} aria-describedby={disabled ? reasonId : undefined}>
-              Open
-            </Button>
-          ) : action.kind === 'upstream' ? (
+            <>
+              <Button size="sm" icon="external" onClick={() => onOpen(app)} disabled={!!disabled} aria-describedby={disabled ? reasonId : undefined}>
+                Open
+              </Button>
+              {onRequestRemove && (
+                <Button size="sm" variant="ghost" disabled={!!disabled} onClick={() => onRequestRemove(app)}>
+                  Remove<span className="om-visually-hidden"> {app.name}</span>
+                </Button>
+              )}
+            </>
+          ) :action.kind === 'upstream' ? (
             action.href ? (
               <a className="om-btn om-btn-secondary om-btn-sm" href={action.href} target="_blank" rel="noreferrer noopener">
                 Get it upstream

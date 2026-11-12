@@ -100,7 +100,7 @@ describe('AppDetail', () => {
     expect(screen.getByText(/AGPL-3.0/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Source/ })).toHaveAttribute('target', '_blank');
     expect(screen.getByRole('img', { name: /Placeholder for: Timeline/ })).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Request install' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: /^Request install/ }));
     expect(h.onRequestInstall).toHaveBeenCalledWith(imm);
     await noAxeViolations(container);
   });

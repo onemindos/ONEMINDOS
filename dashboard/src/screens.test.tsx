@@ -49,16 +49,12 @@ describe('Market and the install loop', () => {
     const u = userEvent.setup();
     renderApp({ token: 'owner-demo', route: '/market/vaultwarden' });
     await u.click(await screen.findByRole('button', { name: /Request install/ }, T));
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/The hub picks the node/)).toBeInTheDocument();
-    await u.click(within(dialog).getByRole('button', { name: /Send request/ }));
+    // The request goes straight to Approvals, where the owner sees who asked and what, then decides.
     expect(await screen.findByText('Request sent', {}, T)).toBeInTheDocument();
-    // The app page follows the action.
-    expect((await screen.findAllByText('Awaiting approval', {}, T)).length).toBeGreaterThan(0);
-
-    await u.click(screen.getAllByRole('link', { name: /Approvals/ })[0]!);
-    const card = await screen.findByRole('heading', { name: /Install vaultwarden|Install Vaultwarden/ }, T);
-    expect(card).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Approvals' }, T)).toBeInTheDocument();
+    const card = await screen.findByRole('article', { name: /Install vaultwarden|Install Vaultwarden/ }, T);
+    expect(within(card).getByText('Person')).toBeInTheDocument();
+    expect(card).toHaveTextContent(/awaiting approval/i);
     expect(screen.getByText(/does not compute a plan for requests yet/)).toBeInTheDocument();
     await u.click(screen.getByRole('button', { name: /^Approve/ }));
     expect(await screen.findByText('Approved', {}, T)).toBeInTheDocument();
