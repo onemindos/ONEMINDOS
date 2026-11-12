@@ -1,0 +1,173 @@
+[
+	{
+		"id": 1,
+		"machine_key": "mkey:<masked>",
+		"node_key": "nodekey:<masked>",
+		"disco_key": "discokey:<masked>",
+		"ip_addresses": [
+			"100.64.0.1",
+			"fd7a:115c:a1e0::1"
+		],
+		"name": "hub",
+		"user": {
+			"id": 2147455555,
+			"name": "tagged-devices",
+			"created_at": {
+				"seconds": -62135596800
+			},
+			"display_name": "Tagged Devices"
+		},
+		"last_seen": {
+			"seconds": 1794470970,
+			"nanos": 499831172
+		},
+		"pre_auth_key": {
+			"user": {
+				"id": 1,
+				"name": "onemind",
+				"created_at": {
+					"seconds": 1794470963,
+					"nanos": 490790534
+				}
+			},
+			"id": 1,
+			"key": "hskey-auth-<masked>",
+			"used": true,
+			"expiration": {
+				"seconds": 1794474564,
+				"nanos": 506005816
+			},
+			"created_at": {
+				"seconds": 1794470964,
+				"nanos": 506689818
+			},
+			"acl_tags": [
+				"tag:hub"
+			]
+		},
+		"created_at": {
+			"seconds": 1794470964,
+			"nanos": 674520007
+		},
+		"register_method": 1,
+		"given_name": "hub",
+		"online": true,
+		"tags": [
+			"tag:hub"
+		]
+	},
+	{
+		"id": 2,
+		"machine_key": "mkey:<masked>",
+		"node_key": "nodekey:<masked>",
+		"disco_key": "discokey:<masked>",
+		"ip_addresses": [
+			"100.64.0.2",
+			"fd7a:115c:a1e0::2"
+		],
+		"name": "home-a",
+		"user": {
+			"id": 2147455555,
+			"name": "tagged-devices",
+			"created_at": {
+				"seconds": -62135596800
+			},
+			"display_name": "Tagged Devices"
+		},
+		"last_seen": {
+			"seconds": 1794470976,
+			"nanos": 548482870
+		},
+		"pre_auth_key": {
+			"user": {
+				"id": 1,
+				"name": "onemind",
+				"created_at": {
+					"seconds": 1794470963,
+					"nanos": 490790534
+				}
+			},
+			"id": 2,
+			"key": "hskey-auth-<masked>",
+			"used": true,
+			"expiration": {
+				"seconds": 1794474572,
+				"nanos": 541961206
+			},
+			"created_at": {
+				"seconds": 1794470972,
+				"nanos": 542303624
+			},
+			"acl_tags": [
+				"tag:leaf"
+			]
+		},
+		"created_at": {
+			"seconds": 1794470973,
+			"nanos": 757299910
+		},
+		"register_method": 1,
+		"given_name": "home-a",
+		"online": true,
+		"tags": [
+			"tag:leaf"
+		]
+	},
+	{
+		"id": 3,
+		"machine_key": "mkey:<masked>",
+		"node_key": "nodekey:<masked>",
+		"disco_key": "discokey:<masked>",
+		"ip_addresses": [
+			"100.64.0.3",
+			"fd7a:115c:a1e0::3"
+		],
+		"name": "home-b",
+		"user": {
+			"id": 2147455555,
+			"name": "tagged-devices",
+			"created_at": {
+				"seconds": -62135596800
+			},
+			"display_name": "Tagged Devices"
+		},
+		"last_seen": {
+			"seconds": 1794470979,
+			"nanos": 564988811
+		},
+		"pre_auth_key": {
+			"user": {
+				"id": 1,
+				"name": "onemind",
+				"created_at": {
+					"seconds": 1794470963,
+					"nanos": 490790534
+				}
+			},
+			"id": 3,
+			"key": "hskey-auth-<masked>",
+			"used": true,
+			"expiration": {
+				"seconds": 1794474572,
+				"nanos": 620322308
+			},
+			"created_at": {
+				"seconds": 1794470972,
+				"nanos": 620816393
+			},
+			"acl_tags": [
+				"tag:leaf"
+			]
+		},
+		"created_at": {
+			"seconds": 1794470976,
+			"nanos": 731211634
+		},
+		"register_method": 1,
+		"given_name": "home-b",
+		"online": true,
+		"tags": [
+			"tag:leaf"
+		]
+	}
+]

@@ -1,0 +1,12 @@
+{
+  "id": "T1b",
+  "verdict": "PASS",
+  "detail": {
+    "a_to_b_9001": "allowed-9001-home-b",
+    "b_to_a_9001": "allowed-9001-home-a",
+    "a_hub_7422_tls": "INFO tls_required=True | TLSv1.3 TLS_AES_128_GCM_SHA256 | cert subject nats-hub",
+    "b_hub_7422_tls": "INFO tls_required=True | TLSv1.3 TLS_AES_128_GCM_SHA256 | cert subject nats-hub",
+    "direct_pongs": 1,
+    "median_direct_ms": "48"
+  }
+}

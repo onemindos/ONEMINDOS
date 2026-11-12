@@ -1,0 +1,10 @@
+Starting Nmap 7.95 ( https://nmap.org ) at 2026-11-12 02:48 EST
+Nmap scan report for 203.0.113.21
+Host is up (0.062s latency).
+
+PORT      STATE         SERVICE
+3478/udp  open|filtered stun
+41641/udp open|filtered unknown
+MAC Address: CA:C5:53:AD:68:D3 (Unknown)
+
+Nmap done: 1 IP address (1 host up) scanned in 1.89 seconds
