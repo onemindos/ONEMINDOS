@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# karakeep-data: SQLite database, crawled assets and the generated secret (.onemind/). karakeep-meili: search index.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: karakeep-data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: karakeep-meili
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
