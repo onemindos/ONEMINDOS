@@ -158,14 +158,15 @@ spec:
             periodSeconds: 60
             timeoutSeconds: 10
             failureThreshold: 3
-          # Upstream publishes no container sizing; a OneMind choice for a JVM app.
+          # Upstream publishes no container sizing; a OneMind choice for a JVM app. Measured idle
+          # after first start: 1301Mi (k3s arm64, 2026-11-12).
           resources:
             requests:
               cpu: 250m
-              memory: 1Gi
+              memory: 1536Mi
             limits:
               cpu: "2"
-              memory: 2Gi
+              memory: 3Gi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

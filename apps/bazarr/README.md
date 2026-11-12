@@ -27,7 +27,7 @@ The Market lists `minMemoryMb: 512`, no GPU.
 | Workload | Container | Requests (CPU / memory) | Limits (CPU / memory) |
 |---|---|---|---|
 | Deployment/bazarr | run-dir | 10m / 16Mi | 100m / 32Mi |
-| Deployment/bazarr | bazarr | 50m / 192Mi | 1 / 512Mi |
+| Deployment/bazarr | bazarr | 50m / 256Mi | 1 / 512Mi |
 
 Storage: PVC `bazarr-config` 2Gi.
 
@@ -72,7 +72,7 @@ Source: [Bazarr wiki](https://wiki.bazarr.media) (Setup Guide).
 - **Shared media:** Bazarr writes subtitle files next to the video files, so it needs the same media folders as Sonarr and Radarr (`/tv`, `/movies`). Each OneMind app has its own volumes in its own namespace, so those folders are not mounted yet; until shared app storage exists, Bazarr can search but cannot save subtitles beside the videos.
 - No HTTPS or LAN hostname: OneMind v0 has no ingress or certificates for apps, so the web UI is reached through a port-forward until the app proxy exists.
 - `readOnlyRootFilesystem` is not set (linuxserver documents a separate read-only mode; not tested here).
-- Resource figures are OneMind choices; upstream publishes none. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
+- Resource figures are OneMind choices; upstream publishes none. Idle memory was measured on a k3s smoke test (arm64, 2026-11-12) and the figures were raised to leave headroom above it. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
 <!-- onemind:notes:end -->
 

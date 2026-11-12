@@ -22,13 +22,13 @@ Business intelligence: ask questions of your databases and build charts and dash
 
 ## Resources
 
-The Market lists `minMemoryMb: 2048`, no GPU.
+The Market lists `minMemoryMb: 3072`, no GPU.
 
 | Workload | Container | Requests (CPU / memory) | Limits (CPU / memory) |
 |---|---|---|---|
 | Deployment/metabase | encryption-key | 10m / 16Mi | 100m / 64Mi |
 | Deployment/metabase | db | 50m / 128Mi | 1 / 512Mi |
-| Deployment/metabase | metabase | 250m / 1Gi | 2 / 2Gi |
+| Deployment/metabase | metabase | 250m / 1536Mi | 2 / 3Gi |
 
 Storage: PVC `metabase-db` 5Gi.
 
@@ -77,7 +77,7 @@ Source: [Metabase docs, Running Metabase on Docker](https://www.metabase.com/doc
 - No email (SMTP): invitations and alerts are not mailed.
 - No HTTPS or LAN hostname: OneMind v0 has no ingress or certificates for apps, so the web UI is reached through a port-forward until the app proxy exists.
 - `readOnlyRootFilesystem` is not set: Metabase writes its plugins to `/plugins` in the image.
-- Resource figures are OneMind choices; upstream publishes none for containers. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
+- Resource figures are OneMind choices; upstream publishes none for containers. Idle memory was measured on a k3s smoke test (arm64, 2026-11-12) and the figures were raised to leave headroom above it. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
 <!-- onemind:notes:end -->
 

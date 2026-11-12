@@ -28,7 +28,7 @@ metadata:
   tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
-  requires: {gpu: false, minMemoryMb: 2048}
+  requires: {gpu: false, minMemoryMb: 3072}
   web: {port: 3000}
   manifests: manifests/
   # automerge stays none until renovate.json lists this app (validate-apps check 9).

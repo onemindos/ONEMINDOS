@@ -29,9 +29,9 @@ The Market lists `minMemoryMb: 4096`, no GPU.
 | Deployment/penpot | secret-key | 10m / 16Mi | 100m / 64Mi |
 | Deployment/penpot | db | 50m / 128Mi | 1 / 1Gi |
 | Deployment/penpot | valkey | 10m / 32Mi | 500m / 192Mi |
-| Deployment/penpot | frontend | 50m / 64Mi | 500m / 256Mi |
-| Deployment/penpot | backend | 250m / 1Gi | 2 / 2Gi |
-| Deployment/penpot | exporter | 100m / 256Mi | 1 / 1Gi |
+| Deployment/penpot | frontend | 50m / 128Mi | 500m / 512Mi |
+| Deployment/penpot | backend | 250m / 1536Mi | 2 / 3Gi |
+| Deployment/penpot | exporter | 100m / 512Mi | 1 / 1Gi |
 
 Storage: PVC `penpot-data` 20Gi, PVC `penpot-db` 20Gi.
 
@@ -84,7 +84,7 @@ Source: [docs/technical-guide/getting-started/docker.md](https://github.com/penp
 - The backend and exporter listen on all pod addresses (ports 6060 and 6061), not only 127.0.0.1, so another pod on the box could reach them directly until per-app network policies exist.
 - The admin console and the MCP server are not packaged.
 - `readOnlyRootFilesystem` is not set: the frontend's entrypoint writes its nginx configuration at start.
-- Resource figures are OneMind choices below upstream's server guidance (4 CPUs, 16 GB for thousands of users). They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
+- Resource figures are OneMind choices below upstream's server guidance (4 CPUs, 16 GB for thousands of users). Idle memory was measured on a k3s smoke test (arm64, 2026-11-12) and the figures were raised to leave headroom above it. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
 <!-- onemind:notes:end -->
 

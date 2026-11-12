@@ -181,13 +181,14 @@ spec:
             periodSeconds: 60
             timeoutSeconds: 10
             failureThreshold: 3
+          # Measured idle: 173Mi (k3s arm64, 2026-11-12).
           resources:
             requests:
               cpu: 50m
-              memory: 64Mi
+              memory: 128Mi
             limits:
               cpu: 500m
-              memory: 256Mi
+              memory: 512Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -241,14 +242,15 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
           # recommended-settings.md: 4 CPUs and 16 GB "are sufficient to support thousands of
-          # users"; a home box needs far less. A OneMind choice for a few editors.
+          # users"; a home box needs far less. A OneMind choice for a few editors. Measured idle:
+          # 1532Mi (k3s arm64, 2026-11-12).
           resources:
             requests:
               cpu: 250m
-              memory: 1Gi
+              memory: 1536Mi
             limits:
               cpu: "2"
-              memory: 2Gi
+              memory: 3Gi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -292,11 +294,12 @@ spec:
               port: exporter
             periodSeconds: 10
             timeoutSeconds: 5
-          # Exports render pages in a headless Chromium. A OneMind choice.
+          # Exports render pages in a headless Chromium. A OneMind choice. Measured idle: 527Mi
+          # (k3s arm64, 2026-11-12).
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi
+              memory: 512Mi
             limits:
               cpu: "1"
               memory: 1Gi

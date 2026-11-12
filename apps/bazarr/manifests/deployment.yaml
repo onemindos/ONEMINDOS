@@ -81,11 +81,11 @@ spec:
             periodSeconds: 60
             timeoutSeconds: 10
             failureThreshold: 3
-          # Upstream publishes no sizing; a OneMind choice for a Python app.
+          # Upstream publishes no sizing; a OneMind choice. Measured idle: 245Mi (k3s arm64, 2026-11-12).
           resources:
             requests:
               cpu: 50m
-              memory: 192Mi
+              memory: 256Mi
             limits:
               cpu: "1"
               memory: 512Mi
