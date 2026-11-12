@@ -20,3 +20,8 @@ export async function approveOnScreen(page: Page, title: string, timeout: number
   await expect(status).toBeVisible({ timeout });
   return (await status.textContent())?.trim() ?? '';
 }
+
+/** Go to a screen through the top navigation (other links on a page may share the word). */
+export async function navTo(page: Page, screen: 'Home' | 'Nodes' | 'Market' | 'Approvals'): Promise<void> {
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: screen, exact: true }).click();
+}

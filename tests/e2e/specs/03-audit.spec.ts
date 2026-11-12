@@ -10,6 +10,7 @@ import { expect, test } from '@playwright/test';
 import { verifyChain, type AuditRecord } from '../lib/audit';
 import { hubEnv, type HubEnv } from '../lib/env';
 import { Hub } from '../lib/hub';
+import { recordedActions } from '../lib/runlog';
 
 const env = hubEnv();
 const E = env as HubEnv;
@@ -27,25 +28,26 @@ test('the audit chain on the hub verifies and records requester and approver', a
   expect(chain.ok).toBe(true);
   const recs = chain.records;
 
-  const requested = recs.filter(
-    (r) => r.event === 'action.requested' && (r.data as { params?: { app_id?: string } }).params?.app_id === E.app,
-  );
-  // Owner flow (01) and agent flow (02): installs and removals by both kinds of principal.
-  const byOwner = requested.filter((r) => r.principal?.kind === 'person' && r.principal.role === 'owner');
-  expect(byOwner.length).toBeGreaterThanOrEqual(2);
-  if (E.agentToken) {
-    const byAgent = requested.filter((r) => r.principal?.kind === 'agent' && r.principal.id === E.agentId);
-    expect(byAgent.map((r) => (r.data as { type: string }).type)).toEqual(
-      expect.arrayContaining(['app.install', 'app.remove']),
+  // Every action this run created: requested by the right principal, approved by the owner, succeeded.
+  const mine = recordedActions();
+  expect(mine.filter((a) => a.by === 'owner').length, 'owner flow (01) recorded its actions').toBeGreaterThanOrEqual(2);
+  if (E.agentToken) expect(mine.filter((a) => a.by === 'agent').length, 'agent flow (02)').toBeGreaterThanOrEqual(2);
+  for (const a of mine) {
+    const req = recs.find((r) => r.event === 'action.requested' && r.action_id === a.id);
+    expect(req, `action.requested for ${a.id}`).toBeDefined();
+    expect((req!.data as { type: string; params: { app_id: string } }).type).toBe(a.type);
+    expect((req!.data as { params: { app_id: string } }).params.app_id).toBe(E.app);
+    expect(req!.principal).toMatchObject(
+      a.by === 'agent' ? { kind: 'agent', id: E.agentId } : { kind: 'person', role: 'owner' },
     );
-    for (const r of byAgent) {
-      expect(approvedBy(recs, r.action_id!)).toMatchObject({ kind: 'person', role: 'owner' });
-      expect(recs.some((x) => x.event === 'action.succeeded' && x.action_id === r.action_id)).toBe(true);
-    }
-    // The agent tried to approve its own request; the refusal is audited.
-    expect(recs.some((r) => r.event === 'authz.denied' && r.principal?.id === E.agentId)).toBe(true);
+    expect(approvedBy(recs, a.id), `action.approved for ${a.id}`).toMatchObject({ kind: 'person', role: 'owner' });
+    expect(recs.some((r) => r.event === 'action.succeeded' && r.action_id === a.id), `action.succeeded for ${a.id}`).toBe(true);
   }
-  for (const r of byOwner) expect(approvedBy(recs, r.action_id!)).toMatchObject({ kind: 'person', role: 'owner' });
+  // The agent tried to approve its own request (02); the refusal is audited against that action.
+  if (E.agentToken) {
+    const agentIds = new Set(mine.filter((a) => a.by === 'agent').map((a) => a.id));
+    expect(recs.some((r) => r.event === 'authz.denied' && r.principal?.id === E.agentId && agentIds.has(r.action_id!))).toBe(true);
+  }
 });
 
 test('GET /v1/audit/verify agrees (§12.16)', async ({ request }) => {

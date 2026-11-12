@@ -9,6 +9,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { expect, test } from '@playwright/test';
 import { APPROVE_TIMEOUT_MS, hubEnv, type HubEnv } from '../lib/env';
 import { Hub } from '../lib/hub';
+import { recordAction } from '../lib/runlog';
 import { approveOnScreen, signIn } from '../lib/session';
 
 test.describe.configure({ mode: 'serial' });
@@ -37,7 +38,9 @@ async function agentRequests(type: 'app.install' | 'app.remove', reason: string)
   try {
     const res = await client.callTool({ name: 'request_action', arguments: { type, app_id: E.app, reason } });
     expect(res.isError, JSON.stringify(res.content)).toBeFalsy();
-    return res.structuredContent as unknown as RequestResult;
+    const out = res.structuredContent as unknown as RequestResult;
+    recordAction({ id: out.action_id, type, by: 'agent' });
+    return out;
   } finally {
     await client.close();
   }
@@ -85,7 +88,7 @@ test('the agent requests an install over MCP; it cannot approve; the owner appro
 
   await signIn(page, E.ownerToken);
   await page.goto(`/approvals?highlight=${req.action_id}`);
-  const card = page.getByRole('article', { name: `Install ${E.app}` }).filter({ hasText: 'awaiting approval' });
+  const card = page.getByRole('article', { name: `Install ${E.app}`, exact: true }).filter({ hasText: 'awaiting approval' });
   await expect(card).toContainText('AI agent');
   await expect(card).toContainText(E.agentId);
   expect(await approveOnScreen(page, `Install ${E.app}`, APPROVE_TIMEOUT_MS)).toBe(`Install ${E.app}: succeeded.`);
