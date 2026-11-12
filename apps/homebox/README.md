@@ -46,7 +46,9 @@ Images:
 ## How it is packaged
 
 - **Image:** upstream rootless `ghcr.io/sysadminsmedia/homebox:0.27.1-rootless` (`Dockerfile.rootless`): `USER nonroot` (UID/GID 65532).
-- **State:** PVC `homebox-data` (5 Gi) on `/data`: SQLite database and attachments.
+- **Pepper:** HomeBox refuses to start without `HBOX_AUTH_API_KEY_PEPPER` (at least 32 bytes, kept stable because changing it invalidates every API key; `backend/app/api/main.go`). A `secret` init container generates it once into `.onemind/` on the data volume and the container exports it. Nothing is committed.
+- **Command:** the image's CMD passes `/data/config.yml` as an argument, which HomeBox's config parser rejects as a positional argument (the pod exited with code 2 in the CI smoke test), so the container runs `/app/api` without it; settings come from `HBOX_*` variables.
+- **State:** PVC `homebox-data` (5 Gi) on `/data`: SQLite database, attachments and the pepper.
 - **Health:** probes on `GET /api/v1/status`, the image's HEALTHCHECK path.
 - **Security:** `runAsNonRoot`, `allowPrivilegeEscalation: false`, all Linux capabilities dropped, `RuntimeDefault` seccomp, no service-account token. One replica with the `Recreate` strategy, so two pods never write the same volume.
 

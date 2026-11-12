@@ -2,8 +2,9 @@
 # Calibre-Web 0.6.27, LinuxServer image (the one upstream's README "Docker Images" names). That image's
 # s6 service always switches to user abc (svc-calibre-web/run: s6-setuidgid abc), which needs root, and
 # LinuxServer does not list it as tested for non-root use. So this package runs the app the way that
-# service does, python3 /app/calibre-web/cps.py with CALIBRE_DBPATH=/config, directly as UID 1000, and an
-# init container does the two first-run steps that matter. Port 8083; GET /login answers without a session.
+# service does, python3 /app/calibre-web/cps.py with CALIBRE_DBPATH=/config, directly as UID 1000.
+# Port 8083; GET /login answers without a session. The release tarball has no sample library (upstream
+# .gitattributes: /library export-ignore), so the owner brings one (README First run).
 #
 # Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped.
 apiVersion: apps/v1
@@ -33,36 +34,6 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
-      initContainers:
-      - name: library
-        image: ghcr.io/linuxserver/calibre-web:0.6.27-ls394@sha256:8eabbc9ac4d7fcbc252434493078ba22e4e8c3aa461e11b102020b040c5fc3e6
-        imagePullPolicy: IfNotPresent
-        command:
-        - sh
-        - -c
-        - |
-          set -e
-          # An empty Calibre library from the release tarball (README "Configure Calibre Database").
-          [ -f /books/metadata.db ] || cp /app/calibre-web/library/metadata.db /books/metadata.db
-          # What the LinuxServer init script prepares (init-calibre-web-config/run).
-          [ -f /config/client_secrets.json ] || echo '{}' > /config/client_secrets.json
-        resources:
-          requests:
-            cpu: 10m
-            memory: 32Mi
-          limits:
-            cpu: 200m
-            memory: 128Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-        volumeMounts:
-        - name: config
-          mountPath: /config
-        - name: books
-          mountPath: /books
       containers:
       - name: calibre-web
         image: ghcr.io/linuxserver/calibre-web:0.6.27-ls394@sha256:8eabbc9ac4d7fcbc252434493078ba22e4e8c3aa461e11b102020b040c5fc3e6

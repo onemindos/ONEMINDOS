@@ -47,7 +47,7 @@ Images:
 ## How it is packaged
 
 - **Image:** `ghcr.io/linuxserver/calibre-web:0.6.27-ls394`, the LinuxServer image that upstream's README lists under "Docker Images". Upstream publishes no image of its own.
-- **How it runs:** the LinuxServer s6 service always switches to the user `abc` (`svc-calibre-web/run`), which needs root, and LinuxServer does not list this image as tested for non-root use. This package runs what that service runs, `python3 /app/calibre-web/cps.py` with `CALIBRE_DBPATH=/config`, directly as UID 1000. An init container copies upstream's empty Calibre library (`library/metadata.db` from the release tarball) into `/books` on the first start, and creates `/config/client_secrets.json` as the LinuxServer init does.
+- **How it runs:** the LinuxServer s6 service always switches to the user `abc` (`svc-calibre-web/run`), which needs root, and LinuxServer does not list this image as tested for non-root use. This package runs what that service runs, `python3 /app/calibre-web/cps.py` with `CALIBRE_DBPATH=/config`, directly as UID 1000. The LinuxServer init steps it skips need root and only matter for Google Drive, the Calibre converter mod and PDF covers (see Known limits).
 - **State:** PVCs `calibre-web-config` (`/config`: `app.db` and logs) and `calibre-web-books` (`/books`: the Calibre library). The app cache is an `emptyDir`.
 - **Health:** probes on `GET /login`.
 - **Security:** `runAsNonRoot`, `allowPrivilegeEscalation: false`, all Linux capabilities dropped, `RuntimeDefault` seccomp, no service-account token. One replica with the `Recreate` strategy, so two pods never write the same volume.
@@ -58,8 +58,9 @@ From the upstream documentation, https://github.com/janeczku/calibre-web/wiki/Co
 
 1. Open the web UI (port 8083) and sign in with upstream's default account, **admin** / **admin123** (README and the LinuxServer README).
 2. **Change that password at once** under **Admin → Edit user**.
-3. Set the Calibre database location to `/books` and save.
-4. To add books from the browser, turn on **Enable Uploads** under **Admin → Edit Basic Configuration → Feature Configuration**.
+3. Calibre-Web serves an existing Calibre library; it cannot create one. Copy your library folder (the one with `metadata.db`) into the `calibre-web-books` volume, or upstream's empty sample (https://github.com/janeczku/calibre-web/raw/master/library/metadata.db, README "Quick Start" step 3), for example with `kubectl cp metadata.db app-calibre-web/<pod>:/books/metadata.db`.
+4. Set the Calibre database location to `/books` and save.
+5. To add books from the browser, turn on **Enable Uploads** under **Admin → Edit Basic Configuration → Feature Configuration**.
 
 ## Known limits in this package
 

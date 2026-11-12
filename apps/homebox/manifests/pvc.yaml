@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# /data: homebox.db (SQLite, WAL) and uploaded attachments.
+# /data: homebox.db (SQLite, WAL), uploaded attachments and the generated pepper (.onemind/).
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

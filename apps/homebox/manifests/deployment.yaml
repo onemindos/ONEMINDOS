@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # HomeBox 0.27.1, upstream rootless image (github.com/sysadminsmedia/homebox, Dockerfile.rootless at tag
 # v0.27.1): USER nonroot (UID/GID 65532), port 7745, SQLite and attachments in /data, and the upstream
-# HEALTHCHECK on GET /api/v1/status.
+# HEALTHCHECK on GET /api/v1/status. Two things differ from the image defaults, both from
+# backend/app/api/main.go at that tag: the API key pepper is required (at least 32 bytes, stable), so the
+# secret init container generates it once on the data volume; and the image's CMD passes /data/config.yml
+# as a positional argument, which the config parser rejects, so the container runs /app/api without it.
 #
 # Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped.
 apiVersion: apps/v1
@@ -31,10 +34,45 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+      - name: secret
+        image: ghcr.io/sysadminsmedia/homebox:0.27.1-rootless@sha256:6bb4472e91d3084d292ce654772e26df765d01aa0d38aa7077a7bb07b7d44ac7
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - -c
+        - |
+          set -e
+          umask 077
+          mkdir -p /data/.onemind
+          # HBOX_AUTH_API_KEY_PEPPER: required, at least 32 bytes, stable across restarts (app/api/main.go).
+          [ -s /data/.onemind/api-key-pepper ] || tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 64 > /data/.onemind/api-key-pepper
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 200m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: data
+          mountPath: /data
       containers:
       - name: homebox
         image: ghcr.io/sysadminsmedia/homebox:0.27.1-rootless@sha256:6bb4472e91d3084d292ce654772e26df765d01aa0d38aa7077a7bb07b7d44ac7
         imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - -c
+        - |
+          HBOX_AUTH_API_KEY_PEPPER="$(cat /data/.onemind/api-key-pepper)"
+          export HBOX_AUTH_API_KEY_PEPPER
+          exec /app/api
         ports:
         - name: http
           containerPort: 7745
