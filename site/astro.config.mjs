@@ -6,6 +6,8 @@ import starlight from '@astrojs/starlight';
 import brand from './src/brand.generated.json' with { type: 'json' };
 
 const REPO = 'https://github.com/onemindos/ONEMINDOS';
+// Site root with one leading and one trailing slash, whether BASE_PATH is unset, '/x' or '/x/'.
+const ROOT = `/${(process.env.BASE_PATH || '').replace(/^\/+|\/+$/g, '')}/`.replace(/\/\/+/g, '/');
 
 // The production domain is a founder decision (site/README.md, "Hosting"). Until then the
 // build is domain-agnostic; set SITE_URL (and BASE_PATH for a GitHub Pages project site).
@@ -20,7 +22,7 @@ export default defineConfig({
       logo: { light: './src/assets/brand/onemind-mark-color.svg', dark: './src/assets/brand/onemind-mark-on-dark.svg', alt: brand.logoAlt },
       head: brand.faviconPngSizes.map((s) => ({
         tag: 'link',
-        attrs: { rel: 'icon', href: `${process.env.BASE_PATH || '/'}favicon-${s}.png`.replace(/\/\/+/g, '/'), sizes: `${s}x${s}`, type: 'image/png' },
+        attrs: { rel: 'icon', href: `${ROOT}favicon-${s}.png`, sizes: `${s}x${s}`, type: 'image/png' },
       })),
       social: [{ icon: 'github', label: 'GitHub', href: REPO }],
       editLink: { baseUrl: `${REPO}/edit/main/site/` },
