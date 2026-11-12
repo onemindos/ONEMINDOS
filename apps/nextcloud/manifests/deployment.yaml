@@ -43,6 +43,31 @@ spec:
           - name: net.ipv4.ip_unprivileged_port_start
             value: "0"
       initContainers:
+        # With REDIS_HOST set, the image's entrypoint (configure_redis_session) writes
+        # /usr/local/etc/php/conf.d/redis-session.ini on every start. That directory belongs to
+        # root, so as UID 33 the entrypoint fails ("Permission denied") and the container exits.
+        # This step copies the image's own conf.d (extension and PHP settings) into an emptyDir
+        # that the app container mounts there, so the entrypoint can write the file. It runs on
+        # every pod start, so a new image's settings are picked up.
+        - name: php-conf
+          image: docker.io/library/nextcloud:33.0.10-apache@sha256:81cb09055a20142521a267cea2bc27e6a81a065871c70850d209f08803567dbc
+          # Plain -R, not -a: the emptyDir's root is not owned by UID 33, so preserving its
+          # timestamps fails.
+          command: ["sh", "-c", "cp -R /usr/local/etc/php/conf.d/. /mnt/php-conf/"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: php-conf
+              mountPath: /mnt/php-conf
         - name: postgres
           image: docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
           restartPolicy: Always
@@ -167,6 +192,8 @@ spec:
           volumeMounts:
             - name: html
               mountPath: /var/www/html
+            - name: php-conf
+              mountPath: /usr/local/etc/php/conf.d
       volumes:
         - name: html
           persistentVolumeClaim:
@@ -177,3 +204,7 @@ spec:
         - name: valkey
           emptyDir:
             sizeLimit: 64Mi
+        # A writable copy of the image's PHP conf.d (see the php-conf init container).
+        - name: php-conf
+          emptyDir:
+            sizeLimit: 4Mi

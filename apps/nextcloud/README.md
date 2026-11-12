@@ -26,6 +26,7 @@ The Market lists `minMemoryMb: 1024`, no GPU.
 
 | Workload | Container | Requests (CPU / memory) | Limits (CPU / memory) |
 |---|---|---|---|
+| Deployment/nextcloud | php-conf | 10m / 16Mi | 100m / 64Mi |
 | Deployment/nextcloud | postgres | 50m / 128Mi | 1 / 512Mi |
 | Deployment/nextcloud | valkey | 10m / 16Mi | 250m / 128Mi |
 | Deployment/nextcloud | nextcloud | 100m / 256Mi | 2 / 1536Mi |
@@ -34,9 +35,9 @@ Storage: PVC `nextcloud-db` 5Gi, PVC `nextcloud-html` 20Gi.
 
 Images:
 
+- `docker.io/library/nextcloud:33.0.10-apache@sha256:81cb09055a20142521a267cea2bc27e6a81a065871c70850d209f08803567dbc`
 - `docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42`
 - `docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7`
-- `docker.io/library/nextcloud:33.0.10-apache@sha256:81cb09055a20142521a267cea2bc27e6a81a065871c70850d209f08803567dbc`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -57,6 +58,7 @@ Nextcloud is a personal cloud: file sync and sharing, calendars, contacts and ma
 - One `Deployment` (`Recreate`) with three containers: `nextcloud` (the official `nextcloud:33.0.10-apache` image), and native sidecars `postgres` (PostgreSQL 18, the version the Nextcloud 33 admin manual recommends) and `valkey` (Redis-compatible, for file locking; `REDIS_HOST`).
 - The database runs as a native sidecar in the same pod and listens on 127.0.0.1 only, so no other pod can reach it. For that reason PostgreSQL trusts local connections and there is no database password and no Secret (contract §11.2 forbids committed Secrets; §12.18 `spec.secrets` with generated values is not in the schema yet). When `spec.secrets` exists, a generated password can replace `trust`.
 - Nextcloud runs as UID 33 (`www-data`), as the README section "Running as an arbitrary user" describes; PostgreSQL and Valkey run as UID 999. No privilege escalation, all capabilities dropped. Apache keeps port 80: the pod sets the namespaced sysctl `net.ipv4.ip_unprivileged_port_start=0` (in the Kubernetes safe set), which affects only this pod's network namespace.
+- PHP `conf.d` is a writable copy: with `REDIS_HOST` set, the image's entrypoint writes `/usr/local/etc/php/conf.d/redis-session.ini` on every start, and as UID 33 it cannot write the image's root-owned directory (the container exits with "Permission denied"). The `php-conf` init container copies the image's `conf.d` into an emptyDir mounted there, on every pod start, so a new image's PHP settings still apply.
 - Volumes: `nextcloud-html` (20 GiB, `/var/www/html`: code, config and every user's files) and `nextcloud-db` (5 GiB). Valkey keeps nothing.
 - Probes: `GET /status.php` (startup allows 10 minutes for the first code copy), `pg_isready` and `valkey-cli ping` for the sidecars.
 
