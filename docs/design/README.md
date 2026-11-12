@@ -9,6 +9,7 @@ The design of the OneMind dashboard and phone app, and the plan for app-supplied
 | [TOKENS.md](TOKENS.md) | Colour, type, spacing, radius, elevation and motion, light and dark, with tested contrast |
 | [COMPONENTS.md](COMPONENTS.md) | Component inventory with states, built vs planned |
 | [PLUGIN-UI.md](PLUGIN-UI.md) | Phase-1 extension points (tiles, typed widgets, sandboxed widgets, settings panels, notification actions), manifest proposal, iframe vs module federation |
+| [CRITIQUE.md](CRITIQUE.md) | Ranked visual and UX defects per screen against umbrelOS-level polish, what was fixed, and the open follow-ups |
 | [screens/](screens/) | Screenshots of the demo (`ui/demo`): desktop light, desktop dark, phone |
 
 **Code:** [`ui/`](../../ui/) (React + TypeScript library, tokens as CSS variables, demo of every screen).

@@ -43,3 +43,8 @@ export { installBlockReason, safeHttpUrl, SCAN_MAX_AGE_MS } from './lib/trust';
 export type { AppTier, ScanSummary, CosignState } from './lib/trust';
 export { applyTheme, storedTheme } from './lib/theme';
 export type { ThemeChoice } from './lib/theme';
+export * from './customize';
+export * from './home';
+export * from './settings';
+export * from './store';
+export * from './shell';
