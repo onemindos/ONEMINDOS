@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# LAB-machines-spike: the one disposable lab VM (Pi 5 4 GB sizing). LAB_DIR is replaced by the
+# lab work folder at creation time; it is the VM's only host mount. Delete the VM after the spike.
+base:
+- template:_images/debian-13
+vmType: vz
+nestedVirtualization: true
+cpus: 4
+memory: 4GiB
+disk: 40GiB
+mounts:
+- location: "LAB_DIR"
+  writable: true
+containerd:
+  system: false
+  user: false
