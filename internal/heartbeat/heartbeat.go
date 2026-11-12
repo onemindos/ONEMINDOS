@@ -9,6 +9,8 @@ package heartbeat
 import (
 	"fmt"
 	"regexp"
+
+	"github.com/onemindos/onemindos/internal/mesh"
 )
 
 // Schema is the value of the "schema" field.
@@ -86,6 +88,21 @@ type Status struct {
 	// optional and additive: omitted when the box has no update service
 	// configured, so heartbeats without it stay valid.
 	Update *Update `json:"update,omitempty"`
+	// Mesh is this machine's mesh state (contract §12.10; internal/mesh):
+	// state and path, plus counts. Never an address or a peer name. Omitted
+	// when the machine has no mesh client.
+	Mesh *mesh.Heartbeat `json:"mesh,omitempty"`
+	// Fabric is the machine's place in the fabric (contract §12.10):
+	// role hub|worker|leaf and its NATS leaf link. Omitted on v0 installs
+	// that never joined through the fabric.
+	Fabric *Fabric `json:"fabric,omitempty"`
+}
+
+// Fabric is the heartbeat's fabric object (contract §12.10).
+type Fabric struct {
+	Role          string  `json:"role"`      // hub | worker | leaf
+	LeafLink      string  `json:"leaf_link"` // up | down | none
+	CertExpiresAt *string `json:"cert_expires_at,omitempty"`
 }
 
 // Update states (internal/update keeps the state machine).

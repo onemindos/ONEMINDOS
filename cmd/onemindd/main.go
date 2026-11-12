@@ -13,6 +13,9 @@
 //	ONEMIND_UPDATE_CONF OS update settings (default /etc/onemind/update.conf);
 //	                    when present, the heartbeat carries the "update" object
 //
+// `onemindd mesh enroll|wait-ip|status` manages this machine's mesh client
+// (internal/mesh; the k3s and NATS units call `wait-ip` before they start).
+//
 // `onemindd update [-config FILE]` runs the OS update service instead
 // (brief 30 B4.2, contract §10.1; unit deploy/systemd/onemind-update.service).
 // It is a separate process because it needs write access to /data and the
@@ -136,8 +139,10 @@ func main() {
 	defer stop()
 
 	log.Info("onemindd starting", "version", version.Version, "node_id", col.ID(), "role", *role, "board", col.Board())
+	meshReport, fabricReport := netReports(*role, log) // net.go
 	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, Interval: *interval, Collector: col, Logger: log,
-		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log)})
+		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log),
+		MeshReport:   meshReport, FabricReport: fabricReport})
 	wait := service.Start(ctx, log, optionalServices) // registry.go
 	err := a.Run(ctx)
 	stop()

@@ -21,6 +21,7 @@ import (
 
 	"github.com/onemindos/onemindos/internal/detect"
 	"github.com/onemindos/onemindos/internal/heartbeat"
+	"github.com/onemindos/onemindos/internal/mesh"
 	"github.com/onemindos/onemindos/internal/version"
 )
 
@@ -40,6 +41,10 @@ type Config struct {
 	// UpdateReport, when set, supplies the optional "update" object of the
 	// heartbeat (read from the update service's status file). nil = omit.
 	UpdateReport func() *heartbeat.Update
+	// MeshReport and FabricReport supply the optional "mesh" and "fabric"
+	// objects (contract §12.10). nil, or a nil result, omits them.
+	MeshReport   func() *mesh.Heartbeat
+	FabricReport func() *heartbeat.Fabric
 }
 
 // Agent is a running onemindd.
@@ -120,6 +125,12 @@ func (a *Agent) collect(c *collection) {
 	c.st = a.cfg.Collector.Collect(context.Background())
 	if a.cfg.UpdateReport != nil {
 		c.st.Update = a.cfg.UpdateReport()
+	}
+	if a.cfg.MeshReport != nil {
+		c.st.Mesh = a.cfg.MeshReport()
+	}
+	if a.cfg.FabricReport != nil {
+		c.st.Fabric = a.cfg.FabricReport()
 	}
 	a.stMu.Lock()
 	a.last, a.at, a.inflight = c.st, time.Now(), nil
