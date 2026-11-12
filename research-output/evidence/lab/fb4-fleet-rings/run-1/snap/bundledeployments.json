@@ -1,0 +1,38 @@
+[
+  {
+    "ns": "cluster-fleet-default-cluster-147ddd51cd13-7a7ffc864c1d",
+    "deploymentID": "s-4572bb19e15c51f871dcf5171e925fd99a4c62371fc374b413e3590b97126:cb504ed8b170713939e74264c4c6f52238acc461f355d81304994ffa458564d0",
+    "staged": "s-4572bb19e15c51f871dcf5171e925fd99a4c62371fc374b413e3590b97126:cb504ed8b170713939e74264c4c6f52238acc461f355d81304994ffa458564d0",
+    "applied": "s-4572bb19e15c51f871dcf5171e925fd99a4c62371fc374b413e3590b97126:cb504ed8b170713939e74264c4c6f52238acc461f355d81304994ffa458564d0",
+    "ready": true,
+    "display": {
+      "deployed": "True",
+      "monitored": "True",
+      "state": "Ready"
+    }
+  },
+  {
+    "ns": "cluster-fleet-default-cluster-59f4f90f77c2-81839c916412",
+    "deploymentID": "s-4572bb19e15c51f871dcf5171e925fd99a4c62371fc374b413e3590b97126:cb504ed8b170713939e74264c4c6f52238acc461f355d81304994ffa458564d0",
+    "staged": "s-d9cf91c435662e8cb53853f653e02a2afa1d321430c314e58fbd74d23bbac:cb504ed8b170713939e74264c4c6f52238acc461f355d81304994ffa458564d0",
+    "applied": "s-4572bb19e15c51f871dcf5171e925fd99a4c62371fc374b413e3590b97126:cb504ed8b170713939e74264c4c6f52238acc461f355d81304994ffa458564d0",
+    "ready": true,
+    "display": {
+      "deployed": "True",
+      "monitored": "True",
+      "state": "Ready"
+    }
+  },
+  {
+    "ns": "cluster-fleet-default-cluster-fce6a6f77c6a-fe770713757b",
+    "deploymentID": "s-4572bb19e15c51f871dcf5171e925fd99a4c62371fc374b413e3590b97126:cb504ed8b170713939e74264c4c6f52238acc461f355d81304994ffa458564d0",
+    "staged": "s-4572bb19e15c51f871dcf5171e925fd99a4c62371fc374b413e3590b97126:cb504ed8b170713939e74264c4c6f52238acc461f355d81304994ffa458564d0",
+    "applied": "s-4572bb19e15c51f871dcf5171e925fd99a4c62371fc374b413e3590b97126:cb504ed8b170713939e74264c4c6f52238acc461f355d81304994ffa458564d0",
+    "ready": true,
+    "display": {
+      "deployed": "True",
+      "monitored": "True",
+      "state": "Ready"
+    }
+  }
+]

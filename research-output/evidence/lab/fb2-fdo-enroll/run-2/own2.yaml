@@ -1,0 +1,18 @@
+log: {level: debug}
+db: {type: sqlite, dsn: "file:<fdo-work>/db/own2.db"}
+http: {ip: 127.0.0.1, port: "8044"}
+device_ca: {cert: <fdo-work>/keys/device_ca_cert.pem}
+owner:
+  key: <fdo-work>/keys/owner2_key.der
+  service_info:
+    fsims:
+      - fsim: fdo.download
+        params:
+          dir: <fdo-work>/dl
+          files:
+            - {src: join-bundle.txt, dst: <fdo-work>/dev/join-bundle.txt}
+      - fsim: fdo.command
+        params:
+          cmd: sh
+          args: ["-c", "id -u > <fdo-work>/dev/marker-uid; echo onboarded > <fdo-work>/dev/marker"]
+          return_stdout: true

@@ -278,6 +278,29 @@ def dual_favicon(b):
             f'</svg>\n')
 
 
+def icon_svg(b, variant, tile=None, size=1024):
+    """A square icon source for `tauri icon`: the mark centred on a rounded tile (app icon,
+    macOS icon grid: an 824 px tile on 1024, the mark at 80 % of the tile like brand-icons.py),
+    or the mark alone filling the square (tray icon)."""
+    vb, d = svg_paths(b, variant)
+    f = fills(b, variant)
+    x0, y0, w, h = (float(n) for n in vb.split())
+    box = size * 824 / 1024 if tile else size
+    s = box * (0.80 if tile else 1.0) / max(w, h)
+    tx, ty = size / 2 - (x0 + w / 2) * s, size / 2 - (y0 + h / 2) * s
+    rect = ""
+    if tile:
+        o = (size - box) / 2
+        rect = f'<rect x="{o:g}" y="{o:g}" width="{box:g}" height="{box:g}" rx="{box * 0.225:g}" fill="{b["_col"](tile)}"/>\n'
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}">\n'
+            f'<!-- {GEN_NOTE} Trademark: see brand/README.md. -->\n'
+            + rect
+            + f'<g transform="translate({tx:.3f} {ty:.3f}) scale({s:.6f})">\n'
+            f'<path fill="{f["brain"]}" fill-rule="evenodd" d="{d["brain"]}"/>\n'
+            f'<path fill="{f["circuit"]}" fill-rule="evenodd" d="{d["circuit"]}"/>\n'
+            '</g>\n</svg>\n')
+
+
 def derive(b):
     n = ui_neutrals()
     refs = ui_theme_refs(n)
@@ -448,6 +471,45 @@ def outputs(b):
          f"  --sl-color-accent: {site['light']['accent']};\n"
          f"  --sl-color-accent-high: {site['light']['high']};\n"
          "}\n")
+
+    # --- desktop (Tauri, desktop/): the name, the logo in the tray popover, and the SVG sources the
+    # raster icons are rendered from (`npm run icons`, `npm run icons:tray`; the desktop CI renders
+    # them again before each build). desktop/src/tokens.css follows ui/ (`npm run sync:tokens`).
+    # The app is named with shortName: it is a client of the OS, as the phone app is.
+    text("desktop/src/brand.generated.css",
+         "/* SPDX-License-Identifier: Apache-2.0 */\n"
+         f"/* {GEN_NOTE} */\n"
+         "/* Logo colours: the colour variant on light surfaces, on-dark on dark ones (themes as in tokens.css). */\n"
+         f":root {{ --om-logo-brain: {light_f['brain']}; --om-logo-circuit: {light_f['circuit']}; }}\n"
+         "@media (prefers-color-scheme: dark) {\n"
+         f"  :root:not([data-theme='light']) {{ --om-logo-brain: {dark_f['brain']}; --om-logo-circuit: {dark_f['circuit']}; }}\n"
+         "}\n"
+         f":root[data-theme='dark'] {{ --om-logo-brain: {dark_f['brain']}; --om-logo-circuit: {dark_f['circuit']}; }}\n"
+         ".mark .logo-brain { fill: var(--om-logo-brain); }\n"
+         ".mark .logo-circuit { fill: var(--om-logo-circuit); }\n")
+    didx = "desktop/src/index.html"
+    dblock = (f"          {INDEX_START}{GEN_NOTE}) -->\n"
+              f"          <svg class=\"mark\" viewBox=\"{vb}\" role=\"img\" aria-label=\"{b['logo']['alt']}\">\n"
+              f"            <path class=\"logo-brain\" fill-rule=\"evenodd\" d=\"{paths['brain']}\" />\n"
+              f"            <path class=\"logo-circuit\" fill-rule=\"evenodd\" d=\"{paths['circuit']}\" />\n"
+              "          </svg>\n"
+              f"          <span>{b['shortName']}</span>\n"
+              f"          {INDEX_END}\n")
+    dsrc = replace_block(read_text(os.path.join(ROOT, didx)), dblock, didx)
+    dsrc, n = re.subn(r"<title>[^<]*</title>", f"<title>{b['shortName']}</title>", dsrc, count=1)
+    if n != 1:
+        raise BrandError(f"{didx}: no <title> to set")
+    text(didx, dsrc)
+    dconf = "desktop/src-tauri/tauri.conf.json"
+    csrc = read_text(os.path.join(ROOT, dconf))
+    for key in ("productName", "title"):
+        csrc, n = re.subn(rf'("{key}": )"[^"]*"', lambda m: m.group(1) + json.dumps(b["shortName"]), csrc, count=1)
+        if n != 1:
+            raise BrandError(f"{dconf}: no \"{key}\" to set")
+    text(dconf, csrc)
+    text("desktop/assets/app-icon.svg", icon_svg(b, b["appIcon"]["dark"]["variant"], tile=b["appIcon"]["dark"]["tile"]))
+    # macOS draws the tray icon as a template (only its alpha counts), so the one-colour mark.
+    text("desktop/assets/tray-icon.svg", icon_svg(b, "black", size=64))
 
     # --- os: a file set the image stream wires in (brand/README.md). Never written into os/.
     osb = b["os"]

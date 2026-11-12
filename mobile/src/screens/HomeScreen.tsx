@@ -48,7 +48,7 @@ export function HomeScreen() {
         </Card>
       </Pressable>
 
-      <Pressable accessibilityRole="button" onPress={() => nav.navigate('Tabs', { screen: 'Nodes' })}>
+      <Pressable accessibilityRole="button" onPress={() => nav.navigate('Nodes')}>
         <Card>
           <View style={s.row}>
             <Text style={{ color: t.text, fontSize: 17, fontWeight: '600' }}>Nodes</Text>

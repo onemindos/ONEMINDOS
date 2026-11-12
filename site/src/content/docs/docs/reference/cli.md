@@ -39,6 +39,10 @@ The commands are on `main`. They report and install OneMind image updates, so on
 
 See [Updates and rollback](../../concepts/updates-and-rollback/).
 
+## Coming soon
+
+`onemind mesh status` (this machine's mesh state and its NATS leaf) and `onemind storage` (disks, disk health, mirror plans) are written and tested on `main`, but not yet registered in the tool, so `onemind` does not accept them yet.
+
 ## Build
 
 `make -C cmd/onemindd build` builds `onemind` and `onemindd` for linux/amd64 and linux/arm64 into `dist/`.

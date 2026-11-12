@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Renews the gateway's Kubernetes token (hardening H-03): a bound ServiceAccount token valid
+# 24 hours, written into /etc/onemind/gateway.kubeconfig. Started by onemind-gateway-token.timer.
+# Runs as root because it uses the k3s admin kubeconfig to request the token.
+[Unit]
+Description=OneMind gateway: renew its 24-hour Kubernetes token
+After=k3s.service
+Wants=k3s.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/onemind/bin/onemind-gateway-kubeconfig
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes

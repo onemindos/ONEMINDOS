@@ -1,0 +1,9 @@
+{
+  "id": "T4",
+  "verdict": "PASS",
+  "at": "2026-11-12T10:30:27Z",
+  "data": {
+    "owner2_import_http": "400",
+    "body": "Invalid ownership voucher"
+  }
+}
