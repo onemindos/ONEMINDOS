@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from conftest import AGENT, OWNER, FakeKubectl, ScriptedExecutor, action_body, make_client
+from conftest import conform_to_schema, AGENT, OWNER, FakeKubectl, ScriptedExecutor, action_body, make_client
 from onemind_core.app import create_app
 from onemind_core.audit import verify
 from onemind_core.catalog import Catalog, agent_spec_errors
@@ -187,6 +187,7 @@ def test_kubernetes_executor_creates_secret_before_manifests(settings, clock):
     # a hostile kubectl that echoes its input must not leak the token into the result
     run = FakeKubectl(echo=True)
     ex = KubernetesExecutor(runner=run, resolve=lambda host: ["192.0.2.10"])
+    conform_to_schema(settings.apps_dir / APP)
     s = replace(settings, executor="kubernetes", public_url="http://hub.example.test:8080", app_schema_path=SCHEMA)
     with TestClient(create_app(s, clock=clock, executor=ex)) as c:
         action = run_action(c, clock)

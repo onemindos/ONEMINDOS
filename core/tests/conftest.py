@@ -191,3 +191,26 @@ class FakeKubectl:
     @property
     def cluster_calls(self):
         return [(a, i) for a, i in self.calls if a[1:2] != ["kustomize"]]
+
+
+def conform_to_schema(app_dir: Path) -> None:
+    """Fill the contract §9.3 fields that sdk/schema now requires, for fixtures written before it.
+
+    Tests that validate against the real schema call this on their tmp copy of a fixture; the
+    fixture files themselves keep their deliberate oddities for the tests that need them.
+    """
+    import yaml
+
+    path = app_dir / "onemind.app.yaml"
+    doc = yaml.safe_load(path.read_text())
+    meta, spec = doc["metadata"], doc["spec"]
+    meta["links"] = {
+        "docs": "https://example.com/docs",
+        "github": "https://github.com/example/" + meta["id"],
+        "website": "https://example.com",
+        "support": "https://github.com/example/" + meta["id"] + "/issues",
+    }
+    meta.setdefault("upstream", {"release": "v" + str(meta["version"]), "released_at": "2026-01-01T00:00:00Z", "archived": False})
+    meta.setdefault("tier", "community")
+    spec.setdefault("updates", {"channel": "stable", "automerge": "none"})
+    path.write_text(yaml.safe_dump(doc, sort_keys=False))

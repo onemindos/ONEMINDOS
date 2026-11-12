@@ -14,7 +14,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from conftest import OWNER, FakeKubectl, action_body, fake_kustomize, write_scan
+from conftest import conform_to_schema, OWNER, FakeKubectl, action_body, fake_kustomize, write_scan
 from onemind_core import policy
 from onemind_core.app import create_app
 from onemind_core.catalog import AppEntry, Catalog
@@ -220,6 +220,7 @@ def test_sandbox_settings_validate():
 
 def test_approve_returns_policy_refused_and_fails_the_action(settings, clock, rules):
     shutil.copytree(FIXTURES / "bad-clusterrolebinding", settings.apps_dir / "bad-clusterrolebinding")
+    conform_to_schema(settings.apps_dir / "bad-clusterrolebinding")
     write_scan(settings.apps_dir / "bad-clusterrolebinding", clock.now)
     run = FakeKubectl()
     s = replace(settings, executor="kubernetes", app_schema_path=SCHEMA)
