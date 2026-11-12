@@ -36,14 +36,14 @@ def run(dist: Path, *args: str) -> tuple[int, str]:
 GOOD = {
     "index.html": '<html><body id="_top"><a href="#_top">top</a><a href="docs/">docs</a>'
                   '<a href="/docs/install/#step-2">install</a><link rel="stylesheet" href="/_astro/a.css">'
-                  '<img src="/img/logo.svg" srcset="/img/logo.svg 1x, /img/logo@2x.png 2x">'
-                  '<a href="mailto:x@example.invalid">m</a><a href="https://example.org/x">ext</a>'
+                  '<img src="/img/logo.svg" srcset="/img/logo.svg 1x, /img/logo-2x.png 2x">'
+                  '<a href="mailto:owner">m</a><a href="https://example.org/x">ext</a>'
                   '<link rel="preconnect" href="https://fonts.invalid"></body></html>',
     "docs/index.html": '<a href="../">home</a><a href="install/">install</a><a href="./install/index.html">idx</a>',
     "docs/install/index.html": '<h2 id="step-2">Step 2</h2><a name="old-anchor"></a><a href="#old-anchor">x</a>',
     "_astro/a.css": "body{}",
     "img/logo.svg": "<svg/>",
-    "img/logo@2x.png": "png",
+    "img/logo-2x.png": "png",
 }
 
 

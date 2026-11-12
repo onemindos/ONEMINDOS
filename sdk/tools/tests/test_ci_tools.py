@@ -56,10 +56,10 @@ class GateSummaryTests(unittest.TestCase):
     def test_every_kind_of_cell(self):
         write_cell(self.dir, "ntfy", "amd64", 0, report("ntfy", "pass", "verified"))
         write_cell(self.dir, "ntfy", "arm64", 1, report("ntfy", "fail", "community", {
-            "smoke": ["FAIL: deployment/ntfy not ready: timed out", "pod ntfy-1 on 10.42.0.7 CrashLoopBackOff",
+            "smoke": ["FAIL: deployment/ntfy not ready: timed out", "pod ntfy-1 on 192.0.2.7 CrashLoopBackOff",
                       "FAIL: second ```fence``` attempt"]}))
         write_cell(self.dir, "mosquitto", "amd64", 2, None,
-                   log="\n".join(f"line {i}" for i in range(30)) + "\nerror: crane: 192.168.1.20 unreachable\x1b[31m!\x1b[0m")
+                   log="\n".join(f"line {i}" for i in range(30)) + "\nerror: crane: 198.51.100.20 unreachable\x1b[31m!\x1b[0m")
         # mosquitto arm64: no artifact at all
         (self.dir / "unrelated").mkdir()  # a folder without status.json is ignored
         rc, body, stdout = self.run_main(["mosquitto", "ntfy"])
