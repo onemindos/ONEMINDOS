@@ -109,8 +109,15 @@ describe('fixtures (contract §2–§4)', () => {
     }
   });
 
-  it('have three apps', () => {
-    expect(makeApps()).toHaveLength(3);
+  it('have six apps with the §11.4 fields', () => {
+    const apps = makeApps();
+    expect(apps).toHaveLength(6);
+    for (const a of apps) {
+      expect(Object.keys(a.links).sort()).toEqual(['docs', 'github', 'support', 'website']);
+      expect([null, 'verified', 'community', 'blocked']).toContain(a.tier);
+      if (a.scan) expect(['pass', 'fail']).toContain(a.scan.result);
+    }
+    expect(apps.find((a) => a.id === 'mosquitto')?.scan).toBeNull();
   });
 });
 
@@ -155,6 +162,15 @@ describe('MockApi follows the §3 rules', () => {
     expect((await api.apps()).find((x) => x.id === 'jellyfin')?.installed).toBe(true);
     const b = await api.createAction({ ...req('k5'), params: { app_id: 'ollama' } });
     expect((await api.deny(b.id)).state).toBe('cancelled');
+  });
+
+  it('approving an install without a fresh passing scan returns 409 stale_precondition (§10.3)', async () => {
+    const api = new MockApi('owner-demo');
+    for (const [key, app_id] of [['s1', 'node-red'], ['s2', 'mosquitto'], ['s3', 'zigbee2mqtt']] as const) {
+      const a = await api.createAction({ ...req(key), params: { app_id } });
+      await expect(api.approve(a.id)).rejects.toMatchObject({ status: 409, code: 'stale_precondition' });
+      expect((await api.action(a.id)).state).toBe('awaiting_approval');
+    }
   });
 
   it('approving after expires_at returns 409 expired', async () => {
