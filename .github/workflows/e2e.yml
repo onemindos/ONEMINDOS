@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: Apache-2.0
+# Golden-path end-to-end (tests/e2e/README.md): a real hub from deploy/install.sh --role hub in a
+# Debian 13 cloud VM (QEMU/KVM), then the Playwright suite (dashboard + MCP agent + audit) and
+# deploy/verify/verify.sh. Actions are pinned by commit as listed in os/versions.lock.yaml.
+name: e2e
+on:
+  pull_request:
+    paths: ["core/**", "dashboard/**", "deploy/**", "cmd/**", "internal/**", "apps/**", "tests/e2e/**", "os/versions.lock.yaml", ".github/workflows/e2e.yml"]
+  schedule:
+    - cron: "17 3 * * *"   # nightly
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.22.3"   # deploy/pins.env NODE_VERSION
+      - name: typecheck and unit tests (no hub)
+        working-directory: tests/e2e
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx tsc --noEmit
+          npx playwright test --project=unit
+      - name: harness lint
+        run: shellcheck -x tests/e2e/harness/run.sh
+
+  golden-path:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.22.3"   # deploy/pins.env NODE_VERSION
+      - name: KVM and QEMU
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
+      - name: npm ci
+        working-directory: tests/e2e
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: golden path (install.sh in a Debian 13 VM, Playwright, verify.sh)
+        env:
+          E2E_PW_WITH_DEPS: "1"
+        run: tests/e2e/harness/run.sh --backend qemu
+      - name: artifacts (screenshots, video, traces, verify output; never the secrets)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-golden-path
+          retention-days: 14
+          path: |
+            tests/e2e/out
+            !tests/e2e/out/secrets
+            !tests/e2e/out/vm

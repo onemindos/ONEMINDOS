@@ -1,0 +1,22 @@
+{
+  "name": "onemind-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Golden-path end-to-end suite: the dashboard and an MCP agent against a real hub.",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "test": "playwright test --project=golden",
+    "test:unit": "playwright test --project=unit",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.1",
+    "typescript": "5.9.3"
+  }
+}

@@ -157,6 +157,7 @@ The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs
 - BACKLOG.md has no rows for MKT-CANDIDATES, CORE-NET-P1, UI-LEAP and MKT-TAXONOMY, which STATUS.md lists in S0; UMB rows depend on CORE-NET-P1 and UI-LEAP.
 - The umbrel2 studies propose five streams (Storage, Files, Clients, Photos, Machines) that WORKSTREAMS.md §2 does not list yet.
 - STATUS.md's summary counts predate the PRs merged since (#14, #16–#22); recount when the next STATUS PR lands.
+- Golden-path e2e (`tests/e2e/`, E2E-GOLDEN) relies on two defaults: **F-7** (no unscanned installs in v0, so the harness gives only the test app a marked stand-in `scan.json` until the §9.4 app-gate runs on the hub, and checks every other app stays blocked; no owner override is used) and **F-1** (its HTTPS step expects `/v1/tls` names to include `onemind.local`). A different founder answer changes those two steps only.
 
 ## 5. Notifications and monitoring: choices made in the build (2026-11-12)
 
