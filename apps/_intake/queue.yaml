@@ -15,3 +15,4 @@
 - {name: Paperless-ngx, github: paperless-ngx/paperless-ngx, priority: 1, status: in-pr, notes: "market batch 1"}
 - {name: Gitea, github: go-gitea/gitea, priority: 1, status: in-pr, notes: "market batch 1"}
 - {name: Grafana, github: grafana/grafana, priority: 1, status: in-pr, notes: "market batch 1"}
+- {name: Ollama, github: ollama/ollama, priority: 1, status: in-pr, notes: "market batch 1"}
