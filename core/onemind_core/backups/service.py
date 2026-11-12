@@ -633,6 +633,17 @@ class BackupService:
             end("failed", "failed", f"could not stop {app_id}, nothing was changed: {e}")
             return
         step(f"stopped {app_id}")
+        if has_db:
+            # The undo point's dump was taken while the app still ran (and the copy of its volumes
+            # can take minutes). Dump again now that it is stopped: this is the file the agent keeps
+            # aside, so a rollback puts the database back exactly as the app left it.
+            try:
+                self.pg.dump(app_id)
+            except KubeError as e:
+                self._start(ns, workloads)
+                end("failed", "failed", f"could not dump {app_id}'s database after stopping it, nothing was changed: {e}")
+                return
+            step("database dumped with the app stopped (what a rollback puts back)")
 
         # 3. Swap the data in.
         stamp = utc(self.gw.clock()).strftime("%Y%m%dT%H%M%SZ")
@@ -678,7 +689,7 @@ class BackupService:
             self.kube.wait_no_pods(ns, 180)
             self._job("backup.restore.finish", {"app_id": app_id, "stamp": stamp, "commit": False}, a.id)
             if has_db:
-                self.pg.restore(app_id)  # the moved-back dump is the pre-restore one
+                self.pg.restore(app_id)  # the moved-back dump is the one taken with the app stopped
             self._start(ns, workloads)
         except (KubeError, AgentError, Unavailable) as e:
             step("rollback failed", error=str(e)[:300])
@@ -706,8 +717,10 @@ class BackupService:
 
     # ---- destinations -------------------------------------------------------------------------
     def request_destination(self, principal, body: dict, *, idempotency_key: str, expires_at: datetime, reason: str | None):
-        dest_id = "dst_" + secrets.token_hex(8)
-        params = {"destination_id": dest_id, "kind": body["kind"], "label": body["label"],
+        # Derived from the requester and the Idempotency-Key, so a retry carries the same params and
+        # replays (§12.1) instead of answering 409 for a body it did not change.
+        dest_id = "dst_" + hashlib.sha256(f"{principal.id}\n{idempotency_key}".encode()).hexdigest()[:16]
+        params ={"destination_id": dest_id, "kind": body["kind"], "label": body["label"],
                   "primary": bool(body.get("primary")), "config": body["config"]}
         creds = body.get("credentials") or {}
         extra = {"credentials": "provided"} if creds else {}

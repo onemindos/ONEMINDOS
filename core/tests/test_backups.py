@@ -244,7 +244,10 @@ def test_agent_requests_a_run_but_only_the_owner_approves(client, bk):
     r = client.post("/v1/backups/runs", headers=AGENT, json={"scope": {"app_id": "notes"}})
     assert r.status_code == 202 and r.json()["state"] == "awaiting_approval"
     assert client.post(f"/v1/actions/{r.json()['id']}/approve", headers=AGENT).status_code == 403
-    assert client.post("/v1/backups/runs", headers=AGENT, json={"approve": True}).status_code == 403
+    before = len(client.get("/v1/actions", headers=OWNER).json())
+    for path in ("/v1/backups/runs", "/v1/backups/verify"):
+        assert client.post(path, headers=AGENT, json={"approve": True}).status_code == 403
+    assert len(client.get("/v1/actions", headers=OWNER).json()) == before, "a refused owner shortcut files nothing (§12.1)"
     done = approve(client, r.json()["id"])
     assert done["state"] == "succeeded", done
 
@@ -351,6 +354,8 @@ def test_restore_is_owner_requested_planned_and_approved(client, bk):
     restore_db = next(i for i, c in enumerate(calls) if c[0] == "exec" and c[2][0] == "pg_restore")
     start = calls.index(("scale", "app-notes", "notes", 1))
     assert stop < restore_db < start, "stop, recreate the database, start"
+    assert any(c[0] == "exec" and c[2][0] == "pg_dump" for c in calls[stop:restore_db]), \
+        "the database is dumped again once the app is stopped, so a rollback loses no writes"
     rst = client.get("/v1/restores", headers=OWNER).json()[0]
     assert rst["state"] == "succeeded" and rst["pre_restore_snapshot_id"] and rst["health_gate"]["verdict"] == "pass"
 
@@ -387,6 +392,28 @@ def test_restore_refusals(client, bk):
     assert r.status_code == 409 and "onboarding" in r.json()["message"]
     r = client.post("/v1/restores", headers=OWNER, json={"snapshot_id": snap["id"], "scope": {"app_id": "notes", "path": "/etc/passwd"}})
     assert r.status_code == 409
+    # Inside the snapshot by prefix, somewhere else once cleaned: the card would not show what runs.
+    for bad in ("/../etc/passwd", "/./x", "//x"):
+        r = client.post("/v1/restores", headers=OWNER, json={"snapshot_id": snap["id"],
+                        "scope": {"app_id": "notes", "path": snap["paths"][0] + bad}})
+        assert r.status_code == 422, (bad, r.text)
+
+
+def test_agent_refusal_is_unavailable_not_a_crash(client, bk):
+    add_usb(client, bk)
+    bk.agent.fail["backup.snapshots"] = "no destination is set up yet"
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 503 and r.json()["error"] == "unavailable" and r.json()["reason"] == "agent_failed"
+
+
+def test_destination_request_replays_with_the_same_idempotency_key(client, bk):
+    body = {"kind": "usb", "label": "USB disk", "config": {"usb_uuid": "1234-ABCD"}}
+    first = client.post("/v1/backups/destinations", headers={**OWNER, "Idempotency-Key": "k-1"}, json=body)
+    again = client.post("/v1/backups/destinations", headers={**OWNER, "Idempotency-Key": "k-1"}, json=body)
+    assert first.status_code == again.status_code == 202, again.text
+    assert again.json()["id"] == first.json()["id"] and again.headers["OneMind-Idempotent-Replay"] == "true"
+    other = client.post("/v1/backups/destinations", headers={**OWNER, "Idempotency-Key": "k-1"}, json={**body, "label": "Other"})
+    assert other.status_code == 409
 
 
 def test_restore_one_path(client, bk):

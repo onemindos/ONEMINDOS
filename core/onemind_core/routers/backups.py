@@ -18,9 +18,10 @@ from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 from ..auth import Principal
+from ..backups.jobs import AgentError
 from ..backups.service import BackupService, Unavailable
 from ..backups.settings import BackupsSettings
 from ..catalog import APP_ID_RE
@@ -48,6 +49,16 @@ class AppScope(BaseModel):
 
 class PathScope(AppScope):
     path: str = Field(min_length=1, max_length=4096, pattern=r"^/")
+
+    @field_validator("path")
+    @classmethod
+    def _plain(cls, v: str) -> str:
+        # The approval card shows this path; the agent cleans it. Refuse anything they would read
+        # differently (`..`, `.`, `//`), so the owner approves exactly what is restored.
+        parts = v.rstrip("/").split("/")[1:]
+        if not parts or any(s in ("", ".", "..") for s in parts):
+            raise ValueError("path must be an absolute path without '.', '..' or empty segments")
+        return v
 
 
 class RunBody(_Request):
@@ -122,6 +133,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return JSONResponse(status_code=503, headers={"Retry-After": "30"},
                             content={"error": "unavailable", "message": exc.message, "reason": exc.reason, "retry_after_s": 30})
 
+    @app.exception_handler(AgentError)
+    async def _agent_error(_: Request, exc: AgentError):
+        # The agent answered but refused or failed a read (no destination yet, a key mismatch):
+        # a dependency problem (§12.2 `unavailable`), not a gateway crash.
+        reason = "agent_refused" if exc.reason.startswith("refused") else "agent_failed"
+        return JSONResponse(status_code=503, headers={"Retry-After": "30"},
+                            content={"error": "unavailable", "message": str(exc)[:500], "reason": reason, "retry_after_s": 30})
+
     def deny(p: Principal, what: str) -> ApiError:
         gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": what, "reason": "permission_denied"})
         return ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not {what}")
@@ -143,10 +162,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(422, "conflict", "expires_at may be at most 7 days ahead")
         return exp
 
+    def shortcut(p: Principal, body: _Request) -> None:
+        """§12.1: `"approve": true` from anyone but an owner is refused before anything is filed."""
+        if body.approve and not p.is_owner:
+            raise deny(p, "approve (owner shortcut)")
+
     def filed(p: Principal, body: _Request, action: dict, created: bool, extra: dict | None = None) -> JSONResponse:
         if body.approve and created:
-            if not p.is_owner:
-                raise deny(p, "approve (owner shortcut)")
+            shortcut(p, body)
             action = gw.actions.approve(p, action["id"])
         headers = {"Location": f"/v1/actions/{action['id']}"}
         if not created:
@@ -191,6 +214,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/backups/runs", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
     def request_run(body: RunBody, p: Principal = Depends(principal),
                     idem: str | None = Header(default=None, alias="Idempotency-Key")):
+        shortcut(p, body)
         if not svc.enabled:
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
         scope = body.scope if body.scope == "box" else body.scope.model_dump()
@@ -232,6 +256,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/backups/verify", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
     def verify(body: VerifyBody, p: Principal = Depends(principal),
                idem: str | None = Header(default=None, alias="Idempotency-Key")):
+        shortcut(p, body)
         if not svc.enabled:
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
         params = {"mode": body.mode, "latest": body.latest, **({"units": body.units} if body.units else {})}
