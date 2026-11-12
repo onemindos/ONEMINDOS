@@ -254,6 +254,7 @@ class ActionMachine(RuleBasedStateMachine):
             return
         assert expected_error is None, f"{op} should have failed with {expected_error}"
         model["decider"] = who.as_dict()
+        model["decision"] = "action.denied" if op == "deny" else "action.approved"
         if op == "deny":
             model["state"] = "cancelled"
         else:
@@ -342,6 +343,32 @@ class ActionMachine(RuleBasedStateMachine):
         assert dispatched == self.expected_dispatches
         assert self.gw.executor.calls == self.expected_calls
         assert decision_problems(self.gw.audit_records(), [a.to_json() for a in self.gw.repo.list()]) == []
+
+    @invariant()
+    def each_action_audit_matches_independent_model(self):
+        """Compare kind, actor, outcome and order per id, not only global totals."""
+        relevant = {"action.approved", "action.denied", "action.dispatched", "action.expired",
+                    "action.succeeded", "action.failed", "action.outcome_unknown"}
+        observed = {}
+        for record in self.gw.audit_records():
+            if record["event"] in relevant:
+                observed.setdefault(record["action_id"], []).append((record["event"], record.get("principal")))
+        expected = {}
+        for action_id, action in self.model.items():
+            events = []
+            if action["decider"]:
+                events.append((action["decision"], action["decider"]))
+                if action["decision"] == "action.approved":
+                    events.extend([("action.dispatched", None), ("action." + action["state"], None)])
+            elif action["state"] == "expired":
+                events.append(("action.expired", None))
+            if events:
+                expected[action_id] = events
+        assert observed == expected, "per-action audit/model mismatch"
+        # Map each observed dispatch id to its independently requested type/app,
+        # in order, then compare the real executor's call stream.
+        calls = [(self.model[aid]["type"], self.model[aid]["app"]) for aid in self.expected_dispatches]
+        assert self.gw.executor.calls == calls
 
     @invariant()
     def agent_token_live_exactly_while_installed(self):

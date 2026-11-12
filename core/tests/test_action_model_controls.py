@@ -87,6 +87,7 @@ def test_model_positive_outcomes_and_per_action_dispatch(property_resources, out
         machine.states_follow_the_table()
         machine.only_owners_decide()
         machine.executor_ran_once_per_owner_approved_dispatch()
+        machine.each_action_audit_matches_independent_model()
         machine.agent_token_live_exactly_while_installed()
         machine.audit_chain_verifies()
         assert machine.gw.repo.get(action_id).state == ("outcome_unknown" if crash else outcome)

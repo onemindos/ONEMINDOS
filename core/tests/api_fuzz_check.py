@@ -58,8 +58,9 @@ def actions(gateway: str, token: str) -> list[dict]:
 def decision_problems(recs: list[dict], listed: list[dict]) -> list[str]:
     """Independent temporal and ledger/audit oracle, also exercised by negative controls."""
     problems = []
-    decisions = {}
+    decisions, decision_kinds, outcomes = {}, {}, {}
     approved, dispatched = set(), set()
+    terminal_events = {"action.succeeded", "action.failed", "action.outcome_unknown", "action.expired"}
     for r in recs:
         event, action_id = r["event"], r.get("action_id")
         if event in ("action.approved", "action.denied"):
@@ -69,19 +70,43 @@ def decision_problems(recs: list[dict], listed: list[dict]) -> list[str]:
             if action_id in decisions:
                 problems.append(f"seq {r['seq']}: duplicate decision")
             decisions[action_id] = principal
+            decision_kinds[action_id] = event
             if event == "action.approved":
                 approved.add(action_id)
         if event == "action.dispatched":
+            if action_id in outcomes:
+                problems.append(f"seq {r['seq']}: dispatch after terminal outcome")
             if action_id not in approved:
                 problems.append(f"seq {r['seq']}: dispatched without an earlier approval")
             if action_id in dispatched:
                 problems.append(f"seq {r['seq']}: duplicate dispatch")
             dispatched.add(action_id)
+        if event in terminal_events:
+            if action_id in outcomes:
+                problems.append(f"seq {r['seq']}: duplicate outcome")
+            outcomes[action_id] = event
+            if event in {"action.succeeded", "action.failed"} and action_id not in dispatched:
+                problems.append(f"seq {r['seq']}: outcome without earlier dispatch")
+            if event == "action.outcome_unknown" and action_id not in approved:
+                problems.append(f"seq {r['seq']}: unknown outcome without earlier approval")
     ledger = {a["id"]: a for a in listed}
-    for action_id in decisions.keys() | ledger.keys():
-        decider = ledger.get(action_id, {}).get("decided_by")
+    approved_states = {"accepted", "dispatched", "succeeded", "failed", "outcome_unknown"}
+    for action_id in decisions.keys() | ledger.keys() | dispatched | outcomes.keys():
+        action = ledger.get(action_id, {})
+        decider, state = action.get("decided_by"), action.get("state")
         if decisions.get(action_id) != decider or action_id not in ledger:
             problems.append(f"action {action_id}: ledger/audit decider mismatch")
+        expected_kind = ("action.approved" if state in approved_states else
+                         "action.denied" if state == "cancelled" else None)
+        if decision_kinds.get(action_id) != expected_kind:
+            problems.append(f"action {action_id}: ledger state/decision kind mismatch")
+        if state in {"dispatched", "succeeded", "failed"} and action_id not in dispatched:
+            problems.append(f"action {action_id}: ledger state requires dispatch")
+        if state not in approved_states and action_id in dispatched:
+            problems.append(f"action {action_id}: dispatch incompatible with ledger state")
+        expected_outcome = "action." + state if state in {"succeeded", "failed", "outcome_unknown", "expired"} else None
+        if outcomes.get(action_id) != expected_outcome:
+            problems.append(f"action {action_id}: ledger state/outcome mismatch")
     return problems
 
 

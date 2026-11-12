@@ -11,8 +11,9 @@ OWNER = {"id": "owner", "kind": "person", "role": "owner"}
 
 def evidence():
     return ([{"seq": 1, "event": "action.approved", "action_id": "a", "principal": OWNER},
-             {"seq": 2, "event": "action.dispatched", "action_id": "a", "principal": None}],
-            [{"id": "a", "decided_by": OWNER}])
+             {"seq": 2, "event": "action.dispatched", "action_id": "a", "principal": None},
+             {"seq": 3, "event": "action.succeeded", "action_id": "a", "principal": None}],
+            [{"id": "a", "state": "succeeded", "decided_by": OWNER}])
 
 
 def test_valid_approval_then_dispatch_agrees_with_ledger():
@@ -50,6 +51,15 @@ def test_missing_ledger_record_is_refused():
 def test_missing_audit_decision_is_refused():
     _, ledger = evidence()
     assert any("mismatch" in p for p in decision_problems([], ledger))
+
+
+@pytest.mark.parametrize("decision,state", [
+    ("action.denied", "succeeded"), ("action.approved", "cancelled"),
+])
+def test_decision_kind_must_match_ledger_state(decision, state):
+    recs = [{"seq": 1, "event": decision, "action_id": "a", "principal": OWNER}]
+    ledger = [{"id": "a", "state": state, "decided_by": OWNER}]
+    assert any("state" in p for p in decision_problems(recs, ledger))
 
 
 def test_an_agent_mislabeled_owner_is_not_an_owner():
