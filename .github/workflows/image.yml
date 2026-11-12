@@ -140,3 +140,59 @@ jobs:
             out/cloudboot-${{ matrix.cloud }}/
           retention-days: 14
           compression-level: 0
+  # USB installer (os/boards/installer-x86_64/README.md): the x86_64-efi image packed onto a live
+  # stick, then I1-I5 (test/qemu/CRITERIA-INSTALLER.md): boot the stick, install to an NVMe disk
+  # through the menu, verify, reboot into OneMind. KVM here; TCG runs exceed the write budget.
+  installer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          df -h /
+      - name: KVM
+        run: |
+          if [ -e /dev/kvm ]; then
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+            sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          fi
+          ls -l /dev/kvm 2>/dev/null && echo "accel: kvm" || echo "accel: tcg (no /dev/kvm on this runner)"
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Build the x86_64-efi rootfs and tools image
+        run: |
+          mkdir -p out
+          docker buildx build -f os/rootfs/Containerfile --target rootfs --progress plain \
+            --build-arg BOARD=x86_64-efi $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) \
+            --cache-from type=gha,scope=rootfs-debian-x86_64-efi \
+            --output type=tar,dest=out/rootfs-debian-x86_64-efi.tar .
+          docker buildx build -f os/rootfs/Containerfile --target tools --progress plain \
+            $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) \
+            --cache-from type=gha,scope=tools-ubuntu-24.04 --load -t onemind-tools:ci .
+      - name: Image, then the installer stick (throwaway dev keys, destroyed in the container)
+        run: |
+          make image BOARD=x86_64-efi TOOLS=onemind-tools:ci VERSION=0.1.0-dev.${{ github.run_number }}
+          sudo rm -f out/rootfs-debian-*.tar
+          make installer BOARD=installer-x86_64 TOOLS=onemind-tools:ci
+      - name: Installer test (I1-I5)
+        run: make installer-test BOARD=installer-x86_64 TOOLS=onemind-tools:ci
+      - name: Summary; keep only the stick image (compressed) and the logs
+        if: always()
+        run: |
+          d=out/test-installer-x86_64
+          sudo chmod -R a+rw out
+          if [ -f $d/results.json ]; then python3 -I test/qemu/summary.py $d/results.json >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -f $d/serial.log ]; then test/qemu/trim-log.sh $d/serial.log > $d/serial-trimmed.log; rm -f $d/serial.log; fi
+          rm -rf $d/work
+          for f in out/installer-x86_64/*.img; do [ -f "$f" ] && xz -T0 -3 "$f"; done
+          cat out/installer-x86_64/SHA256SUMS || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: installer-debian-x86_64
+          path: |
+            out/installer-x86_64/
+            out/test-installer-x86_64/
+          retention-days: 14
+          compression-level: 0
