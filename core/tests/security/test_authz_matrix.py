@@ -101,7 +101,7 @@ def test_cell(method, path, kind, request):
     req = row.probe(world)
     before = world.snapshot()
     audited = len(world.audit())
-    r = world.client.request(method, req.path, json=req.json, content=req.content, headers={**req.headers, **headers})
+    r = world.send(method, req, headers)
 
     who = f"{method} {path} as {kind} ({DESCRIBE[kind]}); policy: {row.why}"
     assert r.status_code < 500, f"{who}: server error {r.status_code}: {r.text[:300]}"

@@ -374,8 +374,8 @@ def test_app_proxy_upstream_never_comes_from_the_request(tmp_path, monkeypatch):
 
 # URL-taking settings that become reachable through the API. Each needs an SSRF probe here before
 # it ships: loopback, link-local metadata, the LAN, the tailnet and non-http(s) schemes refused.
-URL_SURFACES = {
-    ("POST", "/v1/notifications/channels"): "webhook, ntfy and matrix channel URLs (feat/notifications, CORE-NOTIFY-1, §12.14)",
+URL_SURFACES: dict[tuple[str, str], str] = {
+    # probed below: POST/PATCH /v1/notifications/channels and POST /v1/push/registrations (§12.14)
 }
 URL_ACTION_TYPES = {
     "backup.destination.add": "s3 and rest destination endpoints (feat/backup-api, CORE-BACKUP-8, §12.12)",
@@ -389,6 +389,67 @@ def test_api_reachable_url_settings_bring_an_ssrf_probe(world):
     types = set(typing.get_args(actions_mod.ActionType))
     arrived += [why for t, why in URL_ACTION_TYPES.items() if t in types]
     assert not arrived, f"write an SSRF probe in core/tests/security for: {arrived}"
+
+
+def _ip(*parts) -> str:
+    return ".".join(str(x) for x in parts)  # built at runtime: no address literals in the repo
+
+
+# Destinations a channel or push endpoint must never reach for a non-owner (§12.14: the LAN, the
+# tailnet, loopback, cloud metadata), written every way a URL parser or resolver may accept them.
+LO, MD, LAN = _ip(127, 0, 0, 1), _ip(169, 254, 169, 254), _ip(10, 0, 0, 1)
+NON_OWNER_REFUSED = [
+    f"https://{LO}/x", f"https://{MD}/latest/meta-data/", f"https://{LAN}/x", f"https://{_ip(192, 168, 1, 1)}/x",
+    f"https://{_ip(172, 16, 0, 1)}/x", f"https://{_ip(100, 64, 0, 1)}/x", "https://[::1]/x", f"https://[::ffff:{LO}]/x",
+    "https://[fd00::1]/x", "https://[fec0::1]/x", "https://[2002:7f00:1::1]/x", f"https://{_ip(0, 0, 0, 0)}/x",
+    "https://2130706433/x", "https://0x7f000001/x", "https://127.1/x", "https://localhost/x",
+    f"https://user:pw@{_ip(1, 1, 1, 1)}/x", f"http://{_ip(1, 1, 1, 1)}/x", f"file:///etc/passwd", f"gopher://{LO}:6379/_x",
+    f"ftp://{LO}/x", "https:///x", "",
+]
+# Never, not even for an owner: cloud metadata and other link-local or reserved addresses, however wrapped.
+ALWAYS_REFUSED = [
+    f"http://{MD}/latest/meta-data/", f"http://[::ffff:{MD}]/", "http://[2002:a9fe:a9fe::1]/", "http://[fe80::1]/",
+    f"http://{_ip(0, 1, 2, 3)}/", f"http://{_ip(255, 255, 255, 255)}/", f"http://{_ip(224, 0, 0, 1)}/", "http://[::]/",
+]
+
+
+def _add_channel(world, kind: str, url: str):
+    return world.client.post("/v1/notifications/channels", headers=world.static(kind), json={
+        "kind": "webhook", "label": "ssrf", "config": {"url": url}})
+
+
+@pytest.mark.parametrize("url", NON_OWNER_REFUSED)
+def test_non_owner_channel_and_push_urls_stay_off_the_lan(world, url):
+    for kind in ("adult", "guest"):
+        assert _add_channel(world, kind, url).status_code == 422, (kind, url)
+        r = world.client.post("/v1/push/registrations", headers=world.static(kind),
+                              json={"platform": "unifiedpush", "endpoint": url, "label": "ssrf"})
+        assert r.status_code == 422, (kind, url, r.status_code)
+    assert world.client.get("/v1/notifications/channels", headers=world.static("guest")).json() == []
+
+
+@pytest.mark.parametrize("url", ALWAYS_REFUSED)
+def test_no_channel_reaches_metadata_or_reserved_addresses(world, url):
+    for kind in ("owner", "guest"):
+        assert _add_channel(world, kind, url).status_code == 422, (kind, url)
+
+
+def test_channel_url_cannot_be_moved_onto_the_lan_by_patch(world):
+    public = f"https://{_ip(1, 1, 1, 1)}/hook"
+    r = _add_channel(world, "guest", public)
+    assert r.status_code == 201, r.text  # the probe is not vacuous: a public https URL is accepted
+    cid = r.json()["id"]
+    for url in (f"https://{MD}/", f"https://{LO}/", f"https://{LAN}/"):
+        r = world.client.patch(f"/v1/notifications/channels/{cid}", headers=world.static("guest"), json={"config": {"url": url}})
+        assert r.status_code == 422, (url, r.status_code)
+    [ch] = world.client.get("/v1/notifications/channels", headers=world.static("guest")).json()
+    assert ch["config"]["url"] == public
+
+
+def test_owner_lan_channel_is_the_owners_opt_in(world):
+    """Owners may point a channel at the box's own ntfy or a LAN relay (§12.14); nobody else can."""
+    assert _add_channel(world, "owner", f"http://{LAN}:8080/x").status_code == 201
+    assert _add_channel(world, "adult", f"http://{LAN}:8080/x").status_code == 422
 
 
 # ---- oversized bodies and JSON bombs ----------------------------------------------------------------------------

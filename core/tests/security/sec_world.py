@@ -84,6 +84,7 @@ class Req:
     json: Any = None
     content: bytes | None = None
     headers: dict[str, str] = field(default_factory=dict)
+    stream: bool = False  # an endless response (SSE): read the status and headers, then hang up
 
 
 def bearer(token: str) -> dict[str, str]:
@@ -174,6 +175,78 @@ class World:
               "board": "x86_64-efi", "arch": "amd64", **extra}
         assert self.app.state.registry.ingest(f"onemind.node.{node_id}.status", json.dumps(hb).encode())
         return node_id
+
+    def send(self, method: str, req: Req, headers: dict[str, str]):
+        """Send a probe's request. A streaming one is closed right after its status line."""
+        h = {**req.headers, **headers}
+        if not req.stream:
+            return self.client.request(method, req.path, json=req.json, content=req.content, headers=h)
+        with self.client.stream(method, req.path, json=req.json, content=req.content, headers=h) as r:
+            if r.status_code != 200:
+                r.read()
+        return r
+
+    # ---- notifications, alerts and push (feat/notify-monitor, §12.14) ---------------------------------
+    def alert(self, type_: str) -> str:
+        """An open alert of a catalogue type (owner-visible); repeatable in one world."""
+        if type_ == "app.unhealthy":       # owners and adults; fix app.restart; resolves by itself
+            self.app.state.events.publish_event("app", "unhealthy", {"app_id": TARGET_APP, "reason": "probe"}, severity="warning")
+        elif type_ == "app.scan_blocked":  # owners; fix app.remove of an installed app
+            if not self.installed():
+                self.owner_approve(self.owner_action())
+            self.app.state.events.publish_event("app", "scan_blocked", {"app_id": TARGET_APP}, severity="critical")
+        elif type_ == "action.outcome_unknown":  # owners; only an owner resolves it
+            self.executor.outcome = "outcome_unknown"
+            try:
+                self.owner_approve(self.request_any())
+            finally:
+                self.executor.outcome = "succeeded"
+        found = [a["id"] for a in self._alerts() if a["type"] == type_ and a["state"] == "open"]
+        assert found, f"no open {type_} alert"
+        return found[-1]
+
+    def request_any(self) -> str:
+        """An owner request the ledger accepts whatever earlier probes installed or broke."""
+        for app_id in ("whoami", TARGET_APP, AGENT_APP):
+            for type_ in ("app.install", "app.remove"):
+                r = self.client.post("/v1/actions", json=self.action_body(app_id, type_), headers=self.static("owner"))
+                if r.status_code == 201:
+                    return r.json()["id"]
+        raise AssertionError("no app accepts a request any more")
+
+    def installed(self, app_id: str = TARGET_APP) -> bool:
+        st = self.app.state.repo.list_app_states().get(app_id)
+        return st is not None and st.status == "installed"
+
+    def _alerts(self) -> list[dict]:
+        r = self.client.get("/v1/alerts", headers=self.static("owner"))
+        assert r.status_code == 200, r.text
+        return r.json()
+
+    def owner_notification(self) -> str:
+        self.alert("app.scan_blocked")
+        r = self.client.get("/v1/notifications", headers=self.static("owner"))
+        assert r.status_code == 200 and r.json(), r.text
+        return r.json()[0]["id"]
+
+    def owner_channel(self) -> str:
+        """A webhook channel of the static owner, pointed at a closed loopback port (owners may)."""
+        r = self.client.post("/v1/notifications/channels", headers=self.static("owner"), json={
+            "kind": "webhook", "label": "probe", "config": {"url": f"http://{ip(127, 0, 0, 1)}:1/hook"}})
+        assert r.status_code == 201, r.text
+        return r.json()["id"]
+
+    def owner_device(self) -> str:
+        r = self.client.post("/v1/push/registrations", headers=self.static("owner"), json=device_body())
+        assert r.status_code == 201, r.text
+        return r.json()["id"]
+
+    def audit_seq(self) -> int:
+        """The seq of the action.requested record of a fresh owner request."""
+        action_id = self.request_any()
+        (seq,) = [rec["seq"] for rec in self.audit()
+                  if rec.get("event") == "action.requested" and rec.get("action_id") == action_id]
+        return seq
 
     # ---- what the world looks like ------------------------------------------------------------------
     def routes(self) -> set[tuple[str, str]]:
@@ -272,6 +345,14 @@ class World:
         self._identity["session"] = r.json()
         self._identity["owner"] = bearer(r.json()["access_token"])
         return bearer(token)
+
+
+def ip(*parts: int) -> str:
+    return ".".join(str(x) for x in parts)  # built at runtime: no address literals in the repo
+
+
+def device_body() -> dict:
+    return {"platform": "unifiedpush", "endpoint": f"https://{ip(1, 1, 1, 1)}/push/probe", "label": "probe"}
 
 
 def _enrol_code(body: dict) -> str:
@@ -383,3 +464,52 @@ def p_access_put(w: World) -> Req:
 
 def p_approve_options(w: World) -> Req:
     return Req(f"/v1/actions/{w.owner_action()}/approve-options")
+
+
+# feat/notify-monitor (§12.14, §12.15) and feat/devsurface (§12.8, §12.16) routes.
+def p_alert(type_: str, suffix: str = ""):
+    return lambda w: Req(f"/v1/alerts/{w.alert(type_)}{suffix}")
+
+
+def p_notification(suffix: str = ""):
+    return lambda w: Req(f"/v1/notifications/{w.owner_notification()}{suffix}")
+
+
+def p_channel_create(w: World) -> Req:
+    return Req("/v1/notifications/channels", json={
+        "kind": "webhook", "label": "probe", "config": {"url": f"https://{ip(1, 1, 1, 1)}/hook/probe"}})
+
+
+def p_channel(suffix: str = "", body: dict | None = None):
+    return lambda w: Req(f"/v1/notifications/channels/{w.owner_channel()}{suffix}", json=body)
+
+
+def p_preferences_put(w: World) -> Req:
+    doc, _ = w.app.state.notify.preferences("probe")
+    return Req("/v1/notifications/preferences", json=doc)
+
+
+def p_send(w: World) -> Req:
+    # the static agent's own topic: another agent's send under it is refused
+    return Req("/v1/notifications/send", json={"severity": "info", "topic": f"plugin.{STATIC['agent'][0]}",
+                                                "title": "probe"})
+
+
+def p_device_create(w: World) -> Req:
+    return Req("/v1/push/registrations", json=device_body())
+
+
+def p_device_delete(w: World) -> Req:
+    return Req(f"/v1/push/registrations/{w.owner_device()}")
+
+
+def p_node_metrics(w: World) -> Req:
+    return Req(f"/v1/nodes/{w.heartbeat()}/metrics")
+
+
+def p_audit_record(w: World) -> Req:
+    return Req(f"/v1/audit/events/{w.audit_seq()}")
+
+
+def p_events(w: World) -> Req:
+    return Req("/v1/events", stream=True)

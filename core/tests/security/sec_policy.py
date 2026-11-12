@@ -155,3 +155,94 @@ POLICY |= {
     ("POST", "/v1/actions/{action_id}/approve-options"): Row(OWNER_ONLY, w.p_approve_options, "§12.4 owner", ID),
     ("GET", "/signin"): Row(OPEN, w.p_static("/signin"), "the sign-in page is public", ID),
 }
+
+# ---- notifications, alerts and push: feat/notify-monitor (contract §12.14) ----------------------------
+# People only for the inbox, channels, preferences and push devices, each their own (another
+# person's object is 404); a child holds notifications:read and alerts:read but no :write. Agents
+# read owner-addressed alerts and may file an alert's fix as a normal request, never approve it.
+NOTIFY = "feat/notify-monitor (contract §12.14)"
+AGENTS_DENIED = dict(agent=403, app_agent=403, **PENDING_DENY)
+PEOPLE_READ = cells(200, **GONE, **AGENTS_DENIED)
+PEOPLE_WRITE = cells(200, **GONE, child=403, **AGENTS_DENIED)
+
+
+def own_object(owner: int) -> dict:
+    """Another person's channel, device or notification: only its holder (the owner here) acts."""
+    return cells(404, **GONE, owner=owner, child=403, **AGENTS_DENIED)
+
+
+ALERT_READ = cells(200, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE)
+POLICY |= {
+    ("GET", "/v1/alerts"): Row(ALERT_READ, w.p_static("/v1/alerts"), "§12.14 any principal, filtered by audience"),
+    ("GET", "/v1/alerts/{alert_id}"): Row(
+        cells(404, **GONE, owner=200, agent=200, app_agent=200, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+        w.p_alert("app.scan_blocked"), "§12.14 owners' alert: owners and agents read it, others 404 (audience)"),
+    ("POST", "/v1/alerts/{alert_id}/ack"): Row(
+        cells(403, **GONE, owner=200, adult=200, **PENDING_DENY), w.p_alert("app.unhealthy", "/ack"),
+        "§12.14 owners and adults acknowledge; agents never"),
+    ("POST", "/v1/alerts/{alert_id}/resolve"): Row(
+        cells(403, **GONE, owner=200, **PENDING_DENY), w.p_alert("action.outcome_unknown", "/resolve"),
+        "§12.14 owners resolve alerts with no automatic condition"),
+    ("POST", "/v1/alerts/{alert_id}/fix"): Row(
+        cells(403, **GONE, owner=202, agent=202, app_agent=202, **PENDING_DENY), w.p_alert("app.scan_blocked", "/fix"),
+        "§12.14 owners and agents file the fix as a request (awaiting approval); approve=true is owner only"),
+    ("GET", "/v1/notifications"): Row(PEOPLE_READ, w.p_static("/v1/notifications"), "§12.14 own inbox, people only"),
+    ("GET", "/v1/notifications/{notification_id}"): Row(
+        cells(404, **GONE, owner=200, **AGENTS_DENIED), w.p_notification(), "§12.14 own inbox; others 404"),
+    ("POST", "/v1/notifications/{notification_id}/read"): Row(
+        cells(404, **GONE, owner=200, **AGENTS_DENIED), w.p_notification("/read"),
+        "§12.14 own inbox (a child marks its own notifications read: notifications:read is enough)"),
+    ("POST", "/v1/notifications/read-all"): Row(PEOPLE_READ, w.p_static("/v1/notifications/read-all"),
+                                                "§12.14 own inbox; notifications:read is enough to mark it read"),
+    ("GET", "/v1/notifications/channels"): Row(PEOPLE_READ, w.p_static("/v1/notifications/channels"),
+                                               "§12.14 own channels (owner: all, others' config hidden)"),
+    ("POST", "/v1/notifications/channels"): Row(
+        cells(201, **GONE, child=403, **AGENTS_DENIED), w.p_channel_create,
+        "§12.14 people add their own channels; LAN destinations owner only (SSRF probe in test_injection_traversal)"),
+    ("PATCH", "/v1/notifications/channels/{channel_id}"): Row(
+        own_object(200), w.p_channel(body={"label": "renamed"}), "§12.14 own channels only"),
+    ("DELETE", "/v1/notifications/channels/{channel_id}"): Row(own_object(204), w.p_channel(), "§12.14 own channels only"),
+    ("POST", "/v1/notifications/channels/{channel_id}/test"): Row(
+        own_object(200), w.p_channel("/test"), "§12.14 own channels only; rate-limited outbound request"),
+    ("GET", "/v1/notifications/preferences"): Row(PEOPLE_READ, w.p_static("/v1/notifications/preferences"),
+                                                  "§12.14 own preferences"),
+    ("PUT", "/v1/notifications/preferences"): Row(PEOPLE_WRITE, w.p_preferences_put,
+                                                  "§12.14 own preferences; a child holds no notifications:write"),
+    ("POST", "/v1/notifications/send"): Row(
+        cells(403, **GONE, agent=202, **PENDING_DENY), w.p_send,
+        "§12.14 agents only, under their own plugin.<id> topic (the probe uses the static agent's)"),
+    ("GET", "/v1/push/vapid-public-key"): Row(cells(200, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+                                              w.p_static("/v1/push/vapid-public-key"), "§12.14 a public key, any principal"),
+    ("POST", "/v1/push/registrations"): Row(
+        cells(201, **GONE, child=403, **AGENTS_DENIED), w.p_device_create, "§12.14 people register their own devices"),
+    ("GET", "/v1/push/registrations"): Row(PEOPLE_READ, w.p_static("/v1/push/registrations"), "§12.14 own devices"),
+    ("DELETE", "/v1/push/registrations/{device_id}"): Row(own_object(204), w.p_device_delete, "§12.14 own devices"),
+}
+
+# ---- monitoring: feat/notify-monitor (contract §12.15) ---------------------------------------------------
+POLICY |= {
+    ("GET", "/v1/apps/{app_id}"): Row(cells(200, **GONE, child=404, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+                                      w.p_static(f"/v1/apps/{w.TARGET_APP}"),
+                                      "§12.15 any principal; an app not shared with a child is 404 (§12.6)"),
+    ("GET", "/v1/apps/{app_id}/logs"): Row(
+        cells(403, **GONE, owner=404, adult=404, **PENDING_DENY), w.p_static(f"/v1/apps/{w.TARGET_APP}/logs"),
+        "§12.15 owners and adults only (the probe app is not installed: 404); agents need a logs grant"),
+    ("GET", "/v1/apps/{app_id}/metrics"): Row(CHILD_CANNOT, w.p_static(f"/v1/apps/{w.TARGET_APP}/metrics"),
+                                              "§12.15 any principal, sharing applies; a child has no monitoring:read"),
+    ("GET", "/v1/nodes/{node_id}/metrics"): Row(CHILD_CANNOT, w.p_node_metrics, "§12.15; a child has no monitoring:read"),
+    ("GET", "/v1/monitoring/summary"): Row(CHILD_CANNOT, w.p_static("/v1/monitoring/summary"),
+                                           "§12.15; a child has no monitoring:read"),
+}
+
+# ---- audit and events: feat/devsurface (contract §12.8, §12.16) -----------------------------------------
+AUDIT_READ = cells(403, **GONE, owner=200, adult=200, agent=200, app_agent=200, **PENDING_DENY)
+POLICY |= {
+    ("GET", "/v1/audit/events"): Row(AUDIT_READ, w.p_static("/v1/audit/events"),
+                                     "§12.16 owners and adults all; agents their own; guests and children never"),
+    ("GET", "/v1/audit/events/{seq}"): Row(
+        cells(403, **GONE, owner=200, adult=200, agent=404, app_agent=404, **PENDING_DENY), w.p_audit_record,
+        "§12.16 the owner's record: an agent sees only its own (404)"),
+    ("GET", "/v1/audit/verify"): Row(cells(403, **GONE, owner=200, adult=200, **PENDING_DENY), w.p_static("/v1/audit/verify"),
+                                     "§12.16 full readers only: the head hash covers the whole chain"),
+    ("GET", "/v1/events"): Row(CHILD_CANNOT, w.p_events, "§12.8 any principal, filtered per event; events:read not a child scope"),
+}

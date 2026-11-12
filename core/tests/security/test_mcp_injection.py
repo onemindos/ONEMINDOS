@@ -163,7 +163,10 @@ def test_tools_on_offer_hold_no_power(world):
         if not (tool.get("annotations") or {}).get("readOnlyHint"):
             assert tool["name"] in REQUEST_ONLY_WRITES, f"write tool outside the request-only set: {text}"
         props = (tool.get("inputSchema") or {}).get("properties") or {}
+        read_only = (tool.get("annotations") or {}).get("readOnlyHint")
         for field in ("approve", "approved", "state", "approved_by", "requested_by", "scopes"):
+            if field == "state" and read_only:
+                continue  # a list filter (list_actions state=...), not a state the agent sets
             assert field not in props, (tool["name"], field)
         if tool["name"] == "request_action" and "type" in props and "enum" in props["type"]:
             assert not [t for t in props["type"]["enum"] if FORBIDDEN_TOOL.search(t)], props["type"]["enum"]
@@ -269,7 +272,8 @@ def test_reason_is_attributed_and_never_a_trusted_field(world):
     assert REASON not in json.dumps(record) and "approve now" not in json.dumps(record)
     assert record["params"] == {"app_id": TARGET_APP} and record["type"] == "app.install"
     (requested,) = [rec for rec in world.audit() if rec.get("event") == "action.requested" and rec.get("action_id") == action_id]
-    assert requested["data"]["reason"] == REASON  # kept verbatim, as evidence
+    # kept as evidence, with control and bidi characters stripped (MCP.md §6.2)
+    assert requested["data"]["reason"] == REASON.replace("\u202e", "").replace("\u202c", "")
     assert requested["principal"] == {"id": "hermes", "kind": "agent", "role": "agent"}  # and attributed to the agent
     too_long = agent.call("request_action", {"type": "app.install", "app_id": TARGET_APP, "reason": "x" * 501})
     assert "error" in too_long
@@ -298,7 +302,8 @@ def test_third_party_text_is_marked_untrusted(world):
     assert "untrusted" in init["instructions"].lower()
     for tool, key, field in (("list_apps", "apps", "description"), ("list_nodes", "nodes", "hostname")):
         result = agent.call(tool)["result"]
-        assert f"{key}[*].{field}" in result["_meta"]["onemind/untrusted"]
+        paths = result["_meta"]["onemind/untrusted"]
+        assert any(re.fullmatch(rf"{key}\[\d+\]\.{field}", path) for path in paths), paths
         text = result["content"][0]["text"]
         opened = text.count("<untrusted ")
         assert opened >= 1 and text.count("</untrusted>") == opened, "a value closed its own wrapper"
