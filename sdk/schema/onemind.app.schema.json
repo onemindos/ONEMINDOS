@@ -3,7 +3,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.app.schema.json",
   "title": "OneMind app manifest (onemind.app/v1alpha1)",
-  "description": "apps/<id>/onemind.app.yaml, as fixed by sdk/contracts/poc-v0.md section 4, extended by section 9.3 (metadata.links, metadata.upstream, metadata.tier, spec.updates) and section 11.2 (spec.agent). Every object is closed: a new field is a contract change first. The value UNVERIFIED marks a fact the scaffolder could not confirm from a primary source; it caps the app's tier at community.",
+  "description": "apps/<id>/onemind.app.yaml, as fixed by sdk/contracts/poc-v0.md section 4, extended by section 9.3 (metadata.links, metadata.upstream, metadata.tier, spec.updates) section 11.2 (spec.agent) and section 12.18 (spec.backup; spec.database for the shared PostgreSQL, DB-SHARED-1). Every object is closed: a new field is a contract change first. The value UNVERIFIED marks a fact the scaffolder could not confirm from a primary source; it caps the app's tier at community.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -304,9 +304,191 @@
               "secret"
             ]
           }
+        },
+        "backup": {
+          "description": "How the app is backed up (contract 12.18; BACKUPS.md 2.2). Without it the app is copied hot and its badge says crash-consistent only.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "enum": [
+                "hot",
+                "cold"
+              ],
+              "description": "cold stops the app while it is copied"
+            },
+            "pre": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/execHook"
+                },
+                {
+                  "type": "array",
+                  "maxItems": 16,
+                  "items": {
+                    "$ref": "#/$defs/execHook"
+                  }
+                }
+              ]
+            },
+            "post": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/execHook"
+                },
+                {
+                  "type": "array",
+                  "maxItems": 16,
+                  "items": {
+                    "$ref": "#/$defs/execHook"
+                  }
+                }
+              ]
+            },
+            "sqlite": {
+              "type": "array",
+              "maxItems": 32,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "claim",
+                  "path"
+                ],
+                "properties": {
+                  "claim": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?$"
+                  },
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+$"
+                  }
+                }
+              }
+            },
+            "exclude": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024,
+                "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+$"
+              }
+            },
+            "restore": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "post": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/execHook"
+                    },
+                    {
+                      "type": "array",
+                      "maxItems": 16,
+                      "items": {
+                        "$ref": "#/$defs/execHook"
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "verify": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "http": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "port"
+                  ],
+                  "properties": {
+                    "port": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 65535
+                    },
+                    "path": {
+                      "type": "string",
+                      "pattern": "^/"
+                    },
+                    "expect": {
+                      "type": "integer",
+                      "minimum": 100,
+                      "maximum": 599
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "database": {
+          "description": "A database on the hub's shared PostgreSQL (DB-SHARED-1): at install the gateway creates database and role app_<id> and writes Secret <secret> in app-<id> with PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD and DATABASE_URL. Dumps are part of the app's backups.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "secret"
+          ],
+          "properties": {
+            "engine": {
+              "const": "postgres"
+            },
+            "secret": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+            }
+          }
         }
       },
       "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "execHook": {
+      "description": "An argv command run inside the app's own container through the Kubernetes API (contract 12.18); never a host shell.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exec"
+      ],
+      "properties": {
+        "exec": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "command"
+          ],
+          "properties": {
+            "container": {
+              "type": "string",
+              "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$"
+            },
+            "command": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "timeout_s": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      }
     }
   }
 }
