@@ -176,6 +176,17 @@ class StorageOperationRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class StorageObservationRow(Base):
+    """What the poller last told as events: the set's state ("set") and each disk's verdict
+    ("disk:<disk_key>"). Kept across gateway restarts, so a state that changed while the gateway was
+    down still resolves its open alert (storage.ok, storage.disk.ok) and nothing is told twice."""
+
+    __tablename__ = "storage_observations"
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value: Mapped[str] = mapped_column(String(32))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 def _row_json(r: StorageOperationRow) -> dict:
     return {
         "action_id": r.action_id, "node_id": r.node_id, "type": r.type, "params": r.params, "risk": r.risk,
@@ -210,11 +221,33 @@ class StorageRepository(SqlRepository):
             rows = s.scalars(select(StorageOperationRow).order_by(StorageOperationRow.created_at.desc()).limit(limit))
             return [_row_json(r) for r in rows]
 
+    def observations(self) -> dict[str, str]:
+        with self.db.session() as s:
+            return {r.key: r.value for r in s.scalars(select(StorageObservationRow))}
+
+    def observe(self, key: str, value: str, now: datetime) -> None:
+        with self.db.session.begin() as s:
+            r = s.get(StorageObservationRow, key)
+            if r is None:
+                s.add(StorageObservationRow(key=key, value=value, updated_at=now))
+            else:
+                r.value, r.updated_at = value, now
+
 
 # ---- the service -----------------------------------------------------------------------------------
 def _disk_key(node_id: str, disk_id: str) -> str:
     """A stable, non-identifying key for a disk: alert dedupe keys and events never carry serials."""
     return hashlib.sha256(f"{node_id}\x00{disk_id}".encode()).hexdigest()[:16]
+
+
+def _redacted(body: dict, principal: Principal) -> dict:
+    """A plan names each target disk by its full WWN or serial (`targets[].id`) for the owner's
+    approval card. Everyone else sees path, model and serial tail only (storage.md §4.10)."""
+    plan = body.get("plan")
+    if principal.is_owner or not isinstance(plan, dict) or not plan.get("targets"):
+        return body
+    targets = [{k: v for k, v in t.items() if k != "id"} for t in plan["targets"] if isinstance(t, dict)]
+    return {**body, "plan": {**plan, "targets": targets}}
 
 
 BAD_STATES = {"degraded", "unavailable", "unsupported"}
@@ -233,8 +266,11 @@ class StorageService:
         self.node_id = gw.settings.node_id or "hub"
         self._inflight: set[str] = set()
         self._lock = threading.Lock()
-        self._set_state: str | None = None
-        self._disks: dict[str, str] = {}
+        self._seen: dict[str, str] | None = None  # storage_observations, loaded at the first poll
+        # An action the node does not know yet is "never started" only after this long: dispatch may
+        # still be on its way (the poller can see it accepted before the request is sent), or the node
+        # still rendering its plan (a sleeping disk spins up for SMART).
+        self._start_grace = timedelta(seconds=max(60.0, 4 * self.cfg.timeout_s))
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -305,7 +341,8 @@ class StorageService:
     def plan(self, principal: Principal, req: StoragePlanRequest) -> dict:
         self._may_request(principal, req.type)
         plan = self.render(req.type, req.params)
-        return {"type": req.type, "risk": TYPES[req.type][1], "plan": plan, "plan_sha256": plan.get("plan_sha256")}
+        body = {"type": req.type, "risk": TYPES[req.type][1], "plan": plan, "plan_sha256": plan.get("plan_sha256")}
+        return _redacted(body, principal)
 
     def _may_request(self, principal: Principal, action_type: str) -> None:
         if principal.kind not in TYPES[action_type][2] or not principal.can_request_actions:
@@ -323,7 +360,7 @@ class StorageService:
         existing = self.gw.repo.get_by_idempotency_key(key)
         if existing is not None:  # a replay files nothing new and renders nothing
             action, created = self.gw.actions.file(principal, req.type, params, key, expires, req.reason)
-            return {"action": action, **(self.repo.get(action["id"]) or {})}, created
+            return _redacted({"action": action, **(self.repo.get(action["id"]) or {})}, principal), created
         plan = self.render(req.type, req.params)
         if plan.get("blocked"):
             failed = [f"{c['id']}: {c['detail']}" for c in plan.get("checks", []) if not c.get("ok")]
@@ -334,9 +371,9 @@ class StorageService:
                 action_id=action["id"], node_id=params["node_id"], type=req.type, params=params, plan=plan,
                 plan_sha256=plan["plan_sha256"], risk=TYPES[req.type][1], state="requested", created_at=now, updated_at=now,
             ))
-        return {"action": action, **(self.repo.get(action["id"]) or {})}, created
+        return _redacted({"action": action, **(self.repo.get(action["id"]) or {})}, principal), created
 
-    def operation(self, action_id: str) -> dict:
+    def operation(self, action_id: str, principal: Principal) -> dict:
         row = self.repo.get(action_id)
         if row is None:
             raise ApiError(404, "not_found", "no such storage operation")
@@ -347,7 +384,7 @@ class StorageService:
                     row = {**row, "journal": _journal(op)}
             except (StorageUnavailable, StorageTimeout):
                 pass
-        return row
+        return _redacted(row, principal)
 
     def take_recovery_key(self, principal: Principal) -> dict:
         status, body = self._call("POST", "/v1/recovery-key/take")
@@ -440,6 +477,8 @@ class StorageService:
                 continue
             now = self.gw.clock()
             if status == 404:
+                if now - utc(a.updated_at) < self._start_grace:
+                    continue  # just approved: dispatch may still be sending it
                 # Never reached the node (the gateway stopped between approval and dispatch).
                 self.repo.update(a.id, now, state="failed", error="never started")
                 self.gw.actions.finish(a.id, "failed", "the storage service never started it", from_states=frozenset({"accepted", "dispatched"}))
@@ -464,11 +503,16 @@ class StorageService:
                 )
 
     def _observe(self, st: dict) -> None:
+        if self._seen is None:
+            self._seen = self.repo.observations()
+        seen, now = self._seen, self.gw.clock()
         m = st.get("mirror") or {}
         state = m.get("state")
         res = {"kind": "storage_set", "id": self.node_id}
-        if state and state != self._set_state:
-            prev, self._set_state = self._set_state, state
+        if state and state != seen.get("set"):
+            prev = seen.get("set")
+            seen["set"] = state
+            self.repo.observe("set", state, now)
             sev = "critical" if state in BAD_STATES else "info"
             payload = {"node_id": self.node_id, "state": state, "previous": prev, "reasons": (m.get("reasons") or [])[:8], "repair": m.get("repair") or []}
             self.gw.events.publish_event("storage", "state", payload, severity=sev, resource=res)
@@ -481,8 +525,10 @@ class StorageService:
             d = disks.get(path) or {}
             key = _disk_key(self.node_id, d.get("id") or path)
             verdict = (h or {}).get("verdict", "unknown")
-            prev = self._disks.get(key, "ok")
-            self._disks[key] = verdict
+            prev = seen.get(f"disk:{key}", "ok")
+            if verdict != prev:
+                seen[f"disk:{key}"] = verdict
+                self.repo.observe(f"disk:{key}", verdict, now)
             rank, prev_rank = DISK_RANK.get(verdict, 0), DISK_RANK.get(prev, 0)
             if rank == prev_rank:  # each change is told once; notifications dedupe on the key
                 continue

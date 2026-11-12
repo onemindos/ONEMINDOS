@@ -326,9 +326,62 @@ def test_dispatched_but_never_started(settings, clock, node, no_poller):
         action = request_create(c).json()["action"]
         c.post(f"/v1/actions/{action['id']}/approve", headers=OWNER)
         node.ops.clear()  # the node never got it
+        c.app.state.storage.poll()  # just approved: dispatch may still be on its way
+        assert c.get(f"/v1/actions/{action['id']}", headers=OWNER).json()["state"] == "dispatched"
+        clock.advance(61)
         c.app.state.storage.poll()
         a = c.get(f"/v1/actions/{action['id']}", headers=OWNER).json()
         assert a["state"] == "failed" and "never started" in a["result"]["message"]
+
+
+def test_poller_does_not_fail_an_action_being_dispatched(settings, clock, node, no_poller, monkeypatch):
+    """The poller can see an action accepted before dispatch has sent it to the node: it must not call
+    it never started (the node would then run an action the ledger calls failed)."""
+    with storage_client(settings, clock, node) as c:
+        action = request_create(c).json()["action"]
+        svc = c.app.state.storage
+        real = svc.dispatch
+
+        def dispatch_after_a_poll(a):
+            svc.poll()  # the background poller runs between "accepted" and the request to the node
+            return real(a)
+
+        monkeypatch.setattr(svc, "dispatch", dispatch_after_a_poll)
+        assert c.post(f"/v1/actions/{action['id']}/approve", headers=OWNER).json()["state"] == "dispatched"
+        assert node.started and c.get(f"/v1/storage/operations/{action['id']}", headers=OWNER).json()["state"] == "running"
+
+
+def test_full_disk_ids_only_for_owners(settings, clock, node, no_poller):
+    """storage.md §4.10: serial numbers in full only to owners; agents see the last four characters."""
+    with storage_client(settings, clock, node) as c:
+        for r in (c.post("/v1/storage/plans", headers=AGENT, json={"type": "storage.mirror.create", "params": {"device": "/dev/vdc"}}),
+                  request_create(c, headers=AGENT)):
+            assert r.status_code in (200, 202), r.text
+            assert SERIAL not in r.text and r.json()["plan"]["targets"][0]["serial_tail"] == SERIAL[-4:]
+        action = r.json()["action"]
+        assert SERIAL not in c.get(f"/v1/storage/operations/{action['id']}", headers=AGENT).text
+        owner = c.get(f"/v1/storage/operations/{action['id']}", headers=OWNER).json()
+        assert owner["plan"]["targets"][0]["id"] == SERIAL  # the owner's approval card names the disk
+
+
+def test_health_events_survive_a_gateway_restart(settings, clock, node, no_poller):
+    """A problem that ends while the gateway is down still resolves its alert; nothing is told twice."""
+    s = replace(settings, sections={"storage": StorageSettings(enabled=True, socket=node.sock)})
+    node.state, node.verdict = "degraded", "critical"
+    with TestClient(create_app(s, clock=clock)) as c:
+        c.app.state.storage.poll()
+    node.state, node.verdict = "protected", "ok"
+    with TestClient(create_app(s, clock=clock)) as c:
+        seen = events(c)
+        c.app.state.storage.poll()
+        c.app.state.storage.poll()
+        types = [e["type"] for e in seen]
+        assert types.count("storage.ok") == 1 and types.count("storage.disk.ok") == 1, types
+        assert "storage.degraded" not in types and "storage.disk.failing" not in types
+    with TestClient(create_app(s, clock=clock)) as c:  # unchanged across a restart: nothing new
+        seen = events(c)
+        c.app.state.storage.poll()
+        assert seen == []
 
 
 def test_background_poller_runs(settings, clock, node):

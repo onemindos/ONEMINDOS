@@ -63,7 +63,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         """The stored plan and, while it runs, the node's journal (step by step)."""
         if not p.can_request_actions:
             raise ApiError(403, "permission_denied", "only requesters and owners read storage operations")
-        return svc.operation(action_id)
+        return svc.operation(action_id, p)
 
     @app.post("/v1/storage/recovery-key", tags=["storage"], responses=error_responses(401, 403, 404, 409))
     def storage_recovery_key(p: Principal = Depends(principal)):
