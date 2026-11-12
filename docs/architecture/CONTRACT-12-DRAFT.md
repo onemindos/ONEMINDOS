@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Contract §12 (draft): phase-B interfaces
 
-**Status:** DRAFT, not binding (2026-11-12). It proposes §12 of [`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md). It follows the contract's rule: "a change to it is a separate PR that all streams adopt". Each sub-section below is meant to be merged **on its own**, when the build step that needs it starts (§12.15). Until then, streams build against §1–§11.
+**Status:** SUPERSEDED by the binding contract §12 ([`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md) §12, 2026-11-12), which renames several items (§12.21 there). Kept as design rationale; build against the contract. Original status: DRAFT, not binding (2026-11-12). It proposes §12 of [`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md). It follows the contract's rule: "a change to it is a separate PR that all streams adopt". Each sub-section below is meant to be merged **on its own**, when the build step that needs it starts (§12.15). Until then, streams build against §1–§11.
 **Design rationale:** [FABRIC.md](FABRIC.md), [BACKUPS.md](BACKUPS.md), [DEPLOYMENTS.md](DEPLOYMENTS.md), [AUTOMATION.md](AUTOMATION.md), [NOTIFICATIONS.md](NOTIFICATIONS.md).
 **Compatibility:** everything here is **additive**. No §3 path, field, state or error changes meaning. Clients written for §3 and §11 keep working. Two changes alter behaviour and are listed for an explicit decision at the end: the `reconcile_interrupted` amendment (§12.2 `hold`) and `acknowledge_unscanned` (open item 4).
 
