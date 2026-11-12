@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Run every automated test workflow on a ref and summarise pass/fail per workflow
 # (docs/testing/README.md §2, register rows TR-260 to TR-263). Manual only.
+# The script comes from the commit this workflow was started from; the ref under test is only read
+# (its .github/workflows/, to see what exists there) and dispatched, so an older ref without
+# scripts/test-all.sh can be tested too.
 name: test-all
 on:
   workflow_dispatch:
@@ -12,11 +15,11 @@ on:
       heavy:
         type: boolean
         default: true
-        description: 'Also run the image build, the nightly battery and the security pipeline (dry run, never publishes)'
+        description: 'Also run the full app gate, the image build, the nightly battery and the security pipeline (dry run, never publishes)'
       wait_minutes:
         type: number
         default: 300
-        description: 'Minutes to wait before reporting runs as still running'
+        description: 'Minutes to wait before reporting runs as still running (at most 330)'
 permissions: {}
 concurrency:
   group: test-all
@@ -31,7 +34,13 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          persist-credentials: false
+      - name: Workflow files on the ref under test
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
           ref: ${{ inputs.ref }}
+          path: target
+          sparse-checkout: .github/workflows
           persist-credentials: false
       - name: Dispatch, wait, summarise
         env:
@@ -40,4 +49,5 @@ jobs:
           REF: ${{ inputs.ref }}
           HEAVY: ${{ inputs.heavy }}
           WAIT_MINUTES: ${{ inputs.wait_minutes }}
+          WF_DIR: target/.github/workflows
         run: bash scripts/test-all.sh

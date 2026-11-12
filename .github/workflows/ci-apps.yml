@@ -25,7 +25,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-apps-${{ github.event.pull_request.number }}
+  group: ci-apps-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -75,7 +75,12 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          # A manual run (test-all) has no PR to diff: gate every app.
+          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
+            files=.github/workflows/ci-apps.yml
+          else
+            files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          fi
           # A change to the gate itself re-gates every app; otherwise only the apps the PR touches.
           if grep -qE '^(sdk/tools/(app-gate|validate-apps|applib/)|sdk/schema/|\.github/workflows/ci-apps\.yml)' <<<"$files"; then
             ids=$(find apps -mindepth 1 -maxdepth 1 -type d ! -name '_*' ! -name '.*' -printf '%f\n' | sort)

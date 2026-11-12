@@ -17,12 +17,12 @@ Rule from the QEMU battery ([`test/qemu/CRITERIA.md`](../../test/qemu/CRITERIA.m
 
 ## 2. Run every automated test at once
 
-The `test-all` workflow ([`.github/workflows/test-all.yml`](../../.github/workflows/test-all.yml)) dispatches every test workflow on `main`, waits for them and writes one summary table (workflow, run link, outcome).
+The `test-all` workflow ([`.github/workflows/test-all.yml`](../../.github/workflows/test-all.yml)) dispatches every test workflow on one branch or tag (default `main`), waits for them and writes one summary table (workflow, run link, outcome). Its script always comes from the commit `test-all` was started from; the ref under test only supplies the workflows that run.
 
-- GitHub: **Actions → test-all → Run workflow**. Inputs: `ref` (a branch or tag, default `main`), `heavy` (also run the image build, the nightly battery and the security pipeline in dry-run mode; on by default), `wait_minutes` (how long to wait before reporting runs as still running).
+- GitHub: **Actions → test-all → Run workflow**. Inputs: `ref` (a branch or tag, default `main`), `heavy` (also run the full app gate over every app, the image build, the nightly battery and the security pipeline in dry-run mode; on by default), `wait_minutes` (how long to wait before reporting runs as still running; at most 330).
 - Terminal: `gh workflow run test-all.yml -f ref=main -f heavy=true`, then `gh run watch`.
 
-Light workflows take minutes; with `heavy` on, expect a few hours (the nightly battery runs T0–T10 on two boards). The security pipeline is always dispatched with `dry_run=true`, so it never publishes. A workflow on `main` that `test-all` does not know is listed as "not in test-all" so it gets added.
+Light workflows take minutes; with `heavy` on, expect a few hours (the nightly battery runs T0–T10 on two boards). The security pipeline is always dispatched with `dry_run=true`, so it never publishes. A workflow on the ref that `test-all` does not know is listed as "not in test-all" so it gets added; one `test-all` knows but the ref does not have yet is reported as skipped. `apps-rescan.yml` is never dispatched by `test-all`, because it opens a pull request (run TR-087 by hand).
 
 One workflow at a time: `gh workflow run <file> [-f key=value]`, for example `gh workflow run battery.yml -f board=vm -f upto=T5`.
 
@@ -30,7 +30,7 @@ One workflow at a time: `gh workflow run <file> [-f key=value]`, for example `gh
 
 Two ways, both fine:
 
-1. **Issue form:** New issue → **Test result**. Fill in the TR id, environment, outcome and logs. A maintainer copies the line into RESULTS.md.
+1. **Issue form:** New issue → **Test result**. Fill in the TR id, environment, outcome and logs. A maintainer copies the line into RESULTS.md. (The form tags the issue `test-result`; a maintainer creates that label once with `gh label create test-result`, or GitHub leaves the issue unlabelled.)
 2. **Directly:** append one line to the table in [RESULTS.md](RESULTS.md) in a PR.
 
 Each line has:
