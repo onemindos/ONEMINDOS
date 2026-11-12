@@ -676,6 +676,8 @@ def measured(reports):
                     m[f"loaded_memory_mib.{c}"] = v["anon_mib"]["max"]
         elif kind == "ready" and r.get("boot_to_ready_s") is not None:
             m["boot_to_ready_s"] = r["boot_to_ready_s"]
+        elif kind == "cold":
+            m["gateway_cold_start_s"] = r["gateway_cold_start_s"]
         elif kind == "disk":
             m["disk_runtime_mib"] = r["runtime_mib"]
     return m

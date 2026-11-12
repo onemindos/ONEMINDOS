@@ -50,11 +50,19 @@ jobs:
         run: |
           sudo python3 -I test/perf/perf.py sims start --count 3
           sudo python3 -I test/perf/perf.py load --token-file /root/perf/token --cycles 60 --steady 0 --out load.json
+      - name: Cold start (restart the gateway and onemindd, time until /healthz answers)
+        run: |
+          sudo python3 -I test/perf/perf.py sims stop --count 3
+          t0=$(date +%s.%N)
+          sudo systemctl restart onemindd onemind-gateway
+          until curl -fsS -o /dev/null http://127.0.0.1:8080/healthz; do sleep 0.2; done
+          t1=$(date +%s.%N)
+          echo "{\"kind\": \"cold\", \"gateway_cold_start_s\": $(awk "BEGIN{printf \"%.1f\", $t1-$t0}")}" | tee cold.json
       - name: Check idle memory and API p95 against test/perf/budget.json
         shell: bash
         run: |
           python3 -I test/perf/perf.py check --budget test/perf/budget.json \
-            --keys idle_memory_mib,api_p95_ms,api_read_errors idle.json load.json | tee -a "$GITHUB_STEP_SUMMARY"
+            --keys idle_memory_mib,api_p95_ms,api_read_errors,gateway_cold_start_s idle.json load.json cold.json | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Upload the reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -63,9 +71,10 @@ jobs:
           path: |
             idle.json
             load.json
+            cold.json
           if-no-files-found: ignore
       - name: Service state on failure
         if: failure()
         run: |
           sudo systemctl --no-pager status k3s onemind-nats onemindd onemind-gateway || true
-          sudo journalctl --no-pager -n 80 -u onemind-gateway -u onemindd -u onemind-nats || true
+          sudo journalctl --no-pager -n 5 -u onemind-gateway -u onemindd -u onemind-nats || true
