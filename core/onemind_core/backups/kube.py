@@ -112,7 +112,14 @@ class Kube:
         raise KubeError(f"pods in {namespace} did not stop within {int(deadline_s)} s")
 
     def fresh_ready(self, namespace: str, since: datetime, expected: int) -> tuple[bool, dict]:
-        """Fresh-signal readiness (BACKUPS.md §8): only pods created after `since` count."""
+        """Fresh-signal readiness (BACKUPS.md §8): only pods created after `since` count.
+
+        Kubernetes records creationTimestamp in whole seconds, so `since` is cut to its second:
+        a pod started in the same second as the restart is fresh (the Lima run showed a pod at
+        10:35:48Z for a restart at 10:35:48.38 that a sub-second comparison never counted). The
+        caller has already waited for every old pod to go, so this admits no stale pod.
+        """
+        since = since.replace(microsecond=0)
         fresh = ready = 0
         for p in self.pods(namespace):
             md = p["metadata"]

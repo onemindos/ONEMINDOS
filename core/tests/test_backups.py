@@ -536,3 +536,22 @@ def test_schema_accepts_backup_and_database_blocks():
     doc["spec"]["backup"]["exclude"] = ["../../etc"]
     doc["spec"]["database"] = {"engine": "mysql", "secret": "x"}
     assert len(list(v.iter_errors(doc))) == 3
+
+
+def test_fresh_ready_counts_a_pod_started_in_the_same_second():
+    """Kubernetes timestamps have whole seconds; a restart at .38 s must still see its pod."""
+    from datetime import UTC
+
+    class Pods(Kube):
+        def pods(self, namespace):
+            return [
+                {"metadata": {"creationTimestamp": "2026-11-12T10:35:48Z"},
+                 "status": {"conditions": [{"type": "Ready", "status": "True"}]}},
+                {"metadata": {"creationTimestamp": "2026-11-12T10:35:47Z"},
+                 "status": {"conditions": [{"type": "Ready", "status": "True"}]}},
+            ]
+
+    since = datetime(2026, 11, 12, 10, 35, 48, 382955, tzinfo=UTC)
+    ok, info = Pods().fresh_ready("app-x", since, 1)
+    assert ok and info == {"fresh_pods": 1, "ready": 1, "expected": 1}
+    assert Pods().fresh_ready("app-x", since, 2)[0] is False, "the pod from the second before is not fresh"
