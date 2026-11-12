@@ -1,6 +1,6 @@
 # onemind: the OneMind command-line tool (v0)
 
-**Serves:** contract [`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md) §2 (heartbeat) and §3 (`GET /v1/nodes`); brief 30 BD-02 (Go CLI). Later it gains `onemind update …` (B4.2) and more.
+**Serves:** contract [`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md) §2 (heartbeat) and §3 (`GET /v1/nodes`); brief 30 BD-02 (Go CLI). `onemind update …` serves B4.2.
 
 ## Why it exists
 Two everyday questions, answered from a terminal:
@@ -17,7 +17,14 @@ export ONEMIND_TOKEN=…                    # safer than --token: flags land in 
 onemind nodes --hub http://hub.local:8080           # table
 onemind nodes --hub http://hub.local:8080 --json    # raw list from the gateway
 onemind version
+
+# OS updates on a OneMind image (brief 30 B4.2; needs root except status)
+onemind update status [--json]            # current/available version, state, last result, history
+onemind update check                      # fetch the TUF channel and print the decision; never installs
+onemind update apply [--no-reboot]        # owner installs now (not while the health gate is deciding)
 ```
+See [`internal/update/`](../../internal/update/README.md) for the policy, window and states.
+
 Example table:
 ```
 NODE_ID       HOSTNAME  ROLE  BOARD       ARCH   OS         K3S    STATUS  LAST_SEEN

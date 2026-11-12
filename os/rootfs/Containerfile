@@ -40,6 +40,7 @@ RUN set -eu; \
     cat /tmp/onemind/packages/${LEG}-common.txt /tmp/onemind/packages/${LEG}-${TARGETARCH}.txt \
         $(ls /tmp/onemind/board/packages-${LEG}.txt 2>/dev/null) | sed 's/#.*//' | tr -s ' \n' '\n' | sed '/^$/d' > /tmp/onemind/pkgs; \
     apt-get update; \
+    apt-get -y upgrade; \
     apt-get install -y $(cat /tmp/onemind/pkgs); \
     rm -rf /var/lib/apt/lists/*
 
