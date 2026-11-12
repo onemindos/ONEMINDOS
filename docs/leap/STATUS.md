@@ -70,6 +70,7 @@
 | UI-LEAP | Parity audit, customization, Home widgets, Store + app management, shell, Settings (+ UMB-DESK-2, -3, -4, -8) | done | `feat/ui-leap` | [#29](https://github.com/onemindos/ONEMINDOS/pull/29) |
 | MKT-TAXONOMY | App and deployment categories | done | `feat/app-taxonomy` | [#28](https://github.com/onemindos/ONEMINDOS/pull/28) |
 | E2E-GOLDEN | Golden-path e2e: `install.sh` hub in a VM (Lima, QEMU/KVM), Playwright dashboard + MCP agent + audit, `verify.sh`; `e2e.yml` on PRs and nightly. Green in Lima 2026-11-12 | in-progress | `feat/e2e-golden-path` | – |
+| MKT-BATCH-1 | Market batch 1: 10 apps from CANDIDATES.md (§9.5); apps the CI gate failed are `tier: blocked` with the reason in manifest and README | in-progress (agent A) | `feat/market-batch-1` | [#61](https://github.com/onemindos/ONEMINDOS/pull/61) |
 | PLAN-E1 | Workbench (G0) and gate content re-synced to D-007 | todo | founder lab kit | – |
 | LEAP-DOCS | Leap specs, workstreams, backlog, status, decisions, CHANGELOG | done | `docs/leap` | [#16](https://github.com/onemindos/ONEMINDOS/pull/16) |
 
