@@ -98,7 +98,8 @@ else the test fixtures in `core/tests/fixtures/`.
 
 Container (build context is the repo root, so `sdk/schema` gets copied in when it exists):
 ```sh
-docker run --rm -p 8080:8080 \
+# Loopback only: the example tokens are public, so never publish them on a LAN-facing port.
+docker run --rm -p 127.0.0.1:8080:8080 \
   -v "$PWD/core/examples/tokens.example.yaml:/cfg/tokens.yaml:ro" -e ONEMIND_TOKENS_FILE=/cfg/tokens.yaml \
   -v "$PWD/apps:/opt/onemind/apps:ro" onemind-core:dev
 ```
