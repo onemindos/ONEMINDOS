@@ -106,10 +106,17 @@ def test_spa_does_not_swallow_api_routes(client):
     assert r.json()["error"] == "not_found"
 
 
-def test_spa_blocks_path_traversal(client):
-    r = client.get("/..%2F..%2Fpyproject.toml")
-    assert r.status_code == 404 or "onemind-test-dist" in r.text
-    assert "[project]" not in r.text
+@pytest.mark.parametrize("path", ["/..%2Fsecret.txt", "/assets/..%2F..%2Fsecret.txt"])
+def test_spa_blocks_path_traversal(settings, clock, tmp_path, path):
+    # A real file just outside dist: without the is_relative_to guard it would be served.
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("onemind-test-dist")
+    (tmp_path / "secret.txt").write_text("SENTINEL-outside-dist")
+    with make_client(settings, clock, dashboard_dist=dist) as c:
+        r = c.get(path)
+        assert r.status_code == 404
+        assert "SENTINEL" not in r.text
 
 
 def test_no_dashboard_dist_means_404(settings, clock):
