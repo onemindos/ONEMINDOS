@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The tray popover may call only OneMind's own commands. It has no opener, shell, filesystem or HTTP permission: every network call and every URL it opens goes through Rust.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
