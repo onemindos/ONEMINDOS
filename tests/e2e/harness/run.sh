@@ -51,6 +51,7 @@ OUT=$(cd "$OUT" && pwd)
 SECRETS="$OUT/secrets" WORK="$OUT/vm"
 install -d -m0700 "$SECRETS"
 mkdir -p "$WORK"
+exec 3>&1   # the runner's own stdout: mask() writes there, never into harness.log (uploaded)
 exec > >(tee -a "$OUT/harness.log") 2>&1
 START=$SECONDS
 
@@ -150,7 +151,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mask() { [ -n "${GITHUB_ACTIONS:-}" ] && printf '::add-mask::%s\n' "$1"; return 0; }
+# The ::add-mask:: line holds the secret itself, so it goes to fd 3, not the tee into harness.log.
+mask() { [ -n "${GITHUB_ACTIONS:-}" ] && printf '::add-mask::%s\n' "$1" >&3; return 0; }
 sha256() { openssl dgst -sha256 -r | cut -d' ' -f1; }
 
 # ------------------------------------------------------------------------------------------

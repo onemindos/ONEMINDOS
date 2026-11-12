@@ -79,11 +79,15 @@ run it instead (follow-up).
 
 **Secrets.** The owner token and the generated agent token live in `out/secrets/` (0700, never
 uploaded) and in `/root/e2e/` inside the VM. On GitHub both are masked. `install.log` is saved with
-the owner and join tokens redacted. The suite reads tokens only from files.
+the owner and join tokens redacted. The suite reads tokens only from files. The masking commands
+go to the runner's stdout only, never into `harness.log`. The sign-in helper sets the token field
+through an evaluate step, because Playwright writes `fill`/`type` values into the HTML report's
+step titles. Traces record every Authorization header, so CI does not keep them unless
+`E2E_TRACE=1` is set.
 
 **Artifacts** (`out/`, uploaded by CI without `secrets/` and `vm/`): `summary.txt`, `harness.log`,
 `install.log`, `verify.txt`, `playwright-report/` (HTML), `test-results/` (a screenshot and a video
-per browser test, a trace on failure), `junit.xml`, `audit.jsonl`, `journal.txt` (gateway, onemindd,
+per browser test; a trace on failure, locally only), `junit.xml`, `audit.jsonl`, `journal.txt` (gateway, onemindd,
 NATS), `k8s.txt`.
 
 ## CI
@@ -108,8 +112,10 @@ verify.sh: rc 0, Summary: 45 passed, 0 failed, 0 skipped   (incl. "§3 audit fil
 total: 150s
 ```
 The approved install of ntfy ran `kubectl apply -k` through the k3s kubectl, and the removal deleted
-the namespace, for both the owner's and the agent's requests. No token appeared in any saved file
-outside `out/secrets/` (checked with `grep -F` for both tokens over `out/`).
+the namespace, for both the owner's and the agent's requests. That run's `grep -F` for both tokens
+over `out/` found nothing, but it could not see inside the HTML report's embedded zip: the report
+held the owner token in its `Fill` step titles (fixed in review; see "Secrets" above). To check a
+run, unpack the report's embedded zip too, not only the plain files.
 
 ### 2026-11-12, QEMU backend, from scratch (the CI path, without KVM)
 The `--backend qemu` path was run the way CI runs it, inside a throwaway Debian 13 arm64 Lima VM

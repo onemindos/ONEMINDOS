@@ -5,7 +5,16 @@ import { expect, type Page } from '@playwright/test';
 export async function signIn(page: Page, token: string): Promise<void> {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Welcome to OneMind' })).toBeVisible();
-  await page.getByLabel('Access token').fill(token);
+  const field = page.getByLabel('Access token');
+  await field.click();
+  // Not fill()/type()/keyboard.insertText(): Playwright writes their value into the step title, which
+  // lands in the HTML report CI uploads. An evaluate step's title carries no arguments. The native
+  // setter plus an input event is what React's onChange listens to.
+  await field.evaluate((el, value) => {
+    const input = el as HTMLInputElement;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, token);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible();
 }

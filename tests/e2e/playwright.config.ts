@@ -27,7 +27,9 @@ export default defineConfig({
         baseURL: process.env.E2E_HUB_URL,
         screenshot: 'on',
         video: 'on',
-        trace: 'retain-on-failure',
+        // A trace holds every request's Authorization header and every evaluate argument (the owner
+        // token). CI uploads out/, so traces are local-only unless E2E_TRACE=1 asks for them.
+        trace: process.env.CI && process.env.E2E_TRACE !== '1' ? 'off' : 'retain-on-failure',
         actionTimeout: 30_000,
       },
     },
