@@ -208,7 +208,7 @@ def test_mint_join_key_single_use_tagged_15_minutes(service, hs, tmp_path, caplo
     assert verify(tmp_path / "audit.jsonl")[0]
 
 
-@pytest.mark.parametrize("role,tags", [("leaf", ["tag:onemind-leaf"]), ("hub", ["tag:onemind-hub", "tag:onemind-k3s"])])
+@pytest.mark.parametrize("role,tags", [("leaf", ["tag:onemind-leaf"]), ("worker", ["tag:onemind-worker", "tag:onemind-k3s"])])
 def test_role_tags(service, hs, role, tags):
     minted = service.mint_join_key(action(params={"node_id": "n1", "role": role}))
     assert hs.keys[minted.key_id]["aclTags"] == tags
@@ -222,6 +222,7 @@ def test_role_tags(service, hs, role, tags):
     action(decided_by={"id": "hermes", "kind": "agent", "role": "agent"}),
     action(decided_by={"id": "kid", "kind": "person", "role": "adult"}),
     action(params={"node_id": "abc", "role": "owner"}),
+    action(params={"node_id": "abc", "role": "hub"}),  # the hub enrolls itself (§5.2), never via join
     action(params={"node_id": "../x", "role": "worker"}),
 ])
 def test_mint_refused_without_owner_approved_join(service, hs, a):
@@ -295,6 +296,8 @@ def test_check_join_binds_or_deletes(service, hs, tmp_path):
 def test_set_role_retags(service, hs):
     node = hs.add_node("node-x", tags=["tag:onemind-worker", "tag:onemind-k3s"])
     assert service.set_role(node["id"], "leaf").tags == ("tag:onemind-leaf",)
+    with pytest.raises(MeshRefused):
+        service.set_role(node["id"], "hub")
 
 
 # ---- policy -----------------------------------------------------------------------------------------

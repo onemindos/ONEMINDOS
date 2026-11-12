@@ -49,6 +49,9 @@ ROLE_TAGS: dict[str, tuple[str, ...]] = {
     "worker": (TAG_WORKER, TAG_K3S),
     "leaf": (TAG_LEAF,),
 }
+# Roles the gateway may mint a join key for (§5.1). The hub enrolls itself at install over
+# Headscale's local socket (§5.2); a joining machine never gets the hub's tags.
+JOIN_ROLES = ("worker", "leaf")
 ALL_TAGS = (TAG_HUB, TAG_WORKER, TAG_LEAF, TAG_K3S)
 PERSON_GROUPS = {"owner": "group:owners", "adult": "group:adults", "guest": "group:guests"}
 # Machine keys are minted under this Headscale user and carry the role tags; the tag, not the
@@ -375,15 +378,15 @@ class MeshService:
     def mint_join_key(self, action: Action) -> MintedKey:
         """One single-use, 15-minute, role-tagged key for an approved node.join.
 
-        Params read from the action: node_id (fabric node id) and role (worker | leaf | hub).
+        Params read from the action: node_id (fabric node id) and role (worker | leaf).
         """
         decided = self._require_approved(action, "node.join")
         node_id, role = action.params.get("node_id"), action.params.get("role")
         if not isinstance(node_id, str) or not NODE_ID_RE.match(node_id):
             raise MeshRefused("node.join params.node_id must be lowercase hex/alphanumerics (max 32)")
-        tags = ROLE_TAGS.get(role) if isinstance(role, str) else None
+        tags = ROLE_TAGS.get(role) if isinstance(role, str) and role in JOIN_ROLES else None
         if tags is None:
-            raise MeshRefused(f"node.join params.role must be one of {sorted(ROLE_TAGS)}")
+            raise MeshRefused(f"node.join params.role must be one of {list(JOIN_ROLES)}")
         self._claim(action.id)
         try:
             user_id, created = self.client.ensure_user(MACHINES_USER)
@@ -480,7 +483,7 @@ class MeshService:
         self.audit.append("mesh.node.removed", principal, action_id, {"mesh_node_id": mesh_node_id, "reason": reason})
 
     def set_role(self, mesh_node_id: str, role: str, *, action_id: str | None = None) -> MeshNode:
-        if not HS_ID_RE.match(mesh_node_id) or role not in ROLE_TAGS:
+        if not HS_ID_RE.match(mesh_node_id) or role not in JOIN_ROLES:  # worker <-> leaf (§5.2)
             raise MeshRefused("bad mesh node id or role")
         node = self.client.set_tags(mesh_node_id, ROLE_TAGS[role])
         self.audit.append("mesh.node.retagged", None, action_id,
