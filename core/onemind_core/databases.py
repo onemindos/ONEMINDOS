@@ -128,6 +128,9 @@ class SharedPostgres:
             f"SELECT 'CREATE DATABASE {name} OWNER {name}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '{name}')\\gexec\n"
             f"REVOKE ALL ON DATABASE {name} FROM PUBLIC;\n"
             f"GRANT CONNECT, TEMPORARY ON DATABASE {name} TO {name};\n"
+            # An app role reaches its own database only, not the maintenance ones either.
+            "REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;\n"
+            "REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;\n"
         )
         steps.append({"step": f"database and role {name} ready (password rotated)"})
         self._write_secret(app.id, spec, name, password)

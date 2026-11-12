@@ -447,6 +447,7 @@ def test_install_creates_the_database_role_and_secret_before_the_app(client, bk,
     assert [s["hook"] for s in steps if "hook" in s][-1] == "database"
     psql = next(c for c in bk.kube.execs() if c[2][0] == "psql")
     assert "CREATE ROLE app_notes LOGIN" in psql[4] and "REVOKE ALL ON DATABASE app_notes FROM PUBLIC" in psql[4]
+    assert "REVOKE CONNECT ON DATABASE postgres FROM PUBLIC" in psql[4]
     password = psql[4].split("PASSWORD '")[1].split("'")[0]
     assert len(password) == 48
     secret = next(c for c in bk.kube.calls if c[0] == "run" and "--server-side" in c[1] and '"notes-db"' in (c[2] or ""))
