@@ -374,6 +374,14 @@ copy_tree() { # copy_tree SRC_DIR DEST_DIR: replace DEST with SRC, leaving dev c
       --exclude=__pycache__ --exclude=.pytest_cache -cf - . | tar -C "$2.new" -xf -
   rm -rf "$2"; mv "$2.new" "$2"
 }
+# copy_src_tree SRC_DIR DEST_DIR: web sources (dashboard/, ui/src/). Only the top-level dependency
+# and build output stay behind: copy_tree's unanchored --exclude=data would also drop
+# dashboard/src/data/, because tar matches an exclude against every path component.
+copy_src_tree() {
+  rm -rf "$2.new"; mkdir -p "$2.new"
+  tar -C "$1" --exclude=./node_modules --exclude=./dist -cf - . | tar -C "$2.new" -xf -
+  rm -rf "$2"; mv "$2.new" "$2"
+}
 
 gateway_user() {
   id onemind >/dev/null 2>&1 || useradd --system --home-dir "$STATE" --shell /usr/sbin/nologin onemind
@@ -406,8 +414,8 @@ dashboard_build() {
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$sum" ]; then log "dashboard: up to date"; return 0; fi
   node_toolchain
   log "dashboard: npm ci + vite build with Node $NODE_VERSION (as user onemind, no install scripts)"
-  copy_tree "$SRC/dashboard" "$CACHE/dashboard-src"
-  copy_tree "$SRC/ui/src" "$CACHE/ui/src"   # ../ui/src as seen from dashboard-src
+  copy_src_tree "$SRC/dashboard" "$CACHE/dashboard-src"
+  copy_src_tree "$SRC/ui/src" "$CACHE/ui/src"   # ../ui/src as seen from dashboard-src
   # npm packages are third-party code: never run them as root. --ignore-scripts skips dependency
   # lifecycle scripts (esbuild's is an optional speed-up; its platform binary comes as a package).
   install -d -o onemind -g onemind -m0700 "$CACHE/npm-home"
