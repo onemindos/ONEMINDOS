@@ -51,7 +51,7 @@ Every route needs a bearer token of a **person** with role `owner` or `adult`. G
 - **Blob:** a set of bytes, keyed by SHA-256, stored once (`photos_blobs`).
 - **Asset:** one person's photo, unique per `(owner, blob)` (`photos_assets`). A person never holds two copies of the same bytes.
 - **Receipt:** "this phone's item `(source, client_key)` is these bytes, in this person's asset" (`photos_receipts`).
-- **`check` says `have`** only when the asking person has an asset with that hash and size, **and** the stored file exists with that size. A receipt row alone is never proof: a deleted or damaged copy turns the answer back into `need`, the phone re-sends, and the upload heals the stored copy. A hit without a receipt (a duplicate on the phone, or bytes from the same person's other phone) records the receipt without an upload.
+- **`check` says `have`** only when the asking person has an asset with that hash and size, **and** both the stored copy and the person's own library file exist with that size. A receipt row alone is never proof: a deleted or damaged copy turns the answer back into `need`, the phone re-sends, and the upload heals both. The person's file is a hard link, so healing only the stored copy (a new inode) would leave their file damaged; it is replaced through a temporary name and a rename. A heal also resets the photo's backup level (§5), because older snapshots hold the damaged bytes. A hit without a receipt (a duplicate on the phone, or bytes from the same person's other phone) records the receipt without an upload.
 - **No hash oracle.** Another person's bytes never make `check` say `have`. The second person uploads every byte, the box verifies them, and only then, if the bytes are already on disk, links the person's file to the existing copy instead of keeping a second one. Their receipt (`deduped: false`) is the same as if nobody else had the photo. `deduped: true` means only "you already had this".
 - **Isolation:** every query takes the caller's own id. Another person's sources and uploads answer 404, never 403, so their existence is not revealed.
 
@@ -68,7 +68,7 @@ Originals keep their own names as plain files, so the photos survive without One
 **Order of durable steps.** A receipt exists only after all of them:
 1. Each PATCH streams to `staging/<id>` under an exclusive `flock` (a second writer gets 409) and is **fsynced before** its `Upload-Offset` is acknowledged. The offset is the file's length on disk, so a crash can only make it smaller, never claim bytes that are not there.
 2. On the last part the box computes SHA-256: from the hash state it kept in memory, or by re-reading the file after a restart. It compares this with `OneMind-Content-Hash`. A mismatch deletes the bytes, fails the upload (410 afterwards), publishes `photos.upload.rejected` and gives no receipt.
-3. The verified file is hard-linked into the shared store, and the person's library entry is linked from it. **Each directory is fsynced.**
+3. The verified file is hard-linked into the shared store, and the person's library entry is linked from it. **Each directory is fsynced.** Only then does the box read the clock for the asset's time, which the backup levels use (§5).
 4. One database transaction records the blob, asset, receipt and the upload's receipt (for replay). Then the box answers 200.
 
 | Failure | What happens |
@@ -88,9 +88,9 @@ The levels come from the backup coordinator's events (contract §12.8 v1 types),
 |---|---|---|
 | `backup.run.finished` | `result: "succeeded"`, `snapshot_id`, `target_id`, `started_at` (RFC 3339), `units` containing `"photos"`, optional `finished_at` | records the snapshot |
 | `backup.verify.finished` | `result: "passed"`, `snapshot_id`, `target_id`, `unit: "photos"` (or `units`) | marks that snapshot verified |
-| `backup.snapshot.removed` (**proposed**, not in §12.8 yet) | `snapshot_id` or `snapshot_ids`, `target_id` | the snapshot no longer counts |
+| `backup.snapshot.removed` (**proposed**, not in §12.8 yet) | `snapshot_id` or `snapshot_ids`, `target_id` (without it, the ids match on every target) | the snapshot no longer counts |
 
-**Rule:** a photo is `in_backup` when it was on the box before the newest kept snapshot of the `photos` unit **started**, and `in_verified_backup` when it was on the box before the newest kept **verified** snapshot started. Library files are never deleted yet, so a snapshot holds everything that existed when it started. Other events, failed runs and runs without the `photos` unit change nothing. Coverage counts per phone: `total` and `on_box` are the phone's receipts (equal until Trash exists), `backed_up` and `verified` apply the rule.
+**Rule:** a photo is `in_backup` when it was on the box before the newest kept snapshot of the `photos` unit **started**, where "on the box" is the time read after its library file was linked and fsynced (or healed), and `in_verified_backup` when it was on the box before the newest kept **verified** snapshot started. Library files are never deleted yet, so a snapshot holds everything that existed when it started. Other events, failed runs and runs without the `photos` unit change nothing. Coverage counts per phone: `total` and `on_box` are the phone's receipts (equal until Trash exists), `backed_up` and `verified` apply the rule.
 
 **Asks of the backup stream** (CORE-BACKUP-8, gateway coordinator K3): back up `ONEMIND_PHOTOS_DIR` together with the gateway database as unit `photos`; publish the two §12.8 events with the fields above through `gw.events.publish_event`; add `backup.snapshot.removed` (contract owner) so a deleted or pruned snapshot stops counting. Without these events every photo stays `on_box`, which is the safe default.
 
@@ -112,10 +112,10 @@ On a developer install (`deploy/install.sh`), add `ONEMIND_PHOTOS_ENABLED=1` and
 
 | Where | What | Run |
 |---|---|---|
-| `core/tests/test_photos.py` (34) | Happy path; replay and the race with a finishing request; offsets, overflow, short last part; three drops (raw ASGI disconnects) then one stored copy; stall; restart (disk rehash); flock busy; expiry and sweep; digest mismatch; duplicates; same person's second phone; no oracle across people with one inode; concurrent identical uploads; "a receipt alone is no proof"; edited photo; validation; receipt levels from events; paging; limits; names | `make -C core test`, and with `ONEMIND_TEST_DB_URL=postgresql://…` |
+| `core/tests/test_photos.py` (38) | Happy path; replay and the race with a finishing request; offsets, overflow, short last part; three drops (raw ASGI disconnects) then one stored copy; stall; restart (disk rehash); flock busy; expiry and sweep; digest mismatch; duplicates; same person's second phone; no oracle across people with one inode; concurrent identical uploads; "a receipt alone is no proof"; a damaged copy healed in the person's own file and its level reset; a deleted library file asked for again; edited photo; validation; receipt levels from events; a snapshot that starts while a file is stored does not count; a removal without a target; paging; limits; names | `make -C core test`, and with `ONEMIND_TEST_DB_URL=postgresql://…` |
 | `test/photos/mobile-e2e.test.ts` + `run-mobile-e2e.sh` | The phone's real `runBackup` engine, `HttpPhotosApi` and SHA-256 code against a live gateway. A library with a duplicate, a second run sending nothing, a half-delivered chunk resumed with every byte sent once, and a second person asked for every byte; then the box's files are counted | `test/photos/run-mobile-e2e.sh <mobile dir>` (needs `feat/mobile-photos`; skips without it) |
 
-Result on 2026-11-12: the full core suite passes on SQLite and PostgreSQL 17 on macOS (338), and on SQLite on Debian 13 arm64 in a Lima VM (Linux 6.12; 337, run before the race test was added; the photos tests on both tmpfs and ext4). The end-to-end run passes against SQLite and PostgreSQL: 4 jest tests, and on the box 6 stored copies, 6 + 1 library files and an empty staging folder.
+Result on 2026-11-12 after review: the full core suite passes on SQLite (342) and the photos tests on PostgreSQL 17 (38) on macOS. Before review: the full core suite passed on SQLite and PostgreSQL 17 on macOS (338), and on SQLite on Debian 13 arm64 in a Lima VM (Linux 6.12; 337, run before the race test was added; the photos tests on both tmpfs and ext4). The end-to-end run passes against SQLite and PostgreSQL: 4 jest tests, and on the box 6 stored copies, 6 + 1 library files and an empty staging folder.
 
 ## 8. Not done here, and open items
 
