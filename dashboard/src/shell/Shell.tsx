@@ -127,7 +127,9 @@ export function Shell({ children }: { children: ReactNode }) {
     { id: 'activity', label: 'Activity', href: href.activity, icon: 'activity', primary: true },
     { id: 'installed', label: 'Installed', href: href.installed, icon: 'check', group: 'Your box' },
     { id: 'nodes', label: 'Nodes', href: href.nodes, icon: 'nodes', group: 'Your box' },
+    { id: 'alerts', label: 'Alerts', href: href.alerts, icon: 'bell', group: 'Your box' },
     { id: 'settings', label: 'Settings', href: href.settings, icon: 'settings', group: 'Your box' },
+    { id: 'coming', label: 'Coming soon', href: href.coming, icon: 'info', group: 'Your box' },
   ];
 
   // Route plain in-app links from ui components through the router (no reload).

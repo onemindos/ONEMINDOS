@@ -18,6 +18,20 @@
 .dash-signin-form input { min-height: var(--om-layout-touch-target); padding: 0 var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-border-strong); background: var(--om-color-surface); color: var(--om-color-text); font: inherit; }
 .dash-signin-form input:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 
+/* wiring pass: sign-in extras, forms and small lists */
+.dash-signin-sub { margin: var(--om-space-2) 0 0; font-size: var(--om-font-size-md); }
+.dash-signin-links { display: flex; flex-direction: column; gap: var(--om-space-2); margin: 0; }
+.om-link { background: none; border: 0; padding: 0; color: var(--om-color-accent-link, var(--om-color-accent)); text-align: start; font: inherit; text-decoration: underline; cursor: pointer; min-height: var(--om-layout-touch-target); }
+.om-link:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+.dash-form { display: flex; flex-direction: column; gap: var(--om-space-2); max-width: 440px; }
+.dash-form label { font-weight: var(--om-font-weight-semibold); }
+.dash-form input, .dash-form select { min-height: var(--om-layout-touch-target); padding: 0 var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-border-strong); background: var(--om-color-surface); color: var(--om-color-text); font: inherit; }
+.dash-form input:focus-visible, .dash-form select:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+.dash-actions { display: flex; flex-wrap: wrap; gap: var(--om-space-2); align-items: center; }
+.dash-stack { display: flex; flex-direction: column; gap: var(--om-space-4); }
+.dash-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--om-space-3); }
+.dash-secret { display: block; padding: var(--om-space-3); border-radius: var(--om-radius-md); background: var(--om-color-surface); border: 1px dashed var(--om-color-border-strong); word-break: break-all; user-select: all; }
+
 @media (max-width: 720px) {
   .dash-hide-compact { display: none; }
 }
