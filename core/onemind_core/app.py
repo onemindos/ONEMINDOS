@@ -29,6 +29,8 @@ from .nodes import NodeRegistry
 from .routers import Register
 from .routers import actions as actions_routes
 from .routers import apps as apps_routes
+from .routers import backups as backups_routes
+from .routers import databases as databases_routes
 from .routers import instance as instance_routes
 from .routers import mcp as mcp_routes
 from .routers import nodes as nodes_routes
@@ -47,6 +49,8 @@ ROUTERS: list[Register] = [
     apps_routes.register,
     mcp_routes.register,
     actions_routes.register,
+    databases_routes.register,  # before backups, which dumps and restores its databases
+    backups_routes.register,
     static_routes.register,
 ]
 
