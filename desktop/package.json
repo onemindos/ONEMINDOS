@@ -9,7 +9,7 @@
     "dev": "tauri dev",
     "build": "tauri build",
     "build:app": "tauri build --bundles app",
-    "check:ui": "node --check src/app.js && node --check src/format.js && node tools/tokens.mjs --check && node --test \"test/*.test.mjs\"",
+    "check:ui": "node --check src/app.js && node --check src/format.js && node tools/tokens.mjs --check && node --test \"test/**/*.test.mjs\"",
     "icons": "tauri icon assets/app-icon.svg -o src-tauri/icons",
     "sync:tokens": "node tools/tokens.mjs",
     "preview": "python3 -m http.server 4780 --bind 127.0.0.1"

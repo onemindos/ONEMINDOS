@@ -343,7 +343,7 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-AGT-10 | Agents page, Connect wizard, pairing card, agent activity, "Agent at… | todo | – | – |
 | UMB-AGT-9 | `request_access` deep links and the access landing | todo | – | – |
 | UMB-AGT-11 | Agent tokens wiped on restore; conformance for pairing and new tools | todo | – | – |
-| UMB-CLIENT-8 | Desktop app v1 (Tauri): tray, discovery, pairing, status, open in br… | done (v1; owner-approved device pairing CLIENT-2/3, CA pin and Ubuntu CI still open) | `feat/desktop-v1` (includes `feat/desktop-client`, #33) | [#51](https://github.com/onemindos/ONEMINDOS/pull/51) |
+| UMB-CLIENT-8 | Desktop app v1 (Tauri): tray, discovery, pairing, status, open in br… | done (skeleton #33, v1 #51; owner-approved device pairing CLIENT-2/3, CA pin and Ubuntu CI still open) | `feat/desktop-client`, `feat/desktop-v1` | [#33](https://github.com/onemindos/ONEMINDOS/pull/33), [#51](https://github.com/onemindos/ONEMINDOS/pull/51) |
 | UMB-CLIENT-10 | Desktop approvals, alerts and events | done (passkey approvals hand off to the browser; native passkeys a follow-up spike) | `feat/desktop-v1` | [#51](https://github.com/onemindos/ONEMINDOS/pull/51) |
 | UMB-CLIENT-13 | MCP read tools `list_devices`, `photo_backup_status` | todo | – | – |
 | UMB-CLIENT-14 | Dashboard Devices page | todo | – | – |
