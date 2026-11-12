@@ -113,8 +113,8 @@ Built and unit-tested, in the repo:
 
 **Not wired in yet** (checked on `main`, 2026-11-12):
 - the gateway's `app.py` does not mount the mesh client, the CA or the proxy;
-- `onemindd`'s service registry ([`cmd/onemindd/registry.go`](../../cmd/onemindd/registry.go)) has no mesh or leaf service;
-- `onemind mesh status` exists in [`cmd/onemind/mesh.go`](../../cmd/onemind/mesh.go) with tests, but is not registered in `cmd/onemind/cli/root.go`, so the built binary does not offer it;
+- `onemindd`'s service registry ([`cmd/onemindd/registry.go`](../../cmd/onemindd/registry.go)) has no mesh or leaf service. `onemindd mesh enroll` and `wait-ip` are dispatched, but the leaf supervisor (`leaf.Supervisor.Run`) and the heartbeat hook `mesh.Reporter` have no caller yet (CORE-NET-12);
+- `onemind mesh status` is wired: it is a command group in [`cmd/onemind/cli/mesh.go`](../../cmd/onemind/cli/mesh.go);
 - Headscale and `tailscaled` are not in the image, and the Go edge (`onemind-edge`) is not written.
 So today the mesh is a **proven design plus tested building blocks**, not a running feature.
 
