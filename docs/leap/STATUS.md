@@ -80,11 +80,11 @@
 | DEV-SDK-2 | Generation toolchain and CI staleness check | todo | – | – |
 | DEV-API-4 | Pagination (Link), filters, ETag/If-Match, `Idempotency-Key` header | todo | – | – |
 | DEV-API-5 | Scopes, role defaults, `/v1/me`, step-up hook | todo | – | – |
-| CORE-SANDBOX-1 | Rule file and pure-Python checker with fixtures | todo | – | – |
-| CORE-SANDBOX-2 | Gateway renders, checks and stores the plan; `apply -f -` with the… | todo | – | – |
-| CORE-SANDBOX-3 | PSA `restricted` in the image and `install.sh` | todo | – | – |
-| CORE-SANDBOX-4 | Gateway RBAC, `ValidatingAdmissionPolicy`, short-lived bound token | todo | – | – |
-| CORE-SANDBOX-5 | Default-deny NetworkPolicy per app, host nftables, `spec.network.eg… | todo | – | – |
+| CORE-SANDBOX-1 | Rule file and pure-Python checker with fixtures | in-progress | `feat/sec-p0` (local) | – |
+| CORE-SANDBOX-2 | Gateway renders, checks and stores the plan; `apply -f -` with the… | in-progress | `feat/sec-p0` (local; render, check, `apply -f -`, `policy_refused` done; stored plan and `plan_sha256` open) | – |
+| CORE-SANDBOX-3 | PSA `restricted` in the image and `install.sh` | in-progress | `feat/sec-p0` (local; `install.sh` and app namespaces done; image change recorded in SECURITY.md §7a) | – |
+| CORE-SANDBOX-4 | Gateway RBAC, `ValidatingAdmissionPolicy`, short-lived bound token | in-progress | `feat/sec-p0` (local) | – |
+| CORE-SANDBOX-5 | Default-deny NetworkPolicy per app, host nftables, `spec.network.eg… | in-progress | `feat/sec-p0` (local; host nftables open) | – |
 | CORE-SANDBOX-6 | app-gate uses the same checker; `scan.json` gains `policy_version`… | todo | – | – |
 | CORE-AUTO-1 | Risk classes on action types, enforced in the approve path | todo | – | – |
 | DEV-API-7 | Actions v1: risk, `plan_sha256` binding, preview, cancel, action-ty… | todo | – | – |
