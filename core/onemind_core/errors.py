@@ -27,6 +27,7 @@ ERROR_CODES = {
     "rate_limited",
     "payload_too_large",
     "policy_refused",
+    "unavailable",  # §12.2: a dependency is down (fabric joins, §12.11)
 }
 
 
@@ -36,7 +37,7 @@ class ErrorBody(BaseModel):
     error: Literal[
         "permission_denied", "stale_precondition", "expired", "conflict",
         "outcome_unknown", "not_found", "unauthenticated",
-        "rate_limited", "payload_too_large", "policy_refused",
+        "rate_limited", "payload_too_large", "policy_refused", "unavailable",
     ]
     message: str
     # §12.2 optional fields; present only when they carry something.
@@ -53,6 +54,7 @@ _DESCRIPTIONS = {
     413: "Request body over its limit (payload_too_large)",
     422: "Request failed validation (conflict, with the bad fields in message)",
     429: "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After",
+    503: "A dependency is down (unavailable, §12.2)",
 }
 
 
