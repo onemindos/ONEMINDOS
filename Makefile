@@ -92,6 +92,27 @@ kit:
 clean:
 	rm -rf $(OUT)
 
+# USB installer (os/boards/installer-x86_64/README.md): a live stick that writes the target board's
+# image to an internal disk, verified by sha256, with the first-boot role set.
+#   make installer      BOARD=installer-x86_64   -> out/installer-x86_64/ (stick .img, SHA256SUMS)
+#   make installer-test BOARD=installer-x86_64   -> out/test-installer-x86_64/ (I1-I5, CRITERIA-INSTALLER.md)
+TARGET_OF   = $(shell sed -n 's/^target_board: *\([^ #]*\).*/\1/p' os/boards/$(BOARD)/board.yaml)
+.PHONY: installer installer-test
+installer: tools
+	@test -n "$(TARGET_OF)" || { echo "usage: make installer BOARD=installer-x86_64"; exit 1; }
+	@test -f $(OUT)/image-$(TARGET_OF)/SHA256SUMS || $(MAKE) image BOARD=$(TARGET_OF)
+	docker buildx build -f os/boards/$(BOARD)/Containerfile --platform $(PLATFORM) $(LEG_ARGS) \
+	  --output type=tar,dest=$(OUT)/rootfs-$(BOARD).tar .
+	$(DOCKER_RUN) $(TOOLS) /src/os/boards/$(BOARD)/build.sh /out/rootfs-$(BOARD).tar /out/image-$(TARGET_OF) /out/$(BOARD)
+
+installer-test:
+	@test -f $(OUT)/$(BOARD)/SHA256SUMS || $(MAKE) installer BOARD=$(BOARD)
+	mkdir -p $(OUT)/test-$(BOARD)
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/installer.py --stick-dir /out/$(BOARD) \
+	  --image-dir /out/image-$(TARGET_OF) --work /out/test-$(BOARD)/work \
+	  --log /out/test-$(BOARD)/serial.log --results /out/test-$(BOARD)/results.json; \
+	  rc=$$?; rm -f $(OUT)/test-$(BOARD)/work/target.img; exit $$rc
+
 # Jetson Orin (os/boards/jetson-orin/README.md): only the OneMind layer is built here (arm64, Docker in
 # the Lima VM or CI). The flash package is built on the owner's x86 Linux host from NVIDIA's own files.
 .PHONY: jetson-layer
