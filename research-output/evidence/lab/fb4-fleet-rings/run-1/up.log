@@ -1,0 +1,45 @@
+2026-11-12T10:38:49Z == fleet setup 1
+net.bridge.bridge-nf-call-iptables = 1
+33ac73f5f2c53936d931811733b0762e1f1e643ed34a9f758d9e7498d035da69
+docker.io/rancher/k3s:v1.37.2-k3s1
+k3s image RepoDigests: rancher/k3s@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
+k3s image digest matches os/versions.lock.yaml pin
+2026-11-12T10:39:01Z cluster hub created in 9 s
+Mem:            3922         735        2793           0         557        3187
+2026-11-12T10:39:11Z cluster box-1 created in 10 s
+Mem:            3922        1165        1997           0         924        2757
+2026-11-12T10:39:20Z cluster site-b created in 9 s
+Mem:            3922        1798        1020           1        1273        2124
+2026-11-12T10:39:34Z cluster site-a created in 14 s
+Mem:            3922        2819         158           1        1117        1103
+13:apiServerURL: ""
+17:apiServerCA: ""
+TEST SUITE: None
+REVISION: 1
+TEST SUITE: None
+2026-11-12T10:39:47Z fleet manager installed in 9 s
+NAME                              READY   STATUS              RESTARTS   AGE   IP          NODE               NOMINATED NODE   READINESS GATES
+fleet-agent-669dbfc67d-l8zfc      0/1     Terminating         0          1s    <none>      k3d-hub-server-0   <none>           <none>
+fleet-agent-669dbfc67d-rwznf      0/1     Terminating         0          1s    <none>      k3d-hub-server-0   <none>           <none>
+fleet-agent-669dbfc67d-wbz2q      0/1     ContainerCreating   0          0s    <none>      k3d-hub-server-0   <none>           <none>
+fleet-controller-5dfc89cd-2g5vv   3/3     Running             0          10s   <pod-ip>   k3d-hub-server-0   <none>           <none>
+gitjob-6b954fc79f-66xxf           1/1     Running             0          10s   <pod-ip>   k3d-hub-server-0   <none>           <none>
+helmops-795dc58c94-rskmh          1/1     Running             0          10s   <pod-ip>   k3d-hub-server-0   <none>           <none>
+Chain DOCKER-USER (1 references)
+    pkts      bytes target     prot opt in     out     source               destination         
+       0        0 RETURN     tcp  --  *      *       198.51.100.0/24      <hub-ip>         tcp dpt:6443 ctstate NEW /* fb4 site->hub api (count) */
+       0        0 DROP       all  --  *      *       <hub-ip>         198.51.100.5         ctstate NEW /* fb4 hub->k3d-site-a-server-0 */
+       0        0 DROP       all  --  *      *       <hub-ip>         198.51.100.6         ctstate NEW /* fb4 hub->k3d-site-a-agent-0 */
+       0        0 DROP       all  --  *      *       <hub-ip>         198.51.100.4         ctstate NEW /* fb4 hub->k3d-site-b-server-0 */
+       0        0 DROP       all  --  *      *       <hub-ip>         198.51.100.3         ctstate NEW /* fb4 hub->k3d-box-1-server-0 */
+  203822 1077860634 RETURN     all  --  *      *       0.0.0.0/0            0.0.0.0/0           
+namespace/fleet-default created
+clusterregistrationtoken.fleet.cattle.io/fb4-token created
+agent values keys: apiServerCA apiServerURL clusterNamespace systemRegistrationNamespace token tokenName 
+TEST SUITE: None
+2026-11-12T10:39:54Z agent on box-1 installed in 0 s
+TEST SUITE: None
+2026-11-12T10:39:55Z agent on site-b installed in 1 s
+TEST SUITE: None
+2026-11-12T10:39:55Z agent on site-a installed in 0 s
+2026-11-12T10:39:55Z == fleet setup 1 end
