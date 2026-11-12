@@ -1,6 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { makeApps } from './api/fixtures';
+import { MockApi } from './api/mock';
 import { ApiError } from './api/types';
 import { renderApp, seriousViolations } from './test/helpers';
 
@@ -103,6 +105,25 @@ describe('Market → Approvals', () => {
     expect(spy).toHaveBeenCalledTimes(2);
     expect(spy.mock.calls[1]![0].idempotency_key).toBe(spy.mock.calls[0]![0].idempotency_key);
     expect((await api.actions()).filter((a) => a.params.app_id === 'jellyfin')).toHaveLength(1);
+  });
+
+  it('shows an install in progress and does not offer a second one', async () => {
+    const spy = vi.spyOn(MockApi.prototype, 'apps').mockImplementation(async () =>
+      makeApps().map((a) =>
+        a.id === 'jellyfin' ? { ...a, status: 'installing' } : a.id === 'ollama' ? { ...a, status: 'failed' } : a,
+      ),
+    );
+    try {
+      renderApp({ token: 'owner-demo', route: '/market' });
+      const jelly = await screen.findByRole('article', { name: 'Jellyfin' });
+      expect(within(jelly).getByRole('button', { name: 'Installing Jellyfin…' })).toBeDisabled();
+      expect(within(jelly).getByText('Installing…')).toBeInTheDocument();
+      const ollama = screen.getByRole('article', { name: 'Ollama' });
+      expect(within(ollama).getByText('Last change failed')).toBeInTheDocument();
+      expect(within(ollama).getByRole('button', { name: 'Install Ollama' })).toBeEnabled();
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('an adult cannot request installs', async () => {

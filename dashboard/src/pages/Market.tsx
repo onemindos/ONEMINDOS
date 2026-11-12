@@ -9,6 +9,14 @@ import { useSignedIn } from '../session';
 /** How long an owner has to approve a request made from the Market. */
 export const REQUEST_TTL_MS = 60 * 60 * 1000;
 
+/**
+ * `status` values (§3 catalog) other than installed / not_installed. While a change
+ * is running the button is disabled; after a failed or unknown outcome the hub
+ * accepts a new install or remove, so the button stays live and the state is shown.
+ */
+const IN_FLIGHT: Record<string, string> = { installing: 'Installing…', removing: 'Removing…' };
+const PROBLEM: Record<string, string> = { failed: 'Last change failed', unknown: 'State unknown' };
+
 export function Market() {
   const { api, canRequest } = useSignedIn();
   const now = useNow();
@@ -75,6 +83,8 @@ export function Market() {
         <ul className="card-grid">
           {(apps.data ?? []).map((a) => {
             const titleId = `app-${a.id}`;
+            const inFlight = IN_FLIGHT[a.status];
+            const problem = PROBLEM[a.status];
             return (
               <li key={a.id}>
                 <article className="app-card" aria-labelledby={titleId}>
@@ -85,6 +95,8 @@ export function Market() {
                       <p className="small">
                         {a.category} · v{a.version}
                         {a.installed && <span className="badge badge-installed">Installed</span>}
+                        {inFlight && <span className="badge badge-app-state badge-stale">{inFlight}</span>}
+                        {problem && <span className="badge badge-app-state badge-state-failed">{problem}</span>}
                       </p>
                     </div>
                   </div>
@@ -110,10 +122,16 @@ export function Market() {
                     <button
                       type="button"
                       className={a.installed ? 'btn btn-ghost' : 'btn btn-primary'}
-                      disabled={busy !== undefined || canRequest === 'no'}
+                      disabled={busy !== undefined || canRequest === 'no' || inFlight !== undefined}
                       onClick={() => void request(a)}
                     >
-                      {busy === a.id ? 'Requesting…' : a.installed ? `Remove ${a.name}` : `Install ${a.name}`}
+                      {busy === a.id
+                        ? 'Requesting…'
+                        : inFlight
+                          ? `${inFlight.slice(0, -1)} ${a.name}…`
+                          : a.installed
+                            ? `Remove ${a.name}`
+                            : `Install ${a.name}`}
                     </button>
                     <a href={a.source} target="_blank" rel="noreferrer" className="small">
                       Source<span className="visually-hidden"> code for {a.name} (opens in a new tab)</span>

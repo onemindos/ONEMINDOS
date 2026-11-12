@@ -342,8 +342,11 @@ a.app-tile:hover {
   background: var(--warn-bg);
   color: var(--warn-ink);
 }
-.badge-installed {
+.badge-installed,
+.badge-app-state {
   margin-left: 8px;
+}
+.badge-installed {
   background: var(--ok-bg);
   color: var(--ok-ink);
 }

@@ -143,7 +143,7 @@ export function makeApps(): CatalogApp[] {
       requires: { gpu: false, minMemoryMb: 256 },
       web_port: 3001,
       installed: true,
-      status: 'running',
+      status: 'installed',
     },
     {
       id: 'jellyfin',

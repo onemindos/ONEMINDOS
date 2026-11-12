@@ -101,7 +101,7 @@ export class MockApi implements OneMindApi {
     a.updated_at = new Date(this.now()).toISOString();
     this.catalog = this.catalog.map((app) =>
       app.id === a.params.app_id
-        ? { ...app, installed: a.type === 'app.install', status: a.type === 'app.install' ? 'running' : 'not_installed' }
+        ? { ...app, installed: a.type === 'app.install', status: a.type === 'app.install' ? 'installed' : 'not_installed' }
         : app,
     );
     return { ...a };
