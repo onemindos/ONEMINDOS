@@ -6,7 +6,7 @@ status: mixed
 
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-OneMind OS is a local-first home and edge cloud OS. You run it on machines you own: a mini PC, a Raspberry Pi 5, a GPU box, a cloud VM. Apps, backups, updates and AI agents run on them, and **every change waits for a human yes**.
+OneMind OS is a local-first home and edge cloud OS. You run it on machines you own: a mini PC, a Raspberry Pi 5, a GPU box, a cloud VM. Apps, backups, updates and AI agents run on them, and **every change a person, app or AI agent asks for waits for a human yes**. OS security updates install on their own inside your maintenance window unless you turn that off.
 
 This page is the single source of truth for status. The landing page repeats it. Both are updated in the same pull request that changes a status.
 

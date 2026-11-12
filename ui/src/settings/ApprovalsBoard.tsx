@@ -101,9 +101,19 @@ export interface ApprovalsBoardProps {
   onRetry?: () => void;
   /** Open with this request selected (deep link from a notification). */
   initialId?: string;
+  /**
+   * Shown instead of the effects card when the gateway serves no plan for a request (contract v0
+   * has no plan route; §12.4 adds `GET /v1/actions/{id}/preview`). Without it a missing plan shows
+   * as loading.
+   */
+  planNote?: string;
+  /** The line under the card; defaults to the passkey wording of §12.3. */
+  approveHint?: string;
+  /** The API calls listed at the bottom; defaults to the §12 set. */
+  calls?: string[];
 }
 
-export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, onApprove, onDeny, onRetry, initialId }: ApprovalsBoardProps) {
+export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, onApprove, onDeny, onRetry, initialId, planNote, approveHint, calls }: ApprovalsBoardProps) {
   const [from, setFrom] = useState<From>('all');
   const [sel, setSel] = useState<string | undefined>(initialId);
   return (
@@ -181,8 +191,8 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
                         onDeny={onDeny}
                         extra={
                           <>
-                            <EffectsCard plan={plans[current.id] ?? { status: 'loading' }} now={now} />
-                            <p className="om-hint">Approving asks for your passkey and signs exactly this plan. If the plan changes, the request has to be approved again.</p>
+                            {!plans[current.id] && planNote ? <p className="om-note om-tone-info">{planNote}</p> : <EffectsCard plan={plans[current.id] ?? { status: 'loading' }} now={now} />}
+                            <p className="om-hint">{approveHint ?? 'Approving asks for your passkey and signs exactly this plan. If the plan changes, the request has to be approved again.'}</p>
                           </>
                         }
                       />
@@ -199,7 +209,7 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
           <header className="om-set-group-head">
             <h2 id="recent-decisions" className="om-set-board-title">Recent decisions</h2>
           </header>
-          <ul className="om-set-rows" aria-label="Recent decisions">
+          <ul className="om-set-rows om-set-decisions" aria-label="Recent decisions">
             {decided.map((a) => (
               <li key={a.id}>
                 <div className="om-set-row">
@@ -219,7 +229,7 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
           </ul>
         </section>
       )}
-      <CallHint calls={['GET /v1/actions?state=awaiting_approval', 'GET /v1/actions/{id}/plan', 'POST /v1/actions/{id}/approve-options   (passkey challenge bound to the plan hash)', 'POST /v1/actions/{id}/approve', 'POST /v1/actions/{id}/deny']} />
+      <CallHint calls={calls ?? ['GET /v1/actions?state=awaiting_approval', 'GET /v1/actions/{id}/plan', 'POST /v1/actions/{id}/approve-options   (passkey challenge bound to the plan hash)', 'POST /v1/actions/{id}/approve', 'POST /v1/actions/{id}/deny']} />
     </>
   );
 }

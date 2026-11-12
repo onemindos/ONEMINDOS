@@ -8,6 +8,17 @@
 - {name: Actual Budget, github: actualbudget/actual, priority: 1, status: verified}
 - {name: Zigbee2MQTT, github: Koenkk/zigbee2mqtt, priority: 1, status: verified}
 # Founder: paste the rest of the 100+ list below (name + github owner/repo is enough).
+# Market batch 1 (contract §9.5; apps/_intake/CANDIDATES.md "Proposed queue batches").
+- {name: Nextcloud, github: nextcloud/server, priority: 1, status: in-pr, notes: "market batch 1"}
+- {name: Immich, github: immich-app/immich, priority: 1, status: in-pr, notes: "market batch 1"}
+- {name: Syncthing, github: syncthing/syncthing, priority: 1, status: in-pr, notes: "market batch 1"}
+- {name: Paperless-ngx, github: paperless-ngx/paperless-ngx, priority: 1, status: in-pr, notes: "market batch 1"}
+- {name: Gitea, github: go-gitea/gitea, priority: 1, status: in-pr, notes: "market batch 1"}
+- {name: Grafana, github: grafana/grafana, priority: 1, status: in-pr, notes: "market batch 1"}
+- {name: Ollama, github: ollama/ollama, priority: 1, status: in-pr, notes: "market batch 1"}
+- {name: LibreChat, github: LibreChat-AI/LibreChat, priority: 1, status: in-pr, notes: "market batch 1"}
+- {name: SearXNG, github: searxng/searxng, priority: 1, status: in-pr, notes: "market batch 1"}
+- {name: AdGuard Home, github: AdguardTeam/AdGuardHome, priority: 1, status: in-pr, notes: "market batch 1"}
 # Market batches 4 and 5 (contract §9.5; apps/_intake/CANDIDATES.md "Proposed queue batches").
 - {name: Penpot, github: penpot/penpot, priority: 2, status: in-pr, notes: "market batch 4"}
 - {name: qBittorrent, github: qbittorrent/qBittorrent, priority: 2, status: in-pr, notes: "market batch 4"}

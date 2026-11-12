@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"sync"
 )
 
@@ -26,6 +27,25 @@ type Service struct {
 	Enabled func() bool
 	// Run blocks until ctx is done (return nil) or the service fails.
 	Run func(ctx context.Context, log *slog.Logger) error
+	// Mount and Handler, when both are set, put the service's HTTP API on the agent's local
+	// API under the path prefix Mount (for example "/api/v1/backup/"). Handler is called once,
+	// before the agent starts listening, only for an enabled service.
+	Mount   string
+	Handler func(ctx context.Context) http.Handler
+}
+
+// Mounts returns the HTTP handlers of the enabled services by path prefix.
+func Mounts(ctx context.Context, services []Service) map[string]http.Handler {
+	out := map[string]http.Handler{}
+	for _, s := range services {
+		if s.Mount == "" || s.Handler == nil || (s.Enabled != nil && !s.Enabled()) {
+			continue
+		}
+		if _, dup := out[s.Mount]; !dup {
+			out[s.Mount] = s.Handler(ctx)
+		}
+	}
+	return out
 }
 
 // Start launches every enabled service in its own goroutine and returns a

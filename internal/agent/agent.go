@@ -42,6 +42,8 @@ type Config struct {
 	// UpdateReport, when set, supplies the optional "update" object of the
 	// heartbeat (read from the update service's status file). nil = omit.
 	UpdateReport func() *heartbeat.Update
+	// Mounts adds optional services' HTTP APIs under their path prefix (service.Mounts).
+	Mounts map[string]http.Handler
 }
 
 // Agent is a running onemindd.
@@ -150,6 +152,9 @@ func (a *Agent) Handler() http.Handler {
 			"nats_connected": a.natsConnected(),
 		})
 	})
+	for prefix, h := range a.cfg.Mounts {
+		mux.Handle(prefix, h)
+	}
 	return mux
 }
 

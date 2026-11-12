@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# Holds /var/lib/grafana (GF_PATHS_DATA): grafana.db, plugins and the generated admin password.
+# Upstream gives no size; 2Gi is a OneMind choice. No storageClassName: cluster default class.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
