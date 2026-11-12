@@ -124,10 +124,15 @@ class ActionService:
         self.audit.append("action.awaiting_approval", None, stored.id, {})
         return moved or stored
 
-    def finish(self, action_id: str, outcome: str, message: str, result: dict | None = None) -> Action | None:
-        """Complete a dispatched handler action (succeeded | failed | outcome_unknown). Idempotent."""
+    def finish(self, action_id: str, outcome: str, message: str, result: dict | None = None, *,
+               from_states: frozenset[str] = frozenset({"dispatched"})) -> Action | None:
+        """Complete a dispatched handler action (succeeded | failed | outcome_unknown). Idempotent.
+
+        A handler that reconciles at startup passes from_states={"accepted", "dispatched"} to close
+        an approval a crash interrupted (as outcome_unknown, never a retry).
+        """
         body = {"outcome": outcome, "message": message, **(result or {})}
-        final = self.repo.transition(action_id, {"dispatched"}, outcome, self.clock(), result=body)
+        final = self.repo.transition(action_id, set(from_states), outcome, self.clock(), result=body)
         if final is not None:
             self.audit.append(f"action.{outcome}", None, action_id, {"message": message})
         return final

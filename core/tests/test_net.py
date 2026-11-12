@@ -30,7 +30,7 @@ from fastapi.testclient import TestClient
 import onemind_core.routers.net as net_router
 from onemind_core.app import create_app
 from onemind_core.ca import BoxCA, box_name_from_hostname
-from onemind_core.fabric import POLL_CONTEXT, code_hash, match_code, new_join_code, normalize_code
+from onemind_core.fabric import POLL_CONTEXT, SourceLimiter, code_hash, match_code, new_join_code, normalize_code
 from onemind_core.lan import AvahiPublisher, desired_names
 from onemind_core.natsconf import NodeAccount, _crc16, is_user_public_nkey, render_accounts
 from onemind_core.netconf import FabricSettings, MeshSettings, NetSettings
@@ -359,6 +359,67 @@ def test_bad_requests_and_rate_limit(nc):
     assert nc.post("/v1/fabric/join-requests", json=bad).status_code == 422
     statuses = [nc.post("/v1/fabric/join-requests", json=node.body(new_join_code())).status_code for _ in range(12)]
     assert 429 in statuses and statuses.count(401) <= 10
+
+
+def test_failed_approval_frees_the_node_and_its_account(nc, net_settings, monkeypatch):
+    """Dispatch fails (the NATS accounts file cannot be written): the request must not stay
+    awaiting_approval for ever, holding the node id and a pending slot (review finding)."""
+    t = ticket(nc)
+    node = Node()
+    code = t["one_time"]["join_code"]
+    jr = nc.post("/v1/fabric/join-requests", json=node.body(code)).json()
+    fab = fabric_of(nc)
+
+    def broken():
+        raise OSError("read-only file system")
+
+    monkeypatch.setattr(fab, "write_accounts", broken)
+    a = nc.post(f"/v1/actions/{jr['action']['id']}/approve", headers=OWNER).json()
+    assert a["state"] == "failed", a
+    monkeypatch.undo()
+    fab.tick()
+    p = node.poll(nc, jr["join_request_id"], code).json()
+    assert p["state"] == "failed" and "credentials" not in p
+    assert fab.repo.node(node.node_id) is None and fab.repo.count_pending() == 0
+    again = nc.post("/v1/fabric/join-requests", json=node.body(ticket(nc)["one_time"]["join_code"]))
+    assert again.status_code == 202, again.text
+
+
+def test_restart_during_approval_ends_outcome_unknown(nc, net_settings, clock):
+    """A crash between "accepted"/"dispatched" and the request moving on: reconcile closes the
+    action as outcome_unknown (never a retry) and removes any NATS account it had written."""
+    t = ticket(nc)
+    node = Node()
+    code = t["one_time"]["join_code"]
+    jr = nc.post("/v1/fabric/join-requests", json=node.body(code)).json()
+    aid = jr["action"]["id"]
+    fab = fabric_of(nc)
+    fab.d.actions.repo.transition(aid, {"awaiting_approval"}, "accepted", clock.now)
+    fab.repo.upsert_node(node_id=node.node_id, role="worker", hostname=node.hostname, nats_pubkey=node.nkey,
+                         state="joining", request_id=jr["join_request_id"], mesh_node_id=None,
+                         cert_expires_at=None, created_at=clock.now, joined_at=None)
+    fab.write_accounts()
+    accounts = net_settings.section(FabricSettings).nats_accounts_file
+    assert f"NODE_{node.node_id}" in accounts.read_text()
+    fab.reconcile()
+    assert nc.get(f"/v1/actions/{aid}", headers=OWNER).json()["state"] == "outcome_unknown"
+    assert node.poll(nc, jr["join_request_id"], code).json()["state"] == "failed"
+    assert f"NODE_{node.node_id}" not in accounts.read_text() and fab.repo.node(node.node_id) is None
+
+
+def test_rate_limiter_memory_is_bounded(clock):
+    lim = SourceLimiter(lambda: clock.now)
+    for i in range(SourceLimiter.MAX_KEYS + 50):
+        lim.check(f"198.51.100.{i}")
+        lim.fail(f"198.51.100.{i}")
+    clock.advance(61)
+    lim.check("203.0.113.1")
+    assert len(lim._hits) == 1 and len(lim._fails) == 0
+    for _ in range(10):
+        lim.fail("203.0.113.9")
+    with pytest.raises(Exception) as blocked:
+        lim.check("203.0.113.9")
+    assert blocked.value.status == 429  # a blocked source stays blocked through a gc
 
 
 def test_agents_cannot_file_node_join(nc, clock):

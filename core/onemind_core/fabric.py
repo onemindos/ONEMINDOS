@@ -315,11 +315,15 @@ class SourceLimiter:
     """Per-source: at most `per_min` requests a minute; `max_fail` wrong codes in a minute block the
     source for `block_s` (contract §12.1: 10/min, then a 15-minute back-off)."""
 
+    MAX_KEYS = 10_000   # per book; above it, stale entries are dropped (at most every GC_EVERY_S)
+    GC_EVERY_S = 10
+
     def __init__(self, clock: Callable[[], datetime], per_min: int = 10, max_fail: int = 10, block_s: int = 900):
         self.clock, self.per_min, self.max_fail, self.block_s = clock, per_min, max_fail, block_s
         self._hits: dict[str, list[datetime]] = {}
         self._fails: dict[str, list[datetime]] = {}
         self._blocked: dict[str, datetime] = {}
+        self._last_gc: datetime | None = None
         self._lock = threading.Lock()
 
     def _recent(self, book: dict[str, list[datetime]], key: str, now: datetime) -> list[datetime]:
@@ -327,9 +331,42 @@ class SourceLimiter:
         book[key] = kept
         return kept
 
+    def _gc(self, now: datetime) -> None:
+        """Bounded memory under a spray of source addresses (these routes need no session).
+
+        Drops counts older than a minute and finished blocks. If a book is still over MAX_KEYS, the
+        spray is of fresh sources: their counts are dropped too, which costs nothing, because every
+        new source starts with a full budget anyway. Runs at most every GC_EVERY_S, so a spray
+        cannot turn each request into a full scan.
+        """
+        if len(self._hits) <= self.MAX_KEYS and len(self._fails) <= self.MAX_KEYS \
+                and len(self._blocked) <= self.MAX_KEYS:
+            return
+        if self._last_gc is not None and (now - self._last_gc).total_seconds() < self.GC_EVERY_S:
+            return
+        self._last_gc = now
+
+        def fresh(book: dict[str, list[datetime]]) -> dict[str, list[datetime]]:
+            out = {}
+            for k, v in book.items():
+                kept = [t for t in v if (now - t).total_seconds() < 60]
+                if kept:
+                    out[k] = kept
+            return out
+
+        self._hits, self._fails = fresh(self._hits), fresh(self._fails)
+        self._blocked = {k: u for k, u in self._blocked.items() if u > now}
+        if len(self._hits) > self.MAX_KEYS:
+            self._hits = {}
+        if len(self._fails) > self.MAX_KEYS:
+            self._fails = {}
+        if len(self._blocked) > self.MAX_KEYS:
+            self._blocked = {}
+
     def check(self, key: str) -> None:
         now = self.clock()
         with self._lock:
+            self._gc(now)
             until = self._blocked.get(key)
             if until and until > now:
                 raise ApiError(429, "rate_limited", "too many attempts from this address",
@@ -338,12 +375,11 @@ class SourceLimiter:
             if len(hits) >= self.per_min:
                 raise ApiError(429, "rate_limited", "too many requests from this address", retry_after_s=60)
             hits.append(now)
-            if len(self._hits) > 10_000:  # bounded memory under a spray of sources
-                self._hits = {k: v for k, v in self._hits.items() if v}
 
     def fail(self, key: str) -> None:
         now = self.clock()
         with self._lock:
+            self._gc(now)
             fails = self._recent(self._fails, key, now)
             fails.append(now)
             if len(fails) >= self.max_fail:
@@ -546,12 +582,17 @@ class FabricService:
                            reason="assertion_invalid") from None
 
     def _sync_from_action(self, req: dict) -> dict:
-        """Mirror a decided action (denied, expired) onto its request."""
+        """Mirror a decided action (denied, expired, or approved but failed) onto its request."""
         if req["state"] != "awaiting_approval":
             return req
         a = self.d.actions.repo.get(req["action_id"])
         if a is not None:
             a = self.d.actions.expire_if_due(a)
+        if a is not None and a.state in ("failed", "outcome_unknown"):
+            # Approved, but its effect did not complete (dispatch failed or crashed before the
+            # request moved on): drop whatever it made, so the node id and the pending slot free up.
+            self._fail(req, "failed", f"the approval did not complete (action {a.state})")
+            return self.repo.request(req["id"]) or req
         target = {"cancelled": "denied", "expired": "expired"}.get(a.state if a else "expired")
         if target and self.repo.move(req["id"], ("awaiting_approval",), target, self.d.clock(),
                                      reason=f"action {a.state if a else 'missing'}"):
@@ -667,12 +708,20 @@ class FabricService:
 
     # -- background: finish or expire joins
     def reconcile(self) -> None:
-        """Startup: a delivery a crash interrupted is retried (the key was never handed over)."""
+        """Startup: a delivery a crash interrupted is retried (the key was never handed over). An
+        approval a crash interrupted (action accepted or dispatched, request still awaiting) is not
+        retried: the action ends outcome_unknown, what it may have made is dropped, and the owner
+        makes a new code (ActionService.reconcile_interrupted leaves handler types to this)."""
         for req in self.repo.requests(("delivering",)):
             self.repo.move(req["id"], ("delivering",), "approved", self.d.clock())
+        for req in self.repo.requests(("awaiting_approval",)):
+            a = self.d.actions.repo.get(req["action_id"])
+            if a is not None and a.state in ("accepted", "dispatched"):
+                self._fail(req, "failed", "the gateway restarted while this join was being approved",
+                           outcome="outcome_unknown")
         self.write_accounts()
 
-    def _fail(self, req: dict, state: str, why: str) -> None:
+    def _fail(self, req: dict, state: str, why: str, *, outcome: str = "failed") -> None:
         if not self.repo.move(req["id"], (req["state"],), state, self.d.clock(), reason=why[:200]):
             return
         self.repo.delete_node(req["node_id"], req["id"])
@@ -687,7 +736,7 @@ class FabricService:
                 log.warning("could not expire mesh key of %s", req["id"])
         if req.get("k3s_token_id") and self.d.k3s is not None:
             self.d.k3s.delete(req["k3s_token_id"])
-        self.d.actions.finish(req["action_id"], "failed", why)
+        self.d.actions.finish(req["action_id"], outcome, why, from_states=frozenset({"accepted", "dispatched"}))
 
     def _heard_from(self, node_id: str, since: datetime | None) -> bool:
         hb = self.d.registry.get(node_id)
