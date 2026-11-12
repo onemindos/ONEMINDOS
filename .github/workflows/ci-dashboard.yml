@@ -5,11 +5,13 @@ on:
   pull_request:
     paths:
       - 'dashboard/**'
+      - 'ui/src/**'
       - '.github/workflows/ci-dashboard.yml'
   push:
     branches: [main]
     paths:
       - 'dashboard/**'
+      - 'ui/src/**'
       - '.github/workflows/ci-dashboard.yml'
 
 permissions:
