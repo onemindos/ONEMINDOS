@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# The web vault and the Bitwarden client API are served on the same port (ROCKET_PORT, 8080 here).
+apiVersion: v1
+kind: Service
+metadata:
+  name: vaultwarden
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: vaultwarden
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

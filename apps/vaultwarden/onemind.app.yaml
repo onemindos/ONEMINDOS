@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# Vaultwarden seed app (contract sdk/contracts/poc-v0.md §4, §8 wave 2), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources.
+# Sources: github.com/dani-garcia/vaultwarden release 1.37.5 (LICENSE.txt at that tag, licence row
+# C-LIC-062 in research-output/evidence/license-matrix.csv); the upstream wiki for docs; image
+# digest and archs from crane.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: vaultwarden
+  name: Vaultwarden
+  version: "1.37.5"
+  description: "Unofficial Bitwarden compatible server written in Rust, formerly known as bitwarden_rs"
+  category: passwords
+  icon: icon.svg
+  license: AGPL-3.0
+  source: https://github.com/dani-garcia/vaultwarden
+  # §9.3 facts from the GitHub API (repos/dani-garcia/vaultwarden and its releases/latest), read 2026-11-12.
+  links:
+    # The README sends readers to the wiki for installation and configuration.
+    docs: https://github.com/dani-garcia/vaultwarden/wiki
+    github: https://github.com/dani-garcia/vaultwarden
+    # Upstream has no separate website (the GitHub homepage field is empty); the repository is
+    # the project's home page.
+    website: https://github.com/dani-garcia/vaultwarden
+    support: https://github.com/dani-garcia/vaultwarden/issues
+  upstream: {release: "1.37.5", released_at: "2026-11-01T22:16:50Z", archived: false}
+  tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}
+  web: {port: 8080}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 8).
+  updates: {channel: stable, automerge: none}
