@@ -140,6 +140,10 @@ func PlanReplace(disks []Disk, m *Mirror, old, device string, wipeOld bool, o Pl
 		p.Steps = append(p.Steps, Step{ID: "old-close", Phase: PhaseCommit, Cmd: []string{"cryptsetup", "close", mem.Path}, Why: "lock the replaced member"})
 	}
 	if wipeOld && !mem.Missing {
+		if c := wipeCheck(disks, mem); !c.OK {
+			p.Checks = append(p.Checks, c)
+			return finish(p)
+		}
 		p.Steps = append(p.Steps, wipeMemberSteps(disks, mem)...)
 	}
 	p.Steps = append(p.Steps, verifyStep(m.Mount))
@@ -149,20 +153,47 @@ func PlanReplace(disks []Disk, m *Mirror, old, device string, wipeOld bool, o Pl
 	return finish(p)
 }
 
+func memberPart(mem Member) string {
+	if mem.Backing != "" {
+		return mem.Backing
+	}
+	return mem.Path
+}
+
+// wipeCheck refuses to wipe a member on the system disk. Its partition is the
+// one `storage init` made there: blanked, the next boot would format it as a
+// new, empty set and report the real one as foreign. Without wipe it simply
+// leaves the set (its token falls a generation behind).
+func wipeCheck(disks []Disk, mem Member) Check {
+	d, _, ok := containing(disks, memberPart(mem))
+	sys := ok && d.Role == RoleSystem
+	return Check{ID: "wipe-not-system", OK: !sys,
+		Detail: fmt.Sprintf("devid %d is on the system disk: remove or replace it without wipe", mem.DevID)}
+}
+
+// onlyPartition: part is the only partition on d (its crypt and filesystem
+// children aside), so blanking d's partition table loses nothing else.
+func onlyPartition(d Disk, part string) bool {
+	for _, s := range d.Holds {
+		if s.Type == "part" && s.Path != part {
+			return false
+		}
+	}
+	return true
+}
+
 // wipeMemberSteps erase a removed member's LUKS2 keyslots and signatures so
-// the disk is blank (and no longer opens with the set's keys).
+// it no longer opens with the set's keys, and blank the disk's partition
+// table when that partition was all the disk held (never the system disk).
 func wipeMemberSteps(disks []Disk, mem Member) []Step {
 	var steps []Step
-	part := mem.Backing
-	if part == "" {
-		part = mem.Path
-	}
+	part := memberPart(mem)
 	if mem.Backing != "" {
 		steps = append(steps, Step{ID: "old-erase", Phase: PhaseCommit, Cmd: []string{"cryptsetup", "erase", "--batch-mode", mem.Backing},
 			Why: "destroy the removed member's keyslots: the set's keys no longer open it", Destructive: true})
 	}
 	steps = append(steps, Step{ID: "old-wipefs", Phase: PhaseCommit, Cmd: []string{"wipefs", "--all", part}, Why: "remove filesystem signatures", Destructive: true})
-	if d, _, ok := containing(disks, part); ok && d.Path != part {
+	if d, _, ok := containing(disks, part); ok && d.Path != part && d.Role != RoleSystem && onlyPartition(d, part) {
 		steps = append(steps, Step{ID: "old-zap", Phase: PhaseCommit, Cmd: []string{"sgdisk", "--zap-all", d.Path}, Why: "blank partition table on " + label(d), Destructive: true})
 	}
 	return steps
@@ -252,6 +283,10 @@ func PlanRemove(disks []Disk, m *Mirror, old string, unprotect, wipe bool, o Pla
 		p.Steps = append(p.Steps, Step{ID: "old-close", Phase: PhaseCommit, Cmd: []string{"cryptsetup", "close", mem.Path}, Why: "lock the removed member"})
 	}
 	if wipe && !mem.Missing {
+		if c := wipeCheck(disks, mem); !c.OK {
+			p.Checks = append(p.Checks, c)
+			return finish(p)
+		}
 		p.Steps = append(p.Steps, wipeMemberSteps(disks, mem)...)
 	}
 	p.Steps = append(p.Steps, verifyStep(m.Mount))

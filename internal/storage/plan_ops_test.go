@@ -276,3 +276,62 @@ func TestShowCountsUnmountedMissing(t *testing.T) {
 		t.Errorf("mounted: %d %d %v", total, present, err)
 	}
 }
+
+// onSystemDisk puts the member partition backing devid 2 on the system disk,
+// next to the OS partitions (the first member made by `storage init` lives
+// there, docs/leap/core/STORAGE-ACT-os.patch.md).
+func onSystemDisk(t *testing.T, ds []Disk, part string) []Disk {
+	t.Helper()
+	out := append([]Disk(nil), ds...)
+	for i := range out {
+		for _, s := range out[i].Holds {
+			if s.Path == part {
+				out[i].Role = RoleSystem
+				out[i].Holds = append(append([]Signature(nil), out[i].Holds...),
+					Signature{Path: out[i].Path + "9", Type: "part", FSType: "ext4", Mountpoints: []string{"/"}})
+				return out
+			}
+		}
+	}
+	t.Fatalf("no disk holds %s", part)
+	return nil
+}
+
+func TestWipeNeverTouchesTheSystemDisk(t *testing.T) {
+	noMarker(t)
+	ds, set := encryptedSet(t)
+	var backing string
+	for _, m := range set.Members {
+		if m.DevID == 2 {
+			backing = m.Backing
+		}
+	}
+	sys := onSystemDisk(t, ds, backing)
+	three := *set
+	three.Members = append(append([]Member(nil), set.Members...), Member{DevID: 3, Path: "/dev/vde1", SizeBytes: 6424604672})
+	for name, p := range map[string]Plan{
+		"remove":  PlanRemove(sys, &three, "2", false, true, PlanOptions{}),
+		"replace": PlanReplace(sys, set, "2", "/dev/vde", true, PlanOptions{}),
+	} {
+		if !p.Blocked || strings.Contains(cmds(p), "sgdisk --zap-all") {
+			t.Errorf("%s with wipe of a member on the system disk must be blocked, got\n%s", name, cmds(p))
+		}
+	}
+	// Without wipe the member may leave; its partition stays a OneMind partition.
+	if p := PlanRemove(sys, &three, "2", false, false, PlanOptions{}); p.Blocked || strings.Contains(cmds(p), "--zap-all") {
+		t.Errorf("remove without wipe: blocked=%t\n%s", p.Blocked, cmds(p))
+	}
+	// A data disk that also holds another partition: wipe the member, never the whole disk.
+	other := append([]Disk(nil), ds...)
+	for i := range other {
+		for _, s := range other[i].Holds {
+			if s.Path == backing {
+				other[i].Holds = append(append([]Signature(nil), other[i].Holds...), Signature{Path: other[i].Path + "9", Type: "part", FSType: "ext4"})
+			}
+		}
+	}
+	p := PlanRemove(other, &three, "2", false, true, PlanOptions{})
+	if p.Blocked || strings.Contains(cmds(p), "--zap-all") || !strings.Contains(cmds(p), "wipefs --all "+backing) {
+		t.Errorf("remove with wipe on a shared disk: blocked=%t\n%s", p.Blocked, cmds(p))
+	}
+}
