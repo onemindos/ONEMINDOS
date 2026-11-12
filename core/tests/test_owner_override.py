@@ -22,13 +22,16 @@ def enabled(settings):
     return replace(settings, sections={**settings.sections, "override": OwnerOverrideSettings(enabled=True)})
 
 
-def fail_scan(settings, clock, app_id=APP, images=None):
+# What app-gate writes for an image ClamAV scanned with a known signature database.
+CLEAN = [{"ref": "x", "clamav": {"signatures": "daily-1", "infected": 0}}]
+
+
+def fail_scan(settings, clock, app_id=APP, images=CLEAN, result="fail", age=timedelta(hours=1)):
     path = settings.apps_dir / app_id / "scan.json"
-    write_scan(settings.apps_dir / app_id, clock.now - timedelta(hours=1), result="fail")
-    if images is not None:
-        doc = json.loads(path.read_text())
-        doc["images"] = images
-        path.write_text(json.dumps(doc))
+    write_scan(settings.apps_dir / app_id, clock.now - age, result=result)
+    doc = json.loads(path.read_text())
+    doc["images"] = images
+    path.write_text(json.dumps(doc))
 
 
 def audit(settings):
@@ -119,8 +122,15 @@ def test_never_for_an_agent_request(on, clock):
 
 @pytest.mark.parametrize("images,needle", [
     ([{"ref": "x", "clamav": {"infected": 2}}], "found malware"),
+    ([{"ref": "x"}, {"ref": "y", "clamav": {"signatures": "daily-1", "infected": 1}}], "found malware"),
     ([{"ref": "x"}], "does not say whether malware"),
-    ([{"ref": "x", "clamav": {"infected": "0"}}], "does not say whether malware"),
+    ([{"ref": "x", "clamav": {"signatures": "daily-1", "infected": "0"}}], "does not say whether malware"),
+    # app-gate skips an image whose pin check failed: ClamAV ran on nothing
+    ([], "does not say whether malware"),
+    (None, "does not say whether malware"),
+    # app-gate's mark for a run without a signature database
+    ([{"ref": "x", "clamav": {"signatures": "daily-unknown", "infected": 0}}], "does not say whether malware"),
+    ([*CLEAN, {"ref": "y", "clamav": {"infected": 0}}], "does not say whether malware"),
 ])
 def test_never_over_malware_or_unknown_malware(on, clock, settings, images, needle):
     fail_scan(settings, clock, images=images)
@@ -136,7 +146,7 @@ def test_never_without_a_scan_record(on, clock, settings):
 
 
 def test_stale_passing_scan_can_be_overridden(on, clock, settings):
-    write_scan(settings.apps_dir / APP, clock.now - timedelta(days=10))
+    fail_scan(settings, clock, result="pass", age=timedelta(days=10))
     assert approve(on, request(on, clock), OK).json()["state"] == "succeeded"
 
 

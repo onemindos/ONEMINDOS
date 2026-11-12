@@ -32,9 +32,10 @@ RESULTS = ("pass", "fail")
 class ScanRecord:
     scanned_at: datetime
     result: str
-    # ClamAV hits summed over images[].clamav.infected; None when an image entry has no readable
-    # count, so "no malware" is never assumed from a record that does not say it (F-7 override).
-    malware: int | None = 0
+    # ClamAV hits summed over images[].clamav.infected; None unless every listed image has a
+    # readable count from a known signature database, so "no malware" is never assumed from a
+    # record that does not say it (F-7 override).
+    malware: int | None = None
 
     def summary(self) -> dict:
         """The §11.4 catalog field: {scanned_at, result}."""
@@ -70,18 +71,26 @@ def read_scan(app_dir: Path) -> ScanRecord | None:
 
 
 def _malware(images: object) -> int | None:
-    if images is None:
-        return 0
-    if not isinstance(images, list):
+    # No image entries means ClamAV ran on nothing: app-gate skips an image whose pin check
+    # failed, so a failed record can list none. "daily-unknown" is app-gate's mark for a run
+    # without a signature database, whose count of 0 proves nothing.
+    # A positive count anywhere wins over an unknown one elsewhere.
+    if not isinstance(images, list) or not images:
         return None
-    total = 0
+    found, unknown = 0, False
     for img in images:
         clamav = img.get("clamav") if isinstance(img, dict) else None
         infected = clamav.get("infected") if isinstance(clamav, dict) else None
+        sigs = clamav.get("signatures") if isinstance(clamav, dict) else None
         if not isinstance(infected, int) or isinstance(infected, bool) or infected < 0:
-            return None
-        total += infected
-    return total
+            unknown = True
+            continue
+        found += infected
+        if not isinstance(sigs, str) or not sigs or sigs.endswith("-unknown"):
+            unknown = True
+    if found:
+        return found
+    return None if unknown else 0
 
 
 def scan_problem(app_id: str, record: ScanRecord | None, now: datetime) -> str | None:
