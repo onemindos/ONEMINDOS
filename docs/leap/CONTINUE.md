@@ -47,5 +47,17 @@
 | Not started | — | App lifecycle (PD-03..07), dashboard wiring pass, Pi perf budget, Machines spike |
 | Last of all | #43, #58 | Redo the board refresh and CHANGELOG catch-up once everything above has landed |
 
+## Cloud handoff (an agent with only GitHub access)
+Everything needed is on GitHub: merged work on `main`, open PRs, and pushed branches for the rest. Nothing depends on the founder's Mac.
+1. Clone the repo, read this page and [NEXT-WAVE.md](NEXT-WAVE.md). Work the lists above in order: quick, then medium; heavy last.
+2. Per item: `git merge origin/main` into the branch; for append-style files (CHANGELOG.md, docs/leap/STATUS.md, scripts/hygiene-allow.tsv) use `python3 -I scripts/merge/keepboth.py <files>`; resolve code conflicts by hand keeping both features.
+3. Run the checks for what changed (core pytest on SQLite and PostgreSQL, `go vet` + `go test ./...`, `npm test` in ui/ dashboard/ mobile/ desktop/ where touched, `sh scripts/lint.sh`, `python3 -I scripts/hygiene.py`, gitleaks). CI runs the heavy ones (app gate, QEMU battery, browsers).
+4. Push, open or update the PR, then `scripts/merge/merge-when-green.sh <pr>`: it merges only when every check passed. Wait for GitHub to compute the next PR's mergeable state before the next merge. Never force-push; never disable checks.
+5. App PRs: if an app fails its scan or licence check, set its tier to `blocked` with the reason in its README; do not drop it silently.
+6. Each merged item: CHANGELOG entry + STATUS row in the same PR. When a list here is done, update this page.
+7. The repo is public: no secrets, private IPs, host paths, emails or tailnet names (hygiene + gitleaks enforce it).
+
+Work-in-progress branches saved at handoff (not ready to merge): `feat/perf-budget`, `spike/machines`, `feat/image-line` (USB installer unfinished).
+
 ## Founder decisions that unblock more
 F-25 hardware order · F-27 signing-key ceremony · F-7 owner override for blocked apps · F-5 website hosting · the default accent red vs the danger red (brand PR #52 note).
