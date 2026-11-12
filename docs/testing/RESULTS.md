@@ -5,3 +5,5 @@
 
 | Date (UTC) | TR | Commit | Tester | Environment | Outcome | Evidence |
 |---|---|---|---|---|---|---|
+| 2026-11-12 | TR-064 | f616293 | agent | GitHub ubuntu-24.04 (`ci-core` on PR #38) | pass | [run](https://github.com/onemindos/ONEMINDOS/actions/runs/43192364745); `main` after merge: [run](https://github.com/onemindos/ONEMINDOS/actions/runs/43192749943) |
+| 2026-11-12 | TR-080, TR-081, TR-088 | a39b559 | agent | GitHub ubuntu-24.04 (`ci-apps` on PR #25: gate of all 9 apps with k3d smoke) | pass | [run](https://github.com/onemindos/ONEMINDOS/actions/runs/43181362650); smoke `pass` for uptime-kuma, ntfy and home-assistant and amd64 + arm64 for every image in `apps/*/scan.json` |
