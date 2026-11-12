@@ -1,0 +1,5 @@
+{
+  "_doc": "placeholder",
+  "idle_memory_mib": {"hub-total": 1, "k3s": 1, "k3s-addons": 1, "gateway": 1, "onemindd": 1, "nats": 1},
+  "api_p95_ms": {"idle": 1, "load": 1}
+}

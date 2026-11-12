@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: Apache-2.0
+# Hub performance smoke (docs/testing/PERF-BUDGET.md). Installs the hub with deploy/install.sh on an
+# arm64 runner, lets it settle, measures idle memory per component and API latency (idle, then with
+# three simulated nodes heartbeating and a burst of approvals), and fails when test/perf/budget.json
+# is exceeded. App installs, boot-to-ready and disk are measured in the Pi-sized lab run (same doc),
+# not here: they need image pulls and a reboot. The runner is Ubuntu 24.04, which install.sh does
+# not target, hence --force-os.
+name: perf-smoke
+on:
+  pull_request:
+    paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "apps/**", "test/perf/**",
+            "os/versions.lock.yaml", ".github/workflows/perf-smoke.yml"]
+  push:
+    branches: [main]
+    paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "apps/**", "test/perf/**",
+            "os/versions.lock.yaml", ".github/workflows/perf-smoke.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: perf-smoke-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  perf-smoke:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install the hub (deploy/install.sh --role hub)
+        # The install prints the owner and join tokens, so its output goes to a root-only file.
+        # Only the step lines are shown; on failure the tail, with anything token-shaped removed.
+        run: |
+          sudo install -d -m0700 /root/perf
+          start=$(date +%s)
+          if ! sudo sh -c 'deploy/install.sh --role hub --force-os --hub http://127.0.0.1:8080 > /root/perf/install.log 2>&1'; then
+            sudo sed -E '/[0-9a-f]{32}/d; /K10/d' /root/perf/install.log | tail -n 80
+            exit 1
+          fi
+          sudo grep -E '^(==>|WARNING)' /root/perf/install.log | grep -v -i token || true
+          echo "install took $(( $(date +%s) - start )) s"
+      - name: Stop the apt timers install.sh enabled (background upgrades would skew the numbers)
+        run: sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer apt-daily.service apt-daily-upgrade.service unattended-upgrades.service || true
+      - name: Throwaway owner principal for the probe (the install's owner token is never read)
+        run: sudo python3 -I test/perf/perf.py token --out /root/perf/token
+      - name: Wait until ready (k3s node and add-ons, gateway, hub heartbeat)
+        run: sudo python3 -I test/perf/perf.py ready --token-file /root/perf/token --timeout 600
+      - name: Idle (settle 120 s, sample 60 s, then 300 reads)
+        run: sudo python3 -I test/perf/perf.py idle --token-file /root/perf/token --settle 120 --seconds 60 --out idle.json
+      - name: Load (3 simulated nodes, 60 approval cycles; no app installs here)
+        run: |
+          sudo python3 -I test/perf/perf.py sims start --count 3
+          sudo python3 -I test/perf/perf.py load --token-file /root/perf/token --cycles 60 --steady 0 --out load.json
+      - name: Check idle memory and API p95 against test/perf/budget.json
+        shell: bash
+        run: |
+          python3 -I test/perf/perf.py check --budget test/perf/budget.json \
+            --keys idle_memory_mib,api_p95_ms,api_read_errors idle.json load.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: perf-smoke-reports
+          path: |
+            idle.json
+            load.json
+          if-no-files-found: ignore
+      - name: Service state on failure
+        if: failure()
+        run: |
+          sudo systemctl --no-pager status k3s onemind-nats onemindd onemind-gateway || true
+          sudo journalctl --no-pager -n 80 -u onemind-gateway -u onemindd -u onemind-nats || true
