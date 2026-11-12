@@ -11,18 +11,41 @@ Branches with work that is not on `main` yet (as of 2026-11-12):
 
 | Branch | PR | What it adds |
 |---|---|---|
-| `docs/leap` | – | The leap: specs for the core OS (sandbox, security, fabric, backups, deployments, automation, notifications, updates, dashboard, mobile, website, dogfood) and the developer surface (API, SDKs, CLI, MCP, plugin SDK), plus workstreams, one ordered backlog, a status tracker, open decisions, and this changelog |
 | `feat/gateway-agent-mcp` | – | Gateway wave 2 (contract §11): scan gate, app agent principals, `/mcp` with 3 tools, new catalog fields, and the dashboard app page with links, licence, tier and last scan |
-| `feat/app-pipeline` | – | App pipeline: manifest schema fields (§9.3, §11.2), `app-gate` (§9.4 checks, `scan.json`), `app-scaffold` with recorded fixtures, `app-readme`, a full gate with a k3d smoke test in CI, and a daily rescan |
-| `feat/deploy-v0` | – | Developer install on Debian (`install.sh --role hub` or `node`), a compose dev hub for a Mac, `verify.sh` contract checks, re-join on hub change, CI, and a README with a test record |
-| `docs/core-architecture` | – | Core alignment against the leading self-hosted OSes (`docs/strategy/core-alignment.md`); phase-B architecture docs and a contract §12 draft (committed on the branch, no PR yet) |
-| `docs/security-threat-model` | – | Threat model and a ranked hardening backlog for the v0 core |
-| `feat/website` | – | The OneMind website (Astro + Starlight), competitor web research and a forum plan |
-| `feat/design-system` | – | Design system `@onemind/ui` in `ui/`, dashboard shell and screen mocks (committed on the branch, no PR yet) |
-| `feat/mobile-shell` | – | Android and iPhone app shell (Expo) in `mobile/` (committed on the branch, no PR yet) |
-| `feat/app-hermes`, `feat/apps-wave2` | – | Reserved for the Hermes app and wave-2 seed apps; no work yet |
+| `feat/app-pipeline` | – | App pipeline: manifest fields (§9.3, §11.2), `app-gate` (§9.4 checks, `scan.json`), `app-scaffold`, a full gate with a k3d smoke test in CI, Renovate, a daily rescan, and the wave-2 apps (Hermes, Node-RED, Mosquitto, Vaultwarden, Actual Budget, Zigbee2MQTT) |
+| `feat/deploy-v0` | – | Developer install on Debian (`install.sh --role hub` or `node`), a compose dev hub for a Mac and `verify.sh` contract checks |
+| `feat/core-net` | – | Internal networking and mesh: a WireGuard mesh with a self-hosted Headscale coordinator and relay, NATS leaf links with TLS and per-node credentials, the app reverse proxy with login, a per-box CA, and the NAT lab test |
+| `feat/ui-leap` | – | UI leap: umbrelOS parity audit, customization (themes, accents, wallpapers, density), Home with widgets and dock, App Store with install progress and app management, command palette, notifications, onboarding, and Settings |
+| `feat/app-taxonomy` | – | App and deployment categories (`docs/design/TAXONOMY.md`), applied to the candidate list |
 
 ## 2026-11-12
+
+### [#22](https://github.com/onemindos/ONEMINDOS/pull/22) Market candidate list from competitor stores
+- `apps/_intake/candidates.csv` and `CANDIDATES.md`: 1,199 unique upstream apps drawn from 7 competitor stores (umbrel, Olares, CasaOS, Runtipi, YunoHost, Cosmos, Coolify), facts only. Each app's licence, stars, archived flag and latest release were checked on GitHub.
+- Tiers: 849 ready to queue, 59 list-only, 73 parked (crypto), 218 excluded. It also proposes the first 5 batches of 10, starting with daily essentials: Nextcloud, Immich, Syncthing, Paperless-ngx, Gitea, Grafana, Ollama, LibreChat, SearXNG and AdGuard Home.
+
+### [#21](https://github.com/onemindos/ONEMINDOS/pull/21) Android and iPhone app shells
+- `mobile/` (Expo, React Native) adds these screens: Connect (token in the Keychain or Keystore), Home, Nodes, Apps, Approvals (approve or deny) and Activity, plus local notifications and a mock mode. 37 tests pass. It builds and runs on the iOS simulator, and builds an Android debug APK.
+- Also allow-lists the npm author address that appears in lock files (hygiene B-FP-5).
+
+### [#20](https://github.com/onemindos/ONEMINDOS/pull/20) Design system `@onemind/ui`
+- `docs/design/` adds principles, information architecture, tokens, components and the plugin UI extension points.
+- `ui/` adds the React component library (tokens, light and dark themes, accessible components), a dashboard shell and demo screens. 73 tests pass, including WCAG AA contrast checks.
+
+### [#19](https://github.com/onemindos/ONEMINDOS/pull/19) Website
+- `site/` (Astro and Starlight) adds an install-first landing page, docs, a blog, an apps catalog with trust cards built from `apps/`, and a community page.
+- Also adds research on competitor websites and a forum plan (GitHub Discussions now, Discourse later). There is no deploy step yet, because hosting is a founder decision.
+
+### [#18](https://github.com/onemindos/ONEMINDOS/pull/18) Security threat model
+- `docs/security/` adds a STRIDE threat model for every core component with file:line evidence, and a ranked hardening backlog (H-01 to H-30).
+
+### [#17](https://github.com/onemindos/ONEMINDOS/pull/17) Core competitor alignment and architecture
+- `docs/strategy/core-alignment.md` compares OneMind with 11 competitors across 14 core areas: what we must match, where we can beat them, and a ranked backlog.
+- `docs/architecture/` adds the fabric, backups, deployments, automation and notifications designs, plus a draft of contract §12.
+
+### [#16](https://github.com/onemindos/ONEMINDOS/pull/16) The leap plan and this changelog
+- `docs/leap/` adds the API, SDK, CLI, MCP and plugin SDK specs, the core epic specs, workstreams, a 182-epic backlog, a status tracker and the decisions still needed.
+- Also adds this `CHANGELOG.md`.
 
 ### [#14](https://github.com/onemindos/ONEMINDOS/pull/14) OS security pipeline (contract §10.1, CI side)
 - A nightly job checks the image's packages against Debian's security tracker and, when fixes exist, rebuilds every board from a newer pinned Debian snapshot.

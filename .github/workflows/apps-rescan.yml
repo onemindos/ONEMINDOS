@@ -1,0 +1,198 @@
+# SPDX-License-Identifier: Apache-2.0
+# Daily app rescan (sdk/contracts/poc-v0.md §10.2, §11.1): every app's images are rescanned with the
+# latest Trivy database and ClamAV signatures, and the smoke test runs again on a throwaway k3d cluster.
+# The refreshed apps/<id>/scan.json, tier and README go into one pull request (branch bot/apps-rescan),
+# opened or updated by this workflow. The gateway refuses installs whose scan is older than 7 days
+# (§10.3), so this PR has to be merged at least weekly.
+# A new CRITICAL with a fix or a ClamAV hit sets the app's tier to blocked (app-gate --tier write) and,
+# if the repository secret ONEMIND_NTFY_URL (a full ntfy topic URL) is set, posts an alert there.
+# ONEMIND_NTFY_TOKEN (optional) is sent as a bearer token. No secret values live in this repository.
+# The scan job runs every app's third-party images on a k3d cluster, so it holds a read-only token;
+# only the publish job, which runs no app code, can write the branch and the pull request.
+name: apps-rescan
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apps-rescan
+  cancel-in-progress: false
+
+jobs:
+  rescan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    permissions:
+      contents: read
+    outputs:
+      errors: ${{ steps.scan.outputs.errors }}
+      newly_blocked: ${{ steps.scan.outputs.newly_blocked }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Install the gate's tools (pinned by version and sha256)
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check -r sdk/tools/requirements.txt
+          sdk/tools/ci/install-tools.sh "$RUNNER_TEMP/bin" trivy crane cosign k3d kubectl kustomize kubeconform
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq clamav clamav-freshclam
+          sudo systemctl stop clamav-freshclam || true
+          for i in 1 2 3; do sudo freshclam --stdout && break; sleep $((i * 20)); done
+          clamscan --version
+
+      - name: Throwaway k3s cluster (k3d)
+        run: |
+          k3d cluster create rescan --wait --timeout 300s --no-lb \
+            --image docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
+
+      - name: Rescan every app
+        id: scan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          mkdir -p "$RUNNER_TEMP/out"
+          before=$(grep -H '^  tier:' apps/*/onemind.app.yaml || true)
+          errors=""
+          for dir in apps/*/; do
+            id=$(basename "$dir")
+            case "$id" in _*|.*) continue ;; esac
+            python3 -I sdk/tools/app-gate "$id" --smoke --tier write --clamav-db /var/lib/clamav \
+              --workdir "$RUNNER_TEMP" --report "$RUNNER_TEMP/out/$id.json"
+            rc=$?
+            [ "$rc" -eq 2 ] && errors="$errors $id"
+          done
+          newly_blocked=""
+          for f in apps/*/onemind.app.yaml; do
+            id=$(basename "$(dirname "$f")")
+            if grep -q '^  tier: blocked' "$f" && ! grep -q "^$f:  tier: blocked" <<<"$before"; then
+              newly_blocked="$newly_blocked $id"
+            fi
+          done
+          echo "errors=${errors# }" >> "$GITHUB_OUTPUT"
+          echo "newly_blocked=${newly_blocked# }" >> "$GITHUB_OUTPUT"
+          echo "tool errors: ${errors:-none}; newly blocked: ${newly_blocked:-none}"
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: apps-rescan-reports
+          path: ${{ runner.temp }}/out/
+          retention-days: 30
+
+      - name: Collect the refreshed app files
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/changed"
+          git diff --name-only -- apps > "$RUNNER_TEMP/changed/files.txt"
+          if [ -s "$RUNNER_TEMP/changed/files.txt" ]; then
+            tar -cf "$RUNNER_TEMP/changed/apps.tar" -T "$RUNNER_TEMP/changed/files.txt"
+          fi
+
+      - name: Upload the refreshed app files
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: apps-rescan-changes
+          path: ${{ runner.temp }}/changed/
+          retention-days: 7
+
+  publish:
+    needs: rescan
+    if: always() && needs.rescan.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Download the refreshed app files
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: apps-rescan-changes
+          path: ${{ runner.temp }}/changed
+
+      - name: Open or update the rescan pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BLOCKED: ${{ needs.rescan.outputs.newly_blocked }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          changed="$RUNNER_TEMP/changed"
+          if [ ! -s "$changed/files.txt" ]; then echo "no changes"; exit 0; fi
+          # Only regenerated files under apps/<id>/ are taken from the scan job.
+          if grep -vE '^apps/[a-z0-9][a-z0-9-]*/(onemind\.app\.yaml|scan\.json|README\.md)$' "$changed/files.txt"; then
+            echo "the scan job changed files other than scan.json, the tier or the README" >&2
+            exit 1
+          fi
+          # Copy only the listed regular files out of the archive (no links, nothing else).
+          mkdir "$changed/x"
+          tar -xf "$changed/apps.tar" -C "$changed/x" --no-same-owner
+          while IFS= read -r f; do
+            if [ -L "$changed/x/$f" ] || [ ! -f "$changed/x/$f" ]; then echo "not a regular file: $f" >&2; exit 1; fi
+            cp "$changed/x/$f" "$f"
+          done < "$changed/files.txt"
+          if git diff --quiet -- apps; then echo "no changes"; exit 0; fi
+          branch=bot/apps-rescan
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add apps
+          git commit -q -s -m "apps: daily rescan $(date -u +%Y-%m-%d)" \
+            -m "Refreshed scan.json, tier and README for every app (contract §10.2, §11.1).${BLOCKED:+ Newly blocked: $BLOCKED.}"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/$branch"
+          body="Daily rescan by .github/workflows/apps-rescan.yml (contract §10.2). Reports: run ${GITHUB_RUN_ID} artifacts."
+          [ -n "$BLOCKED" ] && body="$body
+
+          **Newly blocked:** $BLOCKED (a CRITICAL with a fix or a ClamAV hit; see the run's reports)."
+          if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
+            gh pr edit "$branch" --body "$body"
+          else
+            gh pr create --head "$branch" --base main --title "apps: daily rescan" --body "$body"
+            gh pr edit "$branch" --add-label apps || echo "label 'apps' not added (does it exist?)"
+          fi
+
+      - name: Alert on newly blocked apps (ntfy)
+        if: needs.rescan.outputs.newly_blocked != ''
+        env:
+          NTFY_URL: ${{ secrets.ONEMIND_NTFY_URL }}
+          NTFY_TOKEN: ${{ secrets.ONEMIND_NTFY_TOKEN }}
+          BLOCKED: ${{ needs.rescan.outputs.newly_blocked }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$NTFY_URL" ]; then echo "ONEMIND_NTFY_URL is not set; no alert sent"; exit 0; fi
+          auth=()
+          [ -n "$NTFY_TOKEN" ] && auth=(-H "Authorization: Bearer $NTFY_TOKEN")
+          curl -fsS --retry 3 "${auth[@]}" -H "Title: OneMind apps blocked" -H "Priority: high" -H "Tags: warning" \
+            -d "Daily rescan blocked: $BLOCKED. $RUN_URL" "$NTFY_URL" >/dev/null
+
+      - name: Fail on tool errors
+        if: needs.rescan.outputs.errors != ''
+        env:
+          ERRORS: ${{ needs.rescan.outputs.errors }}
+        run: |
+          echo "app-gate could not scan: $ERRORS (tool or network error; their scan.json was not refreshed)" >&2
+          exit 1

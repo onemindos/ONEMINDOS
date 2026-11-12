@@ -12,3 +12,14 @@ scripts/hygiene-allow.tsv	/home/onemind	B-FP-1
 scripts/hygiene-selftest.sh	t@t\.invalid	B-FP-4
 scripts/hygiene.py	rpi-otp-private-key|odmfuse	B-FP-3
 scripts/hygiene-allow.tsv	rpi-otp-private-key|odmfuse	B-FP-3
+# B-FP-5: npm registry metadata in lock files lists package authors' public addresses (e.g. the npm founder's); not personal data of this project.
+*package-lock.json	i@izs\.me	B-FP-5
+# B-FP-6: the ui Home screen lives in ui/src/home and ui/demo/src/home; module paths like ../home/layout are not host home directories.
+ui/*	/home/(layout|types|fixtures|shoot\.mjs|edit|offline|loading|errors|fresh|home\.css)	B-FP-6
+docs/design/*	/home/shoot\.mjs	B-FP-6
+scripts/hygiene-allow.tsv	/home/(layout|shoot)	B-FP-6
+# B-FP-7: random byte runs inside compressed PNG screenshots that happen to look like an address.
+docs/design/screens/*.png	[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+	B-FP-7
+# B-FP-8: any PNG can contain byte runs shaped like an address; docs may name the ui Home routes.
+*.png	[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+	B-FP-8
+docs/*	/home/(layout|types|fixtures|shoot\.mjs|edit|offline|loading|errors|fresh|home\.css)	B-FP-8
