@@ -168,7 +168,12 @@ docker compose down -v
 ```
 Services: `nats` (2.15.2), `dashboard` (builds `dashboard/` into a volume, then exits), `gateway`
 (`core/Dockerfile`, **noop executor**, so nothing is really installed), `node-sim` (`onemindd` with
-`ONEMIND_NODE_ID=compose-node-1`). All images are pinned by digest; every port is bound to
+`ONEMIND_NODE_ID=compose-node-1`), and two **simulated machines** (ported from PR #27), `sim-rpi5`
+and `sim-jetson`: [`simnode`](compose/simnode/main.go) runs onemindd's own agent code
+(`internal/agent`) but reads the hardware from `internal/detect`'s Raspberry Pi 5 and Jetson fixture
+trees, so Nodes shows a `rpi5` and a `jetson-orin` (with its GPU) next to the `vm`, and their
+heartbeats are exactly what onemindd sends on those boards (PR #27's simulator wrote them by hand).
+They report hardware that is not there: development only. All images are pinned by digest; every port is bound to
 `127.0.0.1`. `ONEMIND_ALLOW_UNSCANNED=1` is set and marked **dev only**: the seed apps have no
 `scan.json` yet, and the contract allows the flag only with the noop executor.
 

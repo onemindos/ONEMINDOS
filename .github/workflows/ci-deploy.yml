@@ -56,10 +56,24 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: compose up
         working-directory: deploy/compose
-        run: ./gen-tokens.sh && docker compose up -d --build --wait gateway node-sim
+        run: ./gen-tokens.sh && docker compose up -d --build --wait gateway node-sim sim-rpi5 sim-jetson
       - name: verify.sh against the compose hub
         working-directory: deploy/compose
         run: ../verify/verify.sh http://127.0.0.1:8080 --token-file local/owner.token --agent-token-file local/agent.token
+      - name: the simulated Raspberry Pi 5 and Jetson are online
+        working-directory: deploy/compose
+        run: |
+          python3 -I - <<'EOF'
+          import json, time, urllib.request
+          tok, want, boards = open("local/owner.token").read().strip(), {"rpi5", "jetson-orin"}, set()
+          for _ in range(30):
+              rq = urllib.request.Request("http://127.0.0.1:8080/v1/nodes", headers={"Authorization": "Bearer " + tok})
+              boards = {n["board"] for n in json.load(urllib.request.urlopen(rq, timeout=10)) if n["status"] == "online"}
+              if want <= boards:
+                  raise SystemExit(print("online boards:", sorted(boards)))
+              time.sleep(2)
+          raise SystemExit("missing boards: %s" % sorted(want - boards))
+          EOF
       - name: logs on failure
         if: failure()
         working-directory: deploy/compose
