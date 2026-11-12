@@ -1,0 +1,6 @@
+processor	: 0
+model name	: DO-Regular
+flags		: fpu hypervisor
+
+processor	: 1
+model name	: DO-Regular
