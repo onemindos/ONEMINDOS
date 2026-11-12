@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
@@ -343,6 +344,12 @@ func TestCheckRefusesForeignCredentials(t *testing.T) {
 	}
 	if _, err := cr.Check(id, strings.Repeat("0", 64)); err == nil {
 		t.Fatal("an unpinned CA was accepted")
+	}
+	// A certificate with a key of another type is refused, not a panic (review finding).
+	edPub, _, _ := ed25519.GenerateKey(rand.Reader)
+	cr.NodeCert = pemOf(ca.sign(t, edPub, &x509.Certificate{ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}))
+	if _, err := cr.Check(id, ca.pin); err == nil {
+		t.Fatal("an Ed25519 certificate was accepted")
 	}
 }
 

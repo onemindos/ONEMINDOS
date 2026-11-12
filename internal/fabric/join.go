@@ -382,7 +382,7 @@ func (cr *Credentials) Check(id *Identity, pin string) (*x509.Certificate, error
 	if err != nil {
 		return nil, err
 	}
-	if !cert.PublicKey.(*ecdsa.PublicKey).Equal(&id.Key.PublicKey) {
+	if pub, ok := cert.PublicKey.(*ecdsa.PublicKey); !ok || !pub.Equal(&id.Key.PublicKey) {
 		return nil, errors.New("credentials: the certificate is not for this node's key")
 	}
 	pool := x509.NewCertPool()
