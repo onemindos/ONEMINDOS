@@ -57,7 +57,7 @@
 | PA-ALIGN | Core alignment against the leading self-hosted OSes | done | `docs/core-architecture` | [#17](https://github.com/onemindos/ONEMINDOS/pull/17) |
 | PA-ARCH | Phase-B architecture docs and `CONTRACT-12-DRAFT.md` | done | `docs/core-architecture` | [#17](https://github.com/onemindos/ONEMINDOS/pull/17) |
 | PA-THREAT | Threat model and ranked hardening backlog (H-ids) | done | `docs/security-threat-model` | [#18](https://github.com/onemindos/ONEMINDOS/pull/18) |
-| SEC-REREVIEW | Security re-review (Wave G #3): threat model refresh, route/authz inventory, fresh P0/P1/P2 backlog, P0 fixes | in-progress (agent B) | `docs/threat-model-refresh` | – |
+| SEC-REREVIEW | Security re-review (Wave G #3): threat model refresh, route/authz inventory, fresh P0/P1/P2 backlog, P0 fixes | review | `docs/threat-model-refresh` | PR pending |
 | PA-UI | Design system `@onemind/ui`: tokens and components, light and dark | done | `feat/design-system` | [#20](https://github.com/onemindos/ONEMINDOS/pull/20) |
 | PA-SITE | Website (Astro + Starlight) committed | done | `feat/website` | [#19](https://github.com/onemindos/ONEMINDOS/pull/19) |
 | PA-MOBILE | Mobile shell (Expo) committed | done | `feat/mobile-shell` | [#21](https://github.com/onemindos/ONEMINDOS/pull/21) |
