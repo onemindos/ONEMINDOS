@@ -1,0 +1,324 @@
+#!/usr/bin/env -S python3 -I
+# SPDX-License-Identifier: Apache-2.0
+"""Validate every OneMind app under apps/<id>/ (contract sdk/contracts/poc-v0.md §4, §9.4 check 1, 3, 8).
+
+Checks, per app directory (directories whose name starts with "_", such as apps/_intake, are skipped):
+  1. onemind.app.yaml validates against sdk/schema/onemind.app.schema.json
+  2. metadata.id equals the directory name, and ids are unique
+  3. the icon file exists inside the app directory
+  4. `kustomize build apps/<id>/<spec.manifests>` piped to `kubeconform -strict -summary` passes
+  5. every container image is pinned as name:tag@sha256:<64 hex>
+  6. every container sets cpu and memory in both resources.requests and resources.limits
+  7. a Service exposes spec.web.port (when spec.web is set), selects a workload's pods and
+     targets a port that one of that workload's containers declares
+
+Run with: python3 -I sdk/tools/validate-apps [--apps-dir DIR] [APP_ID ...]
+Exit codes: 0 all apps pass, 1 at least one check failed, 2 usage or environment error.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+try:
+    import yaml
+    from jsonschema import Draft202012Validator
+except ImportError as exc:  # pragma: no cover - environment problem
+    sys.stderr.write(f"error: missing dependency ({exc.name}); install sdk/tools/requirements.txt\n")
+    sys.exit(2)
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SCHEMA_PATH = REPO_ROOT / "sdk" / "schema" / "onemind.app.schema.json"
+MANIFEST_NAME = "onemind.app.yaml"
+
+DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+TAG_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")
+# Last path component must be repo:tag; registry host may carry a :port earlier in the reference.
+REPO_COMPONENT_RE = re.compile(r"^[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*$")
+
+POD_TEMPLATE_PATHS = {
+    "Pod": ("spec",),
+    "Deployment": ("spec", "template", "spec"),
+    "StatefulSet": ("spec", "template", "spec"),
+    "DaemonSet": ("spec", "template", "spec"),
+    "ReplicaSet": ("spec", "template", "spec"),
+    "ReplicationController": ("spec", "template", "spec"),
+    "Job": ("spec", "template", "spec"),
+    "CronJob": ("spec", "jobTemplate", "spec", "template", "spec"),
+}
+REQUIRED_RESOURCES = ("cpu", "memory")
+
+
+def image_pin_error(image: object) -> str | None:
+    """Return why an image reference is not name:tag@sha256:<64 hex>, or None if it is."""
+    if not isinstance(image, str) or not image:
+        return "image is missing or not a string"
+    if image.count("@") != 1:
+        return "image must be pinned by digest (name:tag@sha256:<64 hex>)"
+    ref, digest = image.split("@")
+    if not DIGEST_RE.match(digest):
+        return f"digest '{digest}' is not sha256:<64 lowercase hex>"
+    last = ref.rsplit("/", 1)[-1]
+    if ":" not in last:
+        return "image must carry a tag as well as a digest (name:tag@sha256:...)"
+    repo, tag = last.split(":", 1)
+    if not REPO_COMPONENT_RE.match(repo):
+        return f"repository name '{repo}' is not a valid image name"
+    if not TAG_RE.match(tag):
+        return f"tag '{tag}' is not a valid image tag"
+    return None
+
+
+def dig(obj: object, path: tuple[str, ...]) -> object:
+    for key in path:
+        if not isinstance(obj, dict):
+            return None
+        obj = obj.get(key)
+    return obj
+
+
+def inside(child: Path, parent: Path) -> bool:
+    try:
+        child.resolve().relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+class AppChecker:
+    def __init__(self, validator: Draft202012Validator, kustomize: str, kubeconform: str):
+        self.validator = validator
+        self.kustomize = kustomize
+        self.kubeconform = kubeconform
+
+    def check(self, app_dir: Path) -> tuple[str | None, list[str]]:
+        """Return (metadata.id or None, list of error messages) for one app directory."""
+        errors: list[str] = []
+        manifest_path = app_dir / MANIFEST_NAME
+        if not manifest_path.is_file():
+            return None, [f"{MANIFEST_NAME} not found"]
+        try:
+            doc = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            return None, [f"{MANIFEST_NAME} is not valid YAML: {exc}"]
+
+        schema_errors = sorted(self.validator.iter_errors(doc), key=lambda e: list(e.absolute_path))
+        for err in schema_errors:
+            where = "/".join(str(p) for p in err.absolute_path) or "(root)"
+            errors.append(f"schema: {where}: {err.message}")
+        if schema_errors:
+            # The remaining checks rely on a schema-valid manifest.
+            app_id = dig(doc, ("metadata", "id"))
+            return (app_id if isinstance(app_id, str) else None), errors
+
+        meta, spec = doc["metadata"], doc["spec"]
+        app_id = meta["id"]
+        if app_id != app_dir.name:
+            errors.append(f"metadata.id '{app_id}' does not match directory name '{app_dir.name}'")
+
+        icon = app_dir / meta["icon"]
+        if not inside(icon, app_dir):
+            errors.append(f"icon '{meta['icon']}' points outside the app directory")
+        elif not icon.is_file():
+            errors.append(f"icon file '{meta['icon']}' does not exist")
+
+        manifests_dir = app_dir / spec["manifests"]
+        if not inside(manifests_dir, app_dir):
+            errors.append(f"spec.manifests '{spec['manifests']}' points outside the app directory")
+            return app_id, errors
+        if not manifests_dir.is_dir():
+            errors.append(f"spec.manifests directory '{spec['manifests']}' does not exist")
+            return app_id, errors
+
+        rendered = self.render(manifests_dir, errors)
+        if rendered is None:
+            return app_id, errors
+        self.kubeconform_check(rendered, errors)
+        try:
+            objects = [o for o in yaml.safe_load_all(rendered) if isinstance(o, dict)]
+        except yaml.YAMLError as exc:
+            errors.append(f"kustomize output is not valid YAML: {exc}")
+            return app_id, errors
+        self.workload_checks(objects, errors)
+        if "web" in spec:
+            self.service_port_check(objects, spec["web"]["port"], errors)
+        return app_id, errors
+
+    def render(self, manifests_dir: Path, errors: list[str]) -> str | None:
+        proc = subprocess.run(
+            [self.kustomize, "build", str(manifests_dir)],
+            capture_output=True, text=True, check=False,
+        )
+        if proc.returncode != 0:
+            errors.append(f"kustomize build failed: {proc.stderr.strip()}")
+            return None
+        if not proc.stdout.strip():
+            errors.append("kustomize build produced no objects")
+            return None
+        return proc.stdout
+
+    def kubeconform_check(self, rendered: str, errors: list[str]) -> None:
+        proc = subprocess.run(
+            [self.kubeconform, "-strict", "-summary"],
+            input=rendered, capture_output=True, text=True, check=False,
+        )
+        if proc.returncode != 0:
+            out = (proc.stdout + proc.stderr).strip()
+            errors.append("kubeconform -strict failed:\n      " + out.replace("\n", "\n      "))
+
+    @staticmethod
+    def workload_checks(objects: list[dict], errors: list[str]) -> None:
+        for obj in objects:
+            kind = obj.get("kind")
+            path = POD_TEMPLATE_PATHS.get(kind)
+            if path is None:
+                continue
+            name = dig(obj, ("metadata", "name")) or "?"
+            pod_spec = dig(obj, path)
+            if not isinstance(pod_spec, dict):
+                errors.append(f"{kind}/{name}: no pod spec found")
+                continue
+            for field in ("initContainers", "containers"):
+                for c in pod_spec.get(field) or []:
+                    cname = c.get("name", "?") if isinstance(c, dict) else "?"
+                    where = f"{kind}/{name} {field[:-1]} '{cname}'"
+                    if not isinstance(c, dict):
+                        errors.append(f"{where}: container is not a mapping")
+                        continue
+                    pin_err = image_pin_error(c.get("image"))
+                    if pin_err:
+                        errors.append(f"{where}: image '{c.get('image')}': {pin_err}")
+                    resources = c.get("resources") or {}
+                    for key in ("requests", "limits"):
+                        section = resources.get(key) if isinstance(resources, dict) else None
+                        if not isinstance(section, dict) or not section:
+                            errors.append(f"{where}: resources.{key} is missing or empty")
+                            continue
+                        for res in REQUIRED_RESOURCES:
+                            if section.get(res) in (None, ""):
+                                errors.append(f"{where}: resources.{key}.{res} is missing")
+
+    @staticmethod
+    def pod_templates(objects: list[dict]) -> list[tuple[dict, list[dict]]]:
+        """Return (pod labels, containers) for every workload's pod template."""
+        out = []
+        for obj in objects:
+            path = POD_TEMPLATE_PATHS.get(obj.get("kind"))
+            if path is None:
+                continue
+            pod_spec = dig(obj, path)
+            meta_path = ("metadata",) if obj.get("kind") == "Pod" else path[:-1] + ("metadata",)
+            labels = dig(obj, meta_path + ("labels",))
+            if isinstance(pod_spec, dict):
+                containers = [c for c in pod_spec.get("containers") or [] if isinstance(c, dict)]
+                out.append((labels if isinstance(labels, dict) else {}, containers))
+        return out
+
+    @classmethod
+    def service_port_check(cls, objects: list[dict], port: int, errors: list[str]) -> None:
+        templates = cls.pod_templates(objects)
+        problems: list[str] = []
+        for obj in objects:
+            if obj.get("kind") != "Service":
+                continue
+            sname = dig(obj, ("metadata", "name")) or "?"
+            for p in dig(obj, ("spec", "ports")) or []:
+                if not (isinstance(p, dict) and p.get("port") == port):
+                    continue
+                selector = dig(obj, ("spec", "selector"))
+                if not isinstance(selector, dict) or not selector:
+                    problems.append(f"Service/{sname} exposes {port} but has no selector")
+                    continue
+                target = p.get("targetPort", port)
+                selected = [cs for labels, cs in templates
+                            if all(labels.get(k) == v for k, v in selector.items())]
+                if not selected:
+                    problems.append(f"Service/{sname} selector {selector} matches no workload's pods")
+                    continue
+                for containers in selected:
+                    for c in containers:
+                        for cp in c.get("ports") or []:
+                            if not isinstance(cp, dict):
+                                continue
+                            if (isinstance(target, str) and cp.get("name") == target) or \
+                               (isinstance(target, int) and cp.get("containerPort") == target):
+                                return
+                problems.append(f"Service/{sname} port {port} targets '{target}', "
+                                "which no selected container declares in ports")
+        if problems:
+            errors.extend(problems)
+        else:
+            errors.append(f"no Service exposes spec.web.port {port}")
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="validate-apps", description=__doc__.split("\n")[0])
+    parser.add_argument("--apps-dir", type=Path, default=REPO_ROOT / "apps",
+                        help="directory holding apps/<id>/ (default: the repo's apps/)")
+    parser.add_argument("app_ids", nargs="*", help="validate only these app ids (default: all)")
+    args = parser.parse_args(argv)
+
+    tools = {name: shutil.which(name) for name in ("kustomize", "kubeconform")}
+    missing = [name for name, path in tools.items() if path is None]
+    if missing:
+        sys.stderr.write(f"error: required tool(s) not on PATH: {', '.join(missing)}\n")
+        return 2
+    try:
+        schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+        Draft202012Validator.check_schema(schema)
+    except (OSError, ValueError) as exc:
+        sys.stderr.write(f"error: cannot load schema {SCHEMA_PATH.name}: {exc}\n")
+        return 2
+    except Exception as exc:  # jsonschema.SchemaError
+        sys.stderr.write(f"error: schema {SCHEMA_PATH.name} is invalid: {exc}\n")
+        return 2
+
+    apps_dir: Path = args.apps_dir
+    if not apps_dir.is_dir():
+        sys.stderr.write(f"error: apps directory not found: {apps_dir}\n")
+        return 2
+    app_dirs = sorted(d for d in apps_dir.iterdir()
+                      if d.is_dir() and not d.name.startswith(("_", ".")))
+    if args.app_ids:
+        wanted = set(args.app_ids)
+        unknown = wanted - {d.name for d in app_dirs}
+        if unknown:
+            sys.stderr.write(f"error: no app directory for: {', '.join(sorted(unknown))}\n")
+            return 2
+        app_dirs = [d for d in app_dirs if d.name in wanted]
+    if not app_dirs:
+        print("validate-apps: no app directories found; nothing to check")
+        return 0
+
+    checker = AppChecker(
+        Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER),
+        tools["kustomize"], tools["kubeconform"],
+    )
+    seen: dict[str, str] = {}
+    failed = 0
+    for app_dir in app_dirs:
+        app_id, errors = checker.check(app_dir)
+        if app_id is not None:
+            if app_id in seen:
+                errors.append(f"duplicate metadata.id '{app_id}' (also used by apps/{seen[app_id]}/)")
+            else:
+                seen[app_id] = app_dir.name
+        if errors:
+            failed += 1
+            print(f"FAIL apps/{app_dir.name}/")
+            for msg in errors:
+                print(f"  - {msg}")
+        else:
+            print(f"ok   apps/{app_dir.name}/")
+
+    print(f"validate-apps: {len(app_dirs) - failed} passed, {failed} failed")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

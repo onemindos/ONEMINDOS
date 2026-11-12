@@ -1,0 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="ntfy">
+  <!-- Neutral generated icon (initials). Not the ntfy logo, which is a trademark of ntfy LLC (upstream docs/terms.md). -->
+  <rect width="64" height="64" rx="14" fill="#3b6e8f"/>
+  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">nt</text>
+</svg>

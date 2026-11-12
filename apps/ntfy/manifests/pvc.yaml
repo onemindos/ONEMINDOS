@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Holds cache.db (message cache) and user.db (users and access control).
+# Size from the upstream Kustomize example (docs/install.md, "Kustomize"). No storageClassName:
+# the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ntfy-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi

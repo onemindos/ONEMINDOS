@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# /app/data holds the SQLite database (or embedded MariaDB) and uploads. Upstream requires a local
+# filesystem with POSIX file locks, not NFS (wiki "How to Install"). No storageClassName: k3s's
+# default local-path class is used.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uptime-kuma-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi

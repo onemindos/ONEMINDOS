@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# Holds /config: configuration.yaml, .storage/ (users, auth, integrations) and the
+# recorder database home-assistant_v2.db. No storageClassName: k3s uses its default (local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: home-assistant-config
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
