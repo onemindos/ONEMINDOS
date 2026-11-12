@@ -25,4 +25,4 @@ Market apps, one directory per app (`apps/<id>/`), each with an `onemind.app.yam
 | [SearXNG](searxng/) | 2026.11.11 | AGPL-3.0 (L2) | 8080 | Private metasearch engine | no scan record yet |
 | [AdGuard Home](adguard-home/) | 0.107.80 | GPL-3.0 (L2) | 3000 | Network-wide ad and tracker blocking DNS | no scan record yet |
 
-A scan of `fail` means the gateway refuses to install the app until a newer scan passes (contract section 10.3). An app with no `scan.json` is refused the same way ("nothing unscanned runs"), so the market batch 1 apps cannot be installed until CI writes a passing scan; the five marked blocked also carry `tier: blocked`. The result comes from each app's `scan.json`, read on 2026-11-12.
+A scan of `fail` means the gateway refuses to install the app until a newer scan passes (contract section 10.3). An app with no `scan.json` is refused the same way ("nothing unscanned runs"), so the market batch 1 apps cannot be installed until CI writes a passing scan; the six marked blocked also carry `tier: blocked`. The result comes from each app's `scan.json`, read on 2026-11-12.
