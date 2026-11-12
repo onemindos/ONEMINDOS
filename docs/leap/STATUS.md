@@ -6,18 +6,20 @@
 > **Explain it like I am the founder**
 > One row per epic, saying where it stands: `todo`, `in-progress` (someone is building it on a branch), `in-review` (a PR is open), `done` (merged), `parked` or `superseded`.
 > Every PR that finishes an epic updates its row here, in the same PR, and adds a line to the repo-root [CHANGELOG.md](../../CHANGELOG.md).
-> Today: 14 PRs merged (foundation, contract, proof-of-concept code and the OS updater); one PR open (OS security pipeline); ten branches in progress; all leap build epics are still `todo`.
+> Today: more than 60 PRs are merged (see [CHANGELOG.md](../../CHANGELOG.md) and `git log --first-parent main`). The state of each epic is in its row below.
 
 ## Summary
 
 | State | Epics |
 |---|---|
-| done | 3 (OS-UPDATER, UMB-CLIENT-8, UMB-CLIENT-10) |
-| in-review | 2 (OS-SECPIPE, CORE-UPDATE-1) |
-| in-progress | 13 (W2-GW, W2-PIPE, W2-DEPLOY, PA-ALIGN, PA-ARCH, PA-THREAT, PA-UI, PA-SITE, PA-MOBILE, LEAP-DOCS, CORE-BACKUP-2, UMB-STOR-3, UMB-PHOTO-4) |
-| todo | 163 + 112 UMB |
-| parked | 4 (PLAN-E7-LAB, PLAN-E14, PLAN-E15, PH2-DESKTOP) |
-| superseded | 1 (DEV-API-14) |
+| done | 23 |
+| in-review | 3 |
+| in-progress | 38 |
+| todo | 250 |
+| parked | 5 |
+| superseded | 1 |
+
+(Counted from the rows below on 2026-11-12. Re-count after editing rows; do not edit these numbers by hand.)
 
 "in-progress" on a branch with no PR means work exists only in a local worktree or on an unpushed branch. Push it so it is not lost.
 
@@ -49,21 +51,23 @@
 | OS-UPDATER | onemindd OS updater: TUF-verified, policy and window, restic pre-sn… | done | `feat/onemindd-updater` | [#15](https://github.com/onemindos/ONEMINDOS/pull/15) |
 | OS-SECPIPE | OS security pipeline: nightly Debian check, rebuild, SBOM/CVE+VEX/C… | done | `feat/os-security-pipeline` | [#14](https://github.com/onemindos/ONEMINDOS/pull/14) |
 | CORE-UPDATE-1 | Land both update branches with CI green | done | (both update branches) | #15 and [#14](https://github.com/onemindos/ONEMINDOS/pull/14) merged |
-| W2-GW | Gateway wave 2: scan gate, app agent principals, `/mcp` with 3 tool… | in-progress | `feat/gateway-agent-mcp` | – (3 commits) |
-| W2-PIPE | App pipeline: scaffolder, app-gate (§9.4), `scan.json` (§11.1), k3d… | in-progress | `feat/app-pipeline` | – (4 commits) |
-| W2-DEPLOY | Developer install: `install.sh --role hub` or `node`, compose dev hub… | in-progress | `feat/deploy-v0` | – (6 commits) |
-| W2-HERMES | Hermes packaged as `apps/hermes-agent`, an agent principal | todo | `feat/app-hermes` (empty) | – |
-| W2-SEEDS | Wave-2 seed apps | todo | `feat/apps-wave2` (empty) | – |
+| QUALITY-SLOP-FIX | Re-verify the slop audit (code, docs, drift) against current `main` and fix what is still valid | review | `docs/slop-audit` | PR pending |
+| W2-GW | Gateway wave 2: scan gate, app agent principals, `/mcp` with 3 tool… | done | `feat/gateway-agent-mcp` | [#24](https://github.com/onemindos/ONEMINDOS/pull/24) |
+| W2-PIPE | App pipeline: scaffolder, app-gate (§9.4), `scan.json` (§11.1), k3d… | done | `feat/app-pipeline` | [#25](https://github.com/onemindos/ONEMINDOS/pull/25) |
+| W2-DEPLOY | Developer install: `install.sh --role hub` or `node`, compose dev hub… | done | `feat/deploy-v0` | [#26](https://github.com/onemindos/ONEMINDOS/pull/26) |
+| W2-HERMES | Hermes packaged as `apps/hermes-agent`, an agent principal | done (acceptance not met: 4 of 9 apps fail their scan) | `feat/app-pipeline` | [#25](https://github.com/onemindos/ONEMINDOS/pull/25) |
+| W2-SEEDS | Wave-2 seed apps | done (acceptance not met: 4 of 9 apps fail their scan) | `feat/app-pipeline` | [#25](https://github.com/onemindos/ONEMINDOS/pull/25) |
 | PA-ALIGN | Core alignment against the leading self-hosted OSes | done | `docs/core-architecture` | [#17](https://github.com/onemindos/ONEMINDOS/pull/17) |
 | PA-ARCH | Phase-B architecture docs and `CONTRACT-12-DRAFT.md` | done | `docs/core-architecture` | [#17](https://github.com/onemindos/ONEMINDOS/pull/17) |
 | PA-THREAT | Threat model and ranked hardening backlog (H-ids) | done | `docs/security-threat-model` | [#18](https://github.com/onemindos/ONEMINDOS/pull/18) |
+| SEC-REREVIEW | Security re-review (Wave G #3): threat model refresh, route/authz inventory, fresh P0/P1/P2 backlog, P0 fixes | review | `docs/threat-model-refresh` | PR pending |
 | PA-UI | Design system `@onemind/ui`: tokens and components, light and dark | done | `feat/design-system` | [#20](https://github.com/onemindos/ONEMINDOS/pull/20) |
 | PA-SITE | Website (Astro + Starlight) committed | done | `feat/website` | [#19](https://github.com/onemindos/ONEMINDOS/pull/19) |
 | PA-MOBILE | Mobile shell (Expo) committed | done | `feat/mobile-shell` | [#21](https://github.com/onemindos/ONEMINDOS/pull/21) |
 | MKT-CANDIDATES | Ranked Market candidate list from 7 competitor stores | done | `feat/app-candidates` | [#22](https://github.com/onemindos/ONEMINDOS/pull/22) |
-| CORE-NET-P1 | Mesh (Headscale + DERP), NATS leaf, app proxy, box CA, NAT lab (+ UMB-APP-7, UMB-APP-8) | in-progress | `feat/core-net` | – |
-| UI-LEAP | Parity audit, customization, Home widgets, Store + app management, shell, Settings (+ UMB-DESK-2, -3, -4, -8) | in-progress | `feat/ui-leap` | – |
-| MKT-TAXONOMY | App and deployment categories | in-progress | `feat/app-taxonomy` | – |
+| CORE-NET-P1 | Mesh (Headscale + DERP), NATS leaf, app proxy, box CA, NAT lab (+ UMB-APP-7, UMB-APP-8) | done | `feat/core-net` | [#37](https://github.com/onemindos/ONEMINDOS/pull/37) |
+| UI-LEAP | Parity audit, customization, Home widgets, Store + app management, shell, Settings (+ UMB-DESK-2, -3, -4, -8) | done | `feat/ui-leap` | [#29](https://github.com/onemindos/ONEMINDOS/pull/29) |
+| MKT-TAXONOMY | App and deployment categories | done | `feat/app-taxonomy` | [#28](https://github.com/onemindos/ONEMINDOS/pull/28) |
 | E2E-GOLDEN | Golden-path e2e: `install.sh` hub in a VM (Lima, QEMU/KVM), Playwright dashboard + MCP agent + audit, `verify.sh`; `e2e.yml` on PRs and nightly. Green in Lima 2026-11-12 | in-progress | `feat/e2e-golden-path` | – |
 | PLAN-E1 | Workbench (G0) and gate content re-synced to D-007 | todo | founder lab kit | – |
 | LEAP-DOCS | Leap specs, workstreams, backlog, status, decisions, CHANGELOG | done | `docs/leap` | [#16](https://github.com/onemindos/ONEMINDOS/pull/16) |
@@ -153,15 +157,15 @@
 | CORE-NET-7 | Relay: SNI router, setup endpoint, WireGuard link, derper build | todo | – | – |
 | CORE-NET-8 | Gateway mesh routes, forward-auth, `mesh.*` handlers | todo | – | – |
 | CORE-NET-9 | Lima lab NT-1…NT-8, NT-17 | todo | – | – |
-| CORE-NET-10 | Contract §12.16 networking PR | todo | – | – |
+| CORE-NET-10 | Contract §12.22 networking PR | todo | – | – |
 | CORE-NET-11 | Installer and image wiring | todo | – | – |
 | CORE-NET-12 | Gateway + onemindd registration; join bundle `mesh` | todo | – | – |
 | CORE-NET-13 | Dashboard Network page, Add a device, app links | todo | – | – |
-| CORE-NET-14 | Pi budget, throughput and phone matrix on hardware | todo | – | – |
+| CORE-NET-14 | Pi budget, throughput and phone matrix on hardware (VM budget + perf-smoke CI: `feat/perf-budget`; Pi numbers wait on F-25) | review | feat/perf-budget | [#68](https://github.com/onemindos/ONEMINDOS/pull/68) |
 | CORE-NET-15 | Public app exposure through the relay | parked | – | – |
 | DEV-CLI-8 | `fabric qr/join/leave/remove` and `node join` alias | todo | – | – |
 | CORE-BACKUP-1 | `onemind-local` Retain StorageClass as default | todo | – | – |
-| CORE-BACKUP-2 | `internal/backup` agent: restic, schedule, three keys, emergency kit | in-progress | `feat/onemindd-backup` | – (1 commit) |
+| CORE-BACKUP-2 | `internal/backup` agent: restic, schedule, three keys, emergency kit | done | `feat/onemindd-backup` | [#32](https://github.com/onemindos/ONEMINDOS/pull/32) |
 | CORE-BACKUP-3 | k3s datastore online backup with integrity gate | todo | – | – |
 | CORE-BACKUP-4 | Destinations: USB, another OneMind box (append-only), S3 | todo | – | – |
 | CORE-BACKUP-5 | Manifest `backup:` hooks | todo | – | – |
@@ -191,10 +195,10 @@
 | DEV-SDK-7 | SSE in all three SDKs, polling fallback, React Native transport | in-progress | `feat/devsurface` (local) | – |
 | CORE-MOBILE-1 | Shell on the generated `sdk/ts`; icon and splash | todo | – | – |
 | CORE-MOBILE-2 | QR pairing with CA pinning, HTTPS only | todo | – | – |
-| CORE-MOBILE-3 | Passkey sign-in and signed approvals; plan card | todo | – | – |
-| CORE-MOBILE-4 | Android UnifiedPush | todo | – | – |
-| CORE-MOBILE-5 | iOS service extension and relay registration (with NOTIFY-4) | todo | – | – |
-| CORE-MOBILE-6 | Alerts and Activity tabs, offline cache, checkpoint store | todo | – | – |
+| CORE-MOBILE-3 | Passkey sign-in and signed approvals; plan card | in-review | `feat/mobile-v1` | [#63](https://github.com/onemindos/ONEMINDOS/pull/63) |
+| CORE-MOBILE-4 | Android UnifiedPush | in-review | `feat/mobile-v1` | [#63](https://github.com/onemindos/ONEMINDOS/pull/63) |
+| CORE-MOBILE-5 | iOS service extension and relay registration (with NOTIFY-4) | in-progress | `feat/mobile-v1`: phone-side relay client; the hub refuses `apns` until CORE-NOTIFY-4 | [#63](https://github.com/onemindos/ONEMINDOS/pull/63) |
+| CORE-MOBILE-6 | Alerts and Activity tabs, offline cache, checkpoint store | in-review | `feat/mobile-v1` | [#63](https://github.com/onemindos/ONEMINDOS/pull/63) |
 | CORE-NOTIFY-7 | Actionable notifications open the approval card | todo | – | – |
 | DEV-MCP-3 | Request-only writes: `withdraw_request`, `preview_action`, `plan_sh… | todo | – | – |
 | DEV-MCP-6 | MCP audit entries, read summaries, trace context, audit tools | in-progress | `feat/devsurface` (local) | – |
@@ -271,6 +275,25 @@
 | PLAN-E15 | Robot in simulation | parked | – | – |
 | DEV-API-14 | Superseded by DEV-SDK-1…10 | superseded | – | – |
 
+### Fabric follow-through (Wave G #8)
+
+Plan: [fabric/EPICS.md](fabric/EPICS.md). First stream: [fabric/STREAM-1.md](fabric/STREAM-1.md).
+
+| Id | Title | State | Branch | PR |
+|---|---|---|---|---|
+| FAB-PLAN | Fabric epics and first build stream (docs) | in-progress (agent B) | `docs/fabric-epics` | – |
+| FAB-1 | Fabric contract PR: `site_id`, heartbeat `fabric`, naming reservation | todo | – | – |
+| FAB-2 | F1 conformance suite (FT/NT list plus negative tests) | todo | – | – |
+| FAB-3 | Leaf soak, 7 days, production permissions | todo | – | – |
+| FAB-4 | Installer mode on stock Debian and Ubuntu | todo | – | – |
+| FAB-5 | AI-door rules A1 to A10 in the gateway | todo | – | – |
+| FAB-6 | 24-hour WAN-cut lab | todo | – | – |
+| FAB-7 | Re-run fabric refuters with separate agents | todo | – | – |
+| CORE-ADAPT-1…4 | Adapter profile, MQTT/Sparkplug, Modbus, capability registry | todo | – | – |
+| MULTI-CLUSTER-1…8 | Sites, summaries, rings, Sites view, grants, scale | todo | – | – |
+| CORE-ROBOT-1…3 | Jetson companion leaf, MAVLink missions, ROS 2 bridge | todo | – | – |
+| CORE-FDO-1 | FDO zero-touch front end | todo | – | – |
+
 ### UMB: umbrelOS 2 study epics
 
 From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.md](BACKLOG.md#umb-umbrelos-2-study-epics); study epics merged into existing rows are listed there and have no row here. 116 rows: 3 in-progress (build slices on unpushed branches), 113 todo. UMB-MACH rows wait on founder decision F-57.
@@ -280,7 +303,7 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | Id | Title | State | Branch | PR |
 |---|---|---|---|---|
 | UMB-STOR-0 | Contract: storage reads, storage.* action types, heartbeat storag… | todo | – | – |
-| UMB-STOR-3 | onemindd storage inventory and health collector (lsblk, smartctl, nv… | in-progress | `feat/onemindd-storage` | – |
+| UMB-STOR-3 | onemindd storage inventory and health collector (lsblk, smartctl, nv… | done | `feat/onemindd-storage` | [#31](https://github.com/onemindos/ONEMINDOS/pull/31) |
 | UMB-FILES-0 | Contract 12-files: roots, file API, action types, MCP tools, manifes… | todo | – | – |
 | UMB-ACCT-1 | Kanidm spike: host service, offline first boot, groups, OIDC client,… | todo | – | – |
 | UMB-ACCT-2 | Contract: role child, access:* and sessions:self scopes, acce… | todo | – | – |
@@ -358,7 +381,7 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-SYS-6 | Wi-Fi and static IP with automatic revert | todo | – | – |
 | UMB-SYS-8 | Factory reset as a critical action | todo | – | – |
 | UMB-SYS-10 | Restart and shut down a node | todo | – | – |
-| UMB-MACH-1 | Machines lab kit and feasibility (LT-MACH-1…3) | todo | – | – |
+| UMB-MACH-1 | Machines lab kit and feasibility (LT-MACH-1…3) | review | spike/machines | – |
 
 #### UMB in S3
 

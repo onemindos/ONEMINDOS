@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-// Local notifications (expo-notifications). v0 has no remote push: alerts are
-// raised by the app's own poll while it runs. See README "Notifications".
+// Local notifications (expo-notifications): what the app shows itself, with text it read from the
+// box over HTTPS. Remote pings (mobile/docs/push.md) carry no text; while the app is open their
+// generic banner is suppressed and the app shows the real text instead.
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import type { Alert } from './lib/alerts';
+import { parsePing } from './lib/push';
 import { TOUR_ROLE } from './tour';
 
 let configured = false;
@@ -13,12 +15,10 @@ export async function setupNotifications(): Promise<boolean> {
   if (!configured) {
     configured = true;
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: false,
-        shouldSetBadge: false,
-      }),
+      handleNotification: async (n) => {
+        const ping = parsePing(n.request.content.data) !== undefined;
+        return { shouldShowBanner: !ping, shouldShowList: !ping, shouldPlaySound: false, shouldSetBadge: false };
+      },
     });
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('hub', {
