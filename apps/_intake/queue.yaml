@@ -12,3 +12,4 @@
 - {name: Nextcloud, github: nextcloud/server, priority: 1, status: in-pr, notes: "market batch 1"}
 - {name: Immich, github: immich-app/immich, priority: 1, status: in-pr, notes: "market batch 1"}
 - {name: Syncthing, github: syncthing/syncthing, priority: 1, status: in-pr, notes: "market batch 1"}
+- {name: Paperless-ngx, github: paperless-ngx/paperless-ngx, priority: 1, status: in-pr, notes: "market batch 1"}

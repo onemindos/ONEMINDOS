@@ -1,0 +1,214 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/paperless-ngx/paperless-ngx (contract §9.2),
+# then completed from upstream at tag v3.4.2: docker/compose/docker-compose.postgres.yml (broker
+# valkey:9, db postgres:18, webserver), docker-compose.env, the Dockerfile (EXPOSE 8000, HEALTHCHECK
+# curl http://localhost:8000), docs/setup.md ("Rootless", "_FILE" settings) and
+# docs/configuration.md (PAPERLESS_SECRET_KEY is required).
+#
+# One pod, three containers. PostgreSQL and Valkey are native sidecars that start first and
+# listen on 127.0.0.1 only, so nothing outside this pod can reach them: PostgreSQL trusts local
+# connections and no database password or Secret exists. Tika and Gotenberg (Office documents
+# and e-mail) are optional upstream and not packaged.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: paperless-ngx
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: paperless-ngx
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: paperless-ngx
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # docs/setup.md "Rootless": set the container user to any UID and GID; "the container
+      # process starts directly as that user with no internal privilege remapping".
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # PAPERLESS_SECRET_KEY has no default and Paperless refuses to start without it. It is
+        # generated once onto the data volume and read through PAPERLESS_SECRET_KEY_FILE
+        # (docs/setup.md: any setting can be read from a file with the _FILE suffix). This step
+        # also creates the subPath directories as the app user: the kubelet would create a missing
+        # subPath as root, which the app cannot write on volumes without fsGroup (k3s local-path).
+        - name: secret-key
+          image: ghcr.io/paperless-ngx/paperless-ngx:3.4.2@sha256:d704e84f88300eb6ab001ab15720a2330ff99169cf9f94d6b8fcc44b63a84c84
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              mkdir -p /mnt/data /mnt/media /mnt/consume /mnt/export
+              f=/mnt/data/onemind-secret-key
+              if [ ! -s "$f" ]; then
+                umask 077
+                head -c 96 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 64 > "$f"
+              fi
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /mnt
+        - name: db
+          image: docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+          restartPolicy: Always
+          args: ["postgres", "-c", "listen_addresses=127.0.0.1"]
+          env:
+            - name: POSTGRES_DB
+              value: paperless
+            - name: POSTGRES_USER
+              value: paperless
+            # Only 127.0.0.1 and the pod's own socket reach this server.
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: trust
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "paperless", "-d", "paperless"]
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "paperless", "-d", "paperless"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: db
+              mountPath: /var/lib/postgresql
+        - name: broker
+          image: docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
+          restartPolicy: Always
+          args: ["valkey-server", "--bind", "127.0.0.1"]
+          startupProbe:
+            exec:
+              command: ["valkey-cli", "-h", "127.0.0.1", "ping"]
+            periodSeconds: 2
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: broker
+              mountPath: /data
+      containers:
+        - name: webserver
+          image: ghcr.io/paperless-ngx/paperless-ngx:3.4.2@sha256:d704e84f88300eb6ab001ab15720a2330ff99169cf9f94d6b8fcc44b63a84c84
+          env:
+            - name: PAPERLESS_REDIS
+              value: redis://127.0.0.1:6379
+            - name: PAPERLESS_DBENGINE
+              value: postgresql
+            - name: PAPERLESS_DBHOST
+              value: 127.0.0.1
+            - name: PAPERLESS_DBNAME
+              value: paperless
+            - name: PAPERLESS_DBUSER
+              value: paperless
+            - name: PAPERLESS_SECRET_KEY_FILE
+              value: /usr/src/paperless/data/onemind-secret-key
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          # Migrations run on the first start. GET / is what the image HEALTHCHECK requests; it
+          # redirects to the login page, which the kubelet counts as success.
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream publishes no sizing. OCR of large scans is the peak; a OneMind choice.
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /usr/src/paperless/data
+              subPath: data
+            - name: data
+              mountPath: /usr/src/paperless/media
+              subPath: media
+            - name: data
+              mountPath: /usr/src/paperless/consume
+              subPath: consume
+            - name: data
+              mountPath: /usr/src/paperless/export
+              subPath: export
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: paperless-ngx-data
+        - name: db
+          persistentVolumeClaim:
+            claimName: paperless-ngx-db
+        # Celery's queue. Lost tasks after a pod restart are re-created: the consumer re-scans
+        # consume/ on start.
+        - name: broker
+          emptyDir:
+            sizeLimit: 256Mi

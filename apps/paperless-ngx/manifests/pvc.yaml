@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# paperless-ngx-data: the image's four VOLUMEs as subPaths of one claim: data/ (search index,
+# classifier, generated secret key), media/ (originals and archived PDFs), consume/ (inbox) and
+# export/ (document_exporter output). paperless-ngx-db:
+# /var/lib/postgresql (PostgreSQL 18 keeps PGDATA in 18/docker below it). 20Gi and 5Gi are
+# OneMind choices. No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: paperless-ngx-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: paperless-ngx-db
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
