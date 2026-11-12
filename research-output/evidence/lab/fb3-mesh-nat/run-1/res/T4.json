@@ -1,0 +1,10 @@
+{
+  "id": "T4",
+  "verdict": "PASS",
+  "detail": {
+    "allowed_b_9001_ok": 3,
+    "denied_b_9002_blocked": 3,
+    "denied_hub_9002_blocked": 3,
+    "attempts": 3
+  }
+}

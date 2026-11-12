@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/dani-garcia/vaultwarden (contract §9.2), then
+# completed from upstream at tag 1.37.5: README.md "Docker/Podman CLI", docker/Dockerfile.debian,
+# docker/healthcheck.sh, .env.template, and the wiki page "Running docker container with non-root user".
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vaultwarden
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  # The default database is SQLite (DATA_FOLDER/db.sqlite3) on a ReadWriteOnce volume: one writer,
+  # so the old pod stops before the new one starts.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vaultwarden
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vaultwarden
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # The image runs as root by default. The upstream wiki documents running it as any user
+      # (its example is `--user nobody`, UID 65534) with ROCKET_PORT at 1024 or higher and a
+      # data directory that user can write; fsGroup makes the volume writable.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: vaultwarden
+          image: docker.io/vaultwarden/server:1.37.5@sha256:4fe17f415f90087377d37c755e0ea3cf189dcc6794e49cdd2a9adbb4937d9e1f
+          env:
+            # Default in the container is 80 (Dockerfile EXPOSE 80), which a non-root process
+            # cannot bind without NET_BIND_SERVICE; 8080 keeps all capabilities dropped.
+            - name: ROCKET_PORT
+              value: "8080"
+            - name: DATA_FOLDER
+              value: /data
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          # GET /alive is the endpoint the image's own HEALTHCHECK (docker/healthcheck.sh) calls.
+          readinessProbe:
+            httpGet:
+              path: /alive
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream publishes no sizing. These limits are a OneMind choice with headroom over the
+          # usage measured in the smoke test (see README "Packaging notes").
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: vaultwarden-data

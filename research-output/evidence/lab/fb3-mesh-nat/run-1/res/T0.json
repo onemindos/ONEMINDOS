@@ -1,0 +1,10 @@
+{
+  "id": "T0",
+  "verdict": "PASS",
+  "detail": {
+    "pinned_hash_matches": 5,
+    "upstream_checksum_file_matches": 4,
+    "versions": "== versions;go version go1.27.4 linux/arm64;headscale version v0.29.7;commit: c9cf210b8bc84d13177e18b91f555788a44b47b6;build time: 2026-10-30T09:33:17Z;1.104.6;1.104.6;1.104.6-ERR-BuildInfo;nats-server: v2.15.2;0.5.1;",
+    "derper_built_sha256": "12ab8be0740e98645412926e33fe521a605af4f63f84054c586680dbbfc28fca"
+  }
+}

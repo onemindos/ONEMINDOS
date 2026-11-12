@@ -1,0 +1,16 @@
+{
+  "id": "T1c",
+  "verdict": "PASS",
+  "detail": {
+    "forward_rules": 0,
+    "wan_new_accepts": 0,
+    "direct_udp_packets_natA_wan": 31,
+    "outside_scans_no_answer": true,
+    "home_udp_flows_checked": 6,
+    "home_flows_originated_outside": {
+      "a": 0,
+      "b": 0
+    },
+    "wan_new_drop_counters": "packets 4114 packets 0 packets 4113 packets 0 "
+  }
+}

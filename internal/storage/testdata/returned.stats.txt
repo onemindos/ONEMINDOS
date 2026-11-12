@@ -1,0 +1,10 @@
+[/dev/mapper/onemind-data-vdb].write_io_errs    0
+[/dev/mapper/onemind-data-vdb].read_io_errs     0
+[/dev/mapper/onemind-data-vdb].flush_io_errs    0
+[/dev/mapper/onemind-data-vdb].corruption_errs  0
+[/dev/mapper/onemind-data-vdb].generation_errs  0
+[/dev/mapper/onemind-data-vdc].write_io_errs    0
+[/dev/mapper/onemind-data-vdc].read_io_errs     0
+[/dev/mapper/onemind-data-vdc].flush_io_errs    0
+[/dev/mapper/onemind-data-vdc].corruption_errs  0
+[/dev/mapper/onemind-data-vdc].generation_errs  0

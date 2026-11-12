@@ -1,0 +1,30 @@
+[INF] 100.64.0.2:51814 - lid:25 - Leafnode connection created 
+[ERR] 100.64.0.2:51814 - lid:25 - TLS leafnode handshake error: EOF
+[INF] 100.64.0.2:51814 - lid:25 - Leafnode connection closed: TLS Handshake Failure
+[INF] 100.64.0.2:51822 - lid:26 - Leafnode connection created 
+[ERR] 100.64.0.2:51822 - lid:26 - authentication error - User "leaf-home-a"
+[INF] 100.64.0.2:51822 - lid:26 - Leafnode connection closed: Authentication Failure
+[INF] 100.64.0.2:51824 - lid:27 - Leafnode connection created 
+[ERR] 100.64.0.2:51824 - lid:27 - authentication error - User "leaf-home-a"
+[INF] 100.64.0.2:51824 - lid:27 - Leafnode connection closed: Authentication Failure
+[INF] 100.64.0.2:51828 - lid:28 - Leafnode connection created 
+[ERR] 100.64.0.2:51828 - lid:28 - authentication error - User "leaf-home-a"
+[INF] 100.64.0.2:51828 - lid:28 - Leafnode connection closed: Authentication Failure
+[INF] 100.64.0.2:51840 - lid:29 - Leafnode connection created 
+[ERR] 100.64.0.2:51840 - lid:29 - authentication error - User "leaf-home-a"
+[INF] 100.64.0.2:51840 - lid:29 - Leafnode connection closed: Authentication Failure
+[INF] 100.64.0.2:41364 - lid:30 - Leafnode connection created 
+[ERR] 100.64.0.2:41364 - lid:30 - authentication error - User "leaf-home-a"
+[INF] 100.64.0.2:41364 - lid:30 - Leafnode connection closed: Authentication Failure
+[INF] 100.64.0.2:41368 - lid:31 - Leafnode connection created 
+[ERR] 100.64.0.2:41368 - lid:31 - authentication error - User "leaf-home-a"
+[INF] 100.64.0.2:41368 - lid:31 - Leafnode connection closed: Authentication Failure
+[INF] 100.64.0.2:41380 - lid:32 - Leafnode connection created 
+[ERR] 100.64.0.2:41380 - lid:32 - authentication error - User "leaf-home-a"
+[INF] 100.64.0.2:41380 - lid:32 - Leafnode connection closed: Authentication Failure
+[INF] 100.64.0.2:41388 - lid:33 - Leafnode connection created 
+[ERR] 100.64.0.2:41388 - lid:33 - authentication error - User "leaf-home-a"
+[INF] 100.64.0.2:41388 - lid:33 - Leafnode connection closed: Authentication Failure
+[INF] 100.64.0.2:41390 - lid:34 - Leafnode connection created 
+[ERR] 100.64.0.2:41390 - lid:34 - authentication error - User "leaf-home-a"
+[INF] 100.64.0.2:41390 - lid:34 - Leafnode connection closed: Authentication Failure
