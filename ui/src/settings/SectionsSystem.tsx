@@ -2,6 +2,7 @@
 // Settings sections about the machines: Devices & nodes, Network & mesh, Storage, About.
 import { useState } from 'react';
 import { formatAgo, formatDay, formatIn, secondsSince } from '../lib/time';
+import { BRAND } from '../components/BrandMark';
 import { Button } from '../components/Button';
 import { FreshnessPill, StatusPill } from '../components/StatusPill';
 import { Meter } from '../components/Meter';
@@ -277,7 +278,7 @@ export function AboutSection({ data, now, onIntent, onRetry }: SectionProps<Abou
           <>
             <div className="om-set-facts">
               <Fact label="Name" value={d.box} />
-              <Fact label="OneMind OS" value={d.version} />
+              <Fact label={BRAND.name} value={d.version} />
               <Fact label="Base" value={d.base} />
               <Fact label="Up for" value={uptime(d.uptime_s)} />
             </div>
