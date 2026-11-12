@@ -204,9 +204,9 @@
 | CORE-WEB-2 | Generated references: CLI, API, schema, errors | todo | – | – |
 | CORE-WEB-3 | Apps catalog with scan history | todo | – | – |
 | PLAN-E10 | Pi 5 image (G2): RAUC + tryboot, signed image, wizard | todo | – | – |
-| FILES-2 | Gateway file API: Home/Shared spaces by role, browse, preview, ranged downloads, moves, trash, quotas ([FILES.md](core/FILES.md)) | in-progress | `feat/files` | – (local) |
-| FILES-1 | Resumable uploads (tus, sha256 checks) and confined paths, in the gateway; node file server in `onemindd` still todo | in-progress | `feat/files` | – (local) |
-| FILES-6 | Folder grants to apps and agents behind owner approval; executor mount hook and MCP tools todo | in-progress | `feat/files` | – (local) |
+| FILES-2 | Gateway file API: Home/Shared spaces by role, browse, preview, ranged downloads, moves, trash, quotas ([FILES.md](core/FILES.md)) | review | `feat/files` | – (local) |
+| FILES-1 | Resumable uploads (tus, sha256 checks) and confined paths, in the gateway; node file server in `onemindd` still todo | review | `feat/files` | – (local) |
+| FILES-6 | Folder grants to apps and agents behind owner approval; executor mount hook and MCP tools todo | review | `feat/files` | – (local) |
 | FILES-4 | Files page in the dashboard (API: [FILES.md](core/FILES.md)) | todo | – | – |
 
 ### S3: automation, plugin SDK v0, website launch, dogfood migration (weeks 9–13)

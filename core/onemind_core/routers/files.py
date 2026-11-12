@@ -189,25 +189,25 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.on_startup(housekeeping)
 
     # -- browse --
-    @app.get("/v1/files/roots", tags=TAG, responses=errs(401, 503))
+    @app.get("/v1/files/roots", operation_id="files.roots.list", tags=TAG, responses=errs(401, 503))
     def roots(p: Principal = Depends(principal)):
         return svc.roots(p)
 
-    @app.get("/v1/files/list", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
+    @app.get("/v1/files/list", operation_id="files.list", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
     def list_folder(request: Request, root: str = Query(max_length=220), path: str = Query("/", max_length=4096),
                     limit: int = Query(100, ge=1, le=500), cursor: str | None = Query(None, max_length=64),
                     p: Principal = Depends(principal)):
         return paginate(request, svc.list(p, root, path), limit, cursor)
 
-    @app.get("/v1/files/stat", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
+    @app.get("/v1/files/stat", operation_id="files.stat", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
     def stat(root: str = Query(max_length=220), path: str = Query("/", max_length=4096), p: Principal = Depends(principal)):
         return svc.stat(p, root, path)
 
-    @app.get("/v1/files/preview", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
+    @app.get("/v1/files/preview", operation_id="files.preview", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
     def preview(root: str = Query(max_length=220), path: str = Query(max_length=4096), p: Principal = Depends(principal)):
         return svc.preview(p, root, path)
 
-    @app.get("/v1/files/download", tags=TAG, responses={206: {"description": "Partial content (Range)"},
+    @app.get("/v1/files/download", operation_id="files.download", tags=TAG, responses={206: {"description": "Partial content (Range)"},
                                                          **errs(401, 403, 404, 409, 416, 422, 503)})
     def download(request: Request, root: str = Query(max_length=220), path: str = Query(max_length=4096),
                  inline: bool = False, p: Principal = Depends(principal)):
@@ -253,7 +253,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return StreamingResponse(body(), status_code=status, media_type=media, headers=headers)
 
     # -- data-plane writes --
-    @app.post("/v1/files/ops", tags=TAG, responses=errs(401, 403, 404, 409, 413, 422, 503))
+    @app.post("/v1/files/ops", operation_id="files.ops", tags=TAG, responses=errs(401, 403, 404, 409, 413, 422, 503))
     def ops(body: OpBody, p: Principal = Depends(principal)):
         if body.op == "mkdir":
             return svc.mkdir(p, body.root, body.path)
@@ -269,17 +269,17 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise FilesError(422, "conflict", "restore_trash needs trash_id", reason="invalid_request")
         return svc.restore_trash(p, body.trash_id, body.to_root, body.to_path)
 
-    @app.get("/v1/files/trash", tags=TAG, responses=errs(401, 403, 503))
+    @app.get("/v1/files/trash", operation_id="files.trash.list", tags=TAG, responses=errs(401, 403, 503))
     def trash(request: Request, trash: Literal["home", "shared"] = "home", limit: int = Query(100, ge=1, le=500),
               cursor: str | None = Query(None, max_length=64), p: Principal = Depends(principal)):
         return paginate(request, svc.list_trash(p, trash), limit, cursor)
 
     # -- quotas --
-    @app.get("/v1/files/quotas", tags=TAG, responses=errs(401, 403, 503))
+    @app.get("/v1/files/quotas", operation_id="files.quotas.list", tags=TAG, responses=errs(401, 403, 503))
     def quotas(p: Principal = Depends(principal)):
         return svc.list_quotas(p)
 
-    @app.put("/v1/files/quotas/{person_id}", tags=TAG, responses=errs(401, 403, 422, 503))
+    @app.put("/v1/files/quotas/{person_id}", operation_id="files.quotas.set", tags=TAG, responses=errs(401, 403, 422, 503))
     def set_quota(person_id: str, body: QuotaBody, p: Principal = Depends(principal)):
         return svc.set_quota(p, person_id, body.limit_bytes)
 
@@ -291,60 +291,60 @@ def register(app: FastAPI, gw: Gateway) -> None:
             headers["OneMind-Idempotent-Replay"] = "true"
         return JSONResponse(req, status_code=202, headers=headers)
 
-    @app.post("/v1/files/grants", tags=TAG, status_code=202, responses=errs(401, 403, 404, 409, 422, 429, 503))
+    @app.post("/v1/files/grants", operation_id="files.grants.request", tags=TAG, status_code=202, responses=errs(401, 403, 404, 409, 422, 429, 503))
     def request_grant(request: Request, body: GrantBody, idem: IdemKey = None, p: Principal = Depends(principal)):
         params = {"subject": body.subject.model_dump(), "root": body.root, "path": body.path,
                   "access": body.access, "slot": body.slot}
         return filed(svc.create_request(p, "files.grant.create", params, reason=body.reason, expires_at=body.expires_at,
                                         approve=body.approve, idempotency_key=idem, http_request=request))
 
-    @app.post("/v1/files/trash/empty", tags=TAG, status_code=202, responses=errs(401, 403, 409, 422, 429, 503))
+    @app.post("/v1/files/trash/empty", operation_id="files.trash.empty", tags=TAG, status_code=202, responses=errs(401, 403, 409, 422, 429, 503))
     def request_trash_empty(request: Request, body: TrashEmptyBody = Body(default_factory=TrashEmptyBody),
                             idem: IdemKey = None, p: Principal = Depends(principal)):
         return filed(svc.create_request(p, "files.trash.empty", {"trash": body.trash}, reason=body.reason,
                                         expires_at=body.expires_at, approve=body.approve, idempotency_key=idem,
                                         http_request=request))
 
-    @app.get("/v1/files/requests", tags=TAG, responses=errs(401))
+    @app.get("/v1/files/requests", operation_id="files.requests.list", tags=TAG, responses=errs(401))
     def list_requests(request: Request, state: str | None = Query(None, max_length=100),
                       limit: int = Query(100, ge=1, le=500), cursor: str | None = Query(None, max_length=64),
                       p: Principal = Depends(principal)):
         return paginate(request, svc.list_requests(p, state), limit, cursor)
 
-    @app.get("/v1/files/requests/{request_id}", tags=TAG, responses=errs(401, 404))
+    @app.get("/v1/files/requests/{request_id}", operation_id="files.requests.get", tags=TAG, responses=errs(401, 404))
     def get_request(request_id: str, p: Principal = Depends(principal)):
         return svc.get_request(p, request_id)
 
-    @app.post("/v1/files/requests/{request_id}/approve", tags=TAG, responses=errs(401, 403, 404, 409))
+    @app.post("/v1/files/requests/{request_id}/approve", operation_id="files.requests.approve", tags=TAG, responses=errs(401, 403, 404, 409))
     def approve(request: Request, request_id: str, body: ApproveBody = Body(default_factory=ApproveBody),
                 p: Principal = Depends(principal)):
         return svc.approve(p, request_id, body=body.model_dump(exclude_none=True), http_request=request)
 
-    @app.post("/v1/files/requests/{request_id}/deny", tags=TAG, responses=errs(401, 403, 404, 409))
+    @app.post("/v1/files/requests/{request_id}/deny", operation_id="files.requests.deny", tags=TAG, responses=errs(401, 403, 404, 409))
     def deny(request_id: str, body: DenyBody = Body(default_factory=DenyBody), p: Principal = Depends(principal)):
         return svc.deny(p, request_id, body.reason)
 
-    @app.post("/v1/files/requests/{request_id}/cancel", tags=TAG, responses=errs(401, 404, 409))
+    @app.post("/v1/files/requests/{request_id}/cancel", operation_id="files.requests.cancel", tags=TAG, responses=errs(401, 404, 409))
     def cancel(request_id: str, p: Principal = Depends(principal)):
         return svc.cancel(p, request_id)
 
-    @app.get("/v1/files/grants", tags=TAG, responses=errs(401))
+    @app.get("/v1/files/grants", operation_id="files.grants.list", tags=TAG, responses=errs(401))
     def list_grants(include_revoked: bool = False, p: Principal = Depends(principal)):
         return svc.list_grants(p, include_revoked)
 
-    @app.delete("/v1/files/grants/{grant_id}", tags=TAG, responses=errs(401, 404, 409))
+    @app.delete("/v1/files/grants/{grant_id}", operation_id="files.grants.revoke", tags=TAG, responses=errs(401, 404, 409))
     def revoke_grant(grant_id: str, p: Principal = Depends(principal)):
         return svc.revoke_grant(p, grant_id)
 
     # -- resumable uploads (tus 1.0.0) --
-    @app.options("/v1/files/uploads", tags=TAG)
+    @app.options("/v1/files/uploads", operation_id="files.uploads.options", tags=TAG)
     def tus_options():
         return Response(status_code=204, headers=tus_headers(**{
             "Tus-Version": TUS_VERSION, "Tus-Extension": TUS_EXTENSIONS, "Tus-Checksum-Algorithm": "sha256",
             "Tus-Max-Size": str(svc.settings.upload_max_bytes),
         }))
 
-    @app.post("/v1/files/uploads", tags=TAG, status_code=201, responses=errs(401, 403, 404, 409, 412, 413, 422, 503))
+    @app.post("/v1/files/uploads", operation_id="files.uploads.create", tags=TAG, status_code=201, responses=errs(401, 403, 404, 409, 412, 413, 422, 503))
     def tus_create(upload_length: Annotated[int | None, Header()] = None,
                    upload_metadata: Annotated[str | None, Header(max_length=8192)] = None,
                    repr_digest: Annotated[str | None, Header(max_length=300)] = None,
@@ -356,7 +356,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             "Upload-Expires": http_date(aware(row.expires_at)),
         }))
 
-    @app.head("/v1/files/uploads/{upload_id}", tags=TAG, responses=errs(401, 404, 412))
+    @app.head("/v1/files/uploads/{upload_id}", operation_id="files.uploads.head", tags=TAG, responses=errs(401, 404, 412))
     def tus_head(upload_id: str, tus_resumable: Annotated[str | None, Header()] = None, p: Principal = Depends(principal)):
         require_tus(tus_resumable)
         row = uploads.get(p, upload_id)
@@ -365,11 +365,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
             "Upload-Expires": http_date(aware(row.expires_at)),
         }))
 
-    @app.get("/v1/files/uploads/{upload_id}", tags=TAG, responses=errs(401, 404))
+    @app.get("/v1/files/uploads/{upload_id}", operation_id="files.uploads.status", tags=TAG, responses=errs(401, 404))
     def upload_status(upload_id: str, p: Principal = Depends(principal)):
         return uploads.json(uploads.get(p, upload_id))
 
-    @app.patch("/v1/files/uploads/{upload_id}", tags=TAG, status_code=204,
+    @app.patch("/v1/files/uploads/{upload_id}", operation_id="files.uploads.patch", tags=TAG, status_code=204,
                responses=errs(401, 404, 409, 412, 413, 460, 503))
     async def tus_patch(request: Request, upload_id: str, upload_offset: Annotated[int | None, Header()] = None,
                         upload_checksum: Annotated[str | None, Header(max_length=200)] = None,
@@ -398,7 +398,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             **({"OneMind-File-Sha256": row.sha256} if row.state == "done" and row.sha256 else {}),
         }))
 
-    @app.delete("/v1/files/uploads/{upload_id}", tags=TAG, status_code=204, responses=errs(401, 404, 409, 412))
+    @app.delete("/v1/files/uploads/{upload_id}", operation_id="files.uploads.delete", tags=TAG, status_code=204, responses=errs(401, 404, 409, 412))
     def tus_delete(upload_id: str, tus_resumable: Annotated[str | None, Header()] = None, p: Principal = Depends(principal)):
         require_tus(tus_resumable)
         uploads.terminate(p, upload_id)
