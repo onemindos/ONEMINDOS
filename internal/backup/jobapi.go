@@ -128,11 +128,12 @@ func (a *Agent) runJobKind(ctx context.Context, j Job) (any, error) {
 
 	case KindRun:
 		var p struct {
-			Reason   string     `json:"reason"`
-			Units    []string   `json:"units"`
-			Apps     *[]AppSpec `json:"apps"`
-			TargetID string     `json:"target_id"`
-			RunID    string     `json:"run_id"`
+			Reason    string     `json:"reason"`
+			Units     []string   `json:"units"`
+			SkipUnits []string   `json:"skip_units"` // all units but these (apps whose hooks failed)
+			Apps      *[]AppSpec `json:"apps"`
+			TargetID  string     `json:"target_id"`
+			RunID     string     `json:"run_id"`
 		}
 		if err := decodeParams(j.Params, &p); err != nil {
 			return nil, err
@@ -145,8 +146,27 @@ func (a *Agent) runJobKind(ctx context.Context, j Job) (any, error) {
 				return nil, err
 			}
 		}
+		units := p.Units
+		if len(units) == 0 && len(p.SkipUnits) > 0 {
+			all, err := a.Units(ctx)
+			if err != nil {
+				return nil, err
+			}
+			skip := map[string]bool{}
+			for _, u := range p.SkipUnits {
+				skip[u] = true
+			}
+			for _, u := range all {
+				if !skip[u.Name] {
+					units = append(units, u.Name)
+				}
+			}
+			if len(units) == 0 {
+				return nil, errors.New("every unit was skipped")
+			}
+		}
 		return a.Run(ctx, RunRequest{ID: p.RunID, Reason: p.Reason, ActionID: j.ActionID, TargetID: p.TargetID,
-			Units: p.Units, Wait: true})
+			Units: units, Wait: true})
 
 	case KindSnapshots:
 		var p struct {

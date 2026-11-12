@@ -312,3 +312,20 @@ func TestUnsignedJobIsRefused(t *testing.T) {
 		t.Fatalf("unsigned job: %d %s", w.Code, w.Body)
 	}
 }
+
+func TestRunSkipsUnitsTheGatewayCouldNotPrepare(t *testing.T) {
+	m := newManagedFixture(t)
+	m.ok(t, KindConfigure, usbTarget())
+	r := m.ok(t, KindRun, map[string]any{"reason": "manual", "apps": []AppSpec{notesApp}, "skip_units": []string{"app:notes"}})
+	b, _ := json.Marshal(r.Result)
+	var run Run
+	_ = json.Unmarshal(b, &run)
+	for _, u := range run.Units {
+		if u.Unit == "app:notes" {
+			t.Fatalf("a skipped unit was backed up: %+v", run.Units)
+		}
+	}
+	if len(run.Units) == 0 {
+		t.Fatal("the other units must still run")
+	}
+}
