@@ -18,6 +18,7 @@ Branches with work that is not on `main` yet (as of 2026-11-12):
 | `feat/core-net` | – | Internal networking and mesh: a WireGuard mesh with a self-hosted Headscale coordinator and relay, NATS leaf links with TLS and per-node credentials, the app reverse proxy with login, a per-box CA, and the NAT lab test |
 | `feat/ui-leap` | – | UI leap: umbrelOS parity audit, customization (themes, accents, wallpapers, density), Home with widgets and dock, App Store with install progress and app management, command palette, notifications, onboarding, and Settings |
 | `feat/app-taxonomy` | – | App and deployment categories (`docs/design/TAXONOMY.md`), applied to the candidate list |
+| `feat/market-batch-2-3` | – | Market batches 2 and 3: 17 apps (Memos, Jellyfin, FreshRSS, Audiobookshelf, Calibre-Web, Ghost with MySQL, PhotoPrism with MariaDB, OpenClaw, Trilium, Karakeep with Meilisearch, Navidrome, Sonarr, Radarr, ESPHome, code-server, HomeBox, Prowlarr), all non-root with probes, limits and volumes, tier `community` until CI scans them. Stirling-PDF, Docmost and Duplicati are queued as licence-blocked: their images ship code under licences that forbid redistribution |
 
 ## 2026-11-12
 
