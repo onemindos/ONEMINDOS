@@ -26,6 +26,7 @@ The Market lists `minMemoryMb: 64`, no GPU.
 
 | Workload | Container | Requests (CPU / memory) | Limits (CPU / memory) |
 |---|---|---|---|
+| Deployment/homebox | secret | 10m / 16Mi | 200m / 64Mi |
 | Deployment/homebox | homebox | 50m / 64Mi | 1 / 512Mi |
 
 Storage: PVC `homebox-data` 5Gi.

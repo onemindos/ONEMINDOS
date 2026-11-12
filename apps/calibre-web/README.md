@@ -26,7 +26,6 @@ The Market lists `minMemoryMb: 192`, no GPU.
 
 | Workload | Container | Requests (CPU / memory) | Limits (CPU / memory) |
 |---|---|---|---|
-| Deployment/calibre-web | library | 10m / 32Mi | 200m / 128Mi |
 | Deployment/calibre-web | calibre-web | 50m / 192Mi | 1 / 768Mi |
 
 Storage: PVC `calibre-web-books` 20Gi, PVC `calibre-web-config` 1Gi.
