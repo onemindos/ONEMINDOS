@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The two apps actually run in each engine: sign in, move through the main navigation, sign out.
 import { expect, test } from '@playwright/test';
-import { DASH_TOKEN, DASH_URL, FIXED_TIME, UI_URL, watchErrors } from './screens';
+import { DASH_TOKEN, DASH_URL, FIXED_TIME, UI_URL, stillFrames, watchErrors } from './screens';
 
 test('dashboard: bad token refused, demo owner signs in, navigates and signs out', async ({ page }) => {
   const errors = watchErrors(page);
@@ -39,6 +39,7 @@ test('ui demo: every main navigation entry opens its screen', async ({ page }) =
   const errors = watchErrors(page);
   await page.clock.setFixedTime(FIXED_TIME);
   await page.goto(`${UI_URL}?theme=light#/home`);
+  await stillFrames(page);
   const nav = page.getByRole('navigation', { name: 'Main', exact: true });
   await expect(nav).toBeVisible();
   // ui/demo/src/DemoApp.tsx NAV

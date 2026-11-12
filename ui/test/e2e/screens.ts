@@ -3,6 +3,7 @@
 // A new demo route or dashboard page gets a line here, so axe and the console check cover it.
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, type TestInfo } from '@playwright/test';
+import type { KnownFinding } from './known-a11y';
 
 export const UI_URL = 'http://127.0.0.1:4173/';
 export const DASH_URL = 'http://127.0.0.1:4174/';
@@ -88,6 +89,7 @@ export async function open(page: Page, s: Screen, theme: Theme): Promise<void> {
     await page.addInitScript((token) => window.sessionStorage.setItem('onemind.token', token), DASH_TOKEN);
   }
   await page.goto(urlFor(s, theme));
+  await stillFrames(page);
   if (s.target === 'ui') {
     await expect(page.locator('#om-main')).toBeVisible();
   } else {
@@ -96,6 +98,17 @@ export async function open(page: Page, s: Screen, theme: Theme): Promise<void> {
     await expect(page.getByRole('status').filter({ hasText: /^Loading / })).toHaveCount(0);
   }
   await settle(page);
+}
+
+// WebKit on the Linux runner stops completing frames once the blurred wallpaper and the frosted-glass
+// surfaces (filter / backdrop-filter blur) are on screen: clicks never pass Playwright's stability check
+// and screenshots never settle (docs/testing/CI-MATRIX.md §1.5, WK-1). WebKit visits run with blur off.
+const NO_BLUR_CSS =
+  '*, *::before, *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }\n' +
+  '.om-cz-wallpaper-img { filter: none !important; }';
+
+export async function stillFrames(page: Page): Promise<void> {
+  if (page.context().browser()?.browserType().name() === 'webkit') await page.addStyleTag({ content: NO_BLUR_CSS });
 }
 
 export async function settle(page: Page): Promise<void> {
@@ -109,15 +122,22 @@ const BLOCKING = new Set(['serious', 'critical']);
 
 /**
  * Runs axe-core (every rule axe enables by default: WCAG 2.0-2.2 A/AA plus best practices) and fails
- * on serious or critical findings. The full result is attached to the report either way, so
- * moderate and minor findings stay visible without blocking.
+ * on serious or critical findings, except the listed known findings (e2e/known-a11y.ts), which must
+ * still reproduce. The full result is attached to the report either way, so moderate and minor
+ * findings stay visible without blocking.
  */
-export async function expectNoSeriousAxeViolations(page: Page, testInfo: TestInfo): Promise<void> {
+export async function expectNoSeriousAxeViolations(page: Page, testInfo: TestInfo, known: KnownFinding[] = []): Promise<void> {
   const results = await new AxeBuilder({ page }).analyze();
   await testInfo.attach('axe-results.json', { body: JSON.stringify(results, null, 2), contentType: 'application/json' });
-  const blocking = results.violations.filter((v) => BLOCKING.has(v.impact ?? ''));
-  const lines = blocking.map(
-    (v) => `${v.impact} ${v.id}: ${v.help} (${v.helpUrl})\n${v.nodes.slice(0, 5).map((n) => `    ${n.target.join(' ')}`).join('\n')}`,
-  );
-  expect(lines, `axe found ${blocking.length} serious/critical violation(s):\n${lines.join('\n')}`).toEqual([]);
+  const found = results.violations
+    .filter((v) => BLOCKING.has(v.impact ?? ''))
+    .flatMap((v) => v.nodes.map((n) => ({ rule: v.id, impact: v.impact, help: v.help, url: v.helpUrl, target: n.target.join(' ') })));
+  const isKnown = (f: { rule: string; target: string }) => known.find((k) => k.rule === f.rule && k.target === f.target);
+  const unexpected = found.filter((f) => !isKnown(f)).map((f) => `${f.impact} ${f.rule}: ${f.help} (${f.url})\n    ${f.target}`);
+  const fixed = known
+    .filter((k) => !found.some((f) => f.rule === k.rule && f.target === k.target))
+    .map((k) => `${k.id} (${k.rule} on ${k.target}) no longer reproduces: delete it from e2e/known-a11y.ts`);
+  for (const k of known) testInfo.annotations.push({ type: 'known-a11y', description: `${k.id} ${k.rule}: ${k.why}` });
+  expect(unexpected, `axe found ${unexpected.length} serious/critical violation(s):\n${unexpected.join('\n')}`).toEqual([]);
+  expect(fixed, fixed.join('\n')).toEqual([]);
 }
