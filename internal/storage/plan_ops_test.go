@@ -5,6 +5,7 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -257,5 +258,21 @@ func TestInitStepsKeepKeysOffDisk(t *testing.T) {
 		if !strings.Contains(c, w) {
 			t.Errorf("missing %q in\n%s", w, c)
 		}
+	}
+}
+
+func TestShowCountsUnmountedMissing(t *testing.T) {
+	// Recorded in the Debian 13 VM lab (log 27): an unmounted set does not list the missing devid.
+	out := "Label: 'onemind-data'  uuid: f587b105-7dd7-49f2-ae22-975c78079dbd\n" +
+		"\tTotal devices 3 FS bytes used 2099625984\n" +
+		"\tdevid    1 size 4277121024 used 3374252032 path /dev/mapper/onemind-data-64abeb67\n" +
+		"\tdevid    3 size 4277121024 used 301989888 path /dev/mapper/onemind-data-a3e280b6\n" +
+		"\t*** Some devices missing\n"
+	if total, present, err := ShowCounts([]byte(out)); err != nil || total != 3 || present != 2 {
+		t.Errorf("%d %d %v", total, present, err)
+	}
+	b, _ := os.ReadFile("testdata/degraded-mounted.show.txt") // mounted: listed as MISSING
+	if total, present, err := ShowCounts(b); err != nil || total != 2 || present != 1 {
+		t.Errorf("mounted: %d %d %v", total, present, err)
 	}
 }

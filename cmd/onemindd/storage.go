@@ -21,6 +21,7 @@ import (
 const storageUsage = `usage:
   onemindd storage serve [--socket PATH] [--mount DIR] [--group NAME] [--journal DIR]
   onemindd storage init --device PART [--tpm2 auto|yes|no] [--force] [--print-recovery-key]
+  onemindd storage assemble [--mount DIR] [--wait 30s] [--init] [--mount-normal] [--key-file F]
 `
 
 // runStorage is `onemindd storage`: the storage operation service (its own
@@ -37,6 +38,8 @@ func runStorage(args []string) int {
 		return storageServe(args[1:])
 	case "init":
 		return storageInit(args[1:])
+	case "assemble":
+		return storageAssemble(args[1:])
 	}
 	fmt.Fprint(os.Stderr, storageUsage)
 	return 2
@@ -136,5 +139,27 @@ func storageInit(args []string) int {
 		}
 	}
 	_ = json.NewEncoder(os.Stdout).Encode(res)
+	return 0
+}
+
+// storageAssemble is the boot unit onemind-data-assemble.service: it unlocks
+// the data set's members and decides normal, degraded or recovery mode.
+func storageAssemble(args []string) int {
+	fs := flag.NewFlagSet("onemindd storage assemble", flag.ContinueOnError)
+	mount := fs.String("mount", "/data", "mount point of the data set")
+	wait := fs.Duration("wait", 30*time.Second, "how long to wait for late members")
+	initBlank := fs.Bool("init", false, "first boot: format a blank onemind-data partition on the system disk")
+	mountNormal := fs.Bool("mount-normal", false, "mount a complete set too (default: /etc/fstab does)")
+	keyFile := fs.String("key-file", "", "recovery key in a file instead of asking (rescue, labs)")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	res, err := ops.Assemble(context.Background(), ops.ExecRunner{}, ops.AssembleOptions{
+		Mount: *mount, Wait: *wait, Init: *initBlank, MountNormal: *mountNormal, KeyFile: *keyFile, Log: newLogger()})
+	_ = json.NewEncoder(os.Stdout).Encode(res)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "onemindd storage assemble:", err)
+		return 1
+	}
 	return 0
 }

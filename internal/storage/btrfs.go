@@ -300,3 +300,36 @@ func Evaluate(m *Mirror) {
 		m.Reasons = append(m.Reasons, "one copy of the data only: a disk failure loses it")
 	}
 }
+
+// MembersFromShow parses `btrfs filesystem show --raw` for one filesystem.
+func MembersFromShow(data []byte) ([]Member, error) {
+	m := &Mirror{}
+	if err := parseShow(data, m); err != nil {
+		return nil, err
+	}
+	return m.Members, nil
+}
+
+var reTotal = regexp.MustCompile(`Total devices (\d+)`)
+
+// ShowCounts reads `btrfs filesystem show --raw` for one filesystem: how many
+// devices it has and how many are present. For a filesystem that is not
+// mounted, btrfs-progs does not list a missing device at all; it prints only
+// the total and "*** Some devices missing" (Debian 13 VM lab, log 27).
+func ShowCounts(data []byte) (total, present int, err error) {
+	g := reTotal.FindSubmatch(data)
+	if g == nil {
+		return 0, 0, fmt.Errorf("btrfs filesystem show: no device total")
+	}
+	total, _ = strconv.Atoi(string(g[1]))
+	mem, err := MembersFromShow(data)
+	if err != nil {
+		return total, 0, err
+	}
+	for _, m := range mem {
+		if !m.Missing {
+			present++
+		}
+	}
+	return total, present, nil
+}
