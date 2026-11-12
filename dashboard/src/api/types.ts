@@ -55,7 +55,24 @@ export interface Instance {
   hub_node_id: string;
 }
 
-/** §3 `GET /v1/apps` item, built from §4 `onemind.app.yaml`. */
+/** §9.3 `metadata.links`; the gateway passes only absolute http(s) URLs, else null. */
+export interface AppLinks {
+  docs: string | null;
+  github: string | null;
+  website: string | null;
+  support: string | null;
+}
+
+/** §9.3 tier, set by the app CI gate; null when the manifest has none yet. */
+export type AppTier = 'verified' | 'community' | 'blocked';
+
+/** §11.1 scan record as summarised in the catalog (§11.4). */
+export interface ScanSummary {
+  scanned_at: string;
+  result: 'pass' | 'fail';
+}
+
+/** §3 `GET /v1/apps` item, built from §4 `onemind.app.yaml`, plus the §11.4 fields. */
 export interface CatalogApp {
   id: string;
   name: string;
@@ -70,6 +87,10 @@ export interface CatalogApp {
   web_port: number | null;
   installed: boolean;
   status: string;
+  links: AppLinks;
+  tier: AppTier | null;
+  /** Last scan, or null when the app has never been scanned (or its record is unreadable). */
+  scan: ScanSummary | null;
 }
 
 export type ActionType = 'app.install' | 'app.remove';
