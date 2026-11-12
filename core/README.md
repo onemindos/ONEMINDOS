@@ -77,7 +77,9 @@ dropped. Fields the contract forbids (MAC, serial, IP, user names) are stripped 
 ### Kubernetes executor (exact commands)
 ```
 install: kubectl apply -f -   (Namespace app-<id>, label onemind.io/app=<id>)
-         kubectl apply -n app-<id> -f -   (only with spec.agent: the agent Secret, see below)
+         kubectl apply --server-side --field-manager=onemind-gateway --force-conflicts -n app-<id> -f -
+                       (only with spec.agent: the agent Secret, see below; server-side so the token
+                        is not copied into a last-applied-configuration annotation)
          kubectl apply -k <apps_dir>/<id>/manifests -n app-<id>
 remove:  kubectl delete secret <spec.agent.secret> -n app-<id> --ignore-not-found=true   (only with spec.agent)
          kubectl delete -k <apps_dir>/<id>/manifests -n app-<id> --ignore-not-found=true

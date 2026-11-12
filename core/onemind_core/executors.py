@@ -16,6 +16,7 @@ Outcome rules:
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import subprocess
@@ -63,9 +64,15 @@ class AgentSecret:
                 "labels": {"onemind.io/app": app_id, "onemind.io/agent-principal": "true"},
                 "annotations": {"onemind.io/principal": self.principal_id},
             },
-            "stringData": {"ONEMIND_GATEWAY_URL": self.gateway_url, "ONEMIND_AGENT_TOKEN": self.token},
+            # data (base64), not stringData: the Secret is applied server-side (see plan()), and
+            # data round-trips exactly through server-side apply's field ownership.
+            "data": {"ONEMIND_GATEWAY_URL": _b64(self.gateway_url), "ONEMIND_AGENT_TOKEN": _b64(self.token)},
         }
         return json.dumps(doc)  # JSON is YAML; no quoting surprises in the token or URL
+
+
+def _b64(value: str) -> str:
+    return base64.b64encode(value.encode()).decode()
 
 
 class Executor:
@@ -132,7 +139,14 @@ class KubernetesExecutor(Executor):
             )
             steps = [([k, "apply", "-f", "-"], ns_doc)]
             if agent is not None:  # before the manifests, so the pods start with the Secret
-                steps.append(([k, "apply", "-n", ns, "-f", "-"], agent.manifest(ns, app.id)))
+                # Server-side apply: a client-side `kubectl apply` would copy the whole object,
+                # token included, into the kubectl.kubernetes.io/last-applied-configuration
+                # annotation, where tools that mask Secret data still show it in plain text.
+                steps.append((
+                    [k, "apply", "--server-side", "--field-manager=onemind-gateway", "--force-conflicts",
+                     "-n", ns, "-f", "-"],
+                    agent.manifest(ns, app.id),
+                ))
             steps.append(([k, "apply", "-k", mdir, "-n", ns], None))
             return steps
         if action_type == "app.remove":
@@ -176,7 +190,8 @@ class KubernetesExecutor(Executor):
 def _scrub(text: str, agent: AgentSecret | None) -> str:
     # kubectl does not echo stringData, but an error message must never carry the token anyway.
     if agent is not None and agent.token:
-        return text.replace(agent.token, "[redacted]")
+        for form in (agent.token, _b64(agent.token)):
+            text = text.replace(form, "[redacted]")
     return text
 
 

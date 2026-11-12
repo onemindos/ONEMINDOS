@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Contract §11.2: an app that declares spec.agent gets its own agent principal at install."""
 
+import base64
 import json
 import subprocess
 from dataclasses import replace
@@ -201,16 +202,22 @@ def test_kubernetes_executor_creates_secret_before_manifests(settings, clock):
         assert action["state"] == "succeeded"
         argvs = [argv for argv, _ in run.calls]
         assert argvs[0] == ["kubectl", "apply", "-f", "-"]  # namespace
-        assert argvs[1] == ["kubectl", "apply", "-n", "app-hermes-like", "-f", "-"]  # agent Secret
+        assert argvs[1] == [  # agent Secret, server-side so no last-applied annotation holds the token
+            "kubectl", "apply", "--server-side", "--field-manager=onemind-gateway", "--force-conflicts",
+            "-n", "app-hermes-like", "-f", "-",
+        ]
         assert argvs[2][:3] == ["kubectl", "apply", "-k"]  # then the manifests
         secret = json.loads(run.calls[1][1])
         assert secret["kind"] == "Secret" and secret["metadata"]["name"] == SECRET
         assert secret["metadata"]["namespace"] == "app-hermes-like"
-        assert secret["stringData"]["ONEMIND_GATEWAY_URL"] == "http://hub.example.test:8080"
-        token = secret["stringData"]["ONEMIND_AGENT_TOKEN"]
+        assert "stringData" not in secret
+        data = {k: base64.b64decode(v).decode() for k, v in secret["data"].items()}
+        assert data["ONEMIND_GATEWAY_URL"] == "http://hub.example.test:8080"
+        token = data["ONEMIND_AGENT_TOKEN"]
         assert c.get("/v1/nodes", headers=bearer(token)).status_code == 200
-        assert token not in json.dumps(action)
-        assert token not in settings.audit_path.read_text()
+        for form in (token, secret["data"]["ONEMIND_AGENT_TOKEN"]):  # raw and base64
+            assert form not in json.dumps(action)
+            assert form not in settings.audit_path.read_text()
 
         run.calls.clear()
         assert run_action(c, clock, type_="app.remove", key="k2")["state"] == "succeeded"

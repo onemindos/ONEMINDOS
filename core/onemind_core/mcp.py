@@ -166,9 +166,12 @@ class McpEndpoint:
         version = request.headers.get("mcp-protocol-version")
         if version and version not in COMPATIBLE_VERSIONS:
             return _rpc_error(None, INVALID_REQUEST, f"unsupported MCP-Protocol-Version {version}", 400)
-        raw = await request.body()
-        if len(raw) > MAX_BODY:
-            return _rpc_error(None, INVALID_REQUEST, "message too large", 413)
+        # Read at most MAX_BODY bytes: the cap holds for chunked bodies and lying Content-Length too.
+        raw = bytearray()
+        async for chunk in request.stream():
+            raw += chunk
+            if len(raw) > MAX_BODY:
+                return _rpc_error(None, INVALID_REQUEST, "message too large", 413)
         try:
             msg = json.loads(raw)
         except ValueError:

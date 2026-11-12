@@ -159,6 +159,20 @@ def test_transport_edges(client):
     assert r.status_code == 202
 
 
+def test_oversized_body_is_413_even_when_chunked(client):
+    from onemind_core.mcp import MAX_BODY
+
+    big = b'{"jsonrpc": "2.0", "id": 1, "method": "ping", "pad": "' + b"x" * MAX_BODY + b'"}'
+    hdrs = {**H, "Content-Type": "application/json"}
+    assert client.post("/mcp", content=big, headers=hdrs).status_code == 413
+
+    def chunks():  # no Content-Length: the cap must hold while streaming
+        for i in range(0, len(big), 4096):
+            yield big[i:i + 4096]
+
+    assert client.post("/mcp", content=chunks(), headers=hdrs).status_code == 413
+
+
 def test_spa_fallback_never_answers_mcp(client):
     assert client.get("/mcp/x", headers=OWNER).status_code == 200  # SPA route, not the API
     assert client.get("/mcp", headers=OWNER).status_code == 405
