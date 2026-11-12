@@ -26,6 +26,7 @@ The Market lists `minMemoryMb: 256`, no GPU.
 
 | Workload | Container | Requests (CPU / memory) | Limits (CPU / memory) |
 |---|---|---|---|
+| Deployment/syncthing | gui-auth | 10m / 16Mi | 200m / 128Mi |
 | Deployment/syncthing | syncthing | 50m / 128Mi | 2 / 1Gi |
 
 Storage: PVC `syncthing-data` 20Gi.
@@ -51,6 +52,7 @@ Syncthing keeps folders in sync between devices, peer to peer and encrypted, wit
 ## How it runs here
 
 - One `Deployment` (`Recreate`), one container, as UID/GID 1000, which README-Docker.md names as the default user. Started non-root, the entrypoint runs Syncthing directly; no capability is needed.
+- GUI password: upstream starts with none, and the GUI listens on all addresses, so until OneMind isolates app namespaces (CORE-SANDBOX-5) any pod on the box could take it over. The `gui-auth` init container therefore runs `syncthing generate --gui-user=admin --gui-password=-` on the first start only (while `config.xml` does not exist) with a random password, which it keeps in `config/.onemind-gui-password` (mode 0600). A password you set later is never overwritten.
 - Service: 8384 (web GUI) and 22000 TCP/UDP (sync protocol).
 - Volume: `syncthing-data` (20 GiB, `/var/syncthing`: `config/` and the synced folders).
 - Probes: `GET /rest/noauth/health`, the image's own health check.
@@ -60,12 +62,16 @@ Syncthing keeps folders in sync between devices, peer to peer and encrypted, wit
 Source: [docs.syncthing.net](https://docs.syncthing.net/intro/getting-started.html) "Getting Started" and README-Docker.md "GUI Security".
 
 1. Install Syncthing from the Market and approve the action. It installs into `app-syncthing`.
-2. Forward the port and open http://localhost:8384:
+2. Read the generated GUI password:
+   ```sh
+   kubectl -n app-syncthing exec deploy/syncthing -c syncthing -- cat /var/syncthing/config/.onemind-gui-password
+   ```
+3. Forward the port, open http://localhost:8384 and sign in as `admin` with that password:
    ```sh
    kubectl -n app-syncthing port-forward svc/syncthing 8384:8384
    ```
-3. Syncthing warns that the GUI has no password. Set a GUI user and password under Actions, Settings, GUI straight away.
-4. Add your other devices by device ID and share folders with them.
+4. Optionally choose your own user and password under Actions, Settings, GUI. The file above keeps only the first password.
+5. Add your other devices by device ID and share folders with them.
 
 ## Not done yet
 
