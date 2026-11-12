@@ -304,7 +304,9 @@ func restoreDir(ctx context.Context, repo Repo, id, p, dest string, n Node, now 
 	}
 	if err := os.Rename(tmp, dest); err != nil {
 		if old != "" {
-			_ = os.Rename(old, dest)
+			if rerr := os.Rename(old, dest); rerr != nil {
+				return fmt.Errorf("%w; the original is kept at %s (moving it back failed: %v)", err, old, rerr)
+			}
 		}
 		return err
 	}
