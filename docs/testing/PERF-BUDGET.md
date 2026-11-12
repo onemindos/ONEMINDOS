@@ -31,7 +31,7 @@ Not in the quick CI run (they need image pulls or a reboot): app installs, boot-
 | API read p95, idle (ms) | 19.9 | 40 |
 | API read p95, under load (ms) | 20.3 | 45 |
 | API read errors | 0 | 0 |
-| Gateway cold start to `/healthz` (s) | about 2 (journal) | 10 |
+| Gateway cold start to `/healthz` (s) | 1.2 | 10 |
 
 The budget is roughly 1.3x to 2x the measurement. A shared CI VM is noisy and a budget that flaps teaches people to ignore red, so it is set to catch real regressions (a new service, a leak, a slow query), not 5 % wobble. Latency gets the wider margin because it is the noisiest. Revisit the figures after the first 10 runs and tighten them.
 
