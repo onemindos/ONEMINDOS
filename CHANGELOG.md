@@ -11,7 +11,6 @@ Branches with work that is not on `main` yet (as of 2026-11-12):
 
 | Branch | PR | What it adds |
 |---|---|---|
-| `feat/os-security-pipeline` | [#14](https://github.com/onemindos/ONEMINDOS/pull/14) (open) | Nightly OS security pipeline: checks Debian's security tracker, rebuilds from a pinned snapshot, scans (SBOM, Trivy with VEX, ClamAV), runs the QEMU battery, signs RAUC bundles and TUF metadata. Publishing stays off until the signing keys and the offline root exist. Also upgrades base-image packages inside the pinned snapshot |
 | `docs/leap` | – | The leap: specs for the core OS (sandbox, security, fabric, backups, deployments, automation, notifications, updates, dashboard, mobile, website, dogfood) and the developer surface (API, SDKs, CLI, MCP, plugin SDK), plus workstreams, one ordered backlog, a status tracker, open decisions, and this changelog |
 | `feat/gateway-agent-mcp` | – | Gateway wave 2 (contract §11): scan gate, app agent principals, `/mcp` with 3 tools, new catalog fields, and the dashboard app page with links, licence, tier and last scan |
 | `feat/app-pipeline` | – | App pipeline: manifest schema fields (§9.3, §11.2), `app-gate` (§9.4 checks, `scan.json`), `app-scaffold` with recorded fixtures, `app-readme`, a full gate with a k3d smoke test in CI, and a daily rescan |
@@ -24,6 +23,12 @@ Branches with work that is not on `main` yet (as of 2026-11-12):
 | `feat/app-hermes`, `feat/apps-wave2` | – | Reserved for the Hermes app and wave-2 seed apps; no work yet |
 
 ## 2026-11-12
+
+### [#14](https://github.com/onemindos/ONEMINDOS/pull/14) OS security pipeline (contract §10.1, CI side)
+- A nightly job checks the image's packages against Debian's security tracker and, when fixes exist, rebuilds every board from a newer pinned Debian snapshot.
+- Each build is scanned (SBOM with syft, Trivy with a VEX file from the Debian tracker, ClamAV) and must pass the QEMU boot battery; any failure blocks publishing.
+- Bundles are signed with RAUC and listed in a TUF channel that a TUF client verifies before anything leaves the job. Publishing stays off until the real signing keys and the offline TUF root exist; until then it runs with throwaway keys and keeps artifacts only. Interface: `os/update/CHANNEL.md`.
+- Fix: the image build now runs `apt-get upgrade` inside the pinned snapshot, so packages from the Debian base image get their security fixes (zlib had 3 open CVEs).
 
 ### [#15](https://github.com/onemindos/ONEMINDOS/pull/15) onemindd OS updater (contract §10.1, box side)
 - `onemindd` can now update the OS by itself. It reads `/etc/onemind/update.conf` (channel, URL, maintenance window, policy) and checks the update channel with TUF, always trusting only the root shipped in the image.
