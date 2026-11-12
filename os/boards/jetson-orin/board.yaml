@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# Jetson Orin (Nano / NX dev kits). D-007: Jetson runs NVIDIA L4T, not the Debian image, so this
+# board is not built by `make image`. It is a OneMind layer (make jetson-layer) that the owner
+# installs into NVIDIA's own BSP + sample rootfs with build-flash-package.sh, then flashes with
+# NVIDIA's tools. Nothing Jetson-based is published (Z-01; README.md "Licence").
+name: jetson-orin
+arch: arm64
+compatible: onemind-jetson-orin
+route: l4t-rootfs-ab             # NVIDIA rootfs A/B (APP, APP_b) + image-based OTA (01 §4.2 item 1)
+l4t: 39.2.1                      # JetPack 7.2.1; pins in os/versions.lock.yaml `jetson:` and pins.sh
+l4t_base_for_ota: 36.5.2         # JetPack 6.2.x base for LT-JET-01 step 3 (r36 -> r39 image-based OTA)
+target_board: jetson-orin-nano-devkit   # NVIDIA's config name for Orin Nano and Orin NX (r39.2 guide)
+storage: nvme0n1                 # NVIDIA's A/B layout for NVMe: tools/kernel_flash/flash_l4t_t234_nvme_rootfs_ab.xml
+rootfs_retry_count_max: 3        # ROOTFS_RETRY_COUNT_MAX (0-3); retries fall only on warm boots
+ota_max_retry_count: 3           # OTA_MAX_RETRY_COUNT > 0 (NVIDIA's default 0 ends in a recovery shell [C-W3-051])
+layout: onemind-data partition after APP_b (jetson_layout.py)
+outputs: [layer]                 # out/onemind-layer-jetson-orin-<version>.tar.gz; flash package built on the owner's host
+published: false                 # Z-01

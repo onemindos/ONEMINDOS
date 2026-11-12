@@ -1,0 +1,5 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# onemind-jetson: gate, wait-pass, ota-verify, ota-apply (onemind_jetson.py). Uses the L4T
+# rootfs's own python3 so the gate never depends on the gateway venv it may be judging.
+exec /usr/bin/python3 -I /usr/lib/onemind/jetson/onemind_jetson.py "$@"

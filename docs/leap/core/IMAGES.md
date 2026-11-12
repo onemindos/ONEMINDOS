@@ -17,7 +17,7 @@
 | Local VMs (UTM, Proxmox, VirtualBox; qcow2/vhdx/vmdk/vdi/ova) | `vm` | yes | same tree as x86_64-efi; battery not run on `vm` | n/a | — |
 | DigitalOcean droplet (BIOS, cloud-init) | `vm-do` | yes | T0–T5 + TC1; first-boot test not run on it yet (cloud-init's user-data path is supported, §3) | kit LT-DO-01, not yet run | founder runs LT-DO-01; put `onemind: {role: hub}` in the droplet's user-data |
 | Raspberry Pi 5 | `rpi5` | **no**: board not written (`tryboot` A/B, BD-07) | — | LT-PI5-01 uses the research scripts | write `os/boards/rpi5` |
-| Jetson Orin (dev kit) | `jetson-orin` | **no**: NVIDIA L4T + `ROOTFS_AB`, never published (D-007, Z-01) | — | LT-JET-01 steps 1, 4, 5 | B4.7 Jetson backend; until then OneMind installs on L4T with `deploy/install.sh` (developer install) |
+| Jetson Orin (dev kit) | `jetson-orin` | OneMind **layer** only (`make jetson-layer`); the flash package is built on the owner's x86 Linux host from the owner's own NVIDIA downloads and never published (D-007, Z-01; §7) | no (NVIDIA boot chain; gate and verifier unit-tested) | LT-JET-01 steps 1–6 runnable, not yet run | founder runs LT-JET-01 |
 | Machines OneMind does not own | none | — | — | — | developer install (`deploy/install.sh`, branch `feat/deploy-v0`) |
 
 ## 2. What is in the image (the OneMind layer)
@@ -102,3 +102,11 @@ Criteria `test/qemu/CRITERIA-FIRSTBOOT.md` (sha256 `4a312852…5a`, committed be
 The existing battery on the same image, T0, T1, T2, T11, T3, T4, T4v, T5, T5v: **all PASS on arm64-efi** (KVM, 16 min) and **all PASS on x86_64-efi** (TCG, 30 min; T4/T5 decided at about 350 s after the reboot, as designed). The OneMind layer does not disturb the gate. CI (`image.yml`) runs F0–F4 on x86_64-efi (KVM) and arm64-efi on every change to `os/`, `core/`, `dashboard/`, `cmd/` or `internal/`.
 
 **Not tested yet:** worker and leaf roles end to end (unit tests only: `test/unit/test_firstboot.py`); the setup wizard in a booted image (unit-tested over HTTP); `/boot/efi/onemind.conf` in a booted image (unit-tested); `vm-do` first boot through cloud-init's user-data path; the gateway's kubeconfig and an app install from the image.
+
+## 7. Jetson Orin: a layer and a builder, not an image (2026-11-12)
+
+**Why no image.** D-007 keeps Jetson on NVIDIA L4T. NVIDIA's BSP may be redistributed only unmodified, with its licence, for NVIDIA hardware [C-LIC-002, C-LIC-003], and NVIDIA's rootfs is Ubuntu, which may not be redistributed modified without Canonical's approval [C-LIC-011]; Z-01 is still open (`research-output/evidence/license-matrix.md` H-3, H-4). So OneMind publishes only what it owns: the **OneMind layer** (`make jetson-layer` → `out/onemind-layer-jetson-orin-<version>.tar.gz`, the same agent, NATS, gateway, dashboard, catalog, first boot and k3s as §2, plus the Jetson gate) and the scripts in `os/boards/jetson-orin/`. The owner downloads NVIDIA's files, and `build-flash-package.sh` checks them against the pins in `os/versions.lock.yaml` → `jetson`, installs the layer into NVIDIA's rootfs and flashes with `ROOTFS_AB=1`. The combined rootfs never leaves the owner's host.
+
+**How updates work there.** NVIDIA's rootfs A/B (`APP`, `APP_b`) and image-based OTA do the slot work; OneMind adds the release contract around them (01 §4.2 item 1, brief 30 B4.7): a signed manifest (CMS, same CA as RAUC) checked on the box before NVIDIA's `nv_ota_start.sh` runs, the trial marker on `/data`, the same gate checks as §3 inside NVIDIA's hook `/usr/sbin/user_rootfs_validation.sh`, and `nvbootctrl verify` held back until the gate passes. Details, verified facts and open items: `os/boards/jetson-orin/README.md`.
+
+**Tested:** `test/unit/test_jetson_orin.py` (gate decisions, verifier, signer, layout tool, pins); the layer build in the Lima VM. **Not tested:** anything on a Jetson; that is LT-JET-01.

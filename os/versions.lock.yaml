@@ -112,3 +112,26 @@ firmware:
   # Debian 13 ovmf / qemu-efi-aarch64 / seabios packages in the tools container (same snapshot).
   ovmf: from the Debian snapshot above (lab hash of OVMF_CODE_4M.fd 624e06de…e4e0, ovmf 2025.02-8+deb13u1)
   seabios: from the Debian snapshot above (bios-256k.bin shipped with qemu-system-x86)
+
+jetson:             # os/boards/jetson-orin (D-007: NVIDIA L4T on Jetson). Never redistributed by OneMind: the owner's
+                    # host downloads these (build-flash-package.sh checks every sha256; pins.sh carries the same values).
+  target: "39.2.1"  # JetPack 7.2.1, the OneMind Jetson target (brief 30 §6 B2 "JetPack 7.2+")
+  ota_base: "36.5.2" # JetPack 6.2.x base for LT-JET-01 step 3 (r36 -> r39 image-based OTA rehearsal)
+  l4t:
+    "39.2.1":
+      url: https://developer.download.nvidia.com/embedded/L4T/r39_Release_v2.1/release/
+      bsp: {file: Jetson_Linux_R39.2.1_aarch64.tbz2, sha256: 2e5619088ba88e85dab25247f033d70659b6f676ff835176a07766dcb0fdbe6b, size: 1287223769}
+      sample_rootfs: {file: Tegra_Linux_Sample-Root-Filesystem_R39.2.1_aarch64.tbz2, sha256: 58a6485b56c6d6b5ee8478e902eed0ed4984fd73135b88b76aeaa5c1f44be66e, size: 2022864741}
+      ota_tools: {file: ota_tools_R39.2.1_aarch64.tbz2, sha256: bc84c2ef0e7e43ccd496691c134b3931c21858272ed75fa0e4b9c853eca2a441, size: 58523}
+      bootloader_utils_deb: {file: nvidia-l4t-bootloader-utils_39.2.1-20260806224157_arm64.deb, sha256: c05285f68b5ce23a6f382a949eb44162e5cd2a8123f8e5cdaeb86a12b5e01c8f}  # evidence only: hook + unit names read from it
+    "36.5.2":
+      url: https://developer.download.nvidia.com/embedded/L4T/r36_Release_v5.2/releases/
+      bsp: {file: Jetson_Linux_R36.5.2_aarch64.tbz2, sha256: 752326264c5e16826d3044a78e59ae06109467d37705143b94e664c91a471f47}
+      sample_rootfs: {file: Tegra_Linux_Sample-Root-Filesystem_R36.5.2_aarch64.tbz2, sha256: 077da9b27b1d3bc2247c2b73ce10cce880bdefe1f048d2a64df878d855a5b435}
+      ota_tools: {file: ota_tools_R36.5.2_aarch64.tbz2, sha256: dc867412c8fa9cad6dad60742a1e6c6821297b943f7697c4356d74d73188bac9}
+      init_deb: {file: nvidia-l4t-init_36.5.2-20260716114719_arm64.deb, sha256: 55a16fc44bfe69198a9bf7309a5bca270e96f1cebbead7eb4e3b70a75e605f45}  # evidence only: hook + unit names read from it
+  source: >-
+    sha256 of NVIDIA's files hashed on download 2026-11-12 (nothing executed); both BSP tarballs equal meta-tegra's
+    SRC_URI[sha256sum] (OE4T/meta-tegra wrynose c5efa2ff tegra-binaries-39.2.1.inc, scarthgap e7d217e2
+    tegra-binaries-36.5.2.inc); the .deb hashes are from NVIDIA's apt Packages index (repo.download.nvidia.com/jetson
+    som r39.2, t234 r36.5) and re-hashed after download

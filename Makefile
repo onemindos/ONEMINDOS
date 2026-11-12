@@ -8,6 +8,7 @@
 #   make battery BOARD=x86_64-efi [UPTO=T5]             -> out/battery-<board>/ (serial log, results.json)
 #   make firstboot BOARD=x86_64-efi [FUPTO=F4]          -> out/firstboot-<board>/ (F0-F4, CRITERIA-FIRSTBOOT.md)
 #   make convert BOARD=vm                               -> qcow2 / vhdx / vmdk / vdi / ova next to the image
+#   make jetson-layer [VERSION=...]                     -> out/onemind-layer-jetson-orin-<version>.tar.gz
 #   make hygiene | hygiene-selftest | lint | test | kit LT=LT-X86-01
 SHELL      := /bin/bash
 BOARD      ?= x86_64-efi
@@ -90,3 +91,9 @@ kit:
 
 clean:
 	rm -rf $(OUT)
+
+# Jetson Orin (os/boards/jetson-orin/README.md): only the OneMind layer is built here (arm64, Docker in
+# the Lima VM or CI). The flash package is built on the owner's x86 Linux host from NVIDIA's own files.
+.PHONY: jetson-layer
+jetson-layer: | $(OUT)
+	os/boards/jetson-orin/make-layer.sh $(OUT) $(VERSION)
