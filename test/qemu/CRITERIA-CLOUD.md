@@ -48,3 +48,11 @@ Every seed's user-data is a `#cloud-config` with `onemind: {role: hub, name: …
 
 - **Required for "done":** C0–C4 PASS on all five clouds; C5 PASS on `cloud-hetzner` (no default firewall on that cloud); C6 PASS on `cloud-aws`. Every other cell is reported, never required.
 - On a host without KVM the run uses TCG and says so. A gate deadline missed only because TCG is slower than the gate's budget is **BLOCKED (TCG timing)**, with the measured times, not PASS.
+
+## 6. Amendment, 2026-11-12 (after the first run, before the re-run)
+
+**What changed:** C2's network item only. "MTU 1460 on the interface with the default route" (gcp) and "an IPv4 default route" (aws, azure, proxmox) are replaced by checks on **the interface whose MAC is the seed's MAC** (`52:54:00:4f:4d:01`): gcp, that interface's MTU is 1460; aws, azure and proxmox, it has an IPv4 address from DHCP. The hetzner item is unchanged.
+
+**Why:** QEMU user networking with `restrict=on` (§1) hands out a DHCP lease with **no router**, so no guest in this test can have a default route. Seen in the first run on every cloud (cloud-init's `ci-info` route table and `ip -4 route` list only `10.0.2.0/24`); the debug boot showed cloud-init had rendered `MTUBytes=1460` for the seed's MAC and the link was at MTU 1460. The restricted-mode DHCP behaviour is in libslirp's `bootp.c` (UNVERIFIED this session; the guests are the evidence).
+
+**How results are reported:** first-run C2 verdicts stay in the record as they were. Under the original wording the network item is **BLOCKED (environment: no default route under restrict=on)**, not PASS; the re-run is judged by this amendment.
