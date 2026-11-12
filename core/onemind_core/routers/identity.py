@@ -78,7 +78,10 @@ class UserPatchBody(BaseModel):
 
 class TokenCreateBody(BaseModel):
     name: str = Field(max_length=100)
-    principal: Literal["self"] | dict[str, Any] = "self"
+    # "self" or {kind: "agent", id: "agent:<name>"}. Go gets `any`: oapi-codegen would need its
+    # runtime package for a union, and the Go SDK stays standard-library only (SDK.md §1).
+    principal: Literal["self"] | dict[str, Any] = Field(
+        default="self", json_schema_extra={"x-go-type": "any", "x-go-type-skip-optional-pointer": True})
     scopes: list[str] | None = Field(default=None, max_length=64)
     expires_in_days: int | None = None
 

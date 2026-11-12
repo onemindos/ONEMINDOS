@@ -851,19 +851,6 @@
         "title": "FixIn",
         "type": "object"
       },
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "title": "Detail",
-            "type": "array"
-          }
-        },
-        "title": "HTTPValidationError",
-        "type": "object"
-      },
       "Healthz": {
         "properties": {
           "ok": {
@@ -1490,7 +1477,9 @@
               }
             ],
             "default": "self",
-            "title": "Principal"
+            "title": "Principal",
+            "x-go-type": "any",
+            "x-go-type-skip-optional-pointer": true
           },
           "scopes": {
             "anyOf": [
@@ -1574,46 +1563,6 @@
           }
         },
         "title": "UserPatchBody",
-        "type": "object"
-      },
-      "ValidationError": {
-        "properties": {
-          "ctx": {
-            "title": "Context",
-            "type": "object"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "title": "Location",
-            "type": "array"
-          },
-          "msg": {
-            "title": "Message",
-            "type": "string"
-          },
-          "type": {
-            "title": "Error Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "title": "ValidationError",
         "type": "object"
       }
     }
@@ -2071,11 +2020,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Approve Options",
@@ -2212,11 +2161,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "List Alerts",
@@ -2272,11 +2221,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Get Alert",
@@ -2352,11 +2301,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Ack Alert",
@@ -2529,11 +2478,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Resolve Alert",
@@ -2624,11 +2573,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Get App",
@@ -2694,11 +2643,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Get Access",
@@ -2867,7 +2816,7 @@
           },
           "401": {
             "content": {
-              "text/plain": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorBody"
                 }
@@ -2877,7 +2826,7 @@
           },
           "403": {
             "content": {
-              "text/plain": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorBody"
                 }
@@ -2887,7 +2836,7 @@
           },
           "404": {
             "content": {
-              "text/plain": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorBody"
                 }
@@ -2897,7 +2846,7 @@
           },
           "422": {
             "content": {
-              "text/plain": {
+              "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorBody"
                 }
@@ -2962,11 +2911,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "App Metrics",
@@ -3721,11 +3670,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Passkey Delete",
@@ -3834,11 +3783,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           },
           "429": {
             "content": {
@@ -3948,11 +3897,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Revoke Session",
@@ -4136,11 +4085,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           },
           "429": {
             "content": {
@@ -4888,11 +4837,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Delete Channel",
@@ -5036,11 +4985,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           },
           "429": {
             "description": "rate_limited (Retry-After)"
@@ -5334,11 +5283,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Get Notification",
@@ -5404,11 +5353,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Read One",
@@ -5565,11 +5514,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Delete Device",
@@ -5755,11 +5704,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Revoke Token",
@@ -6128,11 +6077,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorBody"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Disable User",

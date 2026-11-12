@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from typing import Literal
 
 from fastapi import FastAPI, Request
@@ -117,3 +119,31 @@ def install_handlers(app: FastAPI) -> None:
             return error_response(405, "not_found", "method not allowed on this resource")
         code = {401: "unauthenticated", 403: "permission_denied"}.get(exc.status_code, "conflict")
         return error_response(exc.status_code, code, str(exc.detail))
+
+    build = app.openapi
+
+    def openapi() -> dict:
+        # A request that fails validation gets ErrorBody (422 `conflict`, above), never FastAPI's
+        # HTTPValidationError, so /openapi.json says so for routes that do not list 422 themselves.
+        # Also keeps the HTTPValidationError `loc` union out of the generated SDK types.
+        # Errors are always JSON, also on a route whose success is text (app logs): FastAPI files
+        # their model under the route's media type, so move it back to application/json.
+        doc = build()
+        bad, body = "#/components/schemas/HTTPValidationError", "#/components/schemas/ErrorBody"
+        for ops in doc.get("paths", {}).values():
+            for op in ops.values():
+                for code, r in op.get("responses", {}).items():
+                    refs = {(c.get("schema") or {}).get("$ref") for c in (r.get("content") or {}).values()}
+                    if code == "422" and bad in refs:
+                        op["responses"][code] = {"description": _DESCRIPTIONS[422],
+                                                 "content": {"application/json": {"schema": {"$ref": body}}}}
+                    elif refs == {body} and set(r["content"]) != {"application/json"}:
+                        r["content"] = {"application/json": {"schema": {"$ref": body}}}
+        schemas = doc.get("components", {}).get("schemas", {})
+        if bad not in json.dumps(doc.get("paths", {})):
+            schemas.pop("HTTPValidationError", None)
+            if "#/components/schemas/ValidationError" not in json.dumps(doc):
+                schemas.pop("ValidationError", None)
+        return doc
+
+    app.openapi = openapi  # type: ignore[method-assign]
