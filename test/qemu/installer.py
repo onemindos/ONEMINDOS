@@ -219,7 +219,9 @@ def main():
             vm.kill(); vm.with_stick = False; vm.restart("I5 restart without the stick")
             seg = 0
             first = vm.expect(AFTER, 900).group(0)
-        g = vm.wait_gate(1800)
+        # The gate may decide before or after the first-boot line (both are console lines).
+        gm = re.search(battery.GATE, vm.since(seg))
+        g = (gm.group(1), gm.group(2), gm.group(3)) if gm else vm.wait_gate(1800)
         time.sleep(3)
         toks = TOKEN.findall(vm.since(seg))
         token = toks[0] if toks else ""
