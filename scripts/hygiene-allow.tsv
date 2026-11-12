@@ -12,3 +12,5 @@ scripts/hygiene-allow.tsv	/home/onemind	B-FP-1
 scripts/hygiene-selftest.sh	t@t\.invalid	B-FP-4
 scripts/hygiene.py	rpi-otp-private-key|odmfuse	B-FP-3
 scripts/hygiene-allow.tsv	rpi-otp-private-key|odmfuse	B-FP-3
+# B-FP-5: npm registry metadata in lock files lists package authors' public addresses (e.g. the npm founder's); not personal data of this project.
+*package-lock.json	i@izs\.me	B-FP-5

@@ -41,6 +41,17 @@ In a Debian 13 (trixie) container running systemd as PID 1 (Docker Desktop on a 
 
 CI (`.github/workflows/ci-onemindd.yml`) re-runs `systemd-analyze verify` on every PR.
 
+## onemind-update.service (OS updates, OneMind images only)
+`onemindd update` checks the TUF channel, takes the restic snapshot, runs `rauc install` and reboots in the maintenance window ([`internal/update/`](../../internal/update/README.md)). It has its own unit so the heartbeat agent above can stay read-only. It gets only what that job needs:
+- `ReadWritePaths=/data` (bundles in `/data/rauc`, state in `/data/onemind/update`); the rest of the filesystem stays read-only.
+- `CapabilityBoundingSet=CAP_DAC_READ_SEARCH`: restic must read app files under `/data` owned by other users. No other capability.
+- D-Bus over `AF_UNIX` to ask RAUC to install and systemd to reboot (both allow root).
+- `ConditionPathExists=/etc/onemind/update.conf` and `After=onemind-health-gate.service`, so after a reboot it reports the gate's verdict once the gate has run.
+
+Checked in a Debian 13 Lima VM (systemd 257, arm64): `systemd-analyze verify` clean for both units; `systemd-analyze security onemind-update` → **2.1 OK**; under the unit, a dry run against a loopback TUF repo downloaded to `/data/rauc`, called a fake `rauc` and wrote `status.json`. CI (`ci-onemindd.yml`) does not verify this unit yet.
+
+Do **not** enable it on a developer install (stock Debian, no A/B): there, contract §10.1 uses `unattended-upgrades`.
+
 ## v0 shortcuts / gaps
 - The binary path is `/usr/local/bin` (developer install, contract §6). The OneMind image will ship it in `/usr/bin` and the image's own unit.
 - Not yet run under this unit on real k3s/RAUC/NVIDIA hosts; if a sandbox option blocks one of those tools there, relax that one option and record why here.

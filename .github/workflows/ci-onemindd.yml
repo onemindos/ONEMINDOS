@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 name: ci-onemindd
 # Go node agent (onemindd) and CLI (onemind): vet, test (with the race
 # detector), and cross-compile the static linux/amd64 + linux/arm64 binaries.

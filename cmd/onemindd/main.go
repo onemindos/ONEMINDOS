@@ -10,10 +10,18 @@
 //	ONEMIND_AGENT_ADDR  local API address (default :7480)
 //	ONEMIND_DISK_PATH   filesystem measured for disk_* (default /)
 //	ONEMIND_LOG_LEVEL   debug | info | warn | error (default info)
+//	ONEMIND_UPDATE_CONF OS update settings (default /etc/onemind/update.conf);
+//	                    when present, the heartbeat carries the "update" object
+//
+// `onemindd update [-config FILE]` runs the OS update service instead
+// (brief 30 B4.2, contract §10.1; unit deploy/systemd/onemind-update.service).
+// It is a separate process because it needs write access to /data and the
+// right to install and reboot, which the read-only heartbeat agent must not have.
 package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -24,6 +32,7 @@ import (
 	"github.com/onemindos/onemindos/internal/agent"
 	"github.com/onemindos/onemindos/internal/detect"
 	"github.com/onemindos/onemindos/internal/heartbeat"
+	"github.com/onemindos/onemindos/internal/update"
 	"github.com/onemindos/onemindos/internal/version"
 )
 
@@ -49,7 +58,55 @@ func validate(role, nodeID string) error {
 	return nil
 }
 
+func newLogger() *slog.Logger {
+	var lvl slog.Level
+	if err := lvl.UnmarshalText([]byte(env("ONEMIND_LOG_LEVEL", "info"))); err != nil {
+		lvl = slog.LevelInfo
+	}
+	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: lvl}))
+}
+
+// updateReport returns the heartbeat's "update" source, or nil when the box
+// has no update.conf (developer installs: contract §10.1, no A/B).
+func updateReport(path string, log *slog.Logger) func() *heartbeat.Update {
+	c, err := update.LoadConfig(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		log.Warn("update.conf invalid; heartbeat omits the update object", "err", err)
+		return nil
+	}
+	return func() *heartbeat.Update { return update.Report(c) }
+}
+
+// runUpdate is `onemindd update`: the update service loop.
+func runUpdate(args []string) int {
+	fs := flag.NewFlagSet("onemindd update", flag.ContinueOnError)
+	conf := fs.String("config", env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), "update.conf path")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	log := newLogger()
+	c, err := update.LoadConfig(*conf)
+	if err != nil {
+		log.Error("onemindd update: cannot start", "err", err)
+		return 2
+	}
+	if len(c.Ignored) > 0 {
+		log.Warn("update.conf: unknown keys ignored", "keys", c.Ignored)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	log.Info("update service starting", "version", version.Version, "channel", c.Channel, "url", c.URL,
+		"policy", c.Policy, "window", c.Window.String(), "restic", c.ResticConfigured())
+	update.New(c, log).Daemon(ctx)
+	return 0
+}
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "update" {
+		os.Exit(runUpdate(os.Args[2:]))
+	}
 	listen := flag.String("listen", env("ONEMIND_AGENT_ADDR", agent.DefaultListen), "local API listen address")
 	natsURL := flag.String("nats", os.Getenv("ONEMIND_NATS_URL"), "hub NATS URL (empty = do not publish)")
 	role := flag.String("role", env("ONEMIND_NODE_ROLE", "node"), "hub or node")
@@ -67,11 +124,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	var lvl slog.Level
-	if err := lvl.UnmarshalText([]byte(env("ONEMIND_LOG_LEVEL", "info"))); err != nil {
-		lvl = slog.LevelInfo
-	}
-	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: lvl}))
+	log := newLogger()
 
 	col := detect.New()
 	col.Role = *role
@@ -82,7 +135,8 @@ func main() {
 	defer stop()
 
 	log.Info("onemindd starting", "version", version.Version, "node_id", col.ID(), "role", *role, "board", col.Board())
-	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, Interval: *interval, Collector: col, Logger: log})
+	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, Interval: *interval, Collector: col, Logger: log,
+		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log)})
 	if err := a.Run(ctx); err != nil {
 		log.Error("onemindd stopped", "err", err)
 		os.Exit(1)
