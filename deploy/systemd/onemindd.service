@@ -1,0 +1,65 @@
+# OneMind node agent (contract sdk/contracts/poc-v0.md §1-§2).
+# Install: /usr/local/bin/onemindd (or /usr/bin in the OneMind image),
+# config in /etc/onemind/onemindd.env (ONEMIND_NATS_URL, ONEMIND_NODE_ROLE...).
+#
+# Why root and not DynamicUser=yes: the agent must read root-only things
+# (the k3s admin kubeconfig /etc/rancher/k3s/k3s.yaml, mode 0600, for the
+# /readyz check; the RAUC D-Bus status; /dev/nvidia* through nvidia-smi).
+# A dynamic user could not. Instead it runs as root with every capability
+# removed and the filesystem read-only, so it can read but not change the box.
+# See deploy/systemd/README.md.
+
+[Unit]
+Description=OneMind node agent (heartbeat + local API on :7480)
+Documentation=https://github.com/onemindos/ONEMINDOS/tree/main/cmd/onemindd
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/onemind/onemindd.env
+# k3s kubectl may write a cache under $HOME; point it at the state dir.
+Environment=HOME=/var/lib/onemindd
+ExecStart=/usr/local/bin/onemindd
+Restart=always
+RestartSec=5s
+
+# --- identity / privileges ---
+User=root
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# --- filesystem: read everything, write nothing ---
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+StateDirectory=onemindd
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=default
+UMask=0077
+
+# --- kernel / syscalls ---
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+
+# --- network: TCP/IP for API + NATS, AF_UNIX for D-Bus (rauc) ---
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# PrivateDevices is NOT set: nvidia-smi needs /dev/nvidia*, and TPM presence
+# is read from /sys (no /dev/tpm* access is needed).
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,36 @@
+name: ci-onemindd
+# Go node agent (onemindd) and CLI (onemind): vet, test (with the race
+# detector), and cross-compile the static linux/amd64 + linux/arm64 binaries.
+on:
+  pull_request:
+    paths: ["cmd/**", "internal/**", "go.mod", "go.sum", "deploy/systemd/**", ".github/workflows/ci-onemindd.yml"]
+  push:
+    branches: [main]
+    paths: ["cmd/**", "internal/**", "go.mod", "go.sum", "deploy/systemd/**", ".github/workflows/ci-onemindd.yml"]
+permissions:
+  contents: read
+jobs:
+  go:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: test -z "$(gofmt -l cmd internal)" || { gofmt -l cmd internal; exit 1; }
+      - name: vet
+        run: go vet ./...
+      - name: test
+        run: go test -race -count=1 ./...
+      - name: build static binaries
+        run: make -C cmd/onemindd build
+      - name: check binaries are static
+        run: |
+          file cmd/onemindd/dist/onemindd-linux-amd64 | grep -q 'statically linked'
+          file cmd/onemindd/dist/onemindd-linux-arm64 | grep -q 'statically linked'
+          ./cmd/onemindd/dist/onemindd-linux-amd64 -version
+      - name: systemd unit verify
+        run: |
+          sudo install -D -m0755 cmd/onemindd/dist/onemindd-linux-amd64 /usr/local/bin/onemindd
+          systemd-analyze verify deploy/systemd/onemindd.service
