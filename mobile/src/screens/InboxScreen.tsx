@@ -88,7 +88,8 @@ export function InboxScreen() {
   const hubNow = now + (hubOffsetMs ?? 0);
   const hasInbox = features.has(OP.notifications);
   const canAck = principal?.role === 'owner' || principal?.role === 'adult';
-  const canFix = principal?.role === 'owner' || canRequest === 'yes';
+  // §12.14: POST /v1/alerts/{id}/fix is for an owner or an agent; an adult who may request other things may not.
+  const canFix = principal?.role === 'owner' || (principal?.kind === 'agent' && canRequest === 'yes');
 
   async function run(fn: () => Promise<string | undefined>) {
     setBusy(true);

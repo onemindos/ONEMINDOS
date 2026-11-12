@@ -4,7 +4,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Text } from 'react-native';
-import { Features } from '../api/client';
+import { Features, OP } from '../api/client';
+import { makeAlerts } from '../api/fixtures';
 import { HubDataProvider } from '../data';
 import { SessionProvider, useSession, type SessionDeps } from '../session';
 import type { Connection } from '../storage';
@@ -73,6 +74,24 @@ describe('Inbox screen', () => {
     await renderInbox(deps({ mode: 'mock', token: 'adult-demo' }));
     expect(await screen.findByTestId('ntf-ntf_demo_11')).toBeTruthy();
     expect(screen.queryByTestId('alert-alrt_demo_01')).toBeNull();
+  });
+
+  it('an adult who may request other things still gets no "Ask to fix" (§12.14: owner or agent), but may acknowledge', async () => {
+    const api = v0Api({
+      features: async () => new Features([OP.me, OP.alerts], 'openapi'),
+      me: async () => ({
+        principal: { id: 'person:adult1', kind: 'person', role: 'adult' },
+        token: null,
+        session: { id: 'ses_1', expires_at: '2030-01-01T00:00:00Z' },
+        passkeys: 1,
+        capabilities: ['can_request'],
+      }),
+      alerts: async () => makeAlerts(Date.now()),
+    });
+    await renderInbox(deps({ mode: 'live', hubUrl: 'https://hub.example', token: 't' }, () => api));
+    expect(await screen.findByTestId('alert-alrt_demo_02')).toBeTruthy();
+    expect(screen.queryByTestId('fix-alrt_demo_02')).toBeNull();
+    expect(screen.getByTestId('ack-alrt_demo_02')).toBeTruthy();
   });
 
   it('says plainly when the hub has no inbox yet', async () => {
