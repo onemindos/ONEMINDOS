@@ -1,0 +1,62 @@
+---
+// SPDX-License-Identifier: Apache-2.0
+// Community page. Forum choice: site/FORUM.md (GitHub Discussions now, self-hosted Discourse later).
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+
+const REPO = 'https://github.com/onemindos/ONEMINDOS';
+const base = import.meta.env.BASE_URL;
+---
+
+<StarlightPage
+  frontmatter={{ title: 'Community', description: 'Where to ask, report and contribute.' }}
+  headings={[
+    { depth: 2, slug: 'ask', text: 'Ask and discuss' },
+    { depth: 2, slug: 'report', text: 'Report a bug' },
+    { depth: 2, slug: 'security', text: 'Report a security problem' },
+    { depth: 2, slug: 'contribute', text: 'Contribute' },
+    { depth: 2, slug: 'principles', text: 'How we work' },
+  ]}
+>
+  <p>
+    OneMind is early and built in the open. Today everything happens on GitHub. A forum comes when there are enough of
+    us to need one, and we plan to run it on OneMind itself.
+  </p>
+
+  <h2 id="ask">Ask and discuss</h2>
+  <p>
+    <strong>GitHub Discussions</strong> will be the place for questions, ideas and show-and-tell. It is not switched on
+    yet. Until it is, open an issue and label it <code>question</code>.
+  </p>
+
+  <h2 id="report">Report a bug</h2>
+  <p>
+    Open an <a href={`${REPO}/issues`}>issue on GitHub</a>. Include the output of <code>onemind node info</code> from
+    the affected machine. It contains no serial numbers, MAC addresses, IP addresses or user names, by design.
+  </p>
+
+  <h2 id="security">Report a security problem</h2>
+  <p>
+    Please do not put details in a public issue. GitHub's private vulnerability reporting is not switched on for the
+    repository yet. Until it is, open an issue titled "Security report" with no details, and a maintainer will
+    arrange a private channel. See <a href={`${base}docs/concepts/security/`}>Security</a> for what OneMind protects
+    and what it does not protect yet.
+  </p>
+
+  <h2 id="contribute">Contribute</h2>
+  <ul>
+    <li><strong>Add an app.</strong> Put a line in <code>apps/_intake/queue.yaml</code>. The scaffolder and the CI gate do the rest (<a href={`${base}docs/reference/app-manifest/`}>app manifest</a>).</li>
+    <li><strong>Run it on your hardware.</strong> Mini PCs, a Raspberry Pi 5, a Jetson, a cloud VM. Reports from real boards are the most useful thing you can send.</li>
+    <li><strong>Improve these docs.</strong> Every page has an "Edit page" link. The site lives in <code>site/</code>.</li>
+  </ul>
+  <p>
+    Rules for every contribution: Apache-2.0, a <code>Signed-off-by</code> line on each commit (<code>git commit -s</code>), and no code
+    copied from projects whose licence is not Apache-compatible. Patterns are fine; code is not.
+  </p>
+
+  <h2 id="principles">How we work</h2>
+  <ul>
+    <li>AI never acts without a human yes. That holds for the people building OneMind too: agents write pull requests, people merge them.</li>
+    <li>No guessing. Claims link to a source, and anything unverified says so.</li>
+    <li>Honest status. If it isn't on <code>main</code>, the site says "in review" or "planned".</li>
+  </ul>
+</StarlightPage>
