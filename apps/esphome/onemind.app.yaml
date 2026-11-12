@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# esphome: Market batch 3 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by sdk/tools/app-scaffold
+# (§9.2) and completed from primary sources: docker/Dockerfile, docker/docker_entrypoint.sh and LICENSE at 2026.10.2.
+# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-12.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: esphome
+  name: "ESPHome"
+  version: "2026.10.2"
+  description: "ESPHome is a system to control your ESP32, ESP8266, BK72xx, RP2040 by simple yet powerful configuration files and control them remotely through Home Automation systems."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (firmware) are listed in README.md
+  # until the schema has metadata.tags.
+  category: home
+  icon: icon.svg
+  license: "MIT AND GPL-3.0"
+  source: https://github.com/esphome/esphome
+  links:
+    docs: "https://esphome.io/"
+    github: "https://github.com/esphome/esphome"
+    website: "https://esphome.io/"
+    support: "https://github.com/esphome/esphome/issues"
+  upstream: {release: "2026.10.2", released_at: "2026-11-02T21:30:29Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}   # sum of the memory requests in manifests/
+  web: {port: 6052}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
