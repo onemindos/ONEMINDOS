@@ -180,9 +180,16 @@ def check_kustomization(manifests_dir: Path, app_dir: Path, rules: Rules) -> lis
             for entry in doc.get(key) or []:
                 if isinstance(entry, str):
                     refs.append((key, entry))
-        for p in doc.get("patches") or []:
-            if isinstance(p, dict) and isinstance(p.get("path"), str):
-                refs.append(("patches", p["path"]))
+        for key in ("patches", "patchesJson6902", "replacements"):
+            for p in doc.get(key) or []:
+                if isinstance(p, dict) and isinstance(p.get("path"), str):
+                    refs.append((key, p["path"]))
+        for entry in doc.get("configurations") or []:
+            if isinstance(entry, str):
+                refs.append(("configurations", entry))
+        openapi = doc.get("openapi")
+        if isinstance(openapi, dict) and isinstance(openapi.get("path"), str):
+            refs.append(("openapi", openapi["path"]))
         for gen in (doc.get("configMapGenerator") or []) + (doc.get("secretGenerator") or []):
             if not isinstance(gen, dict):
                 continue
@@ -201,6 +208,12 @@ def check_kustomization(manifests_dir: Path, app_dir: Path, rules: Rules) -> lis
             target = d / ref
             if Path(ref).is_absolute() or not inside(target):
                 out.append(Violation("Z-02", "Kustomization", label, rules.msg("Z-02", ref), key))
+                continue
+            if not target.exists():
+                # kustomize tries a reference that is not a local path as a remote one
+                # (`git::https://…`, `gh:…`, `host/org/repo//dir`), which the pattern above cannot
+                # list exhaustively. Every reference must be a file or folder the app ships.
+                out.append(Violation("Z-01", "Kustomization", label, rules.msg("Z-01", f"{ref} (not in the app folder)"), key))
                 continue
             if key in ("resources", "bases", "components") and target.is_dir():
                 walk(target)
@@ -318,17 +331,36 @@ def _check_pod(pod: dict, base: str, level: str, caps_allowed: frozenset[str], r
     return out
 
 
+# A Role binds inside app-<id>, but a rule there on `namespaces` acts on the app-<id> Namespace
+# itself (its Pod Security and proxy labels), and one on NetworkPolicies undoes the gateway's
+# default-deny. The gateway holds both rights, so Kubernetes' escalation check would not stop it
+# from creating such a Role: only the API groups of the app kinds are allowed (no
+# networking.k8s.io), and these resources are refused by name.
+ROLE_FORBIDDEN_RESOURCES = frozenset({"namespaces", "nodes", "persistentvolumes", "componentstatuses"})
+ROLE_FORBIDDEN_SUBRESOURCES = frozenset({"exec", "attach", "portforward", "proxy", "ephemeralcontainers", "token"})
+RBAC_GROUP = "rbac.authorization.k8s.io"
+
+
+def _role_groups(rules: Rules) -> frozenset[str]:
+    """API groups of the allowed kinds, without RBAC: "" for v1, "apps" for apps/v1, ..."""
+    return frozenset(api.rpartition("/")[0] for api, _ in rules.allow) - {RBAC_GROUP}
+
+
 def _check_role(obj: dict, rules: Rules, name: str) -> list[Violation]:
     out = []
+    allowed_groups = _role_groups(rules)
     for i, rule in enumerate(obj.get("rules") or []):
         if not isinstance(rule, dict):
+            out.append(Violation("R-03", "Role", name, rules.msg("R-03"), f"rules[{i}]"))
             continue
-        groups = rule.get("apiGroups") or []
-        res = rule.get("resources") or []
-        verbs = rule.get("verbs") or []
+        groups = [str(g) for g in rule.get("apiGroups") or []]
+        res = [str(r) for r in rule.get("resources") or []]
+        verbs = [str(vb) for vb in rule.get("verbs") or []]
         bad = (
             "*" in groups or "*" in res or "*" in verbs
-            or "rbac.authorization.k8s.io" in groups
+            or any(g not in allowed_groups for g in groups)
+            or any(r.partition("/")[0] in ROLE_FORBIDDEN_RESOURCES for r in res)
+            or any(r.partition("/")[2] in ROLE_FORBIDDEN_SUBRESOURCES or r.endswith("/*") for r in res)
             or any(vb in ("escalate", "bind", "impersonate") for vb in verbs)
             or rule.get("nonResourceURLs")
         )

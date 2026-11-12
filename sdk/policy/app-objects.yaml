@@ -9,7 +9,7 @@
 # list every app whose result changes. Adding to `pod_security.reviewed` or
 # `capabilities.add_allowed` widens what runs on the box.
 schema: onemind.io/app-objects/v1
-version: 1
+version: 2
 
 # apiVersion/kind pairs an app may ship. Everything else is refused (K-01), including every
 # cluster-scoped kind (Namespace, ClusterRole, ClusterRoleBinding, CRDs, webhooks, PVs,
@@ -112,7 +112,7 @@ rules:
   I-01: image must be pinned by digest (@sha256:)
   R-01: RoleBinding must reference a Role in the app's namespace, not a ClusterRole
   R-02: RoleBinding subjects must be ServiceAccounts of the app's namespace
-  R-03: Role rules may not use wildcards, RBAC resources or escalate/bind/impersonate
+  R-03: Role rules may only name the app kinds' API groups, and no wildcards, namespaces, exec/attach/proxy/token subresources or escalate/bind/impersonate
   X-01: spec.network.egress entry is not internet, none or a CIDR
   Z-01: remote kustomize bases (URLs, git) are not allowed
   Z-02: kustomize path leaves the app folder

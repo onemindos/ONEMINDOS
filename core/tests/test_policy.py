@@ -132,6 +132,36 @@ def test_psa_levels(rules):
     assert policy.pod_security_level("x", {"spec": {"security": {"podSecurity": "privileged"}}}, rules)[1].rule == "G-01"
 
 
+@pytest.mark.parametrize(("rule", "ok"), [
+    ({"apiGroups": [""], "resources": ["configmaps", "pods/log"], "verbs": ["get", "list"]}, True),
+    ({"apiGroups": ["apps"], "resources": ["deployments"], "verbs": ["get", "patch"]}, True),
+    ({"apiGroups": [""], "resources": ["namespaces"], "verbs": ["patch"]}, False),
+    ({"apiGroups": [""], "resources": ["namespaces/status"], "verbs": ["update"]}, False),
+    ({"apiGroups": ["networking.k8s.io"], "resources": ["networkpolicies"], "verbs": ["create"]}, False),
+    ({"apiGroups": [""], "resources": ["pods/exec"], "verbs": ["create"]}, False),
+    ({"apiGroups": [""], "resources": ["serviceaccounts/token"], "verbs": ["create"]}, False),
+    ({"apiGroups": [""], "resources": ["pods/*"], "verbs": ["get"]}, False),
+    ({"apiGroups": ["rbac.authorization.k8s.io"], "resources": ["roles"], "verbs": ["get"]}, False),
+    ("not-a-mapping", False),
+])
+def test_app_role_rules(rules, rule, ok):
+    role = {"apiVersion": "rbac.authorization.k8s.io/v1", "kind": "Role", "metadata": {"name": "r"}, "rules": [rule]}
+    hit = {v.rule for v in policy.check_objects([role], "x", {}, rules)}
+    assert (hit == set()) if ok else ("R-03" in hit)
+
+
+def test_kustomize_references_must_exist_in_the_app(tmp_path, rules):
+    m = tmp_path / "manifests"
+    m.mkdir()
+    (m / "objects.yaml").write_text("{}\n")
+    (m / "kustomization.yaml").write_text(
+        "resources: [objects.yaml]\nreplacements: [{path: missing.yaml}]\n"
+        "patchesJson6902: [{path: ../../outside.yaml}]\n"
+    )
+    hit = {(v.rule, v.path) for v in policy.check_kustomization(m, tmp_path, rules)}
+    assert hit == {("Z-01", "replacements"), ("Z-02", "patchesJson6902")}
+
+
 def test_restricted_checks_apply_to_init_containers(rules):
     d = next(yaml.safe_load_all((FIXTURES / "good-minimal" / "manifests" / "objects.yaml").read_text()))
     d["spec"]["template"]["spec"]["initContainers"] = [{"name": "init", "image": "x@sha256:" + "b" * 64}]
