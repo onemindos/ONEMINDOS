@@ -48,3 +48,4 @@ export * from './home';
 export * from './settings';
 export * from './store';
 export * from './shell';
+export * from './secrets';

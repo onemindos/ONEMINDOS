@@ -17,7 +17,7 @@ npm run lint
 npm run build      # library -> dist/ (onemind-ui.js, ui.css, tokens.json, types) and demo -> dist-demo/
 npm run tokens     # after editing src/tokens/tokens.ts: regenerate src/tokens/tokens.css
 ```
-Demo URLs: `#/home`, `#/apps`, `#/app/<id>`, `#/approvals`, `#/activity`, `#/nodes`, `#/backups`, `#/updates`, `#/notifications`, `#/settings`, `#/gallery`. Add `?theme=dark` or `?theme=light` to force a theme.
+Demo URLs: `#/home`, `#/apps`, `#/app/<id>`, `#/approvals`, `#/activity`, `#/nodes`, `#/backups`, `#/updates`, `#/notifications`, `#/settings`, `#/gallery`, `#/secrets/<state>`. Add `?theme=dark` or `?theme=light` to force a theme.
 
 **Screenshots** (`docs/design/screens/`): Playwright is not a dependency. Install it outside the repo and run:
 ```sh
