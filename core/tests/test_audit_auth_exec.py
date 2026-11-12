@@ -40,6 +40,43 @@ def test_every_decision_is_audited_and_chain_verifies(client, clock, settings):
     assert "dev-agent-token" not in settings.audit_path.read_text()
 
 
+def _events(settings):
+    return [json.loads(l) for l in settings.audit_path.read_text().splitlines()]
+
+
+def test_refused_action_decisions_are_audited(client, clock, settings):
+    post = client.post
+    assert post("/v1/actions", json=action_body(clock, app_id="nope"), headers=OWNER).status_code == 404
+    assert post("/v1/actions", json=action_body(clock, key="r", type_="app.remove"), headers=OWNER).status_code == 409
+    assert post("/v1/actions", json=action_body(clock, key="x", ttl=-1), headers=OWNER).status_code == 409
+    aid = post("/v1/actions", json=action_body(clock, key="a", ttl=10), headers=OWNER).json()["id"]
+    assert post("/v1/actions", json=action_body(clock, key="a", app_id="whoami"), headers=OWNER).status_code == 409
+    clock.advance(11)
+    assert post(f"/v1/actions/{aid}/approve", headers=OWNER).status_code == 409
+    assert post(f"/v1/actions/{aid}/deny", headers=OWNER).status_code == 409
+    rejected = [(e["data"]["attempted"], e["data"]["error"]) for e in _events(settings) if e["event"] == "action.rejected"]
+    assert rejected == [
+        ("request action", "not_found"),
+        ("request action", "stale_precondition"),
+        ("request action", "expired"),
+        ("request action", "conflict"),
+        ("approve action", "expired"),
+        ("deny action", "expired"),
+    ]
+    assert verify(settings.audit_path)[0]
+
+
+def test_unauthenticated_requests_are_audited_rate_limited(client, clock, settings):
+    for _ in range(3):
+        assert client.get("/v1/actions", headers={"Authorization": "Bearer wrong-token-0123456789"}).status_code == 401
+    clock.advance(61)
+    client.post("/v1/actions", json={})
+    rows = [e for e in _events(settings) if e["event"] == "auth.rejected"]
+    assert [r["data"]["suppressed_since_last"] for r in rows] == [0, 2]
+    assert rows[0]["data"]["reason"] == "unknown token" and rows[1]["data"]["reason"] == "missing bearer token"
+    assert "wrong-token" not in settings.audit_path.read_text()
+
+
 def _write_some(path, clock, n=5):
     log = AuditLog(path, clock)
     for i in range(n):

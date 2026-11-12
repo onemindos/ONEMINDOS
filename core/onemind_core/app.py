@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -24,6 +25,8 @@ from .ledger import ActionRepository, SqlActionRepository
 from .nodes import NodeRegistry
 
 log = logging.getLogger("onemind.gateway")
+
+UNAUTH_AUDIT_INTERVAL_S = 60
 
 # Paths the SPA fallback never answers: the API tree (whole segment) and the open meta routes.
 API_TREES = ("v1",)
@@ -84,14 +87,33 @@ def create_app(
     app.state.bus = bus
     app.state.tokens = tokens
 
+    # 401s are decisions too, but an unauthenticated poller must not flood the log: at most one
+    # auth.rejected line per minute, carrying how many were suppressed since the previous one.
+    unauth = {"last": None, "suppressed": 0}
+    unauth_lock = threading.Lock()
+
+    def reject_unauthenticated(request: Request, message: str) -> ApiError:
+        now = clock()
+        with unauth_lock:
+            last = unauth["last"]
+            if last is not None and (now - last).total_seconds() < UNAUTH_AUDIT_INTERVAL_S:
+                unauth["suppressed"] += 1
+                return ApiError(401, "unauthenticated", message)
+            suppressed, unauth["last"], unauth["suppressed"] = unauth["suppressed"], now, 0
+        audit.append(
+            "auth.rejected", None, None,
+            {"reason": message, "method": request.method, "path": request.url.path, "suppressed_since_last": suppressed},
+        )
+        return ApiError(401, "unauthenticated", message)
+
     def principal(request: Request) -> Principal:
         header = request.headers.get("authorization", "")
         scheme, _, token = header.partition(" ")
         if scheme.lower() != "bearer" or not token.strip():
-            raise ApiError(401, "unauthenticated", "missing bearer token")
+            raise reject_unauthenticated(request, "missing bearer token")
         p = tokens.lookup(token.strip())
         if p is None:
-            raise ApiError(401, "unauthenticated", "unknown token")
+            raise reject_unauthenticated(request, "unknown token")
         return p
 
     # ---- open ---------------------------------------------------------------------------

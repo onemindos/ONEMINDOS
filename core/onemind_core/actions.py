@@ -104,8 +104,33 @@ class ActionService:
     def get(self, action_id: str) -> dict:
         return self.expire_if_due(self._get(action_id)).to_json()
 
+    def _audited(self, principal: Principal, attempted: str, action_id: str | None, data: dict, fn):
+        """Run one decision; any refusal (4xx ApiError) is written to the audit log, then re-raised.
+
+        403s are already audited as authz.denied by _deny, so they are not written twice.
+        """
+        try:
+            return fn()
+        except ApiError as e:
+            if e.status != 403:
+                self.audit.append(
+                    "action.rejected", principal.as_dict(), action_id,
+                    {"attempted": attempted, "status": e.status, "error": e.error, "message": e.message, **data},
+                )
+            raise
+
     def create(self, principal: Principal, req: ActionRequest) -> tuple[dict, bool]:
         """Returns (action, created). created=False means an idempotent replay (HTTP 200)."""
+        data = {"type": req.type, "params": req.params.model_dump(), "idempotency_key": req.idempotency_key}
+        return self._audited(principal, "request action", None, data, lambda: self._create(principal, req))
+
+    def deny(self, principal: Principal, action_id: str) -> dict:
+        return self._audited(principal, "deny action", action_id, {}, lambda: self._cancel(principal, action_id))
+
+    def approve(self, principal: Principal, action_id: str) -> dict:
+        return self._audited(principal, "approve action", action_id, {}, lambda: self._approve(principal, action_id))
+
+    def _create(self, principal: Principal, req: ActionRequest) -> tuple[dict, bool]:
         if not principal.can_request_actions:
             raise self._deny(principal, "request actions")
         params = req.params.model_dump()
@@ -156,7 +181,7 @@ class ActionService:
             raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
         return self.expire_if_due(existing).to_json(), False
 
-    def deny(self, principal: Principal, action_id: str) -> dict:
+    def _cancel(self, principal: Principal, action_id: str) -> dict:
         if not principal.is_owner:
             raise self._deny(principal, "deny actions", action_id)
         a = self.expire_if_due(self._get(action_id))
@@ -171,7 +196,7 @@ class ActionService:
         self.audit.append("action.denied", principal.as_dict(), a.id, {"params": a.params})
         return moved.to_json()
 
-    def approve(self, principal: Principal, action_id: str) -> dict:
+    def _approve(self, principal: Principal, action_id: str) -> dict:
         if not principal.is_owner:
             raise self._deny(principal, "approve actions", action_id)
         a = self.expire_if_due(self._get(action_id))
@@ -194,7 +219,6 @@ class ActionService:
             raise ApiError(409, "conflict", "action was decided concurrently")
         if outcome == "stale":
             problem = self._precondition(a.type, app_id)[1] or f"app {app_id!r} changed state concurrently"
-            self.audit.append("action.stale_precondition", principal.as_dict(), a.id, {"message": problem})
             raise ApiError(409, "stale_precondition", problem)
         self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params})
 

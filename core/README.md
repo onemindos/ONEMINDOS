@@ -138,4 +138,6 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 - No `expected_version` on `POST /v1/actions` (D-B9.5 asks for it; contract v0 does not).
 - No policy engine (D-B9.4), MCP façade (D-B9.2), approvals push to phone (D-B9.6) or offline sync.
 - The kubernetes executor is tested with a fake runner and a missing binary, not against a live k3s yet.
-- 401s are not audited (to avoid flooding the log from an unauthenticated poller).
+- 401s are audited at most once a minute (`auth.rejected`, with a `suppressed_since_last` count),
+  so an unauthenticated poller cannot flood the log. Refused action requests, approvals and
+  denials are audited as `action.rejected` (403s as `authz.denied`).
