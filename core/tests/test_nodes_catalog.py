@@ -110,10 +110,11 @@ def test_apps_catalog_shape(client):
     assert ku["installed"] is False and ku["status"] == "not_installed"
 
 
-def test_app_icon_is_served_open(client):
-    r = client.get("/v1/apps/uptime-kuma/icon")
-    assert r.status_code == 200 and r.text.startswith("<svg")
-    assert client.get("/v1/apps/whoami/icon").status_code == 404
+@pytest.mark.parametrize("path", ["/v1/apps/uptime-kuma", "/v1/apps/uptime-kuma/icon"])
+def test_no_routes_beyond_contract(client, path):
+    # Section 3 lists only GET /v1/apps; an open icon route would also break "only /healthz is open".
+    assert client.get(path).status_code in (401, 404)
+    assert client.get(path, headers=OWNER).status_code == 404
 
 
 def test_catalog_reports_errors(settings):

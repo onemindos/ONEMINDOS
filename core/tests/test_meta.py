@@ -70,6 +70,19 @@ def test_spa_serves_index_and_assets(client):
     assert r.status_code == 404
 
 
+@pytest.mark.parametrize("path", ["/docs", "/redoc"])
+def test_no_open_docs_uis(client, path):
+    # Only /healthz and /openapi.json are open (section 3); /docs is just a dashboard route now.
+    r = client.get(path)
+    assert "swagger" not in r.text.lower() and "redoc" not in r.text.lower()
+
+
+@pytest.mark.parametrize("path", ["/v1x", "/healthzone", "/docs-page", "/redocs/a"])
+def test_spa_reserves_whole_segments_only(client, path):
+    r = client.get(path)
+    assert r.status_code == 200 and "onemind-test-dist" in r.text
+
+
 def test_spa_does_not_swallow_api_routes(client):
     r = client.get("/v1/does-not-exist", headers=OWNER)
     assert r.status_code == 404

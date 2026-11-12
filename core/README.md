@@ -127,7 +127,6 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 
 ## Additions beyond the contract (flagged for the contract owner)
 - `422 {"error": "invalid_request"}` for malformed bodies (the §3 error set has no code for it).
-- `GET /v1/apps/{id}` (any principal) and **open** `GET /v1/apps/{id}/icon` so `<img>` tags work.
 - `401` responses carry `WWW-Authenticate: Bearer`.
 
 ## Known gaps

@@ -25,7 +25,13 @@ from .nodes import NodeRegistry
 
 log = logging.getLogger("onemind.gateway")
 
-API_PREFIXES = ("v1/", "v1", "healthz", "openapi.json", "docs", "redoc")
+# Paths the SPA fallback never answers: the API tree (whole segment) and the open meta routes.
+API_TREES = ("v1",)
+API_EXACT = ("healthz", "openapi.json")
+
+
+def is_api_path(full_path: str) -> bool:
+    return full_path in API_EXACT or any(full_path == p or full_path.startswith(p + "/") for p in API_TREES)
 
 
 def utcnow() -> datetime:
@@ -63,6 +69,9 @@ def create_app(
         version=__version__,
         description="Contract: sdk/contracts/poc-v0.md section 3. AI never actuates without human approval.",
         lifespan=lifespan,
+        # Contract section 3: only /healthz (and /openapi.json) are open; no Swagger/ReDoc UIs.
+        docs_url=None,
+        redoc_url=None,
     )
     install_handlers(app)
     app.state.settings = settings
@@ -119,25 +128,6 @@ def create_app(
     def list_apps(_: Principal = Depends(principal)):
         return _app_rows()
 
-    @app.get("/v1/apps/{app_id}", tags=["apps"])
-    def get_app(app_id: str, _: Principal = Depends(principal)):
-        for row in _app_rows():
-            if row["id"] == app_id:
-                return row
-        raise ApiError(404, "not_found", "no such app")
-
-    @app.get("/v1/apps/{app_id}/icon", tags=["apps"], include_in_schema=True)
-    def app_icon(app_id: str):
-        """Open (no token), so <img> tags in the dashboard can load it. Icons are public data."""
-        entry = catalog.get(app_id)
-        icon = (entry.manifest.get("metadata") or {}).get("icon") if entry else None
-        if not entry or not icon:
-            raise ApiError(404, "not_found", "no icon")
-        path = (entry.dir / icon).resolve()
-        if not path.is_relative_to(entry.dir.resolve()) or not path.is_file():
-            raise ApiError(404, "not_found", "no icon")
-        return FileResponse(path)
-
     # ---- actions ------------------------------------------------------------------------
     @app.post("/v1/actions", tags=["actions"], status_code=201)
     def create_action(req: ActionRequest, p: Principal = Depends(principal)):
@@ -165,7 +155,7 @@ def create_app(
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa(full_path: str):
-        if full_path.startswith(API_PREFIXES) or dist is None or not dist.is_dir():
+        if is_api_path(full_path) or dist is None or not dist.is_dir():
             raise ApiError(404, "not_found", "no such resource")
         candidate = (dist / full_path).resolve()
         if full_path and candidate.is_relative_to(dist) and candidate.is_file():
