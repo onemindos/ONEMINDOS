@@ -1,0 +1,16 @@
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: uptime-kuma
+  name: Uptime Kuma
+  version: "2.0.2"
+  description: Self-hosted uptime monitoring
+  category: monitoring
+  icon: icon.svg
+  license: MIT
+  source: https://github.com/louislam/uptime-kuma
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}
+  web: {port: 3001}
+  manifests: manifests/

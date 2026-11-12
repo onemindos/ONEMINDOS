@@ -1,0 +1,14 @@
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: whoami
+  name: Whoami
+  version: "1.10.1"
+  description: Tiny HTTP echo service used for tests
+  category: developer
+  license: Apache-2.0
+  source: https://github.com/traefik/whoami
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 32}
+  web: {port: 80}
