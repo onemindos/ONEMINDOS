@@ -112,10 +112,10 @@ On a developer install (`deploy/install.sh`), add `ONEMIND_PHOTOS_ENABLED=1` and
 
 | Where | What | Run |
 |---|---|---|
-| `core/tests/test_photos.py` (33) | Happy path; offsets, overflow, short last part; three drops (raw ASGI disconnects) then one stored copy; stall; restart (disk rehash); flock busy; expiry and sweep; digest mismatch; duplicates; same person's second phone; no oracle across people with one inode; concurrent identical uploads; "a receipt alone is no proof"; edited photo; validation; receipt levels from events; paging; limits; names | `make -C core test`, and with `ONEMIND_TEST_DB_URL=postgresql://…` |
+| `core/tests/test_photos.py` (34) | Happy path; replay and the race with a finishing request; offsets, overflow, short last part; three drops (raw ASGI disconnects) then one stored copy; stall; restart (disk rehash); flock busy; expiry and sweep; digest mismatch; duplicates; same person's second phone; no oracle across people with one inode; concurrent identical uploads; "a receipt alone is no proof"; edited photo; validation; receipt levels from events; paging; limits; names | `make -C core test`, and with `ONEMIND_TEST_DB_URL=postgresql://…` |
 | `test/photos/mobile-e2e.test.ts` + `run-mobile-e2e.sh` | The phone's real `runBackup` engine, `HttpPhotosApi` and SHA-256 code against a live gateway. A library with a duplicate, a second run sending nothing, a half-delivered chunk resumed with every byte sent once, and a second person asked for every byte; then the box's files are counted | `test/photos/run-mobile-e2e.sh <mobile dir>` (needs `feat/mobile-photos`; skips without it) |
 
-Result on 2026-11-12: the full core suite (337) passes on SQLite and PostgreSQL 17 on macOS, and on Debian 13 arm64 in a Lima VM (Linux 6.12; photos tests on both tmpfs and ext4). The end-to-end run passes against SQLite and PostgreSQL: 4 jest tests, and on the box 6 stored copies, 6 + 1 library files and an empty staging folder.
+Result on 2026-11-12: the full core suite passes on SQLite and PostgreSQL 17 on macOS (338), and on SQLite on Debian 13 arm64 in a Lima VM (Linux 6.12; 337, run before the race test was added; the photos tests on both tmpfs and ext4). The end-to-end run passes against SQLite and PostgreSQL: 4 jest tests, and on the box 6 stored copies, 6 + 1 library files and an empty staging folder.
 
 ## 8. Not done here, and open items
 

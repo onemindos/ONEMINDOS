@@ -352,8 +352,9 @@ class PhotosService:
                 raise self.conflict(up, os.fstat(fd).st_size, "another request is adding to this upload") from None
             up = self.repo.get_upload(up.id) or up  # re-read under the lock: it may have just finished
             if up.state == "complete":
+                replay = self._replay(up, offset, complete)  # raises: the except below closes fd once
                 os.close(fd)
-                return self._replay(up, offset, complete)
+                return replay
             self._alive(up, now)
             size = os.fstat(fd).st_size
             if offset != size:
@@ -364,10 +365,7 @@ class PhotosService:
                 hasher = hashlib.sha256()
             return AppendSession(self, p, up, fd, size, hasher)
         except BaseException:
-            try:
-                os.close(fd)
-            except OSError:
-                pass
+            os.close(fd)
             raise
 
     def finalize(self, p: Principal, up: Upload, hasher) -> dict:

@@ -276,6 +276,33 @@ def test_lost_final_response_replays_the_receipt(pc):
     assert more.status_code == 409 and more.headers["Upload-Complete"] == "?1"
 
 
+def test_a_part_that_loses_the_race_with_the_last_part(pc, root, monkeypatch):
+    """A request that read the upload as open just before another request finished it."""
+    phone = Phone(pc, OWNER)
+    data = blob(49, 100)
+    url = phone.create(phone.key("a"), data).headers["Location"]
+    receipt = phone.patch(url, 0, data, last=True).json()
+    upload_id = url.rsplit("/", 1)[1]
+    repo = pc.app.state.photos.repo
+    real = repo.get_upload
+    for offset, body, last, status in ((100, b"", True, 200), (0, data[:10], False, 409)):
+        (root / "staging" / upload_id).touch()  # the finished request's file, still open in this one
+        reads = []
+
+        def stale_first(uid, reads=reads):
+            up = real(uid)
+            reads.append(uid)
+            return replace(up, state="open") if len(reads) == 1 else up
+
+        monkeypatch.setattr(repo, "get_upload", stale_first)
+        r = phone.patch(url, offset, body, last=last)
+        assert r.status_code == status and r.headers["Upload-Complete"] == "?1"
+        if status == 200:
+            assert r.json() == receipt
+    monkeypatch.setattr(repo, "get_upload", real)
+    assert phone.head(url).headers["Upload-Complete"] == "?1"
+
+
 def test_create_returns_the_unfinished_upload_for_the_same_item(pc):
     phone = Phone(pc, OWNER)
     data = blob(3, 5000)
