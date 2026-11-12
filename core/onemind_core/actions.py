@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Protocol
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
@@ -51,6 +51,21 @@ class ActionRequest(BaseModel):
     expires_at: AwareDatetime
 
 
+class ActionTypeHandler(Protocol):
+    """A feature-owned action type (contract §12.5; the registry DEV-API-7 generalises).
+
+    The feature files requests through `ActionService.file` from its own request endpoint and
+    the owner approves them through POST /v1/actions/{id}/approve like any other action.
+    """
+
+    def recheck(self, action: Action) -> str | None:
+        """At approval: None when the action may run, else why it is stale (409, stays pending)."""
+
+    def dispatch(self, action: Action) -> ExecResult | None:
+        """After approval: the outcome, or None while it keeps running (state dispatched; the
+        feature closes it later with `ActionService.finish`)."""
+
+
 class ActionService:
     def __init__(
         self,
@@ -70,6 +85,13 @@ class ActionService:
         self.executor = executor
         self.audit = audit
         self.clock = clock
+        # Feature-owned action types (one register_type call per type, from the feature's router).
+        self.type_handlers: dict[str, ActionTypeHandler] = {}
+
+    def register_type(self, action_type: str, handler: ActionTypeHandler) -> None:
+        if action_type in APP_CLAIMS or action_type in self.type_handlers:
+            raise ValueError(f"action type {action_type} is already registered")
+        self.type_handlers[action_type] = handler
 
     # ---- helpers -------------------------------------------------------------------------
     def _deny(self, principal: Principal, what: str, action_id: str | None = None) -> ApiError:
@@ -189,6 +211,97 @@ class ActionService:
         self.audit.append("action.awaiting_approval", None, stored.id, {})
         return (moved or stored).to_json(), True
 
+    # ---- feature-owned types --------------------------------------------------------------
+    def file(
+        self, principal: Principal, action_type: str, params: dict, idempotency_key: str,
+        expires_at: datetime, reason: str | None = None,
+    ) -> tuple[dict, bool]:
+        """File a request of a registered feature type (the feature checked its own preconditions).
+
+        Returns (action, created); created=False is an idempotent replay. Same rules as POST
+        /v1/actions: only principals that may request, audited, lands in awaiting_approval.
+        """
+        if action_type not in self.type_handlers:
+            raise ValueError(f"unregistered action type {action_type}")
+        data = {"type": action_type, "params": params, "idempotency_key": idempotency_key}
+        return self._audited(
+            principal, "request action", None, data,
+            lambda: self._file(principal, action_type, params, idempotency_key, expires_at, reason),
+        )
+
+    def _file(self, principal, action_type, params, idempotency_key, expires_at, reason) -> tuple[dict, bool]:
+        if not principal.can_request_actions:
+            raise self._deny(principal, "request actions")
+        expires_at = utc(expires_at)
+
+        def replay(existing: Action) -> tuple[dict, bool]:
+            same = (
+                existing.type == action_type and existing.params == params
+                and existing.requested_by.get("id") == principal.id and existing.expires_at == expires_at
+            )
+            if not same:
+                raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
+            return self.expire_if_due(existing).to_json(), False
+
+        existing = self.repo.get_by_idempotency_key(idempotency_key)
+        if existing is not None:
+            return replay(existing)
+        now = self.clock()
+        if expires_at <= now:
+            raise ApiError(409, "expired", "expires_at is already in the past")
+        action = Action(
+            id=new_action_id(), type=action_type, params=params, state="requested",
+            requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=idempotency_key,
+            created_at=now, updated_at=now, expires_at=expires_at,
+        )
+        stored, created = self.repo.create(action)
+        if not created:
+            return replay(stored)
+        self.audit.append(
+            "action.requested", principal.as_dict(), stored.id,
+            {"type": stored.type, "params": stored.params, "expires_at": iso(stored.expires_at),
+             "requested_by": principal.id, **({"reason": reason} if reason else {})},
+        )
+        moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
+        self.audit.append("action.awaiting_approval", None, stored.id, {})
+        return (moved or stored).to_json(), True
+
+    def _approve_typed(self, principal: Principal, a: Action, handler: ActionTypeHandler) -> dict:
+        problem = handler.recheck(a)
+        if problem:  # the world changed since the request: stays awaiting_approval
+            raise ApiError(409, "stale_precondition", problem)
+        now = self.clock()
+        moved = self.repo.transition(
+            a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now
+        )
+        if moved is None:
+            raise ApiError(409, "conflict", "action was decided concurrently")
+        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id}
+        self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params, **ids})
+        dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
+        executor = a.type.split(".", 1)[0]
+        self.audit.append("action.dispatched", None, a.id, {"executor": executor, **ids})
+        try:
+            result = handler.dispatch(dispatched or moved)
+        except Exception as exc:  # unknown effect: never retry automatically
+            log.exception("%s dispatch crashed", a.type)
+            result = ExecResult("outcome_unknown", f"dispatch error: {exc.__class__.__name__}")
+        if result is None:  # still running; the feature finishes it
+            return self._get(a.id).to_json()
+        return self.finish(a.id, result.outcome, result.message, result.to_json()) or self._get(a.id).to_json()
+
+    def finish(
+        self, action_id: str, outcome: str, message: str, result: dict | None = None,
+        from_states: frozenset[str] = frozenset({"dispatched"}),
+    ) -> dict | None:
+        """Close a feature-owned action (succeeded, failed, outcome_unknown) and audit it once."""
+        result = result or {"outcome": outcome, "message": message}
+        moved = self.repo.transition(action_id, set(from_states), outcome, self.clock(), result=result)
+        if moved is None:
+            return None
+        self.audit.append(f"action.{outcome}", None, action_id, {"executor": moved.type.split(".", 1)[0], "message": message})
+        return moved.to_json()
+
     def _replay(self, principal: Principal, req: ActionRequest, params: dict, existing: Action) -> tuple[dict, bool]:
         same = (
             existing.type == req.type
@@ -223,6 +336,9 @@ class ActionService:
             raise ApiError(409, "expired", "action expired before approval")
         if a.state != "awaiting_approval":
             raise ApiError(409, "conflict", f"action is {a.state}, not awaiting_approval")
+        handler = self.type_handlers.get(a.type)
+        if handler is not None:
+            return self._approve_typed(principal, a, handler)
 
         # Check current conditions again: the world may have changed since the request. The claim
         # on the app is made atomically with "accepted", so two actions for one app cannot both
@@ -325,6 +441,8 @@ class ActionService:
         forever. (v0 runs one gateway per ledger; several would need leases first.)
         """
         for a in self.repo.list(states={"accepted", "dispatched"}):
+            if a.type not in APP_CLAIMS:
+                continue  # a feature-owned type may still be running on a node: the feature reconciles it
             self._mark_outcome_unknown(a, f"gateway restarted while the action was {a.state}")
         now = self.clock()
         for app_id, st in self.repo.list_app_states().items():
