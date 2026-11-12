@@ -264,6 +264,36 @@ func volumeDir(roots []string, v VolumeRef) string {
 	return filepath.Join(roots[0], name)
 }
 
+// regularFileInside requires p to be a regular file reached from root
+// without any symlink: the resolved path must be exactly root's resolved
+// path plus p's relative part. An app controls everything inside its
+// volume, so a symlink there would point this root process at host files.
+func regularFileInside(root, p string) error {
+	rel, err := filepath.Rel(root, p)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("%s is not inside %s", p, root)
+	}
+	realRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return err
+	}
+	real, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		return err
+	}
+	if real != filepath.Join(realRoot, rel) {
+		return fmt.Errorf("%s goes through a symlink; refusing to open it", rel)
+	}
+	fi, err := os.Lstat(real)
+	if err != nil {
+		return err
+	}
+	if !fi.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file", rel)
+	}
+	return nil
+}
+
 func volumeFilePath(roots []string, f VolumeFile) string {
 	return filepath.Join(volumeDir(roots, f.VolumeRef), filepath.FromSlash(f.Path))
 }

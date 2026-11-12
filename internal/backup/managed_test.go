@@ -348,3 +348,81 @@ func TestRunSkipsUnitsTheGatewayCouldNotPrepare(t *testing.T) {
 		t.Fatal("the other units must still run")
 	}
 }
+
+// An app writes its own volume and the agent runs as root: a SQLite path
+// the app turned into a symlink must not make sqlite3 copy a host database.
+func TestVolumeSQLiteRefusesSymlinksOutOfTheVolume(t *testing.T) {
+	for name, plant := range map[string]func(m *managedFixture){
+		"file symlink": func(m *managedFixture) {
+			m.write("storage/pvc-1111_app-notes_data/db/.keep", "")
+			if err := os.Symlink(m.path("host/state.db"), m.path("storage/pvc-1111_app-notes_data/db/app.db")); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"folder symlink": func(m *managedFixture) {
+			if err := os.Symlink(m.path("host"), m.path("storage/pvc-1111_app-notes_data/db")); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Rename(m.path("host/state.db"), m.path("host/app.db")); err != nil {
+				t.Fatal(err)
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			m := newManagedFixture(t)
+			m.ok(t, KindConfigure, usbTarget())
+			m.write("host/state.db", "HOST-SECRET")
+			plant(m)
+			app := AppSpec{ID: "notes", Volumes: []VolumeRef{notesVol}, VolumeSQLite: []VolumeFile{{VolumeRef: notesVol, Path: "db/app.db"}}}
+			r := m.ok(t, KindRun, map[string]any{"reason": "manual", "apps": []AppSpec{app}, "units": []string{"app:notes"}})
+			b, _ := json.Marshal(r.Result)
+			if !strings.Contains(string(b), "symlink") {
+				t.Fatalf("the planted symlink was followed: %s", b)
+			}
+			for _, s := range m.repo.snaps {
+				for p, ff := range s.files {
+					if strings.Contains(string(ff.data), "HOST-SECRET") && strings.Contains(p, "staging") {
+						t.Fatalf("a host file reached the app's snapshot as %s", p)
+					}
+				}
+			}
+		})
+	}
+}
+
+// The online copy is the consistent one: an app restore puts it back over
+// the volume's own copy, and drops that copy's WAL.
+func TestAppRestorePutsTheOnlineSQLiteCopyBack(t *testing.T) {
+	m := newManagedFixture(t)
+	m.ok(t, KindConfigure, usbTarget())
+	m.write("storage/pvc-1111_app-notes_data/db/app.db", "SQLITE-v1")
+	m.write("storage/pvc-1111_app-notes_data/db/app.db-wal", "WAL-of-the-live-copy")
+	app := AppSpec{ID: "notes", Volumes: []VolumeRef{notesVol}, VolumeSQLite: []VolumeFile{{VolumeRef: notesVol, Path: "db/app.db"}}}
+	r := m.ok(t, KindRun, map[string]any{"reason": "manual", "apps": []AppSpec{app}, "units": []string{"app:notes"}})
+	b, _ := json.Marshal(r.Result)
+	var run Run
+	_ = json.Unmarshal(b, &run)
+	if run.State != StateSucceeded {
+		t.Fatalf("run: %s", b)
+	}
+	m.write("storage/pvc-1111_app-notes_data/db/app.db", "SQLITE-broken")
+	stamp := "20261112T120000Z"
+	res := m.ok(t, KindRestore, map[string]any{"scope": "app", "app_id": "notes", "snapshot_id": run.Units[0].SnapshotID, "stamp": stamp})
+	b, _ = json.Marshal(res.Result)
+	if !strings.Contains(string(b), `"path":"db/app.db","restored":true`) {
+		t.Fatalf("online copy not reported: %s", b)
+	}
+	if m.read("storage/pvc-1111_app-notes_data/db/app.db") != "SQLITE-v1" {
+		t.Fatal("database not restored")
+	}
+	if _, err := os.Lstat(m.path("storage/pvc-1111_app-notes_data/db/app.db-wal")); !os.IsNotExist(err) {
+		t.Fatalf("the volume copy's WAL must not be replayed over the online copy: %v", err)
+	}
+	if _, err := os.Lstat(m.path("storage/pvc-1111_app-notes_data/db/app.db.onemind-online")); !os.IsNotExist(err) {
+		t.Fatalf("temporary file left behind: %v", err)
+	}
+	m.ok(t, KindRestoreFinish, map[string]any{"app_id": "notes", "stamp": stamp, "commit": false})
+	if m.read("storage/pvc-1111_app-notes_data/db/app.db") != "SQLITE-broken" {
+		t.Fatal("rollback must bring the live database back")
+	}
+}

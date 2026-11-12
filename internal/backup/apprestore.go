@@ -80,6 +80,7 @@ func (a *Agent) RestoreApp(ctx context.Context, req AppRestoreRequest) (AppResto
 	}
 	roots := a.conf().StorageRoots
 	var done []swap
+	restoredDirs := map[string]string{} // volume suffix -> its restored folder
 	undo := func() {
 		for i := len(done) - 1; i >= 0; i-- {
 			s := done[i]
@@ -107,9 +108,24 @@ func (a *Agent) RestoreApp(ctx context.Context, req AppRestoreRequest) (AppResto
 				return res, fmt.Errorf("volume %s/%s: %w", v.Namespace, v.Claim, err)
 			}
 			done = append(done, s)
+			restoredDirs[v.suffix()] = cur
 			item.Restored = true
 		}
 		res.Items = append(res.Items, item)
+	}
+	for _, q := range spec.VolumeSQLite {
+		dir, ok := restoredDirs[q.suffix()]
+		if !ok {
+			continue
+		}
+		put, err := a.putOnlineCopy(ctx, repo, snap, req.AppID, q, dir)
+		if err != nil {
+			undo()
+			return res, fmt.Errorf("sqlite %s in %s/%s: %w", q.Path, q.Namespace, q.Claim, err)
+		}
+		if put {
+			res.Items = append(res.Items, RestoredItem{Namespace: q.Namespace, Claim: q.Claim, Path: q.Path, Restored: true})
+		}
 	}
 	for _, f := range spec.Files {
 		item := RestoredItem{Namespace: f.Namespace, Claim: f.Claim, Path: f.Path}
@@ -189,6 +205,67 @@ func (a *Agent) swapDir(ctx context.Context, repo Repo, id, src, cur, stamp stri
 		return swap{}, err
 	}
 	return swap{cur: cur, old: old}, nil
+}
+
+// putOnlineCopy puts back, inside a just-restored volume folder, the online
+// copy the backup made of a SQLite database (SQLiteHook, in the unit's
+// staging folder). That copy is consistent; the volume's own copy of a live
+// database may be torn, or excluded. The volume's -wal, -shm and -journal
+// files belong to the volume's copy and are removed with it. A snapshot
+// without an online copy (taken before the app declared one) keeps the
+// volume's copy and reports false.
+func (a *Agent) putOnlineCopy(ctx context.Context, repo Repo, snap Snapshot, appID string, f VolumeFile, volDir string) (bool, error) {
+	src := ""
+	for _, p := range snap.Paths {
+		p = filepath.ToSlash(p)
+		if pathBase(p) == stagingName("app:"+appID) && pathBase(pathDir(p)) == "staging" {
+			src = p + "/" + volumeSQLiteName(f)
+		}
+	}
+	if src == "" {
+		return false, nil
+	}
+	n, err := lookupNode(ctx, repo, snap.ID, src)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	if n.Type != "file" {
+		return false, fmt.Errorf("%s is a %s in the snapshot", src, n.Type)
+	}
+	dest := filepath.Join(volDir, filepath.FromSlash(f.Path))
+	// The restored folder holds what the app wrote: never follow a symlink in it.
+	if err := safeParent(dest); err != nil {
+		return false, err
+	}
+	like, strip := dest, os.FileMode(0)
+	if fi, err := os.Lstat(dest); err != nil || !fi.Mode().IsRegular() {
+		like, strip = volDir, 0o111 // no file to copy from: the folder's owner, no execute bits
+	}
+	tmp := dest + ".onemind-online"
+	if err := restoreFile(ctx, repo, snap.ID, src, tmp, n); err != nil {
+		return false, err
+	}
+	if err := copyOwnerAndMode(like, tmp); err != nil {
+		_ = os.Remove(tmp)
+		return false, err
+	}
+	if strip != 0 {
+		if fi, err := os.Lstat(tmp); err == nil {
+			_ = os.Chmod(tmp, fi.Mode().Perm()&^strip)
+		}
+	}
+	if err := os.Rename(tmp, dest); err != nil {
+		_ = os.Remove(tmp)
+		return false, err
+	}
+	for _, sfx := range []string{"-wal", "-shm", "-journal"} {
+		if err := os.Remove(dest + sfx); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return true, err
+		}
+	}
+	return true, nil
 }
 
 // swapFile restores one file next to cur and swaps it in. When cur did not

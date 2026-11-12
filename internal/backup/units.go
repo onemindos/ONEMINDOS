@@ -80,8 +80,8 @@ func BuildUnits(c *Config, r Runner) []Unit {
 			u.Hooks = append(u.Hooks, &SQLiteHook{Binary: c.SQLite3Binary, Path: f.Path, Name: f.Name, Runner: r})
 		}
 		for _, f := range a.VolumeSQLite {
-			name := strings.NewReplacer("/", "_").Replace(f.Claim + "_" + f.Path)
-			u.Hooks = append(u.Hooks, &SQLiteHook{Binary: c.SQLite3Binary, Path: volumeFilePath(c.StorageRoots, f), Name: name, Runner: r})
+			u.Hooks = append(u.Hooks, &SQLiteHook{Binary: c.SQLite3Binary, Path: volumeFilePath(c.StorageRoots, f), Name: volumeSQLiteName(f),
+				Runner: r, Root: volumeDir(c.StorageRoots, f.VolumeRef)})
 		}
 		units = append(units, u)
 	}
@@ -92,6 +92,12 @@ func BuildUnits(c *Config, r Runner) []Unit {
 }
 
 // stagingName makes a unit name safe as a directory name.
+// volumeSQLiteName is the staged online copy's file name for a gateway
+// app's SQLite database: <claim>_<path with / as _>.
+func volumeSQLiteName(f VolumeFile) string {
+	return strings.NewReplacer("/", "_").Replace(f.Claim + "_" + f.Path)
+}
+
 func stagingName(unit string) string { return strings.NewReplacer(":", "_", "/", "_").Replace(unit) }
 
 func safeFileName(name string) error {
@@ -108,6 +114,12 @@ func safeFileName(name string) error {
 type SQLiteHook struct {
 	Binary, Path, Name string
 	Runner             Runner
+	// Root, when set, is the app volume Path must stay inside (gateway apps,
+	// volume_sqlite). The app writes that volume and this agent runs as
+	// root, so a symlink the app plants must not make sqlite3 open a host
+	// database (the k3s datastore, the gateway's ledger), and a FIFO must
+	// not hang every backup.
+	Root string
 }
 
 // Prepare implements Hook.
@@ -118,11 +130,20 @@ func (h *SQLiteHook) Prepare(ctx context.Context, staging string) ([]string, err
 	if _, err := os.Stat(h.Path); err != nil {
 		return nil, fmt.Errorf("sqlite %s: %w", h.Name, err)
 	}
+	var args []string
+	if h.Root != "" {
+		if err := regularFileInside(h.Root, h.Path); err != nil {
+			return nil, fmt.Errorf("sqlite %s: %w", h.Name, err)
+		}
+		// Narrows the window between that check and the open (sqlite3 >= 3.31).
+		args = append(args, "-nofollow")
+	}
 	dst := filepath.Join(staging, h.Name)
 	if strings.ContainsAny(dst, `'"`) {
 		return nil, fmt.Errorf("staging path %q cannot hold quotes", dst)
 	}
-	if stderr, _, err := h.Runner.Run(ctx, h.Binary, []string{h.Path, ".backup '" + dst + "'"}, nil, nil, io.Discard); err != nil {
+	args = append(args, h.Path, ".backup '"+dst+"'")
+	if stderr, _, err := h.Runner.Run(ctx, h.Binary, args, nil, nil, io.Discard); err != nil {
 		return nil, fmt.Errorf("sqlite online backup of %s: %v: %s", h.Name, err, lastLine(stderr))
 	}
 	return nil, h.integrity(ctx, dst)
