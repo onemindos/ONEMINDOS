@@ -221,6 +221,22 @@ code, so a hostile hub cannot run commands on the machine running `verify.sh`. O
   checked as soon as it has them; `--strict` turns SKIP into FAIL.
 Exit code 0 only when nothing failed.
 
+## Tests of the deploy kit (ported from PR #27; CI: `ci-deploy.yml`)
+| Test | What it proves | Run |
+|---|---|---|
+| [`verify/tests/test_verify.py`](verify/tests/test_verify.py) | `verify.sh` passes a correct hub with **nothing skipped** (`--strict`) and FAILs the right line for each of 15 broken hubs (no auth, agent may approve, no expiry, deny not cancelled, no idempotency, changed params, failed install, no online node, leaked IP, bad board, person on `/mcp`, an approve tool, broken audit chain, a heartbeat for another node, no dashboard). A hub that answers with node ids made of Python code runs nothing (the #26 eval bug). Tokens never reach curl's command line. `natscheck.py` against no-auth, token and nkey servers, `leafz`, and (with Docker) a real nats-server 2.15.2 with a token and TLS from a CA made at test time | `python3 -I deploy/verify/tests/test_verify.py -v` (about 80 s) |
+| [`verify/tests/mock_gateway.py`](verify/tests/mock_gateway.py) | Not a test itself: an imitation hub (HTTP API with `/mcp`, plus a tiny NATS with heartbeats and a hash-chained `onemind.audit`), `--bug` breaks one rule | used by the test above |
+| [`verify/tests/e2e-systemd/run.sh`](verify/tests/e2e-systemd/run.sh) | The real thing on two "stock Debian 13 machines" (containers with systemd as PID 1): `bundle.sh`, hub and node installed **from the bundle only**, tokens printed once and absent from disk, idempotent re-run, 2 Ready nodes, node-check on both, `verify.sh` with the kubernetes executor, an app Available in k3s, a dry run that changes no file, `--uninstall --purge` | `deploy/verify/tests/e2e-systemd/run.sh` (privileged Docker; about 4 min on arm64; `KEEP=1`, `E2E_APP`, `E2E_BUNDLE`) |
+
+The e2e containers need one thing a real machine does not: under cgroup v2 a long `docker exec`
+sits in the container's root cgroup and blocks k3s from getting its controllers, so
+[`entrypoint.sh`](verify/tests/e2e-systemd/entrypoint.sh) moves PID 1 into a leaf cgroup first
+(as kind and k3d do), and `/lib/modules` is mounted for k3s's kernel modules.
+
+Record (2026-11-12, throwaway Lima VM, Docker 29.9.3, arm64): `test_verify.py` 17 passed, 0 skipped
+(real NATS included); `e2e-systemd/run.sh` **20/20, E2E PASSED** in 3 min 49 s, with `verify.sh`
+45 passed, 0 failed, 0 skipped on the bundle-installed hub. amd64 runs in CI.
+
 ## Test record (2026-11-12, Apple-silicon Mac, Lima 2.3.0, all arm64)
 **Hub on Debian 13** (Lima `template:debian-13`, 4 vCPU, 8 GiB, kernel 6.12.115+deb13.1-cloud-arm64),
 repo copied in as a tarball, `sudo deploy/install.sh --role hub`:

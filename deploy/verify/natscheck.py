@@ -60,6 +60,13 @@ class Conn:
         self.host = u.hostname or "127.0.0.1"
         sock = socket.create_connection((self.host, u.port or 4222), timeout=timeout)
         self.sock, self.buf = sock, b""
+        try:
+            self._handshake(u, sock, ca)
+        except BaseException:
+            self.close()
+            raise
+
+    def _handshake(self, u, sock, ca):
         line = self.readline()
         if not line.startswith(b"INFO "):
             raise ConnectionError("not a NATS server (greeting %r)" % line[:40])

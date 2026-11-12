@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# A "stock Debian 13 machine" as a container with systemd as PID 1, so deploy/install.sh runs as it
+# does on a real box (apt, systemd units, k3s, NATS). Test use only (deploy/verify/tests/e2e-systemd).
+# Ported from PR #27. Base: os/versions.lock.yaml base.debian.
+FROM docker.io/library/debian:trixie@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -q \
+ && apt-get install -y -q --no-install-recommends systemd systemd-sysv dbus ca-certificates curl iptables \
+      python3 procps kmod iproute2 \
+ && rm -rf /var/lib/apt/lists/* \
+ && systemctl mask getty.target console-getty.service systemd-firstboot.service \
+ && : > /etc/machine-id
+# run.sh mounts a fresh /etc/machine-id per container, so the hub and the node get different node
+# ids, like two real machines (a cloned VM keeps its twin's id: see deploy/README.md).
+COPY entrypoint.sh /usr/local/sbin/e2e-entrypoint
+STOPSIGNAL SIGRTMIN+3
+VOLUME ["/var/lib/rancher", "/var/lib/kubelet"]
+ENTRYPOINT ["/usr/local/sbin/e2e-entrypoint"]

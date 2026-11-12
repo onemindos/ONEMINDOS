@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # deploy/ (contract poc-v0 §6): lint the scripts and units, check pins against os/versions.lock.yaml,
-# then bring up the compose dev hub and run deploy/verify/verify.sh against it.
+# dry-run install.sh for every target, test verify.sh/natscheck against a mock hub and a real NATS,
+# bring up the compose dev hub and run verify.sh against it, and run the systemd end-to-end test
+# (install.sh from an offline bundle on two Debian 13 systemd containers; ported from PR #27).
 name: ci-deploy
 on:
   pull_request:
@@ -8,6 +10,7 @@ on:
   push:
     branches: [main]
     paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "apps/**", "os/versions.lock.yaml", ".github/workflows/ci-deploy.yml"]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -16,7 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: shellcheck (preinstalled on the runner image)
-        run: shellcheck -x deploy/install.sh deploy/bundle.sh deploy/verify/verify.sh deploy/verify/node-check.sh deploy/compose/gen-tokens.sh
+        run: |
+          shellcheck -x deploy/install.sh deploy/bundle.sh deploy/verify/verify.sh deploy/verify/node-check.sh \
+            deploy/compose/gen-tokens.sh deploy/verify/tests/e2e-systemd/run.sh deploy/verify/tests/e2e-systemd/entrypoint.sh
       - name: pins match os/versions.lock.yaml
         run: python3 -I deploy/check-pins.py
       - name: install.sh --dry-run for every target and role (no root, changes nothing)
@@ -33,6 +38,8 @@ jobs:
           grep -q 'DigitalOcean Cloud' hub-do.log && grep -q 'DigitalOcean Cloud' node-do.log
           ! grep -q 'DigitalOcean Cloud' hub-debian13.log
           if bash deploy/install.sh --role hub --target rpi5 >/dev/null 2>&1; then echo "--target without --dry-run must fail" >&2; exit 1; fi
+      - name: verify.sh against a mock hub (every broken-hub case) and natscheck (mock + real NATS with TLS)
+        run: python3 -I deploy/verify/tests/test_verify.py -v
       - name: systemd units
         run: |
           sudo touch /usr/local/bin/onemindd /usr/local/bin/nats-server && sudo chmod +x /usr/local/bin/onemindd /usr/local/bin/nats-server
@@ -61,3 +68,16 @@ jobs:
         if: always()
         working-directory: deploy/compose
         run: docker compose down -v
+
+  # Ported from PR #27: deploy/bundle.sh, then install.sh --bundle on two Debian 13 containers with
+  # systemd as PID 1 (hub + node), node-check on both, verify.sh with the kubernetes executor, an
+  # app becoming Available in k3s, dry run and uninstall. Needs privileged Docker; about 10 minutes.
+  e2e-systemd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: bundle + hub + node + checks
+        run: deploy/verify/tests/e2e-systemd/run.sh

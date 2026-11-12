@@ -16,7 +16,8 @@
 #   deploy/bundle.sh --arch amd64                 # Beelink, DigitalOcean droplet
 #   deploy/bundle.sh --arch arm64                 # Raspberry Pi 5, Jetson
 #   deploy/bundle.sh --arch arm64 --node-only     # a node needs only onemindd + k3s
-#   options: --out DIR (default out/onemind-bundle-<arch>, gitignored), --no-airgap
+#   options: --out DIR (default out/onemind-bundle-<arch>, gitignored), --no-airgap,
+#            --go auto|local|docker (auto: the local Go if there is one, else the pinned Go container)
 #
 # Then copy the folder to the machine (scp -r, rsync, a USB stick) and run there:
 #   sudo ./onemind-bundle-amd64/src/deploy/install.sh --role hub --bundle ./onemind-bundle-amd64
@@ -26,18 +27,24 @@
 # built with the local Go if there is one, else in the pinned Go container.
 set -euo pipefail
 
-ARCH="" NODE_ONLY=0 OUT="" AIRGAP=1
+ARCH="" NODE_ONLY=0 OUT="" AIRGAP=1 GO_MODE=auto
 while [ $# -gt 0 ]; do
   case "$1" in
     --arch) ARCH=${2:-}; shift 2 ;;
     --node-only) NODE_ONLY=1; shift ;;
     --out) OUT=${2:-}; shift 2 ;;
     --no-airgap) AIRGAP=0; shift ;;
-    -h|--help) sed -n '4,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --go) GO_MODE=${2:-}; shift 2 ;;
+    -h|--help) sed -n '4,29p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1 (see --help)" >&2; exit 2 ;;
   esac
 done
-case "$ARCH" in amd64|arm64) ;; *) echo "usage: $0 --arch amd64|arm64 [--node-only] [--out DIR] [--no-airgap]" >&2; exit 2 ;; esac
+case "$ARCH" in amd64|arm64) ;; *) echo "usage: $0 --arch amd64|arm64 [--node-only] [--out DIR] [--no-airgap] [--go auto|local|docker]" >&2; exit 2 ;; esac
+case "$GO_MODE" in
+  auto) if command -v go >/dev/null 2>&1; then GO_MODE=local; else GO_MODE=docker; fi ;;
+  local|docker) ;;
+  *) echo "--go must be auto, local or docker" >&2; exit 2 ;;
+esac
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 # shellcheck source=deploy/pins.env
@@ -62,7 +69,7 @@ fetch() {
   mv "$WORK/dl" "$3"
 }
 
-if [ "$NODE_ONLY" = 0 ] || ! command -v go >/dev/null 2>&1; then
+if [ "$NODE_ONLY" = 0 ] || [ "$GO_MODE" = docker ]; then
   if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
     die "Docker is needed (gateway runtime and dashboard, or onemindd without a local Go)"
   fi
@@ -101,7 +108,7 @@ find "$OUT/downloads" -type f ! -name "k3s-$K3S_VERSION-$ARCH" ! -name "k3s-inst
 
 # ---- 2. onemindd + onemind (static) ---------------------------------------------------------
 LDFLAGS="-s -w -buildid= -X github.com/onemindos/onemindos/internal/version.Version=$VERSION"
-if command -v go >/dev/null 2>&1; then
+if [ "$GO_MODE" = local ]; then
   log "onemindd + onemind for linux/$ARCH with the local $(go version | awk '{print $3}')"
   for b in onemindd onemind; do
     (cd "$REPO" && CGO_ENABLED=0 GOOS=linux GOARCH="$ARCH" GOFLAGS=-mod=readonly \
