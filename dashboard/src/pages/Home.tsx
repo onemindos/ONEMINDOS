@@ -1,102 +1,100 @@
-import { Link } from 'react-router';
-import type { NodeStatus } from '../api/types';
-import { AppIcon, ErrorNote, Loading, StatusBadge } from '../components/bits';
-import { useNow, usePoll } from '../lib/hooks';
-import { effectiveStatus, formatAgo } from '../lib/time';
+// SPDX-License-Identifier: Apache-2.0
+// Home launcher (IA §2.1) on @onemind/ui HomeScreen, fed by /v1/nodes, /v1/apps and /v1/actions.
+// Widgets whose API is not on this hub yet (backups, updates, mesh) say which work stream brings
+// them instead of showing made-up numbers.
+import { useMemo, useState } from 'react';
+import { HomeScreen, useOptionalCustomize, useToast, type ActionSummary, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
+import { homeActivity, toActionSummary, toHomeApp, toHomeNode } from '../data/adapters';
+import { errorText, useHub, type Hub } from '../data/hub';
+import { homeLayoutStore } from '../data/prefs';
+import type { Polled } from '../lib/hooks';
 import { useSignedIn } from '../session';
+import { href } from '../shell/routes';
+import { useActivity, useShell } from '../shell/Shell';
 
-function greeting(now: number) {
-  const h = new Date(now).getHours();
-  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+/** Home's first layout here: only widgets this hub can feed. The rest are in the widget gallery. */
+export const DASHBOARD_HOME_LAYOUT: HomeLayout = {
+  version: 1,
+  widgets: [
+    { id: 'w-approvals', kind: 'approvals', size: 'M' },
+    { id: 'w-system', kind: 'system', size: 'M' },
+    { id: 'w-activity', kind: 'activity', size: 'M' },
+  ],
+  pinned: [],
+};
+
+const coming = (what: string, stream: string): HomeLoadable<never> => ({ state: 'error', error: 'not_available', message: `${what} come with ${stream}; this hub does not serve them yet.` });
+
+function loadable<T, U>(p: Polled<T>, map: (d: T) => U): HomeLoadable<U> {
+  if (p.data !== undefined) return { state: 'ready', data: map(p.data) };
+  if (p.error) return { state: 'error', error: p.error.code, message: p.error.message };
+  return { state: 'loading' };
+}
+
+export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>): HomeData {
+  return {
+    hub: { observed_at: hub.asOf ?? new Date(0).toISOString() },
+    nodes: loadable(hub.nodes, (ns) => ns.map((n) => toHomeNode(n, hub.nodeStatus(n)))),
+    apps: loadable(hub.apps, (as) => as.map((a) => toHomeApp(a))),
+    approvals: hub.actions.data !== undefined ? { state: 'ready', data: hub.actionList.map(toActionSummary) } : loadable(hub.actions, () => [] as ActionSummary[]),
+    activity: hub.actions.data !== undefined ? { state: 'ready', data: activity } : loadable(hub.actions, () => activity),
+    backups: coming('Backups', 'CORE-BACKUP'),
+    updates: coming('OS and app updates', 'CORE-UPDATE'),
+    mesh: coming('Mesh links', 'CORE-FABRIC'),
+    appWidgets: {},
+    weather: null,
+  };
 }
 
 export function Home() {
-  const { api } = useSignedIn();
-  const now = useNow();
-  const instance = usePoll(() => api.instance(), 60_000);
-  const nodes = usePoll(() => api.nodes());
-  const apps = usePoll(() => api.apps(), 30_000);
-  const actions = usePoll(() => api.actions());
+  const hub = useHub();
+  const { principal } = useSignedIn();
+  const shell = useShell();
+  const toast = useToast();
+  const customize = useOptionalCustomize();
+  const person = principal?.id ?? 'me';
+  const store = useMemo(() => homeLayoutStore(), []);
+  const [layout, setLayout] = useState<HomeLayout>(() => store.load(person) ?? DASHBOARD_HOME_LAYOUT);
+  const entries = useActivity();
+  const data = homeData(hub, homeActivity(entries));
 
-  const counts: Record<NodeStatus, number> = { online: 0, stale: 0, offline: 0 };
-  const fresh = { fetchedAt: nodes.fetchedAt, hubOffsetMs: api.hubOffsetMs() };
-  for (const n of nodes.data ?? []) counts[effectiveStatus(n.status, n.last_seen, now, fresh)]++;
-  const installed = (apps.data ?? []).filter((a) => a.installed);
-  const pending = (actions.data ?? []).filter((a) => a.state === 'awaiting_approval').length;
-  const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  const decide = (a: ActionSummary, how: 'approve' | 'deny') =>
+    hub.decide(a.id, how).then(
+      () => toast.show({ tone: how === 'approve' ? 'ok' : 'neutral', title: how === 'approve' ? 'Approved' : 'Denied', body: how === 'approve' ? 'The hub is applying it.' : 'Nothing changes.' }),
+      (e: unknown) => {
+        const { code, message } = errorText(e);
+        toast.show({ tone: 'bad', title: `Could not ${how}`, body: `${message} (${code})` });
+      },
+    );
 
   return (
-    <div className="page home">
-      <section className="hero" aria-labelledby="home-title">
-        <p className="hero-greeting">{greeting(now)}</p>
-        <h1 id="home-title">{instance.data?.name ?? 'OneMind'}</h1>
-        {instance.data && (
-          <p className="muted-on-wall">
-            Version {instance.data.version} · hub node <code>{instance.data.hub_node_id}</code>
-          </p>
-        )}
-        {instance.error && <ErrorNote error={instance.error} fetchedAt={instance.fetchedAt} now={now} />}
-      </section>
-
-      <section aria-labelledby="sum-title" className="glass">
-        <h2 id="sum-title">Machines</h2>
-        {nodes.loading && !nodes.data ? (
-          <Loading what="machines" />
-        ) : (
-          <ul className="stat-row">
-            {(['online', 'stale', 'offline'] as const).map((s) => (
-              <li key={s} className="stat">
-                <span className="stat-num">{counts[s]}</span>
-                <StatusBadge status={s} />
-              </li>
-            ))}
-          </ul>
-        )}
-        {nodes.error && <ErrorNote error={nodes.error} fetchedAt={nodes.fetchedAt} now={now} />}
-        <p className="small">
-          {nodes.fetchedAt !== undefined && <>Checked {formatAgo(Math.floor((now - nodes.fetchedAt) / 1000))}. </>}
-          <Link to="/nodes">See all machines</Link>
-          {pending > 0 && (
-            <>
-              {' · '}
-              <Link to="/approvals">
-                {pending} request{pending === 1 ? '' : 's'} waiting for approval
-              </Link>
-            </>
-          )}
-        </p>
-      </section>
-
-      <section aria-labelledby="apps-title" className="glass">
-        <h2 id="apps-title">Your apps</h2>
-        {apps.loading && !apps.data ? (
-          <Loading what="apps" />
-        ) : installed.length === 0 ? (
-          <p>
-            No apps yet. <Link to="/market">Browse the Market</Link>.
-          </p>
-        ) : (
-          <ul className="app-grid">
-            {installed.map((a) => (
-              <li key={a.id}>
-                {a.web_port ? (
-                  <a className="app-tile" href={`http://${host}:${a.web_port}/`} target="_blank" rel="noreferrer">
-                    <AppIcon id={a.id} name={a.name} />
-                    <span className="app-tile-name">{a.name}</span>
-                    <span className="visually-hidden"> (opens in a new tab)</span>
-                  </a>
-                ) : (
-                  <span className="app-tile">
-                    <AppIcon id={a.id} name={a.name} />
-                    <span className="app-tile-name">{a.name}</span>
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        {apps.error && <ErrorNote error={apps.error} fetchedAt={apps.fetchedAt} now={now} />}
-      </section>
-    </div>
+    <HomeScreen
+      data={data}
+      now={hub.now}
+      timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
+      personName={principal?.kind === 'person' ? principal.id : undefined}
+      layout={layout}
+      onLayoutChange={(next) => {
+        setLayout(next);
+        store.save(person, next);
+      }}
+      wallpaper={customize && customize.prefs.wallpaper !== 'none' ? 'host' : 'tide'}
+      canDecide={hub.canDecide === 'no' ? { allowed: false, reason: 'Only the owner can approve or deny.' } : { allowed: true }}
+      onApprove={(a) => void decide(a, 'approve')}
+      onDeny={(a) => void decide(a, 'deny')}
+      busy={hub.busy}
+      onOpenSearch={shell.openPalette}
+      links={{
+        approvals: href.approvals,
+        nodes: href.nodes,
+        activity: href.activity,
+        backups: href.setting('backups'),
+        updates: href.setting('updates'),
+        mesh: href.nodes,
+        apps: href.market,
+        app: (id) => (hub.apps.data?.find((a) => a.id === id)?.installed ? href.manage(id) : href.app(id)),
+        approval: (id) => href.approval(id),
+      }}
+    />
   );
 }

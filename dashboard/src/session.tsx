@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { HttpApi, type OneMindApi } from './api/client';
 import { DEMO_TOKENS } from './api/fixtures';
