@@ -1,0 +1,10 @@
+# OneMind app intake queue (contract §9.1, sdk/contracts/poc-v0.md)
+# Add one entry per app. Only `name` and `github` are required.
+# status is updated by the PR that adds the app: queued | in-pr | verified | blocked: <reason>
+- {name: Hermes Agent, github: NousResearch/hermes-agent, priority: 1, status: queued, notes: "first founder app; contract §7"}
+- {name: Node-RED, github: node-red/node-red, priority: 1, status: queued}
+- {name: Eclipse Mosquitto, github: eclipse-mosquitto/mosquitto, priority: 1, status: queued}
+- {name: Vaultwarden, github: dani-garcia/vaultwarden, priority: 1, status: queued}
+- {name: Actual Budget, github: actualbudget/actual, priority: 1, status: queued}
+- {name: Zigbee2MQTT, github: Koenkk/zigbee2mqtt, priority: 1, status: queued}
+# Founder: paste the rest of the 100+ list below (name + github owner/repo is enough).
