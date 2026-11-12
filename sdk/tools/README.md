@@ -48,6 +48,38 @@ crane manifest docker.io/louislam/uptime-kuma:2.0.2    # lists the per-arch imag
 
 Pin the index digest, not a single-arch one, so the same reference works on amd64 and arm64.
 
+## app-gate
+
+`app-gate` runs the contract §9.4 gate for one or more apps and writes `apps/<id>/scan.json` in exactly the §11.1 format, then regenerates the app's README. `.github/workflows/ci-apps.yml` runs it on every pull request that changes an app, and `.github/workflows/apps-rescan.yml` runs it every day for every app (§10.2).
+
+| §9.4 | Check | Fails (`result: fail`) when |
+|---|---|---|
+| 1, 8 | `validate-apps` for the app (schema, id, kubeconform, limits, pins) | any validate-apps check fails |
+| 2 | Licence: the manifest's SPDX expression must be confirmed by GitHub's detected licence or by the row for that repo in `research-output/evidence/license-matrix.csv`, then classed L1 (permissive), L2 (copyleft) or `blocked` | the class is `blocked`: unknown, unconfirmed, source-available (BUSL, Elastic, FSL), non-commercial (PolyForm-NC) or any `LicenseRef-` term. `OR` takes the best term, `AND` the worst |
+| 3 | Pinning: `name:tag@sha256:…`, the digest exists, and its index has every arch in `spec.archs` (crane) | a declared arch is missing. A tag that has since moved is only noted |
+| 4, 6 | Trivy over each image, once per declared arch (`--image-src remote`, no Docker needed): CVEs and secrets | a CRITICAL has a fixed version, or Trivy reports a secret in the image |
+| 5 | ClamAV: `crane export` streams each arch's filesystem, regular files are unpacked to a temp dir, `clamscan -r` | any hit |
+| 7 | cosign: if the registry has a `sha256-<digest>.sig` for the index or an arch image, `cosign verify` with the upstream's GitHub Actions identity; else `unsigned`. OpenSSF Scorecard from api.securityscorecards.dev (informational) | a published signature does not verify |
+| 8 | Non-root: every container runs non-root (`runAsNonRoot`, a non-zero `runAsUser`, or the image's own non-root `USER`). An image whose `USER` is root is accepted only with `allowPrivilegeEscalation: false` and all capabilities dropped | a container forces UID 0 over a non-root image, or runs as root without those two settings |
+| 9 | `--smoke`: `kubectl apply -k` into `app-<id>` on the current context, `rollout status` for every workload, then `GET /` through a port-forward to `spec.web.port` must answer 200–399. Skipped (and not a failure) when the app has no `spec.web` | the rollout or the HTTP check fails, or `--smoke` was not given for an app with a web port |
+
+**Tier** (`metadata.tier`, contract §9.3): `blocked` when the licence class is blocked, ClamAV hits, or a CRITICAL has a fix; `verified` when the result is `pass`, the upstream is not archived, its latest release is under 18 months old and no file under `apps/<id>/` (except `scan.json`) says `UNVERIFIED`; `community` otherwise. `--tier check` (the default, used on pull requests) fails when the manifest claims a higher tier than the gate computes. `--tier write` (the daily rescan) writes the computed tier, but never lifts `blocked`: unblocking is a human pull request.
+
+```sh
+python3 -I sdk/tools/app-gate ntfy --smoke --clamav-db /var/lib/clamav --report /tmp/report.json
+```
+
+It needs `crane`, `trivy` (v0.76.2), `clamscan` with a fresh database (`freshclam`), `cosign` (only when an upstream signs), `kustomize`, `kubeconform` and, with `--smoke`, `kubectl` pointed at a **throwaway** cluster (CI uses k3d). `--report` writes every finding as JSON (CVE ids, notes, Scorecard), and `--sbom-dir` writes a CycloneDX SBOM per image and arch. Exit codes: 0 every app passes, 1 one fails, 2 a tool or the network failed.
+
+## app-readme
+
+`apps/<id>/README.md` is generated (contract §9.3) from `onemind.app.yaml`, the rendered manifests and `scan.json`: the links, licence and class, tier, resources, images and the latest scan summary. The hand-written part (what the app is, packaging notes, first-run steps copied from upstream docs with their URL) lives between `<!-- onemind:notes:begin -->` and `<!-- onemind:notes:end -->` and is kept on every run.
+
+```sh
+python3 -I sdk/tools/app-readme            # rewrite every README
+python3 -I sdk/tools/app-readme --check    # CI: exit 1 if one is out of date
+```
+
 ## Not checked yet
 
-These parts of the §9.4 gate come in later waves: the licence gate against `research-output/evidence/license-matrix.csv`, a check that the images support the declared `spec.archs`, Trivy (CVE scan, SBOM, secrets), ClamAV, cosign and Scorecard, the non-root check and the k3d smoke test. CI already runs gitleaks over the pull request's commits.
+The gate's Trivy run records the CVE report; a separate syft SBOM (§9.4 item 4 names syft) is not produced, Trivy's CycloneDX output (`--sbom-dir`) is used instead. Debian tracker states as VEX (brief 30 D-B1.5) are not applied to app images.
