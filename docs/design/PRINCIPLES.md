@@ -12,7 +12,7 @@ Nothing on the box changes until a person approves it. This is the core rule: **
 - Agents can ask. They can never approve. A disabled Approve button always says why it is disabled.
 - Risky decisions (remove, restore, expose to the internet) open a confirmation dialog that names the consequence ("its data is kept").
 
-*Why:* umbrelOS and Home Assistant let an owner install with one click, and only add MCP permissions for agents (MATRIX §5; `research-output/02-competitors/umbrelos.md`). OneMind's selling point is that a household, or an AI, can propose anything and nothing happens behind the owner's back. The approval card is therefore the most important component in the system.
+*Why:* competitors install with one click, and their MCP servers let agents act with the owner's rights: umbrelOS shares one grant set across agents, which act as the owner (`umbrelos.md`, AI features row), StartOS exposes its admin tools by default, and only HA (admin-only, read-only options) and TrueNAS (confirmations) add guard rails. None has per-agent scopes, approvals and an audit log together (`research-output/02-competitors/MATRIX.md` §4, point 6). OneMind's selling point is that a household, or an AI, can propose anything and nothing happens behind the owner's back. The approval card is therefore the most important component in the system.
 
 ## P2 · Honest about state
 A value is shown as live only while its source is still reporting. **The UI never shows a cached green.**

@@ -1,6 +1,6 @@
 # Plugin UI: extension points, phase 1
 
-**Serves:** backlog item 24 (PLG-P1, PLG-P2, PLG-B1, later PLG-B2/B3) in `docs/strategy/core-alignment.md`; socket **E5** "UI slot" in [`research-output/29-PLATFORM-ECOSYSTEM-MARKETPLACE.md`](../../research-output/29-PLATFORM-ECOSYSTEM-MARKETPLACE.md) and brief 30 (E5 = v1-beta: "separate origin per widget, CSP from declared domains, no inherited credentials"); one manifest schema (BD-14).
+**Serves:** backlog item 24 (PLG-P1, PLG-P2, PLG-B1, later PLG-B2/B3) in `docs/strategy/core-alignment.md` (branch `docs/core-architecture`, not yet on `main`); socket **E5** "UI slot" in [`research-output/29-PLATFORM-ECOSYSTEM-MARKETPLACE.md`](../../research-output/29-PLATFORM-ECOSYSTEM-MARKETPLACE.md) and brief 30 (E5 = v1-beta: "separate origin per widget, CSP from declared domains, no inherited credentials"); one manifest schema (BD-14).
 **Status:** design. Nothing here is in `sdk/schema/onemind.app.schema.json` yet. The manifest fields below are a **proposal** for a contract amendment PR, which all streams adopt (contract preamble).
 
 **Plain English:** an *extension point* is a place in the dashboard where an app may add its own piece of UI, such as a tile on Home or a settings panel. Phase 1 gives apps three such places, with strict limits, so that a badly written or malicious app cannot read your other apps, act without approval, or make the dashboard slow.

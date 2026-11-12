@@ -2,7 +2,7 @@
 
 Design tokens (as CSS custom properties) and accessible React components for the OneMind dashboard, plus a demo of every screen. Design docs: [`docs/design/`](../docs/design/).
 
-**Serves:** backlog item 7 (UX-P1, design system v0) in `docs/strategy/core-alignment.md`; REC-W11-01 (one React + TypeScript web UI), REC-W11-19 (WCAG 2.2 AA). Language follows BD-02 (TypeScript + React for the UI).
+**Serves:** backlog item 7 (UX-P1, design system v0) in `docs/strategy/core-alignment.md` (branch `docs/core-architecture`, not yet on `main`); REC-W11-01 (one React + TypeScript web UI), REC-W11-19 (WCAG 2.2 AA). Language follows BD-02 (TypeScript + React for the UI).
 
 ## Why it is a separate package (plain English)
 The dashboard (`dashboard/`) is being changed by another work stream right now. Building the design system next to it, as a small library, means both can move at once. Phase B moves the dashboard onto these components. The native phone app can read the same values from `dist/tokens.json`.

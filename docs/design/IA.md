@@ -1,6 +1,6 @@
 # Information architecture
 
-**Serves:** backlog items 7 (UX-P1), 8 (NOT-P1), 9 (UX-B1), 10 (OSU-P1), 11 (APP-P1–P3), 15 (FAB-P1/P2), 16 (FAB-P3, APP-B3), 17 (MOB-P1, MOB-B2), 20 (NOT-B1), 22 (REM-P1), 25 (SEC-B3/B4) in `docs/strategy/core-alignment.md`; contract [`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md) §3, §5, §9.3, §11.4.
+**Serves:** backlog items 7 (UX-P1), 8 (NOT-P1), 9 (UX-B1), 10 (OSU-P1), 11 (APP-P1–P3), 15 (FAB-P1/P2), 16 (FAB-P3, APP-B3), 17 (MOB-P1, MOB-B2), 20 (NOT-B1), 22 (REM-P1), 25 (SEC-B3/B4) in `docs/strategy/core-alignment.md` (branch `docs/core-architecture`, not yet on `main`); contract [`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md) §3, §5, §9.3, §11.4.
 **Mocks:** every screen below is a static mock in [`ui/demo`](../../ui/demo/) (fixtures only). Screenshots are in [`screens/`](screens/).
 
 **How to read "Data":** *contract* means the field exists in `poc-v0.md` today. **PROPOSED** means the screen needs an endpoint or field that does not exist yet; the backlog item that would add it is named. Mocks use fixtures for both.
@@ -17,6 +17,7 @@
 | System | Nodes | `/nodes`, `/nodes/<id>` | — | More |
 | System | Backups | `/backups` | — | More |
 | System | Updates | `/updates` | — | More |
+| System | Automation (PROPOSED, no mock yet) | `/automation` | — | More |
 | System | Settings (People, Agents and tokens, Security, Remote access, Notifications, Appearance) | `/settings/<section>` | — | More |
 
 - **Desktop (> 720 px):** left sidebar with groups; a top bar with the hub connection state (a freshness pill: the hub's own answer is ageing too) and the person menu.
@@ -93,6 +94,12 @@ Each screen lists its purpose, content, actions (every action is a request, P1),
 
 ### 2.11 Components · `screens/gallery.png`, `gallery-dark.png`
 The visual test page: colour roles, every component in every state. Used for design review in both themes; replaces Storybook.
+
+### 2.12 Automation (PROPOSED, no mock yet)
+- **Purpose:** schedules and event triggers for the founder's daily operation (backlog item 21: AUT-P1, AUT-P2, AUT-B1, AUT-B2).
+- **Content:** list of rules (trigger: schedule, `evt.*` subject or webhook; the request it creates; last and next run; owner policy if pre-approved); per rule a **dry run** showing what it would request and against which resource.
+- **Rule (P1):** a rule never changes state directly. It creates a request with requester `system:automation/<rule>` (PROPOSED, see 2.4), which waits in Approvals unless an owner **approval policy with limits** covers it (AUT-B1); auto-approved runs still appear in Activity.
+- **Data:** none in the contract yet; needs a contract amendment.
 
 ## 3. Mobile mapping
 
