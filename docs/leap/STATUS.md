@@ -57,6 +57,7 @@
 | PA-ALIGN | Core alignment against the leading self-hosted OSes | done | `docs/core-architecture` | [#17](https://github.com/onemindos/ONEMINDOS/pull/17) |
 | PA-ARCH | Phase-B architecture docs and `CONTRACT-12-DRAFT.md` | done | `docs/core-architecture` | [#17](https://github.com/onemindos/ONEMINDOS/pull/17) |
 | PA-THREAT | Threat model and ranked hardening backlog (H-ids) | done | `docs/security-threat-model` | [#18](https://github.com/onemindos/ONEMINDOS/pull/18) |
+| SEC-REREVIEW | Security re-review (Wave G #3): threat model refresh, route/authz inventory, fresh P0/P1/P2 backlog, P0 fixes | review | `docs/threat-model-refresh` | PR pending |
 | PA-UI | Design system `@onemind/ui`: tokens and components, light and dark | done | `feat/design-system` | [#20](https://github.com/onemindos/ONEMINDOS/pull/20) |
 | PA-SITE | Website (Astro + Starlight) committed | done | `feat/website` | [#19](https://github.com/onemindos/ONEMINDOS/pull/19) |
 | PA-MOBILE | Mobile shell (Expo) committed | done | `feat/mobile-shell` | [#21](https://github.com/onemindos/ONEMINDOS/pull/21) |
@@ -376,7 +377,7 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-SYS-6 | Wi-Fi and static IP with automatic revert | todo | – | – |
 | UMB-SYS-8 | Factory reset as a critical action | todo | – | – |
 | UMB-SYS-10 | Restart and shut down a node | todo | – | – |
-| UMB-MACH-1 | Machines lab kit and feasibility (LT-MACH-1…3) | todo | – | – |
+| UMB-MACH-1 | Machines lab kit and feasibility (LT-MACH-1…3) | review | spike/machines | – |
 
 #### UMB in S3
 

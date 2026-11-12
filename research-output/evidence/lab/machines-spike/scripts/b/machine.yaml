@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: Apache-2.0
+# LAB-machines-spike option B: one machine = PVC + Deployment (init container imports the image) + Service.
+# @NAME@, @NS@, @ACCEL@, @PRIV@ are replaced by scripts/b/apply.sh.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: "@NAME@-disk", namespace: "@NS@"}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources: {requests: {storage: 8Gi}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: "@NAME@", namespace: "@NS@", labels: {app: "@NAME@", machlab/option: b}}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: "@NAME@"}}
+  template:
+    metadata: {labels: {app: "@NAME@", machlab/option: b}}
+    spec:
+      terminationGracePeriodSeconds: 30
+      initContainers:
+      - name: import
+        image: localhost/machlab-qemu:1
+        imagePullPolicy: Never
+        command: ["/bin/sh", "-c", "[ -f /disk/disk.img ] || { qemu-img convert -O raw /src/fedora.qcow2 /disk/disk.img.tmp && mv /disk/disk.img.tmp /disk/disk.img; }; [ -f /disk/vars.fd ] || cp /usr/share/AAVMF/AAVMF_VARS.fd /disk/vars.fd"]
+        volumeMounts:
+        - {name: disk, mountPath: /disk}
+        - {name: src, mountPath: /src, readOnly: true}
+        resources: {requests: {cpu: "1", memory: 256Mi}, limits: {cpu: "1", memory: 256Mi}}
+      containers:
+      - name: qemu
+        image: localhost/machlab-qemu:1
+        imagePullPolicy: Never
+        command: ["/usr/local/bin/run-qemu.sh"]
+        env: [{name: ACCEL, value: "@ACCEL@"}, {name: VM_NAME, value: "@NAME@"}, {name: MEM, value: "1024"}, {name: SMP, value: "2"}]
+        ports: [{name: vnc-ws, containerPort: 5700}, {name: ssh, containerPort: 2222}]
+        securityContext: {privileged: @PRIV@}
+        volumeMounts:
+        - {name: disk, mountPath: /disk}
+        - {name: seed, mountPath: /seed, readOnly: true}
+        - {name: kvm, mountPath: /dev/kvm}
+        - {name: run, mountPath: /run/vm}
+        resources: {requests: {cpu: "2", memory: 1280Mi}, limits: {cpu: "2", memory: 1280Mi}}
+      volumes:
+      - {name: disk, persistentVolumeClaim: {claimName: "@NAME@-disk"}}
+      - {name: src, hostPath: {path: /opt/machlab/img, type: Directory}}
+      - {name: seed, hostPath: {path: /opt/machlab/seed, type: Directory}}
+      - {name: kvm, hostPath: {path: /dev/kvm, type: CharDevice}}
+      - {name: run, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: "@NAME@", namespace: "@NS@"}
+spec:
+  selector: {app: "@NAME@"}
+  ports: [{name: vnc-ws, port: 5700}, {name: ssh, port: 2222}]
