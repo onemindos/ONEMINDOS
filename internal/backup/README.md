@@ -52,7 +52,7 @@ Result on 2026-11-12: both pass on Debian 13 arm64 (Lima, vz) with the linux/arm
 
 ## Wiring still needed (not in this change)
 
-1. **`cmd/onemindd/main.go`:** read `ONEMIND_BACKUP_CONF` (default `/data/onemind/backup/agent.json`). When the file exists, call `backup.New` and `go a.Loop(ctx)`, and mount `a.Handler(ctx)` on the `:7480` mux for `/api/v1/backup/`. The handler itself refuses non-loopback callers.
+1. **Done (`backup.Service()`, `internal/backup/service.go`, listed in `optionalServices` in `cmd/onemindd/registry.go`):** when `ONEMIND_BACKUP_CONF` (default `/data/onemind/backup/agent.json`) exists, it builds the agent, runs `Loop`, and mounts `a.Handler(ctx)` on the `:7480` mux under `/api/v1/backup/` (`service.Service.Mount`). The handler itself refuses non-loopback callers. A broken file is logged and answered with 503; the heartbeat keeps running.
 2. **Heartbeat (§12.11):** add `Backup *backup.Heartbeat \`json:"backup,omitempty"\`` to `heartbeat.Status` and fill it from `a.Heartbeat()`. It is kept out of `internal/heartbeat` here to avoid a conflict with the fabric stream, which adds `fabric` to the same struct.
 3. **Updater (§6.1):** when the agent is configured, `internal/update` calls `POST 127.0.0.1:7480/api/v1/backup/run {"reason":"pre-update","wait":true}` instead of its own restic snapshot, and keeps `restic_*` in `update.conf` as the fallback.
 4. **Image stream (`os/**`):** add restic and rest-server to `os/versions.lock.yaml` with the values in `pins.go`; install restic at `/usr/lib/onemind/restic`; add Debian `sqlite3` to the rootfs. The systemd unit for onemindd needs `CAP_DAC_READ_SEARCH` to read app volumes (as `onemind-update.service` does) and `RESTIC_CACHE_DIR` on `/var/cache`.

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package cli
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 	"io"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/spf13/cobra"
 
 	"github.com/onemindos/onemindos/internal/storage"
 )
@@ -247,4 +249,17 @@ func contains(xs []string, v string) bool {
 		}
 	}
 	return false
+}
+
+// storageCommands registers `onemind storage` (a group line in root.go). Read-only: plan
+// prints commands, it never runs them.
+func storageCommands(a *App) []*cobra.Command {
+	return []*cobra.Command{{
+		Use:                "storage disks|health|status|plan ...",
+		Short:              "List disks, check their health and print storage plans (read-only)",
+		DisableFlagParsing: true,
+		RunE: func(_ *cobra.Command, args []string) error {
+			return storageCmd(args, a.Stdout)
+		},
+	}}
 }

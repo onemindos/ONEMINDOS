@@ -65,29 +65,15 @@ onemind storage plan protect --device DISK [--mount DIR] [--key-file F] [--json]
 onemind storage plan repair  [--mount DIR] [--json]
 ```
 
-## Wiring (recorded here, not applied)
+## Wiring
 
-`cmd/onemind/main.go` is shared with other streams, so this branch does not edit it. To register the command, the CLI owner adds **one case** to the `switch` in `run` and appends the usage text:
+`onemind storage ...` is registered as the `storage` command group in `cmd/onemind/cli/storage.go` (one line, `storageCommands`, in `groups` in `cmd/onemind/cli/root.go`; see `docs/leap/core/PLUMBING.md` section 6). `cmd/wiring_test.go` fails when an `internal/` package is not used by any binary.
 
-```go
-	case args[0] == "storage":
-		err = storageCmd(args[1:], stdout)
-```
-
-```go
-const usage = `usage:
-  ...
-  onemind version
-` + storageUsage
-```
-
-The lab built exactly this with `go build -overlay` (a patched copy of `main.go` outside the repo), and `go test -overlay … ./cmd/onemind` passes with it. Until it is registered, `storageCmd` is exercised by `cmd/onemind/storage_test.go`.
-
-`cmd/onemindd/main.go`: no change in this slice. STOR-3's heartbeat `storage` object (state, free bytes, alerts) needs the contract field from STOR-0 first; then one line in `onemindd` calls `storage.New().MirrorStatus(ctx, "/data")` on the heartbeat tick.
+`cmd/onemindd/main.go`: no change in this slice. STOR-3's heartbeat `storage` object (state, free bytes, alerts) needs the contract field from STOR-0 first; then one `optionalServices` line in `cmd/onemindd/registry.go` can call `storage.New().MirrorStatus(ctx, "/data")` on the heartbeat tick.
 
 ## Tests
 
-`go test ./internal/storage ./cmd/onemind` replays recorded output from `testdata/` (see `testdata/README.md`: real Debian 13 recordings from the lab for every set state, plus labelled synthetic NVMe/SATA SMART files until STOR-10 records real ones). Lab: `research-output/evidence/lab/storage-mirror/`.
+`go test ./internal/storage ./cmd/onemind/...` replays recorded output from `testdata/` (see `testdata/README.md`: real Debian 13 recordings from the lab for every set state, plus labelled synthetic NVMe/SATA SMART files until STOR-10 records real ones). Lab: `research-output/evidence/lab/storage-mirror/`.
 
 ## Follow-ups
 
