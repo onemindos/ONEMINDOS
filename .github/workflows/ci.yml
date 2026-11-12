@@ -18,6 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - run: scripts/lint.sh
+      - name: App taxonomy is in sync (docs/design/TAXONOMY.md)
+        run: python3 -I scripts/app-taxonomy.py --check
   unit:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

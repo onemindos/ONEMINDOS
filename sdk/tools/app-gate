@@ -148,7 +148,9 @@ class Gate:
                 out.parent.mkdir(parents=True, exist_ok=True)
                 sb = argv[:2] + ["--quiet", "--format", "cyclonedx", "--output", str(out),
                                  "--platform", f"linux/{arch}", "--image-src", "remote", "--skip-version-check"]
-                common.run(sb + [ref], timeout=3600)
+                sbp = common.run(sb + [ref], timeout=3600)
+                if sbp.returncode != 0 or not out.exists():
+                    c.fail(f"SBOM for {ref} ({arch}) not written: trivy exited {sbp.returncode}: {(sbp.stderr or '').strip()[-300:]}")
         crit = [v for v in vulns.values() if v.get("Severity") == "CRITICAL"]
         fixable = [v for v in crit if v.get("FixedVersion")]
         for v in fixable:
