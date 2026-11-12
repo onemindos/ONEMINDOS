@@ -76,5 +76,9 @@ jobs:
       - name: Service state on failure
         if: failure()
         run: |
-          sudo systemctl --no-pager status k3s onemind-nats onemindd onemind-gateway || true
-          sudo journalctl --no-pager -n 5 -u onemind-gateway -u onemindd -u onemind-nats || true
+          sudo systemctl --no-pager -n 0 status k3s onemind-nats onemindd onemind-gateway || true
+          sudo journalctl --no-pager -n 5 -u onemind-gateway -u onemindd -u onemind-nats | cut -c1-160 || true
+      - name: Measured numbers (last in the log, so they are easy to find)
+        if: always()
+        run: |
+          python3 -I test/perf/perf.py check --budget test/perf/budget.json idle.json load.json cold.json 2>&1 | grep '^|' || true
