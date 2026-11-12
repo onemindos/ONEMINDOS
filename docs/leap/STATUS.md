@@ -183,7 +183,7 @@
 | CORE-UPDATE-6 | Health-gated app updates with snapshot and revert | todo | – | – |
 | CORE-UPDATE-7 | Offline grace and USB/LAN mirror installs | todo | – | – |
 | CORE-UPDATE-8 | Rescue console in onemindd | todo | – | – |
-| CORE-DASH-2 | Move the 5 existing screens onto `@onemind/ui` (dashboard v2: Home, Market, Installed, Approvals, Activity, Nodes, Settings, ⌘K, bell; CRITIQUE #19–#26 fixed; local commits, not pushed) | in-progress | `feat/dashboard-v2` | – |
+| CORE-DASH-2 | Move the 5 existing screens onto `@onemind/ui` (dashboard v2: Home, Market, Installed, Approvals, Activity, Nodes, Settings, ⌘K, bell; CRITIQUE #19–#26 fixed; local commits, not pushed) | in-progress (orchestrator) | `feat/dashboard-v2` | – |
 | CORE-DASH-5 | Alerts, Updates and Backups screens | todo | – | – |
 | CORE-DASH-7 | PWA and per-app subdomain launcher | todo | – | – |
 | CORE-DASH-8 | Typed widgets on Home; "show the equivalent call" toggle | todo | – | – |
