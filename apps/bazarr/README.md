@@ -26,6 +26,7 @@ The Market lists `minMemoryMb: 512`, no GPU.
 
 | Workload | Container | Requests (CPU / memory) | Limits (CPU / memory) |
 |---|---|---|---|
+| Deployment/bazarr | run-dir | 10m / 16Mi | 100m / 32Mi |
 | Deployment/bazarr | bazarr | 50m / 192Mi | 1 / 512Mi |
 
 Storage: PVC `bazarr-config` 2Gi.
@@ -50,7 +51,7 @@ Bazarr finds subtitles in the languages you want for the films and series that S
 
 ## How it runs here
 
-- One `Deployment` (`Recreate`), one container, started as UID 1000 in linuxserver's documented non-root mode (this image is marked `nonroot_supported`), with a writable in-memory `/run` for the s6 supervisor. No privilege escalation, all capabilities dropped.
+- One `Deployment` (`Recreate`), one container, started as UID 1000 in linuxserver's documented non-root mode (this image is marked `nonroot_supported`), with a writable in-memory `/run` for the s6 supervisor. linuxserver's startup script turns on non-root mode only when `/run` is not owned by root, so a small init container creates that directory as UID 1000. No privilege escalation, all capabilities dropped.
 - Volume: `bazarr-config` (2 GiB, `/config`).
 - Probes: `GET /`.
 

@@ -31,6 +31,27 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        # linuxserver's /docker-mods switches to non-root mode only when /run is not owned by root
+        # ("stat /run -c %u"); an emptyDir is root-owned. This creates a run directory owned by UID
+        # 1000 inside the emptyDir, mounted below at /run with subPath.
+        - name: run-dir
+          image: lscr.io/linuxserver/bazarr:v1.6.2-ls372@sha256:832820dec70bce9e912c6eee7a95baf6551e03dbc63325a7208daaa455423752
+          command: ["mkdir", "-p", "/mnt/run"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: run
+              mountPath: /mnt
       containers:
         - name: bazarr
           image: lscr.io/linuxserver/bazarr:v1.6.2-ls372@sha256:832820dec70bce9e912c6eee7a95baf6551e03dbc63325a7208daaa455423752
@@ -78,6 +99,7 @@ spec:
             # non-root.md: s6 "needs to be able to write its service files to /run".
             - name: run
               mountPath: /run
+              subPath: run
       volumes:
         - name: config
           persistentVolumeClaim:
