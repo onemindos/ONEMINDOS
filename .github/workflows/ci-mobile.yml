@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Mobile CI (mobile/README.md; docs/testing/CI-MATRIX.md §3): the phone app's unit tests and both
 # native builds, which until now ran only on a developer Mac.
-#   test:    typecheck + jest (API client, approval flow, alerts, session, Approvals screen)
+#   test:    design-token check + typecheck + jest (API client, approval flow, alerts, session, Approvals screen)
 #   android: expo prebuild + Gradle assembleDebug on ubuntu-24.04 with the NDK React Native names;
 #            the APK must not request any permission app.json blocks; APK uploaded for sideloading
 #   ios:     expo prebuild + CocoaPods + xcodebuild Release for the iOS simulator on macos-26
@@ -13,11 +13,15 @@ on:
   pull_request:
     paths:
       - 'mobile/**'
+      - 'ui/src/tokens/**'
+      - 'sdk/openapi/**'
       - '.github/workflows/ci-mobile.yml'
   push:
     branches: [main]
     paths:
       - 'mobile/**'
+      - 'ui/src/tokens/**'
+      - 'sdk/openapi/**'
       - '.github/workflows/ci-mobile.yml'
   workflow_dispatch:
 
@@ -50,6 +54,8 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci
+      - name: Design tokens match ui/src/tokens/tokens.ts
+        run: npm run tokens -- --check
       - run: npm run typecheck
       - run: npx jest --ci
 
@@ -107,6 +113,14 @@ jobs:
           done
           [ "$bad" -eq 0 ] && echo "no blocked permission requested"
           exit "$bad"
+      - name: No Google Play Services auth library in the app (plugins/withoutPlayServicesCredentials.js)
+        run: |
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          cd mobile/android && ./gradlew --no-daemon -q :app:dependencies --configuration releaseRuntimeClasspath > deps.txt
+          if grep -E "play-services-auth|credentials-play-services-auth" deps.txt; then
+            echo "a proprietary Play Services auth library is linked" >&2
+            exit 1
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onemind-mobile-debug-apk

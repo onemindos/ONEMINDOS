@@ -7,7 +7,7 @@ import pytest
 
 from conftest import AGENT, GUEST, OWNER, make_client
 from onemind_core.catalog import Catalog, builtin_check
-from onemind_core.nodes import NodeRegistry
+from onemind_core.nodes import MAX_NODES, OFFLINE_AFTER_S, NodeRegistry
 
 
 def heartbeat(node_id="3f9c2a1b7d4e", **extra):
@@ -87,6 +87,22 @@ def test_forbidden_fields_are_stripped(clock):
     n = reg.get("n1")
     assert "mac_address" not in n and "serial" not in n
     assert n["status"] == "online"
+
+
+def test_registry_is_bounded_against_invented_node_ids(clock):
+    """NATS has no users yet, so any LAN device can publish as any node id: the registry must not
+    grow without bound, must keep serving known nodes, and must make room only from offline ones."""
+    reg = NodeRegistry(clock)
+    for i in range(MAX_NODES):
+        assert reg.ingest(f"onemind.node.n{i}.status", heartbeat(f"n{i}"))
+    assert reg.ingest("onemind.node.flood.status", heartbeat("flood")) is False  # all online: refused
+    assert len(reg.list()) == MAX_NODES and reg.get("flood") is None
+    assert reg.ingest("onemind.node.n7.status", heartbeat("n7"))  # a known node still updates
+    clock.advance(OFFLINE_AFTER_S + 1)
+    assert reg.ingest("onemind.node.n7.status", heartbeat("n7"))  # n7 is fresh again; the rest are offline
+    assert reg.ingest("onemind.node.late.status", heartbeat("late"))  # makes room by dropping an offline node
+    ids = {n["node_id"] for n in reg.list()}
+    assert len(ids) == MAX_NODES and {"n7", "late"} <= ids
 
 
 # ---- apps ------------------------------------------------------------------------------
