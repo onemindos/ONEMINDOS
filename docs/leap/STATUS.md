@@ -189,8 +189,9 @@
 | CORE-UPDATE-7 | Offline grace and USB/LAN mirror installs | todo | – | – |
 | CORE-UPDATE-8 | Rescue console in onemindd | todo | – | – |
 | CORE-DASH-2 | Move the 5 existing screens onto `@onemind/ui` (dashboard v2: Home, Market, Installed, Approvals, Activity, Nodes, Settings, ⌘K, bell; CRITIQUE #19–#26 fixed; PR open) | review | `feat/dashboard-v2` | – |
-| CORE-DASH-5 | Alerts, Updates and Backups screens | todo | – | – |
-| CORE-DASH-7 | PWA and per-app subdomain launcher | todo | – | – |
+| CORE-DASH-5 | Alerts, Updates and Backups screens | in-progress (orchestrator) | `feat/dashboard-wiring` | – |
+| CORE-DASH-9 | Dashboard wiring pass (HANDOFF B5): pages for every API on main, first-run wizard, passkey sign-in, PWA, i18n scaffold; "coming soon" for APIs not on main | in-progress (orchestrator) | `feat/dashboard-wiring` | – |
+| CORE-DASH-7 | PWA and per-app subdomain launcher | in-progress (orchestrator) | `feat/dashboard-wiring` | – |
 | CORE-DASH-8 | Typed widgets on Home; "show the equivalent call" toggle | todo | – | – |
 | DEV-SDK-4 | Dashboard and mobile moved onto `@onemind/sdk` | todo | – | – |
 | DEV-SDK-7 | SSE in all three SDKs, polling fallback, React Native transport | in-progress | `feat/devsurface` (local) | – |
