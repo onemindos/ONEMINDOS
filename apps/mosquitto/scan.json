@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-12T07:29:07Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/library/eclipse-mosquitto:2.1.2-alpine@sha256:75d6662dee52c947dc9dd9c29f1d8d7ffef78ddaf38001caa09755681e8bbc98",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 0
+      },
+      "clamav": {
+        "signatures": "daily-28181",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "EPL-2.0 OR BSD-3-Clause",
+    "class": "blocked"
+  },
+  "smoke": "skipped"
+}

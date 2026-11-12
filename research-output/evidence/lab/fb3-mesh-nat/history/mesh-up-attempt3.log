@@ -1,0 +1,18 @@
+2026-11-12T07:43:15Z net-up done
+2026-11-12T07:43:15Z home-a -> hub public OK (outbound through NAT)
+2026-11-12T07:43:15Z home-b -> hub public OK
+2026-11-12T07:43:15Z cloud cannot route to home LANs (expected)
+2026-11-12T02:43:16-05:00 INF no private key file at path, creating... path=/opt/fb3/run/hs/noise_private.key
+2026-11-12T02:43:16-05:00 INF Opening database database=sqlite3 path=/opt/fb3/run/hs/db.sqlite
+2026-11-12T07:43:17Z headscale health: {"status":"pass"}
+Policy is valid
+Warning: netfilter=off; configure iptables yourself.
+2026-11-12T07:43:23Z hub enrolled: 100.64.0.1
+Warning: netfilter=off; configure iptables yourself.
+2026-11-12T07:43:29Z home-a enrolled: 100.64.0.2
+Warning: netfilter=off; configure iptables yourself.
+2026-11-12T07:43:33Z home-b enrolled: 100.64.0.3
+2026-11-12T07:43:48Z T1a reuse: refused: failed to connect to local tailscaled (which appears to be running as tailscaled, pid 7709). Got error: Failed to connect to local Tailscale daemon for /localapi/v0/status; not running? Error: dial unix /opt/fb3/run/home-x/ts.sock: connect: no such file or directory 
+2026-11-12T07:43:48Z nodes: [{"name":"hub","online":true,"tags":["tag:hub"]},{"name":"home-a","online":true,"tags":["tag:leaf"]},{"name":"home-b","online":true,"tags":["tag:leaf"]}]
+2026-11-12T07:43:48Z preauthkeys: [{"used":true,"reusable":null,"tags":["tag:hub"]},{"used":true,"reusable":null,"tags":["tag:leaf"]},{"used":true,"reusable":null,"tags":["tag:leaf"]}]
+2026-11-12T07:43:49Z mesh-up done

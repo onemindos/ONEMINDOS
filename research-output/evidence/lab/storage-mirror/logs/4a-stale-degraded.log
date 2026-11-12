@@ -1,0 +1,18 @@
+$ cryptsetup open --key-file /root/lab.key /dev/vdb1 onemind-data-vdb
+$ mount -o degraded,noatime /dev/mapper/onemind-data-vdb /data
+
+### write 64 MiB while degraded
+$ btrfs filesystem df /data
+Data, RAID1: total=4.00GiB, used=1.95GiB
+System, RAID1: total=32.00MiB, used=16.00KiB
+Metadata, RAID1: total=512.00MiB, used=2.36MiB
+GlobalReserve, single: total=5.50MiB, used=0.00B
+$ onemind storage status
+/data: DEGRADED (mounted degraded)
+  ! 1 of 2 disks missing
+  Data      raid1    2.0GiB used of 4.0GiB
+  System    raid1    16.0KiB used of 32.0MiB
+  Metadata  raid1    2.4MiB used of 512.0MiB
+  devid 1  /dev/mapper/onemind-data-vdb 6.0GiB
+  devid 2  MISSING                      0B
+  repair: reconnect -> scrub -> soft-convert (onemind storage plan repair)

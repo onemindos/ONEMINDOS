@@ -1,0 +1,10 @@
+{
+   "filesystems": [
+      {
+         "source": "/dev/mapper/onemind-data-vdb",
+         "fstype": "btrfs",
+         "options": "rw,noatime,degraded,compress=zstd:1,space_cache=v2,subvolid=5,subvol=/",
+         "uuid": "9638a938-d632-41e3-aa7f-7a1cace9bd76"
+      }
+   ]
+}

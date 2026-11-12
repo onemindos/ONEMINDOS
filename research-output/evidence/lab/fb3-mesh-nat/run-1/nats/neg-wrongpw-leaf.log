@@ -1,0 +1,40 @@
+[<k>] 2026/11/12 03:16:33.888105 [INF] Starting nats-server
+[<k>] 2026/11/12 03:16:33.888162 [INF]   Version:  2.15.2
+[<k>] 2026/11/12 03:16:33.888164 [INF]   Git:      [5a815f1]
+[<k>] 2026/11/12 03:16:33.888166 [INF]   Name:     neg-wrongpw
+[<k>] 2026/11/12 03:16:33.888168 [INF]   ID:       NDZUBFKZZP4HPJYNKY4EW5GF7BSBUY5UDM5SXSVF3MLHEIPEOZCIMMAD
+[<k>] 2026/11/12 03:16:33.888174 [INF] Using configuration file: /opt/fb3/run/nats-t/neg-wrongpw.conf (sha256:f5a657cb787b812dafe75b845a8bc447dcff06bdb7ac2897e740e7cdf7a41713)
+[<k>] 2026/11/12 03:16:33.888530 [INF] Listening for client connections on 127.0.0.1:4299
+[<k>] 2026/11/12 03:16:33.888543 [INF] Server is ready
+[<k>] 2026/11/12 03:16:33.952849 [INF] 100.64.0.1:7422 - lid:5 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:34.219350 [ERR] 100.64.0.1:7422 - lid:5 - Leafnode Error 'Authorization Violation'
+[<k>] 2026/11/12 03:16:34.219428 [INF] 100.64.0.1:7422 - lid:5 - Leafnode connection closed: Client Closed - Remote: hub
+[<k>] 2026/11/12 03:16:35.286603 [INF] 100.64.0.1:7422 - lid:6 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:35.546851 [ERR] 100.64.0.1:7422 - lid:6 - Leafnode Error 'Authorization Violation'
+[<k>] 2026/11/12 03:16:35.546952 [INF] 100.64.0.1:7422 - lid:6 - Leafnode connection closed: Client Closed - Remote: hub
+[<k>] 2026/11/12 03:16:36.618116 [INF] 100.64.0.1:7422 - lid:7 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:36.878489 [ERR] 100.64.0.1:7422 - lid:7 - Leafnode Error 'Authorization Violation'
+[<k>] 2026/11/12 03:16:36.878538 [INF] 100.64.0.1:7422 - lid:7 - Leafnode connection closed: Client Closed - Remote: hub
+[<k>] 2026/11/12 03:16:37.948348 [INF] 100.64.0.1:7422 - lid:8 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:38.212729 [ERR] 100.64.0.1:7422 - lid:8 - Leafnode Error 'Authorization Violation'
+[<k>] 2026/11/12 03:16:38.212778 [INF] 100.64.0.1:7422 - lid:8 - Leafnode connection closed: Client Closed - Remote: hub
+[<k>] 2026/11/12 03:16:39.274502 [INF] 100.64.0.1:7422 - lid:9 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:39.524841 [ERR] 100.64.0.1:7422 - lid:9 - Leafnode Error 'Authorization Violation'
+[<k>] 2026/11/12 03:16:39.524865 [INF] 100.64.0.1:7422 - lid:9 - Leafnode connection closed: Client Closed - Remote: hub
+[<k>] 2026/11/12 03:16:40.593738 [INF] 100.64.0.1:7422 - lid:10 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:40.855721 [ERR] 100.64.0.1:7422 - lid:10 - Leafnode Error 'Authorization Violation'
+[<k>] 2026/11/12 03:16:40.855772 [INF] 100.64.0.1:7422 - lid:10 - Leafnode connection closed: Client Closed - Remote: hub
+[<k>] 2026/11/12 03:16:41.923013 [INF] 100.64.0.1:7422 - lid:11 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:42.184047 [ERR] 100.64.0.1:7422 - lid:11 - Leafnode Error 'Authorization Violation'
+[<k>] 2026/11/12 03:16:42.184068 [INF] 100.64.0.1:7422 - lid:11 - Leafnode connection closed: Client Closed - Remote: hub
+[<k>] 2026/11/12 03:16:43.248140 [INF] 100.64.0.1:7422 - lid:12 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:43.500087 [ERR] 100.64.0.1:7422 - lid:12 - Leafnode Error 'Authorization Violation'
+[<k>] 2026/11/12 03:16:43.500108 [INF] 100.64.0.1:7422 - lid:12 - Leafnode connection closed: Client Closed - Remote: hub
+[<k>] 2026/11/12 03:16:44.566124 [INF] 100.64.0.1:7422 - lid:13 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:44.832511 [ERR] 100.64.0.1:7422 - lid:13 - Leafnode Error 'Authorization Violation'
+[<k>] 2026/11/12 03:16:44.832540 [INF] 100.64.0.1:7422 - lid:13 - Leafnode connection closed: Client Closed - Remote: hub
+[<k>] 2026/11/12 03:16:45.885546 [INF] Trapped "terminated" signal
+[<k>] 2026/11/12 03:16:45.885674 [INF] Initiating Shutdown...
+[<k>] 2026/11/12 03:16:45.897964 [INF] 100.64.0.1:7422 - lid:14 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:45.897982 [INF] 100.64.0.1:7422 - lid:14 - Leafnode connection closed: Server Shutdown
+[<k>] 2026/11/12 03:16:45.898018 [INF] Server Exiting..
