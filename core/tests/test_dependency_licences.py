@@ -55,6 +55,16 @@ REVIEWED = {
         "permissive (OSI approved); the Market list is for app licences and does not name it",
         "https://github.com/python/typing_extensions/blob/main/LICENSE",
     ),
+    "pyasn1-modules": (
+        "BSD-2-Clause",
+        "no SPDX in metadata (webauthn dependency); the licence file is the 2-clause BSD text, permissive",
+        "https://github.com/pyasn1/pyasn1-modules/blob/master/LICENSE.txt",
+    ),
+    "pyopenssl": (
+        "Apache-2.0",
+        "metadata says 'Apache License, Version 2.0' (free text, no SPDX); the licence file is the Apache License 2.0",
+        "https://github.com/pyca/pyopenssl/blob/main/LICENSE",
+    ),
     "sortedcontainers": (
         "Apache-2.0",
         "metadata says 'Apache 2.0'; the licence file is the Apache License 2.0. Test-only (Hypothesis)",
