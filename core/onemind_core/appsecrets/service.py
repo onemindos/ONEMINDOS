@@ -273,6 +273,12 @@ class AppSecretsService:
         changes.sort(key=lambda c: (c["secret"], c["key"]))
         now = self.clock()
         expires = utc(expires_at) if expires_at else now + DEFAULT_TTL
+        if expires_at is None and idempotency_key:
+            # A retry without expires_at must replay (§12.1), so it takes the first request's
+            # default instead of a later one.
+            first = self.actions_repo.get_by_idempotency_key(idempotency_key)
+            if first is not None:
+                expires = utc(first.expires_at)
         if expires > now + MAX_TTL:
             raise ApiError(422, "conflict", "expires_at may be at most 7 days ahead")
         self.purge()

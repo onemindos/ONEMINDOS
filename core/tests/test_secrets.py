@@ -496,6 +496,7 @@ def test_change_request_is_idempotent_by_header(client, clock):
     installed(client, clock)
     body = {"generate": [f"{INTERNAL}/SESSION_SECRET"]}
     r1 = client.post(f"/v1/apps/{APP}/secrets", json=body, headers={**OWNER, "Idempotency-Key": "rot-1"})
+    clock.advance(30)  # a real retry comes later; the default expiry must not make it a different request
     r2 = client.post(f"/v1/apps/{APP}/secrets", json=body, headers={**OWNER, "Idempotency-Key": "rot-1"})
     assert (r1.status_code, r2.status_code) == (202, 200) and r1.json()["id"] == r2.json()["id"]
     assert len(stored(client)[1]) == 1
