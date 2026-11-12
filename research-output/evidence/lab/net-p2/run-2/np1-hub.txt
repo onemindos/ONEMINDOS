@@ -1,0 +1,16 @@
+NAME                  STATUS   ROLES           AGE   VERSION        INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                       KERNEL-VERSION                         CONTAINER-RUNTIME
+lima-omos-netp2-hub   Ready    control-plane   9s    v1.37.2+k3s1   100.64.0.1    <none>        Debian GNU/Linux 13 (trixie)   6.12.115+deb13.1-cloud-arm64 (arm64)   containerd://2.3.7-k3s1
+flannel-wg
+0
+udp   UNCONN 0      0                                   *:3478             *:*    users:(("headscale",pid=2690,fd=11))      
+tcp   LISTEN 0      2048                          0.0.0.0:443        0.0.0.0:*    users:(("python",pid=3859,fd=7))          
+tcp   LISTEN 0      2048                          0.0.0.0:8443       0.0.0.0:*    users:(("python",pid=3859,fd=8))          
+tcp   LISTEN 0      2048                          0.0.0.0:80         0.0.0.0:*    users:(("python",pid=3859,fd=9))          
+tcp   LISTEN 0      4096                        127.0.0.1:4222       0.0.0.0:*    users:(("nats-server",pid=3533,fd=8))     
+tcp   LISTEN 0      4096                       100.64.0.1:7422       0.0.0.0:*    users:(("nats-server",pid=3533,fd=7))     
+tcp   LISTEN 0      4096                                *:8444             *:*    users:(("headscale",pid=2690,fd=12))      
+tcp   LISTEN 0      4096                                *:6443             *:*    users:(("k3s-server",pid=3160,fd=12))     
+NAMESPACE     NAME             TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)                  AGE
+default       kubernetes       ClusterIP   10.43.0.1      <none>        443/TCP                  10s
+kube-system   kube-dns         ClusterIP   10.43.0.10     <none>        53/UDP,53/TCP,9153/TCP   7s
+kube-system   metrics-server   ClusterIP   10.43.188.55   <none>        443/TCP                  7s

@@ -1,0 +1,9 @@
+NP-1	PASS	hub: mesh IP 100.64.0.1 for k3s, flannel-wg, NATS loopback + mesh leaf listener, box-CA HTTPS, 308 redirect, no Traefik
+NP-2	PASS	match code node=YR-4H4W hub=YR-4H4W; no state before approval (no-state); node install ok; code reuse -> 401
+NP-3	PASS	node-dddbafc5d447 on the mesh (100.64.0.2), tags worker + k3s
+NP-4	FAIL	leaf in account NODE_dddbafc5d447; own subject delivered, other node's and onemind.audit not; no-cert TLS refused
+NP-5	PASS	worker Ready on mesh IP; node.join succeeded; bootstrap token removed; pod on worker -> pod on hub
+NP-6	PASS	https://vaultwarden.box1.local via the gateway proxy: 401 signed out, 200 bearer, 200 cookie, TLS fails without the box CA
+NP-7	PASS	worker -> hub mesh: 443/7422/6443 open, 22/8444/4222 closed
+NP-8	PASS	dead leaf link noticed by the hub after 67 s (limit 90)
+NP-9	INFO	hub resolves its published names; cross-VM: no mDNS answer (user-v2 forwards no multicast)

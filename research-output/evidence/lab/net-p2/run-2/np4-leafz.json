@@ -1,0 +1,22 @@
+{
+  "server_id": "NAZ67F3UUFERN64UP4R5XZOP2LFB7TKJLEGRG2NE5THOP4BPISBOAXCG",
+  "now": "2026-11-12T10:55:23.175782621Z",
+  "leafnodes": 1,
+  "leafs": [
+    {
+      "id": 9,
+      "name": "node-ebc2df567332",
+      "is_spoke": false,
+      "account": "NODE_ebc2df567332",
+      "ip": "100.64.0.2",
+      "port": 36462,
+      "rtt": "1.641267ms",
+      "in_msgs": 2,
+      "out_msgs": 0,
+      "in_bytes": 1692,
+      "out_bytes": 0,
+      "subscriptions": 14,
+      "compression": "s2_uncompressed"
+    }
+  ]
+}

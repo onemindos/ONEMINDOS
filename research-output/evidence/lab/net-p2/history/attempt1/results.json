@@ -1,0 +1,51 @@
+{
+  "lab": "net-p2",
+  "verdict": "FAIL",
+  "tests": [
+    {
+      "id": "NP-1",
+      "result": "PASS",
+      "detail": "hub: mesh IP 100.64.0.1 for k3s, flannel-wg, NATS loopback + mesh leaf listener, box-CA HTTPS, 308 redirect, no Traefik"
+    },
+    {
+      "id": "NP-2",
+      "result": "PASS",
+      "detail": "match code node=YR-4H4W hub=YR-4H4W; no state before approval (no-state); node install ok; code reuse -> 401"
+    },
+    {
+      "id": "NP-3",
+      "result": "PASS",
+      "detail": "node-dddbafc5d447 on the mesh (100.64.0.2), tags worker + k3s"
+    },
+    {
+      "id": "NP-4",
+      "result": "FAIL",
+      "detail": "leaf in account NODE_dddbafc5d447; own subject delivered, other node's and onemind.audit not; no-cert TLS refused"
+    },
+    {
+      "id": "NP-5",
+      "result": "PASS",
+      "detail": "worker Ready on mesh IP; node.join succeeded; bootstrap token removed; pod on worker -> pod on hub"
+    },
+    {
+      "id": "NP-6",
+      "result": "PASS",
+      "detail": "https://vaultwarden.box1.local via the gateway proxy: 401 signed out, 200 bearer, 200 cookie, TLS fails without the box CA"
+    },
+    {
+      "id": "NP-7",
+      "result": "PASS",
+      "detail": "worker -> hub mesh: 443/7422/6443 open, 22/8444/4222 closed"
+    },
+    {
+      "id": "NP-8",
+      "result": "PASS",
+      "detail": "dead leaf link noticed by the hub after 67 s (limit 90)"
+    },
+    {
+      "id": "NP-9",
+      "result": "INFO",
+      "detail": "hub resolves its published names; cross-VM: no mDNS answer (user-v2 forwards no multicast)"
+    }
+  ]
+}
