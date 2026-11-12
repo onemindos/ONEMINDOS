@@ -44,6 +44,9 @@ Authenticator = Callable[[Request, str | None], Principal | None]
 ApprovalGuard = Callable[[Principal, str, dict, Request], None]
 # Whether this principal may see and open an installed app (identity: per-app sharing, §12.6).
 AppFilter = Callable[[Request, Principal, str], bool]
+# Person id -> role of every active person a feature knows, beyond the tokens file (identity:
+# household accounts, §12.6). Notifications use it to find who to notify.
+PeopleSource = Callable[[], dict[str, str]]
 
 
 @dataclass
@@ -66,6 +69,7 @@ class Gateway:
     authenticators: list[Authenticator] = field(default_factory=list)
     approval_guards: list[ApprovalGuard] = field(default_factory=list)
     app_filters: list[AppFilter] = field(default_factory=list)
+    people_sources: list[PeopleSource] = field(default_factory=list)
     _startup: list[Hook] = field(default_factory=list)
     _shutdown: list[Hook] = field(default_factory=list)
 

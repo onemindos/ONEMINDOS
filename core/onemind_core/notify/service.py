@@ -193,11 +193,15 @@ class NotifyService:
 
     # ---- people -------------------------------------------------------------------------
     def people(self) -> dict[str, str]:
-        """person id -> role, from the tokens file (static principals, v0)."""
+        """person id -> role: the tokens file (static principals, v0), then every feature's people
+        source (identity: active household accounts, §12.6)."""
         out: dict[str, str] = {}
         for p in self.gw.tokens.principals():
             if p.kind == "person":
                 out.setdefault(p.id, p.role)
+        for source in self.gw.people_sources:
+            for pid, role in source().items():
+                out.setdefault(pid, role)
         return out
 
     def _audience(self, spec: Spec, data: dict) -> dict:

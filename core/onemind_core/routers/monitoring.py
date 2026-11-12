@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Contract §12.15: app status and health, app logs, app and node metrics, the Home summary.
 
-- `GET /v1/apps/{id}`, metrics and the summary: any principal (v0 has no per-app sharing yet,
-  so guests see every app, as `GET /v1/apps` already shows them).
+- `GET /v1/apps/{id}`, metrics and the summary: any principal, but an app hidden from it by
+  §12.6 sharing (`gw.app_filters`, as in `GET /v1/apps`) is `404`. Household accounts and
+  identity tokens also need `apps:read` / `monitoring:read` (registered below).
 - `GET /v1/apps/{id}/logs`: owners and adults only (agents need a `logs:read:<app-id>` grant,
   which arrives with CORE-SEC scopes). At most 2000 lines, each line redacted; `follow=1` is
   an SSE stream of at most 15 minutes and 5 streams per principal. Every request is audited.
@@ -15,7 +16,7 @@ import threading
 from collections import defaultdict
 from datetime import datetime
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 
 from ..auth import Principal
@@ -26,12 +27,22 @@ from ..ledger import iso, utc
 from ..monitoring import MonitoringService
 from ..monitoring import health as H
 from ..monitoring.redact import Redactor, redact_lines
+from ..identity.scopes import register_route_scope
 from ..notify.store import NotifyRepository
 from .apps import app_rows
 
 MAX_TAIL = 2000
 FOLLOW_MAX_S = 15 * 60
 STREAMS_PER_PRINCIPAL = 5
+
+# Scopes for household accounts and identity-issued tokens (§12.15 "Who" column). They override
+# identity's broad /v1/apps(/.*)? -> apps:read and /v1/nodes(/.*)? -> nodes:read rows; GET
+# /v1/apps/{id} keeps apps:read. A narrowed logs:read:<app-id> is refused (fail closed) until
+# agents may read logs at all.
+register_route_scope("GET,HEAD", r"/v1/apps/[^/]+/logs", ("logs:read",))
+register_route_scope("GET,HEAD", r"/v1/apps/[^/]+/metrics", ("monitoring:read",))
+register_route_scope("GET,HEAD", r"/v1/nodes/[^/]+/metrics", ("monitoring:read",))
+register_route_scope("GET,HEAD", r"/v1/monitoring/summary", ("monitoring:read",))
 _DURATION = re.compile(r"^(\d{1,6})([smh]?)$")
 _COMPONENT = re.compile(r"^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$")
 
@@ -63,11 +74,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
     streams: dict[str, int] = defaultdict(int)
     streams_lock = threading.Lock()
 
-    def app_entry(app_id: str) -> dict:
+    def app_entry(app_id: str, request: Request, p: Principal) -> dict:
         if not APP_ID_RE.match(app_id):
             raise ApiError(404, "not_found", "no such app")
         row = next((r for r in app_rows(gw) if r["id"] == app_id), None)
-        if row is None:
+        # §12.6 sharing: an app hidden from this principal in GET /v1/apps does not exist here either.
+        if row is None or not all(f(request, p, app_id) for f in gw.app_filters):
             raise ApiError(404, "not_found", "no such app")
         return row
 
@@ -78,13 +90,17 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     # ---- apps ---------------------------------------------------------------------------
     @app.get("/v1/apps/{app_id}", tags=["apps"], responses=error_responses(401, 404))
-    def get_app(app_id: str, p: Principal = Depends(principal)):
-        row = app_entry(app_id)
+    def get_app(app_id: str, request: Request, p: Principal = Depends(principal)):
+        row = app_entry(app_id, request, p)
         health, components = mon.app_view(app_id, row["installed"])
+        identity = getattr(request.app.state, "identity", None)
+        if identity is None:  # no household accounts: owners and adults see every app
+            roles, shared = ["owner", "adult"], p.kind == "person" and p.role in ("owner", "adult")
+        else:
+            roles, shared = identity.shared_roles(app_id), p.kind == "person" and identity.can_open(p, app_id)
         return {
             **row, "node_id": None, "current_revision": None, "health": health, "components": components,
-            "backup": None,
-            "access": {"roles": ["owner", "adult"], "shared_with_me": p.kind == "person" and p.role in ("owner", "adult")},
+            "backup": None, "access": {"roles": roles, "shared_with_me": shared},
         }
 
     @app.get("/v1/apps/{app_id}/logs", tags=["apps"], response_class=PlainTextResponse,
@@ -93,6 +109,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                         **error_responses(401, 403, 404, 422)})
     def app_logs(
         app_id: str,
+        request: Request,
         component: str | None = None,
         since: str | None = None,
         tail: int = Query(default=200, ge=1, le=MAX_TAIL),
@@ -101,7 +118,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     ):
         if not (p.kind == "person" and p.role in ("owner", "adult")):
             raise ApiError(403, "permission_denied", "only owners and adults read app logs")
-        row = app_entry(app_id)
+        row = app_entry(app_id, request, p)
         if not row["installed"]:
             raise ApiError(404, "not_found", "the app is not installed")
         if component is not None and not _COMPONENT.match(component):
@@ -146,8 +163,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     @app.get("/v1/apps/{app_id}/metrics", tags=["apps"], responses=error_responses(401, 404))
-    def app_metrics(app_id: str, _: Principal = Depends(principal)):
-        app_entry(app_id)
+    def app_metrics(app_id: str, request: Request, p: Principal = Depends(principal)):
+        app_entry(app_id, request, p)
         out = {"app_id": app_id, "at": iso(gw.clock()), "components": []}
         if mon.kube is None:
             return out

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Contract §12.14: alerts, the inbox, channels, preferences, agent sends and push registrations.
 
-Who may do what (v0 static principals; scopes arrive with CORE-SEC):
+Who may do what (the handlers; household accounts and identity tokens also need the scope below):
 - alerts: any principal reads the alerts addressed to it (owners: all; others: their role or id
   in the alert's audience); owners and adults acknowledge; owners resolve the alerts that have
   no automatic resolve condition; owners and agents file an alert's fix as a normal request.
@@ -39,8 +39,29 @@ from ..notify.store import (
     ChannelRow, DeviceRow, alert_json, channel_json, decode_cursor, device_json, encode_cursor,
     notification_json,
 )
+from ..identity.scopes import ALL, register_route_scope
 
 TAG = "notifications"
+
+# Scopes for household accounts and identity-issued tokens (§12.6 table, "Who" column of §12.14).
+# Static-file principals skip this table (v0 behaviour); the handlers still check who may call.
+# Registered once at import: later registrations win, so these override nothing of identity's.
+for _methods, _path, _scopes in (
+    ("GET,HEAD", r"/v1/alerts(/[^/]+)?", ("alerts:read",)),
+    ("POST", r"/v1/alerts/[^/]+/ack", ("alerts:read",)),  # owner, adult (handler)
+    ("POST", r"/v1/alerts/[^/]+/resolve", (ALL,)),  # owner only
+    ("POST", r"/v1/alerts/[^/]+/fix", ("actions:request",)),  # files a normal request
+    ("GET,HEAD", r"/v1/notifications(/.*)?", ("notifications:read",)),
+    ("POST", r"/v1/notifications/read-all", ("notifications:read", "notifications:write")),
+    ("POST", r"/v1/notifications/[^/]+/read", ("notifications:read", "notifications:write")),
+    ("POST,PATCH,DELETE", r"/v1/notifications/channels(/.*)?", ("notifications:write",)),
+    ("PUT", r"/v1/notifications/preferences", ("notifications:write",)),
+    ("POST", r"/v1/notifications/send", ("notifications:send",)),
+    ("GET,HEAD", r"/v1/push/vapid-public-key", None),  # any principal: a public key
+    ("GET,HEAD", r"/v1/push/registrations", ("notifications:read",)),
+    ("POST,DELETE", r"/v1/push/registrations(/[^/]+)?", ("notifications:write",)),
+):
+    register_route_scope(_methods, _path, _scopes)
 MAX_FIX_ATTEMPTS = 20  # fix requests per alert and requester
 TESTS_PER_MIN = 5  # POST …/channels/{id}/test per person: each one is a synchronous outbound request
 
