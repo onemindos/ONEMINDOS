@@ -8,3 +8,5 @@
 - {name: Actual Budget, github: actualbudget/actual, priority: 1, status: verified}
 - {name: Zigbee2MQTT, github: Koenkk/zigbee2mqtt, priority: 1, status: verified}
 # Founder: paste the rest of the 100+ list below (name + github owner/repo is enough).
+# Market batch 1 (contract §9.5; apps/_intake/CANDIDATES.md "Proposed queue batches").
+- {name: Nextcloud, github: nextcloud/server, priority: 1, status: in-pr, notes: "market batch 1"}
