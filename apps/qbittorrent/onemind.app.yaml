@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# qBittorrent: Market batch 4 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: COPYING and src/app/main.cpp
+# at release-5.3.0, and the official image's repo github.com/qbittorrent/docker-qbittorrent-nox
+# (Dockerfile, entrypoint.sh, Readme.md).
+# Image digest and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: qbittorrent
+  name: "qBittorrent"
+  version: "5.3.0"
+  description: "BitTorrent client with a web interface (qbittorrent-nox)."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: media
+  icon: icon.svg
+  # COPYING: the source is GPLv2+, "the binary distribution is licensed under ... GPLv3+" (the image
+  # ships the binary). The OpenSSL linking exception it adds has no SPDX id; README.md names it.
+  license: "GPL-3.0-or-later"
+  source: https://github.com/qbittorrent/qBittorrent
+  # §9.3 facts from the GitHub API (repos/qbittorrent/qBittorrent), read 2026-11-12.
+  links:
+    docs: "https://github.com/qbittorrent/qBittorrent/wiki"
+    github: "https://github.com/qbittorrent/qBittorrent"
+    website: "https://www.qbittorrent.org"
+    support: "https://github.com/qbittorrent/qBittorrent/issues"
+  upstream: {release: "release-5.3.0", released_at: "2026-10-20T12:57:33Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 1024}
+  web: {port: 8080}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
