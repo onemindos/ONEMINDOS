@@ -32,6 +32,7 @@ type Command struct {
 var groups = []func() []Command{
 	nodeCommands,
 	updateCommands,
+	migrateCommands,
 	versionCommands,
 }
 

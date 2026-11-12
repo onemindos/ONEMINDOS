@@ -8,13 +8,21 @@ import (
 	"testing"
 )
 
-// The usage text from before the split into groups; it must not change.
+// The usage text: the groups' lines in registry order (the migrate group added after update).
 const wantUsage = `usage:
   onemind node info [--root DIR] [--arch amd64|arm64] [--agent URL]
   onemind nodes --hub URL [--token TOKEN] [--json]
   onemind update status [--config FILE] [--json]
   onemind update check  [--config FILE]
   onemind update apply  [--config FILE] [--no-reboot]
+  onemind migrate role --namespace NS [--copy] [--cutover]
+  onemind migrate plan --hub URL --kubeconfig FILE --namespace NS [--context C] [--app ID] [--name NAME] [--json]
+  onemind migrate list --hub URL [--json]
+  onemind migrate show PLAN --hub URL [--json]
+  onemind migrate import PLAN --hub URL [--wait] [--json]
+  onemind migrate copy PLAN --hub URL --kubeconfig FILE [--pvc NAME]... [--wait] [--json]
+  onemind migrate cutover PLAN --hub URL --kubeconfig FILE [--stop-old] [--wait] [--json]
+  onemind migrate revert PLAN --hub URL [--kubeconfig FILE] [--wait] [--json]
   onemind version
 `
 
