@@ -416,3 +416,17 @@ def test_safe_baseline_security_context_values_stay_allowed(level):
                        procMount="Default")
     app = BASELINE[0][0] if level == "baseline" else "demo"
     assert policy.check_objects(objs, app, {}, RULES) == []
+
+
+@pytest.mark.parametrize("value", [True, 5, "unsafe", {"name": "kernel.msgmax"},
+                                 [{"name": []}], [{"name": {}}], [None]])
+def test_malformed_sysctls_are_refused_not_crashes(value):
+    objs = _deployment({"sysctls": value})
+    assert_refused(policy.check_objects(objs, "demo", {}, RULES), objs, 0, "F-13")
+
+
+@pytest.mark.parametrize("value", [True, 5, "Unconfined", [], {"type": []}])
+@pytest.mark.parametrize("location", ["pod", "container"])
+def test_malformed_seccomp_is_refused_not_a_crash(value, location):
+    objs = _deployment({"seccompProfile": value}) if location == "pod" else _deployment(seccompProfile=value)
+    assert_refused(policy.check_objects(objs, "demo", {}, RULES), objs, 0, "F-09")

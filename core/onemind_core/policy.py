@@ -317,9 +317,14 @@ def _check_pod(pod: dict, base: str, level: str, caps_allowed: frozenset[str], r
     baseline_context(psc, f"{base}.securityContext")
     if level == "restricted" and psc.get("runAsUser") == 0:
         v("S-01", f"{base}.securityContext.runAsUser")
-    for i, sysctl in enumerate(psc.get("sysctls") or []):
-        if not isinstance(sysctl, dict) or sysctl.get("name") not in BASELINE_SYSCTLS:
-            v("F-13", f"{base}.securityContext.sysctls[{i}]")
+    sysctls = psc.get("sysctls")
+    if sysctls is not None and not isinstance(sysctls, list):
+        v("F-13", f"{base}.securityContext.sysctls")
+    else:
+        for i, sysctl in enumerate(sysctls or []):
+            if (not isinstance(sysctl, dict) or not isinstance(sysctl.get("name"), str)
+                    or sysctl["name"] not in BASELINE_SYSCTLS):
+                v("F-13", f"{base}.securityContext.sysctls[{i}]")
     if (psc.get("windowsOptions") or {}).get("hostProcess") is True:
         v("F-08", f"{base}.securityContext.windowsOptions.hostProcess")
     for i, vol in enumerate(pod.get("volumes") or []):
@@ -333,7 +338,8 @@ def _check_pod(pod: dict, base: str, level: str, caps_allowed: frozenset[str], r
                 if t not in RESTRICTED_VOLUMES:
                     v("S-05", f"{base}.volumes[{i}].{t}", t)
     pod_nonroot = psc.get("runAsNonRoot") is True and psc.get("runAsUser") != 0
-    pod_seccomp = (psc.get("seccompProfile") or {}).get("type") in ("RuntimeDefault", "Localhost")
+    pod_profile = psc.get("seccompProfile")
+    pod_seccomp = isinstance(pod_profile, dict) and pod_profile.get("type") in ("RuntimeDefault", "Localhost")
     for c, cpath in _containers(pod, base):
         csc = c.get("securityContext")
         if not isinstance(csc, dict):
@@ -360,7 +366,8 @@ def _check_pod(pod: dict, base: str, level: str, caps_allowed: frozenset[str], r
             v("S-02", f"{cpath}.securityContext.allowPrivilegeEscalation")
         if "ALL" not in [str(x).upper() for x in caps.get("drop") or []]:
             v("S-03", f"{cpath}.securityContext.capabilities.drop")
-        ctype = (csc.get("seccompProfile") or {}).get("type")
+        profile = csc.get("seccompProfile")
+        ctype = profile.get("type") if isinstance(profile, dict) else None
         if not (ctype in ("RuntimeDefault", "Localhost") or (ctype is None and pod_seccomp)):
             v("S-04", f"{cpath}.securityContext.seccompProfile")
     return out
