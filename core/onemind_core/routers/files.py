@@ -85,6 +85,13 @@ class TrashEmptyBody(RequestCommon):
     trash: Literal["home", "shared"] = "home"
 
 
+class ApproveBody(BaseModel):
+    """§12.4: the plan the approver was shown, and the passkey assertion once step-up exists."""
+    model_config = ConfigDict(extra="forbid")
+    plan_sha256: str | None = Field(default=None, max_length=80)
+    webauthn: dict | None = None
+
+
 class DenyBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     reason: str | None = Field(default=None, max_length=500)
@@ -105,6 +112,8 @@ def paginate(request: Request, items: list, limit: int, cursor: str | None) -> J
     if cursor:
         try:
             start = int(base64.urlsafe_b64decode(cursor.encode() + b"==").decode().removeprefix("o:"))
+            if start < 0:
+                raise ValueError(start)
         except (ValueError, UnicodeDecodeError):
             raise FilesError(422, "conflict", "invalid cursor", reason="invalid_cursor") from None
     page = items[start:start + limit]
@@ -130,6 +139,8 @@ def parse_range(header: str | None, size: int) -> tuple[int, int] | None:
         n = int(last)
         if n == 0:
             raise _unsatisfiable(size)
+        if size == 0:  # no byte range can describe an empty file: send it whole (RFC 9110 §14.2)
+            return None
         return max(0, size - n), size - 1
     start = int(first)
     end = min(int(last), size - 1) if last else size - 1
@@ -305,8 +316,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.get_request(p, request_id)
 
     @app.post("/v1/files/requests/{request_id}/approve", tags=TAG, responses=errs(401, 403, 404, 409))
-    def approve(request: Request, request_id: str, p: Principal = Depends(principal)):
-        return svc.approve(p, request_id, http_request=request)
+    def approve(request: Request, request_id: str, body: ApproveBody = Body(default_factory=ApproveBody),
+                p: Principal = Depends(principal)):
+        return svc.approve(p, request_id, body=body.model_dump(exclude_none=True), http_request=request)
 
     @app.post("/v1/files/requests/{request_id}/deny", tags=TAG, responses=errs(401, 403, 404, 409))
     def deny(request_id: str, body: DenyBody = Body(default_factory=DenyBody), p: Principal = Depends(principal)):

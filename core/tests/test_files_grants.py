@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from onemind_core.files.errors import FilesError
 from onemind_core.files.service import FilesService
 
 from files_support import ADULT, AGENT, GUEST, OWNER, audit_events, fc, files_root, files_settings, mkdir, ok, upload  # noqa: F401
@@ -137,3 +138,80 @@ def test_folder_gone_at_approval_is_stale(fc):
     r = fc.post(f"/v1/files/requests/{req['id']}/approve", headers=OWNER)
     assert r.status_code == 409 and r.json()["error"] == "stale_precondition"
     assert ok(fc.get(f"/v1/files/requests/{req['id']}", headers=OWNER))["state"] == "awaiting_approval"
+
+
+def test_agent_cannot_move_rename_or_trash_its_granted_folder(fc):
+    """A read-write grant covers what is inside the folder, not the folder itself."""
+    mkdir(fc, OWNER, "shared", "/Inbox")
+    ok(fc.post("/v1/files/grants", headers=OWNER, json=grant_body(path="/Inbox", access="rw", approve=True)), 202)
+    for op in ({"op": "trash", "path": "/Inbox"}, {"op": "rename", "path": "/Inbox", "name": "Outbox"},
+               {"op": "move", "path": "/Inbox", "to_path": "/Inbox"}, {"op": "mkdir", "path": "/Inbox"}):
+        r = fc.post("/v1/files/ops", headers=AGENT, json={"root": "shared", **op})
+        assert r.status_code == 403 and r.json()["reason"] == "no_grant", op
+    assert ok(fc.get("/v1/files/stat", params={"root": "shared", "path": "/Inbox"}, headers=OWNER))["type"] == "dir"
+    assert ok(fc.get("/v1/files/trash", params={"trash": "shared"}, headers=OWNER)) == []
+    # inside it, everything still works
+    mkdir(fc, AGENT, "shared", "/Inbox/sub")
+    ok(fc.post("/v1/files/ops", headers=AGENT, json={"op": "rename", "root": "shared", "path": "/Inbox/sub", "name": "s2"}))
+    ok(fc.post("/v1/files/ops", headers=AGENT, json={"op": "trash", "root": "shared", "path": "/Inbox/s2"}))
+
+
+def test_agent_requests_reveal_nothing_about_folders(fc, files_root):
+    """Filing a request answers the same whether the folder exists, and creates no space."""
+    mkdir(fc, ADULT, "home:adult", "/Taxes")
+    there = fc.post("/v1/files/grants", headers=AGENT, json=grant_body(root="home:adult", path="/Taxes"))
+    absent = fc.post("/v1/files/grants", headers=AGENT, json=grant_body(root="home:adult", path="/Nope"))
+    ghost = fc.post("/v1/files/grants", headers=AGENT, json=grant_body(root="home:ghost", path="/"))
+    assert (there.status_code, absent.status_code, ghost.status_code) == (202, 202, 202)
+    assert there.json()["plan"].keys() == absent.json()["plan"].keys()
+    assert sorted(p.name for p in (files_root / "home").iterdir()) == ["adult"]
+    assert "home:ghost" not in {q["root"] for q in ok(fc.get("/v1/files/quotas", headers=OWNER))}
+    # an agent cannot probe the catalog either: authorization comes first
+    r = fc.post("/v1/files/grants", headers=AGENT, json=grant_body(subject={"kind": "app", "id": "not-an-app"}))
+    assert r.status_code == 403
+    # the owner still learns at approval that a folder is missing
+    req = ok(fc.post("/v1/files/grants", headers=AGENT, json=grant_body(path="/Missing")), 202)
+    r = fc.post(f"/v1/files/requests/{req['id']}/approve", headers=OWNER)
+    assert r.status_code == 409 and r.json()["error"] == "stale_precondition"
+
+
+def test_approval_guards_get_the_request_id_and_approve_body(fc, monkeypatch):
+    """Guards have identity's ApprovalGuard signature: (principal, request id, approve body, request)."""
+    seen = []
+    refuse = {"on": False}
+
+    def guard(p, request_id, body, request):
+        seen.append((p.id, request_id, body))
+        if refuse["on"]:
+            raise FilesError(401, "unauthenticated", "passkey needed", reason="step_up_required")
+
+    monkeypatch.setattr(fc.app.state.gateway, "approval_guards", [guard], raising=False)
+    mkdir(fc, OWNER, "shared", "/Media")
+    req = ok(fc.post("/v1/files/grants", headers=AGENT, json=grant_body()), 202)
+    assert req["plan_sha256"].startswith("sha256:")
+    r = fc.post(f"/v1/files/requests/{req['id']}/approve", headers=OWNER, json={"plan_sha256": "sha256:" + "0" * 64})
+    assert r.status_code == 409 and r.json()["reason"] == "plan_changed" and seen == []
+    assertion = {"id": "cred", "clientDataJSON": "x", "authenticatorData": "y", "signature": "z"}
+    done = ok(fc.post(f"/v1/files/requests/{req['id']}/approve", headers=OWNER,
+                      json={"plan_sha256": req["plan_sha256"], "webauthn": assertion}))
+    assert done["state"] == "succeeded"
+    assert seen == [("owner", req["id"], {"plan_sha256": req["plan_sha256"], "webauthn": assertion})]
+
+    # a refused step-up on the owner shortcut files nothing
+    refuse["on"] = True
+    r = fc.post("/v1/files/grants", headers=OWNER, json=grant_body(subject={"kind": "app", "id": "whoami"}, approve=True))
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
+    assert [x["id"] for x in ok(fc.get("/v1/files/requests", headers=OWNER))] == [req["id"]]
+
+
+def test_a_failed_apply_reports_no_internal_detail(fc, monkeypatch):
+    mkdir(fc, OWNER, "shared", "/Media")
+    req = ok(fc.post("/v1/files/grants", headers=AGENT, json=grant_body()), 202)
+
+    def broken(_row):
+        raise OSError(13, "Permission denied", "/data/onemind/files/.system/secret-host-path")
+
+    monkeypatch.setattr("onemind_core.files.store.FilesRepository.add_grant", lambda self, row: broken(row))
+    done = ok(fc.post(f"/v1/files/requests/{req['id']}/approve", headers=OWNER))
+    assert done["state"] == "failed" and "/data" not in done["result"]["message"]
+    assert ok(fc.get(f"/v1/files/requests/{req['id']}", headers=AGENT))["state"] == "failed"

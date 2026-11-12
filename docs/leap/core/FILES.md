@@ -31,7 +31,7 @@ All need a bearer token (§3). Lists return a JSON array with `?limit=` (default
 | Method and path | Who | Body or query | Returns |
 |---|---|---|---|
 | `GET /v1/files/roots` | any | – | `[{root, kind: home\|shared\|grant, name, path, access: r\|rw, writable, used_bytes, quota_bytes, free_bytes, grant_id?}]`. Agents see one entry per grant |
-| `GET /v1/files/list` | read access | `root, path, limit, cursor` | `[{name, path, type: file\|dir\|symlink\|other, size, mtime, mime?}]`, folders first |
+| `GET /v1/files/list` | read access | `root, path, limit, cursor` | `[{name, path, type: file\|dir\|symlink\|other, size, mtime, mime?}]`, folders first; names that are not valid UTF-8 (written by something other than FILES) are left out |
 | `GET /v1/files/stat` | read access | `root, path` | one entry plus `root`, `access`, `versions_available` (false until Rewind, FILES-7) |
 | `GET /v1/files/preview` | read access | `root, path` | `{mime, kind: image\|video\|audio\|pdf\|text\|other, size, inline_safe, image?: {width, height}, text?: {excerpt, truncated}}`. No thumbnails yet (FILES-3) |
 | `GET /v1/files/download` | read access | `root, path, inline?` | the bytes. `Range: bytes=a-b`, `a-` or `-n` → `206` with `Content-Range`; `If-Range` with the `ETag`; unsatisfiable → `416`. Always `nosniff` and `CSP: sandbox`; `inline=true` is honoured only for safe types (never SVG or HTML) |
@@ -48,7 +48,7 @@ All need a bearer token (§3). Lists return a JSON array with `?limit=` (default
 | `GET /v1/files/grants` | owner all; agent own; a person those on their Home | `include_revoked?` | `[{id, subject, slot, root, path, access, request_id, approved_by, created_at, revoked_at, revoked_by}]` |
 | `DELETE /v1/files/grants/{id}` | owner, the Home's person, or the agent itself | – | the revoked grant (removing power is a direct write, §12.1) |
 | `GET /v1/files/requests`, `GET /v1/files/requests/{id}` | owner all; others own | `state?` | requests (§4) |
-| `POST /v1/files/requests/{id}/approve` | owner | – | the request, now `succeeded` or `failed` |
+| `POST /v1/files/requests/{id}/approve` | owner | `{plan_sha256?, webauthn?}` (§12.4) | the request, now `succeeded` or `failed` |
 | `POST /v1/files/requests/{id}/deny` | owner | `{reason?}` | the request, `cancelled` with `deny_reason` |
 | `POST /v1/files/requests/{id}/cancel` | the requester | – | the request, `cancelled` |
 | `OPTIONS`, `POST /v1/files/uploads`; `HEAD`, `GET`, `PATCH`, `DELETE /v1/files/uploads/{id}` | write access | tus, §3 | |
@@ -75,20 +75,22 @@ Changing who can reach a folder (`files.grant.create`, risk `sensitive`) and del
  "plan": {"summary": "agent hermes gets read-only access to shared:/Media", "…": "…"},
  "reason": "index my music", "requested_by": {"id": "hermes", "kind": "agent"},
  "approved_by": null, "approved_via": null, "approval": null, "deny_reason": null, "result": null,
- "expires_at": "…", "created_at": "…", "updated_at": "…"}
+ "plan_sha256": "sha256:…", "expires_at": "…", "created_at": "…", "updated_at": "…"}
 ```
 
 - States: `awaiting_approval` → `succeeded` (with `result`: `{grant_id}` or `{items, bytes}`) or `failed`; `cancelled` (denied or withdrawn) and `expired` (24 h default, 7 days at most).
 - `202` with `Location`; `Idempotency-Key` header: same key and body replays (`OneMind-Idempotent-Replay: true`), a different body is `409 idempotency_mismatch`.
 - `approve: true` is the owner shortcut (create and approve at once); from anyone else it is `403` and nothing is filed.
 - Non-owners may have at most 10 requests waiting: the 11th is `429 rate_limited`, reason `too_many_pending`.
-- Only an owner approves; agents never do. A grant into `home:<X>` can be approved only by `X` (so today only grants into Shared or the owner's own Home can become active). The folder must still exist at approval, else `409 stale_precondition` and the request keeps waiting. Approval guards other features register (passkey step-up, F-2) run before any approval.
+- Only an owner approves; agents never do. A grant into `home:<X>` can be approved only by `X` (so today only grants into Shared or the owner's own Home can become active). The folder must still exist at approval, else `409 stale_precondition` and the request keeps waiting. An owner's request checks the folder at once (`404`); an agent's request is checked only at approval, so filing one reveals nothing about folders the agent cannot read.
+- `plan_sha256` is the sha256 of the canonical `{type, params, plan}`. An approve body whose `plan_sha256` differs is `409 stale_precondition`, reason `plan_changed`.
+- Approval guards other features register (passkey step-up, F-2) run before the change is applied, with `context.ApprovalGuard`'s arguments: the principal, the request id, the approve body and the HTTP request. For the owner shortcut they run before anything is filed, so a refused step-up leaves no request behind.
 
 **Apps.** An app reaches files only through an approved `subject.kind: app` grant. `FilesService.app_mounts(app_id)` returns `[{grant_id, slot, host_path, read_only}]` for the executor to mount (hook to be wired by the sandbox owner, §7).
 
 ## 5. Agents
 
-An agent sees only its grants: `GET /v1/files/roots` lists them, and list, stat, preview and download work inside them. A read-write grant also allows uploads, mkdir, move, rename and trash inside it. Every agent read is audited (`files.read` with op, root, path and size). An agent may revoke its own grant.
+An agent sees only its grants: `GET /v1/files/roots` lists them, and list, stat, preview and download work inside them. A read-write grant also allows uploads, mkdir, move, rename and trash inside it; the granted folder itself is like a space root, so the agent cannot move, rename or trash it (`403`, `no_grant`). Every agent read is audited (`files.read` with op, root, path and size). An agent may revoke its own grant.
 
 ## 6. Errors
 
@@ -99,7 +101,7 @@ The §12.2 envelope `{error, message, reason?}`. Branch on `error`; `reason` ref
 | 403 | `permission_denied` | `role`, `no_grant`, `symlink`, `not_self`, `not_home_owner` |
 | 404 | `not_found` | `upload_expired`, `upload_terminated`, `upload_failed` |
 | 409 | `conflict` | `exists`, `into_itself`, `space_root`, `not_a_file`, `not_a_folder`, `offset_mismatch`, `upload_busy`, `digest_mismatch`, `idempotency_mismatch` |
-| 409 | `stale_precondition`, `expired` | |
+| 409 | `stale_precondition`, `expired` | `plan_changed` |
 | 412 | `conflict` | `tus_version` |
 | 413 | `payload_too_large` | `quota_exceeded`, `insufficient_space`, `upload_too_large`, `chunk_too_large` |
 | 415 | `conflict` | `content_type` |

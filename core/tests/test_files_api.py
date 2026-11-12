@@ -3,8 +3,12 @@
 
 from __future__ import annotations
 
+import os
 import struct
+import sys
 from datetime import timedelta
+
+import pytest
 
 from onemind_core.auth import Principal
 from onemind_core.files.access import READ, READ_WRITE, NONE, Root, person_access
@@ -226,3 +230,25 @@ def test_openapi_lists_files_routes(fc):
     for p in ("/v1/files/roots", "/v1/files/list", "/v1/files/download", "/v1/files/uploads",
               "/v1/files/uploads/{upload_id}", "/v1/files/grants", "/v1/files/requests/{request_id}/approve"):
         assert p in paths, p
+
+
+def test_ranges_on_an_empty_file_and_bad_cursors(fc):
+    ok(upload(fc, OWNER, "home:owner", "/", "empty", b""), 201)
+    q = {"root": "home:owner", "path": "/empty"}
+    r = fc.get("/v1/files/download", params=q, headers={**OWNER, "Range": "bytes=-5"})
+    assert r.status_code == 200 and r.content == b"" and "content-range" not in r.headers
+    r = fc.get("/v1/files/download", params=q, headers={**OWNER, "Range": "bytes=0-"})
+    assert r.status_code == 416 and r.headers["content-range"] == "bytes */0"
+    for bad in ("bzotMQ", "!!", "bzp4"):  # "o:-1", not base64, "o:x"
+        r = fc.get("/v1/files/list", params={"root": "home:owner", "cursor": bad}, headers=OWNER)
+        assert r.status_code == 422 and r.json()["reason"] == "invalid_cursor", bad
+
+
+@pytest.mark.skipif(sys.platform == "darwin", reason="APFS refuses file names that are not UTF-8")
+def test_names_that_are_not_utf8_do_not_break_a_listing(fc, files_root):
+    mkdir(fc, OWNER, "home:owner", "/mixed")
+    folder = next((files_root / "home").iterdir()) / "mixed"
+    os.close(os.open(os.fsencode(folder) + b"/bad-\xff-name", os.O_CREAT | os.O_WRONLY, 0o600))
+    (folder / "good.txt").write_text("ok")
+    items = ok(fc.get("/v1/files/list", params={"root": "home:owner", "path": "/mixed"}, headers=OWNER))
+    assert [i["name"] for i in items] == ["good.txt"]

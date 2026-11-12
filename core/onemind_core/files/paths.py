@@ -79,6 +79,15 @@ def split_path(path: str | None) -> tuple[str, ...]:
     return parts
 
 
+def is_utf8(name: str) -> bool:
+    """False for a name the OS decoded with surrogate escapes (bytes that are not UTF-8)."""
+    try:
+        name.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
 def join(parts: tuple[str, ...]) -> str:
     """The canonical client form of a path: '/' for the space itself, else '/a/b'."""
     return "/" + "/".join(parts)

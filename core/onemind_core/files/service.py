@@ -161,21 +161,28 @@ class FilesService:
             return []
         return self.repo.grants(subject_kind="agent", subject_id=p.id)
 
-    def access(self, p: Principal, root: Root, parts: tuple[str, ...]) -> Access:
+    def access(self, p: Principal, root: Root, parts: tuple[str, ...], *, inside: bool = False) -> Access:
+        """inside=True counts only grants that strictly contain `parts`: the granted folder is
+        the agent's space root, so the agent may change what is in it but not move, rename or
+        trash the folder itself."""
         if is_person(p):
             return person_access(p, root)
         best = NONE
         for g in self.grants_for(p):
-            if g.root == root.id and paths.is_within(parts, paths.split_path(g.path)):
-                best = READ_WRITE if g.access == "rw" else (best if best.write else READ)
+            prefix = paths.split_path(g.path)
+            if g.root != root.id or not paths.is_within(parts, prefix) or (inside and len(parts) == len(prefix)):
+                continue
+            best = READ_WRITE if g.access == "rw" else (best if best.write else READ)
         return best
 
     def target(self, p: Principal, root: str | None, path: str | None, need: str) -> Target:
+        """need: `read`; `write` (create things in this folder); `entry` (create, move, rename or
+        trash the entry at this path)."""
         r = parse_root(root)
         parts = paths.split_path(path)
-        acc = self.access(p, r, parts)
-        if not (acc.write if need == "write" else acc.read):
-            what = "change" if need == "write" else "read"
+        acc = self.access(p, r, parts, inside=need == "entry")
+        if not (acc.read if need == "read" else acc.write):
+            what = "read" if need == "read" else "change"
             raise self._deny(p, f"files {need} {r.id}", f"{p.kind}/{p.role} may not {what} {r.id}{paths.join(parts)}",
                              "no_grant" if not is_person(p) else "role")
         return Target(r, parts, acc)
@@ -258,14 +265,20 @@ class FilesService:
     def list(self, p: Principal, root: str | None, path: str | None) -> list[dict]:
         t = self.target(p, root, path, "read")
         entries = []
+        unnamed = 0
         with self._space(t.root) as space, paths.dir_at(space, t.parts) as d:
             with os.scandir(d) as it:
                 for e in it:
+                    if not paths.is_utf8(e.name):  # written by something else; no API path can name it
+                        unnamed += 1
+                        continue
                     try:
                         st = e.stat(follow_symlinks=False)
                     except FileNotFoundError:
                         continue
                     entries.append(self._entry(e.name, t.parts, st))
+        if unnamed:
+            log.warning("files list %s: left out %d name(s) that are not valid UTF-8", t.root.id, unnamed)
         entries.sort(key=lambda e: (e["type"] != "dir", e["name"].casefold(), e["name"]))
         self._audit_read(p, "list", t)
         return entries
@@ -307,7 +320,7 @@ class FilesService:
 
     # ---- data-plane writes --------------------------------------------------------------
     def mkdir(self, p: Principal, root: str | None, path: str | None) -> dict:
-        t = self.target(p, root, path, "write")
+        t = self.target(p, root, path, "entry")
         if not t.parts:
             raise conflict("the space already exists", "exists")
         with self._lock, self._space(t.root) as space, paths.dir_at(space, t.parts[:-1]) as d:
@@ -323,8 +336,8 @@ class FilesService:
 
     def move(self, p: Principal, root: str | None, path: str | None, to_root: str | None, to_path: str | None,
              *, op: str = "move") -> dict:
-        src = self.target(p, root, path, "write")
-        dst = self.target(p, to_root or root, to_path, "write")
+        src = self.target(p, root, path, "entry")
+        dst = self.target(p, to_root or root, to_path, "entry")
         if not src.parts or not dst.parts:
             raise conflict("a space itself cannot be moved or replaced", "space_root")
         if src.root.id == dst.root.id and paths.is_within(dst.parts, src.parts):
@@ -374,7 +387,7 @@ class FilesService:
         }
 
     def trash(self, p: Principal, root: str | None, path: str | None) -> dict:
-        t = self.target(p, root, path, "write")
+        t = self.target(p, root, path, "entry")
         if not t.parts:
             raise conflict("a space itself cannot be moved to the trash", "space_root")
         owner = self.trash_owner(t.root)
@@ -409,7 +422,7 @@ class FilesService:
         row = self.repo.trash_item(trash_id)
         if row is None or row.purged_at is not None or not self.may_see_trash(p, row.person_id):
             raise not_found("no such item in your trash")
-        dst = self.target(p, to_root or row.root, to_path or row.path, "write")
+        dst = self.target(p, to_root or row.root, to_path or row.path, "entry")
         if not dst.parts:
             raise conflict("cannot restore over a space", "space_root")
         with self._lock, self._trash(row.person_id) as tr, self._space(dst.root) as space:
@@ -497,7 +510,21 @@ class FilesService:
             "approved_by": row.approved_by, "approved_via": row.approved_via, "approval": row.approval,
             "deny_reason": row.deny_reason, "result": row.result, "expires_at": iso(aware(row.expires_at)),
             "created_at": iso(aware(row.created_at)), "updated_at": iso(aware(row.updated_at)),
+            "plan_sha256": self.plan_sha256(row),
         }
+
+    @staticmethod
+    def plan_sha256(row: RequestRow) -> str:
+        """§12.4's approval binding for a files request: sha256 of the canonical {type, params, plan}."""
+        digest = hashlib.sha256(canonical({"type": row.type, "params": row.params, "plan": row.plan}).encode())
+        return "sha256:" + digest.hexdigest()
+
+    def _run_guards(self, p: Principal, request_id: str, body: dict, http_request: Any) -> None:
+        """Approval guards other features register (identity: passkey step-up, F-2), with the
+        signature of `context.ApprovalGuard`: (principal, request id, approve body, request).
+        A guard raises to refuse. None are registered until the identity stream lands."""
+        for guard in getattr(self.gw, "approval_guards", ()) or ():
+            guard(p, request_id, body, http_request)
 
     def _expire_if_due(self, row: RequestRow) -> RequestRow:
         if row.state == "awaiting_approval" and self.clock() >= aware(row.expires_at):
@@ -514,8 +541,6 @@ class FilesService:
         parts = paths.split_path(params["path"])
         if subject["kind"] not in GRANT_SUBJECTS:
             raise FilesError(422, "conflict", "subject.kind must be app or agent", reason="invalid_subject")
-        if subject["kind"] == "app" and self.gw.catalog.get(subject["id"]) is None:
-            raise not_found(f"app {subject['id']!r} is not in the catalog")
         if p.kind == "agent":
             if subject != {"kind": "agent", "id": p.id}:
                 raise self._deny(p, "files.grant.create", "an agent may request folder access only for itself", "not_self")
@@ -524,7 +549,13 @@ class FilesService:
                 raise self._deny(p, "files.grant.create", "an owner grants only Shared or their own Home", "not_home_owner")
         else:
             raise self._deny(p, "files.grant.create", f"{p.kind}/{p.role} may not request folder grants")
-        self._require_folder(root, parts)
+        if subject["kind"] == "app" and self.gw.catalog.get(subject["id"]) is None:
+            raise not_found(f"app {subject['id']!r} is not in the catalog")
+        # Only the owner, who may read these spaces, learns here whether the folder exists. An
+        # agent's request is checked at approval instead, so filing one reveals nothing about
+        # folders the agent cannot read and creates no space on disk.
+        if p.is_owner:
+            self._require_folder(root, parts)
         access = "read-write" if params["access"] == "rw" else "read-only"
         who = f"{subject['kind']} {subject['id']}"
         plan = {"summary": f"{who} gets {access} access to {root.id}:{paths.join(parts)}",
@@ -568,8 +599,11 @@ class FilesService:
         if not p.is_owner and self.repo.pending_count(p.id) >= MAX_PENDING:
             raise FilesError(429, "rate_limited", f"at most {MAX_PENDING} requests may wait for approval",
                              reason="too_many_pending", headers={"Retry-After": "60"})
+        request_id = new_id("frq")
+        if approve:  # the owner shortcut needs the same step-up as an approval; a refusal files nothing
+            self._run_guards(p, request_id, {}, http_request)
         row = RequestRow(
-            id=new_id("frq"), type=type_, params=params, plan=plan, risk=risk, state="awaiting_approval",
+            id=request_id, type=type_, params=params, plan=plan, risk=risk, state="awaiting_approval",
             reason=reason, requested_by={"id": p.id, "kind": p.kind}, requested_by_id=p.id,
             idempotency_key=idempotency_key, body_sha256=body_hash, approved_by=None, approved_via=None,
             approval=None, deny_reason=None, result=None, expires_at=expires, created_at=now, updated_at=now,
@@ -582,7 +616,7 @@ class FilesService:
         self.event("request.created", p, {"request_id": stored.id, "type": type_, "risk": risk,
                                           "plan": plan, **({"reason": reason} if reason else {})})
         if approve:
-            return self.approve(p, stored.id, http_request=http_request, owner_initiated=True), True
+            return self.approve(p, stored.id, http_request=http_request, owner_initiated=True, guarded=True), True
         return self._request_json(stored), True
 
     def get_request(self, p: Principal, request_id: str) -> dict:
@@ -612,11 +646,15 @@ class FilesService:
             raise conflict(f"request is {row.state}, not awaiting_approval")
         return row
 
-    def approve(self, p: Principal, request_id: str, *, http_request: Any = None, owner_initiated: bool = False) -> dict:
+    def approve(self, p: Principal, request_id: str, *, body: dict | None = None, http_request: Any = None,
+                owner_initiated: bool = False, guarded: bool = False) -> dict:
+        """body is the §12.4 approve body {plan_sha256?, webauthn?}; guarded=True when the owner
+        shortcut already ran the approval guards before filing."""
+        body = body or {}
         row = self._decidable(p, request_id, "approve files request")
-        # Approval guards other features add (identity: passkey step-up, F-2). Absent until then.
-        for guard in getattr(self.gw, "approval_guards", ()) or ():
-            guard(p, row.type, row.params, http_request)
+        if body.get("plan_sha256") is not None and body["plan_sha256"] != self.plan_sha256(row):
+            raise FilesError(409, "stale_precondition", "the request differs from the one you were shown",
+                             reason="plan_changed")
         params = row.params
         if row.type == "files.grant.create":
             root = parse_root(params["root"])
@@ -629,6 +667,8 @@ class FilesService:
                 self._require_folder(root, paths.split_path(params["path"]))
             except FilesError as exc:
                 raise FilesError(409, "stale_precondition", f"the folder is no longer there ({exc.message})") from None
+        if not guarded:
+            self._run_guards(p, row.id, body, http_request)
         now = self.clock()
         approval = "token"
         moved = self.repo.transition_request(row.id, {"awaiting_approval"}, "accepted", now,
@@ -643,7 +683,8 @@ class FilesService:
             final = self.repo.transition_request(row.id, {"accepted"}, "succeeded", self.clock(), result=result)
         except Exception as exc:
             log.exception("applying files request %s failed", row.id)
-            result = {"error": exc.__class__.__name__, "message": str(exc)[:300]}
+            message = exc.message if isinstance(exc, FilesError) else "the change could not be applied; see the gateway log"
+            result = {"error": exc.__class__.__name__, "message": message[:300]}
             final = self.repo.transition_request(row.id, {"accepted"}, "failed", self.clock(), result=result)
             self.event("request.failed", None, {"request_id": row.id, "type": row.type, **result}, severity="error")
         return self._request_json(final or self.repo.request(row.id))
