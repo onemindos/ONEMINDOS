@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ApiError, type CatalogApp } from '../api/types';
 import { AppIcon, ErrorNote, Loading } from '../components/bits';
@@ -16,20 +16,34 @@ export function Market() {
   const apps = usePoll(() => api.apps(), 30_000);
   const [busy, setBusy] = useState<string>();
   const [error, setError] = useState<string>();
+  // One idempotency key per (type, app) until the hub gives a definite answer, so
+  // retrying after a lost response returns the same action instead of a second one (§3).
+  const pendingKeys = useRef(new Map<string, { key: string; expiresAt: string }>());
 
   async function request(app: CatalogApp) {
     setBusy(app.id);
     setError(undefined);
+    const type = app.installed ? 'app.remove' : 'app.install';
+    const slot = `${type}:${app.id}`;
+    let pending = pendingKeys.current.get(slot);
+    if (!pending) {
+      pending = { key: uuidv4(), expiresAt: new Date(Date.now() + REQUEST_TTL_MS).toISOString() };
+      pendingKeys.current.set(slot, pending);
+    }
     try {
       const action = await api.createAction({
-        type: app.installed ? 'app.remove' : 'app.install',
+        type,
         params: { app_id: app.id },
-        idempotency_key: uuidv4(),
-        expires_at: new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
+        idempotency_key: pending.key,
+        expires_at: pending.expiresAt,
       });
+      pendingKeys.current.delete(slot);
       navigate(`/approvals?highlight=${encodeURIComponent(action.id)}`);
       return; // this screen unmounts; no more state updates here
     } catch (e) {
+      // Keep the key only when the outcome is unknown (network error or 5xx).
+      const definite = e instanceof ApiError && e.status >= 400 && e.status < 500;
+      if (definite || !(e instanceof ApiError)) pendingKeys.current.delete(slot);
       setError(
         e instanceof ApiError && e.code === 'permission_denied'
           ? 'Your account cannot request installs. Ask the owner.'

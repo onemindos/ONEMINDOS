@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { ApiError } from './api/types';
 import { renderApp, seriousViolations } from './test/helpers';
 
 describe('sign-in', () => {
@@ -84,6 +85,24 @@ describe('Market → Approvals', () => {
     expect(created?.idempotency_key).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(created?.type).toBe('app.install');
     expect(await screen.findByRole('article', { name: 'Install jellyfin' })).toHaveClass('action-new');
+  });
+
+  it('a retry after a lost response reuses the idempotency key, so the hub returns the same action', async () => {
+    const { getApi } = renderApp({ token: 'owner-demo', route: '/market' });
+    const user = userEvent.setup();
+    const api = getApi();
+    const real = api.createAction.bind(api);
+    const spy = vi.spyOn(api, 'createAction').mockImplementationOnce(async (req) => {
+      await real(req); // the hub creates the action, then the response is lost
+      throw new ApiError(0, 'network', 'connection reset');
+    });
+    await user.click(await screen.findByRole('button', { name: 'Install Jellyfin' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('connection reset');
+    await user.click(screen.getByRole('button', { name: 'Install Jellyfin' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Approvals' })).toBeInTheDocument();
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy.mock.calls[1]![0].idempotency_key).toBe(spy.mock.calls[0]![0].idempotency_key);
+    expect((await api.actions()).filter((a) => a.params.app_id === 'jellyfin')).toHaveLength(1);
   });
 
   it('an adult cannot request installs', async () => {
