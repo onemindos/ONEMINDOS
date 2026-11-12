@@ -35,7 +35,7 @@ export interface SessionDeps {
   save?: (c: Connection) => Promise<void>;
   clear?: () => Promise<void>;
   /** Device-bound renewal (lib/device: DPoP proof with this phone's key). Undefined when not registered. */
-  renewWithDevice?: (api: OneMindApi, features: Features) => Promise<LoginResult | undefined>;
+  renewWithDevice?: (api: OneMindApi, features: Features, hubUrl: string) => Promise<LoginResult | undefined>;
 }
 
 interface SessionCtx {
@@ -56,8 +56,8 @@ interface SessionCtx {
 const Ctx = createContext<SessionCtx | null>(null);
 
 /** Things to forget with the hub (device link, push registration); modules add theirs. */
-const forgetHooks = new Set<(api: OneMindApi) => Promise<void>>();
-export function onForgetHub(fn: (api: OneMindApi) => Promise<void>): () => void {
+const forgetHooks = new Set<(api: OneMindApi, hubUrl: string) => Promise<void>>();
+export function onForgetHub(fn: (api: OneMindApi, hubUrl: string) => Promise<void>): () => void {
   forgetHooks.add(fn);
   return () => forgetHooks.delete(fn);
 }
@@ -121,7 +121,7 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
         if (!c || c.mode !== 'live' || c.auth !== 'passkey' || !s) return undefined;
         let r: LoginResult | undefined;
         try {
-          r = await renewWithDevice?.(s.api, s.features);
+          r = await renewWithDevice?.(s.api, s.features, c.hubUrl);
         } catch {
           r = undefined;
         }
@@ -193,7 +193,7 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
   const disconnect = useCallback(async () => {
     const s = live.current;
     if (s && s.connection.mode === 'live') {
-      for (const fn of forgetHooks) await fn(s.api).catch(() => undefined);
+      for (const fn of forgetHooks) await fn(s.api, s.connection.hubUrl).catch(() => undefined);
       if (s.connection.auth === 'passkey') await s.api.logout().catch(() => undefined);
     }
     await clear();

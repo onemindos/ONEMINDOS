@@ -184,17 +184,19 @@ function codeForStatus(status: number): ApiError['code'] {
 }
 
 /** Turn a non-2xx answer into an ApiError; exported for the SSE transport. */
-export function errorFrom(status: number, data: unknown, retryAfterHeader?: string | null): ApiError {
+export function errorFrom(status: number, data: unknown, retryAfterHeader?: string | null, dpopNonce?: string | null): ApiError {
   const headerRetry = retryAfterHeader ? Number(retryAfterHeader) : NaN;
+  const nonce = dpopNonce ?? undefined;
   if (isErrorBody(data)) {
     const code = KNOWN_CODES.has(data.error) ? (data.error as ApiError['code']) : codeForStatus(status);
     const retry = typeof data.retry_after_s === 'number' ? data.retry_after_s : Number.isFinite(headerRetry) ? headerRetry : undefined;
     // API.md §8.4 spelled the step-up signal as details[0].problem; §12.2 as reason. Accept both.
     const reason = data.reason ?? data.details?.[0]?.problem;
-    return new ApiError(status, code, data.message, { reason, retryAfterS: retry });
+    return new ApiError(status, code, data.message, { reason, retryAfterS: retry, dpopNonce: nonce });
   }
   return new ApiError(status, codeForStatus(status), `HTTP ${status}`, {
     retryAfterS: Number.isFinite(headerRetry) ? headerRetry : undefined,
+    dpopNonce: nonce,
   });
 }
 
@@ -300,7 +302,7 @@ export class HttpApi implements OneMindApi {
       }
     }
     if (!res.ok) {
-      const err = errorFrom(res.status, data, res.headers.get('Retry-After'));
+      const err = errorFrom(res.status, data, res.headers.get('Retry-After'), res.headers.get('DPoP-Nonce'));
       // A session token may have expired: renew once and repeat. A step-up refusal is not an expiry.
       if (err.code === 'unauthenticated' && err.reason !== 'step_up_required' && bearer && !opts.retried && this.tokens.refresh) {
         const fresh = await this.renew();

@@ -415,13 +415,21 @@ export class ApiError extends Error {
   /** §12.2 open-ended reason (`step_up_required`, `plan_changed`, …). */
   readonly reason?: string;
   readonly retryAfterS?: number;
+  /** RFC 9449 §8: the server wants a fresh DPoP proof carrying this nonce. */
+  readonly dpopNonce?: string;
 
-  constructor(status: number, code: ApiError['code'], message: string, extra: { reason?: string; retryAfterS?: number } = {}) {
+  constructor(
+    status: number,
+    code: ApiError['code'],
+    message: string,
+    extra: { reason?: string; retryAfterS?: number; dpopNonce?: string } = {},
+  ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
     this.reason = extra.reason;
     this.retryAfterS = extra.retryAfterS;
+    this.dpopNonce = extra.dpopNonce;
   }
 }
