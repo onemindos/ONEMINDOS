@@ -24,6 +24,7 @@ jobs:
           - {board: vm,         runner: ubuntu-24.04}
           - {board: vm-do,      runner: ubuntu-24.04}
           - {board: arm64-efi,  runner: ubuntu-24.04-arm}
+          - {board: rpi5,       runner: ubuntu-24.04-arm}   # no QEMU boot (Pi firmware): structure check + LT-PI5-01
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     steps:
@@ -51,6 +52,10 @@ jobs:
         run: |
           sudo rm -f out/rootfs-*.tar
           make convert BOARD=${{ matrix.board }} TOOLS=onemind-tools:ci
+          if [ "${{ matrix.board }}" = rpi5 ]; then
+            make rpi5-check TOOLS=onemind-tools:ci
+            make imager-json TOOLS=onemind-tools:ci VERSION=0.1.0-dev.${{ github.run_number }}
+          fi
           sudo rm -f out/image-${{ matrix.board }}/*.img
           cat out/image-${{ matrix.board }}/SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

@@ -116,3 +116,18 @@ cloud-test:
 	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/cloudboot.py --cloud $(CLOUD) \
 	  --image-dir /out/image-cloud-$(CLOUD) --work /out/cloudboot-$(CLOUD)/work \
 	  --log /out/cloudboot-$(CLOUD)/serial.log --results /out/cloudboot-$(CLOUD)/results.json
+
+# Raspberry Pi 5 (os/boards/rpi5, docs/leap/core/IMAGES.md §8). QEMU cannot boot the Pi firmware, so
+# CI checks the image's structure; the boot itself is lab kit LT-PI5-01.
+#   make rpi5-check                                     -> out/image-rpi5/structure.json
+#   make imager-json [IMAGER_URL=https://...]           -> out/image-rpi5/os_list.json (rpi-imager --repo)
+IMAGER_URL ?= https://github.com/onemindos/ONEMINDOS/releases/download/v$(VERSION)
+.PHONY: rpi5-check imager-json
+rpi5-check imager-json: BOARD = rpi5
+rpi5-check:
+	$(DOCKER_RUN) $(TOOLS) sh -c 'cd /out/image-rpi5 && i=$$(ls onemind-rpi5-*.img | head -n1) && \
+	  python3 -I /src/os/boards/rpi5/check-image.py "$$i" --bundle "$${i%.img}.raucb" --keyring dev-ca.cert.pem --json structure.json'
+
+imager-json:
+	$(DOCKER_RUN) $(TOOLS) sh -c 'cd /out/image-rpi5 && i=$$(ls onemind-rpi5-*.img | head -n1) && \
+	  python3 -I /src/os/boards/rpi5/imager_json.py --img "$$i" --xz "$$i.xz" --url-base "$(IMAGER_URL)" --out os_list.json && cat os_list.json'
