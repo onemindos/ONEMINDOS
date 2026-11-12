@@ -135,10 +135,16 @@ function trustChecks(app: Omit<App, 'checks' | 'installable'>, now: Date): Check
   return checks;
 }
 
-function installable(scan: Scan | null, now: Date): App['installable'] {
+function installable(scan: Scan | null, now: Date, tier?: string): App['installable'] {
+  // Same rule as the gateway (core/onemind_core/scan.py, actions.py): tier blocked, unreadable
+  // or future-dated records and stale scans are all refused.
+  if (tier === 'blocked') return { ok: false, reason: 'A reviewer blocked this app: the gateway refuses to install it.' };
   if (!scan) return { ok: false, reason: 'No scan record yet: the gateway refuses to install it (contract §11.1).' };
   if (scan.result !== 'pass') return { ok: false, reason: 'The last scan did not pass.' };
-  if (daysSince(scan.scanned_at, now) > SCAN_MAX_AGE_DAYS)
+  const age = daysSince(scan.scanned_at, now);
+  if (Number.isNaN(age)) return { ok: false, reason: 'The scan date cannot be read: the gateway refuses to install it.' };
+  if (age < -5 / 1440) return { ok: false, reason: 'The scan is dated in the future: the gateway treats it as invalid.' };
+  if (age > SCAN_MAX_AGE_DAYS)
     return { ok: false, reason: `The last passing scan is older than ${SCAN_MAX_AGE_DAYS} days.` };
   return { ok: true, reason: 'Passing scan within the last 7 days.' };
 }
@@ -201,7 +207,7 @@ export function loadApps(now = new Date()): App[] {
       scan,
       repoPath: `${REPO}/tree/main/apps/${dirName}`,
     };
-    apps.push({ ...base, checks: trustChecks(base, now), installable: installable(scan, now) });
+    apps.push({ ...base, checks: trustChecks(base, now), installable: installable(scan, now, md.tier) });
   }
   cache = apps;
   return apps;

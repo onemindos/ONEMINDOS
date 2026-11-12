@@ -1,7 +1,7 @@
 <!-- Copied verbatim from research-output/22-HARDWARE-LAB-TEST-PLAN.md (LT-PI5-01), 2026-11-11. Do not edit: if 22 changes, re-copy. -->
 
 ### LT-PI5-01 · RAUC 1.15.2 + Pi firmware `tryboot` + k3s gate · **G**
-**Aliases:** F-PI5, T-W3-02 (NVMe part), critic N8, Q9, Q-P2-4 (partly) · **Kit and full steps:** [`evidence/lab/rauc-1152/PI5-TRYBOOT-FOUNDER-TEST.md`](evidence/lab/rauc-1152/PI5-TRYBOOT-FOUNDER-TEST.md) (desk pre-flight done in a VM) · **Time:** about 3 hours
+**Aliases:** F-PI5, T-W3-02 (NVMe part), critic N8, Q9, Q-P2-4 (partly) · **Kit and full steps:** [`evidence/lab/rauc-1152/PI5-TRYBOOT-FOUNDER-TEST.md`](../../research-output/evidence/lab/rauc-1152/PI5-TRYBOOT-FOUNDER-TEST.md) (desk pre-flight done in a VM) · **Time:** about 3 hours
 ```sh
 # Workbench microSD: Raspberry Pi OS Lite 64-bit 2026-10-06 (trixie), .img.xz sha256 483db18a…2843 [C-LAB-rauc-1152-016]
 scp -r research-output/evidence/lab/rauc-1152/scripts <user>@<pi-address>:onemind-kit
