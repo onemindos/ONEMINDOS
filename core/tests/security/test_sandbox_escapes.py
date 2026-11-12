@@ -20,7 +20,7 @@ Three groups:
 
 A vector the checker misses today is marked `gap`: a strict xfail whose reason says why it is an
 escape. Fixing the checker turns it into an unexpected pass, which fails until the gap marker is
-replaced by the new rule id. The checker lives in the security P0 stream until it merges.
+replaced by the new rule id. The shipped checker and rule file are required, not optional skips.
 """
 
 from __future__ import annotations
@@ -35,8 +35,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-SANDBOX_STREAM = "install sandbox checker is not on this tree yet: feat/sec-p0 (PR #40, CORE-SANDBOX-1, H-01..H-04)"
-policy = pytest.importorskip("onemind_core.policy", reason=SANDBOX_STREAM)
+from onemind_core import policy
 
 HERE = Path(__file__).parent
 OBJECTS = HERE / "fixtures" / "sandbox" / "objects"
@@ -50,8 +49,7 @@ EXPECTED = re.compile(r"Expected: ([A-Z]-\d\d|allowed|gap)\.")
 @pytest.fixture(scope="module")
 def rules():
     path = policy.SandboxSettings().rules_path()
-    if path is None:
-        pytest.skip("sdk/policy/app-objects.yaml not found")
+    assert path is not None, "the shipped sdk/policy/app-objects.yaml is required"
     return policy.load_rules(path)
 
 

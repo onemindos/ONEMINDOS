@@ -32,3 +32,23 @@ Tests that attack the gateway the way a hostile app, a tricked AI agent or a str
 - **A new URL setting reachable through the API:** add an SSRF probe. `test_api_reachable_url_settings_bring_an_ssrf_probe` lists the routes and action types it watches.
 
 Run only this suite with `cd core && uv run pytest -q tests/security`.
+
+## Narrowed A5 integration checkpoint
+
+Main's H-31 alert-fix scope and passkey approval guards are retained alongside the
+handler's denial audit. H-32's node cap and the canonical
+`core/tests/test_route_authz.py` are retained; this suite does not replace that inventory
+or add a second public-route allowlist. The shipped sandbox checker and its rules are
+required rather than optional imports/skips.
+
+`test_notify_boundaries.py` exercises the production address checks (including
+embedded IPv4 and a positive public-address control), depth-bounded MCP copying and
+handler denial audit without external requests or database cleanup. These narrow
+tests are not a full HTTP authorization matrix or a full backend suite.
+
+Known strict-xfail findings and pending principal kinds remain visible, not accepted
+as an all-green delivery. Full SQLite/PostgreSQL, H-31 runtime, canonical inventory
+and Go execution still need final-head evidence. Existing tests explicitly drop
+tables, remove temporary trees or delete application/test rows; running them requires
+the corresponding bounded cleanup authorization. No production/shared resource
+should be used. Owner merge authorization is a separate gate, not a test failure.
