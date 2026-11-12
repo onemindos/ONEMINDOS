@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # QEMU battery (brief 30 D-B1.6, B13): rootfs -> fixtures -> boot tests, per board.
-# Criteria: test/qemu/CRITERIA.md (pre-registered). Called by image.yml and nightly.yml.
+# Criteria: test/qemu/CRITERIA.md (pre-registered). Called by image.yml, nightly.yml and
+# security-nightly.yml (which passes `snapshot`: the battery then builds from the commit plus the
+# generated snapshot change, os/update/pick-snapshot.py apply, exactly as the release build does).
 name: battery
 on:
   workflow_call:
@@ -9,6 +11,7 @@ on:
       upto: {type: string, default: T5}
       leg: {type: string, default: debian}
       runner: {type: string, default: ubuntu-24.04}
+      snapshot: {type: string, default: ''}
   workflow_dispatch:
     inputs:
       board: {type: string, default: x86_64-efi}
@@ -35,6 +38,11 @@ jobs:
           fi
           ls -l /dev/kvm 2>/dev/null && echo "accel: kvm" || echo "accel: tcg (no /dev/kvm on this runner)"
           nproc
+      - name: Apply the security snapshot (generated change)
+        if: inputs.snapshot != ''
+        env:
+          SNAPSHOT: ${{ inputs.snapshot }}
+        run: python3 -I os/update/pick-snapshot.py apply --snapshot "$SNAPSHOT" && git diff --stat
       - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
       - name: Build rootfs (${{ inputs.leg }}, ${{ inputs.board }})
         run: |
@@ -65,7 +73,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
-          name: battery-${{ inputs.leg }}-${{ inputs.board }}-${{ inputs.upto }}
+          name: battery-${{ inputs.leg }}-${{ inputs.board }}-${{ inputs.upto }}${{ inputs.snapshot != '' && '-security' || '' }}
           path: |
             out/battery-${{ inputs.board }}/
             out/fx-${{ inputs.board }}/t0.json
