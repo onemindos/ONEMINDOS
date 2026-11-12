@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# Hermes agent, the first founder app (contract sdk/contracts/poc-v0.md §7, §11.2).
+# Scaffolded by sdk/tools/app-scaffold from github.com/NousResearch/hermes-agent (§9.2), then
+# completed from primary sources: release v0.23.0 (tag commit 2bd378ed1b8d), LICENSE (MIT) at
+# that tag, and the image digest named in contract §7, confirmed with `crane digest`.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: hermes-agent
+  name: Hermes Agent
+  version: "0.23.0"
+  description: Self-hosted AI agent with memory, skills and messaging gateways, by Nous Research
+  category: ai
+  icon: icon.svg
+  license: MIT
+  source: https://github.com/NousResearch/hermes-agent
+  # §9.3 facts from the GitHub API (repos/NousResearch/hermes-agent and releases/tags/v0.23.0),
+  # read 2026-11-12. Contract §7 pins v0.23.0; Renovate proposes newer releases (§10.2).
+  links:
+    docs: https://hermes-agent.nousresearch.com/docs/
+    github: https://github.com/NousResearch/hermes-agent
+    website: https://hermes-agent.nousresearch.com
+    support: https://github.com/NousResearch/hermes-agent/issues
+  upstream: {release: "v0.23.0", released_at: "2026-11-05T21:32:33Z", archived: false}
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  # The container's memory request is 1.75 GiB (§7); a Pi 5 needs the 8 GB model.
+  requires: {gpu: false, minMemoryMb: 2048}
+  web: {port: 9119}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}
+  # §11.2: the gateway creates agent:hermes-agent and this Secret (ONEMIND_GATEWAY_URL,
+  # ONEMIND_AGENT_TOKEN) in app-hermes-agent before applying manifests/.
+  agent: {principal: true, secret: hermes-agent-onemind}

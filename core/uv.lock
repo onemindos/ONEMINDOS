@@ -311,13 +311,16 @@ name = "onemind-core"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "cryptography" },
     { name = "fastapi" },
+    { name = "h11" },
     { name = "jsonschema" },
     { name = "nats-py" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "sqlalchemy" },
     { name = "uvicorn", extra = ["standard"] },
+    { name = "websockets" },
 ]
 
 [package.optional-dependencies]
@@ -335,7 +338,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=50.0.2,<51" },
     { name = "fastapi", specifier = ">=0.115,<1" },
+    { name = "h11", specifier = ">=0.16,<1" },
     { name = "jsonschema", specifier = ">=4.22,<5" },
     { name = "nats-py", specifier = ">=2.9,<3" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'postgres'", specifier = ">=3.2,<4" },
@@ -343,6 +348,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.1,<7" },
     { name = "sqlalchemy", specifier = ">=2.0.30,<3" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30,<1" },
+    { name = "websockets", specifier = ">=15,<18" },
 ]
 provides-extras = ["postgres"]
 

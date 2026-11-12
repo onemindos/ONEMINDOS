@@ -1,0 +1,18 @@
+{
+  "id": "T2",
+  "verdict": "PASS",
+  "detail": {
+    "derp_path_after_s": 10,
+    "a_to_b_9001": "allowed-9001-home-b",
+    "a_hub_7422_tls": "INFO tls_required=True | TLSv1.3 TLS_AES_128_GCM_SHA256 | cert subject nats-hub",
+    "via_derp_pongs_of_20": 20,
+    "median_ms": {
+      "direct": "48",
+      "derp": "139"
+    },
+    "udp_from_natA_wan": 0,
+    "tcp443_to_hub": 70,
+    "udp_block_counter": "packets 53",
+    "back_to_direct_after_s": "0"
+  }
+}

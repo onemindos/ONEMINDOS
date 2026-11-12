@@ -1,0 +1,12 @@
+regions:
+  900:
+    regionid: 900
+    regioncode: onemind-hub
+    regionname: OneMind hub DERP (self-hosted)
+    nodes:
+      - name: 900a
+        regionid: 900
+        hostname: hub.lab.example
+        ipv4: 203.0.113.10
+        stunport: 3478
+        derpport: 443

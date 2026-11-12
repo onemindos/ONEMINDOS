@@ -1,0 +1,156 @@
+# SPDX-License-Identifier: Apache-2.0
+# Hermes agent, the first founder app (contract sdk/contracts/poc-v0.md §7, §11.2, §11.3).
+# Upstream references (v0.23.0): Dockerfile, docker-compose.yml, docker/stage2-hook.sh,
+# docker/main-wrapper.sh, docker/s6-rc.d/dashboard/run, gateway/platforms/api_server.py,
+# website/docs/user-guide/features/{mcp,web-dashboard}.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-agent
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  # One writer for HERMES_HOME (SQLite state, sessions, skills) on a ReadWriteOnce volume (§7).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hermes-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hermes-agent
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # The image's USER is root only so its s6 bootstrap can remap the `hermes` user (UID/GID
+      # 10000) and chown the volume. Upstream supports starting directly as that UID: the
+      # bootstrap and wrapper then skip the root-only steps and never drop privileges
+      # (docker/stage2-hook.sh, docker/main-wrapper.sh). fsGroup makes the volume writable for it.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10000
+        runAsGroup: 10000
+        fsGroup: 10000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Writes config.yaml on first boot only: Hermes's example config plus the
+        # mcp_servers.onemind entry and a generated dashboard login (seed/seed.py).
+        # It also creates the /run directory for s6-overlay (below).
+        - name: seed-config
+          image: docker.io/nousresearch/hermes-agent:v0.23.0@sha256:adb7890916de63245523492be8f68f9d2095fecbec4e2a6dab7960381f0fc002
+          command: ["/opt/hermes/.venv/bin/python", "-I", "/etc/onemind-seed/seed.py"]
+          env:
+            - name: HERMES_HOME
+              value: /opt/data
+            - name: ONEMIND_RUN_DIR
+              value: /onemind-run/run
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /opt/data
+            - name: seed
+              mountPath: /etc/onemind-seed
+              readOnly: true
+            - name: run
+              mountPath: /onemind-run
+      containers:
+        - name: hermes-agent
+          image: docker.io/nousresearch/hermes-agent:v0.23.0@sha256:adb7890916de63245523492be8f68f9d2095fecbec4e2a6dab7960381f0fc002
+          args: ["gateway", "run"]
+          # Later sources win: the owner's model-provider keys (optional, so the pod starts
+          # without them), then the gateway-created agent token (§11.2), then env below.
+          envFrom:
+            - secretRef:
+                name: hermes-agent-credentials
+                optional: true
+            - secretRef:
+                name: hermes-agent-onemind
+          env:
+            - name: HERMES_HOME
+              value: /opt/data
+            # OpenAI-compatible API server. It refuses to start without an API_SERVER_KEY of 16+
+            # characters; the image's bootstrap generates one into $HERMES_HOME/.env on first
+            # boot unless the owner's Secret sets API_SERVER_KEY. /health needs no key.
+            - name: API_SERVER_HOST
+              value: 0.0.0.0
+            - name: API_SERVER_PORT
+              value: "8642"
+            # Web dashboard as a supervised service of the same container
+            # (docker/s6-rc.d/dashboard/run). Login: see the README.
+            - name: HERMES_DASHBOARD
+              value: "true"
+            - name: HERMES_DASHBOARD_HOST
+              value: 0.0.0.0
+            - name: HERMES_DASHBOARD_PORT
+              value: "9119"
+          ports:
+            - name: api
+              containerPort: 8642
+              protocol: TCP
+            - name: dashboard
+              containerPort: 9119
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /health
+              port: api
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: api
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: api
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 4
+          # Contract §7: limits 2 CPU / 3 GiB, requests 250m / 1.75 GiB.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1792Mi
+            limits:
+              cpu: "2"
+              memory: 3Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /opt/data
+            # s6-overlay (PID 1) needs a /run owned by the UID it runs as; a kubelet-made
+            # emptyDir is root-owned, so the seed creates run/ in it as UID 10000.
+            - name: run
+              mountPath: /run
+              subPath: run
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: hermes-agent-data
+        - name: seed
+          configMap:
+            name: hermes-agent-seed
+        - name: run
+          emptyDir:
+            sizeLimit: 64Mi

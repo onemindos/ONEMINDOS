@@ -1,0 +1,14 @@
+[<k>] 2026/11/12 03:16:45.908210 [INF] Starting nats-server
+[<k>] 2026/11/12 03:16:45.908257 [INF]   Version:  2.15.2
+[<k>] 2026/11/12 03:16:45.908260 [INF]   Git:      [5a815f1]
+[<k>] 2026/11/12 03:16:45.908261 [INF]   Name:     neg-autotls
+[<k>] 2026/11/12 03:16:45.908262 [INF]   ID:       NDAHLELLIPJRESN3B7RT3EOS5T7Q6YQPL2D563UNM3PDNFHAG4CYHZBU
+[<k>] 2026/11/12 03:16:45.908267 [INF] Using configuration file: /opt/fb3/run/nats-t/neg-autotls.conf (sha256:41259b6d3ce6ca09a9e2d38c5345caa0d23e255a1bee813869eb1e71b6f4a845)
+[<k>] 2026/11/12 03:16:45.908570 [INF] Listening for client connections on 127.0.0.1:4299
+[<k>] 2026/11/12 03:16:45.908582 [INF] Server is ready
+[<k>] 2026/11/12 03:16:45.970218 [INF] 100.64.0.1:7422 - lid:5 - Leafnode connection created for account: $G 
+[<k>] 2026/11/12 03:16:46.238021 [INF] 100.64.0.1:7422 - lid:5 - JetStream using domains: local "", remote "hub"
+[<k>] 2026/11/12 03:16:57.905578 [INF] Trapped "terminated" signal
+[<k>] 2026/11/12 03:16:57.905706 [INF] Initiating Shutdown...
+[<k>] 2026/11/12 03:16:57.905781 [INF] 100.64.0.1:7422 - lid:5 - Leafnode connection closed: Server Shutdown - Remote: hub
+[<k>] 2026/11/12 03:16:57.905867 [INF] Server Exiting..
