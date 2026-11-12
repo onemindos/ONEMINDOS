@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Layout } from './components/Layout';
+import { AppDetail } from './pages/AppDetail';
 import { Approvals } from './pages/Approvals';
 import { Home } from './pages/Home';
 import { Market } from './pages/Market';
@@ -23,6 +24,7 @@ export function App({ mock }: { mock: boolean }) {
           <Route index element={<Home />} />
           <Route path="nodes" element={<Nodes />} />
           <Route path="market" element={<Market />} />
+          <Route path="market/:appId" element={<AppDetail />} />
           <Route path="approvals" element={<Approvals />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

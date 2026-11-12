@@ -1,5 +1,5 @@
 // Mock-mode fixtures shaped exactly like contract §2 (heartbeat), §3 (nodes, apps,
-// actions) and §4 (app manifest fields). Timestamps are relative to "now" so the
+// actions), §4 (app manifest fields) and §11.4 (links, tier, scan). Timestamps are relative to "now" so the
 // stale and offline nodes stay stale and offline whenever the demo is opened.
 // No real host data: ids, hostnames and models are made up.
 
@@ -128,52 +128,114 @@ export function makeNodes(now: number): NodeRecord[] {
 
 export const INSTANCE: Instance = { name: 'Home OneMind', version: '0.1.0', hub_node_id: '3f9c2a1b7d4e' };
 
-export function makeApps(): CatalogApp[] {
+const gh = (repo: string) => ({
+  github: `https://github.com/${repo}`,
+  support: `https://github.com/${repo}/issues`,
+});
+
+/**
+ * Catalog with the §11.4 fields. Scans are relative to `now`: three apps pass recently, one
+ * was never scanned, one scan is older than 7 days, one failed; so every Install state shows.
+ */
+export function makeApps(now: number = Date.now()): CatalogApp[] {
+  const base = {
+    icon: 'icon.svg',
+    archs: ['amd64', 'arm64'],
+    installed: false,
+    status: 'not_installed',
+  };
   return [
     {
+      ...base,
       id: 'uptime-kuma',
       name: 'Uptime Kuma',
       version: '2.0.2',
       description: 'Self-hosted uptime monitoring',
       category: 'monitoring',
-      icon: 'icon.svg',
       license: 'MIT',
       source: 'https://github.com/louislam/uptime-kuma',
-      archs: ['amd64', 'arm64'],
       requires: { gpu: false, minMemoryMb: 256 },
       web_port: 3001,
       installed: true,
       status: 'installed',
+      links: { docs: 'https://github.com/louislam/uptime-kuma/wiki', website: 'https://uptime.kuma.pet', ...gh('louislam/uptime-kuma') },
+      tier: 'verified',
+      scan: { scanned_at: iso(now, 2 * 86400), result: 'pass' },
     },
     {
+      ...base,
       id: 'jellyfin',
       name: 'Jellyfin',
       version: '10.10.7',
       description: 'Stream your own films, shows and music',
       category: 'media',
-      icon: 'icon.svg',
       license: 'GPL-2.0-only',
       source: 'https://github.com/jellyfin/jellyfin',
-      archs: ['amd64', 'arm64'],
       requires: { gpu: false, minMemoryMb: 1024 },
       web_port: 8096,
-      installed: false,
-      status: 'not_installed',
+      links: { docs: 'https://jellyfin.org/docs/', website: 'https://jellyfin.org', ...gh('jellyfin/jellyfin') },
+      tier: 'community',
+      scan: { scanned_at: iso(now, 86400), result: 'pass' },
     },
     {
+      ...base,
       id: 'ollama',
       name: 'Ollama',
       version: '0.6.5',
       description: 'Run local AI language models on your own hardware',
       category: 'ai',
-      icon: 'icon.svg',
       license: 'MIT',
       source: 'https://github.com/ollama/ollama',
-      archs: ['amd64', 'arm64'],
       requires: { gpu: true, minMemoryMb: 4096 },
       web_port: 11434,
-      installed: false,
-      status: 'not_installed',
+      links: { docs: 'https://github.com/ollama/ollama/tree/main/docs', website: 'https://ollama.com', ...gh('ollama/ollama') },
+      tier: 'verified',
+      scan: { scanned_at: iso(now, 3 * 3600), result: 'pass' },
+    },
+    {
+      ...base,
+      id: 'node-red',
+      name: 'Node-RED',
+      version: '4.1.2',
+      description: 'Wire devices and services together with flows',
+      category: 'automation',
+      license: 'Apache-2.0',
+      source: 'https://github.com/node-red/node-red',
+      requires: { gpu: false, minMemoryMb: 256 },
+      web_port: 1880,
+      links: { docs: 'https://nodered.org/docs/', website: 'https://nodered.org', ...gh('node-red/node-red') },
+      tier: 'verified',
+      scan: { scanned_at: iso(now, 10 * 86400), result: 'pass' },
+    },
+    {
+      ...base,
+      id: 'mosquitto',
+      name: 'Mosquitto',
+      version: '2.0.22',
+      description: 'Lightweight MQTT message broker',
+      category: 'automation',
+      license: 'EPL-2.0',
+      source: 'https://github.com/eclipse-mosquitto/mosquitto',
+      requires: { gpu: false, minMemoryMb: 32 },
+      web_port: null,
+      links: { docs: 'https://mosquitto.org/documentation/', website: 'https://mosquitto.org', github: null, support: null },
+      tier: null,
+      scan: null,
+    },
+    {
+      ...base,
+      id: 'zigbee2mqtt',
+      name: 'Zigbee2MQTT',
+      version: '2.6.1',
+      description: 'Use Zigbee devices without the vendor hub',
+      category: 'automation',
+      license: 'GPL-3.0-only',
+      source: 'https://github.com/Koenkk/zigbee2mqtt',
+      requires: { gpu: false, minMemoryMb: 128 },
+      web_port: 8080,
+      links: { docs: 'https://www.zigbee2mqtt.io/guide/', website: 'https://www.zigbee2mqtt.io', ...gh('Koenkk/zigbee2mqtt') },
+      tier: 'blocked',
+      scan: { scanned_at: iso(now, 86400), result: 'fail' },
     },
   ];
 }
