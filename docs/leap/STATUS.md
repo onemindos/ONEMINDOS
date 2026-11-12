@@ -150,16 +150,17 @@
 | CORE-BACKUP-5 | Manifest `backup:` hooks | todo | – | – |
 | CORE-BACKUP-6 | Restore file, app or box, approval-gated; restore at onboarding | todo | – | – |
 | CORE-BACKUP-7 | Verified-restore badge (daily check, weekly scratch restore) | todo | – | – |
-| CORE-NOTIFY-1 | Alert record and store, `/v1/alerts`, NATS subjects, in-app inbox | todo | – | – |
-| DEV-API-12 | Notifications route shapes | todo | built inside CORE-NOTIFY-1 | – |
+| CORE-NOTIFY-1 | Alert record and store, `/v1/alerts`, NATS subjects, in-app inbox | in-progress | `feat/notify-monitor` (local, not pushed) | – |
+| DEV-API-12 | Notifications route shapes | in-progress | built inside CORE-NOTIFY-1 (`feat/notify-monitor`) | – |
 | CORE-BACKUP-8 | Backups API, screen and alerts | todo | – | – |
 | DEV-API-11 | Backups and restores route shapes | todo | built inside CORE-BACKUP-8 | – |
 | DEV-CLI-7 | `backup status/list/now/verify` and `restore` | todo | – | – |
-| CORE-NOTIFY-2 | Sources: approvals, nodes, updates, backups, scans, audit (H-28) | todo | – | – |
-| CORE-NOTIFY-3 | Web Push and Android UnifiedPush via the box's ntfy; push registrat… | todo | – | – |
+| CORE-NOTIFY-2 | Sources: approvals, nodes, updates, backups, scans, audit (H-28) | in-progress | `feat/notify-monitor`: all but the audit-chain check (H-28) | – |
+| CORE-NOTIFY-3 | Web Push and Android UnifiedPush via the box's ntfy; push registrat… | in-progress | `feat/notify-monitor`: gateway side done (VAPID, RFC 8291, registrations); browser and phone sides open | – |
 | CORE-NOTIFY-4 | iOS APNs relay | todo | – | – |
-| CORE-NOTIFY-5 | Repairs with fix actions | todo | – | – |
-| CORE-NOTIFY-6 | Email, webhook, Matrix, Telegram channels; routing and quiet hours | todo | – | – |
+| CORE-NOTIFY-5 | Repairs with fix actions | todo | (alert `fix` → request already works in `feat/notify-monitor`) | – |
+| CORE-NOTIFY-6 | Email, webhook, Matrix, Telegram channels; routing and quiet hours | in-progress | `feat/notify-monitor`: email, webhook, ntfy, routing, quiet hours, digest; Matrix and Telegram open | – |
+| CORE-MON-1 | Monitoring: app health, restarts, logs, app and node metrics, thresholds (contract §12.15) | in-progress | `feat/notify-monitor` | – |
 | CORE-UPDATE-3 | Updates screen and "What's new" | todo | – | – |
 | CORE-UPDATE-5 | App updates through approval (catalog diff, `app.update`) | todo | – | – |
 | CORE-UPDATE-6 | Health-gated app updates with snapshot and revert | todo | – | – |
