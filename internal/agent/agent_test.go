@@ -8,7 +8,10 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -184,4 +187,78 @@ func waitFor(t *testing.T, cond func() bool, what string) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %s", what)
+}
+
+// slowCollector is the droplet fixture (a k3s server) with a fake runner:
+// `k3s kubectl get --raw /readyz` answers "ok" after a delay unless its
+// context is cancelled first. calls counts runner invocations.
+func slowCollector(delay time.Duration, calls *atomic.Int32) *detect.Collector {
+	col := detect.NewFixture(filepath.Join("..", "detect", "testdata", "droplet"), "amd64")
+	col.LookPath = func(n string) (string, error) {
+		if n == "k3s" {
+			return "/usr/local/bin/k3s", nil
+		}
+		return "", fmt.Errorf("%s not found", n)
+	}
+	col.Run = func(ctx context.Context, name string, _ ...string) ([]byte, error) {
+		calls.Add(1)
+		select {
+		case <-time.After(delay):
+			return []byte("ok\n"), nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return col
+}
+
+// TestCancelledRequestDoesNotCacheDegraded cancels the caller's context
+// mid-collect and expects the cached heartbeat (what gets published) to
+// still report k3s ready.
+func TestCancelledRequestDoesNotCacheDegraded(t *testing.T) {
+	var calls atomic.Int32
+	a := New(Config{Collector: slowCollector(200*time.Millisecond, &calls), Logger: quietLogger()})
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if _, ok := a.Status(ctx); ok {
+		t.Fatal("Status with a cancelled context reported ok")
+	}
+	st, ok := a.Status(context.Background())
+	if !ok || !st.K3s.Present || !st.K3s.Ready {
+		t.Fatalf("after cancelled request: ok=%v k3s=%+v", ok, st.K3s)
+	}
+	if n := calls.Load(); n != 1 {
+		t.Fatalf("runner called %d times, want 1 (shared collection)", n)
+	}
+}
+
+// TestHealthzNotBlockedByCollect checks that /healthz and Sent answer while
+// a slow collection is running, and that concurrent callers share it.
+func TestHealthzNotBlockedByCollect(t *testing.T) {
+	var calls atomic.Int32
+	a := New(Config{Collector: slowCollector(time.Second, &calls), Logger: quietLogger()})
+	srv := httptest.NewServer(a.Handler())
+	defer srv.Close()
+
+	var wg sync.WaitGroup
+	for range 3 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			a.Status(context.Background())
+		}()
+	}
+	waitFor(t, func() bool { return calls.Load() == 1 }, "collection to start")
+
+	start := time.Now()
+	var h map[string]any
+	getJSON(t, srv.URL+"/healthz", &h)
+	_ = a.Sent()
+	if d := time.Since(start); d > 500*time.Millisecond {
+		t.Fatalf("/healthz took %v during a collection", d)
+	}
+	wg.Wait()
+	if n := calls.Load(); n != 1 {
+		t.Fatalf("runner called %d times, want 1 (shared collection)", n)
+	}
 }

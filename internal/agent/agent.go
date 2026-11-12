@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -40,14 +41,25 @@ type Config struct {
 
 // Agent is a running onemindd.
 type Agent struct {
-	cfg  Config
-	log  *slog.Logger
-	mu   sync.Mutex
-	last heartbeat.Status
-	at   time.Time
+	cfg Config
+	log *slog.Logger
+
+	stMu     sync.Mutex // guards last, at, inflight; never held during Collect
+	last     heartbeat.Status
+	at       time.Time
+	inflight *collection
+
+	ncMu sync.Mutex // guards nc
 	nc   *nats.Conn
-	sent uint64
+
+	sent atomic.Uint64
 	kick chan struct{} // publish now (after a (re)connect)
+}
+
+// collection is one in-flight Collect that concurrent callers share.
+type collection struct {
+	done chan struct{}
+	st   heartbeat.Status
 }
 
 // New returns an Agent with defaults filled in.
@@ -68,16 +80,45 @@ func New(cfg Config) *Agent {
 }
 
 // Status returns a heartbeat no older than one second (collection runs a
-// few commands, so repeated API calls share one result).
-func (a *Agent) Status(ctx context.Context) heartbeat.Status {
-	a.mu.Lock()
-	defer a.mu.Unlock()
+// few commands, so repeated API calls share one result, and concurrent
+// callers share one in-flight collection).
+//
+// The collection runs detached from ctx: a client that hangs up mid-collect
+// must not leave a degraded snapshot (k3s not ready, no RAUC slots, no GPU
+// model) in the cache, where it would be published as truth. Each command
+// still has the collector's own timeout. If ctx ends first, Status returns
+// the last cached heartbeat (which may be stale or empty) and ok = false.
+func (a *Agent) Status(ctx context.Context) (st heartbeat.Status, ok bool) {
+	a.stMu.Lock()
 	if time.Since(a.at) < time.Second && a.last.Schema != "" {
-		return a.last
+		st = a.last
+		a.stMu.Unlock()
+		return st, true
 	}
-	a.last = a.cfg.Collector.Collect(ctx)
-	a.at = time.Now()
-	return a.last
+	c := a.inflight
+	if c == nil {
+		c = &collection{done: make(chan struct{})}
+		a.inflight = c
+		go a.collect(c)
+	}
+	a.stMu.Unlock()
+
+	select {
+	case <-c.done:
+		return c.st, true
+	case <-ctx.Done():
+		a.stMu.Lock()
+		defer a.stMu.Unlock()
+		return a.last, false
+	}
+}
+
+func (a *Agent) collect(c *collection) {
+	c.st = a.cfg.Collector.Collect(context.Background())
+	a.stMu.Lock()
+	a.last, a.at, a.inflight = c.st, time.Now(), nil
+	a.stMu.Unlock()
+	close(c.done)
 }
 
 // Handler serves the local API:
@@ -87,7 +128,11 @@ func (a *Agent) Status(ctx context.Context) heartbeat.Status {
 func (a *Agent) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/node", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, a.Status(r.Context()))
+		st, ok := a.Status(r.Context())
+		if !ok {
+			return // the client went away
+		}
+		writeJSON(w, http.StatusOK, st)
 	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -109,19 +154,19 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	_ = enc.Encode(v)
 }
 
+func (a *Agent) conn() *nats.Conn {
+	a.ncMu.Lock()
+	defer a.ncMu.Unlock()
+	return a.nc
+}
+
 func (a *Agent) natsConnected() bool {
-	a.mu.Lock()
-	nc := a.nc
-	a.mu.Unlock()
+	nc := a.conn()
 	return nc != nil && nc.IsConnected()
 }
 
 // Sent returns how many heartbeats were published (for tests and logs).
-func (a *Agent) Sent() uint64 {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.sent
-}
+func (a *Agent) Sent() uint64 { return a.sent.Load() }
 
 // Run serves HTTP and publishes heartbeats until ctx is cancelled.
 // It returns an error only if the HTTP listener cannot be opened.
@@ -155,11 +200,9 @@ func (a *Agent) Serve(ctx context.Context, ln net.Listener) error {
 	shCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shCtx)
-	a.mu.Lock()
-	if a.nc != nil {
-		a.nc.Close()
+	if nc := a.conn(); nc != nil {
+		nc.Close()
 	}
-	a.mu.Unlock()
 	return nil
 }
 
@@ -183,9 +226,9 @@ func (a *Agent) connectNATS() {
 		a.log.Error("NATS connect failed; heartbeats disabled", "err", err)
 		return
 	}
-	a.mu.Lock()
+	a.ncMu.Lock()
 	a.nc = nc
-	a.mu.Unlock()
+	a.ncMu.Unlock()
 }
 
 // kickPublish asks the loop to publish now, so the hub sees a node as soon
@@ -212,14 +255,15 @@ func (a *Agent) publishLoop(ctx context.Context) {
 }
 
 func (a *Agent) publishOnce(ctx context.Context) {
-	a.mu.Lock()
-	nc := a.nc
-	a.mu.Unlock()
+	nc := a.conn()
 	if nc == nil || !nc.IsConnected() {
 		a.log.Debug("NATS not connected; skipping heartbeat")
 		return
 	}
-	st := a.Status(ctx)
+	st, ok := a.Status(ctx)
+	if !ok {
+		return // shutting down
+	}
 	b, err := json.Marshal(st)
 	if err != nil {
 		a.log.Error("marshal heartbeat", "err", err)
@@ -229,11 +273,7 @@ func (a *Agent) publishOnce(ctx context.Context) {
 		a.log.Warn("publish heartbeat", "err", err)
 		return
 	}
-	a.mu.Lock()
-	a.sent++
-	n := a.sent
-	a.mu.Unlock()
-	if n == 1 {
+	if a.sent.Add(1) == 1 {
 		a.log.Info("first heartbeat published", "subject", heartbeat.Subject(st.NodeID))
 	}
 }
