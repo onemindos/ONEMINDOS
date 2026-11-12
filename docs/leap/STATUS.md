@@ -12,10 +12,10 @@
 
 | State | Epics |
 |---|---|
-| done | 1 (OS-UPDATER) |
+| done | 3 (OS-UPDATER, UMB-CLIENT-8, UMB-CLIENT-10) |
 | in-review | 2 (OS-SECPIPE, CORE-UPDATE-1) |
-| in-progress | 14 (W2-GW, W2-PIPE, W2-DEPLOY, PA-ALIGN, PA-ARCH, PA-THREAT, PA-UI, PA-SITE, PA-MOBILE, LEAP-DOCS, CORE-BACKUP-2, UMB-STOR-3, UMB-CLIENT-8, UMB-PHOTO-4) |
-| todo | 163 + 113 UMB |
+| in-progress | 13 (W2-GW, W2-PIPE, W2-DEPLOY, PA-ALIGN, PA-ARCH, PA-THREAT, PA-UI, PA-SITE, PA-MOBILE, LEAP-DOCS, CORE-BACKUP-2, UMB-STOR-3, UMB-PHOTO-4) |
+| todo | 163 + 112 UMB |
 | parked | 4 (PLAN-E7-LAB, PLAN-E14, PLAN-E15, PH2-DESKTOP) |
 | superseded | 1 (DEV-API-14) |
 
@@ -64,6 +64,7 @@
 | CORE-NET-P1 | Mesh (Headscale + DERP), NATS leaf, app proxy, box CA, NAT lab (+ UMB-APP-7, UMB-APP-8) | in-progress | `feat/core-net` | – |
 | UI-LEAP | Parity audit, customization, Home widgets, Store + app management, shell, Settings (+ UMB-DESK-2, -3, -4, -8) | in-progress | `feat/ui-leap` | – |
 | MKT-TAXONOMY | App and deployment categories | in-progress | `feat/app-taxonomy` | – |
+| E2E-GOLDEN | Golden-path e2e: `install.sh` hub in a VM (Lima, QEMU/KVM), Playwright dashboard + MCP agent + audit, `verify.sh`; `e2e.yml` on PRs and nightly. Green in Lima 2026-11-12 | in-progress | `feat/e2e-golden-path` | – |
 | PLAN-E1 | Workbench (G0) and gate content re-synced to D-007 | todo | founder lab kit | – |
 | LEAP-DOCS | Leap specs, workstreams, backlog, status, decisions, CHANGELOG | done | `docs/leap` | [#16](https://github.com/onemindos/ONEMINDOS/pull/16) |
 
@@ -75,49 +76,49 @@
 | C12-H | Contract §12-h: MCP additions (scopes in `spec.agent`, preview, wit… | todo | – | – |
 | DEV-API-1 | Route inventory, conventions, `routes.py` registration seam | todo | – | – |
 | DEV-API-3 | Error model v1: `request_id`, `details`, opt-in new codes, size limits | todo | – | – |
-| DEV-SDK-1 | Spec readiness: response models, stable operation ids, open enums… | todo | – | – |
+| DEV-SDK-1 | Spec readiness: response models, stable operation ids, open enums… | in-progress | `feat/devsurface` (local) | – |
 | DEV-API-2 | OpenAPI compat gate (oasdiff) and `x-onemind` extension linter | todo | – | – |
-| DEV-SDK-2 | Generation toolchain and CI staleness check | todo | – | – |
+| DEV-SDK-2 | Generation toolchain and CI staleness check | in-progress | `feat/devsurface` (local) | – |
 | DEV-API-4 | Pagination (Link), filters, ETag/If-Match, `Idempotency-Key` header | todo | – | – |
 | DEV-API-5 | Scopes, role defaults, `/v1/me`, step-up hook | todo | – | – |
-| CORE-SANDBOX-1 | Rule file and pure-Python checker with fixtures | todo | – | – |
-| CORE-SANDBOX-2 | Gateway renders, checks and stores the plan; `apply -f -` with the… | todo | – | – |
-| CORE-SANDBOX-3 | PSA `restricted` in the image and `install.sh` | todo | – | – |
-| CORE-SANDBOX-4 | Gateway RBAC, `ValidatingAdmissionPolicy`, short-lived bound token | todo | – | – |
-| CORE-SANDBOX-5 | Default-deny NetworkPolicy per app, host nftables, `spec.network.eg… | todo | – | – |
+| CORE-SANDBOX-1 | Rule file and pure-Python checker with fixtures | in-progress | `feat/sec-p0` (local) | – |
+| CORE-SANDBOX-2 | Gateway renders, checks and stores the plan; `apply -f -` with the… | in-progress | `feat/sec-p0` (local; render, check, `apply -f -`, `policy_refused` done; stored plan and `plan_sha256` open) | – |
+| CORE-SANDBOX-3 | PSA `restricted` in the image and `install.sh` | in-progress | `feat/sec-p0` (local; `install.sh` and app namespaces done; image change recorded in SECURITY.md §7a) | – |
+| CORE-SANDBOX-4 | Gateway RBAC, `ValidatingAdmissionPolicy`, short-lived bound token | in-progress | `feat/sec-p0` (local) | – |
+| CORE-SANDBOX-5 | Default-deny NetworkPolicy per app, host nftables, `spec.network.eg… | in-progress | `feat/sec-p0` (local; host nftables open) | – |
 | CORE-SANDBOX-6 | app-gate uses the same checker; `scan.json` gains `policy_version`… | todo | – | – |
 | CORE-AUTO-1 | Risk classes on action types, enforced in the approve path | todo | – | – |
 | DEV-API-7 | Actions v1: risk, `plan_sha256` binding, preview, cancel, action-ty… | todo | – | – |
 | CORE-SEC-1 | HTTPS with a per-box CA, loopback-only HTTP, pairing QR | todo | – | – |
-| CORE-SEC-2 | Owner passkey, sessions, passkey-signed approvals (`approve-options`) | todo | – | – |
-| CORE-SEC-3 | Token lifecycle: create, rotate, expire, revoke, CLI | todo | – | – |
+| CORE-SEC-2 | Owner passkey, sessions, passkey-signed approvals (`approve-options`) | in-progress | `feat/identity` | – (local; also household accounts, password + TOTP, CSRF, per-app sharing, `/v1/me`: [core/IDENTITY.md](core/IDENTITY.md)) |
+| CORE-SEC-3 | Token lifecycle: create, rotate, expire, revoke, CLI | in-progress | `feat/identity` | – (local; API done, `onemind tokens` CLI not yet) |
 | CORE-SEC-4 | NATS nkeys and TLS | todo | – | – |
 | CORE-SEC-6 | `onemind audit verify`, signed checkpoints, agent kill switch | todo | – | – |
 | CORE-SEC-7 | Pending cap, plan card fields, "written by agent" label | todo | – | – |
 | CORE-SEC-8 | Signing keys in GitHub environments, split jobs | todo | – | – |
 | CORE-SEC-9 | CSP and security headers, body and rate limits | todo | – | – |
 | DEV-API-6 | Tokens API and per-plugin tokens from manifest `spec.api` scopes | todo | – | – |
-| DEV-API-8 | Events stream over SSE with resume and scope filtering | todo | – | – |
+| DEV-API-8 | Events stream over SSE with resume and scope filtering | in-progress | `feat/devsurface` (local) | – |
 | DEV-API-9 | Audit read, verify and signed off-box checkpoints | todo | – | – |
-| DEV-SDK-3 | TypeScript `@onemind/sdk` core: client, auth, typed errors, retries… | todo | – | – |
-| DEV-SDK-5 | Go SDK module | todo | – | – |
-| DEV-SDK-6 | Python `onemind-sdk`, sync and async | todo | – | – |
-| DEV-SDK-8 | Shared conformance suite and mock gateway | todo | – | – |
-| DEV-CLI-1 | CLI skeleton: command tree, global flags, `--json`, exit codes, con… | todo | – | – |
-| DEV-CLI-2 | `login`, `logout`, `context`; keychain and 0600 file store; TLS pin | todo | – | – |
-| DEV-CLI-3 | Read commands: `status`, `nodes`, `apps`, `actions`, `version` | todo | – | – |
-| DEV-CLI-4 | Action flow: install/remove, approve/deny/watch, `--wait`, effects… | todo | – | – |
-| DEV-CLI-5 | `audit verify` (file, gateway, checkpoint) and `audit tail` | todo | – | – |
-| DEV-CLI-13 | Completion, generated reference and man pages, signed releases, ima… | todo | – | – |
-| DEV-MCP-1 | Read catalogue v1 and resources; `mcp.py` becomes the `mcp/` packag… | todo | – | – |
+| DEV-SDK-3 | TypeScript `@onemind/sdk` core: client, auth, typed errors, retries… | in-progress | `feat/devsurface` (local) | – |
+| DEV-SDK-5 | Go SDK module | in-progress | `feat/devsurface` (local) | – |
+| DEV-SDK-6 | Python `onemind-sdk`, sync and async | in-progress | `feat/devsurface` (local) | – |
+| DEV-SDK-8 | Shared conformance suite and mock gateway | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-1 | CLI skeleton: command tree, global flags, `--json`, exit codes, con… | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-2 | `login`, `logout`, `context`; keychain and 0600 file store; TLS pin | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-3 | Read commands: `status`, `nodes`, `apps`, `actions`, `version` | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-4 | Action flow: install/remove, approve/deny/watch, `--wait`, effects… | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-5 | `audit verify` (file, gateway, checkpoint) and `audit tail` | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-13 | Completion, generated reference and man pages, signed releases, ima… | in-progress | `feat/devsurface` (local) | – |
+| DEV-MCP-1 | Read catalogue v1 and resources; `mcp.py` becomes the `mcp/` packag… | in-progress | `feat/devsurface` (local) | – |
 | DEV-MCP-2 | Per-agent scopes and grants, filtered `tools/list`, pause and revok… | todo | – | – |
-| DEV-MCP-4 | Rate limits per principal and the pending cap | todo | – | – |
-| DEV-MCP-7 | `onemind mcp` stdio bridge with login (keychain, CA pin), `doctor`… | todo | – | – |
-| DEV-CLI-12 | `onemind mcp` acceptance | todo | built inside DEV-MCP-7 | – |
+| DEV-MCP-4 | Rate limits per principal and the pending cap | in-progress | `feat/devsurface` (local) | – |
+| DEV-MCP-7 | `onemind mcp` stdio bridge with login (keychain, CA pin), `doctor`… | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-12 | `onemind mcp` acceptance | in-progress | `feat/devsurface` (local) | – |
 | CORE-DASH-1 | `ui/` components v0 and dark mode | todo | – | – |
 | CORE-DASH-3 | Approvals plan card with passkey approve | todo | – | – |
 | CORE-DASH-4 | Activity (audit) and Agents (suspend) screens | todo | – | – |
-| DEV-MCP-5 | Prompt-injection defences: `<untrusted>` marking, `AgentNote` on th… | todo | – | – |
+| DEV-MCP-5 | Prompt-injection defences: `<untrusted>` marking, `AgentNote` on th… | in-progress | `feat/devsurface` (local) | – |
 | CORE-UPDATE-2 | Local socket, `/v1/os/*`, `os.update` and `os.rollback` actions | todo | – | – |
 | CORE-UPDATE-4 | Metal runs for G1 on the x86 mini PC; start the Pi soak | todo | – | – |
 | DEV-CLI-6 | `update status/check/apply` via the onemindd socket on the box, `os… | todo | – | – |
@@ -142,6 +143,21 @@
 | CORE-FABRIC-3 | `node.remove` with drain | todo | – | – |
 | CORE-FABRIC-4 | Capability labels, affinity from `requires`, Market verdict | todo | – | – |
 | CORE-FABRIC-5 | Leaf mode in onemindd (no k3s) | todo | – | – |
+| CORE-NET-1 | Headscale adapter and config/DERP-map renderer | todo | – | – |
+| CORE-NET-2 | Mesh policy generated from OneMind roles | todo | – | – |
+| CORE-NET-3 | Node mesh enrollment and LAN-first coordinator resolver | todo | – | – |
+| CORE-NET-4 | NATS hub users + leaf listener and node leaf config renderers | todo | – | – |
+| CORE-NET-5 | `onemind-edge`: SNI/host routes, forward-auth, upgrades, ACME | todo | – | – |
+| CORE-NET-6 | LAN names: avahi hosts, conflict check, mesh extra records | todo | – | – |
+| CORE-NET-7 | Relay: SNI router, setup endpoint, WireGuard link, derper build | todo | – | – |
+| CORE-NET-8 | Gateway mesh routes, forward-auth, `mesh.*` handlers | todo | – | – |
+| CORE-NET-9 | Lima lab NT-1…NT-8, NT-17 | todo | – | – |
+| CORE-NET-10 | Contract §12.16 networking PR | todo | – | – |
+| CORE-NET-11 | Installer and image wiring | todo | – | – |
+| CORE-NET-12 | Gateway + onemindd registration; join bundle `mesh` | todo | – | – |
+| CORE-NET-13 | Dashboard Network page, Add a device, app links | todo | – | – |
+| CORE-NET-14 | Pi budget, throughput and phone matrix on hardware | todo | – | – |
+| CORE-NET-15 | Public app exposure through the relay | parked | – | – |
 | DEV-CLI-8 | `fabric qr/join/leave/remove` and `node join` alias | todo | – | – |
 | CORE-BACKUP-1 | `onemind-local` Retain StorageClass as default | todo | – | – |
 | CORE-BACKUP-2 | `internal/backup` agent: restic, schedule, three keys, emergency kit | in-progress | `feat/onemindd-backup` | – (1 commit) |
@@ -150,16 +166,17 @@
 | CORE-BACKUP-5 | Manifest `backup:` hooks | todo | – | – |
 | CORE-BACKUP-6 | Restore file, app or box, approval-gated; restore at onboarding | todo | – | – |
 | CORE-BACKUP-7 | Verified-restore badge (daily check, weekly scratch restore) | todo | – | – |
-| CORE-NOTIFY-1 | Alert record and store, `/v1/alerts`, NATS subjects, in-app inbox | todo | – | – |
-| DEV-API-12 | Notifications route shapes | todo | built inside CORE-NOTIFY-1 | – |
+| CORE-NOTIFY-1 | Alert record and store, `/v1/alerts`, NATS subjects, in-app inbox | in-progress | `feat/notify-monitor` (local, not pushed) | – |
+| DEV-API-12 | Notifications route shapes | in-progress | built inside CORE-NOTIFY-1 (`feat/notify-monitor`) | – |
 | CORE-BACKUP-8 | Backups API, screen and alerts | todo | – | – |
 | DEV-API-11 | Backups and restores route shapes | todo | built inside CORE-BACKUP-8 | – |
 | DEV-CLI-7 | `backup status/list/now/verify` and `restore` | todo | – | – |
-| CORE-NOTIFY-2 | Sources: approvals, nodes, updates, backups, scans, audit (H-28) | todo | – | – |
-| CORE-NOTIFY-3 | Web Push and Android UnifiedPush via the box's ntfy; push registrat… | todo | – | – |
+| CORE-NOTIFY-2 | Sources: approvals, nodes, updates, backups, scans, audit (H-28) | in-progress | `feat/notify-monitor`: all but the audit-chain check (H-28) | – |
+| CORE-NOTIFY-3 | Web Push and Android UnifiedPush via the box's ntfy; push registrat… | in-progress | `feat/notify-monitor`: gateway side done (VAPID, RFC 8291, registrations); browser and phone sides open | – |
 | CORE-NOTIFY-4 | iOS APNs relay | todo | – | – |
-| CORE-NOTIFY-5 | Repairs with fix actions | todo | – | – |
-| CORE-NOTIFY-6 | Email, webhook, Matrix, Telegram channels; routing and quiet hours | todo | – | – |
+| CORE-NOTIFY-5 | Repairs with fix actions | todo | (alert `fix` → request already works in `feat/notify-monitor`) | – |
+| CORE-NOTIFY-6 | Email, webhook, Matrix, Telegram channels; routing and quiet hours | in-progress | `feat/notify-monitor`: email, webhook, ntfy, routing, quiet hours, digest; Matrix and Telegram open | – |
+| CORE-MON-1 | Monitoring: app health, restarts, logs, app and node metrics, thresholds (contract §12.15) | in-progress | `feat/notify-monitor` | – |
 | CORE-UPDATE-3 | Updates screen and "What's new" | todo | – | – |
 | CORE-UPDATE-5 | App updates through approval (catalog diff, `app.update`) | todo | – | – |
 | CORE-UPDATE-6 | Health-gated app updates with snapshot and revert | todo | – | – |
@@ -170,7 +187,7 @@
 | CORE-DASH-7 | PWA and per-app subdomain launcher | todo | – | – |
 | CORE-DASH-8 | Typed widgets on Home; "show the equivalent call" toggle | todo | – | – |
 | DEV-SDK-4 | Dashboard and mobile moved onto `@onemind/sdk` | todo | – | – |
-| DEV-SDK-7 | SSE in all three SDKs, polling fallback, React Native transport | todo | – | – |
+| DEV-SDK-7 | SSE in all three SDKs, polling fallback, React Native transport | in-progress | `feat/devsurface` (local) | – |
 | CORE-MOBILE-1 | Shell on the generated `sdk/ts`; icon and splash | todo | – | – |
 | CORE-MOBILE-2 | QR pairing with CA pinning, HTTPS only | todo | – | – |
 | CORE-MOBILE-3 | Passkey sign-in and signed approvals; plan card | todo | – | – |
@@ -179,8 +196,8 @@
 | CORE-MOBILE-6 | Alerts and Activity tabs, offline cache, checkpoint store | todo | – | – |
 | CORE-NOTIFY-7 | Actionable notifications open the approval card | todo | – | – |
 | DEV-MCP-3 | Request-only writes: `withdraw_request`, `preview_action`, `plan_sh… | todo | – | – |
-| DEV-MCP-6 | MCP audit entries, read summaries, trace context, audit tools | todo | – | – |
-| DEV-MCP-8 | Conformance CI with official TS, Python, Go clients and the bridge | todo | – | – |
+| DEV-MCP-6 | MCP audit entries, read summaries, trace context, audit tools | in-progress | `feat/devsurface` (local) | – |
+| DEV-MCP-8 | Conformance CI with official TS, Python, Go clients and the bridge | in-progress | `feat/devsurface` (local) | – |
 | DEV-MCP-9 | MCP revision 2025-11-25 and the `versions.py` adapter split | todo | – | – |
 | DEV-MCP-11 | Prompts, `onemind://docs`, `llms.txt`, `search_docs`, status tools | todo | – | – |
 | CORE-WEB-2 | Generated references: CLI, API, schema, errors | todo | – | – |
@@ -328,8 +345,8 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-AGT-10 | Agents page, Connect wizard, pairing card, agent activity, "Agent at… | todo | – | – |
 | UMB-AGT-9 | `request_access` deep links and the access landing | todo | – | – |
 | UMB-AGT-11 | Agent tokens wiped on restore; conformance for pairing and new tools | todo | – | – |
-| UMB-CLIENT-8 | Desktop app v1 (Tauri): tray, discovery, pairing, status, open in br… | in-progress | `feat/desktop-client` | – |
-| UMB-CLIENT-10 | Desktop approvals, alerts and events | todo | – | – |
+| UMB-CLIENT-8 | Desktop app v1 (Tauri): tray, discovery, pairing, status, open in br… | done (skeleton #33, v1 #51; owner-approved device pairing CLIENT-2/3, CA pin and Ubuntu CI still open) | `feat/desktop-client`, `feat/desktop-v1` | [#33](https://github.com/onemindos/ONEMINDOS/pull/33), [#51](https://github.com/onemindos/ONEMINDOS/pull/51) |
+| UMB-CLIENT-10 | Desktop approvals, alerts and events | done (passkey approvals hand off to the browser; native passkeys a follow-up spike) | `feat/desktop-v1` | [#51](https://github.com/onemindos/ONEMINDOS/pull/51) |
 | UMB-CLIENT-13 | MCP read tools `list_devices`, `photo_backup_status` | todo | – | – |
 | UMB-CLIENT-14 | Dashboard Devices page | todo | – | – |
 | UMB-DESK-6 | Jobs tray bound to `action.progress` | todo | – | – |
@@ -363,9 +380,9 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-APP-14 | CLI `onemind app` lifecycle verbs and `onemind source` (extends DEV-… | todo | – | – |
 | UMB-APP-17 | Image cleanup on nodes after update and remove | todo | – | – |
 | UMB-AGT-8 | Files read tools and `files.apply_plan` with snapshot and Undo | todo | – | – |
-| UMB-CLIENT-9 | Desktop mounts of SMB shares with per-device credentials | todo | – | – |
+| UMB-CLIENT-9 | Desktop mounts of SMB shares with per-device credentials | todo (WebDAV mount plan: `desktop/docs/FILES.md`; waits on UMB-FILES-5) | – | – |
 | UMB-CLIENT-11 | Laptop folder backup with restic to the box (includes UMB-PHOTO-14) | todo | – | – |
-| UMB-CLIENT-12 | Desktop release: signing, notarization, MSIX, DMG, AppImage, signed… | todo | – | – |
+| UMB-CLIENT-12 | Desktop release: signing, notarization, MSIX, DMG, AppImage, signed… | todo (updater design: `desktop/docs/UPDATER.md`; waits on F-59, F-61) | – | – |
 | UMB-DESK-12 | Live usage across fleet, node and app (includes UMB-SYS-5) | todo | – | – |
 | UMB-DESK-13 | CLI `onemind home` and `onemind usage` | todo | – | – |
 | UMB-DESK-14 | MCP `get_usage` and `home.change` requests | todo | – | – |

@@ -1,0 +1,9 @@
+{
+  "id": "T4",
+  "verdict": "PASS",
+  "at": "2026-11-12T10:56:19Z",
+  "data": {
+    "seconds_box1_back_on_v1": 1,
+    "later_ring_touched": false
+  }
+}

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Sign-in with the static bearer token of contract §3 (passkeys come with CORE-SEC-2).
 import { useId, useState, type FormEvent } from 'react';
-import { Button } from '@onemind/ui';
+import { BrandMark, Button } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { useSession } from '../session';
+import { brand } from '../brand.generated';
 
 export function SignIn({ mock }: { mock: boolean }) {
   const { signIn } = useSession();
@@ -34,8 +35,8 @@ export function SignIn({ mock }: { mock: boolean }) {
   return (
     <main id="main" className="dash-signin">
       <div className="dash-signin-card">
-        <span className="om-brand-mark dash-signin-mark" aria-hidden="true" />
-        <h1>Welcome to OneMind</h1>
+        <BrandMark className="om-brand-mark dash-signin-mark" />
+        <h1>Welcome to {brand.shortName}</h1>
         <p className="om-hint">Sign in with the access token your hub gave you.</p>
         <form onSubmit={onSubmit} noValidate className="dash-signin-form">
           <label htmlFor="token">Access token</label>

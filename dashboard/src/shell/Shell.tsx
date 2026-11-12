@@ -24,6 +24,7 @@ import {
 import { activityFrom, isActive, notificationsFrom, toActionSummary, toJob, toPaletteApp } from '../data/adapters';
 import { errorText, useHub } from '../data/hub';
 import { personList } from '../data/prefs';
+import { brand } from '../brand.generated';
 import { useSignedIn } from '../session';
 import { href, navId, toRoute } from './routes';
 
@@ -149,7 +150,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <FreshnessPill state={hub.freshness} detail={hub.freshness === 'live' ? 'hub answering' : `hub last answered ${formatAgo(hub.ageS ?? 0)}`} />
     );
 
-  const boxName = hub.instance.data?.name ?? 'OneMind';
+  const boxName = hub.instance.data?.name ?? brand.shortName;
   const api: ShellApi = { openPalette: () => setPaletteOpen(true), requestApp };
   return (
     <ShellCtx.Provider value={api}>

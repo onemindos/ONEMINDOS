@@ -6,9 +6,14 @@ import hashlib
 import os
 import socket
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, TypeVar
 from urllib.parse import urlsplit
+
+from .sections import load_section, load_sections, section_name
+
+T = TypeVar("T")
 
 # Repo-relative location of the app manifest schema (owned by the apps/sdk stream).
 _REPO_SCHEMA = Path(__file__).resolve().parents[2] / "sdk" / "schema" / "onemind.app.schema.json"
@@ -63,6 +68,13 @@ class Settings:
     public_url: str | None = None
     # §11.1 dev override: skip the §10.3 scan check. Only honoured with the noop executor.
     allow_unscanned: bool = False
+    # Per-feature sections (sections.py), keyed by section name. Read them with section().
+    sections: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
+
+    def section(self, cls: type[T]) -> T:
+        """The loaded settings section `cls`; its defaults if Settings was built without it."""
+        found = self.sections.get(section_name(cls))
+        return found if found is not None else load_section(cls, {})
 
     def gateway_url(self) -> str:
         """ONEMIND_PUBLIC_URL, else http://<host>:<port>.
@@ -123,6 +135,7 @@ class Settings:
             port=int(env.get("ONEMIND_PORT", "8080")),
             public_url=public_url,
             allow_unscanned=allow in ("1", "true", "yes"),
+            sections=load_sections(env),
         )
         settings.check()
         return settings

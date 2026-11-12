@@ -1,0 +1,9 @@
+{
+  "id": "T2",
+  "verdict": "PASS",
+  "at": "2026-11-12T11:02:22Z",
+  "data": {
+    "seconds_all_v1_available": 20,
+    "last_poll": "2026-11-12T11:02:21Z,box-1=v1|ok,site-b=v1|ok,site-a=v1|ok"
+  }
+}

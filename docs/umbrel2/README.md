@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # umbrelOS 2 vs OneMind
 
-**Date:** 2026-11-12 · **Status:** summary of the ten area studies in this folder. It changes no decision in [`docs/DECISIONS.md`](../DECISIONS.md) and does not edit the contract. The epics are in [BACKLOG.md](../leap/BACKLOG.md) under "UMB" and tracked in [STATUS.md](../leap/STATUS.md); open founder questions are F-32 to F-59 in [DECISIONS-NEEDED.md](../leap/DECISIONS-NEEDED.md).
+**Date:** 2026-11-12 · **Status:** summary of the ten area studies in this folder. It changes no decision in [`docs/DECISIONS.md`](../DECISIONS.md) and does not edit the contract. The epics are in [BACKLOG.md](../leap/BACKLOG.md) under "UMB" and tracked in [STATUS.md](../leap/STATUS.md); open founder questions are F-32 to F-60 in [DECISIONS-NEEDED.md](../leap/DECISIONS-NEEDED.md).
 
 > **Explain it like I am the founder**
 > Yes, umbrelOS has a desktop. Its web page looks like a computer desktop: wallpaper, a dock, an app grid, widgets and a right-click menu. It also has small native apps: a Mac menu-bar app, a Windows tray app and phone apps. The desktop look is the umbrelOS web page, not a native program.

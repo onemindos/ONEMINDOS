@@ -10,7 +10,7 @@
 # See deploy/systemd/README.md.
 
 [Unit]
-Description=OneMind node agent (heartbeat + local API on :7480)
+Description=OneMind node agent (heartbeat + local API on 127.0.0.1:7480)
 Documentation=https://github.com/onemindos/ONEMINDOS/tree/main/cmd/onemindd
 After=network-online.target
 Wants=network-online.target

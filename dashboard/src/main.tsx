@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router';
 import { App } from './App';
 import { MockApi } from './api/mock';
 import { SessionProvider, type SessionDeps } from './session';
+import './brand.generated.css';
 import './app.css';
 
 const mock = import.meta.env.VITE_MOCK === '1';

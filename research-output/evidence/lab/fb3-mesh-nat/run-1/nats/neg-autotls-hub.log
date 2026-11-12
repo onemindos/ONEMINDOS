@@ -1,0 +1,4 @@
+[INF] 100.64.0.2:41392 - lid:35 - Leafnode connection created 
+[ERR] 100.64.0.2:41392 - lid:35 - TLS leafnode handshake error: EOF
+[INF] 100.64.0.2:41392 - lid:35 - Leafnode connection closed: TLS Handshake Failure
+[INF] 100.64.0.2:41402 - lid:36 - Leafnode connection created 

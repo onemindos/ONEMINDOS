@@ -1,0 +1,9 @@
+udp      17 29 src=203.0.113.21 dst=203.0.113.22 sport=40584 dport=41641 [UNREPLIED] src=203.0.113.22 dst=203.0.113.21 sport=41641 dport=40584 mark=0 use=1
+udp      17 28 src=203.0.113.21 dst=203.0.113.22 sport=55212 dport=41641 [UNREPLIED] src=203.0.113.22 dst=203.0.113.21 sport=41641 dport=55212 mark=0 use=1
+udp      17 119 src=192.0.2.10 dst=203.0.113.10 sport=41641 dport=41641 src=203.0.113.10 dst=203.0.113.21 sport=41641 dport=41641 [ASSURED] mark=0 use=1
+udp      17 28 src=203.0.113.21 dst=203.0.113.22 sport=55212 dport=3478 [UNREPLIED] src=203.0.113.22 dst=203.0.113.21 sport=3478 dport=55212 mark=0 use=1
+udp      17 29 src=203.0.113.21 dst=203.0.113.22 sport=51616 dport=3478 [UNREPLIED] src=203.0.113.22 dst=203.0.113.21 sport=3478 dport=51616 mark=0 use=1
+udp      17 29 src=203.0.113.21 dst=203.0.113.22 sport=45992 dport=9001 [UNREPLIED] src=203.0.113.22 dst=203.0.113.21 sport=9001 dport=45992 mark=0 use=1
+udp      17 29 src=203.0.113.21 dst=203.0.113.22 sport=55214 dport=3478 [UNREPLIED] src=203.0.113.22 dst=203.0.113.21 sport=3478 dport=55214 mark=0 use=1
+udp      17 29 src=203.0.113.21 dst=203.0.113.22 sport=55214 dport=41641 [UNREPLIED] src=203.0.113.22 dst=203.0.113.21 sport=41641 dport=55214 mark=0 use=1
+udp      17 118 src=192.0.2.10 dst=203.0.113.10 sport=41641 dport=3478 src=203.0.113.10 dst=203.0.113.21 sport=3478 dport=41641 [ASSURED] mark=0 use=1

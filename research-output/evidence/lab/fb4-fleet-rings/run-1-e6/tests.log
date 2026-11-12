@@ -1,0 +1,112 @@
+2026-11-12T11:02:01Z RESULT T1 FAIL
+pause image on nodes: docker.io/rancher/mirrored-pause:3.10.2
+targets.yaml
+v1
+v1.bundle.yaml
+v2-bad
+v2-bad.bundle.yaml
+v3
+v3.bundle.yaml
+v4
+v4.bundle.yaml
+apiVersion: fleet.cattle.io/v1alpha1
+kind: Bundle
+metadata:
+  name: demo
+  namespace: fleet-default
+spec:
+  defaultNamespace: demo
+  resources:
+  - content: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata: {name: demo-version}
+      data: {version: "v1"}
+      ---
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata: {name: demo}
+      spec:
+        replicas: 1
+        progressDeadlineSeconds: 120
+        selector: {matchLabels: {app: demo}}
+        template:
+          metadata: {labels: {app: demo}, annotations: {fb4/version: "v1"}}
+          spec:
+            containers:
+              - name: demo
+                image: docker.io/rancher/mirrored-pause:3.10.2
+                resources: {requests: {cpu: 1m, memory: 8Mi}, limits: {memory: 32Mi}}
+    name: demo.yaml
+  rolloutStrategy:
+    maxUnavailable: 1
+    maxUnavailablePartitions: 0
+    partitions:
+    - clusterSelector:
+        matchLabels:
+          ring: "0"
+      name: ring0
+    - clusterSelector:
+        matchLabels:
+          ring: "1"
+2026-11-12T11:02:02Z APPLY v1
+bundle.fleet.cattle.io/demo created
+2026-11-12T11:02:22Z RESULT T2 PASS
+2026-11-12T11:02:22Z APPLY v2-bad
+bundle.fleet.cattle.io/demo configured
+2026-11-12T11:08:44Z RESULT T3 PASS
+2026-11-12T11:08:44Z APPLY v1
+bundle.fleet.cattle.io/demo configured
+2026-11-12T11:09:01Z RESULT T4 PASS
+2026-11-12T11:09:01Z APPLY v3
+bundle.fleet.cattle.io/demo configured
+2026-11-12T11:09:17Z RESULT T5 PASS
+2026-11-12T11:09:17Z STOP site-b
+[36mINFO[0m[0005] Stopped cluster 'site-b'                     
+2026-11-12T11:09:22Z APPLY v4
+bundle.fleet.cattle.io/demo configured
+2026-11-12T11:09:23Z,box-1=v3|no,site-b=offline,site-a=v3|ok
+2026-11-12T11:09:38Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:09:54Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:10:09Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:10:25Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:10:40Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:10:56Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:11:11Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:11:27Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:11:42Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:11:58Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:12:14Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:12:29Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:12:45Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:13:00Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:13:16Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:13:31Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:13:47Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:14:02Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:14:18Z,box-1=v4|ok,site-b=offline,site-a=v3|ok
+2026-11-12T11:14:33Z START site-b
+[36mINFO[0m[0005] Started cluster 'site-b'                     
+2026-11-12T11:15:27Z RESULT T6 PASS
+2026-11-12T11:15:27Z RESULT E1 OBS
+k3d-site-a-agent-0 100.3MiB / 3.831GiB
+k3d-site-a-server-0 575.6MiB / 3.831GiB
+k3d-site-b-server-0 606MiB / 3.831GiB
+k3d-box-1-server-0 710.6MiB / 3.831GiB
+k3d-hub-server-0 944.4MiB / 3.831GiB
+2026-11-12T11:15:30Z RESULT E2 OBS
+configmap "demo-version" deleted from demo namespace
+2026-11-12T11:20:36Z RESULT E3 OBS
+2026-11-12T11:20:37Z RESULT E4 OBS
+FAIL
+T1 FAIL
+T2 PASS
+T3 PASS
+T4 PASS
+T5 PASS
+T6 PASS
+E1 OBS
+E2 OBS
+E3 OBS
+E4 OBS
+2026-11-12T11:20:37Z == fleet tests 1-e6 end

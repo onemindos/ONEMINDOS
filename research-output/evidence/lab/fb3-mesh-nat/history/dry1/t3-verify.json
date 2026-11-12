@@ -1,0 +1,20 @@
+{
+ "hub_messages": 1200,
+ "seconds_to_sync_after_restore": 48,
+ "per_node": {
+  "home-a": {
+   "received": 600,
+   "unique": 600,
+   "exactly_1_to_600_in_order": true,
+   "local_acks_during_outage": 500,
+   "unacked_during_outage": 0
+  },
+  "home-b": {
+   "received": 600,
+   "unique": 600,
+   "exactly_1_to_600_in_order": true,
+   "local_acks_during_outage": 500,
+   "unacked_during_outage": 0
+  }
+ }
+}

@@ -14,6 +14,8 @@ export { ApprovalCard, ACTION_STATE, actionTitle, equivalentCall, requesterPill 
 export type { ActionSummary, ActionState, ApprovalCardProps } from './components/ApprovalCard';
 export { AppIcon, TILE_HUES, TILE_TEXT, monogram as appMonogram, tileHue as appTileHue } from './components/AppIcon';
 export type { AppIconProps } from './components/AppIcon';
+export { BrandMark, BRAND } from './components/BrandMark';
+export type { BrandMarkProps } from './components/BrandMark';
 export { Button } from './components/Button';
 export type { ButtonProps, ButtonVariant } from './components/Button';
 export { Card } from './components/Card';

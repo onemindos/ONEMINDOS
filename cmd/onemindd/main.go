@@ -7,7 +7,7 @@
 //	ONEMIND_NATS_URL    hub NATS URL, e.g. nats://hub.local:4222 (empty = API only)
 //	ONEMIND_NODE_ROLE   hub | node (default node)
 //	ONEMIND_NODE_ID     override the id derived from /etc/machine-id
-//	ONEMIND_AGENT_ADDR  local API address (default :7480)
+//	ONEMIND_AGENT_ADDR  local API address (default 127.0.0.1:7480, loopback only)
 //	ONEMIND_DISK_PATH   filesystem measured for disk_* (default /)
 //	ONEMIND_LOG_LEVEL   debug | info | warn | error (default info)
 //	ONEMIND_UPDATE_CONF OS update settings (default /etc/onemind/update.conf);
@@ -32,6 +32,7 @@ import (
 	"github.com/onemindos/onemindos/internal/agent"
 	"github.com/onemindos/onemindos/internal/detect"
 	"github.com/onemindos/onemindos/internal/heartbeat"
+	"github.com/onemindos/onemindos/internal/service"
 	"github.com/onemindos/onemindos/internal/update"
 	"github.com/onemindos/onemindos/internal/version"
 )
@@ -104,8 +105,8 @@ func runUpdate(args []string) int {
 }
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "update" {
-		os.Exit(runUpdate(os.Args[2:]))
+	if len(os.Args) > 1 && subcommands[os.Args[1]] != nil { // registry.go
+		os.Exit(subcommands[os.Args[1]](os.Args[2:]))
 	}
 	listen := flag.String("listen", env("ONEMIND_AGENT_ADDR", agent.DefaultListen), "local API listen address")
 	natsURL := flag.String("nats", os.Getenv("ONEMIND_NATS_URL"), "hub NATS URL (empty = do not publish)")
@@ -137,7 +138,11 @@ func main() {
 	log.Info("onemindd starting", "version", version.Version, "node_id", col.ID(), "role", *role, "board", col.Board())
 	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, Interval: *interval, Collector: col, Logger: log,
 		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log)})
-	if err := a.Run(ctx); err != nil {
+	wait := service.Start(ctx, log, optionalServices) // registry.go
+	err := a.Run(ctx)
+	stop()
+	wait()
+	if err != nil {
 		log.Error("onemindd stopped", "err", err)
 		os.Exit(1)
 	}

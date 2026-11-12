@@ -1,0 +1,10 @@
+{
+  "id": "E6",
+  "verdict": "OBS",
+  "at": "2026-11-12T10:32:43Z",
+  "data": {
+    "import_http": "200",
+    "completed_after_revoke": false,
+    "to1_succeeded_lines": 12
+  }
+}

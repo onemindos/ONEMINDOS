@@ -82,6 +82,8 @@ services:
       ONEMIND_NATS_URL: nats://nats:4222
       ONEMIND_NODE_ROLE: node
       ONEMIND_NODE_ID: compose-node-1
+      # Inside the container: every interface, so the loopback-only port mapping below works.
+      ONEMIND_AGENT_ADDR: ":7480"
     hostname: node-sim
     ports: ["127.0.0.1:7480:7480"]
     restart: unless-stopped

@@ -1,0 +1,69 @@
+2026-11-12T07:47:12Z T1b A->B:9001 'allowed-9001-home-b' B->A:9001 'allowed-9001-home-a' A->hub:7422 'Traceback (most recent call last):
+  File "<host-path> line 14, in <module>
+    t = ctx.wrap_socket(s, server_hostname=host)
+  File "/usr/lib/python3.13/ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sock=sock,
+        ^^^^^^^^^^
+    ...<5 lines>...
+        session=session
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/usr/lib/python3.13/ssl.py", line 1076, in _create
+    self.do_handshake()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/ssl.py", line 1372, in do_handshake
+    self._sslobj.do_handshake()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: CA cert does not include key usage extension (_ssl.c:1029)' B->hub:7422 'Traceback (most recent call last):
+  File "<host-path> line 14, in <module>
+    t = ctx.wrap_socket(s, server_hostname=host)
+  File "/usr/lib/python3.13/ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sock=sock,
+        ^^^^^^^^^^
+    ...<5 lines>...
+        session=session
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/usr/lib/python3.13/ssl.py", line 1076, in _create
+    self.do_handshake()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/ssl.py", line 1372, in do_handshake
+    self._sslobj.do_handshake()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: CA cert does not include key usage extension (_ssl.c:1029)' direct_pongs=1 median_direct_ms=42
+2026-11-12T07:47:12Z RESULT T1b FAIL
+2026-11-12T07:51:18Z T1c forwards=0 wan_accepts=0 p2p_udp_pkts_on_natA_wan=31 scans_clean=0 outside_originated_udp_flows=A:7,B:0 drop_counters=[packets 4114 packets 0 packets 4114 packets 0 ]
+2026-11-12T07:51:18Z RESULT T1c FAIL
+2026-11-12T07:51:48Z T4 attempt 1: B:9001='allowed-9001-home-b' B:9002='Ncat: TIMEOUT.' hub:9002='Ncat: TIMEOUT.' attempt 2: B:9001='allowed-9001-home-b' B:9002='Ncat: TIMEOUT.' hub:9002='Ncat: TIMEOUT.' attempt 3: B:9001='allowed-9001-home-b' B:9002='Ncat: TIMEOUT.' hub:9002='Ncat: TIMEOUT.'  | B local 9002='denied-9002-home-b' hub local='denied-9002-hub'
+2026-11-12T07:51:48Z RESULT T4 PASS
+2026-11-12T07:52:23Z T2 derp_after_s=11 A->B:9001='allowed-9001-home-b' A->hub:7422='Traceback (most recent call last):
+  File "<host-path> line 14, in <module>
+    t = ctx.wrap_socket(s, server_hostname=host)
+  File "/usr/lib/python3.13/ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sock=sock,
+        ^^^^^^^^^^
+    ...<5 lines>...
+        session=session
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/usr/lib/python3.13/ssl.py", line 1076, in _create
+    self.do_handshake()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.13/ssl.py", line 1372, in do_handshake
+    self._sslobj.do_handshake()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+ssl.SSLCertVerificationError: [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: CA cert does not include key usage extension (_ssl.c:1029)' via_derp_pongs=20/20 median_derp_ms=130 udp_out_on_wan=0 tcp443_out=67 blocked=packets 55
+2026-11-12T07:52:23Z T2 back to direct after 0s
+2026-11-12T07:52:23Z RESULT T2 FAIL
+2026-11-12T07:53:28Z E1 hard-NAT-B path=derp A->B:9001='allowed-9001-home-b' last='direct connection not established'
+2026-11-12T07:53:28Z RESULT E1 OBSERVED
+2026-11-12T07:53:38Z E1 restored: pong from home-b (100.64.0.3) via 203.0.113.22:41641 in 42ms
