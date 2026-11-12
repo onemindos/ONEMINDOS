@@ -1,0 +1,9 @@
+2026-11-12T07:45:35Z hub enrolled: 100.64.0.1
+2026-11-12T07:45:41Z home-a enrolled: 100.64.0.2
+2026-11-12T07:45:44Z home-b enrolled: 100.64.0.3
+2026-11-12T07:45:46Z T1a reuse: refused: backend error: authkey already used 
+2026-11-12T07:45:52Z hub leaf listener: LISTEN 0 4096 100.64.0.1:7422 0.0.0.0:* 
+nats: error: could not create Stream: nats: no servers available for connection
+nats: error: could not create Stream: nats: no servers available for connection
+2026-11-12T07:45:52Z hub NODE_EVENTS created
+2026-11-12T07:45:52Z leafz: []

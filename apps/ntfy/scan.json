@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-12T06:30:17Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "docker.io/binwiederhier/ntfy:v2.37.2@sha256:1875ddcf815c8a3c981d6d78c67a93452d0abba79b1ab9520b1f5f5238902bd7",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 1
+      },
+      "clamav": {
+        "signatures": "daily-28180",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "Apache-2.0 OR GPL-2.0",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

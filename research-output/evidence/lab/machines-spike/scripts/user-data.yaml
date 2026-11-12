@@ -1,0 +1,8 @@
+#cloud-config
+# SPDX-License-Identifier: Apache-2.0
+# LAB-machines-spike: the same NoCloud user-data for A and B. @PUBKEY@ is a key generated in the lab VM at run time.
+users:
+  - name: lab
+    lock_passwd: true
+    ssh_authorized_keys: ["@PUBKEY@"]
+ssh_pwauth: false

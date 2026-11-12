@@ -1,0 +1,40 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "SPDX-License-Identifier: Apache-2.0",
+    "App image updates (sdk/contracts/poc-v0.md §10.2): Renovate's kubernetes manager bumps tag + digest in apps/<id>/manifests/*.yaml, and ci-apps.yml re-runs the §9.4 gate on every PR.",
+    "Only patch and digest bumps of verified apps whose manifest says spec.updates.automerge: patch merge automatically when green; minor and major bumps wait for a human.",
+    "Renovate cannot read the manifests, so sdk/tools/validate-apps fails if the automerge list below differs from the verified apps with automerge: patch."
+  ],
+  "enabledManagers": ["kubernetes"],
+  "kubernetes": {
+    "managerFilePatterns": ["/^apps/[^/]+/manifests/[^/]+\\.ya?ml$/"]
+  },
+  "pinDigests": true,
+  "labels": ["apps", "dependencies"],
+  "prConcurrentLimit": 10,
+  "packageRules": [
+    {
+      "description": "Every app image: one PR per image and update type (the default branch name carries the image), so the gate runs per app.",
+      "matchManagers": ["kubernetes"],
+      "matchFileNames": ["apps/**"],
+      "commitMessagePrefix": "apps:",
+      "automerge": false
+    },
+    {
+      "description": "Minor and major versions need a person (§10.2).",
+      "matchManagers": ["kubernetes"],
+      "matchUpdateTypes": ["minor", "major"],
+      "addLabels": ["needs-human"],
+      "automerge": false
+    },
+    {
+      "description": "onemind automerge: verified apps with spec.updates.automerge: patch (kept in sync by sdk/tools/validate-apps).",
+      "matchManagers": ["kubernetes"],
+      "matchFileNames": ["apps/ntfy/manifests/**"],
+      "matchUpdateTypes": ["patch", "digest"],
+      "addLabels": ["automerge"],
+      "automerge": true
+    }
+  ]
+}

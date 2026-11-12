@@ -1,0 +1,90 @@
+[<k>] 2026/11/12 03:09:42.371757 [INF] Starting JetStream
+[<k>] 2026/11/12 03:09:42.371963 [INF] Took 204.25µs to start JetStream
+[<k>] 2026/11/12 03:09:42.371986 [INF] Listening for leafnode connections on 100.64.0.1:7422
+[<k>] 2026/11/12 03:09:42.372068 [INF] Listening for client connections on 127.0.0.1:4222
+[<k>] 2026/11/12 03:09:42.372071 [INF] Server is ready
+[<k>] 2026/11/12 03:09:42.541485 [INF] 100.64.0.3:41340 - lid:5 - Leafnode connection created 
+[<k>] 2026/11/12 03:09:42.541500 [INF] 100.64.0.2:39238 - lid:6 - Leafnode connection created 
+[<k>] 2026/11/12 03:09:42.743622 [INF] 100.64.0.2:39238 - lid:6 - JetStream using domains: local "hub", remote "node-home-a"
+[<k>] 2026/11/12 03:09:42.743825 [INF] 100.64.0.3:41340 - lid:5 - JetStream using domains: local "hub", remote "node-home-b"
+[<k>] 2026/11/12 03:09:47.033175 [INF] 100.64.0.2:39252 - lid:11 - Leafnode connection created 
+[<k>] 2026/11/12 03:09:47.168022 [INF] 100.64.0.2:39252 - lid:11 - Leafnode connection closed: Read Error
+[<k>] 2026/11/12 03:09:47.261216 [INF] 100.64.0.3:41344 - lid:12 - Leafnode connection created 
+[<k>] 2026/11/12 03:09:47.399596 [INF] 100.64.0.3:41344 - lid:12 - Leafnode connection closed: Read Error
+[<k>] 2026/11/12 03:15:04.621128 [INF] 100.64.0.2:52642 - lid:13 - Leafnode connection created 
+[<k>] 2026/11/12 03:15:04.755640 [INF] 100.64.0.2:52642 - lid:13 - Leafnode connection closed: Read Error
+[<k>] 2026/11/12 03:16:20.694541 [INF] 100.64.0.2:39290 - lid:14 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:20.758510 [INF] 100.64.0.2:39290 - lid:14 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:21.900025 [INF] 100.64.0.2:39296 - lid:15 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:22.041029 [ERR] 100.64.0.2:39296 - lid:15 - TLS leafnode handshake error: remote error: tls: bad certificate
+[<k>] 2026/11/12 03:16:22.041064 [INF] 100.64.0.2:39296 - lid:15 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:23.107688 [INF] 100.64.0.2:39298 - lid:16 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:23.236450 [ERR] 100.64.0.2:39298 - lid:16 - TLS leafnode handshake error: remote error: tls: bad certificate
+[<k>] 2026/11/12 03:16:23.236478 [INF] 100.64.0.2:39298 - lid:16 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:24.300631 [INF] 100.64.0.2:39308 - lid:17 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:24.424450 [ERR] 100.64.0.2:39308 - lid:17 - TLS leafnode handshake error: remote error: tls: bad certificate
+[<k>] 2026/11/12 03:16:24.424464 [INF] 100.64.0.2:39308 - lid:17 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:25.489616 [INF] 100.64.0.2:39314 - lid:18 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:25.624369 [ERR] 100.64.0.2:39314 - lid:18 - TLS leafnode handshake error: remote error: tls: bad certificate
+[<k>] 2026/11/12 03:16:25.624390 [INF] 100.64.0.2:39314 - lid:18 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:26.697964 [INF] 100.64.0.2:39324 - lid:19 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:26.832557 [ERR] 100.64.0.2:39324 - lid:19 - TLS leafnode handshake error: remote error: tls: bad certificate
+[<k>] 2026/11/12 03:16:26.832576 [INF] 100.64.0.2:39324 - lid:19 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:27.899559 [INF] 100.64.0.2:39326 - lid:20 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:28.026145 [ERR] 100.64.0.2:39326 - lid:20 - TLS leafnode handshake error: remote error: tls: bad certificate
+[<k>] 2026/11/12 03:16:28.026166 [INF] 100.64.0.2:39326 - lid:20 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:29.094714 [INF] 100.64.0.2:51786 - lid:21 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:29.226532 [ERR] 100.64.0.2:51786 - lid:21 - TLS leafnode handshake error: remote error: tls: bad certificate
+[<k>] 2026/11/12 03:16:29.226555 [INF] 100.64.0.2:51786 - lid:21 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:30.296252 [INF] 100.64.0.2:51796 - lid:22 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:30.427468 [ERR] 100.64.0.2:51796 - lid:22 - TLS leafnode handshake error: remote error: tls: bad certificate
+[<k>] 2026/11/12 03:16:30.427527 [INF] 100.64.0.2:51796 - lid:22 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:31.495470 [INF] 100.64.0.2:51810 - lid:23 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:31.629147 [ERR] 100.64.0.2:51810 - lid:23 - TLS leafnode handshake error: remote error: tls: bad certificate
+[<k>] 2026/11/12 03:16:31.629190 [INF] 100.64.0.2:51810 - lid:23 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:32.702941 [INF] 100.64.0.2:51812 - lid:24 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:32.833651 [ERR] 100.64.0.2:51812 - lid:24 - TLS leafnode handshake error: remote error: tls: bad certificate
+[<k>] 2026/11/12 03:16:32.833685 [INF] 100.64.0.2:51812 - lid:24 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:33.903793 [INF] 100.64.0.2:51814 - lid:25 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:33.903871 [ERR] 100.64.0.2:51814 - lid:25 - TLS leafnode handshake error: EOF
+[<k>] 2026/11/12 03:16:33.903876 [INF] 100.64.0.2:51814 - lid:25 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:33.984637 [INF] 100.64.0.2:51822 - lid:26 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:34.187610 [ERR] 100.64.0.2:51822 - lid:26 - authentication error - User "leaf-home-a"
+[<k>] 2026/11/12 03:16:34.187703 [INF] 100.64.0.2:51822 - lid:26 - Leafnode connection closed: Authentication Failure
+[<k>] 2026/11/12 03:16:35.319409 [INF] 100.64.0.2:51824 - lid:27 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:35.515589 [ERR] 100.64.0.2:51824 - lid:27 - authentication error - User "leaf-home-a"
+[<k>] 2026/11/12 03:16:35.515675 [INF] 100.64.0.2:51824 - lid:27 - Leafnode connection closed: Authentication Failure
+[<k>] 2026/11/12 03:16:36.651707 [INF] 100.64.0.2:51828 - lid:28 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:36.845254 [ERR] 100.64.0.2:51828 - lid:28 - authentication error - User "leaf-home-a"
+[<k>] 2026/11/12 03:16:36.845328 [INF] 100.64.0.2:51828 - lid:28 - Leafnode connection closed: Authentication Failure
+[<k>] 2026/11/12 03:16:37.980429 [INF] 100.64.0.2:51840 - lid:29 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:38.179894 [ERR] 100.64.0.2:51840 - lid:29 - authentication error - User "leaf-home-a"
+[<k>] 2026/11/12 03:16:38.179964 [INF] 100.64.0.2:51840 - lid:29 - Leafnode connection closed: Authentication Failure
+[<k>] 2026/11/12 03:16:39.305569 [INF] 100.64.0.2:41364 - lid:30 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:39.494120 [ERR] 100.64.0.2:41364 - lid:30 - authentication error - User "leaf-home-a"
+[<k>] 2026/11/12 03:16:39.494152 [INF] 100.64.0.2:41364 - lid:30 - Leafnode connection closed: Authentication Failure
+[<k>] 2026/11/12 03:16:40.624813 [INF] 100.64.0.2:41368 - lid:31 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:40.823629 [ERR] 100.64.0.2:41368 - lid:31 - authentication error - User "leaf-home-a"
+[<k>] 2026/11/12 03:16:40.823687 [INF] 100.64.0.2:41368 - lid:31 - Leafnode connection closed: Authentication Failure
+[<k>] 2026/11/12 03:16:41.959714 [INF] 100.64.0.2:41380 - lid:32 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:42.151788 [ERR] 100.64.0.2:41380 - lid:32 - authentication error - User "leaf-home-a"
+[<k>] 2026/11/12 03:16:42.151820 [INF] 100.64.0.2:41380 - lid:32 - Leafnode connection closed: Authentication Failure
+[<k>] 2026/11/12 03:16:43.279076 [INF] 100.64.0.2:41388 - lid:33 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:43.469327 [ERR] 100.64.0.2:41388 - lid:33 - authentication error - User "leaf-home-a"
+[<k>] 2026/11/12 03:16:43.469370 [INF] 100.64.0.2:41388 - lid:33 - Leafnode connection closed: Authentication Failure
+[<k>] 2026/11/12 03:16:44.597667 [INF] 100.64.0.2:41390 - lid:34 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:44.801566 [ERR] 100.64.0.2:41390 - lid:34 - authentication error - User "leaf-home-a"
+[<k>] 2026/11/12 03:16:44.801616 [INF] 100.64.0.2:41390 - lid:34 - Leafnode connection closed: Authentication Failure
+[<k>] 2026/11/12 03:16:45.928358 [INF] 100.64.0.2:41392 - lid:35 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:45.928432 [ERR] 100.64.0.2:41392 - lid:35 - TLS leafnode handshake error: EOF
+[<k>] 2026/11/12 03:16:45.928436 [INF] 100.64.0.2:41392 - lid:35 - Leafnode connection closed: TLS Handshake Failure
+[<k>] 2026/11/12 03:16:46.004640 [INF] 100.64.0.2:41402 - lid:36 - Leafnode connection created 
+[<k>] 2026/11/12 03:16:46.206609 [INF] 100.64.0.2:41402 - lid:36 - JetStream using domains: local "hub", remote ""
+[<k>] 2026/11/12 03:16:57.936146 [INF] 100.64.0.2:41402 - lid:36 - Leafnode connection closed: Client Closed - Remote: neg-autotls
+[<k>] 2026/11/12 03:35:43.734767 [INF] 100.64.0.2:39238 - lid:6 - Leafnode connection closed: Stale Connection - Remote: leaf-home-a
+[<k>] 2026/11/12 03:35:43.823938 [INF] 100.64.0.3:41340 - lid:5 - Leafnode connection closed: Stale Connection - Remote: leaf-home-b
+[<k>] 2026/11/12 03:59:02.884389 [INF] 100.64.0.3:53482 - lid:41 - Leafnode connection created 
+[<k>] 2026/11/12 03:59:03.082968 [INF] 100.64.0.3:53482 - lid:41 - JetStream using domains: local "hub", remote "node-home-b"
+[<k>] 2026/11/12 03:59:06.134182 [INF] 100.64.0.2:43318 - lid:43 - Leafnode connection created 
+[<k>] 2026/11/12 03:59:06.335108 [INF] 100.64.0.2:43318 - lid:43 - JetStream using domains: local "hub", remote "node-home-a"
+[<k>] 2026/11/12 04:00:03.713141 [ERR] Failed to reload server configuration: /opt/fb3/run/nats/hub.conf:9:28: unknown field "permissions"

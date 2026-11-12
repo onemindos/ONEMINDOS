@@ -1,0 +1,40 @@
+2026-11-12T10:32:59Z == fleet setup 1
+               total        used        free      shared  buff/cache   available
+Mem:            3922         377        1222           0        2505        3545
+4
+net.bridge.bridge-nf-call-iptables = 1
+5585a5cf744a5ce589e426cc64176842d346130221053e52737e1607e4fc8cf1
+docker.io/rancher/k3s:v1.37.2-k3s1
+k3s image RepoDigests: rancher/k3s@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
+k3s image digest matches os/versions.lock.yaml pin
+[36mINFO[0m[0002] Deleting 1 attached volumes...               
+[31mFATA[0m[0002] Cluster creation FAILED, all changes have been rolled back! 
+[31mFATA[0m[0000] No nodes found for given cluster             
+2026-11-12T10:33:08Z cluster hub created in 2 s
+Mem:            3922         495         814           0        2796        3427
+[36mINFO[0m[0001] Deleting 1 attached volumes...               
+[31mFATA[0m[0001] Cluster creation FAILED, all changes have been rolled back! 
+[31mFATA[0m[0000] No nodes found for given cluster             
+2026-11-12T10:33:10Z cluster box-1 created in 2 s
+Mem:            3922         482         826           0        2797        3440
+[36mINFO[0m[0001] Deleting 1 attached volumes...               
+[31mFATA[0m[0001] Cluster creation FAILED, all changes have been rolled back! 
+[31mFATA[0m[0000] No nodes found for given cluster             
+2026-11-12T10:33:11Z cluster site-b created in 1 s
+Mem:            3922         495         813           0        2797        3427
+[36mINFO[0m[0001] Deleting 1 attached volumes...               
+[31mFATA[0m[0001] Cluster creation FAILED, all changes have been rolled back! 
+[31mFATA[0m[0000] No nodes found for given cluster             
+2026-11-12T10:33:12Z cluster site-a created in 1 s
+Mem:            3922         504         803           0        2798        3418
+Error: No such object: k3d-hub-server-0
+Error response from daemon: No such container: k3d-hub-server-0
+grep: <lab-dir>/out/fleet-run-1/fleet-chart-values.yaml: No such file or directory
+Error: INSTALLATION FAILED: Kubernetes cluster unreachable: Get "http://localhost:8080/version": dial tcp [::1]:8080: connect: connection refused
+Error: INSTALLATION FAILED: Kubernetes cluster unreachable: Get "http://localhost:8080/version": dial tcp [::1]:8080: connect: connection refused
+2026-11-12T10:33:12Z fleet manager installed in 0 s
+Error response from daemon: No such container: k3d-hub-server-0
+Bad argument `tcp'
+Try `iptables -h' or 'iptables --help' for more information.
+sed: -e expression #1, char 0: no previous regular expression
+Error response from daemon: No such container: k3d-hub-server-0

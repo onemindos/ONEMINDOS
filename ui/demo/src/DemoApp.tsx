@@ -14,6 +14,11 @@ import { Updates } from './screens/Updates';
 import { Notifications } from './screens/Notifications';
 import { Settings } from './screens/Settings';
 import { Gallery } from './screens/Gallery';
+import { HomeLauncher } from './home/HomeLauncher';
+import { StoreDemo } from './store/StoreDemo';
+import { SystemDemo } from './settings/SystemDemo';
+import { AppearanceDemo } from './customize/AppearanceDemo';
+import { ShellScreens } from './shell/ShellScreens';
 
 export const NAV: NavItem[] = [
   { id: 'home', label: 'Home', href: '#/home', icon: 'home', primary: true },
@@ -67,6 +72,11 @@ export function DemoApp() {
         return <Settings />;
       case 'gallery':
         return <Gallery />;
+      case 'system': return <SystemDemo arg={r.arg} />;
+      case 'appearance': return <AppearanceDemo arg={r.arg} />;
+      case 'store': return <StoreDemo />;
+      case 'home': return <HomeLauncher variant={r.arg} />;
+      case 'shell': return <ShellScreens arg={r.arg} />;
       default:
         return <Home />;
     }

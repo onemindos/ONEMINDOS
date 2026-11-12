@@ -1,0 +1,208 @@
+{
+   "blockdevices": [
+      {
+         "name": "/dev/vda",
+         "kname": "/dev/vda",
+         "pkname": null,
+         "type": "disk",
+         "size": 12884901888,
+         "model": null,
+         "serial": null,
+         "wwn": null,
+         "tran": "virtio",
+         "rota": true,
+         "rm": false,
+         "ro": false,
+         "fstype": null,
+         "label": null,
+         "uuid": null,
+         "partlabel": null,
+         "mountpoints": [],
+         "children": [
+            {
+               "name": "/dev/vda1",
+               "kname": "/dev/vda1",
+               "pkname": "/dev/vda",
+               "type": "part",
+               "size": 12750667264,
+               "model": null,
+               "serial": null,
+               "wwn": null,
+               "tran": "virtio",
+               "rota": true,
+               "rm": false,
+               "ro": false,
+               "fstype": "ext4",
+               "label": null,
+               "uuid": "d1b898ed-e894-4bbb-9df9-45e8fd51dd8a",
+               "partlabel": null,
+               "mountpoints": [
+                   "/"
+               ]
+            },{
+               "name": "/dev/vda15",
+               "kname": "/dev/vda15",
+               "pkname": "/dev/vda",
+               "type": "part",
+               "size": 133169152,
+               "model": null,
+               "serial": null,
+               "wwn": null,
+               "tran": "virtio",
+               "rota": true,
+               "rm": false,
+               "ro": false,
+               "fstype": "vfat",
+               "label": null,
+               "uuid": "97F8-537E",
+               "partlabel": null,
+               "mountpoints": [
+                   "/boot/efi"
+               ]
+            }
+         ]
+      },{
+         "name": "/dev/vdb",
+         "kname": "/dev/vdb",
+         "pkname": null,
+         "type": "disk",
+         "size": 6442450944,
+         "model": null,
+         "serial": null,
+         "wwn": null,
+         "tran": "virtio",
+         "rota": true,
+         "rm": false,
+         "ro": false,
+         "fstype": null,
+         "label": null,
+         "uuid": null,
+         "partlabel": null,
+         "mountpoints": [],
+         "children": [
+            {
+               "name": "/dev/vdb1",
+               "kname": "/dev/vdb1",
+               "pkname": "/dev/vdb",
+               "type": "part",
+               "size": 6441385472,
+               "model": null,
+               "serial": null,
+               "wwn": null,
+               "tran": "virtio",
+               "rota": true,
+               "rm": false,
+               "ro": false,
+               "fstype": "crypto_LUKS",
+               "label": null,
+               "uuid": "ccaf0614-3918-4491-93f6-7e2538537ecb",
+               "partlabel": "onemind-data",
+               "mountpoints": [],
+               "children": [
+                  {
+                     "name": "/dev/mapper/onemind-data-vdb",
+                     "kname": "/dev/dm-0",
+                     "pkname": "/dev/vdb1",
+                     "type": "crypt",
+                     "size": 6424608256,
+                     "model": null,
+                     "serial": null,
+                     "wwn": null,
+                     "tran": null,
+                     "rota": true,
+                     "rm": false,
+                     "ro": false,
+                     "fstype": "btrfs",
+                     "label": "onemind-data",
+                     "uuid": "9638a938-d632-41e3-aa7f-7a1cace9bd76",
+                     "partlabel": null,
+                     "mountpoints": [
+                         "/data"
+                     ]
+                  }
+               ]
+            }
+         ]
+      },{
+         "name": "/dev/vdc",
+         "kname": "/dev/vdc",
+         "pkname": null,
+         "type": "disk",
+         "size": 6442450944,
+         "model": null,
+         "serial": null,
+         "wwn": null,
+         "tran": "virtio",
+         "rota": true,
+         "rm": false,
+         "ro": false,
+         "fstype": null,
+         "label": null,
+         "uuid": null,
+         "partlabel": null,
+         "mountpoints": [],
+         "children": [
+            {
+               "name": "/dev/vdc1",
+               "kname": "/dev/vdc1",
+               "pkname": "/dev/vdc",
+               "type": "part",
+               "size": 6441385472,
+               "model": null,
+               "serial": null,
+               "wwn": null,
+               "tran": "virtio",
+               "rota": true,
+               "rm": false,
+               "ro": false,
+               "fstype": "crypto_LUKS",
+               "label": null,
+               "uuid": "03e9122b-d95b-4130-b797-871b8a9a5e7c",
+               "partlabel": "onemind-data",
+               "mountpoints": [],
+               "children": [
+                  {
+                     "name": "/dev/mapper/onemind-data-vdc",
+                     "kname": "/dev/dm-1",
+                     "pkname": "/dev/vdc1",
+                     "type": "crypt",
+                     "size": 6424608256,
+                     "model": null,
+                     "serial": null,
+                     "wwn": null,
+                     "tran": null,
+                     "rota": true,
+                     "rm": false,
+                     "ro": false,
+                     "fstype": "btrfs",
+                     "label": "onemind-data",
+                     "uuid": "9638a938-d632-41e3-aa7f-7a1cace9bd76",
+                     "partlabel": null,
+                     "mountpoints": []
+                  }
+               ]
+            }
+         ]
+      },{
+         "name": "/dev/vdd",
+         "kname": "/dev/vdd",
+         "pkname": null,
+         "type": "disk",
+         "size": 290637824,
+         "model": null,
+         "serial": null,
+         "wwn": null,
+         "tran": "virtio",
+         "rota": true,
+         "rm": false,
+         "ro": true,
+         "fstype": "iso9660",
+         "label": "cidata",
+         "uuid": "2026-11-12-03-19-27-98",
+         "partlabel": null,
+         "mountpoints": [
+             "/mnt/lima-cidata"
+         ]
+      }
+   ]
+}

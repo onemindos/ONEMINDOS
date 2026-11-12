@@ -16,13 +16,18 @@ This page says plainly what is protected now and what is not, because a security
 - **Privacy in heartbeats.** No serials, MACs, IPs or user names leave a node.
 - **Pinned supply chain for the OS build.** The Debian base, k3s, RAUC and every CI action are pinned by digest, hash or commit in [`os/versions.lock.yaml`](https://github.com/onemindos/ONEMINDOS/blob/main/os/versions.lock.yaml), and CI fails if a file uses a pin that is not listed there.
 - **Public-repo hygiene.** gitleaks and pattern checks for secrets, private addresses and host paths run on every pull request.
+- **Scan gate for apps.** No install without a passing Trivy and ClamAV scan newer than 7 days, checked again at the moment of approval.
+
+## Being built <span class="om-tag om-tag--unknown">being built</span>
+
+- **Nightly security rebuilds** of the image when Debian ships a fix, signed and published to the security channel. The pipeline is on `main`; nothing is published yet.
+
+The box side, the update client that verifies signed TUF metadata, is on `main` but has nothing to install until the image ships ([Updates and rollback](../updates-and-rollback/)).
 
 ## In review <span class="om-tag om-tag--warn">in review</span>
 
-- **Scan gate for apps**: no install without a passing Trivy and ClamAV scan newer than 7 days.
-- **Nightly security rebuilds** of the image when Debian ships a fix, signed and published to the security channel.
-
-The box side, the update client that verifies signed TUF metadata, is on `main` but has nothing to install until the image ships ([Updates and rollback](../updates-and-rollback/)).
+- **App sandbox**: restricted Pod Security and default-deny network rules for apps, and narrower Kubernetes permissions for the gateway.
+- **Household identity**: sessions, passkeys and scoped API tokens instead of static tokens.
 
 ## Not protected yet
 

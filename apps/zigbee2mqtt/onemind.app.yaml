@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind app manifest (sdk/contracts/poc-v0.md §4). Scaffolded by sdk/tools/app-scaffold, then completed
+# from primary sources, 2026-11-12:
+#   release 2.14.3 (github.com/Koenkk/zigbee2mqtt/releases/tag/2.14.3, commit 3c841fdfd66c)
+#   licence GPL-3.0 (LICENSE at tag 2.14.3); research licence class L2 (research-output/13-apps-market-plugins.md,
+#   row in research-output/evidence/license-matrix.csv)
+#   image ghcr.io/koenkk/zigbee2mqtt:2.14.3 (upstream .github/workflows/ci.yml and the Docker install guide),
+#   multi-arch index with linux/amd64 and linux/arm64 (crane manifest)
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: zigbee2mqtt
+  name: Zigbee2MQTT
+  version: "2.14.3"
+  description: Bridges Zigbee devices to MQTT, so sensors, lights and switches work without a vendor hub
+  category: home-automation
+  icon: icon.svg
+  license: GPL-3.0
+  source: https://github.com/Koenkk/zigbee2mqtt
+  # §9.3 facts from the GitHub API (repos/Koenkk/zigbee2mqtt and its releases/latest), read 2026-11-12.
+  links:
+    docs: https://www.zigbee2mqtt.io/guide/getting-started/
+    github: https://github.com/Koenkk/zigbee2mqtt
+    website: https://www.zigbee2mqtt.io
+    support: https://github.com/Koenkk/zigbee2mqtt/issues
+  upstream: {release: "2.14.3", released_at: "2026-11-01T06:40:40Z", archived: false}
+  tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}
+  web: {port: 8080}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}   # patch automerge needs a renovate.json entry (validate-apps check 9)

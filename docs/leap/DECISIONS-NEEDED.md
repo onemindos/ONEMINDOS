@@ -45,10 +45,50 @@ F-1 to F-7 keep the numbers used in [core/README.md](core/README.md). The rest g
 | F-29 | Launch rules: channels; no update claim before G1, no actuation claim before G4; demos on lab hardware with mock data only | Confirm | CORE-WEB-5 | S3 | plan §5.9–§5.10 |
 | F-30 | Defer revenue share, certification fee and the D-001 pro/open ADR | Defer past the leap | – | – | plan §5.11 |
 | F-31 | TAK licensing (GPL/AGPL servers only as separate apps; official TAK Server bring-your-own-licence?) and drones (no agent flight commands; MAVLink read-only) | Confirm when PLAN-E14/E15 leave parking | PLAN-E14, PLAN-E15 | S4+ | plan §5.7, §5.12 |
+| F-32 | Mesh coordinator: Headscale (default) vs NetBird vs Nebula vs plain WireGuard | Headscale v0.29.7 (BSD-3) on the hub with the official Tailscale clients (BSD-3), embedded DERP, optional owner relay; Tailscale hosted only as an opt-in (Z-34 stays open) | CORE-NET-1, CORE-NET-11, CORE-NET-12 | S1 (before NET-11; flannel backend and node IPs are cluster-creation settings) | `docs/architecture/NETWORKING.md` §2.1, §19; research 09 P0-6; research 12 REC-W11-12 |
+| F-60 | Data volume format: btrfs inside LUKS2 (one disk `single`/`dup`, two `raid1`, three or more `raid1c3` metadata); no RAID5/6, mdadm or ZFS in v1 | Confirm; record in `docs/DECISIONS.md` with UMB-STOR-0. ZFS only later as an optional HDD "NAS tier" after a licence review (UMB-STOR-12) | UMB-STOR-0, CORE-SEC-5 | S1 | umbrel2 storage §4 |
+| F-33 | Passkey domain: a passkey works on one domain, and the LAN (`onemind.local`) and mesh names differ | One canonical sign-in host on LAN and mesh, if lab UMB-ACCT-13 passes; else per-domain passkeys. Must be settled before the first owner enrols | CORE-SEC-10, UMB-ACCT-13 | S1 | umbrel2 accounts ACCT-D1 |
+| F-34 | Where Kanidm (identity provider, MPL-2.0, shipped separately) runs | Host service on the hub, so sign-in works when k3s is down (not the chart named in research 30) | UMB-ACCT-1, CORE-SEC-10 | S1 | umbrel2 accounts ACCT-D2 |
+| F-35 | May an adult guardian approve their own child's `access.request`? (changes contract rule P1, "only an owner approves") | No in v1 (owner-only); revisit with a contract change | UMB-ACCT-7 | S2 | umbrel2 accounts ACCT-D3 |
+| F-36 | Home layout and theme: the parity audit said "no dock"; you asked for the umbrelOS look | `desktop` layout (dock and grid) by default on wide screens, `classic` on phones, each person can switch; light and dark both, each wallpaper with a tested accent | UMB-DESK-9, UI-LEAP | S2 | umbrel2 desktop-ui D-1, D-3 |
+| F-37 | How many widgets on Home | 4, or 6 on wide screens in the desktop layout | CORE-DASH-8 | S2 | umbrel2 desktop-ui D-2 |
+| F-38 | May an agent request a Home change, approved by the person whose Home it is (not only the owner; touches P1)? | Yes, as `home.change` requests | UMB-DESK-14 | S3 | umbrel2 desktop-ui D-4 |
+| F-39 | May a person's own file writes inside their own spaces skip the action flow (contract: every state-changing request is an action)? | Yes for the data plane; shares, grants, restores and deletes of others' data stay actions. Written into contract 12-files | UMB-FILES-0 | S1 | umbrel2 files D-F1 |
+| F-40 | Files in the core dashboard (reverses PU-16 and IA "not in v0") or as a Market app? | Core page: Rewind, restores, grants and imports are core actions | UMB-FILES-0, UMB-FILES-4 | S1 | umbrel2 files D-F2 |
+| F-41 | Who registers the OAuth clients with Google, Dropbox and Microsoft for cloud import | OneMind registers installed-app clients; owners may use their own client id in Settings | UMB-FILES-8 | S3 | umbrel2 files D-F3 |
+| F-42 | iCloud Drive import at launch? | Experimental flag only (Apple sign-in tokens expire) | UMB-FILES-8 | S3 | umbrel2 files D-F4 |
+| F-43 | Encrypted per-person spaces beyond LUKS2 on `/data` | Not in v1; revisit after H-11 | – | – | umbrel2 files D-F5 |
+| F-44 | Desktop app stack | Tauri 2 (MIT/Apache-2.0), Rust for privileged parts | UMB-CLIENT-8 | S2 | umbrel2 clients §4.2 |
+| F-45 | SMB server: one Samba (GPL-3.0, separate program) or a WebDAV-only server of our own; packaged in the image (files study) or as a system app `apps/samba` (clients study) | Samba, one owner (UMB-FILES-5), as a separately updatable system app; per-person and per-device credentials; WebDAV alongside | UMB-FILES-5, UMB-CLIENT-9 | S3 | umbrel2 clients, files |
+| F-46 | Lift phone photo backup from MOBILE's v1 non-goals into v1 | Yes: photos and storage safety are founder focus | UMB-PHOTO-4 | S2 | umbrel2 clients, photos |
+| F-47 | Where phone photos land: the Photos library (`library/<person>/…`, photos study), `home:<person>/Photos` (files study) or the person's dataset (clients study) | One copy in the Photos library on the Retain storage class, shown in Files as a read-only Photos folder in the person's Home | UMB-PHOTO-1, UMB-PHOTO-3, UMB-FILES-2 | S2 | umbrel2 photos, files, clients (conflict) |
+| F-48 | Certificate for iOS background uploads | A public certificate when remote access exists, else the box CA profile; never plain HTTP | UMB-PHOTO-4 | S2 | umbrel2 photos DN-1 |
+| F-49 | Face recognition (Photos and Immich) on boxes we sell | Off by default; decide after UMB-PHOTO-0 reads each model's terms | UMB-PHOTO-12, UMB-PHOTO-13 | S4 | umbrel2 photos DN-2 |
+| F-50 | Photos Trash retention | 30 days, and never purged before the next verified backup | UMB-PHOTO-5, UMB-PHOTO-8 | S2 | umbrel2 photos DN-3 |
+| F-51 | Where photo ML runs when the hub is small | On a stronger node by capability labels; off when none qualifies | UMB-PHOTO-12 | S4 | umbrel2 photos DN-4 |
+| F-52 | May adults (not only the owner) pair their own agents? | Yes, capped at their own rights; the owner sees all agents | UMB-AGT-3 | S1 | umbrel2 mcp-agents Q1 |
+| F-53 | Default bundle in the Connect wizard: `troubleshooter` (read-only logs) instead of `reader` (changes F-15's default) | Yes | UMB-AGT-10 | S2 | umbrel2 mcp-agents Q2 |
+| F-54 | Undo window for an agent's approved file plan | 7 days, limited by snapshot space; the card says when Undo expires | UMB-AGT-8 | S3 | umbrel2 mcp-agents Q3 |
+| F-55 | Before the OAuth façade (DEV-MCP-12), offer direct-HTTP setup with the key in a chat-only client's config file? | Yes, with a visible warning and expiry forced to 30 days | UMB-AGT-10 | S2 | umbrel2 mcp-agents Q4 |
+| F-56 | Virtual machines runtime: KubeVirt as an optional signed extension, our own QEMU service, or host libvirt | KubeVirt extension; reopen if lab LT-MACH-2 fails | UMB-MACH-2 | S3 | umbrel2 machines F-MACH-1 |
+| F-57 | Do Machines enter the leap? (The agents study accepted VMs as a gap; the machines study plans them) | After the leap's S1 core; lab UMB-MACH-1 may start now | UMB-MACH-0 and later | S2 | umbrel2 machines F-MACH-2 |
+| F-58 | Machines on a Pi 5: headless Linux on 16 GB only (never Windows); ship a 4 KiB-page kernel if the 16 KiB one fails | Yes on 16 GB if LT-MACH-3 passes; the kernel change only if that test needs it (image stream) | UMB-MACH-2 | S3 | umbrel2 machines F-MACH-3, F-MACH-4 |
+| F-59 | Desktop release signing: Apple Developer ID (shares the account in F-4) and a Windows code-signing account | Get both before the first public desktop build | UMB-CLIENT-12 | S3 | umbrel2 clients |
+| F-61 | Desktop app updates: who holds the updater signing key (Ed25519, Tauri updater) and its offline backup, and where updates are hosted | Key in a GitHub environment `desktop-release` with you as required reviewer, plus an offline backup; host on GitHub Releases now, the box as a local mirror later. The updater stays off until this and F-59 are answered | UMB-CLIENT-12 | S3 | `desktop/docs/UPDATER.md` |
 
 ### 1.1 Defaults applied in contract §12 (2026-11-12)
 
 Contract §12 was written against these proposed defaults; a different answer is a follow-up contract PR. **F-1** is applied as: per-box CA by default, and optional Let's Encrypt (DNS-01) when the owner brings a domain (§12.7); a Tailscale certificate may still serve the mesh name when remote access is on. Also applied as listed above: F-2, F-6, F-7, F-8, F-9, F-11, F-12, F-14, F-15, F-16, F-19, F-24.
+
+**Relied on by the developer surface** (`feat/devsurface`, 2026-11-12): **F-8**, the `onemind` CLI now runs on cobra (the §4 note below about stdlib `flag` is superseded). **F-15**, `onemind mcp login` stores a personal agent token as a context and checks that it is an agent's; creating one (default `reader`, 90 days) waits for `POST /v1/tokens` (§12.6). Until scopes exist, every agent on `/mcp` gets the `v0` bundle plus own-only reads (`actions:read:own`, `audit:read:own`, F-19).
+
+### 1.2 Identity choices made on `feat/identity` (2026-11-12)
+
+The identity stream relies on F-2 (passkey on every owner approval once one exists), F-12 (token approvals accepted, and audited, until then), F-14 (role scopes) and F-15 (personal agent tokens: `reader`, 90 days). It also made these calls; each is reversible in one module ([core/IDENTITY.md](core/IDENTITY.md) §7):
+- **First owner:** `POST /v1/auth/setup` (a path §12.6 implies as "the setup session" but does not name), authorised by the install owner token or a first-boot token file. Proposal: add it to §12.6 in the next contract PR.
+- **Password + TOTP** sign-in exists beside passkeys, so a household member without a passkey device can sign in. A password session never counts as step-up.
+- **Static-file tokens keep v0 behaviour** (no role scopes, no app sharing), so headless setups do not break; once an owner has a passkey, a file owner token can approve only with that passkey's assertion.
+- **Password hashing is stdlib scrypt** (N=2^15), not Argon2, to add no native dependency; logins are rate-limited.
 
 ## 2. For the contract owner: leap specs vs the contract §12 draft
 
@@ -69,6 +109,8 @@ The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs
 | Scope and permission names | API §8.2 (`actions:read`, `audit:read`, `notifications:send`, `events:read`, suffix `actions:request:<type>`); MCP §4.1 (`actions:read:own`/`:all`, `audit:read:own`/`:all`, `actions:withdraw:own`, `docs:read`, bundles); PLUGIN-SDK §5.2 (`actions:read:self`, `alerts:raise`, `events:subscribe:<pattern>`) | – | API §8.2 names as the base; `:own`/`:all` and `:<pattern>` become narrowing suffixes like `actions:request:<type>`; `actions:read:self` → `actions:read:own`; `alerts:raise` → `notifications:send` |
 | Manifest fields for app and plugin principals | MCP §5.2 `spec.agent.scopes` and `limits`; PLUGIN-SDK §4.2 `spec.plugin` + `spec.permissions` (API §5.9 now follows it) | `spec.agent` only (contract §11.2) | Agents: `spec.agent.scopes`; plugins: `spec.plugin` + `spec.permissions`; one schema PR with C12-H and C12-PLG |
 | CLI verbs | One tree in CLI.md §3 (`fabric join`, `auto`, `policy`, `backup now`, `restore`) | `node join`, `automations`, `activity`, `init`, `app import`, `backup run/snapshots/restore` | CLI.md §3 is the tree; draft verbs become aliases (`node join` and `backup run` already are). `init` and `app import` get added to CLI.md when their epics start |
+| App data delete (umbrel2) | – | – | UMB-APP-5 says `app.delete_data`, UMB-AGT-7 says `app.data.delete` | Pick one in UMB-APP-0; leap default `app.data.delete` (noun then verb, like `os.update.apply`) |
+| Progress events (umbrel2) | – | – | UMB-APP-4: `{step, pct}` on `onemind.event.v1`; UMB-DESK-0: event `action.progress` | One event `action.progress` with `step` and `pct`, defined in UMB-APP-0 and used by UMB-DESK-6 |
 
 ## 3. Contradictions fixed between the leap specs (2026-11-12)
 
@@ -95,11 +137,13 @@ The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs
 | SDK names (review) | Examples used `from onemind import Client`, Go `NewClientFromEnv`, `*onemind.APIError`, module `…/sdk/go/onemind`, `/v1/principal`, `decided_by` | SDK.md names: `onemind_sdk`, `onemind.FromEnv()`, `*onemind.Error`, module `…/sdk/go`, `/v1/me`, `approved_by` |
 | Backlog order (review) | DEV-CLI-11 (S3) accepted `publish`, built by DEV-PLG-14 in S4+; DEV-API-3/-4 used new contract names without C12-A; CORE-DASH-7 tested Web Push without NOTIFY-3 | `publish` acceptance moved to PLG-14; C12-A and NOTIFY-3 added as dependencies |
 | File ownership (review) | `executors.py`, `internal/detect/`, `mcp/catalog.py`, feature dashboard pages, `site/**` and `os/**` pieces were claimed by two streams without a rule | WORKSTREAMS §3 rows name one owner and the hook order |
+| umbrel2 study epics (2026-11-12) | The ten studies proposed epics that duplicated leap epics or each other (phone photo backup three times, desktop app twice, discovery twice, What's new three times, SMB server twice) and reused ids (STOR-1, STOR-2 in two studies) | One `UMB-<area>-n` id per study epic; duplicates merged into one owner, listed in BACKLOG "UMB merged into existing epics" |
 
 ## 4. Loose ends found, not fixed here
 
 - Core plumbing (`feat/core-plumbing`, [core/PLUMBING.md](core/PLUMBING.md)) changes three WORKSTREAMS §4 hotspot rules; update them when it merges: routes register in `ROUTERS` in `app.py` (not a `routes.py`); `ledger.py` gets no numbered migration files (each feature has its own `FeatureSchema` step chain in its module); the CLI registry is `groups` in `cmd/onemind/cli/root.go` with stdlib `flag`. F-8 (cobra) is allowed but not used yet, because the refactor had to keep the CLI output identical. DEV-CLI-1 can switch `root.go` to cobra without touching the group files. `onemindd` registrations go in `cmd/onemindd/registry.go`, not `main.go`.
 
+- Security P0 (`feat/sec-p0`) chose, for review: the pending cap uses contract §12.1 (10 per requester, `429 rate_limited`) instead of H-14's 5 and 409; namespaced `Role`/`RoleBinding` are allowed for apps (only to a Role in the app's namespace, ServiceAccount subjects of that namespace, no wildcards or RBAC verbs), where SANDBOX.md allowed none; `home-assistant` is the one reviewed `baseline` app (root in its image); after 10 wrong tokens a minute the whole source address backs off for 15 minutes, good tokens included. No founder default (F-x) was needed. The manifest schema should add `spec.security.podSecurity` and `spec.network.egress` (apps/sdk stream), and CORE-SEC-7/9 and CORE-SEC-5 (secrets encryption part) are done on that branch without their STATUS rows changed.
 - `feat/app-hermes` and `feat/apps-wave2` have no work yet, so W2-HERMES and W2-SEEDS may slip into S1.
 - `feat/app-pipeline` has an uncommitted `renovate.json`; `feat/design-system`, `feat/mobile-shell` and the arch branch's `docs/architecture/` are untracked. Commit and push them so they are not lost.
 - The updater merged as PR #15 after the specs were written. The review corrected the "what exists" rows in API, CLI, SDK, MCP, PLUGIN-SDK, UPDATES and BACKUPS; FABRIC and UPDATES still name the heartbeat `update` object's branch. STATUS.md has the live state.
@@ -110,3 +154,26 @@ The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs
 - `onemind fabric join <code>` needs the hub address when mDNS cannot find it; CLI.md now takes `--hub`, but the QR content rule ("no network details") should be settled in C12-B.
 - API.md §17 follow-ups remain: `errors.py` maps 405 to `not_found` and 422 to `conflict`; the event stream must read from the same append path as NATS `onemind.audit`.
 - The leap branch was cut before PR #15 merged; rebase before merging it.
+- BACKLOG.md has no rows for MKT-CANDIDATES, CORE-NET-P1, UI-LEAP and MKT-TAXONOMY, which STATUS.md lists in S0; UMB rows depend on CORE-NET-P1 and UI-LEAP.
+- The umbrel2 studies propose five streams (Storage, Files, Clients, Photos, Machines) that WORKSTREAMS.md §2 does not list yet.
+- STATUS.md's summary counts predate the PRs merged since (#14, #16–#22); recount when the next STATUS PR lands.
+- Golden-path e2e (`tests/e2e/`, E2E-GOLDEN) relies on two defaults: **F-7** (no unscanned installs in v0, so the harness gives only the test app a marked stand-in `scan.json` until the §9.4 app-gate runs on the hub, and checks every other app stays blocked; no owner override is used) and **F-1** (its HTTPS step expects `/v1/tls` names to include `onemind.local`). A different founder answer changes those two steps only.
+
+## 5. Notifications and monitoring: choices made in the build (2026-11-12)
+
+Branch `feat/notify-monitor` (CORE-NOTIFY-1/2/3/6, CORE-MON-1). Each is a default the founder or the contract owner may change; none reopens a founder decision. Founder decisions relied on: **F-11** (an alert's fix is filed as a normal request, never auto-approved by the notifier) and **D-005** (push payloads carry only `{notification_id, box_id}`).
+
+| Id | Choice | Why | Alternative |
+|---|---|---|---|
+| N-1 | A person with no preferences gets warning and above, and every approval, on all their channels and devices; `info` stays in the inbox | Otherwise nothing is pushed until someone writes routes | Inbox only until configured (NOTIFICATIONS.md §5.1) |
+| N-2 | Every matching route adds its channels (union) | A critical approval should reach both the "approvals" and the "critical" channels | First match wins (NOTIFICATIONS.md §5.1) |
+| N-3 | The catalogue's `error` level maps to `warning`; `critical` is kept for "act now" (outcome unknown, failed scan, overheating) | Contract §12.14 alerts have three levels; quiet hours let `critical` through | Map `error` to `critical` |
+| N-4 | A pending approval is an alert (`approval:<action_id>`), resolved by approve, deny, expiry or success | BACKLOG CORE-NOTIFY-1 acceptance ("one alert for a pending approval") | No alert (NOTIFICATIONS.md §3) |
+| N-5 | Automatic alert transitions are not written to the audit log (the events behind them are); a person's acknowledge or resolve is. Every transition is published on `onemind.alert.<type>` (§12.9) | Keeps the decision trail readable | Audit every transition |
+| N-6 | Agents send only under `plugin.<own id>`, at `info` or `warning`, to owners | An agent must not phish under `approvals` or bypass quiet hours | Allow agents any topic |
+| N-7 | Only owners may point a channel or push endpoint at the local network or plain `http://`; link-local and metadata addresses are always refused; redirects are not followed | A channel is a way out of the box, and a guest's webhook must not reach internal services | Owner-only channels |
+| N-8 | The daily digest holds `info` items only (approvals never wait) | Contract §12.14 leaves the digest's content open | Digest per route |
+| N-9 | App log lines are redacted for secrets and also for e-mail and IPv4 addresses | Logs reach adults and, later, agents | Secrets only |
+| N-10 | Superseded when identity merged: `GET /v1/apps/{id}` needs `apps:read` and honours per-app sharing (`404` when the app is hidden from the caller); app and node metrics and the summary need `monitoring:read`, as contract §12.15 says. Static-file principals keep reading every app (F-14) | Built before identity existed, when every principal saw every app | Owners and adults only |
+| N-11 | Heartbeat gains the optional `metrics` object `{cpu_pct, load1, temp_c}` (contract §12.10, additive) | CPU and temperature thresholds need a source on leaf nodes without metrics-server | metrics-server only (no temperature) |
+| N-12 | Without a Kubernetes API, log and health routes answer `404 not_found` / `health.state: unknown` | `errors.py` has no `unavailable` code yet; switch to `503 unavailable` (§12.2) when gateway-core adds it | — |

@@ -1,0 +1,57 @@
+{
+ "json_format_version": [
+  1,
+  0
+ ],
+ "smartctl": {
+  "version": [
+   7,
+   4
+  ],
+  "exit_status": 8
+ },
+ "device": {
+  "name": "/dev/x",
+  "protocol": "ATA"
+ },
+ "model_name": "Example HDD 4TB",
+ "serial_number": "SYNTH0003",
+ "smart_status": {
+  "passed": false
+ },
+ "temperature": {
+  "current": 38
+ },
+ "power_on_time": {
+  "hours": 41000
+ },
+ "ata_smart_attributes": {
+  "revision": 16,
+  "table": [
+   {
+    "id": 5,
+    "name": "Reallocated_Sector_Ct",
+    "raw": {
+     "value": 12,
+     "string": "12"
+    }
+   },
+   {
+    "id": 197,
+    "name": "Current_Pending_Sector",
+    "raw": {
+     "value": 3,
+     "string": "3"
+    }
+   },
+   {
+    "id": 198,
+    "name": "Offline_Uncorrectable",
+    "raw": {
+     "value": 0,
+     "string": "0"
+    }
+   }
+  ]
+ }
+}

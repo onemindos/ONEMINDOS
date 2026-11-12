@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# HERMES_HOME (/opt/data, the image's VOLUME): config.yaml, .env, sessions and state
+# databases, memories, skills and logs. Upstream publishes no size; 5Gi is a OneMind starting
+# size for one person's agent (grow it with the cluster's volume expansion if needed).
+# No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes-agent-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
