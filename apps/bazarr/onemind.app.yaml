@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# Bazarr: Market batch 5 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: the image's repo
+# github.com/linuxserver/docker-bazarr readme-vars.yml (Bazarr publishes no image of its own) and
+# linuxserver's non-root documentation.
+# Image digest and archs from crane; licence from the GitHub licence API.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: bazarr
+  name: "Bazarr"
+  version: "1.6.2"
+  description: "Finds and downloads subtitles for the films and series that Sonarr and Radarr manage."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: media
+  icon: icon.svg
+  license: "GPL-3.0"
+  source: https://github.com/morpheus65535/bazarr
+  # §9.3 facts from the GitHub API (repos/morpheus65535/bazarr), read 2026-11-12. The newest tags
+  # are betas; v1.6.2 is the latest release.
+  links:
+    docs: "https://wiki.bazarr.media"
+    github: "https://github.com/morpheus65535/bazarr"
+    website: "https://www.bazarr.media"
+    support: "https://github.com/morpheus65535/bazarr/issues"
+  upstream: {release: "v1.6.2", released_at: "2026-09-26T01:37:28Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 512}
+  web: {port: 6767}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
