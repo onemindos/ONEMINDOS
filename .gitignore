@@ -10,3 +10,6 @@
 *.tar
 *.pem
 *.key
+# Python bytecode (lint byte-compiles; never commit or lint it)
+__pycache__/
+*.pyc

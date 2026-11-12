@@ -29,7 +29,7 @@ make rootfs BOARD=x86_64-efi
 ```bash
 make fixtures BOARD=x86_64-efi UPTO=T10 HW=1
 ```
-Result in `out/fx-x86_64-efi/`: `disk.img` (24 GiB, mostly empty), `bundles.img`, `t0.json` (must say `"pass": true`), `SHA256SUMS`. The throwaway signing keys were destroyed inside the container; only the public `dev-ca.cert.pem` is kept.
+Result in `out/fx-x86_64-efi/`: `disk.img` (32 GiB, sparse and mostly empty), `bundles.img`, `t0.json` (must say `"pass": true`), `SHA256SUMS`. The throwaway signing keys were destroyed inside the container; only the public `dev-ca.cert.pem` is kept.
 
 ### B. Write the SSD and the stick (Mac)
 ```bash

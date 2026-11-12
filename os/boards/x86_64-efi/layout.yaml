@@ -2,7 +2,7 @@
 # The 01 §4.3 x86 layout (brief 30 B2). Labels are the contract; RAUC, fstab and GRUB find
 # partitions by these labels. test/unit/test_layouts.py checks this file against 01 §4.3.
 table: gpt
-disk_size: 24GiB
+disk_size: 32GiB            # data gets ~9 GiB; at 24 GiB it got ~1 GiB and kubelet evicted core pods (DiskPressure, CI run 43153111097)
 partitions:
   - {label: onemind-esp,      size: 1GiB,   type: esp,   fs: vfat, volume_id: 4F4E454D}  # GRUB + grubenv
   - {label: onemind-boot-a,   size: 512MiB, type: esp,   fs: vfat, fs_label: BOOT-A}     # UKI of slot A (efi route, BM2)
