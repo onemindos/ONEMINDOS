@@ -61,7 +61,11 @@ export class HttpApi implements OneMindApi {
     this.fetchFn = opts.fetchFn ?? ((input, init) => fetch(input, init));
   }
 
-  private async req<T>(method: string, path: string, body?: unknown): Promise<T> {
+  /**
+   * `shape` is what a 2xx body must be. Anything else (an HTML page from a proxy
+   * or SPA fallback, an empty body, the wrong JSON type) is an error, not data.
+   */
+  private async req<T>(method: string, path: string, body?: unknown, shape: 'object' | 'array' = 'object'): Promise<T> {
     let res: Response;
     try {
       res = await this.fetchFn(this.base + path, {
@@ -95,6 +99,10 @@ export class HttpApi implements OneMindApi {
       const code = res.status === 401 ? 'unauthenticated' : res.status === 404 ? 'not_found' : 'unknown';
       throw new ApiError(res.status, code, `HTTP ${res.status}`);
     }
+    if (res.status === 204) return undefined as T;
+    const valid =
+      shape === 'array' ? Array.isArray(data) : typeof data === 'object' && data !== null && !Array.isArray(data);
+    if (!valid) throw new ApiError(res.status, 'unknown', 'Unexpected response from the hub');
     return data as T;
   }
 
@@ -108,19 +116,19 @@ export class HttpApi implements OneMindApi {
     return this.req<Instance>('GET', '/v1/instance');
   }
   nodes() {
-    return this.req<NodeRecord[]>('GET', '/v1/nodes');
+    return this.req<NodeRecord[]>('GET', '/v1/nodes', undefined, 'array');
   }
   node(nodeId: string) {
     return this.req<NodeRecord>('GET', `/v1/nodes/${encodeURIComponent(nodeId)}`);
   }
   apps() {
-    return this.req<CatalogApp[]>('GET', '/v1/apps');
+    return this.req<CatalogApp[]>('GET', '/v1/apps', undefined, 'array');
   }
   createAction(req: ActionRequest) {
     return this.req<Action>('POST', '/v1/actions', req);
   }
   actions() {
-    return this.req<Action[]>('GET', '/v1/actions');
+    return this.req<Action[]>('GET', '/v1/actions', undefined, 'array');
   }
   action(id: string) {
     return this.req<Action>('GET', `/v1/actions/${encodeURIComponent(id)}`);

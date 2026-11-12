@@ -65,6 +65,22 @@ describe('HttpApi (contract §3)', () => {
     expect(Math.abs(api.hubOffsetMs()! - 5 * 60_000)).toBeLessThan(2_000);
   });
 
+  it('rejects a 2xx body that is not JSON (for example an HTML fallback page)', async () => {
+    const html = new Response('<!doctype html><title>x</title>', {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' },
+    });
+    const api = new HttpApi({ token: 'anything', fetchFn: vi.fn().mockResolvedValue(html) });
+    await expect(api.instance()).rejects.toMatchObject({ status: 200, code: 'unknown' });
+  });
+
+  it('rejects a list route whose 2xx body is not an array', async () => {
+    const api = new HttpApi({ token: 't', fetchFn: vi.fn().mockResolvedValue(jsonResponse(200, { nodes: [] })) });
+    await expect(api.nodes()).rejects.toMatchObject({ status: 200, code: 'unknown' });
+    const empty = new HttpApi({ token: 't', fetchFn: vi.fn().mockResolvedValue(new Response('', { status: 200 })) });
+    await expect(empty.actions()).rejects.toMatchObject({ code: 'unknown' });
+  });
+
   it('URL-encodes path ids', async () => {
     const f = vi.fn().mockResolvedValue(jsonResponse(200, {}));
     await new HttpApi({ token: 't', fetchFn: f }).node('a/b');
