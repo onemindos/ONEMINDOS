@@ -50,6 +50,14 @@ F-1 to F-7 keep the numbers used in [core/README.md](core/README.md). The rest g
 
 Contract §12 was written against these proposed defaults; a different answer is a follow-up contract PR. **F-1** is applied as: per-box CA by default, and optional Let's Encrypt (DNS-01) when the owner brings a domain (§12.7); a Tailscale certificate may still serve the mesh name when remote access is on. Also applied as listed above: F-2, F-6, F-7, F-8, F-9, F-11, F-12, F-14, F-15, F-16, F-19, F-24.
 
+### 1.2 Identity choices made on `feat/identity` (2026-11-12)
+
+The identity stream relies on F-2 (passkey on every owner approval once one exists), F-12 (token approvals accepted, and audited, until then), F-14 (role scopes) and F-15 (personal agent tokens: `reader`, 90 days). It also made these calls; each is reversible in one module ([core/IDENTITY.md](core/IDENTITY.md) §7):
+- **First owner:** `POST /v1/auth/setup` (a path §12.6 implies as "the setup session" but does not name), authorised by the install owner token or a first-boot token file. Proposal: add it to §12.6 in the next contract PR.
+- **Password + TOTP** sign-in exists beside passkeys, so a household member without a passkey device can sign in. A password session never counts as step-up.
+- **Static-file tokens keep v0 behaviour** (no role scopes, no app sharing), so headless setups do not break; once an owner has a passkey, a file owner token can approve only with that passkey's assertion.
+- **Password hashing is stdlib scrypt** (N=2^15), not Argon2, to add no native dependency; logins are rate-limited.
+
 ## 2. For the contract owner: leap specs vs the contract §12 draft
 
 **Settled 2026-11-12** in contract §12 ([`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md) §12.21). Every row below took the proposal, except: `offline_not_supported` is not added (it is `503 unavailable` with reason `node_offline`); the join ticket role is `worker|leaf`; the heartbeat mesh object is top-level `mesh`. Specs that still use a losing name are renamed when next edited. The table is kept as the record.

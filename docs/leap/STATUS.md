@@ -89,8 +89,8 @@
 | CORE-AUTO-1 | Risk classes on action types, enforced in the approve path | todo | – | – |
 | DEV-API-7 | Actions v1: risk, `plan_sha256` binding, preview, cancel, action-ty… | todo | – | – |
 | CORE-SEC-1 | HTTPS with a per-box CA, loopback-only HTTP, pairing QR | todo | – | – |
-| CORE-SEC-2 | Owner passkey, sessions, passkey-signed approvals (`approve-options`) | todo | – | – |
-| CORE-SEC-3 | Token lifecycle: create, rotate, expire, revoke, CLI | todo | – | – |
+| CORE-SEC-2 | Owner passkey, sessions, passkey-signed approvals (`approve-options`) | in-progress | `feat/identity` | – (local; also household accounts, password + TOTP, CSRF, per-app sharing, `/v1/me`: [core/IDENTITY.md](core/IDENTITY.md)) |
+| CORE-SEC-3 | Token lifecycle: create, rotate, expire, revoke, CLI | in-progress | `feat/identity` | – (local; API done, `onemind tokens` CLI not yet) |
 | CORE-SEC-4 | NATS nkeys and TLS | todo | – | – |
 | CORE-SEC-6 | `onemind audit verify`, signed checkpoints, agent kill switch | todo | – | – |
 | CORE-SEC-7 | Pending cap, plan card fields, "written by agent" label | todo | – | – |
