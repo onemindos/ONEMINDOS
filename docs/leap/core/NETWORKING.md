@@ -25,7 +25,7 @@
 
 ## 3. Epics
 
-CORE-NET-1 … CORE-NET-15 in [BACKLOG.md](../BACKLOG.md) (S2, next to CORE-FABRIC). Part 1 (NET-1…9) adds new modules only and can start in S1 beside CORE-SEC-1; Part 2 (NET-10…14) wires the installer, gateway, `onemindd`, dashboard and contract §12.16; NET-15 (public exposure) is parked. The exact one-line hotspot changes are listed in the architecture doc §18.
+CORE-NET-1 … CORE-NET-15 in [BACKLOG.md](../BACKLOG.md) (S2, next to CORE-FABRIC). Part 1 (NET-1…9) adds new modules only and can start in S1 beside CORE-SEC-1; Part 2 (NET-10…14) wires the installer, gateway, `onemindd`, dashboard and contract §12.22; NET-15 (public exposure) is parked. The exact one-line hotspot changes are listed in the architecture doc §18.
 
 ## 4. Acceptance in one line each
 

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from 'vitest';
 import { HttpApi } from './client';
 import { makeApps, makeNodes } from './fixtures';
@@ -109,9 +110,9 @@ describe('fixtures (contract §2–§4)', () => {
     }
   });
 
-  it('have six apps with the §11.4 fields', () => {
+  it('have ten apps with the §11.4 fields', () => {
     const apps = makeApps();
-    expect(apps).toHaveLength(6);
+    expect(apps).toHaveLength(10);
     for (const a of apps) {
       expect(Object.keys(a.links).sort()).toEqual(['docs', 'github', 'support', 'website']);
       expect([null, 'verified', 'community', 'blocked']).toContain(a.tier);
@@ -162,6 +163,21 @@ describe('MockApi follows the §3 rules', () => {
     expect((await api.apps()).find((x) => x.id === 'jellyfin')?.installed).toBe(true);
     const b = await api.createAction({ ...req('k5'), params: { app_id: 'ollama' } });
     expect((await api.deny(b.id)).state).toBe('cancelled');
+  });
+
+  it('steps an approved action accepted → dispatched → succeeded when stepMs is set', async () => {
+    let t = Date.now();
+    const api = new MockApi('owner-demo', { now: () => t, stepMs: 1000 });
+    const a = await api.createAction(req('k-steps'));
+    expect((await api.approve(a.id)).state).toBe('accepted');
+    t += 1000;
+    expect((await api.action(a.id)).state).toBe('dispatched');
+    expect((await api.apps()).find((x) => x.id === 'jellyfin')?.installed).toBe(false);
+    t += 1000;
+    const done = await api.action(a.id);
+    expect(done.state).toBe('succeeded');
+    expect(done.decided_by?.id).toBe('owner');
+    expect((await api.apps()).find((x) => x.id === 'jellyfin')?.installed).toBe(true);
   });
 
   it('approving an install without a fresh passing scan returns 409 stale_precondition (§10.3)', async () => {

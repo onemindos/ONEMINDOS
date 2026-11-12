@@ -52,14 +52,14 @@ DASH-1 (ui/ tokens) runs in parallel from week 1; WEB-1..3 in parallel from week
 | Rule | Detail |
 |---|---|
 | One module per feature | Gateway features live in their own file under `core/onemind_core/` (`policy.py`, `tls.py`, `passkeys.py`, `tokens.py`, `backups.py`, `deploys.py`, `automation.py`, `alerts.py`, `fabric.py`, `os_updates.py`). Node-agent features live in `internal/<feature>/` (`internal/backup`, `internal/join`, `internal/rescue`, `internal/update`). |
-| Serialized hotspots | `core/onemind_core/app.py` (route registration; after DEV-API-1 a feature adds one line to `core/onemind_core/routes.py` instead), `cmd/onemindd/main.go` (subcommand wiring), `sdk/contracts/poc-v0.md`, `os/versions.lock.yaml`, `sdk/schema/onemind.app.schema.json`. Each feature PR adds **one** registration line or block; the contract and the lock file change in their own small PRs, merged one at a time. |
+| Serialized hotspots | `core/onemind_core/app.py` (route registration; a feature adds one line to `ROUTERS` in that file and its own `routers/<feature>.py`), `cmd/onemindd/main.go` (subcommand wiring), `sdk/contracts/poc-v0.md`, `os/versions.lock.yaml`, `sdk/schema/onemind.app.schema.json`. Each feature PR adds **one** registration line or block; the contract and the lock file change in their own small PRs, merged one at a time. |
 | Links to in-flight docs | `docs/security/*` (branch `docs/security-threat-model`), `docs/architecture/FABRIC.md` and siblings (branch `docs/core-architecture`) and `docs/design/PLUGIN-UI.md` (branch `feat/design-system`) resolve once those branches merge. |
 | Contract first | New routes, action types, error codes or manifest fields go into a contract PR before the feature PR that uses them. The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` collects them; where a spec here differs from the merged contract, the contract wins. |
 | No private details | Specs and fixtures use `onemind.local`, `<box>`, `example.org` and `om_*_EXAMPLE` tokens. No real addresses, names, tailnets or host paths. |
 
 ## Decisions only the founder can make (collected)
 
-The full list across all leap specs, with proposed defaults, is [DECISIONS-NEEDED.md](../DECISIONS-NEEDED.md); shared names (approval digest, risk classes, caps, routes) are fixed in [../README.md](../README.md#shared-rules-every-spec-follows).
+The full list across all leap specs, with proposed defaults, is [DECISIONS-NEEDED.md](../DECISIONS-NEEDED.md); shared names (approval digest, risk classes, caps, routes) are fixed in [../README.md](../README.md#5-shared-rules-every-spec-follows).
 
 | # | Question | Default these specs assume | Spec |
 |---|---|---|---|

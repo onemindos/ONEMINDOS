@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# One volume for both image VOLUMEs, as two subPaths: data/ -> /var/lib/gitea (repositories,
+# SQLite database, LFS, attachments) and config/ -> /etc/gitea (app.ini). Upstream gives no size;
+# 10Gi is a OneMind choice. No storageClassName: the cluster default class is used.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gitea-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
