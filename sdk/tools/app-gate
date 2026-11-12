@@ -16,6 +16,10 @@ Per app:
 
 Run with: python3 -I sdk/tools/app-gate [options] APP_ID [APP_ID ...]
 Exit codes: 0 every app passes, 1 at least one app fails, 2 usage or environment error.
+With --fail-on claim (pull requests), 1 means only that a committed claim is higher than the gate's
+verdict: metadata.tier above the computed tier, or a committed scan.json saying "pass" for an app
+that fails. An app that honestly fails (tier blocked or community, scan.json not "pass") can merge;
+the gateway refuses to install it (§10.3, §11.1).
 """
 from __future__ import annotations
 
@@ -403,6 +407,13 @@ def http_status(url: str, deadline: float) -> int | None:
     return status
 
 
+def scan_claim_error(committed: dict | None, result: str) -> str | None:
+    """A committed scan.json may not claim a pass that the gate does not reproduce."""
+    if isinstance(committed, dict) and committed.get("result") == "pass" and result != "pass":
+        return "the committed scan.json says result 'pass' but the gate computes 'fail'"
+    return None
+
+
 def apply_tier(path: Path, declared: str, computed: str, mode: str) -> str | None:
     """Return an error message, or None. 'write' never lifts a human 'blocked'."""
     if mode == "check":
@@ -429,25 +440,36 @@ def main(argv: list[str]) -> int:
                    help="check: fail if metadata.tier claims more than the gate computes (default); "
                         "write: set metadata.tier to the computed tier (never lifts 'blocked')")
     p.add_argument("--no-write", action="store_true", help="do not write scan.json or README.md")
+    p.add_argument("--fail-on", choices=("fail", "claim"), default="fail",
+                   help="fail: exit 1 when an app fails (default); claim: exit 1 only when the committed "
+                        "metadata.tier or scan.json claims more than the gate computes (with --tier check)")
     args = p.parse_args(argv)
 
     reg, gh = common.Registry(), common.GitHub()
-    reports, failed = [], 0
+    reports, failed, overclaimed = [], 0, 0
     for app_id in args.app_ids:
         app_dir = args.apps_dir / app_id
         if not (app_dir / common.MANIFEST_NAME).is_file():
             sys.stderr.write(f"error: apps/{app_id}/{common.MANIFEST_NAME} not found\n")
             return 2
         try:
+            committed = json.loads((app_dir / "scan.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            committed = None
+        try:
             gate = Gate(app_dir, args, reg, gh)
             scan, tier = gate.run()
-        except (common.ToolError, subprocess.TimeoutExpired, OSError) as exc:
+        except (common.ToolError, subprocess.TimeoutExpired, OSError, tarfile.TarError, ValueError) as exc:
             sys.stderr.write(f"error: apps/{app_id}: {exc}\n")
             return 2
-        err = apply_tier(app_dir / common.MANIFEST_NAME, gate.meta.get("tier", "community"), tier, args.tier)
-        if err:
-            gate.report["checks"].setdefault("tier", {"ok": False, "notes": []})["notes"].append(err)
+        errs = [apply_tier(app_dir / common.MANIFEST_NAME, gate.meta.get("tier", "community"), tier, args.tier)]
+        if args.tier == "check":
+            errs.append(scan_claim_error(committed, scan["result"]))
+        errs = [e for e in errs if e]
+        if errs:
+            gate.report["checks"].setdefault("tier", {"ok": False, "notes": []})["notes"].extend(errs)
             scan["result"] = gate.report["result"] = "fail"
+            overclaimed += 1
         if not args.no_write:
             (app_dir / "scan.json").write_text(json.dumps(scan, indent=2) + "\n", encoding="utf-8")
             (app_dir / "README.md").write_text(readme.render(app_dir), encoding="utf-8")
@@ -459,6 +481,8 @@ def main(argv: list[str]) -> int:
         failed += scan["result"] != "pass"
     if args.report:
         args.report.write_text(json.dumps(reports, indent=2) + "\n", encoding="utf-8")
+    if args.fail_on == "claim":
+        return 1 if overclaimed else 0
     return 1 if failed else 0
 
 

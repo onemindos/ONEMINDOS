@@ -4,6 +4,10 @@
 #             generated READMEs up to date, gitleaks over the PR's commits
 #   gate:     sdk/tools/app-gate for each changed app (licence, pinning + archs, Trivy CVE + secrets,
 #             ClamAV, cosign, Scorecard, non-root) plus the k3d smoke test (check 9)
+#             The job fails when the PR claims more than the gate computes (metadata.tier above the
+#             computed tier, or a committed scan.json "pass" the gate does not reproduce), or when a
+#             tool fails. An app that honestly fails (tier blocked/community) can still merge: the
+#             gateway refuses to install it without a passing scan (§10.3, §11.1).
 # The scan.json each gate run writes is uploaded as an artifact; the committed scan.json is refreshed
 # by .github/workflows/apps-rescan.yml.
 name: ci-apps
@@ -127,7 +131,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$RUNNER_TEMP/out"
-          python3 -I sdk/tools/app-gate "$APP" --smoke --tier check --clamav-db /var/lib/clamav \
+          python3 -I sdk/tools/app-gate "$APP" --smoke --tier check --fail-on claim --clamav-db /var/lib/clamav \
             --workdir "$RUNNER_TEMP" --report "$RUNNER_TEMP/out/report.json" --sbom-dir "$RUNNER_TEMP/out/sbom"
 
       - name: Upload scan results

@@ -189,6 +189,12 @@ class GateTests(unittest.TestCase):
         gate.apply_tier(p, "blocked", "verified", "write")  # never lifts a block
         self.assertIn("tier: blocked", p.read_text())
 
+    def test_scan_claim(self):
+        self.assertIsNotNone(gate.scan_claim_error({"result": "pass"}, "fail"))
+        self.assertIsNone(gate.scan_claim_error({"result": "fail"}, "fail"))
+        self.assertIsNone(gate.scan_claim_error({"result": "pass"}, "pass"))
+        self.assertIsNone(gate.scan_claim_error(None, "fail"))
+
     def test_nonroot(self):
         class G(gate.Gate):
             def __init__(self, user):
