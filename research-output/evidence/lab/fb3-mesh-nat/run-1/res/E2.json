@@ -1,0 +1,11 @@
+{
+  "id": "E2",
+  "verdict": "OBSERVED",
+  "detail": {
+    "hub_received_a_publishing_as_b": 3,
+    "hub_received_a_publishing_as_a": 3,
+    "of": 3,
+    "hub_log_violations": "[ERR] Failed to reload server configuration: /opt/fb3/run/nats/hub.conf:9:28: unknown field \"permissions\"",
+    "reload_log": "[ERR] Failed to reload server configuration: /opt/fb3/run/nats/hub.conf:9:28: unknown field \"permissions\""
+  }
+}

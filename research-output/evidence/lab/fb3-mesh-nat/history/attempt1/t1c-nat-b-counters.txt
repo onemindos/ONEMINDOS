@@ -1,0 +1,11 @@
+table inet fw {
+	counter wan_new_in {
+		packets 4114 bytes 181186
+	}
+	counter wan_new_fwd {
+		packets 0 bytes 0
+	}
+	counter lan_udp_blocked {
+		packets 0 bytes 0
+	}
+}

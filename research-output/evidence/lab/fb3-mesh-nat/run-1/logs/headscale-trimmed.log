@@ -1,0 +1,70 @@
+2026-11-12T03:09:22-05:00 INF Opening database database=sqlite3 path=/opt/fb3/run/hs/db.sqlite
+2026-11-12T03:09:22-05:00 INF starting headscale commit=c9cf210b8bc84d13177e18b91f555788a44b47b6 version=v0.29.7
+2026-11-12T03:09:22-05:00 INF Clients with a lower minimum version will be rejected minimum_version=v1.80
+2026-11-12T03:09:22-05:00 INF HA subnet router health probing enabled interval=10000 timeout=5000
+2026-11-12T03:09:22-05:00 INF enabling remote gRPC at 127.0.0.1:50443
+2026-11-12T03:09:22-05:00 INF listening and serving gRPC on: 127.0.0.1:50443
+2026-11-12T03:09:22-05:00 INF listening and serving HTTP on: 203.0.113.10:8443
+2026-11-12T03:09:22-05:00 INF listening and serving debug and metrics on: 127.0.0.1:9090
+2026-11-12T03:09:23-05:00 INF http request bytes=18 elapsed=0.060709 method=GET path=/health proto=HTTP/1.1 remote=203.0.113.10:38064 status=200
+2026-11-12T03:09:23-05:00 INF http request bytes=18 elapsed=0.031917 method=GET path=/health proto=HTTP/1.1 remote=203.0.113.10:38070 status=200
+2026-11-12T03:09:23-05:00 INF user created user.name=onemind
+2026-11-12T03:09:24-05:00 INF http request bytes=176 elapsed=0.058042 method=GET path=/key proto=HTTP/1.1 remote=203.0.113.10:38084 status=200
+2026-11-12T03:09:25-05:00 INF http request bytes=254 elapsed=870.072603 method=POST path=/machine/register proto=HTTP/2.0 remote=203.0.113.10:38086 status=200
+2026-11-12T03:09:25-05:00 INF http request bytes=0 elapsed=500.188393 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.10:38086 status=200
+2026-11-12T03:09:26-05:00 INF node connected machine.key=[<k>] node.expired=false node.id=1 node.is_tagged=true node.key=[<k>] node.name=hub node.online=true node.tags=["tag:hub"]
+2026-11-12T03:09:26-05:00 INF ../../../../../../../../home/runner/work/headscale/headscale/hscontrol/poll.go:293 > node has connected chan=0x6d4411f84ee0 component=poll machine.key=[<k>] node.expired=false node.id=1 node.is_tagged=true node.key=[<k>] node.name=hub node.online=false node.tags=["tag:hub"] omit_peers=false stream=true
+2026-11-12T03:09:26-05:00 INF http request bytes=0 elapsed=484.976607 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.10:38086 status=200
+2026-11-12T03:09:29-05:00 INF http request bytes=0 elapsed=496.996175 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.10:38086 status=200
+2026-11-12T03:09:30-05:00 INF http request bytes=0 elapsed=499.852973 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.10:38086 status=200
+2026-11-12T03:09:32-05:00 INF http request bytes=176 elapsed=0.06125 method=GET path=/key proto=HTTP/1.1 remote=203.0.113.21:46882 status=200
+2026-11-12T03:09:34-05:00 INF http request bytes=254 elapsed=839.771441 method=POST path=/machine/register proto=HTTP/2.0 remote=203.0.113.21:46894 status=200
+2026-11-12T03:09:35-05:00 INF http request bytes=0 elapsed=419.657074 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.21:46894 status=200
+2026-11-12T03:09:35-05:00 INF node connected machine.key=[<k>] node.expired=false node.id=2 node.is_tagged=true node.key=[<k>] node.name=home-a node.online=true node.tags=["tag:leaf"]
+2026-11-12T03:09:35-05:00 INF ../../../../../../../../home/runner/work/headscale/headscale/hscontrol/poll.go:293 > node has connected chan=0x6d4411e13420 component=poll machine.key=[<k>] node.expired=false node.id=2 node.is_tagged=true node.key=[<k>] node.name=home-a node.online=false node.tags=["tag:leaf"] omit_peers=false stream=true
+2026-11-12T03:09:35-05:00 INF http request bytes=176 elapsed=0.060542 method=GET path=/key proto=HTTP/1.1 remote=203.0.113.22:50076 status=200
+2026-11-12T03:09:36-05:00 INF http request bytes=0 elapsed=411.307762 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.21:46894 status=200
+2026-11-12T03:09:36-05:00 INF http request bytes=0 elapsed=436.25407 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.21:46894 status=200
+2026-11-12T03:09:37-05:00 INF http request bytes=254 elapsed=896.569239 method=POST path=/machine/register proto=HTTP/2.0 remote=203.0.113.22:50082 status=200
+2026-11-12T03:09:38-05:00 INF http request bytes=0 elapsed=427.06909 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.22:50082 status=200
+2026-11-12T03:09:38-05:00 INF node connected machine.key=[<k>] node.expired=false node.id=3 node.is_tagged=true node.key=[<k>] node.name=home-b node.online=true node.tags=["tag:leaf"]
+2026-11-12T03:09:38-05:00 INF ../../../../../../../../home/runner/work/headscale/headscale/hscontrol/poll.go:293 > node has connected chan=0x6d4411e13dc0 component=poll machine.key=[<k>] node.expired=false node.id=3 node.is_tagged=true node.key=[<k>] node.name=home-b node.online=false node.tags=["tag:leaf"] omit_peers=false stream=true
+2026-11-12T03:09:39-05:00 INF http request bytes=0 elapsed=423.226039 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.22:50082 status=200
+2026-11-12T03:09:39-05:00 INF http request bytes=176 elapsed=0.054583 method=GET path=/key proto=HTTP/1.1 remote=203.0.113.21:33492 status=200
+2026-11-12T03:09:39-05:00 INF http request bytes=0 elapsed=429.095302 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.22:50082 status=200
+2026-11-12T03:09:40-05:00 INF http request bytes=215 elapsed=75.258844 method=POST path=/machine/register proto=HTTP/2.0 remote=203.0.113.21:33506 status=200
+2026-11-12T03:09:40-05:00 INF http request bytes=0 elapsed=218.882973 method=POST path=/ts2021 proto=HTTP/1.1 remote=203.0.113.21:33506 status=101
+2026-11-12T03:10:43-05:00 INF http request bytes=0 elapsed=53.544039 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.10:38086 status=200
+2026-11-12T03:11:52-05:00 INF http request bytes=0 elapsed=450.996639 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.10:38086 status=200
+2026-11-12T03:14:47-05:00 INF http request bytes=0 elapsed=26.643225 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.21:46894 status=200
+2026-11-12T03:15:06-05:00 INF http request bytes=0 elapsed=192.826126 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.22:50082 status=200
+2026-11-12T03:15:10-05:00 INF http request bytes=0 elapsed=90.550821 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.21:46894 status=200
+2026-11-12T03:21:20-05:00 INF http request bytes=0 elapsed=245.378393 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.22:50082 status=200
+2026-11-12T03:29:00-05:00 INF http request bytes=0 elapsed=1175736.496976 method=POST path=/ts2021 proto=HTTP/1.1 remote=203.0.113.10:38086 status=101
+2026-11-12T03:29:10-05:00 INF node disconnected machine.key=[<k>] node.expired=false node.id=1 node.is_tagged=true node.key=[<k>] node.name=hub node.online=false node.tags=["tag:hub"]
+2026-11-12T03:29:10-05:00 INF ../../../../../../../../home/runner/work/headscale/headscale/hscontrol/poll.go:246 > node has disconnected chan=0x6d4411f84ee0 component=poll machine.key=[<k>] node.expired=false node.id=1 node.is_tagged=true node.key=[<k>] node.name=hub node.online=false node.tags=["tag:hub"] omit_peers=false stream=true
+2026-11-12T03:29:10-05:00 INF http request bytes=9746 elapsed=1185271.44226 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.10:38086 status=200
+2026-11-12T03:43:35-05:00 INF http request bytes=0 elapsed=2039578.111259 method=POST path=/ts2021 proto=HTTP/1.1 remote=203.0.113.22:50082 status=101
+2026-11-12T03:43:46-05:00 INF node disconnected machine.key=[<k>] node.expired=false node.id=3 node.is_tagged=true node.key=[<k>] node.name=home-b node.online=false node.tags=["tag:leaf"]
+2026-11-12T03:43:46-05:00 INF ../../../../../../../../home/runner/work/headscale/headscale/hscontrol/poll.go:246 > node has disconnected chan=0x6d4411e13dc0 component=poll machine.key=[<k>] node.expired=false node.id=3 node.is_tagged=true node.key=[<k>] node.name=home-b node.online=false node.tags=["tag:leaf"] omit_peers=false stream=true
+2026-11-12T03:43:46-05:00 INF http request bytes=5805 elapsed=2048611.182066 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.22:50082 status=200
+2026-11-12T03:44:22-05:00 INF cleaning up node that has been offline for too long node.id=1 offline_duration=900000
+2026-11-12T03:44:22-05:00 INF completed cleanup of long-offline nodes cleaned_nodes=1
+2026-11-12T03:45:40-05:00 INF http request bytes=0 elapsed=2167484.794619 method=POST path=/ts2021 proto=HTTP/1.1 remote=203.0.113.21:46894 status=101
+2026-11-12T03:45:51-05:00 INF node disconnected machine.key=[<k>] node.expired=false node.id=2 node.is_tagged=true node.key=[<k>] node.name=home-a node.online=false node.tags=["tag:leaf"]
+2026-11-12T03:45:51-05:00 INF ../../../../../../../../home/runner/work/headscale/headscale/hscontrol/poll.go:246 > node has disconnected chan=0x6d4411e13420 component=poll machine.key=[<k>] node.expired=false node.id=2 node.is_tagged=true node.key=[<k>] node.name=home-a node.online=false node.tags=["tag:leaf"] omit_peers=false stream=true
+2026-11-12T03:45:51-05:00 INF http request bytes=7834 elapsed=2176630.611838 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.21:46894 status=200
+2026-11-12T03:59:01-05:00 INF node connected machine.key=[<k>] node.expired=false node.id=1 node.is_tagged=true node.key=[<k>] node.name=hub node.online=true node.tags=["tag:hub"]
+2026-11-12T03:59:01-05:00 INF ../../../../../../../../home/runner/work/headscale/headscale/hscontrol/poll.go:293 > node has connected chan=0x6d4411f84f50 component=poll machine.key=[<k>] node.expired=false node.id=1 node.is_tagged=true node.key=[<k>] node.name=hub node.online=false node.tags=["tag:hub"] omit_peers=false stream=true
+2026-11-12T03:59:02-05:00 INF http request bytes=0 elapsed=426.53 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.22:45298 status=200
+2026-11-12T03:59:07-05:00 INF http request bytes=0 elapsed=106.471599 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.21:40618 status=200
+2026-11-12T03:59:22-05:00 INF cleaning up node that has been offline for too long node.id=3 offline_duration=900000
+2026-11-12T03:59:22-05:00 INF completed cleanup of long-offline nodes cleaned_nodes=1
+2026-11-12T03:59:22-05:00 INF http request bytes=0 elapsed=498.241202 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.21:40618 status=200
+2026-11-12T03:59:23-05:00 INF node connected machine.key=[<k>] node.expired=false node.id=2 node.is_tagged=true node.key=[<k>] node.name=home-a node.online=true node.tags=["tag:leaf"]
+2026-11-12T03:59:23-05:00 INF ../../../../../../../../home/runner/work/headscale/headscale/hscontrol/poll.go:293 > node has connected chan=0x6d4411e489a0 component=poll machine.key=[<k>] node.expired=false node.id=2 node.is_tagged=true node.key=[<k>] node.name=home-a node.online=false node.tags=["tag:leaf"] omit_peers=false stream=true
+2026-11-12T03:59:23-05:00 INF http request bytes=0 elapsed=442.572667 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.21:40618 status=200
+2026-11-12T03:59:23-05:00 INF http request bytes=0 elapsed=284.620143 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.22:45298 status=200
+2026-11-12T03:59:23-05:00 INF http request bytes=0 elapsed=440.073446 method=POST path=/machine/map proto=HTTP/2.0 remote=203.0.113.22:45298 status=200
+2026-11-12T03:59:29-05:00 INF node connected machine.key=[<k>] node.expired=false node.id=3 node.is_tagged=true node.key=[<k>] node.name=home-b node.online=true node.tags=["tag:leaf"]
+2026-11-12T03:59:29-05:00 INF ../../../../../../../../home/runner/work/headscale/headscale/hscontrol/poll.go:293 > node has connected chan=0x6d4411dc4e00 component=poll machine.key=[<k>] node.expired=false node.id=3 node.is_tagged=true node.key=[<k>] node.name=home-b node.online=false node.tags=["tag:leaf"] omit_peers=false stream=true

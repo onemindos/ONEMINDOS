@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-12T07:17:49Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "ghcr.io/home-assistant/home-assistant:2026.11.1@sha256:6785d1eca68747a524c156faae1b139ed415c07357386ae6fe17291986e59e82",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 4,
+        "critical": 5,
+        "high": 62
+      },
+      "clamav": {
+        "signatures": "daily-28180",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "Apache-2.0",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

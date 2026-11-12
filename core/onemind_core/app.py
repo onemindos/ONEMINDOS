@@ -26,9 +26,11 @@ from .events import EventHub
 from .executors import Executor, NoopExecutor, make_executor
 from .ledger import ActionRepository, SqlActionRepository
 from .nodes import NodeRegistry
+from .policy import SandboxSettings
 from .routers import Register
 from .routers import actions as actions_routes
 from .routers import apps as apps_routes
+from .routers import guard as guard_routes
 from .routers import identity as identity_routes
 from .routers import instance as instance_routes
 from .routers import mcp as mcp_routes
@@ -43,6 +45,7 @@ log = logging.getLogger("onemind.gateway")
 
 # The router registry. Order is route order (and /openapi.json order); static must stay last.
 ROUTERS: list[Register] = [
+    guard_routes.register,  # limits and security headers; adds no routes
     instance_routes.register,
     nodes_routes.register,
     apps_routes.register,
@@ -78,7 +81,9 @@ def create_app(
     owns_engine = engine is None
     db = Database(engine if engine is not None else ledger.make_engine(settings.db_url))
     migrate(db.engine)
-    executor = executor or make_executor(settings.executor, settings.kubectl, settings.executor_timeout_s)
+    executor = executor or make_executor(
+        settings.executor, settings.kubectl, settings.executor_timeout_s, settings.section(SandboxSettings)
+    )
     # §11.1: the scan check is skipped only on explicit request, and only when nothing real runs.
     skip_scan = settings.allow_unscanned and settings.executor == "noop" and isinstance(executor, NoopExecutor)
     if settings.allow_unscanned and not skip_scan:

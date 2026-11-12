@@ -1,0 +1,9 @@
+02:49:23.944569 IP 203.0.113.10.443 > 198.51.100.10.55914: Flags [P.], seq 1967800538:1967800695, ack 3889685860, win 639, options [nop,nop,TS val 1440478534 ecr 1511292734], length 157
+02:49:27.357671 IP 203.0.113.10.443 > 198.51.100.10.55914: Flags [P.], seq 157:184, ack 1, win 639, options [nop,nop,TS val 1440481944 ecr 1511352756], length 27
+02:49:37.789121 IP 203.0.113.10.8443 > 198.51.100.10.54632: Flags [.], ack 9592397, win 635, options [nop,nop,TS val 2982157559 ecr 1845621254], length 0
+02:49:38.331767 IP 203.0.113.10.8443 > 198.51.100.10.54632: Flags [.], ack 1, win 635, options [nop,nop,TS val 2982158102 ecr 1845636360], length 0
+02:49:39.292071 ARP, Reply 198.51.100.1 is-at ea:50:2d:3f:37:ce, length 28
+02:49:52.891373 IP 203.0.113.10.8443 > 198.51.100.10.54632: Flags [.], ack 1, win 635, options [nop,nop,TS val 2982172664 ecr 1845636360], length 0
+02:49:57.534742 IP 203.0.113.10.443 > 198.51.100.10.55914: Flags [.], ack 1, win 639, options [nop,nop,TS val 1440512119 ecr 1511356169], length 0
+02:50:00.797325 IP6 fe80::<ll> > ff02::2: ICMP6, router solicitation, length 16
+

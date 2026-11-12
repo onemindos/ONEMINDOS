@@ -10,8 +10,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-# Exactly the contract section 3 error codes. Cases the contract has no code for are mapped onto
-# these (see install_handlers and the README's "v0 deviations"); adding a code needs a contract PR.
+# The contract section 3 error codes plus the §12.2 codes this gateway sends so far
+# (rate_limited, payload_too_large, policy_refused). Cases the contract has no code for are
+# mapped onto these (see install_handlers and the README's "v0 deviations"); adding a code needs
+# a contract PR.
 ERROR_CODES = {
     "permission_denied",
     "stale_precondition",
@@ -20,7 +22,9 @@ ERROR_CODES = {
     "outcome_unknown",
     "not_found",
     "unauthenticated",
-    "rate_limited",  # §12.2
+    "rate_limited",
+    "payload_too_large",
+    "policy_refused",
 }
 
 
@@ -29,19 +33,24 @@ class ErrorBody(BaseModel):
 
     error: Literal[
         "permission_denied", "stale_precondition", "expired", "conflict",
-        "outcome_unknown", "not_found", "unauthenticated", "rate_limited",
+        "outcome_unknown", "not_found", "unauthenticated",
+        "rate_limited", "payload_too_large", "policy_refused",
     ]
     message: str
-    reason: str | None = None  # §12.2: optional, open-ended; clients branch on `error` only
+    # §12.2 optional fields; present only when they carry something.
+    reason: str | None = None
+    details: list[dict] | None = None
+    retry_after_s: int | None = None
 
 
 _DESCRIPTIONS = {
     401: "Missing or unknown bearer token (unauthenticated)",
     403: "The principal may not do this (permission_denied)",
     404: "No such resource (not_found)",
-    409: "stale_precondition, expired or conflict",
+    409: "stale_precondition, expired, conflict or policy_refused",
+    413: "Request body over its limit (payload_too_large)",
     422: "Request failed validation (conflict, with the bad fields in message)",
-    429: "Too many attempts; retry after Retry-After seconds (rate_limited)",
+    429: "Too many attempts, a rate limit or the pending-action cap (rate_limited); see Retry-After",
 }
 
 
@@ -52,7 +61,8 @@ def error_responses(*statuses: int) -> dict[int, dict]:
 
 class ApiError(Exception):
     def __init__(
-        self, status: int, error: str, message: str, *, reason: str | None = None, retry_after_s: int | None = None
+        self, status: int, error: str, message: str, *,
+        reason: str | None = None, details: list[dict] | None = None, retry_after_s: int | None = None,
     ):
         assert error in ERROR_CODES, error
         super().__init__(message)
@@ -60,16 +70,22 @@ class ApiError(Exception):
         self.error = error
         self.message = message
         self.reason = reason
+        self.details = details
         self.retry_after_s = retry_after_s
 
 
 def error_response(
-    status: int, error: str, message: str, *, reason: str | None = None, retry_after_s: int | None = None
+    status: int, error: str, message: str, *,
+    reason: str | None = None, details: list[dict] | None = None, retry_after_s: int | None = None,
 ) -> JSONResponse:
     body: dict = {"error": error, "message": message}
-    headers = {"WWW-Authenticate": "Bearer"} if status == 401 else {}
+    headers: dict[str, str] = {}
+    if status == 401:
+        headers["WWW-Authenticate"] = "Bearer"
     if reason is not None:
         body["reason"] = reason
+    if details is not None:
+        body["details"] = details
     if retry_after_s is not None:
         body["retry_after_s"] = retry_after_s
         headers["Retry-After"] = str(retry_after_s)
@@ -79,7 +95,10 @@ def error_response(
 def install_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, exc: ApiError):
-        return error_response(exc.status, exc.error, exc.message, reason=exc.reason, retry_after_s=exc.retry_after_s)
+        return error_response(
+            exc.status, exc.error, exc.message,
+            reason=exc.reason, details=exc.details, retry_after_s=exc.retry_after_s,
+        )
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError):
