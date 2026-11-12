@@ -7,23 +7,81 @@ A plain-language record of everything added to this repo, newest first.
 
 ## Unreleased / in progress
 
-Branches with work that is not on `main` yet (as of 2026-11-12):
+Branches with work that is not on `main` yet (as of 2026-11-12). The five open PRs are stacked: merge #40, #41, #44, #48, then #54.
 
 | Branch | PR | What it adds |
 |---|---|---|
-| `docs/learning-what-we-built` | – | Learning lessons 07–16 for the founder: what was built this week and why (image and A/B updates with the health gate, security pipeline and TUF, gateway approvals, agents and MCP, app pipeline and scan gate, mesh and the FB-3 lab, backups, identity and passkeys, notifications, design system and dashboard, testing), each with diagrams, links to the code and "try it" steps checked against `main`, plus an index at `docs/learning/README.md` |
-| `feat/core-plumbing` | – | Core plumbing so streams add features without editing the same lines (no behaviour change; OpenAPI and CLI output identical): gateway routes split into `core/onemind_core/routers/` with one registry in `app.py`; per-feature tables and versioned upgrade steps (`store.py`); per-feature `ONEMIND_<FEATURE>_*` settings sections; `publish_event` (audit log + NATS `onemind.event.<type>` + in-process subscribers); `onemind` commands in `cmd/onemind/cli/<group>.go`; `onemindd` subcommand and optional-service registry (`internal/service`). Guide: [`docs/leap/core/PLUMBING.md`](docs/leap/core/PLUMBING.md) |
-| `feat/sec-p0` | – | Security P0: the install sandbox (one rule file `sdk/policy/app-objects.yaml`; the gateway renders, checks every object and applies exactly what it checked; app namespaces `restricted`; default-deny network per app; 28 malicious fixtures refused), the gateway without cluster-wide Kubernetes rights (admission policy, 24-hour token), k3s Secrets encryption and Pod Security defaults, request limits, the pending-request cap, security headers, and `onemindd` on loopback. Record: [`docs/leap/core/SECURITY.md`](docs/leap/core/SECURITY.md) §7a |
-| `feat/identity` | – | Household identity (contract §12.6): owner, adult, guest and child accounts; first owner from the install token; password + TOTP or passkey sign-in; cookie sessions with CSRF and CLI bearer sessions; passkey step-up on owner approvals; scoped `om_` API tokens with expiry, rotation and revocation; per-app sharing; `GET /v1/me`; every decision audited. Guide: [`docs/leap/core/IDENTITY.md`](docs/leap/core/IDENTITY.md) |
-| `feat/gateway-agent-mcp` | – | Gateway wave 2 (contract §11): scan gate, app agent principals, `/mcp` with 3 tools, new catalog fields, and the dashboard app page with links, licence, tier and last scan |
-| `feat/app-pipeline` | – | App pipeline: manifest fields (§9.3, §11.2), `app-gate` (§9.4 checks, `scan.json`), `app-scaffold`, a full gate with a k3d smoke test in CI, Renovate, a daily rescan, and the wave-2 apps (Hermes, Node-RED, Mosquitto, Vaultwarden, Actual Budget, Zigbee2MQTT) |
-| `feat/deploy-v0` | – | Developer install on Debian (`install.sh --role hub` or `node`), a compose dev hub for a Mac and `verify.sh` contract checks |
-| `feat/core-net` | – | Internal networking and mesh: a WireGuard mesh with a self-hosted Headscale coordinator and relay, NATS leaf links with TLS and per-node credentials, the app reverse proxy with login, a per-box CA, and the NAT lab test |
-| `feat/ui-leap` | – | UI leap: umbrelOS parity audit, customization (themes, accents, wallpapers, density), Home with widgets and dock, App Store with install progress and app management, command palette, notifications, onboarding, and Settings |
-| `feat/notify-monitor` | – | Notifications and monitoring (contract §12.14, §12.15): an event catalogue fed by events, the action ledger and node outbox events; alerts with dedupe, re-notify, escalation and flap marking; an inbox API; ntfy/UnifiedPush, webhook, e-mail and Web Push (per-box VAPID keys, encrypted, ids only) with per-person routes, quiet hours, digest and rate caps; app health, restarts, crash loops, redacted logs, app and node metrics with threshold alerts; the heartbeat reports CPU, load and temperature |
-| `feat/app-taxonomy` | – | App and deployment categories (`docs/design/TAXONOMY.md`), applied to the candidate list |
+| `feat/sec-p0` | [#40](https://github.com/onemindos/ONEMINDOS/pull/40) | Security P0: the install sandbox (one rule file `sdk/policy/app-objects.yaml`; the gateway renders, checks every object and applies exactly what it checked; app namespaces `restricted`; default-deny network per app; 28 malicious fixtures refused), the gateway without cluster-wide Kubernetes rights (admission policy, 24-hour token), k3s Secrets encryption and Pod Security defaults, request limits, the pending-request cap, security headers, and `onemindd` on loopback. Record: [`docs/leap/core/SECURITY.md`](docs/leap/core/SECURITY.md) §7a |
+| `feat/identity` | [#41](https://github.com/onemindos/ONEMINDOS/pull/41) | Household identity (contract §12.6): owner, adult, guest and child accounts; first owner from the install token; password + TOTP or passkey sign-in; cookie sessions with CSRF and CLI bearer sessions; passkey step-up on owner approvals; scoped `om_` API tokens with expiry, rotation and revocation; per-app sharing; `GET /v1/me`; every decision audited. Guide: [`docs/leap/core/IDENTITY.md`](docs/leap/core/IDENTITY.md) |
+| `feat/notify-monitor` | [#44](https://github.com/onemindos/ONEMINDOS/pull/44) | Notifications and monitoring (contract §12.14, §12.15): an event catalogue fed by events, the action ledger and node outbox events; alerts with dedupe, re-notify, escalation and flap marking; an inbox API; ntfy/UnifiedPush, webhook, e-mail and Web Push (per-box VAPID keys, encrypted, ids only) with per-person routes, quiet hours, digest and rate caps; app health, restarts, crash loops, redacted logs, app and node metrics with threshold alerts; the heartbeat reports CPU, load and temperature |
+| `feat/devsurface` | [#48](https://github.com/onemindos/ONEMINDOS/pull/48) | The developer surface: stable operation ids and the committed OpenAPI spec, the audit read API and the live events stream (§12.8, §12.16), the MCP catalogue v1, generated TypeScript, Python and Go SDKs with one conformance suite, and the `onemind` CLI on cobra with an `onemind mcp` stdio bridge |
+| `feat/e2e-golden-path` | [#54](https://github.com/onemindos/ONEMINDOS/pull/54) | The golden-path end-to-end suite on a real hub: `install.sh` in a Debian 13 VM (Lima or QEMU), the dashboard and an MCP agent driven by Playwright, the audit chain re-verified, `verify.sh`; on PRs and nightly |
 
 ## 2026-11-12
+
+### [#50](https://github.com/onemindos/ONEMINDOS/pull/50) Learning lessons 07–16
+- `docs/learning/` gains ten lessons for the founder on what the first build week made and why: the image and A/B updates with the health gate, the security pipeline and TUF, the gateway and MCP, the app pipeline and scan gate, the mesh, backups, identity, notifications, the design system, and the testing strategy. Each has diagrams, links to the code on `main`, try-it steps and self-check questions.
+- Work that is only designed, or only in an open PR, is labelled as such.
+
+### [#45](https://github.com/onemindos/ONEMINDOS/pull/45) Next wave plan and merge ownership
+- `docs/leap/` names one owner for every unmerged branch and what it waits for, and plans wave G in order: image integration, a full CI run, security re-review, a second slop pass, a parity re-score, clients, the Market, the fabric and alpha readiness.
+- Founder blockers listed: F-25, F-27, F-7 and F-5.
+
+### [#39](https://github.com/onemindos/ONEMINDOS/pull/39) Contract §12: the phase-B interfaces become binding
+- `sdk/contracts/poc-v0.md` §12 now fixes the names and shapes for conventions and errors, risk classes and approvals, the action-type registry, identity, HTTPS, the events stream, NATS, heartbeat objects, fabric, backups, OS updates, notifications, monitoring, audit, automation, deployments, MCP additions and the CLI.
+- Where the draft and the leap specs disagreed, the API.md names win. Docs only.
+
+### [#38](https://github.com/onemindos/ONEMINDOS/pull/38) Core plumbing: one-line feature registration
+- The gateway's routes move into `core/onemind_core/routers/` with one `ROUTERS` registry; features get their own tables with numbered upgrade steps, typed settings sections, and `publish_event` (audit log, NATS `onemind.event.<domain>.<name>` and in-process listeners).
+- `onemind` commands move to one file per group in `cmd/onemind/cli/`, and `onemindd` gains a registry for optional services so one failing service never stops the heartbeat.
+- No behaviour change: `/openapi.json`, the route table and the CLI output are identical. Guide: `docs/leap/core/PLUMBING.md`.
+
+### [#37](https://github.com/onemindos/ONEMINDOS/pull/37) Mesh networking, part 1
+- Lab FB-3 passed 6 of 6: two homes behind separate NATs joined with one-time keys and no open ports, fell back to our own relay within 10 s when UDP was blocked, and kept every NATS event in order through a 30-minute hub outage.
+- New modules, not wired in yet (that is part 2): `internal/mesh` (Headscale enrolment and state), the NATS leaf over the mesh, a gateway mesh client, the app reverse proxy and the per-box CA. Design: `docs/architecture/NETWORKING.md`.
+
+### [#36](https://github.com/onemindos/ONEMINDOS/pull/36) OneMind logo
+- `brand/` holds the founder's logo in four variants (colour, on-dark, white, black) as SVG and PNG at seven sizes, all with transparent backgrounds, and a README on colours, where each variant goes and the trademark note.
+
+### [#34](https://github.com/onemindos/ONEMINDOS/pull/34) Phone photo backup
+- `mobile/` backs up photos in the background, resumes instead of restarting, skips duplicates by hash, and can wait for Wi-Fi or charging. A photo counts only after the box confirms its bytes, and the phone frees space only for photos in a verified backup.
+- Tested against a mock server (65 tests); the box side of the protocol (`mobile/docs/photos-backup-api.md`) is still to build.
+
+### [#33](https://github.com/onemindos/ONEMINDOS/pull/33) Desktop client for Mac and Windows
+- `desktop/` (Tauri 2) is a tray app that finds boxes by mDNS or URL, pairs with a token kept in the OS keychain, shows nodes, approvals, updates and backups, opens the dashboard and raises native approval notifications.
+- CI builds it for macOS and Windows.
+
+### [#32](https://github.com/onemindos/ONEMINDOS/pull/32) Backup agent
+- `internal/backup` runs restic (checksum verified) hourly into encrypted repositories, keeps 24 hourly, 7 daily, 4 weekly and 12 monthly copies, and writes to USB, another box over the mesh (append-only) or S3.
+- Rewind browses and restores single files, and an automatic restore test into a scratch folder sets the "last verified restore" badge. Not wired into `onemindd` yet.
+
+### [#31](https://github.com/onemindos/ONEMINDOS/pull/31) Storage health, first slice
+- `internal/storage` and `onemind storage` list the disks and their roles, read SMART health, temperature and wear, show the btrfs mirror state, and print dry-run plans to create, grow, replace or shrink a mirror.
+- Nothing that changes a disk runs yet; those become approval-gated actions. A VM lab built a real mirror, pulled a disk and resynced.
+
+### [#30](https://github.com/onemindos/ONEMINDOS/pull/30) umbrelOS 2 study
+- `docs/umbrel2/` studies umbrelOS 2 in ten areas (desktop, clients, photos, virtual machines, agents, accounts, storage, files and backups, apps, updates): how it works, what we have, how we beat it, and the epics. We read and described it and copied no code, text or assets (PolyForm Noncommercial).
+- Adds the UMB epics to the backlog and status, and new founder questions to DECISIONS-NEEDED.
+
+### [#29](https://github.com/onemindos/ONEMINDOS/pull/29) UI leap
+- `ui/` (`@onemind/ui`) gains customization (themes, accents, wallpapers, density, font size), a Home launcher with a widget grid and dock, an App Store and app manager with live install progress, a command palette, a notification centre, a first-run wizard and the Settings screens.
+- `docs/strategy/umbrel-parity.md` compares umbrelOS screen by screen (patterns only) and ranks the gaps; a design critique fixed 18 of 26 defects. The live dashboard moves onto it next.
+
+### [#28](https://github.com/onemindos/ONEMINDOS/pull/28) App and deployment taxonomy
+- `docs/design/TAXONOMY.md` defines 16 Market categories (mapped from every competitor store), the deployment classes (core, verified, community, list-only, private, plugin) and the placement facets (hub or worker, archs, GPU, radios, storage, exposure, update channel).
+- `apps/_intake/candidates.csv` gains those columns, generated by a committed script.
+
+### [#26](https://github.com/onemindos/ONEMINDOS/pull/26) Developer install, compose hub and verify kit
+- `deploy/install.sh --role hub|node` puts k3s (pinned), NATS, the gateway, the dashboard and `onemindd` on stock Debian 13, Raspberry Pi OS, Jetson L4T or a droplet; labelled an unsupported developer install with no OS rollback.
+- `deploy/compose/` runs a dev hub on a Mac, and `deploy/verify/verify.sh` checks a hub against the contract. Review fixed a verify script that could run code from a malicious hub.
+
+### [#25](https://github.com/onemindos/ONEMINDOS/pull/25) App pipeline and the wave-2 apps
+- `sdk/tools/app-scaffold`, `app-gate` (licence, pins, Trivy, ClamAV, secrets, cosign, kubeconform and a k3d smoke test, writing `scan.json`) and `app-readme`; CI gates changed apps, rescans daily and Renovate pins digests.
+- Gate results: ntfy, Vaultwarden, Actual Budget and Zigbee2MQTT verified; the Hermes agent, Uptime Kuma, Home Assistant and Node-RED blocked until upstream fixes critical CVEs in their latest images; Mosquitto unblocked after a licence false match.
+
+### [#24](https://github.com/onemindos/ONEMINDOS/pull/24) Gateway wave 2: scan gate, agent principals and MCP
+- Approving an install now needs a passing, recent `scan.json`; apps can have their own agent principal (token stored hashed, revoked on remove); `POST /mcp` gives agents `list_nodes`, `list_apps` and `request_action`, and no approve tool.
+- The dashboard shows links, licence, tier and last scan, and gains an app page.
 
 ### [#22](https://github.com/onemindos/ONEMINDOS/pull/22) Market candidate list from competitor stores
 - `apps/_intake/candidates.csv` and `CANDIDATES.md`: 1,199 unique upstream apps drawn from 7 competitor stores (umbrel, Olares, CasaOS, Runtipi, YunoHost, Cosmos, Coolify), facts only. Each app's licence, stars, archived flag and latest release were checked on GitHub.
