@@ -12,11 +12,9 @@ Over the order L1 < L2 < blocked that is a distributive lattice (OR = min, AND =
 - anything that is not a well-formed expression is blocked (fail closed), and no input raises;
 - gate(): without a research-matrix row, GitHub's one confirmed term caps the class, so
   "MIT OR <GitHub's licence>" can never lift a copyleft or blocked licence (§9.4);
-- normalise(), which drops notes such as "MIT (test data)" before a matrix row is compared, keeps
-  the class of an expression written the usual way.
+- normalise() preserves SPDX grouping; prose notes cannot confirm a different expression.
 
-Known gap, a strict xfail (docs/testing/PROPERTY-AND-FUZZ.md, finding F-LIC-1): normalise() also
-drops a parenthesised single id, "(MIT)", so a matrix row confirms a different expression.
+Regression F-LIC-1: parenthesised single ids must survive research-matrix normalization.
 """
 
 from __future__ import annotations
@@ -226,9 +224,31 @@ def test_normalise_keeps_the_class(t):
     assert licence.classify(licence.normalise(minimal(t))) == licence.classify(minimal(t)), minimal(t)
 
 
-@pytest.mark.xfail(strict=True, reason="finding F-LIC-1: normalise() drops '(MIT)' as if it were a note")
 def test_a_matrix_row_confirms_only_its_own_expression():
     """The repo's matrix row says AGPL or a commercial licence; the manifest claims MIT or Apache.
     Both normalise to "OR", so the row 'confirms' the manifest and the gate answers L1."""
     row = {"SPDX": "(AGPL-3.0) OR (LicenseRef-commercial)", "component": "example", "version": "1.0"}
     assert licence.gate("(MIT) OR (Apache-2.0)", None, [row])[0] == "blocked"
+
+
+@pytest.mark.parametrize("expr", ["MIT!", "!MIT", "MIT OR Apache-2.0?", "MIT;", "MIT/Apache-2.0"])
+def test_unparsed_punctuation_is_blocked(expr):
+    assert licence.classify(expr) == "blocked"
+
+
+@budget(100)
+@given(expr=exprs, punctuation=st.sampled_from(["!", "?", ";", "/", "\x00", "☃"]))
+def test_punctuation_cannot_be_discarded(expr, punctuation):
+    assert licence.classify(punctuation + expr) == "blocked"
+    assert licence.classify(expr + punctuation) == "blocked"
+
+
+@pytest.mark.parametrize("expr", ["(MIT)", "(LicenseRef-commercial)", "(MIT) OR (Apache-2.0)",
+                                  "MIT AND (Apache-2.0 OR GPL-3.0)"])
+def test_normalise_preserves_spdx_groups(expr):
+    assert licence.normalise(expr) == expr
+
+
+def test_research_prose_is_not_a_different_expression_confirmation():
+    row = {"SPDX": "MIT (test data)", "component": "example", "version": "1"}
+    assert licence.gate("MIT", None, [row])[0] == "blocked"

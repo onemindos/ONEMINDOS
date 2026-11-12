@@ -373,7 +373,6 @@ def _deployment(pod_sc: dict | None = None, **container_sc) -> list[dict]:
     return [{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "d"}, "spec": {"template": {"spec": pod}}}]
 
 
-@pytest.mark.xfail(strict=True, reason="finding F-SBX-1: the checker does not mirror these PSA fields")
 @pytest.mark.parametrize("objs", [
     _deployment({"runAsUser": 0}),  # restricted: runAsUser must not be 0, pod level included
     _deployment({"seccompProfile": {"type": "Unconfined"}}),  # baseline: never Unconfined
@@ -384,3 +383,36 @@ def _deployment(pod_sc: dict | None = None, **container_sc) -> list[dict]:
 ], ids=["pod-runAsUser-0", "pod-seccomp-unconfined", "procMount", "apparmor", "selinux", "sysctls"])
 def test_psa_fields_are_refused_before_apply(objs):
     assert policy.check_objects(objs, "demo", {}, RULES) != []
+
+
+@pytest.mark.parametrize("field,value,rule", [
+    ("seccompProfile", {"type": "Unconfined"}, "F-09"),
+    ("appArmorProfile", {"type": "Unconfined"}, "F-11"),
+    ("seLinuxOptions", {"type": "spc_t"}, "F-12"),
+    ("seLinuxOptions", {"user": "root"}, "F-12"),
+    ("seLinuxOptions", {"role": "sysadm_r"}, "F-12"),
+])
+@pytest.mark.parametrize("level", ["baseline", "restricted"])
+@pytest.mark.parametrize("location", ["pod", "containers", "initContainers", "ephemeralContainers"])
+def test_baseline_security_context_checks_every_location(field, value, rule, level, location):
+    objs = _deployment()
+    pod = pod_of(objs[0])
+    if location == "pod":
+        pod.setdefault("securityContext", {})[field] = value
+    else:
+        if location != "containers":
+            pod[location] = [copy.deepcopy(pod["containers"][0])]
+        pod[location][0]["securityContext"][field] = value
+    app = BASELINE[0][0] if level == "baseline" else "demo"
+    assert_refused(policy.check_objects(objs, app, {}, RULES), objs, 0, rule)
+
+
+@pytest.mark.parametrize("level", ["baseline", "restricted"])
+def test_safe_baseline_security_context_values_stay_allowed(level):
+    objs = _deployment({"seccompProfile": {"type": "RuntimeDefault"},
+                        "appArmorProfile": {"type": "Localhost", "localhostProfile": "app"},
+                        "seLinuxOptions": {"type": "container_t"},
+                        "sysctls": [{"name": "kernel.shm_rmid_forced", "value": "1"}]},
+                       procMount="Default")
+    app = BASELINE[0][0] if level == "baseline" else "demo"
+    assert policy.check_objects(objs, app, {}, RULES) == []

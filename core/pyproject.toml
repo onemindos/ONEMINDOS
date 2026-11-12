@@ -56,5 +56,5 @@ packages = ["onemind_core"]
 testpaths = ["tests"]
 markers = [
   "nats: needs a reachable NATS server (ONEMIND_TEST_NATS_URL)",
-  "postgres: needs a reachable PostgreSQL (ONEMIND_TEST_PG_URL)",
+  "postgres: needs a reachable PostgreSQL (ONEMIND_TEST_DB_URL)",
 ]

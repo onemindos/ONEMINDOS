@@ -230,6 +230,17 @@ RESTRICTED_VOLUMES = frozenset({
     "configMap", "csi", "downwardAPI", "emptyDir", "ephemeral", "persistentVolumeClaim", "projected", "secret",
 })
 _NOT_VOLUME_TYPES = frozenset({"name"})
+# https://kubernetes.io/docs/concepts/security/pod-security-standards/ (baseline, v1.37).
+# These checks run at both levels;
+# an explicit forbidden pod-level value is not excused by a container override.
+BASELINE_SELINUX_TYPES = frozenset({"container_t", "container_init_t", "container_kvm_t", "container_engine_t"})
+BASELINE_SYSCTLS = frozenset({
+    "kernel.shm_rmid_forced", "net.ipv4.ip_local_port_range", "net.ipv4.ip_unprivileged_port_start",
+    "net.ipv4.tcp_syncookies", "net.ipv4.ping_group_range", "net.ipv4.ip_local_reserved_ports",
+    "net.ipv4.tcp_keepalive_time", "net.ipv4.tcp_fin_timeout", "net.ipv4.tcp_keepalive_intvl",
+    "net.ipv4.tcp_keepalive_probes", "net.ipv4.tcp_rmem", "net.ipv4.tcp_wmem",
+    "net.ipv4.tcp_slow_start_after_idle", "net.ipv4.tcp_notsent_lowat",
+})
 
 
 def parse_rendered(text: str) -> list[Any]:
@@ -286,10 +297,29 @@ def _check_pod(pod: dict, base: str, level: str, caps_allowed: frozenset[str], r
     def v(rule: str, path: str, extra: str = "") -> None:
         out.append(Violation(rule, kind, name, rules.msg(rule, extra), path))
 
+    def baseline_context(sc: dict, path: str) -> None:
+        for field_, rule in (("seccompProfile", "F-09"), ("appArmorProfile", "F-11")):
+            profile = sc.get(field_)
+            if profile is not None and (not isinstance(profile, dict) or profile.get("type") not in (None, "RuntimeDefault", "Localhost")):
+                v(rule, f"{path}.{field_}")
+        selinux = sc.get("seLinuxOptions")
+        if selinux is not None:
+            if (not isinstance(selinux, dict) or selinux.get("type") not in (None, "", *BASELINE_SELINUX_TYPES)
+                    or selinux.get("user") not in (None, "") or selinux.get("role") not in (None, "")):
+                v("F-12", f"{path}.seLinuxOptions")
+
     for field_, rule in (("hostNetwork", "F-01"), ("hostPID", "F-02"), ("hostIPC", "F-03")):
         if pod.get(field_) is True:
             v(rule, f"{base}.{field_}")
-    psc = pod.get("securityContext") if isinstance(pod.get("securityContext"), dict) else {}
+    psc = pod.get("securityContext")
+    if not isinstance(psc, dict):
+        psc = {}
+    baseline_context(psc, f"{base}.securityContext")
+    if level == "restricted" and psc.get("runAsUser") == 0:
+        v("S-01", f"{base}.securityContext.runAsUser")
+    for i, sysctl in enumerate(psc.get("sysctls") or []):
+        if not isinstance(sysctl, dict) or sysctl.get("name") not in BASELINE_SYSCTLS:
+            v("F-13", f"{base}.securityContext.sysctls[{i}]")
     if (psc.get("windowsOptions") or {}).get("hostProcess") is True:
         v("F-08", f"{base}.securityContext.windowsOptions.hostProcess")
     for i, vol in enumerate(pod.get("volumes") or []):
@@ -305,7 +335,12 @@ def _check_pod(pod: dict, base: str, level: str, caps_allowed: frozenset[str], r
     pod_nonroot = psc.get("runAsNonRoot") is True and psc.get("runAsUser") != 0
     pod_seccomp = (psc.get("seccompProfile") or {}).get("type") in ("RuntimeDefault", "Localhost")
     for c, cpath in _containers(pod, base):
-        csc = c.get("securityContext") if isinstance(c.get("securityContext"), dict) else {}
+        csc = c.get("securityContext")
+        if not isinstance(csc, dict):
+            csc = {}
+        baseline_context(csc, f"{cpath}.securityContext")
+        if csc.get("procMount") not in (None, "Default"):
+            v("F-10", f"{cpath}.securityContext.procMount")
         if (csc.get("windowsOptions") or {}).get("hostProcess") is True:
             v("F-08", f"{cpath}.securityContext.windowsOptions.hostProcess")
         for j, port in enumerate(c.get("ports") or []):

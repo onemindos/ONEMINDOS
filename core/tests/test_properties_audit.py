@@ -9,8 +9,7 @@ What holds for every sequence of audit records Hypothesis generates:
 - after a one-character edit anywhere in the file, verify() either reports it or no record's
   content changed (for example 1e+16 written as 1E+16).
 
-Known gaps, kept as strict xfails so they turn into failures the day they are fixed (and the
-xfail marker must then go): see docs/testing/PROPERTY-AND-FUZZ.md, "Findings".
+Malformed-record regressions cover findings F-AUD-1..3 without expected-failure markers.
 """
 
 from __future__ import annotations
@@ -193,8 +192,6 @@ def test_removing_the_last_record_needs_a_checkpoint(tmp_path):
     assert json.loads(lines[-2])["hash"] != json.loads(lines[-1])["hash"]
 
 
-@pytest.mark.xfail(strict=True, raises=UnicodeDecodeError,
-                   reason="finding F-AUD-1: verify() raises on a byte that is not UTF-8 instead of reporting it")
 def test_a_byte_that_is_not_utf8_is_reported(tmp_path):
     p = tmp_path / "audit.jsonl"
     three_lines(tmp_path)
@@ -205,8 +202,6 @@ def test_a_byte_that_is_not_utf8_is_reported(tmp_path):
     assert (ok, verified) == (False, 0) and reason.startswith("line 1:")
 
 
-@pytest.mark.xfail(strict=True, raises=(AttributeError, TypeError),
-                   reason="finding F-AUD-2: verify() raises on a line that is JSON but not an object")
 @pytest.mark.parametrize("line", ["[]", '"text"', "1", "null"])
 def test_a_line_that_is_json_but_not_an_object_is_reported(tmp_path, line):
     lines = three_lines(tmp_path)
@@ -215,10 +210,23 @@ def test_a_line_that_is_json_but_not_an_object_is_reported(tmp_path, line):
     assert (ok, verified) == (False, 1) and reason.startswith("line 2:")
 
 
-@pytest.mark.xfail(strict=True, reason="finding F-AUD-3: a duplicate key ahead of the real one passes verify()")
 def test_a_duplicate_key_cannot_hide_a_forged_value(tmp_path):
     """Python's json keeps the last of two equal keys, so verify() hashes the real value while a
     reader that keeps the first one (several do) sees the forged event."""
     lines = three_lines(tmp_path)
     lines[1] = '{"event":"action.approved",' + lines[1][1:]
     assert check(lines)[0] is False
+
+
+@pytest.mark.parametrize("bad", [b"[]", b'"text"', b"1", b"null", b"\xff",
+                               b'{"event":"forged","event":"real"}',
+                               b'{"data":{"key":1,"key":2}}'])
+def test_resume_rejects_the_same_ambiguous_records(bad):
+    assert AuditLog._parse_record(bad) is None
+
+
+def test_invalid_utf8_reports_the_verified_prefix(tmp_path):
+    p = tmp_path / "audit.jsonl"
+    lines = three_lines(tmp_path)
+    p.write_bytes(lines[0].encode() + b"\n\xff\n" + lines[2].encode() + b"\n")
+    assert verify(p) == (False, 1, "line 2: not JSON")

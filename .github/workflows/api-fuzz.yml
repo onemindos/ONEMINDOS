@@ -82,6 +82,12 @@ jobs:
           ONEMIND_NODE_ID: fuzz-hub
           ONEMIND_HOST: 127.0.0.1
           ONEMIND_PORT: "8080"
+          # This isolated fuzz gateway tests protocol/authorization, not request throttling.
+          # The production defaults and dedicated test_guard.py coverage stay unchanged.
+          ONEMIND_LIMITS_READ_BURST: "100000"
+          ONEMIND_LIMITS_REQUEST_BURST: "100000"
+          ONEMIND_LIMITS_AUTH_FAILURES_PER_MIN: "100000"
+          ONEMIND_LIMITS_MAX_PENDING: "100000"
         run: |
           nohup .venv/bin/python -m onemind_core > "$FUZZ/gateway.log" 2>&1 &
           for _ in $(seq 1 60); do curl -fsS "$GATEWAY/healthz" >/dev/null 2>&1 && exit 0; sleep 1; done

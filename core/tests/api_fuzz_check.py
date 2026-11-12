@@ -55,6 +55,36 @@ def actions(gateway: str, token: str) -> list[dict]:
     return call(gateway, token, "/v1/actions")
 
 
+def decision_problems(recs: list[dict], listed: list[dict]) -> list[str]:
+    """Independent temporal and ledger/audit oracle, also exercised by negative controls."""
+    problems = []
+    decisions = {}
+    approved, dispatched = set(), set()
+    for r in recs:
+        event, action_id = r["event"], r.get("action_id")
+        if event in ("action.approved", "action.denied"):
+            principal = r.get("principal") or {}
+            if (principal.get("kind"), principal.get("role")) != ("person", "owner"):
+                problems.append(f"seq {r['seq']}: decision by a non-owner")
+            if action_id in decisions:
+                problems.append(f"seq {r['seq']}: duplicate decision")
+            decisions[action_id] = principal
+            if event == "action.approved":
+                approved.add(action_id)
+        if event == "action.dispatched":
+            if action_id not in approved:
+                problems.append(f"seq {r['seq']}: dispatched without an earlier approval")
+            if action_id in dispatched:
+                problems.append(f"seq {r['seq']}: duplicate dispatch")
+            dispatched.add(action_id)
+    ledger = {a["id"]: a for a in listed}
+    for action_id in decisions.keys() | ledger.keys():
+        decider = ledger.get(action_id, {}).get("decided_by")
+        if decisions.get(action_id) != decider or action_id not in ledger:
+            problems.append(f"action {action_id}: ledger/audit decider mismatch")
+    return problems
+
+
 def prepare(gateway: str, config: Path) -> int:
     apps = [a["id"] for a in call(gateway, os.environ["OWNER_TOKEN"], "/v1/apps")]
     expires = (datetime.now(UTC) + timedelta(days=1)).isoformat().replace("+00:00", "Z")
@@ -92,11 +122,18 @@ def main() -> int:
         return prepare(a.gateway, a.config)
     problems: list[str] = []
 
+    if not a.audit.is_file() or not a.log.is_file():
+        print("FAIL: both audit and gateway log evidence files are required", file=sys.stderr)
+        return 1
     ok, n, reason = verify(a.audit)
     if not ok:
         problems.append(f"audit chain broken after {n} lines: {reason}")
     recs = records(a.audit) if a.audit.exists() else []
     counts = collections.Counter(r["event"] for r in recs)
+    listed = actions(a.gateway, os.environ["OWNER_TOKEN"])
+    problems.extend(decision_problems(recs, listed))
+    if not recs:
+        problems.append("no audit records were produced")
 
     def principal(r: dict) -> tuple:
         p = r.get("principal") or {}
@@ -105,10 +142,7 @@ def main() -> int:
     for r in recs:
         if r["event"] in ("action.approved", "action.denied") and principal(r) != ("person", "owner"):
             problems.append(f"seq {r['seq']}: {r['event']} by {r.get('principal')}")
-    approved = {r["action_id"] for r in recs if r["event"] == "action.approved"}
-    for r in recs:
-        if r["event"] == "action.dispatched" and r["action_id"] not in approved:
-            problems.append(f"seq {r['seq']}: dispatched without an approval")
+
 
     if a.phase == "agent":
         for event in ("action.approved", "action.denied", "action.dispatched"):
@@ -117,12 +151,16 @@ def main() -> int:
         for r in recs:
             if r["event"] == "authz.denied" and principal(r) != ("agent", "agent"):
                 problems.append(f"seq {r['seq']}: authz.denied for {r.get('principal')} in an agent-only run")
-        listed = actions(a.gateway, os.environ["OWNER_TOKEN"])
+
         if not listed:
             problems.append("no action exists, so nothing tested that the agent cannot decide one")
         moved = [x for x in listed if x["state"] not in UNDECIDED or x.get("decided_by")]
         problems += [f"action {x['id']} is {x['state']} after an agent-only run" for x in moved]
         print(f"agent run: the agent requested {len(listed)} actions; {len(listed) - len(moved)} are undecided")
+    else:
+        for event in ("action.approved", "action.denied", "action.dispatched"):
+            if not counts[event]:
+                problems.append(f"owner run never exercised {event}")
 
     log = a.log.read_text(encoding="utf-8", errors="replace") if a.log.exists() else ""
     if "Traceback (most recent call last)" in log:

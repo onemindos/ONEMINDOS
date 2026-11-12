@@ -48,6 +48,7 @@ from onemind_core.catalog import Catalog
 from onemind_core.errors import ApiError
 from onemind_core.ledger import ALLOWED, STATES, TERMINAL, AgentTokenRow, SqlActionRepository, make_engine, utc
 from props import budget
+from api_fuzz_check import decision_problems
 
 OWNER = Principal("owner", "person", "owner")
 SECOND_OWNER = Principal("co-owner", "person", "owner")
@@ -234,6 +235,8 @@ class ActionMachine(RuleBasedStateMachine):
 
     @invariant()
     def only_owners_decide(self):
+        listed = [a.to_json() for a in self.gw.repo.list()]
+        assert decision_problems(self.gw.audit_records(), listed) == []
         for a in self.gw.repo.list():
             if a.state in APPROVED or a.state == "cancelled":
                 assert a.decided_by is not None
@@ -251,8 +254,7 @@ class ActionMachine(RuleBasedStateMachine):
     def executor_ran_once_per_owner_approved_dispatch(self):
         dispatched = [r["action_id"] for r in self.gw.audit_records() if r["event"] == "action.dispatched"]
         assert len(dispatched) == len(set(dispatched)) == len(self.gw.executor.calls)
-        approved = {r["action_id"] for r in self.gw.audit_records() if r["event"] == "action.approved"}
-        assert set(dispatched) <= approved
+        assert decision_problems(self.gw.audit_records(), [a.to_json() for a in self.gw.repo.list()]) == []
 
     @invariant()
     def agent_token_live_exactly_while_installed(self):
