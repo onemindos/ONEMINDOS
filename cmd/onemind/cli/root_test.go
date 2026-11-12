@@ -85,7 +85,7 @@ func (g *fakeGW) serve(w http.ResponseWriter, r *http.Request) {
 		g.n++
 		id := fmt.Sprintf("act-%d", g.n)
 		a := map[string]any{"id": id, "type": b["type"], "params": b["params"], "state": "awaiting_approval",
-			"requested_by": map[string]any{"id": who, "kind": map[string]string{"owner": "person", "hermes": "agent"}[who]},
+			"requested_by":    map[string]any{"id": who, "kind": map[string]string{"owner": "person", "hermes": "agent"}[who]},
 			"idempotency_key": b["idempotency_key"], "created_at": "2026-11-12T09:00:00Z", "updated_at": "t",
 			"expires_at": b["expires_at"], "decided_by": nil, "decided_at": nil, "result": nil, "version": 1}
 		g.actions[id] = a
@@ -366,5 +366,39 @@ func TestCompletionAndSanitize(t *testing.T) {
 	}
 	if got := sanitize("ok\x1b[2J\x1b]0;evil\x07‮\x07done\n"); got != "okdone\n" {
 		t.Fatalf("sanitize %q", got)
+	}
+}
+
+// A context's saved token goes only to that context's hub: --hub (or ONEMIND_HUB) pointing
+// elsewhere must not receive it.
+func TestSavedTokenNeverSentToAnotherHub(t *testing.T) {
+	isolate(t)
+	g := newFakeGW(t)
+	if r := run(t, ownerTok+"\n", false, "login", "--hub", g.srv.URL, "--token-stdin", "--name", "home"); r.code != 0 {
+		t.Fatalf("login %+v", r)
+	}
+	var mu sync.Mutex
+	var seen []string
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		seen = append(seen, r.Header.Get("Authorization"))
+		mu.Unlock()
+		jsonOut(w, 401, map[string]string{"error": "unauthenticated", "message": "unknown token"})
+	}))
+	t.Cleanup(other.Close)
+	r := run(t, "", false, "--context", "home", "--hub", other.URL, "nodes")
+	if r.code != ExitUnauthenticated {
+		t.Fatalf("other hub: %+v", r)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	for _, h := range seen {
+		if strings.Contains(h, ownerTok) {
+			t.Fatal("the saved token was sent to a different hub")
+		}
+	}
+	// The same hub spelled with a trailing slash keeps the token.
+	if r := run(t, "", false, "--context", "home", "--hub", g.srv.URL+"/", "nodes", "--json"); r.code != 0 {
+		t.Fatalf("same hub: %+v", r)
 	}
 }

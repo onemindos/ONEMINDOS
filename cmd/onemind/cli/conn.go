@@ -45,6 +45,11 @@ func (a *App) resolve() (*target, error) {
 		}
 	}
 	if a.G.Hub != "" {
+		if t.ctx != nil && strings.TrimRight(a.G.Hub, "/") != strings.TrimRight(t.ctx.Hub, "/") {
+			// A context's saved token belongs to that context's box: never send it elsewhere.
+			// An explicit ONEMIND_TOKEN, --token or --token-stdin below still applies.
+			t.token = ""
+		}
 		t.hub = a.G.Hub
 	}
 	if env := os.Getenv("ONEMIND_TOKEN"); env != "" {
