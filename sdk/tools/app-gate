@@ -310,6 +310,14 @@ class Gate:
                 k("create", "secret", "generic", agent["secret"],
                   "--from-literal=ONEMIND_GATEWAY_URL=http://onemind-gateway.invalid:8080",
                   f"--from-literal=ONEMIND_AGENT_TOKEN={SMOKE_SECRET_PLACEHOLDER}")
+            # spec.secrets: the gateway writes these at install (docs/leap/core/SECRETS.md). The
+            # smoke test stands in placeholders for the keys the gateway always sets (required and
+            # generated ones), so an app that needs them starts here as it would on a box.
+            for sec in self.spec.get("secrets") or []:
+                lits = [f"--from-literal={key['key']}="
+                        + ("https://placeholder.invalid/" if key.get("kind") == "url" else SMOKE_SECRET_PLACEHOLDER)
+                        for key in sec.get("keys") or [] if key.get("required") or key.get("generate")]
+                k("create", "secret", "generic", sec["name"], *lits)
             proc = k("apply", "-k", str(self.app_dir / self.spec["manifests"]))
             if proc.returncode != 0:
                 c.fail(f"kubectl apply -k failed: {proc.stderr.strip()}")
