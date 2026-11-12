@@ -6,7 +6,7 @@ status: mixed
 
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-OneMind OS is a local-first home and edge cloud OS. You run it on machines you own: a mini PC, a Raspberry Pi 5, a GPU box, a cloud VM. Apps, backups, updates and AI agents run on them, and **every change waits for a human yes**.
+OneMind OS is a local-first home and edge cloud OS. You run it on machines you own: a mini PC, a Raspberry Pi 5, a GPU box, a cloud VM. Apps, backups, updates and AI agents run on them, and **every change a person, app or AI agent asks for waits for a human yes**. OS security updates install on their own inside your maintenance window unless you turn that off.
 
 This page is the single source of truth for status. The landing page repeats it. Both are updated in the same pull request that changes a status.
 
@@ -15,36 +15,45 @@ This page is the single source of truth for status. The landing page repeats it.
 - **Being built** means part of it exists on `main`, but you cannot use it yet.
 - **Planned** means a researched design, with no code yet.
 
+New here? Start with the [user guides](guides/).
+
 ## Core
 
 | Part | Status | Where |
 |---|---|---|
 | Node agent `onemindd`: detects board, OS, kernel, k3s, RAUC slots, GPU, TPM and Secure Boot; publishes a heartbeat every 10 s | <span class="om-tag om-tag--ok">works today</span> | [`cmd/onemindd`](https://github.com/onemindos/ONEMINDOS/tree/main/cmd/onemindd), [`internal/`](https://github.com/onemindos/ONEMINDOS/tree/main/internal) |
 | Gateway: actions, owner-only approval, expiry, idempotency, hash-chained audit log, `kubernetes` and `noop` executors | <span class="om-tag om-tag--ok">works today</span> | [`core/`](https://github.com/onemindos/ONEMINDOS/tree/main/core) |
-| Dashboard: Home, Nodes, Market, Approvals | <span class="om-tag om-tag--ok">works today</span> | [`dashboard/`](https://github.com/onemindos/ONEMINDOS/tree/main/dashboard) |
-| CLI: `onemind node info`, `onemind nodes` | <span class="om-tag om-tag--ok">works today</span> | [`cmd/onemind`](https://github.com/onemindos/ONEMINDOS/tree/main/cmd/onemind) |
-| Seed apps: Uptime Kuma, ntfy, Home Assistant | <span class="om-tag om-tag--ok">works today</span> | [`apps/`](https://github.com/onemindos/ONEMINDOS/tree/main/apps) |
-| Developer install `deploy/install.sh` (hub and node), Mac compose hub, `verify.sh` | <span class="om-tag om-tag--warn">in review</span> | [Install](getting-started/install/) |
-| Scan gate, agent identities for apps, MCP endpoint for agents, catalog links and trust fields | <span class="om-tag om-tag--warn">in review</span> | [Approvals and agents](concepts/approvals-and-agents/) |
-| App intake: scaffolder, generated READMEs, CI gate (licence, pins, Trivy, ClamAV, smoke test) | <span class="om-tag om-tag--warn">in review</span> | [Apps and trust cards](concepts/apps-and-trust-cards/) |
-| OS update client: signed channel (TUF), policy, pre-update snapshot, RAUC install, `onemind update`. On `main`; it has nothing to install until the image and a signed channel are published | <span class="om-tag om-tag--unknown">being built</span> | [Updates and rollback](concepts/updates-and-rollback/) |
+| Scan gate (no install without a passing scan newer than 7 days), agent identities for apps, MCP endpoint for agents, catalog links and trust fields | <span class="om-tag om-tag--ok">works today</span> | [AI agents](guides/agents/), [Apps](guides/apps/) |
+| Dashboard: Home, Nodes, Market (with licence, tier and last scan), Approvals | <span class="om-tag om-tag--ok">works today</span> | [`dashboard/`](https://github.com/onemindos/ONEMINDOS/tree/main/dashboard), [First steps](getting-started/first-steps/) |
+| CLI: `onemind node info`, `onemind nodes`, `onemind version` | <span class="om-tag om-tag--ok">works today</span> | [CLI](reference/cli/) |
+| Developer install `deploy/install.sh` (hub and node), Mac practice hub in Docker, `verify.sh`. Tested in Debian 13 arm64 virtual machines; not yet run on a real Pi 5, Jetson, droplet or amd64 PC | <span class="om-tag om-tag--ok">works today</span> | [Install](getting-started/install/), [Try it on a Mac](getting-started/mac/) |
+| Apps catalog: every app in `apps/`. Each one can be installed only while its latest scan passes; see its trust card | <span class="om-tag om-tag--ok">works today</span> | [Apps catalog](../apps/), [`apps/`](https://github.com/onemindos/ONEMINDOS/tree/main/apps) |
+| App intake: scaffolder, generated READMEs, CI gate (licence, pins, Trivy, ClamAV, smoke test), daily rescan | <span class="om-tag om-tag--ok">works today</span> | [Apps and trust cards](concepts/apps-and-trust-cards/) |
+| OS update client: signed channel (TUF), policy, pre-update snapshot, RAUC install, `onemind update`. Nothing to install until the image and a signed channel are published | <span class="om-tag om-tag--unknown">being built</span> | [Updates and rollback](guides/updates/) |
 | OneMind image on Debian 13: read-only root, RAUC A/B slots, health gate, boot tests in QEMU in CI | <span class="om-tag om-tag--unknown">being built</span> | [`os/`](https://github.com/onemindos/ONEMINDOS/tree/main/os) |
-| Nightly security rebuilds of the image (CVE scan, ClamAV, signed security channel) | <span class="om-tag om-tag--warn">in review</span> | [Security](concepts/security/) |
+| Nightly security rebuilds of the image (CVE scan, ClamAV, signed security channel). The pipeline is on `main`; nothing is published yet | <span class="om-tag om-tag--unknown">being built</span> | [Security](concepts/security/) |
 
 ## Not yet
 
-| Part | Status | Design |
+| Part | Status | Where |
 |---|---|---|
-| Backups with restic, 3-2-1 by default, verified restores | <span class="om-tag om-tag--unknown">planned</span> | [Backups](concepts/backups/) |
-| Multi-site fabric: NATS leaf nodes, private mesh, store-and-forward | <span class="om-tag om-tag--unknown">planned</span> | [Fabric](concepts/fabric/) |
-| Single sign-on and household roles (Owner, Adult, Teen, Child, Guest) | <span class="om-tag om-tag--unknown">planned</span> | v0 uses static bearer tokens |
-| Android and iPhone apps: nodes, apps, approvals, activity, notifications | <span class="om-tag om-tag--unknown">planned</span> | approvals as push notifications, content fetched from your box |
-| Notifications: ntfy alerts for waiting approvals, blocked apps and failed backups; phone push that says only "something needs you" | <span class="om-tag om-tag--unknown">planned</span> | [Approvals and agents](concepts/approvals-and-agents/) |
+| Backups with restic: hourly snapshots, retention ladder, weekly verified restores, single-file restore. The backup agent is on `main` but not switched on; OneMind takes no backups today | <span class="om-tag om-tag--unknown">being built</span> | [Backups](guides/backups/) |
+| Private mesh (self-hosted Headscale), NATS leaf nodes with store-and-forward, app proxy with sign-in, per-box certificate authority. On `main`, not switched on | <span class="om-tag om-tag--unknown">being built</span> | [Remote access](guides/remote-access/) |
+| Disk inventory, disk health and mirror plans (`onemind storage`). On `main`, not yet part of the CLI | <span class="om-tag om-tag--unknown">being built</span> | [`internal/storage`](https://github.com/onemindos/ONEMINDOS/tree/main/internal/storage) |
+| New Home screen: widgets, wallpapers, app launcher, Store. Design system and demo on `main`; the dashboard does not use them yet | <span class="om-tag om-tag--unknown">being built</span> | [`ui/`](https://github.com/onemindos/ONEMINDOS/tree/main/ui) |
+| Android and iPhone app: nodes, apps, approvals, activity, alerts while open. On `main`; build it yourself, no store release | <span class="om-tag om-tag--unknown">being built</span> | [Phone app](guides/phone-app/) |
+| Household identity, sessions, passkeys and scoped API tokens | <span class="om-tag om-tag--warn">in review</span> | v0 uses static bearer tokens |
+| App sandbox (restricted pods, default-deny network), scoped gateway permissions | <span class="om-tag om-tag--warn">in review</span> | [Security](concepts/security/) |
+| Desktop app for Mac and Windows: tray, discovery, pairing, status, approval notifications | <span class="om-tag om-tag--warn">in review</span> | [Desktop app](guides/desktop-app/) |
+| Phone photo backup: the phone side (background, resumable, Wi-Fi and charging rules) is on `main`; the hub's Photos service that receives the photos does not exist yet, so nothing is sent | <span class="om-tag om-tag--unknown">being built</span> | [Phone app](guides/phone-app/) |
+| Notifications: alerts for waiting approvals, blocked apps and failed backups, channels and monitoring | <span class="om-tag om-tag--warn">in review</span> | [Approvals and agents](concepts/approvals-and-agents/) |
+| Phone push that says only "something needs you" | <span class="om-tag om-tag--unknown">planned</span> | [Phone app](guides/phone-app/#notifications) |
 | Plugin UI extension points for the dashboard | <span class="om-tag om-tag--unknown">planned</span> | headless operation stays first-class |
 | Downloadable, signed OneMind images | <span class="om-tag om-tag--unknown">planned</span> | after the image passes its hardware gates |
 
 ## Where to go next
 
-- [Install](getting-started/install/) on a spare Debian 13 machine, or [try it on a Mac](getting-started/mac/) with Docker.
+- [Install](getting-started/install/) on a spare Debian 13 machine, a Raspberry Pi 5 or a droplet, or [try it on a Mac](getting-started/mac/) with Docker.
+- Follow the [user guides](guides/): first steps, apps, AI agents, updates, troubleshooting and a glossary.
 - Read [Approvals and agents](concepts/approvals-and-agents/): it is the idea everything else is built on.
 - The binding API definition is the [contract](https://github.com/onemindos/ONEMINDOS/blob/main/sdk/contracts/poc-v0.md); the [reference](reference/contract-api/) summarises it.

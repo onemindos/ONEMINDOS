@@ -5,3 +5,4 @@
 !cmd/**
 !internal/**
 !deploy/compose/simnode/**
+!sdk/go/**

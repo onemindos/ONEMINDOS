@@ -1,0 +1,27 @@
+{
+  "cut-middle.jsonl": {
+    "first_bad_seq": 2,
+    "ok": false,
+    "records": 1
+  },
+  "empty.jsonl": {
+    "first_bad_seq": null,
+    "ok": true,
+    "records": 0
+  },
+  "good.jsonl": {
+    "first_bad_seq": null,
+    "ok": true,
+    "records": 3
+  },
+  "reordered.jsonl": {
+    "first_bad_seq": 2,
+    "ok": false,
+    "records": 1
+  },
+  "tampered.jsonl": {
+    "first_bad_seq": 2,
+    "ok": false,
+    "records": 1
+  }
+}

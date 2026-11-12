@@ -38,7 +38,9 @@ A **principal** is whoever is calling: `{id, kind: person|agent, role: owner|adu
 
 Every decision, including a refused approval attempt, is appended to a JSONL file in which each line carries the hash of the line before it. Editing, deleting or reordering any past line breaks the chain. When NATS is up, each entry is also published on `onemind.audit`.
 
-## Agents <span class="om-tag om-tag--warn">in review</span>
+## Agents <span class="om-tag om-tag--ok">works today</span>
+
+How to connect one, step by step: [AI agents](../../guides/agents/).
 
 An app can ask for its own agent identity in its manifest:
 

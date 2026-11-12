@@ -1,0 +1,18 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Generated from brand/brand.json by scripts/brand-sync.py. Do not edit by hand. */
+/* Starlight accent (dark is Starlight's default theme) and the landing page accent. */
+:root {
+  --sl-color-accent-low: #5d2025;
+  --sl-color-accent: #fe726a;
+  --sl-color-accent-high: #fdc9c3;
+  --om-brand-red: #ff333a;
+  --om-brand-accent-dark: #fe726a;
+  --om-brand-accent-light: #d11826;
+  --om-brand-accent-ink-dark: #000000;
+  --om-brand-accent-ink-light: #ffffff;
+}
+:root[data-theme='light'] {
+  --sl-color-accent-low: #ffe7e7;
+  --sl-color-accent: #d11826;
+  --sl-color-accent-high: #72030d;
+}

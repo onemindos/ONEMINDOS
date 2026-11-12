@@ -29,7 +29,7 @@ spec:
   manifests: manifests/        # images pinned by tag and digest
 ```
 
-## Additions for intake at scale <span class="om-tag om-tag--warn">in review</span>
+## Additions for intake at scale <span class="om-tag om-tag--ok">works today</span>
 
 ```yaml
 metadata:

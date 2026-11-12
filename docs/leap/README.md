@@ -87,7 +87,7 @@ These names were reconciled across the specs on 2026-11-12. If a spec and this t
 | Token format | `om_<kind>_<random>` with kinds `pat`, `agt`, `plg`, `nod`, `aut`; only the hash is stored | [dev/API.md](dev/API.md) §5.9 |
 | Phase-B route modules | The API spec defines route shapes; the core spec's epic owns the module (`fabric.py`, `backups.py`, `notify/`, `automation.py`, `policies.py`, `os_updates.py`) | [WORKSTREAMS.md](WORKSTREAMS.md) §3 |
 
-The architecture stream's contract §12 draft (`docs/architecture/CONTRACT-12-DRAFT.md`, branch `docs/core-architecture`, not merged) still uses some different names. The differences are listed in [DECISIONS-NEEDED.md](DECISIONS-NEEDED.md) §2 for the contract owner.
+The architecture stream's contract §12 draft (`docs/architecture/CONTRACT-12-DRAFT.md`, merged in #17) is superseded by the binding contract §12 (#39); it used some different names. The differences are listed in [DECISIONS-NEEDED.md](DECISIONS-NEEDED.md) §2 for the contract owner.
 
 ## 6. Where the 90-day plan's epics went
 

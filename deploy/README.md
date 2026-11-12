@@ -125,22 +125,33 @@ when Go is installed); `--no-airgap` leaves the images out (k3s then pulls them)
   also checks it talks to the right server. The hub prints the join command on every run.
 
 ### The gateway's access to Kubernetes (why not the admin kubeconfig)
-The gateway runs `kubectl apply -k` for approved actions (§3), and with §11.2 it creates a Secret
-in the app's namespace. It gets its own ServiceAccount `onemind-system/onemind-gateway`, bound to
-the built-in **`admin`** ClusterRole (full control *inside* namespaces) plus create/delete on
-namespaces. That is less than `cluster-admin` (no nodes, CRDs, cluster roles or webhooks), but it
-applies to **every** namespace, `kube-system` included, and k3s enforces no Pod Security by
-default: whoever controls the gateway can read every Secret and start a privileged pod, which is
-root on the nodes. Treat a gateway compromise as a cluster compromise (see "v0 shortcuts"). Its
-kubeconfig is `/etc/onemind/gateway.kubeconfig` (root:onemind, 0640). The k3s admin file stays
-root-only. `kubectl` is k3s's own (same version as the cluster), called through a small wrapper
+The gateway has its own ServiceAccount `onemind-system/onemind-gateway` with **no cluster-wide
+power over workloads** (hardening H-03, [`k8s/gateway-rbac.yaml`](k8s/gateway-rbac.yaml)):
+- cluster-wide it may only manage namespaces, create RoleBindings and `bind` one role,
+  `onemind-app-deployer` (the kinds an app may ship, [`sdk/policy/app-objects.yaml`](../sdk/policy/app-objects.yaml));
+- at each install the gateway binds that role to itself **inside `app-<id>` only**, so it can read
+  and write app objects there and nowhere else (not `kube-system`, not its Secrets);
+- a `ValidatingAdmissionPolicy` (built into Kubernetes) refuses any gateway write outside `app-*`,
+  any app namespace without `onemind.io/app` and a Pod Security level of `restricted`/`baseline`,
+  and any RoleBinding to another ClusterRole. Kubernetes' own escalation check refuses granting a
+  permission the gateway does not hold.
+Its kubeconfig `/etc/onemind/gateway.kubeconfig` (root:onemind, 0640) holds a **24-hour bound
+token**, renewed every 6 hours by `onemind-gateway-token.timer` (`/opt/onemind/bin/onemind-gateway-kubeconfig`).
+Upgrading from an earlier install deletes the old `admin` binding and the never-expiring token
+Secret. The k3s admin file stays root-only. `kubectl` is k3s's own, called through
 `/opt/onemind/bin/kubectl` so it always uses that kubeconfig.
+
+The k3s config also turns on **Secrets encryption** (H-12; the install refuses to continue unless
+`k3s secrets-encrypt status` says Enabled, and rewrites existing Secrets once) and **Pod Security
+defaults** for every namespace ([`k8s/psa.yaml`](k8s/psa.yaml): enforce `baseline`, warn and audit
+`restricted`; only `kube-system` and `onemind-system` are exempt). App namespaces get `restricted`
+from the gateway. Both are cluster-start settings: an upgrade restarts k3s once.
 
 ### Agent apps (contract §7, §11.2), the deploy side
 - `gateway.env` sets `ONEMIND_PUBLIC_URL` (the `--hub` URL, else `http://<primary IP>:8080`): the
   URL app pods use to reach the gateway, which the wave-2 gateway writes into each agent app's
   Secret as `ONEMIND_GATEWAY_URL`. The wave-1 gateway ignores the variable.
-- The ServiceAccount above can create and delete Secrets in `app-<id>`, which §11.2 needs.
+- The per-app RoleBinding above lets the gateway create and delete Secrets in `app-<id>`, which §11.2 needs.
 - The hub install prints the command with which the **owner** creates `hermes-agent-credentials`
   (model-provider keys never come from the repo).
 - `ONEMIND_ALLOW_UNSCANNED` is **not** set on the hub (the contract refuses it with the kubernetes
@@ -296,6 +307,6 @@ droplet, and amd64 (every run above is arm64; the amd64 path differs only in the
 
 ## v0 shortcuts (list in the PR)
 Static tokens (Kanidm later, BD-03); SQLite gateway database (PostgreSQL target, BD-04); NATS
-without auth/TLS/leaf nodes; plain HTTP; no OS rollback (P6 by definition); the gateway's
-ServiceAccount can administer every namespace, not only `app-*` (Kubernetes RBAC cannot scope a
-binding to a name prefix; a policy engine or per-app RoleBindings created by the gateway fix it).
+without auth/TLS/leaf nodes; plain HTTP; no OS rollback (P6 by definition); no host firewall
+between pods and the node's ports yet (the per-app NetworkPolicy blocks private ranges; H-04's
+nftables part is open).
