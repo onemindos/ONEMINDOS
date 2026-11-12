@@ -1,0 +1,148 @@
+
+### inventory with one member pulled
+$ onemind storage disks
+DISK      SIZE      TRAN    MODEL  SERIAL  ROLE
+/dev/vda  12.0GiB   virtio  -      -       system
+/dev/vdb  6.0GiB    virtio  -      -       has-data
+/dev/vdc  277.2MiB  virtio  -      -       in-use
+$ cryptsetup open --key-file /root/lab.key /dev/vdb1 onemind-data-vdb
+Scanning for Btrfs filesystems
+registered: /dev/mapper/onemind-data-vdb
+
+### normal mount refuses a set with a missing member
+mount: /data: fsconfig() failed: No such file or directory.
+       dmesg(1) may have more information after failed mount system call.
+mount refused (expected)
+[   17.913673] BTRFS error (device dm-0): devid 2 uuid f859961d-14ba-4ad2-a39c-13f4e6f3900e is missing
+[   17.913679] BTRFS error (device dm-0): failed to read the system array: -2
+[   17.913781] BTRFS error (device dm-0): open_ctree failed: -2
+
+### mount degraded (what the initrd policy will do when a full copy remains)
+$ mount -o degraded,noatime,compress=zstd:1 /dev/mapper/onemind-data-vdb /data
+$ onemind storage status
+/data: DEGRADED (mounted degraded)
+  ! 1 of 2 disks missing
+  Data      raid1    400.0MiB used of 2.0GiB
+  System    raid1    16.0KiB used of 64.0MiB
+  Metadata  raid1    672.0KiB used of 512.0MiB
+  devid 1  /dev/mapper/onemind-data-vdb 6.0GiB
+  devid 2  MISSING                      0B
+  repair: reconnect -> scrub -> soft-convert (onemind storage plan repair)
+
+### write 1.5 GiB while degraded (forces new chunk allocation)
+$ btrfs filesystem df /data
+Data, single: total=1.22GiB, used=519.07MiB
+Data, RAID1: total=2.00GiB, used=1.38GiB
+System, RAID1: total=64.00MiB, used=16.00KiB
+Metadata, RAID1: total=512.00MiB, used=2.30MiB
+GlobalReserve, single: total=5.50MiB, used=0.00B
+$ onemind storage status
+WARNING: Multiple block group profiles detected, see 'man btrfs(5)'
+WARNING:    Data: single, raid1
+/data: DEGRADED (mounted degraded)
+  ! 1 of 2 disks missing
+  ! single-copy chunks written while degraded: Data single
+  Data      single   519.1MiB used of 1.2GiB
+  Data      raid1    1.4GiB used of 2.0GiB
+  System    raid1    16.0KiB used of 64.0MiB
+  Metadata  raid1    2.3MiB used of 512.0MiB
+  devid 1  /dev/mapper/onemind-data-vdb 6.0GiB
+  devid 2  MISSING                      0B
+  repair: reconnect -> scrub -> soft-convert (onemind storage plan repair)
+WARNING: Multiple block group profiles detected, see 'man btrfs(5)'
+WARNING:    Data: single, raid1
+$ onemind storage status --json
+{
+  "mount": "/data",
+  "uuid": "9638a938-d632-41e3-aa7f-7a1cace9bd76",
+  "label": "onemind-data",
+  "source": "/dev/mapper/onemind-data-vdb",
+  "mount_options": [
+    "rw",
+    "noatime",
+    "degraded",
+    "compress=zstd:1",
+    "space_cache=v2",
+    "subvolid=5",
+    "subvol=/"
+  ],
+  "mounted_degraded": true,
+  "used_bytes": 2032467968,
+  "members": [
+    {
+      "devid": 1,
+      "path": "/dev/mapper/onemind-data-vdb",
+      "missing": false,
+      "size_bytes": 6424604672,
+      "allocated_bytes": 4060086272,
+      "errors": {
+        "corruption_errs": 0,
+        "flush_io_errs": 0,
+        "generation_errs": 0,
+        "read_io_errs": 0,
+        "write_io_errs": 0
+      }
+    },
+    {
+      "devid": 2,
+      "missing": true,
+      "size_bytes": 0,
+      "allocated_bytes": 0,
+      "errors": {
+        "corruption_errs": 0,
+        "flush_io_errs": 0,
+        "generation_errs": 0,
+        "read_io_errs": 0,
+        "write_io_errs": 0
+      }
+    }
+  ],
+  "profiles": [
+    {
+      "kind": "Data",
+      "profile": "single",
+      "total_bytes": 1308622848,
+      "used_bytes": 544284672
+    },
+    {
+      "kind": "Data",
+      "profile": "raid1",
+      "total_bytes": 2147483648,
+      "used_bytes": 1485758464
+    },
+    {
+      "kind": "System",
+      "profile": "raid1",
+      "total_bytes": 67108864,
+      "used_bytes": 16384
+    },
+    {
+      "kind": "Metadata",
+      "profile": "raid1",
+      "total_bytes": 536870912,
+      "used_bytes": 2408448
+    }
+  ],
+  "state": "degraded",
+  "reasons": [
+    "1 of 2 disks missing",
+    "single-copy chunks written while degraded: Data single"
+  ],
+  "repair": [
+    "reconnect",
+    "scrub",
+    "soft-convert"
+  ]
+}
+
+### repair plan while a member is still missing
+PLAN repair on /data (dry run, nothing was changed)
+  profile: data raid1, metadata raid1, encrypted false
+checks:
+  [ok  ] set-mounted: degraded
+  [FAIL] all-members-present: 1 missing: reconnect it and remount (replace comes with STOR-4)
+  [ok  ] no-parity-raid: degraded
+  warning: mounted with -o degraded: remount without it once the member is back, so a new failure is not silent
+BLOCKED: a check failed, no steps generated
+plan_sha256: ce3e2f0331ae1dc8c5c00daba272f4c36c5ae073a08a78388af6297968b986e9
+corpus OK

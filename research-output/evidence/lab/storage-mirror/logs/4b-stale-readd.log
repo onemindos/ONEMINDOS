@@ -1,0 +1,87 @@
+$ cryptsetup open --key-file /root/lab.key /dev/vdb1 onemind-data-vdb
+$ cryptsetup open --key-file /root/lab.key /dev/vdc1 onemind-data-vdc
+Warning: keyslot operation could fail as it requires more than available memory.
+$ mount -o noatime,compress=zstd:1 /dev/mapper/onemind-data-vdb /data
+
+### without the marker (moved aside): btrfs alone
+$ onemind storage status
+/data: PROTECTED
+  Data      raid1    2.0GiB used of 4.0GiB
+  System    raid1    16.0KiB used of 32.0MiB
+  Metadata  raid1    2.4MiB used of 512.0MiB
+  devid 1  /dev/mapper/onemind-data-vdb 6.0GiB
+  devid 2  /dev/mapper/onemind-data-vdc 6.0GiB
+
+### with the marker
+$ onemind storage status
+/data: DEGRADED
+  ! the set ran degraded since its last repair: the returned disk may hold stale copies until a scrub
+  Data      raid1    2.0GiB used of 4.0GiB
+  System    raid1    16.0KiB used of 32.0MiB
+  Metadata  raid1    2.4MiB used of 512.0MiB
+  devid 1  /dev/mapper/onemind-data-vdb 6.0GiB
+  devid 2  /dev/mapper/onemind-data-vdc 6.0GiB
+  repair: scrub -> soft-convert (onemind storage plan repair)
+
+### resync
+PLAN repair on /data (dry run, nothing was changed)
+  profile: data raid1, metadata raid1
+checks:
+  [ok  ] set-mounted: degraded
+  [ok  ] all-members-present: 0 missing: reconnect it and remount (replace comes with STOR-4)
+  [ok  ] no-parity-raid: degraded
+steps:
+   1. btrfs scrub start -B /data
+      # read every copy, verify checksums and rewrite bad or stale copies from the good one
+   2. btrfs balance start -dconvert=raid1,soft -mconvert=raid1,soft /data
+      # rewrite chunks written with one copy while degraded; soft skips chunks already mirrored
+   3. btrfs filesystem df /data
+      # verify: no single or dup lines remain
+   4. btrfs device stats --reset /data
+      # record and zero the error counters after the repair so new errors stand out
+   5. rm -f /data/onemind/storage/needs-scrub
+      # clear the degraded marker: the scrub verified every copy
+plan_sha256: d2dc19a3598fea4b086a53952b32422ad7372ed6e9cb64c3e7c74b075fe2fa75
+
+### applying plan d2dc19a3598fea4b086a53952b32422ad7372ed6e9cb64c3e7c74b075fe2fa75
+$ 'btrfs' 'scrub' 'start' '-B' '/data'
+Starting scrub on devid 1
+Starting scrub on devid 2
+scrub done for 9638a938-d632-41e3-aa7f-7a1cace9bd76
+Scrub started:    Thu Nov 12 03:19:45 2026
+Status:           finished
+Duration:         0:00:01
+Total to scrub:   3.91GiB
+Rate:             3.91GiB/s
+Error summary:    super=2 verify=40 csum=16384
+  Corrected:      16424
+  Uncorrectable:  0
+  Unverified:     0
+WARNING: errors detected during scrubbing, 1 corrected
+$ 'btrfs' 'balance' 'start' '-dconvert=raid1,soft' '-mconvert=raid1,soft' '/data'
+Done, had to relocate 0 out of 8 chunks
+$ 'btrfs' 'filesystem' 'df' '/data'
+Data, RAID1: total=4.00GiB, used=1.95GiB
+System, RAID1: total=64.00MiB, used=16.00KiB
+Metadata, RAID1: total=512.00MiB, used=2.36MiB
+GlobalReserve, single: total=5.50MiB, used=0.00B
+$ 'btrfs' 'device' 'stats' '--reset' '/data'
+[/dev/mapper/onemind-data-vdb].write_io_errs    0
+[/dev/mapper/onemind-data-vdb].read_io_errs     0
+[/dev/mapper/onemind-data-vdb].flush_io_errs    0
+[/dev/mapper/onemind-data-vdb].corruption_errs  0
+[/dev/mapper/onemind-data-vdb].generation_errs  0
+[/dev/mapper/onemind-data-vdc].write_io_errs    0
+[/dev/mapper/onemind-data-vdc].read_io_errs     0
+[/dev/mapper/onemind-data-vdc].flush_io_errs    0
+[/dev/mapper/onemind-data-vdc].corruption_errs  16384
+[/dev/mapper/onemind-data-vdc].generation_errs  10
+$ 'rm' '-f' '/data/onemind/storage/needs-scrub'
+$ onemind storage status
+/data: PROTECTED
+  Data      raid1    2.0GiB used of 4.0GiB
+  System    raid1    16.0KiB used of 64.0MiB
+  Metadata  raid1    2.4MiB used of 512.0MiB
+  devid 1  /dev/mapper/onemind-data-vdb 6.0GiB
+  devid 2  /dev/mapper/onemind-data-vdc 6.0GiB
+corpus OK (all files)
