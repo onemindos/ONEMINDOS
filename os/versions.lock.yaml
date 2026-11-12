@@ -95,6 +95,13 @@ tools:
     kubeconform: {version: v0.8.0, file: kubeconform-linux-amd64.tar.gz, sha256: 9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883, arm64_file: kubeconform-linux-arm64.tar.gz, arm64_sha256: 1f53fc8e81258197a35e8603054162a5af1de8c5af13746c71ab680d9534ed87}
     k3s_image: docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332   # k3d smoke cluster, same k3s as above
 
+desktop:          # desktop/ (CLIENT-8). Crate and npm pins are exact in desktop/src-tauri/Cargo.toml and
+                  # desktop/package.json, each released at least two weeks before 2026-11-12; licences in desktop/README.md.
+  rust:
+    toolchain: 1.99.1                # desktop/src-tauri/rust-toolchain.toml; cargo build date 2026-08-27
+    source: cargo --version of the Homebrew rust 1.99.1 used for the first local build, read 2026-11-12
+  tauri: 2.12.5                      # crate; @tauri-apps/cli 2.12.4 (npm); Apache-2.0 OR MIT
+
 firmware:
   # Debian 13 ovmf / qemu-efi-aarch64 / seabios packages in the tools container (same snapshot).
   ovmf: from the Debian snapshot above (lab hash of OVMF_CODE_4M.fd 624e06de…e4e0, ovmf 2025.02-8+deb13u1)

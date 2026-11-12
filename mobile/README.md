@@ -16,6 +16,7 @@ The phone app for a OneMind hub. It shows what is happening — instance, nodes,
 | **Approvals** | Pending actions with the **exact request** (`type` + `params`), the requester **person or agent**, age and expiry; Approve / Deny | `POST /v1/actions/{id}/approve`, `/deny` |
 | **Activity** | Every action, newest first, with requester, decider and result | `GET /v1/actions` |
 | **Settings** | Connection, notification permission, test alert, Disconnect (wipes the secure store entry) | — |
+| **Photo backup** (from Home, `onemind://photos`) | Honest status, live progress, Wi-Fi-only and charging-only rules, album choice, what the box reports (received / in a box backup / restore-checked), what happens while the app is closed, items that could not be sent | `/v1/photos/...` (interim, [docs/photos-backup-api.md](docs/photos-backup-api.md)) |
 
 The Approvals tab carries a badge with the pending count, and so does the app icon.
 
@@ -64,6 +65,35 @@ npx expo prebuild --platform android
 - **Android permissions are trimmed** (`app.json` `blockedPermissions`): no FCM `c2dm.RECEIVE` (D-005: no Google push by default), no storage, overlay or biometric permissions. The debug APK still lists `SYSTEM_ALERT_WINDOW`, which React Native's debug manifest adds for the developer menu; release builds do not.
 - **Requests time out after 10 s**, so an unreachable LAN address fails fast instead of hanging.
 
+## Photo backup
+
+Serves PH-4 of the photos study (`docs/umbrel2/photos.md`, decision C: a built-in OneMind Photos service, Immich only as an optional Market app). The server side (PH-3) does not exist yet, so the phone is built against a documented **interim API**, [docs/photos-backup-api.md](docs/photos-backup-api.md), and tested against an in-memory mock of it.
+
+- **Where it uploads:** the app finds Photos in the OneMind catalog (`GET /v1/apps`, app id `photos`) and uploads to the hub's origin. If Photos is missing, not installed or not running, the screen says so and sends nothing.
+- **HTTPS only** (B3, DN-1): an `http://` hub gets "Backup needs a secure connection" and no request. This is stricter than the rest of the v0 app on purpose.
+- **Resumable chunks:** IETF resumable-upload draft (`POST` to create, `HEAD` for the offset, `PATCH` to append). A dropped connection, a lost Wi-Fi, a killed app or the OS ending background time all continue from the box's offset next time; tests cover three drops in one file with every byte sent once.
+- **Dedupe by hash:** SHA-256 of each file (computed natively), and the box's `check` answers `have` or `need` before any upload. Duplicates on the phone are sent once. `check` only matches this phone's own receipts, so it cannot tell one person what another holds.
+- **Rules:** backup off by default; Wi-Fi only (default on); charging only (default off); all photos or chosen albums.
+- **Background:** `expo-background-task` (iOS BGTaskScheduler, Android WorkManager) runs the same engine when the OS allows, at best every 15 minutes, for up to 8 minutes. The screen says plainly that the phone decides when, and says so if Background App Refresh is off.
+- **Honest status:** "on your OneMind" is never called "backed up"; the box's backup and restore-check counts are shown separately, and there is no "Free up space" until PH-8 (it will list restore-checked items only).
+
+Code: `src/photos/` (engine, protocol client, mock server, ledger, status wording, Expo glue, screens); tests: `src/photos/*.test.ts(x)`.
+
+**Gaps (honest):**
+- No server yet (PH-3); the API shape is a proposal for contract §12-p. The `Upload-Draft-Interop-Version` value is UNVERIFIED until PH-3 picks a draft.
+- Background uploads go through JavaScript chunks inside the OS background window, not an iOS background `URLSession`. A large video may take several background turns. Moving chunk sends to `expo-file-system`'s background `UploadTask` is the next step.
+- Live Photos upload the still image only (the motion part is a separate resource; not handled yet). Edited photos are re-sent as a new version.
+- iCloud-only originals are downloaded by the OS before upload; if that fails the item is listed under "Could not send".
+- No browse tab, no "Free up space", no restore to a new phone yet.
+- Android ≤ 12 needs `READ_EXTERNAL_STORAGE` for the photo library, so it is no longer in `blockedPermissions`; `ACCESS_MEDIA_LOCATION` is requested so photo GPS data is not stripped.
+
+Screenshots: `docs/screenshots/photos/` (demo mode, made with the same tour as below).
+
+| | | |
+|---|---|---|
+| ![Backup off](docs/screenshots/photos/01-off.png) | ![Backing up](docs/screenshots/photos/02-progress.png) | ![Done](docs/screenshots/photos/03-done.png) |
+| ![Albums](docs/screenshots/photos/04-albums.png) | ![Waiting for Wi-Fi](docs/screenshots/photos/05-wifi.png) | ![Home card](docs/screenshots/photos/06-home.png) |
+
 ## Notifications
 
 **Now (v0): poll + local notifications.** While the app is in the foreground it refreshes every 10 s (the heartbeat interval, §1) and raises a local notification (`expo-notifications`) for:
@@ -102,7 +132,7 @@ When the dashboard's copies change, copy them again. A shared `sdk/js` package i
 
 ## Dependencies and licences
 
-All direct runtime dependencies are **MIT** (the dev dependency TypeScript is **Apache-2.0**) and all are pinned to exact versions in `package.json` (Expo SDK 58, React Native 0.88, React 19.3, React Navigation 7, `expo-secure-store`, `expo-notifications`, `expo-build-properties`; dev: jest 30, jest-expo, React Native Testing Library 14, `test-renderer`, TypeScript 6). The transitive tree is permissive (MIT, ISC, BSD, Apache-2.0); the non-MIT entries (`lightningcss` MPL-2.0, `caniuse-lite` CC-BY-4.0, `argparse` Python-2.0, `node-forge` BSD-3-Clause OR GPL-2.0) are Expo CLI build tools that do not ship inside the app. No third-party code is copied into this directory, so there is no NOTICE entry.
+All direct runtime dependencies are **MIT** (the dev dependency TypeScript is **Apache-2.0**) and all are pinned to exact versions in `package.json` (Expo SDK 58, React Native 0.88, React 19.3, React Navigation 7, `expo-secure-store`, `expo-notifications`, `expo-build-properties`, and for photo backup `expo-media-library` 58.0.14, `expo-file-system` 58.0.13, `expo-background-task` 58.0.13, `expo-task-manager` 58.0.14, `expo-network` 58.0.5, `expo-battery` 58.0.4 and `@noble/hashes` 2.4.0, all MIT; dev: jest 30, jest-expo, React Native Testing Library 14, `test-renderer`, TypeScript 6). The transitive tree is permissive (MIT, ISC, BSD, Apache-2.0); the non-MIT entries (`lightningcss` MPL-2.0, `caniuse-lite` CC-BY-4.0, `argparse` Python-2.0, `node-forge` BSD-3-Clause OR GPL-2.0) are Expo CLI build tools that do not ship inside the app. No third-party code is copied into this directory, so there is no NOTICE entry.
 
 ## Known gaps
 
