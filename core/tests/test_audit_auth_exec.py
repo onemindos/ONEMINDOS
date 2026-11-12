@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from conftest import AGENT, OWNER, action_body
+from conftest import AGENT, OWNER, action_body, make_client
 from onemind_core.audit import GENESIS, AuditLog, chain_hash, main as audit_main, verify
 from onemind_core.auth import TokenStore, parse_tokens
 from onemind_core.catalog import Catalog
@@ -132,6 +132,30 @@ def test_tokens_mapping_list_and_hash_forms(tmp_path):
 def test_bad_principals_rejected(entry):
     with pytest.raises(ValueError):
         parse_tokens({"tokens": {"a-long-enough-token-1234": entry}})
+
+
+@pytest.mark.parametrize("bad", ["tokens: [unclosed", "tokens: 7", "- not a mapping"])
+def test_invalid_tokens_file_at_runtime_keeps_last_good(tmp_path, bad):
+    import os
+
+    tok = "a-long-enough-token-1234"
+    p = tmp_path / "t.yaml"
+    p.write_text(yaml.safe_dump({"tokens": {tok: {"id": "z", "kind": "person", "role": "owner"}}}))
+    store = TokenStore(p)
+    assert store.lookup(tok).is_owner
+    p.write_text(bad)
+    st = p.stat()
+    os.utime(p, (st.st_atime, st.st_mtime + 5))  # make sure the mtime changes
+    assert store.lookup(tok).is_owner  # no exception, last good set kept
+
+
+@pytest.mark.parametrize("bad", ["tokens: [unclosed", "tokens: 7"])
+def test_invalid_tokens_file_gives_401_not_500(settings, clock, tmp_path, bad):
+    p = tmp_path / "t.yaml"
+    p.write_text(bad)
+    with make_client(settings, clock, tokens_file=p) as c:  # startup does not crash
+        r = c.get("/v1/instance", headers=OWNER)
+        assert r.status_code == 401 and r.json()["error"] == "unauthenticated"
 
 
 def test_short_tokens_rejected():

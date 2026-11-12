@@ -120,8 +120,21 @@ class TokenStore:
         if mtime == self._mtime:
             return
         with self._lock:
-            self._by_hash = parse_tokens(yaml.safe_load(self.path.read_text()))
-            self._mtime = mtime
+            if mtime == self._mtime:
+                return
+            try:
+                by_hash = parse_tokens(yaml.safe_load(self.path.read_text()))
+            except (OSError, ValueError, yaml.YAMLError) as exc:
+                # A bad edit or a half-written file must never turn into a 500. Keep the last good
+                # principals (none at startup, so every request gets 401) and remember this mtime,
+                # so the broken file is not parsed again on every request.
+                log.error(
+                    "tokens file is invalid (%s); keeping %d previously loaded principals",
+                    exc.__class__.__name__, len(self._by_hash),
+                )
+                self._mtime = mtime
+                return
+            self._by_hash, self._mtime = by_hash, mtime
             log.info("loaded %d principals from tokens file", len(self._by_hash))
 
     def lookup(self, token: str) -> Principal | None:
