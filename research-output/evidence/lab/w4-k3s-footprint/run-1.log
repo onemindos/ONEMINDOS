@@ -1,0 +1,65 @@
+== 01:13:32 host: 6.12.115+deb13.1-cloud-arm64 4 cpu, disk=vda
+               total        used        free      shared  buff/cache   available
+Mem:            3923         377        2278           0        1417        3545
+Swap:              0           0           0
+podman version 5.4.2
+RESULT A_bare_os memavail_mib=3545 writes_mib_600s=0 writes_gb_per_day=0.07 cpu_pct_all_cores=0.1
+                 total        used        free      shared  buff/cache   available
+  Mem:            3923         377        1832           0        1870        3545
+  Swap:              0           0           0
+== 01:25:13 Podman reference app
+REPOSITORY               TAG          DIGEST                                                                   IMAGE ID      CREATED       SIZE
+docker.io/library/redis  8-alpine     sha256:71885d8cc6e42f2bc0aa2eb853bfc4be200b5108a46ac50e117ae1df0531fb80  d96d58a3dc4e  5 days ago    120 MB
+docker.io/library/nginx  1.29-alpine  sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de  7f7dcd27f920  6 months ago  63 MB
+RESULT B_podman_app memavail_mib=3513 writes_mib_600s=0 writes_gb_per_day=0.07 cpu_pct_all_cores=0.1
+                 total        used        free      shared  buff/cache   available
+  Mem:            3923         410        1610           0        2066        3512
+  Swap:              0           0           0
+== 01:37:17 k3s v1.37.2+k3s1 install (binary + sha256)
+k3s-arm64: OK
+RESULT C_k3s_node_ready_seconds=5
+RESULT C_k3s_kube_system_ready_seconds=22
+NAMESPACE     NAME                                      READY   STATUS      RESTARTS     AGE   IP          NODE         NOMINATED NODE   READINESS GATES
+kube-system   coredns-577d995dff-hq7qw                  1/1     Running     0            12s   <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   helm-install-gateway-api-crd-fc6pf        0/1     Completed   0            12s   <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   helm-install-traefik-45zvt                0/1     Completed   1 (6s ago)   12s   <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   helm-install-traefik-crd-8hzfw            0/1     Completed   0            12s   <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   local-path-provisioner-56c6584955-8zh9x   1/1     Running     0            12s   <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   metrics-server-778c4649b4-zcd2g           0/1     Running     0            12s   <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   svclb-traefik-b803c557-5q9kl              2/2     Running     0            5s    <vm-private-ip>   lima-w4lab   <none>           <none>
+kube-system   traefik-68df944ff7-zjvrw                  0/1     Running     0            5s    <vm-private-ip>   lima-w4lab   <none>           <none>
+RESULT C_k3s_default_idle memavail_mib=2615 writes_mib_600s=12 writes_gb_per_day=1.89 cpu_pct_all_cores=2.0
+                 total        used        free      shared  buff/cache   available
+  Mem:            3923        1308         206           1        2587        2614
+  Swap:              0           0           0
+k3s.service cgroup memory: 1767 MiB
+kubepods cgroup memory: 91 MiB
+775380 k3s-server
+219452 containerd
+45532 containerd
+== 01:50:42 k3s + reference app
+Waiting for deployment "web" rollout to finish: 0 of 1 updated replicas are available...
+deployment "web" successfully rolled out
+Waiting for deployment "cache" rollout to finish: 0 of 1 updated replicas are available...
+deployment "cache" successfully rolled out
+RESULT D_k3s_default_app memavail_mib=2557 writes_mib_600s=18 writes_gb_per_day=2.75 cpu_pct_all_cores=2.3
+                 total        used        free      shared  buff/cache   available
+  Mem:            3923        1366         162           2        2578        2556
+  Swap:              0           0           0
+k3s.service cgroup memory: 1995 MiB
+== 02:02:46 k3s slim (disable traefik,servicelb,metrics-server) + app
+NAMESPACE     NAME                                      READY   STATUS      RESTARTS      AGE
+default       cache-854884df8f-z2vv6                    1/1     Running     0             16m
+default       web-cd7b46869-h2hct                       1/1     Running     0             16m
+kube-system   coredns-577d995dff-hq7qw                  1/1     Running     0             29m
+kube-system   helm-delete-traefik-l7hpt                 1/1     Running     0             3m57s
+kube-system   helm-install-gateway-api-crd-fc6pf        0/1     Completed   0             29m
+kube-system   helm-install-traefik-45zvt                0/1     Completed   1 (29m ago)   29m
+kube-system   local-path-provisioner-56c6584955-8zh9x   1/1     Running     0             29m
+RESULT E_k3s_slim_app memavail_mib=2702 writes_mib_600s=40 writes_gb_per_day=6.06 cpu_pct_all_cores=1.8
+                 total        used        free      shared  buff/cache   available
+  Mem:            3923        1221         286           1        2598        2701
+  Swap:              0           0           0
+k3s.service cgroup memory: 1922 MiB
+30M	/var/lib/rancher/k3s/server/db
+== 02:16:51 done

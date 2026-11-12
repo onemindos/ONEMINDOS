@@ -1,0 +1,246 @@
+Source: https://docs.formant.io/docs/getting-started-install-the-formant-agent.md
+Accessed: 2026-11-11
+
+---
+updatedAt: 2025-11-11T01:45:57.000Z
+agentTools:
+  projectIndex: https://docs.formant.io/llms.txt
+---
+
+# Install the Formant agent for Debian
+
+This guide will teach you how to perform a standard installation of the Formant agent onto a target device.
+
+> 📘
+>
+> This guide describes an alternative installation via a convenience script to a Linux target but it is not officially supported. It is **highly recommended** to install the Formant agent via [Docker](https://docs.formant.io/docs/getting-started-install-the-formant-agent-via-docker).
+
+# Prerequisites
+
+### System requirements
+
+The Formant agent is an extremely lightweight tool which sets up data pipelines on your device. The base footprint of the agent itself on a device is minimal. Depending on your application, you can configure the agent and your device to store and transfer large amounts of data (e.g., video cache and streaming), which will require greater memory and CPU capability.
+
+| Supported Operating Systems | Support ROS Version | Supported Architectures |
+| :-------------------------- | :------------------ | :---------------------- |
+| Ubuntu 24.04 ("*Noble*")    | ROS2 ("*Jazzy*")    | `amd64` `arm64`         |
+| Ubuntu 22.04 ("*Jammy*")    | ROS2 ("*Humble*")   | `amd64` `arm64`         |
+| Ubuntu 20.04 ("*Focal*")    | ROS1 ("*Noetic*")   | `amd64` `arm64`         |
+| Ubuntu 18.04 ("*Bionic*")   | ROS1 ("*Melodic*")  | `amd64` `arm64`         |
+
+<br />
+
+### Internet connectivity
+
+The target device must have connectivity to `app.formant.io` and `api.formant.io`.
+
+You can run the following script on your device terminal to output the robot's details and verify prerequisites:
+
+```shell
+bash <(wget -qO - https://app.formant.io/device-check.sh)
+```
+
+### Terminal access
+
+To install the Formant agent on the target device, you must have terminal access to the device and the ability to run commands.
+
+### Admin privileges and ability to install packages
+
+You'll need administrator privileges on your device and the ability to install packages via `apt`. To make sure this is configured correctly, ensure that you can run the following command on your device:
+
+```shell
+sudo apt update
+```
+
+### Install ROS 1 or ROS 2 (required for ROS compatibility)
+
+If you plan to use your device with ROS, you'll have to install ROS on your device before installing the Formant agent. For installation instructions, see [ROS: Installation](https://wiki.ros.org/ROS/Installation).
+
+If you prefer to install the agent and its dependencies via Docker, see [Install the Formant agent via Docker](https://docs.formant.io/docs/getting-started-install-the-formant-agent-via-docker).
+
+***
+
+# Step 1: Create a device
+
+Follow Steps 1 and 2 of [Create a device](https://docs.formant.io/docs/getting-started-create-a-device) to add a new device to your Formant organization.
+
+# Step 2: Run installation script
+
+Following from the instructions in Step 2 of [Create a device](https://docs.formant.io/docs/getting-started-create-a-device): you will see a command which installs the Formant agent to your device.
+
+<Image title="Screen Shot 2021-09-01 at 3.27.38 PM.png" alt={2010} align="center" width="80%" src="https://files.readme.io/bada874-Screen_Shot_2021-09-01_at_3.27.38_PM.png">
+  Copy and paste the command from the Formant website to your device's terminal.
+</Image>
+
+1. SSH into your robot's terminal.
+2. Copy the installation command from Formant, paste it into your robot terminal, and run it.
+
+> 📘
+>
+> The installation command contains a unique provisioning token which expires after 72 hours.
+
+# Step 3: Configure installation
+
+## ROS version
+
+You'll be prompted to configure your agent installation and specify if your robot is running ROS 1, ROS 2, or neither:
+
+<Image alt="Selecting your ROS version." align="center" src="https://files.readme.io/219184f31d336edc6776d0f9f2233cf9e44f930d5aeb5843294c79968c0eeeb4-Screenshot_2025-01-29_at_5.15.46_PM.png">
+  Selecting your ROS version.
+</Image>
+
+## Custom messages
+
+Entering the absolute path to your ROS custom message workspace is required for the Formant agent to be able to ingest custom message data properly.
+
+If you're not using custom messages, you can leave the workspace path blank.
+
+### ROS 1
+
+<Image title="catkin-ws.png" alt={657} align="center" width="80%" src="https://files.readme.io/e7e654e-catkin-ws.png">
+  Example absolute path to catkin workspace.
+</Image>
+
+### ROS 2
+
+<Image alt="Setting the path to your colcon workspace." align="center" src="https://files.readme.io/db5ebcf186aded4bef25621e6262574650ec7db9735b82c9b7aa38e4cde108b5-Screenshot_2025-01-29_at_5.15.54_PM.png">
+  Setting the path to your colcon workspace.
+</Image>
+
+## Source script
+
+You can provide a script for the Formant agent to source before running. This can be helpful to set a variety of environment variables, among other uses.
+
+<Image alt="Providing a script for the Formant agent to source before running." align="center" src="https://files.readme.io/96c9a7199e096295840d003a153a40720355e6373f24affba7f66a83eb282424-Screenshot_2025-01-29_at_5.17.02_PM.png">
+  Providing a script for the Formant agent to source before running.
+</Image>
+
+<br />
+
+> 📘 Environment variables for the agent
+>
+> You can add a catkin workspace, colcon workspace, or control many other agent settings later by editing the environment variables for your Formant agent. For more information, see [Environment variables for the agent](https://docs.formant.io/docs/environment-variables-for-the-agent).
+
+# Step 4: Verify successful installation
+
+If the Formant agent has been installed and connection established, Formant will begin to ingest telemetry for default streams like CPU, Network, Memory, and Disk. Verify that these streams have live telemetry data in the device's telemetry page:
+
+In Formant, on the home screen, open the menu in the upper-left corner. Click on the name of your device.
+
+You should see live data from your device in the **Observe** tab.
+
+<Image title="Screen Shot 2021-09-01 at 7.04.47 PM.png" alt={1192} align="center" width="80%" src="https://files.readme.io/4fe2b84-Screen_Shot_2021-09-01_at_7.04.47_PM.png">
+  Telemetry being uploaded to a default stream.
+</Image>
+
+Your device is now running the Formant agent, and you're ready to use the Formant platform!
+
+***
+
+# Managing the agent installation
+
+## Environment variables
+
+You can configure your Formant agent further via environment variables. For more information, see [Environment variables for the agent](https://docs.formant.io/docs/environment-variables-for-the-agent).
+
+## The Formant agent service
+
+The agent runs as a `systemctl` service called `formant-agent`. There is another `systemctl` service called `formant-sidecar` which manages automatic over-the-air (OTA) updates from the Formant web app.
+
+### Update the Formant agent
+
+To update to the latest available version of the agent:
+
+```shell
+sudo apt update
+sudo apt install -y formant-agent
+```
+
+You can also update the agent via the Formant web application:
+
+1. In Formant, in the upper-left corner, open the menu and click **Settings**.
+2. Click **Devices**. Select the device on which you want to update the agent version.
+3. Under **Summary**, you'll see **Agent version**. If there is a newer version of the agent available, you'll see an **Update** button. Click **Update**.
+
+### Install specific agent version
+
+To install a specific version of the agent, such as `1.212.0`:
+
+```shell
+sudo apt install formant-agent=1.212.0
+```
+
+### Enabling and disabling the agent running on startup
+
+By default, after installation, the `formant-agent` service is enabled to run on startup.
+
+To set the agent to run on startup:
+
+```shell
+sudo systemctl enable formant-agent
+```
+
+To disable the agent from running at startup:
+
+```shell
+sudo systemctl disable formant-agent
+```
+
+### Starting and stopping the agent
+
+To start the agent:
+
+```shell
+sudo systemctl start formant-agent
+```
+
+To stop the agent:
+
+```shell
+sudo systemctl stop formant-agent
+```
+
+To restart the agent:
+
+```shell
+sudo systemctl restart formant-agent
+```
+
+### Retrieving agent logs
+
+You can read the Formant agent log by running the following command on your device:
+
+```shell
+journalctl -feu formant-agent
+```
+
+### Uninstalling the Formant agent
+
+You can remove the Formant agent from your device by running the following command:
+
+```shell
+sudo apt remove --purge formant-agent formant-sidecar
+```
+
+# Troubleshooting
+
+You can check that the Formant agent is running properly by running the following command on your device:
+
+```shell
+sudo systemctl status formant-agent
+```
+
+If you encounter an error in this process, or you still don't see your device online, see [Troubleshooting an agent installation](https://docs.formant.io/docs/troubleshooting-an-agent-installation).
+
+If you're still stuck, download your Formant agent log and reach out to our Customer Success team for support. You can reach us via the Intercom messenger in the bottom-right corner of this page, or at <<masked-email>>.
+
+# See also
+
+* [Install the Formant agent via Docker](https://docs.formant.io/docs/getting-started-install-the-formant-agent-via-docker)
+* [Environment variables for the Formant agent](https://docs.formant.io/docs/environment-variables-for-the-agent)
+* [Troubleshooting an agent installation](https://docs.formant.io/docs/troubleshooting-an-agent-installation)
+* [Troubleshooting: I don't see ROS data](https://docs.formant.io/docs/troubleshooting-dont-see-ros-data)
+
+<Callout icon="👋" theme="default">
+  ### If you notice an issue with this page or need help, please reach out to us! Use the 'Did this page help you?' buttons below, or get in contact with our Customer Success team via the Intercom messenger in the bottom-right corner of this page, or at [<masked-email>](mailto:<masked-email>).
+</Callout>

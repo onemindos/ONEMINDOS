@@ -1,0 +1,19 @@
+# Debug boot of build 2 (before the read-only-root fix). Excerpt; VM-internal addresses masked.
+serial-debug2.log:/ ro,relatime
+serial-debug1.log:Nov 11 04:43:42 onemind-lab k3s[680]: I1111 04:43:42.230907     680 options.go:261] external host was not specified, using <vm-private-ip>
+serial-debug1.log:Nov 11 04:43:42 onemind-lab k3s[680]: time="2026-11-11T04:43:42Z" level=error msg="Failed to generate kubeconfig: mkdir /etc/rancher/k3s: read-only file system"
+serial-debug1.log:Nov 11 04:43:42 onemind-lab k3s[680]: time="2026-11-11T04:43:42Z" level=fatal msg="Error: mkdir /etc/rancher/k3s: read-only file system"
+serial-debug1.log:Nov 11 04:44:01 onemind-lab k3s[726]: I1111 04:44:01.743777     726 options.go:261] external host was not specified, using <vm-private-ip>
+serial-debug1.log:Nov 11 04:44:01 onemind-lab k3s[726]: time="2026-11-11T04:44:01Z" level=error msg="Failed to generate kubeconfig: mkdir /etc/rancher/k3s: read-only file system"
+serial-debug1.log:Nov 11 04:44:01 onemind-lab k3s[726]: time="2026-11-11T04:44:01Z" level=fatal msg="Error: mkdir /etc/rancher/k3s: read-only file system"
+serial-debug1.log:Nov 11 04:44:21 onemind-lab k3s[764]: I1111 04:44:21.267889     764 options.go:261] external host was not specified, using <vm-private-ip>
+serial-debug1.log:Nov 11 04:44:21 onemind-lab k3s[764]: time="2026-11-11T04:44:21Z" level=error msg="Failed to generate kubeconfig: mkdir /etc/rancher/k3s: read-only file system"
+serial-debug1.log:Nov 11 04:44:21 onemind-lab k3s[764]: time="2026-11-11T04:44:21Z" level=fatal msg="Error: mkdir /etc/rancher/k3s: read-only file system"
+
+# Smoke run of build 2: T1 (gate alerted, did not roll back a committed slot)
+HEALTH-GATE: 04:36:50 start slot=A version=1 mode=committed env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 ]
+HEALTH-GATE: 04:36:50 RESULT committed-boot slot=A version=1
+root@onemind-lab:~# HEALTH-GATE: 04:41:51 K3S-FRESH ALERT not healthy after 300s on a committed slot: fail: no kubeconfig (k3s server never started on this slot) (no rollback)
+HEALTH-GATE: 04:36:50 start slot=A version=1 mode=committed env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 ]
+HEALTH-GATE: 04:36:50 RESULT committed-boot slot=A version=1
+HEALTH-GATE: 04:41:51 K3S-FRESH ALERT not healthy after 300s on a committed slot: fail: no kubeconfig (k3s server never started on this slot) (no rollback)

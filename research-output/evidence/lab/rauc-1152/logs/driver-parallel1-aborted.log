@@ -1,0 +1,11 @@
+cdbde1ecb6f20383b6edac2309580bdbf94d9ff30a8bea5e414276f9c188c60a  /var/lab/run1/disk.img
+##### [02:28:51] T1 first boot
+##### [02:28:51] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/var/lab/run1/OVMF_VARS.fd -drive if=virtio,format=raw,cache=wr
+===> T1: FAIL gate=('committed-boot', 'A', 1) K3S-FRESH ALERT not healthy after 300s on a committed slot: fail: core pod kube-system/cor apps_not_ready=True rauc_1.15.2=True t=707s
+##### [02:40:38] T2 wrong-key bundle
+##### [02:40:39] install wrong-key.raucb rc=1 in 1s
+===> T2: PASS rc=1 sig_error=True env_unchanged=True marker_written=False
+##### [02:40:40] T11 plain-format bundle, valid signature, verity-only policy
+##### [02:41:46] install plain-good.raucb rc=1 in 66s
+===> T11: PASS rc=1 format_error=True env_unchanged=True marker_written=False
+##### [02:41:46] T3 good update -> B

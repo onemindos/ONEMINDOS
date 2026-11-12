@@ -1,0 +1,4 @@
+[[customizations.user]]
+name = "lab"
+key = "__SSH_PUBKEY__"
+groups = ["wheel"]

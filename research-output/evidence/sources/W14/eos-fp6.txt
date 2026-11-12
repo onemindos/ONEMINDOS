@@ -1,0 +1,80 @@
+Info about Fairphone - The Fairphone (Gen. 6/Gen. 6+) - FP6 | /e/OS documentation
+/e/OS documentation
+OS
+Devices
+Workspace
+Contribute
+About
+ENFRDEES
+Fairphone FP6
+Edit
+Guides
+/e/OS InstallerA web application that simplifies installing /e/OS on your phone by guiding you through easy-to-follow steps.
+Install
+Command lineFor advanced users, installing /e/OS with Android platform tools.
+Install
+BuildBuild /e/OS for yourself with your own settings.
+Build
+Roll back to stock OSReturn to the default operating system.
+Roll back
+Boot Modes
+RecoveryWith the device powered off - hold Volume Down + Power, then select "Recovery mode" using Volume keys.
+DownloadWith the device powered off - hold Volume Down + Power
+Support the project
+Join the testing community
+Report an issue about FP6
+Contribute
+Donate
+Usability
+Known issue(s) 0
+The Fairphone (Gen. 6/Gen. 6+)
+Apps Compatibility
+Bootloaderlockable
+Build Variantuser
+Play integritybasic
+Release Typeofficial
+Device details
+Release2025 / 2026
+SoCQualcomm Snapdragon 7s Gen 3 / Gen 4
+RAM8 / 12 GB
+CPUOcta-core1 x 2.5 GHz + 3 x 2.4 GHz + 4 x 1.8 GHz OR 1 x 2.7 GHz + 3 x 2.4 GHz + 4 x 1.8 GHz
+Architecturearm64
+GPUQualcomm Adreno 810
+Network2G bands: 850/900/1800/1900 MHz
+3G bands: 1/2/5/8
+4G bands: <masked-token>
+5G bands: <masked-token>
+VoLTE + VoWiFi (depending on local network) bands:
+Storage256 GB
+SD cardUpto 256 GB microSDXC (dedicated slot)
+Screen6.31 in1116x2484 (432 PPI)P-OLED LTPO (max Hz)
+Device Tree–
+Bluetooth5.4 + LE aptX HD aptX Adaptive with A2DP
+Wi-Fi802.11 a/b/g/n/ac/6e + tri-band + WiFi Direct
+PeripheralsAccelerometer
+Gyroscope
+Fingerprint Scanner (Side Mounted
+Right)
+Light sensor
+Dual SIM (1 Physical + 1 e-SIM)
+GPS
+GLONASS
+Proximity sensor
+USB Type C
+Camera(s)No of Cameras: 350MP f/1.6 (Rear Wide), Dual-LED (dual-tone) flash
+13MP f/2.2 (Rear Ultra Wide), Dual-LED (dual-tone) flash
+32MP f/2.0 (Front Wide), flash
+Dimensions156.5 mm (6.16 in) (h)73.3 mm (2.89 in) (w)9.6 mm (0.38 in) (d)
+BatteryRemovable Li-Ion
+4415 mAh
+/e/OS Information
+Maintainers/e/OS Build Team
+Build versionsA16 (official)
+Disclaimer: We cannot guarantee that all the device specific information on this page is 100 % up to date or accurate.
+Read more.
+ e Foundation
+ Community forum
+ GitLab
+ JobsThe "Info about Fairphone - The Fairphone (Gen. 6/Gen. 6+) - FP6" page is licensed under
+CC BY-SA
+by e Foundation 2018-2026.

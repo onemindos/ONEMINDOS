@@ -1,0 +1,293 @@
+Sign a plugin | Grafana Plugin Tools
+
+Skip to main content
+
+💬 Learn more and connect with fellow plugin developers in the Grafana Community Forum. Ask questions, share knowledge, and get support from the Grafana team and community.
+
+Grafana Plugin Tools
+Portal HomeHelpGitHub
+
+Get started
+What's new
+
+Set up your environment
+
+Key concepts
+
+Tutorials
+
+Data source plugins
+
+App plugins
+
+Panel plugins
+
+UI extensions
+
+How-to guides
+
+E2E test a plugin
+
+Publish a plugin
+Publishing best practices
+Automate your plugin builds
+Package a plugin
+Sign a plugin
+Publish or update a plugin
+Help us test your plugin
+Publish a plugin FAQs
+
+Migration guides
+Troubleshooting
+
+Reference
+Resources
+
+Publish a plugin
+Sign a plugin
+On this page
+
+Sign a plugin
+View as Markdown
+
+Grafana Labs signs all Grafana Labs-authored plugins, including Enterprise plugins, so that Grafana can verify their authenticity with signature verification. By default, Grafana requires all plugins to be signed before it loads them.
+
+Refer to Plugin signatures for more details.
+
+Before you begin​
+
+Breaking changes in v4
+
+Starting with v4, @grafana/sign-plugin requires Node.js 24.15.0 or later. PAC files, SOCKS proxies, and the ALL_PROXY environment variable are no longer supported.
+Before upgrading, review Migrate from earlier versions for the required proxy configuration changes.
+
+Signatures during plugin development​
+
+You don't need to sign a plugin during development or when you submit a plugin for review for the first time. The Docker development environment that @grafana/create-plugin scaffolds is configured by default to run in development mode, which allows you to load the plugin without a signature.
+
+Generate an Access Policy token​
+
+To verify ownership of your plugin, generate an Access Policy token that you use every time you sign a new version of your plugin.
+
+Create a Grafana Cloud account.
+
+Log in to your account, and then go to My Account > Security > Access Policies.
+
+Click Create access policy.
+
+Realm: Set to <YOUR_ORG_NAME> (all-stacks)
+
+Scope: Set to plugins:write
+Create access policy.
+
+Click Create token to create a new token.
+
+Expiration date is optional, though you should change tokens periodically for increased security.
+Create access policy token.
+
+Click Create and then save a copy of the token somewhere secure for future reference.
+
+Proceed to signing your public plugin or private plugin.
+
+Public or private plugins​
+
+Plugins can have different signature levels depending on their author, related technology, and intended use.
+
+A plugin can be either public or private:
+
+Public plugins: Grafana signs these as Community or Commercial. Grafana distributes them within the Grafana plugin catalog and makes them available for others to install.
+
+Private plugins: These are only available for use within your organization.
+
+Before you sign your plugin, review the Plugins policy to determine the appropriate signature for your plugin.
+
+Sign a public plugin​
+
+The Grafana team needs to review public plugins before you can sign them.
+
+Submit your plugin for review.
+
+If the team approves your plugin, you're granted a plugin signature level. You need this signature level to proceed.
+
+In your plugin directory, export the Access Policy token as an environment variable using the token you just created:
+
+export GRAFANA_ACCESS_POLICY_TOKEN=<YOUR_ACCESS_POLICY_TOKEN>
+
+Sign the plugin. The Grafana sign-plugin tool creates a MANIFEST.txt file in the dist directory of your plugin:
+
+npm
+Yarn
+pnpm
+
+npm run sign
+
+yarn sign
+
+pnpm run sign
+
+Sign a private plugin​
+
+In your plugin directory, export the Access Policy token as an environment variable using the token you created:
+
+export GRAFANA_ACCESS_POLICY_TOKEN=<YOUR_ACCESS_POLICY_TOKEN>
+
+Sign the plugin. The Grafana sign-plugin tool creates a MANIFEST.txt file in the dist directory of your plugin. After the rootUrls flag, enter a comma-separated list of URLs for the Grafana instances where you intend to install the plugin:
+
+npm
+Yarn
+pnpm
+
+npm run sign -- --rootUrls https://example.com/grafana
+
+yarn sign --rootUrls https://example.com/grafana
+
+pnpm run sign --rootUrls https://example.com/grafana
+
+Sign through a proxy​
+
+To sign through an HTTP or HTTPS proxy, set HTTPS_PROXY before running npm run sign:
+
+export HTTPS_PROXY=http://proxy.example.com:8080
+
+export NO_PROXY=localhost,127.0.0.1
+
+npm run sign
+
+Proxy URLs must include http:// or https://. For Basic proxy authentication, use a URL such as http://username:<email-masked>:8080. Lowercase https_proxy and no_proxy take precedence over their uppercase equivalents. You don't need to set NODE_USE_ENV_PROXY.
+
+Migrate from earlier versions​
+
+Starting with v4, @grafana/sign-plugin uses Node.js built-in proxy support. To migrate from v3 or earlier:
+
+Upgrade to Node.js 24.15.0 or later.
+
+Replace PAC or SOCKS configuration with a direct HTTP or HTTPS proxy URL.
+
+If you use ALL_PROXY, move the HTTP or HTTPS proxy URL to HTTPS_PROXY. ALL_PROXY is no longer read, and HTTP_PROXY alone doesn't configure HTTPS signing requests.
+
+Add http:// or https:// to proxy URLs that don't have a scheme.
+
+Separate NO_PROXY entries with commas, not spaces. For supported host patterns, refer to the Node.js proxy documentation.
+
+Add a plugin manifest for verification​
+
+For Grafana to verify the digital signature of a plugin, the plugin must include a signed manifest file, MANIFEST.txt. The signed manifest file contains two sections:
+
+Signed message: Contains plugin metadata and plugin files with their respective checksums (SHA256).
+
+Digital signature: Created by encrypting the signed message using a private key. Grafana has a built-in public key that it uses to verify that the digital signature was encrypted using the expected private key.
+
+Example:
+
+-----BEGIN PGP SIGNED MESSAGE-----
+
+Hash: SHA512
+
+{
+
+  "manifestVersion": "2.0.0",
+
+  "signatureType": "community",
+
+  "signedByOrg": "myorgid",
+
+  "signedByOrgName": "My Org",
+
+  "plugin": "myorgid-simple-panel",
+
+  "version": "1.0.0",
+
+  "time": 1602753404133,
+
+  "keyId": "7e4d0c6a708866e7",
+
+  "files": {
+
+    "LICENSE": "12ab7a0961275f5ce7a428e662279cf49bab887d12b2ff7bfde738346178c28c",
+
+    "module.js.LICENSE.txt": "0d8f66cd4afb566cb5b7e1540c68f43b939d3eba12ace290f18abc4f4cb53ed0",
+
+    "module.js.map": "8a4ede5b5847dec1c6c30008d07bef8a049408d2b1e862841e30357f82e0fa19",
+
+    "plugin.json": "13be5f2fd55bee787c5413b5ba6a1fae2dfe8d2df6c867dadc4657b98f821f90",
+
+    "README.md": "2d90145b28f22348d4f50a81695e888c68ebd4f8baec731fdf2d79c8b187a27f",
+
+    "module.js": "b4b6945bbf3332b08e5e1cb214a5b85c82557b292577eb58c8eb1703bc8e4577"
+
+  }
+
+}
+
+-----BEGIN PGP SIGNATURE-----
+
+Version: OpenPGP.js v4.10.1
+
+Comment: https://openpgpjs.org
+
+wqEEARMKAAYFAl+IE3wACgkQfk0ManCIZudpdwIHTCqjVzfm7DechTa7BTbd
+
++dNIQtwh8Tv2Q9HksgN6c6M9nbQTP0xNHwxSxHOI8EL3euz/OagzWoiIWulG
+
+7AQo7FYCCQGucaLPPK3tsWaeFqVKy+JtQhrJJui23DAZLSYQYZlKQ+nFqc9x
+
+T6scfmuhWC/TOcm83EVoCzIV3R5dOTKHqkjIUg==
+
+=GdNq
+
+-----END PGP SIGNATURE-----
+
+Troubleshooting​
+
+Why do I get a "Modified signature" error?​
+
+In some cases, the system generates an invalid MANIFEST.txt because of an issue when signing the plugin on Windows. You can fix this by replacing all double backslashes, \\, with a forward slash, /, in the MANIFEST.txt file. You need to do this every time you sign your plugin.
+
+Why do I get a "Field is required: rootUrls" error for my public plugin?​
+
+With a public plugin, your plugin doesn't have a plugin signature level assigned to it yet. A Grafana team member assigns a signature level to your plugin after they review and approve it. For more information, refer to the Sign a public plugin section.
+
+Why do I get a "Field is required: rootUrls" error for my private plugin?​
+
+With a private plugin, you need to add a rootUrls flag to the plugin:sign command. The rootUrls must match the root_url configuration. For more information, refer to the Sign a private plugin section.
+
+If you still get this error, make sure that the Access Policy token was generated by a Grafana Cloud account that matches the first part of the plugin ID.
+
+Was this page helpful?
+
+ Yes No
+
+Edit this page
+
+Previous
+Package a plugin
+Next
+Publish or update a plugin
+
+Before you begin
+Signatures during plugin development
+Generate an Access Policy token
+Public or private plugins
+Sign a public plugin
+Sign a private plugin
+Sign through a proxy
+Migrate from earlier versions
+Add a plugin manifest for verification
+Troubleshooting
+Why do I get a "Modified signature" error?
+Why do I get a "Field is required: rootUrls" error for my public plugin?
+Why do I get a "Field is required: rootUrls" error for my private plugin?
+
+Docs
+Get Started
+Portal Home
+
+Community
+Stack Overflow
+Github Discussions
+Grafana Community Forums
+
+Social
+GitHub
+
+Copyright © 2026 Grafana Labs. Built with Docusaurus.

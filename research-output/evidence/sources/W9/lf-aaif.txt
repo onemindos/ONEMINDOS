@@ -1,0 +1,286 @@
+Linux Foundation Announces the Formation of the Agentic AI Foundation (AAIF), Anchored by New Project Contributions Including Model Context Protocol (MCP), goose and AGENTS.md
+
+ 📦 Prime Day is here. Save up to 75% for 2 days only! • SAVE NOW
+ -->KubeCon + CloudNativeCon North America • NOV 9-12 • Salt Lake City • REGISTER NOW
+
+ English 
+ Japan 
+ China 
+ Europe
+
+ Sign In
+
+ Search
+
+ Join
+
+ ABOUT
+
+ About the LF
+
+ Corporate Members
+
+ Individual Supporters
+
+ Leadership
+
+ Inclusion & Accessibility
+
+ Careers
+
+ Brand Guidelines
+
+ Contact Us
+
+ PROJECTS
+
+ View All Projects
+
+ Host Your Project
+
+ Partner Program
+
+ Security
+
+ Standards and Specifications
+
+ Digital Trust
+
+ Sustainability
+
+ Management & Best Practices
+
+ RESOURCES
+
+ Blog
+
+ Publications
+
+ Open Source Guides
+
+ Webinars
+
+ Case Studies
+
+ NEWSROOM
+
+ Press Releases
+
+ LF RESEARCH
+
+ Latest Research
+
+ Leadership & Advisory Board
+
+ Surveys
+
+ Research Forum
+
+ LF EDUCATION
+
+ Home
+
+ Course Catalog
+
+ Resources
+
+ LF EVENTS
+
+ Home
+
+ Events Calendar
+
+ Sponsor
+
+ Submit a Talk
+
+ Code of conduct
+
+ LFX PLATFORM
+
+ LFX Home
+
+ LFX Tools
+
+ LFX Insights
+
+ Create an LFX Account
+
+ Join
+
+ Follow Us
+
+ My Account
+
+ Log In
+
+ English | 
+ Japan | 
+ China | 
+ Europe
+
+ 7 MIN READ
+
+ Linux Foundation Announces the Formation of the Agentic AI Foundation (AAIF), Anchored by New Project Contributions Including Model Context Protocol (MCP), goose and AGENTS.md
+
+ The Linux Foundation | 09 December 2025 
+
+With founding contributions from Anthropic, Block, and OpenAI, the AAIF unites cutting-edge technology and open source governance to shape the future of open and accessible AI
+
+Summary
+
+The Linux Foundation announced the formation of the Agentic AI Foundation (AAIF) with founding contributions of leading technical projects including Anthropic’s Model Context Protocol (MCP), Block’s goose, and OpenAI’s AGENTS.md. 
+
+The AAIF provides a neutral, open foundation to ensure agentic AI evolves transparently and collaboratively.
+
+MCP is the universal standard protocol for connecting AI models to tools, data and applications; goose is an open source, local-first AI agent framework that combines language models, extensible tools, and standardized MCP-based integration; AGENTS.md is a simple, universal standard that gives AI coding agents a consistent source of project-specific guidance needed to operate reliably across different repositories and toolchains.
+
+Platinum members include Amazon Web Services, Anthropic, Block, Bloomberg, Cloudflare, Google, Microsoft and OpenAI.
+
+SAN FRANCISCO, Dec. 9, 2025 – The Linux Foundation, the nonprofit organization enabling mass innovation through open source, today announced the formation of the Agentic AI Foundation (AAIF), and founding contributions of three leading projects driving innovation in open source AI; Anthropic’s Model Context Protocol (MCP), Block’s goose, and OpenAI’s AGENTS.md. 
+
+The advent of agentic AI represents a new era of autonomous decision making and coordination across AI systems that will transform and revolutionize entire industries. The AAIF provides a neutral, open foundation to ensure this critical capability evolves transparently, collaboratively, and in ways that advance the adoption of leading open source AI projects. Its inaugural projects, AGENTS.md, goose and MCP, lay the groundwork for a shared ecosystem of tools, standards, and community-driven innovation. 
+
+"We are seeing AI enter a new phase, as conversational systems shift to autonomous agents that can work together. Within just one year, MCP, AGENTS.md and goose have become essential tools for developers building this new class of agentic technologies," said Jim Zemlin, Executive Director of the Linux Foundation. "Bringing these projects together under the AAIF ensures they can grow with the transparency and stability that only open governance provides. The Linux Foundation is proud to serve as the neutral home where they will continue to build AI infrastructure the world will rely on."
+
+MCP
+
+The launch of the AAIF comes just one year after the release of MCP by Anthropic, provider of advanced AI systems grounded in safety research, including Claude and the Claude Developer Platform. MCP has rapidly become the universal standard protocol for connecting AI models to tools, data and applications, with more than 10,000 published MCP servers now covering everything from developer tools to Fortune 500 deployments. The protocol has been adopted by Claude, Cursor, Microsoft Copilot, Gemini, VS Code, ChatGPT and other popular AI platforms, as developers and enterprises gravitate toward its simple integration method, security controls, and faster deployment.
+
+"MCP started as an internal project to solve a problem our own teams were facing. When we open sourced it in November 2024, we hoped other developers would find it as useful as we did,” said Mike Krieger, Chief Product Officer at Anthropic. “A year later, it's become the industry standard for connecting AI systems to data and tools, used by developers building with the most popular agentic coding tools and enterprises deploying on AWS, Google Cloud, and Azure. Donating MCP to the Linux Foundation as part of the AAIF ensures it stays open, neutral, and community-driven as it becomes critical infrastructure for AI. We remain committed to supporting and advancing MCP, and with the Linux Foundation's decades of experience stewarding the projects that power the internet, this is just the beginning."
+
+goose 
+
+Released in early 2025, goose is an open source, local-first AI agent framework that combines language models, extensible tools, and standardized MCP-based integration to provide a structured, reliable, and trusted environment for building and executing agentic workflows. Developed and contributed by Block, the company behind Square, Cash App, Afterpay, TIDAL and a growing ecosystem of bitcoin projects, goose provides the practical infrastructure needed to advance agentic AI safely and consistently. 
+
+“We're at a critical moment for AI. The technology that will define the next decade, that promises to be the biggest engine of economic growth since the Internet, can either remain closed and proprietary for the benefit of few, or be driven by open standards, open protocols, and open access for the benefit of all,” said Manik Surtani, Head of Open Source at Block. “By establishing the AAIF, Block and this group of industry leaders are taking a stand for openness. goose was our first step; establishing the AAIF and contributing goose to it ensures that agentic AI remains shaped by the community and driven by merit. Together, we're building the infrastructure for an AI future that benefits everyone."
+
+AGENTS.md 
+
+Released by OpenAI in August 2025, AGENTS.md is a simple, universal standard that gives AI coding agents a consistent source of project-specific guidance needed to operate reliably across different repositories and toolchains. This markdown-based convention makes agent behavior far more predictable across diverse repositories and build systems. AGENTS.md has already been adopted by more than 60,000 open source projects and agent frameworks including Amp, Codex, Cursor, Devin, Factory, Gemini CLI, GitHub Copilot, Jules and VS Code among others. OpenAI was an early adopter of MCP and has contributed ACP, Codex CLI, and the Agents SDK and Apps SDK to support the open agentic ecosystem, building on shared, interoperable protocols. 
+
+“For AI agents to reach their full potential, developers and enterprises need trustworthy infrastructure and accessible tools to build on. By co-founding the AAIF and donating AGENTS.md, we’re helping establish open, transparent practices that make AI agent development more predictable, interoperable, and safe,” said Nick Cooper, Member of the Technical Staff at OpenAI. “OpenAI has long believed that shared, community-driven protocols are essential to a healthy agentic ecosystem, which is why we’ve open sourced key building blocks like the Codex CLI, the Agents SDK, and now AGENTS.md. We’re proud to work alongside our co-founders to advance a more open and trustworthy future for agentic AI.” 
+
+Platinum members of the AAIF include Amazon Web Services, Anthropic, Block, Bloomberg, Cloudflare, Google, Microsoft and OpenAI. Gold members of the AAIF include Adyen, Arcade.dev, Cisco, Datadog, Docker, Ericsson, IBM, JetBrains, Okta, Oracle, Runlayer, Salesforce, SAP, Shopify, Snowflake, Temporal, Tetrate, and Twilio Inc. Silver members of the AAIF include Apify, Chronosphere, Cosmonic, Elasticsearch, Eve Security, Hugging Face, Kubermatic, KYXStart, LanceDB, Mirantis, NinjaTech AI, Obot.ai, Prefect.io, Pydantic, Shinkai.com, Solo.io, Spectro Cloud, Stacklok, SUSE, Uber, WorkOS, Zapier and ZED.
+
+As part of this launch, AAIF member Obot.ai has donated their MCP Dev Summit events and podcast to AAIF. The next MCP Dev Summit takes place in New York City on April 2-3, 2026. The speaking call for proposals, registration and sponsorship opportunities are now open. Please visit https://events.linuxfoundation.org/mcp-dev-summit-north-america/ for more information.The location and dates for MCP Dev Summit Europe 2026 will be announced shortly.
+
+For more information about the AAIF and how to become a member, please visit AAIF.io and https://github.com/aaif. 
+
+Supporting Quotes
+
+“We're excited to see the Linux Foundation establish the Agentic AI Foundation, providing a neutral home for the Model Context Protocol as it becomes critical infrastructure for the AI community. Placing MCP in a vendor-neutral foundation ensures developers can invest confidently in this universal standard, knowing it will remain open, interoperable, and community-driven. We look forward to continuing our contributions to the MCP project alongside Anthropic to unlock new possibilities for agentic AI applications and our customers.”
+
+– Swami Sivasubramanian, VP of Agentic AI, Amazon Web Services
+
+“At Bloomberg, we view MCP as a foundational building block for APIs in the era of agentic AI. MCP provides the essential connective layer required in our work building and deploying agentic AI systems for finance that do far more than simple question-answering. By enabling access to timely and relevant context across multiple systems, MCP helps support far more sophisticated reasoning and decision-making by investment professionals. As an open source standard governed by the Linux Foundation and part of the Agentic AI Foundation, MCP is poised to drive broader adoption and innovation across the financial sector, and our team at Bloomberg is committed to advancing and extending the specification to enable it to be used securely and in compliance with the requirements of regulated financial services environments.”
+
+– Shawn Edwards, Chief Technology Officer, Bloomberg
+
+“Open standards and protocols like MCP are essential to enabling a thriving developer ecosystem for building agents – they ensure anyone can build agents, across platforms, without the fear of vendor lock-in. Since the introduction of MCP we’ve been collaborating closely with Anthropic to be among one of the first in the industry to support remote MCP. We’ve seen an explosion of remote MCP servers, many of them built on and deployed to Cloudflare over the past year. Joining the Agentic AI Foundation will enable Cloudflare to continue our work to support standards and push the ecosystem forward with new ideas like Code Mode.” 
+
+– Dane Knecht, Chief Technology Officer, Cloudflare
+
+"Google has championed open source for decades because we know that for new technology to get widely adopted, we need shared standards. That’s why we’re backing the Agentic AI Foundation. We want to help build a system where developers can trust that whatever they build in this new domain is interoperable. By collaborating on neutral ground, we can make sure this technology grows in a way that helps developers and – most importantly – people. It’s all about keeping innovation open and giving the community real choices." 
+
+– Richard Seroter, Chief Evangelist and Head of Open Source Programs, Google Cloud
+
+“For the agentic future to become a reality, we have to build it together, and we have to build it in the open. The AAIF will give industry and developers a shared and transparent path to evolve the agentic AI ecosystem. Microsoft remains committed to supporting this journey to create an open, interoperable and reliable foundation for everyone building and using agents.”
+– Chris DiBona, VP, Office of the Chief Technology Officer, Microsoft
+
+Media Contact
+[email-redacted]
+
+ About The Linux Foundation
+
+ The Linux Foundation is the world’s leading home for collaboration on open source software, hardware, standards, and data. Linux Foundation projects, including Linux, Kubernetes, Model Context Protocol (MCP), OpenChain, OpenSearch, OpenSSF, OpenStack, PyTorch, Ray, RISC-V, SPDX and Zephyr, provide the foundation for global infrastructure. The Linux Foundation is focused on leveraging best practices and addressing the needs of contributors, users, and solution providers to create sustainable models for open collaboration. For more information, please visit us at linuxfoundation.org.
+
+ The Linux Foundation has registered trademarks and uses trademarks. For a list of trademarks of the Linux Foundation, please see its trademark usage page: linuxfoundation.org/trademark-usage. Linux is a registered trademark of Linus Torvalds.
+
+ Stay Connected with the Linux Foundation
+
+ ABOUT THE LINUX FOUNDATION
+
+ The Linux Foundation provides a neutral, trusted hub for developers to code, manage, and scale open technology projects.
+
+ About the LF
+
+ Leadership
+
+ Careers
+
+ Corporate Members
+
+ Inclusion & Accessibility
+
+ Brand Guidelines
+
+ Contact Us
+
+ Store
+
+ PROJECTS
+
+ View All Projects
+
+ Host Your Project
+
+ Security
+
+ NEWSROOM
+
+ Press Releases
+
+ LF RESEARCH
+
+ Latest Research
+
+ Sponsor a Study
+
+ Leadership & Advisory Board
+
+ Research Forum
+
+ LFX PLATFORM
+
+ LFX Home
+
+ LFX Tools
+
+ LFX Insights
+
+ Create an LFX Account
+
+ RESOURCES
+
+ Blog
+
+ Publications
+
+ Open Source Guides
+
+ Webinars
+
+ Case Studies
+
+ LF EVENTS
+
+ Home
+
+ Events Calendar
+
+ Sponsor an Event
+
+ Submit a Talk
+
+ Code of Conduct
+
+ LF EDUCATION
+
+ Home
+
+ Course Catalog
+
+ Resources
+
+ Copyright © 2026 The Linux Foundation®. All rights reserved. The Linux Foundation has registered trademarks and uses trademarks. For more information, including terms of use, privacy policy, and trademark usage, please see our Policies page. Privacy Policy | Trademark Usage | Cookie Settings

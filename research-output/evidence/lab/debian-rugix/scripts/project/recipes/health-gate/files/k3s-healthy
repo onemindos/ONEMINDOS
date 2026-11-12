@@ -1,0 +1,32 @@
+#!/bin/bash
+# Exit 0 only if k3s is healthy *on this boot*:
+#   1. the API server answers /readyz,
+#   2. this node's Ready condition is True and CoreDNS has an available replica,
+#   3. (freshness, default on) the local kubelet answers /healthz (it may bind
+#      only [::1], so use "localhost", not 127.0.0.1) and the node's
+#      Ready heartbeat is newer than this boot. k3s state persists across slot
+#      switches, so 2. alone can be satisfied by status written before the reboot
+#      (run 1 committed a trial slot "HEALTHY after 0s").
+[ -f /etc/default/onemind-health-gate ] && . /etc/default/onemind-health-gate
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+K="/usr/local/bin/k3s kubectl --request-timeout=5s"
+fail() { echo "k3s-healthy: $*"; exit 1; }
+$K get --raw=/readyz >/dev/null 2>&1 || fail "apiserver not ready"
+[ "$($K get node "$(hostname)" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)" = "True" ] \
+  || fail "node not Ready"
+[ "$($K -n kube-system get deploy coredns -o jsonpath='{.status.availableReplicas}' 2>/dev/null)" -ge 1 ] 2>/dev/null \
+  || fail "coredns not available"
+if [ "${ONEMIND_GATE_FRESHNESS:-1}" = "1" ]; then
+  curl -fsS -m 3 http://localhost:10248/healthz >/dev/null 2>&1 || fail "kubelet healthz not answering on this boot"
+  HB=$($K get node "$(hostname)" -o jsonpath='{.status.conditions[?(@.type=="Ready")].lastHeartbeatTime}' 2>/dev/null)
+  BOOT=$(( $(date +%s) - $(cut -d. -f1 /proc/uptime) ))
+  [ -n "$HB" ] && [ "$(date -d "$HB" +%s)" -ge "$BOOT" ] || fail "node heartbeat ($HB) is older than this boot"
+  # CoreDNS must have become Ready on *this* boot (run 3 amd64: a stale
+  # availableReplicas=1 from the previous boot passed, then flapped to 0).
+  CT=$($K -n kube-system get pods -l k8s-app=kube-dns -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{" "}{.status.conditions[?(@.type=="Ready")].lastTransitionTime}{"\n"}{end}' 2>/dev/null \
+       | awk '$1=="True"{print $2}' | sort | tail -n1)
+  [ -n "$CT" ] && [ "$(date -d "$CT" +%s)" -ge "$BOOT" ] || fail "coredns not Ready since this boot (${CT:-none})"
+  echo "k3s-healthy: ok (fresh)"
+else
+  echo "k3s-healthy: ok (freshness checks OFF)"
+fi

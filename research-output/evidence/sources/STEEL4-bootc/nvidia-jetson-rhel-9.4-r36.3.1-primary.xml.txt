@@ -1,0 +1,1452 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata xmlns="http://linux.duke.edu/metadata/common" xmlns:rpm="http://linux.duke.edu/metadata/rpm" packages="24">
+<package type="rpm">
+  <name>nvidia-jetpack-3d-core</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+  <checksum type="sha256" pkgid="YES">25bb7427591ba736c74d81f6898d25fa58d3520bd45bf168dbdeb0d8075b3236</checksum>
+  <summary>NVIDIA GL EGL Package</summary>
+  <description>This package provides the NVIDIA GL EGL libraries for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440365"/>
+  <size package="69311813" installed="243827905" archive="243836664"/>
+<location href="Packages/nvidia-jetpack-3d-core-36.3.1~20240516220919-2.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-3d-core-36.3.1~20240516220919-2.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="19717"/>
+    <rpm:provides>
+      <rpm:entry name="config(nvidia-jetpack-3d-core)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="libEGL_nvidia.so.0()(64bit)"/>
+      <rpm:entry name="libGLESv1_CM_nvidia.so.1()(64bit)"/>
+      <rpm:entry name="libGLESv2_nvidia.so.2()(64bit)"/>
+      <rpm:entry name="libGLX_nvidia.so.0()(64bit)"/>
+      <rpm:entry name="libglxserver_nvidia.so()(64bit)"/>
+      <rpm:entry name="libnvidia-eglcore.so.540.3.1()(64bit)"/>
+      <rpm:entry name="libnvidia-glcore.so.540.3.1()(64bit)"/>
+      <rpm:entry name="libnvidia-glsi.so.540.3.1()(64bit)"/>
+      <rpm:entry name="libnvidia-glvkspirv.so.540.3.1()(64bit)"/>
+      <rpm:entry name="libnvidia-gpucomp.so.540.3.1()(64bit)"/>
+      <rpm:entry name="libnvidia-nvvm.so.4()(64bit)"/>
+      <rpm:entry name="libnvidia-ptxjitcompiler.so.1()(64bit)"/>
+      <rpm:entry name="libnvidia-rtcore.so.540.3.1()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-3d-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-3d-core(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libnvrm_chip.so()(64bit)"/>
+      <rpm:entry name="libm.so.6()(64bit)"/>
+      <rpm:entry name="libX11.so.6()(64bit)"/>
+      <rpm:entry name="libnvidia-rmapi-tegra.so.540.3.1()(64bit)"/>
+      <rpm:entry name="libpthread.so.0()(64bit)"/>
+      <rpm:entry name="libgcc_s.so.1(GCC_4.2.0)(64bit)"/>
+      <rpm:entry name="librt.so.1()(64bit)"/>
+      <rpm:entry name="libnvrm_host1x.so()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libdl.so.2(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libgcc_s.so.1(GCC_3.3)(64bit)"/>
+      <rpm:entry name="/sbin/ldconfig"/>
+      <rpm:entry name="libpthread.so.0(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libnvrm_mem.so()(64bit)"/>
+      <rpm:entry name="libnvrm_sync.so()(64bit)"/>
+      <rpm:entry name="libgcc_s.so.1(GCC_3.0)(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="libXext.so.6()(64bit)"/>
+      <rpm:entry name="libnvdc.so()(64bit)"/>
+      <rpm:entry name="libdl.so.2()(64bit)"/>
+      <rpm:entry name="libnvos.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-wayland" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libgcc_s.so.1()(64bit)"/>
+      <rpm:entry name="vulkan-loader"/>
+      <rpm:entry name="nvidia-jetpack-x11" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libnvrm_surface.so()(64bit)"/>
+      <rpm:entry name="libnvidia-tls.so.540.3.1()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-kmod-firmware" flags="GE" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-init" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+    </rpm:requires>
+    <file>/etc/vulkan/icd.d/nvidia_icd.json</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-all</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="1.el9"/>
+  <checksum type="sha256" pkgid="YES">ae4d638ad2774b84a5147ff0a49ebc725486f70f81d192f323640d708582b49e</checksum>
+  <summary>NVIDIA Libraries, Services, and Tools</summary>
+  <description>This package is a meta-package to install all of the NVIDIA JetPack libraries, services and tools.</description>
+  <packager></packager>
+  <url></url>
+  <time file="1719481635" build="1719440485"/>
+  <size package="8161" installed="0" archive="124"/>
+<location href="Packages/nvidia-jetpack-all-36.3.1~20240516220919-1.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-all-36.3.1~20240516220919-1.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="8117"/>
+    <rpm:provides>
+      <rpm:entry name="nvidia-jetpack-all" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="1.el9"/>
+      <rpm:entry name="nvidia-jetpack-all(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="1.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="nvidia-jetpack-3d-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-nvsci" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-gstreamer" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-pva" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-dla-compiler" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-vulkan-sc-sdk" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-nvpmodel" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-tools" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-camera" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-gbm" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-multimedia-utils" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-cuda" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-multimedia" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-wayland" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-x11" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-nvfancontrol" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-init" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+    </rpm:requires>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-camera</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="5.el9"/>
+  <checksum type="sha256" pkgid="YES">ea5ef9501a15c828b2a4b5f33baa32a261a862cc32e73db55a21932eb1700333</checksum>
+  <summary>NVIDIA Camera Package</summary>
+  <description>This package provides the NVIDIA camera libraries, services, and tools for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440485"/>
+  <size package="4365779" installed="23054734" archive="23066416"/>
+<location href="Packages/nvidia-jetpack-camera-36.3.1~20240516220919-5.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-camera-36.3.1~20240516220919-5.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="26389"/>
+    <rpm:provides>
+      <rpm:entry name="libnvargus.so()(64bit)"/>
+      <rpm:entry name="libnvargus_socketclient.so()(64bit)"/>
+      <rpm:entry name="libnvargus_socketserver.so()(64bit)"/>
+      <rpm:entry name="libnvcam_imageencoder.so()(64bit)"/>
+      <rpm:entry name="libnvcameratools.so()(64bit)"/>
+      <rpm:entry name="libnvcamerautils.so()(64bit)"/>
+      <rpm:entry name="libnvcamlog.so()(64bit)"/>
+      <rpm:entry name="libnvcamv4l2.so()(64bit)"/>
+      <rpm:entry name="libnvcapture.so()(64bit)"/>
+      <rpm:entry name="libnvfusacap.so()(64bit)"/>
+      <rpm:entry name="libnvfusacapinterface.so()(64bit)"/>
+      <rpm:entry name="libnvisp.so()(64bit)"/>
+      <rpm:entry name="libnvisppg.so()(64bit)"/>
+      <rpm:entry name="libnvmedia_isp_ext.so()(64bit)"/>
+      <rpm:entry name="libnvodm_imager.so()(64bit)"/>
+      <rpm:entry name="libnvscf.so()(64bit)"/>
+      <rpm:entry name="libv4l2_nvargus.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-camera" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="5.el9"/>
+      <rpm:entry name="nvidia-jetpack-camera(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="5.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.5)(64bit)"/>
+      <rpm:entry name="libnvrm_chip.so()(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.29)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.11)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.9)(64bit)"/>
+      <rpm:entry name="/bin/sh" pre="1"/>
+      <rpm:entry name="libm.so.6()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="libnvsocsys.so()(64bit)"/>
+      <rpm:entry name="libGLESv2.so.2()(64bit)"/>
+      <rpm:entry name="libX11.so.6()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.10)(64bit)"/>
+      <rpm:entry name="expat"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.34)(64bit)"/>
+      <rpm:entry name="libgobject-2.0.so.0()(64bit)"/>
+      <rpm:entry name="libnvrm_stream.so()(64bit)"/>
+      <rpm:entry name="libnvjpeg.so()(64bit)"/>
+      <rpm:entry name="libnvrm_host1x.so()(64bit)"/>
+      <rpm:entry name="glib2"/>
+      <rpm:entry name="libnvbufsurface.so.1.0.0()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3)(64bit)"/>
+      <rpm:entry name="libnvfnet.so()(64bit)"/>
+      <rpm:entry name="/bin/sh"/>
+      <rpm:entry name="libEGL.so.1()(64bit)"/>
+      <rpm:entry name="libnvvic.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.21)(64bit)"/>
+      <rpm:entry name="libglib-2.0.so.0()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.9)(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.27)(64bit)"/>
+      <rpm:entry name="libgtk-3.so.0()(64bit)"/>
+      <rpm:entry name="libnvfnetstoredefog.so()(64bit)"/>
+      <rpm:entry name="libnvfnetstorehdfx.so()(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libnvrm_mem.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-multimedia-utils" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-cuda" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libnvrm_surface.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-multimedia" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libgcc_s.so.1(GCC_3.0)(64bit)"/>
+      <rpm:entry name="libnvtvmr.so()(64bit)"/>
+      <rpm:entry name="libcuda.so.1()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.29)(64bit)"/>
+      <rpm:entry name="libnvphs.so()(64bit)"/>
+      <rpm:entry name="libnvrm_sync.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.15)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.18)(64bit)"/>
+      <rpm:entry name="libnvos.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.20)(64bit)"/>
+      <rpm:entry name="libgcc_s.so.1()(64bit)"/>
+      <rpm:entry name="libcairo.so.2()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6()(64bit)"/>
+      <rpm:entry name="libgdk-3.so.0()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.8)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4)(64bit)"/>
+      <rpm:entry name="libnvmm_utils.so()(64bit)"/>
+    </rpm:requires>
+    <file>/usr/sbin/nvargus-daemon</file>
+    <file>/usr/sbin/nvargus_nvraw</file>
+    <file>/usr/sbin/nvtunerd</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-core</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+  <checksum type="sha256" pkgid="YES">b427479f63e5bc5fdf9bb9e23926cdc36144587fb6bd3a2b0023687c311b9eaf</checksum>
+  <summary>NVIDIA Core Package</summary>
+  <description>This package provides the NVIDIA core libraries for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440496"/>
+  <size package="3285120" installed="10147819" archive="10169816"/>
+<location href="Packages/nvidia-jetpack-core-36.3.1~20240516220919-2.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-core-36.3.1~20240516220919-2.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="37797"/>
+    <rpm:provides>
+      <rpm:entry name="config(nvidia-jetpack-core)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="libjetsonpower.so()(64bit)"/>
+      <rpm:entry name="libnvcolorutil.so()(64bit)"/>
+      <rpm:entry name="libnvdc.so()(64bit)"/>
+      <rpm:entry name="libnvddk_2d_v2.so()(64bit)"/>
+      <rpm:entry name="libnvddk_vic.so()(64bit)"/>
+      <rpm:entry name="libnvdla_runtime.so()(64bit)"/>
+      <rpm:entry name="libnvfnet.so()(64bit)"/>
+      <rpm:entry name="libnvfnetstoredefog.so()(64bit)"/>
+      <rpm:entry name="libnvfnetstorehdfx.so()(64bit)"/>
+      <rpm:entry name="libnvgov_boot.so()(64bit)"/>
+      <rpm:entry name="libnvgov_camera.so()(64bit)"/>
+      <rpm:entry name="libnvgov_force.so()(64bit)"/>
+      <rpm:entry name="libnvgov_generic.so()(64bit)"/>
+      <rpm:entry name="libnvgov_gpucompute.so()(64bit)"/>
+      <rpm:entry name="libnvgov_graphics.so()(64bit)"/>
+      <rpm:entry name="libnvgov_il.so()(64bit)"/>
+      <rpm:entry name="libnvgov_spincircle.so()(64bit)"/>
+      <rpm:entry name="libnvgov_tbc.so()(64bit)"/>
+      <rpm:entry name="libnvgov_ui.so()(64bit)"/>
+      <rpm:entry name="libnvidia-rmapi-tegra.so.540.3.1()(64bit)"/>
+      <rpm:entry name="libnvidia-tls.so.540.3.1()(64bit)"/>
+      <rpm:entry name="libnvimp.so()(64bit)"/>
+      <rpm:entry name="libnvisp_utils.so()(64bit)"/>
+      <rpm:entry name="libnvos.so()(64bit)"/>
+      <rpm:entry name="libnvphs.so()(64bit)"/>
+      <rpm:entry name="libnvphsd.so()(64bit)"/>
+      <rpm:entry name="libnvpva.so()(64bit)"/>
+      <rpm:entry name="libnvpva_algorithms.so()(64bit)"/>
+      <rpm:entry name="libnvpvaumd.so()(64bit)"/>
+      <rpm:entry name="libnvrm_chip.so()(64bit)"/>
+      <rpm:entry name="libnvrm_gpu.so()(64bit)"/>
+      <rpm:entry name="libnvrm_host1x.so()(64bit)"/>
+      <rpm:entry name="libnvrm_mem.so()(64bit)"/>
+      <rpm:entry name="libnvrm_stream.so()(64bit)"/>
+      <rpm:entry name="libnvrm_surface.so()(64bit)"/>
+      <rpm:entry name="libnvrm_sync.so()(64bit)"/>
+      <rpm:entry name="libnvsciipc.so()(64bit)"/>
+      <rpm:entry name="libnvsocsys.so()(64bit)"/>
+      <rpm:entry name="libnvtegrahv.so()(64bit)"/>
+      <rpm:entry name="libnvvic.so()(64bit)"/>
+      <rpm:entry name="libsensors.hal-client.nvs.so()(64bit)"/>
+      <rpm:entry name="libsensors.l4t.no_fusion.nvs.so()(64bit)"/>
+      <rpm:entry name="libsensors_hal.nvs.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-core(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.5)(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.29)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.14)(64bit)"/>
+      <rpm:entry name="libm.so.6()(64bit)"/>
+      <rpm:entry name="libexpat.so.1()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.15)(64bit)"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.34)(64bit)"/>
+      <rpm:entry name="expat"/>
+      <rpm:entry name="python(abi)" flags="EQ" epoch="0" ver="3.9"/>
+      <rpm:entry name="libpthread.so.0()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.9)(64bit)"/>
+      <rpm:entry name="libEGL.so.1()(64bit)"/>
+      <rpm:entry name="/sbin/ldconfig"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.9)(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.27)(64bit)"/>
+      <rpm:entry name="libpthread.so.0(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.21)(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.20)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.26)(64bit)"/>
+      <rpm:entry name="libgcc_s.so.1(GCC_3.0)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4)(64bit)"/>
+      <rpm:entry name="/sbin/ldconfig" pre="1"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.11)(64bit)"/>
+      <rpm:entry name="libgcc_s.so.1()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.18)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.29)(64bit)"/>
+    </rpm:requires>
+    <file>/etc/ld.so.conf.d/nvidia-tegra.conf</file>
+    <file>/etc/nv_tegra_release</file>
+    <file>/usr/sbin/nvphsd</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-cuda</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+  <checksum type="sha256" pkgid="YES">4139352d433efbf3b5281eaf38b86ba787f9f123ba29fcecf1b01c84225ee3a1</checksum>
+  <summary>NVIDIA CUDA Package</summary>
+  <description>This package provides the NVIDIA CUDA libraries for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440500"/>
+  <size package="2951796" installed="29855508" archive="29858152"/>
+<location href="Packages/nvidia-jetpack-cuda-36.3.1~20240516220919-2.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-cuda-36.3.1~20240516220919-2.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="11253"/>
+    <rpm:provides>
+      <rpm:entry name="libcuda.so()(64bit)"/>
+      <rpm:entry name="libcuda.so.1()(64bit)"/>
+      <rpm:entry name="libnvcucompat.so()(64bit)"/>
+      <rpm:entry name="libnvcudla.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-cuda" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-cuda(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="libnvdla_runtime.so()(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libm.so.6()(64bit)"/>
+      <rpm:entry name="libpthread.so.0()(64bit)"/>
+      <rpm:entry name="librt.so.1()(64bit)"/>
+      <rpm:entry name="libnvrm_host1x.so()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3)(64bit)"/>
+      <rpm:entry name="libdl.so.2(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.9)(64bit)"/>
+      <rpm:entry name="/sbin/ldconfig"/>
+      <rpm:entry name="librt.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libpthread.so.0(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libnvrm_mem.so()(64bit)"/>
+      <rpm:entry name="libnvrm_sync.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4)(64bit)"/>
+      <rpm:entry name="libdl.so.2()(64bit)"/>
+      <rpm:entry name="libnvrm_gpu.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.20)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6()(64bit)"/>
+    </rpm:requires>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-dla-compiler</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+  <checksum type="sha256" pkgid="YES">455fdf803ae10c471f5ba59e69b4b6094c64205551f894f258c467d7c9e23f12</checksum>
+  <summary>NVIDIA DLA Compiler Package</summary>
+  <description>This package provides the NVIDIA DLA compiler for JetPack.</description>
+  <packager></packager>
+  <url></url>
+  <time file="1719481635" build="1719440508"/>
+  <size package="2258728" installed="8187294" archive="8188524"/>
+<location href="Packages/nvidia-jetpack-dla-compiler-36.3.1~20240516220919-2.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-dla-compiler-36.3.1~20240516220919-2.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="9769"/>
+    <rpm:provides>
+      <rpm:entry name="libnvdla_compiler.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-dla-compiler" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-dla-compiler(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.5)(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.29)(64bit)"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libm.so.6()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.10)(64bit)"/>
+      <rpm:entry name="libgcc"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.9)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.21)(64bit)"/>
+      <rpm:entry name="/sbin/ldconfig"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.9)(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.27)(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.29)(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="GE" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.26)(64bit)"/>
+      <rpm:entry name="libgcc_s.so.1(GCC_3.0)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.11)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.15)(64bit)"/>
+      <rpm:entry name="libnvos.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.20)(64bit)"/>
+      <rpm:entry name="libgcc_s.so.1()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.18)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.8)(64bit)"/>
+    </rpm:requires>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-gbm</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+  <checksum type="sha256" pkgid="YES">6c567cff94bc51c89f0b870dc3be9aa3f654018f611b1ba469610aa6ac70997c</checksum>
+  <summary>NVIDIA GBM Package</summary>
+  <description>This package provides the NVIDIA GBM libraries for JetPack.</description>
+  <packager></packager>
+  <url></url>
+  <time file="1719481635" build="1719440512"/>
+  <size package="39788" installed="77028" archive="79432"/>
+<location href="Packages/nvidia-jetpack-gbm-36.3.1~20240516220919-2.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-gbm-36.3.1~20240516220919-2.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="10569"/>
+    <rpm:provides>
+      <rpm:entry name="config(nvidia-jetpack-gbm)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="libnvidia-allocator.so.1()(64bit)"/>
+      <rpm:entry name="libnvidia-egl-gbm.so.1()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-gbm" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-gbm(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="/sbin/ldconfig"/>
+      <rpm:entry name="libpthread.so.0()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="libdl.so.2(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-3d-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libdrm.so.2()(64bit)"/>
+      <rpm:entry name="libpthread.so.0(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libdl.so.2()(64bit)"/>
+      <rpm:entry name="libgbm.so.1()(64bit)"/>
+      <rpm:entry name="libnvidia-rmapi-tegra.so.540.3.1()(64bit)"/>
+    </rpm:requires>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-gstreamer</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="3.el9"/>
+  <checksum type="sha256" pkgid="YES">3223362fe69b342cab41873d7282493e39f161f9ca2bb45286f28cc0d07ae35c</checksum>
+  <summary>NVIDIA GST Application files</summary>
+  <description>This package provides the NVIDIA gstreamer libraries for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440512"/>
+  <size package="817394" installed="4494423" archive="4512528"/>
+<location href="Packages/nvidia-jetpack-gstreamer-36.3.1~20240516220919-3.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-gstreamer-36.3.1~20240516220919-3.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="31133"/>
+    <rpm:provides>
+      <rpm:entry name="libgstnvarguscamerasrc.so()(64bit)"/>
+      <rpm:entry name="libgstnvcompositor.so()(64bit)"/>
+      <rpm:entry name="libgstnvcustomhelper.so()(64bit)"/>
+      <rpm:entry name="libgstnvdrmvideosink.so()(64bit)"/>
+      <rpm:entry name="libgstnvdsseimeta.so.1.0.0()(64bit)"/>
+      <rpm:entry name="libgstnvegl-1.0.so.0()(64bit)"/>
+      <rpm:entry name="libgstnveglglessink.so()(64bit)"/>
+      <rpm:entry name="libgstnveglstreamsrc.so()(64bit)"/>
+      <rpm:entry name="libgstnvegltransform.so()(64bit)"/>
+      <rpm:entry name="libgstnvexifmeta.so()(64bit)"/>
+      <rpm:entry name="libgstnvipcpipeline.so()(64bit)"/>
+      <rpm:entry name="libgstnvivafilter.so()(64bit)"/>
+      <rpm:entry name="libgstnvivameta.so()(64bit)"/>
+      <rpm:entry name="libgstnvjpeg.so()(64bit)"/>
+      <rpm:entry name="libgstnvtee.so()(64bit)"/>
+      <rpm:entry name="libgstnvv4l2camerasrc.so()(64bit)"/>
+      <rpm:entry name="libgstnvvidconv.so()(64bit)"/>
+      <rpm:entry name="libgstnvvideo4linux2.so()(64bit)"/>
+      <rpm:entry name="libgstnvvideosink.so()(64bit)"/>
+      <rpm:entry name="libgstnvvideosinks.so()(64bit)"/>
+      <rpm:entry name="libnveglstreamproducer.so()(64bit)"/>
+      <rpm:entry name="libnvsample_cudaprocess.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-gstreamer" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="3.el9"/>
+      <rpm:entry name="nvidia-jetpack-gstreamer(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="3.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="libgstapp-1.0.so.0()(64bit)"/>
+      <rpm:entry name="libasound.so.2()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-camera" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libwayland-client.so.0()(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="libdrm.so.2()(64bit)"/>
+      <rpm:entry name="libm.so.6()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libnvargus_socketclient.so()(64bit)"/>
+      <rpm:entry name="libGLESv2.so.2()(64bit)"/>
+      <rpm:entry name="libX11.so.6()(64bit)"/>
+      <rpm:entry name="libnvddk_2d_v2.so()(64bit)"/>
+      <rpm:entry name="expat"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.34)(64bit)"/>
+      <rpm:entry name="libgobject-2.0.so.0()(64bit)"/>
+      <rpm:entry name="libgstbase-1.0.so.0()(64bit)"/>
+      <rpm:entry name="libnvjpeg.so()(64bit)"/>
+      <rpm:entry name="libnvrm_host1x.so()(64bit)"/>
+      <rpm:entry name="libnvbuf_fdmap.so.1.0.0()(64bit)"/>
+      <rpm:entry name="glib2"/>
+      <rpm:entry name="libnvbufsurface.so.1.0.0()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.19)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.9)(64bit)"/>
+      <rpm:entry name="libEGL.so.1()(64bit)"/>
+      <rpm:entry name="libnvvic.so()(64bit)"/>
+      <rpm:entry name="libglib-2.0.so.0()(64bit)"/>
+      <rpm:entry name="/sbin/ldconfig"/>
+      <rpm:entry name="libnvbufsurftransform.so.1.0.0()(64bit)"/>
+      <rpm:entry name="libgstallocators-1.0.so.0()(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libnvrm_mem.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-multimedia-utils" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libnvrm_sync.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-cuda" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libnvdsbufferpool.so.1.0.0()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.26)(64bit)"/>
+      <rpm:entry name="libnvrm_surface.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-multimedia" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libXdmcp"/>
+      <rpm:entry name="libwayland-egl.so.1()(64bit)"/>
+      <rpm:entry name="libcuda.so.1()(64bit)"/>
+      <rpm:entry name="libXext.so.6()(64bit)"/>
+      <rpm:entry name="libnvscf.so()(64bit)"/>
+      <rpm:entry name="libasound.so.2(ALSA_0.9)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4)(64bit)"/>
+      <rpm:entry name="libv4l2.so.0()(64bit)"/>
+      <rpm:entry name="libnvos.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6()(64bit)"/>
+      <rpm:entry name="libgstvideo-1.0.so.0()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.11)(64bit)"/>
+      <rpm:entry name="libgstreamer-1.0.so.0()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.29)(64bit)"/>
+    </rpm:requires>
+    <file>/usr/bin/nvgstcapture</file>
+    <file>/usr/bin/nvgstcapture-1.0</file>
+    <file>/usr/bin/nvgstipctestapp</file>
+    <file>/usr/bin/nvgstipctestapp-1.0</file>
+    <file>/usr/bin/nvgstplayer</file>
+    <file>/usr/bin/nvgstplayer-1.0</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-init</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="5.el9"/>
+  <checksum type="sha256" pkgid="YES">59e32d26588b7bcd3b2f64806a92cc5aa4545c96543761cac7b608c3f63bfd90</checksum>
+  <summary>NVIDIA Init Package</summary>
+  <description>This package provides the NVIDIA initial config and services for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719889911" build="1719849975"/>
+  <size package="32924" installed="96909" archive="100472"/>
+<location href="Packages/nvidia-jetpack-init-36.3.1~20240516220919-5.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>localhost</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-init-36.3.1~20240516220919-5.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="12457"/>
+    <rpm:provides>
+      <rpm:entry name="config(nvidia-jetpack-init)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="5.el9"/>
+      <rpm:entry name="nvidia-jetpack-init" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="5.el9"/>
+      <rpm:entry name="nvidia-jetpack-init(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="5.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="systemd" pre="1"/>
+      <rpm:entry name="bc"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="/bin/sh" pre="1"/>
+      <rpm:entry name="alsa-utils"/>
+      <rpm:entry name="/bin/sh"/>
+      <rpm:entry name="systemd"/>
+      <rpm:entry name="/usr/bin/bash"/>
+    </rpm:requires>
+    <file>/etc/asound.conf.tegra-ape</file>
+    <file>/etc/asound.conf.tegra-hda-jetson-agx</file>
+    <file>/etc/asound.conf.tegra-hda-jetson-xnx</file>
+    <file>/etc/nvidia-container-runtime/host-files-for-container.d/devices.csv</file>
+    <file>/etc/nvidia-container-runtime/host-files-for-container.d/drivers.csv</file>
+    <file>/etc/nvsciipc.cfg</file>
+    <file>/etc/sysctl.d/60-nvsciipc.conf</file>
+    <file>/etc/systemd/system.conf.d/watchdog.conf</file>
+    <file>/etc/udev/rules.d/99-tegra-devices.rules</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-kmod</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+  <checksum type="sha256" pkgid="YES">776b5691b4b749f6c4e925873b3d76b14e5e382a5a3a3bcf1a5ba2e5be9a0ffc</checksum>
+  <summary>NVIDIA Jetson kernel modules for kernel version 5.14.0-427.22.1</summary>
+  <description>This package provides all the modules needed by the NVIDIA Tegra integrated GPU from the Jetson family.</description>
+  <packager></packager>
+  <url></url>
+  <time file="1719481635" build="1719440000"/>
+  <size package="52150646" installed="347337822" archive="347395252"/>
+<location href="Packages/nvidia-jetpack-kmod-36.3.1_5.14.0_427.22.1~20240516220919-6.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>GPLv2</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>45d90cb4fdc2</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-kmod-36.3.1_5.14.0_427.22.1~20240516220919-6.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="69189"/>
+    <rpm:provides>
+      <rpm:entry name="kmod(ar1335_common.ko)"/>
+      <rpm:entry name="kmod(cam_cdi_tsc.ko)"/>
+      <rpm:entry name="kmod(camchar.ko)"/>
+      <rpm:entry name="kmod(camera-diagnostics.ko)"/>
+      <rpm:entry name="kmod(capture-ivc.ko)"/>
+      <rpm:entry name="kmod(f75308.ko)"/>
+      <rpm:entry name="kmod(fusb301.ko)"/>
+      <rpm:entry name="kmod(governor_pod_scaling.ko)"/>
+      <rpm:entry name="kmod(host1x-fence.ko)"/>
+      <rpm:entry name="kmod(host1x-nvhost.ko)"/>
+      <rpm:entry name="kmod(host1x.ko)"/>
+      <rpm:entry name="kmod(hsp-mailbox-client.ko)"/>
+      <rpm:entry name="kmod(i2c-nvvrs11.ko)"/>
+      <rpm:entry name="kmod(ivc-bus.ko)"/>
+      <rpm:entry name="kmod(ivc_ext.ko)"/>
+      <rpm:entry name="kmod(lt6911uxc.ko)"/>
+      <rpm:entry name="kmod(max9295.ko)"/>
+      <rpm:entry name="kmod(max9296.ko)"/>
+      <rpm:entry name="kmod(max96712.ko)"/>
+      <rpm:entry name="kmod(maxim_gmsl_dp_serializer.ko)"/>
+      <rpm:entry name="kmod(mc-hwpm.ko)"/>
+      <rpm:entry name="kmod(mc-utils.ko)"/>
+      <rpm:entry name="kmod(mttcan.ko)"/>
+      <rpm:entry name="kmod(nv_ar0234.ko)"/>
+      <rpm:entry name="kmod(nv_hawk_owl.ko)"/>
+      <rpm:entry name="kmod(nv_imx185.ko)"/>
+      <rpm:entry name="kmod(nv_imx219.ko)"/>
+      <rpm:entry name="kmod(nv_imx274.ko)"/>
+      <rpm:entry name="kmod(nv_imx318.ko)"/>
+      <rpm:entry name="kmod(nv_imx390.ko)"/>
+      <rpm:entry name="kmod(nv_imx477.ko)"/>
+      <rpm:entry name="kmod(nv_ov5693.ko)"/>
+      <rpm:entry name="kmod(nvethernet.ko)"/>
+      <rpm:entry name="kmod(nvgpu.ko)"/>
+      <rpm:entry name="kmod(nvhost-capture.ko)"/>
+      <rpm:entry name="kmod(nvhost-isp5.ko)"/>
+      <rpm:entry name="kmod(nvhost-nvcsi-t194.ko)"/>
+      <rpm:entry name="kmod(nvhost-nvcsi.ko)"/>
+      <rpm:entry name="kmod(nvhost-nvdla.ko)"/>
+      <rpm:entry name="kmod(nvhost-pva.ko)"/>
+      <rpm:entry name="kmod(nvhost-vi5.ko)"/>
+      <rpm:entry name="kmod(nvhwpm.ko)"/>
+      <rpm:entry name="kmod(nvidia-drm.ko)"/>
+      <rpm:entry name="kmod(nvidia-modeset.ko)"/>
+      <rpm:entry name="kmod(nvidia-p2p.ko)"/>
+      <rpm:entry name="kmod(nvidia-vrs-pseq.ko)"/>
+      <rpm:entry name="kmod(nvidia.ko)"/>
+      <rpm:entry name="kmod(nvmap.ko)"/>
+      <rpm:entry name="kmod(nvpmodel-clk-cap.ko)"/>
+      <rpm:entry name="kmod(nvpps.ko)"/>
+      <rpm:entry name="kmod(nvsciipc.ko)"/>
+      <rpm:entry name="kmod(nvvrs-pseq-rtc.ko)"/>
+      <rpm:entry name="kmod(pca9570.ko)"/>
+      <rpm:entry name="kmod(pwm-tegra-tachometer.ko)"/>
+      <rpm:entry name="kmod(r8168.ko)"/>
+      <rpm:entry name="kmod(rtcpu-debug.ko)"/>
+      <rpm:entry name="kmod(rtk_btusb.ko)"/>
+      <rpm:entry name="kmod(spi-tegra124-slave.ko)"/>
+      <rpm:entry name="kmod(spi-tegra210-quad.ko)"/>
+      <rpm:entry name="kmod(tegra-cactmon-mc-all.ko)"/>
+      <rpm:entry name="kmod(tegra-camera-rtcpu.ko)"/>
+      <rpm:entry name="kmod(tegra-camera.ko)"/>
+      <rpm:entry name="kmod(tegra-dce.ko)"/>
+      <rpm:entry name="kmod(tegra-drm.ko)"/>
+      <rpm:entry name="kmod(tegra-fsicom.ko)"/>
+      <rpm:entry name="kmod(tegra-mce.ko)"/>
+      <rpm:entry name="kmod(tegra-pcie-dma-test.ko)"/>
+      <rpm:entry name="kmod(tegra-pcie-edma.ko)"/>
+      <rpm:entry name="kmod(tegra-se-nvrng.ko)"/>
+      <rpm:entry name="kmod(tegra-se.ko)"/>
+      <rpm:entry name="kmod(tegra234-oc-event.ko)"/>
+      <rpm:entry name="kmod(tegra23x_perf_uncore.ko)"/>
+      <rpm:entry name="kmod(tegra_camera_platform.ko)"/>
+      <rpm:entry name="kmod(tegra_vnet.ko)"/>
+      <rpm:entry name="kmod(tegra_wmark.ko)"/>
+      <rpm:entry name="kmod(thermal-trip-event.ko)"/>
+      <rpm:entry name="kmod(ti_fpdlink_dp_serializer.ko)"/>
+      <rpm:entry name="kmod(tsecriscv.ko)"/>
+      <rpm:entry name="kmod(virtual_i2c_mux.ko)"/>
+      <rpm:entry name="kmod(wch.ko)"/>
+      <rpm:entry name="kmod-nvidia-jetpack" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+      <rpm:entry name="nvidia-jetpack-kmod" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+      <rpm:entry name="nvidia-jetpack-kmod(aarch-64)" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="nvidia-jetpack-kmod-license" flags="GE" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+      <rpm:entry name="kernel-modules" flags="EQ" epoch="0" ver="5.14.0" rel="427.22.1.el9_4"/>
+      <rpm:entry name="/bin/sh"/>
+      <rpm:entry name="kernel-core" flags="EQ" epoch="0" ver="5.14.0" rel="427.22.1.el9_4"/>
+      <rpm:entry name="nvidia-jetpack-kmod-modprobe" flags="GE" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+      <rpm:entry name="nvidia-jetpack-kmod-firmware" flags="GE" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+    </rpm:requires>
+    <rpm:conflicts>
+      <rpm:entry name="kernel-64k"/>
+    </rpm:conflicts>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-kmod</name>
+  <arch>src</arch>
+  <version epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+  <checksum type="sha256" pkgid="YES">77c75b600f85b1f5e2f2db4c657622aaa941fd04a25422c2f46a9b3ac50108fd</checksum>
+  <summary>NVIDIA Jetson kernel modules for kernel version 5.14.0-427.22.1</summary>
+  <description>This package provides all the modules needed by the NVIDIA Tegra integrated GPU from the Jetson family.</description>
+  <packager></packager>
+  <url></url>
+  <time file="1719481635" build="1719439999"/>
+  <size package="13580044" installed="13885680" archive="13887312"/>
+<location href="Packages/nvidia-jetpack-kmod-36.3.1_5.14.0_427.22.1~20240516220919-6.el9.src.rpm"/>
+  <format>
+    <rpm:license>GPLv2</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>45d90cb4fdc2</rpm:buildhost>
+    <rpm:sourcerpm/>
+    <rpm:header-range start="4504" end="13589"/>
+    <rpm:provides>
+      <rpm:entry name="nvidia-jetpack-kmod" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+      <rpm:entry name="nvidia-jetpack-kmod-firmware" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+      <rpm:entry name="nvidia-jetpack-kmod-modprobe" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+      <rpm:entry name="nvidia-jetpack-kmod-license" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="g++"/>
+      <rpm:entry name="kernel-devel" flags="GE" epoch="0" ver="5.14.0" rel="427.22.1.el9_4"/>
+      <rpm:entry name="make"/>
+    </rpm:requires>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-kmod-firmware</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+  <checksum type="sha256" pkgid="YES">651af7744a88c73b73c0b18eec9d061efaf4f6bc18f96f7d5e5e1e57216b2319</checksum>
+  <summary>Firmware for the NVIDIA Tegra integrated GPU</summary>
+  <description>Binary firmware blobs for the NVIDIA Tegra chipset.</description>
+  <packager></packager>
+  <url></url>
+  <time file="1719481635" build="1719440000"/>
+  <size package="2010825" installed="20341842" archive="20355724"/>
+<location href="Packages/nvidia-jetpack-kmod-firmware-36.3.1_5.14.0_427.22.1~20240516220919-6.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>GPLv2</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>45d90cb4fdc2</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-kmod-36.3.1_5.14.0_427.22.1~20240516220919-6.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="24009"/>
+    <rpm:provides>
+      <rpm:entry name="nvidia-jetpack-kmod-firmware" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+      <rpm:entry name="nvidia-jetpack-kmod-firmware(aarch-64)" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+    </rpm:requires>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-kmod-license</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+  <checksum type="sha256" pkgid="YES">37945aa3781889487bcaa0baf5c85db81a1f0bfcb72efe37c7f725cb14a9d3f3</checksum>
+  <summary>License files for the NVIDIA Tegra kernel modules</summary>
+  <description>License files for the NVIDIA Tegra kernel modules.</description>
+  <packager></packager>
+  <url></url>
+  <time file="1719481635" build="1719440000"/>
+  <size package="36569" installed="61035" archive="62268"/>
+<location href="Packages/nvidia-jetpack-kmod-license-36.3.1_5.14.0_427.22.1~20240516220919-6.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>GPLv2</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>45d90cb4fdc2</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-kmod-36.3.1_5.14.0_427.22.1~20240516220919-6.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="13041"/>
+    <rpm:provides>
+      <rpm:entry name="nvidia-jetpack-kmod-license" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+      <rpm:entry name="nvidia-jetpack-kmod-license(aarch-64)" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+    </rpm:requires>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-kmod-modprobe</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+  <checksum type="sha256" pkgid="YES">cab4145c211a21d30ab2098c29984d4e5c38318cc8ea27b9043e48d86a3218ec</checksum>
+  <summary>Modprobe configuration for the NVIDIA Tegra kernel modules</summary>
+  <description>Modprobe configuration for the NVIDIA Tegra kernel modules, this is kept in separation
+from the kernel modules themselves to allow installing multiple versions of the modules
+without creating conflicting files.</description>
+  <packager></packager>
+  <url></url>
+  <time file="1719481635" build="1719440000"/>
+  <size package="13551" installed="855" archive="1576"/>
+<location href="Packages/nvidia-jetpack-kmod-modprobe-36.3.1_5.14.0_427.22.1~20240516220919-6.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>GPLv2</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>45d90cb4fdc2</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-kmod-36.3.1_5.14.0_427.22.1~20240516220919-6.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="13045"/>
+    <rpm:provides>
+      <rpm:entry name="config(nvidia-jetpack-kmod-modprobe)" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+      <rpm:entry name="nvidia-jetpack-kmod-modprobe" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+      <rpm:entry name="nvidia-jetpack-kmod-modprobe(aarch-64)" flags="EQ" epoch="0" ver="36.3.1_5.14.0_427.22.1~20240516220919" rel="6.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+    </rpm:requires>
+    <file>/etc/dracut.conf.d/omit-tegra.conf</file>
+    <file>/etc/modprobe.d/nvidia-camera.conf</file>
+    <file>/etc/modprobe.d/nvidia-jetson.conf</file>
+    <file>/etc/modules-load.d/nvidia-load.conf</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-multimedia</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="4.el9"/>
+  <checksum type="sha256" pkgid="YES">877b6567a6030ba8184c23fed5cce32a29988aa31108e6adcfc14c10c7ee27ed</checksum>
+  <summary>NVIDIA Multimedia Package</summary>
+  <description>This package provides the NVIDIA multimedia libraries for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440516"/>
+  <size package="9671439" installed="33886786" archive="33911356"/>
+<location href="Packages/nvidia-jetpack-multimedia-36.3.1~20240516220919-4.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-multimedia-36.3.1~20240516220919-4.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="41505"/>
+    <rpm:provides>
+      <rpm:entry name="libnvbufsurftransform.so.1.0.0()(64bit)"/>
+      <rpm:entry name="libnvcuvidv4l2.so()(64bit)"/>
+      <rpm:entry name="libnvdecode2eglimage.so()(64bit)"/>
+      <rpm:entry name="libnvdsbufferpool.so.1.0.0()(64bit)"/>
+      <rpm:entry name="libnveventlib.so()(64bit)"/>
+      <rpm:entry name="libnvexif.so()(64bit)"/>
+      <rpm:entry name="libnvid_mapper.so.1.0.0()(64bit)"/>
+      <rpm:entry name="libnvjpeg.so()(64bit)"/>
+      <rpm:entry name="libnvmedia.so()(64bit)"/>
+      <rpm:entry name="libnvmedia2d.so()(64bit)"/>
+      <rpm:entry name="libnvmedia_2d.so()(64bit)"/>
+      <rpm:entry name="libnvmedia_dla.so()(64bit)"/>
+      <rpm:entry name="libnvmedia_eglstream.so()(64bit)"/>
+      <rpm:entry name="libnvmedia_ide_parser.so()(64bit)"/>
+      <rpm:entry name="libnvmedia_ide_sci.so()(64bit)"/>
+      <rpm:entry name="libnvmedia_iep_sci.so()(64bit)"/>
+      <rpm:entry name="libnvmedia_ijpd_sci.so()(64bit)"/>
+      <rpm:entry name="libnvmedia_ijpe_sci.so()(64bit)"/>
+      <rpm:entry name="libnvmedia_iofa_sci.so()(64bit)"/>
+      <rpm:entry name="libnvmedia_tensor.so()(64bit)"/>
+      <rpm:entry name="libnvmedialdc.so()(64bit)"/>
+      <rpm:entry name="libnvmm.so()(64bit)"/>
+      <rpm:entry name="libnvmm_contentpipe.so()(64bit)"/>
+      <rpm:entry name="libnvmm_parser.so()(64bit)"/>
+      <rpm:entry name="libnvmm_utils.so()(64bit)"/>
+      <rpm:entry name="libnvmmlite.so()(64bit)"/>
+      <rpm:entry name="libnvmmlite_image.so()(64bit)"/>
+      <rpm:entry name="libnvmmlite_utils.so()(64bit)"/>
+      <rpm:entry name="libnvmmlite_video.so()(64bit)"/>
+      <rpm:entry name="libnvofsdk.so()(64bit)"/>
+      <rpm:entry name="libnvoggopus.so()(64bit)"/>
+      <rpm:entry name="libnvomx.so()(64bit)"/>
+      <rpm:entry name="libnvomxilclient.so()(64bit)"/>
+      <rpm:entry name="libnvosd.so()(64bit)"/>
+      <rpm:entry name="libnvparser.so()(64bit)"/>
+      <rpm:entry name="libnvtracebuf.so()(64bit)"/>
+      <rpm:entry name="libnvtvmr.so()(64bit)"/>
+      <rpm:entry name="libnvtvmr_2d.so()(64bit)"/>
+      <rpm:entry name="libnvvideo.so()(64bit)"/>
+      <rpm:entry name="libnvvideoencode_ppe.so()(64bit)"/>
+      <rpm:entry name="libtegrav4l2.so()(64bit)"/>
+      <rpm:entry name="libv4l2.so.0()(64bit)"/>
+      <rpm:entry name="libv4l2_nvcuvidvideocodec.so()(64bit)"/>
+      <rpm:entry name="libv4l2_nvvideocodec.so()(64bit)"/>
+      <rpm:entry name="libv4lconvert.so.0()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-multimedia" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="4.el9"/>
+      <rpm:entry name="nvidia-jetpack-multimedia(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="4.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="libm.so.6(GLIBC_2.29)(64bit)"/>
+      <rpm:entry name="libnvrm_chip.so()(64bit)"/>
+      <rpm:entry name="libnvsocsys.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-nvsci" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libpangocairo-1.0.so.0()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.21)(64bit)"/>
+      <rpm:entry name="/sbin/ldconfig"/>
+      <rpm:entry name="libgcc_s.so.1(GCC_3.0)(64bit)"/>
+      <rpm:entry name="libasound.so.2(ALSA_0.9.0rc4)(64bit)"/>
+      <rpm:entry name="libnvbuf_fdmap.so.1.0.0()(64bit)"/>
+      <rpm:entry name="libasound.so.2(ALSA_0.9)(64bit)"/>
+      <rpm:entry name="libcairo.so.2()(64bit)"/>
+      <rpm:entry name="libasound.so.2()(64bit)"/>
+      <rpm:entry name="libm.so.6()(64bit)"/>
+      <rpm:entry name="libnvddk_vic.so()(64bit)"/>
+      <rpm:entry name="libnvddk_2d_v2.so()(64bit)"/>
+      <rpm:entry name="libgobject-2.0.so.0()(64bit)"/>
+      <rpm:entry name="libnvrm_host1x.so()(64bit)"/>
+      <rpm:entry name="libpango-1.0.so.0()(64bit)"/>
+      <rpm:entry name="libEGL.so.1()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.27)(64bit)"/>
+      <rpm:entry name="libnvscisync.so.1()(64bit)"/>
+      <rpm:entry name="libXdmcp"/>
+      <rpm:entry name="libcuda.so.1()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.11)(64bit)"/>
+      <rpm:entry name="libgcc_s.so.1()(64bit)"/>
+      <rpm:entry name="libgstvideo-1.0.so.0()(64bit)"/>
+      <rpm:entry name="libnvrm_sync.so()(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.22)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.19)(64bit)"/>
+      <rpm:entry name="libnvvic.so()(64bit)"/>
+      <rpm:entry name="libnvrm_mem.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.29)(64bit)"/>
+      <rpm:entry name="harfbuzz"/>
+      <rpm:entry name="nvidia-jetpack-cuda" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4)(64bit)"/>
+      <rpm:entry name="libnvdc.so()(64bit)"/>
+      <rpm:entry name="libnvrm_surface.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.18)(64bit)"/>
+      <rpm:entry name="libnvrm_stream.so()(64bit)"/>
+      <rpm:entry name="expat"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.34)(64bit)"/>
+      <rpm:entry name="glib2"/>
+      <rpm:entry name="libnvbufsurface.so.1.0.0()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.9)(64bit)"/>
+      <rpm:entry name="libnvscibuf.so.1()(64bit)"/>
+      <rpm:entry name="libglib-2.0.so.0()(64bit)"/>
+      <rpm:entry name="libnvdla_runtime.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.9)(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-multimedia-utils" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.26)(64bit)"/>
+      <rpm:entry name="libnvos.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6()(64bit)"/>
+      <rpm:entry name="libgstreamer-1.0.so.0()(64bit)"/>
+    </rpm:requires>
+    <file>/usr/bin/nvaudio_opus_app</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-multimedia-utils</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+  <checksum type="sha256" pkgid="YES">b4dd0e976c12084ce3848d572da68996d1a46fa55320b6d8c262ab0fe34e6730</checksum>
+  <summary>NVIDIA Multimedia Utils Package</summary>
+  <description>This package provides the NVIDIA multimedia utility libraries for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440515"/>
+  <size package="221565" installed="803303" archive="804980"/>
+<location href="Packages/nvidia-jetpack-multimedia-utils-36.3.1~20240516220919-2.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-multimedia-utils-36.3.1~20240516220919-2.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="10249"/>
+    <rpm:provides>
+      <rpm:entry name="libnvbuf_fdmap.so.1.0.0()(64bit)"/>
+      <rpm:entry name="libnvbufsurface.so.1.0.0()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-multimedia-utils" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-multimedia-utils(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="libnvrm_chip.so()(64bit)"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.34)(64bit)"/>
+      <rpm:entry name="expat"/>
+      <rpm:entry name="glib2"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.9)(64bit)"/>
+      <rpm:entry name="libEGL.so.1()(64bit)"/>
+      <rpm:entry name="/sbin/ldconfig"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libnvrm_mem.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.29)(64bit)"/>
+      <rpm:entry name="harfbuzz"/>
+      <rpm:entry name="libXdmcp"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4)(64bit)"/>
+      <rpm:entry name="libnvos.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6()(64bit)"/>
+      <rpm:entry name="libnvrm_surface.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.18)(64bit)"/>
+    </rpm:requires>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-nvfancontrol</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+  <checksum type="sha256" pkgid="YES">246f2dfc457bfae101ee0316c9a676e696b4280d14474b2a7aebc8526ca41819</checksum>
+  <summary>NVIDIA Nvfancontrol Package</summary>
+  <description>This package provides the NVIDIA fan control for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440529"/>
+  <size package="33506" installed="112790" archive="115672"/>
+<location href="Packages/nvidia-jetpack-nvfancontrol-36.3.1~20240516220919-2.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-nvfancontrol-36.3.1~20240516220919-2.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="11625"/>
+    <rpm:provides>
+      <rpm:entry name="config(nvidia-jetpack-nvfancontrol)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-nvfancontrol" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-nvfancontrol(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="libjetsonpower.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="/bin/sh" pre="1"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="/bin/sh"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.34)(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-init" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+    </rpm:requires>
+    <file>/etc/nvpower/nvfancontrol/nvfancontrol_e3900.conf</file>
+    <file>/etc/nvpower/nvfancontrol/nvfancontrol_p2888.conf</file>
+    <file>/etc/nvpower/nvfancontrol/nvfancontrol_p3668.conf</file>
+    <file>/etc/nvpower/nvfancontrol/nvfancontrol_p3701_0000.conf</file>
+    <file>/etc/nvpower/nvfancontrol/nvfancontrol_p3701_0008.conf</file>
+    <file>/etc/nvpower/nvfancontrol/nvfancontrol_p3711_0000.conf</file>
+    <file>/etc/nvpower/nvfancontrol/nvfancontrol_p3740_0002_b01.conf</file>
+    <file>/etc/nvpower/nvfancontrol/nvfancontrol_p3740_0002_c01.conf</file>
+    <file>/etc/nvpower/nvfancontrol/nvfancontrol_p3767_0000.conf</file>
+    <file>/usr/sbin/nvfancontrol</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-nvpmodel</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+  <checksum type="sha256" pkgid="YES">66de5fae28e97f1b0e0f042e7ad2d903d0fcb54b897d0a6f53679b64763e3f60</checksum>
+  <summary>NVIDIA Nvpmodel Package</summary>
+  <description>This package provides the NVIDIA power model for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440529"/>
+  <size package="42891" installed="266857" archive="270988"/>
+<location href="Packages/nvidia-jetpack-nvpmodel-36.3.1~20240516220919-2.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-nvpmodel-36.3.1~20240516220919-2.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="13009"/>
+    <rpm:provides>
+      <rpm:entry name="config(nvidia-jetpack-nvpmodel)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-nvpmodel" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-nvpmodel(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="/bin/sh" pre="1"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="/bin/sh"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.34)(64bit)"/>
+      <rpm:entry name="libnvsocsys.so()(64bit)"/>
+      <rpm:entry name="systemd" pre="1"/>
+      <rpm:entry name="systemd"/>
+      <rpm:entry name="nvidia-jetpack-init" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="/usr/bin/bash"/>
+    </rpm:requires>
+    <file>/etc/nvpmodel/nvpmodel_p3701_0000.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_p3701_0002.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_p3701_0004.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_p3701_0008.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_p3701_0008_3740_0002.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_p3701_0008_3740_0002_safety.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_p3767_0000.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_p3767_0001.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_p3767_0003.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_p3767_0004.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_t194.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_t194_8gb.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_t194_agxi.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_t194_e3900_dGPU.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_t194_e3900_iGPU.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_t194_p3668.conf</file>
+    <file>/etc/nvpmodel/nvpmodel_t194_p3668_emul.conf</file>
+    <file>/usr/sbin/nvpmodel</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-nvsci</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+  <checksum type="sha256" pkgid="YES">cbdc48d37918670735d950e1cdebdf0950c22cc95feaeb4d5a17a7d6db5bf729</checksum>
+  <summary>NVIDIA NvSci Package</summary>
+  <description>This package provides the NVIDIA Sci libraries for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440530"/>
+  <size package="345710" installed="1197970" archive="1201608"/>
+<location href="Packages/nvidia-jetpack-nvsci-36.3.1~20240516220919-2.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-nvsci-36.3.1~20240516220919-2.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="12877"/>
+    <rpm:provides>
+      <rpm:entry name="libnvscibuf.so.1()(64bit)"/>
+      <rpm:entry name="libnvscicommon.so.1()(64bit)"/>
+      <rpm:entry name="libnvscievent.so()(64bit)"/>
+      <rpm:entry name="libnvscistream.so.1()(64bit)"/>
+      <rpm:entry name="libnvscisync.so.1()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-nvsci" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-nvsci(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.14)(64bit)"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.22)(64bit)"/>
+      <rpm:entry name="libgcc"/>
+      <rpm:entry name="libpthread.so.0()(64bit)"/>
+      <rpm:entry name="librt.so.1()(64bit)"/>
+      <rpm:entry name="libnvrm_host1x.so()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.19)(64bit)"/>
+      <rpm:entry name="libdl.so.2(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.9)(64bit)"/>
+      <rpm:entry name="/sbin/ldconfig"/>
+      <rpm:entry name="libpthread.so.0(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libnvrm_mem.so()(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.26)(64bit)"/>
+      <rpm:entry name="libgcc_s.so.1(GCC_3.0)(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.11)(64bit)"/>
+      <rpm:entry name="libdl.so.2()(64bit)"/>
+      <rpm:entry name="libnvrm_gpu.so()(64bit)"/>
+      <rpm:entry name="libnvos.so()(64bit)"/>
+      <rpm:entry name="libnvsciipc.so()(64bit)"/>
+      <rpm:entry name="libgcc_s.so.1()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.18)(64bit)"/>
+    </rpm:requires>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-pva</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+  <checksum type="sha256" pkgid="YES">1e2749e5ae5e03603faf1eab8ca8a891bbba96e10164cbc4d098a480c324e0ac</checksum>
+  <summary>NVIDIA PVA Package</summary>
+  <description>This package provides the NVIDIA PVA library for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440531"/>
+  <size package="45874" installed="103690" archive="104716"/>
+<location href="Packages/nvidia-jetpack-pva-36.3.1~20240516220919-2.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-pva-36.3.1~20240516220919-2.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="9045"/>
+    <rpm:provides>
+      <rpm:entry name="libnvpvaintf.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-pva" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-pva(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="/sbin/ldconfig"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libnvrm_mem.so()(64bit)"/>
+      <rpm:entry name="libnvos.so()(64bit)"/>
+      <rpm:entry name="libnvscibuf.so.1()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-nvsci" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.34)(64bit)"/>
+      <rpm:entry name="libnvscisync.so.1()(64bit)"/>
+      <rpm:entry name="libnvrm_host1x.so()(64bit)"/>
+      <rpm:entry name="libnvpvaumd.so()(64bit)"/>
+    </rpm:requires>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-tools</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+  <checksum type="sha256" pkgid="YES">f2700805580c1f980e108e5e9174d662394ca00b70dd62bff68e04178d604825</checksum>
+  <summary>NVIDIA Public Test Tools Package</summary>
+  <description>This package provides the NVIDIA public test tools for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440531"/>
+  <size package="458394" installed="1293787" archive="1299872"/>
+<location href="Packages/nvidia-jetpack-tools-36.3.1~20240516220919-2.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-tools-36.3.1~20240516220919-2.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="15533"/>
+    <rpm:provides>
+      <rpm:entry name="config(nvidia-jetpack-tools)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="libnvplayfair.so()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-tools" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-tools(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="/sbin/ldconfig"/>
+      <rpm:entry name="libnvimp.so()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.29)(64bit)"/>
+      <rpm:entry name="libnvrm_chip.so()(64bit)"/>
+      <rpm:entry name="libm.so.6()(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libnvos.so()(64bit)"/>
+      <rpm:entry name="/usr/bin/bash"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.34)(64bit)"/>
+    </rpm:requires>
+    <file>/etc/nvpower/libjetsonpower/jetsonpower_t194.conf</file>
+    <file>/etc/nvpower/libjetsonpower/jetsonpower_t234.conf</file>
+    <file>/usr/bin/jetson_clocks</file>
+    <file>/usr/bin/nvcapture-status-decoder</file>
+    <file>/usr/bin/nvsciipc_init</file>
+    <file>/usr/bin/tegrastats</file>
+    <file>/usr/bin/tipc_test</file>
+    <file>/usr/sbin/nv_bootloader_capsule_updater.sh</file>
+    <file>/usr/sbin/nv_fuse_read.sh</file>
+    <file>/usr/sbin/nv_get_dram_info</file>
+    <file>/usr/sbin/nv_update_engine</file>
+    <file>/usr/sbin/nvbootctrl</file>
+    <file>/usr/sbin/nvimp_util</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-vulkan-sc-sdk</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+  <checksum type="sha256" pkgid="YES">374466e0a013db0f7fac05f85732494cbfa94ea2a5270ea8810fdf8f90bfde28</checksum>
+  <summary>NVIDIA Vulkan SC run-time package</summary>
+  <description>This package provides the NVIDIA Vulkan SC run-time libraries for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440532"/>
+  <size package="3122967" installed="32214796" archive="32218760"/>
+<location href="Packages/nvidia-jetpack-vulkan-sc-sdk-36.3.1~20240516220919-2.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-vulkan-sc-sdk-36.3.1~20240516220919-2.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="13505"/>
+    <rpm:provides>
+      <rpm:entry name="config(nvidia-jetpack-vulkan-sc-sdk)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="libVkLayer_json_gen.so()(64bit)"/>
+      <rpm:entry name="libVkSCLayer_khronos_validation.so()(64bit)"/>
+      <rpm:entry name="libvulkansc.so.1()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-vulkan-sc-sdk" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-vulkan-sc-sdk(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.5)(64bit)"/>
+      <rpm:entry name="rtld(GNU_HASH)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.14)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.7)(64bit)"/>
+      <rpm:entry name="libm.so.6()(64bit)"/>
+      <rpm:entry name="libcrypto.so.3(OPENSSL_3.0.0)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.15)(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-nvsci" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libpthread.so.0()(64bit)"/>
+      <rpm:entry name="libm.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3)(64bit)"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.33)(64bit)"/>
+      <rpm:entry name="libdl.so.2(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.21)(64bit)"/>
+      <rpm:entry name="/sbin/ldconfig"/>
+      <rpm:entry name="libpthread.so.0(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="ld-linux-aarch64.so.1(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.29)(64bit)"/>
+      <rpm:entry name="libcrypto.so.3()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.26)(64bit)"/>
+      <rpm:entry name="libgcc_s.so.1(GCC_3.0)(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.11)(64bit)"/>
+      <rpm:entry name="libdl.so.2()(64bit)"/>
+      <rpm:entry name="openssl"/>
+      <rpm:entry name="libgcc_s.so.1()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6()(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(GLIBCXX_3.4.18)(64bit)"/>
+      <rpm:entry name="libstdc++.so.6(CXXABI_1.3.8)(64bit)"/>
+    </rpm:requires>
+    <file>/etc/vulkansc/icd.d/VkLayer_json_gen.json</file>
+    <file>/etc/vulkansc/icd.d/VkSCLayer_khronos_validation.json</file>
+    <file>/etc/vulkansc/icd.d/nvidia_icd_vksc.json</file>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-wayland</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+  <checksum type="sha256" pkgid="YES">997cc01ab714204bfa29011773c156572ecb15fb216048dbb3e1e6e73b87ed25</checksum>
+  <summary>NVIDIA Wayland Package</summary>
+  <description>This package provides the NVIDIA Wayland config and libraries for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440544"/>
+  <size package="41932" installed="87828" archive="89208"/>
+<location href="Packages/nvidia-jetpack-wayland-36.3.1~20240516220919-2.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-wayland-36.3.1~20240516220919-2.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="9469"/>
+    <rpm:provides>
+      <rpm:entry name="config(nvidia-jetpack-wayland)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="libnvidia-egl-wayland.so.1()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-wayland" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+      <rpm:entry name="nvidia-jetpack-wayland(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="2.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="/sbin/ldconfig"/>
+      <rpm:entry name="libpthread.so.0()(64bit)"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="libpthread.so.0(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libffi"/>
+      <rpm:entry name="libwayland-server.so.0()(64bit)"/>
+      <rpm:entry name="libwayland-client.so.0()(64bit)"/>
+    </rpm:requires>
+  </format>
+</package>
+<package type="rpm">
+  <name>nvidia-jetpack-x11</name>
+  <arch>aarch64</arch>
+  <version epoch="0" ver="36.3.1~20240516220919" rel="3.el9"/>
+  <checksum type="sha256" pkgid="YES">24f8024937d0b0316d6160fa352c50f55333bb2694e568a384858d48abc0af76</checksum>
+  <summary>NVIDIA X11 Package</summary>
+  <description>This package provides the NVIDIA X11 config for JetPack.</description>
+  <packager></packager>
+  <url>http://developer.nvidia.com/jetson</url>
+  <time file="1719481635" build="1719440544"/>
+  <size package="93556" installed="228569" archive="229896"/>
+<location href="Packages/nvidia-jetpack-x11-36.3.1~20240516220919-3.el9.aarch64.rpm"/>
+  <format>
+    <rpm:license>NVIDIA Proprietary</rpm:license>
+    <rpm:vendor/>
+    <rpm:group>Unspecified</rpm:group>
+    <rpm:buildhost>339a5d420199</rpm:buildhost>
+    <rpm:sourcerpm>nvidia-jetpack-x11-36.3.1~20240516220919-3.el9.src.rpm</rpm:sourcerpm>
+    <rpm:header-range start="4504" end="9421"/>
+    <rpm:provides>
+      <rpm:entry name="config(nvidia-jetpack-x11)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="3.el9"/>
+      <rpm:entry name="nvidia-jetpack-x11" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="3.el9"/>
+      <rpm:entry name="nvidia-jetpack-x11(aarch-64)" flags="EQ" epoch="0" ver="36.3.1~20240516220919" rel="3.el9"/>
+    </rpm:provides>
+    <rpm:requires>
+      <rpm:entry name="libm.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-core" flags="EQ" epoch="0" ver="36.3.1~20240516220919" pre="1"/>
+      <rpm:entry name="libdl.so.2(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-kmod-firmware" flags="GE" epoch="0" ver="36.3.1~20240516220919"/>
+      <rpm:entry name="libc.so.6(GLIBC_2.17)(64bit)"/>
+      <rpm:entry name="libm.so.6()(64bit)"/>
+      <rpm:entry name="libdl.so.2()(64bit)"/>
+      <rpm:entry name="nvidia-jetpack-init" flags="EQ" epoch="0" ver="36.3.1~20240516220919"/>
+    </rpm:requires>
+    <file>/etc/X11/xorg.conf</file>
+    <file>/etc/X11/xorg.conf.d/tegra-drm-outputclass.conf</file>
+    <file>/etc/X11/xorg.conf.t194_ref</file>
+    <file>/usr/bin/nvidia-xconfig</file>
+  </format>
+</package>
+</metadata>

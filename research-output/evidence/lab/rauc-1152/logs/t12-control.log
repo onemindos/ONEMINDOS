@@ -1,0 +1,4 @@
+control: rauc v1.15.1 HEAD=fac72b8347eed46f300d3a8a06e847ce1aa9d677
+T12 upstream-1.15.1-plain (unfixed control): CREATED 2254444227 bytes
+T12 1.15.2 'rauc info' on that bundle: REFUSED: exceeds maximum for bundles using plain format (2 GiB)
+T12 Debian 1.13-3+deb13u1 'rauc info' on that bundle: REFUSED: exceeds maximum for bundles using plain format (2 GiB)

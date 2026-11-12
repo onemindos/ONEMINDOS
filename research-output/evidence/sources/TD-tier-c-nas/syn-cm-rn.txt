@@ -1,0 +1,258 @@
+SOURCE: https://www.synology.com/api/releaseNote/findChangeLog?identify=ContainerManager&lang=en-global (JSON behind https://www.synology.com/releaseNote/ContainerManager)
+
+=== 24.0.2-1707 (2026-11-05)
+Fixed Issues
+- Fixed an issue where the version of containerized services in Web Station might not be updated.
+Limitation
+- After updating to this version of Container Manager, creating certain containerized web services in Web Station only supports later versions of container images. The services include, but not limited to, WordPress, PHP, Node.js, Python, Plex (linuxserver), Joomla, and PostgreSQL. Existing services can continue running on their current images or can be updated to later versions.
+
+
+=== 24.0.2-1706 (2026-08-04)
+Compatibility & Installation
+- This version requires DSM 7.4 and above.
+Fixed Issues
+- Fixed an issue where adding images from URL might fail.
+- Fixed an issue where space reclamation tasks for encrypted shared folders might fail when Container Manager was running.
+
+
+=== 24.0.2-1630 (2026-05-06)
+Important Note
+- For models incompatible with this version, install version 24.0.2-1606 instead.  Learn more
+Compatibility & Installation
+- Released for compatibility with the following models: RS4826xs+ and RS3626xs.
+What's New
+- Added support for containers to access GPU resources. To enable this feature, install the NVIDIA Runtime Library in Package Center.
+
+
+=== 24.0.2-1606 (2025-10-08)
+Important Note
+- After the update, go to the Containers page and restart your containers to ensure proper operation.
+Compatibility & Installation
+- This version requires DSM 7.3 and above.
+Fixed Issues
+- Fixed an issue where Container Manager might fail to run after an update.
+
+
+=== 24.0.2-1543 (2025-06-24)
+Compatibility & Installation
+- This version requires DSM7.2.1 and above.
+What's New
+- Supports using the "docker compose" command in the command line interface (CLI).
+- Supports customizing subnet settings for Container Manager.
+Fixed Issues
+- Fixed an issue where an unexpected error message might show up during project restart, cleanup, or image creation.
+- Fixed an issue where duplicating a container with TCP/UDP port settings might fail.
+- Fixed an issue where Container Manager version 20.10.23-1437 or earlier might not run properly if manually installed.
+- Fixed an issue where moving a shared folder might not release the storage space at its original location.
+
+
+=== 24.0.2-1542 (2025-06-10)
+What's New
+- Supports using the "docker compose" command in the command line interface (CLI).
+- Supports customizing subnet settings for Container Manager.
+Fixed Issues
+- Fixed an issue where an unexpected error message might show up during project restart, cleanup, or image creation.
+- Fixed an issue where duplicating a container with TCP/UDP port settings might fail.
+- Fixed an issue where Container Manager version 20.10.23-1437 or earlier might not run properly if manually installed.
+- Fixed an issue where moving a shared folder might not release the storage space at its original location.
+
+
+=== 24.0.2-1535 (2025-02-11)
+Important Notes
+- Starting from this version, if you perform a clean install of the package, the "docker" shared folder will not have the "Hide this shared folder in My Network Places" setting selected by default.
+- As of this version, settings for containers—including ports, volumes, environments, and links—cannot be modified post-creation. To modify the settings, duplicate a desired container and make the change to the newly created one.
+Compatibility & Installation
+- Starting from this version, Aliyun Hub will no longer be a default registry in the package.
+What's New
+- Updated Docker Daemon to version 24.0.2.
+- Supports duplicating container configurations to easily create new containers.
+- Supports displaying the container's status and error details upon hovering over an unhealthy container.
+- Supports resizing the terminal interface window for containers.
+Fixed Issues
+- Fixed an issue where container ports connections might fail when multiple gateways were enabled on DSM.
+- Fixed an issue where IPv6 configurations might not be correctly applied.
+- Fixed an issue where the image status might not display correctly after downloading the image again from the registry.
+- Fixed an issue where certain container log text might be garbled.
+- Fixed an issue where the status of containerized web service might not be properly updated in Web Station.
+- Fixed an issue where the system might not show a reminder message when the URL for registry mirror was incorrect.
+- Fixed an issue where the container settings tab might not correctly display volumes specified with long syntax in a docker-compose file.
+Limitation
+- Restricted the "Enable resource limitation" option to be unmodifiable once it was enabled for the container.
+
+
+=== 20.10.23-1437 (2023-09-19)
+Compatibility & Installation
+- Added support for the following models with the ARMv8 architecture: DS220j, DS120j.
+Fixed Issues
+- Fixed an issue where container network settings might be cleared after updating the image file.
+- Refined the error message displayed when image files could not be downloaded.
+- Fixed an issue where logs and images might not be correctly sorted by time.
+- Fixed an issue where the image size could be incorrectly displayed on the Overview page.
+- Minor bug fixes.
+
+
+=== 20.10.23-1413 (2023-06-20)
+Fixed Issues
+- Fixed an issue where the system might falsely identify a manual stop of a container as an abnormal stop.
+- Fixed an issue where updating container images could result in inconsistent status between Container Manager and Web Station for containers that had set up web portals.
+- Fixed an issue where resetting the container might remove the container from projects.
+
+
+=== 20.10.23-1408 (2023-05-30)
+Fixed Issues
+- Fixed an issue where the Container page could appear blank when an alias portal was enabled for containerized services in Web Station.
+
+
+=== 20.10.23-1407 (2023-05-25)
+Fixed Issues
+- Fixed an issue where Web Station could not be run when the "Set up web portal via Web Station" option was enabled for containers. Users updating from version 20.10.23-1405 must restart their Synology NAS to fix this issue.
+
+
+=== 20.10.23-1405 (2023-05-22)
+Important Notes
+- Container Manager is the successor of Docker and will be available for updates in Package Center.
+- Ended support for creating shortcuts for container status pages.
+- Ended support for creating shortcuts for container web pages in Container Manager. To create web page shortcuts for containers, enable "Set up web portals via Web Station" at Container Manager and go to Web Station to create the shortcuts. This option is only available for containers with exposed ports.
+- After you update to this version, a manual uninstallation of the previous Docker package is required. Go to Package Center to repair the dependent packages before uninstalling Docker or Container Manager 20.10.23 Beta. 
+Compatibility & Installation
+- Container Manager 20.10.23 requires DSM 7.2 and above.
+- Added support for the following models with the ARMv8 architecture: DS420j, DS223.
+What's New
+- Revamped the package icon and user interface for a better container managing experience.
+- Supports Docker Compose on the Project page.
+- Supports displaying the health status of containers.
+- Updated to be compatible with Docker Compose 2.5.1.
+- Supports automatic update detection for images with the "latest" tag.
+Fixed Issues
+- Fixed an issue where the package might not be able to run after a DSM update.
+- Minor bug fixes.
+
+
+=== 24.0.2-1707 (2026-11-05)
+Fixed Issues
+- Fixed an issue where the version of containerized services in Web Station might not be updated.
+Limitation
+- After updating to this version of Container Manager, creating certain containerized web services in Web Station only supports later versions of container images. The services include, but not limited to, WordPress, PHP, Node.js, Python, Plex (linuxserver), Joomla, and PostgreSQL. Existing services can continue running on their current images or can be updated to later versions.
+
+
+=== 24.0.2-1706 (2026-08-04)
+Compatibility & Installation
+- This version requires DSM 7.4 and above.
+Fixed Issues
+- Fixed an issue where adding images from URL might fail.
+- Fixed an issue where space reclamation tasks for encrypted shared folders might fail when Container Manager was running.
+
+
+=== 24.0.2-1630 (2026-05-06)
+Important Note
+- For models incompatible with this version, install version 24.0.2-1606 instead.  Learn more
+Compatibility & Installation
+- Released for compatibility with the following models: RS4826xs+ and RS3626xs.
+What's New
+- Added support for containers to access GPU resources. To enable this feature, install the NVIDIA Runtime Library in Package Center.
+
+
+=== 24.0.2-1606 (2025-10-08)
+Important Note
+- After the update, go to the Containers page and restart your containers to ensure proper operation.
+Compatibility & Installation
+- This version requires DSM 7.3 and above.
+Fixed Issues
+- Fixed an issue where Container Manager might fail to run after an update.
+
+
+=== 24.0.2-1543 (2025-06-24)
+Compatibility & Installation
+- This version requires DSM7.2.1 and above.
+What's New
+- Supports using the "docker compose" command in the command line interface (CLI).
+- Supports customizing subnet settings for Container Manager.
+Fixed Issues
+- Fixed an issue where an unexpected error message might show up during project restart, cleanup, or image creation.
+- Fixed an issue where duplicating a container with TCP/UDP port settings might fail.
+- Fixed an issue where Container Manager version 20.10.23-1437 or earlier might not run properly if manually installed.
+- Fixed an issue where moving a shared folder might not release the storage space at its original location.
+
+
+=== 24.0.2-1542 (2025-06-10)
+What's New
+- Supports using the "docker compose" command in the command line interface (CLI).
+- Supports customizing subnet settings for Container Manager.
+Fixed Issues
+- Fixed an issue where an unexpected error message might show up during project restart, cleanup, or image creation.
+- Fixed an issue where duplicating a container with TCP/UDP port settings might fail.
+- Fixed an issue where Container Manager version 20.10.23-1437 or earlier might not run properly if manually installed.
+- Fixed an issue where moving a shared folder might not release the storage space at its original location.
+
+
+=== 24.0.2-1535 (2025-02-11)
+Important Notes
+- Starting from this version, if you perform a clean install of the package, the "docker" shared folder will not have the "Hide this shared folder in My Network Places" setting selected by default.
+- As of this version, settings for containers—including ports, volumes, environments, and links—cannot be modified post-creation. To modify the settings, duplicate a desired container and make the change to the newly created one.
+Compatibility & Installation
+- Starting from this version, Aliyun Hub will no longer be a default registry in the package.
+What's New
+- Updated Docker Daemon to version 24.0.2.
+- Supports duplicating container configurations to easily create new containers.
+- Supports displaying the container's status and error details upon hovering over an unhealthy container.
+- Supports resizing the terminal interface window for containers.
+Fixed Issues
+- Fixed an issue where container ports connections might fail when multiple gateways were enabled on DSM.
+- Fixed an issue where IPv6 configurations might not be correctly applied.
+- Fixed an issue where the image status might not display correctly after downloading the image again from the registry.
+- Fixed an issue where certain container log text might be garbled.
+- Fixed an issue where the status of containerized web service might not be properly updated in Web Station.
+- Fixed an issue where the system might not show a reminder message when the URL for registry mirror was incorrect.
+- Fixed an issue where the container settings tab might not correctly display volumes specified with long syntax in a docker-compose file.
+Limitation
+- Restricted the "Enable resource limitation" option to be unmodifiable once it was enabled for the container.
+
+
+=== 20.10.23-1437 (2023-09-19)
+Compatibility & Installation
+- Added support for the following models with the ARMv8 architecture: DS220j, DS120j.
+Fixed Issues
+- Fixed an issue where container network settings might be cleared after updating the image file.
+- Refined the error message displayed when image files could not be downloaded.
+- Fixed an issue where logs and images might not be correctly sorted by time.
+- Fixed an issue where the image size could be incorrectly displayed on the Overview page.
+- Minor bug fixes.
+
+
+=== 20.10.23-1413 (2023-06-20)
+Fixed Issues
+- Fixed an issue where the system might falsely identify a manual stop of a container as an abnormal stop.
+- Fixed an issue where updating container images could result in inconsistent status between Container Manager and Web Station for containers that had set up web portals.
+- Fixed an issue where resetting the container might remove the container from projects.
+
+
+=== 20.10.23-1408 (2023-05-30)
+Fixed Issues
+- Fixed an issue where the Container page could appear blank when an alias portal was enabled for containerized services in Web Station.
+
+
+=== 20.10.23-1407 (2023-05-25)
+Fixed Issues
+- Fixed an issue where Web Station could not be run when the "Set up web portal via Web Station" option was enabled for containers. Users updating from version 20.10.23-1405 must restart their Synology NAS to fix this issue.
+
+
+=== 20.10.23-1405 (2023-05-22)
+Important Notes
+- Container Manager is the successor of Docker and will be available for updates in Package Center.
+- Ended support for creating shortcuts for container status pages.
+- Ended support for creating shortcuts for container web pages in Container Manager. To create web page shortcuts for containers, enable "Set up web portals via Web Station" at Container Manager and go to Web Station to create the shortcuts. This option is only available for containers with exposed ports.
+- After you update to this version, a manual uninstallation of the previous Docker package is required. Go to Package Center to repair the dependent packages before uninstalling Docker or Container Manager 20.10.23 Beta. 
+Compatibility & Installation
+- Container Manager 20.10.23 requires DSM 7.2 and above.
+- Added support for the following models with the ARMv8 architecture: DS420j, DS223.
+What's New
+- Revamped the package icon and user interface for a better container managing experience.
+- Supports Docker Compose on the Project page.
+- Supports displaying the health status of containers.
+- Updated to be compatible with Docker Compose 2.5.1.
+- Supports automatic update detection for images with the "latest" tag.
+Fixed Issues
+- Fixed an issue where the package might not be able to run after a DSM update.
+- Minor bug fixes.
+
+

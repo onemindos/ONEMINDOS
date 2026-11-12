@@ -1,0 +1,13 @@
+# Pinned versions (LAB-secureboot-1152)
+
+Added 2026-11-11 by SYNC5 (critic N11). Nothing was re-run. Every value is copied from this spike's own files: `logs/versions.txt` (captured at run time and hashed in `SHA256SUMS`), `scripts/build-rauc.sh`, `logs/build.log`, `logs/build-rauc.log`, `image-packages.txt` and `logs/driver-run1.log`. This file is not listed in `SHA256SUMS`.
+
+| Item | Version / pin | From |
+|---|---|---|
+| Host | Not recorded in this spike's files. The same lab host ran `../secureboot-rauc/` earlier that day (macOS 27.2 arm64, Lima 2.3.0, per its `logs/versions.txt`) | — |
+| Lab VM | Lima `debian-13` template, aarch64, `vz`; Debian 13.7; kernel 6.12.115+deb13.1-cloud-arm64 | `logs/versions.txt` |
+| VM tools | mmdebstrap 1.5.7-1+deb13u1; qemu-system-x86 and qemu-user-binfmt 1:10.0.13+ds-0+deb13u1; ovmf 2025.02-8+deb13u1; sbsigntool 0.9.4-3.2+deb13u1; efitools 1.9.2-3.5; python3-virt-firmware 24.11-2; python3-pefile 2024.8.26-2.1; systemd and systemd-ukify 257.13-1~deb13u1; swtpm and swtpm-tools 0.7.1-1.5; tpm2-tools 5.7-1+b1; openssl 3.5.7-1~deb13u3; meson 1.7.0-1; ninja-build 1.12.1-1+b1; libglib2.0-dev 2.84.4-3~deb13u5 | `logs/versions.txt` |
+| RAUC (built from source) | **v1.15.2 at `4fb7c798d6ae412344fb8f8d310d773046af3441`**, for arm64 (bundle creation) and amd64 (in the image). `rauc-src.tar` (git archive) sha256 `0332ba2a5db8a1c43de00951033f463e6b8a6290faba55669a66b2d8f608cf75`; `rauc-arm64` sha256 `7f076b8b8ab7882dd4522952d511354c9d23690280945965ec14ad0009639d1f`; `rauc-amd64-dest.tar` sha256 `7ec9ecf0a063081157f95610a15fb3940f31d296882ad116ade2ccef08880ff4`. `build.log` shows "image rauc: rauc 1.15.2" | `scripts/build-rauc.sh` l. 7–8, `logs/versions.txt`, `logs/build.log` |
+| amd64 build chroot | Debian trixie; build-essential 12.12; libssl-dev 3.5.7-1~deb13u2; libglib2.0-dev 2.84.4-3~deb13u5; libcurl4-openssl-dev 8.14.1-2+deb13u5; libfdisk-dev 2.41.5-0+deb13u1; libjson-glib-dev 1.10.6+ds-2; libnl-genl-3-dev 3.7.0-2; libdbus-1-dev 1.16.2-2; meson 1.7.0-1; ninja-build 1.12.1-1; pkgconf 1.8.1-4 | `logs/versions.txt` |
+| Guest image (Debian 13 amd64) | linux-image-amd64 6.12.116-1; systemd, systemd-boot-efi and systemd-cryptsetup 257.13-1~deb13u1; cryptsetup-bin 2:2.7.5-2; tpm2-tools 5.7-1; initramfs-tools 0.148.4; OneMind's RAUC 1.15.2 (runtime libraries in `rauc-amd64-runtime-pkgs.txt`). Full list in `image-packages.txt` | `image-packages.txt` |
+| Guest machine | `qemu-system-x86_64 -machine q35,smm=on -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nic none`, secure pflash (`OVMF_CODE_4M.secboot.fd`), swtpm | `logs/driver-run1.log` |

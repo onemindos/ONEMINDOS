@@ -1,0 +1,264 @@
+ Ubuntu Touch • Linux mobile OS that gives you pure freedom
+       Ubuntu Touch       About
+  Devices
+  Apps
+  Features
+  Community       Get involved
+  Telegram
+  Forums
+  Documentation
+  Donate
+  Contact       About the foundation
+  Meet the community
+  For manufacturers
+  News
+  Shop
+   ☀️ 🌜
+          111 supported devices            111 devices
+   Filters
+     Show only Phone  Tablet  Others
+  Features Installer  Waydroid  Display out
+  Development Stage
+★
+★
+★
+★
+★
+★
+  Booting Device   Built on   Halium   Native   Legacy
+  Support Hide unsupported
+  Release    16.04 - xenial (outdated)      20.04 - focal       24.04 - noble
+  Sort by ABC  Progress  Price
+           Lenovo Tab M10 HD 2nd Gen Wifi 4G/64GB
+      Lenovo Tab M10 X605F/L
+      BQ Aquaris M10 HD
+      BQ Aquaris M10 FHD
+      JingLing JingPad A1/C1
+      Fairphone 3 and 3+
+        Fairphone 5
+      OnePlus Nord N10 5G
+      Xiaomi Redmi Note 9S/9 Pro (India)
+      Xiaomi Redmi Note 9 Pro Max
+      Xiaomi Poco M2 Pro
+      Xiaomi Redmi Note 9 Pro (Global)
+      Xiaomi Poco X3 NFC / X3
+        Fairphone 4
+        OnePlus Nord N100
+      Google Pixel 3a XL
+      Google Pixel 3a
+      Lenovo Tab M10 HD 2nd Gen LTE 4G/64GB
+      Xiaomi Mi A2
+      Asus Zenfone Max Pro M1
+      Nothing Phone (1)
+      Bq Aquaris E5 HD
+        Volla Phone 22
+      Xiaomi Mi A3
+      Meizu Pro 5
+      rabbit r1
+      Xiaomi Redmi Note 9
+      Volla Phone X
+      OnePlus 6
+      OnePlus 6T
+      Fairphone 2
+      Meizu MX4
+        Volla Phone Quintus
+      Google Nexus 5
+      Xiaomi Redmi 9 and 9 Prime
+      Oneplus 5
+      Oneplus 5T
+        Volla Tablet
+      Bq Aquaris E4.5
+      Volla Phone X23
+      Xiaomi Redmi Note 7 Pro
+      Xiaomi Poco F1
+      F(x)tec Pro1 X
+      Xiaomi Redmi Note 8 Pro
+      Xiaomi Redmi 4X
+      Volla Phone
+      Sony Xperia X (F5121 & F5122)
+      Samsung S3 Neo+ (GT-I9301I)
+      Xiaomi Mi MIX 3
+      Google Nexus 4
+      Google Pixel 2XL
+      Google Pixel 2
+      Samsung Galaxy S7 Edge (Exynos)
+      Samsung Galaxy S7 (Exynos)
+      Volla Phone Plinius
+      Xiaomi Mi 8
+      Oneplus 3 and 3T
+      Samsung Galaxy Tab A8 10.5 (2021, SM-X200/X205)
+      Google Nexus 6P
+      OnePlus Nord 2 5G
+      Xiaomi Redmi 9C
+      Xiaomi Redmi 9C NFC
+      SHIFT6mq (axolotl)
+      Xiaomi Redmi 7
+     unmaintained   Xiaomi Redmi Note 8 (2021)
+      Motorola Moto Z2 Force
+      Oneplus 2
+      Xiaomi Redmi Note 3 (kenzo)
+      LG G6 (International h870)
+      Xiaomi Poco M3
+      Sony Xperia 10
+      Planet Computers Cosmo Communicator
+      Xiaomi Redmi Note 7
+      Sony Xperia X Performance (F8131 & F8132)
+      Nexus 7 2013 WiFi
+      Sony Xperia X Compact (F5321)
+      Xiaomi Mi 6
+      BQ Aquaris U Plus
+      Samsung Galaxy S10e (Exynos)
+      Samsung Galaxy S10 (Exynos)
+      Samsung Galaxy S10+ (Exynos)
+      Samsung Galaxy Note 10 Plus (Exynos)
+      Sony Xperia XZ (F8331 & F8332)
+      PinePhone Pro
+      F(x)tec Pro1
+      LG G4
+      Google Pixel XL
+      Google Pixel
+      Sony Xperia Z4 Tablet (LTE or Wi-fi only)
+      PinePhone
+      PineTab
+      PineTab2
+      Google Nexus 7 2013 LTE
+      Oneplus One
+      Yu Yureka Black
+      Samsung Galaxy Note 4 (910F, 910P, 910T)
+      Raspberry Pi 3
+      Samsung Galaxy S5
+      Moto G (2014)
+      Xiaomi Redmi 3X, 3S and 3SP
+      Samsung Galaxy J1 (2016)
+      Zuk z2 Plus
+      Xiaomi Redmi 4A
+      Xiaomi Mi Note 2
+      Xiaomi Redmi 5 Plus
+      Pinebook
+      Sony Xperia Z1 (C610X)
+      Desktop PC
+      Asus Zenfone 2 ZE551ML
+      Xiaomi 4
+     unmaintained   LG V20 T-Mobile
+   This device isn't ported yet.
+ Do you own one and want Ubuntu Touch on it?
+ → Then start your own port.   Some devices are hidden by filters.
+ Change filters Disable filters
+         Before installation
+  Ubuntu Touch is libre software originally developed by Canonical, now maintained by the
+UBports community; a collective of volunteers passionate about developing an ethical
+      mobile operating system.
+It is mostly stable, but still missing some features. Please read Frequently Asked Questions before installing.
+  Stick to the guidelines
+Be careful with some of the devices if they are not recently updated.
+ Ensure your device is fully functional beforehand
+ Communication issues with VoLTE may apply to North America.
+ Avoid manual installation unless you know what you are doing.
+  Find the Linux device that suits you
+Get a preinstalled device: Volla, Pine64 and
+        FXP offer devices preinstalled with Ubuntu Touch.
+Use the UBports installer on devices listed on
+        this page to switch from Android to Ubuntu Touch. Dual booting is not
+        supported. Check that the device is supported and the features you need work
+        correctly before buying.
+Install directly on native devices like the Pinephones
+        and Pinetabs. Put the image file on the device and it boots up from it directly.
+        Find more info in the respective device pages.
+  Manual installation: This is discouraged.
+        Please use the UBports installer instead.If you need to manually
+        install to start working on an unfinished or unmaintained port; We have documentation! Need more help? you can ask the porter nicely, or join the device
+        specific group linked on the device page
+  Virtual installation: If you don’t have a
+        supported device and want to help development set up the UBports platform development kit.
+  Lomiri only: Try Lomiri as a desktop
+        environment on your PC and help development.Check the Lomiri website.
+    Commercial Devices
+Companies offer compatible Ubuntu devices as part of their business. Buy online.
+   Volla Phone 22
+   Community Devices
+Devices by porters with a reputation for long-term commitment and
+          competence.
+   Fairphone 5
+ What about my device?
+If you cannot find your device on the list, even without any active
+      filter, this means that your device is not supported. We need your help to
+      develop a port for your device! We have documentation to help you get started!
+Think the documentation could be improved? It is also open source! Feel
+      free to raise an issue or suggestion improvements on gitlab
+ Get Help
+Device performance may vary from one device to another. All mature devices
+      have easy access to installation through the UBports installer. However,
+      devices in an early state generally need to follow a manual installation
+      procedure, which might be complicated. If you complete installation on
+      yours, depending on your skills you can then assist others
+@UBports Welcome & Install
+. if you don't speak english, try your local community.
+ Local community support
+UBports is formalized as a charitable foundation, but above all, it is a
+      volunteer group. We will listen carefully and respectfully and will try to
+      help you as much we can, in return you're welcome to help others.
+ English (International),
+Arabic (عربى),
+Portuguese (Português)
+,
+Spanish (ESPAÑOL),
+Italian (Italiano)
+,
+Indonesia (BAHASA),
+Chinese (这里有中文),
+Turkish (TÜRKÇE)
+,
+German (Deutsch),
+Esperanto (Esperanto),
+French (Français),
+Russian (Русский),
+India (Hindi/English),
+Romania (Română),
+Dutch (Nederlands)
+,
+Catalan (Català)
+,
+Korean (한국어),
+Sardinian (Sardu),
+Czech & Slovak,
+Scandinavia (Norsk, Svenska and Dansk),
+Polish (Polskie),
+Ukrainian (Української!)
+,
+Israel (عربى & עברית),
+Japanese (日本語),
+Finnish (Suomi).
+Disclaimer
+We create, borrow, and share software. With limited resources it
+      represents our best efforts. Anyone can use it as they wish. The software
+      is yours, and so is your risk in using it. Enjoy Ubuntu Touch.
+      Devices   Porting a new device
+ Index a device
+ Installer sources
+ Codenames
+ RSS
+ UBports   The foundation
+ Manifesto
+ Donate
+ Sponsors
+ Community   Documentation
+ Blog and Q&A
+ Forum
+ Get involved
+ Channels   Announcement
+ Main
+ Installation
+ Porting
+ FAQ
+We dare to dream about a future where users, developers and
+            companies alike can define smartphones together.
+Would you be so kind to help us keep our project alive?  Contributions
+or donations
+are both appreciated.
+UBports is a global non-profit dedicated to putting you in control of
+        the future of the mobile for the public good.
+© Copyright 2026  UBports
+ • Made with love for open-source and freedom of choice
+ •  License CC-BY-SA-4.0
+ •  Site Map
+    

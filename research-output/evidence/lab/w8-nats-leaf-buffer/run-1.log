@@ -1,0 +1,30 @@
+01:10:21 step1 create streams
+leaf TEL created
+hub TEL_HUB created
+01:10:22 step2 publish 1..100 at leaf
+hub TEL_HUB msgs: 100
+01:10:25 step3 stop hub
+01:10:27 step4 publish 101..600 at leaf with hub down
+leaf TEL msgs: 600
+01:10:30 step5 publish 50 core-NATS msgs on evt.test.outage at leaf (no stream)
+01:10:31 step6 restart hub
+01:11:11 step7 hub TEL_HUB msgs: 600 after 40s
+{
+  "messages": 600,
+  "first": 1,
+  "last": 600,
+  "sources": [
+    {
+      "name": "TEL",
+      "lag": 0,
+      "active": 266585536
+    }
+  ]
+}
+payload lines=600 unique=600 set_matches_1..600=yes
+core-NATS msgs seen at hub after restart: 0
+[5170] 2026/11/10 20:10:27.866391 [ERR] Error trying to connect as leafnode to remote server "127.0.0.1:7422" (attempt 2): dial tcp 127.0.0.1:7422: connect: connection refused
+[5170] 2026/11/10 20:10:29.532805 [ERR] Error trying to connect as leafnode to remote server "127.0.0.1:7422" (attempt 3): dial tcp 127.0.0.1:7422: connect: connection refused
+[5170] 2026/11/10 20:10:30.857349 [ERR] Error trying to connect as leafnode to remote server "127.0.0.1:7422" (attempt 4): dial tcp 127.0.0.1:7422: connect: connection refused
+[5170] 2026/11/10 20:10:32.504547 [INF] 127.0.0.1:7422 - lid:663 - Leafnode connection created for account: $G 
+[5170] 2026/11/10 20:20:24.003822 [INF] 127.0.0.1:7422 - lid:663 - Leafnode connection closed: Server Shutdown - Remote: hub

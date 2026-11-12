@@ -1,0 +1,207 @@
+
+NVIDIA Jetson Orin Nano Developer Kit Gets a “Super” Boost | NVIDIA Technical Blog
+ DEVELOPER
+ Home
+Blog
+Forums
+Docs
+Downloads
+Training
+ Join
+ Technical Blog
+ Subscribe
+ Related Resources 
+ Robotics
+ English日本語한국어中文
+ NVIDIA Jetson Orin Nano Developer Kit Gets a “Super” Boost
+ Dec 17, 2024
+ By Suhas Hariharapura Sheshadri, Leela Subramaniam Karumbunathan and Dustin Franklin 
+ Like
+ Discuss (1)
+ L
+ T
+ F
+ R
+ E
+ AI-Generated Summary
+ The Jetson Orin Nano Super Developer Kit delivers up to 1.7x higher generative AI performance with 67 Sparse TOPs, 102 GB/s memory bandwidth, and a 1.7 GHz CPU clock speed at a reduced price of $249.
+All previous Jetson Orin Nano Developer Kits can unlock the new MAXN power mode by upgrading to JetPack 6.1, increasing GPU, memory, and CPU clocks without hardware changes.
+The kit runs LLMs, VLMs, and ViTs up to 8B parameters such as Llama-3.1-8B, with benchmarks showing 1.3x to 1.7x token-per-second gains across popular models using MLC, Hugging Face Transformers, and TensorRT.
+NVIDIA is extending the performance boost across the Jetson Orin Nano and Orin NX series modules, with JetPack 6.1.1 support arriving in the first half of January and product lifecycle extended through 2032.
+Next Steps
+Download the JetPack SDK to upgrade existing Jetson Orin Nano Developer Kits.
+Follow the Getting Started Guide to configure the MAXN power mode.
+Explore Jetson AI Lab tutorials and prebuilt containers for generative AI workloads.
+ Powered by NVIDIA Nemotron. AI-generated content may summarize information incompletely. Verify important information. Learn more
+The generative AI landscape is rapidly evolving, with new large language models (LLMs), visual language models (VLMs), and vision language action (VLA) models emerging daily. To stay at the forefront of this transformative era, developers need a platform powerful enough to seamlessly deploy the latest models from the cloud to the edge with optimized inferencing and open ML frameworks using CUDA. 
+To support emerging applications for generative AI workloads in robotics and multimodal agents, NVIDIA is refreshing the NVIDIA Jetson Orin Nano Developer Kit through a software update with an unprecedented boost in performance of up to 1.7x at an amazing new price of $249. In recognition of the superb boost in performance and accessibility of advanced AI, the Jetson Orin Nano Developer Kit is being renamed as the NVIDIA Jetson Orin Nano Super Developer Kit.
+Jetson Orin Nano Developer Kit can be upgraded to Jetson Orin Nano Super Developer Kit with just a software update.
+In this post, learn about the new capabilities of the developer kit and how you can seamlessly tap into the boosted performance.
+The new Jetson Orin Nano Super Developer Kit 
+The Jetson Orin Nano Super Developer Kit now offers the following improvements:
+1.7x higher generative AI model performance.
+67 Sparse TOPs, a significant increase from the previous 40 Sparse TOPs
+102 GB/s of memory bandwidth, a significant leap from the previous 65 GB/s memory bandwidth. 
+1.7 GHz of CPU clock speed, up from 1.5 GHz.
+New reduced price of $249, down from $499.
+Video 1. Introducing NVIDIA Jetson Orin Nano Super: The World’s Most Affordable Generative AI Computer
+With the same hardware architecture, this performance boost is enabled by a new power mode which increases the GPU, memory, and CPU clocks. All previous Jetson Orin Nano Developer Kits can use the new power mode by upgrading to the latest version of JetPack. 
+With this performance boost, the Jetson Orin Nano Super Developer Kit delivers up to 70% higher generative AI performance, enabling you to run an emerging class of newer Transformer-based models. This compact yet powerful system can effortlessly handle a wide range of LLMs, VLMs, and Vision Transformers (ViTs), from smaller models to those with up to 8B parameters, such as the Llama-3.1-8B model. 
+Jetson supports the same ML frameworks and optimized inferencing infrastructure as other platforms, such as HuggingFace Transformers, Ollama, llama.cpp, vLLM, MLC, NVIDIA TensorRT-LLM, and more. This makes it an ideal choice for you to quickly adapt and deploy scalable solutions between the cloud, edge, and PC.
+Jetson Orin Nano Super Developer Kit configuration 
+NVIDIA Jetson Orin Nano Developer Kit 
+(original)NVIDIA Jetson Orin Nano Super Developer Kit
+GPU NVIDIA Ampere architecture
+1,024 CUDA Cores
+32 Tensor Cores
+635 MHzNVIDIA Ampere architecture
+1,024 CUDA Cores
+32 Tensor Cores
+1,020 MHz
+AI PERF40 INT8 TOPS (Sparse)
+20 INT8 TOPS (Dense)
+10 FP16 TFLOPs 67 TOPS (Sparse)
+33 TOPS (Dense)
+17 FP16 TFLOPs 
+CPU6-core Arm Cortex-A78AE v8.2 64-bit CPU
+1.5 GHz6-core Arm Cortex-A78AE v8.2 64-bit CPU
+1.7 GHz
+Memory8GB 128-bit LPDDR5 
+68 GB/s8GB 128-bit LPDDR5 
+102 GB/s
+MODULE POWER7W | 15W7W | 15W | 25W
+Table 1. Jetson Orin Nano Super Developer Kit configuration comparison
+Runs a wide range of LLMs, VLMs, and ViTs
+The NVIDIA Jetson Orin Nano Super Developer Kit offers performance that is a game-changer if you want to bring generative AI capabilities to your embedded applications or experience cutting-edge generative AI models in an affordable computer. 
+LLMs, VLMs, and vision transformers (ViTs) are transformative AI architectures driving innovation across domains. Foundation LLMs excel at generalized language processing and generating human-like text, enabling natural human/machine interfaces when coupled with streaming speech recognition and synthesis pipelines such as NVIDIA Riva.
+Having advanced rapidly to compete with larger models through techniques like pruning and distillation, small language models (SLMs) are optimized for edge use cases, and are generally referred to as being <7B parameters in size. 
+Today, it’s common for open LLMs and SLMs to have been trained for agentic tool use and function calling with structured I/O, which connects LLM parsing and reasoning to real-world systems.
+Support for LLM fine-tuning and memory-efficient LoRAs have also improved across many ML frameworks, including NVIDIA NeMo, enabling well-understood recipes for the alignment and specialization of SLMs in application-specific domains.
+ViTs harness the power of Transformers for vision by tokenizing patches of pixels into embeddings. They have achieved state-of-the-art performance across fundamental tasks: 
+Feature extraction
+Classification
+Detection
+Segmentation
+Pose estimation 
+They also extend to higher-dimensional modalities such as 3D point clouds and video with NVIDIA Cosmos Tokenizers. ViTs prompt creative new hybrid models that blend bespoke vision capabilities with open-vocabulary language support and dynamic runtime queries against a wide variety of subject matter and object classes, without needing additional fine-tuning.
+VLMs such as VILA fuse ViTs and LLMs across visual and textual modalities, empowering models to understand and generate detailed scene descriptions, detecting objects of interest and extracting text with OCR. They can apply multimodal reasoning in response to user queries about images or video sequences. 
+Having undergone similar minification efforts to SLMs, VLMs are increasingly useful for edge applications when applied to the remote monitoring of camera streams with flexible event-based alerts and summarization, such as in the reference VLM Workflow in Jetson Platform Services.
+Together, these technologies underpin advances in generative AI and multimodal systems, and real-world applications. The new NVIDIA Jetson Orin Nano Super delivers substantial performance increases on a wide variety of LLMs, SLMs, ViTs, and VLMs and significantly lowers the barrier of entry for gaining hands-on experience with the latest Transformer models as a gateway to physical AI. We benchmarked some of the popular LLMs, VLMs and ViTs below and showcase the speed up the Jetson Orin Nano Super developer kit provides over the predecessor.
+ Figure 1. LLM performance boost on Jetson Orin Nano Super Developer Kit
+ModelJetson Orin Nano (original)Jetson Orin Nano SuperPerf Gain (X)
+Llama 3.1 8B1419.141.37
+Llama 3.2 3B27.743.071.55
+Qwen2.5 7B14.221.751.53
+Gemma 2 2B21.534.971.63
+Gemma 2 9B7.29.211.28
+Phi 3.5 3B24.738.11.54
+SmolLM24164.51.57
+Table 2. Benchmark performance in tokens\sec for popular LLMs
+* LLM generation performance (tokens per second) with INT4 quantization using MLC API.
+ Figure 2. VLM performance boost on NVIDIA Jetson Orin Nano Super Developer Kit
+ModelJetson Orin Nano (original)Jetson Orin Nano SuperPerf Gain (X)
+VILA 1.5 3B0.71.061.51
+VILA 1.5 8B0.5740.831.45
+LLAVA 1.6 7B0.4120.571.38
+Qwen2 VL 2B2.84.41.57
+InternVL2.5 4B2.55.12.04
+PaliGemma2 3B13.721.61.58
+SmolVLM 2B8.112.91.59
+Table 3. Benchmark performance in tokens\sec for popular VLMs
+*All VILA and LLAVA models were run with INT4 precision using MLC while the rest of the models were run in FP4 precision with Hugging Face Transformers.
+ Figure 3. ViTs performance boost on NVIDIA Jetson Orin Nano Super Developer Kit
+ModelJetson Orin Nano (original)Jetson Orin Nano SuperPerf Gain (X)
+clip-vit-base-patch321963141.60
+clip-vit-base-patch16951611.69
+DINOv2-base-patch14751261.68
+SAM2 base4.426.341.43
+Grounding DINO4.116.231.52
+vit-base-patch16-224981581.61
+vit-base-patch32-2241712731.60
+Table 4. Benchmark performance in frames\sec for popular Vision Transformers 
+*All ViT models were run with FP16 precision using NVIDIA TensorRT (measurements are in FPS).
+Getting started with Jetson Orin Nano Super Developer Kit
+To enjoy the boosted performance, download the SD Card image from the JetPack SDK page and follow the Getting Started Guide.
+NVIDIA released a SD card image based on JetPack 6.1 with support for boosted performance. You can also install JetPack 6.1 with boosted performance for Jetson Orin Nano Developer Kit using SDK Manager. Make sure that you have updated the SDK Manager and select JetPack 6.1 (rev. 1) while installing.
+When you’re up and running with JetPack, change the power mode using the following command to unlock the super performance. Mode 2 is MAXN mode, which brings the super performance.
+sudo nvpmodel -m 2
+You can also change the power mode using the Power Mode Selector on the right side of the Ubuntu desktop’s top bar.
+ Figure 4. Power mode selection tool 
+Experience generative AI on Jetson Orin Nano Super Developer Kit
+NVIDIA offers a range of tutorials and pre-built containers in the Jetson AI Lab for exploring generative AI on the Jetson Orin Nano Developer Kit. If you’re interested in robotics, be sure to explore the LeRobot tutorial. For those looking to create a generative AI chatbot, there’s a dedicated tutorial for building one.
+Hugging Face LeRobot
+NVIDIA has partnered with Hugging Face to accelerate robotic research on the LeRobot open AI platform. You can run HuggingFace LeRobot on Jetson Orin Nano Super Developer Kit, which runs generative AI models for predicting actions for a particular task from visual inputs and prior trajectories.
+ Figure 5. Hugging Face LeRobot running on Jetson Orin Nano Developer Kit
+Generative AI–driven chatbot with Ollama
+Run a generative AI chatbot on Jetson Orin Nano Super Developer Kit. This chatbot features Ollama with Open WebUI, a widely used, open-source, chatbot server interface that connects to locally running LLMs. It uses retrieval-augmented generation (RAG) to further enhance the user experience and capabilities.
+ Figure 6. Generative AI chatbot running on Jetson Orin Nano Super Developer Kit
+Advancing generative AI with Jetson AI Lab
+The Jetson AI Lab is the hub for discovering and experimenting with the latest generative AI technologies optimized for edge devices.
+By fostering an openly collaborative and community-driven environment, NVIDIA works alongside developers and partners to advance open-source edge AI and robot learning. With our comprehensive support for popular machine learning frameworks and optimized inferencing microservices on Jetson devices, you can quickly build and deploy the latest research innovations and models on your Jetson computers to keep up with the rapid pace of innovation.
+Figure 7 shows examples of the NanoOWL open-vocabulary real-time object detection ViT.
+ Figure 7. Real-time object detection vision example
+Figure 8 shows the NanoDB multimodal vector database with interactive txt2img and img2img similarity search.
+ Figure 8. Image similarity search examples
+Jetson AI Lab offers almost 50 easy-to-follow tutorials and prebuilt containers to get developers of any experience level to quickly get started with on-device LLMs, SLMs, and multimodal VLMs, along with variants for VLAs, diffusion policies, and speech models. They’re all deployed locally with the same optimized inferencing infrastructure used in the cloud.
+The collaborative, community-driven tutorials and resources of the Jetson AI Lab significantly reduces the barriers to entry for deploying advanced generative AI to the edge. 
+All Jetson Orin Nano series and Jetson Orin NX series modules gets a super performance boost 
+NVIDIA is also refreshing the performance across the Jetson Orin Nano series and Jetson Orin NX series. From small AI cameras to large autonomous machines, every edge device needs the compute capability to run generative AI models​. 
+With the same module hardware, you can take advantage of the up to 1.7x increased performance across the different modules. 
+Orin Nano series: Improvements to the frequencies and performance on the GPU, CPU, and memory. 
+Orin NX series: Improvements across the GPU and DLA. 
+ Table 5. Jetson Orin Nano Super and Orin NX Super module specifications 
+Support and documentation for boosted performance for Jetson Orin Nano and Orin NX production modules will be released in the first half of January with JetPack 6.1.1. 
+Due to the growing customer demand for Orin, NVIDIA also recently announced the extension of the product lifecycle of Jetson Orin through 2032. With this super performance boost, the Orin Nano series and Orin NX series are the ideal platforms for both current and future models. 
+Jumpstart your generative AI developer today
+The Jetson Orin Nano Super Developer Kit is your ultimate platform for leading the way in generative AI development for edge computing. Now is the perfect time to get started and join the vibrant and diverse community of advanced developers and researchers working together with NVIDIA to address real-world challenges with physical AI. 
+For existing Jetson Orin Nano Developer Kit users, upgrade your JetPack SDK to unlock boosted performance today. 
+Stay up to date by subscribing to our newsletter, and follow NVIDIA Robotics on LinkedIn, Instagram, X, and Facebook.  For more information, explore our documentation or join the Robotics community on our developer forums, Discord, and YouTube channels.
+ Discuss (1)
+ Like
+ Tags
+ Agentic AI / Generative AI | Edge Computing | Robotics | Manufacturing | JetPack | Jetson Orin | Intermediate Technical | Deep dive | LLMs 
+ About the Authors
+ About Suhas Hariharapura Sheshadri
+ Suhas Sheshadri is director of product management at NVIDIA, where he leads software product management for the Jetson and IGX product lines. He is passionate about the intersection of a thriving developer community building innovative projects on Jetson and the thousands of customers deploying Jetson and IGX in production across a wide range of industries. Suhas is driven by a relentless focus on pushing the boundaries of what's possible at the edge. Before joining NVIDIA in 2018, Suhas was a Staff Engineer at Qualcomm, where he worked on GPS, sensor fusion, and always-on location technologies. He holds a Master's in Computer Science from the University of Texas at Dallas and an MBA from the University of California, Berkeley.
+ View all posts by Suhas Hariharapura Sheshadri
+ About Leela Subramaniam Karumbunathan
+ Leela Karumbunathan is a hardware product manager at NVIDIA, focusing on Jetson and autonomous machines. She has a history of working in the semiconductor industry in both engineering and product-related roles. She received a bachelor’s degree in electrical engineering from Johns Hopkins University.
+ View all posts by Leela Subramaniam Karumbunathan
+ About Dustin Franklin
+ Dustin Franklin is a developer evangelist on the Jetson team at NVIDIA. With a background in robotics and embedded systems, Dustin enjoys helping in the community and working on projects with Jetson. You can find him on the NVIDIA Developer Forums or GitHub.
+ View all posts by Dustin Franklin
+ Comments
+ Related posts
+ NVIDIA JetPack 6.2 Brings Super Mode to NVIDIA Jetson Orin Nano and Jetson Orin NX Modules
+ NVIDIA JetPack 6.2 Brings Super Mode to NVIDIA Jetson Orin Nano and Jetson Orin NX Modules
+ Bringing Generative AI to Life with NVIDIA Jetson
+ Bringing Generative AI to Life with NVIDIA Jetson
+ Jumpstart your Generative AI Journey with NVIDIA Jetson Orin 
+ Jumpstart your Generative AI Journey with NVIDIA Jetson Orin 
+ Develop AI-Powered Robots, Smart Vision Systems, and More with NVIDIA Jetson Orin Nano Developer Kit
+ Develop AI-Powered Robots, Smart Vision Systems, and More with NVIDIA Jetson Orin Nano Developer Kit
+ Jetson AGX Orin 32GB Module Now Available
+ Jetson AGX Orin 32GB Module Now Available
+ Related posts
+ Build Local AI Apps with C++ and NVIDIA TensorRT RTX Samples
+ Build Local AI Apps with C++ and NVIDIA TensorRT RTX Samples
+ TensorRT Edge-LLM Completes the MLPerf Edge Agentic Benchmark 6.4x Faster on Jetson AGX Thor
+ TensorRT Edge-LLM Completes the MLPerf Edge Agentic Benchmark 6.4x Faster on Jetson AGX Thor
+ Developing NVIDIA Holoscan Applications with CLI, Skills, and AI Coding Agents
+ Developing NVIDIA Holoscan Applications with CLI, Skills, and AI Coding Agents
+ Beyond VLAs: How World Action Models Reshape Robot Manipulation
+ Beyond VLAs: How World Action Models Reshape Robot Manipulation
+ Generate Trajectories, Reasoning Traces, and Auto-Labels with NVIDIA Alpamayo 2 Super
+ Generate Trajectories, Reasoning Traces, and Auto-Labels with NVIDIA Alpamayo 2 Super
+ Theme
+ Light
+ System
+ Dark
+ Close
+ Previous
+ Next
+ L
+ T
+ F
+ R
+ E

@@ -1,0 +1,46 @@
+Snapshot (opening post, trimmed; accessed 2026-11-11)
+URL: https://github.com/siderolabs/talos/issues/14000
+Title: Upgrading to v1.13.8 leaves state in EPHEMERAL that permanently breaks Longhorn volume attach; only a partition wipe clears it
+State: closed  Created: 2026-08-09T13:58:11Z  Closed: 2026-08-10T08:26:34Z
+
+## Bug Report
+
+### Description
+
+Upgrading a node from Talos v1.13.7 to v1.13.8 leaves something in the `EPHEMERAL` partition that permanently breaks Longhorn's iSCSI frontend on that node. Every Longhorn volume attach fails afterwards, indefinitely.
+
+The important part: **rolling the Talos version back does not fix it, and neither does a full cold power cycle.** The only thing that clears it is wiping the partition:
+
+```
+talosctl reset --nodes <ip> --system-labels-to-wipe EPHEMERAL --graceful=true --reboot=true
+```
+
+After that wipe the node works perfectly - **including on v1.13.8**. So v1.13.8 itself runs Longhorn fine; it is the act of upgrading into it that leaves the node broken.
+
+We upgraded 3 of our 6 nodes (the 3 control-plane nodes) before noticing. All 3 broke identically. The 3 workers, which were never upgraded, were unaffected throughout and are still on v1.13.7.
+
+Tested in isolation on the same node (`k8s-monaco`):
+
+| action | Longhorn attach |
+|---|---|
+| after upgrade to v1.13.8 | fails |
+| rolled back to v1.13.7 (upgrade to the older installer) | fails |
+| graceful shutdown + full power-off/power-on from BMC | fails |
+| **`reset --system-labels-to-wipe EPHEMERAL`** (on v1.13.7) | **works** |
+| **`reset --system-labels-to-wipe EPHEMERAL`** (on v1.13.8, different node) | **works** |
+
+The last two rows are the useful ones: one node was wiped while on v1.13.7 and another while still on v1.13.8, and both recovered completely. All three nodes are now healthy.
+
+Note the previous upgrade round (v1.13.6 → v1.13.7, two weeks earlier) did **not** cause this - a node upgraded then has been serving Longhorn volumes normally ever since.
+
+### Reproduction
+
+1. Cluster with Longhorn (v1 data engine) using the `iscsi-tools` and `util-linux-tools` system extensions, with `/var/lib/longhorn` bind-mounted `rshared` into the kubelet.
+2. `talosctl upgrade` a node from v1.13.7 to v1.13.8.
+3. Once it is back and `Ready`, attach any Longhorn volume to it - a brand-new 1Gi PVC on the default storage class is enough:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: lhtest, namespace: default}
+spec:

@@ -1,0 +1,214 @@
+Revenue share for Shopify App Store developersSkip to main content
+
+Apps
+Storefronts
+Agents
+References
+Changelog
+Ask assistant/
+
+Help
+•
+Log in
+
+Collapse sidebar
+
+Apps
+
+Overview
+
+Building and deploying apps
+
+Scaffold an app
+
+Build an app
+
+Deployment
+
+Distribution
+
+Dev tools
+
+Shopify AI Toolkit
+
+Shopify CLI
+
+Dev Dashboard
+
+Building blocks
+
+APIs
+
+Authentication
+
+Custom data
+
+Events and webhooks
+
+Extensions
+
+Functions
+
+Design and quality
+
+Design guidelines
+
+Security
+
+App performance
+
+Built for Shopify
+
+App surfaces
+
+Admin
+
+App Home
+
+Checkout
+
+Customer accounts
+
+Online store
+
+Point of Sale
+
+Use cases
+
+AI and agents
+
+Analytics
+
+B2B
+
+Flow
+
+Global markets
+
+Inventory management
+
+Marketing and web pixels
+
+Orders and fulfillment
+
+Payments
+
+Products and pricing
+
+Sales channels
+
+Selling and growing your app
+
+Shopify App Store
+
+Billing
+
+Marketing and growth
+
+Full index
+
+ExpandOn this page
+Get started
+Associated Developer Accounts
+How revenue share works
+Fees and taxes
+View your earnings and fees
+Additional terms
+
+Revenue share for Shopify App Store developers
+Install AI ToolkitAsk about this pageCopy MD
+Shopify's revenue share model is designed to help app developers grow. You keep 100% of your first $1,000,000 USD in lifetime gross app revenue, and 85% of earnings above that. Only revenue earned on or after January 1, 2025 counts toward this threshold. All billing is subject to a 2.9% processing fee and applicable sales tax.
+
+Anchor to Get startedGet started
+To access the revenue share plan, you need to register with the Shopify App Store for a one-time fee of $19 USD per Partner account. If you distribute your app to multiple merchants, you need to publish it through the Shopify App Store. Registration isn't required if you're only developing custom apps for a single merchant.
+To register, you need the App development and Manage financials permissions. Only the Organization owner and Organization administrator roles include Manage financials.
+
+In the Dev Dashboard, open your organization settings.
+
+From Organization, in the App Store registration section, click Register.
+
+In About your business, select whether you're working on your own or as part of an organization, and whether you have any associated developer accounts.
+
+If you have other accounts, then in Associated accounts, select whether this is the first of your accounts that you're registering.
+
+If it is, then in About your associated developer accounts, enter the Partner IDs, business email addresses, and business names for all of your associated accounts, and describe how the accounts are related.
+
+If you already registered another account, then enter the Partner ID for the account you registered.
+
+Verify that your information is correct and meets the Associated Accounts requirements in the Partner Program Agreement.
+
+In App Store registration info, click Pay now. If you don’t have a payment method yet, then click Add payment method and enter your payment information first. If your registration fee is waived, then click Complete registration instead.
+
+Anchor to Associated Developer AccountsAssociated Developer Accounts
+During registration, you must link all of your Associated Developer Accounts to ensure revenue is tracked correctly. An Associated Developer Account is any Partner account that you or an associated developer has registered with Shopify.  Failing to register is a violation of the Partner Program Agreement.
+Your gross app revenue is calculated across all Associated Developer Accounts, so all related accounts count toward the $1,000,000 USD threshold. Even though revenue is calculated together, payouts are still made separately at the Partner account level.
+Learn more about Associated Developer Accounts on the Shopify Help Center.
+
+Anchor to How revenue share worksHow revenue share works
+Revenue share is calculated based on gross sales, not net sales. Refunds aren't taken into account. If you earn revenue across multiple apps, revenue share is based on the cumulative revenue of all your apps, including apps developed under any Associated Developer Accounts. Revenue share is still paid out separately at the Partner account level.
+
+Anchor to Standard ratesStandard rates
+For developers who earned less than $20,000,000 USD through the Shopify App Store in the prior calendar year and have a gross company revenue under $100,000,000 USD, these standard rates apply:
+
+Lifetime gross app revenueRevenue share rate
+First $1,000,000 USD0%
+Above $1,000,000 USD15%
+The $1,000,000 USD threshold is a lifetime amount. It doesn't reset each year, and revenue earned before January 1, 2025 doesn't count toward it.
+To see what one store has earned from your app, open the store's app history page in the Dev Dashboard. Its App earnings is a gross figure for that app on that store, including credits and refunds. It isn't your progress toward the $1,000,000 USD threshold, and it isn't a payout.
+Developers who earned $20,000,000 USD or more through the Shopify App Store in the prior calendar year, or who have a gross company revenue of $100,000,000 USD or more, pay 15% revenue share on all app revenue. The 0% rate on the first $1,000,000 USD doesn't apply.
+Shopify reassesses eligibility for standard rates each year. This doesn't reset the $1,000,000 USD threshold. Shopify will reach out to confirm eligibility as needed.
+
+Anchor to Theme Store and referral revenueTheme Store and referral revenue
+Other income, such as from the Shopify Theme Store or referrals, isn't included in Shopify App Store revenue share calculations. Learn more about theme revenue share.
+
+Anchor to Fees and taxesFees and taxes
+All billing is subject to a 2.9% processing fee and applicable sales tax. Fees and taxes are charged separately from revenue share.
+Earnings from sales to merchants in some countries or regions are subject to an additional Regulatory Operating Fee.
+
+Anchor to View your earnings and feesView your earnings and fees
+You can review your earnings and fees on the following pages:
+
+View the charges in a payout
+
+View the charges for an app
+
+View the charges for a store
+
+Export an earnings CSV, Shopify fees invoice, or payout statement
+
+You can also use the Shopify Partner API to programmatically access this data.
+
+Anchor to Additional termsAdditional terms
+For additional terms related to earning money in the Shopify App Store, refer to Shopify Partner earnings and the Partner Program Agreement.
+
+Was this page helpful?
+YesNo
+
+Get started
+Associated Developer Accounts
+How revenue share works
+Fees and taxes
+View your earnings and fees
+Additional terms
+
+Updates
+Developer changelog
+Shopify Editions
+
+Business growth
+Shopify Partners Program
+Shopify App Store
+
+Legal
+Terms of service
+API terms of use
+Privacy policy
+Partners Program Agreement
+
+Shopify
+About Shopify
+Shopify Plus
+Careers
+Investors
+Press and media
+

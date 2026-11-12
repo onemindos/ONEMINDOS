@@ -1,0 +1,9 @@
+# gh api repos/k3s-io/k3s/releases (non-prerelease, newest 8; accessed 2026-11-11)
+v1.37.2+k3s1	2026-11-03T17:32:38Z	main
+v1.36.6+k3s1	2026-11-03T17:31:32Z	main
+v1.35.10+k3s1	2026-11-03T17:31:45Z	main
+v1.34.13+k3s1	2026-11-03T17:30:34Z	main
+v1.37.1+k3s1	2026-09-30T16:10:38Z	main
+v1.36.5+k3s1	2026-09-30T16:10:03Z	main
+v1.35.9+k3s1	2026-09-30T16:09:21Z	main
+v1.34.12+k3s1	2026-09-30T16:09:32Z	main

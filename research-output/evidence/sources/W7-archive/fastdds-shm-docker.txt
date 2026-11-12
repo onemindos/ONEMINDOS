@@ -1,0 +1,755 @@
+1.1. Leveraging Fast DDS SHM in Docker deployments - 3.6.2 / 3.7.0.1 Pro 
+ Menu 
+ Expand 
+ Light mode 
+ Dark mode 
+ Auto light/dark, in light mode 
+ Auto light/dark, in dark mode 
+ Hide navigation sidebar
+ Hide table of contents sidebar
+ Skip to content 
+ Toggle site navigation sidebar
+ 3.6.2 / 3.7.0.1 Pro 
+ Toggle Light / Dark / Auto color theme
+ Toggle table of contents sidebar
+ 3.6.2 / 3.7.0.1 Pro 
+ Commercial support 
+ Introduction 
+ What is Fast DDS ? 
+ Fast DDS Pro 
+ Commercial support 
+ Key features 
+ DDS API 
+ Fast DDS-Gen 
+ RTPS Wire Protocol 
+ Main Features 
+ Dependencies and compatibilities 
+ Contributing to the documentation 
+ Structure of the documentation 
+ Installation Manual 
+ 1. Linux installation from binaries 
+ 2. Windows installation from binaries 
+ 3. Linux installation from sources 
+ 4. Windows installation from sources 
+ 5. Mac OS installation from sources 
+ 6. CMake options 
+ Fast DDS 
+ 1. Getting Started Toggle navigation of 1. Getting Started
+ 1.1. What is DDS? 
+ 1.2. What is RTPS? 
+ 1.3. Writing a simple C++ publisher and subscriber application 
+ 1.4. Writing a simple Python publisher and subscriber application 
+ 2. Library Overview 
+ 3. DDS Layer Toggle navigation of 3. DDS Layer
+ 3.1. Core Toggle navigation of 3.1. Core
+ 3.1.1. Entity 
+ 3.1.2. Policy Toggle navigation of 3.1.2. Policy
+ 3.1.2.1. Standard QoS Policies 
+ 3.1.2.2. eProsima Extensions 
+ 3.1.2.3. XTypes Extensions 
+ 3.1.3. Status 
+ 3.1.4. Conditions and Wait-sets 
+ 3.2. Domain Toggle navigation of 3.2. Domain
+ 3.2.1. DomainParticipant 
+ 3.2.2. DomainParticipantListener 
+ 3.2.3. DomainParticipantFactory 
+ 3.2.4. Creating a DomainParticipant 
+ 3.2.5. Partitions 
+ 3.3. Publisher Toggle navigation of 3.3. Publisher
+ 3.3.1. Publisher 
+ 3.3.2. PublisherListener 
+ 3.3.3. Creating a Publisher 
+ 3.3.4. DataWriter 
+ 3.3.5. DataWriterListener 
+ 3.3.6. Creating a DataWriter 
+ 3.3.7. Publishing data 
+ 3.4. Subscriber Toggle navigation of 3.4. Subscriber
+ 3.4.1. Subscriber 
+ 3.4.2. SubscriberListener 
+ 3.4.3. Creating a Subscriber 
+ 3.4.4. DataReader 
+ 3.4.5. DataReaderListener 
+ 3.4.6. Creating a DataReader 
+ 3.4.7. SampleInfo 
+ 3.4.8. Accessing received data 
+ 3.5. Topic Toggle navigation of 3.5. Topic
+ 3.5.1. Topics, keys and instances 
+ 3.5.2. TopicDescription 
+ 3.5.3. Topic 
+ 3.5.4. ContentFilteredTopic 
+ 3.5.5. TopicListener 
+ 3.5.6. Definition of data types 
+ 3.5.7. Creating a Topic 
+ 3.5.8. Filtering data on a Topic 
+ 3.5.9. The default SQL-like filter 
+ 3.5.10. Using custom filters 
+ 3.5.11. Where is filtering applied: writer vs reader side 
+ 3.5.12. Fast DDS-Gen for data types source code generation 
+ 4. RTPS Layer 
+ 5. Discovery Toggle navigation of 5. Discovery
+ 5.3.1. General Discovery Settings 
+ 5.3.2. SIMPLE Discovery 
+ 5.3.3. STATIC Discovery 
+ 5.3.4. Discovery Server 
+ 5.3.5. DomainParticipantListener Discovery Callbacks 
+ 6. Transport Layer Toggle navigation of 6. Transport Layer
+ 6.1. Transport API 
+ 6.2. UDP Transport 
+ 6.3. TCP Transport 
+ 6.4. Shared Memory Transport 
+ 6.5. Data-sharing delivery 
+ 6.6. Intra-process delivery 
+ 6.7. TLS over TCP 
+ 6.8. Low Bandwidth Transports Pro 
+ 6.9. Listening Locators 
+ 6.10. Announced Locators 
+ 6.11. Interface Whitelist 
+ 6.12. Interfaces configuration 
+ 6.13. Disabling all Multicast Traffic 
+ 7. Persistence Service 
+ 8. Security Toggle navigation of 8. Security
+ 8.1. Authentication plugin: DDS:Auth:PKI-DH 
+ 8.2. Access control plugin: DDS:Access:Permissions Toggle navigation of 8.2. Access control plugin: DDS:Access:Permissions
+ Domain Governance XSD 
+ DomainParticipant Permissions XSD 
+ 8.3. Cryptographic plugin: DDS:Crypto:AES-GCM-GMAC 
+ 8.4. Logging plugin: DDS:Logging:DDS_LogTopic 
+ 8.5. PKCS#11 support 
+ 9. Logging Toggle navigation of 9. Logging
+ 9.1. Module Structure 
+ 9.2. Log Entry Specification 
+ 9.3. Logging Thread 
+ 9.4. Logging Messages 
+ 9.5. Module Configuration 
+ 9.6. Filters 
+ 9.7. Consumers 
+ 9.8. Disable Logging Module 
+ 9.9. Old Log macros disable 
+ 10. XML profiles Toggle navigation of 10. XML profiles
+ 10.1. Creating an XML profiles file 
+ 10.2. DomainParticipantFactory profiles 
+ 10.3. DomainParticipant profiles 
+ 10.4. DataWriter profiles 
+ 10.5. DataReader profiles 
+ 10.6. Topic profiles 
+ 10.7. Transport descriptors 
+ 10.8. Intra-process delivery profiles 
+ 10.9. Log profiles 
+ 10.10. Dynamic Types profiles 
+ 10.11. Common 
+ 10.12. Example 
+ 11. Environment variables 
+ 12. PropertyPolicyQos Options Toggle navigation of 12. PropertyPolicyQos Options
+ 12.1. Non consolidated QoS 
+ 12.2. Flow Controller Settings 
+ 12.3. Congestion Control Settings Pro 
+ 12.4. Persistence Service Settings 
+ 12.5. Security Plugins Settings 
+ 12.6. Logging Module Settings 
+ 12.7. Ignore Local Endpoints 
+ 13. Statistics Module Toggle navigation of 13. Statistics Module
+ 13.1. Statistics Module DDS Layer Toggle navigation of 13.1. Statistics Module DDS Layer
+ 13.1.1. Statistics Topic names 
+ 13.1.2. Statistics Domain Participant 
+ 13.1.3. Statistics recommended QoS 
+ 13.1.4. Troubleshooting 
+ 13.2. Monitor Service Toggle navigation of 13.2. Monitor Service
+ 13.2.1. Introduction 
+ 13.2.2. Monitor Service Topics 
+ 13.2.3. Monitor Service Configuration 
+ 14. XTypes Toggle navigation of 14. XTypes
+ 14.1. Remote Data Types Discovery 
+ 14.2. Dynamic Language Binding 
+ 14.3. Serialization Utilities 
+ 14.4. Dynamic Types IDL Parsing 
+ 15. Use-Cases Toggle navigation of 15. Use-Cases
+ 15.1. DDS-TSN Pro 
+ 15.2. Large Data mode and Fast DDS over TCP Toggle navigation of 15.2. Large Data mode and Fast DDS over TCP
+ 15.2.1. Large Data Mode 
+ 15.2.2. Large Data with configuration options 
+ 15.2.3. TCP Communication with Discovery Server 
+ 15.3. Fast DDS over WIFI Toggle navigation of 15.3. Fast DDS over WIFI
+ 15.3.1. Configuring Initial Peers 
+ 15.3.2. Disabling multicast discovery 
+ 15.3.3. Discovery Server 
+ 15.4. Well Known Network Deployments 
+ 15.5. Large Data Rates 
+ 15.6. Topics with many subscribers 
+ 15.7. Real-time behavior Toggle navigation of 15.7. Real-time behavior
+ 15.7.1. Tuning allocations 
+ 15.7.2. Non-blocking calls 
+ 15.8. Reduce memory usage 
+ 15.9. Zero-Copy communication 
+ 15.10. Unique network flows 
+ 15.11. Statistics module 
+ 15.12. IP mobility Pro 
+ 15.13. How to use eProsima DDS Record and Replay 
+ 15.14. Next Steps 
+ 15.15. Request-Reply communication 
+ 15.16. Remote type discovery and endpoint matching 
+ 16. ROS 2 using Fast DDS middleware Toggle navigation of 16. ROS 2 using Fast DDS middleware
+ 16.1. Configuring Fast DDS in ROS 2 
+ 16.2. Use ROS 2 with Fast-DDS Discovery Server 
+ 17. RPC over DDS Pro Toggle navigation of 17. RPC over DDS Pro
+ 17.1. RPC over DDS Request-Reply API overview Toggle navigation of 17.1. RPC over DDS Request-Reply API overview
+ 17.1.1. RPC Service 
+ 17.1.2. RPC Replier 
+ 17.1.3. RPC Requester 
+ 17.2. Exceptions 
+ 17.3. RPC Data Streaming 
+ 18. Troubleshooting 
+ 19. Frequently Asked Questions Toggle navigation of 19. Frequently Asked Questions
+ 19.1. Frequently Asked Getting Started Questions 
+ 19.2. DDS LAYER Frequently Asked Questions 
+ 19.3. RTPS LAYER Frequently Asked Questions 
+ 19.4. Discovery Frequently Asked Questions 
+ 19.5. TRANSPORT LAYER Frequently Asked Questions 
+ 19.6. PERSISTENCE SERVICE Frequently Asked Questions 
+ 19.7. Security Frequently Asked Questions 
+ 19.8. Logging Frequently Asked Questions 
+ 19.9. XML PROFILES Frequently Asked Questions 
+ 19.10. Environment Variables Frequently Asked Questions 
+ 19.11. Statistics Module Frequently Asked Questions 
+ 19.12. XTypes Frequently Asked Questions 
+ 20. C++ API Reference Toggle navigation of 20. C++ API Reference
+ 20.1. DDS DCPS PIM Toggle navigation of 20.1. DDS DCPS PIM
+ 20.1.1. Core Toggle navigation of 20.1.1. Core
+ 20.1.1.1. Condition Toggle navigation of 20.1.1.1. Condition
+ 20.1.1.1.1. Condition 
+ 20.1.1.1.2. ConditionSeq 
+ 20.1.1.1.3. GuardCondition 
+ 20.1.1.1.4. StatusCondition 
+ 20.1.1.1.5. Wait-set 
+ 20.1.1.2. DomainEntity 
+ 20.1.1.3. Entity 
+ 20.1.1.4. LoanableArray 
+ 20.1.1.5. LoanableCollection 
+ 20.1.1.6. LoanableSequence 
+ 20.1.1.7. Policy Toggle navigation of 20.1.1.7. Policy
+ 20.1.1.7.1. DataRepresentationId 
+ 20.1.1.7.2. DataRepresentationQosPolicy 
+ 20.1.1.7.3. DataSharingQosPolicy 
+ 20.1.1.7.4. DataSharingKind 
+ 20.1.1.7.5. DeadlineQosPolicy 
+ 20.1.1.7.6. DestinationOrderQosPolicy 
+ 20.1.1.7.7. DestinationOrderQosPolicyKind 
+ 20.1.1.7.8. DisablePositiveACKsQosPolicy 
+ 20.1.1.7.9. DurabilityQosPolicy 
+ 20.1.1.7.10. DurabilityQosPolicyKind 
+ 20.1.1.7.11. DurabilityServiceQosPolicy 
+ 20.1.1.7.12. EntityFactoryQosPolicy 
+ 20.1.1.7.13. GenericDataQosPolicy 
+ 20.1.1.7.14. GroupDataQosPolicy 
+ 20.1.1.7.15. HistoryQosPolicy 
+ 20.1.1.7.16. HistoryQosPolicyKind 
+ 20.1.1.7.17. LatencyBudgetQosPolicy 
+ 20.1.1.7.18. LifespanQosPolicy 
+ 20.1.1.7.19. LivelinessQosPolicy 
+ 20.1.1.7.20. LivelinessQosPolicyKind 
+ 20.1.1.7.21. OwnershipQosPolicy 
+ 20.1.1.7.22. OwnershipQosPolicyKind 
+ 20.1.1.7.23. OwnershipStrengthQosPolicy 
+ 20.1.1.7.24. ParticipantResourceLimitsQos 
+ 20.1.1.7.25. Partition_t 
+ 20.1.1.7.26. PartitionQosPolicy 
+ 20.1.1.7.27. PresentationQosPolicy 
+ 20.1.1.7.28. PresentationQosPolicyAccessScopeKind 
+ 20.1.1.7.29. PropertyPolicyQos 
+ 20.1.1.7.30. PublishModeQosPolicy 
+ 20.1.1.7.31. PublishModeQosPolicyKind 
+ 20.1.1.7.32. QosPolicy 
+ 20.1.1.7.33. QosPolicyId_t 
+ 20.1.1.7.34. ReaderDataLifecycleQosPolicy 
+ 20.1.1.7.35. ReliabilityQosPolicy 
+ 20.1.1.7.36. ReliabilityQosPolicyKind 
+ 20.1.1.7.37. ResourceLimitsQosPolicy 
+ 20.1.1.7.38. RTPSEndpointQos 
+ 20.1.1.7.39. TimeBasedFilterQosPolicy 
+ 20.1.1.7.40. TopicDataQosPolicy 
+ 20.1.1.7.41. TransportConfigQos 
+ 20.1.1.7.42. TransportPriorityQosPolicy 
+ 20.1.1.7.43. TypeConsistencyEnforcementQosPolicy 
+ 20.1.1.7.44. TypeConsistencyKind 
+ 20.1.1.7.45. UserDataQosPolicy 
+ 20.1.1.7.46. WireProtocolConfigQos 
+ 20.1.1.7.47. WriterDataLifecycleQosPolicy 
+ 20.1.1.7.48. WriterResourceLimitsQos 
+ 20.1.1.8. StackAllocatedSequence 
+ 20.1.1.9. Status Toggle navigation of 20.1.1.9. Status
+ 20.1.1.9.1. BaseStatus 
+ 20.1.1.9.2. DeadlineMissedStatus 
+ 20.1.1.9.3. IncompatibleQosStatus 
+ 20.1.1.9.4. InconsistentTopicStatus 
+ 20.1.1.9.5. LivelinessChangedStatus 
+ 20.1.1.9.6. MatchedStatus 
+ 20.1.1.9.7. OfferedDeadlineMissedStatus 
+ 20.1.1.9.8. OfferedIncompatibleQosStatus 
+ 20.1.1.9.9. PublicationMatchedStatus 
+ 20.1.1.9.10. QosPolicyCount 
+ 20.1.1.9.11. QosPolicyCountSeq 
+ 20.1.1.9.12. RequestedDeadlineMissedStatus 
+ 20.1.1.9.13. RequestedIncompatibleQosStatus 
+ 20.1.1.9.14. LivelinessLostStatus 
+ 20.1.1.9.15. SampleLostStatus 
+ 20.1.1.9.16. SampleRejectedStatus 
+ 20.1.1.9.17. SampleRejectedStatusKind 
+ 20.1.1.9.18. StatusMask 
+ 20.1.1.9.19. SubscriptionMatchedStatus 
+ 20.1.1.10. DDS Time_t Toggle navigation of 20.1.1.10. DDS Time_t
+ 20.1.1.10.1. Const values 
+ 20.1.1.10.2. DDS Layer Duration_t 
+ 20.1.1.10.3. Time_t DDS Operators 
+ 20.1.1.10.4. DDS Layer Time_t 
+ 20.1.2. Domain Toggle navigation of 20.1.2. Domain
+ 20.1.2.1. DomainParticipant 
+ 20.1.2.2. DomainParticipantFactory 
+ 20.1.2.3. DomainParticipantFactoryQos 
+ 20.1.2.4. DomainParticipantListener 
+ 20.1.2.5. DomainParticipantQos 
+ 20.1.2.6. DomainParticipantExtendedQos 
+ 20.1.3. Publisher Toggle navigation of 20.1.3. Publisher
+ 20.1.3.1. DataWriter 
+ 20.1.3.2. DataWriterListener 
+ 20.1.3.3. DataWriterQos 
+ 20.1.3.4. Publisher 
+ 20.1.3.5. PublisherListener 
+ 20.1.3.6. PublisherQos 
+ 20.1.3.7. RTPSReliableWriterQos 
+ 20.1.4. Subscriber Toggle navigation of 20.1.4. Subscriber
+ 20.1.4.1. DataReader 
+ 20.1.4.2. DataReaderListener 
+ 20.1.4.3. DataReaderQos 
+ 20.1.4.4. InstanceStateKind 
+ 20.1.4.5. ReadCondition 
+ 20.1.4.6. ReaderResourceLimitsQos 
+ 20.1.4.7. RTPSReliableReaderQos 
+ 20.1.4.8. SampleInfo 
+ 20.1.4.9. SampleStateKind 
+ 20.1.4.10. Subscriber 
+ 20.1.4.11. SubscriberListener 
+ 20.1.4.12. SubscriberQos 
+ 20.1.4.13. ViewStateKind 
+ 20.1.5. Topic Toggle navigation of 20.1.5. Topic
+ 20.1.5.1. TopicDataType 
+ 20.1.5.2. TypeSupport 
+ 20.1.5.3. TopicDescription 
+ 20.1.5.4. Topic 
+ 20.1.5.5. ContentFilteredTopic 
+ 20.1.5.6. IContentFilter 
+ 20.1.5.7. IContentFilterFactory 
+ 20.1.5.8. TopicListener 
+ 20.1.5.9. TopicQos 
+ 20.1.5.10. TypeInformationParameter 
+ 20.1.6. XTypes Toggle navigation of 20.1.6. XTypes
+ 20.1.6.1. Dynamic Language Binding Toggle navigation of 20.1.6.1. Dynamic Language Binding
+ 20.1.6.1.1. AnnotationDescriptor 
+ 20.1.6.1.2. DynamicData 
+ 20.1.6.1.3. DynamicDataFactory 
+ 20.1.6.1.4. DynamicPubSubType 
+ 20.1.6.1.5. DynamicType 
+ 20.1.6.1.6. DynamicTypeBuilder 
+ 20.1.6.1.7. DynamicTypeBuilderFactory 
+ 20.1.6.1.8. DynamicTypeMember 
+ 20.1.6.1.9. MemberDescriptor 
+ 20.1.6.1.10. TypeDescriptor 
+ 20.1.6.1.11. VerbatimTextDescriptor 
+ 20.1.6.2. InvalidArgumentError 
+ 20.1.6.3. Type Representation Toggle navigation of 20.1.6.3. Type Representation
+ 20.1.6.3.1. TypeObjectRegistry 
+ 20.1.6.3.2. TypeObjectUtils 
+ 20.1.6.4. Utils 
+ 20.1.7. RPC over DDS Toggle navigation of 20.1.7. RPC over DDS
+ 20.1.7.1. RemoteExceptionCode_t 
+ 20.1.7.2. Replier 
+ 20.1.7.3. ReplierQos 
+ 20.1.7.4. Requester 
+ 20.1.7.5. RequesterQos 
+ 20.1.7.6. RequestInfo 
+ 20.1.7.7. RPCEntity 
+ 20.1.7.8. Service 
+ 20.1.7.9. ServiceTypeSupport 
+ 20.2. RTPS Toggle navigation of 20.2. RTPS
+ 20.2.1. Attributes Toggle navigation of 20.2.1. Attributes
+ 20.2.1.1. BuiltinAttributes 
+ 20.2.1.2. c_default_RTPSParticipantAllocationAttributes 
+ 20.2.1.3. DiscoveryProtocol 
+ 20.2.1.4. DiscoverySettings 
+ 20.2.1.5. EndpointAttributes 
+ 20.2.1.6. ExternalLocators 
+ 20.2.1.7. HistoryAttributes 
+ 20.2.1.8. InitialAnnouncementConfig 
+ 20.2.1.9. ParticipantFilteringFlags 
+ 20.2.1.10. PropertyPolicy 
+ 20.2.1.11. PropertyPolicyHelper 
+ 20.2.1.12. ReaderAttributes 
+ 20.2.1.13. ReaderTimes 
+ 20.2.1.14. RemoteLocatorsAllocationAttributes 
+ 20.2.1.15. RTPSParticipantAllocationAttributes 
+ 20.2.1.16. RTPSParticipantAttributes 
+ 20.2.1.17. RTPSWriterPublishMode 
+ 20.2.1.18. SendBuffersAllocationAttributes 
+ 20.2.1.19. SimpleEDPAttributes 
+ 20.2.1.20. ThreadSettings 
+ 20.2.1.21. VariableLengthDataLimits 
+ 20.2.1.22. WriterAttributes 
+ 20.2.1.23. WriterTimes 
+ 20.2.2. Builtin data Toggle navigation of 20.2.2. Builtin data
+ 20.2.2.1. ContentFilterProperty 
+ 20.2.2.2. ParticipantBuiltinTopicData 
+ 20.2.2.3. PublicationBuiltinTopicData 
+ 20.2.2.4. SubscriptionBuiltinTopicData 
+ 20.2.3. Common Toggle navigation of 20.2.3. Common
+ 20.2.3.1. BinaryProperty Toggle navigation of 20.2.3.1. BinaryProperty
+ 20.2.3.1.1. BinaryProperty 
+ 20.2.3.1.2. BinaryPropertyHelper 
+ 20.2.3.1.3. BinaryPropertySeq 
+ 20.2.3.2. CacheChange Toggle navigation of 20.2.3.2. CacheChange
+ 20.2.3.2.1. CacheChange_t 
+ 20.2.3.2.2. ChangeKind_t 
+ 20.2.3.3. CDRMessage Toggle navigation of 20.2.3.3. CDRMessage
+ 20.2.3.3.1. CDRMessage_t 
+ 20.2.3.3.2. Macro definitions (#define) 
+ 20.2.3.4. CDRSerialization 
+ 20.2.3.5. EntityId Toggle navigation of 20.2.3.5. EntityId
+ 20.2.3.5.1. Const values 
+ 20.2.3.5.2. Macro definitions (#define) 
+ 20.2.3.5.3. EntityId_t 
+ 20.2.3.5.4. EntityId_t Operators 
+ 20.2.3.6. FragmentNumber Toggle navigation of 20.2.3.6. FragmentNumber
+ 20.2.3.6.1. FragmentNumber_t 
+ 20.2.3.6.2. FragmentNumberSet_t 
+ 20.2.3.7. Guid Toggle navigation of 20.2.3.7. Guid
+ 20.2.3.7.1. c_Guid_Unknown 
+ 20.2.3.7.2. GUID_t 
+ 20.2.3.7.3. GUID_t Operators 
+ 20.2.3.8. GuidPrefix Toggle navigation of 20.2.3.8. GuidPrefix
+ 20.2.3.8.1. c_GuidPrefix_Unknown 
+ 20.2.3.8.2. GuidPrefix_t 
+ 20.2.3.8.3. GuidPrefix_t Operators 
+ 20.2.3.9. InstanceHandle Toggle navigation of 20.2.3.9. InstanceHandle
+ 20.2.3.9.1. c_InstanceHandle_Unknown 
+ 20.2.3.9.2. InstanceHandle_t 
+ 20.2.3.9.3. InstanceHandle_t Operators 
+ 20.2.3.10. Locator Toggle navigation of 20.2.3.10. Locator
+ 20.2.3.10.1. Macro definitions (#define) 
+ 20.2.3.10.2. IsAddressDefined 
+ 20.2.3.10.3. IsLocatorValid 
+ 20.2.3.10.4. Locator_t 
+ 20.2.3.10.5. LocatorList 
+ 20.2.3.10.6. LocatorListConstIterator 
+ 20.2.3.10.7. LocatorListIterator 
+ 20.2.3.10.8. LocatorsIterator 
+ 20.2.3.10.9. Locators 
+ 20.2.3.10.10. Locator Operators 
+ 20.2.3.11. LocatorSelectorEntry 
+ 20.2.3.12. LocatorSelector 
+ 20.2.3.13. LocatorWithMask 
+ 20.2.3.14. MatchingInfo Toggle navigation of 20.2.3.14. MatchingInfo
+ 20.2.3.14.1. MatchingInfo 
+ 20.2.3.14.2. MatchingStatus 
+ 20.2.3.15. PortParameters 
+ 20.2.3.16. Property Toggle navigation of 20.2.3.16. Property
+ 20.2.3.16.1. Property 
+ 20.2.3.16.2. PropertyHelper 
+ 20.2.3.16.3. PropertySeq 
+ 20.2.3.17. RemoteLocators Toggle navigation of 20.2.3.17. RemoteLocators
+ 20.2.3.17.1. RemoteLocators Operators 
+ 20.2.3.17.2. RemoteLocatorList 
+ 20.2.3.18. SampleIdentity 
+ 20.2.3.19. SequenceNumber Toggle navigation of 20.2.3.19. SequenceNumber
+ 20.2.3.19.1. c_SequenceNumber_Unknown 
+ 20.2.3.19.2. SequenceNumber_t Operators 
+ 20.2.3.19.3. SequenceNumber_t 
+ 20.2.3.19.4. SequenceNumberDiff 
+ 20.2.3.19.5. SequenceNumberHash 
+ 20.2.3.19.6. SequenceNumberSet_t 
+ 20.2.3.19.7. sort_seqNum 
+ 20.2.3.20. SerializedPayload Toggle navigation of 20.2.3.20. SerializedPayload
+ 20.2.3.20.1. Macro definitions (#define) 
+ 20.2.3.20.2. SerializedPayload_t 
+ 20.2.3.21. RTPS Time_t Toggle navigation of 20.2.3.21. RTPS Time_t
+ 20.2.3.21.1. Macro definitions (#define) 
+ 20.2.3.21.2. Time_t RTPS Operators 
+ 20.2.3.21.3. RTPS layer Time_t 
+ 20.2.3.22. Token Toggle navigation of 20.2.3.22. Token
+ 20.2.3.22.1. AuthenticatedPeerCredentialToken 
+ 20.2.3.22.2. DataHolder 
+ 20.2.3.22.3. DataHolderHelper 
+ 20.2.3.22.4. DataHolderSeq 
+ 20.2.3.22.5. IdentityStatusToken 
+ 20.2.3.22.6. IdentityToken 
+ 20.2.3.22.7. PermissionsCredentialToken 
+ 20.2.3.22.8. PermissionsToken 
+ 20.2.3.22.9. Token 
+ 20.2.3.23. Types Toggle navigation of 20.2.3.23. Types
+ 20.2.3.23.1. BuiltinEndpointSet_t 
+ 20.2.3.23.2. Const values 
+ 20.2.3.23.3. Count_t 
+ 20.2.3.23.4. Macro definitions (#define) 
+ 20.2.3.23.5. DurabilityKind_t 
+ 20.2.3.23.6. Endianness_t 
+ 20.2.3.23.7. EndpointKind_t 
+ 20.2.3.23.8. octet 
+ 20.2.3.23.9. ProtocolVersion_t 
+ 20.2.3.23.10. ReliabilityKind_t 
+ 20.2.3.23.11. SubmessageFlag 
+ 20.2.3.23.12. TopicKind_t 
+ 20.2.3.23.13. VendorId_t 
+ 20.2.3.24. WriteParams 
+ 20.2.4. Endpoint 
+ 20.2.5. Flow control Toggle navigation of 20.2.5. Flow control
+ 20.2.5.1. FlowControllerDescriptor 
+ 20.2.5.2. FlowControllerSchedulerPolicy 
+ 20.2.6. History Toggle navigation of 20.2.6. History
+ 20.2.6.1. History 
+ 20.2.6.2. IChangePool 
+ 20.2.6.3. IPayloadPool 
+ 20.2.6.4. ReaderHistory 
+ 20.2.6.5. WriterHistory 
+ 20.2.7. RTPSParticipant Toggle navigation of 20.2.7. RTPSParticipant
+ 20.2.7.1. ParticipantDiscoveryInfo Toggle navigation of 20.2.7.1. ParticipantDiscoveryInfo
+ 20.2.7.1.1. ParticipantAuthenticationInfo 
+ 20.2.7.1.2. ParticipantDiscoveryStatus 
+ 20.2.7.1.3. ReaderDiscoveryStatus 
+ 20.2.7.1.4. WriterDiscoveryStatus 
+ 20.2.7.2. RTPSParticipant 
+ 20.2.7.3. RTPSParticipantListener 
+ 20.2.8. RTPSReader Toggle navigation of 20.2.8. RTPSReader
+ 20.2.8.1. ReaderListener 
+ 20.2.8.2. RTPSReader 
+ 20.2.9. Resources Toggle navigation of 20.2.9. Resources
+ 20.2.9.1. MemoryManagementPolicy 
+ 20.2.10. RTPSDomain 
+ 20.2.11. RTPSWriter Toggle navigation of 20.2.11. RTPSWriter
+ 20.2.11.1. RTPSWriter 
+ 20.2.11.2. WriterListener 
+ 20.3. Transport Toggle navigation of 20.3. Transport
+ 20.3.1. Transport Generic Interfaces Toggle navigation of 20.3.1. Transport Generic Interfaces
+ 20.3.1.1. TransportDescriptorInterface 
+ 20.3.1.2. TransportInterface 
+ 20.3.1.3. TransportReceiverInterface 
+ 20.3.1.4. PortBasedTransportDescriptor 
+ 20.3.1.5. SocketTransportDescriptor 
+ 20.3.2. Chaining of transports Toggle navigation of 20.3.2. Chaining of transports
+ 20.3.2.1. ChainingTransportDescriptor 
+ 20.3.2.2. ChainingTransport 
+ 20.3.3. UDP Transport Toggle navigation of 20.3.3. UDP Transport
+ 20.3.3.1. UDPTransportDescriptor 
+ 20.3.3.2. UDPv4TransportDescriptor 
+ 20.3.3.3. UDPv6TransportDescriptor 
+ 20.3.4. TCP Transport Toggle navigation of 20.3.4. TCP Transport
+ 20.3.4.1. TCPTransportDescriptor 
+ 20.3.4.2. TCPv4TransportDescriptor 
+ 20.3.4.3. TCPv6TransportDescriptor 
+ 20.3.5. Shared Memory Transport Toggle navigation of 20.3.5. Shared Memory Transport
+ 20.3.5.1. SharedMemTransportDescriptor 
+ 20.3.5.2. SharedMemTransportDescriptor 
+ 20.4. LOG Toggle navigation of 20.4. LOG
+ 20.4.1. Colors Toggle navigation of 20.4.1. Colors
+ 20.4.1.1. Color Blue 
+ 20.4.1.2. Color Bright 
+ 20.4.1.3. Color Bright Blue 
+ 20.4.1.4. Color Bright Cyan 
+ 20.4.1.5. Color Bright Green 
+ 20.4.1.6. Color Bright Magenta 
+ 20.4.1.7. Color Bright Red 
+ 20.4.1.8. Color Bright White 
+ 20.4.1.9. Color Bright Yellow 
+ 20.4.1.10. Color Cyan 
+ 20.4.1.11. Color Def 
+ 20.4.1.12. Color Green 
+ 20.4.1.13. Color Magenta 
+ 20.4.1.14. Color Red 
+ 20.4.1.15. Color White 
+ 20.4.1.16. Color Yellow 
+ 20.4.2. FileConsumer 
+ 20.4.3. Log 
+ 20.4.4. LogConsumer 
+ 20.4.5. EPROSIMA_LOG_ERROR 
+ 20.4.6. EPROSIMA_LOG_INFO 
+ 20.4.7. EPROSIMA_LOG_WARNING 
+ 20.4.8. OStreamConsumer 
+ 20.4.9. StdoutConsumer 
+ 20.4.10. StdoutErrConsumer 
+ 20.5. Statistics Toggle navigation of 20.5. Statistics
+ 20.5.1. DomainParticipant 
+ 20.5.2. DataWriterQos 
+ 20.5.3. DataReaderQos 
+ 20.5.4. Topic names 
+ 21. Python API Reference Toggle navigation of 21. Python API Reference
+ 21.1. DDS DCPS PIM Toggle navigation of 21.1. DDS DCPS PIM
+ 21.1.1. Core Toggle navigation of 21.1.1. Core
+ 21.1.1.1. Entity 
+ 21.1.1.2. DomainEntity 
+ 21.1.1.3. Policy Toggle navigation of 21.1.1.3. Policy
+ 21.1.1.3.1. DataRepresentationId 
+ 21.1.1.3.2. DataRepresentationQosPolicy 
+ 21.1.1.3.3. DataSharingQosPolicy 
+ 21.1.1.3.4. DataSharingKind 
+ 21.1.1.3.5. DeadlineQosPolicy 
+ 21.1.1.3.6. DestinationOrderQosPolicy 
+ 21.1.1.3.7. DestinationOrderQosPolicyKind 
+ 21.1.1.3.8. DisablePositiveACKsQosPolicy 
+ 21.1.1.3.9. DurabilityQosPolicy 
+ 21.1.1.3.10. DurabilityQosPolicyKind 
+ 21.1.1.3.11. DurabilityServiceQosPolicy 
+ 21.1.1.3.12. EntityFactoryQosPolicy 
+ 21.1.1.3.13. GenericDataQosPolicy 
+ 21.1.1.3.14. GroupDataQosPolicy 
+ 21.1.1.3.15. HistoryQosPolicy 
+ 21.1.1.3.16. HistoryQosPolicyKind 
+ 21.1.1.3.17. LatencyBudgetQosPolicy 
+ 21.1.1.3.18. LifespanQosPolicy 
+ 21.1.1.3.19. LivelinessQosPolicy 
+ 21.1.1.3.20. LivelinessQosPolicyKind 
+ 21.1.1.3.21. OwnershipQosPolicy 
+ 21.1.1.3.22. OwnershipQosPolicyKind 
+ 21.1.1.3.23. OwnershipStrengthQosPolicy 
+ 21.1.1.3.24. ParticipantResourceLimitsQos 
+ 21.1.1.3.25. Partition_t 
+ 21.1.1.3.26. PartitionQosPolicy 
+ 21.1.1.3.27. PresentationQosPolicy 
+ 21.1.1.3.28. PresentationQosPolicyAccessScopeKind 
+ 21.1.1.3.29. PropertyPolicyQos 
+ 21.1.1.3.30. PublishModeQosPolicy 
+ 21.1.1.3.31. PublishModeQosPolicyKind 
+ 21.1.1.3.32. QosPolicy 
+ 21.1.1.3.33. QosPolicyId_t 
+ 21.1.1.3.34. ReaderDataLifecycleQosPolicy 
+ 21.1.1.3.35. ReliabilityQosPolicy 
+ 21.1.1.3.36. ReliabilityQosPolicyKind 
+ 21.1.1.3.37. ResourceLimitsQosPolicy 
+ 21.1.1.3.38. RTPSEndpointQos 
+ 21.1.1.3.39. TimeBasedFilterQosPolicy 
+ 21.1.1.3.40. TopicDataQosPolicy 
+ 21.1.1.3.41. TransportConfigQos 
+ 21.1.1.3.42. TransportPriorityQosPolicy 
+ 21.1.1.3.43. TypeConsistencyEnforcementQosPolicy 
+ 21.1.1.3.44. TypeConsistencyKind 
+ 21.1.1.3.45. UserDataQosPolicy 
+ 21.1.1.3.46. WireProtocolConfigQos 
+ 21.1.1.3.47. WriterDataLifecycleQosPolicy 
+ 21.1.1.3.48. WriterResourceLimitsQos 
+ 21.1.1.4. Status Toggle navigation of 21.1.1.4. Status
+ 21.1.1.4.1. BaseStatus 
+ 21.1.1.4.2. DeadlineMissedStatus 
+ 21.1.1.4.3. IncompatibleQosStatus 
+ 21.1.1.4.4. InconsistentTopicStatus 
+ 21.1.1.4.5. LivelinessChangedStatus 
+ 21.1.1.4.6. MatchedStatus 
+ 21.1.1.4.7. OfferedDeadlineMissedStatus 
+ 21.1.1.4.8. OfferedIncompatibleQosStatus 
+ 21.1.1.4.9. PublicationMatchedStatus 
+ 21.1.1.4.10. QosPolicyCount 
+ 21.1.1.4.11. QosPolicyCountSeq 
+ 21.1.1.4.12. RequestedDeadlineMissedStatus 
+ 21.1.1.4.13. RequestedIncompatibleQosStatus 
+ 21.1.1.4.14. LivelinessLostStatus 
+ 21.1.1.4.15. SampleLostStatus 
+ 21.1.1.4.16. SampleRejectedStatus 
+ 21.1.1.4.17. SampleRejectedStatusKind 
+ 21.1.1.4.18. StatusMask 
+ 21.1.1.4.19. SubscriptionMatchedStatus 
+ 21.1.1.5. LoanableArray 
+ 21.1.1.6. LoanableCollection 
+ 21.1.1.7. LoanableSequence 
+ 21.1.1.8. StackAllocatedSequence 
+ 21.1.2. Domain Toggle navigation of 21.1.2. Domain
+ 21.1.2.1. DomainParticipant 
+ 21.1.2.2. DomainParticipantFactory 
+ 21.1.2.3. DomainParticipantFactoryQos 
+ 21.1.2.4. DomainParticipantListener 
+ 21.1.2.5. DomainParticipantQos 
+ 21.1.3. Publisher Toggle navigation of 21.1.3. Publisher
+ 21.1.3.1. DataWriter 
+ 21.1.3.2. DataWriterListener 
+ 21.1.3.3. DataWriterQos 
+ 21.1.3.4. Publisher 
+ 21.1.3.5. PublisherListener 
+ 21.1.3.6. PublisherQos 
+ 21.1.3.7. RTPSReliableWriterQos 
+ 21.1.4. Subscriber Toggle navigation of 21.1.4. Subscriber
+ 21.1.4.1. DataReader 
+ 21.1.4.2. DataReaderListener 
+ 21.1.4.3. DataReaderQos 
+ 21.1.4.4. InstanceStateKind 
+ 21.1.4.5. ReaderResourceLimitsQos 
+ 21.1.4.6. RTPSReliableReaderQos 
+ 21.1.4.7. SampleInfo 
+ 21.1.4.8. SampleStateKind 
+ 21.1.4.9. Subscriber 
+ 21.1.4.10. SubscriberListener 
+ 21.1.4.11. SubscriberQos 
+ 21.1.4.12. ViewStateKind 
+ 21.1.5. Topic Toggle navigation of 21.1.5. Topic
+ 21.1.5.1. Topic 
+ 21.1.5.2. TopicDataType 
+ 21.1.5.3. TopicDescription 
+ 21.1.5.4. TopicListener 
+ 21.1.5.5. TopicQos 
+ 21.1.5.6. TypeIdV1 
+ 21.1.5.7. TypeInformation 
+ 21.1.5.8. TypeObjectV1 
+ 21.1.5.9. TypeSupport 
+ Fast DDS-Gen 
+ 1. Introduction 
+ 2. Usage 
+ 3. Building a publish/subscribe application 
+ 4. Building Python auxiliary libraries 
+ 5. Defining a data type via IDL 
+ 6. IDL interfaces Pro Toggle navigation of 6. IDL interfaces Pro
+ 6.1. Defining an IDL interface 
+ 6.2. Exceptions 
+ 6.3. Building a RPC Client/Server application 
+ 6.4. Building a RPC Client/Server application with data streaming 
+ 6.5. Customizing RPC Server request scheduling 
+ Fast DDS CLI 
+ 1. CLI 
+ Docker Images 
+ 1. Docker Images Toggle navigation of 1. Docker Images
+ 1.1. Leveraging Fast DDS SHM in Docker deployments 
+ 1.2. Fast DDS Image 
+ 1.3. Fast DDS Suite Image 
+ Versions 
+ Dependencies and compatibilities 
+ Migration Guide to Fast DDS v3 
+ Version 3.7.0.1 Pro 
+ Version 3.6.2 
+ Supported versions 
+ EOL versions 
+ Back to top 
+ Toggle Light / Dark / Auto color theme
+ Toggle table of contents sidebar
+ 1.1. Leveraging Fast DDS SHM in Docker deployments ¶ 
+ By default, Fast DDS enables both a Shared Memory Transport and Data-sharing delivery (when
+the configuration allows it, see Constraints ).
+The way Fast DDS utilizes to find out whether a remote DomainParticipant is running on the same host as the local
+one is through a hashing of the network interfaces, which entails that two Docker container which are not sharing the
+same network stack will be detected as two different hosts, and therefore Fast DDS will defer to communicating through
+the UDP Transport instead.
+ To enable the use of both the Shared Memory Transport and Data-sharing in Docker deployments, two additional
+ options need to be passed to the docker run 
+command, those are:
+ –network=host : This option shares the host’s
+network stack with the containers, and therefore Fast DDS will be able to identify them as the same host.
+ –ipc=host : This option shares the host’s shared
+memory mechanism with the containers.
+Without it, Fast DDS will identify both containers as the same host, but since they will have separate shared memory
+spaces, they will not be able to communicate with one another.
+The use of this option is the Docker recommended way of sharing shared memory between containers, in opposition of for
+instance sharing the /dev/shm volume in Linux machines.
+A more advanced user could set the flag to shared , thus sharing the shared memory mechanism of one of the container
+with the others.
+ Starting with Fast DDS Pro 3.7.0, the participant property fastdds.shm.only_host_id_on_locators shall also be set
+to true to force the SHM transport to not consider the machine ID on the locators, since the machine ID would
+probably be different for each container, and therefore the SHM transport would not be able to find the other
+participants.
+See SHM transport locators format for more information.
+ docker run -it --rm --network = host --ipc = host [ OPTIONS ] <docker-image>
+ Next 
+ 1.2. Fast DDS Image
+ Previous 
+ 1. Docker Images
+ Copyright © 2019, eProsima
+ Made with Sphinx and @pradyunsg 's
+ Furo

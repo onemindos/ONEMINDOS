@@ -1,0 +1,539 @@
+Source: https://docs.foxglove.dev/docs/data/primary-sites/installation
+Accessed: 2026-11-11
+
+On-premises | Foxglove Docs
+
+Skip to main content
+
+DocumentationSDKAPIChangelog
+Back to Foxglove
+
+Search
+
+Getting started
+Overview
+Getting started guide
+Python
+C++
+Rust
+
+Frameworks
+Open a file
+Explore examples
+
+Hardware
+
+Robots
+
+Custom Data
+
+Agents & MCP
+Overview
+Agent sidebar
+MCP server
+Slack
+
+Visualization
+Overview
+
+Connecting to data
+Playback
+Comparison mode
+Layouts
+
+Panels
+Variables
+User Scripts
+FoxQL
+Shareable links
+Video export
+Open via CLI
+Annotate ROS enum fields
+Controls and shortcuts
+Migrate from other tools
+
+Data Platform
+Overview
+Importing data
+Exporting data
+Devices
+Recordings
+Sessions
+Events
+
+Search
+
+Primary Sites
+Foxglove Cloud, bring your own storage
+Bring your own storage FAQ
+On-premises
+Storage mode
+Inbox listener configuration
+Indexer configuration
+Query service configuration
+Search configuration
+Configure cloud credentials
+Manage data
+Upgrading
+Monitoring
+Autoscaling
+Optimize MCAP files
+FAQ
+
+Edge Sites
+
+Fleet
+Overview
+Device Tokens
+
+Foxlet
+Bridge
+Remote Access
+
+Integration
+
+Extensions
+
+Webhooks
+
+Embedding Foxglove
+
+Jupyter notebook
+
+Grafana
+CLI
+OAuth
+Personal access tokens
+Release feeds
+
+Administration
+Settings
+Audit logs
+Pricing
+Standalone License
+Projects
+Roles
+Seat types
+SSO
+
+Data Platform
+Primary Sites
+On-premises
+On this page
+
+On-premises
+Install and configure an on-premises Primary Site. This process should take about an hour, depending on your infrastructure configuration.
+
+note
+
+Issuing an HTTPS certificate is a common bottleneck during setup. Consider starting that process early for your query service endpoint to avoid delays.
+
+Before you begin, decide which storage mode to use:
+
+Query-optimized (recommended) – Best query performance with minimal operational overhead.
+
+Index-in-place – Requires careful manual file preparation; contact us to discuss if this fits your use case.
+
+Prerequisites​
+
+Kubernetes cluster, version 1.30 or later
+
+Kubectl - Kubernetes command line tool
+
+Helm - Kubernetes package manager, version 3.12 or later
+
+A cloud provider account (AWS, Azure, or GCP) or self-hosted Kubernetes with an S3-compatible object store like MinIO
+
+tip
+
+For AWS EKS deployments, we recommend Kubernetes version 1.32 for optimal compatibility with AWS services and longer support windows.
+
+info
+
+We've tested the S3-compatible setup with MinIO. Other compatible services may work. Object creation events are required to process files from your inbox.
+
+Infrastructure Setup​
+
+Provision storage buckets, a Kubernetes cluster, and cloud credentials before installing the Primary Site. There are no region restrictions if your cloud provider supports these resources.
+
+Foxglove provides Terraform examples to help provision infrastructure in supported cloud providers. For more details, see the README for each platform: AWS, Azure, GCP.
+
+Create storage buckets​
+
+note
+
+This only applies to the query-optimized storage mode. For index-in-place storage mode, you can use an existing bucket.
+
+Create two storage buckets for your Primary Site:
+
+inbox – Temporary staging area for all file uploads
+
+lake – Long-term storage for processed and indexed data (contains the same data as inbox files, but split and reorganized for efficient access)
+
+Create Kubernetes cluster​
+
+Create a Kubernetes cluster to run your site workloads (for example, processing inbox data, servicing data access requests from the lake) – we recommend doing this in the same region as your storage buckets, to reduce access latency and cost.
+
+Create a foxglove namespace in your cluster:
+
+kubectl create namespace foxglove
+
+Configure cloud credentials​
+
+Create a service account with read and write access to the storage buckets. The Kubernetes workloads will use this service account.
+
+See Configure cloud credentials for details on how to provide this credential to the deployment. This section also covers configuration of S3-compatible object storage.
+
+Foxglove Setup​
+
+Create a Primary Site and site token​
+
+You must be an organization admin to complete these steps.
+
+Create a new Primary Site from the Sites settings page:
+
+Click "Create site" in the top right corner
+
+Choose "Primary Site" as the site type
+
+Name your site (for example, "Custom Primary Site")
+
+Click "Create"
+
+Create a site token for your new Primary Site:
+
+Click into your newly created Primary Site's details
+
+Click "Create new token"
+
+Copy the generated token (starts with fox_st_...)
+
+important
+
+You cannot create site tokens for the default "Foxglove Cloud" site. You must create a new self-hosted Primary Site to generate site tokens for your infrastructure.
+
+note
+
+You may also create a new Primary Site and a site token via the Foxglove API. Reference the API key settings page for more details such as creating an API key with the appropriate siteToken capabilities (list, create, etc), and using it to create a token via the site tokens API endpoint.
+
+Create secret with site token​
+
+Install a Secret named foxglove-site-token into the foxglove namespace containing your site token:
+
+<masked> create secret generic foxglove-site-token --from-literal=FOXGLOVE_SITE_TOKEN="<masked>" --namespace foxglove
+
+There are multiple other ways to create secrets that may be preferable. See Create a Secret for more info.
+
+Install the release​
+
+Install your Primary Site using Helm.
+
+Prepare a values file​
+
+Create a values.yaml file to configure the installation. Include a storageProvider (aws, azure, google_cloud, or s3_compatible) and the names of your lake and inbox buckets:
+
+Query-optimized
+Index-in-place
+
+Google Cloud
+AWS
+Azure
+S3 Compatible Storage
+
+globals:
+
+ lake:
+
+ storageProvider: google_cloud
+
+ bucketName: foxglove-lake
+
+ inbox:
+
+ storageProvider: google_cloud
+
+ bucketName: foxglove-inbox
+
+globals:
+
+ lake:
+
+ storageProvider: aws
+
+ bucketName: foxglove-lake
+
+ inbox:
+
+ storageProvider: aws
+
+ bucketName: foxglove-inbox
+
+ aws:
+
+ region: <us-east-1>
+
+globals:
+
+ lake:
+
+ storageProvider: azure
+
+ bucketName: foxglove-lake
+
+ inbox:
+
+ storageProvider: azure
+
+ bucketName: foxglove-inbox
+
+ azure:
+
+ storageAccountName: <my-storage-account>
+
+ serviceUrl: "https://<resourcegroup>.blob.core.windows.net"
+
+For S3 compatible storage like MinIO
+
+globals:
+
+ lake:
+
+ storageProvider: s3_compatible
+
+ bucketName: foxglove-lake
+
+ inbox:
+
+ storageProvider: s3_compatible
+
+ bucketName: foxglove-inbox
+
+You can configure index-in-place sites to access multiple buckets within a
+single site. Provide bucket names as a comma-delimited list.
+
+Google Cloud
+AWS
+Azure
+S3 Compatible Storage
+
+globals:
+
+ indexingStrategy: index-in-place
+
+ indexInPlace:
+
+ storageProvider: google_cloud
+
+ bucketName: bucket1,bucket2
+
+globals:
+
+ indexingStrategy: index-in-place
+
+ indexInPlace:
+
+ storageProvider: aws
+
+ bucketName: bucket1,bucket2
+
+ aws:
+
+ region: <us-east-1>
+
+globals:
+
+ indexingStrategy: index-in-place
+
+ indexInPlace:
+
+ storageProvider: azure
+
+ bucketName: bucket1,bucket2
+
+ azure:
+
+ storageAccountName: <my-storage-account>
+
+ serviceUrl: "https://<resourcegroup>.blob.core.windows.net"
+
+For S3 compatible storage like MinIO
+
+globals:
+
+ indexingStrategy: index-in-place
+
+ indexInPlace:
+
+ storageProvider: s3_compatible
+
+ bucketName: bucket1,bucket2
+
+Install​
+
+Helm will install the Primary Site deployment to your current Kubernetes context.
+
+tip
+
+Find the latest Helm charts and releases at github.com/foxglove/helm-charts/releases.
+
+helm repo add foxglove https://helm-charts.foxglove.dev
+
+helm repo update
+
+helm upgrade --install foxglove-primary-site foxglove/primary-site \
+
+ --values ./values.yaml \
+
+ --namespace foxglove \
+
+ --create-namespace
+
+View info about the deployment:
+
+helm list -n foxglove
+
+Configuration​
+
+Ingress for data streaming​
+
+The deployment installs an Ingress, exposing a query service HTTP endpoint to download available data from your lake bucket.
+
+To reach the ingress from outside the cluster, assign a DNS name and HTTPS endpoint. Ensure that the HTTP endpoint is reachable from your organization's network or any network needing access to the site data. This does not necessarily need to be exposed to the public internet; for example, if all clients will download data from within a VPN.
+
+note
+
+How to assign a DNS name and HTTPS endpoint to the ingress is specific to your organization and cloud environment.
+
+You can configure the ingress using your values file. Below are the default values.
+
+ingress:
+
+ enabled: true
+
+ className:
+
+ annotations: {}
+
+To completely disable the Ingress, set ingress.enabled to false. However, you must provide an Ingress for the site to function.
+
+Some cloud providers require configuring annotations for HTTPS certificates. Here's an example values file for AWS.
+
+ingress:
+
+ annotations:
+
+ kubernetes.io/ingress.class: "alb"
+
+ alb.ingress.kubernetes.io/scheme: internet-facing
+
+ alb.ingress.kubernetes.io/target-type: ip
+
+ alb.ingress.kubernetes.io/backend-protocol: HTTP
+
+ alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+
+ alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-1:xxxxxxxxxxxx:certificate/EXAMPLE-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+To check your HTTPS endpoint is correctly configured, make a request to the root / path. You should see a 200 OK response with a JSON body:
+
+{
+
+ "success": true,
+
+ "version": "<your installed helm chart version>"
+
+}
+
+Configure site URL​
+
+Once the site's ingress public URL is known, you can configure it on a Site page, linked from the "Sites" settings page.
+
+Under Site URL, enter the HTTPS URL you've assigned to the Ingress.
+
+Bucket push notifications​
+
+The site needs to know when new files are uploaded. To notify of new uploads, configure a push notification to the appropriate Foxglove notifications endpoint. For query-optimized storage mode, the notification should be configured on the inbox bucket.
+
+Configuring a push notification for new file uploads is specific to your cloud provider (or S3-compatible service).
+
+The Foxglove Terraform examples for cloud providers configure these resources for you. For manual setup, or for more information, see the documentation below.
+
+Azure: https://learn.microsoft.com/en-us/azure/event-grid/blob-event-quickstart-portal#create-a-message-endpoint
+
+GCP: https://cloud.google.com/storage/docs/pubsub-notifications
+
+AWS: If you are using the Foxglove AWS Terraform example, this setup is done for you. You should see an SNS topic with an https subscription attached to the inbox bucket's s3:ObjectCreated:* events.
+
+MinIO: https://min.io/docs/minio/linux/administration/monitoring/publish-events-to-webhook.html#minio-bucket-notifications-publish-webhook
+
+Custom site bucket notifications​
+
+You can directly notify your primary site of new file uploads via POST request, rather than going through a bucket notification. This can be helpful if your indexed bucket does not support publishing events, or you wish to trigger ingestion as part of a separate process. See the /site-bucket-notifications API documentation for details.
+
+tip
+
+Org admins can find the notification endpoint and token on the Sites settings page.
+
+Troubleshooting​
+
+If you encounter issues during setup:
+
+Kubernetes version errors:
+
+If you see unsupported Kubernetes version errors, check your cloud provider's supported versions
+
+For AWS EKS, use version 1.32 or later for optimal compatibility
+
+If you see AMI type errors (for example, "AMI Type AL2_x86_64 is only supported for kubernetes versions 1.32 or earlier"), update both your Kubernetes version and AMI type to match
+
+Site token creation errors:
+
+If you get site-tokens cannot be created for this site when using the API, ensure you're creating tokens for a self-hosted Primary Site, not the default "Foxglove Cloud" site
+
+Create a new Primary Site first, then generate tokens for that site
+
+EKS cluster creation time:
+
+EKS cluster creation typically takes 8-10 minutes
+
+If it takes longer, check AWS service status and ensure you have sufficient permissions
+
+403 errors when streaming data with many topics:
+
+If you see Unexpected response status 403 when subscribing to many topics, your WAF (Web Application Firewall) may be blocking requests with long URI query strings
+
+Foxglove encodes a signed token as a query parameter on stream requests, and the token size grows with the number of subscribed topics and their name lengths
+
+Check your WAF rules for URI length limits (a common default is 2,048 bytes) and add an exception for your query service endpoint
+
+Support​
+
+For additional support contact us at <masked-email>.
+Previous
+Bring your own storage FAQ
+Next
+Storage mode
+Need help? Contact support.
+Chat with the community on Discord.
+See the changelog.
+Interested in buying? See pricing.
+Read the latest on the Foxglove blog.
+LLM? Read llms.txt.
+
+Prerequisites
+Infrastructure Setup
+Create storage buckets
+Create Kubernetes cluster
+Configure cloud credentials
+Foxglove Setup
+Create a Primary Site and site token
+Create secret with site token
+Install the release
+Prepare a values file
+Install
+Configuration
+Ingress for data streaming
+Configure site URL
+Bucket push notifications
+Troubleshooting
+Support

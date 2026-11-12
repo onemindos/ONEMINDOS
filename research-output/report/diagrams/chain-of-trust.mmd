@@ -1,0 +1,13 @@
+flowchart TB
+  F["UEFI firmware with OneMind db key<br/>(enrolled at the factory on every x86 box)"] --> U["Signed UKI per slot<br/>kernel + initrd + command line in one file"]
+  U --> V["Root filesystem checked block by block<br/>(dm-verity, read-only A/B slot)"]
+  U --> TPM["TPM unseals the data key only if<br/>PCR 7 (Secure Boot state) + signed PCR 11 match"]
+  TPM --> D["LUKS2 data partition<br/>(encrypted from first boot; PCR 15 volume check)"]
+  V --> E["Extensions: signed-only sysext / confext<br/>driver packs with module.sig_enforce=1"]
+  V --> K["k3s hardened profile<br/>secrets encryption · audit · Pod Security"]
+  K --> G["Capability gateway<br/>human approval for motion, updates,<br/>installs and data export"]
+  G --> A["Apps and AI agents<br/>(least privilege, sandboxed)"]
+  R["Release signing: offline root · 2-of-3 signers ·<br/>manifest expiry · revocation · anti-downgrade (SBAT)"] -.-> U
+  R -.-> E
+  style G fill:#FFF3C4,stroke:#C9A227
+  style R fill:#F1ECFA,stroke:#7B5EA7

@@ -1,0 +1,165 @@
+--- lines 1,10 of extracted text ---
+
+
+Oura API and MCP Agreement
+
+OURA API AND MCP AGREEMENT
+
+Effective date: June 8, 2026. Prior versions are available on the
+Previous Terms page.
+
+This Oura API and MCP Agreement (the “Agreement”) is made and entered by and between OURARING, INC., a Delaware corporation (“Oura” or the “Company”) and the person, entity, or other party using or accessing the Oura API or MCP Server (“you,” “your,” or “yours,” as applicable, whether individually or on behalf of a third party whom you represent or for whom you are acting as an agent). This Agreement may refer to Oura and you collectively as the “Parties” or to either of them individually as a “Party.”
+--- lines 20,80 of extracted text ---
+1. Definitions
+
+“Affiliate” means, with respect to either Party, any entity that directly or indirectly controls, is controlled by, or is under common control with such Party, where “control” means the ownership of at least fifty percent (50%) of the equity interests or the right to vote for or appoint a majority of the board of directors.
+
+“Aggregator” means any person or entity (including any User) that accesses, receives, or obtains User Data or Oura Data through or in connection with the Oura API, the MCP Server, or any other means, and which transmits, discloses, makes available, or otherwise provides such User Data or Oura Data (or any data or information derived therefrom) to any third party such that it may be used for enabling, facilitating, supporting, or enhancing a third party’s products, services, platforms, or applications.
+
+“AI Model(s)” means any artificial intelligence system, machine learning model, neural network, large language model, or other computational intelligence system.
+
+“AI Platform” means any platform, tool, system, application, or service that is owned, licensed, used, or operated by you or which is otherwise under your control, in each case whether self-hosted or provided as a service by any third party, through which users may interact with, access, or utilize AI Models or other artificial intelligence or machine learning capabilities in connection with any activity, service, or function contemplated by this Agreement.
+
+“API” or “Application Programming Interface” means the standardized open protocol for connecting software applications to access, exchange, and act on contextual data and functions.
+
+“Collaborator Application” means an application developed, operated, or maintained by you that is used in connection with the Oura API or MCP Server as authorized pursuant to this Agreement.
+
+“Confidential Information” means all non-public information disclosed by one Party (the “Disclosing Party”) to the other Party (the “Receiving Party”) that relates to the Disclosing Party’s technology, products, services, business, intellectual property, or any other proprietary information, whether disclosed orally, in writing, or by any other means. Confidential Information includes all User Data, all Oura Data, and the terms of this Agreement.
+
+“Data Incident” means any actual or suspected breach of security or privacy leading to the accidental, unauthorized, or unlawful destruction, loss, alteration, disclosure of, or access to User Data, Oura Data, or Confidential Information.
+
+“Data Protection Laws” means all applicable laws, rules, and regulations relating to data privacy, data protection, or data security, including without limitation the General Data Protection Regulation, the California Consumer Privacy Act, and other applicable federal, state, and international privacy laws.
+
+“End Customer” means a person or entity who receives, accesses, or obtains User Data or any Oura Data from or through an Aggregator or any other third-party intermediary rather than from the Company.
+
+“Intellectual Property” means any and all intellectual property rights worldwide, including patents, copyrights, trademarks, trade secrets, and know-how.
+
+“MCP” or “Model Context Protocol” means the standardized open protocol for connecting AI systems to external data sources, which provides a method for AI applications to access and act on contextual data through a client-server architecture.
+
+“MCP Client” means the software component developed, operated, and maintained by you that connects to the MCP Server to request and receive User Data in accordance with the terms of this Agreement.
+
+“MCP Server” means the technical infrastructure operated by the Company that implements the Model Context Protocol to facilitate controlled access to User Data by you.
+
+“Oura API” means an Application Programming Interface created, owned, operated, or maintained by Oura, together with any software, materials, or data made available by Oura in its sole discretion in connection with such Oura API, as well as any software development kit, documentation, and any software materials or data that Oura makes available to you, for use or purposes authorized by this Agreement.
+
+“Oura Data” means all data, information, metrics, scores, insights, and content owned or controlled by the Company, including all User Data, derivative data, and all data generated by or through the Oura Platform.
+
+“Oura Intellectual Property” means all Intellectual Property owned by or licensed to the Company and the Oura Platform, all Oura Data, the MCP Server, the Oura API, and all proprietary algorithms, scoring methodologies, analytical models, trademarks, and brand elements.
+
+“Personal Data” means any information relating to an identified or identifiable natural person.
+
+“User” means any individual who uses the Company’s products or services, including any individual who wears an Oura Ring or uses the Oura App.
+
+“User Consent” means the clear, informed, freely given consent provided by a User authorizing the use or sharing of such User’s User Data with you for the Authorized Purpose, obtained in accordance with this Agreement and all applicable Data Protection Laws.
+
+“User Data” means all Personal Data, health data, and all other data relating to Users that is made available to you through or in connection with the MCP Server, the Oura API, or this Agreement, together with all data derived from or based upon such data.
+
+2. Scope of Agreement
+
+(a) Subject to the terms of this Agreement, you may (the following being “Authorized Purposes”):
+
+(i) use an MCP Client to connect with the MCP Server, or use the Collaborator Application to connect with the Oura API, for purposes of accessing and processing User Data, whether directly or through the use of another technology (including any AI Platform) to which you input or provide such User Data, in each case strictly in accordance with this Agreement and in the manner for which you have obtained User Consent (when applicable); and
+
+(ii) use a Collaborator Application to connect with the Oura API or MCP Server for purposes of developing products, sites, applications, or services that are designed to interact with Oura services and platforms.
+
+(b) Your access to, processing of, and use of Oura Data and User Data for the Authorized Purposes shall strictly comply with the terms and conditions of this Agreement. If you use or process any Oura Data or User Data using, in connection with, or with the benefit of any AI Model or AI Platform that is owned, licensed, or controlled by any third party (provided such use or processing is expressly authorized by this Agreement), then you shall ensure that each such third party is bound by written terms and conditions that are no less protective of the Company, its Users, User Data, Oura Data, and Oura Intellectual Property than the terms set forth in this Agreement. You shall be responsible and liable for, and you shall indemnify Oura from any claims arising from, any breach of or non-compliance with this Agreement by a third party or any other person or entity with respect to Oura Data or User Data that you have accessed, collected, obtained, or received, or which you have otherwise shared, processed, inputted, submitted, or used.
+
+(c) If you are or at any time become an Aggregator, you may access or receive Oura Data and User Data strictly in order to pass such data through to the End Customer, and only then subject to your compliance with Section 3(e) and Section 3(f). No Aggregator may use or process Oura Data or User Data for any other purpose, whether or not otherwise authorized herein, and whether or not such Oura Data or User Data was obtained from any other party. For the avoidance of doubt and without limiting the generality of the foregoing, no Aggregator shall relay, transmit, transfer, make available, disclose, distribute, redistribute, or otherwise provide or permit any Oura Data or User Data (or any data or information derived therefrom) to any AI Model, AI Platform, large language model, or other artificial intelligence or machine learning system, whether operated by such Aggregator, any End Customer, or any third party.
+
+(d) An Aggregator shall not be authorized with respect to Oura Data and User Data beyond the purposes set forth in Section 2(c) above, except pursuant to a separate written agreement between such Aggregator and the Company.
+
+(e) The MCP Server and Oura API are made available subject solely to the terms of this Agreement, the Oura Terms of Use, Oura Privacy Policy, and Oura’s Branding Guidelines. By accessing or using the MCP Server or Oura API, you acknowledge that you have read and agree to abide by this Agreement, the Oura Terms of Use, Oura Privacy Policy, and Oura’s Branding Guidelines. If you are unable or unwilling to comply with this Agreement, you must immediately cease all use of the MCP Server and the Oura API.
+
+3. Integration and Technical Requirements
+--- lines 110,200 of extracted text ---
+(k) You shall keep your registration, application (including the Collaborator Application), and service information accurate, complete, and current for so long as you use any Oura Intellectual Property pursuant to this Agreement. You are responsible for all use or access that occurs under any Oura account, including any activities by your employees, contractors, or agents. If you believe an unauthorized person has gained access to your account, the MCP Server, or the Oura API, you must notify the Company as soon as possible.
+
+(l) The Company may monitor your use, access, or activities performed pursuant to this Agreement using any lawful means and technologies available to it for the purposes of providing, improving, developing, and securing the Company’s services and to ensure your compliance with this Agreement and applicable law. The Company may collect certain data and information related to your use of any Oura Intellectual Property, and the Company may use and disclose the same for any business purpose, internal or external, including, without limitation, providing enhancements to any Oura Intellectual Property. The Company may contact you from time to time about use of the Oura API and MCP Server, and you agree to be responsive to inquiries from the Company.
+
+(m) Unless and until you are authorized to do so by the Company in a separate written agreement or consent, you shall not store or cache any data accessed or obtained through the MCP Server. In addition, Aggregators shall not store or cache any User Data or Oura Data. Subject to the foregoing, User Data or Oura Data and User Data accessed or obtained through the Oura API may not be stored or retained beyond the duration strictly necessary.
+
+(n) You acknowledge that the Company has no obligation to ensure that an upgrade of the Oura API, MCP Server, or the Oura Platform will be compatible with existing or planned Collaborator Applications.
+
+(o) You acknowledge that the Company and its third-party providers may make improvements and/or changes in the data and functionality provided by the Oura API or MCP Server or Oura Platform at any time with no notice.
+
+(p) The Company may perform scheduled or unscheduled maintenance, updates, or modifications to the Oura API, MCP Server, or the Oura Platform at any time. Such maintenance may result in temporary interruptions, delays, or errors in service. You acknowledge that the Oura API, MCP Server, Oura Platform, and Oura Data may experience interruptions, delays, errors, or other performance issues from time to time, including without limitation as a result of maintenance, system updates, third-party service failures, internet disruptions, or other causes beyond the Company’s control. The Company does not guarantee any minimum availability, uptime, performance levels, response times, or error rates, and no service level agreement (SLA) applies unless expressly set forth in a separate written agreement signed by the Company.
+
+4. Restrictions on Use
+
+(a) You shall access, use, and interface with the MCP Server, the Oura API, and the Oura Platform, and shall use and process User Data, solely for the Authorized Purposes and in accordance with all applicable Data Protection Laws. You shall not use, access, process, or exploit Oura Intellectual Property or any User Data for any of the following purposes (each, a “Prohibited Use”), unless Oura provides prior written consent:
+
+(i) any purpose other than the Authorized Purpose;
+
+(ii) using, accessing, processing, or disclosing Oura Intellectual Property for purposes of monitoring the availability, performance, or functionality of Oura’s products and services or for any purpose competitive with Oura in any way, including without limitation benchmarking;
+
+(iii) training, fine-tuning, developing, or improving any AI Model or AI Platform or allowing the training, fine-tuning, developing, or improving of any AI Model or AI Platform, regardless of the training technique used, or incorporating User Data, Oura Data, Oura Intellectual Property or Oura Confidential Information into any training dataset, evaluation dataset, or benchmark dataset;
+
+(iv) creating or modifying any AI Model weights, parameters, embeddings, or persistent representations;
+
+(v) combining, enriching, linking, or correlating User Data with data from other sources or with Personal Data from any other person for the purpose of or with the effect of (A) re-identifying, de-anonymizing, or otherwise determining the identity of any User; or (B) creating, contributing to, or maintaining any database, dataset, application, or software that includes information about any User without first obtaining User Consent therefor;
+
+(vi) aggregating, selling, transferring, renting, leasing, licensing, sharing, redistributing, or disclosing User Data, Oura Data, or other Oura Confidential Information to any third party, except as specifically provided for under this Agreement;
+
+(vii) advertising, marketing, or commercial targeting purposes;
+
+(viii) advertising, marketing, or otherwise promoting any Oura Data or User Data;
+
+(ix) developing, offering, informing, designing, or improving any product or service that competes with or replicates the Oura Platform;
+
+(x) retaining or storing User Data or Oura Data beyond the periods specified in this Agreement;
+
+(xi) reverse engineering, extracting any component of, or otherwise deriving the architecture, scoring methodologies, signal processing techniques, data schemas, or analytical models of the Oura Platform or any Oura Intellectual Property;
+
+(xii) any illegal, fraudulent, or harmful purpose;
+
+(xiii) charging Users in any manner for access to or use of the MCP Server or any services or functionality included in or related to the MCP Server, Oura API, or Oura Platform;
+
+(xiv) using the MCP Server or Oura API for any purpose which might overburden, impair, or disrupt the Oura Platform or related servers or networks;
+
+(xv) distributing unsolicited advertising or promotions, or sending messages, making comments, or initiating any other unsolicited direct communication or contact with Users;
+
+(xvi) using web-scraping, web-harvesting, web-data extraction, or similar methods to obtain or access Oura Data;
+
+(xvii) using Oura Data, the Oura API, or the MCP Server in connection with any application, website, or other product or services that includes content that is defamatory, libelous, disparaging to Oura or otherwise harmful to the business or reputation of Oura, hateful, violent, obscene, pornographic, unlawful, or otherwise offensive, as determined in Oura’s sole discretion;
+
+(xviii) distributing or introducing any virus, spyware, adware, malware, or other harmful or malicious content;
+
+(xix) removing or altering any proprietary notice or marks on the Oura API, the MCP Server, or any other Oura Intellectual Property; or
+
+(xx) aggregating, caching, or storing geographic location information or other User Data accessible via the Oura API or MCP Server.
+
+(b) In addition, and without limiting the foregoing or anything else contained in this Agreement, no Aggregator shall use, access, process, or exploit Oura Intellectual Property or any User Data for any of the following purposes (each of which shall be included in the definition of Prohibited Use):
+
+(i) accessing, using, processing, storing, retaining, analyzing, modifying, or deriving any benefit from User Data and Oura Data other than for the sole purpose of transmitting or facilitating such data to End Customers in accordance with this Agreement;
+
+(ii) using (or permitting anyone to use) any User Data, Oura Data, or Oura Intellectual Property regardless of the manner in which such data was obtained (whether through the Oura API, the MCP Server, or any other means), to train, fine-tune, develop, improve, or enhance any algorithm, AI Model, machine learning model, large language model, neural network, or other computational model or output, or to incorporate any such data into any training dataset.
+
+(c) With respect to User Data, the foregoing Prohibited Uses shall apply regardless of whether a User has purportedly consented to any such use, and you shall implement data minimization principles by requesting only the User Data necessary for each User request and promptly deleting User Data that is no longer needed.
+
+(d) To the extent you seek to use any Oura Data or User Data in connection with a large language model, you may (unless you are an Aggregator) access and process such Oura Data or User Data solely through the MCP Server subject to the provisions of this Agreement. You shall not use, and shall not permit any third party to use, the Oura API to develop, train, fine-tune, evaluate, prompt, or otherwise provide input or data to any AI Model or AI Platform.
+
+(e) The Company reserves the sole right to determine whether or not access to and use of the Oura API and MCP Server are acceptable, and to revoke or suspend access for you or any Collaborator Application that Oura determines is not providing added benefit to Users and/or is not in the best interests of Oura or Users and/or is violating this Agreement. The Company shall have no liability for any such revocation or suspension. The Company may use aggregated and de-identified data from or of any Collaborator for analytics, benchmarking, and product development and improvement.
+
+(f) You may not display any advertisements or make any statements or postings that suggest approval or endorsement by Oura, except with Oura’s prior written consent. You may not issue any press releases or other announcements making any reference to Oura without Oura’s prior written consent.
+
+(g) If you use the MCP Server, you may be required to provide the Company with certain data. You agree that, with the exception of your registration or account data, any data or reports provided to the Company by you or on your behalf shall not include Personal Data. Reports provided to the Company by you or on your behalf shall only include aggregated or anonymized data and shall satisfy all requirements and limitations set forth by the Company.
+
+5. User Data and Consent
+
+(a) User Consent is the foundation for access to and processing of User Data under this Agreement. No User Data shall be shared with or made accessible to you unless the applicable User has provided valid User Consent that is freely given, specific, informed, and unambiguous. In requesting User Consent, you must describe or indicate how the User may later revoke or modify its consent or authorization. Users may have the ability to share all available User Data or share only certain specific categories of data. You shall respect and enforce the scope of each User Consent. You may not broaden or otherwise change the scope of usage for previously collected User Data without obtaining prior User Consent for such expanded or otherwise changed data use.
+
+(b) You must not disable, override, or otherwise interfere with any Company-implemented consent panels, system alerts, warnings, or authorization requests.
+
+(c) You must provide clear and complete information to Users regarding your collection, use, processing, and disclosure of User Data through a conspicuous privacy policy. Such privacy policy must accurately explain how you collect, store, use, disclose, share, retain, and delete User Data. You and any Collaborator Application must comply with your privacy policy and all applicable laws.
+
+(d) You must take commercially reasonable and appropriate steps to protect User Data from unauthorized use, disclosure, or access by third parties. You are fully responsible for the security of User Data used or processed in connection with a Collaborator Application or that is otherwise in your possession, custody, or control. You are responsible for ensuring that any third-party components integrated with your AI Platform, and any AI Model accessed or used by you, do not access, use, input, or process User Data in violation of this Agreement.
+
+(e) You shall ensure that your AI Platform (including for the avoidance of doubt, any AI Platform that directly or indirectly receives or is otherwise provided User Data or Oura Data that has been accessed or obtained by you), complies with this Agreement and all applicable Data Protection Laws. The Company shall have no responsibility or liability for any outputs, recommendations, insights, or other content generated by your AI Model, AI Platform, or Collaborator Application (“Outputs”). You are solely responsible for all Outputs and for any reliance thereon by Users or third parties. Without limiting the foregoing, you shall implement reasonable measures to review, filter, and validate Outputs; ensure that Outputs are presented in a manner that is not inaccurate, misleading, or deceptive; and assume all risk and liability arising from the generation, display, and use of Outputs.
+
+(f) Users shall have the right to access their User Data, opt out of data sharing with you, and delete their User Data at any time, for any reason, without penalty or loss of access to the Company’s products and services. Upon a User opting out, you shall immediately cease all processing of such User’s User Data. Upon a request for deletion, you shall delete all User Data relating to such User within seventy-two (72) hours. Users shall also have the right to revoke their User Consent at any time, and such revocation shall be effective immediately. If a User ceases to consent or affirmatively revokes consent for your collection, use, processing, or disclosure of such User’s User Data, you must promptly cease all such collection, use, processing, and disclosure. YOU SHALL NOT RETAIN ANY USER DATA AFTER THE USER HAS REQUESTED DELETION OF USER DATA. You must also delete User Data upon such User’s termination or cancellation of applicable Collaborator Application subscriptions.
+
+(g) You shall use User Data obtained through the Oura API and MCP Server only to provide a service or function that is directly relevant to the Authorized Purpose and this Agreement. You may not use User Data to derive data for the purpose of uniquely identifying any User or device beyond what is necessary for the Authorized Purpose.
+
+(h) You must permit Users to express contact preferences, via notice and opt-out, at your point of collection and in each subsequent marketing piece. If you are acquired by, consolidated with, or merged with or into a third party, you must give Oura notice of such transaction.
+
+(i) You must not impose any terms on users of a Collaborator Application that are inconsistent with this Agreement. Any Collaborator Application terms of service shall disclaim all warranties on behalf of third party service providers, including a disclaimer of implied warranties of merchantability, fitness for a particular purpose and non-infringement and exclude third party service providers from all liability for consequential, special, punitive, indirect damages.

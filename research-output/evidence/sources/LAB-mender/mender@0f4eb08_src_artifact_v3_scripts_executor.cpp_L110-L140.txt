@@ -1,0 +1,31 @@
+			return false;
+		}
+		return is_valid and exp_executable.value();
+	};
+}
+
+bool IsArtifactScript(State state) {
+	switch (state) {
+	case State::Idle:
+	case State::Sync:
+	case State::Download:
+		return false;
+	case State::ArtifactInstall:
+	case State::ArtifactReboot:
+	case State::ArtifactCommit:
+	case State::ArtifactRollback:
+	case State::ArtifactRollbackReboot:
+	case State::ArtifactFailure:
+		return true;
+	}
+	assert(false);
+	return false;
+}
+
+string ScriptRunner::ScriptPath(State state) {
+	if (IsArtifactScript(state)) {
+		return this->artifact_script_path_;
+	}
+	return this->rootfs_script_path_;
+}
+

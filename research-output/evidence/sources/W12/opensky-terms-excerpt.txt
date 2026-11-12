@@ -1,0 +1,69 @@
+--- lines 75,130 of extracted text ---
+Privacy Policy
+
+Publications
+
+General Terms of Use & Data License Agreement
+
+ Tl;dr: License required in the following cases:
+
+Commercial or for-profit entities: Any use by a for-profit or commercial entity — including government and military contractors — requires a written license from OpenSky Network, regardless of purpose.
+
+Operational REST API use: Use of the REST API in any operational capacity — including integration into a live product, service, or automated system (even if only internal) — requires a previous written agreement, even for non-profit or governmental entities.
+
+To obtain a license, contact contact[at]opensky-network.org.
+
+The following terms comprise the Acceptable Use Policy and Data License Agreement (collectively, the
+ "AGREEMENT"), for all data sets made available to You by the OpenSky Network, an non-profit
+ association
+ pursuant to Article 60 ff. of the Swiss Civil Code, located in Burgdorf, Switzerland. Certain data
+ sets
+ may have additional Supplemental provisions. References to this AGREEMENT shall include any and all
+ relevant Supplemental provisions. OpenSky Network has the authority and reserves the right, in its
+ sole
+ discretion, to refuse requests for data set(s) or discontinue further access and use to anyone. If
+ You
+ feel Your request is inappropriately denied please contact OpenSky Network by sending a message to
+ contact[at]opensky-network.org. In consideration for requesting and receiving access to OpenSky Network
+ data set(s), You acknowledge that You understand and agree to be bound by the terms and conditions
+ of
+ this AGREEMENT. Any violation of this AGREEMENT may result in the immediate suspension or
+ termination of
+ this AGREEMENT and/or other action entitled by law such as injunctive or equitable relief. You are
+ individually liable and responsible for compliance with this AGREEMENT. This AGREEMENT is legally
+ binding under the laws of the Swiss Confederation. You may terminate this AGREEMENT by contacting
+ OpenSky Network in writing and receiving acknowledgement of such request.
+
+1. LICENSE
+
+OpenSky Network’s authorization to access the data grants You a limited, non-exclusive,
+ non-transferable, non-assignable, and terminable license to copy, modify, and use the data in
+ accordance with this AGREEMENT solely for the purpose of non-profit research and non-profit education.
+ Government entities may obtain an exemption at the discretion of the OpenSky Network.
+ No license is granted for any other purpose and there are no implied licenses in this AGREEMENT.
+
+Any use by a for-profit or commercial entity requires written permission and a license
+ granted by the OpenSky Network. This includes any and all government and military contractors.
+ Operational use of the REST API in any live product, service, or automated system also requires
+ a written license, regardless of the entity’s non-profit status.
+
+This AGREEMENT shall become effective as of the date of approval
+ by OpenSky Network. This AGREEMENT is subject to modification or revocation at any time at OpenSky
+ Network sole discretion. OpenSky Network shall have the right to use any of Your feedback received
+ during the license period for its non-profit educational and/or research purposes.
+
+2. GENERAL CONDITIONS
+
+(i) You will not impersonate any individual or entity, misrepresent any affiliation with another
+--- lines 170,180 of extracted text ---
+ described above to whom You make the data available.
+
+(v) You will not register multiple accounts on the OpenSky Network website. Specifically, You must
+ not use multiple accounts in order to circumvent technical restrictions or blocks (e.g. obtaining
+ additional requests to the REST API).
+
+(vi) The REST API is provided for non-profit research and educational use only. Use of the REST API
+ in any operational capacity — including but not limited to integration into a live product, service,
+ or automated system — requires a written license from OpenSky Network, regardless of the entity's
+ non-profit status.
+

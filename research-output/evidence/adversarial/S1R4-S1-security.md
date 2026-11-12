@@ -1,0 +1,59 @@
+# S1 · Base OS verdict (rev. 3): Debian 13 over RHEL-family bootc and Ubuntu 26.04 — refuter (security lens)
+
+**Refuter:** REF4, security lens, 2026-11-11. **Inputs read:** `01-FOUNDATION-DECISION.md` §1 (base OS row), §3.1.1–§3.1.5 and §4.1; `evidence/scorecard-weights.md` (frozen v1.0, §2–§6 and §8); `evidence/scorecard-rev3.md` §3.2; the S1 rows of `evidence/decision-critical.md` (DC-01, DC-13, DC-18, DC-19, DC-21 answers); the cited claims C-W2-001/-004/-013/-042/-054, C-W6-023/-046, C-DEC-008…010, C-STEEL-KRU-013, C-STEEL-ubu-010/-016, C-REF3-DC-longevity-001/-002, C-REF-DC-robotics-009/-010, C-REF-DC-cost-003/-007/-009, C-LAB-fedora-bootc-011/-013, C-SCORE-025/-026, C-LAB-secureboot-rauc-012, C-REF-W2-robotics-004. Existing adversarial files were not read before this view was formed.
+
+## Conclusion under test
+On the fully cited rev-3 card the totals are **C (RHEL-family bootc) 64.0 · D (Ubuntu 26.04) 62.0 · A (Debian 13 + RAUC) 60.0**. C leads in all 14 sensitivity runs, but its margin over D is under 3.0 in 11 of them, so the result is a C–D tie. The file then runs a **three-way head-to-head tie-break** in which A beats D 7–4, D beats C 6–4, and A draws C 5–5. The draw is settled by a "which tier each row is about" argument. Verdict: **Debian 13 kept**, with the file stating that "the strict two-finalist reading … picks D" and that its own reading is "an interpretation of the frozen protocol" (01 §3.1.5).
+
+## A. Does the verdict follow the frozen protocol?
+
+1. **A is not a finalist under the frozen rule.** `scorecard-weights.md` §3 says that a gap under 3.0 "between the top two" is a tie, settled by decision-critical evidence "never by adjusting scores". On the rev-3 card the top two are C and D. A is 4.0 behind C, outside the band. Promoting A to a three-way final was decided **after** the scores were known, and it is the only route by which the incumbent proposal wins. §8 of the frozen file exists to stop exactly this ("'The proposal looks worse' is never a reason"). The file is open about the deviation, and it changes no weight or anchor, but by the letter of the protocol the S1 output is **D, subject to its G1 condition**, not A.
+2. **The 5–5 A-vs-C draw is broken by a rule the protocol doesn't contain.** The "tier" argument discounts C's wins because other flavors (the bootc Industrial profile and the Ubuntu GPU flavor) already cover those tiers. The same logic would discount A's wins on any tier a flavor covers. Neither the rows in the table nor how they are counted ("≈ rows not counted") was registered before scoring.
+3. **"D cannot ship today" is applied to D but not to A.** D's G1 is held COND because Canonical's written permission (Z-01) is unmet. A's Jetson flavor is also modified L4T Ubuntu, under the same Canonical terms [C-REF-DC-cost-007, C-LIC-011], and it stays COND. If an unmet Canonical answer makes D unshippable, it makes A's Jetson SKUs unshippable too (rule 6, "same evidence for every candidate"). Treat both as unproven gates (rule 2: unproven = FAIL), and neither is ranked, unless A drops its Jetson flavor.
+4. **Two security cells are inconsistent with evidence the project already holds (rule 6). Fixing them would put A in the top two legitimately, by the protocol rather than by interpretation.**
+   - **C·C3 = 3 is too high.** Anchor 3 requires "power-loss safety". The project's own lab reproduced (2 of 2) a power cut in `ostree-finalize-staged` that makes greenboot **silently downgrade a healthy box** on the next boot [C-LAB-fedora-bootc-011], and it is unfixed in greenboot-rs 0.16.5 [C-LAB-fedora-bootc-013]. A silent version rollback is also a security defect: it can re-expose an already-patched CVE without anyone being told. Under "between anchors → lower", C·C3 = 2, so **C = 61.0**. B·C3 drops on the same evidence.
+   - **A·C3 = 3 is stale.** S1-2 held A·C3 at 3 because the Secure Boot path was "a design inference until spike X-2R runs". X-2R has run [C-LAB-secureboot-rauc-012…015], and S2-2 already raised RAUC·C3 from 3 to 4 on that lab. Same stack, same evidence, so A·C3 = 4 and **A = 63.0**.
+   - Corrected card: **A 63.0 · D 62.0 · C 61.0.** A and D are the top two inside the band, and the protocol's own tie-break (A vs D, 7–4 per 01 §3.1.5) selects A. **The verdict is reachable by the protocol; the file did not take that route.** It logged no §8 entry and leaned on an interpretation instead.
+
+## B. Strongest counter-argument on the security merits
+
+**Choosing Debian makes OneMind its own kernel security vendor on every box that needs signed out-of-tree modules. Both runners-up let a vendor carry that.**
+
+1. **Secure Boot with NVIDIA on Debian has no vendor-signed path.** Debian can't sign DKMS modules with its keys. Lockdown blocks unsigned out-of-tree modules, and the MOK route needs confirmation at the console on every box [C-STEEL-KRU-013, C-W6-046]. A key in UEFI db does not make modules loadable [C-DEC-008…010]. NVIDIA's Debian install page offers only `nvidia-kernel-open-dkms` packages and gives no precompiled or signed option [C-REF4-S1R4-security-005]. That is why 01 already plans **K2-hybrid**: a kernel OneMind builds and signs for x86 and generic arm64 once Secure Boot is enforced with NVIDIA or driver-pack modules.
+2. **That kernel is a large, continuous CVE stream.** One trixie kernel advisory, DSA-6528-1 (2026-09-29, linux 6.12.111-1), lists **1,313 distinct CVE IDs** [C-REF4-S1R4-security-004]. Under K2, a solo developer has to rebuild, re-sign and re-qualify against that cadence, and DC-20 has already called kernel cadence "the main CVE lever". NVIDIA's DKMS build has also broken Debian point-kernel updates, which blocked security kernels for at least one reporter, with no NVIDIA response [C-REF-DC-cost-009].
+3. **RHEL and Ubuntu supply vendor-signed GPU modules.** For RHEL 10, Red Hat compiles and signs the NVIDIA open modules (`kmod-nvidia-open`, RHEL Extensions repository), and NVIDIA states "UEFI Secure Boot works out of the box via trusted keys already installed in the kernel keyring by Red Hat" [C-REF4-S1R4-security-001, -002, -003]. Ubuntu publishes `linux-restricted-modules` per kernel in `-security` (that the modules are signed is inferred) [C-STEEL-ubu-016].
+4. **Debian's coverage has known gaps on the components OneMind ships.** Go and Rust packages get "limited security support" in 13 and 14 [C-REF3-DC-longevity-001/-002]. The trixie LTS architecture list is still "to be determined" (re-checked; page last edited 2026-08-31 [C-REF4-S1R4-security-006]), so arm64 security support after 2028-08 is not committed. ELTS guarantees amd64 only and may not be shared with customers [C-W6-023, C-W2-004]. The Pi 5 kernel sits outside Debian's security process, on Raspberry Pi's undated window [C-REF-DC-robotics-009].
+5. **On secure-development process, D and C are ahead of A.** Canonical's development process is audited to IEC 62443-4-1 [C-STEEL-ubu-010], and RHEL 9.6 holds 62443-4-2 SL-C 2 [C-W2-042]. Debian has neither.
+
+**A missing tie-break row.** The §3.1.5 table has no row for "vendor-signed GPU and kernel modules under Secure Boot". On the evidence above, that row favours **C and D over A**. Added to the file's own counts, A vs D becomes 7–5 (A still wins) and A vs C becomes **5–6 (C wins)**. The result is a cycle: A beats D, D beats C, and C beats A. The rev-3 justification ("Debian is the only finalist that no other finalist beats head-to-head") **no longer holds** under the file's own method.
+
+## C. Where the counter-argument is weaker (fair limits)
+- **RHEL's signed path is new and has already been cut once.** The RHEL 9 Red Hat-signed OpenGPU flavor is listed as **EOL**: it was a tech preview, and only RHEL 10 is active [C-REF4-S1R4-security-002]. NVIDIA's own RHEL guide says its precompiled-stream DNF plugin "prevent[s] upgrades to a kernel for which no precompiled driver yet exists", which "can delay the application of kernel updates" [C-REF4-S1R4-security-001]. That is a security-patch delay, swapped for DKMS breakage.
+- **The signed modules cover paid RHEL only (inferred).** They are trusted through Red Hat's kernel keyring. The free variant the cost row relies on (AlmaLinux / CentOS Stream) runs kernels signed with other keys, so it probably doesn't get this benefit [C-REF4-S1R4-security-007, INFERRED]. C's security advantage therefore sits on the RHDE price row ($1,756 / $1,391 per box).
+- **Ubuntu's automatic security updates have failed silently before.** rust-coreutils `date` stopped unattended-upgrades on 25.10 [C-REF-W2-robotics-004], and 26.04 ships the same coreutils.
+- **The new row only bites where out-of-tree modules exist** (GPU, vendor driver packs). On the Pi 5 Lite tier and on x86 boxes without such modules, the stock Debian kernel and the X-2R path stand.
+
+## Verdict: **weakened**
+The security merits don't clearly favour Debian. Its result rests on (1) a tie-break interpretation the frozen protocol does not contain, and (2) a tie-break table that leaves out the security row where C and D lead. With that row added, the head-to-head becomes a cycle. The verdict is **not refuted**. A protocol-faithful rule-6 re-score (C·C3 → 2 on the project's own greenboot #219 lab; A·C3 → 4 on X-2R, as S2 already did) makes A the raw leader at 63 vs D 62, and the protocol's two-finalist tie-break then picks A. Required changes:
+- (a) Log those two cell moves in `scorecard-weights.md` §8, and drop the three-way "interpretation".
+- (b) Add the signed-module/Secure Boot row to §3.1.5 and state K2-hybrid's kernel CVE burden as a cost of choosing A.
+- (c) Apply the Canonical G1 condition equally to A's Jetson flavor.
+
+## What would flip it
+- **To refuted:** any one of the following.
+  - The frozen two-finalist rule is enforced on the uncorrected card, which gives D.
+  - The C·C3 downgrade is rejected (greenboot #219 judged outside anchor 3), so C stays top two.
+  - T-W19-03 finds no console-free route for NVIDIA or driver-pack modules on a stock Debian kernel **and** Q-W2-1 comes back negative, so the Pro/Omni boxes stay on Debian with a OneMind kernel. A priced K2 kernel-maintenance estimate that blows the DC-03 budget would also flip it.
+- **To upheld:** all of the following.
+  - The rule-6 re-score above is logged.
+  - T-W19-03 or K2 shows a measured, bounded kernel rebuild-and-sign cadence (for example, every DSA kernel within 7 days at under 2 founder-hours each).
+  - The Debian trixie LTS wiki names arm64.
+  - A's Jetson flavor carries the same G1 treatment as D.
+
+## New sources (opened 2026-11-11)
+- NVIDIA Driver Installation Guide, Red Hat Enterprise Linux page: Red Hat-signed precompiled streams, Secure Boot out of the box, DNF plugin delaying kernel updates, RHEL 10 `kmod-nvidia-open`. https://docs.nvidia.com/datacenter/tesla/driver-installation-guide/latest/red-hat-enterprise-linux.html [C-REF4-S1R4-security-001]
+- NVIDIA/yum-packaging-precompiled-kmod README status table (RHEL 9 Red Hat-signed OpenGPU **EOL**; RHEL 10 active), main @ 2d2fd420. https://github.com/NVIDIA/yum-packaging-precompiled-kmod [C-REF4-S1R4-security-002]
+- NVIDIA Technical Blog, "NVIDIA Open GPU Datacenter Drivers for RHEL9 Signed by Red Hat" (2025-02-10). https://developer.nvidia.com/blog/nvidia-open-gpu-datacenter-drivers-for-rhel9-signed-by-red-hat/ [C-REF4-S1R4-security-003]
+- Debian DSA-6528-1 linux (2026-09-29), 1,313 unique CVE IDs counted from the advisory text. https://lists.debian.org/debian-security-announce/2026/msg00441.html [C-REF4-S1R4-security-004]
+- NVIDIA Driver Installation Guide, Debian page (DKMS-only packages; no Secure Boot or signed-module statement). https://docs.nvidia.com/datacenter/tesla/driver-installation-guide/latest/debian.html [C-REF4-S1R4-security-005]
+- Debian LTS wiki, re-check (trixie architectures still "to be determined"). https://wiki.debian.org/LTS [C-REF4-S1R4-security-006]

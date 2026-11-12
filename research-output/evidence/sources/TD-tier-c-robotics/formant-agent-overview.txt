@@ -1,0 +1,144 @@
+Source: https://docs.formant.io/docs/the-formant-agent.md
+Accessed: 2026-11-11
+
+---
+updatedAt: 2025-11-11T01:46:55.000Z
+agentTools:
+  projectIndex: https://docs.formant.io/llms.txt
+---
+
+# The Formant agent
+
+The Formant agent is a lightweight program which you can install to your device (a Linux target) when adding the device to your Formant organization. It sets up data pipelines and communications for interactions with the Formant platform. This can include uploading desired data to the Formant cloud, allowing for teleoperation of your device, and executing commands.
+
+This guide will provide an overview of the Formant agent functionality, and enumerate the system requirements and permissions needed to install and perform data operations with the Formant agent.
+
+# Major functionality of the Formant agent
+
+## Telemetry
+
+The Formant agent can upload data to the Formant cloud through a process called *ingestion*. You can configure which data sources and data streams are uploaded to the cloud.
+
+Telemetry data can be uploaded to the cloud without the Formant agent using the Formant Cloud SDK.
+
+For more information on data ingestion in Formant, see [Getting Started: Ingesting telemetry data](https://docs.formant.io/docs/getting-started-ingesting-telemetry-data).
+
+## Teleoperation
+
+The Formant agent can act as a teleoperation peer on your device, which allows you to remotely control your device via a real-time, peer-to-peer connection between your device and the Formant web application over WebRTC.
+
+For more information on how to teleoperate your device in Formant, see [Getting Started: Teleoperation](https://docs.formant.io/docs/getting-started-teleoperation).
+
+## Commands
+
+The Formant agent can receive and execute commands which have been issued from the Formant web application or the Formant API. Before they can be issued, commands must be defined in Formant.
+
+For a flowchart of command delivery and reported command status in Formant, see [Getting Started: Commands](https://docs.formant.io/docs/getting-started-commands).
+
+## Device configuration
+
+You can update the configuration of your device in the Formant web application (e.g., data stream ingestion rate, configuring new streams, updating the agent), and the Formant agent will deploy those changes on your device.
+
+For more information, see [Getting Started: Create a device](https://docs.formant.io/docs/getting-started-create-a-device).
+
+# System requirements
+
+## Supported configurations
+
+| Supported Operating Systems | Support ROS Version | Supported Architectures |
+| :-------------------------- | :------------------ | :---------------------- |
+| Ubuntu 24.04 ("*Noble*")    | ROS2 ("*Jazzy*")    | `amd64` `arm64`         |
+| Ubuntu 22.04 ("*Jammy*")    | ROS2 ("*Humble*")   | `amd64` `arm64`         |
+| Ubuntu 20.04 ("*Focal*")    | ROS1 ("*Noetic*")   | `amd64` `arm64`         |
+| Ubuntu 18.04 ("*Bionic*")   | ROS1 ("*Melodic*")  | `amd64` `arm64`         |
+
+## CPU and memory requirements
+
+The memory and CPU footprint of the agent itself on a device is minimal. Depending on your application, you can configure the agent and your device to store and transfer large amounts of data. This can greatly increase the memory, CPU usage, and data throughput of your device. For example, streaming high-quality data from several video sources at once will greatly increase your device's data consumption and may require increased processor power.
+
+# Network requirements
+
+## During installation
+
+Internet access is required to install the Formant agent.
+
+## Telemetry
+
+Once the agent is installed, data streams will upload to the Formant cloud at 0.5 Hz by default. You can configure this ingestion rate. For more information, see [Configure stream ingestion rate](https://docs.formant.io/docs/configure-stream-rate).
+
+A consistent internet connection is not required to collect telemetry data. The agent can be configured to store data in a buffer on the device and only upload to the Formant cloud when requested by an operator. For more information, see [On-demand streams](https://docs.formant.io/docs/on-demand-streams). This functionality also ensures data is not lost during network disruptions.
+
+## Teleoperation
+
+The Formant agent can act as a peer in a real-time, peer-to-peer connection between the Formant web app and your device via WebRTC.
+
+Realtime teleoperation connections can consume considerable bandwidth (several megabits per second), especially when handling rich data types such as high-quality video and point clouds. You'll want to make sure that both your operator computer *and* your robot have sufficient upload and download capability to handle your teleoperation streams.
+
+The following table approximates the **minimum** upload requirements of a single video stream by video quality. Actual measured bandwidth may vary considerably from this table based on media encoding.
+
+| Video quality, standard frame rate (24, 25, 30) | Minimum bandwidth |
+| :---------------------------------------------- | :---------------- |
+| 360p                                            | 1Mbps             |
+| 480p                                            | 2.5Mpbs           |
+| 720p                                            | 5Mbps             |
+| 1080p                                           | 8Mpbs             |
+
+> 👍
+>
+> A good rule of thumb is that the robot and operator should have a consistent 3Mbps connection in both directions, plus whatever the additional upload requirements of your video streams and point clouds are.
+
+### Twilio connectivity
+
+Teleoperation requires connectivity to Twilio. Twilio is utilized to establish the initial connection. On restrictive networks, encrypted traffic may also be relayed through Twilio.
+
+You can check your connection to Twilio by running the following test on both the operator computer and on your robot: [Twillio: Network test](https://networktest.twilio.com).
+
+If a peer to peer connection cannot be established between the operator and your robot, Twilio's TURN relay service will be used to make the connection. The most common reason for TURN relaying is limited UDP connectivity or blocked outgoing ports. See the following section for more details.
+
+### Ports and domains for teleoperation
+
+For best performance, allow the following ports and domains:
+
+#### Ports
+
+* TCP: 443, 3478
+* UDP: 443, 1024 - 65535
+
+> 🚧 Avoiding relays via TURN
+>
+> UDP traffic over these ports is outgoing only.
+>
+> Your browser and operating system will dynamically establish a UDP connection on a port in this range. If ports on this range are blocked, your teleoperation connection will be relayed via TURN, which will degrade your connection quality and performance. This will be less noticeable on high quality links (low loss and latency).
+
+#### Domains
+
+* Allow `*.twilio.com`
+* Allow `*.formant.io`
+
+### Choose a network interface
+
+By default, any network interface may be used to make a WebRTC connection between your device and the Formant web application.
+
+You can use the `WEBRTC_INTERFACE` environment variable to force WebRTC traffic over a specified network interface. This can be used to route WebRTC traffic around a VPN, or to keep traffic on a consistent interface if there are multiple internet links.
+
+For more information, see [Environment variables for the agent](https://docs.formant.io/docs/environment-variables-for-the-agent#general-environment-variables).
+
+# Required permissions on target device
+
+The agent creates and runs under a dedicated system user, `formant-agent`, which is configured to own the relevant directories and files used by the agent.
+
+The agent user is added to groups like `audio` and `video` to ensure it has access to multimedia resources needed for media encoding.
+
+The agent is also installed as a `systemd` service, which allows it to automatically start at boot and restart if it crashes. This service runs with user-defined permissions (e.g., it runs under the `formant-agent` user, not root).
+
+The following table describes the permissions required by the `formant-agent` user:
+
+| Permissions      | Usage                                                                                                                                               |
+| :--------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shell access     | Required during installation. Can be disabled after installation. The shell can also be configured to be exposed via teleoperation for convenience. |
+| SSH access       | Required during installation. Can be disabled after installation.                                                                                   |
+| Run bash scripts | Required during installation. Can be disabled after installation.                                                                                   |
+
+<Callout icon="👋" theme="default">
+  ### If you notice an issue with this page or need help, please reach out to us! Use the 'Did this page help you?' buttons below, or get in contact with our Customer Success team via the Intercom messenger in the bottom-right corner of this page, or at [<masked-email>](mailto:<masked-email>).
+</Callout>

@@ -1,0 +1,229 @@
+Source: https://www.zimaspace.com/zimaos/pricing
+Accessed: 2026-11-11 (UTC), text extracted from HTML
+
+ZimaOS Pricing: Free Plan & $29 Lifetime Plus License for NAS
+Products
+ZimaOS
+Resource
+Support
+Explore
+EN
+English
+简体中文
+日本語
+Deutsch
+Italiano
+Français
+Español
+Nederlands
+Polski
+Português
+Svenska
+한국어
+Community
+Store
+Overview
+Photos
+App Store
+Pricing
+Download
+Timeline
+Get ZimaOS
+Get the most elegant NAS OS now_
+Trusted by
+5,000,000 downloads
+50,000 community members
+Explore ZimaOS
+Compare Plans
+ZimaOS
+FREE
+Core features
+Zima Client for Mobile & PC
+Thunderbolt Support
+Developer Mode
+4 Disks
+3 Members
+Download
+ZimaOS+
+$29
+Lifetime License
+Effortless expansion
+Everything in Free
+Unlimited Disks
+Unlimited Users
+Buy Now
+All official
+Zima hardware devices
+already come with ZimaOS+.
+Devices include: ZimaBoard, ZimaBoard 2, the entire ZimaCube lineup, and ZimaBlade.
+Manage your order
+Basic Benefits
+ZimaOS
+ZimaOS+
+Remote Access
+Shared Space
+(Samba Path)
+LAN/Cloud Mount
+3-2-1 Backup
+Photo Backup
+Custom Applications
+ZVM Virtual Machine
+Developer Options
+Advanced Network Settings
+Account Management
+Try Free
+Buy Now
+Community voices_
+sabiTech
+“ZimaOS gives me a lightweight, efficient and user-friendly way to run containerized apps on my hardware, perfect for managing edge workloads with minimal fuss.”
+Mohamed Elallami
+“As a Creative who’s also into self-hosting, ZimaOS has made my workflow easier. Now I spend less time managing and more time creating. It’s simple, reliable, and fits perfectly into my creative workflow.”
+Grim Oak
+“My hobby is computers.I have been looking at DIY a home storage server for a while now but ZimaOS has reimaged that idea to something more. Now ZimaOS is powering my Jellyfin, Book Library, Network wide AdBlock, Remote Dowload Manager, and more. It's Reliable, Stable, and Easy to use. And more features are being added. I love it.”
+NeoFight
+“ZimaOS transformed my homelab setup. This Docker-based platform effortlessly hosts Jellyfin, Plex, Immich, and document storage on energy-efficient hardware—just 10W idle. Works on any x86 system with fast updates and responsive support. It's like Raspberry Pi simplicity for x86, delivering affordable NAS-plus-app-server capability without hassle.”
+FAQs
+What's the more detailed difference between the ZimaOS and ZimaOS+ plan?
+Choose ZimaOS
+if you’re an individual, hobbyist, or casual user who needs core NAS functions, basic app deployments, and simple multi-member support.
+Choose ZimaOS+
+if you’re running a family setup, small team, or creative studio where
+unlimited storage, and multiple members
+are essential.
+Is the $29 Plus license truly “lifetime”? Will it ever become a subscription?
+ZimaOS Plus will absolutely never become a subscription.
+We believe subscription models
+conflict with
+the core value proposition of private cloud, and therefore we will never adopt them.
+How do I get Plus benefits on official Zima devices?
+Automatic and lifetime.
+Benefits are bound to your official device and will auto-activate, even after a system reinstall.
+Is a ZimaOS+ License Tied to a Single Device or Transferable?
+Each ZimaOS+ license is
+bound to a single device.
+This means your ZimaOS+ privileges
+cannot be activated on multiple devices
+at the same time under one license.
+However, if you upgrade your hardware or need to replace your existing device, we provide a
+license transfer option.
+After your license has been active for at least one year, you can go to the
+Order Management page
+to
+unbind
+it from the old device and then
+re-activate
+it on a new one.
+This
+ensures flexibility
+for users who upgrade their hardware while keeping the licensing system fair and secure.
+What Hardware Drivers Does ZimaOS Support?
+ZimaOS is designed to work seamlessly across a wide range of hardware environments. Out of the box, it includes drivers for:
+· Mainstream x86 platforms
+(Intel and AMD)
+· Most SATA, NVMe, and USB storage controllers
+· Popular network interface cards (NICs)
+commonly used in PCs and servers
+· GPU support (NVIDIA/AMD/Intel)
+for hardware transcoding and AI workloads (varies by model and driver availability)
+In general, if your hardware is supported by modern Linux kernels, it is very likely to be supported by ZimaOS as well. If you have additional driver requirements or encounter compatibility issues, we encourage you to reach out to us directly through the
+ZimaOS Discord community.
+Our team actively follows user feedback and continuously expands driver support based on community needs.
+Does ZimaOS collect any telemetry or user data?
+No.
+From
+day one, ZimaOS
+has promised zero telemetry and
+zero user data collection.
+Everything you do
+stays on your device.
+This commitment is
+openly stated in our privacy policy
+and
+reinforced
+by ongoing
+community oversight.
+Do I need a cloud account to use ZimaOS?
+No. ZimaOS
+works entirely with local accounts.
+You
+don’t
+need to sign up with an email or phone number, and you can run the system
+completely offline.
+This ensures your personal data and account information are
+NEVER
+tied to any external service.
+When you purchase
+a ZimaOS+ license, you will be asked to register an account.
+This account
+is used
+ONLY
+for managing your license purchase, order history, and activation. It has
+NO
+connection whatsoever to your ZimaOS usage, system configuration, or personal data.
+How does ZimaOS handle remote access securely?
+ZimaOS provides
+high-performance remote access
+using encrypted
+peer-to-peer (P2P) connections. Unlike
+traditional solutions that expose public ports or
+rely on cloud relays,
+ZimaOS minimizes attack surfaces and keeps your data safe during transmission. No ports are left open to the internet by default.
+If I install ZimaOS on a virtual machine, can the Plus benefits be transferred to a real NAS device?
+Yes.
+In special cases, we will provide manual reissuance or support.
+Join our community to redefine, build, and play.
+Get insights, real-world cases, top collabs, and help shape what’s next.
+Subscribe
+Keep in touch
+_
+Join our subscribers list to get the latest news, updates and special offers.
+Subscribe
+Product
+ZimaCube
+ZimaBoard 2
+ZimaBoard
+ZimaBlade
+Accessories
+OS
+ZimaOS
+CasaOS
+Resource
+Blog
+Docs
+Gallery
+Support
+Privacy Policy
+Refund Policy
+Shipping Policy
+Terms of Service
+Help Center
+Community
+Explore
+About Us
+Distributors
+Affiliate
+Product
+ZimaCube
+ZimaBoard 2
+ZimaBoard
+ZimaBlade
+Accessories
+OS
+ZimaOS
+CasaOS
+Resource
+Blog
+Docs
+Gallery
+Support
+Privacy Policy
+Refund Policy
+Shipping Policy
+Terms of Service
+Help Center
+Community
+Explore
+About Us
+Distributors
+Affiliate
+© 2020-2026 IceWhale Technology Limited. All rights reserved.

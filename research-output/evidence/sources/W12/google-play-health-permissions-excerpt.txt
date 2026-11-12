@@ -1,0 +1,33 @@
+--- lines 70,80 of extracted text ---
+Access and use of health permissions is subject to the following key principles. These apply whether data comes from Health Connect, Body Sensors, or other relevant health, fitness and wellness permissions, and supplement the full requirements of the User Data policy and Health apps policy.
+
+Your app's access to health and fitness data obtained through Android permissions must be directly tied to providing a clear benefit to the user within the scope of approved use cases detailed in this guidance.
+
+You must comply with all detailed requirements for consent, runtime permission requests, and prominent disclosure outlined in the Google Play User Data policy.
+
+Only request permissions and access data types that support the specific, user-facing health features you offer. Do not request broader access than necessary. Apps (especially AI Agents and multi-purpose tools) that support a wide range of data sources, should use the Matchmaking API to detect available data sources on the device before requesting access (permission prompts).
+
+Maintain a comprehensive and accurate privacy policy, easily accessible from your app and Play Store listing, that clearly explains:
+
+What health and fitness data your app collects and accesses.
+--- lines 176,195 of extracted text ---
+Commercial exploitation and advertising
+
+Transferring or selling user health or fitness data to third parties like advertising platforms, data brokers, or any information resellers.
+
+Transferring, selling, or using user health and fitness data for serving ads, including personalized or interest-based advertising.
+
+Transferring, selling, or using user health and fitness data to determine credit-worthiness, insurance eligibility, employment suitability, or for lending purposes.
+
+Sharing health data with third parties without explicit, informed user consent.
+
+Publicly displaying or socially sharing sensitive data without explicit user consent.
+
+Unauthorized or unsafe applications
+
+Transferring, selling, or using user health and fitness data with any product or service that may qualify as a medical device, unless the medical device app complies with all applicable regulations, including obtaining necessary clearances or approvals from relevant regulatory bodies (for example, U.S. FDA) for its intended use of health and fitness data, and the user has provided explicit consent for such use.
+
+Transferring, selling, or using user health and fitness data for any purpose or in any manner involving sensitive health information governed by specific privacy regulations (for example, Protected Health Information under HIPAA) unless user-initiated and in compliance with all such applicable laws and regulations.
+
+Do not use health and fitness data in developing, or for incorporation into, applications, environments or activities where the use or failure of health data could reasonably be expected to lead to death, personal injury, harm to individuals, or environmental or property damage.
+

@@ -1,0 +1,37 @@
+# OneMind lab image: Fedora bootc + greenboot. One file, four variants (VARIANT build arg).
+# Base pinned by digest (fedora-bootc:44, version 44.20261110.0, created 2026-11-10).
+ARG BASE=quay.io/fedora/fedora-bootc@sha256:a2e3dea74c6ba8b9c8dbdfd1a2e63fccc1d446cfce20e1efbeb567b63e9e940d
+FROM ${BASE}
+ARG VARIANT=v1
+
+# greenboot-rs (health checks + boot counter + automatic `bootc rollback`).
+RUN dnf -y install greenboot greenboot-default-health-checks && dnf clean all && \
+    systemctl enable greenboot-healthcheck.service greenboot-set-rollback-trigger.service
+
+# Lab registry runs in the build VM and is reached through QEMU user networking's
+# host gateway (net=198.18.0.0/24, RFC 2544 benchmark range, not a real network).
+RUN printf '[[registry]]\nlocation = "198.18.0.2:5000"\ninsecure = true\n' \
+      > /etc/containers/registries.conf.d/50-onemind-lab.conf
+
+# Lab convenience only: passwordless sudo for the wheel group (SSH key login only).
+RUN echo '%wheel ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/90-lab && chmod 0440 /etc/sudoers.d/90-lab
+
+# Marker that tests read to know which image is booted.
+RUN mkdir -p /usr/share/onemind && echo "${VARIANT}" > /usr/share/onemind/version
+
+# A real health gate: the marker must exist (passes on every good variant).
+COPY 10-onemind-marker.sh /usr/lib/greenboot/check/required.d/10-onemind-marker.sh
+
+# The deliberately broken update: a required health check that always fails.
+RUN if [ "${VARIANT}" = "v3-bad" ]; then \
+      printf '#!/bin/bash\necho "onemind lab: simulated broken platform (v3-bad)" >&2\nexit 1\n' \
+        > /usr/lib/greenboot/check/required.d/99-onemind-broken.sh && \
+      chmod 0755 /usr/lib/greenboot/check/required.d/99-onemind-broken.sh; fi
+
+# Rebase target carries a visibly different payload.
+RUN if [ "${VARIANT}" = "alt" ]; then dnf -y install tmux && dnf clean all; fi
+
+# Power-cut target: ~1.5 GB of incompressible data so the pull/stage takes long enough to interrupt.
+RUN if [ "${VARIANT}" = "v4-big" ]; then head -c 1536M /dev/urandom > /usr/share/onemind/ballast; fi
+
+RUN bootc container lint

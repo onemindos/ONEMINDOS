@@ -1,0 +1,146 @@
+Roadmap
+ Go to content
+ Go to navigation
+ Go to page settings
+ Go to search
+العربية
+Català
+Deutsch
+English
+Español
+Euskara
+Français
+Galego
+Italiano
+Taqbaylit
+Nederlands
+Occitan
+Brazilian Portuguese
+Русский
+Türkçe
+Українська
+简体中文
+ Translate this page!
+Roadmap
+ Menu
+ Discover
+ Applications
+ Install
+ Documentation↗
+ Latest news
+ Community
+ We're publishing a roadmap here to give a clearer idea of what we plan to develop. It does NOT constitutes a promise because it is dependent on the availability and energies of volunteers. It is therefore subject to change at any time.
+ YunoHost 11 / Debian Bullseye
+11.1
+ 🦸 Replace the 'admin' user with an 'admins' group
+🦸 Replace the ‘admin’ user with a new ‘admins’ group. On the long-term, this should remove some confusion about the role of the admin user and allow to define several admin users!
+ 📦 New “v2” app packaging format
+Introduce a new “v2” app packaging format. This is a major change for app packagers as it should simplify the app packaging and maintenance, but will also bring many UI/UX improvements for the app install process. On the long term, this is only an intermediate step towards an even-better “v3” format later 😜
+ 🎛️ Global settings in the webadmin
+Refactor the “global” settings and make them available in the webadmin. So far, these were only available from the command line but they can now be found in the ‘Tools’ section of the webadmin. In particular, those settings allow to harden the security of the server, to configure email relay, and other technical aspects.
+ ⚙️ Rework domain/app views
+The app catalog now comes with logos, screenshots, better descriptions, admin notes directly in the webadmin, links to upstream website/doc/demo. This will even become even better as apps are progressively migrated to the v2 packaging format 🥳. Domains are now displayed as a tree, and the various panels have been merged into a single page, which should be easier to browse and understand.
+ 🎨 Dark theme for the webadmin
+A dark theme for the webadmin! You can enable it in the ‘Web-admin settings’ in the ‘Tools’ section of the webadmin.
+11.2
+ 🔐 DynDNS recovery password
+Add support for recovery password for DynDNS domains (nohost.me / noho.st / ynh.fr) which should hopefully slowly improve the horrendous situation with people having to ask for the reset of their domain when reinstalling, which we then handle manually.
+ 📬 DKIM for apps
+Allow apps to send DKIM-signed emails which should reduce the spaminess of mails sent by apps. 
+ 📦 Helpers 2.1 for packaging
+Continuing to improve the packaging format. This new helper version is about trying to remove legacy helpers, underused options, simplifying syntax, and uniformizing helpers and variable names. More info
+🛠️ Quite a lot of minor enh/fixes
+11.3
+⬆️ Migration to Bookworm
+ YunoHost 12 / Debian Bookworm
+12.0
+⚙️ Initial Bookworm support
+ 🚀 Improved install script and initial setup
+The install script has been reworked with a simpler flow and UI. The base setup is also lighter, with Mysql/PHP not installed by default (but still automatically installed for apps that need it of course), and Rspamd and Metronome (XMPP server) not being part of the default setup but are now available as separate applications
+ 🚪 Rework SSO / portal with logos
+The SSO has been split into three distinct pieces: 1) SSOwat now only handling the SSO/ACL logic (as a nginx Lua middleware), 2) yunohost-portal-api: A new “portal API” service delivering authentication cookies and allowing users to retrieve/update infos, 3) yunohost-portal: A new login and homepage web portal front-end, including app logos.
+⚙️ Pydantic for configpanels
+ ⚙️ Webadmin - Vue3/Typescript
+Keeping the webadmin tech stack up-to-date.
+12.1
+ 🚪 Portal : more app tile customizability
+The app’s logos are also now customizable, along with the label and description used in the portal. Accesses can now be edited directly from the app’s info page, as well as upgrading the app.
+ 📜 SSE / Better log streaming UX in webadmin
+A new mechanism (so-called 'SSE') to retrieve the status and stream logs of the current action ongoing on the server, whether it got started from another webadmin, the command line or a cron (automatic task). In particular, this should improve situations where some actions are taking a long time, or you closed your browser tab for some reason, or another admin started an operation, or there’s a long automatic backup ongoing : previously it was pretty confusing and hard to know why the webadmin was kind of locked, but now it should automatically catch up and display what’s going on! 😉
+ 🧱 Switch to nftables for firewall
+A full rework of our firewall code which was pretty outdated and confusing. The new code is based on nftables which is the modern way of managing network rules.
+ ⚡ Perf improvement for LDAP requests
+Tweaks to improve the performance of LDAP operations, which should be pretty significant for instances handling more than ~100ish users. (Typically user creation could start to become extremely long)
+ 📦 Simplify nodejs / ruby / go / composer packaging
+New packaging 'resources' were introduced in helpers 2.1 to handle declaratively the fact that an app depend on nodejs / ruby / go / composer, which should help to further simplify packaging.
+ 👥 Email permissions for users
+Decide wether or not users can add email aliases and forwards from their portal.
+12.2 (beta)
+ ⬆️ Migration to Trixie
+Stable migration process to YunoHost on Debian 13, codename Trixie.
+ 📦 Generalize helpers 2.1 in existing apps
+Moving forward with helpers 2.1 introduced in YunoHost 11.2, to help getting rid of legacy.
+ 🔐 Integrate vulnerabilities alerts in diagnosis
+Have automatic diagnosis warn admin about urgent ugpgrade due to system or apps vulnerabilities.
+ 👥 User self-registration 💰
+Make users able to autonomously register on the server through invite links or a public registering form with admin validation.
+ YunoHost 13 / Debian Trixie
+13.0 (beta)
+ ⚙️ Initial Trixie support
+YunoHost on Debian 13, codename Trixie.
+ ⚙️ Migration to Pydantic v2
+Migrate to v2 and use its new features to improve type coercing/validation.
+13.1
+ 🚪 Support OIDC / Replace SSOwat by Authelia 💰
+Replace SSOWat Single-Sign On solution with Authelia and support the more standard OpenID Connect authentication protocol, thus broadening the apps' SSO integration potential
+ 📦 Packaging v3 💰
+Packaging v3 should start becoming a reality somewhere in 2025 with even more declarativeness (in particular for the various configurations), replacing all the scripts/ folder with a single scripts.sh file(?), among other things.
+13.?
+ 🧱 Replace Fail2ban with Reaction
+Reaction is a simpler and significantly more resource-efficient alternative to Fail2Ban.
+ 🚪 Be able to have the portal on a subdomain
+A recurring issue since the rework of the portal in 12.0 is that some setup do not have the 'main parent domain' on the YunoHost server, preventing to use it as the domain for SSO and for the portal interface. It should be possible to address this by having the admin declare that a specific domain (such as portal.domain.tld) should be use as the portal and for authentication.
+ ♿ Improve webadmin accessibility
+Improve Yunohost webadmin and portal for visually-impaired people or with other relevant disabilities and add accessiblity metrics in the app catalog.
+ 🔐 User password reset 💰
+Currently, passwords are set by the admin and users have no way to reset their password without asking an admin, which is confusing and encourages bad security practices. Implementing password reset is however less trivial than it seems, because it implies that sending email is working and can be trusted, and that users define an external email for password reset.
+ 🚑 Automatic remote backup, backup policy 💰
+Integrate automatic backup features to YunoHost's core, including remote and encrypted deduplication as well as easy selective restore.
+ Someday™
+ ⚙️ Initial Forky support
+YunoHost on Debian 14, codename Forky.
+ 📦 App bundles
+Allow offering bundles of several packages to manage software suite installation or dependencies.
+ 💾 Storage management
+Integrate disk and storage management features directly into YunoHost's interface.
+ 🔐 2FA in webadmin
+Integrate an option for two-factor authentication in the webadmin.
+ ⚙️ Replace moulinette with FastAPI
+Significantly improve performances of YunoHost's CLI and API.
+ 🦸Limited admins?
+Create other admin accounts with restricted permissions.
+ ⚙️ R&D on Yunohost "clusters" / "extensions" / KubertnHost?
+See how to implement self-hosting federation protocol to enable features requiring communications between Yunohost instances and how to make several YunoHost servers work together as one?
+Legal
+License
+Terms of services
+Organization
+Follow
+Blog
+Mastodon
+Peertube
+Use
+Documentation
+Apps store
+Forum
+Self-help chat
+Services status
+Changelog
+Contribute
+Donate
+Issues tracker
+Roadmap
+Security
+Code (core)
+Code (apps)
+Translation

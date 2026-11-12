@@ -1,0 +1,9 @@
+parent = "onemind-base"
+# API server up, kubelet never runs: persisted node status from the last boot can look Ready.
+recipes = ["release-marker", "break-k3s"]
+
+[parameters."release-marker"]
+version = "v2-noagent"
+
+[parameters."break-k3s"]
+args = "--disable-agent"

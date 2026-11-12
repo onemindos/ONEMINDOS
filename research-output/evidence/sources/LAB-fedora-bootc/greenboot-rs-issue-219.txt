@@ -1,0 +1,57 @@
+Healthy host is rolled back when finalize-staged fails after the rollback trigger ran
+https://github.com/fedora-iot/greenboot-rs/issues/219
+state=open created=2026-10-11T16:40:10Z updated=2026-10-26T12:55:23Z
+
+### Summary
+
+If `ostree admin finalize-staged` fails after `greenboot set-rollback-trigger` has already recorded `greenboot_next_deployment_id` (for example `/boot` full, an ostree error, or power loss), the staged update is never applied and the host boots its unchanged, healthy default deployment. greenboot 0.16.4 then sees `greenboot_next_deployment_id` != booted digest, treats it as a GRUB fallback, and runs `bootc rollback`. The healthy host is downgraded to its previous deployment.
+
+This needs the rollback trigger to actually run at shutdown, so it was found with the `Conflicts=final.target` fix from #218 applied. The trigger has to be written before finalize, and finalize can always fail after that point, so this is not specific to one wiring. We also tried arming the trigger at staging time instead of at shutdown; that made every later finalize failure look like a GRUB fallback too.
+
+### Environment
+
+- Fedora 44 bootc image (`fedora-bootc` 44, version 44.20261009.0)
+- greenboot (greenboot-rs) 0.16.4, bootc 1.16.13, ostree 2026.4, systemd 259.9, kernel 7.2.9
+- GRUB + grubenv boot counting (`08_greenboot.cfg` via bootupd), `GREENBOOT_MAX_BOOT_ATTEMPTS=3`
+- `greenboot-set-rollback-trigger.service` with a `Conflicts=final.target` / `Before=final.target` drop-in
+- Tested under QEMU TCG with OVMF, SELinux enforcing
+
+### Steps to reproduce
+
+1. Install a Fedora 44 bootc image with greenboot 0.16.4 and the trigger drop-in, boot it green.
+2. Stage a valid update: `bootc switch` (or `bootc upgrade`) to another image.
+3. Make finalize fail after the trigger has run. Either of these reproduced it for us:
+   - fill the filesystem holding `/boot` so `ostree admin finalize-staged` fails (we left about 28K free), or
+   - add a drop-in that makes `ostree-finalize-staged.service`'s stop action exit 1.
+4. Reboot. Finalize fails; `grub2-editenv list` still has `greenboot_next_deployment_id` set to the staged image's digest.
+5. On the next boot, check `journalctl -b -u greenboot-healthcheck`.
+
+### Expected
+
+The host boots its unchanged default deployment. greenboot recognises that the staged update was never finalized, clears the stale trigger, and does not roll back. The host stays on the deployment it was on.
+
+### Actual
+
+greenboot takes its GRUB-fallback path, the same one that logs `GRUB kernel fallback detected` and `Making GRUB fallback permanent` during a real fallback, and runs `bootc rollback`. After the next reboot the host is on its previous (older) deployment, even though nothing was wrong with the one it booted.
+
+### Suggested fix
+
+Only treat `greenboot_next_deployment_id != booted` as a GRUB fallback when the booted deployment is not the default one:
+
+| trigger set? | booted == next_deployment_id? | booted is default (index 0)? | action |
+|---|---|---|---|
+| no | any | any | nothing |
+| yes | yes | (new image booted) | normal red/green counting |
+| yes | no | yes | update never finalized: unset `greenboot_next_deployment_id` and `fallback`, no rollback |
+| yes | no | no | real GRUB fallback: make it permanent as today |
+
+"Default" here is the first deployment in `ostree admin status`. If finalize failed, the old deployment is still index 0, so booted == default and the trigger is stale. When GRUB really falls back (`boot_counter` exhausted, `set default=1` in `08_greenboot.cfg`), the booted deployment is index 1, so the existing path runs unchanged. On any error determining the state, do nothing.
+
+We prototyped this as a small `ExecStartPre=-` script on `greenboot-healthcheck.service`, run before greenboot reads grubenv. Under the setup above it:
+
+- kept the healthy host in both finalize-failure cases (`/boot` full, forced finalize exit 1),
+- left the normal path alone: a bad update still rolled back automatically after 3 red boots,
+- left a real GRUB fallback alone: with grubenv edited offline to `boot_success=0 boot_counter=0`, GRUB booted deployment index 1, the check stood aside, and greenboot logged `GRUB kernel fallback detected` and `Making GRUB fallback permanent` and ran `bootc rollback` as before.
+
+Doing this inside greenboot itself would be cleaner than a pre-start hook. Happy to share the script or open a PR if that helps.
+

@@ -1,0 +1,204 @@
+SOURCE: https://www.proxmox.com/en/about/company-details/press-releases/proxmox-ve-for-nvidia-mission-control-ai-factories
+ACCESSED: 2026-11-11
+
+
+ Proxmox VE delivers high-availability infrastructure management for NVIDIA Mission Control AI factories
+ Search
+ Select your language
+ English 
+ German 
+ Home
+ Products 
+ Proxmox Virtual Environment 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Comparison
+ Pricing
+ Proxmox Backup Server 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Pricing
+ Proxmox Mail Gateway 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Virtual Appliance
+ Pricing
+ Proxmox Datacenter Manager 
+ Overview
+ Benefits
+ Features
+ Downloads
+ Proxmox Virtual Environment
+ ISO
+ Documentation
+ Agreements
+ Proxmox Backup Server
+ ISO
+ Documentation
+ Agreements
+ Proxmox Mail Gateway
+ ISO
+ Documentation
+ Agreements
+ Proxmox Datacenter Manager
+ ISO
+ Documentation
+ Services 
+ Support & Services 
+ Enterprise Support Services
+ Online Support Services
+ Customer Portal
+ Community Forum
+ Training 
+ Training
+ Course Catalog
+ Videos
+ FAQ
+ Partners 
+ Find a Partner 
+ Explore
+ Reseller Partner
+ Success Stories
+ All Partners
+ Not yet a Partner? 
+ Become a partner
+ About 
+ About us 
+ Company
+ Careers
+ Events
+ Success Stories
+ Open Source 
+ Community
+ Developers
+ Bug and feature requests
+ Source Code (Git)
+ Company Details 
+ Press Releases
+ Media Kit
+ In the News
+ Newsletter
+ Contact us →
+Get HelpCustomer Portal
+Community Forum
+Support
+Contact Us
+Buy now
+ Search
+ Select your language
+ English 
+ German 
+ Home
+ProductsProxmox Virtual Environment
+Overview
+Features
+Get Started
+Requirements
+Comparison
+Pricing
+Proxmox Backup Server
+Overview
+Features
+Get Started
+Requirements
+Pricing
+Proxmox Mail Gateway
+Overview
+Features
+Get Started
+Requirements
+Virtual Appliance
+Pricing
+Proxmox Datacenter Manager
+Overview
+Benefits
+Features
+DownloadsProxmox Virtual EnvironmentISO
+Documentation
+Agreements
+Proxmox Backup ServerISO
+Documentation
+Agreements
+Proxmox Mail GatewayISO
+Documentation
+Agreements
+Proxmox Datacenter ManagerISO
+Documentation
+ServicesSupport & Services
+Enterprise Support Services
+Online Support Services
+Customer Portal
+Community Forum
+Training
+Training
+Course Catalog
+Videos
+FAQ
+PartnersFind a Partner
+Explore
+Reseller Partner
+Success Stories
+All Partners
+Not yet a Partner?
+Become a partner
+AboutAbout us
+Company
+Careers
+Events
+Success Stories
+Open Source
+Community
+Developers
+Bug and feature requests
+Source Code (Git)
+Company Details
+Press Releases
+Media Kit
+In the News
+Newsletter
+Contact us →
+ Proxmox VE delivers high-availability infrastructure management for NVIDIA Mission Control AI factories 
+ July 28, 2026 
+ Download:
+ English 
+ German 
+ VIENNA, Austria – July 28, 2026 – Enterprise software provider Proxmox Server Solutions today announced a collaboration with NVIDIA to enhance the infrastructure layer of the modern AI-factory. By integrating the proven reliability of Proxmox Virtual Environment (Proxmox VE) with NVIDIA Mission Control™, enterprises can deploy a highly resilient, virtualized management plane designed to power the world’s most advanced AI workloads running on NVIDIA accelerated infrastructure, including the NVIDIA Blackwell and NVIDIA Vera Rubin platforms. 
+As generative AI moves into large-scale production, the AI factory requires a seamless transition from raw hardware to orchestrated, consumable resources. NVIDIA Mission Control streamlines this entire lifecycle, from developer workload scheduling and orchestration to autonomous recovery. Proxmox VE serves as the critical virtualization layer beneath this ecosystem, providing the stable, highly available substrate for hosting the management services that drive NVIDIA Mission Control’s intelligence.
+A key pillar of this collaboration is the optimization of Proxmox VE for NVIDIA’s frontier silicon. Proxmox VE is being engineered specifically to support the bring-up of NVIDIA Grace and NVIDIA Vera CPU architectures, ensuring seamless deployment of advanced hardware in the modern AI data center.
+The synergy between Proxmox VE and NVIDIA Mission Control creates an “always-on” environment for AI innovation. While NVIDIA Mission Control provides the advanced management intelligence for the AI-factory, Proxmox VE delivers the underlying, mission-critical resilience. Through native clustering and live-migration capabilities, Proxmox VE ensures that the software services governing the AI-factory remain operational and scalable, maximizing the total ROI of the entire NVIDIA-powered AI-factory.
+"Proxmox VE delivers proven, mission-critical reliability for the most demanding workloads- whether in AI-factory pipelines, regulated industries, sovereign clouds, " said Tim Marx, COO of Proxmox. "By joining the NVIDIA Mission Control ecosystem, we are offering enterprises the structural reliability needed to run, protect, and scale their most valuable AI workloads, working alongside one of the industry’s most essential partner for the AI era."
+###
+About Proxmox Server Solutions
+Proxmox Server Solutions provides powerful, intuitive open-source server software that guarantees vendor independence and minimizes total cost of ownership. Enterprises of all sizes rely on the company’s reliable vendor support, certified training services, and a global network of 3,000 integration partners to ensure business continuity. Established in 2005 and headquartered in Vienna, Austria, tens of thousands of corporate customers worldwide trust Proxmox solutions to secure their mission-critical IT environments.
+Contact: <press contact removed>
+ Products
+Proxmox Virtual Environment
+Proxmox Datacenter Manager
+Proxmox Backup Server
+Proxmox Mail Gateway
+Downloads
+Support
+ Resources
+Community
+Developers
+Success Stories
+Press Room
+Videos
+Training
+ Newsletter
+ Email *
+ I agree with the privacy policy *
+ Subscribe 
+About Proxmox
+Careers
+Contact Us
+Legal
+Sitemap
+Privacy Policy
+ Copyright © 2004 - 2026 Proxmox Server Solutions GmbH. All rights reserved.

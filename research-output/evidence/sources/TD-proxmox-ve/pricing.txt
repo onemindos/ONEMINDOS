@@ -1,0 +1,408 @@
+SOURCE: https://www.proxmox.com/en/products/proxmox-virtual-environment/pricing
+ACCESSED: 2026-11-11
+
+
+ Pricing for Subscriptions Plans - Proxmox Virtual Environment
+ Search
+ Select your language
+ English 
+ German 
+ Home
+ Products 
+ Proxmox Virtual Environment 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Comparison
+ Pricing
+ Proxmox Backup Server 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Pricing
+ Proxmox Mail Gateway 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Virtual Appliance
+ Pricing
+ Proxmox Datacenter Manager 
+ Overview
+ Benefits
+ Features
+ Downloads
+ Proxmox Virtual Environment
+ ISO
+ Documentation
+ Agreements
+ Proxmox Backup Server
+ ISO
+ Documentation
+ Agreements
+ Proxmox Mail Gateway
+ ISO
+ Documentation
+ Agreements
+ Proxmox Datacenter Manager
+ ISO
+ Documentation
+ Services 
+ Support & Services 
+ Enterprise Support Services
+ Online Support Services
+ Customer Portal
+ Community Forum
+ Training 
+ Training
+ Course Catalog
+ Videos
+ FAQ
+ Partners 
+ Find a Partner 
+ Explore
+ Reseller Partner
+ Success Stories
+ All Partners
+ Not yet a Partner? 
+ Become a partner
+ About 
+ About us 
+ Company
+ Careers
+ Events
+ Success Stories
+ Open Source 
+ Community
+ Developers
+ Bug and feature requests
+ Source Code (Git)
+ Company Details 
+ Press Releases
+ Media Kit
+ In the News
+ Newsletter
+ Contact us →
+Get HelpCustomer Portal
+Community Forum
+Support
+Contact Us
+Buy now
+ Search
+ Select your language
+ English 
+ German 
+ Home
+ProductsProxmox Virtual Environment
+Overview
+Features
+Get Started
+Requirements
+Comparison
+Pricing
+Proxmox Backup Server
+Overview
+Features
+Get Started
+Requirements
+Pricing
+Proxmox Mail Gateway
+Overview
+Features
+Get Started
+Requirements
+Virtual Appliance
+Pricing
+Proxmox Datacenter Manager
+Overview
+Benefits
+Features
+DownloadsProxmox Virtual EnvironmentISO
+Documentation
+Agreements
+Proxmox Backup ServerISO
+Documentation
+Agreements
+Proxmox Mail GatewayISO
+Documentation
+Agreements
+Proxmox Datacenter ManagerISO
+Documentation
+ServicesSupport & Services
+Enterprise Support Services
+Online Support Services
+Customer Portal
+Community Forum
+Training
+Training
+Course Catalog
+Videos
+FAQ
+PartnersFind a Partner
+Explore
+Reseller Partner
+Success Stories
+All Partners
+Not yet a Partner?
+Become a partner
+AboutAbout us
+Company
+Careers
+Events
+Success Stories
+Open Source
+Community
+Developers
+Bug and feature requests
+Source Code (Git)
+Company Details
+Press Releases
+Media Kit
+In the News
+Newsletter
+Contact us →
+Overview
+Features
+Get Started
+Requirements
+Comparison
+Pricing
+ How would you like to buy?
+ Buy
+ onlineChoose a plan and purchase online→
+ Talk to
+ salesFor a guided discussion for large organizations→
+ Production support subscriptions
+ Choose the service level for your operations
+ Select the plan that matches your workload criticality, internal expertise, and expected support
+ demand.
+ NEW · ARM64
+ Need ARM64 support?Request support for bleeding-edge
+ server hardware through our sales team.
+ Talk to sales →
+ All plans include stable updates, every Proxmox VE
+ feature, and support through the Proxmox
+ technical support.
+ CPU sockets
+ −Talk to sales+
+ PREMIUM
+ Maximum coverage for business-critical infrastructure
+ €1,100/ year
+per
+ socket
+ €1,100 estimated annual total
+ For high-impact production workloads
+ Unlimited support tickets
+ 2-hour response time1
+ 24/7 support2
+ Remote support via SSH
+ Offline updates & key activation
+ Proxmox Enterprise Repository
+ Proxmox
+ Datacenter Manager
+ Buy Premium
+ →
+ Self-service online purchase
+ Recommended
+ STANDARD
+ Balanced coverage for established IT teams
+ €550/ year
+per
+ socket
+ €550 estimated annual total
+ For day-to-day production operations
+ 10 support tickets per year
+ 4-hour response time1
+ 24/7 support3
+ Remote support via SSH
+ Offline updates & key activation
+ Proxmox Enterprise Repository
+ Proxmox
+ Datacenter Manager
+ Buy Standard
+ →
+ Self-service online purchase
+ BASIC
+ Essential assurance for smaller production estates
+ €370/ year
+per
+ socket
+ €370 estimated annual total
+ For teams needing occasional assistance
+ 3 support tickets per year
+ 1 business day response time
+ Stable and secure updates
+ All Proxmox VE features
+ Proxmox Enterprise Repository
+ Proxmox
+ Datacenter Manager
+ Buy Basic
+ →
+ Self-service online purchase
+ 1 Guaranteed first response time for critical support
+ requests (Severity 1) during the applicable support coverage hours.
+ 2 Premium 24/7 support is available from October 19, 2026, including for existing Premium customers.
+ 3 Standard 24/7 support will become available by the end of 2026, including for existing Standard customers.
+ Prices are net; VAT is added where applicable. Subscription term: one year from purchase.
+ High Availability
+ Dynamic HA balancing — real-time CRS scheduling
+ Multi-master clustering — no management single point of failure
+ Zero-downtime live migration — uninterrupted services
+ HA maintenance workflows — resource state preserved
+ Compute & Migration
+ Unified QEMU/KVM and LXC — VMs and containers
+ NVIDIA vGPU — AI/ML, rendering, and VDI
+ PCIe passthrough — direct device performance
+ ESXi import and CPU controls — easier migration and tuning
+ Storage
+ Integrated Software Defined Storage (Ceph) — scalable block and file
+ storage
+ Fibre Channel and iSCSI — broad enterprise SAN support
+ Multipath and shared LVM — resilient shared storage
+ Templates and linked clones — efficient provisioning
+ Backup & Recovery
+ Proxmox
+ Backup Server — incremental, encrypted and deduplicated backups
+ Live restore and file recovery — faster service recovery
+ Backup fleecing — reduced production I/O impact
+ ZFS replication — built-in disaster recovery
+ Networking & Security
+ EVPN, VXLAN, and BGP — multi-tenant networking
+ SDN fabrics and routing policies — scalable network control
+ IPAM integration — coordinated address management
+ Distributed stateful firewall — cluster-to-guest protection
+ Identity & Compliance
+ AD, LDAP, and OpenID Connect — directory and SSO integration
+ Granular RBAC and ACLs — least-privilege access
+ API tokens and service accounts — controlled automation access
+ UEFI Secure Boot and vTPM — compliance-ready guests
+ Automation
+ REST API — infrastructure automation
+ Unattended installations — automated bare-metal deployment
+ Ansible playbooks — configuration and orchestration
+ Terraform and OpenTofu — declarative provisioning
+ Management & Ecosystem
+ Proxmox
+ Datacenter Manager — centralized multi-site operations
+ Integrated GUI, CLI, and API — no separate appliance
+ Enterprise and air-gapped operations — tested and offline updates
+ Solution
+ Provider ecosystem — validated server hardware & enterprise
+ software integrations
+ Download
+ the full Datasheet →
+ Partner With Our Sales Team
+ Planning a large-scale Proxmox VE deployment?
+ Let us simplify your purchasing journey. If your organization requires coordinated
+ procurement, custom subscription planning, or assistance with internal approvals, our
+ specialists are ready to guide you toward the most effective infrastructure strategy.
+ Contact
+ enterprise sales →
+ Find a local partner
+ Designed to support organizations with:
+ Large-scale or distributed infrastructure
+ Structured vendor onboarding and procurement
+ Specific billing, PO, or invoicing requirements
+ Air-gapped, offline, or restricted network environments
+ Regulatory and government compliance standards
+ Advanced deployment or architectural planning needs
+ For implementation services, local-language assistance, or hardware
+ procurement, a qualified Proxmox partner can help.
+ Enterprise support assurance
+ Expert support is a core infrastructure requirement
+ For infrastructure that carries critical services, qualified product support is part of the
+ control environment. Internal policy, customer commitments, external audit criteria, and sector
+ or government regulation can require a documented vendor escalation path, tested updates, and
+ demonstrable software supply-chain resilience.
+ Operational stability
+ Standardize production systems on a stable package stream with extensively tested updates and
+ security enhancements.
+ Expert escalation path
+ Give your infrastructure team a direct route to Proxmox specialists when critical issues
+ require deeper product expertise.
+ Predictable annual coverage
+ Plan subscription costs by CPU socket with no separate feature editions or per-core
+ licensing complexity.
+ For non-production use
+ Community subscription
+ Running Proxmox VE in a home lab, technical learning
+ environment, or professional test setup?
+ Community gives you access to the stable Enterprise Repository without an enterprise technical
+ support entitlement.
+ Home labsProfessional home
+ usersTraining environmentsEvaluation
+ clustersNon-critical workloads
+ Need support for production workloads?
+Choose Basic, Standard, or Premium
+ above for access to Proxmox technical support.
+ COMMUNITY
+ Stable updates for independent and non-enterprise environments
+ €120/ year per CPU socket
+ Buy Community
+ →Visit community
+ forum
+ Subscription FAQ
+ What to know before purchasing
+ How many subscriptions do I need?
+ A subscription is required for every occupied physical CPU socket. The number of CPU cores
+ does not affect the price. Every server in a cluster needs coverage for its occupied
+ sockets, and all nodes in a cluster must use the same subscription level.
+ Are Proxmox VE features limited by subscription
+ level?
+ No. High availability, live migration, clustering, backup, software-defined storage,
+ networking, and all other Proxmox VE features are
+ available at every level. Plans differ by
+ technical support entitlement, ticket allowance, and response time.
+ What does “response time” mean?
+ It is the guaranteed first response time for a critical support request (Severity 1) submitted through the
+ Proxmox Customer Portal. Coverage applies during the applicable support coverage hours based on your select plan e.g. for Premium this will be 24/7.
+ Can my organization purchase without using the Online Shop?
+ Contact sales at <email-redacted> to discuss your purchasing requirements. Qualified Proxmox
+ resellers can also provide local purchasing, consulting, implementation, and support
+ services.
+ What support is included with Community?
+ Community includes access to the Enterprise Repository but not ticket support from the
+ Proxmox enterprise support team. Assistance is available through the public Proxmox
+ community forum.
+ What are the enterprise support business hours?
+ Premium includes 24/7 ticket support starting October 19, 2026. Standard will also move to
+ 24/7 ticket support by the end of 2026. Starting October 19, 2026, customers in North America
+ receive business-hours support during North American business hours, while customers in APAC
+ receive business-hours support during Eastern Australian business hours. For customers in
+ other regions, business-hours support remains available Monday through Friday, 07:00–17:00
+ CET/CEST on Austrian business days. Qualified resellers may offer support in other time zones
+ and local languages. Please contact <email-redacted> if you have requirements beyond the
+ standard offerings.
+ Download
+ the Subscription Agreement and FAQ →
+ Choose your route to supported infrastructure
+ Purchase online today, or start a conversation about your organization’s requirements.
+ Buy online →Contact
+ sales
+ Products
+Proxmox Virtual Environment
+Proxmox Datacenter Manager
+Proxmox Backup Server
+Proxmox Mail Gateway
+Downloads
+Support
+ Resources
+Community
+Developers
+Success Stories
+Press Room
+Videos
+Training
+ Newsletter
+ Email *
+ I agree with the privacy policy *
+ Subscribe 
+About Proxmox
+Careers
+Contact Us
+Legal
+Sitemap
+Privacy Policy
+ Copyright © 2004 - 2026 Proxmox Server Solutions GmbH. All rights reserved.

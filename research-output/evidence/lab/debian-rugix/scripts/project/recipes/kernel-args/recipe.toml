@@ -1,0 +1,2 @@
+description = "serial console, panic auto-reboot"
+priority = -1_500_000

@@ -1,0 +1,54 @@
+##### [03:05:23] T1 first boot
+##### [03:05:23] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/var/lab/u1p-run1/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/u1p-run1/disk.img -serial stdio -monitor none
+===> T1: PASS gate=('committed-boot', 'A', 1) K3S-FRESH ok after 119s: ok (fresh: kubelet, heartbeat 2026-11-11T08:07:35Z, core pods, da apps_not_ready=True t=159s
+##### [03:08:02] T2 wrong-key bundle
+##### [03:08:03] install wrong-key.raucb rc=1 in 1s
+===> T2: FAIL rc=1 sig_error=True env_unchanged=False marker_written=False
+##### [03:08:03] T3 good update -> B
+##### [03:10:14] install good.raucb rc=0 in 130s
+===> T3: PASS rc=0 trial=('mark-good', 'B', 2) passes=3 first_fails=['fail: no kubeconfig on this boot (k3s server has not started)', 'fail: no kubeconfig on this boot (k3s server has not started)'] apps='broken-app-5d6b874ccd-f96rw 0/1 ErrImagePull; ' reboot=('committed-boot', 'B', 2)
+##### [03:14:53] T4 bad-k3s.raucb -> A
+##### [03:17:11] install bad-k3s.raucb rc=0 in 138s
+===> T4: PASS rc=0 trial=('mark-bad', 'A', 3) decided_after~338s(since reboot) last_fail='fail: no kubeconfig on this boot (k3s server has not started)' then=('committed-boot', 'B', 2) K3S-FRESH ok after 58s: ok (fresh: kubel
+##### [03:24:15] T5 bad-noagent.raucb -> A
+##### [03:25:53] install bad-noagent.raucb rc=0 in 98s
+===> T5: PASS rc=0 trial=('mark-bad', 'A', 4) decided_after~334s(since reboot) last_fail='fail: kubelet /healthz not answering' then=('committed-boot', 'B', 2) K3S-FRESH ok after 83s: ok (fresh: kubel
+##### [03:33:37] T6 bad-boot.raucb -> A
+##### [03:36:05] install bad-boot.raucb rc=0 in 148s
+===> T6: PASS rc=0 attempts=3 in 150s grub=GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 default=2 result=('fell-back', 'B', 2) retried_next_boot=False
+##### [03:38:35] T7 bad-hang.raucb -> A
+##### [03:41:12] install bad-hang.raucb rc=0 in 157s
+===> T7: PASS rc=0 attempts=3 in 234s grub=GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 default=2 result=('fell-back', 'B', 2) retried_next_boot=False
+##### [03:45:07] T8 power cut during write (target A)
+##### [03:45:16] POWER CUT: SIGKILL qemu
+##### [03:45:16] T8 restart after power cut
+##### [03:45:16] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/var/lab/u1p-run1/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/u1p-run1/disk.img -serial stdio -monitor none
+##### [03:48:59] install good.raucb rc=0 in 178s
+===> T8: PASS cut_at=47% activated_before_cut=False after_cut=('fell-back', 'B', 2) marker_cleared=True reinstall_rc=0 then=('mark-good', 'A', 2)
+##### [03:52:36] T9 power cut in commit window (target B)
+##### [03:55:22] install good.raucb rc=0 in 166s
+##### [03:55:55] POWER CUT: SIGKILL qemu
+##### [03:55:55] T9 restart
+##### [03:55:55] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/var/lab/u1p-run1/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/u1p-run1/disk.img -serial stdio -monitor none
+===> T9: PASS rc=0 killed_before_commit=True next_boot='GRUB-RAUC: ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=2 default=2' result=('mark-good', 'B', 2)
+##### [03:58:35] T10 naive gate observation (target A)
+##### [04:00:58] install naive-noagent.raucb rc=0 in 143s
+===> T10: OBSERVED naive gate result=('mark-good', 'A', 7) passes=['49', '64', '78'] => COMMITTED A BROKEN SYSTEM
+##### [04:02:56] T10 kubelet on committed naive slot: c767a45d15;pid=386;cwd=/root\NO-KUBELET
+##### [04:05:29] install good.raucb rc=0 in 153s
+===> T10r: PASS recovery install rc=0 result=('mark-good', 'B', 2)
+##### [04:08:34] QEMU EXIT (poweroff)
+
+SUMMARY (total 63 min)
+T1 | PASS | gate=('committed-boot', 'A', 1) K3S-FRESH ok after 119s: ok (fresh: kubelet, heartbeat 2026-11-11T08:07:35Z, core pods, da apps_not_ready=True t=159s
+T2 | FAIL | rc=1 sig_error=True env_unchanged=False marker_written=False
+T3 | PASS | rc=0 trial=('mark-good', 'B', 2) passes=3 first_fails=['fail: no kubeconfig on this boot (k3s server has not started)', 'fail: no kubeconfig on this boot (k3s server has not started)'] apps='broken-app-5d6b874ccd-f96rw 0/1 ErrImagePull; ' reboot=('committed-boot', 'B', 2)
+T4 | PASS | rc=0 trial=('mark-bad', 'A', 3) decided_after~338s(since reboot) last_fail='fail: no kubeconfig on this boot (k3s server has not started)' then=('committed-boot', 'B', 2) K3S-FRESH ok after 58s: ok (fresh: kubel
+T5 | PASS | rc=0 trial=('mark-bad', 'A', 4) decided_after~334s(since reboot) last_fail='fail: kubelet /healthz not answering' then=('committed-boot', 'B', 2) K3S-FRESH ok after 83s: ok (fresh: kubel
+T6 | PASS | rc=0 attempts=3 in 150s grub=GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 default=2 result=('fell-back', 'B', 2) retried_next_boot=False
+T7 | PASS | rc=0 attempts=3 in 234s grub=GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 default=2 result=('fell-back', 'B', 2) retried_next_boot=False
+T8 | PASS | cut_at=47% activated_before_cut=False after_cut=('fell-back', 'B', 2) marker_cleared=True reinstall_rc=0 then=('mark-good', 'A', 2)
+T9 | PASS | rc=0 killed_before_commit=True next_boot='GRUB-RAUC: ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=2 default=2' result=('mark-good', 'B', 2)
+T10 | OBSERVED | naive gate result=('mark-good', 'A', 7) passes=['49', '64', '78'] => COMMITTED A BROKEN SYSTEM
+T10r | PASS | recovery install rc=0 result=('mark-good', 'B', 2)
+EXIT=1

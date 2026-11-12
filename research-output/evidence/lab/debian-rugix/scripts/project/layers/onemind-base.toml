@@ -1,0 +1,28 @@
+parent = "onemind-root"
+
+recipes = [
+    "core/debian-grub-setup",
+    "core/set-hostname",
+    "core/persist-root-home",
+    "core/ssh",
+    "setup-network",
+    "k3s",
+    "health-gate",
+    "kernel-args",
+]
+
+# Pin Rugix Ctrl to an exact release instead of "latest v1".
+[parameters."core/rugix-ctrl"]
+version = "v1.4.0"
+
+# VM lab: free firmware only (keeps the system slot small).
+[parameters."core/debian-grub-setup"]
+with_nonfree = "false"
+
+[parameters."core/set-hostname"]
+hostname = "onemind-lab"
+
+[parameters."core/ssh"]
+root_authorized_keys = """
+@LAB_SSH_PUBKEY@
+"""

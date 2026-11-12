@@ -1,0 +1,163 @@
+ 
+ doctl kubernetes cluster get | DigitalOcean Documentation 
+ Docs 
+ Platform 
+ Products 
+ Reference 
+ Support 
+ Sign Up 
+ doctl kubernetes 
+ cluster 
+ get 
+ Give Feedback 
+ For AI agents: The documentation index is at https://docs.digitalocean.com/llms.txt . Markdown versions of pages use the same URL with index.html.md in place of the HTML page (for example, append index.html.md to the directory path instead of opening the HTML document). 
+ doctl kubernetes cluster get Generated on 5 Nov 2026
+ from doctl version
+ v2.3.0 
+ Copy page as Markdown
+ View page as Markdown 
+ Usage
+ doctl kubernetes cluster get <id | name> [ flags ] 
+ Aliases
+ g 
+ Description
+ Retrieves the following details about a Kubernetes cluster: 
+ A unique ID for the cluster 
+ A human-readable name for the cluster 
+ The slug identifying the region where the Kubernetes cluster is located 
+ The slug identifying the cluster’s Kubernetes version. If set to a minor version, the latest patch version for that minor version is returned. For example, if the cluster is set to 1.14 , the command would return 1.14.6-do.1 . If it is set to latest , the latest published version is used. 
+ A boolean value indicating whether the cluster automatically upgrades to new patch releases during its maintenance window. 
+ An object containing a “state” attribute whose value is set to a string indicating the current status of the node. Potential values: running , provisioning , errored . 
+ The base URL of the cluster’s Kubernetes API server 
+ The public IPv4 address of the cluster’s Kubernetes API server 
+ The range of IP addresses in the overlay network of the Kubernetes cluster, in CIDR notation 
+ The range of assignable IP addresses for services running in the Kubernetes cluster, in CIDR notation 
+ An array of tags applied to the Kubernetes cluster. All clusters are automatically tagged k8s and k8s:$K8S_CLUSTER_ID . 
+ When the Kubernetes cluster was created, in ISO8601 combined date and time format 
+ When the Kubernetes cluster was last updated, in ISO8601 combined date and time format 
+ A list of node pools available inside the cluster 
+ Example
+ The following example retrieve details about a Kubernetes cluster named example-cluster : 
+ doctl kubernetes cluster get example-cluster 
+ Flags
+ Option 
+ Description 
+ --format 
+ Columns for output in a comma-separated list. Possible values: ID , Name , Region , Version , AutoUpgrade , HAControlPlane , Status , Endpoint , IPv4 , ClusterSubnet , ServiceSubnet , Tags , Created , Updated , NodePools , Autoscaler.UtilizationThreshold , Autoscaler.UnneededTime , Autoscaler.Expanders , RoutingAgent , PeerToPeerOciRegistryPlugin , NfsCsiPlugin , CorednsAutoscaler , AmdGpuDevicePlugin , AmdGpuDeviceMetricsExporterPlugin , NvidiaGpuDevicePlugin , NvidiaGpuDraDriver , AmdGpuDraDriver , RDMASharedDevicePlugin , GPUOperatorReady . 
+ --help , -h 
+ Help for this command 
+ --no-header 
+ Return raw data with no headers Default: false 
+ Related Commands
+ Command 
+ Description 
+ doctl kubernetes cluster 
+ Display commands for managing Kubernetes clusters 
+ Global Flags
+ Option 
+ Description 
+ --access-token , -t 
+ API V2 access token 
+ --api-url , -u 
+ Override default API endpoint 
+ --config , -c 
+ Specify a custom config file Default:
+ --context 
+ Specify a custom authentication context name 
+ --http-retry-max 
+ Set maximum number of retries for requests that fail with a 429 or 500-level error
+ Default: 5 
+ --http-retry-wait-max 
+ Set the minimum number of seconds to wait before retrying a failed request
+ Default: 30 
+ --http-retry-wait-min 
+ Set the maximum number of seconds to wait before retrying a failed request
+ Default: 1 
+ --interactive 
+ Enable interactive behavior. Defaults to true if the terminal supports it (default false)
+ Default: false 
+ --output , -o 
+ Desired output format [text|json] Default: text 
+ --show 
+ Reveal masked values, such as secrets, instead of hiding them. Values are unmasked automatically in CI
+ Default: false 
+ --trace 
+ Show a log of network activity while performing a command Default: false 
+ --verbose , -v 
+ Enable verbose output Default: false 
+ doctl CLI 
+ How to Install doctl 
+ Command Reference 
+ doctl 1-click 
+ doctl account 
+ doctl apps 
+ doctl auth 
+ doctl balance 
+ doctl billing-history 
+ doctl compute 
+ doctl databases 
+ doctl dedicated-inference 
+ doctl evaluation 
+ doctl harness-runtime 
+ doctl insights 
+ doctl invoice 
+ doctl knowledge-base 
+ doctl kubernetes 
+ 1-click 
+ cluster 
+ create 
+ delete 
+ delete-selective 
+ get 
+ get-upgrades 
+ kubeconfig 
+ list 
+ list-associated-resources 
+ node-pool 
+ registry 
+ update 
+ upgrade 
+ options 
+ doctl monitoring 
+ doctl network 
+ doctl nfs 
+ doctl prepayment 
+ doctl projects 
+ doctl registries 
+ doctl registry 
+ doctl secrets 
+ doctl security 
+ doctl serverless 
+ doctl serverless-inference 
+ doctl signals 
+ doctl spaces 
+ doctl vector-databases 
+ doctl version 
+ doctl vpcs 
+ Manage Load Balancers with doctl 
+ APIs 
+ MCP Server 
+ Paperspace 
+ Ansible 
+ Terraform 
+ Libraries 
+ Open Source 
+ In this article... 
+ Usage 
+ Aliases 
+ Description 
+ Example 
+ Flags 
+ Related Commands 
+ Global Flags 
+ Company 
+ About Careers Blog 
+ Docs 
+ Docs Home API Reference CLI Reference Release Notes llms.txt Trust Platform 
+ Community 
+ Tutorials Q&A Write for DOnations Currents Research Legal Code of Conduct 
+ Support 
+ Support Center Report Abuse 
+ © 2026 DigitalOcean, LLC. All rights reserved 
+ We can't find any results for your search. 
+ Try using different keywords or simplifying your search terms. 

@@ -1,0 +1,33 @@
+##### [21:00:58] T1 first boot
+##### [21:00:58] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/var/lab/run/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/run/disk.img -serial stdio -monitor none
+===> T1: PASS gate=mark-good slot=A v=1; first boot 34s
+##### [21:01:32] T2 wrong-key bundle
+===> T2: PASS rc=1 sig_error_msg=True env_unchanged=True
+##### [21:01:32] T3 good update
+##### [21:02:36] T3 install rc=0 in 65s
+===> T3: PASS install_rc=0 boot1=mark-good/B/v2 boot2=mark-good/B/v2
+##### [21:03:56] T4 bad-health update
+===> T4: PASS install_rc=0 boot1=('mark-bad', 'A', 3) boot2=('mark-good', 'B', 2)
+##### [21:06:57] T5 bad-boot update
+===> T5: PASS install_rc=0 panic='Kernel panic - not syncing: Attempted to kill init! exitcode=0x00000100' then ('mark-good', 'B', 2)
+##### [21:09:02] T6 power cut during write
+##### [21:09:09] POWER CUT: SIGKILL qemu
+##### [21:09:09] T6 restart after power cut
+##### [21:09:09] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/var/lab/run/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/run/disk.img -serial stdio -monitor none
+===> T6: PASS killed_mid_write=True activated_before_kill=False after_cut=('mark-good', 'B', 2) A_OK=0:True reinstall_rc=0 then=('mark-good', 'A', 2)
+##### [21:11:23] T7 power cut in commit window
+##### [21:12:56] POWER CUT: SIGKILL qemu
+##### [21:12:56] T7 restart
+##### [21:12:56] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/var/lab/run/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/run/disk.img -serial stdio -monitor none
+===> T7: PASS install_rc=0 killed_after_gate_start_on=B next=('mark-good', 'A', 2)
+##### [21:13:32] QEMU EXIT (poweroff)
+
+SUMMARY (total 13 min)
+T1 | PASS | gate=mark-good slot=A v=1; first boot 34s
+T2 | PASS | rc=1 sig_error_msg=True env_unchanged=True
+T3 | PASS | install_rc=0 boot1=mark-good/B/v2 boot2=mark-good/B/v2
+T4 | PASS | install_rc=0 boot1=('mark-bad', 'A', 3) boot2=('mark-good', 'B', 2)
+T5 | PASS | install_rc=0 panic='Kernel panic - not syncing: Attempted to kill init! exitcode=0x00000100' then ('mark-good', 'B', 2)
+T6 | PASS | killed_mid_write=True activated_before_kill=False after_cut=('mark-good', 'B', 2) A_OK=0:True reinstall_rc=0 then=('mark-good', 'A', 2)
+T7 | PASS | install_rc=0 killed_after_gate_start_on=B next=('mark-good', 'A', 2)
+exit=0

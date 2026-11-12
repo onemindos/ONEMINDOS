@@ -1,0 +1,18 @@
+NVIDIA Developer Forums topic 361713, first post created 2026-02-25T18:58:00.951Z
+We have adjusted the MSRP of DGX Spark (Founders Edition) due to worldwide constraints in memory supply. DGX Spark continues to offer industry-leading AI performance in an ultra compact desktop form factor.
+What changed?
+The MSRP for DGX Spark (Founders Edition) has been adjusted from $3,999 to $4,699 due to memory supply constraints
+When did this go into effect?
+The updated pricing went live this week.
+Why was the price adjusted?
+The price adjustment reflects industry wide memory supply constraints. DGX Spark continues to deliver industry-leading desktop AI performance and strong value relative to comparable AI infrastructure solutions.
+Does this affect OEM pricing for GB10 systems?
+This MSRP adjustment is for the NVIDIA DGX Spark, powered by GB10. Pricing questions for OEM GB10 powered systems should be directed to the OEM.
+Why do I see DGX Sparks listed for $3,999 at other sites like Amazon and Microcenter?
+We have adjusted pricing at NVIDIA.com. Other sales channels may take longer to reflect the change.
+Are there any product changes associated with this price increase?
+No. There are no hardware or configuration changes tied to this adjustment.
+Does this affect global pricing?
+Yes, the updated MSRP applies to all regions.
+Does this impact existing orders?
+No. The pricing applied at the time of ordering will be honored.

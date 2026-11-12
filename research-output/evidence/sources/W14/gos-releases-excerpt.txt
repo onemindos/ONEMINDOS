@@ -1,0 +1,166 @@
+Pixel 7
+Pixel 6a
+Pixel 6 Pro
+Pixel 6
+Changelog
+2026110800
+2026110700
+2026110200
+2026110100
+2026102100
+2026101600
+2026100600
+2026100200
+2026092500
+2026091900
+2026091700
+2026091000
+2026090700
+2026090500
+2026081300
+2026080500
+2026072900
+2026071500
+2026071100
+2026070500
+2026030100 (Pixel 6, Pixel 6 Pro, Pixel 6a, Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a, Pixel 9, Pixel 9 Pro, Pixel 9 Pro XL, Pixel 9 Pro Fold, Pixel 9a, Pixel 10, Pixel 10 Pro, Pixel 10 Pro XL, Pixel 10 Pro Fold, emulator, generic, other targets)
+Changes since the 2026021200 release:
+SystemUI: migrate to the modern lockscreen infrastructure (smartspace) for showing lockscreen device status info to avoid many upstream bugs caused by AOSP still using the legacy lockscreen infrastructure no longer used on the stock Pixel OS (this allows us to revert a bunch of downstream fixes we were using)
+Settings: don't allow disabling eSIM when eSIM management support is disabled since it can persistently prevent using the eSIMs without using ADB shell to undo it
+modify our multicast firewall to stop dropping route advertisements received on the VPN interface which sometimes breaks IPv6 connectivity
+fix rare edge preventing dismissing the UI for our 2-factor fingerprint unlock feature
+Setup Wizard: add opt-in toggles for network-based location and always available Wi-Fi scanning to the Location services page
+Tags:
+2025031400 (Pixel 6, Pixel 6 Pro, Pixel 6a, Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a, Pixel 9, Pixel 9 Pro, Pixel 9 Pro XL, Pixel 9 Pro Fold, emulator, generic, other targets)
+Changes since the 2025031300 release:
+Sandboxed Google Play compatibility layer: add back default values to the API definitions for our reimplementation of the Google Play location service since dropping them in the previous release (2025031300) broke compatibility with a subset of apps and prevented us moving it past our Alpha channel (all the improvements from the previous release are still present)
+adevtool: fix support for checking stock OS kernel revision
+2025031300
+This release greatly improves the experimental virtual machine management app with many backports from the Android Open Source Project main branch. You'll need to install Android's latest Debian-based image in order to continue using it. You'll be prompted to do this at startup after it fails to start with the old setup with an opportunity to back up the data. The data inside it should continue to be treated as disposable rather than relying on it not losing it from a bug or a backwards incompatible update.
+Tags:
+2025031300 (Pixel 6, Pixel 6 Pro, Pixel 6a, Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a, Pixel 9, Pixel 9 Pro, Pixel 9 Pro XL, Pixel 9 Pro Fold, emulator, generic, other targets)
+Changes since the 2025030900 release:
+Sandboxed Google Play compatibility layer: overhaul our default enabled reimplementation of the Google Play location service (location request rerouting) to provide much better compatibility for apps depending on network-based location by always telling apps that the Google Improve Location Accuracy toggle is enabled and providing fallback to GNSS for low power location requests when the OS network location service is disabled as it is by default (unlike Google Play services, which has no fallback, but apps assume users enable the feature)
+fix Storage Scopes related null pointer exception in the permissions manager
+Bluetooth: backport fix for empty adapter name handling in Android 15 QPR2 to avoid crashes when the name is set to an empty value or whitespace
+Terminal (virtual machine management app): backport a large set of improvements including terminal tabs, working port forwarding, GUI support with opt-in GPU hardware acceleration (ANGLE-based VirGL until GPU virtualization support is available), speaker/microphone support and fixes for a bunch of bugs including overly aggressive timeouts
+Settings: add Terminal app toggle to System category when developer options are enabled (requirement will be dropped when it's no longer experimental) so it can be enabled in other users (it's still currently only possible to use 1 instance at a time due to conflicting use of an internal network specific to virtual machine management)
+Pixel 8 Pro, Pixel 9 Pro, Pixel 9 Pro XL, Pixel 9 Pro Fold: fix support for enabling UWB (ultra wideband) radio by adding missing SELinux policy to avoid the UWB service chain crashing and burning CPU
+kernel (6.1): update to latest GKI LTS branch revision including update to 6.1.130
+kernel (6.6): update to latest GKI LTS branch revision including update to 6.6.82
+Seedvault: update to 15-5.3 (will be replaced with a better backup implementation in the future)
+Vanadium: update to version 134.0.6998.95.0
+Camera: update to version 83
+2025030900
+This release adds support for the experimental virtual machine management app introduced in Android 15 QPR2. It currently only provides support for managing a single VM and interacting with it via a WebView-based terminal. Android is in the process of adding support for graphics and GPU acceleration for a future release. For now, it's only available in developer options due to being highly experimental. We don't recommend using developer options on a production device, but you can temporarily enable it to turn on this feature and turn them back off without it being disabled like most developer options. The data inside it should currently be treated as disposable rather than relying on it not losing it from a bug or a backwards incompatible update. We plan to support choosing other guest operating systems beyond the Debian-based image provided by Android along with taking far more advantage of the virtualization infrastructure.
+Tags:
+2025030900 (Pixel 6, Pixel 6 Pro, Pixel 6a, Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a, Pixel 9, Pixel 9 Pro, Pixel 9 Pro XL, Pixel 9 Pro Fold, emulator, generic, other targets)
+Changes since the 2025030800 release:
+SystemUI: re-enable migrate_clocks_to_blueprint and communal_hub flags with workarounds for upstream issues when using standard AOSP UI components instead of Pixel OS components
+Android Debug Bridge: fix upstream crash caused by a race condition that sometimes unregistered a closed file descriptor from epoll
+Sandboxed Google Play compatibility layer: fix issue breaking RPC transactions which impacts the Terminal app
+Sandboxed Google Play compatibility layer: add implementation of isGoogleLocationAccuracyEnabled() to the location rerouting implementation always returning true to fix compatibility with apps checking for it
+Sandboxed Google Play compatibility layer: fix definition of IStatusCallback.onCompletion() to slightly improve performance
+allow Terminal app to use WebView JIT since it requires WebAssembly
+kernel (6.6): update to latest GKI LTS branch revision including update to 6.6.80
+2025030800
+Tags:
+2025030800 (Pixel 6, Pixel 6 Pro, Pixel 6a, Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a, Pixel 9, Pixel 9 Pro, Pixel 9 Pro XL, Pixel 9 Pro Fold, emulator, generic, other targets)
+switch default display color mode to Natural for fresh installs for more accurate image/video colors and to avoid bugs tied to the other options
+2024111700
+Tags:
+2024111700 (Pixel 6, Pixel 6 Pro, Pixel 6a, Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a, Pixel 9, Pixel 9 Pro, Pixel 9 Pro XL, Pixel 9 Pro Fold, emulator, generic, other targets)
+Changes since the 2024110700 release:
+Private Space: put data at rest immediately after stopping the profile to match user profile behavior instead of only on reboot
+fix Mock Location on devices without any standard location providers (only Pixel Tablet)
+backport mainline APEX module patches for ART, DNS Resolver, DocumentsUI, Media, Media Provider, Network Stack, PermissionController, Remote Key Provisioning and Wi-Fi
+raise maximum running users from the standard 3 to 4 for 6GB memory, 6 for 8GB memory, 10 for 12GB memory and 14 for 16GB memory
+Settings: disable Bluetooth contact sharing by default for hands-free calling devices
+Settings: fix Private Space handling in Passwords & accounts > Additional services
+Settings: fix multiple cases of missing user profiles handling for added settings
+Dialer: fix RTT related crash from not using the correct theme configuration
+Contacts Provider: work around upstream bug causing deadlock with contact scopes
+temporarily don't report harmless fingerprint-service.goodix crash
+temporarily disable hardened_malloc for vendor audio service due to Pixel Tablet bug
+Sandboxed Google Play compatibility layer: significantly rework client side compatibility layer to avoid deadlocks and to avoid allowing starting apps with no exported components (i.e. not even a launcher activity)
+Sandboxed Google Play compatibility layer: overhaul approach to raising Google Play components to the foreground to avoid it always being considered in the foreground while also solving an issue triggered in a rare edge case at startup
+Sandboxed Google Play compatibility layer: stop Play Store from attempting to auto-install some system component packages, such as "Android System SafetyCore" (com.google.android.safetycore) and "Android System Key Verifier" (com.google.android.contactkeys)
+Sandboxed Google Play compatibility layer: fix Android Auto voice commands not working in some cases
+Sandboxed Google Play compatibility layer: fix one of the Android Auto permission toggle checks for companion devices
+Sandboxed Google Play compatibility layer: extend opt-in Android Auto "Allow permissions for handling phone calls" toggle to allow access to Bluetooth adapter hardware address access for hands-free audio support with wired Android Auto rather than only wireless Android Auto where the baseline toggle already grants access to that
+Sandboxed Google Play compatibility layer: don't stop apps that use Dynamite modules when Play services stops since the new version of the Dynamite client library handles dynamic re-connection without app restart and older ones will handle this by stopping
+kernel (5.10, 5.15, 6.1, 6.6): disable unused TIPC protocol support
+kernel (5.10): update to latest GKI LTS branch revision
+Pixel 4a (5G), Pixel 5 and Pixel 5a are end-of-life and shouldn't be used anymore due to lack of security patches for firmware and drivers. We provide extended support for harm reduction.
+Tags:
+2024092900-redfin (Pixel 4a (5G), Pixel 5)
+2024092900 (Pixel 5a, Pixel 6, Pixel 6 Pro, Pixel 6a, Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a, emulator, generic, other targets)
+2024092900-caimito (Pixel 9, Pixel 9 Pro, Pixel 9 Pro XL, Pixel 9 Pro Fold)
+Changes since the 2024091900 release:
+extend standard Android eBPF filter to prevent apps sending multicast packets outside of the VPN tunnel either directly or indirectly via kernel-generated multicast traffic (IGMP, MLD) when leak blocking is enabled (2nd generation implementation with improved app compatibility)
+add netfilter-based multicast firewall only permitting sending multicast packets to permitted tunnel interfaces for the process to prevent apps sending multicast packets through a VPN tunnel for another profile (2nd generation implementation with improved IPv6 and app compatibility)
+Sandboxed Google Play compatibility layer: add stub for Bluetooth AdvertisingSetParameters.setOwnAddressType() API needed for receiving files through Quick Share
+Sandboxed Google Play compatibility layer: ignore GattServer in BTLeAdvertiser.startAdvertisingSet() needed for receiving files through Quick Share
+Auditor: add battery optimization exception to avoid delays for the opt-in scheduled remote verification since users rarely interact with the app resulting in it being placed into semi-restricted standby buckets
+kernel (6.6): update to latest GKI LTS branch revision
+Auditor: update to version 86
+App Store: update to version 26
+Vanadium: update to version 129.0.6668.70.0
+GmsCompatConfig: update to version 138
+GmsCompatConfig: update to version 139
+2024091900
+Pixel 4a (5G), Pixel 5 and Pixel 5a are end-of-life and shouldn't be used anymore due to lack of security patches for firmware and drivers. We provide extended support for harm reduction.
+Tags:
+2024091900-redfin (Pixel 4a (5G), Pixel 5)
+2024091900 (Pixel 5a, Pixel 6, Pixel 6 Pro, Pixel 6a, Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a, emulator, generic, other targets)
+2024091900-caimito (Pixel 9, Pixel 9 Pro, Pixel 9 Pro XL, Pixel 9 Pro Fold)
+Changes since the 2024091700 release:
+temporarily revert multicast leak blocking firewall due to causing legacy 5th gen devices to lose compatibility with IPv6-only carriers along with causing certain compatibility issues with IPv6 on Wi-Fi
+temporarily revert multicast leak blocking eBPF filter extensions until app compatibility is addressed in a similar way as the Network permission mimics non-security errors
+2024091700
+Pixel 4a (5G), Pixel 5 and Pixel 5a are end-of-life and shouldn't be used anymore due to lack of security patches for firmware and drivers. We provide extended support for harm reduction.
+Tags:
+2024091700-redfin (Pixel 4a (5G), Pixel 5)
+2024091700 (Pixel 5a, Pixel 6, Pixel 6 Pro, Pixel 6a, Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a, emulator, generic, other targets)
+2024091700-caimito (Pixel 9, Pixel 9 Pro, Pixel 9 Pro XL, Pixel 9 Pro Fold)
+Changes since the 2024090400 release:
+Sandboxed Google Play compatibility layer: handle the updated client dynamite module initialization sequence
+extend standard Android eBPF filter to prevent apps sending multicast packets outside of the VPN tunnel either directly or indirectly via kernel-generated multicast traffic (IGMP, MLD) when leak blocking is enabled
+add netfilter-based multicast firewall only permitting sending multicast packets to permitted interfaces for the process to prevent apps sending multicast packets through a disallowed interface such as a VPN tunnel for another profile
+exclude com.android.rkpdapp from backup/restore to avoid breaking key provisioning for hardware key attestation including for Auditor (users can clear RemoteProvisioner system app data via Settings if they restored data for it and have this issue)
+Pixel 9 Fold Pro: temporarily manually add resource overlays not yet automatically handled by adevtool from the stock Pixel OS to use the correct layout for quick settings, status bar, etc. and to provide the split folded/unfolded auto-rotate settings (this will be replaced by adevtool improvements before the end of the month since we'll need it for more resources in Android 15)
+hardened_malloc: fix microdroid virtual machine compatibility by using armv8a+dotprod+memtag when enabling memory tagging instead of armv9+memtag
+init: disable auto-reboot setup for microdroid virtual machines
+Pixel 4a (5G) and Pixel 5 are end-of-life and shouldn't be used anymore due to lack of security patches for firmware and drivers. We provide extended support for harm reduction.
+Tags:
+2024071200-redfin (Pixel 4a (5G), Pixel 5)
+2024071200 (Pixel 5a, Pixel 6, Pixel 6 Pro, Pixel 6a, Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a, emulator, generic, other targets)
+Changes since the 2024070900 release:
+kernel (Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a): temporarily revert disabling 32-bit ABI support due to rare cases of apps using a buggy anti-tampering library incorrectly calling 32-bit versions of system calls from 64-bit code even on devices with no 32-bit support in hardware
+kernel (5.15): update to latest GKI LTS branch revision including update to 5.15.160
+kernel (6.6): update to latest GKI LTS branch revision including update to 6.6.38
+TalkBack (screen reader): update dependencies
+TalkBack (screen reader): remove more unused resources
+TalkBack (screen reader): drop 32-bit OS support
+2024070900
+Pixel 4a (5G) and Pixel 5 are end-of-life and shouldn't be used anymore due to lack of security patches for firmware and drivers. We provide extended support for harm reduction.
+Tags:
+2024070900-redfin (Pixel 4a (5G), Pixel 5)
+2024070900 (Pixel 5a, Pixel 6, Pixel 6 Pro, Pixel 6a, Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a, emulator, generic, other targets)
+Changes since the 2024070201 release:
+Settings: extend standard fingerprint enrollment stages with proper support for devices with power button fingerprint scanners (Pixel Fold, Pixel Tablet) which is not present in AOSP (Pixel Fold was still usable, but it had become incredibly hard to successfully register new fingerprints on the Pixel Tablet)
+improve warning for 32-bit-only apps by explaining why the warning is shown, how to resolve it for apps that are still developed and that we plan to phase out support for it on 5th/6th generation Pixels where it's still available
+show warning for 32-bit-only apps on each launch instead of only once
+kernel (Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a): disable 32-bit ABI support to substantially decrease kernel size and attack surface and raise mmap_min_addr to the standard 65536 for 64-bit-only ARM
+kernel (5.15): update to latest GKI LTS branch revision including update to 5.15.158
+adevtool: update file removal for 8th gen Pixels to skip Family Space related files
+GmsCompatConfig: update to version 122
+Vanadium: update to version 126.0.6478.122.3
+2024062700 (Pixel 5a, Pixel 6, Pixel 6 Pro, Pixel 6a, Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold, Pixel 8, Pixel 8 Pro, Pixel 8a, emulator, generic, other targets)
+Changes since the 2024062000 release:
+add new GrapheneOS Info app through which you can get information about the latest releases of GrapheneOS, links to our community spaces, and details on how to make donations
+Pixel 8a: add Let's Encrypt roots to Samsung gnssd CA root store for supl.grapheneos.org
+Pixel 8a: configure Samsung gnssd to use TLSv1.2 for SUPL instead of TLSv1.1 (TLSv1.3 would work but the config doesn't offer it)
+Pixel 7, Pixel 7 Pro, Pixel 7a, Pixel Tablet, Pixel Fold: fully remove 32-bit ARM support to significantly reduce build time and update download size with no loss of functionality (7th gen Pixels launched with 32-bit app support disabled after several years of the Play Store blocking uploading 32-bit-only apps or installing them on 64-bit devices, and 8th gen Pixels use 2nd gen ARMv9 cores with no 32-bit support)
+Settings: fix several cases of UI state being lost when resuming activity after configuration changes, etc. for GrapheneOS settings
+kernel (5.10): update to latest GKI LTS branch revision including update to 5.10.216

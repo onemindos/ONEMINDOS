@@ -1,0 +1,27 @@
+--- lines 1195,1220 of extracted text ---
+1442, 1470 (2016)). 
+Van Buren’s distinction between computer users who 
+“can or cannot access a computer system,” id. at 1658, 
+36 HIQ LABS V. LINKEDIN 
+
+suggests a baseline in which there are “limitations on access” 
+that prevent some users from accessing the system (i.e., a 
+“gate” exists, and can be either up or down). The Court’s 
+“gates-up-or-down inquiry” thus applies to the latter two 
+categories of computers we have identified: if authorization 
+is required and has been given, the gates are up; if 
+authorization is required and has not been given, the gates 
+are down. As we have noted, however, a defining feature of 
+public websites is that their publicly available sections lack 
+limitations on access; instead, those sections are open to 
+anyone with a web brows er. In other words, applying the 
+“gates” analogy to a computer hosting publicly available 
+webpages, that computer has erected no gates to lift or lower 
+in the first place. 17 Van Buren therefore reinforces our 
+conclusion that the concept of “without authorization” does 
+not apply to public websites. 
+Additionally, neither of the cases LinkedIn principally 
+relies upon casts doubt on our interpretation of the statute. 
+LinkedIn first cites N osal II , 844 F.3d 1024. As we have 
+already stated, Nosal II held that a former employee who 
+used current employees’ login credentials to access company 

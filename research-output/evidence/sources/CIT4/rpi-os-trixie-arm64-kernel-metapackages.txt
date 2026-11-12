@@ -1,0 +1,42 @@
+Source: http://archive.raspberrypi.com/debian/dists/trixie/main/binary-arm64/Packages.gz (Raspberry Pi OS trixie apt index; InRelease last-modified Wed, 11 Nov 2026 10:51:40 GMT; accessed 2026-11-11). Extract: stanzas for linux-image-rpi-2712 and linux-image-rpi-v8. sha256 of Packages.gz: e64a079f65a17845c4d591b140e2cf1dd198c46dfd684050c32e012fbc2e9708
+
+Package: linux-image-rpi-2712
+Source: linux
+Version: 1:6.18.60-1+rpt1
+Architecture: arm64
+Installed-Size: 13
+Depends: linux-base-rpi-2712 (= 1:6.18.60-1+rpt1), linux-image-6.18.60+rpt-rpi-2712 (= 1:6.18.60-1+rpt1)
+Provides: linux-latest-modules-6.18.60+rpt-rpi-2712, wireguard-modules (= 1.0.0)
+Homepage: https://github.com/raspberrypi/linux/
+Priority: optional
+Section: kernel
+Filename: pool/main/l/linux/linux-image-rpi-2712_6.18.60-1+rpt1_arm64.deb
+Size: 1436
+SHA512: eee3ff3371f9e1fcdba21caa85cf5dcd84cb294d6b651663776251fa275a3b572d23ba39bf6c688a3f7354fc8ca8127a0f6ef68eb32faa583f429c3e707b5eff
+SHA256: 7dea279a33d4081e5989d22d980e5e20ee3be642095ad5cbd09a406fd46726c7
+SHA1: c9aa322164473b79e4b76ae8ce9d964dbd9b4e5d
+MD5sum: 190179d4ed627b7e22eb99fa2c15d050
+Description: Linux for Raspberry Pi 2712 (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ Raspberry Pi 2712 kernel.
+
+Package: linux-image-rpi-v8
+Source: linux
+Version: 1:6.18.60-1+rpt1
+Architecture: arm64
+Installed-Size: 13
+Depends: linux-base-rpi-v8 (= 1:6.18.60-1+rpt1), linux-image-6.18.60+rpt-rpi-v8 (= 1:6.18.60-1+rpt1)
+Provides: linux-latest-modules-6.18.60+rpt-rpi-v8, wireguard-modules (= 1.0.0)
+Homepage: https://github.com/raspberrypi/linux/
+Priority: optional
+Section: kernel
+Filename: pool/main/l/linux/linux-image-rpi-v8_6.18.60-1+rpt1_arm64.deb
+Size: 1440
+SHA512: 805c5fbf5a421a5a500f1f60ec9570bbec5918200987fe8e78685b9bca5ffc63f84523ea88aa6f33b06f948cf5b16d7a35078b634c20055372fa26ec2cc1793b
+SHA256: 6adb3b13b1a2459a897dd5dbff5997947940b3d3da19ca4c1b8931f255a1bb0b
+SHA1: 6408918eb19df75fd5678a1a3696f87dfcfddfc0
+MD5sum: 6c09dcd5404bab10ffcc5c07717588f7
+Description: Linux for Raspberry Pi v8 (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ Raspberry Pi v8 kernel.
+

@@ -1,0 +1,53 @@
+PREFLIGHT source: Debian GNU/Linux 13 (trixie), kernel files: 2
+PREFLIGHT P-b skipped (reusing prepared /dev/loop1)
+4f4d4c31-01 ../../loop1p1
+4f4d4c31-02 ../../loop1p2
+4f4d4c31-03 ../../loop1p3
+4f4d4c31-04 ../../loop1p4
+4f4d4c31-05 ../../loop1p5
+4f4d4c31-06 ../../loop1p6
+4f4d4c31-07 ../../loop1p7
+PREFLIGHT slot A: rauc v1.15.2, ONEMIND_VERSION=1
+tryboot_a_b=1 boot_partition=3 [tryboot] boot_partition=2 
+PREFLIGHT boot A cmdline_a: console=serial0,115200 console=tty1 rootfstype=ext4 fsck.repair=yes rootwait resize root=PARTUUID=4f4d4c31-05 rw rauc.slot=A panic=10 cgroup_memory=1 cgroup_enable=memory
+# --- OneMind LAB-rauc-1152 (tryboot A/B) ---
+[all]
+usb_max_current_enable=1
+[boot_partition=2]
+cmdline=cmdline_a.txt
+[boot_partition=3]
+cmdline=cmdline_b.txt
+[all]
+PREFLIGHT P-c device policy (rauc info under the device's system.conf)
+PREFLIGHT   good: ACCEPTED (Bundle Format:  verity)
+PREFLIGHT   plain-good: REFUSED (Bundle format 'plain' not allowed)
+PREFLIGHT   wrong-key: REFUSED (signature verification failed: Verify error: unable to get local issuer certificate)
+PREFLIGHT P-d rauc install good.raucb from slot A
+PREFLIGHT   desk binary: rauc v1.15.2 (service=false, same commit)
+rauc-event-Message: 07:51:46.957: Updating slot rootfs.1
+rauc-Message: 07:51:46.957: Updating /dev/disk/by-partuuid/4f4d4c31-06 with /run/rauc-mnt/bundle/rootfs.ext4
+rauc-Message: 07:51:46.957: opening slot device /dev/disk/by-partuuid/4f4d4c31-06
+Updating slot rootfs.1
+rauc-Message: 07:51:46.957: writing data to device /dev/disk/by-partuuid/4f4d4c31-06
+rauc-Message: 07:52:03.615: Updating slot rootfs.1 status
+Updating slot rootfs.1 done
+rauc-Message: 07:52:03.623: Marking target slot boot.1 as bootable (active/primary)...
+All slots updated
+tryboot-ab set-primary B: armed one-shot tryboot
+rauc-event-Message: 07:52:03.630: Marked slot boot.1 as active
+rauc-event-Message: 07:52:03.735: Installation c7138ddc succeeded
+finished
+Installing `/data/bundles/good.raucb` succeeded
+PREFLIGHT   pending marker: B 2; reboot-param: 0 tryboot
+PREFLIGHT   autoboot.txt unchanged by install: yes
+PREFLIGHT   root B now: ONEMIND_VERSION=2
+PREFLIGHT   boot B now: 50 files, cmdline_b: console=serial0,115200 console=tty1 rootfstype=ext4 fsck.repair=yes rootwait resize root=PARTUUID=4f4d4c31-06 rw rauc.slot=B panic=10 cgroup_memory=1 cgroup_enable=memory
+PREFLIGHT   backend get-primary: B  get-state B: bad
+PREFLIGHT P-e backend state machine with a faked device tree
+PREFLIGHT   tryboot boot from p3: get-current=B; set-state B good -> tryboot-ab: committing slot B (autoboot.txt swap) 
+PREFLIGHT   autoboot.txt now: [all] tryboot_a_b=1 boot_partition=3 [tryboot] boot_partition=2  good: slot-A.good slot-B.good 
+PREFLIGHT   normal boot from p3: get-primary=B; set-state B good -> rc=0
+PREFLIGHT   set-primary A (rollback path): tryboot-ab set-primary A: armed one-shot tryboot  param=0 tryboot
+PREFLIGHT   refuse commit without tryboot: set-state A good from a normal p3 boot -> tryboot-ab: refusing to mark A good: not booted from it via tryboot rc=1
+PREFLIGHT   set-state A bad -> rc=0; good files: slot-B.good 
+PREFLIGHT done

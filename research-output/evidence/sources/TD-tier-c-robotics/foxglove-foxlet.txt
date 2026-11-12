@@ -1,0 +1,144 @@
+Source: https://docs.foxglove.dev/docs/fleet/foxlet
+Accessed: 2026-11-11
+
+Foxlet | Foxglove Docs
+
+Skip to main content
+
+DocumentationSDKAPIChangelog
+Back to Foxglove
+
+Search
+
+Getting started
+Overview
+Getting started guide
+Python
+C++
+Rust
+
+Frameworks
+Open a file
+Explore examples
+
+Hardware
+
+Robots
+
+Custom Data
+
+Agents & MCP
+Overview
+Agent sidebar
+MCP server
+Slack
+
+Visualization
+Overview
+
+Connecting to data
+Playback
+Comparison mode
+Layouts
+
+Panels
+Variables
+User Scripts
+FoxQL
+Shareable links
+Video export
+Open via CLI
+Annotate ROS enum fields
+Controls and shortcuts
+Migrate from other tools
+
+Data Platform
+Overview
+Importing data
+Exporting data
+Devices
+Recordings
+Sessions
+Events
+
+Search
+
+Primary Sites
+
+Edge Sites
+
+Fleet
+Overview
+Device Tokens
+
+Foxlet
+Device Tokens
+Installation
+Manage data
+Logging
+Foxlet state
+FAQ
+Bridge
+Remote Access
+
+Integration
+
+Extensions
+
+Webhooks
+
+Embedding Foxglove
+
+Jupyter notebook
+
+Grafana
+CLI
+OAuth
+Personal access tokens
+Release feeds
+
+Administration
+Settings
+Audit logs
+Pricing
+Standalone License
+Projects
+Roles
+Seat types
+SSO
+
+Fleet
+Foxlet
+
+Foxlet
+Foxlet is a lightweight process (sometimes known as a "device agent" or daemon) you install on each device to provide connectivity between that device and Foxglove cloud. It:
+
+Monitors a local directory for recordings.
+
+Notifies Foxglove of recording metadata.
+
+Automatically imports recordings matching a specified glob pattern.
+
+Imports recordings to Foxglove on request.
+
+Once recordings are available, they appear on your Foxglove organization's Recordings page and can be imported on demand.
+
+note
+
+Foxlet was previously referred to as "Foxglove Agent".
+
+Create a device token to get started.
+
+tip
+
+While we support processing large files, we generally recommend avoiding very large (50GB+) files to reduce the chance of upload failures or processing issues. If you have tooling that generates very large files, consider splitting them up into smaller chunks.
+Previous
+Device Tokens
+Next
+Device Tokens
+Need help? Contact support.
+Chat with the community on Discord.
+See the changelog.
+Interested in buying? See pricing.
+Read the latest on the Foxglove blog.
+LLM? Read llms.txt.

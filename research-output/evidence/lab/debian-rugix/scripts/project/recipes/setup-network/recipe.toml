@@ -1,0 +1,2 @@
+description = "DHCP on all Ethernet interfaces"
+dependencies = ["core/pkg-update"]

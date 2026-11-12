@@ -1,0 +1,6 @@
+wall 165s
+DC20-F1 BEGIN 6.12.116+deb13-amd64 PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+DC20-F1 uptime-at-start 37.39
+wall 114s
+DC20-F1 BEGIN 6.12.112 PRETTY_NAME="Buildroot 2025.02.19"
+DC20-F1 uptime-at-start 10.70

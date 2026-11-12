@@ -1,0 +1,165 @@
+Why does Private DNS not accept IP addresses?
+Does DNS-over-TLS (Private DNS) protect other connections?
+Does DNS-over-TLS (Private DNS) hide which sites are visited, etc.?
+What kind of VPN and Tor support is available?
+Can apps monitor network connections or statistics?
+Does GrapheneOS provide a firewall?
+How can I set up system-wide ad-blocking?
+Are ad-blocking apps supported?
+Is the baseband isolated?
+Why am I seeing a message about my bootloader not being locked when setting up the device?
+Day to day use
+How do I keep the OS updated?
+How do I update without connecting the device to the internet?
+Do notifications properly work on GrapheneOS?
+How do I transfer files to another device?
+Will GrapheneOS include support for Google services?
+What features does GrapheneOS implement?
+Does GrapheneOS provide Factory Reset Protection?
+Why aren't my favorite apps bundled with GrapheneOS?
+What is the roadmap for GrapheneOS?
+How do I install GrapheneOS?
+Can I buy a device with GrapheneOS preinstalled?
+How do I build GrapheneOS?
+How can I donate to GrapheneOS?
+Does GrapheneOS make upstream contributions?
+Is GrapheneOS audited?
+When was the GrapheneOS project founded?
+How is CopperheadOS related to GrapheneOS?
+Will GrapheneOS create a company?
+Who owns the GrapheneOS code and how is it licensed?
+What about the GrapheneOS name and logo?
+
+Device support
+Which devices are supported?
+Devices sold in partnership with specific carriers may be locked by the carrier, which will prevent installing GrapheneOS. This is primarily an issue with US carriers and isn't common elsewhere in the world. To avoid this, either don't buy a carrier device, or make sure it can be unlocked. It's the same hardware/firmware/software either way but carriers dislike having devices able to bypass their paywall for tethering, etc., so they disable it for the devices they sell as part of contracts.
+GrapheneOS has official production support for the following devices:
+Pixel 10a (stallion)
+Pixel 10 Pro Fold (rango)
+Pixel 10 Pro XL (mustang)
+Pixel 10 Pro (blazer)
+Pixel 10 (frankel)
+Pixel 9a (tegu)
+Pixel 9 Pro Fold (comet)
+Pixel 9 Pro XL (komodo)
+Pixel 9 Pro (caiman)
+Pixel 9 (tokay)
+Pixel 8a (akita)
+Pixel 8 Pro (husky)
+Pixel 8 (shiba)
+Pixel Fold (felix)
+Pixel Tablet (tangorpro)
+Pixel 7a (lynx)
+Pixel 7 Pro (cheetah)
+Pixel 7 (panther)
+Pixel 6a (bluejay)
+Pixel 6 Pro (raven)
+Pixel 6 (oriole)
+The release tags for these devices have official builds and updates available. These devices meet the stringent privacy and security standards and have substantial upstream and downstream hardening specific to the devices.
+We provide extended support releases as a stopgap for users to transition to the far more secure current generation devices.
+Many other devices are supported by GrapheneOS at a source level, and it can be built for them without modifications to the existing GrapheneOS source tree. Device support repositories for the Android Open Source Project can simply be dropped into the source tree, with at most minor modifications within them to support GrapheneOS. In most cases, substantial work beyond that will be needed to bring the support up to the same standards. For most devices, the hardware and firmware will prevent providing a reasonably secure device, regardless of the work put into device support.
+GrapheneOS does not support being used as a Generic System Image, which only exists for development/testing purposes and isn't usable for GrapheneOS since we require kernel changes and the userspace part of the OS cannot run on top of a kernel without the required functionality. The generic targets simply run on top of the underlying device support code (firmware, kernel, device trees, vendor code) rather than shipping it and keeping it updated. It would be possible to ship generic system images with separate updates for the device support code. However, it would be drastically more complicated to maintain and support due to combinations of different versions and it would cause complications for the hardening done by GrapheneOS. The motivation doesn't exist for GrapheneOS, since full updates with deltas to minimize bandwidth can be shipped for every device and GrapheneOS is the only party involved in providing the updates. For the same reason, it has little use for the ability to provide out-of-band updates to system image components including all the apps and many other components.
+Some of the GrapheneOS sub-projects support other operating systems on a broader range of devices. Device support for Auditor and AttestationServer is documented in the overview of those projects. The hardened_malloc project supports nearly any Linux-based environment due to official support for musl, glibc and Bionic along with easily added support for other environments. It can easily run on non-Linux-based operating systems too, and supporting some like HardenedBSD is planned but depends on contributors from those communities.
+Which devices are recommended?
+Devices sold in partnership with specific carriers may be locked by the carrier, which will prevent installing GrapheneOS. This is primarily an issue with US carriers and isn't common elsewhere in the world. To avoid this, either don't buy a carrier device, or make sure it can be unlocked. It's the same hardware/firmware/software either way but carriers dislike having devices able to bypass their paywall for tethering, etc., so they disable it for the devices they sell as part of contracts.
+We strongly recommend only purchasing one of the following devices for GrapheneOS due to better security and a long minimum support guarantee from launch for full security updates and other improvements:
+Pixel 10a
+Pixel 10 Pro Fold
+Pixel 10 Pro XL
+Pixel 10 Pro
+Pixel 10
+Pixel 9a
+Pixel 9 Pro Fold
+Pixel 9 Pro XL
+Pixel 9 Pro
+Pixel 9
+Pixel 8a
+Pixel 8 Pro
+Pixel 8
+8th generation and later Pixels provide a minimum guarantee of 7 years of support from launch instead of the previous 5 year minimum guarantee. 8th generation and later Pixels also have support for the incredibly powerful hardware memory tagging security feature as part of moving to new ARMv9 CPU cores. GrapheneOS uses hardware memory tagging by default to protect the base OS and known compatible user installed apps against exploitation, with the option to use it for all apps and opt-out on a case-by-case basis for the few incompatible with it. Pointer authentication, branch target identification and other ARM security features were also introduced at the same time as hardware memory tagging.
+Which devices will be supported in the future?
+Devices are carefully chosen based on their merits rather than the project aiming to have broad device support. Broad device support is counter to the aims of the project, and the project will eventually be engaging in hardware and firmware level improvements rather than only offering suggestions and bug reports upstream for those areas. Much of the work on the project involves changes that are specific to different devices, and officially supported devices are the ones targeted by most of this ongoing work.
+Hardware, firmware and software specific to devices like drivers play a huge role in the overall security of a device. The goal of the project is not to slightly improve some aspects of insecure devices and supporting a broad set of devices would be directly counter to the values of the project. A lot of the low-level work also ends up being fairly tied to the hardware.
+Non-exhaustive list of requirements for future devices, which are standards met or exceeded by devices starting from Pixel 8 (shiba) through Pixel 10a (stallion):
+Support for using alternate operating systems including full hardware security functionality
+Complete monthly Android Security Bulletin patches without any regular delays longer than a week for device support code (firmware, drivers and HALs)
+At least 5 years of updates from launch for device support code with phones (Pixels now have 7) and 7 years with tablets
+Device support code updated to new monthly, quarterly and yearly releases of AOSP within several months to provide new security improvements (Pixels receive these in the month they're released)
+Linux 6.1, 6.6 or 6.12 Generic Kernel Image (GKI) support
+Hardware accelerated virtualization usable by GrapheneOS (ideally pKVM to match Pixels but another usable implementation may be acceptable)
+Hardware memory tagging (ARM MTE or equivalent)
+Hardware-based coarse grained Control Flow Integrity (CFI) for baseline coverage where type-based CFI isn't used or can't be deployed (BTI/PAC, CET IBT or equivalent)
+PXN, SMEP or equivalent
+PAN, SMAP or equivalent
+Isolated radios (cellular, Wi-Fi, Bluetooth, NFC, etc.), GPU, SSD, media encode and decode, image processor and other components
+Support for A/B updates of both the firmware and OS images with automatic rollback if the initial boot fails one or more times
+Verified boot with rollback protection for firmware
+Verified boot with rollback protection for the OS (Android Verified Boot)
+Verified boot key fingerprint for yellow boot state displayed with a secure hash (non-truncated SHA-256 or better)
+StrongBox keystore provided by secure element
+Hardware key attestation support for the StrongBox keystore
+Attest key support for hardware key attestation to provide pinning support
+Weaver disk encryption key derivation throttling provided by secure element
+Insider attack resistance for updates to the secure element (Owner user authentication required before updates are accepted)
+Inline disk encryption acceleration with wrapped key support
+64-bit-only device support code
+Wi-Fi anonymity support including MAC address randomization, probe sequence number randomization and no other leaked identifiers
+Support for disabling USB data and also USB as a whole at a hardware level in the USB controller
+Reset attack mitigation for firmware-based boot modes such as fastboot mode zeroing memory left over from the OS and delaying opening up attack surface such as USB functionality until that's completed
+Debugging features such as JTAG or serial debugging must be inaccessible while the device is locked
+In order to support a device, the appropriate resources also need to be available and dedicated towards it. Releases for each supported device need to be robust and stable, with all standard functionality working properly and testing for each of the releases.
+The expectation is for people to buy a secure device meeting our requirements to run GrapheneOS. Broad device support would imply mainly supporting very badly secured devices unable to support our features. It would also take a substantial amount of resources away from our work on privacy and security, especially since a lot of it is closely tied to the hardware such as the USB-C port control and fixing or working around memory corruption bugs uncovered by our features. We plan to partner with OEMs to have devices produced meeting all our requirements, providing additional privacy/security features beyond them and ideally shipping with GrapheneOS rather than massively lowering our standards.
+Why are older devices no longer supported?
+GrapheneOS aims to provide reasonably private and secure devices. It cannot do that once device support code like firmware, kernel and vendor code is no longer actively maintained. Even if the community was prepared to take over maintenance of the open source code and to replace the rest, firmware would present a major issue, and the community has never been active or interested enough in device support to consider attempting this. Unlike many other platforms, GrapheneOS has a much higher minimum standard than simply having devices fully functional, as they also need to provide the expected level of security. It would start to become realistic to provide substantially longer device support once GrapheneOS controls the hardware and firmware via custom hardware manufactured for it. Until then, the lifetime of devices will remain based on manufacturer support. It's also important to keep in mind that phone vendors claiming to provide longer support often aren't actually doing it and some never even ship firmware updates when the hardware is still supported by the vendors...
+GrapheneOS also has high standards for the privacy and security properties of the hardware and firmware, and these standards are regularly advancing. The rapid pace of improvement has been slowing down, but each hardware generation still brings major improvements. Over time, the older hardware starts to become a substantial liability and holds back the project. It becomes complex to simply make statements about the security of the project when exceptions for old devices need to be listed out. Our current standards for security based on current generation devices are only applied to new devices rather than ones which used to meet previous standards. Devices remain supported until end-of-life despite no longer meeting our current standards.
+Which devices did GrapheneOS support in the past?
+The following end-of-life devices are no longer supported:
+Pixel 5a (barbet)
+Pixel 5 (redfin)
+Pixel 4a (5G) (bramble)
+Pixel 4a (sunfish)
+Pixel 4 XL (coral)
+Pixel 4 (flame)
+Pixel 3a XL (bonito)
+Pixel 3a (sargo)
+Pixel 3 XL (crosshatch)
+Pixel 3 (blueline)
+Pixel 2 XL (taimen)
+Pixel 2 (walleye)
+Pixel XL (marlin)
+Pixel (sailfish)
+Nexus 6P (angler)
+Nexus 5X (bullhead)
+Nexus 9 (flounder)
+Nexus 5 (hammerhead)
+Samsung Galaxy S4 (jflte)
+GrapheneOS also used to provide official support for the following development boards (without publishing official builds) but dropped support due to lack of community interest and lack of hardware availability:
+HiKey 960 (hikey960)
+HiKey (hikey)
+How long can GrapheneOS support my device?
+GrapheneOS can only fully provide security updates to a device provided that the OEM is releasing them. When an OEM is no longer providing security updates, GrapheneOS may provide temporary extended support releases for harm reduction. Extended support releases cannot provide full security patches and should not be used except as a last resort while planning to get a new device.
+Official updates for Pixels typically end shortly after end of the minimum guaranteed update support. There are occasionally a month or several months of additional updates but people shouldn't plan around it happening.
+DeviceOEM minimum support endOEM minimum support length
+Google Pixel 10aMarch 20337 years
+Google Pixel 10 Pro FoldOctober 20327 years
+Google Pixel 10 Pro XLAugust 20327 years
+Google Pixel 10 ProAugust 20327 years
+Google Pixel 10August 20327 years
+Google Pixel 9aApril 20327 years
+Google Pixel 9 Pro FoldAugust 20317 years
+Google Pixel 9 Pro XLAugust 20317 years
+Google Pixel 9 ProAugust 20317 years
+Google Pixel 9August 20317 years
+Google Pixel 8aMay 20317 years
+Google Pixel 8 ProOctober 20307 years
+Google Pixel 8October 20307 years
+Google Pixel FoldJune 20285 years
+Google Pixel TabletJune 20285 years
+Google Pixel 7aMay 20285 years
+Google Pixel 7 ProOctober 20275 years
+Google Pixel 7October 20275 years
+Google Pixel 6aJuly 20275 years
+Google Pixel 6 ProOctober 20265 years
+Google Pixel 6October 20265 years
+
+Security and privacy

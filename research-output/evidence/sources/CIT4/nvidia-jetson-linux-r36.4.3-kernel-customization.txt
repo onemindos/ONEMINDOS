@@ -1,0 +1,273 @@
+Source: https://docs.nvidia.com/jetson/archives/r36.4.3/DeveloperGuide/SD/Kernel/KernelCustomization.html (accessed 2026-11-11; saved as text; emails/MACs/serials masked)
+
+
+ Kernel Customization — NVIDIA Jetson Linux Developer Guide 
+ Skip to main content 
+ Back to top 
+ Ctrl + K 
+ NVIDIA Jetson Linux Developer Guide
+ NVIDIA Jetson Linux Developer Guide
+ Table of Contents
+ Introduction 
+ Welcome 
+ Quick Start 
+ Architecture 
+ Jetson Software Architecture 
+ Boot Architecture 
+ Jetson AGX Orin, Orin NX and Orin Nano Boot Flow 
+ Partition Configuration 
+ Software Feature Overview 
+ Jetson Orin Series 
+ Software Features in Depth 
+ Flashing Support 
+ Emulation Flash Configurations 
+ Root File System 
+ Bootloader 
+ T23x Boot Configuration Table 
+ Pinmux and GPIO Configuration 
+ Common Prod Configuration 
+ Controller Product Configuration 
+ Pad Voltage DT Binding 
+ PMIC Configuration 
+ Storage Device Configuration 
+ UPHY Lane Configuration 
+ OEM-FW Ratchet Configuration 
+ BootROM Reset PMIC Configuration 
+ Miscellaneous Configuration 
+ SDRAM Configuration 
+ DRAM-ECC 
+ GPIO Interrupt Mapping Configuration 
+ MB2 BCT Misc Configuration 
+ Security Configuration 
+ UEFI Adaptation 
+ Update and Redundancy 
+ Kernel 
+ Kernel Adaptation 
+ Kernel Customization 
+ Bring Your Own Kernel 
+ Generic Timestamp Engine 
+ BMI088 IMU Driver 
+ Kernel Boot Time Optimization 
+ Display Configuration and Bring-Up 
+ Common Display configurations for all Platforms 
+ Orin specific Display Configuration 
+ Kernel Debugging Tools 
+ Multimedia 
+ Multimedia APIs 
+ Accelerated Decode with ffmpeg 
+ Accelerated GStreamer 
+ Software Encode in Orin Nano 
+ Hardware Acceleration in the WebRTC Framework 
+ Graphics 
+ Graphics APIs 
+ Graphics Programming 
+ Binary Shader Program Management 
+ GLSLC Shader Program Compiler 
+ OpenGL ES Programming Tips 
+ EGLStream 
+ EGLDevice 
+ Sample Applications 
+ OpenWFD 
+ Vulkan SC 
+ Vulkan SC Samples 
+ Windowing Systems 
+ Weston (Wayland) 
+ X Window System 
+ Camera Development 
+ Camera Software Development Solution 
+ Sensor Software Driver Programming 
+ Jetson Virtual Channel with GMSL Camera Framework 
+ Argus NvRaw Tool 
+ Camera Driver Porting 
+ Security 
+ Secure Boot 
+ Factory Secure Key and Expansion Key Provisioning 
+ OP-TEE: Open Portable Trusted Execution Environment 
+ Disk Encryption 
+ Secure Storage 
+ Firmware TPM 
+ Rollback Protection 
+ Memory Encryption 
+ PVA Authentication 
+ Communications 
+ PCIe Endpoint Mode 
+ Enabling Bluetooth Audio 
+ Audio Setup and Development 
+ Clocks 
+ Platform Power and Performance 
+ Jetson Orin Nano Series, Jetson Orin NX Series and Jetson AGX Orin Series 
+ Software Packages and the Update Mechanism 
+ Boot Time Optimization 
+ Working With Sources 
+ Test Plan and Validation 
+ Hardware References 
+ Jetson Developer Kit Setup 
+ Jetson EEPROM Layout 
+ Jetson Module Adaptation and Bring-Up 
+ Jetson AGX Orin Series 
+ Jetson Orin NX and Nano Series 
+ Checklists 
+ Configuring the Jetson Expansion Headers 
+ Controller Area Network (CAN) 
+ Applications and Tools 
+ Board Automation 
+ Jetson Linux Toolchain 
+ Jetson Linux Development Tools 
+ Debugging on Jetson Platforms 
+ Program Trace Macrocell 
+ Tegrastats Utility 
+ Tegra Combined UART 
+ How to Submit a Bug Report 
+ Reference Material 
+ Package Manifest 
+ Related Documentation 
+ Legal Information 
+ Kernel 
+ Kernel Customization
+ Kernel Customization # 
+ You can manually rebuild the kernel used for the NVIDIA ® Jetson™ Linux. You must have Internet access for this.
+ Prerequisites # 
+ You have installed Git. You can install with the following command:
+ $ sudo apt install git-core
+ Your system has the default Git port 9418 open for outbound connections.
+ You have installed the Linux kernel build utilities. You can install with the following command:
+ $ sudo apt install build-essential bc
+ You have installed the toolchain. See Jetson Linux Toolchain 
+for information about how to download and install the reference toolchain.
+ Obtaining the Kernel Sources # 
+ You can obtain the Jetson Linux kernel sources in the following ways:
+ Sync the sources using Git.
+ download the kernel source files and manually extract them.
+ NVIDIA recommends that you sync with Git.
+ To Sync the Kernel Sources with Git # 
+ To get the kernel source, run the source_sync.sh script:
+ $ cd <install-path>/Linux_for_Tegra/source
+$ ./source_sync.sh -k -t <release-tag>
+ The correct release-tag is specified in the release notes. This tag name syncs the sources to the source revision from which the release binary was built.
+ To Manually Download and Expand the Kernel Sources # 
+ In your browser, go to https://developer.nvidia.com/embedded/jetson-linux-archive .
+ Locate and download the Jetson Linux source files for your release.
+ Extract the .tbz2 file:
+ $ tar xf public_sources.tbz2 -C <install-path>/Linux_for_Tegra/..
+ Extract the kernel and the NVIDIA out-of-tree modules source files:
+ $ cd <install-path>/Linux_for_Tegra/source
+$ tar xf kernel_src.tbz2
+$ tar xf kernel_oot_modules_src.tbz2
+$ tar xf nvidia_kernel_display_driver_source.tbz2
+ This extracts the kernel source to the kernel/ subdirectory, and the NVIDIA out-of-tree kernel modules sources to the current directory.
+ Building the Jetson Linux Kernel # 
+ Go to the build directory:
+ $ cd <install-path>/Linux_for_Tegra/source
+ If you are building the real-time kernel, enable the real-time configuration:
+ $ ./generic_rt_build.sh "enable"
+ Run the following commands to build the Jetson Linux kernel and its in-tree modules:
+ $ export CROSS_COMPILE=<toolchain-path>/bin/aarch64-buildroot-linux-gnu-
+$ make -C kernel
+ Run the following commands to install the kernel and in-tree modules:
+ $ export INSTALL_MOD_PATH=<install-path>/Linux_for_Tegra/rootfs/
+$ sudo -E make install -C kernel
+$ cp kernel/kernel-jammy-src/arch/arm64/boot/Image \
+ <install-path>/Linux_for_Tegra/kernel/Image
+ Building the NVIDIA Out-of-Tree Modules # 
+ Go to the build directory:
+ $ cd <install-path>/Linux_for_Tegra/source
+ If you are building the real-time kernel, configure the following variable that pertains to the nvdisplay drivers:
+ $ export IGNORE_PREEMPT_RT_PRESENCE=1
+ Run the following commands to build:
+ $ export CROSS_COMPILE=<toolchain-path>/bin/aarch64-buildroot-linux-gnu-
+$ export KERNEL_HEADERS=$PWD/kernel/kernel-jammy-src
+$ make modules
+ Run the following commands to install:
+ $ export INSTALL_MOD_PATH=<install-path>/Linux_for_Tegra/rootfs/
+$ sudo -E make modules_install
+ To update the initramfs, run the following commands:
+ $ cd <install-path>/Linux_for_Tegra
+$ sudo ./tools/l4t_update_initrd.sh
+ Note
+ If you are building natively on a target, to update the the initramfs directly on the target, run the sudo nv-update-initrd command.
+ Building the DTBs # 
+ Go to the build directory:
+ $ cd <install-path>/Linux_for_Tegra/source
+ Run the following commands to build:
+ $ export CROSS_COMPILE=<toolchain-path>/bin/aarch64-buildroot-linux-gnu-
+$ export KERNEL_HEADERS=$PWD/kernel/kernel-jammy-src
+$ make dtbs
+ Run the following commands to install:
+ $ cp kernel-devicetree/generic-dts/dtbs/* <install-path>/Linux_for_Tegra/kernel/dtb/
+ Note
+ If KERNEL_HEADERS points to a source directory rather than an exported headers directory,
+you will need to run make ARCH=arm64 defconfig scripts or equivalent in order to build dtc.
+ Signing and Encrypting the Kernel, the kernel-dtb, and the initrd Binary Files # 
+ To support Secure Boot, the kernel, kernel-dtb, and initrd binary files must be signed and encrypted with keys to generate encrypted binary files and signature files.
+ See the topic Secure Boot .
+ Using the Jetson Linux Real-Time Kernel Package # 
+ Starting with release 35.1, Real-Time Kernel support is provided with Developer-Preview quality for the following platforms:
+ Jetson Orin AGX
+ Jetson Orin NX and Nano
+ Real-Time Kernel Using OTA Update # 
+ The real-time (RT) kernel can be installed with a Debian package management-based OTA on Jetson devices running Jetson Linux or Jetson components on a host computer.
+ Installing the Real-Time Kernel Packages on a Jetson Device # 
+ Open the apt source configuration file in a text editor, for example:
+ $ sudo vi /etc/apt/sources.list.d/nvidia-l4t-apt-source.list
+ Add the RT kernel repository:
+ deb https://repo.download.nvidia.com/jetson/rt-kernel <release> main
+ Where:
+ <release> is the release number of the minor release to which you want to
+update. For example, to update to release 36.3, replace <release> with r36.3 . OTA updates install the latest version of the specified release.
+ Save and close the source configuration file.
+ Enter the following command:
+ $ sudo apt update
+ Install the RT kernel packages:
+ $ sudo apt install nvidia-l4t-rt-kernel nvidia-l4t-rt-kernel-headers nvidia-l4t-rt-kernel-oot-modules nvidia-l4t-display-rt-kernel
+ Reboot your Jetson device after the installation is finished:
+ $ sudo reboot
+ Removing the Real-Time Kernel Packages on a Jetson Device # 
+ Remove the RT kernel packages with the below command:
+ $ sudo apt remove nvidia-l4t-rt-kernel nvidia-l4t-rt-kernel-headers nvidia-l4t-rt-kernel-oot-modules nvidia-l4t-display-rt-kernel
+ Reboot your Jetson device:
+ $ sudo reboot
+ Switch to a Different Kernel # 
+ Once you have installed the real-time kernel on your device, you may want to switch between the real-time kernel image and the original generic kernel image
+without re-installing or removing kernel packages. You can do this by editing /boot/extlinux/extlinux.conf and setting the DEFAULT property to specify the
+kernel you want to boot. Set DEFAULT to real-time for the real-time kernel, or to primary for the generic kernel.:
+ TIMEOUT 30
+DEFAULT real-time
+ Note
+ The UEFI runtime services are enabled by default which may increase latency. We do not recommend using UEFI runtime services while running RT applications. Refer to commit ba7585a4a5580b4cba26ebe76050bd2ef1148948 for more information.
+ previous
+ Kernel Adaptation
+ next
+ Bring Your Own Kernel
+ On this page
+ Prerequisites 
+ Obtaining the Kernel Sources 
+ To Sync the Kernel Sources with Git 
+ To Manually Download and Expand the Kernel Sources 
+ Building the Jetson Linux Kernel 
+ Building the NVIDIA Out-of-Tree Modules 
+ Building the DTBs 
+ Signing and Encrypting the Kernel, the kernel-dtb, and the initrd Binary Files 
+ Using the Jetson Linux Real-Time Kernel Package 
+ Real-Time Kernel Using OTA Update 
+ Installing the Real-Time Kernel Packages on a Jetson Device 
+ Removing the Real-Time Kernel Packages on a Jetson Device 
+ Switch to a Different Kernel 
+ so the DOM is not blocked -->
+ Privacy Policy 
+ | 
+ Manage My Privacy 
+ | 
+ Do Not Sell or Share My Data 
+ | 
+ Terms of Service 
+ | 
+ Accessibility 
+ | 
+ Corporate Policies 
+ | 
+ Product Security 
+ | 
+ Contact 
+ Copyright © 2024-2025, NVIDIA Corporation.
+ Last updated on Feb 25, 2025.
+ 

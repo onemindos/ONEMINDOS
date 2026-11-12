@@ -1,0 +1,31 @@
+Industrial Edge Own Device
+Operating Manual, 07/2025, A5E53643106-AE                                                                                                                        3
+Introduction                                                                                                   1
+Introduction
+                     Welcome to the documentation of the Industrial Edge Own Device (IEOD).
+                     This is an image based on the Linux Debian 12 (bookworm) distribution and the Industrial
+                     Edge Device Kit Version 1.24.1, that has been minimized and shaped for installing on a
+                     compatible x86-64 hardware and converting that to an Edge Device.
+
+
+Security information
+                        – IEM must be reachable from assigned network, see Support Industry Siemens (https://
+                          support.industry.siemens.com/cs/de/en/view/109782481).
+                     • Minimum System Requirements of hardware:
+                        – x86-64 architecture with UEFI boot support
+                        – 1 CPU core
+                        – 2 GB RAM
+                        – 15 GB disk space on non-removable drive
+                        – 1 Network Interface Card (NIC)
+
+
+Does the IEOD support arm CPU architecture (e.g. Raspberry Pi)?
+                     No, currently the IEOD does not support arm CPU architectures.
+
+
+                 This safeguards both the confidentiality and integrity of a device's data in case of
+                 unauthorized physical access to the device or if the device is stolen.
+                 Built-in disk encryption requires TPM 2.0 (Trusted Platform Module), enabled SHA256 PCR
+                 bank and ECC support.
+                 If the device has no TPM 2.0 or has TPM 2.0 disabled, IEOD skips disk encryption.
+                 Validator informs about the availability of the hardware support before the installation.

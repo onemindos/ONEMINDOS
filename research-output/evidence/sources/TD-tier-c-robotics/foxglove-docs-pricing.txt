@@ -1,0 +1,245 @@
+Source: https://docs.foxglove.dev/docs/pricing
+Accessed: 2026-11-11
+
+Pricing | Foxglove Docs
+
+Skip to main content
+
+DocumentationSDKAPIChangelog
+Back to Foxglove
+
+Search
+
+Getting started
+Overview
+Getting started guide
+Python
+C++
+Rust
+
+Frameworks
+Open a file
+Explore examples
+
+Hardware
+
+Robots
+
+Custom Data
+
+Agents & MCP
+Overview
+Agent sidebar
+MCP server
+Slack
+
+Visualization
+Overview
+
+Connecting to data
+Playback
+Comparison mode
+Layouts
+
+Panels
+Variables
+User Scripts
+FoxQL
+Shareable links
+Video export
+Open via CLI
+Annotate ROS enum fields
+Controls and shortcuts
+Migrate from other tools
+
+Data Platform
+Overview
+Importing data
+Exporting data
+Devices
+Recordings
+Sessions
+Events
+
+Search
+
+Primary Sites
+
+Edge Sites
+
+Fleet
+Overview
+Device Tokens
+
+Foxlet
+Bridge
+Remote Access
+
+Integration
+
+Extensions
+
+Webhooks
+
+Embedding Foxglove
+
+Jupyter notebook
+
+Grafana
+CLI
+OAuth
+Personal access tokens
+Release feeds
+
+Administration
+Settings
+Audit logs
+Pricing
+Standalone License
+Projects
+Roles
+Seat types
+SSO
+
+Administration
+Pricing
+On this page
+
+Pricing
+Foxglove offers pricing plans for teams of any size, from individual developers to large organizations.
+
+Visit our Pricing page for an overview of the available plans.
+
+Managing your plan​
+
+Organization admins can view and modify your plan from the Billing settings page.
+
+Tiered pricing​
+
+Each plan includes a set amount of managed infrastructure, users, and devices. On Pro and Enterprise plans, additional usage is billed according to the marginal pricing tiers below. On Free and Academic plans, included usage is a hard limit.
+
+Prepaid committed-use credits are available on the Enterprise plan. To learn more, please contact sales.
+
+Data platform​
+
+Included usage​
+
+DimensionFreePro / EnterpriseAcademic
+Storage10 GB1 TB1 TB
+Query1 hour/mo1 hour/mo10 hours/mo
+Indexing100 GB/mo1 TB/mo1 TB/mo
+Bandwidth100 GB/mo100 GB/mo1 TB/mo
+
+Storage​
+
+Storage is priced per TB-month, calculated based on your average hourly data during the billing period.
+
+RangeRate
+First 1 TBIncluded
+1 - 10 TB$50/TB/mo
+10 - 100 TB$40/TB/mo
+100 TB - 1 PB$30/TB/mo
+1+ PB$26/TB/mo
+
+Query​
+
+Query is calculated as the sum of execution time for all search, stream, and visualization data requests.
+
+RangeRate
+First 1 hourIncluded
+1 - 10 hours$3.65/hour
+10 - 100 hours$2.75/hour
+100 - 500 hours$2.35/hour
+500 - 1000 hours$2.15/hour
+1000+ hours$2.05/hour
+
+Indexing​
+
+Indexing includes any data uploaded to Foxglove, or data indexed with BYO Storage.
+
+RangeRate
+First 1 TBIncluded
+1 - 10 TB$35/TB
+10 - 100 TB$28/TB
+100 TB - 1 PB$24/TB
+1+ PB$22/TB
+
+Bandwidth​
+
+Bandwidth (egress) is charged for all data requests.
+
+RangeRate
+First 100 GBIncluded
+100 GB - 10 TB$150/TB
+10 - 100 TB$135/TB
+100 TB - 1 PB$125/TB
+1+ PB$115/TB
+
+Fleet​
+
+Included usage​
+
+DimensionFreePro / EnterpriseAcademic
+Devices5510
+Remote access—300 min/device/mo—
+
+Devices​
+
+Devices are only charged if they were active during the billing period. Additional devices are charged at $20/device/mo.
+
+Remote access​
+
+Each device includes 300 remote access minutes per month (minutes are not pooled across devices). Additional minutes are charged at $0.05/min.
+
+AI agents​
+
+Included usage​
+
+Included usage is granted per user and is not pooled across users.
+
+DimensionFreePro / EnterpriseAcademic
+AI usage$5/user/mo$5/user/mo$5/user/mo
+
+AI usage​
+
+AI agent usage is measured by the tokens consumed by Large Language Model (LLM) requests, across both the agent sidebar and the Slack integration. When a user reaches their limit, behavior depends on the plan:
+
+Free and Academic: included usage is a hard limit. The user is blocked from further AI agent usage until the monthly cycle renews, with no overage billing.
+
+Pro: the user keeps working, and the organization is billed in arrears for that user's overage at the rate below. Overage is charged per user, so users still within their allowance are never billed.
+
+Enterprise: AI overage is credit-gated rather than billed in arrears. It draws from the organization's prepaid credits, and once those run out, users are blocked until more are added.
+
+Usage includes input tokens (prompts and context), output tokens (AI responses), and prompt caching operations.
+
+RangeRate
+First $5/user/moIncluded
+Additional usageProvider cost + $1.00/MTok
+
+Provider costs vary by model and are passed through at cost. The Foxglove fee is a flat $1.00 per million tokens across all token types.
+Previous
+Audit logs
+Next
+Standalone License
+Need help? Contact support.
+Chat with the community on Discord.
+See the changelog.
+Interested in buying? See pricing.
+Read the latest on the Foxglove blog.
+LLM? Read llms.txt.
+
+Managing your plan
+Tiered pricing
+Data platform
+Included usage
+Storage
+Query
+Indexing
+Bandwidth
+Fleet
+Included usage
+Devices
+Remote access
+AI agents
+Included usage
+AI usage

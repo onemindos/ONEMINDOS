@@ -1,0 +1,80 @@
+SOURCE: https://www.synology.com/en-us/DSM74
+ACCESSED: 2026-11-11 (text extracted from HTML; emails masked)
+
+
+ DiskStation Manager 7.4 | Synology Inc.
+ DiskStation Manager 7.4
+ Smarter. Faster. More secure. DSM 7.4 brings intelligence to every layer of your system, empowering your teams and making your data infrastructure more efficient than ever.
+ Store more on every drive
+ With Storage Efficiency in DSM 7.4, Synology HDDs and SSDs store up to 5x more data, with reliable performance and simple management.
+ Learn more
+ Efficient data lifecycle management
+ The right data, in the right tier
+ Free up performance storage by moving inactive data to lower-cost tiers, automatically or on your own terms.
+ More capacity from every gigabyte
+ Lower storage costs with built-in data reduction, now available on both SSD and HDD. 
+ Up to a 3.5:1 HDD data reduction ratio across real-world Synology file-based storage workloads.
+ Combined for greater storage efficiency
+ By offloading inactive data and shrinking its footprint at the same time, DSM lowers your total cost of ownership.
+ AI-ready private cloud
+ On-Demand AI Assistance
+ DSM Agent empowers IT administrators to diagnose and resolve issues faster by transforming natural language queries into actionable insights. Learn more
+ Find your files smarter
+ Gain access to the files and data you need quickly with semantic and context-aware searching in Synology Drive.
+ Privacy by design
+ Keep sensitive data safe. Synology AI Console redacts personal information locally with customizable rules to support compliance.Learn more
+ Work smarter, together
+ Your unified private communication platform
+ Flexible team and channel architecture
+ Customizes teams and channels to adapt to diverse organizational structures
+ One platform, multiple tools
+ Integrates video conferencing, 1-1 call, Webhooks, ChatBots and slash commands all in one platform
+ Enterprise-ready security and compliance
+ Centrally manage teams with granular access controls and data loss prevention
+ Stronger email security
+ Moderation controls let admins review and approve sensitive emails before sending.
+ Scale without limits
+ Deploy and manage local mail servers independently while keeping a unified domain. Improve scalability, balance loads, and reduce latency.
+ Install on your NAS
+ Upgrade to DSM 7.4 and unlock the next generation of secure, intelligent, and efficient data management.
+ Download now
+ Notes:HDD data reduction is available on select models from 2022 onwards. Check the software specs tab on your product page to confirm compatibility.Results are based on real-world Synology internal workloads. SSD volumes achieved up to a 5:1 data reduction ratio in a virtual desktop infrastructure (VDI) environment. HDD volumes demonstrated data reduction ratios ranging from 1.5:1 to 3.5:1 across workloads including file collaboration, log retention, and document archiving. Actual savings may vary depending on workload characteristics, data patterns, and system configuration.DSM Agent analyzes your NAS model, DSM version, and active services to deliver relevant guidance. The DSM Agent beta is available now, with the official release coming in Q3 2026.The beta version of AI Search in Synology Drive is available now, with the official release coming in Q4 2026. Synology ChatPlus and Meet will be available in Q4 2026. 
+ NAS Selector
+ RAID Calculator
+ NVR Selector
+ Knowledge Center
+ Downloads
+ Newsletter
+ Company
+ About Synology
+ Blog
+ Newsroom
+ Media Coverage
+ Customer Stories
+ Office Locations
+ ESG
+ Sales
+ Where to Buy
+ Synology Store
+ Contact Us
+ Become a Partner
+ Schedule a demo
+ Compatibility
+ HDD/SSD
+ IP Cameras
+ Network Cards
+ I/O Modules, IP Speakers, Access Controllers
+ Other Devices
+ Resources
+ Products A-Z
+ Beta Program
+ Bounty Program
+ Community
+ Events
+ Subscribe to Newsletter
+ Copyright © 2026 Synology Inc. All rights reserved.
+ Terms & Conditions
+ | Privacy
+ | Cookie Preference
+ United States - English
+

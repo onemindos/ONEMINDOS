@@ -1,0 +1,59 @@
+# Excerpt: Draft ETSI EN 304 626 V1.0.1 (2026-08) Operating Systems, enquiry draft, fetched 2026-11-10
+# sha256(original PDF)=6e097f90065f2572769eb9e07d3eea9f77079eb2dcb7ce769bf6d458d71c51e3
+• Applicability: Product exposes debug or management interfaces accessible via the network  
+5.2.5 TR-SCUD: Secure updates 
+5.2.5.1 MI-KEVD: Documentation for secure update before or during first use 
+Assessment criteria: [AC-KEVD] 
+The product shall be accompanied by documentation describing how the product may be securely updated, including 
+how to update the product prior to, or as part of, first use. 
+• Applicability: The product has firmware or software update capability 
+5.2.5.2 MI-KEVA: Secure update before or during first use 
+Assessment criteria: [AC-KEVA] 
+The product shall implement a secure update mechanism that operates by default, including before or during first use.  
+The product shall provide a clear and easy-to-use mechanism allowing an authorised user to opt out of automatic 
+security updates. 
+If an authorised user opted out of automatic security updates, the product shall provide, before or during first use, a 
+mechanism to inform the user to initiate or postpone the update. 
+• Applicability: The product has firmware or software update capability 
+ 
+ETSI 
+Draft ETSI EN 304 626 V1.0.1 (2026-08) 29  
+5.2.5.3 MI-SCUE: Security updates provided by the operational environment 
+Assessment criteria: [AC-SCUE] 
+The product shall be capable of receiving and applying secure updates provided by the operational environment, with 
+their authenticity and integrity verified in accordance with MI-SUVI. The manufacturer shall document the 
+requirements that the operational environment shall satisfy to deliver secure updates.  
+5.2.5.4 MI-SUVI: Update authenticity and integrity verification 
+Assessment criteria: [AC-SUVI] 
+The product shall verify the authenticity and integrity of update packages before installation. For a given update path, 
+this verification may be satisfied by any one of the following mechanisms: 
+• verification of a cryptographic digital signature on the update package by the product;  
+• verification of update integrity only, by a hash or checksum, where authenticity is assured by compensating 
+controls such as restricted access control, an authenticated delivery channel, or controlled tooling;  
+• an authenticated secure channel between the product and an authorised update source; 
+• controlled local or offline update through authorised personnel, trusted tools, and controlled update media; or 
+• a trusted platform component, such as a package manager or installer, that verifies the authenticity and 
+integrity of update packages and controls their installation. 
+Where cryptographic mechanisms are used, they shall conform to TR-CRYP. 
+NOTE: For image-based operating systems, installation means activating the new image. 
+• Applicability: The product has firmware or software update capability 
+5.2.5.5 MI-SUDP: Anti-rollback protection 
+Assessment criteria: [AC-SUDP] 
+The product shall maintain a monotonic version counter or an equivalent mechanism to prevent the unauthor ised 
+installation of an earlier software version. 
+• Applicability: The product has firmware or software update capability 
+5.2.5.6 MI-SUAR: Authorised rollback 
+Assessment criteria: [AC-SUAR] 
+Where the product supports intentional, user-initiated rollback to an earlier software version, the rollback shall require 
+explicit authorisation. Automated recovery mechanisms that revert to the immediately preceding operational state 
+following a failed update or boot failure are considered recovery actions and are exempt from this explicit author isation 
+requirement. 
+• Applicability: The product supports intentional, user-initiated rollback to an earlier software version 
+ 
+privilege separation at the operating system level. 
+5.2.7 TR-CDST: Confidentiality of data stored on the product 
+5.2.7.1 MI-ENST: Cryptographic encryption of stored data 
+Assessment criteria: [AC-ENST] 
+Where the product stores user data, the product shall, by default, provide the option to protect the confidentiality of that 
+data at rest using a cryptographic encryption mechanism conforming to TR -CRYP. 
+• Applicability: Product stores user data 

@@ -1,0 +1,58 @@
+Synology High Availability Technical Specifications | Synology Inc. 
+ Technical Specifications
+ Synology High Availability
+ DSM Version
+ 7.4 
+ 7.3 
+ 7.2 
+ Synology High Availability
+ System Requirements
+ Cluster Operation and Management
+ Storage, Network, and Power
+ Package and Feature Compatibility
+ Synology High Availability
+ System Requirements
+ A high-availability cluster requires two identical Synology NAS devices . Hybrid high-availability clusters using different models are supported only in specific scenarios . Both Synology NAS devices must have identical DSM and SHA versions, drive numbers and capacities, system partitions, and drive slot layouts. Learn more 
+ Cluster Operation and Management
+ Replicates data in real time between active and passive servers. Performs automatic failover to minimize service interruption caused by storage failures, network connectivity loss, or hardware failures. Provides a unified interface for managing and monitoring the high-availability cluster. Displays CPU, memory, and drive utilization for both servers on the dashboard. Includes built-in troubleshooting workflows to help diagnose cluster issues. Supports updating DSM and installed packages on both servers. Supports shutting down or restarting the entire cluster or individual servers. Supports adding a quorum server to reduce the risk of split-brain scenarios. Allows manual switchover to test high-availability behavior. Limitations: HDD hibernation is not supported in a high-availability cluster. Users cannot log in to the passive server because all services run on the active server. Creating and maintaining a high-availability cluster can reduce random write performance by up to 15%. Learn more 
+ Storage, Network, and Power
+ Supports RAID 0, RAID 1, RAID 5, RAID 6, RAID 10, RAID F1, JBOD, and Basic. Supports up to 64 volumes and LUNs per cluster. Actual limits vary by model. Up to 1 PB of total volume and LUN capacity for clusters whose system partitions were created on DSM 7.1 or later. Up to 400 TB of total volume and LUN capacity for clusters whose system partitions were created before DSM 7.1. Allows creating WriteOnce (WORM) or encrypted volumes when both servers support these features. Requires at least one static IP address for communication with client devices. Requires active and passive servers to use the same Link Aggregation mode based on network configuration. Requires Heartbeat connection latency to be below 1 ms. Requires the Heartbeat network to be free of DHCP servers. Supports SNMP UPS, USB UPS, and Synology UPS servers. Limitations: SHR-formatted volumes and M.2 volumes are not supported. Drive positions cannot be changed after cluster creation. USB device switchover and failover are not supported. USB devices are accessible only when connected to the active server. IPv6, PPPoE, and Wi-Fi are not supported for network connections. The Heartbeat interface does not support VLAN IDs. Link Aggregation mode cannot be changed after cluster creation. 
+ Package and Feature Compatibility
+ Incompatible packages or features: PetaSpace Migration Assistant Virtual Machine Manager cluster features Synology MailPlus Server cluster features Limitations: Synology Directory Server should be configured after cluster creation. Refer to the User Guide if already installed. Cluster shutdown and restart cannot be performed using Synology Central Management System (CMS). Hybrid high-availability clusters Hybrid Share folders cannot be mounted on hybrid high-availability clusters. If Surveillance Station is switched to the server that has a lower maximum camera capacity, the IP cameras that exceed the limit will be stopped. Virtual Machine Manager is not supported on hybrid high-availability clusters. M.2 SSD caching is not supported on hybrid high-availability clusters that use different built-in M.2 slot types. 
+ NAS Selector
+ RAID Calculator
+ NVR Selector
+ Knowledge Center
+ Downloads
+ Newsletter
+ Company
+ About Synology 
+ Blog 
+ Newsroom 
+ Media Coverage 
+ Customer Stories 
+ Office Locations 
+ ESG 
+ Sales
+ Where to Buy 
+ Contact Us 
+ Become a Partner 
+ Compatibility
+ HDD/SSD 
+ IP Cameras 
+ Network Cards 
+ I/O Modules, IP Speakers, Access Controllers 
+ Other Devices 
+ Resources
+ Products A-Z 
+ Beta Program 
+ Bounty Program 
+ Community 
+ Events 
+ Subscribe to Newsletter 
+ Copyright © 2026 Synology Inc. All rights reserved. 
+ Terms & Conditions 
+ | Privacy 
+ | Cookie Preference 
+ Global - English 
+ Continue

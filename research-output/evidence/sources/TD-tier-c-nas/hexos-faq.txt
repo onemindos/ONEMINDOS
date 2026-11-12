@@ -1,0 +1,33 @@
+SOURCE: https://hexos.com/faq
+ACCESSED: 2026-11-11 (text extracted from HTML; emails masked)
+
+HexOS | FAQ
+ Skip to content 
+FeaturesAppsVMsYour HardwarePricingDocsDiscord
+Get HexOSGet HexOS
+FAQ
+After purchasing, when will I receive access to HexOS?
+After purchase you will receive an email with details of how to get started. This email points to documentation which provides a download link.
+What are the system requirements for HexOS?
+HexOS is designed to support a wide variety of x86 hardware (Intel or AMD). The minimum requirements are a 2-core 64-bit CPU, 8GB of memory, and a 16GB or larger SSD boot device. However, depending on your needs for performance and applications, more resources may be required.
+Storage pool requirements:
+Storage devices in each pool need to be roughly the same size.
+The OS boot device cannot be a part of a pool.
+Expandable pools require a minimum of 3 devices and can be grown one device at a time.
+Non-expandable pools can be created with 2 devices.
+Initial pool width should not exceed 8 devices.
+Maximum expanded pool width should not exceed 12 devices.
+At least one storage pool must be created to use HexOS.
+Can I install HexOS in a virtual machine?
+While HexOS is meant to be installed on physical hardware, it is based on TrueNAS SCALE, which does support use in a virtualized environment. For VM installation details, consult the TrueNAS SCALE documentation.
+When will I access 1.0?
+HexOS 1.0 launched in April 2026. All existing installs have been updated. New customers will be updated shortly after install.
+Features 
+StorageFoldersAppsVirtual MachinesBackupsHealth
+Get started 
+PricingYour HardwareDownload
+Community 
+DocsBlogForumsDiscord
+Copyright © 2026 Eshtek Inc. All rights reserved.
+FAQTerms of ServicePrivacy PolicyCookie settings
+

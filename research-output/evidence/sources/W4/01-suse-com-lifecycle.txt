@@ -1,0 +1,2201 @@
+Product Support Lifecycle | SUSE
+Exit SUSE Federal  >
+ pan_tool_alt
+ Customer Center
+ person
+ Account
+ Hello 
+ Update Your Account
+ Login
+ Create Account
+ Update Your Account
+ English
+ Language
+ Deutsch
+ English
+ Español
+ Français
+ 中文(简体)
+ 日本語
+ 한국어
+ Português (Brasil)
+ shopping_cart
+ Shop
+ View Cart
+ Exit SUSE Federal  >
+ Shop
+ SUSECON 25
+ Customer
+ Federal Solutions
+ Products
+ Solutions
+ Support
+ Partners
+ Communities
+ About
+ Contact Us
+ Free Downloads
+ Back
+ Back
+ Linux
+ SUSE Linux Enterprise Server
+ SUSE Linux Enterprise Server
+ for SAP Applications
+ SUSE Multi-Linux Support
+ SUSE Multi-Linux Manager
+ SUSE Linux Micro
+ Cloud Native
+ SUSE Rancher Prime
+ Virtualization
+ Storage
+ Security
+ Observability
+ Application Collection
+ SUSE Rancher for AWS
+ SUSE Rancher for SAP® applications
+ SUSE Cloud Observability
+ Edge
+ SUSE Edge
+ SUSE Industrial Edge
+ SUSE Telco Cloud
+ AI
+ SUSE AI Factory
+ SUSE AI Factory with NVIDIA
+ All Products
+ Back
+ Use Cases
+ Modernize Workloads across Environments
+ Optimize Operational Efficiency & Cost
+ Manage & Secure Hybrid Cloud Architecture
+ Innovate with Next Gen Technologies
+ Solutions
+ Linux
+ Cloud Native
+ Edge
+ AI
+ Run SAP
+ Digital Sovereignty
+ Public Cloud
+ Observability
+ Security
+ Industries
+ Automotive
+ Telecom
+ Banking and Financial Systems
+ Healthcare
+ Manufacturing
+ Retail
+ Technology & Software
+ Federal
+ Back
+ Support
+ Product Support
+ SUSE Customer Center
+ Premium Support Services
+ Dedicated support services from a premium team
+ Sovereign Premium Support
+ Trusted, adaptable, highly available, secure and compliant
+ Long Term Services Support
+ Stay on your existing product version
+ Renew Your Support Subscription
+ Partners with cloud providers
+ Services
+ Global Services
+ Consulting Services
+ Training & Certification
+ Premium Technical Advisory Services
+ Resources
+ SUSE Support User Guide
+ Patches & Updates
+ Product Documentation
+ Knowledgebase
+ Product Support Life Cycle
+ Package Hub
+ Community packages for SUSE Linux Enterprise Server
+ Driver Search
+ Support Forums
+ Developer Services
+ Beta Program
+ Security
+ Back
+ Partners
+ Partner Program
+ Find a Partner
+ Become a Partner
+ Login to the SUSE Partner Portal
+ Back
+ Communities
+ Blog
+ Forum
+ Open Source Projects
+ openSUSE.org
+ Back
+ About
+ About
+ Leadership
+ Careers
+ Newsroom
+ Success Stories
+ Investor Relations
+ Sustainability
+ SUSE Logo and Brand
+ Events
+ Voice of the Customer
+ Product Support Lifecycle 
+ Lifecycle Dates by Product
+ SUSE products are supported for up to thirteen years. Verify key lifecycle dates for your product in the table below.
+If you would like to learn about a specific product, please view our product support lifecycle policies including products on the public cloud.
+ QUICK SEARCH
+ Product Lifecycle
+ EOL Products
+ Choose a Filter
+ All Products
+ Harvester
+ k3s
+ Longhorn
+ NeuVector
+ RKE
+ RKE2
+ Subscription Management Tool
+ SUSE Edge
+ SUSE Linux Enterprise Desktop
+ SUSE Linux Enterprise High Availability Extension
+ SUSE Linux Enterprise HPC
+ SUSE Linux Enterprise Point of Service
+ SUSE Linux Enterprise Real Time
+ SUSE Linux Enterprise Server
+ SUSE Linux Enterprise Server for NVIDIA
+ SUSE Linux Enterprise Server for SAP applications
+ SUSE Linux Enterprise Virtual Machine Driver Pack
+ SUSE Linux Enterprise Workstation Extension
+ SUSE Linux Micro
+ SUSE Manager
+ SUSE Manager for Retail
+ SUSE Multi-Linux Support
+ SUSE Observability
+ SUSE Private Registry
+ SUSE Rancher Prime
+ SUSE Telco Cloud
+ Product Release
+ General Support Ends
+ LTSS Ends
+ Current Version
+ SUSE Virtualization
+ 29 Dec 2027
+ Not Applicable
+ SUSE Virtualization 1.9 | View Support Matrix
+ Version
+ GA
+ EOM
+ EOL
+ 1.9.0 - Community
+ 15 Sep 2026
+ 1.8.2 - Prime
+ 10 Aug 2026
+ 29 Dec 2026
+ 29 Dec 2027
+ 1.8.1 - Prime
+ 29 Jun 2026
+ 29 Dec 2026
+ 29 Dec 2027
+ 1.8.0 - Community
+ 28 Apr 2026
+ 1.7.3 - Prime
+ 10 Aug 2026
+ 9 Aug 2026
+ 9 Aug 2027
+ 1.7.2 - Prime
+ 7 Jul 2026
+ 9 Aug 2026
+ 9 Aug 2027
+ 1.7.1 - Prime
+ 9 Feb 2026
+ 9 Aug 2026
+ 9 Aug 2027
+ 1.7.0 - Community
+ 23 Dec 2025
+ 1.6.1 - Prime
+ 16 Oct 2025
+ 16 Apr 2026
+ 16 Apr 2027
+ 1.6.0 - Community
+ 27 Aug 2025
+ 1.5.2 - Prime
+ 17 Sep 2025
+ 30 Dec 2025
+ 30 Dec 2026
+ 1.5.1 - Prime
+ 30 Jun 2025
+ 30 Dec 2025
+ 30 Dec 2026
+ 1.5.0 - Community
+ 25 Apr 2025
+ 1.4.3 - Stable
+ 25 May 2025
+ 27 Nov 2025
+ 1.4.2 - Stable
+ 11 Mar 2025
+ 27 Nov 2025
+ 1.4.1 - Stable
+ 24 Jan 2025
+ 27 Nov 2025
+ 1.4.0 - Stable
+ 27 Nov 2024
+ 27 Nov 2025
+ 1.3.2 - Stable
+ 6 Sep 2024
+ 13 Jun 2025
+ 1.3.1 - Stable
+ 13 Jun 2024
+ 13 Jun 2025
+ 1.3.0 
+ 15 Mar 2024
+ 13 Jun 2025
+ 1.2.2 
+ 16 May 2024
+ 26 Oct 2024
+ 1.2.1 
+ 26 Oct 2023
+ 26 Oct 2024
+ 1.2.0 
+ 08 Sep 2023
+ 26 Oct 2024
+ 1.1.3 
+ 21 Dec 2023
+ 01 Jun 2024
+ 1.1.2 
+ 25 Apr 2023
+ 01 Jun 2024
+ 1.1.1
+ 01 Dec 2022
+ 01 Jun 2024
+ 1.1.0
+ 25 Oct 2022
+ 01 Jun 2024
+ 1.0.0
+ 21 Dec 2021
+ 21 Dec 2022
+Please ensure you do not upgrade your production cluster to anything other than a listed Stable version. Use Latest versions for test purposes only.
+ SUSE Storage
+ 13 Feb 2028
+ Not Applicable
+ SUSE Storage 1.12 | View Support Matrix
+ Version
+ GA
+ EOM
+ EOL
+ 1.13.0 - Community
+ 29 Sep 2026
+ 1.12.1 - Prime
+ 02 Jun 2026
+ 13 Feb 2027
+ 13 Feb 2028
+ 1.12.0 - Community
+ 02 Jun 2026
+ 1.11.3 - Prime
+ 01 Jul 2026
+ 12 Sep 2026
+ 12 Sep 2027
+ 1.11.2 - Prime
+ 04 May 2026
+ 12 Sep 2026
+ 12 Sep 2027
+ 1.11.1 - Prime
+ 12 Mar 2026
+ 12 Sep 2026
+ 12 Sep 2027
+ 1.11.0 - Community
+ 28 Jan 2026
+ 1.10.4 - Prime
+ 11 Jun 2026
+ 12 May 2026
+ 12 May 2027
+ 1.10.3 - Prime
+ 11 May 2026
+ 12 May 2026
+ 12 May 2027
+ 1.10.2 - Prime
+ 28 Jan 2026
+ 12 May 2026
+ 12 May 2027
+ 1.10.1 - Prime
+ 12 Nov 2025
+ 12 May 2026
+ 12 May 2027
+ 1.10.0 - Community
+ 25 Sep 2025
+ 1.9.6 - Prime
+ 11 Jun 2026
+ 24 Jan 2026
+ 24 Jan 2027
+ 1.9.5 - Prime
+ 08 May 2026
+ 24 Jan 2026
+ 24 Jan 2027
+ 1.9.4 - Prime
+ 23 Dec 2025
+ 24 Jan 2026
+ 24 Jan 2027
+ 1.9.3 - Prime
+ 19 Nov 2025
+ 24 Jan 2026
+ 24 Jan 2027
+ 1.9.2 - Prime
+ 24 Sep 2025
+ 24 Jan 2026
+ 24 Jan 2027
+ 1.9.1 - Prime
+ 24 Jul 2025
+ 24 Jan 2026
+ 24 Jan 2027
+ 1.9.0 - Community
+ 27 May 2025
+ 1.8 - Stable
+ 21 Jan 2025
+ 03 Mar 2026
+ 1.7 - Stable
+ 20 Aug 2024
+ 04 Sep 2025
+ 1.6 - Stable
+ 01 Feb 2024
+ 01 Aug 2025
+ 1.5 
+ 07 Jul 2023  
+ 17 Nov 2024
+ 1.4 
+ 30 Dec 2022
+ 13 Mar 2024
+ 1.3
+ 15 Jun 2022
+ 11 Aug 2023
+ 1.2
+ 01 Sep 2021
+ 17 Dec 2022
+ 1.1
+ 08 Dec 2020
+ 07 Jul 2022
+Please ensure you do not upgrade your production cluster to anything other than a listed Prime or Stable version. Use Community or Latest versions for test purposes only.
+The above stable major versions contain minor versions that have varying levels of stability. Please see the SUSE Storage Releases page to determine release version stability before upgrading.
+ SUSE Security
+ 15 Jan 2028
+ Not Applicable
+ SUSE Security 5.6.x
+ Version
+ GA
+ End of Life
+ 5.6.x
+ July 15, 2026
+ January 15, 2028
+ 5.5.x
+ March 19, 2026
+ September 19, 2027
+ 5.4.x
+ September 18, 2024
+ October 31, 2026
+ 5.3.x
+ February 1, 2024
+ February 1, 2026
+ 5.2.x
+ July 7, 2023
+ July 6, 2025
+ 5.1.x
+ December 16, 2022
+ December 15, 2024
+ 5.0.x
+ May 17, 2022
+ May 17, 2024
+ 4.4.x
+ December 2021
+ December 31, 2023
+ 4.3.x
+ July 2021
+ July 30, 2023
+ 4.2.x and earlier
+ March 2021 (last)
+ May 2022
+Support Policy: A minimum of 2 years from date of release of major (e.g. 5.0) or minor versions (e.g. 5.1). If releases occur less frequently than every 18 months for major releases, or 12 months for minor releases, the support timeframe may be extended beyond 2 years at the discretion of SUSE. Critical bug fixes and security patches are back ported to previous releases (which are still supported) by customer request.
+End of Life (EOL): Once a product release reaches its End of Life date, the customer may continue to use the product within the terms of product licensing agreement. However, no further code-level maintenance will be provided.
+ SUSE Private Registry 
+ 18 Nov 2027
+ Not Applicable
+ SUSE Private Registry 1.2
+ Version
+ GA
+ EOM
+ EOL
+ 1.0.x
+ 1 Sept 2025
+ 1 Mar 2026
+ 1 Mar 2027
+ 1.1.x
+ 14 Jan 2026
+ 14 Jul 2026
+ 14 Jul 2027
+ 1.2.x
+ 18 May 2026
+ 18 Nov 2026
+ 18 Nov 2027
+ SUSE Rancher Prime
+ 27 Feb 2028
+ Not Applicable
+ Rancher 2.15 | View Support Matrix
+ Version
+ GA
+ EOM
+ EOL
+ 2.15.x
+ 27 Aug 2026
+ 27 Feb 2027
+ 27 Feb 2028
+ 2.14.x
+ 30 Apr 2026
+ 30 Oct 2026
+ 10 Oct 2027
+ 2.13.x
+ 17 Dec 2025
+ 17 Jun 2026
+ 17 Jun 2027
+ 2.12.x
+ 29 Aug 2025
+ 28 Feb 2026
+ 28 Feb 2027
+ 2.11.x
+ 24 Apr 2025
+ 24 Oct 2025
+ 24 Oct 2026
+ 2.10.x
+ 19 Dec 2024
+ 19 Jun 2025
+ 19 Jun 2026
+ 2.9.x
+ 26 Aug 2024
+ 26 Feb 2025
+ 26 Feb 2026
+Please note: Rancher v2.9.x and above follow the new SUSE Rancher Prime lifecycle. See more information here.
+ Version
+ GA
+ EOM
+ EOL
+ 2.8.x
+ 22 Jan 2024
+ 22 Sept 2024
+ 22 Jul 2025
+ 2.7.x
+ 16 Nov 2022
+ 15 May 2024
+ 18 Nov 2024
+ 2.6.x
+ 31 Aug 2021
+ 01 Mar 2023
+ 30 Apr 2024
+ 2.5.x
+ 06 Oct 2020
+ 05 Jan 2022
+ 31 Jan 2023
+ 2.4.x
+ 30 Mar 2020
+ 30 Jul 2021
+ 31 Mar 2022
+ 2.3.x
+ 08 Oct 2019
+ 07 Oct 2020
+ 07 Apr 2021
+ 2.2.x
+ 16 Apr 2019
+ 15 Apr 2020
+ 15 Oct 2020
+ 2.1.x
+ 19 Oct 2018
+ 19 Oct 2019
+ 19 Apr 2020
+ 2.0.x
+ 01 May 2018
+ 01 May 2019
+ 01 Nov 2019
+ 1.6.x
+ 08 Jun 2017
+ 31 Dec 2019
+ 30 Jun 2020
+ Phases
+ Description
+ *GA to EOM
+ Upon the General Availability date, products are supported and maintained until the End of Maintenance date.
+ Applying configuration changes
+ Upgrade recommendation to an existing newer version of product
+ Code-level maintenance in the form of Software updates; typically, results in a maintenance release, which is a newer version of product that was not existing at the time the issue was encountered
+ **EOM to EOL 
+ After a product release reaches its End of Maintenance date, no further code-level maintenance will be provided, except for critical security- related fixes on a per-request basis.
+ After the EOM date, Software will continue to be supported until it reaches its End of Life date, in the form of:
+ General troubleshooting of a specific issue to isolate potential causes
+ Upgrade recommendation to an existing newer version of product
+ Issue resolution limited to applying configuration changes and/or an upgrade recommendation to an existing newer version of product
+ ***EOL 
+ Once a product release reaches its End of Life date, the customer may continue to use the product within the terms of product licensing agreement.
+ Support Plans from SUSE Rancher do not apply to product releases past their EOL date.
+ RKE
+ 31 Jul 2025
+ Not Applicable
+ RKE 1.30 | View Support Matrix
+ Version
+ GA
+ EOL
+ 1.30
+ 22 July 2024
+ 31 Jul 2025
+ 1.29
+ 22 Jul 2024
+ 28 Feb 2025
+ 1.28
+ 22 Jul 2024
+ 28 Oct 2024
+ 1.27
+ 13 Feb 2024
+ 28 Jun 2024
+ 1.26
+ 29 Jun 2023
+ 28 Feb 2024
+ 1.25
+ 11 Apr 2023
+ 28 Oct 2023
+ 1.24
+ 18 Aug 2022
+ 28 July 2023
+ 1.23
+ 31 Mar 2022
+ 28 Feb 2023
+RKE follows the upstream Kubernetes end of life schedule. These EOL dates may be subject to change.
+ RKE2
+ 28 Feb 2028
+ Not Applicable
+ RKE2 1.37 | View Support Matrix
+ Version
+ GA
+ EOM
+ EOL
+ 1.37
+ 14 Sep 2026
+ 28 Aug 2027
+ 28 Feb 2028
+ 1.36
+ 12 May 2026
+ 12 Apr 2027
+ 12 Oct 2027
+ 1.35
+ 30 Dec 2025
+ 28 Dec 2026
+ 28 Jun 2027
+ 1.34
+ 10 Sept 2025
+ 27 Aug 2026
+ 27 Feb 2027
+ 1.33
+ 07 May 2025
+ 28 Apr 2026
+ 28 Oct 2026
+ 1.32
+ 02 Jan 2025
+ 28 Dec 2025
+ 28 Jun 2026
+ 1.31
+ 04 Sept 2024
+ 28 Aug 2025
+ 28 Feb 2026
+ 1.30
+ 09 May 2024
+ 28 Apr 2025
+ 28 Jun 2025
+ 1.29
+ 13 Jan 2024
+ 28 Dec 2024
+ 28 Feb 2025
+ 1.28
+ 08 Sept 2023
+ 28 Aug 2024
+ 28 Oct 2024
+ 1.27
+ 11 May 2023
+ 28 Apr 2024
+ 28 Jun 2024
+ 1.26
+ 10 Jan 2023
+ 28 Dec 2023
+ 28 Feb 2024
+ 1.25
+ 14 Sept 2022
+ 28 Aug 2023
+ 28 Oct 2023
+ 1.24
+ 13 Jun 2022
+ 28 May 2023
+ 28 July 2023
+ 1.23
+ 05 Jan 2022
+ 28 Dec 2022
+ 28 Feb 2023
+ k3s
+ 28 Feb 2028
+ Not Applicable
+ k3s 1.37 | View Support Matrix
+ Version
+ GA
+ EOM
+ EOL
+ 1.37
+ 14 Sep 2026
+ 28 Aug 2027
+ 28 Feb 2028
+ 1.36
+ 07 May 2026
+ 07 Apr 2027
+ 07 Oct 2027
+ 1.35
+ 23 Dec 2025
+ 28 Dec 2026
+ 28 Jun 2027
+ 1.34
+ 22 Sept 2025
+ 27 Aug 2026
+ 27 Feb 2027
+ 1.33
+ 08 May 2025
+ 28 Apr 2026
+ 28 Oct 2026
+ 1.32
+ 10 Jan 2025
+ 28 Dec 2025
+ 28 Jun 2026
+ 1.31
+ 02 Sept 2024
+ 28 Aug 2025
+ 28 Feb 2026
+ 1.30
+ 06 May 2024
+ 28 Apr 2025
+ 28 Jun 2025
+ 1.29
+ 13 Jan 2024
+ 28 Dec 2024
+ 28 Feb 2025
+ 1.28
+ 08 Sept 2023
+ 28 Aug 2024
+ 28 Oct 2024
+ 1.27
+ 11 May 2023
+ 28 Apr 2024
+ 28 Jun 2024
+ 1.26
+ 11 Jan 2023
+ 28 Dec 2023
+ 28 Feb 2024
+ 1.25
+ 12 Sept 2022
+ 28 Aug 2023
+ 28 Oct 2023
+ 1.24
+ 11 Jun 2022
+ 28 May 2023
+ 28 July 2023
+ 1.23
+ 05 Jan 2022
+ 28 Dec 2022
+ 28 Feb 2023
+ SUSE Observability
+ Active Subscription
+ Not Applicable
+ SUSE Observability 2.11.1 | View Release Notes
+ Version
+ GA
+ Superseded
+ Supported until
+ 2.11.x - Current
+ 07 Sep 2026
+ -
+ 07 Mar 2027 or later
+ 2.10.x
+ 12 May 2026
+ 07 Sep 2026
+ 12 Nov 2026
+ 2.9.x
+ 25 Mar 2026
+ 12 May 2026
+ 25 Sep 2026
+ 2.8.x
+ 03 Mar 2026
+ 25 Mar 2026
+ 03 Sep 2026
+ 2.7.x
+ 14 Jan 2026
+ 03 Mar 2026
+ 14 Jul 2026
+ 2.6.x
+ 29 Sep 2025
+ 14 Jan 2026
+ 29 Mar 2026
+ 2.5.x and earlier
+ 11 Sep 2024 - 08 Sep 2025
+ End of life
+SUSE Observability is delivered as a rolling release: new minor releases ship every few weeks and every 2.x release is backwards compatible and upgrades in place. The supported product is therefore the 2.x product line, and support is provided for the duration of your active subscription. SUSE will not end the product line with less than 12 months' notice on this page.
+Superseded is the General Availability date of the next minor release. From that date, code level maintenance, including security fixes, is delivered only in the newer release. Upgrading to the current release is free of charge, requires no relicensing and no change to the Kubernetes environment the product was validated on.
+Supported until is six months after General Availability. Until this date SUSE Support provides troubleshooting, root cause isolation and upgrade guidance for this version; resolving an issue may require upgrading to the current release. After this date the version is end of life and support plans no longer apply. The current release is always supported; its date moves forward as new releases ship.
+Please run production on the current release. Use release notes to review changes before upgrading.
+ Subscription Management Tool 11
+ 31 Mar 2019
+ 31 Mar 2022
+ Subscription Management Tool 11 SP3
+ Service Pack Release
+ FCS Date
+ General Ends
+ Subscription Management Tool 11
+ 24 Mar 2009
+ 31 Dec 2010
+ Subscription Management Tool 11 SP1
+ 02 Jun 2010
+ 31 Aug 2012
+ Subscription Management Tool 11 SP2
+ 29 Feb 2012
+ 31 Jan 2014
+ Subscription Management Tool 11 SP3
+ 01 Jul 2013
+ 31 Mar 2019
+ SUSE Multi-Linux Support 5
+ 31 Mar 2017
+ Not Applicable
+ SUSE Multi-Linux Support
+ SUSE Multi-Linux Support subscriptions include SUSE Linux Enterprise Server support for the term of the subscription and support for certain versions of Red Hat Enterprise Linux currently in Red Hat Production Phase until product end of life per official policies posted by Red Hat.
+SUSE Multi-Linux Support replaces SUSE Linux Enterprise Server with Expanded Support and provides all the underlying deliverables.
+For support lifecycle for SUSE Linux Enterprise platform products refer to https://www.suse.com/support/policy.html and the lifecycle information for the respective SUSE Linux Enterprise Server release.
+ Service Pack Release
+ General Ends
+ LTS Ends
+ XLTS Ends
+ SUSE Multi-Linux Support 5
+ 31 Mar 2017
+ Not Applicable
+ 31 Dec 2028
+ Read more
+ SUSE Multi-Linux Support 6
+ 30 Nov 2020
+ Not Applicable
+ SUSE Multi-Linux Support
+ SUSE Multi-Linux Support subscriptions include SUSE Linux Enterprise Server support for the term of the subscription and support for certain versions of Red Hat Enterprise Linux currently in Red Hat Production Phase until product end of life per official policies posted by Red Hat.
+SUSE Multi-Linux Support replaces SUSE Linux Enterprise Server with Expanded Support and provides all the underlying deliverables.
+For support lifecycle for SUSE Linux Enterprise platform products refer to https://www.suse.com/support/policy.html and the lifecycle information for the respective SUSE Linux Enterprise Server release.
+ Service Pack Release
+ General Ends
+ LTS Ends
+ XLTS Ends
+ SUSE Multi-Linux Support 6
+ 30 Nov 2020
+ Not Applicable
+ 31 Dec 2028
+ Read more
+ SUSE Multi-Linux Support 7
+ 30 Jun 2024
+ 28 Feb 2029
+ SUSE Multi-Linux Support
+ SUSE Multi-Linux Support subscriptions include SUSE Linux Enterprise Server support for the term of the subscription and support for certain versions of Red Hat Enterprise Linux currently in Red Hat Production Phase until product end of life per official policies posted by Red Hat.
+SUSE Multi-Linux Support replaces SUSE Linux Enterprise Server with Expanded Support and provides all the underlying deliverables.
+For support lifecycle for SUSE Linux Enterprise platform products refer to https://www.suse.com/support/policy.html and the lifecycle information for the respective SUSE Linux Enterprise Server release.
+ Service Pack Release
+ General Ends
+ LTS Ends
+ XLTS Ends
+ SUSE Multi-Linux Support 7/CentOS 7
+ 30 June 2024
+ 28 Feb 2029
+ 28 Feb 2033
+ Read more
+ SUSE Multi-Linux Support 8
+ 31 May 2029
+ 31 May 2032
+ SUSE Multi-Linux Support
+ SUSE Multi-Linux Support subscriptions include SUSE Linux Enterprise Server support for the term of the subscription and support for certain versions of Red Hat Enterprise Linux currently in Red Hat Production Phase until product end of life per official policies posted by Red Hat.
+SUSE Multi-Linux Support replaces SUSE Linux Enterprise Server with Expanded Support and provides all the underlying deliverables.
+For support lifecycle for SUSE Linux Enterprise platform products refer to https://www.suse.com/support/policy.html and the lifecycle information for the respective SUSE Linux Enterprise Server release.
+ Service Pack Release
+ General Ends
+ LTS Ends
+ XLTS Ends
+ SUSE Multi-Linux Support 8
+ 31 May 2029
+ 31 May 2032
+ TBD
+Generally supported versions are Red Hat Enterprise Linux 8, 9 and 10.
+For each major version, only the latest minor release is fully supported.
+ Read more
+ SUSE Multi-Linux Support 9
+ 31 May 2032
+ 31 May 2035
+ SUSE Multi-Linux Support
+ SUSE Multi-Linux Support subscriptions include SUSE Linux Enterprise Server support for the term of the subscription and support for certain versions of Red Hat Enterprise Linux currently in Red Hat Production Phase until product end of life per official policies posted by Red Hat.
+SUSE Multi-Linux Support replaces SUSE Linux Enterprise Server with Expanded Support and provides all the underlying deliverables.
+For support lifecycle for SUSE Linux Enterprise platform products refer to https://www.suse.com/support/policy.html and the lifecycle information for the respective SUSE Linux Enterprise Server release.
+ Service Pack Release
+ General Ends
+ LTS Ends
+ XLTS Ends
+ SUSE Multi-Linux Support 9
+ 31 May 2032
+ 31 May 2035
+ TBD
+Generally supported versions are Red Hat Enterprise Linux 8, 9 and 10.
+For each major version, only the latest minor release is fully supported.
+ Read more
+ SUSE Multi-Linux Support 10
+ 30 Apr 2036
+ 30 Apr 2039
+ SUSE Multi-Linux Support
+ SUSE Multi-Linux Support subscriptions include SUSE Linux Enterprise Server support for the term of the subscription and support for certain versions of Red Hat Enterprise Linux currently in Red Hat Production Phase until product end of life per official policies posted by Red Hat.
+SUSE Multi-Linux Support replaces SUSE Linux Enterprise Server with Expanded Support and provides all the underlying deliverables.
+For support lifecycle for SUSE Linux Enterprise platform products refer to https://www.suse.com/support/policy.html and the lifecycle information for the respective SUSE Linux Enterprise Server release.
+ Service Pack Release
+ General Ends
+ LTS Ends
+ XLTS Ends
+ SUSE Multi-Linux Support 10
+ 30 May 2036
+ 30 May 2039
+Generally supported versions are Red Hat Enterprise Linux 8, 9 and 10.
+For each major version, only the latest minor release is fully supported.
+ Read more
+ SUSE Linux Enterprise Desktop 11
+ 31 Mar 2016
+ Not Applicable
+ SUSE Linux Enterprise Desktop 15 SP5
+ Service Pack Release
+ FCS Date
+ General Ends
+ SUSE Linux Enterprise Desktop 11
+ 24 Mar 2009
+ 31 Dec 2010
+ SUSE Linux Enterprise Desktop 11 SP1
+ 02 Jun 2010
+ 31 Aug 2012
+ SUSE Linux Enterprise Desktop 11 SP2
+ 29 Feb 2012
+ 31 Jan 2014
+ SUSE Linux Enterprise Desktop 11 SP3
+ 01 Jul 2013
+ 31 Jan 2016
+ SUSE Linux Enterprise Desktop 11 SP4
+ 15 Jul 2015
+ 31 Mar 2016
+ SUSE Linux Enterprise Desktop 12
+ 31 Dec 2019
+ Not Applicable
+ SUSE Linux Enterprise Desktop 15 SP5
+ Service Pack Release
+ FCS Date
+ General Ends
+ SUSE Linux Enterprise Desktop 12
+ 27 Oct 2014
+ 30 June 2016
+ SUSE Linux Enterprise Desktop 12 SP1
+ 15 Dec 2015
+ 31 May 2017
+ SUSE Linux Enterprise Desktop 12 SP2
+ 08 Nov 2016
+ 31 Mar 2018
+ SUSE Linux Enterprise Desktop 12 SP3
+ 07 Sep 2017
+ 30 Jun 2019
+ SUSE Linux Enterprise Desktop 12 SP4
+ 12 Dec 2018
+ 31 Dec 2019
+ SUSE Linux Enterprise Desktop 15
+ 31 Jul 2031
+ Not Applicable
+ SUSE Linux Enterprise Desktop 15 SP7
+ Service Pack Release
+ FCS Date
+ General Ends
+ SUSE Linux Enterprise Desktop 15
+ 16 Jul 2018
+ 31 Dec 2019
+ SUSE Linux Enterprise Desktop 15 SP1
+ 24 Jun 2019
+ 31 Jan 2021
+ SUSE Linux Enterprise Desktop 15 SP2
+ 21 Jul 2020
+ 31 Dec 2021
+ SUSE Linux Enterprise Desktop 15 SP3
+ 22 Jun 2021
+ 31 Dec 2022
+ SUSE Linux Enterprise Desktop 15 SP4
+ 21 Jun 2022
+ 31 Dec 2023
+ SUSE Linux Enterprise Desktop 15 SP5
+ 14 Jun 2023
+ 31 Dec 2024
+ SUSE Linux Enterprise Desktop 15 SP6
+ 26 Jun 2024
+ 31 Dec 2025
+ SUSE Linux Enterprise Desktop 15 SP7
+ 17 June 2025
+ 31 Jul 2031
+ Read more
+ SUSE Linux Enterprise High Availability Extension 11
+ 31 Mar 2019
+ 31 Mar 2022
+ SUSE Linux Enterprise High Availability Extension 15 SP7
+ Service Pack Release
+ FCS Date
+ General Ends
+ SUSE Linux Enterprise High Availability Extension 11
+ 24 Mar 2009
+ 31 Dec 2010
+ SUSE Linux Enterprise High Availability Extension 11 SP1
+ 02 Jun 2010
+ 31 Aug 2012
+ SUSE Linux Enterprise High Availability Extension 11 SP2
+ 29 Feb 2012
+ 31 Jan 2014
+ GEO Clustering for SUSE Linux Enterprise High Availability Extension 11 SP2
+ 29 Feb 2012
+ 31 Jan 2014
+ SUSE Linux Enterprise High Availability Extension 11 SP3
+ 01 Jul 2013
+ 31 Jan 2016
+ GEO Clustering for SUSE Linux Enterprise High Availability Extension 11 SP3
+ 01 Jul 2013
+ 31 Jan 2016
+ SUSE Linux Enterprise High Availability Extension 11 SP4
+ 15 Jul 2015
+ 31 Mar 2019
+ GEO Clustering for SUSE Linux Enterprise High Availability Extension 11 SP4
+ 15 Jul 2015
+ 31 Mar 2019
+ Read more
+ SUSE Linux Enterprise High Availability Extension 12
+ 31 Oct 2024
+ 31 Oct 2027
+ SUSE Linux Enterprise High Availability Extension 15 SP7
+ Service Pack Release
+ FCS Date
+ General Ends
+ LTSS Ends
+ SUSE Linux Enterprise High Availability Extension 12
+ 27 Oct 2014
+ 30 June 2016
+ 01 July 2019
+ SUSE Linux Enterprise High Availability Extension 12 SP1
+ 15 Dec 2015
+ 31 May 2017
+ 31 May 2020
+ SUSE Linux Enterprise High Availability Extension 12 SP2
+ 08 Nov 2016
+ 31 Mar 2018
+ 31 Mar 2021
+ SUSE Linux Enterprise High Availability Extension 12 SP3
+ 07 Sep 2017
+ 30 Jun 2019
+ 30 Jun 2022
+ SUSE Linux Enterprise High Availability Extension 12 SP4
+ 12 Dec 2018
+ 30 Jun 2020
+ 30 Jun 2023
+ SUSE Linux Enterprise High Availability Extension 12 SP5
+ 09 Dec 2019
+ 31 Oct 2024
+ 31 Oct 2027
+ Read more
+ SUSE Linux Enterprise High Availability Extension 15
+ 31 Jul 2031
+ 31 Jul 2034
+ SUSE Linux Enterprise High Availability Extension 15 SP7
+ Service Pack Release
+ FCS Date
+ General Ends
+ LTSS Ends
+ SUSE Linux Enterprise High Availability Extension 15
+ 16 Jul 2018
+ 31 Dec 2019
+ 31 Dec 2022
+ SUSE Linux Enterprise High Availability Extension 15 SP1
+ 24 Jun 2019
+ 31 Jan 2021
+ 31 Jan 2024
+ SUSE Linux Enterprise High Availability Extension 15 SP2
+ 21 Jul 2020
+ 31 Dec 2021
+ 31 Dec 2024
+ SUSE Linux Enterprise High Availability Extension 15 SP3
+ 22 Jun 2021
+ 31 Dec 2022
+ 31 Dec 2025
+ SUSE Linux Enterprise High Availability Extension 15 SP4
+ 21 Jun 2022
+ 31 Dec 2023
+ 31 Dec 2026
+ SUSE Linux Enterprise High Availability Extension 15 SP5
+ 20 June 2023
+ 31 Dec 2024
+ 31 Dec 2027
+ SUSE Linux Enterprise High Availability Extension 15 SP6
+ 26 June 2024
+ 31 Dec 2025
+ 31 Dec 2028
+ SUSE Linux Enterprise High Availability Extension 15 SP7
+ 17 June 2025
+ 31 Jul 2031
+ 31 Jul 2034
+ SUSE Linux Enterprise High Availability Extension 16
+ 30 Nov 2035
+ 30 Nov 2038
+ SUSE Linux Enterprise High Availability Extension 16
+ Releases
+ FCS Date
+ General Ends
+ LTS Ends
+ SUSE Linux Enterprise High Availability Extension 16.0
+ 4 Nov 2025
+ 30 Nov 2027
+ 30 Nov 2030
+ SUSE Linux Enterprise High Availability Extension 16.1
+ 10 Nov 2026
+ 30 Nov 2028
+ 30 Nov 2031
+ SUSE Linux Enterprise High Availability Extension 16.2
+ Nov 2027
+ 30 Nov 2028
+ 30 Nov 2032
+ SUSE Linux Enterprise High Availability Extension 16.3
+ Nov 2028
+ 30 Nov 2029
+ 30 Nov 2033
+ SUSE Linux Enterprise High Availability Extension 16.4
+ Nov 2029
+ 30 Nov 2030
+ 30 Nov 2034
+ SUSE Linux Enterprise High Availability Extension 16.5
+ Nov 2030
+ 30 Nov 2031
+ 30 Nov 2035
+ SUSE Linux Enterprise High Availability Extension 16.6
+ Nov 2031
+ 30 Nov 2035
+ 30 Nov 2038
+ SUSE Linux Enterprise HPC 12
+ 31 Oct 2024
+ 31 Oct 2027
+ SUSE Linux Enterprise HPC 15 SP5
+ Service Pack Release
+ FCS Date
+ General Ends
+ LTSS Ends
+ SUSE Linux Enterprise HPC 12 SP3
+ 07 Sep 2017
+ 30 Jun 2019
+ 30 Jun 2022
+ SUSE Linux Enterprise HPC 12 SP4
+ 12 Dec 2018
+ 30 Jun 2020
+ 30 Jun 2023
+ SUSE Linux Enterprise HPC 12 SP5
+ 09 Dec 2019
+ 31 Oct 2024
+ 31 Oct 2027
+SUSE Linux Enterprise HPC with Extended Service Pack Overlap Support (ESPOS):
+ Service Pack Release
+ FCS Date
+ General Ends
+ ESPOS Ends
+ LTSS Ends
+ SUSE Linux Enterprise HPC ESPOS 12 SP3
+ 07 Sep 2017
+ 30 Jun 2019
+ 30 Jun 2020
+ 30 Jun 2022
+ SUSE Linux Enterprise HPC ESPOS 12 SP4
+ 12 Dec 2018
+ 30 Jun 2020
+ 30 Jun 2021
+ 30 Jun 2023
+ SUSE Linux Enterprise HPC ESPOS 12 SP5
+ 09 Dec 2019
+ 31 Oct 2024
+ N/A
+ 31 Oct 2027
+ SUSE Linux Enterprise HPC 15
+ 31 Jul 2031
+ 31 Jul 2034
+ SUSE Linux Enterprise HPC 15 SP7
+ Service Pack Release
+ FCS Date
+ General Ends
+ LTSS Ends
+ SUSE Linux Enterprise HPC 15
+ 16 Jul 2018
+ 31 Dec 2019
+ 31 Dec 2022
+ SUSE Linux Enterprise HPC 15 SP1
+ 24 Jun 2019
+ 31 Jan 2021
+ 31 Jan 2024
+ SUSE Linux Enterprise HPC 15 SP2
+ 21 Jul 2020
+ 31 Dec 2021
+ 31 Dec 2024
+ SUSE Linux Enterprise HPC 15 SP3
+ 22 Jun 2021
+ 31 Dec 2022
+ 31 Dec 2025
+ SUSE Linux Enterprise HPC 15 SP4
+ 21 Jun 2022
+ 31 Dec 2023
+ 31 Dec 2026
+ SUSE Linux Enterprise HPC 15 SP5
+ 20 June 2023
+ 31 Dec 2024
+ 31 Dec 2027
+ SUSE Linux Enterprise HPC 15 SP6
+ 26 June 2024
+ 31 Dec 2025
+ 31 Dec 2028
+ SUSE Linux Enterprise HPC 15 SP7
+ 17 June 2025
+ 31 Jul 2031
+ 31 Jul 2034
+SUSE Linux Enterprise HPC with Extended Service Pack Overlap Support (ESPOS):
+ Service Pack Release
+ FCS Date
+ General Ends
+ ESPOS Ends
+ LTSS Ends
+ SUSE Linux Enterprise HPC ESPOS 15
+ 16 Jul 2018
+ 31 Dec 2019
+ 31 Dec 2020
+ 31 Dec 2022
+ SUSE Linux Enterprise HPC ESPOS 15 SP1
+ 24 Jun 2019
+ 31 Jan 2021
+ 31 Jan 2022
+ 31 Jan 2024
+ SUSE Linux Enterprise HPC ESPOS 15 SP2
+ 21 Jul 2020
+ 31 Dec 2021
+ 31 Dec 2022
+ 31 Dec 2024
+ SUSE Linux Enterprise HPC ESPOS 15 SP3
+ 22 Jun 2021
+ 31 Dec 2022
+ 31 Dec 2023
+ 31 Dec 2025
+ SUSE Linux Enterprise HPC ESPOS 15 SP4
+ 21 Jun 2022
+ 31 Dec 2023
+ 31 Dec 2024
+ 31 Dec 2026
+ SUSE Linux Enterprise HPC ESPOS 15 SP5
+ 20 Jun 2023
+ 31 Dec 2024
+ 31 Dec 2025
+ 31 Dec 2027
+ SUSE Linux Enterprise HPC ESPOS 15 SP6
+ 26 Jun 2024
+ 31 Dec 2025
+ 31 Dec 2026
+ 31 Dec 2028
+ SUSE Linux Enterprise HPC ESPOS 15 SP7
+ 17 Jun 2025
+ 31 Jul 2028
+ N/A*
+ 31 Jul 2031
+*: SP7 is the last Service Pack for this code stream where ESPOS is not applicable.
+ SUSE Linux Micro
+ 30 Nov 2029
+ Not Applicable
+ SUSE Linux Micro 6.2
+ Service Pack Release
+ FCS Date
+ General Ends
+ SUSE Linux Micro 5.0
+ 30 Mar 2021
+ 31 Mar 2022
+ SUSE Linux Micro 5.1
+ 26 Oct 2021
+ 31 Oct 2025
+ SUSE Linux Micro 5.2
+ 14 Apr 2022
+ 30 Apr 2026
+ SUSE Linux Micro 5.3
+ 25 Oct 2022
+ 30 Oct 2026
+ SUSE Linux Micro 5.4
+ 20 Apr 2023
+ 30 Apr 2027
+ SUSE Linux Micro 5.5
+ 12 Oct 2023
+ 31 Oct 2027
+ SUSE Linux Micro 6.0
+ 06 Jun 2024
+ 30 Jun 2028
+ SUSE Linux Micro 6.1
+ 26 Nov 2024
+ 30 Nov 2028
+ SUSE Linux Micro 6.2
+ 04 Nov 2025
+ 30 Nov 2029
+ SUSE Linux Enterprise Point of Service 10
+ 31 Jul 2013
+ 31 Jul 2016
+ SUSE Linux Enterprise Point of Service 11 SP3
+ Read more
+ SUSE Linux Enterprise Point of Service 11
+ 31 Mar 2022
+ 31 Mar 2022
+ SUSE Linux Enterprise Point of Service 11 SP3
+ Admin Server, Branch Server
+ FCS Date
+ General Ends
+ LTSS Ends
+ SUSE Linux Enterprise Point of Service 11
+ 13 Aug 2009
+ 31 Mar 2016
+ Not Applicable
+ SUSE Linux Enterprise Point of Service 11 SP1
+ 02 Jun 2010
+ 31 Aug 2012
+ Not Applicable
+ SUSE Linux Enterprise Point of Service 11 SP2
+ 26 Mar 2012
+ 31 Mar 2014
+ Not Applicable
+ SUSE Linux Enterprise Point of Service 11 SP3
+ 23 Sep 2013
+ 31 Jan 2016
+ 31 Mar 2019
+ SUSE Linux Enterprise Point of Service 11 SP3 on SLES 11 SP4
+ 15 Jul 2015
+ 31 Mar 2019
+ 31 Mar 2022
+ Clients
+ FCS Date
+ General Ends
+ LTSS Ends
+ SUSE Linux Enterprise Point of Service 11
+ 13 Aug 2009
+ 31 Mar 2016
+ Not Applicable
+ SUSE Linux Enterprise Point of Service 11 SP1
+ 02 Jun 2010
+ 31 Aug 2012
+ Not Applicable
+ SUSE Linux Enterprise Point of Service 11 SP2
+ 26 Mar 2012
+ 31 Mar 2014
+ Not Applicable
+ SUSE Linux Enterprise Point of Service 11 SP3
+ 23 Sep 2013
+ 31 Mar 2022
+ Not Applicable
+ SUSE Linux Enterprise Point of Service 12 Clients
+ 31 Mar 2025
+ Not Applicable
+ SUSE Multi-Linux Manager for Retail 5.0
+ Product Release
+ FCS
+ HW enablement until
+ Support Ends
+ SUSE Linux Enterprise Point of Service 12 SP2
+ 16 Dec 2016
+ 30 Sep 2017
+ 31 Mar 2021
+ SUSE Linux Enterprise Point of Service 12 SP3
+ 07 Sep 2017
+ 31 Dec 2018
+ 31 Mar 2025*
+ SUSE Linux Enterprise Point of Service 12 SP4
+ 12 Dec 2018
+ 31 Mar 2023
+ 31 Mar 2025*
+ SUSE Linux Enterprise Point of Service 12 SP5
+ 09 Dec 2019
+ 31 Oct 2022
+ 31 Oct 2024
+SLES 12 SP2 based SUSE Linux Enterprise Point of Service Clients can be built using the SUSE Linux Enterprise Point of Service Image Server 12 component.
+SLES 12 SP3 based SUSE Linux Enterprise Point of Service Clients can be built using the SUSE Linux Enterprise Point of Service Image Server 12 component as well as the SUSE Multi-Linux Manager for Retail build server.
+SLES 12 SP3 based SUSE Linux Enterprise Point of Service Clients built with the SUSE Linux Enterprise Point of Service Image Server 12 component need to be re-built with the SUSE Multi-Linux Manager for Retail build server latest by 31st March 2022.
+* Please note that while most SUSE Linux Enterprise Point of Service Client Service Packs have a lifecycle of 1.5 years General Support, some have a Support lifecycle of 7.5 years. These 7.5 years are split into 3 phases: 1.5 years of General Support, 3 years of LTSS (ESPOS), and 3 years of LTSS Reactive. The various types of Support are defined in the Summary table - Long Term Service Support.
+ SUSE Linux Enterprise Point of Service 15 Clients
+ TBD
+ Not Applicable
+ SUSE Multi-Linux Manager for Retail 5.0
+ Product Release
+ FCS
+ HW Enablement Until
+ Support Ends
+ SUSE Linux Enterprise Point of Service 15 SP2
+ 21 Jul 2020
+ 31 Jul 2021
+ 31 Jul 2021
+ SUSE Linux Enterprise Point of Service 15 SP3
+ 22 Jun 2021
+ 30 Jun 2024
+ 31 Dec 2028*
+ SUSE Linux Enterprise Point of Service 15 SP4
+ 21 Jun 2022
+ 31 Dec 2023
+ 31 Dec 2023
+ SUSE Linux Enterprise Point of Service 15 SP5
+ 20 Jun 2023
+ 30 Jun 2024
+ 31 Dec 2024
+ SUSE Linux Enterprise Point of Service 15 SP6
+ 26 Jun 2024
+ 30 Jun 2027
+ 31 Dec 2031*
+ SUSE Linux Enterprise Point of Service 15 SP7
+ 17 June 2025
+ 30 Jun 2028
+ 31 Dec 2031*
+SUSE Linux Enterprise Point of Service Clients can be built using the SUSE Multi-Linux Manager for Retail build server.
+* Please note that while most SUSE Linux Enterprise Point of Service Client Service Packs have a lifecycle of 1.5 years General Support, some have a Support lifecycle of 7.5 years. These 7.5 years are split into 3 phases: 1.5 years of General Support, 3 years of LTSS (ESPOS), and 3 years of LTSS Reactive. The various types of Support are defined in the Summary table - Long Term Service Support.
+ SUSE Linux Enterprise Real Time 11
+ 31 Mar 2019
+ Not Applicable
+ SUSE Linux Enterprise Real Time 15 SP7
+ Service Pack Release
+ FCS Date
+ General Ends
+ SUSE Linux Enterprise Real Time Extension 11 SP1
+ 30 Aug 2010
+ 31 Aug 2012
+ SUSE Linux Enterprise Real Time Extension 11 SP2
+ 10 Aug 2012
+ 31 Jan 2014
+ SUSE Linux Enterprise Real Time Extension 11 SP3
+ 20 Aug 2013
+ 31 Jan 2016
+ SUSE Linux Enterprise Real Time Extension 11 SP4
+ 7 Aug 2015
+ 31 Mar 2019
+ SUSE Linux Enterprise Real Time 12
+ 31 Oct 2024
+ Not Applicable
+ SUSE Linux Enterprise Real Time 15 SP7
+ Service Pack Release
+ FCS Date
+ General Ends
+ SUSE Linux Enterprise Real Time Extension 12 SP1
+ 08 Mar 2016
+ 31 May 2017
+ SUSE Linux Enterprise Real Time 12 SP2
+ 15 Feb 2017
+ 31 Jan 2019
+ SUSE Linux Enterprise Real Time 12 SP3
+ 31 Jul 2018
+ 30 Jun 2019
+ SUSE Linux Enterprise Real Time 12 SP4
+ 31 Jul 2019
+ 31 Jul 2020
+ SUSE Linux Enterprise Real Time 12 SP5
+ 31 Jan 2020
+ 31 Oct 2024
+ SUSE Linux Enterprise Real Time 15
+ 31 Jul 2031
+ Not Applicable
+ SUSE Linux Enterprise Real Time 15 SP7
+ Service Pack Release
+ FCS Date
+ General Ends
+ SUSE Linux Enterprise Real Time 15 SP1
+ 24 Jun 2019
+ 30 Apr 2021
+ SUSE Linux Enterprise Real Time 15 SP2
+ 16 Oct 2020
+ 30 Apr 2022
+ SUSE Linux Enterprise Real Time 15 SP3
+ 22 Oct 2021
+ 31 May 2023
+ SUSE Linux Enterprise Real Time 15 SP4
+ 16 Nov 2022
+ 31 Dec 2023
+ SUSE Linux Enterprise Real Time 15 SP5
+ 20 June 2023
+ 31 Dec 2024
+ SUSE Linux Enterprise Real Time 15 SP6
+ 26 June 2024
+ 31 Dec 2025
+ SUSE Linux Enterprise Real Time 15 SP7
+ 17 June 2025
+ 31 Jul 2031
+ SUSE Linux Enterprise Server 10
+ 31 Jul 2013
+ 31 Jul 2016
+ SUSE Linux Enterprise Server 15 SP7
+ Service Pack Release
+ FCS Date
+ General Ends
+ LTSS Ends
+ SUSE Linux Enterprise Server 10
+ 17 Jul 2006
+ 31 Dec 2007
+ N/A
+ SUSE Linux Enterprise Server 10 SP1
+ 18 Jun 2007
+ 30 Nov 2008
+ Dec 2010
+ SUSE Linux Enterprise Server 10 SP2
+ 19 May 2008
+ 11 Apr 2010
+ 10 Apr 2013
+ SUSE Linux Enterprise Server 10 SP3
+ 12 Oct 2009
+ 11 Oct 2011
+ 31 Oct 2014
+ SUSE Linux Enterprise Server 10 SP4
+ 12 Apr 2011
+ 31 Jul 2013
+ 30 Jul 2016
+ Read more
+ SUSE Linux Enterprise Server 11
+ 31 Mar 2019
+ 31 Mar 2028
+ SUSE Linux Enterprise Server 15 SP7
+ Service Pack Release
+ FCS Date
+ General Ends
+ LTSS Ends
+ LTSS Core Ends
+ SUSE Linux Enterprise Server 11
+ 24 Mar 2009
+ 31 Dec 2010
+ SUSE Linux Enterprise Server 11 SP1
+ 02 Jun 2010
+ 31 Aug 2012
+ 30 Aug 2015
+ SUSE Linux Enterprise Server 11 SP2
+ 29 Feb 2012
+ 31 Jan 2014
+ 30 Jan 2017
+ SUSE Linux Enterprise Server 11 SP3
+ 01 Jul 2013
+ 31 Jan 2016
+ 30 Jan 2019
+ SUSE Linux Enterprise Server 11 SP4
+ 15 Jul 2015
+ 31 Mar 2019
+ 31 Mar 2022
+ 31 Mar 2028
+ SUSE Linux Enterprise Server 12
+ 31 Oct 2024
+ 31 Oct 2030
+ SUSE Linux Enterprise Server 15 SP7
+ Service Pack Release
+ FCS Date
+ General Ends
+ LTSS Ends
+ LTSS Core Ends
+ SUSE Linux Enterprise Server 12
+ 27 Oct 2014
+ 30 June 2016
+ 01 July 2019
+ SUSE Linux Enterprise Server 12 SP1
+ 15 Dec 2015
+ 31 May 2017
+ 31 May 2020
+ SUSE Linux Enterprise Server 12 SP2
+ 08 Nov 2016
+ 31 Mar 2018
+ 31 Mar 2021
+ SUSE Linux Enterprise Server 12 SP3
+ 07 Sep 2017
+ 30 Jun 2019
+ 30 Jun 2022
+ SUSE Linux Enterprise Server 12 SP4
+ 12 Dec 2018
+ 30 Jun 2020
+ 30 Jun 2023
+ SUSE Linux Enterprise Server 12 SP5
+ 09 Dec 2019
+ 31 Oct 2024
+ 31 Oct 2027
+  October 2030
+SUSE Linux Enterprise Server 12 Modules
+SUSE Linux Enterprise Server Modules are sets of packages grouped into their own repository and updated independently of service pack lifecycles. The lifecycle for each module is different. More on Modules.
+ Module Name
+ Update Cadence
+ Overlap Support
+ LTSS and LTSS Extended Security Support
+ Web and Scripting Module
+ Every ~18 months
+ Yes (18 months)
+ No
+ Legacy Module
+ None
+ No
+ No
+ Public Cloud Module
+ Frequent releases
+ Yes (6 months)
+ No
+ Toolchain Module
+ Every 12 months
+ Yes (6 months)
+ No
+ Certifications Module
+ Certification dependent
+ TBD
+ No
+ Containers Module
+ Frequent releases
+ No
+ No
+ Advanced Systems Management Module
+ Frequent releases
+ Yes (for major versions, 6 months)
+ No
+ Workstation extension
+ Frequent releases
+ Yes (6 months)
+ No
+ SDK
+ No
+ No
+ No
+ Installer
+ No
+ No
+ No
+ PackageHub
+ Individual per package
+ No
+ No
+ LTSS
+ N/A
+ N/A
+ Yes (12 months)
+ LTSS Extended Security
+ N/A
+ N/A
+ No
+ Live Patching extension
+ Frequent releases
+ Yes (6 months)
+ LTSS: Yes (12 months)
+ LTSS ES: No
+SUSE Linux Enterprise Server 12 Modules - Lifecycle Details
+Note about SMT 12: During the Long Term Service Pack Support period of SUSE Linux Enterprise Server 12 SP5, SMT 12 will continue to be supported under the LTSS conditions. SMT is not and will not be available on SUSE Linux Enterprise Server 15 or later. If possible, we recommend upgrading to RMT, which is delivered as a part of SUSE Linux Enterprise Server 15.
+ Read more
+ SUSE Linux Enterprise Server 15
+ 31 Jul 2031
+ 31 Jul 2037
+ SUSE Linux Enterprise Server 15 SP7
+ Service Pack Release
+ FCS Date
+ General Ends
+ LTSS Ends
+ LTSS Core Ends
+ SUSE Linux Enterprise Server 15
+ 16 Jul 2018
+ 31 Dec 2019
+ 31 Dec 2022
+ SUSE Linux Enterprise Server 15 SP1
+ 24 Jun 2019
+ 31 Jan 2021
+ 31 Jan 2024
+ SUSE Linux Enterprise Server 15 SP2
+ 21 Jul 2020
+ 31 Dec 2021
+ 31 Dec 2024
+ SUSE Linux Enterprise Server 15 SP3
+ 22 Jun 2021
+ 31 Dec 2022
+ 31 Dec 2025
+ SUSE Linux Enterprise Server 15 SP4
+ 21 Jun 2022
+ 31 Dec 2023
+ 31 Dec 2026
+ SUSE Linux Enterprise Server 15 SP5
+ 20 June 2023
+ 31 Dec 2024
+ 31 Dec 2027
+ SUSE Linux Enterprise Server 15 SP6
+ 26 June 2024
+ 31 Dec 2025
+ 31 Dec 2028
+ SUSE Linux Enterprise Server 15 SP7
+ 17 June 2025
+ 31 Jul 2031
+ 31 Jul 2034
+ Dec 2037
+SUSE Linux Enterprise Server 15 Modules
+Starting with SUSE Linux Enterprise Server 15, products consist of a set of modules. Modules allow you to customize the SLE product as per your needs.  You can choose from generic modules that are available for all products or product-specific modules.  Modules are based on service packs, so they get refreshed each year with the release of a new service pack. 
+More information can be found at https://documentation.suse.com/sles/html/SLES-all/article-modules.html
+ Read more
+ SUSE Linux Enterprise Server 16
+ 30 Nov 2035
+ 30 Nov 2038
+ SUSE Linux Enterprise Server 16
+ Releases
+ FCS Date
+ General Ends
+ LTS Ends
+ LTS Core Ends
+ SUSE Linux Enterprise Server 16.0
+ 4 Nov 2025
+ 30 Nov 2027
+ 30 Nov 2030
+ SUSE Linux Enterprise Server 16.1
+ 10 Nov 2026
+ 30 Nov 2028
+ 30 Nov 2031
+ SUSE Linux Enterprise Server 16.2
+ Nov 2027
+ 30 Nov 2029
+ 30 Nov 2032
+ SUSE Linux Enterprise Server 16.3
+ Nov 2028
+ 30 Nov 2030
+ 30 Nov 2033
+ SUSE Linux Enterprise Server 16.4
+ Nov 2029
+ 30 Nov 2031
+ 30 Nov 2034
+ SUSE Linux Enterprise Server 16.5
+ Nov 2030
+ 30 Nov 2032
+ 30 Nov 2035
+ SUSE Linux Enterprise Server 16.6
+ Nov 2031
+ 30 Nov 2035
+ 30 Nov 2038
+ 30 Nov 2041
+ SUSE Linux Enterprise Server for NVIDIA 16
+ 30 Nov 2033
+ Not Applicable
+ SUSE Linux Enterprise Server for NVIDIA 16
+ Releases
+ FCS Date
+ General Ends
+ SUSE Linux Enterprise Server for NVIDIA 16.1
+ 10 Nov 2026
+ 30 Nov 2028
+ SUSE Linux Enterprise Server for NVIDIA 16.2
+ Nov 2027
+ 30 Nov 2029
+ SUSE Linux Enterprise Server for NVIDIA 16.3
+ Nov 2028
+ 30 Nov 2030
+ SUSE Linux Enterprise Server for NVIDIA 16.4
+ Nov 2029
+ 30 Nov 2031
+ SUSE Linux Enterprise Server for NVIDIA 16.5
+ Nov 2030
+ 30 Nov 2032
+ SUSE Linux Enterprise Server for NVIDIA 16.6
+ Nov 2031
+ 30 Nov 2033
+ SUSE Linux Enterprise Server for SAP applications 11
+ 31 Mar 2019
+ 31 Mar 2028
+ SUSE Linux Enterprise Server for SAP applications 15 SP7
+ Service Pack Release
+ FCS Date
+ ESPOS* Ends
+ LTSS Ends
+ LTSS Core Ends
+ SUSE Linux Enterprise Server for SAP Applications 11
+ 11 May 2010
+ 31 Aug 2012
+ SUSE Linux Enterprise Server for SAP Applications 11 SP1
+ 04 Feb 2011
+ 31 Dec 2013
+ SUSE Linux Enterprise Server for SAP Applications 11 SP2
+ 15 Jun 2012
+ 30 Apr 2015
+ 30 Apr 2017
+ SUSE Linux Enterprise Server for SAP Applications 11 SP3
+ 17 Oct 2013
+ 31 Jan 2017
+ 31 Jan 2019
+ SUSE Linux Enterprise Server for SAP Applications 11 SP4
+ 30 Jul 2015
+ 31 Mar 2019
+ 31 Mar 2022
+ March 2028
+*ESPOS - Extended Service Pack Overlap Support
+ SUSE Linux Enterprise Server for SAP applications 12
+ 31 Oct 2024
+ 31 Oct 2030
+ SUSE Linux Enterprise Server for SAP applications 15 SP7
+ Service Pack Release
+ FCS Date
+ General Support Ends
+ ESPOS* Ends
+ LTSS Ends
+ LTSS Core Ends
+ SUSE Linux Enterprise Server for SAP Applications 12
+ 04 May 2015
+ 31 Aug 2016
+ 31 Aug 2019
+ SUSE Linux Enterprise Server for SAP Applications 12 SP1
+ 15 Feb 2016
+ 31 May 2017
+ 31 May 2020
+ SUSE Linux Enterprise Server for SAP Applications 12 SP2
+ 08 Nov 2016
+ 31 Mar 2018
+ 31 Mar 2021
+ SUSE Linux Enterprise Server for SAP Applications 12 SP3
+ 07 Sep 2017
+ 30 Jun 2019
+ 30 Jun 2022
+ SUSE Linux Enterprise Server for SAP Applications 12 SP4
+ 12 Dec 2018
+ 30 Jun 2020
+ 30 Jun 2023
+ SUSE Linux Enterprise Server for SAP Applications 12 SP5
+ 09 Dec 2019
+ 31 Oct 2024
+ NA**
+ 31 Oct 2027
+ 31 Oct 2030
+*ESPOS - Extended Service Pack Overlap Support
+**SP5 is the last Service Pack for this code stream.
+SUSE Linux Enterprise Server for SAP Applications includes Extended Service Pack Overlay Support (ESPOS). This provides an additional 3 years of support for each SP following the end of general support. Combined with the standard 6 months overlay, it offers a total of 3.5 years of overlay support after the launch of the next Service Pack.
+The last service pack of a SUSE Linux Enterprise Server for SAP Applications major release has a separate lifecycle without ESPOS as there is no overlap with the next service pack. Customers have the option to receive an extended 3 years of support for this final service pack through Long Term Service Pack Support (LTSS), which is available at an additional cost.
+More on ESPOS
+ SUSE Linux Enterprise Server for SAP applications 15
+ 31 Jul 2031
+ 31 Jul 2037
+ SUSE Linux Enterprise Server for SAP applications 15 SP7
+ Service Pack Release
+ FCS Date
+ General Support Ends
+ ESPOS* Ends
+ LTSS Ends
+ LTSS Core Ends
+ SUSE Linux Enterprise Server for SAP Applications 15
+ 16 Jul 2018
+ 31 Dec 2019
+ 31 Dec 2022
+ SUSE Linux Enterprise Server for SAP Applications 15 SP1
+ 24 Jun 2019
+ 31 Jan 2021
+ 31 Jan 2024
+ SUSE Linux Enterprise Server for SAP Applications 15 SP2
+ 21 Jul 2020
+ 31 Dec 2021
+ 31 Dec 2024
+ SUSE Linux Enterprise Server for SAP Applications 15 SP3
+ 22 Jun 2021
+ 31 Dec 2022
+ 31 Dec 2025
+ SUSE Linux Enterprise Server for SAP Applications 15 SP4
+ 21 Jun 2022
+ 31 Dec 2023
+ 31 Dec 2026
+ SUSE Linux Enterprise Server for SAP Applications 15 SP5
+ 20 June 2023
+ 31 Dec 2024
+ 31 Dec 2027
+ SUSE Linux Enterprise Server for SAP Applications 15 SP6
+ 26 June 2024
+ 31 Dec 2025
+ 31 Dec 2028
+ SUSE Linux Enterprise Server for SAP Applications 15 SP7
+ 17 June 2025
+ 31 Jul 2031
+ NA**
+ 31 Jul 2034
+ Dec 2037
+*ESPOS - Extended Service Pack Overlap Support
+**SP7 is the last Service Pack for this code stream.
+SUSE Linux Enterprise Server for SAP Applications includes Extended Service Pack Overlay Support (ESPOS). This provides an additional 3 years of support for each SP following the end of general support. Combined with the standard 6 months overlay, it offers a total of 3.5 years of overlay support after the launch of the next Service Pack.
+The last service pack of a SUSE Linux Enterprise Server for SAP Applications major release has a separate lifecycle without ESPOS as there is no overlap with the next service pack. Customers have the option to receive an extended 3 years of support for this final service pack through Long Term Service Pack Support (LTSS), which is available at an additional cost.
+More on ESPOS
+ Read more
+ SUSE Linux Enterprise Server for SAP applications 16
+ 30 Nov 2035
+ 30 Nov 2038
+ SUSE Linux Enterprise Server for SAP applications 16
+ Releases
+ FCS Date
+ General Support Ends
+ Included LTS Ends
+ LTS Ends
+ LTS Core Ends
+ SUSE Linux Enterprise Server for SAP applications 16.0
+ 4 Nov 2025
+ 30 Nov 2027
+ 30 Nov 2030
+ SUSE Linux Enterprise Server for SAP applications 16.1
+ 10 Nov 2026
+ 30 Nov 2028
+ 30 Nov 2031
+ SUSE Linux Enterprise Server for SAP applications 16.2
+ Nov 2027
+ 30 Nov 2029
+ 30 Nov 2032
+ SUSE Linux Enterprise Server for SAP applications 16.3
+ Nov 2028
+ 30 Nov 2030
+ 30 Nov 2033
+ SUSE Linux Enterprise Server for SAP applications 16.4
+ Nov 2029
+ 30 Nov 2031
+ 30 Nov 2034
+ SUSE Linux Enterprise Server for SAP applications 16.5
+ Nov 2030
+ 30 Nov 2032
+ 30 Nov 2035
+ SUSE Linux Enterprise Server for SAP applications 16.6
+ Nov 2031
+ 30 Nov 2035
+ 30 Nov 2036
+ 30 Nov 2038
+ 2041
+Each release of ​SUSE Linux Enterprise Server for SAP applications 16.x is supported by SUSE for five years:
+ SLES for SAP applications 16.0 to 16.5 is supported for two years with general support, followed by Long Term Support (LTS) which is part of the subscription (“included LTS”).
+ SLES for SAP applications 16.6 is the final minor release and is supported with four years of general support followed by one year of LTS included in the subscription. Customers can purchase additional two years of LTS for 16.6.
+ Read more
+ SUSE Linux Enterprise Virtual Machine Driver Pack 2.5
+ 31 Mar 2024
+ Not Applicable
+ SUSE Linux Enterprise Virtual Machine Driver Pack 2.5
+ SUSE Linux Enterprise Workstation Extension 12
+ 31 Oct 2024
+ Not Applicable
+ SUSE Linux Enterprise Workstation Extension 15 SP7
+ Service Pack Release
+ FCS Date
+ General Support Ends
+ SUSE Linux Enterprise Workstation Extension 12
+ 27 Oct 2014
+ 30 June 2016
+ SUSE Linux Enterprise Workstation Extension 12 SP1
+ 15 Dec 2015
+ 31 May 2017
+ SUSE Linux Enterprise Workstation Extension 12 SP2
+ 08 Nov 2016
+ 31 Mar 2018
+ SUSE Linux Enterprise Workstation Extension 12 SP3
+ 07 Sep 2017
+ 30 Jun 2019
+ SUSE Linux Enterprise Workstation Extension 12 SP4
+ 12 Dec 2018
+ 30 Jun 2020
+ SUSE Linux Enterprise Workstation Extension 12 SP5
+ 09 Dec 2019
+ 31 Oct 2024
+ SUSE Linux Enterprise Workstation Extension 15
+ 31 Jul 2028
+ Not Applicable
+ SUSE Linux Enterprise Workstation Extension 15 SP7
+ Service Pack Release
+ FCS Date
+ General Support Ends
+ SUSE Linux Enterprise Workstation Extension 15
+ 16 Jul 2018
+ 31 Dec 2019
+ SUSE Linux Enterprise Workstation Extension 15 SP1
+ 24 Jun 2019
+ 31 Jan 2021
+ SUSE Linux Enterprise Workstation Extension 15 SP2
+ 21 Jul 2020
+ 31 Dec 2021
+ SUSE Linux Enterprise Workstation Extension 15 SP3
+ 22 Jun 2021
+ 31 Dec 2022
+ SUSE Linux Enterprise Workstation Extension 15 SP4
+ 21 Jun 2022
+ 31 Dec 2023
+ SUSE Linux Enterprise Workstation Extension 15 SP5
+ 20 Jun 2023
+ 31 Dec 2024
+ SUSE Linux Enterprise Workstation Extension 15 SP6
+ 26 Jun 2024
+ 31 Dec 2025
+ SUSE Linux Enterprise Workstation Extension 15 SP7
+ 17 Jun 2025
+ 31 Jul 2028
+ SUSE Multi-Linux Manager 4.3 Server
+ 30 Jun 2025
+ 31 Jul 2026
+ SUSE Multi-Linux Manager 5.1 Server
+ SUSE Multi-Linux Manager Proxy
+SUSE Multi-Linux Manager Proxy follows the same lifecycle as SUSE Multi-Linux Manager Server.
+Supported SUSE Linux Enterprise Server Service Packs
+SUSE Multi-Linux Manager 4.3 Server and SUSE Multi-Linux Manager 4.3 Proxy are installed with the SUSE Linux Enterprise 15 SP4 installer. Unless stated otherwise in the SUSE Multi-Linux Manager release notes, the base operating system needs to be updated to the most current service pack according to the SUSE Linux Enterprise Server lifecycle policy on a regular basis. Please refer to the latest release notes release notes for the most recent supported service pack.
+ SUSE Multi-Linux Manager 4.3 Server
+ SUSE Multi-Linux Manager 5.0 Server
+ 30 Jun 2026
+ Not Applicable
+ SUSE Multi-Linux Manager 5.1 Server
+ SUSE Multi-Linux Manager Proxy
+SUSE Multi-Linux Manager Proxy and SUSE Multi-Linux Manager Retail Branch Server follows the same lifecycle as SUSE Multi-Linux Manager Server.
+Supported SUSE Linux Micro & SUSE Linux Enterprise Server
+SUSE Multi-Linux Manager 5.0 Server, SUSE Multi-Linux Manager 5.0 Proxy and SUSE Multi-Linux Manager Retail Branch Server 5.0 are supported on top of SUSE Linux Micro 5.5 and SUSE Linux Enterprise Server 15 SP6. Please refer to the latest release notes release notes for more information.
+ Supported Host OS
+ SUSE Linux Enterprise Server 15 SP6
+ SUSE Linux Micro 5.5
+ SUSE Multi-Linux Manager 5.0 Server
+ SUSE Multi-Linux Manager 5.1 Server
+ 31 Jul 2027
+ Not Applicable
+ SUSE Multi-Linux Manager 5.1 Server
+ SUSE Multi-Linux Manager Proxy
+SUSE Multi-Linux Manager Proxy and SUSE Multi-Linux Manager Retail Branch Server follows the same lifecycle as SUSE Multi-Linux Manager Server.
+Supported SUSE Linux Micro & SUSE Linux Enterprise Server
+SUSE Multi-Linux Manager 5.1 Server, SUSE Multi-Linux Manager 5.1 Proxy and SUSE Multi-Linux Manager Retail Branch Server 5.1 are supported on top of SUSE Linux Micro 6.1 and SUSE Linux Enterprise Server 15 SP7. Please refer to the latest release notes release notes for more information.
+ Supported Host OS
+ SUSE Linux Enterprise Server 15 SP7
+ SUSE Linux Micro 6.1
+ SUSE Multi-Linux Manager 5.1 Server
+ SUSE Multi-Linux Manager 5.2 Server
+ 31 Jul 2029
+ Not Applicable
+ SUSE Multi-Linux Manager 5.2 Server
+ SUSE Multi-Linux Manager Proxy
+SUSE Multi-Linux Manager Proxy and SUSE Multi-Linux Manager Retail Branch Server follow the same lifecycle as SUSE Multi-Linux Manager Server.
+Supported SUSE Linux Micro & SUSE Linux Enterprise Server
+SUSE Multi-Linux Manager 5.2 Server, SUSE Multi-Linux Manager 5.2 Proxy, and SUSE Multi-Linux Manager Retail Branch Server 5.2 are supported on top of the following host operating systems:
+Supported Host OS
+ SUSE Linux Enterprise Server 15 SP7
+ SUSE Linux Micro 6.2
+Please refer to the latest release notes for more information.
+ SUSE Multi-Linux Manager 5.2 Server
+ SUSE Multi-Linux Manager for Retail 4.3
+ 30 Jun 2025
+ 31 Jul 2026
+ SUSE Multi-Linux Manager for Retail 5.1
+ SUSE Multi-Linux Manager for Retail 5.0
+ 30 Jun 2026
+ Not Applicable
+ SUSE Multi-Linux Manager for Retail 5.1
+ SUSE Multi-Linux Manager for Retail 5.1
+ 31 Jul 2027
+ Not Applicable
+ SUSE Multi-Linux Manager for Retail 5.1
+ SUSE Multi-Linux Manager for Retail 5.2
+ 31 Jul 2029
+ Not Applicable
+ SUSE Multi-Linux Manager for Retail 5.2
+ SUSE Edge 3.7
+ 22 Mar 2027
+ 22 Mar 2028
+ SUSE Edge 3.7 | View Support Matrix
+ Version
+ Availability date
+ Full Support End Date
+ Maintenance Support End Date
+ EOL
+ Total supported time
+ 3.7
+ 23 Sep 2026
+ 22 Mar 2027
+ 22 Mar 2028
+ 23 Mar 2028
+ 18 months
+ 3.6
+ 27 May 2026
+ 27 Nov 2026
+ 28 May 2028
+ 28 May 2028
+ 24 months
+ 3.5
+ 21 Jan 2026
+ 21 Jul 2026
+ 21 Jul 2027
+ 22 Jul 2027
+ 18 months
+ 3.4
+ 24 Sep 2025
+ 20 Mar 2026
+ 20 Sep 2027
+ 21 Sep 2027
+ 24 months
+ 3.3
+ 20 May 2025
+ 20 Nov 2025
+ 20 Nov 2026 
+ 21 Nov 2026
+ 18 months
+ 3.2
+ 20 Jan 2025
+ 20 Jul 2025 
+ 20 Jan 2027 
+ 21 Jan 2027
+ 24 months
+ 3.1
+ 11 Oct 2024
+ 11 Apr 2025
+ 11 Oct 2026
+ 12 Oct 2026
+ 24 months
+ 3.0
+ 26 Apr 2024
+ 26 Oct 2024
+ 26 Apr 2025
+ 27 Apr 2025
+ 12 months
+ SUSE Telco Cloud 3.7
+ 22 Mar 2027
+ 22 Mar 2028
+ SUSE Telco Cloud 3.7 | View Support Matrix
+ Version
+ Availability date
+ Full Support End Date
+ Maintenance Support End Date
+ EOL
+ Total supported time
+ 3.7
+ 23 Sep 2026
+ 22 Mar 2027
+ 22 Mar 2028
+ 23 Mar 2028
+ 18 months
+ 3.6
+ 27 May 2026
+ 27 Nov 2026
+ 28 May 2028
+ 28 May 2028
+ 24 months
+ 3.5
+ 21 Jan 2026
+ 21 Jul 2026
+ 21 Jul 2027
+ 22 Jul 2027
+ 18 months
+ 3.4
+ 24 Sep 2025
+ 20 Mar 2026
+ 20 Sep 2027
+ 21 Sep 2027
+ 24 months
+ 3.3
+ 20 May 2025
+ 20 Nov 2025
+ 20 Nov 2026 
+ 21 Nov 2026
+ 18 months
+ 3.2
+ 20 Jan 2025
+ 20 Jul 2025 
+ 20 Jan 2027 
+ 21 Jan 2027
+ 24 months
+ 3.1
+ 11 Oct 2024
+ 11 Apr 2025
+ 11 Oct 2026
+ 12 Oct 2026
+ 24 months
+ 3.0
+ 26 Apr 2024
+ 26 Oct 2024
+ 26 Apr 2025
+ 27 Apr 2025
+ 12 months
+ Choose a Filter
+ All EOL Products
+ SUSE CaaS Platform
+ SUSE Cloud Application Platform
+ SUSE Enterprise Storage
+ SUSE OpenStack Cloud
+ SUSE Studio Onsite
+ Product Release
+ General Support Ends
+ LTSS Ends
+ Current Version
+ SUSE CaaS Platform 1
+ 16 Nov 2017
+ Not Applicable
+ SUSE CaaS Platform 4.2
+ SUSE CaaS Platform 2
+ 31 Jul 2018
+ Not Applicable
+ SUSE CaaS Platform 4.2
+ SUSE CaaS Platform 3
+ 31 Mar 2020
+ Not Applicable
+ SUSE CaaS Platform 4.2
+ SUSE CaaS Platform 4
+ TBD
+ Not Applicable
+ SUSE CaaS Platform 4.2
+ Service Pack Release
+ FCS Date
+ General Ends
+ SUSE CaaS Platform 4.0
+ 13 Sep 2019
+ 14 Mar 2020
+ SUSE CaaS Platform 4.1
+ 14 Jan 2020
+ 06 Jul 2020
+ SUSE CaaS Platform 4.2
+ 06 May 2020
+ 07 Dec 2020*
+ SUSE CaaS Platform 4.5
+ 07 Sep 2020
+ 31 May 2021
+*Users of SAP Data Intelligence: for extended support information, contact your account team.
+ SUSE Cloud Application Platform 1
+ 31 May 2021
+ Not Applicable
+ SUSE Cloud Application Platform 2
+ SUSE Cloud Application Platform 2
+ 31 May 2022
+ Not Applicable
+ SUSE Cloud Application Platform 2
+ SUSE Enterprise Storage 2.1
+ 1 Mar 2017
+ Not Applicable
+ SUSE Enterprise Storage 7
+ SUSE Enterprise Storage 3
+ 31 Mar 2018
+ Not Applicable
+ SUSE Enterprise Storage 7
+ SUSE Enterprise Storage 4
+ 30 Sep 2019
+ Not Applicable
+ SUSE Enterprise Storage 7
+ SUSE Enterprise Storage 5 and 5.5
+ 31 Jan 2021
+ Not Applicable
+ SUSE Enterprise Storage 7
+ SUSE Enterprise Storage 5.5 is a maintenance update of SUSE Enterprise Storage 5. The currently supported version is 5.5.
+ SUSE Enterprise Storage 6
+ 30 May 2022
+ Not Applicable
+ SUSE Enterprise Storage 7
+ As an accommodation for customers wanting to upgrade directly to the upcoming refresh of SUSE Enterprise Storage 7 and thus avoid one intermediate update, the SES 6 lifecycle is extended to the 30th of May, 2022. We currently anticipate that release to be on March 15th. Should the date of the release be delayed, the 2 months grace period automatically adjusts. An earlier release will not move the grace period date.
+ SUSE Enterprise Storage 7
+ 31 Jan 2023
+ Not Applicable
+ SUSE Enterprise Storage 7
+ SUSE OpenStack Cloud 7
+ 31 Dec 2019
+ Not Applicable
+ SUSE OpenStack Cloud 9
+ SUSE OpenStack Cloud 8
+ 31 May 2021
+ Not Applicable
+ SUSE OpenStack Cloud 9
+ SUSE OpenStack Cloud 9
+ 29 Apr 2022
+ Not Applicable
+ SUSE OpenStack Cloud 9
+ SUSE Studio Onsite 1.3
+ 31 Mar 2019
+ Not Applicable
+ SUSE Studio Onsite 1.3
+ Careers
+ Legal
+ Anti-Slavery Statement
+ Modern Slavery Statement
+ About
+ Communications Preferences
+ Contact Us
+ Let's Chat
+ Support: Open a Support Case
+ © ©SUSE, All Rights Reserved
+ Cookie Settings
+ Privacy Policy and
+ Cookie Policy
+ X
+ ×

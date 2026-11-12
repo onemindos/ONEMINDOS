@@ -1,0 +1,77 @@
+--- lines 190,265 of extracted text ---
+
+Finding—Intent—2023 c 191.
+
+(1) The legislature finds that the people of Washington regard their privacy as a fundamental right and an essential element of their individual freedom. Washington's Constitution explicitly provides the right to privacy. Fundamental privacy rights have long been and continue to be integral to protecting Washingtonians and to safeguarding our democratic republic.
+(2) Information related to an individual's health conditions or attempts to obtain health care services is among the most personal and sensitive categories of data collected. Washingtonians expect that their health data is protected under laws like the health information portability and accountability act (HIPAA). However, HIPAA only covers health data collected by specific health care entities, including most health care providers. Health data collected by noncovered entities, including certain apps and websites, are not afforded the same protections. Chapter 191, Laws of 2023 works to close the gap between consumer knowledge and industry practice by providing stronger privacy protections for all Washington consumers' health data.
+(3) With chapter 191, Laws of 2023, the legislature intends to provide heightened protections for Washingtonian's health data by: Requiring additional disclosures and consumer consent regarding the collection, sharing, and use of such information; empowering consumers with the right to have their health data deleted; prohibiting the selling of consumer health data without valid authorization signed by the consumer; and making it unlawful to utilize a geofence around a facility that provides health care services.
+[ 2023 c 191 s 2.] 
+
+PDFRCW 19.373.010
+
+Definitions.
+
+The definitions in this section apply throughout this chapter unless the context clearly requires otherwise.
+(1) "Abortion" means the termination of a pregnancy for purposes other than producing a live birth.
+(2) "Affiliate" means a legal entity that shares common branding with another legal entity and controls, is controlled by, or is under common control with another legal entity. For the purposes of this definition, "control" or "controlled" means:
+(a) Ownership of, or the power to vote, more than 50 percent of the outstanding shares of any class of voting security of a company;
+(b) Control in any manner over the election of a majority of the directors or of individuals exercising similar functions; or
+(c) The power to exercise controlling influence over the management of a company.
+(3) "Authenticate" means to use reasonable means to determine that a request to exercise any of the rights afforded in this chapter is being made by, or on behalf of, the consumer who is entitled to exercise such consumer rights with respect to the consumer health data at issue.
+(4) "Biometric data" means data that is generated from the measurement or technological processing of an individual's physiological, biological, or behavioral characteristics and that identifies a consumer, whether individually or in combination with other data. Biometric data includes, but is not limited to:
+(a) Imagery of the iris, retina, fingerprint, face, hand, palm, vein patterns, and voice recordings, from which an identifier template can be extracted; or
+(b) Keystroke patterns or rhythms and gait patterns or rhythms that contain identifying information.
+(5) "Collect" means to buy, rent, access, retain, receive, acquire, infer, derive, or otherwise process consumer health data in any manner.
+(6)(a) "Consent" means a clear affirmative act that signifies a consumer's freely given, specific, informed, opt-in, voluntary, and unambiguous agreement, which may include written consent provided by electronic means.
+(b) "Consent" may not be obtained by:
+(i) A consumer's acceptance of a general or broad terms of use agreement or a similar document that contains descriptions of personal data processing along with other unrelated information;
+(ii) A consumer hovering over, muting, pausing, or closing a given piece of content; or
+(iii) A consumer's agreement obtained through the use of deceptive designs.
+(7) "Consumer" means (a) a natural person who is a Washington resident; or (b) a natural person whose consumer health data is collected in Washington. "Consumer" means a natural person who acts only in an individual or household context, however identified, including by any unique identifier. "Consumer" does not include an individual acting in an employment context.
+(8)(a) "Consumer health data" means personal information that is linked or reasonably linkable to a consumer and that identifies the consumer's past, present, or future physical or mental health status.
+(b) For the purposes of this definition, physical or mental health status includes, but is not limited to:
+(i) Individual health conditions, treatment, diseases, or diagnosis;
+(ii) Social, psychological, behavioral, and medical interventions;
+(iii) Health-related surgeries or procedures;
+(iv) Use or purchase of prescribed medication;
+(v) Bodily functions, vital signs, symptoms, or measurements of the information described in this subsection (8)(b);
+(vi) Diagnoses or diagnostic testing, treatment, or medication;
+(vii) Gender-affirming care information;
+(viii) Reproductive or sexual health information;
+(ix) Biometric data;
+(x) Genetic data;
+(xi) Precise location information that could reasonably indicate a consumer's attempt to acquire or receive health services or supplies;
+(xii) Data that identifies a consumer seeking health care services; or
+(xiii) Any information that a regulated entity or a small business, or their respective processor, processes to associate or identify a consumer with the data described in (b)(i) through (xii) of this subsection that is derived or extrapolated from nonhealth information (such as proxy, derivative, inferred, or emergent data by any means, including algorithms or machine learning).
+(c) "Consumer health data" does not include personal information that is used to engage in public or peer-reviewed scientific, historical, or statistical research in the public interest that adheres to all other applicable ethics and privacy laws and is approved, monitored, and governed by an institutional review board, human subjects research ethics review board, or a similar independent oversight entity that determines that the regulated entity or the small business has implemented reasonable safeguards to mitigate privacy risks associated with research, including any risks associated with reidentification.
+(9) "Deceptive design" means a user interface designed or manipulated with the effect of subverting or impairing user autonomy, decision making, or choice.
+(10) "Deidentified data" means data that cannot reasonably be used to infer information about, or otherwise be linked to, an identified or identifiable consumer, or a device linked to such consumer, if the regulated entity or the small business that possesses such data (a) takes reasonable measures to ensure that such data cannot be associated with a consumer; (b) publicly commits to process such data only in a deidentified fashion and not attempt to reidentify such data; and (c) contractually obligates any recipients of such data to satisfy the criteria set forth in this subsection (10).
+(11) "Gender-affirming care information" means personal information relating to seeking or obtaining past, present, or future gender-affirming care services. "Gender-affirming care information" includes, but is not limited to:
+(a) Precise location information that could reasonably indicate a consumer's attempt to acquire or receive gender-affirming care services;
+(b) Efforts to research or obtain gender-affirming care services; or
+(c) Any gender-affirming care information that is derived, extrapolated, or inferred, including from nonhealth information, such as proxy, derivative, inferred, emergent, or algorithmic data.
+(12) "Gender-affirming care services" means health services or products that support and affirm an individual's gender identity including, but not limited to, social, psychological, behavioral, cosmetic, medical, or surgical interventions. "Gender-affirming care services" includes, but is not limited to, treatments for gender dysphoria, gender-affirming hormone therapy, and gender-affirming surgical procedures.
+(13) "Genetic data" means any data, regardless of its format, that concerns a consumer's genetic characteristics. "Genetic data" includes, but is not limited to:
+(a) Raw sequence data that result from the sequencing of a consumer's complete extracted deoxyribonucleic acid (DNA) or a portion of the extracted DNA;
+(b) Genotypic and phenotypic information that results from analyzing the raw sequence data; and
+(c) Self-reported health data that a consumer submits to a regulated entity or a small business and that is analyzed in connection with consumer's raw sequence data.
+(14) "Geofence" means technology that uses global positioning coordinates, cell tower connectivity, cellular data, radio frequency identification, Wifi data, and/or any other form of spatial or location detection to establish a virtual boundary around a specific physical location, or to locate a consumer within a virtual boundary. For purposes of this definition, "geofence" means a virtual boundary that is 2,000 feet or less from the perimeter of the physical location.
+(15) "Health care services" means any service provided to a person to assess, measure, improve, or learn about a person's mental or physical health, including but not limited to:
+(a) Individual health conditions, status, diseases, or diagnoses;
+(b) Social, psychological, behavioral, and medical interventions;
+(c) Health-related surgeries or procedures;
+(d) Use or purchase of medication;
+(e) Bodily functions, vital signs, symptoms, or measurements of the information described in this subsection;
+(f) Diagnoses or diagnostic testing, treatment, or medication;
+(g) Reproductive health care services; or
+(h) Gender-affirming care services.
+(16) "Homepage" means the introductory page of an internet website and any internet web page where personal information is collected. In the case of an online service, such as a mobile application, homepage means the application's platform page or download page, and a link within the application, such as from the application configuration, "about," "information," or settings page.
+(17) "Person" means, where applicable, natural persons, corporations, trusts, unincorporated associations, and partnerships. "Person" does not include government agencies, tribal nations, or contracted service providers when processing consumer health data on behalf of a government agency.
+(18)(a) "Personal information" means information that identifies or is reasonably capable of being associated or linked, directly or indirectly, with a particular consumer. "Personal information" includes, but is not limited to, data associated with a persistent unique identifier, such as a cookie ID, an IP address, a device identifier, or any other form of persistent unique identifier.
+(b) "Personal information" does not include publicly available information.
+(c) "Personal information" does not include deidentified data.
+(19) "Precise location information" means information derived from technology including, but not limited to, global positioning system level latitude and longitude coordinates or other mechanisms, that directly identifies the specific location of an individual with precision and accuracy within a radius of 1,750 feet. "Precise location information" does not include the content of communications, or any data generated by or connected to advanced utility metering infrastructure systems or equipment for use by a utility.
+(20) "Process" or "processing" means any operation or set of operations performed on consumer health data.
+(21) "Processor" means a person that processes consumer health data on behalf of a regulated entity or a small business.
+(22) "Publicly available information" means information that (a) is lawfully made available through federal, state, or municipal government records or widely distributed media, and (b) a regulated entity or a small business has a reasonable basis to believe a consumer has lawfully made available to the general public. "Publicly available information" does not include any biometric data collected about a consumer by a business without the consumer's consent.
+(23) "Regulated entity" means any legal entity that: (a) Conducts business in Washington, or produces or provides products or services that are targeted to consumers in Washington; and (b) alone or jointly with others, determines the purpose and means of collecting, processing, sharing, or selling of consumer health data. "Regulated entity" does not mean government agencies, tribal nations, or contracted service providers when processing consumer health data on behalf of the government agency.

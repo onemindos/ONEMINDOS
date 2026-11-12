@@ -1,0 +1,10 @@
+# Sources: HYG (ledger and consistency pass, 2026-11-11)
+
+Everything here was opened on 2026-11-11. Code was read from shallow clones in `<lab-dir>/src/`, at the commits named; no branch is cited.
+
+| # | Source | Type | Pin | What it supports | Saved copy |
+|---|---|---|---|---|---|
+| S1 | OpenHarmony docs, `en/device-dev/kernel/kernel-overview.md` (gitcode.com/openharmony/docs) | PRIMARY | `655c9b18334a81d84788cd53cade1945abd01f2b` (commit 2026-11-11) | C-W18-038 re-pin: kernel per system type (L56–L62), Linux kernel based on LTS 4.19.y / 5.10.y (L124) | [`HYG/openharmony-kernel-overview-655c9b18.md`](HYG/openharmony-kernel-overview-655c9b18.md), sha256 `c91691bd17562e03c696a0b4816d2c2e8893c44a5aa32129e1ad27d66caccee9`. No credential- or email-shaped strings in it. The Gitee mirror's `master` was at a different commit (`b8477987…`); the gitcode one is cited because the original row used gitcode |
+| S2 | `beclab/Olares` at the 1.12.7 release: tag `1.12.7` (annotated tag object `6ac3df1e…`) peels to `e4a353dfe737d1dd924b609b7576c047153a85b9`, also tagged `1.12.7-rc.4` | PRIMARY (code) | `e4a353df` | C-HYG-001…004: `cli/pkg/upgrade/{modules.go,base.go,version.go,1_12_7.go}`, `cli/pkg/terminus/tasks.go`, `cli/pkg/core/rollback/base.go`, `cli/pkg/etcd/tasks.go`, `daemon/pkg/commands/upgrade/upgrade.go`, `daemon/internel/watcher/upgrade/upgrade_watcher.go`, `daemon/pkg/cluster/state/retry.go`, `daemon/internel/apiserver/handlers/{command_group.go,middlewares.go}` | Not saved: the code is pinned by SHA, so the permalink is reproducible |
+| S3 | `beclab/Olares` main, as already cited in the teardown | PRIMARY (code) | `e7fe1c9634f26530386c2033a33be7a9495704f3` | Byte-identity comparison (`git diff e4a353df e7fe1c96 -- <path>`) for C-HYG-004 | — |
+| S4 | Lab run-time hash files in `<lab-dir>`: `w4-k3s-footprint/inputs.sha256`, `results.sha256`; `w5-restore/SHA256SUMS`; `w18-mac-toolchain/SHA256SUMS-lab`; `k3s-footprint-restore/dl/` | lab records (self-attested) | file times as listed in `lab/PREREGISTRATION.md` | The `versions.md` files and the pre-registration index | Hashes restated in each lab's `versions.md` |

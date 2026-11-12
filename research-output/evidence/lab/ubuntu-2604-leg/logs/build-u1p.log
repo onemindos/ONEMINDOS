@@ -1,0 +1,94 @@
+[build 07:53:07] verify k3s artifacts against the release sha256sum file
+k3s-airgap-images-amd64.tar.zst: OK
+k3s: OK
+[build 07:53:07] lab PKI
+[build 07:53:08] mmdebstrap amd64 resolute (RAUC_MODE=src)
+I: installing remaining packages inside the chroot...
+I: cleaning package lists and apt cache...
+I: success in 389.3036 seconds
+[build 07:59:38] build RAUC from 1183a396a2e10e92e428c396a510113edcd9037b in the chroot
+E: Can not write log (Is /dev/pts mounted?) - posix_openpt (19: No such device)
+rauc runtime packages: libatomic1 libblkid1 libbrotli1 libc6 libcom-err2 libcurl4t64 libfdisk1 libffi8 libglib2.0-0t64 libgmp10 libgnutls30t64 libgssapi-krb5-2 libhogweed6t64 libidn2-0 libjson-glib-1.0-0 libk5crypto3 libkeyutils1 libkrb5-3 libkrb5support0 libldap2 libmount1 libnettle8t64 libnghttp2-14 libnl-3-200 libnl-genl-3-200 libp11-kit0 libpcre2-8-0 libpsl5t64 librtmp1 libsasl2-2 libselinux1 libssh2-1t64 libssl3t64 libtasn1-6 libunistring5 libuuid1 libzstd1 zlib1g 
+E: Can not write log (Is /dev/pts mounted?) - posix_openpt (19: No such device)
+dpkg: warning: while removing xml-core, directory '/etc/sgml' not empty so not removed
+rauc 1.13
+0
+[build 08:01:48] Ubuntu-specific observations
+--- os-release
+PRETTY_NAME="Ubuntu 26.04.1 LTS"
+VERSION_ID="26.04"
+VERSION_CODENAME=resolute
+--- kernel
+7.0.0-43-generic
+--- i6300esb module
+/lib/modules/7.0.0-43-generic/kernel/drivers/watchdog/i6300esb.ko.zst
+--- coreutils provider
+coreutils 9.5-1ubuntu2+0.0.0~ubuntu25
+coreutils-from 
+coreutils-from-gnu 
+coreutils-from-uutils 0.0.0~ubuntu25
+rust-coreutils 0.10.0-1ubuntu2~26.04.1
+/usr/lib/cargo/bin/coreutils/date
+date (uutils coreutils) 0.10.0
+--- initramfs generators installed
+dracut  unknown ok not-installed
+dracut-core  unknown ok not-installed
+initramfs-tools 0.151ubuntu1 install ok installed
+--- kernel package initramfs dependency
+Depends: kmod, linux-base (>= 4.5ubuntu1~16.04.1), linux-modules-7.0.0-43-generic
+Recommends: grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub | lilo, dracut | linux-initramfs-tool
+--- snapd / apparmor installed?
+(not installed)
+--- sudo provider
+(no sudo)
+[build 08:01:48] customise rootfs
+i6300esb in initramfs: 1
+[build 08:02:44] grub-mkstandalone (x86_64-efi)
+[build 08:02:44] ext4 images (rootfs 805 MiB)
+[build 08:02:55] rauc bundles
+rauc-Message: 03:03:09.401: No keyring given, skipping signature verification
+rauc-Message: 03:03:22.232: No keyring given, skipping signature verification
+rauc-Message: 03:03:35.067: No keyring given, skipping signature verification
+rauc-Message: 03:03:47.138: No keyring given, skipping signature verification
+rauc-Message: 03:03:59.867: No keyring given, skipping signature verification
+rauc-Message: 03:04:11.359: No keyring given, skipping signature verification
+rauc-Message: 03:04:22.295: No keyring given, skipping signature verification
+[good] rauc-Message: 03:04:22.378: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[good] Version:        '2'
+[bad-k3s] rauc-Message: 03:04:22.385: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-k3s] Version:        '3'
+[bad-noagent] rauc-Message: 03:04:22.392: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-noagent] Version:        '4'
+[bad-boot] rauc-Message: 03:04:22.400: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-boot] Version:        '5'
+[bad-hang] rauc-Message: 03:04:22.407: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-hang] Version:        '6'
+[naive-noagent] rauc-Message: 03:04:22.416: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[naive-noagent] Version:        '7'
+[wrong-key] rejected by rauc info (expected)
+[build 08:04:22] disk image
+
+Number  Start (sector)    End (sector)  Size       Code  Name
+   1            2048          264191   128.0 MiB   EF00  esp
+   2          264192         4458495   2.0 GiB     8300  rootfs-A
+   3         4458496         8652799   2.0 GiB     8300  rootfs-B
+   4         8652800        29360094   9.9 GiB     8300  data
+600385613 /var/lab/out-u1p/bad-boot.raucb
+600385613 /var/lab/out-u1p/bad-hang.raucb
+600377421 /var/lab/out-u1p/bad-k3s.raucb
+600377421 /var/lab/out-u1p/bad-noagent.raucb
+600377421 /var/lab/out-u1p/good.raucb
+600377421 /var/lab/out-u1p/naive-noagent.raucb
+600377427 /var/lab/out-u1p/wrong-key.raucb
+[build 08:04:51] kernel 7.0.0-43-generic; done
+aa3caa6c4a28a2578aa1eedda599de4e592f29ca4f845dfb31bef2131013216d  disk.img
+2db54ee8eee3ebfe0b3597560bf0fb35b466ddcb54af62bfaf2126cf77550d72  bad-boot.raucb
+b924f64d84b2dd32f45d14f792e2a6964ec7b00d6e110e3aac52562909846cf8  bad-hang.raucb
+652359e2c1fa4d4194921b173e61edd9d67e854c6cab97568c28614d0926a0a7  bad-k3s.raucb
+97139c0414e3a95542c3819daa41863d2605d2e25bea8cdba6116c688d372631  bad-noagent.raucb
+b28d06c066f44515a9a4972984bd146df29962435bbf66f8c3b900c27b1fa390  good.raucb
+713a899fb5c0562b13c345bcb85390f8990fe29ef7bb2121ee282f25422cf026  naive-noagent.raucb
+ab2011c3b0a2fffb2416df9ba45c1f12f0d470e54102cacfe42b11a9c03706af  wrong-key.raucb
+004ec1878392c3b00636888515280b5c6aa5113768ca0b7f41c870f9d4e2c033  grub.cfg
+eb985a9e1cdda411a9d37820ad2d80277f800eae8e0d1885125f5f9351a4789b  lab-ca.cert.pem
+EXIT=0

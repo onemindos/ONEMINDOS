@@ -1,0 +1,7 @@
+[build 04:26:28] lab Secure Boot keys (PK, KEK, db) and RAUC CA
+[build 04:26:28] OVMF vars: enroll lab PK/KEK/db only (no Microsoft keys), Secure Boot on
+[build 04:26:29] mmdebstrap amd64 trixie
+[build 04:28:44] customise rootfs
+[build 04:28:44] UKIs (ukify + sbsign with lab db key)
+Could not calculate PolicyPCR digest: Operation not supported
+subprocess.CalledProcessError: Command '['/usr/lib/systemd/systemd-measure', 'sign', '--osrel=/var/lab/sb/rootfs/etc/os-release', '--cmdline=/tmp/tmp.cmdlineba42pkxp', '--uname=/tmp/tmp.unamedkj2rmf1', '--pcrpkey=/var/lab/sb/keys/pcr.pub', '--linux=/var/lab/sb/rootfs/boot/vmlinuz-6.12.116+deb13-amd64', '--initrd=/var/lab/sb/rootfs/boot/initrd.img-6.12.116+deb13-amd64', '--sbat=/tmp/tmp.sbatvkruqdj2', '--private-key=/var/lab/sb/keys/pcr.key', '--public-key=/var/lab/sb/keys/pcr.pub', '--phase=enter-initrd', '--phase=enter-initrd:leave-initrd', '--phase=enter-initrd:leave-initrd:sysinit', '--phase=enter-initrd:leave-initrd:sysinit:ready']' returned non-zero exit status 1.

@@ -1,0 +1,140 @@
+Pioneer Edition FreedomBox |
+ FreedomBox - Personal Server at Home
+
+ Buy
+
+ Download
+
+ Features
+
+ Apps
+
+ Support
+
+ About
+
+ Albanian
+
+ Catalan
+
+ Chinese (Simplified)
+
+ Czech
+
+ Dutch
+
+ Estonian
+
+ English
+
+ French
+
+ German
+
+ Hungarian
+
+ Indonesian
+
+ Italian
+
+ Norwegian Bokmål
+
+ Persian
+
+ Polish
+
+ Portuguese
+
+ Russian
+
+ Spanish
+
+ Swedish
+
+ Tamil
+
+ Telugu
+
+ Turkish
+
+ Ukrainian
+
+ Translate…
+
+Pioneer Edition FreedomBox
+
+Pioneer FreedomBox Home Servers are produced and sold by Olimex, a company which specializes in Open Source Hardware. The kit includes pocket-sized server hardware, an SD card with the operating system pre-installed, and a backup battery which can power the hardware for 4-5 hours in case of outages. By purchasing this product, you also support the FreedomBox Foundation's efforts to create and promote its free and open source server software.
+
+When you buy this hardware, it comes pre-installed with FreedomBox. There is not need to download and setup the hardware. However, if for some reason you wish re-install software on your Pioneer Edition FreedomBox, these downloads will be helpful.
+
+ See instructions on how to build your own FreedomBox by downloading and setting up on this hardware.
+
+Stable
+
+Latest of the two-year releases, gets updated with security fixes and some new (backported) features
+
+ Download image
+
+ Signature
+
+ Alternate download via BitTorrent
+
+ 2025-08-26
+
+ See more download options.
+
+ Get
+
+Buy
+
+Download
+
+Demo
+
+Cloud Trial
+
+ Learn
+
+About
+
+Features
+
+Apps
+
+ Vision
+
+ Manual
+
+ E-Book for Communities
+
+ Contact
+
+ Get Support
+
+ Forum
+
+ Matrix
+
+ Mailing List
+
+ IRC
+
+ Foundation
+
+ Report Issues
+
+ Contribute
+
+ Guide for Contributors
+
+ Donate
+
+ Project
+
+ Source Code
+
+Code Of Conduct
+
+ Community Governance
+
+ Wiki

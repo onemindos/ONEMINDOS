@@ -1,0 +1,64 @@
+[2026-11-11T01:19:00Z] config:
+node-name: box1
+secrets-encryption: true
+write-kubeconfig-mode: "0644"
+disable:
+  - traefik
+  - metrics-server
+cluster-init: true
+[2026-11-11T01:19:10Z] apiserver+node Ready after .126858701s
+Nov 10 20:19:03 lima-w5b k3s[5150]: time="2026-11-10T20:19:03-05:00" level=info msg="Starting etcd for new cluster, cluster-reset=false"
+Nov 10 20:19:03 lima-w5b k3s[5150]: time="2026-11-10T20:19:03-05:00" level=info msg="Migrating content from sqlite to etcd"
+keys migrated: 409
+total 16116
+drwxr-xr-x 3 root root    4096 Nov 10 20:19 .
+drwxr-xr-x 8 root root    4096 Nov 10 20:19 ..
+drwx------ 3 root root    4096 Nov 10 20:19 etcd
+-rw-r--r-- 1 root root   32768 Nov 10 20:19 state.db-shm
+-rw-r--r-- 1 root root 8252392 Nov 10 20:19 state.db-wal
+-rw-r--r-- 1 root root 8204288 Nov 10 20:19 state.db.migrated
+[2026-11-11T01:19:10Z] VERIFY
+NAME   STATUS   ROLES           AGE   VERSION        INTERNAL-IP    EXTERNAL-IP   OS-IMAGE                       KERNEL-VERSION                         CONTAINER-RUNTIME
+box1   Ready    control-plane   11m   v1.37.2+k3s1   <vm-private-ip>   <none>        Debian GNU/Linux 13 (trixie)   6.12.115+deb13.1-cloud-arm64 (arm64)   containerd://2.3.7-k3s1
+NAME                         DATA   AGE
+configmap/demo-cm            1      11m
+configmap/kube-root-ca.crt   1      11m
+
+NAME                 TYPE     DATA   AGE
+secret/demo-secret   Opaque   1      11m
+
+NAME                         STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+persistentvolumeclaim/data   Bound    pvc-6933e342-dbef-45be-a17e-163e05834cac   100Mi      RWO            local-path     <unset>                 11m
+
+NAME         READY   STATUS              RESTARTS   AGE
+pod/writer   0/1     ContainerCreating   1          10m
+[2026-11-11T01:19:10Z] cm value: world-1794359250
+[2026-11-11T01:19:10Z] secret value: <dummy-test-value, masked>
+[2026-11-11T01:19:14Z] pod Running
+[2026-11-11T01:19:14Z] marker in pod: 90da4f236231fc90b716bc4c022743ea
+[2026-11-11T01:19:14Z] expected marker: 90da4f236231fc90b716bc4c022743ea
+[2026-11-11T01:19:14Z] conversion took 14.537300757s
+[2026-11-11T01:29:14Z] IDLE-WRITES etcd dev=vda seconds=600 sectors=340568 MiB=166
+[2026-11-11T01:29:14Z] datastore dir size: 142M
+time="2026-11-10T20:29:14-05:00" level=warning msg="Unknown flag --secrets-encryption found in config.yaml, skipping\n"
+time="2026-11-10T20:29:14-05:00" level=warning msg="Unknown flag --write-kubeconfig-mode found in config.yaml, skipping\n"
+time="2026-11-10T20:29:14-05:00" level=warning msg="Unknown flag --disable found in config.yaml, skipping\n"
+time="2026-11-10T20:29:14-05:00" level=warning msg="Unknown flag --disable found in config.yaml, skipping\n"
+time="2026-11-10T20:29:14-05:00" level=warning msg="Unknown flag --cluster-init found in config.yaml, skipping\n"
+time="2026-11-10T20:29:14-05:00" level=info msg="Snapshot drill-box1-1794360555 saved."
+[2026-11-11T01:29:14Z] etcd-snapshot exit=0
+<lab-dir>/w5-restore/shared/drill.sh: line 131: strings: command not found
+[2026-11-11T01:29:14Z] snapshot file starts with: 
+no parent snapshot found, will read all files
+
+Files:           1 new,     0 changed,     0 unmodified
+Dirs:            6 new,     0 changed,     0 unmodified
+Added to the repository: 2.542 KiB (2.084 KiB stored)
+
+processed 1 files, 33 B in 0:00
+snapshot 405d2edb saved
+total 3304
+drwxr-xr-x 4 root root     128 Nov 10 20:29 .
+drwxr-xr-x 9 root root     288 Nov 10 20:29 ..
+-rw------- 1 root root 3375136 Nov 10 20:29 drill-box1-1794360555
+-rw------- 1 root root     109 Nov 10 20:29 token

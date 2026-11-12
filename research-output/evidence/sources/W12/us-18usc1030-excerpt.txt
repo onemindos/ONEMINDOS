@@ -1,0 +1,44 @@
+--- lines 130,150 of extracted text ---
+
+prev | next
+
+(a) Whoever—
+
+(1)
+
+ having knowingly accessed a computer without authorization or exceeding authorized access, and by means of such conduct having obtained information that has been determined by the United States Government pursuant to an Executive order or statute to require protection against unauthorized disclosure for reasons of national defense or foreign relations, or any restricted data, as defined in paragraph y. of section 11 of the Atomic Energy Act of 1954, with reason to believe that such information so obtained could be used to the injury of the United States, or to the advantage of any foreign nation willfully communicates, delivers, transmits, or causes to be communicated, delivered, or transmitted, or attempts to communicate, deliver, transmit or cause to be communicated, delivered, or transmitted the same to any person not entitled to receive it, or willfully retains the same and fails to deliver it to the officer or employee of the United States entitled to receive it;
+
+(2) intentionally accesses a computer without authorization or exceeds authorized access, and thereby obtains—
+
+(A)
+
+ information contained in a financial record of a financial institution, or of a card issuer as defined in section 1602(n) [1] of title 15, or contained in a file of a consumer reporting agency on a consumer, as such terms are defined in the Fair Credit Reporting Act (15 U.S.C. 1681 et seq.);
+
+(B)
+
+ information from any department or agency of the United States; or
+
+(C)
+
+--- lines 420,440 of extracted text ---
+
+(5)
+
+ the term “financial record” means information derived from any record held by a financial institution pertaining to a customer’s relationship with the financial institution;
+
+(6)
+
+ the term “exceeds authorized access” means to access a computer with authorization and to use such access to obtain or alter information in the computer that the accesser is not entitled so to obtain or alter;
+
+(7)
+
+ the term “department of the United States” means the legislative or judicial branch of the Government or one of the executive departments enumerated in section 101 of title 5;
+
+(8)
+
+ the term “damage” means any impairment to the integrity or availability of data, a program, a system, or information;
+
+(9)
+
+ the term “government entity” includes the Government of the United States, any State or political subdivision of the United States, any foreign country, and any state, province, municipality, or other political subdivision of a foreign country;
+

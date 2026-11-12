@@ -1,0 +1,83 @@
+# Excerpt of linux-firmware WHENCE @69e51bb26f3fa3e118dd770f1962a93bed690dc1 (lines 1-20 and 3140-3200)
+             **********
+             * WHENCE *
+             **********
+
+This file attempts to document the origin and licensing information,
+if known, for each piece of firmware distributed for use with the Linux
+kernel.
+
+--------------------------------------------------------------------------
+
+Driver: BCM-0bb4-0306 - Cypress Bluetooth firmware for HTC Vive
+
+File: brcm/BCM-0bb4-0306.hcd
+Link: brcm/BCM-0a5c-6410.hcd -> BCM-0bb4-0306.hcd
+
+Licence: Redistributable. See LICENCE.cypress for details.
+SPDX-License-Identifier: LicenseRef-LICENCE.cypress
+
+--------------------------------------------------------------------------
+
+...
+File: brcm/brcmfmac43602-pcie.ap.bin
+File: brcm/brcmfmac4366b-pcie.bin
+File: brcm/brcmfmac4366c-pcie.bin
+File: brcm/brcmfmac4371-pcie.bin
+
+Licence: Redistributable. See LICENCE.broadcom_bcm43xx for details.
+SPDX-License-Identifier: LicenseRef-LICENCE.broadcom_bcm43xx
+
+File: brcm/brcmfmac4373.bin
+File: cypress/cyfmac43012-sdio.bin
+Link: brcm/brcmfmac43012-sdio.bin -> ../cypress/cyfmac43012-sdio.bin
+File: cypress/cyfmac43012-sdio.clm_blob
+Link: brcm/brcmfmac43012-sdio.clm_blob -> ../cypress/cyfmac43012-sdio.clm_blob
+File: cypress/cyfmac43340-sdio.bin
+Link: brcm/brcmfmac43340-sdio.bin -> ../cypress/cyfmac43340-sdio.bin
+File: cypress/cyfmac43362-sdio.bin
+Link: brcm/brcmfmac43362-sdio.bin -> ../cypress/cyfmac43362-sdio.bin
+File: cypress/cyfmac4339-sdio.bin
+Link: brcm/brcmfmac4339-sdio.bin -> ../cypress/cyfmac4339-sdio.bin
+File: cypress/cyfmac43430-sdio.bin
+Link: brcm/brcmfmac43430-sdio.bin -> ../cypress/cyfmac43430-sdio.bin
+File: cypress/cyfmac43430-sdio.clm_blob
+Link: brcm/brcmfmac43430-sdio.clm_blob -> ../cypress/cyfmac43430-sdio.clm_blob
+File: cypress/cyfmac43455-sdio.bin
+Link: brcm/brcmfmac43455-sdio.bin -> ../cypress/cyfmac43455-sdio.bin
+File: cypress/cyfmac43455-sdio.clm_blob
+Link: brcm/brcmfmac43455-sdio.clm_blob -> ../cypress/cyfmac43455-sdio.clm_blob
+File: cypress/cyfmac4354-sdio.bin
+Link: brcm/brcmfmac4354-sdio.bin -> ../cypress/cyfmac4354-sdio.bin
+File: cypress/cyfmac4354-sdio.clm_blob
+Link: brcm/brcmfmac4354-sdio.clm_blob -> ../cypress/cyfmac4354-sdio.clm_blob
+File: brcm/brcmfmac4354-sdio.nvidia,p2371-2180.txt
+File: cypress/cyfmac4356-pcie.bin
+Link: brcm/brcmfmac4356-pcie.bin -> ../cypress/cyfmac4356-pcie.bin
+File: cypress/cyfmac4356-pcie.clm_blob
+Link: brcm/brcmfmac4356-pcie.clm_blob -> ../cypress/cyfmac4356-pcie.clm_blob
+File: cypress/cyfmac4356-sdio.bin
+Link: brcm/brcmfmac4356-sdio.bin -> ../cypress/cyfmac4356-sdio.bin
+File: cypress/cyfmac4356-sdio.clm_blob
+Link: brcm/brcmfmac4356-sdio.clm_blob -> ../cypress/cyfmac4356-sdio.clm_blob
+File: cypress/cyfmac43570-pcie.bin
+Link: brcm/brcmfmac43570-pcie.bin -> ../cypress/cyfmac43570-pcie.bin
+File: cypress/cyfmac43570-pcie.clm_blob
+Link: brcm/brcmfmac43570-pcie.clm_blob -> ../cypress/cyfmac43570-pcie.clm_blob
+File: cypress/cyfmac4373-sdio.bin
+Link: brcm/brcmfmac4373-sdio.bin -> ../cypress/cyfmac4373-sdio.bin
+File: cypress/cyfmac4373-sdio.clm_blob
+Link: brcm/brcmfmac4373-sdio.clm_blob -> ../cypress/cyfmac4373-sdio.clm_blob
+File: cypress/cyfmac54591-pcie.bin
+Link: brcm/brcmfmac54591-pcie.bin -> ../cypress/cyfmac54591-pcie.bin
+File: cypress/cyfmac54591-pcie.clm_blob
+Link: brcm/brcmfmac54591-pcie.clm_blob -> ../cypress/cyfmac54591-pcie.clm_blob
+
+Licence: Redistributable. See LICENCE.cypress for details.
+SPDX-License-Identifier: LicenseRef-LICENCE.cypress
+
+File: "brcm/brcmfmac43241b4-sdio.Advantech-MICA-071.txt"
+File: "brcm/brcmfmac43241b4-sdio.Intel Corp.-VALLEYVIEW C0 PLATFORM.txt"
+File: "brcm/brcmfmac4330-sdio.Prowise-PT301.txt"
+File: "brcm/brcmfmac43340-sdio.Insyde-VESPA2.txt"
+File: "brcm/brcmfmac43340-sdio.ASUSTeK COMPUTER INC.-TF103CE.txt"

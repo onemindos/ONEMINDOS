@@ -1,0 +1,274 @@
+
+ Price rises for some 16GB Raspberry Pi products - Raspberry Pi
+ We use some essential cookies to make our website work.
+ We use optional cookies, as detailed in our cookie policy, to remember your
+ settings and understand how you use our website.
+ Accept optional cookies
+ Reject optional cookies
+ Raspberry Pi
+ For industry
+ For home
+ Hardware
+ Software
+ Documentation
+ News
+ Forums
+ Foundation
+ Contact
+ News 
+ All news 
+ Search the archive
+ RSS feed
+ Price rises for some 16GB Raspberry Pi products
+ 2nd Nov 2026 
+ Eben Upton 
+ 23 comments 
+Frequent readers of the blog will know that we have had to make selective price increases on the products most affected by the steep rises in the cost of memory over the past two years. Other businesses in the sector have had to do likewise, and we continue to do everything we can to minimise the costs passed on to our customers, including qualifying alternative parts to give us more flexibility in sourcing. Unfortunately, a lack of alternative supply for 16GB DRAM, compounded by other ongoing component shortages, means we now need to make further price increases on some of our highest-density products.
+From today, we are raising the price of the 16GB variant of Raspberry Pi 5 by $80, to $385. The 16GB Raspberry Pi Compute Module 5 variants are increasing in price by $40, and updated prices for these can be found in the product brief on the Compute Module 5 product page. As with previous price rises, we have avoided making blanket increases across the entire product line, and we are holding the price of Raspberry Pi 500+, our premium all-in-one desktop computer built into a mechanical keyboard, which also features 16GB of RAM.
+Though these increases are unavoidable, we know they are unwelcome news for our customers. We encourage you to make sure you’re not paying for more memory than you need; integrating lower-density variants or earlier Raspberry Pi models into your projects, or making memory optimisations in your applications, are among ways you can ensure you have the memory your use case needs at the lowest possible cost. Individual customers can check out Raspberry Pi Official Magazine’s guidance on how to make the most of your memory, or ask other users for advice over on the Raspberry Pi forums. (You can often find our engineers responding to enquiries on the forums, too.) Business customers can get in touch to discuss memory optimisation at [email protected].
+We are holding the price of Raspberry Pi 500+, our premium desktop computer
+We’re aware that a few bad actors have been taking advantage of the current memory supply circumstances to sell Raspberry Pi products at inflated prices or shift products that aren’t what they seem. All of our products are available to buy at our official prices through our trusted global network of Raspberry Pi Approved Resellers. If in doubt, find your nearest vetted supplier on our Approved Reseller page.
+As we’ve said from the beginning, the current memory landscape is difficult but ultimately temporary, and we look forward to rolling back our price increases when memory costs fall once again.
+ Share this post
+ Post to X
+ Post to Facebook
+ Post to Linkedin
+ Post to Pinterest
+ CM5 
+ Raspberry Pi 5 
+ Raspberry Pi 500+ 
+ Raspberry Pi Compute Module 5 
+ Related posts 
+ Raspberry Pi Desktop now available for PC and Mac 
+ Emulate Apple II on Raspberry Pi 
+ Powered by Raspberry Pi – from Stockholm to Sydney, South Korea to Slovakia 
+ Building the next generation of hardware founders 
+ Next Post
+ Product compliance, demystified: how Raspberry Pi helps you get to market 
+ Previous Post
+ OuijaCNC 
+ Share this post
+ Post to X
+ Post to Facebook
+ Post to Linkedin
+ Post to Pinterest
+ 23 comments 
+ Jump to the comment form
+ Martin Cerven 
+ 2nd November 2026,
+ 11:46 am 
+ Add USB PD and better SoC & PCIe lanes on Pi 6! I understand rising memory prices, but right now Pi 5 costs same as more powerful Jetson Orin Nano (8GB) and Arduino Ventuno Q (16GB). It would be sad if you didn’t do anything better for 4 years and used RAM crisis as excuse for not innovating.
+Reply to Martin Cerven
+ James Hughes
+ 6th November 2026,
+ 10:44 am 
+ We have a office full of engineers, they are not sitting on their hands! Sadly a few are having to redesign boards and test componments to cope with the RAM issues, but the rest are very very busy…
+Reply to James Hughes
+ mrlinux2U
+ 2nd November 2026,
+ 11:53 am 
+ I’m so glad I’ve got some spare Pi 5’s sitting at home just in case my very nice Pi 500+ goes kablooey at some point (well ideally not before 2028 when we should hopefully see a Pi 6 appear).
+Since the Pi 500+ is the top of the range Pi (well at the moment) It would be nice if there was an option where we could buy a replacement motherboard just in case it failed outside of the warranty period (a broken keyboard isn’t that big of a deal as you can plug an external one in) otherwise you end up with a very expensive paper weight.
+Reply to mrlinux2U
+ rclark
+ 3rd November 2026,
+ 5:52 pm 
+ I have the RPI 500 as a backup. Use my 500+ with retro custom key caps for my RPI testing as I like the click’n and clack’n. I too have at least 5 RPI-5s sitting to the side waiting for a new project. Glad I got them while I could. Been waiting for some Zero 2ws, but they appear to be short supply… However I saw there might be a Zero 3W coming.
+Also I check how much RAM the on-line RPI-5s I have are using and all are way under 1GB. So even if I needed an RPI-5, it will be a RPI-5 1GB version.
+Reply to rclark
+ john
+ 2nd November 2026,
+ 12:06 pm 
+ Is there any plans for easy-to-use configuration options to the OS – to enable ‘zram’ etc – perhaps in rpiconfig ?
+Reply to john
+ thagrol 
+ 3rd November 2026,
+ 12:38 am 
+ On Trixie ZRAM is enabled by default. But yeah, could do with a config option for it.
+Reply to thagrol
+ Jack
+ 2nd November 2026,
+ 1:13 pm 
+ The mission is being scuttled. I fear that outside forces are attempting to undo the great work of the foundations goals, to get computers in the hands of underprivileged students. Memory prices are rising at an alarming rate due, in part, to supply chain issues and high demand from data centers.
+Blessings and well wishes to your continued success, and achieving your goals towards education. 
+Jack
+Reply to Jack
+ fanoush
+ 2nd November 2026,
+ 1:56 pm 
+ This is not the product announcement we were waiting for, come on, Christmas is near :-)
+Reply to fanoush
+ Nick
+ 2nd November 2026,
+ 2:30 pm 
+ That’s a significant increase, given the 10-15% projected growth of 10-15% QoQ in 4Q26. But it’s probably safe to say that there weren’t many customers for the 16GB boards in the first place, so the impact won’t be too big.
+I hope the entry level boards will stay as accessible as possible because the main point of Raspberry Pi was to enable easy access to technology, to foster IT education.
+It was 2012 when I was given my first model B Raspberry Pi, the updated 512MB revision, live, on air, in an IT show. I could barely contain my excitement, and I talked about that little board for 5-10 minutes. I was the host, they fully expected me to react like that, and took advantage of it because they wanted that natural reaction.
+At this point in time, all that excitement is as gone as the stocks of Zero 2 W and Pi 3 A+. Not great to share all of this with you, but it is worth pointing out because I can only hope that the educational side of the RPi will survive this mess. Being listed on an exchange doesn’t seem like an advantage for the original goal.
+Reply to Nick
+ manuti 
+ 2nd November 2026,
+ 9:48 pm 
+ Sad news! The spirit of having a cheap computer for students is fading because of this #RAMaggedon nightmare. We hope the times are changing, soon.
+Reply to manuti
+ Anders
+ 2nd November 2026,
+ 11:42 pm 
+ The entry level 1GB boards have maintained their low price so that spirit is still strong.
+Reply to Anders
+ Gordon77
+ 3rd November 2026,
+ 10:41 am 
+ True, but have you tried finding a Pi5 1gb recently? Not easy…
+Reply to Gordon77
+ mrlinux2U
+ 3rd November 2026,
+ 12:00 pm 
+ Same goes for the 1GB Pi 4’s – they’re as rare as hens teeth at the moment and given the cost the 2GB Pi 4/5 models the Pi 400 is looking like a complete steal (we got the full desktop kit for work the other week and it’s chugging along nicely).
+Reply to mrlinux2U
+ Jack
+ 3rd November 2026,
+ 4:48 pm 
+ I have a 400 running with an outboard 1T NVMe. It runs much faster without having to overclock.
+ Lane
+ 3rd November 2026,
+ 7:50 am 
+ Why is the RasPi5 going up by $80 but the Compute Module only going up by $40?
+Why are tinkerers being forced to subsidise big businesses?
+Reply to Lane
+ Raspberry Pi Staff
+ Helen Lynn 
+ 3rd November 2026,
+ 11:07 am 
+ CM5 16GB boards had already had a $40 price rise, but we held the price of Raspberry Pi 5 16GB for longer.
+Reply to Helen Lynn
+ crumble
+ 3rd November 2026,
+ 5:03 pm 
+ It all depends on the date and maybe time, when you have to buy the hardware for the new lot. You may still have some models in stock which was build half a year ago with half of the production cost. Those can be sold much cheaper than the new ones.
+And with both, the stock and new production, you have to earn enought, that you are able to pay the doubled production cost in 6 months. It is sad, but this is the price we have to pay for new computing concepts and not the boring old ones.
+Strangly the only ones gaining performance increase by clever programming, are the AI apps. All others still relay on faster hardware and more RAM.
+Reply to crumble
+ KnotARobert
+ 3rd November 2026,
+ 9:05 am 
+ But what if memory prices are now always this price?
+Imagine the following.
+Investors come to their senses and realise that they may never get back their billions of capital invested in AI data-centres.
+So DRAM prices drop, then PC makers lower their prices and people buy PC’s again. But, they buy 64G PC’s or better because all the software now uses AI models to do things. AI coding in Copilot, shading in a graphics or design package and a local organiser tool like openclaw. Each uses a local 8G or larger AI model. Thats at least 3 x 8G (24G, or 3 x 12G = 36G etc.) local models running at the same time.
+64G then becomes entry level spec. This keeps the prices up for how many years? And the models get bigger and more memory is needed and all PC’s become too small, so new PC’s have to be bought…. 
+This brings up another thought. Most DRAM is made in Korea – why?
+What is the secret sauce they have.
+The ingredients to make DRAM:
+~3 Billion in cash from City of London investment firms
+Chip fab machines at ~0.5 Billion a pop made in the Netherlands
+A clean room factory to put the fab machines in
+Talented staff to pull the levers, press the buttons and say things like “Why do it that way, its cheaper and faster if we do it this way”
+To summarise; to make DRAM (because it is a product that will actually make money), hop on a train to London, get 6 or so investment firms to put their hands down the back of the sofa and find £0.5B each (just tell them its a lot more fun to build a company than do high-frequency trading – watching paint dry.).
+Then eurostar to Amsterdam and come back with a shopping trolley with latest fab machines in. Build clean room in the country, bung machines in, make DRAM, make money.
+Am I missing something?
+Reply to KnotARobert
+ Anders
+ 4th November 2026,
+ 10:51 pm 
+ If PCs are getting 64GB for a reasonable price that will be because the fabs have turned their production back to DDR instead of the HBM that they are making for the AI companies.
+Reply to Anders
+ crumble
+ 5th November 2026,
+ 7:03 am 
+ If you build the fab now, it will be ready if the prices are low again.
+But NAND may still be on a high price. The ones used in AI have a lot of large write tasks. KV cache, model changes, maybe fast updates for the interference engines and drivers as well.
+And there are many bottlenecks. So you cannot run all fabs at full speed. You have to start with producing more of the needed chemicals, other electrical parts like resistors, capacitators, …
+Memory in use will need more power. 30 Watt inside a desptop is not that much. But it adds up when millions of them are powered on.
+Reply to crumble
+ A Stevens
+ 5th November 2026,
+ 3:43 pm 
+ Well, nobody is going to build any kind of chip fab in the UK, with our exorbitant energy prices! But there are other places in the world where it ought to work…
+Reply to A Stevens
+ solar3000
+ 3rd November 2026,
+ 9:35 pm 
+ oh….again.
+I haven’t been able to buy one because of the prices.
+Reply to solar3000
+ Yusef
+ 3rd November 2026,
+ 10:54 pm 
+ Personally, I think that keeping normal pi costs low is more important than keeping the 500+ and 400 low. Speaking of which, how is the 400 soooooo cheap compared to the other models? Is the pi foundation subsidizing it?
+Reply to Yusef
+ Leave a Comment
+Cancel reply?
+Name (Required) 
+Email address (also required) 
+Website URL 
+Your comment (required) 
+Δ
+ Follow us
+ Sign up to newsletter
+ X
+ Threads
+ TikTok
+ YouTube
+ Instagram
+ LinkedIn
+ Facebook
+ About Raspberry Pi
+ News
+ Investor relations
+ Contact us
+ Trademark
+ About us
+ Our Approved Resellers
+ Jobs
+ Accessibility
+ Sustainability
+ Modern slavery statement
+ Site use terms and conditions
+ Acceptable use
+ Cookies
+ Licensing
+ Terms and conditions of sale
+ Privacy
+ Security
+ Verify our bank details
+ For home
+ Raspberry Pi for home
+ Tutorials
+ For industry
+ Raspberry Pi for industry
+ Product compliance
+ Cyber Resilience Act
+ Industry updates
+ Thin clients
+ Raspberry Pi in space
+ Powered by Raspberry Pi
+ Design partners
+ Success stories
+ Hardware
+ Computers and microcontrollers
+ Cameras and displays
+ Add-on boards
+ Power supplies and cables
+ Cases
+ Peripherals
+ Software
+ Raspberry Pi Connect
+ Raspberry Pi Desktop
+ Raspberry Pi Imager
+ Raspberry Pi OS
+ Documentation
+ All categories
+ Product information portal
+ Software sources
+ Community
+ Forums
+ Events
+ Raspberry Pi Store
+ Store information
+ Raspberry Pi Press
+ About Raspberry Pi Press
+ Raspberry Pi Official Magazine
+ Books
+ Write for us
+ Contact Raspberry Pi Press

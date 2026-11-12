@@ -1,0 +1,882 @@
+Source: https://canonical.com/blog/bosch-rexroth-adopts-ubuntu-core-and-snaps-for-app-based-ctrlx-automation-platform
+Fetched 2026-11-11 (HTML stripped to text)
+
+ 
+ Bosch Rexroth adopts Ubuntu Core and snaps for app-based ctrlX AUTOMATION platform | Canonical 
+ it injects into
+ its shadow DOM is allowed by our nonce-based style-src directive.
+ Must run before the deferred lite-youtube module upgrades the
+ element.
+ -->
+ Skip to main content 
+ Your submission was sent successfully! Close 
+ Thank you for signing up for our newsletter!
+ In these regular emails you will find the latest updates from Canonical and upcoming events where you can meet our team. Close 
+ Thank you for contacting us. A member of our team will be in touch shortly. Close 
+ An error occurred while submitting your form.
+ Please try again or
+ file a bug report .
+ Close 
+ Canonical 
+ Menu 
+ Products 
+ Back 
+ Featured 
+ Back 
+ Ubuntu Desktop 
+ Fast, modern and secure Linux 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ MAAS 
+ Bare metal provisioning 
+ Snapcraft 
+ App store for Linux 
+ OpenStack 
+ Private cloud provisioning 
+ MicroCloud 
+ Lightweight, automated clouds 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Enterprise-grade support 
+ 24/7 support for the full-stack 
+ Livepatch 
+ Stay patched and defer reboots 
+ Kubernetes 
+ Containerized workloads 
+ MLOps 
+ Scalable machine learning solutions 
+ Juju 
+ Orchestration engine for operators 
+ Hardware support 
+ Ubuntu hardware you can trust 
+ Canonical Academy 
+ Real-world, industry relevant exams. 
+ Ubuntu OS 
+ Back 
+ Ubuntu Desktop 
+ Fast, modern and secure Linux 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Ubuntu Core 
+ Embedded Linux 
+ FIPS for Ubuntu 
+ Secure Linux for government 
+ WSL 
+ Windows Subsystem for Linux 
+ Multipass 
+ VMs for Windows, macOS & Linux 
+ Quick links 
+ Upgrade Ubuntu 
+ Ubuntu documentation 
+ Desktop install 
+ Server install 
+ Server guide 
+ Ubuntu on public clouds 
+ Private cloud 
+ Back 
+ OpenStack 
+ Enterprise private cloud 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ Landscape 
+ Monitor and manage machines 
+ MAAS 
+ Bare metal provisioning 
+ Ceph 
+ Open source software defined storage 
+ Juju 
+ Orchestrator engine for operators 
+ Private cloud build 
+ OpenStack implementation 
+ MicroStack 
+ Cloud-native OpenStack 
+ MicroCloud 
+ Lightweight, automated clouds 
+ Observability 
+ Open source observability 
+ Quick links 
+ Server documentation 
+ MAAS documentation 
+ MicroStack installation 
+ Data Centre Networking blog 
+ OpenStack pricing 
+ Private cloud consulting 
+ Private cloud: Avoiding the high cost of operations 
+ Public cloud 
+ Back 
+ Ubuntu on public clouds 
+ The most popular cloud OS 
+ Ubuntu on AWS 
+ AWS Marketplace 
+ Ubuntu on Azure 
+ Microsoft Azure Marketplace 
+ Ubuntu on GCP 
+ Google Cloud Marketplace 
+ Ubuntu WorkSpaces 
+ Virtual desktops on AWS 
+ Virtualization 
+ Back 
+ Multipass 
+ VMs for Windows, macOS & Linux 
+ LXD 
+ Linux containers and VMs 
+ WSL 
+ Windows Subsystem for Linux 
+ Anbox Cloud 
+ Run Android at scale in the cloud 
+ Quick links 
+ What is virtualization? 
+ Multipass documentation 
+ Virtualization docs in the server guide 
+ What is WSL? 
+ Install Ubuntu on Windows 11 
+ Install Ubuntu on Windows 10 
+ Security and support 
+ Back 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Ubuntu Pro for Devices 
+ Security & compliance subscription for IoT 
+ Ubuntu Pro + support 
+ 24/7 support for the full-stack 
+ ESM 
+ 10 years of security maintenance 
+ Landscape 
+ Monitor and manage machines 
+ Livepatch 
+ Stay patched without reboots 
+ Ubuntu Pro for AWS 
+ Amazon Web Services support 
+ Ubuntu Pro for Azure 
+ Microsoft Azure cloud support 
+ Ubuntu Pro for GCP 
+ Google Cloud support 
+ Certifications and hardening 
+ CIS, DISA-STIG, FIPS compliance 
+ Confidential computing 
+ Protect your data in use 
+ Firefighting support 
+ Enhanced support coverage 
+ Quick links 
+ Ubuntu Pro pricing 
+ Open infrastructure consulting 
+ Certified hardware 
+ CVE reports 
+ Ubuntu Security Notices (USN) 
+ Ubuntu Pro free trial 
+ Get Ubuntu Pro now 
+ Kubernetes 
+ Back 
+ Kubernetes 
+ Containerized workloads 
+ MicroK8s 
+ Simplest way to get Kubernetes 
+ Charmed Kubernetes 
+ Composable K8s for the enterprise 
+ Kubeflow 
+ Machine learning toolkit for K8s 
+ Quick links 
+ Kubernetes documentation 
+ Getting started with Kubernetes 
+ Distributions comparison 
+ Getting started with MicroK8s 
+ Kubeflow installation tutorial 
+ AI and data 
+ Back 
+ AI/ML 
+ AI and machine learning on Ubuntu 
+ Data solutions 
+ Enterprise data management at scale 
+ Cloud marketplace 
+ Managed solutions on public clouds 
+ Kubeflow 
+ End-to-end MLOps platform 
+ MLflow 
+ Lightweight ML platform 
+ Kafka 
+ Streaming data platform 
+ Spark 
+ Big data processing 
+ MongoDB 
+ NoSQL database management 
+ PostgreSQL 
+ Relational database management 
+ MySQL 
+ Relational database management 
+ OpenSearch 
+ Search and analytics suite 
+ Cassandra 
+ Distributed NoSQL database 
+ Quick links 
+ Kubeflow documentation 
+ MLflow documentation 
+ MLOps toolkit 
+ Guide to big data and AI 
+ Certified hardware 
+ Back 
+ Certified hardware 
+ Ubuntu hardware you can trust 
+ PC and laptops 
+ Certified for Ubuntu 
+ Servers 
+ Hardware for data centers 
+ IoT devices 
+ Stable and secure devices 
+ SoCs 
+ System on a Chip hardware 
+ Raspberry Pi 
+ Certified Pi devices 
+ Quick links 
+ Why use Certified devices? 
+ Certify your device 
+ Why certification matters for AIoT 
+ Industrial Pi use cases webinar 
+ Why buy a preinstalled workstation? 
+ IoT and edge 
+ Back 
+ Ubuntu Core 
+ Embedded Linux 
+ IoT App Store 
+ Private app store for Linux and IoT 
+ Device management 
+ Manage fleets of IoT devices 
+ Cyber Resilience Act 
+ Prepare for the CRA 
+ Certified devices 
+ Hardware/OS compatibility 
+ Ubuntu Frame 
+ Embedded graphical displays 
+ Ubuntu Pro for Devices 
+ Security & compliance subscription for IoT 
+ ROS ESM 
+ Expanded security for robots 
+ Real-time Ubuntu 
+ Low-latency kernel 
+ IoT Professional Services 
+ Bring IoT devices to market 
+ Kernel 
+ Ubuntu kernel on certified hardware 
+ Zephyr LTS 
+ RTOS for MCU-class devices 
+ Quick links 
+ Guide to IoT lifecycle management 
+ Canonical joins the CSA 
+ Pick the OS for your robots 
+ Embedded Linux: make or buy? 
+ Try Ubuntu Core on Raspberry Pi 
+ Industry 4.0 webinar 
+ Developer tools 
+ Back 
+ Snaps 
+ Containerized applications for Linux 
+ Snapcraft 
+ Build and publish your snaps 
+ Snap Store 
+ App store for Linux 
+ Chiseled Ubuntu 
+ Ultra-small containerization 
+ Juju 
+ Orchestrator engine for operators 
+ Charmhub 
+ Software operators collection 
+ JAAS 
+ Auditing and compliance for Juju 
+ Mir 
+ Display server library 
+ Workshop 
+ Sandboxed developer workspaces 
+ Enterprise Store 
+ Proxy for software management 
+ Launchpad 
+ Host and publish software 
+ Quick links 
+ Snap documentation 
+ Create your first snap 
+ Juju documentation 
+ Getting started with Juju 
+ Write your first charm 
+ Featured 
+ Ubuntu OS 
+ Private cloud 
+ Public cloud 
+ Virtualization 
+ Security and support 
+ Kubernetes 
+ AI and data 
+ Certified hardware 
+ IoT and edge 
+ Developer tools 
+ Ubuntu Desktop 
+ Fast, modern and secure Linux 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ MAAS 
+ Bare metal provisioning 
+ Snapcraft 
+ App store for Linux 
+ OpenStack 
+ Private cloud provisioning 
+ MicroCloud 
+ Lightweight, automated clouds 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Enterprise-grade support 
+ 24/7 support for the full-stack 
+ Livepatch 
+ Stay patched and defer reboots 
+ Kubernetes 
+ Containerized workloads 
+ MLOps 
+ Scalable machine learning solutions 
+ Juju 
+ Orchestration engine for operators 
+ Hardware support 
+ Ubuntu hardware you can trust 
+ Canonical Academy 
+ Real-world, industry relevant exams. 
+ We're here to help with any questions and more information. 
+ Contact us 
+ Ubuntu Desktop 
+ Fast, modern and secure Linux 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Ubuntu Core 
+ Embedded Linux 
+ FIPS for Ubuntu 
+ Secure Linux for government 
+ WSL 
+ Windows Subsystem for Linux 
+ Multipass 
+ VMs for Windows, macOS & Linux 
+ Quick links 
+ Upgrade Ubuntu 
+ Ubuntu documentation 
+ Desktop install 
+ Server install 
+ Server guide 
+ Ubuntu on public clouds 
+ OpenStack 
+ Enterprise private cloud 
+ Ubuntu Server 
+ Scalable Linux for the cloud 
+ Landscape 
+ Monitor and manage machines 
+ MAAS 
+ Bare metal provisioning 
+ Ceph 
+ Open source software defined storage 
+ Juju 
+ Orchestrator engine for operators 
+ Private cloud build 
+ OpenStack implementation 
+ MicroStack 
+ Cloud-native OpenStack 
+ MicroCloud 
+ Lightweight, automated clouds 
+ Observability 
+ Open source observability 
+ Quick links 
+ Server documentation 
+ MAAS documentation 
+ MicroStack installation 
+ Data Centre Networking blog 
+ OpenStack pricing 
+ Private cloud consulting 
+ Private cloud: Avoiding the high cost of operations 
+ Ubuntu on public clouds 
+ The most popular cloud OS 
+ Ubuntu on AWS 
+ AWS Marketplace 
+ Ubuntu on Azure 
+ Microsoft Azure Marketplace 
+ Ubuntu on GCP 
+ Google Cloud Marketplace 
+ Ubuntu WorkSpaces 
+ Virtual desktops on AWS 
+ Multipass 
+ VMs for Windows, macOS & Linux 
+ LXD 
+ Linux containers and VMs 
+ WSL 
+ Windows Subsystem for Linux 
+ Anbox Cloud 
+ Run Android at scale in the cloud 
+ Quick links 
+ What is virtualization? 
+ Multipass documentation 
+ Virtualization docs in the server guide 
+ What is WSL? 
+ Install Ubuntu on Windows 11 
+ Install Ubuntu on Windows 10 
+ Ubuntu Pro 
+ Security & compliance subscription 
+ Ubuntu Pro for Devices 
+ Security & compliance subscription for IoT 
+ Ubuntu Pro + support 
+ 24/7 support for the full-stack 
+ ESM 
+ 10 years of security maintenance 
+ Landscape 
+ Monitor and manage machines 
+ Livepatch 
+ Stay patched without reboots 
+ Ubuntu Pro for AWS 
+ Amazon Web Services support 
+ Ubuntu Pro for Azure 
+ Microsoft Azure cloud support 
+ Ubuntu Pro for GCP 
+ Google Cloud support 
+ Certifications and hardening 
+ CIS, DISA-STIG, FIPS compliance 
+ Confidential computing 
+ Protect your data in use 
+ Firefighting support 
+ Enhanced support coverage 
+ Quick links 
+ Ubuntu Pro pricing 
+ Open infrastructure consulting 
+ Certified hardware 
+ CVE reports 
+ Ubuntu Security Notices (USN) 
+ Ubuntu Pro free trial 
+ Get Ubuntu Pro now 
+ Kubernetes 
+ Containerized workloads 
+ MicroK8s 
+ Simplest way to get Kubernetes 
+ Charmed Kubernetes 
+ Composable K8s for the enterprise 
+ Kubeflow 
+ Machine learning toolkit for K8s 
+ Quick links 
+ Kubernetes documentation 
+ Getting started with Kubernetes 
+ Distributions comparison 
+ Getting started with MicroK8s 
+ Kubeflow installation tutorial 
+ AI/ML 
+ AI and machine learning on Ubuntu 
+ Data solutions 
+ Enterprise data management at scale 
+ Cloud marketplace 
+ Managed solutions on public clouds 
+ Kubeflow 
+ End-to-end MLOps platform 
+ MLflow 
+ Lightweight ML platform 
+ Kafka 
+ Streaming data platform 
+ Spark 
+ Big data processing 
+ MongoDB 
+ NoSQL database management 
+ PostgreSQL 
+ Relational database management 
+ MySQL 
+ Relational database management 
+ OpenSearch 
+ Search and analytics suite 
+ Cassandra 
+ Distributed NoSQL database 
+ Quick links 
+ Kubeflow documentation 
+ MLflow documentation 
+ MLOps toolkit 
+ Guide to big data and AI 
+ Certified hardware 
+ Ubuntu hardware you can trust 
+ PC and laptops 
+ Certified for Ubuntu 
+ Servers 
+ Hardware for data centers 
+ IoT devices 
+ Stable and secure devices 
+ SoCs 
+ System on a Chip hardware 
+ Raspberry Pi 
+ Certified Pi devices 
+ Quick links 
+ Why use Certified devices? 
+ Certify your device 
+ Why certification matters for AIoT 
+ Industrial Pi use cases webinar 
+ Why buy a preinstalled workstation? 
+ Ubuntu Core 
+ Embedded Linux 
+ IoT App Store 
+ Private app store for Linux and IoT 
+ Device management 
+ Manage fleets of IoT devices 
+ Cyber Resilience Act 
+ Prepare for the CRA 
+ Certified devices 
+ Hardware/OS compatibility 
+ Ubuntu Frame 
+ Embedded graphical displays 
+ Ubuntu Pro for Devices 
+ Security & compliance subscription for IoT 
+ ROS ESM 
+ Expanded security for robots 
+ Real-time Ubuntu 
+ Low-latency kernel 
+ IoT Professional Services 
+ Bring IoT devices to market 
+ Kernel 
+ Ubuntu kernel on certified hardware 
+ Zephyr LTS 
+ RTOS for MCU-class devices 
+ Quick links 
+ Guide to IoT lifecycle management 
+ Canonical joins the CSA 
+ Pick the OS for your robots 
+ Embedded Linux: make or buy? 
+ Try Ubuntu Core on Raspberry Pi 
+ Industry 4.0 webinar 
+ Snaps 
+ Containerized applications for Linux 
+ Snapcraft 
+ Build and publish your snaps 
+ Snap Store 
+ App store for Linux 
+ Chiseled Ubuntu 
+ Ultra-small containerization 
+ Juju 
+ Orchestrator engine for operators 
+ Charmhub 
+ Software operators collection 
+ JAAS 
+ Auditing and compliance for Juju 
+ Mir 
+ Display server library 
+ Workshop 
+ Sandboxed developer workspaces 
+ Enterprise Store 
+ Proxy for software management 
+ Launchpad 
+ Host and publish software 
+ Quick links 
+ Snap documentation 
+ Create your first snap 
+ Juju documentation 
+ Getting started with Juju 
+ Write your first charm 
+ Solutions 
+ Back 
+ Explore our solutions › 
+ Categories 
+ AI 
+ Bring AI to your enterprise 
+ Data 
+ Data management at scale 
+ Ubuntu OS 
+ An enterprise OS for everyone 
+ Infrastructure 
+ Agile data center operations 
+ Managed IT services 
+ Fully managed open source solutions 
+ Open source security 
+ A trusted software supply chain 
+ IoT and devices 
+ Deploy and manage devices at scale 
+ Cloud-native apps 
+ Build and deploy apps at speed 
+ Automation 
+ Simplify deployment, management, and scaling 
+ Industries 
+ Automotive 
+ Smarter vehicles and factories 
+ Financial services 
+ Modernize with open source 
+ Public sector 
+ Government and federal 
+ Education 
+ Open source for academia 
+ Industrial 
+ The factory of the future 
+ Telco 
+ Carrier-grade solutions 
+ Case studies › 
+ SBI BITS puts business continuity at the heart of its OpenStack migration. 
+ Learn more › 
+ Canonical deploys infrastructure solutions for ESA's space mission operations. 
+ Learn more › 
+ Explore our solutions › 
+ Categories 
+ AI 
+ Bring AI to your enterprise 
+ Data 
+ Data management at scale 
+ Ubuntu OS 
+ An enterprise OS for everyone 
+ Infrastructure 
+ Agile data center operations 
+ Managed IT services 
+ Fully managed open source solutions 
+ Open source security 
+ A trusted software supply chain 
+ IoT and devices 
+ Deploy and manage devices at scale 
+ Cloud-native apps 
+ Build and deploy apps at speed 
+ Automation 
+ Simplify deployment, management, and scaling 
+ Industries 
+ Automotive 
+ Smarter vehicles and factories 
+ Financial services 
+ Modernize with open source 
+ Public sector 
+ Government and federal 
+ Education 
+ Open source for academia 
+ Industrial 
+ The factory of the future 
+ Telco 
+ Carrier-grade solutions 
+ Case studies › 
+ SBI BITS puts business continuity at the heart of its OpenStack migration. 
+ Learn more › 
+ Canonical deploys infrastructure solutions for ESA's space mission operations. 
+ Learn more › 
+ Partners 
+ Back 
+ Explore our partners › 
+ Partner programs 
+ Desktop 
+ Desktop, laptops and workstations 
+ Channel/reseller 
+ Partners on every continent 
+ IoT devices 
+ Robots, edge, development boards 
+ IHV/OEM 
+ Data centres 
+ ISVs 
+ Independent Software Vendors 
+ GSIs 
+ Global Systems Integrators 
+ Public cloud 
+ Ubuntu optimized for the cloud 
+ Silicon 
+ CPUs, boards and SoCs 
+ Quick links 
+ Find a partner 
+ Become a partner 
+ Log in to the partner portal 
+ Explore our partners › 
+ Partner programs 
+ Desktop 
+ Desktop, laptops and workstations 
+ Channel/reseller 
+ Partners on every continent 
+ IoT devices 
+ Robots, edge, development boards 
+ IHV/OEM 
+ Data centres 
+ ISVs 
+ Independent Software Vendors 
+ GSIs 
+ Global Systems Integrators 
+ Public cloud 
+ Ubuntu optimized for the cloud 
+ Silicon 
+ CPUs, boards and SoCs 
+ Quick links 
+ Find a partner 
+ Become a partner 
+ Log in to the partner portal 
+ Careers 
+ Back 
+ Roles by department › 
+ Roles by department 
+ Engineering 
+ Support Engineering 
+ Marketing 
+ Web and Design 
+ Alliances and Channels 
+ Project management 
+ Commercial Operations 
+ Product 
+ Sales 
+ Finance 
+ Legal 
+ Administration 
+ People 
+ Working here 
+ Hiring process 
+ Company culture 
+ Remote work 
+ Progression 
+ Diversity 
+ Sustainability 
+ Early careers 
+ Roles by department › 
+ Roles by department 
+ Engineering 
+ Support Engineering 
+ Marketing 
+ Web and Design 
+ Alliances and Channels 
+ Project management 
+ Commercial Operations 
+ Product 
+ Sales 
+ Finance 
+ Legal 
+ Administration 
+ People 
+ Working here 
+ Hiring process 
+ Company culture 
+ Remote work 
+ Progression 
+ Diversity 
+ Sustainability 
+ Early careers 
+ Company 
+ Back 
+ Get to know us › 
+ Explore Canonical 
+ Open source in your enterprise 
+ Open source projects we support 
+ Company events 
+ Company Trust Center 
+ Latest updates 
+ Blog 
+ Press Center 
+ Company highlights › 
+ Get to know us › 
+ Explore Canonical 
+ Open source in your enterprise 
+ Open source projects we support 
+ Company events 
+ Company Trust Center 
+ Latest updates 
+ Blog 
+ Press Center 
+ Company highlights › 
+ Canonical named a Challenger in the 2026 GartnerⓇ Magic Quadrant™ for Server Virtualization Platforms 
+ Canonical announces Managed Kubeflow on Azure 
+ Canonical releases Ubuntu 26.04 LTS Resolute Raccoon 
+ Search 
+ Blog 
+ Article
+ Canonical 
+ 19 February 2020 
+ Bosch Rexroth adopts Ubuntu Core and snaps for app-based ctrlX AUTOMATION platform 
+ bosch 
+ Embedded Devices 
+ IoT 
+ Snaps 
+ Ubuntu Core 
+ Share the article 
+ 19th
+February 2020 – Canonical today
+announced that Bosch
+Rexroth has
+selected Ubuntu Core for their app-based platform ctrlX
+AUTOMATION .
+ctrlX AUTOMATION leverages Ubuntu
+Core ,
+designed for embedded devices, and snaps ,
+the universal Linux application containers, to deliver an open source
+platform to remove the barriers between machine control, IT and OT.
+Industrial manufacturing solutions built on ctrlX AUTOMATION with
+Ubuntu Core and snaps will benefit from an open ecosystem, faster
+time to production and stronger security across devices’ lifecycle.
+ Through
+the use of an open architecture, industrial machine manufacturers
+selecting ctrlX AUTOMATION are freed from being tied to PLC
+specialists and proprietary systems with the software being decoupled
+from the hardware. With Ubuntu Core and snaps, the ctrlX AUTOMATION
+platform enables developers to use a modern CI/CD and DevSecOps
+approach to deliver applications on edge devices in a traditional OT
+environment. 
+ “With
+the support of Ubuntu Core, ctrlX AUTOMATION can combine the worlds
+of automation and IoT in an open, modular and secure way to build a
+future proofed and innovative automation platform,” said Dr. Holger
+Schnabel, Product Owner ctrlX CORE, Bosch Rexroth. 
+ Ubuntu
+Core enhances security with strict application confinement. ctrlX
+AUTOMATION apps run with all dependencies in their snaps for
+increased isolation. The risk of security vulnerabilities is
+minimised as the software files packaged in snaps are unalterable.
+Machine manufacturers deploying apps benefit from automated updates
+for security fixes and patches for the lifetime of the device,
+without the need for engineers to intervene. With Ubuntu Core and
+snaps, software updates roll back to the last known working version
+to increase uptime and reliability on the factory floor. 
+ “Bosch
+Rexroth has embraced an open source approach to industrial automation
+enabling machine manufacturers to build a scalable and customisable
+platform. ctrlX AUTOMATION provides a software driven approach
+enabling users to extend functionality and implement their own apps.
+The advanced interfaces offered by ctrlX AUTOMATION, combined with
+the openness and flexibility of Ubuntu Core will open a new era of
+innovation in industrial automation,” said Loïc Minier, Global
+Director, IoT Devices Field Engineering at Canonical. 
+ Developers
+can create apps, delivered as snaps, in the programming language of
+their choice, including C, C++, Python, Javascript or Go.
+Traditionally, developers were restricted to specialist programming
+languages like IEC 61131, or G-Code in an industrial setting. With
+Ubuntu Core and snaps, developers using the ctrlX AUTOMATION platform
+have the freedom to use either conventional programming languages or
+modern alternatives. 
+ About Canonical 
+ Canonical is the publisher of Ubuntu, the OS for most public cloud workloads as well as the emerging categories of smart gateways, self-driving cars and advanced robots. Canonical provides enterprise security, support and services to commercial users of Ubuntu. Established in 2004, Canonical is a privately held company. 
+ About Rexroth 
+ As one of the world’s leading suppliers of drive and control technologies, Bosch Rexroth ensures efficient, powerful and safe movement in machines and systems of any size. The company bundles global application experience in the market segments of Mobile Applications, Machinery Applications and Engineering, and Factory Automation. With its intelligent components, customised system solutions and services, Bosch Rexroth is creating the necessary environment for fully connected applications. Bosch Rexroth offers its customers hydraulics, electric drive and control technology, gear technology and linear motion and assembly technology, including software and interfaces to the Internet of Things. With locations in over 80 countries, more than 32,300 associates generated sales revenue of roughly 6.2 billion euros in 2018. 
+To learn more, please visit www.boschrexroth.com 
+ Learn about the projects we support 
+ We believe in the power of open source software. Besides driving projects like Ubuntu, we contribute staff, code, and funding to many more. 
+ Learn about IoT as a service 
+ Bring an IoT device to market fast. Focus on your apps, we handle the rest. Canonical offers hardware enablement, app integration, knowledge transfer, and engineering support to get your first device to market. App store and security updates guaranteed. 
+ Build your IoT app ecosystem 
+ Build a platform ecosystem for connected devices to unlock new avenues for revenue generation. Get a secure, hosted, and managed multi-tenant app store for your IoT devices. 
+ Learn more about Ubuntu for the Internet of Things 
+ From smart homes to smart drones, robots, and industrial systems, Ubuntu is the standard for embedded Linux. Get the world’s best security maintenance, a custom app store, a huge developer community, and reliable updates. 
+ Sign up for our newsletter 
+ Get the latest Canonical news and updates in your inbox. 
+ Work email: 
+ *I agree to receive information about Canonical's
+ products and services. 
+ In submitting this form, I confirm that I have read and agree to
+ Canonical's Privacy Notice 
+ and Privacy Policy .
+ Sign up 
+ You will begin receiving emails as new content is posted. You may unsubscribe any time by clicking the link in the email." />
+ Share on 
+ Related posts 
+ Canonical launches Ubuntu Core 26 
+ Ubuntu Core 26 introduces precise Linux builds, optimized OTA updates, live kernel patching, and enhanced hardware-backed protection for mission-critical deployments. May 19,... 
+ Canonical 
+ 19 May 2026 
+ Ubuntu now certified on Qualcomm Dragonwing™ IQ-8275 
+ Sep 8, 2026 – Canonical and Qualcomm Technologies, Inc. announce the general availability of certified Ubuntu 24.04 LTS images for the Qualcomm Dragonwing™ IQ-8275 Evaluation... 
+ Canonical 
+ 8 September 2026 
+ So you need to add microcontrollers to your fleet: now what? 
+ Your Ubuntu Core fleet is running beautifully. OTA updates roll out in minutes. Every device is strictly confined, cryptographically attested, and carrying a 10 to 15 year long... 
+ Jonathan Beri 
+ 18 June 2026 
+ A look into Ubuntu Core 26: Building a local AI inference appliance in a virtual machine 
+ Welcome to this blog series which explores innovative uses of Ubuntu Core. Throughout this series, Canonical’s Engineers will show what you can build with this Core 26 release,... 
+ Gabriel Aguiar Noury 
+ 16 June 2026 
+ Contact information 
+ Legal information 
+ Improve this site 
+ Projects 
+ Manage your tracker settings 
+ © 2026 Canonical Ltd.
+ Ubuntu and Canonical are registered trademarks.
+ All other trademarks are the property of their respective owners.
+ For further information on data collection,
+ please refer to our
+ privacy policy .
+ 

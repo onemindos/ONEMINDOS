@@ -1,0 +1,510 @@
+SOURCE: https://mender.io/pricing/plans
+ACCESSED: 2026-11-10
+
+Pricing - Plans | Mender
+Log in
+Support
+Contact us
+Why Mender
+Pricing
+Plans
+Add-ons
+Configure
+Monitor
+Troubleshoot
+Extras
+Solutions
+Use Cases
+Robustness
+Security
+Fleet Management
+Component Orchestration
+Platforms
+Embedded Linux
+Real-time Operating Systems
+Industries
+Automotive
+Building Management Systems
+Consumer
+Industrial & Manufacturing
+Medical & Healthcare
+Security & Access Control
+Smart Energy
+Resources
+Learn & Connect
+Resource Center
+Mender Blog
+Events & Webinars
+Customers
+Partners
+Build & Integrate
+How Mender Works
+Technical FAQ
+Documentation
+Operating Systems & Devices
+Mender Hub Forum
+Github
+Try for free
+Pricing
+Choose the plan that’s right for your team
+From basics to advanced remote software management, there's a plan to suit your needs.
+What kind of devices do you have?
+Standard
+E.g. Linux devices — frequent polling and up to 10GB updates
+Micro
+E.g. MCU devices — more devices, low polling, up to 5MB updates
+Building a multi-component product?
+If your product consists of multiple MCUs or peripherals,
+System devices
+on our Enterprise plan let you update the whole product as one coordinated deployment.
+Learn more about component orchestration
+Contact sales
+How many devices?
+More devices?
+Contact us
+Open source
+For individuals and do-it-yourself projects
+Free
+Get started
+Free and open source
+The core features of Mender over-the-air updates
+Mender Hub community forum
+Basic
+For small teams
+$
+34
+/month
+Try it for free
+Lower upfront cost
+Everything in Open Source
+On a secure server hosted for you
+Robust full disk image updates
+Application updates
+Update extensibility
+Device filtering and sorting
+Best effort
+Professional
+For small-to-medium businesses
+$
+291
+/month
+Try it for free
+Increase efficiency with automation
+Everything in Basic +
+Robust delta updates
+Scheduled deployments
+Automatic retry of deployments
+Best effort
+Enterprise
+For medium-to-large enterprises
+Custom pricing
+Contact us
+or
+try it for free
+Reduce risk, increase efficiency, enhance security and uptime
+Everything in Professional +
+System devices (
+multi-component updates
+)
+Phased rollouts
+Auto delta updates
+Dynamic deployments
+RBAC
+Mutual TLS authentication
+Audit logs
+Hosted or on-premise
+Discounted board integration and bring-up
+Roadmap access & influence
+Technical assessment
+Guaranteed SLA response time
+Estimate your monthly price using our calculator
+Add-on packages
+Customize and enhance your base plan with
+Mender Add-ons
+.
+(*Not available for Micro tier devices.)
+Configure
+Seamlessly configure applications
+and devices remotely – configure each device to its environment.
+Features and pricing
+Monitor
+Detect and analyze health issues of devices, services and applications. Set up alerts so you can act quickly.
+Features and pricing
+Troubleshoot
+Secure, remote access to your devices – quickly diagnose and fix issues in real time.
+Features and pricing
+Full feature comparison
+Mender Server
+Mender
+Open Source
+Mender
+Basic
+Mender
+Professional
+Mender
+Enterprise
+Management server
+Manage remote deployments across a fleet of devices.
+Management UI
+Manage your devices, software and deployments with a user-friendly UI and dashboard.
+Device grouping
+Group devices by customer, test/production, geography or anything else.
+Name and tag devices
+Edit device names and give them tags, to help you easily find and recognize devices in the UI.
+Device filtering and sorting
+Quickly and easily filter and sort devices by attribute. Customizable device list columns for easier sorting.
+Rest API
+Easily integrate Mender with CI/CD, ERP and custom UIs with standards-based HTTP REST APIs with JWT authentication.
+Standalone mode
+Use Mender without the server – deployments can be triggered at the device, either manually in the terminal or by custom scripts, in order to support devices without connectivity.
+Advanced device filtering
+Create advanced filters to find a set of devices using multiple device attributes and operators.
+Regex device filtering
+Unlimited device filtering, regardless of scale and complexity.
+Software version distribution
+View software distribution across your device groups in the GUI dashboard.
+-
+-
+Robust delta updates
+Lower network traffic using a binary delta between two rootfs-image Artifacts, and deploy this delta supporting atomic update, integrity checks, rollback and signature verification.
+Watch the video
+-
+-
+Automatic assignment of delta updates
+The Mender server automatically assigns the correct delta update to any given device, based on the software release the device is currently running.
+-
+-
+-
+Server-side generation of delta updates
+The Mender server automatically generates the delta artifacts for operating system updates based on the software release the device is running and the target version.
+-
+-
+-
+Customizable delta updates
+Enable smaller delta sizes by using customized parameters.
+-
+-
+-
+Scheduled deployments
+Schedule a software update deployment to start at a specific date and time in the future.
+-
+-
+Automatic retry of deployments
+The server will automatically retry the deployment on devices where it fails, for a predefined amount of times.
+-
+-
+Phased rollouts
+Eliminate large-scale failures by dividing a deployment into time-delayed phases, with each phase containing a share of the devices to be updated.
+-
+-
+-
+Dynamic groups and deployments
+Easily group your devices by attributes. Automatically deploy your software to the devices that need it, and enable devices to receive updates on first boot.
+-
+-
+-
+SAML-based Federated Authentication
+Integrate Mender with your Identity Provider (IdP) and enable Federated Single Sign-On (SSO) for your users
+-
+-
+-
+Multi-tenancy & Service Provider tenant
+Create multiple Organizations (aka tenants), which act as separate environments on a single Mender server, both for users and devices.
+-
+-
+-
+Production-ready server configuration
+Accessible and configured server, secure by default (such as TLS enabled) with parameters tuned for scale (e.g. polling intervals).
+-
+Configured for scaling
+A hosted service that scales automatically with your needs.
+-
+On-premise server *
+Run the Mender server on your own infrastructure (e.g., data center or cloud vendor) and customize the server configuration (e.g., access control). Mender Managed Service (MMS) is also available.
+(* available at additional cost)
+-
+-
+Secure hosted server
+Use a server managed and supported by Mender to save time and avoid worrying about its security or scalability.
+-
+Regional Artifact storage *
+Choose the location for storing Mender Artifacts. If your devices are located mostly in one region of the world, you can choose a storage location closest to this region - this will ensure faster software updates to your devices.
+(* available at additional cost)
+-
+-
+-
+Hosted Mender region switch *
+Migrate your fleet of devices from one hosting region to another.
+(* available at additional cost)
+-
+-
+-
+Support for AWS S3 Transfer Acceleration *
+Faster downloads of artifacts from devices across the globe.
+(* available at additional cost)
+-
+-
+-
+Data localization
+We can guarantee that your data is processed and stored only within the European region.
+-
+-
+-
+Custom proxy setup *
+Help you set up a custom hosted Mender proxy to comply with strict firewall settings or customize domain access.
+(* available at additional cost)
+-
+-
+-
+Mender Orchestrator
+Only available for
+System devices
+Complete system typology
+Define the product's complete system architecture, including components, logical sub-units, and specific update capabilities in a standardized configuration file.
+-
+-
+-
+Declarative manifest-driven deployment
+Define the desired end state of the entire system, target software versions, and the precise ordering of component updates using a unified software manifest.
+-
+-
+-
+Sequential & parallel execution
+Control update execution behavior by grouping components for parallel deployment or sequencing them chronologically by numerical order.
+-
+-
+-
+Extensible interface protocols
+Decouple orchestration logic from local network protocols via command-line interfaces that translate updates across distinct operating systems and microcontrollers without a native local client footprint.
+-
+-
+-
+Software state version tracking
+Query components automatically to track reported versions, verify intended configurations, and populate a searchable software bill of materials (SBOM).
+-
+-
+-
+Atomic whole-system rollback
+Safeguard product integrity by automatically reverting the entire multi-component system to its last known good state if any single subsystem fails to update.
+-
+-
+-
+Standalone orchestration mode
+Trigger manifest-based multi-component updates locally via terminal commands or custom scripts to support airgapped, closed, or disconnected networks.
+-
+-
+-
+Mender Gateway
+One-time Artifact download
+Cache only
+once
+to local storage on the gateway and deploy to co-located devices.
+-
+-
+-
+Deployments in segregated networks
+Remotely update software and gain visibility and control of co-located devices that don't have direct internet access.
+-
+-
+-
+Hosted Mender mutual TLS (mTLS) service *
+Use a provided hosted mTLS service, or our support in setting up mTLS in your infrastructure.
+(* available at additional cost)
+-
+-
+-
+Mutual TLS for device authentication
+Leverage existing device certificates to authenticate against the Mender server.
+-
+-
+-
+Extensibility
+Update modules
+An extension to the Mender client for supporting a new type of software update such as a package manager, container or bootloader.
+Custom state scripting *
+Ability to run pre- and post-install scripts during update process and between any state transition, not just the install state (e.g. checks after update is installed).
+(*Not available for Micro tier devices.)
+Compatibility
+Support for all types of software
+Out-of-the-box support for system, file, application, container and package updates with existing Update Modules.
+Mender as Debian package
+Mender is easy to install and use for application-based updates, with support for ARMv6 and Debian family OSes e.g. Debian, Ubuntu and Raspbian.
+Raspberry Pi reference integration
+Mender is fully integrated for system and application-level updates with a ready-to-flash Raspberry Pi image.
+Get started
+with Raspberry Pi.
+Zephyr RTOS reference integration
+The Mender MCU Client comes with a Zephyr integration supporting the popular Espressif ESP32-S3 reference board.
+Get started
+with Zephyr.
+Yocto integration
+Integrate the meta-mender layer into your build to install and configure the Mender client.
+Support for common storage types
+eMMC, SD card, raw NAND/NOR flash
+Robustness & Security
+Automated rollback
+Built-in dual A/B root operating system updates which automatically roll back to the previous system version on any failure, and support for rollback in all types of updates with Update Modules.
+Full image updates
+Ensure consistent software across your device fleet.
+Secure TLS communication
+Client, server and management REST APIs only use TLS with secure configuration, all communication is authenticated and encrypted.
+Code signing verification *
+End-to-end signatures with verification on the client and signing can be done in access-restricted and offline environments.
+(*Not available for Micro tier devices.)
+Integrity checksum to avoid corruption
+End-to-end checksum verification on client and creation when Mender Artifact is built.
+Hardware security for device authentication
+Ensures OTA update process is secured by leveraging cryptography operations on device.
+Elliptic curve cryptography support for device authentication
+Keys can be much shorter and achieve the same level of security.
+Two-factor authentication
+Extra layer of protection for user authentication with OTP-compatible app like Authy and Google Authenticator.
+-
+Role-based access control (RBAC)
+Restrict unnecessary network access based on user's roles within an organization – allowing enhanced compliance, reduced costs and decreased risk of breaches and data leakage.
+-
+-
+-
+Single Sign-On integration
+Simplify user management by integrating Mender with SSO via SAML, PATs, or OpenID Connect Federated protocols.
+-
+-
+-
+Audit logs
+Improve security, compliance and accountability by logging important events that can later be analyzed in case of security or operational incidents.
+-
+-
+-
+Integrations
+Webhooks
+Send data from Mender to third-party systems - making it possible to notify external applications about device lifecycle events.
+Webhooks for device authentication
+Send device authentication state data to third-party systems.
+Webhooks for inventory
+Send device inventory data changes, such as a new software version, to third-party systems.
+-
+-
+Integrate with Azure IoT Hub
+Automatically connect devices between Mender and Azure IoT Hub for deploying software updates and sending application telemetry.
+Learn more
+Integrate with AWS IoT Core
+Mender can provision devices to your AWS IoT Core instance, so your device applications are ready to send and receive data to and from the AWS services - avoiding the hassle of certificate and key pair generation and management for your AWS IoT applications.
+Personal Access Tokens
+Personal Access Tokens are long-lived JWT tokens that you can generate to programmatically access the Mender management APIs, for example by CI/CD pipelines or scheduled jobs.
+Support
+Community forum at Mender Hub
+Community of dedicated users with a fast-growing number of boards and operating systems.
+Technical support
+We provide deep expertise specializing in the implementation of OTA update management.
+See
+mender.io/support
+for the levels of support provided for each plan.
+-
+SLA-backed support
+Expert support with guaranteed response times.
+(Enterprise customers only. Free trial users will receive
+best effort support
+.)
+-
+-
+-
+Managed Mender Service (MMS) *
+Our team provides a turnkey Mender SRE service inside your own network or cloud. Use an alternative Mender server running inside your own network.
+(* available at additional cost)
+-
+-
+-
+Training for Mender server operations *
+Our team can help train you to operate a secure and scalable on-premise server.
+(* available at additional cost)
+-
+-
+-
+-
+$
+34
+/month
+for up to
+50
+devices
+$
+291
+/month
+for up to
+250
+devices
+Custom pricing
+View the docs
+Sign up now
+Sign up now
+Contact us
+Pricing FAQ
+How does pricing work for Mender Enterprise?
+Pricing for Mender Enterprise is tailored to each customer's needs and depends on each customer's specific requirements, number of devices, SLA parameters, and more.
+How do the plans differ between hosted and on-premise for Mender Enterprise?
+The
+on-premise
+Enterprise plan allows you to run Mender anywhere: a
+private cloud
+(your own datacenter and Kubernetes), or a
+public cloud provider
+(Amazon Web Services, Google Cloud Platform, Microsoft Azure), or
+on top of Kubernetes engines
+(Amazon EKS, Google Kubernetes Engine).
+The
+hosted
+Enterprise plan allows you to use the secure Mender server we host for you, avoiding the need for the expertise or associated costs of running a server and IT infrastructure.
+Can you increase the device limit of a specific plan?
+Current hosted Mender customers paying by credit card can add devices to their existing accounts.
+Adding devices is fully self-service. Set your new device limit in the
+subscription portal
+, and the change takes effect immediately.
+If you require a device limit beyond 2000, such as 3000 devices on the Basic plan, simply
+contact us
+, and we'll create a pricing proposal for you.
+Can I evaluate Mender for free?
+Yes.
+Sign up for hosted Mender
+and you can evaluate all the technical features Mender Enterprise offers.* The trial is free for 12 months, and there is no credit card required to sign up.
+Follow our getting started guide with a Raspberry Pi board, ESP32, or virtual device, and you can be up and running in minutes.
+(*Mender Enterprise free trial excludes Service Provider functionality and SLA-backed support.
+Free trial users receive
+best effort support
+.)
+About Mender
+Why Mender
+Pricing
+Features
+Embedded Linux
+RTOS
+Resources
+Resource Center
+Mender Blog
+Events & Webinars
+Customers
+Videos
+Engineers & Ops
+How Mender Works
+Documentation
+OS & Hardware
+Mender Hub Forum
+Github
+Getting Started
+Sign Up for Free
+Raspberry Pi Quickstart
+MCU Quickstart
+Contact
+Contact Us
+Support
+Partners
+Sign up for our newsletter
+By signing up, you agree to your email address being stored and used to receive newsletters about Mender. We use tracking in our newsletter emails to improve our marketing content.
+Mender is developed and maintained by
+Northern.tech
+.
+Careers
+Legal
+Privacy Policy
+|
+© 2026 Northern.tech
+Cookie Settings

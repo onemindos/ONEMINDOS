@@ -1,0 +1,41 @@
+# Lab VM (Lima debian-13 template, aarch64, vz)
+13.7
+6.12.115+deb13.1-cloud-arm64
+dosfstools 4.2-1.2 arm64
+e2fsprogs 1.47.2-3+b12 arm64
+gdisk 1.0.10-2+b1 arm64
+grub-common 2.12-9+deb13u2 arm64
+mmdebstrap 1.5.7-1+deb13u1 all
+mtools 4.0.48-1 arm64
+openssl 3.5.7-1~deb13u3 arm64
+ovmf 2025.02-8+deb13u1 all
+python3 3.13.5-1 arm64
+qemu-system-x86 1:10.0.13+ds-0+deb13u1 arm64
+qemu-user-binfmt 1:10.0.13+ds-0+deb13u1 arm64
+rauc 1.13-3+deb13u1 arm64
+squashfs-tools 1:4.6.1-1+b1 arm64
+dpkg-query: no packages found matching rauc-service
+
+# Debian archive metadata (apt-cache show)
+Package: rauc
+Version: 1.13-3+deb13u1
+Architecture: arm64
+Depends: libc6 (>= 2.34), libcurl3t64-gnutls (>= 7.28.0), libfdisk1 (>= 2.31.1), libglib2.0-0t64 (>= 2.83.0), libjson-glib-1.0-0 (>= 1.5.2), libnl-3-200 (>= 3.2.7), libnl-genl-3-200 (>= 3.2.7), libssl3t64 (>= 3.0.0), dbus, systemd
+Package: rauc-service
+Version: 1.13-3+deb13u1
+Architecture: all
+Depends: rauc
+
+# OVMF firmware sha256
+624e06de18b4fa535e90db7160d00d3d07d206422b89999bf1e27d920264e4e0  /usr/share/OVMF/OVMF_CODE_4M.fd
+5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e  /usr/share/OVMF/OVMF_VARS_4M.fd
+
+# Host
+macOS 27.2
+arm64
+limactl version 2.3.0
+QEMU emulator version 11.1.3
+# Upstream source pins
+rauc/rauc 2d17b27041db7fa8b13a61c5e168f49310a06566 (latest release v1.15.2, 2026-03-27)
+home-assistant/operating-system ab7d0f1a0174760353780a21be2befecbc80a672
+home-assistant/supervisor 040f14cd8aa2902401d30aaeb0cb71215854c78c

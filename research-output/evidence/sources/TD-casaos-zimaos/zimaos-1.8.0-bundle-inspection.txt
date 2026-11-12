@@ -1,0 +1,235 @@
+ZimaOS 1.8.0 release artifact inspection (TD-casaos-zimaos)
+Inspected: 2026-11-11 (UTC). Method: HTTP range reads of the release assets on the host (no execution), then a full
+download and read-only loop mounts inside a disposable Lima VM (Debian 13, no host mounts), deleted afterwards.
+Nothing from the image was executed. ZimaOS has no license file, so only short excerpts are quoted here for analysis.
+
+== Assets (GitHub release 1.8.0, published 2026-10-15T11:10:39Z; size bytes, download count at access)
+zimaos-x86_64-1.8.0.raucb 1600309007 901614
+zimaos-x86_64-1.8.0_installer.img 1781551104 25674
+zimaos-x86_64-1.8.0_installer.iso 1806032896 12241
+sha256(zimaos-x86_64-1.8.0.raucb) = c24bccfd72e5df3e0af31e55160878ea8f20d0fccd531a0437ab370cd6042b45
+
+== Bundle signature (last 8 bytes = CMS size 5895; CMS verified with -noverify to extract content)
+sha256(signature CMS) = 12e2cdb688ad0be252b19b5da3a2db5cde2ff5ad4049f3dc9c8d193917f0f6bc
+Signer:  O=IceWhale Technology, CN=IceWhale Technology Development-1 (serial 2, RSA 2048, sha256WithRSAEncryption, CA:FALSE)
+Issuer:  O=IceWhale Technology, CN=IceWhale Technology OTA Development
+Validity (both certs): notBefore 1970-01-01 00:00:00 GMT, notAfter 9999-12-31 23:59:59 GMT
+
+== Signed manifest (manifest.raucm, sha256 4c13a762ee7ab8ef842796d266e5f1539ea0a938a7c915db3bdc927c6e40a1a2); description= base64 omitted
+     1	[update]
+     2	compatible=zimaos-zimacube
+     3	version=1.8.0
+     4	
+     5	[bundle]
+     6	format=verity
+     7	verity-hash=508362ee752ac3c8fd50644c481a0cc9d08480a7670577defcc2766fc40c3d25
+     8	verity-salt=dbd27886dc81655f0a80d22c4564e40504a18e2dbcbc3a3e87f481ca05d4d5a8
+     9	verity-size=12509184
+    10	
+    11	[hooks]
+    12	filename=hook
+    13	hooks=install-check;
+    14	
+    15	[image.boot]
+    16	sha256=0db8a7bbdfe43c931fd86f3bd16b205d24c0798f1f70cdc5e13a0f8dc9d0da12
+    17	size=134217728
+    18	filename=boot.vfat
+    19	hooks=install;
+    20	
+    21	[image.kernel]
+    22	sha256=dc16b7731e1e71e02dc49027589b329ffe527245449ad2c73bed7ece27091ce5
+    23	size=14274560
+    24	filename=kernel.img
+    25	
+    26	[image.rootfs]
+    27	sha256=87abb3a38a05cb309969910ee6d251b04cbf267fda16c6bb47d04007fa94b9a2
+    28	size=1576448000
+    29	filename=rootfs.img
+    30	hooks=pre-install;post-install;
+
+== Bundle contents (unsquashfs): boot.vfat, hook, kernel.img, manifest.raucm, rootfs.img, scripts/{0163_legacy_apps.sh,0163_migrate_official_repo_metadata.sh,0163_restart_policy.sh}
+kernel.img: squashfs lzo; rootfs.img: squashfs zstd 31948 inodes; boot.vfat: FAT32 label casaos-boot
+sha256: hook ab68eaf470482f9f189614960099a96c8384451eb560420ff9ea33d3c6ffc2db (image hashes match the signed manifest)
+
+== hook excerpts (line numbers are the hook file's own)
+    11	readonly BOOT_ATTEMPT_LIMIT=3
+   132	install_boot() (
+   133	    local boot_mount=/mnt/boot
+   134	    local boot_new
+   135	    local saved_grubenv
+   136	    local install_completed=0
+   161	
+   162	            destination_path="${boot_mount}/${relative_path}"
+   194	    copy_boot_files
+   195	
+   547	post_install_root() {
+   548	    log INFO "running rootfs post-install tasks"
+   549	    touch /mnt/overlay/.zima-update
+   550	    cleanup_legacy_extensions
+   551	    run_best_effort "ensuring NUT system user exists" ensure_nut_user || true
+   552	    run_best_effort "migrating legacy CasaOS apps" run_bundle_script 0163_legacy_apps.sh || true
+   553	    run_best_effort "aligning Compose restart policies" run_bundle_script 0163_restart_policy.sh || true
+   554	    run_best_effort "backfilling official app repository metadata" \
+   555	        run_bundle_script 0163_migrate_official_repo_metadata.sh || true
+   556	}
+   557	
+   558	case "${HOOK_NAME}" in
+   559	    install-check)
+   560	        if [ "${RAUC_MF_COMPATIBLE:?RAUC_MF_COMPATIBLE is required}" != \
+   561	            "${RAUC_SYSTEM_COMPATIBLE:?RAUC_SYSTEM_COMPATIBLE is required}" ]; then
+   562	            log ERROR "bundle compatibility does not match the system"
+   563	            exit 10
+   564	        fi
+   565	        check_grubenv
+   566	    ;;
+   567	    slot-pre-install)
+   568	        case "${RAUC_SLOT_CLASS:?RAUC_SLOT_CLASS is required}" in
+   569	            rootfs) pre_install_root ;;
+   570	            *) log INFO "no pre-install action for slot class ${RAUC_SLOT_CLASS}" ;;
+   571	        esac
+   572	    ;;
+   573	    slot-install)
+   574	        case "${RAUC_SLOT_CLASS:?RAUC_SLOT_CLASS is required}" in
+   575	            boot) install_boot ;;
+   576	            spl) install_spl ;;
+   577	            *) log INFO "no custom install action for slot class ${RAUC_SLOT_CLASS}" ;;
+   578	        esac
+   579	    ;;
+   580	    slot-post-install)
+   581	        case "${RAUC_SLOT_CLASS:?RAUC_SLOT_CLASS is required}" in
+   582	            rootfs) post_install_root ;;
+   583	            *) log INFO "no post-install action for slot class ${RAUC_SLOT_CLASS}" ;;
+   584	        esac
+   585	    ;;
+   586	    *)
+   587	        log ERROR "unsupported hook ${HOOK_NAME}"
+   588	        exit 1
+   589	    ;;
+   590	esac
+
+== rootfs /etc/os-release (selected)
+NAME="ZimaOS"
+VERSION_ID=1.8.0
+CPE_NAME=cpe:2.3:o:icewhale:zimaos:1.8.0:*:development:*:*:*:zimacube:*
+BUILD_DATE="2026/10/15 10:59:00 UTC"
+rootfs glibc banner: 'GNU C Library (Buildroot)'; kernel modules dir: 6.18.9
+Binaries present: docker, dockerd, containerd, runc, qemu-system-x86_64, btrfs, rclone, cloudflared, rsync. Absent: k3s, kubectl, helm, restic, borg, kopia.
+systemd-sysext units present; /usr/lib/extension-release.d/extension-release.zimanet (ID=_any)
+/etc/apparmor.d: 151 entries (upstream profile set; enforcement not checked). /etc/fstab: '/dev/root / auto ro 0 1'
+
+== /etc/rauc/system.conf (rootfs)
+     1	[system]
+     2	compatible=zimaos-zimacube
+     3	mountprefix=/run/rauc
+     4	statusfile=/var/lib/rauc/rauc.db
+     5	bootloader=grub
+     6	grubenv=/mnt/boot/EFI/BOOT/grubenv
+     7	
+     8	[keyring]
+     9	path=/etc/rauc/keyring.pem
+    10	
+    11	[slot.boot.0]
+    12	device=/dev/disk/by-partlabel/casaos-boot
+    13	type=vfat
+    14	allow-mounted=true
+    15	
+    16	[slot.kernel.0]
+    17	device=/dev/disk/by-partlabel/casaos-kernel0
+    18	type=raw
+    19	bootname=A
+    20	
+    21	[slot.rootfs.0]
+    22	device=/dev/disk/by-partlabel/casaos-system0
+    23	type=raw
+    24	parent=kernel.0
+    25	
+    26	[slot.kernel.1]
+    27	device=/dev/disk/by-partlabel/casaos-kernel1
+    28	type=raw
+    29	bootname=B
+    30	
+    31	[slot.rootfs.1]
+    32	device=/dev/disk/by-partlabel/casaos-system1
+    33	type=raw
+    34	parent=kernel.1
+    35	
+keyring.pem: 2 certificates: CN=IceWhale Technology OTA Development (sha256 fp 4C:15:C3:07:...:0F:63:E8) and CN=IceWhale Technology Development-1 (sha256 fp 69:FF:B1:CE:...:BF:D6:1E), both valid to 9999-12-31
+
+== /usr/lib/systemd/system/zimaos-last.service
+     1	[Unit]
+     2	Description=Last ZimaOS service to determine if the system is ready
+     3	After=zimaos.target zimaos-hd-symlink.service
+     4	After=mnt-boot.mount
+     5	Requires=mnt-boot.mount zimaos.target zimaos-hd-symlink.service
+     6	
+     7	[Service]
+     8	Type=simple
+     9	ExecStartPre=/usr/libexec/zimaos-hd-migrate --check
+    10	ExecStart=/bin/sh -c '/usr/bin/rauc status mark-good'
+    11	
+    12	[Install]
+    13	WantedBy=multi-user.target
+
+== /usr/lib/systemd/system/zimaos.target and zimaos.service
+== zimaos.target
+[Unit]
+Description=CasaOS Services
+Requires=zimaos-app-management.service zimaos-gateway.service casaos-installer.service zimaos-local-storage.service zimaos-message-bus.service zimaos-user.service  icewhale-files.service icewhale-files-backup.service zimaos.service
+After=zimaos-app-management.service  zimaos-gateway.service casaos-installer.service zimaos-local-storage.service zimaos-message-bus.service zimaos-user.service  icewhale-files.service icewhale-files-backup.service zimaos.service
+[Install]
+WantedBy=multi-user.target
+== zimaos.service
+[Unit]
+Description=zimaos Main Service
+After=zimaos-message-bus.service rclone.service zerotier-one.service
+[Service]
+ExecStart=/usr/bin/zimaos -c /etc/casaos/zimaos.conf
+PIDFile=/run/casaos/zimaos.pid
+Restart=always
+RestartSec=5s
+Type=notify
+[Install]
+WantedBy=multi-user.target
+== mounts: mnt-overlay.mount What=/dev/disk/by-label/casaos-overlay; DATA.mount bind /var/lib/casaos_data -> /DATA; var-lib-docker.mount bind /var/lib/casaos_data/.docker
+
+== boot.vfat EFI/BOOT/grub.cfg (lines 4-8, 13-55 summarised): ORDER="A B"; slot picked if OK==1 and TRY<3; TRY incremented each boot;
+   if no slot qualifies, a rescue entry is chosen. Menu entries: Slot A (gpt2), Slot B (gpt4), Slot A/B rescue shell (systemd.unit=recovery.target).
+    24	    if [ "$OK" -eq 1 -a "$TRY" -lt 3 ]; then
+    25	        default=$INDEX
+    26	
+    27	        # increment attempts and save back to slot
+    28	        if [ "$TRY" -eq 1 ]; then
+    29	            TRY=2
+    30	        elif [ "$TRY" -eq 2 ]; then
+    31	            TRY=3
+    32		else
+    33	            TRY=1
+    34	        fi
+    35	
+    36		if [ "$SLOT" == "A" ]; then
+    37	            A_TRY=$TRY
+    38	        fi
+    39		if [ "$SLOT" == "B" ]; then
+    40	            B_TRY=$TRY
+    41	        fi
+    42	
+    43	        break
+    44	    fi
+    45	done
+    46	
+    47	# No bootable slot found, choose rescue...
+    48	if [ "$default" -eq 99 ]; then
+    49	    if [ "$A_OK" -eq 1 ]; then
+    50	        default=2
+    51	    fi
+    52	    if [ "$B_OK" -eq 1 ]; then
+    53	        default=3
+    54	    fi
+    55	fi
+
+== installer.img GPT (first MiB): 1 EFI System 72 MiB 'boot'; 2 Linux data 1626 MiB 'installer-data' (target layout is written by the installer)
+
+== get.casaos.io observations (2026-11-11 04:27 UTC)
+GET https://get.casaos.io -> 807-line script 'CasaOS Installer Script v0.4.16', sha256 4a9e7c4ba4159aa7516c7c1acb3f017235868f80a6c2ce2922a9ee00a6837536;
+  differs from every script in IceWhaleTech/get@15d5563a; pins CasaOS v0.4.15, CasaOS-Gateway v0.4.9-alpha4, CasaOS-AppManagement v0.4.10-alpha2, CasaOS-UI v0.4.25, AppStore v0.4.5; no checksum or signature check.
+GET https://get.casaos.io/update and /update.sh -> HTTP 500 (nginx).

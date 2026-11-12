@@ -1,0 +1,194 @@
+VZ | Lima= 0.14, macOS >= 13.0 “vz” option makes use of native virtualization support provided by macOS Virtualization.Framework.
+“vz” has been the default driver for macOS hosts since Lima v1.0.
+An example configuration (no need to be specified manually): CLI YAML limactl start --vm-type=vz vmType: "vz" base: - template:_images/ubuntu - template:_default/mounts'>= 0.14, macOS >= 13.0 “vz” option makes use of native virtualization support provided by macOS Virtualization.Framework.
+“vz” has been the default driver for macOS hosts since Lima v1.0.
+An example configuration (no need to be specified manually): CLI YAML limactl start --vm-type=vz vmType: "vz" base: - template:_images/ubuntu - template:_default/mounts'>= 0.14, macOS >= 13.0 “vz” option makes use of native virtualization support provided by macOS Virtualization.Framework.
+“vz” has been the default driver for macOS hosts since Lima v1.0.
+An example configuration (no need to be specified manually): CLI YAML limactl start --vm-type=vz vmType: "vz" base: - template:_images/ubuntu - template:_default/mounts'>= 0.14, macOS >= 13.0 “vz” option makes use of native virtualization support provided by macOS Virtualization.Framework.
+“vz” has been the default driver for macOS hosts since Lima v1.0.
+An example configuration (no need to be specified manually): CLI YAML limactl start --vm-type=vz vmType: "vz" base: - template:_images/ubuntu - template:_default/mounts'>Documentation
+Community
+GitHub
+Releases
+Documentation
+Installation
+Source Installation
+Usage
+SSH
+Automatic Startup
+Guest OS
+Linux
+macOS
+Windows
+FreeBSD
+Examples
+Containers
+containerd (Default)
+Advanced
+gomodjail
+bypass4netns
+eStargz
+Docker
+Podman
+Kubernetes
+Apptainer
+AI agents
+Visual Studio Code
+GitHub Actions
+Templates
+GitHub template URLs
+Configuration guide
+VM types
+QEMU
+VZ
+WSL2
+Krunkit
+HCS
+Intel-on-ARM and ARM-on-Intel
+Network
+Default user-mode network
+user-v2 network
+vzNAT network
+Managed networks
+Managed networks (macOS)
+Managed networks (Linux)
+Unmanaged networks (socket_vmnet)
+Port Forwarding
+Sudo
+Filesystem mounts
+Plain mode
+Environment Variables
+AI
+AI agents inside Lima
+AI agents outside Lima (MCP)
+Antigravity
+MCP tools
+GPU acceleration
+Plug-in
+VM driver plugins
+CLI plugins
+URL handler plugins
+Disks
+FAQs
+Colima (third-party project)
+Releases
+Deprecated features
+Experimental features
+Breaking changes
+Security
+Community
+Governance
+Contributing
+Roadmap
+Subprojects
+Talks
+Blogs
+Developers' guide
+Internal data structure
+Virtual Machine Drivers
+Testing
+BATS Style Guide
+Git tips
+Command Reference
+autostart
+autostart disable
+autostart enable
+clone
+completion
+completion bash
+completion fish
+completion powershell
+completion zsh
+copy
+create
+delete
+disk
+disk create
+disk delete
+disk import
+disk list
+disk resize
+disk unlock
+edit
+factory-reset
+info
+limactl
+list
+mcp
+mcp completion
+mcp completion bash
+mcp completion fish
+mcp completion powershell
+mcp completion zsh
+mcp info
+mcp serve
+menu
+network
+network create
+network delete
+network list
+protect
+prune
+rename
+restart
+screenshot
+shell
+show-ssh
+snapshot
+snapshot apply
+snapshot create
+snapshot delete
+snapshot list
+start
+stop
+sudoers
+template
+template copy
+template url
+template validate
+template yq
+tunnel
+unprotect
+validate
+watch
+ View page source
+ Edit this page
+ Create child page
+ Create documentation issue
+ Create project issue
+ Print entire section
+On this page
+Caveats
+Known Issues
+Documentation
+Configuration guide
+VM types
+VZ
+VZ
+⚡ RequirementLima >= 0.14, macOS >= 13.0
+“vz” option makes use of native virtualization support provided by macOS Virtualization.Framework.
+“vz” has been the default driver for macOS hosts since Lima v1.0.
+An example configuration (no need to be specified manually):
+CLI
+YAML
+limactl start --vm-type=vz
+vmType: "vz"
+base:
+- template:_images/ubuntu
+- template:_default/mounts
+Caveats
+“vz” option is only supported on macOS 13 or above
+Virtualization.framework doesn’t support running “intel guest on arm” and vice versa
+Known Issues
+“vz” doesn’t support legacyBIOS: true option.
+When running lima using “vz”, ${LIMA_HOME}/<INSTANCE>/serial.log will not contain kernel boot logs
+On Intel Mac with macOS prior to 13.5, Linux kernel v6.2 (used by Ubuntu 23.04, Fedora 38, etc.) is known to be unbootable on vz.
+kernel v6.3 and later should boot, as long as it is booted via GRUB.
+https://github.com/lima-vm/lima/issues/1577#issuecomment-1565625668
+The issue is fixed in macOS 13.5.
+Last modified November 2, 2026: templates: oraclelinux-8: drop legacyBIOS (ce50bb0e)
+© 2026 Lima Authors All Rights Reserved
+Terms |
+Privacy |
+Trademarks |
+License

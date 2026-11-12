@@ -1,0 +1,46 @@
+Snapshot (opening post, trimmed; accessed 2026-11-11)
+URL: https://github.com/siderolabs/talos/issues/14260
+Title: v1.14.0: nodes booting from a USB disk land in maintenance mode — `WaitForUSB` no longer waits since `usb-storage`/`uas` became modules
+State: closed  Created: 2026-09-05T15:32:37Z  Closed: 2026-09-07T16:24:30Z
+
+## Bug Report
+
+**Title:** v1.14.0: nodes booting from a USB disk land in maintenance mode — `WaitForUSB` no longer waits since `usb-storage`/`uas` became modules
+
+### Description
+
+After upgrading a bare-metal worker from v1.13.8 to v1.14.0, the node no longer boots into its installed configuration. The dashboard shows `(no hostname)`, no network is configured, and the node sits in maintenance mode. Rolling back to v1.13.8 (A/B) brings it back
+immediately.
+
+The node's system disk is a SATA SSD attached over USB (`transport: usb`), with `META`/`STATE`/`EPHEMERAL` on `/dev/sda2..4`. Three identical control-plane nodes that boot from NVMe upgraded to v1.14.0 without any issue.
+
+**Confirmation that it is a boot-timing problem, not a config or driver problem:** while the node sits in maintenance mode on v1.14.0, applying the *same* machine config via `talosctl apply-config --insecure` against the DHCP address works — the node comes up fully and
+runs on v1.14.0 normally. On the next reboot it fails the same way again. `talosctl validate --config … --mode metal` with talosctl v1.14.0 reports the config as valid.
+
+### Root cause (as far as I can tell)
+
+1. `siderolabs/pkgs` moved the USB storage drivers from built-in to modules between the pkgs pins of v1.13.8 (`v1.13.0-55-gf677246`) and v1.14.0 (`v1.14.0-15-g2f03590`). Diff of `kernel/build/config-amd64`:
+
+    ```
+    CONFIG_USB_XHCI_HCD   y → m
+    CONFIG_USB_XHCI_PCI   y → m
+    CONFIG_USB_STORAGE    y → m
+    CONFIG_USB_UAS        y → m
+    ```
+    (pkgs commits `ba873e9` "move USB host controllers as modules", `f7f9341` "move USB class drivers as modules"). The modules are present in the v1.14.0 image (`hack/modules-amd64.txt` lists `usb/host/xhci-pci.ko`, `usb/storage/usb-storage.ko`, `usb/storage/uas.ko`)
+and udev loads them fine once a device appears.
+
+2. The `usb` boot phase (`WaitForUSB` in `internal/app/machined/pkg/runtime/v1alpha1/v1alpha1_sequencer_tasks.go`) is what protects USB system disks, and it only waits if `usb_storage` is already present:
+
+    ```go
+    file := "/sys/module/usb_storage/parameters/delay_use"
+    _, err := os.Stat(file)
+    if err != nil {
+        if errors.Is(err, fs.ErrNotExist) {
+            return nil   // <- no wait at all
+        }
+        ...
+    }
+    ```
+
+    With `usb-storage` built-in (≤ v1.13) that sysfs path always exists (`delay_use = 1` on my v1.13.8 nodes), so Talos waited. With `usb-storage` as a module it only exists after udev has loaded it, which happens *after* a mass-storage device has been enumerated. At

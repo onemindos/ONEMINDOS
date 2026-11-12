@@ -1,0 +1,1 @@
+pvc-6933e342-dbef-45be-a17e-163e05834cac hostPath= local=/var/lib/rancher/k3s/storage/pvc-6933e342-dbef-45be-a17e-163e05834cac_demo_data type=

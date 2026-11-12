@@ -1,0 +1,133 @@
+SOURCE: https://www.openhomefoundation.org/structure/
+ACCESSED: 2026-11-10
+
+Our structure – Open Home Foundation
+Who we are
+Our story
+Structure
+Supporters
+What we do
+Projects
+Resources
+Papers
+Documents
+Media room
+Blog
+Store
+Support us
+Who we are
+Our story
+Structure
+Supporters
+What we do
+Projects
+Resources
+Papers
+Documents
+Media room
+Blog
+Store
+Support us
+How we are organized
+The Open Home Foundation is a tax-exempt, non-profit
+Stiftung
+(“foundation”) based in Switzerland. It is funded by commercial partner fees and donations.
+The foundation has no financial obligation to its partners. Funding and support flow in a single direction: from partners to the Open Home Foundation. Commercial partners, however, are allowed to create products that license Open Home Foundation brands. They may also collaborate with Open Home Foundation employees to ensure general interoperability, and alignment with the foundation’s guiding principles.
+Apollo Automation and Nabu Casa are the Open Home Foundation’s current commercial partners. Each is contractually required to contribute a majority of its net profits from licensed products to supporting the Open Home Foundation. This funding allows the Open Home Foundation to support more than 50 full-time employees, collaborate on external projects, and make donations to causes consistent with its principles.
+How you can support our work
+Contribute to an open source project
+There’s no need to go through the Open Home Foundation to
+contribute code, translations, designs, or documentation
+to any of our projects. Or even a project that isn’t ours—as long as it is maintained in the service of smart home privacy, choice, and sustainability.
+Keep an eye out for our open calls for priority projects that need extra help. Or support a maintainer’s work directly through a GitHub sponsorship page, Ko-fi, or any other sponsorship platform.
+Check out our projects
+Shop to support us
+If you're building your smart home, subscribing to
+Home Assistant Cloud
+or buying official
+Home Assistant
+or
+ESPHome
+products from our
+commercial partners
+is a great start. This helps fund the partner fees that pay the salaries of people working on
+Open Home Foundation
+projects and collaborations.
+You can also check out our
+merch store
+! Browse ethically made apparel and accessories, and grab something you love. Every purchase contributes to our mission.
+Explore store
+Get in touch about donating
+We're actively seeking the sustained financial support of organizations that believe in our mission to fight for the principles of privacy, choice, and sustainability for smart homes. So if you're a large organization interested in making a significant donation to the
+Open Home Foundation
+, or one of our projects, take a look at our
+2025 donation tiers
+and get in touch.
+Imagine what we can accomplish together!
+Get in touch
+Board members
+We are driven by our ideals. Our aim is to support open source, open standard, smart home projects to the benefit of our community.
+Paulus Schoutsen
+President
+Pascal Vizeli
+Treasurer
+J. Nick Koston
+Member
+Trevor Schirmer
+Rotating member (commercial partner)
+Leadership
+Franck Nijhof
+Lead of Home Assistant
+Chair of Leadership Committee
+Guy Sie
+Lead of Marketing
+Jean-Loïc Pouffier
+Lead of Product & UX
+Marcel van der Veldt
+Lead of Ecosystem
+Melissa Thermidor
+Lead of Community
+Jose Martin-Corral
+Chair of Back Office
+Open Home Foundation Organigram
+FAQ
+Why this structure, and why Switzerland?
+How best to support the future of the open home was a question without a definitive answer. Our founders looked for inspiration from other organizations defending our digital rights. They eventually settled on moving ownership of projects to a non-profit
+Stiftung
+(“foundation”) supported by for- and non-profit partners. For a low-overhead, international organization like ours, this structure represented the best chance to accomplish the foundation’s goals.
+Our founding board chose to locate the Open Home Foundation in Switzerland because of the country’s strict adherence to the rule of law, long history supporting privacy and democracy, and fierce political independence. Switzerland is forward-looking when it comes to intellectual property, reverse-engineering, and the use of APIs for interoperability.
+Are there other models, and other countries, which would have worked? Of course! But after long consideration we believe we made the right choices to pull off this pretty radical, pretty idealistic project.
+Does a partner profit when I buy something from it—even if all I care about is supporting the Open Home Foundation?
+Yes. Absolutely.
+This is one of the compromises involved in the structure we’ve chosen, the size of our organization, and the rules that pertain to how we are allowed to handle funding.
+In the case of Nabu Casa, our inaugural partner, this isn’t a significant change from how things worked before the creation of the Open Home Foundation. It only formalizes the relationship. Newer partners, like Apollo Automation, have the same obligations.
+(And hey, if you’re still not sure you want to support a for-profit partner to support us—don’t. Contribute directly to one of our projects, or a project that matches our smart home ideals—or yours! That’s totally in line with our ethos. This idea is bigger than just us. Or any single project.)
+Is Nabu Casa’s relationship to the Open Home Foundation unique?
+Short answer: No.
+Longer answer: Mainly in terms of its track record.
+Nabu Casa is a for-profit company. But since it was founded in 2018 by some of the same people now involved with the Open Home Foundation, it has stewarded the cause of Home Assistant without commercializing the open source project itself. For years, a significant portion of Nabu Casa’s revenue was used to pay the salaries of people working on numerous open source, open home-aligned projects.
+This relationship changed slightly in 2024 when Home Assistant and other projects were transferred to the Open Home Foundation. Nabu Casa became a partner to the Open Home Foundation, contributing a majority of its net profits from licensed products to the foundation. In 2025, every employee working on the foundation projects moved from Nabu Casa to the Open Home Foundation.
+Will there be additional partners?
+We hope so!
+At the end of 2025, Apollo Automation became the second commercial partner of the Open Home Foundation, adding diversity and sustainability to our cause.
+We continue to welcome other organizations with a proven track record, and a willingness to commit their resources, to consider partnering with the Open Home Foundation.
+Documents
+Media room
+User research agreement
+Support us
+Privacy Policy
+Impressum
+Jobs
+Contact us
+[email protected]
+Follow us
+Subscribe to the newsletter
+Subscribe
+Copyright © Open Home Foundation
+This website uses
+privacy-first analytics
+to help us improve the site. You can view all data in our
+public dashboard
+.
+Open Home Foundation
+| CHE-416.988.952

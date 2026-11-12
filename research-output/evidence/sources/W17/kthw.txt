@@ -1,0 +1,193 @@
+
+  GitHub - kelseyhightower/kubernetes-the-hard-way: Bootstrap Kubernetes the hard way. No scripts. · GitHub
+      Skip to content
+  Navigation Menu
+Sign in
+ProductsPlatformGitHubRepository hosting, code review, and collaboration
+CopilotAI coding agent for tasks, projects, and automated work
+Build & ShipActionsCI/CD and automation
+Code QualityQuality analysis, fixes, and enforcement
+CodespacesCloud development environments
+SecureCode SecurityVulnerability detection and remediation
+Secret ProtectionSecret scanning and leak prevention
+All Features
+DevelopersLearnDocumentation
+Training
+Certifications
+BuildBuild with Copilot
+Customize Copilot
+Integrations
+ExploreTrending repos
+GitHub Sponsors
+Developer articles
+ChangelogChangelogYour source for the latest features, improvements, and fixes across GitHub products, all in one place.
+BusinessesBy StageEnterprises
+Team
+Startups
+Nonprofits
+By IndustryHealthcare
+Financial services
+Manufacturing
+Government
+See all industries
+Evaluate GitHubWhy GitHub
+Customer Stories
+Business insights
+Trust Center
+Add-onsGitHub Advanced SecurityEnterprise-grade code security
+Copilot for businessEnterprise-grade AI features
+Premium SupportEnterprise-grade 24/7 support
+ResourcesLearn & ConnectDocumentation
+Resource center
+Blog
+Events & webinars
+Community Forum
+Customer Stories
+Integrations
+SupportCustomer support
+Training
+GitHub Status
+CompanyAbout
+Partners
+Changelog
+GitHub UniverseGitHub UniverseThe event for developers, by developers — talks, workshops, and what’s next for GitHub.
+Pricing
+Search/
+Sign in
+Sign upAppearance settings
+        You signed in with another tab or window. Reload to refresh your session.
+        You signed out in another tab or window. Reload to refresh your session.
+        You switched accounts on another tab or window. Reload to refresh your session.
+Dismiss alert
+      {{ message }}
+  kelseyhightower
+kubernetes-the-hard-way
+Repository navigation
+Code
+Issues30 (30)
+Pull requests27 (27)
+Actions
+Projects
+Security and quality
+Insights
+More items
+kubernetes-the-hard-way
+Public
+NotificationsYou must be signed in to change notification settings
+Fork16k (16k)
+Star50.7k (50.7k)You must be signed in to star a repository
+About
+Bootstrap Kubernetes the hard way. No scripts.
+Resources
+Readme
+Apache-2.0 license
+Contributing
+Contributing
+Activity
+Stars
+50.7k stars
+Watchers
+944 watching
+Forks
+16.0k forks
+Report repository
+master
+BranchesTags
+Go to file
+CodeOpen more actions menu
+Latest commit
+History
+296 Commits
+296 Commits
+Folders and files
+NameNameLast commit message
+Last commit date
+configs
+configs
+docs
+docs
+units
+units
+.gitignore
+.gitignore
+CONTRIBUTING.md
+CONTRIBUTING.md
+COPYRIGHT.md
+COPYRIGHT.md
+LICENSE
+LICENSE
+README.md
+README.md
+ca.conf
+ca.conf
+downloads-amd64.txt
+downloads-amd64.txt
+downloads-arm64.txt
+downloads-arm64.txt
+View all files
+Repository files navigation
+README
+Contributing
+Apache-2.0 license
+More items
+Kubernetes The Hard Way
+This tutorial walks you through setting up Kubernetes the hard way. This guide is not for someone looking for a fully automated tool to bring up a Kubernetes cluster. Kubernetes The Hard Way is optimized for learning, which means taking the long route to ensure you understand each task required to bootstrap a Kubernetes cluster.
+The results of this tutorial should not be viewed as production ready, and may receive limited support from the community, but don't let that stop you from learning!
+Copyright
+This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+Target Audience
+The target audience for this tutorial is someone who wants to understand the fundamentals of Kubernetes and how the core components fit together.
+Cluster Details
+Kubernetes The Hard Way guides you through bootstrapping a basic Kubernetes cluster with all control plane components running on a single node, and two worker nodes, which is enough to learn the core concepts.
+Component versions:
+kubernetes v1.32.x
+containerd v2.1.x
+cni v1.6.x
+etcd v3.6.x
+Labs
+This tutorial requires four (4) ARM64 or AMD64 based virtual or physical machines connected to the same network.
+Prerequisites
+Setting up the Jumpbox
+Provisioning Compute Resources
+Provisioning the CA and Generating TLS Certificates
+Generating Kubernetes Configuration Files for Authentication
+Generating the Data Encryption Config and Key
+Bootstrapping the etcd Cluster
+Bootstrapping the Kubernetes Control Plane
+Bootstrapping the Kubernetes Worker Nodes
+Configuring kubectl for Remote Access
+Provisioning Pod Network Routes
+Smoke Test
+Cleaning Up
+About
+Bootstrap Kubernetes the hard way. No scripts.
+Resources
+Readme
+Apache-2.0 license
+Contributing
+Contributing
+Activity
+Stars
+50.7k stars
+Watchers
+944 watching
+Forks
+16.0k forks
+Report repository
+Releases
+Packages
+Used by
+Contributors
+  Footer
+        © 2026 GitHub, Inc.
+      Footer navigation
+            Terms
+            Privacy
+              Security
+              Status
+            Community
+            Docs
+            Contact
+      Manage cookies
+        Do not share my personal information
+    You can’t perform that action at this time.

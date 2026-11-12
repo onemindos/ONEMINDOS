@@ -1,0 +1,144 @@
+TrueNAS CORE 13.3 Plans
+ProductsV-Series – Max Performance & Versatility
+M-Series – High Capacity All-Flash or Hybrid
+F-Series – High Performance NVME
+R-Series – Single Controller Appliances
+H-Series – Versatility and Power Efficiency
+Mini Series – Edge and Branch Office
+TrueNAS Enterprise – Mission Critical Storage. 24×7 Enterprise Support
+TrueNAS Community Edition – Test Drive TrueNAS in Your Environment
+Manage Your TrueNAS Systems
+SolutionsIndustry
+Media & Entertainment
+US Public Sector
+Audio
+Automotive
+Broadcasting
+Education
+Gaming
+Healthcare
+Manufacturing
+MSP
+Use Cases
+AI & Research
+Analytics
+Backup & Archival
+Cloud
+Data Mobility
+File Sharing
+Red Hat OpenShift
+Surveillance/CCTV
+TrueCloud Backup
+Veeam Backup
+Virtualization
+TrueNAS as an Alternative
+Alternative to Dell
+Alternative to Everpure / Pure Storage
+Alternative to HPE Alletra
+Alternative to NetApp
+Alternative to Public Cloud
+Support & ResourcesSupport
+Enterprise Support – For customers with active support contracts
+Community Support – For peer-to-peer, forum support
+Community
+TrueNAS Community Edition
+Community Forum
+TrueNAS Merch Store
+Resources
+Apps
+Case Studies
+Certifications & Integrations
+Data sheets
+Documentation
+FAQ
+Reseller Network
+Software Status
+Solution Briefs and Guides
+TrueNAS API
+TrueNAS Blog
+TrueNAS Security
+Videos
+White Papers
+ZFS Overview
+CompanyAbout TrueNAS
+Team
+Our Clients
+Reviews
+Awards
+Newsroom
+Careers
+Contact Us
+Get A Quote
+ Close
+ Get A Quote
+ Sign InTrueNAS Connect
+Partner Portal
+Enterprise Support
+ TrueNAS CORE 13.3 Plans
+ }
+ March 20, 2024
+ o
+ TrueNAS CORE
+ Where Open Storage Began
+TrueNAS has come a long way and has delivered incalculable value to millions of users around the world. After nearly 20 years of evolution since its inception in 2005 as FreeNAS, TrueNAS CORE has proven to be the most reliable and highest-quality platform for traditional primary storage use cases. Users and customers looking for incremental fixes and changes to their stable storage platform enjoy the sustained value and maturity of TrueNAS CORE. Today, we are announcing our plans to release TrueNAS CORE 13.3 in the next few months. (No, you didn’t miss a release; we simply re-numbered the 13.1 release to 13.3 to align with its updated FreeBSD 13.3 operating system!)
+At iXsystems, we have worked hard for many years to be the best possible corporate sponsors for open-source projects. Unlike proprietary vendors, our processes and planning are done in the open, and both community members and customers alike play an important role in how TrueNAS continues to evolve.
+Both FreeNAS and TrueNAS CORE were originally developed using FreeBSD as their underlying OS. Roughly five years ago, iXsystems began its Linux journey with the introduction of TrueNAS SCALE. This expanded its potential community, broadened and simplified support for the latest hardware, and opened the door to new possibilities for the software.
+TrueNAS = CORE + SCALE
+It’s only natural that some community members have expressed concerns about the future when there are two versions of their favorite storage platform. However, as TrueNAS continues to grow, we believe that its future is not a zero-sum game. Both TrueNAS CORE and TrueNAS SCALE will exist to address the needs of different users.
+The focus of TrueNAS CORE continues to be ensuring storage reliability, stability, and security for existing users. Taking into account its macro lifecycle, TrueNAS CORE is now entering a sustaining engineering phase within the TrueNAS project. It is not anywhere near its end-of-lifecycle phase. We are just going through a new release cycle for CORE and users can expect to receive maintenance updates for many years still to come.
+TrueNAS SCALE is the software edition where new features and updated components are actively developed and tested. This is natural because the bulk of the open source innovation we rely on is created and supported on Linux first. Therefore, developing a version of TrueNAS on Linux enables us to more rapidly deliver a more feature-rich, stable, and easier-to-use storage product for users and customers alike. This includes the ability for TrueNAS to run on a much wider variety of hardware and configurations. Of course, high-priority security and bug fixes are all good candidates to be backported to TrueNAS CORE, and  TrueNAS CORE users will always have the ability to “sidegrade” to SCALE if and when they’re ready.
+For TrueNAS Enterprise customers, you will always be fully supported for the duration of your support contract regardless of the software version you’re using. TrueNAS 23.10 already ships by default on some Enterprise products, like the TrueNAS F-Series. If your organization is considering a sidegrade to the SCALE-based software now or in the future, as many customers already have, please contact iXsystems Support so that we can assist you in the decision-making and upgrade process.
+TrueNAS CORE 13.3 is Coming Soon
+The release candidate for the next version of TrueNAS CORE (13.3) is planned for May, followed by its formal release in June 2024. TrueNAS CORE 13.3 will include the following updates:
+FreeBSD 13.3
+OpenZFS 2.2.3
+Samba v4.19
+Updates to SMART, Network UPS Tools (NUT), and other services
+Various security and bug fixes
+TrueNAS CORE 13.3 will continue to receive bug fixes related to stability and security. These updates will ensure that 13.3 is a reliable platform for both homelab and enterprise customers as well as a staging version for those users who wish to migrate to SCALE at a later date.
+TrueNAS and FreeBSD Continue
+With our 25+ year history in open-source software, we share an uncommon affinity for FreeBSD among all of those in the community who love TrueNAS. After all, FreeBSD is a major part of our company’s heritage, iXsystems having spawned from BSDi in the 90’s.
+The TrueNAS development and engineering team continues to provide contributions upstream to FreeBSD and remains committed to the bootstrapped, open-source development philosophy on which it was founded.
+Kris Moore, SVP of Engineering at iXsystems, shares his thoughts with other die-hard fans in this Community Forums post:
+“TrueNAS CORE hasn’t been deprecated, and [13.3] is planned to start making a showing in Q2. It will be based upon FreeBSD 13.3 and will provide a way to keep running jails and upstream packages for some time to come. It is still a rock-solid NAS and we’re expecting to support it for a long while for that use-case.” 
+Our love for FreeBSD is only eclipsed by our commitment to keep pace with the demands of our customers and users to continue innovating in ways that help them find success with TrueNAS. TrueNAS CORE will provide a rock-solid foundation for users that need fast, reliable, and scalable storage. TrueNAS SCALE provides the same rock-solid foundation, but also supports those users that want to extend their storage into a converged solution with Apps and VMs. CORE users that do not need Apps and VMs may find that SCALE offers better performance and stability, more flexible hardware support, and a more intuitive UI with a wider breadth of storage-focused features.
+When Should I Migrate?
+If you are installing a new TrueNAS system, iXsystems recommends that you begin with TrueNAS SCALE. There is more added functionality, vastly broader support for hardware, catalogs of Apps, better performance on most workloads, and an improved Web UI, all of which make managing TrueNAS easier than ever.
+Existing TrueNAS 13.0 users who are comfortable with their TrueNAS system can update to TrueNAS 13.3 when they see a need based on the TrueNAS Software Status page. Upgrading from 13.0 to 13.3 will be a simple and direct process.
+TrueNAS 13.0 users looking for the new capabilities outlined above can sidegrade to TrueNAS SCALE at any time, preserving data and essential NAS functionality such as SMB, NFS, iSCSI, and VMs – with the primary exception being Jails.
+The upcoming SCALE 24.04 “Dragonfish” will, however, include early support for Sandboxes, which provide jail-like capabilities using systemd nspawn containers. Manual migration of workloads will still be required, but the Sandbox functionality effectively provides the same functionality that Jails provided for CORE users. We can’t wait for Jails users to test and provide feedback on this new feature.
+Community Activity
+All TrueNAS processes and planning are done in the open, and TrueNAS CORE 13.3 is no exception. In addition to your input, there are also many ways TrueNAS users can give back and enrich the experience of others in the Community. Check out how you can make a meaningful contribution and play a part in shaping the future of TrueNAS.
+Every contribution, big or small, plays a part in moving TrueNAS forward. Whether you share your use case, refer a friend, create tutorials or “How-To” content, or even provide code directly to the TrueNAS GitHub repository, your contribution makes a difference. And, as always, thank you for being a part of the TrueNAS community!
+ Share On Social:
+-->
+ 541 Division Street
+Campbell, CA 95008, USA
+ Contact Us
+ <email-masked>
+ Listen to our Podcast
+ Support
+ Enterprise Support
+Community Support
+Forums
+FAQs
+ Useful Links
+ Careers
+About Us
+Blog
+News & Articles
+TrueNAS Enterprise
+TrueNAS Community Edition
+Open Storage for Proxmox
+TrueCommand
+TrueCommand Cloud
+TrueNAS Legacy
+Software Status
+Referral Program
+Reseller Network
+ Subscribe to our newsletter
+ --->
+ © Copyright 2026 iXsystems, Inc. dba TrueNAS. All rights reserved.
+ Legal   TrueNAS Logos
+ TrueNAS Newsletter Subscription
+Be the First to Know

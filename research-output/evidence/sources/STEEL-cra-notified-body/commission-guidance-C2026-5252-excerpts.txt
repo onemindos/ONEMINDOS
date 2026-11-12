@@ -1,0 +1,200 @@
+Excerpts: Commission guidance on the application of Regulation (EU) 2024/2847, Annex to C(2026) 5252 final (27.7.2026)
+Source: https://ec.europa.eu/newsroom/dae/redirection/document/131456 (fetched 2026-11-11; PDF sha256 fe209c250e3d1f7599e42826d91963666951332927edcf511a2e79fe8d2f8234; text via pdftotext -layout; line ranges of that text given)
+
+--- text lines 710,718 ---
+  44.   Article 3(48) defines FOSS as ‘software the source code of which is openly shared and
+        which is made available under a free and open-source licence which provides for all
+        rights to make it freely accessible, usable, modifiable and redistributable’. While this
+        guidance does not identify specific free and open-source licences that are
+        compatible with the definition laid down in Article 3(48), it follows from the wording
+        of that provision that only software that cumulatively fulfils two conditions qualifies
+        as FOSS for the purposes of the CRA: (i) the software must be made available under
+        a free and open-source licence granting the full set of rights referred to in Article 3(48);
+        and (ii) its source code must be openly shared.
+
+--- text lines 857,879 ---
+        software that are not monetised by their manufacturers should not be considered to
+        be a commercial activity’). Where the FOSS can be downloaded and installed freely,
+        and users can optionally choose to purchase professional services separately, that
+        FOSS is not considered to be placed on the market.
+  57.   By contrast, in some cases access to a specific version of the product with digital
+        elements including certain benefits such as technical assistance or performance
+        optimisation, is conditioned on remuneration. In such cases, that provision
+        constitutes a monetised provision of a product with digital elements supplied in the
+        course of a commercial activity and is therefore considered placed on the market.
+        This includes cases where a paid edition or enterprise version is made available under
+        a commercial agreement, irrespective of whether functionally equivalent software is
+        also available free of charge under a free and open-source licence.
+        Example 17: A natural or legal person publishes a free and open-source operating
+        system, offering a paid version of that operating system which includes support
+        services, such as technical assistance or performance optimisation. The paid version
+        of the operating system is considered placed on the market in the course of a
+        commercial activity.
+        Example 18: A natural or legal person publishes a free and open-source command
+        line tool. The tool is freely accessible and anyone can download and install it. That
+        natural or legal person separately offers professional services, such as optional
+        consultancy services to train users and support them in installing and using the tool.
+        That FOSS is not considered placed on the market within the meaning of the CRA.
+  58.   Particularly in the case of natural persons publishing FOSS, offering technical
+
+--- text lines 2117,2124 ---
+       Example 58: A smartphone integrates an operating system that provides the
+       functionalities described in Annex I, point 11, to Implementing Regulation (EU)
+       2025/2392. While the operating system enables the management of hardware
+       resources and execution of software applications, the smartphone as a whole has a
+       different core functionality (e.g. that of enabling users to communicate and access
+       information and services). The mere integration of an operating system does not
+       mean that the smartphone has the core functionality of an operating system.
+142.   Some products with digital elements may be similar to an important or critical
+
+--- text lines 2226,2271 ---
+     148.   A more stringent conformity assessment procedure, with the involvement of a
+            thirdparty (based on module B+C, module H or cybersecurity certification schemes)
+            is mandatory for important products with digital elements of class II (with the
+            exception of those qualifying as free and open-source software, in accordance with
+            Article 32(5)) and for critical products with digital elements24. By contrast, important
+            products with digital elements of class I (with the exception of those qualifying as free
+            and open-source software, in accordance with Article 32(5)) are required to undergo
+            a third-party conformity assessment procedure only if the manufacturer has not
+            applied or has applied only in part relevant harmonised standards the references of
+            which have been published in the Official Journal of the European Union (henceforth,
+            ‘harmonised standards’), common specifications or European cybersecurity
+            certification schemes at assurance level at least ‘substantial’ 25.
+     149.   Therefore, for an important product with digital elements of class I to be eligible for
+            the internal control procedure, (i) all the applicable requirements of a relevant
+            harmonised standard need to be applied; and (ii) the standard’s scope needs to cover
+            at least all the cybersecurity risks associated to that product’s core functionality.
+     150.   The scope of the product with digital elements may be broader than the scope
+            foreseen by the relevant harmonised standard, and such additional functions may
+            present different or additional cybersecurity risks. The manufacturer is always
+            required to carry out a risk assessment pursuant to Article 13(2) and should
+            consequently check whether implementing a harmonised standard covers all risks
+            associated with the product with digital elements. Where implementing the standard
+            does not cover all risks, the manufacturer should ensure via other means that its
+            product with digital elements is in compliance with the essential requirements.
+     151.   Therefore, if the manufacturer of an important product with digital elements of class
+            I has applied a relevant harmonised standard that covers the risks associated to that
+            product’s core functionality, it can decide to make use of the internal control
+            procedure to demonstrate its product’s conformity. As part of its conformity
+
+
+24
+   This is also the case when making use of a European cybersecurity certification scheme with an
+assurance level at least ‘substantial’, as the involvement of a third-party certification body is required.
+25
+   For brevity’s sake, the remainder of this section only refers to harmonised standards the references of
+which have been published in the Official Journal of the European Union. However, the same guidance also
+applies to common specifications adopted in accordance with Article 27(2) and to European cybersecurity
+certification schemes where specified by the Commission via delegated acts in accordance with Article
+27(9).
+
+                                                                                                        52
+       assessment activities, the manufacturer will still be required to demonstrate that all
+       risks applicable to its product with digital elements are addressed. Hence, where
+       there is a gap between the coverage of the harmonised standard and the scope of the
+       product with digital elements as a whole, the manufacturer still needs to document
+       which additional measures it has put in place to treat those risks.
+
+--- text lines 2603,2643 ---
+7.4 Reuse of risk assessments and conformity documentation for
+    families of products with digital elements
+  174.   Manufacturers may place on the market products with digital elements that are
+         similar, for example different variants, models or configurations of the same product
+         family. Where such products with digital elements share the same architecture,
+         security-relevant design and intended purpose, and are exposed to the same
+         cybersecurity risks, the CRA does not require manufacturers to treat each variant as
+         an entirely separate product with digital elements for the purposes of risk
+         assessment and conformity assessment.
+  175.   In such cases, provided that all variants concerned are adequately covered in terms
+         of relevant risks and essential requirements, manufacturers may rely on: (i) a single
+         cybersecurity risk assessment carried out in accordance with Article 13(2) of the
+         CRA; (ii) a single set of technical documentation; and (iii) a single conformity
+         assessment procedure. This also allows a single EU declaration of conformity to be
+         issued for the group of products with digital elements, as long as it clearly identifies
+         the product variants to which it applies.
+  176.   The decisive factor is whether the differences between the variants are relevant to
+         cybersecurity. Variations that do not affect the cybersecurity properties of the
+         product with digital elements, such as differences in colour, form factor, memory
+         size, or other non-security-relevant characteristics, do not require separate risk
+         assessments or conformity assessments. Conversely, in some cases variants may
+         differ in ways that affect the implementation of essential requirements, for example
+         through different communication interfaces, software stacks, update mechanisms
+         or remote connectivity. In such cases, those differences must be reflected in the risk
+         assessment and, where necessary, in the conformity assessment and technical
+         documentation.
+  177.   Manufacturers remain responsible for ensuring that the risk assessment and the
+         related documentation accurately reflect the products with digital elements placed
+         on the market. Where a new variant introduces new cybersecurity risks or changes
+         the way essential requirements are implemented, the existing risk assessment and
+
+
+                                                                                              61
+conformity documentation must be updated accordingly. Reliance on a single
+conformity assessment is only possible to the extent that the products with digital
+elements do not present differences with regards to their cybersecurity properties.
+
+
+
+
+                                                                                62
+
+--- text lines 3476,3534 ---
+9.3.2 Validity of EU type-examination certificates (Article 69(1))
+     247.   Article 69(1) of the CRA states that ‘EU type-examination certificates and approval
+            decisions issued regarding cybersecurity requirements for products with digital
+            elements that are subject to Union harmonisation legislation other than this
+            Regulation shall remain valid until 11 June 2028, unless they expire before that date,
+            or unless otherwise specified in such other Union harmonisation legislation, in which
+            case they shall remain valid as referred to in that legislation’.
+     248.   The continued validity of such certificates and approval decisions should be
+            understood as being limited to the cybersecurity risks and corresponding
+            requirements that are covered by the respective Union harmonisation legislation on
+            the basis of which they were issued. For those risks, manufacturers are not required
+            to reassess or re-demonstrate compliance solely for the purposes of the CRA during
+            the period of validity referred to in Article 69(1) for products with digital elements they
+            intend to place on the market on or after 11 December 2027 and until 11 June 202831.
+            This is the case for certificates and approval decisions issued where the applicable
+            Union harmonisation legislation requires the manufacturer to perform the conformity
+
+
+
+31
+  Products with digital elements placed on the market before 11 December 2027 are subject to Union
+legislation applicable at the time of their placing on the market and, if they were compliant, they can be
+sold and put into operation, unless they are, on or after 11 December 2027, subjected to substantial
+modifications. For the concept of ‘placing on the market’ and ‘making available on the market’, see also
+Section 2.1 Placing on the market of this document as well as Chapter 2 of the Blue Guide.
+
+                                                                                                       81
+       assessment procedure via a notified body, as well as where the manufacturer has
+       voluntarily chosen to do so.
+249.   Accordingly, the existence of a valid certificate or approval decision under other
+       Union harmonisation legislation does not exempt manufacturers from carrying out a
+       comprehensive cybersecurity risk assessment under the CRA (or from other
+       obligations under it). Instead, it allows them to rely on existing certifications as
+       evidence of compliance for their conformity assessment procedure, to the extent that
+       the corresponding cybersecurity risks are already covered. Where the certificate or
+       approval decision has validity under other Union harmonisation legislation extending
+       beyond 11 June 2028, the manufacturer may nonetheless rely on such certificate or
+       decision for the purposes of the CRA only until 11 June 2028.
+250.   Where the cybersecurity risk assessment carried out in accordance with Article 13(2)
+       identifies additional risks not covered by the cybersecurity requirements
+       underpinning the existing certificate or approval decision, manufacturers remain
+       responsible for addressing those risks in accordance with the CRA. In such cases,
+       compliance requires that the identified gaps be assessed and mitigated, irrespective
+       of the continued validity of the existing certificate or approval decision.
+251.   This can be illustrated by considering the case where a product with digital elements
+       is subject to the cybersecurity requirements laid down in Commission Delegated
+       Regulation (EU) 2022/30 supplementing Directive 2014/53/EU (the Radio Equipment
+       Directive (RED) Delegated Act), and where an EU type-examination certificate or
+       approval decision has been issued on the basis of those requirements. In that case,
+       the certificate or decision remains valid, in accordance with Article 69(1), for the
+       cybersecurity risks that are covered by that certificate and related to the
+       cybersecurity essential requirements of Directive 2014/53/EU (the Radio Equipment
+       Directive, or ‘RED’).
+252.   In such cases, manufacturers are not required, for the purposes of the CRA, to
+       reassess or re-demonstrate compliance in respect of those risks already addressed
+       by those certificates, for as long as the relevant certificate or approval decision
+       remains valid and, in any event, not beyond 11 June 2028. This includes, for example,
+       cybersecurity risks related to network protection, protection of personal data and
+       privacy or prevention of fraud (to the extent that those risks are covered by that

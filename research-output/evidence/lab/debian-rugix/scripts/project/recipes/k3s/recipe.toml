@@ -1,0 +1,5 @@
+description = "install k3s (air-gapped) with its data on the Rugix data partition"
+dependencies = ["core/pkg-update"]
+
+[parameters]
+version = { default = "v1.37.2+k3s1" }

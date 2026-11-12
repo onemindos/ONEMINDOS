@@ -1,0 +1,130 @@
+Topic: Backups die silently when kopia's cache exhausts SD card inodes (umbrelOS 1.7.4)
+--- post 1 · 2026-08-10T10:09:31.944Z · author masked
+Raspberry Pi 4, umbrelOS 1.7.4, backing up to a NAS.
+The issue
+My backups had been failing for ~22 hours with no warning anywhere — dashboard clean, all
+apps ready. I only found it by querying the backup repo by hand:
+ERROR error connecting to repository: unable to write config file:
+error writing file: cannot create temp file: no space left on device
+“No space left on device” — with 4.6 GB free. It was inodes:
+$ df -h /home → 19G 15G 4.6G 76% ← looks fine
+$ df -i /home → 1261568 1261567 1 100% ← ONE free inode
+Run df -i on your box now. df -h will never show this.
+The cause: kopia’s cache at /kopia/cache had grown to 13 GB across 1,259,040 files —
+99.97% of every inode on the SD card. Note this is the SD card (mmcblk0p6), not the SSD,
+and nothing on the SD is even being backed up — the cache is a byproduct of backing up
+app-data, which lives on the SSD. Snapshots are ~640 MB each, so the cache was over 20×
+the size of the data being backed up, on the most fragile medium in the machine.
+It also can’t self-heal: kopia sweeps its cache when it opens the repository, and opening the
+repository is exactly what fails once inodes are gone.
+That partition also backs /, /home, /var/log and /data, so this breaks writes
+system-wide, not just backups.
+Temporary fix
+Check nothing is mid-backup (ps aux | grep [k]opia must be empty), then:
+sudo mv /kopia/cache/kopia /kopia/cache/kopia.old
+sudo rm -rf /kopia/cache/kopia.old
+Rename first, don’t rm -rf in place. A rename within the same directory needs no new
+inode — which matters when you have exactly 1 free — and it hands kopia a clean slate
+immediately instead of leaving it with no cache directory for the several minutes the delete
+takes. Kopia recreates the cache itself; nothing needs restoring.
+Took ~6 minutes for 1.26 M files. Result: 15 G → 85 M used, 100% → 1% inodes. Backups
+worked again immediately.
+ Before you delete, grab this — I didn’t, and lost the evidence of which subdirectory was
+responsible:
+sudo sh -c "du --inodes -xs /kopia/cache/kopia/<repo-id>/*"
+You cannot cap the cache yourself. kopia cache set applies, then gets wiped by the next
+backup operation — umbreld re-runs kopia repository connect on routine operations, which
+rewrites the config with defaults. Verified: hard limits of 2 GB/1 GB reverted to none after
+a single listBackups call. And you can’t script a workaround either, since umbrelOS 1.x wipes
+the root filesystem on every reboot, taking cron jobs and systemd units with it.
+So the only maintenance available is manual: check df -i /home periodically and clear the
+cache when it creeps up. Mine took 22 days to go from clean to fatal.
+One security note while you’re in there: the kopia repository password is stored in
+plaintext in ~/umbrel/umbrel.yaml, and umbreld passes it via --password= on the command
+line so it’s echoed back in any backups.* error. Redact before posting error output.
+--- post 2 · 2026-08-15T11:31:33.360Z · author masked
+Same here. I created a pull request on this a while ago (not merged yet).
+ github.com/getumbrel/umbrel
+ Fix Kopia writing cache/config to root overlay (#2099)
+ master ← TrepnickKev:fix/kopia-write-to-data-dir
+ opened 04:06PM - 23 Jan 26 UTC
+ TrepnickKev
+ +13
+ -3
+ ### Problem
+Kopia writes cache, config and logs to the root filesystem by defau…lt.
+On SD-card based Umbrel installs, this fills the root overlay (~4 GB) and
+breaks built-in backups despite sufficient free space on /mnt/data.
+### Solution
+Redirect Kopia cache, config and log directories to Umbrel’s data directory.
+All required directories are created defensively before starting Kopia.
+### Impact
+- Prevents root filesystem from filling up
+- No breaking changes
+- Works for SD, SSD and USB-based installs
+--- post 3 · 2026-08-16T06:44:44.125Z · author masked
+From my clonker to your clonker:
+Verdict: right direction, but it doesn’t fix the root cause — and as written it doesn’t compile and introduces a serious new bug
+The PR relocates kopia’s cache/config/logs from /kopia to ${dataDirectory}/kopia (the big data disk). That correctly removes the fatal ingredient from our 2026-08-10 incident — the cache living on a tiny, inode-starved SD partition where exhaustion deadlocks the sweep. But the actual root cause was unbounded cache growth (soft limits only sweep on repo-open and demonstrably failed to contain it — 13 GB against a 5.2 GB soft limit), and this PR leaves growth unbounded; it just gives it a much bigger disk to grow into. On a 1.8 TB SSD that’s a practical mitigation for years, but it’s symptom relocation, not a fix.
+Findings
+1. Blocker — it doesn’t compile. The env object defines XDG_CACHE_HOME and XDG_CONFIG_HOME twice each (the old /kopia/… lines were left in above the new ones). TypeScript rejects duplicate object-literal keys — I verified with tsc: error TS1117: An object literal cannot have multiple properties with the same name on both lines. The old lines must be deleted, not shadowed. (The PR has one approval and no CI checks ran — nobody caught this.)
+2. Critical — the new cache location is inside the backup source, and nothing ignores it. umbreld’s snapshot command is kopia snapshot create ${dataDirectory} (backups.ts:513), with exclusions via a .kopiaignore at the data-directory root. createIgnoreFile() has no entry for kopia/, so kopia would back up its own cache and logs. On our box the cache reached 13 GB / 1.26 M files for ~640 MB of actual data — snapshots would balloon ~20×, every backup would churn the cache by hashing the cache, and cache reads during snapshot regrow the thing being snapshotted. The fix must add kopia to createIgnoreFile(), or put the cache outside the snapshot root.
+3. Major — the config move is dead code. Every repository operation passes a hardcoded --config-file=/kopia/config/.config (backups.ts:273, 430, 454), which overrides XDG_CONFIG_HOME entirely. So config files stay at /kopia/config regardless of this PR; the XDG_CONFIG_HOME change and the mkdir of ${dataDirectory}/kopia/config do nothing. Either update those three hardcoded paths too, or drop the config half of the change. (The cache half does work: KOPIA_CACHE_DIRECTORY is a real kopia envar, and because umbreld re-runs repository connect on every operation — the very behavior that made manual cache limits unpinnable — the rewritten config picks up the new cache path on first use.)
+4. Major — no migration/cleanup of the old cache. On already-affected installs the stale /kopia/cache/kopia stays behind forever, pinning inodes on the SD (our box is already back to 41% five days after a full clear). The PR needs a one-time cleanup of the old location after the switch.
+5. Moderate — …process.env is unexplained scope creep. The original code deliberately gave kopia a minimal environment; the PR spreads the full umbreld environment into it. That’s unrelated to the stated fix, unexplained in the PR body, and can change kopia behavior (inherited KOPIA_*/XDG_*/proxy vars). It should be dropped or justified.
+6. The real fix is one line away and the PR doesn’t take it. Since connect() runs before every operation and rewrites the config anyway, it’s the perfect place to pin hard cache limits — add --content-cache-size-limit-mb / --metadata-cache-size-limit-mb to the repository connect flags in backups.ts:421. That bounds the cache continuously (hard limits are enforced between sweeps), fixes the disease rather than moving the patient, and works on both the old and new cache locations.
+7. Minor. Added lines use spaces (repo uses tabs) plus trailing whitespace; fse.ensureDir is the idiomatic fs-extra call. Also the PR’s premise (“fills the root overlay ~4 GB”) is inaccurate for Pi/rugix installs — /kopia lives on the SD data partition (19 GB on our box), not the root overlay. The direction of the change is still right; the description should be c orrected.
+--- post 4 · 2026-08-22T13:08:04.532Z · author masked
+Fix accepted, going through testing. Hopefully in next release…
+ github.com/getumbrel/umbrel
+ Backups die silently when kopia's unbounded cache exhausts the data partition's inodes
+ opened 05:06PM - 17 Aug 26 UTC
+ closed 11:22AM - 22 Aug 26 UTC
+ davotoula
+ ## What happened
+My scheduled backups (umbrelOS 1.7.4, Raspberry Pi, backing up… to a NAS) had been failing
+silently for ~22 hours — no warning anywhere, all apps `ready`. Querying the backup repo
+directly showed:
+```
+ERROR error connecting to repository: unable to write config file:
+error writing file: cannot create temp file: no space left on device
+```
+But `df -h` showed 4.6 GB free. The partition was out of **inodes**, not space:
+```
+$ df -i /home
+Filesystem Inodes IUsed IFree IUse% Mounted on
+/dev/mmcblk0p6 1261568 1261567 1 100% /home
+```
+The consumer was kopia's own cache at `/kopia/cache` (a bind mount of
+`/data/umbrel-os/kopia`, i.e. the SD data partition on Pi installs): **13 GB / 1.26M
+inodes of cache for ~640 MB of actual backed-up data** (~20× the backup size).
+## Why it happens (root cause)
+1. umbreld points kopia's cache at `/kopia/cache` via `XDG_CACHE_HOME`
+ (`backups.ts`). On Pi installs that's the small SD data partition (19 GB / 1.26M
+ inodes), not wherever the data directory lives.
+2. Kopia's default cache limits are **soft** limits, only enforced by a sweep **when the
+ repository opens**. Nothing bounds growth between opens.
+3. Hard limits can't be set out-of-band: umbreld re-runs `kopia repository connect`
+ before every backup operation, which **rewrites the config file with defaults** — any
+ manual `kopia cache set` is reverted by the next operation (verified on 1.7.4).
+4. Once inodes are exhausted the failure is a deadlock: the repository can't open →
+ the sweep that would shrink the cache can never run → backups stay dead until manual
+ intervention.
+After a full manual cache clear the cache regrew at roughly 70–100k inodes/day on my box,
+so this recurs within weeks.
+## Steps to reproduce
+1. umbrelOS 1.x on a Pi with native backups configured to a NAS/USB destination.
+2. Let scheduled hourly backups run for days/weeks.
+3. Watch `df -i` on the data partition climb (while `df -h` looks fine) until backups
+ fail with `no space left on device` and no UI warning.
+## Suggested fix
+I have a working, tested fix (PR to follow):
+- Move the cache and logs to `${dataDirectory}/kopia` (`XDG_CACHE_HOME`/`KOPIA_LOG_DIR`)
+ and exclude that directory from snapshots via `.kopiaignore`.
+- Pin **hard** cache size limits in `connect()` — since umbreld reconnects before every
+ operation, the limits are permanently enforced and can never drift (this also protects
+ SD-only installs where the data directory shares the partition with `/kopia`).
+- Clean up the legacy `/kopia/cache` on startup.
+Field results on my Pi: data partition inode use dropped from 52% to 1% at startup, next
+backup ran clean with the cache on the data drive, limits verified in the repo config.
+Happy to open the PR right away — flagging the issue first per CONTRIBUTING.md.

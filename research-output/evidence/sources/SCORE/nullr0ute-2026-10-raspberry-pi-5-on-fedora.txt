@@ -1,0 +1,51 @@
+Source: https://nullr0ute.com/2026/10/raspberry-pi-5-on-fedora/
+Fetched 2026-11-11 (HTML stripped to text)
+
+ 
+ Raspberry Pi 5 on Fedora – nullr0ute's blog 
+ Skip to content 
+ nullr0ute's blog 
+ Random tech musings from an Aussie living in London 
+ Menu and widgets 
+ AI-ML 
+ ARM 
+ DevOps 
+ Education 
+ Fedora 
+ Firmware 
+ IoT 
+ kernel 
+ microcontrollers 
+ Networks 
+ Personal 
+ PPC 
+ Red Hat 
+ rel-eng 
+ RHEL 
+ s390x 
+ Uncategorized 
+ Zephyr 
+ Raspberry Pi 5 on Fedora 
+ So I’ve been hiding a secret from you all for sometime… The Raspberry Pi 5 has worked out of the box on Fedora since the F-44 release!! 
+ Basically I’ve just not had the time to write it up properly, but this blog on the RPi5 on bootc (why are they testing a EOL release in Oct 26?!) reminded me it was outstanding. 
+ In short for Fedora 44 we support a MVP (Minimum Viable Product) of the Raspberry Pi 5! My previous post on the RPi5 went a little viral, there’s been thousands of downloads of the images since. I was procrastinating since the release of Fedora 44 in late April because I wanted to fix one particular issue which is now fixed in Fedora 45 and as an updated for F-44. 
+ As a MVP there’s of course a number of caveats but the key things are working, which make it quite a usable device, as as follows: 
+ All variants of the Model 5B (500/CM5 are still WIP) 
+ Boot from uSD or NVME (not USB) 
+ Wired and wireless network 
+ USB from within Linux 
+ Accelerated graphics 
+ Basic thermal/fan 
+ Some other peripherals like spi/i2c 
+ Since the Fedora 44 release there have been more features headed upstream through various contributors, including myself, and finally there seems to be a level of contributors growing to get the Raspberry Pi 5 into usable shape. These improvements are of course making it back into Fedora so the features available have been growing since the F-44 release in May. 
+ For Fedora 44 release you need to have a temporary workaround when booting. If you update to the latest kernel/firmware straight away this isn’t then needed beyond the first boot. The workaround isn’t needed for Fedora 45 so if you’re going to try this out I suggest you go and grab your favourite flavour of Fedora from the Fedora 45 release candidates and jump straight in there! You will get an accelerated desktop with storage/network/USB. There’s not currently any support for sound and a number of other things. 
+ So for Fedora 45 you can just flash it as you would for any other Raspberry Pi, including on NVME. If you wish to use Fedora 44 you’ll need to flash with the following option for arm-image-installer (example is for Workstation): 
+ Fedora 45: 
+ arm-image-installer --resizefs --target=none --media=/dev/sdb --image=Fedora-Workstation-Disk-45-1.2.aarch64.raw.xz 
+ Fedora 44: 
+ arm-image-installer --resizefs --target=none --args="cma=256M@0M-1024M" --media=/dev/sdb --image=Fedora-Workstation-Disk-44-1.7.aarch64.raw.xz 
+ We will of course to be improving things further moving forward including RPi500/CM5 support. I look forward to hearing of what people get up to with their RPi5s running Fedora! 
+ Posted on October 27, 2026 Author nullr0ute Categories ARM , Fedora , Firmware , kernel Tags aarch64 , ARM , Fedora , IoT , kernel , RaspberryPi 
+ Post navigation 
+ Previous Previous post: Fedora 44 on the Raspberry Pi 5 
+ Proudly powered by WordPress 

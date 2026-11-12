@@ -1,0 +1,344 @@
+SOURCE: https://pve.proxmox.com/wiki/Secure_Boot_Setup
+ACCESSED: 2026-11-11
+
+
+Secure Boot Setup - Proxmox VE
+ Secure Boot Setup
+ From Proxmox VE
+ Jump to navigation
+ Jump to search
+ Contents
+1 Introduction
+2 Using a Proxmox Project with Secure Boot
+3 Overview
+3.1 With a custom db key
+3.2 Using a shim with Machine Owner Key
+3.2.1 Machine Owner Keys
+4 Setup instructions for db key variant
+4.1 Creating custom Secure Boot keys
+4.2 Enrolling the custom keys.
+4.3 Bootloader setup
+4.3.1 Using grub-efi-amd64-signed.
+4.4 Signing the kernel
+4.5 Make sure future kernel upgrades are signed.
+4.6 Enrolling the PK
+5 Setup instructions for shim + MOK variant
+5.1 Required packages
+5.2 Generate Machine Owner Key
+5.3 Enrolling the MOK
+5.4 Signing a custom kernel
+5.5 Make sure future kernel upgrades are signed.
+6 Using DKMS with Secure Boot
+6.1 Alternative DKMS key
+7 Enabling and verifying Secure Boot
+8 Disabling Secure Boot
+9 Secure Boot Revocation Policy
+9.1 Introduction to Secure Boot Revocation
+9.2 Setting a Stricter Revocation Policy
+10 See Also
+Introduction
+Since Proxmox VE 8.1, the Proxmox VE bootloader has been signed by the official secure boot certificate from Microsoft.
+If you are satisfied with this secure boot mechanism, you may stop reading here and use the official ISO as is.
+This article, on the other hand, focuses on setting up and managing your own fully trusted secure boot certificates. While this method requires more initial setup work, it ensures that you do not have to trust a CA outside your control.
+Using a Proxmox Project with Secure Boot
+Up to kernel version 6.2.16-7, the Proxmox VE kernel was not out of the box Secure Boot friendly because it did not sign kernel modules at build time, and to get it to boot one had to manually sign all the modules with a DB key after every kernel upgrade.
+Since version 6.2.16-8, CONFIG_MODULE_SIG is enabled at build time, which means all the modules shipped together with the kernel in the same package will be trusted by it.
+Since Proxmox VE 8.1 / Backup Server 3.1 and kernel 6.5.11-4, signed packages that support Secure Boot out of the box are available, replacing those shipped by Debian.
+Overview
+Secure Boot is a mechanism by which the boot sequence verifies digital signatures of the system which is to be booted. For this the UEFI system has a set of keys and certificates.
+The platform key (PK). This is the “root” of trust. Once a PK is enrolled and secure boot can be enabled. This key can be used to sign boot loaders. As long as there’s no platform key in the system it is considered to be in “Setup Mode” and no signatures will be validated. Once a “platform key” is enrolled and, if Secure Boot is activated in UEFI, no untrusted bootloaders or kernels can be booted anymore.
+The key exchange key (KEK). This key is signed by the PK and is used to sign database (db) entries. It can also be used to sign UEFI binaries (such as bootloaders).
+The database (db) can contain keys, but also signatures or hashes to authorize UEFI binaries. Finally, db keys are trusted by the Linux kernel and can be used to sign modules for DKMS.
+Secure Boot is usually setup one of the following two ways. If unsure we'd recommend trying the second one, i.e., using the Machine Owner Key (MOK).
+With a custom db key
+In this case the system administrator has control over the db key (possibly also the PK and KEK).
+This is a simpler case, since the administrator can choose which bootloader to trust. The most straightforward way here is to use Unified Kernel Images with, for example, systemd-boot, since this only requires systemd-boot and the UKI to be sigend with the db key. DKMS modules can also be signed with the db key. Note that this does not directly support MOKs (Machine Owner Keys), these are made available to the kernel only when using the “shim” loader, see the next section. Also note that in this case, grub will refuse to load modules and is therefore much more involved to setup.
+Using a shim with Machine Owner Key
+In this case the Secure Boot keys are managed by someone else - Microsoft in the case of most UEFI vendors.. UEFI boots a signed shim which has its own set of keys to verify the next stage (either another bootloader or another EFI binary or UKI). For Proxmox products, a custom shim signed by Microsoft which is embedding the public keys used for signing related Proxmox packages is available since November 2023 (Proxmox VE 8.1 / Backup Server 3.1), and installed by default on new installations.
+Machine Owner Keys
+In addition to verifying the next stage, the shim also manages a set of keys called “Machine Owner Keys” or MOKs. By default, the kernel trusts MOKs in addition the db key and its own key when loading modules. In this case, a MOK is required to sign the kernel and also for DKMS modules.
+MOKs are managed by 3 sets of EFI variables:
+Non-volatile “bootservice” variables. These are only accessible by boot services (the shim and its MokManager EFI utility). This is where the actual MOKs and configuration is stored by the shim.
+Volatile runtime mirrors of the state variables. These are how the OS knows which MOK keys actually exist. These are read-only to the OS and only exist if the bootloader (the shim) sets them. They do not themselves persist across restarts and cannot directly be changed. NOTE: When switching away from a shim setup to directly boot with custom keys, the OS will not see the MOKs anymore, since different bootloaders won’t provide these variables.
+“Request” variables. The OS (usually via mokutil) can set a set of EFI variables to request the shim to make changes to the MOKs. Changes made via the mokutil command line tool do not take effect immediately. Instead, it just tells the shim to run the MokManager utility at the next reboot, so after using mokutil, a reboot is required, the MokManager will appear, and the changes can be reviewed and applied.
+Setup instructions for db key variant
+Creating custom Secure Boot keys
+For this example, we’ll create simple certificates with a “common name” of Example <keytype>. Additionally, a GUID will be associated with our keys, which we generate randomly.
+First install the required packages:
+apt install sbsigntool efibootmgr efitools uuid-runtime
+Create a directory storing all the files we will generate, and enter it:
+mkdir secureboot
+cd secureboot
+Then generate the GUID:
+uuidgen --random >GUID.txt
+For each of PK, KEK and db we will
+first create a certificate (*.crt) and key (*.key),
+then provide a DER representation of the key (*.cer)
+Create an EFI signature list
+Sign the certificate with the previous key (or in case of the PK, with itself).
+Create the self-signed PK:
+openssl req -x509 -nodes -new -sha256 -days 3650 -newkey rsa:4096 -subj '/CN=Example PK/' -keyout PK.key -out PK.crt
+openssl x509 -outform DER -in PK.crt -out PK.cer
+cert-to-efi-sig-list -g "$(<GUID.txt)" PK.crt PK.esl
+sign-efi-sig-list -g "$(<GUID.txt)" -k PK.key -c PK.crt PK PK.esl PK.auth
+Create the KEK, signed by the PK:
+openssl req -x509 -nodes -new -sha256 -days 3650 -newkey rsa:4096 -subj '/CN=Example KEK/' -keyout KEK.key -out KEK.crt
+openssl x509 -outform DER -in KEK.crt -out KEK.cer
+cert-to-efi-sig-list -g "$(<GUID.txt)" KEK.crt KEK.esl
+sign-efi-sig-list -g "$(<GUID.txt)" -k PK.key -c PK.crt KEK KEK.esl KEK.auth
+Create the db key, signed by the KEK:
+# openssl req -x509 -nodes -new -sha256 -days 3650 -newkey rsa:4096 -subj '/CN=Example DB/' -keyout db.key -out db.crt
+openssl x509 -outform DER -in db.crt -out db.cer
+cert-to-efi-sig-list -g "$(<GUID.txt)" db.crt db.esl
+sign-efi-sig-list -g "$(<GUID.txt)" -k KEK.key -c KEK.crt db db.esl db.auth
+Note that the keys (*.key files) should be stored in a safe place. If no shim (and no MOKs) will be used, the db key needs to be available to the system in order to sign the installed kernels!
+Enrolling the custom keys.
+There are multiple ways of enrolling the keys. Depending on the UEFI implementation, this may need to be done via the UEFI Setup tool.
+While in “Setup Mode” (when no PK is enrolled), many UEFI implementations allow modifying the secure boot keys from within the OS. One easy method in this case is to use sbkeysync. For this, the keys need to be setup in /etc/secureboot/keys as follows:
+mkdir /etc/secureboot
+mkdir /etc/secureboot/keys
+mkdir /etc/secureboot/keys/PK
+cp PK.auth /etc/secureboot/keys/PK/PK.auth
+mkdir /etc/secureboot/keys/KEK
+cp KEK.auth /etc/secureboot/keys/KEK/KEK.auth
+mkdir /etc/secureboot/keys/db
+cp db.auth /etc/secureboot/keys/db/db.auth
+After this, run sbkeysync -v. This will enroll the KEK and db key, but not the PK.
+In case enrolling from the OS fails, putting the certificates (NOT the keys!) onto the ESP, and then manually importing them using your UEFI firmware setup interface should work.
+Bootloader setup
+Before enrolling the PK we need to make sure we have a signed working bootloader.
+Using grub-efi-amd64-signed.
+Since grub-efi-amd64-signed is signed by a key trusted by shim-signed, the most straightforward thing to do now is to install grub-efi-amd64-signed. This will ensure that grub is working.
+apt install shim-signed grub-efi-amd64-signed
+When using custom keys, we need to ensure that the shim is signed by our db key. The easiest way to do this is to make a full copy of the /boot/efi/EFI/proxmox/ and, if grub or the shim get updated, manually perform this step again (or use systemd.path files or other means to automate this.)
+mkdir -p /boot/efi/EFI/custom
+cp -t /boot/efi/EFI/custom/ -a /boot/efi/EFI/proxmox/*
+cd /boot/efi/EFI/custom/
+sbsign --key /root/secureboot/db.key --cert /root/secureboot/db.crt --output shimx64.efi shimx64.efi
+sbsign --key /root/secureboot/db.key --cert /root/secureboot/db.crt --output mmx64.efi mmx64.efi
+sbsign --key /root/secureboot/db.key --cert /root/secureboot/db.crt --output fbx64.efi fbx64.efi
+When doing this the first time, we also need to create an EFI boot entry for the shim. For this, we need to know which partition the ESP is on. For instance, in a default single disk Proxmox VE installation, this will be on /dev/sda2. This can be seen via
+# findmnt /boot/efi
+TARGET SOURCE FSTYPE OPTIONS
+/boot/efi /dev/sda2 vfat rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro
+/dev/sda is the disk, and 2 the partition number, so our bootloader entry is created as follows:
+efibootmgr --unicode --disk /dev/sda --part 2 --create --label CustomShim --loader /EFI/custom/shimx64.efi
+We should verify that this entry is now the default boot entry.
+efibootmgr -v
+...
+BootOrder: 000N,000X,...
+Boot0000* ...
+...
+Boot000N* CustomShim HD(2,GPT,d078e8e3-ad59-4e44-af9d-a89429959d81,0x800,0x100000)/File(\EFI\custom\shimx64.efi)
+...
+The important bit is that the first number under BootOrder matches the number containing \EFI\custom\shimx64.efi in its path output.
+Signing the kernel
+In order to make sure we can reboot, we need to sign the current kernels using the db key:
+cd /boot
+for i in vmlinuz-*; do sbsign --key /root/secureboot/db.key --cert /root/secureboot/db.crt --output "$i" "$i"; done
+Make sure future kernel upgrades are signed.
+We only signed the currently installed kernels, but kernel upgrades also need to be sigend. For this we can create a post-install hook for the kernel in /etc/kernel/postinst.d.
+Create an executable file named /etc/kernel/postinst.d/zz-sign-kernel with the following contents.
+#!/bin/sh
+set -e
+kver="$1"
+sbsign --key /root/secureboot/db.key --cert /root/secureboot/db.crt --output "/boot/vmlinuz-$kver" "/boot/vmlinuz-$kver"
+Enrolling the PK
+When using sbkeysync it may be enough to just run:
+sbkeysync --pk
+If this fails with
+Error writing key update: Invalid argument
+Error syncing keystore file /etc/secureboot/keys/PK/PK.auth
+we can try another way:
+chattr -i /sys/firmware/efi/efivars/PK-*
+efi-updatevar -f /etc/secureboot/keys/PK/PK.auth PK
+If this also does not work, your UEFI may only allow doing this via its UEFI Setup utility. Copy the platform key files to the EFI system partition or a USB stick supported by your UEFI Setup, and try to enroll it from there. Otherwise, contact your system manufacturer for help.
+Setup instructions for shim + MOK variant
+This variant assumes you are currently booting using the GRUB bootloader from a single disk, with the ESP mounted at /boot/efi, or with multiple ESPs managed by proxmox-boot-tool which have been initialized in grub mode.
+Required packages
+Install the signed packages from Proxmox, which should be trusted by default by your vendor’s UEFI implementation:
+apt install shim-signed grub-efi-amd64-signed mokutil
+This should add a boot entry for booting using shim:
+# efibootmgr -v
+BootCurrent: 0008
+Timeout: 3 seconds
+BootOrder: 0008,0002,0001,0003,0004,0005,0006,0000,0007
+Boot0000* UiApp FvVol(7cb8bdc9-f8eb-4f34-aaea-3ee4af6516a1)/FvFile(462caa21-7614-4503-836e-8ab6f4662331)
+Boot0001* UEFI QEMU DVD-ROM QM00003 PciRoot(0x0)/Pci(0x1,0x1)/Ata(1,0,0)N.....YM....R,Y.
+Boot0002* UEFI QEMU QEMU HARDDISK PciRoot(0x0)/Pci(0x5,0x0)/Pci(0x1,0x0)/SCSI(0,0)N.....YM....R,Y.
+Boot0003* UEFI PXEv4 (MAC:4ABDC33F1387) PciRoot(0x0)/Pci(0x12,0x0)/MAC(4abdc33f1387,1)/IPv4(0.0.0.00.0.0.0,0,0)N.....YM....R,Y.
+Boot0004* UEFI PXEv6 (MAC:4ABDC33F1387) PciRoot(0x0)/Pci(0x12,0x0)/MAC(4abdc33f1387,1)/IPv6([::]:<->[::]:,0,0)N.....YM....R,Y.
+Boot0005* UEFI HTTPv4 (MAC:4ABDC33F1387) PciRoot(0x0)/Pci(0x12,0x0)/MAC(4abdc33f1387,1)/IPv4(0.0.0.00.0.0.0,0,0)/Uri()N.....YM....R,Y.
+Boot0006* UEFI HTTPv6 (MAC:4ABDC33F1387) PciRoot(0x0)/Pci(0x12,0x0)/MAC(4abdc33f1387,1)/IPv6([::]:<->[::]:,0,0)/Uri()N.....YM....R,Y.
+Boot0007* EFI Internal Shell FvVol(7cb8bdc9-f8eb-4f34-aaea-3ee4af6516a1)/FvFile(7c04a583-9e3e-4f1c-ad65-e05268d0b4d1)
+Boot0008* proxmox HD(2,GPT,e7b6a3b2-77b6-429e-a966-eb65c268ae5e,0x800,0x100000)/File(\EFI\proxmox\shimx64.efi)
+The entry number 0008 points at the shim EFI binary, and is set as first boot option in the BootOrder variable.
+We also need the following packages that provide tools for key and signature management:
+# apt install sbsigntool mokutil
+Generate Machine Owner Key
+Next, we create the MOK (only needed if you want to manually sign custom boot components like kernel images):
+# mkdir secureboot
+# cd secureboot
+# openssl req -x509 -nodes -new -sha256 -days 3650 -newkey rsa:4096 -subj '/CN=Machine Owner Key/' -keyout mok.key -out mok.crt
+# openssl x509 -outform DER -in mok.crt -out mok.cer
+Enrolling the MOK
+Enroll the key using mokutil:
+# mokutil --import /root/secureboot/mok.cer
+This command will prompt you for a password that you need to enter to confirm the enrollment after the next reboot!
+Rebooting the system now will present you with a shim dialogue (with a timeout of 10 seconds) that allows you to confirm the MOK enrollment. This only needs to be done once for each MOK you generate.
+Signing a custom kernel
+Proxmox kernels starting with version 6.5.11-4-pve are signed by Proxmox (available in the proxmox-kernel-X.Y.Z-N-pve-signed package). These kernel images do not need to be signed manually.
+Only if you want to boot older or custom kernels with Secure Boot enabled, you need to manually sign them using the MOK before rebooting:
+cd /boot
+for i in vmlinuz-*; do sbsign --key /root/secureboot/mok.key --cert /root/secureboot/mok.crt --output "$i" "$i"; done
+Make sure future kernel upgrades are signed.
+We only signed the currently installed kernels, but kernel upgrades also need to be signed if they are not already installed via the -signed package, for example, if you regularly build and deploy custom kernel packages.
+For this we can create a post-install hook for the kernel in /etc/kernel/postinst.d.
+Create an executable file named /etc/kernel/postinst.d/zz-sign-kernel with the following contents.
+#!/bin/sh
+set -e
+kver="$1"
+sbsign --key /root/secureboot/mok.key --cert /root/secureboot/mok.crt --output "/boot/vmlinuz-$kver" "/boot/vmlinuz-$kver"
+Using DKMS with Secure Boot
+In order for the kernel to accept DKMS modules they need to be signed.
+DKMS signs modules at build time. By default, a key will be generated in /var/lib/dkms/mok.pub the first time a DKMS module is built.
+If you run a setup with shim (which is the default) this key can be enrolled as a MOK (Machine Owner Key) directly.
+To do this, run
+mokutil --import /var/lib/dkms/mok.pub
+It will ask for a password, this can be chosen by you. Please remember the password, this will be required in the next steps.
+After that reboot the host. It should automatically boot into the MokAdmin interface. Press any key before the timer runs out to enter the MOK setup.
+Choose 'Enroll MOK'
+Here you can select to View the key to verify it. After that choose 'Continue' and then 'Yes'
+Then you have to enter the password you have chosen previously:
+Finally choose 'Reboot' to reboot the host.
+After that, any built and signed modules for the running kernel should be able to be loaded.
+Alternative DKMS key
+DKMS can also be configured via /etc/dkms/framework.conf via the following variables:
+mok_signing_key=/root/secureboot/mok.key
+mok_certificate=/root/secureboot/mok.cer
+To use a different key for it's signing. This can be useful, e.g. to have a single MOK for both kernel and DKMS signing.
+Enabling and verifying Secure Boot
+Enabling Secure Boot should be possible either via shim, or using your UEFI firmware setup utility.
+When Secure Boot is enabled, you should see the following output when querying via mokutil:
+# mokutil --sb-state
+SecureBoot enabled
+Additionally, the kernel will print messages like these on bootup:
+# journalctl -b --grep secure
+Jul 17 14:24:33 pve kernel: secureboot: Secure boot enabled
+Jul 17 14:24:33 pve kernel: Kernel is locked down from EFI Secure Boot mode; see man kernel_lockdown.7
+Disabling Secure Boot
+In case any of the validation steps fail, your system might refuse to boot at all. In this case, disabling Secure Boot using your UEFI firmware setup utility should allow you to temporarily boot your system without validation and being locked down in order to fix the issue.
+Secure Boot Revocation Policy
+Introduction to Secure Boot Revocation
+When upgrading components in the boot path, such as the secure boot shim or the boot loader, it may be important to ensure that the system cannot be rolled back to the previous version of that component, to avoid reintroducing a bug that could be exploited to attack a system.
+Secure Boot Advanced Targeting (SBAT) is a mechanism that provides such protection by allowing you to revoke trust in components in the boot path.
+In essence, this works by embedding generation numbers in the cryptographically signed EFI binaries that make up such boot components, and then revoking older generations by adding them to a list stored in an EFI variable.
+Revocation policies help to automate managing these lists.
+The secure boot shim comes with two levels of revocation policies:
+automatic/previous - the default policy that usually allows the previous and higher versions of boot components
+latest - the stricter policy that usually only allows the highest version of boot components to prevent downgrade attacks
+It is possible to set the policy using mokutil --set-sbat-policy, but any such changes can only make the policy more strict while secure boot is enabled.
+If a policy is set by accident that disallows booting currently used boot components, disabling secure boot, resetting the policy, and re-enabling secure boot is required in order to boot the system again.
+Because of the time needed to roll out an updated shim version with an updated default policy, a sideload mechanism for revocation policies is implemented that allows revoking affected components without the need to update shim itself. If a file called revocations.efi is found next to the shim EFI binaries on the ESP, the contained SBAT policies will be loaded if they are newer than the current ones, and the file is signed by a key trusted by shim.
+Setting a Stricter Revocation Policy
+On Proxmox systems, such a file signed by a key trusted by the Proxmox shim is shipped in the proxmox-secure-boot-policies-amd64-signed package.
+Run the following commands to enable the most current policy shipped by that package:
+apt install proxmox-secure-boot-policies-amd64-signed
+cp /usr/lib/x86_64-linux-gnu/proxmox-secure-boot-policies/revocations.efi.signed /boot/efi/EFI/proxmox/revocations.efi
+mokutil --set-sbat-policy latest
+reboot
+In case your system has multiple ESPs, you need to mount and copy the file to the EFI/proxmox/ directory on each of them.
+If the reboot worked, verify the new policy is active by running:
+root@pve:~# mokutil --list-sbat-revocations
+sbat,1,2024040901
+shim,4
+grub,5
+grub.peimage,2
+The above output is current as of 2025-02-26.
+If the reboot failed, you need to undo the policy update:
+disable Secure Boot using your UEFI firmware setup utility (required to allow downgrading the policy)
+boot the system
+remove /boot/efi/EFI/proxmox/revocations.efi
+re-enable Secure Boot using your UEFI firmware setup utility
+The most common reason for a failure to boot after applying a more restrictive policy is that the new policy revokes the components you are using for booting. It is possible to verify the SBAT data of a given EFI binary (such as grubx64.efi) using objdump:
+root@pve:~# objdump -s -j .sbat /boot/efi/EFI/proxmox/grubx64.efi
+/boot/efi/EFI/proxmox/grubx64.efi: file format pei-x86-64
+Contents of section .sbat:
+ 401000 73626174 2c312c53 42415420 56657273 sbat,1,SBAT Vers
+ 401010 696f6e2c 73626174 2c312c68 74747073 ion,sbat,1,https
+ 401020 3a2f2f67 69746875 622e636f 6d2f7268 ://github.com/rh
+ 401030 626f6f74 2f736869 6d2f626c 6f622f6d boot/shim/blob/m
+ 401040 61696e2f 53424154 2e6d640a 67727562 ain/SBAT.md.grub
+ 401050 2c352c46 72656520 536f6674 77617265 ,5,Free Software
+ 401060 20466f75 6e646174 696f6e2c 67727562 Foundation,grub
+ 401070 2c322e30 362c6874 7470733a 2f2f7777 ,2.06,https://ww
+ 401080 772e676e 752e6f72 672f736f 66747761 w.gnu.org/softwa
+ 401090 72652f67 7275622f 0a677275 622e6465 re/grub/.grub.de
+ 4010a0 6269616e 2c342c44 65626961 6e2c6772 bian,4,Debian,gr
+ 4010b0 7562322c 322e3036 2d31332b 706d7834 ub2,2.06-13+pmx4
+ 4010c0 2c687474 70733a2f 2f747261 636b6572 ,https://tracker
+ 4010d0 2e646562 69616e2e 6f72672f 706b672f .debian.org/pkg/
+ 4010e0 67727562 320a6772 75622e70 726f786d grub2.grub.proxm
+ 4010f0 6f782c31 2c50726f 786d6f78 2c677275 ox,1,Proxmox,gru
+ 401100 62322c32 2e30362d 31332b70 6d78342c b2,2.06-13+pmx4,
+ 401110 68747470 733a2f2f 6769742e 70726f78 https://git.prox
+ 401120 6d6f782e 636f6d2f 3f703d67 72756232 mox.com/?p=grub2
+ 401130 2e676974 0a000000 00000000 00000000 .git............
+ 401140 00000000 00000000 00000000 00000000 ................
+ 401150 00000000 00000000 00000000 00000000 ................
+ 401160 00000000 00000000 00000000 00000000 ................
+...
+For each component listed in both the EFI binary's data and the SBAT policy, the SBAT level of the EFI binary must be at least as high as the one listed in the policy.
+For the policy example and Grub binary listed above, there are two "overlapping" components:
+sbat with level 1 in both policy and binary
+grub with level 5 in both policy and binary
+as well as two entries each that have no effect for this EFI binary:
+grub.debian with level 4 in the binary, but missing in the policy (no restriction by the policy)
+grub.proxmox with level 1 in the binary, but missing in the policy (no restriction by the policy)
+shim with level 4 in the policy, but missing in the binary (not applicable to this binary)
+grub.peimage with level 2 in the policy, but missing in the binary (not applicable to this binary)
+This means that the policy (and thus shim) allows this Grub binary to be booted (provided it is signed by a trusted key). A Grub binary with level 4 would not be allowed to be booted under this policy, even if signed by a trusted key.
+See Also
+Debian's Secureboot wiki article https://wiki.debian.org/SecureBoot
+Retrieved from "https://pve.proxmox.com/mediawiki/index.php?title=Secure_Boot_Setup&oldid=12247"
+ Category: HOWTO
+ Cookies help us deliver our services. By using our services, you agree to our use of cookies.
+More informationOK
+ Navigation menu
+ Personal tools
+ Log in
+ Namespaces
+ Page
+Discussion
+ English
+ Views
+ Read
+View source
+View history
+ More
+ Search
+ Navigation
+ Proxmox VE
+Documentation (current)
+Documentation (8.x)
+Downloads
+Installation
+Get support
+ Sites
+ proxmox.com
+Support forum
+Bugtracker
+Source code
+FAQ
+ Tools
+ What links here
+Related changes
+Special pages
+Printable version
+Permanent link
+Page information
+Cite this page
+ This page was last edited on 8 July 2025, at 21:59.
+ Privacy policy
+ About Proxmox VE
+ Disclaimers

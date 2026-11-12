@@ -1,0 +1,142 @@
+Source: https://docs.foxglove.dev/docs/data/edge-sites
+Accessed: 2026-11-11
+
+Edge Sites | Foxglove Docs
+
+Skip to main content
+
+DocumentationSDKAPIChangelog
+Back to Foxglove
+
+Search
+
+Getting started
+Overview
+Getting started guide
+Python
+C++
+Rust
+
+Frameworks
+Open a file
+Explore examples
+
+Hardware
+
+Robots
+
+Custom Data
+
+Agents & MCP
+Overview
+Agent sidebar
+MCP server
+Slack
+
+Visualization
+Overview
+
+Connecting to data
+Playback
+Comparison mode
+Layouts
+
+Panels
+Variables
+User Scripts
+FoxQL
+Shareable links
+Video export
+Open via CLI
+Annotate ROS enum fields
+Controls and shortcuts
+Migrate from other tools
+
+Data Platform
+Overview
+Importing data
+Exporting data
+Devices
+Recordings
+Sessions
+Events
+
+Search
+
+Primary Sites
+
+Edge Sites
+Installation
+Upload settings
+Manage data
+Upgrading
+Monitoring
+Logging
+FAQ
+
+Fleet
+Overview
+Device Tokens
+
+Foxlet
+Bridge
+Remote Access
+
+Integration
+
+Extensions
+
+Webhooks
+
+Embedding Foxglove
+
+Jupyter notebook
+
+Grafana
+CLI
+OAuth
+Personal access tokens
+Release feeds
+
+Administration
+Settings
+Audit logs
+Pricing
+Standalone License
+Projects
+Roles
+Seat types
+SSO
+
+Data Platform
+Edge Sites
+
+Edge Sites
+
+Enterprise
+
+Edge Sites are on-site data storage centers, located in physical proximity to where your robots are operating. They store data on-premises until you forward it to the cloud, which reduces the risk from unpredictable network connectivity or low bandwidth. Whether your robots operate in a warehouse, farm field, or garage, Edge Sites help you pull your data on-demand from these resource-constrained environments for further analysis.
+
+You can create and name up to 1,000 Edge Sites per organization on the Sites settings page to get visibility into what data is at the edge, and whether that data has been queued for import to your Primary Site in the cloud. Each created Edge Site must belong to and send data to a Primary Site.
+
+Each Edge Site runs the edge controller, a service that:
+
+Catalogs recordings in a local storage directory, with watch mode or the recordings API.
+
+Reports recording metadata to Foxglove.
+
+Uploads recordings to your Primary Site when you import them, or automatically.
+
+Deletes local recordings after the site's retention period.
+
+You can install the edge controller from a Debian package, as a statically linked Linux executable, as a Docker image, or on Kubernetes with a Helm chart. See Installation.
+Previous
+FAQ
+Next
+Installation
+Need help? Contact support.
+Chat with the community on Discord.
+See the changelog.
+Interested in buying? See pricing.
+Read the latest on the Foxglove blog.
+LLM? Read llms.txt.

@@ -1,0 +1,76 @@
+§	Topic from the founding session	Section	Must appear in PDF text (all terms, case-insensitive)
+1	Samsung S24 Ultra, locked bootloader, Knox e-fuse	sec-phones	S24 Ultra|Knox
+1	No-root customisation (Shizuku, UAD, Obtainium, Shelter, Tasker, DeX)	sec-phones	Shizuku|Obtainium|DeX
+1	GrapheneOS on Pixel as a hardened ATAK device	sec-phones	GrapheneOS|ATAK
+1	The reported ATAK crash on a GrapheneOS Pixel Tablet	sec-phones	Pixel Tablet|crash
+1	Linux phones (postmarketOS, Ubuntu Touch, Droidian, Mobian, Sailfish, Librem 5, PinePhone, FuriLabs)	sec-phones	postmarketOS|FuriLabs|Linux phone
+1	Termux / Android Linux Terminal (AVF)	sec-phones	Termux|AVF
+1	ATAK via Waydroid vs CloudTAK in a browser	sec-phones	Waydroid|CloudTAK
+1	Android forks (GrapheneOS, LineageOS, /e/OS, CalyxOS, iodéOS), Fairphone, Volla, KaiOS	sec-harmonyos	LineageOS|CalyxOS|KaiOS|Fairphone|Volla
+1	HarmonyOS NEXT and platform sovereignty	sec-harmonyos	HarmonyOS|DSoftBus
+1	Dead OSes and Fuchsia	sec-harmonyos	BlackBerry|Fuchsia
+1	Four "build your own OS" levels; a OneMind EUD; custom ROM deferred	sec-eud	OneMind EUD|custom Android ROM
+2	Earlier planning documents; the Blueprint is canonical; Build Handoff outdated	sec-blueprint	Blueprint|Build Handoff
+2	Recurring Blueprint questions (Pixel hardware, Dell state, first slice, task system)	sec-decide-blueprint	task system|Dell 5540
+3	OneMind as a platform first, then its own image	sec-strategy	platform first
+3	The moat: homestead + AI agents + TAK + self-hosting + robots	sec-strategy	moat
+3	Market view and first customers; AI as the turning point	sec-strategy	homesteaders|who owns my AI
+3	Business model: open core + boxes + support + education	sec-business	open core|support
+3	NVIDIA at KubeCon NA 2026 (KAI, Dynamo, AICR, DRA, Agent Substrate)	sec-strategy	KubeCon|Agent Substrate|KAI
+3	NVIDIA lock-in vs hardware-agnostic	sec-non-nvidia	lock-in
+3	Fedora CoreOS / Fedora IoT as a candidate core	sec-fedora-iot	Fedora IoT|Fedora CoreOS
+4	Reverse-engineer competitors	sec-competitors	teardown
+4	Research all Linux distributions	sec-distros	Debian 13|Ubuntu 26.04|Alpine|NixOS
+4	Sell hardware and become a distributor	sec-bundles	distributor
+4	OS profiles (situational awareness / TAK node, greenhouse)	sec-iot	TAK node|greenhouse
+4	Robotics, drones and physical AI as the moat	sec-physical-ai	physical AI|drones
+4	Everything is a node; native mesh networking	sec-nats	leaf|mesh
+4	Every app readable by AI: MCP, CLI, API, SSH, MHS	sec-ai-layer	MCP|SSH|MHS
+4	Native alert system	sec-dashboard	alert
+4	Cloud apps (Strava) with API keys and AI context	sec-ai-layer	Strava
+4	Internal apps: finance, wellness, robotics, infrastructure, PM, mesh, IoT, family, OSINT	sec-apps	Finance|Wellness|OSINT
+4	Multi-user family accounts and parental controls	sec-family	parental
+4	Kids' education and offline knowledge	sec-education	Kiwix|Kolibri
+4	Hardware capability auto-detection	sec-superpowers	Node Feature Discovery
+4	QR onboarding for robots and IoT	sec-robot-onboarding	QR
+4	Multiple machines in one UI, mirror, infrastructure map	sec-dashboard	mirror|infrastructure map
+4	Lite / Pro / Omni editions	sec-sizes	Lite|Pro|Omni
+4	NVIDIA as a partner (Inception)	sec-decisions-d	Inception
+4	Website: blog, Circle.so, docs, OS download, store/cart, affiliate, Zoho Forms, support desk, headless CMS	sec-website	Circle|Shopify|Zoho Forms|headless CMS|affiliate
+4	Omarchy-style plugin ecosystem	sec-omarchy	Omarchy
+4	WebXR and Android XR	sec-xr	WebXR|Android XR
+4	Updates that users control; strong support	sec-decide-now	opt-out|Strong support
+4	Become the industry standard for sovereign operations	sec-roadmap	become the default
+4	The Olares Market catalog and Olares One images	sec-big-brief	Olares One|catalog
+5	Phase-1 verified facts (licences, Kairos, N.O.M.A.D., MHS, Strava, MCP)	sec-phase1	PolyForm|N.O.M.A.D.
+6	Founder decisions D-001 to D-006	sec-decisions-d	D-001|D-002|D-003|D-004|D-005|D-006
+7	Learning track; Omarchy lesson	sec-learning	learning|Bootlin
+8	ADR-001 questions: Ubuntu vs Debian, own image, k3s vs k8s, dashboard	sec-adr	ADR-001|Why Ubuntu vs Debian
+8	Dashboard design: Simple vs Pro, Control Hub	sec-dashboard	Simple|Control Hub
+8	Backups, rollback, security and updates as top concerns	sec-flows	rollback|restic|Secure Boot
+8	EU Cyber Resilience Act dates	sec-cra	Cyber Resilience Act|2027-12-11
+8	DOKS converts "with three changes" (corrected)	sec-doks	three changes|13 dependencies
+9	Existing cluster as the proven concept (Backstage etc.); why an OS now	sec-cluster	Backstage|proven concept
+9	Cover all hardware	sec-hardware	Jetson|Beelink
+9	5–10-year plan; world events	sec-roadmap	2036|scenario
+10	Physical AI over 5–10 years; keep pace with NVIDIA	sec-pai-trends	GR00T|Cosmos
+10	Ease of use; supersede other OSes	sec-walkthrough	simple
+10	Marketplace startups integrate into; self-hosted + cloud	sec-partner	self-hostable|revenue share
+10	The test sentence: "connect a robot → use OneMind OS"	sec-robot-onboarding	connect a robot
+10	Own kernel or own image	sec-own-os	own kernel|own image
+10	Development tools, especially from the Mac	sec-mac	Lima|Mac
+10	A second ultracode build session	sec-build-brief	second build session
+10	This PDF: visuals, distro comparisons, everything from the chat	sec-answer	PDF|claim ID
+11	IoT and IIoT without limitations	sec-iot	IIoT|OPC UA|Sparkplug
+11	Fedora IoT is "super important"	sec-fedora-iot	greenboot|Industrial profile
+11	VillageOS ("this is also why I'm going operating systems")	sec-villageos	VillageOS|ReGen
+11	Mesh and off-grid (Meshtastic, LoRaWAN, Reticulum)	sec-iot	Meshtastic|Reticulum|LoRaWAN
+11	TAK Server, CloudTAK, ATAK, iTAK	sec-iot	TAK Server|iTAK
+12	As simple as a Pi, up to full enterprise (greenhouse → robotics simulation)	sec-walkthrough	greenhouse|simulation|enterprise
+13	Kernel families: Darwin/XNU, Mach, BSD, Linux	sec-kernel-families	Darwin|XNU|Mach|FreeBSD|monolithic
+14	The plugin ecosystem (community can edit and add plugins; website distribution)	sec-plugins	plugin|extension point|Open in OneMind
+-	Wellness deep dive (Strava, Oura, HealthKit, Health Connect)	sec-apps	Oura|HealthKit|Health Connect
+-	Finance deep dive (SimpleFIN, Plaid, Actual)	sec-apps	SimpleFIN|Plaid|Actual
+-	OSINT legal and ethical limits	sec-apps	CFAA|people-search
+-	Competitors: Umbrel, Olares, CasaOS/ZimaOS, Home Assistant OS, Project N.O.M.A.D.	sec-comp-matrix	umbrelOS|Olares|CasaOS|ZimaOS|Home Assistant OS
+-	Flagged repos (REA, Craft Anything, BLA)	sec-flagged	REA|Craft Anything|BLA

@@ -1,0 +1,34 @@
+##### [07:34:19] T1 first boot (Secure Boot, lab keys)
+##### [07:34:19] QEMU START qemu-system-x86_64 -machine q35,smm=on -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -global driver=cfi.pflash01,property=secure,value=on -global ICH9-LPC.disable_s3=1 -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd -drive if=pflash,format=raw,unit=1,file=/var/lab/sbrun1/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/sbrun1/disk.img -drive if=virtio,format=raw,readonly=on,file=/var/lab/sbrun1/bundles.img -chardev socket,id=chrtpm,path=/var/lab/sbrun1/swtpm.sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 -serial stdio -monitor none
+===> T1: PASS {'gate': True, 'SecureBoot=1 SetupMode=0': True, 'kernel SB': True, 'lab PK': True, 'LUKS2': True, 'tpm2 token': True, 'unlock': True, 'no prompt': True, 'guest rauc 1.15.2': True}; first boot 181s
+##### [07:37:20] T8 plain-format bundle (verity-only device)
+===> T8: PASS install rc=1 format-error=True before=['BootOrder:', '0003,0004'] after=['BootOrder:', '0003,0004'] msg=["rauc install /mnt/bundles/plain-good.raucb 2>&1 | tail -4; test ${PIPESTATUS[0]} -eq 0; echo __R''C=$?__", "LastError: Bundle format 'plain' not allowed"]
+##### [07:37:25] T2 good update A->B
+===> T9 (info): status with rauc.slot hidden: '[   42.925792] EXT4-fs (vda4): mounted filesystem 09fd5766-6caa-4057-9f05-cce95133901a r/w with ordered data mode. Quota mode: none.\n[   42.959526] EXT4-fs (vda4): unmounting filesystem 09fd5766-6caa-4057-9f05-cce95133901a.\nBooted from: rootfs.1 (OneMind-B)\nActivated: rootfs.1 (OneMind-B)\n      bootname: OneMind-B\n      bootname: OneMind-A\nBootCurrent: 0004'
+===> T2: PASS install rc=0 BootNext=OneMind-B gate1=mark-good/B/v2 BootOrder[0]=OneMind-B gate2=mark-good/B/v2
+##### [07:44:36] T3 bad-health update (into A) -> rollback to B
+===> T3: PASS install rc=0 BootNext=OneMind-A gate1=('mark-bad', 'A', 3) gate2=('mark-good', 'B', 2) tpm-unlocks=2 BootOrder[0]=OneMind-B
+##### [07:49:47] T4 tampered UKI (into A) -> firmware must refuse
+===> T4: PASS install rc=0 BootNext=OneMind-A new-kernel-ran=False gate=('mark-good', 'B', 2) firmware=['BdsDxe: failed to load Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\\EFI\\Linux\\onemind-A.efi: Access Denied']
+##### [07:53:08] T5 unsigned UKI (into A) -> firmware must refuse
+===> T5: PASS install rc=0 BootNext=OneMind-A new-kernel-ran=False gate=('mark-good', 'B', 2) firmware=['BdsDxe: failed to load Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\\EFI\\Linux\\onemind-A.efi: Access Denied']
+##### [07:57:10] QEMU EXIT (poweroff)
+##### [07:57:10] T6 Secure Boot OFF, same TPM: data must stay locked
+##### [07:57:11] QEMU START qemu-system-x86_64 -machine q35,smm=on -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -global driver=cfi.pflash01,property=secure,value=on -global ICH9-LPC.disable_s3=1 -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd -drive if=pflash,format=raw,unit=1,file=/var/lab/sbrun1/OVMF_VARS_off.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/sbrun1/disk.img -drive if=virtio,format=raw,readonly=on,file=/var/lab/sbrun1/bundles.img -chardev socket,id=chrtpm,path=/var/lab/sbrun1/swtpm.sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 -serial stdio -monitor none
+===> T6: PASS gate=('no-commit', 'B', 2) unlock-failed=True
+##### [07:58:42] QEMU EXIT (poweroff)
+##### [07:58:42] T6b Secure Boot back ON: unlock again
+##### [07:58:42] QEMU START qemu-system-x86_64 -machine q35,smm=on -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -global driver=cfi.pflash01,property=secure,value=on -global ICH9-LPC.disable_s3=1 -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd -drive if=pflash,format=raw,unit=1,file=/var/lab/sbrun1/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/sbrun1/disk.img -drive if=virtio,format=raw,readonly=on,file=/var/lab/sbrun1/bundles.img -chardev socket,id=chrtpm,path=/var/lab/sbrun1/swtpm.sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 -serial stdio -monitor none
+===> T6b (info): gate=('mark-good', 'B', 2) unlock=True
+##### [07:59:59] QEMU EXIT (poweroff)
+===> T7 (bonus): PASS {'T1/A': True, 'T2/B': True, 'T3/A-bad': True, 'T3/B-after-rollback': True}
+##### [07:59:59] SUMMARY total 1540s
+##### [07:59:59] T1 | PASS | {'gate': True, 'SecureBoot=1 SetupMode=0': True, 'kernel SB': True, 'lab PK': True, 'LUKS2': True, 'tpm2 token': True, 'unlock': True, 'no prompt': True, 'guest rauc 1.15.2': True}; first boot 181s
+##### [07:59:59] T8 | PASS | install rc=1 format-error=True before=['BootOrder:', '0003,0004'] after=['BootOrder:', '0003,0004'] msg=["rauc install /mnt/bundles/plain-good.raucb 2>&1 | tail -4; test ${PIPESTATUS[0]} -eq 0; echo __R''C=$?__", "LastError: Bundle format 'plain' not allowed"]
+##### [07:59:59] T9 (info) | INFO | [   42.925792] EXT4-fs (vda4): mounted filesystem 09fd5766-6caa-4057-9f05-cce95133901a r/w with ordered data mode. Quota mode: none. / [   42.959526] EXT4-fs (vda4): unmounting filesystem 09fd5766-6caa-4057-9f05-cce95133901a. / Booted from: rootfs.1 (OneMind-B) / Activated: rootfs.1 (OneMind-B) /       bootname: OneMind-B /       bootname: OneMind-A / BootCurrent: 0004
+##### [07:59:59] T2 | PASS | install rc=0 BootNext=OneMind-B gate1=mark-good/B/v2 BootOrder[0]=OneMind-B gate2=mark-good/B/v2
+##### [07:59:59] T3 | PASS | install rc=0 BootNext=OneMind-A gate1=('mark-bad', 'A', 3) gate2=('mark-good', 'B', 2) tpm-unlocks=2 BootOrder[0]=OneMind-B
+##### [07:59:59] T4 | PASS | install rc=0 BootNext=OneMind-A new-kernel-ran=False gate=('mark-good', 'B', 2) firmware=['BdsDxe: failed to load Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\\EFI\\Linux\\onemind-A.efi: Access Denied']
+##### [07:59:59] T5 | PASS | install rc=0 BootNext=OneMind-A new-kernel-ran=False gate=('mark-good', 'B', 2) firmware=['BdsDxe: failed to load Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\\EFI\\Linux\\onemind-A.efi: Access Denied']
+##### [07:59:59] T6 | PASS | gate=('no-commit', 'B', 2) unlock-failed=True
+##### [07:59:59] T7 (bonus) | PASS | {'T1/A': True, 'T2/B': True, 'T3/A-bad': True, 'T3/B-after-rollback': True}

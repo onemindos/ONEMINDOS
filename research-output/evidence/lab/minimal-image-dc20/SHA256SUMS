@@ -1,0 +1,109 @@
+# LAB-minimal-image-dc20 SHA256SUMS (2026-11-11)
+# --- inputs (downloaded inside the build VM; not committed)
+265b3ee6a3198ef14033c63ef46cbb32370d83795199fb6d1b01f21575eddbda  k3s (v1.37.2+k3s1 amd64)
+aa3d3e07344f590bcce8d31043b752daa76c8a56c2aa34ceeee63c6168152582  syft_1.57.1_linux_arm64.tar.gz
+b7815598d48da78bfd16f5b98ef28e1bb09c03d34fc8c3e350f99b6ccb3c7cba  grype_0.121.3_linux_arm64.tar.gz
+0cee1131391727e0974245f197cfb22f3d8715ac2428574b290aaf16ff6eda1c  linux-image-6.12.116+deb13-amd64_6.12.116-1_amd64.deb (source of legA kernel config only)
+164dc9d1f6c93c61a15e1f071c48379b467f2b17c469cce7223471968208ed03  linux-6.12.112.tar.xz (matches Buildroot 2025.02.19 linux/linux.hash)
+74e99aa5e60e242e0a165fed8cb2ea0d054bf7a401f01861d403d75733456613  linux-6.12.117.tar.xz (matches kernel.org sha256sums.asc)
+f2cbbba45ed6af38e53548febb135696292bc1e8b5e0305eaae13f877bb8c678  grype vulnerability.db (schema v6.1.10, built 2026-11-11T06:21:32Z)
+# --- outputs (not committed: images; not bit-reproducible, see versions.md)
+9b7f07d16a63f13025f2f260f0bcf50e404da5ae287beeaa35904b12ca5f78f1  legA/disk.img (Debian 13 mkosi)
+33e6a02ff94135966340e9df6e5ff6fc27d7b39a5e2d4ca8d709b25424d55c72  legA2/disk.img (Debian 13 mkosi + apparmor, labelled variant)
+1daccb7e2f292e5f9cd479de0a8c9289f156a89872d626c3fc80c3dae366bf42  legB/disk.img (Buildroot 2025.02.19, Linux 6.12.112)
+440b8cd4f4284d5efcb618f26792fef5d0da11613ba998b3a8ed8842e8102f06  legB/rootfs.ext2
+b1a0487f1820c2d3ef39dead941ed45ad240bf618a047968bd4c840ded099285  legB/bzImage
+b06223108d89c5f6b1d234523225df2561aedab9400c1f6f3fc5f78ed3c7e4a2  legB-k6.12.117/disk.img (labelled kernel-bump variant)
+# --- committed files in this folder
+b73d64f3806a3f5b2f6fd93f74579a08a778c4dcafe4954e2b24a103c2c49f5a  ./config/legA-mkosi-summary.txt
+2f4290f113a848a5d5f6f15e496a0c5924185a1aedac79d34b6a871edbbae63f  ./config/legB-buildroot.config
+d9932f8331a1a0df7178c2bb2a7fb070a4820f22b20b8943fa82c456d7b67e55  ./config/legB-linux-6.12.112.config
+658def06cd3d65b660572137ed160f27c045e1f2cb2a5727ed4ed8fc97f273b2  ./logs/f1-legA-debian-dc20-check-config.txt
+dd899989b3040ea713c129b2d45b3e28479bd09cf540b41aa8b63a1dec932ec6  ./logs/f1-legA-debian-dc20-f1.out
+90d31d3c7926a356c9f6782e823b66b140333a9a492ea306e41ac14bf1393926  ./logs/f1-legA-debian-k3s.trimmed.log
+bf54dc18c25b646721151b8ea054331990bbad3dfdb6ccaafc9e60def47b860a  ./logs/f1-legA2-debian-apparmor-dc20-check-config.txt
+4d8f2c2405902c5c0cc70e4a636d5c1f1cb0e5fc08c2aeeeecf6aa2bbcfce824  ./logs/f1-legA2-debian-apparmor-dc20-f1.out
+395131048ae204c8cfc1130eb932621460491c226dbc3ea7e9e9841f2400fb86  ./logs/f1-legA2-debian-apparmor-k3s.trimmed.log
+4e5b7ab1b53a6909c00236b506e7120e335d62be7516b745324d1008c57c4ca8  ./logs/f1-legB-buildroot-dc20-check-config.txt
+e8d3809f6a42a6880eee3e675ff3b5fc8a347b1e743473ef0270c93433d63df8  ./logs/f1-legB-buildroot-dc20-f1.out
+bb5fa06079973c063a36bbf593434b20febd43d827a88a7212becaabb26551ce  ./logs/f1-legB-buildroot-k3s.trimmed.log
+ce17c58ca296288b801ae131eb0260fbefd66f36db47c36a34125cff1f5d71fc  ./logs/f1-run1-firstboot-journal.txt
+49bdbcc91083cb531b1c02e26f742ecf137eb43631c8c29a8ffe179437289fd1  ./logs/f1-run2-ttylost.summary.log
+5f0e9bed12ae29d43ac2527f068c305bcece2bd12bf6844f7f387c5ec8aaf3b3  ./logs/f1-serial-legA-debian.trimmed.log
+5bbd6aedd59663ee3ad7cfd93a0efad7b9a1529b02761e75749d88662cc29713  ./logs/f1-serial-legA2-debian-apparmor.trimmed.log
+fe9917831da3268b74b2ee13f8c242e59cd5b44e8d3262e242a1f2a836f24648  ./logs/f1-serial-legB-buildroot.trimmed.log
+86246ded233f37d979c9803985b134d1c61a3642141e1dfaf82f6041f6fdb76f  ./logs/legA-build-clean.tail.log
+8905315d3ed724af6e866d6714d681e589abf85238bbcefdad303e403082461d  ./logs/legB-build-clean.tail.log
+018e3055deda4c6db940862cf3b0f780b1fedafb37b5cd4918ee67e8fcfd1ff8  ./logs/legB-build-inc-kernel.tail.log
+ae25cfa1d5ce38a67fe00c566d129793b3a600d6351aaba42cf2a42cdf7b1355  ./logs/legB-build-inc-openssh.tail.log
+ba7a383f4a91d0d645496da272be8eba36e7175fef30319a7d741d35d195bdc5  ./results/buildroot-time-by-package.txt
+abc2f77ba4e8bd2f0b6781e779ac13b893ab39b91ab8770309a50179ff90d9a4  ./results/grype-descriptor.json
+92355905f8d3a72c5e4e23a1c864bbf5e2c78d2fac5dca512b84f8395a137113  ./results/kernel-tarball.sha256
+2b22a76cf09a312ccfe168b717682f69a9d01282165b466a8922d75931da40dc  ./results/kernel-userspace-split.md
+ff299db1464db5ebb74293eb02fa79a2bce910d9f7f0e115f76c670d8c91c5f4  ./results/partitions-legA-debian.txt
+015ed89870ad0ef3278c80751a2df9f489d472548cd3889532fadafdc17f72cc  ./results/partitions-legA2-debian-apparmor.txt
+5b524d0e0100e62d809e2f2d7df9d245d63f92de3449f826f1cebc4ced4bca47  ./results/partitions-legB-buildroot-k6.12.117.txt
+5b524d0e0100e62d809e2f2d7df9d245d63f92de3449f826f1cebc4ced4bca47  ./results/partitions-legB-buildroot.txt
+5cf7b78c2f97dfed846d0671a194afec930abc77941277370a0f8a065c0caf03  ./results/size-legA-debian.txt
+d8555f40dff2b48ab7618b7a44fca626d93c2396244218a2892f22bf74ec676b  ./results/size-legA2-debian-apparmor.txt
+05bb0f32a1186bbc7c47da7be929e79b03d8d9d2f607110060d86f6f01d3329a  ./results/size-legB-buildroot-k6.12.117.txt
+3efacc9570e6dbf065de9ed06264447c390d87fefd9fc415172e14db8ca9713e  ./results/size-legB-buildroot.txt
+7e2d34671bf9fed9b606a9a471005f1fc3d815b4f096c1e0ed36c0c3f5ebe974  ./results/summarize.txt
+47c94bdca3cd061f690b86f8fd9292e97b5e4f261d79b6860792a735c31120f8  ./results/times-legA.txt
+f566c397dcc92886d379ef6feb7947ac9e5bac9ad554581126574e6987553083  ./results/times-legB-k6.12.117.txt
+55d1d112b66a846e904a153137298de5f24241f200645494764fd057f633533d  ./results/times-legB.txt
+68fcebdf8d8ef02b2071509a9b095e1437aa9c4c7cd8556e718dd872928049a6  ./results/userspace-by-package.txt
+5d4016d98850ca68aab05b9741766cc5f9908ad028ba7f62dca31c29b3b52125  ./results/versions-legA-mkosi.txt
+a9cddc7e602bde316d5841ab80269e56bab007a0ea3652d0dbb6e2daaac6d1ea  ./results/versions-legB-buildroot.txt
+792a3fef486a1e45d64d250c9cecf69042a4daa051c385106b1d7b684c9948ce  ./sbom/k3s-unpacked__grype-onlyfixed.csv
+bb82103ada73f6cfa159362496e706cbc815c93fde8a790417dee3e7063b1791  ./sbom/k3s-unpacked__grype.csv
+a5f776ccdc7465a4e7da346e01ad846d842d0540d3d8453ec7f36d643dfb05b5  ./sbom/legA-debian__grype-syft-rootfs-nok3s-onlyfixed.csv
+db8d2b605d807c6c568cfef496a805d3d83ff1b63caf14bd73072a2e49351215  ./sbom/legA-debian__grype-syft-rootfs-nok3s.csv
+ffc2205df4bb8dd1d5188b52347ed0dad08d04c44265d3bea8c681a64aec1dbe  ./sbom/legA-debian__grype-syft-rootfs-onlyfixed.csv
+6dca96d82f5fe6009989771a86d3d870bf882550ede49469e304eb8772d8e0b3  ./sbom/legA-debian__grype-syft-rootfs.csv
+d65dfa11146d71afffc8bea52db56400935a0f4ed5588a270943b8db504755b2  ./sbom/legA-debian-deb-packages.txt
+a5f776ccdc7465a4e7da346e01ad846d842d0540d3d8453ec7f36d643dfb05b5  ./sbom/legA2-debian-apparmor__grype-syft-rootfs-nok3s-onlyfixed.csv
+db8d2b605d807c6c568cfef496a805d3d83ff1b63caf14bd73072a2e49351215  ./sbom/legA2-debian-apparmor__grype-syft-rootfs-nok3s.csv
+ffc2205df4bb8dd1d5188b52347ed0dad08d04c44265d3bea8c681a64aec1dbe  ./sbom/legA2-debian-apparmor__grype-syft-rootfs-onlyfixed.csv
+6dca96d82f5fe6009989771a86d3d870bf882550ede49469e304eb8772d8e0b3  ./sbom/legA2-debian-apparmor__grype-syft-rootfs.csv
+4b6740da2c00195a08642f1b6905663fcf042510432c0c790b68513689dbee21  ./sbom/legB-buildroot__grype-buildroot-cdx-onlyfixed.csv
+ca9dc2be2120c011ce8f2d477d5fe07d73e4721783a0ac6b0a068a1665d0a09c  ./sbom/legB-buildroot__grype-buildroot-cdx.csv
+86ad5110d2bf7d3def58d6cc818ea399f6f6417086dc15b5a0c03e87b73354f2  ./sbom/legB-buildroot__grype-buildroot-target-cdx-onlyfixed.csv
+12aa42d52434a71420b3964916a54720cd4de955b98862da0990556795e39e53  ./sbom/legB-buildroot__grype-buildroot-target-cdx.csv
+d9aa2366bf58b451ed9aaabd95ed680e967a393cf4aa6f2efd471512a3e1a45f  ./sbom/legB-buildroot__grype-syft-rootfs-nok3s-onlyfixed.csv
+c7e1438c6f922dba3042ec9cadda75337a83ff4453924bb8bf9a407c5eed47a9  ./sbom/legB-buildroot__grype-syft-rootfs-nok3s.csv
+3a3c2ab824bbb5a352d3581403d83714ad6e386fc0b0facc1d2a5aa6e502e8d4  ./sbom/legB-buildroot__grype-syft-rootfs-onlyfixed.csv
+a4a1351548b7ff7492bbedb0ad0c8e8de3991e0341133a341baaeceb09da8045  ./sbom/legB-buildroot__grype-syft-rootfs.csv
+4197b046f5a6c799993c601404fb48cc5fbd86416c3e63ed556749c68050d26e  ./sbom/legB-buildroot-cdx-components.csv
+84dad8990746becd333d4fcc10973973b31a23487095cf8048a82256e8b124c4  ./sbom/legB-buildroot-cdx-resolved-vulns.csv
+c55521561d575d056befd9c65a8777db594bec7d8e598e0b9b5c2f9a03f99e56  ./sbom/legB-buildroot-k6.12.117__grype-buildroot-cdx-onlyfixed.csv
+f4d54e2de94e6e6c8b1e109047e62f52023789b79aad5de4a62be1e3985de594  ./sbom/legB-buildroot-k6.12.117__grype-buildroot-cdx.csv
+aca4136731c474fa63f0332f5c65cf07e77cd57767f11e893942fd99fb7e7813  ./sbom/legB-buildroot-k6.12.117__grype-buildroot-target-cdx-onlyfixed.csv
+673804f10bebf3afbf63afc43c6fb0d2e9d93da815a47a25564d0eaa6147e66a  ./sbom/legB-buildroot-k6.12.117__grype-buildroot-target-cdx.csv
+de55e99ebfd9b9187990e5d5228f77afd09d8342ebbfccba8f95f1ccd7f5b9b8  ./sbom/legB-buildroot-k6.12.117__grype-syft-rootfs-nok3s-onlyfixed.csv
+fbd2f9d2429f1eaa670fd3b1e4830995ecc4dfceae03d932f447a1a8f3c11a9d  ./sbom/legB-buildroot-k6.12.117__grype-syft-rootfs-nok3s.csv
+9a930f6c1b42b3a9c7da9ac8ee1d063191a74936b485ab11fe6d963d3ce930d4  ./sbom/legB-buildroot-k6.12.117__grype-syft-rootfs-onlyfixed.csv
+0071bb32373957e173794e51cf9fc7ee60392e476da402dc76752cd3deb4946a  ./sbom/legB-buildroot-k6.12.117__grype-syft-rootfs.csv
+63205cde7bca67d603544f5da71adbd2ae91a746e8624b9c9a4a0dd67d752f11  ./sbom/legB-legal-manifest.csv
+0ee86d1030850be9287cf92946e2a00e1f1faed683a836231722f5f018ef1a83  ./scripts/a2-and-k3sdata.sh
+864117153d27a67ea1128eb73e775291170ae8b44ace5fb4dedb522e72bb4288  ./scripts/boot-test.sh
+2a4f04aedad0d4ba9d2b4940ecc0e9a310c6358808e6d98488f519914e52abdf  ./scripts/build-a.sh
+d7ed1cc3b1d3d47be51996fbaf52b020c848ab80a2a5722e0aac4485bf5dd866  ./scripts/build-b-kernelbump.sh
+7004ad22305be03f59dcb0db6d9c7b82c312c5008acb49646c434a4dbd3fd137  ./scripts/build-b.sh
+c9c9769f9c52e34b7f7e7f6984a085cf7c9e7e64f5f2dd5fde25ce039b4654e2  ./scripts/f1/dc20-f1.service
+c69548b07195b29fc82d89d3821256c23e75c553636cc28022345cf7ebeb4271  ./scripts/f1/dc20-f1.sh
+df7b7cb6dec07565946b4b1ef8770e877fb30bbacd4e7df20e66d6456a3f41dd  ./scripts/f1run.sh
+a2e77f83dfb3053a4457f8e428ef1dfaf4e332d49c624e472b9cef6e9e2aa9f6  ./scripts/legA/mkosi.conf
+3c0023ce4a077925e827c2af9af9a19a695d7df2d24d4cff73a1b0ea6a9105ee  ./scripts/legA/mkosi.extra/etc/systemd/network/20-dhcp.network
+9d4be24d90500800012a85ad8bb5b98643f149f8667618e9430b6ecf300c0f44  ./scripts/legA/mkosi.extra/etc/systemd/system-preset/10-onemind.preset
+a92fc4853c6ade4e5288d03d1f612ca36473b26bfe229be55bbf668c010dc6b8  ./scripts/legA2/mkosi.conf
+b0d4ef0cb206963bb6a92dd3b66590fe1a6d58d8c030f7cab4ac72e0688024ee  ./scripts/legB/k3s-kernel.fragment
+cd91b24eafd110a42d8280675a42425d39b76b69fdfdfe5a6023e838d5ffaa46  ./scripts/legB/onemind_dc20_defconfig
+b6b01cbe9c869b7bfeaf4e4e1b205cc8b68917500ed4cc38348dc9cdbac29e8a  ./scripts/legB/onemind_dc20_k6.12.117_defconfig
+3c0023ce4a077925e827c2af9af9a19a695d7df2d24d4cff73a1b0ea6a9105ee  ./scripts/legB/overlay/etc/systemd/network/20-dhcp.network
+36445b8dfd32d6d645a8f209b9e038f77ef118f313b496175ac9d87efe684f8a  ./scripts/legB/post-build.sh
+b87b85a6efe5da5ae5f96a9f3d42ec40b124056a7169d4b931cacf605cc32e8f  ./scripts/list-userspace.py
+84ab1e375d4fdbe5e1e52e809d184e07a6d49f2e890bc3403e43919989176a54  ./scripts/measure.sh
+d3f7e8c1f65e9526c3ff0a4bfd77d16c86b640ec5b6cf2dfdef9bd04b09657fa  ./scripts/split.py
+b9867cccf867211d78ef24760b0d6921b6c5bcd6683ca252749c411d614a0df8  ./scripts/summarize.py
+322a0201062e30a1fec99e130f8979b78ad405ac92dbdc8fbaba9493527127f9  ./versions.md

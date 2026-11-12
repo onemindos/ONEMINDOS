@@ -1,0 +1,15 @@
+##### [02:27:48] T1 first boot
+##### [02:27:48] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/var/lab/run/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/run/disk.img -serial stdio -monitor none
+===> T1: PASS gate=('committed-boot', 'A', 1) K3S-FRESH ok after 296s: ok (fresh: kubelet, heartbeat 2026-11-11T07:31:25Z, core pods, da apps_not_ready=True t=367s
+##### [02:33:55] T2 wrong-key artifact
+##### [02:33:57] install wrong-key.mender rc=1 in 1s
+===> T2: PASS rc=1 sig_error=True env_unchanged=True no_update_in_progress=True err='record_id=1 severity=error time="2026-Nov-11 07:33:56.635956" name="Global" msg="Signature verification Error: Wrong man'
+##### [02:33:59] T3 good update -> B
+##### [02:34:00] install good.mender rc=1 in 1s
+===> T3: FAIL rc=1 grub=['MENDER-GRUB: mender_boot_part=2 upgrade_available=0 bootcount=0'] trial=('committed-boot', 'A', 1) passes=0 first_fails=[] apps='' reboot=('committed-boot', 'A', 1)
+##### [02:37:40] QEMU EXIT (poweroff)
+
+SUMMARY (total 10 min)
+T1 | PASS | gate=('committed-boot', 'A', 1) K3S-FRESH ok after 296s: ok (fresh: kubelet, heartbeat 2026-11-11T07:31:25Z, core pods, da apps_not_ready=True t=367s
+T2 | PASS | rc=1 sig_error=True env_unchanged=True no_update_in_progress=True err='record_id=1 severity=error time="2026-Nov-11 07:33:56.635956" name="Global" msg="Signature verification Error: Wrong man'
+T3 | FAIL | rc=1 grub=['MENDER-GRUB: mender_boot_part=2 upgrade_available=0 bootcount=0'] trial=('committed-boot', 'A', 1) passes=0 first_fails=[] apps='' reboot=('committed-boot', 'A', 1)

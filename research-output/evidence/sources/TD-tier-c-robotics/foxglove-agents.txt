@@ -1,0 +1,173 @@
+Source: https://docs.foxglove.dev/docs/agents
+Accessed: 2026-11-11
+
+Overview | Foxglove Docs
+
+Skip to main content
+
+DocumentationSDKAPIChangelog
+Back to Foxglove
+
+Search
+
+Getting started
+Overview
+Getting started guide
+Python
+C++
+Rust
+
+Frameworks
+Open a file
+Explore examples
+
+Hardware
+
+Robots
+
+Custom Data
+
+Agents & MCP
+Overview
+Agent sidebar
+MCP server
+Slack
+
+Visualization
+Overview
+
+Connecting to data
+Playback
+Comparison mode
+Layouts
+
+Panels
+Variables
+User Scripts
+FoxQL
+Shareable links
+Video export
+Open via CLI
+Annotate ROS enum fields
+Controls and shortcuts
+Migrate from other tools
+
+Data Platform
+Overview
+Importing data
+Exporting data
+Devices
+Recordings
+Sessions
+Events
+
+Search
+
+Primary Sites
+
+Edge Sites
+
+Fleet
+Overview
+Device Tokens
+
+Foxlet
+Bridge
+Remote Access
+
+Integration
+
+Extensions
+
+Webhooks
+
+Embedding Foxglove
+
+Jupyter notebook
+
+Grafana
+CLI
+OAuth
+Personal access tokens
+Release feeds
+
+Administration
+Settings
+Audit logs
+Pricing
+Standalone License
+Projects
+Roles
+Seat types
+SSO
+
+Agents & MCP
+Overview
+On this page
+
+Overview
+Agents let you work with robotics data using natural language. Search recordings, triage and debug them, build and refine layouts, and write user scripts to transform data, all by describing what you want instead of doing it by hand.
+
+Ways to use agents​
+
+Foxglove supports multiple ways to work with agents:
+
+Agent sidebar: Foxglove's built-in agent, in a sidebar next to your data. Best when you're already in Foxglove looking at a recording or layout and want fast, grounded back-and-forth.
+
+MCP server: Foxglove Desktop supports a Model Context Protocol (MCP) server, so external agents can control Foxglove. Best when you're already working in another tool, or when using Foxglove to triage and debug issues alongside your code.
+
+Slack: Access Foxglove directly from Slack. Best for asking quick questions without leaving Slack, or when Foxglove can help resolve questions using context from an existing thread.
+
+Our agent sidebar and MCP server are powered by the same set of tools, so your choice of agents is mostly about where you want to work. The sidebar requires no setup, and runs in both the web and desktop apps. The MCP server is desktop-only, and puts Foxglove's tools inside the agent you already use.
+
+What agents can do​
+
+Agents can perform almost all of the tasks that humans can perform in Foxglove.
+
+AreaCapabilities
+Data sourceList topics, read schemas and messages, and summarize the loaded data source
+PlaybackRead playback state, pause, seek, and set the playback range
+LayoutsRead, create, modify, rename, and validate layouts; configure individual panels; capture the app, layout, or a panel as an image
+User scriptsList, read, create, update, and delete user scripts, for example to convert a custom schema into a well-known schema so it renders in the 3D or Map panel
+EventsRead, create, update, and delete events to annotate moments in the data
+Data searchSearch the organization's recordings, sessions, and events
+DevicesList devices and look one up by name or ID (read-only)
+Projects and SitesList the organization's Projects, Primary Sites, and Edge Sites, where recording data is stored, indexed, and queued for import
+NavigationTake the app to a specific page or view
+DocumentationSearch the Foxglove docs and cite sources
+SkillsFoxglove's built-in task playbooks, including layouts, panel configuration, FoxQL, search syntax, user scripts, and MCAP diagnostics
+
+Example workflows​
+
+The capabilities above combine into workflows. Some prompts to try:
+
+"Build a layout to review the camera feeds and joint states in this recording": designs a layout against the actual topics present when no saved layout fits.
+
+"Find the topics here that report wheel velocity and plot the ones that aren't always zero": locates signals by what they measure rather than by exact name, then builds the plot.
+
+"Plot the delay between the publish time and the header timestamp for /lidar/front": derives a diagnostic that isn't a raw field in the data.
+
+"Write a user script that converts /wheel_speed from rad/s to m/s": writes and compiles the user script in place.
+
+"Find last week's recordings from robot-1 and open the most recent one": searches the organization's data and navigates the app there.
+
+Staying in control​
+
+The agent sidebar asks before it changes anything, and you choose whether that approval covers one action, the rest of the chat, or every chat. See Approving changes.
+
+External agents are gated in your MCP client instead. Foxglove runs whatever tool the agent calls and marks each one with the standard MCP annotations, leaving the client to decide what to ask about. See Approvals happen in your client.
+Previous
+Custom schema encodings
+Next
+Agent sidebar
+Need help? Contact support.
+Chat with the community on Discord.
+See the changelog.
+Interested in buying? See pricing.
+Read the latest on the Foxglove blog.
+LLM? Read llms.txt.
+
+Ways to use agents
+What agents can do
+Example workflows
+Staying in control

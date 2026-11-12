@@ -1,0 +1,745 @@
+Source: https://discourse.openrobotics.org/t/automatic-deployment-of-ros2-based-system-to-remote-devices-dual-copy-or-containers/33884
+Accessed: 2026-11-11
+
+Automatic Deployment of ROS2 Based System to remote devices: Dual Copy or Containers? - ROS General - Open Robotics Discourse
+
+Open Source Robotics Foundation
+
+ROS
+
+Project homepage
+
+Documentation
+
+Getting help and support
+
+ROS Packages Index
+
+Media and trademarks
+
+ros-controls
+
+Project homepage
+
+Documentation
+
+Gazebo
+
+Project homepage
+
+Documentation
+
+Fuel models database
+
+Open-RMF
+
+Project homepage
+
+Documentation
+
+Infrastructure
+
+Community
+
+Chat Server
+
+Submit a related event
+
+Official events calendar
+
+Community events calendar
+
+Service Status
+
+ Open Robotics Discourse
+
+ Automatic Deployment of ROS2 Based System to remote devices: Dual Copy or Containers?
+
+ ROS
+
+ ROS General
+
+ ros2, 
+ docker
+
+ Trab40
+
+ October 3, 2023, 1:02pm
+
+ 1
+
+Hi,
+
+At ADI we are reaching a number of ROS 2 enabled devices (>10) where it is not sustainable anymore to manually update the systems we have in the field. This manual process involves SSHing into the device and pulling from the online repository and building the updated system. A process i think many of us can relate to being error prone.
+
+In response to this issue, I have been researching what different techniques there are to update remote systems automatically.
+
+With this post I hope to make a useful resource for others researching this topic in the future and hopefully also gain some insight into what other companies are using and their experiences.
+
+Through my online research the following (somewhat generic) requirements for automatic deployment for remote edge systems has been made.
+
+Requirements
+
+Atomic updates
+
+update succeeded or update failed. Nothing in-between that could result in undefined behavior.
+
+Update must be schedulable
+
+Allows for a gradual rollout.
+
+Easily able to revert back to previous working version
+
+Allows you to deﬁne health checks and what failure means.
+
+Notification to indicate that a rollout failed, and potentially automatically rollback to the working version
+
+pauses further phases of the rollout
+
+Needs to be able to flash new firmware to host connected microcontrollers
+
+Some form of configuration per device
+
+the ability to debug the application on device if needed
+
+easy access to the ﬁle system being used
+
+little performance overhead
+
+is secure (does not install or execute software created by an attacker).
+
+Persistent data storage
+
+Needs to be able to handle flaky network connectivity when updating
+
+Should be able to render a UI to an attached screen
+
+Through the online research I have come to the conclusion that there are two viable options that can comply with these requirements:
+
+Dual Copy
+
+Dual Copy involves splitting a hard drive into two partitions, one active and the other inactive. The active partition runs an image containing everything your application needs. When an update is initiated the active partition downloads and writes the new version into the inactive partition. Once the new version is setup on the inactive partition, the bootloader is pointed to it.
+
+After the next successful reboot, the inactive partition will run as the active partition and vice versa. If the boot process fails, the bootloader can be configured to rollback to the known previous working version in the initial partition.
+
+Advantages
+
+If the boot process fails, the bootloader can be configured to rollback to a known previous working version in the A partition
+
+Is able to update every layer of an operating system
+
+Can run a containerized system on top, such as Docker
+
+do not need to prompt the user for anything as this can be done in the background and on the next boot you will boot a updated OS.
+
+Disadvantages
+
+Needing to over-provision storage by twice the amount
+
+OS upgrades can consume a lot of bandwidth
+
+No examples online of ROS2 system using this approach
+
+Time needed to reboot the system after the update
+
+The best contender for dual copy approach from my research is Mender.
+
+Containers
+
+A container is a lightweight, portable, and executable package. It includes everything ,besides the base OS provided by the host machine, that an application needs to run, including the application code, libraries, dependencies, and run time. Containers include only the minimum required components and share the host OS’s kernel. Because of this they are much lighter and more efficient than Virtual Machines (VM).
+
+Advantages
+
+containers include only the minimum required components and share the host OS’s kernel, they are much lighter and more efficient than VMs.
+
+OSRF has ROS2 docker images online
+
+Large players advocate for it: AWS IoT Greengrass have an example that use docker in a ROS remote device
+
+Great for development, since exact copy is able to run on remote device as development device
+
+Since large usage in web development many different tools are available.
+
+Deployment guidelines in ROS 2 documentation indicate “typical deployment scenarios often involve shipping containerized applications, or packages, into remote systems.” Indicating that it is not uncommon.
+
+Disadvantages
+
+Containers cannot update kernel
+
+Out of the box cannot use privileged resources and will require privileged flag removes the protective sandbox for the container running on your robot.
+
+Docker itself doesn’t have much in the way of orchestration, monitoring and deployment - but options like Balena, Portainer and Watchtower exist for this
+
+Docker does not have delta updates.
+
+Bad practice to run everything in one container, then what does the use of ROS 2 launch system become?
+
+there is no system init, up-start or system starting syslog, cron jobs and daemons, or even reaping orphaned zombie processes.
+
+Managing networking and communication between containers and between containers and the host can be complex
+
+Containers are primarily designed for running command-line applications and services. Running graphical applications within containers can be challenging and may require additional setup.
+
+there seems to be a potentially overwhelming amount
+
+The best contender for the containers approach is the de facto standard Docker
+
+Online Research Resources
+
+OTA updates for Embedded Linux, part 1 – Fundamentals and implementation
+
+OTA updates for Embedded Linux, part 2 – A comparison of off-the-shelf update systems
+
+The ultimate guide to software updates on embedded Linux devices - Mirza Krak
+
+Airbotics - The landscape of software deployment in robotics
+
+Deploy and Manage ROS Robots with AWS IoT Greengrass 2.0 and Docker
+
+Docker Containers and Images for Robot Operating System (ROS)-Based Applications
+
+Is learning Docker useful in the robotics field?
+
+ROS Docker; 6 reasons why they are not a good fit | Ubuntu
+
+An Updated Guide to Docker and ROS 2 - Robotic Sea Bass
+
+Connecting Remote Robots Using ROS2, Docker & VPN | Husarnet
+
+Deployment Guidelines — ROS 2 Documentation
+
+(PDF) ROS and Docker
+
+Why the future of embedded software lies in containers
+
+Which Over the air (OTA) update solutions for your embedded system ? The Ultimate Guide | Witekio
+
+Updating Embedded Linux Devices: Update strategies
+
+Opinion
+
+Through my research I am inclined to choose the Dual Copy approach, and then specifically using Mender, over the Container approach.
+
+This is because:
+
+Every level of the OS can be configured and updated (eg networking, systemd services, kernel)
+
+interaction with system when it is remote sounds easier, it is just a linux environment as the one run on my laptop. There is no need to take any additional limitations into account that may apply for the configuration of a Docker image, eg GPU interaction or SUB pass through for cameras.
+
+In the future it is maybe even possible to upgrade it to an optimized Yocto image
+
+we can always revert pack to using a containerized approach since this can easily installed with the images moved into the partition
+
+It doesn’t introduce performance overhead.
+
+I have a feeling that Docker is much more geared towards isolated applications within a shared operating system, hence the good practice of isolating one process per container. Using this on ROS 2 nodes that are not isolated through the use of docker compose completes negates the power ofr the ros2 launch system
+
+There are two things that are holding me back:
+
+I am seeing more examples online of Docker being used for ROS2 both from blogs but also companies such as Amazon and Husarnet
+
+Dual copy is very focused on embedded Linux. In how far is our ROS 2 application, primarily written in python, embedded ?
+
+What has your experience been ?
+
+What type of deployment system are you using?
+
+Biggest advantages and disadvantages?
+
+Is there an angle that i may be missing ?
+
+ 13 Likes
+
+ AGummyBear
+
+ October 3, 2023, 2:20pm
+
+ 2
+
+We are currently on a ROS1 system, but I don’t think the ROS version plays a huge role in the solution to this problem (I could be wrong though as I don’t have a lot of experience with ROS 2). Currently, we use debian packages and apt to deploy updates. Our robots are running a lightweight Ubuntu 20.04, and are configured to point to our private package servers. We use a mirror of Ubuntu packages to help ensure nothing gets broken on us by surprise and a separate package server with our debians of our custom software. For the most part, we’re simply using apt update && apt upgrade -y to update, however we ended up wrapping those commands with some logic to streamline operations:
+
+We download debian updates in the background to minimize robot downtime
+
+Once packages are fully downloaded, we install prior to the next startup of our system. Since our packages are relatively small, this adds about 15 seconds to the next startup.
+
+We have checks to ensure we don’t end up with a failed update state
+
+What we really like about this approach is that we can take advantage of tools that are robust and reliable (debian and apt), rather than trying to build something out ourselves. We keep the customization lightweight.
+
+A limitation that we’ve yet to run into, but forsee in the future, is major version upgrades. If we wanted to transition to ROS2 and Ubuntu 22.04 (or later), we don’t have a good mechanism in place to upgrade the base OS. When we went from Ubuntu 18.04 and ros1-melodic to 20.04 and ros1-noetic, we basically just sent out new hard drives. As we’ve grown, that is no longer viable.
+
+ 2 Likes
+
+ mirkoferrati
+
+ October 3, 2023, 2:21pm
+
+ 3
+
+Hey @Trab40 ,
+
+Have you considered snaps and Ubuntu Core? Your list of requirements describes very well the ideas behind both. These are technologies developed by Canonical and supported long-term by the robotics and devices org.
+
+We’d love your feedback! These tools are built for Ubuntu’s robotics community and you can help us improve them.
+
+I’ll leave some links here to get you started in case you didn’t find this solution during your search.
+
+https://ubuntu.com/core/features
+
+https://ubuntu.com/core/docs/snaps-in-ubuntu-core
+
+https://ubuntu.com/robotics/docs/migrate-from-docker-to-snap
+
+https://ubuntu.com/robotics/docs/ros-deployment-with-snaps-part-2
+
+ ggrigor
+
+ October 3, 2023, 2:38pm
+
+ 4
+
+One benefit not listed for containers is development. When software | firmware is deployed as a container, the cloud native development for software in the loop testing in simulation and with hardware in the loop is enabled at scale.
+
+Same containers can be deployed for software updates.
+
+Dual partition approach is a common practice for the firmware below the container to provide a fallback should an update fail. Perhaps others have solved it, but it’s not obvious how this can be re-used for CI|CD development flows on shared computing resources, which is a very costly part of deploying 10 robots (or more).
+
+Thanks
+
+ 2 Likes
+
+ Sander_van_Dijk
+
+ October 3, 2023, 2:53pm
+
+ 5
+
+Thanks for the comprehensive post with lots of references! I guess everybody in our field hopes to run into this problem of how to properly deploy to multiple devices, if they don’t already have it :).
+
+We hit it as well and at the moment we have settled on Balena. You mention it under the container option, but it falls a bit in both: at the OS level (their Yocto based BalenaOS) they perform Dual Copy when upgrading, whereas your own application is deployed as Docker containers.
+
+To be fair, as far as I have seen it may not fully tick your ‘atomic update’ requirement. There is are some update strategies that help prevent running a mixture of different multi-container deployments, but there isn’t a healthcheck mechanism or similar to only switch to a new update if it runs properly and otherwise roll back.
+
+Other than that I think it ticks most if not all your requirements, perhaps with a bit of extra work. There is a bit of figuring out how to get a GUI working, but there are examples out there. We got FoxGlove running in it and showing on a monitor.
+
+While going through this we have also not concerned ourselves too much with the Docker ‘dogma’ of one process per container and sandboxing, but treated container images more as ‘just’ a packaging format. There is no wider operating system to protect from what runs in the containers, and you can indeed happily run a full ROS 2 launch setup in a single container. In its most basic, single container setup BalenaOS will by default run it privileged and with host networking.
+
+In general we’re pretty happy with it for enabling us to deploy, manage and monitor devices, including ones in different countries.
+
+ 1 Like
+
+ Trab40
+
+ October 3, 2023, 2:54pm
+
+ 6
+
+@AGummyBear Interesting! Why have you chosen this over Docker? And on how many devices are you running this ?
+
+While this is a simple yet elegant solution I have read that using apt is not an atomic process.
+
+This means that if there is an unfortunate power failure while running apt update && apt upgrade -y there is a chance that the device is bricked afterwards, definitely if there is a kernel update occurring.
+
+Have you had any experiences with devices bricking, or do you have some form of safe measure for it ?
+
+For the major updating dual copy definitely sounds like the way to go. What would be holding you back from taking this approach ?
+
+ Trab40
+
+ October 3, 2023, 3:10pm
+
+ 7
+
+Hi @Sander_van_Dijk thanks for sharing !
+
+What was the reasoning for using Balena over say Mender? Was it so that you don’t have to concern yourself with OS updating ? The pricing of Balena is also quite steep! What makes this worth it ?
+
+It is nice to hear that the docker dogma can be ignored! It still doesn’t make any sense to me why you would want to isolate a node in a container. You completely loose the power of the ROS 2 launch system!
+
+What has your experience been with interfacing with sensors through the Docker image? Is it as simple as just giving it privileged access to the host ?
+
+ kisg
+
+ October 3, 2023, 3:37pm
+
+ 8
+
+Hi,
+
+At Migeran, in the past 6 years, we built container-based ROS1 and ROS2 systems for multiple clients. We used many different configurations, ranging from 1 node / container to huge “system level” containers.
+
+The exact way to set up your container-based deployment configuration depends on your concrete system.
+
+Some notes:
+
+You need to set up a strategy for handling the base OS updates and configuration. Most embedded Linux distributions will have some image-based update mechanism, where you can do an active/passive type online update / revert solution for the base OS. Ubuntu Core has a great transactional update system based on snaps. There is also e.g. Balena that you mention, which includes Balena OS that has everything you need for a containerized workflow.
+
+On top of the base OS you can run your container workload. One simple option is with Docker Compose. There are also other options that you mention. There is also the possibility to connect your robots into one or more federated Kubernetes clusters, and then control the deployment of everything over the base OS using standard Kubernetes deployments.
+
+While it is possible to run “system level” containers with multiple processes, it is a better approach to have one node per container. You could also transition towards distroless containers, where really only the node and its library dependencies are included in each container. This strategy has multiple benefits: reduced image sizes and reduced attack surface for an attacker.
+
+Running GUI applications is not a problem anymore in my experience. Our development environment is containerized as well, so we run all GUI tools, rviz, gazebo … etc. from container.
+
+A containerized development environment has many benefits: same setup & configuration on the machine of each developer, and very similar configuration to the production system (e.g. the simulated components are usually placed into separate containers)
+
+ROS2 launch is partially replaced by the container orchestrator (e.g. Docker Compose / Kubernetes)
+
+Remote debugging: You can create a development container with all the necessary tools that you run on your robot as privileged if you need to debug something, but it is kept separate from the rest of the system - you can even delete it when not used - even more reducing the attack surface. You can also connect to the Docker daemon running on your robot (through a VPN) from your local IDE and debug as if you were using it on your own machine. VSCode in particular has great support for this.
+
+Networking: While it is true, that network configuration has to be carefully set up, it is also more configurable: it is also possible to segregate different workloads to different logical networks inside the host - thus also reducing the attack surface.
+
+A container-based setup will allow complex simulations, where you run multiple robots in the same simulator on a single host, each robot has its own containers running with its own private networks and there is a single “simulation” network that connects the simulator to the ROS bridge of each robot.
+
+Delta updates: Standard Docker does not have this, but e.g. Balena has this implemented, and other implementations are also in development.
+
+Hardware access: it is possible to configure the HW access of each container. It is a good pattern to have separate nodes that access the hardware directly. These are the nodes that will be most probably different in your simulation setup, so keeping them separate makes the “on-device” vs “simulated” configurations cleaner as well. Everything else should be the same across the simulated and “on-device” configurations.
+
+To summarize: Yes, there is complexity added with containers, but I think the benefits outweigh the implementation costs, even during development (no more “quick hacks” that stay in the code for 5+ years), and more so with the production deployment in the long run.
+
+Kind regards,
+
+Gergely
+
+ 8 Likes
+
+ tomoyafujita
+
+ October 3, 2023, 4:34pm
+
+ 9
+
+Some notes for Kubernetes/Container. (following up @kisg )
+
+There is also the possibility to connect your robots into one or more federated Kubernetes clusters, and then control the deployment of everything over the base OS using standard Kubernetes deployments.
+
+https://github.com/fujitatomoya/ros_k8s
+
+which explains some example deployments, and setup for ROS / ROS 2 with Kubernetes.
+
+here are a few examples from that repository,
+
+ROS Multi-Node Deployment with Host Network
+
+ROS 2 Logical Partition / Multiple RMW Implementation
+
+Running GUI applications is not a problem anymore in my experience. Our development environment is containerized as well, so we run all GUI tools, rviz, gazebo … etc. from container.
+
+it can do that even with Kubernetes, it is all about how to access the host system from container.
+
+ROS 2 GUI Display Access
+
+My goal is not only for ROS application but anything that can run the container runtime on device.
+
+It is trading-off, since we need to pay some resource for Kubernetes agent which is called kubelet, but Kuberentes can provide many features to address pain points in edge environment. (this is one of the challenges.)
+
+besides general orchestration features, what I do like are those interfaces to conceal the implementation.
+
+Container Network Interfaces
+
+Container Device Interfaces
+
+Kubernetes Device-Plugin (comes with Container Device Interfaces)
+
+So that we can manage the hardware devices, proprietary sensors, host system access, and network separately from the application logic and bind those as we need.
+
+This brings a very good architecture to control the infrastructure such as network connectivity, security, configuration data and deployment flexibly for the business logics.
+
+The following is JFYI that is not really related to ROS, but explains the idea above.
+
+ SlideShare
+
+20230110-Alibaba Cloud Developer Summit-Sony.v3.pptx
+
+The document presents an overview of applying cloud-native architecture to edge computing using OpenYurt, highlighting its benefits such as edge autonomy, interoperability with Kubernetes, and support for service meshes like Istio. It discusses goals...
+
+ YouTube
+
+2023 Alibaba Cloud Developer Summit
+
+The digital age is an era of innovation. Developers all over the world gather wisdom, pursue dreams and constantly promote innovation. With the theme of “Tec...
+
+further more, I will be talking about this in ROSCon 2023
+
+image584×639 49.9 KB
+
+I am looking forward to seeing you in person and having discussion on these areas 
+
+ 3 Likes
+
+ RethinkMatze
+
+ October 4, 2023, 2:00pm
+
+ 10
+
+Hi!
+
+When you consider using a proper embedded linux (yocto), you can use meta-ros right from the start and avoid containers right away. Atomic updates are “kind of easy” this way.
+
+Regards,
+
+Matthias
+
+ SeeBQ
+
+ October 4, 2023, 5:44pm
+
+ 11
+
+ Trab40:
+
+While this is a simple yet elegant solution I have read that using apt is not an atomic process.
+
+This means that if there is an unfortunate power failure while running apt update && apt upgrade -y there is a chance that the device is bricked afterwards, definitely if there is a kernel update occurring.
+
+We don’t push out kernel updates, nor do we do any firmware updates automatically. If we’re updating firmware of a device, we usually do that manually (sigh), with a technician or mechanic (we work with existing dealer equipment mechanics), which helps. We have some technician enabled controls and of course good ole SSH over VPN to help manually get these past the finish line.
+
+But you’re right, if you have a hard power off during install of packages, it can be bad.
+
+This is also why on startup we do this:
+
+ # If we happened to get turned off while unpacking debs,
+ # the database will require a dpkg --configure -a.
+ # Do it preemptively (it's low cost if there are no such packages),
+ # or we'll need manual intervention.
+ dpkg --configure -a
+
+I gave a ROS talk on our apt update and quick booting kernel and minified OS at the last ROSCON.
+
+We’ve since as @agummybear mentioned in a previous thread changed it to download packages, and then install on boot.
+
+I’m sure we’ll see some more errors in the field, but we push out package updates every few weeks and (knocks on wood), have not bricked any yet.
+
+– CBQ
+
+ 3 Likes
+
+ Trab40
+
+ October 5, 2023, 9:50am
+
+ 12
+
+@SeeBQ I have seen your video before! I think it may have even planted the seed that set me on researching this topic fruther! 
+
+Why did you consider going down this path opposed to using dual copy, containers or a combination ?
+
+As @AGummyBear also indicated in their post, how do you envision updating to ROS 2 and different OS versions for the devices that you have in the field?
+
+Also by making a somewhat custom quick booting kernel and minified OS are you not afraid of lacking the security updates and other goodies that are being pushed online by Canonical/Ubuntu ?
+
+ AGummyBear
+
+ October 5, 2023, 12:59pm
+
+ 13
+
+@Trab40, Regarding ROS2, we’ve considered a couple approaches, but since we have not yet made the decision to switch (and we do re-evaluate it regularlay), none of them have been fleshed out much.
+
+Only upgrade newly-produced robots: With this approach, we may transition on newer models only and deal with the costs of maintaining a legacy set of software. In our field (pun intended) the physical system - a commercial lawn mower - tends to have a limited lifespan of a few years, so supporting older systems will come with a more palatable end-of-life than in other industries.
+
+Develop a mechanism to upgrade-in-place: I’ve always been a bit wary of in-place upgrades on my personal computers, and tend to prefer a clean install when going to a new OS. With how controlled our systems are though, we could likely test this on a small scale and feel confident that it will work reliably.
+
+Ship out new hard drives: In theory, a technician could swap hard drives, although it’s a fairly involved process. We would need to account for the cost of hard drives, cost of shipping, cost of labor to perform the replacement, and for our customers, the cost of downtime as they take the mower in for service. It would probably be a similar process to a recall performed on your car, if you’ve ever been through that.
+
+As we’ve grown, the problems change, and the solutions to existing problems change. Depending on where we are when we do decide to make a major change like switching to ROS 2, we may even consider something totally different.
+
+I can touch on your question about the lack of security updates and other “goodies”. When you have one or a few robots to maintain, change might be good. You can change things frequently and they keep getting better. As the number grows, and as the robots become more and more distant from you (we have customers all over the USA), change starts to get a bit scary, and you tend to be cautious. We do put out updates to our core software very frequently. Our standard schedule is every 2 weeks, but we often do smaller updates if deemed important enough. We control that software quite closely though. Every time Ubuntu core updates, or any package that we rely on updates, we’re risking something going wrong. Our customers work really hard, and rely on our robots to do their jobs, and we don’t want to put that into jeopardy by accepting every upstream update from every source, even if it’s low risk. With that said, we do periodically take all the upstream changes from Canonical/Ubuntu, ROS, and everywhere else, and we test thoroughly to make sure it’s stable before we push to our end-users. We also have multiple layers of protection in other ways that ensure our system is secure, even without the latest security updates getting immediately deployed.
+
+ 1 Like
+
+ giovanidiniz
+
+ October 5, 2023, 1:58pm
+
+ 14
+
+Hi, there, @Trab40!
+
+[This is not a sales post]
+
+I’ve been working on a development platform to support exactly that kind of scenario.
+
+In the past, at one point, I was in charge of fleets of up to 250 unmanned vehicles. During the pandemic years, I was doing that (at times) by myself, and, needless to say, it was a nightmare.
+
+(I couldn’t agree more with @AGummyBear)
+
+That experience greatly informed decisions in building an integrated development platform - which I’m calling the Unmanned Cloud.
+
+The idea behind is to have a single interface to support development, deployment and monitoring of unmanned systems.
+
+It now has cloud-based development environments with simulator, IDEs and pre-configured base frameworks, we support simulation-based CI pipelines (integrated with GitHub but Gitlab in the near future) and semi- or fully automated deployment to hardware. As well as after sales monitoring and links with foxglove and bag storage.
+
+The platform can be self-hosted and works without internet backhaul, if needed.
+
+All that is to say, I’ve used containers all the way. Our approach has been to use a single, large container with the autonomy stack and dev tools layered appropriately in the build process so we can strip things down with prod deployments. That way, we can provide a seamless development experience but ensure parity with production deployments.
+
+The cloud-base simulations and also allows a lot flexibility in systems-level testing and reliability tests.
+
+We’re in early stages (about a year in with a couple of large projects under our belt). We’ve been working on customer research to fine-tune our product-market fit, and I would love to learn more about your specific needs, if you’re up for a chat in the near future.
+
+In fact, if anyone in this thread has some thoughts to share on the approach, I’d love to hear them here or in private message.
+
+ peterpolidoro
+
+ October 5, 2023, 2:40pm
+
+ 15
+
+This excellent paper is a valuable resource for learning about all of these issues with software deployment and how to handle them properly:
+
+Eelco Dolstra’s seminal PhD thesis about the Nix package manager
+
+ KristoferHansson
+
+ October 6, 2023, 10:04am
+
+ 16
+
+Anyone with any experience of Ostree (maybe even using it along with bootc)? thinking of starting to evaluate it:
+
+https://github.com/containers/bootc
+
+ fedoraproject.org
+
+Changes/OstreeNativeContainerStable - Fedora Project Wiki
+
+/Kristofer
+
+ SeeBQ
+
+ October 6, 2023, 11:01am
+
+ 17
+
+Why did you consider going down this path opposed to using dual copy, containers or a combination ?
+
+Most decisions are sadly “based on what I already know”, and familiarity with packaging, and package servers. Also a friend and consultant who’s on Debian core who guided us through it. If it’s not clear, I work with @AGummyBear. And we pick someone on the team randomly to run the release every 2 weeks (which is small, goes out quickly and auto installs across the fleet of 150+ units usually with minimal hand SSHing) to fix.
+
+Also, great send on OSTree “a middle ground between packages and images.” Will look into.
+
+We’re doing more and more embedded recently. I always thought containerization implied virtualization and hypervisors/special instructions so added just a teeny tiny bit of overhead, which on embedded systems was a no-no and non-starter, but the containers done right don’t have any of these issues. It’s probably a bias I need to get over. As per your article above about embedded containers.
+
+ ciandonovan
+
+ October 7, 2023, 10:52pm
+
+ 18
+
+A note on the use of the privileges with OCI conatiners like Podman/Docker/Kubernetes.
+
+Neither root nor the privilege flag is required for containers to get selective access to hardware and certain privileged OS operations. Judicious use of udev rules, ulimit configuration, and PolKit can let even a rootless container have the necessary access to cameras, serial ports, realtime scheduling, rebooting/poweroff, etc.
+
+We use systemd/Podman to manage the lifecycle of each container, each containing a single ROS 2 node, individually. The underlying OS and its configuration can be managed by RAUC deploying Yocto built images, but this can be decoupled from the containers that can be updated more regularly and without rebooting even if desired.
+
+We have RealSense cameras, other v4l2 cameras, Google Coral TPU accelerators, serial ports, safety lidars, Weston/Wayland GUI, all being accessed from rootless unprivileged containers. The only custom process that requires root would be the RAUC updater.
+
+ 4 Likes
+
+ lreiher
+
+ October 9, 2023, 8:51am
+
+ 19
+
+I second this approach: we also containerize all of our ROS functions into individual container images that we then deploy with the minimal set of privileges necessary. So far this works fine for all of our sensors.
+
+Since our software stack consists of many individual ROS packages and nodes, we have built docker-ros to automatically build minimal multi-arch Docker images as part of our CI/CD process. docker-ros is easily integrated into any of our ROS repositories with a few lines of CI/CD pipeline configuration and then always provides us a minimal container image of the lastest stable state.
+
+ mnumanuyar
+
+ October 9, 2023, 2:13pm
+
+ 20
+
+is there a particular reason for podman instead of docker?
+
+ next page →
+
+ Related topics
+
+ Topic
+
+ Replies
+ Views
+ Activity
+
+ Preparing ROS 2 Rolling for the transition to Ubuntu 24.04
+
+ Packaging and Release Management
+
+ sync
+ , 
+ rolling
+
+ 17
+
+ 14218
+
+ April 10, 2024
+
+ Announcing ROS Docker Images for ARM and Debian
+
+ ROS General
+
+ docker
+ , 
+ arm
+
+ 15
+
+ 12050
+
+ January 10, 2018
+
+ Robotics Distributed System based on Kubernetes
+
+ ROS General
+
+ ros2
+ , 
+ ros
+ , 
+ kubernetes
+
+ 85
+
+ 12028
+
+ July 9, 2021
+
+ ROS2 yocto meta layer
+
+ Embedded
+
+ 33
+
+ 12905
+
+ June 25, 2020
+
+ New packages for ROS 2 Rolling Ridley 2023-03-17
+
+ ROS Announcements and News
+
+ release
+ , 
+ rolling
+
+ 19
+
+ 1671
+
+ April 28, 2023
+
+ Home 
+
+ Categories 
+
+ Guidelines 
+
+ Terms of Service 
+
+ Privacy Policy 
+
+Powered by Discourse, best viewed with JavaScript enabled

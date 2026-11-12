@@ -1,0 +1,28 @@
+[01:32:15] T5 rebase: bootc switch to a different image repository
+package tmux is not installed
+systemd 259 (259.10-1.fc44)
+Pruned images: 0 (layers: 6, objsize: 1.6 GB)
+Queued for next boot: 198.18.0.2:5000/onemind/lab-alt:latest
+  Version: 44.20261110.0
+  Digest: sha256:c8abdb61a1af47ae3ca2bb935b56831906f8b4bcbc0d24f399de19657c1b1be2
+marker=v4-big uptime=64.35
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:8d4a07dfa4629b90d5f1a79533c17de87bcaec3598506f0d5a84f4b3725a4dc0","staged":"sha256:c8abdb61a1af47ae3ca2bb935b56831906f8b4bcbc0d24f399de19657c1b1be2","rollback":"sha256:ba3902dc9b13e2c0535eec0f6f4dea42dd8bab9a2ff177222538b631bef40c36"}
+up after 16s
+marker=alt uptime=11.47
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab-alt:latest","bootedDigest":"sha256:c8abdb61a1af47ae3ca2bb935b56831906f8b4bcbc0d24f399de19657c1b1be2","staged":null,"rollback":"sha256:8d4a07dfa4629b90d5f1a79533c17de87bcaec3598506f0d5a84f4b3725a4dc0"}
+tmux-3.8-2.fc44.aarch64
+T6 data:
+written-at-T1 2026-11-11T01:16:11Z
+[01:32:44] T5b: switch back to the stable channel (no reflash)
+  Version: 44.20261110.0
+  Digest: sha256:8d4a07dfa4629b90d5f1a79533c17de87bcaec3598506f0d5a84f4b3725a4dc0
+up after 16s
+marker=v4-big uptime=10.89
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:8d4a07dfa4629b90d5f1a79533c17de87bcaec3598506f0d5a84f4b3725a4dc0","staged":null,"rollback":"sha256:c8abdb61a1af47ae3ca2bb935b56831906f8b4bcbc0d24f399de19657c1b1be2"}
+written-at-T1 2026-11-11T01:16:11Z
+package tmux is not installed
+Nov 11 01:33:03 fedora greenboot[1891]:  ERROR greenboot::greenboot > wanted script /usr/lib/greenboot/check/wanted.d/01_update_platforms_check.sh failed!
+Nov 11 01:33:03 fedora greenboot[1891]:  INFO  greenboot            > greenboot health-check passed.

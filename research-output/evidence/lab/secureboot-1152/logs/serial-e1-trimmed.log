@@ -1,0 +1,75 @@
+##### [08:00:26] E1 boot normally (Secure Boot on)
+##### [08:00:26] QEMU START qemu-system-x86_64 -machine q35,smm=on -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -global driver=cfi.pflash01,property=secure,value=on -global ICH9-LPC.disable_s3=1 -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd -drive if=pflash,format=raw,unit=1,file=/var/lab/sbrun1/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/sbrun1/disk.img -drive if=virtio,format=raw,readonly=on,file=/var/lab/sbrun1/bundles.img -chardev socket,id=chrtpm,path=/var/lab/sbrun1/swtpm.sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 -serial stdio -monitor none
+[=3h[=3hBdsDxe: loading Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+BdsDxe: starting Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+[    0.000000] Command line: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005b ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-B onemind.version=2
+[    0.000000] Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+[    0.000000] secureboot: Secure boot enabled
+[    0.082160] Kernel command line: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005b ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-B onemind.version=2
+[    0.536876] LSM: initializing lsm=lockdown,capability,landlock,yama,apparmor,tomoyo,bpf,ipe,ima,evm
+[    5.202259] Lockdown: swapper/0: hibernation is restricted; see man kernel_lockdown.7
+DATA: tokens: systemd-tpm2 systemd-recovery 
+DATA: UNLOCK OK method=tpm2 (no prompt); /data mounted
+[!p]104BONUS-PCR11: UNLOCK OK slot=B (signed PCR 11 policy)
+[!p]104SB-REPORT: version=2 cmdline-slot=OneMind-B SecureBoot=1 SetupMode=0
+SB-REPORT: kernel: Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+SB-REPORT: lockdown: none [integrity] confidentiality
+SB-REPORT: PK: Subject:
+SB-REPORT: db: CN=OneMind LAB db CN=OneMind LAB db 
+SB-REPORT: efi: BootOrder: 0004,0000,0001,0002
+SB-REPORT: efi: Boot0003* OneMind-A	HD(2,GPT,6e0a8b0e-0000-4a00-8000-0000000000ba,0x200800,0x100000)/File(\EFI\Linux\onemind-A.efi)
+SB-REPORT: efi: Boot0004* OneMind-B	HD(3,GPT,6e0a8b0e-0000-4a00-8000-0000000000bb,0x300800,0x100000)/File(\EFI\Linux\onemind-B.efi)
+HEALTH-GATE: start slot=B version=2 soak=10s
+HEALTH-GATE: RESULT mark-good slot=B version=2
+BootCurrent: 0004
+BootOrder: 0004,0000,0001,0002
+##### [08:01:43] E1 simulate 'both OneMind entries unbootable': BootNext -> firmware auto entry 0001
+[=3h[=3hBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x1,0x0)
+BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x1,0x0)
+[    0.000000] Command line: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005a ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-A onemind.version=1
+[    0.000000] Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+[    0.000000] secureboot: Secure boot enabled
+[    0.000000] Kernel command line: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005a ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-A onemind.version=1
+[    0.235563] LSM: initializing lsm=lockdown,capability,landlock,yama,apparmor,tomoyo,bpf,ipe,ima,evm
+[    5.966606] Lockdown: swapper/0: hibernation is restricted; see man kernel_lockdown.7
+DATA: tokens: systemd-tpm2 systemd-recovery 
+DATA: UNLOCK OK method=tpm2 (no prompt); /data mounted
+BONUS-PCR11: UNLOCK FAILED slot=A: No passphrase or recovery key registered.
+SB-REPORT: version=5 cmdline-slot=OneMind-A SecureBoot=1 SetupMode=0
+SB-REPORT: kernel: Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+SB-REPORT: lockdown: none [integrity] confidentiality
+SB-REPORT: PK: Subject:
+SB-REPORT: db: CN=OneMind LAB db CN=OneMind LAB db 
+SB-REPORT: efi: BootCurrent: 0001
+SB-REPORT: efi: BootOrder: 0004,0000,0001,0002
+SB-REPORT: efi: Boot0003* OneMind-A	HD(2,GPT,6e0a8b0e-0000-4a00-8000-0000000000ba,0x200800,0x100000)/File(\EFI\Linux\onemind-A.efi)
+SB-REPORT: efi: Boot0004* OneMind-B	HD(3,GPT,6e0a8b0e-0000-4a00-8000-0000000000bb,0x300800,0x100000)/File(\EFI\Linux\onemind-B.efi)
+HEALTH-GATE: start slot=A version=5 soak=10s
+HEALTH-GATE: RESULT mark-good slot=A version=5
+ONEMIND_VERSION=5
+root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005a ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-A onemind.version=1
+##### [08:02:56] E1 RESULT: kernel(UKI) version=1 rootfs version=5 SecureBoot=enabled data=UNLOCKED gate=('mark-good', 'A', 5)
+rauc --version; rauc status 2>&1 | grep -E '^Booted from|^Activated'; efibootmgr | grep -E '^Boot(Current|Order)'; echo __R''C=$?__
+rauc 1.15.2
+Booted from: rootfs.0 (OneMind-A)
+Activated: rootfs.0 (OneMind-A)
+BootCurrent: 0001
+BootOrder: 0003,0004,0000,0001,0002
+##### [08:02:56] E1 rauc view: rauc 1.15.2 | Booted from: rootfs.0 (OneMind-A) | Activated: rootfs.0 (OneMind-A) | BootCurrent: 0001 | BootOrder: 0003,0004,0000,0001,0002
+echo '--- probe:E1 state'; efibootmgr | grep -E '^Boot(Current|Order)'; rauc status 2>&1 | grep -E '^Booted from|^Activated'; sed 's/ rauc\.slot=[^ ]*//' /proc/cmdline > /run/cmdline.probe; mount --binnd /run/cmdline.probe /proc/cmdline && echo PROBE-CMDLINE: $(cat /proc/cmdline | grep -o 'root=[^ ]*\|rauc.slot=[^ ]*' | tr '\n' ' '); systemctl restart rauc; sleep 2; echo PROBE-STATUS-''BEGIN; rauc status 2>&1 | grep -EE '^Booted from|^Activated|rror|bootname' ; journalctl -b -u rauc --no-pager -o cat 2>/dev/null | grep -i -E 'bootname|BootCurrent|booted|rror' | tail -4; echo PROBE-STATUS-''END; umount /proc/cmdline; systemctl restart rrauc; sleep 2; rauc status 2>&1 | grep -E '^Booted from'; echo __R''C=$?__
+--- probe:E1 state
+BootCurrent: 0001
+BootOrder: 0003,0004,0000,0001,0002
+Booted from: rootfs.0 (OneMind-A)
+Activated: rootfs.0 (OneMind-A)
+PROBE-CMDLINE: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005a
+PROBE-STATUS-BEGIN
+Booted from: rootfs.0 (/dev/vda4)
+Activated: rootfs.0 (OneMind-A)
+BootCurrent: 0001
+Failed to get bootname: efi backend: Current EFI bootentry not known to rauc!
+PROBE-STATUS-END
+Booted from: rootfs.0 (OneMind-A)
+##### [08:03:03] E1 PROBE status with rauc.slot hidden: [   43.814275] EXT4-fs (vda5): mounted filesystem fbf6603c-49ff-4ae1-909d-b813dc8e28ad r/w with ordered data mode. Quota mode: none. / [   43.840589] EXT4-fs (vda5): unmounting filesystem fbf6603c-49ff-4ae1-909d-b813dc8e28ad. / Booted from: rootfs.0 (/dev/vda4) / Activated: rootfs.0 (OneMind-A) /       bootname: OneMind-B /       bootname: OneMind-A / BootCurrent: 0001 / Failed to get bootname: efi backend: Current EFI bootentry not known to rauc!
+[   49.527392] reboot: Power down
+##### [08:03:05] QEMU EXIT (poweroff)

@@ -1,0 +1,61 @@
+Snapshot of https://github.com/home-assistant/operating-system/issues/4632 (accessed 2026-11-10 via gh CLI; author handles removed; body truncated)
+title: RPi5 NVMe - HAOS 17.2 slot B always marked bad
+state: CLOSED
+created: 2026-04-10T15:23:15Z
+closed: 2026-11-03T05:40:30Z
+
+### Describe the issue you are experiencing
+
+✅ EEPROM updated
+✅ Pi-hole disabled
+✅ All addons stopped
+✅ Zigbee dongle removed
+✅ HDMI connected during boot
+❌ Slot B still marked bad every time
+
+### What operating system image do you use?
+
+rpi5-64  (Raspberry Pi 5 64-bit OS)
+
+### What version of Home Assistant Operating System is installed?
+
+6.12.47-haos-raspi
+
+### Did the problem occur after upgrading the Operating System?
+
+No
+
+### Hardware details
+
+Rpi 5
+SONOFF Universal Zigbee 3.0 USB Dongle Plus
+
+### Steps to reproduce the issue
+
+1.✅ EEPROM updated
+✅ Pi-hole disabled
+✅ All addons stopped
+✅ Zigbee dongle removed
+✅ HDMI connected during boot
+❌ Slot B still marked bad every time
+2.
+3.
+...
+
+
+### Anything in the Supervisor logs that might be useful for us?
+
+```txt
+(MainThread) [supervisor.resolution.checks.base] Run check for dns_server_ipv6_error/dns_server^[[0m
+^[[32m2026-04-10 15:28:45.157 INFO
+```
+
+### Anything in the Host logs that might be useful for us?
+
+```txt
+Don't know what to look for
+```
+
+### System information
+
+[system information HTML removed]

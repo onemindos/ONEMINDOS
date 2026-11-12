@@ -1,0 +1,823 @@
+TrueNAS Software Status | TrueNAS Documentation Hub 
+ Search TrueNAS Documentation
+ × 
+ Show Results From:
+ Version (25.04) 
+ 28 (Nightly) 
+ 27 
+ 25.10 
+ 25.04 
+ 24.10 
+ Docs 
+ API 
+ Apps 
+ TrueNAS Connect 
+ Searching...
+ Products 
+ Support & Resources 
+ Get A Quote 
+ Solutions 
+ Company 
+ Sign In 
+ Close 
+ Products V-Series Max Performance & Versatility
+ F-Series High Performance NVME
+ H-Series Versatility and Power Efficiency
+ Mini Series Edge and Branch Office
+ M-Series High Capacity All-Flash or Hybrid
+ R-Series Single Controller Appliances
+ TrueNAS Enterprise
+ Mission Critical Storage. 24×7 Enterprise Support
+ TrueNAS Community Edition
+ Test Drive TrueNAS in Your Environment
+ Streamlined Management for your TrueNAS Systems 
+ Solutions Industry
+ Audio 
+ Automotive 
+ Broadcasting 
+ Education 
+ US Public Sector 
+ Gaming 
+ Healthcare 
+ MSP 
+ Manufacturing 
+ Research & AI 
+ Media & Entertainment 
+ Use Cases
+ Analytics 
+ Backup & Archival 
+ Cloud 
+ Data Mobility 
+ File Sharing 
+ TrueCloud Backup 
+ Media & Entertainment 
+ Surveillance/CCTV 
+ Veeam Backup 
+ Virtualization 
+ Red Hat OpenShift 
+ TrueNAS as an Alternative
+ Alternative to Dell 
+ Alternative to NetApp 
+ Alternative to Pure Storage 
+ Support & Resources Support
+ Enterprise Support For customers with active support contracts
+ Community Support For peer-to-peer, forum support
+ Resources
+ Case Studies 
+ Datasheets 
+ Documentation 
+ TrueNAS API 
+ FAQ 
+ Apps 
+ TrueNAS Blogs 
+ Software Status 
+ TrueNAS Security 
+ Solution Briefs and Guides 
+ Certifications & Integrations 
+ White Papers 
+ Videos 
+ TrueCommand Cloud 
+ Reseller Network 
+ ZFS Overview 
+ Community
+ TrueNAS Community Edition 
+ Community Forum 
+ Discord 
+ TrueNAS GitHub 
+ TrueNAS Merch Store 
+ Company About TrueNAS 
+ Team 
+ Awards 
+ Careers 
+ Contact Us 
+ Newsroom 
+ Our Clients 
+ Reviews 
+ Sign In TrueNAS Connect 
+ Partner Portal 
+ Enterprise Support 
+ Get A Quote 
+ Documentation Hub Product TrueNAS
+ TrueNAS Apps 
+ TrueNAS Connect TrueCommand
+ TrueNAS Systems
+ Version 
+ Keyword Search 
+ AI Search 
+ × 
+ TrueNAS Software Status 
+ TrueNAS 28 (Early)
+ ⎙ Download or Print 
+ Getting Started
+ ⎙ Download or Print 
+ TrueNAS 28 Development Notes 
+ Feature Deprecations 
+ TrueNAS Hardware Guide 
+ Installation Instructions
+ Preparing for TrueNAS UI Configuration 
+ Preparing for TrueNAS UI Configuration (Enterprise) 
+ Preparing for TrueNAS UI Configuration (Home Users) 
+ Installing TrueNAS 
+ Installing TrueNAS Enterprise (HA) 
+ Using the Console Setup Menu 
+ Migrating from CORE
+ Preparing to Migrate 
+ Community Migrations 
+ Enterprise Migrations 
+ Component Naming 
+ (obsolete) ZFS Feature Flags Removed 
+ Third-Party Data Migration 
+ Configuration Instructions
+ Logging In for the First Time 
+ Configuring TrueNAS Using the UI 
+ Setting Up Storage 
+ Setting Up Data Sharing 
+ Backing Up TrueNAS 
+ Configuring Virtualization and Apps 
+ Getting Support
+ Providing Feedback in TrueNAS 
+ User Agreements
+ TrueNAS Enterprise EULA 
+ Software Development Life Cycle 
+ TrueNAS Data Collection Statement 
+ Top Toolbar
+ Alerts
+ Alert Settings Screens 
+ Email Screens 
+ Settings Options
+ User API Keys Screen 
+ Two Factor Auth Screen 
+ Using UI Global Search 
+ Managing API Keys 
+ Shutting Down TrueNAS Enterprise HA 
+ Top Toolbar Screens 
+ Jobs Screens 
+ Dashboard
+ Customizing the Dashboard 
+ Dashboard Screen 
+ Storage
+ Pools
+ Creating Pools 
+ Import Pool 
+ Creating Fusion Pools 
+ Managing Pools 
+ Local Pool Migration 
+ Storage Tiering Pool Migration 
+ Pool Creation Wizard Screen 
+ VDEV Screens 
+ Disks
+ Replacing Disks 
+ Wiping a Disk 
+ SLOG Over-Provisioning 
+ Managing Self-Encrypting Drives (SED) 
+ Disks Screen 
+ Drive Health Management 
+ Storage Tiering 
+ Storage Dashboard Screens 
+ Datasets
+ Adding and Managing Datasets 
+ Encryption
+ Encrypting Datasets 
+ Encryption Screen 
+ Permissions
+ Configuring ACL Permissions 
+ ACL Screens 
+ Quotas
+ Managing User or Group Quotas 
+ Capacity Settings Screen 
+ User and Group Quota Screens 
+ Snapshots
+ Creating Snapshots 
+ Managing Snapshots 
+ Snapshots Screens 
+ Zvols
+ Adding and Managing Zvols 
+ Zvols Screen 
+ Datasets Screens 
+ Shares
+ Windows Shares (SMB)
+ Adding and Managing SMB Shares 
+ Adding a Basic Time Machine SMB Share 
+ Setting Up Final Cut Pro SMB Shares 
+ Using SMB Shadow Copy 
+ Setting Up SMB Private Dataset Shares 
+ Using SMB Shares with macOS Decomposed Unicode 
+ Setting Up SMB Multichannel 
+ SMB Shares Screens 
+ NFS Shares
+ Adding NFS Shares 
+ NFS Shares Screens 
+ Multiprotocol Shares 
+ Block Shares (iSCSI)
+ Adding iSCSI Block Shares 
+ Setting Up Fibre Channel 
+ Using an iSCSI Share 
+ Increasing iSCSI Available Storage 
+ Block (iSCSI) Share Target Screens 
+ Fibre Channel Screens 
+ NVMe-oF Subsystems
+ Configuring NVMe-oF 
+ Managing NVMe-oF Subsystems 
+ NVMe-oF Share Screens 
+ S3
+ Configuring S3 Object Storage 
+ S3 Buckets Screens 
+ WebShare
+ Configuring WebShare 
+ WebShare Shares Screens 
+ Migrating AFP Shares 
+ Shares Screens 
+ Data Protection
+ TrueCloud Backup Tasks
+ Managing TrueCloud Backup Tasks 
+ TrueCloud Backup Tasks Screens 
+ Cloud Sync Tasks
+ Backing Up Google Drive to TrueNAS 
+ Managing Cloud Sync Tasks 
+ Adding a Google Photos Cloud Sync Task 
+ Cloud Sync Tasks Screens 
+ Periodic Snapshot Tasks
+ Adding Periodic Snapshot Tasks 
+ Periodic Snapshot Tasks Screens 
+ Rsync Tasks
+ Configuring Rsync Tasks 
+ Rsync Tasks Screens 
+ Replication Tasks
+ Setting Up a Local Replication Task 
+ Setting Up a Remote Replication Task 
+ Replication Task Screens 
+ Advanced Replication Tasks
+ Configuring Advanced Replication 
+ Setting Up an Encrypted Replication Task 
+ Unlocking a Replication Encrypted Dataset or Zvol 
+ VMware Snapshots
+ Creating VMWare Snapshots 
+ VMWare Snapshots Screen 
+ Data Protection Screens 
+ Network
+ Interface Configuration
+ Configuring Interfaces 
+ Setting Up a Network Bridge 
+ Setting Up a Link Aggregation 
+ Setting Up a Network VLAN 
+ Network Interface Screens 
+ Network Configuration
+ Managing Network Configurations 
+ Configuring IPv6 
+ Managing Network Settings (Enterprise HA) 
+ Network Configuration Screens 
+ Static Routes
+ Configuring Static Routes 
+ Static Routes Screens 
+ IPMI
+ Setting Up IPMI 
+ IPMI Screens 
+ Accessing NAS from VMs and Containers 
+ Network Screen 
+ Credentials
+ Users
+ Managing Users 
+ Users Screens 
+ Using Administrator Logins 
+ Groups
+ Managing Groups 
+ Groups Screens 
+ Privileges
+ Managing Privileges 
+ Privileges Screens 
+ Directory Services
+ Configuring Active Directory 
+ Configuring LDAP 
+ Configuring IPA 
+ Configuring Kerberos 
+ Kerberos Realms Screens 
+ Kerberos Keytab Screens 
+ Directory Services Screens 
+ Backup Credentials
+ Adding Cloud Credentials 
+ Adding SSH Credentials 
+ Cloud Credentials Screens 
+ SSH Screens 
+ Backup Credentials Screens 
+ Certificates
+ Managing Certificates 
+ Managing Certificate Signing Requests 
+ Adding ACME DNS Authenticators 
+ Creating ACME Certificates 
+ Certificates Screens 
+ Certificate Signing Requests Screens 
+ ACME DNS-Authenticators Screens 
+ S3 Access Keys Screen 
+ Containers
+ Creating and Managing Containers 
+ Containers Screens 
+ Virtual Machines
+ Creating and Managing Virtual Machines 
+ Adding and Managing VM Devices 
+ Virtual Machines Screens 
+ Apps
+ Apps Screens 
+ Custom App Screens 
+ Reporting
+ Configuring Reports 
+ Reporting Screens 
+ System Settings
+ Update
+ Updating TrueNAS 
+ Updating TrueNAS Enterprise HA 
+ Update Screens 
+ General Settings
+ Configuring General Settings 
+ Adding a License and Proactive Support 
+ Setting Up System Email 
+ General Settings Screen 
+ Advanced Settings
+ Configuring Advanced Settings 
+ Managing the System Configuration 
+ Managing the Console Setup Menu 
+ Managing Cron Jobs 
+ Managing System Logging 
+ Managing Init/Shutdown Scripts 
+ Configuring SED Settings 
+ Isolating GPU for VMs 
+ Managing Global 2FA (Two-Factor Authentication) 
+ Developer Mode (Unsupported) 
+ Advanced Settings Screen 
+ Boot
+ Boot Pool Management 
+ Boot Screens 
+ Services
+ Configuring FTP Service 
+ Configuring NFS Service 
+ Configuring SMB Service 
+ Configuring SNMP Service 
+ Configuring SSH Service 
+ Configuring UPS Service 
+ Services Screens 
+ FTP Service Screen 
+ iSCSI Services Screen 
+ NFS Services Screen 
+ SMB Service Screen 
+ SNMP Service Screen 
+ S3 Service Screen 
+ SSH Service Screen 
+ UPS Services Screen 
+ WebShare Service Screen 
+ Shell
+ Using Shell 
+ Shell Screen 
+ Alert Settings Screen 
+ Audit
+ Using Audit Logs 
+ Audit Screen 
+ View Enclosure Screen (TrueNAS Systems Only) 
+ API Reference 
+ TrueNAS Security Reports 
+ Solutions
+ ⎙ Download or Print 
+ Migrating Data to TrueNAS from Third-Party Solutions 
+ Accessing TrueNAS Remotely 
+ Migrating MinIO Data from Previous TrueNAS Versions (Deprecated) 
+ Optimizations
+ Cross-Site Disaster Recovery 
+ Media Workflows 
+ Security Recommendations 
+ STIG Compliance 
+ Networking Recommendations 
+ Integrations
+ AWS Images (Obsolete) 
+ Asigra Plugin 
+ Containers 
+ CSI Driver
+ CSI Driver Administrators Guide 
+ CSI Driver User Guide 
+ CSI Driver Reference 
+ OpenShift Operator
+ OpenShift Operator Administrators Guide 
+ OpenShift Operator User Guide 
+ OpenShift Operator Reference 
+ Nextcloud 
+ OpenStack Cinder Driver 
+ Proxmox VE Storage Plugin 
+ Veeam 
+ Veeam Software Appliance 
+ Veeam Infrastructure Appliance 
+ Veeam Immutability 
+ VMware
+ TrueNAS Virtualized with ESXi 
+ TrueNAS vCenter Plugin 
+ Hyper-V 
+ Entra Domain Services (Azure DS) 
+ Products
+ V-Series 
+ F-Series 
+ H-Series 
+ M-Series 
+ R-Series 
+ Mini Series 
+ Expansion Shelves 
+ Notices 
+ Legacy Systems
+ X-Series 
+ Mini Series 
+ M-Series 
+ R-Series 
+ Z-Series 
+ FreeNAS Certified 
+ Discontinued Expansion Shelves 
+ Contributing
+ Web Interface Translations 
+ Web UI Code Contributions 
+ Issue Reporting
+ Issue Reporting in Jira 
+ Feature Requests 
+ Documentation
+ Content Styling 
+ Updating Content 
+ Adding a New Article 
+ Article Template 
+ References
+ Copyrights and Trademarks 
+ ACL Primer 
+ Concepts and Terminology 
+ Bits or Bytes? 
+ Controller or Node? 
+ Understanding IPv6 
+ IPMI 
+ L2ARC 
+ Performance
+ Interconnect Maximum Effective Data Rates 
+ SMB Directory List Times 
+ SLOG Devices 
+ Server Message Block (SMB) 
+ Thin Provisioning 
+ ZFS Deduplication 
+ ZFS Primer 
+ ZFS dRAID Primer 
+ Drive Troubleshooting Flowchart 
+ ZFS ZIL and SLOG 
+ ZFS Capacity Calculator 
+ ZFS Capacity Graph 
+ RAIDZ Extension Calculator 
+ TrueNAS Apps 
+ TrueNAS Connect 
+ TrueNAS API Docs 
+ Security Reports 
+ Documentation Archive 
+ View Source 
+ RSS Feed 
+ ➤ Documentation Hub 
+ /
+ TrueNAS Software Status 
+ Edit page 
+ TrueNAS Software Status
+   7 minute read.
+ Last Modified 2026-04-13 11:02 EDT 
+ Which TrueNAS Version is Recommended?
+ Choose the right TrueNAS version by balancing your need for new features against operational risk tolerance. These recommendations are regularly updated after extensive testing across diverse deployments.
+ User Type
+ Developer 
+ Not Available
+ 28 Nightly 
+ Early Adopter 
+ Not Available
+ 27.0.0-RC.1 
+ General 
+ 25.10.8 
+ 25.10.8 
+ Mission Critical 
+ 25.10.7 *
+ Enterprise 
+ * We recommend the default Mission Critical update profile for all TrueNAS Enterprise systems.
+ Customers with a TrueNAS Enterprise support contract should contact TrueNAS Support before system updates. Our Support team can provide advice based on your unique requirements and help resolve any unexpected issues.
+ User Type
+ Expectations
+ Developer 
+ Developer software with new features and bugs alike. Allows users to contribute directly to the development process.
+ Early Adopter 
+ Pre-release access to new features and functionality of TrueNAS software. Some issues may need workarounds, bug reports or patience.
+ General 
+ Field tested software with mature features. Few issues are expected.
+ Mission Critical 
+ Mature software that enables 24×7 operations with high availability for a clearly defined use case. Software updates are infrequent and based on need.
+ Release Schedule
+ 25.04
+ 25.10
+ 27
+ 28
+ TrueNAS 25.04 - Fangtooth 
+ Latest: 25.04.2.6 
+ Maintenance 
+ 30 October 2025 
+ Previous: 25.04.2.5 
+ Maintenance 
+ 21 October 2025 
+ 25.04.2.4 
+ Maintenance 
+ 10 September 2025 
+ 25.04.2.3 
+ Maintenance 
+ 26 August 2025 
+ 25.04.2.1 
+ Maintenance 
+ 7 August 2025 
+ 25.04.2 
+ Maintenance 
+ 31 July 2025 
+ 25.04.1 
+ Maintenance 
+ 27 May 2025 
+ 25.04.0 
+ Stable 
+ 15 April 2025 
+ TrueNAS 25.10 - Goldeye 
+ Latest: 25.10.8 
+ Maintenance 
+ 5 November 2026 
+ Previous: 25.10.7 
+ Maintenance 
+ 2 September 2026 
+ 25.10.6 
+ Maintenance 
+ 12 August 2026 
+ 25.10.5 
+ Maintenance 
+ 23 July 2026 
+ 25.10.4 
+ Maintenance 
+ 3 June 2026 
+ 25.10.3.1 
+ Maintenance 
+ 7 May 2026 
+ 25.10.3 
+ Maintenance 
+ 14 April 2026 
+ 25.10.2.1 
+ Maintenance 
+ 25 February 2026 
+ 25.10.2 
+ Maintenance 
+ 19 February 2026 
+ 25.10.1 
+ Maintenance 
+ 18 December 2025 
+ 25.10.0.1 
+ Maintenance 
+ 19 November 2025 
+ 25.10.0 
+ Stable 
+ 28 October 2025 
+ TrueNAS 27 
+ Latest: 27-RC.1 
+ Early Release 
+ 6 October 2026 
+ Ongoing: 27 Nightlies 
+ Experimental 
+ Ongoing 
+ Previous: 26-BETA.3 
+ Early Release 
+ 20 August 2026 
+ 26-BETA.2 
+ Early Release 
+ 17 June 2026 
+ 26-BETA.1 
+ Early Release 
+ 7 April 2026 
+ TrueNAS 28 
+ Anticipated: 28-BETA.1 
+ Early Release 
+ TBD 
+ Ongoing: 28 Nightlies 
+ Experimental 
+ Ongoing 
+ Individual releases within a major version are labeled as Early, Stable, or Maintenance (expand for details).
+ Type
+ Status
+ Early
+ Public release of an unstable version that is either not feature complete or has more testing cycles planned. Follows an ALPHA, BETA, and RC naming convention.
+ Stable
+ Public release of a feature complete and internal and community tested major version. Follows a .0 naming convention.
+ Maintenance
+ Public release with software bug fixes and additional internal and community testing. Follows a .# naming convention, with small-scope maintenance releases (“hotpatches”) following a .#.# convention.
+ Update to the latest maintenance release of the current major version before upgrading to the next major version.
+You can then upgrade directly from the latest maintenance release to the latest release of the next major version.
+ This chart shows the basic upgrade paths between TrueNAS major versions.
+Depending on your use case and risk tolerance, you might prefer to delay upgrading to allow additional time for testing and stability.
+See the TrueNAS Software Status for version recommendations tailored to different user types from Developer to Mission Critical.
+ ‹ 
+ › 
+ flowchart LR
+ A["11.3-U5"] -->|update| B["12.0-U8.1"]
+ B -->|"update / ISO install"| C["13.0-U6.8 / 13.3-U2"]
+ C -->|update| G
+ C -->|ISO install| J
+ D["22.02.4 (Angelfish)"] -->|update| E
+ E["22.12.4.2 (Bluefin)"] -->|update| F
+ F["23.10.2 (Cobia)"] -->|update| G
+ G["24.04.2.5 (Dragonfish)"] -->|update| H
+ H["24.10.2.4 (Electric Eel)"] -->|update| I
+ I["25.04.2.6 (Fangtooth)"] -->|update| J
+ J["25.10.8 (Goldeye)"] -->|"anticipated"| K
+ K["TrueNAS 27.0"]
+ ‹ 
+ › 
+ flowchart LR
+ A["11.3-U5"] -->|update| B
+ B["12.0-U8.1"] -->|update| C
+ C["13.0-U6.8"] -->|ISO install| H
+ C -->|update| E
+ D["23.10.2 (Cobia)"] -->|update| E
+ E["24.04.2.5 (Dragonfish)"] -->|update| F
+ F["24.10.2.4 (Electric Eel)"] -->|update| G
+ G["25.04.2.6 (Fangtooth)"] -->|update| H
+ H["25.10.8 (Goldeye)"] -->|"anticipated"| I
+ I["TrueNAS 27.0"]
+ Permitted upgrade methods are:
+ update : Apply updates using the Update screen in the TrueNAS UI or install a manual update file.
+Not all upgrade paths support automatic updates (see chart).
+ ISO install : Save your TrueNAS configuration file, perform a fresh install using an .iso file for the target version, then upload the saved configuration.
+ You can skip major versions using a fresh installation with configuration file restore.
+Before skipping versions, review release notes for each major version to identify service deprecations or significant changes that might affect your configuration.
+Consider upgrading incrementally through major versions with significant changes, or be prepared to manually reconfigure any incompatibilities after upgrading directly to the target version.
+ Downloads
+ Archive
+ 24.10
+ 25.04
+ 25.10
+ 27
+ Final Release Versions 
+ 24.04 (Dragonfish) 
+ Release Notes 
+ 24.04.2.5 
+ 8 November 2024 
+ 23.10 (Cobia) 
+ Release Notes 
+ 23.10.2 
+ 22 February 2024 
+ 22.12 (Bluefin) 
+ Release Notes 
+ 22.12.4.2 
+ 13 October 2023 
+ 22.02 (Angelfish) 
+ Archived Docs 
+ 22.02.4 (Angelfish) 
+ 27 September 2022 
+ 13.0 
+ Release Notes 
+ 13.0-U6.8 
+ 14 July 2025 
+ 13.3 
+ Release Notes 
+ 13.3-U1.2 
+ 29 April 2025 
+ Legacy Versions 
+ 12.0-U8.1 
+ 14 April 2022 
+ 11.3-U5 
+ 29 September 2020 
+ 11.2-U8 
+ 18 February 2020 
+ 11-U7 
+ 24 January 2019 
+ 24.10 (Electric Eel) 
+ Release Notes 
+ 24.10.2.4 
+ 7 August 2025 
+ 24.10.2.3 
+ 14 July 2025 
+ 24.10.2.2 
+ 13 May 2025 
+ 24.10.2.1 
+ 3 April 2025 
+ 24.10.2 
+ 28 January 2025 
+ 24.10.1 
+ 17 December 2024 
+ 24.10.0.2 
+ 8 November 2024 
+ 24.10.0.1 
+ 7 November 2024 
+ 24.10.0 
+ 29 October 2024 
+ 24.10-RC.2 
+ 4 October 2024 
+ 24.10-RC.1 
+ 2 October 2024 
+ 24.10-BETA.1 
+ 29 August 2024 
+ 25.04 (Fangtooth) 
+ Release Notes 
+ 25.04.2.6 
+ 30 October 2025 
+ 25.04.2.5 
+ 21 October 2025 
+ 25.04.2.4 
+ 10 September 2025 
+ 25.04.2.3 
+ 26 August 2025 
+ 25.04.2.2 (Unreleased) 
+ 25.04.2.1 
+ 7 August 2025 
+ 25.04.2 
+ 31 July 2025 
+ 25.04.1 
+ 27 May 2025 
+ 25.04.0 
+ 15 April 2025 
+ 25.04-RC.1 
+ 11 March 2025 
+ 25.04-BETA.1 
+ 13 February 2025 
+ 25.04 (Fangtooth) Nightly 
+ 25.10 (Goldeye) 
+ Release Notes 
+ 25.10.8 
+ 5 November 2026 
+ 25.10.7 
+ 2 September 2026 
+ 25.10.6 
+ 12 August 2026 
+ 25.10.5 
+ 23 July 2026 
+ 25.10.4 
+ 3 June 2026 
+ 25.10.3.1 
+ 7 May 2026 
+ 25.10.3 
+ 14 April 2026 
+ 25.10.2.1 
+ 25 February 2026 
+ 25.10.2 
+ 19 February 2026 
+ 25.10.1 
+ 18 December 2025 
+ 25.10.0.1 
+ 19 November 2025 
+ 25.10.0 
+ 28 October 2025 
+ 25.10-RC.1 
+ 30 September 2025 
+ 25.10-BETA.1 
+ 28 August 2025 
+ 25.10 (Goldeye) Nightly 
+ 27 
+ Release Notes 
+ 27-RC.1 
+ 6 October 2026 
+ 26-BETA.3 
+ 20 August 2026 
+ 26-BETA.2 
+ 17 June 2026 
+ 26-BETA.1 
+ 7 April 2026 
+ 27 Nightly 
+ Each listed release links to download files for that release.
+ Bug tickets are typically accepted for the latest release of the current stable version.
+Nightly builds also accept feedback and bug tickets.
+ Nightly Builds
+ Nightly builds are automatically published when automated testing passes.
+ .iso files are available for fresh installation on disposable hardware or a virtual machine.
+ .update files are also available for manually updating an existing experimental system to a nightly build.
+ Your testing and feedback are always welcome!
+TrueNAS nightlies have an option in the top panel to submit feedback directly to the development team.
+Let us know what is working well and what can be improved!
+ Legacy Releases
+ Legacy TrueNAS versions are provided for historical context and upgrade pathways.
+They are provided “as-is” and typically do not receive further maintenance releases.
+Individual releases are within each major version.
+ Legacy releases can only be used by downloading the .iso file and freshly installing it to the hardware.
+ * TrueNAS CORE is no longer under active development. Enterprise customers should contact TrueNAS Support to discuss migration options. 
+ The TrueNAS team maintains and regularly updates documentation for current and in-development versions of TrueNAS software. For documentation purposes, current and future releases are those recommended for one or more user types.
+See the Software Development Life Cycle for an overview of the TrueNAS release process, versioning scheme, and how versions reach end of life.
+ Documentation is actively maintained for all TrueNAS versions recommended on the TrueNAS Software Status page , with updates published alongside software releases.
+Each TrueNAS product has dedicated documentation sections with version selectors for navigating between releases.
+ When a TrueNAS version is no longer recommended for any user type, its documentation moves to the Documentation Archive .
+Archived documentation is read-only and receives no further updates, but remains available as a historical reference for installations that haven’t yet migrated to a supported version.
+ Users can find additional help through the TrueNAS Community Forums for discussions and community support, or through GitHub Issues for reporting bugs and requesting features. Enterprise customers with support contracts receive priority assistance with documentation questions and access to custom deployment guides.
+ Jump To: 
+ 541 Division Street
+Campbell, CA 95008, USA
+ Contact Us 
+ <email-masked> 
+ Listen to our Podcast 
+ Support
+ Enterprise Support 
+ Community Support 
+ Forums 
+ FAQs 
+ Useful Links
+ Careers 
+ About Us 
+ Blog 
+ News & Articles 
+ TrueNAS Enterprise 
+ TrueNAS Community Edition 
+ TrueCommand 
+ TrueCommand Cloud 
+ TrueNAS Legacy 
+ Software Status 
+ Reseller Network 
+ Subscribe to our newsletter 
+ © Copyright  iXsystems, Inc. dba TrueNAS. All rights reserved. 
+ Legal 
+ TrueNAS Logos

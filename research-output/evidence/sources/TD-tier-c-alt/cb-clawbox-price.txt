@@ -1,0 +1,295 @@
+ClawBox Price & What's Included: One-Time, No Subscription
+
+ClawBox v4 is out!ClawBox v4 is out — Memory Shard, voice conversations and a lot more.See what's new→✕
+ClawBox
+
+ClawBox
+ClawBoxClawBox WorkstationClawBox Hermes EditionClawBox PortalClawBox StorePricingLeaderboard
+Compare
+Full ComparisonHermes Agent vs OpenClawvs. Cloud AI (ChatGPT, Claude)vs. Raspberry Pi 5vs. Home Servervs. Mac Mini M4Hermes Agent on a Mac miniBlogDocs
+
+EUR/USD
+ENLoginBuy
+
+💰 Transparent Pricing
+ClawBox Price: €749 One-Time
+One payment for dedicated AI hardware that runs 24/7 on very low power. Local AI works without a subscription, and you can optionally connect cloud providers when you want more power.
+€749 one-time payment
+Buy ClawBox — €749Compare ClawBox AI plans
+Manufacturer: ID Robots OOD, Bulgaria · Product safety information
+If you are comparing the Claw Box price against DIY hardware, start with our best OpenClaw hardware guide and the dedicated AI hardware overview.
+
+What's Included in the €749 Price
+
+🔧 Hardware
+✓NVIDIA Jetson Orin Nano 8GB — 67 TOPS AI performance
+✓512GB NVMe SSD — pre-installed with OS & software
+✓Carbon color protective case
+✓19 V barrel-jack power supply (EU plug; US orders get a US plug adapter)
+✓Quick start guide
+
+💻 Software (Free Forever)
+✓OpenClaw — fully configured AI assistant platform
+✓Local AI: Gemma 4 E2B · Whisper (optional install) · ClawBox AI (cloud, optional)
+✓Telegram, WhatsApp, Discord integration
+✓Browser automation (Chromium built-in)
+✓Proactive scheduling & cron jobs
+✓All future OpenClaw updates — free
+
+3-Year Total Cost of Ownership
+The real price isn't just the sticker — it's what you pay over time.
+
+Cost ComponentClawBoxCloud VPSMac Mini M4DIY Jetson
+Hardware€749€0€699€340
+Monthly fees€0€20–50/mo€0€0
+Electricity (3yr)€29N/A€126€29
+Setup time value€0 (5 min)€25 (1hr)€50 (2hr)€250 (10hr+)
+Software updatesFreeDIYDIYDIY
+SupportIncludedNoneNoneNone
+3-Year Total€778 before VAT€720–1,825€875€619
+ClawBox pays for itself vs a €20–50/month cloud VPS in 15–38 months. After that, it's free.
+
+Delivery Times by Region
+
+🇧🇬 Bulgaria
+1–2 business days
+Free
+
+🇩🇪 Germany
+2–3 business days
+Free
+
+🇫🇷 France
+2–3 business days
+Free
+
+🇮🇹 Italy
+2–3 business days
+Free
+
+🇪🇸 Spain
+2–3 business days
+Free
+
+🇳🇱 Netherlands
+2–3 business days
+Free
+
+🇦🇹 Austria
+2–3 business days
+Free
+
+🇸🇪 Sweden
+2–3 business days
+Free
+
+🇬🇧 United Kingdom
+2–3 business days
+Free
+
+🇺🇸 United States
+2–4 business days
+Free
+
+🇨🇦 Canada
+2–4 business days
+Free
+
+🇦🇺 Australia
+3–5 business days
+Free
+
+🚚 Free Shipping! Worldwide delivery via DHL Express, on every order
+
+Monthly Running Costs
+
+€0.80
+Electricity per month
+15W × 24h × 30d × €0.25/kWh
+
+€0
+Software license fees
+OpenClaw is open-source & free
+
+€0–20
+Optional cloud AI APIs
+Claude, GPT-5 — only if you want them
+
+ClawBox AI plans
+Add ClawBox AI to your box
+ClawBox works without a subscription. ClawBox AI plans add managed cloud models, voice, image generation and the Coding Agent. Start free and change plan whenever you like.
+
+MonthlyAnnualSave 18%
+
+Free
+Try ClawBox AI on your box
+€0/month
+
+No card needed
+Includes:
+DeepSeek V4.1 Flash
+Chat
+Image generation
+Voice transcriptionCreate a free account
+Pro
+A box that codes, remembers and talks back
+€9/month
+
+Everything in Free, plus:
+Cloud voice replies
+Memory indexing
+Coding Agent
+Memory Shard
+Persistent link
+Bigger weekly allowancesGet Pro monthlyBest value
+Max
+The largest allowances for heavy use
+€49/month
+
+Everything in Pro, plus:
+Hermes switching
+Bigger weekly allowancesGet Max monthly
+Already have an account? Change your plan in the portal
+
+Compare the plans
+Compare the plans
+FeatureFreeProMax
+Chat modelWhat your chat runs onDeepSeek V4.1 FlashDeepSeek V4.1 FlashDeepSeek V4.1 Flash
+ChatTokens a week20M100M500M
+Image generationImages a week320100
+Cloud voice repliesSpoken replies, minutes a week—Not included30 min120 min
+Voice transcriptionSpeech to text, minutes a week10 min60 min240 min
+Memory indexingTokens a week for your Memory Shard index—Not included25M100M
+Coding AgentTakes a task and opens a pull request—Not includedIncludedIncluded
+Memory ShardSearches your notes, chats and documents—Not includedIncludedIncluded
+Persistent linkA permanent address to reach your box remotely—Not includedIncludedIncluded
+Hermes switchingOne-click switch between OpenClaw and Hermes—Not included—Not includedIncluded
+Every plan uses DeepSeek V4.1 Flash.
+
+Weekly allowances are rolling 7-day limits
+They are not calendar weeks, and nothing resets on a set day. Each allowance counts what you used over the last 7 days, and as each day drops out of that window, what you used on it becomes available again. Chat also has a burst limit of 25% of the weekly chat allowance in any 5 hours, so one runaway task cannot use up the whole week.
+
+Prepaid usage packs
+On Pro and Max, prepaid credit keeps ClawBox AI working after an allowance runs out. It is only used once your allowance is spent, and bigger packs add more bonus credit.
+
+You pay
+€10
+You get
+€10
+No bonus
+
+You pay
+€25
+You get
+€26.25
++€1.25 bonus credit (+5%)
+
+You pay
+€50
+You get
+€55
++€5 bonus credit (+10%)
+Best value
+You pay
+€100
+You get
+€110
++€10 bonus credit (+10%)
+Credits never expire and can only be spent on ClawBox AI usage. DeepSeek chat uses 2× credit during DeepSeek peak hours. Buy packs from the Credits page in your portal.
+
+Where to Buy ClawBox
+You buy ClawBox directly from us at clawbox.com — no resellers, no marketplaces, no markup. Every unit is flashed, tested, and shipped from the EU via DHL Express with tracking. Your €749 covers the full kit: Jetson Orin Nano 8GB, 512GB NVMe SSD, case, power supply, and OpenClaw pre-installed, backed by a 30-day money-back guarantee and 2-year warranty.
+Not sure yet? Read the hands-on ClawBox review or compare it against every alternative first.Buy ClawBox — €749
+
+ClawBox Pricing FAQ
+How much does ClawBox cost?▾
+ClawBox hardware is €749 one-time. This includes the NVIDIA Jetson Orin Nano 8GB, 512GB NVMe SSD, carbon color case, and OpenClaw pre-installed. Optional Pro (€9/month or €89/year) and Max (€49/month or €479/year) plans add the Coding Agent, Memory Shard, cloud voice replies and remote access at your own clawbox.tech link; Max runs on DeepSeek V4.1 Flash and adds a one-click switch between OpenClaw and Hermes.Are there any monthly fees after buying ClawBox?▾
+The hardware is a one-time €749 purchase. The free plan includes chat, image generation and voice transcription with weekly allowances, each a rolling seven-day limit. Optional Pro (€9/month or €89/year) and Max (€49/month or €479/year) plans add the Coding Agent, Memory Shard, cloud voice replies and remote access at your own clawbox.tech link; Max runs on DeepSeek V4.1 Flash and adds a one-click switch between OpenClaw and Hermes. Cloud AI model APIs (Claude, GPT, Gemini) are separate and optional.Is ClawBox cheaper than a cloud VPS over time?▾
+Against most plans, yes. A typical cloud VPS for AI workloads costs €20–50/month (€720–1,800 over 3 years). ClawBox costs €749 once + ~€10/year in electricity = about €779 before VAT over 3 years. You break even in 15–38 months — only the cheapest €20/month plans take longer than three years — and then you still own the hardware.Why is ClawBox more expensive than a bare Jetson module?▾
+A bare Jetson Orin Nano costs ~€250. ClawBox adds: 512GB NVMe SSD (€45), carbon color case (€30), power supply, pre-installed & tested OpenClaw, quality assurance, warranty, and support. You're paying for 'it just works in 5 minutes' vs hours of DIY setup.Do you offer bulk or team pricing?▾
+Yes. For larger orders (10+ units), contact us at [email protected] for custom pricing. Smaller multi-unit orders need no code: shipping is already free on every order.What's your return policy?▾
+30-day money-back guarantee. If you're not satisfied with ClawBox, return it for a full refund. Buyer pays return shipping.Can I pay in installments?▾
+Currently we accept one-time payment via credit card (Visa, Mastercard, Amex) through Stripe. Installment plans may be added in the future.Are there any hidden costs?▾
+No. €749 includes everything you need: hardware, software, case, power supply, SSD, and shipping is free worldwide via DHL Express. The only additional cost is optional cloud AI API keys if you want frontier models.Where can I buy ClawBox?▾
+Directly from clawbox.com — order from the homepage. There are no resellers or marketplaces. €749 one-time, shipped from the EU worldwide via DHL Express, with a 30-day money-back guarantee and 2-year warranty on every order.
+
+Ready to Own Your AI?
+€749 one-time. Ships in 1–3 business days. 30-day money-back guarantee.Buy ClawBox — €749
+30-day money-back guarantee
+
+Related Pages
+ClawBox Review — Honest Pros & Cons →Best OpenClaw Hardware →Full Hardware Comparison →ClawBox Alternatives →Dedicated AI Hardware →Perplexity Alternative Hardware →FAQ →
+
+Get product updates, discounts & ClawBox tips
+Subscribe
+No spam. Unsubscribe anytime.
+Guides
+What Is OpenClaw?
+Setup Guide
+Quick Start
+Requirements
+Telegram Setup
+WhatsApp Setup
+Android Guide
+OpenClaw on Jetson
+Docker Setup
+FAQCompare
+Overview
+Hermes Agent vs OpenClaw
+vs Mac Mini
+Hermes Agent on a Mac mini
+vs Cloud AI
+vs Cloud VPS
+vs Raspberry Pi
+vs Home Server
+ClawBox Review
+ClawBox PricingResources
+ClawBox Workstation
+ClawBox Hermes Edition
+ClawBox Portal
+OpenClaw Hardware
+Best Hardware
+OpenClaw Preinstalled
+GDPR & Private AI
+ClawBox for Teams
+Low Power AI Server
+Self-Hosted AI
+Jetson AI Assistant
+Always-On AI
+Home AI Server
+AI Assistant Box
+AI Computer
+NVIDIA AIMore
+ChatGPT Hardware
+Voice Assistant
+Ships to Asia
+Perplexity Alternative
+Personal AI Device
+AI Assistant for Business
+Private AI
+No-Cloud AI
+AI for Startups
+Run Claude Locally
+Local AI Hardware
+OpenClaw ACP
+Shipping Policy
+Home AI Server: Build a Private, Always-On Assistant at Home
+OpenClaw Hardware Requirements (2026): The Complete Guide
+Raspberry Pi vs Jetson Orin Nano for Local AI: An Honest 2026 Comparison
+BlogCommunity
+Documentation
+Community Forum
+OpenClaw Wallpapers
+🤖 ClawBox Agent
+Support
+Company
+About Us
+Contact
+Terms of Service
+Privacy Policy
+Your Privacy Choices
+Cookie settings
+Returns & Refunds
+Withdraw from contract
+Product safety
+© 2026 clawbox.com. Built with ❤️ for the AI community.We don't log your data — verify the code

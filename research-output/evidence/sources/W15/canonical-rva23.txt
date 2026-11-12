@@ -1,0 +1,232 @@
+
+    RISC-V profiles – why is RVA23 significant? | Ubuntu
+        Your submission was sent successfully!
+        Close
+        Thank you for contacting us. A member of our team will be in touch shortly.
+        Close
+        You have successfully unsubscribed!
+        Close
+        Thank you for signing up for our newsletter!
+        In these regular emails you will find the latest updates about
+        Ubuntu and upcoming events where you can meet our team.Close
+        Your preferences have been successfully updated. Close notification
+          Please try again or 
+          file a bug report.
+        Close
+              Canonical Ubuntu
+            Menu
+            Products
+            Use cases
+            Support
+            Community
+            Get Ubuntu
+            Careers
+            Blog
+            Article
+                  Jon Taylor
+              3 June 2026
+            RISC-V profiles – why is RVA23 significant?
+                  RISC-V
+                  RVA23
+          Share the article
+Introduction
+One of the important offerings of the RISC-V Instruction Set Architecture (ISA) is the ability to customize and extend the base instruction set. An initial reaction to hearing this is often to worry about software portability and compatibility, since if every RISC-V CPU  offers a slightly different set of instructions, software won’t be portable. 
+This risk is that customization becomes fragmentation, which is why RISC-V offers sets of standardized extensions to help with software compatibility and portability. These are indicated with a letter or string, such as ‘F’ for floating point, or ‘V’ for vectors. There is also a number to indicate whether the device is 32-bit or 64-bit. So a CPU might be “RV64IMAC”, which means a 64-bit CPU where Integer (I), Multiply (M), Atomics (A) and Compressed (C) extensions are supported.
+To execute correctly, software has to be compiled to match the hardware, or a subset of it (as an example, for code compiled as RV64IMA, it doesn’t matter whether the hardware supports the ‘C’ extension or not, but it must support at least RV64IMA). For binary portability (the ability to run compiled binaries on different hardware) to scale, there are two options. The first is that all software would have to be written with a minimal set of extensions, which is undesirable as it would limit performance and code size. To avoid these limitations, the second option is for the ecosystem to agree on common groups of extensions that all software can target. RISC-V International calls these “profiles”.
+RISC-V first introduced profiles with RVI20 and RVA20, and since then RVA22 and RVA23 have also been ratified. This blog will examine the RVA23 profile, including its features, and explain why these features are important for Ubuntu. We’ll also go over how they support the scaling of the RISC-V ecosystem. A future blog will discuss how custom instructions can be supported in Ubuntu.
+What is a profile?
+As explained above, a profile is a set of ratified extensions.  An extension is given an identifying code, from a single letter (we saw I, M, A, and C earlier) to a string such as “zicsr”. These are concatenated together to form a description of the implementation. However this can become unwieldy, making profiles become a simpler way to describe a more complex feature set. For example, RVA23 expanded would be something like: 
+rv64gc_zicsr_zicntr_zihpm_zicbom_zicbop_zicboz_zicond_zimop_zcmop_zfh_zfa_zawrs_zbc_zvfh_
+zvfhmin_zvbc_zvkg_zvkned_zvknha_zvknhb_zvksed_zvksh_zvkn_zvknc_zvknf_zvkng_zvks_zvksc_zvksf_
+zvksg_zvl128b_zihintpause_zihintntl_svpbmt_svinval_svade_sstc_sscofpmf_ssccptr_sscounterenw_
+shvstvecd_shvswatpa_shgatpa_shcounterenw_shvsvinval_shvstvala_shvsvpbmt_shvsvade
+Which is a bit of a mouthful to keep repeating! A profile solves the above problem as it sets a standard for what needs to be included in a CPU implementation . The above wouldn’t need repeating: all of those extensions would be included by default whenever you see “RVA23”.
+Profiles are defined by the RISC-V Profiles Task group where experts from across the industry agree on what features make sense to include by considering the target application space for that profile. 
+The importance of profiles for ecosystem growth
+For RISC-V to thrive and grow, it needs a strong software ecosystem. While developers and enthusiasts might be willing to compile code from scratch for every different CPU, this quickly becomes limiting for larger organizations. Profiles create a target that both software and hardware developers can agree on, guaranteeing portability of software compiled to target RVA23 across different implementations. So an RVA23 compatible binary should be able to run on any RVA23 CPU.
+Limitations of Profiles
+While Profiles guarantee a level of binary compatibility, there are aspects of system behaviour that they don’t cover. These include initial boot, device discovery and peripheral drivers. While the code for these will still all be RVA23 compliant, it may not be portable between different implementations. RISC-V International technical working groups are also acutely aware of this, and working on specifications such as the Server Platform Specification to address items such as interrupt controllers and secure boot, which are outside of the ISA profile specification. For end users developing applications, this is less likely to be a concern, but it does matter to operating system developers or those working on bare metal.
+Key features for modern Linux
+RVA23 introduced two key features that were missing from earlier profiles:
+Hypervisor
+Vectors
+While it was possible for earlier RISC-V implementations to include these as extensions, they were not mandated, so software couldn’t rely on them to be included by default. By moving them into the profile specification for RVA23, software can be optimized to make use of these features. Now let’s look at the benefits of each feature in more detail:
+Hypervisors
+Hypervisors are widely used in many applications. They provide a way for a single physical CPU to emulate multiple virtual machines (VMs) while providing isolation between them. Many end applications don’t need a whole physical CPU to themselves, so this allows for more efficient use of physical CPUs while also providing security between the separate VMs. In a datacentre where a physical CPU might have tens of processor cores, hypervisors are essential to allow efficient scaling.
+Even in small scale clusters of machines, hypervisors and VMs can be used to provide functionality such as machine migration, snapshots and isolation.. Several Canonical products make use of the hypervisor, and we see mature support for virtualization as a requirement for RISC-V to scale to applications beyond embedded devices.
+Vectors
+While hypervisors are important for scaling to large workloads, vector instructions are about accelerating individual workloads, especially those that are math-intensive. Adding vectors to a CPU incurs a significant amount of additional silicon area, but for workloads that make use of them, this also provides a large performance improvement.
+While vectors are typically associated with heavy math tasks like machine learning and image processing, even the operating system itself uses them for basic chores like copying memory. And for vectors to be available to user space, the kernel still has to be aware of the register file and associated state to manage context switches, so support is needed at the operating system level.
+RISC-V made a conscious design choice for the vector extensions to be scalable. This means that implementations can choose an appropriate vector length and the software will run without needing changes or recompilation. So a smaller in-order CPU might use 64 or 128-bit vectors in hardware, while a server class CPU could use 256 or even wider vectors without needing to recompile code. As with the hypervisor, we see vectors as essential for modern high performance processors from desktop to server.
+For smaller embedded systems, power is often a concern and even small implementations of vectors may consume significant area and power. For this reason the RVB23 profile is also being developed, which removes some of the required features from RVA23.
+Why now?
+Hardware and software are interdependent, and with any new technology they need to be co-developed. Sometimes hardware takes the “build it and they will come” approach, while in other cases it becomes apparent that the hardware is on the way, and techniques such as emulation can be used to develop the software before there is any hardware available. The latter approach also has the benefit of reducing the time to market since software is available as soon as the hardware ships.
+When we announced support for RVA23 in our Ubuntu 25.10 release, there were some questions about the lack of available silicon, but the direction of travel for the industry was obvious and we wanted to be at the forefront of it. When SpacemiT announced their K3 silicon earlier this year, we were ready to support it. I’m sure we’ll see more RVA23 silicon through this year and beyond.
+Conclusion
+For the RISC-V ecosystem to scale successfully, it needs a stable base profile which is suitable for modern workloads covering use cases up to data centers and servers. The RVA23 profile provides that, and it’s why Canonical moved to requiring RVA23 from Ubuntu 25.10. The Ubuntu 26.04 release introduces Long Term Support (LTS), providing 5 years of support for any user, and up to 15 years of support through Ubuntu Pro. But for those early adopters of RISC-V, we will continue to provide Ubuntu 24.04 LTS which requires the RVA20 profile. This itself will get the same level of LTS support as any other Ubuntu LTS release. 
+Further reading
+RISC-V RVA23 profile specification
+RISC-V profiles documentation
+    Get in touch
+    Interested in running Ubuntu in your organization?
+              Newsletter signup
+              Get the latest Ubuntu news and updates in your inbox.
+                Work email:
+                  *I agree to receive information about Canonical's
+                    products and services.
+                In submitting this form, I confirm that I have read and agree to
+                  Canonical's Privacy Notice
+                  and Privacy Policy.
+                Website:
+                Name:
+              Sign up
+            Share on
+        Related posts
+        Evolution of the RISC-V ISA. What next after RVA23?
+        Introduction Releasing the RVA23 specification was a major milestone for the RISC-V community. While it provides an excellent baseline for deployment at scale, innovation...
+      Jon Taylor
+      15 September 2026
+        RISC-V 101 – what is it and what does it mean for Canonical?
+        In this blog I will look at some of the drivers for the growth of RISC-V, its value proposition and explain why supporting RISC-V is important to Canonical.
+      Jon Taylor
+      7 April 2026
+        Canonical and Ubuntu RISC-V: a 2025 retro and looking forward to 2026
+        2025: From RISC-V enablement to real execution 2025 was the year that RISC-V readiness gave way to RISC-V adoption. It’s been quite a journey. What began years ago as early...
+      Canonical
+      27 February 2026
+        SpacemiT announces the availability of  Ubuntu on K3/K1 series RISC-V AI computing platforms
+        SpacemiT (Hangzhou) Technology Co., Ltd. today announced a collaboration with Canonical to make Ubuntu available on SpacemiT’s new K3 SoC and the existing K1 series RISC-V...
+      Canonical
+      5 February 2026
+          OpenStack
+          OpenStack
+      Install
+      Support
+          Ceph
+          Ceph
+      What is Ceph
+      Managed
+      Consulting
+      Docs
+      Install
+          Kubernetes
+          Kubernetes
+      What is Kubernetes
+      Managed
+      Install
+      Docs
+      Resources
+          Managed infrastructure
+          Managed infrastructure
+      Managed apps
+          AI / ML
+          AI / ML
+      Consulting
+      Data Science
+          Robotics
+          Robotics
+      ROS ESM
+      What is ROS
+      Community
+      Docs
+          IoT
+          IoT
+      App store
+      Embedded Linux
+      Management
+          Ubuntu Core
+          Ubuntu Core
+      Features
+      Success stories
+      Services
+      Docs
+          Ubuntu Desktop
+          Ubuntu Desktop
+      Organizations
+      Developers
+      Flavors
+          Ubuntu Server
+          Ubuntu Server
+      Hyperscale
+      Docs
+          Cloud
+          Cloud
+      What is cloud computing
+      What is private cloud
+      What is hybrid cloud
+      What is multi-cloud
+      Public cloud
+          Security
+          Security
+      Platform Security
+      ESM
+      Livepatch
+      Security standards
+      CVEs
+      Notices
+      Assurances
+          Landscape
+          Landscape
+      Features
+      Managed
+      Compare
+      Install
+      Docs
+      Log in to Landscape
+          Containers
+          Containers
+      What are containers
+      Chiseled Ubuntu
+      Chiseled and .NET
+      Container Build Service
+      Rockcraft
+      Docs
+          Downloads
+          Downloads
+      Desktop
+      Server
+      WSL
+      Core
+      Cloud
+          Support
+          Support
+      Your subscriptions
+      Account users
+      Pricing
+      Discourse
+      Firefighting support
+          Pricing
+          Pricing
+      Ubuntu Pro Subscription
+      Desktop provisioning
+      Devices
+          Solutions
+              AI
+              Data
+              Infrastructure
+              Managed Infrastructure
+              Open source security
+              IoT and devices
+              Cloud native development
+          Sectors
+              Automotive
+              Industrial
+              Public sector
+              Telco
+              Finance
+          Contact us
+              About us
+              Community
+              Careers
+              Blog
+              Resources
+              Press center
+    © 2026 Canonical Ltd.
+    Ubuntu and Canonical are registered trademarks of Canonical Ltd.
+          Legal information
+          Data privacy
+          Manage your tracker settings
+          Report a bug on this site
+        Back to top
+      Go to the top of the page
+      

@@ -1,0 +1,777 @@
+
+        ‎iTAK App - App Store
+  Search
+          Today
+        Games
+        Apps
+        Arcade
+   Platform
+ iPhone
+ iPad
+ Mac
+ Vision
+ Watch
+ TV
+    iTAK
+ Team Awareness Kit
+  Free · Designed for iPad. Not verified for macOS.
+       Share
+                   156 Ratings
+  3.5
+       Age Rating
+ 4+   Years
+       Chart
+ #180   Navigation
+       Developer
+   United States Department of the Army, TAK Product Center
+       Language
+ EN   English
+       Size
+ 292   MB
+ iPhone, iPad, Apple Watch
+    **Compatible with ALL TAK ecosystem (TAK server, WinTAK, ATAK, WebTAK)**
+The Team Awareness Kit (TAK) (known as the Tactical Assault Kit in the Department of Defense) application:
+iTAK is a collaborative geospatial application to see your teams’ locations, sensor information, videos, chat, and more in real-time.  iTAK supports Department of Defense (DoD) and commercial sector standards for icons, sensor information, and communication. Data can be pre-loaded into iTAK or downloaded from the network (via TAK Server) when available.
+iTAK capabilities include:
+• Online and offline mapping (most standard formats), download the maps right in the app
+• Blue force / team tracking (BFT)
+• Collaborative mapping, including points, drawings, locations of interest
+• Import and display of KML, KMZ, GeoPDF overlays
+• Location marking, sharing, with photo tagging
+• Chat, file sharing, photo sharing
+• Live video streaming with the ability to share video links
+• Spotted map to mark and share multiple locations across your map
+• Digital pointer to rapidly mark and share items on the map with your team
+• Navigation-walking/hiking, driving, also useful flying and air-ground coordination
+• Center on self or other objects (e.g. another person in the network)
+• Range, bearing measurement tools
+• Team Emergency Beacons
+• Customizable toolbar
+• 3D perspective
+• All data is secured and fully compatibility with the TAK ecosystem (ATAK, TAK Server, WinTAK)
+• Useful for law enforcement, first responders, hunting, fishing, ornithology, wildlife site survey
+System Requirements
+Operating System: iOS version 17 and later.
+ more
+      Ratings & Reviews
+     3.5
+ out of 5
+ 156 Ratings
+                Stripped Down ATAK but coming along
+ 09/14/2022   FISH5742
+   I’ve been following this project for a while. There have been leaps & bounds. While there is still some to be desired with iTAK. It is a great option & allows compatibility with the TAK servers. I would like to see this become as fully capable as ATAK some day. Right now I currently wish that I could upload packages to the server from iTAK. One bug I noticed is that even if I’ve read a message through the chat tool, the notification still shows until I go to notifications to read it. It would be nice if the notifications cleared no matter how I got there. Thanks TAK TEAM! Keep it going. Let’s get this puppy fully functional!
+  Developer Response   Thanks for the feedback. We're looking into this package bug you described. Fix coming soon!!
+ Stripped Down ATAK but coming along
+ 09/14/2022   FISH5742
+ I’ve been following this project for a while. There have been leaps & bounds. While there is still some to be desired with iTAK. It is a great option & allows compatibility with the TAK servers. I would like to see this become as fully capable as ATAK some day. Right now I currently wish that I could upload packages to the server from iTAK. One bug I noticed is that even if I’ve read a message through the chat tool, the notification still shows until I go to notifications to read it. It would be nice if the notifications cleared no matter how I got there. Thanks TAK TEAM! Keep it going. Let’s get this puppy fully functional! Developer Response 09/23/2022
+ Thanks for the feedback. We're looking into this package bug you described. Fix coming soon!!
+     Convenient but Buggy
+ 09/26/2024   Marquette Weston
+   Lemme explain, it’s convenient because it being a free app and I enjoy using it when I need it. Lately I’ve been having problems with the app crashing once I upload a file from my downloads. It happens almost 9/10 of the time. When it works for me it’s just fine. I also have issues when I want to change the maps, it would crash when I try to put Hybrid or whatever map I choose. I’d have to open the app and it would continue to crash and not allow me to even access the app because the screen will be dark. There’s times I have had to delete and install the app multiple times to get it to work. Not to mention my connection is usually good. Another thing, once the app begins to work fine for me one day, if I close out of it and try to use it again the next day, the whole buggy process starts over again. I’d have to uninstall the app the next day I use it just to use it for that specific day again. I hope this gets resolved, as I said before the app is convenient and I enjoy using it when it’s working just fine and not buggy.
+ Convenient but Buggy
+ 09/26/2024   Marquette Weston
+ Lemme explain, it’s convenient because it being a free app and I enjoy using it when I need it. Lately I’ve been having problems with the app crashing once I upload a file from my downloads. It happens almost 9/10 of the time. When it works for me it’s just fine. I also have issues when I want to change the maps, it would crash when I try to put Hybrid or whatever map I choose. I’d have to open the app and it would continue to crash and not allow me to even access the app because the screen will be dark. There’s times I have had to delete and install the app multiple times to get it to work. Not to mention my connection is usually good. Another thing, once the app begins to work fine for me one day, if I close out of it and try to use it again the next day, the whole buggy process starts over again. I’d have to uninstall the app the next day I use it just to use it for that specific day again. I hope this gets resolved, as I said before the app is convenient and I enjoy using it when it’s working just fine and not buggy.
+     Handy app
+ 02/17/2023   JC3443
+   I really like the concept and overall it’s pretty well done. One issue I have is when creating a point of interest I am unable to rename it from the default. I can change the coordinates, add comments, and add a photo but the window will not allow me to scroll up to access the name. Quite frustrating as this seems like a minor coding issue but it makes it difficult to determine what a point represents without clicking on it.
+ Handy app
+ 02/17/2023   JC3443
+ I really like the concept and overall it’s pretty well done. One issue I have is when creating a point of interest I am unable to rename it from the default. I can change the coordinates, add comments, and add a photo but the window will not allow me to scroll up to access the name. Quite frustrating as this seems like a minor coding issue but it makes it difficult to determine what a point represents without clicking on it.
+     It’s great, but lacks the features of ATAK
+ 08/02/2025   K9|Blue
+   iTAK is a fantastic app. It’s easy to use, fairly intuitive. My only real problem with it is that for some reason, GRG does not work & the ability to call a casevac isn’t there. That’s not the end of the world for most people, but it is a feature I’d like to see. However, the core functions are present and work really well. The only problems you’ll have is with your server.
+ It’s great, but lacks the features of ATAK
+ 08/02/2025   K9|Blue
+ iTAK is a fantastic app. It’s easy to use, fairly intuitive. My only real problem with it is that for some reason, GRG does not work & the ability to call a casevac isn’t there. That’s not the end of the world for most people, but it is a feature I’d like to see. However, the core functions are present and work really well. The only problems you’ll have is with your server.
+      What’s New
+ Version History
+   This app has been updated by Apple to prepare for watchOS 27 compatibility. No new features are included.
+- fixes bug causing Data Sync mission sync to fail if the mission contains a chat message
+- fixes bug causing Server enrollment to fail when using manual credential entry
+- adds re-enrollment option when server connections fail
+- corrected SA CoT types to match ATAK
+- adds support for QR Code enrollment using predefined JSON string format (Support the TAK Registration QR Code · Issue #66 · flighttactics/TAKTracker )
+- alphabetizes Tak Channels list (a-z)
+ 2.12.3 08/08/2025
+  New Features:
+- adds map object deconfliction to handle selection of stacked map objects
+- adds ability to export map items as a KML/KMZ
+Bug Fixes:
+- fixed issue causing Dark Green and Dark Blue team color to default to white
+- fixed issue causing toolbar to appear blank when dismissing view while keyboard is open
+ 2.12.2 06/13/2025
+  New Features:
+- reworks TAK Channels to only rely on network API calls for channel data (removes persistence and will be session based like all other TAK platforms)
+- adds listener for TAK Channels server side configuration changes
+- converts all known legacy tool UI to modern drawer UI
+- add network listener for Data Sync to enable and disable certain features based on network availability
+- adds automatic Data Sync re-sync support when reestablishing network connection
+Bug Fixes:
+- fixes bug causing line length to appear as 0 when creating a custom line shape
+- fixes bug causing Tac 12 UI to become unresponsive
+- fixes bug causing certain data packages not to parse and save correctly if an iconset path is not present
+Known Bugs:
+Closing a drawer with the virtual keyboard open will cause the toolbar to remain white with no tools visible. To Fix: Scroll the toolbar left or right or tap on the map to hide the toolbar and then tap again on the map to show the toolbar again.
+ 2.12.1 05/30/2025
+  New Features
+- Data Sync - Completely reworked the Data Sync tool with updated UI and additional functionality:
+   - Now supports password protected missions
+   - Automatic updates when editing markers that are part of a mission
+   - Edit markers from within Data Sync mission
+   - Stay synced even when iTAK application is not running, on start up will resync mission
+- Allow user to be able to create lines from within Draw Tool
+Bug Fixes
+- XML parsing to allow custom characters (i.e. allow special characters in callsigns)
+- Supports Line custom shape CoT messages
+Known Bugs
+- Lines will sometime have incorrect length shown as 0
+ 2.12.0 05/07/2025
+  - updates Video Stream creation and edit UI
+- adds ability to add username and password to Video Stream
+- fixes bug causing Video Stream sharing to fail
+- fixes bug causing GeoPDF sharing to fail
+- fixes bug causing Markers with attachments to not be received properly
+ 2.11.1 03/28/2025
+  - resolves crash when syncing shapes in a data sync mission
+- resolves issue causing breadcrumbs to remain after deleting associated shape or route
+- resolves issue where sharing mission packages to other contacts and server upload fails
+- resolves issues causing map objects in mission packages not to render on map when receiving
+- fixes issue causing incorrect magnetic bearing calculations
+- resolves issue causing multi select to not select proper items
+ 2.11.0 03/17/2025
+  - resolved issue causing iTAK to occasionally freeze on startup
+- resolved issue causing ldap server enrollment with QR code to fail
+- adds ability for Tak Channels enrollment on ldap server packages
+- resolved issue causing map items added to Data Sync mission to not appear in mission after uploading to server
+- improves Data Sync performance
+ 2.10.3 02/07/2025
+  - resolved issue causing ldap server enrollment with QR code to fail
+- adds ability for Tak Channels enrollment on LDAP server packages
+- resolved issue causing map items added to Data Sync mission to not appear in mission after uploading to server
+- improves Data Sync error handling and performance
+ 2.10.2 02/04/2025
+  - supports loading files with .dpk extension
+- supports Geo Ops iconset
+- adds badge counter to Chat toolbar item to display unread message count
+ 2.10.1 01/15/2025
+  Layers Rework:
+- The layers menu now exists within a resizable drawer
+- Only shows folders when map objects of that type exist
+- Allows for multi select throughout the layers menu
+- Multi selected items can be deleted simultaneously
+- Multi selected items can be shared simultaneously
+- Map items can now be created from the root Layers menu
+Resolved Issues:
+- Fixed not being able to allow push notifications if skipped during onboarding.
+- Fixed iTAK not prompting to Always Allow location service
+- Fixed issue where tapping on a hidden item centered the screen on that item, but did not unhide it
+- Fixed issue where RTSP videos were sometimes not playing
+- Fixed issue where the video player was not showing video controls while streaming RTSP feeds
+- Fixed marker notifications giving an error that the marker does not exit.
+- Fixed map objects for CoT such as b-m-p-s-p-loc and b-m-p-s-p-op not showing up.
+- Fixed not be able to swipe to delete stops in Navigation.
+- Fixed iTAK freeze when rotating the device while the keyboard is open.
+- Fixed incorrect azimuth readings from LRF.
+- Improved the details view covering a selected map object.
+ 2.10.0 12/18/2024
+  - RTSPS stream stability improvements
+- RTMPS stream support
+- adds broadcast support for all map objects
+- fixes crash when parsing certain KML files
+- fixes issue causing COT File Share from other TAK clients to fail
+ 2.9.6 11/27/2024
+  New Features
+Gotenna Integration:
+- ITAK is now integrated with the GoTenna Plugin and will support connecting to a GoTenna network
+- Connect to a network using GoTenna Plugin and GoTenna Pro radios
+- Share and Receive current location
+- Share and Receive markers
+- Share and Receive routes
+- Share and Receive shapes
+- Supports single or group chat messages
+Breadcrumbs:
+Allows users to create a Breadcrumb trail
+- Trails can be created from the user’s location, a contact’s location, or from any marker
+- To access the tool, look for the new Breadcrumb icon in the user/contact/marker panel
+- Breadcrumb drop frequency can be adjust in Settings > Tools > Breadcrumbs
+- When ready, the user can save the trail as either a Route or a Shape
+- Breadcrumbs can be toggled on/off on the Route/Shape as desired
+Resolved Issues:
+- Adds support for RTSPS video streams
+- Fixes empty channel list when using TAK Channels
+- Resolves TAK Channels channel list crashes
+- Map item performance improvements
+- Resolved scenarios when a TAK Server connection displays as not connected, but is or should be connected.
+- Resolved delay sending device SA message on startup.
+- Resolved issue where mission packages that only contained a basemap would fail to import.
+- Resolved issue where mission packages that contain an image capture from the camera were incompatible with WinTAK.
+ 2.9.5 11/12/2024
+  New Features
+Gotenna Integration:
+- ITAK is now integrated with the GoTenna Plugin and will support connecting to a GoTenna network
+- Connect to a network using GoTenna Plugin and GoTenna Pro radios
+- Share and Receive current location
+- Share and Receive markers
+- Share and Receive routes
+- Share and Receive shapes
+- Supports single or group chat messages
+Breadcrumbs:
+Allows users to create a Breadcrumb trail
+- Trails can be created from the user’s location, a contact’s location, or from any marker
+- To access the tool, look for the new Breadcrumb icon in the user/contact/marker panel
+- Breadcrumb drop frequency can be adjust in Settings > Tools > Breadcrumbs
+- When ready, the user can save the trail as either a Route or a Shape
+- Breadcrumbs can be toggled on/off on the Route/Shape as desired
+Resolved Issues:
+- Adds support for RTSPS video streams
+- Fixes empty channel list when using TAK Channels
+- Resolves TAK Channels channel list crashes
+- Map item performance improvements
+- Resolved scenarios when a TAK Server connection displays as not connected, but is or should be connected.
+- Resolved delay sending device SA message on startup.
+- Resolved issue where mission packages that only contained a basemap would fail to import.
+- Resolved issue where mission packages that contain an image capture from the camera were incompatible with WinTAK.
+ 2.9.4 11/09/2024
+  Resolved Issues:
+- Fixed issue if there is a video element in the marker CoT, the marker did not display on the map. The video can be played from the marker details by tapping the “Play Video” button in the action menu (three dots buttons).
+- Resolved issue where after adding a marker to a Data Sync mission and saving, the marker’s icon was changed to the default unknown ground icon.
+- Resolved issue where Data Sync mission content was broadcasted out to all users including those not subscribed to the mission.
+- Resolved issue when a Data Sync mission contained markers that had the same attachment, the attachment would only be added to a single marker.
+- Resolved channels not showing up in TAK Channels list.
+- Resolved crashes when accessing TAK Channels list.
+ 2.9.3 10/22/2024
+  Resolved Issues:
+- fixed TAK Channels not listing all available changes for some users.
+- fixed issue causing QR code server enrollment to fail
+- fixed issue causing drawers in landscape to show two action menu icons
+- sets go to zoom to a predefined level
+- fixed issue causing tracked widget button to remain after a track has been removed or stales out
+- fixed issue causing top drawer and poly line to remain after a contact stales out during bloodhound
+- fixed issue causing selected icon image not to show up next to name when using the point dropper tool
+- fixed some CoT messages received from the TAK Server being dropped.
+- fixed drawer not dismissing when the associated marker stales out from the map.
+- fixed the close, fullscreen, and mute buttons in the video player being unresponsive.
+- fixed the video player not being appropriately sized on larger displays.
+- fixed pinching the video player to resize from being overly sensitive.
+- fixed video streams not restarting when the network connection is lost and regained.
+- fixed duplicate chat messages displaying in General/All Chat Rooms.
+- fixed chat messages not displaying in General/All Chat Rooms when sender contact is unavailable.
+- fixed issue in Point Dropper where markers could not be placed until switch to Spotted Map and then back to Markers.
+- fixed Data Sync Missions not saving if the name has a space at end of it.
+- fixed an issue where some Data Sync Mission are unable to be deleted.
+- fixed issue when searching for a marker in Data Sync, the wrong marker was added.
+TAK server connection UI:
+- fixed issue causing keyboard to block textfield when entering username and password
+- fixed issue causing loading indicator to hand when connecting to a server
+- fixed issue where connection status doesn't sometimes doesn't update when toggled
+Data Sync:
+- fixed Data Sync Missions not saving if the name has a space at end of it.
+- fixed an issue where some Data Sync Mission are unable to be deleted.
+- fixed issue when searching for a marker in Data Sync, the wrong marker was added.
+ 2.9.2 07/31/2024
+  Hotfixes:
+- fixes issue causing checkmark images not to load in geofencing ui
+- fixes QR code server enrollment
+ 2.9.1 05/09/2024
+  ----New Features----
+Files Tool
+Files loaded are now centralized into the files tool, rather than being maintained by each tool individually
+Files can be loaded from device memory or downloaded from a remote link
+Users can view properties of loaded files such as the size and creation date
+Files are sorted into appropriate subfolders based on their file extension.
+Marker Palettes / Icon Sets
+User can load an icon set that has a valid iconset.xml
+Note: Marker Palettes without an iconset.xml are not supported at this time
+Markers can be updated to use icons from a loaded icon set.
+Included is FEMA, Default, Falconview, Incident Management, Numbers, OSM, Public Safety Air, Responder, and GeoOps iconsets.
+Point Dropper
+Adds Point Dropper tool to successively drop markers.
+Merged Spotted Map tool into Point Dropper tool.
+----Resolved Issues----
+Fixed an issue where multiple bloodhound lines could be generated if the first was not correctly terminated.
+Fixed toolbar items not respecting specified order.
+Fixed overlays flickering when interacting with the map using the satellite or hybrid map sources.
+Fixed overlays not being able to be downloaded from URLs that do not contain a file extensions.
+Fixed not be able to set the color before drawing a shape.
+Fixed geofence notification not respecting the updated shape name.
+Fixed marker with attachments, overlays, and files failing to share over the mesh network.
+Fixed private chats appearing a general with all the messages showing as sent from the current user when the recipient Contact stales out.
+Fixed overlays appearing below a custom map source like Google Hybrid.
+Fixed an issue where it was not possible to select contacts to add to a group chat.
+Fixed marker icons not being a uniform size.
+Fixed an issue where a videos url was incomplete when downloaded from a server.
+Fixed an issue where certain settings were not being saved.
+Fixed video playback not recovering after a connection is lost and regained.
+----Improved Features----
+TAK Server Configuration
+Updated the UI to follow modern iOS design system.
+Updated the UI to better show that status of the connection.
+Configurations add can now be edited.
+Go To
+Search history is saved for addresses.
+Updated UI to be in line with navigation.
+Adds the options to drop an unknown ground marker at the selected location.
+Navigation
+Search history is saved for addresses.
+ 2.9.0 04/24/2024
+  2.8.1 Hot Fix - Fixes a sharing bug that causes contacts to be deselected.
+New Features
+Streaming KML/KMZ
+Adds the functionality for KML/KMZ files import for a network link to be automatically synced at a user specified interval.
+Kestrel Weather Monitoring
+-Adds Bluetooth Compatibility with Kestrel Fire Weather Pro Weather Monitoring Device
+-Includes Bluetooth device icon button to display loaded information.
+-Includes automatic and manual Kestrel Marker creation, update, and sharing
+-Includes ability to export saved time-based weather data
+Geofences
+-Adds Geofence capability to Shapes Options Button
+-Includes the functionality to set, activate, deactivate a Geofence in Action Menu
+-Includes the functionality to set what types of geofence triggers are monitored by the geofence.
+Resolved Issues
+-Fixed the top drawer obstructing the widget view.
+-Fixed the bottom drawer obstructing the selected map object.
+-Fixed not being able to customize the order of plugin tools.
+-Fixed shared rulers not drawing on the map.
+-Fixed issue where map objects would not stay in sync between iPhone and Apple Watch.
+-Fixed issue where CoT messages sent to the server contained new lines.
+-Fixed issue where creating a Data Sync mission would fail on TAK Servers that have channels.
+-Fixed issue where Data Sync mission that require a password to subscribe to were not appearing in the available missions list.
+-Fixed shared routes and custom shapes not updating.
+Improved Features
+Stale Out Time
+-Markers and contacts that stale out can now be greyed out for a configurable number of minutes before being removed
+Markers UI
+-Adds Marker UI updates
+-Adds remarks field, close button, and action menu button to Marker details view.
+-Action menu provides actions to add to packages, share with contacts, track marker, hide element -visibility, edit, and delete marker
+Shapes UI
+-New Workflow for initial Shape Selection and Creation
+-Applies Marker Drawer Action Menu updates to Shapes Tool
+-Adds Rectangle Creation to Shapes Tool
+-Adds Outline Customization to Shapes Tool
+Layers Overlay
+-Adds functionality to export Overlays.
+-Adds functionality to import an Overlay from a network link.
+Adds functionality to auto refresh the Overlay at a specified interval.
+TAK Channels
+-Markers received from a channel are removed when unsubscribing from the channel instead of waiting for the stale time.
+-Channels for a server are ordered alphabetically.
+-Non TAK Channels compatible servers are no longer shown in server list
+Navigation
+-Fixed issue where destination Markers are created on the Apple Watch
+-Fixed issues where My Current Location or Marker Locations would incorrectly populate under Directions
+Apple Watch
+-Fixed issue where Markers created on the watch were not intractable on the phone.
+-Resolved by ITSCoTMapObject
+-Fixed issue where Markers created on the watch did not have a unique name.
+-Fixed issue where navigation related markers were published to the watch.
+ 2.8.1 12/19/2023
+  New Features
+Streaming KML/KMZ
+Adds the functionality for KML/KMZ files import for a network link to be automatically synced at a user specified interval.
+Kestrel Weather Monitoring
+-Adds Bluetooth Compatibility with Kestrel Fire Weather Pro Weather Monitoring Device
+-Includes Bluetooth device icon button to display loaded information.
+-Includes automatic and manual Kestrel Marker creation, update, and sharing
+-Includes ability to export saved time-based weather data
+Geofences
+-Adds Geofence capability to Shapes Options Button
+-Includes the functionality to set, activate, deactivate a Geofence in Action Menu
+-Includes the functionality to set what types of geofence triggers are monitored by the geofence.
+Resolved Issues
+-Fixed the top drawer obstructing the widget view.
+-Fixed the bottom drawer obstructing the selected map object.
+-Fixed not being able to customize the order of plugin tools.
+-Fixed shared rulers not drawing on the map.
+-Fixed issue where map objects would not stay in sync between iPhone and Apple Watch.
+-Fixed issue where CoT messages sent to the server contained new lines.
+-Fixed issue where creating a Data Sync mission would fail on TAK Servers that have channels.
+-Fixed issue where Data Sync mission that require a password to subscribe to were not appearing in the available missions list.
+-Fixed shared routes and custom shapes not updating.
+Improved Features
+Stale Out Time
+-Markers and contacts that stale out can now be greyed out for a configurable number of minutes before being removed
+Markers UI
+-Adds Marker UI updates
+-Adds remarks field, close button, and action menu button to Marker details view.
+-Action menu provides actions to add to packages, share with contacts, track marker, hide element -visibility, edit, and delete marker
+Shapes UI
+-New Workflow for initial Shape Selection and Creation
+-Applies Marker Drawer Action Menu updates to Shapes Tool
+-Adds Rectangle Creation to Shapes Tool
+-Adds Outline Customization to Shapes Tool
+Layers Overlay
+-Adds functionality to export Overlays.
+-Adds functionality to import an Overlay from a network link.
+Adds functionality to auto refresh the Overlay at a specified interval.
+TAK Channels
+-Markers received from a channel are removed when unsubscribing from the channel instead of waiting for the stale time.
+-Channels for a server are ordered alphabetically.
+-Non TAK Channels compatible servers are no longer shown in server list
+Navigation
+-Fixed issue where destination Markers are created on the Apple Watch
+-Fixed issues where My Current Location or Marker Locations would incorrectly populate under Directions
+Apple Watch
+-Fixed issue where Markers created on the watch were not intractable on the phone.
+-Resolved by ITSCoTMapObject
+-Fixed issue where Markers created on the watch did not have a unique name.
+-Fixed issue where navigation related markers were published to the watch.
+ 2.8 11/20/2023
+  - bug fixes
+   - fixes issue causing map objects to be out of sync between iPhone and paired Apple Watch
+   - fixes issue causing top drawer to block widget view
+   - fixes issue causing search coordinate input bar to be hidden in navigation
+   - fixes issue causing widget buttons to be misaligned when top drawer is closed
+ 2.7.1 09/26/2023
+  Markers
+Updates UI, X Close button is removed and closes with down swipe.
+Adds Directions Button for Navigation
+UDP Multicast
+Adds support for Peer-to-Peer communication between individual Callsigns
+Adds support for Chat and Packages
+Bug Fix to remove UDP Channels from Server lists, additional fixes
+TAK Server Channels
+Adds functionality to allow iTAK Users set up on LDAP Servers to select specific channels for data feed
+List existing channels for non-LDAP Servers
+Indoor mapping
+Import IMDF files
+3D scan a room with LIDAR and georeferenced on the map
+Bloodhound
+Add functionality to allow users to bloodhound to map objects
+Adds functionality to blood hound using Apple Watch
+Apple Watch
+Adds functionality to Apple Watch for iTAK users
+Navigation
+Dynamic routing with Turn by Turn directions
+- Bug fixes to improve stability
+- Bug fix for navigation to markers
+- Bug updates to navigation feature
+- Bug updates to indoor mapping feature
+- Bug fix to emergency beacon
+ 2.7 06/16/2023
+  New Architecture Structure with SDK for plugin development
+LRF
+- adds auto share toggle to share LRF measurements automatically with all users on connected server
+- fixes bug causing magnetic deviation adjustments to not register with measurements
+- updates ui
+Custom Routing
+- reworks custom route navigation ui to display both eta to destination and eta to next checkpoint
+- improves eta calculation accuracy
+- fixes crashing bug when converting double eta value to int value
+ArcGIS
+- fixes crashing bug when polygon collection is empty
+MDM
+- adds functionlity to allow iTAK to be preconfigured with a TAK server when installing using a supported MDM provider
+- MDM administrator can also add, remove, update, and replace server configurations
+UDP
+- adds support for UDP communication (Multicast) for SA only
+-general core data threading bug fixes and improvements
+-bug fixes from migration to new architecture
+ 2.5 03/03/2023
+  Fixes Data Package bug and other hot fixes
+ 2.4.1 12/22/2022
+  - includes ArcGIS feature for support of ArcGIS Portal content
+- includes Laser Range Finder support for Terrapin X device.
+- FOV cone for sensors and link line to SPI
+- Fixes bug where DataSync mission could not be updated. Missions that have trouble updating may need to be deleted and re-subscribed to.
+- Fixes bug where Spotted Maps received from ATAK were white.
+- Fixes the navigate-to-contact line not sticking ti the contact as their location changes.
+- Fixes bug causing markers not to stale out
+- adds Dynamic Location Reporting preference
+- adds Magnetic Bearing toggle
+ 2.4 12/01/2022
+  Data Sync
+- create new missions and sync existing missions from tak server
+- add/remove geospatial elements (markers, routes, rulers, shapes)
+- add/remove attachments (overlays, images, files)
+- collaborate in real time and stay in sync with other subscribed users
+- receive updates for mission changes in real time
+- change log keeps track of any additions or removals made by other subscribed users
+Tactical Twelve
+- Create/remove tac twelve overlays
+- Add/remove to mission packages
+- Share tac twelves with contacts
+- Edit the direction, radius and color of tac twelve
+- Ability to save as KMZ file
+ 2.3 10/14/2022
+     This app has been updated by Apple to prepare for watchOS 27 compatibility. No new features are included.
+- fixes bug causing Data Sync mission sync to fail if the mission contains a chat message
+- fixes bug causing Server enrollment to fail when using manual credential entry
+- adds re-enrollment option when server connections fail
+- corrected SA CoT types to match ATAK
+- adds support for QR Code enrollment using predefined JSON string format (Support the TAK Registration QR Code · Issue #66 · flighttactics/TAKTracker )
+- alphabetizes Tak Channels list (a-z)
+ more
+ Version 2.12.3 08/08/2025
+      App Privacy
+ App Privacy
+ The developer, United States Department of the Army, TAK Product Center, indicated that the app’s privacy practices may include handling of data as described below. This information has not been verified by Apple. For more information, see the   developer’s privacy policy  .
+ To help you better understand the developer’s responses, see   Privacy Definitions and Examples  .
+Privacy practices may vary, for example, based on the features you use or your age.   Learn More
+         Data Not Collected
+ The developer does not collect any data from this app.
+ The developer, United States Department of the Army, TAK Product Center, indicated that the app’s privacy practices may include handling of data as described below. For more information, see the   developer’s privacy policy  .
+            Data Not Collected
+ The developer does not collect any data from this app.
+    Privacy practices may vary, for example, based on the features you use or your age.   Learn More
+      Accessibility
+ The developer has not yet indicated which accessibility features this app supports.   Learn More
+      Information
+  Seller United States Department of the Army, TAK Product Center
+Size 292 MB
+Category Navigation
+Compatibility Requires iOS 17.6 or later.   iPhoneRequires iOS 17.6 or later.
+iPadRequires iPadOS 17.6 or later.
+MacRequires macOS 14.6 or later and a Mac with Apple M1 chip or later.
+Apple VisionRequires visionOS 1.3 or later.
+Apple WatchRequires watchOS 9.6 or later.
+Location This app may use your location even when it isn’t open, which can decrease device battery life.
+Languages English
+Age Rating 4+   4+
+  Learn More
+Copyright © 2026 TAK Product Center
+    Developer Website
+Privacy Policy
+      You Might Also Like
+              View
+    TAK Tracker
+   Lightweight tracking for TAK
+     View
+    TAK Aware
+   Situational Awareness for TAK
+     View
+    Mgrs & Utm Map
+   Navigation
+     View
+    CalTopo: Backcountry Mapping
+   Route Planning & Navigation
+     View
+    GuideOn Military
+   Travel
+     View
+    Garmin Explore™
+   Explore with a Garmin device
+     View
+    TACNAV-X: Military Navigation
+   Tactical NAV & MGRS Grid GPS
+     View
+    DroneSense
+   Public Safety Drone Platform
+     View
+    Coordinates – GPS Converter
+   Lat/Lon to UTM, MGRS, and more
+     View
+    Spartan Forge: Hunt
+   Hunt, Scout, Map, and America
+    United States Español (México)
+العربية
+Русский
+简体中文
+Français (France)
+한국어
+Português (Brazil)
+Tiếng Việt
+繁體中文 (台灣)
+   Select a country or region
+ Africa, Middle East, and India
+ See All
+ Algeria
+Angola
+Armenia
+Azerbaijan
+Bahrain
+Benin
+Botswana
+Burkina Faso
+Cameroun
+Cape Verde
+Chad
+Côte d’Ivoire
+Congo, The Democratic Republic Of The
+Egypt
+Eswatini
+Gabon
+Gambia
+Ghana
+Guinea-Bissau
+India
+Iraq
+Israel
+Jordan
+Kenya
+Kuwait
+Lebanon
+Liberia
+Libya
+Madagascar
+Malawi
+Mali
+Mauritania
+Mauritius
+Morocco
+Mozambique
+Namibia
+Niger (English)
+Nigeria
+Oman
+Qatar
+Congo, Republic of
+Rwanda
+São Tomé and Príncipe
+Saudi Arabia
+Senegal
+Seychelles
+Sierra Leone
+South Africa
+Sri Lanka
+Tajikistan
+Tanzania, United Republic Of
+Tunisia
+Turkmenistan
+United Arab Emirates
+Uganda
+Yemen
+Zambia
+Zimbabwe
+ Asia Pacific
+ See All
+ Afghanistan
+Australia
+Bhutan
+Brunei Darussalam
+Cambodia
+中国大陆
+Fiji
+香港
+Indonesia (English)
+日本
+Kazakhstan
+대한민국
+Kyrgyzstan
+Lao People's Democratic Republic
+澳門
+Malaysia (English)
+Maldives
+Micronesia, Federated States of
+Mongolia
+Myanmar
+Nauru
+Nepal
+New Zealand
+Pakistan
+Palau
+Papua New Guinea
+Philippines
+Singapore
+Solomon Islands
+台灣
+Thailand
+Tonga
+Turkmenistan
+Uzbekistan
+Vanuatu
+Vietnam
+ Europe
+ See All
+ Albania
+Armenia
+Österreich
+Belarus
+Belgium
+Bosnia and Herzegovina
+Bulgaria
+Croatia
+Cyprus
+Czechia
+Denmark
+Estonia
+Finland
+France (Français)
+Georgia
+Deutschland
+Greece
+Hungary
+Iceland
+Ireland
+Italia
+Kosovo
+Latvia
+Lithuania
+Luxembourg (English)
+Malta
+Moldova, Republic Of
+Montenegro
+Nederland
+North Macedonia
+Norway
+Poland
+Portugal (Português)
+Romania
+Россия
+Serbia
+Slovakia
+Slovenia
+España
+Sverige
+Schweiz
+Türkiye (English)
+Ukraine
+United Kingdom
+ Latin America and the Caribbean
+ See All
+ Anguilla
+Antigua and Barbuda
+Argentina (Español)
+Bahamas
+Barbados
+Belize
+Bermuda
+Bolivia (Español)
+Brasil
+Virgin Islands, British
+Cayman Islands
+Chile (Español)
+Colombia (Español)
+Costa Rica (Español)
+Dominica
+República Dominicana
+Ecuador (Español)
+El Salvador (Español)
+Grenada
+Guatemala (Español)
+Guyana
+Honduras (Español)
+Jamaica
+México
+Montserrat
+Nicaragua (Español)
+Panamá
+Paraguay (Español)
+Perú
+St. Kitts and Nevis
+Saint Lucia
+St. Vincent and The Grenadines
+Suriname
+Trinidad and Tobago
+Turks and Caicos
+Uruguay (English)
+Venezuela (Español)
+ The United States and Canada
+ See All
+ Canada (English)
+Canada (Français)
+United States
+Estados Unidos (Español México)
+الولايات المتحدة
+США
+美国 (简体中文)
+États-Unis (Français France)
+미국
+Estados Unidos (Português Brasil)
+Hoa Kỳ
+美國 (繁體中文台灣)
+ Copyright © 2026 Apple Inc. All rights reserved.
+ Internet Service Terms
+App Store & Privacy
+Cookie Warning
+Support

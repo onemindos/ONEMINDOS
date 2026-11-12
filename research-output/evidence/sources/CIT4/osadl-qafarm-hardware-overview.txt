@@ -1,0 +1,425 @@
+Source: https://www.osadl.org/Hardware-overview.qa-farm-hardware.0.html (accessed 2026-11-11; saved as text; emails/MACs/serials masked)
+
+ 
+ Hardware overview: OSADL - Open Source Automation Development Lab eG 
+ Jump to content Home | Imprint/Privacy policy | Login/Subscribe 
+ Home 
+ Compliance Services 
+ Technical Services 
+ Search 
+ You are here: Home / Technical Services / OSADL QA Farm Real-time / 
+ 2026-11-11 - 13:11
+ OSADL 
+ What is OSADL 
+ How to join 
+ In the Media 
+ Partners 
+ Jobs@OSADL 
+ Logos 
+ Info Request 
+ Events, Seminars & Workshops 
+ OSADL Members 
+ Regular Members 
+ Associate Members 
+ Academic Members 
+ Employed at OSADL Member? 
+ Job Offerings at OSADL Members 
+ Compliance Services 
+ OSADL Open Source Policy Template 
+ OSADL Open Source License Checklists 
+ OSADL FOSS Legal Knowledge Database 
+ Open Source License Compliance Tool Support 
+ OSSelot – The Open Source Curation Database 
+ CRA Compliance Support Projects 
+ OSADL Container Base Image 
+ License Compliance Audit 
+ FOSS Compliance Check 
+ Technical Services 
+ Zephyr Monitoring 
+ Real-time Linux 
+ OSADL QA Farm Real-time 
+ Quality assurance at the OSADL QA Farm 
+ OSADL Linux Add-on Patches 
+ OPC UA PubSub over TSN 
+ Safety Critical Linux 
+ OSADL Technical Tools 
+ Community Projects 
+ Immediate C 
+ Books 
+ OSADL Academic Works 
+ Other Books 
+ HOWTOs 
+ Downloads 
+ Imprint/Privacy policy 
+ Legal documents 
+ OSADL Datenschutzerklärung 
+ OSADL Privacy policy 
+ Search 
+ Login/Subscribe 
+ Dates and Events:
+ electronica 2026 
+ 10.11. - 13.11. 
+ TSN mit Linux in der Praxis – Echtzeit-Ethernet in 10 Schritten 
+ 11.11. 15:00 - 16:00 
+ COOL - Compact OSADL Online Lectures - November 2026 edition 
+ 18.11. 14:00 - 16:00 
+ OSADL Articles:
+ 2024-10-02 12:00 
+ Linux is now an RTOS! 
+ PREEMPT_RT is mainline - What's next?
+ [more] 
+ 2023-11-12 12:00 
+ Open Source License Obligations Checklists even better now 
+ Import the checklists to other tools, create context diffs and merged lists
+ [more] 
+ 2023-03-01 12:00 
+ Embedded Linux distributions 
+ Results of the online "wish list"
+ [more] 
+ 2022-07-11 12:00 
+ Call for participation in phase #4 of Open Source OPC UA open62541 support project 
+ Letter of Intent fulfills wish list from recent survey
+ [more] 
+ 2022-01-13 12:00 
+ Phase #3 of OSADL project on OPC UA PubSub over TSN successfully completed 
+ Another important milestone on the way to interoperable Open Source real-time Ethernet has been reached
+ [more] 
+ 2021-02-09 12:00 
+ Open Source OPC UA PubSub over TSN project phase #3 launched 
+ Letter of Intent with call for participation is now available
+ [more] 
+ go to Archive -> 
+ OSADL QA Farm on Real-time of Mainline Linux
+ About - Hardware - CPUs - Benchmarks - Graphics - Benchmarks - Kernels - Boards/Distros - Latency monitoring - Latency plots - System data - Profiles - Compare - Awards 
+ Overview of the processors under test and system locations
+Processor families: ARM MIPS PowerPC RISC-V x86 
+ Processor family ARM
+Manufacturers: AMD Altera Atmel Broadcom Freescale Hilscher NXP Rockchip Samsung TI Unimap Xilinx 
+ AMD
+ Hierofalcon @2000 MHz : 
+ rack #a/slot #3 
+ Altera
+ CycloneV @550 MHz : 
+ rack #9/slot #2s - rack #9/slot #2 
+ Atmel
+ SAMA5D3 @536 MHz : 
+ rack #7/slot #4 
+ Broadcom
+ BCM2708 @700 MHz : 
+ rack #7/slot #3 
+ BCM2711 @1500 MHz : 
+ rack #2/slot #7s - rack #f/slot #1 - rack #f/slot #1s - rack #9/slot #8 - rack #7/slot #4s - rack #4/slot #1s - rack #4/slot #1 
+ BCM2712 @2400 MHz : 
+ rack #2/slot #7 
+ BCM2835 @1400 MHz : 
+ rack #b/slot #3s 
+ BCM2837 @1200 MHz : 
+ rack #2/slot #5s 
+ XGS : 
+ rack #9/slot #1s 
+ Freescale
+ LS1021A @1200 MHz : 
+ rack #1/slot #4 
+ LS1021A @400 MHz : 
+ rack #1/slot #4s 
+ MPX-LS1046 @1600 MHz : 
+ rack #4/slot #5s 
+ i.MX27 @200 MHz : 
+ rack #2/slot #1 
+ i.MX53 @500 MHz : 
+ rack #4/slot #5 
+ i.MX535 @1000 MHz : 
+ rack #4/slot #6s 
+ Hilscher
+ netx4000 @600 MHz : 
+ rack #2/slot #3s 
+ NXP
+ i.MX6 Quad @996 MHz : 
+ rack #b/slot #7 - rack #b/slot #3 - rack #b/slot #7s 
+ i.MX6UL @528 MHz : 
+ rack #5/slot #7s - rack #5/slot #7 
+ i.MX7 Dual @1000 MHz : 
+ rack #f/slot #8 
+ i.MX8M Plus @1350 MHz : 
+ rack #2/slot #6s 
+ i.MX8M Plus @1600 MHz : 
+ rack #b/slot #5s 
+ i.MX8M_Mini @1800 MHz : 
+ rack #7/slot #3s 
+ i.MX8QM @1300 MHz : 
+ rack #3/slot #4 
+ i.MX8QXP @1200 MHz : 
+ rack #f/slot #5s - rack #f/slot #5 
+ i.MX93 @1700 MHz : 
+ rack #7/slot #2 
+ i.MX95 @2000 MHz : 
+ rack #1/slot #3s 
+ Rockchip
+ RK3588(J) @2400 MHz : 
+ rack #a/slot #4s - rack #a/slot #4 
+ Samsung
+ Exynos5422 @1300/2000 MHz : 
+ rack #a/slot #3s 
+ TI
+ AM3354 @800 MHz : 
+ rack #4/slot #2s - rack #4/slot #2 
+ AM335X @400 MHz : 
+ rack #4/slot #8 - rack #4/slot #8s 
+ AM33XX @600 MHz : 
+ rack #5/slot #5 
+ AM3505 @500 MHz : 
+ rack #8/slot #6 
+ AM3517 @600 MHz : 
+ rack #5/slot #5s 
+ AM437x @1000 MHz : 
+ rack #a/slot #6s 
+ AM5708 @1000 MHz : 
+ rack #e/slot #7s - rack #e/slot #3s - rack #e/slot #7 
+ AM5728 @1000 MHz : 
+ rack #a/slot #5 - rack #a/slot #5s 
+ AM6254 @1400 MHz : 
+ rack #8/slot #2 
+ AM625P @1400 MHz : 
+ rack #8/slot #2s 
+ AM62xx @1400MHz : 
+ rack #e/slot #6s 
+ AM69x @2000 MHz : 
+ rack #a/slot #6 
+ OMAP3359 @1000 MHz : 
+ rack #7/slot #8 - rack #7/slot #8s 
+ OMAP3525 @720 MHz : 
+ rack #2/slot #2 
+ OMAP35xx @1000 MHz : 
+ rack #7/slot #6 
+ OMAP4430 @1000 MHz : 
+ rack #9/slot #7 
+ Unimap
+ UM20A910 @800 MHz : 
+ rack #f/slot #4s 
+ UM21A646-BA @1400 MHz : 
+ rack #f/slot #4 
+ Xilinx
+ Zync @624 MHz : 
+ rack #2/slot #3 
+ Zync @666 MHz : 
+ rack #b/slot #8 
+ Zync Ultrascale @1200 MHz : 
+ rack #1/slot #5 
+ Zynq @667 MHz : 
+ rack #f/slot #6 - rack #f/slot #6s 
+ Processor family MIPS
+Manufacturers: ICT 
+ ICT
+ Loongson-2 @800 MHz : 
+ rack #2/slot #4 
+ Processor family PowerPC
+Manufacturers: Freescale 
+ Freescale
+ MPC5200 @396 MHz : 
+ rack #2/slot #5 - rack #a/slot #7 
+ MPC5200 @400 MHz : 
+ rack #2/slot #8 
+ MPC8349 @533 MHz : 
+ rack #5/slot #6 
+ QorIQ-2020 @1200 MHz : 
+ rack #3/slot #5s 
+ e5500 @1200 MHz : 
+ rack #4/slot #4 
+ Processor family RISC-V
+Manufacturers: PolarFire RVBoards StarFive 
+ PolarFire
+ MPFS250T @600MHz : 
+ rack #7/slot #2s 
+ RVBoards
+ D1 @1000 MHz : 
+ rack #3/slot #2 
+ StarFive
+ VisionFive 2 @1500MHz : 
+ rack #9/slot #8s - rack #3/slot #2s 
+ Processor family x86
+Manufacturers: AMD Intel VIA 
+ AMD
+ 1950X @3700 MHz : 
+ rack #c/slot #8 
+ E1-2100 APU Kabini @2000 MHz : 
+ rack #9/slot #1 
+ G-T48L @1400 MHz : 
+ rack #c/slot #3 
+ Geode @500 MHz : 
+ rack #4/slot #3 
+ K6-3D @350 MHz : 
+ rack #8/slot #1 
+ Ryzen XXXX @3300 MHz : 
+ rack #c/slot #3s 
+ Intel
+ (undisclosed) @1600 MHz : 
+ rack #7/slot #1 
+ Atom D2700 @2130 MHz : 
+ rack #1/slot #6 
+ Atom D510 @1667 MHz : 
+ rack #1/slot #6s 
+ Atom D525 @1800 MHz : 
+ rack #c/slot #7 
+ Atom E3815 @1466 MHz : 
+ rack #4/slot #3s 
+ Atom E3825 @1333 MHz : 
+ rack #b/slot #6s - rack #9/slot #4s 
+ Atom E3845 @1915 MHz : 
+ rack #b/slot #6 
+ Atom E3930 @1300 MHz : 
+ rack #8/slot #8 
+ Atom E3940 @1600 MHz : 
+ rack #7/slot #7 - rack #9/slot #3 - rack #a/slot #8s - rack #5/slot #3s 
+ Atom E3950 @1600 MHz : 
+ rack #d/slot #3 - rack #d/slot #4 - rack #d/slot #2 - rack #d/slot #7 - rack #d/slot #1 - rack #d/slot #5 - rack #d/slot #6 - rack #f/slot #3 - rack #b/slot #4s - rack #f/slot #3s - rack #d/slot #8 - rack #5/slot #4s 
+ Atom E620 @1300 MHz : 
+ rack #7/slot #5 
+ Atom E640 @1000 MHz : 
+ rack #9/slot #4 
+ Atom Z530 @1600 MHz : 
+ rack #1/slot #8 
+ Atom x6425E @2000 MHz : 
+ rack #5/slot #8 - rack #e/slot #3 
+ Atom x6425RE @1900 MHz : 
+ rack #9/slot #5 - rack #e/slot #8s - rack #a/slot #2s - rack #e/slot #8 - rack #e/slot #4s - rack #e/slot #4 
+ Atom x7433RE @3400 MHz : 
+ rack #3/slot #3s 
+ Celeron 33455 @1500 MHz : 
+ rack #c/slot #7s 
+ Celeron G3900 @2800 MHz : 
+ rack #c/slot #5 - rack #c/slot #5s - rack #c/slot #2 
+ Celeron G6900E @3000 MHz : 
+ rack #8/slot #7s 
+ Celeron M @1500 MHz : 
+ rack #2/slot #6 - rack #6/slot #5 
+ Celeron M @1600 MHz : 
+ rack #6/slot #6 
+ Celeron N2930 @1833 MHz : 
+ rack #4/slot #7 - rack #4/slot #7s 
+ Celeron N3350 @1100 MHz : 
+ rack #c/slot #4 - rack #6/slot #4 
+ Celeron U3405 @1067 MHz : 
+ rack #a/slot #2 
+ Core i3-12100E @3200 MHz : 
+ rack #8/slot #7 
+ Core i3-13100E @3300 MHz : 
+ rack #8/slot #6s 
+ Core i3-2100T @2500 MHz : 
+ rack #b/slot #0 - rack #0/slot #0 
+ Core i3-2350M @2300 MHz : 
+ rack #6/slot #8 
+ Core i3-4330T @3000 MHz : 
+ rack #9/slot #6 
+ Core i3-4360 CPU @3700 MHz : 
+ rack #0/slot #7s 
+ Core i3-6100U @2300 MHz : 
+ rack #7/slot #7s 
+ Core i3-8100H @3000 MHz : 
+ rack #f/slot #2 - rack #f/slot #2s 
+ Core i3-8145UE @2200 MHz : 
+ rack #e/slot #5s - rack #e/slot #5 
+ Core i5-1135G7 @2400 MHz : 
+ rack #b/slot #8s 
+ Core i5-1345URE @4600 MHz : 
+ rack #5/slot #2s 
+ Core i5-6440EQ @2700 MHz : 
+ rack #5/slot #2 
+ Core i5-6442EQ @1900 MHz : 
+ rack #1/slot #8s 
+ Core i5-7300U @2600 MHz : 
+ rack #1/slot #1 
+ Core i5-750 @2667 MHz : 
+ rack #8/slot #3 
+ Core i5-8265UE @1600 MHz : 
+ rack #a/slot #8 
+ Core i5-8365UE @1600 MHz : 
+ rack #8/slot #4s - rack #e/slot #1s - rack #e/slot #2 - rack #e/slot #1 - rack #8/slot #4 
+ Core i7 7828EQ @3000 MHz : 
+ rack #9/slot #3s 
+ Core i7-1185GRE @2800 MHz : 
+ rack #1/slot #3 
+ Core i7-1370PRE @4800 MHz : 
+ rack #b/slot #2s 
+ Core i7-2600K @3400 MHz : 
+ rack #4/slot #6 
+ Core i7-3632QM @2200 MHz : 
+ rack #6/slot #3 
+ Core i7-3770 @3400 MHz : 
+ rack #8/slot #5 
+ Core i7-3770K @3500 MHz : 
+ rack #c/slot #6 - rack #0/slot #2 - rack #0/slot #5 
+ Core i7-4960X @3600 MHz : 
+ rack #0/slot #3s - rack #0/slot #4s 
+ Core i7-8565U @1800 MHz : 
+ rack #d/slot #0 
+ Core i7-950 @3.06 GHz : 
+ rack #b/slot #5 
+ Core i7-980X @3333 MHz : 
+ rack #5/slot #1 
+ Core i7-E610 @2530 MHz : 
+ rack #5/slot #4 
+ Core i7-M620 @2667 MHz : 
+ rack #3/slot #6s 
+ Core i7-X980 @3333 MHz : 
+ rack #3/slot #3 
+ Core i7-X990 @3467 MHz : 
+ rack #c/slot #1 
+ Core i7-X990 @3470 MHz : 
+ rack #0/slot #8s 
+ Core i9-10900K @3700 MHz : 
+ rack #0/slot #6s - rack #0/slot #7 - rack #0/slot #2s 
+ Core i9-9900K @3600 MHz : 
+ rack #0/slot #6 - rack #0/slot #5s - rack #0/slot #4 - rack #0/slot #8 - rack #0/slot #3 
+ Core2 Duo T7300 @2000 MHz : 
+ rack #6/slot #1 
+ Core2 Quad @2400 MHz : 
+ rack #3/slot #1 
+ N100 @700 MHz : 
+ rack #f/slot #7s 
+ N455 @1660 MHz : 
+ rack #3/slot #6 
+ Pentium @133 MHz : 
+ rack #3/slot #5 
+ Pentium Dual-Core T4500 @2300 MHz : 
+ rack #6/slot #7 
+ Pentium G4400 @3300 MHz : 
+ rack #9/slot #5s 
+ Pentium M @1400 MHz : 
+ rack #a/slot #1 
+ Pentium N4200 @1100 MHz : 
+ rack #e/slot #6 
+ T1300 @1667 MHz : 
+ rack #6/slot #2 
+ Xeon D-1718T @2600 MHz : 
+ rack #f/slot #7 
+ Xeon E3-1220 @3100 MHz : 
+ rack #1/slot #0 
+ Xeon E3-1220L @2200 MHz : 
+ rack #5/slot #0 
+ Xeon E3-1220L V2 @2300 MHz : 
+ rack #4/slot #0 - rack #0/slot #1 - rack #1/slot #2s - rack #1/slot #2 - rack #7/slot #0 - rack #a/slot #0 - rack #8/slot #0 
+ Xeon E3-1230 V2 @3300 MHz : 
+ rack #0/slot #1s - rack #c/slot #8s 
+ Xeon E3-1230 v5 @3400 MHz : 
+ rack #0/slot #0s - rack #e/slot #0 - rack #1/slot #7 
+ Xeon E3-1270 V2 @3500 MHz : 
+ rack #3/slot #0 
+ Xeon E3-1270 v5 @3600 MHz : 
+ rack #2/slot #0 - rack #9/slot #0 
+ Xeon E3-1578L v5 @2000 MHz : 
+ rack #5/slot #3 
+ Xeon E5-2650 @2000 MHz : 
+ rack #f/slot #0 
+ Xeon E5-2650L v2 @1700 MHz : 
+ rack #6/slot #0 
+ Xeon E5620 @2400 MHz : 
+ rack #c/slot #0 
+ VIA
+ QuadCore L4700 @1200 MHz : 
+ rack #b/slot #4 
+ Samuel 2 @533 MHz : 
+ rack #3/slot #7 
+ Access: public 
+ Short link to this page 
+ This page was last modified on 2025-12-05 - 16:49 
+ 

@@ -1,0 +1,156 @@
+Source: https://docs.foxglove.dev/docs/fleet/foxlet/faq
+Accessed: 2026-11-11
+
+FAQ | Foxglove Docs
+
+Skip to main content
+
+DocumentationSDKAPIChangelog
+Back to Foxglove
+
+Search
+
+Getting started
+Overview
+Getting started guide
+Python
+C++
+Rust
+
+Frameworks
+Open a file
+Explore examples
+
+Hardware
+
+Robots
+
+Custom Data
+
+Agents & MCP
+Overview
+Agent sidebar
+MCP server
+Slack
+
+Visualization
+Overview
+
+Connecting to data
+Playback
+Comparison mode
+Layouts
+
+Panels
+Variables
+User Scripts
+FoxQL
+Shareable links
+Video export
+Open via CLI
+Annotate ROS enum fields
+Controls and shortcuts
+Migrate from other tools
+
+Data Platform
+Overview
+Importing data
+Exporting data
+Devices
+Recordings
+Sessions
+Events
+
+Search
+
+Primary Sites
+
+Edge Sites
+
+Fleet
+Overview
+Device Tokens
+
+Foxlet
+Device Tokens
+Installation
+Manage data
+Logging
+Foxlet state
+FAQ
+Bridge
+Remote Access
+
+Integration
+
+Extensions
+
+Webhooks
+
+Embedding Foxglove
+
+Jupyter notebook
+
+Grafana
+CLI
+OAuth
+Personal access tokens
+Release feeds
+
+Administration
+Settings
+Audit logs
+Pricing
+Standalone License
+Projects
+Roles
+Seat types
+SSO
+
+Fleet
+Foxlet
+FAQ
+On this page
+
+FAQ
+Does Foxlet detect recordings in subdirectories?​
+
+Yes. Foxlet watches the entire directory tree under STORAGE_ROOT. Each recording's path relative to STORAGE_ROOT (including any subdirectory names) is preserved in Foxglove.
+
+To automatically upload recordings from subdirectories, use a ** glob pattern such as **/*.mcap in WATCH_AUTO_IMPORT_PATTERN — see Automatically import recording files.
+
+Changing the device token​
+
+If you reconfigure Foxlet with a token for a different device, you will need to reset its local database before starting Foxlet with the new token.
+
+Error: "conflicting local device identity"​
+
+This error occurs when Foxlet's local database contains an identity that doesn't match the device token you started it with. This safeguard prevents accidental misconfiguration.
+
+If you intentionally changed the device token, reset the database and restart Foxlet.
+
+Error: "terminating due to invalid agent epoch"​
+
+Each device can have at most one Foxlet running at a time. This error typically means another Foxlet instance is running with the same device identity. It also could occur after using the "Delete unimported recordings" button from the device detail page in the UI.
+
+To resolve this problem, stop any duplicate Foxlet instances. Then, reset the database and restart Foxlet.
+
+Device is unrecoverable​
+
+If the device is in an unrecoverable state, you may wish to remove the unimported recordings from the UI without deleting the device. Navigate to the device detail page, and select "Delete unimported recordings".
+Previous
+Foxlet state
+Next
+Bridge
+Need help? Contact support.
+Chat with the community on Discord.
+See the changelog.
+Interested in buying? See pricing.
+Read the latest on the Foxglove blog.
+LLM? Read llms.txt.
+
+Does Foxlet detect recordings in subdirectories?
+Changing the device token
+Error: "conflicting local device identity"
+Error: "terminating due to invalid agent epoch"
+Device is unrecoverable

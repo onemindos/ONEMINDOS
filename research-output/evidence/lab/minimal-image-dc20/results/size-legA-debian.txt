@@ -1,0 +1,8 @@
+image_apparent_bytes 1182650368
+image_allocated_bytes 801562624
+esp_content_bytes 155571205
+rootfs_content_bytes 375250908
+rootfs_content_bytes_no_k3s 375250908
+rootfs_tar_zstd19_bytes 229989005
+rootfs_tar_zstd19_bytes_no_k3s 154480572
+rootfs_files 10645

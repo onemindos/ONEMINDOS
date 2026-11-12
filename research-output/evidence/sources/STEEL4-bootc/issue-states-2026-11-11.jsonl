@@ -1,0 +1,4 @@
+{"created_at":"2025-03-12T12:03:49Z","html_url":"https://github.com/fedora-iot/iot-distro/issues/82","state":"open","title":"Bootc image does not boot on rpi","updated_at":"2025-07-09T10:24:44Z"}
+{"created_at":"2025-05-27T11:34:22Z","html_url":"https://github.com/coreos/bootupd/pull/935","state":"open","title":"extend-payload-to-esp:  extends any src_input_dir to esp ","updated_at":"2026-03-23T17:15:10Z"}
+{"created_at":"2026-10-11T16:40:10Z","html_url":"https://github.com/fedora-iot/greenboot-rs/issues/219","state":"open","title":"Healthy host is rolled back when finalize-staged fails after the rollback trigger ran","updated_at":"2026-10-26T12:55:23Z"}
+{"created_at":"2026-10-27T12:39:18Z","html_url":"https://github.com/fedora-iot/greenboot-rs/pull/223","state":"open","title":"fix: stop set-rollback-trigger at shutdown so ExecStop runs","updated_at":"2026-10-28T10:57:43Z"}

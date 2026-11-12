@@ -1,0 +1,186 @@
+How to Install Project NOMAD on Ubuntu or Debian
+Project NOMAD™
+Features
+Use Cases
+Hardware
+Install
+About
+Contact
+Shop
+Get Started
+How to Install
+Project NOMAD
+A complete step-by-step guide to getting your offline knowledge server up and running.
+Project NOMAD is 100% free and open source. If you find it useful, you can
+support the project
+.
+What You'll Need
+Project NOMAD is designed to run on x86 hardware. This can be an old PC from your closet, a beefy gaming rig, or a mini PC. You can absolutely install NOMAD on a 10-year-old PC and it'll work great as an information store. But your AI experience isn't going to be spectacular. More CPU, RAM, and GPU power means better performance for the local AI features.
+For detailed hardware recommendations at three price points, check out the
+Hardware Guide
+.
+What Won't Work
+Raspberry Pi / ARM devices
+, not supported. Check out
+Internet in a Box
+for a lightweight ARM alternative.
+Virtual machines
+(Proxmox, Hyper-V, VMware), not officially supported
+macOS
+, not supported (no GPU passthrough for Docker)
+People have gotten NOMAD working on some of these platforms, but you're on your own figuring it out. The focus is on x86 bare metal installs.
+On Windows? WSL2 works
+If you want to run NOMAD on a Windows PC without dual-booting, WSL2 is a community-supported path. Two install routes (native Docker or Docker Desktop), all the gotchas documented, with real benchmark numbers comparing WSL2 to bare-metal performance.
+See the WSL2 install guide →
+Want to gate admin access?
+NOMAD has no built-in authentication. If you're putting your box on a LAN where other people can reach it, you can put Caddy in front to require a username and password for
+/settings
+and the admin APIs. Community-verified config, plus a clear list of what it does and doesn't do.
+See the Caddy + basicauth guide →
+1
+Install Ubuntu
+Head over to
+ubuntu.com
+and download
+Ubuntu Desktop 26.04 LTS
+. That's the version we recommend and test on now. 24.04 LTS still works if you already have it, but 26.04 is the current long-term release and what new installs should use. The download is about six gigabytes.
+You can run NOMAD on Ubuntu Server too, but if you're new to Linux and coming from Windows or macOS, Ubuntu Desktop is going to be friendlier with its graphical interface.
+Using an NVIDIA graphics card?
+Two quick things. If the installer freezes at the spinning logo when you boot the USB, pick "Try or Install Ubuntu (safe graphics)" from the boot menu, which gets you past a driver hiccup with newer cards. And during setup, check "Install third-party drivers for graphics and Wi-Fi hardware" so your GPU works on first boot. NOMAD handles the rest of the GPU setup automatically.
+Create a Bootable USB Drive
+Once Ubuntu downloads, put it on a flash drive and make it bootable.
+Rufus
+(Windows) or
+Balena Etcher
+(any platform) both work great.
+Select your USB device
+Select the Ubuntu ISO you downloaded
+Keep the defaults and hit Start
+Choose ISO mode when prompted
+Accept the warning that this will erase the flash drive
+Make sure you've backed up anything important from that flash drive first.
+2
+Boot from USB & Configure BIOS
+The PC you're installing on will be wiped completely. Make sure you're okay losing all data on that machine.
+Most PCs won't boot from USB by default, so you'll need to get into the BIOS. Typically you do this by pressing
+Delete
+or
+F2
+as the computer boots up.
+Navigate to the Boot section
+Find your boot order or boot option priorities
+Move the USB drive to first position
+Save and exit
+The computer will reboot and launch the Ubuntu installer from your flash drive.
+3
+Install Ubuntu
+When you see "Try or Install Ubuntu," hit Enter. The installation wizard is straightforward:
+Select your language
+Choose your keyboard layout
+Connect to your network (wired or wireless)
+If prompted, update the installer
+Choose "Interactive installation"
+Select "Default apps"
+Check the box to install third-party software for graphics and WiFi
+Choose
+"Erase disk and install Ubuntu"
+(this wipes the drive)
+Create your account with a username and password
+Set your timezone
+Review and install
+Ubuntu will install on your PC. This takes a few minutes. When it finishes, restart and pull out the USB drive as it reboots.
+4
+Initial Ubuntu Setup
+After reboot, log in with the credentials you created. You'll get a welcome screen. Click through it and skip Ubuntu Pro and data sharing.
+First thing: update Ubuntu. Open Terminal (
+Ctrl+Alt+T
+) and run:
+$
+sudo apt update && sudo apt upgrade -y
+Enable SSH (Optional)
+SSH lets you remotely connect to your server and run commands. Optional, but handy if your server is sitting on your local network and you want to manage it from your desk.
+$
+sudo apt install openssh-server -y && sudo systemctl enable --now ssh
+5
+Install Project NOMAD
+First, install curl. It doesn't come with Ubuntu by default:
+$
+sudo apt install curl -y
+Then download and run the install script:
+curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/main/install/install_nomad.sh -o install_nomad.sh
+sudo bash install_nomad.sh
+The installer handles everything: downloads all necessary components, sets up Docker containers, and configures the service. About a minute later, Project NOMAD is installed.
+You'll see the access URL:
+http://localhost:8080
+on the machine itself, or
+http://your-ip-address:8080
+from another device on your network.
+6
+Configure Project NOMAD
+Open a browser and navigate to your NOMAD installation. You'll see the Command Center. Start with
+Easy Setup
+to configure everything.
+Choose Your Applications
+Information Library
+, Wikipedia, medical references, survival guides, repair guides
+Education Platform
+, Khan Academy, TED Talks, and more
+AI Assistant
+, local large language models via Ollama
+Select Map Regions
+Choose which offline maps to download. You can take the entire globe, pick individual countries, or grab a specific region. These can be a few gigabytes each.
+Pick Your Content
+Choose AI models, Wikipedia depth (from quick reference up to the full 125GB with pictures), and curated content collections for medicine, survival, education, and more. Each category has Essential, Standard, and Comprehensive tiers. You can always add or remove content later.
+Watch the green storage bar at the top as you select content. In my experience, a one-terabyte drive handles all of Wikipedia with pictures, all of Khan Academy, and plenty of additional content.
+Review your selections and click
+Complete Setup
+. NOMAD will pull down containers and download your selected content. This takes a while depending on what you chose and your internet speed.
+What You Get
+Offline Information Library
+Gigabytes of Wikipedia articles, medical references, survival guides, and more. All searchable, all local.
+Local AI Assistant
+Chat with large language models running entirely on your machine. No cloud, no data leaving your network.
+Offline Maps
+Detailed maps with business listings and points of interest. Perfect for emergency preparedness or off-grid scenarios.
+Easy Content Management
+Add or remove content anytime through the Command Center. Your storage, your choice.
+Storage is reasonable. A test install with quick Wikipedia, essential content collections, one map region, and two AI models used less than 30GB total.
+Getting Help
+If you run into issues, the
+GitHub Issues
+page is where you can report problems. There's also a ton of community help in the
+Crosstalk Solutions Discord
+in the #project-nomad channel.
+The whole process takes about an hour including downloads, and you end up with an offline knowledge server accessible from any device on your network.
+Get Project NOMAD on GitHub
+More video guides
+Project NOMAD
+An offline-first knowledge and education server. Knowledge that never goes offline.
+Find Us Online
+Get Started
+Recommended Hardware
+Installation Guide
+FAQ
+Video Guides
+The NOMAD Deck
+Community Builds
+Benchmark Leaderboard
+Learn
+Offline AI
+Offline Internet
+Offline Computer
+Project
+Roadmap
+Our Story
+Press
+Volunteer
+Support the Project
+Merch Shop
+Contact
+Crosstalk Solutions
+Rogue Support
+Powered by
+Crosstalk Solutions
+©
+2026
+Project NOMAD™. Open source under Apache 2.0 License.

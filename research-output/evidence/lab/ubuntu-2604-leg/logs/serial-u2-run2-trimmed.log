@@ -1,0 +1,102 @@
+##### [03:05:23] T1 first boot
+##### [03:05:23] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,reado
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 default=1
+HEALTH-GATE: 08:05:53 start slot=A version=1 mode=committed env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 ]
+HEALTH-GATE: 08:05:54 RESULT committed-boot slot=A version=1
+root@onemind-lab:~# HEALTH-GATE: 08:08:14 K3S-FRESH ok after 139s: ok (fresh: kubelet, heartbeat 2026-11-11T08:07:35Z, core pods, data rw, api)
+--- state:T1
+ONEMIND_VERSION=1
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+[01;31mBooted from: rootfs.0 (A)
+      boot status: bad
+      boot status: good
+pending: none
+apps             broken-app-5d6b874ccd-v5m59               0/1   ImagePullBackOff   0     64s
+kube-system      coredns-577d995dff-vvwg5                  1/1   Running            0     65s
+kube-system      helm-install-gateway-api-crd-vccbx        1/1   Running            0     65s
+kube-system      local-path-provisioner-56c6584955-wp428   1/1   Running            0     65s
+onemind-system   onemind-core-dc87b89b8-rht29              1/1   Running            0     64s
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [03:08:22] T2 wrong-key bundle
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+LastError: signature verification failed: Verify error: unable to get local issuer certificate
+##### [03:08:22] install wrong-key.raucb rc=1 in 0s
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [03:08:23] T3 good update -> B
+[?2004lpre-install: trial marker slot=B version=2
+ 99% Copying image to rootfs.1 done.
+##### [03:10:43] install good.raucb rc=0 in 140s
+[0mGRUB-RAUC: ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 default=2
+HEALTH-GATE: 08:11:51 start slot=B version=2 mode=trial env=[ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 08:11:51 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+root@onemind-lab:~# HEALTH-GATE: 08:12:02 CHECK fail at 10s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:12:12 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:12:22 CHECK fail at 31s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:12:39 CHECK fail at 48s: fail: apiserver /readyz not ok
+HEALTH-GATE: 08:12:52 CHECK fail at 61s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:13:15 CHECK fail at 84s: fail: core pod kube-system/coredns-577d995dff-vvwg5 not Ready
+HEALTH-GATE: 08:13:37 CHECK pass 1/3 at 106s: ok (fresh: kubelet, heartbeat 2026-11-11T08:12:57Z, core pods, data rw, api)
+HEALTH-GATE: 08:14:08 CHECK pass 2/3 at 137s: ok (fresh: kubelet, heartbeat 2026-11-11T08:12:57Z, core pods, data rw, api)
+HEALTH-GATE: 08:14:27 CHECK pass 3/3 at 156s: ok (fresh: kubelet, heartbeat 2026-11-11T08:12:57Z, core pods, data rw, api)
+HEALTH-GATE: 08:14:29 APPS (excluded from gate): broken-app-5d6b874ccd-v5m59 0/1 ImagePullBackOff; 
+HEALTH-GATE: 08:14:30 RESULT mark-good slot=B version=2 after 159s
+--- state:T3-after-commit
+ONEMIND_VERSION=2
+ORDER=B A
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+Booted from: rootfs.1 (B)
+      boot status: good
+      boot status: good
+pending: none
+apps             broken-app-5d6b874ccd-v5m59               0/1   ErrImagePull   0               7m21s
+kube-system      coredns-577d995dff-vvwg5                  1/1   Running        1 (3m53s ago)   7m22s
+kube-system      helm-install-gateway-api-crd-vccbx        0/1   Completed      0               7m22s
+kube-system      local-path-provisioner-56c6584955-wp428   1/1   Running        1 (3m53s ago)   7m22s
+onemind-system   onemind-core-dc87b89b8-rht29              1/1   Running        1 (3m53s ago)   7m21s
+ORDER=B A
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+[30mGRUB-RAUC: ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 default=2
+HEALTH-GATE: 08:15:13 start slot=B version=2 mode=committed env=[ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=1 ]
+HEALTH-GATE: 08:15:14 RESULT committed-boot slot=B version=2
+[?2004l--- state:T3-second-reboot
+ONEMIND_VERSION=2
+ORDER=B A
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+[01;31mBooted from: rootfs.1 (B)
+      boot status: good
+      boot status: good
+pending: none
+ORDER=B A
+A_OK=1
+A_TRY=0
+B_OK=1
+B_TRY=0
+##### [03:15:28] T4 bad-k3s.raucb -> A
+pre-install: trial marker slot=A version=3
+[extra] 195:root@onemind-lab:~# HEALTH-GATE: 08:08:14 K3S-FRESH ok after 139s: ok (fresh: kubelet, heartbeat 2026-11-11T08:07:35Z, core pods, data rw, api)
+[extra] 270:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+[extra] 660:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists

@@ -1,0 +1,58 @@
+[2026-11-11T01:29:15Z] WIPE w5a
+[2026-11-11T01:29:19Z] config:
+node-name: box1
+secrets-encryption: true
+write-kubeconfig-mode: "0644"
+disable:
+  - traefik
+  - metrics-server
+cluster-init: true
+[2026-11-11T01:29:19Z] install.sh sha256: c2a2643dd7c259121a876d16538844c60928de3d38ae98f22f7b95a7ffcfab9d  <lab-dir>/w5-restore/shared/install.sh
+[INFO]  Using v1.37.2+k3s1 as release
+[INFO]  Downloading hash https://github.com/k3s-io/k3s/releases/download/v1.37.2%2Bk3s1/sha256sum-arm64.txt
+[INFO]  Downloading binary https://github.com/k3s-io/k3s/releases/download/v1.37.2%2Bk3s1/k3s-arm64
+[INFO]  Verifying binary download
+[INFO]  Installing k3s to /usr/local/bin/k3s
+[INFO]  Skipping installation of SELinux RPM
+[INFO]  Creating /usr/local/bin/kubectl symlink to k3s
+[INFO]  Creating /usr/local/bin/crictl symlink to k3s
+[INFO]  Skipping /usr/local/bin/ctr symlink to k3s, already exists
+[INFO]  Creating killall script /usr/local/bin/k3s-killall.sh
+[INFO]  Creating uninstall script /usr/local/bin/k3s-uninstall.sh
+[INFO]  env: Creating environment file /etc/systemd/system/k3s.service.env
+[INFO]  systemd: Creating service file /etc/systemd/system/k3s.service
+[INFO]  systemd: Enabling k3s unit
+Created symlink '/etc/systemd/system/multi-user.target.wants/k3s.service' → '/etc/systemd/system/k3s.service'.
+k3s version v1.37.2+k3s1 (f6973cb8)
+go version go1.26.10
+[2026-11-11T01:29:25Z] reset exit=0
+{"level":"info","ts":"2026-11-10T20:29:22.910018-0500","caller":"mvcc/kvstore.go:335","msg":"restored last compact revision","meta-bucket-name-key":"finishedCompactRev","restored-compact-revision":1357}
+{"level":"info","ts":"2026-11-10T20:29:22.911161-0500","caller":"mvcc/kvstore.go:409","msg":"kvstore restored","current-rev":2249}
+{"level":"info","ts":"2026-11-10T20:29:25.952113-0500","logger":"k3s.store","caller":"mvcc/kvstore.go:335","msg":"restored last compact revision","meta-bucket-name-key":"finishedCompactRev","restored-compact-revision":1357}
+{"level":"info","ts":"2026-11-10T20:29:25.953057-0500","logger":"k3s.store","caller":"mvcc/kvstore.go:409","msg":"kvstore restored","current-rev":2249}
+time="2026-11-10T20:29:25-05:00" level=error msg="Shutdown request received: \"Managed etcd cluster membership has been reset, restart without --cluster-reset flag now. Backup and delete ${datadir}/server/db on each peer etcd server and rejoin the nodes\""
+restoring snapshot 405d2edb of [/var/lib/rancher/k3s/storage] at 2026-11-10 20:29:14.90406706 -0500 EST by root@lima-w5b to /
+Summary: Restored 7 files/dirs (33 B) in 0:00
+[2026-11-11T01:29:33Z] apiserver+node Ready after .219080404s
+[2026-11-11T01:29:33Z] VERIFY
+NAME   STATUS   ROLES                AGE   VERSION        INTERNAL-IP    EXTERNAL-IP   OS-IMAGE                       KERNEL-VERSION                         CONTAINER-RUNTIME
+box1   Ready    control-plane,etcd   22m   v1.37.2+k3s1   <vm-private-ip>   <none>        Debian GNU/Linux 13 (trixie)   6.12.115+deb13.1-cloud-arm64 (arm64)   containerd://2.3.7-k3s1
+NAME                         DATA   AGE
+configmap/demo-cm            1      22m
+configmap/kube-root-ca.crt   1      22m
+
+NAME                 TYPE     DATA   AGE
+secret/demo-secret   Opaque   1      22m
+
+NAME                         STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+persistentvolumeclaim/data   Bound    pvc-6933e342-dbef-45be-a17e-163e05834cac   100Mi      RWO            local-path     <unset>                 22m
+
+NAME         READY   STATUS    RESTARTS   AGE
+pod/writer   1/1     Running   1          21m
+[2026-11-11T01:29:34Z] cm value: world-1794359250
+[2026-11-11T01:29:34Z] secret value: <dummy-test-value, masked>
+[2026-11-11T01:29:34Z] pod Running
+error: unable to upgrade connection: pod does not exist
+[2026-11-11T01:29:34Z] marker in pod: 
+[2026-11-11T01:29:34Z] expected marker: 90da4f236231fc90b716bc4c022743ea
+[2026-11-11T01:29:34Z] etcd restore-to-ready took 12.958074514s

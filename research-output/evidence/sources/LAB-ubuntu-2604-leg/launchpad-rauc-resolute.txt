@@ -1,0 +1,9 @@
+Source: https://api.launchpad.net/1.0/ubuntu/+archive/primary?ws.op=getPublishedSources&source_name=rauc&exact_match=true&distro_series=https://api.launchpad.net/1.0/ubuntu/resolute
+Accessed: 2026-11-11 (UTC). Fields: source_package_version component pocket status date_published
+1.15.1-1 universe Release Published 2026-01-20T06:49:36.464903+00:00
+1.15.1-1 universe Proposed Deleted 2026-01-19T23:38:41.715764+00:00
+1.15-1 universe Release Superseded 2025-11-13T10:54:33.088629+00:00
+1.15-1 universe Proposed Deleted 2025-11-12T13:33:34.372688+00:00
+1.14-1 universe Release Superseded 2025-10-31T15:28:45.657357+00:00
+1.14-1 universe Proposed Deleted 2025-10-27T23:22:47.641336+00:00
+1.13-3 universe Release Superseded 2025-10-09T15:05:22.433263+00:00

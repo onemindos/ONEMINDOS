@@ -1,0 +1,60 @@
+##### [02:28:51] T1 first boot
+##### [02:28:51] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,reado
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 default=1
+HEALTH-GATE: 07:29:58 start slot=A version=1 mode=committed env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 ]
+HEALTH-GATE: 07:30:00 RESULT committed-boot slot=A version=1
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 default=1
+HEALTH-GATE: 07:35:15 start slot=A version=1 mode=committed env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 ]
+HEALTH-GATE: 07:35:16 RESULT committed-boot slot=A version=1
+root@onemind-lab:~# HEALTH-GATE: 07:40:20 K3S-FRESH ALERT not healthy after 300s on a committed slot: fail: core pod kube-system/coredns-577d995dff-c9cjv not Ready (no rollback)
+--- state:T1
+ONEMIND_VERSION=1
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+Booted from: rootfs.0 (A)
+      boot status: bad
+      boot status: good
+pending: none
+apps             broken-app-5d6b874ccd-rtbn9               0/1   ContainerCreating   0     20s
+kube-system      coredns-577d995dff-c9cjv                  0/1   ContainerCreating   0     22s
+kube-system      helm-install-gateway-api-crd-lbpbc        0/1   ContainerCreating   0     22s
+kube-system      local-path-provisioner-56c6584955-jcrpl   0/1   ContainerCreating   0     22s
+onemind-system   onemind-core-dc87b89b8-vqm9f              0/1   ContainerCreating   0     20s
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+rauc 1.15.2
+bundle-formats=verity
+##### [02:40:38] T2 wrong-key bundle
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+LastError: signature verification failed: Verify error: unable to get local issuer certificate
+##### [02:40:39] install wrong-key.raucb rc=1 in 1s
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [02:40:40] T11 plain-format bundle, valid signature, verity-only policy
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+LastError: Bundle format 'plain' not allowed
+##### [02:41:46] install plain-good.raucb rc=1 in 66s
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [02:41:46] T3 good update -> B
+pre-install: trial marker slot=B version=2

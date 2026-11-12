@@ -1,0 +1,30 @@
+
+Allocating group tables: 0/8   done                            
+Writing inode tables: 0/8   done                            
+Creating journal (8192 blocks): done
+Copying files into the device: done
+Writing superblocks and filesystem accounting information: 0/8   done
+
+ln -sf rootfs.ext2 /var/lab/dc20/build-b/images/rootfs.ext4
+>>>   Executing post-image script board/pc/post-image-efi.sh
+INFO: cmd: "mkdir -p "/var/lab/dc20/build-b/build/genimage.tmp"" (stderr):
+INFO: cmd: "rm -rf "/var/lab/dc20/build-b/build/genimage.tmp"/*" (stderr):
+INFO: cmd: "mkdir -p "/var/lab/dc20/build-b/build/genimage.tmp"" (stderr):
+INFO: cmd: "cp -a "/tmp/tmp.d7NFhBvy9k" "/var/lab/dc20/build-b/build/genimage.tmp/root"" (stderr):
+INFO: cmd: "mkdir -p "/var/lab/dc20/build-b/images"" (stderr):
+INFO: vfat(efi-part.vfat): cmd: "mkdosfs   '/var/lab/dc20/build-b/images/efi-part.vfat'" (stderr):
+INFO: vfat(efi-part.vfat): adding file 'efi-part/EFI' as 'EFI' ...
+INFO: vfat(efi-part.vfat): cmd: "MTOOLS_SKIP_CHECK=1 mcopy -sp -i '/var/lab/dc20/build-b/images/efi-part.vfat' '/var/lab/dc20/build-b/images/efi-part/EFI' '::EFI'" (stderr):
+INFO: vfat(efi-part.vfat): adding file 'bzImage' as 'bzImage' ...
+INFO: vfat(efi-part.vfat): cmd: "MTOOLS_SKIP_CHECK=1 mcopy -sp -i '/var/lab/dc20/build-b/images/efi-part.vfat' '/var/lab/dc20/build-b/images/bzImage' '::bzImage'" (stderr):
+INFO: hdimage(disk.img): adding primary partition 'boot' (in MBR) from 'efi-part.vfat' ...
+INFO: hdimage(disk.img): adding primary partition 'root' (in MBR) from 'rootfs.ext2' ...
+INFO: hdimage(disk.img): adding primary partition '[MBR]' ...
+INFO: hdimage(disk.img): adding primary partition '[GPT header]' ...
+INFO: hdimage(disk.img): adding primary partition '[GPT array]' ...
+INFO: hdimage(disk.img): adding primary partition '[GPT backup]' ...
+INFO: hdimage(disk.img): writing GPT
+INFO: hdimage(disk.img): writing protective MBR
+INFO: hdimage(disk.img): writing MBR
+INFO: cmd: "rm -rf "/var/lab/dc20/build-b/build/genimage.tmp/"" (stderr):
+clean_with_downloads 1716

@@ -1,0 +1,50 @@
+[build 04:56:45] verify k3s artifacts against the release sha256sum file
+k3s-airgap-images-amd64.tar.zst: OK
+k3s: OK
+[build 04:56:45] lab PKI
+[build 04:56:45] mmdebstrap amd64 trixie
+I: installing remaining packages inside the chroot...
+I: cleaning package lists and apt cache...
+I: success in 170.3416 seconds
+[build 04:59:36] customise rootfs
+[build 05:00:13] grub-mkstandalone (x86_64-efi)
+[build 05:00:13] ext4 images (rootfs 678 MiB)
+[build 05:00:17] rauc bundles
+[good] rauc-Message: 00:01:03.787: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[good] Version:        '2'
+[bad-k3s] rauc-Message: 00:01:03.791: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-k3s] Version:        '3'
+[bad-noagent] rauc-Message: 00:01:03.796: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-noagent] Version:        '4'
+[bad-boot] rauc-Message: 00:01:03.800: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-boot] Version:        '5'
+[bad-hang] rauc-Message: 00:01:03.805: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-hang] Version:        '6'
+[naive-noagent] rauc-Message: 00:01:03.809: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[naive-noagent] Version:        '7'
+[wrong-key] rejected by rauc info (expected)
+[build 05:01:03] disk image
+
+Number  Start (sector)    End (sector)  Size       Code  Name
+   1            2048          264191   128.0 MiB   EF00  esp
+   2          264192         4458495   2.0 GiB     8300  rootfs-A
+   3         4458496         8652799   2.0 GiB     8300  rootfs-B
+   4         8652800        29360094   9.9 GiB     8300  data
+521365581 /var/lab/rkg-out/bad-boot.raucb
+521365581 /var/lab/rkg-out/bad-hang.raucb
+521357389 /var/lab/rkg-out/bad-k3s.raucb
+521357389 /var/lab/rkg-out/bad-noagent.raucb
+521357389 /var/lab/rkg-out/good.raucb
+521357389 /var/lab/rkg-out/naive-noagent.raucb
+521357395 /var/lab/rkg-out/wrong-key.raucb
+[build 05:01:21] kernel 6.12.116+deb13-amd64; done
+9d47f9fca1911ff8db55016e14f6663474a39923f2e7697a43ea8e2cdd7a563c  disk.img
+9eb4e7c2d0644009b5b602e89cd605d3b1c2175e5255c926ea01d7adc9443873  bad-boot.raucb
+bed391d645b4b85485eb5214565d2764a58e91353ef24b52482fa68971877f8e  bad-hang.raucb
+6b39a69025bd9491108d7c4387896d8a6e8fd1f0d48632655135de0cd9c884e8  bad-k3s.raucb
+24905eb29e151d6b85b7ab426bf01fe022686906ea2b02d433635cea26c84431  bad-noagent.raucb
+a646b4fffb1a01569f5a075da2276310fb6973262aab4f5b12352ecb62b80af3  good.raucb
+41b211d1dcdba7e2c329a64f390e6d84ea9d3a7c71e6831a95362e2f57d3d00e  naive-noagent.raucb
+fb2171dfc45b03e0024f464f8b54ed32622ed91f10a4405718f363060398fd21  wrong-key.raucb
+004ec1878392c3b00636888515280b5c6aa5113768ca0b7f41c870f9d4e2c033  grub.cfg
+38f8c2b6971e3bce22c14f1faac370f045d30997c1ad0e275d72315e42ac37bd  lab-ca.cert.pem

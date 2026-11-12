@@ -1,0 +1,605 @@
+Manifest (specification) | Cloudron Docs
+Skip to main content
+Cloudron DocsCloudron.ioDemo
+Welcome!
+Installation
+Knowledge Base
+Guides
+Apps by Cloudron
+Packages
+Packaging
+Tutorial
+Cheat sheet
+Manifest (specification)
+Versions (specification)
+Addons
+Cloudron CLI
+Publishing
+Translations
+Support
+Troubleshooting
+API
+Packaging
+Manifest (specification)
+On this page
+Manifest (specification)
+Overview​
+Every package contains a CloudronManifest.json that contains
+two broad categories of information:
+Information for installing the app. This includes fields
+like httpPort, tcpPorts, udpPorts.
+Information for displaying the package in the App Store or as a
+community app. This includes the title, packager information,
+description, etc.
+Here is an example manifest:
+{
+ "id": "com.example.test",
+ "title": "Example App",
+ "description": "This is an example app",
+ "tagline": "A great beginning",
+ "version": "0.0.1",
+ "minBoxVersion": "10.0.0",
+ "healthCheckPath": "/",
+ "httpPort": 8000,
+ "addons": {
+ "localstorage": {}
+ },
+ "manifestVersion": 2,
+ "website": "https://www.example.com",
+ "packageUrl": "https://git.example.com/example-app",
+ "packagerName": "Example Packager",
+ "packagerUrl": "https://example.com",
+ "iconUrl": "https://example.com/icon.png",
+ "tags": [ "test", "collaboration" ],
+ "mediaLinks": [ "https://images.rapgenius.com/fd0175ef780e2feefb30055be9f2e022.520x343x1.jpg" ]
+}
+JSON Schema
+A downloadable JSON Schema is available here.
+Fields​
+addons​
+Type: object
+Required: no
+Allowed keys
+email
+ldap
+localstorage
+mongodb
+mysql
+oidc
+postgresql
+proxyauth
+recvmail
+redis
+scheduler
+scim
+sendmail
+tls
+The addons object lists all the addons and the addon configuration used by the app.
+Example:
+ "addons": {
+ "localstorage": {},
+ "mongodb": {}
+ }
+author​
+Type: string
+Required: no
+Deprecated
+Use packagerName instead.
+The author field contains the name and email of the app developer (or company).
+Example:
+ "author": "Cloudron UG <<email-masked>>"
+backupCommand​
+Type: string
+Required: no
+The backupCommand field specifies a shell command to run during backup. The command is executed
+via docker run using the app's image in a temporary container while the app is running. The
+temporary container shares the app container's network namespace (same as scheduler tasks), so
+services listening on localhost inside the app are reachable. It has access to /app/data and
+any persistentDirs bind mounts. The command should produce a logical dump from
+the persistent data into /app/data so that it gets included in the backup. Use
+restoreCommand to import the dump during restore.
+This is useful for packages (e.g. databases), where filesystem snapshots may be inconsistent or not portable across versions.
+ "backupCommand": "pg_dump -U postgres mydb > /app/data/dump.sql"
+Requires minBoxVersion of at least 9.1.0.
+capabilities​
+Type: array of strings
+Required: no
+The capabilities field requests extra capabilities.
+By default, apps are unprivileged and cannot perform many operations including
+changing network configuration, launch docker containers etc.
+Currently, the permitted capabilities are:
+net_admin - This capability can be used to perform various network related operations like:
+Interface configuration
+Administration of IP firewall, masquerading, and accounting
+Modify routing tables
+mlock - This prevents memory from being swapped to disk (CAP_IPC_LOCK).
+ping - This provides NET_RAW
+vaapi - This provides the container access to the VAAPI devices under /dev/dri.
+Example:
+ "capabilities": [
+ "net_admin"
+ ]
+changelog​
+Type: markdown string
+Required: no
+The changelog field contains the changes in this version of the app. This string
+can be a markdown style bulleted list.
+Example:
+ "changelog": "* Add support for IE8 \n* New logo"
+A large changelog can be unwieldy to manage inside the CloudronManifest.json. For
+this reason, the changelog can also contain a file reference. The CLI tool reads the
+file and extracts the section matching the current manifest version when publishing your
+package.
+Example:
+ "changelog": "file://CHANGELOG"
+The changelog file uses version sections delimited by [version] headers. Each section
+lists the changes for that version as a bulleted list:
+[1.0.0]
+* Change 1
+* Change 2
+[0.9.0]
+* Previous version changes
+checklist​
+Type: object
+Required: no
+Syntax: Each key is a checklist item that contains a message. An optional sso flag may be specified.
+The checklist is a list of items to complete post installation. You can individually track items: completed or not, by whom and when.
+To illustrate, the package lists the checklists below:
+ "checklist": {
+ "todo-for-admins": { "message": "Please do this and that after installation" },
+ "first-user": { "sso": true, "message": "SSO Example: First user becomes admin" },
+ "change-password": { "sso": false, "message": "NoSSO Example: Change admin password on first use" }
+ },
+In the above example:
+message is a markdown string explaining the todo item
+sso flag controls when the checklist item is applicable depending on the authentication setup.
+When sso is true, the checklist item is shown only for apps installed with authentication.
+When sso is false, the checklist item is shown only for apps installed without authentication.
+When sso is missing, the checklist item is shown regardless of authentication setup.
+You can add or remove checklist items over the lifetime of a package. The platform tracks the package version when you add a checklist item (based on the key).
+configurePath​
+Type: url path
+Required: no
+When this field is present, admins see an additional link for an app in the dashboard. This url path is prefixed with the app's domain, allowing a direct link to an admin or settings panel in the app. This is useful for apps like WordPress or Ghost, where themes might not have visible admin login links on the page.
+Example:
+ "configurePath": "/wp-admin/"
+contactEmail​
+Type: email
+Required: no
+Deprecated
+This field is deprecated. Use packagerUrl to point users to the packager.
+The contactEmail field contains the email address that users can contact for any
+bug reports and suggestions.
+Example:
+ "contactEmail": "<email-masked>"
+description​
+Type: markdown string
+Required: no
+The description field contains a detailed description of the app. This information is shown
+to the user when they install the app from the App Store.
+Example:
+ "description": "This is a detailed description of this app."
+A large description can be unwieldy to manage and edit inside the CloudronManifest.json. For
+this reason, the description can also contain a file reference. The CLI tool fills up
+the description from this file when publishing your package.
+Example:
+ "description": "file://DESCRIPTION.md"
+documentationUrl​
+Type: url
+Required: no
+The documentationUrl field is a URL where the user can read docs about the app.
+Example:
+ "documentationUrl": "https://example.com/myapp/docs"
+forumUrl​
+Type: url
+Required: no
+The forumUrl field is a URL where the user can get forum support for the app.
+Example:
+ "forumUrl": "https://example.com/myapp/forum"
+healthCheckPath​
+Type: url path
+Required: yes
+The runtime uses the healthCheckPath field to determine if your app is running and responsive. The app must return a 2xx HTTP status code when this path is queried. The default "/" suffices in most cases, but periodically querying "/" can be expensive. Apps can use a specialized route to perform specialized internal checks.
+Example:
+ "healthCheckPath": "/"
+httpPort​
+Type: positive integer
+Required: yes
+The httpPort field contains the TCP port on which your app is listening for HTTP requests. This
+is the HTTP port used to access your app internally.
+While not required, it is good practice to mark this port as EXPOSE in the Dockerfile.
+Apps are containerized and thus two apps can listen on the same port. In reality,
+they are in different network namespaces and do not conflict with each other.
+This port must use HTTP, not HTTPS or any other non-HTTP protocol. The platform handles HTTPS proxying (since it owns the certificates).
+Example:
+ "httpPort": 8080
+httpPorts​
+Type: object
+Required: no
+Syntax: Each key is the environment variable. Each value is an object containing title, description, containerPort and defaultValue.
+The httpPorts field provides information on extra HTTP services that your app provides. During
+installation, the user can provide location information for these services.
+To illustrate, the package lists the ports as below:
+ "httpPorts": {
+ "API_SERVER_DOMAIN": {
+ "title": "API Server Domain",
+ "description": "The domain name for MinIO (S3) API requests",
+ "containerPort": 9000,
+ "defaultValue": "minio-api"
+ }
+ },
+In the above example:
+API_SERVER_DOMAIN is an app specific environment variable. It is set to the domain chosen by the user.
+title is a short one line information about this service.
+description is a multi line description about this service.
+defaultValue is the recommended subdomain value to be shown in the app installation UI.
+containerPort is the HTTP port that the app is listening on for this service.
+icon​
+Type: local image filename
+Required: no
+The icon field displays the app icon/logo in the App Store. Icons must be square at 256x256 size.
+ "icon": "file://icon.png"
+iconUrl​
+Type: url
+Required: no
+The iconUrl field displays the app icon/logo.
+ "iconUrl": "https://example.com/icon.png"
+Requires minBoxVersion of at least 9.1.0. Required when publishing a
+community app (CloudronVersions.json).
+id​
+Type: reverse domain string
+Required: no
+The id is a unique human friendly App Store id. This is similar to reverse domain string names used
+as java package names. The convention is to base the id based on a domain that you own.
+The tooling allows you to build packages with any id. However, you will be unable to publish
+the package if the id is already in use by another package.
+ "id": "io.cloudron.testapp"
+logPaths​
+Type: array of paths
+Required: no
+The logPaths field contains an array of paths that contain the logs.
+Whenever possible, apps must be configured to stream logs to stdout and stderr. Only use this field when the app or service is unable to do so.
+ "logPaths": [
+ "/run/app/app.log",
+ "/run/app/workhorse.log"
+ ]
+manifestVersion​
+Type: integer
+Required: yes
+manifestVersion specifies the version of the manifest and is always set to 2.
+ "manifestVersion": 2
+mediaLinks​
+Type: array of urls
+Required: no
+The mediaLinks field contains an array of links. The App Store displays these as a slide show of app pictures.
+They have to be publicly reachable via https and should have an aspect ratio of 3 to 1.
+For example 600px by 200px (with/height).
+ "mediaLinks": [
+ "https://s3.amazonaws.com/cloudron-app-screenshots/org.owncloud.cloudronapp/556f6a1d82d5e27a7c4fca427ebe6386d373304f/2.jpg",
+ "https://images.rapgenius.com/fd0175ef780e2feefb30055be9f2e022.520x343x1.jpg"
+ ]
+memoryLimit​
+Type: bytes (integer)
+Required: no
+The memoryLimit field sets the maximum memory (including swap) in bytes an app can consume before being killed and restarted.
+By default, all apps have a memoryLimit of 256MB. For example, to have a limit of 500MB,
+ "memoryLimit": 524288000
+maxBoxVersion​
+Type: semver string
+Required: no
+The maxBoxVersion field is the maximum box version that the app can possibly run on. Attempting to install the app on
+a box greater than maxBoxVersion will fail.
+This is useful when a new box release introduces features which are incompatible with the app. This situation is quite
+unlikely and it is recommended to leave this unset.
+Platform updates are blocked, if the server has an app with a maxBoxVersion less than the upcoming platform version.
+minBoxVersion​
+Type: semver string
+Required: no
+The minBoxVersion field is the minimum box version that the app can possibly run on. Attempting to install the app on
+a box lesser than minBoxVersion will fail.
+This is useful when the app relies on features that are only available from a certain version of the box. If unset, the
+default value is 0.0.1.
+multiDomain​
+Type: boolean
+Required: no
+When set, this app can be assigned additional domains as aliases to the primary domain of the app.
+packageUrl​
+Type: url
+Required: no
+The packageUrl field is a URL for the package itself (for example, the package's
+git repository or homepage). This is distinct from packagerUrl,
+which identifies the packager.
+Example:
+ "packageUrl": "https://git.example.com/example-app"
+Requires minBoxVersion of at least 10.0.0.
+packagerName​
+Type: string
+Required: no
+The packagerName field is the name of the person or organization which created this package.
+Example:
+ "packagerName": "Megatron"
+Requires minBoxVersion of at least 9.1.0. Required when publishing a
+community app (CloudronVersions.json).
+packagerUrl​
+Type: url
+Required: no
+The packagerUrl field is a URL for the packager (the person or organization that
+created the package). This is distinct from packageUrl, which
+identifies the package itself.
+Example:
+ "packagerUrl": "https://example.com"
+Requires minBoxVersion of at least 9.1.0. Required when publishing a
+community app (CloudronVersions.json).
+postInstallMessage​
+Type: markdown string
+Required: no
+The postInstallMessage field displays a message to the user after an app is installed.
+The intended use of this field is to display some post installation steps that the user has to carry out to
+complete the installation. For example, displaying the default admin credentials and informing the user to
+to change it.
+A large postInstallMessage can be unwieldy to manage inside the CloudronManifest.json. For
+this reason, the postInstallMessage can also contain a file reference. The CLI tool fills up
+the message from this file when publishing your package.
+Example:
+ "postInstallMessage": "file://POSTINSTALL.md"
+The message can have the following special tags:
+<sso> ... </sso> - Content in sso blocks is shown when SSO is enabled.
+<nosso> ... </nosso>- Content in nosso blocks is shown when SSO is disabled.
+The following variables are dynamically replaced:
+Variable
+Meaning
+$CLOUDRON-APP-LOCATION
+App subdomain
+$CLOUDRON-APP-DOMAIN
+App domain
+$CLOUDRON-APP-FQDN
+App FQDN (subdomain and domain)
+$CLOUDRON-APP-ORIGIN
+App origin i.e https://FQDN
+$CLOUDRON-API-DOMAIN
+Dashboard Domain
+$CLOUDRON-API-ORIGIN
+Dashboard Origin ie. https://my.domain.com
+$CLOUDRON-USERNAME
+Username of the current logged in user
+$CLOUDRON-APP-ID
+Unique App ID. This can be used generate the deep links into the dashboard
+optionalSso​
+Type: boolean
+Required: no
+Set the optionalSso field to true for apps you can install optionally without using user management.
+This only applies when using auth related addons. When set, auth related addon environment variables are not injected.
+App startup scripts must handle missing env variables in this case.
+persistentDirs​
+Type: array of paths
+Required: no
+The persistentDirs field specifies directories that store persistent data which should not be
+included in backups directly.
+Unlike runtimeDirs, these directories survive container updates. Unlike
+/app/data, they are not backed up as part of the filesystem backup. Instead, use
+backupCommand to create a portable logical dump of their contents into
+/app/data, and restoreCommand to import that dump during restore.
+Paths must be absolute and cannot overlap with /app/data, /tmp, /run, or runtimeDirs.
+ "persistentDirs": [
+ "/var/lib/elasticsearch",
+ "/var/lib/postgresql"
+ ]
+Requires minBoxVersion of at least 9.1.0.
+runtimeDirs​
+Type: array of paths
+Required: no
+The runtimeDirs field contains an array of paths writable at run time.
+On startup, Cloudron carries over the contents of these directories in the docker image to the container. These paths are not backed up. You can only specify subdirectories of /app/code.
+Cloudron does not persist these directories across updates.
+If you need writable directories that persist across updates, use persistentDirs instead.
+ "runtimeDirs": [
+ "/app/code/node_modules",
+ "/app/code/public"
+ ]
+restoreCommand​
+Type: string
+Required: no
+The restoreCommand field specifies a shell command to run during restore. The command is
+executed via docker run using the app's image in a temporary container, before the main app
+container starts. The app is not running at this point, so the command cannot connect to services
+on localhost inside the app. It runs on the cloudron network and has access to /app/data
+(which contains the restored backup data) and any persistentDirs bind mounts.
+The command should read the logical dump from /app/data (created by
+backupCommand) and populate the persistentDirs with the live database files.
+Typically this means starting the database temporarily in the restore container, importing the
+dump, and shutting it down before the main app container is created.
+ "restoreCommand": "psql -U postgres mydb < /app/data/dump.sql"
+A restoreCommand requires a corresponding backupCommand. Requires minBoxVersion of at
+least 9.1.0.
+tagline​
+Type: one-line string
+Required: no
+The Cloudron App Store uses the tagline to display a single line short description of the app.
+ "tagline": "The very best note keeper"
+tags​
+Type: Array of strings
+Required: no
+The Cloudron App Store uses tags for filtering searches by keyword.
+ "tags": [ "git", "version control", "scm" ]
+Available tags:
+blog
+chat
+git
+email
+sync
+gallery
+notes
+project
+hosting
+wiki
+targetBoxVersion​
+Type: semver string
+Required: no
+The targetBoxVersion field is the box version that the app was tested on. By definition, this version has to be greater
+than the minBoxVersion.
+The box uses this value to enable compatibility behavior of APIs. For example, an app sets the targetBoxVersion to 0.0.5
+and is published on the store. Later, box version 0.0.10 introduces a new feature that conflicts with how apps used
+to run in 0.0.5 (say SELinux was enabled for apps). When the box runs such an app, it ensures compatible behavior
+and will disable the SELinux feature for the app.
+If unspecified, this value defaults to minBoxVersion.
+tcpPorts​
+Type: object
+Required: no
+Syntax: Each key is the environment variable. Each value is an object containing title, description and defaultValue.
+An optional containerPort may be specified.
+The tcpPorts field provides information on the non-http TCP ports/services that your app is listening on. During
+installation, the user can decide how these ports are exposed from their Cloudron.
+For example, if the app runs an SSH server at port 29418, this information is listed here. At installation time,
+the user can decide any of the following:
+Expose the port with the suggested defaultValue to the outside world. This will only work if no other app is being exposed at same port.
+Provide an alternate value on which the port is to be exposed to outside world.
+Disable the port/service.
+To illustrate, the package lists the ports as below:
+ "tcpPorts": {
+ "SSH_PORT": {
+ "title": "SSH Port",
+ "description": "SSH Port over which repos can be pushed & pulled",
+ "defaultValue": 29418,
+ "containerPort": 22,
+ "portCount": 1
+ }
+ },
+In the above example:
+SSH_PORT is an app specific environment variable. Only strings, numbers and _ (underscore) are allowed. The author has to ensure that they don't clash with platform provided variable names.
+title is a short one line information about this port/service.
+description is a multi line description about this port/service.
+defaultValue is the recommended port value to be shown in the app installation UI.
+containerPort is the port that the app is listening on (recall that each app has its own networking namespace).
+readOnly flag indicates the port cannot be changed.
+portCount number of ports to allocate in sequence starting with the set port value.
+enabledByDefault flag is a UI hint as to whether this port should be shown as enabled or not at installation time.
+In more detail:
+If the user decides to disable the SSH service, this environment variable SSH_PORT is absent. Apps must detect this on
+start up and disable these services.
+SSH_PORT is set to the value of the exposed port. Should the user choose to expose the SSH server on port 6000, then the
+value of SSH_PORT is 6000.
+defaultValue is only used for display purposes in the app installation UI. This value is independent of the value
+that the app is listening on. For example, the app can run an SSH server at port 22 but still recommend a value of 29418 to the user.
+containerPort is the port that the app is listening on. The Cloudron runtime will bridge the user chosen external port
+with the app specific containerPort. Cloudron apps are containerized and each app has its own networking namespace.
+As a result, different apps can have the same containerPort value because these values are namespaced.
+The environment variable SSH_PORT may be used by the app to display external URLs. For example, the app might want to display
+the SSH URL. In such a case, it would be incorrect to use the containerPort 22 or the defaultValue 29418 since this is not
+the value chosen by the user.
+containerPort is optional. When omitted, the bridged port numbers are the same internally and externally.
+Some apps use the same variable (in their code) for the listen port and for URLs shown to the user. When packaging one of these apps,
+listen on SSH_PORT internally. Omit containerPort and reconfigure the app to listen on SSH_PORT on each startup.
+portCount is optional. When omitted, the count defaults to 1 and starts with the defaultValue or what the user has configured.
+The maximum count is 1000 ports. For resource and performance reasons, the number should be as low as possible and
+cannot overlap with existing ports used by other apps on the system. The port count is exposed as a environment variable with the
+_COUNT suffix. For example, SSH_PORT_COUNT above.
+enabledByDefault flag is a UI hint as to whether this port should be shown as enabled or not at installation time.
+title​
+Type: string
+Required: no
+The title is the primary app title displayed on the Cloudron App Store.
+Example:
+ "title": "Gitlab"
+udpPorts​
+Type: object
+Required: no
+Syntax: Each key is the environment variable. Each value is an object containing title, description and defaultValue.
+An optional containerPort may be specified.
+The udpPorts field provides information on the non-http TCP ports/services that your app is listening on. During
+installation, the user can decide how these ports are exposed from their Cloudron.
+For example, if the app runs an SSH server at port 29418, this information is listed here. At installation time,
+the user can decide any of the following:
+Expose the port with the suggested defaultValue to the outside world. This will only work if no other app is being exposed at same port.
+Provide an alternate value on which the port is to be exposed to outside world.
+Disable the port/service.
+To illustrate, the package lists the ports as below:
+ "udpPorts": {
+ "VPN_PORT": {
+ "title": "VPN Port",
+ "description": "Port over which OpenVPN server listens",
+ "defaultValue": 11194,
+ "containerPort": 1194,
+ "portCount": 1
+ }
+ },
+In the above example:
+VPN_PORT is an app specific environment variable. Only strings, numbers and _ (underscore) are allowed. The author must ensure that they don't clash with platform provided variable names.
+title is a short one line information about this port/service.
+description is a multi line description about this port/service.
+defaultValue is the recommended port value to be shown in the app installation UI.
+containerPort is the port that the app is listening on (recall that each app has its own networking namespace).
+readOnly flag indicates the port cannot be changed.
+portCount number of ports to allocate in sequence starting with the set port value. When missing, this value defaults to 1.
+upstreamVersion​
+Type: string
+Required: no
+The upstreamVersion field specifies the version of the app. This field is only used for display and information purpose.
+Example:
+ "upsteamVersion": "1.0"
+version​
+Type: semver string
+Required: yes
+The version field is a semver string that specifies the packages version. The version is used by the Cloudron to compare versions and to determine if an update is available.
+Example:
+ "version": "1.1.0"
+website​
+Type: url
+Required: no
+The website field is a URL where the user can read more about the app.
+Example:
+ "website": "https://example.com/myapp"
+Previous
+Cheat sheet
+Next
+Versions (specification)
+Overview
+Fields
+addons
+author
+backupCommand
+capabilities
+changelog
+checklist
+configurePath
+contactEmail
+description
+documentationUrl
+forumUrl
+healthCheckPath
+httpPort
+httpPorts
+icon
+iconUrl
+id
+logPaths
+manifestVersion
+mediaLinks
+memoryLimit
+maxBoxVersion
+minBoxVersion
+multiDomain
+packageUrl
+packagerName
+packagerUrl
+postInstallMessage
+optionalSso
+persistentDirs
+runtimeDirs
+restoreCommand
+tagline
+tags
+targetBoxVersion
+tcpPorts
+title
+udpPorts
+upstreamVersion
+version
+website
+About
+Cloudron
+Resources
+GitLab
+Community
+Forum
+Mastodon
+Copyright © 2026 Cloudron - Built with Docusaurus.

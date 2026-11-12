@@ -1,0 +1,158 @@
+13.7
+6.12.115+deb13.1-cloud-arm64
+===== baseline-no-k3s  2026-11-11T01:16:22Z  window=120s ncpu=2
+cpu_system_busy_pct_of_one_core=0.1
+cpu_k3s_server_pct_of_one_core=0.0
+cpu_containerd_pct_of_one_core=0.0
+mem_total_mib=3923 mem_available_mib=3569 mem_used_mib=353
+Cached: 528100 kB
+AnonPages: 49716 kB
+Shmem: 100744 kB
+SReclaimable: 23096 kB
+SUnreclaim: 27444 kB
+rss_all_containerd_shims_mib=0
+top_rss_processes (KiB):
+  RSS COMMAND
+33500 lima-guestagent
+20896 unattended-upgr
+14436 systemd
+14200 systemd-resolve
+11672 systemd
+11204 systemd-network
+10372 sshd-session
+10152 systemd-journal
+ 9204 systemd-udevd
+ 8436 systemd-logind
+ 8216 systemd-timesyn
+disk_root_used=938M of 19953M
+k3s version v1.37.2+k3s1 (f6973cb8)
+go version go1.26.10
+kube-system   coredns-577d995dff-ltvtn                  1/1   Running     0             40s
+kube-system   helm-install-gateway-api-crd-bhx6f        0/1   Completed   0             40s
+kube-system   helm-install-traefik-crd-smr5k            0/1   Completed   0             40s
+kube-system   helm-install-traefik-frc4g                0/1   Completed   2 (21s ago)   40s
+kube-system   local-path-provisioner-56c6584955-67csh   1/1   Running     0             40s
+kube-system   metrics-server-778c4649b4-wx8kk           1/1   Running     0             40s
+kube-system   svclb-traefik-b51e974e-fgmkd              2/2   Running     0             6s
+kube-system   traefik-68df944ff7-pjl6k                  0/1   Running     0             6s
+settling 300s
+===== idle-k3s-sqlite  2026-11-11T01:24:12Z  window=120s ncpu=2
+cpu_system_busy_pct_of_one_core=6.6
+cpu_k3s_server_pct_of_one_core=1.9
+cpu_containerd_pct_of_one_core=0.2
+mem_total_mib=3923 mem_available_mib=2633 mem_used_mib=1289
+Cached: 1672512 kB
+AnonPages: 910936 kB
+Shmem: 101836 kB
+SReclaimable: 69356 kB
+SUnreclaim: 40004 kB
+rss_k3s_server_mib=780
+rss_containerd_mib=197
+rss_all_containerd_shims_mib=98
+cgroup_mem_mib[/sys/fs/cgroup/system.slice/k3s.service]=1813
+cgroup_mem_mib[/sys/fs/cgroup/kubepods.slice]=73
+top_rss_processes (KiB):
+  RSS COMMAND
+799528 k3s-server
+202236 containerd
+143172 kubectl
+101564 traefik
+67172 metrics-server
+62344 coredns
+60436 lima-guestagent
+41500 local-path-prov
+21996 containerd-shim
+21344 containerd-shim
+20896 unattended-upgr
+disk_root_used=2057M of 19953M
+du_mib[/usr/local/bin/k3s]=71
+du_mib[/var/lib/rancher/k3s]=1020
+du_mib[/var/lib/rancher/k3s/agent/containerd]=749
+du_mib[/var/lib/rancher/k3s/data]=253
+du_mib[/var/lib/rancher/k3s/server/db]=17
+pods_Running=5
+pods_Completed=3
+configmap/kfr-config created
+deployment.apps/filler created
+statefulset.apps/pg created
+persistentvolumeclaim/files created
+deployment.apps/writer created
+secret/kfr-secret created
+Waiting for 1 pods to be ready...
+partitioned roll out complete: 1 new pods have been updated...
+deployment "filler" successfully rolled out
+deployment "writer" successfully rolled out
+workload-ready
+===== loaded-k3s-sqlite  2026-11-11T01:27:41Z  window=120s ncpu=2
+cpu_system_busy_pct_of_one_core=116.7
+cpu_k3s_server_pct_of_one_core=7.7
+cpu_containerd_pct_of_one_core=1.0
+mem_total_mib=3923 mem_available_mib=2040 mem_used_mib=1882
+Cached: 2105128 kB
+AnonPages: 1288384 kB
+Shmem: 134152 kB
+SReclaimable: 114392 kB
+SUnreclaim: 76416 kB
+rss_k3s_server_mib=759
+rss_containerd_mib=212
+rss_all_containerd_shims_mib=740
+cgroup_mem_mib[/sys/fs/cgroup/system.slice/k3s.service]=2717
+cgroup_mem_mib[/sys/fs/cgroup/kubepods.slice]=312
+top_rss_processes (KiB):
+  RSS COMMAND
+777256 k3s-server
+217884 containerd
+144328 kubectl
+111764 kubectl
+108048 traefik
+69740 metrics-server
+66296 lima-guestagent
+64016 coredns
+45552 local-path-prov
+27812 postgres
+22364 containerd-shim
+disk_root_used=2647M of 19953M
+du_mib[/usr/local/bin/k3s]=71
+du_mib[/var/lib/rancher/k3s]=1607
+du_mib[/var/lib/rancher/k3s/agent/containerd]=1239
+du_mib[/var/lib/rancher/k3s/data]=253
+du_mib[/var/lib/rancher/k3s/server/db]=26
+du_mib[/var/lib/rancher/k3s/storage]=89
+pods_Running=37
+pods_Completed=3
+churn_iterations=1140
+oom_events=0
+node=Ready
+node_list=omos-box:Ready
+deploy/filler ready=30/30
+deploy/writer ready=1/1
+sts/pg ready=1/1
+pg_rows=100000
+pg_md5=fcc231c408dea2b310ba1d06dbd66eef
+configmap=onemind-restore-test-v1
+secret_marker_sha256=a472c4bc003d35ed
+blob_sha256=aa3a9497ae822bde
+--- F4 probe: k3s etcd-snapshot save on datastore=sqlite
+time="2026-11-10T20:29:52-05:00" level=fatal msg="Error: see server log for details: etcd datastore disabled"
+ok
+created restic repository a5dbb0b652 at /srv/restic
+Added to the repository: 80.663 MiB (27.027 MiB stored)
+
+processed 983 files, 102.597 MiB in 0:01
+snapshot fd3eb20a saved
+backup_seconds=1
+no errors were found
+repo_size_mib=29
+R3_plaintext_in_repo=none
+image docker.io/library/busybox:1.37 sha256:a7dbc319b143 1911395
+image docker.io/library/nginx:1.29-alpine sha256:5616878291a2 25839530
+image docker.io/library/postgres:17-alpine sha256:3540c0362c80 115044296
+image docker.io/rancher/klipper-helm:v0.13.3-build20261021 sha256:391ec9f4824d 71124330
+image docker.io/rancher/klipper-lb:v0.4.17 sha256:910944bb0bd9 5793195
+image docker.io/rancher/local-path-provisioner:v0.0.37 sha256:e757967a5ec3 13414862
+image docker.io/rancher/mirrored-coredns-coredns:1.14.7 sha256:7efd3c635b03 21712752
+image docker.io/rancher/mirrored-library-busybox:1.37.0 sha256:101b4afd7673 1850819
+image docker.io/rancher/mirrored-library-traefik:3.7.15 sha256:0f6150202bc1 50209034
+image docker.io/rancher/mirrored-metrics-server:v0.9.0 sha256:d9862115e7c7 20915021
+image docker.io/rancher/mirrored-pause:3.10.2 sha256:f548e0e8e3dc 268296
+phase1 done kfr-sqlite

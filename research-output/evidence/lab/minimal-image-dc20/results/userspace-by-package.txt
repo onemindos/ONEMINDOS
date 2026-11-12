@@ -1,0 +1,41 @@
+BUILDROOT userspace (target, minus BR-resolved): pkg, version, fix-state, n unique, fixed-in examples
+  ('openssh', '9.9p2', 'fixed') 14 [('10.5',), ('9.9p2',), ()]
+  ('openssh', '9.9p2', 'none') 11 [('10.5',), ('9.9p2',), ()]
+  ('glibc', '2.41-167-gf247c0a2fb', 'none') 6 [(), ('2.45',)]
+  ('glibc', '2.41-167-gf247c0a2fb', 'fixed') 6 [(), ('2.45',)]
+  ('util-linux-libs', '2.40.4', 'fixed') 6 [('2.41.5', '2.42.2'), (), ('2.41.6', '2.42.3')]
+  ('grub2', '2.12', 'none') 4 [()]
+  ('systemd', '256.17', 'fixed') 3 [('257.11', '258.5', '259.2'), ('257.12', '258.6', '259.4'), ('257.13', '258.7', '259.5')]
+  ('expat', '2.9.0', 'none') 2 [(), ('2.10.0',)]
+  ('expat', '2.9.0', 'fixed') 2 [(), ('2.10.0',)]
+  ('util-linux-libs', '2.40.4', 'none') 2 [('2.41.5', '2.42.2'), (), ('2.41.6', '2.42.3')]
+  ('util-linux', '2.40.4', 'fixed') 2 [(), ('2.41.6', '2.42.3'), ('2.41.4',)]
+  ('gcc-final', '13.4.0', 'fixed') 1 [('2023-09-12',)]
+  ('libzlib', '1.3.2', 'none') 1 [()]
+  ('util-linux', '2.40.4', 'none') 1 [(), ('2.41.6', '2.42.3'), ('2.41.4',)]
+DEBIAN userspace by source package, fix-state, n unique
+  ('krb5', 'not-fixed') 21
+  ('openssh', 'wont-fix') 20
+  ('glibc', 'wont-fix') 15
+  ('sqlite3', 'wont-fix') 12
+  ('openssh', 'not-fixed') 10
+  ('glibc', 'not-fixed') 7
+  ('elfutils', 'not-fixed') 7
+  ('gcc-14', 'wont-fix') 6
+  ('util-linux', 'wont-fix') 5
+  ('openssl', 'not-fixed') 5
+  ('systemd', 'not-fixed') 4
+  ('coreutils', 'not-fixed') 4
+  ('dracut', 'wont-fix') 3
+  ('perl', 'wont-fix') 3
+  ('expat', 'wont-fix') 3
+  ('expat', 'not-fixed') 3
+  ('tar', 'wont-fix') 3
+  ('cpio', 'wont-fix') 3
+  ('systemd', 'wont-fix') 3
+  ('ncurses', 'wont-fix') 2
+  ('krb5', 'wont-fix') 2
+  ('libtirpc', 'not-fixed') 2
+  ('acl', 'wont-fix') 2
+  ('sqlite3', 'not-fixed') 2
+  ('dash', 'not-fixed') 2

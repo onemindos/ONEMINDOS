@@ -1,0 +1,180 @@
+Quick start
+Skip to Content
+Runtipi
+DocumentationAbout
+CTRL K
+CTRL K
+Home
+Documentation
+Introduction
+Quick start
+Apps Available
+Learn
+Overview
+Why Runtipi?
+How Runtipi works
+Apps & the App Store
+Networking
+Reverse proxy
+Troubleshooting
+Guides
+Overview
+Networking
+Expose apps to internet
+Expose with Cloudflare tunnels
+Local SSL certificates
+DNS challenge (Cloudflare)
+Custom domain for dashboard
+Customization
+Customize app config
+Customize docker compose & traefik
+Custom settings
+Custom environment variables
+Backup & maintenance
+Backup and restore
+Auto-backup with cron
+Auto-update with cron
+Advanced
+Create custom App Store
+Dynamic compose files
+Uninstalling Runtipi
+Security & maintenance
+Overview
+VPS security
+Server hardening
+Reference
+Architecture
+Folder Structure
+Using the CLI
+Third-party services
+config.json options
+Dynamic compose
+Environment variables
+Breaking updates
+Release notes
+For developers
+Overview
+Creating Apps
+Contributing
+Running locally
+Running the CLI locally
+About
+Light
+Home
+Introduction
+Quick start
+Apps Available
+Learn
+Overview
+Why Runtipi?
+How Runtipi works
+Apps & the App Store
+Networking
+Reverse proxy
+Troubleshooting
+Guides
+Overview
+Networking
+Expose apps to internet
+Expose with Cloudflare tunnels
+Local SSL certificates
+DNS challenge (Cloudflare)
+Custom domain for dashboard
+Customization
+Customize app config
+Customize docker compose & traefik
+Custom settings
+Custom environment variables
+Backup & maintenance
+Backup and restore
+Auto-backup with cron
+Auto-update with cron
+Advanced
+Create custom App Store
+Dynamic compose files
+Uninstalling Runtipi
+Security & maintenance
+Overview
+VPS security
+Server hardening
+Reference
+Architecture
+Folder Structure
+Using the CLI
+Third-party services
+config.json options
+Dynamic compose
+Environment variables
+Breaking updates
+Release notes
+For developers
+Overview
+Creating Apps
+Contributing
+Running locally
+Running the CLI locally
+Light
+On This Page
+What is Runtipi?
+Before you begin
+VPS users
+Installation
+Install Runtipi
+Access the dashboard
+Install your first app
+Access your app
+Success!
+What’s next?
+Need Help?
+Need help? Join our Discord Edit this page Scroll to top
+DocumentationQuick start
+Copy page
+Quick start
+Get up and running with Runtipi in under 10 minutes. This guide will take you from installation to running your first self-hosted app.
+⏱️
+Time to complete: ~10 minutes
+What is Runtipi?
+Runtipi is a home server management tool that makes self-hosting as easy as installing apps on your phone. Just a simple web interface to install and manage all kind of services.
+Before you begin
+Make sure you have at least:
+A 64-bit Linux server (Ubuntu 22.04+ recommended) or a Raspberry Pi
+At least 4GB of RAM
+10GB of free disk space
+Terminal/SSH access to your server
+VPS users
+If you intend to self-host stuff on a VPS consider if it is a good or bad idea. Whether you use Runtipi or not, it is most of the time a bad idea. Except if you put the correct security measures in place.
+When you install Runtipi on a VPS it is immediately vulnerable and open to the world through its public IP. The same goes for all apps you will install down the line through their respective ports.
+If you still want to run on a VPS, follow our security guide for VPS to minimize risks.
+Installation
+Install Runtipi
+Copy and paste this command into your server terminal:
+curl -L https://setup.runtipi.io | bash
+This will download and install Runtipi along with Docker (if not already installed). The process takes 2-5 minutes.
+If you already have Docker installed, make sure you have Docker Compose
+plugin. Check with: docker compose version
+Access the dashboard
+Once installation is complete, open your browser and navigate to:
+http://your-server-ip
+Replace your-server-ip with your server’s local IP address (e.g., <private-ip-masked>).
+Install your first app
+Click on “App Store” in the navigation
+Browse the available apps
+Choose an app to install (we recommend starting with Nginx)
+Click “Install”
+Choose a port you want the app to run on
+The app will download and start automatically.
+Access your app
+Once installed, you can access your app in two ways:
+From the Dashboard: Click “Open” on the app details page
+Direct URL: http://your-server-ip:PORT (the port is shown on the app details page)
+Success!
+Congratulations! You’ve just self-hosted your first application with Runtipi.
+What’s next?
+Now that you have Runtipi running, here are some next steps:
+Explore appsLearn the basicsExpose apps to internetSecure your setup
+Need Help?
+Check our Troubleshooting section
+Join our Discord 
+Last updated on March 30, 2026
+IntroductionApps Available
+Runtipi - Homeserver management made easyTipi logo created by Freepik - Flaticon

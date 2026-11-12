@@ -1,0 +1,35 @@
+##### [07:27:55] QEMU START qemu-system-aarch64 -machine virt -accel kvm -cpu host -smp 4 -m 3072 -nodefaults -display none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd -drive if=pflash,
+$ export KUBECONFIG=/run/k3s/k3s.yaml; k3s kubectl -n kube-system describe pod -l k8s-app=kube-dns | tail -15
+export KUBECONFIG=/run/k3s/k3s.yaml; k3s kubectl -n kube-system describe pod -l k8s-app=kube-dns | tail -15; echo __R''C=$?__
+[?2004lE1111 12:34:56.451215     667 memcache.go:381] "Couldn't get current server API group list" err="the server is currently unable to handle the request"
+E1111 12:34:56.623903     667 memcache.go:381] "Couldn't get current server API group list" err="the server is currently unable to handle the request"
+E1111 12:34:56.761647     667 memcache.go:381] "Couldn't get current server API group list" err="the server is currently unable to handle the request"
+E1111 12:34:57.378946     667 memcache.go:381] "Couldn't get current server API group list" err="the server is currently unable to handle the request"
+E1111 12:34:57.486037     667 memcache.go:381] "Couldn't get current server API group list" err="the server is currently unable to handle the request"
+Error from server (ServiceUnavailable): the server is currently unable to handle the request
+
+$ journalctl -u k3s --no-pager | grep -iE "error|fail" | grep -v "level=info" | tail -25 | cut -c1-300
+:~# journalctl -u k3s --no-pager | grep -iE "error|fail" | grep -v "level=info" | tail -25 | cut -c1-300; echo __R''C=$?__
+[?2004lNov 11 12:33:52 onemind-lab k3s[440]: time="2026-11-11T12:33:52Z" level=error msg="Sending HTTP/1.1 503 response to [::1]:48718: runtime core not ready"
+Nov 11 12:33:52 onemind-lab k3s[440]: time="2026-11-11T12:33:52Z" level=warning msg="Failed to load kernel module nft-expr-counter with modprobe"
+Nov 11 12:33:55 onemind-lab k3s[440]: time="2026-11-11T12:33:55Z" level=error msg="Failed to write kubeconfig symlink: failed to create path for symlink: mkdir /etc/rancher/k3s: read-only file system"
+Nov 11 12:33:58 onemind-lab k3s[440]: time="2026-11-11T12:33:58Z" level=error msg="Shutdown request received: \"containerd exited: exit status 2\""
+Nov 11 12:33:59 onemind-lab systemd[1]: k3s.service: Failed with result 'protocol'.
+Nov 11 12:33:59 onemind-lab systemd[1]: Failed to start k3s.service - Lightweight Kubernetes (k3s server, data on /data).
+Nov 11 12:34:06 onemind-lab k3s[587]: time="2026-11-11T12:34:06Z" level=error msg="Sending HTTP/2.0 503 response to [::1]:46178: starting"
+Nov 11 12:34:11 onemind-lab k3s[587]: time="2026-11-11T12:34:11Z" level=error msg="Sending HTTP/1.1 503 response to [::1]:39240: runtime core not ready"
+Nov 11 12:34:11 onemind-lab k3s[587]: time="2026-11-11T12:34:11Z" level=warning msg="Failed to load kernel module nft-expr-counter with modprobe"
+Nov 11 12:34:12 onemind-lab k3s[587]: time="2026-11-11T12:34:12Z" level=error msg="Failed to write kubeconfig symlink: failed to create path for symlink: mkdir /etc/rancher/k3s: read-only file system"
+Nov 11 12:34:14 onemind-lab k3s[587]: time="2026-11-11T12:34:14Z" level=error msg="Shutdown request received: \"containerd exited: exit status 2\""
+Nov 11 12:34:14 onemind-lab k3s[587]: time="2026-11-11T12:34:14Z" level=error msg="Sending HTTP/1.1 503 response to [::1]:39306: runtime core not ready"
+Nov 11 12:34:16 onemind-lab systemd[1]: k3s.service: Failed with result 'protocol'.
+Nov 11 12:34:16 onemind-lab systemd[1]: Failed to start k3s.service - Lightweight Kubernetes (k3s server, data on /data).
+
+$ getconf PAGESIZE; ls /data/k3s/agent/images; k3s crictl images | head
+04hroot@onemind-lab:~# getconf PAGESIZE; ls /data/k3s/agent/images; k3s crictl images | head; echo __R''C=$?__
+[?2004l4096
+k3s-airgap-images.tar.zst
+[33mWARN[0m[0004] Config "" does not exist, trying next: "/var/lib/rancher/k3s/data/10bae91d040ed73349935c6d1ce72fe9eedd59996e8758da3b1177613eded6f7/bin/crictl.yaml" 
+[31mERRO[0m[0004] get server config: load config file: stat /var/lib/rancher/k3s/data/10bae91d040ed73349935c6d1ce72fe9eedd59996e8758da3b1177613eded6f7/bin/crictl.yaml: no such file or directory 
+
+##### [07:35:17] POWER CUT: SIGKILL qemu

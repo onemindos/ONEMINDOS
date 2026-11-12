@@ -1,0 +1,11 @@
+SOURCE: https://forum.proxmox.com/threads/broken-boot-after-upgrade-from-8-9.176455/
+ACCESSED: 2026-11-11
+
+NOTE: excerpt only; user handles, hostnames and IDs removed for privacy. Full thread at the SOURCE URL.
+
+ [SOLVED] - broken boot after upgrade from 8>9 | Proxmox Support Forum
+ [SOLVED] broken boot after upgrade from 8>9
+After the install the system rebooted and now it flashes up with 'Welcome to GRUB!" and restarts
+I recently updated my proxmox up to version 9, and during the upgrade I ran apt remove systemd-boot as suggested by the 8to9 advisor
+If I boot with 9.1 ISO and select Rescue boot I get the error error: file '/boot/pve/vmlinuz' not found & error: you need to load the kernel first
+Once you boot it you can mount the zfs disk in case you have the ability to edit the system files. But i think you cooked the boot loader and it will be difficult to installed removed packaged especially the systemd-boot

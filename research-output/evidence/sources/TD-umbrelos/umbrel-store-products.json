@@ -1,0 +1,119 @@
+{
+ "source": "https://store.umbrel.com/products.json",
+ "fetched": "2026-11-10",
+ "note": "reduced to title/date/price",
+ "products": [
+  {
+   "title": "Umbrel Pro (4TB)",
+   "published_at": "2026-07-05T06:49:23-04:00",
+   "prices": [
+    "1299.00"
+   ]
+  },
+  {
+   "title": "Umbrel Pro (8TB)",
+   "published_at": "2026-07-05T06:16:48-04:00",
+   "prices": [
+    "1899.00"
+   ]
+  },
+  {
+   "title": "Umbrel Protect for Umbrel Pro (8TB)",
+   "published_at": "2026-03-17T02:24:15-04:00",
+   "prices": [
+    "99.00"
+   ]
+  },
+  {
+   "title": "Umbrel Protect for Umbrel Pro (2TB)",
+   "published_at": "2026-03-17T02:23:15-04:00",
+   "prices": [
+    "69.00"
+   ]
+  },
+  {
+   "title": "Umbrel Pro (2TB)",
+   "published_at": "2026-03-17T01:49:35-04:00",
+   "prices": [
+    "999.00"
+   ]
+  },
+  {
+   "title": "Umbrel Protect for Umbrel Pro (4TB)",
+   "published_at": "2026-02-05T03:49:31-05:00",
+   "prices": [
+    "89.00"
+   ]
+  },
+  {
+   "title": "Umbrel Protect for Umbrel Pro (no SSDs)",
+   "published_at": "2026-02-05T03:49:15-05:00",
+   "prices": [
+    "59.00"
+   ]
+  },
+  {
+   "title": "Umbrel Pro",
+   "published_at": "2026-02-05T03:45:23-05:00",
+   "prices": [
+    "699.00"
+   ]
+  },
+  {
+   "title": "Umbrel Protect for Umbrel Home (512GB)",
+   "published_at": "2025-12-22T07:31:10-05:00",
+   "prices": [
+    "39.00"
+   ]
+  },
+  {
+   "title": "Umbrel Home (512GB)",
+   "published_at": "2025-12-06T01:15:04-05:00",
+   "prices": [
+    "499.00"
+   ]
+  },
+  {
+   "title": "Umbrel Protect for Umbrel Home (2TB)",
+   "published_at": "2025-10-19T11:16:04-04:00",
+   "prices": [
+    "69.00"
+   ]
+  },
+  {
+   "title": "Umbrel Protect for Umbrel Home (4TB)",
+   "published_at": "2025-10-19T11:15:44-04:00",
+   "prices": [
+    "89.00"
+   ]
+  },
+  {
+   "title": "Umbrel Protect for Umbrel Home (1TB)",
+   "published_at": "2025-10-19T11:14:27-04:00",
+   "prices": [
+    "49.00"
+   ]
+  },
+  {
+   "title": "Umbrel Home (4TB)",
+   "published_at": "2025-05-31T10:02:03-04:00",
+   "prices": [
+    "949.00"
+   ]
+  },
+  {
+   "title": "Umbrel Home (2TB)",
+   "published_at": "2025-05-31T10:02:02-04:00",
+   "prices": [
+    "699.00"
+   ]
+  },
+  {
+   "title": "Umbrel Home (1TB)",
+   "published_at": "2025-05-31T10:02:01-04:00",
+   "prices": [
+    "599.00"
+   ]
+  }
+ ]
+}

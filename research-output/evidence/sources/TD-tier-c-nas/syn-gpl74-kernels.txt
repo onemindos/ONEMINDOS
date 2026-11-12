@@ -1,0 +1,9 @@
+SOURCE: https://archive.synology.com/download/ToolChain/Synology%20NAS%20GPL%20Source/7.4-90080
+ACCESSED: 2026-11-11. Derived listing: kernel source tarballs per platform in the DSM 7.4-90080 GPL source index (full index text kept in the run's lab folder).
+
+linux-3.10.x-bsp.txz: 4 platforms: alpine alpine4k armada38x monaco
+linux-3.10.x.txz: 4 platforms: avoton braswell bromolow grantley
+linux-4.4.x.txz: 13 platforms: apollolake armada37xx broadwell broadwellnk broadwellnkv2 broadwellntbap denverton geminilake kvmx64 purley r1000 rtd1296 v1000
+linux-5.10.x.txz: 7 platforms: epyc7002 epyc7003 geminilakenk icelaked r1000nk rtd1619b v1000nk
+
+Total platforms in index: 28

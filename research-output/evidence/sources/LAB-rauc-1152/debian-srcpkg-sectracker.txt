@@ -1,0 +1,20 @@
+# Saved 2026-11-11 from https://security-tracker.debian.org/tracker/source-package/rauc (HTML converted to text; emails masked)
+
+ Information on source package raucInformation on source package rauc
+rauc in the Package Tracking System
+rauc in the Bug Tracking System
+rauc source code
+rauc in the testing migration checker
+Available versions
+ReleaseVersion
+bookworm1.8-2
+trixie1.13-3+deb13u1
+forky1.15.2-1
+sid1.15.2-1
+Open issues
+BugbookwormtrixieforkysidDescription
+CVE-2026-34155vulnerable (no DSA)fixedfixedfixedRAUC controls the update process on embedded Linux systems. Prior to v ...
+Resolved issues
+BugDescription
+CVE-2020-25860The install.c module in the Pengutronix RAUC update client prior to ve ...
+Search for package or bug name: Reporting problemsHome - Debian Security - Source (Git)

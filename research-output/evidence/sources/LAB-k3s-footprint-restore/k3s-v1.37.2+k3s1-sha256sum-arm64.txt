@@ -1,0 +1,4 @@
+9cd4d292eaf4a7b12a66c3813545cca3351ee609c6e3d75d24fb2cc7dcbcee0a  k3s-airgap-images-arm64.tar
+6c6f7257a6d568ee3aeb571c60183be1f351b5e65fbc508003661029c7c536cd  k3s-airgap-images-arm64.tar.gz
+ca384f1a77aa83024bd82ad26fa4774971adb038e656a3b5b9af926be445a442  k3s-airgap-images-arm64.tar.zst
+a779ccf1e5e2e33a62f5a29c2f1c0bbf99431e100579d4c10f0aa0742a6aa84b  k3s-arm64

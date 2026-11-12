@@ -1,0 +1,272 @@
+Install Coolify (Self-hosted): One-command Setup
+CoolifySearch
+⌘K
+Cloud
+Home
+Get StartedChoose your pathStart with Self-hostedStart with Coolify CloudDeploy your first appDeploy your first databaseDeploy your first service
+ResourcesProduct UISponsorsOffersSupportTeamVideos
+ContributeGuidelinesCoolify CoreDocumentationService Templates
+Cloud
+Start with Self-hosted
+Start with Self-hosted
+Self-hosting Coolify means you run the Coolify instance on infrastructure you control.
+The short version
+Coolify needs 2 CPU cores, 2 GB RAM, and 10 GB disk space to run. If your server meets this specification, you can install Coolify by using this install script:
+curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
+Once the installation completes, it will print the next steps in your terminal, so follow them.
+Before you begin
+Check these requirements first so you pick the right install method and avoid server, OS, or network issues halfway through setup.
+Section
+Check
+1. Server requirements
+Confirm you have a server or device with SSH access.
+2. Supported operating systems
+Confirm your Linux distribution is supported.
+3. Minimum hardware requirements
+Confirm CPU, memory, disk, and architecture fit Coolify.
+4. Server resources for your projects
+Confirm your server has enough CPU, memory, and storage for your workloads.
+5. Configure SSH access and firewall
+Confirm SSH access and required firewall ports are ready.
+1. Server requirements
+You need a server with SSH access. This could be:
+VPSA Virtual Private Server from any provider.
+Dedicated serverA full physical server that you control.
+Virtual machineA Linux VM running on your own infrastructure.
+Raspberry PiA 64bit supported Raspberry Pi setup.
+LaptopAn old or spare Linux laptop with SSH access.
+Any Linux deviceAny device that runs Linux with SSH access.
+Fresh server recommended
+It’s best to use a fresh server for Coolify to avoid any conflicts with existing applications.
+Server provider
+If you haven’t picked a server provider yet, consider using Hetzner.
+You can even use our referral link to support the project.
+2. Supported operating systems
+Base
+Distributions
+Notes
+Debian-based
+Debian, Ubuntu
+Ubuntu non-LTS: use Manual install
+Red Hat-based
+CentOS, Fedora, Red Hat, AlmaLinux, Rocky, TencentOS, Asahi
+Docker may need manual pre-install on some variants
+SUSE-based
+SLES, SUSE, openSUSE
+Supported
+Arch-based
+Arch Linux
+Supported
+Alpine-based
+Alpine Linux
+Supported
+Raspberry Pi OS
+Raspberry Pi OS (64-bit)
+Use 64-bit image
+Operating system support
+The table above reflects distributions where Coolify is known to run well, based on project testing and community reports.
+Coolify only runs on Linux-based operating systems. You may be able to run it on a non-Linux OS by using tools like Linux virtual machines.
+3. Minimum hardware requirements
+Item
+Minimum
+Notes
+CPU
+2 cores
+Increase cores if running multiple workloads on one server.
+Memory
+2 GB RAM
+Increase memory as your workload grows.
+Disk
+10 GB free space
+Keep additional space for Docker images, volumes, and backups.
+Architecture
+amd64 or arm64
+ARM64 is required for Raspberry Pi OS installations.
+Hardware resource planning for budget users
+Coolify can run on smaller servers (for example: 1 CPU core, 512 MB RAM, 4 GB disk), but this is not recommended.
+If cost is a concern, start with a server 1 CPU core and 1 GB RAM, and upgrade the server as your workloads grow or if it becomes slow due to limited resources.
+If you’re running both builds and Coolify on the same server, monitor your resource usage. High resource usage could make your server unresponsive.
+4. Server resources for your projects
+The resources you need depend on your projects. If you host multiple services or larger applications, choose a server with higher CPU, memory, and storage.
+Example production setup
+ShadowArcanist runs a mixed production workload on one server with the resources below. The applications are built externally and the workloads are heavily optimized, so they run on modest resources. Use this as a rough reference point, not a fixed recommendation.
+Hosting provider
+Hetzner
+Server type
+CAX11
+Memory4 GB
+Average usage: 2.6 GB
+CPU2 vCPU
+Average usage: 60-70%
+Storage40 GB
+Average usage: 32 GB
+This server comfortably supports:
+16 Static Sites
+9 Rust API services
+5 Rust Apps (full stack)
+4 Rust Discord bots
+7 Rust workers
+2 Valkey databases
+1 PostgreSQL database
+Coolify
+Beszel
+5. Configure SSH access and firewall
+SSH access
+Configure OpenSSH so Coolify can connect to your server.
+Confirm SSH works from your machine
+Use root or a sudo-capable userConfigure SSH
+Firewall ports
+Open the required ports on firewall.
+Allow SSH access
+Open Coolify and application portsConfigure Firewall
+Choose installation method
+Automated
+Run one script to install Coolify automatically.
+Recommended by the Coolify team
+One-command installation via script
+Requires root user accessChoose Automated
+Manual
+Run each install step yourself for full control.
+Works with existing Docker installations
+Non-root and custom setups
+You configure networking, volumes, and secretsChoose Manual
+Raspberry Pi OS
+Properly configure Raspberry Pi before installing Coolify.
+Requires 64-bit Raspberry Pi OS
+ARM64 architecture required
+Compatible with both Automated and Manual installChoose Raspberry Pi OS
+AutomatedManualRaspberry Pi OS
+Automated installation 
+Automated install flow
+Run one command, let the installer setup everything, then access the Coolify dashboard.
+1
+Run the installer
+2
+Wait for Coolify to start
+3
+Visit http://<server-ip-here>:8000
+4
+Create the admin account
+5
+Back up /data/coolify/source/.env
+Use a fresh server when possible.
+Use root user account.
+Open necessary ports on Firewall.
+Create admin account as soon as possible.
+Back up generated installation secrets.
+You should end with a running Coolify dashboard, first admin account, and saved installation secrets.
+1. Run the install script
+Open your terminal and SSH into your server as root or a user with sudo privileges, then run the command below:
+curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
+What does the installer do?
+Before running the installer
+If Docker is installed through snap, remove it and install Docker Engine using the official Docker method or let the install script handle it automatically.
+If you use Ubuntu, use an LTS release such as 20.04, 22.04, or 24.04. Non-LTS Ubuntu releases can behave differently, so use the manual installation method if you run into installer issues.
+2. Access the dashboard
+After installation, you’ll see a “Congratulations!” message with the dashboard link in your terminal.
+Open http://<private-ip-masked>:8000 in your browser (replace <private-ip-masked> with your server IP) and create your admin account.
+Secure your admin account
+Create your admin account as soon as installation finishes. Anyone who reaches the registration page first can become the instance admin and gain root access to your server.
+3. Back up installation secrets
+Back up /data/coolify/source/.env and keep it somewhere safe.
+This file contains installation secrets such as APP_KEY, which is used to encrypt Coolify database values. You need this file if you ever want to restore Coolify from a backup.
+That's it!, you can start using Coolify.
+After setup
+Once Coolify is running, start by deploying something on the same server where Coolify is installed. When that works, expand to more servers or use the maintenance guides as needed.
+Deploy an application
+Start with an app deployment once your server is connected.
+Deploy a database
+Add a database when your first app needs persistent data.
+Deploy a service
+Launch a one-click service from the service catalog.
+Grow beyond one server
+Add more compute capacity when your workloads outgrow the first server.
+1Add and validate servers2Build server3Multiple servers
+Ongoing operations
+Use these guides when you need to maintain or remove your Coolify instance.
+1Upgrade2Downgrade3Uninstallation
+Advanced installations
+For PHP memory and worker settings such as PHP_MEMORY_LIMIT, see Instance environment variables. These settings configure Coolify itself and are separate from a deployed application's environment.
+These options are optional and mostly useful for automation or custom infrastructure requirements.
+Advanced install options
+Root user
+Pre-create the admin account so public registration is never exposed.
+Custom Docker network
+Avoid network overlap with infrastructure-controlled address pools.
+Custom registry source
+Pull Coolify images from ghcr.io or docker.io.
+Compose overrides
+Persist custom ports, labels, resources, or container settings across upgrades.
+Safety first
+Test advanced changes on a non-production server first. If you manage production workloads, keep backups and a rollback path before applying advanced install settings.
+Root userCustom Docker networkCustom registry sourceCompose overrides
+1. Root user
+Use this when you want to pre-create the root account during installation, so the registration page is never exposed.
+Variable
+Required
+Notes
+ROOT_USERNAME
+Yes
+3-255 characters. Allowed: letters, numbers, spaces, underscores, and hyphens.
+ROOT_USER_EMAIL
+Yes
+Must be a valid email format with a valid DNS record, up to 255 characters.
+ROOT_USER_PASSWORD
+Yes
+At least 8 characters with uppercase, lowercase, number, and special symbol.
+AutomatedManual
+env ROOT_USERNAME=RootUser \
+ROOT_USER_EMAIL=<email-masked> \
+ROOT_USER_PASSWORD=<masked>!' \
+bash -c 'curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash'
+If you are not logged in as root:
+sudo -E env ROOT_USERNAME=RootUser \
+ROOT_USER_EMAIL=<email-masked> \
+ROOT_USER_PASSWORD=<masked>!' \
+bash -c 'curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash'
+Choose your path
+Decide between self-hosted Coolify and Coolify Cloud based on your goals, responsibilities, and operational comfort level.
+Start with Coolify Cloud
+Start with Coolify Cloud using your own servers while the Coolify team manages the Coolify instance for you.
+On this page
+Start with Self-hosted
+Before you begin
+1. Server requirements
+2. Supported operating systems
+3. Minimum hardware requirements
+4. Server resources for your projects
+5. Configure SSH access and firewall
+Choose installation method
+Automated installation 
+1. Run the install script
+2. Access the dashboard
+3. Back up installation secrets
+Manual installation 
+Prerequisites
+1. Create required directories
+2. Generate and register SSH key
+3. Download required files
+4. Set permissions
+5. Generate secure environment values
+6. Create Docker network
+7. Start Coolify
+8. Access the dashboard
+Raspberry Pi OS 
+Prerequisites
+1. Flash 64-bit OS
+2. Enable SSH
+3. Boot the Pi
+4. Follow automated or manual installation method
+After setup
+Advanced installations
+1. Root user
+2. Custom Docker network
+3. Custom registry source
+4. Compose overrides
+Examples
+A. Add container labels
+B. Set resource limits
+C. Change port binding
+D. Adjust database configuration
+E. Combine multiple customizations
+Copy MarkdownOpen

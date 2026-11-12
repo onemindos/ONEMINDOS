@@ -1,0 +1,4 @@
+accessed: 2026-11-10
+{"downloads":388706,"start":"2026-11-03","end":"2026-11-09","package":"rea-agents"}
+{"downloads":2005579,"start":"2026-10-11","end":"2026-11-09","package":"rea-agents"}
+{"latest": "6.8.0", "created": "2026-07-12T12:46:31.493Z", "versions": 34, "attestations": {"url": "https://registry.npmjs.org/-/npm/v1/attestations/rea-agents@6.8.0", "provenance": {"predicateType": "https://slsa.dev/provenance/v1"}}, "install_scripts": {"preinstall": null, "install": null, "postinstall": null}}

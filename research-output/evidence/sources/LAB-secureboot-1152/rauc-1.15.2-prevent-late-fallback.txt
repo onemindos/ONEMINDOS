@@ -1,0 +1,19 @@
+# rauc/rauc@4fb7c798d6ae412344fb8f8d310d773046af3441:src/mark.c#L235-L243
+		if (r_context()->config->prevent_late_fallback
+		    && g_strcmp0(slot_identifier, "booted") == 0) {
+			g_autofree gchar *mark_bad_message = NULL;
+
+			if (!mark_run("bad", "other", NULL, &mark_bad_message)) {
+				*message = g_strdup(mark_bad_message);
+				return FALSE;
+			}
+		}
+
+# rauc/rauc@4fb7c798d6ae412344fb8f8d310d773046af3441:docs/reference.rst#L255-L261
+``prevent-late-fallback=<true/false>`` (optional)
+  In some use-cases, fallback to an older version must be prevented after the
+  update is completed successfully (``rauc status mark-good`` executed from the
+  new version).
+  If this option is enabled, RAUC will execute the equivalent of ``rauc status
+  mark-bad other`` after marking the currently booted slot as good.
+  This means that the other slot(s) is/are no longer eligible for fallback.

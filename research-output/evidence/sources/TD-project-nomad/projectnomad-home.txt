@@ -1,0 +1,330 @@
+Project NOMAD - Offline Knowledge & AI Server
+Project NOMAD™
+Features
+Use Cases
+Hardware
+Install
+About
+Contact
+Shop
+Get Started
+Free and open source
+Offline knowledge, maps, and education, installed on a computer you already own.
+Project NOMAD fills your machine with Wikipedia, textbooks, and offline maps, plus an optional AI assistant that runs entirely on your own hardware. Once it's set up, it keeps working without the internet.
+See how it works
+Install guide
+NOMAD · Command Center
+Running
+As Featured In
+The Modern Rogue
+ZDNet
+Cybernews
+Hacker News
+DEV Community
+dev.ua
+View all coverage →
+The short version
+What is Project NOMAD™?
+An offline-first knowledge and education server
+: a free, open source offline server you install on any computer. Download the content you want, and it keeps working without internet, forever. The optional AI runs entirely on your own hardware, so it stays private, with no cloud and nothing sent anywhere. Prefer just the knowledge library? You can leave the AI out. Similar products cost hundreds of dollars. Project NOMAD is free.
+Offline Knowledge
+Wikipedia, guides, medical references
+Local AI
+Private & optional, 100% on your hardware
+Offline Maps
+Street-level world maps, stored locally
+Education
+Khan Academy & courses offline
+How It Works
+Pull the plug.
+Watch it keep working.
+NOMAD downloads everything while you're online, then runs entirely on its own. No internet, no cloud, no signal required. Go ahead, cut the cord.
+NOMAD · Link Monitor
+Link: Online · Setup Mode
+Downloads Wikipedia,
+maps & content
+NOMAD
+INTERNET
+NOMAD SERVER
+YOUR DEVICES
+While it's connected, NOMAD pulls down the Wikipedia, maps, AI models, and courses you choose and
+keeps them up to date with the latest information
+for as long as you stay online.
+Pull the plug
+Who it is for
+Built For Those Who Prepare
+Whether you're planning for emergencies or living off-grid, Project NOMAD has you covered.
+Emergency Preparedness
+When infrastructure fails, NOMAD keeps working. Medical references, survival guides, and encyclopedic knowledge, no internet required.
+Off-Grid Living
+Cabin, RV, or sailboat, bring a complete library, AI assistant, and offline maps wherever you go. True digital independence.
+Tech Enthusiasts
+Run local LLMs, self-host your knowledge base, own your data. Built for beefy hardware and those who want full control.
+Education
+Khan Academy, Wikipedia for Schools, and more, complete learning resources for families anywhere, even without connectivity.
+The contents
+What's Inside
+Project NOMAD bundles best-in-class open source tools into one cohesive system.
+NOMAD · Modules
+1
+/
+4
+Information Library
+Powered by
+Kiwix
+AI Assistant
+Powered by
+Ollama
+Offline Maps
+Powered by
+OpenStreetMap
+Education Platform
+Powered by
+Kolibri
+Offline Wikipedia, Project Gutenberg, medical references, repair guides, and more, terabytes of human knowledge at your fingertips.
+Optional, and completely private. Run powerful large language models entirely on your own hardware to chat, write, analyze, and code, with nothing ever sent to the cloud. Don’t want AI? Skip it, and everything else still works.
+Download street-level OpenStreetMap data for the entire world, or just the countries you need, and browse it all offline. Zoom from whole continents down to individual streets with no connection required.
+Khan Academy courses, educational videos, interactive lessons, complete K-12 curriculum available offline.
+Information Library
+, powered by
+Kiwix
+As Seen On The Modern Rogue
+See It In Action
+The Modern Rogue put Project NOMAD to the test as the off-grid internet for the apocalypse. Watch them run it through its paces.
+Prefer the full walkthrough? See what Project NOMAD can do on your own hardware.
+Browse all video guides
+How it compares
+Why
+Project NOMAD
+?
+Other offline products charge hundreds and lock you into specific hardware. Project NOMAD runs on any PC you choose, with GPU-accelerated AI, for free.
+Project NOMAD
+PrepperDisk
+Doom Box
+R.E.A.D.I.
+Z3R4H
+Price
+Free
+$199–$279
+$699
+$499
+$499
+AI Capability
+GPU-accelerated LLMs
+None
+Basic 7B model
+Basic 7B model
+On-device AI advisor
+Hardware
+Any PC you choose
+Raspberry Pi (locked)
+Raspberry Pi (locked)
+Raspberry Pi (locked)
+Any Windows/Linux PC
+Multi-User / Network
+Serves your whole network
+WiFi hotspot (up to 20)
+Single
+Single
+Single PC
+Content Library
+Full Wikipedia + curated collections
+Full Wikipedia + curated content
+Limited
+Limited
+Full Wikipedia + archives
+Offline Maps
+OpenStreetMap (any region)
+OpenStreetMap (via IIAB)
+Basic
+None
+US topo only
+Education
+Full Khan Academy
+Khan Academy
+None
+None
+Limited K-12 docs
+Open Source
+Yes (Apache 2.0)
+Partially (content is proprietary)
+No
+No
+No
+Upgradeable
+Yes
+Yes (via web console)
+No
+No
+No (static drive)
+Price
+Project NOMAD
+Free
+PrepperDisk
+$199–$279
+Doom Box
+$699
+R.E.A.D.I.
+$499
+Z3R4H
+$499
+AI Capability
+Project NOMAD
+GPU-accelerated LLMs
+PrepperDisk
+None
+Doom Box
+Basic 7B model
+R.E.A.D.I.
+Basic 7B model
+Z3R4H
+On-device AI advisor
+Hardware
+Project NOMAD
+Any PC you choose
+PrepperDisk
+Raspberry Pi (locked)
+Doom Box
+Raspberry Pi (locked)
+R.E.A.D.I.
+Raspberry Pi (locked)
+Z3R4H
+Any Windows/Linux PC
+Multi-User / Network
+Project NOMAD
+Serves your whole network
+PrepperDisk
+WiFi hotspot (up to 20)
+Doom Box
+Single
+R.E.A.D.I.
+Single
+Z3R4H
+Single PC
+Content Library
+Project NOMAD
+Full Wikipedia + curated collections
+PrepperDisk
+Full Wikipedia + curated content
+Doom Box
+Limited
+R.E.A.D.I.
+Limited
+Z3R4H
+Full Wikipedia + archives
+Offline Maps
+Project NOMAD
+OpenStreetMap (any region)
+PrepperDisk
+OpenStreetMap (via IIAB)
+Doom Box
+Basic
+R.E.A.D.I.
+None
+Z3R4H
+US topo only
+Education
+Project NOMAD
+Full Khan Academy
+PrepperDisk
+Khan Academy
+Doom Box
+None
+R.E.A.D.I.
+None
+Z3R4H
+Limited K-12 docs
+Open Source
+Project NOMAD
+Yes (Apache 2.0)
+PrepperDisk
+Partially (content is proprietary)
+Doom Box
+No
+R.E.A.D.I.
+No
+Z3R4H
+No
+Upgradeable
+Project NOMAD
+Yes
+PrepperDisk
+Yes (via web console)
+Doom Box
+No
+R.E.A.D.I.
+No
+Z3R4H
+No (static drive)
+Built for
+Robust
+Hardware
+NOMAD runs on serious hardware so you get serious AI. While other offline products are stuck on Raspberry Pis, NOMAD supports GPU-accelerated inference on models with real intelligence. Community builds range from refurbished desktops to GPU-powered rigs scoring 60 to over 3,000 on the NOMAD Benchmark.
+Looking for something lightweight for a Raspberry Pi? Check out projects like
+Internet in a Box
+. Project NOMAD is for when you want the full experience.
+View Hardware Guide
+See the Leaderboard
+Recommended Specs
+Processor
+AMD Ryzen 7 with Radeon graphics or Intel i7+
+Memory
+32 GB RAM
+Graphics
+Integrated AMD Radeon 780M+, or a dedicated NVIDIA or AMD GPU
+Storage
+1 TB SSD
+Ubuntu or Debian-based Linux recommended. Windows users: see the
+WSL2 install guide
+.
+Install in
+60 Seconds
+Two commands on any Ubuntu or Debian machine, no Linux experience needed. The installer sets up Docker, dependencies, and everything else for you.
+$
+curl -fsSL https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/main/install/install_nomad.sh -o install_nomad.sh
+$
+sudo bash install_nomad.sh
+Ubuntu 26.04 LTS recommended (22.04+ or Debian 12+ supported). Docker is installed automatically if needed.
+Full installation guide
+Ready to Go Offline?
+Project NOMAD is free, open source, and ready to deploy. Get started in minutes with a single command.
+Get Project NOMAD Free on GitHub
+or
+Get Project NOMAD Updates
+New content packs, AI model recommendations, and hardware guides. No spam, unsubscribe anytime.
+Subscribe
+Project NOMAD is Free.
+Help Keep It That Way.
+No subscriptions, no paywalls. Project NOMAD is funded by the community that uses it.
+Support on Ko-fi
+More ways to support
+Project NOMAD
+An offline-first knowledge and education server. Knowledge that never goes offline.
+Find Us Online
+Get Started
+Recommended Hardware
+Installation Guide
+FAQ
+Video Guides
+The NOMAD Deck
+Community Builds
+Benchmark Leaderboard
+Learn
+Offline AI
+Offline Internet
+Offline Computer
+Project
+Roadmap
+Our Story
+Press
+Volunteer
+Support the Project
+Merch Shop
+Contact
+Crosstalk Solutions
+Rogue Support
+Powered by
+Crosstalk Solutions
+©
+2026
+Project NOMAD™. Open source under Apache 2.0 License.

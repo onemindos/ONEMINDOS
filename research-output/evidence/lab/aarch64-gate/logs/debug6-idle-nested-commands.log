@@ -1,0 +1,14 @@
+##### [07:57:26] QEMU START qemu-system-aarch64 -machine virt -accel kvm -cpu host -smp 4 -m 3072 -nodefaults -display none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd -drive if=pflash,
+$ uptime; cat /sys/block/vda/stat
+uptime; cat /sys/block/vda/stat; echo __R''C=$?__
+[?2004l 12:58:54 up 1 min,  0 users,  load average: 9.85, 2.72, 0.93
+    4771     2629   631103     2453     6099     7827  2215097   882995        0    15048   887463        0        0        0        0     1906     2014
+
+$ journalctl -u k3s -o short-monotonic --no-pager | grep -iE "Running containerd|containerd is now running|Importing images|Imported images" | cut -c1-160
+journalctl -u k3s -o short-monotonic --no-pager | grep -iE "Running containerd|containerd is now running|Importing images|Imported images" | cut -c1-160; echo __R''C=$?__
+[?2004l[   16.376786] onemind-lab k3s[436]: time="2026-11-11T12:57:57Z" level=info msg="Running containerd -c /data/k3s/agent/etc/containerd/config.toml"
+[   17.381036] onemind-lab k3s[436]: time="2026-11-11T12:57:58Z" level=info msg="containerd is now running"
+[   17.386186] onemind-lab k3s[436]: time="2026-11-11T12:57:58Z" level=info msg="Importing images from /data/k3s/agent/images/k3s-airgap-images.tar.zst"
+
+##### [07:58:56] POWER CUT: SIGKILL qemu
+no-qemu-left

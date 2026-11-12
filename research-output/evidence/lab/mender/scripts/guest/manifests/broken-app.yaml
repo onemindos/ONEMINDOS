@@ -1,0 +1,19 @@
+# A user app that can never start (image cannot be pulled; guest is air-gapped).
+# The gate must ignore it: apps are not part of the OS health decision.
+apiVersion: v1
+kind: Namespace
+metadata: {name: apps}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: broken-app, namespace: apps}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: broken-app}}
+  template:
+    metadata: {labels: {app: broken-app}}
+    spec:
+      containers:
+        - name: app
+          image: registry.invalid/onemind/broken-app:1
+          resources: {requests: {cpu: 1m, memory: 8Mi}, limits: {memory: 32Mi}}

@@ -1,0 +1,37 @@
+Source: https://documentation.ubuntu.com/release-notes/26.04/summary-for-lts-users/
+Accessed: 2026-11-11 (UTC); converted HTML->text by the lab; excerpts relevant to LAB-ubuntu-2604-leg (line numbers of the full text conversion)
+
+Ubuntu 26.04 LTS summary - Ubuntu release notes
+26.04 LTS (Resolute Raccoon)
+Ubuntu 26.04 LTS summary¶
+If you’re upgrading from Ubuntu 24.04 LTS (Noble Numbat), you receive the changes that happened in all the interim releases between Ubuntu 24.04 LTS and 26.04 LTS, as well as the most recent changes since Ubuntu 25.10.
+For details, see the complete interim release notes: 24.10, 25.04 and 25.10. Finally, review the latest Ubuntu 26.04 LTS changes since 25.10.
+New AppArmor sandboxing profiles¶
+Added in version 25.04.
+As part of a profile writing effort to improve overall system security, the AppArmor package now includes many new profiles for applications. This improved sandboxing can help mitigate the impact of any exploit in the confined applications.
+Report bugs
+These profiles may cause breakage for unanticipated uses of those applications, and we encourage users to file a bug on Launchpad for AppArmor-induced breakage in common use cases. When AppArmor denies an action, it usually generates a log entry describing the denial, which will help us investigate the bug, but which can also be used to add additional rules for customization or to work around the denials. AppArmor log entries can be read in the auditd logs, if auditd is installed, or in the syslog otherwise. This page describes how the information contained in the denial log can be used to update a local override.
+sudo-rs¶
+Added in version 25.10.
+The sudo-rs tool is now the default sudo provider.
+The sudo tool (the original sudo maintained by Todd C. Miller) has been renamed to sudo.ws. Additionally, the sudo-ldap package has been removed: please switch to using LDAP authentication via PAM.
+See Ubuntu Server Docs for configuring your default sudo provider and for the differences between sudo-rs and sudo.ws.
+rust-coreutils¶
+Added in version 25.10.
+The core utilities of the operating system are now provided by the rust-coreutils package. Among other things, this brings significant performance improvements, such as in the base64 tool.
+Because rust-coreutils are not fully compatible yet, we continue to provide the classic GNU utilities as well. These are accessed by running gnu prefixed to the desired command. For example:
+gnuls
+Alternatively, you can switch between the two sets of utilities by running the following commands:
+To switch to GNU coreutils:
+sudo apt install coreutils-from-gnu coreutils-from-uutils- --allow-remove-essential
+To switch back to rust-coreutils:
+sudo apt install coreutils-from-uutils coreutils-from-gnu- --allow-remove-essential
+Because of unresolved bugs, the cp, mv, and rm utilities are still from GNU in rust-coreutils.
+For more information, see An update on rust-coreutils.
+Linux kernel 7.0¶
+For users running the GA generic stack, the Linux kernel has been updated from version 6.8 to 7.0. For users running the Hardware Enablement (HWE) stack, the Linux kernel has been updated from version 6.17 (25.10 backport) to 7.0.
+Crash dumps are now enabled by default for desktop and server installations.
+Dracut¶
+Changed in version 25.10.
+Ubuntu now uses Dracut as its default initial ramdisk infrastructure, replacing initramfs-tools. Dracut uses systemd in the initial ramdisk and supports new features like Bluetooth and NVM Express over Fabrics (NVMe-oF).
+The original initramfs-tools remains supported and you can switch between the two implementations if required.

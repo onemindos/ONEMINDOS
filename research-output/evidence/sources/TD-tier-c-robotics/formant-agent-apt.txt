@@ -1,0 +1,202 @@
+Source: https://docs.formant.io/docs/install-formant-agent-apt.md
+Accessed: 2026-11-11
+
+---
+updatedAt: 2025-11-11T01:47:20.000Z
+agentTools:
+  projectIndex: https://docs.formant.io/llms.txt
+---
+
+# Install the Formant agent via Apt
+
+> ❗️ It is highly recommended NOT to use this method.
+>
+> We highly recommend following the standard installation process as outlined in [Install the Formant agent](https://docs.formant.io/docs/getting-started-install-the-formant-agent).
+
+# Supported systems
+
+We currently support `bionic`, `stretch`, and `jessie` on `amd64`, `arm64`, and `arm`.
+
+# Step 1: Repo setup
+
+1. To get setup with Formant's Debian repository you will need to add our repo to the machines source list:
+
+```shell amd64
+echo "deb [arch=amd64] https://repo.formant.io/formant/debian $(lsb_release -cs) main" | sudo tee -a /etc/apt/sources.list
+```
+```shell arm64
+echo "deb [arch=arm64] https://repo.formant.io/formant/debian $(lsb_release -cs) main" | sudo tee -a /etc/apt/sources.list
+```
+```shell arm
+echo "deb [arch=arm] https://repo.formant.io/formant/debian $(lsb_release -cs) main" | sudo tee -a /etc/apt/sources.list
+```
+
+2. Next add the Formant `gpg` key:
+
+```shell
+sudo apt-key adv --fetch-keys https://keys.formant.io/formant.pub.gpg
+```
+
+3. Verify that you now have the key with following fingerprint:
+
+```text
+<masked-fingerprint>
+```
+
+You can search for the last 8 characters of the fingerprint by the following command:
+
+```shell
+sudo apt-key fingerprint <masked-keyid>
+
+pub   rsa4096 2019-08-13 [SCEA]
+      <masked-fingerprint>
+uid           [ unknown] Formant (Formant signing key) <<masked-email>>
+```
+
+# Step 2: Agent installation configuration
+
+Before installing the agent, there are several configuration options that can be set via `debconf`.
+
+## Provisioning token
+
+You can generate a provisioning token by following Steps 1 and 2 of [Create a device](https://docs.formant.io/docs/getting-started-create-a-device).
+
+If you are using a provisioning token for the installation it can be set with:
+
+```shell
+echo formant-agent formant-agent/token password "<token>" | sudo debconf-set-selections
+```
+
+Replace `<token>` with your token.
+
+## Provision with Formant credentials
+
+Using a token is preferred over using Formant Credentials for security reasons, however we do allow provisioning of agents with credentials. You can do this via:
+
+```shell
+echo formant-agent formant-agent/email string "<email>" | sudo debconf-set-selections
+echo formant-agent formant-agent/password password "<password>" | sudo debconf-set-selections
+```
+
+Replace `<email>` and `<password>` with your credentials.
+
+## ROS 1 configuration
+
+### ROS master URI
+
+If you are on ROS you will need to set up the agent with the ROS Master URI:
+
+```shell
+echo formant-agent formant-agent/ros_master_uri string "<ros_master_uri>" | sudo debconf-set-selections
+```
+
+Replace `<ros_master_uri>` with the correct value.
+
+### ROS 1 catkin workspace
+
+The agent supports parsing of custom ROS 1 message types, however we need to source the `setup.bash` file located within that workspace:
+
+```shell
+echo formant-agent formant-agent/catkin_ws string "<catkin_ws>" | sudo debconf-set-selections
+```
+
+Replace `<catkin_ws>` with the absolute path to your catkin workspace.
+
+**Note**: The agent assumes the `setup.bash` file is in `/<catkin_ws>/devel/setup.bash`. If your setup file is in a different location use [source\_script](#source-script).
+
+## ROS 2 configuration
+
+### ROS 2 colcon workspace
+
+The agent supports parsing of custom ROS 2 message types, however we need to source the `setup.bash` file located within that workspace:
+
+```shell
+echo formant-agent formant-agent/colcon_ws string "<colcon_ws>" | sudo debconf-set-selections
+```
+
+## Source script
+
+To support custom locations of catkin workspace setup files, the agent allows a custom location for a script to source.
+
+```shell
+echo formant-agent formant-agent/source_script string "<source_script>" | sudo debconf-set-selections
+```
+
+Replace `<source_script>` with the absolute path to the script to source.
+
+## System resources
+
+The agent installation supports setting parameters for system resource usage for `cpu_quota` and `memory_limit`
+
+Set these with:
+
+```shell
+echo formant-agent formant-agent/cpu_quota string "<cpu_quota>" | sudo debconf-set-selections
+echo formant-agent formant-agent/memory_limit string "<memory_limit>" | sudo debconf-set-selections
+```
+
+`cpu_quota`: The value of the CPUQuota parameter, which is expressed in percentage, specifies how much CPU time the unit gets at maximum, relative to the total CPU time available on one CPU.
+
+`memory_limit`: Use suffixes K, M, G, or T to identify Kilobyte, Megabyte, Gigabyte, or Terabyte as the unit of measurement.
+
+## Service enable
+
+You can install the agent in a disabled state with the `service_enable` parameter. This is `true` by default.
+
+```shell
+echo formant-agent formant-agent/service_enable boolean "<enable>" | sudo debconf-set-selections
+```
+
+`<enable>` can be `true` or `false`.
+
+## Port forwarding
+
+The agent supports port forwarding to power remote SSH, SCP, and other advanced networking tools. This can be controlled via configuration as well, however for security purposes we support disabling this at install time. This is `true` by default.
+
+```shell
+echo formant-agent formant-agent/port_forwarding boolean "<enable>" | sudo debconf-set-selections
+```
+
+`<enable>` can be `true` or `false`.
+
+# Step 3: Installation
+
+To install the agent, run the following commands:
+
+```shell
+sudo apt update
+sudo apt install formant-agent
+```
+
+> 📘
+>
+> If you didn't create your device already, a new device will be added to your Formant organization with the same name as the device to which the agent is installed.
+
+# Step 4: Configure over-the-air (OTA) updates
+
+Formant also supports over-the-air updates of the agent via a separate Debian sidecar package called `formant-sidecar`.
+
+To enable OTA, install this additional package:
+
+```shell
+sudo apt update
+sudo apt install formant-sidecar
+```
+
+By default the agent creates a `formant` user and group on the host system with no sudo permissions. However, to perform upgrades the `formant-sidecar` adds restricted sudo capabilities to the `formant` user. When the package is installed you can see them at `/etc/sudoers.d/formant`
+
+The restricted permissions are:
+
+```text
+formant ALL=(ALL) NOPASSWD:/usr/bin/apt update, /usr/bin/apt install --upgrade-only -y formant-agent, /usr/bin/apt install --upgrade-only -y formant-agent=[0-9]*.[0-9]*.[0-9]*, /usr/bin/apt remove formant-agent, /usr/bin/apt remove --purge formant-agent
+```
+
+# See also
+
+* [Create a device](https://docs.formant.io/docs/getting-started-create-a-device)
+* [Install the Formant agent](https://docs.formant.io/docs/getting-started-install-the-formant-agent)
+* [Install the Formant agent via Docker](https://docs.formant.io/docs/getting-started-install-the-formant-agent-via-docker)
+
+<Callout icon="👋" theme="default">
+  ### If you notice an issue with this page or need help, please reach out to us! Use the 'Did this page help you?' buttons below, or get in contact with our Customer Success team via the Intercom messenger in the bottom-right corner of this page, or at [<masked-email>](mailto:<masked-email>).
+</Callout>

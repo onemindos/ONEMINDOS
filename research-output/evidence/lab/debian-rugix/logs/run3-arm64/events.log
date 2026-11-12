@@ -1,0 +1,181 @@
+2026-11-11T02:18:20Z === T0 first boot of v1
+2026-11-11T02:18:20Z disk prepared from v1-arm64/system.img
+2026-11-11T02:18:20Z qemu started pid=10391
+2026-11-11T02:18:40Z ssh up after 20s
+2026-11-11T02:19:01Z k3s healthy after 21s since check start
+release=v1
+{"active":"a","default":"a","state":"Active"}
+k3s-healthy: ok (fresh)
+onemind-health-gate: 2026-11-11T02:18:49Z boot release=v1 active=a default=a
+onemind-health-gate: 2026-11-11T02:18:49Z COMMITTED-BOOT nothing to commit
+2026-11-11T02:19:01Z PASS T0 :: release=v1 {"active":"a","default":"a"} 
+2026-11-11T02:19:01Z === T1 good update v2-good
+2026-11-11T02:19:01Z copy bundle v2good
+2026-11-11T02:19:02Z install v2good (--reboot yes)
+ INFO installing update to boot group "b"
+ WARN skipping component compatibility check scope="system" reason="bundle component metadata is absent and not required by policy"
+{"event":"CompatibilityCheckSkipped","scope":"system","reason":"bundle component metadata is absent and not required by policy"}
+ INFO running hooks for "update-install/pre-update"
+ INFO installing bundle payload 0 to slot boot-b
+ INFO installing bundle payload 1 to slot system-b
+ INFO running hooks for "update-install/post-update"
+ INFO instructing boot flow to try booting into "b"
+ INFO setting spare flag for Grub boot flow
+ INFO rebooting
+2026-11-11T02:19:39Z rebooted (new boot id) after 16s
+release=v2-good
+{"active":"b","default":"b","state":"Active"}
+k3s-healthy: ok (fresh)
+onemind-health-gate: 2026-11-11T02:19:44Z boot release=v2-good active=b default=a
+onemind-health-gate: 2026-11-11T02:19:44Z TRIAL boot of group b; waiting up to 300s for k3s
+onemind-health-gate: 2026-11-11T02:19:44Z HEALTHY after 0s
+onemind-health-gate: 2026-11-11T02:19:44Z COMMIT group=b release=v2-good
+2026-11-11T02:19:44Z PASS T1-trial-committed :: release=v2-good {"active":"b","default":"b"} 
+2026-11-11T02:20:00Z rebooted (new boot id) after 16s
+2026-11-11T02:20:05Z PASS T1-sticky-after-reboot :: release=v2-good {"active":"b","default":"b"} 
+2026-11-11T02:20:05Z === T2 bad update v2-bad
+2026-11-11T02:20:05Z copy bundle v2bad
+2026-11-11T02:20:06Z install v2bad (--reboot yes)
+{"event":"CompatibilityCheckSkipped","scope":"system","reason":"bundle component metadata is absent and not required by policy"}
+ INFO installing update to boot group "a"
+ WARN skipping component compatibility check scope="system" reason="bundle component metadata is absent and not required by policy"
+ INFO running hooks for "update-install/pre-update"
+ INFO installing bundle payload 0 to slot boot-a
+ WARN stored block rejected, fetching bundle range block=1110 error=invalid block hash
+╰╴at crates/libs/rugix-bundle/src/reader/block_fetcher.rs:376:9
+ INFO installing bundle payload 1 to slot system-a
+ INFO running hooks for "update-install/post-update"
+ INFO instructing boot flow to try booting into "a"
+ INFO setting spare flag for Grub boot flow
+ INFO rebooting
+2026-11-11T02:20:31Z rebooted (new boot id) after 16s
+v2-bad
+activating
+2026-11-11T02:20:31Z T2b: manual commit attempt on bad slot (must be refused)
+ INFO running hooks for "system-commit/pre-commit"
+ INFO running hook k3s-healthy
+k3s-healthy: apiserver not ready
+unable to run `pre-commit` hooks
+├╴at crates/apps/rugix-ctrl/src/operations/system.rs:119:10
+│   
+╰─▶ cause: hook "system-commit/pre-commit/k3s-healthy" failed
+    ╰╴at crates/libs/rugix-hooks/src/lib.rs:77:17
+2026-11-11T02:20:31Z PASS T2b manual commit refused
+2026-11-11T02:20:31Z waiting for the gate to roll back by itself (no further commands)
+2026-11-11T02:25:45Z rebooted (new boot id) after 314s
+2026-11-11T02:25:55Z k3s healthy after 10s since check start
+release=v2-good
+{"active":"b","default":"b","state":"Active"}
+k3s-healthy: ok (fresh)
+onemind-health-gate: 2026-11-11T02:20:26Z TRIAL boot of group a; waiting up to 300s for k3s
+onemind-health-gate: 2026-11-11T02:25:29Z ROLLBACK: k3s not healthy after 300s (last: k3s-healthy: apiserver not ready); rebooting to default group b
+onemind-health-gate: 2026-11-11T02:25:47Z boot release=v2-good active=b default=b
+onemind-health-gate: 2026-11-11T02:25:47Z COMMITTED-BOOT nothing to commit
+2026-11-11T02:25:56Z PASS T2-rolled-back :: release=v2-good {"active":"b","default":"b"} 
+onemind-health-gate: 2026-11-11T02:19:44Z TRIAL boot of group b; waiting up to 300s for k3s
+onemind-health-gate: 2026-11-11T02:19:44Z COMMIT group=b release=v2-good
+onemind-health-gate: 2026-11-11T02:20:05Z COMMITTED-BOOT nothing to commit
+onemind-health-gate: 2026-11-11T02:20:26Z TRIAL boot of group a; waiting up to 300s for k3s
+onemind-health-gate: 2026-11-11T02:25:29Z ROLLBACK: k3s not healthy after 300s (last: k3s-healthy: apiserver not ready); rebooting to default group b
+onemind-health-gate: 2026-11-11T02:25:47Z COMMITTED-BOOT nothing to commit
+2026-11-11T02:25:56Z === T3 power cut during write
+2026-11-11T02:25:59Z POWER CUT: SIGKILL qemu after 456 MiB written by rugix-ctrl (pid 1644)
+2026-11-11T02:26:02Z qemu started pid=14590
+2026-11-11T02:26:12Z ssh up after 10s
+2026-11-11T02:26:32Z k3s healthy after 20s since check start
+release=v2-good
+{"active":"b","default":"b","state":"Active"}
+k3s-healthy: ok (fresh)
+onemind-health-gate: 2026-11-11T02:25:47Z boot release=v2-good active=b default=b
+onemind-health-gate: 2026-11-11T02:25:47Z COMMITTED-BOOT nothing to commit
+onemind-health-gate: 2026-11-11T02:26:18Z boot release=v2-good active=b default=b
+onemind-health-gate: 2026-11-11T02:26:18Z COMMITTED-BOOT nothing to commit
+2026-11-11T02:26:33Z PASS T3-old-slot-boots :: release=v2-good {"active":"b","default":"b"} 
+2026-11-11T02:26:33Z T3: reinstall v1 after the power cut
+2026-11-11T02:26:33Z copy bundle v1
+2026-11-11T02:26:34Z install v1 (--reboot yes)
+{"event":"CompatibilityCheckSkipped","scope":"system","reason":"bundle component metadata is absent and not required by policy"}
+ INFO installing update to boot group "a"
+ WARN skipping component compatibility check scope="system" reason="bundle component metadata is absent and not required by policy"
+ INFO running hooks for "update-install/pre-update"
+ INFO installing bundle payload 0 to slot boot-a
+ WARN stored block rejected, fetching bundle range block=1109 error=invalid block hash
+╰╴at crates/libs/rugix-bundle/src/reader/block_fetcher.rs:376:9
+ INFO installing bundle payload 1 to slot system-a
+ INFO running hooks for "update-install/post-update"
+ INFO instructing boot flow to try booting into "a"
+ INFO setting spare flag for Grub boot flow
+ INFO rebooting
+Connection to 127.0.0.1 closed by remote host.
+2026-11-11T02:26:58Z rebooted (new boot id) after 16s
+release=v1
+{"active":"a","default":"a","state":"Active"}
+k3s-healthy: ok (fresh)
+onemind-health-gate: 2026-11-11T02:27:02Z boot release=v1 active=a default=b
+onemind-health-gate: 2026-11-11T02:27:02Z TRIAL boot of group a; waiting up to 300s for k3s
+onemind-health-gate: 2026-11-11T02:27:02Z HEALTHY after 0s
+onemind-health-gate: 2026-11-11T02:27:02Z COMMIT group=a release=v1
+2026-11-11T02:27:03Z PASS T3-reinstall-commits :: release=v1 {"active":"a","default":"a"} 
+2026-11-11T02:27:04Z === T2c v2noagent (previous release: v1)
+2026-11-11T02:27:04Z copy bundle v2noagent
+2026-11-11T02:27:04Z install v2noagent (--reboot yes)
+{"event":"CompatibilityCheckSkipped","scope":"system","reason":"bundle component metadata is absent and not required by policy"}
+ INFO installing update to boot group "b"
+ WARN skipping component compatibility check scope="system" reason="bundle component metadata is absent and not required by policy"
+ INFO running hooks for "update-install/pre-update"
+ INFO installing bundle payload 0 to slot boot-b
+ WARN stored block rejected, fetching bundle range block=1109 error=invalid block hash
+╰╴at crates/libs/rugix-bundle/src/reader/block_fetcher.rs:376:9
+ INFO installing bundle payload 1 to slot system-b
+ INFO running hooks for "update-install/post-update"
+ INFO instructing boot flow to try booting into "b"
+ INFO setting spare flag for Grub boot flow
+ INFO rebooting
+Connection to 127.0.0.1 closed by remote host.
+2026-11-11T02:27:29Z rebooted (new boot id) after 16s
+2026-11-11T02:32:54Z T2c v2noagent outcome=rolled-back
+release=v1
+{"active":"a","default":"a","state":"Active"}
+k3s-healthy: coredns not available
+onemind-health-gate: 2026-11-11T02:27:33Z TRIAL boot of group b; waiting up to 300s for k3s
+onemind-health-gate: 2026-11-11T02:32:35Z ROLLBACK: k3s not healthy after 300s (last: k3s-healthy: node not Ready); rebooting to default group a
+onemind-health-gate: 2026-11-11T02:32:54Z boot release=v1 active=a default=a
+onemind-health-gate: 2026-11-11T02:32:54Z COMMITTED-BOOT nothing to commit
+onemind-health-gate: 2026-11-11T02:27:02Z TRIAL boot of group a; waiting up to 300s for k3s
+onemind-health-gate: 2026-11-11T02:27:02Z HEALTHY after 0s
+onemind-health-gate: 2026-11-11T02:27:02Z COMMIT group=a release=v1
+onemind-health-gate: 2026-11-11T02:27:33Z TRIAL boot of group b; waiting up to 300s for k3s
+onemind-health-gate: 2026-11-11T02:32:35Z ROLLBACK: k3s not healthy after 300s (last: k3s-healthy: node not Ready); rebooting to default group a
+onemind-health-gate: 2026-11-11T02:32:54Z COMMITTED-BOOT nothing to commit
+2026-11-11T02:32:59Z PASS T2c-hardened-rolls-back :: release=v1 {"active":"a","default":"a"} 
+2026-11-11T02:32:59Z === T2c v2noagentnaive (previous release: v1)
+2026-11-11T02:32:59Z copy bundle v2noagentnaive
+2026-11-11T02:33:00Z install v2noagentnaive (--reboot yes)
+{"event":"CompatibilityCheckSkipped","scope":"system","reason":"bundle component metadata is absent and not required by policy"}
+ INFO installing update to boot group "b"
+ WARN skipping component compatibility check scope="system" reason="bundle component metadata is absent and not required by policy"
+ INFO running hooks for "update-install/pre-update"
+ INFO installing bundle payload 0 to slot boot-b
+ WARN stored block rejected, fetching bundle range block=1109 error=invalid block hash
+╰╴at crates/libs/rugix-bundle/src/reader/block_fetcher.rs:376:9
+ INFO installing bundle payload 1 to slot system-b
+ INFO running hooks for "update-install/post-update"
+ INFO instructing boot flow to try booting into "b"
+ INFO setting spare flag for Grub boot flow
+ INFO rebooting
+Connection to 127.0.0.1 closed by remote host.
+2026-11-11T02:33:24Z rebooted (new boot id) after 15s
+2026-11-11T02:33:30Z T2c v2noagentnaive outcome=committed
+release=v2-noagent-naive
+{"active":"b","default":"b","state":"Active"}
+k3s-healthy: ok (freshness checks OFF)
+onemind-health-gate: 2026-11-11T02:33:28Z boot release=v2-noagent-naive active=b default=a
+onemind-health-gate: 2026-11-11T02:33:28Z TRIAL boot of group b; waiting up to 300s for k3s
+onemind-health-gate: 2026-11-11T02:33:28Z HEALTHY after 0s
+onemind-health-gate: 2026-11-11T02:33:28Z COMMIT group=b release=v2-noagent-naive
+onemind-health-gate: 2026-11-11T02:27:33Z TRIAL boot of group b; waiting up to 300s for k3s
+onemind-health-gate: 2026-11-11T02:32:35Z ROLLBACK: k3s not healthy after 300s (last: k3s-healthy: node not Ready); rebooting to default group a
+onemind-health-gate: 2026-11-11T02:32:54Z COMMITTED-BOOT nothing to commit
+onemind-health-gate: 2026-11-11T02:33:28Z TRIAL boot of group b; waiting up to 300s for k3s
+onemind-health-gate: 2026-11-11T02:33:28Z HEALTHY after 0s
+onemind-health-gate: 2026-11-11T02:33:28Z COMMIT group=b release=v2-noagent-naive

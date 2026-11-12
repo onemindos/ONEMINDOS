@@ -1,0 +1,11 @@
+research-output/evidence/sources/LAB-secureboot-rauc/systemd-measure.txt:generic-api-key:124
+research-output/evidence/sources/LAB-secureboot-rauc/systemd-measure.txt:generic-api-key:133
+research-output/evidence/sources/LAB-secureboot-rauc/systemd-measure.txt:generic-api-key:161
+research-output/evidence/sources/LAB-secureboot-rauc/systemd-measure.txt:generic-api-key:165
+research-output/evidence/sources/LAB-secureboot-rauc/systemd-measure.txt:generic-api-key:173
+research-output/evidence/sources/LAB-secureboot-rauc/systemd-measure.txt:generic-api-key:180
+research-output/evidence/sources/LAB-secureboot-rauc/ukify.txt:generic-api-key:223
+research-output/evidence/sources/LAB-secureboot-rauc/ukify.txt:generic-api-key:255
+# Mender APT repo public GPG key fingerprint (not a secret)
+research-output/evidence/lab/mender/scripts/build.sh:generic-api-key:16
+research-output/evidence/sources/LAB-mender/mender-convert@85e8c50_configs_mender_convert_config_L225-L240.txt:generic-api-key:13

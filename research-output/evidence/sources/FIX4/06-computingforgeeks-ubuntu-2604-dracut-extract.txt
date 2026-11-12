@@ -1,0 +1,5 @@
+Source: https://computingforgeeks.com/ubuntu-2604-dracut-guide/ "Configure Dracut on Ubuntu 26.04 (initramfs guide)", updated 2026-05-08. Opened 2026-11-11 via the fetch tool (quoted extract). SECONDARY: third-party how-to; Ubuntu's release notes (documentation.ubuntu.com) did not resolve from this session.
+Quoted: "Ubuntu 26.04 LTS is the first Ubuntu release where the initramfs on disk was built by dracut"
+Quoted: "Both packages are still installed for compatibility"
+Quoted: "The legacy command still exists and exits 0, but on 26.04 it is a no-op shim that prints a deprecation note."  (Note: contradicted by this run's own lab, which built a 26.04 image with initramfs-tools 0.151ubuntu1 doing the work; see evidence/lab/ubuntu-2604-leg/versions.md L22.)
+Quoted: "When 26.04 introduced general-availability TPM-backed FDE, the underlying support naturally landed on dracut."

@@ -1,0 +1,72 @@
+Home Assistant Hardware | Nabu CasaHome AssistantHome Assistant LinkHome Assistant Link submenuOverview
+Start your trial
+Support
+Home Assistant HardwareHome Assistant Hardware submenuOverview
+Support
+SupportSupport submenuLink
+Hardware
+About usAbout us submenuOverview
+News
+Jobs
+Login
+Home Assistant Hardware
+= 90rem) 1440px, 100vw" data-astro-cid-v3q254ov>= 90rem) 1440px, 100vw" data-astro-cid-v3q254ov>
+The Nabu Casa way
+Ease-of-use meets rock-solid performance
+Designed alongside the team building Home Assistant
+Built to look and feel great in the home
+Backed with expert support and years of updates
+Official Home Assistant Products
+= 90rem) min(calc(720px * 1.81), 802px), (width >= 48rem) min(calc(50vw * 1.81), 802px), min(calc(100vw * 1.81), 802px)" data-astro-cid-v3q254ov>= 90rem) min(calc(720px * 1.81), 802px), (width >= 48rem) min(calc(50vw * 1.81), 802px), min(calc(100vw * 1.81), 802px)" data-astro-cid-v3q254ov>Home Assistant Green
+Support
+The easiest way to start using Home Assistant. Get started in minutes and build a fully private smart home, all in one app.
+Learn more
+= 90rem) min(calc(720px * 1.63), 1611px), (width >= 48rem) min(calc(50vw * 1.63), 1611px), min(calc(100vw * 2.01), 1611px)" data-astro-cid-v3q254ov>= 90rem) min(calc(720px * 1.63), 1611px), (width >= 48rem) min(calc(50vw * 1.63), 1611px), min(calc(100vw * 2.01), 1611px)" data-astro-cid-v3q254ov>Home Assistant Connect ZBT-2
+Support
+This adapter is the easiest way to add Zigbee or Thread (Matter) devices to Home Assistant – with the highest performance and stability.
+Learn more
+= 90rem) min(calc(720px * 1.63), 1611px), (width >= 48rem) min(calc(50vw * 1.63), 1611px), min(calc(100vw * 2.01), 1611px)" data-astro-cid-v3q254ov>= 90rem) min(calc(720px * 1.63), 1611px), (width >= 48rem) min(calc(50vw * 1.63), 1611px), min(calc(100vw * 2.01), 1611px)" data-astro-cid-v3q254ov>Home Assistant Connect ZWA-2
+Support
+A super powerful Z-Wave adapter giving maximum range and reliability, including support for Z-Wave Long Range.
+Learn more
+= 90rem) min(calc(720px * 2.36), 896px), (width >= 48rem) min(calc(50vw * 2.36), 896px), min(calc(100vw * 2.36), 896px)" data-astro-cid-v3q254ov>= 90rem) min(calc(720px * 2.36), 896px), (width >= 48rem) min(calc(50vw * 2.36), 896px), min(calc(100vw * 2.36), 896px)" data-astro-cid-v3q254ov>Home Assistant Voice Preview Edition
+Support
+A voice assistant designed around privacy and local control that looks and feels great in the home.
+Learn more
+Discontinued products
+Home Assistant Connect ZBT-1
+Our original Zigbee and Thread antenna.
+Support
+Home Assistant Yellow
+Our modular hub that was powered by Raspberry Pi Compute Modules, and had expandable NVMe.
+Support
+Home Assistant Blue
+Our very first hub that allowed you to seamlessly run Home Assistant OS.
+Learn more
+Support
+Need help setting up your official Home Assistant hardware?
+Visit our Hardware support pages
+We do things differently
+Learn about our mission
+Easy-mode
+We make the official Home Assistant products, designed to make it easy to use.
+Privacy-driven
+We don’t want your data and actively work to never record anything about you.
+Fiercely independent
+No VC money, or private equity. Your purchases alone fund our work. Thank you!
+Funding a non-profit
+The majority of our profit goes to the foundation behind Home Assistant
+Nabu Casa
+About us
+News
+Privacy
+Jobs
+Our services
+Home Assistant Link
+Home Assistant Hardware
+Support
+Get access
+Log in to Link
+Contact
+Nabu Casa Inc.1500 Valley House Drive Suite 210Rohnert Park, CA 94928, USA
+© Nabu Casa, Inc.   Privacy Policy   Terms of Service

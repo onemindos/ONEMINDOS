@@ -1,0 +1,26 @@
+sequenceDiagram
+  autonumber
+  participant O as Owner (dashboard / phone)
+  participant U as onemindd (update agent)
+  participant R as RAUC
+  participant B as Bootloader (GRUB / efi / Pi tryboot)
+  participant G as Health gate
+  O->>U: Install release 1.4 now (or in the update window)
+  U->>U: Fetch signed manifest · check signature, expiry, not older than installed
+  U->>U: Pre-update restic snapshot + k3s datastore backup
+  U->>R: rauc install bundle (verity format only)
+  R->>R: Verify bundle signature against OneMind keyring
+  R->>R: Pre-install handler writes the trial marker
+  R->>R: Write the image into the inactive slot B
+  R->>B: Mark slot B "try next" (3 tries on x86 GRUB)
+  U->>O: "Reboot to finish?"
+  B->>G: Boot slot B (trial)
+  G->>G: Fresh signals only: kubelet answers · node heartbeat newer than this boot<br/>core pods Ready since this boot · data partition writable<br/>OneMind API answers · kernel and root versions match
+  alt all checks pass 3 times in a row
+    G->>R: Commit slot B (mark good)
+    G->>O: "Updated to 1.4" + new "last verified" status
+  else timeout (300 s), crash or watchdog
+    B->>B: Tries used up → boot slot A again
+    G->>U: Release 1.4 marked bad on this box (never auto-retried)
+    U->>O: "Update rolled back · your box is on 1.3"
+  end

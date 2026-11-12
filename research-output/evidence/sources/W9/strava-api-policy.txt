@@ -1,0 +1,236 @@
+Activities Top Sports
+ Running
+ Cycling
+ Walking
+
+Running
+Cycling
+
+Features
+Maps
+Challenges
+Subscription
+
+Log InJoin for Free
+
+Sign Up
+Home
+Activities Running
+ Cycling
+ Walking
+
+Features
+Maps
+Challenges
+Subscription
+Support
+Sign Up
+Log In
+Get the App
+
+Terms of Service (2026)
+Strava Privacy Policy (2026)
+Acceptable Use Policy
+Strava Cookie Policy (2026)
+API Agreement (2026)
+API Policy (2026)
+Strava Law Enforcement Guidelines
+Gifting Terms
+Team Subscription Terms
+
+API Policy (2026)
+Effective Date: June 1, 2026
+Section 1.  Introduction and Incorporation
+The Strava API enables developers to build applications that help athletes train, explore, and connect. To use the Strava API, developers must comply with this Strava API Policy (the "Policy"), which is incorporated by reference into, and forms part of, the Strava API Agreement (the "Agreement"). This Policy sets out operational rules that apply to your use of the Strava API Materials. 
+
+Capitalized terms used in this Policy have the meanings given in the Agreement. In the event of a conflict between this Policy and the Agreement, the Agreement controls.
+
+Strava may update this Policy from time to time and will publish the updated Policy on the Strava developer site, if so. Your continued use of the Strava API Materials after publication constitutes acceptance of the updated Policy.
+
+Section 2. Our Shared Users
+Our users and their data must be protected and respected. Any failure to do so could lead to termination of your access to the Strava API.
+2.1  Authentication and Consent
+Before accessing any Strava user's data, your Developer Application must (a) authenticate the account of the Strava user and (b) obtain the user's legal consent in a manner that, at minimum, discloses:
+(i) The types of data that will be collected;
+(ii) The methods by which the data will be collected;
+(iii) How the user may withdraw consent; 
+(iv) How the user may request deletion of the user's data; and
+(v) If a deletion request is made, that the deletion was successfully completed.
+2.2  End-User Access to Collected Data 
+Your Developer Application must allow the end user to access data that the end user has generated and that you have collected via the Strava API Materials, upon the end user's request. 
+2.3  Display Limited to the Authenticated User
+Strava Data provided by a specific Strava user may be displayed or disclosed in your Developer Application only to that user. You may not display or disclose Strava Data related to other users, even if such data is publicly viewable on the Strava Platform. 
+2.4  Support, Contact Information, and Preferences
+Your Developer Application must provide easily accessible contact information for end-user support and clear links for users to navigate to their Strava accounts. Users of your Developer Application must be permitted to express contact preferences, via notice and consent, at the point of collecting contact information and in accordance with applicable regulations.
+2.5  Deletion upon End-User Request
+You must delete all Data about an end user in your possession or control upon that end user's request, or upon the end user's termination or cancellation of the Developer Application's access to the Strava API Materials. You must also provide the user with written confirmation of successful deletion.
+
+Section 3.  Access Controls, Quotas, Endpoint Administration, and Access Tiers
+3.1  Access Limits and Rate Limits
+Your use of the Strava API Materials may be subject to limitations on access, data requests, and use as set forth on the Strava developer site. 
+3.2  Endpoint Availability and Allowlist
+Strava may, in its discretion, vary the level of access, support, benefits, and incentives available to Developer Applications. Certain endpoints — including endpoints that expose aggregated user data, social-engagement data products, or other proprietary content — may be deprecated, restricted, or removed from time to time, temporarily or permanently. Strava may maintain an allowlist of Developer Applications authorized to continue using deprecated or restricted endpoints based on the value those Developer Applications provide to Strava users. If you wish to be considered for an allowlist, or to implement an endpoint or scope in a manner that would exceed published limitations, please contact Strava at [email-redacted].
+3.3  Access Tiers and Subscription Requirements
+Strava classifies Developer Applications into the following Access Tiers, each of which has its own eligibility criteria and operating parameters as published on the Strava developer site:
+
+(a) Standard Tier (“Standard Tier Applications”), inclusive of two levels:  
+Developer Applications limited to 10 registered Strava users (generally intended for hobbyists, side projects, and early development); and
+
+Developer Applications limited to 9,999 registered Strava users (generally intended for growing apps with a substantial user base); 
+
+(b) Extended Access Tier (“Extended Access Tier Applications”), generally inclusive of Developer Applications serving 10,000 users or more and approved by Strava. Extended Access Tier Applications are admitted on a case-by-case basis and are not subject to subscription requirements, except as Strava may publish from time to time.
+
+Standard Tier Applications are subject to subscription requirements as published on the Strava developer site, including a requirement that the developer or specified end users maintain an active Strava subscription. Subscription requirements may change from time to time, and Strava may grandfather, exempt, or comp Developer Applications in its discretion.
+3.4  Eligibility Criteria
+You must currently meet, and continue to meet, all eligibility and other criteria Strava requires for your current Access Tier, and must complete all forms and applications required by Strava. Eligibility criteria may change from time to time.
+3.5  Strava MCP
+Strava operates the Strava Model Context Protocol (“Strava MCP”) as the official Strava-controlled agent-mediated interface to the Strava Platform. The Strava MCP is the sole authorized first-party agent-mediated interface and may be made available on AI platforms Strava trusts and on key partner platforms as Strava may designate. Subscribers to Strava may access the Strava MCP in connection with their personal use of their own Strava data, in accordance with this Policy and any operational requirements published on the Strava developer site, and may bring their own AI Application to interact with their own data through the Strava MCP. The Strava MCP is not authorized for, and may not be used to enable, any commercial or third-party access to the Strava API Materials or Strava Data outside the developer's own personal use.
+3.6  Developer Program Admissions, Rate Limit, and Athlete Capacity Increase Requests
+Admission to the Strava Developer Program is at Strava's discretion and is not guaranteed. Strava does not commit to a fixed review-time service-level agreement; you will hear from Strava if you are admitted, or if Strava requires additional information.
+Similarly, requests to increase rate limits or athlete capacity will be handled at Strava’s discretion, and increases are not guaranteed. Strava does not commit to a fixed review-time service-level agreement for these requests; you will hear from Strava if you are admitted, or if Strava requires additional information.
+3.7  No Circumvention
+You may not, and may not encourage or allow any third party to, interfere with, hinder, limit, or modify any access limits, rate limits, or other controlling mechanisms implemented by Strava. If Strava believes that you have attempted to exceed or circumvent these limitations, you will be notified and your access may be temporarily or permanently blocked.
+
+Section 4.  Brand, Attribution, and Publicity
+4.1  Use of Strava Marks
+The rights granted under the Agreement do not include any general right to use the Strava Marks in connection with your Developer Application. Subject to your continued compliance with the Agreement and this Policy, you may use Strava Marks for certain limited purposes related to your Developer Application only as described in the Brand Guidelines. These rights are non-exclusive, non-transferable, worldwide, and royalty-free, without any right to sub-license, and may be revoked by Strava at any time. If Strava updates the Brand Guidelines or any Strava Marks that you are using, you agree to update such Strava Marks to reflect the most current versions. You must not use any Strava Mark, or any confusingly similar mark, as the name or part of the name or icon of your Developer Application, or as part of any logo or branding for your Developer Application.
+4.2  Compliance with Brand Guidelines; Attribution
+If you choose to give attribution to Strava within your Developer Application, you must comply with the Brand Guidelines in doing so. The Brand Guidelines are available on the Strava developer site and may be updated from time to time. Strava determines whether you are in compliance with the Brand Guidelines.
+4.3  No Implied Endorsement or Affiliation
+You may not display any reference to Strava or the Strava Platform in your Developer Application in a manner that has a likelihood of creating confusion as to the origin of the Developer Application or that implies a direct or indirect affiliation, endorsement, sponsorship, or approval by Strava.
+4.4  Third-Party Attribution
+Data obtained through the Strava API may include data that requires attribution to third parties. If your Developer Application displays information derived from Garmin-sourced data, you must display attribution to Garmin in the form and manner required by Garmin's brand guidelines. Strava may specify additional third-party attribution requirements from time to time, as may the third parties themselves.
+4.5  Strava Promotional Rights
+Strava may use your Developer Application and any related marks, logos, or other intellectual property that you leverage in the Strava API Materials, without providing notice to you, for the purposes of promoting Strava and marketing and making Developer Applications available to mutual customers. Strava has no obligation to use or promote any Developer Application.
+4.6  Press and Public Statements
+You may not issue any press release or other announcement regarding your Developer Application that makes any reference to Strava without Strava's prior written consent. Please send any such request to [email-redacted].
+
+Section 5.  Use Restrictions
+Strava shall determine in its sole discretion whether your Developer Application's use of the Strava API Materials complies with this Section and the Agreement. 
+5.1  Purpose-Limited Use
+You may not use the Strava API Materials for any purpose other than providing the Developer Application for which you are registered as a Strava API developer.
+5.2  No Competing or Imitating Applications; No Benchmarking
+You may not use the Strava API Materials in any manner that is competitive to Strava or the Strava Platform, including in connection with any application, website, or other product or service that includes, features, endorses, or otherwise supports a third party that provides services competitive to Strava's products and services. You may not use the Strava API Materials to create an application that imitates the look, imagery, or brand identity of Strava or the Strava Platform. You may not use or access the Strava API Materials to monitor the availability, performance, or functionality of the Strava Platform or for any other benchmarking or competitive analysis purpose.
+5.3  No AI/ML Training, Fine-Tuning, Grounding, Evaluation, Embedding, or Retrieval-Augmented Generation
+You may not use the Strava API Materials or Strava Data, directly or indirectly, in connection with the development, training, evaluation, or operation of any AI Application. This prohibition extends to:
+Any data derived from, aggregated from, anonymized from, or generated using Strava Data, in any form (including original, derivative, aggregated, anonymized, de-identified, or model-output form); and
+
+Any of the following activities with respect to an AI Application: training, pre-training, post-training, fine-tuning, reinforcement learning, alignment, grounding, evaluation, benchmarking, embedding generation, retrieval-augmented generation, ingestion into a context window or working memory, and any other activity intended or reasonably likely to develop, improve, evaluate, or operate an AI Application. 
+
+This prohibition does not extend to use of the Strava MCP, as discussed above in Section 3.5.
+5.4  No Aggregation, Analytics, or De-Identified Processing
+You may not process or disclose Strava Data—even publicly viewable Strava Data—including in an aggregated, de-identified, or anonymized manner, for the purposes of analytics, analyses, customer insight generation, or product or service improvements. You may not combine Strava Data with other customer data for these or any other purposes. The restrictions in this Section 5.4 apply to data derived from Strava Data and to output that incorporates or was generated using Strava Data.
+5.5  No Scraping, Bulk Export, Harvesting, or Automated Extraction
+You may not use web scraping, web harvesting, web data extraction methods, or any other automated means to extract data from the Strava Platform. You may not bulk-export Strava Data, including by accumulating Strava Data through repeated authorized API calls into a corpus, dataset, archive, or database that exceeds the operational scope of your Developer Application. 
+
+You may not store Strava Data, or any data derived from Strava Data, in any Persistent Index. The foregoing prohibits indefinite storage in vector stores, embedding stores, search indexes, knowledge graphs, retrieval-augmented data stores, archives, and any other storage configured to enable subsequent retrieval, query, or use. The seven-day cache permitted under Section 6.2 is not a Persistent Index, provided that the cache is operated as a transient cache and is not used to enable any prohibited purpose under this Section 5.5.
+5.6  No Reverse Engineering or Derivative Works
+You may not, and may not encourage or authorize any third party to: 
+Remove or alter any proprietary notices or marks on the Strava API Materials; 
+
+Frame, wrap, or otherwise reproduce significant portions of the Strava Platform; 
+
+Reverse engineer, reverse assemble, decompile, modify, or attempt to discover any source or object code of the Strava API Materials or any part of the Strava Platform; or 
+
+Modify or create derivative works based upon the Strava API Materials or distribute copies of them.
+
+5.7  No Aggregating, Caching, or Storing User or Geographic Information
+You may not use or access the Strava API Materials to aggregate, cache, or store geographic location information or other user information accessible via the Strava API, except as expressly permitted by Section 6.2.
+5.8  No End-User Charges; No Resale or Syndication
+You may not charge end users, in any manner, for access to or use of the Strava API Materials or any services or functionality included in or related to the Strava API Materials or the Strava Platform. You may not sell, rent, lease, sublicense, redistribute, or syndicate access to the Strava API Materials, and you may not charge any service, booking, or similar fee in connection with services made available via the Strava Platform. The foregoing does not prohibit you from charging for the provision of functionality not provided by the Strava Platform in your Developer Application and that is not substantially duplicative of functionality offered by Strava.
+5.9  Advertising Restrictions
+You may include advertisements in your Developer Application, but you may not use Strava Data in any advertisement without Strava's express written consent. Advertisements may not be displayed in a manner that suggests approval or endorsement by Strava. You may not use the Strava API Materials, directly or indirectly, for targeted advertising or similar purposes.
+5.10  No Sale, License, or Transfer to Third Parties
+You may not collect, use, store, aggregate, or transfer Strava Data in any manner except as expressly permitted for the operation of your Developer Application. You may not transfer or disclose Strava Data — including publicly viewable Strava Data — to any third party, except as expressly permitted by this Agreement and your then-current privacy policy and in full compliance with applicable law (including Section 28 of the GDPR and Section 28 of the UK GDPR). You may not, directly or indirectly, disclose, market, sell, license, lease, or make available in exchange for monetary or other valuable consideration, any Strava Data to any third party — including advertisers, data brokers, AI Application providers, or model developers — even if a user of your Developer Application consents.
+5.11  No Malware or Disruption
+You may not use the Strava API Materials to distribute any virus, spyware, adware, malware, or other harmful or malicious component. You may not use the Strava API Materials for any purpose that might overburden, impair, or disrupt the Strava Platform or related servers or networks.
+5.12  No Detrimental, Unlawful, or Objectionable Content or Conduct
+You may not include or use the Strava API Materials in, or in connection with, any application, website, or other product or service that includes content or engages in conduct that (a) may be perceived as detrimental, disparaging, or harmful to Strava, or (b) would violate Strava's Acceptable Use Policy or Community Standards if posted on or through the Strava Platform. You may not use the Strava API Materials to distribute unsolicited advertising or promotions, or to send messages, make comments, or initiate any other unsolicited direct communication or contact with Strava users or partners.
+5.13  No Circumvention of Authorization or Consent Flows
+You may not, and may not encourage or allow any third party to, interfere with, hinder, limit, or modify any notices, authorization requests, or consent requests provided by Strava. You may not use the Strava API Materials in any way that would grant anyone other than you or the applicable Strava user the right to see data related to that user without the prior express consent of that user.
+5.14  Compliance with Law
+You must at all times use the Strava API Materials and Strava Data in accordance with all applicable laws and regulations, your privacy policy, and the Service Terms — including laws, regulations, and directives regarding privacy, data security, the export of data, and the regulation of artificial intelligence (including the EU AI Act, where applicable). You may not use the Strava API Materials or Strava Data to conduct or facilitate any activity that violates applicable law or the Service Terms.
+5.15  Compliance with Children's Online Privacy Laws
+If your Developer Application is directed to or knowingly collects data from children under thirteen (13) (or the equivalent age threshold under applicable law), you represent and warrant that you comply with the Children's Online Privacy Protection Act ("COPPA"), the GDPR (including Section 8), the UK GDPR, and any analogous applicable law, including by obtaining all required parental or guardian consents and by implementing all required notices and protections. Strava's service is not directed to children under thirteen (13).
+5.16  No Abstraction Layers, Pass-Through Proxies, or Unauthorized Agent Interfaces
+You may not, and may not authorize any third party to: (a) operate, offer, or facilitate any abstraction layer, integration-platform-as-a-service, no-code-AI platform, pass-through proxy, intermediary, or aggregator that re-exposes the Strava API Materials, in whole or in part, to third parties; (b) operate any MCP Server, agent-mediated interface, or analogous mechanism that exposes the Strava API Materials, Strava Data, or any subset thereof; (c) share, transfer, multiplex, or otherwise re-use API Tokens or authentication credentials across multiple servers, services, applications, or end users; or (d) build a Developer Application whose primary purpose is to enable third parties to access the Strava API Materials or Strava Data through your credentials or infrastructure. The Strava MCP is the sole authorized first-party agent-mediated interface to the Strava Platform. The restrictions in this Section apply to any successor or analogous protocol or technology that performs a function comparable to an MCP Server, regardless of name.
+
+Section 6.  Data Rights and Retention
+6.1  Scope of Data Access
+Unless your Developer Application has an athlete capacity of 9,999 or less, you may display or disclose to an end user only the specific Strava Data related to that end user. You may not display or disclose Strava Data related to other users, even if such data is publicly viewable on the Strava Platform.
+6.2  Cache and Retention
+You may not retain Strava Data in your cache for longer than seven (7) days. If your Developer Application checks for a resource (for example, a segment) and that resource is no longer available from Strava, you must remove it from your cache immediately, regardless of how frequently your cache is refreshed. Except for such limited caching, you may not store Strava Data, or provide or display Strava Data or any associated service, to any third party other than the Strava user using your Developer Application.
+6.3  Reflecting User Deletions
+You may not continue displaying or disclosing in your Developer Application any Strava Data that a Strava user has deleted from Strava. Deletions must be reflected in your Developer Application expeditiously but in all cases within forty-eight (48) hours.
+6.4  Retention Limited to Purpose
+Except as expressly permitted by Section 6.2, you may not retain Data, and you may use and retain Data only so long as necessary for the purpose for which it was originally obtained.
+6.5  Usage Data
+Strava may monitor and collect Usage Data and may use Usage Data for any business purpose, internal or external, including providing enhancements to the Strava API Materials or the Strava Platform, providing developer or user support, ensuring compliance with this Agreement, or otherwise. You agree to include a statement to this effect in your privacy policy.
+6.6  User Bulk Data Export
+Each Strava user has the right to access and export the user's own Strava data, free of charge, through the Bulk Data Export Tool published on the Strava service. Nothing in this Agreement is intended to limit or condition that user-facing right.
+
+Section 7.  Privacy and Data Protection
+7.1  Respect for User Privacy Settings
+Your Developer Application must respect the privacy settings configured by Strava users. If your Developer Application does not collect the authentication credentials of a Strava user, you are not permitted to display any data or use any functionality via the Strava API Materials relating to that user.
+7.2  Consent and Authentication
+Strava users must expressly authorize your Developer Application before you access any of their data. Your Developer Application must authenticate the account of the Strava user and, at minimum, provide the user with the information required by Section 2.1 of the Policy (including the types of data collected, collection methods, consent-withdrawal mechanisms, and deletion request mechanisms). In the event of a change in the type of data collected from a Strava user, you must notify the user of such change and obtain the user's consent to the change in scope. Authorizations shall respect any granular permissioning implemented by Strava, which may be updated from time to time.
+7.3  Developer Privacy Policy
+You must provide a lawful privacy policy for your Developer Application that meets the requirements of the GDPR and the UK GDPR, is accessible through reasonably prominent hyperlinks that do not modify, conflict with, or supersede the Strava Privacy Policy (which controls in the event of any conflict with your privacy policy), and explains how you collect, store, use, or transfer any Personal Data via your Developer Application. You will comply with all privacy and data protection laws applicable to you.
+7.4  Deletion Obligation
+Upon (a) a Strava user's request, (b) a Strava user's revocation of your Developer Application's authorization to access the user's Strava account, (c) a Strava user's deletion of the user's Strava account, (d) your cessation of use of the Strava API Materials, or (e) termination of this Agreement, you must promptly and permanently delete the following from your Developer Application and from all systems, networks, and servers under your control:
+
+(i) in the case of clauses (a) through (c), all Strava Data and all Personal Data derived from Strava Data relating to the requesting or revoking user; and
+
+(ii) in the case of clauses (d) and (e), all Strava Data and all Personal Data derived from Strava Data, regardless of user.
+
+Deletion under this Section 7.4 must be completed expeditiously but in any event within thirty (30) days, except where applicable law or an agreement with the affected user requires retention for a longer period (in which case you must retain proof of the legal or contractual basis and provide it to Strava on request). You must certify deletion to Strava in writing on request.
+7.5  Personal Data Provided to Strava
+If you provide Personal Data to Strava in connection with the Strava API Materials, you must first obtain all necessary consents and authorizations from the applicable users, ensure that such users are aware of this processing and disclosure, and disclose this processing in your privacy policy. Strava will treat Personal Data obtained from you through your use of the Strava API Materials in accordance with the then-current Strava Privacy Policy.
+7.6  Independent Controllers; Cross-Border Transfers
+Each party is a separate and independent controller of the Personal Data that it discloses or receives under this Agreement, and will individually determine the purposes and means of its processing of such Personal Data. The parties are not joint controllers and do not intend to process Personal Data as joint controllers under Section 26 of the GDPR, Section 26 of the UK GDPR, or any analogous provision of applicable data protection law. Each party is individually and separately responsible for complying with the obligations that apply to it as a controller under applicable data protection and privacy laws, and neither party is responsible for the other party's compliance with those laws. Where either party receives a request from a data subject in respect of Personal Data controlled by the other party, the receiving party will direct the data subject to the other party. To the extent any Personal Data is transferred from the EEA, the United Kingdom, or Switzerland to a jurisdiction not subject to an adequacy decision, the transfer is governed by the European Commission Standard Contractual Clauses (Decision 2021/914), the United Kingdom International Data Transfer Addendum, or analogous transfer mechanism applicable to the recipient jurisdiction, each as incorporated by reference and as in effect from time to time.
+7.7  Subprocessor Disclosure
+You must, on Strava's request, provide a current list of Subprocessors that process Strava Data on your behalf, including each Subprocessor's name, role, and processing location. You are responsible for the acts and omissions of your Subprocessors as if they were your own and must ensure that each Subprocessor is bound by data-protection obligations no less protective than those in this Agreement.
+
+Section 8.  Security and Breach Notification
+8.1  Developer Security Obligations
+You agree to use commercially reasonable and appropriate administrative, technical, organizational, and physical measures to maintain the security and integrity of all Data, taking into account the measures described in Section 32(1) of the GDPR and the UK GDPR. You are fully responsible for the security of Data used in connection with your Developer Application or otherwise in your possession. 
+8.2  Compliance with Data Protection and Security Law
+You will comply with all applicable laws — including state and federal laws — regarding the collection, security, and dissemination of any personal, financial, card, or transaction Data on your site or through your Developer Application.
+8.3  Breach Notification
+You must notify Strava of any security breach—including any personal data breach within the meaning of the GDPR or the UK GDPR—related to your Developer Application or Strava Data, in writing to [email-redacted], as soon as possible but no later than twenty-four (24) hours after discovery of the incident.
+8.4  Security Controls
+Strava may provide, suggest, or mandate security procedures and controls intended to reduce the risk of fraud or security breaches ("Security Controls"). Security Controls may include processes or applications developed by Strava or by third parties, including two-factor authentication for users logging into their Strava account. You agree to review all Security Controls and implement those that are appropriate for your business and your Developer Application to protect against unauthorized transactions and, if necessary, to use other procedures and controls not provided by Strava. Strava cannot guarantee that security measures will defeat all unauthorized access or misuse, and if you provide Personal Data to Strava, you do so at your own risk.
+
+Section 9.  Miscellaneous
+9.1  Consistency with the Agreement
+You must not impose terms on users of your Developer Application that are inconsistent with the Agreement or the Service Terms.
+9.2  Third-Party Warranty Disclaimers
+Your Developer Application's terms of service must disclaim, on behalf of third-party service providers, all warranties (including implied warranties of merchantability, fitness for a particular purpose, and non-infringement) and must exclude third-party service providers from all liability for consequential, special, punitive, and indirect damages.
+9.3  Customer Support
+You, and not Strava, are responsible for providing all customer and technical support and maintenance for your Developer Application. Strava has no obligation to provide any technical or other support for the Strava API Materials or any services or content related thereto.
+
+Features
+What’s New
+Stories
+Routes
+About
+
+Subscription
+Family Plan
+Bulk Subscriptions
+Student Discount
+Teacher, Military & Medical Discount (US Only)
+Send a Gift
+
+Support
+Business
+Partner Center
+Careers
+Press
+
+Privacy
+Cookie Policy
+Do Not Share My Personal Information
+Terms
+Log In
+Join for Free

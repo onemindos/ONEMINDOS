@@ -1,0 +1,190 @@
+
+  Hardware-Backed Security  | Fundamentals  | Samsung Knox Documentation
+    Back to top
+              Admin
+              Developer
+              Partner
+  Samsung Knox admin guides
+  Fundamentals
+  Knox Admin Portal
+  Knox Suite
+  Knox Platform for Enterprise
+  Knox Mobile Enrollment
+  Knox Manage
+  Knox E-FOTA
+  Knox Asset Intelligence
+  Knox Remote Support
+  Knox Capture
+  Knox Authentication Manager
+  Knox Configure
+  Knox Guard
+  Samsung Care+ for Business
+  Knox Classroom
+  User Acceptance Testing
+  Glossary
+Fundamentals
+          Introduction
+      About Samsung Knox
+      Knox white papers
+      Samsung Knox Mobile Security
+      Introduction
+      Privacy policy
+      Security principles
+      Trusted Computing Platform
+      Defense-In-Depth
+      Zero Trust
+      System security
+      Secure Hardware Supply Chain
+      Hardware-Backed Security
+      Knox Vault
+      Trusted Boot
+      Biometric Authentication
+      Realtime Kernel Protection
+      Defeat Exploit
+      Knox Device Health Attestation
+      Samsung Auto Blocker
+      Data Protection
+      Knox Framework
+      Hardware Device Manager
+      Knox Zero Trust Framework
+      Service security
+      Security and privacy dashboard
+      Samsung Internet Browser
+      Samsung Email
+      Knox Authentication Manager
+      Certificate security
+      Automated Certificate Management Environment (ACME) protocol
+      Universal Credential Management
+      Network security
+      Wireless communication security
+      Knox firewall
+      Secure remote access
+      Application security
+      Samsung Message Guard
+      Wearables security
+      Samsung Galaxy Watch
+      Security operations
+      Software lifecycle and updates
+      Security patch vs Maintenance release
+      Vulnerability reporting
+      Samsung Vulnerability Communication Program
+      Knox Cloud Services & Integrations
+      Overview
+      Managed software Updates
+      Knox E-FOTA
+      Recommended update cadence for users and enterprises
+      Knox Asset Intelligence Security Center
+      Document history
+      Samsung Knox for PC
+      Introduction
+      Protecting below the OS
+      Hardware-rooted trust
+      Enhancements to UEFI
+      Protecting the SMM
+      Extending Below-the-OS Security into the OS
+      Secure Manageability
+      NIST requirements
+      Feature support by model
+      Key terms and definitions
+      Knox licensing
+      Overview
+      Understanding Knox licenses
+      Knox Suite Plans and other licenses
+      Getting a Knox license
+      Getting started with Samsung Knox
+      Getting started with Samsung Knox
+      Device and platform support
+      Latest release notes
+      Latest videos
+      FAQ
+      KBAs
+      Knox Guide chatbot discontinued
+      User Acceptance Testing
+      How-to videos
+      Get started with UAT
+      Report issues
+      UAT limitations
+      FAQ
+      UAT release notes
+      Submit a support ticket
+              Home /
+Introduction /
+Samsung Knox white papers /
+Samsung Knox Mobile Security /
+System Security /
+              Hardware-Backed Security
+  Last updated March  7th, 2025
+        Hardware components
+Knox leverages the following hardware components to create a trusted computing platform.
+Bootloader ROM
+The Primary Bootloader (PBL) is the first piece of code to run during the boot process. The PBL is trusted to measure and verify the boot chain. To prevent tampering, the PBL is kept in the ROM of the secure hardware. The device hardware loads and runs the PBL from ROM at boot, and the PBL starts the Secure and Trusted Boot processes.
+Arm TrustZone Secure world
+The Secure world is the environment in which highly sensitive software runs. Arm TrustZone hardware ensures memory and components marked secure (e.g., a fingerprint reader) can only be accessed in the Secure world.
+Most of the system, including the kernel, middleware, and apps, runs in the Normal world. Secure world software, on the other hand, is more privileged, and can access both Secure and Normal world resources.
+Knox Vault
+The Knox Vault is an independent, tamper-proof, secure subsystem with its own processor, memory, and an interface to dedicated non-volatile storage. It stores sensitive data such as cryptographic keys and authentication data. Even if the main application processor that runs Android is compromised, the Knox Vault protects secrets and guards against hardware attacks such as probing and fault injection.
+The Knox Vault is available on select devices.
+Hardware keys
+Device-Unique Hardware Key (DUHK)
+Samsung incorporates the DUHK, a device-unique symmetric key, in the device hardware during the initial manufacturing of the device. The DUHK binds data (e.g., cryptographic keys) to a particular device, is accessible only by a hardware cryptography module, and isn’t directly exposed to any device software.
+However, TrustZone Secure world software can request that the DUHK encrypt and decrypt data. This DUHK encrypted data is bound to the device, and thus can’t be decrypted on any other device.
+Samsung Secure Boot Key (SSBK)
+The SSBK is an asymmetric key pair used to sign Samsung-approved boot executables:
+The private key is used by Samsung to sign secondary and app bootloaders.
+The public key is stored in the hardware’s one-time programmable fuses when the device is manufactured in one of Samsung’s factories. The Secure Boot process uses this public key to verify whether each boot component it loads is approved.
+Knox Device Health Attestation Key (SAK)
+The SAK is a device-unique, Elliptic Curve Digital Signature Algorithm (ECDSA) asymmetric key pair. The public key is signed by Samsung’s root key, which proves that the SAK was produced by Samsung.
+The SAK is generated when the device is manufactured in one of Samsung’s factories and is either stored in the Knox Vault (on supported devices), or encrypted by the DUHK, which binds it to the device. It is only accessible from within the Knox Vault or the TrustZone Secure world and is an important part of the Root of Trust, as it derives other signing keys.
+Because the SAK is device-unique, it can tie data to a device through cryptographic signatures. Signing keys derived from the SAK is used to sign data for various purposes. Most notably, the SAK is used to sign the Knox Device Health Attestation that indicates if the device is in a trusted state. This signature proves that attestation data originated from the TrustZone Secure world or Knox Vault on a Samsung device.
+Knox Rollback Protection Fuses
+Knox Rollback Prevention Fuses encode the minimum acceptable version of Samsung-approved bootloaders.
+Once a bootloader containing approved new software is installed, it fuses the version of that bootloader to hardware, preventing old software from being loaded. Without this feature, old firmware, which could have known vulnerabilities, can be exploited.
+The Rollback Prevention fuse version number is set during initial installation of system software and is adjusted following specific software updates. Once the fuse version number is set, it is impossible to revert back to legacy software versions.
+Knox Warranty Bit
+The Knox Warranty Bit provides a tamper-resistant and persistent record of when a device runs in a non-approved state. This record is stored in a one-time hardware e-fuse, permanently marking the device as having a non approved configuration, regardless of any future actions.
+Samsung continually monitors the integrity of several different components, detecting if any particular component is in a non-approved configuration. For example, the Trusted Boot process sets the Knox Warranty Bit when it detects that an unsigned kernel is loaded, or when a critical security feature such as SELinux is disabled.
+These types of checks are critical as non-approved components could lead to vulnerabilities such as privilege escalation or access to normally protected peripherals. Non-approved components can also lead to vulnerabilities being persistent over reboots or even future updates (e.g., returning to an approved component).
+For enterprises, having a feature like Knox Warranty Bit ensures that a previously compromised device cannot be brought back into a seemingly compliant state and used normally. Samsung integrates Knox Warranty Bit measurements into several checks on the device, both during and after boot. This ensures that some actions can only be taken after the device status is verified, actions such as:
+Gaining access to device-bound data within the KeyStore: The Knox Warranty Bit value is used in the decryption of device-bound (wrapped) keys stored in the KeyStore, along with all data protected by those keys. If the Knox Warranty Bit is set, then any device-bound data stored on the device becomes completely inaccessible.
+Accessing certain Knox services: Knox Device Health Attestation reports whether a device has been compromised, and relays this status to other requesting services. In the event a device has its Knox Warranty Bit set, you may be able to use the device after a factory reset, but certain Knox functions (like creating a work profile), or functions that rely on Knox security (like Samsung Pay) are blocked.
+As a persistent record of a device’s state, the Knox Warranty Bit helps you ensure that your Samsung devices remain in a trustworthy state during its lifecycle.
+On this page
+    Hardware components
+        Bootloader ROM
+        Arm TrustZone Secure world
+        Knox Vault
+    Hardware keys
+        Device-Unique Hardware Key (DUHK)
+        Samsung Secure Boot Key (SSBK)
+        Knox Device Health Attestation Key (SAK)
+    Knox Rollback Protection Fuses
+    Knox Warranty Bit
+    Is this page helpful?
+       YES
+       No
+  Thank you for your feedback!
+            Knox admin documentation
+              Fundamentals
+              Knox Admin Portal
+              Knox Platform for Enterprise
+              Knox Mobile Enrollment
+              Knox Manage
+              Knox E-FOTA
+              Knox Asset Intelligence
+              Knox Remote Support
+              Knox Capture
+              Knox Authentication Manager
+              Knox Configure
+              Knox Guard
+              Samsung Care+ for Business
+              Knox Classroom
+              User Acceptance Testing
+            Support
+              Submit a support ticket
+            Samsung
+              Samsung Knox
+              Samsung Knox Partner Program
+              Samsung Knox Developers
+    Copyright © 1995- SAMSUNG All Rights Reserved.
+            Privacy policy
+            Legal

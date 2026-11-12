@@ -1,0 +1,38 @@
+Source: https://docs.formant.io/docs/terminal-and-port-forwarding-security.md
+Accessed: 2026-11-11
+
+---
+updatedAt: 2025-11-11T01:47:35.000Z
+agentTools:
+  projectIndex: https://docs.formant.io/llms.txt
+---
+
+# Terminal and port forwarding security
+
+## Web terminal
+
+In Formant teleop, operators  can use the web terminal feature to run commands on an in-browser terminal for the `formant` user on the robot system.
+
+The `formant` user is granted capabilities during agent installation.
+
+Broadly speaking, these capabilities include:
+
+* ability to execute programs
+* read and write access to shared parts of the filesystem
+* access to the `video` and `audio` group
+
+The `formant` user owns the following directories:
+
+* `/usr/lib/formant/agent`
+* `/var/lib/formant`
+* `/home/formant`
+
+Note: `formant` does not have root access.
+
+This feature can be disabled robot-side by adding `FORMANT_DISABLE_TERMINAL=true` to `/var/lib/formant/.bashrc` on the robot.
+
+## Port forwarding
+
+Among other capabilities, `fctl` can be used to port forward between an operator's machine and a robot. For more information, see [SSH to your robots](https://docs.formant.io/reference/ssh-to-your-robots).
+
+This feature can be disabled robot-side by adding `FORMANT_PORT_FORWARDING=false` to `/var/lib/formant/.bashrc` on the robot.

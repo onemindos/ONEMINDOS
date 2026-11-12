@@ -1,0 +1,35 @@
+13.7
+6.12.115+deb13.1-cloud-arm64
+rauc 1.13-3+deb13u1
+dpkg-query: no packages found matching rauc-service
+mmdebstrap 1.5.7-1+deb13u1
+qemu-system-x86 1:10.0.13+ds-0+deb13u1
+qemu-user-binfmt 1:10.0.13+ds-0+deb13u1
+ovmf 2025.02-8+deb13u1
+grub-common 2.12-9+deb13u2
+squashfs-tools 1:4.6.1-1+b1
+openssl 3.5.7-1~deb13u3
+meson 1.7.0-1
+gcc 4:14.2.0-1
+libglib2.0-dev 2.84.4-3~deb13u5
+libssl-dev 3.5.7-1~deb13u3
+
+rauc:
+  Installed: 1.13-3+deb13u1
+  Candidate: 1.13-3+deb13u1
+  Version table:
+ *** 1.13-3+deb13u1 500
+        500 mirror+file:/etc/apt/mirrors/debian.list trixie/main arm64 Packages
+        100 /var/lib/dpkg/status
+624e06de18b4fa535e90db7160d00d3d07d206422b89999bf1e27d920264e4e0  /usr/share/OVMF/OVMF_CODE_4M.fd
+5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e  /usr/share/OVMF/OVMF_VARS_4M.fd
+Types: deb deb-src
+URIs: mirror+file:///etc/apt/mirrors/debian.list
+Suites: trixie trixie-updates trixie-backports
+Components: main
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+Types: deb deb-src
+URIs: mirror+file:///etc/apt/mirrors/debian-security.list
+Suites: trixie-security
+Components: main

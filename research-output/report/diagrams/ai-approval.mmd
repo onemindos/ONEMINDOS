@@ -1,0 +1,17 @@
+sequenceDiagram
+  participant A as AI agent (Hermes or outside MCP client)
+  participant G as Capability gateway
+  participant L as Action ledger
+  participant P as Owner's phone (passkey)
+  participant D as Device adapter (e.g. greenhouse valve, robot arm)
+  A->>G: tools/call greenhouse.zone2.open_valve
+  G->>G: Who is the agent? Which user does it act for? Grant scope? Did it read untrusted (tainted) data?
+  G->>L: Record request
+  G-->>A: input_required: waiting for human approval
+  G->>P: Push (opaque on iOS): "Agent wants to open valve 2 for 10 min"
+  P->>G: Approve, signed with passkey
+  G->>D: Execute within declared safety limits (TTL, max runtime)
+  D-->>G: Done
+  G->>L: Record result (hash-chained)
+  G-->>A: Result
+  Note over D: Safety limits live in the adapter and the device MCU, never in the AI model

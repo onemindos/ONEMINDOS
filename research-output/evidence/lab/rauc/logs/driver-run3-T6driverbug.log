@@ -1,0 +1,26 @@
+##### [20:38:07] T1 first boot
+##### [20:38:07] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/var/lab/run/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/run/disk.img -serial stdio -monitor none
+===> T1: PASS gate=mark-good slot=A v=1; first boot 34s
+##### [20:38:41] T2 wrong-key bundle
+===> T2: PASS rc=1 sig_error_msg=True env_unchanged=True
+##### [20:38:42] T3 good update
+##### [20:39:42] T3 install rc=0 in 60s
+===> T3: PASS install_rc=0 boot1=mark-good/B/v2 boot2=mark-good/B/v2
+##### [20:41:00] T4 bad-health update
+===> T4: PASS install_rc=0 boot1=('mark-bad', 'A', 3) boot2=('mark-good', 'B', 2)
+##### [20:44:01] T5 bad-boot update
+===> T5: PASS install_rc=0 panic='Kernel panic - not syncing: Attempted to kill init! exitcode=0x00000100' then ('mark-good', 'B', 2)
+##### [20:45:55] T6 power cut during write
+Traceback (most recent call last):
+  File "$LAB_ROOT/rauc/scripts/run-tests.py", line 216, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "$LAB_ROOT/rauc/scripts/run-tests.py", line 176, in main
+    vm.run("journalctl -f -o cat -u rauc.service > /dev/console 2>&1 &")
+    ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "$LAB_ROOT/rauc/scripts/run-tests.py", line 68, in run
+    m = self.expect(r"__RC=(\d+)__", timeout)
+  File "$LAB_ROOT/rauc/scripts/run-tests.py", line 58, in expect
+    raise TimeoutError(f"timeout {timeout}s waiting for {pattern!r}")
+TimeoutError: timeout 120s waiting for '__RC=(\\d+)__'
+exit=1

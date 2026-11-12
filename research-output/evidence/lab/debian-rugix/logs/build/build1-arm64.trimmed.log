@@ -1,0 +1,52 @@
+ INFO baking layer `v1`
+ INFO baking layer `onemind-base`
+ INFO baking layer `onemind-root`
+ INFO [ 1/1] bootstrap Debian from scratch {"mirror": "", "snapshot": "20261109T000000Z", "components": "main", "suite": "trixie"}
+ INFO [ 1/11] update package lists {}
+ INFO [ 2/11] install and configure Rugix Ctrl {"use_musl": "true", "version": "v1.4.0"}
+ INFO [ 3/11] install state file for `/root` {}
+ INFO [ 4/11] sets the hostname {"hostname": "onemind-lab"}
+ INFO [ 5/11] enabling SSH {"root_authorized_keys": "<lab-ssh-pubkey-redacted>\n"}
+ INFO [ 6/11] setup Debian for `generic-grub-*` targets {"with_squashfs": "true", "with_firmware": "true", "with_nonfree": "false"}
+ INFO [ 7/11] DHCP on all Ethernet interfaces {}
+ INFO [ 8/11] health-gated Rugix commit (k3s readiness) + pre-commit hook {"timeout": "300"}
+ INFO [ 9/11] install k3s (air-gapped) with its data on the Rugix data partition {"version": "v1.37.2+k3s1"}
+ INFO [10/11] cleanup cache and delete package lists {"autoremove": "false"}
+ INFO [11/11] serial console, panic auto-reboot {}
+ INFO [ 1/1] write /etc/onemind-release {"version": "v1"}
+ INFO Creating fat32 filesystem on partition 1 (size: 524288).
+ INFO Creating ext4 filesystem on partition 2 (size: 524288).
+ INFO Creating ext4 filesystem on partition 4 (size: 2661169).
+ INFO baking layer `v1`
+ INFO baking layer `onemind-base`
+ INFO baking layer `onemind-root`
+ INFO baking layer `v2good`
+ INFO baking layer `onemind-base`
+ INFO baking layer `onemind-root`
+ INFO [ 1/1] write /etc/onemind-release {"version": "v2-good"}
+ INFO Creating fat32 filesystem on partition 1 (size: 524288).
+ INFO Creating ext4 filesystem on partition 2 (size: 524288).
+ INFO Creating ext4 filesystem on partition 4 (size: 2661169).
+ INFO baking layer `v2bad`
+ INFO baking layer `onemind-base`
+ INFO baking layer `onemind-root`
+ INFO [ 1/5] update package lists {}
+ INFO [ 2/5] write /etc/onemind-release {"version": "v2-bad"}
+ INFO [ 3/5] deliberately break k3s (invalid flag) for the rollback test {}
+ INFO [ 4/5] install k3s (air-gapped) with its data on the Rugix data partition {"version": "v1.37.2+k3s1"}
+ INFO [ 5/5] cleanup cache and delete package lists {"autoremove": "false"}
+ INFO Creating fat32 filesystem on partition 1 (size: 524288).
+ INFO Creating ext4 filesystem on partition 2 (size: 524288).
+ INFO Creating ext4 filesystem on partition 4 (size: 2661169).
+b51ff77c2aa6f146ff0bc8b03825caa1f5c599c46f82490e707b4c1741c397cb  build/v1-amd64/system.rugixb
+52cc7c12e37c1a1d7983dca12dc4b851705e288d5e6d487835d99d2223ed106f  build/v1-amd64/system.img
+3d1f9e5b92fc2a00857b4bd1b9f8ec8ca020a362db073bc52b3fbd65ed885d3c  build/v2good-amd64/system.rugixb
+566455a5a03f7528fc856390f8328c77335630f0268613ac1d61308d93ebd34e  build/v2good-amd64/system.img
+4c47fbd350b531140e2c15e6ab81a23079fba7cce11aefd25fb71c161c9550b2  build/v2bad-amd64/system.rugixb
+4596f2f267157108d085d9031f5bc2d6ab1af43f003d3936a7d2e028badf7494  build/v2bad-amd64/system.img
+6ddb3fb5c18c21ecef8e9b0af19ab62c0ee5eda7000fd18c0697b646362e9cab  build/v1-arm64/system.rugixb
+942109a26c9b636fc712860bbd5529bbd15b7df9dcb10d78aa610ec29b8c4b24  build/v1-arm64/system.img
+86ba523fe0085c8fc979cf2e7efc4ab1aa9aba56635dbe230b662b37d9d24b3f  build/v2bad-arm64/system.rugixb
+31c27bc9162d1623bf8a6b12a125dbd69291229af11707b76d3307081c8e796a  build/v2bad-arm64/system.img
+4974e306cd3f192bb4856f8f1f3492768741fd4b2c57988660734a1b8939434c  build/v2good-arm64/system.rugixb
+7206b9f0cc524a87fe8f6d734436cde6f3db8197aec6a9317d61596e82df0425  build/v2good-arm64/system.img

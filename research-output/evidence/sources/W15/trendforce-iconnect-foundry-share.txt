@@ -1,0 +1,94 @@
+
+China, US Bolster Semiconductor Independence as Taiwan’s Foundry Capacity Share Projected to Decline to 41% by 2027 :: I-Connect007
+                    Toggle navigation
+                        PCB007
+                        SMT007
+                        Design007
+                        EIN007
+                        FLEX007
+                        MilAero007
+                        AEP007
+                     PREVIOUS PAGE
+                                    Premium Content
+                                    Profile
+                                    Subscriptions
+                                    Alerts Settings
+                                    Login
+                                        my I-Connect007
+                            News
+                                        News Highlights
+                                                                               Keysight Brings Radio Frequency and Photonic Design Together for Tower Semiconductor                                    
+                                                                               Quantinuum, RIKEN Expand Quantum-AI Partnership in Japan                                    
+                                                                               Asia-Pacific AI Infrastructure Spending to Reach US$32B by 2030                                    
+                                        More News
+                     Books
+                                Featured Books
+                                                            Download
+                                                            Download
+                                                            Download
+                                        Article Highlights
+                                                                            Powering AI: Inside TeraWulf's Lake Mariner Campus
+                                                                            3 Key Takeaways: A New Approach to Die Topside Interconnection
+                                                                            Dell AI Factory with NVIDIA Advances Supercomputing-Class Infrastructure
+                                      More Articles
+                                         Columns
+                            Latest Columns
+                                         It’s Only Common Sense: Become the Person Who Knows What Happens Next
+                                         Happy’s Tech Talk #50: Start Your Digitalization Strategy With Automation
+                                         The Chemical Connection: A Few Things That Still Scare Me
+                                        See all of our columnists
+                            Media kit
+                                        Media Kit -
+                                      Choose Your Primary Marketing Focus:
+                    ||| MENU
+                                    China, US Bolster Semiconductor Independence as Taiwan’s Foundry Capacity Share Projected to Decline to 41% by 2027
+                                        December 14, 2023
+                                                                                    | TrendForce
+                                Estimated reading time: 2 minutes
+                                TrendForce’s latest findings reveal that as of 2023, Taiwan holds approximately 46% of global semiconductor foundry capacity, followed by China (26%), South Korea (12%), the US (6%), and Japan (2%). However, due to government incentives and subsidies promoting local production in countries like China and the US, the semiconductor production capacities of Taiwan and South Korea are projected to decrease to 41% and 10%, respectively, by 2027.
+Taiwan to concentrate 60% of advanced manufacturing processes by 2027, retaining a hold on key technologies
+In advanced manufacturing processes (including 16/14nm and more advanced technologies), Taiwan leads with a 68% global capacity share in 2023, followed by the US (12%), South Korea (11%), and China (8%). Meanwhile, Taiwan holds nearly 80% when it comes to EUV generation processes (such as 7nm and beyond).
+In response to the concentration of semiconductor manufacturing capacity in Taiwan, the US, which has a high demand for advanced processes, is actively encouraging and supporting major companies such as TSMC, Samsung, and Intel. 2027, the US’s share of advanced process capacity is expected to increase to 17%, although TSMC and Samsung will still account for over half of this capacity.
+Japan is also planning a return to semiconductor manufacturing, actively supporting local company Rapidus with a goal of reaching the most advanced 2 nm process. They aim to create a semiconductor cluster in Hokkaido and are offering subsidies to foreign companies, including Japan Advanced Semiconductor Manufacturing (JASM) and PSMC’s Sendai plant (JSMC).
+China’s mature process capacity is set to grow to 39% as Taiwanese firms actively cultivate unique technological advantages
+China is focusing aggressively on mature process technologies (28nm and older), particularly in response to export controls on advanced equipment by the US, Japan, and the Netherlands. By 2027, China’s share in mature process capacity is expected to reach 39%, with room for further growth if equipment procurement proceeds smoothly.
+However, as Chinese manufacturers rapidly expand their mature process capacities—backed by government subsidies—this could lead to intense price competition in products like CIS, DDI, PMIC, and power discrete, impacting Taiwan-based foundries like UMC, PSMC, and Vanguard. Vanguard is expected to be most affected due to its product line including LDDI, SDDI, PMIC, and power discrete. Other companies like UMC and PSMC will maintain their advantages in the 28/22nm OLED DDI and memory sectors.
+                        Share on:
+                                                Subscribe
+                                                        Stay ahead of the technologies shaping the future of electronics with our latest newsletter, Advanced Electronics Packaging Digest. Get expert insights on advanced packaging, materials, and system-level innovation, delivered straight to your inbox.
+                                                        Subscribe now to stay informed, competitive, and connected.
+                                    Suggested Items
+                                                I-Connect007 Welcomes Dr. Cody Schoener as Newest Mil/Aero Columnist                                            
+                                            11/09/2026                                            | I-Connect007
+                                        I-Connect007 is excited to welcome Dr. Cody Schoener of Dow as a new monthly columnist for our weekly Mil/Aero Newsletter. His column, Built to Survive, will explore the materials and technologies used to protect electronics in demanding military, aerospace, and aviation environments.
+                                                FSQuality in Thailand: From Automotive and Industrial Controls to AI and Optical Modules                                            
+                                            11/05/2026                                            | Tulip Gu, ECIO and Marcy LaRont, I-Connect007
+                                        One year after their first visit, the ECIO team returned to FSQuality Co., Ltd.’s Thailand factory to see what had changed over an eventful 12 months. The team was joined by Marcy LaRont following the THECA 2026 event in Bangkok. Having met with FSQuality Chairman Liu Tianming at the show the week before, we were eager to see firsthand how the company has evolved its customer strategy, expanded manufacturing to support AI and optical module applications, and added another new building to further increase its high-end manufacturing capabilities and strengthen Thailand’s growing PCB value chain.
+                                                FSQuality Circuits to Exhibit at electronica 2026 in Munich, Germany                                            
+                                            11/03/2026                                            | FSQuality Circuits
+                                        Thailand-Based Advanced PCB Manufacturer to Showcase High-Density Interconnect Technology, High-Layer-Count PCBs, and China-Plus-One Global Manufacturing Solutions.
+                                                I-Connect007 Releases Episode 5 of ‘On the Line With… Qnity: Engineering What’s Next’ Podcast Series                                            
+                                            11/04/2026                                            | I-Connect007
+                                        I-Connect007 announces the release of the fifth episode in its six-part podcast series, On the Line With… Qnity: Engineering What’s Next. This latest installment, titled “Engineering Heat Out of High-Power Systems,” examines the increasingly critical role of thermal management in electronics design and how innovative materials are enabling higher performance, greater reliability, and improved safety.
+                                                Delton Turns Its Thailand Location Into a Rules-driven Smart Factory                                            
+                                            11/03/2026                                            | Tulip Gu, ECIO and Marcy LaRont, I-Connect007
+                                        On Sept. 1, 2026, ECIO’s Edy Yu and Tulip Gu, along with I-Connect007’s Marcy LaRont, toured Delton’s Thailand facility in Prachin Buri. The factory officially began production in June 2025 and, impressively, was profitable by December. Phase I capacity utilization has already exceeded 90%, and further expansion is moving quickly—a remarkably fast ramp-up for an overseas PCB operation.
+                    Subscribe  |  Magazines   |  RealTime with  |  JobConnect007  |  Education
+                    | Webinars
+                                FREE NEWSLETTERS & MAGAZINES
+                    The Daily News
+                    SMT007 Week
+                    Design007 Week
+                    MilAero007 Week
+				    Advanced Electronics Packaging Digest
+                    I-Connect007 Magazine
+                    SMT007 Magazine
+                    PCB007 Magazine
+                    Design007 Magazine
+                    About Us | Your Privacy | Contact Us | Site Map | Media Kit |  RSS
+                Copyright ©   I-Connect007 | IPC Publishing Group Inc. All rights reserved. 
+                    Log in                
+        X
+         Stay signed in for two weeks
+    Lost your password?
+      Not a member? Register

@@ -1,0 +1,9 @@
+# Rugix Ctrl state: these survive reboots, updates and rollbacks (data partition).
+[[persist]]
+directory = "/var/lib/rancher"
+
+[[persist]]
+directory = "/etc/rancher/node"
+
+[[persist]]
+directory = "/var/log/onemind"

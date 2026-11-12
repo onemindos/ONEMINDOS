@@ -1,0 +1,3 @@
+Copyright 2026 Northern.tech AS
+
+All content in this project is licensed under the Apache License v2, unless

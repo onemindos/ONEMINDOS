@@ -1,0 +1,172 @@
+Plans and Pricing | TrueNAS Connect | Setup, Manage, Monitor 
+ Products 
+ Support & Resources 
+ Get A Quote 
+ Solutions 
+ Company 
+ Sign In 
+ Close 
+ Products V-Series Max Performance & Versatility
+ F-Series High Performance NVME
+ H-Series Versatility and Power Efficiency
+ Mini Series Edge and Branch Office
+ M-Series High Capacity All-Flash or Hybrid
+ R-Series Single Controller Appliances
+ TrueNAS Enterprise
+ Mission Critical Storage. 24×7 Enterprise Support
+ TrueNAS Community Edition
+ Test Drive TrueNAS in Your Environment
+ Streamlined Management for your TrueNAS Systems 
+ Solutions Industry
+ Audio 
+ Automotive 
+ Broadcasting 
+ Education 
+ US Public Sector 
+ Gaming 
+ Healthcare 
+ MSP 
+ Manufacturing 
+ Research & AI 
+ Media & Entertainment 
+ Use Cases
+ Analytics 
+ Backup & Archival 
+ Cloud 
+ Data Mobility 
+ File Sharing 
+ TrueCloud Backup 
+ Media & Entertainment 
+ Surveillance/CCTV 
+ Veeam Backup 
+ Virtualization 
+ Red Hat OpenShift 
+ TrueNAS as an Alternative
+ Alternative to Dell 
+ Alternative to NetApp 
+ Alternative to Pure Storage 
+ Support & Resources Support
+ Enterprise Support For customers with active support contracts
+ Community Support For peer-to-peer, forum support
+ Resources
+ Case Studies 
+ Datasheets 
+ Documentation 
+ TrueNAS API 
+ FAQ 
+ Apps 
+ TrueNAS Blogs 
+ Software Status 
+ TrueNAS Security 
+ Solution Briefs and Guides 
+ Certifications & Integrations 
+ White Papers 
+ Videos 
+ TrueCommand Cloud 
+ Reseller Network 
+ ZFS Overview 
+ Community
+ TrueNAS Community Edition 
+ Community Forum 
+ Discord 
+ TrueNAS GitHub 
+ TrueNAS Merch Store 
+ Company About TrueNAS 
+ Team 
+ Awards 
+ Careers 
+ Contact Us 
+ Newsroom 
+ Our Clients 
+ Reviews 
+ Sign In TrueNAS Connect 
+ Partner Portal 
+ Enterprise Support 
+ Get A Quote 
+ TrueNAS Connect | Setup, Manage, Monitor Essentials Getting Started 
+ Plans and Pricing 
+ Health Reporting 
+ TrueNAS Management 
+ Web Install 
+ All Docs 
+ Essentials Getting Started 
+ Plans and Pricing 
+ Health Reporting 
+ TrueNAS Management 
+ Web Install 
+ All Docs 
+ Recent Changes Changes 
+ Hub 
+TrueNAS Docs
+API Docs
+Apps Marketplace
+Security Reports 
+Light
+Dark
+Auto
+ Search documentation 
+ Search 
+ Ctrl 
+ K 
+ Search Documentation
+ × 
+ ×
+ Sign In 
+ Plans and Pricing
+ TrueNAS Connect pricing plans and options
+ workspace_premium Plans and Pricing 
+ Choose the plan that fits your needs. Start with Foundation for free, or unlock advanced features with Plus.
+ Free 
+ Essential features to get started: 
+ check_circle 
+ 2 TrueNAS system registrations 
+ check_circle 
+ Web-based TrueNAS installation 
+ check_circle 
+ Valid SSL certificate 
+ check_circle 
+ Real-time data monitoring 
+ check_circle 
+ Community support 
+ $60/year 
+ or $6/month 
+ Includes all Foundation features as well as: 
+ check_circle 
+ 3 TrueNAS system registrations 
+ check_circle 
+ 30-day historical data retention and analysis 
+ check_circle 
+ Data replication management 
+ check_circle 
+ Generic hardware enclosures 
+ check_circle 
+ Hardware inventory management 
+ Terms of Service: By using TrueNAS Connect, you agree to our End User License Agreement (EULA) .
+ Refunds & Cancellations: We offer a 14-day refund for monthly and a 30-day refund for annual plans. Cancel anytime to stop future billing. View Full Policy .
+ Last modified February 17, 2026 
+ 541 Division Street
+Campbell, CA 95008, USA
+ Contact Us 
+ <email-masked> 
+ Listen to our Podcast 
+ Support
+ Enterprise Support 
+ Community Support 
+ Forums 
+ FAQs 
+ Useful Links
+ Careers 
+ About Us 
+ Blog 
+ News & Articles 
+ TrueNAS Enterprise 
+ TrueNAS Community Edition 
+ TrueCommand 
+ TrueCommand Cloud 
+ TrueNAS Legacy 
+ Software Status 
+ Reseller Network 
+ Subscribe to our newsletter 
+ © Copyright  iXsystems, Inc. dba TrueNAS. All rights reserved. 
+ Legal 
+ TrueNAS Logos

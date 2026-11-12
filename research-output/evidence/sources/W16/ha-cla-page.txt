@@ -1,0 +1,123 @@
+SOURCE: https://www.home-assistant.io/developers/cla/
+ACCESSED: 2026-11-10
+
+Contributor License Agreement - Home Assistant
+2026.11.1
+Documentation
+Installation
+Automations
+Dashboards
+Voice assistants
+Device organization
+Energy management
+Templating
+Configuration using the YAML file
+Our hardware
+Home Assistant Green
+Connect ZBT-2
+Connect ZWA-2
+Voice Preview Edition
+👀
+Integrations
+Blog
+Need help?
+What the Heck?!
+Get started
+Home
+▸
+Developers
+Contributor License Agreement
+Contributor License Agreement
+By making a contribution to this project, I certify that:
+(a) The contribution was created in whole or in part by me and I
+have the right to submit it under the Apache 2.0 license; or
+(b) The contribution is based upon previous work that, to the best
+of my knowledge, is covered under an appropriate open source
+license and I have the right under that license to submit that
+work with modifications, whether created in whole or in part
+by me, under the Apache 2.0 license; or
+(c) The contribution was provided directly to me by some other
+person who certified (a), (b) or (c) and I have not modified
+it.
+(d) I understand and agree that this project and the contribution
+are public and that a record of the contribution (including all
+personal information I submit with it) is maintained indefinitely
+and may be redistributed consistent with this project or the open
+source license(s) involved.
+Attribution
+The text of this license is available under the
+Creative Commons Attribution-ShareAlike 3.0 Unported License
+.  It is based on the Linux
+Developer Certificate Of Origin
+, but is modified to explicitly use the Apache 2.0 license
+and not mention sign-off.
+Signing
+If you have not signed the CLA and you submit a pull request to a repository under the Home Assistant organization, a link will be automatically generated. Just follow the link and the instructions in the link.
+Adoption
+This Contributor License Agreement (CLA) was first announced on January 21st, 2017 in
+this
+blog post and adopted January 28th, 2017.
+Help us improve our documentation
+Was this page helpful?
+Yes
+No
+Suggest an edit to this page, or provide/view feedback for this page.
+Edit
+Provide feedback
+View given feedback
+Topics
+Help
+Contributor documentation
+Reporting issues
+Governance
+Contributor License Agreement
+Privacy Policy
+Terms of Service
+Code of Conduct
+License
+Home Assistant is a project from the
+Open Home Foundation
+.
+Join us and contribute!
+GitHub repo
+Contributors website
+Community Forum
+Creator Network
+Works with Home Assistant
+Our community
+Reporting issues
+System status
+Integration Alerts
+Security Alerts
+System Status
+Companion apps
+iOS and Apple devices
+Android and Wear OS
+...and more!
+Support us
+Merch store
+Home Assistant Cloud
+Governance
+Privacy Notices
+Contributor License Agreement
+Terms of Service
+Code of Conduct
+License
+Follow us
+Sign up for our newsletter
+For partnership inquiries please check out
+Works with Home Assistant
+. For media,
+email our team
+. For other questions, you can
+contact support
+(No technical support!)
+This website uses
+privacy-first analytics
+to help us improve the site. You can view all data in our
+public dashboard
+.
+Website powered by
+Jekyll
+Originally based on the
+Oscailte theme

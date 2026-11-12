@@ -1,0 +1,49 @@
+SOURCE: https://docs.hexos.com/release-notes/command-deck/2026-11-06
+ACCESSED: 2026-11-11 (text extracted from HTML; emails masked)
+
+November 6, 2026 - Local AI and app collections, more folders for Plex VMs, live GPU usage, and more | HexOS Docs
+¶ November 6, 2026 - Local AI and app collections, more folders for Plex VMs, live GPU usage, and more
+Here's what shipped since our last update.
+¶ App collections
+A collection sets up a whole group of apps in one go and connects them to each other, so they open ready to use. Find collections in the Featured row of the Apps page, or click Browse collections. Three are available today.
+Local AI. Run AI models on your own graphics card, with chat and assistants that stay on your server. Pick your card, tell HexOS How will you use AI? (everyday chat, your documents, coding or agents) and choose a model. HexOS shows only the models your card has the memory for, then sets up Ollama with a chat app (Open WebUI or AnythingLLM), an assistant (Hermes Agent or OpenClaw) and optional extras like OpenCode, SearXNG private web search and n8n. Needs an NVIDIA or AMD graphics card and TrueNAS 25.10 or later.
+Media library. Choose your download clients, Radarr, Sonarr and Lidarr, Prowlarr, a media server (Plex, Jellyfin or Emby) and companion apps like Seerr, Bazarr and Tautulli. HexOS installs them one after another, links them up and gives them one admin account.
+Office suite. Files, documents and passwords in one place. Nextcloud with Collabora for editing documents, plus optional everyday tools like Vaultwarden and BentoPDF, and extras for your documents like Paperless-ngx, LanguageTool and draw.io.
+Before anything installs, the review shows which apps will be installed, updated and connected. Apps you already have are reused, and their data is kept.
+ App Collections Preview 
+¶ More folders for Plex VMs
+Add media folders to an existing Plex VM. Open the VM's Disks tab and click Add folders under Shared folders to let Plex read more of your folders, even ones on other pools. Your files stay where they are, and the folders you set up at install stay in place.
+Before you add folders, turn off Empty trash automatically after every scan in Plex so a brief outage can't remove library items. HexOS checks this for you. Learn how.
+¶ Dashboard
+Live GPU usage and temperature. A new Graphics tile on the dashboard shows each card's current load and temperature. NVIDIA, AMD and Intel GPUs are supported. Cards passed through to a VM show which VM is using them. Open the tile for a closer look, or find the same readings in Settings > Graphics cards.
+¶ Storage
+Unassigned SATA and USB drives now show up in Bring over and on the Storage page, so you can use them without entering setup.
+In some cases, a server without a drive model name crashed the setup wizard or storage dialogs. These handle it safely now.
+¶ Folders
+In some cases, a folder listing that reached a special file could freeze until the server restarted. Folder listings no longer open what they list.
+¶ New curated apps
+The Lounge - Stay connected to IRC from a browser, with private accounts and chat history kept on your server.
+Minecraft - Run your own Minecraft server. Friends join with the address on the app's card. Every world gets its own folder.
+¶ Virtual machines
+In some cases, VM setup treated a not-found or identity-mismatch response as a quiet error. These now show a clear message.
+¶ Hardware and browsers
+Intel I225/I226 NIC warning. Servers with an affected Intel NIC and PCIe ASPM L1 on now see a hardware advisory with a link to the kernel-argument fix.
+Older browsers that lack Promise.withResolvers no longer fail before the sign-in page loads.
+¶ Apps
+App icons refreshed. 76 icons now match the designer's latest, and 34 apps that borrowed a remote image have their own icon. An app with no icon gets a clear placeholder tile instead of a question mark.
+¶ Hosted access
+When a browser blocks local network access, the hosted strip now shows a question mark that opens a popover with your server's local address and a link to a help page, instead of saying "Local is unavailable".
+¶ Everything else
+In some cases, the file browser's column header shifted down when files were selected. It now stays put.
+Machine-translated drafts now address the user the way each language's reviewers do, set in a per-language file.
+Setup offers access-restriction recovery guidance when TrueNAS blocks discovery.
+¶ Emails
+Branded emails. Password-reset, verification and action emails now carry HexOS branding.
+Forgot-password links last 30 minutes instead of 5.
+Emails stay light in dark-mode mail clients.
+¶ Groundwork for future TrueNAS versions
+Updating your server to TrueNAS 27 isn't offered yet. These changes get HexOS ready for when it is.
+Provisioning, catalog sync, and container DNS handle TrueNAS 27's changes, and the VM sliders report the assignable maximum instead of the host total.
+TrueNAS 27 ships without getfattr and setfattr, so folder encryption's file-by-file moves now use Python's own ACL calls. Existing moves from an older image are still restored.
+NOTE: These updates apply automatically. You may need to clear your cache.
+

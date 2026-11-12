@@ -1,0 +1,232 @@
+
+
+See everything announced at ObservabilityCON 2026: AI that monitors your AI, faster log search, lower telemetry costs, and more.Learn more
+
+DownloadsContact Us
+
+Grafana Cloud
+Solutions
+Pricing
+Open Source
+Learn
+Docs
+
+ Company
+AI/SearchSign inSign up
+
+Site SearchAsk AI
+
+Overview
+/
+Plugins
+
+Grafana Labs
+
+Plugins
+
+Plugins policy
+This document governs the offering of plugins for use with Grafana - whether such usage is in connection with open source Grafana, third-party managed Grafana, Grafana Enterprise or Grafana Cloud. For terms regarding the usage of a specific plugin, refer to the type of plugin and any applicable OSS license or commercial terms that may be associated thereto.
+All plugins need to be cryptographically signed in order to be accessible by users. The purpose is to improve the security, quality, and reliability of the plugin ecosystem, while also helping Grafana Labs build a sustainable open source business around Grafana.
+Plugin publishing and signing criteria
+Grafana plugins must adhere to the following criteria when being reviewed for publishing and signing.
+Grafana Labs reserves the right to decline or remove any plugin at its discretion. Failure to comply with publishing and signing criteria may result in immediate removal from the Grafana plugin catalog.
+What are the different classifications of plugins?
+A plugin’s signature level depends on its author, related technology or intended use.
+
+Signature Level
+Paid Subscription Required to Sign?
+Description
+
+Private
+No;Free of charge
+Private plugins are for use on your own Grafana instance.They may not be shared to the Grafana community or to your customers, and are not published in the Grafana catalog.Private plugins are not compatible with Grafana Cloud.
+
+Community
+No;Free of charge
+Community plugins contain dependent technologies that are open source and/or not for profit. Not commercial in nature and not affiliated with any commercial endeavor.Community plugins are published to the official Grafana catalog, and are available to the Grafana community for direct installation.Support is provided by the individual developer and/or community.Compatible with Grafana Cloud.
+
+Commercial
+Yes;Commercial Plugin Subscription required
+Commercial plugins are offered in connection with a commercial offering, commercial dependencies or offered by a for-profit business. They contain dependent technologies that are closed source or commercially backed (even if open source at their core).Commercial plugins are published to the official Grafana catalog, and are available to the Grafana community for direct installation.These plugins are partner-developed and support is provided by the partner.Compatible with Grafana Cloud.
+
+Grafana
+Not applicable; authored by Grafana Labs
+Grafana plugins are built and offered exclusively by Grafana Labs.Supported by Grafana Labs.Compatible with Grafana Cloud.
+
+Enterprise
+Not applicable; authored by Grafana Labs
+Enterprise plugins are built and offered exclusively by Grafana Labs.Use of Enterprise plugins is governed by the terms of our Master Services Agreement or other written, mutually agreed licensing terms between Grafana Labs and the end user.Supported by Grafana Labs.Compatible with Grafana Cloud.
+
+Marketplace
+Marketplace Partner Agreement required
+Marketplace plugins are commercial, partner-developed plugins verified by Grafana Labs and sold through the Grafana Labs Marketplace. Such plugins are licensed to end users under the partner's own End-User Terms and End-User Privacy Policy. Compatible with Grafana Cloud and Grafana Enterprise.
+Restrictions
+
+Plugins may be denied signing and/or publishing for any of the following reasons:
+
+Forking of an existing plugin or creating derivative works.
+
+Misuse of code (see plugin policy and guidelines).
+
+Embedding multiple plugins into a single plugin.
+
+Duplication of an existing plugin - including Grafana Enterprise plugins.
+
+Relies on a specific environment and could not be deployed to others’ - including Grafana’s - instances.
+
+Niche use case or of limited value to broader community.
+
+For any other reason at the sole discretion of Grafana Labs.
+
+Grafana Labs manages its plugin catalog. You may not create a separate public plugin catalog involving or relating to Grafana Labs or its offerings.
+
+Grafana Labs reserves the right to deny signing and/or publishing of a plugin due to non-compliance with plugin policy, community terms of service, or plugin guidelines.
+Note: Distributed plugins that are not included in the catalog still require a signing subscription
+Accepted licenses
+Plugins must be licensed under one of the following AGPL compliant licenses for publishing to the Grafana plugin catalog:
+
+AGPL-3.0
+
+Apache-2.0
+
+BSD
+
+GPL-3.0
+
+LGPL-3.0
+
+MIT
+If contributing a plugin on behalf of an organization, be sure to seek guidance from your legal team.
+Note: The license requirements in this section apply to plugins published to the Grafana plugin catalog. They do NOT apply to Marketplace plugins, which may be proprietary or closed source. Each Marketplace plugin is licensed to end users under the partner's own End-User Terms and End-User Privacy Policy; Grafana Labs has no responsibility or liability for an end user's use of a Marketplace plugin under those terms.
+Privacy and security
+
+Plugins cannot collect usage or user information. Violations of this include but are not limited to:
+
+Directly collecting installation and user statistics
+
+Sending data to 3rd parties for analytics purposes
+
+Embedding tracking code
+
+Data at rest: Sensitive data, such as credentials and user information, must be encrypted using industry standards.
+
+Use secureJsonData to store data source credentials
+
+Secrets cannot be stored in panel options
+
+Data transmission: secure methods that meet industry standard encryption levels should be used, such as Secure Sockets Layer (SSL) or Transport Layer Security (TLS)
+
+Abuse: plugins should not perform actions beyond the scope of the intended use.
+
+Do not include hidden files
+
+Do not manipulate the underlying environment, privileges, or related processes
+Right to use and proper crediting
+Usage of 3rd party software or dependencies within the plugin must be licensed for the intended use. For example, use of open source dependencies must be clearly listed and properly credited, and you must have rights to use any embedded logos or trademarks.
+How to sign a plugin
+Your ability and process for signing a plugin will depend on which classification of plugin is in question. We provide documentation to guide you through the signing and publishing process.
+To discuss the signing of a commercial plugin, please contact <email-masked>.
+Community signed plugins must meet the following additional prerequisites in order to be reviewed and published:
+
+Technology must be available for testing.
+
+Plugin must already exist in a public Git repository.
+Note on Marketplace plugins: To apply to sell a plugin through the Grafana Marketplace, you must have a signed Marketplace Partner Agreement; contact <email-masked>. Marketplace plugins do not need to exist in a public Git repository, but the partner must provide the plugin to Grafana Labs for security and quality review.
+Contact us
+To learn more, inquire by contacting us or email <email-masked>.
+Last updated August 2026
+
+Table of Contents
+
+Still have questions?
+Ask your questions. Let AI do the heavy lifting.
+
+Get every update
+Subscribe to our newsletter
+Subscribe
+
+By submitting, you agree to our Privacy policy
+
+Grafana Cloud
+Overview
+Pricing
+What's in the free tier?
+AI Assistant
+Agent Observability
+Application Observability
+Kubernetes Monitoring
+Dashboards & Visualization
+Database Observability
+Frontend Observability
+Synthetic Monitoring
+Performance & Load Testing
+Incident Response & Management
+AI Investigations
+What’s New
+Grafana Cloud Status
+
+Solutions
+AI Observability
+Full-Stack Observability
+Infrastructure & Cloud Observability
+Cloud Provider Observability
+Digital Experience Monitoring
+Scaled Prometheus
+Cost Management & Optimization
+Site Reliability
+Log Management
+Migrate to OpenTelemetry
+
+Integrations
+All Integrations
+All Plugins
+AWS
+Google Cloud
+Microsoft Azure
+Kubernetes
+Datadog
+New Relic
+
+Open Source
+Our Projects
+GitHub
+Downloads
+Dashboard Templates
+
+Learn
+Documentation
+Blog
+Community
+Events
+Observability Survey & Reports
+
+Company
+About Grafana Labs
+Careers
+Partnerships
+Newsroom
+Success Stories
+Contact Us
+Getting Help
+Professional Services
+Hey AI
+
+Compare
+Arize vs. Grafana Cloud
+Datadog vs. Grafana Cloud
+Dynatrace vs. Grafana Cloud
+Elasticsearch vs. Grafana Cloud
+Langfuse vs. Grafana Cloud
+LangSmith vs. Grafana Cloud
+New Relic vs. Grafana Cloud
+PagerDuty vs. Grafana Cloud
+Splunk vs. Grafana Cloud
+
+Donut take our word for it. Try Grafana Cloud today.
+
+Grafana Cloud StatusLegal & SecurityTerms of ServicePrivacy PolicyTrademark Policy
+
+Copyright 2026 © Grafana Labs
+
+Grafana Labs Plugins | Grafana Labs
+

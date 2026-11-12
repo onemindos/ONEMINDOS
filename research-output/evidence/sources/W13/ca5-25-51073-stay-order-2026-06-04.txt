@@ -1,0 +1,188 @@
+Source: US Court of Appeals for the Fifth Circuit, No. 25-51073 c/w 26-50001, published order filed 2026-06-04 (pdftotext extract, pages 1-2 and 10-11; names of private individual parties masked).
+Case: 25-51073       Document: 91-1       Page: 1   Date Filed: 06/04/2026
+
+
+
+
+        United States Court of Appeals
+             for the Fifth Circuit
+                            ____________
+                                                                United States Court of Appeals
+                                                                         Fifth Circuit
+                              No. 25-51073
+                            ____________                                FILED
+                                                                      June 4, 2026
+Students Engaged in Advancing Texas;                                 Lyle W. Cayce
+<minor plaintiff>, by and through next friend <name masked>;                      Clerk
+<minor plaintiff>, by and through next friend <name masked>,
+
+                                                       Plaintiffs—Appellees,
+
+                                   versus
+
+Ken Paxton, in his official capacity as the Texas Attorney General,
+
+                                                     Defendant—Appellant,
+
+                         consolidated with
+                           ____________
+
+                              No. 26-50001
+                            _____________
+
+Computer & Communications Industry Association,
+
+                                                        Plaintiff—Appellee,
+
+                                   versus
+
+Ken Paxton, in his official capacity as Attorney General of Texas,
+
+                                                     Defendant—Appellant.
+
+
+
+
+                                      1
+ Case: 25-51073             Document: 91-1        Page: 2     Date Filed: 06/04/2026
+
+                                        No. 25-51073
+                                      c/w No. 26-50001
+
+                     ______________________________
+
+                     Appeals from the United States District Court
+                          for the Western District of Texas
+                               USDC No. 1:25-CV-1662
+                               USDC No. 1:25-CV-1660
+                     ______________________________
+
+                                PUBLISHED ORDER
+
+Before Smith, Haynes, and Oldham, Circuit Judges.
+Per Curiam: *
+          The Texas Legislature enacted Senate Bill 2420 1 (“SB2420”), the
+App Store Accountability Act, with bipartisan support to help parents direct
+and supervise children’s downloads of apps and in-app purchases. The Act
+accomplishes those goals by requiring age verification; parental consent; and
+age rating and content display.
+          The district court issued universal preliminary injunctions against
+SB2420 after applying strict scrutiny. The State of Texas seeks a stay pend-
+ing appeal. We grant the opposed motion because Texas has met its burden
+under Nken v. Holder. 2
+          Texas has made a strong showing that it is likely to succeed on the
+
+          _____________________
+          *
+              Judge Haynes concurs in the sentence of the order granting the stay pending
+appeal.
+          1
+         89th Leg., R.S., ch. 200, Tex. Gen. Laws 385–90, codified at Tex. Bus. &
+Com. Code ch. 121. Unless indicated otherwise, all statutory citations are to the Texas
+Business & Commerce Code. Chapter 121 citations are to SB2420.
+          2
+          556 U.S. 418, 434 (2009) (“[T]hose legal principles have been distilled into
+consideration of four factors: ‘(1) whether the stay applicant has made a strong showing
+that he is likely to succeed on the merits; (2) whether the applicant will be irreparably
+injured absent a stay; (3) whether issuance of the stay will substantially injure the other
+parties interested in the proceeding; and (4) where the public interest lies.’”) (citation
+omitted).
+
+
+
+
+                                              2
+ Case: 25-51073           Document: 91-1           Page: 3       Date Filed: 06/04/2026
+
+
+
+
+                                        No. 25-51073
+                                      c/w No. 26-50001
+
+merits of its claim that the district court committed several reversible errors.
+        First, the district court likely erred in applying strict scrutiny to signif-
+icant parts, if not all, of the Act. At most, SB2420 regulates speech that “pro-
+poses a commercial transaction,” 3 which is subject to intermediate scrutiny
+under Central Hudson Gas & Electric Corp. v. Public Service Commission of New
+York, 447 U.S. 557 (1980) (“Central Hudson”). 4 App store transactions are
+commercial in nature. 5 After all, users browsing an app store can see a catalog
+of applications, obtain additional information, and download or purchase an
+application. App listings propose commercial transactions, regardless of
+whether any monetary payment is made. In fact, the “payment” for apps
+that are purportedly “free” is access to user data and private information.
+
+        _____________________
+        3
+          See Bd. of Trs. v. Fox, 492 U.S. 469, 482 (1989) (emphasis omitted); e.g., Tex.
+Bus. & Com. Code § 121.022(f)(1)(D) (requiring app stores to disclose “the nature of
+any collection, use, or distribution of personal data that would occur because of the software
+application or purchase”); id. § 121.025 (imposing duties that include “limiting the collec-
+tion and processing of personal data to the minimum amount necessary” to accomplish
+Case: 25-51073              Document: 91-1          Page: 10     Date Filed: 06/04/2026
+
+
+
+
+                                         No. 25-51073
+                                       c/w No. 26-50001
+
+v. Abbott, 870 F.3d 387, 391 (5th Cir. 2017) (per curiam) (citations omitted).
+The remaining factors—the balance of equities and public interest factors—
+merge where an injunction affects a State. Nken, 556 U.S. at 435. The
+interests of Texas and the public interest coincide. Texas has a substantial,
+if not compelling, interest in protecting children, and parents need to have
+the necessary information to make informed choices affecting their chil-
+dren’s upbringing. 24
+          The need to protect children is intensified in the digital world, where
+app stores have violated existing consumer protection and child privacy laws
+for years, despite a federal consent decree. 25 Absent SB2420, parents’ ability
+to protect their children is imperiled because app stores have encouraged
+minors to download applications and make in-app purchases without giving
+parents accurate content information or obtaining their informed consent.
+Any purported burden on app stores and developers is minimal because
+SB2420 requires only “commercially reasonable” verification methods and
+allows developers to use “widely adopted industry standards” in determin-
+ing age ratings and those related to corresponding content. The balance of
+equities and public interest are clearcut in Texas’s favor.
+          IT IS ORDERED that the opposed motion for stay of the universal
+
+
+          _____________________
+          24
+               See Tex. Const. art 1, § 37; Ginsberg 390 U.S. at 640 (1968); Yoder, 406 U.S.
+at 232.
+          25
+           See, e.g., ROA.26-50001.845–85 (Amici Curiae Brief of the National Center on
+Sexual Exploitation and The Digital Childhood Institute); ROA.26-50001.849 (“The
+consequences are substantial. As documented in public reports, thousands of children have
+been sextorted, targeted with illegal drugs, contacted by traffickers, exposed to dangerous
+viral challenges, or encouraged toward self-harm by chatbots, often inside apps that app
+stores present as appropriate and safe for young teenagers.”) (internal footnote citations
+omitted).
+
+
+
+
+                                               10
+Case: 25-51073           Document: 91-1          Page: 11      Date Filed: 06/04/2026
+
+
+
+
+                                      No. 25-51073
+                                    c/w No. 26-50001
+
+preliminary injunctions pending appeal is GRANTED. 26
+
+
+
+
+      _____________________
+      26
+           This order supersedes this panel’s order granting an administrative stay.
+
+
+
+
+                                            11

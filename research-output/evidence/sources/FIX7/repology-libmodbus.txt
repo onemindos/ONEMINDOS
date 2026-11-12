@@ -1,0 +1,687 @@
+ 
+ libmodbus package versions - Repology 
+ Toggle navigation 
+ Projects 
+ Maintainers 
+ Repositories 
+ Tools 
+ Security 
+ News 
+ Docs 
+ Versions 
+ Packages 
+ Information 
+ History 
+ CVEs 
+ Badges 
+ Report 
+ Versions for libmodbus 
+ 131 package(s) known 
+ Repository 
+ Package name 
+ Version 
+ Category 
+ Maintainer(s) 
+ Alpine Linux 3.17 community 
+ libmodbus 
+ 3.1.8 
+ - 
+ <email-masked> 
+ Alpine Linux 3.17 community 
+ libmodbus-dev 
+ 3.1.8 
+ - 
+ <email-masked> 
+ Alpine Linux 3.17 community 
+ libmodbus-doc 
+ 3.1.8 
+ - 
+ <email-masked> 
+ Alpine Linux 3.18 community 
+ libmodbus 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.18 community 
+ libmodbus-dev 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.18 community 
+ libmodbus-doc 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.19 community 
+ libmodbus 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.19 community 
+ libmodbus-dev 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.19 community 
+ libmodbus-doc 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.20 community 
+ libmodbus 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.20 community 
+ libmodbus-dev 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.20 community 
+ libmodbus-doc 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.21 community 
+ libmodbus 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.21 community 
+ libmodbus-dev 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.21 community 
+ libmodbus-doc 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.22 community 
+ libmodbus 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.22 community 
+ libmodbus-dev 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.22 community 
+ libmodbus-doc 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.23 community 
+ libmodbus 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.23 community 
+ libmodbus-dev 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.23 community 
+ libmodbus-doc 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.24 community 
+ libmodbus 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.24 community 
+ libmodbus-dev 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux 3.24 community 
+ libmodbus-doc 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux Edge community 
+ libmodbus 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux Edge community 
+ libmodbus-dev 
+ 3.1.10 
+ - 
+ <email-masked> 
+ Alpine Linux Edge community 
+ libmodbus-doc 
+ 3.1.10 
+ - 
+ <email-masked> 
+ ALT Linux p11 
+ libmodbus 
+ 3.1.10 
+ System/Libraries 
+ <email-masked> 
+ ALT Sisyphus 
+ libmodbus 
+ 3.2.0 
+ System/Libraries 
+ <email-masked> 
+ Arch Linux extra 
+ libmodbus 
+ 3.2.0 
+ - 
+ - 
+ AUR 
+ libmodbus-git 
+ 3.1.11.r1.b25629b 
+ - 
+ fedefranc@aur 
+ AUR 
+ mingw-w64-libmodbus 
+ 3.2.0 
+ - 
+ pingplug@aur 
+ Artix galaxy 
+ libmodbus 
+ 3.2.0 
+ - 
+ - 
+ ConanCenter 
+ libmodbus 
+ 3.2.0 
+ - 
+ - 
+ ConanCenter 
+ libmodbus 
+ 3.1.12 
+ - 
+ - 
+ Debian 11 bullseye-security/main 
+ libmodbus 
+ 3.1.6 
+ libs 
+ <email-masked> , <email-masked> 
+ Debian 11 bullseye/main 
+ libmodbus 
+ 3.1.6 
+ libs 
+ <email-masked> , <email-masked> 
+ Debian 12 bookworm-security/main 
+ libmodbus 
+ 3.1.6 
+ libs 
+ <email-masked> , <email-masked> 
+ Debian 12 bookworm/main 
+ libmodbus 
+ 3.1.6 
+ libs 
+ <email-masked> , <email-masked> 
+ Debian 13 trixie/main 
+ libmodbus 
+ 3.1.11 
+ libs 
+ <email-masked> , <email-masked> 
+ Debian 14 forky/main 
+ libmodbus 
+ 3.2.0 
+ libs 
+ <email-masked> , <email-masked> 
+ Debian Unstable sid/main 
+ libmodbus 
+ 3.2.0 
+ libs 
+ <email-masked> , <email-masked> 
+ deepin 20 main 
+ libmodbus 
+ 3.1.4 
+ - 
+ <email-masked> , <email-masked> 
+ deepin 25 community 
+ libmodbus 
+ 3.1.11 
+ misc 
+ <email-masked> , <email-masked> 
+ deepin 25 main 
+ libmodbus 
+ 3.1.11 
+ - 
+ <email-masked> , <email-masked> 
+ Devuan 4.0 chimaera/main 
+ libmodbus 
+ 3.1.6 
+ libs 
+ <email-masked> , <email-masked> 
+ Devuan Unstable unstable/main 
+ libmodbus 
+ 3.2.0 
+ libs 
+ <email-masked> , <email-masked> 
+ EPEL 6 
+ libmodbus 
+ 3.0.5 
+ Applications/System 
+ - 
+ EPEL 7 
+ libmodbus 
+ 3.0.8 
+ Applications/System 
+ - 
+ EPEL 8 
+ libmodbus 
+ 3.1.12 
+ Unspecified 
+ - 
+ EPEL 9 
+ libmodbus 
+ 3.1.12 
+ Unspecified 
+ - 
+ EPEL 10 
+ libmodbus 
+ 3.1.12 
+ Unspecified 
+ - 
+ Exherbo olesalscheider 
+ dev-libs/libmodbus 
+ 3.0.6 
+ dev-libs 
+ fallback-mnt-exherbo@repology 
+ Fedora 39 release 
+ libmodbus 
+ 3.1.7 
+ Unspecified 
+ - 
+ Fedora 40 release 
+ libmodbus 
+ 3.1.7 
+ Unspecified 
+ - 
+ Fedora 41 release 
+ libmodbus 
+ 3.1.7 
+ Unspecified 
+ - 
+ Fedora 42 release 
+ libmodbus 
+ 3.1.11 
+ Unspecified 
+ - 
+ Fedora 43 updates 
+ libmodbus 
+ 3.1.12 
+ Unspecified 
+ - 
+ Fedora 43 release 
+ libmodbus 
+ 3.1.11 
+ Unspecified 
+ - 
+ Fedora 44 release 
+ libmodbus 
+ 3.1.12 
+ Unspecified 
+ - 
+ Fedora Rawhide development 
+ libmodbus 
+ 3.2.0 
+ Unspecified 
+ - 
+ FreeBSD Ports 
+ comms/libmodbus 
+ 3.2.0 
+ comms 
+ <email-masked> 
+ Gentoo 
+ dev-libs/libmodbus 
+ 3.2.0 
+ dev-libs 
+ <email-masked> 
+ GNU Guix 
+ libmodbus 
+ 3.1.11 
+ - 
+ - 
+ HaikuPorts master 
+ dev-libs/libmodbus 
+ 3.1.7 
+ dev-libs 
+ - 
+ Homebrew 
+ libmodbus 
+ HEAD 
+ - 
+ - 
+ Homebrew 
+ libmodbus 
+ 3.2.0 
+ - 
+ - 
+ Kali Linux Rolling main 
+ libmodbus 
+ 3.2.0 
+ libs 
+ <email-masked> , <email-masked> 
+ LiGurOS stable 
+ dev-libs/libmodbus 
+ 3.1.11 
+ dev-libs 
+ <email-masked> 
+ LiGurOS develop 
+ dev-libs/libmodbus 
+ 3.2.0 
+ dev-libs 
+ <email-masked> 
+ Mageia 10 core/release 
+ libmodbus 
+ 3.1.11 
+ System/Libraries 
+ - 
+ Mageia cauldron core/release 
+ libmodbus 
+ 3.2.0 
+ System/Libraries 
+ - 
+ Manjaro Stable extra 
+ libmodbus 
+ 3.2.0 
+ - 
+ - 
+ Manjaro Testing extra 
+ libmodbus 
+ 3.2.0 
+ - 
+ - 
+ Manjaro Unstable extra 
+ libmodbus 
+ 3.2.0 
+ - 
+ - 
+ MSYS2 clang64 
+ mingw-w64-clang-x86_64-libmodbus 
+ 782.ebc4f47 
+ - 
+ - 
+ MSYS2 clangarm64 
+ mingw-w64-clang-aarch64-libmodbus 
+ 782.ebc4f47 
+ - 
+ - 
+ MSYS2 mingw x86_64 
+ mingw-w64-x86_64-libmodbus 
+ 782.ebc4f47 
+ - 
+ - 
+ MSYS2 ucrt64 
+ mingw-w64-ucrt-x86_64-libmodbus 
+ 782.ebc4f47 
+ - 
+ - 
+ nixpkgs stable 24.05 
+ libmodbus 
+ 3.1.10 
+ - 
+ <email-masked> 
+ nixpkgs stable 24.11 
+ libmodbus 
+ 3.1.11 
+ - 
+ <email-masked> 
+ nixpkgs stable 25.05 
+ libmodbus 
+ 3.1.11 
+ - 
+ <email-masked> 
+ nixpkgs stable 25.11 
+ libmodbus 
+ 3.1.11 
+ - 
+ <email-masked> 
+ nixpkgs stable 26.05 
+ libmodbus 
+ 3.1.12 
+ - 
+ <email-masked> 
+ nixpkgs unstable 
+ libmodbus 
+ 3.2.0 
+ - 
+ <email-masked> 
+ OpenIndiana packages hipster 
+ libmodbus 
+ 3.2.0 
+ System/Libraries 
+ - 
+ OpenIndiana packages hipster 
+ libmodbus 
+ 3.1.12 
+ System/Libraries 
+ - 
+ OpenMandriva 6.0 main/release 
+ libmodbus 
+ 3.1.11 
+ System/Libraries 
+ <email-masked> 
+ OpenMandriva Rolling main/release 
+ libmodbus 
+ 3.1.11 
+ System/Libraries 
+ <email-masked> 
+ OpenMandriva Cooker main/release 
+ libmodbus 
+ 3.1.11 
+ System/Libraries 
+ <email-masked> 
+ openSUSE Leap 15.5 main/oss 
+ libmodbus 
+ 3.1.10 
+ Development/Libraries/C and C++ 
+ - 
+ openSUSE Leap 15.6 main/oss 
+ libmodbus 
+ 3.1.10 
+ Development/Libraries/C and C++ 
+ - 
+ openSUSE Tumbleweed src-oss 
+ libmodbus 
+ 3.2.0 
+ Development/Libraries/C and C++ 
+ - 
+ OpenWrt 23.05 x86_64 packages 
+ libmodbus 
+ 3.1.8 
+ libs 
+ <email-masked> 
+ OpenWrt 24.10 x86_64 packages 
+ libmodbus 
+ 3.1.8 
+ libs 
+ <email-masked> 
+ Parabola extra 
+ libmodbus 
+ 3.2.0 
+ - 
+ - 
+ Pardus 21 main 
+ libmodbus 
+ 3.1.6 
+ libs 
+ <email-masked> , <email-masked> 
+ Pardus 21 updates/main 
+ libmodbus 
+ 3.1.6 
+ libs 
+ <email-masked> , <email-masked> 
+ Parrot parrot-updates/main 
+ libmodbus 
+ 3.1.11 
+ libs 
+ <email-masked> , <email-masked> 
+ Parrot parrot/main 
+ libmodbus 
+ 3.1.11 
+ libs 
+ <email-masked> , <email-masked> 
+ PLD Linux 
+ libmodbus 
+ 3.1.10 
+ - 
+ - 
+ PTXdist 
+ libmodbus 
+ 3.0.8 
+ - 
+ - 
+ PureOS amber amber/main 
+ libmodbus 
+ 3.1.4 
+ libdevel 
+ <email-masked> , <email-masked> 
+ PureOS byzantium byzantium/main 
+ libmodbus 
+ 3.1.6 
+ libdevel 
+ <email-masked> , <email-masked> 
+ PureOS landing landing/main 
+ libmodbus 
+ 3.1.11 
+ libdevel 
+ <email-masked> , <email-masked> 
+ Raspbian Oldstable main 
+ libmodbus 
+ 3.1.6 
+ libs 
+ <email-masked> , <email-masked> 
+ Raspbian Stable main 
+ libmodbus 
+ 3.1.11 
+ libs 
+ <email-masked> , <email-masked> 
+ Raspbian Testing main 
+ libmodbus 
+ 3.2.0 
+ libs 
+ <email-masked> , <email-masked> 
+ Rosa 2021.1 contrib/release 
+ libmodbus 
+ 3.1.11 
+ System/Libraries 
+ <email-masked> 
+ Rosa 13 contrib/release 
+ libmodbus 
+ 3.1.11 
+ System/Libraries 
+ <email-masked> 
+ SlackBuilds 
+ libraries/libmodbus 
+ 3.2.0 
+ libraries 
+ <email-masked> 
+ Spack 
+ libmodbus 
+ 3.1.10 
+ - 
+ fallback-mnt-spack@repology 
+ T2 SDE 
+ libmodbus 
+ 3.2.0 
+ extra/base 
+ <email-masked> 
+ Ubuntu 14.04 trusty/universe 
+ libmodbus 
+ 3.0.5 
+ universe/libs 
+ <email-masked> 
+ Ubuntu 16.04 xenial/universe 
+ libmodbus 
+ 3.0.6 
+ universe/libs 
+ <email-masked> 
+ Ubuntu 18.04 bionic-updates/universe 
+ libmodbus 
+ 3.0.6 
+ universe/libs 
+ <email-masked> 
+ Ubuntu 18.04 bionic/universe 
+ libmodbus 
+ 3.0.6 
+ universe/libs 
+ <email-masked> 
+ Ubuntu 20.04 focal/universe 
+ libmodbus 
+ 3.1.6 
+ universe/libs 
+ <email-masked> , <email-masked> 
+ Ubuntu 22.04 jammy/universe 
+ libmodbus 
+ 3.1.6 
+ universe/libs 
+ <email-masked> , <email-masked> 
+ Ubuntu 24.04 noble/universe 
+ libmodbus 
+ 3.1.10 
+ universe/libs 
+ <email-masked> , <email-masked> 
+ Ubuntu 25.04 plucky/universe 
+ libmodbus 
+ 3.1.11 
+ universe/libs 
+ <email-masked> , <email-masked> 
+ Ubuntu 25.10 questing/universe 
+ libmodbus 
+ 3.1.11 
+ universe/libs 
+ <email-masked> , <email-masked> 
+ Ubuntu 26.04 resolute/universe 
+ libmodbus 
+ 3.1.11 
+ universe/libs 
+ <email-masked> , <email-masked> 
+ Ubuntu 26.10 stonking/universe 
+ libmodbus 
+ 3.2.0 
+ universe/libs 
+ <email-masked> , <email-masked> 
+ Ubuntu 27.04 tenacious/universe 
+ libmodbus 
+ 3.2.0 
+ universe/libs 
+ <email-masked> , <email-masked> 
+ Vcpkg 
+ libmodbus 
+ 3.2.0 
+ - 
+ - 
+ xrepo 
+ libmodbus 
+ 3.2.0 
+ - 
+ - 
+ xrepo 
+ libmodbus 
+ 3.1.12 
+ - 
+ - 
+ xrepo 
+ libmodbus 
+ 3.1.11 
+ - 
+ - 
+ xrepo 
+ libmodbus 
+ 3.1.10 
+ - 
+ - 
+ YACP 
+ libmodbus 
+ 3.2.0 
+ Libs 
+ - 
+ GitHub repositories:
+ webapp ,
+ updater ,
+ ruleset 
+ Copyright (C) 2016-2026 Dmitry Marakasov 
+ Code licensed under GPLv3+.
+ Click me to get banned 
+ 

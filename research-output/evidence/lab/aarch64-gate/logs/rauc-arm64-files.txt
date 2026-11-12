@@ -1,0 +1,7 @@
+./usr/bin/rauc
+./usr/lib/systemd/catalog/rauc.catalog
+./usr/lib/systemd/system/rauc.service
+./usr/libexec/rauc-service.sh
+./usr/share/dbus-1/interfaces/de.pengutronix.rauc.Installer.xml
+./usr/share/dbus-1/system-services/de.pengutronix.rauc.service
+./usr/share/dbus-1/system.d/de.pengutronix.rauc.conf

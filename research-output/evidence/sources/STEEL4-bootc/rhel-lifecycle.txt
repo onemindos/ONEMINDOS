@@ -1,0 +1,342 @@
+ 
+ Red Hat Enterprise Linux Life Cycle | Red Hat Customer Portal 
+ -->
+ -->
+ -->
+ -->
+ -->
+ -->
+ -->
+ -->
+ -->
+ -->
+ -->
+ -->
+ Skip to navigation 
+ Skip to main content 
+ Utilities
+ Subscriptions
+ Downloads
+ Red Hat Console
+ Get Support
+ Subscriptions
+ Downloads
+ Red Hat Console
+ Get Support
+ Products
+ Top Products
+ Red Hat Enterprise Linux
+ Red Hat OpenShift
+ Red Hat Ansible Automation Platform
+ All Products
+ Downloads and Containers
+ Downloads
+ Packages
+ Containers
+ Top Resources
+ Documentation
+ Product Life Cycles
+ Product Compliance
+ Errata
+ Knowledge
+ Red Hat Knowledge Center
+ Knowledgebase Solutions
+ Knowledgebase Articles
+ Customer Portal Labs
+ Errata
+ Top Product Docs
+ Red Hat Enterprise Linux
+ Red Hat OpenShift
+ Red Hat Ansible Automation Platform
+ All Product Docs
+ Training and Certification
+ About
+ Course Index
+ Certification Index
+ Skill Assessment
+ Security
+ Red Hat Product Security Center
+ Security Updates
+ Security Advisories
+ Red Hat CVE Database
+ Errata
+ References
+ Security Bulletins
+ Severity Ratings
+ Security Data
+ Top Resources
+ Security Labs
+ Backporting Policies
+ Security Blog
+ Support
+ Red Hat Support
+ Support Cases
+ Troubleshoot
+ Get Support
+ Contact Red Hat Support
+ Red Hat Community Support
+ Customer Portal Community
+ Community Discussions
+ Red Hat Accelerator Program
+ Contribute
+ -->
+ Top Resources
+ Product Life Cycles
+ Customer Portal Labs
+ Red Hat JBoss Supported Configurations
+ Red Hat Lightspeed
+ Or troubleshoot an issue .
+ English
+ Select Your Language
+ English 
+ Français 
+ 한국어 
+ 日本語 
+ 中文 (中国) 
+ Infrastructure and Management
+ Red Hat Enterprise Linux
+ Red Hat Satellite
+ Red Hat Subscription Management
+ Red Hat Lightspeed
+ Red Hat Ansible Automation Platform
+ Cloud Computing
+ Red Hat OpenShift
+ Red Hat OpenStack Platform
+ Red Hat OpenShift
+ Red Hat OpenShift AI
+ Red Hat OpenShift Dedicated
+ Red Hat Advanced Cluster Security for Kubernetes
+ Red Hat Advanced Cluster Management for Kubernetes
+ Red Hat Quay
+ Red Hat OpenShift Dev Spaces
+ Red Hat OpenShift Service on AWS
+ Storage
+ Red Hat Gluster Storage
+ Red Hat Hyperconverged Infrastructure
+ Red Hat Ceph Storage
+ Red Hat OpenShift Data Foundation
+ Runtimes
+ Red Hat Runtimes
+ Red Hat JBoss Enterprise Application Platform
+ Red Hat Data Grid
+ Red Hat JBoss Web Server
+ Red Hat build of Keycloak
+ Red Hat support for Spring Boot
+ Red Hat build of Node.js
+ Red Hat build of Quarkus
+ Integration and Automation
+ Red Hat Application Foundations
+ Red Hat Fuse
+ Red Hat AMQ
+ Red Hat 3scale API Management
+ All Products
+ You are using an unsupported web browser. Update to a supported browser for the best experience. Read the announcement .
+ As of March 1, 2016, the Red Hat Customer Portal will no longer support Internet Explorer 9. See our new browser support policy for more information.
+ Red Hat Enterprise Linux Life Cycle 
+ Overview 
+ Errata and Support Policy 
+ Feature Matrix 
+ Production Phases 
+ Full Support Phase 
+ Maintenance Support Phase 
+ Extended Life Phase 
+ Extended Life Cycle Premium (ELCP) 
+ ELCP Overview 
+ ELCP-Eligible Releases 
+ Long-Life (LL) Term Extensions 
+ ELCP Planning Guides 
+ Legacy Extended Support Offerings 
+ Extended Update Support (EUS) 
+ Enhanced Extended Update Support 
+ Update Services for SAP Solutions (E4S) 
+ Extended Life-cycle Support (ELS) 
+ Application Streams Life Cycle 
+ Virtualization 
+ Life-cycle Dates 
+ Retired Life Cycle Dates 
+ Other Related Products 
+ Overview 
+ Red Hat Enterprise Linux Version 8, 9, and 10 
+ Red Hat Enterprise Linux delivers a ten-year life cycle across three production phases (Full Support, Maintenance Support, and Extended Life Phase) followed by optional extended support. 
+ Red Hat Enterprise Linux subscriptions provide the following lifecycle coverage: 
+ RHEL Standard provides a 6-month lifecycle for each minor release. 
+ RHEL Premium provides a 2-year lifecycle for eligible minor releases, included with any RHEL Premium subscription. 
+ Extended Life Cycle Premium (ELCP) extends coverage to 6 years from general availability for eligible minor releases. The final minor release receives 9 years of ELCP coverage from its initial release. 
+ Beginning with RHEL 9, Red Hat has unified its extended support offerings under a single model: Extended Life Cycle Premium (ELCP) . ELCP replaces the previously separate Extended Update Support (EUS), Enhanced EUS (EEUS), and Update Services for SAP Solutions (E4S) offerings with a consistent support window for eligible minor releases. For customers who need support beyond the ELCP period, Long-Life (LL) Add-on term extensions provide renewable annual increments of continued coverage. 
+ Red Hat Enterprise Linux versions 8, 9, and 10 deliver a ten-year life cycle in Full Support and Maintenance Support Phases followed by an Extended Life Phase. With Extended Life Cycle Premium (ELCP) and Long-Life (LL) Add-On term extensions, customers can receive errata coverage for up to 14 years (and beyond) on eligible minor releases. 
+ Life Cycle: 
+ The Red Hat Enterprise Linux life cycle phases are designed to reduce the level of change within each major release over time and make release availability and content more predictable. 
+ Red Hat publishes this life cycle in an effort to provide as much transparency as possible although reserves the right to make exceptions from these policies as conflicts arise. Life-cycle time spans and dates are subject to adjustment. 
+ Legacy Extended Support Offerings 
+ Customers on legacy extended support offerings such as Red Hat Enterprise Linux 6 and Red Hat Enterprise Linux 7 can continue using them through their committed end dates. The following offerings are documented on the Legacy Extended Support Offerings page: 
+ Extended Update Support (EUS) 
+ Enhanced Extended Update Support 
+ Update Services for SAP Solutions (E4S) 
+ Extended Life-cycle Support (ELS) 
+ Errata and Support Policy 
+ Throughout this document, references to standard errata criteria mean the following: 
+ Security errata (RHSA): Critical, Important, and Moderate CVEs with a CVSS score of 7 or higher (effective April 1, 2025) as defined by Red Hat 
+ Bug fix errata (RHBA): Urgent and Selected High Priority Bug Fixes as defined by Red Hat 
+ All errata are provided at Red Hat's discretion. See the Issue Severity Classification page for security severity definitions. 
+ Red Hat may choose, as a temporary measure, to address catastrophic issues with a significant customer business impact with a Hotfix while the Bug Fix Bug Advisory (RHBA) is being created. 
+ During the life cycle for each major version, software changes to Red Hat Enterprise Linux are delivered via individual updates known as errata advisories through the Red Hat Customer Portal or other authorized Red Hat portals. Errata advisories may be released individually on an as-needed basis or aggregated as a minor release. Released errata advisories remain accessible to active subscribers for the entire Red Hat Enterprise Linux life cycle. Within each major release, any errata advisory (including one released as part of a minor release) will be applied cumulatively to the latest release, including any patch sets. 
+ Red Hat makes commercially reasonable efforts to maintain binary compatibility for the core runtime environment across all minor releases and errata advisories. If necessary, Red Hat may make exceptions to this compatibility goal for Critical impact security or other significant issues. The binary compatibility goal is extended to Red Hat Enterprise Linux used in application containers. Additional details can be found in the Red Hat Enterprise Linux 8 , Red Hat Enterprise Linux 9 , and Red Hat Enterprise Linux 10 Application Compatibility Guides. 
+ Security Maintenance 
+ Red Hat may provide errata per the standard errata criteria for packages within Red Hat Enterprise Linux as long as the package is not in end of life. 
+ Packages within RHEL 8, 9, and 10 Application Streams may have a shorter life cycle than a specific RHEL minor release. Please refer to the Application Streams life cycle for more details. 
+ The policy applies ONLY on current active minor releases per the Red Hat Enterprise Linux Life Cycle policy. 
+ Bug Fix Maintenance 
+ The inclusions list below is a minimum set of packages that apply to Urgent bug fixes:
+ bind, bash, chrony, grub2, grubby, glibc, gnutls, httpd, kernel, libgcrypt, libvirt, nss, openssh, openssl, python 3.6 (RHEL 8), python 3.9 (RHEL 9), python 3.12 (RHEL 10), qemu-kvm, rpm, sudo, systemd, wget, yum / dnf 
+ Urgent bugs not on the list may be addressed at Red Hat discretion. 
+ The policy applies ONLY on current active minor releases per the Red Hat Enterprise Linux Life Cycle Policy. 
+ Note: Active minor releases refers to the period of time a specific minor release is maintained. For example, RHEL 10.2 with ELCP is active for 6 years from general availability. 
+ Feature Matrix 
+ The following table details the subscription services available during the Full Support and Maintenance Support production phases. Access to previously released content and self-help through the Customer Portal are available in all phases, including the Extended Life Phase . For extended support beyond these phases, see Extended Life Cycle Premium (ELCP) . 
+ Red Hat Enterprise Linux Production Phase Features 
+ Description 
+ Full Support 
+ Maintenance Support 
+ ELCP + LL 
+ Technical Support (varies by Service Level) 
+ Unlimited 
+ Unlimited 
+ Unlimited 
+ Errata Coverage (RHSA & RHBA) 
+ Yes 
+ Yes 
+ Yes 
+ Minor Releases 
+ Yes 
+ No 
+ No 
+ Refreshed Hardware Enablement 
+ Native 
+ Using Virtualization 
+ Using Virtualization 
+ Software Enhancements 
+ Yes 
+ No 
+ No 
+ Updated Installation Images 
+ Yes 
+ Yes (at first minor release GA) 
+ No 
+ Production Phases 
+ Full Support Phase 
+ During the Full Support Phase, errata meeting the standard errata criteria will be released as they become available. Other errata advisories may be delivered as appropriate. 
+ Software enhancements are additions of new functionality beyond correcting defects or enabling previously existing functionality on a new hardware generation. Major releases are the primary vehicle for significant software enhancements, although low-impact software enhancements may also be delivered in minor releases. If available, new or improved hardware enablement and select enhanced software functionality may be provided at the discretion of Red Hat, generally in minor releases. Hardware enablement that does not require substantial software changes may be provided independent from minor releases at Red Hat's discretion. 
+ Minor releases will also include available and qualified errata advisories (RHSAs, RHBAs, and RHEAs). Minor releases are cumulative and include the contents of previously released updates. The focus for minor releases during this phase lies on resolving defects of medium or higher priority. 
+ Updated installation images will be provided for minor releases during the Full Support Phase. 
+ Maintenance Support Phase 
+ During the Maintenance Support Phase, errata meeting the standard errata criteria will be released as they become available. Other errata advisories may be delivered as appropriate. 
+ New functionality and new hardware enablement are not planned for availability in the Maintenance Support Phase. 
+ Extended Life Phase 
+ During the Extended Life Phase, a Red Hat Enterprise Linux subscription provides continued access to previously released content on the Red Hat Customer Portal , as well as other content such as documentation and the Red Hat Knowledgebase. Advice for migrating to currently supported Red Hat Enterprise Linux versions may also be provided. 
+ For versions of products in the Extended Life Phase, Red Hat will provide limited ongoing technical support. No bug fixes, security fixes, hardware enablement or root-cause analysis will be available during this phase, and support will be provided on existing installations only. 
+ Red Hat reserves the right to terminate the ongoing support in the Extended Life Phase for a particular version of Red Hat Enterprise Linux at any time. 
+ Extended Life Cycle Premium (ELCP) 
+ ELCP Overview 
+ Extended Life Cycle Premium (ELCP) is Red Hat's unified extended support model for customers who need to remain on a specific minor release beyond its standard support window. ELCP provides 6 years of support from general availability for eligible even-numbered minor releases (.2, .4, .6, .8) and 9 years of support for terminal minor releases (.10), delivering errata per the standard errata criteria as an independent stream in parallel to subsequent minor releases. 
+ ELCP replaces and over time simplifies the previously separate Extended Update Support (EUS), Enhanced EUS, and Update Services for SAP Solutions (E4S) offerings into a single life cycle model. For SAP customers, ELCP will replace E4S starting with RHEL 10.6. For RHEL 8 and RHEL 9, E4S will be continued as planned. For details on those legacy offerings including active streams and transition guidance, see the Legacy Extended Support Offerings page. 
+ ELCP also replaces the RHEL Extended Life Cycle Support (ELS) offering beginning with RHEL 8.10 on 6/1/2029. ELCP provides an additional four years of extended support for the last minor release: RHEL 8.10, 9.10, and 10.10. 
+ ELCP-Eligible Releases 
+ ELCP is available for even-numbered minor releases beginning with RHEL 9.2. Each ELCP stream provides 6 years of support from the minor release GA date, with terminal .10 releases receiving 9 years. 
+ ELCP-Eligible Releases 
+ Major Version 
+ ELCP-Eligible Minor Releases 
+ Notes 
+ RHEL 8 
+ 8.10 (ELCP only) 
+ ELCP extends maintenance of the final 8.10 release beyond year 10 
+ RHEL 9 
+ 9.2, 9.4, 9.6, 9.8, 9.10 
+ Even-numbered minor releases; 9.10 also eligible for ELCP coverage; SAP customers continue using E4S 
+ RHEL 10 
+ 10.2, 10.4, 10.6, 10.8, 10.10 
+ Even-numbered minor releases; 10.10 also eligible for ELCP coverage. SAP customers transition from E4S to ELCP starting at 10.6. 
+ Long-Life (LL) Term Extensions 
+ For customers who need support beyond the ELCP period, Red Hat offers Long-Life (LL) term extensions. These are renewable annual increments that continue errata delivery per the standard errata criteria for a specific minor release after its ELCP support ends. 
+ Long-Life Term Structure 
+ Term 
+ Duration 
+ Description 
+ Term 1 
+ 1 year 
+ First year after ELCP ends 
+ Term 2 
+ 1 year 
+ Second year 
+ Term 3 
+ 1 year 
+ Third year 
+ Term N 
+ 1 year (renewable) 
+ Fourth year and beyond; open-ended annual renewal 
+ If a customer does not renew at the end of any term, all previously released content is preserved in a retired archive channel. The retired channel receives no new updates, bug fixes, or CVE coverage. 
+ ELCP Planning Guides 
+ The charts below show the full lifecycle timeline for each RHEL major version, including Standard and Premium support, ELCP coverage for eligible minor releases, and renewable Long-Life (LL) term extensions beyond ELCP. For legacy minor release planning guides showing EUS and E4S stream timelines, see the Legacy Extended Support Offerings page. 
+ RHEL 8 
+ RHEL 9 
+ RHEL 10 
+ Application Streams Life Cycle 
+ The vast majority of packages in Red Hat Enterprise Linux versions 8, 9, and 10, including most Application Streams, will be maintained for the full 10 year Red Hat Enterprise Linux life cycle. Specified life cycle components, however, will be maintained for less than 10 years, with a specified life cycle often matching the upstream life of the component. 
+ Application Streams will adhere to the errata criteria for the 10 year life cycle of the major release. No new Application Streams will be released during the Maintenance Support Phase and Extended Life Phase since Software Enhancements are not permitted during these phases. However, to achieve the 10 years support criteria for RHEL, one version of each Application Stream will be identified at the start of the Maintenance Support Phase and that version will receive maintenance as described by the support phases. 
+ Please see the Red Hat Enterprise Linux Application Streams Life Cycle page for more information. 
+ Virtualization 
+ Virtualization provides hardware abstraction for guest operating systems, allowing a guest running an older version of Red Hat Enterprise Linux to be deployed on a virtualization host that supports newer hardware. For example, a RHEL 7 guest can be hosted by RHEL 9 on a latest-generation processor. 
+ During the Full Support Phase, native hardware enablement is provided by backporting hardware drivers to the relevant version of Red Hat Enterprise Linux. During the Maintenance Support Phase, refreshed hardware enablement is achieved by running an earlier version as a virtualized guest on a newer version as described above. Hardware certification, including the associated hardware limits, applies to the version of Red Hat Enterprise Linux being used as the host. 
+ Red Hat intends to support those versions of Red Hat Enterprise Linux that are still within the Production or Extended Life Phase when run as virtualized guests on later versions of Red Hat Enterprise Linux. 
+ The Red Hat Enterprise Linux virtualization support matrix provides details on the supported combinations of operating systems, versions, and hardware architectures. 
+ Life-cycle Dates 
+ All future dates mentioned for "End of Full Support" and "End of Maintenance Support" are close approximations, non definitive, and subject to change. 
+ Red Hat Enterprise Linux Life-cycle Dates 
+ Retired Life Cycle Dates 
+ To see the Life-cycle dates for older major, minor, and extended maintenance versions which are no longer receiving updates, please refer to https://access.redhat.com/articles/4038291 
+ Other Related Products 
+ For information on the life cycle of Red Hat Enterprise Linux for Real Time, please see https://access.redhat.com/support/policy/updates/realtime 
+ The Resilient Storage Add-on for Red Hat Enterprise Linux is only supported on active versions of RHEL 7, 8, and 9. 
+ LinkedIn 
+ YouTube 
+ Facebook 
+ X, formerly Twitter 
+ Quick Links 
+ Downloads 
+ Subscriptions 
+ Support Cases 
+ Customer Service 
+ Product Documentation 
+ Help 
+ Contact Us 
+ Customer Portal FAQ 
+ Log-in Assistance 
+ Site Info 
+ Trust Red Hat 
+ Browser Support Policy 
+ Accessibility 
+ Awards and Recognition 
+ Colophon 
+ Related Sites 
+ redhat.com 
+ developers.redhat.com 
+ connect.redhat.com 
+ cloud.redhat.com 
+ Red Hat legal and privacy
+ links 
+ About Red Hat 
+ Jobs 
+ Events 
+ Locations 
+ Contact Red Hat 
+ Red Hat Blog 
+ Inclusion at Red Hat 
+ Cool Stuff Store 
+ Red Hat Summit 
+ © 2026 Red Hat 
+ Red Hat legal and
+ privacy links 
+ Privacy statement 
+ Terms of use 
+ All policies and guidelines 
+ Digital accessibility 
+

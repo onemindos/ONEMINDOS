@@ -1,0 +1,16 @@
+[01:16:28] channel stable -> v2
+layers already present: 68; layers needed: 5 (13.1 MB)
+Deploying...done (2 seconds)
+Queued for next boot: 198.18.0.2:5000/onemind/lab:stable
+  Version: 44.20261110.0
+  Digest: sha256:18807cd1861252cd86cc687a6c27012813560987f146b4e5cd90456d5adf6e28
+Total new layers: 71    Size: 1.0 GB
+Removed layers:   71    Size: 2.1 GB
+Added layers:     71    Size: 1.0 GB
+marker=v1 uptime=34.45
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:9a6054d33ea12b07ed1a9c9212bd3ef066863e04b8e135d4c4f7921af66fcce0","staged":"sha256:18807cd1861252cd86cc687a6c27012813560987f146b4e5cd90456d5adf6e28","rollback":null}
+up after 19s
+marker=v2 uptime=8.93
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:18807cd1861252cd86cc687a6c27012813560987f146b4e5cd90456d5adf6e28","staged":null,"rollback":"sha256:9a6054d33ea12b07ed1a9c9212bd3ef066863e04b8e135d4c4f7921af66fcce0"}

@@ -1,0 +1,234 @@
+Features restricted to secure contexts - Security | MDN 
+ Skip to main content 
+ Skip to search 
+ HTML 
+ HTML: Markup language 
+ HTML reference 
+ Elements 
+ Global attributes 
+ Attributes 
+ See all… 
+ HTML guides 
+ Responsive images 
+ HTML cheatsheet 
+ Date & time formats 
+ See all… 
+ Markup languages 
+ SVG 
+ MathML 
+ XML 
+ CSS 
+ CSS: Styling language 
+ CSS reference 
+ Properties 
+ Selectors 
+ At-rules 
+ Values 
+ See all… 
+ CSS guides 
+ Box model 
+ Animations 
+ Flexbox 
+ Colors 
+ See all… 
+ Layout cookbook 
+ Column layouts 
+ Centering an element 
+ Card component 
+ See all… 
+ JavaScript JS 
+ JavaScript: Scripting language 
+ JS reference 
+ Standard built-in objects 
+ Expressions & operators 
+ Statements & declarations 
+ Functions 
+ See all… 
+ JS guides 
+ Control flow & error handling 
+ Loops and iteration 
+ Working with objects 
+ Using classes 
+ See all… 
+ Web APIs 
+ Web APIs: Programming interfaces 
+ Web API reference 
+ File system API 
+ Fetch API 
+ Geolocation API 
+ HTML DOM API 
+ Push API 
+ Service worker API 
+ See all… 
+ Web API guides 
+ Using the Web animation API 
+ Using the Fetch API 
+ Working with the History API 
+ Using the Web speech API 
+ Using web workers 
+ All 
+ All web technology 
+ Technologies 
+ Accessibility 
+ HTTP 
+ URI 
+ Web extensions 
+ WebAssembly 
+ WebDriver 
+ See all… 
+ Topics 
+ Media 
+ Performance 
+ Privacy 
+ Security 
+ Progressive web apps 
+ Learn 
+ Learn web development 
+ Frontend developer course 
+ Getting started modules 
+ Core modules 
+ MDN Curriculum 
+ Check out the video course from Scrimba, our partner 
+ Learn HTML 
+ Structuring content with HTML module 
+ Learn CSS 
+ CSS styling basics module 
+ CSS layout module 
+ Learn JavaScript 
+ Dynamic scripting with JavaScript module 
+ Tools 
+ Discover our tools
+ Playground 
+ HTTP Observatory 
+ Border-image generator 
+ Border-radius generator 
+ Box-shadow generator 
+ Color format converter 
+ Color mixer 
+ Shape generator 
+ About 
+ Get to know MDN better
+ About MDN 
+ Advertise with us 
+ Community 
+ MDN on GitHub 
+ Blog 
+ Toggle sidebar 
+ Web 
+ Security 
+ Defenses 
+ Secure contexts 
+ Restricted features 
+ Theme 
+ OS default 
+ Light 
+ Dark 
+ English (US) 
+ Remember language 
+ Learn more 
+ Deutsch 
+ English (US) 
+ 日本語 
+ 한국어 
+ 中文 (简体) 
+ Features restricted to secure contexts 
+ This reference lists the web platform features available only in secure contexts — see Secure Contexts for a definition and more details. 
+ In this article 
+ Current features available only in secure contexts 
+ See also 
+ Current features available only in secure contexts 
+ This section lists APIs that specifications make available only in secure contexts. 
+ Async Clipboard API 
+ Audio Output Devices API 
+ Background Fetch API 
+ Background Synchronization API 
+ Badging API 
+ Barcode Detection API 
+ Battery Status API 
+ Cache-Control: immutable 
+ Contact Picker API 
+ Content Index API 
+ Cookie Store API 
+ Credential Management API 
+ Device Memory API 
+ Device Orientation / Device Motion 
+ Document Picture-in-Picture API 
+ EyeDropper API 
+ Encrypted Media Extensions 
+ File System API 
+ Generic Sensor API 
+ Gamepad API 
+ Geolocation API 
+ Idle Detection API 
+ Keyboard API 
+ Local Font Access API 
+ Notifications API 
+ Web-based Payment Handler API 
+ Payment Request API 
+ Presentation API 
+ Push API 
+ Reporting API 
+ Screen Capture API 
+ Screen Wake Lock API 
+ Service Workers 
+ Shared Storage API 
+ Storage API 
+ Translator and Language Detector APIs 
+ VirtualKeyboard API 
+ Web Authentication API 
+ Web Bluetooth 
+ Web Locks API 
+ Web MIDI 
+ Web NFC API 
+ Web Crypto API 
+ WebCodecs API 
+ WebGPU API 
+ WebHID API 
+ WebOTP API 
+ WebTransport API 
+ WebUSB API 
+ WebXR Device API 
+ Web Share API 
+ Window Management API 
+ In addition, the following methods require a secure context (even if the associated API does not): 
+ MediaDevices.getUserMedia() 
+ Navigator.registerProtocolHandler() 
+ See also 
+ Secure contexts 
+ "secure context" query on Chrome Platform Status 
+ Help improve MDN
+ Was this page helpful to you? 
+ Yes 
+ No 
+ Learn how to contribute 
+ This page was last modified on Mar 8, 2026 by MDN contributors .
+ View this page on GitHub • Report a problem with this content 
+ Filter sidebar 
+ Clear filter input 
+ Security Guides Attacks Clickjacking Cross-site leaks (XS-Leaks) Cross-site request forgery (CSRF) Cross-site scripting (XSS) Insecure Direct Object Reference (IDOR) JavaScript prototype pollution Manipulator in the Middle (MITM) Phishing Server Side Request Forgery (SSRF) Subdomain takeover Supply chain attacks Defenses Certificate Transparency Input validation Local network access Mixed content Operational security Same-origin policy Secure contexts Subresource Integrity Transport Layer Security User activation Authentication Federated identity One-time passwords (OTP) Passkeys Passwords Session management Practical implementation guides Content Security Policy (CSP) Cross-Origin Resource Policy (CORP) Cross-Origin Resource Sharing (CORS) How to turn off form autocompletion MIME type verification Referrer policy robots.txt configuration Secure cookie configuration Subresource integrity (SRI) Transport Layer Security (TLS) Threat modeling Example threat model PWA example threat model Threat modeling frameworks and tools 
+ Your blueprint for a better internet.
+ MDN 
+ About
+ Blog
+ Mozilla careers
+ Advertise with us
+ MDN Plus
+ Product help
+ Contribute 
+ MDN Community
+ Community resources
+ Writing guidelines
+ MDN Discord
+ MDN on GitHub
+ Developers 
+ Web technologies
+ Learn web development
+ Guides
+ Tutorials
+ Glossary
+ Hacks blog
+ Website Privacy Notice 
+ Telemetry Settings 
+ Legal 
+ Community Participation Guidelines 
+ Portions of this content are ©1998–2026 by individual mozilla.org contributors. Content available under a Creative Commons license .

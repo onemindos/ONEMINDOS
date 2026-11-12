@@ -1,0 +1,133 @@
+SOURCE: https://start9.com/
+ACCESSED: 2026-11-10
+
+Start9
+Menu
+Cart
+StartWRT 1.0 and the RISC⁠-⁠V Router
+The gatekeeper of your home, on open RISC⁠-⁠V hardware, running an operating system that answers only to you.
+Shop the router
+Explore StartWRT
+StartOS 0.4.0
+After nearly three years of work, a ground-up rewrite of the operating system for your personal data center. The cloud was never humanity's destination. It was a detour.
+Explore StartOS
+Read the announcement
+The Importance of Self⁠-⁠Hosted Computing
+Matt Hill explains at Denver BitDevs why your computing belongs on hardware you own.
+Watch the talk
+Previous
+Pause
+Next
+Server
+A personal data center: one quiet machine at home that runs the services you would otherwise rent, on StartOS
+Configure and Buy
+Learn more
+Router
+A home router on open RISC-V hardware, running StartWRT: a network per security profile, tunnels in and out.
+Wi-Fi hardware is available separately.
+Buy Now
+Learn more
+support.start9.com
+Dux
+Found it. It's fixed in the next release, and here is the workaround.
+Premium Support
+Dux, Start9's AI support agent, and the team that builds StartOS. $200 a year, and a year is included with Server One and the RISC-V Router.
+Subscribe
+Learn more
+24/7/365
+Now hiring
+Your IT department
+IT professional
+DevOps engineer
+Linux sysadmin
+For business
+Off rented software, onto systems your company owns. Assessed, deployed, trained and supported, one application at a time.
+Talk to us
+Learn more
+Reviews
+4.8 out of 5 · 149 reviews
+Previous
+Next
+View all
+Really great gateway to the concept of digital sovereignty
+Verified
+Dec 4, 2025
+Got my server because I wanted to support the network by running Knots. As a nontechnical person and total beginner to running my own node, I was able to get my server up and running in less than 20 minutes and the ease of use of the system allowed me to explore what's possible with it. Its been really fun learning all the ways I can reclaim my digital sovereignty.  I'm currently exploring mining, lightning, and other things like private password management because of it.  Had no idea I'd be able to expand into any of this as quickly as I did. Feels really good.
+Easiest technical setup I've ever encountered.
+Verified
+Dec 4, 2025
+I recently purchased the Server One. I followed the very simple instructions presented during initial setup and was absolutely amazed at how easy and clear the setup was. Every step was straightforward. In fact, unless you intentionally deviated from the instructions, which would actually be a bit difficult, you almost have no choice but to set up the unit properly. It was only during the accepting of the TLS certificate that you could choose to deviate from the instructions. Following the step by step instructions was just plain easy.
+Setting up FF / Tor
+Verified
+Oct 11, 2025
+I was struggling with part of the setup and posted a question in the start9 support chat. "h0mer" guided me through the process and also took the time to explain the details in a way that made it easy to understand how to proceed. I was able to complete the setup process! Outstanding support as I could not have done it without their guidance and explanations. Thank you!
+Best customer support bar none
+Verified
+Sep 17, 2025
+Start9 not only has the best customer support in the Bitcoin space, it has the best support of any company I have ever used. It is not free but well worth the money. Highly recommend their products also.
+Back from the brink!!!
+Verified
+Jul 12, 2025
+Unbelievable!!! My node had an issue when moving and I thought we'd lost it. But after working with the S9 team, its Totally restored!! Ive been with S9 since the initial node was introduced and have never been disappointed!YThis company and the people who work there are incredible! I will be singing their praises to everyone I know and will be a lifetime client! Thank you again for your help and incredible POW
+Great experience
+Verified
+May 3, 2025
+I love the UI, and security measures taken by the Start9 team. StartOS for me had quite a learning curve, but once you get used to it it works like a charm. An added bonus is definitely the support team, they ae very fast and thorough and really help a complete beginner find his/her way through the OS.
+Sovereign computing that's dead easy to set up
+Verified
+Mar 18, 2025
+Got my Start9 server in the mail today, and within 30min I was up and running. With just a few more clicks I got a bitcoin node set up and syncing, and a private nostr relay running. Feels pretty awesome to have my sovereign services hosted at the homestead, as it should be.
+Top customer support
+Verified
+Mar 1, 2025
+I had a question regarding bitcoin knots and core and if I needed to uninstall the one for the other for it to work, do I emailed the team and got a reply back within hours. Stuart was very helpful and detailed and resulted in me getting back bitcoin core without uninstalling anything. Other people on the web suggested otherwise but I knew better to ask start9 themselves. Great work team with customer support!
+Start9 Server One: A Compact, User-Friendly, and Well-Supported Experience!
+Verified
+Feb 28, 2025
+I’ve been using the Server One from Start9, and I must say it’s an impressive piece of hardware. The design is compact and aesthetically pleasing, making it a great fit for any setup. The installation and setup process was incredibly easy, making it perfect for beginners. What stands out the most is their [b]amazing customer support[/b]. This was my first time tinkering with a server, and I encountered quite a few [b]rookie mistakes[/b], but their team responded [b]quickly and efficiently[/b], helping me resolve every issue. [b]Highly recommended![/b]
+More than just a bitcoin node
+Verified
+Dec 14, 2024
+Easy to install.
+Robust reliable software for a bitcoin node.
+Many additional options are bundled with the free FOSS software.
+Highly recommended.
+Give it a try.
+Great choice for running a Lightning node.
+Verified
+Dec 9, 2024
+StartOS is simple to use and has great support. I run my lightning node through StartOS and it runs very well with over 100 channels. All of the best software is available in the marketplace. The migration to new hardware is streamlined and simple. Everything works.
+10/10
+Easy setup, amazing to get going in the BTC space
+Verified
+Sep 11, 2024
+The Space9 server was very straightforward to get setup and working and with the available videos it made it very easy to get connected to your wallet
+Hardware
+Server
+Router
+Software
+StartOS
+StartWRT
+StartTunnel
+More
+Premium Support
+For business
+Docs
+Community
+About Start9
+Reviews
+Get help
+Contact
+Connect
+GitHub
+X
+Nostr
+Tor
+© 2026 Start9 Labs, Inc
+Terms
+Privacy
+Returns
+Shipping
+Warranty
+Security
+IP Geolocation by DB-IP

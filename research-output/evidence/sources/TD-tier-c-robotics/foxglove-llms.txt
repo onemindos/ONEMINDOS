@@ -1,0 +1,375 @@
+Source: https://docs.foxglove.dev/llms.txt
+Accessed: 2026-11-11
+
+# Foxglove
+
+> Foxglove is a comprehensive robotics infrastructure layer and observability platform that combines powerful visualization tools with cloud data infrastructure for managing recordings, devices, and events across your entire robotics fleet.
+
+## Quick Facts
+
+- **Primary use**: Robotics visualization, data platform, and fleet management
+- **Available on**: Web app (app.foxglove.dev), Desktop app (Electron), Embeddable SDK
+- **Data tools**: Recordings management, Events system, Device tracking, Timeline view, REST API
+- **Data formats**: MCAP, ROS Bag (.bag, .db3), ULog, custom formats via extensions
+- **SDKs**: Python, Rust, C++ (MIT licensed)
+- **Live connections**: Foxglove WebSocket, ROS 1/2 native, Foxglove Bridge
+- **Collaboration**: Shared layouts, organization templates, layout history, shareable links
+- **Enterprise**: SSO/SAML, Projects for data isolation, Webhooks, API integrations
+- **Extensibility**: Custom panels, message converters (schema & topic), topic aliases, data loaders, user-script utilities
+
+## Documentation
+
+Base URL: https://docs.foxglove.dev
+
+### Overview
+
+Introduction and getting started
+
+- [Foxglove Documentation](https://docs.foxglove.dev/docs) - Foxglove is a purpose-built platform that empowers robotics teams to visually debug robots, build reliable autonomy, and scale their development.
+- [Settings](https://docs.foxglove.dev/docs/settings) - Use the Settings page to configure preferred time zone, timestamp format, and more. Additionally, admins can modify the subscription plan, invite and manage organization members, and configure organization-wide settings like sites and custom device properties.
+- [Standalone License Activation](https://docs.foxglove.dev/docs/standalone-license) - Activate Foxglove desktop in standalone mode for offline and air-gapped environments.
+- [Pricing](https://docs.foxglove.dev/docs/pricing) - Foxglove offers Free, Pro, and Enterprise plans to fit teams of every size. Compare features, usage limits, and find the right plan for your workflow.
+- [Projects](https://docs.foxglove.dev/docs/projects) - Projects are collections of resources within an organization.
+- [CLI](https://docs.foxglove.dev/docs/cli) - Upload, export, and manage robotics data, sessions, datasets, and episodes from the command line.
+- [Audit logs](https://docs.foxglove.dev/docs/audit-logs) - Review organization activity from the Audit logs page. Available to org admins on Enterprise plans.
+- [OAuth](https://docs.foxglove.dev/docs/oauth) - Register an OAuth application and obtain an access token that calls the Foxglove API as the user who approved it.
+- [Personal access tokens](https://docs.foxglove.dev/docs/personal-access-tokens) - Create a personal access token that calls the Foxglove API as you, with the capabilities you choose.
+- [Release feeds](https://docs.foxglove.dev/docs/release-feeds) - Find the latest release of each Foxglove product, or follow every release, from scripts and feed readers.
+
+### Getting Started
+
+Quick start guides by framework
+
+- [Python](https://docs.foxglove.dev/docs/getting-started/python) - Log data from Python into Foxglove
+- [Rust](https://docs.foxglove.dev/docs/getting-started/rust) - Log data from Rust into Foxglove
+- [C++](https://docs.foxglove.dev/docs/getting-started/cpp) - Log data from C++ into Foxglove
+- [Explore examples](https://docs.foxglove.dev/docs/getting-started/explore-examples) - Curated example datasets with prebuilt layouts — no setup or code required.
+- [Getting started guide](https://docs.foxglove.dev/docs/getting-started-guide) - Stream a sample drone recording live into Foxglove with one command using the Foxglove wizard — no hardware, robot, or code needed.
+- [Open a file](https://docs.foxglove.dev/docs/getting-started/open-a-file) - Drop an MCAP file or ROS bag into Foxglove and explore it instantly.
+
+### Framework Guides
+
+Integration guides for ROS, PX4, and more
+
+- [ROS 1](https://docs.foxglove.dev/docs/getting-started/frameworks/ros1) - Use Foxglove to stream multimodal robotics data using ROS 1 or replay it from `.bag` files.
+- [ROS 2](https://docs.foxglove.dev/docs/getting-started/frameworks/ros2) - Use Foxglove to stream multimodal robotics data using ROS 2 or replay it from MCAP files.
+- [PX4](https://docs.foxglove.dev/docs/getting-started/frameworks/px4) - Load local PX4 ULog (`.ulg`) files for visualization.
+- [LeRobot](https://docs.foxglove.dev/docs/getting-started/frameworks/lerobot) - Stream LeRobot teleop, recording, and dataset replay to Foxglove with native WebSocket support.
+
+### Hardware Guides
+
+Connecting cameras, lidar, and sensors
+
+- [Luxonis OAK Cameras](https://docs.foxglove.dev/docs/getting-started/hardware/oak-depth-cameras) - Stream data from Luxonis OAK depth cameras to Foxglove for real-time visualization and recording.
+- [RGB Camera](https://docs.foxglove.dev/docs/getting-started/hardware/rgb-camera) - Stream data from RGB cameras to Foxglove for real-time visualization
+- [Stereolabs ZED Cameras](https://docs.foxglove.dev/docs/getting-started/hardware/stereolabs-depth-cameras) - Stream data from Stereolabs ZED depth cameras to Foxglove for real-time visualization and recording.
+
+### Visualization
+
+Panel-based data visualization and debugging
+
+- [Foxglove Visualization](https://docs.foxglove.dev/docs/visualization) - After connecting to a data source, leverage Foxglove's visualization and debugging tools to start exploring your data.
+- [Playback](https://docs.foxglove.dev/docs/visualization/playback) - When visualizing a local or remote data file, you can navigate its contents using the playback bar controls.
+- [Comparison mode](https://docs.foxglove.dev/docs/visualization/comparison-mode) - Open multiple data sources on a shared playback timeline and view their data together, either overlaid or side-by-side.
+- [Layouts](https://docs.foxglove.dev/docs/visualization/layouts) - Arrange Foxglove panels into custom layouts to tackle your visualization and debugging workflows.
+- [Variables](https://docs.foxglove.dev/docs/visualization/variables) - Variables are values that can be set globally for a Foxglove layout.
+- [User Scripts](https://docs.foxglove.dev/docs/visualization/user-scripts) - Publish pseudo topics internally to Foxglove using custom scripts. Manipulate, reduce, and filter existing messages and output them for useful visualization.
+- [FoxQL](https://docs.foxglove.dev/docs/visualization/foxql) - Use FoxQL throughout Foxglove to select and transform values from topics.
+- [Shareable links](https://docs.foxglove.dev/docs/visualization/shareable-links) - Build and share deep links with your teammates to open Foxglove with specific layouts, data sources, and timeline views.
+- [Video export](https://docs.foxglove.dev/docs/visualization/video-export) - Record the current panel layout to an MP4 or WebM file by stepping through your data one frame at a time.
+- [Open via CLI](https://docs.foxglove.dev/docs/visualization/open-via-cli) - Open local, live, and cloud data sources via the command line.
+- ... and 3 more
+
+### Connecting to Data
+
+Connect to live data, local files, or cloud data sources
+
+- [Remote data loader](https://docs.foxglove.dev/docs/visualization/connecting/cloud-data/remote-data-loader) - Visualize queryable data sources using a remote data loader
+- [Connecting to data](https://docs.foxglove.dev/docs/visualization/connecting) - Connect to live robots, open local files, or stream cloud data with Foxglove.
+- [Development Guide](https://docs.foxglove.dev/docs/visualization/connecting/cloud-data/remote-data-loader/development-guide) - Build a data backend for a remote data loader deployment
+- [Data loaders](https://docs.foxglove.dev/docs/visualization/connecting/local-data/data-loaders) - Open files in custom formats directly in Foxglove without converting them first.
+- [Authentication](https://docs.foxglove.dev/docs/visualization/connecting/cloud-data/remote-data-loader/auth) - Authenticate users to your data backend using OAuth 2.0
+- [Live](https://docs.foxglove.dev/docs/visualization/connecting/live) - Connect to a live robotics stack over remote access, the Foxglove WebSocket protocol, Rosbridge, or a native ROS 1 connection.
+- [Deployment](https://docs.foxglove.dev/docs/visualization/connecting/cloud-data/remote-data-loader/deployment) - Deploy a remote data loader
+- [Local](https://docs.foxglove.dev/docs/visualization/connecting/local-data) - Load local ROS 1 (.bag) and MCAP (.mcap) files for visualization.
+- [Cloud](https://docs.foxglove.dev/docs/visualization/connecting/cloud-data) - Load remote data via URL.
+- [Configure cloud credentials](https://docs.foxglove.dev/docs/visualization/connecting/cloud-data/remote-data-loader/configure-cloud-credentials) - Authenticate the remote data loader to the cache bucket
+- ... and 2 more
+
+### Panels
+
+Individual panel types for data visualization
+
+- [Panels](https://docs.foxglove.dev/docs/visualization/panels) - Panels are modular visualization interfaces that can be configured and arranged into Foxglove layouts.
+- [3D panel](https://docs.foxglove.dev/docs/visualization/panels/3d) - Display markers, entities, camera images, meshes, URDF models, and more in a 3D scene.
+- [Audio panel](https://docs.foxglove.dev/docs/visualization/panels/audio) - Display and play audio waveforms from incoming RawAudio and CompressedAudio message topics.
+- [Data Source Info panel](https://docs.foxglove.dev/docs/visualization/panels/data-source-info) - View time and topic information for your connected data source.
+- [Diagnostics panel](https://docs.foxglove.dev/docs/visualization/panels/diagnostics) - Display the status of seen nodes from ROS `DiagnosticArray` topic messages in a feed. Drill down into data for a given diagnostic name and hardware ID.
+- [Gauge panel](https://docs.foxglove.dev/docs/visualization/panels/gauge) - Display numeric values from an incoming expression on a customized gauge display.
+- [Image panel](https://docs.foxglove.dev/docs/visualization/panels/image) - Display raw and compressed images, as well as compressed videos, with 2D annotations like text labels, circles, and points. Superimpose 3D markers for additional context.
+- [Indicator panel](https://docs.foxglove.dev/docs/visualization/panels/indicator) - Display a color-coded label to indicate threshold values in your data.
+- [Log panel](https://docs.foxglove.dev/docs/visualization/panels/log) - Display and filter `Log` topic messages.
+- [Map panel](https://docs.foxglove.dev/docs/visualization/panels/map) - Display geographic data on a world map.
+- ... and 13 more
+
+### SDK
+
+SDKs for C++, Python, and Rust
+
+- [Foxglove SDK](https://docs.foxglove.dev/docs/sdk) - The Foxglove SDK can be used to log messages to MCAP files or the Foxglove app for live visualization.
+- [Concepts](https://docs.foxglove.dev/docs/sdk/concepts) - Introduce concepts used by the Foxglove SDK.
+- [Example](https://docs.foxglove.dev/docs/sdk/example) - Log messages to an MCAP file and the Foxglove app for live visualization.
+- [Logging messages](https://docs.foxglove.dev/docs/sdk/logging-messages) - Learn how to log different types of messages
+- [Logging strategies](https://docs.foxglove.dev/docs/sdk/logging-strategies) - Learn about different approaches to logging robot data efficiently, including lightweight and debug bag strategies.
+- [WebSocket Server](https://docs.foxglove.dev/docs/sdk/websocket-server) - Working with the WebSocket server in the Foxglove SDK.
+- [Remote Access Gateway](https://docs.foxglove.dev/docs/sdk/remote-access-gateway) - Program a remote access gateway using the Foxglove SDK to make a device available for remote visualization and teleoperation.
+
+### Schema Reference
+
+Schema formats and per-message-type reference
+
+- [Foxglove messages](https://docs.foxglove.dev/docs/sdk/schemas) - Using Foxglove messages helps you take full advantage of the platform's built-in visualizations.
+- [Built-in types](https://docs.foxglove.dev/docs/sdk/schemas/built-in-types) - Primitive types are the building blocks of Foxglove's supported message schemas.
+- [ArrowPrimitive](https://docs.foxglove.dev/docs/sdk/schemas/arrow-primitive) - A primitive representing an arrow
+- [CameraCalibration](https://docs.foxglove.dev/docs/sdk/schemas/camera-calibration) - Camera calibration parameters
+- [CircleAnnotation](https://docs.foxglove.dev/docs/sdk/schemas/circle-annotation) - A circle annotation on a 2D image
+- [Color](https://docs.foxglove.dev/docs/sdk/schemas/color) - A color in RGBA format
+- [CompressedAudio](https://docs.foxglove.dev/docs/sdk/schemas/compressed-audio) - A single chunk of a compressed audio bitstream
+- [CompressedImage](https://docs.foxglove.dev/docs/sdk/schemas/compressed-image) - A compressed image
+- [CompressedPointCloud](https://docs.foxglove.dev/docs/sdk/schemas/compressed-point-cloud) - A compressed point cloud. A decoder for format must decompress data, using metadata stored in the compressed payload to recover point positions and any additional per-point attributes. The decoded point cloud must include at least 2 coordinate fields from x, y, and z; red, green, blue, and alpha are optional for customizing each point's color.
+- [CompressedVideo](https://docs.foxglove.dev/docs/sdk/schemas/compressed-video) - A single frame of a compressed video bitstream
+- ... and 48 more
+
+### Data Platform
+
+Managing recordings, devices, and events
+
+- [Foxglove Data Platform](https://docs.foxglove.dev/docs/data) - Organize, store, and access your robotics data with Foxglove Data Platform.
+- [Importing data](https://docs.foxglove.dev/docs/data/importing-data) - Import ROS 1 (.bag) and MCAP (.mcap) data files into the Foxglove platform for later visualization and analysis.
+- [Exporting data](https://docs.foxglove.dev/docs/data/exporting-data) - Import ROS1 (.bag) and MCAP (.mcap) data files into the Foxglove platform for visualization and analysis.
+- [Devices](https://docs.foxglove.dev/docs/data/devices) - Devices represent every real and simulated robot that your organization wants to track.
+- [Recordings](https://docs.foxglove.dev/docs/data/recordings) - Recordings represent every data file recorded by your organization's devices.
+- [Sessions](https://docs.foxglove.dev/docs/data/sessions) - Sessions group recordings from a device by drive, mission, or other logical unit.
+- [Events](https://docs.foxglove.dev/docs/data/events) - Events represent points or time ranges of interest in your organization's recordings.
+
+### Primary Sites
+
+Self-hosted data infrastructure
+
+- [Foxglove Cloud, bring your own storage](https://docs.foxglove.dev/docs/data/primary-sites/foxglove-managed-setup) - Set up a Foxglove Cloud Primary Site with bring-your-own-storage that indexes and queries data directly from your cloud storage bucket.
+- [Bring your own storage FAQ](https://docs.foxglove.dev/docs/data/primary-sites/foxglove-managed-faq) - Answers to common questions about Foxglove Cloud bring-your-own-storage billing, setup, metadata, performance, and security.
+- [On-premises](https://docs.foxglove.dev/docs/data/primary-sites/installation) - Install and configure an on-premises Primary Site.
+- [Storage mode](https://docs.foxglove.dev/docs/data/primary-sites/storage-mode) - Choosing an storage mode for your Primary Site.
+- [Inbox listener configuration](https://docs.foxglove.dev/docs/data/primary-sites/inbox-listener-configuration) - Configure the inbox listener in your self-hosted Primary Site.
+- [Indexer configuration](https://docs.foxglove.dev/docs/data/primary-sites/indexer-configuration) - Configure the indexer in your self-hosted Primary Site.
+- [Query service configuration](https://docs.foxglove.dev/docs/data/primary-sites/query-service-configuration) - Configure the query service in your self-hosted Primary Site.
+- [Search configuration](https://docs.foxglove.dev/docs/data/primary-sites/search-configuration) - Configure your self-hosted Primary Site to handle search workloads.
+- [Configure cloud credentials](https://docs.foxglove.dev/docs/data/primary-sites/configure-cloud-credentials) - Self-hosted Primary Sites need additional cloud credentials to import data from its corresponding Foxglove Edge Sites.
+- [Manage data](https://docs.foxglove.dev/docs/data/primary-sites/manage-data) - Manage your self-hosted Primary Site's data.
+- ... and 6 more
+
+### Edge Sites
+
+Edge data collection
+
+- [Edge Sites](https://docs.foxglove.dev/docs/data/edge-sites) - Edge Sites are on-site data storage centers, located in physical proximity to where your robots are operating. They store data on-premises until you forward it to the cloud, which reduces the risk from unpredictable network connectivity or low bandwidth.
+- [Installation](https://docs.foxglove.dev/docs/data/edge-sites/installation) - Install and configure the edge controller for a Foxglove Edge Site.
+- [Upload settings](https://docs.foxglove.dev/docs/data/edge-sites/configure-cloud-credentials) - Configure uploads from your Foxglove Edge Site to a Foxglove-hosted, self-hosted, or bring-your-own-storage Primary Site.
+- [Manage data](https://docs.foxglove.dev/docs/data/edge-sites/manage-data) - Add recordings to your Foxglove Edge Site, import them to your Primary Site, and manage local recording files.
+- [Upgrading](https://docs.foxglove.dev/docs/data/edge-sites/upgrading) - Upgrade the edge controller for your Foxglove Edge Site.
+- [Monitoring](https://docs.foxglove.dev/docs/data/edge-sites/monitoring) - Monitor your Foxglove Edge Site.
+- [Logging](https://docs.foxglove.dev/docs/data/edge-sites/logging) - Configure and access edge controller logs.
+- [FAQ](https://docs.foxglove.dev/docs/data/edge-sites/faq) - Frequently asked questions about the edge controller.
+
+### Fleet
+
+Device-side software for robot connectivity, authentication, and data collection
+
+- [Overview](https://docs.foxglove.dev/docs/fleet) - Learn how Foxglove's fleet software components (Foxlet, the Foxglove Bridge, and the SDK) work together to connect your devices to Foxglove.
+- [Device Tokens](https://docs.foxglove.dev/docs/fleet/device-tokens) - Create and manage device tokens that authenticate devices to the Foxglove platform.
+- [Foxglove Bridge](https://docs.foxglove.dev/docs/fleet/bridge) - Use the Foxglove Bridge to visualize your live ROS 1 or ROS 2 data. The Foxglove Bridge connects your ROS stack to Foxglove over Foxglove WebSocket or remote access.
+- [Remote Access](https://docs.foxglove.dev/docs/fleet/remote-access) - Configure a device in your fleet for remote live visualization and teleoperation through the Foxglove platform.
+
+### Foxlet
+
+Robot-side data collection daemon
+
+- [Foxlet](https://docs.foxglove.dev/docs/fleet/foxlet) - Foxlet is a lightweight process you install on each device to connect it to Foxglove cloud.
+- [Foxlet Device Tokens](https://docs.foxglove.dev/docs/fleet/foxlet/devicetokens) - Device token workflows specific to Foxlet.
+- [Installation](https://docs.foxglove.dev/docs/fleet/foxlet/installation) - Install and configure Foxlet.
+- [Manage data](https://docs.foxglove.dev/docs/fleet/foxlet/manage-data) - Start processing data recordings with Foxlet.
+- [Logging](https://docs.foxglove.dev/docs/fleet/foxlet/logging) - Configure and access Foxlet logs.
+- [Foxlet state](https://docs.foxglove.dev/docs/fleet/foxlet/state) - How Foxlet maintains local state.
+- [FAQ](https://docs.foxglove.dev/docs/fleet/foxlet/faq) - Frequently asked questions about Foxlet.
+
+### Agents
+
+In-app agent sidebar and the local MCP server for external agents
+
+- [Overview](https://docs.foxglove.dev/docs/agents) - Work with robotics data in natural language, using the agent sidebar in the app, the Slack integration, or your own AI agent through Foxglove's MCP server.
+- [Agent sidebar](https://docs.foxglove.dev/docs/agents/agent-sidebar) - Use Foxglove's built-in AI agent to ask questions about the data, build layouts, write user scripts, and more.
+- [MCP server](https://docs.foxglove.dev/docs/agents/mcp-server) - Connect AI tools like Claude Code, Cursor, and Claude Desktop to Foxglove through the desktop app's local MCP server.
+- [Slack](https://docs.foxglove.dev/docs/agents/slack) - Ask Foxglove questions in Slack about your organization's recordings, sessions, devices, Projects, sites, and events without leaving the conversation.
+
+### Extensions
+
+Custom panels, converters, and data loaders
+
+- [Local development](https://docs.foxglove.dev/docs/extensions/local-development) - Build and test custom Foxglove extensions locally before publishing.
+- [Publishing extensions](https://docs.foxglove.dev/docs/extensions/publish) - Publish custom extensions to help teammates or other Foxglove users leverage your contribution in their own workflows.
+- [extension-api-index](https://docs.foxglove.dev/docs/extensions/extension-api-index) - The @foxglove/extension NPM package contains type definitions for writing Foxglove extensions.
+- [Extensions](https://docs.foxglove.dev/docs/extensions) - Extend Foxglove's capabilities with custom extensions – build bespoke panels, convert custom messages to Foxglove message types, and alias topic names for easy visualization.
+
+### Extension Guides
+
+Step-by-step extension guides
+
+- [Create custom panel](https://docs.foxglove.dev/docs/extensions/guides/create-custom-panel) - Build a simple panel extension that subscribes to a topic, and then register it so that you can add it to a Foxglove layout.
+- [Create schema converter](https://docs.foxglove.dev/docs/extensions/guides/create-schema-converter) - Build a simple message schemaconverter for transforming custom GPS messages to match the `foxglove.LocationFix` schema, for visualization in the Map panel.
+- [Create topic converter](https://docs.foxglove.dev/docs/extensions/guides/create-topic-converter) - Build a topic message converter for transforming custom messages to match the `foxglove.LocationFix` schema, for visualization in the Map panel.
+- [Optimize extension performance](https://docs.foxglove.dev/docs/extensions/guides/optimize-extension-performance) - Optimize your extensions for production to reduce load times.
+- [Create data loader with Rust](https://docs.foxglove.dev/docs/extensions/guides/create-data-loader) - Build a simple data loader with Rust to add custom file format support for Foxglove.
+- [Register a user-script utility](https://docs.foxglove.dev/docs/extensions/guides/register-user-script-utility) - Register a user-script utility that can be imported into user-scripts.
+
+### Extension API
+
+Type reference for the @foxglove/extension package
+
+- [@foxglove/extension](https://docs.foxglove.dev/docs/extensions/extension-api/globals)
+- [@foxglove/extension](https://docs.foxglove.dev/docs/extensions/extension-api) - The @foxglove/extension NPM package contains type definitions for writing Foxglove extensions.
+- [ExtensionContext](https://docs.foxglove.dev/docs/extensions/extension-api/interfaces/ExtensionContext)
+- [ExtensionModule](https://docs.foxglove.dev/docs/extensions/extension-api/interfaces/ExtensionModule) - ExtensionModule describes the interface your extension module must export. This typically corresponds to your index.ts file.
+- [LayoutActions](https://docs.foxglove.dev/docs/extensions/extension-api/interfaces/LayoutActions) - Actions the panel may perform related to the user's current layout via context.layout.
+- [AppSettingValue](https://docs.foxglove.dev/docs/extensions/extension-api/type-aliases/AppSettingValue)
+- [BaseTopic](https://docs.foxglove.dev/docs/extensions/extension-api/type-aliases/BaseTopic)
+- [ExtensionPanelRegistration](https://docs.foxglove.dev/docs/extensions/extension-api/type-aliases/ExtensionPanelRegistration) - This type represents the arguments you pass to ExtensionContext.registerPanel.
+- [Immutable](https://docs.foxglove.dev/docs/extensions/extension-api/type-aliases/Immutable)
+- [LegacyRegisterMessageConverterArgs](https://docs.foxglove.dev/docs/extensions/extension-api/type-aliases/LegacyRegisterMessageConverterArgs)
+- ... and 29 more
+
+### Embed SDK
+
+Embed Foxglove visualization in your applications
+
+- [TypeScript SDK guide](https://docs.foxglove.dev/docs/embed/typescript-sdk) - Embed Foxglove in your application or website
+- [React SDK guide](https://docs.foxglove.dev/docs/embed/react-sdk) - Embed Foxglove in your application or website
+- [Parent-owned live transport](https://docs.foxglove.dev/docs/embed/parent-owned-live-transport) - Stream live data from a host application into an embedded Foxglove viewer
+- [Parent-owned remote data loader transport](https://docs.foxglove.dev/docs/embed/parent-owned-remote-data-loader-transport) - Connect an embedded viewer to a remote data loader through the host application
+- [@foxglove/embed](https://docs.foxglove.dev/docs/embed/foxglove-embed) - Embed Foxglove in your website
+- [@foxglove/embed-react](https://docs.foxglove.dev/docs/embed/foxglove-embed-react) - Embed Foxglove in your website using our React SDK
+- [Embedding Foxglove](https://docs.foxglove.dev/docs/embed) - Embed Foxglove in your application or website
+
+### Webhooks
+
+Event-driven integrations
+
+- [Getting started](https://docs.foxglove.dev/docs/webhooks/getting-started) - Set up your first webhook.
+- [Security](https://docs.foxglove.dev/docs/webhooks/security) - Secure your webhook endpoint.
+- [Webhooks](https://docs.foxglove.dev/docs/webhooks) - Webhooks notify your software when events happen within your Foxglove organization.
+
+### Security
+
+SSO, roles, and access control
+
+- [Roles](https://docs.foxglove.dev/docs/security/roles) - Roles control administrative permissions for organization members.
+- [Seat types](https://docs.foxglove.dev/docs/security/seat-types) - Understand the difference between developer and basic seat types and how they control member capabilities in your Foxglove organization.
+- [SSO](https://docs.foxglove.dev/docs/security/sso) - Foxglove organizations on the Pro plan can require Google or Microsoft SSO for signin; Enterprise organizations can also use OIDC SSO as their authorization provider.
+
+### data/search
+
+- [Search](https://docs.foxglove.dev/docs/data/search) - Build queries to find recordings, events, and sessions across your fleet.
+- [Gallery](https://docs.foxglove.dev/docs/data/search/gallery) - Browse and preview Search results before opening them in visualization.
+
+### getting-started/custom
+
+- [Custom schema encodings](https://docs.foxglove.dev/docs/getting-started/custom/custom-schema-encodings) - Foxglove supports various schema encodings, including JSON, Protobuf, FlatBuffers, ROS, and OMG IDL.
+- [Custom Data](https://docs.foxglove.dev/docs/getting-started/custom) - Load local and remote MCAP files containing custom data (i.e. Protobuf, JSON, FlatBuffers), or connect directly to live custom data via a Foxglove WebSocket connection.
+
+### getting-started/robots
+
+- [SO-101 Robot Arm](https://docs.foxglove.dev/docs/getting-started/robots/so-100) - Visualize an SO-101 arm in real time with LeRobot's native Foxglove integration.
+
+### grafana
+
+- [Grafana](https://docs.foxglove.dev/docs/grafana) - Query Foxglove recordings from Grafana dashboards with the Foxglove data source plugin.
+- [Building queries](https://docs.foxglove.dev/docs/grafana/queries) - Reference for the Foxglove query editor in Grafana — selection, grouping, aggregation, granularity, and filters.
+- [Troubleshooting](https://docs.foxglove.dev/docs/grafana/troubleshooting) - Diagnose connection failures, empty panels, and unexpected values in the Foxglove data source for Grafana.
+
+### notebook
+
+- [Jupyter notebook integration](https://docs.foxglove.dev/docs/notebook) - Integrate Foxglove into any Jupyter-like notebook
+- [Layouts](https://docs.foxglove.dev/docs/notebook/layouts) - Create Foxglove layouts programmatically and use them in your Python notebooks.
+
+## Key Concepts
+
+### FoxQL
+Query language for accessing nested data in messages: `/topic.field[index]{filter}`
+Example: `/sensors.readings[:]{value>100}.timestamp`
+
+### Panels
+Modular visualization components that can be arranged into layouts:
+- **3D**: Point clouds, markers, URDF models, transforms, maps
+- **Image**: Camera feeds with annotations and overlays
+- **Plot**: Time-series data with multiple series
+- **Log**: Text logs with filtering and search
+- **Raw Messages**: Inspect message contents
+- **Map**: Geographic data with GPS coordinates
+
+### Layouts
+Saved panel arrangements that can be shared across teams. Layouts store panel configurations, topic subscriptions, and playback settings.
+
+### MCAP
+Primary file format for robotics logs. Open-source, high-performance container format. See https://mcap.dev
+
+### Transforms (TF)
+Coordinate frame relationships for accurate 3D visualization. The 3D panel uses transforms to position markers from different coordinate frames in a unified scene.
+
+### Extensions
+Extend Foxglove with custom functionality:
+- **Custom panels**: Build bespoke visualization interfaces
+- **Message converters**: Transform data between schemas
+- **Data loaders**: Support custom file formats
+
+## Common Tasks
+
+### Connect to live ROS 2 data
+1. Install Foxglove Bridge: `apt install ros-$ROS_DISTRO-foxglove-bridge`
+2. Launch: `ros2 launch foxglove_bridge foxglove_bridge_launch.xml`
+3. In Foxglove: Open connection → Foxglove WebSocket → ws://localhost:8765
+
+### Log data with Python SDK
+```python
+import foxglove
+from foxglove.messages import Log, LogLevel, Timestamp
+
+server = foxglove.start_server()
+foxglove.log("/logs", Log(timestamp=Timestamp.now(), level=LogLevel.Info, message="Hello!"))
+```
+
+### Create a custom panel extension
+```bash
+npm init foxglove-extension@latest my-panel
+cd my-panel && npm run package
+```
+
+## API Reference
+
+- REST API (interactive): https://docs.foxglove.dev/api
+- REST API for LLMs (overview): https://docs.foxglove.dev/api/llms.txt
+- REST API for LLMs (full reference): https://docs.foxglove.dev/api/llms-full.txt
+- Extension API: https://docs.foxglove.dev/docs/extensions/extension-api
+- [Python SDK API reference](https://sdk-docs.foxglove.dev/python/): Modules, classes, and functions of the `foxglove-sdk` Python package
+- [Rust SDK API reference](https://docs.rs/foxglove/latest/foxglove/): Crate documentation for the `foxglove` Rust crate
+- [C++ SDK API reference](https://sdk-docs.foxglove.dev/cpp/): Classes and functions of the Foxglove C++ SDK
+
+## Releases
+
+- Changelog: https://docs.foxglove.dev/changelog
+- Latest release of each product (JSON): https://docs.foxglove.dev/changelog/latest.json
+- Release feed format and fields: https://docs.foxglove.dev/docs/release-feeds
+
+## Support
+
+- Discord: https://foxglove.dev/chat
+- GitHub Discussions: https://github.com/orgs/foxglove/discussions
+- Email: <masked-email>

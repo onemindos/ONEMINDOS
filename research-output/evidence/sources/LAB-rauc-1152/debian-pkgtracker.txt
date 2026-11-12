@@ -1,0 +1,257 @@
+# Saved 2026-11-11 from https://tracker.debian.org/pkg/rauc (HTML converted to text; emails masked)
+
+ rauc - Debian Package Tracker
+Go
+ Register
+ |
+ Log in
+ Subscribe
+ rauc
+ Robust Auto-Update Controller - binary
+×Choose email to subscribe with
+Cancel
+ general
+ source:
+ rauc
+ (main)
+ version:
+ 1.15.2-1
+ maintainer:
+ Uwe Kleine-König
+ (DMD)
+ (LowNMU)
+ arch:
+ all 
+ std-ver:
+ 4.7.3
+ VCS:
+ Git
+ (Browse, QA)
+ versions
+ [more versions can be listed by madison]
+ [old versions available from snapshot.debian.org]
+ [pool directory]
+ o-o-stable:
+ 1.5.1-1
+ oldstable:
+ 1.8-2
+ stable:
+ 1.13-3+deb13u1
+ testing:
+ 1.15.2-1
+ unstable:
+ 1.15.2-1
+ versioned links
+ 1.5.1-1:
+ [.dsc, use dget on this link to retrieve source package]
+ [changelog]
+ [copyright]
+ [rules]
+ [control]
+ 1.8-2:
+ [.dsc, use dget on this link to retrieve source package]
+ [changelog]
+ [copyright]
+ [rules]
+ [control]
+ 1.13-3+deb13u1:
+ [.dsc, use dget on this link to retrieve source package]
+ [changelog]
+ [copyright]
+ [rules]
+ [control]
+ 1.15.2-1:
+ [.dsc, use dget on this link to retrieve source package]
+ [changelog]
+ [copyright]
+ [rules]
+ [control]
+ binaries
+ rauc
+ (1 bugs:
+ 0, 1, 0, 0)
+ rauc-service
+ action needed
+ version in VCS is newer than in repository, is it time to upload?
+ normal
+vcswatch reports that
+this package seems to have a new changelog entry (version
+1.15.2-2, distribution
+UNRELEASED) and new commits
+in its VCS. You should consider whether it's time to make
+an upload.
+Here are the relevant commit messages:
+commit fdf90a24f2ffa2799ea2b2971ae0a6da0302a3b2
+Merge: 1bc1fe8 a0ef7e4
+Author: Uwe Kleine-König <<email-masked>>
+Date: Tue Apr 14 16:23:39 2026 +0200
+ Merge branch 'wip/obbardc/add-desync' of salsa.debian.org:obbardc/rauc
+ d/control: Suggest desync for rauc
+ See merge request debian/rauc!10
+commit a0ef7e4a616f5699fe150879c6244ff589a2dee6
+Author: Christopher Obbard <<email-masked>>
+Date: Mon Apr 13 00:47:18 2026 +0100
+ d/control: Suggest desync for rauc
+ Add desync to rauc Suggests.
+ desync is a content-addressed, chunk-based file synchronisation tool
+ which can be used to efficiently distribute large binary artifacts.
+ When used with rauc it enables more bandwidth-efficient updates by
+ transferring the only changed chunks rather than full images.
+ Signed-off-by: Christopher Obbard <<email-masked>>
+ Created: 2026-03-28
+ Last update: 2026-11-06
+ 05:49
+ 1 open merge request in Salsa
+ normal
+There is
+1 open merge request
+for this package on Salsa. You should consider reviewing and/or merging these
+merge requests.
+ Created: 2026-10-05
+ Last update: 2026-10-05
+ 10:32
+ Standards version of the package is outdated.
+ wishlist
+The package should be updated to follow the last version of Debian Policy
+(Standards-Version 4.7.4 instead of
+4.7.3).
+ Created: 2026-03-31
+ Last update: 2026-03-31
+ 15:01
+ testing migrations
+ This package will soon be part of the auto-openssl transition. You might want to ensure that your package is ready for it.
+ You can probably find supplementary information in the
+ debian-release
+ archives or in the corresponding
+ release.debian.org
+ bug.
+ news
+ [rss feed]
+ [2026-07-04]
+ Accepted rauc 1.13-3+deb13u1 (source) into proposed-updates
+ (Debian FTP Masters)
+ (signed by: Adrian Bunk)
+ [2026-04-03]
+ rauc 1.15.2-1 MIGRATED to testing
+ (Debian testing watch)
+ [2026-03-28]
+ Accepted rauc 1.15.2-1 (source) into unstable
+ (Uwe Kleine-König)
+ [2026-01-25]
+ rauc 1.15.1-1 MIGRATED to testing
+ (Debian testing watch)
+ [2026-01-19]
+ Accepted rauc 1.15.1-1 (source) into unstable
+ (Uwe Kleine-König)
+ [2025-12-30]
+ rauc REMOVED from testing
+ (Debian testing watch)
+ [2025-11-15]
+ rauc 1.15-1 MIGRATED to testing
+ (Debian testing watch)
+ [2025-11-10]
+ Accepted rauc 1.15-1 (source) into unstable
+ (Uwe Kleine-König)
+ [2025-10-04]
+ rauc 1.14-1 MIGRATED to testing
+ (Debian testing watch)
+ [2025-09-29]
+ Accepted rauc 1.14-1 (source) into unstable
+ (Uwe Kleine-König)
+ [2025-04-26]
+ rauc 1.13-3 MIGRATED to testing
+ (Debian testing watch)
+ [2025-04-16]
+ Accepted rauc 1.13-3 (source) into unstable
+ (Uwe Kleine-König)
+ [2025-03-30]
+ rauc 1.13-2 MIGRATED to testing
+ (Debian testing watch)
+ [2025-03-25]
+ Accepted rauc 1.13-2 (source) into unstable
+ (Uwe Kleine-König)
+ [2025-02-08]
+ rauc 1.13-1 MIGRATED to testing
+ (Debian testing watch)
+ [2025-02-03]
+ Accepted rauc 1.13-1 (source) into unstable
+ (Uwe Kleine-König)
+ [2024-11-05]
+ rauc 1.12-1 MIGRATED to testing
+ (Debian testing watch)
+ [2024-10-31]
+ Accepted rauc 1.12-1 (source) into unstable
+ (Uwe Kleine-König)
+ [2024-05-03]
+ rauc 1.11.3-2 MIGRATED to testing
+ (Debian testing watch)
+ [2024-04-05]
+ Accepted rauc 1.11.3-2 (source) into unstable
+ (Uwe Kleine-König)
+ [2024-03-18]
+ Accepted rauc 1.11.3-1 (source) into unstable
+ (Uwe Kleine-König)
+ [2023-12-28]
+ rauc 1.11-1 MIGRATED to testing
+ (Debian testing watch)
+ [2023-12-22]
+ Accepted rauc 1.11-1 (source) into unstable
+ (Uwe Kleine-König)
+ [2023-10-08]
+ rauc 1.10.1-2 MIGRATED to testing
+ (Debian testing watch)
+ [2023-10-03]
+ Accepted rauc 1.10.1-2 (source) into unstable
+ (Uwe Kleine-König)
+ [2023-08-13]
+ rauc 1.10.1-1 MIGRATED to testing
+ (Debian testing watch)
+ [2023-08-07]
+ Accepted rauc 1.10.1-1 (source) into unstable
+ (Uwe Kleine-König)
+ [2023-04-04]
+ Accepted rauc 1.9-1 (source) into experimental
+ (Uwe Kleine-König)
+ [2022-10-28]
+ rauc 1.8-2 MIGRATED to testing
+ (Debian testing watch)
+ [2022-10-26]
+ Accepted rauc 1.8-2 (source) into unstable
+ (Uwe Kleine-König)
+ 1
+ 2
+bugs
+[bug history graph]
+ all:
+ 2
+ RC:
+ 0
+ I&N:
+ 2
+ M&W:
+ 0
+ F&P:
+ 0
+ patch:
+ 0
+ links
+ homepage
+lintian
+buildd: logs, reproducibility
+ popcon
+ browse source code
+ other distros
+ security tracker
+ debian patches
+ubuntu
+[Information about Ubuntu for Debian Developers]
+version:
+ 1.15.2-1ubuntu1
+1 bug
+patches for 1.15.2-1ubuntu1
+ Debian Package Tracker — Copyright 2013-2025 The Distro Tracker Developers
+ Report problems to the tracker.debian.org pseudo-package in the Debian BTS.
+ Documentation —
+ Bugs —
+ Git Repository —
+ Contributing

@@ -1,0 +1,141 @@
+K3s-server uses 10% CPU for no reason - Apps and Virtualization - TrueNAS Community Forums 
+ = 40rem)" rel="stylesheet" data-target="chat_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-ai_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-gamification_desktop" />
+ = 40rem)" rel="stylesheet" data-target="discourse-reactions_desktop" />
+ = 40rem)" rel="stylesheet" data-target="poll_desktop" />
+ TrueNAS Enterprise Hardware 
+ | 
+ Commercial Support 
+ Report a Bug 
+   |  
+ Docs & AI Search 
+   |  
+ Careers 
+   |  
+ Browse Forum Archive 
+ TrueNAS Community Forums 
+ K3s-server uses 10% CPU for no reason 
+ Apps and Virtualization 
+ SCALE , 
+ kubernetes 
+ <forum-user-masked>
+ June 6, 2024, 10:42am
+ 1 
+ Heyo, I would like to continue the discussion of k3s-server uses 10% CPU for no reason | Page 3 | TrueNAS Community . I found the blog Resolved: High Idle CPU Usage Bug in k3s - A Milestone for Stability that was monitoring this issue for a long time and could finally report that this has been resolved in version 1.28 of k3s. Any chance we could upgrade in dragon fish? it still has 1.26 
+ <forum-user-masked>
+ June 6, 2024, 10:54am
+ 2 
+ With the next major update later this year k3s will be depreciated and replaced by native docker. So i dont think iX will invest time in something that will be removed later this year.
+ <forum-user-masked>
+ June 6, 2024, 12:41pm
+ 3 
+ LarsR is correct. Upgrading k3s version in a dot release is very risky so we have no reason to do it unless there is another very critical bug (vulnerability) that cannot be backported.
+ <forum-user-masked>
+ June 6, 2024, 12:42pm
+ 4 
+ An interim solution, if you use docker apps, would be to use jailmaker to host them instead, until the official rework of the app subsystem is complete.
+ More work to set up compared to official TN apps but once up it uses less resources.
+ <forum-user-masked>
+ June 6, 2024, 12:56pm
+ 5 
+ …although this may be another reason TrueCharts are suggesting that a VM-based replacement would require less system overhead than the system as it currently exists. They expect to have their beta out early next month.
+ <forum-user-masked>
+ June 6, 2024, 1:26pm
+ 6 
+ But even with less CPU overhead I don’t want my files to live inside the VM zvol (which is a filesystem, e.g. ext4 on top of the zfs filesystem). Nor do I want to create a dedicated zvol for files inside the VM and I don’t want to make the files available to the VM via NFS or SMB either for performance, compatibility and security reasons. Even if virtiofs could be used to mount host directories inside a VM on SCALE (which currently isn’t possible) that would still cause a noticeable performance hit. I’m curious what they come up with of course but I don’t see how this could become great.
+ <forum-user-masked>
+ June 6, 2024, 1:52pm
+ 7 
+ The biggest problem I have with NFS is how it handles nested datasets–if I have datasets of video and video/tv , and expose video via SMB, everything in video/tv is available as well (as long as permissions allow it). No so with NFS; I need to separately mount both video and video/tv .
+ As to performance, I expect my pool is going to be the limiting factor rather than either network protocol (and if the VM is running on my NAS, the network itself won’t be a limit at all). If I were running a big, all-NVMe pool, I might worry about performance, but mine is all spinners; I don’t expect it to be a problem.
+ But everyone’s needs are different. You may find that k3s in a sandbox is a better way for you to go. That isn’t what TC say they’re doing; I expect at least part of their reason is to move as far away as possible from anything iX controls, and wouldn’t blame them in the least if that were the case. But it’s a possibility. Or use their migration solution, which they’re suggesting will be VM-based. Or set up your own Kubernetes-compatible cluster and manage it however you like. Or ditch k3s and apps entirely, and run Docker in a sandbox. Or use whatever iX comes up as an apps system in 24.10. Or no doubt other possibilities I’m not even thinking of.
+ <forum-user-masked>
+ June 6, 2024, 2:03pm
+ 8 
+ dan:
+ The biggest problem I have with NFS is how it handles nested datasets–if I have datasets of video and video/tv , and expose video via SMB, everything in video/tv is available as well (as long as permissions allow it). No so with NFS; I need to separately mount both video and video/tv .
+ Just for reference, this is also true of mounting datasets inside BSD jails.
+ <forum-user-masked>
+ June 6, 2024, 7:36pm
+ 9 
+ With jailmaker you have the systemd-nspawn --inaccessible flag which could be used to prevent this I think. systemd-nspawn 
+ <forum-user-masked>
+ June 6, 2024, 11:28pm
+ 10 
+ Also, I think specifying norbind as a bind option could restore the nfs style behavior, as opposed to the default recursive bind rbind 
+ <forum-user-masked>
+ July 23, 2024, 6:08pm
+ 11 
+ What helps for me is to reboot the TrueNAS server.
+The CPU usage is still there by the k3s-server process, but it’s less than before the reboot.
+ Server 1:
+ image 3052×644 169 KB 
+ Server 2:
+ image 3052×644 248 KB 
+ <forum-user-masked>
+ July 23, 2024, 6:30pm
+ 12 
+ Well, Electric Eel will “solve” this issue…
+ <forum-user-masked>
+ July 23, 2024, 6:34pm
+ 13 
+ In October…
+ <forum-user-masked>
+ July 23, 2024, 9:32pm
+ 14 
+ You can “unset” the apps pool to solve the problem right now
+ (Of course, the apps will stop working, not a problem if you’re running docker in a sandbox instead)
+ <forum-user-masked>
+ July 23, 2024, 10:03pm
+ 15 
+ Or, you know, just deal. 10% (of one core, which is often omitted from the discussion) used for k3s [1] ? You still have 90% of that core, and 100% of the others, to use for whatever else you need (like running the NAS, for example). I have to suggest that if 10% of one core is that big of a problem, your hardware really isn’t suitable for TrueNAS (or at least for running apps on TrueNAS).
+ Over the past 24 hours, my UGREEN NAS running SCALE 24.04.2 reports an average CPU idle time of 94% on its i5-1235U. That’s with 13 TrueCharts apps installed and running, as well as a TalOS VM. So even with a pretty low-end CPU, it’s not taking 10% of the whole CPU. ↩︎ 
+ Related topics
+ Topic
+ Replies
+ Views
+ Activity
+ Higher CPU usage / consumption after upgrading to Scale 24.04.2 
+ TrueNAS General 
+ SCALE 
+ , 
+ Hardware 
+ , 
+ Performance 
+ 4 
+ <forum-user-masked>
+ August 28, 2024
+ TrueNAS SCALE Dragonfish, I hate it. How do I roll back? 
+ TrueNAS General 
+ SCALE 
+ 10 
+ <forum-user-masked>
+ August 9, 2024
+ Disable all functions other than NAS? 
+ TrueNAS General 
+ 8 
+ <forum-user-masked>
+ July 7, 2026
+ Run occ in nextcloud 
+ Apps and Virtualization 
+ SCALE 
+ 13 
+ <forum-user-masked>
+ September 16, 2024
+ Cannot saturate disk IO or CPU on writes 
+ TrueNAS General 
+ CORE 
+ , 
+ Performance 
+ , 
+ ZFS 
+ 21 
+ <forum-user-masked>
+ January 4, 2025
+ Home 
+ Categories 
+ Guidelines 
+ Terms of Service 
+ Privacy Policy 
+ Powered by Discourse , best viewed with JavaScript enabled

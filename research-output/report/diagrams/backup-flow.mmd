@@ -1,0 +1,29 @@
+flowchart LR
+  subgraph BOX["OneMind box"]
+    V["App volumes<br/>(Retain storage class)"]
+    DB["App databases<br/>(app-consistent dumps)"]
+    K["k3s datastore<br/>1 box: SQLite online .backup<br/>3+ servers: etcd snapshot"]
+    T["k3s token, node password,<br/>encryption config"]
+    R["restic<br/>encrypt + dedupe"]
+    V --> R
+    DB --> R
+    K --> R
+    T --> R
+  end
+  R --> L["Local copy<br/>(second disk / another box)"]
+  R --> O["Off-site copy<br/>(any S3: Garage, MinIO, provider)"]
+  subgraph KEYS["One repository, three keys"]
+    K1["Box key (TPM-sealed later)"]
+    K2["Owner recovery key<br/>(printed emergency kit)"]
+    K3["Optional escrow key"]
+  end
+  KEYS -.-> R
+  subgraph DRILL["Proof the backup works"]
+    D1["Daily: restic check<br/>(read a data subset)"]
+    D2["Weekly: scratch restore<br/>+ app probes (fresh signals)"]
+    D3["Dashboard: 'last verified<br/>restore: 3 hours ago'"]
+    D1 --> D2 --> D3
+  end
+  L --> DRILL
+  O --> DRILL
+  O --> NEW["Whole-box restore onto new<br/>hardware: same k3s version,<br/>same node name, original token"]

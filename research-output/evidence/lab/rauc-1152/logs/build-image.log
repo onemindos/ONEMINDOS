@@ -1,0 +1,70 @@
+[build 07:19:36] verify k3s artifacts against the release sha256sum file
+k3s-airgap-images-amd64.tar.zst: OK
+k3s: OK
+[build 07:19:36] lab PKI
+[build 07:19:37] mmdebstrap amd64 trixie
+I: installing remaining packages inside the chroot...
+I: cleaning package lists and apt cache...
+I: success in 268.5855 seconds
+rauc 1.15.2
+Debian rauc package: not installed (expected)
+[build 07:24:06] customise rootfs
+[build 07:25:12] grub-mkstandalone (x86_64-efi)
+[build 07:25:12] ext4 images (rootfs 676 MiB)
+[build 07:25:23] rauc bundles
+rauc-Message: 02:25:38.255: No keyring given, skipping signature verification
+rauc-Message: 02:25:50.267: No keyring given, skipping signature verification
+rauc-Message: 02:26:02.403: No keyring given, skipping signature verification
+rauc-Message: 02:26:19.910: No keyring given, skipping signature verification
+rauc-Message: 02:26:32.793: No keyring given, skipping signature verification
+rauc-Message: 02:26:43.149: No keyring given, skipping signature verification
+rauc-Message: 02:27:01.383: No keyring given, skipping signature verification
+rauc-Message: 02:27:17.526: No keyring given, skipping signature verification
+[good] rauc-Message: 02:27:17.634: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[good] Version:        '2'
+[good] Bundle Format:  verity
+[bad-k3s] rauc-Message: 02:27:17.644: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-k3s] Version:        '3'
+[bad-k3s] Bundle Format:  verity
+[bad-noagent] rauc-Message: 02:27:17.653: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-noagent] Version:        '4'
+[bad-noagent] Bundle Format:  verity
+[bad-boot] rauc-Message: 02:27:17.662: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-boot] Version:        '5'
+[bad-boot] Bundle Format:  verity
+[bad-hang] rauc-Message: 02:27:17.670: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-hang] Version:        '6'
+[bad-hang] Bundle Format:  verity
+[naive-noagent] rauc-Message: 02:27:17.679: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[naive-noagent] Version:        '7'
+[naive-noagent] Bundle Format:  verity
+[plain-good] rauc-Message: 02:27:18.003: Verified detached signature by 'O = OneMind LAB, CN = lab-signer'
+[plain-good] Version:        '2'
+[plain-good] Bundle Format:  plain
+[wrong-key] rejected by rauc info (expected)
+[build 07:27:18] disk image
+Number  Start (sector)    End (sector)  Size       Code  Name
+   1            2048          264191   128.0 MiB   EF00  esp
+   2          264192         4458495   2.0 GiB     8300  rootfs-A
+   3         4458496         8652799   2.0 GiB     8300  rootfs-B
+   4         8652800        29360094   9.9 GiB     8300  data
+520738893 /var/lab/r1152-out/bad-boot.raucb
+520738893 /var/lab/r1152-out/bad-hang.raucb
+520742989 /var/lab/r1152-out/bad-k3s.raucb
+520742989 /var/lab/r1152-out/bad-noagent.raucb
+520742989 /var/lab/r1152-out/good.raucb
+520742989 /var/lab/r1152-out/naive-noagent.raucb
+516667087 /var/lab/r1152-out/plain-good.raucb
+520742995 /var/lab/r1152-out/wrong-key.raucb
+[build 07:28:07] kernel 6.12.116+deb13-amd64; done
+cdbde1ecb6f20383b6edac2309580bdbf94d9ff30a8bea5e414276f9c188c60a  disk.img
+b4d52210e7c26b7763a98c28a82b50dd0075e7a80ecca118b6589aca65d891fe  bad-boot.raucb
+61bcbdeddadbf303a3f7f6f171f04976aeb7f1fc842d0dab69d9a5dc5c89a574  bad-hang.raucb
+218a2bd2c26a0cd9a3d73e958fe44b3cff8932624c39c600f6ffad20a61497e1  bad-k3s.raucb
+4d7ec7da4005104660cf748b4c091551843461d43c2dead9c7c249ec03ffa034  bad-noagent.raucb
+6a9fc36731b76e0cebb6d6e9403e8742fdabcf9ca1964fcce5c0ad342b572955  good.raucb
+33bb17d6d983111930e88e9ae369abddde8f2425dd8e005d30cfd7836cbcf367  naive-noagent.raucb
+fc2da1b63c3e9c0ff7773888779ab9518880eecd307233a9878263b4c5a6cb9a  plain-good.raucb
+145069e381e19b7a354ebfa917f2da23bab195cb2164b93c90c774cff9700de5  wrong-key.raucb
+004ec1878392c3b00636888515280b5c6aa5113768ca0b7f41c870f9d4e2c033  grub.cfg
+4efef40600bd58b8cba109f074f7d36a3d23c656243ab5abd1a82c4a1dbee0bc  lab-ca.cert.pem

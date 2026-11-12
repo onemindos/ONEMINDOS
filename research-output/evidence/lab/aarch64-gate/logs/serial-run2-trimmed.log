@@ -1,0 +1,53 @@
+##### [08:04:11] T1 first boot
+##### [08:04:11] QEMU START qemu-system-aarch64 -machine virt -accel kvm -cpu host -smp 4 -m 3072 -nodefaults -display none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/sha
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 default=1
+HEALTH-GATE: 13:04:27 start slot=A version=1 mode=committed env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 ]
+HEALTH-GATE: 13:04:27 RESULT committed-boot slot=A version=1
+[?2004hroot@onemind-lab:~# HEALTH-GATE: 13:11:18 K3S-FRESH ALERT not healthy after 300s on a committed slot: fail: apiserver /readyz not ok (no rollback)
+[?2004l--- state:T1
+ONEMIND_VERSION=1
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+Booted from: rootfs.0 (A)
+      boot status: [31mbad[0m
+      boot status: [32mgood[0m
+pending: none
+apps             broken-app-5d6b874ccd-ffkvw               0/1   ContainerCreating   0     6m44s
+kube-system      coredns-577d995dff-ffmhf                  0/1   ContainerCreating   0     6m44s
+kube-system      helm-install-gateway-api-crd-k8qnh        0/1   ContainerCreating   0     6m24s
+kube-system      local-path-provisioner-56c6584955-gw4jz   0/1   ContainerCreating   0     6m37s
+onemind-system   onemind-core-dc87b89b8-csm5k              0/1   ContainerCreating   0     6m26s
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+[?2004lrauc v1.15.2
+bundle-formats=verity
+ARCH=aarch64 KERNEL=6.12.116+deb13-arm64
+##### [08:12:53] T2 wrong-key bundle
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+LastError: signature verification failed: Verify error: unable to get local issuer certificate
+##### [08:12:54] install wrong-key.raucb rc=1 in 0s
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [08:12:54] T11 plain-format bundle, valid signature, verity-only policy
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+LastError: Bundle format 'plain' not allowed
+##### [08:13:21] install plain-good.raucb rc=1 in 26s
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [08:13:22] T3 good update -> B
+[?2004lpre-install: trial marker slot=B version=2

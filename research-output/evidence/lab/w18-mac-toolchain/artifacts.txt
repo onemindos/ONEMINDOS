@@ -1,0 +1,5 @@
+0
+2.9G	/home/<user>.guest/b-arm64
+966M	/home/<user>.guest/b-x86
+-rw-rw-r-- 1 <user> <user> 41355776 Nov 10 20:17 /home/<user>.guest/b-arm64/arch/arm64/boot/Image
+-rw-rw-r-- 1 <user> <user> 14377984 Nov 10 20:19 /home/<user>.guest/b-x86/arch/x86/boot/bzImage

@@ -1,0 +1,29 @@
+# U-SB environment probe, 2026-11-11T15:56:15Z
+## host resolver (getaddrinfo)
+example.org resolves
+kernel.org resolves
+fedoraproject.org resolves
+deb.debian.org resolves
+github.com resolves
+ubuntu.com does-not-resolve
+canonical.com does-not-resolve
+archive.ubuntu.com does-not-resolve
+security.ubuntu.com does-not-resolve
+## lab VM resolver (getent, via the VM's default DNS)
+deb.debian.org resolves
+github.com resolves
+archive.ubuntu.com does-not-resolve
+security.ubuntu.com does-not-resolve
+## lab VM tool versions
+13.7
+6.12.115+deb13.1-cloud-arm64
+efitools 1.9.2-3.5
+mmdebstrap 1.5.7-1+deb13u1
+ovmf 2025.02-8+deb13u1
+python3-virt-firmware 24.11-2
+qemu-system-x86 1:10.0.13+ds-0+deb13u1
+sbsigntool 0.9.4-3.2+deb13u1
+swtpm 0.7.1-1.5
+systemd-ukify 257.13-1~deb13u1
+ubuntu-keyring 2023.11.28.1-0.2
+## not done: no alternative resolver or mirror was used for the build (README §4 BLOCKED rule)

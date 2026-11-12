@@ -1,0 +1,5 @@
+##### [00:01:40] E1 boot normally (Secure Boot on)
+##### [00:01:40] QEMU START qemu-system-x86_64 -machine q35,smm=on -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -global driver=cfi.pflash01,property=secure,value=on -global ICH9-LPC.disable_s3=1 -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd -drive if=pflash,format=raw,unit=1,file=/var/lab/sbrun2/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/sbrun2/disk.img -drive if=virtio,format=raw,readonly=on,file=/var/lab/sbrun2/bundles.img -chardev socket,id=chrtpm,path=/var/lab/sbrun2/swtpm.sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 -serial stdio -monitor none
+##### [00:02:27] E1 simulate 'both OneMind entries unbootable': BootNext -> firmware auto entry 0001
+##### [00:03:21] E1 RESULT: kernel(UKI) version=1 rootfs version=5 SecureBoot=enabled data=UNLOCKED gate=('mark-good', 'A', 5)
+##### [00:03:23] QEMU EXIT (poweroff)

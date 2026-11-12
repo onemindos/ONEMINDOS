@@ -1,0 +1,46 @@
+SOURCE: https://github.com/Start9Labs/start-technologies/issues/4454
+ACCESSED: 2026-11-11
+STATE: OPEN created 2026-10-27T23:47:22Z closed -
+TITLE: An Updating entry can't recover at boot — retry records the old archive, and a failed rollback has no exit (service/mod.rs:532)
+
+### Environment
+
+- StartOS 0.4.0.4. Code read at `start-os/v0.4.0.4` (`1191ccb41`). Every line cited below is the same on `master` (`695b6f38b`).
+- Area: service runtime (update recovery at boot and on `package rebuild`).
+- Found while handling support chat 229 (see #4453), and split out of #4450.
+
+### What happens
+
+`Service::load` resolves an entry left in `Updating` on every boot and on `package rebuild`. An entry gets left there by a reboot mid-update, or by a failed update whose rollback errors. Two things go wrong when that happens:
+
+1. **A successful retry records the old archive.** The retry installs from the update's s9pk but records the entry's previous archive path alongside the new manifest. The boot prune then deletes the update's archive. The next load runs the previous version's code against data the new version may already have migrated.
+2. **A failed rollback strands the entry.** The rollback reopens the entry's previous archive. If that fails, the entry stays `Updating` for good. In support chat 229 it failed because the archive had been deleted (#4453). Install and sideload refuse the entry, uninstall refuses it, and rebuild or reboot only repeats the failing rollback. The only recovery is restoring the archive by hand.
+
+### What should happen instead
+
+- A successful retry records the archive it installed from.
+- An `Updating` entry whose rollback can't complete keeps a supported exit. That could be installing a version that accepts the entry's data version over it, or an uninstall that keeps the volume. Which one is a design call.
+
+### Root cause / code pointers
+
+Found by reading code, not reproduced.
+
+1. The `Updating` retry opens the s9pk at `UpdatingState.s9pk` (`service/mod.rs:519-523`) but passes the entry's top-level `s9pk` path (`:469`) to `Self::install` (`:532-540`). `Service::install` writes that path to the entry (`:753`). The boot prune keeps only top-level `s9pk` paths (`context/rpc.rs:541-563`), so it deletes the update's archive. Neither the old version's archive nor its cleanup has been touched, so the next load opens the old archive under the new manifest. The `Installing` retry (`:483-491`) passes the same field, but for `Installing` that field already holds the new archive.
+2. The rollback opens the entry's previous archive (`service/mod.rs:555`) before it changes the state. Any error there leaves the entry `Updating` and logs `Update rollback failed for <id>` (`:605`). No supported command gets the entry out:
+   - `package install` and sideload require `Installed` (`service_map.rs:288`, `expect_installed()`).
+   - `package uninstall` requires `Installed` (`service_map.rs:482-487`).
+   - `package rebuild` reruns the same load (`service/mod.rs:904-906`).
+   - `package cancel-install` acts only while an install task is alive in the current boot (`install/mod.rs:314`).
+
+   After one reboot the prune has also removed the update's archive, so the retry (`:520-521`) is skipped and every later load goes straight to the failing rollback.
+
+### Logs & evidence
+
+From support chat 229, after a failed downgrade over a deleted archive (#4450, #4453):
+
+```
+2026-10-27T18:29:08Z ERROR load:load: service/mod.rs:605: Update rollback failed for lnd: Not Found: /media/startos/data/package-data/archive/installed/ci7w2kxdmhax4njgdw6lmaircursmi3j4srhzamcj52f44vtvobq.s9pk
+```
+
+The fix there was restoring the archive from the release asset at that exact path and running `package rebuild`, which completed the rollback.
+

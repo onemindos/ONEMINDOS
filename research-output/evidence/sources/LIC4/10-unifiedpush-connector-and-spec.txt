@@ -1,0 +1,25 @@
+# UnifiedPush android-connector
+
+This library enables end user applications to easily integrate UnifiedPush.
+This library communicates with distributor apps and handles things such as registration, unregistration, and receiving push messages.
+
+More formally, this library implements the end user application part of the [UnifiedPush Android specification](https://unifiedpush.org/developers/spec/android/) (so you don't have to).
+
+## Documentation
+
+- The [example application](https://codeberg.org/UnifiedPush/android-example) shows the basic usage of this library.
+- The library documentation is available at <https://unifiedpush.org/kdoc/>.
+- General documentation is available at <https://unifiedpush.org>.
+
+--- connector/build.gradle (dependency lines) ---
+65:    // https://github.com/tink-crypto/tink-java-apps/pull/5
+66:    implementation 'com.google.crypto.tink:tink:1.23.0' // Remove once merged
+67:    // implementation "com.google.crypto.tink:apps-webpush:1.11.0" // Uncomment once merged
+
+--- specifications/README.md + tree ---
+# UP-spec
+
+UnifiedPush Specifications
+android.md
+dbus
+dbus.md

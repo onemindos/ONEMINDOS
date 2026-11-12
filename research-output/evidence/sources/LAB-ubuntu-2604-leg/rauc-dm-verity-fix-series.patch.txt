@@ -1,0 +1,176 @@
+Source: https://github.com/rauc/rauc/commit/<sha> for each patch below (pinned by full SHA). Accessed 2026-11-11. Emails masked.
+
+======== abeccdc5406e
+From abeccdc5406e490a075c2b7ca017bf3e80b6b129 Mon Sep 17 00:00:00 2001
+From: Jan Luebbe <<email-masked>>
+Date: Fri, 2 Jan 2026 17:28:18 +0100
+Subject: [PATCH] src/dm: align error messages for unknown DM type
+
+Signed-off-by: Jan Luebbe <<email-masked>>
+---
+ src/dm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/dm.c b/src/dm.c
+index e1c1c1d94..b08a64a12 100644
+--- a/src/dm.c
++++ b/src/dm.c
+@@ -132,7 +132,7 @@ gboolean r_dm_setup(RaucDM *dm, GError **error)
+ 	else if (dm->type == RAUC_DM_CRYPT)
+ 		g_strlcpy(setup.header.name, "rauc-crypt-bundle", sizeof(setup.header.name));
+ 	else
+-		g_error("unknown dmtype");
++		g_error("unknown dm type");
+ 
+ 	if (ioctl(dmfd, DM_DEV_CREATE, &setup)) {
+ 		int err = errno;
+@@ -173,7 +173,7 @@ gboolean r_dm_setup(RaucDM *dm, GError **error)
+ 					dm->lower_dev) >= (gint)sizeof(setup.params);
+ 			break;
+ 		default:
+-			g_error("unknown dm typ");
++			g_error("unknown dm type");
+ 			break;
+ 	}
+ 	if (ret) {
+
+======== a40986fe3ab2
+From a40986fe3ab213f9856bca7f64e7bc4a2e1ea6e6 Mon Sep 17 00:00:00 2001
+From: Jan Luebbe <<email-masked>>
+Date: Fri, 2 Jan 2026 17:50:00 +0100
+Subject: [PATCH] src/dm: factor out dm table status check
+
+This prepares for a more complex status check.
+
+Signed-off-by: Jan Luebbe <<email-masked>>
+---
+ src/dm.c | 39 ++++++++++++++++++++++++++-------------
+ 1 file changed, 26 insertions(+), 13 deletions(-)
+
+diff --git a/src/dm.c b/src/dm.c
+index b08a64a12..a137e4251 100644
+--- a/src/dm.c
++++ b/src/dm.c
+@@ -68,20 +68,36 @@ static const gchar* dmtype_to_str(RaucDMType dmtype)
+ 	}
+ }
+ 
+-static const gchar* dmstatus_by_dmtype(RaucDMType dmtype)
++static gboolean check_status(RaucDMType dmtype, const char *params, GError **error)
+ {
+-	switch (dmtype) {
+-		case RAUC_DM_VERITY:
+-			return "V";
+-		case RAUC_DM_CRYPT:
+-			return "\0";
+-		default:
+-			return "unknown";
++	g_return_val_if_fail(error == NULL || *error == NULL, FALSE);
++
++	if (dmtype == RAUC_DM_VERITY) {
++		if (g_strcmp0(params, "V") != 0) {
++			g_set_error(error,
++					G_FILE_ERROR,
++					G_FILE_ERROR_FAILED,
++					"Unexpected dm-verity status '%s' (instead of 'V')", params);
++			return FALSE;
++		}
++	} else if (dmtype == RAUC_DM_CRYPT) {
++		if (g_strcmp0(params, "\0") != 0) {
++			g_set_error(error,
++					G_FILE_ERROR,
++					G_FILE_ERROR_FAILED,
++					"Unexpected dm-crypt status '%s' (instead of '\\0')", params);
++			return FALSE;
++		}
++	} else {
++		g_error("unknown dm type");
+ 	}
++
++	return TRUE;
+ }
+ 
+ gboolean r_dm_setup(RaucDM *dm, GError **error)
+ {
++	GError *ierror = NULL;
+ 	gboolean res = FALSE;
+ 	int dmfd = -1;
+ 	int checkfd = -1;
+@@ -246,11 +262,8 @@ gboolean r_dm_setup(RaucDM *dm, GError **error)
+ 		res = FALSE;
+ 		goto out_remove_dm;
+ 	}
+-	if (g_strcmp0(setup.params, dmstatus_by_dmtype(dm->type)) != 0) {
+-		g_set_error(error,
+-				G_FILE_ERROR,
+-				G_FILE_ERROR_FAILED,
+-				"Unexpected dm-%s status '%s' (instead of '\\0')", dmtype_to_str(dm->type), setup.params);
++	if (!check_status(dm->type, setup.params, &ierror)) {
++		g_propagate_error(error, ierror);
+ 		res = FALSE;
+ 		goto out_remove_dm;
+ 	}
+
+======== a45cdb14df26
+From a45cdb14df267beb8c1bd3c96448ac0b94ad977f Mon Sep 17 00:00:00 2001
+From: Jan Luebbe <<email-masked>>
+Date: Fri, 2 Jan 2026 18:39:33 +0100
+Subject: [PATCH] src/dm: fix compatibility with new dm-verity output in since
+ v6.19-rc1
+
+In [1], the dm-verity status output was extend with the number of blocks
+corrected by FEC (which we don't use). Split the status output on spaces
+and check only the first field to fix compatibility.
+
+[1] https://git.kernel.org/linus/ae97648e14f7907f4b0e0b295eb2fdcf43806f9d
+
+Fixes: #1842
+Reported-by: Nuno Goncalves <<email-masked>>
+Signed-off-by: Jan Luebbe <<email-masked>>
+---
+ src/dm.c | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/src/dm.c b/src/dm.c
+index a137e4251..467bcf046 100644
+--- a/src/dm.c
++++ b/src/dm.c
+@@ -70,22 +70,34 @@ static const gchar* dmtype_to_str(RaucDMType dmtype)
+ 
+ static gboolean check_status(RaucDMType dmtype, const char *params, GError **error)
+ {
++	g_return_val_if_fail(params != NULL, FALSE);
+ 	g_return_val_if_fail(error == NULL || *error == NULL, FALSE);
+ 
++	g_auto(GStrv) split = g_strsplit(params, " ", -1);
++
+ 	if (dmtype == RAUC_DM_VERITY) {
+-		if (g_strcmp0(params, "V") != 0) {
++		/* https://docs.kernel.org/admin-guide/device-mapper/verity.html#status */
++		if (g_strv_length(split) < 1) {
++			g_set_error(error,
++					G_FILE_ERROR,
++					G_FILE_ERROR_FAILED,
++					"Unexpected empty dm-verity status '%s' (instead of 'V')", params);
++			return FALSE;
++		}
++		if (g_strcmp0(split[0], "V") != 0) {
+ 			g_set_error(error,
+ 					G_FILE_ERROR,
+ 					G_FILE_ERROR_FAILED,
+-					"Unexpected dm-verity status '%s' (instead of 'V')", params);
++					"Unexpected dm-verity check status '%s' (instead of 'V')", split[0]);
+ 			return FALSE;
+ 		}
+ 	} else if (dmtype == RAUC_DM_CRYPT) {
+-		if (g_strcmp0(params, "\0") != 0) {
++		/* status should be empty for dm-crypt */
++		if (g_strv_length(split) != 0) {
+ 			g_set_error(error,
+ 					G_FILE_ERROR,
+ 					G_FILE_ERROR_FAILED,
+-					"Unexpected dm-crypt status '%s' (instead of '\\0')", params);
++					"Unexpected dm-crypt status '%s' (instead of '')", params);
+ 			return FALSE;
+ 		}
+ 	} else {

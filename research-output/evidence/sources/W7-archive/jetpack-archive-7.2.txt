@@ -1,0 +1,147 @@
+JetPack SDK Downloads and Notes Archive | NVIDIA Developer 
+ NVIDIA JetPack SDK Downloads and Notes
+ JetPack 7.2 with Jetson Linux 39.2
+ Access release notes, packages, and resources for NVIDIA JetPack 7.2 with Jetson Linux 39.2, CUDA 13.2.1, TensorRT 10.16.2, and Jetson Agentic AI resources, including Jetson agent skills and agentic workflow tools.
+ Download the JetPack ISO and Yocto Images for developer kits here. By downloading and using the software, you agree to fully comply with the terms and conditions of the NVIDIA Software License Agreement .
+ Download JetPack ISO Image Download SDK Manager 
+ Yocto for Jetson AGX Thor
+ Yocto for Jetson AGX Orin
+ Yocto for Jetson Orin Nano
+ NOTE: See the Jetson AGX Thor Developer Kit Quick Start Guide for flashing steps and the Jetson Linux Developer Guide (Flashing Support section) for all flashing methods for developer kits and production modules . See the Quick Start Guide with Yocto for flashing steps on the dev-kits.    
+ Release Information
+ NVIDIA JetPack 7.2 with Jetson Linux 39.2. This release includes highlights of what's new, supported Jetson hardware platforms, and a complete list of included library and SDK versions. 
+ What's New
+ NOTE: For full details, refer to Jetson Linux release notes .
+ Jetson Linux 39.2 is the latest Jetson Linux release that supports NVIDIA JetPack 7.2. The following are the highlights for this release: 
+ Adds support for the Jetson Orin product family within JetPack 7 releases. 
+ Introduces native support for single-command NemoClaw installation on developer kits. 
+ Introduces Jetson agent skills helping build, configure, optimize and measure performance of the BSP and OSS AI models. 
+ Enables Multi-Instance GPU (MIG) on Jetson Thor T5000 as a technology preview feature. 
+ Adds support for Jetson AGX Orin 32GB Super Mode (MAXN_SUPER) increasing performance from 200 TOPS to 241 TOPS. 
+ Introduces a unified ISO-based installation method for both Jetson Orin and Jetson Thor developer kits. 
+ Provides official Yocto recipes for Jetson Orin and Jetson Thor platforms through the OE4T GitHub repository . 
+ Includes Jetson SIPL API Package v2.0.0, expanding SIPL camera support and introducing a unified camera framework for GMSL and CoE use cases. 
+ BLOG POST : Learn more about the key features in this release in the supporting blog post here .
+ NOTES : 
+ With JetPack 7 series, Jetson software aligns with the Server Base System Architecture (SBSA), positioning Jetson Thor alongside industry-standard ARM server design. SBSA standardizes critical hardware and firmware interfaces, delivering stronger OS support, simpler software portability, and smoother enterprise integration. Building on this foundation, Jetson Thor now supports a unified NVIDIA® CUDA® 13.0 installation across all Arm targets, streamlining development, reducing fragmentation, and ensuring consistency from server-class systems to Jetson Thor. 
+ The manual flashing instructions have slightly changed because of Thor using SBSA architecture. Please follow the manual flashing instructions carefully. 
+ There is no more SD Card image for Jetson Orin Nano Developer Kit. Use the unified ISO image to flash the developer kit using a USB stick. Follow the instructions on Getting Started Guide . 
+ If you’re re-installing JetPack 7.0 using ISO on an already installed system, please carefully follow the instructions in the Getting Started Guide . 
+ Supported Hardware
+ Jetson AGX Thor Developer Kit
+Jetson T5000
+Jetson T4000
+Jetson Orin Family
+ Supported Libraries and SDK versions
+ Operating System
+ Jetson Linux
+ 39.2
+ Kernel
+ k6.8
+ Distro
+ L4T Ubuntu 24.04
+ Other Supported Linux Distros
+ Canonical Ubuntu 24.04 for Jetson
+ AI Compute
+ NVIDIA CUDA®
+ 13.2.1
+ NVIDIA CuDNN
+ 9.20.0
+ NVIDIA TensorRT™
+ 10.16.2
+ Graphics
+ Vulkan
+ 1.4
+ Vulkan SC
+ 1.0
+ OpenWF DIsplay
+ Not supported
+ OpenGL
+ 4.6
+ OpenGLES
+ 3.2
+ GLX
+ 1.4
+ EGL
+ 1.5
+ Multimedia
+ V4L2
+ 1.22.1
+ Computer Vision
+ VPI
+ 4.1.3
+ PVA
+ 2.9.1
+ NVIDIA Nsight™ Developer Tools
+ Nsight Systems
+ 2026.3
+ Nsight Graphics
+ 2025.3
+ Nsight Deep Learning Designer
+ 2025.2
+ Nsight Perf SDK
+ 2025.4
+ Supported SDKs and Tools
+ Jetson Platform Services
+ N/A
+ NVIDIA DeepStream SDK
+ 9.1
+ NVIDIA Isaac™ ROS
+ Coming soon
+ NVIDIA Holoscan SDK
+ 3.9.0
+ NVIDIA Triton™ Inference Server
+ Triton Container 
+ Power Estimator
+ 2.7
+ NVIDIA Container Toolkit
+ 1.19 (w/ ISO image)
+ Jetson Linux Downloads and Documents
+ NVIDIA Jetson Linux Driver Package is the board support package for Jetson. It includes Linux Kernel, UEFI bootloader, NVIDIA drivers, flashing utilities, sample filesystem based on Ubuntu, and more for the Jetson platform. 
+ Jetson Linux 39.2 (6/02/2026)
+ Drivers
+ Driver Package (BSP) 
+ Camera SIPL 
+ Sample Root Filesystem 
+ Jetson Linux API Reference 
+ Sources
+ Driver Package (BSP) Sources 
+ Sample Root Filesystem Sources 
+ Yocto Recipes
+ OE4T for Jetson 
+ Jetson AGX Thor Dev-Kit Image SBOM 
+ Jetson AGX Orin Dev-Kit Image SBOM 
+ Jetson Orin Nano Dev-Kit Image SBOM 
+ Tools
+ WebRTC 
+ Crosstool-NG Toolchain gcc 
+ Crosstool-NG Toolchain Sources 
+ CUDA Tools 
+ Bringup Frameworks Packages 
+ NVIDIA Nsight Systems 
+ NVIDIA Nsight Graphics 
+ FSKP Tools 
+ OTA Tools 
+ Agentic Links
+ NemoClaw 
+ Jetson Device-side Skills 
+ Jetson BSP Skills 
+ Documents
+ Jetson Linux Release Notes 
+ Jetson Linux Developer Guide 
+ Jetson Linux API Reference 
+ Jetson AGX Thor Developer Kit User Guide 
+ Camera Development Guide 
+ Debian Source Package SHA Hashes 
+ Debian Binary Package SHA Hashes 
+ Software License Agreement 
+ Additional Files
+ File
+ Supported hardware
+ Supported Software
+ Description
+ overlay_pcie.tbz2 
+ Jetson Orin Nano and Orin NX
+ JetPack 7.2/Jetson Linux 39.2
+ This overlay fixes an intermittent boot issue caused by initialization failures on some Jetson Orin Nano and Orin NX modules during power cycles or reboots
+ For older versions of JetPack or Jetson Linux, please visit the JetPack Archive or Jetson Linux Archive .

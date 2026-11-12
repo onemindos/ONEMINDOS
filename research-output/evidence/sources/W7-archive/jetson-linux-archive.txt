@@ -1,0 +1,473 @@
+Jetson Linux Archive | NVIDIA Developer 
+ Jetson Linux Archive
+ Jetson Linux 39.x
+ JETSON LINUX Version
+ Jetson T5000 
+ Jetson T4000 
+ Jetson AGX Orin
+ Jetson Orin NX
+ Jetson Orin Nano
+ 39.2.1 > 
+ August 2026 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 39.2 > 
+ June 2026 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ Jetson Linux 38.x
+ JETSON LINUX Version
+ Jetson T5000 
+ Jetson T4000 
+ Jetson AGX Orin
+ Jetson Orin NX
+ Jetson Orin Nano
+ 38.4 > 
+ January 2026 
+ ✔
+ ✔
+ 38.2/38.2.1 > 
+ August 2025 
+ ✔
+ Jetson Linux 36.x
+ JETSON LINUX Version
+ Jetson AGX Orin Industrial 
+ Jetson AGX Orin
+ Jetson Orin NX
+ Jetson Orin Nano
+ 36.5.2 > 
+ August 2026 
+ ✔
+ ✔
+ ✔
+ ✔
+ 36.5.0 > 
+ February 2026 
+ ✔
+ ✔
+ ✔
+ ✔
+ 36.4.4 > 
+ June 2025 
+ ✔
+ ✔
+ ✔
+ ✔
+ 36.4.3 > 
+ January 2025 
+ ✔
+ ✔
+ ✔
+ ✔
+ 36.4 > 
+ September 2024 
+ ✔
+ ✔
+ ✔
+ ✔
+ 36.3 > 
+ May 2024 
+ ✔
+ ✔
+ ✔
+ ✔
+ 36.2 > 
+ December 2023 
+ ✔
+ ✔
+ ✔
+ ✔
+ Jetson Linux 34.X/35.X
+ JETSON LINUX Version
+ Jetson AGX Orin 
+ Jetson AGX Orin Industrial 
+ Jetson Orin NX / Orin Nano
+ Jetson AGX Xavier
+ Jetson AGX Xavier Industrial
+ Jetson Xavier NX
+ 35.7.0 > 
+ October 2026 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 35.6.5 > 
+ July 2026 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 35.6.4 > 
+ February 2026 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 35.6.2 > 
+ May 2025 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 35.6.1 > 
+ March 2025 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 35.6.0 > 
+ September 2024 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 35.5.0 > 
+ February 2024 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 35.4.1 > 
+ August 2023 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 35.3.1 > 
+ March 2023 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 35.2.1 > 
+ January 2023 
+ ✔*
+ ✔**
+ ✔
+ ✔
+ ✔
+ 35.1 > 
+ August 2022 
+ ✔*
+ ✔
+ ✔
+ ✔
+ 34.1.1 > 
+ May 2022 
+ ✔
+ ✔
+ ✔
+ ✔
+ 34.1 > 
+ April 2022 
+ ✔
+ ✔
+ ✔
+ ✔
+ * Jetson AGX Orin 32GB Module 
+ ** Jetson Orin NX 16GB Module
+ Previous Jetson Linux Versions
+ JETSON LINUX Version
+ Jetson AGX Xavier 
+ Jetson AGX Xavier Industrial
+ Jetson Xavier NX
+ Jetson TX2 NX
+ Jetson TX2
+ Jetson TX2i
+ Jetson TX2 4GB
+ Jetson TX1
+ Jetson Nano
+ 32.7.6 > 
+ November 2024 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.7.5 > 
+ June 2024 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.7.4 > 
+ June 2023 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.7.3 > 
+ November 2022 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.7.2 > 
+ April 2022 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.7.1 > 
+ February 2022 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.6.1 > 
+ August 2021 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.5.2 > 
+ July 2021 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.5.1 > 
+ February 2021 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.5 > 
+ January 2021 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.4.4 > 
+ October 2020 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.4.3 > 
+ July 2020 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.4.2 > 
+ April 2020 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.3.1 > 
+ December 2019 
+ ✔*
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.2.3 > 
+ November 2019 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.2.1 > 
+ August 2019 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.2 > 
+ July 2019 
+ ✔
+ ✔
+ ✔
+ ✔
+ ✔
+ 32.1 > 
+ March 2019 
+ ✔
+ ✔
+ ✔
+ ✔
+ 31.1 > 
+ Nov. 2018 
+ ✔
+ 28.5 > 
+ July 2021 
+ ✔
+ ✔
+ ✔
+ 28.4 > 
+ July 2020 
+ ✔
+ ✔
+ ✔
+ 28.3.2 > 
+ November 2019 
+ ✔
+ ✔
+ ✔
+ 28.3.1 > 
+ July 2019 
+ ✔
+ ✔
+ ✔
+ 28.3 > 
+ April 2019 
+ ✔
+ ✔
+ ✔
+ 28.2.1 > 
+ June 2018 
+ ✔
+ ✔
+ 28.2 > 
+ March 2018 
+ ✔
+ ✔
+ 28.1 > 
+ July 2017 
+ ✔
+ ✔
+ 27.1 > 
+ March 2017 
+ ✔
+ 24.2.3 > 
+ May 2018 
+ ✔
+ 24.2.2 > 
+ Oct. 2017 
+ ✔
+ 24.2.1 > 
+ Sept. 2016 
+ ✔
+ 24.2 > 
+ Sept. 2016 
+ ✔
+ 24.1 > 
+ May 2016 
+ ✔
+ 23.2 > 
+ March 2016 
+ ✔
+ 23.1 > 
+ Nov. 2015 
+ ✔
+ * L4T 32.3.1 introduced support for Jetson AGX Xavier 900-82888-0040-000 (with 32 GB memory), which replaces previous version 900-82888-0000-000 (with 16 GB memory). Both versions continue to be supported.
+ Previous versions
+ L4T Version
+ Tegra K1
+ Tegra 30
+ Tegra 20
+ 21.8 > 
+ Nov 2019 
+ ✔
+ 21.7 > 
+ May 2018 
+ ✔
+ 21.6 > 
+ Oct 2017 
+ ✔
+ 21.5 > 
+ July 2016 
+ ✔
+ 21.4 > 
+ July 2015 
+ ✔
+ 21.3 > 
+ Feb 2015 
+ ✔
+ 21.2 > 
+ Dec 2014 
+ ✔
+ 21.1 > 
+ Nov 2014 
+ ✔
+ 19.3 > 
+ June 2014 
+ ✔
+ 16.5 > 
+ June 2014 
+ ✔
+ ✔
+ Join now

@@ -1,0 +1,87 @@
+EXCERPT of Regulation (EU) 2024/1689 (AI Act), EUR-Lex OJ:L_202401689 (original text, before Reg. 2026/1744), fetched 2026-11-10. Raw HTML sha256: d3aee3e6c2d27d2ed38c79128ca80697316421063f142b6c2b1700c3d9dfc9ae
+ 7.   Union law on the protection of personal data, privacy and the confidentiality of communications applies to personal data processed in connection with the rights and obligations laid down in this Regulation. This Regulation shall not affect Regulation (EU) 2016/679 or (EU) 2018/1725, or Directive 2002/58/EC or (EU) 2016/680, without prejudice to Article 10(5) and Article 59 of this Regulation.
+
+ 8.   This Regulation does not apply to any research, testing or development activity regarding AI systems or AI models prior to their being placed on the market or put into service. Such activities shall be conducted in accordance with applicable Union law. Testing in real world conditions shall not be covered by that exclusion.
+
+ 9.   This Regulation is without prejudice to the rules laid down by other Union legal acts related to consumer protection and product safety.
+
+ 10.   This Regulation does not apply to obligations of deployers who are natural persons using AI systems in the course of a purely personal non-professional activity.
+
+ 11.   This Regulation does not preclude the Union or Member States from maintaining or introducing laws, regulations or administrative provisions which are more favourable to workers in terms of protecting their rights in respect of the use of AI systems by employers, or from encouraging or allowing the application of collective agreements which are more favourable to workers.
+ (d)
+
+ the placing on the market, the putting into service for this specific purpose, or the use of an AI system for making risk assessments of natural persons in order to assess or predict the risk of a natural person committing a criminal offence, based solely on the profiling of a natural person or on assessing their personality traits and characteristics; this prohibition shall not apply to AI systems used to support the human assessment of the involvement of a person in a criminal activity, which is already based on objective and verifiable facts directly linked to a criminal activity;
+
+ (e)
+
+ the placing on the market, the putting into service for this specific purpose, or the use of AI systems that create or expand facial recognition databases through the untargeted scraping of facial images from the internet or CCTV footage;
+
+ (f)
+
+ the placing on the market, the putting into service for this specific purpose, or the use of AI systems to infer emotions of a natural person in the areas of workplace and education institutions, except where the use of the AI system is intended to be put in place or into the market for medical or safety reasons;
+
+ (g)
+
+ the placing on the market, the putting into service for this specific purpose, or the use of biometric categorisation systems that categorise individually natural persons based on their biometric data to deduce or infer their race, political opinions, trade union membership, religious or philosophical beliefs, sex life or sexual orientation; this prohibition does not cover any labelling or filtering of lawfully acquired biometric datasets, such as images, based on biometric data or categorizing of biometric data in the area of law enforcement;
+
+ (h)
+
+ the use of ‘real-time’ remote biometric identification systems in publicly accessible spaces for the purposes of law enforcement, unless and in so far as such use is strictly necessary for one of the following objectives:
+
+ (i)
+
+ This Regulation shall enter into force on the twentieth day following that of its publication in the Official Journal of the European Union.
+
+ It shall apply from 2 August 2026.
+
+ However:
+
+ (a)
+
+ Chapters I and II shall apply from 2 February 2025;
+
+ (b)
+
+ Chapter III Section 4, Chapter V, Chapter VII and Chapter XII and Article 78 shall apply from 2 August 2025, with the exception of Article 101;
+
+ (c)
+
+ Article 6(1) and the corresponding obligations in this Regulation shall apply from 2 August 2027.
+
+ This Regulation shall be binding in its entirety and directly applicable in all Member States.
+
+
+ remote biometric identification systems.
+
+ This shall not include AI systems intended to be used for biometric verification the sole purpose of which is to confirm that a specific natural person is the person he or she claims to be;
+
+ (b)
+
+ AI systems intended to be used for biometric categorisation, according to sensitive or protected attributes or characteristics based on the inference of those attributes or characteristics;
+
+ (c)
+
+ AI systems intended to be used for emotion recognition.
+
+ 2.
+
+ Critical infrastructure: AI systems intended to be used as safety components in the management and operation of critical digital infrastructure, road traffic, or in the supply of water, gas, heating or electricity.
+ Biometrics, in so far as their use is permitted under relevant Union or national law:
+
+ (a)
+
+ remote biometric identification systems.
+
+ This shall not include AI systems intended to be used for biometric verification the sole purpose of which is to confirm that a specific natural person is the person he or she claims to be;
+
+ (b)
+
+ AI systems intended to be used for biometric categorisation, according to sensitive or protected attributes or characteristics based on the inference of those attributes or characteristics;
+
+ (c)
+
+ AI systems intended to be used for emotion recognition.
+
+ 2.
+
+ Critical infrastructure: AI systems intended to be used as safety components in the management and operation of critical digital infrastructure, road traffic, or in the supply of water, gas, heating or electricity.

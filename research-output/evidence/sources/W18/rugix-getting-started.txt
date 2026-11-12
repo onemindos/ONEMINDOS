@@ -1,0 +1,217 @@
+Getting Started 🚀 — RugixSkip to main contentRugix Ctrl 1.4 is here: Faster delta updates, application configuration, and shared content storage. Read the release post.×
+Rugix
+DocsGeneralRugix CtrlRugix BakeryRugix Admin
+BlogFleet ManagementCyber Resilience ActSearch docsCtrl KClear
+Search across all documentation pages.
+Show more resultsTry again
+↑ ↓ NavigateEnter OpenEsc Close
+DocsGeneralRugix CtrlRugix BakeryRugix Admin
+BlogFleet ManagementCyber Resilience ActGitHub
+General
+Rugix Ctrl
+Rugix Bakery
+Rugix Admin
+VersionLatest▾Latestcurrent
+0.8.14archived
+0.7.5archived
+0.6archived
+EssentialsAbout Rugix
+Getting Started 🚀
+Production Checklist
+Upgrading from v0.8
+ExperimentsRugix Admin
+State Management Ideas
+DocumentationVersionLatest▾Latestcurrent
+0.8.14archived
+0.7.5archived
+0.6archived
+EssentialsAbout Rugix
+Getting Started 🚀
+Production Checklist
+Upgrading from v0.8
+ExperimentsRugix Admin
+State Management Ideas
+Getting Started 🚀
+Rugix is an open-source toolkit for building and maintaining robust
+Linux-powered products. This guide uses two of its tools: Rugix Bakery builds
+custom, OTA-ready Linux system images, and Rugix Ctrl manages robust system
+updates and persistent state on the device. Rugix Ctrl is available for
+systems built with Yocto, Buildroot, or other build systems.
+In less than 30 minutes, you will build a customized Debian system with
+over-the-air update support, boot it in a VM or on a Raspberry Pi, and install
+an update.1
+If you want to get started with Rugix Ctrl and Yocto instead of Rugix Bakery, check out Rugix’s Yocto layers.
+Setup and Installation
+First, you need to set up Rugix Bakery.
+Rugix Bakery requires a working Docker or Podman installation.
+On MacOS, please make sure to use the MacOS virtualization framework and VirtioFS, which is the default with recent versions of Docker Desktop.
+On Windows, please use WSL.2
+Rugix Bakery is compatible with 64-bit ARM and x86 systems running MacOS or Linux.3
+Rugix Bakery ships as a small shell script named run-bakery.
+The script runs an ephemeral Docker container with Rugix Bakery and sets everything up as required.
+To start a fresh project, create an empty directory and then run:
+curl -sfSO https://raw.githubusercontent.com/rugix/rugix-bakery/v0.9/container/run-bakery && chmod +x ./run-bakery
+This command will download the run-bakery shell script from Rugix’s GitHub repository and make it executable.
+You can then run Rugix Bakery with ./run-bakery.
+If you run ./run-bakery help you will get usage instructions.
+Emulation of Foreign Architectures
+If you want to build distributions for foreign architectures, you also need to configure binfmt_misc for emulation.4
+The easiest way to do so, and as we are already using Docker anyway, is by running the following command:
+docker run --privileged --rm tonistiigi/binfmt --install all
+This will allow you to build Linux distributions for a huge variety of different architectures.
+Initializing the Project
+Rugix Bakery comes with a set of project templates to help you get started quickly.5
+You can list the available templates with:
+./run-bakery init
+For this guide, we are using the quickstart-guide template.
+To initialize the project with this template run:
+./run-bakery init quickstart-guide
+You will notice that this command places various files and directories in the current working directory.
+The file rugix-bakery.toml is the project configuration file.
+It contains a set of system declarations for which you can build artifacts, like system images.
+The template specifies multiple systems as it gives you the option to build images for different devices.
+In addition, there are two directories recipes and layers.
+A recipe describes additions and modifications that should be made to a system being build and a layer combines multiple recipes.6
+Let’s now make some changes and customize our Debian variant.
+System Customization
+The template comes with a recipe hello-world which installs a simple static website into the system.
+If you like, you can open the file recipes/hello-world/html/index.html and make some changes to it.
+For instance, you can put your name there.
+Once you are done adjusting the page to your liking, open the file layers/customized.toml.
+As you can see, this file includes several recipes that contribute to the customized layer.
+In particular, the hello-world recipe appears here.
+Recipes may have parameters to configure what they do.
+To be able to later connect via SSH to the system, place your SSH key in the parameters section:
+layers/customized.toml[parameters."core/ssh"]
+root_authorized_keys = """
+<INSERT YOUR PUBLIC SSH KEY HERE>
+"""
+Congratulations! You made your first customizations. 🎉
+Info
+As you may have noticed by now, Rugix Bakery adopts a declarative approach: You declaratively define the system you want to build by combining recipes to layers and configuring them based on your needs and requirements.
+If you are able to write a Dockerfile for your application or configure a system with a shell, you should find it easy to write custom recipes for your application.
+For further details, check out the documentation on Rugix Bakery.
+Building an Image
+Now, to bring an actual device to life, you first need to build an image for it.
+An image is a binary blob that can be flashed onto a device or used with a VM.
+Let’s say that you would like to build an image for Raspberry Pi 4, you can do that by running:
+./run-bakery bake image customized-pi4
+This command will build an image build/customized-pi4/system.img that you can directly write to an SD card, e.g., with Raspberry Pi Imager.
+You can then put this SD card into a Raspberry Pi 4 and boot into the system that you just built.
+When visiting the IP address of the Raspberry Pi in your local network in a web browser, you should see the static website with the changes you made.
+If you don’t know the IP address, try http://rugix-template.local.
+In addition, you should be able to connect to the Raspberry Pi via SSH as the root user.
+For Raspberry Pi 5, use customized-pi5 instead of customized-pi4.
+The system declarations customized-efi-arm64 and customized-efi-amd64 can be used to build images for EFI-compatible 64-bit ARM and x86 devices, respectively, which you can directly write to an NVMe or USB drive and then boot from.
+Note
+Rugix Bakery will include Rugix Ctrl into the images.
+During the initial boot process, Rugix Ctrl, running on the system, will expand the partition table to match the actual size of the SD card, NVMe drive, or USB drive.
+Note that all images are based on the shared customized layer.
+Layers can build on top of each other and the device-specific layers use the customized layer as a basis.
+This makes it straightforward to build images for multiple devices.
+A typical use case would be to define a base layer with your application and then declare multiple systems for different devices and system testing.
+Running a VM
+While you could use the EFI-compatible images to manually create VMs, there is an easier way built directly into Rugix Bakery.
+For instance, to run a VM based on the customized-efi-arm64 system, run the following command:7
+./run-bakery run customized-efi-arm64
+If an image for customized-efi-arm64 has not been built previously, this command will first build an appropriate image, reusing any layers which have already been built previously.
+Afterwards, it will start the VM, which you should then see booting.
+When creating the Docker container for Rugix Bakery, the run-bakery shell script also sets up port forwarding for SSH.
+That means that you can now connect to the running VM directly from your terminal with:
+ssh -p 2222 -L 8080:localhost:80 root@127.0.0.1
+The option -L 8080:localhost:80 will also forward port 8080 on your machine to the port 80 of the VM.
+Hence, you can now view the static website installed into your system by opening http://localhost:8080 in your browser.
+Installing an Update
+At this point, you have customized the template and know how to built images for different devices with your customizations.
+Let’s say that you made some further changes to the website and would like to update an existing system, for instance, the VM that you started earlier.
+This is where Rugix Ctrl comes into play.
+Rugix Ctrl can install updates from Rugix update bundles (and in some cases system images).
+Rugix update bundles are based on a format specifically engineered for efficient and secure over-the-air updates.
+The format provides built-in support for cryptographic integrity checks, compression, and best-in-class delta updates.
+To build an update bundle for the customized-efi-arm64 system, run:
+./run-bakery bake bundle --disable-compression customized-efi-arm64
+We use --disable-compression here to not waste our time waiting for the compression.
+This command is also going to output a hash for verifying the bundle’s integrity.
+The hash will have the following form:
+sha512-256:<hex string>
+Note that this hash is not a hash over the entire bundle.
+Instead, it is only used to verify a bundle header, which contains further hashes for other parts of the bundle.
+This allows Rugix Ctrl to verify parts of the bundle individually and ensure that manipulated data is never written anywhere, even when streaming updates.8
+For the cryptography nerds, the hash is the root of a Merkle tree.
+After building the bundle, you can transfer it via scp to the earlier started VM:
+scp -P 2222 build/customized-efi-arm64/system.rugixb root@127.0.0.1:/root
+When the upload is complete, the bundle can be installed via SSH as an update with the following command:
+rugix-ctrl update install --bundle-hash <hash> /root/system.rugixb
+Here, <hash> is the bundle hash produced by the earlier bake command.
+Tip
+Rugix Ctrl is secure by design. Thus, it requires either a bundle hash or a signed bundle for installation.
+For development purposes, you can skip verification with --insecure-skip-bundle-verification.
+For further details, see the dedicated page on Signed Updates.
+This will install the bundle as an update and then reboot the system.
+You will be able to observe the reboot from the VM console (the terminal where ./run-bakery run is running).
+Rugix Ctrl’s update mechanism typically works by installing the update separately from the previous system (using redundant system partitions).
+Hence, while you installed the new version, it is not yet the default and a reboot will revert back to the old version.
+This allows you to perform on-device validation, checking that the new version is indeed working as expected in production.
+If everything looks good, the update is then committed with:
+rugix-ctrl system commit
+The update is now complete!
+For further details regarding the update process, check out Rugix Ctrl’s documentation.
+Conclusion
+You have used Rugix Bakery to customize and build a Debian-based system, then
+installed an over-the-air update with Rugix Ctrl.
+While this guide has covered the basics, there’s more to learn and explore.
+We encourage you to dive deeper into both Rugix Bakery’s and Rugix Ctrl’s documentation to discover additional functionalities and best practices.
+In particular, you should read the section on State Management to understand why any changes that you make to a running system may be lost after a reboot.9
+Tip
+Ready to operate a fleet? Nexigon
+is the commercial fleet management platform from the creators of Rugix. It adds
+secure remote access, fleet-wide update orchestration, monitoring, and audit
+logs. Follow the Nexigon quickstart guide for
+Rugix
+to connect this device.
+For other fleet management options, see Fleet Management.
+Footnotes
+The Debian base is produced by the debian-bootstrap recipe, which yields a minimal Debian system. Device-specific setup (kernel, bootloader, etc.) is added by recipes such as rpi-debian-setup. Rugix Bakery intentionally installs only what a given use case requires, keeping images small and the attack surface low. To inspect exactly what ended up in a built image, look at the SPDX and CycloneDX SBOMs that Rugix Bakery emits alongside each system. ↩
+If you are using WSL, make sure to put everything on a native filesystem, not the shared mount from your Windows host. ↩
+The respective Docker platforms are linux/arm64 and linux/amd64. Rugix Bakery will run on Apple silicon. ↩
+A foreign architecture is a CPU architecture that is different from the one of your host machine. For instance, building images for Raspberry Pi (which has a 64-bit ARM CPU) on an x86 Intel or AMD machine requires emulation. ↩
+You can also browse the templates on GitHub at rugix/rugix-bakery/container/templates without installing Rugix Bakery. ↩
+The customized layer and the customized-* systems in this template live in your project (in layers/ and rugix-bakery.toml) and are yours to define. Rugix Bakery itself ships a set of core layers and core recipes you can build on top of. ↩
+Running this command will always create a fresh VM. In particular, this means that the SSH host keys of the system do change every time. When connecting via SSH you may first need to remove the old keys from known_hosts. ↩
+Rugix Ctrl supports streaming updates directly into their final location on a device without intermediate storage. To do so in a secure way requires us to check the integrity of individual “blocks” before writing them. If we would compute a hash over the entire update instead, we would only be able to detect manipulations after processing the entire update. ↩
+This may be surprising at first, but we consider it a feature that with Rugix the systems you build will typically be immutable and you have to be explicit about the state of the system you want to persist through updates and reboots. ↩
+Edit this pagePreviousAbout RugixNextProduction Checklist
+On this page
+Setup and Installation
+Initializing the Project
+System Customization
+Building an Image
+Running a VM
+Installing an Update
+Conclusion
+Footnotes
+RugixEverything you need to build and maintain robust Linux-powered products, from development to production.
+Theme
+Docs
+Getting Started
+Rugix Ctrl
+Rugix Bakery
+Rugix Admin
+Community
+Blog
+GitHub
+Discord
+Discourse
+More
+Fleet Management
+Cyber Resilience Act
+Commercial Support
+Support Commitment
+Open Source Commitment
+Legal
+Privacy Policy
+Security Policy
+Trademark Policy
+Imprint
+Made with ♥ for OSS by Silitics
+© 2026 Silitics GmbH • Rugix is a registered trademark of Silitics GmbH.

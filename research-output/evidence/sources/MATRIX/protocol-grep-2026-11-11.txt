@@ -1,0 +1,31 @@
+# Protocol grep over pinned local clones (read-only; nothing built or run). Accessed 2026-11-11.
+# Robotics pattern: \b(ros2|rclpy|rclcpp|mavlink|px4|ardupilot|mavros|zenoh)\b  (case-insensitive, text files, .git and node_modules excluded)
+# IoT pattern: \b(mosquitto|mqtt|modbus|zigbee2mqtt|zigbee|z-wave|zwave|meshtastic|lorawan)\b
+getumbrel_umbrel @ 6f357e18d0a4faccb69d9fa59e3eae9cc3380538  robotics_files=0  iot_files=36
+getumbrel_umbrel-apps @ 3a087384be96ea6890a7428f62e28a2203c1ea6e  robotics_files=0  iot_files=17
+start9_start-technologies @ 175ce3beb370443d8db2cea30c3f99ebdcd1a8f5  robotics_files=0  iot_files=0
+truenas_apps @ c85431d5f6ad13eb234bb67a1fc5dc908e05d112  robotics_files=0  iot_files=62
+truenas_middleware @ 29ed02b8082f38494b0d2896bada8151f0d59716  robotics_files=0  iot_files=0
+icewhale_CasaOS-AppStore @ 820f99007fd521d0b534d94366371debea2ed438  robotics_files=0  iot_files=0
+project-nomad @ 0dbbd21c2f470975e86131c497694c147ca8bc00  robotics_files=0  iot_files=6
+pve-manager @ e1e1c4afbe2dbf3ab8c32dea80aded60bd26b979  robotics_files=0  iot_files=0
+meta-balena @ 48184b689a43b762c5eea6efbc16b018eed70839  robotics_files=0  iot_files=0
+kairos @ 6f33334a6a6c88a4a38c0b7ec4df1ab0334b830d  robotics_files=0  iot_files=0
+siderolabs_extensions @ 8db133ae509f67480f6973f302eab062b8a3b3d6  robotics_files=0  iot_files=1
+
+# umbrel-apps app directories matching the IoT pattern:
+frigate home-assistant homebridge homey mosquitto mqttx-web node-red node-red-standalone sphinx-relay zigbee2mqtt 
+# truenas_apps app directories matching the IoT pattern:
+ community/eclipse-mosquitto community/grafana community/teslamate community/zigbee2mqtt community/zwave-js-ui stable/home-assistant 
+# project-nomad files matching meshtastic|mqtt|lorawan:
+project-nomad/admin/database/seeders/service_seeder.ts
+project-nomad/admin/database/migrations/1776400000001_sunset_meshtastic_daemon.ts
+project-nomad/admin/constants/supply_depot_docs.ts
+project-nomad/admin/docs/release-notes.md
+project-nomad/admin/docs/supply-depot-apps.md
+project-nomad/admin/scripts/audit_catalog_ports.py
+
+# home-assistant/core @ d8a0dc698c8946b44e455d904000db563cfbf1ba: git ls-tree -d homeassistant/components/
+component_directories: 1562
+matching ^(ros|ros2|mavlink|px4|ardupilot|zenoh|modbus|zha|mqtt|matter|zwave_js|thread|opcua|roomba|lawn_mower|vacuum):
+lawn_mower matter modbus mqtt roomba thread vacuum zha zwave_js 

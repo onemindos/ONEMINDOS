@@ -1,0 +1,81 @@
+Mass market (Section 740.17) | Bureau of Industry and SecurityAn official website of the United States government
+Here's how you know
+Official websites use .gov
+A .gov website belongs to an official government organization in the United States.
+Secure .gov websites use HTTPS
+A lock (LockLocked padlock) or https:// means you’ve safely connected to the .gov website. Share sensitive information only on official, secure websites.
+Skip to main content Bureau of Industry and Security 
+U.S. Department of Commerce
+HomepageEmail notifications
+Regulations
+Licensing
+Learn & Support
+News & Updates
+Enforcement
+About BIS
+Regulations
+Licensing
+Learn & Support
+News & Updates
+Enforcement
+About BIS
+Learn & Support
+About Learn & Support
+Events
+Training videos
+Decision tools
+Chemical and biological controls
+Deemed exports
+Encryption controls
+Export Compliance Programs (ECPs)
+Reexports and exports from abroad
+Guidance and Frequently Asked Questions
+Advisory Opinions
+a. Mass market (Section 740.17) 
+Hardware and software items that would otherwise be classified as 5A002 or 5D002 can be classified under 5A992.c and 5D992.c if they meet the criteria listed in Note 3 to Category 5, Part 2 ("the mass market criteria"). In other words, some 5x002 items can become 5x992.c based on the way they are sold.  Mass market items are described in 740.17(b)(1) and (b)(3) but not (b)(3)(iii) e.g., digital forensics) of License Exception ENC and have classification and reporting requirements. 
+Although a 5A992.c and 5D992.c item does not require a license exception to go to most places (because it is only Anti-Terrorism controlled) they are described in License Exception ENC 740.17, which includes the submission requirements that need to be made to BIS.  Whether an item is 5x002 or 5x992.c - mass market (per Note 3 to Cat. 5 Part 2), the submission requirements are the same and therefore described in a single place under 740.17(b)(1) (self-classifiable) and (b)(3) (requires classification request to BIS). 
+The mass market criteria under Note 3 to Cat. 5, Part 2 has two paragraphs: 
+Paragraph A describes products that are generally available to the public at retail. Mass market products are typically consumer products sold at retail stores or internet locations, but products sold only to businesses can also qualify for mass market. BIS takes into account a range of factors when determining whether something qualifies for mass market including quantity of the item sold, price, technical skill required to use the product, existing sales channels, typical customer, and any exclusionary practices of the supplier. 
+Paragraph B applies to components of mass market products. In order to qualify for this paragraph: 
+It must be a hardware or software component of an existing mass market product, meaning it is:
+a. The same component that is factory installed in the mass market product; or 
+b. A functionally equivalent aftermarket replacement that has the same form fit and function.
+“Information Security” must not be the primary function of the component;
+It must not change the cryptographic functionality of an existing mass market item, or add new encryption functionality to the item; and
+The feature set of the component must be fixed and not designed or modified to customer specifications. 
+Items not eligible for Mass Market 5x992.c 
+Items that meet the criteria in 740.17(b)(2) (e.g., network infrastructure) and 740.17(b)(3)(iii) (e.g., digital forensics) are not eligible for mass market treatment. 
+When a mass market 5x992.c item requires a Classification Request to BIS 
+Mass market items described under 740.17 (b)(3)(e.g., chips, components, SDK) (except for (b)(3)(iii)(e.g., digital forensics), which are not eligible for mass market) require a classification by BIS via SNAP-R before they can be classified as 5x992.c. 
+When a mass market 5x992.c item can be self-classified 
+Mass market items that are described under in 740.17(b)(1) can be self-classified with an annual self-classification report. If you choose to submit a classification request for a 740.17(b)(1) item, then a self-classification report for that item is not required. 
+When nothing is required to export a mass market item 5x992.c 
+The export of Mass market items that are described in the scenarios under in 740.17(a) do not require any submission to BIS. 
+ Bureau of Industry and Security 
+Share to YouTube
+Share to Twitter
+Share to LinkedIn
+Advancing U.S. national security, foreign policy, and economic objectives by ensuring an effective export control and treaty compliance system and promoting continued U.S. strategic technology leadership.
+ Regulations 
+Export Administration Regulations (EAR)Chemical Weapons Convention Regulations (CWCR)Federal Register Notices
+ Licensing 
+About LicensingDetermine what is subject to the EARClassify your itemCountry guidanceGuidance on end-use and end-user controls and U.S. person controlsApply for licenses (SNAP-R)Track applications (STELA)License exceptionsBIS forms
+ Learn & Support 
+About Learn & SupportEventsTraining videosDecision toolsChemical and biological controlsDeemed exportsEncryption controlsExport Compliance Programs (ECPs)Reexports and exports from abroadGuidance & Frequently Asked QuestionsAdvisory Opinions
+ News & Updates 
+News & Updates
+ Enforcement 
+About Export EnforcementDon't Let This Happen To YouOffices & leadershipVoluntary Self-Disclosure
+ About BIS 
+About BISGuiding principlesLeadershipOfficesTechnical Advisory Committees (TAC)Annual reports Freedom of Information ActPrivacy Policy ProgramContact us
+Website updates
+FOIA
+Disclaimer
+Privacy Policy
+SORN
+Information Quality
+Department of Commerce 
+USA.gov
+Accessibility
+Small Business Fairness
+System Use Notice

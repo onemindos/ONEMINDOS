@@ -1,0 +1,1261 @@
+Bring Your Own Kernel — NVIDIA Jetson Linux Developer Guide 
+ Skip to main content 
+ Back to top 
+ Ctrl + K 
+ NVIDIA Jetson Linux Developer Guide
+ Search 
+ Ctrl + K 
+ Search 
+ Ctrl + K 
+ NVIDIA Jetson Linux Developer Guide
+ Table of Contents
+ Introduction 
+ Welcome 
+ Quick Start 
+ Architecture 
+ Jetson Software Architecture 
+ Yocto on Jetson Platforms 
+ Boot Architecture 
+ Jetson AGX Orin, Orin NX, and Orin Nano Boot Flow 
+ Jetson Thor Boot Flow 
+ Partition Configuration 
+ Software Feature Overview 
+ Jetson Orin Series 
+ Jetson Thor Series 
+ Software Features in Depth 
+ Flashing Support 
+ Flashing Support for Jetson Thor 
+ Emulation Flash Configurations 
+ Root File System 
+ Bootloader 
+ T23x/T26x Boot Configuration Table 
+ Pinmux and GPIO Configuration 
+ Common Prod Configuration 
+ Controller Product Configuration 
+ Pad Voltage DT Binding 
+ PMIC Configuration 
+ Storage Device Configuration 
+ UPHY Lane Configuration 
+ OEM-FW Ratchet Configuration 
+ BootROM Reset PMIC Configuration 
+ Miscellaneous Configuration 
+ SDRAM Configuration 
+ DRAM-ECC 
+ GPIO Interrupt Mapping Configuration 
+ MB2 BCT Misc Configuration 
+ Security Configuration 
+ Platform Configuration Profile 
+ UEFI Adaptation 
+ Update and Redundancy 
+ Kernel 
+ Kernel Customization 
+ Installing Real-Time Kernel 
+ Bring Your Own Kernel 
+ Generic Timestamp Engine 
+ BMI088 IMU Driver 
+ Enable 25 Gigabit Ethernet on QSFP Port 
+ Kernel Boot Time Optimization 
+ Display Configuration and Bring-Up 
+ Common Display Configurations for All Platforms 
+ nv-load-display-modules Service 
+ Display Configuration for Jetson Orin 
+ Display Configuration for Jetson Thor 
+ I/O Customization 
+ PWM Frequency Configuration 
+ Kernel Debugging Tools 
+ Multimedia 
+ Multimedia APIs 
+ Accelerated Decode with FFmpeg 
+ Accelerated GStreamer 
+ Software Encode in Orin Nano 
+ Hardware Acceleration in the WebRTC Framework 
+ Graphics 
+ Graphics APIs 
+ Graphics Programming 
+ Binary Shader Program Management 
+ GLSLC Shader Program Compiler 
+ OpenGL ES Programming Tips 
+ EGLStream 
+ EGLDevice 
+ Sample Applications 
+ OpenWFD 
+ Vulkan SC 
+ Vulkan SC Samples 
+ Windowing Systems 
+ Weston (Wayland) 
+ X Window System 
+ Camera Development 
+ Camera Support Matrix 
+ Argus Framework 
+ Camera Software Development Solution 
+ Sensor Software Driver Programming 
+ Jetson Virtual Channel with GMSL Camera Framework 
+ Argus NvRaw Tool 
+ Camera Driver Porting 
+ Sensor Software Troubleshooting 
+ SIPL Framework 
+ Introduction to SIPL 
+ Camera Hardware Abstraction Layer (HAL) 
+ Camera HAL Driver Discovery 
+ UDDF 
+ HSL and UDDF Overview 
+ Guide to Writing UDDF Drivers 
+ PyHSL 
+ Integrating UDDF Drivers with SIPL 
+ Release Notes 
+ FAQ 
+ GMSL Camera Development Guide 
+ GMSL Architecture Overview 
+ Directory Layout and Build 
+ Guide to Writing GMSL UDDF Drivers 
+ Integrating GMSL UDDF Drivers with SIPL 
+ CoE Camera Development Guide 
+ Camera Software Development Solution for Jetson Thor 
+ Camera-over-Ethernet Overview 
+ Holoscan Sensor Bridge (HSB) 
+ JetPack 7.2 SIPL Migration Guide 
+ SIPL Query JSON Guide 
+ SIPL Camera Application Developer Guide 
+ SIPL Query Sample 
+ SIPL Image Formats 
+ Camera SIPL Notifications 
+ Runtime Interfaces and Sensor Characterization 
+ SIPL Stereo Pipeline 
+ nvsiplsrc: Hands-On Guide for the GStreamer SIPL Camera Source 
+ Security 
+ Secure Boot 
+ Quick Start Guide to Enable Secure Boot for Jetson Thor 
+ Quick Start Guide to Enable Secure Boot for Jetson Orin 
+ Fuse Configuration File 
+ Key Preparation 
+ Fuse Operations 
+ Sign and Flash Secured Images 
+ PKC Key Revocation 
+ UEFI Secure Boot 
+ UEFI Payload Encryption 
+ UEFI Variable Protection 
+ UEFI Platform Vendor Key Feature 
+ Kernel Module Signing 
+ Factory Secure Key and Expansion Key Provisioning 
+ Hafnium Secure Partition Manager 
+ OP-TEE: Open Portable Trusted Execution Environment 
+ Architecture 
+ Trusted Application and Client Application Development 
+ EKB: Encrypted Key Blob 
+ Sample Applications 
+ PKCS #11 Support in OP-TEE 
+ Disk Encryption 
+ Disk Encryption Concepts 
+ Partition Layout 
+ Encrypting the Rootfs 
+ Dynamic Partition Encryption 
+ Manufacturing 
+ Secure Storage 
+ Firmware TPM 
+ Software Architecture 
+ fTPM Boot Flow 
+ fTPM Provisioning 
+ Production Workflow 
+ Device-Side Operations 
+ fTPM Turnkey Solution for Ecosystem Partners 
+ Rollback Protection 
+ Memory Encryption 
+ PVA Authentication 
+ Security Keys List 
+ Communications 
+ PCIe Endpoint Mode 
+ Enabling Bluetooth Audio 
+ Audio Setup and Development 
+ CUDA Instrumentation Methods 
+ Multi-Instance GPU (MIG) 
+ Platform Power and Performance 
+ Jetson Orin Nano Series, Jetson Orin NX Series, and Jetson AGX Orin Series 
+ Jetson Thor Product Family 
+ Software Packages and the Update Mechanism 
+ Jetson ISO Customization Guide 
+ Boot Time Optimization 
+ Working With Sources 
+ Test Plan and Validation 
+ Hardware References 
+ Jetson Developer Kit Setup 
+ Jetson EEPROM Layout 
+ Jetson Module Adaptation and Bring-Up 
+ Jetson Thor Adaptation and Bring-Up 
+ Jetson AGX Orin Series 
+ Jetson Orin NX and Nano Series 
+ Checklists 
+ Configuring the Jetson Expansion Headers 
+ Controller Area Network (CAN) 
+ Applications and Tools 
+ Board Automation 
+ Jetson Linux Toolchain 
+ Jetson Linux Development Tools 
+ Debugging on Jetson Platforms 
+ Performance Monitoring 
+ Tegrastats Utility 
+ Tegra Combined UART 
+ How to Submit a Bug Report 
+ Reference Material 
+ Package Manifest 
+ Related Documentation 
+ Legal Information 
+ Kernel 
+ Bring Your Own Kernel 
+ Is this page helpful? 
+ Bring Your Own Kernel # 
+ Introduction # 
+ To facilitate support by commercial Linux distributions, for several years, NVIDIA has contributed substantial portions of its kernel support directly to the upstream kernel, and this effort continues. Commercial Linux options are becoming available as a result of this work.
+ NVIDIA is working to upstream the necessary changes to the kernel source that are required for Jetson products. However, time constraints sometimes result in a patch being merged into the NVIDIA kernel before it goes upstream. As a result, the NVIDIA kernel source that ships with each release is considered to be the most complete and best tested source code for Tegra devices.
+ Process Overview to Bring Your Own Kernel # 
+ Here are the high-level steps to bring your own kernel:
+ Identify the initial list of patches. Patches that are integrated in kernel versions that are later than the targeted kernel version will need to be integrated. Each patch will require additional effort to pull the necessary dependencies or resolve conflicts. Refer to Upstream Patches for more information.
+ NVIDIA has provided a set of out-of-tree modules for drivers that cannot be upstreamed or that have not yet been upstreamed. Build and install these drivers using the instructions in the release. Refer to Kernel Customization for more information.
+ Review the kernel in the official NVIDIA release to see whether there are additional patches that have not yet upstreamed and that are needed. This will be an iterative process based on specific product requirements and the associated test results.
+ Note
+ Before you build the kernel, enable the following kernel config(s) in the defconfig:
+ CONFIG_ARM64_PMEM
+ To update a config, run the ./scripts/config --file "arch/arm64/configs/defconfig" --enable <config> command in the kernel directory.
+ Upstream Patches # 
+ To help customers use their own kernel, a list of upstream patches has been maintained with the associated kernel version. The list includes patches starting from Linux v5.15, and so when you backport to a v5.14 kernel, you need the complete set of patches and its dependencies. For later kernel versions, you will benefit from the fact that many of the patches are already integrated into the kernel.
+ The following table lists patches that have been accepted to the upstream kernel.
+ Note
+ This list consists of only Tegra-related patches. These patches might not apply cleanly, and some effort is required to apply the prerequisite patches or adjust the patches as necessary. For more information about what is expected, consult the NVIDIA sources.
+ Commit ID
+ Subject
+ Linux Version
+ Component
+ 92a511a568e4
+ fbdev/simplefb: Add support for generic power-domains
+ next
+ SIMPLEFB
+ 8ddfc01ace51
+ fbdev/simplefb: Support memory-region property
+ next
+ SIMPLEFB
+ c12f0d0ffade
+ cpufreq: tegra194: remove redundant AND with cpu_online_mask
+ v6.7
+ CPUFREQ
+ a60a55678875
+ cpufreq: tegra194: use refclk delta based loop instead of udelay
+ v6.7
+ CPUFREQ
+ 6b121b4cf7e1
+ cpufreq: tegra194: save CPU data to avoid repeated SMP calls
+ v6.7
+ CPUFREQ
+ bae8222a6c29
+ cpufreq: tegra194: fix warning due to missing opp_put
+ v6.7
+ CPUFREQ
+ 7b64906c98fe
+ hwmon: (ina3221) Add support for channel summation disable
+ v6.7
+ HWMON
+ f344675a3438
+ memory: tegra: Set BPMP msg flags to reset IPC channels
+ v6.7
+ BPMP
+ ea608a01d4ee
+ firmware: tegra: Add suspend hook and reset BPMP IPC early on resume
+ v6.7
+ BPMP
+ 9def28f3b863
+ memory: tegra: Add Tegra234 clients for RCE and VI
+ v6.7
+ memory
+ d1cd5b51bc91
+ pinctrl: tegra: Add support to display pin function
+ v6.6
+ pinctrl
+ 27ec43c77b5d
+ i2c: tegra: Fix i2c-tegra DMA config option processing
+ v6.6
+ I2C
+ ebfde1584d9f
+ Revert “PCI: tegra194: Enable support for 256 Byte payload”
+ v6.6
+ PCIe
+ 27ec43c77b5d
+ i2c: tegra: Fix i2c-tegra DMA config option processing
+ v6.5
+ I2C
+ b3497ef404dc
+ i2c: tegra: Fix failure during probe deferral cleanup
+ v6.5
+ I2C
+ d18b2a0f1a78
+ pinctrl: tegra: avoid duplicate field initializers
+ v6.5
+ pinctrl
+ 6d8257ca3988
+ pinctrl: tegra: Add Tegra234 pinmux driver
+ v6.5
+ pinctrl
+ 4d6366e6ff43
+ pinctrl: tegra: Consistently refer to SoC data
+ v6.5
+ pinctrl
+ fad57233501b
+ pinctrl: tegra: Duplicate pinmux functions table
+ v6.5
+ pinctrl
+ 2abd484ca48f
+ firmware: tegra: bpmp: Add support for DRAM MRQ GSCs
+ v6.5
+ BPMP
+ a0b1b2055be3
+ net: stmmac: tegra: Properly allocate clock bulk data
+ v6.5
+ Ethernet
+ 5cc9525bfc8e
+ gpio: tegra186: Check PMC driver status before any request
+ v6.5
+ GPIO
+ b2b56a163230
+ gpio: tegra186: Check GPIO pin permission before access.
+ v6.5
+ GPIO
+ 1582e1d1b244
+ arm64: tegra: Add CPU OPP tables and interconnects property
+ v6.5
+ device-tree
+ 9365bf006f53
+ PCI: tegra194: Add interconnect support in Tegra234
+ v6.5
+ PCIe
+ 205b3d02d57c
+ PCI: tegra194: Fix possible array out of bounds access
+ v6.5
+ PCIe
+ faafd6ca7e6e
+ memory: tegra: make icc_set_bw return zero if BWMGR not supported
+ v6.5
+ memory
+ d1478aea649e
+ memory: tegra: Add dummy implementation on Tegra194
+ v6.5
+ memory
+ e852af72a7f2
+ memory: tegra: Make CPU cluster BW request a multiple of MC channels
+ v6.5
+ memory
+ 12382ad05110
+ dt-bindings: gpio: Remove FSI domain ports on Tegra234
+ v6.5
+ GPIO
+ b0dae3df0546
+ dt-bindings: tegra: Add ICC IDs for dummy memory clients
+ v6.5
+ memory
+ 80b19e09c8fb
+ memory: tegra: Add software memory clients in Tegra234
+ v6.5
+ memory
+ aecc83f11dd8
+ memory: tegra: Add memory clients for Tegra234
+ v6.5
+ memory
+ 9a38cb27668e
+ memory: tegra: Add interconnect support for DRAM scaling in Tegra234
+ v6.5
+ memory
+ e180cf836433
+ soc/tegra: fuse: Fix Tegra234 fuse size
+ v6.5
+ fuse
+ c3a1c97c7260
+ soc/tegra: pmc: Add AON SW Wake support for Tegra234
+ v6.5
+ PMC
+ d94436465152
+ soc/tegra: fuse: Add support for Tegra264
+ v6.5
+ fuse
+ 60b3a99a3b50
+ firmware: tegra: bpmp: Fix error paths in debugfs
+ v6.4
+ BPMP
+ 821d96e3a006
+ soc/tegra: fuse: Remove nvmem root only access
+ v6.4
+ fuse
+ a0941221c5c6
+ soc/tegra: pmc: Support software wake-up for SPE
+ v6.4
+ PMC
+ cc026ccdd502
+ soc/tegra: pmc: Add wake source interrupt for MGBE
+ v6.4
+ PMC
+ 161e0f78b396
+ soc/tegra: pmc: Add the PMIC wake event for Tegra234
+ v6.4
+ PMC
+ 61228c9b2404
+ soc/tegra: bpmp: Actually free memory on error path
+ v6.4
+ BPMP
+ 5629d3195529
+ usb: gadget: tegra-xudc: Fix crash in vbus_draw
+ v6.4
+ USB
+ c1fef618d611
+ net/mlx5: Implement thermal zone
+ v6.4
+ MLNX
+ a0941221c5c6
+ soc/tegra: pmc: Support software wake-up for SPE
+ v6.4
+ PMC
+ cc026ccdd502
+ soc/tegra: pmc: Add wake source interrupt for MGBE
+ v6.4
+ PMC
+ 161e0f78b396
+ soc/tegra: pmc: Add the PMIC wake event for Tegra234
+ v6.4
+ PMC
+ 1f6d59f7f82d
+ arm64: defconfig: Enable UCSI support
+ v6.3
+ USB
+ 430b38764fbb
+ i2c: nvidia-gpu: Remove ccgx,firmware-build property
+ v6.3
+ I2C
+ 6d9e0669099f
+ usb: typec: ucsi_ccg: Add OF support
+ v6.3
+ USB
+ f510b0a3565b
+ i2c: nvidia-gpu: Add ACPI property to align with device-tree
+ v6.3
+ I2C
+ 9a10c7e6519b
+ drm/simpledrm: Add support for system memory framebuffers
+ v6.3
+ DRM
+ fa904b4cbc60
+ drm/simpledrm: Use struct iosys_map consistently
+ v6.3
+ DRM
+ 0c27537ad07c
+ gpio: tegra186: add Tegra234 PMC compatible in GPIO driver
+ v6.3
+ GPIO
+ 331df1f3bbbc
+ usb: gadget: tegra-xudc: Add Tegra234 support
+ v6.3
+ USB
+ a30951d31b25
+ xhci: tegra: USB2 pad power controls
+ v6.3
+ USB
+ 2cbe475fe733
+ xhci: hub: export symbol on xhci_hub_control
+ v6.3
+ USB
+ 592338dde854
+ xhci: Add hub_control to xhci_driver_overrides
+ v6.3
+ USB
+ ee0e40efc4d1
+ usb: host: xhci-tegra: Add Tegra234 XHCI support
+ v6.3
+ USB
+ 3cde1ef6f84a
+ phy: tegra: xusb: Support USB role default mode
+ v6.3
+ PHY
+ 5c7f94f8bad8
+ phy: tegra: xusb: Add Tegra234 support
+ v6.3
+ PHY
+ e5f9124404d0
+ phy: tegra: xusb: Disable trk clk when not using
+ v6.3
+ PHY
+ 5fdded844892
+ PM/devfreq: governor: Add a private governor_data for governor
+ v6.2
+ DEVFREQ
+ 1d9e77b644d2
+ clk: tegra: support BPMP-FW ABI deny flags
+ v6.2
+ BPMP
+ b204b92be306
+ firmware: tegra: Update BPMP ABI
+ v6.2
+ BPMP
+ bebf683ba682
+ soc/tegra: fuse: Use platform info with SoC revision
+ v6.2
+ PMC
+ 2428787f1615
+ phy: tegra: xusb: Remove usb3 supply
+ v6.2
+ PHY
+ 0983529d7513
+ phy: tegra: p2u: Set ENABLE_L2_EXIT_RATE_CHANGE in calibration
+ v6.2
+ PHY
+ 2a4ea83bb8e5
+ phy: tegra: xusb: Fix crash during pad power on/down
+ v6.2
+ PHY
+ 109a951a9f1f
+ serial: tegra: Read DMA status before terminating
+ v6.2
+ serial
+ dd1f1da4ada5
+ pwm: tegra: Fix 32 bit build
+ v6.2
+ PWM
+ 5eccd0d9fabc
+ pwm: tegra: Ensure the clock rate is not less than needed
+ v6.2
+ PWM
+ f271946117dd
+ pwm: tegra: Improve required rate calculation
+ v6.2
+ PWM
+ 01c5bb0cc2a3
+ cpufreq: Add Tegra234 to cpufreq-dt-platdev blocklist
+ v6.2
+ CPUFREQ
+ acc13958c2b2
+ mmc: sdhci-tegra: Issue CMD and DAT resets together
+ v6.2
+ MMC
+ 03813c81e625
+ mmc: sdhci-tegra: Add support to program MC stream ID
+ v6.2
+ MMC
+ 8f00ad01fcd4
+ mmc: sdhci-tegra: Separate Tegra194 and Tegra234 SoC data
+ v6.2
+ MMC
+ 07548a391df0
+ mmc: sdhci-tegra: Sort includes alphabetically
+ v6.2
+ MMC
+ 493c9b68d1d8
+ iommu/tegra: Add tegra_dev_iommu_get_stream_id() helper
+ v6.2
+ IOMMU
+ d8ca113724e7
+ net: stmmac: tegra: Add MGBE support
+ v6.2
+ ethernet
+ a46e90101242
+ net: stmmac: Power up SERDES after the PHY link
+ v6.2
+ ethernet
+ 7235cdd9cc52
+ arm64: defconfig: Enable SND_ALOOP
+ v6.2
+ audio
+ 13e4cd4a4073
+ arm64: defconfig: Enable couple of audio codecs
+ v6.2
+ audio
+ 7946920d402d
+ memory: tegra: Add API for retrieving carveout bounds
+ v6.2
+ memory
+ b3417b7a7cd7
+ arm64: defconfig: Enable Tegra186 timer support
+ v6.2
+ timer
+ 5cd24ca0985f
+ memory: tegra: Add DLA clients for Tegra234
+ v6.2
+ memory
+ 3a0c95b61385
+ dmaengine: tegra: Add support for dma-channel-mask
+ v6.2
+ DMA
+ 2927cf85f487
+ soc/tegra: cbb: Check firewall before enabling error reporting
+ v6.2
+ control backbone
+ 55084947d6b4
+ soc/tegra: cbb: Add checks for potential out of bound errors
+ v6.2
+ control backbone
+ cd1d719b4776
+ soc/tegra: cbb: Update slave maps for Tegra234
+ v6.2
+ control backbone
+ 33af51a65219
+ soc/tegra: cbb: Use correct master_id mask for CBB NOC in Tegra194
+ v6.2
+ control backbone
+ 0474cc8489bd
+ soc/tegra: pmc: Process wake events during resume
+ v6.2
+ PMC
+ 1ddb8f6d44ff
+ soc/tegra: pmc: Fix dual edge triggered wakes
+ v6.2
+ PMC
+ c9c4ddb20c42
+ soc/tegra: pmc: Add I/O pad table for Tegra234
+ v6.2
+ PMC
+ ae4b3c1252f0
+ spi: tegra210-quad: Don’t initialise DMA if not supported
+ v6.2
+ SPI
+ cc5b2ad5393e
+ soc/tegra: fuse: Add nvmem keepout list
+ v6.2
+ fuse
+ bea06d776d8b
+ soc/tegra: fuse: Use SoC specific nvmem cells
+ v6.2
+ fuse
+ 41155b6f6db8
+ dt-bindings: tegra: Update headers for Tegra234
+ v6.2
+ device-tree
+ 0e2b014eeb25
+ dt-bindings: Add headers for NVDEC on Tegra234
+ v6.2
+ device-tree
+ b8d27d2ce8df
+ hwmon: (ina3221) Fix shunt sum critical calculation
+ v6.1
+ HWMON
+ 77bfa0fc7536
+ phy: tegra: xusb: add utmi pad power on/down ops
+ v6.1
+ PHY
+ 1e63d2973ea3
+ mmc: sdhci: Centralize CMD and DATA reset handling
+ v6.1
+ MMC
+ 691f43cbfe63
+ usb: typec: ucsi_ccg: Disable UCSI ALT support on Tegra
+ v6.1
+ USB
+ fce703a991b7
+ usb: typec: ucsi: Don’t warn on probe deferral
+ v6.1
+ USB
+ c13dbc1e2485
+ iommu: Always register bus notifiers
+ v6.1
+ IOMMU
+ 03b756d29348
+ phy: tegra: xusb: Enable usb role switch attribute
+ v6.1
+ PHY
+ b78870e7f415
+ mmc: sdhci-tegra: Use actual clock rate for SW tuning correction
+ v6.1
+ SDHCI
+ cc99f95d49b3
+ dt-bindings: Add Host1x context stream IDs on Tegra234
+ v6.1
+ device-tree
+ fc2f151d2314
+ soc/tegra: cbb: Add driver for Tegra234 CBB 2.0
+ v6.1
+ control backbone
+ b71344221466
+ soc/tegra: cbb: Add CBB 1.0 driver for Tegra194
+ v6.1
+ control backbone
+ 0a3c2dbec425
+ soc/tegra: fuse: Add missing of_node_put()
+ v6.1
+ fuse
+ e941712cccab
+ soc/tegra: fuse: Add missing of_node_put() in tegra_init_fuse()
+ v6.1
+ fuse
+ 96765cc47546
+ soc/tegra: Set ERD bit to mask inband errors
+ v6.1
+ fuse
+ 747c39f0ebfa
+ arm64: defconfig: Make TEGRA186_GPC_DMA built-in
+ v6.1
+ DMA
+ 0ddf10a319f1
+ arm64: tegra: Enable Tegra SPI & QSPI in deconfig
+ v6.1
+ SPI
+ 4cac4de4b05f
+ arm64: defconfig: Enable Tegra MGBE driver
+ v6.1
+ ethernet
+ 49725ffc15fc
+ net: stmmac: power up/down serdes in stmmac_open/release
+ v6.0
+ ethernet
+ a7dc438b5e44
+ usb: typec: ucsi: Acknowledge the GET_ERROR_STATUS command completion
+ v6.0
+ USB
+ 5767f40053eb
+ ucsi_ccg: Do not hardcode interrupt polarity and type
+ v6.0
+ USB
+ 36834c670167
+ dmaengine: tegra: Add terminate() for Tegra234
+ v6.0
+ DMA
+ a54e19073718
+ PCI: tegra194: Add Tegra234 PCIe support
+ v6.0
+ PCIe
+ f899983f71e5
+ PCI: tegra194: Extend Endpoint mode support (dependency)
+ v6.0
+ PCIe
+ e05fd6ae77c3
+ PCI: tegra194: Fix link up retry sequence (dependency)
+ v6.0
+ PCIe
+ bb617cbd8151
+ PCI: tegra194: Clean up the exit path for Endpoint mode (dependency)
+ v6.0
+ PCIe
+ 4fb8e46c1bc4
+ PCI: tegra194: Enable support for 256 Byte payload (dependency)
+ v6.0
+ PCIe
+ 6c12e3e139ab
+ PCI: tegra194: Clear bandwidth management status (dependency)
+ v6.0
+ PCIe
+ 6646e99bcec6
+ PCI: tegra194: Fix Root Port interrupt handling (dependency)
+ v6.0
+ PCIe
+ 997b99e3b386
+ PCI: tegra194: Find RAS DES PCIe capability offset (dependency)
+ v6.0
+ PCIe
+ f1ab409d5787
+ Revert “PCI: tegra194: Rename tegra_pcie_dw to tegra194_pcie” (dependency)
+ v6.0
+ PCIe
+ bf32b8f952cc
+ PCI: Disable MSI for Tegra234 Root Ports
+ v6.0
+ PCIe
+ 33fe1cb20cf4
+ cpufreq: tegra194: Staticize struct tegra_cpufreq_soc instances
+ v6.0
+ CPUFREQ
+ 07385a6055a8
+ clocksource/drivers/timer-tegra186: Add support for Tegra234 SoC
+ v6.0
+ timer
+ 42cee19a9f83
+ clocksource: Add Tegra186 timers support
+ v6.0
+ timer
+ 28b4dcc8f010
+ arm64: defconfig: Build Tegra OPE module
+ v6.0
+ audio
+ f99e689181ea
+ gpu: host1x: Register context bus unconditionally
+ v6.0
+ host1x
+ 63a6ef2360bd
+ dt-bindings: Add headers for Host1x and VIC on Tegra234
+ v6.0
+ device-tree
+ 5060237b0ee1
+ memory: tegra: Add MGBE memory clients for Tegra234
+ v6.0
+ memory
+ de6026682569
+ phy: tegra: Add PCIe PIPE2UPHY support for Tegra234
+ v6.0
+ PHY
+ afcdb8e55c91
+ firmware: tegra: Fix error check return value of debugfs_create_file()
+ v6.0
+ BPMP
+ a4740b148a04
+ firmware: tegra: bpmp: Do only aligned access to IPC memory area
+ v6.0
+ BPMP
+ e8fbd344a5ea
+ PCI: tegra194: Fix PM error handling in tegra_pcie_config_ep()
+ v6.0
+ PCIe
+ 4edf738d4c79
+ ASoC: tegra: Fix MBDRC bypass mode check
+ v6.0
+ audio
+ 7ee0910d0316
+ ASoC: tegra: AHUB routes for OPE module
+ v6.0
+ audio
+ 7358a803c778
+ ASoC: tegra: Add Tegra210 based OPE driver
+ v6.0
+ audio
+ 636aa8807b57
+ ALSA: hda: Fix crash due to jack poll in suspend
+ v6.0
+ HDA
+ 942501661fa6
+ soc/tegra: fuse: Add nvmem cell lookup entries for Tegra194
+ v5.19
+ fuse
+ 3c162511530c
+ usb: typec: ucsi: Wait for the USB role switches
+ v5.19
+ USB
+ 8c193f4714df
+ pwm: tegra: Optimize period calculation
+ v5.19
+ PWM
+ e46ab742195a
+ arm64: defconfig: Build Tegra ASRC module
+ v5.19
+ audio
+ b33115bd05af
+ ALSA: hda: Jack detection poll in suspend state
+ v5.19
+ HDA
+ 597b89d30b42
+ gpu: host1x: Add context bus
+ v5.19
+ host1x
+ 74c20dd0f892
+ mailbox: tegra-hsp: Add 128-bit shared mailbox support
+ v5.19
+ mailbox
+ 58919326e72f
+ dt-bindings: tegra186-hsp: add type for shared mailboxes
+ v5.19
+ device-tree
+ 8f585d14030d
+ mailbox: tegra-hsp: Add tegra_hsp_sm_ops
+ v5.19
+ mailbox
+ 360e4f4e3fcc
+ dmaengine: tegra: Remove unused switch case
+ v5.19
+ DMA
+ 39b930bec80e
+ dmaengine: tegra: Fix uninitialized variable usage
+ v5.19
+ DMA
+ 461cd3709f26
+ dmaengine: tegra: Use platform_get_irq() to get IRQ resource
+ v5.19
+ DMA
+ 54a85e09f44c
+ memory: tegra: Add MC error logging on Tegra186 onward
+ v5.19
+ memory
+ a7cffa11fa92
+ memory: tegra: Add memory controller channels support
+ v5.19
+ memory
+ cc3d696c01d8
+ memory: tegra: Add APE memory clients for Tegra234
+ v5.19
+ memory
+ 72c81bb67026
+ memory: tegra: Add Tegra234 support
+ v5.19
+ memory
+ 5ca216155b5e
+ iommu/arm-smmu: Support Tegra234 SMMU
+ v5.19
+ IOMMU
+ 273bc890a2a8
+ cpufreq: tegra194: Add support for Tegra234
+ v5.19
+ CPUFREQ
+ 0839ed1fd7ac
+ cpufreq: tegra194: add soc data to support multiple soc
+ v5.19
+ CPUFREQ
+ ee17028009d4
+ dmaengine: tegra: Add tegra gpcdma driver
+ v5.19
+ DMA
+ 571dda6ca513
+ PCI: tegra194: Remove unnecessary MSI enable reg save and restore
+ v5.19
+ PCIe
+ d3ed7526543d
+ soc/tegra: pmc: Update Tegra234 reset sources
+ v5.19
+ PMC
+ dc7680ca7ac6
+ ASoC: tegra186_asrc: mark runtime-pm functions as __maybe_unused
+ v5.19
+ audio
+ 76821c139d7e
+ ASoC: tegra: AHUB routes for ASRC module
+ v5.19
+ audio
+ a2df8c2d5b36
+ ASoC: tegra: Add Tegra186 based ASRC driver
+ v5.19
+ audio
+ 6f259bf1619b
+ soc/tegra: fuse: Update nvmem cell list
+ v5.18
+ fuse
+ eb5d7ff3cf0d
+ usb: typec: ucsi: Fix role swapping
+ v5.18
+ USB
+ e25adcca917d
+ usb: typec: ucsi: Fix reuse of completion structure
+ v5.18
+ USB
+ 753b2280e154
+ arm64: defconfig: tegra: Enable GPCDMA
+ v5.18
+ DMA
+ 4a25f2ea0e03
+ iommu: arm-smmu: disable large page mappings for Nvidia arm-smmu
+ v5.18
+ IOMMU
+ 1b8342cc4a38
+ spi: tegra210-quad: combined sequence mode
+ v5.18
+ SPI
+ 194217df813a
+ soc/tegra: pmc: Add Tegra234 wake events
+ v5.18
+ PMC
+ ea23f0e148b8
+ spi: tegra210-quad: add new chips to compatible
+ v5.18
+ SPI
+ ac982578e7d3
+ spi: tegra210-quad: use device_reset method
+ v5.18
+ SPI
+ 47c3e06ed95a
+ spi: tegra210-quad: Fix missin IRQ check in tegra_qspi_probe
+ v5.18
+ SPI
+ a4ad66da3fcc
+ dt-bindings: memory: Add Tegra234 PCIe memory
+ v5.18
+ device-tree
+ 85f29492929b
+ ALSA: hda/tegra: Update scratch reg. communication
+ v5.18
+ HDA
+ b58d511ded88
+ ALSA: hda/tegra: Hardcode GCAP ISS value on T234
+ v5.18
+ HDA
+ f43156a9563f
+ ALSA: hda/tegra: Add Tegra234 hda driver support
+ v5.18
+ HDA
+ 40efe139ff60
+ dt-bindings: Add Tegra234 APE support
+ v5.18
+ device-tree
+ 4fcc8710fdd9
+ ASoC: tegra: Update AHUB driver for Tegra234
+ v5.18
+ audio
+ 88724b78a84c
+ soc/tegra: fuse: Use resource-managed helpers
+ v5.17
+ fuse
+ aeecc50ace04
+ soc/tegra: fuse: Reset hardware
+ v5.17
+ fuse
+ 825911492eb1
+ ucsi_ccg: Check DEV_INT bit only when starting CCG4
+ v5.17
+ USB
+ f89d2cc3967a
+ spi: tegra210-quad: use devm call for cdata memory
+ v5.17
+ SPI
+ 3da9b0feaa16
+ pwm: tegra: Add runtime PM and OPP support
+ v5.17
+ PWM
+ b57256918399
+ PCI: tegra194: Rename tegra_pcie_dw to tegra194_pcie
+ v5.17
+ PCIe
+ 1c7f0e349aa5
+ ALSA: hda: Skip codec shutdown in case the codec is not registered
+ v5.17
+ HDA
+ d278dc9151a0
+ ALSA: hda/tegra: Fix Tegra194 HDA reset failure
+ v5.17
+ HDA
+ 1db9b241bb56
+ gpio: tegra186: Add support for Tegra234
+ v5.17
+ GPIO
+ c3859c1436e3
+ dt-bindings: memory: tegra: Add Tegra234 support
+ v5.17
+ device-tree
+ 6c7a388b6236
+ gpu: host1x: select CONFIG_DMA_SHARED_BUFFER
+ v5.17
+ host1x
+ 2925fc1c1029
+ misc: sram: Add compatible string for Tegra234 SYSRAM
+ v5.17
+ SRAM
+ 460275f124fb
+ PCI: Add PCI_EXP_DEVCTL_PAYLOAD_* macros
+ v5.17
+ PCIe
+ c2ace21f937a
+ cpufreq: tegra186/tegra194: Handle errors in BPMP response
+ v5.17
+ CPUFREQ
+ 210386804745
+ gpio: tegra186: Support multiple interrupts per bank
+ v5.17
+ GPIO
+ ca038748068f
+ gpio: tegra186: Force one interrupt per bank
+ v5.17
+ GPIO
+ 94d486c2e5e7
+ ASoC: tegra: Add routes for few AHUB modules
+ v5.17
+ Audio
+ fec29bf04994
+ misc: sram: Only map reserved areas in Tegra SYSRAM
+ v5.17
+ SRAM
+ f62750e6918d
+ PCI: tegra194: Cleanup unused code
+ v5.17
+ PCIe
+ de2bbf2b71bb
+ PCI: tegra194: Don’t allow suspend when Tegra PCIe is in EP mode
+ v5.17
+ PCIe
+ 834c5cf2b587
+ PCI: tegra194: Disable interrupts before entering L2
+ v5.17
+ PCIe
+ 43537cf7e351
+ PCI: tegra194: Fix MSI-X programming
+ v5.17
+ PCIe
+ ceb1412c1c8c
+ PCI: tegra194: Fix handling BME_CHGED event
+ v5.17
+ PCIe
+ d618978dd4d3
+ mmc: sdhci-tegra: Add runtime PM and OPP support
+ v5.17
+ SDHCI
+ 9131c6331726
+ soc/tegra: Add devm_tegra_core_dev_init_opp_table_common()
+ v5.17
+ SOC
+ 0d242698fa69
+ ASoC: tegra: Add master volume/mute control support
+ v5.17
+ Audio
+ 4fc7261dbab1
+ mmc: sdhci-tegra: Fix switch to HS400ES mode
+ v5.16
+ SDHCI
+ 1e9b81616627
+ arm64: defconfig: Enable few Tegra210 based AHUB drivers
+ v5.16
+ audio
+ 33110589a3f0
+ soc/tegra: pmc: Disable PMC state syncing
+ v5.16
+ PMC
+ 45e934407b7e
+ soc/tegra: fuse: Add stubs needed for compile testing
+ v5.16
+ fuse
+ cf36de4fc5ce
+ ASoC: tegra: Use normal system sleep for ADX
+ v5.16
+ Audio
+ 638c31d542a5
+ ASoC: tegra: Use normal system sleep for AMX
+ v5.16
+ Audio
+ b78400e41653
+ ASoC: tegra: Use normal system sleep for Mixer
+ v5.16
+ Audio
+ c83d263a89f3
+ ASoC: tegra: Use normal system sleep for MVC
+ v5.16
+ Audio
+ af120d07bbb0
+ ASoC: tegra: Use normal system sleep for SFC
+ v5.16
+ Audio
+ 70408f755f58
+ ASoC: tegra: Balance runtime PM count
+ v5.16
+ Audio
+ 8cf72c4e75a0
+ ASoC: tegra: Fix kcontrol put callback in Mixer
+ v5.16
+ Audio
+ 3c97881b8c8a
+ ASoC: tegra: Fix kcontrol put callback in ADX
+ v5.16
+ Audio
+ 8db78ace1ba8
+ ASoC: tegra: Fix kcontrol put callback in AMX
+ v5.16
+ Audio
+ b31f8febd185
+ ASoC: tegra: Fix kcontrol put callback in SFC
+ v5.16
+ Audio
+ c7b34b51bbac
+ ASoC: tegra: Fix kcontrol put callback in MVC
+ v5.16
+ Audio
+ a4e37950c9e9
+ ASoC: tegra: Fix kcontrol put callback in AHUB
+ v5.16
+ Audio
+ d6202a57e79d
+ ASoC: tegra: Fix kcontrol put callback in DSPK
+ v5.16
+ Audio
+ a347dfa10262
+ ASoC: tegra: Fix kcontrol put callback in DMIC
+ v5.16
+ Audio
+ f21a9df3f7cb
+ ASoC: tegra: Fix kcontrol put callback in I2S
+ v5.16
+ Audio
+ e2b87a18a60c
+ ASoC: tegra: Fix kcontrol put callback in ADMAIF
+ v5.16
+ Audio
+ 6762965d0214
+ ASoC: tegra: Fix wrong value type in MVC
+ v5.16
+ Audio
+ 42afca1a6566
+ ASoC: tegra: Fix wrong value type in MVC
+ v5.16
+ Audio
+ 3aa0d5c8bb3f
+ ASoC: tegra: Fix wrong value type in DSPK
+ v5.16
+ Audio
+ 559d234569a9
+ ASoC: tegra: Fix wrong value type in DMIC
+ v5.16
+ Audio
+ 8a2c2fa0c533
+ ASoC: tegra: Fix wrong value type in I2S
+ v5.16
+ Audio
+ 884c6cb3b703
+ ASoC: tegra: Fix wrong value type in ADMAIF
+ v5.16
+ Audio
+ 620868b2a0bd
+ ASoC: tegra: Constify static snd_soc_ops
+ v5.16
+ Audio
+ 313fab4820f3
+ ASoC: tegra: Constify static snd_soc_dai_ops structs
+ v5.16
+ Audio
+ 05bb3d5ec64a
+ ASoC: tegra: Add Tegra210 based Mixer driver
+ v5.16
+ Audio
+ a99ab6f395a9
+ ASoC: tegra: Add Tegra210 based ADX driver
+ v5.16
+ Audio
+ 77f7df346c45
+ ASoC: tegra: Add Tegra210 based AMX driver
+ v5.16
+ Audio
+ b2f74ec53a6c
+ ASoC: tegra: Add Tegra210 based SFC driver
+ v5.16
+ Audio
+ e539891f9687
+ ASoC: tegra: Add Tegra210 based MVC driver
+ v5.16
+ Audio
+ 7a226f2eabdc
+ ASoC: simple-card-utils: Increase maximum DAI links limit to 512
+ v5.16
+ Audio
+ 2037f2991dde
+ usb: common: add helper to get role-switch-default-mode
+ v5.15
+ USB
+ 2eaf1635f9d6
+ ALSA: hda: Disable runtime resume at shutdown
+ v5.15
+ HDA
+ b98444ed597d
+ ALSA: hda: Suspend codec at shutdown
+ v5.15
+ HDA
+ ec7cc3f74b42
+ fbdev: simplefb: fix Kconfig dependencies
+ v5.15
+ device-tree
+ fe794e395483
+ of: Add stub for of_add_property()
+ v5.15
+ device-tree
+ b3636a3a2c51
+ PM: runtime: add devm_pm_runtime_enable helper
+ v5.15
+ PM
+ previous
+ Installing Real-Time Kernel
+ next
+ Generic Timestamp Engine
+ On this page 
+ Introduction 
+ Process Overview to Bring Your Own Kernel 
+ Upstream Patches 
+ Privacy Policy 
+ | 
+ Your Privacy Choices 
+ | 
+ Terms of Service 
+ | 
+ Accessibility 
+ | 
+ Corporate Policies 
+ | 
+ Product Security 
+ | 
+ Contact 
+ Copyright © 2025-2026, NVIDIA Corporation. 
+ Last updated on Aug 12, 2026.

@@ -1,0 +1,85 @@
+Source: https://developer.download.nvidia.com/compute/cuda/repos/
+Fetched 2026-11-11 (HTML stripped to text)
+
+ 
+ Index of /compute/cuda/repos 
+ Index of /compute/cuda/repos 
+ .. 
+ GPGKEY 
+ 4.0KB 
+ 2014-05-09 01:12 
+ amzn2023/ 
+ amzn2027/ 
+ azl3/ 
+ azl4/ 
+ cm2/ 
+ debian10/ 
+ debian11/ 
+ debian12/ 
+ debian13/ 
+ fedora18/ 
+ fedora19/ 
+ fedora20/ 
+ fedora21/ 
+ fedora23/ 
+ fedora25/ 
+ fedora27/ 
+ fedora29/ 
+ fedora32/ 
+ fedora33/ 
+ fedora34/ 
+ fedora35/ 
+ fedora36/ 
+ fedora37/ 
+ fedora39/ 
+ fedora40/ 
+ fedora41/ 
+ fedora42/ 
+ fedora43/ 
+ fedora44/ 
+ fedora45/ 
+ kylin10/ 
+ kylin11/ 
+ opensuse15/ 
+ opensuse122/ 
+ opensuse123/ 
+ opensuse131/ 
+ opensuse132/ 
+ opensuse422/ 
+ opensuse423/ 
+ rhel6/ 
+ rhel7/ 
+ rhel8/ 
+ rhel9/ 
+ rhel10/ 
+ runfile/ 
+ sles11/ 
+ sles12/ 
+ sles15/ 
+ sles16/ 
+ sles113/ 
+ sles114/ 
+ sles122/ 
+ sles123/ 
+ sles124/ 
+ suse16/ 
+ tmp.SWABaPagJN-request_id 
+ 512B 
+ 2026-03-10 08:14 
+ ubuntu1204/ 
+ ubuntu1210/ 
+ ubuntu1304/ 
+ ubuntu1404/ 
+ ubuntu1410/ 
+ ubuntu1504/ 
+ ubuntu1604/ 
+ ubuntu1704/ 
+ ubuntu1710/ 
+ ubuntu1804/ 
+ ubuntu1810/ 
+ ubuntu2004/ 
+ ubuntu2204/ 
+ ubuntu2404/ 
+ ubuntu2604/ 
+ windows/ 
+ wsl-ubuntu/ 

@@ -1,0 +1,45 @@
+title: [Design] Add bypass for BLA
+state: OPEN
+created: 2026-11-08T02:23:27Z
+url: https://github.com/morluto/rea/issues/9317
+(reporter handle omitted)
+
+### Before submitting
+
+- [x] I searched the open and closed issues and pull requests for a related discussion.
+- [x] I understand the [contribution scope](https://github.com/morluto/rea/blob/main/CONTRIBUTING.md#contribution-scope) must be reviewed before integration; open questions are welcome here.
+- [x] This discussion does not include credentials, private samples, or sensitive target data.
+
+### Decision needed
+
+https://github.com/qybaihe/bla
+
+Was created to make agents run in circles around trying to reverse engineer. Obviously we can't have that. Let's work on a patch to bypass it. Or even detect it so AI agents can get back on track
+
+### Context and evidence
+
+https://github.com/qybaihe/bla
+
+### Expected interaction with targets
+
+Write or change files/configuration
+
+### Boundary details (optional)
+
+_No response_
+
+### Options and tradeoffs
+
+_No response_
+
+### Verification available so far
+
+Idea only; I need help defining checks
+
+### Success criteria and open questions
+
+_No response_
+
+### References
+
+_No response_

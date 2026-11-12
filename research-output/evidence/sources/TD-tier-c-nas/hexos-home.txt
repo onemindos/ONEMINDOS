@@ -1,0 +1,138 @@
+SOURCE: https://hexos.com/
+ACCESSED: 2026-11-11 (text extracted from HTML; emails masked)
+
+HexOS | Everything you love, on a server you own.
+ Skip to content 
+FeaturesAppsVMsYour HardwarePricingDocsDiscord
+Get HexOSGet HexOS
+7:42
+As seen on
+Everything you love,on a server you own.
+This is HexOS: your data, your apps, on your terms. As easy to use as a phone. No IT experience required.
+Get HexOSSee how it works 
+The cloud got prescribed for everything. This is your way out.
+Google · Apple · Microsoft
+Photos
+Documents
+Videos
+Passwords
+Your server
+Make it yours
+Your digital life has drifted onto Big Tech's servers. Bring it back under your roof, where you decide who sees it, what it costs, and how long it stays.
+One-tap updates
+Scheduled, secure backups
+Periodic health checks
+Support from actual humans
+Keep it simple
+You don't need to be an IT admin. Sensible defaults make it feel more like a phone than a server, and real people are there when you need help.
+iCloud PhotosPhotoStructurePhotos
+ChatGPTOllamaAI Assistant
+LastPassVaultwardenPasswords
+Google HomeHome AssistantSmart home
+Own your apps
+Photos, media, documents, and more. Pick an app, install it in a few clicks, and it's ready the first time you open it. Most cost nothing to run.
+We could keep talking.Or you could try it right now.
+ Start the live demo 
+1
+Step 1: Set up HexOS
+Installing HexOS means answering a few simple questions, worded in language a user would understand. From those answers, the wizard sets up your drives the right way. Try it 
+ Start the live demo 
+2
+Step 2: Bring over your data
+Pull your files in from the cloud, another NAS, or external drives. Pick the source, choose what to bring, and HexOS does the copying. Try it 
+ Start the live demo 
+3
+Step 3: Pick some apps
+Photos, documents, media, and more. Choose an app, install it in a few clicks, and it's ready as soon as it's done. After that, it's time to cancel your subscriptions. Try it 
+ Start the live demo 
+4
+Step 4: Back up to a buddy
+Back up to a friend's HexOS server, encrypted so only you can read it. They host it. You own it. (Or back up to a second server of your own.) Try it 
+And we're just getting started.Explore everything HexOS can do 
+StorageHexOS maximizes both speed and resiliency.Learn more about Storage
+FoldersKeep your digital life organized and secure.Learn more about Folders
+AppsTap install and you're done. No assembly required.Learn more about Apps
+Virtual MachinesOne-tap installs for Windows, Linux, and more.Learn more about Virtual Machines
+BackupsBack up to a friend's server without giving them the keys.Learn more about Backups
+HealthCatch problems early, with the info you need to fix them.Learn more about Health
+Storage is job one.We built on the best.
+Everything a home server does rests on the data underneath it. HexOS is built on TrueNAS, the world's most deployed storage platform, trusted by countless enterprise organizations with the data they cannot lose.“Our collaboration combines TrueNAS’s enterprise reliability with HexOS’s user-friendly interface, creating a powerful solution for both content creators and everyday users.”Brett Davis, CEO, TrueNAS
+Trusted by
+NASA
+Disney
+Apple
+Sony
+Boeing
+Intel
+NVIDIA
+Microsoft
+Harvard
+MIT
+U.S. Army
+and dozens more 
+Powered by
+July 2024
+Partnership. HexOS becomes the first platform built on TrueNAS.
+May 2025
+AnyRAID phase 1 sponsored. HexOS funds mixed-size mirrors for OpenZFS.
+Sept 2025
+AnyRAID phase 2 sponsored. HexOS funds RAIDZ, contraction and rebalancing.
+Next
+TrueNAS Connect integration. Starting with the web installer, so a new server sets up from your browser, no keyboard or monitor needed.
+How they earned it. Twenty years of OpenZFS.
+Experience
+500+ commits
+TrueNAS is built on OpenZFS, the battle-tested filesystem its team helps develop, powering every TrueNAS install.
+Accolades
+Customers' choice
+Real users rated it a top storage pick on Gartner two years in a row.
+Contribution
+Given back, not kept
+Fast Dedup, and the AnyRAID work HexOS sponsors, land in OpenZFS itself, for everyone who runs it, on TrueNAS or not.
+Growth
+Still growing, fast
+TrueNAS has been downloaded tens of millions of times, with enterprise adoption climbing every year. It's the solution that organizations choose when they need something that works.
+Since 2005From FreeNAS to TrueNAS.
+1M+Systems deployed worldwide.
+ExabytesData protected by TrueNAS.
+OpenBuilt on code anyone can read.
+Already set up?Get more out of it.
+HexOS is a force multiplier for TrueNAS, not a replacement. Install HexOS on an existing TrueNAS system you own, and unlock all the benefits and ease-of-use of HexOS while retaining the rock-solid foundation that TrueNAS provides.
+Supercharge your TrueNAS system 
+A dependable core
+The full TrueNAS UI stays put. You always have full access to the underlying controls when necessary.
+NFS, iSCSI, S3, directory services. You retain every protocol and service you run today.
+Your pools, settings, users, shares, and apps, all stay put just the way you have them. HexOS meets your system where it is.
++
+What it adds
+Buddy Backup. Encrypted backups to a friend's HexOS server, anywhere in the world. HexOS sets up the connection for you.
+Curated apps and VMs. Tap install and it just works. No YAML, no volume mappings.
+Notifications that a human can read. If a drive fails or a backup is missed, you'll hear about it.
+Folders and shares, simplified. Permissions you can read at a glance.
+Chapter 1 of 3: Powered by TrueNAS
+Powered by TrueNASDecades of experienceAlready on TrueNAS?
+Recent releases
+Shipping faster than our translators can say "new feature" in 27 languages. Help them out 
+Automatic app updates, fan curves, game servers, and moreNov 10, 2026
+Local AI and app collections, more folders for Plex VMs, live GPU usage, and moreNov 6, 2026
+Restore points, Recently deleted folders, Jellyfin hardware transcoding, and moreNov 3, 2026
+Network UPS setup, a Valheim server, Mac drives in Bring over, and moreOct 30, 2026
+Bring over for everyone, UPS monitoring, nine new apps, and moreOct 28, 2026
+Rename your server, a tabbed app pane, live backup speeds, and moreOct 16, 2026
+Smarter Custom VMs, Safer Graphics Card Sharing & MoreOct 13, 2026
+Open beta for Buddy Backups and Virtual Machines, a smarter server setup, and much moreOct 9, 2026Read all the release notes 
+Every plan is all of HexOS. Pick one that fits your server.
+Still not sure? Watch how fast we improve.
+Get the release notes in your inbox when something new ships. Join the Discord to meet the people who use HexOS every day.
+ Join our DiscordGet the news by email.
+Sign up
+No spam. We never share your address with anyone. 
+Features 
+StorageFoldersAppsVirtual MachinesBackupsHealth
+Get started 
+PricingYour HardwareDownload
+Community 
+DocsBlogForumsDiscord
+Copyright © 2026 Eshtek Inc. All rights reserved.
+FAQTerms of ServicePrivacy PolicyCookie settings
+

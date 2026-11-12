@@ -1,0 +1,51 @@
+# LAB-debian-rugix Bakery project. Three releases per architecture:
+#   v1 (factory image), v2-good (must commit), v2-bad (k3s broken, must roll back).
+[systems.v1-amd64]
+layer = "v1"
+architecture = "amd64"
+target = "generic-grub-efi"
+
+[systems.v2good-amd64]
+layer = "v2good"
+architecture = "amd64"
+target = "generic-grub-efi"
+
+[systems.v2bad-amd64]
+layer = "v2bad"
+architecture = "amd64"
+target = "generic-grub-efi"
+
+[systems.v1-arm64]
+layer = "v1"
+architecture = "arm64"
+target = "generic-grub-efi"
+
+[systems.v2good-arm64]
+layer = "v2good"
+architecture = "arm64"
+target = "generic-grub-efi"
+
+[systems.v2bad-arm64]
+layer = "v2bad"
+architecture = "arm64"
+target = "generic-grub-efi"
+
+[systems.v2noagent-amd64]
+layer = "v2noagent"
+architecture = "amd64"
+target = "generic-grub-efi"
+
+[systems.v2noagentnaive-amd64]
+layer = "v2noagentnaive"
+architecture = "amd64"
+target = "generic-grub-efi"
+
+[systems.v2noagent-arm64]
+layer = "v2noagent"
+architecture = "arm64"
+target = "generic-grub-efi"
+
+[systems.v2noagentnaive-arm64]
+layer = "v2noagentnaive"
+architecture = "arm64"
+target = "generic-grub-efi"

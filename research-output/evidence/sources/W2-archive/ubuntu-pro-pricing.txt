@@ -1,0 +1,762 @@
+ 
+ Ubuntu Pro | plans and pricing | Ubuntu 
+ . Not
+ deferred: it sets up dataLayer and the consent default -->
+ Your submission was sent successfully!
+ Close 
+ Thank you for contacting us. A member of our team will be in touch shortly.
+ Close 
+ You have successfully unsubscribed!
+ Close 
+ Thank you for signing up for our newsletter!
+ In these regular emails you will find the latest updates about
+ Ubuntu and upcoming events where you can meet our team. Close 
+ Your preferences have been successfully updated. Close notification 
+ Please try again or 
+ file a bug report. 
+ Close 
+ Canonical Ubuntu
+ Menu 
+ Products 
+ Use cases 
+ Support 
+ Community 
+ Get Ubuntu 
+ Careers 
+ Pricing 
+ Ubuntu Pro Subscription 
+ Desktop provisioning 
+ Devices 
+ Ubuntu Pro pricing
+ Evaluate Ubuntu Pro pricing and get comprehensive open source security and support. Find the subscription that fits
+ your needs.
+ Get in touch 
+ Subscribe now 
+ Looking for a free trial?  › 
+ Ubuntu Pro
+ Enterprise
+ Personal
+ Workstation
+ $25
+ per machine per year
+ Server with unlimited VMs
+ $500
+ per machine per year
+ Personal
+ For up to 5 machines
+ Community
+ up to 50 machines for active 
+ Ubuntu community members › 
+ Does not include knowledge base access, Certified Windows drivers for KVM guests and Ubuntu Assurance
+ Program
+ Ubuntu Pro with
+24/7 Enterprise support
+ Weekday support is 50% price of 24/7 support
+ Workstation
+ $300
+ full support per machine per year
+ Server with unlimited VMs
+ $1,775
+ infra support per machine per year
+ $3,400 full support per machine per year
+ Looking for Ubuntu Pro on public clouds?
+ Ubuntu Pro on public clouds is metered by the hour and charged through your cloud provider’s bill. Pricing is
+ relative to your compute cost, typically between 3–4.5% of the list price. For exact rates, please refer to the
+ pricing pages for AWS , Azure and GCP .
+ Please note, you can also deprecate your committed spend with Ubuntu Pro.
+ Coverage for both open source infrastructure and applications
+ Ubuntu Pro covers Canonical’s complete open source portfolio, including infrastructure automation, scalable
+ storage, private and edge clouds, container orchestration, and applications.
+ Security and compliance 
+ Operations and management 
+ Infrastructure 
+ Applications 
+ Services 
+ Security 
+ Livepatch 
+ Compliance and
+ hardening 
+ Security
+ Expanded Security Maintenance for Ubuntu and open source software
+ Availability
+ Details
+ Included in an Ubuntu Pro subscription
+ Expanded Security Maintenance for Ubuntu’s Main repository for an additional 5 years beyond Ubuntu LTS
+ end of standard support (infra-only)
+ Security patching for the Ubuntu Universe repository for 10 years (Ubuntu 16.04 LTS onwards)
+ Ubuntu Pro subscription with Legacy price is 50% more
+ 5-year Legacy add-on: an additional five years of security maintenance and support, extending total
+ coverage to 15 years
+ Coverage levels
+ Infra-only coverage
+ Encompasses over 4,700 open source deb packages in Ubuntu’s Main repository for an additional 5 years,
+ including:
+ Full-stack coverage
+ Provides security maintenance for over 36,000 open source deb packages in the Ubuntu Universe
+ repository for up to 10 years, including:
+ Check the coverage for your packages › 
+ What are main and universe repositories? › 
+ Get security maintenance 
+ Learn more › 
+ Livepatch
+ Reduce downtime and unplanned work
+ Availability
+ Details
+ Included in an Ubuntu Pro subscription
+ Patch critical and high severity kernel vulnerabilities while the system runs and defer maintenance
+ windows
+ Enable Livepatch 
+ Learn more › 
+ Compliance and hardening
+ Run Ubuntu in high-security environments
+ Availability
+ Details
+ Included in an Ubuntu Pro subscription
+ NIST-certified FIPS crypto-modules (pending for Ubuntu 24.04 LTS)
+ USG hardening with CIS and DISA-STIG profiles (DISA-STIG tooling and automation for Ubuntu 20.04 LTS
+ and 22.04 LTS)
+ Common Criteria EAL2 (Ubuntu 14.04 LTS and 16.04 LTS only)
+ Certified Windows drivers for KVM guests
+ Advanced Active Directory policies for Ubuntu Desktop
+ Certified hardware with Ubuntu
+ Get audit-ready 
+ Learn more › 
+ Landscape 
+ Support 
+ Firefighting
+ Support 
+ Landscape
+ Manage Linux at enterprise-scale
+ Availability
+ Details
+ Included in an Ubuntu Pro subscription
+ Landscape SaaS, maintained by Canonical
+ Subscription add-on
+ Per Landscape virtual machine
+ $3,099 / year
+ Managed Landscape on public clouds, VMware, OpenStack or LXD
+ Subscription add-on
+ Per Landscape physical machine
+ $9,470 / year
+ Managed Landscape on bare metal
+ Simplify your fleet 
+ Learn more › 
+ Support
+ Add enterprise support for your full open source stack
+ Availability
+ Details
+ Included in support add-ons
+ Knowledge base access
+ Ubuntu Assurance Program (Only with Infra or Full support)
+ Break-fix and bug-fix support for over 4,700 packages in Ubuntu Main repository, including the Ubuntu
+ operating system (With Infra support, only on servers)
+ Break-fix and bug-fix support for over 36,000 packages in the Ubuntu Universe repository (Ubuntu 18.04
+ LTS onwards) (With Full support)
+ Support add-ons
+ Price
+ Tier
+ $300/workstation
+ 24/7 Full support
+ $1,775/server
+ 24/7 Infra support
+ $3,400/server
+ 24/7 Full support
+ Weekday price is 50% less
+ Partner with our experts 
+ Learn more › 
+ Firefighting Support
+ Enhanced operational support for your self-managed environments
+ Availability
+ Details
+ Included in firefighting add-ons
+ Access to a video call with a Canonical Managed Solutions engineer within 1 hour of flagging a high
+ severity incident
+ Ubuntu Pro with 24/7 support included for all covered products
+ Dual team cloud support for your products: the Support and Managed Solutions teams work together to
+ resolve your issues
+ Access to Ops Consulting packages
+ Firefighting add-ons
+ Price
+ Tier
+ Firefighting full stack
+ $7,600 / physical server
+ Firefighting apps
+ $6,235 / physical server
+ Firefighting infra
+ $3,625/physical server
+ Solve problems faster 
+ Learn more › 
+ MAAS 
+ CEPH 
+ Cloud infrastructure 
+ MAAS
+ Bare metal provisioning
+ Availability
+ Details
+ Included in an Ubuntu Pro subscription
+ Get security coverage and support for your bare metal automation solution
+ Automate your data centers 
+ Learn more › 
+ CEPH
+ Remote storage
+ Availability
+ Details
+ Included in an Ubuntu Pro subscription
+ Production-worthy Ceph storage on Ubuntu, 576TB included
+ Prices are for Ubuntu Pro + 24/7 support contracts.
+ Weekday support is discounted by 50%.
+ Additional capacity with support contracts
+ Tiers
+ Cluster capacity
+ Tier price
+ Additional per TB
+ Up to 150 TB
+ 0
+ $33.33
+ 150 - 1,500 TB
+ $5,000
+ $25.00
+ 1,500 - 3,000 TB
+ $38,750
+ $13.33
+ 3,000 - 15,000 TB
+ $58,750
+ $6.67
+ 15,000 - 30,000 TB
+ $138,750
+ $3.33
+ Beyond 30,000 TB
+ $188,750
+ $0
+ Ask our experts
+ Learn more › 
+ Cloud infrastructure
+ Virtualization and orchestration
+ Availability
+ Details
+ Included in an Ubuntu Pro subscription
+ Security maintenance for your Micro-cloud , OpenStack and Kubernetes infrastructure 
+ With support add-ons
+ Enterprise support
+ Contact us 
+ Data solutions 
+ AI and MLOps 
+ Data solutions
+ Enterprise data solutions for rapid innovation at any scale
+ Availability
+ Details
+ Included in an Ubuntu Pro subscription (+5 years with Legacy add-on)
+ Security patching for up to 10 years
+ With support add-ons
+ Enterprise support
+ Platforms
+ Manage data seamlessly 
+ AI and MLOps
+ The complete MLOps lifecycle from concept to production
+ Availability
+ Details
+ Included in an Ubuntu Pro subscription (+5 years with Legacy add-on)
+ Security patching for up to 10 years
+ With support add-ons
+ Enterprise support
+ Platforms
+ Deploy models faster 
+ Fully managed services 
+ Additional services 
+ Fully managed services
+ Managed IT services you can rely on
+ Availability
+ Details
+ Included in managed service packages
+ Your open source ecosystem deployed and managed by Canonical
+ 24/7 monitoring and incident resolution
+ Focus on your business while we handle updates, backups, and operations
+ Services
+ Price
+ Tier
+ $5,750 / physical server
+ Managed Infra
+ $9,470 / physical server
+ Managed Apps
+ $11,790 / physical server
+ Managed Full stack
+ Ask our experts 
+ Learn more › 
+ Additional services
+ Talk to our experts on your open source needs
+ Open source consulting 
+ Container Build Service 
+ Training 
+ Get in touch 
+ Companies that trust Ubuntu Pro
+ Education, Research and Academia
+ Ubuntu Pro is available for purchase through our website, or through our global network of partners. For more
+ information on purchasing Ubuntu Pro, please contact us.
+ Get in touch 
+ Get started with Ubuntu Pro today
+ Contact us 
+ Subscribe now 
+ Buy on public clouds › 
+ Close 
+ Ubuntu and open infrastructure experts
+ Tell us about your project 
+ Tell us about your project 
+ If you use Ubuntu, which version(s) are you using? 
+ If you use Ubuntu, which version(s) are you using? 
+ LTS within standard support 
+ 24.04 LTS 
+ 22.04 LTS 
+ 20.04 LTS 
+ LTS out of standard support 
+ 18.04 LTS 
+ 16.04 LTS 
+ 14.04 LTS 
+ Outdated or non-LTS releases non-LTS release 
+ non-LTS release 
+ 12.04 LTS 
+ Other 
+ I don't use Ubuntu today 
+ I don't know 
+ What kind of device are you using? 
+ What kind of device are you using? 
+ Desktop workstation 
+ Physical server 
+ Public cloud 
+ Virtual machine 
+ IoT/Edge device 
+ How many devices? 
+ How many devices? 
+ < 5 machines 
+ 5 - 15 machines 
+ 15 - 50 machines 
+ 50 - 100 machines 
+ > 100 machines 
+ How do you consume open source? 
+ How do you consume open source? 
+ Ubuntu repositories 
+ GitHub/Upstream 
+ Internally approved repository 
+ I don't know 
+ Do you have specific compliance or hardening requirements? 
+ Do you have specific compliance or hardening requirements? 
+ PCI-DSS 
+ HIPAA 
+ FISMA 
+ FIPS 140 
+ NCSC 
+ DISA-STIG 
+ FedRAMP 
+ CIS Benchmark 
+ Who is responsible for tracking, testing and applying CVE patches in a timely manner? 
+ Who is responsible for tracking, testing and applying CVE patches in a timely manner? 
+ Individual developers 
+ The project team 
+ Third-party vendor 
+ I don't know 
+ What advice are you looking for? 
+ What advice are you looking for? 
+ How should we get in touch? 
+ How should we get in touch? 
+ First name: 
+ Last name: 
+ Email: 
+ Company: 
+ Job Title: 
+ Country: 
+ Select... 
+ France 
+ Germany 
+ Japan 
+ United Kingdom 
+ United States of America 
+ —————————————————— 
+ Afghanistan 
+ Åland Islands 
+ Albania 
+ Algeria 
+ American Samoa 
+ Andorra 
+ Angola 
+ Anguilla 
+ Antarctica 
+ Antigua and Barbuda 
+ Argentina 
+ Armenia 
+ Aruba 
+ Australia 
+ Austria 
+ Azerbaijan 
+ Bahamas 
+ Bahrain 
+ Bangladesh 
+ Barbados 
+ Belarus 
+ Belgium 
+ Belize 
+ Benin 
+ Bermuda 
+ Bhutan 
+ Bolivia (Plurinational State of) 
+ Bonaire, Sint Eustatius and Saba 
+ Bosnia and Herzegovina 
+ Botswana 
+ Bouvet Island 
+ Brazil 
+ British Indian Ocean Territory 
+ Brunei Darussalam 
+ Bulgaria 
+ Burkina Faso 
+ Burundi 
+ Cambodia 
+ Cameroon 
+ Canada 
+ Cabo Verde 
+ Cayman Islands 
+ Central African Republic 
+ Chad 
+ Chile 
+ China 
+ Christmas Island 
+ Cocos (Keeling) Islands 
+ Colombia 
+ Comoros 
+ Congo 
+ Congo (Democratic Republic of the) 
+ Cook Islands 
+ Costa Rica 
+ Côte d'Ivoire 
+ Croatia 
+ Cuba 
+ Curaçao 
+ Cyprus 
+ Czech Republic 
+ Denmark 
+ Djibouti 
+ Dominica 
+ Dominican Republic 
+ Ecuador 
+ Egypt 
+ El Salvador 
+ Equatorial Guinea 
+ Eritrea 
+ Estonia 
+ Ethiopia 
+ Falkland Islands (Malvinas) 
+ Faroe Islands 
+ Fiji 
+ Finland 
+ France 
+ French Guiana 
+ French Polynesia 
+ French Southern Territories 
+ Gabon 
+ Gambia 
+ Georgia 
+ Germany 
+ Ghana 
+ Gibraltar 
+ Greece 
+ Greenland 
+ Grenada 
+ Guadeloupe 
+ Guam 
+ Guatemala 
+ Guernsey 
+ Guinea 
+ Guinea-Bissau 
+ Guyana 
+ Haiti 
+ Heard Island and McDonald Islands 
+ Holy See 
+ Honduras 
+ Hong Kong 
+ Hungary 
+ Iceland 
+ India 
+ Indonesia 
+ Iran (Islamic Republic of) 
+ Iraq 
+ Ireland 
+ Isle of Man 
+ Israel 
+ Italy 
+ Jamaica 
+ Japan 
+ Jersey 
+ Jordan 
+ Kazakhstan 
+ Kenya 
+ Kiribati 
+ Korea (Democratic People's Republic of) 
+ Korea (Republic of) 
+ Kuwait 
+ Kyrgyzstan 
+ Lao People's Democratic Republic 
+ Latvia 
+ Lebanon 
+ Lesotho 
+ Liberia 
+ Libya 
+ Liechtenstein 
+ Lithuania 
+ Luxembourg 
+ Macao 
+ Macedonia (the former Yugoslav Republic of) 
+ Madagascar 
+ Malawi 
+ Malaysia 
+ Maldives 
+ Mali 
+ Malta 
+ Marshall Islands 
+ Martinique 
+ Mauritania 
+ Mauritius 
+ Mayotte 
+ Mexico 
+ Micronesia (Federated States of) 
+ Moldova (Republic of) 
+ Monaco 
+ Mongolia 
+ Montenegro 
+ Montserrat 
+ Morocco 
+ Mozambique 
+ Myanmar 
+ Namibia 
+ Nauru 
+ Nepal 
+ Netherlands 
+ New Caledonia 
+ New Zealand 
+ Nicaragua 
+ Niger 
+ Nigeria 
+ Niue 
+ Norfolk Island 
+ Northern Mariana Islands 
+ Norway 
+ Oman 
+ Pakistan 
+ Palau 
+ Palestine, State of 
+ Panama 
+ Papua New Guinea 
+ Paraguay 
+ Peru 
+ Philippines 
+ Pitcairn 
+ Poland 
+ Portugal 
+ Puerto Rico 
+ Qatar 
+ Réunion 
+ Romania 
+ Russian Federation 
+ Rwanda 
+ Saint Barthélemy 
+ Saint Helena, Ascension and Tristan da Cunha 
+ Saint Kitts and Nevis 
+ Saint Lucia 
+ Saint Martin (French part) 
+ Saint Pierre and Miquelon 
+ Saint Vincent and the Grenadines 
+ Samoa 
+ San Marino 
+ Sao Tome and Principe 
+ Saudi Arabia 
+ Senegal 
+ Serbia 
+ Seychelles 
+ Sierra Leone 
+ Singapore 
+ Sint Maarten (Dutch part) 
+ Slovakia 
+ Slovenia 
+ Solomon Islands 
+ Somalia 
+ South Africa 
+ South Georgia and the South Sandwich Islands 
+ South Sudan 
+ Spain 
+ Sri Lanka 
+ Sudan 
+ Suriname 
+ Svalbard and Jan Mayen 
+ Swaziland 
+ Sweden 
+ Switzerland 
+ Syrian Arab Republic 
+ Taiwan 
+ Tajikistan 
+ Tanzania, United Republic of 
+ Thailand 
+ Timor-Leste 
+ Togo 
+ Tokelau 
+ Tonga 
+ Trinidad and Tobago 
+ Tunisia 
+ Turkey 
+ Turkmenistan 
+ Turks and Caicos Islands 
+ Tuvalu 
+ Uganda 
+ Ukraine 
+ United Arab Emirates 
+ United Kingdom 
+ United States of America 
+ United States Minor Outlying Islands 
+ Uruguay 
+ Uzbekistan 
+ Vanuatu 
+ Venezuela (Bolivarian Republic of) 
+ Viet Nam 
+ Virgin Islands (British) 
+ Virgin Islands (U.S.) 
+ Wallis and Futuna 
+ Western Sahara 
+ Yemen 
+ Zambia 
+ Zimbabwe 
+ Mobile/cell phone number: 
+ I agree to receive
+ information about
+ Canonical's products and services. 
+ By submitting this form, I confirm that I have read and agree to Canonical's Privacy Notice and Privacy Policy .
+ Website: 
+ Name: 
+ Submit 
+ Your comments
+ OpenStack
+ OpenStack
+ Install 
+ Support 
+ Ceph
+ Ceph
+ What is Ceph 
+ Managed 
+ Consulting 
+ Docs 
+ Install 
+ Kubernetes
+ Kubernetes
+ What is Kubernetes 
+ Managed 
+ Install 
+ Docs 
+ Resources 
+ Managed infrastructure
+ Managed infrastructure
+ Managed apps 
+ AI / ML
+ AI / ML
+ Consulting 
+ Data Science 
+ Robotics
+ Robotics
+ ROS ESM 
+ What is ROS 
+ Community 
+ Docs 
+ IoT
+ IoT
+ App store 
+ Embedded Linux 
+ Management 
+ Ubuntu Core
+ Ubuntu Core
+ Features 
+ Success stories 
+ Services 
+ Docs 
+ Ubuntu Desktop
+ Ubuntu Desktop
+ Organizations 
+ Developers 
+ Flavors 
+ Ubuntu Server
+ Ubuntu Server
+ Hyperscale 
+ Docs 
+ Cloud
+ Cloud
+ What is cloud computing 
+ What is private cloud 
+ What is hybrid cloud 
+ What is multi-cloud 
+ Public cloud 
+ Security
+ Security
+ Platform Security 
+ ESM 
+ Livepatch 
+ Security standards 
+ CVEs 
+ Notices 
+ Assurances 
+ Landscape
+ Landscape
+ Features 
+ Managed 
+ Compare 
+ Install 
+ Docs 
+ Log in to Landscape 
+ Containers
+ Containers
+ What are containers 
+ Chiseled Ubuntu 
+ Chiseled and .NET 
+ Container Build Service 
+ Rockcraft 
+ Docs 
+ Downloads
+ Downloads
+ Desktop 
+ Server 
+ WSL 
+ Core 
+ Cloud 
+ Support
+ Support
+ Your subscriptions 
+ Account users 
+ Pricing 
+ Discourse 
+ Firefighting support 
+ Pricing
+ Pricing
+ Ubuntu Pro Subscription 
+ Desktop provisioning 
+ Devices 
+ Solutions 
+ AI 
+ Data 
+ Infrastructure 
+ Managed Infrastructure 
+ Open source security 
+ IoT and devices 
+ Cloud native development 
+ Sectors
+ Automotive 
+ Industrial 
+ Public sector 
+ Telco 
+ Finance 
+ Contact us 
+ About us 
+ Community 
+ Careers 
+ Blog 
+ Resources 
+ Press center 
+ © 2026 Canonical Ltd.
+ Ubuntu and Canonical are registered trademarks of Canonical Ltd.
+ Legal information 
+ Data privacy 
+ Manage your tracker settings 
+ Report a bug on this site 
+ Back to top 
+ Go to the top of the page 
+ 

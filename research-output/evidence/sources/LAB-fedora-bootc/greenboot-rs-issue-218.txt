@@ -1,0 +1,85 @@
+0.16.4: set-rollback-trigger ExecStop never runs (unit lacks Conflicts=), no rollback
+https://github.com/fedora-iot/greenboot-rs/issues/218
+state=open created=2026-10-11T16:40:09Z updated=2026-10-26T12:36:46Z
+
+Related to #217, but a different root cause. #217 is version skew: the old tree (0.16.2) arms `greenboot_rollback_trigger` while the new tree (0.16.4) checks `greenboot_next_deployment_id`. In our case both the booted tree and the update are on greenboot 0.16.4, so there is no skew. The trigger is never written because `greenboot-set-rollback-trigger.service` is never stopped at shutdown, so its `ExecStop=` never runs. The end result is the same message as #217.
+
+### Environment
+
+- Fedora 44 bootc image (`fedora-bootc` 44, version 44.20261009.0)
+- greenboot (greenboot-rs) 0.16.4, bootc 1.16.13, ostree 2026.4, systemd 259.9, kernel 7.2.9
+- GRUB + grubenv boot counting (`08_greenboot.cfg` via bootupd), `GREENBOOT_MAX_BOOT_ATTEMPTS=3`
+- Tested under QEMU TCG with OVMF, SELinux enforcing
+
+### Problem
+
+After a staged update fails its required health checks on three boots, greenboot stops with:
+
+```
+Boot counter exhausted but no next-deployment-id set - manual intervention required
+```
+
+and the host stays on the broken deployment. `grub2-editenv list` shows `greenboot_next_deployment_id` was never set.
+
+### Cause
+
+Since 544faf0 (and 853e3c8 for the ordering), the unit in 0.16.4 is:
+
+```ini
+[Unit]
+Description=Greenboot Rollback trigger
+DefaultDependencies=no
+After=ostree-finalize-staged.service rpm-ostreed.service
+RequiresMountsFor=/boot
+ConditionPathExists=/run/ostree-booted
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStop=/usr/libexec/greenboot/greenboot set-rollback-trigger
+PrivateMounts=yes
+
+[Install]
+RequiredBy=ostree-finalize-staged.service
+```
+
+The unit is started together with `ostree-finalize-staged.service` when an update is staged, and all of its work is in `ExecStop=`. Because it has `DefaultDependencies=no`, it does not get the implicit `Conflicts=shutdown.target`, and it has no explicit `Conflicts=` either. Nothing in the shutdown transaction stops it, so `ExecStop=` never runs and the trigger is never recorded. `Requires=` from `ostree-finalize-staged.service` does not help here: stopping the requiring unit does not stop the required one.
+
+`ostree-finalize-staged.service` avoids this with `Conflicts=final.target` and `Before=final.target`.
+
+### Steps to reproduce
+
+1. Install a Fedora 44 bootc image with greenboot 0.16.4 enabled (`greenboot-healthcheck.service`, `greenboot-set-rollback-trigger.service`).
+2. Build a second image from it that adds a failing script to `/etc/greenboot/check/required.d/` (for example `exit 1`).
+3. `bootc switch` (or `bootc upgrade`) to that image, then reboot.
+4. Let the new image fail its health check on three boots.
+
+### Expected
+
+At shutdown the trigger's `ExecStop=` runs before finalize, records `greenboot_next_deployment_id`, and after the third red boot greenboot rolls back to the previous deployment automatically.
+
+### Actual
+
+The trigger never runs. After the third red boot greenboot logs `Boot counter exhausted but no next-deployment-id set - manual intervention required` and the host stays on the failing deployment.
+
+### Suggested fix
+
+Give the unit the same shutdown wiring as `ostree-finalize-staged.service`. We tested this as a drop-in:
+
+```ini
+# /usr/lib/systemd/system/greenboot-set-rollback-trigger.service.d/10-stop-at-shutdown.conf
+[Unit]
+Conflicts=final.target
+Before=final.target
+```
+
+With this, both units are stopped in the same shutdown transaction. The existing `After=ostree-finalize-staged.service` means the trigger stops first (stop order is the reverse of start order), while the staged deployment still exists, so `set-rollback-trigger` can find it. Under the setup above, a bad update then rolled back automatically and permanently after 3 red boots, repeated 3 times, and a plain reboot afterwards stayed green. The same two lines could go straight into the shipped unit.
+
+### Environment note (not a greenboot bug)
+
+In our image `systemd-gpt-auto-generator` created an autofs `boot.automount` for the ESP. When that automount was idle at shutdown, `ostree admin finalize-staged` failed with `Remounting /boot read-write: Invalid argument`. We masked `boot.automount` for these tests. Mentioning it only in case someone hits it while reproducing.
+
+### Also noticed
+
+`08_greenboot.cfg` as shipped under `/usr/lib/bootupd/grub2-static/configs.d/` has no trailing newline after the last line (`save_env boot_success`). If bootupd concatenates the static snippets, the next snippet's first line can end up on the same line. We append a newline in our build. Happy to file this separately if useful.
+

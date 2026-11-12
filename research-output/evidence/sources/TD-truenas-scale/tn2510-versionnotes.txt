@@ -1,0 +1,1209 @@
+25.10 (Goldeye) Version Notes | TrueNAS Documentation Hub 
+ Search TrueNAS Documentation
+ × 
+ Show Results From:
+ Version (25.04) 
+ 28 (Nightly) 
+ 27 
+ 25.10 
+ 25.04 
+ 24.10 
+ Docs 
+ API 
+ Apps 
+ TrueNAS Connect 
+ Searching...
+ Products 
+ Support & Resources 
+ Get A Quote 
+ Solutions 
+ Company 
+ Sign In 
+ Close 
+ Products V-Series Max Performance & Versatility
+ F-Series High Performance NVME
+ H-Series Versatility and Power Efficiency
+ Mini Series Edge and Branch Office
+ M-Series High Capacity All-Flash or Hybrid
+ R-Series Single Controller Appliances
+ TrueNAS Enterprise
+ Mission Critical Storage. 24×7 Enterprise Support
+ TrueNAS Community Edition
+ Test Drive TrueNAS in Your Environment
+ Streamlined Management for your TrueNAS Systems 
+ Solutions Industry
+ Audio 
+ Automotive 
+ Broadcasting 
+ Education 
+ US Public Sector 
+ Gaming 
+ Healthcare 
+ MSP 
+ Manufacturing 
+ Research & AI 
+ Media & Entertainment 
+ Use Cases
+ Analytics 
+ Backup & Archival 
+ Cloud 
+ Data Mobility 
+ File Sharing 
+ TrueCloud Backup 
+ Media & Entertainment 
+ Surveillance/CCTV 
+ Veeam Backup 
+ Virtualization 
+ Red Hat OpenShift 
+ TrueNAS as an Alternative
+ Alternative to Dell 
+ Alternative to NetApp 
+ Alternative to Pure Storage 
+ Support & Resources Support
+ Enterprise Support For customers with active support contracts
+ Community Support For peer-to-peer, forum support
+ Resources
+ Case Studies 
+ Datasheets 
+ Documentation 
+ TrueNAS API 
+ FAQ 
+ Apps 
+ TrueNAS Blogs 
+ Software Status 
+ TrueNAS Security 
+ Solution Briefs and Guides 
+ Certifications & Integrations 
+ White Papers 
+ Videos 
+ TrueCommand Cloud 
+ Reseller Network 
+ ZFS Overview 
+ Community
+ TrueNAS Community Edition 
+ Community Forum 
+ Discord 
+ TrueNAS GitHub 
+ TrueNAS Merch Store 
+ Company About TrueNAS 
+ Team 
+ Awards 
+ Careers 
+ Contact Us 
+ Newsroom 
+ Our Clients 
+ Reviews 
+ Sign In TrueNAS Connect 
+ Partner Portal 
+ Enterprise Support 
+ Get A Quote 
+ Documentation Hub Product TrueNAS
+ TrueNAS Apps 
+ TrueNAS Connect TrueCommand
+ TrueNAS Systems
+ Version 
+ Keyword Search 
+ AI Search 
+ × 
+ ⎙ Download or Print 
+ Getting Started
+ ⎙ Download or Print 
+ 25.10 (Goldeye) Version Notes 
+ Feature Deprecations 
+ TrueNAS Hardware Guide 
+ Installation Instructions
+ Preparing for TrueNAS UI Configuration 
+ Preparing for TrueNAS UI Configuration (Enterprise) 
+ Preparing for TrueNAS UI Configuration (Home Users) 
+ Installing TrueNAS 
+ Installing TrueNAS Enterprise (HA) 
+ Using the Console Setup Menu 
+ Migrating from CORE
+ Preparing to Migrate 
+ Community Migrations 
+ Enterprise Migrations 
+ Component Naming 
+ (obsolete) ZFS Feature Flags Removed 
+ Third-Party Data Migration 
+ Configuration Instructions
+ Logging In for the First Time 
+ Configuring TrueNAS Using the UI 
+ Setting Up Storage 
+ Setting Up Data Sharing 
+ Backing Up TrueNAS 
+ Configuring Virtualization and Apps 
+ Getting Support
+ Providing Feedback in TrueNAS 
+ User Agreements
+ TrueNAS EULA 
+ Software Development Life Cycle 
+ TrueNAS Data Collection Statement 
+ TrueNAS Tutorials
+ ⎙ Download or Print 
+ Top Toolbar
+ Using UI Global Search 
+ Managing API Keys 
+ Shutting Down TrueNAS Enterprise HA 
+ Dashboard 
+ Storage
+ Import Pool 
+ Disks
+ Replacing Disks 
+ Wiping a Disk 
+ SLOG Over-Provisioning 
+ Managing Self-Encrypting Drives (SED) 
+ Drive Health Management 
+ Create Pool 
+ Fusion Pools 
+ Managing Pools 
+ Datasets
+ Adding and Managing Datasets 
+ Adding and Managing Zvols 
+ Managing User or Group Quotas 
+ Creating Snapshots 
+ Managing Snapshots 
+ Storage Encryption 
+ Configuring ACL Permissions 
+ Shares
+ AFP Migration 
+ Block Shares (iSCSI)
+ Adding iSCSI Block Shares 
+ Setting Up Fibre Channel 
+ Using an iSCSI Share 
+ Increasing iSCSI Available Storage 
+ Adding NFS Shares 
+ Multiprotocol Shares 
+ Windows Shares (SMB)
+ Managing SMB Shares 
+ Adding a Basic Time Machine SMB Share 
+ Setting Up Final Cut Pro SMB Shares 
+ Using SMB Shadow Copy 
+ Setting Up SMB Private Dataset Shares 
+ SMB Share MacOS Client Limitations When Using Decomposed Unicode Characters 
+ Setting Up SMB Multichannel 
+ NVMe-oF Subsystems
+ Managing NVMe-oF Subsystems 
+ Data Protection
+ Managing TrueCloud Backup Tasks 
+ Cloud Sync Tasks
+ Backing Up Google Drive to TrueNAS 
+ Adding a Google Photos Cloud Sync Task 
+ Configuring Rsync Tasks 
+ Adding Periodic Snapshot Tasks 
+ Creating VMWare Snapshots 
+ Replication Tasks
+ Setting Up a Local Replication Task 
+ Setting Up a Remote Replication Task 
+ Advanced Replication Tasks
+ Setting Up an Encrypted Replication Task 
+ Unlocking a Replication Encrypted Dataset or Zvol 
+ Network
+ Interface Configurations
+ Setting Up a Network Bridge 
+ Setting Up a Link Aggregation 
+ Setting Up a Network VLAN 
+ Managing Network Configurations 
+ Configuring IPv6 
+ Managing Network Settings (Enterprise HA) 
+ Configuring Static Routes 
+ Setting Up IPMI 
+ Accessing NAS from VMs and Containers 
+ Credentials
+ Using Administrator Logins 
+ Managing Users 
+ Managing Groups 
+ Setting Up Directory Services
+ Configuring Active Directory 
+ Configuring IPA 
+ Configuring LDAP 
+ Configuring Kerberos 
+ Backup Credentials
+ Adding Cloud Credentials 
+ Adding SSH Credentials 
+ Certificates
+ Managing Certificates 
+ Managing Certificate Signing Requests 
+ Adding ACME DNS Authenticators 
+ Creating ACME Certificates 
+ Configuring KMIP 
+ Containers 
+ Virtual Machines
+ Adding and Managing VM Devices 
+ Reporting 
+ System Settings
+ Updating TrueNAS 
+ Updating TrueNAS Enterprise HA 
+ General Settings
+ Adding a License and Proactive Support 
+ Setting Up System Email 
+ Advanced Settings
+ Managing the System Configuration 
+ Managing Cron Jobs 
+ Managing the Console Setup Menu 
+ Managing System Logging 
+ Configuring SED Settings 
+ Managing Init/Shutdown Scripts 
+ Isolating GPU for VMs 
+ Managing Global 2FA (Two-Factor Authentication) 
+ Developer Mode (Unsupported) 
+ Boot Pool Management 
+ Services
+ FTP 
+ NFS 
+ SMB 
+ SNMP 
+ SSH 
+ UPS 
+ Using Shell 
+ Using Audit Logs 
+ UI Reference Guide
+ ⎙ Download or Print 
+ Top Toolbar
+ Alerts
+ Alert Settings Screens 
+ Email Screens 
+ Settings Options
+ User API Keys Screen 
+ Two-Factor Authentication Screen 
+ Jobs Screens 
+ Dashboard 
+ Storage
+ Disks 
+ Pool Creation Wizard 
+ VDEVs 
+ Datasets
+ Zvols 
+ Capacity Settings 
+ Snapshots 
+ User and Group Quotas 
+ Encryption Settings 
+ Permissions 
+ Shares
+ SMB Shares Screens 
+ NFS Shares Screens 
+ Block (iSCSI) Share Target Screens 
+ Fibre Channel Screens 
+ NVMe-oF Share Screens 
+ Data Protection
+ TrueCloud Backup Tasks Screens 
+ Cloud Sync Tasks Screens 
+ Rsync Tasks Screens 
+ Periodic Snapshot Tasks Screens 
+ VMWare Snapshots Screen 
+ Replication Task Screens 
+ Network
+ Network Interface Screens 
+ Network Configuration Screens 
+ Static Routes Widget 
+ IPMI Screens 
+ Credentials
+ Users Screens 
+ Groups Screens 
+ Directory Services Screens
+ Active Directory Screens 
+ IPA Screens 
+ LDAP Screens 
+ Kerberos Settings Screen 
+ Kerberos Realms Screens 
+ Kerberos Keytab Screens 
+ Backup Credentials
+ Cloud Credentials Screens 
+ SSH Screens 
+ Certificates
+ Certificates Screens 
+ Certificate Signing Requests Screens 
+ ACME DNS-Authenticators Screens 
+ KMIP Screen 
+ Containers 
+ Virtual Machines 
+ Apps
+ Custom App Screens 
+ Reporting 
+ System Settings
+ Update Screens 
+ General Settings Screen 
+ Advanced Settings Screen 
+ Boot 
+ Services
+ FTP Service Screen 
+ iSCSI Services Screen 
+ NFS Services Screen 
+ SMB Service Screen 
+ SNMP Service Screen 
+ SSH Service Screen 
+ UPS Services Screen 
+ Shell Screen 
+ Alert Settings Screen 
+ View Enclosure Screen (TrueNAS Systems Only) 
+ Audit Screen 
+ API Reference 
+ TrueNAS Security Reports 
+ TrueNAS Apps 
+ TrueNAS Connect 
+ TrueNAS API Docs 
+ Security Reports 
+ Documentation Archive 
+ View Source 
+ RSS Feed 
+ Software Status 
+ Software Releases 
+ Solutions 
+ TrueNAS Systems 
+ Contributing 
+ References 
+ ➤ TrueNAS 25.10 
+ /
+ Getting Started 
+ /
+ 25.10 (Goldeye) Version Notes 
+ Edit page 
+TrueNAS Stable Version Documentation
+ This content follows TrueNAS 25.10 (Goldeye) releases.
+Use the Product and Version selectors above to view content specific to a different software release.
+ 25.10 (Goldeye) Version Notes
+   63 minute read.
+ Last Modified 2026-11-06 09:32 EST 
+ Notable Changes and Known Issues
+ November 5, 2026
+ The TrueNAS team is pleased to release TrueNAS 25.10.8!
+This release updates the Linux kernel to address more than 1,600 upstream CVEs. It also fixes a dataset passphrase exposure in internal job arguments, NVMe over TCP I/O errors on large transfers, and SMB, rsync, Cloud Sync, TrueNAS Connect, and Apps issues.
+ Notable changes: 
+ Fixes an issue that exposed dataset passphrases in plain text in internal job arguments ( NAS-144783 ).
+When a passphrase-encrypted dataset was unlocked from the web interface, the passphrase was stored unredacted in the arguments of an internal zfs.dataset.bulk_process job. TrueNAS now treats these arguments as secret so the passphrase no longer appears in job details.
+ Updates the Linux kernel to the latest 6.12 LTS release (v6.12.113) ( NAS-143852 , NAS-144791 ).
+This update fixes more than 1,600 upstream CVEs. Several of these are critical or high severity issues in components TrueNAS uses.
+Key fixes include:
+ NFS server: Fixes several use-after-free errors where the server freed client state while another operation still used it ( CVE-2026-89662 , CVE-2026-89658 , CVE-2026-89659 , CVE-2026-89660 , CVE-2026-90036 , CVE-2026-90037 , and CVE-2026-89708 ).
+ NFS lock manager: Fixes a use-after-free error ( CVE-2026-89485 ).
+ Kerberos-protected NFS: Fixes memory errors when the server processes malformed Kerberos messages ( CVE-2026-89551 and CVE-2026-89542 ).
+ NVMe over TCP: Fixes missing length checks on data a host sends ( CVE-2026-89482 ) and a heap overflow in NVMe-oF authentication ( CVE-2026-98725 ).
+ Network stack: Fixes errors in how IP fragments are queued ( CVE-2026-74662 ), BIG TCP aggregation ( CVE-2026-80725 ), an IPv4 checksum offset that a guest could use to corrupt host memory ( CVE-2026-99999 ), an IPv6 use-after-free error ( CVE-2025-40158 ), and an IPv4 TCP use-after-free error (CVE-2026-98432).
+ io_uring : Fixes a use-after-free error in a task the kernel runs for the submission queue ( CVE-2026-98858 ).
+ Fixes an issue where large NVMe over TCP transfers failed and caused I/O errors on connected hosts ( NAS-144298 ).
+The NVMe over TCP target told hosts it had no limit on transfer size, but it rejected any single transfer larger than 4 MiB. Linux hosts that sent larger transfers received I/O errors, which could silently lose data on some file systems such as ext4 . The target now reports a transfer size limit that hosts follow.
+ Fixes an error that prevented changes to SMB service settings when directory services are enabled ( NAS-143595 ).
+An error in the check for NetBIOS alias changes caused any attempt to save a change on the SMB service screen to fail with the error too many values to unpack (expected 2) . SMB service settings now save as expected.
+ Fixes rsync tasks that failed when the extra options contained quoted values ( NAS-143382 ).
+A change in 25.10.7 caused TrueNAS to use quoted values in the Extra options field literally. For example, --rsync-path="sudo rsync" was treated as a single command named sudo rsync and the task failed. TrueNAS now handles quoted values the same way as in 25.10.6.
+ Fixes cloud sync tasks that failed for Backblaze B2 credentials with leading or trailing spaces ( NAS-144662 ).
+Spaces copied along with a Backblaze B2 key could cause an invalid authorization token error when TrueNAS verified the credential or ran the task. TrueNAS now removes leading and trailing spaces from credential values before it uses them.
+ Fixes certificate generation that failed when the certificate authority responded slowly ( NAS-144031 ).
+Requests from TrueNAS to TrueNAS Connect timed out after 15 seconds, which was not always long enough when the certificate authority was slow. This caused certificate generation to fail. TrueNAS now waits up to 55 seconds for a response.
+ Fixes apps that kept an invalid NVIDIA GPU identifier after a GPU replacement ( NAS-142006 ).
+When a GPU was replaced with a different card in the same slot, an app that used it kept the old card identifier and the app failed to start. TrueNAS now updates the stored identifier to match the installed card.
+Edit and save the app, or redeploy it, to apply the updated identifier.
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10.8 (Goldeye) Changelog in Jira.
+ 25.10.7 Notable Changes
+ September 2, 2026
+ The TrueNAS team is pleased to release TrueNAS 25.10.7!
+ Notable changes: 
+ Updates the Linux kernel to the latest 6.12 LTS release (v6.12.105).
+ Fixes a kernel panic in the NFS server that could occur when a client’s dropped connection caused the same request to arrive twice ( NAS-142560 ).
+If an NFSv4.1 client lost its connection twice in quick succession, two copies of the same request could reach the server at the same time. Both were read from the session reply cache, but one thread could also modify that cached entry while the other read it, which caused a NULL pointer dereference and crashed the system. TrueNAS now leaves the cached reply untouched when replaying it.
+ Fixes a crash that could occur when unregistering an iSCSI target while a peer controller was leaving the cluster ( NAS-142264 ).
+On Enterprise HA systems, target unregistration during failover could follow a stale list pointer if another teardown ran at the same time, which crashed the system or corrupted memory. The affected code now restarts its list walk from the beginning after each removal instead of relying on a saved position.
+ Fixes a crash that could occur when a task management command arrived while an iSCSI session was being reassigned to a new access control group ( NAS-142258 ).
+An ABORT_TASK or other task management request received during session reassignment could dereference a pointer that was temporarily cleared, which crashed the task management thread. TrueNAS now keeps the previous access control group installed until the reassignment finishes.
+ Fixes a crash in the iSER (iSCSI over RDMA) target driver that could occur when a connection closed during active I/O ( NAS-142161 ).
+A response posted just before a connection closed could be released twice, and the second release read from memory that had already been reused, which crashed the target. TrueNAS now tracks response ownership correctly so this cannot happen.
+ Fixes a crash that could occur when a Fibre Channel target driver was unloaded while a target’s enabled state was still being changed ( NAS-142126 ).
+A queued request to enable or disable a target could still run after the target began unregistering, which re-armed a port whose driver was already partially torn down and crashed the system. TrueNAS now blocks queued work for a target once it starts unregistering.
+ Fixes an Enterprise HA networking issue that could let both controllers become active for the same IPv6 virtual IP ( NAS-142303 ).
+The VRRP service listened for advertisements on the wrong IPv6 address, so it never received the peer controller’s advertisements and considered itself the primary controller for every IPv6 VIP. TrueNAS now binds the listener to the correct address so failover state is tracked correctly.
+ Improves resilience to brief Non-Transparent Bridge (NTB) interruptions on Enterprise HA systems ( NAS-142152 ).
+A short NTB packet loss event could trigger an unnecessary cluster reset. TrueNAS now waits up to 60 seconds for the NTB link to recover before treating the peer controller as down.
+ Updates ZFS 2.3 from version 2.3.4 to 2.3.9 ( NAS-142153 , NAS-142538 ).
+This update includes upstream fixes for silent read corruption after block cloning, data loss during redacted replication send, zvol sync writes that did not reach the ZIL, incomplete dRAID rebuilds, and a permission check gap that let a caller open a device without read access. There is no on-disk format change.
+ Fixes intermittent “permission denied” errors on NFS shares for users in Active Directory or LDAP environments ( NAS-142228 ).
+A brief winbind or SSSD outage could cause the kernel to cache an empty group list for a user. This stripped that user of access to any share that depended on group membership for up to 30 minutes, even after the directory service recovered. TrueNAS no longer treats these empty replies as valid.
+ Fixes an issue where a single unreachable container registry could stop TrueNAS from checking for app updates ( NAS-142192 ).
+If one registry returned an unexpected error, such as a certificate mismatch, the update check stopped for every remaining app. Affected apps could not be upgraded from the web interface until a later check succeeded. TrueNAS now logs the error for the failing image and continues checking the rest.
+ Reduces unnecessary restarts of the ix-vendor service caused by routine IPv6 network activity ( NAS-142227 ).
+Routers that send frequent IPv6 router advertisements could cause TrueNAS to treat each address lifetime refresh as a new address change, restarting the service every few seconds. TrueNAS now recognizes these refreshes and ignores them.
+ Fixes a serialization error in the reporting API when aggregated data was not requested ( NAS-142197 ).
+Calls to reporting.get_data with aggregation disabled failed validation and logged a serialization warning instead of returning a clean result. This affected features, such as Dashboard graphs, that request non-aggregated reporting data.
+ Fixes an issue where testing an alert service could hide the real reason the test failed ( NAS-140259 ).
+A coding error in the alert service test handler raised an unrelated error before the actual failure reason could be reported, so users saw a misleading message instead of the real cause of a failed test.
+ Fixes Cloud Sync tasks that failed to run when cloud credentials contained certain special characters ( NAS-142234 ).
+Some characters in credential values could produce an invalid rclone configuration file, which caused the Cloud Sync task to fail. TrueNAS now escapes these characters when generating the configuration.
+ Fixes the snapshot task Lifetime field accepting invalid values of 0 and -1 ( NAS-142610 ).
+The web interface allowed a snapshot task to be saved with a lifetime of zero or a negative number, neither of which is a valid retention period. The field now rejects these values.
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10.7 (Goldeye) Changelog in Jira.
+ 25.10.6 Notable Changes
+ August 12, 2026
+ The TrueNAS team is pleased to release TrueNAS 25.10.6!
+This release updates the Linux kernel and NVIDIA GPU driver to address security vulnerabilities and maintain driver support. It also fixes Fibre Channel crashes on Enterprise systems, an NFS server hang, false drive self-test alerts, deduplication table pruning errors, and directory services configuration changes.
+ Notable changes: 
+ Updates the Linux kernel to the latest 6.12 LTS release (v6.12.99) ( NAS-142007 ).
+TrueNAS 25.10.6 advances the kernel from v6.12.95 in the previous release to v6.12.99. This update includes fixes for more than 250 upstream CVEs, including several critical issues in components TrueNAS uses: a reference count underflow in the TCP request socket queue ( CVE-2026-53260 ), an NFS server failure to release layout state after an unsuccessful lease request ( CVE-2026-53399 ), out-of-bounds reads in the NVMe target discovery log page and authentication reply handling ( CVE-2026-64320 and CVE-2026-64319 ), unbounded transfer lengths in the siw and rtrs-srv RDMA drivers ( CVE-2026-64268 and CVE-2026-64269 ), a traffic control action handling issue ( CVE-2026-64530 ), a BPF device map issue with fragmented frames ( CVE-2026-64355 ), and an out-of-bounds read in TIPC broadcast acknowledgment handling ( CVE-2026-64450 ).
+ Updates the NVIDIA GPU driver to version 580.173.02 ( NAS-142008 ).
+The 570 driver branch included in earlier releases reached end of life and does not build against the 6.12.99 kernel. TrueNAS now ships the 580 long-term support branch, which NVIDIA supports through June 2028.
+ Fixes crashes when Fibre Channel target mode starts or stops ( NAS-142014 , NAS-142018 ).
+If the Fibre Channel target driver detached while the adapter still delivered traffic, an incoming login or abort request could reference memory that was already released and crash the system. TrueNAS now checks for this condition and drops or rejects the request instead. TrueNAS also reports an error and leaves target mode disabled when target registration fails, rather than enabling the port anyway.
+ Fixes an NFS server hang that could stop the server from expiring clients ( NAS-142112 ).
+A leaked callback reference on an NFSv4 delegation could leave client teardown waiting forever. After this happened, no further NFSv4 client cleanup could complete, and the rpc.nfsd process could not be stopped without a system reboot. A brief network interruption on a client that held a write delegation was enough to trigger it. This release includes two upstream kernel fixes that prevent the leak.
+ Fixes false drive self-test failure alerts and errors when TrueNAS reads drive SMART data ( NAS-140652 , NAS-141951 ).
+TrueNAS read the oldest NVMe self-test result instead of the newest, so some drives raised a “failed a SMART selftest” alert for a test that did not fail. A drive that returned a self-test entry without a status also produced a KeyError that filled /var/log/middlewared.log with errors and stopped the SMART alert check from completing. TrueNAS now handles both cases so self-test alerts reflect actual drive results.
+ Fixes several issues with deduplication table (DDT) pruning ( NAS-142045 ).
+Pruning could select the wrong entries when the target age matched a histogram boundary, and the youngest age bin did not start at zero, so the age of recent entries could be misjudged. Counters could also overflow on tables with more than two billion entries. Pruning now uses the time the histogram build starts as the age cutoff and handles large tables correctly.
+ Fixes the Save button that stayed unavailable on the directory services configuration screen ( NAS-138641 ).
+After an upgrade from 25.04 to 25.10, the Save button in Credentials > Directory Services could stay greyed out no matter which setting changed, which blocked all directory services configuration changes. The button now becomes available when a setting changes.
+ Adds the ability to change the ALUA setting when the standby controller is unreachable ( NAS-142057 ).
+On Enterprise HA systems, TrueNAS blocked changes to the ALUA setting when it could not reach the standby controller. Administrators can now turn ALUA on or off while the standby controller is down.
+ Improves failover speed by moving a remote disk scan out of the critical failover path ( NAS-141988 , NAS-140406 ).
+On Enterprise HA systems, failover asked the other controller to rescan its disks before it imported the pool, which could stall failover for a minute or more while services stayed offline. The request now runs outside the critical failover section and does not wait for a response.
+ Fixes audit entry parsing that could restart the audit handler ( NAS-139610 ).
+A local authentication event could produce an audit message with a hostname value that contained spaces and its own key and value pairs. The audit parser did not expect this format, which raised an exception and forced truenas_audit_handler to restart. The parser now handles these messages correctly.
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10.6 (Goldeye) Changelog in Jira.
+ 25.10.5 Notable Changes
+ July 23, 2026
+ The TrueNAS team is pleased to release TrueNAS 25.10.5!
+This release updates the Linux kernel to address local privilege escalation and other security vulnerabilities. It also fixes a console memory leak, incorrect drive health data, stalled TrueCloud Backup jobs, SSH key handling for replication and cloud credentials, alert email delivery, and share ACL edits.
+ Notable changes: 
+ Updates the Linux kernel to the latest 6.12 LTS release (v6.12.95) ( NAS-141384 , NAS-141588 , NAS-141696 ).
+TrueNAS 25.10.5 advances the kernel from the previous release through v6.12.93, v6.12.94, and v6.12.95. This update mitigates several kernel vulnerabilities, including the SharedFrag local privilege escalation (CVE-2026-43503) and the PeditCOW local privilege escalation (CVE-2026-46331). The v6.12.95 update adds further high-severity upstream fixes, including an out-of-bounds read in the rxrpc ACK parser ( CVE-2026-53151 ), use-after-free issues in network bonding ( CVE-2026-31419 and CVE-2026-52975 ), a use-after-free in eventpoll ( CVE-2026-46242 ), an IPv6 tunnel network namespace issue ( CVE-2026-52909 ), an SCTP UDP-tunnel handling fix ( CVE-2026-53070 ), and a SELinux overlayfs access-check bypass ( CVE-2026-46054 ), along with additional upstream security and stability fixes.
+ Fixes a memory leak in the console CLI process that could cause system-wide out-of-memory crashes ( NAS-141238 ).
+The CLI process running on the system console ( getty@tty1 ) could leak a large amount of memory over time, eventually exhausting system RAM and triggering out-of-memory (OOM) kills that affected other processes. The leak is fixed so the console CLI no longer consumes excess memory.
+ Fixes faulty parsing of smartctl output that could produce incorrect drive health information ( NAS-141215 ).
+TrueNAS could misread the output of the smartctl utility when collecting SMART data from drives, which could lead to inaccurate disk health reporting. The parsing logic is corrected so SMART attributes are read reliably.
+ Fixes TrueCloud Backup jobs that could hang indefinitely and hide restic error messages ( NAS-141287 ).
+A KeyError while reading restic progress output caused TrueCloud Backup to discard all restic error messages, so failing jobs could appear stuck with no explanation. TrueNAS now handles the progress output correctly and surfaces the underlying restic errors.
+ Fixes several SSH key handling issues affecting remote replication and cloud credentials ( NAS-141677 ).
+Removing an SSH key pair now correctly updates SFTP cloud credentials that used that key. Encrypted SSH private keys are rejected more consistently during validation, and remote SSH semi-automatic setup returns a clear error when the selected key pair is missing or invalid. SSH pairing with TrueNAS 13 systems during remote replication setup now works correctly.
+ Fixes alert emails that were not RFC 5322 compliant and could be rejected by mail providers ( NAS-141699 ).
+Alert notification emails did not conform to RFC 5322, so some providers such as Gmail bounced them and administrators did not receive the alerts. TrueNAS now generates compliant messages so alert emails are delivered reliably.
+ Fixes an issue that prevented editing a share ACL ( NAS-139535 ).
+Attempts to edit the ACL on a share could fail, which blocked permission changes. Editing share ACLs now works as expected.
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10.5 (Goldeye) Changelog in Jira.
+ 25.10.4 Notable Changes
+ June 3, 2026
+ The TrueNAS team is pleased to release TrueNAS 25.10.4!
+This release updates the Linux kernel and Samba to address multiple security vulnerabilities, and includes data integrity, NFS, iSCSI, networking, and Active Directory fixes.
+ Notable changes: 
+ Updates the Linux kernel to the latest 6.12 LTS release (v6.12.91).
+This update mitigates several kernel vulnerabilities, including the Dirty-Frag local privilege escalation (CVE-2026-43284 and CVE-2026-43500), the CIFSwitch local privilege escalation in the CIFS client (CVE-2026-46243), a ptrace privilege issue ( CVE-2026-46333 ), and the related Fragnesia privilege escalation in the ESP-in-TCP path ( CVE-2026-46300 ). It also enables additional CPU side-channel mitigations.
+ Updates Samba to version 4.22.10 to address multiple security vulnerabilities.
+This Samba maintenance release resolves several CVEs, including a missing access check that let read-only users set or delete reparse point attributes (CVE-2026-1933) and a flaw in the WORM (Write Once, Read Many) module that allowed protected files to be overwritten by renaming a new file over them (CVE-2026-2340). See the Samba 2026 security release impact statement for the TrueNAS-specific impact assessment, or the Samba 4.22.10 release notes for the complete upstream list.
+ Fixes a potential double free when freeing blocks cloned after deduplication table pruning.
+Blocks created through block cloning could be freed more than once if their deduplication table (DDT) entries had already been pruned, because the free path did not check the block reference table (BRT) first.
+ Fixes virtual machines stored on NFSv4.1 datasets failing to power on.
+A change introduced in 25.10.2.1 could cause the NFSv4 change cookie to move backward after a file left the cache due to memory pressure, a remount, or a reboot. NFSv4.1 clients that depend on a monotonic change cookie, notably VMware ESXi, rejected the affected files. A virtual machine stored on an NFSv4.1-exported ZFS dataset then failed to power on with the error “The file specified is not a virtual disk.” This release reverts that change while a complete fix is finalized upstream.
+ Fixes a kernel crash in the iSCSI target layer during SCSI bus or LUN resets.
+A use-after-free in the clustered locking path of the iSCSI target could crash the system during a SCSI reset, most often on Enterprise High Availability (HA) systems while a peer controller was leaving the cluster. The target layer now waits for lock teardown to complete before releasing the associated memory.
+ Improves iSCSI LUN replacement during High Availability failover.
+On Enterprise HA systems, cleanup of a replaced LUN could stall during failover while a peer controller was being evicted from the cluster, which blocked later LUN replacements. Cleanup is now held until the cluster coordination it depends on has finished.
+ Fixes a validation error that blocked static network configuration on some High Availability systems.
+On HA-capable systems, saving a static network configuration could incorrectly fail with “Enabling DHCPv4/v6 on HA systems is unsupported” even when DHCP was not being enabled. This affected fresh installs before any interface had a saved configuration. The check now triggers only when DHCP or IPv6 autoconfiguration is explicitly enabled.
+ Improves Active Directory rejoin, reset, and recovery handling.
+This release hardens the Active Directory rejoin and directory services reset operations, improves domain controller selection on systems with more than one available controller, and produces clearer diagnostics when a join or authentication problem occurs.
+ Fixes ZFS automatic snapshots not being created after a Time Machine backup until the Mac reconnects.
+When a Time Machine SMB share has automatic snapshots enabled, recent macOS versions (Tahoe and later) sometimes keep the SMB session open after a backup completes instead of disconnecting, which prevented the post-backup ZFS snapshot from being taken until the client reconnected or restarted. The snapshot logic is updated to handle these persistent Time Machine sessions.
+ Reduces excessive winbind log messages for failed user and group lookups.
+When Active Directory is enabled, looking up a user or group that does not exist (for example through getpwnam or getgrnam ) generated a warning for every failed lookup, which could rapidly fill the winbind log. These messages are now logged at informational level instead of as warnings.
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10.4 (Goldeye) Changelog in Jira.
+ 25.10.3 Notable Changes
+ April 14, 2026
+ The TrueNAS team is pleased to release TrueNAS 25.10.3!
+ Notable changes: 
+ Fixes read authentication errors caused by block cloning between encrypted ZVOLs with different encryption keys ( NAS-140263 ).
+Block cloning between encrypted ZVOLs that did not share compatible encryption keys was allowed, but subsequent reads of the cloned data produced authentication failures. TrueNAS now verifies that encryption keys match before allowing a block clone operation to proceed.
+ Fixes Active Directory users and groups not found when using the idmap_ad backend with RFC2307 ( NAS-140077 ).
+The idmap_ad backend failed when smb.conf was configured to disallow a private krb5.conf, preventing Active Directory users and groups from being resolved. Shares and services that depend on directory service identities were inaccessible on affected systems.
+ Fixes pool creation errors on systems with a USB boot drive or other disk with a duplicate serial number ( NAS-139947 ).
+The disk availability check incorrectly blocked pool creation if any disk on the system had a duplicate serial number, even when that disk was unrelated to the new pool. USB boot drives commonly have blank or duplicate serial numbers and were the most frequent cause. Note that TrueNAS does not recommend USB boot devices. Installing on SATA, SAS, or NVMe flash media is recommended.
+ Fixes issues with log VDEV removal ( NAS-140080 ).
+Resolves errors that could occur when removing a log VDEV from a storage pool. Affected systems encountered failures during the log VDEV removal process.
+ Fixes link aggregation failover not working out of the box ( NAS-136978 ).
+Resolves an issue where the MII polling interval was not correctly configured for bonding interfaces using the FAILOVER protocol. The bonding driver could not monitor slave link status, causing failover to fail silently when an interface lost carrier.
+ Fixes Netlink socket errors that caused network interface operations to fail ( NAS-140041 ).
+Concurrent netlink route operations could collide at the kernel level, producing “Netlink socket busy” (EBUSY) errors. This was most visible as bond status alert failures. The fix serializes netlink route operations to prevent collisions, increases the retry limit, and adds a short delay between retries to reduce the chance of repeated failures.
+ Fixes NTB transport memory allocation failures during link state changes ( NAS-139627 ).
+Non-Transparent Bridge (NTB) transport memory windows were allocated and freed on every link up/down event. Allocating several megabytes of physically contiguous memory on a running system could fail, causing instability. Memory windows are now pre-allocated at boot, avoiding repeated allocation attempts during link changes. This primarily affects TrueNAS Enterprise High Availability (HA) systems.
+ Fixes stale NFS file handles for ZFS snapshots that could not be recovered without a client reboot ( NAS-140474 ).
+When mountd failed to resolve a snapshot’s filesystem ID — such as after failover, snapshot expiration, or an automount failure — it permanently cached a negative response, causing all subsequent file handle lookups to return ESTALE errors. Client-side remounts did not clear the cached state. The fix replaces the permanent negative cache with a 120-second retry window, allowing recovery once the snapshot becomes accessible again.
+ Documentation improvement: Adds Drive Health Management documentation covering how TrueNAS 25.10 monitors drive health through ZFS real-time failure detection, automated 90-minute SMART polling, and improved alert filtering. Also covers manual SMART test scheduling options available to TrueNAS Community Edition users. See the Drive Health Management tutorial for full details.
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10.3 (Goldeye) Changelog in Jira.
+ 25.10.3.1 Notable Changes
+ May 7, 2026
+ The TrueNAS team is pleased to release TrueNAS 25.10.3.1!
+This release mitigates CVE-2026-31431 , a Linux kernel vulnerability in the AEAD cryptographic socket interface, and includes additional fixes primarily affecting TrueNAS Enterprise systems and users.
+ Notable changes: 
+ Mitigates CVE-2026-31431 , a CVSS 7.8 local privilege escalation vulnerability in the Linux kernel AEAD cryptographic socket interface (CWE-669: Incorrect Resource Transfer Between Spheres).
+While the specific attack vector does not directly affect ZFS, TrueNAS integrates the upstream kernel patch as a security best practice. The fix reverts AEAD socket operations to out-of-place mode, eliminating the incorrect resource transfer between memory spheres that the vulnerability exploits.
+ Fixes Kerberos-secured NFS mounts failing after HA failover or system reboot when the NFS service is not configured to start automatically ( NAS-138933 ).
+When the NFS service did not have Start Automatically enabled, gssproxy failed to initialize when the service was started manually after a reboot or failover, causing /proc/net/rpc/use-gss-proxy to return 0. Kerberos-secured NFS mounts (krb5, krb5i, and krb5p) were unavailable as a result. This affected systems joined to both FreeIPA and Active Directory.
+ Restores SNMP visibility for ZFS filesystem datasets and adds a new MIB table covering the full dataset tree.
+A long-standing regression caused the SNMP agent to report only zvols, silently omitting filesystem datasets from network monitoring tools such as Zabbix and Nagios. The SNMP agent now enumerates the complete dataset tree. A new datasetTable MIB entry exposes both filesystems and zvols with index, descriptor, and used, available, and referenced byte counts. The existing zvolTable is unchanged, so monitoring configurations that already poll it continue to work.
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10.3.1 (Goldeye) Changelog in Jira.
+ 25.10.2 Notable Changes
+ February 19, 2026
+ The TrueNAS team is pleased to release TrueNAS 25.10.2!
+ Notable changes: 
+ Fixes critical upgrade failure affecting some systems upgrading from TrueNAS 25.04 to 25.10 ( NAS-139541 ).
+Resolves “Could not prepare Boot variable: No space left on device” error that caused affected systems to become unbootable after failed upgrade attempts.
+ Fixes SMB service startup failure after upgrading from older TrueNAS versions with legacy ACL configurations ( NAS-139076 ).
+Systems with legacy SMB share permission strings stored in their configuration database could not start the SMB service after upgrading to 25.10.1. This update automatically converts legacy permission formats to the current binary format during service initialization.
+ Improves NFS performance for NFSv4 clients ( NAS-139128 ). 
+This item was included in the 25.10.2 release notes in a clerical error. This improvement is included in TrueNAS 25.10.2.1.
+ Improves ZFS pool import performance and write operation responsiveness ( NAS-138879 ).
+Limits the time async destroy operations can run per transaction group, preventing these operations from blocking pool imports and other write operations. Pool imports that previously took extended time due to prolonged async destroy operations complete more quickly.
+ Fixes disk replacement validation incorrectly rejecting identical capacity drives ( NAS-138678 ).
+Resolves “device is too small” error when attempting to replace failed drives with identical capacity models. The system now correctly validates replacement drive capacity and allows legitimate disk replacements to proceed.
+ Reduces excessive API calls during user and group selection in the web interface ( NAS-139459 ).
+Implements longer debounce period for autocomplete fields to prevent the system from making API requests for every keystroke. This reduces system load and eliminates logs filled with failed requests during routine typing.
+ Reduces background CPU usage when running containerized applications ( NAS-139089 ).
+Optimizes YAML processing and Docker stats collection to reduce asyncio_loop CPU usage caused by repeated container inspection operations holding the Global Interpreter Lock.
+ Fixes Dashboard storage widget displaying “Unknown” for used and free space ( NAS-138705 ).
+Resolves issue where secondary storage pools showed no capacity metrics in the Dashboard widget, preventing visibility into actual storage usage and availability.
+ Fixes network configuration lockout caused by invalid IPv6 routes ( NAS-139575 ).
+Resolves issue where unusual IPv6 route entries in the routing table prevented access to network settings, app management, and bug reporting. The system now gracefully handles invalid route entries instead of becoming unresponsive.
+ Fixes network bridge creation validation errors ( NAS-139196 ).
+Resolves Pydantic validation failures that prevented users from creating network bridges through the standard workflow of removing IPs from an interface, creating a bridge, and reassigning those IPs.
+ Adds Hosts Allow and Hosts Deny network access controls to SMB shares ( NAS-138814 ).
+Provides IP-based access restrictions for SMB shares across all relevant purpose presets. Also adds ability to synchronize Kerberos keytab Service Principal Names (SPNs) with Active Directory updates for improved multiprotocol share management.
+ Fixes IPv6 address formatting in Kerberos configuration for Active Directory ( NAS-139734 ).
+Resolves Active Directory authentication failures when using IPv6 addresses for Kerberos Distribution Centers (KDCs). The system now properly formats IPv6 addresses with square brackets in krb5.conf, preventing “Invalid argument while getting initial credentials” errors.
+ Improves Users page default filter to include Directory Services users ( NAS-139073 ).
+Directory Services users now appear in the default view without requiring manual filter adjustment. This improves discoverability of directory service accounts in the user management interface.
+ Fixes SSH access removal for user accounts ( NAS-139130 ).
+Resolves issue where clearing the SSH Access option appeared to save without error, but the SSH indicator persisted in the user list. Users can now properly disable SSH access through the web interface.
+ Fixes session expiry settings not being respected ( NAS-138467 ).
+Resolves issues where users were logged out unexpectedly during active operations despite configured session timeout settings, and where page refresh (F5) triggered the login screen despite an active session. Session expiration now functions as configured.
+ Fixes certificate management for certificates with large Distinguished Names ( NAS-139056 ).
+Certificates with DNs exceeding 1024 characters (typically those with many Subject Alternative Names) can now be properly imported and managed. Previously, these certificates would upload successfully but fail during subsequent listing operations.
+ Fixes Cloud Sync tasks becoming invisible after upgrading from TrueNAS CORE to SCALE ( NAS-138886 ).
+Resolves data inconsistency where the bwlimit field contained empty objects instead of empty arrays, preventing the UI from displaying cloud sync tasks. Tasks remained functional via command-line but were not visible in the web interface.
+ Improves S3 endpoint URI validation for Cloud Sync tasks ( NAS-138903 ).
+Adds upfront validation to ensure S3 endpoints include the required https:// protocol prefix. Previously, omitting the protocol resulted in an unhelpful “Invalid endpoint” error. The system now provides clearer guidance during configuration.
+ Fixes iSCSI extent wizard hanging when adding second extent to a target ( NAS-138856 ).
+Resolves issue where an unsaved changes popup appeared unexpectedly after saving, followed by duplicate item errors. The wizard pane now closes automatically as expected, though the extent is added successfully despite the confusing error messages.
+ Fixes error notifications displaying placeholder text ( NAS-139010 ).
+Resolves formatting bug where error notifications showed “%(err)s Warning” instead of descriptive error messages.
+ Improves error dialog usability for long error messages ( NAS-138424 ).
+Adds proper scrolling to error dialogs with lengthy content. Previously, users had to zoom out to 50% to see action buttons when error messages (such as those listing numerous dependent clones) extended beyond the visible area.
+ Restricts root account group membership to preserve system stability.
+The system now locks root account group membership to the builtin_administrators group and prevents modification through the UI. This prevents accidental removal of required privileges that could cause scheduled tasks, cloud sync operations, cron jobs, and other system functions to fail. To disable root account access to the TrueNAS UI, use the Disable Password option in Credentials > Local Users instead of modifying group membership.
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10.2 (Goldeye) Changelog in Jira.
+ 25.10.2.1 Notable Changes
+ February 25, 2026
+ The TrueNAS team is pleased to release TrueNAS 25.10.2.1!
+This is a small maintenance release to fix NIC bonding disruptions and SMB Legacy Share validation errors after the TrueNAS 25.10.2 release, and includes the NFS performance improvement for NFSv4 clients that was originally announced for 25.10.2.
+ Notable changes: 
+ Improves NFS performance for NFSv4 clients ( NAS-139128 ).
+Adds support for STATX_CHANGE_COOKIE to properly surface ZFS sequence numbers to NFS clients via knfsd. The NFS change_info4 structure now accurately tracks directory and file changes, which reduces unnecessary server requests. Client attribute cache invalidation is also improved. Previously, the system synthesized change IDs based on ctime, which could fail to increment consistently due to kernel timer coarseness.
+ Fixes NIC bonding configuration disrupted after a system update ( NAS-139889 ).
+Resolves an issue where network interface bond configurations could break after a TrueNAS 25.10.2 update. Affected systems could lose network connectivity on bonded interfaces.
+ Fixes SMB Legacy Share validation errors that broke share management UI forms ( NAS-139892 ).
+Resolves an issue where SMB shares using the Legacy Share preset with certain path_suffix variable substitutions failed middleware validation. The SMB share configuration forms became unusable in the web interface as a result.
+ Fixes API result serialization failures caused by unhandled validation errors ( NAS-139896 ).
+Resolves an issue where certain Pydantic validation errors were not caught during API result serialization. This caused unexpected errors to appear in the web interface instead of proper error messages.
+ Fixes SSL certificate connection failure error handling ( NAS-139938 ).
+Resolves an AttributeError that occurred when an HTTPS connection failed due to a certificate error. Cloud sync tasks, replication, or other SSL-dependent network operations could surface a secondary AttributeError instead of the original connection failure message.
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10.2.1 (Goldeye) Changelog in Jira.
+ 25.10.1 Notable Changes
+ December 18, 2025
+ The TrueNAS team is pleased to release TrueNAS 25.10.1!
+ Notable changes: 
+ Fixes issue where storage pools appeared offline after upgrading to 25.10.0 ( NAS-138236 ).
+Affected systems experienced temporarily missing VDEVs that required a system reboot to restore pool access.
+ Adds Final Cut Pro Storage Share purpose preset for SMB shares ( NAS-138402 ).
+Provides optimized configuration for Final Cut Pro workflows. See Setting Up Final Cut Pro SMB Shares for more information.
+ Adds automatic validation for SMB share audit logging configurations.
+TrueNAS 25.10.1 automatically disables SMB shares when auditing is enabled and watch or ignore lists contain invalid groups (deleted/renamed groups or groups that are no longer SMB-type). This protective measure prevents auditing misconfigurations that could cause security or compliance issues. The system generates alerts identifying affected shares and problematic groups. See Configuring SMB Auditing for configuration details and troubleshooting steps.
+ Adds REST API usage monitoring alert.
+TrueNAS now displays a daily alert when deprecated REST API endpoints are accessed, helping identify integrations that need migration. TrueNAS deprecated the REST API in version 25.04. Full removal is planned for TrueNAS 27. For more information about the JSON-RPC 2.0 over WebSocket API, see the API documentation .
+ Adds Clear Config button to the directory services configuration form.
+This button allows users to easily remove existing directory service configurations. This is useful for troubleshooting, reconfiguration, or switching between directory service types.
+ Updates Samba from 4.22.5 to 4.22.6 ( NAS-138644 ).
+Includes upstream fix for Time Machine backup failures on newer macOS versions. Resolves an issue where Time Machine backups failed on macOS 15.2 (Tahoe) and later due to a Samba 4.22 behavioral change affecting directory rename operations for open files. TrueNAS 25.04 releases are unaffected.
+ Fixes Windows 11 virtual machine Trusted Platform Module (TPM) persistence ( NAS-138165 ).
+Resolves issue where BitLocker PINs and other TPM data reset after every VM restart. Users need to reset their PIN after upgrading, after which persistence functions normally.
+ Fixes Secure Boot for virtual machines ( NAS-137898 ).
+Resolves issue where VMs with Secure Boot enabled failed to boot signed operating systems like Windows 11 due to missing Microsoft keys in OVMF firmware.
+ Fixes VM image file upload default location ( NAS-138502 ).
+Prevents ISO files from being saved to the boot drive /mnt folder when users do not change the default upload location during VM image upload.
+ Fixes VDI disk import for virtual machines ( NAS-137897 ).
+Resolves errors when creating VMs using .vdi disk images.
+ Improves error handling for legacy FreeNAS dataset properties ( NAS-138629 ).
+Users can encounter "aclmode: failed to get property" errors when editing datasets on long-running systems that contain invalid aclmode=discard_chmod property values from legacy FreeNAS versions. This update improves error messaging to help identify affected datasets. If you encounter this error, run zfs set aclmode=passthrough dataset_name via CLI to reset the property to a valid value, then reboot the system.
+ Improves error messaging for pool operations ( NAS-138330 ).
+Provides clearer error messages when attempting to extend VDEVs or replace disks fails due to ZFS checkpoints or other conditions.
+ Fixes rsync tasks using SSH keychain credentials ( NAS-138334 ).
+Resolves UnboundLocalError that prevented saving or running SSH-based rsync tasks after upgrading to 25.10.0.
+ Improves replication error messages ( NAS-138202 ).
+Provides clearer error messages when replication tasks fail due to interrupted SSH connections or network issues.
+ Fixes email sending error after upgrading to 25.10.0 ( NAS-138270 ).
+Resolves 'str' object has no attribute 'decode' error when attempting to send test emails or system notifications.
+ Restores HDD temperature data via SNMP ( NAS-138433 ).
+Resolves issue where SNMP queries for disk temperature (OID .1.3.6.1.4.1.50536.3) returned no data after upgrading to 25.10.0.
+ Fixes issue disabling SSH and Shell access for user accounts ( NAS-138307 ).
+The Save button no longer disables when clearing these access options.
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10.1 (Goldeye) Changelog in Jira.
+ October 28, 2025
+ The TrueNAS team is pleased to release TrueNAS 25.10.0!
+ Special thanks to (Github users): Aurélien Sallé , ReiKirishima , AquariusStar , RedstoneSpeaker , Lee Jihaeng , Marcos Ribeiro , Christos Longros , dany22m , Aindriú Mac Giolla Eoin , William Li , Franco Castillo , MAURICIO S BASTOS , TeCHiScy , Chen Zhaochang , Helak , dedebenui , Henry Essinghigh , Sophist , Piotr Jasiek , David Sison , Emmanuel Ferdman and zrk02 for contributing to TrueNAS 25.10.
+For information on how you can contribute, visit https://www.truenas.com/docs/contributing/ .
+ 25.10.0 Notable Changes
+ New Features: 
+ NVMe over Fabric : TCP support (Community Edition) and RDMA (Enterprise) for high-performance storage networking with 400GbE support.
+ Virtual Machines : Secure Boot support, disk import/export (QCOW2, RAW, VDI, VHDX, VMDK), and Enterprise HA failover support.
+ Update Profiles : Risk-tolerance based update notification system.
+ Apps : Automatic pool migration and external container registry mirror support.
+ Enhanced Users Interface : Streamlined user management and improved account information display.
+ Performance and Stability: 
+ ZFS : Critical fixes for encrypted snapshot replication, Direct I/O support, improved memory pressure handling, and enhanced I/O scaling.
+ VM Memory : Resolved ZFS ARC memory management conflicts preventing out-of-memory crashes.
+ Network : 400GbE interface support and improved DHCP-to-static configuration transitions.
+ UI/UX Improvements: 
+ Redesigned Updates, Users, Datasets, and Storage Dashboard screens.
+ Improved password manager compatibility.
+ Breaking Changes Requiring Action: 
+ NVIDIA GPU Drivers : TrueNAS 25.10 switches to open GPU kernel drivers supporting Turing and newer (RTX/GTX 16-series+). Pascal, Maxwell, and Volta architectures are no longer supported. See NVIDIA GPU Support for compatibility details.
+ Active Directory IDMAP : The Active Directory AUTORID IDMAP backend is removed and auto-migrated to RID to improve consistency across multi-server environments. Users should review their ACLs and permissions after upgrade and might need to reconfigure them in some edge cases.
+ Certificate Management : 25.10 removes the Certificate Authority (CA) functionality that allowed TrueNAS to create and sign certificates.
+Users can continue to manage certificates by creating Certificate Signing Requests (CSRs) to be signed by external certificate authorities or and importing certificates that have been signed by external CAs or directory services.
+These alternatives provide the certificate management capabilities most users need while ensuring proper certificate validation through established certificate authorities.
+ SMART Monitoring : 25.10 removes the built-in SMART test scheduling and monitoring interface. TrueNAS continues automated drive health monitoring through middleware-integrated SMART polling and ZFS failure detection. Existing scheduled SMART tests are automatically migrated to cron tasks during upgrade, and smartmontools binaries remain installed.
+ See Drive Health Management for more information on disk health monitoring in 25.10 and beyond.
+ SMB Shares : In 25.10, SMB share configuration only displays options relevant to each purpose-based preset.
+Existing shares that previously used the No Preset option are automatically migrated to the Legacy Share preset during upgrade.
+New shares cannot access legacy configuration options.
+ Legacy Share options include enabling SMB guest access, the SMB recycle bin, home directory export, AFP compatibility shares, and disabling shadow copies.
+The SMB recycle bin feature is no longer available for new shares due to security and usability concerns.
+For file recovery and versioning, use ZFS snapshots, which provide more reliable and predictable data protection.
+For more information, see Legacy Share Settings and the TrueNAS API documentation sharing.smb.create return values for options LegacyOpt .
+ Virtual Machine Startup Changes : VMs created in TrueNAS 25.04 (pre-25.04.2) and displayed on the Containers screen no longer automatically start on system boot to prevent conflicts with VMs on the Virtual Machines screen.
+See Containers and Virtual Machines for more information.
+ See the 25.10 Major Features and Full Changelog for more information.
+ Notable changes since 25.10-RC.1: 
+ Samba version updated from 4.21.7 to 4.21.9 for security fixes ( 4.21.8 Release Notes | 4.21.9 Release Notes )
+ Improves ZFS property handling during dataset replication ( NAS-137818 ).
+Resolves issue where the storage page temporarily displayed errors when receiving active replications due to ZFS properties being unavailable while datasets were in an inconsistent state.
+ Fixes “Failed to load datasets” error on Datasets page ( NAS-138034 ).
+Resolves issue where directories with ZFS-incompatible characters (such as [ ) caused the Datasets page to fail by gracefully handling EZFS_INVALIDNAME errors.
+ Fixes zvol editing and resizing failures ( NAS-137861 ).
+Resolves validation error “inherit_encryption: Extra inputs are not permitted” when attempting to edit or resize VM zvols through the Datasets interface.
+ Fixes VM disk export failure ( NAS-137836 ).
+Resolves KeyError when attempting to export VM disks through the Devices menu, allowing successful disk image exports.
+ Fixes inability to remove transfer speed limits from SSH replication tasks ( NAS-137813 ).
+Resolves validation error “Input should be a valid integer” when attempting to clear the speed limit field, allowing users to successfully remove speed restrictions from existing replication tasks.
+ Fixes Cloud Sync task bandwidth limit validation ( NAS-137922 ).
+Resolves “Input should be a valid integer” error when configuring bandwidth limits by properly handling rclone-compatible bandwidth formats and improving client-side validation.
+ Fixes NVMe-oF connection failures due to model number length ( NAS-138102 ).
+Resolves “failed to connect socket: –111” error by limiting NVMe-oF subsystem model string to 40 characters, preventing kernel errors when enabling NVMe-oF shares.
+ Fixes application upgrade failures with validation traceback ( NAS-137805 ).
+Resolves TypeError “’error’ required in context” during app upgrades by ensuring proper Pydantic validation error handling in schema construction.
+ Fixes application update failures due to schema validation errors ( NAS-137940 ).
+Resolves “argument after ** must be a mapping” exceptions when updating apps by properly handling nested object validation in app schemas.
+ Fixes application image update checks failing with “Connection closed” error ( NAS-137724 ).
+Resolves RuntimeError when checking for app image updates by ensuring network responses are read within the active connection context.
+ Fixes AMD GPU detection logic ( NAS-137792 ).
+Resolves issue where AMD graphics cards were not properly detected due to incorrect kfd_device_exists variable handling.
+ Fixes API backwards compatibility for configuration methods ( NAS-137468 ).
+Resolves issue where certain API endpoints like network.configuration.config were unavailable in the 25.10.0 API, causing “[ENOMETHOD] Method ‘config’ not found” errors when called from scripts or applications using previous API versions.
+ Fixes console messages display panel not rendering ( NAS-137814 ).
+Resolves issue where the console messages panel appeared as a black, unresponsive bar by refactoring the filesystem.file_tail_follow API endpoint to properly handle console message retrieval.
+ Fixes unwanted “CronTask Run” email notifications ( NAS-137472 ).
+Resolves issue where cron tasks were sending emails with subject “CronTask Run” containing only “null” in the message body.
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10.0 (Goldeye) Changelog in Jira.
+ 25.10.0.1 Notable Changes
+ November 19, 2025
+ The TrueNAS team is pleased to release TrueNAS 25.10.0.1!
+This is a maintenance release that includes fixes to SMB shares, application management, cloud sync operations, and error handling.
+ Notable changes: 
+ Fixes an SMB2 query directory with SMB_REOPEN flag issue ( NAS-138259 ).
+Resolves an issue where client systems connected to TrueNAS 25.10 SMB shares could experience file access issues, including files appearing missing or shares showing as empty when browsing directories, media libraries (Plex, Jellyfin, etc.) losing access to files or removing them from indexes, and files failing to open or save over SMB.
+ Fixes VFS disconnect handling that prevented Time Machine snapshots ( NAS-135813 ).
+Resolves a bug in the io_uring_vfs_disconnect function where walking the Samba VFS stack for smb_vfs_disconnect was terminating early, causing Apple Time Machine snapshots to fail execution. The function now properly traverses the full VFS stack without premature exit.
+ Fixes Docker service startup failures on systems with slow disk initialization ( NAS-138232 ).
+Resolves a timeout issue where Docker initialization on HDD-equipped systems could exceed the default 120-second service timeout. This caused the apps service to be incorrectly marked as FAILED even though Docker eventually started successfully. The service timeout is extended to 960 seconds (16 minutes) to accommodate slower disk scenarios.
+ Fixes custom application update failures from version 1.2.13 to 1.2.14 ( NAS-138230 ).
+Resolves an issue where custom applications failed to update properly, with multiple update attempts yielding no errors but the update notification persisting. The fix ensures that custom app versions are correctly upgraded alongside image updates during the application upgrade process.
+ Fixes false validation errors for custom app upgrades ( NAS-138534 ).
+Resolves an issue where validation errors were incorrectly raised for custom apps during upgrade summaries when only the container image required updating. The system now properly recognizes that custom apps qualify for upgrade availability if either their images are outdated or catalog manifest changes exist.
+ Fixes cloud sync task validation errors after upgrading to 25.10 ( NAS-138281 ).
+Resolves an issue where cloud sync tasks would display no available tasks after upgrade, with validation errors occurring when querying cloud sync tasks. The errors stemmed from Pydantic validation failures where parameters like chunk_size exceeded schema-defined limits.
+ Fixes a DNS validation typo in directory services ( NAS-138364 ).
+Resolves a typo in DNS validation logic where “@” was incorrectly used instead of “.” as the separator between hostname and domain name.
+ Fixes ZFS error handling for paths with multibyte UTF-8 characters ( NAS-138554 ).
+Resolves an issue where ZFS paths containing multibyte characters would generate corrupted error descriptions, causing the Python Unicode decoder to fail. This resulted in simplified error messages instead of detailed ZFS exceptions and misclassification of error codes ( EZFS_UNKNOWN instead of EZFS_INVALIDNAME ), breaking dataset resolution APIs.
+ Fixes false temperature alerts for disks with negative threshold values ( NAS-138028 ).
+Resolves an issue where disks with invalid or negative temperature thresholds triggered persistent warning alerts in the GUI and automated email notifications. The system now properly filters out disks with negative temperature threshold configurations during alert generation.
+ Improves NetBIOS naming by expanding permitted identifiers ( NAS-138390 ).
+Removes additional blacklist restrictions on NetBIOS names and workgroups, allowing more Microsoft-restricted keywords to be used. This change addresses customer environment needs where previously prohibited network naming identifiers are required.
+ Known Issue: Apps configured to use SMB or NFS shares as storage can experience an occasional race condition during boot that causes them to show a “crashed” status. The workaround is to restart the affected app after a minute or two. See Known Issues for details. Additional fixes are expected in 25.10.1.
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10.0.1 (Goldeye) Changelog in Jira.
+ 25.10-RC.1 Notable Changes
+ Early releases are intended for testing and feedback purposes.
+Do not use early release software for critical tasks.
+ September 30, 2025
+ The TrueNAS team is pleased to release TrueNAS 25.10-RC.1!
+ 25.10-RC.1 Notable changes
+ Enhances remote syslog configuration to support up to two servers ( NAS-137315 ).
+Updates the Syslog configuration options in System > Advanced Settings to allow configuring multiple syslog servers with individual transport and TLS certificate options.
+ Improves NVMeoF target configuration with automatic port defaults ( NAS-137394 , NAS-137395 ).
+Sets port 4420 as the default for NVMe over Fabric targets, eliminating the need for manual port configuration.
+ Clarifies VM secure boot configuration as create-only setting ( NAS-137397 ).
+Removes secure boot option from VM edit form as this setting can only be configured during initial VM creation.
+ Fixes upgrade blocking issue for systems without BIOS partition ( NAS-137352 ).
+Resolves traceback during 25.10 upgrades on systems originally deployed with TrueNAS CORE that lack a BIOS partition.
+ Fixes SMB service hanging during Windows client file operations ( NAS-137095 ).
+Resolves issue where Windows clients became unresponsive during file moves and editing operations, requiring manual thread termination.
+ Fixes incorrect disk temperature threshold alerts ( NAS-137385 ).
+Resolves issue where critical temperature alerts were triggered incorrectly when threshold was set to 0 degrees Celsius.
+ Improves password manager compatibility with WebUI login screen ( NAS-136335 ).
+Resolves issue where password managers like Bitwarden and Dashlane failed to automatically recognize and fill login credentials.
+ Consolidates Users page interface ( NAS-137443 ).
+Removes legacy Users page and renames Users (WIP) to Users for a cleaner interface experience.
+ Fixes network usage units display on Applications page ( NAS-137428 ).
+Corrects network usage units from lowercase ‘b’ to capital ‘B’ (B/s, kB/s, MB/s) to properly indicate bytes per second.
+ Fixes UI Bug Reporting feature “FAILED: This TrueNAS build is experimental” error ( NAS-137445 ).
+Resolves issue preventing bug report submissions through the UI.
+ Fixes incorrect time sort for frequency on Cloud Sync Tasks screen ( NAS-137096 ).
+ Fixes Users page showing “can not retrieve response” error due to invalid email address ( NAS-137198 ).
+ Fixes Virtual Machines page not refreshing properly ( NAS-136973 ).
+ Adds VM disk image import and export capabilities ( NAS-137334 , NAS-137335 ).
+Enables importing disk images (QCOW2, QED, RAW, VDI, VHDX, and VMDK formats) during VM creation and exporting VM disks to portable image formats, streamlining VM migration and setup processes.
+ Improves Virtual Machine configuration performance ( NAS-136937 ).
+Prevents libvirt service from starting automatically when browsing VM creation options, improving system responsiveness.
+ Enhances session security with improved random number generation ( NAS-137318 ).
+Uses SSL-based random number generator for creating session IDs, improving overall cryptographic security.
+ Fixes an issue where the ACL editor ignored unset “Apply Owner” and “Apply Group” checkboxes and always applied owner/group changes recursively, potentially causing unintended ownership changes ( NAS-137378 ).
+ The PGP public keys for the TrueNAS Security Team have been renewed and published to the TrueNAS Security Advisories .
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10-RC.1 (Goldeye) Changelog in Jira.
+ 25.10-BETA.1 Notable Changes
+ Early releases are intended for testing and feedback purposes.
+Do not use early release software for critical tasks.
+ August 28, 2025
+ The TrueNAS team is pleased to release TrueNAS 25.10-BETA.1!
+This first public release version of TrueNAS 25.10 (Goldeye) has software component updates and new features that are in the polishing phase.
+ Special thanks to (Github users): Aurélien Sallé , ReiKirishima , AquariusStar , RedstoneSpeaker , Lee Jihaeng , Marcos Ribeiro , Christos Longros , dany22m , Aindriú Mac Giolla Eoin , William Li , Franco Castillo , MAURICIO S BASTOS , TeCHiScy , Chen Zhaochang , Helak , dedebenui , Henry Essinghigh , Sophist , Piotr Jasiek , Martin Dørum , Emmanuel Ferdman and zrk02 for contributing to TrueNAS 25.10-BETA.1.
+Visit our guide for information on how you too can contribute.
+ 25.10-BETA.1 Notable changes
+ TrueNAS Enterprise 
+ Virtual Machines are now “Enterprise ready” with support for TrueNAS Enterprise High Availability (HA) systems and failover ( NAS-136509 ).
+ Failover moves to the Advanced Settings screen ( NAS-135469 ).
+ Introduces a redesigned Updates screen that allows users to select an update profile reflecting their risk-tolerance level ( NAS-133600 ). TrueNAS only notifies users of updates recommended for their selected profile level.
+ Introduces changes to Certificates , Certificate Authorities (CA) , and Certificate Signing Requests (CSR) ( NAS-135168 ): Removes Certificate Authorities (CA) screens and support for CAs, which means you cannot sign CSRs or create self-signed certificates.
+ Removes Add from Certificates . Users can import a certificate created by an external certificate authority.
+ Allows adding a certificate using the new Create ACME Certificate screen found under Certificate Signing Requests and an existing DNS authenticator added through the ACME DNS Authenticators screen.
+See Preparing to Upgrade for more information.
+ Introduces a refreshed Users (WIP) screen that provides improved, at-a-glance access to account information and simplified user creation ( NAS-134198 ).
+ Introduces changes to the Datasets and Storage Dashboard screens ( NAS-135362 , NAS-135364 ). Renames dataset and pool widgets, and changes links to other screens.
+ Removes Scrub Tasks configuration and scheduling from the Data Protection Tasks screen, but makes it available on the Storage Health widget located on the Storage Dashboard ( NAS-135555 ).
+ Fixes the NVIDIA GPU-related error “RenderError: Expected [uuid] to be set for GPU in slot” ( NAS-134152 ).
+ Includes the NVIDIA open GPU kernel module drivers .
+These drivers work with Turing and later GPUs.
+Earlier architectures (Pascal, Maxwell, Volta) are not compatible.
+See NVIDIA GPU Support for more information.
+ Adds support for directory services authentication via FTP ( NAS-135200 ).
+ Adds the Enable Secure Boot option to virtual machine configuration screens ( NAS-136466 ).
+ Allows TrueNAS to automatically migrate existing applications when selecting a new applications pool ( NAS-132188 ).
+ Adds TrueNAS Apps service support for configuring external container registry mirrors as alternative sources for Docker images ( NAS-136553 ).
+ Introduces various UI improvements and optimizations to simplify core user experiences ( NAS-135159 ).
+ Includes critical ZFS stability fixes and performance improvements, including fixed corruptions for plaintext replication of encrypted snapshots, enhanced memory pressure handling, faster pool export operations, improved I/O scaling capabilities, zfs rewrite and Direct I/O support ( NAS-135902 ).
+ Simplifies and improves robustness of gateway and name server settings when changing from DHCP to static aliases ( NAS-136360 and NAS-136360 ).
+Moves Network screen under the System main menu option.
+ Fixes insufficient memory pressure on ZFS ARC by Virtual Machines to prevent out-of-memory conditions ( NAS-135499 ).
+ Virtual machines created in 25.04 (pre-25.04.2) and displayed on the Containers screen do not automatically start on system boot to prevent conflicts with VMs on the Virtual Machines screen that might use the same zvols ( NAS-136946 ).
+ Makes changes to SMB shares: Enables access-based enumeration for SMB shares with NFSv4 ACL type, so directory listings only show files that users have permission to read ( NAS-136499 ).
+ Changes SMB share Advanced Options , Purpose , and Other Option settings associated with the preset setting selected ( NAS-136499 ).
+ Removes the AUTORID IDMAP backend option from Active Directory configuration to improve consistency across multi-server environments ( NAS-136630 ).
+Existing configurations using AUTORID are automatically migrated to RID during upgrade.
+Users should review their ACLs and permissions after upgrade and might need to reconfigure them in some edge cases.
+ Completes the transition to the versioned JSON-RPC 2.0 over WebSocket API by migrating all remaining jobs and events from the deprecated REST API ( NAS-133984 ).
+Full removal of the REST API is planned for the TrueNAS 27 release.
+ Removes the SMART UI ( NAS-134927 ). Removes the built-in SMART test scheduling and monitoring interface to improve user flexibility while maintaining smartmontools binaries for continued third-party script compatibility ( NAS-135020 ).
+Existing scheduled SMART tests are automatically migrated to cron tasks during upgrade, and users can install the Scrutiny app for advanced SMART monitoring.
+ SMART tests functions no longer show on the Data Protections Tasks , Storage Dashboard , or individual disk screens.
+See Drive Health Management for more information on the SMART monitoring transition.
+ Improves drive temperature monitoring efficiency by extending the drivetemp kernel module to include SCSI/SAS disk temperatures.
+ Fixes an issue affecting drive temperature reporting on the dashboard ( NAS-135572 ).
+ Fixes a bug to reenable available update notifications for custom apps ( NAS-135124 ).
+ Fixes contrast issues on some UI theme options ( NAS-135519 ).
+ Click here to see the full 25.10 changelog or visit the TrueNAS 25.10-BETA.1 (Goldeye) Changelog in Jira.
+ These are ongoing issues that can affect multiple versions in the 25.10 series.
+When resolved, issues move to Notable Changes for the appropriate release.
+ Current Known Issues
+ TrueNAS Enterprise 
+ UI login delays during High Availability failover with STIG configuration changes.
+When toggling STIG settings in System > Advanced > System Security that require a system reboot, UI login authentication can experience extended delays (over 2 minutes) during failover when one controller is rebooting.
+ Workaround: Wait 2-3 minutes for authentication timeout to complete.
+ High Availability STIG configuration changes can cause production downtime if active controller is rebooted prematurely.
+When enabling or disabling STIG in System > Advanced > System Security , the system automatically reboots the standby controller in the background. Both controllers must reboot to complete the configuration change.
+ Workaround: After saving STIG settings, wait until the standby controller is fully online before rebooting the active controller. Rebooting the active controller while the standby is still booting can cause disrupt production.
+ This issue is resolved in TrueNAS 27.
+ Apps using SMB/NFS storage can experience race condition during boot.
+When apps are configured to use SMB or NFS shares as storage passthroughs, there can be an occasional race condition during TrueNAS boot where the app startup conflicts with the sharing services startup.
+This causes affected apps to not fully start and show a “crashed” status.
+ Workaround: Restart the affected app after a minute or two.
+ Long-running systems with legacy FreeNAS datasets might encounter dataset editing errors ( NAS-138629 ).
+Users might see "aclmode: failed to get property" errors when attempting to edit dataset properties. This affects datasets with invalid aclmode=discard_chmod property values carried over from legacy FreeNAS versions. TrueNAS 25.10.1 improves error messages to help identify affected datasets.
+ Users encountering this issue should run zfs set aclmode=passthrough dataset_name via CLI for each affected dataset (replacing dataset_name with the actual dataset path), then reboot the system.
+ NVMe over TCP is incompatible with VMware ESXi environments ( NAS-137372 ).
+TrueNAS 25.10 uses the Linux kernel NVMe over TCP target driver, which lacks support for fused commands required by VMware ESXi.
+This is an upstream kernel limitation that prevents path initialization in ESXi environments.
+ Two-Factor Authentication (2FA) can fail during daylight saving time transitions ( NAS-138200 ).
+Systems with two-factor authentication configured can experience login failures for approximately one hour during daylight saving time transitions when clocks move backward.
+The authentication system resolves automatically once the duplicated hour passes.
+ Locking encrypted datasets fails when actively shared via iSCSI or SMB.
+Attempting to lock an encrypted dataset while it is actively shared via iSCSI or SMB fails with an EBUSY error.
+No alert is generated and no email notification is sent when the lock operation fails.
+ Workaround: Before locking the dataset, disable the share (iSCSI extent or SMB share) in the sharing configuration.
+After locking the dataset, you can re-enable the share if needed.
+ This issue will be resolved in a future TrueNAS release.
+ Existing SMB sessions cannot connect to shares created after the session was established.
+SMB clients with active sessions might be unable to access newly-created shares without first reconnecting to the server.
+This is a long-standing behavior that affects all SMB clients, not specific to any operating system.
+ Workaround: Restart the SMB service in System > Services , or disconnect and reconnect the SMB client (unmount and remount the server).
+ This issue is resolved in TrueNAS 27.
+ Fibre Channel iSCSI initiator changes do not apply to the running configuration until the iSCSI service is restarted.
+When updating a Fibre Channel initiator on an iSCSI share, SCST updates with the change but the running configuration file does not reflect the update until the iSCSI service is stopped and started.
+ Workaround: After updating the Fibre Channel initiator, stop and then start the iSCSI service in System > Services to apply the change to the running configuration.
+ Sorting is unavailable on the Fibre Channel Ports screen, and search does not match every column. The Fibre Channel Ports tab does not provide sortable column headers, unlike the other iSCSI share tabs such as Targets , Extents , and Initiators . Clicking a column header does not reorder the list. The search field also does not match values in every displayed column, so a search for a target name can return no results even when that target shows in the table.
+ Workaround: None. All configured ports remain listed on the screen.
+ Switching to the General update profile can display a TypeError on the Update screen ( NAS-140736 ).
+When a TrueNAS version is promoted from Early Adopter to General availability, users already running that version who then change their update profile to General can see a TypeError: 'NoneType' object is not subscriptable error on the Update screen. The error persists after refreshing the page or logging out and back in, but clears after a system reboot.
+ Workaround: Reboot the system after changing the update profile to clear the error message.
+ This issue is resolved in TrueNAS 27.
+ The Reload button in the new license confirmation dialog does not reload the web interface ( NAS-140931 ).
+After applying a new license, the confirmation dialog appears with a Reload button. Clicking Reload does not trigger a page reload; the license is applied correctly but the web interface continues to display the pre-license state until the page is manually refreshed.
+ Workaround: After applying a new license, manually refresh the browser page to update the web interface.
+ See the latest status on Jira for public issues discovered in 25.10 that are being resolved in a future TrueNAS release.
+ See the Release Notes section of the TrueNAS forum for ongoing updates about known issues, investigations, and statistics about TrueNAS releases.
+ 25.10 (Goldeye) brings many new features and improvements to the TrueNAS experience.
+ Redesigned Management Interfaces
+ The Updates screen introduces risk-tolerance profiles for better control over system update notifications, while the refreshed Users screen provides improved account management with streamlined user creation workflows and better at-a-glance access to account information.
+ Advanced Networking and Storage
+ TrueNAS 25.10 introduces comprehensive networking enhancements designed for terabit Ethernet performance.
+ NVMe over Fabric support includes NVMe/TCP for Community Edition and NVMe/RDMA for Enterprise hardware.
+RDMA capabilities eliminate TCP overhead and reduce latency for high-performance storage networking on Enterprise systems.
+Updated drivers provide 400GbE network interface support, while enhanced network configuration management improves robustness when transitioning between DHCP and static configurations.
+ Virtual Machine Improvements
+ TrueNAS 25.10 delivers comprehensive virtual machine enhancements, including Secure Boot support for enhanced security and refined startup behavior to prevent conflicts between container and VM management interfaces.
+VM disk import and export capabilities support multiple formats (QCOW2, QED, RAW, VDI, VHDX, VMDK), streamlining VM migration and setup processes.
+ NVIDIA Open GPU Kernel Module Support
+ Support for NVIDIA’s open GPU kernel module drivers enables compatibility with the latest graphics cards, including the Blackwell architecture.
+Modern GPU acceleration capabilities are available for TrueNAS Apps and container workloads.
+See NVIDIA GPU Support for compatibility details.
+ ZFS Performance and Stability Improvements
+ Critical ZFS updates include stability fixes for encrypted snapshot replication, enhanced memory pressure handling, faster pool operations, improved I/O scaling, and new Direct I/O support for better performance in virtualized environments.
+ Application Pool Migration and Registry Mirrors
+ Automatic migration of existing applications when changing application pools eliminates manual reconfiguration and reduces downtime during pool transitions.
+ Support for external container registry mirrors provides alternative sources for Docker images, improving reliability.
+ Flexible Disk Health Monitoring
+ TrueNAS 25.10 transitions from built-in SMART test scheduling to a more flexible approach with automatic migration of existing tests to cron tasks.
+Users can install the Scrutiny app for advanced monitoring or use custom solutions while TrueNAS continues to automatically alert on critical disk health indicators.
+See Disk Management for details on the SMART monitoring transition.
+ Upgrading TrueNAS
+ Early releases of a major version are intended for testing and feedback purposes only.
+Do not use early release software for critical tasks.
+ TrueNAS is an appliance built from specific Linux packages.
+Updating TrueNAS using apt or any method other than the TrueNAS web interface can make the system inoperable.
+ Modifying the base OS can cause unexpected behavior during upgrades:
+ Users who manually installed Docker on TrueNAS 24.04 or earlier can experience TrueNAS Apps failure in 24.10 or later.
+ This occurs due to conflicts between the manually installed and native Docker configurations.
+ Affected systems can encounter app_lifecycle.compose_action errors, such as:
+ 'group_add[0]' expected type 'string', got unconvertible type 'int', value: '568' 
+ See NAS-134660 for details and a workaround.
+ All auxiliary parameters can experience changes between TrueNAS major versions due to security and development changes.
+We recommend removing all auxiliary parameters from TrueNAS configurations before upgrading as these settings can result in unexpected behavior such as SMB share failures after an upgrade.
+ SSH auxiliary parameters are unsupported.
+Certain configurations can prevent the SSH service from starting.
+ After updating, clear the browser cache ( CTRL+F5 ) before logging in to TrueNAS. This ensures stale data doesn’t interfere with loading the TrueNAS UI.
+ TrueNAS Apps
+ Application maintenance, including version updates, features, and configuration options, is independent from TrueNAS version release cycles.
+See documentation and resources at the TrueNAS Apps Market and the truenas/apps repository issues tracker for more information.
+ The TrueNAS REST API is removed in TrueNAS 27.
+Systems still using the REST API must migrate to the WebSocket API before upgrading.
+ Starting with TrueNAS 25.10.1, the system displays alerts when deprecated REST API endpoints are accessed to help identify integrations that require migration to the JSON-RPC 2.0 over WebSocket API.
+ TrueNAS (25.04 and later) uses a versioned JSON-RPC 2.0 over WebSocket API.
+API versions are numbered in conjunction with TrueNAS version releases.
+ The API documentation provides information about supported API methods and events.
+Documentation is included for all API versions supported by the current TrueNAS release and defaults to the latest supported API.
+Use the dropdown to view documentation for different supported API versions.
+ Advanced users can interact with the TrueNAS API to perform management tasks using the TrueNAS API Client as an alternative to the TrueNAS web UI.
+This websocket client provides the command line tool midclt and allows users to communicate with middleware using Python by making API calls.
+The client can connect to the local TrueNAS instance or to a specified remote socket.
+ You can access TrueNAS API documentation in the web interface by clicking laptop My API Keys on the top right toolbar account_circle user settings dropdown menu to open the User API Keys screen.
+Click API Docs to view API documentation.
+ NVIDIA GPU Compatibility: TrueNAS 25.10 switches to open GPU kernel drivers that are incompatible with legacy NVIDIA GPUs (Pascal, Maxwell, Volta architectures).
+See NVIDIA GPU Support for compatibility details.
+ Virtual Machine Startup Changes: VMs created in TrueNAS 25.04 (pre-25.04.2) and displayed on the Containers screen no longer automatically start on system boot to prevent conflicts with VMs on the Virtual Machines screen.
+See Containers and Virtual Machines for more information.
+ Active Directory AUTORID IDMAP Backend Removal: TrueNAS 25.10 removes this option to improve consistency across multi-server environments ( NAS-136630 ).
+Existing configurations using AUTORID are automatically migrated to RID during upgrade.
+Users should review their ACLs and permissions after upgrade and might need to reconfigure them in some edge cases.
+ TrueNAS 25.10 removes the built-in SMART test scheduling and monitoring interface. TrueNAS continues automated drive health monitoring through middleware-integrated SMART polling and ZFS failure detection. Existing scheduled SMART tests are automatically migrated to cron tasks during upgrade, and smartmontools binaries remain installed.
+See Drive Health Management for more information on the SMART monitoring transition.
+ TrueNAS 25.10 removes the Certificate Authority (CA) functionality that allowed TrueNAS to create and sign certificates.
+Users can continue to manage certificates by creating Certificate Signing Requests (CSRs) to be signed by external certificate authorities or and importing certificates that have been signed by external CAs or directory services.
+These alternatives provide the certificate management capabilities most users need while ensuring proper certificate validation through established certificate authorities.
+ TrueNAS 25.10 improves SMB share configuration by displaying only options relevant to each purpose-based preset.
+Existing shares that previously used the “No Preset” option are automatically migrated to the “Legacy Share” preset during upgrade.
+New shares cannot access legacy configuration options.
+The SMB recycle bin feature is no longer available for new shares due to security and usability concerns.
+For file recovery and versioning, use ZFS snapshots, which provide more reliable and predictable data protection.
+See Legacy Share Settings for more information.
+ Pool usage, disk temperature, and related metrics can have a short delay of no more than 10 minutes before displaying. This is typically seen when TrueNAS boots or in situations where the reporting system restarts.
+ Containers and Virtual Machines
+ TrueNAS Enterprise 
+ Virtual Machines are now “Enterprise ready” with support for TrueNAS Enterprise High Availability (HA) systems and failover ( NAS-136509 ).
+ Virtual Machines and Containers in TrueNAS 25.10 
+ TrueNAS 25.04 introduced support for Containers (named Instances in pre-25.04.2 releases), enabling lightweight isolation similar to jails in FreeBSD-based TrueNAS.
+ In TrueNAS 25.04.2 and later, virtual machines are created and appear on the Virtual Machines screen.
+Legacy VMs created in 25.04.0 or 25.04.1 using the instances feature and some VMs migrated to those versions from TrueNAS 24.10 continue to function and appear on the Containers screen.
+Legacy VMs on the Containers screen do not autostart in 25.10 or later.
+ Users with existing VMs on the Containers screen should consider migrating associated zvols to the Virtual Machines screen at this time to ensure compatibility with future TrueNAS releases.
+For information on migrating your zvol storage volume to a new VM created in 25.10 or later, see Migrating Legacy VMs to Virtual Machines .
+ Due to backend technology changes in TrueNAS 27, containers on the Containers screen require migration when you upgrade from TrueNAS 25.10.
+Containers migrate automatically at the first boot after upgrading, except on HA-capable TrueNAS Enterprise systems.
+Containers on a passphrase-encrypted pool do not migrate, because the pool is still locked at first boot and the migration does not retry.
+Switch the pool to key encryption before you upgrade.
+Contact TrueNAS Enterprise Support if you have containers on a TrueNAS Enterprise system that does not migrate them.
+ Legacy VMs on the Containers screen are not migrated automatically and are removed from the Containers screen in TrueNAS 27.
+Complete the steps in Preparing to Upgrade to TrueNAS 27 before you upgrade.
+ The Enable Secure Boot option is added to virtual machine configuration screens ( NAS-136466 ).
+ Virtual machines created in 25.04 (pre-25.04.2) and displayed on the Containers screen do not automatically start on system boot to prevent conflicts with VMs on the Virtual Machines screen that might use the same zvols ( NAS-136946 ).
+ Virtual machines created in 25.04.0 or 25.04.1 using the Instances (now Containers ) screen can be migrated to conventional VMs in 25.10 and later using the process described in the Migrating Legacy VMs to Virtual Machines tutorial.
+ Resolves ZFS ARC memory management conflicts that were causing out-of-memory crashes in Virtual Machines due to memory fragmentation issues ( NAS-135499 ).
+ TrueNAS Apps
+ TrueNAS Apps
+ Application maintenance, including version updates, features, and configuration options, is independent from TrueNAS version release cycles.
+See documentation and resources at the TrueNAS Apps Market and the truenas/apps repository issues tracker for more information.
+ TrueNAS 25.10 adds an option to automatically migrate existing applications when changing apps pool locations ( NAS-135720 ).
+See Migrating Existing Applications for details.
+ 25.10 supports configuring external container registry mirrors as alternative sources for Docker images ( NAS-136553 ).
+See PD-2125 for more information.
+ Includes the NVIDIA open GPU kernel module drivers .
+These drivers work with Turing and later GPUs.
+Earlier architectures (Pascal, Maxwell, Volta) are not compatible.
+See NVIDIA GPU Support for more information.
+ Fixes the NVIDIA GPU-related error “RenderError: Expected [uuid] to be set for GPU in slot” ( NAS-134152 ).
+ Fixes a bug to reenable available update notifications for custom apps ( NAS-135124 ).
+ TrueNAS Apps Market 
+ Your source for general apps documentation, a browsable catalog, and individual app resources.
+ Drive Health Management in 25.10 (and Beyond)
+ TrueNAS 25.10 changes how disk health monitoring works, transitioning from built-in SMART test scheduling to a flexible approach that better serves modern storage environments.
+ What Changed
+ In TrueNAS 25.04 and earlier:
+ SMART test scheduling was built into the TrueNAS UI
+ Tests were configured through Data Protection Tasks screens
+ SMART test results appeared on the Storage Dashboard and individual disk screens
+ In TrueNAS 25.10 and later:
+ SMART test scheduling UI is removed
+ TrueNAS continues automated drive health monitoring through middleware-integrated SMART polling and ZFS failure detection
+ Manual SMART testing can be scheduled via cron jobs or third-party apps
+ The smartmontools binaries remain installed and functional
+ Drive temperature monitoring uses the enhanced drivetemp kernel module, extended to include SCSI/SAS disk temperatures
+ Why This Changed
+ This transition addresses several limitations:
+ Modern Storage Realities: Traditional SMART tests (short and long) designed for mechanical hard drives are less relevant for SSDs and NVMe drives, which now represent an increasing percentage of deployments. These devices focus on different health metrics like write endurance rather than mechanical wear patterns.
+ Flexibility: The previous system was restrictive and difficult to customize for advanced users.
+ Reliability: The integrated SMART test scheduler had persistent bugs and maintenance challenges. Scheduled tests could produce false positives and were difficult to troubleshoot.
+ Better Tools Available: Dedicated monitoring applications like Scrutiny provide superior disk health tracking with historical data storage, customizable alerts, and automatic drive detection.
+ How Drive Health Management Works in 25.10
+ TrueNAS monitors the condition of installed HDD and SSD drives (SAS, SATA, and NVMe) through three integrated layers:
+ ZFS detects sudden failures in real time during active read and write operations and marks affected vdevs or disks as faulted immediately.
+ TrueNAS Middleware polls SMART data from every drive every 90 minutes. When a polled attribute crosses a failure threshold, TrueNAS generates an alert.
+ Alert logic filters incoming SMART and ZFS data to suppress known-benign attribute fluctuations, reducing false-positive alerts by approximately 50% compared to prior releases.
+ Drive health status is visible on the Disk Health card on the Storage dashboard. Active alerts appear in the Alerts panel with details on the affected disk and recommended next steps.
+ Community Edition users can supplement automated monitoring with manual SMART tests run via cron jobs or the smartctl command-line tool. Third-party tools such as Scrutiny are also available from the TrueNAS Apps catalog.
+ See the Drive Health Management tutorial for full details.
+ NVIDIA GPU Support
+ TrueNAS 25.10 introduces support for NVIDIA open GPU kernel module drivers , preparing TrueNAS to support the latest NVIDIA graphics cards including newer architectures like Blackwell.
+This driver update ensures TrueNAS Apps and Containers can utilize modern GPU acceleration workloads.
+ The open GPU kernel drivers are compatible with Turing architecture and later GPUs , which includes GTX 16-series cards and all RTX series cards.
+Newer architectures like NVIDIA Blackwell (RTX 50-series, RTX PRO Blackwell) require the nvidia-open driver to function, as this driver leverages the built-in NVIDIA GSP (GPU System Processor).
+ To verify your GPU is supported, check the installed NVIDIA driver version in Software Component Versions . Click the driver version number to view the NVIDIA release page, which includes a “Supported Products” tab listing all compatible GPUs for that driver version.
+ Users with compatible hardware can enable TrueNAS to install NVIDIA drivers.
+See the TrueNAS Apps Market for installation instructions .
+ GPUs based on earlier architectures, including Pascal (GTX 10-series, Quadro P-series), Maxwell (GTX 700 and 900-series), and Volta (GTX Titan V) are not supported by the NVIDIA open drivers.
+This is because these older GPUs lack the required GSP component.
+ Users with incompatible legacy cards can still utilize them by deploying a TrueNAS Virtual Machine and isolating the GPU to it.
+This approach involves creating a VM, isolating the legacy GPU to that VM, installing the proprietary NVIDIA driver within the VM environment, and running GPU workloads from within the virtual machine.
+However, this workaround requires a secondary GPU (such as integrated Intel graphics or an IPMI console) to handle system display duties, as isolating the only GPU in the system would leave TrueNAS without console access.
+ Upgrade Paths
+ Early releases of a major version are intended for testing and feedback purposes only.
+Do not use early release software for critical tasks.
+ Upgrading to TrueNAS 25.10 (Goldeye) from an earlier TrueNAS release is primarily done using the web interface update process .
+Another upgrade option is to use a TrueNAS .iso file to perform a fresh install on the system and then restore a system configuration file .
+ Update to the latest maintenance release of the current major version before upgrading to the next major version.
+You can then upgrade directly from the latest maintenance release to the latest release of the next major version.
+ This chart shows the basic upgrade paths between TrueNAS major versions.
+Depending on your use case and risk tolerance, you might prefer to delay upgrading to allow additional time for testing and stability.
+See the TrueNAS Software Status for version recommendations tailored to different user types from Developer to Mission Critical.
+ ‹ 
+ › 
+ flowchart LR
+ A["11.3-U5"] -->|update| B["12.0-U8.1"]
+ B -->|"update / ISO install"| C["13.0-U6.8 / 13.3-U2"]
+ C -->|update| G
+ C -->|ISO install| J
+ D["22.02.4 (Angelfish)"] -->|update| E
+ E["22.12.4.2 (Bluefin)"] -->|update| F
+ F["23.10.2 (Cobia)"] -->|update| G
+ G["24.04.2.5 (Dragonfish)"] -->|update| H
+ H["24.10.2.4 (Electric Eel)"] -->|update| I
+ I["25.04.2.6 (Fangtooth)"] -->|update| J
+ J["25.10.8 (Goldeye)"] -->|"anticipated"| K
+ K["TrueNAS 26.0"]
+ ‹ 
+ › 
+ flowchart LR
+ A["11.3-U5"] -->|update| B
+ B["12.0-U8.1"] -->|update| C
+ C["13.0-U6.8"] -->|ISO install| H
+ C -->|update| E
+ D["23.10.2 (Cobia)"] -->|update| E
+ E["24.04.2.5 (Dragonfish)"] -->|update| F
+ F["24.10.2.4 (Electric Eel)"] -->|update| G
+ G["25.04.2.6 (Fangtooth)"] -->|update| H
+ H["25.10.8 (Goldeye)"] -->|"anticipated"| I
+ I["TrueNAS 26.0"]
+ Permitted upgrade methods are:
+ update : Apply updates using the Update screen in the TrueNAS UI or install a manual update file.
+Not all upgrade paths support automatic updates (see chart).
+ ISO install : Save your TrueNAS configuration file, perform a fresh install using an .iso file for the target version, then upload the saved configuration.
+ You can skip major versions using a fresh installation with configuration file restore.
+Before skipping versions, review release notes for each major version to identify service deprecations or significant changes that might affect your configuration.
+Consider upgrading incrementally through major versions with significant changes, or be prepared to manually reconfigure any incompatibilities after upgrading directly to the target version.
+ Migrating from TrueNAS 13.0 or 13.3
+ Migrating TrueNAS from FreeBSD- to Linux-based versions is a one-way operation.
+Attempting to activate or roll back to a FreeBSD-based TrueNAS boot environment can break the system.
+ Upgrade your FreeBSD-based TrueNAS system to the latest publicly-available release version, 13.0-U6.7 (or 13.3-U1.2 for community users), before attempting to migrate.
+See Software Releases for current recommended update paths to make sure you download and migrate to the correct version.
+ Depending on the specific system configuration, migrating from a FreeBSD-based TrueNAS version can be a straightforward or complicated process.
+See the Migration articles for cautions and notes about differences between each software and the migration process.
+ TrueNAS Enterprise 
+ TrueNAS Enterprise customers with High Availability (HA) or Non-HA TrueNAS Hardware should consult with TrueNAS Enterprise Support for assistance before attempting to migrate.
+ Customers who purchase TrueNAS hardware or that want additional support must have a support contract to use TrueNAS Support Services.
+The TrueNAS Community forums provides free support for users without a TrueNAS Support contract.
+ TrueNAS Customer Support 
+ Support Portal
+ https://support.ixsystems.com 
+ Email
+ <email-masked> 
+ Telephone and Other Resources
+ https://www.ixsystems.com/support/ 
+ Component Versions and ZFS Feature Flags
+ Software Component Versions
+ Click the component version number to see release notes for that component.
+ 25.10.8
+ 25.10.7
+ 25.10.6
+ 25.10.5
+ 25.10.4
+ 25.10.3
+ 25.10.2.1
+ 25.10.2
+ 25.10.1
+ 25.10.0.1
+ 25.10.0
+ 25.10-RC.1
+ 25.10-BETA.1
+ Linux Kernel
+ 6.12.113 
+ 6.12.105 
+ 6.12.99 
+ 6.12.95 
+ 6.12.91 
+ 6.12.33 
+ 6.12.33 
+ 6.12.33 
+ 6.12.33 
+ 6.12.33 
+ 6.12.33 
+ 6.12.33 
+ 6.12.33 
+ OpenZFS
+ 2.3.9 
+ 2.3.9 
+ 2.3.4 
+ 2.3.4 
+ 2.3.4 
+ 2.3.4 
+ 2.3.4 
+ 2.3.4 
+ 2.3.4 
+ 2.3.4 
+ 2.3.4 
+ 2.3.4 
+ 2.3.3 
+ Docker Engine
+ 28.3.1 
+ 28.3.1 
+ 28.3.1 
+ 28.3.1 
+ 28.3.1 
+ 28.3.1 
+ 28.3.1 
+ 28.3.1 
+ 28.3.1 
+ 28.3.1 
+ 28.3.1 
+ 28.3.1 
+ 28.3.1 
+ NVIDIA Driver
+ 580.173.02 
+ 580.173.02 
+ 580.173.02 
+ 570.172.08 
+ 570.172.08 
+ 570.172.08 
+ 570.172.08 
+ 570.172.08 
+ 570.172.08 
+ 570.172.08 
+ 570.172.08 
+ 570.172.08 
+ 570.172.08 
+ *TrueNAS 25.10 and later includes the NVIDIA open GPU kernel module drivers .
+These drivers work with Turing and later GPUs.
+Earlier architectures (Pascal, Maxwell, Volta) are not compatible.
+See NVIDIA GPU Support for more information.
+ OpenZFS Feature Flags
+ TrueNAS integrates many features provided by the upstream OpenZFS project .
+Any new feature flags introduced since the previous OpenZFS version that was integrated into TrueNAS (OpenZFS 2.3.0) are listed below:
+ Feature Flag
+ GUID
+ Notes
+ n/a
+ For more details on feature flags, see OpenZFS Feature Flags and OpenZFS zpool-feature.7 .
+ MinIO is a trademark of the MinIO Corporation. 
+ Have more questions? 
+ For further discussion or assistance, see these resources:
+ TrueNAS Community Forum 
+ TrueNAS Community Discord 
+ TrueNAS Enterprise Support (requires paid support contract) 
+ Found content that needs an update?  
+You can
+ suggest content changes 
+ directly! To request changes to this content, click the Feedback button located on the middle-right side of the page (might require disabling ad blocking plugins).
+ Jump To: 
+ 541 Division Street
+Campbell, CA 95008, USA
+ Contact Us 
+ <email-masked> 
+ Listen to our Podcast 
+ Support
+ Enterprise Support 
+ Community Support 
+ Forums 
+ FAQs 
+ Useful Links
+ Careers 
+ About Us 
+ Blog 
+ News & Articles 
+ TrueNAS Enterprise 
+ TrueNAS Community Edition 
+ TrueCommand 
+ TrueCommand Cloud 
+ TrueNAS Legacy 
+ Software Status 
+ Reseller Network 
+ Subscribe to our newsletter 
+ © Copyright  iXsystems, Inc. dba TrueNAS. All rights reserved. 
+ Legal 
+ TrueNAS Logos

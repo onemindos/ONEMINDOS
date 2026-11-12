@@ -1,0 +1,626 @@
+##### [03:05:56] T1 first boot
+##### [03:05:56] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,reado
+MENDER-GRUB: mender_boot_part=2 upgrade_available=0 bootcount=0
+HEALTH-GATE: 08:06:22 start slot=A version=1 mode=committed env=[mender_boot_part=2 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 08:06:22 RESULT committed-boot slot=A version=1
+root@onemind-lab:~# HEALTH-GATE: 08:08:15 K3S-FRESH ok after 113s: ok (fresh: kubelet, heartbeat 2026-11-11T08:07:46Z, core pods, data rw, api)
+--- state:T1
+ONEMIND_VERSION=1
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+artifact=unknown
+/dev/vda2
+apps             broken-app-5d6b874ccd-4qxbm               0/1   ErrImagePull   0     55s
+kube-system      coredns-577d995dff-4srks                  1/1   Running        0     56s
+kube-system      helm-install-gateway-api-crd-9wvhq        1/1   Running        0     56s
+kube-system      local-path-provisioner-56c6584955-p2bf5   1/1   Running        0     56s
+onemind-system   onemind-core-dc87b89b8-5sshm              1/1   Running        0     56s
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+##### [03:08:22] T2 wrong-key artifact
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+record_id=1 severity=error time="2026-Nov-11 08:08:22.509272" name="Global" msg="Signature verification Error: Wrong manifest signature or wrong key" 
+Could not fulfill request: Signature verification Error: Wrong manifest signature or wrong key
+##### [03:08:23] install wrong-key.mender rc=1 in 0s
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+record_id=1 severity=error time="2026-Nov-11 08:08:23.263918" name="Global" msg="No update in progress: Cannot commit" 
+No update in progress.
+##### [03:08:23] T3 good update -> B
+Installed, but not committed.
+At least one payload requested a reboot of the device it updated.
+##### [03:09:54] install good.mender rc=0 in 90s
+[  237.108464] watchdog: watchdog0: watchdog did not stop!
+[  237.365738] watchdog: watchdog0: watchdog did not stop!
+Booting new update...
+MENDER-GRUB: mender_boot_part=3 upgrade_available=1 bootcount=1
+HEALTH-GATE: 08:10:21 start slot=B version=2 mode=trial env=[mender_boot_part=3 upgrade_available=1 bootcount=1]
+HEALTH-GATE: 08:10:21 ArtifactCommit_Enter: trial checks start (deadline 300s, 3 passes)
+HEALTH-GATE: 08:10:21 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+root@onemind-lab:~# HEALTH-GATE: 08:10:32 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:10:42 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:10:58 CHECK fail at 37s: fail: apiserver /readyz not ok
+HEALTH-GATE: 08:11:23 CHECK fail at 62s: fail: core pod kube-system/coredns-577d995dff-4srks not Ready
+HEALTH-GATE: 08:11:47 CHECK pass 1/3 at 86s: ok (fresh: kubelet, heartbeat 2026-11-11T08:11:12Z, core pods, data rw, api)
+HEALTH-GATE: 08:12:05 CHECK pass 2/3 at 104s: ok (fresh: kubelet, heartbeat 2026-11-11T08:11:12Z, core pods, data rw, api)
+HEALTH-GATE: 08:12:22 CHECK pass 3/3 at 121s: ok (fresh: kubelet, heartbeat 2026-11-11T08:11:12Z, core pods, data rw, api)
+HEALTH-GATE: 08:12:24 APPS (excluded from gate): broken-app-5d6b874ccd-4qxbm 0/1 ImagePullBackOff; 
+MENDER-CLI: record_id=1 severity=info time="2026-Nov-11 08:10:21.789958" name="Global" msg="Running State Script: /var/lib/mender/scripts/ArtifactCommit_Enter_00_onemind-gate" 
+MENDER-CLI: Committed.
+HEALTH-GATE: 08:12:25 GATE-SCRIPT-RAN yes (ArtifactCommit_Enter decided before this commit)
+HEALTH-GATE: 08:12:26 RESULT mark-good slot=B version=2 after 124s (env now upgrade_available=0)
+--- state:T3-after-commit
+ONEMIND_VERSION=2
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+artifact=onemind-v2
+/dev/vda3
+apps             broken-app-5d6b874ccd-4qxbm               0/1   ErrImagePull   0               5m5s
+kube-system      coredns-577d995dff-4srks                  1/1   Running        1 (2m37s ago)   5m6s
+kube-system      helm-install-gateway-api-crd-9wvhq        0/1   Completed      0               5m6s
+kube-system      local-path-provisioner-56c6584955-p2bf5   1/1   Running        1 (2m37s ago)   5m6s
+onemind-system   onemind-core-dc87b89b8-5sshm              1/1   Running        1 (2m36s ago)   5m6s
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+[  153.621886] watchdog: watchdog0: watchdog did not stop!
+[  154.307025] watchdog: watchdog0: watchdog did not stop!
+MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=1
+HEALTH-GATE: 08:13:10 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=1]
+HEALTH-GATE: 08:13:10 RESULT committed-boot slot=B version=2
+--- state:T3-second-reboot
+ONEMIND_VERSION=2
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+artifact=onemind-v2
+/dev/vda3
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+##### [03:13:22] T4 bad-k3s.mender -> A
+[?2004lHEALTH-GATE: 08:14:38 K3S-FRESH ok after 88s: ok (fresh: kubelet, heartbeat 2026-11-11T08:14:07Z, core pods, data rw, api)
+Installed, but not committed.
+At least one payload requested a reboot of the device it updated.
+##### [03:15:00] install bad-k3s.mender rc=0 in 98s
+[  139.063790] watchdog: watchdog0: watchdog did not stop!
+[  139.352196] watchdog: watchdog0: watchdog did not stop!
+Booting new update...
+MENDER-GRUB: mender_boot_part=2 upgrade_available=1 bootcount=1
+HEALTH-GATE: 08:15:23 start slot=A version=3 mode=trial env=[mender_boot_part=2 upgrade_available=1 bootcount=1]
+HEALTH-GATE: 08:15:24 ArtifactCommit_Enter: trial checks start (deadline 300s, 3 passes)
+HEALTH-GATE: 08:15:24 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+[?2004hroot@onemind-lab:~# HEALTH-GATE: 08:15:34 CHECK fail at 10s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:15:44 CHECK fail at 20s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:15:54 CHECK fail at 30s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:16:04 CHECK fail at 40s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:16:14 CHECK fail at 50s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:16:24 CHECK fail at 60s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:16:34 CHECK fail at 70s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:16:45 CHECK fail at 80s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:16:55 CHECK fail at 91s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:17:05 CHECK fail at 101s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:17:15 CHECK fail at 111s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:17:25 CHECK fail at 121s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:17:35 CHECK fail at 131s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:17:45 CHECK fail at 141s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:17:55 CHECK fail at 151s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:18:05 CHECK fail at 161s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:18:15 CHECK fail at 171s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:18:25 CHECK fail at 181s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:18:35 CHECK fail at 191s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:18:45 CHECK fail at 201s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:18:55 CHECK fail at 211s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:19:06 CHECK fail at 222s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:19:16 CHECK fail at 232s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:19:26 CHECK fail at 242s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:19:36 CHECK fail at 252s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:19:46 CHECK fail at 262s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:19:56 CHECK fail at 272s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:20:06 CHECK fail at 282s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:20:16 CHECK fail at 292s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:20:26 ArtifactCommit_Enter: deadline 300s reached (last: fail: no kubeconfig on this boot (k3s server has not started)) -> refuse commit
+MENDER-CLI: record_id=3 severity=error time="2026-Nov-11 08:20:27.783339" name="Global" msg="NonZero exit code error: Received error code: 1" 
+MENDER-CLI: Committing failed.
+MENDER-CLI: Rolled back.
+MENDER-CLI: Could not fulfill request: NonZero exit code error: Received error code: 1
+HEALTH-GATE: 08:20:28 RESULT mark-bad slot=A version=3 after 304s; env=[mender_boot_part=3 upgrade_available=0] -> reboot
+[  320.459692] watchdog: watchdog0: watchdog did not stop!
+[  320.658468] watchdog: watchdog0: watchdog did not stop!
+MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=1
+HEALTH-GATE: 08:20:49 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=1]
+HEALTH-GATE: 08:20:50 RESULT committed-boot slot=B version=2
+root@onemind-lab:~# HEALTH-GATE: 08:21:44 K3S-FRESH ok after 54s: ok (fresh: kubelet, heartbeat 2026-11-11T08:21:21Z, core pods, data rw, api)
+--- state:T4-end
+ONEMIND_VERSION=2
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+artifact=onemind-v2
+/dev/vda3
+apps             broken-app-5d6b874ccd-4qxbm               0/1   ImagePullBackOff   0               14m
+kube-system      coredns-577d995dff-4srks                  1/1   Running            3 (6m48s ago)   14m
+kube-system      helm-install-gateway-api-crd-9wvhq        0/1   Completed          0               14m
+kube-system      local-path-provisioner-56c6584955-p2bf5   1/1   Running            3 (6m48s ago)   14m
+onemind-system   onemind-core-dc87b89b8-5sshm              1/1   Running            3 (6m48s ago)   14m
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+[   79.845271] watchdog: watchdog0: watchdog did not stop!
+[   80.007856] watchdog: watchdog0: watchdog did not stop!
+MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=1
+HEALTH-GATE: 08:22:09 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=1]
+HEALTH-GATE: 08:22:10 RESULT committed-boot slot=B version=2
+##### [03:22:17] T5 bad-noagent.mender -> A
+HEALTH-GATE: 08:23:03 K3S-FRESH ok after 53s: ok (fresh: kubelet, heartbeat 2026-11-11T08:22:47Z, core pods, data rw, api)
+Installed, but not committed.
+At least one payload requested a reboot of the device it updated.
+##### [03:23:24] install bad-noagent.mender rc=0 in 67s
+[   90.335742] watchdog: watchdog0: watchdog did not stop!
+[   90.980700] watchdog: watchdog0: watchdog did not stop!
+Booting new update...
+MENDER-GRUB: mender_boot_part=2 upgrade_available=1 bootcount=1
+HEALTH-GATE: 08:23:44 start slot=A version=4 mode=trial env=[mender_boot_part=2 upgrade_available=1 bootcount=1]
+HEALTH-GATE: 08:23:45 ArtifactCommit_Enter: trial checks start (deadline 300s, 3 passes)
+HEALTH-GATE: 08:23:45 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+root@onemind-lab:~# HEALTH-GATE: 08:23:55 CHECK fail at 10s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:24:08 CHECK fail at 23s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:24:19 CHECK fail at 34s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:24:30 CHECK fail at 45s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:24:41 CHECK fail at 56s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:24:52 CHECK fail at 67s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:25:03 CHECK fail at 78s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:25:14 CHECK fail at 89s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:25:25 CHECK fail at 100s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:25:37 CHECK fail at 112s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:25:48 CHECK fail at 123s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:26:00 CHECK fail at 135s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:26:11 CHECK fail at 146s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:26:22 CHECK fail at 157s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:26:33 CHECK fail at 168s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:26:45 CHECK fail at 180s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:26:56 CHECK fail at 191s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:27:07 CHECK fail at 202s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:27:19 CHECK fail at 214s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:27:30 CHECK fail at 225s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:27:41 CHECK fail at 236s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:27:53 CHECK fail at 248s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:28:04 CHECK fail at 259s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:28:15 CHECK fail at 270s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:28:27 CHECK fail at 282s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:28:38 CHECK fail at 293s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:28:48 ArtifactCommit_Enter: deadline 300s reached (last: fail: kubelet /healthz not answering) -> refuse commit
+MENDER-CLI: record_id=3 severity=error time="2026-Nov-11 08:28:50.554575" name="Global" msg="NonZero exit code error: Received error code: 1" 
+MENDER-CLI: Committing failed.
+MENDER-CLI: Rolled back.
+MENDER-CLI: Could not fulfill request: NonZero exit code error: Received error code: 1
+HEALTH-GATE: 08:28:51 RESULT mark-bad slot=A version=4 after 306s; env=[mender_boot_part=3 upgrade_available=0] -> reboot
+[  325.228345] watchdog: watchdog0: watchdog did not stop!
+[  325.472449] watchdog: watchdog0: watchdog did not stop!
+MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=1
+HEALTH-GATE: 08:29:30 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=1]
+HEALTH-GATE: 08:29:31 RESULT committed-boot slot=B version=2
+root@onemind-lab:~# HEALTH-GATE: 08:30:43 K3S-FRESH ok after 72s: ok (fresh: kubelet, heartbeat 2026-11-11T08:30:16Z, core pods, data rw, api)
+--- state:T5-end
+ONEMIND_VERSION=2
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+artifact=onemind-v2
+/dev/vda3
+apps             broken-app-5d6b874ccd-4qxbm               0/1   ErrImagePull   0               23m
+kube-system      coredns-577d995dff-4srks                  1/1   Running        5 (7m25s ago)   23m
+kube-system      helm-install-gateway-api-crd-9wvhq        0/1   Completed      0               23m
+kube-system      local-path-provisioner-56c6584955-p2bf5   1/1   Running        5 (7m25s ago)   23m
+onemind-system   onemind-core-dc87b89b8-5sshm              1/1   Running        5 (7m25s ago)   23m
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+[  111.631250] watchdog: watchdog0: watchdog did not stop!
+[  112.139524] watchdog: watchdog0: watchdog did not stop!
+MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=1
+HEALTH-GATE: 08:31:09 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=1]
+HEALTH-GATE: 08:31:09 RESULT committed-boot slot=B version=2
+##### [03:31:18] T6 bad-boot.mender -> A
+[?2004lHEALTH-GATE: 08:32:37 K3S-FRESH ok after 88s: ok (fresh: kubelet, heartbeat 2026-11-11T08:32:04Z, core pods, data rw, api)
+Installed, but not committed.
+At least one payload requested a reboot of the device it updated.
+##### [03:33:02] install bad-boot.mender rc=0 in 104s
+[  127.293834] watchdog: watchdog0: watchdog did not stop!
+[  128.255888] watchdog: watchdog0: watchdog did not stop!
+Booting new update...
+MENDER-GRUB: mender_boot_part=2 upgrade_available=1 bootcount=1
+BAD-BOOT: broken init exiting
+[    8.907584] Kernel panic - not syncing: Attempted to kill init! exitcode=0x00000100
+Rolling back...
+MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=0
+HEALTH-GATE: 08:33:48 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=0]
+MENDER-CLI: Rolled back.
+HEALTH-GATE: 08:33:51 RESULT fell-back slot=B version=2; interrupted update rolled back by Mender (rc=0), env=[mender_boot_part=3 upgrade_available=0]
+--- state:T6-end
+ONEMIND_VERSION=2
+mender_boot_part=3
+upgrade_available=0
+bootcount=0
+artifact=onemind-v2
+/dev/vda3
+mender_boot_part=3
+upgrade_available=0
+bootcount=0
+[   32.183824] watchdog: watchdog0: watchdog did not stop!
+[   32.740590] watchdog: watchdog0: watchdog did not stop!
+MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=0
+HEALTH-GATE: 08:34:30 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 08:34:30 RESULT committed-boot slot=B version=2
+##### [03:34:41] T7 bad-hang.mender -> A
+HEALTH-GATE: 08:35:58 K3S-FRESH ok after 88s: ok (fresh: kubelet, heartbeat 2026-11-11T08:35:28Z, core pods, data rw, api)
+Installed, but not committed.
+At least one payload requested a reboot of the device it updated.
+##### [03:36:28] install bad-hang.mender rc=0 in 108s
+[  142.215467] watchdog: watchdog0: watchdog did not stop!
+[  143.370776] watchdog: watchdog0: watchdog did not stop!
+Booting new update...
+MENDER-GRUB: mender_boot_part=2 upgrade_available=1 bootcount=1
+BAD-HANG: arming watchdog, then freezing
+Rolling back...
+MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=0
+HEALTH-GATE: 08:37:38 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=0]
+MENDER-CLI: Rolled back.
+HEALTH-GATE: 08:37:40 RESULT fell-back slot=B version=2; interrupted update rolled back by Mender (rc=0), env=[mender_boot_part=3 upgrade_available=0]
+--- state:T7-end
+ONEMIND_VERSION=2
+mender_boot_part=3
+upgrade_available=0
+bootcount=0
+artifact=onemind-v2
+/dev/vda3
+mender_boot_part=3
+upgrade_available=0
+bootcount=0
+[   30.144600] watchdog: watchdog0: watchdog did not stop!
+[   30.508465] watchdog: watchdog0: watchdog did not stop!
+MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=0
+HEALTH-GATE: 08:38:21 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 08:38:22 RESULT committed-boot slot=B version=2
+##### [03:38:33] T8 power cut during write (target A)
+(while :; do echo WRITE-PROGRESS vda2 $(awk '{print "sectors_read=" $3 " sectors_written=" $7 " sectors_rw=" $3+$7}' /sys/block/vda/vda2/stat); sleep 3; done) > /dev/console 2>&1 & root@onemind-lab:~# (while :; do echo WRITE-PROGRESS vda2 $(awk '{print "sector
+root@onemind-lab:~# WRITE-PROGRESS vda2 sectors_read=3768 sectors_written=0 sectors_rw=3768
+Installing artifact...
+WRITE-PROGRESS vda2 sectors_read=3768 sectors_written=0 sectors_rw=3768
+0%WRITE-PROGRESS vda2 sectors_read=34488 sectors_written=10240 sectors_rw=44728
+1%2%WRITE-PROGRESS vda2 sectors_read=102072 sectors_written=14336 sectors_rw=116408
+3%4%WRITE-PROGRESS vda2 sectors_read=157368 sectors_written=14336 sectors_rw=171704
+5%6%WRITE-PROGRESS vda2 sectors_read=224952 sectors_written=20480 sectors_rw=245432
+7%8%WRITE-PROGRESS vda2 sectors_read=300728 sectors_written=40960 sectors_rw=341688
+9%10%11%WRITE-PROGRESS vda2 sectors_read=388792 sectors_written=118784 sectors_rw=507576
+12%13%WRITE-PROGRESS vda2 sectors_read=485048 sectors_written=215040 sectors_rw=700088
+14%15%16%WRITE-PROGRESS vda2 sectors_read=595640 sectors_written=233472 sectors_rw=829112
+##### [03:39:01] POWER CUT: SIGKILL qemu
+##### [03:39:01] T8 restart after power cut
+##### [03:39:01] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,reado
+MENDER-GRUB: mender_boot_part=3 upgrade_available=0 bootcount=0
+HEALTH-GATE: 08:39:25 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 08:39:25 RESULT committed-boot slot=B version=2
+--- state:T8-after-cut
+ONEMIND_VERSION=2
+mender_boot_part=3
+upgrade_available=0
+bootcount=0
+artifact=onemind-v2
+/dev/vda3
+mender_boot_part=3
+upgrade_available=0
+bootcount=0
+[?2004lHEALTH-GATE: 08:41:02 K3S-FRESH ok after 97s: ok (fresh: kubelet, heartbeat 2026-11-11T08:40:25Z, core pods, data rw, api)
+Installed, but not committed.
+At least one payload requested a reboot of the device it updated.
+##### [03:41:31] install good.mender rc=0 in 114s
+[  149.975484] watchdog: watchdog0: watchdog did not stop!
+[  150.238164] watchdog: watchdog0: watchdog did not stop!
+Booting new update...
+MENDER-GRUB: mender_boot_part=2 upgrade_available=1 bootcount=1
+HEALTH-GATE: 08:42:03 start slot=A version=2 mode=trial env=[mender_boot_part=2 upgrade_available=1 bootcount=1]
+HEALTH-GATE: 08:42:03 ArtifactCommit_Enter: trial checks start (deadline 300s, 3 passes)
+HEALTH-GATE: 08:42:03 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+root@onemind-lab:~# HEALTH-GATE: 08:42:13 CHECK fail at 10s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:42:23 CHECK fail at 20s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:42:33 CHECK fail at 30s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:42:44 CHECK fail at 41s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:42:58 CHECK fail at 55s: fail: apiserver /readyz not ok
+HEALTH-GATE: 08:43:18 CHECK fail at 75s: fail: core pod kube-system/coredns-577d995dff-4srks not Ready
+HEALTH-GATE: 08:43:38 CHECK pass 1/3 at 95s: ok (fresh: kubelet, heartbeat 2026-11-11T08:43:06Z, core pods, data rw, api)
+HEALTH-GATE: 08:43:57 CHECK pass 2/3 at 114s: ok (fresh: kubelet, heartbeat 2026-11-11T08:43:06Z, core pods, data rw, api)
+HEALTH-GATE: 08:44:16 CHECK pass 3/3 at 133s: ok (fresh: kubelet, heartbeat 2026-11-11T08:43:06Z, core pods, data rw, api)
+HEALTH-GATE: 08:44:18 APPS (excluded from gate): broken-app-5d6b874ccd-4qxbm 0/1 ImagePullBackOff; 
+MENDER-CLI: record_id=1 severity=info time="2026-Nov-11 08:42:03.410216" name="Global" msg="Running State Script: /var/lib/mender/scripts/ArtifactCommit_Enter_00_onemind-gate" 
+MENDER-CLI: Committed.
+HEALTH-GATE: 08:44:20 GATE-SCRIPT-RAN yes (ArtifactCommit_Enter decided before this commit)
+HEALTH-GATE: 08:44:20 RESULT mark-good slot=A version=2 after 137s (env now upgrade_available=0)
+--- state:T8-after-reinstall
+ONEMIND_VERSION=2
+mender_boot_part=2
+upgrade_available=0
+bootcount=1
+artifact=onemind-v2
+/dev/vda2
+apps             broken-app-5d6b874ccd-4qxbm               0/1   ErrImagePull   0               36m
+kube-system      coredns-577d995dff-4srks                  1/1   Running        9 (2m54s ago)   37m
+kube-system      helm-install-gateway-api-crd-9wvhq        0/1   Completed      0               37m
+kube-system      local-path-provisioner-56c6584955-p2bf5   1/1   Running        9 (2m54s ago)   37m
+onemind-system   onemind-core-dc87b89b8-5sshm              1/1   Running        9 (2m54s ago)   37m
+mender_boot_part=2
+upgrade_available=0
+bootcount=1
+##### [03:44:27] T9 power cut in commit window (target B)
+Installed, but not committed.
+At least one payload requested a reboot of the device it updated.
+##### [03:46:07] install good.mender rc=0 in 100s
+[  270.884011] watchdog: watchdog0: watchdog did not stop!
+[  271.985904] watchdog: watchdog0: watchdog did not stop!
+Booting new update...
+MENDER-GRUB: mender_boot_part=3 upgrade_available=1 bootcount=1
+HEALTH-GATE: 08:46:46 start slot=B version=2 mode=trial env=[mender_boot_part=3 upgrade_available=1 bootcount=1]
+HEALTH-GATE: 08:46:46 ArtifactCommit_Enter: trial checks start (deadline 300s, 3 passes)
+HEALTH-GATE: 08:46:47 CHECK fail at 1s: fail: no kubeconfig on this boot (k3s server has not started)
+##### [03:46:50] POWER CUT: SIGKILL qemu
+##### [03:46:50] T9 restart
+##### [03:46:50] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,reado
+Rolling back...
+MENDER-GRUB: mender_boot_part=2 upgrade_available=0 bootcount=0
+HEALTH-GATE: 08:47:16 start slot=A version=2 mode=committed env=[mender_boot_part=2 upgrade_available=0 bootcount=0]
+MENDER-CLI: Rolled back.
+HEALTH-GATE: 08:47:19 RESULT fell-back slot=A version=2; interrupted update rolled back by Mender (rc=0), env=[mender_boot_part=2 upgrade_available=0]
+root@onemind-lab:~# HEALTH-GATE: 08:48:59 K3S-FRESH ok after 100s: ok (fresh: kubelet, heartbeat 2026-11-11T08:48:28Z, core pods, data rw, api)
+--- state:T9-end
+ONEMIND_VERSION=2
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+artifact=onemind-v2
+/dev/vda2
+apps             broken-app-5d6b874ccd-4qxbm               0/1   ImagePullBackOff   0                41m
+kube-system      coredns-577d995dff-4srks                  1/1   Running            10 (2m59s ago)   41m
+kube-system      helm-install-gateway-api-crd-9wvhq        0/1   Completed          0                41m
+kube-system      local-path-provisioner-56c6584955-p2bf5   1/1   Running            10 (2m59s ago)   41m
+onemind-system   onemind-core-dc87b89b8-5sshm              1/1   Running            10 (2m59s ago)   41m
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+##### [03:49:06] T10 naive gate observation (target B)
+Installed, but not committed.
+At least one payload requested a reboot of the device it updated.
+##### [03:50:58] install naive-noagent.mender rc=0 in 112s
+[  248.549308] watchdog: watchdog0: watchdog did not stop!
+[  249.766372] watchdog: watchdog0: watchdog did not stop!
+Booting new update...
+MENDER-GRUB: mender_boot_part=3 upgrade_available=1 bootcount=1
+HEALTH-GATE: 08:51:43 start slot=B version=7 mode=trial env=[mender_boot_part=3 upgrade_available=1 bootcount=1]
+HEALTH-GATE: 08:51:44 ArtifactCommit_Enter: trial checks start (deadline 300s, 3 passes)
+HEALTH-GATE: 08:51:44 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+root@onemind-lab:~# HEALTH-GATE: 08:51:54 CHECK fail at 10s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:52:04 CHECK fail at 20s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:52:14 CHECK fail at 30s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:52:30 CHECK fail at 46s: fail: apiserver /readyz not ok
+HEALTH-GATE: 08:52:44 CHECK pass 1/3 at 60s: ok (NAIVE: freshness off)
+HEALTH-GATE: 08:52:58 CHECK pass 2/3 at 74s: ok (NAIVE: freshness off)
+HEALTH-GATE: 08:53:12 CHECK pass 3/3 at 88s: ok (NAIVE: freshness off)
+HEALTH-GATE: 08:53:14 APPS (excluded from gate): broken-app-5d6b874ccd-4qxbm 0/1 ErrImagePull; 
+MENDER-CLI: record_id=1 severity=info time="2026-Nov-11 08:51:44.200297" name="Global" msg="Running State Script: /var/lib/mender/scripts/ArtifactCommit_Enter_00_onemind-gate" 
+MENDER-CLI: Committed.
+HEALTH-GATE: 08:53:16 GATE-SCRIPT-RAN yes (ArtifactCommit_Enter decided before this commit)
+HEALTH-GATE: 08:53:16 RESULT mark-good slot=B version=7 after 93s (env now upgrade_available=0)
+--- state:T10-after
+ONEMIND_VERSION=7
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+artifact=onemind-v7
+/dev/vda3
+apps             broken-app-5d6b874ccd-4qxbm               0/1   ErrImagePull   0                45m
+kube-system      coredns-577d995dff-4srks                  1/1   Running        10 (7m15s ago)   45m
+kube-system      helm-install-gateway-api-crd-9wvhq        0/1   Completed      0                45m
+kube-system      local-path-provisioner-56c6584955-p2bf5   1/1   Running        10 (7m15s ago)   45m
+onemind-system   onemind-core-dc87b89b8-5sshm              1/1   Running        10 (7m15s ago)   45m
+mender_boot_part=3
+upgrade_available=0
+bootcount=1
+Installed, but not committed.
+At least one payload requested a reboot of the device it updated.
+##### [03:55:03] install good.mender rc=0 in 101s
+[  234.962582] watchdog: watchdog0: watchdog did not stop!
+[  235.278912] watchdog: watchdog0: watchdog did not stop!
+Booting new update...
+MENDER-GRUB: mender_boot_part=2 upgrade_available=1 bootcount=1
+HEALTH-GATE: 08:55:34 start slot=A version=2 mode=trial env=[mender_boot_part=2 upgrade_available=1 bootcount=1]
+HEALTH-GATE: 08:55:34 ArtifactCommit_Enter: trial checks start (deadline 300s, 3 passes)
+HEALTH-GATE: 08:55:34 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+[?2004hroot@onemind-lab:~# HEALTH-GATE: 08:55:45 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:55:55 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:56:05 CHECK fail at 31s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:56:15 CHECK fail at 41s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:56:30 CHECK fail at 56s: fail: apiserver /readyz not ok
+HEALTH-GATE: 08:56:49 CHECK fail at 75s: fail: core pod kube-system/coredns-577d995dff-4srks not Ready
+HEALTH-GATE: 08:57:10 CHECK pass 1/3 at 96s: ok (fresh: kubelet, heartbeat 2026-11-11T08:56:36Z, core pods, data rw, api)
+HEALTH-GATE: 08:57:29 CHECK pass 2/3 at 115s: ok (fresh: kubelet, heartbeat 2026-11-11T08:56:36Z, core pods, data rw, api)
+HEALTH-GATE: 08:57:48 CHECK pass 3/3 at 134s: ok (fresh: kubelet, heartbeat 2026-11-11T08:56:36Z, core pods, data rw, api)
+HEALTH-GATE: 08:57:49 APPS (excluded from gate): broken-app-5d6b874ccd-4qxbm 0/1 ImagePullBackOff; 
+MENDER-CLI: record_id=1 severity=info time="2026-Nov-11 08:55:34.796108" name="Global" msg="Running State Script: /var/lib/mender/scripts/ArtifactCommit_Enter_00_onemind-gate" 
+MENDER-CLI: Committed.
+HEALTH-GATE: 08:57:51 GATE-SCRIPT-RAN yes (ArtifactCommit_Enter decided before this commit)
+HEALTH-GATE: 08:57:51 RESULT mark-good slot=A version=2 after 137s (env now upgrade_available=0)
+--- state:T10r-end
+ONEMIND_VERSION=2
+mender_boot_part=2
+upgrade_available=0
+bootcount=1
+artifact=onemind-v2
+/dev/vda2
+apps             broken-app-5d6b874ccd-4qxbm               0/1   ErrImagePull   0                50m
+kube-system      coredns-577d995dff-4srks                  1/1   Running        11 (6m58s ago)   50m
+kube-system      helm-install-gateway-api-crd-9wvhq        0/1   Completed      0                50m
+kube-system      local-path-provisioner-56c6584955-p2bf5   1/1   Running        11 (6m58s ago)   50m
+onemind-system   onemind-core-dc87b89b8-5sshm              1/1   Running        11 (6m58s ago)   50m
+mender_boot_part=2
+upgrade_available=0
+bootcount=1
+HEALTH-GATE: 08:06:22 start slot=A version=1 mode=committed env=[mender_boot_part=2 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 08:06:22 RESULT committed-boot slot=A version=1
+HEALTH-GATE: 08:08:15 K3S-FRESH ok after 113s: ok (fresh: kubelet, heartbeat 2026-11-11T08:07:46Z, core pods, data rw, api)
+HEALTH-GATE: 08:10:21 start slot=B version=2 mode=trial env=[mender_boot_part=3 upgrade_available=1 bootcount=1]
+HEALTH-GATE: 08:10:21 ArtifactCommit_Enter: trial checks start (deadline 300s, 3 passes)
+HEALTH-GATE: 08:10:21 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:10:32 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:10:42 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:10:58 CHECK fail at 37s: fail: apiserver /readyz not ok
+HEALTH-GATE: 08:11:23 CHECK fail at 62s: fail: core pod kube-system/coredns-577d995dff-4srks not Ready
+HEALTH-GATE: 08:11:47 CHECK pass 1/3 at 86s: ok (fresh: kubelet, heartbeat 2026-11-11T08:11:12Z, core pods, data rw, api)
+HEALTH-GATE: 08:12:05 CHECK pass 2/3 at 104s: ok (fresh: kubelet, heartbeat 2026-11-11T08:11:12Z, core pods, data rw, api)
+HEALTH-GATE: 08:12:22 CHECK pass 3/3 at 121s: ok (fresh: kubelet, heartbeat 2026-11-11T08:11:12Z, core pods, data rw, api)
+HEALTH-GATE: 08:12:24 APPS (excluded from gate): broken-app-5d6b874ccd-4qxbm 0/1 ImagePullBackOff; 
+HEALTH-GATE: 08:12:25 GATE-SCRIPT-RAN yes (ArtifactCommit_Enter decided before this commit)
+HEALTH-GATE: 08:12:26 RESULT mark-good slot=B version=2 after 124s (env now upgrade_available=0)
+HEALTH-GATE: 08:13:10 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=1]
+HEALTH-GATE: 08:13:10 RESULT committed-boot slot=B version=2
+HEALTH-GATE: 08:14:38 K3S-FRESH ok after 88s: ok (fresh: kubelet, heartbeat 2026-11-11T08:14:07Z, core pods, data rw, api)
+HEALTH-GATE: 08:15:23 start slot=A version=3 mode=trial env=[mender_boot_part=2 upgrade_available=1 bootcount=1]
+HEALTH-GATE: 08:15:24 ArtifactCommit_Enter: trial checks start (deadline 300s, 3 passes)
+HEALTH-GATE: 08:15:24 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:15:34 CHECK fail at 10s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:15:44 CHECK fail at 20s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:15:54 CHECK fail at 30s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:16:04 CHECK fail at 40s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:16:14 CHECK fail at 50s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:16:24 CHECK fail at 60s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:16:34 CHECK fail at 70s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:16:45 CHECK fail at 80s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:16:55 CHECK fail at 91s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:17:05 CHECK fail at 101s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:17:15 CHECK fail at 111s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:17:25 CHECK fail at 121s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:17:35 CHECK fail at 131s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:17:45 CHECK fail at 141s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:17:55 CHECK fail at 151s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:18:05 CHECK fail at 161s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:18:15 CHECK fail at 171s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:18:25 CHECK fail at 181s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:18:35 CHECK fail at 191s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:18:45 CHECK fail at 201s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:18:55 CHECK fail at 211s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:19:06 CHECK fail at 222s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:19:16 CHECK fail at 232s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:19:26 CHECK fail at 242s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:19:36 CHECK fail at 252s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:19:46 CHECK fail at 262s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:19:56 CHECK fail at 272s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:20:06 CHECK fail at 282s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:20:16 CHECK fail at 292s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:20:26 ArtifactCommit_Enter: deadline 300s reached (last: fail: no kubeconfig on this boot (k3s server has not started)) -> refuse commit
+HEALTH-GATE: 08:20:28 RESULT mark-bad slot=A version=3 after 304s; env=[mender_boot_part=3 upgrade_available=0] -> reboot
+HEALTH-GATE: 08:20:49 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=1]
+HEALTH-GATE: 08:20:50 RESULT committed-boot slot=B version=2
+HEALTH-GATE: 08:21:44 K3S-FRESH ok after 54s: ok (fresh: kubelet, heartbeat 2026-11-11T08:21:21Z, core pods, data rw, api)
+HEALTH-GATE: 08:22:09 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=1]
+HEALTH-GATE: 08:22:10 RESULT committed-boot slot=B version=2
+HEALTH-GATE: 08:23:03 K3S-FRESH ok after 53s: ok (fresh: kubelet, heartbeat 2026-11-11T08:22:47Z, core pods, data rw, api)
+HEALTH-GATE: 08:23:44 start slot=A version=4 mode=trial env=[mender_boot_part=2 upgrade_available=1 bootcount=1]
+HEALTH-GATE: 08:23:45 ArtifactCommit_Enter: trial checks start (deadline 300s, 3 passes)
+HEALTH-GATE: 08:23:45 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:23:55 CHECK fail at 10s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:24:08 CHECK fail at 23s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:24:19 CHECK fail at 34s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:24:30 CHECK fail at 45s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:24:41 CHECK fail at 56s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:24:52 CHECK fail at 67s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:25:03 CHECK fail at 78s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:25:14 CHECK fail at 89s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:25:25 CHECK fail at 100s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:25:37 CHECK fail at 112s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:25:48 CHECK fail at 123s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:26:00 CHECK fail at 135s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:26:11 CHECK fail at 146s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:26:22 CHECK fail at 157s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:26:33 CHECK fail at 168s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:26:45 CHECK fail at 180s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:26:56 CHECK fail at 191s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:27:07 CHECK fail at 202s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:27:19 CHECK fail at 214s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:27:30 CHECK fail at 225s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:27:41 CHECK fail at 236s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:27:53 CHECK fail at 248s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:28:04 CHECK fail at 259s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:28:15 CHECK fail at 270s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:28:27 CHECK fail at 282s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:28:38 CHECK fail at 293s: fail: kubelet /healthz not answering
+HEALTH-GATE: 08:28:48 ArtifactCommit_Enter: deadline 300s reached (last: fail: kubelet /healthz not answering) -> refuse commit
+HEALTH-GATE: 08:28:51 RESULT mark-bad slot=A version=4 after 306s; env=[mender_boot_part=3 upgrade_available=0] -> reboot
+HEALTH-GATE: 08:29:30 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=1]
+HEALTH-GATE: 08:29:31 RESULT committed-boot slot=B version=2
+HEALTH-GATE: 08:30:43 K3S-FRESH ok after 72s: ok (fresh: kubelet, heartbeat 2026-11-11T08:30:16Z, core pods, data rw, api)
+HEALTH-GATE: 08:31:09 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=1]
+HEALTH-GATE: 08:31:09 RESULT committed-boot slot=B version=2
+HEALTH-GATE: 08:32:37 K3S-FRESH ok after 88s: ok (fresh: kubelet, heartbeat 2026-11-11T08:32:04Z, core pods, data rw, api)
+HEALTH-GATE: 08:33:48 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 08:33:51 RESULT fell-back slot=B version=2; interrupted update rolled back by Mender (rc=0), env=[mender_boot_part=3 upgrade_available=0]
+HEALTH-GATE: 08:34:30 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 08:34:30 RESULT committed-boot slot=B version=2
+HEALTH-GATE: 08:35:58 K3S-FRESH ok after 88s: ok (fresh: kubelet, heartbeat 2026-11-11T08:35:28Z, core pods, data rw, api)
+HEALTH-GATE: 08:37:38 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 08:37:40 RESULT fell-back slot=B version=2; interrupted update rolled back by Mender (rc=0), env=[mender_boot_part=3 upgrade_available=0]
+HEALTH-GATE: 08:38:21 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 08:38:22 RESULT committed-boot slot=B version=2
+HEALTH-GATE: 08:39:25 start slot=B version=2 mode=committed env=[mender_boot_part=3 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 08:39:25 RESULT committed-boot slot=B version=2
+HEALTH-GATE: 08:41:02 K3S-FRESH ok after 97s: ok (fresh: kubelet, heartbeat 2026-11-11T08:40:25Z, core pods, data rw, api)
+HEALTH-GATE: 08:42:03 start slot=A version=2 mode=trial env=[mender_boot_part=2 upgrade_available=1 bootcount=1]
+HEALTH-GATE: 08:42:03 ArtifactCommit_Enter: trial checks start (deadline 300s, 3 passes)
+HEALTH-GATE: 08:42:03 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:42:13 CHECK fail at 10s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:42:23 CHECK fail at 20s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:42:33 CHECK fail at 30s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:42:44 CHECK fail at 41s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:42:58 CHECK fail at 55s: fail: apiserver /readyz not ok
+HEALTH-GATE: 08:43:18 CHECK fail at 75s: fail: core pod kube-system/coredns-577d995dff-4srks not Ready
+HEALTH-GATE: 08:43:38 CHECK pass 1/3 at 95s: ok (fresh: kubelet, heartbeat 2026-11-11T08:43:06Z, core pods, data rw, api)
+HEALTH-GATE: 08:43:57 CHECK pass 2/3 at 114s: ok (fresh: kubelet, heartbeat 2026-11-11T08:43:06Z, core pods, data rw, api)
+HEALTH-GATE: 08:44:16 CHECK pass 3/3 at 133s: ok (fresh: kubelet, heartbeat 2026-11-11T08:43:06Z, core pods, data rw, api)
+HEALTH-GATE: 08:44:18 APPS (excluded from gate): broken-app-5d6b874ccd-4qxbm 0/1 ImagePullBackOff; 
+HEALTH-GATE: 08:44:20 GATE-SCRIPT-RAN yes (ArtifactCommit_Enter decided before this commit)
+HEALTH-GATE: 08:44:20 RESULT mark-good slot=A version=2 after 137s (env now upgrade_available=0)
+                                                                HEALTH-GATE: 08:47:16 start slot=A version=2 mode=committed env=[mender_boot_part=2 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 08:47:19 RESULT fell-back slot=A version=2; interrupted update rolled back by Mender (rc=0), env=[mender_boot_part=2 upgrade_available=0]
+HEALTH-GATE: 08:48:59 K3S-FRESH ok after 100s: ok (fresh: kubelet, heartbeat 2026-11-11T08:48:28Z, core pods, data rw, api)
+HEALTH-GATE: 08:51:43 start slot=B version=7 mode=trial env=[mender_boot_part=3 upgrade_available=1 bootcount=1]
+HEALTH-GATE: 08:51:44 ArtifactCommit_Enter: trial checks start (deadline 300s, 3 passes)
+HEALTH-GATE: 08:51:44 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:51:54 CHECK fail at 10s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:52:04 CHECK fail at 20s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:52:14 CHECK fail at 30s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:52:30 CHECK fail at 46s: fail: apiserver /readyz not ok
+HEALTH-GATE: 08:52:44 CHECK pass 1/3 at 60s: ok (NAIVE: freshness off)
+HEALTH-GATE: 08:52:58 CHECK pass 2/3 at 74s: ok (NAIVE: freshness off)
+HEALTH-GATE: 08:53:12 CHECK pass 3/3 at 88s: ok (NAIVE: freshness off)
+HEALTH-GATE: 08:53:14 APPS (excluded from gate): broken-app-5d6b874ccd-4qxbm 0/1 ErrImagePull; 
+HEALTH-GATE: 08:53:16 GATE-SCRIPT-RAN yes (ArtifactCommit_Enter decided before this commit)
+HEALTH-GATE: 08:53:16 RESULT mark-good slot=B version=7 after 93s (env now upgrade_available=0)
+HEALTH-GATE: 08:55:34 start slot=A version=2 mode=trial env=[mender_boot_part=2 upgrade_available=1 bootcount=1]
+HEALTH-GATE: 08:55:34 ArtifactCommit_Enter: trial checks start (deadline 300s, 3 passes)
+HEALTH-GATE: 08:55:34 CHECK fail at 0s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:55:45 CHECK fail at 11s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:55:55 CHECK fail at 21s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:56:05 CHECK fail at 31s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:56:15 CHECK fail at 41s: fail: no kubeconfig on this boot (k3s server has not started)
+HEALTH-GATE: 08:56:30 CHECK fail at 56s: fail: apiserver /readyz not ok
+HEALTH-GATE: 08:56:49 CHECK fail at 75s: fail: core pod kube-system/coredns-577d995dff-4srks not Ready
+HEALTH-GATE: 08:57:10 CHECK pass 1/3 at 96s: ok (fresh: kubelet, heartbeat 2026-11-11T08:56:36Z, core pods, data rw, api)
+HEALTH-GATE: 08:57:29 CHECK pass 2/3 at 115s: ok (fresh: kubelet, heartbeat 2026-11-11T08:56:36Z, core pods, data rw, api)
+HEALTH-GATE: 08:57:48 CHECK pass 3/3 at 134s: ok (fresh: kubelet, heartbeat 2026-11-11T08:56:36Z, core pods, data rw, api)
+HEALTH-GATE: 08:57:49 APPS (excluded from gate): broken-app-5d6b874ccd-4qxbm 0/1 ImagePullBackOff; 
+HEALTH-GATE: 08:57:51 GATE-SCRIPT-RAN yes (ArtifactCommit_Enter decided before this commit)
+HEALTH-GATE: 08:57:51 RESULT mark-good slot=A version=2 after 137s (env now upgrade_available=0)
+##### [03:58:03] QEMU EXIT (poweroff)

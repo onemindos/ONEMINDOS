@@ -1,0 +1,16 @@
+##### [03:13:32] T1 first boot
+##### [03:13:32] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/var/lab/deb-control/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/deb-control/disk.img -serial stdio -monitor none
+===> T1: PASS gate=('committed-boot', 'A', 1) K3S-FRESH ok after 145s: ok (fresh: kubelet, heartbeat 2026-11-11T08:15:45Z, core pods, da apps_not_ready=True t=192s
+##### [03:16:44] T2 wrong-key bundle
+##### [03:16:45] install wrong-key.raucb rc=1 in 1s
+===> T2: FAIL rc=1 sig_error=True env_unchanged=False marker_written=False
+##### [03:16:45] T3 good update -> B
+##### [03:18:11] install good.raucb rc=0 in 86s
+===> T3: PASS rc=0 trial=('mark-good', 'B', 2) passes=3 first_fails=['fail: no kubeconfig on this boot (k3s server has not started)', 'fail: no kubeconfig on this boot (k3s server has not started)'] apps='broken-app-5d6b874ccd-zzv4q 0/1 ErrImagePull; ' reboot=('committed-boot', 'B', 2)
+##### [03:20:46] QEMU EXIT (poweroff)
+
+SUMMARY (total 7 min)
+T1 | PASS | gate=('committed-boot', 'A', 1) K3S-FRESH ok after 145s: ok (fresh: kubelet, heartbeat 2026-11-11T08:15:45Z, core pods, da apps_not_ready=True t=192s
+T2 | FAIL | rc=1 sig_error=True env_unchanged=False marker_written=False
+T3 | PASS | rc=0 trial=('mark-good', 'B', 2) passes=3 first_fails=['fail: no kubeconfig on this boot (k3s server has not started)', 'fail: no kubeconfig on this boot (k3s server has not started)'] apps='broken-app-5d6b874ccd-zzv4q 0/1 ErrImagePull; ' reboot=('committed-boot', 'B', 2)
+EXIT=1

@@ -1,0 +1,44 @@
+EXCERPT of Regulation (EU) 2026/1744 (Digital Omnibus on AI), EUR-Lex OJ:L_202601744, fetched 2026-11-10. Raw HTML sha256: 6d29bdf7df4f9bd669c0d713cf000e5f4f0ac53154d8c0cfa4fec4e54b8f86a2
+ REGULATION (EU) 2026/1744 OF THE EUROPEAN PARLIAMENT AND OF THE COUNCIL
+
+ of 8 July 2026
+
+ amending Regulations (EU) 2024/1689, (EU) 2018/1139 and (EU) 2023/1230 as regards the simplification of the implementation of harmonised rules on artificial intelligence (Digital Omnibus on AI)
+
+ (Text with EEA relevance)
+ Article 113 of Regulation (EU) 2024/1689 establishes the dates of entry into force and application of that Regulation, in particular that the general date of application is 2 August 2026. For the obligations related to high-risk AI systems laid down in Sections 1, 2 and 3 of Chapter III of Regulation (EU) 2024/1689, the delayed availability of standards, common specifications, and alternative guidance and the delayed establishment of national competent authorities lead to challenges that jeopardise the effective entry into application of those obligations and that risk a significant increase in implementation costs in a way that does not justify maintaining their initial date of application, namely 2 August 2026. Therefore, it is appropriate that the date of application of Sections 1, 2 and 3 of Chapter III is set to 2 December 2027 for AI systems classified as high-risk pursuant to Article 6(2) and Annex III, and to 2 August 2028 for AI systems classified as high-risk pursuant to Article 6(1) and Annex I. The distinction between the entry into application of the rules as regards AI systems classified as high-risk pursuant to Article 6(2) and Annex III and Article 6(1) and Annex I to that Regulation is consistent with the difference between the initial dates of application envisaged in Regulation (EU) 2024/1689 and aims to provide the necessary time for adaptation and implementation of the corresponding obligations. The timely availability of support instruments, including guidance, relevant standards, common specifications and codes of practice is important in order to facilitate compliance and reduce the risk of divergent interpretation and uneven application of the rules across Member States. In order to ensure legal certainty and to avoid further delays in the application of Regulation (EU) 2024/1689, the Commission should ensure that measures in support of compliance with regard to Chapter III, Sections 1, 2, and 3 of that Regulation are in place in due time to ensure timely and effective implementation of the necessary provisions.
+
+ b.   AI systems subject to point 1 of Annex III
+
+ AIA Code
+
+ AIB 0201
+
+ Remote biometric identification systems
+
+ AIB 0202
+
+ Biometric categorisation AI systems
+
+ AIB 0203
+
+ Emotion recognition AI systems
+
+ 3.   AI technology-specific codes
+
+ a.   Symbolic AI and expert systems
+
+ Entry into force and application
+
+ This Regulation shall enter into force on the third day following that of its publication in the Official Journal of the European Union.
+
+ This Regulation shall be binding in its entirety and directly applicable in all Member States.
+
+ Done at Strasbourg, 8 July 2026.
+
+ For the European Parliament
+
+ The President
+
+ R. METSOLA
+

@@ -1,0 +1,21 @@
+##### [07:48:56] QEMU START qemu-system-aarch64 -machine virt -accel kvm -cpu host -smp 4 -m 3072 -nodefaults -display none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd -drive if=pflash,
+$ cat /proc/pressure/io; cat /sys/block/vda/stat; uptime
+cat /proc/pressure/io; cat /sys/block/vda/stat; uptime; echo __R''C=$?__
+[?2004lsome avg10=0.00 avg60=0.04 avg300=0.03 total=482253
+full avg10=0.00 avg60=0.02 avg300=0.00 total=306070
+    3285      568   275152     3062      539      604   848937    23430        0     3104    26968        0        0        0        0       70      475
+ 12:51:37 up 2 min,  0 users,  load average: 5.97, 1.99, 0.72
+
+$ journalctl -u k3s -o short-monotonic --no-pager | grep -iE "Running containerd|containerd is now running|Importing images|Imported images" | cut -c1-160
+onemind-lab:~# journalctl -u k3s -o short-monotonic --no-pager | grep -iE "Running containerd|containerd is now running|Importing images|Imported images" | cut -c1-160; echo __R''C=$?__
+[?2004l[   97.519932] onemind-lab k3s[433]: time="2026-11-11T12:50:52Z" level=info msg="Running containerd -c /data/k3s/agent/etc/containerd/config.toml"
+
+Traceback (most recent call last):
+  File "<lab-dir>/aarch64-gate/scripts/debug-boot.py", line 8, in <module>
+    rc, out = vm.run(c, 300); print("$", c); print(out[-6000:])
+              ~~~~~~^^^^^^^^
+  File "<lab-dir>/aarch64-gate/scripts/run-tests.py", line 90, in run
+    m = self.expect(r"__RC=(\d+)__", timeout)
+  File "<lab-dir>/aarch64-gate/scripts/run-tests.py", line 82, in expect
+    raise TimeoutError(f"timeout {timeout}s waiting for {pattern!r}")
+TimeoutError: timeout 300s waiting for '__RC=(\\d+)__'

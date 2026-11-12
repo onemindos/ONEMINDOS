@@ -1,0 +1,16 @@
+[Unit]
+Description=OneMind health gate (commit or reject the booted RAUC slot)
+# Deliberately NOT After=k3s.service: k3s is Type=notify with no start timeout,
+# so a k3s that hangs before "ready" would stop the gate's deadline from ever starting.
+After=local-fs.target rauc.service onemind-api.service
+Wants=rauc.service onemind-api.service
+RequiresMountsFor=/data /boot/efi
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/onemind/onemind-health-gate
+TimeoutStartSec=infinity
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,276 @@
+# Start of ---------- 00_mender_grubenv_defines_grub.cfg ----------
+mender_rootfsa_part=2
+mender_rootfsb_part=3
+mender_kernel_root_base=/dev/vda
+mender_rootfsa_uuid=6e0a8b0e-0000-4a00-8000-00000000000a
+mender_rootfsb_uuid=6e0a8b0e-0000-4a00-8000-00000000000b
+kernel_imagetype=vmlinuz
+initrd_imagetype=initrd.img
+# End of ---------- 00_mender_grubenv_defines_grub.cfg ----------
+# Start of ---------- 01_mender_console_bootargs_grub.cfg ----------
+set console_bootargs="console=tty0,115200n8 console=ttyS0,115200n8 console=ttyO0,115200n8 console=ttyAMA0,115200n8"
+# End of ---------- 01_mender_console_bootargs_grub.cfg ----------
+# Start of ---------- 02_mender_root_bootargs_grub.cfg ----------
+set rootargs="rootwait"
+# End of ---------- 02_mender_root_bootargs_grub.cfg ----------
+# Start of ---------- 04_mender_setup_env_functions_grub.cfg ----------
+# See the grub-mender-grubenv-print script for how this works.
+
+# In this file we are skipping signature checking in most places. This is
+# because Mender's environment is by nature dynamic, and cannot have a static
+# signature. Instead, we make sure the content is valid.
+
+# Free form variables can not be supported when signatures are
+# enforced. "mender_systemd_machine_id" is such a variable, so it is not
+# supported when signatures are on.
+
+# Note that Secure Boot and GRUB signatures are two different things, and here
+# we are talking about the latter.
+
+function mender_setup_env_location {
+    MENDER_ENV1=(${root})/grub-mender-grubenv/mender_grubenv1/env
+    MENDER_LOCK1=(${root})/grub-mender-grubenv/mender_grubenv1/lock
+    MENDER_ENV2=(${root})/grub-mender-grubenv/mender_grubenv2/env
+    MENDER_LOCK2=(${root})/grub-mender-grubenv/mender_grubenv2/lock
+
+    if [ ! -f ${MENDER_ENV1} -o ! -f ${MENDER_LOCK1} -o ! -f ${MENDER_ENV2} -o ! -f ${MENDER_LOCK2} ]; then
+        if [ "${check_signatures}" = "enforce" ]; then
+            echo "Signatures are enabled and the environment could not be found. Rebooting in 10 seconds..."
+            sleep 10
+            reboot
+        else
+            echo "The environment was not found. Tried to access ${MENDER_ENV1}. Continuing in 10 seconds..."
+            sleep 10
+            # Fallthrough and continue. Will most likely hit the "Environment is
+            # corrupt" section below.
+        fi
+    fi
+}
+
+function mender_check_and_restore_env {
+    mender_setup_env_location
+    editing=invalid
+    load_env --skip-sig --file ${MENDER_LOCK2} editing
+    if [ "${editing}" != 0 ]; then
+        # See comment about "free form" variables near the top.
+        if [ "$check_signatures" = "enforce" ]; then
+            load_env --skip-sig --file ${MENDER_ENV1} bootcount mender_boot_part upgrade_available
+            save_env --file ${MENDER_ENV2} bootcount mender_boot_part upgrade_available
+        else
+            load_env --skip-sig --file ${MENDER_ENV1} bootcount mender_boot_part upgrade_available mender_systemd_machine_id
+            save_env --file ${MENDER_ENV2} bootcount mender_boot_part upgrade_available mender_systemd_machine_id
+        fi
+        editing=0
+        save_env --file ${MENDER_LOCK2} editing
+    else
+        editing=invalid
+        load_env --skip-sig --file ${MENDER_LOCK1} editing
+        if [ "${editing}" != 0 ]; then
+            # See comment about "free form" variables near the top.
+            if [ "$check_signatures" = "enforce" ]; then
+                load_env --skip-sig --file ${MENDER_ENV2} bootcount mender_boot_part upgrade_available
+                save_env --file ${MENDER_ENV1} bootcount mender_boot_part upgrade_available
+            else
+                load_env --skip-sig --file ${MENDER_ENV2} bootcount mender_boot_part upgrade_available mender_systemd_machine_id
+                save_env --file ${MENDER_ENV1} bootcount mender_boot_part upgrade_available mender_systemd_machine_id
+            fi
+            editing=0
+            save_env --file ${MENDER_LOCK1} editing
+        fi
+    fi
+}
+
+function mender_save_env {
+    # Save redundant environment.
+    mender_setup_env_location
+    editing=1
+    save_env --file ${MENDER_LOCK2} editing
+    # See comment about "free form" variables near the top.
+    if [ "$check_signatures" = "enforce" ]; then
+        save_env --file ${MENDER_ENV2} bootcount mender_boot_part upgrade_available
+    else
+        save_env --file ${MENDER_ENV2} bootcount mender_boot_part upgrade_available mender_systemd_machine_id
+    fi
+    editing=0
+    save_env --file ${MENDER_LOCK2} editing
+
+    editing=1
+    save_env --file ${MENDER_LOCK1} editing
+    # See comment about "free form" variables near the top.
+    if [ "$check_signatures" = "enforce" ]; then
+        save_env --file ${MENDER_ENV1} bootcount mender_boot_part upgrade_available
+    else
+        save_env --file ${MENDER_ENV1} bootcount mender_boot_part upgrade_available mender_systemd_machine_id
+    fi
+    editing=0
+    save_env --file ${MENDER_LOCK1} editing
+}
+
+function mender_check_grubenv_valid {
+    if [ "${mender_boot_part}" -ne "${mender_rootfsa_part}" -a "${mender_boot_part}" -ne "${mender_rootfsb_part}" ]; then
+        return 1
+    fi
+
+    if [ "${bootcount}" != "0" -a "${bootcount}" != "1" ]; then
+        return 1
+    fi
+
+    if [ "${upgrade_available}" != "0" -a "${upgrade_available}" != "1" ]; then
+        return 1
+    fi
+
+    return 0
+}
+
+function mender_load_env {
+    mender_setup_env_location
+
+    # See comment about "free form" variables near the top.
+    if [ "$check_signatures" = "enforce" ]; then
+        load_env --skip-sig --file ${MENDER_ENV1} bootcount mender_boot_part upgrade_available
+    else
+        load_env --skip-sig --file ${MENDER_ENV1} bootcount mender_boot_part upgrade_available mender_systemd_machine_id
+        export mender_systemd_machine_id
+    fi
+    export bootcount
+    export mender_boot_part
+    export upgrade_available
+
+    if ! mender_check_grubenv_valid; then
+        if [ "${check_signatures}" = "enforce" ]; then
+            echo "Signatures are enabled and the environment is unverified. Rebooting in 10 seconds..."
+            sleep 10
+            reboot
+        else
+            if [ "${mender_boot_part}" -ne "${mender_rootfsb_part}" ]; then
+                mender_boot_part="${mender_rootfsa_part}"
+            fi
+            echo "The environment is corrupt. Trying to boot from ${mender_kernel_root_base}${mender_boot_part} in 10 seconds, but this is not guaranteed to be a valid partition..."
+            sleep 10
+            # Fallthrough and continue.
+        fi
+    fi
+}
+
+function mender_load_env_with_rollback {
+    mender_load_env
+
+    if [ "${upgrade_available}" = "1" ]; then
+        if [ "${bootcount}" != "0" ]; then
+            echo "Rolling back..."
+            if [ "${mender_boot_part}" -eq "${mender_rootfsa_part}" ]; then
+                mender_boot_part="${mender_rootfsb_part}"
+            else
+                mender_boot_part="${mender_rootfsa_part}"
+            fi
+            upgrade_available=0
+            bootcount=0
+        else
+            echo "Booting new update..."
+            bootcount=1
+        fi
+
+        mender_save_env
+    fi
+}
+# End of ---------- 04_mender_setup_env_functions_grub.cfg ----------
+# Start of ---------- 05_mender_setup_env_grub.cfg ----------
+mender_check_and_restore_env
+mender_load_env_with_rollback
+regexp (.*),(.*) $root -s mender_grub_storage_device
+# End of ---------- 05_mender_setup_env_grub.cfg ----------
+# Start of ---------- 05_mender_setup_grub.cfg ----------
+function maybe_pause {
+    # By default we do nothing. debug-pause PACKAGECONFIG replaces this so we
+    # can pause at strategic places.
+    echo
+}
+
+drop_to_grub_prompt="no"
+function maybe_drop_to_grub_prompt {
+    # By default we do nothing. force-grub-prompt PACKAGECONFIG replaces this so we
+    # can bypass boot and stop at the grub prompt.
+    echo
+}
+# End of ---------- 05_mender_setup_grub.cfg ----------
+# Start of ---------- 06_mender_systemd_machine_id_grub.cfg ----------
+if test -n "${mender_systemd_machine_id}"; then
+   systemd_bootargs="systemd.machine_id=${mender_systemd_machine_id}"
+fi
+# End of ---------- 06_mender_systemd_machine_id_grub.cfg ----------
+# Start of ---------- 07_onemind_lab_echo_grub.cfg ----------
+echo "MENDER-GRUB: mender_boot_part=${mender_boot_part} upgrade_available=${upgrade_available} bootcount=${bootcount}"
+# End of ---------- 07_onemind_lab_echo_grub.cfg ----------
+# Start of ---------- 10_mender_bootargs_grub.cfg ----------
+set bootargs="${bootargs} ${console_bootargs} ${rootargs} ${systemd_bootargs}"
+# End of ---------- 10_mender_bootargs_grub.cfg ----------
+# Start of ---------- 11_bootargs_grub.cfg ----------
+set bootargs="console=ttyS0,115200 panic=5 rootwait loglevel=4"
+# End of ---------- 11_bootargs_grub.cfg ----------
+# Start of ---------- 80_mender_choose_partitions_grub.cfg ----------
+# Historical note: The "mender_boot_part" variable means "partition to use as
+# root filesystem while booting", not "the boot partition". So it would be
+# better if it was named "mender_rootfs_part", but we can't rename it for
+# compatibility reasons. The rest of the variable names follow the latter
+# logic.
+
+if [ "${mender_boot_part}" -eq "${mender_rootfsa_part}" -a test -n "${mender_kernela_part}" ]; then
+    mender_ptable_part=${mender_kernela_part}
+    mender_kernel_path=""
+elif [ "${mender_boot_part}" -eq "${mender_rootfsb_part}" -a test -n "${mender_kernelb_part}" ]; then
+    mender_ptable_part=${mender_kernelb_part}
+    mender_kernel_path=""
+else
+    mender_ptable_part=${mender_boot_part}
+    mender_kernel_path="/boot"
+fi
+
+if test -e (${mender_grub_storage_device},gpt${mender_ptable_part})/; then
+    root="${mender_grub_storage_device},gpt${mender_ptable_part}"
+else
+    root="${mender_grub_storage_device},msdos${mender_ptable_part}"
+fi
+
+if test -n "${mender_rootfsa_uuid}" -a test -n  "${mender_rootfsb_uuid}"; then
+    if [ "${mender_boot_part}" -eq "${mender_rootfsa_part}" ]; then
+        mender_kernel_root="PARTUUID=${mender_rootfsa_uuid}"
+    elif [ "${mender_boot_part}" -eq "${mender_rootfsb_part}" ]; then
+        mender_kernel_root="PARTUUID=${mender_rootfsb_uuid}"
+    fi
+else
+    mender_kernel_root="${mender_kernel_root_base}${mender_boot_part}"
+fi
+# End of ---------- 80_mender_choose_partitions_grub.cfg ----------
+# Start of ---------- 90_mender_boot_grub.cfg ----------
+maybe_drop_to_grub_prompt
+
+if [ "${drop_to_grub_prompt}" = "no" ]; then
+    if linux "${mender_kernel_path}/${kernel_imagetype}" root="${mender_kernel_root}" ${bootargs}; then
+        if test -n "${initrd_imagetype}" -a test -e "${mender_kernel_path}/${initrd_imagetype}"; then
+            initrd "${mender_kernel_path}/${initrd_imagetype}"
+        fi
+        maybe_pause "Pausing before booting."
+        boot
+    fi
+    maybe_pause "Pausing after failed boot."
+fi
+# End of ---------- 90_mender_boot_grub.cfg ----------
+# Start of ---------- 95_mender_try_to_recover_grub.cfg ----------
+if [ "${drop_to_grub_prompt}" != "yes" ]; then
+    if [ "${upgrade_available}" = "1" ]; then
+        reboot
+    fi
+fi
+# End of ---------- 95_mender_try_to_recover_grub.cfg ----------
+# Start of ---------- 99_mender_end_of_grub.cfg ----------
+if [ "${drop_to_grub_prompt}" = "yes" ]; then
+    echo "Dropping to grub prompt intentionally."
+    sleep --interruptible 10 --verbose
+else
+    echo "Dropping to grub prompt for unknown reason. Should never get here."
+    sleep --interruptible 10 --verbose
+fi
+menuentry 'Dummy Entry for Debug.' 'Wait' {
+   echo Menu Entry for debug/command prompt access
+}
+# End of ---------- 99_mender_end_of_grub.cfg ----------

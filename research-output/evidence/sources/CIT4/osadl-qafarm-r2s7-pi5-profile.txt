@@ -1,0 +1,355 @@
+Source: https://www.osadl.org/Profile-of-system-in-rack-2-slot-7.qa-profile-r2s7.0.html (profile as of 2026-11-05; accessed 2026-11-11; saved as text; emails/MACs/serials masked)
+
+ 
+ Profile of system in rack #2, slot #7: OSADL - Open Source Automation Development Lab eG 
+ Jump to content Home | Imprint/Privacy policy | Login/Subscribe 
+ Home 
+ Compliance Services 
+ Technical Services 
+ Search 
+ You are here: Home / Technical Services / OSADL QA Farm Real-time / 
+ 2026-11-11 - 13:11
+ OSADL 
+ What is OSADL 
+ How to join 
+ In the Media 
+ Partners 
+ Jobs@OSADL 
+ Logos 
+ Info Request 
+ Events, Seminars & Workshops 
+ OSADL Members 
+ Regular Members 
+ Associate Members 
+ Academic Members 
+ Employed at OSADL Member? 
+ Job Offerings at OSADL Members 
+ Compliance Services 
+ OSADL Open Source Policy Template 
+ OSADL Open Source License Checklists 
+ OSADL FOSS Legal Knowledge Database 
+ Open Source License Compliance Tool Support 
+ OSSelot – The Open Source Curation Database 
+ CRA Compliance Support Projects 
+ OSADL Container Base Image 
+ License Compliance Audit 
+ FOSS Compliance Check 
+ Technical Services 
+ Zephyr Monitoring 
+ Real-time Linux 
+ OSADL QA Farm Real-time 
+ Quality assurance at the OSADL QA Farm 
+ OSADL Linux Add-on Patches 
+ OPC UA PubSub over TSN 
+ Safety Critical Linux 
+ OSADL Technical Tools 
+ Community Projects 
+ Immediate C 
+ Books 
+ OSADL Academic Works 
+ Other Books 
+ HOWTOs 
+ Downloads 
+ Imprint/Privacy policy 
+ Legal documents 
+ OSADL Datenschutzerklärung 
+ OSADL Privacy policy 
+ Search 
+ Login/Subscribe 
+ OSADL QA Farm on Real-time of Mainline Linux
+ About - Hardware - CPUs - Benchmarks - Graphics - Benchmarks - Kernels - Boards/Distros - Latency monitoring - Latency plots - System data - Profiles - Compare - Awards 
+ Profile of system in rack #2, slot #7 (as of Thu Nov 05, 2026 at 13:36:23)
+ Rack #0/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #1/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+ Rack #2/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #3/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+Rack #4/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #5/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+Rack #6/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #7/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+Rack #8/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #9/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+Rack #a/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #b/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+Rack #c/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #d/ #0 #1 #2 #3 #4 #5 #6 #7 #8 -
+Rack #e/ #0 #1 #2 #3 #4 #5 #6 #7 #8 - Rack #f/ #0 #1 #2 #3 #4 #5 #6 #7 #8 
+ Next 
+ CPU - Timers - Features - RAM - Network - PCI - DMI - Kernel 
+ Switch to shadow system 
+ Name
+rack2slot7.osadl.org
+ Purpose
+Monitoring
+ Vendor/Board
+Welectron/Raspberry Pi 5 Model B Rev 1.0
+ Distribution
+Debian GNU/Linux 12 (bookworm)
+ Kernel
+6.12.109+rpt-rpi-v8 #1 SMP PREEMPT Debian 1:6.12.109-1+rpt1 (2026-09-11) unknown
+ Kernel command line
+reboot=w coherent_pool=1M 8250.nr_uarts=1 pci=pcie_bus_safe cgroup_disable=memory numa_policy=interleave nvme.max_host_mem_size_mb=32 numa=fake=8 system_heap.max_order=0 iommu_dma_numa_policy=interleave smsc95xx.macaddr=<mac-masked> vc_mem.mem_base=0x3fc00000 vc_mem.mem_size=0x40000000 console=ttyAMA0,115200 earlyprintk=ttyAMA0,115200 console=tty1 root=PARTUUID=ca7d12ac-02 rootfstype=ext4 fsck.repair=yes rootwait cfg80211.ieee80211_regdom=DE isolcpus=3 rcu_nocbs=3
+ Buildtool
+aarch64-linux-gnu-gcc-12 (Debian 12.2.0-14+deb12u1) 12.2.0, GNU ld (GNU Binutils for Debian) 2.40) #1 SMP PREEMPT Debian 1:6.12.109-1+rpt1 (2026-09-11
+ Builder
+<email-masked>
+ Command to generate latency plot histogram data
+cyclictest -l100000000 -m -Sp99 -i200 -h400 -q
+ Display most recent latency plot 
+ Uptime/boot time
+19:33, up since Wed, 04 Nov 26 17:30:18 +0100 (1793809818)
+ CPU info 
+ Tag: ARM Broadcom BCM2712 @2400 MHz
+ Processor: 0 
+BogoMIPS : 108.00
+Features : fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp
+CPU implementer : 0x41
+CPU architecture: 8
+CPU variant : 0x4
+CPU part : 0xd0b
+CPU revision : 1
+ Processor: 1 
+BogoMIPS : 108.00
+Features : fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp
+CPU implementer : 0x41
+CPU architecture: 8
+CPU variant : 0x4
+CPU part : 0xd0b
+CPU revision : 1
+ Processor: 2 
+BogoMIPS : 108.00
+Features : fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp
+CPU implementer : 0x41
+CPU architecture: 8
+CPU variant : 0x4
+CPU part : 0xd0b
+CPU revision : 1
+ Processor: 3 
+BogoMIPS : 108.00
+Features : fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp
+CPU implementer : 0x41
+CPU architecture: 8
+CPU variant : 0x4
+CPU part : 0xd0b
+CPU revision : 1
+Revision : c04170
+Serial : <serial-masked>
+Model : Raspberry Pi 5 Model B Rev 1.0
+ CPU cache
+ CPU0: 
+ Level 1, Size 64K, Type Data
+ Level 1, Size 64K, Type Instruction
+ Level 2, Size 512K, Type Unified
+ Level 3, Size 2048K, Type Unified (shared)
+CPU1: 
+ Level 1, Size 64K, Type Data
+ Level 1, Size 64K, Type Instruction
+ Level 2, Size 512K, Type Unified
+ Level 3, Size 2048K, Type Unified (shared)
+CPU2: 
+ Level 1, Size 64K, Type Data
+ Level 1, Size 64K, Type Instruction
+ Level 2, Size 512K, Type Unified
+ Level 3, Size 2048K, Type Unified (shared)
+CPU3: 
+ Level 1, Size 64K, Type Data
+ Level 1, Size 64K, Type Instruction
+ Level 2, Size 512K, Type Unified
+ Level 3, Size 2048K, Type Unified (shared) 
+ CPU scaling 
+Specified clock frequency: 2400 MHz
+Default scaling setting:
+ CPU0: ondemand from 1500 to 2400 MHz
+CPU1: ondemand from 1500 to 2400 MHz
+CPU2: ondemand from 1500 to 2400 MHz
+CPU3: ondemand from 1500 to 2400 MHz 
+ Vulnerabilities
+ Gather_data_sampling Not affected
+ Indirect_target_selection Not affected
+ Itlb_multihit Not affected
+ L1tf Not affected
+ Mds Not affected
+ Meltdown Not affected
+ Mmio_stale_data Not affected
+ Reg_file_data_sampling Not affected
+ Retbleed Not affected
+ Spec_rstack_overflow Not affected
+ Spec_store_bypass Mitigation: Speculative Store Bypass disabled via prctl
+ Spectre_v1 Mitigation: __user pointer sanitization
+ Spectre_v2 Mitigation: CSV2, BHB
+ Srbds Not affected
+ Tsa Not affected
+ Tsx_async_abort Not affected
+ Vmscape Not affected
+ Interrupts 
+ CPU0 CPU1 CPU2 CPU3 
+ 9: 0 0 0 0 GICv2 25 Level vgic
+ 11: 0 0 0 0 GICv2 30 Level kvm guest ptimer
+ 12: 0 0 0 0 GICv2 27 Level kvm guest vtimer
+ 13: 266936681 265705957 265512875 262500242 GICv2 26 Level arch_timer
+ 14: 150974 0 0 0 GICv2 65 Level 107c013880.mailbox
+ 21: 0 0 0 0 GICv2 119 Level DMA IRQ
+ 22: 0 0 0 0 GICv2 120 Level DMA IRQ
+ 23: 0 0 0 0 GICv2 121 Level DMA IRQ
+ 24: 0 0 0 0 GICv2 122 Level DMA IRQ
+ 32: 2958 0 0 0 GICv2 308 Level ttyS0
+ 33: 0 0 0 0 GICv2 48 Level arm-pmu
+ 34: 0 0 0 0 GICv2 49 Level arm-pmu
+ 35: 0 0 0 0 GICv2 50 Level arm-pmu
+ 36: 0 0 0 0 GICv2 51 Level arm-pmu
+ 37: 0 0 0 0 GICv2 261 Level PCIe PME, aerdrv
+105: 1343963 0 0 0 rp1_irq_chip 6 Level end0
+124: 1503 0 0 0 rp1_irq_chip 25 Level uart-pl011
+130: 1 0 0 0 rp1_irq_chip 31 Edge xhci-hcd:usb1
+135: 1 0 0 0 rp1_irq_chip 36 Edge xhci-hcd:usb3
+139: 0 0 0 0 rp1_irq_chip 40 Level dw_axi_dmac_platform
+157: 2 0 0 0 rp1_irq_chip 58 Level 1f00008000.mailbox
+160: 9212636 0 0 0 GICv2 305 Level mmc0
+161: 12775 0 0 0 GICv2 306 Level mmc1
+162: 0 0 0 0 interrupt-controller@7d508380 1 Level 107d508200.i2c
+163: 0 0 0 0 interrupt-controller@7d508380 2 Level 107d508280.i2c
+164: 0 0 0 0 107d508500.gpio 20 Edge pwr_button
+165: 0 0 0 0 GICv2 150 Level 107d004000.spi
+166: 754725 0 0 0 GICv2 281 Level v3d_core0
+167: 155714 0 0 0 GICv2 282 Level v3d_hub
+168: 0 0 0 0 GICv2 104 Level pispbe
+169: 0 0 0 0 GICv2 130 Level 1000800000.codec
+170: 0 0 0 0 interrupt-controller@7c502000 2 Level 107c580000.hvs
+171: 0 0 0 0 interrupt-controller@7c502000 9 Level 107c580000.hvs
+172: 0 0 0 0 interrupt-controller@7c502000 16 Level 107c580000.hvs
+173: 0 0 0 0 interrupt-controller@7d510600 7 Level vc4 hdmi hpd connected
+174: 0 0 0 0 interrupt-controller@7d510600 8 Level vc4 hdmi hpd disconnected
+175: 0 0 0 0 interrupt-controller@7d510600 2 Level vc4 hdmi cec rx
+176: 0 0 0 0 interrupt-controller@7d510600 1 Level vc4 hdmi cec tx
+177: 0 0 0 0 interrupt-controller@7d510600 14 Level vc4 hdmi hpd connected
+178: 0 0 0 0 interrupt-controller@7d510600 15 Level vc4 hdmi hpd disconnected
+179: 0 0 0 0 interrupt-controller@7d510600 12 Level vc4 hdmi cec rx
+180: 0 0 0 0 interrupt-controller@7d510600 11 Level vc4 hdmi cec tx
+181: 0 0 0 0 interrupt-controller@7c502000 1 Level 107c500000.mop
+182: 0 0 0 0 interrupt-controller@7c502000 0 Level 107c501000.moplet
+183: 0 0 0 0 GICv2 133 Level vc4 crtc
+184: 0 0 0 0 GICv2 142 Level vc4 crtc
+IPI0: 1471096 1944696 2040175 21 Rescheduling interrupts
+IPI1: 37834853 28135617 34176824 5429 Function call interrupts
+IPI2: 0 0 0 0 CPU stop interrupts
+IPI3: 0 0 0 0 CPU stop NMIs
+IPI4: 0 0 0 0 Timer broadcast interrupts
+IPI5: 272558 221453 185076 36 IRQ work interrupts
+IPI6: 0 0 0 0 CPU backtrace interrupts
+IPI7: 0 0 0 0 KGDB roundup interrupts
+Err: 0 
+ Timer resolution 
+ cpu: 0
+ clock 0:
+ .resolution: 1 nsecs
+ clock 1:
+ .resolution: 1 nsecs
+ clock 2:
+ .resolution: 1 nsecs
+ clock 3:
+ .resolution: 1 nsecs
+ clock 4:
+ .resolution: 1 nsecs
+ clock 5:
+ .resolution: 1 nsecs
+ clock 6:
+ .resolution: 1 nsecs
+ clock 7:
+ .resolution: 1 nsecs
+cpu: 1
+ clock 0:
+ .resolution: 1 nsecs
+ clock 1:
+ .resolution: 1 nsecs
+ clock 2:
+ .resolution: 1 nsecs
+ clock 3:
+ .resolution: 1 nsecs
+ clock 4:
+ .resolution: 1 nsecs
+ clock 5:
+ .resolution: 1 nsecs
+ clock 6:
+ .resolution: 1 nsecs
+ clock 7:
+ .resolution: 1 nsecs
+cpu: 2
+ clock 0:
+ .resolution: 1 nsecs
+ clock 1:
+ .resolution: 1 nsecs
+ clock 2:
+ .resolution: 1 nsecs
+ clock 3:
+ .resolution: 1 nsecs
+ clock 4:
+ .resolution: 1 nsecs
+ clock 5:
+ .resolution: 1 nsecs
+ clock 6:
+ .resolution: 1 nsecs
+ clock 7:
+ .resolution: 1 nsecs
+cpu: 3
+ clock 0:
+ .resolution: 1 nsecs
+ clock 1:
+ .resolution: 1 nsecs
+ clock 2:
+ .resolution: 1 nsecs
+ clock 3:
+ .resolution: 1 nsecs
+ clock 4:
+ .resolution: 1 nsecs
+ clock 5:
+ .resolution: 1 nsecs
+ clock 6:
+ .resolution: 1 nsecs
+ clock 7:
+ .resolution: 1 nsecs 
+ Vulnerable to Y2038
+No
+ Clock source 
+arch_sys_counter
+ Trace clock
+local
+ Lazy preemption
+no
+ RAM 
+4092 MB
+ Bandwidth
+ Display full-size memory bandwidth plot 
+ Network
+ Interfaces
+ end0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST> mtu
+lo: flags=73<UP,LOOPBACK,RUNNING> mtu
+wlan0: flags=4098<BROADCAST,MULTICAST> mtu 
+ Topology
+r2switch/port #7 (Test system #7) 
+ PCI 
+0002:00:00.0 PCI bridge: Broadcom Inc. and subsidiaries BCM2712 PCIe Bridge (rev 21) (prog-if 00
+ [Normal decode])
+ Flags: bus master, fast devsel, latency 0, IRQ 37
+ Bus: primary=00, secondary=01, subordinate=01, sec-latency=0
+ Memory behind bridge: 00000000-005fffff [size=6M] [32-bit]
+ Prefetchable memory behind bridge: [disabled] [64-bit]
+ Capabilities: [48] Power Management version 3
+ Capabilities: [ac] Express Root Port (Slot-), MSI 00
+ Capabilities: [100] Advanced Error Reporting
+ Capabilities: [160] Virtual Channel
+ Capabilities: [180] Vendor Specific Information: ID=0000 Rev=0 Len=028 <?>
+ Capabilities: [240] L1 PM Substates
+ Capabilities: [300] Secondary PCI Express
+ Kernel driver in use: pcieport
+0002:01:00.0 Ethernet controller: Raspberry Pi Ltd RP1 PCIe 2.0 South Bridge
+ Flags: bus master, fast devsel, latency 0, IRQ 37
+ Memory at 1f00410000 (32-bit, non-prefetchable) [size=16K]
+ Memory at 1f00000000 (32-bit, non-prefetchable) [virtual] [size=4M]
+ Memory at 1f00400000 (32-bit, non-prefetchable) [size=64K]
+ Capabilities: [40] Power Management version 3
+ Capabilities: [70] Express Endpoint, MSI 00
+ Capabilities: [b0] MSI-X: Enable+ Count=61 Masked-
+ Capabilities: [100] Advanced Error Reporting
+ Kernel driver in use: rp1
+ DMI 
+ # dmidecode 3.4
+# No SMBIOS nor DMI entry point found, sorry. 
+ Kernel configuration 
+(Not configured when building the kernel)
+ Access: public 
+ Short link to this page 
+ This page was last modified on 2017-04-04 - 00:16 
+ 

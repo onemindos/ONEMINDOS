@@ -1,0 +1,187 @@
+
+Memory Price Outlook for 1Q26 Sharply Upgraded; QoQ Increases of All Product Categories to Hit Record Highs, Says TrendForce
+ Research Report
+ Back
+ Research Report 
+ AI & Smart Terminals
+ AI Server / Data Center
+ Consumer Electronics
+ Robot
+ Semiconductors
+ Memory & Storage
+ IC Design
+ Wafer Fabrication / Foundry
+ Semiconductor Device
+ IC Testing & Packaging
+ Optoelectronics & Displays
+ Display Applications
+ Display Panel
+ LED Lighting
+ LED Display
+ Specialty LED
+ Emerging Technologies & Applications
+ Automotive / EV
+ Green Energy & Storage
+ Selected Topics
+ Semiconductors
+ Telecommunications
+ Computer System
+ Consumer Electronics
+ Automotive / EV
+ Green Energy & Storage
+ Display Panel & LED
+ Economics
+ Selected Topics
+ Membership
+ Back
+ Semiconductor
+ N
+ Display
+ N
+ Optoelectronics
+ N
+ Green Energy
+ ICT Applications Research
+ Selected Topics
+ Price Trends
+ Back
+ DRAM
+ DRAM Spot Price
+ DRAM Contract Price
+ Module Spot Price
+ GDDR Spot Price
+ LPDDR Spot Price
+ Mobile DRAM Contract Price
+ NAND Flash
+ NAND Flash Spot Price
+ NAND Flash Contract Price
+ Wafer Spot Price
+ Memory Card Spot Price
+ PC-Client OEM SSD Contract Price
+ SSD Street Price
+ NAND Flash Wafer Contract Price
+ eMMC Spot Price
+ eMMC/UFS Contract Price
+ TFT-LCD
+ Large Size Panel Price
+ LCD Smartphone Panel Price
+ Street Price
+ Large Size Panel Shipment
+ PV
+ Polysilicon
+ Wafer
+ Cell
+ Module
+ PV Glass
+ Li-Ion Battery
+ Battery Cell & Pack
+ Precursor & Cathode Material
+ Anode Material
+ Separator
+ Electrolyte
+ Li & Co & Ni
+ Other
+ Insights
+ Back
+ Industry Insights
+ News 
+ Press Center
+ Roadshow
+ Discover
+ Back
+ DataTrack 
+ AI Agent
+ Data Center Tracker
+ Careers
+ Sign In
+ Get Support
+ Popular Keywords
+ #DRAM
+ #Foundry
+ #AI Server
+ #HBM
+ #FOPLP
+ #CoWoS
+ #NAND Flash
+ #Automotive
+ #MLCC
+ #Server
+ #Micro LED
+ #IC Design
+ Shopping List
+ 0 items
+ Your cart is empty
+ Total
+ USD 0
+ View Cart
+ Sign In
+ Press Center
+ Home
+ Press Center
+ Memory Price Outlook for 1Q26 Sharply Upgraded; QoQ Increases of All Product Categories to Hit Record Highs, Says TrendForce
+ 2 February 2026
+ Semiconductors
+ TrendForce
+ 1Q26 conventional DRAM contract prices raised to +90–95% QoQ; NAND Flash to +55–60% QoQ
+ CSPs, server OEMs, and PC OEMs broadly face DRAM supply gaps; PC DRAM prices are expected to at least double QoQ in 1Q26
+ Strong North American CSP demand lifts enterprise SSD orders; prices projected to rise 53–58% QoQ in 1Q26
+TrendForce’s latest memory industry survey indicates that persistent AI and data center demands in 1Q26 are further worsening the global memory supply and demand imbalance, thereby increasing suppliers’ pricing power. As a result, TrendForce has significantly raised its 1Q26 price forecasts for both DRAM and NAND Flash products. The quarter-over-quarter increase in conventional DRAM contract prices has been revised upward, from a previous estimate of 55–60% to now 90–95%. Similarly, NAND Flash contract prices are now expected to rise from 33–38% to 55–60%. Further upward adjustments may still occur.
+TrendForce reports that PC shipments in 4Q25 exceeded expectations, resulting in a widespread shortage of PC DRAM. Even tier-1 PC OEMs with secured allocations from memory suppliers are experiencing declining inventory levels. In a market dominated by sellers, which is driving contract prices higher, PC DRAM prices in 1Q26 are projected to increase by over 100% QoQ, setting a new record for a quarterly surge.
+For server DRAM, major CSPs and server OEMs in North America and China have continued to negotiate annual long-term DRAM agreements (LTA) with memory suppliers as of January. Intense competition among buyers for the limited supply is expected to drive server DRAM prices up by around 90% QoQ in 1Q26, marking the largest quarterly increase on record. Suppliers must carefully allocate capacity based on assessments of customers’ actual demand while maintaining balance across strategic accounts.
+The widening supply–demand gap in the DRAM market has led end-device segments to compete more aggressively for allocations. Contract prices for LPDDR4X and LPDDR5X are both expected to surge by around 90% QoQ in 1Q26, also representing the steepest increases in their history. Most contracts with U.S.-based smartphone brands were finalized starting late last year, while negotiations with Chinese vendors are anticipated to make significant progress toward the end of February, after completing 4Q25 contracts and the Lunar New Year holiday.
+On the NAND Flash side, despite 1Q26 order volumes greatly surpassing suppliers’ production capacity, memory manufacturers remain optimistic about DRAM profitability and are proactively reallocating parts of their production lines to DRAM. This shift further limits the expansion of NAND Flash capacity. Gains in output can be achieved only through incremental process upgrades, making short-term capacity tightness difficult to resolve.
+The demand for high-performance storage has far surpassed initial expectations as AI applications driven by inference continue to grow. Since late 2025, leading North American CSPs have been rapidly increasing their procurement, resulting in a surge of enterprise SSD orders. As the supply gap widens and buyers actively stockpile inventory, enterprise SSD prices are expected to rise by 53–58% QoQ in 1Q26, marking a new record for quarterly price increases.
+For more information on reports and market data from TrendForce’s Department of Semiconductor Research, please click here, or email the Sales Department at [email masked]
+For additional insights from TrendForce analysts on the latest tech industry news, trends, and forecasts, please visit https://www.trendforce.com/news/
+ Previous Article
+ MLCC Market Polarizes in 1Q26 as Embodied AI Ignites High-End Demand While Consumer Electronics Slump Under Cost Pressures, Says TrendForce
+ Next Article 
+ Component Orders for Meta Ray-Ban Display Glasses Revised Up Twice, Driving Global AR Glasses Shipments to 950,000 Units in 2026, Says TrendForce
+ Subject
+ Press Releases 
+ Subscribe to Newsletters
+ Attribution Guide
+ RSS Subscription
+ In-Depth Analyses 
+ Infographics 
+ Videos 
+ Related Articles
+ Persistently High DRAM Prices Drive Adoption of Reballed Memory, with Smartphone Penetration Expected to Reach 7–9% in 2027, Says TrendForce
+ 2026.11.06
+ Marvell’s Acquisition of Lumentum to Unite Optical and Electronic Capabilities, Potentially Challenging Broadcom’s Market Leadership, Says TrendForce
+ 2026.11.03
+ AI Networking and Interconnect Market Projected to Reach US$279.8 Billion in 2027, with Scale-Up Share Rising to 24%, Says TrendForce
+ 2026.11.02
+ Related Reports
+ 4Q26 Consumer DRAM Datasheet
+ 2026.11.04
+ MLCC Monthly Datasheet Nov. 2026
+ 2026.11.02
+ WW SSD Street Price - Oct. 30, 2026
+ 2026.10.30
+ About Us
+ Research Report
+ Tags
+ Industry Insights
+ Terms of Use
+ Privacy Policy
+ Membership Terms & Conditions
+ Careers
+ Contact Us
+ -->
+ Subscribe to Industry Insights
+ Subscribe
+ English 
+ 繁體中文
+ 简体中文
+ © 2026 TrendForce Corp. All rights reserved
+ Get in touch with us
+ Your Email
+ Message
+ Send
+ Cancel
+ Get in touch with us
+ Your Email
+ Message
+ Send
+ Cancel

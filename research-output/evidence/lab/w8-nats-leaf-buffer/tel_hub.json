@@ -1,0 +1,2 @@
+{"name":"TEL_HUB","retention":"limits","storage":"file","num_replicas":1,"discard":"old",
+ "sources":[{"name":"TEL","external":{"api":"$JS.site1.API","deliver":""}}]}

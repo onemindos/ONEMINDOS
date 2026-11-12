@@ -1,0 +1,94 @@
+
+    FCC Adds All Foreign-Made Drones and Critical Components to the Covered List | Insights | Holland & Knight
+        Skip to content
+                                        Practices
+                                        Professionals
+                                        Industries
+                                        Insights
+                                        Events
+                                        News
+                                        Offices
+                                        Careers
+                        Menu
+                    Refine search by section
+                             Refine Search Filters
+                                    Full Site
+                                        Professionals
+                                        Practices
+                                        Industries
+                                        Insights
+                                        Events
+                                        News
+                                        Case Studies
+                                        View All Matching Results
+                        December 23, 2025
+                        FCC Adds All Foreign-Made Drones and Critical Components to the Covered List
+                            What You Need to Know
+                                                    Holland & Knight Alert
+                                        Katie Inman
+                                        |
+                                        Bill LeBeau
+            Highlights
+    The Federal Communications Commission (FCC) on Dec. 22, 2025, added all foreign-manufactured unmanned aircraft systems (UAS) and foreign-produced UAS critical components to the FCC Covered List.
+    As a result, equipment and services provided by companies or categories of products on the Covered List will not receive new FCC equipment authorizations, which are often required when even minor changes to equipment occurs.
+    Adding entities to the Covered List might not immediately affect existing FCC equipment authorizations, but the FCC established a process in an Oct. 28, 2025, order by which it may prohibit the continued importation, marketing or sale of previously authorized equipment now on the Covered List, based on national security concerns.
+        The Federal Communications Commission's (FCC) Public Safety and Homeland Security Bureau on Dec. 22, 2025, issued a Public Notice to announce the addition of unmanned aircraft systems (UAS) and UAS critical components produced in foreign countries to the FCC Covered List.
+The notice is an immediate response to the National Security Determination (NSD) that the agency received on Dec. 21, 2025, finding that all UAS and UAS critical components produced in a foreign country pose any national security risk unless the U.S. Department of War (DOW) or U.S. Department of Homeland Security (DHS) determines the UAS or component does not pose a national security risk. Citing the upcoming mass-gathering events of the 2026 FIFA World Cup, America250 celebrations and 2028 Summer Olympics in Los Angeles, the fact sheet accompanying the public notice states that the Trump Administration is committed to taking actions "to safeguard Americans and restore American airspace sovereignty."1
+The move follows the FCC's unanimous vote on Oct. 28, 2025, to "set forth a process to place limitations on previously granted authorizations of covered equipment to prohibit the continued importation and marketing of such equipment" if there is a determination that continued importation of previously authorized equipment poses a national security risk. If the FCC chooses to use this authority to prohibit importation of previously authorized equipment, it will not directly impact the ability to continue to use equipment already in the U.S. However, some businesses may choose to no longer provide technical support for such equipment in the U.S. market. The FCC has not yet used this authority as it relates to importations of foreign-made UAS or UAS critical components that had previously received an FCC equipment authorization.
+Effect of Addition to FCC Covered List
+Although the U.S. Congress required the national security finding and resulting FCC addition to the Covered List to apply specifically to companies named in Section 1709(a) of the fiscal year (FY) 2025 National Defense Authorization Act (NDAA), the recent FCC addition on Dec. 22 applies to all foreign-manufactured UAS and UAS critical components. Regarding the companies named in Section 1709(a), the companies' subsidiaries, affiliates, partners, joint ventures and any entity to which they have a technology sharing or licensing agreement, as defined by Section 1709(a), are also now on the Covered List.
+Adding foreign-made UAS and UAS critical components to the FCC Covered List prohibits the FCC from granting new equipment authorizations on a prospective basis. The FCC Fact Sheet concludes the following concerning the effect of this decision:
+    New Devices. New devices on the Covered List, such as foreign-made drones, are prohibited from receiving FCC authorization and, therefore, prohibited from being imported for use or sale in the U.S. This update to the Covered List does not prohibit the import, sale or use of any existing device models the FCC previously authorized.
+    Previous Purchases. This action does not affect any previously purchased drone. Consumers can continue to use any drone they have already lawfully purchased or acquired.
+Adding the companies named in Section 1709(a) or other entities to the Covered List prohibits the FCC from granting new equipment authorizations on a prospective basis. The addition does not affect existing FCC equipment authorizations that the companies named in Section 1709(a) or other entities may hold. Therefore, the addition of the entities to the Covered List pursuant to Section 1709 of the FY 2025 NDAA does not immediately halt a private party's operations of a UAS that holds an existing FCC equipment authorization.
+Operators should be fully aware, however, that even a minor change to a foreign-manufactured drone or drone containing foreign-made critical components after the addition to the Covered List could require a new or amended FCC equipment authorization. Such a requirement might serve to block system updates to the drone. Though the FCC generally allows entities to make "permissive" changes to certified equipment by simply providing notice to the FCC of such change, even these minor changes are likely prohibited for those on the Covered List. Such entities also are prohibited from utilizing the FCC provisions that allow self-certification of certain equipment or that exempt certain types of equipment from the general certification requirement.
+Background and Authority to Issue NSD
+The NSD and resultant Public Notice were prompted by Section 1709 of the FY 2025 NDAA, which required a determination as to whether certain entities pose a national security risk by Dec. 23, 2025.2 Section 1709 of the FY 2025 NDAA, titled "Analysis of Certain Unmanned Aircraft Systems Entities," requires "an appropriate national security agency" to determine, within one year of the enactment of the FY 2025 NDAA, whether communications or video surveillance equipment produced by the companies named in Section 1709(a) "pose an unacceptable risk to the national security of the United States or the security and safety of United States persons."3 This is the first time that Congress required the review and addition to the FCC Covered List.
+The "appropriate national security agency" authorized under Section 1709 to issue an NSD includes any of the following agencies:
+    DHS
+    DOW
+    Office of the Director of National Intelligence
+    National Security Agency
+    FBI4
+The NSD concerning additions of UAS and UAS critical components to the Covered List indicates the significance with which the administration and Congress view UAS operations and potential threats that could arise from such operations. Overall, operators or other parties interested in procuring drones, components or products for drones, or otherwise having involvement with drones in the U.S., should remain mindful of national security developments under the FY 2025 NDAA. Interested parties can access the FCC Covered List on the FCC website.
+Other Federal Actions
+Both Congress and the administration have indicated and acted upon security concerns involving drones in several ways. As discussed in a recent Holland & Knight alert, the Office of Management and Budget recently issued guidance to agencies concerning their procurement or use of drones; such guidance was based on a clear statutory mandate.
+Similarly, the FY 2023 NDAA expanded a provision in the FY 2020 NDAA to prohibit defense contractors from operating drones from China, Russia, Iran or North Korea. It also prohibited the U.S. Coast Guard from operating Chinese-made drones. More recently, in January 2024, DHS released an updated alert on the risks posed by certain drones.
+Conclusion and Key Takeaways
+The FCC's Dec. 22, 2025, Public Notice marks a significant step in federal oversight of drone operations based on national security concerns. The addition of certain entities to the Covered List will require significant changes in the marketplace of UAS, especially long-term. Stakeholders should expect significant actions will occur to modify the scope and implementation of the NSD and to ensure that the U.S. drone industry can continue to thrive while an effort to onshore U.S. drone manufacturing remains underway. In this evolving environment, stakeholders should stay abreast of changes in both statute and federal policy concerning operation, manufacture or procurement of UAS.
+For more information or questions, please contact the authors.
+Notes
+1 FCC Fact Sheet (Dec. 22, 2025).
+2 Pub. L. 118-159 at § 1709, 138 Stat. 1773, 2209 (Dec. 23, 2024).
+3 Id.
+4 Secure and Trusted Communications Networks Act, codified at 47 U.S.C. § 1609(2).
+Information contained in this alert is for the general education and knowledge of our readers. It is not designed to be, and should not be used as, the sole source of information when analyzing and resolving a legal problem, and it should not be substituted for legal advice, which relies on a specific factual analysis. Moreover, the laws of each jurisdiction are different and are constantly changing. This information is not intended to create, and receipt of it does not constitute, an attorney-client relationship. If you have specific questions regarding a particular fact situation, we urge you to consult the authors of this publication, your Holland & Knight representative or other competent legal counsel.
+                    Related Practices
+                            Drone Practice
+                            Technology
+                            Homeland Security
+                            Data Strategy, Security & Privacy
+                            Public Policy & Regulation
+                            Transportation and Infrastructure Policy
+                            Aviation
+                            Aviation Policy
+                            Supply Chain
+                    Related Industries
+                            National Security & Defense
+                            Technology & Telecommunications
+                            Transportation & Infrastructure
+        Subscribe to Updates and Events
+        Sign Up Now
+            Related Insights
+                        View More
+                        The hallmark of Holland & Knight's success has always been and continues to be legal work of the highest quality, performed by well-prepared lawyers who revere their profession and are devoted to their clients.
+                        Subscribe to Publications
+                        Client Payment Information
+                        Alumni
+                        Attorney Advertising. Copyright © 1996–2026 Holland & Knight LLP. All rights reserved.
+                        Legal Information
+                                            Privacy
+                Email Disclaimer
+                Please note that email communications to the firm through this website do not create an attorney-client relationship between you and the firm. Do not send any privileged or confidential information to the firm through this website. Click "accept" below to confirm that you have read and understand this notice.
+                    Accept
+                    Decline

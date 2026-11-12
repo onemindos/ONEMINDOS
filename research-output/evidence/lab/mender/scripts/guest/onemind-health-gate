@@ -1,0 +1,51 @@
+#!/bin/bash
+# LAB-mender: pick the gate mode from Mender's own state and act.
+#   trial      upgrade_available=1 (first boot of a new slot): `mender-update
+#              commit` runs the ArtifactCommit_Enter state script (the checks).
+#              Commit ok -> mark-good. Refused -> Mender rolled the env back ->
+#              mark-bad + reboot (the standalone client never reboots itself).
+#   fell-back  upgrade_available=0 but Mender still has an update in progress
+#              (bootloader already rolled back after a crash, hang or power cut):
+#              `mender-update rollback` finishes Mender's state machine.
+#   committed  nothing in progress: log only; never roll back a committed OS.
+set -u
+mkdir -p /data/onemind; LOG=/data/onemind/gate.log
+log() { local m="HEALTH-GATE: $(date -u +%T) $*"; echo "$m" >>"$LOG"; echo "$m" >/dev/console; }
+cli() { local o rc; o=$("$@" 2>&1); rc=$?; echo "$o" >> /data/onemind/mender-cli.log
+        echo "$o" | grep -v '^$' | tail -n 4 | sed 's/^/MENDER-CLI: /' > /dev/console; return $rc; }
+env1() { grub-mender-grubenv-print "$1" | sed "s/^$1=//"; }
+ROOT=$(findmnt -no SOURCE /); SLOT=?; case "$ROOT" in *2) SLOT=A;; *3) SLOT=B;; esac
+. /etc/onemind-release; VER=$ONEMIND_VERSION
+UA=$(env1 upgrade_available); BC=$(env1 bootcount); BP=$(env1 mender_boot_part)
+MODE=committed; [ "$UA" = 1 ] && MODE=trial
+log "start slot=$SLOT version=$VER mode=$MODE env=[mender_boot_part=$BP upgrade_available=$UA bootcount=$BC]"
+
+watch_only() {
+  local t0=$SECONDS r; while [ $((SECONDS - t0)) -lt 300 ]; do
+    r=$(/usr/lib/onemind/onemind-k3s-check) && { log "K3S-FRESH ok after $((SECONDS - t0))s: $r"; return; }
+    sleep 10; done
+  log "K3S-FRESH ALERT not healthy after 300s on a committed slot: $r (no rollback)"
+}
+
+if [ "$MODE" = trial ]; then
+  t0=$SECONDS
+  rm -f /run/onemind-gate-decided
+  if cli mender-update commit; then
+    ran=no; [ -f /run/onemind-gate-decided ] && ran=yes
+    log "GATE-SCRIPT-RAN $ran (ArtifactCommit_Enter decided before this commit)"
+    log "RESULT mark-good slot=$SLOT version=$VER after $((SECONDS - t0))s (env now upgrade_available=$(env1 upgrade_available))"
+    exit 0
+  fi
+  log "RESULT mark-bad slot=$SLOT version=$VER after $((SECONDS - t0))s; env=[mender_boot_part=$(env1 mender_boot_part) upgrade_available=$(env1 upgrade_available)] -> reboot"
+  sync; systemctl reboot; exit 0
+fi
+# Not a trial boot: finish any interrupted update that the bootloader already reverted.
+if out=$(mender-update rollback 2>&1); then rc=0; else rc=$?; fi
+echo "$out" >> /data/onemind/mender-cli.log
+if echo "$out" | grep -q "No update in progress"; then
+  log "RESULT committed-boot slot=$SLOT version=$VER"
+else
+  echo "$out" | grep -v '^$' | tail -n 4 | sed 's/^/MENDER-CLI: /' > /dev/console
+  log "RESULT fell-back slot=$SLOT version=$VER; interrupted update rolled back by Mender (rc=$rc), env=[mender_boot_part=$(env1 mender_boot_part) upgrade_available=$(env1 upgrade_available)]"
+fi
+watch_only

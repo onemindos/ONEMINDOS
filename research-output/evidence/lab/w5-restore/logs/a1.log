@@ -1,0 +1,96 @@
+[2026-11-11T01:08:26Z] deps
+restic 0.18.0 compiled with go1.24.4 on linux/arm64
+3.46.1 2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1 (64-bit)
+Linux lima-w5a 6.12.115+deb13.1-cloud-arm64 #1 SMP Debian 6.12.115-2 (2026-11-01) aarch64 GNU/Linux
+13.7
+[2026-11-11T01:08:26Z] config:
+node-name: box1
+secrets-encryption: true
+write-kubeconfig-mode: "0644"
+disable:
+  - traefik
+  - metrics-server
+
+[2026-11-11T01:08:26Z] install.sh sha256: c2a2643dd7c259121a876d16538844c60928de3d38ae98f22f7b95a7ffcfab9d  <lab-dir>/w5-restore/shared/install.sh
+[INFO]  Using v1.37.2+k3s1 as release
+[INFO]  Downloading hash https://github.com/k3s-io/k3s/releases/download/v1.37.2%2Bk3s1/sha256sum-arm64.txt
+[INFO]  Skipping binary downloaded, installed k3s matches hash
+[INFO]  Skipping installation of SELinux RPM
+[INFO]  Skipping /usr/local/bin/kubectl symlink to k3s, already exists
+[INFO]  Skipping /usr/local/bin/crictl symlink to k3s, already exists
+[INFO]  Skipping /usr/local/bin/ctr symlink to k3s, already exists
+[INFO]  Creating killall script /usr/local/bin/k3s-killall.sh
+[INFO]  Creating uninstall script /usr/local/bin/k3s-uninstall.sh
+[INFO]  env: Creating environment file /etc/systemd/system/k3s.service.env
+[INFO]  systemd: Creating service file /etc/systemd/system/k3s.service
+[INFO]  systemd: Enabling k3s unit
+Created symlink '/etc/systemd/system/multi-user.target.wants/k3s.service' → '/etc/systemd/system/k3s.service'.
+k3s version v1.37.2+k3s1 (f6973cb8)
+go version go1.26.10
+[2026-11-11T01:08:27Z] apiserver+node Ready after .081328148s
+Error from server (AlreadyExists): namespaces "demo" already exists
+error: failed to create configmap: configmaps "demo-cm" already exists
+error: failed to create secret secrets "demo-secret" already exists
+persistentvolumeclaim/data unchanged
+pod/writer created
+[2026-11-11T01:08:34Z] pod Running
+[2026-11-11T01:08:34Z] VERIFY
+NAME   STATUS   ROLES           AGE   VERSION        INTERNAL-IP    EXTERNAL-IP   OS-IMAGE                       KERNEL-VERSION                         CONTAINER-RUNTIME
+box1   Ready    control-plane   66s   v1.37.2+k3s1   <vm-private-ip>   <none>        Debian GNU/Linux 13 (trixie)   6.12.115+deb13.1-cloud-arm64 (arm64)   containerd://2.3.7-k3s1
+NAME                         DATA   AGE
+configmap/demo-cm            1      64s
+configmap/kube-root-ca.crt   1      61s
+
+NAME                 TYPE     DATA   AGE
+secret/demo-secret   Opaque   1      64s
+
+NAME                         STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+persistentvolumeclaim/data   Bound    pvc-6933e342-dbef-45be-a17e-163e05834cac   100Mi      RWO            local-path     <unset>                 64s
+
+NAME         READY   STATUS    RESTARTS   AGE
+pod/writer   1/1     Running   0          7s
+[2026-11-11T01:08:34Z] cm value: world-1794359250
+[2026-11-11T01:08:34Z] secret value: <dummy-test-value, masked>
+[2026-11-11T01:08:34Z] pod Running
+[2026-11-11T01:08:34Z] marker in pod: 90da4f236231fc90b716bc4c022743ea
+[2026-11-11T01:08:34Z] expected marker: 90da4f236231fc90b716bc4c022743ea
+pvc-6933e342-dbef-45be-a17e-163e05834cac nodeAffinity=["box1"] path=/var/lib/rancher/k3s/storage/pvc-6933e342-dbef-45be-a17e-163e05834cac_demo_data
+[2026-11-11T01:08:34Z] H1: k3s etcd-snapshot save on SQLite
+time="2026-11-10T20:08:34-05:00" level=warning msg="Unknown flag --secrets-encryption found in config.yaml, skipping\n"
+time="2026-11-10T20:08:34-05:00" level=warning msg="Unknown flag --write-kubeconfig-mode found in config.yaml, skipping\n"
+time="2026-11-10T20:08:34-05:00" level=warning msg="Unknown flag --disable found in config.yaml, skipping\n"
+time="2026-11-10T20:08:34-05:00" level=warning msg="Unknown flag --disable found in config.yaml, skipping\n"
+time="2026-11-10T20:08:34-05:00" level=fatal msg="Error: see server log for details: etcd datastore disabled"
+[2026-11-11T01:08:34Z] H1 exit=1
+total 12176
+drwx------ 2 root root    4096 Nov 10 20:07 .
+drwx------ 8 root root    4096 Nov 10 20:07 ..
+-rw-r--r-- 1 root root 7520256 Nov 10 20:07 state.db
+-rw-r--r-- 1 root root   32768 Nov 10 20:08 state.db-shm
+-rw-r--r-- 1 root root 4902832 Nov 10 20:08 state.db-wal
+[2026-11-11T01:18:34Z] IDLE-WRITES sqlite dev=vda seconds=600 sectors=39008 MiB=19
+[2026-11-11T01:18:34Z] datastore dir size: 13M
+[2026-11-11T01:18:34Z] BACKUP (online, k3s running)
+[2026-11-11T01:18:34Z] sqlite3 integrity: ok
+created restic repository 4bf06144f3 at <lab-dir>/w5-restore/shared/restic-repo
+
+Please note that knowledge of your password is required to access
+the repository. Losing your password means that your data is
+irrecoverably lost.
+no parent snapshot found, will read all files
+
+Files:           1 new,     0 changed,     0 unmodified
+Dirs:            6 new,     0 changed,     0 unmodified
+Added to the repository: 2.567 KiB (2.140 KiB stored)
+
+processed 1 files, 33 B in 0:00
+snapshot 8e9be242 saved
+[2026-11-11T01:18:38Z] backup took 4.002076630s
+total 7956
+drwxr-xr-x 5 root root     160 Nov 10 20:18 .
+drwxr-xr-x 8 root root     256 Nov 10 20:18 ..
+-rw------- 1 root root      33 Nov 10 20:18 node-password
+-rw-r--r-- 1 root root 8138752 Nov 10 20:18 state.db
+-rw------- 1 root root     109 Nov 10 20:18 token
+4.0K	<lab-dir>/w5-restore/shared/restic-pass
+24K	<lab-dir>/w5-restore/shared/restic-repo

@@ -1,0 +1,12 @@
+# F1 run 1 (Debian/mkosi image), guest journal read from the test disk copy after QEMU was stopped.
+# Boot reached network-online.target at ~16 s, then sat idle: systemd-firstboot was waiting
+# for console input on tty1 (the last console= on the UKI command line). Trimmed; host paths removed.
+Nov 11 03:23:35 onemind-deb systemd[1]: Starting systemd-firstboot.service - First Boot Wizard...
+Nov 11 03:23:35 onemind-deb systemd[1]: Started systemd-resolved.service - Network Name Resolution.
+Nov 11 03:23:36 onemind-deb systemd[1]: Started systemd-networkd.service - Network Configuration.
+Nov 11 03:23:36 onemind-deb systemd[1]: Reached target network.target - Network.
+Nov 11 03:23:38 onemind-deb systemd[1]: Reached target network-online.target - Network is Online.
+# (no further entries; dc20-f1.service never started; /var/log/k3s-f1.log absent)
+# Image state: /etc/locale.conf and /etc/localtime absent; root password field '*'.
+# Fix used for the test copies only: mask systemd-firstboot.service (boot-test.sh).
+# Product fix: set Locale=, Timezone= and a root/first-boot policy in mkosi.conf.

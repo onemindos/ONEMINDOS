@@ -1,0 +1,58 @@
+##### [08:28:31] T1 first boot
+##### [08:28:31] QEMU START qemu-system-aarch64 -machine virt -accel hvf -cpu host -smp 4 -m 3072 -nodefaults -display none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=<homebrew-qemu-share>/edk2-aarch64-code.fd -drive if=pflash,format=raw,file=<lab-dir>/aarch64-gate/run4/AAVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,throttling.bps-write=62914560,file=<lab-dir>/aarch64-gate/run4/disk.img -serial stdio -monitor none
+===> T1: PASS gate=('committed-boot', 'A', 1) K3S-FRESH ok after 42s: ok (fresh: kubelet, heartbeat 2026-11-11T13:29:21Z, core pods, dat apps_not_ready=True rauc_1.15.2_and_aarch64=True t=56s
+##### [08:29:27] T2 wrong-key bundle
+##### [08:29:27] install wrong-key.raucb rc=1 in 0s
+===> T2: PASS rc=1 sig_error=True env_unchanged=True marker_written=False
+##### [08:29:28] T11 plain-format bundle, valid signature, verity-only policy
+##### [08:29:29] install plain-good.raucb rc=1 in 0s
+===> T11: PASS rc=1 format_error=True env_unchanged=True marker_written=False
+##### [08:29:29] T3 good update -> B
+##### [08:29:58] install good.raucb rc=0 in 29s
+===> T3: PASS rc=0 trial=('mark-good', 'B', 2) passes=3 first_fails=['fail: no kubeconfig on this boot (k3s server has not started)'] apps='broken-app-5d6b874ccd-vwdqn 0/1 ImagePullBackOff; ' reboot=('committed-boot', 'B', 2)
+##### [08:31:06] T4 bad-k3s.raucb -> A
+##### [08:31:36] install bad-k3s.raucb rc=0 in 30s
+===> T4: PASS rc=0 trial=('mark-bad', 'A', 3) decided_after~316s(since reboot) last_fail='fail: no kubeconfig on this boot (k3s server has not started)' then=('committed-boot', 'B', 2) K3S-FRESH ok after 10s: ok (fresh: kubel
+##### [08:37:17] T5 bad-noagent.raucb -> A
+##### [08:37:46] install bad-noagent.raucb rc=0 in 29s
+===> T5: PASS rc=0 trial=('mark-bad', 'A', 4) decided_after~317s(since reboot) last_fail='fail: kubelet /healthz not answering' then=('committed-boot', 'B', 2) K3S-FRESH ok after 10s: ok (fresh: kubel
+##### [08:43:33] T6 bad-boot.raucb -> A
+##### [08:44:02] install bad-boot.raucb rc=0 in 29s
+===> T6: PASS rc=0 attempts=3 in 71s grub=GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 default=2 result=('fell-back', 'B', 2) retried_next_boot=False
+##### [08:45:13] T7 bad-hang.raucb -> A
+##### [08:45:43] install bad-hang.raucb rc=0 in 30s
+===> T7: PASS rc=0 attempts=3 in 146s grub=GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 default=2 result=('fell-back', 'B', 2) retried_next_boot=False
+##### [08:48:08] T8 power cut during write (target A)
+##### [08:48:13] POWER CUT: SIGKILL qemu
+##### [08:48:13] T8 restart after power cut
+##### [08:48:13] QEMU START qemu-system-aarch64 -machine virt -accel hvf -cpu host -smp 4 -m 3072 -nodefaults -display none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=<homebrew-qemu-share>/edk2-aarch64-code.fd -drive if=pflash,format=raw,file=<lab-dir>/aarch64-gate/run4/AAVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,throttling.bps-write=62914560,file=<lab-dir>/aarch64-gate/run4/disk.img -serial stdio -monitor none
+##### [08:48:58] install good.raucb rc=0 in 30s
+===> T8: PASS cut_at=61% activated_before_cut=False after_cut=('fell-back', 'B', 2) marker_cleared=True reinstall_rc=0 then=('mark-good', 'A', 2)
+##### [08:49:45] T9 power cut in commit window (target B)
+##### [08:50:15] install good.raucb rc=0 in 29s
+##### [08:50:33] POWER CUT: SIGKILL qemu
+##### [08:50:33] T9 restart
+##### [08:50:33] QEMU START qemu-system-aarch64 -machine virt -accel hvf -cpu host -smp 4 -m 3072 -nodefaults -display none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=<homebrew-qemu-share>/edk2-aarch64-code.fd -drive if=pflash,format=raw,file=<lab-dir>/aarch64-gate/run4/AAVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,throttling.bps-write=62914560,file=<lab-dir>/aarch64-gate/run4/disk.img -serial stdio -monitor none
+===> T9: PASS rc=0 killed_before_commit=True next_boot='GRUB-RAUC: ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=2 default=2' result=('mark-good', 'B', 2)
+##### [08:51:21] T10 naive gate observation (target A)
+##### [08:51:50] install naive-noagent.raucb rc=0 in 29s
+===> T10: OBSERVED naive gate result=('mark-good', 'A', 7) passes=['10', '20', '30'] => COMMITTED A BROKEN SYSTEM
+##### [08:52:41] T10 kubelet on committed naive slot: LET; echo __R''C=$?__
+[?2004lNO-KUBELET
+##### [08:53:10] install good.raucb rc=0 in 29s
+===> T10r: PASS recovery install rc=0 result=('mark-good', 'B', 2)
+##### [08:54:11] QEMU EXIT (poweroff)
+
+SUMMARY (total 26 min)
+T1 | PASS | gate=('committed-boot', 'A', 1) K3S-FRESH ok after 42s: ok (fresh: kubelet, heartbeat 2026-11-11T13:29:21Z, core pods, dat apps_not_ready=True rauc_1.15.2_and_aarch64=True t=56s
+T2 | PASS | rc=1 sig_error=True env_unchanged=True marker_written=False
+T11 | PASS | rc=1 format_error=True env_unchanged=True marker_written=False
+T3 | PASS | rc=0 trial=('mark-good', 'B', 2) passes=3 first_fails=['fail: no kubeconfig on this boot (k3s server has not started)'] apps='broken-app-5d6b874ccd-vwdqn 0/1 ImagePullBackOff; ' reboot=('committed-boot', 'B', 2)
+T4 | PASS | rc=0 trial=('mark-bad', 'A', 3) decided_after~316s(since reboot) last_fail='fail: no kubeconfig on this boot (k3s server has not started)' then=('committed-boot', 'B', 2) K3S-FRESH ok after 10s: ok (fresh: kubel
+T5 | PASS | rc=0 trial=('mark-bad', 'A', 4) decided_after~317s(since reboot) last_fail='fail: kubelet /healthz not answering' then=('committed-boot', 'B', 2) K3S-FRESH ok after 10s: ok (fresh: kubel
+T6 | PASS | rc=0 attempts=3 in 71s grub=GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 default=2 result=('fell-back', 'B', 2) retried_next_boot=False
+T7 | PASS | rc=0 attempts=3 in 146s grub=GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=3 B_OK=1 B_TRY=1 default=2 result=('fell-back', 'B', 2) retried_next_boot=False
+T8 | PASS | cut_at=61% activated_before_cut=False after_cut=('fell-back', 'B', 2) marker_cleared=True reinstall_rc=0 then=('mark-good', 'A', 2)
+T9 | PASS | rc=0 killed_before_commit=True next_boot='GRUB-RAUC: ORDER=B A A_OK=1 A_TRY=0 B_OK=1 B_TRY=2 default=2' result=('mark-good', 'B', 2)
+T10 | OBSERVED | naive gate result=('mark-good', 'A', 7) passes=['10', '20', '30'] => COMMITTED A BROKEN SYSTEM
+T10r | PASS | recovery install rc=0 result=('mark-good', 'B', 2)

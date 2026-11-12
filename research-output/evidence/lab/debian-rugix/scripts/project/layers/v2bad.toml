@@ -1,0 +1,6 @@
+parent = "onemind-base"
+# Same as v2-good, except k3s gets an invalid flag and can never become Ready.
+recipes = ["release-marker", "break-k3s"]
+
+[parameters."release-marker"]
+version = "v2-bad"

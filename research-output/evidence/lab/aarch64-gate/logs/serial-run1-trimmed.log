@@ -1,0 +1,52 @@
+##### [07:21:34] T1 first boot
+##### [07:21:34] QEMU START qemu-system-aarch64 -machine virt -accel kvm -cpu host -smp 4 -m 3072 -nodefaults -display none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/sha
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 default=1
+HEALTH-GATE: 12:22:11 start slot=A version=1 mode=committed env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 ]
+HEALTH-GATE: 12:22:11 RESULT committed-boot slot=A version=1
+[?2004hroot@onemind-lab:~# HEALTH-GATE: 12:27:11 K3S-FRESH ALERT not healthy after 300s on a committed slot: fail: no core pod for kube-system/k8s-app=kube-dns (no rollback)
+[?2004l--- state:T1
+ONEMIND_VERSION=1
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+Booted from: rootfs.0 (A)
+      boot status: [31mbad
+      boot status: [32mgood[0m
+pending: none
+apps             broken-app-5d6b874ccd-dvbvq               0/1   ContainerCreating   0     26s
+kube-system      coredns-577d995dff-twm6l                  0/1   ContainerCreating   0     27s
+kube-system      helm-install-gateway-api-crd-t7t75        0/1   ContainerCreating   0     26s
+kube-system      local-path-provisioner-56c6584955-cthcl   0/1   ContainerCreating   0     27s
+onemind-system   onemind-core-dc87b89b8-248ch              0/1   ContainerCreating   0     27s
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+[?2004lrauc v1.15.2
+bundle-formats=verity
+ARCH=aarch64 KERNEL=6.12.116+deb13-arm64
+##### [07:27:16] T2 wrong-key bundle
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+LastError: signature verification failed: Verify error: unable to get local issuer certificate
+##### [07:27:17] install wrong-key.raucb rc=1 in 1s
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [07:27:17] T11 plain-format bundle, valid signature, verity-only policy
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+LastError: Bundle format 'plain' not allowed
+##### [07:27:24] install plain-good.raucb rc=1 in 7s
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [07:27:24] T3 good update -> B

@@ -1,0 +1,181 @@
+FreedomBox - Personal Server at Home
+
+ Buy
+
+ Download
+
+ Features
+
+ Apps
+
+ Support
+
+ About
+
+ Albanian
+
+ Catalan
+
+ Chinese (Simplified)
+
+ Czech
+
+ Dutch
+
+ Estonian
+
+ English
+
+ French
+
+ German
+
+ Hungarian
+
+ Indonesian
+
+ Italian
+
+ Norwegian Bokmål
+
+ Persian
+
+ Polish
+
+ Portuguese
+
+ Russian
+
+ Spanish
+
+ Swedish
+
+ Tamil
+
+ Telugu
+
+ Turkish
+
+ Ukrainian
+
+ Translate…
+
+Run your digital services from your home
+
+ FreedomBox is a private server for non-experts: it lets you install and configure server applications with only a few clicks. It runs on cheap hardware of your choice, uses your internet connection and power, and is under your control.
+
+ Get your FreedomBox!
+
+ Try a demo
+
+Your privacy in safe hands, yours!
+
+ Your digital life should not be in the hands of tech companies or governments. Keep it close to you. Literally!
+
+ We’re building software for smart devices whose engineered purpose is to work together to facilitate free communication among people, safely and securely, beyond the ambition of the strongest power to penetrate. They can make freedom of thought and information a permanent, ineradicable feature of the net that holds our souls.
+
+ Eben Moglen (2010)
+
+Software you can trust
+
+ FreedomBox is Free and Open Source Software and an official part of Debian, a well established GNU/Linux distribution. The project is supported by the non-profit FreedomBox Foundation.
+
+ See our source code
+
+Features
+
+ FreedomBox provides file sharing like Dropbox. Your data stays with you. Your family and friends also benefit.
+
+ FreedomBox provides a secure, decentralized replacement for WhatsApp. Do group chats and audio/video calls from any device.
+
+ FreedomBox provides a VPN server. Connect securely to your devices at home from outside. Protect your browsing session when on untrusted networks.
+
+ FreedomBox provides a privacy enhancing proxy server.
+
+ FreedomBox can host a blog or a wiki. Host your personal website right from your home.
+
+ Synchronize your calender and contacts to FreedomBox.
+
+ Share media and take backups from all devices on your home network. FreedomBox can be your Network Attached Storage (NAS).
+
+ and many more...
+
+Buy a FreedomBox
+
+ FreedomBox is building a movement to decentralize the web. For most users, buying a pre-built FreedomBox is the easiest way to set it up.
+
+ Buy
+
+ Buy
+
+ About the hardware
+
+ Build your own FreedomBox
+
+ Trial in the cloud
+
+Get in touch with the community
+
+ We are part of the greater Free Software community and welcome everybody. Please get in touch with us if you want join our effort.
+
+ Get support
+ Forum 
+ Matrix
+ Mailing List
+ IRC
+
+ Get
+
+Buy
+
+Download
+
+Demo
+
+Cloud Trial
+
+ Learn
+
+About
+
+Features
+
+Apps
+
+ Vision
+
+ Manual
+
+ E-Book for Communities
+
+ Contact
+
+ Get Support
+
+ Forum
+
+ Matrix
+
+ Mailing List
+
+ IRC
+
+ Foundation
+
+ Report Issues
+
+ Contribute
+
+ Guide for Contributors
+
+ Donate
+
+ Project
+
+ Source Code
+
+Code Of Conduct
+
+ Community Governance
+
+ Wiki

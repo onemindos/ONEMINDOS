@@ -1,0 +1,253 @@
+SOURCE: https://about.gitlab.com/blog/gitlab-switches-to-dco-license/
+ACCESSED: 2026-11-10
+
+We're switching to a DCO for source code contributions
+Close
+To search repositories and projects, login to
+gitlab.com
+.
+Suggestions
+GitLab Duo Agent Platform
+Code Suggestions (AI)
+CI/CD
+GitLab on AWS
+GitLab on Google Cloud
+Why GitLab?
+Platform
+DevOps
+CI/CD
+Source Code Management
+Agile Delivery
+Artifact Management
+Security & Governance
+Application Security Testing
+Governance & Compliance
+Secrets Management
+Supply Chain Security
+Agentic AI & Context
+Duo Agent Platform
+Orbit Context Graph
+Visibility & Measurement
+Explore the Platform
+GitLab Orbit is generally available
+Higher agent accuracy, lower token cost
+Read the announcement
+Solutions
+Outcomes
+DevOps Modernization
+Security Modernization
+AI Modernization
+By size
+Enterprise
+Small Business
+Startups
+Industries
+Financial Services
+Public Sector
+Telecommunications
+Automotive
+Education
+Aerospace
+View all Solutions
+GitLab Security Standard
+Learn how to harden your software factory and let AI agents earn autonomy, without trading away security.
+Explore the standard
+Pricing
+Resources
+Discover
+Docs
+University
+Demo Series
+Demo Hub
+Services
+Well Architected
+Connect
+Blog
+Community
+Customers
+Partners
+Events
+View all resources
+What’s new in GitLab
+Stay updated with our latest features and improvements.
+Read the latest
+Company
+About
+Jobs
+Press
+Handbook
+Leadership
+Investor relations
+Trust Center
+AI Transparency Center
+Newsletter
+Contact us
+Talk to sales
+Support portal
+Customer portal
+Request a demo
+Get free trial
+Sign in
+Get free trial
+GitLab Orbit is generally available. Increase agent accuracy and lower token cost
+Read the announcement
+Blog
+Company
+We're switching to a DCO for source code contributions
+Published on: November 1, 2017
+3 min read
+We're switching to a DCO for source code contributions
+We want to make it even easier for everyone to contribute, by doing away with our Contributor License Agreement in favor of the Developer's Certificate of Origin.
+Jamie Hurewitz
+open source
+news
+community
+We're committed to being
+good stewards of open source
+,
+and part of that commitment means we never stop re-evaluating how we do that.
+Saying "everyone can contribute" is about removing barriers to contribution.
+For some of our community, the Contributor License Agreement is a deterrent to
+contributing to GitLab, so we're changing to a Developer's Certificate of Origin instead.
+Many large open source projects want to be masters of their own destiny.
+Having the freedom to run your own infrastructure based on open source software,
+together with the ability to modify and audit source code and not be dependent
+on a vendor, makes open source appealing. We want GitLab to be an option for everyone.
+Why the change?
+A Contributor License Agreement (CLA) is the industry standard for open source
+contributions to other projects, but it's unpopular with developers, who don't
+want to enter into legal terms and are put off by having to review a lengthy
+contract and potentially give up some of their rights. Contributors find the
+agreement unnecessarily restrictive, and it's deterring developers of open
+source projects from using GitLab. We were approached by Debian developers to
+consider dropping the CLA, and that's what we're doing.
+What's changing?
+As of today, we're rolling out changes so that contributors to the GitLab
+source
+code
+will only be required to make contributions and bug fixes under a project
+license (MIT for all repositories with the exception of Omnibus which would be
+licensed under Apache) and a
+Developer's Certificate of Origin
+(DCO).
+The DCO gives developers greater flexibility and portability for their
+contributions, and it's one of the reasons that Debian and GNOME plan to migrate
+their communities and projects to GitLab. We hope this change
+encourages more developers to contribute to GitLab. Thank you Debian, for
+prompting us to make this change.
+"We applaud GitLab for dropping their CLA in favor of a more OSS-friendly
+approach. Open source communities are born from a sea of contributions that come
+together and transform into projects. This gesture affirmed GitLab's willingness
+to protect the individual, their creative process, and most importantly, keeps
+intellectual property in the hands of the creator." - Carlos Soriano, Board Director at GNOME
+"We’re thrilled to see GitLab simplifying and encouraging community
+contributions by switching from a CLA to the DCO. We recognize that making a
+change of this nature is not easy and we applaud the time, patience and
+thoughtful consideration GitLab has shown here." - Chris Lamb, Debian Project Leader
+You can
+read the analysis that informed our decision
+.
+Read all about our
+stewardship of GitLab Community Edition
+.
+Start your free
+30-day GitLab trial
+GitLab Duo Agent Platform access
+Try our most advanced features
+Automate complex tasks with AI
+Get free trial
+No credit card required.
+More to explore
+View all blog posts
+Company
+Why GitLab signed the Open Weights and American AI Leadership letter
+Read the blog
+Company
+GitLab Act 2
+Read the blog
+Company
+GitLab named a 2026 Omdia Universe Leader
+Read the blog
+We want to hear from you
+Enjoyed reading this blog post or have questions or feedback? Share your thoughts by creating a new topic in the GitLab community forum.
+Share your feedback
+Start building faster today
+See what your team can do with the intelligent orchestration platform for DevSecOps.
+Get your free trial
+Contact sales
+®
+Footer links
+Pricing
+View plans
+Why Premium?
+Why Ultimate?
+Contact Us
+Contact sales
+Support portal
+Customer portal
+Status
+Terms of use
+Privacy statement
+Platform
+Explore the platform
+Duo Agent Platform
+CI/CD
+Orbit Context Graph
+Secrets Management
+Why GitLab
+Topics
+CI/CD
+GitOps
+DevOps
+Version Control
+DevSecOps
+Cloud Native
+AI for Coding
+Agentic AI
+Solutions
+DevOps modernization
+Security modernization
+AI modernization
+Financial services
+Public sector
+Telecommunications
+Automotive
+Education
+Aerospace
+Enterprise
+Small business
+Startups
+GitOps
+Software composition analysis
+Value stream management
+All solutions
+Resources
+Install
+Quick start guides
+Docs
+University
+Demo Series
+Demo Hub
+Services
+Blog
+Community
+Customers
+Partners
+Events
+Newsletter
+What's new
+All resources
+Company
+About
+Jobs
+Press
+Handbook
+Leadership
+Investor relations
+Trust Center
+AI Transparency Center
+Sustainability
+Diversity, inclusion and belonging (DIB)
+Modern Slavery Transparency Statement
+Git is a trademark of Software Freedom Conservancy and our use of 'GitLab' is under license
+© 2026 GitLab Inc.

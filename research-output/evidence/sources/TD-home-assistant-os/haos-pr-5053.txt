@@ -1,0 +1,16 @@
+Snapshot of https://github.com/home-assistant/operating-system/pull/5053 (accessed 2026-11-10 via gh CLI; author handles removed; body truncated)
+title: Sign all release images with cosign
+state: MERGED
+created: 2026-10-01T11:52:18Z
+closed: 2026-10-12T15:39:22Z
+
+Each build job writes a per-board `SHA256SUMS` fragment for its `haos_*` images. Once all boards are built, a separate `sign` job merges them into one `SHA256SUMS`, signs it with `cosign sign-blob` via GitHub OIDC and publishes `SHA256SUMS` and `SHA256SUMS.sigstore.json`: as release assets on releases, next to the artifacts on R2 for published dev builds. Installers such as the upcoming Home Assistant installer can verify an image by checking the bundle against this workflow's identity on a release tag and then the image's digest against `SHA256SUMS`. Trust is anchored in Sigstore's public root plus the workflow identity in the certificate, the same approach Supervisor and the version repo already use. Version bumps and the artifacts index wait for signing, so a version is never published without its signature.
+
+
+<!-- This is an auto-generated comment: release notes by coderabbit.ai -->
+## Summary by CodeRabbit
+
+* **New Features**
+  * SHA-256 checksum manifests and Cosign signatures are published for release and publish-enabled builds. Release builds include the checksum and signature files as release assets; published builds make them available alongside build artifacts. The checksums cover the built images, allowing their integrity and authenticity to be verified.
+<!-- end of auto-generated comment: release notes by coderabbit.ai -->
+

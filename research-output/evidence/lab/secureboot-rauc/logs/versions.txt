@@ -1,0 +1,47 @@
+# Lab VM (Lima debian-13 template, aarch64, vz)
+13.7
+6.12.115+deb13.1-cloud-arm64
+dosfstools 4.2-1.2
+e2fsprogs 1.47.2-3+b12
+efitools 1.9.2-3.5
+gdisk 1.0.10-2+b1
+mmdebstrap 1.5.7-1+deb13u1
+mtools 4.0.48-1
+openssl 3.5.7-1~deb13u3
+ovmf 2025.02-8+deb13u1
+python3 3.13.5-1
+python3-pefile 2024.8.26-2.1
+python3-virt-firmware 24.11-2
+qemu-system-x86 1:10.0.13+ds-0+deb13u1
+qemu-user-binfmt 1:10.0.13+ds-0+deb13u1
+rauc 1.13-3+deb13u1
+sbsigntool 0.9.4-3.2+deb13u1
+squashfs-tools 1:4.6.1-1+b1
+swtpm 0.7.1-1.5
+swtpm-tools 0.7.1-1.5
+systemd 257.13-1~deb13u1
+systemd-ukify 257.13-1~deb13u1
+tpm2-tools 5.7-1+b1
+
+# OVMF firmware sha256
+1a46295574430cfb7f825ee3e4dc64b052acbef08e310377ed7c64cb757a9dc1  /usr/share/OVMF/OVMF_CODE_4M.secboot.fd
+5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e  /usr/share/OVMF/OVMF_VARS_4M.fd
+
+# Guest image key packages
+cryptsetup-bin 2:2.7.5-2
+efibootmgr 18-2
+initramfs-tools 0.148.4
+rauc 1.13-3+deb13u1
+rauc-service 1.13-3+deb13u1
+systemd-boot-efi 257.13-1~deb13u1
+systemd-cryptsetup 257.13-1~deb13u1
+tpm2-tools 5.7-1
+
+# Host
+27.2
+arm64
+limactl version 2.3.0
+QEMU emulator version 11.1.3
+# Upstream source pins
+rauc/rauc 4fb7c798d6ae412344fb8f8d310d773046af3441 (v1.15.2 tree)
+tianocore/edk2 fbe0805b2091393406952e84724188f8c1941837 (edk2-stable202502)

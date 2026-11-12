@@ -1,0 +1,69 @@
+##### [07:35:25] QEMU START qemu-system-aarch64 -machine virt -accel kvm -cpu host -smp 4 -m 3072 -nodefaults -display none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd -drive if=pflash,
+$ grep -vE "level=info" /data/k3s/agent/containerd/containerd.log | grep -iE "panic|fatal|error|goroutine 1 |SIG" | tail -20 | cut -c1-260
+grep -vE "level=info" /data/k3s/agent/containerd/containerd.log | grep -iE "panic|fatal|error|goroutine 1 |SIG" | tail -20 | cut -c1-260; echo __R''C=$?__
+[?2004ltime="2026-11-11T12:22:48.782738023Z" level=warning msg="failed check for fsverity support" error="enable fsverity failed: operation not supported" path=/data/k3s/agent/containerd/io.containerd.content.v1.content
+time="2026-11-11T12:22:49.368900689Z" level=warning msg="failed to load cni during init, please check CRI plugin status before setting up network for pods" error="cni config load failed: no network config found in /data/k3s/agent/etc/cni/net.d: cni plugin not 
+time="2026-11-11T12:27:12.023731315Z" level=error msg="RunPodSandbox for name:\"broken-app-5d6b874ccd-dvbvq\" uid:\"50bcb249-b1eb-4595-ac12-e61d9b4c2c9e\" namespace:\"apps\" failed, error" error="rpc error: code = Unknown desc = failed to pull image \"rancher/
+time="2026-11-11T12:27:12.094621273Z" level=error msg="RunPodSandbox for name:\"helm-install-gateway-api-crd-t7t75\" uid:\"9edc49f0-7a75-425a-bf1b-165dafac56a2\" namespace:\"kube-system\" failed, error" error="rpc error: code = Unknown desc = failed to pull im
+time="2026-11-11T12:27:12.116134606Z" level=error msg="RunPodSandbox for name:\"onemind-core-dc87b89b8-248ch\" uid:\"c966487c-8a29-47c7-9fb5-1c551a6a09ce\" namespace:\"onemind-system\" failed, error" error="rpc error: code = Unknown desc = failed to pull image
+time="2026-11-11T12:27:12.137925690Z" level=error msg="RunPodSandbox for name:\"coredns-577d995dff-twm6l\" uid:\"b75ac7ba-b4f3-4009-815f-34c7ed4229eb\" namespace:\"kube-system\" failed, error" error="rpc error: code = Unknown desc = failed to pull image \"ranc
+time="2026-11-11T12:27:12.151832315Z" level=error msg="RunPodSandbox for name:\"local-path-provisioner-56c6584955-cthcl\" uid:\"f3cf3f40-e7b2-47bc-8add-fce0e13cde09\" namespace:\"kube-system\" failed, error" error="rpc error: code = Unknown desc = failed to pu
+time="2026-11-11T12:33:58.410912524Z" level=warning msg="failed check for fsverity support" error="enable fsverity failed: operation not supported" path=/data/k3s/agent/containerd/io.containerd.content.v1.content
+panic: assertion failed: Page expected to be: 176, but self identifies as 0
+time="2026-11-11T12:34:14.079882781Z" level=warning msg="failed check for fsverity support" error="enable fsverity failed: operation not supported" path=/data/k3s/agent/containerd/io.containerd.content.v1.content
+panic: assertion failed: Page expected to be: 176, but self identifies as 0
+time="2026-11-11T12:35:52.041874171Z" level=warning msg="failed check for fsverity support" error="enable fsverity failed: operation not supported" path=/data/k3s/agent/containerd/io.containerd.content.v1.content
+panic: assertion failed: Page expected to be: 176, but self identifies as 0
+
+$ grep -n -A12 "^panic\|fatal error" /data/k3s/agent/containerd/containerd.log | tail -30 | cut -c1-200
+grep -n -A12 "^panic\|fatal error" /data/k3s/agent/containerd/containerd.log | tail -30 | cut -c1-200; echo __R''C=$?__
+[?2004l257-go.etcd.io/bbolt.(*Tx).checkInvariantProperties(0x1911485e0620, 0xb0, 0x0?, 0x0?, {0x24bfb78, 0xd8a4c40}, 0x191148499490)
+258-	/go/pkg/mod/go.etcd.io/bbolt@v1.5.0/tx_check.go:148 +0x78
+--
+292:panic: assertion failed: Page expected to be: 176, but self identifies as 0
+293-
+294-goroutine 277 [running]:
+295-go.etcd.io/bbolt/internal/common.(*Page).FastCheck(0xffff69fb3000, 0xc9aee6681a0?)
+296-	/go/pkg/mod/go.etcd.io/bbolt@v1.5.0/internal/common/page.go:92 +0x12c
+297-go.etcd.io/bbolt.(*Tx).page(0xc9aed900008?, 0xc9aee146730?)
+298-	/go/pkg/mod/go.etcd.io/bbolt@v1.5.0/tx.go:640 +0x74
+299-go.etcd.io/bbolt.(*Tx).forEachPageInternal(0xc9aeea928c0, {0xc9aee146730, 0x1, 0xa}, 0xc9aed87bea0)
+300-	/go/pkg/mod/go.etcd.io/bbolt@v1.5.0/tx.go:652 +0x48
+301-go.etcd.io/bbolt.(*Tx).forEachPage(...)
+302-	/go/pkg/mod/go.etcd.io/bbolt@v1.5.0/tx.go:648
+303-go.etcd.io/bbolt.(*Tx).checkInvariantProperties(0xc9aeea928c0, 0xb0, 0x0?, 0xc9aedf46bd0?, {0x24bfb78, 0xd8a4c40}, 0xc9aee2ac230)
+304-	/go/pkg/mod/go.etcd.io/bbolt@v1.5.0/tx_check.go:148 +0x78
+--
+338:panic: assertion failed: Page expected to be: 176, but self identifies as 0
+339-
+340-goroutine 277 [running]:
+341-go.etcd.io/bbolt/internal/common.(*Page).FastCheck(0xffff71b4c000, 0x0?)
+342-	/go/pkg/mod/go.etcd.io/bbolt@v1.5.0/internal/common/page.go:92 +0x12c
+343-go.etcd.io/bbolt.(*Tx).page(0x17a0106bc008?, 0x17a010f54a00?)
+344-	/go/pkg/mod/go.etcd.io/bbolt@v1.5.0/tx.go:640 +0x74
+345-go.etcd.io/bbolt.(*Tx).forEachPageInternal(0x17a0104b2540, {0x17a010f54a00, 0x1, 0xa}, 0x17a011039ea0)
+346-	/go/pkg/mod/go.etcd.io/bbolt@v1.5.0/tx.go:652 +0x48
+347-go.etcd.io/bbolt.(*Tx).forEachPage(...)
+348-	/go/pkg/mod/go.etcd.io/bbolt@v1.5.0/tx.go:648
+349-go.etcd.io/bbolt.(*Tx).checkInvariantProperties(0x17a0104b2540, 0xb0, 0x0?, 0x0?, {0x24bfb78, 0xd8a4c40}, 0x17a010fddc00)
+350-	/go/pkg/mod/go.etcd.io/bbolt@v1.5.0/tx_check.go:148 +0x78
+
+$ ls -la /data/k3s/agent/containerd/ | head; df -h /data /run | cat; mount | grep -E " /data | / "
+ls -la /data/k3s/agent/containerd/ | head; df -h /data /run | cat; mount | grep -E " /data | / "; echo __R''C=$?__
+[?2004ltotal 148
+drwx------ 19 root root  4096 Nov 11 12:36 .
+drwxr-xr-x  6 root root  4096 Nov 11 12:23 ..
+drwx--x--x  2 root root  4096 Nov 11 12:22 bin
+-rw-r--r--  1 root root 65683 Nov 11 12:35 containerd.log
+drwxr-xr-x  4 root root  4096 Nov 11 12:35 io.containerd.content.v1.content
+drwxr-xr-x  3 root root  4096 Nov 11 12:27 io.containerd.grpc.v1.cri
+drwx------  2 root root  4096 Nov 11 12:24 io.containerd.grpc.v1.introspection
+drwx--x--x  2 root root  4096 Nov 11 12:22 io.containerd.metadata.v1.bolt
+drwx--x--x  3 root root  4096 Nov 11 12:27 io.containerd.runtime.v2.task
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda4       9.7G  4.4G  4.8G  48% /data
+tmpfs           297M  4.3M  293M   2% /run
+/dev/vda2 on / type ext4 (ro,relatime)
+/dev/vda4 on /data type ext4 (rw,relatime)
+
+##### [07:36:29] POWER CUT: SIGKILL qemu

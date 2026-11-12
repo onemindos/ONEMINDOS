@@ -1,0 +1,74 @@
+ INFO baking layer `v1`
+ INFO baking layer `onemind-base`
+ INFO baking layer `onemind-root`
+ INFO [ 1/11] update package lists {}
+ INFO [ 2/11] install and configure Rugix Ctrl {"use_musl": "true", "version": "v1.4.0"}
+ INFO [ 3/11] install state file for `/root` {}
+ INFO [ 4/11] sets the hostname {"hostname": "onemind-lab"}
+ INFO [ 5/11] enabling SSH {"root_authorized_keys": "<lab-ssh-pubkey-redacted>\n"}
+ INFO [ 6/11] health-gated Rugix commit (k3s readiness) + pre-commit hook {"timeout": "300"}
+ INFO [ 7/11] DHCP on all Ethernet interfaces {}
+ INFO [ 8/11] setup Debian for `generic-grub-*` targets {"with_firmware": "true", "with_squashfs": "true", "with_nonfree": "false"}
+ INFO [ 9/11] install k3s (air-gapped) with its data on the Rugix data partition {"version": "v1.37.2+k3s1"}
+ INFO [10/11] cleanup cache and delete package lists {"autoremove": "false"}
+ INFO [11/11] serial console, panic auto-reboot {}
+ INFO [ 1/1] write /etc/onemind-release {"version": "v1"}
+ INFO Creating fat32 filesystem on partition 1 (size: 524288).
+ INFO Creating ext4 filesystem on partition 2 (size: 524288).
+ INFO Creating ext4 filesystem on partition 4 (size: 2521197).
+ INFO baking layer `v1`
+ INFO baking layer `onemind-base`
+ INFO baking layer `onemind-root`
+ INFO baking layer `v2good`
+ INFO baking layer `onemind-base`
+ INFO baking layer `onemind-root`
+ INFO [ 1/1] write /etc/onemind-release {"version": "v2-good"}
+ INFO Creating fat32 filesystem on partition 1 (size: 524288).
+ INFO Creating ext4 filesystem on partition 2 (size: 524288).
+ INFO Creating ext4 filesystem on partition 4 (size: 2521197).
+ INFO baking layer `v2bad`
+ INFO baking layer `onemind-base`
+ INFO baking layer `onemind-root`
+ INFO [ 1/2] write /etc/onemind-release {"version": "v2-bad"}
+ INFO [ 2/2] break k3s on purpose for rollback tests (default: invalid flag) {"args": "--onemind-deliberately-invalid-flag"}
+ INFO Creating fat32 filesystem on partition 1 (size: 524288).
+ INFO Creating ext4 filesystem on partition 2 (size: 524288).
+ INFO Creating ext4 filesystem on partition 4 (size: 2521197).
+ INFO baking layer `v2noagent`
+ INFO baking layer `onemind-base`
+ INFO baking layer `onemind-root`
+ INFO [ 1/2] write /etc/onemind-release {"version": "v2-noagent"}
+ INFO [ 2/2] break k3s on purpose for rollback tests (default: invalid flag) {"args": "--disable-agent"}
+ INFO Creating fat32 filesystem on partition 1 (size: 524288).
+ INFO Creating ext4 filesystem on partition 2 (size: 524288).
+ INFO Creating ext4 filesystem on partition 4 (size: 2521197).
+ INFO baking layer `v2noagentnaive`
+ INFO baking layer `onemind-base`
+ INFO baking layer `onemind-root`
+ INFO [ 1/3] write /etc/onemind-release {"version": "v2-noagent-naive"}
+ INFO [ 2/3] turn off the gate freshness checks (to show why they are needed) {}
+ INFO [ 3/3] break k3s on purpose for rollback tests (default: invalid flag) {"args": "--disable-agent"}
+ INFO Creating fat32 filesystem on partition 1 (size: 524288).
+ INFO Creating ext4 filesystem on partition 2 (size: 524288).
+ INFO Creating ext4 filesystem on partition 4 (size: 2521197).
+5dbb59e0b775bdbc42ca7ef047ae3f8e94c870b4c42a5e01821f062dab6b062a  build/v2noagent-amd64/system.rugixb
+9691856e2cdea6208518f08671c2f6aba2733071743b13d5947dfabd04711ca4  build/v2noagent-amd64/system.img
+6d0e3a6a5bab9b09f03d1c61a6ea64b11219a564c12e2297274d0b14b1606020  build/v1-amd64/system.rugixb
+36845df190abcb5af20297736a8b2d64b6f44bf3ef5237e6c1df3ee7e2b492a1  build/v1-amd64/system.img
+c876012e1ec8cf3afd707c3868577535ef7e4b9067a0e9dd9183367f92a24c11  build/v2noagentnaive-amd64/system.rugixb
+1f41f7ec89a4d0648f49730703ec62933477b1e8dc837218bc551c491f7674ce  build/v2noagentnaive-amd64/system.img
+cfe9663c226823ca377d4a165cc3dd2cea22a8744fd09198746303d3a17d6e7b  build/v2good-amd64/system.rugixb
+24aab22768dec519afd28eb76a31cb5e13fa4bd326f4c6aed630f971741e543d  build/v2good-amd64/system.img
+2aab309daa03d749396c3342c30dcf90d25ffad5b85e9af00362cc384da041a2  build/v2bad-amd64/system.rugixb
+9ff65f8941648ac1033a7e95c186edb33976e86ac6fe8338701ced1c36e6497c  build/v2bad-amd64/system.img
+248984b914de864419ba7e61723a7643d7be722193b7a0584f5a85afe9c65773  build/v2noagentnaive-arm64/system.rugixb
+6d448e19d72affbbd37a29bd50865fb8d5b8effa5358ba938399bb3c5c59e1ac  build/v2noagentnaive-arm64/system.img
+ec8e452bb917a7e500fe50b331d6ce5b5a1d6d8d3872baaa27a990a439a40e1b  build/v2noagent-arm64/system.rugixb
+6a0f7047f8098218299aefc5d71e44e2b9a27891321aa1b26c3a008d53cb2c51  build/v2noagent-arm64/system.img
+c91747823d2a7a7c3d58196d49e43c0b4165651e3a1e5f653d97c1b4eaf79e00  build/v1-arm64/system.rugixb
+c106c409280e55e5cde11ab0016a23e10320d0feb5d76abdb5fe202b3b22f51d  build/v1-arm64/system.img
+08362b63054e25e38b93a89ba683fd1a1e9c1722823bf0d8ad5dc231876585a1  build/v2bad-arm64/system.rugixb
+91914c8c445e9c4645290890bbe10caf714dc91d284a39225e8a1c6ab2d9ac33  build/v2bad-arm64/system.img
+0a9d53a43a9aa5ca8727f2668051a5e7f64455aa76a354cd4206a37ced803d3a  build/v2good-arm64/system.rugixb
+24d2c695b57c27a284b97bf3c35e706c975d341fdf93b8b1b1b740dc6bee4c22  build/v2good-arm64/system.img
+rc=0

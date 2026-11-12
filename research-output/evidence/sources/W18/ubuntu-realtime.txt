@@ -1,0 +1,536 @@
+Real-time Ubuntu | Ubuntu
+ . Not
+ deferred: it sets up dataLayer and the consent default -->
+ Your submission was sent successfully!
+ Close
+ Thank you for contacting us. A member of our team will be in touch shortly.
+ Close
+ You have successfully unsubscribed!
+ Close
+ Thank you for signing up for our newsletter!
+ In these regular emails you will find the latest updates about
+ Ubuntu and upcoming events where you can meet our team.Close
+ Your preferences have been successfully updated. Close notification
+ Please try again or 
+ file a bug report.
+ Close
+ Canonical Ubuntu
+ Menu
+ Products
+ Use cases
+ Support
+ Community
+ Get Ubuntu
+ Careers
+ Register for Ubuntu Summit 26.10
+ Live on Nov 12-13. Join us in celebrating the world of open source.
+ Learn more ›
+ Close
+ Real-time Ubuntu
+ Run the most exacting workloads for
+ low-latency use cases with Real-time Ubuntu
+ Real-time Ubuntu ensures high-priority processes are executed first, with deterministic response times.
+ Get in touch
+ Read the docs
+ Why use Real-time Ubuntu?
+ Support for real-time compute with PREEMPT_RT
+ Time-bound for mission-critical latency requirements
+ More preemptive than mainline Linux
+ Up to 15 years of security maintenance
+ Talk to our team about how Real-time Ubuntu can support your work ›
+ Real-time Ubuntu use cases
+ Industrial settings
+ PLCs in assembly lines must deliver and process data in real-time to ensure system
+ integrity and continuous
+ production.
+ Telco
+ Real-time Ubuntu brings ultra-low latency and enhanced security capabilities to
+ telco workloads and the
+ critical
+ infrastructure they run on.
+ Healthcare robotics
+ From autonomous mobile robots to life-support medical equipment, healthcare systems
+ must complete tasks within
+ specified deadlines.
+ Automotive
+ Automotive manufacturers are increasingly reliant on real-time Linux for
+ infotainment systems, HMIs and
+ latency-sensitive scenarios.
+ Not sure real-time is for you?
+ Talk to our team about your use case.
+ Real-time Ubuntu use cases
+ Industrial settings
+ PLCs in assembly lines must deliver and process data in real-time to ensure system integrity and
+ continuous production.
+ Telco
+ Real-time Ubuntu brings ultra-low latency and enhanced security capabilities to telco workloads and the
+ critical infrastructure they run on.
+ Healthcare robotics
+ From autonomous mobile robots to life-support medical equipment, healthcare systems must complete tasks
+ within specified deadlines.
+ Automotive
+ Automotive manufacturers are increasingly reliant on real-time Linux for infotainment systems, HMIs and
+ latency-sensitive scenarios.
+ Not sure real-time is for you?
+ Talk to our team about your use case.
+ Video
+ What is Real-time Ubuntu?
+ Canonical and Intel collaborate to deliver real-time Ubuntu on 12th Gen Intel® Core™ processors with TSN and TCC Support. Explore how real-time Ubuntu benefits the IoT customers and market as a whole.
+ Getting started
+ With the PREEMPT_RT patches being fully upstreamed, the real-time kernel is freely available for everyone from the 26.04 release onwards. Simply use the command:
+ sudo apt install ubuntu-realtime
+ Need earlier versions?
+ All previous releases of the real-time kernel are available via Ubuntu Pro, Canonical's enterprise security and compliance subscription. Ubuntu Pro is free for personal and small scale commercial use in up to 5 machines.
+ With an Ubuntu Pro subscription, launching the real-time kernel is as easy as:
+ pro attach
+pro enable realtime-kernel
+ Discover Ubuntu Pro
+ Run Real-time Ubuntu on Intel hardware
+ Optimized Real-time Ubuntu is available on 12th Gen Intel® Core™ processors. Coupled with Intel® Time Coordinated Computing (Intel® TCC) and Time Sensitive Networking (IEEE TSN), the real-time kernel delivers industrial-grade performance to meet stringent latency requirements:
+ Intel-optimized Real-time Ubuntu is available on Intel SoCs via Ubuntu Pro:
+ pro attach
+pro enable realtime-kernel --variant=intel-iotg
+ Run Real-time Ubuntu on Raspberry Pi
+ Based on the upstream v6.8 kernel, the 24.04 release of Real-time Ubuntu includes optimized support for Raspberry Pi hardware. Discover the possibilities of optimized real-time compute with enhanced performance on Raspberry Pi 4 and 5:
+ pro attach
+pro enable realtime-kernel --variant=raspi
+ Learn more about
+ Real-time Ubuntu
+ Whitepaper
+ A CTO's guide to real-time Linux
+ Is a real-time OS right for your business?
+ Webinars
+ Real-time kernel: use cases and deployment strategies
+ How real-time Linux accelerates industrial transformation
+ From our blog
+ Technical deep-dive into a real-time kernel
+ Build with confidence on Real-time Ubuntu
+ Contact our team to get started
+ Close
+ Run Real-time Ubuntu in production
+ Tell us about your project so we can bring the right Canonical team members to the conversation to help you.
+ In which industry do you operate?
+ In which industry do you operate?
+ Industrial
+ Automotive
+ Telco
+ Public sector
+ Other
+ Which architecture are you using?
+ Which architecture are you using?
+ arm
+ x86
+ Other
+ How are you currently meeting your latency requirements?
+ How are you currently meeting your latency requirements?
+ RTOS
+ Commercially-supported real-time Linux
+ Patching own Linux kernel
+ No solution
+ Other
+ Tell us more about your project
+ Tell us more about your project
+ How should we get in touch?
+ How should we get in touch?
+ First name:
+ Last name:
+ Email:
+ Company:
+ Job Title:
+ Country:
+ Select...
+ France
+ Germany
+ Japan
+ United Kingdom
+ United States of America
+ ——————————————————
+ Afghanistan
+ Åland Islands
+ Albania
+ Algeria
+ American Samoa
+ Andorra
+ Angola
+ Anguilla
+ Antarctica
+ Antigua and Barbuda
+ Argentina
+ Armenia
+ Aruba
+ Australia
+ Austria
+ Azerbaijan
+ Bahamas
+ Bahrain
+ Bangladesh
+ Barbados
+ Belarus
+ Belgium
+ Belize
+ Benin
+ Bermuda
+ Bhutan
+ Bolivia (Plurinational State of)
+ Bonaire, Sint Eustatius and Saba
+ Bosnia and Herzegovina
+ Botswana
+ Bouvet Island
+ Brazil
+ British Indian Ocean Territory
+ Brunei Darussalam
+ Bulgaria
+ Burkina Faso
+ Burundi
+ Cambodia
+ Cameroon
+ Canada
+ Cabo Verde
+ Cayman Islands
+ Central African Republic
+ Chad
+ Chile
+ China
+ Christmas Island
+ Cocos (Keeling) Islands
+ Colombia
+ Comoros
+ Congo
+ Congo (Democratic Republic of the)
+ Cook Islands
+ Costa Rica
+ Côte d'Ivoire
+ Croatia
+ Cuba
+ Curaçao
+ Cyprus
+ Czech Republic
+ Denmark
+ Djibouti
+ Dominica
+ Dominican Republic
+ Ecuador
+ Egypt
+ El Salvador
+ Equatorial Guinea
+ Eritrea
+ Estonia
+ Ethiopia
+ Falkland Islands (Malvinas)
+ Faroe Islands
+ Fiji
+ Finland
+ France
+ French Guiana
+ French Polynesia
+ French Southern Territories
+ Gabon
+ Gambia
+ Georgia
+ Germany
+ Ghana
+ Gibraltar
+ Greece
+ Greenland
+ Grenada
+ Guadeloupe
+ Guam
+ Guatemala
+ Guernsey
+ Guinea
+ Guinea-Bissau
+ Guyana
+ Haiti
+ Heard Island and McDonald Islands
+ Holy See
+ Honduras
+ Hong Kong
+ Hungary
+ Iceland
+ India
+ Indonesia
+ Iran (Islamic Republic of)
+ Iraq
+ Ireland
+ Isle of Man
+ Israel
+ Italy
+ Jamaica
+ Japan
+ Jersey
+ Jordan
+ Kazakhstan
+ Kenya
+ Kiribati
+ Korea (Democratic People's Republic of)
+ Korea (Republic of)
+ Kuwait
+ Kyrgyzstan
+ Lao People's Democratic Republic
+ Latvia
+ Lebanon
+ Lesotho
+ Liberia
+ Libya
+ Liechtenstein
+ Lithuania
+ Luxembourg
+ Macao
+ Macedonia (the former Yugoslav Republic of)
+ Madagascar
+ Malawi
+ Malaysia
+ Maldives
+ Mali
+ Malta
+ Marshall Islands
+ Martinique
+ Mauritania
+ Mauritius
+ Mayotte
+ Mexico
+ Micronesia (Federated States of)
+ Moldova (Republic of)
+ Monaco
+ Mongolia
+ Montenegro
+ Montserrat
+ Morocco
+ Mozambique
+ Myanmar
+ Namibia
+ Nauru
+ Nepal
+ Netherlands
+ New Caledonia
+ New Zealand
+ Nicaragua
+ Niger
+ Nigeria
+ Niue
+ Norfolk Island
+ Northern Mariana Islands
+ Norway
+ Oman
+ Pakistan
+ Palau
+ Palestine, State of
+ Panama
+ Papua New Guinea
+ Paraguay
+ Peru
+ Philippines
+ Pitcairn
+ Poland
+ Portugal
+ Puerto Rico
+ Qatar
+ Réunion
+ Romania
+ Russian Federation
+ Rwanda
+ Saint Barthélemy
+ Saint Helena, Ascension and Tristan da Cunha
+ Saint Kitts and Nevis
+ Saint Lucia
+ Saint Martin (French part)
+ Saint Pierre and Miquelon
+ Saint Vincent and the Grenadines
+ Samoa
+ San Marino
+ Sao Tome and Principe
+ Saudi Arabia
+ Senegal
+ Serbia
+ Seychelles
+ Sierra Leone
+ Singapore
+ Sint Maarten (Dutch part)
+ Slovakia
+ Slovenia
+ Solomon Islands
+ Somalia
+ South Africa
+ South Georgia and the South Sandwich Islands
+ South Sudan
+ Spain
+ Sri Lanka
+ Sudan
+ Suriname
+ Svalbard and Jan Mayen
+ Swaziland
+ Sweden
+ Switzerland
+ Syrian Arab Republic
+ Taiwan
+ Tajikistan
+ Tanzania, United Republic of
+ Thailand
+ Timor-Leste
+ Togo
+ Tokelau
+ Tonga
+ Trinidad and Tobago
+ Tunisia
+ Turkey
+ Turkmenistan
+ Turks and Caicos Islands
+ Tuvalu
+ Uganda
+ Ukraine
+ United Arab Emirates
+ United Kingdom
+ United States of America
+ United States Minor Outlying Islands
+ Uruguay
+ Uzbekistan
+ Vanuatu
+ Venezuela (Bolivarian Republic of)
+ Viet Nam
+ Virgin Islands (British)
+ Virgin Islands (U.S.)
+ Wallis and Futuna
+ Western Sahara
+ Yemen
+ Zambia
+ Zimbabwe
+ Mobile/cell phone number:
+ I agree to receive
+ information about
+ Canonical's products and services.
+ By submitting this form, I confirm that I have read and agree to Canonical's Privacy Notice and Privacy Policy.
+ Website:
+ Name:
+ Submit
+ Your comments
+ OpenStack
+ OpenStack
+ Install
+ Support
+ Ceph
+ Ceph
+ What is Ceph
+ Managed
+ Consulting
+ Docs
+ Install
+ Kubernetes
+ Kubernetes
+ What is Kubernetes
+ Managed
+ Install
+ Docs
+ Resources
+ Managed infrastructure
+ Managed infrastructure
+ Managed apps
+ AI / ML
+ AI / ML
+ Consulting
+ Data Science
+ Robotics
+ Robotics
+ ROS ESM
+ What is ROS
+ Community
+ Docs
+ IoT
+ IoT
+ App store
+ Embedded Linux
+ Management
+ Ubuntu Core
+ Ubuntu Core
+ Features
+ Success stories
+ Services
+ Docs
+ Ubuntu Desktop
+ Ubuntu Desktop
+ Organizations
+ Developers
+ Flavors
+ Ubuntu Server
+ Ubuntu Server
+ Hyperscale
+ Docs
+ Cloud
+ Cloud
+ What is cloud computing
+ What is private cloud
+ What is hybrid cloud
+ What is multi-cloud
+ Public cloud
+ Security
+ Security
+ Platform Security
+ ESM
+ Livepatch
+ Security standards
+ CVEs
+ Notices
+ Assurances
+ Landscape
+ Landscape
+ Features
+ Managed
+ Compare
+ Install
+ Docs
+ Log in to Landscape
+ Containers
+ Containers
+ What are containers
+ Chiseled Ubuntu
+ Chiseled and .NET
+ Container Build Service
+ Rockcraft
+ Docs
+ Downloads
+ Downloads
+ Desktop
+ Server
+ WSL
+ Core
+ Cloud
+ Support
+ Support
+ Your subscriptions
+ Account users
+ Pricing
+ Discourse
+ Firefighting support
+ Pricing
+ Pricing
+ Ubuntu Pro Subscription
+ Desktop provisioning
+ Devices
+ Solutions
+ AI
+ Data
+ Infrastructure
+ Managed Infrastructure
+ Open source security
+ IoT and devices
+ Cloud native development
+ Sectors
+ Automotive
+ Industrial
+ Public sector
+ Telco
+ Finance
+ Contact us
+ About us
+ Community
+ Careers
+ Blog
+ Resources
+ Press center
+ © 2026 Canonical Ltd.
+ Ubuntu and Canonical are registered trademarks of Canonical Ltd.
+ Legal information
+ Data privacy
+ Manage your tracker settings
+ Report a bug on this site
+ Back to top
+ Go to the top of the page

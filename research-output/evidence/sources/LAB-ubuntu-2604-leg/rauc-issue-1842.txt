@@ -1,0 +1,18 @@
+Source: https://github.com/rauc/rauc/issues/1842
+Accessed: 2026-11-11
+title: Not compatible with Linux v6.19-rc1
+state: closed
+created: 2025-12-22T14:37:19Z
+closed: 2026-01-05T09:26:29Z
+
+rauc: master
+linux: master
+
+RAUC now gives error: (rauc:1066): rauc-WARNING **: 14:16:19.765: Failed mounting bundle: Unexpected dm-verity status 'V -' (instead of '\0')
+
+This comes from dm.c line 249.
+
+I suspected linux first, but they say likely RAUC is just confused by the new return parameter.
+
+See https://lore.kernel.org/dm-devel/<email-masked>/T/#t
+

@@ -1,0 +1,528 @@
+Source: github.com/canonical/ubuntu.com@ec15716b1c4b95f1860672d4274dda730ee9b4fe:templates/pro/devices.html (website source of ubuntu.com; ubuntu.com itself did not resolve from this session). Extracted text, Jinja tags kept. Accessed 2026-11-11.
+
+{% extends "templates/base.html" %}
+{% block title %}Ubuntu Pro for Devices{% endblock %}
+{% block meta_description %}
+ Ubuntu Pro for devices is a comprehensive subscription service for IoT security, support, and compliance, allowing customers to secure their embedded IoT devices for up to 15 years.
+{% endblock meta_description %}
+{% block meta_copydoc %}
+ https://docs.google.com/document/d/1i_3nPkSpCQJ4jfOwN380sdfuTxaiDuDIgDfk01wVPqo/edit
+{% endblock
+meta_copydoc %}
+{% block meta_image %}
+ https://assets.ubuntu.com/v1/9539e151-og_image.png
+{% endblock meta_image %}
+{% from "_macros/vf_hero.jinja" import vf_hero %}
+{% from "_macros/vf_divided-section.jinja" import vf_divided_section %}
+{% from "_macros/vf_basic-section.jinja" import vf_basic_section %}
+{% from "_macros/vf_quote-wrapper.jinja" import vf_quote_wrapper %}
+{% from "_macros/vf_tiered-list.jinja" import vf_tiered_list %}
+{% from "_macros/vf_logo-section.jinja" import vf_logo_section %}
+{% from "_macros/vf_cta-section.jinja" import vf_cta_section %}
+{% from "_macros/vf_resources.jinja" import vf_resources %}
+{% block body_class %}
+ is-paper
+{% endblock body_class %}
+{% block outer_content %}
+ {% block content %}
+ {% call(slot) vf_hero(
+ title_text='IoT security with Ubuntu Pro for Devices',
+ subtitle_text='One subscription for the security maintenance your devices need to stay compliant for up to 15 years.',
+ display_blank_signpost_image_space=True,
+ layout='25/75',
+ blocks=[
+ {
+ "type": "description",
+ "padding": "shallow",
+ "item": {
+ "type": "text",
+ "content": "You get security patches for tens of thousands of open source packages, fleet-wide management from a single pane of glass, and automation tools for compliance with multiple standards, including the Cyber Resilience Act (CRA)."
+ }
+ },
+ {
+ "type": "cta-block",
+ "padding": "shallow",
+ "item": {
+ "primary": {
+ "content_html": "Contact us",
+ "attrs": {
+ "href": "#get-in-touch"
+ }
+ },
+ }
+ },
+ ]
+ ) -%}
+ {% endcall -%}
+ {{ vf_divided_section(
+ title={
+ "text": "Why Ubuntu Pro for Devices?",
+ },
+ blocks=[
+ {
+ "type": "divided-block",
+ "bullet_type": "none",
+ "items": [
+ {
+ "title_text": " Up to 15 years ",
+ "contents": [
+ {
+ "type": "description",
+ "item": {
+ "type": "text",
+ "content": "of security maintenance for the kernel, user space and open source libraries"
+ }
+ }
+ ]
+ },
+ {
+ "title_text": " Lower TCO ",
+ "contents": [
+ {
+ "type": "description",
+ "item": {
+ "type": "text",
+ "content": "avoid the engineering time spent on OS upgrades, CVE patching, and related application maintenance"
+ }
+ }
+ ]
+ },
+ {
+ "title_text": " Tens of thousands ",
+ "contents": [
+ {
+ "type": "description",
+ "item": {
+ "type": "text",
+ "content": "open source packages covered in addition to Ubuntu OS, including real-time kernel and ROS "
+ }
+ }
+ ]
+ },
+ {
+ "title_text": " Scalable device management ",
+ "contents": [
+ {
+ "type": "description",
+ "item": {
+ "type": "text",
+ "content": "from a single pane of glass across the lifecycle"
+ }
+ }
+ ]
+ },
+ {
+ "title_text": " 24/7 ",
+ "contents": [
+ {
+ "type": "description",
+ "item": {
+ "type": "text",
+ "content": "optional enterprise-grade support"
+ }
+ }
+ ]
+ },
+ ]
+ },
+ ],
+ ) }}
+ {{ vf_basic_section(
+ title={"text": "Meet your compliance requirements faster"},
+ items=[
+ {
+ "type": "description",
+ "item": {
+ "type": "html",
+ "content": "
+ "
+ }
+ },
+ {
+ "type": "description",
+ "item": {
+ "type": "text",
+ "content": "Ubuntu Pro for Devices includes automation tooling and packages for FIPS 140, CIS, and DISA-STIG hardening. Canonical is also committed to compliance with the Cyber Resilience Act ."
+ }
+ },
+ {
+ "type": "description",
+ "item": {
+ "type": "html",
+ "content": "
+ Meet the most rigorous standards:
+ Defense Information Systems Agency (DISA-STIG) 
+ FedRAMP 
+ NIST 
+ HIPAA 
+ FISMA 
+ Center for Internet Security (CIS) 
+ FIPS 140 
+ Cyber Essentials 
+ CRA 
+ "
+ }
+ },
+ {
+ "type": "cta-block",
+ "item": {
+ "link": {
+ "content_html": "Explore our security standards ›",
+ "attrs": {
+ "href": "/security/security-standards"
+ }
+ }
+ }
+ }
+ ]
+ ) }}
+ {% call(slot) vf_quote_wrapper(
+ title_text=" Backed by leading manufacturers ",
+ quote_size="small",
+ quote_text="As new legislation is introduced for IoT embedded devices, it is crucial that our customers have a means to securely maintain the operating system along with commonly used applications and dependencies. Ubuntu Pro ensures that IoT devices receive reliable security patches from a trusted source.",
+ citation_source_name_text="Ethan Chen",
+ citation_source_title_text="General Manager of the Edge Computing Platforms BU at ADLINK",
+ is_shallow=True,
+ ) -%}
+ {%- if slot == 'signpost_image' -%}
+ {{ image(url="https://assets.ubuntu.com/v1/8f393f14-adlink_logo.png",
+ alt="Adlink",
+ width="852",
+ height="117",
+ hi_def=True,
+ loading="lazy",
+ attrs={"class": "u-hide--small"}
+ ) | safe
+ }}
+ {%- endif -%}
+ {% endcall -%}
+ {% call(slot) vf_quote_wrapper(
+ quote_size="small",
+ quote_text="Many of our customers from across different sectors are using computer vision software that requires regulatory approval. In particular, the latest US regulation makes it important to provide timely CVE fixes for all of the components used in our products. Thanks to Ubuntu Pro for Devices, this is now covered.",
+ citation_source_name_text="Jason Huang",
+ citation_source_title_text="Director of AAEON's UP Division",
+ is_shallow=True,
+ ) -%}
+ {%- if slot == 'signpost_image' -%}
+ {{ image(url="https://assets.ubuntu.com/v1/0f248f16-aaeon_logo.png",
+ alt="Aaeon",
+ width="852",
+ height="99",
+ hi_def=True,
+ loading="lazy",
+ attrs={"class": "u-hide--small"}
+ ) | safe
+ }}
+ {%- endif -%}
+ {% endcall -%}
+ {% call(slot) vf_quote_wrapper(
+ quote_size="small",
+ quote_text="Ubuntu is the most popular Linux distribution. Many of our public sector customers in the US need FIPS compliance, and Ubuntu Pro for Devices is a perfect solution for them.",
+ citation_source_name_text="Joe Chen",
+ citation_source_title_text="Director at Advantech",
+ is_shallow=True,
+ ) -%}
+ {%- if slot == 'signpost_image' -%}
+ {{ image(url="https://assets.ubuntu.com/v1/eea8b2f4-advantech_logo.png",
+ alt="Advantech",
+ width="852",
+ height="111",
+ hi_def=True,
+ loading="lazy",
+ attrs={"class": "u-hide--small"}
+ ) | safe
+ }}
+ {%- endif -%}
+ {% endcall -%}
+ {% call(slot) vf_quote_wrapper(
+ quote_size="small",
+ quote_text="DFI leverages virtualization technology to introduce a robust Workload Consolidation platform integrated with our embedded solutions for EV charging stations and other cutting-edge industrial applications. With the ability to use Landscape to manage devices built with DFI boards, we can now provide more reliable solutions to our customers with 10 years of security updates and streamlined fleet maintenance.",
+ citation_source_name_text="Jarry Chang",
+ citation_source_title_text="DFI Product Center General Manager",
+ ) -%}
+ {%- if slot == 'signpost_image' -%}
+ {{ image(url="https://assets.ubuntu.com/v1/588be39d-dfi_logo.png",
+ alt="DFI",
+ width="852",
+ height="304",
+ hi_def=True,
+ loading="lazy",
+ attrs={"class": "u-hide--small"}
+ ) | safe
+ }}
+ {%- endif -%}
+ {% endcall -%}
+ {%- call(slot) vf_tiered_list(is_description_full_width_on_desktop=true, is_list_full_width_on_tablet=true) -%}
+ {%- if slot == 'title' -%}
+ Everything you get in one subscription 
+ {%- endif -%}
+ {%- if slot == 'list_item_title_1' -%}
+ Expanded Security Maintenance (ESM) 
+ {%- endif -%}
+ {%- if slot == 'list_item_description_1' -%}
+ ESM provides 10 years of vulnerability fixes for critical, high and selected medium vulnerabilities across the whole Ubuntu archive, as defined by Ubuntu Priority. Expand this to 15 years with the Legacy add-on. 
+ Learn about ESM › 
+ {%- endif -%}
+ {%- if slot == 'list_item_title_2' -%}
+ Fleet management with Landscape 
+ {%- endif -%}
+ {%- if slot == 'list_item_description_2' -%}
+ Remote patching, update rollout policies, asset inventory, hardening, compliance auditing and reporting across your whole Ubuntu estate, from one interface. 
+ Learn about IoT device management › 
+ {%- endif -%}
+ {%- if slot == 'list_item_title_3' -%}
+ Kernel Livepatch 
+ {%- endif -%}
+ {%- if slot == 'list_item_description_3' -%}
+ Livepatch offers a rebootless security patching automation to address high and critical kernel vulnerabilities that surface between scheduled maintenance windows. Eliminate unexpected required reboots for machines requiring mission-critical uptime and maximum security. 
+ Learn about Livepatch › 
+ {%- endif -%}
+ {%- if slot == 'list_item_title_4' -%}
+ Compliance and hardening tools 
+ {%- endif -%}
+ {%- if slot == 'list_item_description_4' -%}
+ FIPS 140 certified modules, CIS and DISA-STIG hardening profiles, and the automation to apply and audit them at scale, including in air-gapped environments. 
+ Learn about supported security standards › 
+ {%- endif -%}
+ {%- if slot == 'list_item_title_5' -%}
+ Real-time and robotics coverage 
+ {%- endif -%}
+ {%- if slot == 'list_item_description_5' -%}
+ Long-term maintenance for Real-time Ubuntu and ROS ESM , for latency-critical and robotics workloads. 
+ {%- endif -%}
+ {%- if slot == 'list_item_title_6' -%}
+ Pay once per device 
+ {%- endif -%}
+ {%- if slot == 'list_item_description_6' -%}
+ Ubuntu Pro for Devices can be purchased for a one-time fee per device, covering security maintenance for its entire lifecycle. 
+ Talk to an expert › 
+ {%- endif -%}
+ {%- endcall -%}
+ {{ vf_basic_section(
+ title={"text": "Device management included"},
+ subtitle={"text": "Manage, deploy, monitor, and scale your fleet with Landscape", "heading_level": 5},
+ items=[
+ {
+ "type": "description",
+ "item": {
+ "type": "text",
+ "content": "Remotely monitor, update, and manage IoT devices with a clearly defined rollout policy."
+ }
+ },
+ {
+ "type": "description",
+ "item": {
+ "type": "text",
+ "content": "Landscape reduces the cost of managing open source and enables you to proactively manage security for your IoT devices:"
+ }
+ },
+ {
+ "type": "list",
+ "item": {
+ "list_items": [
+ {
+ "list_item_type": "bullet",
+ "content": "Get a single pane of glass for managing any Ubuntu instances including system containers, virtual machines, and physical nodes."
+ },
+ {
+ "list_item_type": "bullet",
+ "content": "Scan packages automatically for vulnerable versions, and create reports for any cross-section of your Ubuntu estate."
+ },
+ {
+ "list_item_type": "bullet",
+ "content": "Perform hardening and auditing at scale in air-gapped environments."
+ },
+ ],
+ }
+ },
+ {
+ "type": "cta-block",
+ "item": {
+ "link": {
+ "content_html": "Discover Landscape ›",
+ "attrs": {
+ "href": "/landscape"
+ }
+ }
+ }
+ }
+ ]
+ ) }}
+ {% call(slot) vf_logo_section(
+ mode="default",
+ title={
+ "text": "Pull all your software from a secure source"
+ },
+ blocks=[
+ {
+ "type": "logo-block",
+ "item": {
+ "logos": [
+ {
+ "src": "https://assets.ubuntu.com/v1/486f5850-ros_logo.png",
+ "alt": "ROS"
+ },
+ {
+ "src": "https://assets.ubuntu.com/v1/ab4d50fe-python_logo.png",
+ "alt": "Python"
+ },
+ {
+ "src": "https://assets.ubuntu.com/v1/09be74f7-openjdk_logo.png",
+ "alt": "OpenJDK"
+ },
+ {
+ "src": "https://assets.ubuntu.com/v1/94ebd39c-docker_logo_horizontal.png",
+ "alt": "Docker"
+ },
+ {
+ "src": "https://assets.ubuntu.com/v1/7f5c5a9f-mqtt_logo.png",
+ "alt": "Mqtt"
+ },
+ {
+ "src": "https://assets.ubuntu.com/v1/edbde75d-node_js_1.png",
+ "alt": "Node"
+ },
+ {
+ "src": "https://assets.ubuntu.com/v1/6664c0a4-ubuntu_frame_logo.png",
+ "alt": "Ubuntu Frame"
+ },
+ {
+ "src": "https://assets.ubuntu.com/v1/5d0797af-open_ssl.png",
+ "alt": "OpenSSL"
+ },
+ {
+ "src": "https://assets.ubuntu.com/v1/fcd275ba-tensor_flow_logo.png",
+ "alt": "TensorFlow"
+ },
+ {
+ "src": "https://assets.ubuntu.com/v1/41bbbf72-go_logo.png",
+ "alt": "Go"
+ },
+ {
+ "src": "https://assets.ubuntu.com/v1/f3ed6bd8-opencv_logo.png",
+ "alt": "OpenCV"
+ },
+ ]
+ }
+ }
+ ]
+ ) -%}
+ {%- if slot == 'description' -%}
+ Access thousands of packages and open source applications, already built into your development environment and benefit from updates and security patches for the applications you use on your device. It's securely maintained IoT, as standard. 
+ {%- endif -%}
+ {% endcall -%}
+ {%- call(slot) vf_tiered_list(is_description_full_width_on_desktop=true, is_list_full_width_on_tablet=true) -%}
+ {%- if slot == 'title' -%}
+ Develop at speed with the Ubuntu ecosystem 
+ {%- endif -%}
+ {%- if slot == 'list_item_title_1' -%}
+ Speed up go-to-market 
+ {%- endif -%}
+ {%- if slot == 'list_item_description_1' -%}
+ Build on the combined expertise of Canonical and hardware partners to get your solution to market faster. Benefit from optimized Ubuntu images for your specific piece of hardware. Canonical continually works to certify the latest hardware for Ubuntu, as well as testing for reliability and performance, ensuring you have the best out-of-the-box experience. 
+ Discover certified hardware › 
+ {%- endif -%}
+ {%- if slot == 'list_item_title_2' -%}
+ Ubuntu Core 
+ {%- endif -%}
+ {%- if slot == 'list_item_description_2' -%}
+ Ubuntu Core is more than just your embedded Linux OS; it's your whole deployment infrastructure. Build targeted production-ready images, unlock over-the-air (OTA) updates, deploy in air-gapped environments, manage your fleet of devices, achieve real-time operations, comply with cybersecurity requirements and more. 
+ Explore Ubuntu Core › 
+ {%- endif -%}
+ {%- endcall -%}
+ {% call(slot) vf_cta_section(
+ variant='default',
+ layout='100',
+ blocks=[
+ {
+ "type": "cta",
+ "item": {
+ "type": "html",
+ "content": "Want to know more? Contact our team › "
+ }
+ }
+ ]
+ ) -%}
+ {% endcall -%}
+ {% call(slot) vf_resources(
+ padding="deep",
+ title={
+ "text": "Resources",
+ },
+ blocks=[
+ {
+ "type": "resources",
+ "render_images": false,
+ "render_categories": false,
+ "categories": [
+ {
+ "items": [
+ {
+ "title": {
+ "text": "Understand IoT security and IoT compliance across global markets",
+ "link_attrs": {
+ "href": "/engage/iot-compliance-in-the-global-market-a-guide-for-iot-device-manufacturers"
+ }
+ },
+ "description": {
+ "text": "Get a comprehensive guide to understanding the new global compliance landscape for IoT devices and manufacturers, and meet compliance in every regional market with our Ubuntu blueprint for secure devices.",
+ },
+ },
+ {
+ "title": {
+ "text": "Software-defined IoT",
+ "link_attrs": {
+ "href": "/engage/software-defined-iot"
+ }
+ },
+ "description": {
+ "text": "On average, organizations developing IoT products will spend 50% more resources on software than hardware. Read our whitepaper to get ahead of costs and design your device, software first.",
+ },
+ },
+ {
+ "title": {
+ "text": "A practical guide to IoT lifecycle management",
+ "link_attrs": {
+ "href": "/engage/a-practical-guide-to-iot-lifecycle-management"
+ }
+ },
+ "description": {
+ "text": "Defining success across the different stages of the lifecycle: how to plan, implement, operate and retire.",
+ },
+ },
+ {
+ "title": {
+ "text": "Introduction to real-time kernel",
+ "link_attrs": {
+ "href": "/engage/cto-guide-real-time-kernel"
+ }
+ },
+ "description": {
+ "text": "A real-time system ensures the execution of high-priority processes with deterministic response times. Discover what this means for your business in our guide.",
+ },
+ },
+ {
+ "title": {
+ "text": "Discover AI at the Edge",
+ "link_attrs": {
+ "href": "/engage/guide-to-deploying-ai-at-the-edge"
+ }
+ },
+ "description": {
+ "text": "
+ AI is breaking out of the data center and moving to the edge. From self-driving cars to industrial assembly lines, the ability to deploy machine learning models on embedded devices and generate real-time, AI-driven insight out in the field offers tremendous potential.
+ Need to discuss your need with our experts?
+ Contact us 
+ ",
+ },
+ },
+ ]
+ }
+ ]
+ },
+ ]
+ ) -%}
+ {% endcall -%}
+ {{ load_form("/pro/devices") | safe }}
+ {% endblock content %}
+{% endblock outer_content %}

@@ -1,0 +1,51 @@
+[01:29:44] channel stable -> v4-big
+marker=v4-big uptime=102.34
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:42c741fb2854bdb0d6999df9da027a59a3734c47e4e5f4026938f3f22e9a15e1","staged":null,"rollback":"sha256:ba3902dc9b13e2c0535eec0f6f4dea42dd8bab9a2ff177222538b631bef40c36"}
+Deploying...done (3 seconds)
+Removed layers:   6     Size: 1.6 GB
+Added layers:     6     Size: 1.6 GB
+marker=v4-big uptime=127.05
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:42c741fb2854bdb0d6999df9da027a59a3734c47e4e5f4026938f3f22e9a15e1","staged":"sha256:8d4a07dfa4629b90d5f1a79533c17de87bcaec3598506f0d5a84f4b3725a4dc0","rollback":"sha256:ba3902dc9b13e2c0535eec0f6f4dea42dd8bab9a2ff177222538b631bef40c36"}
+[01:30:09] reboot; SIGKILL QEMU 1s later (inside ostree-finalize-staged at shutdown)
+[01:30:12] power restored
+started pid 83009
+up after 16s
+marker=v4-big uptime=8.88
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:42c741fb2854bdb0d6999df9da027a59a3734c47e4e5f4026938f3f22e9a15e1","staged":null,"rollback":"sha256:ba3902dc9b13e2c0535eec0f6f4dea42dd8bab9a2ff177222538b631bef40c36"}
+--- ostree fsck:
+fsck objects (42998/43430) 99%
+fsck objects (43430/43430) 100%
+object fsck of 87 commits completed successfully - no errors found.
+--- deployments:
+  default 6613a3fdd8e813fd68e4a704285bfe6bb3c2a30476ca88b2ac49691e1e09e0c3.1 (pending)
+    origin: <unknown origin type>
+* default 49f4b4f949b31492235a581bfb6fc2e307eb98fa3ace0331c4be434af3f9ef28.0
+    origin: <unknown origin type>
+running
+--- BLS entries:
+/boot/loader/entries/ostree-1.conf:title Fedora Linux 44 (Forty Four) (ostree:1)
+/boot/loader/entries/ostree-1.conf:version 1
+/boot/loader/entries/ostree-1.conf:options  rw  console=tty0 console=ttyS0 ostree=/ostree/boot.0/default/5a119393590086dcf303ff01c391786b81c6ade1480d4c8ecfdf029aeaa852a1/1
+/boot/loader/entries/ostree-2.conf:title Fedora Linux 44 (Forty Four) (ostree:0)
+/boot/loader/entries/ostree-2.conf:version 2
+/boot/loader/entries/ostree-2.conf:options  rw  console=tty0 console=ttyS0 ostree=/ostree/boot.0/default/5a119393590086dcf303ff01c391786b81c6ade1480d4c8ecfdf029aeaa852a1/0
+[01:30:43] plain reboot, no upgrade: which deployment boots next?
+up after 19s
+marker=v4-big uptime=11.50
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:ba3902dc9b13e2c0535eec0f6f4dea42dd8bab9a2ff177222538b631bef40c36","staged":null,"rollback":"sha256:42c741fb2854bdb0d6999df9da027a59a3734c47e4e5f4026938f3f22e9a15e1"}
+* default 6613a3fdd8e813fd68e4a704285bfe6bb3c2a30476ca88b2ac49691e1e09e0c3.1
+    origin: <unknown origin type>
+  default 49f4b4f949b31492235a581bfb6fc2e307eb98fa3ace0331c4be434af3f9ef28.0 (rollback)
+    origin: <unknown origin type>
+[01:31:03] recovery: bootc upgrade again
+Total new layers: 72    Size: 2.6 GB
+Removed layers:   6     Size: 1.6 GB
+Added layers:     6     Size: 1.6 GB
+up after 20s
+marker=v4-big uptime=8.98
+boot_success=1 
+{"booted":"198.18.0.2:5000/onemind/lab:stable","bootedDigest":"sha256:8d4a07dfa4629b90d5f1a79533c17de87bcaec3598506f0d5a84f4b3725a4dc0","staged":null,"rollback":"sha256:ba3902dc9b13e2c0535eec0f6f4dea42dd8bab9a2ff177222538b631bef40c36"}

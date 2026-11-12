@@ -1,0 +1,244 @@
+Activities Top Sports
+ Running
+ Cycling
+ Walking
+
+Running
+Cycling
+
+Features
+Maps
+Challenges
+Subscription
+
+Log InJoin for Free
+
+Sign Up
+Home
+Activities Running
+ Cycling
+ Walking
+
+Features
+Maps
+Challenges
+Subscription
+Support
+Sign Up
+Log In
+Get the App
+
+Terms of Service (2026)
+Strava Privacy Policy (2026)
+Acceptable Use Policy
+Strava Cookie Policy (2026)
+API Agreement (2026)
+API Policy (2026)
+Strava Law Enforcement Guidelines
+Gifting Terms
+Team Subscription Terms
+
+API Agreement (2026)
+Effective Date: June 1, 2026
+The Strava API Agreement (“Agreement”) is made and entered into by and between Strava, Inc., or, if you are in the European Economic Area (“EEA”), Strava Ireland Limited (“Strava”, we, us) and you. “You” means you individually or the entity that you represent. If you are entering into this Agreement for an entity, you represent and warrant to us that you have the legal authority to bind that entity to this Agreement. Here are a few highlights:
+We expect you to create applications that are useful, inspiring and help build a community for Strava athletes.
+
+You may not create applications that compete with or replicate Strava functionality.
+
+You are responsible for your use of the Strava API and your applications.
+
+Strava Data provided by a specific user can only be displayed or disclosed in your Developer Application to that user. Strava Data related to other users, even if such data is publicly viewable on the Strava Platform, may not be displayed or disclosed.
+
+Your use of the Strava API is subject to volume limits and other use restrictions.
+
+You must always respect Strava users and comply with their privacy choices. This includes not sharing a Strava user’s data with other users, end users of your application, or third parties without explicit consent.
+
+You agree to use appropriate security measures to protect any data you obtain from Strava.
+
+Use of Strava’s API is a privilege granted to you by Strava, not a right. Strava may modify or discontinue access to the Strava API at any time for any reason.
+
+Strava makes no warranties and Strava is not liable for your use of the Strava API.
+
+Strava may collect and use data related to your access to the Strava API.
+
+Strava may, but is under no obligation to, feature or promote your application.
+
+Your application must comply with the Strava API Agreement, the Strava API Policy, Strava's Terms of Service and Privacy Policy, and all applicable laws.
+
+Strava may conduct audits to ensure your compliance with this Agreement.
+
+PLEASE READ THE ENTIRE STRAVA API AGREEMENT BELOW AS IT GOVERNS YOUR USE OF THE STRAVA API.
+
+The Strava application programming interface, software developer kit, documentation, and any software, materials or data that Strava makes available to you, in its sole discretion, including the API Token as defined below (collectively, the “Strava API Materials”) are made available subject solely to the terms and conditions of this Agreement, which incorporate by reference the Strava Terms of Service, the Strava Privacy Policy (collectively, the “Service Terms”), the Strava API Brand Guidelines, and the Strava API Policy (the “Policy”). The Policy is incorporated by reference into, and forms part of, this Agreement. By accessing or using the Strava API Materials, you acknowledge that you have read, and agree to abide by, this Agreement including the Service Terms and the Policy. If you are unable or unwilling to comply with the current or any future version of this Agreement, you must immediately cease all use of the Strava API Materials.
+
+This Agreement will evolve as our business and platform expands and as creative developers dream up new applications for the Strava service and platform (“Strava Platform”), so check back often and make sure that you are familiar with the most current version of this Agreement whenever you engage in any use of the Strava API Materials. Any amendment to this Agreement will be effective upon our posting online of such updated terms. Your continued use of the Strava API Materials after such posting constitutes your consent to be bound by this Agreement, as updated and amended. Additionally, we may modify, remove or add portions of, or otherwise update the Strava API Materials in Strava’s sole discretion.
+
+1.  Registration
+
+1.1.  Once your registration is complete, you are authorized to use the Strava API Materials to develop products, sites, applications or services that are registered with us and are designed to interact with and enhance the Strava Platform (“Developer Applications”) subject to the restrictions, conditions and limitations in this Agreement and the Policy. Strava may require you to renew your registration from time-to-time or to provide additional information in order to maintain or increase your access to the Strava API Materials. To use the Strava API Materials you must use the approved developer key token provided by Strava (“API Token”). You may only use a single API Token for a single Developer Application.
+
+1.2.  You are solely responsible for the confidentiality of your API Token and may not share your API Token with any other developer, third party, or use it for more than one application or service. You agree to keep your registration, site, application or service information accurate, complete, and current for so long as you use the Strava API Materials. You are responsible for all use that occurs under your API Token, including any activities by you or your employees, contractors or agents, or any third party to whom you gave access in violation of this Agreement. If you believe an unauthorized person has gained access to your API Token we issue you, you must notify us at [email-redacted] as soon as possible but no later than twenty-four (24) hours after discovery.
+
+1.3.  Strava may contact you from time to time about your use of the Strava API Materials and/or API Token, and you agree to be responsive to inquiries from Strava.
+
+1.4.  If you are acquired or merged with a third party, you must give Strava notice within 45 days of such a transaction, in writing to [email-redacted].
+
+2.  Strava API Materials: Permitted Use and Limitations
+
+2.1.  Strava reserves the right at any time (and for any reason) to modify or discontinue, temporarily or permanently, the Strava API Materials, your use of the Strava API Materials, or any portion thereof with or without notice to you and without any form of compensation or consideration to you, regardless of the status of any of your Developer Applications. Further, you acknowledge that Strava has no obligation to ensure that an upgrade of the Strava API Materials or the Strava Platform will be compatible with existing or planned Developer Applications.
+
+2.2.  Strava reserves the right to revoke your API Token or terminate or limit any uses of the Strava API Materials if you violate this Agreement or we otherwise object to your use of the Strava API Materials. If you are unsure if a certain use of the Strava API Materials is permitted or if there is a use case you would like to see covered that is not currently supported by the API or this Agreement, please contact us at [email-redacted] to discuss your needs.
+
+2.3.  For purposes of this Agreement: 
+(i) “Strava Data” means all data you access or collect from the Strava API Materials, including without limitation Strava user personal and activity data and Strava segment and leaderboard data; 
+(ii) “Developer Application Data” means all other data you access or collect in connection with any of your Developer Applications; and 
+(iii) “Strava Data” and “Developer Application Data” are collectively defined as “Data.” 
+(iv) The General Data Protection Regulation (Regulation (EU) 2016/679) is referred to as the “GDPR,” and the GDPR as it forms part of the law of England and Wales, Scotland and Northern Ireland by virtue of section 3 of the European Union (Withdrawal) Act 2018 and as amended is referred to as the “UK GDPR.”
+
+3.  Platform Changes
+
+3.1.  Strava and its third-party providers may make improvements and/or changes in the data and functionality provided by the Strava API Materials at any time without notice. Such changes may include, but are not limited to, changes to the authentication and/or permissioning structure for end users who connect their Strava Data to your Developer Application.
+
+3.2.  Access to and use of the Strava API Materials and the Strava Platform are currently provided at no charge. Strava reserves the right to charge you for use of the Strava API Materials and access to the Strava Platform, and such updates may include such charges or updates to such charges, in the future at our discretion, including, without limitation, rated pricing and/or differentiated pricing for business users. We will provide you with notice in the event we decide to start charging for use.
+
+3.3.  If you do not agree to any such charges or updates, you must immediately cease use of the Strava API Materials.
+
+4.  Cancellation and Termination
+
+4.1.  You agree that Strava shall not be liable to you or to any third party for any access, use, modification, suspension or discontinuance of the Strava API Materials, Services or any portion thereof.
+
+4.2.  Strava may terminate your access to the Strava API Materials immediately if you do not comply with the Service Terms or this Agreement, or you are engaged in any activity that may expose Strava to risk or liability of any kind, or if we otherwise reasonably object to your use of the Strava API Materials. You agree that Strava shall not be liable to you or any third party for any costs, liabilities, losses, expenses, or damages that may result from termination of this Agreement or your access to the Strava API Materials.
+
+4.3.  The following Sections of this Agreement shall survive any termination or expiration: 4, 5, 9-14.
+
+4.4.  Upon termination of this Agreement, you must promptly cease using and permanently delete all the Strava API Materials, any links or access to the Strava Platform in your Developer Application, and all Strava Data provided hereunder and so certify in writing to Strava. Upon any termination of this Agreement, you must also inform users of your Developer Applications that your access to the Strava API Materials, the Strava Platform, and Strava Data have been discontinued.
+
+5.  Privacy
+
+5.1.  If for any reason you are unable to comply with any privacy requirement of the Service Terms you must promptly inform Strava and take reasonable and appropriate steps to remedy any non-compliance, or cease your access to the API and use of all Personal Data.
+
+5.2.  “Personal Data” means data that may be used, either alone or together with other information, to identify an individual user, including, without limitation, a user’s name, address, telephone number, username, email address, city and country, geolocation, unique identifiers, picture, or other similar information and includes personal data as defined in the GDPR and UK GDPR.
+
+6.  Security and Fraud Controls
+
+6.1.  Strava is responsible for protecting the security of Personal Data in its possession and will maintain commercially reasonable and appropriate administrative, technical, organisational and physical procedures to protect the Personal Data regarding your customers that is stored in Strava’s servers from unauthorized access and accidental loss or modification. However, Strava cannot guarantee that unauthorized third parties will never be able to defeat those measures or use such Personal Data for improper purposes. You acknowledge that if you provide Personal Data to Strava, you do so at your own risk. We recommend that you review our Privacy Policy, which will help you understand how we collect, use and safeguard the Personal Data you may provide to us.
+
+6.2.  Strava, or a third party agent working at our direction and subject to confidentiality obligations, shall be entitled to inspect and audit your Developer Applications for the purpose of verifying compliance with this Agreement. You agree to cooperate with audits by providing information and assistance as reasonably requested.
+
+6.3.  Your Developer Applications must comply with the other security controls laid out in the Policy.
+
+7.  Uploading
+
+7.1.  Your Developer Applications may include the option to upload activities or information to the Strava Platform in addition to other services other than the Strava Platform.
+
+8.  Use of Strava Trademarks
+
+8.1.  The rights granted in this Agreement do not include any general right to use the Strava name or any Strava trademarks, service marks or logos (the “Strava Marks”) with respect to your Developer Applications. Subject to your continued compliance with this Agreement and the Policy, you may use Strava Marks for certain limited purposes related to your Developer Application only as described in the Brand Guidelines, and as discussed in Section 4.1 of the Policy.
+
+9.  Intellectual Property Matters
+
+9.1.  You agree that Strava and its affiliates and licensors retain all worldwide right, title and interest in and to the Strava API Materials, Strava Data, Strava Marks and the Strava Platform, including, without limitation, all intellectual property rights therein. Any rights not expressly granted herein are prohibited and reserved.
+
+9.2.  You understand that Strava may currently or in the future develop products and services that may be similar to or compete with your Developer Applications. Nothing in this Agreement shall in any way restrict Strava from pursuing any business activities or from entering into any agreement with any other person or company.
+
+9.3.  In the event that you choose to provide Strava with feedback, suggestions or comments regarding the Strava API Materials or the Strava Platform, or your use thereof, you agree that Strava will be free to use, copy, modify, create derivative works, distribute, publicly display, publicly perform, grant sublicenses to, and otherwise exploit in any manner such feedback, suggestions or comments, for any and all purposes, with no obligation of any kind to you.
+
+9.4.  To facilitate your Strava API Materials integration, Strava may make certain SDK(s) and/or libraries available to you under a separate open source license. You agree that any Strava API integration facilitated with such open source SDK(s) and/or libraries remains subject to this Agreement.
+
+9.5.  You hereby grant to Strava a paid-up, royalty-free, non-exclusive, worldwide, transferable, sublicenseable, right and license, under all applicable intellectual property rights, for Strava’s marketing and promotional purposes to: (a) use, perform, make available, display to the public, reproduce your Developer Applications and your integration of the Strava API Materials and (b) use your name, likeness, or brand (which includes all your trademarks, service marks, logos, brand names, or trade names) (“Your Marks”) to the extent it is incorporated into your Developer Application. Following the termination of this Agreement and upon written request from you, Strava shall make commercially reasonable efforts, as determined in its sole discretion, to remove references to your Develop Application and any of Your Marks from the Strava website.
+
+10.  Confidentiality
+
+10.1.  You may be given access to certain information, data, materials, know-how, methodologies, documentation, and/or software relating to the Strava API Materials or the Strava Platform that is not generally known by the public ("Confidential Information"), which is confidential and proprietary to Strava. You agree to use the Confidential Information only for the purpose of using the Strava API Materials in accordance with this Agreement, and you agree to not disclose any of the Confidential Information to any third party without Strava’s prior written consent. You agree to protect the Confidential Information in the same manner that you would protect your own confidential and proprietary information but in no event using less than a reasonable degree of care.
+
+11.  Representation and Warranties
+
+11.1.  You represent and warrant to us that: (a) you are at least 18 years of age (b) you are eligible to register and use the Strava API Materials and have the right, power, and ability to enter into and perform under this Agreement; (c) the information you submit as part of your registration is current, accurate, and complete; (d) you will not engage in any unfair, deceptive, or abusive acts or practices when utilizing the Strava API Materials or the Strava Platform or when you market or sell the Developer Application; (e) you will fulfill all of your obligations to each customer to which you provide the Developer Applications and will resolve any customer dispute or complaint directly with your customer; (f) you and all transactions effected via the Strava API Materials or the Developer Applications will comply with all laws including federal, state, and local laws, rules, and regulations applicable to your business, including any applicable tax laws and regulations; g) you will not use the Strava API Materials, Strava Platform, Strava Data, or Developer Application, directly or indirectly, for any fraudulent or illegal undertaking, or in any manner so as to interfere with the normal operation of the Strava Platform; (h) you have all rights, including all copyright, trademark and other intellectual property rights, in the Developer Applications necessary to offer the Developer Applications to end users and to grant the license to Strava in this Agreement; (i) you comply with and will continue to comply with all applicable privacy and data protection laws; and (i) you have implemented and will maintain appropriate technical and organizational security measures in accordance with the Service Terms and applicable law.
+
+11.2.  THE STRAVA API MATERIALS, STRAVA DATA, STRAVA MARKS, AND STRAVA PLATFORM ARE PROVIDED “AS IS” AND ON AN “AS-AVAILABLE” BASIS, WITHOUT WARRANTY OF ANY KIND, AND STRAVA DISCLAIMS ALL WARRANTIES, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING, WITHOUT LIMITATION, WARRANTIES OF MERCHANTABILITY, NONINFRINGEMENT, FITNESS FOR A PARTICULAR PURPOSE, AND ANY WARRANTIES OR CONDITIONS ARISING OUT OF COURSE OF DEALING OR USAGE OF TRADE.
+
+11.3.  STRAVA MAKES NO WARRANTY (i) THAT THE STRAVA API MATERIALS WILL MEET YOUR OR YOUR CUSTOMERS’ REQUIREMENTS, OR THOSE OF YOUR DEVELOPER APPLICATION, (ii) THAT YOUR USE OF THE API WILL BE UNINTERRUPTED, TIMELY, SECURE, OR ERROR-FREE, AND/OR (iii) THAT ANY ERRORS IN THE STRAVA API MATERIALS WILL BE CORRECTED.
+
+11.4.  ANY MATERIAL DOWNLOADED OR OTHERWISE OBTAINED THROUGH THE STRAVA API MATERIALS IS DONE AT YOUR OWN DISCRETION AND RISK, AND YOU WILL BE SOLELY RESPONSIBLE FOR ANY DAMAGE TO YOUR OR OTHERS’ COMPUTER SYSTEM/NETWORK OR ANY LOSS OF DATA THAT MAY RESULT FROM THE DOWNLOAD OF ANY SUCH MATERIAL OR THE USE OF THE API.
+
+12.  Indemnity
+
+12.1.  You agree to indemnify, defend, and hold harmless Strava, its affiliates, and their officers, directors, employees, agents, licensors, users and partners from any and all claims, damages, losses, liabilities, actions, judgments, costs, and expenses (including, without limitation, reasonable attorneys’ fees) brought by a third party arising out of or in connection with: (a) your use of the Strava API Materials, Strava Data, Strava Platform, or the Strava Marks other than as expressly allowed by this Agreement; (b) your breach or alleged breach of any of the terms, conditions and representations under this Agreement; (c) your Developer Applications or business; or (d) your gross negligence or willful misconduct. You will control the defense and settlement of any claim subject to indemnification by you hereunder, provided that Strava may at any time elect to take over control of the defense and settlement of any claim. You may not settle or compromise any such claim without Strava’s prior written consent.
+
+13.  Limitation of Liability
+
+13.1.  IN NO EVENT WILL STRAVA OR ITS EMPLOYEES, AGENTS, USERS OR PARTNERS BE LIABLE TO YOU FOR ANY SPECIAL, INCIDENTAL, EXEMPLARY, PUNITIVE OR CONSEQUENTIAL DAMAGES (INCLUDING, WITHOUT LIMITATION, LOSS OF USE, DATA, BUSINESS OR PROFITS) ARISING OUT OF OR IN CONNECTION WITH THIS AGREEMENT OR YOUR USE OF THE STRAVA API MATERIALS, STRAVA MARKS, STRAVA DATA, OR STRAVA PLATFORM, WHETHER SUCH LIABILITY ARISES FROM ANY CLAIM BASED UPON CONTRACT, WARRANTY, TORT (INCLUDING, WITHOUT LIMITATION, NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, AND WHETHER OR NOT YOU HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH LOSS OR DAMAGE. THE FOREGOING LIMITATIONS WILL SURVIVE AND APPLY EVEN IF ANY LIMITED REMEDY SPECIFIED IN THIS AGREEMENT IS FOUND TO HAVE FAILED ITS ESSENTIAL PURPOSE.
+
+13.2.  STRAVA’S AGGREGATE LIABILITY UNDER THIS AGREEMENT WILL NOT EXCEED THE GREATER OF (i) THE FEES YOU PAID TO STRAVA FOR USE OF THE STRAVA API MATERIALS IN THE LAST YEAR OR (ii) ONE HUNDRED DOLLARS ($100).
+
+13.3.  Equitable Remedies. You acknowledge that your breach of this Agreement may cause irreparable harm to Strava. Accordingly, you agree that, in addition to any other remedies to which Strava may be legally entitled, Strava shall have the right to seek immediate injunctive relief in the event of a breach of such sections by you or any of your officers, employees, consultants or other agents.
+
+13.4.  Where pursuant to Article 82(4) of the GDPR or Article 82(4) of the UK GDPR, either party is found to be liable for the entire damage arising from a breach or breaches of the GDPR or UK GDPR relating to activities under the Service Terms, in order to ensure effective compensation of a one or more individuals, then the other party shall indemnify that party for that portion of the compensation attributable to any breaches of the GDPR or UK GDPR giving rise to the compensation for which it is responsible.
+
+14.  Miscellaneous
+
+14.1.  Applicable Law, Jurisdiction and Venue
+
+14.1.1.  Any dispute arising out of this Agreement shall be governed by California law and controlling U.S. federal law, without regard to conflict of law provisions thereof. You hereby consent and submit to the exclusive jurisdiction and venue in the state and federal courts of San Francisco County, California, U.S.A., for any legal proceedings related to the Strava API Materials, Strava Platform or this Agreement. If any party hereto brings any suit or action against another for relief, declaratory or otherwise, arising out of the Strava API Materials, Strava Platform or this Agreement, the prevailing party will have and recover against the other party, in addition to all court costs and disbursements, such sum as the court may adjudge to be reasonable attorneys’ fees. Except to the extent prohibited by applicable law, the parties agree that any claim or cause of action arising out of or related to use of the Strava API Materials, Strava Platform or this Agreement must be filed within one year after such claim or cause of action arose or be forever barred.
+
+14.1.2.  If you are based in the European Economic Area, then Irish law shall apply to this Agreement and the Irish courts shall have exclusive jurisdiction to hear disputes arising in relation to the Agreement. Despite this, your local laws in your European Union Member State may allow you to take legal action against Strava in your Member State and to invoke certain local laws against Strava.
+
+14.2.  Assignment
+
+14.2.1.  You may not assign, delegate or otherwise transfer your obligations under this Agreement without the prior written consent of Strava. Strava has the right, in its sole discretion, to transfer or assign all or any part of its rights under this Agreement. Any attempted assignment in violation of this paragraph is void.
+
+14.3.  English Language
+
+14.3.1.  This Agreement was drafted in English and the English-language version shall control in the event of a conflict with any translated version.
+
+14.4.  Modifications
+
+14.4.1.  As set forth above, all amendments to this Agreement will be in writing and effective upon our posting of such updated terms.
+
+14.5.  Entire Agreement; Headings
+
+14.5.1.  This Agreement constitutes the entire agreement among the parties with respect to the subject matter and supersedes and merges all prior proposals, understandings and contemporaneous communications. Headings are included in this Agreement for convenience only, and will not be considered in interpreting this Agreement.
+
+14.6.  Independent Contractors; Independent Controllers
+
+14.6.1.  This Agreement does not create or imply any partnership, agency or joint venture between the parties. For the purposes of Article 26 of the GDPR and Article 26 of the UK GDPR, the parties acknowledge that each party is a separate and independent controller of the personal data which it discloses or receives under this Agreement. The parties do not and will not process personal data which it discloses or receives under the Agreement as joint controllers. Each party shall be individually and separately responsible for complying with the obligations that apply to it as a controller under applicable data protection and privacy laws. It is agreed that where either party receives a request from a data subject in respect of personal data controlled by the other party, where relevant, the party receiving such request will direct the data subject to the other party, as applicable, in order to enable the other party to respond directly to the data subject’s request.
+
+14.7.  Waivers; Severability
+
+16.7.1.  No waiver by Strava of any right under this Agreement will be effective unless set forth in a writing authorized by Strava. Our delay or failure to assert any right or provision under this Agreement will not constitute a waiver of such right or provision. If any part of this Agreement is determined to be invalid or unenforceable by a court of competent jurisdiction, that provision will be enforced to the maximum extent permissible and the remaining provisions of this agreement will remain in full force and effect.
+
+14.8.  Notices; Legal Process
+
+14.8.1.  All notices to you in connection with this Agreement may be delivered via email at the email address provided to Strava by you. Strava may respond to and comply with any writ of attachment, lien, levy, subpoena, warrant, or other legal order (“Legal Process”) that we believe to be valid. We may deliver, subject to the terms of our Privacy Policy, any information as required under such Legal Process. Where permitted, we will use reasonable efforts to provide you notice of such Legal Process by sending a copy to the email address we have on file for you. Strava is not responsible for any losses, whether direct or indirect, that you may incur as a result of our complying with any Legal Process.
+
+14.9.  Government Use
+
+14.9.1.  If you are part of an agency, department or other entity of the U.S. Government, the use, duplication, reproduction, release, modification, disclosure or transfer of the Strava API Materials are restricted in accordance with the Federal Acquisition Regulations as applied to civilian agencies and the Defense Federal Acquisition Regulation Supplement as applied to military agencies. The API constitutes a “commercial item,” “commercial computer software,” and “commercial computer software documentation.”
+
+If you have any questions regarding this Agreement, please email [email-redacted].
+
+Features
+What’s New
+Stories
+Routes
+About
+
+Subscription
+Family Plan
+Bulk Subscriptions
+Student Discount
+Teacher, Military & Medical Discount (US Only)
+Send a Gift
+
+Support
+Business
+Partner Center
+Careers
+Press
+
+Privacy
+Cookie Policy
+Do Not Share My Personal Information
+Terms
+Log In
+Join for Free

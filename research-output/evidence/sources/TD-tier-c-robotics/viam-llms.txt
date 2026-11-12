@@ -1,0 +1,50 @@
+Source: https://docs.viam.com/llms.txt
+Accessed: 2026-11-11
+
+# Viam
+
+> Viam is a platform for building, operating, and managing robots and other machines. A machine runs viam-server, exposes its hardware and services through typed gRPC APIs, and can be discovered, observed, and operated from the CLI, from SDKs, or from an AI agent holding an API key.
+
+## Start here for agents
+
+- [Use Viam from an AI agent](https://docs.viam.com/build-apps/use-viam-from-an-agent/): What an AI agent needs to know to discover, observe, and operate a Viam machine safely: the model, the ways in, and the rules that keep a robot safe when the agent is driving.
+- [Drive a machine from the CLI](https://docs.viam.com/cli/drive-a-machine/): Discover, observe, and operate any Viam machine with the CLI alone: list its resources, read its cameras and sensors, plan motion, and stop it, with one key and no SDK code.
+- [CLI reference](https://docs.viam.com/cli/reference/): Complete command reference for the Viam CLI: every command, subcommand, flag, and alias.
+- [MCP server](https://docs.viam.com/reference/mcp/): Connect Claude or another MCP client to your Viam fleet, and reference the tools the Viam MCP server exposes.
+
+## Reference
+
+Two distinct reference types share this section: **API reference** (client library methods called from code, e.g. "Component APIs overview") and **configuration reference** (JSON used to configure a resource on a machine, e.g. "Services reference"). Match the entry to what you're actually doing.
+
+- [Component APIs overview](https://docs.viam.com/reference/apis/components/overview/): Scan every Viam component API and its methods at a glance, with links to each method's reference.
+- [Service APIs overview](https://docs.viam.com/reference/apis/services/overview/): Scan every Viam service API and its methods at a glance, with links to each method's reference.
+- [Manage machines with Viam's machine management API](https://docs.viam.com/reference/apis/robot/): How to use the machine API to monitor and manage your machines.
+- [Manage your fleet with Viam's fleet management API](https://docs.viam.com/reference/apis/fleet/): Use the fleet management API with Viam's client SDKs to manage your machine fleet with code.
+- [Built-in components](https://docs.viam.com/reference/components/): Configuration reference for Viam's built-in components: per-component models, attributes, and JSON templates.
+- [Services reference](https://docs.viam.com/reference/services/): Configuration reference for Viam built-in services: per-service models, attributes, and JSON templates.
+- [Full site structure (JSON)](https://docs.viam.com/sitetree.json): every page reachable from the site's main navigation, with hierarchy, always current. Pages hidden from navigation (`toc_hide: true`) are not included -- tutorials are the main case, listed in the catalog below instead. Anything else hidden from navigation isn't intended to be part of the site's structure. Each node has a `title`, and either a `path` (real content, safe to fetch) or a `redirect` (a signpost pointing to the page a human actually lands on -- skip fetching this one); an optional `description`; and an optional `children` array of nested nodes in this same shape.
+
+## Guides
+
+- [Set up your first machine](https://docs.viam.com/set-up-a-machine/first-machine/): Create a machine in the Viam app and install Viam on your compute device.
+- [Build apps](https://docs.viam.com/build-apps/overview/): Build software that uses a Viam SDK to talk to your machines and the Viam cloud, from web dashboards to long-running backend services.
+- [Motion planning](https://docs.viam.com/motion-planning/): Plan and execute collision-free movements for robot arms and gantries.
+- [Build and deploy modules](https://docs.viam.com/build-modules/overview/): Understand the two kinds of modules and how to extend your machine with custom hardware drivers and application logic.
+
+## Full text
+
+- [Full text of agent-first pages](https://docs.viam.com/llms-full.txt): the pages above flagged for full inclusion, concatenated in one file.
+
+## Tutorials
+
+- [Tutorials catalog](https://docs.viam.com/tutorials/catalog.md): worked examples and walkthroughs, several hosted outside this site. Not part of the site structure above, but useful if you're looking for an example that matches what you're building.
+
+## Markdown availability
+
+Every published page on this site also serves a Markdown version, available two ways: drop the trailing slash from the page's URL and append `.md` (for example, `https://docs.viam.com/reference/components/board/` is also available as `https://docs.viam.com/reference/components/board.md`), or request the canonical URL with an `Accept: text/markdown` header and get the Markdown version back at that same URL. Both work uniformly for every page, including section landing pages.
+
+Links inside these Markdown files are always absolute, never relative, so they resolve correctly regardless of where you fetched the page from.
+
+Most page content converts cleanly to Markdown syntax (headings, links, lists, bold, code). A minority of pages retain some embedded raw HTML for specific UI widgets (tabbed instructions nested inside step-by-step tables, glossary term tooltips, images, and card grids) rather than force-converting them — this HTML is valid inside a Markdown document and reads fine for both humans and machine readers; it just isn't pure Markdown syntax in those specific spots.
+
+Code samples are unaffected by this: they're always in real fenced code blocks with the correct language tag and exact original whitespace, never flattened or re-escaped.

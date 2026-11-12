@@ -1,0 +1,9 @@
+time="2026-11-10T20:04:18-05:00" level=info msg="Terminal is not available, proceeding without opening an editor"
+time="2026-11-10T20:04:18-05:00" level=info msg="Attempting to download the image" arch=aarch64 digest="sha512:5d3ecec46fd29605db4084388a1e2eb82fd19a80202898f962840ea73793261de721e505e3877c829ae86c37fdd2f6c205b0b3b1337a89d0d4b98d9081adc0c2" location="https://cloud.debian.org/images/cloud/trixie/20261103-2651/debian-13-genericcloud-arm64-20261103-2651.qcow2"
+Downloading the image (debian-13-genericcloud-arm64-20261103-2651.qcow2)
+time="2026-11-10T20:04:33-05:00" level=info msg="Converting qcow2 image to raw sparse format in cache: \"<home>/Library/Caches/lima/download/by-url-sha256/248bc726ddcf844a0a70fa7343fe4ec5de3f715aacc000f66414b8452554688e/imgconv/raw\""
+time="2026-11-10T20:04:36-05:00" level=info msg="Downloaded the image from `https://cloud.debian.org/images/cloud/trixie/20261103-2651/debian-13-genericcloud-arm64-20261103-2651.qcow2`"
+time="2026-11-10T20:04:36-05:00" level=info msg="Resize instance w5a's disk from 3GiB to 20GiB"
+time="2026-11-10T20:04:36-05:00" level=info msg="Attempting to download the nerdctl archive" arch=aarch64 digest="sha256:fe0ef0e9840ee8932640e6058f84b7fa98050f9726e44af44883a5b804ae830e" location="https://github.com/containerd/nerdctl/releases/download/v2.4.2/nerdctl-full-2.4.2-linux-arm64.tar.gz"
+time="2026-11-10T20:04:48-05:00" level=info msg="Using cache `<home>/Library/Caches/lima/download/by-url-sha256/975f12320da58d431eba0c59caf918381721d37c81297f52a261383a54420186/data`"
+time="2026-11-10T20:04:48-05:00" level=info msg="Run `limactl start w5a` to start the instance."

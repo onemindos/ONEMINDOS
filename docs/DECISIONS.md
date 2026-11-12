@@ -42,3 +42,24 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 **Date:** 2026-11-10 · **Decided by:** Zeus
 - Drafts are in [`applications/`](applications/). Zeus submits them himself.
 - **Why:** Jetson/GPU discounts and technical access for the Robotics, Pro and Omni tiers, and early access to the Model Hardware Standard for AI-driven robots and IoT.
+
+## D-007 · Base OS: Debian 13 is the shipping base (Z-38 = b)
+**Date:** 2026-11-11 · **Decided by:** Zeus
+> "Yes, lock Debian."
+- **Shipping base for the OneMind image:** Debian 13 "trixie": Debian's kernel on x86_64 and arm64, Raspberry Pi's kernel on Pi 5. A/B updates with RAUC, k3s, restic and E1–E10 are unchanged.
+- **Overrides** the research's frozen-protocol result (Ubuntu 26.04 + RAUC: 65 vs bootc 64 vs Debian 63, a statistical tie, conditional on Canonical's permission). Logged in `research-output/evidence/scorecard-weights.md` §8 and `26` Z-38.
+- **Other flavors:**
+  - Ubuntu 26.04 stays a light CI hedge.
+  - Jetson stays on NVIDIA L4T Ubuntu 24.04 (dev kits; Z-01 still needed; Yocto meta-tegra is the test to remove Ubuntu).
+  - GPU servers may use Ubuntu + RKE2 after Z-01.
+  - Industrial = AlmaLinux/RHEL bootc in year 2.
+  - Machines OneMind doesn't own get OneMind installed on top of their unmodified OS.
+- **Why:**
+  - it ships without anyone's permission
+  - it beats Ubuntu 6–5 head-to-head on the rows that hit the first boxes (Pi 5, x86 mini PC)
+  - it is the base of the proven competitors that ship their own image (umbrelOS, StartOS, Proxmox, TrueNAS)
+  - every lab ran on it
+  - it costs about $40 vs $120 per device at 10k units
+  - it cannot be revoked: "the operating system for sovereignty"
+- **Reopen only if:** bootc passes on a real Pi 5 (W2-HW-3), or Canonical offers a written, non-revocable, affordable agreement.
+- Explained in [`learning/03-base-os-debian-vs-ubuntu.md`](learning/03-base-os-debian-vs-ubuntu.md) and [`learning/05-official-route-and-why-not-fedora-arch.md`](learning/05-official-route-and-why-not-fedora-arch.md).

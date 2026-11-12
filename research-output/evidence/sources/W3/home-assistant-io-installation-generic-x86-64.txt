@@ -1,0 +1,343 @@
+
+ Generic x86-64 - Home Assistant
+ 2026.11.1
+ Documentation 
+ Installation
+ Automations
+ Dashboards
+ Voice assistants
+ Device organization
+ Energy management
+ Templating
+ Configuration using the YAML file
+ Our hardware 
+ Home Assistant Green
+ Connect ZBT-2
+ Connect ZWA-2
+ Voice Preview Edition
+ 👀
+ Integrations
+ Blog
+ Need help?
+ What the Heck?!
+ Get started
+ On this page 
+Install Home Assistant Operating System
+Configure the BIOS on your x86-64 hardware
+Write HAOS onto your x86-64 hardware
+Method 1: Installing HAOS via Ubuntu booting from a USB flash drive
+Method 2: Installing HAOS directly from a boot medium
+Start up your Generic x86-64
+Install Home Assistant Container
+Platform installation
+Restart Home Assistant
+Allow time for a clean shutdown
+Docker compose
+Exposing devices
+Optimizations
+ Home
+ ▸ Installation
+ Generic x86-64
+ Install Home Assistant Operating System 
+Follow this guide if you want to get started with Home Assistant easily or if you have little to no Linux experience.
+ Important
+Prerequisites
+This guide assumes that you have a dedicated Generic x86-64 PC to exclusively run the Home Assistant Operating SystemHome Assistant OS, the Home Assistant Operating System, is an embedded, minimalistic, operating system designed to run the Home Assistant ecosystem on single board computers (like the Raspberry Pi) or Virtual Machines. It includes Home Assistant Core, the Home Assistant Supervisor, and supports apps. Home Assistant Supervisor keeps it up to date, removing the need for you to manage an operating system. Home Assistant Operating System is the recommended installation type for most users..
+This is typically an Intel or AMD-based system.
+The system must be 64-bit capable and be able to boot using UEFI.
+Most systems produced in the last 10 years support the UEFI boot mode.
+The boot medium must support 512-byte logical sectors (512n or 512e).
+Most drives support this. However, some NVMe SSDs and hard drives use native 4K sectors (4Kn) only. Home Assistant OS cannot boot from these, so avoid them for your boot medium.
+Summary
+First, you will need to configure your Generic x86-64 PC to use UEFI boot mode.
+Then, write the Home Assistant Operating SystemHome Assistant OS, the Home Assistant Operating System, is an embedded, minimalistic, operating system designed to run the Home Assistant ecosystem on single board computers (like the Raspberry Pi) or Virtual Machines. It includes Home Assistant Core, the Home Assistant Supervisor, and supports apps. Home Assistant Supervisor keeps it up to date, removing the need for you to manage an operating system. Home Assistant Operating System is the recommended installation type for most users. disk image to your boot medium.
+If you only need the image, download the image.
+Configure the BIOS on your x86-64 hardware 
+To boot Home Assistant OS, the BIOS needs to have UEFI boot mode enabled and Secure Boot disabled. The following screenshots are from a 7th generation Intel NUC system. The BIOS menu will likely look different on your system. However, the options should still be present and named similarly.
+To enter the BIOS, start up your x86-64 hardware and repeatedly press the F2 key (on some systems this might be Del, F1 or F10).
+Make sure the UEFI Boot mode is enabled.
+Disable Secure Boot.
+Save your changes and exit.
+The BIOS configuration is now complete.
+Write HAOS onto your x86-64 hardware 
+Next, you need to write the Home Assistant Operating System image to the boot medium, which is the medium your x86-64 hardware will boot from when it is running Home Assistant.
+ Note
+HAOS has no integrated installer that writes the image automatically. You will write it manually using either the Disks utility from Ubuntu or Balena Etcher.
+Typically, an internal medium like S-ATA hard disk, S-ATA SSD, M.2 SSD, or a non-removable eMMC is used for the x86-64 boot medium. Alternatively, an external medium can be used such as a USB SDD, though this is not recommended.
+To write the HAOS image to the boot medium on your x86-64 hardware, there are 2 different methods:
+Method 1 (recommended): Boot Ubuntu from a USB flash drive and install the Home Assistant Operating SystemHome Assistant OS, the Home Assistant Operating System, is an embedded, minimalistic, operating system designed to run the Home Assistant ecosystem on single board computers (like the Raspberry Pi) or Virtual Machines. It includes Home Assistant Core, the Home Assistant Supervisor, and supports apps. Home Assistant Supervisor keeps it up to date, removing the need for you to manage an operating system. Home Assistant Operating System is the recommended installation type for most users. from there. It also works on laptops and PCs with internal hard disks.
+Method 2: With this method, you write the Home Assistant Operating disk image directly onto a boot medium from your regular computer. The steps are a bit more complex. If you have non-removable internal mediums (for example because you are using a laptop) or do not have the necessary adapter (for example an USB to S-ATA adapter) use method 1 instead.
+Method 1: Installing HAOS via Ubuntu booting from a USB flash drive 
+Required material 
+Computer
+The target x86-64 hardware, on which you want to install the Home Assistant Operating SystemHome Assistant OS, the Home Assistant Operating System, is an embedded, minimalistic, operating system designed to run the Home Assistant ecosystem on single board computers (like the Raspberry Pi) or Virtual Machines. It includes Home Assistant Core, the Home Assistant Supervisor, and supports apps. Home Assistant Supervisor keeps it up to date, removing the need for you to manage an operating system. Home Assistant Operating System is the recommended installation type for most users. (HAOS)
+USB flash drive (USB thumb drive is sufficient, it should be at least 8 GB in size)
+Internet connection
+To install HAOS via Ubuntu from a USB flash drive 
+Notice: This procedure will write the Home Assistant Operating SystemHome Assistant OS, the Home Assistant Operating System, is an embedded, minimalistic, operating system designed to run the Home Assistant ecosystem on single board computers (like the Raspberry Pi) or Virtual Machines. It includes Home Assistant Core, the Home Assistant Supervisor, and supports apps. Home Assistant Supervisor keeps it up to date, removing the need for you to manage an operating system. Home Assistant Operating System is the recommended installation type for most users. onto your device.
+This means you will lose all the data as well as the previously installed operating system.
+Back up your data before carrying out this procedure.
+Create a live operating system on a USB flash drive:
+Follow the Ubuntu Desktop instructions on writing an Ubuntu Desktop iso file onto a USB device.
+Insert the USB flash drive into the system on which you want to run Home Assistant.
+Boot the live operating system.
+You might need to adjust boot order or use F10 (might be a different F-key depending on the BIOS) to select the USB flash drive as boot device.
+When prompted, make sure to select Try Ubuntu. This runs Ubuntu on the USB flash device.
+The system then starts Ubuntu.
+Connect your system to your network and make sure it has internet access.
+In Ubuntu, open a browser and open the current documentation page, so you can follow the steps.
+From there, download the image.
+In Ubuntu, in the bottom left corner, select Show Applications.
+In the applications, search and open Disks and start restoring the HAOS image:
+In Disks, on the left side, select the internal disk device you want to install HAOS onto.
+On top of the screen, select the three dots menu and select Restore Disk Image….
+Select the image you just downloaded.
+Select Start Restoring….
+Confirm by selecting Restore.
+If you are getting an Error unmounting filesystem error message, stating that the target is busy:
+Most likely, you are running Ubuntu on your internal disk. Instead, you need to run it on your stick.
+Go back to step 3 and during start up, make sure you select Try Ubuntu (and NOT Install Ubuntu).
+Another issue may be that live Ubuntu is using the Swap partition of an existing Linux installation.
+If you see “Swap” listed as a partition on the drive you’re going to install HAOS, just select the Swap partition, then press the stop button to unmount it and try the restore operation again.
+In the partitions overview, you should now see the restore operation in progress.
+The Home Assistant Operating System is now being installed on your system.
+Once the Home Assistant Operating System is installed, shut down the system.
+Once Ubuntu has been shut down, remove the USB flash drive (Ubuntu will inform you when this is the case).
+Your Home Assistant server is now set up and you can start using it.
+To use it, proceed as described under start up your generic x86-64.
+Method 2: Installing HAOS directly from a boot medium 
+ Note
+Use this method only if Method 1 does not work for you.
+Required material 
+Computer
+The target x86-64 hardware, on which you want to install the Home Assistant Operating SystemHome Assistant OS, the Home Assistant Operating System, is an embedded, minimalistic, operating system designed to run the Home Assistant ecosystem on single board computers (like the Raspberry Pi) or Virtual Machines. It includes Home Assistant Core, the Home Assistant Supervisor, and supports apps. Home Assistant Supervisor keeps it up to date, removing the need for you to manage an operating system. Home Assistant Operating System is the recommended installation type for most users. (HAOS)
+Boot medium
+Internet connection
+Write the image to your boot medium 
+Notice: This procedure will write the Home Assistant Operating SystemHome Assistant OS, the Home Assistant Operating System, is an embedded, minimalistic, operating system designed to run the Home Assistant ecosystem on single board computers (like the Raspberry Pi) or Virtual Machines. It includes Home Assistant Core, the Home Assistant Supervisor, and supports apps. Home Assistant Supervisor keeps it up to date, removing the need for you to manage an operating system. Home Assistant Operating System is the recommended installation type for most users. onto your device.
+This means you will lose all the data as well as the previously installed operating system.
+Back up your data before continuing with the next step.
+Attach the Home Assistant boot medium (storage device) to your computer.
+Download and start Balena Etcher. You may need to run it with administrator privileges on Windows.
+Download the image to your computer.
+Copy the URL for the image.
+If there are multiple links below, make sure to select the correct link for your version of Generic x86-64.
+https://github.com/home-assistant/operating-system/releases/download/18.4/haos_generic-x86-64-18.4.img.xz
+Select and copy the URL or use the “copy” button that appears when you hover it.
+Paste the URL into your browser to start the download.
+Extract the file you just downloaded.
+Select Flash from file and select the image you just extracted.
+Do not use Flash from URL. It does not work on some systems.
+Select target.
+Select the boot medium (storage device) you want to use for your installation.
+Select Flash! to start writing the image.
+If the operation fails, decompress the .xz file and try again.
+When Balena Etcher has finished writing the image, you will see a confirmation.
+Start up your Generic x86-64 
+If you used method 1 for the installation, make sure the USB flash drive is removed from the system.
+If you used method 2 for the installation, install the boot medium into your x86-64 hardware.
+Plug in an Ethernet cable that is connected to the network and to the internet.
+Note: Internet is required because the newly installed Home Assistant OS does not contain all Home Assistant components yet. It downloads the latest version of Home Assistant Core on first start.
+Power the system on. If you have a screen connected to the Generic x86-64 system, after a minute or so the Home Assistant welcome banner will appear in the console.
+ Note
+If the machine complains about not being able to find a bootable medium, you might need to specify the EFI entry in your BIOS.
+This can be accomplished either by using a live operating system (for example, Ubuntu) and running the following command (replace <drivename> with the appropriate drive name assigned by Linux, typically this will be sda or nvme0n1 on NVMe SSDs):
+efibootmgr --create --disk /dev/<drivename> --part 1 --label "HAOS" \
+ --loader '\EFI\BOOT\bootx64.efi'
+The efibootmgr command will only work if you booted the live operating system in UEFI mode, so be sure to boot from your USB flash drive in this mode.
+Depending on your privileges on the prompt, you may need to run efibootmgr using sudo.
+Or else, the BIOS might provide you with a tool to add boot options, there you can specify the path to the EFI file:
+\EFI\BOOT\bootx64.efi
+In the browser of your desktop system, within a few minutes you will be able to reach your new Home Assistant at homeassistant.local.
+ Note
+If you are running an older Windows version or have a stricter network configuration, you might need to access Home Assistant at homeassistant or http://X.X.X.X (replace X.X.X.X with your Generic x86-64’s IP address).
+If Home Assistant does not open without a port number, try homeassistant.local:8123, homeassistant:8123, or http://X.X.X.X:8123.
+If port 80 is already in use, for example, if you use a reverse proxy, Home Assistant uses port 8123.
+With the Home Assistant Operating System installed and accessible, you can continue with onboarding.
+   Onboarding
+Install Home Assistant Container 
+These below instructions are for an installation of Home Assistant ContainerHome Assistant Container is a standalone container-based installation of Home Assistant Core. Any OCI compatible runtime can be used, but the documentation focus is on Docker. [Learn more] running in your own container environment, which you manage yourself. Any OCI compatible runtime can be used, however this guide will focus on installing it with Docker.
+ Note
+This installation type does not have access to apps. If you want to use apps, you need to use another installation type. The recommended type is Home Assistant Operating SystemHome Assistant OS, the Home Assistant Operating System, is an embedded, minimalistic, operating system designed to run the Home Assistant ecosystem on single board computers (like the Raspberry Pi) or Virtual Machines. It includes Home Assistant Core, the Home Assistant Supervisor, and supports apps. Home Assistant Supervisor keeps it up to date, removing the need for you to manage an operating system. Home Assistant Operating System is the recommended installation type for most users.. Checkout the overview table of installation types to see the differences.
+ Important
+Prerequisites
+This guide assumes that you already have an operating system setup and a container runtime installed (like Docker).
+If you are using Docker, you need Docker Engine 23.0.0 or later. Docker Desktop will not work; you must use Docker Engine.
+Platform installation 
+Installation with Docker is straightforward. Adjust the following command so that:
+/PATH_TO_YOUR_CONFIG points at the folder where you want to store your configuration and run it. Make sure that you keep the :/config part.
+MY_TIME_ZONE is a tz database name, like TZ=America/Los_Angeles.
+D-Bus is optional but required if you plan to use the Bluetooth integration.
+Install
+Update
+docker run -d \
+ --name homeassistant \
+ --privileged \
+ --restart=unless-stopped \
+ -e TZ=MY_TIME_ZONE \
+ -v /PATH_TO_YOUR_CONFIG:/config \
+ -v /run/dbus:/run/dbus:ro \
+ --network=host \
+ ghcr.io/home-assistant/home-assistant:stable
+# if this returns "Image is up to date" then you can stop here
+docker pull ghcr.io/home-assistant/home-assistant:stable
+# stop the running container
+docker stop homeassistant
+# remove it from Docker's list of containers
+docker rm homeassistant
+# finally, start a new one
+docker run -d \
+ --name homeassistant \
+ --restart=unless-stopped \
+ --privileged \
+ -e TZ=MY_TIME_ZONE \
+ -v /PATH_TO_YOUR_CONFIG:/config \
+ -v /run/dbus:/run/dbus:ro \
+ --network=host \
+ ghcr.io/home-assistant/home-assistant:stable
+Once the Home Assistant Container is running Home Assistant should be accessible using http://<host>:8123 (replace with the hostname or IP of the system). You can continue with onboarding.
+   Onboarding
+Restart Home Assistant 
+If you change the configuration, you have to restart the server. To do that you have 3 options.
+Go to Settings > System. In the top-right corner, select the power icon, select Restart Home Assistant, and then select Restart.
+Go to Settings > Tools > Actions, select the Restart Home Assistant action (homeassistant.restart), and then select Perform action.
+Restart it from a terminal.
+Docker CLI
+Docker Compose
+docker restart homeassistant
+docker compose restart
+For other ways to apply changes, such as a quick reload without a restart, refer to Reloading, restarting, rebooting, and shutting down.
+Allow time for a clean shutdown 
+When the container is stopped or restarted, Docker sends SIGTERM and then forcibly stops the container after a timeout, which is 10 seconds by default. Home Assistant can need longer than that to close its database. If it is stopped before it has finished, the next start logs warnings such as:
+Ended unfinished session
+The system could not validate that the sqlite3 database at //config/home-assistant_v2.db was shutdown cleanly
+To give the shutdown more time, increase the timeout:
+Docker CLI
+Docker Compose
+docker run ... --stop-timeout 60 ...
+services:
+ homeassistant:
+ ...
+ stop_grace_period: 60s
+The timeout is an upper limit, not a delay: Docker continues as soon as Home Assistant has exited.
+ Note
+This setting is applied when the container is created, so restarting an existing container keeps the timeout it was created with. After changing the value in compose.yaml, docker compose up -d recreates the container, because its configuration has changed. If the container is not recreated, use docker compose up -d --force-recreate. With the Docker CLI, remove the container and run it again with the new option.
+Docker compose 
+ Tip
+docker compose should already be installed on your system. If not, you can manually install it.
+As the Docker command becomes more complex, switching to docker compose can be preferable and support automatically restarting on failure or system restart. Create a compose.yaml file:
+ services:
+ homeassistant:
+ container_name: homeassistant
+ image: "ghcr.io/home-assistant/home-assistant:stable"
+ volumes:
+ - /PATH_TO_YOUR_CONFIG:/config
+ - /etc/localtime:/etc/localtime:ro
+ - /run/dbus:/run/dbus:ro
+ restart: unless-stopped
+ stop_grace_period: 60s
+ privileged: true
+ network_mode: host
+ environment:
+ TZ: Europe/Amsterdam
+Start it by running:
+docker compose up -d
+Once the Home Assistant Container is running, Home Assistant should be accessible using http://<host>:8123 (replace with the hostname or IP of the system). You can continue with onboarding.
+   Onboarding
+Exposing devices 
+In order to use Zigbee or other integrations that require access to devices, you need to map the appropriate device into the container. Ensure the user that is running the container has the correct privileges to access the /dev/tty* file, then add the device mapping to your container instructions:
+Docker CLI
+Docker Compose
+docker run ... --device /dev/ttyUSB0:/dev/ttyUSB0 ...
+services:
+ homeassistant:
+ ...
+ devices:
+ - /dev/ttyUSB0:/dev/ttyUSB0
+Optimizations 
+The Home Assistant Container is using an alternative memory allocation library jemalloc for better memory management and Python runtime speedup.
+As the jemalloc configuration used can cause issues on certain hardware featuring a page size larger than 4K (like some specific ARM64-based SoCs), it can be disabled by passing the environment variable DISABLE_JEMALLOC with any value, for example:
+Docker CLI
+Docker Compose
+docker run ... -e "DISABLE_JEMALLOC=true" ...
+services:
+ homeassistant:
+ ...
+ environment:
+ DISABLE_JEMALLOC: true
+The error message <jemalloc>: Unsupported system page size is one known indicator.
+ Help us improve our documentation
+ Was this page helpful?
+ Yes
+ No
+ Suggest an edit to this page, or provide/view feedback for this page.
+ Edit
+ Provide feedback
+ View given feedback
+ Getting started
+ Installation 
+ Home Assistant Green
+ Home Assistant Yellow
+ Raspberry Pi 
+ ODROID 
+ Generic x86-64 
+ Linux 
+ macOS 
+ Windows 
+ Other systems 
+ Troubleshooting 
+ Onboarding 
+ Concepts and terminology 
+ Editing the dashboard 
+ Adding integrations 
+ Automating devices 
+ Presence detection 
+ Join the community 
+ Next steps 
+ On this page
+Install Home Assistant Operating System
+Configure the BIOS on your x86-64 hardware
+Write HAOS onto your x86-64 hardware
+Method 1: Installing HAOS via Ubuntu booting from a USB flash drive
+Method 2: Installing HAOS directly from a boot medium
+Start up your Generic x86-64
+Install Home Assistant Container
+Platform installation
+Restart Home Assistant
+Allow time for a clean shutdown
+Docker compose
+Exposing devices
+Optimizations
+ Back to top
+ Home Assistant is a project from the Open Home Foundation.
+ Join us and contribute!
+ GitHub repo
+ Contributors website
+ Community Forum
+ Creator Network
+ Works with Home Assistant
+ Our community
+ Reporting issues
+ System status
+ Integration Alerts
+ Security Alerts
+ System Status
+ Companion apps
+ iOS and Apple devices
+ Android and Wear OS
+ ...and more!
+ Support us
+ Merch store
+ Home Assistant Cloud
+ Governance
+ Privacy Notices
+ Contributor License Agreement
+ Terms of Service
+ Code of Conduct
+ License
+ Follow us
+ Sign up for our newsletter
+ For partnership inquiries please check out Works with Home Assistant. For media, email our team. For other questions, you can contact support (No technical support!)
+ This website uses privacy-first analytics to help us improve the site. You can view all data in our public dashboard.
+ Website powered by Jekyll
+ Originally based on the Oscailte theme

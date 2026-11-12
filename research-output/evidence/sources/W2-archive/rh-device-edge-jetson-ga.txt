@@ -1,0 +1,318 @@
+ 
+ Red Hat Device Edge now available to run on NVIDIA Jetson Orin 
+ Skip to content Navigation 
+ Red Hat 
+ Menu 
+ Explore Red Hat 
+ AI
+ Overview
+ AI news
+ Technical blog
+ Live AI events
+ Inference explained
+ See our approach 
+ Products
+ Red Hat AI Enterprise
+ Red Hat AI Inference
+ Red Hat OpenShift AI
+ Explore Red Hat AI 
+ Engage & learn
+ Learning hub
+ AI topics
+ AI partners
+ Services for AI
+ Hybrid cloud
+ Platform solutions
+ Artificial intelligence Build, deploy, and monitor AI models and apps.
+ Linux standardization Get consistency across operating environments.
+ Application development Simplify the way you build, deploy, and manage apps.
+ Automation Scale automation and unite tech, teams, and environments.
+ Use cases
+ Virtualization Modernize operations for virtualized and containerized workloads.
+ Digital sovereignty Control and protect critical infrastructure. 
+ Security Code, build, deploy, and monitor security-focused software.
+ Edge computing Deploy workloads closer to the source with edge technology.
+ Explore solutions 
+ Solutions by industry
+ Automotive
+ Financial services
+ Healthcare
+ Industrial sector
+ Media and entertainment
+ Public sector (Global)
+ Public sector (U.S.)
+ Telecommunications
+ Discover cloud technologies 
+ Learn how to use our cloud products and solutions at your own pace in the Red Hat® Hybrid Cloud Console. 
+ Products
+ Platforms
+ Red Hat AI icon 
+ artificial intelligence, Red Hat Enterprise Linux AI, Red Hat OpenShift AI, RHEL AI, machine learning
+ Red Hat AI Develop and deploy AI solutions across the hybrid cloud.
+ Red Hat Enterprise Linux icon 
+ RHEL, Linux platforms, CentOS
+ Red Hat Enterprise Linux Support hybrid cloud innovation on a flexible operating system.
+ Red Hat OpenShift icon 
+ Cloud, Containers, Kubernetes
+ Red Hat OpenShift Build, modernize, and deploy apps at scale.
+ New version 
+ Red Hat Ansible Automation Platform icon 
+ Management, edge
+ Red Hat Ansible Automation Platform Implement enterprise-wide automation.
+ Featured
+ Lightwell
+ Red Hat AI Enterprise
+ Red Hat OpenShift Virtualization Engine
+ Red Hat Desktop
+ See all products 
+ Try & buy
+ Start a trial
+ Buy online
+ Integrate with major cloud providers
+ Services & support
+ Consulting
+ Product support
+ Services for AI
+ Technical Account Management
+ Explore services 
+ Training
+ Training & certification
+ Courses and exams
+ Certifications
+ Skills assessments
+ Red Hat Academy
+ Learning subscription
+ Explore training 
+ Featured
+ Red Hat Certified System Administrator exam
+ Red Hat System Administration I
+ Red Hat Learning Subscription trial (No cost)
+ Red Hat Certified Engineer exam
+ Red Hat Certified OpenShift Administrator exam
+ Services
+ Consulting
+ Partner training
+ Product support
+ Services for AI
+ Technical Account Management
+ Learn
+ Build your skills
+ Documentation
+ Hands-on labs
+ Red Hat learning hub
+ Interactive demos
+ Training and certification
+ More ways to learn
+ Blog
+ Events and webinars
+ Podcasts and video series
+ Red Hat TV
+ Resource library
+ For developers 
+ Discover resources and tools to help you build, deliver, and manage cloud-native applications and services.
+ Partners
+ For customers
+ Our partners
+ Red Hat Ecosystem Catalog
+ Find a partner 
+ For partners
+ Partner Connect
+ Become a partner
+ Training
+ Support
+ Access the partner portal 
+ Build solutions powered by trusted partners 
+ Find solutions from our collaborative community of experts and technologies in the Red Hat® Ecosystem Catalog.
+ Console 
+ Docs 
+ Support 
+ Search
+ × 
+ I'd like to:
+ Start a trial 
+ Buy a learning subscription 
+ Manage subscriptions 
+ Contact sales 
+ Contact customer service 
+ See Red Hat jobs 
+ Help me find:
+ Documentation 
+ Developer resources 
+ Tech topics 
+ Architecture center 
+ Security updates 
+ Customer support 
+ I want to learn more about:
+ AI 
+ Application modernization 
+ Automation 
+ Cloud-native applications 
+ Linux 
+ Virtualization 
+ New For you
+ Recommended
+ We'll recommend resources you may like as you browse. Try these suggestions for now. 
+ Product trial center 
+ Courses and exams 
+ All products 
+ Tech topics 
+ Resource library 
+ Log in Get more with a Red Hat account
+ Console access
+ Event registration
+ Training & trials
+ World-class support
+ Explore more account benefits Log in or register 
+ A subscription may be required for some services. 
+ Change page language 简体中文 English Français Deutsch Italiano 日本語 한국어 Português Español 
+ Contact us 
+ [[name]]
+ Edit avatar 
+ Login: [[login]] 
+ Account number: [[account_number]] 
+ [[email]]
+ Change page language 简体中文 English Français Deutsch Italiano 日本語 한국어 Português Español 
+ Log out 
+ Red Hat Blog 
+ By product 
+ Lightwell 
+ Red Hat AI 
+ Red Hat Ansible Automation Platform 
+ Red Hat Enterprise Linux 
+ Red Hat OpenShift 
+ More products 
+ By topic 
+ AI 
+ Virtualization 
+ Digital sovereignty 
+ Applications 
+ Automation 
+ Cloud services 
+ Edge computing 
+ Infrastructure 
+ Open hybrid cloud 
+ Original shows 
+ Security 
+ All topics 
+ Podcasts 
+ Technically Speaking with Chris Wright 
+ Code Comments 
+ Command Line Heroes 
+ Compiler 
+ More blogs 
+ Red Hat Developer blog 
+ Red Hat Device Edge now available to run on NVIDIA Jetson Orin 
+ May 12, 2026 2 -minute read Edge computing , Linux , Partners 
+ Kelly Switt
+ Senior Director, Intelligent Edge Global Business Development Lead
+ Luke Thompson
+ Senior Product Manager, Edge Computing, Red Hat
+ Share
+ Subscribe to RSS 
+ Back to all posts 
+ As organizations continue to leverage edge computing for AI workloads running near the source of data generation, Red Hat aims to deliver the enterprise support that companies need to capture the full potential of AI operations at the edge. Following our successful technology preview, we are thrilled to announce that Red Hat Device Edge is now available on  NVIDIA Jetson Orin , aligning with the release of Red Hat Enterprise Linux 9.8.
+ During the tech preview phase, we saw tremendous interest from customers wanting to extend AI capabilities to the far edge, whether they are leveraging AI for advanced robotics and autonomous drone applications, or running lightweight AI apps in industrial settings. Now, organizations can confidently move these critical workloads into production on a consistent, flexible, and security-focused platform that enables faster data delivery and drives new innovations at the edge.
+ What general availability means for you
+ With this release, Red Hat and NVIDIA are collaborating to activate edge AI use cases with a standardized, enterprise-ready foundation, delivered through a pre-built bootable container image that accelerates time-to-deployment.
+ With Red Hat Enterprise Linux (RHEL) running on the NVIDIA Jetpack stack for NVIDIA Jetson Orin, we are delivering:
+ Enterprise grade support for NVIDIA Jetson Orin : RHEL incorporates security from the start, helping organizations rapidly identify and mitigate Common Vulnerabilities and Exposures (CVE) with trusted software, automation, and built-in protections. Organizations can reduce the security risk window with Red Hat Lightspeed (included with a RHEL Subscription), by getting prompt notifications and remediations for newly discovered threats. Red Hat Lightspeed leverages deep threat intelligence to help organizations understand the most critical CVEs posing a threat to their environment.
+ Unified Core-to-edge tooling : Red Hat Device Edge combines RHEL with Red Hat’s supported distribution of  MicroShift and  Red Hat Edge Manager . Now, users can leverage the same familiar, trusted tools and processes to manage remote NVIDIA Jetson Orin devices, reducing the strain on IT staff. 
+ The NVIDIA Jetson Orin family, including the Orin Nano, Orin NX, and AGX Orin series, provides a vast range of scalable solutions for AI inferencing in lightweight, low-power form factors. By bringing Red Hat Device Edge to these devices, developers can write applications once and deploy them on a broad range of industry leading computing architectures and environments, offering control over your data and low-latency responses without needing to transmit sensitive data back to a central cloud.
+ Whether you are building advanced computer vision systems for rail anomaly detection or intelligent industrial robotics, you now have the enterprise-grade foundation required to take your projects out of the lab and into the field.
+ Ready to get started? Contact your Red Hat representative today to learn more about deploying Red Hat Device Edge on NVIDIA Jetson Orin platforms in your production environment.
+ About the authors
+ Kelly Switt 
+ Senior Director, Intelligent Edge Global Business Development Lead
+ Kelly leads the edge strategy for solutions, ecosystems and sales globally at Red Hat. She is a transformation strategist who partners with executives to drive client-centric transformation. Over the past 25 years, her focused approach has led these organizations to achieve goals from securing marketing share through new product entrance, M&A integration and operational digitization. Her work was recognized by receiving the Transformation Leader of the Year Award by the prestigious Women in IT organization.
+ More from this author 
+ Luke Thompson 
+ Senior Product Manager, Edge Computing, Red Hat
+ Luke Thompson is a Senior Product Manager for the Edge Computing portfolio at Red Hat, focused on delivering platform capabilities that simplify how edge technologies are adopted and used in real-world environments.
+ He brings a strong background in industrial automation and IT/OT convergence, with experience helping organizations integrate complex systems, streamline data flows, and turn operational data into actionable insights in manufacturing and industrial settings.
+ Today, Luke applies this expertise to bridge the gap between sophisticated IT infrastructure and the practical needs of users at the edge, making advanced technologies more accessible, usable, and impactful.
+ More from this author 
+ Enter keywords here to search blogs 
+ UI_Icon-Red_Hat-Close-A-Black-RGB 
+ Search 
+ More like this
+ Blog post
+ Red Hat OpenShift 5: What partners need to know 
+ Blog post
+ How Atos uses Red Hat AI to build smaller, specialized models for sovereign AI 
+ Original podcast
+ Infrastructure At The Edge | Compiler 
+ Original podcast
+ Operating System Management | Compiler 
+ Keep exploring
+ Free trial: Red Hat Learning Subscription Trial 
+ Subscribe to Red Hat TV at no cost Video 
+ The latest news on Red Hat and open source Newsroom 
+ Browse by channel
+ Explore all channels 
+ Automation 
+ The latest on IT automation for tech, teams, and environments
+ Artificial intelligence 
+ Updates on the platforms that free customers to run AI workloads anywhere
+ Open hybrid cloud 
+ Explore how we build a more flexible future with hybrid cloud
+ Security 
+ The latest on how we reduce risks across environments and technologies
+ Edge computing 
+ Updates on the platforms that simplify operations at the edge
+ Infrastructure 
+ The latest on the world’s leading enterprise Linux platform
+ Applications 
+ Inside our solutions to the toughest application challenges
+ Virtualization 
+ The future of enterprise virtualization for your workloads on-premise or across clouds
+ Platforms
+ Red Hat AI 
+ Red Hat Enterprise Linux 
+ Red Hat OpenShift 
+ Red Hat Ansible Automation Platform 
+ See all products 
+ Tools
+ Training and certification 
+ My account 
+ Customer support 
+ Developer resources 
+ Find a partner 
+ Red Hat Ecosystem Catalog 
+ Documentation 
+ Try, buy, & sell
+ Product trial center 
+ Red Hat Store 
+ Buy online (Japan) 
+ Console 
+ Communicate
+ Contact sales 
+ Contact customer service 
+ Contact training 
+ Social 
+ About Red Hat
+ Red Hat is an open hybrid cloud technology leader, delivering a consistent, comprehensive foundation for transformative IT and artificial intelligence (AI) applications in the enterprise. As a trusted adviser to the Fortune 500 , Red Hat offers cloud, developer, Linux, automation, and application platform technologies, as well as award-winning services.
+ Our company 
+ How we work 
+ Customer success stories 
+ Newsroom 
+ Open source commitments 
+ Our social impact 
+ Jobs 
+ Change page language 简体中文 English Français Deutsch Italiano 日本語 한국어 Português Español 
+ Red Hat legal and privacy links
+ About Red Hat 
+ Jobs 
+ Events 
+ Locations 
+ Contact Red Hat 
+ Red Hat Blog 
+ Inclusion at Red Hat 
+ Cool Stuff Store 
+ Red Hat Summit 
+ Red Hat legal and privacy links
+ Privacy statement 
+ Terms of use 
+ All policies and guidelines 
+ Digital accessibility 
+ © 2026 Red Hat 
+

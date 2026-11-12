@@ -1,0 +1,5 @@
+description = "health-gated Rugix commit (k3s readiness) + pre-commit hook"
+dependencies = ["k3s"]
+
+[parameters]
+timeout = { default = "300" }

@@ -1,0 +1,3 @@
+Source: Apple Developer Documentation JSON for bundleresources_entitlements_com.apple.developer.family-controls.json (fetched 2026-11-11)
+ABSTRACT: A Boolean value that indicates whether the app can request or revoke authorization to provide parental controls.
+BODY: You must add the Family Controls entitlement to your app before you call the   class’s   or   methods. Adding the Family Controls capability to your app automatically sets this entitlement. Before submitting your app to the App Store, you must   to use the entitlement. For more information, see  .

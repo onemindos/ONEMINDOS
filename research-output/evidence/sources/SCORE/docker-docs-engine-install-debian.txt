@@ -1,0 +1,644 @@
+Source: https://docs.docker.com/engine/install/debian/
+Fetched 2026-11-11 (HTML stripped to text)
+
+ Install Docker Engine on Debian | Docker Docs 
+ Get started Guides Manuals Reference 
+ Gordon Gordon, your AI assistant for Docker docs 
+ Search { if (theme === 'auto') document.firstElementChild.className = e.matches ? 'dark' : 'light'; };
+ mql.addEventListener('change', handler);
+ $watch('theme', val => applyTheme(val));
+ return () => mql.removeEventListener('change', handler);
+ " @click="theme = (theme === 'light' ? 'dark' : theme === 'dark' ? 'auto' : 'light')">
+ !m.isStreaming)
+ // Watch for store changes to focus input
+ this.$watch('$store.gordon.isOpen', (isOpen) => {
+ if (isOpen) {
+ this.$nextTick(() => {
+ this.$refs.input?.focus()
+ })
+ }
+ })
+ // Watch for query from store and populate input
+ this.$watch('$store.gordon.query', (query) => {
+ if (query) {
+ this.currentQuestion = query
+ const shouldAutoSubmit = this.$store.gordon.autoSubmit
+ this.$nextTick(() => {
+ if (shouldAutoSubmit) {
+ this.askQuestion()
+ } else {
+ this.$refs.input?.focus()
+ this.$refs.input?.select()
+ }
+ })
+ // Clear the store query and autoSubmit flag after using them
+ this.$store.gordon.query = ''
+ this.$store.gordon.autoSubmit = false
+ }
+ })
+ },
+ getTurnCount() {
+ return this.messages.filter(m => m.role === 'user').length
+ },
+ getRemainingTurns() {
+ return this.maxTurnsPerThread - this.getTurnCount()
+ },
+ isThreadLimitReached() {
+ return this.getTurnCount() >= this.maxTurnsPerThread
+ },
+ shouldShowCountdown() {
+ const remaining = this.getRemainingTurns()
+ return remaining > 0 && remaining {
+ if (this.$refs.input) {
+ this.$refs.input.style.height = 'auto'
+ }
+ })
+ this.isLoading = true
+ this.error = null
+ // Add placeholder for assistant response
+ const responseIndex = this.messages.length
+ this.messages.push({
+ role: 'assistant',
+ content: '',
+ isStreaming: true,
+ questionAnswerId: null,
+ feedback: null,
+ copied: false
+ })
+ this.$nextTick(() => {
+ this.$refs.messagesContainer?.scrollTo({
+ top: this.$refs.messagesContainer.scrollHeight,
+ behavior: 'smooth'
+ })
+ })
+ try {
+ await this.streamGordonResponse(responseIndex)
+ } catch (err) {
+ // Only set error if messages weren't cleared
+ if (this.messages.length > 0) {
+ if (err.message === 'RATE_LIMIT_EXCEEDED') {
+ this.error = 'You\'ve exceeded your question quota for the day. Please come back tomorrow.'
+ } else {
+ this.error = 'Failed to get response. Please try again.'
+ }
+ }
+ console.error('Gordon API error:', err)
+ // Only try to remove message if it still exists
+ if (this.messages[responseIndex]) {
+ this.messages.splice(responseIndex, 1)
+ }
+ } finally {
+ this.isLoading = false
+ }
+ },
+ getSessionId() {
+ let sessionId = sessionStorage.getItem('gordon-session-id')
+ if (!sessionId) {
+ sessionId = `docs-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+ sessionStorage.setItem('gordon-session-id', sessionId)
+ }
+ return sessionId
+ },
+ async streamGordonResponse(responseIndex) {
+ // Build API request from messages, excluding the streaming placeholder
+ // The placeholder is at responseIndex, so we take everything before it
+ const conversationMessages = this.messages.slice(0, responseIndex).map((msg, i) => {
+ const message = {
+ role: msg.role,
+ content: msg.content
+ }
+ // Add copilot_references to the last message (most recent user question)
+ if (i === responseIndex - 1) {
+ message.copilot_references = [
+ {
+ data: {
+ origin: 'docs-website',
+ email: '<email-masked>',
+ uuid: this.getSessionId(),
+ action: 'AskGordon',
+ ...(window.GORDON_CARDS_ENABLED && { ui: 'openui-v1' }),
+ ...(this.includePageContext && {
+ page_url: window.location.href,
+ page_title: "Install Docker Engine on Debian"
+ })
+ }
+ }
+ ]
+ }
+ return message
+ })
+ const isNewConversation = !this.threadId
+ const payload = {
+ messages: conversationMessages,
+ ...(this.threadId && { thread_uuid: this.threadId })
+ }
+ const response = await fetch(window.GORDON_BASE_URL + '/public/ask', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify(payload)
+ })
+ if (!response.ok) {
+ if (response.status === 429) {
+ throw new Error('RATE_LIMIT_EXCEEDED')
+ }
+ throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+ }
+ const reader = response.body.getReader()
+ const decoder = new TextDecoder()
+ while (true) {
+ const { done, value } = await reader.read()
+ if (done) break
+ const chunk = decoder.decode(value, { stream: true })
+ const lines = chunk.split('\n')
+ for (const line of lines) {
+ if (!line.trim() || !line.startsWith('data: ')) continue
+ const data = line.slice(6)
+ if (data === '[DONE]') continue
+ try {
+ const parsed = JSON.parse(data)
+ // Capture thread_id for new conversations
+ if (parsed.thread_id) {
+ if (isNewConversation) {
+ this.threadId = parsed.thread_id // $persist auto-saves to sessionStorage
+ } else if (parsed.thread_id !== this.threadId) {
+ console.warn('Backend returned unexpected thread_id:', parsed.thread_id)
+ }
+ continue
+ }
+ // Capture question_answer_id for feedback
+ if (parsed.question_answer_id) {
+ this.messages[responseIndex].questionAnswerId = parsed.question_answer_id
+ continue
+ }
+ if (parsed.choices && parsed.choices[0]?.delta?.content) {
+ const content = parsed.choices[0].delta.content
+ this.messages[responseIndex].content += content
+ this.$nextTick(() => {
+ const container = this.$refs.messagesContainer
+ if (container) {
+ const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight {
+ setTimeout(() => {
+ message.copied = false
+ }, 2000)
+ })
+ } catch (err) {
+ console.error('Failed to copy:', err)
+ }
+ }
+ }" x-cloak @keydown.escape.window=$store.gordon.close()> 
+ 0">Start a new chat 
+ What can I help you with? I'm Gordon, your AI assistant for Docker and documentation
+questions. Try asking Get started with Docker 
+ Docker Hardened Images 
+ MCP Toolkit 
+ Create an org 0" class="relative flex flex-col gap-4"> 
+ Was this helpful? 
+ Helpful 
+ Not quite 
+ Copy 
+remaining in this thread. You've reached the maximum of
+ questions per thread. For
+better answer quality, start a new thread. 
+Start a new thread 
+ When enabled, Gordon considers the current page you're viewing
+to provide more relevant answers. Share feedback Answers are generated based on the documentation. {
+ const container = $el; // The div with overflow
+ const item = document.getElementById('sidebar-current-page')
+ if (item) {
+ const containerTop = container.scrollTop;
+ const containerBottom = containerTop + container.clientHeight;
+ const itemTop = item.offsetTop - container.offsetTop;
+ const itemBottom = itemTop + item.offsetHeight;
+ // Scroll only if the item is out of view
+ if (itemBottom > containerBottom - 200) {
+ container.scrollTop = itemTop - (container.clientHeight / 2 - item.offsetHeight / 2);
+ }
+ }
+ })" class="bg-background-toc dark:bg-background-toc fixed top-0 z-40 hidden h-screen w-full flex-none overflow-x-hidden overflow-y-auto md:sticky md:top-16 md:z-auto md:block md:h-[calc(100vh-64px)] md:w-[320px]" :class="{ 'hidden': ! $store.showSidebar }"> 
+ Back 
+ Manuals 
+ Get started 
+ Guides 
+ Reference AI and agents Overview Docker Agentic Platform
+ Experimental 
+ Sign up Get started Kits Sandboxes Schedules MCP Secrets Policies FAQ Release notes Docker Sandboxes 
+ Install Get started locally Usage Cloud sandboxes 
+ Local and cloud Use cloud sandboxes Environment files Credentials Network policy Move a sandbox Agents 
+ Claude Code Codex Copilot Cursor Devin Docker Agent Droid Gemini Kiro OpenCode Shell Workflows 
+ Git workflows Local development Authenticate tools Agent skills CI and headless Configuration 
+ Settings Credentials Models Environment files
+ Experimental GPU passthrough Upstream proxy Registry mirror Integrations 
+ VS Code Cursor Claude Desktop ChatGPT T3 Code Orca MCP gateway Kits 
+ Use kits Author kits 
+ Compose a kit set Base images Build an agent workload Build a tool mixin Authoring patterns Debug a kit Capability support Build and distribute kits Kits v2 Architecture Security model 
+ Isolation layers Defaults Troubleshooting FAQ Release notes Sandboxes API and SDK 
+ Install the SDK Get started API concepts Authentication and authorization Errors and retries Compute sizes and limits Cookbook API reference AI governance 
+ Local policy 
+ Try it out Manage network rules Respond to approvals Inspect policies Test and monitor Organization governance 
+ Get started Enforce sign-in Policies 
+ Network Filesystem MCP Create and manage Audit logs 
+ Configure delivery View and export Forward to a SIEM Retrieve with the API 
+Reference 
+ Network rules Filesystem mount rules MCP policy Policy limits Audit records AI Governance API AI Governance Audit Logs API Troubleshooting Model Runner 
+ Get started with DMR DMR REST API Configuration options DMR examples IDE and tool integrations Open WebUI integration Inference engines Gordon 
+ Use cases 
+Concepts 
+ Capabilities Data privacy 
+How-to guides 
+ Docker Desktop CLI Permissions Configure tools Usage limits Docker Agent 
+Getting Started 
+ Introduction Installation Set Up a Model Quick Start 
+Core Concepts 
+ Agents Models Tools Multi-Agent Agent Distribution 
+Configuration 
+ Overview HCL Configuration Agent Config Model Config Tool Config Custom Commands Hooks Evaluators Permissions Budget Ignoring files Sandbox Mode Structured Output Flavors Model Routing User Settings Telemetry OpenTelemetry Tracing 
+Built-in Tools 
+ File Filesystem Shell Background Jobs Script Open URL Random Fetch A2A Handoff Transfer Task Background Agents Memory RAG MCP Catalog Git MCP Scheduler Think Environment Webhook Calculator Date and Time Plan Todo Tasks User Prompt Model Picker Session Context LSP OpenAPI API 
+Features 
+ Terminal UI Kanban Board Snapshots Sessions CLI Reference MCP Mode Coding Harnesses A2A Protocol ACP API Server Chat Server Evaluation Skills Code Mode Remote MCP Servers 
+Model Providers 
+ Overview Anthropic API Route Atlas Cloud AWS Bedrock Baseten Cerebras ChatGPT (OpenAI account) Cloudflare AI Gateway Cloudflare Workers AI DeepSeek Docker Model Runner Fireworks AI GitHub Copilot Google Gemini Groq Hugging Face Local Models MiniMax Mistral Moonshot AI Nativ Nebius OpenAI OpenCode Go OpenCode Zen OpenRouter OVHcloud DaoXE Together AI Vercel AI Gateway xAI (Grok) Provider Definitions NVIDIA NIM 
+Guides 
+ Tips & Best Practices Thinking / Reasoning Managing Secrets Go SDK Managing Context & Compaction Running Agents Headless & in CI Troubleshooting Docker Skills 
+ Install Application development Docker Desktop 
+Setup 
+Install 
+ Mac Mac permission requirements Windows Windows permission requirements Linux 
+ Ubuntu Debian Fedora Arch RHEL VM or VDI environments Explore Docker Desktop 
+ Containers Images Volumes Builds Kubernetes Logs Resource Saver mode 
+Features and capabilities 
+ MCP Catalog and Toolkit
+ Beta 
+ Get started Catalog Profiles Toolkit UI Use with CLI Dynamic discovery Gateway FAQs Networking 
+ How-tos GPU support USB/IP support Synchronized file shares containerd image store Wasm workloads
+ Beta Docker Desktop CLI Virtual Machine Manager
+ Updated WSL 
+ Best practices Custom kernels Use WSL 
+Settings and maintenance 
+ Change settings Backup and restore data 
+Troubleshoot and support 
+ Troubleshoot and diagnose 
+ Common topics 
+FAQs 
+ General Mac Windows Linux Releases Give feedback Uninstall Release notes 
+Enterprise 
+ Deploy Docker Desktop 
+ MSI installer PKG installer MS Store Deploy with Intune Deploy with Jamf Pro Microsoft Dev Box FAQs Allowlist Enforce sign-in 
+ Configure Hardened Docker Desktop 
+ Enhanced Container Isolation 
+ Enable ECI Configure advanced settings Limitations FAQs Settings Management 
+ Use a JSON file Use Docker Home Desktop settings reporting Settings reference Air-gapped containers Registry Access Management Image Access Management Namespace access Manage unassociated machines Docker Engine 
+ Install 
+ Ubuntu Debian RHEL Fedora Raspberry Pi OS (32-bit / armhf) CentOS Binaries Post-installation steps Storage 
+ Volumes Bind mounts tmpfs mounts Image mounts Storage drivers 
+ Select a storage driver BTRFS storage driver Device Mapper storage driver (deprecated) OverlayFS storage driver VFS storage driver windowsfilter storage driver ZFS storage driver containerd image store Networking 
+ Docker with iptables Docker with nftables Packet filtering and firewalls Port publishing and mapping Network drivers 
+ Bridge network driver Host network driver IPvlan network driver Macvlan network driver None network driver Overlay network driver CA certificates Legacy container links 
+Containers 
+ Start containers automatically Run multiple processes in a container Resource constraints GPU access Runtime metrics Running containers 
+CLI 
+ Completion Proxy configuration Filter commands Format command and log output OpenTelemetry for the Docker CLI Daemon 
+ Start the daemon Use IPv6 networking Daemon proxy configuration Embedded containerd
+ Experimental Live restore Alternative container runtimes Collect Docker metrics with Prometheus Configure remote access for Docker daemon Read the daemon logs Troubleshooting the Docker daemon 
+Manage resources 
+ Docker contexts Docker object labels Prune unused Docker objects Logs and metrics 
+ Configure logging drivers Customize log driver output 
+Logging drivers 
+ Amazon CloudWatch Logs logging driver ETW logging driver Fluentd logging driver Google Cloud Logging driver Graylog Extended Format logging driver Journald logging driver JSON File logging driver Local file logging driver Splunk logging driver Syslog logging driver Use a logging driver plugin Use docker logs with remote logging drivers Security 
+ Rootless mode 
+ UID/GID mapping Tips Troubleshooting Antivirus software and Docker AppArmor security profiles for Docker Content trust in Docker 
+ Automation with content trust Delegations for content trust Deploy Notary Server with Compose Manage keys for content trust Play in a content trust sandbox Docker security non-events Isolate containers with a user namespace Protect the Docker daemon socket Seccomp security profiles for Docker Verify repository client with certificates Swarm mode 
+ Administer and maintain a swarm of Docker Engines Deploy a stack to a swarm Deploy services to a swarm Getting started with Swarm mode 
+ Create a swarm Add nodes to the swarm Deploy a service to the swarm Inspect a service on the swarm Scale the service in the swarm Delete the service running on the swarm Apply rolling updates to a service Drain a node on the swarm 
+How swarm works 
+ How nodes work How services work Manage swarm security with public key infrastructure (PKI) Swarm task states Join nodes to a swarm Lock your swarm to protect its encryption key Manage nodes in a swarm Manage sensitive data with Docker secrets Manage swarm service networks Raft consensus in swarm mode Run Docker Engine in swarm mode Store configuration data using Docker Configs Swarm mode key concepts Use Swarm mode routing mesh Deprecated features Docker Engine plugins 
+ Access authorization plugin Docker log driver plugins Docker network driver plugins Docker Plugin API Docker volume plugins Plugin Config Version 1 of Plugin V2 Use Docker Engine plugins 
+Release notes 
+ Engine v29 Engine v28 Engine v27 Engine v26.1 Engine v26.0 Engine v25.0 Engine v24.0 Engine v23.0 Engine v20.10 Engine v19.03 Engine v18.09 Engine v18.06 Engine v18.05 Engine v18.04 Engine v18.03 Engine v18.02 Engine v18.01 Engine v17.12 Engine v17.11 Engine v17.10 Engine v17.09 Engine v17.07 Engine v17.06 Engine v17.05 Engine v17.04 Engine v17.03 Prior releases Docker Build 
+Core concepts 
+ Docker Build Overview Dockerfile overview Build context Build checks 
+Building 
+ Multi-stage Variables Secrets Registry authentication Multi-platform Export binaries Container Device Interface (CDI) Best practices Base images Builders 
+ Build drivers 
+ Cloud driver Docker container driver Docker driver Kubernetes driver Remote driver Manage builders Bake 
+ Introduction Targets Inheritance Variables Expressions Functions Matrix targets Contexts Bake file reference Bake standard library functions Building with Bake from a Compose file Overriding configurations Remote Bake file definition Cache 
+ Build cache invalidation Build garbage collection Cache storage backends 
+ Amazon S3 cache Azure Blob Storage cache GitHub Actions cache Inline cache Local cache Registry cache Optimize cache usage in builds CI 
+ GitHub Actions 
+ Annotations Attestations Build checks Build secrets Build summary BuildKit configuration Cache management Copy image between registries Export to Docker GitHub Builder
+ New 
+ Architecture Build workflow Bake workflow Local registry Multi-platform image Named contexts Push to multiple registries Reproducible builds Share image between jobs Tags and labels Test before push Update Docker Hub description Validating builds
+ Experimental 
+ Introduction Usage Image validation Git validation Templates & examples Testing Debugging Input reference Built-in functions 
+Metadata 
+ Annotations Build attestations 
+ Image attestation storage Provenance attestations SBOM attestations SLSA definitions Exporters 
+ Image and registry exporters Local and tar exporters OCI and Docker exporters BuildKit 
+ buildkitd.toml Configure BuildKit Custom Dockerfile syntax Dockerfile release notes 
+Debugging 
+ OpenTelemetry support Build release notes Docker Build Cloud 
+ Setup Usage Continuous integration Optimization Builder settings Release notes Docker Offload 
+ Quickstart Core concepts Manage Offload sandboxes Usage Optimize usage Troubleshoot Docker Offload v1 
+ Quickstart Core concepts Configure Usage Troubleshoot Give feedback Docker Compose 
+Introduction to Compose 
+ How Compose works Why use Compose? History and development Install 
+ Plugin Standalone (Legacy) Uninstall Quickstart 
+How-tos 
+ Specify a project name Use service profiles Use AI models in Compose Control startup order Use environment variables 
+ Set environment variables Environment variables precedence Pre-defined environment variables Interpolation Best practices Build dependent images Use Compose Watch Secrets in Compose Networking Use multiple Compose files 
+ Merge Extend Include Enable GPU support Use Compose in production OCI artifact applications Use lifecycle hooks Use init containers
+ New Use provider services Compose Bridge 
+ Usage Customize Use Model Runner Compose SDK Trust model for Compose files 
+Support and feedback 
+ FAQs Give feedback Release notes Docker Extensions 
+ Marketplace extensions Non-marketplace extensions Configure a private marketplace Settings and feedback Extensions SDK 
+ The build and publish process Quickstart 
+Part one: Build 
+ Create a simple extension Create an advanced frontend extension Add a backend to your extension Part two: Publish 
+ Add labels Validate Package and release your extension Share your extension Publish in the Marketplace Build multi-arch extensions Architecture 
+ Metadata Security Design and UI styling 
+ Guidelines Docker design principles MUI best practices 
+Developer Guides 
+ Authentication Interacting with Kubernetes Invoke host binaries Use the Docker socket 
+Developer SDK tools 
+ Test and debug Continuous Integration (CI) CLI reference 
+Extension APIs 
+ Dashboard Docker Extension Backend Extension UI API Navigation Deprecated products and features Release lifecycle Supply chain security Docker Hardened Images 
+ Quickstart Explore 
+ Hardened images Build process Image types Scanner integrations Image testing Responsibility overview EU data residency Malware scanning Security concepts 
+ Attestations CIS Benchmark Code signing CVEs Distroless images FIPS glibc and musl Hardening Image digests Image provenance Immutability SBOMs SLSA Software Supply Chain Security SSDLC STIG VEX Migration 
+ Migration checklist AI-assisted migration
+ Experimental Migrate from Alpine or Debian Migrate from Ubuntu Migrate from Wolfi Migration examples 
+ Go Python Node.js .NET Java How-tos 
+ Search and evaluate Mirror a repository Customize an image or chart Create and build an image Use an image Use a Helm chart Use hardened packages Verify an image or chart Scan an image Query VEX suppressions via API Apply image policies Troubleshoot Use DHI Select & Enterprise Tools 
+ Docker Hub CLI MCP server Terraform API 
+Release notes 
+ CLI release notes Platform release notes Resources and feedback Docker Hub 
+ Quickstart Library 
+ Search Trusted content Generative AI Mirror Repositories 
+ Create 
+Manage 
+ Repository information Access Images 
+ Tags Immutable tags Image Management Software artifacts Push images Move images Bulk migrate images Image security insights Webhooks Automated builds
+ Deprecated 
+ Migrate Set up Link accounts Automated repository tests Advanced options Manage autobuilds Troubleshoot Trusted content 
+ Docker Official Images Docker Verified Publisher Program Docker-Sponsored Open Source Program Insights and analytics Export repositories Archive Delete Settings Usage and limits 
+ Pulls Optimize usage Hub MCP server Troubleshoot Release notes Docker Scout 
+ Install Quickstart 
+Explore 
+ Dashboard Docker Scout image analysis Docker Scout metrics exporter Image details view Manage vulnerability exceptions 
+How-tos 
+ Create an exception using the GUI Create an exception using the VEX Docker Scout environment variables Docker Scout SBOMs Use Scout with different artifact types 
+Deep dive 
+ Advisory database sources and matching service Data collection and storage in Docker Scout Policy Evaluation 
+ Evaluate policies Integrations 
+ Container registries Continuous Integration 
+ Azure DevOps Pipelines Circle CI GitHub Actions GitLab CI/CD Jenkins Integrating Docker Scout with environments 
+ Generic (CLI) 
+Release notes 
+ CLI release notes Platform release notes Accounts and admin Accounts 
+ Individual 
+ Setup Manage Deactivate Organization 
+ Setup 
+ Create Convert account Onboard Plan your rollout Manage 
+ Information User access workflow Members Teams Licenses Seats Products Deactivation Activity logs Insights Company 
+ Setup Manage Subscription and billing 
+ Plans 
+ Docker Docker Agentic Platform Gordon Docker Hardened Images AI Governance Docker Verified Publisher Manage 
+ Plans Payment methods 3D Secure Billing details Invoice history Taxes Docker Desktop license agreement Security 
+ Announcements Access tokens 
+ Personal access tokens Organization access tokens Reference Authentication 
+ Single sign-on 
+ Setup Manage connections Troubleshoot Two-factor authentication 
+ Manage Recover your account OIDC connections 
+ Create and manage Rulesets and subject claims Troubleshoot Provision 
+ Add and manage domains SCIM 
+ Set up Group mapping Migrate Just-in-Time Auto-provision Troubleshoot Roles and permissions 
+ Core roles Custom roles 
+ Manage Permissions reference FAQs 
+ Accounts Security Subscription and billing Platform Support 
+ Support portal Release notes Home 
+ / 
+ Manuals 
+ / 
+ Docker Engine 
+ / 
+ Install 
+ / 
+ Debian Install Docker Engine on Debian 
+ Ask Gordon 
+ Copy Markdown 
+ View Markdown Table of contents Prerequisites Firewall limitations OS requirements Uninstall old versions Installation methods Install using the apt repository Upgrade Docker Engine Install from a package Upgrade Docker Engine Install using the convenience script Install pre-releases Upgrade Docker after using the convenience script Uninstall Docker Engine Next steps To get started with Docker Engine on Debian, make sure you
+ meet the prerequisites , and then follow the
+ installation steps . Prerequisites Firewall limitations 
+ Warning Before you install Docker, make sure you consider the following
+security implications and firewall incompatibilities. If you use ufw or firewalld to manage firewall settings, be aware that
+when you expose container ports using Docker, these ports bypass your
+firewall rules. For more information, refer to
+ Docker and ufw . Docker is only compatible with iptables-nft and iptables-legacy .
+Firewall rules created with nft are not supported on a system with Docker installed.
+Make sure that any firewall rulesets you use are created with iptables or ip6tables ,
+and that you add them to the DOCKER-USER chain,
+see
+ Packet filtering and firewalls . OS requirements To install Docker Engine, you need one of these Debian versions: Debian Trixie 13 (stable) Debian Bookworm 12 (oldstable) Docker Engine for Debian is compatible with x86_64 (or amd64), armhf (arm/v7),
+arm64, and ppc64le (ppc64el) architectures. Uninstall old versions Before you can install Docker Engine, you need to uninstall any conflicting packages. Your Linux distribution may provide unofficial Docker packages, which may conflict
+with the official packages provided by Docker. You must uninstall these packages
+before you install the official version of Docker Engine. The unofficial packages to uninstall are: docker.io docker-compose docker-doc docker-buildx podman-docker Moreover, Docker Engine depends on containerd and runc . Docker Engine
+bundles these dependencies as one bundle: containerd.io . If you have
+installed the containerd or runc previously, uninstall them to avoid
+conflicts with the versions bundled with Docker Engine. Run the following command to uninstall all conflicting packages: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ sudo apt remove $( dpkg --get-selections docker.io docker-compose docker-doc docker-buildx podman-docker containerd runc | cut -f1 ) 
+ apt might report that you have none of these packages installed. Images, containers, volumes, and networks stored in /var/lib/docker/ aren't
+automatically removed when you uninstall Docker. If you want to start with a
+clean installation, and prefer to clean up any existing data, read the
+ uninstall Docker Engine section. Installation methods You can install Docker Engine in different ways, depending on your needs: Docker Engine comes bundled with
+ Docker Desktop for Linux . This is
+the easiest and quickest way to get started. Set up and install Docker Engine from
+ Docker's apt repository . Install it manually and manage upgrades manually. Use a convenience script . Only
+recommended for testing and development environments. Apache License, Version 2.0. See LICENSE for the full license. Install using the apt repository Before you install Docker Engine for the first time on a new host machine, you
+need to set up the Docker apt repository. Afterward, you can install and update
+Docker from the repository. Set up Docker's apt repository. ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ # Add Docker's official GPG key: 
+ sudo apt update
+ sudo apt install ca-certificates curl
+ sudo install -m 0755 -d /etc/apt/keyrings
+ sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+ sudo chmod a+r /etc/apt/keyrings/docker.asc
+ # Add the repository to Apt sources: 
+ sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+ Types: deb
+ URIs: https://download.docker.com/linux/debian
+ Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
+ Components: stable
+ Architectures: $(dpkg --print-architecture)
+ Signed-By: /etc/apt/keyrings/docker.asc
+ EOF 
+ sudo apt update 
+ Note If you use Debian testing or a derivative distribution such as Kali Linux,
+you may need to substitute the part of this command that's expected to
+print the version codename: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ ( . /etc/os-release && echo " $VERSION_CODENAME " ) 
+ Replace this part with the codename of the corresponding Debian release,
+such as trixie . Install the Docker packages. 
+Latest
+Specific version To install the latest version, run: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+ To install a specific version of Docker Engine, start by listing the
+available versions in the repository: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ apt list --all-versions docker-ce
+ docker-ce/bookworm 5:29.9.3-1~debian.12~bookworm <arch>
+ docker-ce/bookworm 5:29.9.2-1~debian.12~bookworm <arch>
+ ...
+ Select the desired version and install: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ VERSION_STRING = 5:29.9.3-1~debian.12~bookworm
+ $ sudo apt install docker-ce = $VERSION_STRING docker-ce-cli = $VERSION_STRING containerd.io docker-buildx-plugin docker-compose-plugin
+ Note After installation, verify that Docker is running: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ sudo systemctl status docker
+ If Docker is not running, start it manually: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ sudo systemctl start docker
+ Verify that the installation is successful by running the hello-world image: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ sudo docker run hello-world
+ This command downloads a test image and runs it in a container. When the
+container runs, it prints a confirmation message and exits. You have now successfully installed and started Docker Engine. 
+ Tip Receiving errors when trying to run without root? The docker user group exists but contains no users, which is why you’re required
+to use sudo to run Docker commands. Continue to
+ Linux postinstall 
+to allow non-privileged users to run Docker commands and for other optional configuration steps. Upgrade Docker Engine To upgrade Docker Engine, follow step 2 of the
+ installation instructions ,
+choosing the new version you want to install. Install from a package If you can't use Docker's apt repository to install Docker Engine, you can
+download the deb file for your release and install it manually. You need to
+download a new file each time you want to upgrade Docker Engine. Go to https://download.docker.com/linux/debian/dists/ . Select your Debian version in the list. Go to pool/stable/ and select the applicable architecture ( amd64 ,
+ armhf , arm64 , or s390x ). Download the following deb files for the Docker Engine, CLI, containerd,
+and Docker Compose packages: containerd.io_<version>_<arch>.deb docker-ce_<version>_<arch>.deb docker-ce-cli_<version>_<arch>.deb docker-buildx-plugin_<version>_<arch>.deb docker-compose-plugin_<version>_<arch>.deb Install the .deb packages. Update the paths in the following example to
+where you downloaded the Docker packages. ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ sudo dpkg -i ./containerd.io_<version>_<arch>.deb \
+ ./docker-ce_<version>_<arch>.deb \
+ ./docker-ce-cli_<version>_<arch>.deb \
+ ./docker-buildx-plugin_<version>_<arch>.deb \
+ ./docker-compose-plugin_<version>_<arch>.deb
+ Note After installation, verify that Docker is running: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ sudo systemctl status docker
+ If Docker is not running, start it manually: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ sudo systemctl start docker
+ Verify that the installation is successful by running the hello-world image: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ sudo docker run hello-world
+ This command downloads a test image and runs it in a container. When the
+container runs, it prints a confirmation message and exits. You have now successfully installed and started Docker Engine. 
+ Tip Receiving errors when trying to run without root? The docker user group exists but contains no users, which is why you’re required
+to use sudo to run Docker commands. Continue to
+ Linux postinstall 
+to allow non-privileged users to run Docker commands and for other optional configuration steps. Upgrade Docker Engine To upgrade Docker Engine, download the newer package files and repeat the
+ installation procedure , pointing to the new files. Install using the convenience script Docker provides a convenience script at
+ https://get.docker.com/ to install Docker into
+development environments non-interactively. The convenience script isn't
+recommended for production environments, but it's useful for creating a
+provisioning script tailored to your needs. Also refer to the
+ install using the repository steps to learn
+about installation steps to install using the package repository. The source code
+for the script is open source, and you can find it in the
+ docker-install repository on GitHub . Always examine scripts downloaded from the internet before running them locally.
+Before installing, make yourself familiar with potential risks and limitations
+of the convenience script: The script requires root or sudo privileges to run. The script attempts to detect your Linux distribution and version and
+configure your package management system for you. The script doesn't allow you to customize most installation parameters. The script installs dependencies and recommendations without asking for
+confirmation. This may install a large number of packages, depending on the
+current configuration of your host machine. By default, the script installs the latest stable release of Docker,
+containerd, and runc. When using this script to provision a machine, this may
+result in unexpected major version upgrades of Docker. Always test upgrades in
+a test environment before deploying to your production systems. The script isn't designed to upgrade an existing Docker installation. When
+using the script to update an existing installation, dependencies may not be
+updated to the expected version, resulting in outdated versions. 
+ Tip Preview script steps before running. You can run the script with the --dry-run option to learn what steps the
+script will run when invoked: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ curl -fsSL https://get.docker.com -o get-docker.sh
+ $ sudo sh ./get-docker.sh --dry-run
+ This example downloads the script from
+ https://get.docker.com/ and runs it to install the
+latest stable release of Docker on Linux: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ curl -fsSL https://get.docker.com -o get-docker.sh
+ $ sudo sh get-docker.sh
+ Executing docker install script, commit: 7cae5f8b0decc17d6571f9f52eb840fbc13b2737
+ <...>
+ You have now successfully installed and started Docker Engine. The docker 
+service starts automatically on Debian based distributions. On RPM based
+distributions, such as CentOS, Fedora or RHEL, you need to start it
+manually using the appropriate systemctl or service command. As the message
+indicates, non-root users can't run Docker commands by default. Use Docker as a non-privileged user, or install in rootless mode? The installation script requires root or sudo privileges to install and
+use Docker. If you want to grant non-root users access to Docker, refer to the
+ post-installation steps for Linux .
+You can also install Docker without root privileges, or configured to run in
+rootless mode. For instructions on running Docker in rootless mode, refer to
+ run the Docker daemon as a non-root user (rootless mode) . Install pre-releases Docker also provides a convenience script at
+ https://test.docker.com/ to install pre-releases of
+Docker on Linux. This script is equal to the script at get.docker.com , but
+configures your package manager to use the test channel of the Docker package
+repository. The test channel includes both stable and pre-releases (beta
+versions, release-candidates) of Docker. Use this script to get early access to
+new releases, and to evaluate them in a testing environment before they're
+released as stable. To install the latest version of Docker on Linux from the test channel, run: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ curl -fsSL https://test.docker.com -o test-docker.sh
+ $ sudo sh test-docker.sh
+ Upgrade Docker after using the convenience script If you installed Docker using the convenience script, you should upgrade Docker
+using your package manager directly. There's no advantage to re-running the
+convenience script. Re-running it can cause issues if it attempts to re-install
+repositories which already exist on the host machine. Uninstall Docker Engine Uninstall the Docker Engine, CLI, containerd, and Docker Compose packages: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ sudo apt purge docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-ce-rootless-extras
+ Images, containers, volumes, or custom configuration files on your host
+aren't automatically removed. To delete all images, containers, and volumes: ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ sudo rm -rf /var/lib/docker
+ $ sudo rm -rf /var/lib/containerd
+ Remove source list and keyrings ]\s+/gm, ''));
+ copying = true;
+ setTimeout(() => copying = false, 2000);">
+ $ sudo rm /etc/apt/sources.list.d/docker.sources
+ $ sudo rm /etc/apt/keyrings/docker.asc
+ You have to delete any edited configuration files manually. Next steps Continue to Post-installation steps for Linux . 
+ Edit this page 
+ Request changes Table of contents Prerequisites Firewall limitations OS requirements Uninstall old versions Installation methods Install using the apt repository Upgrade Docker Engine Install from a package Upgrade Docker Engine Install using the convenience script Install pre-releases Upgrade Docker after using the convenience script Uninstall Docker Engine Next steps 
+ Product offerings 
+ Pricing 
+ About us 
+ llms.txt 
+ llms-full.txt 
+Cookies Settings
+ | 
+ Terms of Use 
+ | 
+ Status 
+ | 
+ Legal Copyright © 2013-2026 Docker Inc. All rights reserved. Automated traffic detection 

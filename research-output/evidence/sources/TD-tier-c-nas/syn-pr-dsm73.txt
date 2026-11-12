@@ -1,0 +1,65 @@
+SOURCE: https://www.synology.com/en-global/company/news/article/dsm73
+ACCESSED: 2026-11-11 (text extracted from HTML; emails masked)
+
+
+ Synology Releases DiskStation Manager 7.3, Bringing Efficient Data Tiering, Enhanced Security, AI-Powered Collaboration, and Expanded Storage Flexibility| Synology Inc.
+ Press Releases
+Synology Releases DiskStation Manager 7.3, Bringing Efficient Data Tiering, Enhanced Security, AI-Powered Collaboration, and Expanded Storage Flexibility
+Taipei, Taiwan — October 8, 2025 — Synology today announced the release of DiskStation Manager (DSM) 7.3, delivering enhanced storage efficiency, strengthened security and reliability, and new productivity features.
+"As data grows rapidly, advanced solutions are needed to manage, process, and unlock its full value," said Kenneth Hsu, Director of the System Group at Synology. "DSM 7.3 helps customers confidently address evolving data management challenges on a platform that is secure, reliable, and ready to support AI transformation."
+Enhanced storage efficiency, system security, and collaboration capabilities
+Synology Tiering automatically manages files between storage tiers based on access patterns, keeping frequently used "hot" data on high-performance storage while shifting rarely accessed "cold" data to cost-effective tiers. With customizable policies based on modification time or access frequency, users can precisely schedule when and how data movement takes place. 
+Security has always been the top priority in DSM development. Over the past 12 months, DSM has received more than 50 proactive security updates. In DSM 7.3, security is further reinforced with the adoption of industry-recognized risk indicators, including KEV, EPSS, and LEV, for stronger threat prioritization and protection.
+Office Suite has also undergone significant upgrades to meet the community's growing needs. Synology Drive introduces shared labels, streamlined file requests, and enhanced file locking to facilitate team collaboration. Meanwhile, MailPlus further strengthens security with email moderation and adds domain sharing to unify identities across distributed infrastructures.
+Empowering AI adoption with data privacy
+Synology AI Console has been deployed on more than 430,000 Synology systems since its launch in August, 2025, enabling seamless AI-powered team collaboration and management in on-premises environments. In DSM 7.3, Synology AI Console further introduces custom data masking and filtering, allowing users to safeguard sensitive information locally before transmitting data to third-party AI providers, enhancing both security and workflow reliability.
+In addition, Synology AI Console will soon add support for all OpenAI-compatible APIs in future releases, enabling seamless integration with private AI infrastructure and giving organizations the flexibility to deploy AI services with full data privacy and security.
+Expanded storage flexibility
+Synology is committed to delivering reliable, high-performance storage systems. Rigorous validation of both hardware and software components has long been a core development priority. Synology storage drives, together with the third-party validation program, are engineered to provide the highest levels of reliability with DSM.
+Synology is collaborating with drive manufacturers to expand the range of certified storage media, delivering more reliable options. At the same time, 2025 model-year DiskStation Plus, Value, and J Series running DSM 7.3 will support installation and storage pool creation with third-party drives¹. Together with the existing support for third-party drive migration, DSM will provide users with greater flexibility in managing their storage deployments.
+Availability
+DSM 7.3 is now available for download. For detailed information on the updates, please refer to the release notes. For more information about the updated drive compatibility policy, please read this article.
+1. Creation of M.2 based storage pool and cache still requires drives on the HCL.
+*This press release was updated on Oct 13 to enhance content accuracy. 
+Synology at a glance
+Staying at the forefront of data management, Synology innovates and adapts to ever-evolving technologies, and continues bringing new possibilities to the table, including but not limited to solutions for data storage and backup, file collaboration, video management, and network infrastructure – all designed with one goal in mind – presenting a centralized platform to simplify IT administration while driving digital transformation for businesses worldwide.
+Press Contact
+Media Contact Form
+ NAS Selector
+ RAID Calculator
+ NVR Selector
+ Knowledge Center
+ Downloads
+ Newsletter
+ Company
+ About Synology
+ Blog
+ Newsroom
+ Media Coverage
+ Customer Stories
+ Office Locations
+ ESG
+ Sales
+ Where to Buy
+ Contact Us
+ Become a Partner
+ Compatibility
+ HDD/SSD
+ IP Cameras
+ Network Cards
+ I/O Modules, IP Speakers, Access Controllers
+ Other Devices
+ Resources
+ Products A-Z
+ Beta Program
+ Bounty Program
+ Community
+ Events
+ Subscribe to Newsletter
+ Copyright © 2026 Synology Inc. All rights reserved.
+ Terms & Conditions
+ | Privacy
+ | Cookie Preference
+ Global - English
+ Continue
+

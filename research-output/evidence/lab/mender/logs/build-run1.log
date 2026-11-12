@@ -1,0 +1,91 @@
+[build 07:19:13] verify k3s artifacts against the release sha256sum file
+k3s-airgap-images-amd64.tar.zst: OK
+k3s: OK
+[build 07:19:14] Mender APT key: fetch and check fingerprint (as mender-convert deb.sh L157-L165 does)
+Mender key fingerprint E6C857345575F9218396566224072B80A1B29B00 OK
+[build 07:19:14] lab artifact keys
+[build 07:19:14] mmdebstrap amd64 trixie (+ Mender device-components repo)
+I: installing remaining packages inside the chroot...
+I: cleaning package lists and apt cache...
+I: success in 269.1116 seconds
+mender-auth 5.2.0-1+debian+trixie
+mender-flash 1.1.0-1+debian+trixie
+mender-update 5.2.0-1+debian+trixie
+[build 07:23:43] customise rootfs
+[build 07:24:42] grub-mkstandalone (x86_64-efi) + grub-mender-grubenv standalone boot files
+51 bytes copied, 2.6168e-05 s, 1.9 MB/s
+10 bytes copied, 1.7875e-05 s, 559 kB/s
+/var/lab/mender/stage/esp/EFI/BOOT/grub.cfg
+/var/lab/mender/stage/esp/grub-mender-grubenv/mender_grubenv1/env
+/var/lab/mender/stage/esp/grub-mender-grubenv/mender_grubenv1/lock
+/var/lab/mender/stage/esp/grub-mender-grubenv/mender_grubenv1/lock.sha256sum
+/var/lab/mender/stage/esp/grub-mender-grubenv/mender_grubenv2/env
+/var/lab/mender/stage/esp/grub-mender-grubenv/mender_grubenv2/lock
+/var/lab/mender/stage/esp/grub-mender-grubenv/mender_grubenv2/lock.sha256sum
+[build 07:24:42] ext4 images (rootfs 694 MiB)
+[build 07:24:51] mender artifacts
+[good]  Name: onemind-v2
+[good]  Signature: signed and verified correctly
+[good]  rootfs-image.version: 2
+[bad-k3s]  Name: onemind-v3
+[bad-k3s]  Signature: signed and verified correctly
+[bad-k3s]  rootfs-image.version: 3
+[bad-noagent]  Name: onemind-v4
+[bad-noagent]  Signature: signed and verified correctly
+[bad-noagent]  rootfs-image.version: 4
+[bad-boot]  Name: onemind-v5
+[bad-boot]  Signature: signed and verified correctly
+[bad-boot]  rootfs-image.version: 5
+[bad-hang]  Name: onemind-v6
+[bad-hang]  Signature: signed and verified correctly
+[bad-hang]  rootfs-image.version: 6
+[naive-noagent]  Name: onemind-v7
+[naive-noagent]  Signature: signed and verified correctly
+[naive-noagent]  rootfs-image.version: 7
+[wrong-key]  Signature: signed; verification using provided key failed
+[build 07:25:36] disk image
+EFI          <DIR>     2026-11-11   2:25 
+GRUB-M~1     <DIR>     2026-11-11   2:25  grub-mender-grubenv
+.            <DIR>     2026-11-11   2:25 
+..           <DIR>     2026-11-11   2:25 
+BOOT         <DIR>     2026-11-11   2:25 
+.            <DIR>     2026-11-11   2:25 
+..           <DIR>     2026-11-11   2:25 
+BOOTX64  EFI  10739712 2026-11-11   2:25 
+grub     cfg     11562 2026-11-11   2:25 
+.            <DIR>     2026-11-11   2:25 
+..           <DIR>     2026-11-11   2:25 
+MENDER~1     <DIR>     2026-11-11   2:25  mender_grubenv2
+MENDER~2     <DIR>     2026-11-11   2:25  mender_grubenv1
+.            <DIR>     2026-11-11   2:25 
+..           <DIR>     2026-11-11   2:25 
+lock              1024 2026-11-11   2:25 
+LOCK~1   SHA        71 2026-11-11   2:25  lock.sha256sum
+env               1024 2026-11-11   2:25 
+.            <DIR>     2026-11-11   2:25 
+..           <DIR>     2026-11-11   2:25 
+
+Number  Start (sector)    End (sector)  Size       Code  Name
+   1            2048          264191   128.0 MiB   EF00  esp
+   2          264192         4458495   2.0 GiB     8300  rootfs-A
+   3         4458496         8652799   2.0 GiB     8300  rootfs-B
+   4         8652800        29360094   9.9 GiB     8300  data
+503095808 /var/lab/mender-out/bad-boot.mender
+503089664 /var/lab/mender-out/bad-hang.mender
+503045120 /var/lab/mender-out/bad-k3s.mender
+503064064 /var/lab/mender-out/bad-noagent.mender
+503054336 /var/lab/mender-out/good.mender
+503056384 /var/lab/mender-out/naive-noagent.mender
+503054336 /var/lab/mender-out/wrong-key.mender
+[build 07:26:08] kernel 6.12.116+deb13-amd64; done
+ae1698736bccbe006ced4820010530e7e8548b26e931ab28cc119044aa632cbe  disk.img
+6cf2e9f024865fbe3f9f0b8be670a680cf48b19bd50a1b2a9241792604e07eb7  bad-boot.mender
+af489394eb6741e6abb8baca5a1d39d9335551568dece31cfccf8a1edb902990  bad-hang.mender
+3bccd9fb66129c8bfb5c33de87428453a5e5cd0958794185e5c0707893013f2a  bad-k3s.mender
+db4805539816ff951ade20dd44798270fd901edc180993acf2f86594dbe55139  bad-noagent.mender
+0cd6894012109401dce4e13f4e7940f8983623d5417a483ba6831f29e1d6de4f  good.mender
+b9d7068a7a6d58e61e7af33e124e0cc5ae40e906ded271943bc86d0a8293ab0a  naive-noagent.mender
+62c1644c2599f9d5323434e498d94d4b42ce80a0bccd8118d530ebc782c13680  wrong-key.mender
+b6cd1be5826032c24b22619ec45749fe17a3a036ee791220a1e4ba111fca3ca4  grub.cfg
+efdfdb7bab0fda7399acb6feed23b9b746a8874037d3854d13710d364b055ffa  lab-artifact-verify.pub.pem
+73203fe8c7df57aecc44655ff603490cc853b62c4224c1af1e3e3e8eb1122083  mender-apt-key.asc

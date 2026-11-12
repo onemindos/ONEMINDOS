@@ -1,0 +1,44 @@
+--- lines 205,235 of extracted text ---
+ Sign In
+
+License Agreement 
+
+General License Terms 🔗︎ 
+
+Effective April 2026
+
+Download as PDF
+
+1. Preamble 
+
+1.1. These General License Terms (“License Terms”) apply to all Maltego software products and Subscription Plans (collectively referred to as “Software”), owned and distributed by Maltego Technologies GmbH and its Affiliates (as defined in Section 21.2) (“Maltego”) and accompanying services to it (“Accompanying Services”) provided by Maltego to its customer(s) (“Customer(s)”).
+
+1.2. Unless agreed otherwise, Maltego distributes Software Licenses by way of subscription-based models, including for pre-defined data packages based on credits consumption, that allow Customer to access third-party data (“Subscription Plans”). Furthermore, Maltego operates a platform ("Transform Hub") which is directly accessible via the Software and provides access to various sources of information or data ("Data Access"). By subscribing to a Subscription Plan, Customer acquires temporary rights to use the Software and will be given access to optional Accompanying Services and Data Access as further defined herein.
+
+1.3. These License Terms shall constitute a binding contract between Maltego and Customer. Maltego and Customer are also referred to as “Party” and collectively the “Parties”.
+
+2. Scope of Software Licenses
+
+2.1. By subscribing to a Subscription Plan, Customer will be granted a worldwide, limited, revocable, non-exclusive, non-transferable and non-sublicensable license to temporarily use the Software for Customer’s own purposes for the term stated in the Subscription Plan purchased (“Software License”), under the limitations stated herein. The grant of this license is subject to full and timely payment of the applicable fees.
+
+2.2. Unless agreed otherwise, Software Licenses are personalized and valid only for specific Users (however, every User may use the Software on several computers or mobile devices). If Customer wishes more than one person, e.g., several users to use Software, it needs to subscribe the respective number of Users under the Subscription Plan.
+
+2.3. “User” means: (a) a natural person and (b) an employee of Customer who is authorized to access and use the Software under a valid Software License. Customer may designate a non-employee (i.e., an independent contractor) as User, provided Customer takes all measures to ensure such non-employee uses the Software and services only as permitted under these License Terms.
+
+2.4. Customer has no right to reproduce or copy the Software or any accompanying documentation, such as user manuals, operation instructions, installation guides, release notes and online help files, product descriptions and specifications, illustrations, drawings, particulars, training materials, technical manuals, license agreements, supporting materials and other information relating to performance data or any other data and information provided on Maltego’s website or otherwise made available (whether distributed in print, electronic or video format) by Maltego to Customer (“Documentation”).
+
+2.5. Customer shall not translate, adapt, develop, vary, modify, disassemble, decompile or reverse engineer the Software or allow any third party to do so. Customer shall not circumvent any licensing, control, security or encryption features or reverse engineer any communication protocols. Customer is not permitted to sell, lend, rent, offer for sale, prepare a derivative work, export, have made, display to third parties, distribute or sublicense the Software License or to reproduce or to make the Software or the Documentation available to third parties. Customer’s right to applicable Copyright Laws remains unaffected, only if Maltego has not provided the necessary data and/or information to establish interoperability with other hardware and software after a written request within a reasonable period of time. Customer may not entrust decompilation measures to third parties that are competitors of Maltego, unless it can prove that the risk of disclosure of important trade and business secrets (in particular of the functions and design of the software) is excluded. Section 3 (Intellectual Property) and 18 (Confidentiality) shall apply to all knowledge and information acquired about the Software in the course of the decompilation.
+
+2.6. Copyright markings, serial numbers as well as other characteristics serving purposes of identification of the Software, may not be eliminated or changed. The same applies to suppressing the display of such features on the screen.
+--- lines 325,335 of extracted text ---
+11.1. Subscription Plans are subscribed for a specific period of time (“Subscription Term”) as specified in the order confirmation. The Subscription Plan becomes active with the start of the Subscription Term as specified in the order confirmation and/or invoice.
+
+11.2. Unless otherwise specified in the respective Order Form, the Subscription Plan shall automatically be prolonged by an additional twelve (12) months period each time, unless either Party provides written notice of termination in accordance with section 14 (Termination) at the then-applicable pricing.
+
+12. Free Services
+
+12.1. Maltego may provide certain services free of charge, for Customer’s internal evaluation or special campaigns (“Free Services”). Customer may be presented with additional terms and conditions when registering for Free Services.
+
+12.2. Customer’s access and use of Free Services shall terminate at (a) the end of the Free Services period, or (b) the start date of any paid subscription ordered by Customer for such Service, or (c) termination by Maltego in its sole discretion.
+
+13. Administration of Services

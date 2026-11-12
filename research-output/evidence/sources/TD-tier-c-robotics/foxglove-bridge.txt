@@ -1,0 +1,219 @@
+Source: https://docs.foxglove.dev/docs/fleet/bridge
+Accessed: 2026-11-11
+
+Foxglove Bridge | Foxglove Docs
+
+Skip to main content
+
+DocumentationSDKAPIChangelog
+Back to Foxglove
+
+Search
+
+Getting started
+Overview
+Getting started guide
+Python
+C++
+Rust
+
+Frameworks
+Open a file
+Explore examples
+
+Hardware
+
+Robots
+
+Custom Data
+
+Agents & MCP
+Overview
+Agent sidebar
+MCP server
+Slack
+
+Visualization
+Overview
+
+Connecting to data
+Playback
+Comparison mode
+Layouts
+
+Panels
+Variables
+User Scripts
+FoxQL
+Shareable links
+Video export
+Open via CLI
+Annotate ROS enum fields
+Controls and shortcuts
+Migrate from other tools
+
+Data Platform
+Overview
+Importing data
+Exporting data
+Devices
+Recordings
+Sessions
+Events
+
+Search
+
+Primary Sites
+
+Edge Sites
+
+Fleet
+Overview
+Device Tokens
+
+Foxlet
+Bridge
+Remote Access
+
+Integration
+
+Extensions
+
+Webhooks
+
+Embedding Foxglove
+
+Jupyter notebook
+
+Grafana
+CLI
+OAuth
+Personal access tokens
+Release feeds
+
+Administration
+Settings
+Audit logs
+Pricing
+Standalone License
+Projects
+Roles
+Seat types
+SSO
+
+Fleet
+Bridge
+On this page
+
+Foxglove Bridge
+Use the Foxglove Bridge to visualize your live ROS 1 or ROS 2 data over Foxglove WebSocket or remote access.
+
+Overview​
+
+The Foxglove Bridge connects your ROS stack to Foxglove. It uses a protocol similar to rosbridge, but with the ability to support additional schema formats such as ROS 2 .msg and ROS 2 .idl, parameters, graph introspection, and non-ROS systems.
+
+The bridge is implemented as a C++ node and is designed for high performance with low overhead.
+
+Getting started​
+
+Follow the ROS 1 or ROS 2 getting started guide to install the bridge and connect Foxglove to your robot.
+
+For the full list of configuration parameters, see the ROS 1 configuration reference or the ROS 2 configuration reference.
+
+Remote access​
+
+The Foxglove Bridge supports remote access for ROS 1 and ROS 2, allowing organization members to visualize and teleoperate the device through the Foxglove platform without direct network access.
+
+To enable remote access, set remote_access to true and provide a device token via the FOXGLOVE_DEVICE_TOKEN environment variable. Once started, the device appears on the Devices page and can be connected to remotely.
+
+ROS 2
+ROS 1
+
+FOXGLOVE_DEVICE_TOKEN=<masked> \
+
+ ros2 launch foxglove_bridge foxglove_bridge_launch.xml \
+
+ remote_access:=true
+
+For ROS 1, remote access is provided by the foxglove-bridge-ros1 package, distributed as a Docker image. Remote access requires a newer glibc than the Ubuntu 20.04 base that ROS 1 Noetic runs on, so the image bundles its own Noetic environment. Your robot needs no changes: the bridge container connects to your existing ROS 1 stack over normal ROS connections.
+
+docker run --rm --network host \
+
+ -e ROS_MASTER_URI=http://localhost:11311 \
+
+ -e ROS_HOSTNAME=localhost \
+
+ -e FOXGLOVE_DEVICE_TOKEN=<masked> \
+
+ us-central1-docker.pkg.dev/foxglove-images/images/foxglove_bridge:ros-noetic-v0.0.0 \
+
+ rosrun foxglove_bridge foxglove_bridge _remote_access:=true
+
+Replace v0.0.0 with a valid release version. To run the bridge on a different host than your robot, point ROS_MASTER_URI at the robot's ROS master and set ROS_HOSTNAME to an address of the bridge host that the robot can reach.
+
+ParameterDescriptionDefault
+remote_accessEnable remote access through the Foxglove platformfalse
+device_tokenDevice token used to authenticate the device. If not set, falls back to the FOXGLOVE_DEVICE_TOKEN environment variable. Prefer the environment variable: a token passed as a parameter is visible to other processes on the ROS network (via the ROS 1 parameter server or the ROS 2 parameter services), while the environment variable is only visible to the bridge process
+video_transcode_topic_denylistROS 2 only. Topics matching these regexes (ECMAScript) are delivered as data instead of transcoded to video, for images whose pixels must not pass through lossy video (such as depth images)['.*/compressedDepth']
+point_cloud_compression_topic_denylistROS 2 only. Topics matching these regexes (ECMAScript) are delivered with their original schema instead of being Draco-compressed, for point clouds whose exact values, fields, or point order must be preserved[]
+point_cloud_compression_quantization_bitsROS 2 only. Quantization bits for point-cloud positions under point-cloud compression, between 1 and 30. Fewer bits compress smaller but quantize coarser: the quantization step is the cloud's position range divided by 2^bits, so a cloud spanning 100 m at the default of 12 bits resolves to about 2.4 cm12
+
+System info​
+
+The foxglove_bridge can collect system information with CPU, memory, swap, and operating system details, and forward that data over to the Foxglove application via the /foxglove_bridge/sysinfo topic.
+
+You can configure this by setting the sysinfo parameters when starting the bridge:
+
+ROS 2
+ROS 1
+
+ros2 launch foxglove_bridge foxglove_bridge_launch.xml \
+
+ sysinfo:=true \
+
+ sysinfo_topic:=/foxglove_bridge/sysinfo \
+
+ sysinfo_refresh_interval:=500
+
+docker run --rm --network host \
+
+ -e ROS_MASTER_URI=http://localhost:11311 \
+
+ -e ROS_HOSTNAME=localhost \
+
+ us-central1-docker.pkg.dev/foxglove-images/images/foxglove_bridge:ros-noetic-v0.0.0 \
+
+ rosrun foxglove_bridge foxglove_bridge \
+
+ _sysinfo:=true \
+
+ _sysinfo_topic:=/foxglove_bridge/sysinfo \
+
+ _sysinfo_refresh_interval:=500
+
+ParameterDescriptionDefault
+sysinfoWhether the system info publisher is enabledtrue
+sysinfo_topicThe topic name the metrics are published on/foxglove_bridge/sysinfo
+sysinfo_refresh_intervalThe interval (in milliseconds) over which metrics are refreshed. Clamped to a min of 200ms500
+
+See the SystemInfoPublisher docs for details on what metrics are published.
+
+Development​
+
+To build from source or to contribute to the project, check out the foxglove-sdk GitHub repo for the ROS 2 bridge, or the foxglove-bridge-ros1 repo for the ROS 1 bridge.
+Previous
+FAQ
+Next
+Remote Access
+Need help? Contact support.
+Chat with the community on Discord.
+See the changelog.
+Interested in buying? See pricing.
+Read the latest on the Foxglove blog.
+LLM? Read llms.txt.
+
+Overview
+Getting started
+Remote access
+System info
+Development

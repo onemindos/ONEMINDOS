@@ -1,0 +1,18 @@
+sequenceDiagram
+  participant R as Robot / device
+  participant B as OneMind box (udev + NFD + broker)
+  participant M as Market (online or offline mirror)
+  participant U as Owner (dashboard / phone)
+  participant G as Approval gateway
+  R->>B: USB plug / mDNS / QR code on the robot / BLE
+  B->>B: Identify (USB VID:PID, mDNS TXT, QR payload, MHS profile if present)
+  B->>M: Which certified adapters match this ID and this box?
+  M-->>B: Signed, digest-pinned adapter + required grants + driver-pack need
+  B->>U: "SO-101 arm found. Install adapter? Needs /dev/ttyACM0, RT priority"
+  U-->>B: Approve
+  B->>B: Install adapter (E1), apply grants (E2), merge udev sysext (E3)
+  B->>B: Capability detection + self-test in SAFE mode (no motion)
+  B->>U: Calibrate? Workspace limits? E-stop present?
+  U-->>B: Confirm safety settings
+  B->>G: Register capabilities (read: live · actuate: approval-gated)
+  G-->>U: Robot tile + teleop widget · AI may read now, move only with approval

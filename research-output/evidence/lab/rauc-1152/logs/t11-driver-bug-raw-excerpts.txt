@@ -1,0 +1,73 @@
+# Raw serial excerpts (control characters shown escaped) for T11's 'env_unchanged=False'.
+# Driver bug: a terminal escape split across serial reads was glued to the captured grubenv text.
+# Before and after values are identical in both excerpts. See README deviation 4.
+
+=== sequential run 1
+T11 plain-format bundle, valid signature, verity-only policy
+grub-editenv /boot/efi/EFI/BOOT/grubenv list; echo __R''C=$?__
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+__RC=0__
+root@onemind-lab:~# rauc install /data/bundles/plain-good.raucb 2>&1 | tail -4; test ${PIPESTATUS[0]} -eq 0; echo __R''C=$?__
+100% Installing failed.
+LastError: Bundle format 'plain' not allowed
+idle
+Installing `/data/bundles/plain-good.raucb` failed
+__RC=1__
+\x1b[?2004hroot@onemind-lab:~# 
+##### [02:57:14] install plain-good.raucb rc=1 in 22s
+grub-editenv /boot/efi/EFI/BOOT/grubenv list; echo __R''C=$?__
+\x1b[?2004lORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+__RC=0__
+root@onemind-lab:~# cat /data/onemind/pending 2>/dev/null || echo none; echo __R''C=$?__
+none
+__RC=0__
+\x1b[?2004hroot@onemind-lab:~# 
+##### [02:57:14] T3 good update -> B
+rauc install /data/bundles/good.raucb 2>&1 | tail -4; test ${PIPESTATUS[0]} -eq 0; echo __R''C=$?__
+pre-install: trial marker slot=B version=2
+ 99% Updating slots done.
+100% Installing done.
+idle
+Installing `/data
+
+=== parallel attempt 2 (aborted)
+T11 plain-format bundle, valid signature, verity-only policy
+grub-editenv /boot/efi/EFI/BOOT/grubenv list; echo __R''C=$?__
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+__RC=0__
+\x1b[?2004hroot@onemind-lab:~# rauc install /data/bundles/plain-good.raucb 2>&1 | tail -4; test ${PIPESTATUS[0]} -eq 0; echo __R''C=$?__
+ 20% Checking bundle failed.
+100% Installing failed.
+LastError: Bundle format 'plain' not allowed
+Installing `/data/bundles/plain-good.raucb` failed
+__RC=1__
+
+##### [02:36:52] install plain-good.raucb rc=1 in 51s
+grub-edit\x1b[?2004hroot@onemind-lab:~# grub-editenv /boot/efi/EFI/BOOT/grubenv list; echo __R''C=$?__
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+__RC=0__
+root@onemind-lab:~# cat /data/onemind/pending 2>/dev/null || echo none; echo __R''C=$?__
+none
+__RC=0__
+root@onemind-lab:~# 
+##### [02:36:52] T3 good update -> B
+rauc install /data/bundles/good.raucb 2>&1 | tail -4; test ${PIPESTATUS[0]} -eq 0; echo __R''C=$?__
+pre-install: trial marker slot=B version=2
+
+

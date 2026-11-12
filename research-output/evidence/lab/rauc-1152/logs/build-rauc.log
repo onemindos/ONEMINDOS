@@ -1,0 +1,26 @@
+[build-rauc 07:15:17] clone v1.15.2 (shallow) and check the commit
+Note: switching to '4fb7c798d6ae412344fb8f8d310d773046af3441'.
+changes and commit them, and you can discard any commits you make in this
+rauc v1.15.2 HEAD=4fb7c798d6ae412344fb8f8d310d773046af3441 tagobj=f1ceebd68b4edcf681c23d6a49aa5322d483c4d9
+0332ba2a5db8a1c43de00951033f463e6b8a6290faba55669a66b2d8f608cf75  rauc-src.tar (git archive)
+[build-rauc 07:15:18] arm64 native build
+rauc v1.15.2
+[build-rauc 07:15:20] amd64 build chroot (qemu-user)
+I: cleaning package lists and apt cache...
+I: success in 134.5043 seconds
+rauc 1.15.2
+./usr/bin/rauc
+./usr/lib/systemd/catalog/rauc.catalog
+./usr/lib/systemd/system/rauc.service
+./usr/libexec/rauc-service.sh
+./usr/share/dbus-1/interfaces/de.pengutronix.rauc.Installer.xml
+./usr/share/dbus-1/system-services/de.pengutronix.rauc.service
+./usr/share/dbus-1/system.d/de.pengutronix.rauc.conf
+7f076b8b8ab7882dd4522952d511354c9d23690280945965ec14ad0009639d1f  rauc-arm64
+0c241e9c9e066d239c4d751eb1c5d76351d1cc494b839e56c3496635709145c3  rauc-amd64-dest.tar
+[build-rauc 07:18:17] T12: CVE-2026-34155 regression at bundle creation (2.1 GiB payload)
+control binary: rauc 1.13 (1.13-3+deb13u1)
+T12 debian-1.13-plain: REFUSED: exceeds maximum for bundles using plain format (2 GiB)
+T12 upstream-1.15.2-plain: REFUSED: exceeds maximum for bundles using plain format (2 GiB)
+T12 upstream-1.15.2-verity: CREATED 2272204851 bytes
+[build-rauc 07:18:57] done

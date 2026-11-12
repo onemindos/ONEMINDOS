@@ -1,0 +1,15 @@
+Source: https://docs.formant.io/docs/getting-started-fleet-management.md
+Accessed: 2026-11-11
+
+---
+updatedAt: 2025-11-11T01:46:49.000Z
+agentTools:
+  projectIndex: https://docs.formant.io/llms.txt
+---
+
+# Fleet management
+
+You can use Formant to monitor and configure a fleet of devices. You can:
+
+* Create fleet-level views to aggregate and monitor the health and status of various devices.
+* Create configuration templates to quickly and easily provision many robots at once.

@@ -1,0 +1,4 @@
+#!/bin/bash
+# Rugix pre-commit hook: refuse any commit (also a manual one) while k3s is unhealthy.
+[ "${1:-}" = "system-commit" ] && [ "${2:-}" = "pre-commit" ] || exit 0
+exec /usr/lib/onemind/k3s-healthy

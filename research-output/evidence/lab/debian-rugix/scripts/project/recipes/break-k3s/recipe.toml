@@ -1,0 +1,7 @@
+description = "break k3s on purpose for rollback tests (default: invalid flag)"
+# No dependency on "k3s": a dependency makes Bakery re-run the k3s recipe in this
+# layer after this one, which resets /etc/default/k3s (observed in run 1).
+priority = -2_000_000
+
+[parameters]
+args = { default = "--onemind-deliberately-invalid-flag" }

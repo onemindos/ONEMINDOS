@@ -1,0 +1,391 @@
+Hermes Agent Hardware, 24/7 — ClawBox Hermes Edition
+
+ClawBox
+
+ClawBox
+ClawBoxClawBox WorkstationClawBox Hermes EditionClawBox PortalClawBox StorePricingLeaderboard
+Compare
+Full ComparisonHermes Agent vs OpenClawvs. Cloud AI (ChatGPT, Claude)vs. Raspberry Pi 5vs. Home Servervs. Mac Mini M4Hermes Agent on a Mac miniBlogDocs
+
+EUR/USDLoginBuy
+
+ ×
+
+ Hardware by ID Robots
+Agent by Nous Research
+
+Run Hermes Agent 24/7
+on hardware you own.
+
+The most-used AI agent on OpenRouter, pre-installed on a near-silent NVIDIA Jetson Orin Nano Super that lives on your desk. Hardened by default, patched automatically, and yours outright — no VPS to rent, no cloud tenancy, no monthly seat.
+
+ Buy ClawBox Hermes Edition — €749
+
+ 30-day money-back
+ Ships worldwide from the EU
+
+ Hermes AgentPRE-INSTALLED & HARDENED
+
+ ✓ Built to order in 1–3 working days
+ 🔒 No exposed ports by default
+ ⚡ 7–15 W · ~€39/year
+ 🎛 Carbon-fibre case
+
+Where to run Hermes Agent: a box you own, not a VPS you rent
+
+Hermes Agent is the #1 app on OpenRouter by daily global rank. But upstream it ships as a command-line tool you have to babysit, on a machine you have to rent and secure yourself. We turn it into an appliance.
+
+#1
+Ranked app on OpenRouter
+
+34 T
+Tokens served through OpenRouter
+
+1–3 days
+From order to shipped
+
+7–15 W
+Running around the clock
+
+ Hermes on a rented VPS is a liability — an always-on agent with your credentials, on someone else's machine, exposed to the internet. Hermes on a ClawBox is an appliance: it sits on your LAN, holds its own keys, and takes its updates from a release we pinned and tested rather than from whatever upstream pushed last night.
+
+What hardware do you need to run Hermes Agent locally?
+
+Hermes Agent has to live somewhere. There are four realistic answers, and we think three of them are worse — but they are worth laying out, because the trade-off is the whole decision.
+
+ Rented VPSRented GPU instanceJetson you build yourselfClawBox Hermes Edition
+
+What it costs€16–24 a month, indefinitely€90–150+ a month, indefinitelyHardware, plus your own time€749 once
+
+Local models without an API keyNo usable GPU on CPU-only plansYesYesYes — 67 TOPS, 1024 CUDA cores
+
+Where your data sitsSomeone else's data centreSomeone else's data centreYour LANYour LAN
+
+Who installs HermesYou do, and you maintain itYou do, and you maintain itYou flash and harden it yourselfPre-installed on a release we pinned and tested
+
+Who patches itYouYouYouOver-the-air, security fixes fast-tracked
+
+Power drawn/a — billed, not metered by youn/a — billed, not metered by youSimilar silicon, similar draw7–15 W around the clock
+
+ The rental figures are the ones we publish in our full ClawBox versus cloud VPS cost comparison, where the same maths is worked through over three years. If you want the wider hardware picture rather than the Hermes-specific one, we keep a tested breakdown of the best hardware for running an AI agent 24/7 — Jetson, Mac Mini, Raspberry Pi and DIY builds side by side.
+
+ Building it yourself on the same Jetson Orin Nano Super silicon is a perfectly good answer if the building is the point. This page is for the other case: you want Hermes Agent running tonight, on a machine you own, without becoming its sysadmin.
+
+What is Hermes Agent, and who are Nous Research?
+
+Short version, because the name is overloaded and two different things share it.
+
+Hermes Agent is an open-source autonomous AI agent from Nous Research, an AI research lab. It is MIT-licensed and developed in the open on GitHub. Unlike a chat window, it runs persistently, keeps memory across sessions, and builds reusable skills from what it has already done. Its OpenRouter listing describes 40+ built-in tools, including web search and browser automation.
+
+Because it is designed to run continuously, it needs somewhere to live. Nous's own documentation lists seven terminal backends — local, Docker, SSH, Singularity, Modal, Daytona and Vercel Sandbox — so the software is deliberately agnostic about the machine. That machine is the part we build.
+
+Hermes Agent is not the same thing as Hermes 3. Nous Research also publishes the Hermes family of open-weight language models, and Hermes 3 8B is one of them. Hermes Agent is the agent that does the work; a Hermes model is one of many models it can be pointed at. ClawBox Hermes Edition ships the agent, and you choose the model — locally through Ollama, or from a cloud provider you bring.
+
+ ×
+
+ The agent that grows with you
+
+The hardware for Hermes, from the people who make hardware
+
+Hermes Agent is built by Nous Research and released open-source under MIT. We didn't write it, and we don't fork it — we do the part they deliberately left to you: the box it lives on, the service that keeps it alive, and the hardening that keeps it yours.
+
+Hermes Agent © Nous Research, MIT-licensed.
+ClawBox Hermes Edition is an independent hardware product.
+Not affiliated with or endorsed by Nous Research.
+
+hermes@clawbox — ~
+
+$ hermes status
+
+● running uptime 41d 06h 12m
+
+● memory 12,481 entries · stored on the box
+
+● skills 24 curated · 0 unsigned
+
+● provider ollama/granite4:micro-h · local · 0 tokens billed
+
+● exposed ports none
+
+● last patch 2026-07-31 04:12 · automatic
+
+$ hermes power
+
+ draw 9.4 W · est. €38.60/year
+
+$ 
+
+The same box our owners already run
+
+Hermes Edition is the ClawBox hardware you've seen reviewed — the difference is the runtime we flash on it.
+
+What you get out of the box
+
+🔌
+
+Plug in, pair, done
+Phone-only setup wizard — WiFi, provider, Telegram. No keyboard, no monitor, no Docker.
+
+🛡️
+
+Hardened before it ships
+Zero exposed ports, curated skills only, firewalled by default. Every unit flashed and tested in the EU.
+
+🔁
+
+It maintains itself
+Pinned releases and automatic security patches, tested on the same hardware you own before they reach your box.
+
+ 📊 See how it compares →
+
+What people actually run on it
+
+An agent that never sleeps is only useful if it's doing something. Here's what owners put theirs to work on.
+
+Browser & inbox work, unattended
+
+Hermes drives a real browser and your mailbox while you're away — chasing invoices, watching prices, filing receipts, drafting replies for your approval.
+
+Runs on a schedule or on a message from you
+Keeps its own long-term memory between runs
+Asks before anything irreversible
+
+A concierge in your Telegram
+
+Message the box like a person. It answers from your own data, on your own hardware — and the people you pair it with can use it too.
+
+Pair by QR in the setup wizard
+Voice notes in, spoken answers back
+Approvals and alerts land in the same chat
+
+Private by construction
+
+Run local models through Ollama and the box needs no cloud key at all. Use a frontier API when you want the quality — the choice stays yours, per task.
+
+Local inference on 67 TOPS of Jetson silicon
+Your keys live on your box, not our servers
+Full root and SSH access — it's your computer
+
+1–3 days
+
+Built to order. On your desk in days, not months.
+
+We don't drop-ship from a warehouse. When your order lands, we flash the Hermes image, run the full test suite on your actual unit, and hand it to the courier — within 1–3 working days, from Bulgaria.
+
+Set up in five minutes, from your phone
+
+No terminal. No glibc versions. No YAML. Plug it in and follow five screens.
+
+Five screens to a working agent
+
+The box raises its own WiFi access point on first boot. Join it from your phone and the wizard walks you through: welcome, security, WiFi, provider, Telegram — then it's live.
+
+Bring your own provider — or none
+
+Anthropic, OpenAI, DeepSeek, z.AI, MiniMax, OpenRouter, or a Nous Portal subscription — all supported. Or pick Ollama and run entirely offline on the box's own GPU.
+
+Updates that don't break your box
+
+We pin upstream Hermes releases, test them on real hardware, then push them to your box over the air. Security fixes are fast-tracked ahead of the normal release train.
+
+Hermes Agent or OpenClaw — honestly
+
+We sell both. They're different tools, and the right answer depends on what you want the box to do. Here's the version we'd give a friend.
+
+ Hermes EditionOpenClaw Edition
+
+Momentum in 2026#1 app on OpenRouter by daily global rankLarger installed base, growth plateaued
+
+Provider riskCross-provider by design — survives one vendor changing its termsHit hard when subscription auth was withdrawn in April 2026
+
+Ecosystem maturityYounger; smaller skill libraryBigger app store, more integrations, more polish
+
+Security track recordLess battle-tested — no large-scale incident yet, and no proof either wayStress-tested the hard way; hardening is well understood
+
+Best forHeavier autonomous workloads, provider flexibilityBreadth of integrations and a settled ecosystem
+
+Same hardware, same warranty, same support either way — the runtime is a choice, not a different product. Switching between the two on a box you already own takes a single click.
+
+What's inside
+
+The same NVIDIA Jetson Orin Nano Super platform we ship in every ClawBox.
+
+ Key specs
+ Technical
+ In the box
+
+PlatformNVIDIA Jetson Orin Nano Super
+
+AI performance67 TOPS
+
+Memory8 GB LPDDR5 unified
+
+Storage512 GB NVMe SSD
+
+Power draw7–15 W (~€39/year)
+
+GPU1024 CUDA cores, Ampere
+
+CPU6-core Arm Cortex-A78AE
+
+NetworkingGigabit Ethernet · Wi-Fi
+
+PortsUSB 3.0 · HDMI · 19 V DC barrel power
+
+Dimensions100 × 79 × 31 mm
+
+CoolingActive — optimized fan, near-silent
+
+OSClawBox OS (JetPack 6, Ubuntu 22.04)
+
+ Carbon-fibre case, assembled in the EU
+
+ 512 GB NVMe, pre-flashed with Hermes Edition
+
+ 19 V barrel-jack power supply, plug or adapter for your region
+
+ Wi-Fi antenna, pre-fitted
+
+ Telegram pairing card with your box's QR
+
+ Two-year warranty, 30-day returns
+
+ Powered by NVIDIA Jetson
+
+One price. One box. Yours.
+
+No seats, no tenancy, no mandatory subscription. Bring your own AI provider — or run local models and pay nothing at all.
+
+€749
+
+one-time · VAT added where applicable
+
+Euro price €749 · final amount and currency shown at payment
+
+ ClawBox hardware, flashed with Hermes Edition
+
+ Built to order and shipped within 1–3 working days
+
+ Hardened image — no exposed ports, curated skills
+
+ Over-the-air updates, with security fixes fast-tracked
+
+ Two-year warranty · 30-day money-back
+
+ Buy now — €749
+
+Secure checkout · ships worldwide from the EU · Klarna available
+
+Questions people ask before buying
+
+ How fast does it ship? 
+
+We build to order rather than stockpile, so 1–3 working days is our commitment to ship, not to deliver. When your order comes in we flash your unit, run the full test suite on it, and hand it to DHL. Transit time then depends on where you are — typically 1–3 days inside the EU.
+ What does it cost to run? 
+
+Electricity is about €39 a year at 7–15 W. Beyond that it depends on your AI provider: local models through Ollama cost nothing per token, and a cloud API is billed by that provider directly — typically €5–20 a month for personal use. We don't take a cut and we don't require a subscription.
+ Can it run OpenClaw as well? 
+
+Hermes Edition ships running Hermes Agent only, so out of the box it has one job and one attack surface. It's the same hardware as our OpenClaw Edition, and you can switch between the two on the device with a single click — so the edition you order is where you start, not where you are stuck.
+ How private is it, really? 
+
+The box sits on your network with no inbound ports open. Your provider keys are stored on the device, not with us. With a local model selected, nothing leaves your home at all. You get full root and SSH access — we can't see inside your box, and neither can anyone else without your say-so.
+ What happens when Hermes releases a breaking change? 
+
+You're not tracking upstream directly — we are. We pin a known-good release, test it on the same hardware you own, and only then push it to you. Security fixes are fast-tracked ahead of the normal release train.
+ Who's behind this? 
+
+ID Robots OOD, a robotics and edge-AI company in Plovdiv, Bulgaria. We've been shipping ClawBox hardware since 2026 — every unit is assembled, flashed and tested by us, in the EU.
+ Can I run Hermes Agent on an NVIDIA Jetson Orin Nano? 
+
+Yes — that is exactly what this is. ClawBox Hermes Edition is an NVIDIA Jetson Orin Nano Super (67 TOPS, 8GB LPDDR5, 512GB NVMe) with Hermes Agent already installed, hardened and pinned to a release we tested. You can absolutely buy the silicon and do the flashing, driver and hardening work yourself; the difference you are paying for here is that it arrives done, under warranty, and keeps patching itself.
+ Where can I buy hardware with Hermes Agent pre-installed? 
+
+Here, at €749 one-time, built to order and shipped from the EU within 1–3 working days. Nous Research publishes Hermes Agent as open-source software and does not sell hardware, so a box that arrives with it already running is something an integrator has to build. We are not affiliated with or endorsed by Nous Research; we package their software on our own hardware.
+ Do I need a Nous Research account, an API key or a subscription? 
+
+None of the three. Hermes Agent is open source and free, and ClawBox Hermes Edition ships with no ClawBox AI plan and does not require one. Run local models through Ollama on the box and you pay nothing per token and need no key at all. If you would rather point it at a cloud provider, you bring your own account and that provider bills you directly — we do not take a cut.
+
+Order ClawBox Hermes Edition
+
+Community
+Join the ClawBox community on Discord
+Ask owners what they run on theirs, get help with setup, and hear about new builds first — straight from the team that makes ClawBox.
+Join our Discord(opens in a new tab)Free to join — no ClawBox needed
+Still deciding between the two agents? Hermes Agent vs OpenClaw, side by side
+ · Thinking of a Mac mini instead? Hermes Agent on a Mac mini vs ClawBox
+Hermes Agent is an independent open-source project by Nous Research; ClawBox Hermes Edition is not affiliated with, endorsed by, or sponsored by Nous Research. Not affiliated with Hermès International S.A.
+
+Get product updates, discounts & ClawBox tips
+Subscribe
+No spam. Unsubscribe anytime.
+Guides
+What Is OpenClaw?
+Setup Guide
+Quick Start
+Requirements
+Telegram Setup
+WhatsApp Setup
+Android Guide
+OpenClaw on Jetson
+Docker Setup
+FAQCompare
+Overview
+Hermes Agent vs OpenClaw
+vs Mac Mini
+Hermes Agent on a Mac mini
+vs Cloud AI
+vs Cloud VPS
+vs Raspberry Pi
+vs Home Server
+ClawBox Review
+ClawBox PricingResources
+ClawBox Workstation
+ClawBox Hermes Edition
+ClawBox Portal
+OpenClaw Hardware
+Best Hardware
+OpenClaw Preinstalled
+GDPR & Private AI
+ClawBox for Teams
+Low Power AI Server
+Self-Hosted AI
+Jetson AI Assistant
+Always-On AI
+Home AI Server
+AI Assistant Box
+AI Computer
+NVIDIA AIMore
+ChatGPT Hardware
+Voice Assistant
+Ships to Asia
+Perplexity Alternative
+Personal AI Device
+AI Assistant for Business
+Private AI
+No-Cloud AI
+AI for Startups
+Run Claude Locally
+Local AI Hardware
+OpenClaw ACP
+Shipping Policy
+Home AI Server: Build a Private, Always-On Assistant at Home
+OpenClaw Hardware Requirements (2026): The Complete Guide
+Raspberry Pi vs Jetson Orin Nano for Local AI: An Honest 2026 Comparison
+BlogCommunity
+Documentation
+Community Forum
+OpenClaw Wallpapers
+🤖 ClawBox Agent
+Support
+Company
+About Us
+Contact
+Terms of Service
+Privacy Policy
+Your Privacy Choices
+Cookie settings
+Returns & Refunds
+Withdraw from contract
+Product safety
+© 2026 clawbox.com. Built with ❤️ for the AI community.We don't log your data — verify the code

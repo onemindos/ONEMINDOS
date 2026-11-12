@@ -1,0 +1,19 @@
+flowchart LR
+  subgraph NOW["Launch (route K1): use the kernel each board's maintainer already patches"]
+    X["x86_64 + generic arm64<br/>the base's stock kernel<br/>(Canonical's or Debian's)"]
+    P["Raspberry Pi 5 / CM5<br/>Ubuntu leg: Canonical linux-raspi<br/>Debian leg: Raspberry Pi kernel (linux-image-rpi-2712)"]
+    J["Jetson Orin / Thor<br/>NVIDIA L4T kernel (JetPack 7.2+)"]
+  end
+  KC["OneMind kernel contract<br/>(required features checked in CI on every bump)"]
+  X --- KC
+  P --- KC
+  J --- KC
+  subgraph LATER["Secure Boot enforcing release (route K2-hybrid)"]
+    X2["x86 + arm64: OneMind-built LTS kernel<br/>(signs NVIDIA and driver-pack modules)"]
+    J2["Jetson: L4T kept · meta-tegra + 6.18 LTS evaluated"]
+  end
+  KC -->|"trigger: enforce Secure Boot with out-of-tree modules,<br/>and the shim vendor_cert route fails,<br/>or base kernel fixes lag > 7 days"| LATER
+  RT["PREEMPT_RT = an image profile<br/>(mainline since 6.12), per-unit latency test"]
+  KC -.-> RT
+  NO["Never: own kernel, microkernel, patched fork"]
+  style NO fill:#FBEDED,stroke:#B04A4A

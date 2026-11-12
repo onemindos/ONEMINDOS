@@ -1,0 +1,6 @@
+
+##### [08:15:58] T1 first boot
+
+##### [08:15:58] QEMU START qemu-system-aarch64 -machine virt -accel hvf -cpu host -smp 4 -m 3072 -nodefaults -display none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,readonly=on,file=<lab-dir>/aarch64-gate/fw/AAVMF_CODE.fd -drive if=pflash,format=raw,file=<lab-dir>/aarch64-gate/run3/AAVMF_VARS.fd -drive if=virtio,format=raw,cache
+UEFI firmware (version 2025.02-8+deb13u1 built at 18:06:17 on Nov  8 2025)
+[01;01H[=3h[01;01H[01;01H[=3h[2J[01;01H

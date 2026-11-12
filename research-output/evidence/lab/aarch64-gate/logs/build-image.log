@@ -1,0 +1,77 @@
+[build 12:15:25] verify k3s artifacts against the release sha256sum file
+k3s-airgap-images-arm64.tar.zst: OK
+k3s-arm64: OK
+[build 12:15:25] lab PKI
+[build 12:15:25] mmdebstrap arm64 trixie
+I: installing remaining packages inside the chroot...
+I: cleaning package lists and apt cache...
+I: success in 103.3440 seconds
+rauc v1.15.2
+Debian rauc package: not installed (expected)
+[build 12:17:09] customise rootfs
+[build 12:17:15] T0 checks: aarch64 binaries, kernel, watchdog module
+rauc: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpre
+k3s: ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, Go BuildID=-7
+grub-editenv: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpre
+vmlinuz-6.12.116+deb13-arm64: Linux kernel ARM64 boot executable Image, little-endian, 4K pages
+/lib/modules/6.12.116+deb13-arm64/kernel/drivers/watchdog/i6300esb.ko.xz
+[build 12:17:15] grub-mkstandalone (arm64-efi)
+[build 12:17:15] ext4 images (rootfs 756 MiB)
+[build 12:17:34] rauc bundles
+rauc-Message: 07:18:06.056: No keyring given, skipping signature verification
+rauc-Message: 07:18:31.970: No keyring given, skipping signature verification
+rauc-Message: 07:18:49.512: No keyring given, skipping signature verification
+rauc-Message: 07:19:07.620: No keyring given, skipping signature verification
+rauc-Message: 07:19:33.257: No keyring given, skipping signature verification
+rauc-Message: 07:19:59.561: No keyring given, skipping signature verification
+rauc-Message: 07:20:18.122: No keyring given, skipping signature verification
+rauc-Message: 07:20:35.337: No keyring given, skipping signature verification
+[good] rauc-Message: 07:20:35.433: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[good] Version:        '2'
+[good] Bundle Format:  verity
+[bad-k3s] rauc-Message: 07:20:35.443: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-k3s] Version:        '3'
+[bad-k3s] Bundle Format:  verity
+[bad-noagent] rauc-Message: 07:20:35.454: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-noagent] Version:        '4'
+[bad-noagent] Bundle Format:  verity
+[bad-boot] rauc-Message: 07:20:35.464: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-boot] Version:        '5'
+[bad-boot] Bundle Format:  verity
+[bad-hang] rauc-Message: 07:20:35.474: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[bad-hang] Version:        '6'
+[bad-hang] Bundle Format:  verity
+[naive-noagent] rauc-Message: 07:20:35.484: Verified inline signature by 'O = OneMind LAB, CN = lab-signer'
+[naive-noagent] Version:        '7'
+[naive-noagent] Bundle Format:  verity
+[plain-good] rauc-Message: 07:20:35.847: Verified detached signature by 'O = OneMind LAB, CN = lab-signer'
+[plain-good] Version:        '2'
+[plain-good] Bundle Format:  plain
+[wrong-key] rejected by rauc info (expected)
+[build 12:20:35] disk image
+
+Number  Start (sector)    End (sector)  Size       Code  Name
+   1            2048          264191   128.0 MiB   EF00  esp
+   2          264192         4458495   2.0 GiB     8300  rootfs-A
+   3         4458496         8652799   2.0 GiB     8300  rootfs-B
+   4         8652800        29360094   9.9 GiB     8300  data
+490702926 /var/lab/a64-out/bad-boot.raucb
+490707022 /var/lab/a64-out/bad-hang.raucb
+490702926 /var/lab/a64-out/bad-k3s.raucb
+490702926 /var/lab/a64-out/bad-noagent.raucb
+490702926 /var/lab/a64-out/good.raucb
+490707022 /var/lab/a64-out/naive-noagent.raucb
+486860495 /var/lab/a64-out/plain-good.raucb
+490702932 /var/lab/a64-out/wrong-key.raucb
+[build 12:21:11] kernel 6.12.116+deb13-arm64; done
+62035cb3f20cfde4a9bf5eab26cf245ea35d53cc55eeeb60419abde8acf78d22  disk.img
+f7a635604d2e240d36f01f73eef53dc1f345066a815398b5d68872a41f64300d  bad-boot.raucb
+3af9313c9eda1fa0bb72b95ae97ba4fb03791b060bf47bff8063dc656430c9a9  bad-hang.raucb
+aa7cf7bb4df869b62cecf507b604425b538fffd270389cde853d647830ea4773  bad-k3s.raucb
+718a4d777f0d02b9a05a7e1dc3fcbe97fb765e3a68a0e5dc478633f6ffd4bb8b  bad-noagent.raucb
+b429988d2f62aa2907c1995ae91da9fd90c5966839e286fd5b63fde971ecc9d2  good.raucb
+d73cea448b8b7df3168300474c117fc294a7447eb80440dadc321c28d561ee01  naive-noagent.raucb
+0c3907f947b8764903f17f2cf68d7b63b933bec4dcfc8a72109d8ea2c22deaa4  plain-good.raucb
+6f1891568ceb6976e2de4749d8aa1bad1eb741d7c8898f94014eb43af59f592a  wrong-key.raucb
+921f68b8855ecacea1f3d0dba6b9e9dd9397891e3910600ec6e9c7116986f236  grub.cfg
+96520a3008dc62d8ad64070717340da0e2fed14d13f463cca9f45e22233a85e6  lab-ca.cert.pem

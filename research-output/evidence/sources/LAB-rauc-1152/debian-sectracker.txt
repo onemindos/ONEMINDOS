@@ -1,0 +1,22 @@
+# Saved 2026-11-11 from https://security-tracker.debian.org/tracker/CVE-2026-34155 (HTML converted to text; emails masked)
+
+ CVE-2026-34155CVE-2026-34155
+NameCVE-2026-34155
+DescriptionRAUC controls the update process on embedded Linux systems. Prior to version 1.15.2, RAUC bundles using the 'plain' format exceeding a payload size of 2 GiB cause an integer overflow which results in a signature which covers only the first few bytes of the payload. Given such a bundle with a legitimate signature, an attacker can modify the part of the payload which is not covered by the signature. This issue has been patched in version 1.15.2.
+SourceCVE (at NVD; CERT, ENISA, LWN, oss-sec, fulldisc, Debian ELTS, Red Hat, Ubuntu, Gentoo, SUSE bugzilla/CVE, GitHub advisories/code/issues, web search, more)
+Vulnerable and fixed packages
+The table below lists information on source packages.
+Source PackageReleaseVersionStatus
+rauc (PTS)bookworm1.8-2vulnerable
+trixie1.13-3+deb13u1fixed
+forky, sid1.15.2-1fixed
+The information below is based on the following data on fixed versions.
+PackageTypeReleaseFixed VersionUrgencyOriginDebian Bugs
+raucsourcetrixie1.13-3+deb13u1
+raucsource(unstable)1.15.2-1
+Notes
+[bookworm] - rauc <no-dsa> (Minor issue)
+[bullseye] - rauc <postponed> (Minor issue)
+https://github.com/rauc/rauc/security/advisories/GHSA-6hj7-q844-m2hx
+Fixed by: https://github.com/rauc/rauc/commit/4fb7c798d6ae412344fb8f8d310d773046af3441 (v1.15.2)
+Search for package or bug name: Reporting problemsHome - Debian Security - Source (Git)

@@ -1,0 +1,66 @@
+Snapshot of https://github.com/home-assistant/supervisor/issues/7034 (accessed 2026-11-10 via gh CLI; author handles removed; body truncated)
+title: Backups created with invalid outer tar/PAX size for large homeassistant.tar.gz, hiding add-on archives
+state: OPEN
+created: 2026-07-12T14:56:09Z
+closed: -
+
+## Description
+
+I have a reproducible case where a Home Assistant backup through the OneDrive backup path is an invalid outer tar archive. The backup itself is unencrypted. The local backup copy created on the Home Assistant system is OK; the corruption only shows up in the OneDrive artifact.
+
+The inner `homeassistant.tar.gz` gzip stream is valid and can be decompressed, and the add-on archives are still present after the actual gzip EOF. However, the outer tar/PAX metadata reports an oversized `homeassistant.tar.gz` member size. Standard tar readers then seek past the real end of the gzip stream, land in the middle of following tar data, and fail to find `./backup.json` or the add-on archives.
+
+I am not attaching the raw backup because it contains sensitive Home Assistant configuration and add-on data.
+
+## Observed behavior
+
+On the affected OneDrive:
+
+```text
+tar.exe: Damaged tar archive (bad header checksum)
+```
+
+A PAX-aware parser sees `homeassistant.tar.gz`, but the reported member size is larger than the actual gzip stream:
+
+```text
+outer backup size:                 10,289,920,000 bytes
+homeassistant.tar.gz reported size: 10,211,128,739 bytes
+homeassistant.tar.gz actual gzip:   10,210,963,057 bytes
+reported-vs-actual delta:              165,682 bytes
+homeassistant.tar.gz decompressed:  22,984,878,080 bytes
+```
+
+The first valid tar header after the real gzip EOF is found before the position implied by the PAX size:
+
+```text
+gzip_compressed_end: 10210964593
+expected next header from PAX size: 10211130368
+first valid header after gzip EOF: 10210964992 ././@PaxHeader
+```
+
+Header scan after the actual gzip EOF shows the add-on archives and `backup.json` are present:
+
+```text
+10210966016 core_mosquitto.tar.gz
+10210998784 core_configurator.tar.gz
+10211002368 a0d7b954_vscode.tar.gz
+10213235712 cb646a50_get.tar.gz
+10213238784 a0d7b954_tailscale.tar.gz
+10213250048 5c53de3b_esphome.tar.gz
+10213253632 core_samba.tar.gz
+10213257728 core_git_pull.tar.gz
+10213262336 core_ssh.tar.gz
+10213270016 81f33d0f_ha_mcp.tar.gz
+10213288960 b9a82890_codex.tar.gz
+10289420800 ssl.tar.gz
+10289421824 ./backup.json
+```
+
+After rebuilding only the outer tar using the actual gzip EOF and the valid following members, the repaired archive lists correctly and the inner `.tar.gz` members validate.
+
+## Expected behavior
+
+The OneDrive/downloaded backup artifact should be byte-identical or at least tar-valid compared with the local backup. A backup that is reported as completed successfully s
+
+Maintainer comment (project member), 2026-10-14:
+This issue is addressed through https://github.com/home-assistant-libs/securetar/pull/179 part of securetar 2026.10.0, which is in the latest Supervisor 2026.10.2 release (currently on beta channel). Please test and let me know if this indeed fixes the problem.

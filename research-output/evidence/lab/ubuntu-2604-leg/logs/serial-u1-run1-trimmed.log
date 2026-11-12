@@ -1,0 +1,46 @@
+##### [02:26:48] T1 first boot
+##### [02:26:48] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,reado
+[30mGRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 default=1
+HEALTH-GATE: 07:27:26 start slot=A version=1 mode=committed env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 ]
+HEALTH-GATE: 07:27:27 RESULT committed-boot slot=A version=1
+[?2004hroot@onemind-lab:~# HEALTH-GATE: 07:32:41 K3S-FRESH ok after 314s: ok (fresh: kubelet, heartbeat 2026-11-11T07:30:12Z, core pods, data rw, api)
+[?2004l--- state:T1
+ONEMIND_VERSION=1
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+Booted from: rootfs.0 (A)
+      [01;31mboot status: bad
+      boot status: good
+pending: none
+apps             broken-app-5d6b874ccd-k5xnb               0/1   ErrImagePull   0     2m44s
+kube-system      coredns-577d995dff-qzhwc                  1/1   Running        0     2m44s
+kube-system      helm-install-gateway-api-crd-dtwmb        1/1   Running        0     2m44s
+kube-system      local-path-provisioner-56c6584955-b7zcv   1/1   Running        0     2m44s
+onemind-system   onemind-core-dc87b89b8-sjf9f              1/1   Running        0     2m43s
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [02:33:11] T2 wrong-key bundle
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+LastError: signature verification failed: Verify error: unable to get local issuer certificate
+##### [02:33:13] install wrong-key.raucb rc=1 in 2s
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [02:33:14] T3 good update -> B
+LastError: Failed mounting bundle: Unexpected dm-verity status 'V -' (instead of '\0')
+##### [02:33:16] install good.raucb rc=1 in 2s
+[extra] 195:[?2004hroot@onemind-lab:~# HEALTH-GATE: 07:32:41 K3S-FRESH ok after 314s: ok (fresh: kubelet, heartbeat 2026-11-11T07:30:12Z, core pods, data rw, api)
+[extra] 266:LastError: Failed mounting bundle: Unexpected dm-verity status 'V -' (instead of '\0')
+[extra] 274:Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists

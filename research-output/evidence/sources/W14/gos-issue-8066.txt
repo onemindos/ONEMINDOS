@@ -1,0 +1,21 @@
+GrapheneOS/os-issue-tracker#8066 state:open created:2026-06-22T05:44:07Z closed:null
+TITLE: Multicast issue when using Zero Tier
+
+GrapheneOS's VPN leak protections are blocking multicast traffic over the Zero Tier VPN tunnel.
+
+We have conducted some testing with both stock firmware and GrapheneOS.
+
+For the test, we used the following link:
+<shared-drive-link>
+
+Using a Google Pixel 9a with the stock firmware, everything works as expected. Multicast traffic is functioning correctly, and the devices can see each other in ATAK with almost no configuration required.
+
+However, when using a Google Pixel 9a running GrapheneOS, something appears to be preventing it from working properly. The setup is otherwise identical in every way.
+
+I have been in contact with "other8026", who mentioned that the devs are currently working on the leakage protection.
+
+--- comment 2026-07-07T23:09:24Z
+Is this only when using ZeroTier? Does the device transmit/receive multicast packets over normal network? Because for me, the same setup in a normal network works on the stock firmware but when using GrapheneOS it says "Failed to transmit packet; Unknown network error". This is only for multicast. Unicast works as intended.
+
+--- comment 2026-07-19T06:59:45Z
+@nishankhadka09 It's not specific to ZeroTier. It happens for all multicast over VPN interfaces.

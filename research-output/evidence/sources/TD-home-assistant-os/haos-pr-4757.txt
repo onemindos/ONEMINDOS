@@ -1,0 +1,22 @@
+Snapshot of https://github.com/home-assistant/operating-system/pull/4757 (accessed 2026-11-10 via gh CLI; author handles removed; body truncated)
+title: Add CAs for new signing certificates to RAUC keyring
+state: MERGED
+created: 2026-06-09T09:08:27Z
+closed: 2026-06-09T16:09:46Z
+
+Add certificates with new PKI chain to replace the old one. Until May 14th 2028, bundles signed with the old certs will be accepted as well. The transition to the new authority using bundles signed by the new certs is ensured by the intermediate certificate signed by the old CA. This, and the old CA certificates can be removed from the keyring after their expiry.
+
+The keyrings no longer contain CRLs, but the validity of the certificates will be shortened to 4 years, as discussed in the linked issue.
+
+Closes #4743
+
+<!-- This is an auto-generated comment: release notes by coderabbit.ai -->
+
+## Summary by CodeRabbit
+
+## Release Notes
+
+* **Chores**
+  * Updated OTA update certificate configuration to include intermediate CA certificate support for backward compatibility. This addition is scheduled for removal on May 14th, 2028.
+
+<!-- end of auto-generated comment: release notes by coderabbit.ai -->

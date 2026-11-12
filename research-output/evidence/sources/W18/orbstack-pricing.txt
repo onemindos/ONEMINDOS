@@ -1,0 +1,38 @@
+Pricing · OrbStack OrbStack
+PricingBlogDocs
+DownloadOpen main menu
+Pricing
+Free to try, no card required
+Always free for personal use
+MonthlyYearly Save 20%
+Free
+Personal, non-commercial use
+$0
+​
+ Personal use
+ Run containers
+ Run Linux machines
+ Community support
+Download 
+Pro
+Business & commercial use
+$8  per user per month
+$96 billed annually
+ Business use
+ Commercial use
+ Debug Shell for easy container debugging
+ Priority support
+ Batch organization purchases
+Get ProLearn more
+Enterprise
+Companies with advanced needs
+​
+ SAML SSO
+ Invoice & PO payments
+ More coming soon
+Contact salesLearn more
+Terms·Privacy·Download
+© 2026 Orbital Labs, LLC. All rights reserved.
+We're hiring!
+Docker is a registered trademark of Docker, Inc.
+OrbStack is not affiliated with Docker, Inc. in any way.

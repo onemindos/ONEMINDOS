@@ -1,0 +1,356 @@
+Argo CD Core - Argo CD - Declarative GitOps CD for Kubernetes
+ Skip to content
+ Argo CD - Declarative GitOps CD for Kubernetes
+ Argo CD Core
+ Initializing search
+ GitHub
+ Argo CD - Declarative GitOps CD for Kubernetes
+ GitHub
+ Overview
+ Understand The Basics
+ Core Concepts
+ Getting Started
+ Operator Manual
+ Operator Manual
+ Overview
+ Architectural Overview
+ Installation
+ Feature Maturity
+ Argo CD Core
+ Argo CD Core
+ Table of contents
+ Introduction
+ Architecture
+ Installing
+ Using
+ Declarative Setup
+ Applications in any namespace
+ Ingress Configuration
+ High Availability
+ High Availability
+ Overview
+ Manifest Compression
+ Dynamic Cluster Distribution
+ User Management
+ User Management
+ Overview
+ Auth0
+ Microsoft
+ Okta
+ OneLogin
+ Keycloak
+ OpenUnison
+ GitHub Actions
+ GitLab CI
+ Google
+ Zitadel
+ Identity Center (AWS SSO)
+ RBAC Configuration
+ Security
+ Security
+ Overview
+ Snyk Scans
+ Verification of Argo CD Artifacts
+ TLS configuration
+ Mutual TLS (mTLS) for repo-server
+ Cluster Management
+ Cluster Bootstrapping
+ Secret Management
+ Disaster Recovery
+ Reconcile Optimization
+ Webhook Configuration
+ Resource Health
+ Resource Actions
+ Custom Tooling
+ Custom Styles
+ UI Customization
+ Metrics
+ Observability
+ Web-based Terminal
+ Config Management Plugins
+ Deep Links
+ Git Configuration
+ Managed By URL Annotation
+ Notifications
+ Notifications
+ Overview
+ Triggers
+ Templates
+ Functions
+ Triggers and Templates Catalog
+ Monitoring
+ Subscriptions
+ Troubleshooting
+ Troubleshooting commands
+ Troubleshooting errors
+ Examples
+ Notification Services
+ Notification Services
+ Alertmanager
+ AWS SQS
+ Email
+ GCP Pub/Sub
+ GitHub
+ Google Chat
+ Grafana
+ Mattermost
+ Nats
+ NewRelic
+ Opsgenie
+ Overview
+ PagerDuty
+ PagerDuty V2
+ Pushover
+ Rocket.Chat
+ Slack
+ Teams Workflows
+ Teams (Office 365 Connectors)
+ Telegram
+ Webex Teams
+ Webhook
+ Troubleshooting Tools
+ ApplicationSet
+ ApplicationSet
+ Introduction
+ Installations
+ Use Cases
+ Security
+ How ApplicationSet controller interacts with Argo CD
+ ApplicationSet Web UI
+ Generators
+ Generators
+ Generators
+ List Generator
+ Cluster Generator
+ Git Generator
+ OCI Generator
+ Matrix Generator
+ Merge Generator
+ SCM Provider Generator
+ Cluster Decision Resource Generator
+ Pull Request Generator
+ Post Selector all generators
+ Plugin Generator
+ Template fields
+ Template fields
+ Templates
+ Go Template
+ Controlling Resource Modification
+ Application Pruning & Resource Deletion
+ Progressive Syncs
+ Git File Generator Globbing
+ ApplicationSet Specification Reference
+ ApplicationSet in any namespace
+ Server Configuration Parameters
+ Server Configuration Parameters
+ argocd-server Command Reference
+ argocd-application-controller Command Reference
+ argocd-repo-server Command Reference
+ argocd-dex Command Reference
+ Additional configuration method
+ Upgrading
+ Upgrading
+ Overview
+ v3.5 to 3.6
+ v3.4 to 3.5
+ v3.3 to 3.4
+ v3.2 to 3.3
+ v3.1 to 3.2
+ v3.0 to 3.1
+ v2.14 to 3.0
+ v2.13 to 2.14
+ v2.12 to 2.13
+ v2.11 to 2.12
+ v2.10 to 2.11
+ v2.9 to 2.10
+ v2.8 to 2.9
+ v2.7 to 2.8
+ v2.6 to 2.7
+ v2.5 to 2.6
+ v2.4 to 2.5
+ v2.3 to 2.4
+ v2.2 to 2.3
+ v2.1 to 2.2
+ v2.0 to 2.1
+ v1.8 to 2.0
+ v1.7 to 1.8
+ v1.6 to 1.7
+ v1.5 to 1.6
+ v1.4 to 1.5
+ v1.3 to 1.4
+ v1.2 to 1.3
+ v1.1 to 1.2
+ v1.0 to 1.1
+ Project Specification Reference
+ User Guide
+ User Guide
+ Overview
+ Tools
+ Kustomize
+ Helm
+ OCI
+ Importing Argo CD go packages
+ Jsonnet
+ Directory
+ Tool Detection
+ Projects
+ Private Repositories
+ Plugins
+ Multiple Sources for an Application
+ Source Integrity Verification
+ Source Integrity Verification
+ Overview
+ Git GnuPG verification
+ Automated Sync Policy
+ Diffing
+ Diffing
+ Diff Strategies
+ Diff Customization
+ Orphaned Resources Monitoring
+ Resources View
+ Compare Options
+ Sync Options
+ Parameter Overrides
+ Environment Variables
+ Build Environment
+ Tracking and Deployment Strategies
+ Resource Tracking
+ Resource hooks
+ Selective Sync
+ Sync Phases and Waves
+ Sync Windows
+ Sync Applications with Kubectl
+ Skip Application Reconcile
+ Generating Applications with ApplicationSet
+ Managing ApplicationSets in the Web UI
+ Automation from CI Pipelines
+ App Deletion
+ Source Hydrator
+ Best Practices
+ Status Badge
+ External URL Links
+ Add extra Application info
+ Application Notice
+ Notification subscriptions
+ Annotations and Labels used by Argo CD
+ Command Reference
+ Application Specification Reference
+ Developer Guide
+ Developer Guide
+ Overview
+ Development Environment
+ Development Cycle
+ Submit Your PR
+ Backport Your Fix
+ Architecture
+ Architecture
+ Authentication and Authorization
+ Component Architecture
+ Code Contribution Guide
+ Toolchain Guide
+ MacOS users
+ Release Process And Cadence
+ Running Argo CD locally
+ Debugging a local Argo CD instance
+ Debugging a Remote ArgoCD Environment
+ API Docs
+ E2E Tests
+ Managing Dependencies
+ Continuous Integration (CI)
+ Releasing
+ Documentation Site
+ Code Quality and Security Scanning
+ Extensions
+ Extensions
+ UI Extensions
+ UI Extensions: React 19 Upgrade
+ Proxy Extensions
+ Contribution FAQ
+ Tilt Development
+ Custom resource icons
+ Maintaining Internal Argo CD Forks
+ GitHub Agentics Workflows
+ FAQ
+ Security Considerations
+ Support
+ Roadmap
+ Releases ⧉
+ Blog ⧉
+ Table of contents
+ Introduction
+ Architecture
+ Installing
+ Using
+ Argo CD Core¶
+Introduction¶
+Argo CD Core is a different installation that runs Argo CD in headless
+mode. With this installation, you will have a fully functional GitOps
+engine capable of getting the desired state from Git repositories and
+applying it in Kubernetes.
+The following groups of features won't be available in this
+installation:
+Argo CD RBAC model
+Argo CD API
+Argo CD Notification Controller
+OIDC based authentication
+The following features will be partially available (see the
+usage section below for more details):
+Argo CD Web UI
+Argo CD CLI
+Multi-tenancy (strictly GitOps based on git push permissions)
+A few use-cases that justify running Argo CD Core are:
+As a cluster admin, I want to rely on Kubernetes RBAC only.
+As a devops engineer, I don't want to learn a new API or depend on
+ another CLI to automate my deployments. I want to rely on the
+ Kubernetes API only.
+As a cluster admin, I don't want to provide Argo CD UI or Argo CD
+ CLI to developers.
+Architecture¶
+Because Argo CD is designed with a component based architecture in
+mind, it is possible to have a more minimalist installation. In this
+case fewer components are installed and yet the main GitOps
+functionality remains operational.
+In the diagram below, the Core box, shows the components that will be
+installed while opting for Argo CD Core:
+Note that even if the Argo CD controller can run without Redis, it
+isn't recommended. The Argo CD controller uses Redis as an important
+caching mechanism reducing the load on Kube API and in Git. For this
+reason, Redis is also included in this installation method.
+Installing¶
+Argo CD Core can be installed by applying a single manifest file that
+contains all the required resources.
+Example:
+export ARGOCD_VERSION=<desired argo cd release version (e.g. v2.7.0)>
+kubectl create namespace argocd
+kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/$ARGOCD_VERSION/manifests/core-install.yaml
+Using¶
+Once Argo CD Core is installed, users will be able to interact with it
+by relying on GitOps. The available Kubernetes resources will be the
+Application and the ApplicationSet CRDs. By using those resources,
+users will be able to deploy and manage applications in Kubernetes.
+It is still possible to use Argo CD CLI even when running Argo CD
+Core. In this case, the CLI will spawn a local API server process that
+will be used to handle the CLI command. Once the command is concluded,
+the local API Server process will also be terminated. This happens
+transparently for the user with no additional command required. Note
+that Argo CD Core will rely only on Kubernetes RBAC and the user (or
+the process) invoking the CLI needs to have access to the Argo CD
+namespace with the proper permission in the Application and
+ApplicationSet resources for executing a given command.
+To use Argo CD CLI in core mode, it is required to pass the --core
+flag with the login subcommand. The --core flag is responsible for spawning a local Argo CD API server
+process that handles CLI and Web UI requests.
+Example:
+kubectl config set-context --current --namespace=argocd # change current kube context to argocd namespace
+argocd login --core
+Similarly, users can also run the Web UI locally if they prefer to
+interact with Argo CD using this method. The Web UI can be started
+locally by running the following command:
+argocd admin dashboard -n argocd
+Argo CD Web UI will be available at http://localhost:8080
+ Previous
+ Feature Maturity
+ Next
+ Declarative Setup
+ Made with
+ Material for MkDocs

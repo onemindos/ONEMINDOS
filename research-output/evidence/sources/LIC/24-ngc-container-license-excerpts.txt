@@ -1,0 +1,39 @@
+=== api.ngc.nvidia.com/v2/repos/nvidia/l4t-base  updatedDate=2023-12-07T21:58:51.757Z latestTag=r36.2.0
+ the container.
+
+## License
+
+The l4t-base container includes various software packages with their respective licenses included within the container.
+
+## Suggested Reading
+
+For more information about l4t refer [Jetson Download Center](https://developer.nvidia.com/embedded/downloads)
+
+If you have questions, please refer to the [Jetson Forums](https://devtalk.nvidia.com/default/board/139/embedded-systems/1).
+
+=== api.ngc.nvidia.com/v2/repos/nvidia/l4t-jetpack  updatedDate=2024-11-07T21:21:05.332Z latestTag=r36.4.0
+ners.
+    
+End User License Agreement
+---------------------------
+
+By pulling and using the container, you accept the terms and conditions of this [End User License Agreement](https://docs.nvidia.com/jetson/jetpack/eula/index.html).
+
+Documentation
+-------------
+
+For more information on JetPack, including the release notes, programming model, APIs and developer tools, visit the [JetPack documentation site](https://developer.nvidia.com/embedded/jetpack).
+
+=== api.ngc.nvidia.com/v2/repos/nvidia/isaac/ros  updatedDate=2026-09-22T03:51:39.250Z latestTag=isaac_ros_1742a70509cba44cb1943ab200bbece1-arm64-fastos
+from the image.
+
+## License
+
+[Apache 2 License](https://www.apache.org/licenses/LICENSE-2.0)
+
+Sources for binaries provided in this image with LGPL/GPL licensing can be found [here](https://github.com/NVIDIA-ISAAC-ROS/.github/raw/main/isaac_ros-oss-sources.tar.gz)
+
+## Technical support
+
+Please report issues on [Isaac ROS Common](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common).
+

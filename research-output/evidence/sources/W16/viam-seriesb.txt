@@ -1,0 +1,227 @@
+SOURCE: https://www.therobotreport.com/viam-brings-in-45m-to-accelerate-enterprise-partnerships/
+ACCESSED: 2026-11-10
+
+Viam brings in $45M to accelerate enterprise partnerships - The Robot Report
+The Robot Report
+→
+Home
+News
+Technologies
+Batteries / Power Supplies
+Cameras / Imaging / Vision
+Controllers
+End Effectors
+Microprocessors / SoCs
+Motion Control
+Sensors
+Soft Robotics
+Software / Simulation
+Development
+Artificial Intelligence
+Human Robot Interaction / Haptics
+Mobility / Navigation
+Research
+Robots
+AGVs
+AMRs
+Consumer
+Collaborative Robots
+Drones
+Humanoids
+Industrial
+Self-Driving Vehicles
+Unmanned Maritime Systems
+Business
+Financial
+Investments
+Mergers & Acquisitions
+Earnings
+Markets
+Agriculture
+Healthcare
+Logistics
+Manufacturing
+Mining
+Security
+RBR50
+RBR50 Winners 2025
+RBR50 Winners 2024
+RBR50 Winners 2023
+RBR50 Winners 2022
+RBR50 Winners 2021
+Resources
+Automated Warehouse Research Reports
+Digital Issues
+eBooks
+Publications
+Automated Warehouse
+Collaborative Robotics Trends
+Search Robotics Database
+Videos
+Webinars / Digital Events
+Events
+Robotics Summit & Expo West
+Robotics Summit & Expo
+DeviceTalks
+R&D 100
+Robotics Weeks
+Podcast
+Episodes
+Advertisers
+Advertise
+PR Submissions
+Eblast Submissions
+Subscribe
+→
+Viam brings in $45M to accelerate enterprise partnerships
+By
+The Robot Report Staff
+|
+March 27, 2024
+Viam is a tool for developing software that comes with the cloud services necessary to prototype and build robots quickly. | Source: Viam
+Viam, which offers a software platform for smart machines, yesterday announced that it has raised $45 million in Series B funding. This latest round brings the company’s total funding to date to $87 million.
+Eliot Horowitz, co-founder and former chief technology officer of MongoDB, founded Viam in 2020. The New York-based
+company
+said the latest investment will enable it to accelerate enterprise partnerships, drive commercial innovation, and further develop its open-source platform.
+“This investment affirms Viam’s commitment to innovation and strengthens our vision to empower developers with intuitive, powerful, and flexible tools that help transform the way software powers hardware,”
+stated
+Eliot Horowitz, founder and CEO, Viam. “Whether you’re in IoT [Internet of Things], robotics, smart home, or industrial automation, we’re empowering the next generation of startups, developers, and enterprises to move quickly and build better.”
+Submit your innovation now!
+Viam provides platform for scalable development
+Despite recent advances in artificial intelligence and machine learning and the prevalence of cloud and edge computing, software made to manage hardware has only made moderate gains, according to Viam.
+This kind of software has been stymied by proprietary systems specific to individual machines, sensors, and equipment, the company asserted. This has led to complex constraints that frustrate developers, impede growth, and stifle progress, it said.
+Horowitz has experience in enterprise cloud computing from MongoDB, which is a
+source-available, cross-platform, secure, high-availability cloud database solution
+. That company said it is integrated into a number of enterprise applications used every day by millions of people.
+Horowitz said he established Viam with the intent of establishing a similar platform for robotics development. He foresaw the need for software based on safe and performant cloud-computing principles as robotics progressed from point solutions to connected swarms of mobile robots and cloud-monitored systems.
+Viam is a modular, interoperable, and open-source software platform that works across all hardware and any fleet of machines. In addition, its open architecture can remove costly and complex barriers to working with physical devices, the
+company
+claimed.
+All of these features can speed up developer velocity and democratize access to open data. Viam
+added
+that this data can be used to inform AI and accelerate innovation in critical sectors such as industrial manufacturing, energy, and climate.
+Startup to invest in partnerships
+Viam’s platform
+became
+generally available in May 2023. Since then, the company said it has been working with global enterprises and startups of all sizes to substantially accelerate time to market, decrease risks, increase developer velocity, improve operational efficiency, and craft modern end-user experiences.
+Viam said it can help improve customer satisfaction and deliver increased revenue. Its Series B round included participation from previous investors Union Square Ventures and Battery Ventures.
+“Viam’s open architecture represents a paradigm shift that will bring the promises of robotics to the devices we use every day,” said Albert Wenger, partner at Union Square Ventures, in a release. “We’re thrilled to continue partnering with Viam in this exciting next chapter.”
+This funding followed Viam’s
+announcement
+that it is working with the Whale and Vessel Safety Taskforce (WAVS). The partners will establish an open-source data-collection program and AI system for North Atlantic Right Whale conservation efforts.
+They said the project showcases how the platform can be used for open data to drive collaboration and transparency. It will also demonstrate how Viam brings AI and actuation to the edge.
+In addition, the company works with industrial, automation, and innovation teams to keep machines running smoothly on the edge. Viam said it’s working to enable device-to-cloud data pipelines to help manufacturers with real-time data monitoring, predictive maintenance, and remote diagnostics.
+-->
+Tell Us What You Think!
+Cancel reply
+Comment
+*
+Name
+*
+Email
+*
+Website
+Δ
+This site uses Akismet to reduce spam.
+Learn how your comment data is processed.
+Related Articles
+Read More >
+NVIDIA launches GR00T 2 and Isaac Lab 3.0 at CoRL
+Tutor Intelligence raises Series B to scale model training, robot deployments
+Why physical AI is the next lucrative frontier
+2026 Robotics Handbook looks at humanoids, AI, and design choices
+RBR50 Innovation Awards
+EXPAND YOUR KNOWLEDGE AND STAY CONNECTED
+Get the latest info on technologies, tools and strategies for Robotics Professionals.
+GET THE ENEWSLETTER
+Latest Episode of The Robot Report Podcast
+Sponsored Content
+LiberAI Unveils Liber-0, a World Action Model That Grounds Human Experience in Robot Action
+28 Zero-Day Findings in Less Than Two Days: What AI-Speed Discovery Means for Robotics
+Solving the Interconnect Challenge in Modern Robotics: How 3M Is Engineering for Motion, Density, and Uptime
+WorldOracle Tests Whether World Models Can Reliably Predict Real-World Executions
+Webinar to discuss how the FCC robotics ruling affects automation buyers
+More Sponsored Content >
+Connect with The Robot Report
+The Robot Report
+Automated Warehouse
+Robotics Summit & Expo West
+Robotics Summit & Expo
+About The Robot Report
+Subscribe
+Contact Us
+Copyright © 2026 Arrowfly LLC. All Rights Reserved. The material on this site may not be reproduced, distributed, transmitted, cached or otherwise used, except with the prior written permission of Arrowfly
+Privacy Policy
+|
+Advertising
+|
+About Us
+Search The Robot Report
+Home
+News
+Technologies
+Batteries / Power Supplies
+Cameras / Imaging / Vision
+Controllers
+End Effectors
+Microprocessors / SoCs
+Motion Control
+Sensors
+Soft Robotics
+Software / Simulation
+Development
+Artificial Intelligence
+Human Robot Interaction / Haptics
+Mobility / Navigation
+Research
+Robots
+AGVs
+AMRs
+Consumer
+Collaborative Robots
+Drones
+Humanoids
+Industrial
+Self-Driving Vehicles
+Unmanned Maritime Systems
+Business
+Financial
+Investments
+Mergers & Acquisitions
+Earnings
+Markets
+Agriculture
+Healthcare
+Logistics
+Manufacturing
+Mining
+Security
+RBR50
+RBR50 Winners 2025
+RBR50 Winners 2024
+RBR50 Winners 2023
+RBR50 Winners 2022
+RBR50 Winners 2021
+Resources
+Automated Warehouse Research Reports
+Digital Issues
+eBooks
+Publications
+Automated Warehouse
+Collaborative Robotics Trends
+Search Robotics Database
+Videos
+Webinars / Digital Events
+Events
+Robotics Summit & Expo West
+Robotics Summit & Expo
+DeviceTalks
+R&D 100
+Robotics Weeks
+Podcast
+Episodes
+Advertisers
+Advertise
+PR Submissions
+Eblast Submissions
+Subscribe

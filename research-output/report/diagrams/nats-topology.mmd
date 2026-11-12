@@ -1,0 +1,23 @@
+flowchart TB
+  subgraph CLOUD["Cloud hub (optional)"]
+    CN["NATS (mirror / relay)"]
+  end
+  subgraph SITE1["Site A: homestead"]
+    H1["Hub box NATS JetStream<br/>(its own domain)"]
+    L1["Pi greenhouse leaf"]
+    L2["ESP32 / sensor leaf"]
+    L3["Robot (k3s agent) leaf"]
+    L1 --> H1
+    L2 --> H1
+    L3 --> H1
+  end
+  subgraph SITE2["Site B: field kit / TAK node"]
+    H2["Field box NATS<br/>(store-and-forward)"]
+    M["Meshtastic / LoRa gateway"]
+    M --> H2
+  end
+  H1 <-->|"leaf link over Tailscale/Headscale<br/>buffers through outages"| CN
+  H2 <-->|"leaf link when a link exists"| CN
+  H1 -.->|"site-to-site"| H2
+  SUB["Subjects (locked grammar): tel.* telemetry · det.* detections · evt.* events · cmd.* commands · intel.* · ent.*.state · svc.* RPC · tak.cot.*"]
+  style SUB fill:#FFF3C4,stroke:#C9A227

@@ -1,0 +1,14 @@
+Source: https://canonical.com/blog/ubuntu-20-04-end-standard-support-for-devices
+Accessed: 2026-11-11 (curl + HTML-to-text; excerpt)
+----
+ ESM is part of the Ubuntu Pro subscription, delivering critical security updates for more than 2,300 packages included in Ubuntu Main. Here you find packages such as Python, OpenSSL, OpenVPN, network-manager, sed, curl, systemd, udev, bash, OpenSSH, login, libc… For the complete list of what’s included in Ubuntu Main, you can visit the Ubuntu Packages Search tool .  
+ But there is more. With Ubuntu Pro , you can access security coverage to an additional 23,000 packages beyond the operating system. For example, Boost, Qt, OpenCV, PCL, python-(argcomplete, opencv, pybind11, png…), cython, eigen, GTK, FFMPEG… These are some of the many packages covered in Universe that are now getting security maintenance from Canonical. If you want to see how many packages could benefit from this additional security in your devices, simply follow the next steps .  
+ Ubuntu Universe also includes well-used applications such as the Robot Operating System (ROS), where Canonical provides services such as ROS ESM for the upcoming EOL of ROS 1 Noetic. 
+ Option 1: Purchase ESM through the Ubuntu Pro store 
+ For small numbers of devices, purchasing ESM directly through the Ubuntu Pro Store is straightforward. Simply go to the Ubuntu Pro Store and complete your purchase.  
+ Go to the Store 
+ Option 2: Purchase ESM through Canonical’s Ubuntu Pro for Devices 
+ If you have a large fleet of devices, need to add support for estates that grow over time, or prefer one-time pricing over a subscription, we have an alternative option for you; Ubuntu Pro for Devices . It will not only grant you access to the Ubuntu Pro subscription (and so to ESM), but Ubuntu Pro for Devices will also apply a beneficial discount-based model depending on your compute module. 
+ Get in touch with a sales representative to get Ubuntu Pro through our Devices plan . 
+ What is included in the Ubuntu Pro subscription  
+ ESM is part of the Ubuntu Pro subscription. Besides getting ESM, customers can also enjoy other services like:  

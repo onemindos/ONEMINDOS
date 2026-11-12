@@ -1,0 +1,431 @@
+Source: https://www.zimaspace.com/zimaos
+Accessed: 2026-11-11 (UTC), text extracted from HTML
+
+ZimaOS: A Simplified, Focused and Open NAS OS Supports all X86-64 hardware.
+Products
+ZimaOS
+Resource
+Support
+Explore
+EN
+English
+简体中文
+日本語
+Deutsch
+Italiano
+Français
+Español
+Nederlands
+Polski
+Português
+Svenska
+한국어
+Community
+Store
+Overview
+Photos
+App Store
+Pricing
+Download
+Timeline
+ZimaOS
+A Simplified, Focused and Open NAS OS
+Watch Intro
+Download ZimaOS
+Free Runs on all x86 devices you have.
+See how it installs →
+Your Home Server Rabbit Hole
+_
+High-Speed Backup
+Encrypted Remote Access
+Device Status at a Glance
+24/7 Agent Server
+Flexible RAID Redundancy
+*Supports RAID 0/1/5/6
+Every Image Format, Fully Rendered
+360
+360°
+RAW
+RAW
+Live
+360
+360°
+RAW
+RAW
+Live
+Live
+App Store
+App Store
+800+
+Unified File Management
+Files
+2026
+2026
+2026
+2026
+High-Speed Backup
+Encrypted Remote Access
+Device Status at a Glance
+24/7 Agent Server
+Flexible RAID Redundancy
+*Supports RAID 0/1/5/6
+Every Image Format, Fully Rendered
+360
+360°
+RAW
+RAW
+Live
+360
+360°
+RAW
+RAW
+Live
+Live
+App Store
+App Store
+800+
+Unified File Management
+Files
+2026
+2026
+2026
+2026
+ZimaOS Photos
+Life in Full View
+_
+This design-led, self-hosted photo library reimagines browsing, searching and organizing. Enjoy Live Photos, RAW and 360° panoramas without conversion, privately stored on your device and accessible wherever you are.
+Explore Photos
+File management reframed
+Everything in one place, from phones, drives, clouds and more_
+Files, let files in_
+Whether it is a photo taken on your phone, a file from your cloud storage, or something valuable on an external drive, every piece finds its place. You can manage, preview and share without friction, keeping everything ready for when inspiration calls.
+Cloud
+Mount cloud drives directly.
+Transfer or sync data without switching platforms.
+USB
+Plug in a USB drive to mount it instantly.
+Migrate or back up files without extra steps.
+Mobile
+You can
+remotely access and transfer files anytime,
+anywhere, or back up your phone's photo album.
+WAN and LAN
+Access via LAN or WAN on both PC and Mac.
+Easily connect with NAS devices like Synology and QNAP, and use Thunderbolt-compatible devices as DAS.
+*Thunderbolt direct connection is currently supported only on ZimaCube Pro.
+Download to use Files
+Pragmatic Minimalism
+Set only what matters.
+Minimalist design with pragmatic intent_
+Even the settings follow a simple logic
+RAID setup takes
+just 3 clicks
+Practical control without the clutter
+Try available space calculation
+Create RAID5
+1
+2.4TB
+2
+2.4TB
+3
+2.4TB
+4
+2.4TB
+5
+2.4TB
+6
+2.4TB
+A
+2.4TB
+B
+2.4TB
+C
+2.4TB
+D
+2.4TB
+9.6TB
+Estimated available storage
+Estimated available
+Protection and redundancy
+JBOD, RAID 0,1,5,6 supported
+From setting to information display,
+nothing is in excess.
+Disk health & space at a glance.
+Network ports
+Cross-platform transfer
+Cross-platform transfer with no delay.
+The file moves as you intend_
+You capture, edit and share across devices every day. ZimaOS offers fast and intuitive ways to upload, sync and share. Every transfer is completed swiftly and reliably, so your flow never breaks.
+Zima Client for Mac & PC
+Local sync, edit 4K videos directly.
+Web
+Drag to upload, simple and elegant.
+Zima Client for iOS & Android
+High-speed mobile transfer/backup.
+For everyone
+Share files with just one link.
+ZimaCube Pro
+Thunderbolt 4 is ready for DAS.
+Mobile
+Desktop
+Zima Client
+Bring ZimaOS to your pocket.
+Whether you're commuting, at a café, or working away from your desk, stay close to your Zima device. You can check system status, manage apps or sync files directly from your phone.
+Download now
+Zima Client
+Integrate ZimaOS into your workflow.
+During editing or creative work, Zima Client lets you quickly back up files, access shared folders over SMB, or send files across devices without jumping between apps and breaking your flow.
+Download now
+Remote Access
+Anytime, Anywhere_
+How it works?
+Zima Client for Mobile
+A New Mobile Standard for Home Servers
+_
+Scan to Connect
+Scan once to connect with no complex network setup, then access your Home Server wherever you are.
+All-in-One Files
+You can browse and manage local files, USB drives, cloud drives and network shares, all from your phone.
+Self-Hosted Apps
+Your phone lets you use and manage home server apps, explore 800+ App Store options and install your favorites remotely.
+Photo Backup
+Automatically back up every moment you capture to ZimaOS at home, preserving Live Photos for playback on any device.
+Download Zima Client
+Zima Client for Desktop
+Fits Right Into Your Desktop Workflow
+_
+High-Speed Backup
+With Zima Client, you can back up a project folder of around 30GB to ZimaOS in just 5 minutes, keeping large photos, videos and project files protected without slowing down your workflow.
+Access Files Directly in Finder
+High-Speed Backup
+With Zima Client, you can back up a project folder of around 30GB to ZimaOS in just 5 minutes, keeping large photos, videos and project files protected without slowing down your workflow.
+Access Files Directly in Finder
+Zima Client mounts folders from your Home Server directly in Finder, so you can browse, open and edit files like they were stored locally, without downloading them first.
+Ideal backup
+Never lose your memories!
+Preserved across time and media_
+What we save reflects what we value. ZimaOS uses the
+3-2-1 backup strategy
+as the foundation of its backup system, it protects against accidents, failures and time, delivering true peace of mind.
+All backup status at a glance.
+Sources, task progress and sync history
+are all shown in one clean interface.
+Manage sync and backup
+across cloud, local, and LAN storage
+for reliable automated data redundancy.
+Download to use Backup
+Designed for privacy and safety
+Stand against tracking and analyzing any user data_
+Local Account System
+ZimaOS uses a self-generated device identity to
+keep your account fully offline
+. No emails, phone numbers or platform logins are required. Your data and identity remain yours alone, beyond the reach of any third party.
+Storage Redundancy
+Storage redundancy prepares your system for the unexpected. From mirrored drives with
+RAID 1
+to fault-tolerant setups with
+RAID 5 or 6
+, every layer is designed to protect against loss. Even older drives can be reused through JBOD for long-term archiving.
+Peer to Peer Networking
+P2P connection keeps your data between devices
+without touching any server or cloud
+. Everything is encrypted and travels directly from source to destination, so even when accessing your NAS from a café or hotel Wi-Fi, nothing leaves your private network.
+Multiple Users
+For families or small teams sharing one device, ZimaOS allows the main account to set folder-level access for each member. Personal folders stay private by default, with only shared spaces visible to others.
+App Store
+Explore more possibilities.
+Find by scenario. Install in one click_
+8OO+
+Discover
+over 800
+practical and playful apps, across Media, Productivity, AI, Home, and more. Browse by scenario, install in one click, and see the progress as it happens.
+Dedicated to trust and safety.
+Unlock more with third-party Docker support.
+Fine-tune every app without the terminal.
+Browse the App Store
+Download to use App Store
+Most-loved by our community
+Immich
+Your personal Google Photos.
+Liberated — Self-Hosted, sovereign, timely.
+As cloud giants hike prices and tweak privacy rules, Immich emerges as your bulletproof alternative: a self-hosted photo fortress that mirrors Google Photos' magic—auto-upload, facial recognition, map views—but keeps every memory 100% yours locally.
+Emby
+,
+Jellyfin
+,
+and
+Plex
+Your media, any Screen.
+Your personal streaming empire: Organize and play movies, shows, music & photos from your home server. Enjoy Netflix-style access everywhere - from Apple TV to road-trip tablets, beautifully packaged in Plex apps.
+Automatic Hollywood magic: Ditch filenames for movie posters, cast info and episode details. We auto-dress your media in stunning libraries while you stream globally - no IT degree required.
+Home Assistant
+Your AI-Proof security fortress.
+Where privacy never leaks to the cloud.
+Block sneaky AI scans: Camera feeds stay offline with military encryption, facial recognition runs locally, and false noise poisons cloud scrapers.
+Seamlessly control Philips hue lights, Apple HomeKit locks, and Google Nest cams via one local dashboard — no internet required, no data leaks.
+Notes and Data Management
+Paperless-ngx
+Scan, index and archive your paper files.
+Memos
+A lightweight self-hosted note-taking app.
+Calibre
+Your digital library in one place.
+KaraKeep
+Add bookmarks to everything.
+Automation and Operations
+n8n
+A workflow automation tool.
+Dashy
+Your ultimate homelab homepage.
+Pihole
+A DNS-level ad blocker.
+Redroid
+An Android solution in your personal cloud.
+Cloud Services and Media
+Nextcloud
+Your cloud, your way.
+Swing Music
+An elegant self-hosted music streaming server.
+Pinchflat
+Your YouTube library, fully automated.
+Websites and Services
+WordPress
+Publish your blog on your server.
+Cloudflared
+Securely expose your web services to the internet.
+Community
+Co-creation is part of our DNA
+Building ZimaOS with our community_
+From CasaOS to ZimaOS, 43,000+ community members have driven Zima's evolution. Our vibrant hub fosters shared experiences, ideas, and learning, shaping Zima's future with us.
+DLNA
+Inspired by Escaperoute, Devtechk, Protektor
+DLNA lets you wirelessly stream local photos, music, and videos to DLNA-compatible devices like TVs and speakers—no copying or complex setup needed, just plug and play.
+ZVM
+Inspired by cfouche, Robert
+ZVM is a lightweight virtual machine system built into ZimaOS. It supports one-click installation of Windows and popular Linux distributions, as well as custom image setups—making it easy to run multiple operating systems for development, testing, or isolated environments.
+UPS
+Inspired by Ghomzi, Neofight, The Vanishing_Dragon
+ZimaOS supports UPS (Uninterruptible Power Supply) integration to safely shut down the system during power outages, protecting your device and data. Ideal for long-running and critical tasks.
+Btop
+Inspired by scyto, NekoYuki
+Btop is a fast and interactive resource monitor that shows real-time usage of CPU, memory, disk, and network. It offers a clear and responsive interface, making it easy to track system performance.
+Light Up
+ZimaOS's Global Reach_
+ZimaOS now supports 28 languages
+Thanks to the outstanding contributions from our passionate community. Contribute translations and get your name etched into the ZimaOS source code, plus an official certificate!
+English (US)
+English (UK)
+简体中文
+繁體中文
+日本語
+한국어
+Italiano
+Norsk
+Русский
+Svenska
+Türkçe
+Deutsch
+Français
+Ελληνικά
+Português
+Português (Brasil)
+Hrvatski
+Slovenčina
+Română
+Polski
+Nederlands
+മലയാളം
+Magyar
+Gaeilge
+Español
+Dansk
+Čeština
+Català
+Join us with
+43,000+
+members
+Their voices_
+Grim Oak
+“My hobby is computers.I have been looking at DIY a home storage server for a while now but ZimaOS has reimaged that idea to something more. Now ZimaOS is powering my Jellyfin, Book Library, Network wide AdBlock, Remote Dowload Manager, and more. It's Reliable, Stable, and Easy to use. And more features are being added. I love it.”
+sabiTech
+“ZimaOS gives me a lightweight, efficient and user-friendly way to run containerized apps on my hardware, perfect for managing edge workloads with minimal fuss.”
+Mohamed Elallami
+“As a Creative who's also into self-hosting, ZimaOS has made my workflow easier. Now I spend less time managing and more time creating. It's simple, reliable, and fits perfectly into my creative workflow.”
+LLLLLLLuke
+“The most user-friendly and elegantly designed NAS system I have ever used.”
+NeoFight
+“ZimaOS transformed my homelab setup. This Docker-based platform effortlessly hosts Jellyfin, Plex, Immich, and document storage on energy-efficient hardware—just 10W idle. Works on any x86 system with fast updates and responsive support. It's like Raspberry Pi simplicity for x86, delivering affordable NAS-plus-app-server capability without hassle.”
+ZimaOS
+The
+next-generation
+NAS OS
+ZimaOS
+Free
+$0
+Core features
+Zima Client for Mobile & PC
+Thunderbolt Support
+Developer Mode
+4 Disks
+3 Members
+ZimaOS
+Effortless Expansion
+$29
+Lifetime License
+Everything in Free
+Unlimited Disks
+Unlimited Users
+Compare Plans
+Keep in touch
+_
+Join our subscribers list to get the latest news, updates and special offers.
+Subscribe
+Product
+ZimaCube
+ZimaBoard 2
+ZimaBoard
+ZimaBlade
+Accessories
+OS
+ZimaOS
+CasaOS
+Resource
+Blog
+Docs
+Gallery
+Support
+Privacy Policy
+Refund Policy
+Shipping Policy
+Terms of Service
+Help Center
+Community
+Explore
+About Us
+Distributors
+Affiliate
+Product
+ZimaCube
+ZimaBoard 2
+ZimaBoard
+ZimaBlade
+Accessories
+OS
+ZimaOS
+CasaOS
+Resource
+Blog
+Docs
+Gallery
+Support
+Privacy Policy
+Refund Policy
+Shipping Policy
+Terms of Service
+Help Center
+Community
+Explore
+About Us
+Distributors
+Affiliate
+© 2020-2026 IceWhale Technology Limited. All rights reserved.

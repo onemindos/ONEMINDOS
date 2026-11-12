@@ -1,0 +1,7 @@
+53c2a292cfdab6e3cef032d86a4cc244d9bb16eb8be7724cb1e905f499bc20ad  linux-v6.12-security-integrity-Kconfig.txt
+a3ceaf8ad33201a57236b4fe99c418109db8987dbc26a46b59d1a8e924d27fd9  linux-v6.12-security-integrity-platform_certs-load_uefi.c.txt
+e958b2544b522eb1ecaa0a39f17abe58ad7f34f2f9bafb4b746b734433adfc58  linux-v6.12-kernel-module-signing.c.txt (email masked; original b6dac3fb2527b3a2b897bf1279f056479d888be82cbdb612225c49568962e938)
+21e00910f606f0913a25ac7527c1c905cfb6d9bec56d70b958cdc60cb6f19390  rauc-io-home-2026-11-11.txt
+33866b0ed7737a86f9e7f077a58b90ad6213baffbcaa64f7c9d54a8c5d4d227c  rauc-v1.15.2-integration-package-distros.txt
+dc02ed815b6672f39a33a7966213fa6dc5f5966d5dadbf7bf4f4642b8f57e8b8  sonarsource-casaos-cve-2023-37265-2026-11-11.txt
+f152f25273712a2b314224587bdd0d86dcd190d27e70adca4b78fad5fb6f58a1  kubernetes-pod-security-standards-2026-11-11.txt

@@ -1,0 +1,67 @@
+
+=== 0. versions
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+VERSION_ID="13"
+systemd 257 (257.13-1~deb13u1)
+kernel 6.12.115+deb13.1-cloud-arm64
+
+=== 0b. setup: packages, and simulate the OneMind image declaring SYSEXT_LEVEL=1.0
+packages ok
+SYSEXT_LEVEL=1.0
+
+=== 0c. build a trivial out-of-tree kernel module (stands in for a vendor driver)
+-rw-r--r-- 1 root root 159552 Nov 10 23:30 /root/w19/mod/onemind_hello.ko
+
+=== 0d. build sysext 'onemind-hello' (binary + udev rule + module + per-kernel modules.dep)
+-rw-r--r-- 1 root root 274432 Nov 10 23:30 /root/w19/onemind-hello.raw
+
+=== 0e. build sysext 'onemind-future' declaring SYSEXT_LEVEL=2.0 (must be refused)
+
+=== 0f. build confext 'onemind-greenhouse' (profile-style /etc drop-ins)
+
+=== BASELINE hashes (nothing merged)
+usr=6784baae756cb81ef3e8d09be706e2287b242718cec2ced3d316885ab5a880d1
+etc=73f49c24e2ae61b37e08a7adbbc705ed3c5d31e44d5bc23c45c317c3b7390968
+
+=== H1 + H3 + H4: install both sysexts into /var/lib/extensions and merge
+  Using extensions 'onemind-hello.raw'.
+  Merged extensions into '/usr'.
+  HIERARCHY EXTENSIONS    SINCE
+  /opt      none          -
+  /usr      onemind-hello Tue 2026-11-10 23:30:12 EST
+-- H1 binary:
+onemind-hello adapter v1 running
+H1-binary PASS
+-- H1 udev rule:
+Unknown command verb 'cat', did you mean 'wait'?
+H1-udev PASS
+-- /usr writable while merged? (expected: read-only)
+  touch: cannot touch '/usr/bin/w19-probe': Read-only file system
+-- H4 future extension:
+H4 PASS (not merged)
+-- H3 kernel module:
+filename:       /lib/modules/6.12.115+deb13.1-cloud-arm64/updates/onemind_hello.ko
+description:    OneMind W19 lab stand-in driver
+license:        GPL
+onemind_hello          12288  0
+H3 modprobe PASS
+[  100.919719] onemind_hello: loading out-of-tree module taints kernel.
+[  100.919724] onemind_hello: module verification failed: signature and/or required key missing - tainting kernel
+[  100.920516] onemind_hello: loaded
+
+=== H2: confext
+  Using extensions 'onemind-greenhouse.raw'.
+  Merged extensions into '/etc'.
+onemind_hello
+Environment=ONEMIND_PROFILE=greenhouse
+H2-merge PASS
+H2-unmerge PASS
+H2-base-etc PASS (unchanged)
+
+=== H5: uninstall
+  No extensions found.
+  Unmerged '/usr'.
+H5 PASS (no leftovers)
+H1-base-usr PASS (unchanged)
+  after uninstall modprobe -n: modprobe: FATAL: Module onemind_hello not found in directory /lib/modules/6.12.115+deb13.1-cloud-arm64
+DONE

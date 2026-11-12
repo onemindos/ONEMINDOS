@@ -1,0 +1,131 @@
+Loading environment from '(hd0,gpt1)/rugpi/secondary.grubenv'...
+Loading environment from '(hd0,gpt1)/rugpi/primary.grubenv'...
+[    0.000000] Command line: BOOT_IMAGE=/vmlinuz ro init=/usr/bin/rugix-ctrl root=PARTUUID=30b9c836-6e60-8f4e-a4a7-81743e10f3f0 console=tty0 console=ttyS0,115200 panic=10
+[    0.000000] Kernel command line: BOOT_IMAGE=/vmlinuz ro init=/usr/bin/rugix-ctrl root=PARTUUID=30b9c836-6e60-8f4e-a4a7-81743e10f3f0 console=tty0 console=ttyS0,115200 panic=10
+[    0.334931] NMI watchdog: Perf NMI watchdog permanently disabled
+Warning: fsck not present, so skipping root file system
+For more information, visit https://rugix.org/.
+ INFO running hooks for "bootstrap/prepare"
+ INFO Begin bootstrapping
+ INFO running hooks for "bootstrap/pre-layout"
+ INFO running hooks for "bootstrap/post-layout"
+ INFO Done bootstrapping
+[    9.310475] systemd[1]: Using hardware watchdog 'i6300ESB timer', version 0, device /dev/watchdog0
+         Starting rugix-apps-restore-units.…ore Rugix app units into systemd...
+[  OK  ] Finished rugix-apps-restore-units.…store Rugix app units into systemd.
+onemind-lab login: onemind-health-gate: 2026-11-11T01:35:52Z boot release=v1 active=a default=a
+onemind-health-gate: 2026-11-11T01:35:52Z COMMITTED-BOOT nothing to commit
+[  OK  ] Stopped rugix-apps-recover.service… interrupted Rugix app transitions.
+[  OK  ] Stopped onemind-health-gate.servic… OneMind health-gated Rugix commit.
+         Unmounting run-rugix-mounts-config.mount - /run/rugix/mounts/config...
+         Unmounting run-rugix-mounts-data-o…n/rugix/mounts/data/overlay/root...
+         Unmounting run-rugix-mounts-system.mount - /run/rugix/mounts/system...
+         Unmounting run-rugix-state.mount - /run/rugix/state...
+[  OK  ] Unmounted run-rugix-mounts-config.mount - /run/rugix/mounts/config.
+[  OK  ] Unmounted run-rugix-mounts-data-ov…run/rugix/mounts/data/overlay/root.
+[  OK  ] Unmounted run-rugix-mounts-system.mount - /run/rugix/mounts/system.
+[  OK  ] Unmounted run-rugix-state.mount - /run/rugix/state.
+         Unmounting run-rugix-mounts-data.mount - /run/rugix/mounts/data...
+[  OK  ] Unmounted run-rugix-mounts-data.mount - /run/rugix/mounts/data.
+[  285.240276] watchdog: watchdog0: watchdog did not stop!
+[  285.275618] systemd-shutdown[1]: Using hardware watchdog 'i6300ESB timer', version 0, device /dev/watchdog0
+[  285.404852] (sd-remount)[2494]: Remounting '/' read-only with options 'lowerdir=/run/rugix/mounts/system,upperdir=/run/rugix/mounts/data/state/default/overlay/a,workdir=/run/rugix/mounts/data/overlay/work,uuid=on'.
+[  285.425078] watchdog: watchdog0: watchdog did not stop!
+[  285.443149] reboot: Restarting system
+Loading environment from '(hd0,gpt1)/rugpi/secondary.grubenv'...
+Loading environment from '(hd0,gpt1)/rugpi/primary.grubenv'...
+Booting to spare partition set...
+[    0.000000] Command line: BOOT_IMAGE=/vmlinuz ro init=/usr/bin/rugix-ctrl root=PARTUUID=96701b1d-2118-4f4e-88e6-3760f23b4aa9 console=tty0 console=ttyS0,115200 panic=10
+[    0.000000] Kernel command line: BOOT_IMAGE=/vmlinuz ro init=/usr/bin/rugix-ctrl root=PARTUUID=96701b1d-2118-4f4e-88e6-3760f23b4aa9 console=tty0 console=ttyS0,115200 panic=10
+[    0.329366] NMI watchdog: Perf NMI watchdog permanently disabled
+Warning: fsck not present, so skipping root file system
+For more information, visit https://rugix.org/.
+[   10.311386] systemd[1]: Using hardware watchdog 'i6300ESB timer', version 0, device /dev/watchdog0
+         Starting rugix-apps-restore-units.…ore Rugix app units into systemd...
+[  OK  ] Finished rugix-apps-restore-units.…store Rugix app units into systemd.
+onemind-lab login: onemind-health-gate: 2026-11-11T01:40:26Z boot release=v2-good active=b default=a
+onemind-health-gate: 2026-11-11T01:40:26Z TRIAL boot of group b; waiting up to 300s for k3s
+onemind-health-gate: 2026-11-11T01:40:29Z HEALTHY after 3s
+onemind-health-gate: 2026-11-11T01:40:34Z COMMIT group=b release=v2-good
+[  OK  ] Stopped rugix-apps-recover.service… interrupted Rugix app transitions.
+[  OK  ] Stopped onemind-health-gate.servic… OneMind health-gated Rugix commit.
+         Unmounting run-rugix-mounts-config.mount - /run/rugix/mounts/config...
+         Unmounting run-rugix-mounts-data-o…n/rugix/mounts/data/overlay/root...
+         Unmounting run-rugix-mounts-system.mount - /run/rugix/mounts/system...
+         Unmounting run-rugix-state.mount - /run/rugix/state...
+[  OK  ] Unmounted run-rugix-mounts-config.mount - /run/rugix/mounts/config.
+[  OK  ] Unmounted run-rugix-mounts-data-ov…run/rugix/mounts/data/overlay/root.
+[  OK  ] Unmounted run-rugix-mounts-system.mount - /run/rugix/mounts/system.
+[  OK  ] Unmounted run-rugix-state.mount - /run/rugix/state.
+         Unmounting run-rugix-mounts-data.mount - /run/rugix/mounts/data...
+[  OK  ] Unmounted run-rugix-mounts-data.mount - /run/rugix/mounts/data.
+[   60.348413] watchdog: watchdog0: watchdog did not stop!
+[   60.382270] systemd-shutdown[1]: Using hardware watchdog 'i6300ESB timer', version 0, device /dev/watchdog0
+[   60.551623] (sd-remount)[1975]: Remounting '/' read-only with options 'lowerdir=/run/rugix/mounts/system,upperdir=/run/rugix/mounts/data/state/default/overlay/b,workdir=/run/rugix/mounts/data/overlay/work,uuid=on'.
+[   60.569737] watchdog: watchdog0: watchdog did not stop!
+[   60.582192] reboot: Restarting system
+Loading environment from '(hd0,gpt1)/rugpi/secondary.grubenv'...
+Loading environment from '(hd0,gpt1)/rugpi/primary.grubenv'...
+[    0.000000] Command line: BOOT_IMAGE=/vmlinuz ro init=/usr/bin/rugix-ctrl root=PARTUUID=96701b1d-2118-4f4e-88e6-3760f23b4aa9 console=tty0 console=ttyS0,115200 panic=10
+[    0.083127] Kernel command line: BOOT_IMAGE=/vmlinuz ro init=/usr/bin/rugix-ctrl root=PARTUUID=96701b1d-2118-4f4e-88e6-3760f23b4aa9 console=tty0 console=ttyS0,115200 panic=10
+[    0.674646] NMI watchdog: Perf NMI watchdog permanently disabled
+Warning: fsck not present, so skipping root file system
+For more information, visit https://rugix.org/.
+[    9.106614] systemd[1]: Using hardware watchdog 'i6300ESB timer', version 0, device /dev/watchdog0
+         Starting rugix-apps-restore-units.…ore Rugix app units into systemd...
+[  OK  ] Finished rugix-apps-restore-units.…store Rugix app units into systemd.
+onemind-lab login: onemind-health-gate: 2026-11-11T01:41:28Z boot release=v2-good active=b default=b
+onemind-health-gate: 2026-11-11T01:41:28Z COMMITTED-BOOT nothing to commit
+[  OK  ] Stopped rugix-apps-recover.service… interrupted Rugix app transitions.
+[  OK  ] Stopped onemind-health-gate.servic… OneMind health-gated Rugix commit.
+         Unmounting run-rugix-mounts-config.mount - /run/rugix/mounts/config...
+         Unmounting run-rugix-mounts-data-o…n/rugix/mounts/data/overlay/root...
+         Unmounting run-rugix-mounts-system.mount - /run/rugix/mounts/system...
+         Unmounting run-rugix-state.mount - /run/rugix/state...
+[  OK  ] Unmounted run-rugix-mounts-config.mount - /run/rugix/mounts/config.
+[  OK  ] Unmounted run-rugix-mounts-data-ov…run/rugix/mounts/data/overlay/root.
+[  OK  ] Unmounted run-rugix-mounts-system.mount - /run/rugix/mounts/system.
+[  OK  ] Unmounted run-rugix-state.mount - /run/rugix/state.
+         Unmounting run-rugix-mounts-data.mount - /run/rugix/mounts/data...
+[  OK  ] Unmounted run-rugix-mounts-data.mount - /run/rugix/mounts/data.
+[  144.905430] watchdog: watchdog0: watchdog did not stop!
+[  144.941675] systemd-shutdown[1]: Using hardware watchdog 'i6300ESB timer', version 0, device /dev/watchdog0
+[  145.110441] (sd-remount)[1850]: Remounting '/' read-only with options 'lowerdir=/run/rugix/mounts/system,upperdir=/run/rugix/mounts/data/state/default/overlay/b,workdir=/run/rugix/mounts/data/overlay/work,uuid=on'.
+[  145.128677] watchdog: watchdog0: watchdog did not stop!
+[  145.140896] reboot: Restarting system
+Loading environment from '(hd0,gpt1)/rugpi/secondary.grubenv'...
+Loading environment from '(hd0,gpt1)/rugpi/primary.grubenv'...
+Booting to spare partition set...
+[    0.000000] Command line: BOOT_IMAGE=/vmlinuz ro init=/usr/bin/rugix-ctrl root=PARTUUID=30b9c836-6e60-8f4e-a4a7-81743e10f3f0 console=tty0 console=ttyS0,115200 panic=10
+[    0.000000] Kernel command line: BOOT_IMAGE=/vmlinuz ro init=/usr/bin/rugix-ctrl root=PARTUUID=30b9c836-6e60-8f4e-a4a7-81743e10f3f0 console=tty0 console=ttyS0,115200 panic=10
+[    0.324525] NMI watchdog: Perf NMI watchdog permanently disabled
+Warning: fsck not present, so skipping root file system
+For more information, visit https://rugix.org/.
+[   10.012759] systemd[1]: Using hardware watchdog 'i6300ESB timer', version 0, device /dev/watchdog0
+         Starting rugix-apps-restore-units.…ore Rugix app units into systemd...
+[  OK  ] Finished rugix-apps-restore-units.…store Rugix app units into systemd.
+         Starting onemind-health-gate.servi…neMind health-gated Rugix commit...
+onemind-health-gate: 2026-11-11T01:43:36Z boot release=v2-bad active=a default=b
+onemind-health-gate: 2026-11-11T01:43:36Z TRIAL boot of group a; waiting up to 300s for k3s
+onemind-lab login: onemind-health-gate: 2026-11-11T01:48:36Z ROLLBACK: k3s not healthy after 300s (last: k3s-healthy: apiserver not ready); rebooting to default group b
+[  OK  ] Stopped onemind-health-gate.servic… OneMind health-gated Rugix commit.
+         Unmounting run-rugix-mounts-config.mount - /run/rugix/mounts/config...
+         Unmounting run-rugix-mounts-data-o…n/rugix/mounts/data/overlay/root...
+         Unmounting run-rugix-mounts-system.mount - /run/rugix/mounts/system...
+         Unmounting run-rugix-state.mount - /run/rugix/state...
+[  OK  ] Unmounted run-rugix-mounts-config.mount - /run/rugix/mounts/config.
+[  OK  ] Unmounted run-rugix-mounts-data-ov…run/rugix/mounts/data/overlay/root.
+[  OK  ] Unmounted run-rugix-mounts-system.mount - /run/rugix/mounts/system.
+[  OK  ] Unmounted run-rugix-state.mount - /run/rugix/state.
+         Unmounting run-rugix-mounts-data.mount - /run/rugix/mounts/data...
+[  OK  ] Unmounted run-rugix-mounts-data.mount - /run/rugix/mounts/data.
+[  319.807089] watchdog: watchdog0: watchdog did not stop!
+[  319.839198] systemd-shutdown[1]: Using hardware watchdog 'i6300ESB timer', version 0, device /dev/watchdog0
+[  319.953064] (sd-remount)[3071]: Remounting '/' read-only with options 'lowerdir=/run/rugix/mounts/system,upperdir=/run/rugix/mounts/data/state/default/overlay/a,workdir=/run/rugix/mounts/data/overlay/work,uuid=on'.
+[  319.970138] watchdog: watchdog0: watchdog did not stop!
+[  319.982053] reboot: Restarting system
+Loading environment from '(hd0,gpt1)/rugpi/secondary.grubenv'...
+Loading environment from '(hd0,gpt1)/rugpi/primary.grubenv'...
+[    0.000000] Command line: BOOT_IMAGE=/vmlinuz ro init=/usr/bin/rugix-ctrl root=PARTUUID=96701b1d-2118-4f4e-88e6-3760f23b4aa9 console=tty0 console=ttyS0,115200 panic=10
+[    0.000000] Kernel command line: BOOT_IMAGE=/vmlinuz ro init=/usr/bin/rugix-ctrl root=PARTUUID=96701b1d-2118-4f4e-88e6-3760f23b4aa9 console=tty0 console=ttyS0,115200 panic=10
+[    0.319602] NMI watchdog: Perf NMI watchdog permanently disabled

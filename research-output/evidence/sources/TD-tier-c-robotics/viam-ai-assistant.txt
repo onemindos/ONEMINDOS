@@ -1,0 +1,637 @@
+Source: https://docs.viam.com/hardware/ai-assistant/
+Accessed: 2026-11-11
+
+Configure a machine with the AI assistant
+| Viam Documentation
+Docs
+
+Workshops
+Courses (opens in a new tab)
+
+Open app 
+
+Viam Documentation
+Overview 
+What is Viam?
+How to use Viam
+Control code
+Try 
+Overview
+Courses
+Quality Inspection
+
+Overview
+Gazebo Simulation Setup
+Part 1: Vision Pipeline
+Part 2: Data Capture
+Part 3: Control Logic
+Part 4: Deploy a Module
+Part 5: Productize
+Set up a machine 
+Set up your first machine
+Set up machines with the CLI
+Simulate a machine
+viam-agent and viam-server
+Configure hardware 
+Overview
+Machine configuration
+AI assistant
+Fragments
+Multi-machine setups 
+Overview
+Add a sub-part
+Add a remote part
+Frames across machines
+Add a component 
+Arm
+Base
+Board
+Button
+Camera
+Encoder
+Gantry
+Generic
+Gripper
+Input controller
+Motor
+Movement sensor
+Power sensor
+Sensor
+Servo
+Switch
+Viam CLI 
+Overview
+Configure machines
+Drive a machine
+Manage data
+Datasets and training
+Data pipelines
+Build and deploy modules
+Manage your fleet
+Administer your organization
+Automate with scripts
+CLI reference
+Manage data 
+Overview
+Capture and query tutorial
+Sequences tutorial
+Capture and sync 
+Overview
+Start data capture
+Stop data capture
+Capture on demand
+Filtered camera
+Conditional sync
+Multi-part capture
+Upload external data
+Sequences
+Query in the app
+Query from code
+Hot data store
+Tag data
+Delete data
+Data pipelines 
+Overview
+Create a pipeline
+Query results
+Manage pipelines
+Examples and tips
+Pipeline reference
+Export data
+Sync to your database
+Visualize data
+Trigger on events
+Captured data schema
+Data reference
+Train ML models 
+Overview
+Create a dataset
+Annotate data
+Built-in training
+Custom training
+Evaluate a model
+Deploy a model
+Automate annotation
+Custom training containers
+Dataset formats
+Computer vision 
+Overview
+How a vision service works
+Configure a vision pipeline
+Classify images
+Object detection 
+Detect objects
+Detect by color
+Tune detection quality
+Track objects
+Act on detections
+Alert on detections
+3D vision 
+Segment 3D objects
+Measure depth
+Deploy and maintain models 
+What's in the registry
+Deploy a model from the registry
+Deploy a custom model
+Retrain a model
+Roll out to a fleet
+Run batch inference
+Build and deploy modules 
+Overview
+Check the registry first
+Anatomy of a module
+Write an inline module
+Write a driver module
+Write a logic module
+Deploy a module
+Update and manage modules
+Use platform APIs
+Module dependencies
+Advanced patterns
+Module reference
+Build apps 
+Overview
+Use Viam from an AI agent
+Concepts 
+Connection model
+Authentication
+App scaffolding 
+Overview
+TypeScript setup
+Node.js setup
+Flutter setup
+React Native setup
+Python setup
+Go setup
+C++ setup
+Common tasks 
+Connect to a machine
+Connect to the Viam cloud
+Handle disconnection and reconnection
+Control components
+Stream video
+Query captured data
+Test against a local machine
+App tutorials 
+Overview
+Tutorial: single-machine dashboard
+Tutorial: Flutter app with widgets
+Tutorial: Python monitoring service
+Tutorial: multi-machine fleet dashboard
+Viam hosting 
+Overview
+Deploy a Viam application
+meta.json schema
+Hosting reference
+Motion planning 
+Quickstarts 
+Move your first arm
+Configure a frame system
+Frame system 
+Overview
+Arm and end effector frames
+Arm with gripper and wrist camera
+Arm with a fixed external camera
+Mobile base with sensors
+Mobile base with arm
+Camera calibration
+Obstacles 
+Overview
+Configure workspace obstacles
+Avoid obstacles
+Verify obstacles
+Attach and detach geometries
+Allow frame collisions
+Move an arm 
+Overview
+Move an arm to a pose
+Move with constraints
+Configure constraints
+Move by joint positions
+Stream joint positions
+Move through waypoints
+Pose clouds
+Pick an object
+Place an object
+Move a gantry
+How planning works
+Verify a plan before running it
+Debug a motion plan
+Visualize a motion plan
+Reference 
+Motion service
+API
+Kinematics
+Frame system API
+Orientation vectors
+CLI commands
+Motion planning algorithms
+Visualization 
+Overview
+3D scene 
+Monitor mode
+Build mode
+Move mode
+Replay mode
+3D scene widgets
+Editing frames visually
+Measuring between frames
+Controls and settings
+Visuals and collisions
+Publish visuals from a module
+Viam Visualization
+Perception 
+Point clouds
+Verify point cloud alignment
+Vision services
+Troubleshoot the 3D scene
+Reference 
+WorldState
+Transform metadata
+draw library
+Geometry constructors
+Fleet deployment 
+Overview
+Reuse configuration
+Provision devices
+End-user device setup
+Deploy software
+Deploy ML models
+Manage versions and rollouts
+Schedule jobs
+Add custom metadata
+System settings
+Change network
+Monitor and operate 
+Overview
+Monitor machine status
+Data dashboards
+
+Overview
+Create dashboards
+Custom queries
+Set up alerts
+Set up custom push notifications
+Default control interface
+Teleop workspaces
+Troubleshoot problems
+Trace requests
+Common errors
+Admin and access 
+Overview
+Control access
+Permissions
+Manage API keys
+OAuth
+Choose data region
+Billing
+White-labeled billing
+Reference 
+Overview
+viam-agent
+viam-server
+APIs 
+Component APIs
+
+Overview
+Arm
+Audio in
+Audio out
+Base
+Board
+Button
+Camera
+Encoder
+Gantry
+Generic
+Gripper
+Input controller
+Motor
+Movement sensor
+Power sensor
+Sensor
+Servo
+Switch
+Service APIs
+
+Overview
+Base remote control
+Data management
+Discovery
+Generic
+ML model
+Motion
+Vision
+World state store
+Fleet management
+Machine management
+Data client
+ML training client
+Session management
+Billing client
+SDKs 
+Python 
+
+Install the Python SDK
+Go 
+TypeScript 
+C++ 
+Flutter 
+DoCommand
+Extra params
+Network connectivity
+Built-in components 
+Arm 
+fake
+Base 
+fake
+wheeled
+sensor-controlled
+Micro-RDK 
+two_wheeled_base
+Board 
+fake
+Micro-RDK 
+esp32
+Button
+Camera 
+fake
+ffmpeg
+image_file
+webcam
+transform
+Micro-RDK 
+fake
+esp32-camera
+Encoder 
+fake
+Micro-RDK 
+incremental
+single
+incremental
+single
+Gantry 
+fake
+single-axis
+multi-axis
+Generic 
+fake
+Gripper 
+fake
+Input controller 
+fake
+gamepad
+gpio
+mux
+webgamepad
+Motor 
+fake
+gpio
+gpiostepper
+DMC4000
+Encoded Motors
+Micro-RDK 
+gpio
+Movement sensor 
+fake
+merged
+Micro-RDK 
+accel-adxl345
+gyro-mpu6050
+wheeled-odometry
+Power sensor 
+fake
+Sensor 
+fake
+Micro-RDK 
+ultrasonic
+Servo 
+fake
+gpio
+Micro-RDK 
+gpio
+Switch 
+fake
+Services 
+Vision 
+mlmodel
+color_detector
+detections-to-segments
+Motion 
+Constraints
+Discovery
+Frame system
+Base remote control
+Generic 
+MCP server
+Machine-to-machine communication
+Device setup 
+Raspberry Pi Setup
+Odroid-C4 Setup
+Orange Pi 3 LTS Setup
+Orange Pi Zero2 Setup
+BeagleBone Setup
+Jetson AGX Orin Setup
+Jetson Nano and Orin Nano Setup
+Pumpkin Board Setup
+SK-TDA4VM Setup
+Set up an ESP32 
+Modules for ESP32
+Micro-RDK Troubleshooting
+Viam Rover 
+Unbox and set up your Viam Rover 2
+Set up your Rover 2 with a Jetson
+Configure your Viam Rover
+Unbox and set up your Viam Rover 1
+Trigger configuration
+Control package
+Glossary
+Courses 
+Discord 
+GitHub 
+Open app 
+
+Ask AI
+
+Viam AI (recommended)
+
+Claude
+
+ChatGPT
+
+Copilot
+
+Use MCP with your IDEOn this page
+
+Give Feedback
+
+Click here to select the relevant text area
+Your Feedback:
+
+Submit Feedback
+
+Click on page content to select
+
+Done Highlighting
+
+ Edit
+Configure hardware
+AI assistant
+
+Configure a machine with the AI assistant
+On any tab of your machine’s page in the Viam app, you can describe a
+configuration change in plain language and have the AI assistant propose it
+for you, instead of adding each resource through the form fields or writing the
+JSON by hand. You type a request such as “Add a fake sensor named test-sensor”,
+and the assistant replies in a panel and stages the change for you to review.
+The change takes effect on your machine only when you click Save.
+This page shows how to configure resources with the AI assistant, review each
+staged edit, use the assistant on a fragment, and decide when to reach for it.
+What the AI assistant does
+
+The AI assistant turns a plain-language request into a proposed
+configuration change that you review before it takes effect.
+Where it lives. The assistant is available on any tab of your machine’s
+page and on the fragment configuration page. Open it
+from the AI assistant button (sparkle icon) at the bottom right. The
+assistant opens in a panel on the right side of the page.
+What it can change. From your request, the assistant adds, updates, or
+deletes components, services, modules, remotes, and triggers.
+What it can run. On a machine page (not a fragment), the assistant can
+propose shell commands for diagnostics such as checking network
+connectivity, listing USB devices, or reading system information. Each
+command requires your explicit approval before it runs. See
+Run shell commands for diagnostics.
+What it reads. The assistant reads your current configuration (including
+unsaved edits and resolved fragments), your machine’s status, its logs,
+validation errors, Viam documentation, the module registry, and your
+machine’s metadata (operating system, location, and organization), and uses
+them when it generates a proposal. For example, when you ask it to fix a
+problem, it reads the error the machine reported and proposes a change that
+addresses it.
+The assistant stages every proposal for your review, and you save it or discard
+it (see Review each staged edit).
+The panel also has these controls:
+New conversation starts a fresh conversation.
+Conversation history reopens a past conversation. Conversations are saved,
+so you can return to earlier requests.
+Collapse hides the panel.
+AI assistant feedback opens a form where you can report how a response
+worked for you.
+Configure a resource by describing it
+
+Use the assistant to add or change a resource when you can describe what you
+want in plain terms.
+Open your machine’s page in the Viam app.
+Click the AI assistant button (sparkle icon) at the bottom right. The
+panel opens on the right.
+In the input field (placeholder Describe a task or ask a question…),
+type the change you want, then click Send. For example: “Add a fake
+sensor component named test-sensor.”
+When the panel is empty, it shows suggested starter requests you can select
+instead of typing your own.
+You can also ask a question rather than request a change. For example, ask the
+assistant to explain what a component does before you add it.
+After you send a request, the assistant replies in the panel and stages the
+change: the new or updated resource appears in the Builder marked as modified,
+ready for you to review.
+Review each staged edit, then save or discard
+
+A staged edit is a change the assistant has prepared for your review. You decide
+whether it takes effect.
+When the assistant stages a change, the config toolbar shows Unsaved changes
+with Save and Discard controls:
+Review the modified resource in the Builder. Confirm the model, name, and
+attributes match what you asked for.
+To apply the change, click Save (or press Cmd + S / Ctrl + S).
+viam-server reloads the configuration and initializes the change. You do
+not need to restart anything.
+To reject the change, click Discard. The staged edit reverts and your
+saved configuration is unchanged.
+Because every proposal waits for you to save or discard it, you review each
+change before it reaches your machine. You can also edit a staged resource by
+hand in the Builder or in JSON before you save.
+Run shell commands for diagnostics
+
+When you ask the assistant to troubleshoot a problem on a machine, it may
+propose running a shell command on the machine to gather information. For
+example, “Why can’t my camera connect?” might prompt the assistant to run
+lsusb to list USB devices, or “Why is my machine offline?” might prompt it to
+check network interfaces.
+Shell commands require your explicit approval every time:
+The assistant displays the exact command in an approval box with an
+Approve and Deny button.
+Review the command. Click Approve to run it on the machine, or
+Deny to skip it.
+If you approve, the assistant shows the command output and uses it to
+continue troubleshooting or suggest a configuration change.
+The assistant detects your machine’s operating system and uses the appropriate
+commands (Linux, macOS, or Windows PowerShell). Shell commands are available
+only on machine pages, not on fragment pages.
+If the machine does not have the shell service configured, the assistant adds
+the
+ViamShellDanger fragment
+to enable it and asks you to save the configuration before continuing.
+Use the assistant on a fragment
+
+The AI assistant is also available when you edit a
+fragment, a configuration you define once and apply to
+every machine that uses it.
+Open the fragment on the CONFIGURE tab.
+Open the AI assistant and describe the change you want, the same way you
+would for a machine. The assistant stages the edit for you to review.
+Changes you save to a fragment apply to every machine that uses the fragment on
+its next config sync, so you can make a shared change once and let it propagate
+across the machines that share the fragment.
+When to use the assistant instead of editing the configuration directly
+
+Reach for the AI assistant when:
+You know what you want but not the exact model name or JSON structure. For
+example, “add a webcam” rather than searching for the webcam model yourself.
+You want to add more than one related resource in a single request.
+You want to fix an error the machine reported. The assistant reads the
+validation error or log and proposes a change that addresses it.
+You want to troubleshoot a connectivity or hardware issue. The assistant
+can run diagnostic commands on the machine to check network settings, USB
+devices, or system information.
+You want to learn what a resource does before you add it.
+Edit the configuration directly, through the form fields or in JSON mode,
+when:
+You know the exact model and attributes you want to set.
+You are making a precise change to one attribute value.
+You are copying a configuration between machines or making bulk edits, which
+are faster in JSON mode.
+Because the assistant stages every change for review, you can start with a
+request and then refine the result by hand before you save. The two approaches
+edit the same configuration.
+What’s next
+
+Machine configuration
+Understand the JSON configuration that defines your machine's components, and how to edit it.
+
+Overview
+Understand how Viam represents hardware, add components to your machine, and configure them.
+
+Fragments
+Capture working hardware configurations and keep them consistent across your fleet.
+
+Ask AI
+
+Was this page helpful?Yes
+No
+
+Glad to hear it! If you have any other feedback please let us know:
+
+Send
+
+We're sorry about that. To help us improve, please tell us what we can do better:
+
+Send
+
+Thank you!
+
+© 2026 Viam, Inc. - Documentation is licensed under Creative Commons ShareAlike License. All Rights Reserved
+PRIVACY POLICY
+| ABOUT US
+| STATUS
+AI agent guidance: llms.txt

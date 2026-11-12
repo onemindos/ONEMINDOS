@@ -1,0 +1,71 @@
+##### [02:27:48] T1 first boot
+##### [02:27:48] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,reado
+MENDER-GRUB: mender_boot_part=2 upgrade_available=0 bootcount=0
+HEALTH-GATE: 07:28:17 start slot=A version=1 mode=committed env=[mender_boot_part=2 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 07:28:18 RESULT committed-boot slot=A version=1
+root@onemind-lab:~# HEALTH-GATE: 07:33:14 K3S-FRESH ok after 296s: ok (fresh: kubelet, heartbeat 2026-11-11T07:31:25Z, core pods, data rw, api)
+--- state:T1
+ONEMIND_VERSION=1
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+artifact=unknown
+/dev/vda2
+apps             broken-app-5d6b874ccd-2qzh2               0/1   ErrImagePull   0     2m41s
+kube-system      coredns-577d995dff-ppcg7                  1/1   Running        0     2m42s
+kube-system      helm-install-gateway-api-crd-pcpj4        1/1   Running        0     2m42s
+kube-system      local-path-provisioner-56c6584955-mfsjr   1/1   Running        0     2m42s
+onemind-system   onemind-core-dc87b89b8-f7n5h              1/1   Running        0     2m42s
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+##### [02:33:55] T2 wrong-key artifact
+upgrade_available=0
+bootcount=0
+record_id=1 severity=error time="2026-Nov-11 07:33:56.635956" name="Global" msg="Signature verification Error: Wrong manifest signature or wrong key" 
+Could not fulfill request: Signature verification Error: Wrong manifest signature or wrong key
+##### [02:33:57] install wrong-key.mender rc=1 in 1s
+upgrade_available=0
+bootcount=0
+record_id=1 severity=error time="2026-Nov-11 07:33:58.888216" name="Global" msg="No update in progress: Cannot commit" 
+No update in progress.
+##### [02:33:59] T3 good update -> B
+##### [02:34:00] install good.mender rc=1 in 1s
+[  385.001746] watchdog: watchdog0: watchdog did not stop!
+[  388.032430] watchdog: watchdog0: watchdog did not stop!
+MENDER-GRUB: mender_boot_part=2 upgrade_available=0 bootcount=0
+HEALTH-GATE: 07:35:28 start slot=A version=1 mode=committed env=[mender_boot_part=2 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 07:35:29 RESULT committed-boot slot=A version=1
+[?2004l--- state:T3-after-commit
+ONEMIND_VERSION=1
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+artifact=unknown
+/dev/vda2
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+[   89.010400] watchdog: watchdog0: watchdog did not stop!
+[   89.489041] watchdog: watchdog0: watchdog did not stop!
+MENDER-GRUB: mender_boot_part=2 upgrade_available=0 bootcount=0
+HEALTH-GATE: 07:37:09 start slot=A version=1 mode=committed env=[mender_boot_part=2 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 07:37:11 RESULT committed-boot slot=A version=1
+--- state:T3-second-reboot
+ONEMIND_VERSION=1
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+artifact=unknown
+/dev/vda2
+mender_boot_part=2
+upgrade_available=0
+bootcount=0
+HEALTH-GATE: 07:28:17 start slot=A version=1 mode=committed env=[mender_boot_part=2 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 07:28:18 RESULT committed-boot slot=A version=1
+HEALTH-GATE: 07:33:14 K3S-FRESH ok after 296s: ok (fresh: kubelet, heartbeat 2026-11-11T07:31:25Z, core pods, data rw, api)
+HEALTH-GATE: 07:35:28 start slot=A version=1 mode=committed env=[mender_boot_part=2 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 07:35:29 RESULT committed-boot slot=A version=1
+HEALTH-GATE: 07:37:09 start slot=A version=1 mode=committed env=[mender_boot_part=2 upgrade_available=0 bootcount=0]
+HEALTH-GATE: 07:37:11 RESULT committed-boot slot=A version=1
+##### [02:37:40] QEMU EXIT (poweroff)

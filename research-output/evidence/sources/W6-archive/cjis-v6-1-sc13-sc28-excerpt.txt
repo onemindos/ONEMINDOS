@@ -1,0 +1,23 @@
+# Excerpt: CJIS Security Policy v6.1 (2026-06-25), Wayback copy of le.fbi.gov PDF (live page returned HTTP 403), fetched 2026-11-10
+# sha256(original PDF)=b9e40ee0f506c7d8bca6e2ae04dc0d87b5d00b162bb9c5cc48529517a724abfb
+SC-13 CRYPTOGRAPHIC PROTECTION 
+[Existing] [Priority 2]  
+Control:  
+a. Determine the use of encryption for CJI in-transit when outside a physically secure location; 
+and  
+b. Implement the following types of cryptography required for each specified cryptographic 
+use: cryptographic modules which are Federal Information Processing Standard (FIPS) 140-3 
+certified, or a FIPS validated algorithm for symmetric key encryption and decryption (FIPS 
+197 [AES]), with a symmetric cipher key of at least 256-bit strength for CJI in-transit.  
+NOTE: Subsequent versions of approved cryptographic modules that are under current review for 
+FIPS 140-3 compliancy can be used in the interim until certification is complete.  FIPS 140 -2 
+certificates will not be acceptable after September 21, 2026. 
+Discussion: Cryptography can be employed to support a variety of security solutions, including 
+SC-28 PROTECTION OF INFORMATION AT REST 
+[Existing] [Priority 2]  
+Control:  
+Protect the confidentiality and integrity of the following information at rest: CJI when outside 
+physically secure locations  using cryptographic modules which are certified FIPS 140-3 with a 
+symmetric cipher key of at least 256-bit strength, or FIPS 197 with a symmetric cipher key of at 
+least 256-bit strength.  
+ 

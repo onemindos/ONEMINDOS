@@ -1,0 +1,247 @@
+Source: https://www.silicon.co.uk/press-release/formant-f3-brings-generative-ai-and-agentic-reasoning-to-robot-ops
+Accessed: 2026-11-11
+
+Formant F3 Brings Generative AI and Agentic Reasoning to Robot Ops - Silicon UK
+
+AI
+
+Business Intelligence
+
+Cloud
+
+Digital transformation
+
+Data
+
+Marketing
+
+Security
+
+News
+
+BrandVoices
+
+Podcasts
+
+Whitepapers
+
+Webinars
+
+Events
+
+News
+
+BrandVoices
+
+Podcasts
+
+Whitepapers
+
+Webinars
+
+Events
+
+ TECHNOLOGY POWERING BUSINESS
+
+Login
+
+Newsletter
+
+United Kingdom
+
+silicon.de
+
+silicon.fr
+
+silicon.pt
+
+silicon.es
+
+silicon.co.uk
+
+silicon.eu
+
+AI
+
+Business Intelligence
+
+Cloud
+
+Digital transformation
+
+Data
+
+Marketing
+
+Security
+
+All Tech News > Press Release 
+
+ Press release
+
+Formant F3 Brings Generative AI and Agentic Reasoning to Robot Ops
+
+ By businesswire, June 30, 2025, 5:47 pm 
+
+ 0 
+
+ 0 
+
+Sponsored by Businesswire 
+
+Today, Formant unveiled F3, the world’s first AI-native robotics management platform powered by Generative AI and Agentic Reasoning. F3 brings breakthrough intelligence to the orchestration layer—transforming how robots are managed, decisions are made, and operations scale across the enterprise.
+
+This press release features multimedia. View the full release here: https://www.businesswire.com/news/home/20250630008190/en/
+
+Use GenAI with Agentic Reasoning to manage robotics fleets.
+
+AI adoption is accelerating across the enterprise. According to McKinsey, 72% of organizations now use AI, and 71% deploy generative AI in at least one business function. But while robots are getting smarter, the software used to manage them hasn’t kept up.
+
+“Something’s wrong here,” said Jeff Linnell, Founder and CEO of Formant. “AI is supposed to make work easier. But while the robots have evolved, the management layer is stuck in the past. The real bottleneck isn’t the machines—it’s the lack of intuitive, purpose-built software to run them. With F3 it’s not just about managing robots anymore. It’s about orchestrating intelligence.”
+
+With F3, Formant introduces the first robotics platform built from the ground up to harness the full power of AI—predicting problems before they occur, surfacing insights from complex data, and making robotics operations accessible to anyone through natural language.
+
+Key F3 AI Features and Functionality
+
+Voice Command
+
+A generative AI interface for the entire platform. Just ask—F3 responds instantly with answers, visualizations, or direct robot control.
+
+Accepts voice and text commands
+
+Translates natural language into real-time actions
+
+Generates live data visualizations
+
+Executes robot tasks, movements, and fleet-wide operations
+
+Enables hands-free control in the field
+
+AI Insights
+
+A 24/7 agentic intelligence layer that monitors, analyzes, and proactively recommends.
+
+Detects anomalies and predicts failures
+
+Delivers unprompted, goal-aligned insights
+
+Generates incident summaries with root causes and recommended actions
+
+Evolves with real-time feedback from users
+
+Aligns with org-specific KPIs and metrics
+
+Smart Knowledge Base
+
+An AI-powered system that turns scattered documentation into actionable answers—instantly.
+
+Understands PDFs, diagrams, SOPs, and technical docs
+
+Connects concepts across documents via deep indexing
+
+Answers questions with cited sources
+
+Knows robotics terms, context, and operational intent
+
+Deep Research
+
+Autonomous AI agents that conduct multi-step investigations across data, systems, and fleet behavior.
+
+Identifies root causes, recurring patterns, and shifts in robot performance
+
+Generates detailed reports with guidance
+
+Compares similar devices to detect anomalies
+
+Powers predictive maintenance through intelligent insight
+
+These AI-native features are in addition to Formant’s proven capabilities in fleet management, teleoperation, mission control, tasking, incident resolution, and performance analytics—trusted by enterprises like Softbank and BP.
+
+From Smart Machines to Intelligent Ecosystems: Formant’s Physical AI Strategy
+
+F3 isn’t just a product launch—it’s the first major step in Formant’s broader vision for Physical AI: a world where machines sense, decide, and act autonomously—intelligently, and in full alignment with humans.
+
+Yet most solutions focus narrowly on connecting robots to AI models, ignoring business context—ERPs, data warehouses, ticketing systems. The result: smart machines that are disconnected from enterprise reality. Formant believes intelligence means more than perception—it means relevance.
+
+The Three Pillars of Intelligent Physical AI––Collective Intelligence
+
+Format’s plan is to bring the data from machines, AI models, and enterprise systems together onto a single software platform. With this approach, AI models can be trained on very large, company-specific and relevant data sets, creating an extremely intelligent, effective, and transformational ecosystem. In essence, what ChatGPT did for the digital world, Formant will do for the physical world.
+
+Formant’s approach unifies three essential elements into one platform:
+
+The Brain – Any advanced AI model (e.g., ChatGPT, Claude, Gemini), combined with reasoning algorithms that plan, decide, and act.
+
+The Body – Robots and machines that sense, adapt, and execute tasks autonomously.
+
+The Context – Seamless integration with enterprise systems like Google Drive, Jira, and others—ensuring alignment with business priorities and institutional knowledge.
+
+“We’re entering an era where machines don’t just execute commands—they collaborate,” said Linnell. “Where every machine action improves the entire system. Where AI becomes a trusted partner, not just a tool. The revolution isn’t coming. It’s here.”
+
+About Formant
+
+Formant is charting the course toward Physical AI. With F3, our AI-native platform, we’re bringing Generative AI and Agentic Reasoning to the orchestration layer of robotics—empowering operations teams to manage complex fleets with greater speed, insight, and autonomy. F3 helps enterprises eliminate fragmentation, simplify orchestration, and elevate robotics management from manual oversight to intelligent coordination. Founded by former Google Robotics head Jeff Linnell, Formant bridges the digital-physical divide to unlock AI’s real-world potential. Formant is based in San Francisco, and has accelerated robotics initiatives for major enterprises including Google, Softbank, BP, John Deere, Shell, and Westinghouse.
+
+View source version on businesswire.com: https://www.businesswire.com/news/home/20250630008190/en/
+
+ 0 
+
+ 0 
+
+ < 
+
+ UDT Selected as IT Solutions Provider for Independent Colleges and Universities of Florida (ICUF)
+
+ Cohesity Recognized as a Leader in 2025 Gartner® Magic Quadrant™ for Backup and Data Protection Platforms for the Sixth Time
+
+ > 
+
+Subscribe to the newsletter
+
+to receive the latest news
+
+ OK
+
+About
+Silicon UK is the leading source for IT news, analysis, features and interviews covering the technology that impacts your business. Keep up-to-date with the latest tech news and read in-depth features by subscribing to our newsletter and attending our events.
+
+Our brands
+
+NETMEDIA Group
+
+NETMEDIA International
+
+Legal Terms
+
+Terms and Conditions
+
+Privacy and Cookie Policy
+
+Stay in touch
+
+Advertise with us
+
+Contact our Editorial team
+
+Partnerships & WorldWide Program
+
+ NetMedia International :
+
+siliconweek.com
+
+siliconweek.com.br
+
+silicon.de
+
+silicon.fr
+
+silicon.pt
+
+silicon.es
+
+silicon.co.uk
+
+silicon.eu
+
+ ↑ 
+
+ NetMedia International © Copyright 2026 All rights reserved. Part of NetMedia International. About NetMedia International

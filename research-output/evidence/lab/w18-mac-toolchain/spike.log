@@ -1,0 +1,89 @@
++ uname -a
+Linux lima-w18kb 6.12.115+deb13.1-cloud-arm64 #1 SMP Debian 6.12.115-2 (2026-11-01) aarch64 GNU/Linux
++ nproc
+10
++ free -g
+               total        used        free      shared  buff/cache   available
+Mem:              15           0          13           0           1          15
+Swap:              0           0           0
++ cat /etc/debian_version
+13.7
+== H1 nested KVM
++ echo '== H1 nested KVM'
++ ls -l /dev/kvm
+crw-rw---- 1 root kvm 10, 232 Nov 10 20:10 /dev/kvm
++ python3 -c 'import os;fd=os.open('\''/dev/kvm'\'',os.O_RDWR);print('\''kvm open ok'\'');os.close(fd)'
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import os;fd=os.open('/dev/kvm',os.O_RDWR);print('kvm open ok');os.close(fd)
+                 ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 13] Permission denied: '/dev/kvm'
++ sudo python3 -c 'import os;fd=os.open('\''/dev/kvm'\'',os.O_RDWR);print('\''kvm open ok (root)'\'')'
+kvm open ok (root)
++ sudo apt-get update -qq
++ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq build-essential bc bison flex libssl-dev libelf-dev gcc-x86-64-linux-gnu xz-utils curl cpio dwarves python3 qemu-user-static binfmt-support
+deps-ok
++ echo deps-ok
++ cd /home/<user>.guest
++ V=6.18.62
++ curl -fsSLO https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.18.62.tar.xz
++ sha256sum linux-6.18.62.tar.xz
+490a7aedf1b355c565d3a6c05333ccccb5da82064eca46b590448a7099d7d651  linux-6.18.62.tar.xz
++ tar xf linux-6.18.62.tar.xz
+== H2 native arm64
++ cd linux-6.18.62
++ echo '== H2 native arm64'
++ make -s ARCH=arm64 O=../b-arm64 defconfig
+++ date +%s
++ S=1794359516
+++ nproc
++ make -s ARCH=arm64 O=../b-arm64 -j10 Image modules
+++ date +%s
+arm64 rc=0 seconds=333
+== H3 cross x86_64
++ echo 'arm64 rc=0 seconds=333'
++ echo '== H3 cross x86_64'
++ make -s ARCH=x86_64 CROSS_COMPILE=x86_64-linux-gnu- O=../b-x86 x86_64_defconfig
+++ date +%s
++ S=1794359851
+++ nproc
++ make -s ARCH=x86_64 CROSS_COMPILE=x86_64-linux-gnu- O=../b-x86 -j10 bzImage modules
+++ date +%s
+x86_64 rc=0 seconds=101
+== H4 PREEMPT_RT
++ echo 'x86_64 rc=0 seconds=101'
++ echo '== H4 PREEMPT_RT'
++ for A in arm64 x86_64
++ D=../b-arm64
++ '[' arm64 = x86_64 ']'
++ CC=
++ '[' arm64 = x86_64 ']'
++ scripts/config --file ../b-arm64/.config -e EXPERT -e PREEMPT_RT
++ make -s ARCH=arm64 O=../b-arm64 olddefconfig
+++ grep -E '^CONFIG_PREEMPT_RT=' ../b-arm64/.config
+arm64: CONFIG_PREEMPT_RT=y
++ echo 'arm64: CONFIG_PREEMPT_RT=y'
++ for A in arm64 x86_64
++ D=../b-x86_64
++ '[' x86_64 = x86_64 ']'
++ D=../b-x86
++ CC=
++ '[' x86_64 = x86_64 ']'
++ CC=CROSS_COMPILE=x86_64-linux-gnu-
++ scripts/config --file ../b-x86/.config -e EXPERT -e PREEMPT_RT
++ make -s ARCH=x86_64 CROSS_COMPILE=x86_64-linux-gnu- O=../b-x86 olddefconfig
+++ grep -E '^CONFIG_PREEMPT_RT=' ../b-x86/.config
+x86_64: CONFIG_PREEMPT_RT=y
+== H5 amd64 user-mode
++ echo 'x86_64: CONFIG_PREEMPT_RT=y'
++ echo '== H5 amd64 user-mode'
++ ls /proc/sys/fs/binfmt_misc/
++ grep -i x86
+qemu-x86_64
++ echo 'int main(){return 0;}'
++ x86_64-linux-gnu-gcc -static /tmp/t.c -o /tmp/t
++ /tmp/t
+++ file /tmp/t
+++ cut -c1-80
+x86_64 static binary ran via binfmt: /tmp/t: ELF 64-bit LSB executable, x86-64, version 1 (GNU/Linux), statically lin
++ echo 'x86_64 static binary ran via binfmt: /tmp/t: ELF 64-bit LSB executable, x86-64, version 1 (GNU/Linux), statically lin'

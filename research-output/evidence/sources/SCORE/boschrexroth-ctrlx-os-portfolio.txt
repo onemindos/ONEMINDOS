@@ -1,0 +1,165 @@
+Source: https://apps.boschrexroth.com/microsites/ctrlx-automation/en/portfolio/ctrlx-os/
+Fetched 2026-11-11 (HTML stripped to text)
+
+ 
+ ctrlX OS – The industrial Linux operating system - ctrlX AUTOMATION 
+ Question? Ask iXi! 
+ Keywords 
+ {{iflng::de}}{insert_content::8331}{insert_content::8338}{{iflng}} 
+ Skip navigation 
+ Configurator 
+ Community 
+ Store 
+ Software Download 
+ Documentation 
+ Contact 
+ EN 
+ DE 
+ PL 
+ Skip navigation 
+ Portfolio 
+ ctrlX CORE 
+ Control platform 
+ ctrlX WORKS 
+ Engineering software toolbox 
+ ctrlX MOTION 
+ Motion, robotics & CNC software 
+ ctrlX PLC 
+ PLC solutions 
+ ctrlX OS Linux operating system 
+ ctrlX IOT 
+ IoT solutions 
+ ctrlX HMI 
+ HMI solutions 
+ ctrlX I/O 
+ I/O systems 
+ ctrlX DRIVE 
+ Drive system 
+ ctrlX SAFETY 
+ Safety solutions 
+ ctrlX FLOW 
+ Motion systems 
+ ctrlX IPC 
+ Industrial PC 
+ Solutions 
+ Applications 
+ Assembly Lines 
+ Complete solutions for automation 
+ Beam Cutting 
+ Solution for high speed and precision 
+ Building Automation 
+ Complete solution for building automation 
+ Handling 
+ The right solution for every handling requirement 
+ Packaging Machines 
+ Automation solutions for packaging production 
+ Printing & Converting 
+ Automation for packaging process 
+ Warehouse Automation 
+ Automation in intralogistics 
+ Solution Sets 
+ Access Control 
+ Coil Processing Lines 
+ Dispensing 
+ Form, fill, seal 
+ Intelligent Pumps 
+ Label Printing 
+ Mobile Robots 
+ Smart Centrifuge 
+ Video Analysis Building Security and Safety 
+ Wafer Handling 
+ ctrlX World 
+ ctrlX SERVICES 
+ Digital Services 
+ Classic Services 
+ Sustainability 
+ Trainings & Certification 
+ News & Stories 
+ Product Updates 
+ {{iflng::de}}{insert_module::48}{{iflng}}
+ Home 
+ Portfolio 
+ ctrlX OS 
+ ctrlX OS 
+ Linux operating system for industry 
+ Great freedom in automation 
+ ctrlX AUTOMATION reaches the next level when it comes to openness and freedom: In the past, our real-time-capable, Linux-based operating system was used exclusively on the control ctrlX CORE . However, ctrlX OS is now available as a separate solution for industrial environments too. It is designed for real-time use and can be used on all levels – from the field level and edge devices to the cloud. 
+ Loading the video requires your consent. If you agree by clicking on the Play icon, the video will load and data will be transmitted to Google as well as Information will be accessed and stored by Google on your device. Google may be able to link these data or information with existing data. 
+ Cancel 
+ Accept 
+ Key benefits for users: 
+ Shorter time to market 
+ Flexibility in production 
+ High system availability 
+ Better performance 
+ Same standards as regards security, tools and communication interfaces for the entire network 
+ Broad distribution of automation solutions across the automation pyramid 
+ High-performance platform for futuristic solutions 
+ Hardware-independent operating system 
+ The trend in industry is increasingly moving towards distributed software and data-based automation solutions. At the same time, information is being pooled as far as possible. The same standards apply to the entire network in terms of applicable software, security, tools and communication interfaces. 
+ ctrlX OS helps to meet these requirements. The Linux based operating system is hardware-independent and seamlessly connects even more automation components to the entire ctrlX OS Ecosystem. Software-based functions can be developed, installed, updated and operated even more easily and flexibly across all levels of the automation topology. Bosch Rexroth thus caters for the needs of software-driven factories and enables modern software practices such as virtual testing and DevOps in automation. Hardware independence also makes it possible to operate a virtual control system on hypervisor platforms, in the data center, on edge servers or in the cloud. 
+ ctrlX OS supports the merging of IT and OT applications for Industry 4.0 purposes. It also forms the basis for server, edge and cloud automation in industry. 
+ By using ctrlX OS, users gain access to the entire ecosystem. A wide range of apps is available from the ctrlX OS Store . Companies can also operate their own software on any hardware that is suitable for the application. The web-based engineering approach and secure user management help to relieve the burden on users during their work as far as possible. And security has been taken into account too: A hardened software stack ensures a high degree of cyber security. 
+ All devices in the network are connected and data exchanged via the high-performance ctrlX Data Layer. ctrlX OS also has a standardized toolchain for all devices and the Software Development Kit (SDK) for ctrlX AUTOMATION which companies can use to develop their own apps. 
+ ctrlX OS, the proven industrial Linux-based operating system which is used by ctrlX AUTOMATION and regarded as the most modern, open and secure of its kind, is thus also available to other suppliers of automation components. 
+ Would you like to find out more about the ctrlX OS Ecosystem? Visit our ctrlX OS website. There you will find detailed information on the platform components as well as the ecosystem partners and their diverse solutions. 
+ Discover now! 
+ Linux operating system for modern industry 
+ ctrlX OS fits perfectly into the ctrlX AUTOMATION product family’s openness concept and meets all the requirements which apply to modern automation concepts. The Linux-based operating system is currently available on the control platform ctrlX CORE and on the drive system ctrlX DRIVE with integrated controller. By using it, users benefit from the following features: 
+ Open and expandable 
+ Service-oriented architecture 
+ Companies can easily use apps from Bosch Rexroth and third-party providers or develop their own apps 
+ Seamless data integration 
+ High-performance, secure data networking within the automation solution 
+ Centralized access to all real-time and non-real-time data in the entire network with no need for programming 
+ Connective in all directions 
+ Fieldbus protocols 
+ Interfaces (TSN, 5G) 
+ Cloud connectors 
+ Open interfaces (REST, OPC UA server) 
+ Easy to manage 
+ Remote access, remote control and device management via the ctrlX Device Portal 
+ Remote installation, updates and patches 
+ Highly secure and certified 
+ Certified data security in accordance with IEC 62443 
+ User and authorization management 
+ Secure authentication in the user management 
+ Services for ctrlX OS 
+ Bosch Rexroth offers within the partner network ctrlX World Services solutions for ctrlX OS. For example, Etteplan offers customized control solutions with ctrlX OS, including custom hardware and/or application development, integrations, and testing. Etteplan has a ctrlX OS-enabled hardware reference design with 5G connectivity, high-precision positioning and edge computing capacity for product development. 
+ Canonical, the publisher of Ubuntu Linux, provides open source security, support and software customization services for ctrlX OS on specific target hardware architectures. 
+ Discover more partner solutions from ctrlX World ! 
+ ctrlX AUTOMATION magazine 2025 – Now available! 
+ The new ctrlX AUTOMATION magazine is waiting for you: Exciting case studies including Audi and Siemens Energy, expert opinions on topics such as the Cyber Resilience Act and Big Data, and of course all the highlights of our automation platform ctrlX AUTOMATION and the ctrlX OS Ecosystem. 
+ Request now! 
+ Sitemap 
+ Home 
+ Portfolio 
+ Solutions 
+ ctrlX World 
+ ctrlX SERVICES 
+ News & Stories 
+ Product Updates 
+ Company 
+ About ctrlX AUTOMATION 
+ About Bosch Rexroth 
+ About Artificial Intelligence 
+ About Cybersecurity 
+ Press 
+ Trade shows & events 
+ Jobs & career 
+ Our Service Hotline 
+ You can reach us around the clock: 
+ Hotline: +49 9352 405060 
+ E-Mail: <email-masked> 
+ Get in contact 
+ © 
+ Bosch Rexroth AG 2014-2026, all rights reserved 
+ Imprint
+ Data Protection Notice
+ Legal
+ Certificates
+ Purchasing & logistics
+ Cookie settings
+ Now available – ctrlX AUTOMATION Magazine 2025 
+   The CodeX of ctrlX AUTOMATION stands for courage, vision, and openness. Our new ctrlX AUTOMATION Magazine 2025 is also guided by these principles. Dive into the world of ctrlX AUTOMATION and learn everything about the automation platform, the ctrlX OS Ecosystem, and exciting case studies from the automotive industry and energy supply. Trending topics such as the Cyber Resilience Act are also covered. Download now! 
+ 

@@ -1,0 +1,46 @@
+##### [03:16:59] T1 first boot
+##### [03:16:59] QEMU START qemu-system-x86_64 -machine q35 -accel tcg,thread=multi -cpu max -smp 4 -m 3072 -nodefaults -display none -vga none -nic user,model=virtio-net-pci,restrict=on -device i6300esb -action watchdog=reset -drive if=pflash,format=raw,reado
+GRUB-RAUC: ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 default=1
+HEALTH-GATE: 08:17:26 start slot=A version=1 mode=committed env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 ]
+HEALTH-GATE: 08:17:27 RESULT committed-boot slot=A version=1
+root@onemind-lab:~# HEALTH-GATE: 08:18:59 K3S-FRESH ok after 92s: ok (fresh: kubelet, heartbeat 2026-11-11T08:18:46Z, core pods, data rw, api)
+--- state:T1
+ONEMIND_VERSION=1
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+Booted from: rootfs.0 (A)
+      boot status: bad
+      boot status: good
+pending: none
+apps             broken-app-5d6b874ccd-ds5rp               0/1   ImagePullBackOff   0     41s
+kube-system      coredns-577d995dff-zwwfl                  1/1   Running            0     42s
+kube-system      helm-install-gateway-api-crd-bs6dc        0/1   Completed          0     42s
+kube-system      local-path-provisioner-56c6584955-4c2k6   1/1   Running            0     42s
+onemind-system   onemind-core-dc87b89b8-ccxln              1/1   Running            0     41s
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+##### [03:19:05] T2 wrong-key bundle
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+LastError: signature verification failed: Verify error: unable to get local issuer certificate
+##### [03:19:06] install wrong-key.raucb rc=1 in 0s
+ORDER=A B
+A_OK=1
+A_TRY=0
+B_OK=0
+B_TRY=0
+HEALTH-GATE: 08:17:26 start slot=A version=1 mode=committed env=[ORDER=A B A_OK=1 A_TRY=1 B_OK=0 B_TRY=0 ]
+HEALTH-GATE: 08:17:27 RESULT committed-boot slot=A version=1
+HEALTH-GATE: 08:18:59 K3S-FRESH ok after 92s: ok (fresh: kubelet, heartbeat 2026-11-11T08:18:46Z, core pods, data rw, api)
+##### [03:19:13] QEMU EXIT (poweroff)
+[extra] 195:root@onemind-lab:~# HEALTH-GATE: 08:18:59 K3S-FRESH ok after 92s: ok (fresh: kubelet, heartbeat 2026-11-11T08:18:46Z, core pods, data rw, api)
+[extra] 261:HEALTH-GATE: 08:18:59 K3S-FRESH ok after 92s: ok (fresh: kubelet, heartbeat 2026-11-11T08:18:46Z, core pods, data rw, api)

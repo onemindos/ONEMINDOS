@@ -1,0 +1,409 @@
+##### [23:47:53] T1 first boot (Secure Boot, lab keys)
+##### [23:47:53] QEMU START qemu-system-x86_64 -machine q35,smm=on -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -global driver=cfi.pflash01,property=secure,value=on -global ICH9-LPC.disable_s3=1 -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd -drive if=pflash,format=raw,unit=1,file=/var/lab/sbrun2/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/sbrun2/disk.img -drive if=virtio,format=raw,readonly=on,file=/var/lab/sbrun2/bundles.img -chardev socket,id=chrtpm,path=/var/lab/sbrun2/swtpm.sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 -serial stdio -monitor none
+[2J[=3h[01;01H[=3hBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x1,0x0)
+BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x1,0x0)
+[    0.000000] Command line: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005a ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-A onemind.version=1
+[    0.000000] Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+[    0.000000] secureboot: Secure boot enabled
+[    3.078696] sched_clock: Marking stable (3040058783, 36387570)->(3079000005, -2553652)
+[    8.399066] systemd[1]: Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+         Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+[    8.728380] systemd[1]: Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[[0;32m  OK  ] Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[    8.777479] systemd[1]: Starting systemd-tpm2-setup.service - TPM SRK Setup...
+         Starting systemd-tpm2-setup.service - TPM SRK Setup...
+[FAILED] Failed to start systemd-tpm2-setup.service - TPM SRK Setup.
+See 'systemctl status systemd-tpm2-setup.service' for details.
+EFI-ENTRIES: created OneMind-A=0003 OneMind-B=0004 BootOrder=0003,0004
+DATA: first boot: provisioning LUKS2
+DATA: enrolled tpm2 pcrs=7
+DATA: recovery key enrolled (lab: discarded)
+DATA: temporary keyslot 0 wiped
+DATA: tokens: systemd-tpm2 systemd-recovery 
+DATA: UNLOCK OK method=tpm2 (no prompt); /data mounted
+BONUS-PCR11: enrolled signed-pcr11+pcr7, password slot wiped
+BONUS-PCR11: UNLOCK OK slot=A (signed PCR 11 policy)
+SB-REPORT: version=1 cmdline-slot=OneMind-A SecureBoot=1 SetupMode=0
+SB-REPORT: kernel: Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+SB-REPORT: lockdown: none [integrity] confidentiality
+SB-REPORT: PK: Subject:
+SB-REPORT: db: CN=OneMind LAB db CN=OneMind LAB db 
+SB-REPORT: efi: BootCurrent: 0001
+SB-REPORT: efi: BootOrder: 0003,0004
+SB-REPORT: efi: Boot0003* OneMind-A	HD(2,GPT,6e0a8b0e-0000-4a00-8000-0000000000ba,0x200800,0x100000)/File(\EFI\Linux\onemind-A.efi)
+SB-REPORT: efi: Boot0004* OneMind-B	HD(3,GPT,6e0a8b0e-0000-4a00-8000-0000000000bb,0x300800,0x100000)/File(\EFI\Linux\onemind-B.efi)
+HEALTH-GATE: start slot=A version=1 soak=10s
+HEALTH-GATE: RESULT mark-good slot=A version=1
+root@onemind-lab:~# dmesg | grep -i -E 'secure ?boot|lockdown' | head -5; efi-readvar -v PK | head -6; cryptsetup luksDump /dev/disk/by-partlabel/onemind-data | grep -E '^Version|systemd-|tpm2-pcrs|Keyslot|^  [0-9]+: lukss2' ; echo __R''C=$?__
+[    0.000000] Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+[    0.000000] secureboot: Secure boot enabled
+        Subject:
+Version:       	2
+  0: systemd-tpm2
+  1: systemd-recovery
+root@onemind-lab:~# echo '--- state:T1'; cat /etc/onemind-release; mokutil --sb-state 2>&1; efibootmgr; mountpoint /data; rauc status 2>&1 | grep -E 'Booted from|Activated|boot status|^ *\[|bootname' ; echo __R''C=$?__
+ONEMIND_VERSION=1
+SecureBoot enabled
+BootCurrent: 0001
+BootOrder: 0003,0004
+Booted from: rootfs.0 (OneMind-A)
+Activated: rootfs.0 (OneMind-A)
+      bootname: OneMind-B
+      boot status: good
+      bootname: OneMind-A
+      boot status: good
+##### [23:49:07] T2 good update A->B
+ 99% Copying image to efi.1 done.
+100% Installing done.
+Installing `/mnt/bundles/good.raucb` succeeded
+BootCurrent: 0001
+BootOrder: 0003
+[  OK  [0m] Stopped systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[  122.821004] reboot: Restarting system
+[  122.821144] reboot: machine restart
+[2J[=3h[=3h[01;01HBdsDxe: loading Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+BdsDxe: starting Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+[    0.000000] Command line: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005b ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-B onemind.version=2
+[    0.000000] Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+[    0.000000] secureboot: Secure boot enabled
+[    3.592373] sched_clock: Marking stable (3552089481, 36365001)->(3591961046, -3506564)
+[   10.341654] systemd[1]: Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+         Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+[  OK  [0m] Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+         Starting systemd-tpm2-setup.service - TPM SRK Setup...
+[FAILED] Failed to start systemd-tpm2-setup.service - TPM SRK Setup.
+See 'systemctl status systemd-tpm2-setup.service' for details.
+DATA: tokens: systemd-tpm2 systemd-recovery 
+DATA: UNLOCK OK method=tpm2 (no prompt); /data mounted
+BONUS-PCR11: UNLOCK OK slot=B (signed PCR 11 policy)
+SB-REPORT: version=2 cmdline-slot=OneMind-B SecureBoot=1 SetupMode=0
+SB-REPORT: kernel: Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+SB-REPORT: lockdown: none [integrity] confidentiality
+SB-REPORT: PK: Subject:
+SB-REPORT: db: CN=OneMind LAB db CN=OneMind LAB db 
+SB-REPORT: efi: BootCurrent: 0004
+SB-REPORT: efi: BootOrder: 0003,0000,0001,0002
+SB-REPORT: efi: Boot0003* OneMind-A	HD(2,GPT,6e0a8b0e-0000-4a00-8000-0000000000ba,0x200800,0x100000)/File(\EFI\Linux\onemind-A.efi)
+SB-REPORT: efi: Boot0004* OneMind-B	HD(3,GPT,6e0a8b0e-0000-4a00-8000-0000000000bb,0x300800,0x100000)/File(\EFI\Linux\onemind-B.efi)
+HEALTH-GATE: start slot=B version=2 soak=10s
+HEALTH-GATE: RESULT mark-good slot=B version=2
+root@onemind-lab:~# echo '--- state:T2a'; cat /etc/onemind-release; mokutil --sb-state 2>&1; efibootmgr; mountpoint /data; rauc status 2>&1 | grep -E 'Booted from|Activated|boot status|^ *\[|bootname' ; echo __R''C=$?__
+ONEMIND_VERSION=2
+SecureBoot enabled
+BootCurrent: 0004
+BootOrder: 0004,0003,0000,0001,0002
+Booted from: rootfs.1 (OneMind-B)
+Activated: rootfs.1 (OneMind-B)
+      bootname: OneMind-B
+      boot status: good
+      bootname: OneMind-A
+      boot status: good
+[[0;32m  OK  ] Stopped systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[   33.025428] reboot: Restarting system
+[   33.025674] reboot: machine restart
+[2J[=3h[01;01H[=3hBdsDxe: loading Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+BdsDxe: starting Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+[    0.000000] Command line: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005b ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-B onemind.version=2
+[    0.000000] Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+[    0.000000] secureboot: Secure boot enabled
+[    3.785293] sched_clock: Marking stable (3740060741, 41092401)->(3784666403, -3513261)
+[   10.302195] systemd[1]: Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+         Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+[   10.615449] systemd[1]: Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[  OK  ] Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[   10.666490] systemd[1]: Starting systemd-tpm2-setup.service - TPM SRK Setup...
+         Starting systemd-tpm2-setup.service - TPM SRK Setup...
+[FAILED] Failed to start systemd-tpm2-setup.service - TPM SRK Setup.
+See 'systemctl status systemd-tpm2-setup.service' for details.
+DATA: tokens: systemd-tpm2 systemd-recovery 
+DATA: UNLOCK OK method=tpm2 (no prompt); /data mounted
+BONUS-PCR11: UNLOCK OK slot=B (signed PCR 11 policy)
+SB-REPORT: version=2 cmdline-slot=OneMind-B SecureBoot=1 SetupMode=0
+SB-REPORT: kernel: Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+SB-REPORT: lockdown: none [integrity] confidentiality
+SB-REPORT: PK: Subject:
+SB-REPORT: db: CN=OneMind LAB db CN=OneMind LAB db 
+SB-REPORT: efi: BootCurrent: 0004
+SB-REPORT: efi: BootOrder: 0004,0003,0000,0001,0002
+SB-REPORT: efi: Boot0003* OneMind-A	HD(2,GPT,6e0a8b0e-0000-4a00-8000-0000000000ba,0x200800,0x100000)/File(\EFI\Linux\onemind-A.efi)
+SB-REPORT: efi: Boot0004* OneMind-B	HD(3,GPT,6e0a8b0e-0000-4a00-8000-0000000000bb,0x300800,0x100000)/File(\EFI\Linux\onemind-B.efi)
+HEALTH-GATE: start slot=B version=2 soak=10s
+HEALTH-GATE: RESULT mark-good slot=B version=2
+##### [23:52:01] T3 bad-health update (into A) -> rollback to B
+ 99% Copying image to efi.0 done.
+100% Installing done.
+Installing `/mnt/bundles/bad-health.raucb` succeeded
+BootNext: 0003
+BootCurrent: 0004
+BootOrder: 0004,0000,0001,0002
+[[0;32m  OK  ] Stopped systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[  113.857097] reboot: Restarting system
+[  113.857534] reboot: machine restart
+[2J[=3h[01;01H[=3hBdsDxe: loading Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\EFI\Linux\onemind-A.efi
+BdsDxe: starting Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\EFI\Linux\onemind-A.efi
+[    0.000000] Command line: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005a ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-A onemind.version=3
+[    0.000000] Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+[    0.000000] secureboot: Secure boot enabled
+[    3.135264] sched_clock: Marking stable (3096156776, 35212478)->(3136815918, -5446664)
+[    8.171874] systemd[1]: Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+         Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+[    8.424316] systemd[1]: Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[  OK  ] Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[    8.472680] systemd[1]: Starting systemd-tpm2-setup.service - TPM SRK Setup...
+         Starting systemd-tpm2-setup.service - TPM SRK Setup...
+[[0;1;31mFAILED] Failed to start systemd-tpm2-setup.service - TPM SRK Setup.
+See 'systemctl status systemd-tpm2-setup.service' for details.
+DATA: tokens: systemd-tpm2 systemd-recovery 
+DATA: UNLOCK OK method=tpm2 (no prompt); /data mounted
+BONUS-PCR11: UNLOCK OK slot=A (signed PCR 11 policy)
+SB-REPORT: version=3 cmdline-slot=OneMind-A SecureBoot=1 SetupMode=0
+SB-REPORT: kernel: Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+SB-REPORT: lockdown: none [integrity] confidentiality
+SB-REPORT: PK: Subject:
+SB-REPORT: db: CN=OneMind LAB db CN=OneMind LAB db 
+SB-REPORT: efi: BootCurrent: 0003
+SB-REPORT: efi: BootOrder: 0004,0000,0001,0002
+SB-REPORT: efi: Boot0003* OneMind-A	HD(2,GPT,6e0a8b0e-0000-4a00-8000-0000000000ba,0x200800,0x100000)/File(\EFI\Linux\onemind-A.efi)
+SB-REPORT: efi: Boot0004* OneMind-B	HD(3,GPT,6e0a8b0e-0000-4a00-8000-0000000000bb,0x300800,0x100000)/File(\EFI\Linux\onemind-B.efi)
+HEALTH-GATE: start slot=A version=3 soak=10s
+HEALTH-GATE: RESULT mark-bad slot=A version=3 core-unhealthy -> reboot to B
+[  OK  ] Stopped systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[   46.323793] reboot: Restarting system
+[   46.324073] reboot: machine restart
+[2J[=3h[01;01H[=3hBdsDxe: loading Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+BdsDxe: starting Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+[    0.000000] Command line: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005b ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-B onemind.version=2
+[    0.000000] Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+[    0.000000] secureboot: Secure boot enabled
+[    3.586583] sched_clock: Marking stable (3552731827, 33813639)->(3589972967, -3427501)
+[    9.432890] systemd[1]: Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+         Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+[    9.750542] systemd[1]: Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[  OK  ] Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[    9.819673] systemd[1]: Starting systemd-tpm2-setup.service - TPM SRK Setup...
+         Starting systemd-tpm2-setup.service - TPM SRK Setup...
+[FAILED] Failed to start systemd-tpm2-setup.service - TPM SRK Setup.
+See 'systemctl status systemd-tpm2-setup.service' for details.
+DATA: tokens: systemd-tpm2 systemd-recovery 
+DATA: UNLOCK OK method=tpm2 (no prompt); /data mounted
+BONUS-PCR11: UNLOCK OK slot=B (signed PCR 11 policy)
+SB-REPORT: version=2 cmdline-slot=OneMind-B SecureBoot=1 SetupMode=0
+SB-REPORT: kernel: Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+SB-REPORT: lockdown: none [integrity] confidentiality
+SB-REPORT: PK: Subject:
+SB-REPORT: db: CN=OneMind LAB db CN=OneMind LAB db 
+SB-REPORT: efi: BootCurrent: 0004
+SB-REPORT: efi: BootOrder: 0004,0000,0001,0002
+SB-REPORT: efi: Boot0003* OneMind-A	HD(2,GPT,6e0a8b0e-0000-4a00-8000-0000000000ba,0x200800,0x100000)/File(\EFI\Linux\onemind-A.efi)
+SB-REPORT: efi: Boot0004* OneMind-B	HD(3,GPT,6e0a8b0e-0000-4a00-8000-0000000000bb,0x300800,0x100000)/File(\EFI\Linux\onemind-B.efi)
+HEALTH-GATE: start slot=B version=2 soak=10s
+HEALTH-GATE: RESULT mark-good slot=B version=2
+root@onemind-lab:~# echo '--- state:T3'; cat /etc/onemind-release; mokutil --sb-state 2>&1; efibootmgr; mountpoint /data; rauc status 2>&1 | grep -E 'Booted from|Activated|boot status|^ *\[|bootname' ; echo __R''C=$?__
+ONEMIND_VERSION=2
+SecureBoot enabled
+BootCurrent: 0004
+BootOrder: 0004,0000,0001,0002
+Booted from: rootfs.1 (OneMind-B)
+Activated: rootfs.1 (OneMind-B)
+      bootname: OneMind-B
+      boot status: good
+      bootname: OneMind-A
+      boot status: bad
+##### [23:55:19] T4 tampered UKI (into A) -> firmware must refuse
+ 99% Copying image to efi.0 done.
+100% Installing done.
+Installing `/mnt/bundles/tampered.raucb` succeeded
+BootNext: 0003
+BootCurrent: 0004
+BootOrder: 0004,0000,0001,0002
+[  OK  ] Stopped systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[  102.132924] reboot: Restarting system
+[  102.133081] reboot: machine restart
+[2J[=3h[01;01H[=3hBdsDxe: loading Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\EFI\Linux\onemind-A.efi
+BdsDxe: failed to load Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\EFI\Linux\onemind-A.efi: Access Denied
+BdsDxe: loading Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+BdsDxe: starting Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+[    0.000000] Command line: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005b ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-B onemind.version=2
+[    0.000000] Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+[    0.000000] secureboot: Secure boot enabled
+[    3.427564] sched_clock: Marking stable (3388924729, 35717462)->(3432699031, -8056840)
+[    9.430246] systemd[1]: Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+         Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+[    9.761204] systemd[1]: Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[  OK  ] Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[    9.778606] systemd[1]: Starting systemd-tpm2-setup.service - TPM SRK Setup...
+         Starting systemd-tpm2-setup.service - TPM SRK Setup...
+[[0;1;31mFAILED] Failed to start systemd-tpm2-setup.service - TPM SRK Setup.
+See 'systemctl status systemd-tpm2-setup.service' for details.
+DATA: tokens: systemd-tpm2 systemd-recovery 
+DATA: UNLOCK OK method=tpm2 (no prompt); /data mounted
+BONUS-PCR11: UNLOCK OK slot=B (signed PCR 11 policy)
+SB-REPORT: version=2 cmdline-slot=OneMind-B SecureBoot=1 SetupMode=0
+SB-REPORT: kernel: Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+SB-REPORT: lockdown: none [integrity] confidentiality
+SB-REPORT: PK: Subject:
+SB-REPORT: db: CN=OneMind LAB db CN=OneMind LAB db 
+SB-REPORT: efi: BootCurrent: 0004
+SB-REPORT: efi: BootOrder: 0004,0000,0001,0002
+SB-REPORT: efi: Boot0003* OneMind-A	HD(2,GPT,6e0a8b0e-0000-4a00-8000-0000000000ba,0x200800,0x100000)/File(\EFI\Linux\onemind-A.efi)
+SB-REPORT: efi: Boot0004* OneMind-B	HD(3,GPT,6e0a8b0e-0000-4a00-8000-0000000000bb,0x300800,0x100000)/File(\EFI\Linux\onemind-B.efi)
+HEALTH-GATE: start slot=B version=2 soak=10s
+HEALTH-GATE: RESULT mark-good slot=B version=2
+root@onemind-lab:~# echo '--- state:T4'; cat /etc/onemind-release; mokutil --sb-state 2>&1; efibootmgr; mountpoint /data; rauc status 2>&1 | grep -E 'Booted from|Activated|boot status|^ *\[|bootname' ; echo __R''C=$?__
+ONEMIND_VERSION=2
+SecureBoot enabled
+BootCurrent: 0004
+BootOrder: 0004,0000,0001,0002
+Booted from: rootfs.1 (OneMind-B)
+Activated: rootfs.1 (OneMind-B)
+      bootname: OneMind-B
+      boot status: good
+      bootname: OneMind-A
+      boot status: bad
+##### [23:57:23] T5 unsigned UKI (into A) -> firmware must refuse
+ 99% Copying image to efi.0 done.
+100% Installing done.
+Installing `/mnt/bundles/unsigned.raucb` succeeded
+BootNext: 0003
+BootCurrent: 0004
+BootOrder: 0004,0000,0001,0002
+[[0;32m  OK  ] Stopped systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[  101.705841] reboot: Restarting system
+[  101.705982] reboot: machine restart
+[2J[=3h[01;01H[=3hBdsDxe: loading Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\EFI\Linux\onemind-A.efi
+BdsDxe: failed to load Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\EFI\Linux\onemind-A.efi: Access Denied
+BdsDxe: loading Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+BdsDxe: starting Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+[    0.000000] Command line: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005b ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-B onemind.version=2
+[    0.000000] Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+[    0.000000] secureboot: Secure boot enabled
+[    5.553131] sched_clock: Marking stable (5512648773, 37588400)->(5554693065, -4455892)
+[   12.962794] systemd[1]: Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+         Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+[   13.345205] systemd[1]: Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[  OK  ] Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[   13.386776] systemd[1]: Starting systemd-tpm2-setup.service - TPM SRK Setup...
+         Starting systemd-tpm2-setup.service - TPM SRK Setup...
+[[0;1;31mFAILED] Failed to start systemd-tpm2-setup.service - TPM SRK Setup.
+See 'systemctl status systemd-tpm2-setup.service' for details.
+DATA: tokens: systemd-tpm2 systemd-recovery 
+DATA: UNLOCK OK method=tpm2 (no prompt); /data mounted
+BONUS-PCR11: UNLOCK OK slot=B (signed PCR 11 policy)
+SB-REPORT: version=2 cmdline-slot=OneMind-B SecureBoot=1 SetupMode=0
+SB-REPORT: kernel: Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+SB-REPORT: lockdown: none [integrity] confidentiality
+SB-REPORT: PK: Subject:
+SB-REPORT: db: CN=OneMind LAB db CN=OneMind LAB db 
+SB-REPORT: efi: BootCurrent: 0004
+SB-REPORT: efi: BootOrder: 0004,0000,0001,0002
+SB-REPORT: efi: Boot0003* OneMind-A	HD(2,GPT,6e0a8b0e-0000-4a00-8000-0000000000ba,0x200800,0x100000)/File(\EFI\Linux\onemind-A.efi)
+SB-REPORT: efi: Boot0004* OneMind-B	HD(3,GPT,6e0a8b0e-0000-4a00-8000-0000000000bb,0x300800,0x100000)/File(\EFI\Linux\onemind-B.efi)
+HEALTH-GATE: start slot=B version=2 soak=10s
+HEALTH-GATE: RESULT mark-good slot=B version=2
+root@onemind-lab:~# echo '--- state:T5'; cat /etc/onemind-release; mokutil --sb-state 2>&1; efibootmgr; mountpoint /data; rauc status 2>&1 | grep -E 'Booted from|Activated|boot status|^ *\[|bootname' ; echo __R''C=$?__
+ONEMIND_VERSION=2
+SecureBoot enabled
+BootCurrent: 0004
+BootOrder: 0004,0000,0001,0002
+Booted from: rootfs.1 (OneMind-B)
+Activated: rootfs.1 (OneMind-B)
+      bootname: OneMind-B
+      boot status: good
+      bootname: [34mOneMind-A
+      boot status: bad
+[  OK  ] Stopped systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[   35.023727] reboot: Power down
+##### [23:59:36] QEMU EXIT (poweroff)
+##### [23:59:36] T6 Secure Boot OFF, same TPM: data must stay locked
+##### [23:59:37] QEMU START qemu-system-x86_64 -machine q35,smm=on -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -global driver=cfi.pflash01,property=secure,value=on -global ICH9-LPC.disable_s3=1 -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd -drive if=pflash,format=raw,unit=1,file=/var/lab/sbrun2/OVMF_VARS_off.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/sbrun2/disk.img -drive if=virtio,format=raw,readonly=on,file=/var/lab/sbrun2/bundles.img -chardev socket,id=chrtpm,path=/var/lab/sbrun2/swtpm.sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 -serial stdio -monitor none
+[2J[=3h[01;01H[=3hBdsDxe: loading Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+BdsDxe: starting Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+[    0.000000] Command line: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005b ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-B onemind.version=2
+[    0.000000] secureboot: Secure boot disabled
+[    2.726143] sched_clock: Marking stable (2768849741, -43237461)->(2729883197, -4270917)
+[    8.055640] systemd[1]: Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+         Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+[    8.434793] systemd[1]: Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[[0;32m  OK  ] Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+         Starting systemd-tpm2-setup.service - TPM SRK Setup...
+[FAILED] Failed to start systemd-tpm2-setup.service - TPM SRK Setup.
+See 'systemctl status systemd-tpm2-setup.service' for details.
+DATA: tokens: systemd-tpm2 systemd-recovery 
+DATA: UNLOCK FAILED (tpm2 unseal refused): Password querying disabled via 'headless' option.
+SB-REPORT: version=2 cmdline-slot=OneMind-B SecureBoot=0 SetupMode=0
+SB-REPORT: kernel: secureboot: Secure boot disabled
+SB-REPORT: lockdown: [none] integrity confidentiality
+SB-REPORT: PK: Subject:
+SB-REPORT: db: CN=OneMind LAB db CN=OneMind LAB db 
+SB-REPORT: efi: BootCurrent: 0004
+SB-REPORT: efi: BootOrder: 0004,0000,0001,0002
+SB-REPORT: efi: Boot0003* OneMind-A	HD(2,GPT,6e0a8b0e-0000-4a00-8000-0000000000ba,0x200800,0x100000)/File(\EFI\Linux\onemind-A.efi)
+SB-REPORT: efi: Boot0004* OneMind-B	HD(3,GPT,6e0a8b0e-0000-4a00-8000-0000000000bb,0x300800,0x100000)/File(\EFI\Linux\onemind-B.efi)
+HEALTH-GATE: start slot=B version=2 soak=10s
+root@onemind-lab:~# HEALTH-GATE: RESULT no-commit slot=B version=2 data-locked (no automatic rollback)
+root@onemind-lab:~# echo '--- state:T6'; cat /etc/onemind-release; mokutil --sb-state 2>&1; efibootmgr; mountpoint /data; rauc status 2>&1 | grep -E 'Booted from|Activated|boot status|^ *\[|bootname' ; echo __R''C=$?__
+ONEMIND_VERSION=2
+SecureBoot disabled
+BootCurrent: 0004
+BootOrder: 0004,0000,0001,0002
+Booted from: rootfs.1 (OneMind-B)
+Activated: rootfs.1 (OneMind-B)
+      bootname: OneMind-B
+      boot status: good
+      bootname: OneMind-A
+      boot status: bad
+[  OK  ] Stopped systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[   49.208882] reboot: Power down
+##### [00:00:43] QEMU EXIT (poweroff)
+##### [00:00:43] T6b Secure Boot back ON: unlock again
+##### [00:00:43] QEMU START qemu-system-x86_64 -machine q35,smm=on -accel tcg,thread=multi -cpu max -smp 4 -m 2048 -nodefaults -display none -vga none -nic none -global driver=cfi.pflash01,property=secure,value=on -global ICH9-LPC.disable_s3=1 -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd -drive if=pflash,format=raw,unit=1,file=/var/lab/sbrun2/OVMF_VARS.fd -drive if=virtio,format=raw,cache=writeback,file=/var/lab/sbrun2/disk.img -drive if=virtio,format=raw,readonly=on,file=/var/lab/sbrun2/bundles.img -chardev socket,id=chrtpm,path=/var/lab/sbrun2/swtpm.sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device tpm-tis,tpmdev=tpm0 -serial stdio -monitor none
+[2J[=3h[=3hBdsDxe: loading Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+BdsDxe: starting Boot0004 "OneMind-B" from HD(3,GPT,6E0A8B0E-0000-4A00-8000-0000000000BB,0x300800,0x100000)/\EFI\Linux\onemind-B.efi
+[    0.000000] Command line: root=PARTUUID=6e0a8b0e-0000-4a00-8000-00000000005b ro rootwait console=ttyS0,115200 panic=5 rauc.slot=OneMind-B onemind.version=2
+[    0.000000] Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+[    0.000000] secureboot: Secure boot enabled
+[    3.052091] sched_clock: Marking stable (3093820806, -43012087)->(3056062616, -5253897)
+[    8.307948] systemd[1]: Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+         Starting systemd-tpm2-setup-early.service - Early TPM SRK Setup...
+[    8.629694] systemd[1]: Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[  OK  ] Finished systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[    8.681952] systemd[1]: Starting systemd-tpm2-setup.service - TPM SRK Setup...
+         Starting systemd-tpm2-setup.service - TPM SRK Setup...
+[[0;1;31mFAILED] Failed to start systemd-tpm2-setup.service - TPM SRK Setup.
+See 'systemctl status systemd-tpm2-setup.service' for details.
+DATA: tokens: systemd-tpm2 systemd-recovery 
+DATA: UNLOCK OK method=tpm2 (no prompt); /data mounted
+BONUS-PCR11: UNLOCK OK slot=B (signed PCR 11 policy)
+SB-REPORT: version=2 cmdline-slot=OneMind-B SecureBoot=1 SetupMode=0
+SB-REPORT: kernel: Kernel is locked down from EFI Secure Boot; see man kernel_lockdown.7
+SB-REPORT: lockdown: none [integrity] confidentiality
+SB-REPORT: PK: Subject:
+SB-REPORT: db: CN=OneMind LAB db CN=OneMind LAB db 
+SB-REPORT: efi: BootCurrent: 0004
+SB-REPORT: efi: BootOrder: 0004,0000,0001,0002
+SB-REPORT: efi: Boot0003* OneMind-A	HD(2,GPT,6e0a8b0e-0000-4a00-8000-0000000000ba,0x200800,0x100000)/File(\EFI\Linux\onemind-A.efi)
+SB-REPORT: efi: Boot0004* OneMind-B	HD(3,GPT,6e0a8b0e-0000-4a00-8000-0000000000bb,0x300800,0x100000)/File(\EFI\Linux\onemind-B.efi)
+HEALTH-GATE: start slot=B version=2 soak=10s
+HEALTH-GATE: RESULT mark-good slot=B version=2
+root@onemind-lab:~# echo '--- state:T6b'; cat /etc/onemind-release; mokutil --sb-state 2>&1; efibootmgr; mountpoint /data; rauc status 2>&1 | grep -E 'Booted from|Activated|boot status|^ *\[|bootname' ; echo __R''C=$?__
+ONEMIND_VERSION=2
+SecureBoot enabled
+BootCurrent: 0004
+BootOrder: 0004,0000,0001,0002
+Booted from: rootfs.1 (OneMind-B)
+Activated: rootfs.1 (OneMind-B)
+      bootname: OneMind-B
+      boot status: good[0m
+      bootname: OneMind-A
+      boot status: bad
+[  OK  [0m] Stopped systemd-tpm2-setup-early.service - Early TPM SRK Setup.
+[   29.788998] reboot: Power down
+##### [00:01:31] QEMU EXIT (poweroff)
+##### [00:01:31] SUMMARY total 818s
+##### [00:01:31] T1 | PASS | {'gate': True, 'SecureBoot=1 SetupMode=0': True, 'kernel SB': True, 'lab PK': True, 'LUKS2': True, 'tpm2 token': True, 'unlock': True, 'no prompt': True}; first boot 74s
+##### [00:01:31] T2 | PASS | install rc=0 BootNext=OneMind-B gate1=mark-good/B/v2 BootOrder[0]=OneMind-B gate2=mark-good/B/v2
+##### [00:01:31] T3 | PASS | install rc=0 BootNext=OneMind-A gate1=('mark-bad', 'A', 3) gate2=('mark-good', 'B', 2) tpm-unlocks=2 BootOrder[0]=OneMind-B
+##### [00:01:31] T4 | PASS | install rc=0 BootNext=OneMind-A new-kernel-ran=False gate=('mark-good', 'B', 2) firmware=['BdsDxe: failed to load Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\\EFI\\Linux\\onemind-A.efi: Access Denied']
+##### [00:01:31] T5 | PASS | install rc=0 BootNext=OneMind-A new-kernel-ran=False gate=('mark-good', 'B', 2) firmware=['BdsDxe: failed to load Boot0003 "OneMind-A" from HD(2,GPT,6E0A8B0E-0000-4A00-8000-0000000000BA,0x200800,0x100000)/\\EFI\\Linux\\onemind-A.efi: Access Denied']
+##### [00:01:31] T6 | PASS | gate=('no-commit', 'B', 2) unlock-failed=True
+##### [00:01:31] T7 (bonus) | PASS | {'T1/A': True, 'T2/B': True, 'T3/A-bad': True, 'T3/B-after-rollback': True}

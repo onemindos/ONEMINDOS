@@ -1,0 +1,20 @@
+Source: https://ubuntu.com/blog/ubuntu-18-04-eol-for-devices
+Accessed: 2026-11-11 (curl + HTML-to-text; excerpt)
+----
+ ESM is part of the Ubuntu Pro subscription. ESM provides continuous vulnerability management and patching for critical, high and medium Common Vulnerabilities and Exposures (CVEs). This means that you will keep receiving security updates for more than 2,300 packages in Ubuntu Main. Here you find packages such as Python, OpenSSL, OpenVPN, network-manager, sed, curl, systemd, udev, bash, OpenSSH, login, libc… For the whole list of what’s included in Main, you can visit the Ubuntu Packages Search tool .  
+ But there is more. With the release of Ubuntu Pro , you can also get security coverage to an additional 23,000 packages beyond the main operating system. These are packages in Ubuntu Universe. For example, Boost, Qt, OpenCV, PCL, python-(argcomplete, opencv, pybind11, png…), cython, eigen, GTK, FFMPEG… are some of the many packages covered in Universe that are now getting security maintenance from Canonical.  
+ Ubuntu Universe also includes well-used applications such as the Robot Operating System (ROS), where Canonical provides services such as ROS ESM . 
+ Option 1: Purchase ESM through the Ubuntu Pro store 
+ If you have a few units to cover with ESM, we recommend you to purchase it directly from our store. ESM is part of the Ubuntu Pro subscription. Pricing for Ubuntu Pro depends on the volume of devices you want to cover and years of subscription to the service. To calculate pricing and make a purchase:  
+ Go to the Ubuntu Pro Store Select IoT and Devices Category  Add the number of devices that you want to cover Select 18.04 LTS Pick whether you want only security updates for Main, or Main and Universe. Select if you want Enterprise Support Click Buy Now 
+ Go to the Store 
+ Option 2: Purchase ESM through Canonical’s Embedding Programme 
+ If you have a large fleet of devices, or you need to add support to estates that grow over time, joining Canonical’s Embedding Programme might be a better option. It will not only grant you access to the Ubuntu Pro subscription, and so to ESM, but it will also apply a beneficial discount-based model. 
+ To join the Embedding Programme you need to get in touch with a sales representative. 
+ Get in touch 
+ What is included in the Ubuntu Pro subscription  
+ ESM is part of the Ubuntu Pro subscription. You get access to this subscription through the Embedding programme or the Pro store. Besides getting ESM, customers can also enjoy other services like:  
+ Ubuntu systems management with Landscape . Kernel Livepatch service to avoid reboots. Security certification (e.g. FIPS and CIS). 24/7, open source software support for the full stack. Access to real-time kernel. 
+ For more information about Ubuntu Pro visit our webpage , the service description or get in touch with one of our sales representatives .  
+ How to enable ESM 
+ Security updates provided during the ESM period are accessed through a dedicated PPA. To access this PPA you need a token. Tokens will be available in your Ubuntu Pro subscription portal once you have completed the purchase of the service. Remember, the Ubuntu Pro subscription can be purchased through the Embedding Programme or directly through the Ubuntu Pro store.   

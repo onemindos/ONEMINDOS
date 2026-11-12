@@ -1,0 +1,13 @@
+stateDiagram-v2
+  [*] --> RunningA: box running slot A (good)
+  RunningA --> Staged: signed bundle verified and written to slot B
+  Staged --> TrialB: reboot, slot B on trial (marker set)
+  TrialB --> CommittedB: fresh-signal gate passes 3x
+  TrialB --> TrialB: crash or power cut, tries left (x86 GRUB: 3)
+  TrialB --> RunningA: gate timeout, watchdog, or tries used up
+  RunningA --> MarkedBad: release recorded as bad (no auto-retry)
+  CommittedB --> [*]: B is the new good slot, A kept as fallback
+  note right of TrialB
+    Pi 5 tryboot and the x86 efi route give ONE try per boot entry,
+    so an interrupted trial is re-offered from the kept download
+  end note

@@ -1,0 +1,480 @@
+SOURCE: https://www.proxmox.com/en/about/company-details/press-releases
+ACCESSED: 2026-11-11
+
+
+ Press Releases - Proxmox
+ Search
+ Select your language
+ English 
+ German 
+ Home
+ Products 
+ Proxmox Virtual Environment 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Comparison
+ Pricing
+ Proxmox Backup Server 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Pricing
+ Proxmox Mail Gateway 
+ Overview
+ Features
+ Get Started
+ Requirements
+ Virtual Appliance
+ Pricing
+ Proxmox Datacenter Manager 
+ Overview
+ Benefits
+ Features
+ Downloads
+ Proxmox Virtual Environment
+ ISO
+ Documentation
+ Agreements
+ Proxmox Backup Server
+ ISO
+ Documentation
+ Agreements
+ Proxmox Mail Gateway
+ ISO
+ Documentation
+ Agreements
+ Proxmox Datacenter Manager
+ ISO
+ Documentation
+ Services 
+ Support & Services 
+ Enterprise Support Services
+ Online Support Services
+ Customer Portal
+ Community Forum
+ Training 
+ Training
+ Course Catalog
+ Videos
+ FAQ
+ Partners 
+ Find a Partner 
+ Explore
+ Reseller Partner
+ Success Stories
+ All Partners
+ Not yet a Partner? 
+ Become a partner
+ About 
+ About us 
+ Company
+ Careers
+ Events
+ Success Stories
+ Open Source 
+ Community
+ Developers
+ Bug and feature requests
+ Source Code (Git)
+ Company Details 
+ Press Releases
+ Media Kit
+ In the News
+ Newsletter
+ Contact us →
+Get HelpCustomer Portal
+Community Forum
+Support
+Contact Us
+Buy now
+ Search
+ Select your language
+ English 
+ German 
+ Home
+ProductsProxmox Virtual Environment
+Overview
+Features
+Get Started
+Requirements
+Comparison
+Pricing
+Proxmox Backup Server
+Overview
+Features
+Get Started
+Requirements
+Pricing
+Proxmox Mail Gateway
+Overview
+Features
+Get Started
+Requirements
+Virtual Appliance
+Pricing
+Proxmox Datacenter Manager
+Overview
+Benefits
+Features
+DownloadsProxmox Virtual EnvironmentISO
+Documentation
+Agreements
+Proxmox Backup ServerISO
+Documentation
+Agreements
+Proxmox Mail GatewayISO
+Documentation
+Agreements
+Proxmox Datacenter ManagerISO
+Documentation
+ServicesSupport & Services
+Enterprise Support Services
+Online Support Services
+Customer Portal
+Community Forum
+Training
+Training
+Course Catalog
+Videos
+FAQ
+PartnersFind a Partner
+Explore
+Reseller Partner
+Success Stories
+All Partners
+Not yet a Partner?
+Become a partner
+AboutAbout us
+Company
+Careers
+Events
+Success Stories
+Open Source
+Community
+Developers
+Bug and feature requests
+Source Code (Git)
+Company Details
+Press Releases
+Media Kit
+In the News
+Newsletter
+Contact us →
+ Press Releases 
+ November 05, 2026 
+ Company 
+ Proxmox expands enterprise storage options with Everpure FlashArray 
+ October 29, 2026 
+ Company 
+ Proxmox and Lightbits partner on native storage integration for Proxmox VE 
+ September 04, 2026 
+ Company 
+ Proxmox VE achieves Omnissa Horizon Ready Hypervisor Certification 
+ September 02, 2026 
+ Company 
+ Proxmox expands Enterprise Support to 24/7 and launches Proxmox North America Inc. 
+ August 05, 2026 
+ Product 
+ Proxmox Virtual Environment launches official Arm64 Support 
+ July 28, 2026 
+ Company 
+ Proxmox VE delivers high-availability infrastructure management for NVIDIA Mission Control AI factories 
+ June 25, 2026 
+ Company 
+ Proxmox welcomes Zabbix as Solution Provider for comprehensive infrastructure monitoring 
+ June 11, 2026 
+ Product 
+ Proxmox Mail Gateway 9.1 released 
+ May 28, 2026 
+ Product 
+ Proxmox Datacenter Manager 1.1 available 
+ May 21, 2026 
+ Product 
+ Proxmox Virtual Environment 9.2 with Dynamic Load Balancer released 
+ April 29, 2026 
+ Product 
+ Proxmox Backup Server 4.2 released 
+ April 27, 2026 
+ Company 
+ Proxmox expands storage options for enterprises with native StorPool integration 
+ April 20, 2026 
+ Company 
+ Proxmox and Kasm Technologies partner to deliver secure, open-source VDI and web-native workspaces 
+ March 04, 2026 
+ Company 
+ Proxmox expands enterprise ecosystem with native NAKIVO integration to simplify data center modernization 
+ December 04, 2025 
+ Product 
+ Proxmox Datacenter Manager 1.0 available 
+ November 26, 2025 
+ Product 
+ Proxmox Backup Server 4.1 released 
+ November 19, 2025 
+ Product 
+ Proxmox Virtual Environment 9.1 available 
+ October 01, 2025 
+ Product 
+ Proxmox Mail Gateway 9.0 based on Debian 13 “Trixie” 
+ August 06, 2025 
+ Product 
+ Proxmox Backup Server 4.0 available 
+ August 05, 2025 
+ Product 
+ Proxmox Virtual Environment 9.0 with Debian 13 released 
+ April 29, 2025 
+ Company 
+ Proxmox celebrates 20 years of open-source enterprise solutions 
+ April 10, 2025 
+ Product 
+ Proxmox Backup Server 3.4 released 
+ April 09, 2025 
+ Product 
+ Proxmox Virtual Environment 8.4 available 
+ March 19, 2025 
+ Product 
+ Proxmox VE is an NVIDIA vGPU supported hypervisor 
+ February 27, 2025 
+ Product 
+ Proxmox Mail Gateway 8.2 released 
+ December 19, 2024 
+ Product 
+ Proxmox Datacenter Manager - First Alpha Release 
+ November 28, 2024 
+ Product 
+ Proxmox Backup Server 3.3 released 
+ November 21, 2024 
+ Product 
+ Proxmox Virtual Environment 8.3 released 
+ April 25, 2024 
+ Product 
+ Proxmox Backup Server 3.2 released 
+ April 24, 2024 
+ Product 
+ Proxmox Virtual Environment 8.2 with Import Wizard released 
+ February 29, 2024 
+ Product 
+ Proxmox Mail Gateway 8.1 with enhanced Rule System 
+ November 30, 2023 
+ Product 
+ Proxmox Backup Server 3.1 released 
+ November 23, 2023 
+ Product 
+ Proxmox Virtual Environment 8.1 with Software-Defined Network and Secure Boot 
+ June 29, 2023 
+ Product 
+ Proxmox Mail Gateway 8.0 based on Debian 12 “Bookworm” 
+ June 28, 2023 
+ Product 
+ Proxmox Backup Server 3.0 with Debian 12 “Bookworm” available 
+ June 22, 2023 
+ Product 
+ Proxmox Virtual Environment 8.0 with Debian 12 "Bookworm" released 
+ March 29, 2023 
+ Product 
+ Proxmox Backup Server 2.4 available 
+ March 28, 2023 
+ Product 
+ Proxmox Mail Gateway 7.3 
+ March 23, 2023 
+ Product 
+ Proxmox Virtual Environment 7.4 released 
+ November 30, 2022 
+ Product 
+ Proxmox Mail Gateway 7.2 released 
+ November 29, 2022 
+ Product 
+ Proxmox Backup Server 2.3 available 
+ November 22, 2022 
+ Product 
+ Proxmox introduces Cluster Resource Scheduler for Proxmox Virtual Environment 7.3 
+ May 18, 2022 
+ Product 
+ Proxmox enables Namespaces in Proxmox Backup Server 2.2 
+ May 04, 2022 
+ Product 
+ Proxmox Virtual Environment 7.2 available 
+ November 30, 2021 
+ Product 
+ Proxmox Mail Gateway 7.1 available with Multi-Factor Authentication via GUI 
+ November 23, 2021 
+ Product 
+ Proxmox Backup Server 2.1 released 
+ November 17, 2021 
+ Product 
+ Proxmox Virtual Environment 7.1 released 
+ August 10, 2021 
+ Company 
+ Maurer IT Systemlösungen KG merged into Proxmox Server Solutions GmbH 
+ July 15, 2021 
+ Product 
+ Proxmox Mail Gateway 7.0 released 
+ July 13, 2021 
+ Product 
+ Proxmox Backup Server 2.0 available 
+ July 06, 2021 
+ Product 
+ Proxmox Virtual Environment 7.0 with Debian 11 "Bullseye" and Ceph Pacific 16.2 released 
+ April 28, 2021 
+ Product 
+ Proxmox Virtual Environment 6.4 with Single File Restore and Live Restore released 
+ April 15, 2021 
+ Product 
+ Proxmox Backup Server 1.1 available with Tape Backup 
+ March 30, 2021 
+ Product 
+ Proxmox Mail Gateway 6.4 released 
+ November 26, 2020 
+ Product 
+ Proxmox VE 6.3 with Proxmox Backup Server Integration and Ceph Octopus released 
+ November 19, 2020 
+ Product 
+ Proxmox Mail Gateway 6.3 with Proxmox Backup Server integration 
+ November 11, 2020 
+ Product 
+ Proxmox Backup Server 1.0 available 
+ July 10, 2020 
+ Product 
+ Proxmox Backup Server (beta) released 
+ May 12, 2020 
+ Product 
+ Proxmox VE 6.2 released 
+ April 28, 2020 
+ Product 
+ Proxmox Mail Gateway 6.2 released 
+ December 04, 2019 
+ Product 
+ Proxmox VE 6.1 released 
+ November 27, 2019 
+ Product 
+ Proxmox Mail Gateway 6.1 released 
+ August 27, 2019 
+ Product 
+ Proxmox Mail Gateway 6.0 available 
+ July 16, 2019 
+ Product 
+ Proxmox VE 6.0 with Ceph Nautilus and Corosync 3 
+ April 11, 2019 
+ Product 
+ Proxmox VE 5.4 introduces new Ceph Installation Wizard 
+ March 26, 2019 
+ Product 
+ Proxmox Mail Gateway 5.2 
+ December 04, 2018 
+ Product 
+ Proxmox VE 5.3 with CephFS released 
+ October 19, 2018 
+ Company 
+ Proxmox at Proxtalks 2018 in Frankfurt 
+ October 09, 2018 
+ Product 
+ Proxmox Mail Gateway 5.1 released 
+ May 16, 2018 
+ Product 
+ Proxmox VE 5.2 with Cloud-Init and Let's Encrypt released 
+ April 16, 2018 
+ Product 
+ Proxmox VE celebrates its 10-year anniversary 
+ January 23, 2018 
+ Product 
+ Open-source email security solution Proxmox Mail Gateway 5.0 released 
+ December 19, 2017 
+ Product 
+ Proxmox Mail Gateway 5.0 beta released 
+ October 24, 2017 
+ Product 
+ Proxmox VE 5.1 with production-ready Ceph Lumious 
+ July 04, 2017 
+ Product 
+ Proxmox VE 5.0 with new open-source storage replication stack 
+ December 13, 2016 
+ Product 
+ Proxmox VE 4.4 with Ceph dashboard released 
+ September 23, 2016 
+ Product 
+ Proxmox VE 4.3 released 
+ August 22, 2016 
+ Product 
+ Proxmox Mail Gateway 4.1 released 
+ April 27, 2016 
+ Product 
+ Proxmox VE 4.2 Released 
+ December 11, 2015 
+ Product 
+ Proxmox VE 4.1 Released 
+ October 06, 2015 
+ Product 
+ Proxmox VE 4.0 with Linux Containers (LXC) and new HA Manager Released 
+ June 23, 2015 
+ Product 
+ Proxmox VE 4.0 Beta1 available 
+ April 29, 2015 
+ Company 
+ Proxmox Celebrates 10-Year Anniversary 
+ February 19, 2015 
+ Product 
+ Proxmox VE 3.4 released with ZFS filesystem, ZFS storage plugin, hotplug 
+ January 20, 2015 
+ Product 
+ Proxmox Mail Gateway 4.0 Released 
+ December 11, 2014 
+ Company 
+ Learning Open-Source Server-Virtualization with Proxmox Trainings 2015 
+ September 15, 2014 
+ Product 
+ Proxmox VE 3.3 released with HTML5, Proxmox VE Firewall, Two-factor authentication, ... 
+ March 10, 2014 
+ Product 
+ Proxmox VE 3.2 with SPICE, Ceph and Open vSwitch released 
+ February 12, 2014 
+ Company 
+ Proxmox joins Linux Foundation 
+ August 21, 2013 
+ Product 
+ Proxmox Virtual Environment 3.1 with SPICE, GlusterFS storage plugin and new Enteprise Repository 
+ May 24, 2013 
+ Product 
+ Proxmox Virtual Environment V3.0 with VM Template and Cloning Feature Released 
+ April 15, 2013 
+ Company 
+ Proxmox Virtual Environment Celebrates 5th Anniversary 
+ March 04, 2013 
+ Product 
+ Proxmox Virtual Environment Version 2.3 with new KVM Live Backup Technology 
+ January 18, 2013 
+ Company 
+ Proxmox Training - Demand for KVM Virtualization Professionals on the Rise 
+ October 24, 2012 
+ Product 
+ Proxmox VE 2.2 Released 
+ August 03, 2012 
+ Product 
+ Proxmox Mail Gateway 3.0: New Version integrates Commtouch Spam and Virus Security 
+ Press releases - RSS feed 
+ Products
+Proxmox Virtual Environment
+Proxmox Datacenter Manager
+Proxmox Backup Server
+Proxmox Mail Gateway
+Downloads
+Support
+ Resources
+Community
+Developers
+Success Stories
+Press Room
+Videos
+Training
+ Newsletter
+ Email *
+ I agree with the privacy policy *
+ Subscribe 
+About Proxmox
+Careers
+Contact Us
+Legal
+Sitemap
+Privacy Policy
+ Copyright © 2004 - 2026 Proxmox Server Solutions GmbH. All rights reserved.

@@ -1,0 +1,608 @@
+
+ Isaac Sim Requirements — Isaac Sim Documentation
+ Skip to main content
+ Back to top
+ Ctrl+K
+ Isaac Sim Documentation
+ Choose version 
+ Search
+ Ctrl+K
+ discord
+ github
+ twitter
+ youtube
+ instagram
+ www
+ linkedin
+ twitch
+ Search
+ Ctrl+K
+ Isaac Sim Documentation
+ Choose version 
+ discord
+ github
+ twitter
+ youtube
+ instagram
+ www
+ linkedin
+ twitch
+ Table of Contents
+ Isaac Sim
+What Is Isaac Sim?
+Reference Architecture and Task Groupings
+Release notes
+Known Issues
+Migration Guides
+Isaac Sim 6.1
+Robot Policy Examples Extension 7.0.0
+Isaac Sim 6.0
+Isaac Sim 6.0 Migration Strategy
+Project Migration Audit
+Core API to Core Experimental API
+Sensor Timing and RTX Lidar Asset Migration
+Camera Sensors
+RTX Sensors
+Physics Sensors
+PhysX Lidar
+PhysX Generic Sensor
+PhysX Lightbeam
+Replicator Domain Randomization Extension
+MobilityGen Package and Recordings
+Manipulator and Wheeled Robot Extension Split
+Robot Motion Generation APIs
+Robot Wizard and Mesh Merge Tool Migration
+Robot Asset Path Migration
+URDF, MJCF, and Robot Asset Pipeline Changes
+ROS 2 OmniGraph Nodes
+ROS 2 Sensor Graph Migration
+ROS 2 Workspace Package Migration
+Benchmark Services Migration
+Removed Tools and Replacements
+Extension Template Generator to CLI Templates
+Replicator Agent (IRA)
+Surface Gripper Bindings
+Isaac Sim 4.5
+Renaming Extensions in Isaac Sim 4.5
+Installation
+Quick Install
+Isaac Sim Requirements
+Cross-product compatibility
+Download Isaac Sim
+Accessing assets
+Workstation Installation
+Container Installation
+Cloud Deployment
+Isaac Launchable Deployment
+NVIDIA Brev Deployment
+AWS Deployment
+Azure Deployment
+Google Cloud Deployment
+Tencent Cloud Deployment
+Alibaba Cloud Deployment
+Volcano Engine Deployment
+Baidu Cloud Deployment
+Remote Workstation Deployment
+Livestream Clients
+Python Environment Installation
+ROS 2 installation
+Setup Tips
+Help & FAQ
+Isaac Sim Developer Resources
+Omniverse Feedback and Forums
+General Feedback
+Documentation Fix Request
+FAQ
+Troubleshooting
+ROS 2 Troubleshooting
+Replicator Troubleshooting
+Isaac Sim Assets
+Robot Assets
+Wheeled Robot Assets
+Manipulator Robot Assets
+Humanoid Robot Assets
+Quadruped Robot Assets
+Holonomic Robot Assets
+Aerial Robot Assets
+Isaac Sim Simple Robot Assets
+Mobile Manipulator Robot Assets
+Sensor Assets
+Camera Sensors
+Depth Sensors
+RTX Lidar Sensors
+RTX Radar Sensors
+Tactile Sensors
+IMU Sensors
+Prop Assets
+Environment Assets
+Third-Party USD Assets
+Real to Sim Assets
+Neural Volume Rendering
+NuRec Rendering Utilities
+Asset Utilities
+OpenUSD Fundamentals
+USD Tools
+Warehouse Creator Extension
+Conveyor Belt Utility
+Static Warehouse Assets
+Get Started
+Quick Install
+Isaac Sim Basics
+Isaac Sim Basic Usage Tutorial
+Basic Robot Tutorial
+Standalone vs Interactive Python
+Core API Overview
+Core API Tutorial Series
+Hello World
+Hello Robot
+Adding a Manipulator Robot
+Adding Multiple Robots
+Multiple Robot Scenarios
+Adding Props
+Tutorial Table
+Examples
+Interactive Examples Reference Table
+Standalone Examples Reference List
+Learn
+Gallery View
+GUI
+User Interface Reference
+Keyboard Shortcuts
+Create Menu
+Replicator Menu
+Kit menu locations
+Preferences
+Selection Modes
+Browsers
+Content Browser
+Material Browser
+NVIDIA Asset Browser
+Layout Templates
+Working with USD
+SimReady Content Browser Search Extension Tutorial
+Setup and Simulate Robots
+Importers and Exporters
+URDF Importer Extension
+USD to URDF Exporter Extension
+MJCF Importer Extension
+Onshape importer
+CAD Converter
+ShapeNet Importer
+Formats
+Importer and Exporter Tutorials Series
+Tutorial: Import URDF
+Tutorial: Export URDF
+Tutorial: Import MJCF
+Tutorial: ShapeNet Importer
+Robot Setup
+Basic Stage and Robot Setup
+Stage Setup
+Assemble a Simple Robot
+Articulate a Basic Robot
+Add Camera and Sensors
+Rig a Mobile Robot
+Setup a Manipulator
+Setup a Manipulator
+Configure a Manipulator
+Generate Robot Configuration File
+Pick and Place Example
+Setup a Closed-Loop Structure
+Setup a Legged Robot
+Setup a Dexterous Hand in Isaac Sim
+Setup
+Import Robot and USD Asset Structure
+Inspect Asset
+Collider Pairs
+Joint Drive Tuning
+Joint Gains Tuning
+Using the Dexterous Hand in Practice
+Tuning and Optimization
+Tuning Joint Drive Gains
+Asset Optimization
+Identify Franka System Parameters
+Validate Identification with Sim-to-Sim Recovery
+Asset Transformer Tutorial Series
+Editor Tools
+Robot Poser
+Mesh merge tool
+Gain Tuner Extension
+System Identification Extension
+Robot Self-Collision Detector
+Robot Assembler
+Surface Gripper Extension
+Grasp Editor
+Inspector Tools
+Robot Inspector Window
+Joint Inspector
+Robot Setup Tips for Newton
+Robot Setup Troubleshooting
+Asset Validation
+Asset Transformer
+Asset Transformer API
+Asset Transformer Rules Reference
+Asset Structure
+Robot Schema
+Robot Simulation
+Articulation Controller
+Mobile Robot Controllers
+Virtual Gantry
+Robot Simulation Tips
+Useful Links
+Robot Motion
+Quick Start
+Motion Generation (Experimental)
+Scene Interaction
+Controllers and the RobotState
+Trajectory Planning and Execution
+Controllers
+Differential Drive Tutorial
+Ackermann Tutorial
+Holonomic Tutorial
+cuMotion Integration
+Robot Configuration Tutorial
+Generating an XRDF file
+cuMotion World Interface Tutorial
+RMPflow Tutorial
+Graph-Based Motion Planner Tutorial
+Trajectory Generator Tutorial
+Trajectory Optimizer Tutorial
+PINK Integration
+Robot Configuration Tutorial
+IK Controller Tutorial
+Multi-Task Tutorial
+Franka Pick and Place Example
+State Machines for Robot Behavior
+(Deprecated) Robot Motion Generation
+Motion Generation
+Lula Robot Description and XRDF Editor
+Lula RMPflow
+Lula RRT
+Lula Kinematics Solver
+Lula Trajectory Generator
+Configuring RMPflow for a New Manipulator
+cuRobo and cuMotion
+Newton Actuators
+Set Up Actuators from Python
+Author and Parse Actuators from USD
+Author Actuators from UI
+Drive an Actuated Robot from OmniGraph
+Tips
+Physics Simulation
+Physics Simulation Fundamentals
+Physics Data Flow and Engine Integration
+Newton Physics Backend
+Hydroelastic Contact
+Configure Hydroelastic Contact for a Nut-and-Bolt Assembly
+Omniverse Physics and PhysX Limitations
+Physics Simulation Management
+Physics Inspector
+Physics Static Collision Extension
+Simulation Data Visualizer
+Physics Debug Window
+Sensor Simulation
+Camera Sensors
+Depth Sensors
+Structured Light Cameras
+Authoring a Camera Sensor USD Asset
+RTX Sensors
+RTX Lidar Sensor
+RTX Radar Sensor
+RTX Acoustic Sensor
+RTX Sensor Annotators
+RTX Sensor Non-Visual Materials
+Multi-Tick Rendering
+Creating Custom RTX Sensor Profiles
+Physics-based Sensors
+Articulation Joint Sensors
+Contact Sensor
+Effort Sensor
+IMU Sensor
+Joint State Sensor
+Physics Raycast Sensor
+Sensor Schema
+(Deprecated) PhysX SDK Sensors
+(Deprecated) PhysX Generic Sensor
+(Deprecated) PhysX Lidar
+(Deprecated) PhysX Lightbeam Sensor
+(Deprecated) Proximity Sensor
+Develop and Integrate
+Development Tools
+Development Methods
+Visual Studio Code (VS Code)
+Python Server (Remote Code Execution)
+Jupyter Notebook
+Omniverse Script Editor
+Isaac Sim MCP Server
+Agent Skills
+Modify Carb Settings
+Adding and Updating Extensions Guide
+Python Scripting
+Python Environment
+Scene Setup Snippets and Examples
+Util Snippets
+Robot Simulation Snippets
+OmniGraph
+OmniGraph Interface
+OmniGraph Core Concepts
+Commonly Used OmniGraph Shortcuts
+Custom Python Nodes
+Custom C++ Nodes
+Building Custom IPC OmniGraph Nodes
+Additional Resources
+Basic OmniGraph Tutorial
+Isaac Sim OmniGraph Tutorial
+OmniGraph via Python Scripting Tutorial
+External Interfaces
+ZeroMQ Bridge
+Templates
+CLI Extension Templates
+(Deprecated) Extension Template Generator
+Extension Template Generator Explained
+Advanced Extension Template Generator from VS Code
+Debugging and Profiling
+Debug Drawing Extension API
+Omniverse Commands Tool Extension
+Commands
+Debugging With Visual Studio Code
+Profiling Performance Using Tracy
+Other Tools
+NVIDIA cuOpt
+Occupancy Map
+Live Camera Streaming over RTSP
+Workflows
+Top 5
+Bring a new mobile base and navigate with ROS2
+Manipulator workflow: URDF to pick and place
+Data Generation with MobilityGen
+Cosmos Synthetic Data Generation
+Humanoid workflow: Train locomotion in AGILE and deploy in Isaac Sim
+Stage 1: Prepare the humanoid USD
+Stage 2: Create a custom humanoid task in AGILE
+Stage 3: Configure and validate the locomotion MDP
+Stage 4: Train, evaluate, and export
+Stage 5: Deploy the policy
+Deploying Policies
+Deploying policies in Isaac Sim
+Reinforcement Learning Policies Examples in Isaac Sim
+Instanceable Assets
+ROS 2
+Overview and Installation
+ROS 2 installation
+ROS 2 Reference Architecture
+ROS 2 Tutorial Series
+URDF Import: Turtlebot
+Driving TurtleBot using ROS 2 Messages
+ROS 2 Clock
+ROS 2 Publish Real Time Factor (RTF)
+ROS 2 Cameras
+RTX Lidar Sensors
+ROS 2 Transform Trees and Odometry
+ROS 2 Setting Publish Rates
+Advanced Sensor Topics
+Add Noise to Camera
+Publishing Camera’s Data
+ROS 2 Compressed Images
+RTX Radar Sensors
+Robot Control
+ROS 2 Joint Control: Extension Python Scripting
+ROS 2 Ackermann Controller
+Running a Reinforcement Learning Policy through ROS 2 and Isaac Sim
+ROS 2 Navigation
+Multiple Robot ROS 2 Navigation
+ROS 2 Navigation with Heightmap Importer
+MoveIt 2
+ROS 2 Control
+Bridge Configuration
+ROS 2 Bridge in Standalone Workflow
+ROS 2 Launch
+ROS 2 Simulation Control
+ROS 2 Quality of Service (QoS)
+Automatic ROS 2 Namespace Generation
+NameOverride Attribute
+Custom Interfaces
+ROS 2 Generic Publisher and Subscriber
+ROS 2 Generic Server and Client
+ROS 2 Service for Manipulating Prims Attributes
+ROS 2 Python Custom Messages
+ROS 2 Python Custom OmniGraph Node
+ROS 2 Custom C++ OmniGraph Node
+URDF Import and Export
+URDF Importer Extension
+USD to URDF Exporter Extension
+Help and Reference
+ROS 2 Frequently Asked Questions
+ROS 2 Troubleshooting
+NVIDIA Isaac ROS
+Synthetic Data Generation
+Perception Data Generation (Replicator)
+Overview
+Synthetic Data Recorder
+Getting Started Scripts
+SDG Workflows
+Scene Based Synthetic Dataset Generation
+Object Based Synthetic Dataset Generation
+Environment Based Synthetic Dataset Generation with Infinigen
+Randomization in Simulation – AMR Navigation
+Randomization in Simulation – UR10 Palletizing
+Data Augmentation
+Custom Replicator Randomization Nodes
+Modular Behavior Scripting
+Randomization Snippets
+Useful Snippets
+Replicator Troubleshooting
+Action and Event Data Generation
+Actor Simulation and Synthetic Data Generation
+Configuration File Guide
+Sample Configs
+Animated Robot Controller
+Configuration Editor API
+Example: RTSP Streaming with CustomWriter
+Visual Noise and Image Degradation Effects Example
+Behavior Tree Generation
+Context Files and Metadata Schemas
+Required inputs
+Example Walkthrough
+Using the API Functions
+Object Simulation and Synthetic Data Generation
+Chat IRO: Natural Language Interface for Isaac Sim Replicator Object
+Setting
+Mutable
+Camera
+Geometry
+Force
+Light
+Mutable Attribute
+Transformation
+Harmonizer
+Empty Space Detection
+Macro
+Distribution Visualizer
+Randomization Dependency: Incremental Examples
+VLM Scene Captioning
+Physical Space Event Generation
+RTX Sensors Placement and Calibration
+Camera Placement
+Camera Calibration
+Reacting to Events with Actor Triggers
+Omni Metropolis Pipeline
+Telemetry and Performance Tracking
+Grasping Synthetic Data Generation
+Teleoperation Synthetic Data Generation
+API Documentation
+API Documentation
+Reference Information
+Community Project Highlights
+Glossary
+Isaac Sim Conventions
+Rendering modes
+Isaac Sim Performance Optimization Handbook
+Isaac Sim Benchmarks
+Omniverse and USD
+Building C++ USD Plugins Against the Standalone Installer
+Common
+Omniverse Feedback and Forums
+General Feedback
+Documentation Fix Request
+Data Collection & Usage
+Licenses
+Isaac Sim License
+Isaac Sim Additional Software and Materials License
+Isaac Sim WebRTC Streaming Client License
+Omniverse License
+Licensing Disclaimer
+Other Licenses
+Redistributable Omniverse Software
+License FAQ
+ Installation
+ Isaac Sim Requirements
+ Is this page helpful?
+Isaac Sim Requirements#
+Hint
+By installing Isaac Sim, you can run the Isaac Sim Compatibility Checker lightweight app to check if your machine meets the system requirements and compatibility.
+For Newton, ROS workspace, Isaac ROS, and Isaac Lab version pairings, see
+Cross-product compatibility.
+System Requirements#
+Warning
+Ubuntu 22.04 support in Isaac Sim is deprecated and will be removed in a future release.
+Requirements for x86_64
+Element
+Minimum Spec
+Good
+Ideal
+OS
+Ubuntu 22.04/24.04
+Windows 11
+Ubuntu 22.04/24.04
+Windows 11
+Ubuntu 22.04/24.04
+Windows 11
+CPU
+Intel Core i7 (7th Generation)
+AMD Ryzen 5
+Intel Core i7 (9th Generation)
+AMD Ryzen 7
+Intel Core i9, X-series or higher
+AMD Ryzen 9, Threadripper or higher
+Cores
+4
+8
+16
+RAM [1]
+32GB
+64GB
+64GB
+Storage
+50GB SSD
+500GB SSD
+1TB NVMe SSD
+GPU
+GeForce RTX 4080
+GeForce RTX 5080
+RTX PRO 6000 Blackwell
+VRAM [1]
+16GB [2]
+16GB
+48GB
+Driver [3]
+Linux: 595.58.03
+Windows: 595.97
+Linux: 595.58.03
+Windows: 595.97
+Linux: 595.58.03
+Windows: 595.97
+[1]
+(1,2)
+More RAM and VRAM is recommended for advanced usage of Isaac Sim. Isaac Lab usage will require additional RAM and VRAM for training.
+[2]
+GPUs with less than 16GB VRAM may be insufficient to run a complex scene rendering more than 16MP per frame. Consider upgrading to a higher spec if that is your use case.
+[3]
+Isaac Sim was tested on these driver versions. See Technical Requirements for recommended driver versions.
+Note
+The Isaac Sim container is only supported on Linux.
+An Internet connection is required to access the Isaac Sim assets online and to run some extensions. Allow outbound HTTPS access to omniverse-content-production.s3-us-west-2.amazonaws.com when using the default online asset root.
+GPUs without RT Cores (A100, H100) are not supported.
+Due to VRAM constraints, some tutorials and benchmarks may not run on GPU below the minimum specifications. Workflows leveraging a large number of sensors are particularly affected.
+See Linux Troubleshooting to resolve driver installation issues on Linux.
+We recommend installing the Latest Production Branch Version drivers from the Unix Driver Archive using the .run installer on Linux if you are on a new GPU or experiencing issues with the current drivers.
+Windows 10 is not supported. Microsoft ended Windows 10 support on October 14, 2025, and no longer provides free security, feature, or technical updates for it.
+Requirements for aarch64
+Element
+Specifications
+Device
+NVIDIA DGX™ Spark
+OS
+NVIDIA DGX OS 7
+Driver [4]
+580.159.03
+[4]
+Isaac Sim was tested on these driver versions. See Technical Requirements for recommended driver versions.
+Note
+Isaac Sim aarch64 builds are currently only supported on DGX Spark system.
+The Isaac Sim container is only supported on Linux.
+An Internet connection is required to access the Isaac Sim assets online and to run some extensions.
+Limitations
+Warning
+Here are the limitations of running Isaac Sim 6.0 on DGX Spark:
+cuRobo and cuMotion is not supported.
+ previous
+ Quick Install
+ next
+ Cross-product compatibility
+ On this page
+System Requirements
+ so the DOM is not blocked -->
+ Privacy Policy
+ | 
+ Your Privacy Choices
+ | 
+ Terms of Service
+ | 
+ Accessibility
+ | 
+ Corporate Policies
+ | 
+ Product Security
+ | 
+ Contact
+ Copyright © 2023-2026, NVIDIA Corporation.
+ Last updated on Oct 14, 2026.

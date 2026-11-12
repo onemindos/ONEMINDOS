@@ -1,0 +1,66 @@
+Snapshot of https://github.com/home-assistant/operating-system/issues/4845 (accessed 2026-11-10 via gh CLI; author handles removed; body truncated)
+title: Version 18.1 won't update - restarts pi 5 and never updates
+state: CLOSED
+created: 2026-07-01T13:57:13Z
+closed: 2026-07-01T18:54:34Z
+
+### Describe the issue you are experiencing
+
+I have home assistant OS version 18 installed on my raspberry pi 5 8gb and when I click the update button to update to 18.1 my device restarts and is still on 18 when it boots back up and never updates. I found these logs:
+
+Logger: homeassistant.components.binary_sensor
+Source: helpers/entity_platform.py:848
+Integration: Binary sensor ([documentation](https://www.home-assistant.io/integrations/binary_sensor), [issues](https://github.com/home-assistant/core/issues?q=is%3Aissue+is%3Aopen+label%3A%22integration%3A+binary_sensor%22))
+First occurred: 9:48:46 AM (1 occurrence)
+Last logged: 9:48:46 AM
+
+rpi_power: Error on device update!
+Traceback (most recent call last):
+  File "/usr/src/homeassistant/homeassistant/helpers/entity_platform.py", line 848, in _async_add_entity
+    await entity.async_device_update(warning=False)
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1375, in async_device_update
+    await hass.async_add_executor_job(self.update)
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 86, in run
+    result = ctx.run(self.task)
+  File "/usr/local/lib/python3.14/concurrent/futures/thread.py", line 73, in run
+    return fn(*args, **kwargs)
+  File "/usr/src/homeassistant/homeassistant/components/rpi_power/binary_sensor.py", line 53, in update
+    value = self._under_voltage.get()
+            ^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'get'
+
+### What operating system image do you use?
+
+generic-aarch64 (Generic UEFI capable aarch64 systems)
+
+### What version of Home Assistant Operating System is installed?
+
+18.0
+
+### Did the problem occur after upgrading the Operating System?
+
+No
+
+### Hardware details
+
+Raspberry pi 5 8gb with an NVME HAT and a 256gb nvme SSD, pci-e 3.0
+
+### Steps to reproduce the issue
+
+1. Click the banner to update to 18.1
+2. Click the update button on the modal
+...
+
+
+### Anything in the Supervisor logs that might be useful for us?
+
+```txt
+Supervisor logs:
+
+2026-07-01 08:30:17.424 INFO (MainThread) [supervisor.updater] Fetching update data from https://version.home-assistant.io/stable.json
+2026-07-01 08:30:27.205 INFO (MainThread) [supervisor.store.git] Update app /data/apps/core repository from https://github.com/home-assistant/addons
+2026-07-01 08:30:27.205 INFO (MainThread) [supervisor.store.git] Update app /data/apps/git/5c53de3b repository from https://github.com/esphome/home-assistant-addon
+2026-07-01 08:30:27.205
+
+Maintainer comment (project member), 2026-07-01:
+Home Assistant OS 18.0 needs a recent firmware so HAOS can communicate with the firmware to boot into the other boot slot (tryboot). This is also mentioned in the release notes, see https://github.com/home-assistant/operating-system/releases/tag/18.1.

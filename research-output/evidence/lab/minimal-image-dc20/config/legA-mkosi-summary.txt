@@ -1,0 +1,206 @@
+IMAGE: default
+
+    CONFIG:
+                           Profiles: none
+                       Dependencies: none
+                    Minimum Version: none
+                  Configure Scripts: none
+                   Pass Environment: none
+
+    DISTRIBUTION:
+                       Distribution: debian
+                            Release: trixie
+                       Architecture: x86-64
+                             Mirror: default
+               Local Mirror (build): none
+           Repo Signature/Key check: yes
+              Fetch Repository Keys: no
+                       Repositories: none
+
+    OUTPUT:
+                      Output Format: disk
+                   Manifest Formats: (none)
+                             Output: onemind-deb.raw
+                        Compression: none
+                  Compression Level: 3
+                   Output Directory: /var/lab/dc20/legA
+                        Output Mode: default
+                           Image ID: onemind-deb
+                      Image Version: None
+                    Split Artifacts: uki
+                                     kernel
+                                     initrd
+                 Repart Directories: none
+                        Sector Size: default
+                            Overlay: no
+                               Seed: dbde7cc1-3921-4755-8ab4-720ef2e3afdb
+                      Clean Scripts: none
+
+    CONTENT:
+                           Packages: linux-image-amd64
+                                     systemd
+                                     systemd-sysv
+                                     systemd-resolved
+                                     systemd-boot
+                                     systemd-boot-efi
+                                     udev
+                                     dbus
+                                     iproute2
+                                     iptables
+                                     ca-certificates
+                                     openssh-server
+                                     e2fsprogs
+                                     kmod
+                                     util-linux
+                     Build Packages: none
+                  Volatile Packages: none
+                Package Directories: none
+       Volatile Package Directories: none
+                 With Documentation: yes
+
+                         Base Trees: none
+                     Skeleton Trees: none
+                        Extra Trees: /var/lab/dc20/legA/mkosi.extra
+
+                    Remove Packages: none
+                       Remove Files: none
+     Clean Package Manager Metadata: auto
+                  Source Date Epoch: none
+
+                       Sync Scripts: none
+                    Prepare Scripts: none
+                      Build Scripts: none
+                Postinstall Scripts: none
+                   Finalize Scripts: none
+                 Postoutput Scripts: none
+
+                           Bootable: enabled
+                         Bootloader: systemd-boot
+                    BIOS Bootloader: none
+                    Shim Bootloader: none
+              Unified Kernel Images: auto
+        Unified Kernel Image Format: None
+      Unified Kernel Image Profiles: none
+                            Initrds: none
+                    Initrd Packages: none
+           Initrd Volatile Packages: none
+                         Devicetree: none
+                Kernel Command Line: console=ttyS0,115200
+                                     console=tty1
+             Kernel Modules Include: none
+             Kernel Modules Exclude: none
+        Kernel Modules Include Host: no
+
+              Kernel Modules Initrd: yes
+      Kernel Modules Initrd Include: none
+      Kernel Modules Initrd Exclude: none
+ Kernel Modules Initrd Include Host: no
+
+                             Locale: default
+                    Locale Messages: default
+                             Keymap: default
+                           Timezone: default
+                           Hostname: onemind-deb
+                      Root Password: (default)
+                         Root Shell: default
+                         Machine ID: none
+
+                          Autologin: no
+                        Make Initrd: no
+                                SSH: no
+                    SELinux Relabel: auto
+
+         VALIDATION:
+                    UEFI SecureBoot: no
+         UEFI SecureBoot AutoEnroll: yes
+             SecureBoot Signing Key: none
+      SecureBoot Signing Key Source: file
+             SecureBoot Certificate: none
+      SecureBoot Certificate Source: file
+               SecureBoot Sign Tool: auto
+                             Verity: auto
+                 Verity Signing Key: none
+          Verity Signing Key Source: file
+                 Verity Certificate: none
+          Verity Certificate Source: file
+                 Sign Expected PCRs: auto
+          Expected PCRs Signing Key: none
+           Expected PCRs Key Source: file
+          Expected PCRs Certificate: none
+   Expected PCRs Certificate Source: file
+                         Passphrase: none
+                           Checksum: no
+                               Sign: no
+                       OpenPGP Tool: gpg
+                            GPG Key: (default)
+
+    BUILD CONFIGURATION:
+                         Tools Tree: None
+            Tools Tree Distribution: debian
+                 Tools Tree Release: testing
+                  Tools Tree Mirror: default
+            Tools Tree Repositories: none
+           Tools Tree Sandbox Trees: none
+                Tools Tree Packages: none
+     Tools Tree Package Directories: none
+            Tools Tree Certificates: yes
+
+                 Extra Search Paths: none
+                        Incremental: no
+             Use Only Package Cache: auto
+                      Sandbox Trees: none
+                Workspace Directory: /var/tmp
+                    Cache Directory: /var/lab/dc20/cache-a
+            Package Cache Directory: default
+                    Build Directory: none
+                     Use Subvolumes: auto
+                     Repart Offline: yes
+                       Save History: no
+                      Build Sources: /var/lab/dc20/legA
+            Build Sources Ephemeral: no
+                 Script Environment: SYSTEMD_TMPFILES_FORCE_SUBVOL=0
+                                     SYSTEMD_ASK_PASSWORD_KEYRING_TIMEOUT_SEC=infinity
+                                     SYSTEMD_ASK_PASSWORD_KEYRING_TYPE=session
+                                     TERM=dumb
+                                     IMAGE_ID=onemind-deb
+                                     GIT_PROXY_SSL_CAINFO=/proxy.cacert
+                  Environment Files: none
+         Run Tests in Build Scripts: yes
+               Scripts With Network: no
+
+                          Proxy URL: none
+             Proxy Peer Certificate: /etc/ssl/certs/ca-certificates.crt
+           Proxy Client Certificate: none
+                   Proxy Client Key: none
+
+    HOST CONFIGURATION:
+                    NSpawn Settings: none
+                          Ephemeral: False
+                        Credentials: none
+          Extra Kernel Command Line: none
+                      Runtime Trees: none
+                       Runtime Size: none
+                    Runtime Scratch: auto
+                    Runtime Network: user
+              Runtime Build Sources: False
+  Runtime Home or Working Directory: no
+                    Unit Properties: none
+                    SSH Signing Key: none
+                    SSH Certificate: none
+                            Machine: onemind-deb
+                    Forward Journal: none
+       Register guest with machined: auto
+
+            Virtual Machine Monitor: qemu
+                            Console: native
+                          CPU Cores: 1
+                                RAM: 2.0G
+                                KVM: auto
+                              VSock: auto
+                VSock Connection ID: auto
+                                TPM: auto
+                             CD-ROM: no
+                           Firmware: auto
+                 Firmware Variables: none
+                              Linux: none
+               QEMU Extra Arguments: none

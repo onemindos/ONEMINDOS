@@ -1,0 +1,849 @@
+Source: https://docs.foxglove.dev/docs/fleet/foxlet/installation
+Accessed: 2026-11-11
+
+Installation | Foxglove Docs
+
+Skip to main content
+
+DocumentationSDKAPIChangelog
+Back to Foxglove
+
+Search
+
+Getting started
+Overview
+Getting started guide
+Python
+C++
+Rust
+
+Frameworks
+Open a file
+Explore examples
+
+Hardware
+
+Robots
+
+Custom Data
+
+Agents & MCP
+Overview
+Agent sidebar
+MCP server
+Slack
+
+Visualization
+Overview
+
+Connecting to data
+Playback
+Comparison mode
+Layouts
+
+Panels
+Variables
+User Scripts
+FoxQL
+Shareable links
+Video export
+Open via CLI
+Annotate ROS enum fields
+Controls and shortcuts
+Migrate from other tools
+
+Data Platform
+Overview
+Importing data
+Exporting data
+Devices
+Recordings
+Sessions
+Events
+
+Search
+
+Primary Sites
+
+Edge Sites
+
+Fleet
+Overview
+Device Tokens
+
+Foxlet
+Device Tokens
+Installation
+Manage data
+Logging
+Foxlet state
+FAQ
+Bridge
+Remote Access
+
+Integration
+
+Extensions
+
+Webhooks
+
+Embedding Foxglove
+
+Jupyter notebook
+
+Grafana
+CLI
+OAuth
+Personal access tokens
+Release feeds
+
+Administration
+Settings
+Audit logs
+Pricing
+Standalone License
+Projects
+Roles
+Seat types
+SSO
+
+Fleet
+Foxlet
+Installation
+On this page
+
+Installation
+Install and configure Foxlet on each device you wish to connect to Foxglove cloud.
+
+System requirements​
+
+Your device will need:
+
+HTTPS access to api.foxglove.dev (stable connection not required)
+
+Currently resolves to IPs: 104.18.20.210 and 104.18.21.210
+
+Port: 443 (HTTPS)
+
+Used for: Device authentication, recording metadata upload, and control commands
+
+A filesystem supporting fsnotify for recordings storage
+
+For self-hosted deployments: network access to your Primary Site's inbox bucket
+
+note
+
+If configuring firewall rules, allowlist both IP addresses for api.foxglove.dev. The service uses DNS round-robin, so Foxlet may connect to either IP.
+
+Install Foxlet​
+
+Foxlet is available for AMD64 and ARM64 architectures in these forms:
+
+A .deb package, for Debian-based Linux distributions
+
+A statically-linked Linux executable
+
+A Docker image
+
+note
+
+Foxlet was previously referred to as "Foxglove Agent". The ubuntu/debian package and binaries still use this name.
+
+Debian package
+Statically linked Linux executable
+Docker image
+
+Download the latest foxglove-agent package for your architecture from the Foxlet releases page, saving it as /tmp/foxglove-agent.deb. Saving to /tmp rather than your home directory means apt won't print a harmless Download is performed unsandboxed notice during installation. Install with apt, which also installs the package's dependencies:
+
+sudo apt update
+
+sudo apt install /tmp/foxglove-agent.deb
+
+Download the latest foxglove-agent binary for your architecture from the Foxlet releases page, and put it in an appropriate location for your robot.
+
+A multi-platform Docker image is available at us-central1-docker.pkg.dev/foxglove-images/images/agent.
+Foxlet needs a writable directory to store its own persistent state. This must be mounted inside the container at /index. You can use a Docker Volume to manage this state:
+
+docker volume create foxglove-agent-index-storage
+
+docker run \
+
+ --mount type=volume,src=foxglove-agent-index-storage,dst=/index \
+
+ --mount type=bind,src=/path/to/recording/storage,dst=/storage \
+
+ --env-file your-foxlet-config.env \
+
+ us-central1-docker.pkg.dev/foxglove-images/images/agent:0.0.0 # replace with a valid release version number
+
+Configure Foxlet​
+
+The following instructions explain how to set environment variables for Foxlet. Where you set these depends on your installation method:
+
+Debian package
+Statically linked Linux executable
+Docker image
+
+When using the .deb package, Foxlet's environment is configured in /etc/foxglove/agent/envfile.
+Here is a reference envfile to get you started:
+
+# FOXGLOVE_DEVICE_TOKEN authenticates Foxlet to the API and should be
+
+# obtained from the Foxglove devices UI. A particular Foxglove device should
+
+# have at most a single associated Foxlet.
+
+FOXGLOVE_DEVICE_TOKEN=
+
+# DEVICE_NAME must be specified when using a deviceless token. Foxlet will
+
+# create a device with this name on first connection. Leave commented out
+
+# when using a device-linked token.
+
+#DEVICE_NAME=
+
+# STORAGE_ROOT is the path from which Foxlet will read your
+
+# recordings. Recording paths will appear in Foxglove relative to this path.
+
+STORAGE_ROOT=/srv/foxglove/agent/storage
+
+# WATCH_INCLUDE_SUFFIXES is a comma-delimited list of file suffixes that should
+
+# be treated as recordings. More granular filtering can be accomplished using
+
+# regexes and exclusions.
+
+WATCH_INCLUDE_SUFFIXES=.bag,.mcap
+
+#WATCH_INCLUDE_REGEX=
+
+#WATCH_EXCLUDE_SUFFIXES=
+
+#WATCH_EXCLUDE_REGEX=
+
+# WATCH_AUTO_IMPORT_PATTERN is a glob pattern matched against each recording's
+
+# path relative to STORAGE_ROOT. Matching recordings are uploaded to Foxglove
+
+# automatically. Use ** to match recordings in nested subdirectories (for
+
+# example, **/*.mcap). Leave commented out to import recordings manually.
+
+#WATCH_AUTO_IMPORT_PATTERN=
+
+# FOXGLOVE_LOG_OUTPUT controls how logs are routed. When running Foxlet under
+
+# systemd, this should typically be "journald". Other options are "json" or
+
+# "text" to output JSON or human-readable logs to stderr.
+
+FOXGLOVE_LOG_OUTPUT=journald
+
+# VARDIR must be a read-writable path where Foxlet can store internal state.
+
+VARDIR=/var/lib/foxglove/agent
+
+# PRIMARY_SITE_MODE should be set to self-managed or hosted according to the
+
+# deployment mode of the primary site to which Foxlet reports.
+
+PRIMARY_SITE_MODE=hosted
+
+When using the standalone executable, you manage the process environment directly.
+Here is a reference envfile to get you started:
+
+# FOXGLOVE_DEVICE_TOKEN authenticates Foxlet to the API and should be
+
+# obtained from the Foxglove devices UI. A particular Foxglove device should
+
+# have at most a single associated Foxlet.
+
+FOXGLOVE_DEVICE_TOKEN=
+
+# DEVICE_NAME must be specified when using a deviceless token. Foxlet will
+
+# create a device with this name on first connection. Leave commented out
+
+# when using a device-linked token.
+
+#DEVICE_NAME=
+
+# STORAGE_ROOT is the path from which Foxlet will read your
+
+# recordings. Recording paths will appear in Foxglove relative to this path.
+
+STORAGE_ROOT=/srv/foxglove/agent/storage
+
+# WATCH_INCLUDE_SUFFIXES is a comma-delimited list of file suffixes that should
+
+# be treated as recordings. More granular filtering can be accomplished using
+
+# regexes and exclusions.
+
+WATCH_INCLUDE_SUFFIXES=.bag,.mcap
+
+#WATCH_INCLUDE_REGEX=
+
+#WATCH_EXCLUDE_SUFFIXES=
+
+#WATCH_EXCLUDE_REGEX=
+
+# WATCH_AUTO_IMPORT_PATTERN is a glob pattern matched against each recording's
+
+# path relative to STORAGE_ROOT. Matching recordings are uploaded to Foxglove
+
+# automatically. Use ** to match recordings in nested subdirectories (for
+
+# example, **/*.mcap). Leave commented out to import recordings manually.
+
+#WATCH_AUTO_IMPORT_PATTERN=
+
+# FOXGLOVE_LOG_OUTPUT controls how logs are routed. When running Foxlet under
+
+# systemd, this should typically be "journald". Other options are "json" or
+
+# "text" to output JSON or human-readable logs to stderr.
+
+FOXGLOVE_LOG_OUTPUT=journald
+
+# VARDIR must be a read-writable path where Foxlet can store internal state.
+
+VARDIR=/var/lib/foxglove/agent
+
+# PRIMARY_SITE_MODE should be set to self-managed or hosted according to the
+
+# deployment mode of the primary site to which Foxlet reports.
+
+PRIMARY_SITE_MODE=hosted
+
+When using the Docker image, you pass environment values into the container using --env or --env-file.
+Here is a reference your-foxlet-config.env to get you started:
+
+# FOXGLOVE_DEVICE_TOKEN authenticates Foxlet to the API and should be
+
+# obtained from the Foxglove devices UI. A particular Foxglove device should
+
+# have at most a single associated Foxlet.
+
+FOXGLOVE_DEVICE_TOKEN=
+
+# DEVICE_NAME must be specified when using a deviceless token. Foxlet will
+
+# create a device with this name on first connection. Leave commented out
+
+# when using a device-linked token.
+
+#DEVICE_NAME=
+
+# WATCH_INCLUDE_SUFFIXES is a comma-delimited list of file suffixes that should
+
+# be treated as recordings. More granular filtering can be accomplished using
+
+# regexes and exclusions.
+
+WATCH_INCLUDE_SUFFIXES=.bag,.mcap
+
+#WATCH_INCLUDE_REGEX=
+
+#WATCH_EXCLUDE_SUFFIXES=
+
+#WATCH_EXCLUDE_REGEX=
+
+# WATCH_AUTO_IMPORT_PATTERN is a glob pattern matched against each recording's
+
+# path relative to STORAGE_ROOT. Matching recordings are uploaded to Foxglove
+
+# automatically. Use ** to match recordings in nested subdirectories (for
+
+# example, **/*.mcap). Leave commented out to import recordings manually.
+
+#WATCH_AUTO_IMPORT_PATTERN=
+
+# FOXGLOVE_LOG_OUTPUT controls how logs are routed. Options are "json" for
+
+# JSON-structured output (useful for log aggregators) or "text" for
+
+# human-readable logs to stderr.
+
+FOXGLOVE_LOG_OUTPUT=text
+
+# VARDIR must be a read-writable path where Foxlet can store internal state.
+
+# The Foxlet Docker image uses the /index directory by default. It is not
+
+# typically necessary to override this configuration.
+
+#VARDIR=/index
+
+# PRIMARY_SITE_MODE should be set to self-managed or hosted according to the
+
+# deployment mode of the primary site to which Foxlet reports.
+
+PRIMARY_SITE_MODE=hosted
+
+Configure device token​
+
+Set the FOXGLOVE_DEVICE_TOKEN environment variable to the secret device token generated previously. A device should have at most one Foxlet at any given time.
+
+Device-linked token
+Deviceless token
+
+No additional configuration is required. The device identity is determined by the token.
+
+Set the DEVICE_NAME environment variable to the name you want for the device. This name will be used when the device is created on first connection.
+
+Configure storage directory​
+
+Foxlet monitors the storage directory recursively — recordings in nested subdirectories are detected too. See Adding recording files for details.
+
+Debian package
+Statically linked Linux executable
+Docker image
+
+Configure the STORAGE_ROOT environment variable with the directory you want to monitor for newly recorded data files. This will serve as Foxlet's data directory.
+Configure the VARDIR environment variable with the directory you want to store the internal state of Foxlet.
+Foxlet runs as the foxglove user and group under systemd. The foxglove user must have read and write access to the STORAGE_ROOT and VARDIR directories and their contents.
+Depending on your system configuration, you may need to adjust directory ownership or group permissions to allow the foxglove user to access files created by other users (for example, your recording process). Common approaches include:
+
+Adding the foxglove user to a shared group that has access to the storage directory
+
+sudo usermod -a -G $GROUP foxglove
+
+Adjusting directory ownership and permissions (for example, using chown and chmod)
+
+note
+
+If you make permission changes after starting the Foxlet service, restart the service for the permission changes to take effect.
+
+sudo systemctl restart foxglove-agent
+
+Configure the STORAGE_ROOT environment variable with the directory you want to monitor for newly recorded data files. This will serve as Foxlet's data directory.
+The user running the Foxlet executable must have read and write access to the STORAGE_ROOT and VARDIR directories and their contents.
+Depending on your system configuration, you may need to adjust directory ownership or group permissions to allow the Foxlet process to access files created by other users (for example, your recording process). Common approaches include:
+
+Running Foxlet as a user that already has access to the storage directory
+
+Adding Foxlet's user to a shared group that has access to the storage directory
+
+Adjusting directory ownership and permissions (for example, using chown and chmod)
+
+After making permission changes, restart the Foxlet service for them to take effect.
+
+When using the Foxlet Docker image, bind-mount your data directory to /storage inside the container. You do not need to configure STORAGE_ROOT .
+No additional permission setup is required. Docker handles filesystem access through the bind-mount.
+
+Configure recording filters​
+
+By default, Foxlet will attempt to read any file under STORAGE_ROOT — including files in nested subdirectories — as a recording, unless the file ends in .active or .json. For multipurpose storage directories, this will generate a large volume of repetitive log messages indicating that various files cannot be parsed as recordings.
+
+Most users will want to override this behavior with WATCH_INCLUDE_SUFFIXES, which is a comma-delimited list of file suffixes that Foxlet should treat as recordings. A setting of WATCH_INCLUDE_SUFFIXES=.bag,.mcap is a reasonable choice.
+
+More granular filtering can be accomplished through the following variables:
+
+WATCH_EXCLUDE_REGEX: A regex of paths Foxlet should ignore
+
+WATCH_EXCLUDE_SUFFIXES: A comma-delimited list of suffixes Foxlet should ignore
+
+WATCH_INCLUDE_REGEX: A regex of paths that Foxlet should treat as recordings
+
+If a combination of these variables are used, Foxlet will treat a file as a recording if and only if it matches all of the include filters and none of the exclude filters.
+
+Foxlet can also be configured to auto-import data; see Automatically import recording files.
+
+Upload settings​
+
+Choose your upload configuration:
+
+Foxglove-hosted
+Self-hosted
+
+By default, your Organization will be configured with a Foxglove-hosted Primary Site. No additional configuration is required in this case.
+
+If your Foxglove organization uses a self-hosted (self-managed) Primary Site, your device will need credentials to upload recordings, depending on the cloud service hosting your Primary Site inbox bucket.
+
+Google Cloud Storage
+Azure
+AWS
+S3-compatible
+
+First, install a credentials.json file into the device filesystem that authorizes Foxlet to write into your inbox bucket.
+When installing using the .deb package, The foxglove user must have permissions to read this file.
+When using the Docker image, the credentials.json file must be mounted into the container filesystem.
+Configure the following environment variables:
+
+PRIMARY_SITE_MODE=self-managed
+
+INBOX_STORAGE_PROVIDER=google_cloud
+
+# Must be set to a valid bucket name, excluding any `gs://` scheme
+
+INBOX_BUCKET_NAME=...
+
+# Set this to the absolute path of the credentials.json file
+
+# If using Docker, use the path inside the container, not the host filesystem path
+
+GOOGLE_APPLICATION_CREDENTIALS=...
+
+# Optional: adjust the size of multipart upload parts (in bytes)
+
+#MULTIPART_PART_SIZE=8388608
+
+Configure the following environment variables:
+
+PRIMARY_SITE_MODE=self-managed
+
+INBOX_STORAGE_PROVIDER=azure
+
+# Must be set to a valid bucket name
+
+INBOX_BUCKET_NAME=...
+
+# Set these according to your Azure deployment
+
+AZURE_TENANT_ID=...
+
+AZURE_CLIENT_ID=...
+
+AZURE_CLIENT_SECRET=...
+
+AZURE_STORAGE_ACCOUNT_NAME=...
+
+# Optional: Override for storage endpoint.
+
+#AZURE_STORAGE_ENDPOINT=https://{account}.blob.core.windows.net
+
+# Optional: adjust the size of multipart upload parts (in bytes)
+
+#MULTIPART_PART_SIZE=8388608
+
+Note that the following configuration variables have been renamed in v1.3.0.
+
+AZURE_INBOX_STORAGE_ACCOUNT_NAME is now AZURE_STORAGE_ACCOUNT_NAME
+
+AZURE_INBOX_STORAGE_SERVICE_URL is now AZURE_STORAGE_ENDPOINT
+
+The old variables still work, but users are encouraged to switch to the new names.
+
+Foxlet can authenticate to AWS using either static credentials or an external credential process — most commonly used to source temporary credentials from IAM Roles Anywhere. Choose the option that best fits your security model.
+Option 1: Static credentials​
+Configure the following environment variables:
+
+PRIMARY_SITE_MODE=self-managed
+
+INBOX_STORAGE_PROVIDER=aws
+
+# Must be set to a valid bucket name
+
+INBOX_BUCKET_NAME=...
+
+# Set these according to your AWS deployment
+
+AWS_ACCESS_KEY_ID=...
+
+AWS_SECRET_ACCESS_KEY=...
+
+AWS_DEFAULT_REGION=...
+
+# Optional: Only required when using temporary credentials (for example, from AWS STS or IAM Identity Center).
+
+#AWS_SESSION_TOKEN=...
+
+# Optional: Enable SHA-256 checksum-on-upload.
+
+#AWS_UPLOAD_CHECKSUM=sha256
+
+# Optional: adjust the size of multipart upload parts (in bytes)
+
+#MULTIPART_PART_SIZE=8388608
+
+Option 2: External credential process (IAM Roles Anywhere)​
+Foxlet supports AWS's standard credential_process protocol via the AWS_CREDENTIAL_PROCESS environment variable. When set, Foxlet runs the configured command, parses the JSON it writes to stdout, and uses the returned temporary credentials to authenticate to AWS. Credentials are cached and automatically refreshed before they expire.
+This integrates with IAM Roles Anywhere, which lets Foxlet obtain temporary AWS credentials by presenting an X.509 certificate issued by a certificate authority (CA) that you have registered with AWS as a trust anchor. The AWS-provided aws_signing_helper tool implements this protocol.
+Compared to static credentials, IAM Roles Anywhere offers several advantages for fleets of edge devices:
+
+Short-lived credentials. The helper exchanges the device's certificate for temporary session credentials that automatically expire, limiting the blast radius if a device is compromised.
+
+No static secrets to rotate or revoke. Access is governed by the certificate's lifecycle. To revoke a device's access, revoke its certificate or remove its profile binding in AWS — no need to rotate shared keys across the fleet.
+
+Reuses your existing device PKI. If your robots already have per-device X.509 identities (for example, from a private CA used for mTLS), you can reuse the same certificates to authenticate to AWS.
+
+Per-session attribution in CloudTrail. Each Foxlet's role assumption is recorded as its own session in AWS audit logs, so uploads can be attributed to a specific device's session rather than collapsed under a single shared access key.
+
+To use IAM Roles Anywhere:
+
+Complete the AWS-side setup in Getting started with IAM Roles Anywhere: register a trust anchor for your CA, create a profile that allows assuming your inbox-bucket role, and issue an end-entity certificate and private key for the device.
+
+Make the aws_signing_helper binary and the device's certificate and private key available to Foxlet.
+
+The Foxlet Docker image ships with the helper preinstalled at /usr/local/bin/aws_signing_helper, built from aws/rolesanywhere-credential-helper with PKCS#11 support enabled, so TPM/HSM-backed keys work out of the box. You only need to bind-mount the PEM files into the container:
+
+docker run \
+
+ --mount type=volume,src=foxglove-agent-index-storage,dst=/index \
+
+ --mount type=bind,src=/path/to/recording/storage,dst=/storage \
+
+ --mount type=bind,src=/etc/foxglove/agent/device.crt,dst=/etc/foxglove/agent/device.crt,readonly \
+
+ --mount type=bind,src=/etc/foxglove/agent/device.key,dst=/etc/foxglove/agent/device.key,readonly \
+
+ --env-file your-foxlet-config.env \
+
+ us-central1-docker.pkg.dev/foxglove-images/images/agent:0.0.0 # replace with a valid release version number
+
+For a host-installed Foxlet (.deb package or standalone executable), install the helper yourself (a statically-linked build is recommended so it doesn't depend on libraries from the host system) and place the certificate and private key on disk. The user Foxlet runs as (the foxglove user, when using the .deb package) must have read access to the key material and execute access to the helper.
+
+Configure the following environment variables:
+
+PRIMARY_SITE_MODE=self-managed
+
+INBOX_STORAGE_PROVIDER=aws
+
+# Must be set to a valid bucket name
+
+INBOX_BUCKET_NAME=...
+
+AWS_DEFAULT_REGION=...
+
+# Command Foxlet runs to obtain temporary AWS credentials. Substitute the
+
+# ARNs and file paths for your trust anchor, profile, role, certificate, and
+
+# private key. The command must print credential_process JSON to stdout.
+
+# Must be a single line: Docker --env-file and older systemd EnvironmentFile=
+
+# (pre-v249) do not honor backslash line continuations.
+
+AWS_CREDENTIAL_PROCESS=/usr/local/bin/aws_signing_helper credential-process --trust-anchor-arn arn:aws:rolesanywhere:...:trust-anchor/... --profile-arn arn:aws:rolesanywhere:...:profile/... --role-arn arn:aws:iam::...:role/... --certificate /etc/foxglove/agent/device.crt --private-key /etc/foxglove/agent/device.key
+
+# Optional: Enable SHA-256 checksum-on-upload.
+
+#AWS_UPLOAD_CHECKSUM=sha256
+
+# Optional: adjust the size of multipart upload parts (in bytes)
+
+#MULTIPART_PART_SIZE=8388608
+
+When AWS_CREDENTIAL_PROCESS is set, it takes precedence over the static-credential variables shown in Option 1. If neither is set, Foxlet falls back to the default credential discovery provided by its underlying S3 client — for example, EC2/ECS instance roles, IRSA, or AWS_* environment variables from the surrounding environment — which corresponds to the Using default credential chain for AWS startup log line. This discovery is not the AWS SDK's credential chain and does not read ~/.aws/credentials or other profile files. The configured command must write JSON in the AWS credential_process Version 1 format to stdout, for example:
+
+{
+
+ "Version": 1,
+
+ "AccessKeyId": "...",
+
+ "SecretAccessKey": "...",
+
+ "SessionToken": "...",
+
+ "Expiration": "2030-01-01T00:00:00Z"
+
+}
+
+The Expiration field is optional but strongly recommended. Foxlet caches credentials in memory and refreshes them 5 minutes before the Expiration timestamp, or 60 seconds after the fetch, whichever is later — so very short-lived credentials are still reused across rapid uploads. If Expiration is omitted, credentials are cached for exactly 10 minutes from the fetch and the helper is re-invoked at the 10-minute mark, with no pre-expiry buffer. As a result, omitting Expiration is safe only when the underlying AWS credentials are valid for noticeably longer than 10 minutes — otherwise Foxlet will serve already-expired credentials in the gap between AWS-side expiry and the 10-minute cache TTL — and it forces the helper to be re-invoked every 10 minutes regardless of how long the credentials are actually valid.
+If the helper command fails after a successful initial fetch, Foxlet will continue to serve the previous credentials for up to one hour while retrying every 30 seconds. After that, Foxlet surfaces the error and uploads will fail until the helper succeeds again.
+On a cold start with no cached credentials yet (Foxlet restart, fresh install, or a freshly-rotated certificate that hasn't propagated), Foxlet itself starts normally regardless of helper state — the helper is only invoked on demand, when an upload needs credentials. If that first invocation fails, Foxlet has no previous credentials to fall back on and the upload fails immediately; each subsequent upload attempt re-invokes the helper, so uploads start succeeding as soon as the helper does.
+The configured command must complete within 30 seconds; otherwise Foxlet kills it and treats the invocation as a failure. At Foxlet startup, a log line records which credential mode is in use (Using credential_process for AWS credentials, Using static credentials for AWS, or Using default credential chain for AWS) so you can confirm your configuration was picked up.
+
+note
+
+AWS_CREDENTIAL_PROCESS is parsed with shell-style word splitting (quotes and escapes are honored), but it is not evaluated by a shell. Constructs like pipes (|), redirects (>), and command substitution ($(...)) will not work — invoke a shell explicitly (e.g. sh -c '...') if you need them.
+
+If your Primary Site inbox bucket uses a S3-compatible service like MinIO, configure the following environment variables:
+
+PRIMARY_SITE_MODE=self-managed
+
+INBOX_STORAGE_PROVIDER=s3_compatible
+
+# Set these according to your S3-compatible service deployment
+
+S3_COMPATIBLE_ACCESS_KEY_ID=...
+
+S3_COMPATIBLE_SECRET_ACCESS_KEY=...
+
+S3_COMPATIBLE_SERVICE_REGION=...
+
+S3_COMPATIBLE_SERVICE_URL=...
+
+# Optional: Enable SHA-256 checksum-on-upload.
+
+#S3_COMPATIBLE_UPLOAD_CHECKSUM=sha256
+
+# Optional: adjust the size of multipart upload parts (in bytes)
+
+#MULTIPART_PART_SIZE=8388608
+
+Note that the following configuration variables have been renamed in v1.3.0.
+
+RECORDING_STORAGE_S3_COMPATIBLE_ACCESS_KEY_ID is now S3_COMPATIBLE_ACCESS_KEY_ID
+
+RECORDING_STORAGE_S3_COMPATIBLE_SECRET_ACCESS_KEY is now S3_COMPATIBLE_SECRET_ACCESS_KEY
+
+RECORDING_STORAGE_S3_COMPATIBLE_SERVICE_REGION is now S3_COMPATIBLE_SERVICE_REGION
+
+RECORDING_STORAGE_S3_COMPATIBLE_SERVICE_URL is now S3_COMPATIBLE_SERVICE_URL
+
+The old variables still work, but users are encouraged to switch to the new names.
+Foxlet uploads each recording in parts. By default, it uploads 5 parts at the same time, and each part must finish uploading within 600 seconds. With the default part size, uploads need a network link of about 0.56 Mbit/s or faster. For slower links, set these optional variables with any storage provider. MULTIPART_UPLOAD_CONCURRENCY and the 600-second default require Foxlet v1.8.0 or later.
+
+# Optional: maximum number of parts to upload at the same time (default: 5).
+
+# Lower this on slow links. Foxlet keeps each part in memory until it uploads.
+
+#MULTIPART_UPLOAD_CONCURRENCY=5
+
+# Optional: time limit for each upload request, in seconds (default: 600).
+
+#OBJECT_STORE_READ_TIMEOUT_SECONDS=600
+
+By default, Foxlet uploads each recording under a recordingId=<id>/ directory. To upload each recording at its path relative to STORAGE_ROOT instead, set PRESERVE_UPLOAD_PATH=true. This option requires Foxlet v1.8.0 or later, and is supported only for an inbox that uses the index-in-place storage mode. Recording paths must be unique across all devices that share the bucket. Before each upload, Foxlet checks for an existing object at the destination; if one exists, Foxlet reports an error and does not replace it. This check needs permission to read objects in the bucket (on S3, s3:GetObject and s3:ListBucket).
+
+# Optional: upload each recording at its path relative to STORAGE_ROOT,
+
+# without the recordingId=<id>/ directory (default: false).
+
+# Use only with an index-in-place inbox.
+
+#PRESERVE_UPLOAD_PATH=false
+
+Additional options​
+
+Foxglove-hosted
+Self-hosted
+
+In addition to the watch options above, Foxlet supports the following configuration options.
+
+In addition to the watch and upload options above, Foxlet supports the following options.
+
+These can be set in Foxlet's environment. The exact mechanism depends on how you install Foxlet; see Installation. All are optional.
+
+# SQLite database connection string.
+
+# Format: must start with "sqlite://".
+
+# Default: "controller.db" in the `$VARDIR` directory
+
+DATABASE_CONNECTION_STRING=""
+
+# Disable the prometheus metrics server.
+
+# Format: "true" or "false"
+
+DISABLE_PROMETHEUS=""
+
+# Timeout for requests to the control plane.
+
+# Format: a positive integer followed by a time unit ("ms", "s", "m", or "h").
+
+FOXGLOVE_API_TIMEOUT="30s"
+
+# Controls how logs are routed. For systemd, this should typically be "journald".
+
+# Options: "journald", "json", or "text"
+
+FOXGLOVE_LOG_OUTPUT="json"
+
+# The batch size to use when deleting local recordings
+
+# Format: a positive integer
+
+GARBAGE_COLLECTION_BATCH_SIZE="1000"
+
+# The interval between garbage collection passes (deleting local recordings)
+
+# Format: a positive integer followed by a time unit ("ms", "s", "m", or "h").
+
+GARBAGE_COLLECTION_INTERVAL="10s"
+
+# Single-word prefix for Prometheus metrics
+
+PROMETHEUS_METRICS_NAMESPACE=""
+
+# Name of the subsystem for Prometheus metrics
+
+PROMETHEUS_METRICS_SUBSYSTEM=""
+
+# Port to listen on for the prometheus server.
+
+# Format: a valid port number
+
+PROMETHEUS_PORT="6001"
+
+# The interval at which Foxlet submits recording metadata to the control plane.
+
+# Format: a positive integer followed by a time unit ("ms", "s", "m", or "h").
+
+RECORDING_POLLING_INTERVAL="1s"
+
+# The batch size when submitting recordings to the control plane.
+
+# Format: a positive integer.
+
+RECORDING_SUBMISSION_BATCH_SIZE="25"
+
+# Storage directory for local recordings.
+
+# All recordings must be strictly nested under this directory.
+
+STORAGE_ROOT=""
+
+# HTTP2 keepalive interval for recording uploads
+
+# Format: a positive integer followed by a time unit ("ms", "s", "m", or "h").
+
+UPLOAD_HTTP2_KEEP_ALIVE_INTERVAL="10s"
+
+# HTTP2 keepalive timeout for recording uploads
+
+# Format: a positive integer followed by a time unit ("ms", "s", "m", or "h").
+
+UPLOAD_HTTP2_KEEP_ALIVE_TIMEOUT="30s"
+
+# A read-writable directory where Foxlet can store internal state.
+
+VARDIR=""
+
+Run Foxlet​
+
+The .deb package installs Foxlet as a systemd service.
+
+Restart the service and check its status:
+
+sudo systemctl restart foxglove-agent
+
+systemctl status foxglove-agent
+
+Enable automatic startup (optional):
+
+sudo systemctl enable foxglove-agent
+
+tip
+
+Monitor the logs with journalctl for debugging:
+
+journalctl -u foxglove-agent
+
+Previous
+Device Tokens
+Next
+Manage data
+Need help? Contact support.
+Chat with the community on Discord.
+See the changelog.
+Interested in buying? See pricing.
+Read the latest on the Foxglove blog.
+LLM? Read llms.txt.
+
+System requirements
+Install Foxlet
+Configure Foxlet
+Configure device token
+Configure storage directory
+Configure recording filters
+Upload settings
+Additional options
+Run Foxlet

@@ -1,0 +1,26 @@
+Source: https://docs.formant.io/docs/faq-does-the-agent-restart-adapters.md
+Accessed: 2026-11-11
+
+---
+updatedAt: 2025-11-11T01:51:56.000Z
+agentTools:
+  projectIndex: https://docs.formant.io/llms.txt
+---
+
+# Does the agent restart adapters?
+
+# Q: In testing, some of my Python adapter scripts exit with an error message, and the adapter sometimes does not seem to restart. Will Formant relaunch adapters automatically on any type of failure? Are there a maximum number of restart attempts?
+
+***
+
+Yes, if you use adapters, the Formant agent will manage automatically restarting the specified command to run. No max number of restarts.
+
+However, the adapter will not constantly try to re-run adapters back to back. Adapters are restarted with an increasing delay to avoid overloading the Formant agent, with a maximum interval of 60 seconds between restarts.
+
+# See also
+
+* [Adapters](https://docs.formant.io/docs/advanced-telemetry-adapters)
+
+<Callout icon="👋" theme="default">
+  ### If you notice an issue with this page or need help, please reach out to us! Use the 'Did this page help you?' buttons below, or get in contact with our Customer Success team via the Intercom messenger in the bottom-right corner of this page, or at [<masked-email>](mailto:<masked-email>).
+</Callout>

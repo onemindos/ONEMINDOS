@@ -1,0 +1,14 @@
+#!/bin/sh
+# RAUC system pre-install handler: record the trial *before* any slot is
+# written. RAUC marks the new slot active before the post-install handler
+# runs (rauc@2d17b27 src/install.c L1514 vs L1661), so a marker written in
+# post-install could be missed by a power cut, booting an ungated slot.
+set -e
+T=""
+for i in $RAUC_TARGET_SLOTS; do eval "b=\${RAUC_SLOT_BOOTNAME_$i:-}"; [ -n "$b" ] && T=$b; done
+[ -n "$T" ] || { echo "pre-install: no target bootname" >&2; exit 1; }
+V=$(sed -n 's/^version=//p' "$RAUC_BUNDLE_MOUNT_POINT/manifest.raucm" | head -n1)
+mkdir -p /data/onemind
+echo "$T ${V:-?}" > /data/onemind/pending.new
+sync /data/onemind/pending.new; mv /data/onemind/pending.new /data/onemind/pending; sync /data/onemind
+echo "pre-install: trial marker slot=$T version=${V:-?}" > /dev/console

@@ -1,0 +1,47 @@
+[0s] switching to bad image
+Queued for next boot: <lab-registry>/onemind-lab:bad
+  Version: 45.20261110.0
+  Digest: sha256:47704c44504af6f67b54928ced3a5a2d7681f044612c6eb9022a23f9565d0f59
+{"booted":"<lab-registry>/onemind-lab:good","staged":"<lab-registry>/onemind-lab:bad"}
+boot_success=1
+[14s] rebooting (last manual command)
+[170s] <lab-registry>/onemind-lab:bad activating 871a2164 boot_success=1 greenboot_next_deployment_id=sha256:47704c44504af6f67b54928ced3a5a2d7681f044612c6eb9022a23f9565d0f59
+[610s] <lab-registry>/onemind-lab:bad activating 8c217134 boot_success=0 greenboot_next_deployment_id=sha256:47704c44504af6f67b54928ced3a5a2d7681f044612c6eb9022a23f9565d0f59 boot_counter=2
+[1050s] <lab-registry>/onemind-lab:bad activating 76874adf boot_success=0 greenboot_next_deployment_id=sha256:47704c44504af6f67b54928ced3a5a2d7681f044612c6eb9022a23f9565d0f59 boot_counter=1
+[1475s] <lab-registry>/onemind-lab:bad activating b088577a boot_success=0 greenboot_next_deployment_id=sha256:47704c44504af6f67b54928ced3a5a2d7681f044612c6eb9022a23f9565d0f59 boot_counter=0
+[1916s] <lab-registry>/onemind-lab:good activating 7b8ec35e boot_success=0
+[1926s] <lab-registry>/onemind-lab:good active 7b8ec35e boot_success=1
+[1926s] RESULT: back on good image, GREEN
+ -5 3afe175de3af41bc8f53d97ed96244b2 Wed 2026-11-11 01:18:23 UTC Wed 2026-11-11 01:28:56 UTC
+ -4 871a2164259649079a3da9f0ff7a4992 Wed 2026-11-11 01:31:09 UTC Wed 2026-11-11 01:36:24 UTC
+ -3 8c21713478c24b27aab1419be07aa919 Wed 2026-11-11 01:38:32 UTC Wed 2026-11-11 01:43:44 UTC
+ -2 76874adf7a0d4f2bb8ca917ac52d9542 Wed 2026-11-11 01:45:45 UTC Wed 2026-11-11 01:50:58 UTC
+ -1 b088577a08cd47399f9c1d153c049773 Wed 2026-11-11 01:52:58 UTC Wed 2026-11-11 01:58:13 UTC
+  0 7b8ec35e5e7347d7b6d345d319cc02cf Wed 2026-11-11 02:00:16 UTC Wed 2026-11-11 02:00:40 UTC
+== boot -3
+Nov 11 01:43:43 localhost.localdomain greenboot[736]:  ERROR greenboot::greenboot > required script /etc/greenboot/check/required.d/50-k3s-ready.sh failed!
+Nov 11 01:43:43 localhost.localdomain greenboot[736]:  ERROR greenboot            > Greenboot error: required health-check failed, skipping remaining scripts
+Nov 11 01:43:43 localhost.localdomain greenboot[736]:  INFO  greenboot            > Boot counter is 2, rebooting to try again
+Nov 11 01:43:43 localhost.localdomain greenboot[736]: Error: greenboot healthcheck failed
+Nov 11 01:43:43 localhost.localdomain systemd[1]: greenboot-healthcheck.service: Main process exited, code=exited, status=1/FAILURE
+Nov 11 01:43:43 localhost.localdomain systemd[1]: greenboot-healthcheck.service: Failed with result 'exit-code'.
+== boot -2
+Nov 11 01:50:57 localhost.localdomain greenboot[731]:  ERROR greenboot::greenboot > required script /etc/greenboot/check/required.d/50-k3s-ready.sh failed!
+Nov 11 01:50:57 localhost.localdomain greenboot[731]:  ERROR greenboot            > Greenboot error: required health-check failed, skipping remaining scripts
+Nov 11 01:50:57 localhost.localdomain greenboot[731]:  INFO  greenboot            > Boot counter is 1, rebooting to try again
+Nov 11 01:50:58 localhost.localdomain greenboot[731]: Error: greenboot healthcheck failed
+Nov 11 01:50:58 localhost.localdomain systemd[1]: greenboot-healthcheck.service: Main process exited, code=exited, status=1/FAILURE
+Nov 11 01:50:58 localhost.localdomain systemd[1]: greenboot-healthcheck.service: Failed with result 'exit-code'.
+== boot -1
+Nov 11 01:58:13 localhost.localdomain greenboot[3549]: Next boot: rollback deployment
+Nov 11 01:58:13 localhost.localdomain greenboot[743]:  INFO  greenboot            > Rollback successful
+Nov 11 01:58:13 localhost.localdomain greenboot[743]:  INFO  greenboot::grub      > Clear grubenv: boot_counter
+Nov 11 01:58:13 localhost.localdomain greenboot[743]: Error: greenboot healthcheck failed
+Nov 11 01:58:13 localhost.localdomain systemd[1]: greenboot-healthcheck.service: Main process exited, code=exited, status=1/FAILURE
+Nov 11 01:58:13 localhost.localdomain systemd[1]: greenboot-healthcheck.service: Failed with result 'exit-code'.
+== boot 0
+Nov 11 02:00:24 localhost.localdomain greenboot[737]:  INFO  greenboot          > FALLBACK BOOT DETECTED! Default bootc deployment has been rolled back.
+Nov 11 02:00:36 localhost.localdomain greenboot[737]:  INFO  greenboot            > greenboot health-check passed.
+Nov 11 02:00:36 localhost.localdomain greenboot[737]:  INFO  greenboot::grub      > Clear grubenv: boot_counter
+{"booted":"<lab-registry>/onemind-lab:good","rollback":"<lab-registry>/onemind-lab:bad"}
+[1927s] done

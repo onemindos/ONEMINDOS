@@ -1,0 +1,12 @@
+flowchart LR
+  S1["<b>1 · Greenhouse</b><br/>Pi 5 8 GB + NVMe (Edge)<br/>profile: greenhouse<br/>k3s single server · SQLite<br/>HA + MQTT + ESPHome nodes"]
+  S2["<b>2 · Homestead</b><br/>+ Lite x86 mini PC<br/>QR join → one cluster<br/>NATS bus spans both boxes<br/>backups to each other"]
+  S3["<b>3 · Robot bench</b><br/>+ Jetson Orin (Robotics)<br/>k3s <i>agent only</i><br/>robot adapter, observe-only<br/>approval-gated motion"]
+  S4["<b>4 · Private AI</b><br/>+ Pro box (RTX ≥ 16 GB)<br/>local model router<br/>Hermes body on the box"]
+  S5["<b>5 · Robotics simulation</b><br/>+ Omni GPU workstation<br/>GPU-server flavor (Ubuntu)<br/>Isaac Sim / Lab · RKE2 if needed"]
+  S6["<b>6 · Enterprise / multi-site</b><br/>many site clusters + NATS<br/>Industrial bootc profile<br/>fleet server · cloud hub"]
+  S1 --> S2 --> S3 --> S4 --> S5 --> S6
+  C["<b>Never changes:</b> the same onemind.app.yaml · Market · capability gateway · NATS subject grammar · RAUC/NVIDIA A/B release contract · restic backups · dashboard"]
+  S1 -.- C
+  S6 -.- C
+  style C fill:#FFF3C4,stroke:#C9A227

@@ -1,0 +1,167 @@
+Cosmos Cloud: Secure Self-Hosting Platform
+Cosmos Cloud
+Security-First Self-Hosting
+Your Cloud
+The cloud doesn't need to be someone else's computer
+Take back control of your digital life. Whether it's family photos or your business' internal operations, your information belongs with you, not in someone else's hands. Cosmos Cloud makes it effortless to own your privacy while enjoying all the convenience of modern cloud services.
+Entreprise-Grade Security
+Smart Automation
+Complete Privacy
+Get Started Free
+Demo
+Privacy & Security for Your Digital Life
+Whether protecting your family or your business, Cosmos Cloud provides the security and control you need without compromising on functionality.
+For Your Home
+Personal cloud, family-first
+Family Privacy
+Keep photos, documents, and personal data away from prying eyes - corporate and criminal
+Smart Home Hub
+Keep your camera feeds at home, for your privacy. Control and manage your home without fear
+Digital Independence
+Own your cloud storage, streaming, social, and anything else you use daily
+"Why have your data anywhere else when it can be right here?"
+For Your Business
+Enterprise-grade, self-controlled
+Internal Data Privacy
+Sensitive operations stay on-premises. No external data exposure, strict access controls
+Intranet Applications
+Deploy internal tools for offices, schools, and organizations without external dependencies
+Air-Gapped Security
+Complete network isolation for confidential projects and sensitive environments
+"The cloud doesn't need to be someone else's computer"
+For Businesses & Power Users
+Cosmos Cloud Pro
+Everything you love about Cosmos Cloud, built to scale. Run your SaaS and internal services across clusters of servers — 10x cheaper than AWS, 10x simpler than Kubernetes.
+Cluster Management
+Scale across servers from any provider — Hetzner, OVH, bare metal, or all of them at once. Cosmos discovers, configures, and orchestrates your entire cluster from one dashboard.Multi-provider clusters
+Predictable Pricing
+From $16/month including 16 GB RAM and 20 users. Then $1/GB RAM/month and $5.99/user/month. No egress fees, no billing surprises — know your cost before you deploy.Up to 82% cheaper than AWS
+Enterprise Security
+SmartShield Enterprise anti-DDoS, granular role-based permissions, and encrypted inter-cluster networking via Constellation VPN — all built-in, zero configuration.Security by default
+Explore Cosmos Pro Contact Sales
+Why Self-Host?
+Take back control from Big Tech. Self-hosting isn't just about privacy—it's about independence, sustainability, and true ownership of your digital life.
+True Privacy100% ownership
+Your data never leaves your control. Decentralized storage makes you invisible to hackers targeting massive centralized databases.
+Cost ControlNo data ransom
+Break free from companies that raise prices while holding your data hostage. Own your infrastructure, control your costs.
+Eco-FriendlyReduced energy waste
+Decentralized computing reduces datacenter energy waste. Your local server is far more sustainable than massive cloud facilities.
+PerformanceAlways available
+Local access means instant response times and works without internet. No network latency, no throttling, no outages.
+Take Back Control of Your Digital Future
+1.7B
+People had personal data breached in 2024
+$1000s
+in annual cloud subscriptions you can avoid
+10%
+of US' total energy will be used by data centers by 2030
+Intelligent Features That Just Work
+Cosmos Cloud doesn't just give you tools—it gives you smart automation, proactive security, and seamless integration. Complex infrastructure made effortless through intelligent design.
+Smart Security
+SmartShield technology protects against hackers, bots, and DDOS attacks with intelligent threat detection and blocking.
+Easy App Management
+Built-in app store with one-click installations. Deploy Docker containers, manage updates, and monitor performance effortlessly.
+Secure Authentication
+Single Sign-On with multi-factor authentication, modern encryption, and user management across all your self-hosted applications.
+Reverse Proxy & HTTPS
+Automatic SSL certificates, domain management, and intelligent routing. Access your services securely from anywhere.
+Built-in VPN
+Secure remote access to your home network and services. Connect from anywhere while maintaining complete privacy and control.
+Backup & Monitoring
+Automated backups, system monitoring, and customizable alerts. Keep your data safe and your system running smoothly.
+Enterprise-Grade Security
+Protect your self-hosted applications with enterprise-grade security that doesn't compromise on ease of use. Cosmos Cloud keeps you safe from threats while you focus on what matters.
+CC 1.0
+Available Source
+Auditable Code
+5k+
+GitHub Stars
+Community Trust
+250+
+Apps Available
+Official & Unofficial
+2500+
+Servers Running
+Estimated Active
+SmartShield Protection
+Advanced threat detection automatically blocks malicious traffic, bot attacks, and DDOS attempts before they reach your applications.
+Zero-Trust Authentication
+Multi-factor authentication, SSO integration, and granular access controls ensure only authorized users can access your services.
+Real-Time Monitoring
+Continuous security monitoring with instant alerts for suspicious activities, failed login attempts, and system anomalies.
+Automatic Updates
+Security patches and updates are applied automatically to keep your system protected against the latest vulnerabilities.
+User Management
+Centralized user management with role-based access control, session management, and audit logging for compliance.
+Secure Networking
+Built-in VPN, encrypted communications, and network isolation ensure your data remains private and secure.
+Security-First Promise
+We believe security shouldn't be an afterthought. Every feature in Cosmos Cloud is designed with security as the foundation, not an add-on.
+Available Source & Auditable
+No Vendor Lock-in
+Commons Clause Licensed
+Rich App Ecosystem
+Discover and deploy 250+ pre-configured applications with a single click. From media servers to development tools, everything you need is ready to go from official and unofficial stores.
+Media Servers
+Jellyfin, Plex, Emby, Navidrome
+8+ Apps
+Productivity Apps
+Nextcloud, Paperless, N8n, Monica
+15+ Apps
+Development
+Gitea, Jenkins, N8n, CodeServer
+8+ Apps
+Communication
+Mastodon, Ghost, Discourse, Lemmy
+10+ Apps
+One-Click Installations
+Browse our curated app store and deploy complex applications with just one click. No configuration files, no complex setups—just point, click, and run.
+Browse App Store
+Request New App
+Get Started in 5 Minutes
+Deploy Cosmos Cloud on your home server, NAS, or Raspberry Pi with a single Docker command. No complex configuration required.
+Automated Installation
+curl -fsSL https://cosmos-cloud.io/get.sh | sudo -E bash -s
+Documentation
+GitHub
+See documentation for Docker container based installs
+Quick Setup Steps
+1
+Setup a server, a laptop or a raspberry pi
+2
+Run the automated installation script
+3
+Access the web interface at http://localhost
+4
+Complete the setup wizard
+5
+Start deploying your applications
+Join the Community
+Let's propel Cosmos Cloud and the self-hosted community forward together. Get support, share experiences, and help shape the future.
+Discord
+Join our active community for real-time support and discussions
+5k+ members
+Join Discord
+GitHub
+Contribute to development, report issues, and view the source code
+5k+ stars
+Join GitHub
+Reddit
+Share setups, get help, and discuss self-hosting with the community
+Growing community
+Join Reddit
+We're More Than a Product
+Cosmos Cloud is powered by a passionate community of self-hosting enthusiasts, developers, and privacy advocates. Every feature, every improvement, every bug fix comes from our shared vision of digital independence.
+Cosmos Cloud
+Self-hosting made simple. Take back control of your data with security-first cloud infrastructure.
+Resources
+Documentation
+GitHub
+App Store
+Community
+Discord
+Reddit
+GitHub Issues
+© 2026 Beyond Cloud ltd. All rights reserved.
+Privacy PolicyTerms of ServiceLicense

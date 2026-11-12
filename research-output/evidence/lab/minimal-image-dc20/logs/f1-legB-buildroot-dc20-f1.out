@@ -1,0 +1,24 @@
+DC20-F1 BEGIN 6.12.112 PRETTY_NAME="Buildroot 2025.02.19"
+DC20-F1 uptime-at-start 8.57
+- CONFIG_BLK_DEV_THROTTLING: missing
+- CONFIG_CGROUP_PERF: missing
+- CONFIG_CGROUP_HUGETLB: missing
+- CONFIG_NET_CLS_CGROUP: missing
+- CONFIG_CGROUP_NET_PRIO: missing
+- CONFIG_RT_GROUP_SCHED: missing
+- CONFIG_IP_NF_TARGET_REDIRECT: missing
+      - CONFIG_CRYPTO_SEQIV: missing
+      - CONFIG_XFRM: missing
+      - CONFIG_XFRM_USER: missing
+      - CONFIG_XFRM_ALGO: missing
+      - CONFIG_INET_ESP: missing
+      - CONFIG_INET_XFRM_MODE_TRANSPORT: missing
+STATUS: pass
+DC20-F1 check-config done
+DC20-F1 NODE-READY after 40s (uptime 101.89)
+NAME         STATUS   ROLES           AGE   VERSION        INTERNAL-IP   EXTERNAL-IP   OS-IMAGE               KERNEL-VERSION     CONTAINER-RUNTIME
+onemind-br   Ready    control-plane   6s    v1.37.2+k3s1   <vm-private-ip>     <none>        Buildroot 2025.02.19   6.12.112 (amd64)   containerd://2.3.7-k3s1
+              total        used        free      shared  buff/cache   available
+Mem:           3933         381        3142           1         410        3500
+Swap:             0           0           0
+DC20-F1 END

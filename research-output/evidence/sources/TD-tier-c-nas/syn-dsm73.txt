@@ -1,0 +1,83 @@
+SOURCE: https://www.synology.com/en-us/DSM73
+ACCESSED: 2026-11-11 (text extracted from HTML; emails masked)
+
+
+ DiskStation Manager 7.3 | Synology Inc.
+ DiskStation Manager 7.3
+ Smarter. Faster. More secure. DSM 7.3 brings intelligence to every layer of your system, empowering your teams and making your data infrastructure more efficient than ever.
+ Efficient storage for active data
+ Smarter tiering
+ Free up performance storage by moving inactive data to cost-effective tiers. Get more value from every drive.
+ Learn more
+ Custom rules
+ Tier data based on age and access patterns. Move cold data when it makes the most sense for your organization.
+ One view for all storage
+ Manage plans, monitor capacity, and track system health from a single dashboard.
+ Streamlined collaboration and communication
+ File sharing made easier
+ Shared labels
+ Organize and share files with your teams.
+ File request
+ Collect files securely with a simple link.
+ File lock
+ Prevent sync errors during collaboration.
+ Stronger email securityComing soon
+ Moderation controls allow administrators to review and approve sensitive emails before sending or receiving.
+ Scale without limitsComing soon
+ Deploy and manage local mail servers independently while keeping a unified domain. Improve scalability, balance loads, and reduce latency.
+ AI-ready private cloud solutions
+ AI your way
+ Connect DSM with AI models of your choice. Choose cloud services or run local, on-device LLMs.
+ Smarter office productivity
+ Write, summarize, and get context-aware answers directly in Synology MailPlus and Office.
+ Use AI to write, summarize, and get context-aware answers in Synology MailPlus and Office.
+Generate
+Translate
+Summarize
+ Privacy by design
+ dsm73.privacy_descLearn more
+ More enhancements
+Convenient encryptionUnlock encrypted volumes with a vault password. This provides flexible and secure data access.Smarter domain controlSync only selected OUs to reduce load, minimize exposure, and enforce least-privilege policies.
+ Install on your NAS
+ Upgrade to DSM 7.3 and unlock the next generation of secure, intelligent, and efficient data management.
+ Download now
+ Notes:Support for OpenAI-compatible APIs, local, on-device LLMs (large language models) is available in Synology AI Console 1.2.0.Customized AI de-identification rules is available in Synology AI Console from version 1.2.0. 
+ NAS Selector
+ RAID Calculator
+ NVR Selector
+ Knowledge Center
+ Downloads
+ Newsletter
+ Company
+ About Synology
+ Blog
+ Newsroom
+ Media Coverage
+ Customer Stories
+ Office Locations
+ ESG
+ Sales
+ Where to Buy
+ Synology Store
+ Contact Us
+ Become a Partner
+ Schedule a demo
+ Compatibility
+ HDD/SSD
+ IP Cameras
+ Network Cards
+ I/O Modules, IP Speakers, Access Controllers
+ Other Devices
+ Resources
+ Products A-Z
+ Beta Program
+ Bounty Program
+ Community
+ Events
+ Subscribe to Newsletter
+ Copyright © 2026 Synology Inc. All rights reserved.
+ Terms & Conditions
+ | Privacy
+ | Cookie Preference
+ United States - English
+

@@ -1,0 +1,109 @@
+SOURCE: https://help.synology.com/developer-guide/privilege/preface.html
+ACCESSED: 2026-11-11 (text extracted from HTML; emails masked)
+
+
+ privilege · GitBook
+ Package Developer Guide
+ Release Notes
+ Breaking Changes
+ Getting Started
+ System Requirements
+ Prepare Envrionment
+ Your First Package
+ Synology Toolkit
+ Build Stage
+ Pack Stage
+ Sign Package (only for DSM6.X)
+ References
+ Synology Package
+ INFO
+ Necessary Fields
+ Optional Fields
+ package.tgz
+ UI files
+ scripts
+ Script Environment Variables
+ Script Messages
+ conf
+ privilege
+ resource
+ PKG_DEPS
+ PKG_CONX
+ wizard
+ WIZARD_UIFILES 7.2.2
+ LICENSE
+ Synology DSM Integration
+ FHS
+ Desktop Application
+ Application Config
+ Application Help
+ Application I18N
+ Application Authentication
+ Privilege
+ Privilege Config
+ Resource
+ Resource Config
+ Resource Timing
+ Resource Update
+ Resource List
+ /usr/local linker
+ Apache 2.2 Config
+ Data Share
+ Docker
+ Docker Project
+ Index DB
+ Maria DB
+ PHP INI
+ Port Config
+ Systemd User Unit
+ System Notification
+ Syslog Config
+ Web Service
+ Web Config
+ Port
+ Monitor
+ Package Examples
+ Open Source Tool: tmux
+ Open Source Tool: nmap
+ Docker package
+ Web Package: WordPress
+ Publish Synology Packages
+ Get Started with Publishing
+ Submitting the Package for Approval
+ Responding to User Issues
+ Appendix A: Platform and Arch Value Mapping Table
+ Appendix B: Compile Applications Manually
+ Download DSM Tool Chain
+ Compile
+ Compile Open Source Projects
+ Appendix C: Publication Review & Verification
+ Appendix D: UI Framework
+ Application
+ Button
+ Checkbox
+ Form
+ Input
+ Radio
+ Rich Text
+ Select
+ Published with GitBook
+ privilege
+Privilege
+DSM 7.0, packages are forced to lower the privilege by applying privilege mechanism explicitly.
+To reduce security risks, package should run as an user rather than root. Package can apply such mechanism by providing a configuration file named pivilege:
+With the configuration, package developer is capable to
+Control default user / group name of process in scripts
+Control permission of files in package.tgz
+Control file capabilities in package.tgz
+Control if special system resources are accessible
+To overcome the limitation that normal user cannot be used to do privileged operations, we provide a way for package to request system resources. Please refer to Resource for more information.
+Setup privilege configuration
+Just create a file at conf/privilege with prefered configuration.
+{
+ "defaults": {
+ "run-as": "package"
+ }
+}
+ results matching ""
+No results matching ""
+
