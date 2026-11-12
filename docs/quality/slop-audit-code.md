@@ -27,26 +27,26 @@ Everything here was re-run on the audited commit. Nothing was installed on the h
 
 ## Findings, most severe first
 
-| Id | Sev | Kind | One line |
-|---|---|---|---|
-| [CS-01](#cs-01) | high | unwired module | `internal/backup` (2,781 lines) is never started by `onemindd` or exposed by `onemind` |
-| [CS-02](#cs-02) | high | unwired module | `onemind storage` and `onemind mesh status` are unreachable; the comments say otherwise |
-| [CS-05](#cs-05) | high | placeholder presented as working | Health gate G6 checks a `socat` stand-in, not the agent, though `onemindd /healthz` already serves `boot_id` |
-| [CS-06](#cs-06) | high | tests never run | No CI workflow runs `mobile/` (37 tests, typecheck, lint) or the taxonomy `--check` |
-| [CS-03](#cs-03) | medium | unwired module, swallowed input | `onemindd mesh …` is not dispatched, and `onemindd` silently ignores unknown arguments and starts the agent |
-| [CS-04](#cs-04) | medium | unwired module | Gateway `ca.py`, `mesh.py`, `proxy.py` (1,308 lines) have no production importer |
-| [CS-07](#cs-07) | medium | check that cannot fail | CI's `verify.sh` turns a missing `/mcp` or §11.4 catalog fields into SKIP |
-| [CS-08](#cs-08) | medium | stub presented as working | The `noop` executor marks apps `installed`; no client can tell nothing ran |
-| [CS-09](#cs-09) | medium | inconsistent logic | The gateway ignores `metadata.tier: blocked`; `ui/` claims to mirror the gateway and blocks it |
-| [CS-10](#cs-10) | medium | duplicated logic | The §10.3 install rule exists in 5 copies; the site's copy accepts unreadable and future scan dates |
-| [CS-11](#cs-11) | medium | tests test the mock | Dashboard `MockApi` returns `requested_by.role`, which the gateway never sends; every UI test runs on the mock |
-| [CS-15](#cs-15) | medium | swallowed error | Async `POST /api/v1/backup/run` with an unknown target returns 202, then the run disappears |
-| [CS-12](#cs-12) | low | naming | Gateway and clients say `decided_by`; contract §12 settled `approved_by`; the audit already uses `approved_by` |
-| [CS-13](#cs-13) | low | naming | 20 CLI hints in `ui/src/settings` name verbs that are not in the CLI tree |
-| [CS-14](#cs-14) | low | swallowed error | `app-gate` ignores SBOM generation failures |
-| [CS-16](#cs-16) | low | swallowed error | Directory restore drops the rollback-rename error and does not say where the original went |
-| [CS-17](#cs-17) | low | fixed sleep in tests | Leaf and agent tests prove "nothing happened" by sleeping a fixed time |
-| [CS-18](#cs-18) | low | dead config | pytest marker `postgres` is unused and names an env var nothing reads |
+| Id | Sev | Kind | One line | Resolution (2026-11-12, re-verified on main) |
+|---|---|---|---|---|
+| [CS-01](#cs-01) | high | unwired module | `internal/backup` (2,781 lines) is never started by `onemindd` or exposed by `onemind` | fixed (638b753): `backup.Service()` runs the loop and mounts `/api/v1/backup/`; `cmd/wiring_test.go` guards new packages. Deferred: heartbeat field, updater call and the `os/` restic pin (README steps 2 to 8; the `os/` part is deferred to B2) |
+| [CS-02](#cs-02) | high | unwired module | `onemind storage` and `onemind mesh status` are unreachable; the comments say otherwise | fixed (638b753): `storage` and `mesh` are groups in `cmd/onemind/cli/`; `jsonout.go` deleted |
+| [CS-05](#cs-05) | high | placeholder presented as working | Health gate G6 checks a `socat` stand-in, not the agent, though `onemindd /healthz` already serves `boot_id` | deferred to B2 (`os/gate` belongs to the image line, `feat/image-line`); still valid on main (`onemind-k3s-check` greps the socat stand-in) |
+| [CS-06](#cs-06) | high | tests never run | No CI workflow runs `mobile/` (37 tests, typecheck, lint) or the taxonomy `--check` | already fixed on main for `mobile/` (`.github/workflows/ci-mobile.yml`); taxonomy `--check` added to `ci.yml` (103e48e) |
+| [CS-03](#cs-03) | medium | unwired module, swallowed input | `onemindd mesh …` is not dispatched, and `onemindd` silently ignores unknown arguments and starts the agent | fixed (638b753): `onemindd mesh` dispatched; stray arguments exit 2. Still deferred: `leaf.Supervisor.Run` and `mesh.Reporter` have no caller (CORE-NET-12) |
+| [CS-04](#cs-04) | medium | unwired module | Gateway `ca.py`, `mesh.py`, `proxy.py` (1,308 lines) have no production importer | partly fixed (103e48e): docstrings say "not mounted yet" and `core/tests/test_wiring.py` fails on new orphan modules. Mounting stays deferred (CORE-NET-8) |
+| [CS-07](#cs-07) | medium | check that cannot fail | CI's `verify.sh` turns a missing `/mcp` or §11.4 catalog fields into SKIP | fixed (103e48e): the two skips are now failures; `--strict` not needed |
+| [CS-08](#cs-08) | medium | stub presented as working | The `noop` executor marks apps `installed`; no client can tell nothing ran | deferred: needs an additive `/v1/instance` field, regenerated OpenAPI and SDKs, and a dashboard/mobile badge (dashboard is Agent A's `feat/dashboard-v2`) |
+| [CS-09](#cs-09) | medium | inconsistent logic | The gateway ignores `metadata.tier: blocked`; `ui/` claims to mirror the gateway and blocks it | fixed (103e48e) in the gateway and the site copy; the dashboard and mobile copies are deferred with CS-10 |
+| [CS-10](#cs-10) | medium | duplicated logic | The §10.3 install rule exists in 5 copies; the site's copy accepts unreadable and future scan dates | partly fixed (103e48e): the site copy now refuses unreadable, future and blocked records. Shared module and golden vectors deferred (they touch `dashboard/` and `mobile/`) |
+| [CS-11](#cs-11) | medium | tests test the mock | Dashboard `MockApi` returns `requested_by.role`, which the gateway never sends; every UI test runs on the mock | deferred: `dashboard/` is Agent A's area (`feat/dashboard-v2`); the replay-test idea stands |
+| [CS-15](#cs-15) | medium | swallowed error | Async `POST /api/v1/backup/run` with an unknown target returns 202, then the run disappears | fixed (638b753): unknown target is a 400 before the 202 (test added). `runLocked` still records no failed run for other early returns (low) |
+| [CS-12](#cs-12) | low | naming | Gateway and clients say `decided_by`; contract §12 settled `approved_by`; the audit already uses `approved_by` | deferred: additive `approved_by` changes `/openapi.json` and all generated SDKs and three clients; see D3 |
+| [CS-13](#cs-13) | low | naming | 20 CLI hints in `ui/src/settings` name verbs that are not in the CLI tree | deferred: 20 hints in `ui/` need CLI.md verb decisions first |
+| [CS-14](#cs-14) | low | swallowed error | `app-gate` ignores SBOM generation failures | fixed (103e48e): `app-gate` fails the vulnerabilities check when the SBOM is not written |
+| [CS-16](#cs-16) | low | swallowed error | Directory restore drops the rollback-rename error and does not say where the original went | fixed (638b753): the error names where the original is kept. The read-only-parent test is deferred |
+| [CS-17](#cs-17) | low | fixed sleep in tests | Leaf and agent tests prove "nothing happened" by sleeping a fixed time | deferred (low): needs a capturing logger on the test hub and a connect-attempt counter |
+| [CS-18](#cs-18) | low | dead config | pytest marker `postgres` is unused and names an env var nothing reads | fixed (103e48e): marker now names `ONEMIND_TEST_DB_URL` (still unused by tests; deleting it is a follow-up) |
 
 The table is grouped by severity; ids follow discovery order.
 

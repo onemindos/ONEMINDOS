@@ -51,7 +51,7 @@
 | OS-UPDATER | onemindd OS updater: TUF-verified, policy and window, restic pre-sn… | done | `feat/onemindd-updater` | [#15](https://github.com/onemindos/ONEMINDOS/pull/15) |
 | OS-SECPIPE | OS security pipeline: nightly Debian check, rebuild, SBOM/CVE+VEX/C… | done | `feat/os-security-pipeline` | [#14](https://github.com/onemindos/ONEMINDOS/pull/14) |
 | CORE-UPDATE-1 | Land both update branches with CI green | done | (both update branches) | #15 and [#14](https://github.com/onemindos/ONEMINDOS/pull/14) merged |
-| QUALITY-SLOP-FIX | Re-verify the slop audit (code, docs, drift) against current `main` and fix what is still valid | in-progress (agent B) | `docs/slop-audit` | – |
+| QUALITY-SLOP-FIX | Re-verify the slop audit (code, docs, drift) against current `main` and fix what is still valid | review | `docs/slop-audit` | PR pending |
 | W2-GW | Gateway wave 2: scan gate, app agent principals, `/mcp` with 3 tool… | done | `feat/gateway-agent-mcp` | [#24](https://github.com/onemindos/ONEMINDOS/pull/24) |
 | W2-PIPE | App pipeline: scaffolder, app-gate (§9.4), `scan.json` (§11.1), k3d… | done | `feat/app-pipeline` | [#25](https://github.com/onemindos/ONEMINDOS/pull/25) |
 | W2-DEPLOY | Developer install: `install.sh --role hub` or `node`, compose dev hub… | done | `feat/deploy-v0` | [#26](https://github.com/onemindos/ONEMINDOS/pull/26) |

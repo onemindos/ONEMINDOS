@@ -17,21 +17,21 @@
 
 ## Summary
 
-| ID | Sev | Area | Finding |
-|---|---|---|---|
-| [D1](#d1) | High | gateway executor, clients | `app.remove` deletes the app's data; §12.5 says plain `app.remove` keeps it |
-| [D2](#d2) | High | gateway events | `publish_event` emits an envelope that is not `onemind.event/v1` (§12.8) |
-| [D3](#d3) | Medium | action object | Gateway and clients use `decided_by`; the binding decider field is `approved_by` |
-| [D4](#d4) | Medium | principals | Static-token principals are `owner`, `hermes`, not `person:owner`, `agent:hermes` (§12.1, §7) |
-| [D5](#d5) | Medium | CLI | `onemind mesh`, `onemind storage`, `onemindd mesh` are merged and tested but unreachable |
-| [D6](#d6) | Medium | contract | §12.11 adds `role` to `/v1/nodes`, which already has §2 `role` with other values |
-| [D7](#d7) | Medium | catalog | `icon` is a relative file name that nothing serves; no client can show an app icon |
-| [D8](#d8) | Medium | catalog | App `status` has no enum in the contract; gateway and `@onemind/ui` use different vocabularies |
-| [D9](#d9) | Medium | `@onemind/ui`, specs | UI library and two feature specs use names that §12.21 rejected |
-| [D10](#d10) | Medium | actions, MCP | An agent's `reason` is dropped from the action; REST rejects `reason` with 422 |
-| [D11](#d11) | Low | heartbeat producers | `backup.last_result` can be `refused`; leaf health `no_server`; `target_id` vs `destination_id` |
-| [D12](#d12) | Low | errors | Closed error-code enums in OpenAPI and both clients; unknown codes lose their message |
-| [D13](#d13) | Low | CLI.md | "What exists today" and the code-layout table point at moved files and "in flight" work that is merged |
+| ID | Sev | Area | Finding | Resolution (2026-11-12, re-verified on main) |
+|---|---|---|---|---|
+| [D1](#d1) | High | gateway executor, clients | `app.remove` deletes the app's data; §12.5 says plain `app.remove` keeps it | fixed (103e48e): `app.remove` deletes workloads and keeps the namespace and PVCs; test added. `delete_data` path still to be built (CORE-BACKUP-1). UI text "data is kept" is now true |
+| [D2](#d2) | High | gateway events | `publish_event` emits an envelope that is not `onemind.event/v1` (§12.8) | fixed (103e48e): `onemind.event/v1`, `ts`, `subject`, severities limited (draft names mapped). Audit-`seq` ids not done (deferred) |
+| [D3](#d3) | Medium | action object | Gateway and clients use `decided_by`; the binding decider field is `approved_by` | deferred: additive field changes `/openapi.json` and the generated SDKs and three clients; do with CS-12 in one API PR |
+| [D4](#d4) | Medium | principals | Static-token principals are `owner`, `hermes`, not `person:owner`, `agent:hermes` (§12.1, §7) | deferred: needs a token-file migration and a decision on accepting bare ids; contract line 122 fixed (1775e22) |
+| [D5](#d5) | Medium | CLI | `onemind mesh`, `onemind storage`, `onemindd mesh` are merged and tested but unreachable | fixed (638b753) for `onemind mesh/storage` and `onemindd mesh`; CLI.md verb tree deferred |
+| [D6](#d6) | Medium | contract | §12.11 adds `role` to `/v1/nodes`, which already has §2 `role` with other values | deferred: contract text change (binding), flagged for Zeus |
+| [D7](#d7) | Medium | catalog | `icon` is a relative file name that nothing serves; no client can show an app icon | deferred: needs a contract route and clients |
+| [D8](#d8) | Medium | catalog | App `status` has no enum in the contract; gateway and `@onemind/ui` use different vocabularies | deferred: contract text change (binding), flagged for Zeus |
+| [D9](#d9) | Medium | `@onemind/ui`, specs | UI library and two feature specs use names that §12.21 rejected | deferred: `ui/` rename pass (large; UI line) |
+| [D10](#d10) | Medium | actions, MCP | An agent's `reason` is dropped from the action; REST rejects `reason` with 422 | deferred: needs a schema step, OpenAPI and client changes |
+| [D11](#d11) | Low | heartbeat producers | `backup.last_result` can be `refused`; leaf health `no_server`; `target_id` vs `destination_id` | partly fixed (638b753): `refused` maps to `failed`. `no_server`, `destination_id` and the comment numbers deferred (nothing on the wire yet) |
+| [D12](#d12) | Low | errors | Closed error-code enums in OpenAPI and both clients; unknown codes lose their message | deferred: OpenAPI enum and two clients |
+| [D13](#d13) | Low | CLI.md | "What exists today" and the code-layout table point at moved files and "in flight" work that is merged | already fixed or moot: CLI.md moved with the CLI work on main (not re-verified line by line) |
 
 ---
 

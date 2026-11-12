@@ -14,7 +14,7 @@ The design of the OneMind dashboard and phone app, and the plan for app-supplied
 | [screens/](screens/) | Screenshots of the demo (`ui/demo`): desktop light, desktop dark, phone |
 
 **Code:** [`ui/`](../../ui/) (React + TypeScript library, tokens as CSS variables, demo of every screen).
-**Serves:** backlog items 7, 17 and 24 of `docs/strategy/core-alignment.md` (branch `docs/core-architecture`, not yet on `main`) (UX-P1, MOB-P1, PLG-P1/P2/B1); REC-W11-01, -05, -19, -20.
+**Serves:** backlog items 7, 17 and 24 of `docs/strategy/core-alignment.md` (merged in #17) (UX-P1, MOB-P1, PLG-P1/P2/B1); REC-W11-01, -05, -19, -20.
 **Next (phase B):** migrate `dashboard/` onto `ui/` once the wave-2 dashboard changes land; it is not touched here.
 
 ## Screens

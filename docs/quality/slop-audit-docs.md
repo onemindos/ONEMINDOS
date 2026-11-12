@@ -13,32 +13,32 @@ Each claim was read against the code on `main`, not against other docs. Tools: `
 
 ## Summary
 
-| Id | Sev | Where (first line) | Finding |
-|---|---|---|---|
-| DS-01 | High | `site/src/content/docs/docs/index.md:26` | "Works today" apps and the Hermes demo are blocked by the scan gate |
-| DS-02 | High | `site/src/content/docs/docs/index.md:9` | "Every change waits for a human yes": OS security updates install without approval |
-| DS-03 | High | `CHANGELOG.md:10` | 13 merged PRs missing; 7 merged branches listed as "not on `main`" |
-| DS-04 | High | `docs/leap/STATUS.md:9` | Status tracker stale and contradicts its own rows |
-| DS-05 | High | `site/src/pages/index.astro:18` | Website status tables stale ("in review" for merged code, "planned" for code on `main`) |
-| DS-06 | Medium | `docs/leap/WORKSTREAMS.md:15` | Stream states and hotspot rules out of date; contradict PLUMBING.md |
-| DS-07 | Medium | `docs/leap/dev/API.md:861` | Three different route-registration seams named across specs |
-| DS-08 | Medium | `internal/storage/README.md:68` | Merged features are not wired, and their wiring recipes target code that no longer exists |
-| DS-09 | Medium | `CHANGELOG.md:60` | "Takes a restic snapshot before every OS update": no shipped config has restic |
-| DS-10 | Medium | `docs/leap/core/PLUMBING.md:122` | Event envelope documented (and built) to the superseded draft, not binding §12.8 |
-| DS-11 | Medium | `docs/architecture/NETWORKING.md:508` | Contract §12.16 is claimed by networking but is Audit; docs cite superseded draft sections |
-| DS-12 | Medium | `site/src/content/docs/docs/concepts/security.md:17` | "CI fails if a file uses a pin not listed": no such check exists |
-| DS-13 | Medium | `site/src/pages/index.astro:211` | Present tense for features that are not shipped |
-| DS-14 | Medium | `docs/umbrel2/README.md:9` | Lead claims wins its own table marks "None"; "today" column names merged branches |
-| DS-15 | Medium | `docs/strategy/core-alignment.md:169` | "Today" blocks and cross-references say merged work is unmerged or empty |
-| DS-16 | Medium | `README.md:7` | Root README: "no product code", wrong decision range, ADR-001 contradicts D-007 |
-| DS-17 | Medium | `docs/security/HARDENING-BACKLOG.md:42` | Fixed H-25 still listed as an open P0; no status column |
-| DS-18 | Low | `sdk/contracts/poc-v0.md:122` | Contract demo names `agent:hermes`; code uses `agent:hermes-agent` |
-| DS-19 | Low | `site/src/content/docs/docs/getting-started/install.md:60` | Docs put the owner token on the command line, which `verify.sh` warns against |
-| DS-20 | Low | `docs/leap/core/README.md:62` | Two broken internal links |
-| DS-21 | Low | `CLAUDE.md:1` | `CLAUDE.md` and `AGENTS.md` are identical copies |
-| DS-22 | Low | `apps/README.md:6` | App index lists 3 of 9 apps |
-| DS-23 | Low | `docs/leap/DECISIONS-NEEDED.md:26` | F-10 (Hermes licence) still open after the app shipped with a confirmed licence |
-| DS-24 | Low | `docs/leap/STATUS.md:183` | Dashboard screen count differs between docs (4, 5) and code (6 pages) |
+| Id | Sev | Where (first line) | Finding | Resolution (2026-11-12, re-verified on main) |
+|---|---|---|---|---|
+| DS-01 | High | `site/src/content/docs/docs/index.md:26` | "Works today" apps and the Hermes demo are blocked by the scan gate | partly already fixed on main (site rows say installs only while the scan passes). `apps/README.md` now shows each scan result (ccca4b3). Deferred: the Hermes demo wording in `approvals-and-agents.md` and contract section 7 (needs the Hermes digest bump or Zeus's wording) |
+| DS-02 | High | `site/src/content/docs/docs/index.md:9` | "Every change waits for a human yes": OS security updates install without approval | fixed (ccca4b3) in `index.md` and `index.astro` |
+| DS-03 | High | `CHANGELOG.md:10` | 13 merged PRs missing; 7 merged branches listed as "not on `main`" | deferred: `docs/changelog-since-23` (Agent A) owns the CHANGELOG backfill; verified still valid (no entries for #23 to #64) |
+| DS-04 | High | `docs/leap/STATUS.md:9` | Status tracker stale and contradicts its own rows | fixed (3e249f0): rows for #24 to #26, #28, #29, #31, #32, #37 set to done; summary counted from rows. The "Already merged" table is not regenerated (use CHANGELOG) |
+| DS-05 | High | `site/src/pages/index.astro:18` | Website status tables stale ("in review" for merged code, "planned" for code on `main`) | mostly already fixed on main (landing-page rows are current). Remaining "in review" phrases are on pages whose features are still unmerged, so left as is |
+| DS-06 | Medium | `docs/leap/WORKSTREAMS.md:15` | Stream states and hotspot rules out of date; contradict PLUMBING.md | fixed (1775e22): hotspot rows point at `ROUTERS`, `registry.go` and `groups`. Section 1 "Active streams" and section 5 merge order are not rewritten (deferred) |
+| DS-07 | Medium | `docs/leap/dev/API.md:861` | Three different route-registration seams named across specs | fixed (1775e22): `routes.py` mentions replaced by `ROUTERS` in API.md, BACKLOG.md, core/README.md, WORKSTREAMS.md |
+| DS-08 | Medium | `internal/storage/README.md:68` | Merged features are not wired, and their wiring recipes target code that no longer exists | fixed (1775e22): storage, backup, mesh and NETWORKING.md recipes now describe the wired state (wiring itself: 638b753) |
+| DS-09 | Medium | `CHANGELOG.md:60` | "Takes a restic snapshot before every OS update": no shipped config has restic | fixed (1775e22) in `docs/leap/core/BACKUPS.md`. Not changed: the CHANGELOG and site sentences (CHANGELOG is Agent A's; the site says "takes a backup snapshot first", which holds when restic is configured) |
+| DS-10 | Medium | `docs/leap/core/PLUMBING.md:122` | Event envelope documented (and built) to the superseded draft, not binding §12.8 | fixed: code now emits the contract 12.8 envelope (103e48e); PLUMBING.md section 5 updated (1775e22) |
+| DS-11 | Medium | `docs/architecture/NETWORKING.md:508` | Contract §12.16 is claimed by networking but is Audit; docs cite superseded draft sections | fixed (1775e22): networking renumbered to 12.22; `leap/README.md` no longer says the draft is unmerged. Not done: draft citations in `internal/backup/README.md` comments and `docs/umbrel2/*` (deferred) |
+| DS-12 | Medium | `site/src/content/docs/docs/concepts/security.md:17` | "CI fails if a file uses a pin not listed": no such check exists | fixed (ccca4b3): sentence narrowed to what `deploy/check-pins.py` checks |
+| DS-13 | Medium | `site/src/pages/index.astro:211` | Present tense for features that are not shipped | deferred: needs a status tag per card (site copy decision) |
+| DS-14 | Medium | `docs/umbrel2/README.md:9` | Lead claims wins its own table marks "None"; "today" column names merged branches | deferred: rewrite of the umbrel2 summary is prose judgement, not a proven factual fix |
+| DS-15 | Medium | `docs/strategy/core-alignment.md:169` | "Today" blocks and cross-references say merged work is unmerged or empty | partly fixed (1775e22): the "not yet on main" parentheticals in `docs/design/*` and `ui/README.md`. The "Today" blocks in `core-alignment.md` are deferred |
+| DS-16 | Medium | `README.md:7` | Root README: "no product code", wrong decision range, ADR-001 contradicts D-007 | fixed (ccca4b3): README says code lives here, D-001 to D-007, 335 questions. **Flag for Zeus:** ADR-001 (PROPOSED) names Rugix while D-007 and `os/` use RAUC; README now says D-007 wins, ADR-001 not edited |
+| DS-17 | Medium | `docs/security/HARDENING-BACKLOG.md:42` | Fixed H-25 still listed as an open P0; no status column | fixed (1775e22): H-25 marked done with evidence. Other P0 rows not re-checked (deferred) |
+| DS-18 | Low | `sdk/contracts/poc-v0.md:122` | Contract demo names `agent:hermes`; code uses `agent:hermes-agent` | fixed (1775e22): contract line 122 says `agent:hermes-agent` |
+| DS-19 | Low | `site/src/content/docs/docs/getting-started/install.md:60` | Docs put the owner token on the command line, which `verify.sh` warns against | already fixed on main (install and first-steps pages no longer pass `--token` on the command line) |
+| DS-20 | Low | `docs/leap/core/README.md:62` | Two broken internal links | fixed (1775e22): anchor corrected; `lab-kits/LT-PI5-01/CRITERIA-22.md` link points at `research-output/evidence/...` |
+| DS-21 | Low | `CLAUDE.md:1` | `CLAUDE.md` and `AGENTS.md` are identical copies | not changed: `CLAUDE.md` is the founder's instruction file; both copies are still identical |
+| DS-22 | Low | `apps/README.md:6` | App index lists 3 of 9 apps | fixed (ccca4b3): all 9 apps listed with scan result |
+| DS-23 | Low | `docs/leap/DECISIONS-NEEDED.md:26` | F-10 (Hermes licence) still open after the app shipped with a confirmed licence | deferred: closing F-10 is a founder decision entry (Zeus) |
+| DS-24 | Low | `docs/leap/STATUS.md:183` | Dashboard screen count differs between docs (4, 5) and code (6 pages) | deferred (low) |
 
 ---
 
