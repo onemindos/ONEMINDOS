@@ -254,7 +254,11 @@ k3s_server() {
 }
 
 k3s_agent() {
-  local host; host=$(hub_host "$HUB")
+  local host env=/etc/systemd/system/k3s-agent.service.env; host=$(hub_host "$HUB")
+  # Re-join when the hub URL or token changed: "active" alone only means it is retrying.
+  if ! grep -qx "K3S_URL='https://$host:6443'" "$env" 2>/dev/null || ! grep -qx "K3S_TOKEN='$TOKEN'" "$env" 2>/dev/null; then
+    K3S_CHANGED=1
+  fi
   if [ "${K3S_CHANGED:-0}" = 1 ] || ! systemctl is-active --quiet k3s-agent; then
     log "k3s $K3S_VERSION agent: joining https://$host:6443"
     K3S_URL="https://$host:6443" K3S_TOKEN="$TOKEN" \
