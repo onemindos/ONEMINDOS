@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind mesh coordinator on the hub: Headscale v0.29.7 (BSD-3) with its embedded DERP relay and
+# STUN (docs/architecture/NETWORKING.md §4). Installed by deploy/install.sh --role hub; its config
+# is generated there. Until onemind-edge (CORE-NET-5) fronts it on :443, Headscale terminates TLS
+# itself on :8444 with a box-CA certificate the gateway issues (handed over with LoadCredential, so
+# the dynamic user never reads the gateway's tls directory).
+[Unit]
+Description=OneMind mesh coordinator (Headscale, embedded DERP)
+Documentation=https://github.com/juanfont/headscale
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/headscale serve -c /etc/onemind/headscale/config.yaml
+Restart=always
+RestartSec=3s
+DynamicUser=yes
+StateDirectory=onemind-headscale
+RuntimeDirectory=onemind-headscale
+RuntimeDirectoryMode=0750
+LoadCredential=tls.crt:/var/lib/onemind/tls/control.crt
+LoadCredential=tls.key:/var/lib/onemind/tls/control.key
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
