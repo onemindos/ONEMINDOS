@@ -1,0 +1,11 @@
+[05:28:05] INFO: attempting to read in config file
+[05:28:05] INFO: Database initialized successfully
+  type: sqlite
+[05:28:05] INFO: Listening
+  local: 127.0.0.1:8043
+[05:30:15] INFO: successfully registered 'RVTO2Addr' to rendezvous server
+  url: http://localhost:8041
+  duration: 5m0s
+[05:30:35] INFO: successfully registered 'RVTO2Addr' to rendezvous server
+  url: http://localhost:8041
+  duration: 5m0s
