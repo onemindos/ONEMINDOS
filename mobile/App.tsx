@@ -24,6 +24,9 @@ import { ApprovalsScreen } from './src/screens/ApprovalsScreen';
 import { ConnectScreen } from './src/screens/ConnectScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { NodesScreen } from './src/screens/NodesScreen';
+import { photoTour, PhotoBackupProvider } from './src/photos/controller';
+import { PhotoAlbumsScreen } from './src/photos/PhotoAlbumsScreen';
+import { PhotoBackupScreen } from './src/photos/PhotoBackupScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { SessionProvider, useSession } from './src/session';
 import { TOUR, TOUR_ROLE, TOUR_STEP_MS } from './src/tour';
@@ -40,6 +43,8 @@ const linking: LinkingOptions<RootParams> = {
       Tabs: { screens: { Home: 'home', Nodes: 'nodes', Apps: 'apps', Approvals: 'approvals', Activity: 'activity' } },
       AppDetail: 'apps/:id',
       Settings: 'settings',
+      PhotoBackup: 'photos',
+      PhotoAlbums: 'photos/albums',
     },
   },
 };
@@ -95,6 +100,12 @@ function SignedIn() {
       if (!step || !navRef.isReady()) return clearInterval(id);
       if ('tab' in step) navRef.navigate('Tabs', { screen: step.tab });
       else if ('app' in step) navRef.navigate('AppDetail', { id: step.app });
+      else if ('photos' in step) {
+        if (step.photos === 'albums') navRef.navigate('PhotoAlbums');
+        else navRef.navigate('PhotoBackup');
+        if (step.photos === 'enable') void photoTour.enable?.();
+        if (step.photos === 'cellular' || step.photos === 'wifi') photoTour.network?.(step.photos);
+      }
       else navRef.navigate('Settings');
     }, TOUR_STEP_MS);
     return () => clearInterval(id);
@@ -109,13 +120,17 @@ function SignedIn() {
 
   return (
     <HubDataProvider onAlerts={onAlerts}>
+      <PhotoBackupProvider>
       <NavigationContainer ref={navRef} linking={linking} theme={scheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack.Navigator screenOptions={{ headerBackTitle: "Back" }}>
           <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
           <Stack.Screen name="AppDetail" component={AppDetailScreen} options={{ title: 'App' }} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="PhotoBackup" component={PhotoBackupScreen} options={{ title: 'Photo backup' }} />
+          <Stack.Screen name="PhotoAlbums" component={PhotoAlbumsScreen} options={{ title: 'Albums to back up' }} />
         </Stack.Navigator>
       </NavigationContainer>
+      </PhotoBackupProvider>
     </HubDataProvider>
   );
 }

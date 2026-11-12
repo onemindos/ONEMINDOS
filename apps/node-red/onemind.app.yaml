@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/node-red/node-red (contract §9.2).
+# Values come from the GitHub API, the registry (crane) and the upstream image docs
+# (github.com/node-red/node-red-docker README: image nodered/node-red, port 1880, volume /data).
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: node-red
+  name: "Node-RED"
+  version: "5.0.9"
+  description: "Low-code programming for event-driven applications"
+  category: automation
+  icon: icon.svg
+  license: "Apache-2.0"
+  source: https://github.com/node-red/node-red
+  links:
+    docs: "https://nodered.org/docs/"
+    github: "https://github.com/node-red/node-red"
+    website: "https://nodered.org"   # GitHub homepage is http://nodered.org; the site serves HTTPS
+    support: "https://github.com/node-red/node-red/issues"
+  upstream: {release: "5.0.9", released_at: "2026-10-21T10:29:19Z", archived: false}
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 512}   # the container's memory limit; upstream gives no sizing
+  web: {port: 1880}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}

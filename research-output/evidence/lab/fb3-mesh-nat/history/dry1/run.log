@@ -1,0 +1,50 @@
+2026-11-12T07:55:50Z == run dry1 start
+Linux 6.12.115+deb13.1-cloud-arm64 aarch64
+4
+               total        used        free      shared  buff/cache   available
+Mem:            3923         609         778           0        2718        3313
+2026-11-12T07:55:51Z net-up done
+2026-11-12T07:55:51Z home-a -> hub public OK (outbound through NAT)
+2026-11-12T07:55:51Z home-b -> hub public OK
+2026-11-12T07:55:51Z cloud cannot route to home LANs (expected)
+2026-11-12T02:55:52-05:00 INF no private key file at path, creating... path=/opt/fb3/run/hs/noise_private.key
+2026-11-12T02:55:52-05:00 INF Opening database database=sqlite3 path=/opt/fb3/run/hs/db.sqlite
+2026-11-12T07:55:53Z headscale health: {"status":"pass"}
+Policy is valid
+Warning: netfilter=off; configure iptables yourself.
+2026-11-12T07:55:59Z hub enrolled: 100.64.0.1
+Warning: netfilter=off; configure iptables yourself.
+2026-11-12T07:56:05Z home-a enrolled: 100.64.0.2
+Warning: netfilter=off; configure iptables yourself.
+2026-11-12T07:56:08Z home-b enrolled: 100.64.0.3
+2026-11-12T07:56:10Z T1a reuse: refused: backend error: authkey already used 
+2026-11-12T07:56:10Z nodes: [{"name":"hub","online":true,"tags":["tag:hub"]},{"name":"home-a","online":true,"tags":["tag:leaf"]},{"name":"home-b","online":true,"tags":["tag:leaf"]}]
+2026-11-12T07:56:10Z preauthkeys: [{"used":true,"reusable":null,"tags":["tag:hub"]},{"used":true,"reusable":null,"tags":["tag:leaf"]},{"used":true,"reusable":null,"tags":["tag:leaf"]}]
+2026-11-12T07:56:11Z mesh-up done
+2026-11-12T07:56:16Z hub leaf listener: LISTEN 0 4096 100.64.0.1:7422 0.0.0.0:* 
+2026-11-12T07:56:16Z home-a ONEMIND_NODE_OUTBOX created
+2026-11-12T07:56:16Z home-b ONEMIND_NODE_OUTBOX created
+2026-11-12T07:56:16Z hub NODE_EVENTS created
+2026-11-12T07:56:16Z leafz: [{"name":"leaf-home-b","account":"$G","ip":"<mesh>","port":42886},{"name":"leaf-home-a","account":"$G","ip":"<mesh>","port":57914}]
+2026-11-12T07:56:16Z RESULT T0 PASS
+2026-11-12T07:56:16Z RESULT T1a PASS
+2026-11-12T07:56:17Z T1b A->B:9001 'allowed-9001-home-b' B->A:9001 'allowed-9001-home-a' A->hub:7422 'INFO tls_required=True | TLSv1.3 TLS_AES_128_GCM_SHA256 | cert subject nats-hub' B->hub:7422 'INFO tls_required=True | TLSv1.3 TLS_AES_128_GCM_SHA256 | cert subject nats-hub' direct_pongs=1 median_direct_ms=43
+2026-11-12T07:56:17Z RESULT T1b PASS
+2026-11-12T08:00:31Z T1c forwards=0 wan_accepts=0 p2p_udp_pkts_on_natA_wan=31 scans_clean=1 outside_originated_home_flows=A:0,B:0 home_flows=6 drop_counters=[packets 4114 packets 0 packets 4113 packets 0 ]
+2026-11-12T08:00:31Z RESULT T1c PASS
+2026-11-12T08:01:01Z T4 attempt 1: B:9001='allowed-9001-home-b' B:9002='Ncat: TIMEOUT.' hub:9002='Ncat: TIMEOUT.' attempt 2: B:9001='allowed-9001-home-b' B:9002='Ncat: TIMEOUT.' hub:9002='Ncat: TIMEOUT.' attempt 3: B:9001='allowed-9001-home-b' B:9002='Ncat: TIMEOUT.' hub:9002='Ncat: TIMEOUT.'  | B local 9002='denied-9002-home-b' hub local='denied-9002-hub'
+2026-11-12T08:01:01Z RESULT T4 PASS
+2026-11-12T08:01:35Z T2 derp_after_s=10 A->B:9001='allowed-9001-home-b' A->hub:7422='INFO tls_required=True | TLSv1.3 TLS_AES_128_GCM_SHA256 | cert subject nats-hub' via_derp_pongs=20/20 median_derp_ms=127 udp_out_on_wan=0 tcp443_out=59 blocked=packets 60
+2026-11-12T08:01:35Z T2 back to direct after 0s
+2026-11-12T08:01:35Z RESULT T2 PASS
+2026-11-12T08:02:41Z E1 hard-NAT-B path=derp A->B:9001='allowed-9001-home-b' last='direct connection not established'
+2026-11-12T08:02:41Z RESULT E1 OBSERVED
+2026-11-12T08:02:51Z E1 restored: pong from home-b (100.64.0.3) via 203.0.113.22:41641 in 42ms
+2026-11-12T08:03:11Z T3-neg listener_on_mesh_ip=1 other_listeners=0 public_ip_7422=closed notls_connected=1 ([INF]   Name:     neg-notls [INF] Using configuration file: /opt/fb3/run/nats-t/neg-notls.conf (sha256:5a7d5953ff8ec50a6cbef04fa67c3e2b2b7af0ccd2bc30a0fc20d2ffc593e83b) ) wrongpw_connected=8 ([ERR] 100.64.0.2:56898 - lid:15 - authentication error - User "leaf-home-a" [INF] 100.64.0.2:56898 - lid:15 - Leafnode connection closed: Authentication Failure )
+2026-11-12T08:03:14Z T3-pre acks a=100 b=100 hub NODE_EVENTS=200 after 2s
+PASS {"window_s": 30, "samples": 2, "tailscaled": {"pss_mib_mean": 31.5, "rss_mib_max": 48.2, "cpu_pct_one_vcpu": 0.067, "cpu_s": 0.02}, "nats_leaf": {"pss_mib_mean": 23.6, "rss_mib_max": 32.4, "cpu_pct_one_vcpu": 0.167, "cpu_s": 0.05}, "combined": {"pss_mib_max": 55.1, "pss_mib_mean": 55.1, "cpu_pct_one_vcpu": 0.233}, "budget": {"pss_mib": 128, "cpu_pct": 2}}
+PASS {"hub_messages": 1200, "seconds_to_sync_after_restore": 48, "per_node": {"home-a": {"received": 600, "unique": 600, "exactly_1_to_600_in_order": true, "local_acks_during_outage": 500, "unacked_during_outage": 0}, "home-b": {"received": 600, "unique": 600, "exactly_1_to_600_in_order": true, "local_acks_during_outage": 500, "unacked_during_outage": 0}}}
+2026-11-12T08:07:17Z E2 reload: [ERR] Failed to reload server configuration: /opt/fb3/run/nats/hub.conf:9:28: unknown field "permissions"  | hub got A-as-B=3/3 A-as-A=3/3 | violations: [ERR] Failed to reload server configuration: /opt/fb3/run/nats/hub.conf:9:28: unknown field "permissions" 
+2026-11-12T08:07:17Z RESULT E2 OBSERVED
+2026-11-12T08:07:17Z == run dry1 end
+FAIL {'T0': 'PASS', 'T1a': 'PASS', 'T1b': 'PASS', 'T1c': 'PASS', 'T2': 'PASS', 'T3': 'FAIL', 'T4': 'PASS', 'T5': 'PASS', 'E1': 'OBSERVED', 'E2': 'OBSERVED'}

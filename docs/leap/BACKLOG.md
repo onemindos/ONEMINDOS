@@ -108,6 +108,21 @@
 | CORE-FABRIC-3 | `node.remove` with drain | S | FABRIC-2 | `fabric.py` | Remove is `destructive`: owner tap and step-up |
 | CORE-FABRIC-4 | Capability labels, affinity from `requires`, Market verdict | M | W2-GW | `internal/detect/**`, `executors.py`, `Market.tsx` | An amd64-only app is never placed on an arm64 node |
 | CORE-FABRIC-5 | Leaf mode in onemindd (no k3s) | M | FABRIC-2 | `internal/leaf/**` | Hub offline 30 min → no loss of buffered leaf events |
+| CORE-NET-1 | Headscale adapter (`Coordinator` interface) and config/DERP-map renderer (Part 1; may start in S1) | M | – | `internal/mesh/coord/**` | Golden configs have `derp.urls: []`; adapter passes against a fake `headscale` |
+| CORE-NET-2 | Mesh policy generated from OneMind roles | S | – | `internal/mesh/policy/**` | Golden policies; leaf → hub 443/7422 only; devices → hub 443 only |
+| CORE-NET-3 | Node mesh enrollment and LAN-first coordinator resolver | M | NET-1 | `internal/mesh/{enroll,resolve}/**` | Auth key read from a file and deleted; resolver picks the LAN hub only with the pinned CA |
+| CORE-NET-4 | NATS hub users + leaf listener and node leaf config renderers | M | – | `internal/natsconf/**` | In-process nats-server: node A cannot publish as B; leaf without node cert refused |
+| CORE-NET-5 | `onemind-edge`: SNI/host routes, forward-auth, upgrades, optional ACME | M | – | `internal/edge/**`, `cmd/onemind-edge/` | No session → sign-in redirect; unknown SNI closed; spoofed principal header stripped |
+| CORE-NET-6 | LAN names: avahi hosts, conflict check, mesh extra records | S | – | `internal/lan/**` | Conflict on `onemind.local` falls back to `<box>.local` and raises `lan.name_conflict` |
+| CORE-NET-7 | Relay: SNI router, setup endpoint, WireGuard link renderer, pinned derper build | M | – | `internal/relay/**`, `cmd/onemind-relay/`, `third_party/derper/` | Only allowed SNI names forwarded; derper runs with fail-open off |
+| CORE-NET-8 | Gateway mesh routes, forward-auth endpoint, routes writer, `mesh.*` handlers (unregistered) | M | NET-2 | `core/onemind_core/{mesh,forward_auth}.py` | Unit tests; agent cannot request `mesh.device.add` |
+| CORE-NET-9 | Lima lab NT-1…NT-8, NT-17 (preregistered) | M | NET-1…7 | `research-output/evidence/lab/net-mesh/` | Results committed with masked addresses; VMs deleted |
+| CORE-NET-10 | Contract §12.16 networking PR | S | NET-9 | `sdk/contracts/poc-v0.md` | Merged; streams adopt |
+| CORE-NET-11 | Installer and image wiring: pins, packages, units, hub bootstrap order, k3s on mesh + `wireguard-native`, NATS leaf | M | NET-10, W2-DEPLOY, SEC-1 | `deploy/**`, `os/**` | NT-1, NT-3, NT-8 pass on fresh Debian 13 VMs |
+| CORE-NET-12 | Gateway + onemindd registration; join bundle `mesh`; remove/set_role hooks | M | NET-10, FABRIC-1, W2-GW | `app.py`, `actions.py`, `cmd/onemindd/main.go` | NT-3, NT-4, NT-16 pass |
+| CORE-NET-13 | Dashboard Network page, Add a device, relay pairing, app links | M | NET-12 | `dashboard/**` | No IP shown by default; app links open `https://<app>.onemind.local` |
+| CORE-NET-14 | Pi budget, pod throughput and phone/mDNS/CA matrix on hardware | S | NET-11, F-25 | lab evidence | NT-9…NT-14 recorded; budgets met or escalated |
+| CORE-NET-15 | Public app exposure through the relay | – | CORE-DOGFOOD-3 | – | parked |
 | DEV-CLI-8 | `fabric qr/join/leave/remove` and `node join` alias | M | FABRIC-1 | `cli/fabric.go` | A VM joins in under 2 min from `fabric qr`; QR has no network details beyond the hub name |
 | CORE-BACKUP-1 | `onemind-local` Retain StorageClass as default | S | W2-DEPLOY | image, `install.sh` | Deleting a PVC keeps its data |
 | CORE-BACKUP-2 | `internal/backup` agent: restic, schedule, three keys, emergency kit | L | BACKUP-1, SEC-5 | `internal/backup/**` | The printed owner key restores without the device key |
@@ -261,7 +276,7 @@ These study epics duplicated an existing epic and were folded into it; the targe
 
 | Id | Title | Size | Depends on | Owner paths | Acceptance |
 |---|---|---|---|---|---|
-| UMB-STOR-0 | Contract: storage reads, `storage.*` action types, heartbeat `storage`, `storage:*` scopes; decision record (btrfs, no ZFS in v1) | S | C12-A, F-32 | `sdk/contracts/poc-v0.md` (contract owner), `docs/DECISIONS.md` | Contract merged; OpenAPI lists the routes; heartbeat validates with and without `storage` |
+| UMB-STOR-0 | Contract: storage reads, `storage.*` action types, heartbeat `storage`, `storage:*` scopes; decision record (btrfs, no ZFS in v1) | S | C12-A, F-60 | `sdk/contracts/poc-v0.md` (contract owner), `docs/DECISIONS.md` | Contract merged; OpenAPI lists the routes; heartbeat validates with and without `storage` |
 | UMB-STOR-3 | onemindd storage inventory and health collector (lsblk, smartctl, nvme) | M | UMB-STOR-0 | `internal/storage/{inventory,health}/**`, one line in `cmd/onemindd/main.go`, `cmd/onemind/cli/storage.go` | Recorded NVMe, SATA and USB-SAT fixtures parse; system and foreign roles correct; QEMU heartbeat shows `storage.state=unprotected` |
 | UMB-FILES-0 | Contract 12-files: roots, file API, action types, MCP tools, manifest `spec.folders` | S | C12-A, F-39, F-40 | contract, `sdk/schema/onemind.app.schema.json` (contract owner) | Schema accepts `spec.folders`, rejects an unknown `access` |
 | UMB-ACCT-1 | Kanidm spike: host service, offline first boot, groups, OIDC client, reset link, expiry, TOTP replay, backup and restore | M | F-34 | `research-output/evidence/lab/acct-kanidm/**` | Owner passkey enrolled with the network unplugged; restored box accepts the same passkey; reused TOTP refused |

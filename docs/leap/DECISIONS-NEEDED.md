@@ -45,7 +45,8 @@ F-1 to F-7 keep the numbers used in [core/README.md](core/README.md). The rest g
 | F-29 | Launch rules: channels; no update claim before G1, no actuation claim before G4; demos on lab hardware with mock data only | Confirm | CORE-WEB-5 | S3 | plan §5.9–§5.10 |
 | F-30 | Defer revenue share, certification fee and the D-001 pro/open ADR | Defer past the leap | – | – | plan §5.11 |
 | F-31 | TAK licensing (GPL/AGPL servers only as separate apps; official TAK Server bring-your-own-licence?) and drones (no agent flight commands; MAVLink read-only) | Confirm when PLAN-E14/E15 leave parking | PLAN-E14, PLAN-E15 | S4+ | plan §5.7, §5.12 |
-| F-32 | Data volume format: btrfs inside LUKS2 (one disk `single`/`dup`, two `raid1`, three or more `raid1c3` metadata); no RAID5/6, mdadm or ZFS in v1 | Confirm; record in `docs/DECISIONS.md` with UMB-STOR-0. ZFS only later as an optional HDD "NAS tier" after a licence review (UMB-STOR-12) | UMB-STOR-0, CORE-SEC-5 | S1 | umbrel2 storage §4 |
+| F-32 | Mesh coordinator: Headscale (default) vs NetBird vs Nebula vs plain WireGuard | Headscale v0.29.7 (BSD-3) on the hub with the official Tailscale clients (BSD-3), embedded DERP, optional owner relay; Tailscale hosted only as an opt-in (Z-34 stays open) | CORE-NET-1, CORE-NET-11, CORE-NET-12 | S1 (before NET-11; flannel backend and node IPs are cluster-creation settings) | `docs/architecture/NETWORKING.md` §2.1, §19; research 09 P0-6; research 12 REC-W11-12 |
+| F-60 | Data volume format: btrfs inside LUKS2 (one disk `single`/`dup`, two `raid1`, three or more `raid1c3` metadata); no RAID5/6, mdadm or ZFS in v1 | Confirm; record in `docs/DECISIONS.md` with UMB-STOR-0. ZFS only later as an optional HDD "NAS tier" after a licence review (UMB-STOR-12) | UMB-STOR-0, CORE-SEC-5 | S1 | umbrel2 storage §4 |
 | F-33 | Passkey domain: a passkey works on one domain, and the LAN (`onemind.local`) and mesh names differ | One canonical sign-in host on LAN and mesh, if lab UMB-ACCT-13 passes; else per-domain passkeys. Must be settled before the first owner enrols | CORE-SEC-10, UMB-ACCT-13 | S1 | umbrel2 accounts ACCT-D1 |
 | F-34 | Where Kanidm (identity provider, MPL-2.0, shipped separately) runs | Host service on the hub, so sign-in works when k3s is down (not the chart named in research 30) | UMB-ACCT-1, CORE-SEC-10 | S1 | umbrel2 accounts ACCT-D2 |
 | F-35 | May an adult guardian approve their own child's `access.request`? (changes contract rule P1, "only an owner approves") | No in v1 (owner-only); revisit with a contract change | UMB-ACCT-7 | S2 | umbrel2 accounts ACCT-D3 |
@@ -74,7 +75,13 @@ F-1 to F-7 keep the numbers used in [core/README.md](core/README.md). The rest g
 | F-58 | Machines on a Pi 5: headless Linux on 16 GB only (never Windows); ship a 4 KiB-page kernel if the 16 KiB one fails | Yes on 16 GB if LT-MACH-3 passes; the kernel change only if that test needs it (image stream) | UMB-MACH-2 | S3 | umbrel2 machines F-MACH-3, F-MACH-4 |
 | F-59 | Desktop release signing: Apple Developer ID (shares the account in F-4) and a Windows code-signing account | Get both before the first public desktop build | UMB-CLIENT-12 | S3 | umbrel2 clients |
 
+### 1.1 Defaults applied in contract §12 (2026-11-12)
+
+Contract §12 was written against these proposed defaults; a different answer is a follow-up contract PR. **F-1** is applied as: per-box CA by default, and optional Let's Encrypt (DNS-01) when the owner brings a domain (§12.7); a Tailscale certificate may still serve the mesh name when remote access is on. Also applied as listed above: F-2, F-6, F-7, F-8, F-9, F-11, F-12, F-14, F-15, F-16, F-19, F-24.
+
 ## 2. For the contract owner: leap specs vs the contract §12 draft
+
+**Settled 2026-11-12** in contract §12 ([`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md) §12.21). Every row below took the proposal, except: `offline_not_supported` is not added (it is `503 unavailable` with reason `node_offline`); the join ticket role is `worker|leaf`; the heartbeat mesh object is top-level `mesh`. Specs that still use a losing name are renamed when next edited. The table is kept as the record.
 
 The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs/core-architecture`, not merged) and the leap specs were written in parallel. Settle each row in contract PR C12-A, then rename in one PR across whichever side loses.
 
@@ -122,6 +129,8 @@ The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs
 | umbrel2 study epics (2026-11-12) | The ten studies proposed epics that duplicated leap epics or each other (phone photo backup three times, desktop app twice, discovery twice, What's new three times, SMB server twice) and reused ids (STOR-1, STOR-2 in two studies) | One `UMB-<area>-n` id per study epic; duplicates merged into one owner, listed in BACKLOG "UMB merged into existing epics" |
 
 ## 4. Loose ends found, not fixed here
+
+- Core plumbing (`feat/core-plumbing`, [core/PLUMBING.md](core/PLUMBING.md)) changes three WORKSTREAMS §4 hotspot rules; update them when it merges: routes register in `ROUTERS` in `app.py` (not a `routes.py`); `ledger.py` gets no numbered migration files (each feature has its own `FeatureSchema` step chain in its module); the CLI registry is `groups` in `cmd/onemind/cli/root.go` with stdlib `flag`. F-8 (cobra) is allowed but not used yet, because the refactor had to keep the CLI output identical. DEV-CLI-1 can switch `root.go` to cobra without touching the group files. `onemindd` registrations go in `cmd/onemindd/registry.go`, not `main.go`.
 
 - `feat/app-hermes` and `feat/apps-wave2` have no work yet, so W2-HERMES and W2-SEEDS may slip into S1.
 - `feat/app-pipeline` has an uncommitted `renovate.json`; `feat/design-system`, `feat/mobile-shell` and the arch branch's `docs/architecture/` are untracked. Commit and push them so they are not lost.
