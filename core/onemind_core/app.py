@@ -54,6 +54,7 @@ def create_app(
     bus = NatsBus(settings.nats_url, registry)
     audit = AuditLog(settings.audit_path, clock, publish=bus.publish_threadsafe)
     catalog = Catalog(settings.apps_dir, settings.app_schema_path)
+    owns_repo = repo is None
     repo = repo or SqlActionRepository.from_url(settings.db_url)
     executor = executor or make_executor(settings.executor, settings.kubectl, settings.executor_timeout_s)
     actions = ActionService(repo, catalog, executor, audit, clock)
@@ -67,6 +68,8 @@ def create_app(
             yield
         finally:
             await bus.stop()
+            if owns_repo and hasattr(repo, "close"):
+                repo.close()
 
     app = FastAPI(
         title="OneMind OS Core gateway",

@@ -181,6 +181,10 @@ class SqlActionRepository:
     def from_url(cls, db_url: str) -> "SqlActionRepository":
         return cls(make_engine(db_url))
 
+    def close(self) -> None:
+        """Close every pooled database connection (on shutdown)."""
+        self.engine.dispose()
+
     def create(self, action: Action) -> tuple[Action, bool]:
         """Insert; if the idempotency key exists already, return that action and False."""
         row = ActionRow(**{k: getattr(action, k) for k in ActionRow.__table__.columns.keys()})

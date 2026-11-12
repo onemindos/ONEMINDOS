@@ -52,6 +52,25 @@ class ScriptedExecutor(Executor):
         return ExecResult(self.outcome, f"scripted {self.outcome}")
 
 
+@pytest.fixture(autouse=True)
+def _dispose_engines(monkeypatch):
+    """Close every engine a test created, so the PostgreSQL leg never runs out of connections."""
+    import onemind_core.ledger as ledger
+
+    made = []
+    real = ledger.make_engine
+
+    def tracking(db_url):
+        engine = real(db_url)
+        made.append(engine)
+        return engine
+
+    monkeypatch.setattr(ledger, "make_engine", tracking)
+    yield
+    for engine in made:
+        engine.dispose()
+
+
 @pytest.fixture
 def clock() -> Clock:
     return Clock()
