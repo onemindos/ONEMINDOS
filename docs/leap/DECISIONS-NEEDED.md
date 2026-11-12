@@ -46,7 +46,13 @@ F-1 to F-7 keep the numbers used in [core/README.md](core/README.md). The rest g
 | F-30 | Defer revenue share, certification fee and the D-001 pro/open ADR | Defer past the leap | – | – | plan §5.11 |
 | F-31 | TAK licensing (GPL/AGPL servers only as separate apps; official TAK Server bring-your-own-licence?) and drones (no agent flight commands; MAVLink read-only) | Confirm when PLAN-E14/E15 leave parking | PLAN-E14, PLAN-E15 | S4+ | plan §5.7, §5.12 |
 
+### 1.1 Defaults applied in contract §12 (2026-11-12)
+
+Contract §12 was written against these proposed defaults; a different answer is a follow-up contract PR. **F-1** is applied as: per-box CA by default, and optional Let's Encrypt (DNS-01) when the owner brings a domain (§12.7); a Tailscale certificate may still serve the mesh name when remote access is on. Also applied as listed above: F-2, F-6, F-7, F-8, F-9, F-11, F-12, F-14, F-15, F-16, F-19, F-24.
+
 ## 2. For the contract owner: leap specs vs the contract §12 draft
+
+**Settled 2026-11-12** in contract §12 ([`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md) §12.21). Every row below took the proposal, except: `offline_not_supported` is not added (it is `503 unavailable` with reason `node_offline`); the join ticket role is `worker|leaf`; the heartbeat mesh object is top-level `mesh`. Specs that still use a losing name are renamed when next edited. The table is kept as the record.
 
 The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs/core-architecture`, not merged) and the leap specs were written in parallel. Settle each row in contract PR C12-A, then rename in one PR across whichever side loses.
 
