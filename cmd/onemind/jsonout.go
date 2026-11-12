@@ -13,3 +13,11 @@ func printJSON(out io.Writer, v any) error {
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)
 }
+
+// dash renders an empty value as "-" (same as the cli package helper).
+func dash(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
+}
