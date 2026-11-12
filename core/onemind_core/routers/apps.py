@@ -24,6 +24,6 @@ def app_rows(gw: Gateway) -> list[dict]:
 def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
 
-    @app.get("/v1/apps", tags=["apps"], response_model=list[CatalogApp], responses=error_responses(401))
+    @app.get("/v1/apps", tags=["apps"], operation_id="apps.list", response_model=list[CatalogApp], responses=error_responses(401))
     def list_apps(_: Principal = Depends(principal)):
         return app_rows(gw)

@@ -24,6 +24,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post(
         "/mcp",
         tags=["mcp"],
+        operation_id="mcp.post",
         summary="MCP Streamable HTTP endpoint (protocol 2025-06-18), agents only",
         description=(
             "One JSON-RPC 2.0 message per request: initialize, ping, tools/list, tools/call. "

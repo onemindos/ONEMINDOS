@@ -20,6 +20,7 @@ ERROR_CODES = {
     "outcome_unknown",
     "not_found",
     "unauthenticated",
+    "rate_limited",  # §12.2 (429, Retry-After)
 }
 
 
@@ -28,7 +29,7 @@ class ErrorBody(BaseModel):
 
     error: Literal[
         "permission_denied", "stale_precondition", "expired", "conflict",
-        "outcome_unknown", "not_found", "unauthenticated",
+        "outcome_unknown", "not_found", "unauthenticated", "rate_limited",
     ]
     message: str
 
@@ -39,6 +40,7 @@ _DESCRIPTIONS = {
     404: "No such resource (not_found)",
     409: "stale_precondition, expired or conflict",
     422: "Request failed validation (conflict, with the bad fields in message)",
+    429: "Too many requests or open streams (rate_limited); see Retry-After",
 }
 
 
