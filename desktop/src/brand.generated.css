@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Generated from brand/brand.json by scripts/brand-sync.py. Do not edit by hand. */
+/* Logo colours: the colour variant on light surfaces, on-dark on dark ones (themes as in tokens.css). */
+:root { --om-logo-brain: #000000; --om-logo-circuit: #ff333a; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) { --om-logo-brain: #ff333a; --om-logo-circuit: #ffffff; }
+}
+:root[data-theme='dark'] { --om-logo-brain: #ff333a; --om-logo-circuit: #ffffff; }
+.mark .logo-brain { fill: var(--om-logo-brain); }
+.mark .logo-circuit { fill: var(--om-logo-circuit); }

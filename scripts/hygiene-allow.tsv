@@ -14,6 +14,9 @@ scripts/hygiene.py	rpi-otp-private-key|odmfuse	B-FP-3
 scripts/hygiene-allow.tsv	rpi-otp-private-key|odmfuse	B-FP-3
 # B-FP-5: npm registry metadata in lock files lists package authors' public addresses (e.g. the npm founder's); not personal data of this project.
 *package-lock.json	i@izs\.me	B-FP-5
+# B-FP-6: the install sandbox names the RFC 1918 and CGNAT network ranges (x.y.0.0 network addresses) that app egress excludes; they are range definitions, not hosts of this project.
+sdk/policy/app-objects.yaml	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-6
+core/tests/test_policy.py	(10\.0\.0\.0|192\.168\.0\.0|192\.168\.1\.0)	B-FP-6
 # B-FP-6: the ui Home screen lives in ui/src/home and ui/demo/src/home; module paths like ../home/layout are not host home directories.
 ui/*	/home/(layout|types|fixtures|shoot\.mjs|edit|offline|loading|errors|fresh|home\.css)	B-FP-6
 docs/design/*	/home/shoot\.mjs	B-FP-6

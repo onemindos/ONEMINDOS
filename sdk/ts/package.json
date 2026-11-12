@@ -1,0 +1,33 @@
+{
+  "name": "@onemind/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript client for the OneMind gateway API (browser, Node 20+, React Native)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "gen": "openapi-typescript ../openapi/onemind-v1.json -o src/gen/schema.ts && node scripts/stamp.mjs src/gen/schema.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}

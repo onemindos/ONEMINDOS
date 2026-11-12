@@ -1,0 +1,36 @@
+2026-11-12T10:35:38Z == fleet setup 1
+               total        used        free      shared  buff/cache   available
+Mem:            3922         408         899           0        2798        3514
+4
+net.bridge.bridge-nf-call-iptables = 1
+235d7ca53d74692de5cbaabbfe34e3f53fe0cb5c96efb673cbcfcf466b0382a2
+docker.io/rancher/k3s:v1.37.2-k3s1
+k3s image RepoDigests: rancher/k3s@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
+k3s image digest matches os/versions.lock.yaml pin
+2026-11-12T10:35:49Z cluster hub created in 10 s
+Mem:            3922         742         556           0        2807        3180
+2026-11-12T10:35:58Z cluster box-1 created in 9 s
+Mem:            3922        1090          97           0        2918        2832
+2026-11-12T10:36:07Z cluster site-b created in 9 s
+Mem:            3922        1476          77           1        2553        2446
+2026-11-12T10:36:25Z cluster site-a created in 18 s
+Mem:            3922        2716          93           1        1297        1206
+grep: <lab-dir>/out/fleet-run-1/fleet-chart-values.yaml: No such file or directory
+TEST SUITE: None
+REVISION: 1
+TEST SUITE: None
+2026-11-12T10:36:38Z fleet manager installed in 8 s
+NAME                              READY   STATUS    RESTARTS   AGE   IP          NODE               NOMINATED NODE   READINESS GATES
+fleet-controller-5dfc89cd-t8vpt   3/3     Running   0          7s    <pod-ip>   k3d-hub-server-0   <none>           <none>
+gitjob-6b954fc79f-vkrch           1/1     Running   0          7s    <pod-ip>   k3d-hub-server-0   <none>           <none>
+helmops-795dc58c94-9mp2k          1/1     Running   0          7s    <pod-ip>   k3d-hub-server-0   <none>           <none>
+Chain DOCKER-USER (1 references)
+    pkts      bytes target     prot opt in     out     source               destination         
+       0        0 RETURN     tcp  --  *      *       198.51.100.0/24      <hub-ip>         tcp dpt:6443 ctstate NEW /* fb4 site->hub api (count) */
+       0        0 DROP       all  --  *      *       <hub-ip>         198.51.100.5         ctstate NEW /* fb4 hub->k3d-site-a-server-0 */
+       0        0 DROP       all  --  *      *       <hub-ip>         198.51.100.6         ctstate NEW /* fb4 hub->k3d-site-a-agent-0 */
+       0        0 DROP       all  --  *      *       <hub-ip>         198.51.100.4         ctstate NEW /* fb4 hub->k3d-site-b-server-0 */
+       0        0 DROP       all  --  *      *       <hub-ip>         198.51.100.3         ctstate NEW /* fb4 hub->k3d-box-1-server-0 */
+   76427 350367826 RETURN     all  --  *      *       0.0.0.0/0            0.0.0.0/0           
+Error from server (NotFound): error when creating "STDIN": namespaces "fleet-default" not found
+up rc=255

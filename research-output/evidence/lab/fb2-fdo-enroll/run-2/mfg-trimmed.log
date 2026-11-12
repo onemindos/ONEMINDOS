@@ -1,0 +1,20 @@
+[05:28:05] INFO: trying to resolve absolute path
+  path: $HOME/.config/go-fdo-server/
+[05:28:05] INFO: adding path to search paths
+  path: /root/.config/go-fdo-server
+[05:28:05] INFO: trying to resolve absolute path
+  path: /etc/go-fdo-server/
+[05:28:05] INFO: adding path to search paths
+  path: /etc/go-fdo-server
+[05:28:05] INFO: trying to resolve absolute path
+  path: /usr/share/go-fdo-server/
+[05:28:05] INFO: adding path to search paths
+  path: /usr/share/go-fdo-server
+[05:28:05] INFO: attempting to read in config file
+[05:28:05] INFO: searching for config in paths
+  paths:
+[05:28:05] INFO: configuration file not found
+[05:28:05] INFO: Database initialized successfully
+  type: sqlite
+[05:28:05] INFO: Listening
+  local: 127.0.0.1:8038

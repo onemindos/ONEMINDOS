@@ -1,0 +1,113 @@
+{
+  "id": "E4",
+  "verdict": "OBS",
+  "at": "2026-11-12T11:20:36Z",
+  "data": {
+    "bundle": {
+      "summary": {
+        "desiredReady": 3,
+        "modified": 1,
+        "nonReadyResources": [
+          {
+            "bundleState": "Modified",
+            "modifiedStatus": [
+              {
+                "apiVersion": "v1",
+                "kind": "ConfigMap",
+                "missing": true,
+                "name": "demo-version",
+                "namespace": "demo"
+              }
+            ],
+            "name": "fleet-default/cluster-147ddd51cd13"
+          }
+        ],
+        "ready": 2
+      },
+      "display": {
+        "readyClusters": "2/3",
+        "state": "Modified"
+      },
+      "partitions": [
+        {
+          "count": 1,
+          "maxUnavailable": 1,
+          "name": "ring0",
+          "summary": {
+            "desiredReady": 1,
+            "ready": 1
+          }
+        },
+        {
+          "count": 1,
+          "maxUnavailable": 1,
+          "name": "ring1",
+          "summary": {
+            "desiredReady": 1,
+            "ready": 1
+          }
+        },
+        {
+          "count": 1,
+          "maxUnavailable": 1,
+          "name": "ring2",
+          "summary": {
+            "desiredReady": 1,
+            "modified": 1,
+            "nonReadyResources": [
+              {
+                "bundleState": "Modified",
+                "modifiedStatus": [
+                  {
+                    "apiVersion": "v1",
+                    "kind": "ConfigMap",
+                    "missing": true,
+                    "name": "demo-version",
+                    "namespace": "demo"
+                  }
+                ],
+                "name": "fleet-default/cluster-147ddd51cd13"
+              }
+            ],
+            "ready": 0
+          }
+        }
+      ]
+    },
+    "clusters": [
+      {
+        "site": "site-a",
+        "display": {
+          "readyBundles": "2/2"
+        },
+        "summary": {
+          "desiredReady": 2,
+          "ready": 2
+        },
+        "agentLastSeen": "2026-11-12T11:10:52Z"
+      },
+      {
+        "site": "box-1",
+        "display": {
+          "readyBundles": "2/2"
+        },
+        "summary": {
+          "desiredReady": 2,
+          "ready": 2
+        },
+        "agentLastSeen": "2026-11-12T11:10:38Z"
+      },
+      {
+        "site": "site-b",
+        "display": {
+          "readyBundles": "2/2"
+        },
+        "summary": {
+          "desiredReady": 2,
+          "ready": 2
+        },
+        "agentLastSeen": "2026-11-12T11:15:29Z"
+      }
+    ]
+  }
+}

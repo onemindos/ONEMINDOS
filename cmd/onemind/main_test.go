@@ -67,8 +67,8 @@ func TestNodesUnauthenticated(t *testing.T) {
 	defer gw.Close()
 	t.Setenv("ONEMIND_TOKEN", "")
 	var out, errb bytes.Buffer
-	if code := run([]string{"nodes", "--hub", gw.URL, "--token", "bad"}, &out, &errb); code != 1 {
-		t.Fatalf("exit %d, want 1", code)
+	if code := run([]string{"nodes", "--hub", gw.URL, "--token", "bad"}, &out, &errb); code != 3 { // CLI.md §4.2
+		t.Fatalf("exit %d, want 3", code)
 	}
 	if !strings.Contains(errb.String(), "401 unauthenticated") {
 		t.Fatalf("stderr = %q", errb.String())
@@ -125,7 +125,7 @@ func TestNodeInfoFromAgent(t *testing.T) {
 
 func TestUsage(t *testing.T) {
 	var out, errb bytes.Buffer
-	if code := run(nil, &out, &errb); code != 2 || !strings.Contains(errb.String(), "usage") {
+	if code := run(nil, &out, &errb); code != 2 || !strings.Contains(strings.ToLower(errb.String()), "usage") {
 		t.Fatalf("exit %d %q", code, errb.String())
 	}
 }

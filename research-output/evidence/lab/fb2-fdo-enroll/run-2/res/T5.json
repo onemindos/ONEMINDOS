@@ -1,0 +1,11 @@
+{
+  "id": "T5",
+  "verdict": "PASS",
+  "at": "2026-11-12T10:30:27Z",
+  "data": {
+    "reonboard_completed_after_revoke": false,
+    "tables_cleared": "sessions incomplete_vouchers to0_sessions to1_sessions to2_sessions vouchers replacement_vouchers ",
+    "no_delete_api_in_v1_0_2": true,
+    "control_before_revoke_completed": false
+  }
+}

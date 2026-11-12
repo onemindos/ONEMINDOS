@@ -1,0 +1,10 @@
+{
+  "id": "E3",
+  "verdict": "OBS",
+  "at": "2026-11-12T10:30:27Z",
+  "data": {
+    "guid_before_to2": "500379ed6e6b79a28df7d10b48cd3732",
+    "guid_after_to2": "7b0f4784b12129333622b21b06d497ae",
+    "changed": true
+  }
+}

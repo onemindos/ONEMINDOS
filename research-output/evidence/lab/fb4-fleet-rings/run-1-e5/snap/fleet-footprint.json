@@ -1,0 +1,56 @@
+[
+  {
+    "c": "hub",
+    "name": "helmops",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 16
+  },
+  {
+    "c": "hub",
+    "name": "fleet-cleanup",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 24
+  },
+  {
+    "c": "hub",
+    "name": "fleet-agent",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 31
+  },
+  {
+    "c": "hub",
+    "name": "fleet-controller",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 36
+  },
+  {
+    "c": "hub",
+    "name": "gitjob",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 21
+  },
+  {
+    "c": "hub",
+    "name": "fleet-agentmanagement",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 34
+  },
+  {
+    "c": "box-1",
+    "name": "fleet-agent",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 50
+  },
+  {
+    "c": "site-b",
+    "name": "fleet-agent",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 44
+  },
+  {
+    "c": "site-a",
+    "name": "fleet-agent",
+    "ns": "cattle-fleet-system",
+    "mem_mib": 44
+  }
+]

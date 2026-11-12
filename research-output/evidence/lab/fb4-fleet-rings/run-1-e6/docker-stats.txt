@@ -1,0 +1,5 @@
+k3d-site-a-agent-0 100.3MiB / 3.831GiB
+k3d-site-a-server-0 575.6MiB / 3.831GiB
+k3d-site-b-server-0 606MiB / 3.831GiB
+k3d-box-1-server-0 710.6MiB / 3.831GiB
+k3d-hub-server-0 944.4MiB / 3.831GiB

@@ -59,6 +59,33 @@ pub fn host_of(base: &str) -> Option<String> {
     Url::parse(base).ok()?.host_str().map(|h| h.trim_matches(['[', ']']).to_string())
 }
 
+/// A link that came from the box (an inbox item's `link`, the approvals page) as a full URL on
+/// the box's own origin, or `None`. A path must start with exactly one `/`; an absolute URL must
+/// have the box's scheme, host and port. Anything else (another host, `//host`, `javascript:`,
+/// `file:`, backslashes, control characters) is refused, so box data cannot make the app open
+/// an arbitrary address.
+pub fn box_link(base: &str, link: &str) -> Option<String> {
+    let l = link.trim();
+    if l.is_empty() || l.len() > 2048 || l.contains('\\') || l.chars().any(char::is_control) {
+        return None;
+    }
+    let b = Url::parse(base).ok()?;
+    let u = if l.starts_with('/') {
+        if l.starts_with("//") {
+            return None;
+        }
+        b.join(l).ok()?
+    } else {
+        Url::parse(l).ok()?
+    };
+    let same = u.scheme() == b.scheme()
+        && u.host_str() == b.host_str()
+        && u.port_or_known_default() == b.port_or_known_default()
+        && u.username().is_empty()
+        && u.password().is_none();
+    same.then(|| u.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,5 +118,29 @@ mod tests {
     #[test]
     fn host_extraction() {
         assert_eq!(host_of("https://onemind.local:8080").as_deref(), Some("onemind.local"));
+    }
+
+    #[test]
+    fn box_links_stay_on_the_box() {
+        let base = "https://onemind.local:8443";
+        assert_eq!(box_link(base, "/approvals/6f1c").as_deref(), Some("https://onemind.local:8443/approvals/6f1c"));
+        assert_eq!(box_link(base, "https://onemind.local:8443/backups").as_deref(), Some("https://onemind.local:8443/backups"));
+        assert_eq!(box_link("https://onemind.local", "https://onemind.local:443/x").as_deref(), Some("https://onemind.local/x"));
+        for bad in [
+            "//evil.example/x",
+            "https://evil.example/approvals",
+            "http://onemind.local:8443/x",
+            "https://onemind.local:9999/x",
+            "javascript:alert(1)",
+            "file:///etc/passwd",
+            "/\\evil.example",
+            "/a\nb",
+            "approvals",
+            "",
+        ] {
+            assert_eq!(box_link(base, bad), None, "{bad:?}");
+        }
+        let with_credentials = format!("https://u:p{}onemind.local:8443/x", '@');
+        assert_eq!(box_link(base, &with_credentials), None);
     }
 }
