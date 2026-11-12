@@ -3,7 +3,7 @@
 
 **For:** Zeus (learning track) · **Date:** 2026-11-12
 **Status:** founder-requested learning entry. It explains the gateway on `main` (PR [#9](https://github.com/onemindos/ONEMINDOS/pull/9) v0, PR [#24](https://github.com/onemindos/ONEMINDOS/pull/24) wave 2, PR [#38](https://github.com/onemindos/ONEMINDOS/pull/38) plumbing) and adds no decision. Every "try it" step below was run against `main` on 2026-11-12.
-**Sources (all on `main`):** [`core/README.md`](../../core/README.md), [`core/onemind_core/actions.py`](../../core/onemind_core/actions.py), [`ledger.py`](../../core/onemind_core/ledger.py), [`audit.py`](../../core/onemind_core/audit.py), [`auth.py`](../../core/onemind_core/auth.py), [`mcp.py`](../../core/onemind_core/mcp.py), [`docs/leap/core/PLUMBING.md`](../leap/core/PLUMBING.md), contract [`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md) §3, §11.2, §11.3.
+**Sources (all on `main`):** [`core/README.md`](../../core/README.md), [`core/onemind_core/actions.py`](../../core/onemind_core/actions.py), [`ledger.py`](../../core/onemind_core/ledger.py), [`audit.py`](../../core/onemind_core/audit.py), [`auth.py`](../../core/onemind_core/auth.py), [`mcp/`](../../core/onemind_core/mcp/), [`docs/leap/core/PLUMBING.md`](../leap/core/PLUMBING.md), contract [`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md) §3, §11.2, §11.3.
 **Builds on:** [07](07-image-ab-updates-health-gate.md) (the box it runs on).
 **Feeds:** the locked rule "AI never actuates without human approval"; brief 30 B9 (D-B9.5 ledger, D-B9.6 approvals, D-B9.7 audit); BD-02 (Python + FastAPI), BD-04 (PostgreSQL target).
 
