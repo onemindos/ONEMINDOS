@@ -91,6 +91,8 @@ The favicon (`favicon.svg`) is generated from the logo paths: the colour variant
 
 None of this has been booted yet: the Plymouth script and GRUB colours need a test on the VM board.
 
+**Applied by `feat/image-line` (IMG-LINE):** `os-release` and `motd` are merged and copied in `os/assemble/assemble.py` (`apply_brand`, called from `finalize()`); the GRUB colour `set` lines are inserted at `@BRAND@` in `os/assemble/grub.cfg.in` (no gfxterm, so the serial console and the QEMU battery see the same menu). Tests: `test/unit/test_image_patches.py`. **Not applied:** the Plymouth theme (needs the `plymouth` packages, an initramfs rebuild and `splash quiet`; wait for a boot test on the VM board) and the GRUB logo.
+
 ## Not wired yet
 - **Phone app (`mobile/`)**: #34 (photos backup, changes `mobile/app.json`) merged into `main` after the brand branch was cut. Wire it by adding to `scripts/brand-sync.py` (the desktop app is wired, see the table above):
   - `mobile/src/brand.generated.ts` (name, accent from `brand.tokens.json`) for `mobile/src/ui/theme.ts`, which still uses a blue accent;

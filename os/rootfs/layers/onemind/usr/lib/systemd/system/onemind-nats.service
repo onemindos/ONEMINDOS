@@ -12,6 +12,11 @@ ConditionPathExists=/data/onemind/etc/nats.conf
 [Service]
 Type=simple
 LoadCredential=nats.conf:/data/onemind/etc/nats.conf
+# TLS (cfg nats_tls): the key is 0600 root on /data, so a root-run step copies the files to the unit's own
+# runtime directory and hands them to the throw-away user. Without TLS files nothing is copied.
+RuntimeDirectory=onemind-nats
+RuntimeDirectoryMode=0700
+ExecStartPre=+/bin/sh -c 'd=/run/onemind-nats; for f in nats-server.pem nats-server.key nats-ca.pem; do if [ -f /data/onemind/etc/$$f ]; then cp /data/onemind/etc/$$f $$d/$$f; fi; done; chown -R "$$(stat -c %%u $$d)" $$d; chmod -R go-rwx $$d'
 ExecStart=/usr/bin/nats-server -c ${CREDENTIALS_DIRECTORY}/nats.conf
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always

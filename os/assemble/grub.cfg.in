@@ -15,6 +15,7 @@ insmod loadenv
 insmod test
 set default=0
 set timeout=1
+@BRAND@
 set ORDER="A B"
 set A_OK=0
 set B_OK=0

@@ -26,6 +26,8 @@ import os
 import pwd
 import re
 import secrets
+import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -37,7 +39,7 @@ ROLE_UNITS = {
     "worker": ["onemindd.service"],
     "leaf": ["onemind-nats.service", "onemindd.service"],
 }
-KEYS = ("role", "name", "hub", "join_token")
+KEYS = ("role", "name", "hub", "join_token", "nats_tls")
 HOST_RE = re.compile(r"^(\[[0-9A-Fa-f:]+\]|[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?)$")
 TOKEN_RE = re.compile(r"^[A-Za-z0-9]{32,128}$")
 NAME_RE = re.compile(r"^[^\x00-\x1f\"\\]{1,64}$")
@@ -129,6 +131,8 @@ def validate(cfg: dict) -> dict:
         if not TOKEN_RE.match(tok):
             raise ConfigError("join_token: the hub's join token (32-128 letters and digits) is required for this role")
         out.update(hub=hub, join_token=tok)
+    if cfg.get("nats_tls", "").strip().lower() in ("1", "yes", "true", "on"):
+        out["nats_tls"] = True
     return out
 
 
@@ -212,20 +216,52 @@ def token() -> str:
     return secrets.token_hex(32)
 
 
-def nats_conf(role: str, pw: dict, cfg: dict) -> str:
+# Where the NATS unit finds the TLS files: onemind-nats.service copies them into its own runtime
+# directory for the throw-away user, while the key stays 0600 root on /data.
+NATS_TLS_CRED = "/run/onemind-nats"
+
+
+def nats_conf(role: str, pw: dict, cfg: dict, tls: bool = False) -> str:
+    """tls=True (cfg "nats_tls", off by default until the mesh branch proves hub + node join, B3):
+    the leaf-node port 7422, the one other boxes reach over the LAN, speaks TLS with a cert from the
+    box CA, and a leaf trusts only that CA (docs/leap/core/NETWORKING.md; SECURITY.md CORE-SEC-4)."""
     q = lambda s: json.dumps(s)  # NATS config accepts JSON strings
-    head = "# Written by onemind-firstboot. v0: user/password auth, no TLS yet (docs/leap/core/IMAGES.md §5).\n"
+    head = ("# Written by onemind-firstboot. User/password auth; leaf-node TLS "
+            + ("on" if tls else "off (cfg nats_tls)") + " (docs/leap/core/IMAGES.md §5).\n")
     if role == "hub":
         users = ", ".join(f"{{user: {q(u)}, password: {q(pw[u])}}}" for u in ("gateway", "onemindd"))
+        ltls = (f"tls {{ cert_file: {q(NATS_TLS_CRED + '/nats-server.pem')}, key_file: {q(NATS_TLS_CRED + '/nats-server.key')}, "
+                f"timeout: 5 }}, " if tls else "")
         return (head + "listen: 0.0.0.0:4222\nhttp: 127.0.0.1:8222\nmax_payload: 1MB\n"
                 f"authorization {{ users = [ {users}, {{user: \"node\", password: {q(pw['node'])}}} ] }}\n"
-                f"leafnodes {{ listen: 0.0.0.0:7422, authorization {{ user: \"node\", password: {q(pw['node'])} }} }}\n")
+                f"leafnodes {{ listen: 0.0.0.0:7422, {ltls}authorization {{ user: \"node\", password: {q(pw['node'])} }} }}\n")
     if role == "leaf":
         remote = f"nats-leaf://node:{cfg['join_token']}@{cfg['hub']}:7422"
+        rtls = f", tls: {{ ca_file: {q(NATS_TLS_CRED + '/nats-ca.pem')} }}" if tls else ""
         return (head + "listen: 127.0.0.1:4222\nmax_payload: 1MB\n"
                 f"authorization {{ users = [ {{user: \"onemindd\", password: {q(pw['onemindd'])}}} ] }}\n"
-                f"leafnodes {{ remotes = [ {{ url: {q(remote)} }} ] }}\n")
+                f"leafnodes {{ remotes = [ {{ url: {q(remote)}{rtls} }} ] }}\n")
     raise ValueError(role)
+
+
+def issue_nats_cert(p: Paths, hostname: str) -> None:
+    """Hub only: a server cert for the leaf-node port, signed by the box CA (made by make_ca).
+    The CA key never leaves /data/onemind/identity; the cert and key land beside nats.conf."""
+    d = p.etc
+    key, csr, crt = (os.path.join(d, f) for f in ("nats-server.key", "nats-server.csr", "nats-server.pem"))
+    ext = os.path.join(d, "nats-server.ext")
+    write(ext, f"subjectAltName=DNS:{hostname},DNS:{hostname}.local,DNS:onemind.local\nextendedKeyUsage=serverAuth\n", 0o600)
+    run = lambda *a: subprocess.run(a, check=True, capture_output=True)
+    run("openssl", "req", "-new", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:P-256", "-nodes",
+        "-subj", f"/O=OneMind/CN={hostname}", "-keyout", key, "-out", csr)
+    run("openssl", "x509", "-req", "-in", csr, "-CA", os.path.join(p.identity, "ca.pem"),
+        "-CAkey", os.path.join(p.identity, "ca.key"), "-CAcreateserial", "-days", "825", "-sha256",
+        "-extfile", ext, "-out", crt)
+    for f in (csr, ext):
+        os.remove(f)
+    os.chmod(key, 0o600)
+    os.chmod(crt, 0o644)
+    shutil.copyfile(os.path.join(p.identity, "ca.pem"), os.path.join(d, "nats-ca.pem"))
 
 
 def make_ca(p: Paths) -> str:
@@ -263,8 +299,15 @@ def configure(p: Paths, cfg: dict, source: str, make_ca_fn=make_ca) -> str | Non
         nats_local = "127.0.0.1"
     elif role == "leaf":
         nats_local = "127.0.0.1"
+    tls = bool(cfg.get("nats_tls")) and role in ("hub", "leaf")
+    if tls and role == "leaf" and not os.path.exists(os.path.join(p.etc, "nats-ca.pem")):
+        raise ConfigError("nats_tls on a leaf needs the hub's CA at /data/onemind/etc/nats-ca.pem (join bundle, B3)")
+    if tls and role == "hub":
+        make_ca_fn(p)                       # idempotent: kept if it exists
+        host = socket.gethostname()
+        issue_nats_cert(p, host if HOST_RE.match(host) else "onemind")
     if role in ("hub", "leaf"):
-        write(os.path.join(p.etc, "nats.conf"), nats_conf(role, pw, cfg))
+        write(os.path.join(p.etc, "nats.conf"), nats_conf(role, pw, cfg, tls))
         nats_url = f"nats://onemindd:{pw['onemindd']}@{nats_local}:4222"
     else:
         nats_url = f"nats://node:{cfg['join_token']}@{cfg['hub']}:4222"

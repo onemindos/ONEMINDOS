@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """onemind-firstboot and the setup wizard (docs/leap/core/IMAGES.md §3), against a temp root."""
-import json, os, re, stat, sys, tempfile, threading, unittest, urllib.error, urllib.request
+import json, os, re, shutil, stat, subprocess, sys, tempfile, threading, unittest, urllib.error, urllib.request
 from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -193,6 +193,43 @@ class Wizard(Box):
         with self.assertRaises(urllib.error.HTTPError) as e:
             urllib.request.urlopen(base + "/setup", data=b"role=hub")
         self.assertEqual(e.exception.code, 409)
+
+
+class NatsTls(unittest.TestCase):
+    """NATS leaf-node TLS (SECURITY CORE-SEC-4): off by default, on when cfg nats_tls is set."""
+    PW = {"gateway": "g", "onemindd": "o", "node": "n"}
+
+    def test_off_by_default_changes_nothing(self):
+        c = fb.nats_conf("hub", self.PW, {})
+        self.assertNotIn("tls {", c)
+        self.assertIn("leaf-node TLS off", c)
+
+    def test_hub_tls_uses_cert_and_key_of_the_unit(self):
+        c = fb.nats_conf("hub", self.PW, {}, tls=True)
+        self.assertIn('/run/onemind-nats/nats-server.pem', c)
+        self.assertIn('/run/onemind-nats/nats-server.key', c)
+        self.assertIn("listen: 0.0.0.0:7422, tls", c)
+
+    def test_leaf_trusts_only_the_hub_ca(self):
+        c = fb.nats_conf("leaf", self.PW, {"join_token": "t" * 32, "hub": "hub.local"}, tls=True)
+        self.assertIn('ca_file: "/run/onemind-nats/nats-ca.pem"', c)
+
+    def test_validate_reads_the_switch(self):
+        self.assertTrue(fb.validate({"role": "hub", "nats_tls": "yes"}).get("nats_tls"))
+        self.assertNotIn("nats_tls", fb.validate({"role": "hub"}))
+
+    @unittest.skipUnless(shutil.which("openssl"), "openssl missing")
+    def test_issue_cert_is_signed_by_the_box_ca_and_key_is_private(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = fb.Paths(d)
+            os.makedirs(p.etc)
+            fb.make_ca(p)
+            fb.issue_nats_cert(p, "box")
+            self.assertEqual(os.stat(os.path.join(p.etc, "nats-server.key")).st_mode & 0o777, 0o600)
+            r = subprocess.run(["openssl", "verify", "-CAfile", os.path.join(p.identity, "ca.pem"),
+                                os.path.join(p.etc, "nats-server.pem")], capture_output=True, text=True)
+            self.assertIn("OK", r.stdout)
+            self.assertFalse(os.path.exists(os.path.join(p.etc, "nats-server.csr")))
 
 
 if __name__ == "__main__":

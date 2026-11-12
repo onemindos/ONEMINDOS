@@ -105,6 +105,7 @@ def finalize(tree, board, version, keyring, overlays):
     lines = [l for l in open(osr).read().splitlines() if not l.startswith(("ONEMIND_VERSION=", "ONEMIND_BOARD="))]
     lines += [f'ONEMIND_VERSION="{version}"', f'ONEMIND_BOARD="{board["name"]}"']
     open(osr, "w").write("\n".join(lines) + "\n")
+    apply_brand(tree)
     # RAUC: system.conf from the template + the keyring (public CA cert only).
     conf = open(os.path.join(OS_DIR, "rauc", "system.conf.in")).read()
     conf = conf.replace("@COMPATIBLE@", board["compatible"]).replace("@BOOTLOADER@", board["rauc_bootloader"])
@@ -144,6 +145,38 @@ def cmd_ext4(a):
 
 
 # ------------------------------------------------------------------ boot files
+BRAND_DIR = os.path.join(os.path.dirname(OS_DIR), "brand", "generated", "os")
+BRAND_KEYS = ("NAME=", "PRETTY_NAME=", "HOME_URL=", "ANSI_COLOR=")
+
+
+def brand_os_release(text, brand):
+    """Merge brand/generated/os/os-release into an os-release text (brand/README.md "What the image
+    stream must wire"): drop Debian's NAME, PRETTY_NAME, HOME_URL, ANSI_COLOR and append ours. ID and
+    VERSION_ID stay Debian's: apt and k3s read them."""
+    new = [l for l in brand.splitlines() if l.startswith(BRAND_KEYS)]
+    keep = [l for l in text.splitlines() if not l.startswith(BRAND_KEYS)]
+    return "\n".join(keep + new) + "\n"
+
+
+def apply_brand(tree, brand_dir=BRAND_DIR):
+    """os-release keys and /etc/motd from the brand generator. No generated files, no change."""
+    osr, motd = os.path.join(brand_dir, "os-release"), os.path.join(brand_dir, "motd")
+    if os.path.exists(osr):
+        dst = os.path.join(tree, "usr/lib/os-release")
+        open(dst, "w").write(brand_os_release(open(dst).read(), open(osr).read()))
+    if os.path.exists(motd):
+        shutil.copyfile(motd, os.path.join(tree, "etc/motd"))
+
+
+def brand_grub(brand_dir=BRAND_DIR):
+    """The `set` lines of brand/generated/os/grub/onemind-brand.cfg (colours only: no gfxterm, so the
+    serial console and the QEMU battery see the same menu)."""
+    f = os.path.join(brand_dir, "grub", "onemind-brand.cfg")
+    if not os.path.exists(f):
+        return ""
+    return "".join(l + "\n" for l in open(f).read().splitlines() if l.startswith("set "))
+
+
 def render_grub_cfg(board):
     lay = board["layout_data"]
     a, b = part(lay, "onemind-system-a"), part(lay, "onemind-system-b")
@@ -151,7 +184,7 @@ def render_grub_cfg(board):
     for k, v in (("@ESP_FSUUID@", esp_fsuuid(lay)), ("@IDX_A@", a["index"]), ("@IDX_B@", b["index"]),
                  ("@PU_A@", a["partuuid"]), ("@PU_B@", b["partuuid"]), ("@CONSOLE@", board["console"])):
         t = t.replace(k, str(v))
-    return t
+    return t.replace("@BRAND@\n", brand_grub())
 
 
 def esp_volid(lay):
