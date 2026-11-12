@@ -37,7 +37,7 @@ New here? Start with the [user guides](guides/).
 
 | Part | Status | Where |
 |---|---|---|
-| Backups with restic: hourly snapshots, retention ladder, weekly verified restores, single-file restore. The backup agent now starts inside `onemindd` and has a local API on port 7480, but no backup target is configured on a fresh box and the gateway has no backup routes yet, so OneMind takes no backups by default | <span class="om-tag om-tag--unknown">being built</span> | [Backups](guides/backups/) |
+| Backups with restic: hourly snapshots, retention ladder, weekly verified restores, single-file restore. The backup agent runs inside `onemindd` only when a settings file exists, and nothing installs one yet; the gateway has no backup routes, so OneMind takes no backups by default | <span class="om-tag om-tag--unknown">being built</span> | [Backups](guides/backups/) |
 | Private mesh (self-hosted Headscale), NATS leaf nodes with store-and-forward, app proxy with sign-in, per-box certificate authority. On `main`, not switched on | <span class="om-tag om-tag--unknown">being built</span> | [Remote access](guides/remote-access/) |
 | Disk inventory, disk health and mirror plans (`onemind storage`). The CLI has `disks`, `health`, `status` and `plan`: it lists, checks and plans, and changing disks is not part of it | <span class="om-tag om-tag--unknown">being built</span> | [`internal/storage`](https://github.com/onemindos/ONEMINDOS/tree/main/internal/storage) |
 | New Home screen: widgets, wallpapers, app launcher, Store. The dashboard uses them now; some widgets show placeholders until their API exists | <span class="om-tag om-tag--unknown">being built</span> | [`ui/`](https://github.com/onemindos/ONEMINDOS/tree/main/ui) |
