@@ -6,13 +6,17 @@ This is where "AI never actuates without human approval" is enforced:
 - nothing reaches the executor until an approval has moved the action to accepted;
 - an app.install is approved only for an app with a passing scan newer than 7 days (§10.3);
 - an app that declares spec.agent gets its own agent principal at install, revoked at removal
-  (§11.2), so the AI inside it can request actions but, like every agent, never approve them.
+  (§11.2), so the AI inside it can request actions but, like every agent, never approve them;
+- a feature module may add its own action types (FeatureActionType); they go through the same
+  ledger, the same owner-only approve and deny, and the same audit lines.
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
@@ -51,6 +55,46 @@ class ActionRequest(BaseModel):
     expires_at: AwareDatetime
 
 
+def _no_claim(_: Action) -> str | None:
+    return None
+
+
+def _no_release(_: Action) -> None:
+    return None
+
+
+def _worker(fn: Callable[[], None]) -> None:
+    threading.Thread(target=fn, name="onemind-feature-action", daemon=True).start()
+
+
+@dataclass(frozen=True)
+class FeatureActionType:
+    """An action type a feature module adds (contract §12.5), until the DEV-API-7 registry lands.
+
+    The feature files it from its own request route with ActionService.request_feature (§12.1:
+    202 with the action). A person with role owner approves or denies it at
+    /v1/actions/{id}/approve|deny like any other action; agents get 403 as always.
+    - check(params): the precondition, at request and again at approval. A problem string leaves
+      the action awaiting_approval with 409 stale_precondition, as for app actions.
+    - claim(action) / release(action): reserve what the action changes (a compare-and-swap in
+      the feature's own tables) before it is accepted, so two approved actions never run on the
+      same thing; release runs when the action ends, or when it is not accepted after all.
+    - run(action): the work, after approval, on a worker thread (a copy may take hours). Its
+      ExecResult outcome (succeeded | failed | outcome_unknown) is the action's final state.
+    Params are stored and audited as given, so they must never carry a secret.
+    """
+
+    type: str
+    risk: str  # contract §12.3: read | write | sensitive | destructive | actuate
+    check: Callable[[dict], str | None]
+    run: Callable[[Action], ExecResult]
+    claim: Callable[[Action], str | None] = _no_claim
+    release: Callable[[Action], None] = _no_release
+
+
+FEATURE_OUTCOMES = ("succeeded", "failed", "outcome_unknown")
+
+
 class ActionService:
     def __init__(
         self,
@@ -70,6 +114,17 @@ class ActionService:
         self.executor = executor
         self.audit = audit
         self.clock = clock
+        self.feature_types: dict[str, FeatureActionType] = {}
+        # How a feature action's run() is started after approval; tests make it synchronous.
+        self.spawn: Callable[[Callable[[], None]], None] = _worker
+
+    def register_type(self, ft: FeatureActionType) -> None:
+        """Add a feature action type (once, from the feature's router register())."""
+        if ft.type in APP_CLAIMS or ft.type in self.feature_types:
+            raise ValueError(f"action type {ft.type!r} is already registered")
+        if ft.risk not in ("read", "write", "sensitive", "destructive", "actuate"):
+            raise ValueError(f"{ft.type}: unknown risk class {ft.risk!r}")
+        self.feature_types[ft.type] = ft
 
     # ---- helpers -------------------------------------------------------------------------
     def _deny(self, principal: Principal, what: str, action_id: str | None = None) -> ApiError:
@@ -190,11 +245,16 @@ class ActionService:
         return (moved or stored).to_json(), True
 
     def _replay(self, principal: Principal, req: ActionRequest, params: dict, existing: Action) -> tuple[dict, bool]:
+        return self._replay_as(principal, req.type, params, req.expires_at, existing)
+
+    def _replay_as(
+        self, principal: Principal, action_type: str, params: dict, expires_at: datetime, existing: Action
+    ) -> tuple[dict, bool]:
         same = (
-            existing.type == req.type
+            existing.type == action_type
             and existing.params == params
             and existing.requested_by.get("id") == principal.id
-            and existing.expires_at == utc(req.expires_at)
+            and existing.expires_at == utc(expires_at)
         )
         if not same:
             raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
@@ -223,6 +283,9 @@ class ActionService:
             raise ApiError(409, "expired", "action expired before approval")
         if a.state != "awaiting_approval":
             raise ApiError(409, "conflict", f"action is {a.state}, not awaiting_approval")
+        ft = self.feature_types.get(a.type)
+        if ft is not None:
+            return self._approve_feature(principal, a, ft)
 
         # Check current conditions again: the world may have changed since the request. The claim
         # on the app is made atomically with "accepted", so two actions for one app cannot both
@@ -278,6 +341,111 @@ class ActionService:
         )
         return (final or self._get(a.id)).to_json()
 
+    # ---- feature action types ----------------------------------------------------------------
+    def request_feature(
+        self,
+        principal: Principal,
+        action_type: str,
+        params: dict,
+        *,
+        idempotency_key: str,
+        expires_at: datetime,
+        reason: str | None = None,
+        audit_extra: dict | None = None,
+    ) -> tuple[dict, bool]:
+        """File a feature action (owner only); returns (action, created) like create().
+
+        audit_extra is added to the action.requested line only (e.g. {"credentials": "provided"}).
+        """
+        data = {"type": action_type, "params": params, "idempotency_key": idempotency_key}
+        return self._audited(
+            principal, "request action", None, data,
+            lambda: self._create_feature(
+                principal, action_type, params, idempotency_key, expires_at, reason, audit_extra or {}
+            ),
+        )
+
+    def _create_feature(
+        self, principal: Principal, action_type: str, params: dict, key: str, expires_at: datetime,
+        reason: str | None, audit_extra: dict,
+    ) -> tuple[dict, bool]:
+        ft = self.feature_types.get(action_type)
+        if ft is None:
+            raise ApiError(404, "not_found", f"unknown action type {action_type!r}")
+        if not principal.is_owner:
+            raise self._deny(principal, f"request {action_type}")
+        if not key or len(key) > 200:
+            raise ApiError(422, "conflict", "idempotency_key must be 1-200 characters")
+        existing = self.repo.get_by_idempotency_key(key)
+        if existing is not None:
+            return self._replay_as(principal, action_type, params, expires_at, existing)
+        now = self.clock()
+        expires_at = utc(expires_at)
+        if expires_at <= now:
+            raise ApiError(409, "expired", "expires_at is already in the past")
+        problem = ft.check(params)
+        if problem:
+            raise ApiError(409, "stale_precondition", problem)
+        action = Action(
+            id=new_action_id(), type=action_type, params=params, state="requested",
+            requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=key,
+            created_at=now, updated_at=now, expires_at=expires_at,
+        )
+        stored, created = self.repo.create(action)
+        if not created:
+            return self._replay_as(principal, action_type, params, expires_at, stored)
+        self.audit.append(
+            "action.requested", principal.as_dict(), stored.id,
+            {
+                "type": stored.type, "params": stored.params, "risk": ft.risk,
+                "expires_at": iso(stored.expires_at), "requested_by": principal.id,
+                **({"reason": reason} if reason else {}), **audit_extra,
+            },
+        )
+        moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
+        self.audit.append("action.awaiting_approval", None, stored.id, {})
+        return (moved or stored).to_json(), True
+
+    def _approve_feature(self, principal: Principal, a: Action, ft: FeatureActionType) -> dict:
+        problem = ft.check(a.params) or ft.claim(a)
+        if problem:  # the action stays awaiting_approval; the owner may deny it or let it expire
+            raise ApiError(409, "stale_precondition", problem)
+        now = self.clock()
+        accepted = self.repo.transition(
+            a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now
+        )
+        if accepted is None:
+            ft.release(a)
+            raise ApiError(409, "conflict", "action was decided concurrently")
+        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id}
+        self.audit.append(
+            "action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params, "risk": ft.risk, **ids}
+        )
+        runner = f"feature:{a.type.split('.', 1)[0]}"
+        if self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock()) is None:
+            self._mark_outcome_unknown(a, "accepted action could not move to dispatched")
+            return self._get(a.id).to_json()
+        self.audit.append("action.dispatched", None, a.id, {"executor": runner, **ids})
+
+        def work() -> None:
+            try:
+                result = ft.run(a)
+                if result.outcome not in FEATURE_OUTCOMES:
+                    result = ExecResult("outcome_unknown", f"{a.type} returned outcome {result.outcome!r}")
+            except Exception as exc:  # unknown effect: never retried automatically
+                log.exception("%s crashed", a.type)
+                result = ExecResult("outcome_unknown", f"{a.type} error: {exc.__class__.__name__}")
+            try:
+                self.repo.transition(a.id, {"dispatched"}, result.outcome, self.clock(), result=result.to_json())
+                self.audit.append(
+                    f"action.{result.outcome}", None, a.id, {"executor": runner, "message": result.message, **ids}
+                )
+            finally:
+                ft.release(a)
+
+        self.spawn(work)
+        return self._get(a.id).to_json()
+
     # ---- §11.2 agent principals ------------------------------------------------------------
     def _agent_grant(self, a: Action, app: AppEntry) -> AgentSecret | None:
         """Issue (install) or revoke (remove) the app's agent principal, before the executor runs.
@@ -311,6 +479,13 @@ class ActionService:
     def _mark_outcome_unknown(self, a: Action, message: str) -> None:
         result = {"outcome": "outcome_unknown", "message": message}
         moved = self.repo.transition(a.id, {"accepted", "dispatched"}, "outcome_unknown", self.clock(), result=result)
+        if a.type not in APP_CLAIMS:  # a feature action: its module reconciles its own state
+            ft = self.feature_types.get(a.type)
+            if ft is not None:
+                ft.release(a)
+            if moved is not None:
+                self.audit.append("action.outcome_unknown", None, a.id, {"message": message})
+            return
         self.repo.set_app_state(a.params["app_id"], "unknown", self.clock(), a.id)
         if a.type == "app.install":
             self._revoke_agent(a, "install outcome unknown")
