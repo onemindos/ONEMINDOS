@@ -5,6 +5,7 @@
 name: site
 
 on:
+  workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
     paths:
       - 'site/**'

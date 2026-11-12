@@ -4,7 +4,6 @@ package cli
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,41 +12,45 @@ import (
 	"syscall"
 	"text/tabwriter"
 
+	"github.com/spf13/cobra"
+
 	"github.com/onemindos/onemindos/internal/update"
 )
 
-func updateCommands() []Command {
-	sub := func(name, usage string) Command {
-		return Command{
-			Path:  []string{"update", name},
-			Usage: usage,
-			Run:   func(env *Env, args []string) error { return updateCmd(env, name, args, env.Stdout, env.Stderr) },
+func updateCommands(a *App) []*cobra.Command {
+	upd := &cobra.Command{Use: "update", Short: "OS updates on this box (local engine; needs root except status)"}
+	var conf string
+	var noReboot bool
+	sub := func(name, short string) *cobra.Command {
+		return &cobra.Command{
+			Use:   name,
+			Short: short,
+			Args:  cobra.NoArgs,
+			RunE: func(*cobra.Command, []string) error {
+				return updateCmd(&a.Env, name, conf, a.G.JSON, noReboot, a.Stdout, a.Stderr)
+			},
 		}
 	}
-	return []Command{
-		sub("status", "onemind update status [--config FILE] [--json]"),
-		sub("check", "onemind update check  [--config FILE]"),
-		sub("apply", "onemind update apply  [--config FILE] [--no-reboot]"),
+	status, check, apply := sub("status", "Show the update state (--json: status.json as is)"),
+		sub("check", "Check for an update now"), sub("apply", "Install an available update")
+	for _, c := range []*cobra.Command{status, check, apply} {
+		c.Flags().StringVar(&conf, "config", envOr("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), "update.conf path")
 	}
+	apply.Flags().BoolVar(&noReboot, "no-reboot", false, "install but leave the reboot to the maintenance window")
+	upd.AddCommand(status, check, apply)
+	return []*cobra.Command{upd}
 }
 
 // updateCmd implements `onemind update status|check|apply` (brief 30 B4.2,
 // contract §10.1). check and apply need root: they write the update state
 // under /data and apply installs with RAUC.
-func updateCmd(env *Env, sub string, args []string, out, errw io.Writer) error {
-	fs := flag.NewFlagSet("update "+sub, flag.ContinueOnError)
-	conf := fs.String("config", envOr("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), "update.conf path")
-	asJSON := fs.Bool("json", false, "status: print status.json as is")
-	noReboot := fs.Bool("no-reboot", false, "apply: install but leave the reboot to the maintenance window")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	c, err := update.LoadConfig(*conf)
+func updateCmd(env *Env, sub, conf string, asJSON, noReboot bool, out, errw io.Writer) error {
+	c, err := update.LoadConfig(conf)
 	if err != nil {
 		return err
 	}
 	if sub == "status" {
-		return printStatus(c, *asJSON, out)
+		return printStatus(c, asJSON, out)
 	}
 	log := slog.New(slog.NewTextHandler(errw, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -56,7 +59,7 @@ func updateCmd(env *Env, sub string, args []string, out, errw io.Writer) error {
 	if sub == "apply" {
 		mode = update.ModeApply
 	}
-	res, err := env.NewEngine(c, log).Run(ctx, mode, *noReboot)
+	res, err := env.NewEngine(c, log).Run(ctx, mode, noReboot)
 	if res != nil && res.Decision != "" {
 		fmt.Fprintf(out, "decision: %s (%s)\n", res.Decision, res.Reason)
 		for _, s := range res.Skips {

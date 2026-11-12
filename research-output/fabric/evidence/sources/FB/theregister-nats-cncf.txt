@@ -1,0 +1,195 @@
+# Source: https://www.theregister.com/2025/05/02/cncf_synadia_nats/
+# Accessed: 2026-11-12 (fabric mission 02). Converted to plain text; masked: {'email': 0, 'ip': 0, 'token': 0}
+
+CNCF and Synadia settle NATS dispute
+
+ Jump to main content
+
+ REG AD
+
+ PaaS + IaaS
+
+ NATS custody battle ends with CNCF, Synadia sharing nicely
+
+ Trademark, domain name, GitHub repos stay under control of open source foundation – no word on any forking off for now
+
+ Lindsay Clark
+
+ Lindsay
+ Clark
+
+ Published
+ fri 2 May 2025 // 18:03 UTC
+
+ Make us preferred on Google
+
+The Cloud Native Computing Foundation (CNCF) has reached an agreement with Synadia, the company behind open source messaging system NATS, which will see it control the trademark, domain name, and GitHub repositories.
+
+The agreement follows a dispute over Synadia's decision to move its NATS code from the Apache 2.0 to Business Source License (BSL) in future releases.
+
+The dispute saw CNCF file a petition with the US Patent and Trademark Office to prevent Synadia from using the logo and domain for NATS. At the same time, Synadia's lawyers told the Linux Foundation, which runs CNCF, that it intended to end its relationship with CNCF and expected to receive full control of the NATS.io domain and GitHub repositories.
+
+ REG AD
+
+Following productive discussions, the two organizations have agreed to "align expectations and reinforce open governance." Synadia will assign its two NATS trademark registrations to the Linux Foundation to secure the project's neutral stewardship, a statement said.
+
+ REG AD
+
+Meanwhile, CNCF will continue to hold the NATS infrastructure and assets, including the NATS.io domain name and GitHub repositories, under the Apache 2.0 license.
+
+In a prepared statement, Todd Moore, SVP of Community Operations at the Linux Foundation, said: "As steward of the NATS project, CNCF is committed to upholding open collaboration, neutral governance, and shared ownership so NATS can continue to grow and thrive as a community-driven project. We value all of Synadia's efforts in developing and contributing to NATS – including their investment in defense of the NATS trademark – and appreciate their continued support of the project."
+
+MORE CONTEXT
+
+CNCF tells main NATS contributor Synadia that it's free to fork off
+
+OpenInfra has only gone and joined the Linux Foundation
+
+Open source maintainers are really feeling the squeeze
+
+Kelsey Hightower: If governments rely on FOSS, they should fund it
+
+The joint statement also said Synadia would be free to pursue its own commercial interests by building on top of the open source NATS project. "As with any open source codebase, if Synadia chooses to fork the NATS server code for a proprietary offering in the future, it will do so under a new name," it said.
+
+Synadia has not indicated whether it will fork the code and use a Business Source License (BSL) in future releases, as it had previously stated.
+
+Derek Collison, CEO of Synadia and the creator of NATS, said: "NATS has been a labor of love of mine for nearly 15 years now. The entire Synadia team and I deeply care about NATS and have devoted significant resources to its growth and adoption. Our commitment remains unwavering – to provide impactful, accessible technology that benefits the global community. We genuinely look forward to deepening our collaboration with the Linux Foundation and CNCF, ensuring all mature and successful projects within the CNCF receive the robust support they need to thrive.
+
+"The outpouring of support from the global community over the past week for NATS to remain a thriving open source project with Synadia's continued involvement has been extraordinary and deeply appreciated." ®
+
+ open source
+ off_prem
+ linux foundation
+ cloud native computing foundation
+ software
+ paas and iaas
+
+ Make us preferred on Google
+
+ REG AD
+
+Rockstar workers vote on union recognition as GTA VI launch looms
+
+ UK staff get their say while a separate union-busting dispute heads towards its conclusion
+
+ PWNED 
+
+London hotel put admin login for booking website on whiteboard behind the front desk
+
+ You could check out more than your room
+
+From expertise to intelligence: NISCO deploys world's first swarm-intelligence steel model at scale
+
+ PARTNER CONTENT: 300+ AI applications delivering surges in core metrics and annual cost reduction of over CNY100m
+
+Data sovereignty takes more than keeping data close to home
+
+ SPONSORED POST: Knowing where your data lives is only part of the challenge. Who controls it, who can access it and how quickly you can recover when things go wrong matter just as much.
+
+OPINION
+
+AI echo chambers and sanity in tech leadership: Three case studies
+
+ Altman, Torvalds, Yen. One has got his head screwed on. The others could do with some grounding 
+
+Your AI agent is only as good as your endpoint data
+
+ PARTNER CONTENT: Real-time endpoint data keeps AI-driven IT operations accurate, fast and under control
+
+ TOP STORIES
+
+Microsoft teaches schools that free email was just a phase
+
+British fintech Revolut slashes AI coding costs 10x by cutting out Claude and going self-hosted
+
+Smart meters to cost the UK billions: 2G switch-off means replacing 12-13 million
+
+Uber says it alone can make robotaxis pay, hours after Waymo quit its app
+
+ ON CALL 
+
+Hospital gave very sick doctor a special PC for his very personal use
+
+VMware returns to low-end server virtualization with 'vSphere Express'
+
+AI
+
+To thwart reverse engineering by agents, dev proposes blinding them
+
+A poke in the AI with a sharp stick
+
+AMD winds up Zen 6 cores for faster clock speeds
+
+Chips boast up to 256 cores, clocks up to 5.3 GHz, and IPC gains of 20 to 31 percent, just not all on the same SKU
+
+A closer look at Verano, AMD's first step toward a Zen-based superchip to rival Nvidia's Vera Rubin
+
+Cores, clocks, memory, and interconnects all perfectly balanced for a singular mission: keeping instinct fed.
+
+Fireworks AI gets burned twice as customer data exposure widens
+
+Inference biz pins latest breach on cloud provider and LLMJacking miscreants
+
+Microsoft's Azure Linux gets 470-plus security fixes in one almighty patching session
+
+A mountain of CVEs, a certificate cleanup, and yet more work for Microsoft's patching teams
+
+Infosec
+
+Security
+
+Russians are posing as Signal support to launch phishing attacks
+
+PLUS: US takes down Iranian propaganda sites; Marketing company asks 'Why Do We Have Your Information?' And more!
+
+Security
+
+Microsoft patches failed to fix on-prem SharePoint, which is now under zero-day attack
+
+PLUS: China upgrades smartphone surveillance tools; Ring eases anti-snooping stance; and more
+
+Black Hat and DEF CON
+
+DEF CON Franklin project enlists hackers to harden critical infrastructure
+
+Voting village reports have been so successful, says Jeff Moss, that the whole of DEF CON will now be included
+
+Security
+
+EQT buys majority share in Swiss cybersecurity biz Acronis
+
+Went at equivalent of $3.5B+ valuation for entire firm, though portion sold not specified
+
+Malware Month
+
+Ten years since the first corp ransomware, Mikko Hyppönen sees no end in sight
+
+On the plus side, infosec's a good bet for a long, stable career
+
+FOSS
+
+Orbit Global Menu: A working global menu addon for GNOME
+
+We love this, but suspect this is the Marmite of GNOME extensions
+
+Crowd fave Linux Mint update approaches, fresh from autumn release of Cinnamon desktop 
+
+Mint 27 to land before Christmas, with stable Wayland display upgrades, as punters try out Cinnamon 6.8
+
+openSUSE Leap 16.1 gives Linux users the right to remain immutable
+
+One installer now offers conventional and read-only systems as separate Micro distro bows out
+
+Achieving nirvana: Enlightenment 0.28 hits the desktop
+
+Very nearly 30something environment gets spruced up… and there's a new Trinity, too
+
+Architect creates open source replacement for VM migration tool VMware has hidden
+
+OpenVDDK is reportedly already being used in production, at scale
+
+AlpineBSD announced – an AI-free FOSS OS
+
+Combining the NetBSD kernel with the Alpine Linux userland
+
+ ✕

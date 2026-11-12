@@ -1,0 +1,86 @@
+[05:23:39] INFO: attempting to read in config file
+[05:23:39] INFO: Database initialized successfully
+  type: sqlite
+[05:23:39] INFO: Listening
+  local: 127.0.0.1:8043
+[05:25:49] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://localhost:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:25:49 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:25:49] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://127.0.0.1:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:25:49 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:25:49] WARN: to0 scheduler: register 'RV2TO0Addr' failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: unable to register any 'RVTO2Addr' URL for guid='C4�P�(�%��kH�'
+[05:25:59] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://localhost:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:25:59 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:25:59] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://127.0.0.1:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:25:59 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:25:59] WARN: to0 scheduler: register 'RV2TO0Addr' failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: unable to register any 'RVTO2Addr' URL for guid='C4�P�(�%��kH�'
+[05:26:19] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://localhost:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:26:19 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:26:19] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://127.0.0.1:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:26:19 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:26:19] WARN: to0 scheduler: register 'RV2TO0Addr' failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: unable to register any 'RVTO2Addr' URL for guid='C4�P�(�%��kH�'
+[05:26:29] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://localhost:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:26:29 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:26:29] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://127.0.0.1:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:26:29 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:26:29] WARN: to0 scheduler: register 'RV2TO0Addr' failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: unable to register any 'RVTO2Addr' URL for guid='C4�P�(�%��kH�'
+[05:26:49] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://localhost:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:26:49 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:26:49] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://127.0.0.1:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:26:49 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:26:49] WARN: to0 scheduler: register 'RV2TO0Addr' failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: unable to register any 'RVTO2Addr' URL for guid='C4�P�(�%��kH�'
+[05:27:09] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://localhost:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:27:09 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:09] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://127.0.0.1:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:27:09 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:09] WARN: to0 scheduler: register 'RV2TO0Addr' failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: unable to register any 'RVTO2Addr' URL for guid='C4�P�(�%��kH�'
+[05:27:19] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://localhost:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:27:19 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:19] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://127.0.0.1:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:27:19 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:19] WARN: to0 scheduler: register 'RV2TO0Addr' failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: unable to register any 'RVTO2Addr' URL for guid='C4�P�(�%��kH�'
+[05:27:29] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://localhost:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:27:29 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:29] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://127.0.0.1:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:27:29 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:29] WARN: to0 scheduler: register 'RV2TO0Addr' failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: unable to register any 'RVTO2Addr' URL for guid='C4�P�(�%��kH�'
+[05:27:49] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://localhost:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:27:49 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:49] ERROR: failed registering 'RVTO2Addr' to rendezvous server
+  url: http://127.0.0.1:8041
+  error: error received from TO0.OwnerSign request: 2026-11-12 05:27:49 -0500 EST [code=500,prevMsgType=22,id=0] cryptographic verification failed: x509: certificate signed by unknown authority
+[05:27:49] WARN: to0 scheduler: register 'RV2TO0Addr' failed
+  guid: 0e4334db50b5289004259ef9086b488d
+  err: unable to register any 'RVTO2Addr' URL for guid='C4�P�(�%��kH�'

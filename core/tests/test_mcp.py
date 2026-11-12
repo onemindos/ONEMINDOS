@@ -40,7 +40,8 @@ def test_initialize(client):
     assert body["jsonrpc"] == "2.0" and body["id"] == 1
     res = body["result"]
     assert res["protocolVersion"] == "2025-06-18"
-    assert res["capabilities"] == {"tools": {"listChanged": False}}
+    assert res["capabilities"] == {"tools": {"listChanged": False}, "resources": {"subscribe": False, "listChanged": False}}
+    assert "<untrusted>" in res["instructions"]
     assert res["serverInfo"]["name"] == "onemind-gateway"
     assert "mcp-session-id" not in r.headers
 
@@ -61,7 +62,7 @@ def test_ping(client):
 
 def test_tools_list_is_exactly_the_contract_set(client):
     tools = rpc(client, "tools/list").json()["result"]["tools"]
-    assert [t["name"] for t in tools] == ["list_nodes", "list_apps", "request_action"]
+    assert [t["name"] for t in tools] == ["get_instance", "list_nodes", "get_node", "list_apps", "get_app", "list_actions", "get_action", "search_audit", "request_action"]
     for t in tools:
         assert t["inputSchema"]["type"] == "object"
     names = json.dumps(tools)
@@ -77,7 +78,12 @@ def test_list_nodes_and_apps_match_rest(client):
     assert nodes["structuredContent"] == {"nodes": client.get("/v1/nodes", headers=OWNER).json()}
     apps = call(client, "list_apps")["result"]
     assert apps["structuredContent"] == {"apps": client.get("/v1/apps", headers=OWNER).json()}
-    assert json.loads(apps["content"][0]["text"]) == apps["structuredContent"]
+    # The text carries the same JSON with third-party strings wrapped (MCP.md §6.1).
+    shown = {a["id"]: a for a in json.loads(apps["content"][0]["text"])["apps"]}
+    assert shown["whoami"]["description"] == (
+        '<untrusted source="app:whoami:description">Tiny HTTP echo service used for tests</untrusted>'
+    )
+    assert "apps[0].description" in apps["_meta"]["onemind/untrusted"]
 
 
 def test_request_action_creates_an_awaiting_action(client, clock, settings, executor):
@@ -122,7 +128,7 @@ def test_request_action_bad_arguments(client, args):
 
 def test_unknown_tool_and_method(client):
     assert call(client, "approve_action", {"action_id": "x"})["error"]["code"] == -32602
-    assert rpc(client, "resources/list").json()["error"]["code"] == -32601
+    assert rpc(client, "prompts/list").json()["error"]["code"] == -32601
 
 
 def test_agent_cannot_approve_through_rest_either(client, clock):
@@ -220,7 +226,7 @@ def test_official_mcp_client(live_gateway, executor):
                 assert init.protocolVersion == PROTOCOL_VERSION
                 await session.send_ping()
                 tools = await session.list_tools()
-                assert [t.name for t in tools.tools] == ["list_nodes", "list_apps", "request_action"]
+                assert [t.name for t in tools.tools] == ["get_instance", "list_nodes", "get_node", "list_apps", "get_app", "list_actions", "get_action", "search_audit", "request_action"]
                 apps = await session.call_tool("list_apps", {})
                 assert not apps.isError
                 assert "uptime-kuma" in {a["id"] for a in apps.structuredContent["apps"]}

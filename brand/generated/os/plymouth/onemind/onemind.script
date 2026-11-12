@@ -1,0 +1,17 @@
+# Generated from brand/brand.json by scripts/brand-sync.py. Do not edit by hand.
+# logo.png is brand/logo/png/white/onemind-mark-white-256.png, copied in by the image build.
+Window.SetBackgroundTopColor(0.000, 0.000, 0.000);
+Window.SetBackgroundBottomColor(0.000, 0.000, 0.000);
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetX() + Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetY() + Window.GetHeight() / 2 - logo.image.GetHeight() / 2);
+
+message_sprite = Sprite();
+message_sprite.SetPosition(Window.GetX() + Window.GetWidth() / 2, Window.GetY() + Window.GetHeight() * 0.8, 1);
+fun message_callback(text) {
+  message_image = Image.Text(text, 1, 1, 1);
+  message_sprite.SetImage(message_image);
+  message_sprite.SetX(Window.GetX() + Window.GetWidth() / 2 - message_image.GetWidth() / 2);
+}
+Plymouth.SetMessageFunction(message_callback);

@@ -1,0 +1,46 @@
+[
+  {
+    "site": "site-a",
+    "ring": "2",
+    "display": {
+      "readyBundles": "2/2"
+    },
+    "summary": {
+      "desiredReady": 2,
+      "ready": 2
+    },
+    "agentLastSeen": "2026-11-12T10:55:52Z"
+  },
+  {
+    "site": "box-1",
+    "ring": "0",
+    "display": {
+      "readyBundles": "1/2",
+      "state": "OutOfSync"
+    },
+    "summary": {
+      "desiredReady": 2,
+      "nonReadyResources": [
+        {
+          "bundleState": "OutOfSync",
+          "name": "demo"
+        }
+      ],
+      "outOfSync": 1,
+      "ready": 1
+    },
+    "agentLastSeen": "2026-11-12T10:55:38Z"
+  },
+  {
+    "site": "site-b",
+    "ring": "1",
+    "display": {
+      "readyBundles": "2/2"
+    },
+    "summary": {
+      "desiredReady": 2,
+      "ready": 2
+    },
+    "agentLastSeen": "2026-11-12T10:55:34Z"
+  }
+]
