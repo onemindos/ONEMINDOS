@@ -84,7 +84,7 @@ qemu_up() {
   for t in qemu-system-x86_64 qemu-img ssh ssh-keygen curl sha512sum; do command -v "$t" >/dev/null || die "needs $t"; done
   local url sum cache base accel seed
   url=$(lock_value amd64_url) sum=$(lock_value amd64_sha512)
-  [ -n "$url" ] && [ -n "$sum" ] || die "e2e_vm amd64_url/amd64_sha512 missing from os/versions.lock.yaml"
+  if [ -z "$url" ] || [ -z "$sum" ]; then die "e2e_vm amd64_url/amd64_sha512 missing from os/versions.lock.yaml"; fi
   cache=${E2E_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/onemind-e2e}; mkdir -p "$cache"
   base="$cache/$(basename "$url")"
   if ! { [ -f "$base" ] && echo "$sum  $base" | sha512sum -c --status; }; then
@@ -258,5 +258,5 @@ vm_sh 'sudo k3s kubectl get nodes,pods,ns -A -o wide' > "$OUT/k8s.txt" 2>&1 || t
   printf 'total: %ss\n' "$((SECONDS - START))"
 } | tee "$OUT/summary.txt"
 
-[ "$PW_RC" = 0 ] && [ "$VERIFY_RC" = 0 ] || die "golden path FAILED (playwright rc $PW_RC, verify.sh rc $VERIFY_RC)"
+if [ "$PW_RC" != 0 ] || [ "$VERIFY_RC" != 0 ]; then die "golden path FAILED (playwright rc $PW_RC, verify.sh rc $VERIFY_RC)"; fi
 log "golden path green"
