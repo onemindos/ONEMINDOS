@@ -85,6 +85,9 @@ The target design (founder brief 2026-11-12) is kept. These points refine it whe
 | R6 | derper verifies clients | `-verify-client-url https://control.onemind.internal/verify` **and** `-verify-client-url-fail-open=false` | derper's fail-open default is `true` (`cmd/derper/derper.go:85` at v1.104.6); an unreachable Headscale would otherwise let anyone relay through the box owner's VM |
 | R7 | k3s joins over the mesh | `onemindd` enrolls the mesh; k3s only gets `node-ip` and `flannel-iface`. k3s's own `--vpn-auth` is **not** used | k3s passes the join key on the command line and runs `tailscale up --reset` (`pkg/vpn/vpn.go:69` at v1.37.2+k3s1): the key shows in `ps` (H-09) and our prefs would be wiped |
 | R8 | NATS leaf with per-node credentials | Works in NATS **config mode** (FABRIC phase F1) without JWT accounts | nats-server v2.15.3 source: with no `leafnodes.authorization` block, a leaf is authenticated against the main `authorization.users` (nkeys + permissions) (`server/auth.go` `isLeafNodeAuthorized` → `isClientAuthorized`), and permissions are reversed for the leaf direction (`server/leafnode.go:2451-2460`). Confirmed by reading, still to be confirmed by test NT-6 |
+| R9 | Gateway mints pre-auth keys after owner approval | The gateway calls Headscale's **REST API** (`/api/v1`, pinned to v0.29.7) on loopback with an API key from a 0600 file (`core/onemind_core/mesh.py`), instead of asking the custodian to run the `headscale` CLI. §13 S7 changes accordingly | The gateway already decides every approval, so a compromised gateway could have the custodian mint keys anyway; one REST client is simpler than a second process boundary. Endpoints and field names checked against `gen/openapiv2/headscale/v1/headscale.swagger.json` at v0.29.7 (sha256 `08f9b761…30b7`). The Go adapter (CORE-NET-1) keeps the CLI path for `onemindd` hub bootstrap |
+| R10 | Gateway reverse proxy | Until `onemind-edge` (CORE-NET-5) lands, the gateway proxies apps itself (`core/onemind_core/proxy.py`, an ASGI middleware). Its `AppProxy.decide()` is the forward-auth decision the edge will call through `/v1/auth/forward` (§9.3), so both paths share one rule | Gives working `<app>.onemind.local` and `/apps/<id>/` now; R4 still holds for the streaming path on a Pi |
+| R11 | Per-box CA location | `core/onemind_core/ca.py` keeps the CA under the data dir (`<data>/tls/`, key 0600, dir 0700), as CORE-SEC §3.1 places it. The same module can run in the custodian if CORE-SEC-1 settles on FABRIC §3 (§19 item 6) | Founder brief: "create on first start under the data dir"; the key still never leaves the box and no function returns it |
 
 ## 3. Addressing and names
 
@@ -400,7 +403,7 @@ One process, `:443` on LAN and mesh addresses, started by systemd with `CAP_NET_
 |---|---|---|
 | `onemind.local`, `<box>.local`, `hub.onemind.internal` | gateway `127.0.0.1:8080` (dashboard + API) | the gateway's own |
 | `<app>.onemind.local`, `<app>.<box>.local`, `<app>.apps.onemind.internal` | the app's `ClusterIP` Service | forward-auth (§9.3) |
-| `control.onemind.internal`, the public control name | Headscale `127.0.0.1:8085` | Headscale's (machine keys) |
+| `control.onemind.internal`, the public control name | Headscale `127.0.0.1:8085`, **except** `/api/` (Headscale's REST API, which shares that listener) → 404 | Headscale's (machine keys) |
 | `join.onemind.internal` | gateway, **only** `POST /v1/fabric/join` and `GET /v1/fabric/join/{id}` | the join ticket and node signature (FABRIC §4) |
 | anything else | TLS alert, connection closed | – |
 
@@ -473,7 +476,7 @@ Heartbeat addition (§15): `fabric.mesh: {state: up|down|none, path: direct|rela
 | S4 | A phone claims a machine role | `tagOwners` empty for all OneMind tags; devices are user-owned and reach hub 443 only | – |
 | S5 | A compromised app pod uses the node's mesh identity to reach hub 7422/6443 | **H-04 addition:** default egress NetworkPolicy also denies `100.64.0.0/10` and `fd7a:115c:a1e0::/48`, and the host nftables table drops forwarded pod-CIDR traffic to `tailscale0` | H-04 |
 | S6 | Compromised relay VM | Sees metadata and ciphertext only; TLS ends on the hub; CAA `accounturi` stops it from getting a certificate for the control name; derper verifies clients with fail-open off (R6); removing the relay is instant | – |
-| S7 | Compromised Headscale (hub root) | Same blast radius as hub root today. Headscale is local-only (`127.0.0.1`), its socket is root + custodian group; the gateway never holds a Headscale API key | – |
+| S7 | Compromised Headscale (hub root), or a stolen Headscale API key | Same blast radius as hub root today. Headscale is local-only (`127.0.0.1`). Since R9 the gateway holds a Headscale API key (0600 file, gateway user; `mesh.py` refuses a group- or world-readable file and any non-loopback URL), so **a compromised gateway can mint keys**: the same trust the gateway already has as the approver. The key is never logged or audited; the edge never proxies `/api/` (§9.2). Rotate with `headscale apikeys expire` + a new file | – |
 | S8 | Unauthenticated app UIs on the LAN | Apps only through the edge with forward-auth; no NodePort/hostPort | H-29, H-02 |
 | S9 | Leaked CA key used against the owner's phone for other sites | Name constraints on the CA (§9.4); custodian-only key | H-05 |
 | S10 | `onemindd` API exposed | Loopback only; mesh policy grants no access to 7480 | H-24 |
@@ -550,7 +553,7 @@ Sizes as the leap: S ≤ 1 day, M 2–4 days, L 1–2 weeks. **Part 1** adds new
 | CORE-NET-5 | `onemind-edge`: SNI cert selection, host routes, forward-auth client, upgrades, optional ACME | M | – | `internal/edge/`, `cmd/onemind-edge/` |
 | CORE-NET-6 | LAN names: avahi hosts renderer, conflict check, Headscale extra-records renderer | S | – | `internal/lan/` |
 | CORE-NET-7 | Relay: SNI router, setup endpoint, systemd-networkd renderer, `onemind-relay` binary; derper build module | M | – | `internal/relay/`, `cmd/onemind-relay/`, `third_party/derper/` |
-| CORE-NET-8 | Gateway modules (not registered yet): mesh routes, forward-auth endpoint, routes.json writer, `mesh.*` action handlers | M | NET-2 | `core/onemind_core/mesh.py`, `core/onemind_core/forward_auth.py` |
+| CORE-NET-8 | Gateway modules (not registered yet). **Done in Part 1:** Headscale REST client + `MeshService` (approved-only key minting, expiry, bind check, removal, role re-tag, policy render/check/apply, all audited); app reverse proxy with forward-auth decision; per-box CA. **Left:** `/v1/mesh` routes, `/v1/auth/forward` endpoint, routes.json writer, `mesh.*` action handlers | M | NET-2 | `core/onemind_core/mesh.py`, `core/onemind_core/proxy.py`, `core/onemind_core/ca.py` (+ tests) |
 | CORE-NET-9 | Lab: NT-1…NT-8 and NT-17 in Lima (scripts + preregistration + results) | M | NET-1…NET-7 | `research-output/evidence/lab/net-mesh/` |
 
 ### Part 2: wiring (hotspots, serialized)
@@ -574,9 +577,16 @@ Part 1 must not edit these files. Line references are to the in-flight branches 
 |---|---|---|
 | `core/onemind_core/app.py` | `app.include_router(mesh.router(settings, ledger, custodian))` | before the SPA catch-all `@app.get("/{full_path:path}")` (`feat/gateway-agent-mcp`, ~line 238) |
 | `core/onemind_core/app.py` | `app.include_router(forward_auth.router(settings, sessions))` | same place |
+| `core/onemind_core/app.py` | `box_ca = BoxCA(data_dir / "tls", settings.box_name); box_ca.ensure_gateway_cert(); box_ca.ensure_wildcard_cert()` | in `create_app`, after `settings.check()` |
+| `core/onemind_core/app.py` | `app_proxy = AppProxy(catalog, lambda i: (st := repo.get_app_state(i)) and st.status, token_session_resolver(tokens), KubectlServiceResolver(settings.kubectl), box_domains=("onemind.local", f"{settings.box_name}.local", "apps.onemind.internal"), audit=audit.append)` | after `tokens`/`repo`/`catalog` are built |
+| `core/onemind_core/app.py` | `app.add_middleware(AppProxyMiddleware, proxy=app_proxy)` | right after `install_handlers(app)` (a middleware, so it sees app hosts and `/apps/<id>/` before any route, HTTP and WebSocket) |
+| `core/onemind_core/app.py` | `mesh_service = MeshService(HeadscaleClient.from_key_file("http://127.0.0.1:8085", settings.headscale_key_file), audit, clock) if settings.mesh_enabled else None` | after `audit` is built; handed to the `node.join` / `mesh.*` handlers |
+| `core/onemind_core/app.py` | `GET /v1/tls/ca.crt` → `Response(box_ca.ca_der(), media_type="application/x-x509-ca-cert")` and the fingerprint in `/v1/instance` | with the instance routes. Phones fetch it before they can sign in, so it is the second open route after `/healthz`: needs the contract §3 change (§15) |
 | `core/onemind_core/app.py` | add `"mesh"` to `API_EXACT`-style prefixes so `/v1/mesh` never falls to the SPA | `API_EXACT` (~line 35) |
 | `core/onemind_core/actions.py` | register `mesh.device.add`, `mesh.relay.add`, `mesh.relay.remove`, `mesh.reach.set`, `mesh.ssh.set` in the type registry | `ActionType` |
-| `core/onemind_core/config.py` | settings `mesh_enabled` (`ONEMIND_MESH`), `edge_routes_path` | `Settings` |
+| `core/onemind_core/config.py` | settings `mesh_enabled` (`ONEMIND_MESH`), `edge_routes_path`, `headscale_key_file` (`ONEMIND_HEADSCALE_KEY_FILE`), `box_name` (`ONEMIND_BOX_NAME`, a DNS label), `data_dir` (`ONEMIND_DATA_DIR`, today read only inside `from_env`) | `Settings` |
+| `core/pyproject.toml` + `uv.lock` | **already changed on this branch:** runtime deps `cryptography>=50.0.2,<51` (Apache-2.0 OR BSD-3; pulls `cffi` MIT, `pycparser` BSD-3), and `h11>=0.16,<1` (MIT) and `websockets>=15,<18` (BSD-3), which were already installed through `uvicorn[standard]` and are now declared because `proxy.py` imports them. `httpx` was **not** made a runtime dependency because it requires `certifi` (MPL-2.0). `feat/gateway-agent-mcp` also edits both files: whichever merges second re-runs `uv lock` | `[project] dependencies` |
+| `deploy/install.sh` (hub) | `headscale apikeys create --expiration 90d` → `/etc/onemind/headscale.key` (0600, owner = the gateway's user), set `ONEMIND_HEADSCALE_KEY_FILE` | `mesh_install`, after Headscale starts |
 | `core/onemind_core/catalog.py` | each entry gains `urls: {lan, mesh}` | catalog builder |
 | `cmd/onemindd/main.go` | `if len(os.Args) > 1 && os.Args[1] == "mesh" { os.Exit(mesh.RunCLI(os.Args[2:], os.Stdout, os.Stderr)) }` (`enroll`, `wait-ip`, `status` exist in `internal/mesh/cli.go`; `resolve`, `hub-init` added there later) | next to the `update` dispatch |
 | `cmd/onemindd/main.go` | `agent.Config{…, MeshReport: mesh.Reporter(log)}` (when `ONEMIND_MESH=on`) | `agent.New(...)` call |
