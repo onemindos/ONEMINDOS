@@ -1,0 +1,84 @@
+{
+  "generation": 2,
+  "observedGeneration": 2,
+  "summary": {
+    "desiredReady": 3,
+    "nonReadyResources": [
+      {
+        "bundleState": "WaitApplied",
+        "name": "fleet-default/cluster-147ddd51cd13"
+      },
+      {
+        "bundleState": "WaitApplied",
+        "name": "fleet-default/cluster-59f4f90f77c2"
+      },
+      {
+        "bundleState": "WaitApplied",
+        "name": "fleet-default/cluster-fce6a6f77c6a"
+      }
+    ],
+    "ready": 0,
+    "waitApplied": 3
+  },
+  "display": {
+    "readyClusters": "0/3",
+    "state": "WaitApplied"
+  },
+  "partitions": [
+    {
+      "count": 1,
+      "name": "ring0",
+      "summary": {
+        "desiredReady": 1,
+        "nonReadyResources": [
+          {
+            "bundleState": "WaitApplied",
+            "name": "fleet-default/cluster-59f4f90f77c2"
+          }
+        ],
+        "ready": 0,
+        "waitApplied": 1
+      }
+    },
+    {
+      "count": 1,
+      "name": "ring1",
+      "summary": {
+        "desiredReady": 1,
+        "nonReadyResources": [
+          {
+            "bundleState": "WaitApplied",
+            "name": "fleet-default/cluster-fce6a6f77c6a"
+          }
+        ],
+        "ready": 0,
+        "waitApplied": 1
+      }
+    },
+    {
+      "count": 1,
+      "name": "ring2",
+      "summary": {
+        "desiredReady": 1,
+        "nonReadyResources": [
+          {
+            "bundleState": "WaitApplied",
+            "name": "fleet-default/cluster-147ddd51cd13"
+          }
+        ],
+        "ready": 0,
+        "waitApplied": 1
+      }
+    }
+  ],
+  "unavailable": 0,
+  "unavailablePartitions": 2,
+  "conditions": [
+    {
+      "lastUpdateTime": "2026-11-12T10:59:29Z",
+      "message": "WaitApplied(3) [Cluster fleet-default/cluster-147ddd51cd13]",
+      "status": "False",
+      "type": "Ready"
+    }
+  ]
+}

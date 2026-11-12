@@ -1,6 +1,6 @@
 # Lab spike LAB-fb4-fleet-rings: one hub, two k3s clusters and a single-node box; ring rollout, a halted bad release, rollback and a partition
 
-**Status:** PRE-REGISTERED (criteria frozen before any VM, download or build).
+**Status:** COMPLETE: **FAIL** (T3), as pre-registered. Run 1, 2026-11-12 10:39–10:56 UTC; criteria pushed as `b5eaa3b` before any VM existed. Two exploratory variants (E5, E6) follow the verdict and do not change it.
 
 **Serves:** fabric mission 02 §5 lab spike 2 ("Multi-cluster control") and workstream FB-4; research 05 §3.2 ("never stretch one cluster across sites"); `docs/leap` CORE-UPDATE-9 (fleet-staged updates) and the proposed multi-cluster epic.
 
@@ -64,3 +64,45 @@ Measure whether a pull-based multi-cluster tool (Rancher Fleet v0.16.3, Apache-2
 ---
 
 ## Results
+
+**Verdict: FAIL.** T0, T1 and T2 passed; **T3 failed**: with the pre-registered strict ring settings (`maxUnavailable: 0`, `maxUnavailablePartitions: 0`) Fleet never delivered the new release to ring 0 in 15 minutes, so the "halt in ring 0" behaviour could not even be reached. The run was stopped after T3 (§8). The cause is Fleet's documented-in-code partition rule, not a lab-script bug (§7.2). Data: `run-1/`, ledger `../../claims/LAB-fb4-fleet-rings.csv`.
+
+> **Explain the result like I'm the founder.** Joining worked exactly as promised: each site's agent called the hub, and a firewall rule that blocked the hub from ever calling a site saw zero attempts. The first app version reached every site in 18 seconds. Then the strict "zero tolerance" ring setting we wrote down in advance turned out to mean "zero progress": Fleet treats a site that has not updated *yet* as broken, so with zero allowed, nobody may start. With one notch looser setting (exploratory, not counted), Fleet did what we hoped on the bad release (stopped it at the first ring and went back in one step) but an offline site in the middle ring held up the last ring until it came back. Lesson for OneMind: copy the pull model and the halt, but write the ring rule so that "not updated yet" and "offline" never count as "failed".
+
+### 7.1 Results (run 1)
+
+| ID | Result | Evidence |
+|---|---|---|
+| T0 | **PASS** | k3d, Helm, Fleet charts and CLI matched pin and upstream checksum file; k3s image digest = repo pin; Fleet image digests recorded [C-LAB-fb4-fleet-rings-001]. `logs/fetch.log`, `run-1/up.log`, `run-1/snap/` |
+| T1 | **PASS** | 3/3 clusters Ready 63 s after the agent installs; hub→site NEW-connection drops **0**; site→hub API connections counted 9 [-002]. `run-1/res/T1.json` |
+| T2 | **PASS** | v1 Available on all three in 18 s [-003]. `run-1/res/T2.json` |
+| T3 | **FAIL** | v2-bad never reached box-1 in 900 s; every BundleDeployment kept the v1 deployment ID; bundle `WaitApplied` on all partitions [-004]. `run-1/res/T3.json`, `run-1/poll.csv` |
+| T4 | not counted | ran before the stop and passed trivially (v1 was still deployed everywhere) |
+| T5, T6 | **not run** | run stopped after the verdict was fixed; v3 was staged on ring 0 and never promoted (`OutOfSync`) [-005]. `run-1/snap/` |
+
+### 7.2 Why T3 failed (source)
+
+Fleet v0.16.3 `internal/cmd/controller/target/status.go` L46–L72: "Unavailable for a partition is stricter than unavailable for a target. For a partition a target must be available and up-to-date." A cluster waiting for the new release is not up to date, so it counts as unavailable, and `maxUnavailable: 0` admits no cluster to start [C-FB4-016]. Upstream users ask the same question (fleet #2891, #3586) [C-FBREF-005].
+
+### 7.3 Exploratory (not pass/fail)
+
+- **E5** (`maxUnavailable: 0`, `maxUnavailablePartitions: 1`): same stall for about 2.5 min before it was stopped; two partitions counted unavailable [-006]. `run-1-e5/`
+- **E6** (`maxUnavailable: 1`, `maxUnavailablePartitions: 0`), the T2–T6 sequence: bad release reached ring 0 in 17 s and was **held there for 6 min**; re-applying v1 restored ring 0 in 17 s; a good release reached all rings within one 16 s poll; with ring 1 (site-b) stopped, ring 0 updated but **ring 2 waited for the whole outage**, and all three were current 48 s after site-b returned [-008, -009]. `run-1-e6/` (its T1 "FAIL" only reflects the registration clock of run 1 and is meaningless here)
+- **E2 footprint:** Fleet manager pods ≈ 170 MiB on the hub; Fleet agent 42–49 MiB per cluster [-007]. `run-1/snap/fleet-footprint.json`
+- **E3 drift:** a ConfigMap deleted by hand on site-a was **not restored within 5 min**, and the hub still showed site-a with 2/2 bundles ready (drift correction is off by default) [-010]. `run-1-e6/res/E3.json`, `E4.json`
+- **E4 hub view:** per cluster the hub shows ready bundle counts, a state (`OutOfSync`, `WaitApplied`, `NotReady` with the failing resource's message) and the agent's last-seen time; per partition, ready/not-ready counts. `run-1/snap/`, `run-1-e6/res/e4-*.json`
+
+### 8. Deviations, failed attempts and fixes
+
+| # | What | Effect |
+|---|---|---|
+| 1 | Setup attempt 1: k3d refused a Docker network without a gateway (`no gateway defined for network fb4net`) | script fix (`--gateway`); `history/attempt1/` |
+| 2 | Setup attempt 2: the token was applied before the `fleet-default` namespace existed (standalone Fleet does not create it) | script fix (create the namespace, as the docs' example namespace `clusters` implies); `history/attempt2/` |
+| 3 | Setup attempt 3: the `limactl shell` session dropped and killed the script's output pipe | re-run as a transient systemd unit inside the VM; logs in `history/attempt3/` |
+| 4 | Run 1 was **stopped after T3** instead of running T4–T6, because the verdict was fixed and T5/T6 depend on the same stalled gate; the time was used for E5/E6 instead | documented deviation from "one full run"; it does not change the verdict |
+| 5 | E5 and E6 change the rollout settings after seeing T3: exploratory only | not counted |
+| 6 | Not committed: the agent values file (it holds the registration token) and the Fleet chart's default values (upstream, reproducible with `helm show values`) | hygiene |
+
+### 9. Reproduce
+
+Inside a disposable Debian 13 arm64 VM: `LAB=<lab-dir> scripts/fetch.sh`, `scripts/fleet-up.sh 1`, `scripts/fleet-tests.sh 1`; variants `scripts/fleet-tests-e5.sh 1-e5`, `scripts/fleet-tests-e6.sh 1-e6`; `scripts/fleet-snapshot.sh <run-dir>` records hub state and footprint. Root inside the VM only.

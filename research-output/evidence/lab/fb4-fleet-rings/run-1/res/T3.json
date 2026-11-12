@@ -1,0 +1,29 @@
+{
+  "id": "T3",
+  "verdict": "FAIL",
+  "at": "2026-11-12T10:56:17Z",
+  "data": {
+    "seconds_until_box1_shows_v2bad": -1,
+    "later_ring_received_v2bad": false,
+    "box1_after_10min": "v1|ok",
+    "bundle_summary": {
+      "desiredReady": 3,
+      "nonReadyResources": [
+        {
+          "bundleState": "WaitApplied",
+          "name": "fleet-default/cluster-147ddd51cd13"
+        },
+        {
+          "bundleState": "WaitApplied",
+          "name": "fleet-default/cluster-59f4f90f77c2"
+        },
+        {
+          "bundleState": "WaitApplied",
+          "name": "fleet-default/cluster-fce6a6f77c6a"
+        }
+      ],
+      "ready": 0,
+      "waitApplied": 3
+    }
+  }
+}

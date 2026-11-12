@@ -1,0 +1,25 @@
+{
+  "id": "E1",
+  "verdict": "OBS",
+  "at": "2026-11-12T11:15:27Z",
+  "data": {
+    "site_a_got_v4_while_site_b_offline_after_s": -1,
+    "clusters_during_outage": [
+      {
+        "site": "site-a",
+        "ring": "2",
+        "ready": "False"
+      },
+      {
+        "site": "box-1",
+        "ring": "0",
+        "ready": "True"
+      },
+      {
+        "site": "site-b",
+        "ring": "1",
+        "ready": "False"
+      }
+    ]
+  }
+}

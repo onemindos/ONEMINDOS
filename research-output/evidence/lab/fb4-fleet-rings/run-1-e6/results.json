@@ -1,0 +1,341 @@
+{
+  "spike": "fb4-fleet-rings",
+  "run": "1-e6",
+  "verdict": "FAIL",
+  "results": [
+    {
+      "id": "T1",
+      "verdict": "FAIL",
+      "at": "2026-11-12T11:02:01Z",
+      "data": {
+        "clusters": [
+          {
+            "site": "site-a",
+            "ring": "2",
+            "ready": "True"
+          },
+          {
+            "site": "box-1",
+            "ring": "0",
+            "ready": "True"
+          },
+          {
+            "site": "site-b",
+            "ring": "1",
+            "ready": "True"
+          }
+        ],
+        "seconds_to_ready": 1326,
+        "hub_to_site_new_conn_dropped_pkts": 0,
+        "site_to_hub_api_new_conns_counted": 9
+      }
+    },
+    {
+      "id": "T2",
+      "verdict": "PASS",
+      "at": "2026-11-12T11:02:22Z",
+      "data": {
+        "seconds_all_v1_available": 20,
+        "last_poll": "2026-11-12T11:02:21Z,box-1=v1|ok,site-b=v1|ok,site-a=v1|ok"
+      }
+    },
+    {
+      "id": "T3",
+      "verdict": "PASS",
+      "at": "2026-11-12T11:08:44Z",
+      "data": {
+        "seconds_until_box1_shows_v2bad": 17,
+        "later_ring_received_v2bad": false,
+        "box1_after_10min": "v2-bad|no",
+        "bundle_summary": {
+          "desiredReady": 3,
+          "nonReadyResources": [
+            {
+              "bundleState": "WaitApplied",
+              "name": "fleet-default/cluster-147ddd51cd13"
+            },
+            {
+              "bundleState": "NotReady",
+              "name": "fleet-default/cluster-59f4f90f77c2",
+              "nonReadyStatus": [
+                {
+                  "apiVersion": "apps/v1",
+                  "kind": "Deployment",
+                  "name": "demo",
+                  "namespace": "demo",
+                  "summary": {
+                    "error": true,
+                    "message": [
+                      "ReplicaSet \"demo-65b5c9b978\" has timed out progressing.",
+                      "Progress deadline exceeded"
+                    ],
+                    "state": "error"
+                  },
+                  "uid": "c47bcff1-d695-416f-b4fc-55e081478768"
+                }
+              ]
+            },
+            {
+              "bundleState": "WaitApplied",
+              "name": "fleet-default/cluster-fce6a6f77c6a"
+            }
+          ],
+          "notReady": 1,
+          "ready": 0,
+          "waitApplied": 2
+        }
+      }
+    },
+    {
+      "id": "T4",
+      "verdict": "PASS",
+      "at": "2026-11-12T11:09:01Z",
+      "data": {
+        "seconds_box1_back_on_v1": 17,
+        "later_ring_touched": false
+      }
+    },
+    {
+      "id": "T5",
+      "verdict": "PASS",
+      "at": "2026-11-12T11:09:17Z",
+      "data": {
+        "first_seen_v3_s": {
+          "box-1": 16,
+          "site-b": 16,
+          "site-a": 16
+        },
+        "first_available_v3_s": {
+          "box-1": 16,
+          "site-b": 16,
+          "site-a": 16
+        }
+      }
+    },
+    {
+      "id": "T6",
+      "verdict": "PASS",
+      "at": "2026-11-12T11:15:27Z",
+      "data": {
+        "seconds_after_restart_all_v4_available": 48
+      }
+    },
+    {
+      "id": "E1",
+      "verdict": "OBS",
+      "at": "2026-11-12T11:15:27Z",
+      "data": {
+        "site_a_got_v4_while_site_b_offline_after_s": -1,
+        "clusters_during_outage": [
+          {
+            "site": "site-a",
+            "ring": "2",
+            "ready": "False"
+          },
+          {
+            "site": "box-1",
+            "ring": "0",
+            "ready": "True"
+          },
+          {
+            "site": "site-b",
+            "ring": "1",
+            "ready": "False"
+          }
+        ]
+      }
+    },
+    {
+      "id": "E2",
+      "verdict": "OBS",
+      "at": "2026-11-12T11:15:30Z",
+      "data": [
+        {
+          "c": "hub",
+          "name": "helmops",
+          "pod": "helmops-795dc58c94-rskmh",
+          "ns": "cattle-fleet-system",
+          "mem_mib": 16
+        },
+        {
+          "c": "hub",
+          "name": "fleet-cleanup",
+          "pod": "fleet-controller-5dfc89cd-2g5vv",
+          "ns": "cattle-fleet-system",
+          "mem_mib": 24
+        },
+        {
+          "c": "hub",
+          "name": "fleet-agent",
+          "pod": "fleet-agent-669dbfc67d-wbz2q",
+          "ns": "cattle-fleet-system",
+          "mem_mib": 43
+        },
+        {
+          "c": "hub",
+          "name": "fleet-controller",
+          "pod": "fleet-controller-5dfc89cd-2g5vv",
+          "ns": "cattle-fleet-system",
+          "mem_mib": 30
+        },
+        {
+          "c": "hub",
+          "name": "gitjob",
+          "pod": "gitjob-6b954fc79f-66xxf",
+          "ns": "cattle-fleet-system",
+          "mem_mib": 22
+        },
+        {
+          "c": "hub",
+          "name": "fleet-agentmanagement",
+          "pod": "fleet-controller-5dfc89cd-2g5vv",
+          "ns": "cattle-fleet-system",
+          "mem_mib": 34
+        },
+        {
+          "c": "box-1",
+          "name": "fleet-agent",
+          "pod": "fleet-agent-84865466fd-9fbfx",
+          "ns": "cattle-fleet-system",
+          "mem_mib": 51
+        },
+        {
+          "c": "site-b",
+          "name": "fleet-agent",
+          "pod": "fleet-agent-84865466fd-2trlx",
+          "ns": "cattle-fleet-system",
+          "mem_mib": 75
+        },
+        {
+          "c": "site-a",
+          "name": "fleet-agent",
+          "pod": "fleet-agent-84865466fd-qbgs9",
+          "ns": "cattle-fleet-system",
+          "mem_mib": 55
+        }
+      ]
+    },
+    {
+      "id": "E3",
+      "verdict": "OBS",
+      "at": "2026-11-12T11:20:36Z",
+      "data": {
+        "seconds_until_deleted_configmap_restored": -1,
+        "note": "-1 = not restored within 300 s"
+      }
+    },
+    {
+      "id": "E4",
+      "verdict": "OBS",
+      "at": "2026-11-12T11:20:36Z",
+      "data": {
+        "bundle": {
+          "summary": {
+            "desiredReady": 3,
+            "modified": 1,
+            "nonReadyResources": [
+              {
+                "bundleState": "Modified",
+                "modifiedStatus": [
+                  {
+                    "apiVersion": "v1",
+                    "kind": "ConfigMap",
+                    "missing": true,
+                    "name": "demo-version",
+                    "namespace": "demo"
+                  }
+                ],
+                "name": "fleet-default/cluster-147ddd51cd13"
+              }
+            ],
+            "ready": 2
+          },
+          "display": {
+            "readyClusters": "2/3",
+            "state": "Modified"
+          },
+          "partitions": [
+            {
+              "count": 1,
+              "maxUnavailable": 1,
+              "name": "ring0",
+              "summary": {
+                "desiredReady": 1,
+                "ready": 1
+              }
+            },
+            {
+              "count": 1,
+              "maxUnavailable": 1,
+              "name": "ring1",
+              "summary": {
+                "desiredReady": 1,
+                "ready": 1
+              }
+            },
+            {
+              "count": 1,
+              "maxUnavailable": 1,
+              "name": "ring2",
+              "summary": {
+                "desiredReady": 1,
+                "modified": 1,
+                "nonReadyResources": [
+                  {
+                    "bundleState": "Modified",
+                    "modifiedStatus": [
+                      {
+                        "apiVersion": "v1",
+                        "kind": "ConfigMap",
+                        "missing": true,
+                        "name": "demo-version",
+                        "namespace": "demo"
+                      }
+                    ],
+                    "name": "fleet-default/cluster-147ddd51cd13"
+                  }
+                ],
+                "ready": 0
+              }
+            }
+          ]
+        },
+        "clusters": [
+          {
+            "site": "site-a",
+            "display": {
+              "readyBundles": "2/2"
+            },
+            "summary": {
+              "desiredReady": 2,
+              "ready": 2
+            },
+            "agentLastSeen": "2026-11-12T11:10:52Z"
+          },
+          {
+            "site": "box-1",
+            "display": {
+              "readyBundles": "2/2"
+            },
+            "summary": {
+              "desiredReady": 2,
+              "ready": 2
+            },
+            "agentLastSeen": "2026-11-12T11:10:38Z"
+          },
+          {
+            "site": "site-b",
+            "display": {
+              "readyBundles": "2/2"
+            },
+            "summary": {
+              "desiredReady": 2,
+              "ready": 2
+            },
+            "agentLastSeen": "2026-11-12T11:15:29Z"
+          }
+        ]
+      }
+    }
+  ]
+}
