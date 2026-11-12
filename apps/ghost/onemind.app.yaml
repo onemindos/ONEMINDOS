@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# ghost: Market batch 2 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by sdk/tools/app-scaffold
+# (§9.2) and completed from primary sources: the official image's config (crane) and TryGhost/ghost-docker compose.yml (Ghost + MySQL 8.0.46).
+# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-12.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: ghost
+  name: "Ghost"
+  version: "6.77.0"
+  description: "Independent technology for modern publishing, memberships, subscriptions and newsletters."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (website) are listed in README.md
+  # until the schema has metadata.tags.
+  category: productivity
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/TryGhost/Ghost
+  links:
+    docs: "https://docs.ghost.org/"
+    github: "https://github.com/TryGhost/Ghost"
+    website: "https://ghost.org"
+    support: "https://github.com/TryGhost/Ghost/issues"
+  upstream: {release: "v6.77.0", released_at: "2026-11-11T21:54:20Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 640}   # sum of the memory requests in manifests/
+  web: {port: 2368}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
