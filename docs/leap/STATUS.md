@@ -75,9 +75,9 @@
 | C12-H | Contract §12-h: MCP additions (scopes in `spec.agent`, preview, wit… | todo | – | – |
 | DEV-API-1 | Route inventory, conventions, `routes.py` registration seam | todo | – | – |
 | DEV-API-3 | Error model v1: `request_id`, `details`, opt-in new codes, size limits | todo | – | – |
-| DEV-SDK-1 | Spec readiness: response models, stable operation ids, open enums… | todo | – | – |
+| DEV-SDK-1 | Spec readiness: response models, stable operation ids, open enums… | in-progress | `feat/devsurface` (local) | – |
 | DEV-API-2 | OpenAPI compat gate (oasdiff) and `x-onemind` extension linter | todo | – | – |
-| DEV-SDK-2 | Generation toolchain and CI staleness check | todo | – | – |
+| DEV-SDK-2 | Generation toolchain and CI staleness check | in-progress | `feat/devsurface` (local) | – |
 | DEV-API-4 | Pagination (Link), filters, ETag/If-Match, `Idempotency-Key` header | todo | – | – |
 | DEV-API-5 | Scopes, role defaults, `/v1/me`, step-up hook | todo | – | – |
 | CORE-SANDBOX-1 | Rule file and pure-Python checker with fixtures | todo | – | – |
@@ -97,27 +97,27 @@
 | CORE-SEC-8 | Signing keys in GitHub environments, split jobs | todo | – | – |
 | CORE-SEC-9 | CSP and security headers, body and rate limits | todo | – | – |
 | DEV-API-6 | Tokens API and per-plugin tokens from manifest `spec.api` scopes | todo | – | – |
-| DEV-API-8 | Events stream over SSE with resume and scope filtering | todo | – | – |
+| DEV-API-8 | Events stream over SSE with resume and scope filtering | in-progress | `feat/devsurface` (local) | – |
 | DEV-API-9 | Audit read, verify and signed off-box checkpoints | todo | – | – |
-| DEV-SDK-3 | TypeScript `@onemind/sdk` core: client, auth, typed errors, retries… | todo | – | – |
-| DEV-SDK-5 | Go SDK module | todo | – | – |
-| DEV-SDK-6 | Python `onemind-sdk`, sync and async | todo | – | – |
-| DEV-SDK-8 | Shared conformance suite and mock gateway | todo | – | – |
-| DEV-CLI-1 | CLI skeleton: command tree, global flags, `--json`, exit codes, con… | todo | – | – |
-| DEV-CLI-2 | `login`, `logout`, `context`; keychain and 0600 file store; TLS pin | todo | – | – |
-| DEV-CLI-3 | Read commands: `status`, `nodes`, `apps`, `actions`, `version` | todo | – | – |
-| DEV-CLI-4 | Action flow: install/remove, approve/deny/watch, `--wait`, effects… | todo | – | – |
-| DEV-CLI-5 | `audit verify` (file, gateway, checkpoint) and `audit tail` | todo | – | – |
-| DEV-CLI-13 | Completion, generated reference and man pages, signed releases, ima… | todo | – | – |
-| DEV-MCP-1 | Read catalogue v1 and resources; `mcp.py` becomes the `mcp/` packag… | todo | – | – |
+| DEV-SDK-3 | TypeScript `@onemind/sdk` core: client, auth, typed errors, retries… | in-progress | `feat/devsurface` (local) | – |
+| DEV-SDK-5 | Go SDK module | in-progress | `feat/devsurface` (local) | – |
+| DEV-SDK-6 | Python `onemind-sdk`, sync and async | in-progress | `feat/devsurface` (local) | – |
+| DEV-SDK-8 | Shared conformance suite and mock gateway | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-1 | CLI skeleton: command tree, global flags, `--json`, exit codes, con… | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-2 | `login`, `logout`, `context`; keychain and 0600 file store; TLS pin | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-3 | Read commands: `status`, `nodes`, `apps`, `actions`, `version` | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-4 | Action flow: install/remove, approve/deny/watch, `--wait`, effects… | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-5 | `audit verify` (file, gateway, checkpoint) and `audit tail` | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-13 | Completion, generated reference and man pages, signed releases, ima… | in-progress | `feat/devsurface` (local) | – |
+| DEV-MCP-1 | Read catalogue v1 and resources; `mcp.py` becomes the `mcp/` packag… | in-progress | `feat/devsurface` (local) | – |
 | DEV-MCP-2 | Per-agent scopes and grants, filtered `tools/list`, pause and revok… | todo | – | – |
-| DEV-MCP-4 | Rate limits per principal and the pending cap | todo | – | – |
-| DEV-MCP-7 | `onemind mcp` stdio bridge with login (keychain, CA pin), `doctor`… | todo | – | – |
-| DEV-CLI-12 | `onemind mcp` acceptance | todo | built inside DEV-MCP-7 | – |
+| DEV-MCP-4 | Rate limits per principal and the pending cap | in-progress | `feat/devsurface` (local) | – |
+| DEV-MCP-7 | `onemind mcp` stdio bridge with login (keychain, CA pin), `doctor`… | in-progress | `feat/devsurface` (local) | – |
+| DEV-CLI-12 | `onemind mcp` acceptance | in-progress | `feat/devsurface` (local) | – |
 | CORE-DASH-1 | `ui/` components v0 and dark mode | todo | – | – |
 | CORE-DASH-3 | Approvals plan card with passkey approve | todo | – | – |
 | CORE-DASH-4 | Activity (audit) and Agents (suspend) screens | todo | – | – |
-| DEV-MCP-5 | Prompt-injection defences: `<untrusted>` marking, `AgentNote` on th… | todo | – | – |
+| DEV-MCP-5 | Prompt-injection defences: `<untrusted>` marking, `AgentNote` on th… | in-progress | `feat/devsurface` (local) | – |
 | CORE-UPDATE-2 | Local socket, `/v1/os/*`, `os.update` and `os.rollback` actions | todo | – | – |
 | CORE-UPDATE-4 | Metal runs for G1 on the x86 mini PC; start the Pi soak | todo | – | – |
 | DEV-CLI-6 | `update status/check/apply` via the onemindd socket on the box, `os… | todo | – | – |
@@ -170,7 +170,7 @@
 | CORE-DASH-7 | PWA and per-app subdomain launcher | todo | – | – |
 | CORE-DASH-8 | Typed widgets on Home; "show the equivalent call" toggle | todo | – | – |
 | DEV-SDK-4 | Dashboard and mobile moved onto `@onemind/sdk` | todo | – | – |
-| DEV-SDK-7 | SSE in all three SDKs, polling fallback, React Native transport | todo | – | – |
+| DEV-SDK-7 | SSE in all three SDKs, polling fallback, React Native transport | in-progress | `feat/devsurface` (local) | – |
 | CORE-MOBILE-1 | Shell on the generated `sdk/ts`; icon and splash | todo | – | – |
 | CORE-MOBILE-2 | QR pairing with CA pinning, HTTPS only | todo | – | – |
 | CORE-MOBILE-3 | Passkey sign-in and signed approvals; plan card | todo | – | – |
@@ -179,8 +179,8 @@
 | CORE-MOBILE-6 | Alerts and Activity tabs, offline cache, checkpoint store | todo | – | – |
 | CORE-NOTIFY-7 | Actionable notifications open the approval card | todo | – | – |
 | DEV-MCP-3 | Request-only writes: `withdraw_request`, `preview_action`, `plan_sh… | todo | – | – |
-| DEV-MCP-6 | MCP audit entries, read summaries, trace context, audit tools | todo | – | – |
-| DEV-MCP-8 | Conformance CI with official TS, Python, Go clients and the bridge | todo | – | – |
+| DEV-MCP-6 | MCP audit entries, read summaries, trace context, audit tools | in-progress | `feat/devsurface` (local) | – |
+| DEV-MCP-8 | Conformance CI with official TS, Python, Go clients and the bridge | in-progress | `feat/devsurface` (local) | – |
 | DEV-MCP-9 | MCP revision 2025-11-25 and the `versions.py` adapter split | todo | – | – |
 | DEV-MCP-11 | Prompts, `onemind://docs`, `llms.txt`, `search_docs`, status tools | todo | – | – |
 | CORE-WEB-2 | Generated references: CLI, API, schema, errors | todo | – | – |
