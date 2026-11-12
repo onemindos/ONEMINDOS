@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: Apache-2.0
+# A remote git base in the short form kustomize accepts. Expected: Z-01.
+resources: [deployment.yaml, "github.com/example/escape//manifests?ref=main"]
