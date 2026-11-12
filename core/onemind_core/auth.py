@@ -150,6 +150,11 @@ class TokenStore:
             self._by_hash, self._mtime = by_hash, mtime
             log.info("loaded %d principals from tokens file", len(self._by_hash))
 
+    def principals(self) -> list[Principal]:
+        """Every principal in the file (never a token), e.g. to find the owners to notify."""
+        self._reload_if_changed()
+        return list(self._by_hash.values())
+
     def lookup(self, token: str) -> Principal | None:
         if not token:
             return None
