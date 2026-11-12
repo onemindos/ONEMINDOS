@@ -1,0 +1,55 @@
+---
+// SPDX-License-Identifier: Apache-2.0
+// Apps catalog, generated at build time from apps/*/onemind.app.yaml (+ scan.json).
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { loadApps } from '../../lib/apps';
+
+const apps = loadApps();
+const base = import.meta.env.BASE_URL;
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'Apps catalog',
+    description: 'Every app in the OneMind Market, generated from the manifests in the repository.',
+    tableOfContents: false,
+  }}
+>
+  <p>
+    This page is generated from <code>apps/*/onemind.app.yaml</code> each time the site builds, so it can never list
+    an app the repository does not contain. Each app has a <strong>trust card</strong>: its licence, whether its images
+    are pinned by digest, and the results of the security scan that the gateway requires before it installs anything.
+    <a href={`${base}docs/concepts/apps-and-trust-cards/`}>How trust cards work</a>.
+  </p>
+  <p>
+    {apps.length} apps today. More arrive through the intake queue (<code>apps/_intake/queue.yaml</code>), one checked
+    pull request at a time.
+  </p>
+  <div class="om-grid">
+    {
+      apps.map((a) => (
+        <a class="om-card" href={`${base}apps/${a.id}/`}>
+          <div class="om-card__head">
+            {a.iconDataUri && <img src={a.iconDataUri} alt="" width="40" height="40" />}
+            <div>
+              <h3>{a.name}</h3>
+              <span class="om-meta">
+                v{a.version} · {a.category}
+              </span>
+            </div>
+          </div>
+          <p>{a.description}</p>
+          <div class="om-meta">
+            <span>{a.license}</span>
+            <span>·</span>
+            <span>{a.archs.join(', ')}</span>
+            <span>·</span>
+            <span class={`om-tag om-tag--${a.installable.ok ? 'ok' : 'unknown'}`}>
+              {a.installable.ok ? 'scan passed' : a.scan ? 'scan not current' : 'not yet scanned'}
+            </span>
+          </div>
+        </a>
+      ))
+    }
+  </div>
+</StarlightPage>

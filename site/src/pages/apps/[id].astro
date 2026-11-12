@@ -1,0 +1,92 @@
+---
+// SPDX-License-Identifier: Apache-2.0
+// One page per app, with its trust card (contract §9.3 / §11.4 fields when the manifest has them).
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { loadApps, type App } from '../../lib/apps';
+
+export function getStaticPaths() {
+  return loadApps().map((app) => ({ params: { id: app.id }, props: { app } }));
+}
+
+const { app } = Astro.props as { app: App };
+const base = import.meta.env.BASE_URL;
+const linkLabels: Record<string, string> = { docs: 'Docs', github: 'GitHub', website: 'Website', support: 'Support' };
+---
+
+<StarlightPage
+  frontmatter={{ title: app.name, description: app.description }}
+  headings={[
+    { depth: 2, slug: 'facts', text: 'Facts' },
+    { depth: 2, slug: 'trust-card', text: 'Trust card' },
+    ...(app.images.length ? [{ depth: 2, slug: 'images', text: 'Images' }] : []),
+  ]}
+>
+  <p>
+    {app.iconDataUri && <img src={app.iconDataUri} alt="" width="48" height="48" style="float:right;margin-left:1rem" />}
+    {app.description}
+  </p>
+  <p>
+    {
+      Object.entries(app.links).map(([k, v], i) => (
+        <>
+          {i > 0 && ' · '}
+          <a href={v}>{linkLabels[k] ?? k}</a>
+        </>
+      ))
+    }
+    {' · '}<a href={app.repoPath}>Manifest in the repository</a>
+  </p>
+
+  <h2 id="facts">Facts</h2>
+  <table>
+    <tbody>
+      <tr><td>Version</td><td>{app.version}</td></tr>
+      <tr><td>Category</td><td>{app.category}</td></tr>
+      <tr><td>Licence (declared)</td><td>{app.license}</td></tr>
+      <tr><td>Architectures</td><td>{app.archs.join(', ')}</td></tr>
+      <tr><td>Memory</td><td>{app.minMemoryMb ? `${app.minMemoryMb} MB minimum` : 'not declared'}</td></tr>
+      <tr><td>GPU</td><td>{app.gpu ? 'required' : 'not required'}</td></tr>
+      {app.webPort && <tr><td>Web port</td><td>{app.webPort}</td></tr>}
+      {app.tier && <tr><td>Tier</td><td>{app.tier}</td></tr>}
+      {app.updates?.channel && <tr><td>Update channel</td><td>{app.updates.channel}{app.updates.automerge ? ` (automerge: ${app.updates.automerge})` : ''}</td></tr>}
+      <tr><td>AI agent identity</td><td>{app.agentPrincipal ? 'Yes: gets its own agent principal at install. It can request actions, never approve them.' : 'No'}</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="trust-card">Trust card</h2>
+  <p>
+    Read from the files in Git when this page was built.{' '}
+    {app.scan ? <>Last scan: <code>{app.scan.scanned_at}</code>, result <strong>{app.scan.result}</strong>.</> : <>This app has no <code>scan.json</code> yet.</>}
+  </p>
+  <table class="om-trust">
+    <tbody>
+      {
+        app.checks.map((c) => (
+          <tr>
+            <td><span class={`om-dot om-dot--${c.state}`} aria-hidden="true" />{c.label}</td>
+            <td>{c.detail}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+  <div class="om-install">
+    <strong>{app.installable.ok ? 'Installable' : 'Not installable yet'}.</strong> {app.installable.reason} On your box,
+    Install creates an <a href={`${base}docs/concepts/approvals-and-agents/`}>action</a> that an owner approves.
+  </div>
+
+  {
+    app.images.length > 0 && (
+      <>
+        <h2 id="images">Images</h2>
+        <ul>
+          {app.images.map((r) => (
+            <li>
+              <code>{r}</code>
+            </li>
+          ))}
+        </ul>
+      </>
+    )
+  }
+</StarlightPage>

@@ -1,0 +1,280 @@
+---
+// SPDX-License-Identifier: Apache-2.0
+// Landing page. Pattern (not code) from omarchy.org: install first, one command, then proof.
+// Every status below must match the docs page "What works today" (src/content/docs/docs/index.md).
+import { loadApps } from '../lib/apps';
+
+const base = import.meta.env.BASE_URL;
+const REPO = 'https://github.com/onemindos/ONEMINDOS';
+const apps = loadApps();
+
+type Row = { what: string; state: 'works' | 'review' | 'building' | 'planned'; note: string };
+const rows: Row[] = [
+  { what: 'Node agent and heartbeat', state: 'works', note: 'onemindd reports board, OS, k3s and disk every 10 s; never serials, MACs or IPs.' },
+  { what: 'Approval gate and audit log', state: 'works', note: 'Every change is an action; only an owner approves; hash-chained audit.' },
+  { what: 'Dashboard', state: 'works', note: 'Home, Nodes, Market and Approvals. Stale data is never shown as live.' },
+  { what: 'CLI', state: 'works', note: 'onemind node info, onemind nodes.' },
+  { what: `Apps (${apps.length})`, state: 'works', note: apps.map((a) => a.name).join(', ') + '.' },
+  { what: 'One-command developer install', state: 'review', note: 'deploy/install.sh on stock Debian 13, hub or node. No OS rollback.' },
+  { what: 'Scan gate, AI agents over MCP', state: 'review', note: 'No install without a fresh passing scan; agents can request, never approve.' },
+  { what: 'App intake at scale', state: 'review', note: 'Scaffolder + CI gate: licence, digest pins, Trivy, ClamAV, smoke test.' },
+  { what: 'OS updates with rollback', state: 'review', note: 'Signed A/B updates; kept only after k3s and core services prove healthy.' },
+  { what: 'OneMind image (Debian 13)', state: 'building', note: 'Read-only image built and boot-tested in CI. No download yet.' },
+  { what: 'Backups', state: 'planned', note: 'restic, 3-2-1 by default, verified restores.' },
+  { what: 'Multi-site fabric', state: 'planned', note: 'NATS leaf nodes with store-and-forward; private mesh.' },
+  { what: 'Phone apps', state: 'planned', note: 'Android and iPhone shells for nodes, apps, approvals and alerts.' },
+];
+const label = { works: 'Works today', review: 'In review', building: 'Being built', planned: 'Planned' } as const;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OneMind OS</title>
+    <meta name="description" content="A local-first home and edge cloud OS. AI can ask. Only you approve. Apache-2.0." />
+    <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
+    <style is:global>
+      :root {
+        --bg: #0b0f14;
+        --panel: #121821;
+        --line: #243041;
+        --text: #e6edf3;
+        --muted: #9aa7b4;
+        --accent: #14b8a6;
+        --ok: #22c55e;
+        --warn: #eab308;
+        --info: #60a5fa;
+        --plan: #94a3b8;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color-scheme: dark;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #fbfbf9;
+          --panel: #ffffff;
+          --line: #e2e5e9;
+          --text: #111827;
+          --muted: #4b5563;
+          --accent: #0f766e;
+          --ok: #15803d;
+          --warn: #a16207;
+          --info: #1d4ed8;
+          --plan: #64748b;
+          color-scheme: light;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 16px/1.6 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      }
+      a { color: var(--accent); }
+      .wrap { max-width: 64rem; margin: 0 auto; padding: 0 16px; }
+      nav { display: flex; align-items: center; gap: 1.25rem; padding: 1rem 0; flex-wrap: wrap; }
+      nav .brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: var(--text); text-decoration: none; margin-right: auto; }
+      nav a { text-decoration: none; color: var(--muted); }
+      nav a:hover { color: var(--text); }
+      header.hero { padding: 3.5rem 0 2rem; }
+      h1 { font-size: clamp(2rem, 6vw, 3.4rem); line-height: 1.1; margin: 0 0 1rem; letter-spacing: -0.02em; }
+      .lede { font-size: 1.2rem; color: var(--muted); max-width: 42rem; margin: 0 0 2rem; }
+      .install { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem; }
+      .install h2 { margin: 0 0 0.25rem; font-size: 1rem; }
+      .install p { margin: 0.25rem 0 0.75rem; color: var(--muted); font-size: 0.95rem; }
+      pre { margin: 0; padding: 1rem; overflow-x: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font: 0.9rem/1.5 var(--mono); }
+      .warn { border-left: 3px solid var(--warn); padding: 0.25rem 0 0.25rem 0.75rem; margin-top: 1rem; color: var(--muted); font-size: 0.9rem; }
+      .ctas { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
+      .btn { display: inline-block; padding: 0.55rem 1rem; border-radius: 8px; border: 1px solid var(--line); text-decoration: none; color: var(--text); }
+      .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      section { padding: 2.5rem 0; border-top: 1px solid var(--line); }
+      section h2 { font-size: 1.6rem; margin: 0 0 0.5rem; }
+      section > .wrap > p { color: var(--muted); max-width: 44rem; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; margin-top: 1.25rem; }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 1.1rem; }
+      .card h3 { margin: 0 0 0.4rem; font-size: 1.05rem; }
+      .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+      table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.95rem; }
+      th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+      th { color: var(--muted); font-weight: 600; }
+      td.note { color: var(--muted); }
+      .tag { display: inline-block; white-space: nowrap; font-size: 0.8rem; padding: 0.05rem 0.5rem; border-radius: 999px; border: 1px solid currentColor; }
+      .tag.works { color: var(--ok); }
+      .tag.review { color: var(--warn); }
+      .tag.building { color: var(--info); }
+      .tag.planned { color: var(--plan); }
+      .flow { font: 0.95rem/1.7 var(--mono); color: var(--muted); }
+      .flow b { color: var(--text); font-weight: 600; }
+      footer { border-top: 1px solid var(--line); padding: 2rem 0 3rem; color: var(--muted); font-size: 0.9rem; }
+      footer .wrap { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+      @media (max-width: 40rem) {
+        .note { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <nav aria-label="Main">
+        <a class="brand" href={base}><img src={`${base}favicon.svg`} alt="" width="24" height="24" /> OneMind OS</a>
+        <a href={`${base}docs/`}>Docs</a>
+        <a href={`${base}apps/`}>Apps</a>
+        <a href={`${base}blog/`}>Blog</a>
+        <a href={`${base}community/`}>Community</a>
+        <a href={REPO}>GitHub</a>
+      </nav>
+
+      <header class="hero">
+        <h1>Your own cloud.<br />AI can ask. Only you approve.</h1>
+        <p class="lede">
+          OneMind OS turns the machines you already own into one private cloud: apps, backups, updates and AI agents,
+          with every change waiting for your yes. Open source, Apache-2.0.
+        </p>
+
+        <div class="install" id="install">
+          <h2>Install on Debian 13</h2>
+          <p>On a mini PC, a Raspberry Pi 5 or a cloud VM. The first machine becomes the hub.</p>
+          <pre><code>git clone {REPO}.git
+cd ONEMINDOS
+sudo deploy/install.sh --role hub</code></pre>
+          <p style="margin-top:0.75rem">Add another machine with the join token the hub prints:</p>
+          <pre><code>sudo deploy/install.sh --role node --hub http://&lt;hub&gt;:8080 --token &lt;join-token&gt;</code></pre>
+          <p class="warn">
+            This is the <strong>developer install</strong>: it upgrades packages in place on a stock OS, so nothing can
+            roll the OS back. The install script is in review and not yet on <code>main</code>. The OneMind image, with
+            A/B updates and automatic rollback, is being built.
+          </p>
+          <div class="ctas">
+            <a class="btn primary" href={`${base}docs/getting-started/install/`}>Full install guide</a>
+            <a class="btn" href={`${base}docs/getting-started/mac/`}>Try it on a Mac first</a>
+          </div>
+        </div>
+      </header>
+    </div>
+
+    <section id="works">
+      <div class="wrap">
+        <h2>What works today</h2>
+        <p>
+          No screenshots of things that don't exist. This table is updated in the same pull request that changes a
+          status. "In review" means the code is written and waiting in an open pull request.
+        </p>
+        <table>
+          <thead><tr><th>Part</th><th>Status</th><th class="note">Details</th></tr></thead>
+          <tbody>
+            {
+              rows.map((r) => (
+                <tr>
+                  <td>{r.what}</td>
+                  <td><span class={`tag ${r.state}`}>{label[r.state]}</span></td>
+                  <td class="note">{r.note}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+        <p><a href={`${base}docs/`}>The detailed list, with links to the code</a></p>
+      </div>
+    </section>
+
+    <section id="approve">
+      <div class="wrap">
+        <h2>The rule: AI never acts without a human yes</h2>
+        <p>
+          The rule is enforced in the OS gateway, not in a prompt. An agent can ask for a change. Only an owner can
+          approve it. Both are written to an audit log that shows if anyone edits it later.
+        </p>
+        <p class="flow">
+          <b>agent:</b> "install ntfy" → action <b>awaiting_approval</b><br />
+          <b>you:</b> approve → <b>accepted</b> → <b>dispatched</b> → <b>succeeded</b><br />
+          <b>audit:</b> requested by agent:hermes-agent · approved by person:owner
+        </p>
+        <p><a href={`${base}docs/concepts/approvals-and-agents/`}>How approvals work</a></p>
+      </div>
+    </section>
+
+    <section id="different">
+      <div class="wrap">
+        <h2>What we do differently</h2>
+        <p>
+          We took apart more than twenty home-server and edge operating systems before writing code. We copy what works.
+          Here is what we do that we found nowhere else.
+        </p>
+        <div class="grid">
+          <div class="card">
+            <h3>Approval in the OS</h3>
+            <p>Agents get their own identity and an MCP tool to request actions. There is no approve tool for them at all.</p>
+          </div>
+          <div class="card">
+            <h3>Updates that prove themselves</h3>
+            <p>A new OS copy is kept only after k3s and the core services report healthy with fresh signals. Otherwise it rolls back by itself.</p>
+          </div>
+          <div class="card">
+            <h3>A trust card on every app</h3>
+            <p>Licence read from upstream, images pinned by digest, Trivy and ClamAV results. The gateway refuses apps without a fresh passing scan.</p>
+          </div>
+          <div class="card">
+            <h3>Many machines, one OneMind</h3>
+            <p>A mini PC, a Pi and a cloud VM join one k3s cluster and report to one hub. Phones are windows into it.</p>
+          </div>
+          <div class="card">
+            <h3>Headless first</h3>
+            <p>Everything the dashboard does is a documented API call, so scripts, the CLI and agents follow the same rules.</p>
+          </div>
+          <div class="card">
+            <h3>Yours to leave</h3>
+            <p>Apache-2.0, standard Kubernetes manifests, plain restic backups. You can walk away with everything.</p>
+          </div>
+        </div>
+        <p style="margin-top:1rem"><a href={`${REPO}/blob/main/research-output/02-competitors/MATRIX.md`}>The competitor matrix, with sources</a></p>
+      </div>
+    </section>
+
+    <section id="apps">
+      <div class="wrap">
+        <h2>Apps</h2>
+        <p>
+          {apps.length} apps today, each with a manifest, pinned images and a trust card. The intake pipeline adds them
+          in checked batches.
+        </p>
+        <div class="grid">
+          {
+            apps.map((a) => (
+              <a class="card" href={`${base}apps/${a.id}/`} style="text-decoration:none;color:inherit">
+                <h3>{a.name}</h3>
+                <p>{a.description}</p>
+              </a>
+            ))
+          }
+        </div>
+        <p style="margin-top:1rem"><a href={`${base}apps/`}>Browse the catalog</a></p>
+      </div>
+    </section>
+
+    <section id="community">
+      <div class="wrap">
+        <h2>Build it with us</h2>
+        <p>
+          OneMind is early, and built in the open. Read the code, run it on spare hardware, open an issue when something
+          breaks.
+        </p>
+        <div class="ctas">
+          <a class="btn primary" href={REPO}>GitHub</a>
+          <a class="btn" href={`${base}blog/why-onemind/`}>Why OneMind</a>
+          <a class="btn" href={`${base}community/`}>Community</a>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap">
+        <span>OneMind OS · Apache-2.0</span>
+        <a href={`${base}docs/`}>Docs</a>
+        <a href={`${base}apps/`}>Apps</a>
+        <a href={`${base}docs/concepts/security/`}>Security</a>
+        <a href={REPO}>Source</a>
+      </div>
+    </footer>
+  </body>
+</html>
