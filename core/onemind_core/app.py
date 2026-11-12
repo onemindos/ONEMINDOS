@@ -19,7 +19,7 @@ from .auth import Principal, TokenStore
 from .bus import NatsBus
 from .catalog import Catalog
 from .config import Settings
-from .errors import ApiError, install_handlers
+from .errors import ApiError, error_responses, install_handlers
 from .executors import Executor, make_executor
 from .ledger import ActionRepository, SqlActionRepository
 from .nodes import NodeRegistry
@@ -122,15 +122,15 @@ def create_app(
         return {"ok": True}
 
     # ---- instance and nodes ---------------------------------------------------------------
-    @app.get("/v1/instance", tags=["instance"])
+    @app.get("/v1/instance", tags=["instance"], responses=error_responses(401))
     def instance(_: Principal = Depends(principal)):
         return {"name": settings.instance_name, "version": __version__, "hub_node_id": settings.node_id}
 
-    @app.get("/v1/nodes", tags=["nodes"])
+    @app.get("/v1/nodes", tags=["nodes"], responses=error_responses(401))
     def list_nodes(_: Principal = Depends(principal)):
         return registry.list()
 
-    @app.get("/v1/nodes/{node_id}", tags=["nodes"])
+    @app.get("/v1/nodes/{node_id}", tags=["nodes"], responses=error_responses(401, 404, 422))
     def get_node(node_id: str, _: Principal = Depends(principal)):
         node = registry.get(node_id)
         if node is None:
@@ -147,29 +147,37 @@ def create_app(
             rows.append({**entry.summary(), "installed": status == "installed", "status": status})
         return rows
 
-    @app.get("/v1/apps", tags=["apps"])
+    @app.get("/v1/apps", tags=["apps"], responses=error_responses(401))
     def list_apps(_: Principal = Depends(principal)):
         return _app_rows()
 
     # ---- actions ------------------------------------------------------------------------
-    @app.post("/v1/actions", tags=["actions"], status_code=201)
+    @app.post(
+        "/v1/actions",
+        tags=["actions"],
+        status_code=201,
+        responses={
+            200: {"description": "Idempotent replay: the action created earlier with this idempotency_key"},
+            **error_responses(401, 403, 404, 409, 422),
+        },
+    )
     def create_action(req: ActionRequest, p: Principal = Depends(principal)):
         body, created = actions.create(p, req)
         return JSONResponse(status_code=201 if created else 200, content=body)
 
-    @app.get("/v1/actions", tags=["actions"])
+    @app.get("/v1/actions", tags=["actions"], responses=error_responses(401))
     def list_actions(_: Principal = Depends(principal)):
         return actions.list()
 
-    @app.get("/v1/actions/{action_id}", tags=["actions"])
+    @app.get("/v1/actions/{action_id}", tags=["actions"], responses=error_responses(401, 404, 422))
     def get_action(action_id: str, _: Principal = Depends(principal)):
         return actions.get(action_id)
 
-    @app.post("/v1/actions/{action_id}/approve", tags=["actions"])
+    @app.post("/v1/actions/{action_id}/approve", tags=["actions"], responses=error_responses(401, 403, 404, 409, 422))
     def approve_action(action_id: str, p: Principal = Depends(principal)):
         return actions.approve(p, action_id)
 
-    @app.post("/v1/actions/{action_id}/deny", tags=["actions"])
+    @app.post("/v1/actions/{action_id}/deny", tags=["actions"], responses=error_responses(401, 403, 404, 409, 422))
     def deny_action(action_id: str, p: Principal = Depends(principal)):
         return actions.deny(p, action_id)
 

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Exactly the contract section 3 error codes. Cases the contract has no code for are mapped onto
@@ -18,6 +21,30 @@ ERROR_CODES = {
     "not_found",
     "unauthenticated",
 }
+
+
+class ErrorBody(BaseModel):
+    """The section 3 error envelope, published in /openapi.json."""
+
+    error: Literal[
+        "permission_denied", "stale_precondition", "expired", "conflict",
+        "outcome_unknown", "not_found", "unauthenticated",
+    ]
+    message: str
+
+
+_DESCRIPTIONS = {
+    401: "Missing or unknown bearer token (unauthenticated)",
+    403: "The principal may not do this (permission_denied)",
+    404: "No such resource (not_found)",
+    409: "stale_precondition, expired or conflict",
+    422: "Request failed validation (conflict, with the bad fields in message)",
+}
+
+
+def error_responses(*statuses: int) -> dict[int, dict]:
+    """OpenAPI `responses=` entries for the given error statuses, all using ErrorBody."""
+    return {s: {"model": ErrorBody, "description": _DESCRIPTIONS[s]} for s in statuses}
 
 
 class ApiError(Exception):

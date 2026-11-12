@@ -29,6 +29,23 @@ def test_openapi_published_with_contract_paths(client):
         assert p in paths, p
 
 
+def test_openapi_documents_contract_statuses_and_error_body(client):
+    doc = client.get("/openapi.json").json()
+    paths = doc["paths"]
+    create = paths["/v1/actions"]["post"]["responses"]
+    assert {"200", "201", "401", "403", "404", "409", "422"} <= set(create)
+    approve = paths["/v1/actions/{action_id}/approve"]["post"]["responses"]
+    assert {"200", "401", "403", "404", "409"} <= set(approve)
+    assert approve["403"]["content"]["application/json"]["schema"]["$ref"].endswith("/ErrorBody")
+    for path in ("/v1/instance", "/v1/nodes", "/v1/apps"):
+        assert "401" in paths[path]["get"]["responses"], path
+    err = doc["components"]["schemas"]["ErrorBody"]
+    assert set(err["properties"]["error"]["enum"]) == {
+        "permission_denied", "stale_precondition", "expired", "conflict",
+        "outcome_unknown", "not_found", "unauthenticated",
+    }
+
+
 @pytest.mark.parametrize(
     "path",
     ["/v1/instance", "/v1/nodes", "/v1/nodes/x", "/v1/apps", "/v1/actions", "/v1/actions/x"],
