@@ -83,8 +83,8 @@ remove:  kubectl delete -k <apps_dir>/<id>/manifests -n app-<id> --ignore-not-fo
 Needs [uv](https://docs.astral.sh/uv/) (it downloads Python 3.12 itself).
 
 ```sh
-make -C core test               # 117 tests, SQLite, no NATS (1 NATS test skipped)
-make -C core test-integration   # all 118 tests on PostgreSQL 17 + real NATS 2.10 (needs Docker)
+make -C core test               # 146 tests, SQLite, no NATS (1 NATS test skipped)
+make -C core test-integration   # all 147 tests on PostgreSQL 17 + real NATS 2.10 (needs Docker)
 make -C core run                # gateway on http://127.0.0.1:8080, noop executor, DEV tokens
 curl -s localhost:8080/healthz
 TOKEN=...   # the owner token from examples/tokens.example.yaml (dev only)
