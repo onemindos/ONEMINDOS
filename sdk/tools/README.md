@@ -48,6 +48,31 @@ crane manifest docker.io/louislam/uptime-kuma:2.0.2    # lists the per-arch imag
 
 Pin the index digest, not a single-arch one, so the same reference works on amd64 and arm64.
 
+## app-scaffold
+
+`app-scaffold owner/repo` writes `apps/<id>/` (manifest, `manifests/` with a Deployment, Service, PVCs and kustomization, a neutral initials icon and the generated README) from primary sources only (contract §9.2):
+
+- **GitHub API:** description, homepage, topics, SPDX licence, latest release and its date, archived flag, stars, last commit.
+- **Upstream files at the release tag:** the shallowest compose file (test, dev and e2e files are skipped), else a Helm chart's `values.yaml`, else a `docker run` line in `README.md`: image, container ports and volumes. Host paths (`/etc`, `/run`, device files) and extra services (databases) are not packaged and are listed as open questions.
+- **Registry (crane):** the image tag that equals the release (`2.5.10` or `v2.5.10`) is preferred over a floating tag such as `:2` or `:latest`; then the index digest, architectures and the image's `USER`.
+
+Whatever it cannot confirm is written as `UNVERIFIED` (in values, or in comments for defaults such as resources and category) and listed in the README's open questions, which caps the app at tier `community`. It never guesses an image name: without one in an upstream file or `--image`, the Deployment's image is `UNVERIFIED` and `validate-apps` fails. If the repo is in `apps/_intake/queue.yaml`, it takes the entry's name and docs and sets its status to `in-pr`.
+
+```sh
+python3 -I sdk/tools/app-scaffold dani-garcia/vaultwarden
+python3 -I sdk/tools/app-scaffold home-assistant/core --id home-assistant --image ghcr.io/home-assistant/home-assistant
+```
+
+Unauthenticated GitHub API calls are limited to 60 an hour; set `GITHUB_TOKEN` to raise that. Exit codes: 0 written with nothing unverified, 1 written with `UNVERIFIED` left, 2 error.
+
+## Tests
+
+```sh
+python3 -I -m unittest discover -s sdk/tools/tests -v
+```
+
+The tests use GitHub and registry answers recorded in `sdk/tools/tests/fixtures/` and need no network.
+
 ## app-gate
 
 `app-gate` runs the contract §9.4 gate for one or more apps and writes `apps/<id>/scan.json` in exactly the §11.1 format, then regenerates the app's README. `.github/workflows/ci-apps.yml` runs it on every pull request that changes an app, and `.github/workflows/apps-rescan.yml` runs it every day for every app (§10.2).

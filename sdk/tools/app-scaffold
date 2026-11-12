@@ -1,0 +1,473 @@
+#!/usr/bin/env -S python3 -I
+# SPDX-License-Identifier: Apache-2.0
+"""Scaffold apps/<id>/ from an upstream GitHub repo, using primary sources only (contract §9.2).
+
+Sources, in order:
+  - GitHub API: description, homepage, topics, SPDX licence, latest release, archived flag,
+    stars and last commit (unauthenticated HTTPS; GITHUB_TOKEN is used if set)
+  - the upstream's own files at the release tag: compose file, then Helm chart values, then
+    `docker run` lines in README.md: image, ports and volumes
+  - the registry (crane): digest and architectures of the image tag
+
+Anything it cannot confirm is written as UNVERIFIED, which caps the app at tier community.
+It never guesses an image: no image found in an upstream file (or given with --image) means
+the Deployment carries image UNVERIFIED and validate-apps fails until a person fixes it.
+
+Run with: python3 -I sdk/tools/app-scaffold OWNER/REPO [--id ID] [--image REF] [--docs URL]
+Exit codes: 0 written, 1 written but with UNVERIFIED facts, 2 usage, network or tool error.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import re
+import shlex
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    import yaml
+    from applib import common, licence, readme  # noqa: E402
+except ImportError as exc:  # pragma: no cover
+    sys.stderr.write(f"error: missing dependency ({exc.name}); install sdk/tools/requirements.txt\n")
+    sys.exit(2)
+
+U = common.UNVERIFIED
+COMPOSE_RE = re.compile(r"(^|/)(docker-)?compose(\.[\w-]+)?\.ya?ml$")
+GENERIC_REPO_NAMES = {"core", "server", "app", "backend", "main", "docker", "web"}
+HOST_PATH_PREFIXES = ("/var/run", "/run", "/etc", "/dev", "/sys", "/proc", "/lib/modules")
+NO_ARG_FLAGS = {"-d", "-i", "-t", "-it", "-ti", "--rm", "--detach", "--init", "--privileged",
+                "--interactive", "--tty"}
+
+
+class NoAliasDumper(yaml.SafeDumper):
+    def ignore_aliases(self, data):  # plain YAML for people to read: no &id001 anchors
+        return True
+
+
+def app_id_for(repo: str) -> str:
+    owner, name = repo.lower().split("/")
+    base = owner if name in GENERIC_REPO_NAMES else name
+    return re.sub(r"-+", "-", re.sub(r"[^a-z0-9-]", "-", base)).strip("-")[:59] or "app"
+
+
+def normalise_image(name: str) -> str:
+    """Make the implicit Docker Hub registry explicit: 'nginx' -> docker.io/library/nginx."""
+    first = name.split("/", 1)[0]
+    if "/" not in name:
+        return f"docker.io/library/{name}"
+    if "." in first or ":" in first or first == "localhost":
+        return name
+    return f"docker.io/{name}"
+
+
+def expand_vars(value: str) -> str | None:
+    """Resolve ${VAR:-default}/${VAR-default}; a variable without a default is unresolvable."""
+    unresolved = False
+
+    def sub(m: re.Match) -> str:
+        nonlocal unresolved
+        if m.group(2) is None:
+            unresolved = True
+            return ""
+        return m.group(2)
+    out = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::?-([^}]*))?\}", sub, value)
+    return None if unresolved or "$" in out else out
+
+
+def container_port(entry: object) -> int | None:
+    if isinstance(entry, int):
+        return entry
+    if isinstance(entry, dict):
+        return entry.get("target") if isinstance(entry.get("target"), int) else None
+    if isinstance(entry, str):
+        last = entry.split("/")[0].rsplit(":", 1)[-1]
+        return int(last) if last.isdigit() else None
+    return None
+
+
+def volume_target(entry: object) -> tuple[str | None, str | None]:
+    """Return (source, container path)."""
+    if isinstance(entry, dict):
+        return entry.get("source"), entry.get("target")
+    if isinstance(entry, str):
+        parts = entry.split(":")
+        if len(parts) >= 2:
+            return parts[0], parts[1]
+        return None, parts[0]
+    return None, None
+
+
+def from_compose(text: str, repo_name: str) -> dict | None:
+    try:
+        doc = yaml.safe_load(text)
+    except yaml.YAMLError:
+        return None
+    services = (doc or {}).get("services") if isinstance(doc, dict) else None
+    if not isinstance(services, dict):
+        return None
+    best, score = None, -1
+    for svc_name, svc in services.items():
+        if not isinstance(svc, dict) or not isinstance(svc.get("image"), str):
+            continue
+        img = svc["image"].lower()
+        s = 3 if repo_name.lower() in img.rsplit("/", 1)[-1] else 2 if svc_name.lower() == repo_name.lower() else 0
+        if s > score:
+            best, score = (svc_name, svc), s
+    if best is None or (score == 0 and len(services) > 1):
+        return None
+    svc_name, svc = best
+    image = expand_vars(svc["image"])
+    if not image:
+        return None
+    ports = [p for p in (container_port(e) for e in svc.get("ports") or []) if p]
+    vols, host = [], []
+    for e in svc.get("volumes") or []:
+        src, target = volume_target(e)
+        if not target:
+            continue
+        if src and src.startswith(HOST_PATH_PREFIXES):
+            host.append(f"{src}:{target}")
+        else:
+            vols.append(target)
+    others = [n for n in services if n != svc_name]
+    return {"image": image, "ports": ports, "volumes": vols, "host_paths": host, "other_services": others}
+
+
+def from_helm(chart: str, values: str) -> dict | None:
+    try:
+        c, v = yaml.safe_load(chart) or {}, yaml.safe_load(values) or {}
+    except yaml.YAMLError:
+        return None
+    img = v.get("image") if isinstance(v, dict) else None
+    if not isinstance(img, dict) or not img.get("repository"):
+        return None
+    repo = img["repository"] if not img.get("registry") else f"{img['registry']}/{img['repository']}"
+    tag = img.get("tag") or c.get("appVersion")
+    port = common.dig(v, ("service", "port"))
+    return {"image": f"{repo}:{tag}" if tag else repo, "ports": [port] if isinstance(port, int) else [],
+            "volumes": [], "host_paths": [], "other_services": []}
+
+
+def from_readme(text: str, repo_name: str) -> dict | None:
+    text = re.sub(r"\\[ \t]*\r?\n[ \t]*", " ", text)  # join shell line continuations
+    for line in re.findall(r"docker run[^\n`]*", text):
+        try:
+            tokens = shlex.split(line.rstrip("\\ "))[2:]
+        except ValueError:
+            continue
+        ports, vols, image, skip = [], [], None, False
+        for i, tok in enumerate(tokens):
+            if skip:
+                skip = False
+                continue
+            if tok.startswith("-"):
+                if "=" in tok or tok in NO_ARG_FLAGS:
+                    continue
+                skip = True
+                nxt = tokens[i + 1] if i + 1 < len(tokens) else ""
+                if tok in ("-p", "--publish"):
+                    p = container_port(nxt)
+                    if p:
+                        ports.append(p)
+                elif tok in ("-v", "--volume"):
+                    vols.append(volume_target(nxt)[1])
+                continue
+            image = tok
+            break
+        if image and repo_name.lower() in image.lower():
+            return {"image": image, "ports": ports, "volumes": [v for v in vols if v],
+                    "host_paths": [], "other_services": []}
+    return None
+
+
+class Scaffold:
+    def __init__(self, repo: str, gh: common.GitHub, reg: common.Registry, apps_dir: Path,
+                 app_id: str | None = None, image: str | None = None, docs: str | None = None,
+                 name: str | None = None):
+        self.repo, self.gh, self.reg, self.apps_dir = repo, gh, reg, apps_dir
+        self.id = app_id or app_id_for(repo)
+        self.image_hint, self.docs_hint, self.name_hint = image, docs, name
+        self.unverified: list[str] = []
+        self.evidence: list[str] = []
+
+    def flag(self, what: str) -> str:
+        self.unverified.append(what)
+        return U
+
+    def discover(self) -> dict:
+        info = self.gh.repo(self.repo)
+        if info is None:
+            raise common.ToolError(f"github.com/{self.repo} not found")
+        rel = self.gh.latest_release(self.repo)
+        ref = rel["tag_name"] if rel else info.get("default_branch", "main")
+        tree = self.gh.tree(self.repo, ref)
+        repo_name = self.repo.split("/")[1]
+        found, source = None, None
+        if self.image_hint:
+            found, source = {"image": self.image_hint, "ports": [], "volumes": [], "host_paths": [],
+                             "other_services": []}, "--image given by the packager"
+        if not found:
+            for path in sorted((p for p in tree if COMPOSE_RE.search(p) and not re.search(r"(^|/)(tests?|e2e|playwright|dev)(/|$)|-dev\.", p)),
+                               key=lambda p: (p.count("/"), p)):
+                text = self.gh.raw(self.repo, ref, path)
+                found = from_compose(text, repo_name) if text else None
+                if found:
+                    source = f"https://github.com/{self.repo}/blob/{ref}/{path}"
+                    break
+        if not found:
+            for chart in sorted(p for p in tree if p.endswith("Chart.yaml")):
+                vals = chart.rsplit("/", 1)[0] + "/values.yaml" if "/" in chart else "values.yaml"
+                c, v = self.gh.raw(self.repo, ref, chart), self.gh.raw(self.repo, ref, vals)
+                found = from_helm(c, v) if c and v else None
+                if found:
+                    source = f"https://github.com/{self.repo}/blob/{ref}/{vals}"
+                    break
+        if not found and "README.md" in tree:
+            text = self.gh.raw(self.repo, ref, "README.md")
+            found = from_readme(text, repo_name) if text else None
+            if found:
+                source = f"https://github.com/{self.repo}/blob/{ref}/README.md"
+        return {"info": info, "release": rel, "ref": ref, "tree": tree, "found": found, "source": source,
+                "last_commit": self.gh.last_commit_date(self.repo)}
+
+    def resolve_image(self, found: dict | None, release: str | None) -> dict:
+        """Pin the upstream image: prefer the release's own tag, then the upstream file's tag."""
+        if not found:
+            self.flag("image: no image in the upstream compose file, Helm chart or README")
+            return {"ref": U, "archs": [], "user": ""}
+        name, tag, _ = common.split_image(found["image"])
+        name = normalise_image(name)
+        tags = []
+        if release:
+            tags += [release, release[1:] if release.startswith("v") else f"v{release}"]
+        if tag and tag != "latest":
+            tags.append(tag)
+        for t in dict.fromkeys(tags):
+            digest = self.reg.digest(f"{name}:{t}")
+            if digest:
+                if release and t not in (release, release.lstrip("v"), f"v{release}"):
+                    self.flag(f"image tag: {t} is the upstream file's tag, not the release {release}")
+                archs, _ = self.reg.platforms(f"{name}@{digest}")
+                ours = [a for a in ("amd64", "arm64") if a in archs]
+                if not ours:
+                    self.flag(f"archs: {name}:{t} has neither amd64 nor arm64 ({archs})")
+                cfg = self.reg.config(f"{name}@{digest}", ours[0] if ours else "amd64") or {}
+                self.evidence.append(f"Image tag `{t}` digest `{digest}` and archs {', '.join(archs)} read from the registry with crane.")
+                return {"ref": f"{name}:{t}@{digest}", "archs": ours,
+                        "user": (cfg.get("config") or {}).get("User") or ""}
+        self.flag(f"image: no tag of {name} matches the release ({', '.join(tags) or 'none tried'})")
+        return {"ref": U, "archs": [], "user": ""}
+
+    def build(self) -> dict:
+        d = self.discover()
+        info, rel, found = d["info"], d["release"], d["found"]
+        release = rel["tag_name"] if rel else None
+        if d["source"]:
+            self.evidence.append(f"Image, ports and volumes from {d['source']}.")
+        img = self.resolve_image(found, release)
+        gh_url = f"https://github.com/{self.repo}"
+        website = info.get("homepage") or self.flag("links.website: no homepage on GitHub")
+        if self.docs_hint:
+            docs = self.docs_hint
+        elif any(p.startswith("docs/") for p in d["tree"]):
+            docs = f"{gh_url}/tree/{d['ref']}/docs"
+        elif "README.md" in d["tree"]:
+            docs = f"{gh_url}#readme"
+        else:
+            docs = self.flag("links.docs: no docs found")
+        support = f"{gh_url}/issues" if info.get("has_issues") else self.flag("links.support: issues are off")
+        spdx = (info.get("license") or {}).get("spdx_id")
+        if not spdx or spdx in ("NOASSERTION", "NONE"):
+            spdx = self.flag(f"license: GitHub reports {spdx or 'no licence'}")
+        ports = (found or {}).get("ports") or []
+        if found and found.get("host_paths"):
+            self.flag("host paths in the upstream file are not packaged: " + ", ".join(found["host_paths"]))
+        if found and found.get("other_services"):
+            self.flag("other upstream services are not packaged: " + ", ".join(found["other_services"]))
+        version = (release or "").lstrip("v") or self.flag("version: no GitHub release")
+        if not re.match(r"^[A-Za-z0-9][A-Za-z0-9._+-]*$", version):
+            version = self.flag(f"version: release tag {release!r} is not a plain version")
+        released_at = (rel or {}).get("published_at") or self.flag("upstream.released_at: no release")
+        return {"info": info, "release": release or U, "released_at": released_at, "img": img,
+                "ports": ports, "volumes": (found or {}).get("volumes") or [], "links":
+                {"docs": docs, "github": gh_url, "website": website, "support": support},
+                "license": spdx, "version": version, "last_commit": d["last_commit"]}
+
+    # -- writers -----------------------------------------------------------------------------
+    def objects(self, b: dict) -> list[tuple[str, dict, str]]:
+        """Return [(file name, object, header comment)] for manifests/."""
+        labels = {"app.kubernetes.io/name": self.id}
+        user = b["img"]["user"]
+        uid = user.split(":")[0]
+        pod_sc: dict = {"seccompProfile": {"type": "RuntimeDefault"}}
+        if uid.isdigit() and int(uid) > 0:
+            pod_sc = {"runAsNonRoot": True, "runAsUser": int(uid), "fsGroup": int(uid), **pod_sc}
+        container: dict = {"name": self.id, "image": b["img"]["ref"]}
+        if b["ports"]:
+            container["ports"] = [{"name": "http" if i == 0 else f"port-{p}", "containerPort": p, "protocol": "TCP"}
+                                  for i, p in enumerate(b["ports"])]
+        container["resources"] = {"requests": {"cpu": "100m", "memory": "128Mi"},
+                                  "limits": {"cpu": "1", "memory": "512Mi"}}
+        container["securityContext"] = {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}}
+        pvcs, mounts, volumes = [], [], []
+        for i, path in enumerate(b["volumes"]):
+            pvc = f"{self.id}-data" if i == 0 else f"{self.id}-data-{i}"
+            pvcs.append(("pvc.yaml", {"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": pvc},
+                                      "spec": {"accessModes": ["ReadWriteOnce"], "resources": {"requests": {"storage": "1Gi"}}}},
+                         f"# {U}: size. Mounted at {path} (from the upstream file); no storageClassName, so the cluster default is used."))
+            mounts.append({"name": f"data-{i}", "mountPath": path})
+            volumes.append({"name": f"data-{i}", "persistentVolumeClaim": {"claimName": pvc}})
+        if mounts:
+            container["volumeMounts"] = mounts
+        pod: dict = {"automountServiceAccountToken": False, "enableServiceLinks": False,
+                     "securityContext": pod_sc, "containers": [container]}
+        if volumes:
+            pod["volumes"] = volumes
+        dep = {"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": self.id},
+               "spec": {"replicas": 1, "strategy": {"type": "Recreate"}, "selector": {"matchLabels": labels},
+                        "template": {"metadata": {"labels": labels}, "spec": pod}}}
+        out = [("deployment.yaml", dep,
+                f"# Scaffolded by sdk/tools/app-scaffold from github.com/{self.repo} (contract §9.2).\n"
+                f"# {U}: resources are defaults, not upstream sizing; measure and adjust.\n"
+                "# Recreate: one writer for any volume. Hardened by default: no privilege escalation, no capabilities.")]
+        out += pvcs[:1] + [(f"pvc-{i}.yaml", o, c) for i, (_, o, c) in enumerate(pvcs[1:], 1)]
+        if b["ports"]:
+            out.append(("service.yaml", {"apiVersion": "v1", "kind": "Service", "metadata": {"name": self.id},
+                                         "spec": {"type": "ClusterIP", "selector": labels,
+                                                  "ports": [{"name": "http", "port": b["ports"][0], "targetPort": "http", "protocol": "TCP"}]}},
+                        f"# {U}: the first published port of the upstream file is taken as the web UI."))
+        return out
+
+    def write(self, b: dict, force: bool = False) -> Path:
+        app_dir = self.apps_dir / self.id
+        if app_dir.exists() and not force:
+            raise common.ToolError(f"{app_dir} exists (use --force to overwrite)")
+        (app_dir / "manifests").mkdir(parents=True, exist_ok=True)
+        objs = self.objects(b)
+        names = []
+        for fname, obj, comment in objs:
+            body = yaml.dump(obj, Dumper=NoAliasDumper, sort_keys=False, default_flow_style=False)
+            (app_dir / "manifests" / fname).write_text(
+                f"# SPDX-License-Identifier: Apache-2.0\n{comment}\n{body}", encoding="utf-8")
+            names.append(fname)
+        kust = {"apiVersion": "kustomize.config.k8s.io/v1beta1", "kind": "Kustomization",
+                "labels": [{"pairs": {"app.kubernetes.io/name": self.id, "app.kubernetes.io/part-of": "onemind-apps"},
+                            "includeSelectors": False}],
+                "resources": names}
+        (app_dir / "manifests" / "kustomization.yaml").write_text(
+            "# SPDX-License-Identifier: Apache-2.0\n"
+            f"# Namespace-agnostic: the gateway's kubernetes executor sets namespace app-{self.id} (contract §3).\n"
+            + yaml.safe_dump(kust, sort_keys=False), encoding="utf-8")
+        (app_dir / "icon.svg").write_text(icon_svg(self.id, self.name_hint or b["info"].get("name") or self.id), encoding="utf-8")
+        (app_dir / common.MANIFEST_NAME).write_text(self.manifest_text(b), encoding="utf-8")
+        notes = self.notes(b)
+        (app_dir / "README.md").write_text(f"{readme.NOTES_BEGIN}\n{notes}{readme.NOTES_END}\n", encoding="utf-8")
+        rendered = [o for _, o, _ in objs]
+        (app_dir / "README.md").write_text(readme.render(app_dir, objects=rendered), encoding="utf-8")
+        return app_dir
+
+    def manifest_text(self, b: dict) -> str:
+        info, img = b["info"], b["img"]
+        q = lambda s: json.dumps(s, ensure_ascii=False)  # noqa: E731 - YAML-safe double-quoted string
+        desc = (info.get("description") or "").strip()
+        desc = re.sub(r"^:[a-z_]+:\s*", "", desc)[:300] or self.flag("description: none on GitHub")
+        web = f"  web: {{port: {b['ports'][0]}}}\n" if b["ports"] else ""
+        archs = ", ".join(img["archs"])
+        return (
+            "# SPDX-License-Identifier: Apache-2.0\n"
+            f"# Scaffolded by sdk/tools/app-scaffold from github.com/{self.repo} (contract §9.2).\n"
+            f"# Every value comes from the GitHub API, the upstream files or the registry; {U} marks what did not.\n"
+            "apiVersion: onemind.app/v1alpha1\nkind: App\nmetadata:\n"
+            f"  id: {self.id}\n  name: {q(self.name_hint or info.get('name') or self.id)}\n"
+            f"  version: {q(b['version'])}\n  description: {q(desc)}\n"
+            f"  category: uncategorized   # {U}: choose a Market category (GitHub topics: {', '.join(info.get('topics') or []) or 'none'})\n"
+            f"  icon: icon.svg\n  license: {q(b['license'])}\n  source: https://github.com/{self.repo}\n"
+            "  links:\n" + "".join(f"    {k}: {q(v)}\n" for k, v in b["links"].items()) +
+            f"  upstream: {{release: {q(b['release'])}, released_at: {q(b['released_at'])}, archived: {str(bool(info.get('archived'))).lower()}}}\n"
+            "  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand\n"
+            f"spec:\n  archs: [{archs}]\n"
+            f"  requires: {{gpu: false, minMemoryMb: 512}}   # {U}: from the default 512Mi limit, not upstream sizing\n"
+            f"{web}  manifests: manifests/\n  updates: {{channel: stable, automerge: none}}\n")
+
+    def notes(self, b: dict) -> str:
+        info = b["info"]
+        lines = ["## What it is", "", f"{U}: describe the app in plain words, from {b['links']['docs']}.", "",
+                 "## Upstream at scaffold time", "",
+                 f"- {info.get('stargazers_count', '?')} GitHub stars, last commit {b['last_commit'] or '?'}, "
+                 f"licence reported by GitHub: `{(info.get('license') or {}).get('spdx_id')}`.",
+                 *[f"- {e}" for e in self.evidence], "",
+                 "## Open questions from the scaffolder", ""]
+        lines += [f"- {U}: {u}" for u in self.unverified] or ["- none"]
+        lines += ["", "## First run", "",
+                  f"{U}: copy the first-run steps from the upstream documentation ({b['links']['docs']}) and cite the page."]
+        return "\n".join(lines) + "\n"
+
+
+def icon_svg(app_id: str, name: str) -> str:
+    initials = "".join(w[0] for w in re.split(r"[\s_-]+", name) if w)[:2] or app_id[:2]
+    hue = int(hashlib.sha256(app_id.encode()).hexdigest()[:4], 16) % 360
+    return ("<!-- SPDX-License-Identifier: Apache-2.0 -->\n"
+            f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="{app_id}">\n'
+            "  <!-- Neutral generated icon (initials), not the upstream logo. -->\n"
+            f'  <rect width="64" height="64" rx="14" fill="hsl({hue},40%,38%)"/>\n'
+            f'  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">{initials}</text>\n'
+            "</svg>\n")
+
+
+def queue_entry(queue: Path, repo: str) -> dict:
+    if not queue.is_file():
+        return {}
+    for entry in yaml.safe_load(queue.read_text(encoding="utf-8")) or []:
+        if isinstance(entry, dict) and str(entry.get("github", "")).lower() == repo.lower():
+            return entry
+    return {}
+
+
+def mark_in_pr(queue: Path, repo: str) -> bool:
+    """Set the queue entry's status to in-pr, editing only that line."""
+    text = queue.read_text(encoding="utf-8")
+    pat = re.compile(rf"(?mi)^(.*github:\s*{re.escape(repo)}\b.*?status:\s*)queued\b")
+    new, n = pat.subn(r"\g<1>in-pr", text, count=1)
+    if n:
+        queue.write_text(new, encoding="utf-8")
+    return bool(n)
+
+
+def main(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="app-scaffold", description=__doc__.split("\n")[0])
+    p.add_argument("repo", help="upstream GitHub owner/repo")
+    p.add_argument("--id", help="app id (default: from the repo name)")
+    p.add_argument("--image", help="image name[:tag] when no upstream file names one (still verified with crane)")
+    p.add_argument("--docs", help="documentation URL (default: the queue entry's docs, else found)")
+    p.add_argument("--apps-dir", type=Path, default=common.APPS_DIR)
+    p.add_argument("--force", action="store_true", help="overwrite an existing apps/<id>/")
+    p.add_argument("--no-queue", action="store_true", help="do not set the queue entry to in-pr")
+    args = p.parse_args(argv)
+    if not re.match(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", args.repo):
+        sys.stderr.write("error: repo must be owner/repo\n")
+        return 2
+    queue = args.apps_dir / "_intake" / "queue.yaml"
+    entry = queue_entry(queue, args.repo)
+    s = Scaffold(args.repo, common.GitHub(), common.Registry(), args.apps_dir, app_id=args.id,
+                 image=args.image, docs=args.docs or entry.get("docs"), name=entry.get("name"))
+    try:
+        app_dir = s.write(s.build(), force=args.force)
+    except (common.ToolError, OSError) as exc:
+        sys.stderr.write(f"error: {exc}\n")
+        return 2
+    if not args.no_queue and entry and mark_in_pr(queue, args.repo):
+        print(f"queue: {args.repo} -> in-pr")
+    print(f"wrote {app_dir}")
+    for u in s.unverified:
+        print(f"  {U}: {u}")
+    left = common.unverified_files(app_dir)
+    if left:
+        print(f"  {U} left in: {', '.join(left)} (tier capped at community until a person confirms them)")
+    return 1 if left else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
