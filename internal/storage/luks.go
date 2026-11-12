@@ -42,8 +42,10 @@ import (
 )
 
 const (
-	// SetKeyPath is the set key, relative to the data mount (inside @).
-	SetKeyPath = "onemind/storage/keys/set.key"
+	// SetKeyPath is the set key, relative to the data mount: inside @, next
+	// to the box's other secrets. Not under onemind/storage, where the image
+	// mounts @storage (STORAGE-ACT-os.patch.md §2.2) and would hide it.
+	SetKeyPath = "onemind/secrets/storage-set.key"
 	// TokenID is the LUKS2 token slot OneMind uses (0..31; systemd takes the
 	// lowest free ones, so the top end avoids them).
 	TokenID = 30

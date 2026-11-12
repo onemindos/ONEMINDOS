@@ -147,7 +147,7 @@ WantedBy=multi-user.target
  [Service]
  Type=oneshot
 -ExecStart=/sbin/resize2fs /dev/disk/by-partlabel/onemind-data
-+ExecStart=/sbin/cryptsetup resize --key-file /data/onemind/storage/keys/set.key onemind-data
++ExecStart=/sbin/cryptsetup resize --key-file /data/onemind/secrets/storage-set.key onemind-data
 +ExecStart=/bin/btrfs filesystem resize max /data
 ```
 

@@ -23,7 +23,7 @@
 2. **Approve.** `POST /v1/actions/{id}/approve` (owner only; agents get 403). The gateway renders the plan again. A different `plan_sha256` (another disk on that cable, a member that changed) is `409 stale_precondition`, and the action stays pending.
 3. **Dispatch.** The gateway sends `{kind, params, plan_sha256, action_id}`, never commands. The node renders the plan a third time and starts only if the hash matches.
 4. **Run.** The engine journals each step (`pending → running → done | skipped | failed`) in `/data/onemind/storage/ops/op-<id>.json`, written as a temp file, fsynced, renamed, and the folder fsynced.
-5. **Close.** The gateway's poller reads the journal. It ends the action `succeeded` or `failed` (rolled back, needs attention, never started) and publishes `storage.operation.finished`.
+5. **Close.** The gateway's poller reads the journal. It ends the action `succeeded` or `failed` (rolled back, needs attention, never started) and publishes `storage.operation.finished`. "Never started" needs the node not to know the action for at least a minute after approval (4 × `ONEMIND_STORAGE_TIMEOUT_S` when longer): the poller can see an action accepted before dispatch has sent it.
 
 ## 3. Interfaces (proposed for contract §12 by UMB-STOR-0)
 
@@ -45,7 +45,7 @@ A feature PR does not edit the contract (WORKSTREAMS §4). These names are what 
 |---|---|---|
 | `GET /v1/storage` | any principal | `{node_id, enabled, available, state, encrypted, generation, needs_scrub, reasons, repair, profiles, members[{devid, missing, size_bytes, allocated_bytes, errors}], active_operation, recovery_key_pending, tpm2}`; no disk identities |
 | `GET /v1/storage/devices` | owner | disks with role, model, full serial, health |
-| `POST /v1/storage/plans` | requesters | `{type, risk, plan, plan_sha256}`; nothing filed |
+| `POST /v1/storage/plans` | requesters | `{type, risk, plan, plan_sha256}`; nothing filed. Here and in the two routes below, non-owners get `plan.targets` without `id` (the full WWN or serial) |
 | `POST /v1/storage/actions` | requesters (remove: owner) | `202 {action, plan, plan_sha256, risk, …}` + `Location`; `Idempotency-Key` header or body field; replay `200` |
 | `GET /v1/storage/operations/{action_id}` | requesters | the stored plan, state, progress and, while it runs, the node's journal step by step |
 | `POST /v1/storage/recovery-key` | owner | `{one_time: {recovery_key}}` once, `Cache-Control: no-store`; then `404` |
@@ -67,7 +67,9 @@ Every step has a **phase**. That decides what a failure does:
 
 Other rules:
 - **One operation at a time** (`409 busy`). The journal folder is `flock`ed, so a second service cannot run on the same set.
-- **Disks are found again by identity, not by name.** Every device path in a plan gets a key: the GPT partition id the plan wrote for new members, the existing partition ids, and stable disk ids (WWN, serial). After a reboot that swapped `vdb` and `vdc`, the remaining steps are rewritten (`relocated` in the journal). A target with no partition yet is accepted only at its old path, blank, with the same size and model. A target that is gone means rollback (prepare/join) or `needs_attention` (commit).
+- **Disks are found again by identity, not by name.** Every device path in a plan gets a key: the GPT partition id the plan wrote for new members, the existing partition ids, and stable disk ids (WWN, serial). After a reboot that swapped `vdb` and `vdc`, the remaining steps are rewritten (`relocated` in the journal). A target with no partition yet is accepted only at its old path, blank, with the same size and model. A target that is gone means rollback (prepare/join) or `needs_attention` (commit). A stable id that two disks share (some USB bridges report one serial for every disk) finds neither.
+- **Rollback blanks only what is provably the target:** the disk with the partition id the plan wrote, or, when that partition never appeared, the one disk with the target's stable id if it holds nothing this operation cannot have made. Anything else stops the rollback (`needs_attention`) instead of wiping.
+- **`wipe` never touches the system disk.** A member there (the partition `storage init` made) can leave or be replaced, but not wiped: blanked, the next boot would format it as a new set (check `wipe-not-system`). On a data disk the whole partition table is blanked only when the member's partition was all it held.
 - **The engine never runs commands it is sent**, and only allow-listed programs (`sgdisk`, `cryptsetup`, `btrfs`, …).
 - **Fault injection:** while `/run/onemind/storage/hold-before-<step>` exists, the engine waits before that step (root-only tmpfs). This is how the lab cut power at exact points.
 
@@ -76,7 +78,7 @@ Other rules:
 | Keyslot | Content | Made by |
 |---|---|---|
 | recovery | the owner's recovery key: 256 random bits in systemd's modhex format, shown once, never stored | `onemindd storage init` (first boot) |
-| set key | 512 random bits, kept inside the unlocked set at `/data/onemind/storage/keys/set.key` (root, 0600) | `init`; opens a member the engine just prepared |
+| set key | 512 random bits, kept inside the unlocked set at `/data/onemind/secrets/storage-set.key` (subvolume `@`, root, 0600; not under `/data/onemind/storage`, where `@storage` is mounted) | `init`; opens a member the engine just prepared |
 | TPM2 | `systemd-tpm2` token sealed to PCR 7 (+ signed PCR 11 policy when the image ships its public key) | `init` when a TPM2 is present |
 
 **New members get a byte copy of an existing member's header** (`luksHeaderBackup` → `luksHeaderRestore` → `luksUUID`): the same keyslots, so the same recovery key and TPM2 policy open them. That is the only way to give a new disk the recovery keyslot without asking the owner for the key, and it needs no key at all. Verified on cryptsetup 2.7.5: the recovery key opens every member in the lab. **The trade-off:** all members share one volume key. The members are open together in memory anyway, and AES-XTS sector tweaks differ per sector, but equal 16-byte blocks at the same offset of two stolen disks would look equal. The alternative is to have the owner type the recovery key whenever a disk is added. Founder decision F-63 (DECISIONS-NEEDED).
@@ -91,7 +93,7 @@ Other rules:
 
 ## 6. Events for notifications (CORE-NOTIFY-1)
 
-The gateway publishes these with `publish_event` (audit, NATS `onemind.event.storage.*`, in-process subscribers):
+The gateway publishes these with `publish_event` (audit, NATS `onemind.event.storage.*`, in-process subscribers). The state and verdicts last told are kept in `storage_observations`, so a gateway restart repeats nothing, and a problem that ended while the gateway was down still sends its `storage.ok` or `storage.disk.ok`:
 
 | Event | Severity | Dedupe key | When |
 |---|---|---|---|
@@ -120,7 +122,7 @@ Payloads carry the node id, disk path, model and serial **tail** only; `<hash>` 
 
 ## 7. Security
 
-- The node's socket is mode 0660, root and group `onemind` (the gateway); each connection's peer credentials are checked again (`SO_PEERCRED`). In the lab a user outside the group could not connect.
+- The node's socket is mode 0660, root and group `onemind` (the gateway); each connection's peer credentials are checked again (`SO_PEERCRED`; a failed lookup refuses the connection). In the lab a user outside the group could not connect. Its folder `/run/onemind` stays enterable (0755) even under the unit's `UMask=0077`, since other services' sockets live there too.
 - Three renders of the plan (request, approval, run) with the same `plan_sha256`: a swapped disk never gets wiped.
 - Agents request and read; they never approve (403 before any handler runs). `remove`, which can lower protection, is owner-only.
 - No secret goes through the gateway except the recovery key, once, to an owner, with `no-store`. Keys reach `cryptsetup` on stdin or from tmpfs files; plans and journals contain no key.
@@ -137,7 +139,7 @@ Payloads carry the node id, disk path, model and serial **tail** only; `<hash>` 
 
 - Go: `go test -race ./internal/storage/... ./cmd/onemindd`. The engine runs against a simulated box: power cuts before and after a step's effect, during a kernel balance (running and paused), during prepare with disks renamed across the reboot, a target unplugged while off, a stale replace status, a resumed-replace race, rollback, remove, replace and the socket API. The assembly tests cover the choice rules (copied headers, foreign sets, stale generations), late disks, one cached prompt, degraded and recovery mode.
 - Python: `core/tests/test_storage.py` runs a fake node service on a real Unix socket: request, approve, run and finish; stale plan; agent refusals; idempotency; restart mid-operation; never started; events once; recovery key once. It passes on SQLite and PostgreSQL 17 with the whole core suite.
-- Debian 13 VM lab: all phases pass, and five bugs found there are fixed ([lab README](../../../research-output/evidence/lab/storage-actions/README.md)).
+- Debian 13 VM lab: all phases pass, and five bugs found there are fixed ([lab README](../../../research-output/evidence/lab/storage-actions/README.md)). The lab mounted only `@` at `/data`, and kept the set key at the old path `onemind/storage/keys/set.key`. Under the image's `@storage` mount that path is hidden, so the key moved to `onemind/secrets/storage-set.key` after the lab (review fix).
 
 ## 10. Follow-ups
 

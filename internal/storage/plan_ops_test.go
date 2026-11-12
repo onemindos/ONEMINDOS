@@ -62,7 +62,7 @@ func TestPlanProtectEncryptedClonesHeader(t *testing.T) {
 	for _, w := range []string{
 		"cryptsetup luksHeaderBackup /dev/vdb1 --header-backup-file /run/onemind/storage/header-",
 		"cryptsetup luksHeaderRestore --batch-mode /dev/vde1",
-		"cryptsetup open --key-file /data/onemind/storage/keys/set.key /dev/vde1 onemind-data-vde",
+		"cryptsetup open --key-file /data/onemind/secrets/storage-set.key /dev/vde1 onemind-data-vde",
 		"btrfs device add /dev/mapper/onemind-data-vde /data",
 		"btrfs balance start -dconvert=raid1,soft -mconvert=raid1c3,soft /data",
 	} {
@@ -254,7 +254,7 @@ func TestInitStepsKeepKeysOffDisk(t *testing.T) {
 		t.Error(got)
 	}
 	c := cmds(Plan{Steps: steps})
-	for _, w := range []string{"--key-file /run/onemind/storage/recovery-key /dev/vdb1", "--tpm2-public-key-pcrs=11", "install -m 0600 /run/onemind/storage/set.key /run/onemind/storage/top/@/onemind/storage/keys/set.key", "--uuid 5e7a0000-0000-4000-8000-000000000001"} {
+	for _, w := range []string{"--key-file /run/onemind/storage/recovery-key /dev/vdb1", "--tpm2-public-key-pcrs=11", "install -m 0600 /run/onemind/storage/set.key /run/onemind/storage/top/@/onemind/secrets/storage-set.key", "--uuid 5e7a0000-0000-4000-8000-000000000001"} {
 		if !strings.Contains(c, w) {
 			t.Errorf("missing %q in\n%s", w, c)
 		}
@@ -333,5 +333,13 @@ func TestWipeNeverTouchesTheSystemDisk(t *testing.T) {
 	p := PlanRemove(other, &three, "2", false, true, PlanOptions{})
 	if p.Blocked || strings.Contains(cmds(p), "--zap-all") || !strings.Contains(cmds(p), "wipefs --all "+backing) {
 		t.Errorf("remove with wipe on a shared disk: blocked=%t\n%s", p.Blocked, cmds(p))
+	}
+}
+
+// The image mounts @storage at <data>/onemind/storage: a set key there would
+// be hidden under that mount and every encrypted add or replace blocked.
+func TestSetKeyIsNotUnderTheStorageSubvolume(t *testing.T) {
+	if strings.HasPrefix(SetKeyPath, "onemind/storage/") || !strings.HasPrefix(SetKeyPath, "onemind/") {
+		t.Errorf("SetKeyPath %q", SetKeyPath)
 	}
 }
