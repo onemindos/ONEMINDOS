@@ -72,7 +72,7 @@ spec:
             - name: data
               mountPath: /mnt
         - name: db
-          image: docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+          image: docker.io/library/postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b
           restartPolicy: Always
           args: ["postgres", "-c", "listen_addresses=127.0.0.1"]
           env:
@@ -100,9 +100,11 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
+          # The Alpine image's postgres user is UID/GID 70 (the Debian one is 999); initdb needs the
+          # running UID to exist in /etc/passwd.
           securityContext:
-            runAsUser: 999
-            runAsGroup: 999
+            runAsUser: 70
+            runAsGroup: 70
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]

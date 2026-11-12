@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# photoprism-storage: cache, sidecar files, backups and the generated passwords (.onemind/).
+# photoprism-originals: the photo library. photoprism-db: the MariaDB data directory.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: photoprism-storage
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: photoprism-originals
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: photoprism-db
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

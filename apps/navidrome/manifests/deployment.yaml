@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: Apache-2.0
+# Navidrome 0.64.2 (github.com/navidrome/navidrome, Dockerfile and contrib/docker-compose at tag v0.64.2).
+# The binary runs as any UID; upstream's compose example sets user: 1000:1000. ND_DATAFOLDER=/data,
+# ND_MUSICFOLDER=/music and ND_PORT=4533 come from the image. GET /ping is the upstream heartbeat
+# (server/server.go, middleware.Heartbeat). Same index digest as docker.io/deluan/navidrome:0.64.2.
+#
+# Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: navidrome
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: navidrome
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: navidrome
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: navidrome
+        image: ghcr.io/navidrome/navidrome:0.64.2@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 4533
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /ping
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: '1'
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: music
+          mountPath: /music
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: navidrome-data
+      - name: music
+        persistentVolumeClaim:
+          claimName: navidrome-music
