@@ -60,6 +60,7 @@
 | QUALITY-SLOP-FIX | Re-verify the slop audit (code, docs, drift) against current `main` and fix what is still valid | review | `docs/slop-audit` | PR pending |
 | W2-GW | Gateway wave 2: scan gate, app agent principals, `/mcp` with 3 tool… | done | `feat/gateway-agent-mcp` | [#24](https://github.com/onemindos/ONEMINDOS/pull/24) |
 | W2-PIPE | App pipeline: scaffolder, app-gate (§9.4), `scan.json` (§11.1), k3d… | done | `feat/app-pipeline` | [#25](https://github.com/onemindos/ONEMINDOS/pull/25) |
+| CI-APP-PATHS | Narrow app-gate triggers without weakening §9.4 checks | in-progress (agent A) | `ci/narrow-app-gate-paths` | [#74](https://github.com/onemindos/ONEMINDOS/pull/74) |
 | W2-DEPLOY | Developer install: `install.sh --role hub` or `node`, compose dev hub… | done | `feat/deploy-v0` | [#26](https://github.com/onemindos/ONEMINDOS/pull/26) |
 | W2-HERMES | Hermes packaged as `apps/hermes-agent`, an agent principal | done (acceptance not met: 4 of 9 apps fail their scan) | `feat/app-pipeline` | [#25](https://github.com/onemindos/ONEMINDOS/pull/25) |
 | W2-SEEDS | Wave-2 seed apps | done (acceptance not met: 4 of 9 apps fail their scan) | `feat/app-pipeline` | [#25](https://github.com/onemindos/ONEMINDOS/pull/25) |
@@ -75,6 +76,7 @@
 | UI-LEAP | Parity audit, customization, Home widgets, Store + app management, shell, Settings (+ UMB-DESK-2, -3, -4, -8) | done | `feat/ui-leap` | [#29](https://github.com/onemindos/ONEMINDOS/pull/29) |
 | MKT-TAXONOMY | App and deployment categories | done | `feat/app-taxonomy` | [#28](https://github.com/onemindos/ONEMINDOS/pull/28) |
 | E2E-GOLDEN | Golden-path e2e: `install.sh` hub in a VM (Lima, QEMU/KVM), Playwright dashboard + MCP agent + audit, `verify.sh`; `e2e.yml` on PRs and nightly. Green in Lima 2026-11-12 | in-progress | `feat/e2e-golden-path` | – |
+| MKT-BATCH-1 | Market batch 1: 10 apps from CANDIDATES.md (§9.5); apps the CI gate failed are `tier: blocked` with the reason in manifest and README | in-progress (agent A) | `feat/market-batch-1` | [#61](https://github.com/onemindos/ONEMINDOS/pull/61) |
 | PLAN-E1 | Workbench (G0) and gate content re-synced to D-007 | todo | founder lab kit | – |
 | LEAP-DOCS | Leap specs, workstreams, backlog, status, decisions, CHANGELOG | done | `docs/leap` | [#16](https://github.com/onemindos/ONEMINDOS/pull/16) |
 

@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Web UI and API on 3080. PostgreSQL and FerretDB have no Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: librechat
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: librechat
+  ports:
+    - name: http
+      port: 3080
+      targetPort: http
+      protocol: TCP

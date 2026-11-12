@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# librechat-data: data/ (/app/data, with the generated credentials in .env.temp), uploads/ (/app/uploads) and
+# images/ (/app/client/public/images: avatars and generated images). librechat-db: the
+# PostgreSQL data directory behind FerretDB (all conversations, users and settings). 10Gi and 5Gi
+# are OneMind choices. No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: librechat-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: librechat-db
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
