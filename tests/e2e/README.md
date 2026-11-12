@@ -111,6 +111,24 @@ The approved install of ntfy ran `kubectl apply -k` through the k3s kubectl, and
 the namespace, for both the owner's and the agent's requests. No token appeared in any saved file
 outside `out/secrets/` (checked with `grep -F` for both tokens over `out/`).
 
+### 2026-11-12, QEMU backend, from scratch (the CI path, without KVM)
+The `--backend qemu` path was run the way CI runs it, inside a throwaway Debian 13 arm64 Lima VM
+standing in for the runner (`apt-get install qemu-system-x86 qemu-utils cloud-image-utils`, then
+`E2E_PW_WITH_DEPS=1 run.sh --backend qemu`). That host has no `/dev/kvm`, so the amd64 guest ran
+under TCG emulation, which is why it is slow; with KVM on GitHub runners it should be close to the
+Lima timings (not yet measured there).
+
+```text
+image: debian-13-genericcloud-amd64-20261103-2651.qcow2 (sha512 checked against os/versions.lock.yaml)
+guest: Debian GNU/Linux 13 (trixie), kernel 6.12.115+deb13.1-cloud-amd64, amd64
+ssh up after 61 s (cloud-init seed, generated key, 127.0.0.1 port forwards)
+install.sh: rc 0 in 718s   (first amd64 run of install.sh on record; deploy/README.md had arm64 only)
+playwright: rc 0          16 passed, 8 skipped
+verify.sh: rc 0, Summary: 45 passed, 0 failed, 0 skipped
+total: 971s
+```
+Not run yet: the workflow itself on a GitHub runner (the branch is not pushed).
+
 Earlier runs on the same day found three problems in the suite itself, all fixed before the run above:
 a link name shared by the top bar and the Home page ("Market" vs "Browse the Market"), accessible-name
 matching that is a substring by default (cards "Install ntfy" also matched "ntfy"), and the audit
