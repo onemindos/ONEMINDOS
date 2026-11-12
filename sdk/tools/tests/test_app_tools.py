@@ -88,6 +88,13 @@ class LicenceTests(unittest.TestCase):
         self.assertEqual(licence.gate("Apache-2.0 OR GPL-2.0", "NOASSERTION", row)[0], "L1")
         self.assertEqual(licence.gate("MIT", "GPL-3.0", [])[0], "blocked")
         self.assertEqual(licence.gate("MIT", None, [])[0], "blocked")
+        # GitHub confirms one term only: an added "MIT OR" cannot lift a blocked or copyleft licence.
+        self.assertEqual(licence.gate("MIT OR SSPL-1.0", "SSPL-1.0", [])[0], "blocked")
+        self.assertEqual(licence.gate("MIT OR BUSL-1.1", "BUSL-1.1", [])[0], "blocked")
+        self.assertEqual(licence.gate("MIT OR GPL-3.0", "GPL-3.0", [])[0], "L2")
+        self.assertEqual(licence.gate("MIT AND Apache-2.0", "MIT", [])[0], "L1")
+        # A matrix row for the whole expression confirms every term.
+        self.assertEqual(licence.gate("Apache-2.0 OR GPL-2.0", "GPL-2.0", row)[0], "L1")
 
     def test_matrix_rows(self):
         rows = licence.matrix_rows(common.MATRIX_CSV, "binwiederhier/ntfy")

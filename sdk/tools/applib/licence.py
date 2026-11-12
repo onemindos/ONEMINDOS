@@ -126,22 +126,32 @@ def gate(manifest_licence: str, github_spdx: str | None, rows: list[dict]) -> tu
     """Return (class, notes). The manifest licence counts only if a primary source confirms it:
     GitHub's detected SPDX id is one of its terms, or a research-matrix row has the same expression."""
     notes: list[str] = []
-    confirmed = False
+    cls = classify(manifest_licence)
+    by_matrix = False
+    for row in rows:
+        if normalise(row["SPDX"]) == normalise(manifest_licence):
+            by_matrix = True
+            notes.append(f"research licence matrix row '{row['component']}' ({row['version']}) matches")
+            break
+    by_github = False
     if github_spdx and github_spdx not in ("NOASSERTION", "NONE"):
         if github_spdx in ids_in(manifest_licence):
-            confirmed = True
+            by_github = True
             notes.append(f"GitHub licence {github_spdx} matches the manifest")
         else:
             notes.append(f"GitHub licence {github_spdx} is not a term of the manifest's {manifest_licence}")
-    for row in rows:
-        if normalise(row["SPDX"]) == normalise(manifest_licence):
-            confirmed = True
-            notes.append(f"research licence matrix row '{row['component']}' ({row['version']}) matches")
-            break
     if not rows:
         notes.append("no research licence-matrix row: not preinstallable on sold boxes until one is added (brief 30 B10)")
-    cls = classify(manifest_licence)
-    if not confirmed:
+    if not (by_matrix or by_github):
         notes.append("licence not confirmed by GitHub or the research matrix")
         return "blocked", notes
+    if not by_matrix:
+        # GitHub confirms only its one detected term. Without a matrix row for the whole expression,
+        # the class is never better than that term's, so "MIT OR <github's licence>" in the manifest
+        # cannot lift a source-available or unknown licence to L1.
+        gh_cls = classify(github_spdx)
+        if RANK[gh_cls] > RANK[cls]:
+            notes.append(f"class limited to {gh_cls} (GitHub's {github_spdx}): only the research matrix "
+                         f"can confirm the other terms of {manifest_licence}")
+            cls = gh_cls
     return cls, notes

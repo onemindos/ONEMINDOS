@@ -80,7 +80,7 @@ The tests use GitHub and registry answers recorded in `sdk/tools/tests/fixtures/
 | §9.4 | Check | Fails (`result: fail`) when |
 |---|---|---|
 | 1, 8 | `validate-apps` for the app (schema, id, kubeconform, limits, pins) | any validate-apps check fails |
-| 2 | Licence: the manifest's SPDX expression must be confirmed by GitHub's detected licence or by the row for that repo in `research-output/evidence/license-matrix.csv`, then classed L1 (permissive), L2 (copyleft) or `blocked` | the class is `blocked`: unknown, unconfirmed, source-available (BUSL, Elastic, FSL), non-commercial (PolyForm-NC) or any `LicenseRef-` term. `OR` takes the best term, `AND` the worst |
+| 2 | Licence: the manifest's SPDX expression must be confirmed by GitHub's detected licence or by the row for that repo in `research-output/evidence/license-matrix.csv`, then classed L1 (permissive), L2 (copyleft) or `blocked` | the class is `blocked`: unknown, unconfirmed, source-available (BUSL, Elastic, FSL), non-commercial (PolyForm-NC) or any `LicenseRef-` term. `OR` takes the best term, `AND` the worst. Confirmed by GitHub alone (no matrix row), the class is never better than GitHub's detected term, so `MIT OR <GitHub's licence>` cannot lift a licence |
 | 3 | Pinning: `name:tag@sha256:…`, the digest exists, and its index has every arch in `spec.archs` (crane) | a declared arch is missing. A tag that has since moved is only noted |
 | 4, 6 | Trivy over each image, once per declared arch (`--image-src remote`, no Docker needed): CVEs and secrets | a CRITICAL has a fixed version, or Trivy reports a secret in the image |
 | 5 | ClamAV: `crane export` streams each arch's filesystem, regular files are unpacked to a temp dir, `clamscan -r` | any hit |
