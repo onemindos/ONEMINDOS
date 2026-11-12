@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# A "stock Debian 13 machine" in a container: systemd as PID 1, so deploy/install.sh
+# runs exactly as on a real box (apt, systemd units, k3s, NATS). Test use only.
+FROM debian:trixie@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -q \
+ && apt-get install -y -q --no-install-recommends systemd systemd-sysv dbus ca-certificates curl iptables python3 procps kmod iproute2 \
+ && rm -rf /var/lib/apt/lists/* \
+ && systemctl mask getty.target console-getty.service systemd-firstboot.service \
+ && : > /etc/machine-id
+# An empty /etc/machine-id makes systemd generate a fresh id at each container boot,
+# so the hub and the node get different node ids, like two real machines.
+STOPSIGNAL SIGRTMIN+3
+VOLUME ["/var/lib/rancher", "/var/lib/kubelet"]
+CMD ["/sbin/init"]
