@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Plugin system and Plugin SDK (third-party developers)
 
 **Status:** spec, draft 1 (2026-11-12). Not built. Epic ids `DEV-PLG-n`.
@@ -75,8 +76,8 @@
 | App principals (`agent:<app-id>`, Secret with token) | contract §11.2 | Branch `feat/gateway-agent-mcp` |
 | `/mcp` with `list_nodes`, `list_apps`, `request_action` | `core/onemind_core/mcp.py` | Branch `feat/gateway-agent-mcp` |
 | Executor `kubectl apply -k` into `app-<id>` | `core/onemind_core/executors.py` | On main. No resource-kind allowlist yet (leap epic E0S) |
-| TUF client (go-tuf), signed index | `internal/update/tuf.go` | Branch `feat/onemindd-updater` (OS updates) |
-| `onemind` CLI (`node info`, `nodes`, `version`) | `cmd/onemind/main.go` | On main; `update` commands on the updater branch |
+| TUF client (go-tuf), signed index | `internal/update/tuf.go` | On main since PR #15 (OS updates) |
+| `onemind` CLI (`node info`, `nodes`, `version`) | `cmd/onemind/main.go` | On main, with `update` commands since PR #15 |
 | Dashboard (Home, Nodes, Market, Approvals, SignIn) | `dashboard/src/pages/` | On main; app page and trust card on the gwmcp branch |
 | Design system `@onemind/ui` | `ui/` | Branch `feat/design-system` (uncommitted) |
 | Mobile shell | `mobile/` (Expo, React Native 0.88) | Uncommitted worktree |
@@ -801,7 +802,7 @@ log.Fatal(p.ListenAndServe(":8080"))
 |---|---|---|---|---|---|---|
 | DEV-PLG-1 | Manifest `extensions`, `permissions`, `plugin`, `compat` + Go validator (rules 1–10, P1–P11) | M | 1 | Contract amendment (serialized), leap E6 | `sdk/schema/onemind.app.schema.json` (hotspot), `sdk/schema/widget-templates.schema.json`, `internal/plugin/validate/` | §4.2 validates; each P-rule has a failing fixture; < 10 s |
 | DEV-PLG-2 | TS SDK `@onemind/plugin` (`/server`, `/widget`) | M | 1 | 1 | `sdk/plugin-ts/` | Hello backend and widget build; dispatch-token verify and write guard unit-tested |
-| DEV-PLG-3 | Gateway plugin registry, `kind: plugin` principal, `plugin.invoke` / `plugin.configure`, `/v1/plugins/*` | M | 1 | 1, gwmcp merged, E0S | `core/onemind_core/plugins.py`; one registration line in `app.py` (hotspot); contract §12 text | T-PLG-03, T-PLG-04 (REST path) |
+| DEV-PLG-3 | Gateway plugin registry, `kind: plugin` principal, `plugin.invoke` / `plugin.configure`, `/v1/plugins/*` | M | 1 | 1, gwmcp merged, E0S | `core/onemind_core/plugins.py`; one registration line in `routes.py` (hotspot, after DEV-API-1); contract §12 text | T-PLG-03, T-PLG-04 (REST path) |
 | DEV-PLG-4 | Tool projection to `/mcp` and CLI | S | 1 | 3 | extension in `core/onemind_core/mcp/catalog.py` (after DEV-MCP-1 turns `mcp.py` into a package); `cmd/onemind/cli/plugin.go` | T-PLG-04 over MCP; `onemind plugin call` |
 | DEV-PLG-5 | Widget host: typed templates + sandboxed iframe + bridge + UI route with CSP | L | 1 | 3, design system | `dashboard/src/plugins/`; one route line in `App.tsx` (hotspot); UI route in `plugins.py` | T-PLG-01, T-PLG-02, T-PLG-12 (dashboard) |
 | DEV-PLG-6 | Settings panel + secrets API | S | 1 | 3, 5 | `dashboard/src/plugins/Settings.tsx`; `plugins.py` | T-PLG-10; settings round-trip |
@@ -823,7 +824,7 @@ log.Fatal(p.ListenAndServe(":8080"))
 | Area | Owner (branch, when cut) | Rule |
 |---|---|---|
 | `core/onemind_core/plugins.py`, `plugin_events.py` | `feat/plugins-core` | One module per feature; never edit `actions.py` beyond adding the two action types in one serialized commit |
-| `core/onemind_core/app.py` route registration | **hotspot**, serialized | One line per module |
+| `core/onemind_core/routes.py` route registration (`app.py` until DEV-API-1) | **hotspot**, serialized | One line per module |
 | `core/onemind_core/mcp/` | gwmcp owns until merged, then the MCP stream (DEV-MCP-1) | `feat/plugins-core` adds projection through `mcp/catalog.py` in one PR agreed with the MCP owner |
 | `internal/plugin/{validate,verify,oci,dev,conformance}/` | `feat/plugins-sdk-go` | Reuse `internal/update` TUF code by import; extracting a shared package is a separate agreed PR with the updater owner |
 | `cmd/onemindd/main.go` | **hotspot** | Not touched by this spec (verification runs in the CLI binary) |

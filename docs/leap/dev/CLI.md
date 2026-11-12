@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # The `onemind` CLI (complete spec)
 
 **Status:** spec, 2026-11-12. Nothing in this file is built unless the "Exists today" column says so.
@@ -34,7 +35,7 @@
 |---|---|---|
 | `onemind node info`, `onemind nodes`, `onemind version` (stdlib `flag`, no config file, `--hub`/`ONEMIND_HUB`, `--token`/`ONEMIND_TOKEN`, `--json` on `nodes`) | `cmd/onemind/main.go`, `cmd/onemind/main_test.go`, `cmd/onemind/README.md` | On `main` |
 | Local detection reused by `node info` | `internal/detect/`, `internal/heartbeat/` | On `main` |
-| `onemind update status\|check\|apply` (runs the update engine in-process, needs root except `status`) | `cmd/onemind/update.go`, `internal/update/` | In flight, `updater` worktree (commit `8bf2fbc`) |
+| `onemind update status\|check\|apply` (runs the update engine in-process, needs root except `status`) | `cmd/onemind/update.go`, `internal/update/` | On `main` (PR #15, merged after this spec was written) |
 | Gateway REST: `/healthz`, `/v1/instance`, `/v1/nodes`, `/v1/apps`, `/v1/actions` (+ approve, deny) | `core/onemind_core/app.py`, `actions.py`, `nodes.py`, `catalog.py` | On `main` |
 | Hash-chained audit log and a Python `verify()` | `core/onemind_core/audit.py` (`python -m onemind_core.audit`) | On `main` |
 | Scan gate, agent principals, `POST /mcp` with `list_nodes`, `list_apps`, `request_action` | `core/onemind_core/scan.py`, `mcp.py` | In flight, `gwmcp` worktree (`6dffda5`) |
@@ -129,7 +130,7 @@ Precedence: flag, then environment, then context, then built-in default.
 | 13 | too_many_requests | Pending-request limit reached (plan E3, 11th pending → 429) | 429 |
 | 14 | unsupported | The box is too old for this command (section 9) | 404/405 on a probed path, or a missing feature flag |
 
-The Go SDK maps HTTP errors to typed errors (`*onemind.APIError` with `.Code`); the CLI maps those to this table in one place (`cmd/onemind/cli/exit.go`). The table is part of the CLI's public interface: a number is never reused for another meaning.
+The Go SDK maps HTTP errors to typed errors (`*onemind.Error` with `.Code`, [SDK.md](SDK.md) §3.8); the CLI maps those to this table in one place (`cmd/onemind/cli/exit.go`). The table is part of the CLI's public interface: a number is never reused for another meaning.
 
 ---
 
@@ -275,7 +276,7 @@ approved · dispatched · succeeded in 6 s
 
 $ onemind actions watch --json
 {"event":"action.requested","action":{"id":"01JC9C…","state":"awaiting_approval",…}}
-{"event":"action.succeeded","action":{"id":"01JC9A…","state":"succeeded",…}}
+{"event":"action.state_changed","action":{"id":"01JC9A…","state":"succeeded",…}}
 ```
 
 Removing an app or anything marked destructive asks you to type the target id rather than `y`.
@@ -284,9 +285,9 @@ Removing an app or anything marked destructive asks you to type the target id ra
 
 | Command | Source | Does |
 |---|---|---|
-| `onemind audit verify` | `GET /v1/audit?after_seq=N` (new, owner only, paged NDJSON) | Download the log, recompute every hash, compare the head with the latest signed checkpoint (plan E2) |
+| `onemind audit verify` | `GET /v1/audit/events?after_seq=N` and `GET /v1/audit/checkpoints` (new, owner or adult, paged; API.md §5.7) | Download the log, recompute every hash, compare the head with the latest signed checkpoint (plan E2) |
 | `onemind audit verify --file PATH` | a local JSONL copy (on the box, or a backup) | Same check, offline; needs no credential |
-| `onemind audit tail [-f] [-n 50] [--action ID] [--principal P]` | `GET /v1/audit` then `GET /v1/events?types=audit` (new) | Print entries; `-f` follows |
+| `onemind audit tail [-f] [-n 50] [--action ID] [--principal P]` | `GET /v1/audit/events` then `GET /v1/events?types=audit.*` (new) | Print entries; `-f` follows |
 
 The Go implementation uses the exact rule in `core/onemind_core/audit.py`: `hash = sha256(prev_hash + canonical_json(line without prev_hash and hash))`, keys sorted, no whitespace, UTF-8, genesis `0`×64. A shared test-vector file (`sdk/testdata/audit/`, owned by the Go SDK epic) is checked by both the Python tests and the Go tests, so the two can never disagree.
 
@@ -327,13 +328,13 @@ Two paths, one command set:
 | Where you run it | Path | Who may apply |
 |---|---|---|
 | On the box, as root, k3s or gateway down allowed | `onemindd` local socket `/run/onemind/onemindd.sock` (B4.2 "API on a local Unix socket") | root on the box (the rescue path), audited by `onemindd` as `local:root` |
-| Anywhere else | Gateway `GET /v1/os/status`, `POST /v1/os/check`, `POST /v1/actions {type: os.update}` (new, B4.2) | owner, through approval |
+| Anywhere else | Gateway `GET /v1/os/status`, `POST /v1/os/check`, `POST /v1/os/apply` (action `os.update.apply`; new, B4.2, API.md §5.6) | owner, through approval |
 
 | Command | Does |
 |---|---|
 | `onemind update status [--node ID]` | Current and available version, booted slot, state, policy and window, history (today's output in the `updater` worktree) |
 | `onemind update check` | Fetch and verify the TUF channel; print the decision; never installs |
-| `onemind update apply [--no-reboot] [--node ID]` | Install now (refused while the health gate is deciding). Remote: an `os.update` action the owner approves |
+| `onemind update apply [--no-reboot] [--node ID]` | Install now (refused while the health gate is deciding). Remote: an `os.update.apply` action the owner approves |
 
 The `updater` worktree's `update.go` runs the engine inside the CLI process. DEV-CLI-6 changes it to call `onemindd` over the socket, so only one process ever drives RAUC and the state files. The output format stays the same.
 
@@ -375,15 +376,15 @@ The command tree in §3 is the one list of `onemind` commands for every leap spe
 
 | Command | Gateway (new; owned by the notifications, automation and identity specs) |
 |---|---|
-| `onemind notify test [--channel ntfy\|push\|email]` | `POST /v1/notify/test`: sends "Test from OneMind" to the owner's channels; prints each delivery result |
-| `onemind rules list` | `GET /v1/rules` |
-| `onemind rules add -f rule.yaml` | `POST /v1/actions {type: automation.rule.create, params: {rule: …}}`: a new rule is a state change, so the owner approves it |
+| `onemind notify test [--channel ID]` | `POST /v1/notifications/channels/{id}/test` for each of the caller's channels (API.md §5.4): sends "Test from OneMind" to the owner's channels; prints each delivery result |
+| `onemind rules list` | `GET /v1/automation/rules` |
+| `onemind rules add -f rule.yaml` | `POST /v1/automation/rules` (API.md §5.5): an owner creates it **disabled** and enables it after the dry run; any other principal's call becomes an `automation.rule.create` action the owner approves |
 | `onemind tokens list` | `GET /v1/tokens` (ids, kind, role, created, last used; never the token) |
 | `onemind tokens create --kind agent --name NAME [--expires 30d]` | `POST /v1/tokens` (owner only; printed once) |
 | `onemind tokens create --kind person --role guest --name NAME` | same; a read-only person token for a script |
 | `onemind tokens revoke <id>` | `DELETE /v1/tokens/{id}` |
 
-A rule may only **request** actions. It can carry `approve: auto` only for effect classes the owner's risk policy already allows to auto-approve (reads and notifications; plan §5 decision 6). The gateway refuses `approve: auto` on `write` it was not told to remember, and always on `actuate` and `destructive`.
+A rule may only **request** actions; it cannot approve them and has no `approve:` field. Whether a request runs without a tap is decided only by a standing approval the owner created (API.md §5.5.3), which can cover `read` and `write` types and never `sensitive`, `destructive` or `actuate`. A rule that names a `destructive` type is refused with 422 (F-11).
 
 ```yaml
 # rule.yaml
@@ -397,7 +398,7 @@ then:
 ```console
 $ onemind tokens create --kind agent --name laptop-claude --expires 30d
 Token for agent:laptop-claude (kind agent, can request, cannot approve). Shown once:
-omt_agent_…  (copy it now)
+om_agt_…  (copy it now)
 ```
 
 ### 6.10 Developer: Market apps (`onemind app …`)
@@ -454,7 +455,7 @@ Many agent clients start MCP servers as a local process over stdio. The gateway 
 
 - It adds no tools of its own. The agent sees exactly the gateway's tools: today `list_nodes`, `list_apps`, `request_action`. There is no approve or deny tool.
 - It refuses to start with a person credential (exit 4): an owner token must never sit behind an agent. The gateway refuses it as well (403), so this check is a convenience, not the protection.
-- The token comes from `ONEMIND_AGENT_TOKEN` or `--token-file`, never from the context's owner credential.
+- The token comes from the OS keychain (stored by `onemind mcp login --agent NAME`, [MCP.md](MCP.md) §7.3), else `ONEMIND_AGENT_TOKEN` or `--token-file`, never from the context's owner credential. Client config files hold no secret.
 - Stdout carries only MCP messages; logs go to stderr.
 
 ```json
@@ -462,8 +463,7 @@ Many agent clients start MCP servers as a local process over stdio. The gateway 
   "mcpServers": {
     "onemind": {
       "command": "onemind",
-      "args": ["mcp", "--context", "home"],
-      "env": { "ONEMIND_AGENT_TOKEN": "<agent token from `onemind tokens create --kind agent`>" }
+      "args": ["mcp", "--context", "home"]
     }
   }
 }
@@ -488,11 +488,11 @@ The CLI adds none of these itself. Each is owned by the spec named, goes into th
 | `GET /v1/events` (SSE; `types=` filter) | `actions watch`, `audit tail -f` | new | API spec |
 | `GET /v1/actions` query params `state`, `requested_by`, `limit`, `cursor` | `actions list` | new | API spec |
 | Action `effects` field | approve screens | new | plan E3 |
-| `GET /v1/audit`, checkpoint endpoint | `audit` | new | plan E2 |
-| `/v1/os/*`, action type `os.update`; `onemindd` socket API | `update` | new | updater (B4.2) |
+| `GET /v1/audit/events`, `/v1/audit/checkpoints` | `audit` | new | API spec (§5.7), plan E2 |
+| `/v1/os/*`, action type `os.update.apply`; `onemindd` socket API | `update` | new | updater (B4.2) |
 | `/v1/backups/*`, action types `backup.*` | `backup`, `restore` | new | backups spec (plan E9) |
 | `/v1/fabric/*`, action `node.remove` | `fabric` | new | fabric spec (plan E12) |
-| `/v1/notify/test`, `/v1/rules`, action `rule.create` | `notify`, `rules` | new | notifications, automation specs |
+| `/v1/notifications/channels/{id}/test`, `/v1/automation/rules`, action `automation.rule.create` | `notify`, `rules` | new | notifications, automation specs |
 | `/v1/tokens` | `tokens` | new | identity (plan E8) |
 | `/v1/dev/apps`, developer-mode setting | `app dev`, `plugin dev` | new | app pipeline (plan E5) |
 | v1 device sign-in and step-up approval | `login`, `approve` | new | identity (plan E3, E8) |
@@ -559,23 +559,23 @@ Every CLI command is one SDK call. The Go SDK is the base; the Python and TypeSc
 ```go
 c, _ := onemind.NewFromContext("")            // reads the same config and keychain as the CLI
 a, err := c.Actions.Request(ctx, onemind.ActionRequest{
-    Type: "app.install", Params: map[string]any{"app_id": "ntfy"},
+    Type: "app.install", Params: onemind.ActionParams{AppID: "ntfy"},
 })
-var apiErr *onemind.APIError
+var apiErr *onemind.Error
 if errors.As(err, &apiErr) && apiErr.Code == "stale_precondition" { /* exit 6 */ }
 fmt.Println(a.ID, a.State)                    // 01JC8Q… awaiting_approval
 ```
 
 ```python
-from onemind import Client
+from onemind_sdk import Client
 c = Client.from_context()
 a = c.actions.request(type="app.install", params={"app_id": "ntfy"})
 print(a.id, a.state)
 ```
 
 ```ts
-import { Client } from "@onemind/sdk";
-const c = await Client.fromContext();
+import { OneMind } from "@onemind/sdk";
+const c = await OneMind.fromContext();
 const a = await c.actions.request({ type: "app.install", params: { app_id: "ntfy" } });
 console.log(a.id, a.state);
 ```
@@ -598,7 +598,7 @@ The CLI sets `idempotency_key` to `cli-<ulid>` and keeps it across its own retri
 | `cmd/onemind/cli/root.go` | Root command, global flags, the list of command groups (one line each) | DEV-CLI-1 | **Yes**: serialized; each later epic adds one line |
 | `cmd/onemind/cli/{output,exit,config,credentials,tty,features}.go` | Shared layers | DEV-CLI-1, -2 | no |
 | `cmd/onemind/cli/<group>.go` + `<group>_test.go` | One file per group: `login`, `context`, `status`, `nodes`, `apps`, `actions`, `audit`, `backup`, `update`, `fabric`, `notify`, `rules`, `tokens`, `appdev`, `plugin`, `mcp`, `completion`, plus `alerts`, `auto`, `policy`, `tls`, `deploy`, `secret`, `migrate`, `doctor`, written by the core branch that owns the feature | the matching epic | no |
-| `cmd/onemind/update.go` | today's update command (updater worktree) | moves to `cli/update.go` in DEV-CLI-6 after `updater` merges | coordinate |
+| `cmd/onemind/update.go` | today's update command (on `main` since PR #15) | moves to `cli/update.go` in DEV-CLI-6 | coordinate |
 | `sdk/go/` (own `go.mod`) | Go SDK: client, config/context loader, typed errors, events, audit verify | Go SDK spec | no |
 | `sdk/testdata/{audit,manifests}/` | Cross-language test vectors | Go SDK spec, DEV-CLI-5, -10 | no |
 | `cmd/onemind/README.md`, `docs/cli/` (generated reference) | Docs | DEV-CLI-13 | no |
@@ -618,10 +618,10 @@ Command library: **cobra** (Apache-2.0), because it gives subcommands, help, ali
 | DEV-CLI-3 | Read commands: `status`, `nodes`, `apps list/info`, `actions list/info`, `version` | S | 2 | Golden-file tests for table and JSON output against the fake gateway; `status` shows `null` sections on a v0 box |
 | DEV-CLI-4 | Action flow: `apps install/remove`, `actions approve/deny/watch`, `--wait`, effects display | M | 3; `/v1/events` optional (polling fallback) | Owner install = 2 audit lines; agent token approve → exit 4; no TTY + approve → exit 2; `--wait` maps every end state to exit 0/9/10/11/12; ESC sequences in a reason are stripped |
 | DEV-CLI-5 | `audit verify` (file and gateway) and `audit tail` | M | 1; plan E2 audit endpoint and checkpoint | Shared vectors pass in Go and Python; one changed byte fails at that seq with exit 8; rewritten chain caught by the checkpoint |
-| DEV-CLI-6 | `update` on the box (socket) and remote (gateway action) | M | `updater` merged; B4.2 socket and `/v1/os` | Same output as today's updater tests; CLI no longer drives RAUC in-process; remote apply creates an `os.update` action |
+| DEV-CLI-6 | `update` on the box (socket) and remote (gateway action) | M | `updater` merged; B4.2 socket and `/v1/os` | Same output as today's updater tests; CLI no longer drives RAUC in-process; remote apply creates an `os.update.apply` action |
 | DEV-CLI-7 | `backup` and `restore` | M | plan E9 endpoints | `restore` needs typed confirmation and an owner approval; a safety snapshot id is printed; restore to a fresh VM passes in CI |
 | DEV-CLI-8 | `fabric qr/join/leave/remove`, `node join` alias | M | plan E12, `deploy-v0` merged | Join a VM in under 2 minutes from `fabric qr`; expired or reused code refused; QR contains no network details |
-| DEV-CLI-9 | `notify test`, `rules list/add`, `tokens` | M | notifications, automation, identity endpoints | `notify test` reports per-channel delivery; `rules add` with `approve: auto` on a destructive effect is refused; a new token is printed once and never listed |
+| DEV-CLI-9 | `notify test`, `rules list/add`, `tokens` | M | notifications, automation, identity endpoints | `notify test` reports per-channel delivery; `rules add` naming a `destructive` type is refused (422); a new token is printed once and never listed |
 | DEV-CLI-10 | `app scaffold/validate/gate/dev` | L | `pipeline` merged; plan E5, E6 | Go and Python validators agree on every fixture; `validate` under 10 s; `gate` writes a `scan.json` that the gateway accepts for a dev install only |
 | DEV-CLI-11 | `plugin init/dev/pack/publish` (built by the plugin stream as DEV-PLG-7, -8 and -14 in [PLUGIN-SDK.md](PLUGIN-SDK.md); this row keeps the CLI acceptance) | L | 10; design `PLUGIN-UI.md`; trust root (29 E9) signing | `init` to a working widget on a dev box under 15 min (timed, recorded); `publish` outside CI → exit 4; `pack` output verifies with cosign |
 | DEV-CLI-12 | `onemind mcp` stdio bridge (built as DEV-MCP-7 in [MCP.md](MCP.md); this row keeps the CLI acceptance) | S | `gwmcp` merged | Official MCP SDK client over stdio lists the same tools `/mcp` gives that principal (3 on the gwmcp baseline); `request_action` creates a pending action; person credential → exit 4 |

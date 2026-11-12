@@ -40,11 +40,11 @@
 | C12-A | Contract §12-a: conventions, error codes (`rate_limited`, `policy_refused`, `unavailable`), risk classes, `plan_sha256` on approve, `/v1/me`, `/v1/events`, action-type registry, scopes | S | PA-ARCH; DECISIONS-NEEDED §2 | `sdk/contracts/poc-v0.md` (hotspot) | Merged before any S1 feature PR that uses these names |
 | C12-H | Contract §12-h: MCP additions (scopes in `spec.agent`, preview, withdraw) and CLI verbs | S | C12-A | contract, schema (hotspots) | Merged before DEV-MCP-2 |
 | DEV-API-1 | Route inventory, conventions, `routes.py` registration seam | S | – | `core/onemind_core/routes.py`; one serialized edit of `app.py` | Every route in `/openapi.json` listed in API.md; features register via `routes.py` only |
-| DEV-API-3 | Error model v1: `request_id`, `details`, opt-in new codes, size limits | S | API-1 | `errors.py`, `limits.py` | v0 clients still get `conflict` on 422; with `OneMind-Errors: 2` they get `invalid_request`; bodies over 256 KiB → 413 |
+| DEV-API-3 | Error model v1: `request_id`, `details`, opt-in new codes, size limits | S | API-1, C12-A | `errors.py`, `limits.py` | v0 clients still get `conflict` on 422; with `OneMind-Errors: 2` they get `invalid_request`; bodies over 256 KiB → 413 |
 | DEV-SDK-1 | Spec readiness: response models, stable operation ids, open enums, spec export, committed `sdk/openapi/onemind-v1.json` | M | W2-GW, API-1 | `app.py` (hotspot), `openapi.py`, `core/tests/test_openapi_sdk.py`, `sdk/openapi/onemind-v1.json` | Every route has an `operationId` and a typed 2xx schema; a test fails otherwise |
 | DEV-API-2 | OpenAPI compat gate (oasdiff) and `x-onemind` extension linter | S | API-1, SDK-1 | `sdk/openapi/compat/`, `api-compat.yml`, Makefile target | A deliberate breaking `/v1` change fails CI; every operation has scope, errors and example |
 | DEV-SDK-2 | Generation toolchain and CI staleness check | M | SDK-1 | `sdk/Makefile`, `os/versions.lock.yaml` (add-only), `ci-sdk.yml` | Changing an Action field without regenerating fails CI; generator pins match the lock |
-| DEV-API-4 | Pagination (Link), filters, ETag/If-Match, `Idempotency-Key` header | M | API-1 | `listing.py`, `idempotency.py` | No duplicate actions under 20 concurrent retries; a 2,500-item walk returns each once; v0 lists still return arrays |
+| DEV-API-4 | Pagination (Link), filters, ETag/If-Match, `Idempotency-Key` header | M | API-1, C12-A | `listing.py`, `idempotency.py` | No duplicate actions under 20 concurrent retries; a 2,500-item walk returns each once; v0 lists still return arrays |
 | DEV-API-5 | Scopes, role defaults, `/v1/me`, step-up hook | M | API-1, API-3, C12-A | `scopes.py`, `auth.py` | Scope matrix green for every route × kind × role; upgraded boxes keep v0 read behaviour until enabled |
 | CORE-SANDBOX-1 | Rule file and pure-Python checker with fixtures | S | – | `sdk/policy/**` | Every `bad-*` fixture refused; 3 seed apps pass |
 | CORE-SANDBOX-2 | Gateway renders, checks and stores the plan; `apply -f -` with the checked bytes; `policy_refused`; `plan_sha256` on approve | M | SANDBOX-1, C12-A, W2-GW | `policy.py`, `executors.py` | ClusterRoleBinding fixture refused at approve; manifest edited between request and approve → 409 with the new plan; kubectl never called for a refused app |
@@ -62,7 +62,7 @@
 | CORE-SEC-7 | Pending cap, plan card fields, "written by agent" label | S | SANDBOX-2, API-7 | `actions.py` hook, card fields | 11th pending → 429 `rate_limited`; agent reason always labelled |
 | CORE-SEC-8 | Signing keys in GitHub environments, split jobs | S | OS-SECPIPE | `security-nightly.yml` | Publish jobs need the protected environment; no key in non-publish steps |
 | CORE-SEC-9 | CSP and security headers, body and rate limits | S | API-3 | `limits.py`, middleware | Header test passes on every route |
-| DEV-API-6 | Tokens API and per-plugin tokens from manifest `spec.api` scopes | M | API-5, SEC-3 | `tokens.py` (after SEC-3), `ledger.py` migration | Non-person tokens with forbidden scopes refused (403/422); plugin token revoked on `app.remove` |
+| DEV-API-6 | Tokens API and per-plugin tokens from the manifest's `spec.plugin` and `spec.permissions` (PLUGIN-SDK §4) | M | API-5, SEC-3 | `tokens.py` (after SEC-3), `ledger.py` migration | Non-person tokens with forbidden scopes refused (403/422); plugin token revoked on `app.remove` |
 | DEV-API-8 | Events stream over SSE with resume and scope filtering | M | API-5, API-7 | `events.py` | `Last-Event-ID` resume without gap or duplicate; guests never get `audit.*`; `stream.reset` beyond the buffer |
 | DEV-API-9 | Audit read, verify and signed off-box checkpoints | M | API-5, SEC-6 | `audit_api.py`, `audit.py` | One tampered line → `ok:false` with the right `first_bad_seq`; checkpoint verifies with the public key alone |
 | DEV-SDK-3 | TypeScript `@onemind/sdk` core: client, auth, typed errors, retries, idempotency, wait by polling | M | SDK-2 | `sdk/ts/**` | Conformance, idempotency, ambiguous-approve and token-hygiene cases pass; no runtime deps; ≤ 15 kB gzipped |
@@ -133,7 +133,7 @@
 | CORE-UPDATE-8 | Rescue console in onemindd | M | SEC-1 | `internal/rescue/**` | With k3s stopped, the rescue page lists slots and rolls back |
 | CORE-DASH-2 | Move the 5 existing screens onto `@onemind/ui` | S | DASH-1 | `dashboard/src/pages/*` | Existing dashboard tests pass |
 | CORE-DASH-5 | Alerts, Updates and Backups screens | M | NOTIFY-1, UPDATE-2, BACKUP-8 | one page file each | Stale data never shown as live |
-| CORE-DASH-7 | PWA and per-app subdomain launcher | M | SEC-1 | `dashboard/**` | Installs on Android Chrome over HTTPS with the box CA; Web Push received |
+| CORE-DASH-7 | PWA and per-app subdomain launcher | M | SEC-1, NOTIFY-3 | `dashboard/**` | Installs on Android Chrome over HTTPS with the box CA; Web Push received |
 | CORE-DASH-8 | Typed widgets on Home; "show the equivalent call" toggle | M | DASH-1 | `dashboard/**` | Each shown CLI/API call creates the same action |
 | DEV-SDK-4 | Dashboard and mobile moved onto `@onemind/sdk` | M | SDK-3, PA-MOBILE | `dashboard/src/api/**`, `mobile/src/api/**` | Both test suites pass with the hand-written clients deleted |
 | DEV-SDK-7 | SSE in all three SDKs, polling fallback, React Native transport | L | SDK-3, SDK-5, SDK-6, API-8 | `sdk/*/events*`, `sdk/openapi/events-v1.json` | Resume loses no events; 45 s without keepalive reconnects; reset surfaced |
@@ -165,7 +165,7 @@
 | CORE-AUTO-4 | Dry run, CLI (`auto`, `policy`) and Automations page | S | AUTO-2, AUTO-3 | `cli/{auto,policy}.go`, `Automations.tsx` | Dry-run output equals the first real firing |
 | CORE-AUTO-5 | Failure and recovery notifications, repairs hook-up | S | AUTO-2, NOTIFY-5 | `automation.py` | A failing automation raises one alert with a fix |
 | DEV-API-13 | Automation and OS update route shapes (built inside AUTO-2 and UPDATE-2) | – | AUTO-2, UPDATE-2 | – | Rules only request; destructive types rejected; `os.update.apply` reports the booted verdict |
-| DEV-CLI-9 | `notify test`, `tokens list/create/revoke`, `rules` alias | M | NOTIFY-1, AUTO-2, SEC-3 | `cli/{notify,tokens}.go` | Token printed once, never listed; `approve: auto` on a destructive effect refused |
+| DEV-CLI-9 | `notify test`, `tokens list/create/revoke`, `rules` alias | M | NOTIFY-1, AUTO-2, SEC-3 | `cli/{notify,tokens}.go` | Token printed once, never listed; a rule that requests a `destructive` type refused (422) |
 | CORE-DASH-6 | Settings (sessions, tokens, pairing) and Automations screens | M | SEC-2, SEC-3, AUTO-4 | `dashboard/src/pages/Settings*.tsx` | Revoke from Settings → that token fails at once |
 | CORE-DEPLOY-1 | `onemind deploy` (kustomize, Helm, Compose) → private app | M | SANDBOX-2, C12-C | `deploys.py`, `cli/deploy.go` | Forbidden object in a private app refused like a Market app |
 | CORE-DEPLOY-2 | On-box scan Job bound to digests | M | DEPLOY-1, W2-PIPE | `scanjob.py` | Approve of an unscanned private app → 409 |
@@ -183,7 +183,7 @@
 | DEV-PLG-7 | OCI pack, private-tier signing, install by digest, `plugin verify` | M | PLG-1 | `cli/plugin.go`, `internal/plugin/{oci,verify}/` | Tag, wrong digest, unsigned, wrong signer refused |
 | DEV-PLG-8 | `onemind plugin dev` (mock hub, harness, hot reload) and `init` templates | M | PLG-2, PLG-5, PLG-7 | `internal/plugin/dev/`, `sdk/templates/plugin-hello/` | Hello widget working against `--mock` in < 15 min on a clean Mac |
 | DEV-PLG-9 | Revocation list client (phase 1); TUF delegation and countersignature (phase 2) | L | PLG-7, OS-UPDATER | `internal/plugin/verify/` | Revoked plugin disabled within one fetch; calls rejected within 60 s |
-| DEV-CLI-11 | `plugin init/dev/pack/publish` acceptance (built as PLG-7, -8, -14) | – | PLG-7, PLG-8 | – | `pack` output verifies with cosign; `publish` outside CI exits 4 |
+| DEV-CLI-11 | `plugin init/dev/pack` acceptance (built as PLG-7, -8; `publish` is accepted with PLG-14 in S4+) | – | PLG-7, PLG-8 | – | `pack` output verifies with cosign; `init` to a working widget in < 15 min |
 | CORE-UPDATE-9 | Fleet-staged updates | M | UPDATE-2, FABRIC-1 | `os_updates.py` | A failing first node halts the rollout |
 | CORE-FABRIC-6 | Read-only fleet view | S | FABRIC-1, UPDATE-3, BACKUP-7 | dashboard | Screenshot holds no IP, MAC or serial |
 | CORE-MOBILE-7 | Store releases (TestFlight, Play internal → public) with privacy labels | S | MOBILE-1…6, F-3 | `mobile/**` | Both store builds install from the store track |
@@ -207,7 +207,7 @@
 | DEV-PLG-11 | Plugin data volume and backup hooks | S | PLG-3, BACKUP-5 | `plugins.py` install hook | Hello data restores onto a fresh VM |
 | DEV-PLG-12 | Scan gate for plugin artifacts | M | PLG-7, W2-PIPE | app-gate extension, `ci-plugins.yml` | EICAR in a UI bundle blocked; stale scan → 409 |
 | DEV-PLG-13 | Testing harness (TS, Python, Go) and `onemind plugin test` | M | PLG-2, PLG-8 | `sdk/plugin-*`, `internal/plugin/conformance/` | Hello passes conformance in all three languages |
-| DEV-PLG-14 | Publish from CI (OIDC), public plugin index, review checklist, Market tiers | M | PLG-9, PLG-12 | `cli/plugin.go`, index repo, `Market.tsx` | A third-party test plugin goes from tag to installable in < 1 day |
+| DEV-PLG-14 | Publish from CI (OIDC), public plugin index, review checklist, Market tiers | M | PLG-9, PLG-12 | `cli/plugin.go`, index repo, `Market.tsx` | A third-party test plugin goes from tag to installable in < 1 day; `onemind plugin publish` outside CI exits 4 (DEV-CLI-11) |
 | DEV-PLG-15 | Mobile plugin cards (typed templates, native) | S | PLG-5, MOBILE-1, F-3 | `mobile/src/plugins/` | Cards render on Android and iPhone |
 | DEV-PLG-16 | Plugin docs: tutorial, reference, bridge spec, also over MCP | S | PLG-8, PLG-13 | `site/**`, `dev/PLUGIN-SDK.md` | A new developer completes the Hello tutorial from the website alone |
 | DEV-MCP-10 | MCP revision 2026-07-28: discover, stateless calls, tasks for approval waits | L | MCP-9 | `mcp/{versions,transport}.py` | Conformance passes for 2026-07-28; approval still only out of band |

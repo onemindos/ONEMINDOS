@@ -109,18 +109,19 @@ $ echo $?
 **SDK (proposed shapes; the developer-surface specs fix the package names):**
 ```python
 # Python
-from onemind import Client
-plan = Client.from_env().apps.plan("uptime-kuma")      # GET /v1/apps/uptime-kuma/plan
-print(plan.kinds, plan.images, plan.sha256)
+from onemind_sdk import Client
+plan = Client.from_env().actions.preview(type="app.install", params={"app_id": "uptime-kuma"})  # POST /v1/plans (API §5.11)
+print(plan.kinds, plan.images, plan.plan_sha256)
 ```
 ```ts
 // TypeScript
 import { OneMind } from "@onemind/sdk";
-const plan = await OneMind.fromEnv().apps.plan("uptime-kuma");
+const plan = await OneMind.fromEnv().actions.preview({ type: "app.install", params: { app_id: "uptime-kuma" } });
 ```
 ```go
 // Go
-plan, err := onemind.NewClientFromEnv().Apps.Plan(ctx, "uptime-kuma")
+c, err := onemind.FromEnv()
+plan, err := c.Actions.Preview(ctx, onemind.ActionRequest{Type: "app.install", Params: onemind.ActionParams{AppID: "uptime-kuma"}})
 ```
 **MCP:** agents get the plan inside the `request_action` result (`plan` field), never a way to change it.
 

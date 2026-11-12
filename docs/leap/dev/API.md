@@ -86,7 +86,7 @@ Action types on `main`: `app.install`, `app.remove` (`core/onemind_core/actions.
 | Branch (worktree) | Adds | Status |
 |---|---|---|
 | `gwmcp` | `POST /mcp` (MCP Streamable HTTP, protocol 2025-06-18, agents only; tools `list_nodes`, `list_apps`, `request_action`; no approve tool). `GET`/`DELETE /mcp` answer 405. `GET /v1/apps` gains `links`, `tier`, `scan` (typed `CatalogApp` model in `core/onemind_core/models.py`). Approve of `app.install` returns 409 `stale_precondition` without a passing scan newer than 7 days (`scan.py`). Apps with `spec.agent` get a database-stored agent principal (`agent:<app-id>`) at install, revoked at removal. | committed on branch, not merged |
-| `updater` | `onemindd update` service and `onemind update status\|check\|apply` (console only). Heartbeat gains an optional `update` object. The README states that "the `/v1/os/*` gateway API ... come[s] later": this spec defines it (§5.6). | committed plus uncommitted edits |
+| `updater` | `onemindd update` service and `onemind update status\|check\|apply` (console only). Heartbeat gains an optional `update` object. The README states that "the `/v1/os/*` gateway API ... come[s] later": this spec defines it (§5.6). | **merged** as PR #15 (after this spec was written) |
 | `pipeline` | `apps/<id>/scan.json` (contract §11.1), which the catalog reads | committed |
 | `deploy-v0` | `deploy/install.sh` join flow with a hub URL and token. This spec replaces the static join token with an owner-approved join (§5.1, H-23). | committed |
 
@@ -251,7 +251,7 @@ A restore succeeds only when the restore health gate passes on **fresh** signals
 Example (Python SDK, an agent asks for a restore):
 
 ```python
-from onemind import Client
+from onemind_sdk import Client
 
 om = Client.from_env()  # reads ONEMIND_GATEWAY_URL and ONEMIND_AGENT_TOKEN
 action = om.restores.create(
@@ -349,7 +349,7 @@ An approval policy is the owner's standing "yes" for a narrow set of requests, s
  "expires_at": "2027-02-14T00:00:00Z"}
 ```
 
-Hard limits: a policy can never cover a `destructive` or `sensitive` action type, never covers a request from `kind: agent` unless the owner names that agent exactly, and always has an expiry (at most 90 days). The audit line for an auto-approved action records `approved_by: "policy:pol_backups_unattended"` and the owner who created the policy.
+Hard limits: a policy can never cover a `sensitive`, `destructive` or `actuate` action type, never covers a request from `kind: agent` unless the owner names that agent exactly, and always has an expiry (at most 90 days). The audit line for an auto-approved action records `approved_by: "policy:pol_backups_unattended"` and the owner who created the policy.
 
 ### 5.6 OS updates
 
@@ -419,7 +419,7 @@ Replaces the static tokens file over time (H-09). The file keeps working in v1 a
 **Token format.** `om_<kind>_<random>`: `om_pat_` (person), `om_agt_` (agent), `om_plg_` (plugin), `om_nod_` (node), `om_aut_` (automation). The prefix lets secret scanners (gitleaks) find leaked tokens. Only the sha256 is stored, as today (`auth.py`).
 
 **Per-plugin tokens.** Contract §11.2 already creates an agent principal for an app that declares `spec.agent`. Phase B generalises it:
-- A manifest declares `spec.api: {scopes: ["nodes:read", "notifications:send"], secret: <name>}` (plugin SDK spec, manifest v1).
+- A manifest declares `spec.plugin: {principal: true, secret: <name>}` and the scopes it needs in `spec.permissions` ([PLUGIN-SDK.md](PLUGIN-SDK.md) §4.2, manifest v1). The permission names are mapped onto the scopes in §8.2 by the contract PR (C12-A, [DECISIONS-NEEDED.md](../DECISIONS-NEEDED.md) §2).
 - At install the approval card lists those scopes, so the owner approves them together with the install.
 - The gateway mints a `kind: plugin` principal `plugin:<app-id>` with exactly those scopes, stores it hashed, and writes the token to the Secret in `app-<id>`.
 - `app.remove` revokes it. An app update that **adds** scopes is a new approval; removing scopes needs none.
@@ -432,7 +432,7 @@ Example (TypeScript SDK, the owner makes a read-only token for a home dashboard 
 ```ts
 import { OneMind } from "@onemind/sdk";
 
-const om = new OneMind({ baseUrl: "https://box.local", token: process.env.ONEMIND_TOKEN! });
+const om = new OneMind({ baseUrl: "https://box.local", auth: OneMind.staticToken(process.env.ONEMIND_TOKEN!) });
 const created = await om.tokens.create({
   name: "wall-tablet",
   principal: { kind: "agent", id: "agent:wall-tablet" },
@@ -461,6 +461,7 @@ Existing routes stay. Additions:
 | Deny body (optional) | `{"reason": "…"}`, recorded in audit and shown to the requester |
 | `POST /v1/actions/{id}/cancel` | The requester withdraws its own pending request (`awaiting_approval` → `cancelled`). Agents may do this; it is not an approval |
 | Preview | `GET /v1/actions/{id}/preview` returns "what will change" (objects to create or delete, volumes touched, nodes affected) for the approval card (H-13) |
+| Preview before a request | `POST /v1/plans` with `{type, params}` returns the same plan and its `plan_sha256` without filing an action (MCP `preview_action`, SDK `actions.preview`). Name proposed by the §12 draft; settled in C12-A ([DECISIONS-NEEDED.md](../DECISIONS-NEEDED.md) §2) |
 
 Risk levels decide the approval rule:
 
@@ -492,6 +493,7 @@ Risk levels decide the approval rule:
 | `os.update.apply` | write; destructive with `reboot: now` | `{node_id, version, reboot}` | owner, agent, automation |
 | `os.update.postpone` | write | `{node_id, until}` | owner, agent |
 | `os.update.settings` | sensitive | `{channel, policy, window}` | owner |
+| `os.rollback` | destructive | `{node_id}` | owner ([UPDATES.md](../core/UPDATES.md) §3.2) |
 
 Secrets never sit in `params` (they would be in the audit log). An action that carries a secret stores it in a sealed side table keyed by the action id, deletes it after dispatch or expiry, and the audit records only `"credentials": "provided"`.
 
@@ -755,7 +757,7 @@ Generators, package layout, publishing and the SSE client are owned by [SDK.md](
 |---|---|---|---|
 | TypeScript | `@onemind/sdk` (also used by the dashboard, replacing `dashboard/src/api`) | `openapi-typescript` types + a thin fetch client | auth, pagination iterators, SSE, idempotency keys, retries |
 | Python | `onemind-sdk` (import `onemind_sdk`) | `datamodel-code-generator` (pydantic v2 models) | the same helpers; `Client.from_env()` |
-| Go | `github.com/onemindos/onemindos/sdk/go/onemind` (also used by `cmd/onemind`) | `oapi-codegen` v2, models only | the same helpers |
+| Go | `github.com/onemindos/onemindos/sdk/go` (package `onemind`; also used by `cmd/onemind`) | `oapi-codegen` v2, models only | the same helpers |
 
 Rules:
 - The generated code is committed and rebuilt in CI. A PR that changes the spec without regenerating fails.
@@ -799,7 +801,7 @@ MCP tool definitions for agents are generated from operations tagged `x-onemind-
 
 1. A field or route is marked `deprecated: true` in OpenAPI, and responses that use it carry `Deprecation` (RFC 9745) and `Sunset` (RFC 8594) headers plus a `Link: <docs>; rel="deprecation"`.
 2. A deprecated v1 element keeps working until v1 itself is retired. Nothing is removed from v1.
-3. v2 is cut only when the list of breaking changes justifies it. The list lives in `docs/leap/dev/API-V2-QUEUE.md` (the first entries: the 422/405 error codes from §6.2, envelope-style lists if wanted, required `plan_sha256` on approve).
+3. v2 is cut only when the list of breaking changes justifies it. The list will live in `docs/leap/dev/API-V2-QUEUE.md`, created by DEV-API-2 (the first entries: the 422/405 error codes from §6.2, envelope-style lists if wanted, required `plan_sha256` on approve).
 4. When v2 ships, v1 stays served for **at least 12 months** and across at least two OS feature releases, whichever is longer. The owner sees v1 usage per token on the security page before it is turned off.
 5. The plugin API level (29 §10, `compat.onemind` in the manifest) names the API major it needs. A box refuses a plugin that needs an API major the box does not serve.
 
@@ -858,7 +860,7 @@ A security fix may tighten v1 behaviour (for example refuse a scope combination)
 |---|---|---|---|---|
 | DEV-API-1 | Inventory, conventions and route registration seam | S | — | `core/onemind_core/routes.py` (new: one `register(app, deps)` per feature module, so feature PRs do not all edit `app.py`), one serialized edit of `app.py` |
 | DEV-API-2 | OpenAPI snapshot, `api-compat` CI gate, extensions linter | S | 1, DEV-SDK-1 (produces `sdk/openapi/onemind-v1.json`) | `sdk/openapi/compat/` (baseline for oasdiff), `.github/workflows/api-compat.yml`, `Makefile` target |
-| DEV-API-3 | Errors v1, request ids, size limits | S | 1 | `core/onemind_core/errors.py`, `core/onemind_core/limits.py` (new) |
+| DEV-API-3 | Errors v1, request ids, size limits | S | 1, contract C12-A (new codes) | `core/onemind_core/errors.py`, `core/onemind_core/limits.py` (new) |
 | DEV-API-4 | Pagination, filters, ETags, idempotency header | M | 1 | `core/onemind_core/listing.py`, `core/onemind_core/idempotency.py` (new) |
 | DEV-API-5 | Scopes, role defaults, `/v1/me`, step-up hook | M | 1, 3 | `core/onemind_core/scopes.py` (new), `auth.py` |
 | DEV-API-6 | Tokens API and per-plugin tokens | M | 5, gwmcp merged, CORE-SEC-3 (token lifecycle, same file, lands first) | `core/onemind_core/tokens.py` (new), `ledger.py` (token table) |
@@ -868,7 +870,7 @@ A security fix may tighten v1 behaviour (for example refuse a scope combination)
 | DEV-API-10 | Fabric routes (route shapes; built inside CORE-FABRIC-1, which owns the file) | M | 7, fabric spec, deploy-v0 merged | `core/onemind_core/fabric.py` (new) |
 | DEV-API-11 | Backups and restores routes (route shapes; built inside CORE-BACKUP-8, which owns the file) | M | 7, backups spec (backup agent) | `core/onemind_core/backups.py` (new) |
 | DEV-API-12 | Notifications routes (route shapes; built inside CORE-NOTIFY-1, which owns the files) | M | 5, notifications spec | `core/onemind_core/notify/` package and `alerts.py` |
-| DEV-API-13 | Automation routes and OS update routes (route shapes; built inside CORE-AUTO-1 and CORE-UPDATE-2, which own the files) | M | 7, 8, automation spec, updater merged | `core/onemind_core/automation.py`, `core/onemind_core/os_updates.py` (new) |
+| DEV-API-13 | Automation routes and OS update routes (route shapes; built inside CORE-AUTO-2 and CORE-UPDATE-2, which own the files) | M | 7, 8, automation spec, updater merged | `core/onemind_core/automation.py`, `core/onemind_core/os_updates.py` (new) |
 | DEV-API-14 | **Superseded** by DEV-SDK-1…10 ([SDK.md](SDK.md)); the id stays so old links resolve | – | 2, 4, 8 | `sdk/ts/`, `sdk/python/`, `sdk/go/`, `sdk/conformance/`; CLI and dashboard switch-over PRs owned by their streams |
 
 ### 15.2 Order and phases

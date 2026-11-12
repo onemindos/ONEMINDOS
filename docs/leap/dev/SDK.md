@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # OneMind client SDKs (TypeScript, Python, Go), generated from OpenAPI
 
 **Status:** proposal for the leap plan, 2026-11-12. Nothing here is built yet. **Epic ids:** DEV-SDK-1 … DEV-SDK-10.
@@ -32,10 +33,10 @@
 | Error envelope | `core/onemind_core/errors.py` | `ErrorBody` is published in OpenAPI with the 7 contract codes. 422 validation errors are mapped onto `conflict`. |
 | Idempotency | `core/onemind_core/actions.py` | `POST /v1/actions` requires `idempotency_key` (1–200 chars). Same key and body → 200 with the original action; same key with a different body → 409 `conflict`. |
 | Approve and deny | `core/onemind_core/actions.py` | Owner only; agent → 403 `permission_denied` and an `authz.denied` audit entry. Approving a decided action → 409 `conflict`; after `expires_at` → 409 `expired`; stale scan → 409 `stale_precondition` (§11.1). |
-| OpenAPI contract tests | `core/tests/test_meta.py` (in the design worktree; on main after the wave-2 merge) | Checks that the contract paths, statuses and error body are in `/openapi.json`. |
+| OpenAPI contract tests | `core/tests/test_meta.py` |  Checks that the contract paths, statuses and error body are in `/openapi.json`. |
 | Dashboard client (TS) | `dashboard/src/api/client.ts`, `types.ts` | Hand-written `HttpApi`; hand-written types; clock offset from the `Date` header. |
 | Mobile client (TS) | `mobile/src/api/client.ts` (mobile worktree) | A copy of the dashboard client "keep the two in sync", plus URL normalising and a 10 s timeout. |
-| CLI client (Go) | `cmd/onemind/main.go` | `httpGet` + a local `gatewayError` struct; `ONEMIND_HUB`, `ONEMIND_TOKEN`. The updater worktree adds `onemind update status\|check\|apply` (local, not gateway). |
+| CLI client (Go) | `cmd/onemind/main.go` | `httpGet` + a local `gatewayError` struct; `ONEMIND_HUB`, `ONEMIND_TOKEN`. `onemind update status\|check\|apply` (local, not gateway) arrived on `main` with PR #15. |
 | Agent credentials | contract §11.2; gwmcp worktree | Apps with `spec.agent.principal` get a Secret with `ONEMIND_GATEWAY_URL` and `ONEMIND_AGENT_TOKEN`. |
 | Website | `site/` (site worktree, Astro + Starlight) | Docs site; no API reference yet. |
 | Event stream | none | The dashboard and mobile poll. No `text/event-stream` route exists. |
@@ -164,7 +165,7 @@ Rules, all three SDKs:
 - The token goes only in `Authorization: Bearer …`. Never in a URL or query string, including the event stream (which is why the TS SDK does not use the browser's `EventSource`, see §3.9).
 - Tokens never appear in errors, logs, `toString`/`__repr__`/`String()` output or debug hooks. The client prints as `OneMind(hub=https://hub.example:8080, principal=?)`.
 - `baseUrl` must be absolute `http(s)://` (the mobile `normalizeHubUrl` rule moves into the SDK). Plain `http://` to anything but `localhost` prints a one-time warning in Node, Python and Go until the gateway's HTTPS lands (plan E3).
-- Optional `whoami` is **not** in v0 because the gateway has no such route; the API spec may add `GET /v1/principal` and the SDK then exposes `om.principal()`.
+- `whoami` is **not** in v0 because the gateway has no such route; [API.md](API.md) §5.8 adds `GET /v1/me` (DEV-API-5) and the SDK then exposes `om.me()`.
 
 ### 3.7 Retries, idempotency and timeouts
 
@@ -172,7 +173,7 @@ Rules, all three SDKs:
 |---|---|---|
 | Every `GET` | Yes | On network errors and 502/503/504: up to 3 attempts, full-jitter backoff from 250 ms, cap 4 s; honour `Retry-After` |
 | `POST /v1/actions` (`request`) | Yes, safely | The SDK creates **one** idempotency key (UUIDv4) per logical call unless the caller passes one, and reuses it on every retry. A replay returns 200 with the original action; the SDK returns it the same way as a 201 |
-| `approve` / `deny` | **No blind retry** | After an ambiguous failure (sent, then network error or 5xx), the SDK reads the action back. If it is decided and `decided_by.id` is the caller, it returns the action; otherwise it throws `AmbiguousResultError` with the last seen state. A double approve can never happen silently, and a 409 from a retry is never reported as success |
+| `approve` / `deny` | **No blind retry** | After an ambiguous failure (sent, then network error or 5xx), the SDK reads the action back. If it is decided and `approved_by` (API.md §5.11) is the caller, it returns the action; otherwise it throws `AmbiguousResultError` with the last seen state. A double approve can never happen silently, and a 409 from a retry is never reported as success |
 | Any 4xx | No | Except one token refresh on 401 (§3.6) and, when the contract adds it, 429 with `Retry-After` |
 
 - **Default timeout** 10 s per attempt (the mobile client's value), overridable per call; Go uses the `ctx` deadline.
@@ -259,8 +260,8 @@ try {
   else throw e;
 }
 
-const stop = om.events.subscribe({ topics: ['actions'] }, (ev) => {
-  if (ev.type === 'action.updated') refreshApprovals();
+const stop = om.events.subscribe({ types: ['action.*'] }, (ev) => {
+  if (ev.type === 'action.state_changed') refreshApprovals();
 });
 ```
 
@@ -348,7 +349,7 @@ HTTP 403 permission_denied: agent/agent may not approve
 
 | Item | Rule |
 |---|---|
-| API path | `/v1` (contract §3). A breaking change needs `/v2`, served alongside `/v1` for at least two minor OneMind releases |
+| API path | `/v1` (contract §3). A breaking change needs `/v2`, served alongside `/v1` as [API.md](API.md) §12.3 sets (at least 12 months and two OS feature releases) |
 | Contract version | `info.version` in `onemind-v1.json` (e.g. `0.11.0`); every SDK exposes it as `SPEC_VERSION` |
 | SDK versions | SemVer, `0.x` until the founder declares the API stable. All three SDKs share one version number and release together |
 | Additive changes | New routes, fields, enum values and event types are minor releases. SDKs **ignore unknown fields** and treat enums as open (known constants + any string), so an old SDK keeps working against a newer hub |
@@ -404,7 +405,7 @@ Run: make -C sdk gen && git add sdk/
 | T2 | Staleness | Adding a field to `Action` in `core/` without regenerating fails CI step 1 or 2 with the message above |
 | T3 | Conformance (≥ 25 cases, all three SDKs) | Identical results in TS, Python and Go for: each error code → its typed error; HTML 200 → unexpected response; unknown error code → base error; unknown enum value accepted |
 | T4 | Idempotency | Mock drops the first response of `POST /v1/actions`; the retry carries the **same** key; exactly one action exists |
-| T5 | Ambiguous approve | Mock applies the approve then drops the connection; SDK returns the action after read-back. If the mock shows `decided_by` = another owner, SDK throws `AmbiguousResultError`. No case sends approve twice |
+| T5 | Ambiguous approve | Mock applies the approve then drops the connection; SDK returns the action after read-back. If the mock shows `approved_by` = another owner, SDK throws `AmbiguousResultError`. No case sends approve twice |
 | T6 | Agent cannot approve | Against the real gateway: agent token approve → `PermissionDeniedError`, status 403, one `authz.denied` audit line, no retry on the wire |
 | T7 | Token hygiene | Run every case with a recognisable token; captured logs, error strings and printed clients contain zero copies |
 | T8 | SSE | Resume with `Last-Event-ID` after a forced disconnect loses 0 events; 45 s without a ping triggers reconnect; `reset` is surfaced; React Native transport passes the same cases in the mobile test runner |
@@ -449,7 +450,7 @@ Order: 1 → 2 → (3 and 8 together) → 4 → 5 → 6 → 7 → 9 → 10. Step
 | `sdk/go/**` | SDK stream, `feat/sdk-go` | |
 | `os/versions.lock.yaml` (generator pins) | SDK stream, inside `feat/sdk-gen` | **Hotspot, serialized**; adds entries only |
 | `.github/workflows/ci-sdk.yml`, `sdk-release.yml` | SDK stream | New files; actions pinned by commit like the existing workflows |
-| Root `go.mod` (`require` + `replace`) | CLI stream, `feat/sdk-go-cli` | Coordinate with the updater branch, which also edits `go.mod` |
+| Root `go.mod` (`require` + `replace`) | CLI stream, `feat/sdk-go-cli` | Hotspot ([WORKSTREAMS.md](../WORKSTREAMS.md) §4): one PR at a time |
 | `cmd/onemind/**` | CLI stream ([CLI.md](CLI.md) §11); the switch from `httpGet` to `sdk/go` happens inside DEV-CLI-1…3 | Not `cmd/onemindd/main.go` (hotspot) unless `onemindd` needs the gateway |
 | `dashboard/src/api/**`, `dashboard/package.json` | dashboard stream, `feat/dashboard-sdk` | |
 | `mobile/src/api/**`, `mobile/package.json` | mobile stream, `feat/mobile-sdk` | |

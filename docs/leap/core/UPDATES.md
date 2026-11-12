@@ -26,8 +26,8 @@
 |---|---|---|
 | RAUC bundle build, fresh-signal health gate (G1–G8 design) | `os/rauc/`, `os/gate/` | `main` (emulation only) |
 | Nightly security pipeline: tracker check, snapshot pick, SBOM, Trivy + VEX, ClamAV, QEMU battery, signed RAUC, TUF | `os/update/*`, `.github/workflows/security-nightly.yml` | `feat/os-security-pipeline` (3 commits) |
-| `onemindd update` service loop, go-tuf v2 client, channels `security`/`stable`, window, postpone, reboot-inhibit, pre-update restic, state read from gate files | `internal/update/`, `cmd/onemindd/main.go` | `feat/onemindd-updater` (2 commits + uncommitted edits) |
-| CLI `onemind update status\|check\|apply` | `cmd/onemind/update.go` | `feat/onemindd-updater` |
+| `onemindd update` service loop, go-tuf v2 client, channels `security`/`stable`, window, postpone, reboot-inhibit, pre-update restic, state read from gate files | `internal/update/`, `cmd/onemindd/main.go` | `main` (PR #15, merged after this spec was written) |
+| CLI `onemind update status\|check\|apply` | `cmd/onemind/update.go` | `main` (PR #15) |
 | Heartbeat optional `update` object | `internal/heartbeat/` | `feat/onemindd-updater` |
 | Developer installs: `unattended-upgrades` limited to security origins + `needrestart` | `deploy/install.sh` | `feat/deploy-v0` |
 | App rescan workflow, Renovate config | `.github/workflows/apps-rescan.yml`, `renovate.json` | `feat/app-pipeline` (uncommitted) |
@@ -50,9 +50,9 @@ box: onemindd update ─► TUF verify ─► select (board, compatible, not bad
 | Method and path | Who | Returns |
 |---|---|---|
 | `GET /v1/os/status` | any principal | `{node_id, version, booted_slot, channel, policy, window, state, available: {version, notes_url, security, cves_fixed}, history: [...]}` per node |
-| `POST /v1/actions {"type": "os.update", "params": {"node_id", "version"}}` | owner or agent request | owner approval (security auto-installs stay policy-driven, BD-09, and are recorded as `approved_by: policy:os-security`) |
-| `POST /v1/actions {"type": "os.rollback", "params": {"node_id"}}` | owner request | owner approval |
-| `PUT /v1/os/policy` | owner | channel, window, postpone; widening (e.g. switching to beta) is an action |
+| `POST /v1/os/apply` (action `os.update.apply`, API.md §5.6) | owner or agent request | owner approval (security auto-installs stay policy-driven, BD-09, and are recorded as `approved_by: policy:os-security`) |
+| `POST /v1/actions {"type": "os.rollback", "params": {"node_id"}}` | owner request | owner approval with step-up (`destructive`) |
+| `PUT /v1/os/settings` | owner | channel, window, policy; always an `os.update.settings` action the owner approves (API.md §5.6) |
 
 ```console
 $ onemind update status
@@ -61,18 +61,18 @@ hub 3f9c2a1b  0.1.20261116025704    B     security  committed  kept after 3 heal
 Available     0.1.20261118021133    security · fixes 2 CVEs (2 others not affecting this box, VEX)
 Window        02:00-05:00 · policy auto · next check in 37 min
 $ onemind update apply --no-reboot
-action a_120  os.update  awaiting_approval   → approve on your phone
+action a_120  os.update.apply  awaiting_approval   → approve on your phone
 ```
 ```python
 print(client.os.status()[0].booted_slot)                                          # Python
 ```
 ```ts
-await om.actions.request({ type: "os.update", params: { node_id, version } });    // TypeScript
+await om.actions.request({ type: "os.update.apply", params: { node_id, version, reboot: "window" } });    // TypeScript
 ```
 ```go
 st, _ := om.OS.Status(ctx)                                                         // Go
 ```
-**MCP:** a read tool for update status; `request_action` may request `os.update`; never `os.rollback` without the owner, never a policy change.
+**MCP:** a read tool for update status; `request_action` may request `os.update.apply`; never `os.rollback` without the owner, never a policy change.
 
 ### 3.3 Rollback you can trust (OSU-B3)
 After a rollback the alert names the failed gate check (`G4 core pod onemind-core not Ready since boot`) and the verdict (`image-bad` is final; `environment-bad` is re-offered at most 3 times, REC-DEC-45).

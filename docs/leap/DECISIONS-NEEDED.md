@@ -60,6 +60,8 @@ The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs
 | New principal kinds | `plugin` (PLUGIN-SDK §7) | `automation`, `node` | Add all three in one PR |
 | Error codes | `rate_limited`, `policy_refused`, `payload_too_large`, opt-in `invalid_request` and `method_not_allowed` (API §6) | `rate_limited`, `unavailable`, plus a `reason` field | Add the union; `invalid_request` and `method_not_allowed` only behind `OneMind-Errors: 2` |
 | List shape for new endpoints | `Link` header pagination, arrays kept for v0 routes (API §7.1) | `{"items": [...], "next_cursor": ...}` | One style for every new endpoint; leap default follows API §7.1 because the SDK iterators were designed on it |
+| Scope and permission names | API §8.2 (`actions:read`, `audit:read`, `notifications:send`, `events:read`, suffix `actions:request:<type>`); MCP §4.1 (`actions:read:own`/`:all`, `audit:read:own`/`:all`, `actions:withdraw:own`, `docs:read`, bundles); PLUGIN-SDK §5.2 (`actions:read:self`, `alerts:raise`, `events:subscribe:<pattern>`) | – | API §8.2 names as the base; `:own`/`:all` and `:<pattern>` become narrowing suffixes like `actions:request:<type>`; `actions:read:self` → `actions:read:own`; `alerts:raise` → `notifications:send` |
+| Manifest fields for app and plugin principals | MCP §5.2 `spec.agent.scopes` and `limits`; PLUGIN-SDK §4.2 `spec.plugin` + `spec.permissions` (API §5.9 now follows it) | `spec.agent` only (contract §11.2) | Agents: `spec.agent.scopes`; plugins: `spec.plugin` + `spec.permissions`; one schema PR with C12-H and C12-PLG |
 | CLI verbs | One tree in CLI.md §3 (`fabric join`, `auto`, `policy`, `backup now`, `restore`) | `node join`, `automations`, `activity`, `init`, `app import`, `backup run/snapshots/restore` | CLI.md §3 is the tree; draft verbs become aliases (`node join` and `backup run` already are). `init` and `app import` get added to CLI.md when their epics start |
 
 ## 3. Contradictions fixed between the leap specs (2026-11-12)
@@ -80,12 +82,22 @@ The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs
 | MCP code location | PLUGIN-SDK extended `mcp.py`; MCP turns it into a package | `core/onemind_core/mcp/` package, projection via `mcp/catalog.py` |
 | Architecture links | `docs/FABRIC.md` and siblings | `docs/architecture/FABRIC.md` and siblings (where the arch branch puts them) |
 | Circular dependency | CORE-NOTIFY-4 and CORE-MOBILE-5 each depended on the other | Built together; NOTIFY-4 depends on NOTIFY-3 and F-4 |
+| Standing-approval creation (review, 2026-11-12) | AUTOMATION let an agent request `policy.create`; CLI let a rule carry `approve: auto` | Owner-only direct write with step-up (API §5.5.3) everywhere; rules only request; policies never cover `sensitive`, `destructive` or `actuate` (API §5.5.3 now lists `actuate` too) |
+| Agent-requestable types (review) | MCP listed `node.join` as agent-requestable and `update.apply`; it barred restore while API and BACKUPS allowed an agent to request one | Only the joining node requests `node.join`; `os.update.apply`; `backup.restore` requestable only with an explicit owner grant, always `destructive` |
+| Token prefixes (review) | `om_agent_` (SECURITY), `omt_agent_` (CLI), `om_agt_` (API, MCP) | API §5.9 kinds everywhere |
+| Routes and names (review) | MCP used `POST /v1/actions:preview`, `GET /v1/audit`, `/v1/audit/status`; SANDBOX `GET /v1/apps/{id}/plan`; CLI `/v1/notify/test`, `/v1/rules`, `os.update`; UPDATES `os.update`, `PUT /v1/os/policy`; BACKUPS `GET /v1/backups`; AUTOMATION `/v1/automations`, `/v1/policies`; FABRIC an older join body | API names: `POST /v1/plans`, `/v1/audit/events`, `/v1/audit/verify`, `/v1/notifications/channels/{id}/test`, `/v1/automation/rules`, `/v1/approval-policies`, `os.update.apply`, `/v1/os/settings`, `/v1/backups/status`, API §5.1 join body; `os.rollback` added to API §5.12 |
+| SDK names (review) | Examples used `from onemind import Client`, Go `NewClientFromEnv`, `*onemind.APIError`, module `…/sdk/go/onemind`, `/v1/principal`, `decided_by` | SDK.md names: `onemind_sdk`, `onemind.FromEnv()`, `*onemind.Error`, module `…/sdk/go`, `/v1/me`, `approved_by` |
+| Backlog order (review) | DEV-CLI-11 (S3) accepted `publish`, built by DEV-PLG-14 in S4+; DEV-API-3/-4 used new contract names without C12-A; CORE-DASH-7 tested Web Push without NOTIFY-3 | `publish` acceptance moved to PLG-14; C12-A and NOTIFY-3 added as dependencies |
+| File ownership (review) | `executors.py`, `internal/detect/`, `mcp/catalog.py`, feature dashboard pages, `site/**` and `os/**` pieces were claimed by two streams without a rule | WORKSTREAMS §3 rows name one owner and the hook order |
 
 ## 4. Loose ends found, not fixed here
 
 - `feat/app-hermes` and `feat/apps-wave2` have no work yet, so W2-HERMES and W2-SEEDS may slip into S1.
 - `feat/app-pipeline` has an uncommitted `renovate.json`; `feat/design-system`, `feat/mobile-shell` and the arch branch's `docs/architecture/` are untracked. Commit and push them so they are not lost.
-- UPDATES.md and other specs still describe the updater as in flight; it merged as PR #15 after they were written. STATUS.md has the live state.
+- The updater merged as PR #15 after the specs were written. The review corrected the "what exists" rows in API, CLI, SDK, MCP, PLUGIN-SDK, UPDATES and BACKUPS; FABRIC and UPDATES still name the heartbeat `update` object's branch. STATUS.md has the live state.
+- NOTIFICATIONS uses `/v1/alerts` (alert records, ack, resolve, fix) and `/v1/notify/routes`; API §5.4 uses `/v1/notifications/*` (per-person inbox, channels, preferences). Settle in C12-E: proposal, keep `/v1/alerts` for system alerts and API §5.4 for inbox and channels, and add `/v1/alerts` to API.md.
+- DEPLOYMENTS action types (`deploy.apply`, `deploy.rollback`), `backup.key.rotate`, `app.update` and `app.restart` are not yet in API.md §5.12; add them with C12-C and C12-D.
+- CLI.md `onemind fabric leave` calls `POST /v1/fabric/leave`, which API.md §5.1 does not define yet.
 - The updater PR leaves open: shipping it in the image, the offline grace period, and where the owner's settings override lives (CORE-UPDATE-2, CORE-UPDATE-7).
 - `onemind fabric join <code>` needs the hub address when mDNS cannot find it; CLI.md now takes `--hub`, but the QR content rule ("no network details") should be settled in C12-B.
 - API.md §17 follow-ups remain: `errors.py` maps 405 to `not_found` and 422 to `conflict`; the event stream must read from the same append path as NATS `onemind.audit`.

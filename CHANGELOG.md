@@ -16,11 +16,11 @@ Branches with work that is not on `main` yet (as of 2026-11-12):
 | `feat/gateway-agent-mcp` | – | Gateway wave 2 (contract §11): scan gate, app agent principals, `/mcp` with 3 tools, new catalog fields, and the dashboard app page with links, licence, tier and last scan |
 | `feat/app-pipeline` | – | App pipeline: manifest schema fields (§9.3, §11.2), `app-gate` (§9.4 checks, `scan.json`), `app-scaffold` with recorded fixtures, `app-readme`, a full gate with a k3d smoke test in CI, and a daily rescan |
 | `feat/deploy-v0` | – | Developer install on Debian (`install.sh --role hub` or `node`), a compose dev hub for a Mac, `verify.sh` contract checks, re-join on hub change, CI, and a README with a test record |
-| `docs/core-architecture` | – | Core alignment against the leading self-hosted OSes (`docs/strategy/core-alignment.md`); phase-B architecture docs and a contract §12 draft (not committed yet) |
+| `docs/core-architecture` | – | Core alignment against the leading self-hosted OSes (`docs/strategy/core-alignment.md`); phase-B architecture docs and a contract §12 draft (committed on the branch, no PR yet) |
 | `docs/security-threat-model` | – | Threat model and a ranked hardening backlog for the v0 core |
 | `feat/website` | – | The OneMind website (Astro + Starlight), competitor web research and a forum plan |
-| `feat/design-system` | – | Design system `@onemind/ui` in `ui/` (not committed yet) |
-| `feat/mobile-shell` | – | Android and iPhone app shell in `mobile/` (not committed yet) |
+| `feat/design-system` | – | Design system `@onemind/ui` in `ui/`, dashboard shell and screen mocks (committed on the branch, no PR yet) |
+| `feat/mobile-shell` | – | Android and iPhone app shell (Expo) in `mobile/` (committed on the branch, no PR yet) |
 | `feat/app-hermes`, `feat/apps-wave2` | – | Reserved for the Hermes app and wave-2 seed apps; no work yet |
 
 ## 2026-11-12

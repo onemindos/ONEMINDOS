@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # MCP done right: the agent door into OneMind
 
 **Spec id:** DEV-MCP · **Status:** proposed (2026-11-12) · **Epics:** DEV-MCP-1 … DEV-MCP-12
@@ -46,7 +47,7 @@
 | App agent principals: `agent:<app-id>`, token hashed in the ledger, Secret with `ONEMIND_GATEWAY_URL` and `ONEMIND_AGENT_TOKEN`, revoked on remove or failed install | `core/onemind_core/actions.py`, `ledger.py`, `executors.py` (gwmcp) | Contract §11.2 |
 | Static tokens file with `{id, kind, role}`; agents can never act as owner | `core/onemind_core/auth.py` (main) | On `main` |
 | Hash-chained audit, requester and approver ids recorded | `core/onemind_core/audit.py` (main) | On `main`; no signed checkpoint yet (H-10) |
-| `onemind` CLI: `node info`, `nodes`, `version`; `update status/check/apply` in the `updater` worktree | `cmd/onemind/main.go` | No `mcp` subcommand |
+| `onemind` CLI: `node info`, `nodes`, `version`, `update status/check/apply` (PR #15) | `cmd/onemind/main.go` | No `mcp` subcommand |
 | Dashboard approvals show type and app id; trust card and app page | `dashboard/src/pages/`, `dashboard/src/components/AppTrust.tsx` (gwmcp) | Agent `reason` shown as plain text, not marked (threat model §4.2) |
 
 **Known gaps this spec closes** (from `secdoc` `THREAT-MODEL.md` §4.2 and `HARDENING-BACKLOG.md`): no per-tool scopes (H-22), no cap on pending requests (H-14), agent reason not marked as untrusted, the owner never sees what will actually run (H-13), no rate limits (H-20), no MCP call audit beyond `action.requested`.
@@ -123,10 +124,10 @@ A scope is a string the gateway checks before a tool runs. `tools/list` returns 
 | `get_node` | `{node_id}` | one node | `GET /v1/nodes/{id}` | `nodes:read` | P1 |
 | `get_app` | `{app_id}` | entry + `links`, `tier`, `scan`, `requires`, trust facts | `GET /v1/apps` entry | `apps:read` | P1 |
 | `list_actions` | `{state?, type?, cursor?, limit≤50}` | `{actions: [...], next_cursor?}` | `GET /v1/actions` (filtered by scope) | `actions:read:own` | P1 |
-| `get_action` | `{action_id}` | action + `effects` + `decided_by?` | `GET /v1/actions/{id}` | `actions:read:own` | P1 |
-| `preview_action` | `{type, app_id}` | `{effects, plan_sha256, would_be_refused?: {error, message}}`; files nothing | new `POST /v1/actions:preview` | `actions:read:own` | P2 |
-| `search_audit` | `{since?, until?, kind?, principal?, cursor?, limit≤100}` | `{entries: [...], next_cursor?}` | new `GET /v1/audit` | `audit:read:own` | P2 |
-| `get_audit_status` | – | `{entries, head_hash, chain_ok, last_checkpoint?}` | new `GET /v1/audit/status` (H-10) | `audit:read:own` | P2 |
+| `get_action` | `{action_id}` | action + `effects` + `approved_by?` | `GET /v1/actions/{id}` | `actions:read:own` | P1 |
+| `preview_action` | `{type, app_id}` | `{effects, plan_sha256, would_be_refused?: {error, message}}`; files nothing | new `POST /v1/plans` (API.md §5.11) | `actions:read:own` | P2 |
+| `search_audit` | `{since?, until?, kind?, principal?, cursor?, limit≤100}` | `{entries: [...], next_cursor?}` | new `GET /v1/audit/events` (API.md §5.7) | `audit:read:own` | P2 |
+| `get_audit_status` | – | `{entries, head_hash, chain_ok, last_checkpoint?}` | new `GET /v1/audit/verify` (API.md §5.7, H-10) | `audit:read:own` | P2 |
 | `get_update_status` | – | updater state, slot, last result | `onemindd` status via gateway | `updates:read` | P3 |
 | `get_backup_status` | – | last snapshot, last verified restore, badge | backups API | `backups:read` | P3 |
 | `search_docs` | `{query, limit≤10}` | `{hits: [{uri, title, snippet}]}` | docs index | `docs:read` | P2 |
@@ -146,11 +147,12 @@ Each new REST route above belongs to the gateway REST owner and is added to the 
 |---|---|---|
 | `app.install`, `app.remove` | exists | |
 | `app.update`, `app.restart` | app lifecycle work (core-alignment APP-P1) | |
-| `backup.run` | backups v0 | Restore, key change and destination change are **not** requestable by agents (`06` W5-R13) |
-| `update.apply` | updater on metal | Still owner-approved; never auto-approved (SEC-12 item 3) |
-| `node.join` | fabric v0 (H-23) | An agent may ask; the owner approves the join |
+| `backup.run` | backups v0 | Key and destination changes and snapshot deletes are **not** requestable by agents (`06` W5-R13) |
+| `backup.restore` | backups v0 | In no bundle. The owner may grant `actions:request:backup.restore` to a named agent; the request is `destructive`, so it always needs the owner's passkey (API.md §5.3, W5-R13: restore requires human approval) |
+| `os.update.apply` | updater on metal | Still owner-approved; a standing approval never covers an agent's request unless the owner names that agent (API.md §5.5.3) |
+| `node.remove`, `node.drain` | fabric v0 | `node.remove` is `destructive` (owner + step-up). Agents never request `node.join`: only the joining node does, with its join code (API.md §5.1) |
 
-**Never requestable by an agent**, whatever the grant: grant or role changes, token creation, kill-switch changes, restore, data export to an external model. These are rejected with `permission_denied` before an action is filed.
+**Never requestable by an agent**, whatever the grant: grant or role changes, token creation, kill-switch changes, standing approvals, `node.join`, data export to an external model. These are rejected with `permission_denied` before an action is filed.
 
 **Example: request and response** (raw JSON-RPC over HTTP):
 
@@ -309,7 +311,7 @@ The agent's `reason` is useful context and an injection channel ("urgent securit
 | Stored verbatim (≤ 500 characters, control and bidi characters stripped) and audited | `actions.py` |
 | Shown on the approval card **below** the gateway facts, in a box titled "Note from the agent (not checked by OneMind)", as plain text: no Markdown, no links, no images | `dashboard/src/components/AgentNote.tsx` (new) |
 | Never used in push notifications; the push carries only the action id (D-005) | notifications |
-| Never used to fill any trusted field (summary, title, effects) | `effects.py` |
+| Never used to fill any trusted field (summary, title, effects) | `policy.py` (plan) |
 | Shown the same way in the phone app and the CLI (`onemind actions show`) | mobile, CLI |
 
 ### 6.3 Approvals show gateway-computed effects
@@ -571,9 +573,9 @@ The bridge passes revisions through and needs no update when the gateway adds on
 | `core/onemind_core/mcp.py` → becomes package `core/onemind_core/mcp/` (`__init__.py`, `transport.py`, `catalog.py`, `untrusted.py`, `versions.py`) | `dev-mcp` (`feat/mcp-*`) | One feature, one directory; nobody else edits it |
 | `core/onemind_core/grants.py` (new: scopes, bundles, owner ∩ grant) | `dev-mcp` (DEV-MCP-2) | REST routes import it; they do not copy it |
 | `core/onemind_core/ratelimit.py` (new) | `dev-mcp` (DEV-MCP-4) | |
-| `core/onemind_core/effects.py` | approvals work (H-13) | `dev-mcp` reads only |
+| Plan and `plan_sha256` (`core/onemind_core/policy.py`, called effects here) | install sandbox, CORE-SANDBOX-2 (H-13) | `dev-mcp` reads only |
 | `core/onemind_core/auth.py`, `actions.py`, `ledger.py` | gateway core | Changes for pause/revoke, withdraw and pending cap go through the gateway core owner, one PR at a time |
-| `core/onemind_core/app.py` route registration | **hotspot, serialized** | One small PR per new route |
+| `core/onemind_core/routes.py` registration (after DEV-API-1; `app.py` before) | **hotspot, serialized** | One line per new module |
 | `sdk/contracts/poc-v0.md` (scopes in `spec.agent`, `rate_limited`, new routes, `plan_sha256` on approve) | **hotspot, serialized** | Lands as one amendment through the contract owner (the arch worktree's §12 draft) before code |
 | `sdk/schema/onemind.app.schema.json` (`spec.agent.scopes`, `limits`) | pipeline / manifest work | Same PR as the contract amendment |
 | `internal/mcpbridge/` (new Go package) | `dev-mcp-cli` (`feat/cli-mcp`) | |

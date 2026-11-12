@@ -82,6 +82,9 @@ These names were reconciled across the specs on 2026-11-12. If a spec and this t
 | CLI commands | One tree, [dev/CLI.md](dev/CLI.md) §3. Command files live in `cmd/onemind/cli/<group>.go`, one registration line each in `cmd/onemind/cli/root.go` | [dev/CLI.md](dev/CLI.md) §11 |
 | MCP code | `core/onemind_core/mcp.py` becomes the package `core/onemind_core/mcp/` in DEV-MCP-1; plugin tool projection goes through `mcp/catalog.py` | [dev/MCP.md](dev/MCP.md) §11 |
 | SDK packages | `@onemind/sdk` (npm), `onemind-sdk` / `onemind_sdk` (PyPI), Go module under `sdk/go`. SDK.md owns generators and layout; DEV-API-14 is superseded by DEV-SDK-1…10 | [dev/SDK.md](dev/SDK.md) |
+| HTTP shapes | Where a core spec and [dev/API.md](dev/API.md) differ on a route, body, action-type name or error, API.md wins and the core spec is corrected (API.md header). Remaining gaps are listed in [DECISIONS-NEEDED.md](DECISIONS-NEEDED.md) §4 | [dev/API.md](dev/API.md) |
+| Standing approvals | Created only by an owner, directly, with passkey step-up (`POST /v1/approval-policies`). No agent, plugin or automation can create or request one | [dev/API.md](dev/API.md) §5.5.3 |
+| Token format | `om_<kind>_<random>` with kinds `pat`, `agt`, `plg`, `nod`, `aut`; only the hash is stored | [dev/API.md](dev/API.md) §5.9 |
 | Phase-B route modules | The API spec defines route shapes; the core spec's epic owns the module (`fabric.py`, `backups.py`, `notify/`, `automation.py`, `policies.py`, `os_updates.py`) | [WORKSTREAMS.md](WORKSTREAMS.md) §3 |
 
 The architecture stream's contract §12 draft (`docs/architecture/CONTRACT-12-DRAFT.md`, branch `docs/core-architecture`, not merged) still uses some different names. The differences are listed in [DECISIONS-NEEDED.md](DECISIONS-NEEDED.md) §2 for the contract owner.

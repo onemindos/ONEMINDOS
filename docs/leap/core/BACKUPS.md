@@ -23,7 +23,7 @@
 
 | Piece | Where | State |
 |---|---|---|
-| Pre-update restic snapshot of `/data` (optional) | `internal/update/` | `feat/onemindd-updater` |
+| Pre-update restic snapshot of `/data` (optional) | `internal/update/` | `main` (PR #15) |
 | restic pinned version | `os/versions.lock.yaml` (`tools`) | `main` (check the entry before building) |
 | Seed apps' PVCs use k3s `local-path` (reclaim `Delete`) | `apps/*/manifests/pvc.yaml` | `main` |
 | Everything else in brief 30 B7 | – | not built |
@@ -58,11 +58,11 @@ action a_42  backup.restore  awaiting_approval  → approve on your phone
 
 | Method and path | Who | Returns |
 |---|---|---|
-| `GET /v1/backups` | any principal (agents with `backups:read`) | status above as JSON, with `verified_at` per app |
-| `GET /v1/backups/snapshots?app=<id>` | owner, adult | snapshot list (id, time, size, k3s version) |
-| `POST /v1/actions {"type": "backup.run"}` | owner or agent | action; standing approval may accept it |
-| `POST /v1/actions {"type": "backup.restore", "params": {"scope": "file\|app\|box", "app_id", "path", "snapshot"}}` | owner or agent request | **always** owner approval with passkey |
-| `backup.destination.set`, `backup.key.rotate`, `backup.forget` | owner request | owner approval; never covered by standing approvals |
+| `GET /v1/backups/status` | any principal (agents with `backups:read`) | status above as JSON, with `verified_at` per app |
+| `GET /v1/backups/snapshots?app_id=<id>` | owner, adult | snapshot list (id, time, size, k3s version) |
+| `POST /v1/backups/runs` (action `backup.run`) | owner or agent | action; standing approval may accept it |
+| `POST /v1/restores` (action `backup.restore`; API.md §5.3, plus `scope: file` and `path` to add there) | owner or agent request | **always** owner approval with passkey |
+| `backup.destination.add` / `.remove`, `backup.snapshot.delete` (API.md §5.12), `backup.key.rotate` (to add to API.md §5.12) | owner request | owner approval; never covered by standing approvals |
 
 ```python
 st = client.backups.status(); print(st.verified_at)                              # Python

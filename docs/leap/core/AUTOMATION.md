@@ -71,15 +71,16 @@ Covered by      pol_backup_daily (max 2/24h) → runs without asking
 $ onemind auto create … (same, without --dry-run)
 automation au_7  enabled
 $ onemind policy create --covers app.restart --app uptime-kuma --max 3 --per 24h --expires 180d
-action a_90  policy.create  awaiting_approval   ← creating a standing approval is itself approved with a passkey
+Touch your passkey to create this standing approval… ok
+policy pol_kuma_restart  created by person:owner  expires 2027-05-15
 ```
 
 | Method and path | Who | Does |
 |---|---|---|
-| `GET/POST /v1/automations`, `POST /v1/automations/{id}/dry-run` | owner (agents: GET only) | manage and test |
-| `POST /v1/automations/{id}/disable` | owner | instant (reduces power) |
-| `POST /v1/actions {"type": "policy.create", …}` | owner or agent request | owner approval with passkey |
-| `POST /v1/policies/{id}/revoke` | owner | instant |
+| `GET/POST /v1/automation/rules`, `POST /v1/automation/rules/{id}/dry-run` | owner (agents: GET, or request `automation.rule.create` for the owner to approve) | manage and test |
+| `POST /v1/automation/rules/{id}/disable` | owner | instant (reduces power) |
+| `POST /v1/approval-policies` | **owner only, with passkey step-up** (direct owner write). Agents, plugins and automations get 403 and cannot request one | create a standing approval |
+| `DELETE /v1/approval-policies/{id}` | owner | instant (reduces power) |
 | `POST /v1/hooks/{hook_id}` | anyone with the hook secret | HMAC-SHA256 over body + timestamp; creates the automation's request; 5-minute replay window |
 
 ```python
@@ -92,7 +93,9 @@ await om.automations.create({ name: "nightly-backup", trigger: { schedule: "0 3 
 ```go
 res, _ := om.Automations.DryRun(ctx, "au_7")                                       // Go
 ```
-**MCP:** an agent may **propose** an automation (`request_action` with `automation.create`), which the owner approves; it cannot enable, edit or create policies directly.
+**MCP:** an agent may **propose** an automation (`request_action` with `automation.rule.create`), which the owner approves; it cannot enable or edit it directly, and it can never create or request a standing approval.
+
+Route names on this page follow [API.md](../dev/API.md) §5.5, which owns the HTTP shape.
 
 ## 4. Security model
 - No automation and no policy can approve a grant-widening, destructive or actuate type: enforced in the gateway's action path, tested with fixtures.
@@ -102,7 +105,7 @@ res, _ := om.Automations.DryRun(ctx, "au_7")                                    
 - A paused gateway (kill switch or maintenance) fires no automations.
 
 ## 5. Versioning and compatibility
-- Contract §3 gains `risk_class` per action type, the `automation:` principal kind, `approved_by: policy:<id>`, and routes `/v1/automations`, `/v1/policies`, `/v1/hooks`.
+- Contract §3 gains `risk` per action type, the `automation:` principal kind, `approved_by: policy:<id>`, and routes `/v1/automation/*`, `/v1/approval-policies`, `/v1/hooks` (API.md §5.5).
 - Cron syntax: 5-field standard; time zone of the box unless set.
 - An automation stores the action type and params schema version; if the type's schema changes, the automation is disabled with an alert rather than run with old params.
 

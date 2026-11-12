@@ -69,12 +69,12 @@ POST /v1/actions/7f3c/approve
 The challenge is `sha256(action_id ‖ action_sha256 ‖ plan_sha256 ‖ nonce)`, valid 120 s, single use. A stolen session cookie cannot approve.
 
 ### 3.3 Tokens (CORE-SEC-3, H-09)
-Tokens become ledger rows `{id, hash, principal, kind: person|agent|device, created_at, expires_at, last_used_at, revoked_at}`; the YAML file is bootstrap only. Format `om_<kind>_<32 random bytes, base64url>` so gitleaks and GitHub secret scanning can match `om_`.
+Tokens become ledger rows `{id, hash, principal, kind: person|agent|device, created_at, expires_at, last_used_at, revoked_at}`; the YAML file is bootstrap only. Format `om_<kind>_<32 random bytes, base64url>` with the kinds of [API.md](../dev/API.md) §5.9 (`pat` person, `agt` agent, `plg` plugin, `nod` node, `aut` automation), so gitleaks and GitHub secret scanning can match `om_`.
 
 ```console
 $ onemind tokens create --kind agent --name hermes-agent --expires 30d
 id        tok_5d1e
-token     om_agent_EXAMPLEONLY…      (shown once)
+token     om_agt_EXAMPLEONLY…      (shown once)
 expires   2026-12-16
 $ onemind tokens list
 ID        PRINCIPAL            KIND   EXPIRES     LAST USED
@@ -171,4 +171,4 @@ The acceptance tests are those of H-05, H-06, H-09, H-10, H-11, H-12, H-14, H-17
 | `feat/audit-verify` | `core/onemind_core/audit.py`, `cmd/onemind/cli/audit.go` (with DEV-CLI-5), new `core/onemind_core/agents.py` (suspend) |
 | image stream | `os/boards/*/layout.yaml`, `os/assemble/assemble.py`, initrd units, `k3s.service` |
 | `feat/os-security-pipeline` follow-up | `.github/workflows/security-nightly.yml` |
-| Hotspots (serialized) | `core/onemind_core/app.py` (one `include_router` per module), contract §3, `cmd/onemind/cli/root.go` (one line per command group) |
+| Hotspots (serialized) | `core/onemind_core/routes.py` (one line per module, after DEV-API-1), contract §3, `cmd/onemind/cli/root.go` (one line per command group) |

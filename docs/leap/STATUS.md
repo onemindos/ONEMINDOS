@@ -6,7 +6,7 @@
 > **Explain it like I am the founder**
 > One row per epic, saying where it stands: `todo`, `in-progress` (someone is building it on a branch), `in-review` (a PR is open), `done` (merged), `parked` or `superseded`.
 > Every PR that finishes an epic updates its row here, in the same PR, and adds a line to the repo-root [CHANGELOG.md](../../CHANGELOG.md).
-> Today: 15 PRs merged (foundation, contract, proof-of-concept code and the OS updater); one PR open (OS security pipeline); ten branches in progress; all leap build epics are still `todo`.
+> Today: 14 PRs merged (foundation, contract, proof-of-concept code and the OS updater); one PR open (OS security pipeline); ten branches in progress; all leap build epics are still `todo`.
 
 ## Summary
 
@@ -54,12 +54,12 @@
 | W2-DEPLOY | Developer install: `install.sh --role hub` or `node`, compose dev hub… | in-progress | `feat/deploy-v0` | – (6 commits) |
 | W2-HERMES | Hermes packaged as `apps/hermes-agent`, an agent principal | todo | `feat/app-hermes` (empty) | – |
 | W2-SEEDS | Wave-2 seed apps | todo | `feat/apps-wave2` (empty) | – |
-| PA-ALIGN | Core alignment against the leading self-hosted OSes | in-progress | `docs/core-architecture` | – (1 commit) |
-| PA-ARCH | Phase-B architecture docs and `CONTRACT-12-DRAFT.md` | in-progress | `docs/core-architecture` | – (uncommitted) |
+| PA-ALIGN | Core alignment against the leading self-hosted OSes | in-progress | `docs/core-architecture` | – (2 commits with PA-ARCH) |
+| PA-ARCH | Phase-B architecture docs and `CONTRACT-12-DRAFT.md` | in-progress | `docs/core-architecture` | – (committed, with PA-ALIGN) |
 | PA-THREAT | Threat model and ranked hardening backlog (H-ids) | in-progress | `docs/security-threat-model` | – (1 commit) |
-| PA-UI | Design system `@onemind/ui`: tokens and components, light and dark | in-progress | `feat/design-system` | – (uncommitted) |
+| PA-UI | Design system `@onemind/ui`: tokens and components, light and dark | in-progress | `feat/design-system` | – (2 commits) |
 | PA-SITE | Website (Astro + Starlight) committed | in-progress | `feat/website` | – (1 commit) |
-| PA-MOBILE | Mobile shell (Expo) committed | in-progress | `feat/mobile-shell` | – (uncommitted) |
+| PA-MOBILE | Mobile shell (Expo) committed | in-progress | `feat/mobile-shell` | – (1 commit) |
 | PLAN-E1 | Workbench (G0) and gate content re-synced to D-007 | todo | founder lab kit | – |
 | LEAP-DOCS | Leap specs, workstreams, backlog, status, decisions, CHANGELOG | in-progress | `docs/leap` | – (committed, not pushed) |
 

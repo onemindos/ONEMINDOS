@@ -60,9 +60,10 @@ Done. This node is a worker. Installer mode: no OS rollback on this machine.
 **The request (contract change: new action type and route):**
 ```http
 POST /v1/fabric/join-requests
-{"heartbeat": {"schema": "onemind.node.status/v1", "node_id": "3f9c2a1b7d4e", "board": "x86_64-efi", …},
- "node_pubkey": "UDXU…", "code": "K7-4QX"}
-→ 201 {"join_request_id": "jr_81", "action_id": "a_9c", "state": "awaiting_approval", "expires_at": "…+15m"}
+{"join_code": "7KQ4-M2XP-9D",
+ "node": {"node_id": "3f9c2a1b7d4e", "hostname": "mini-pc", "board": "x86_64-efi", "arch": "amd64", "os": {"id": "debian", "version_id": "13"}},
+ "csr_pem": "-----BEGIN CERTIFICATE REQUEST-----\n…"}
+→ 202 {"id": "a_9c", "type": "node.join", "state": "awaiting_approval", "risk": "sensitive", …, "poll": "/v1/fabric/join-requests/a_9c"}
 ```
 The join-request route is unauthenticated but rate-limited and capped (H-20); it can only create an `awaiting_approval` action, never credentials. Credentials are fetched once, by the holder of the node's private key, after approval.
 
@@ -145,4 +146,4 @@ One read-only screen: every node with role, status, slot and version, update sta
 | `feat/fabric-join` | new `core/onemind_core/fabric.py`, new `internal/join/`, `cmd/onemind/cli/fabric.go` (with DEV-CLI-8), `deploy/install.sh` (`k3s_server` token mode) |
 | `feat/placement` | `internal/detect/` (capabilities), `core/onemind_core/executors.py` (affinity), `dashboard/src/pages/Market.tsx` verdict |
 | `feat/leaf-node` | new `internal/leaf/`, NATS leaf config template under `deploy/` |
-| Hotspots (serialized) | `cmd/onemindd/main.go` (`join`, `leaf` subcommands), `core/onemind_core/app.py`, contract §2–§3 |
+| Hotspots (serialized) | `cmd/onemindd/main.go` (`join`, `leaf` subcommands), `core/onemind_core/routes.py` (one line), contract §2–§3 |
