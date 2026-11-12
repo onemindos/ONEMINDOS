@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: Apache-2.0
+# deploy/ (contract poc-v0 §6): lint the scripts and units, check pins against os/versions.lock.yaml,
+# then bring up the compose dev hub and run deploy/verify/verify.sh against it.
+name: ci-deploy
+on:
+  pull_request:
+    paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "apps/**", "os/versions.lock.yaml", ".github/workflows/ci-deploy.yml"]
+  push:
+    branches: [main]
+    paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "apps/**", "os/versions.lock.yaml", ".github/workflows/ci-deploy.yml"]
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: shellcheck (preinstalled on the runner image)
+        run: shellcheck -x deploy/install.sh deploy/verify/verify.sh deploy/compose/gen-tokens.sh
+      - name: pins match os/versions.lock.yaml
+        run: python3 -I deploy/check-pins.py
+      - name: systemd units
+        run: |
+          sudo touch /usr/local/bin/onemindd /usr/local/bin/nats-server && sudo chmod +x /usr/local/bin/onemindd /usr/local/bin/nats-server
+          sudo install -d /opt/onemind/venv/bin && sudo ln -sf "$(command -v python3)" /opt/onemind/venv/bin/python
+          systemd-analyze verify deploy/systemd/onemind-nats.service deploy/systemd/onemind-gateway.service deploy/systemd/onemindd.service
+      - name: compose file is valid
+        run: |
+          mkdir -p deploy/compose/local && touch deploy/compose/local/tokens.yaml
+          docker compose -f deploy/compose/compose.yaml config -q
+
+  compose-e2e:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: compose up
+        working-directory: deploy/compose
+        run: ./gen-tokens.sh && docker compose up -d --build --wait gateway node-sim
+      - name: verify.sh against the compose hub
+        working-directory: deploy/compose
+        run: ../verify/verify.sh http://127.0.0.1:8080 --token-file local/owner.token --agent-token-file local/agent.token
+      - name: logs on failure
+        if: failure()
+        working-directory: deploy/compose
+        run: docker compose logs --no-color
+      - name: compose down
+        if: always()
+        working-directory: deploy/compose
+        run: docker compose down -v
