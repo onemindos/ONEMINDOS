@@ -8,3 +8,24 @@
 - {name: Actual Budget, github: actualbudget/actual, priority: 1, status: verified}
 - {name: Zigbee2MQTT, github: Koenkk/zigbee2mqtt, priority: 1, status: verified}
 # Founder: paste the rest of the 100+ list below (name + github owner/repo is enough).
+# Market batches 2 and 3 (contract §9.5; apps/_intake/CANDIDATES.md "Proposed queue batches").
+- {name: Memos, github: usememos/memos, priority: 2, status: in-pr, notes: "market batch 2"}
+- {name: Jellyfin, github: jellyfin/jellyfin, priority: 2, status: in-pr, notes: "market batch 2"}
+- {name: FreshRSS, github: FreshRSS/FreshRSS, priority: 2, status: in-pr, notes: "market batch 2"}
+- {name: Audiobookshelf, github: advplyr/audiobookshelf, priority: 2, status: in-pr, notes: "market batch 2"}
+- {name: Calibre-Web, github: janeczku/calibre-web, priority: 2, status: in-pr, notes: "market batch 2"}
+- {name: Stirling-PDF, github: Stirling-Tools/Stirling-PDF, priority: 2, status: "blocked: licence - every upstream image (v3.3.0) ships code outside the MIT part: the default image builds STIRLING_FLAVOR=proprietary (app/proprietary/LICENSE, Stirling PDF User License) and even ultra-lite bundles frontend/src/processor (separate licence, root LICENSE). Not redistributable; list-only candidate", notes: "market batch 2"}
+- {name: Ghost, github: TryGhost/Ghost, priority: 2, status: in-pr, notes: "market batch 2"}
+- {name: PhotoPrism, github: photoprism/photoprism, priority: 2, status: in-pr, notes: "market batch 2"}
+- {name: OpenClaw, github: openclaw/openclaw, priority: 2, status: in-pr, notes: "market batch 2"}
+- {name: Trilium Notes, github: TriliumNext/Trilium, priority: 2, status: in-pr, notes: "market batch 2"}
+- {name: Karakeep, github: karakeep-app/karakeep, priority: 3, status: in-pr, notes: "market batch 3"}
+- {name: Navidrome, github: navidrome/navidrome, priority: 3, status: in-pr, notes: "market batch 3"}
+- {name: Docmost, github: docmost/docmost, priority: 3, status: "blocked: licence - the image (v0.97.0) builds apps/client/src/ee, under the Docmost Enterprise License (packages/ee/LICENSE: distribution forbidden), next to the AGPL-3.0 core (README License). Not redistributable; list-only candidate", notes: "market batch 3"}
+- {name: Sonarr, github: Sonarr/Sonarr, priority: 3, status: in-pr, notes: "market batch 3"}
+- {name: Duplicati, github: duplicati/duplicati, priority: 3, status: "blocked: licence - image 2.4.1.0 ships opt/duplicati/Duplicati.Proprietary.*.dll (Office365, GoogleWorkspace, DiskImage, LicenseChecker), under proprietary/LICENSE (distribution forbidden), next to the MIT core. Not redistributable; list-only candidate", notes: "market batch 3"}
+- {name: Radarr, github: Radarr/Radarr, priority: 3, status: in-pr, notes: "market batch 3"}
+- {name: ESPHome, github: esphome/esphome, priority: 3, status: in-pr, notes: "market batch 3"}
+- {name: code-server, github: coder/code-server, priority: 3, status: in-pr, notes: "market batch 3"}
+- {name: HomeBox, github: sysadminsmedia/homebox, priority: 3, status: in-pr, notes: "market batch 3"}
+- {name: Prowlarr, github: Prowlarr/Prowlarr, priority: 3, status: in-pr, notes: "market batch 3"}
