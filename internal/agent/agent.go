@@ -37,6 +37,9 @@ type Config struct {
 	Interval  time.Duration // heartbeat period, default 10 s
 	Collector *detect.Collector
 	Logger    *slog.Logger
+	// UpdateReport, when set, supplies the optional "update" object of the
+	// heartbeat (read from the update service's status file). nil = omit.
+	UpdateReport func() *heartbeat.Update
 }
 
 // Agent is a running onemindd.
@@ -115,6 +118,9 @@ func (a *Agent) Status(ctx context.Context) (st heartbeat.Status, ok bool) {
 
 func (a *Agent) collect(c *collection) {
 	c.st = a.cfg.Collector.Collect(context.Background())
+	if a.cfg.UpdateReport != nil {
+		c.st.Update = a.cfg.UpdateReport()
+	}
 	a.stMu.Lock()
 	a.last, a.at, a.inflight = c.st, time.Now(), nil
 	a.stMu.Unlock()

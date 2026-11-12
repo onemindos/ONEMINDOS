@@ -62,7 +62,7 @@ Install as a service: see [`deploy/systemd/`](../../deploy/systemd/README.md).
 - **The local API has no authentication** and listens on `:7480` (all interfaces) as the contract says. It is read-only and the heartbeat holds no secrets or personal data by design. The rescue console (brief 30 B11, LAN-only HTTPS with the local CA) will replace this.
 - **k3s agent readiness** is "the `k3s-agent` unit is active", which is weaker than the server's `/readyz`. The gate's fresh-health check (REC-DEC-07) is a separate job.
 - **RAUC slots** carry `name, class, bootname, state, boot_status, bundle_version`; the contract only says `slots: []`. The JSON field names read from `rauc status` follow RAUC's JSON output as used in our lab work; **UNVERIFIED against RAUC v1.15.2 on hardware** until LT-X86-01 runs it.
-- **No update service yet.** B4.2 (TUF download, `rauc install`, boot-slot reporting) will live in this binary later.
+- **OS updates** (B4.2) run in the same binary as a separate process, `onemindd update`, under its own unit; see [`internal/update/`](../../internal/update/README.md). When `/etc/onemind/update.conf` exists (`ONEMIND_UPDATE_CONF` overrides the path), the heartbeat carries an optional `update` object read from the update service's status file: `{channel, current_version, available_version|null, state, last_check|null, last_result}`. Without the file the object is omitted, so heartbeats stay valid under contract §2.
 
 ## Known gaps
 - `vm` detection inside a container needs `systemd-detect-virt` or readable DMI; a plain Docker container on a VM may report `unknown`.
