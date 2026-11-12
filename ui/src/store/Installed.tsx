@@ -27,6 +27,7 @@ import type { InstalledApp, LoadState, LogLine, SettingField, StoreActionRequest
 
 const RUN_VIEW: Record<InstalledApp['state'], { tone: Tone; label: string }> = {
   running: { tone: 'ok', label: 'Running' },
+  installed: { tone: 'info', label: 'Installed' },
   starting: { tone: 'info', label: 'Starting' },
   stopped: { tone: 'neutral', label: 'Stopped' },
   unhealthy: { tone: 'bad', label: 'Unhealthy' },
@@ -364,6 +365,9 @@ export function ManageApp({ inst, state, now, isOwner, job, logs, logState, back
   const [pending, setPending] = useState<Pending>(null);
   const [keep, setKeep] = useState(true);
   const [typed, setTyped] = useState('');
+  // Phones: Open stays visible, the rest sit behind "More actions" (CRITIQUE #22).
+  const [more, setMore] = useState(false);
+  const moreId = useId();
   const close = () => {
     setPending(null);
     setKeep(true);
@@ -423,6 +427,10 @@ export function ManageApp({ inst, state, now, isOwner, job, logs, logState, back
                     <Button variant="primary" icon="external" disabled={!inst.url || inst.state === 'stopped'} onClick={() => onOpen(inst)}>
                       Open
                     </Button>
+                    <button type="button" className="om-btn om-btn-secondary om-store-more-toggle" aria-expanded={more} aria-controls={moreId} onClick={() => setMore((m) => !m)}>
+                      More actions
+                    </button>
+                    <div id={moreId} className="om-store-actionbar-more" data-open={more}>
                     <Button disabled={!!why} onClick={ask('app.restart')}>
                       <CategoryIcon name="restart" size={18} />
                       Restart
@@ -450,6 +458,7 @@ export function ManageApp({ inst, state, now, isOwner, job, logs, logState, back
                         Remove…
                       </Button>
                     )}
+                    </div>
                   </div>
                   {why ? <p className="om-store-cta-why">{why}</p> : <p className="om-hint">Restart, stop, update and remove are sent as requests; an owner approves each one first.</p>}
                   {core && <p className="om-hint">Part of OneMind: it updates with the system and cannot be removed.</p>}

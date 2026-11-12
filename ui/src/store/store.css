@@ -16,16 +16,7 @@
 .om-store-linkbtn:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 
 /* ---------- tile ---------- */
-.om-store-tile {
-  display: inline-flex; flex: none; align-items: center; justify-content: center; overflow: hidden;
-  border-radius: 26%;
-  color: var(--om-store-fg);
-  font-weight: var(--om-font-weight-bold);
-  letter-spacing: -0.02em;
-  background: linear-gradient(145deg, var(--om-store-a), var(--om-store-b));
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--om-store-fg) 22%, transparent), var(--om-shadow-1);
-}
-.om-store-tile img { width: 100%; height: 100%; object-fit: cover; }
+/* The app tile is the shared .om-app-icon (styles/components.css, CRITIQUE #20). */
 
 .om-store-pills { display: inline-flex; flex-wrap: wrap; gap: var(--om-space-1); }
 .om-store-pill-private { background: transparent; border-color: var(--om-color-agent-border); color: var(--om-color-agent-fg); }
@@ -96,7 +87,7 @@
   box-shadow: var(--om-shadow-2);
 }
 .om-store-hero-art { position: relative; display: grid; place-items: center; min-height: 180px; }
-.om-store-hero-art .om-store-tile { position: relative; z-index: 1; box-shadow: var(--om-shadow-3); transform: rotate(-6deg); }
+.om-store-hero-art .om-app-icon { position: relative; z-index: 1; box-shadow: var(--om-shadow-3); transform: rotate(-6deg); }
 .om-store-hero-orb {
   position: absolute; width: 180px; height: 180px; border-radius: 50%;
   background: conic-gradient(from 200deg, color-mix(in srgb, var(--om-color-accent) 40%, transparent), color-mix(in srgb, var(--om-color-info-fg) 30%, transparent), transparent 70%);
@@ -393,4 +384,14 @@ body:has(.om-dialog-backdrop) .om-store-tray { visibility: hidden; }
   .om-store-history li { grid-template-columns: 1fr auto; }
   .om-store-history time { grid-column: 1 / -1; }
   .om-store-discover { gap: var(--om-space-6); }
+}
+
+/* ---------- manage actions on phones (CRITIQUE #22): Open + "More actions" ---------- */
+.om-store-more-toggle { display: none; }
+.om-store-actionbar-more { display: contents; }
+@media (max-width: 720px) {
+  .om-store-more-toggle { display: inline-flex; }
+  .om-store-actionbar-more { display: none; width: 100%; flex-direction: column; gap: var(--om-space-2); }
+  .om-store-actionbar-more[data-open='true'] { display: flex; }
+  .om-store-actionbar-more .om-btn { width: 100%; justify-content: flex-start; }
 }

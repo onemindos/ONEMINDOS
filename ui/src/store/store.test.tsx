@@ -8,7 +8,7 @@ import { AppDetail } from './AppDetail';
 import { InstalledList, ManageApp } from './Installed';
 import { InstallReview } from './InstallReview';
 import { JobProgress, JobsTray } from './Jobs';
-import { Market } from './Market';
+import { DISCOVER_RAILS, Market } from './Market';
 import type { LoadState } from './types';
 
 const READY: LoadState = { kind: 'ready', fetched_at: new Date(NOW).toISOString() };
@@ -26,7 +26,11 @@ describe('Market', () => {
     expect(screen.getByRole('heading', { name: 'Every photo, off the phone and on your box' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Needs you/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Recommended for this box/ })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /Field & Robotics/ })).toBeInTheDocument();
+    // CRITIQUE #19: at most DISCOVER_RAILS category rails; the other categories are chips.
+    const more = screen.getByRole('group', { name: 'More categories' });
+    expect(within(more).getByRole('button', { name: /Field & Robotics/ })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Field & Robotics/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^See all/ }).length).toBeLessThanOrEqual(DISCOVER_RAILS);
     await noAxeViolations(container);
   });
 

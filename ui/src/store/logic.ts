@@ -306,19 +306,7 @@ export function nextJobState(state: JobState, healthy = true): JobState {
 
 // ---------------------------------------------------------------- misc
 
-/** A stable tile hue 0-7 from the app id, so an app keeps its colour everywhere. */
-export function tileHue(id: string): number {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return h % 8;
-}
-
-/** "Home Assistant" → "HA", "ntfy" → "N". */
-export function monogram(name: string): string {
-  const words = name.split(/[\s._-]+/).filter(Boolean);
-  if (words.length >= 2) return (words[0]![0]! + words[1]![0]!).toUpperCase();
-  return (words[0]?.[0] ?? '?').toUpperCase();
-}
+export { tileHue, monogram } from '../components/AppIcon';
 
 /** "1024" MB → "1 GB", "256" → "256 MB". */
 export function formatMb(mb: number | undefined): string {

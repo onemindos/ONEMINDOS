@@ -139,7 +139,8 @@ export interface AppPlan {
 }
 
 /** Lifecycle state of an installed app (contract `status`, plus PROPOSED values). */
-export type InstalledRunState = 'running' | 'starting' | 'stopped' | 'unhealthy' | 'updating' | 'unknown';
+/** `installed`: the gateway applied it but reports no health yet (contract v0 `status: installed`). */
+export type InstalledRunState = 'running' | 'installed' | 'starting' | 'stopped' | 'unhealthy' | 'updating' | 'unknown';
 
 /** PROPOSED: a credential from the manifest (PD-07). Sealed on the box; shown only to the owner. */
 export interface AppCredential {

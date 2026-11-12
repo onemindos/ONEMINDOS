@@ -12,6 +12,8 @@ export { AppShell, PageHeader } from './components/AppShell';
 export type { AppShellProps, NavItem } from './components/AppShell';
 export { ApprovalCard, ACTION_STATE, actionTitle, equivalentCall, requesterPill } from './components/ApprovalCard';
 export type { ActionSummary, ActionState, ApprovalCardProps } from './components/ApprovalCard';
+export { AppIcon, TILE_HUES, TILE_TEXT, monogram as appMonogram, tileHue as appTileHue } from './components/AppIcon';
+export type { AppIconProps } from './components/AppIcon';
 export { Button } from './components/Button';
 export type { ButtonProps, ButtonVariant } from './components/Button';
 export { Card } from './components/Card';

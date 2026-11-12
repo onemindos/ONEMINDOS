@@ -34,6 +34,9 @@ export interface MarketProps extends MarketHandlers {
   approvalsHref?: string;
 }
 
+/** Category rails on Discover (CRITIQUE #19); the rest sit behind a chip each. */
+export const DISCOVER_RAILS = 4;
+
 // ---------------------------------------------------------------- app card
 
 export function AppCard({ app, now, onRequestInstall, onOpen, appHref, disabled }: MarketHandlers & { app: CatalogApp; now: number; disabled?: string }) {
@@ -255,6 +258,13 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
   const waiting = jobs.filter((j) => j.type === 'app.install' && j.state === 'awaiting_approval');
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
 
+  // CRITIQUE #19: Discover is the editorial rails plus the DISCOVER_RAILS fullest categories;
+  // the other categories are chips that open their full list.
+  const withApps = CATEGORIES.filter((c) => result.apps.some((a) => a.category === c.slug));
+  const fullest = new Set([...withApps].sort((a, b) => (counts[b.slug] ?? 0) - (counts[a.slug] ?? 0)).slice(0, DISCOVER_RAILS));
+  const railCats = withApps.filter((c) => fullest.has(c));
+  const moreCats = withApps.filter((c) => !railCats.includes(c));
+
   const visible = (ids: string[]) => {
     const shown = new Set(result.apps.map((a) => a.id));
     return ids.map((id) => byId.get(id)).filter((a): a is CatalogApp => !!a && shown.has(a.id));
@@ -336,7 +346,7 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
                 </Rail>
               ) : null;
             })}
-            {CATEGORIES.map((c) => {
+            {railCats.map((c) => {
               const list = result.apps.filter((a) => a.category === c.slug).slice(0, 8);
               return list.length ? (
                 <Rail
@@ -354,6 +364,18 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
                 </Rail>
               ) : null;
             })}
+            {moreCats.length > 0 && (
+              <Rail title="More categories" blurb="Discover shows the four fullest categories. Every app is one tap away.">
+                <div className="om-store-cats om-store-cats-wrap" role="group" aria-label="More categories">
+                  {moreCats.map((c) => (
+                    <button key={c.slug} type="button" className="om-store-chip" aria-pressed={false} onClick={() => set({ category: c.slug })}>
+                      <CategoryIcon name={c.icon} size={16} />
+                      {c.label} <span className="om-store-chip-n">{counts[c.slug]}</span>
+                    </button>
+                  ))}
+                </div>
+              </Rail>
+            )}
             {result.apps.length === 0 && <NoResults f={f} hidden={result.hiddenByFit} reset={() => setF({ ...DEFAULT_FILTERS })} />}
           </div>
         ) : (
