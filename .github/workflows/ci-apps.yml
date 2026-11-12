@@ -17,7 +17,11 @@ on:
   pull_request:
     paths:
       - "apps/**"
-      - "sdk/**"
+      # Only the SDK files this gate reads (not all of sdk/**: the gateway, OpenAPI and language
+      # SDKs have their own workflows and cannot change an app's gate result).
+      - "sdk/tools/**"
+      - "sdk/schema/**"
+      - "research-output/evidence/license-matrix.csv"
       - "renovate.json"
       - ".github/workflows/ci-apps.yml"
 
@@ -81,8 +85,9 @@ jobs:
           else
             files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
           fi
-          # A change to the gate itself re-gates every app; otherwise only the apps the PR touches.
-          if grep -qE '^(sdk/tools/(app-gate|validate-apps|applib/)|sdk/schema/|\.github/workflows/ci-apps\.yml)' <<<"$files"; then
+          # A change to the gate itself (its tools, pinned tool installer, schema or licence matrix) re-gates
+          # every app; otherwise only the apps the PR touches (SDK changes that are not gate inputs gate none).
+          if grep -qE '^(sdk/tools/(app-gate|validate-apps|applib/|requirements\.txt|ci/install-tools\.sh)|sdk/schema/|research-output/evidence/license-matrix\.csv|\.github/workflows/ci-apps\.yml)' <<<"$files"; then
             ids=$(find apps -mindepth 1 -maxdepth 1 -type d ! -name '_*' ! -name '.*' -printf '%f\n' | sort)
           else
             ids=$(grep -oE '^apps/[^/_.][^/]*/' <<<"$files" | cut -d/ -f2 | sort -u || true)

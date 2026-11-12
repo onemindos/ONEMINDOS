@@ -11,6 +11,7 @@ Branches with work that is not on `main` yet (as of 2026-11-12):
 
 | Branch | PR | What it adds |
 |---|---|---|
+| `ci/narrow-app-gate-paths` | – | `ci-apps` no longer runs on every `sdk/**` change: it triggers on `sdk/tools/**`, `sdk/schema/**`, the licence matrix, `apps/**`, `renovate.json` and itself, and re-gates all apps only when a gate input changes (tools, tool installer, schema, licence matrix); other PRs gate just the apps whose directory changed |
 | `spike/machines` | – | Machines runtime spike (F-56, UMB-MACH-1): the pre-registered lab kit (KubeVirt v1.9.1 + CDI vs own QEMU + noVNC) with an addendum of extra criteria, a recommendation that ends with a decision for Zeus, and an honest record that the lab tests could not run in a cloud container (no `/dev/kvm`, no `quay.io`), so RAM overhead on a Pi 5 stays UNVERIFIED. No production code |
 | `docs/threat-model-refresh` | – | Security re-review (Wave G #3): threat model edition 2 and hardening backlog edition 2 (`docs/security/`), written from the code on `main`, with a scripted route inventory (`core/tests/test_route_authz.py`) and a fresh P0/P1/P2 list. Fixes the one P0 found: `POST /v1/alerts/{id}/fix` with `approve` skipped the passkey step-up and the approve scope. Also caps the node registry at 256 ids (NATS has no users yet). |
 | `docs/fabric-epics` | – | Fabric follow-through (Wave G #8): mission-02 research turned into epics with requirement links, gates, tests, sizes and open decisions (`docs/leap/fabric/EPICS.md`), plus a ready-to-build first stream (`STREAM-1.md`). Docs only. |
