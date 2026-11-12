@@ -1,0 +1,134 @@
+# SPDX-License-Identifier: Apache-2.0
+# Calibre-Web 0.6.27, LinuxServer image (the one upstream's README "Docker Images" names). That image's
+# s6 service always switches to user abc (svc-calibre-web/run: s6-setuidgid abc), which needs root, and
+# LinuxServer does not list it as tested for non-root use. So this package runs the app the way that
+# service does, python3 /app/calibre-web/cps.py with CALIBRE_DBPATH=/config, directly as UID 1000, and an
+# init container does the two first-run steps that matter. Port 8083; GET /login answers without a session.
+#
+# Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calibre-web
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: calibre-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: calibre-web
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      - name: library
+        image: ghcr.io/linuxserver/calibre-web:0.6.27-ls394@sha256:8eabbc9ac4d7fcbc252434493078ba22e4e8c3aa461e11b102020b040c5fc3e6
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - -c
+        - |
+          set -e
+          # An empty Calibre library from the release tarball (README "Configure Calibre Database").
+          [ -f /books/metadata.db ] || cp /app/calibre-web/library/metadata.db /books/metadata.db
+          # What the LinuxServer init script prepares (init-calibre-web-config/run).
+          [ -f /config/client_secrets.json ] || echo '{}' > /config/client_secrets.json
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: books
+          mountPath: /books
+      containers:
+      - name: calibre-web
+        image: ghcr.io/linuxserver/calibre-web:0.6.27-ls394@sha256:8eabbc9ac4d7fcbc252434493078ba22e4e8c3aa461e11b102020b040c5fc3e6
+        imagePullPolicy: IfNotPresent
+        command:
+        - python3
+        - /app/calibre-web/cps.py
+        workingDir: /app/calibre-web
+        env:
+        - name: CALIBRE_DBPATH
+          value: /config
+        - name: HOME
+          value: /config
+        - name: TZ
+          value: Etc/UTC
+        ports:
+        - name: http
+          containerPort: 8083
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /login
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /login
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /login
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 50m
+            memory: 192Mi
+          limits:
+            cpu: '1'
+            memory: 768Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: books
+          mountPath: /books
+        - name: cache
+          mountPath: /app/calibre-web/cps/cache
+      volumes:
+      - name: config
+        persistentVolumeClaim:
+          claimName: calibre-web-config
+      - name: books
+        persistentVolumeClaim:
+          claimName: calibre-web-books
+      - name: cache
+        emptyDir:
+          sizeLimit: 1Gi
