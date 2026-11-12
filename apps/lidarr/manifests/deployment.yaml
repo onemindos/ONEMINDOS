@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/Lidarr/Lidarr (contract §9.2). Lidarr publishes
+# no container image of its own; this package uses linuxserver.io's. Completed from github.com/linuxserver/docker-lidarr readme-vars.yml (volumes
+# /config, /music, /downloads; port 8686; "nonroot_supported: true") and linuxserver's
+# docs/misc/non-root.md (start with a fixed UID; s6 needs a writable /run; PUID/PGID have no
+# effect).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lidarr
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lidarr
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: lidarr
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: lidarr
+          image: lscr.io/linuxserver/lidarr:3.1.6.5079-ls48@sha256:a91ef0642c15c9bd7c4260fee98fa99972c61601e37c8a96411d6a9cf0e9ad40
+          env:
+            - name: TZ
+              value: Etc/UTC
+          ports:
+            - name: http
+              containerPort: 8686
+              protocol: TCP
+          # /ping answers without an API key on Servarr apps.
+          startupProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream publishes no sizing; a OneMind choice for a .NET app.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 192Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: music
+              mountPath: /music
+            # non-root.md: s6 "needs to be able to write its service files to /run".
+            - name: run
+              mountPath: /run
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: lidarr-config
+        - name: music
+          persistentVolumeClaim:
+            claimName: lidarr-music
+        - name: run
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
