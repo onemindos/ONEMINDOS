@@ -20,3 +20,6 @@ docs/design/*	/home/shoot\.mjs	B-FP-6
 scripts/hygiene-allow.tsv	/home/(layout|shoot)	B-FP-6
 # B-FP-7: random byte runs inside compressed PNG screenshots that happen to look like an address.
 docs/design/screens/*.png	[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+	B-FP-7
+# B-FP-8: any PNG can contain byte runs shaped like an address; docs may name the ui Home routes.
+*.png	[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+	B-FP-8
+docs/*	/home/(layout|types|fixtures|shoot\.mjs|edit|offline|loading|errors|fresh|home\.css)	B-FP-8
