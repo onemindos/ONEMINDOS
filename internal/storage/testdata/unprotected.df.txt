@@ -1,0 +1,4 @@
+Data, single: total=8388608, used=0
+System, DUP: total=8388608, used=16384
+Metadata, DUP: total=53673984, used=131072
+GlobalReserve, single: total=5767168, used=0

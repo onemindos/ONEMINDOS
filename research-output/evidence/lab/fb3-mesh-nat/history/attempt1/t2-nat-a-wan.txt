@@ -1,0 +1,144 @@
+02:51:59.397541 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 2313362945:2313363244, ack 2246791666, win 723, options [nop,nop,TS val 2632342087 ecr 2629993600], length 299
+02:51:59.449350 IP 203.0.113.10.41641 > 203.0.113.21.41641: UDP, length 124
+02:51:59.449365 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 1:291, ack 299, win 639, options [nop,nop,TS val 2629994621 ecr 2632342087], length 290
+02:51:59.503998 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 291, win 723, options [nop,nop,TS val 2632342192 ecr 2629994621], length 0
+02:51:59.591088 IP 203.0.113.21.40580 > 203.0.113.10.8443: Flags [.], ack 2345588459, win 683, options [nop,nop,TS val 2593809345 ecr 4247029125], length 0
+02:51:59.645038 IP 203.0.113.10.8443 > 203.0.113.21.40580: Flags [.], ack 1, win 635, options [nop,nop,TS val 4247061092 ecr 2593807840], length 0
+02:52:00.032462 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 299:482, ack 291, win 723, options [nop,nop,TS val 2632342722 ecr 2629994621], length 183
+02:52:00.130409 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 482, win 639, options [nop,nop,TS val 2629995298 ecr 2632342722], length 0
+02:52:00.150579 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 291:460, ack 482, win 639, options [nop,nop,TS val 2629995321 ecr 2632342722], length 169
+02:52:00.161167 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 460, win 723, options [nop,nop,TS val 2632342851 ecr 2629995321], length 0
+02:52:00.398161 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 482:781, ack 460, win 723, options [nop,nop,TS val 2632343088 ecr 2629995321], length 299
+02:52:00.449414 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 781, win 639, options [nop,nop,TS val 2629995621 ecr 2632343088], length 0
+02:52:00.449421 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 460:615, ack 781, win 639, options [nop,nop,TS val 2629995621 ecr 2632343088], length 155
+02:52:00.461197 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 615, win 723, options [nop,nop,TS val 2632343150 ecr 2629995621], length 0
+02:52:01.164887 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 781:964, ack 615, win 723, options [nop,nop,TS val 2632343854 ecr 2629995621], length 183
+02:52:01.261554 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 964, win 639, options [nop,nop,TS val 2629996431 ecr 2632343854], length 0
+02:52:01.282540 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 615:784, ack 964, win 639, options [nop,nop,TS val 2629996452 ecr 2632343854], length 169
+02:52:01.293692 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 784, win 723, options [nop,nop,TS val 2632343983 ecr 2629996452], length 0
+02:52:01.399807 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 964:1263, ack 784, win 723, options [nop,nop,TS val 2632344089 ecr 2629996452], length 299
+02:52:01.450153 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 1263, win 639, options [nop,nop,TS val 2629996622 ecr 2632344089], length 0
+02:52:01.450279 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 784:939, ack 1263, win 639, options [nop,nop,TS val 2629996622 ecr 2632344089], length 155
+02:52:01.462502 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 939, win 723, options [nop,nop,TS val 2632344151 ecr 2629996622], length 0
+02:52:02.295204 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 1263:1446, ack 939, win 723, options [nop,nop,TS val 2632344984 ecr 2629996622], length 183
+02:52:02.390901 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 1446, win 639, options [nop,nop,TS val 2629997562 ecr 2632344984], length 0
+02:52:02.400653 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 1446:1745, ack 939, win 723, options [nop,nop,TS val 2632345091 ecr 2629996622], length 299
+02:52:02.413061 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 939:1108, ack 1446, win 639, options [nop,nop,TS val 2629997584 ecr 2632344984], length 169
+02:52:02.423563 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 1108, win 723, options [nop,nop,TS val 2632345113 ecr 2629997584], length 0
+02:52:02.451969 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 1745, win 639, options [nop,nop,TS val 2629997623 ecr 2632345091], length 0
+02:52:02.451976 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 1108:1398, ack 1745, win 639, options [nop,nop,TS val 2629997623 ecr 2632345091], length 290
+02:52:02.462235 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 1398, win 722, options [nop,nop,TS val 2632345152 ecr 2629997623], length 0
+02:52:03.401388 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 1745:2044, ack 1398, win 723, options [nop,nop,TS val 2632346091 ecr 2629997623], length 299
+02:52:03.410240 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 2044:2219, ack 1398, win 723, options [nop,nop,TS val 2632346099 ecr 2629997623], length 175
+02:52:03.424451 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 2219:2402, ack 1398, win 723, options [nop,nop,TS val 2632346114 ecr 2629997623], length 183
+02:52:03.452396 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 1398:1553, ack 2044, win 639, options [nop,nop,TS val 2629998624 ecr 2632346091], length 155
+02:52:03.462666 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 1553, win 723, options [nop,nop,TS val 2632346153 ecr 2629998624], length 0
+02:52:03.476391 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 2402, win 639, options [nop,nop,TS val 2629998647 ecr 2632346099], length 0
+02:52:03.482727 IP 203.0.113.22.41641 > 203.0.113.21.41641: UDP, length 124
+02:52:03.482728 IP 203.0.113.22.41641 > 203.0.113.21.41641: UDP, length 124
+02:52:03.526884 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 1553:1728, ack 2402, win 639, options [nop,nop,TS val 2629998696 ecr 2632346153], length 175
+02:52:03.537049 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 1728, win 723, options [nop,nop,TS val 2632346227 ecr 2629998696], length 0
+02:52:03.540997 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 1728:1897, ack 2402, win 639, options [nop,nop,TS val 2629998712 ecr 2632346153], length 169
+02:52:03.551276 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 1897, win 723, options [nop,nop,TS val 2632346241 ecr 2629998712], length 0
+02:52:04.402440 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 2402:2701, ack 1897, win 723, options [nop,nop,TS val 2632347092 ecr 2629998712], length 299
+02:52:04.454339 IP 203.0.113.10.41641 > 203.0.113.21.41641: UDP, length 124
+02:52:04.454351 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 1897:2187, ack 2701, win 639, options [nop,nop,TS val 2629999625 ecr 2632347092], length 290
+02:52:04.464370 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 2187, win 722, options [nop,nop,TS val 2632347155 ecr 2629999625], length 0
+02:52:04.555142 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 2701:2884, ack 2187, win 723, options [nop,nop,TS val 2632347245 ecr 2629999625], length 183
+02:52:04.651561 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 2884, win 639, options [nop,nop,TS val 2629999824 ecr 2632347245], length 0
+02:52:04.675029 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 2187:2356, ack 2884, win 639, options [nop,nop,TS val 2629999845 ecr 2632347245], length 169
+02:52:04.685481 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 2356, win 723, options [nop,nop,TS val 2632347375 ecr 2629999845], length 0
+02:52:05.403307 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 2884:3183, ack 2356, win 723, options [nop,nop,TS val 2632348092 ecr 2629999845], length 299
+02:52:05.454192 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 3183, win 639, options [nop,nop,TS val 2630000626 ecr 2632348092], length 0
+02:52:05.454197 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 2356:2511, ack 3183, win 639, options [nop,nop,TS val 2630000626 ecr 2632348092], length 155
+02:52:05.464561 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 2511, win 723, options [nop,nop,TS val 2632348154 ecr 2630000626], length 0
+02:52:05.689294 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 3183:3366, ack 2511, win 723, options [nop,nop,TS val 2632348378 ecr 2630000626], length 183
+02:52:05.787865 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 3366, win 639, options [nop,nop,TS val 2630000958 ecr 2632348378], length 0
+02:52:05.815586 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 2511:2680, ack 3366, win 639, options [nop,nop,TS val 2630000982 ecr 2632348378], length 169
+02:52:05.825998 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 2680, win 723, options [nop,nop,TS val 2632348516 ecr 2630000982], length 0
+02:52:06.403375 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 3366:3665, ack 2680, win 723, options [nop,nop,TS val 2632349093 ecr 2630000982], length 299
+02:52:06.455278 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 3665, win 639, options [nop,nop,TS val 2630001626 ecr 2632349093], length 0
+02:52:06.455282 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 2680:2835, ack 3665, win 639, options [nop,nop,TS val 2630001626 ecr 2632349093], length 155
+02:52:06.465744 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 2835, win 723, options [nop,nop,TS val 2632349156 ecr 2630001626], length 0
+02:52:06.827487 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 3665:3848, ack 2835, win 723, options [nop,nop,TS val 2632349517 ecr 2630001626], length 183
+02:52:06.928881 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 3848, win 639, options [nop,nop,TS val 2630002094 ecr 2632349517], length 0
+02:52:06.950844 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 2835:3004, ack 3848, win 639, options [nop,nop,TS val 2630002119 ecr 2632349517], length 169
+02:52:06.960896 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 3004, win 723, options [nop,nop,TS val 2632349651 ecr 2630002119], length 0
+02:52:07.403068 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 3848:4147, ack 3004, win 723, options [nop,nop,TS val 2632350093 ecr 2630002119], length 299
+02:52:07.454048 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 4147, win 639, options [nop,nop,TS val 2630002626 ecr 2632350093], length 0
+02:52:07.454055 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 3004:3159, ack 4147, win 639, options [nop,nop,TS val 2630002626 ecr 2632350093], length 155
+02:52:07.454056 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 3159:3316, ack 4147, win 639, options [nop,nop,TS val 2630002626 ecr 2632350093], length 157
+02:52:07.464890 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 3159, win 723, options [nop,nop,TS val 2632350154 ecr 2630002626], length 0
+02:52:07.464892 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 3316, win 722, options [nop,nop,TS val 2632350154 ecr 2630002626], length 0
+02:52:07.963656 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 4147:4330, ack 3316, win 723, options [nop,nop,TS val 2632350654 ecr 2630002626], length 183
+02:52:08.058002 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 4330, win 639, options [nop,nop,TS val 2630003230 ecr 2632350654], length 0
+02:52:08.080499 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 3316:3485, ack 4330, win 639, options [nop,nop,TS val 2630003250 ecr 2632350654], length 169
+02:52:08.090894 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 3485, win 723, options [nop,nop,TS val 2632350781 ecr 2630003250], length 0
+02:52:08.219571 IP 203.0.113.21.53132 > 203.0.113.10.443: Flags [S], seq 2226343544, win 64240, options [mss 1460,sackOK,TS val 2793301322 ecr 0,nop,wscale 7], length 0
+02:52:08.219574 IP 203.0.113.21 > 203.0.113.10: ICMP echo request, id 43888, seq 1, length 12
+02:52:08.273165 IP 203.0.113.10.443 > 203.0.113.21.53132: Flags [S.], seq 2723029175, ack 2226343545, win 65160, options [mss 1460,sackOK,TS val 119903144 ecr 2793301322,nop,wscale 7], length 0
+02:52:08.273163 IP 203.0.113.10 > 203.0.113.21: ICMP echo reply, id 43888, seq 1, length 12
+02:52:08.283698 IP 203.0.113.21.53132 > 203.0.113.10.443: Flags [.], ack 1, win 502, options [nop,nop,TS val 2793301387 ecr 119903144], length 0
+02:52:08.283699 IP 203.0.113.21.53132 > 203.0.113.10.443: Flags [P.], seq 1:1520, ack 1, win 502, options [nop,nop,TS val 2793301388 ecr 119903144], length 1519
+02:52:08.336837 IP 203.0.113.10.443 > 203.0.113.21.53132: Flags [.], ack 1520, win 525, options [nop,nop,TS val 119903208 ecr 2793301388], length 0
+02:52:08.336846 IP 203.0.113.10.443 > 203.0.113.21.53132: Flags [P.], seq 1:2230, ack 1520, win 525, options [nop,nop,TS val 119903208 ecr 2793301388], length 2229
+02:52:08.347997 IP 203.0.113.21.53132 > 203.0.113.10.443: Flags [.], ack 2230, win 536, options [nop,nop,TS val 2793301451 ecr 119903208], length 0
+02:52:08.348000 IP 203.0.113.21.53132 > 203.0.113.10.443: Flags [P.], seq 1520:1584, ack 2230, win 536, options [nop,nop,TS val 2793301451 ecr 119903208], length 64
+02:52:08.348000 IP 203.0.113.21.53132 > 203.0.113.10.443: Flags [P.], seq 1584:1720, ack 2230, win 536, options [nop,nop,TS val 2793301451 ecr 119903208], length 136
+02:52:08.388028 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 3485:3576, ack 4330, win 639, options [nop,nop,TS val 2630003558 ecr 2632350781], length 91
+02:52:08.398602 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 3576, win 723, options [nop,nop,TS val 2632351088 ecr 2630003558], length 0
+02:52:08.398605 IP 203.0.113.10.443 > 203.0.113.21.53132: Flags [.], ack 1720, win 548, options [nop,nop,TS val 119903270 ecr 2793301451], length 0
+02:52:08.398608 IP 203.0.113.10.443 > 203.0.113.21.53132: Flags [P.], seq 2230:2359, ack 1720, win 548, options [nop,nop,TS val 119903270 ecr 2793301451], length 129
+02:52:08.403249 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 4330:4629, ack 3576, win 723, options [nop,nop,TS val 2632351093 ecr 2630003558], length 299
+02:52:08.410051 IP 203.0.113.21.53132 > 203.0.113.10.443: Flags [F.], seq 1720, ack 2359, win 559, options [nop,nop,TS val 2793301513 ecr 119903270], length 0
+02:52:08.410057 IP 203.0.113.21.40580 > 203.0.113.10.8443: Flags [P.], seq 1:63, ack 1, win 683, options [nop,nop,TS val 2593818163 ecr 4247061092], length 62
+02:52:08.410058 IP 203.0.113.21.40580 > 203.0.113.10.8443: Flags [P.], seq 63:1228, ack 1, win 683, options [nop,nop,TS val 2593818163 ecr 4247061092], length 1165
+02:52:08.453939 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 4629, win 639, options [nop,nop,TS val 2630003626 ecr 2632351093], length 0
+02:52:08.454082 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 3576:3731, ack 4629, win 639, options [nop,nop,TS val 2630003626 ecr 2632351093], length 155
+02:52:08.462022 IP 203.0.113.10.8443 > 203.0.113.21.40580: Flags [.], ack 63, win 635, options [nop,nop,TS val 4247069909 ecr 2593818163], length 0
+02:52:08.462026 IP 203.0.113.10.8443 > 203.0.113.21.40580: Flags [.], ack 1228, win 634, options [nop,nop,TS val 4247069909 ecr 2593818163], length 0
+02:52:08.462027 IP 203.0.113.10.443 > 203.0.113.21.53132: Flags [P.], seq 2359:2383, ack 1721, win 548, options [nop,nop,TS val 119903333 ecr 2793301513], length 24
+02:52:08.462029 IP 203.0.113.10.443 > 203.0.113.21.53132: Flags [F.], seq 2383, ack 1721, win 548, options [nop,nop,TS val 119903333 ecr 2793301513], length 0
+02:52:08.472138 IP 203.0.113.21.53132 > 203.0.113.10.443: Flags [R], seq 2226345265, win 0, length 0
+02:52:08.472139 IP 203.0.113.21.53132 > 203.0.113.10.443: Flags [R], seq 2226345265, win 0, length 0
+02:52:08.507012 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 3731, win 723, options [nop,nop,TS val 2632351196 ecr 2630003626], length 0
+02:52:08.914015 IP 203.0.113.10.8443 > 203.0.113.21.40580: Flags [P.], seq 1:77, ack 1228, win 635, options [nop,nop,TS val 4247070361 ecr 2593818163], length 76
+02:52:08.926184 IP 203.0.113.21.40580 > 203.0.113.10.8443: Flags [.], ack 77, win 683, options [nop,nop,TS val 2593818678 ecr 4247070361], length 0
+02:52:09.092026 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 4629:4812, ack 3731, win 723, options [nop,nop,TS val 2632351782 ecr 2630003626], length 183
+02:52:09.193328 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 4812, win 639, options [nop,nop,TS val 2630004362 ecr 2632351782], length 0
+02:52:09.218945 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 3731:3900, ack 4812, win 639, options [nop,nop,TS val 2630004385 ecr 2632351782], length 169
+02:52:09.228984 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 3900, win 723, options [nop,nop,TS val 2632351919 ecr 2630004385], length 0
+02:52:09.404159 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 4812:5111, ack 3900, win 723, options [nop,nop,TS val 2632352094 ecr 2630004385], length 299
+02:52:09.410468 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 5111:5286, ack 3900, win 723, options [nop,nop,TS val 2632352100 ecr 2630004385], length 175
+02:52:09.457539 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 5111, win 639, options [nop,nop,TS val 2630004626 ecr 2632352094], length 0
+02:52:09.457535 IP 203.0.113.10.41641 > 203.0.113.21.41641: UDP, length 124
+02:52:09.457559 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 3900:4055, ack 5111, win 639, options [nop,nop,TS val 2630004627 ecr 2632352094], length 155
+02:52:09.457560 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 4055:4212, ack 5111, win 639, options [nop,nop,TS val 2630004627 ecr 2632352094], length 157
+02:52:09.467767 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 4055, win 723, options [nop,nop,TS val 2632352158 ecr 2630004627], length 0
+02:52:09.467769 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 4212, win 722, options [nop,nop,TS val 2632352158 ecr 2630004627], length 0
+02:52:09.482358 IP 203.0.113.22.41641 > 203.0.113.21.41641: UDP, length 124
+02:52:09.503660 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 5286, win 639, options [nop,nop,TS val 2630004674 ecr 2632352100], length 0
+02:52:10.230592 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 5286:5469, ack 4212, win 723, options [nop,nop,TS val 2632352920 ecr 2630004674], length 183
+02:52:10.281912 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 5469, win 639, options [nop,nop,TS val 2630005453 ecr 2632352920], length 0
+02:52:10.352339 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 4212:4381, ack 5469, win 639, options [nop,nop,TS val 2630005521 ecr 2632352920], length 169
+02:52:10.364009 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 4381, win 723, options [nop,nop,TS val 2632353053 ecr 2630005521], length 0
+02:52:10.405056 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 5469:5768, ack 4381, win 723, options [nop,nop,TS val 2632353095 ecr 2630005521], length 299
+02:52:10.459823 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 5768, win 639, options [nop,nop,TS val 2630005627 ecr 2632353095], length 0
+02:52:10.459829 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 4381:4536, ack 5768, win 639, options [nop,nop,TS val 2630005628 ecr 2632353095], length 155
+02:52:10.470382 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 4536, win 723, options [nop,nop,TS val 2632353160 ecr 2630005628], length 0
+02:52:11.364065 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 5768:5951, ack 4536, win 723, options [nop,nop,TS val 2632354054 ecr 2630005628], length 183
+02:52:11.406879 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 5951:6250, ack 4536, win 723, options [nop,nop,TS val 2632354096 ecr 2630005628], length 299
+02:52:11.459592 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 5951, win 639, options [nop,nop,TS val 2630006630 ecr 2632354054], length 0
+02:52:11.459597 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 6250, win 639, options [nop,nop,TS val 2630006630 ecr 2632354096], length 0
+02:52:11.459598 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 4536:4691, ack 6250, win 639, options [nop,nop,TS val 2630006630 ecr 2632354096], length 155
+02:52:11.470024 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 4691, win 723, options [nop,nop,TS val 2632354160 ecr 2630006630], length 0
+02:52:11.479683 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 4691:4860, ack 6250, win 639, options [nop,nop,TS val 2630006650 ecr 2632354096], length 169
+02:52:11.491164 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 4860, win 723, options [nop,nop,TS val 2632354180 ecr 2630006650], length 0
+02:52:12.406234 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 6250:6549, ack 4860, win 723, options [nop,nop,TS val 2632355096 ecr 2630006650], length 299
+02:52:12.457935 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 4860:5150, ack 6549, win 639, options [nop,nop,TS val 2630007629 ecr 2632355096], length 290
+02:52:12.468036 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 5150, win 722, options [nop,nop,TS val 2632355158 ecr 2630007629], length 0
+02:52:12.493492 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [P.], seq 6549:6732, ack 5150, win 723, options [nop,nop,TS val 2632355184 ecr 2630007629], length 183
+02:52:12.586720 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [.], ack 6732, win 639, options [nop,nop,TS val 2630007758 ecr 2632355184], length 0
+02:52:12.617981 IP 203.0.113.10.443 > 203.0.113.21.39318: Flags [P.], seq 5150:5319, ack 6732, win 639, options [nop,nop,TS val 2630007786 ecr 2632355184], length 169
+02:52:12.671778 IP 203.0.113.21.39318 > 203.0.113.10.443: Flags [.], ack 5319, win 723, options [nop,nop,TS val 2632355360 ecr 2630007786], length 0
+

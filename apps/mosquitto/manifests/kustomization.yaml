@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# Namespace-agnostic: the gateway's kubernetes executor sets namespace app-mosquitto (contract §3).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+labels:
+- pairs:
+    app.kubernetes.io/name: mosquitto
+    app.kubernetes.io/part-of: onemind-apps
+  includeSelectors: false
+# The name gets a content hash, so a config change rolls the Deployment.
+configMapGenerator:
+- name: mosquitto-config
+  files:
+  - mosquitto.conf
+resources:
+- pvc.yaml
+- deployment.yaml
+- service.yaml

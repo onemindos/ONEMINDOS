@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/actualbudget/actual (contract §9.2), then
+# completed from upstream v26.11.0: packages/sync-server/docker-compose.yml (port 5006, /data,
+# health check), packages/sync-server/docker/ubuntu.Dockerfile (the image published by
+# .github/workflows/docker-release.yml) and packages/docs/docs/config/index.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: actual-budget
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  # SQLite files on a ReadWriteOnce volume have a single writer: stop the old pod first.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: actual-budget
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: actual-budget
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # The image sets no USER (runs as root by default), but its Dockerfile creates the user
+      # `actual` (UID/GID 1001) and makes it the owner of /data, so it runs as that user here.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: actual-budget
+          image: docker.io/actualbudget/actual-server:26.11.0@sha256:06cf186569cf58d93e12659ff1a517b65b5b0ebee7050a3991d4bd8a1d398da6
+          env:
+            # Upstream defaults, set explicitly (docs/config/index.md): listen on 5006, keep
+            # server-files/ (account.sqlite) and user-files/ (budget files) under /data.
+            - name: ACTUAL_PORT
+              value: "5006"
+            - name: ACTUAL_DATA_DIR
+              value: /data
+          ports:
+            - name: http
+              containerPort: 5006
+              protocol: TCP
+          # GET /health returns 200 {"status":"UP"} (packages/sync-server/src/app.ts); the
+          # upstream compose health check calls the same route through scripts/health-check.js.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream publishes no sizing. Measured idle in the smoke test (k3s v1.37.2, arm64):
+          # 145Mi and 1m CPU, so the request covers idle; the limits leave room for sync and imports.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 160Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: actual-budget-data
