@@ -4,7 +4,9 @@
 # What it proves and how to run it locally: docs/testing/PROPERTY-AND-FUZZ.md.
 #
 #   schemathesis  start the gateway in the runner (noop executor, the real seed catalog, fresh
-#                 random tokens), fuzz every operation first as an agent, then as the owner, and
+#                 random tokens), have the agent request one install per app and aim the fuzzers'
+#                 action ids and app ids at them, fuzz every operation first as the agent, then as
+#                 the owner, and
 #                 check what the runs left behind (core/tests/api_fuzz_check.py): no 5xx, documented
 #                 statuses and bodies, nothing approved while only the agent was fuzzing, every
 #                 decision by the owner, an intact audit chain, no traceback in the gateway log.
@@ -83,10 +85,14 @@ jobs:
           for _ in $(seq 1 60); do curl -fsS "$GATEWAY/healthz" >/dev/null 2>&1 && exit 0; sleep 1; done
           cat "$FUZZ/gateway.log"; exit 1
 
+      - name: Aim the fuzzers at real apps and at actions the agent requested
+        working-directory: core
+        run: .venv/bin/python tests/api_fuzz_check.py --phase prepare --config "$FUZZ/schemathesis.toml"
+
       - name: Fuzz as the agent
         working-directory: core
         run: |
-          .venv/bin/schemathesis run "$GATEWAY/openapi.json" -H "Authorization: Bearer $AGENT_TOKEN" \
+          .venv/bin/schemathesis --config-file "$FUZZ/schemathesis.toml" run "$GATEWAY/openapi.json" -H "Authorization: Bearer $AGENT_TOKEN" \
             --checks all --exclude-path /mcp --max-examples "$EXAMPLES" --seed "${{ github.run_id }}" \
             --report junit --report-dir "$FUZZ/report-agent"
 
@@ -97,7 +103,7 @@ jobs:
       - name: Fuzz as the owner
         working-directory: core
         run: |
-          .venv/bin/schemathesis run "$GATEWAY/openapi.json" -H "Authorization: Bearer $OWNER_TOKEN" \
+          .venv/bin/schemathesis --config-file "$FUZZ/schemathesis.toml" run "$GATEWAY/openapi.json" -H "Authorization: Bearer $OWNER_TOKEN" \
             --checks all --exclude-path /mcp --max-examples "$EXAMPLES" --seed "${{ github.run_id }}" \
             --report junit --report-dir "$FUZZ/report-owner"
 
@@ -108,7 +114,7 @@ jobs:
         working-directory: core
         run: |
           for token in "$AGENT_TOKEN" "$OWNER_TOKEN"; do
-            .venv/bin/schemathesis run "$GATEWAY/openapi.json" -H "Authorization: Bearer $token" \
+            .venv/bin/schemathesis --config-file "$FUZZ/schemathesis.toml" run "$GATEWAY/openapi.json" -H "Authorization: Bearer $token" \
               --include-path /mcp --checks not_a_server_error --max-examples "$EXAMPLES" --seed "${{ github.run_id }}"
           done
 
