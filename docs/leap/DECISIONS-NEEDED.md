@@ -45,7 +45,8 @@ F-1 to F-7 keep the numbers used in [core/README.md](core/README.md). The rest g
 | F-29 | Launch rules: channels; no update claim before G1, no actuation claim before G4; demos on lab hardware with mock data only | Confirm | CORE-WEB-5 | S3 | plan §5.9–§5.10 |
 | F-30 | Defer revenue share, certification fee and the D-001 pro/open ADR | Defer past the leap | – | – | plan §5.11 |
 | F-31 | TAK licensing (GPL/AGPL servers only as separate apps; official TAK Server bring-your-own-licence?) and drones (no agent flight commands; MAVLink read-only) | Confirm when PLAN-E14/E15 leave parking | PLAN-E14, PLAN-E15 | S4+ | plan §5.7, §5.12 |
-| F-32 | Data volume format: btrfs inside LUKS2 (one disk `single`/`dup`, two `raid1`, three or more `raid1c3` metadata); no RAID5/6, mdadm or ZFS in v1 | Confirm; record in `docs/DECISIONS.md` with UMB-STOR-0. ZFS only later as an optional HDD "NAS tier" after a licence review (UMB-STOR-12) | UMB-STOR-0, CORE-SEC-5 | S1 | umbrel2 storage §4 |
+| F-32 | Mesh coordinator: Headscale (default) vs NetBird vs Nebula vs plain WireGuard | Headscale v0.29.7 (BSD-3) on the hub with the official Tailscale clients (BSD-3), embedded DERP, optional owner relay; Tailscale hosted only as an opt-in (Z-34 stays open) | CORE-NET-1, CORE-NET-11, CORE-NET-12 | S1 (before NET-11; flannel backend and node IPs are cluster-creation settings) | `docs/architecture/NETWORKING.md` §2.1, §19; research 09 P0-6; research 12 REC-W11-12 |
+| F-60 | Data volume format: btrfs inside LUKS2 (one disk `single`/`dup`, two `raid1`, three or more `raid1c3` metadata); no RAID5/6, mdadm or ZFS in v1 | Confirm; record in `docs/DECISIONS.md` with UMB-STOR-0. ZFS only later as an optional HDD "NAS tier" after a licence review (UMB-STOR-12) | UMB-STOR-0, CORE-SEC-5 | S1 | umbrel2 storage §4 |
 | F-33 | Passkey domain: a passkey works on one domain, and the LAN (`onemind.local`) and mesh names differ | One canonical sign-in host on LAN and mesh, if lab UMB-ACCT-13 passes; else per-domain passkeys. Must be settled before the first owner enrols | CORE-SEC-10, UMB-ACCT-13 | S1 | umbrel2 accounts ACCT-D1 |
 | F-34 | Where Kanidm (identity provider, MPL-2.0, shipped separately) runs | Host service on the hub, so sign-in works when k3s is down (not the chart named in research 30) | UMB-ACCT-1, CORE-SEC-10 | S1 | umbrel2 accounts ACCT-D2 |
 | F-35 | May an adult guardian approve their own child's `access.request`? (changes contract rule P1, "only an owner approves") | No in v1 (owner-only); revisit with a contract change | UMB-ACCT-7 | S2 | umbrel2 accounts ACCT-D3 |
@@ -73,8 +74,25 @@ F-1 to F-7 keep the numbers used in [core/README.md](core/README.md). The rest g
 | F-57 | Do Machines enter the leap? (The agents study accepted VMs as a gap; the machines study plans them) | After the leap's S1 core; lab UMB-MACH-1 may start now | UMB-MACH-0 and later | S2 | umbrel2 machines F-MACH-2 |
 | F-58 | Machines on a Pi 5: headless Linux on 16 GB only (never Windows); ship a 4 KiB-page kernel if the 16 KiB one fails | Yes on 16 GB if LT-MACH-3 passes; the kernel change only if that test needs it (image stream) | UMB-MACH-2 | S3 | umbrel2 machines F-MACH-3, F-MACH-4 |
 | F-59 | Desktop release signing: Apple Developer ID (shares the account in F-4) and a Windows code-signing account | Get both before the first public desktop build | UMB-CLIENT-12 | S3 | umbrel2 clients |
+| F-61 | Desktop app updates: who holds the updater signing key (Ed25519, Tauri updater) and its offline backup, and where updates are hosted | Key in a GitHub environment `desktop-release` with you as required reviewer, plus an offline backup; host on GitHub Releases now, the box as a local mirror later. The updater stays off until this and F-59 are answered | UMB-CLIENT-12 | S3 | `desktop/docs/UPDATER.md` |
+
+### 1.1 Defaults applied in contract §12 (2026-11-12)
+
+Contract §12 was written against these proposed defaults; a different answer is a follow-up contract PR. **F-1** is applied as: per-box CA by default, and optional Let's Encrypt (DNS-01) when the owner brings a domain (§12.7); a Tailscale certificate may still serve the mesh name when remote access is on. Also applied as listed above: F-2, F-6, F-7, F-8, F-9, F-11, F-12, F-14, F-15, F-16, F-19, F-24.
+
+**Relied on by the developer surface** (`feat/devsurface`, 2026-11-12): **F-8**, the `onemind` CLI now runs on cobra (the §4 note below about stdlib `flag` is superseded). **F-15**, `onemind mcp login` stores a personal agent token as a context and checks that it is an agent's; creating one (default `reader`, 90 days) waits for `POST /v1/tokens` (§12.6). Until scopes exist, every agent on `/mcp` gets the `v0` bundle plus own-only reads (`actions:read:own`, `audit:read:own`, F-19).
+
+### 1.2 Identity choices made on `feat/identity` (2026-11-12)
+
+The identity stream relies on F-2 (passkey on every owner approval once one exists), F-12 (token approvals accepted, and audited, until then), F-14 (role scopes) and F-15 (personal agent tokens: `reader`, 90 days). It also made these calls; each is reversible in one module ([core/IDENTITY.md](core/IDENTITY.md) §7):
+- **First owner:** `POST /v1/auth/setup` (a path §12.6 implies as "the setup session" but does not name), authorised by the install owner token or a first-boot token file. Proposal: add it to §12.6 in the next contract PR.
+- **Password + TOTP** sign-in exists beside passkeys, so a household member without a passkey device can sign in. A password session never counts as step-up.
+- **Static-file tokens keep v0 behaviour** (no role scopes, no app sharing), so headless setups do not break; once an owner has a passkey, a file owner token can approve only with that passkey's assertion.
+- **Password hashing is stdlib scrypt** (N=2^15), not Argon2, to add no native dependency; logins are rate-limited.
 
 ## 2. For the contract owner: leap specs vs the contract §12 draft
+
+**Settled 2026-11-12** in contract §12 ([`sdk/contracts/poc-v0.md`](../../sdk/contracts/poc-v0.md) §12.21). Every row below took the proposal, except: `offline_not_supported` is not added (it is `503 unavailable` with reason `node_offline`); the join ticket role is `worker|leaf`; the heartbeat mesh object is top-level `mesh`. Specs that still use a losing name are renamed when next edited. The table is kept as the record.
 
 The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs/core-architecture`, not merged) and the leap specs were written in parallel. Settle each row in contract PR C12-A, then rename in one PR across whichever side loses.
 
@@ -123,6 +141,9 @@ The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs
 
 ## 4. Loose ends found, not fixed here
 
+- Core plumbing (`feat/core-plumbing`, [core/PLUMBING.md](core/PLUMBING.md)) changes three WORKSTREAMS §4 hotspot rules; update them when it merges: routes register in `ROUTERS` in `app.py` (not a `routes.py`); `ledger.py` gets no numbered migration files (each feature has its own `FeatureSchema` step chain in its module); the CLI registry is `groups` in `cmd/onemind/cli/root.go` with stdlib `flag`. F-8 (cobra) is allowed but not used yet, because the refactor had to keep the CLI output identical. DEV-CLI-1 can switch `root.go` to cobra without touching the group files. `onemindd` registrations go in `cmd/onemindd/registry.go`, not `main.go`.
+
+- Security P0 (`feat/sec-p0`) chose, for review: the pending cap uses contract §12.1 (10 per requester, `429 rate_limited`) instead of H-14's 5 and 409; namespaced `Role`/`RoleBinding` are allowed for apps (only to a Role in the app's namespace, ServiceAccount subjects of that namespace, no wildcards or RBAC verbs), where SANDBOX.md allowed none; `home-assistant` is the one reviewed `baseline` app (root in its image); after 10 wrong tokens a minute the whole source address backs off for 15 minutes, good tokens included. No founder default (F-x) was needed. The manifest schema should add `spec.security.podSecurity` and `spec.network.egress` (apps/sdk stream), and CORE-SEC-7/9 and CORE-SEC-5 (secrets encryption part) are done on that branch without their STATUS rows changed.
 - `feat/app-hermes` and `feat/apps-wave2` have no work yet, so W2-HERMES and W2-SEEDS may slip into S1.
 - `feat/app-pipeline` has an uncommitted `renovate.json`; `feat/design-system`, `feat/mobile-shell` and the arch branch's `docs/architecture/` are untracked. Commit and push them so they are not lost.
 - The updater merged as PR #15 after the specs were written. The review corrected the "what exists" rows in API, CLI, SDK, MCP, PLUGIN-SDK, UPDATES and BACKUPS; FABRIC and UPDATES still name the heartbeat `update` object's branch. STATUS.md has the live state.
@@ -136,3 +157,23 @@ The architecture stream's `docs/architecture/CONTRACT-12-DRAFT.md` (branch `docs
 - BACKLOG.md has no rows for MKT-CANDIDATES, CORE-NET-P1, UI-LEAP and MKT-TAXONOMY, which STATUS.md lists in S0; UMB rows depend on CORE-NET-P1 and UI-LEAP.
 - The umbrel2 studies propose five streams (Storage, Files, Clients, Photos, Machines) that WORKSTREAMS.md §2 does not list yet.
 - STATUS.md's summary counts predate the PRs merged since (#14, #16–#22); recount when the next STATUS PR lands.
+- Golden-path e2e (`tests/e2e/`, E2E-GOLDEN) relies on two defaults: **F-7** (no unscanned installs in v0, so the harness gives only the test app a marked stand-in `scan.json` until the §9.4 app-gate runs on the hub, and checks every other app stays blocked; no owner override is used) and **F-1** (its HTTPS step expects `/v1/tls` names to include `onemind.local`). A different founder answer changes those two steps only.
+
+## 5. Notifications and monitoring: choices made in the build (2026-11-12)
+
+Branch `feat/notify-monitor` (CORE-NOTIFY-1/2/3/6, CORE-MON-1). Each is a default the founder or the contract owner may change; none reopens a founder decision. Founder decisions relied on: **F-11** (an alert's fix is filed as a normal request, never auto-approved by the notifier) and **D-005** (push payloads carry only `{notification_id, box_id}`).
+
+| Id | Choice | Why | Alternative |
+|---|---|---|---|
+| N-1 | A person with no preferences gets warning and above, and every approval, on all their channels and devices; `info` stays in the inbox | Otherwise nothing is pushed until someone writes routes | Inbox only until configured (NOTIFICATIONS.md §5.1) |
+| N-2 | Every matching route adds its channels (union) | A critical approval should reach both the "approvals" and the "critical" channels | First match wins (NOTIFICATIONS.md §5.1) |
+| N-3 | The catalogue's `error` level maps to `warning`; `critical` is kept for "act now" (outcome unknown, failed scan, overheating) | Contract §12.14 alerts have three levels; quiet hours let `critical` through | Map `error` to `critical` |
+| N-4 | A pending approval is an alert (`approval:<action_id>`), resolved by approve, deny, expiry or success | BACKLOG CORE-NOTIFY-1 acceptance ("one alert for a pending approval") | No alert (NOTIFICATIONS.md §3) |
+| N-5 | Automatic alert transitions are not written to the audit log (the events behind them are); a person's acknowledge or resolve is. Every transition is published on `onemind.alert.<type>` (§12.9) | Keeps the decision trail readable | Audit every transition |
+| N-6 | Agents send only under `plugin.<own id>`, at `info` or `warning`, to owners | An agent must not phish under `approvals` or bypass quiet hours | Allow agents any topic |
+| N-7 | Only owners may point a channel or push endpoint at the local network or plain `http://`; link-local and metadata addresses are always refused; redirects are not followed | A channel is a way out of the box, and a guest's webhook must not reach internal services | Owner-only channels |
+| N-8 | The daily digest holds `info` items only (approvals never wait) | Contract §12.14 leaves the digest's content open | Digest per route |
+| N-9 | App log lines are redacted for secrets and also for e-mail and IPv4 addresses | Logs reach adults and, later, agents | Secrets only |
+| N-10 | Superseded when identity merged: `GET /v1/apps/{id}` needs `apps:read` and honours per-app sharing (`404` when the app is hidden from the caller); app and node metrics and the summary need `monitoring:read`, as contract §12.15 says. Static-file principals keep reading every app (F-14) | Built before identity existed, when every principal saw every app | Owners and adults only |
+| N-11 | Heartbeat gains the optional `metrics` object `{cpu_pct, load1, temp_c}` (contract §12.10, additive) | CPU and temperature thresholds need a source on leaf nodes without metrics-server | metrics-server only (no temperature) |
+| N-12 | Without a Kubernetes API, log and health routes answer `404 not_found` / `health.state: unknown` | `errors.py` has no `unavailable` code yet; switch to `503 unavailable` (§12.2) when gateway-core adds it | — |

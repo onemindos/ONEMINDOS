@@ -12,6 +12,8 @@ export { AppShell, PageHeader } from './components/AppShell';
 export type { AppShellProps, NavItem } from './components/AppShell';
 export { ApprovalCard, ACTION_STATE, actionTitle, equivalentCall, requesterPill } from './components/ApprovalCard';
 export type { ActionSummary, ActionState, ApprovalCardProps } from './components/ApprovalCard';
+export { BrandMark, BRAND } from './components/BrandMark';
+export type { BrandMarkProps } from './components/BrandMark';
 export { Button } from './components/Button';
 export type { ButtonProps, ButtonVariant } from './components/Button';
 export { Card } from './components/Card';

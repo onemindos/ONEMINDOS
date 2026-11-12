@@ -45,6 +45,8 @@ type Collector struct {
 	LookPath LookPather // nil = commands are treated as absent
 	Timeout  time.Duration
 	Now      func() time.Time
+
+	cpu cpuCounter // previous /proc/stat reading, for Metrics().CPUPct
 }
 
 // New returns a Collector for the live system at "/" that may run tools.
@@ -110,6 +112,7 @@ func (c *Collector) Collect(ctx context.Context) heartbeat.Status {
 	st.CPUModel, st.CPUs = c.CPU()
 	st.MemTotalMB, st.MemAvailableMB = c.Memory()
 	st.DiskTotalGB, st.DiskFreeGB = c.Disk()
+	st.Metrics = c.Metrics()
 	return st
 }
 

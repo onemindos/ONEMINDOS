@@ -4,6 +4,7 @@
 import { useId, type ReactNode } from 'react';
 import type { ActionSummary } from '../components/ApprovalCard';
 import { actionTitle, equivalentCall, requesterPill } from '../components/ApprovalCard';
+import { BRAND } from '../components/BrandMark';
 import { Button } from '../components/Button';
 import { Meter } from '../components/Meter';
 import { FreshnessPill, StatusPill } from '../components/StatusPill';
@@ -354,7 +355,7 @@ function UpdatesWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
         {u.os && (
           <li>
             <span className="omh-row-main">
-              <strong>OneMind OS</strong> {u.os.from} → {u.os.to}
+              <strong>{BRAND.name}</strong> {u.os.from} → {u.os.to}
             </span>
             {u.os.channel === 'security' && <StatusPill tone="warn" label="Security" />}
           </li>

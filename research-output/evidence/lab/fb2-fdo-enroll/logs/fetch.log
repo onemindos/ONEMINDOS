@@ -1,0 +1,91 @@
+== debian packages
+docker.io 26.1.5+dfsg1-9+deb13u1
+iptables 1.8.11-2
+openssl 3.5.7-1~deb13u3
+sqlite3 3.46.1-7+deb13u2
+swtpm 0.7.1-1.5
+tpm2-tools 5.7-1+b1
+sha256 OK pin go.tgz 3392582988a273a87ab5043ee1b2c9c17a2c3c00580bf9326c47a2e0aaaeac92
+sha256 OK pin k3d 03cde5cf23e6e8e67de5a039ecf26e5b85aca82fba3e5d13dadf904cd218a250
+sha256 OK upstream-file k3d-checksums.txt contains 03cde5cf23e6e8e67de5a039ecf26e5b85aca82fba3e5d13dadf904cd218a250
+sha256 OK pin helm.tgz 4c29e286b279d170fa048ddfc3e4e83dcd069ca9c52102766ba672d7149e694d
+sha256 OK upstream-file helm.sha256sum contains 4c29e286b279d170fa048ddfc3e4e83dcd069ca9c52102766ba672d7149e694d
+sha256 OK upstream-file fleet-checksums.txt contains fd3e5641d72c121da51eb428121b4fd4d0feed7dcf410b44bca4cd5dc3ef141b
+sha256 OK upstream-file fleet-checksums.txt contains 1a4b7304314cf11c0c6f45cc2fc752e9aa828b70824cd3fe96bfb2dbd2b69bbc
+sha256 OK upstream-file fleet-checksums.txt contains 82ae4696ab44da04d4a5a6b190aa4ad7377c60c85a971f09abc2d1181a83bbfb
+sha256 OK upstream-file fleet-checksums.txt contains a0c2e18c7d84f119275ef6f5c4a67ad51fa83f4b0e932db326850045652311f4
+sha256 OK pin fleet-crd-0.16.3.tgz fd3e5641d72c121da51eb428121b4fd4d0feed7dcf410b44bca4cd5dc3ef141b
+sha256 OK pin fleet-0.16.3.tgz 1a4b7304314cf11c0c6f45cc2fc752e9aa828b70824cd3fe96bfb2dbd2b69bbc
+sha256 OK pin fleet-linux-arm64 a0c2e18c7d84f119275ef6f5c4a67ad51fa83f4b0e932db326850045652311f4
+go: downloading github.com/fido-device-onboard/go-fdo-server v1.0.2
+go: downloading github.com/fido-device-onboard/go-fdo v0.0.0-20260908145651-65061850e1c9
+go: downloading github.com/fido-device-onboard/go-fdo/fsim v0.0.0-20260908145651-65061850e1c9
+go: downloading github.com/mitchellh/mapstructure v1.5.0
+go: downloading github.com/spf13/cobra v1.9.1
+go: downloading github.com/spf13/viper v1.20.1
+go: downloading gorm.io/driver/postgres v1.6.0
+go: downloading gorm.io/driver/sqlite v1.6.0
+go: downloading gorm.io/gorm v1.31.0
+go: downloading hermannm.dev/devlog v0.5.0
+go: downloading golang.org/x/time v0.11.0
+go: downloading github.com/fsnotify/fsnotify v1.8.0
+go: downloading github.com/go-viper/mapstructure/v2 v2.4.0
+go: downloading github.com/sagikazarmark/locafero v0.7.0
+go: downloading github.com/spf13/afero v1.12.0
+go: downloading github.com/spf13/cast v1.7.1
+go: downloading github.com/spf13/pflag v1.0.6
+go: downloading github.com/jackc/pgx/v5 v5.9.2
+go: downloading github.com/oapi-codegen/runtime v1.1.2
+go: downloading github.com/mattn/go-sqlite3 v1.14.32
+go: downloading github.com/elnormous/contenttype v1.0.4
+go: downloading github.com/jinzhu/now v1.1.5
+go: downloading golang.org/x/sys v0.38.0
+go: downloading github.com/sourcegraph/conc v0.3.0
+go: downloading github.com/subosito/gotenv v1.6.0
+go: downloading github.com/pelletier/go-toml/v2 v2.2.3
+go: downloading gopkg.in/yaml.v3 v3.0.1
+go: downloading golang.org/x/text v0.31.0
+go: downloading github.com/neilotoole/jsoncolor v0.7.1
+go: downloading golang.org/x/term v0.37.0
+go: downloading github.com/jinzhu/inflection v1.0.0
+go: downloading github.com/jackc/pgpassfile v1.0.0
+go: downloading github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
+go: downloading github.com/apapsch/go-jsonmerge/v2 v2.0.0
+go: downloading github.com/google/uuid v1.6.0
+go: downloading github.com/jackc/puddle/v2 v2.2.2
+go: downloading golang.org/x/sync v0.18.0
+go: downloading github.com/fido-device-onboard/go-fdo-client v1.0.0
+go: downloading github.com/fido-device-onboard/go-fdo v0.0.0-20260204145003-2d3d7c734680
+go: downloading github.com/fido-device-onboard/go-fdo/fsim v0.0.0-20260204145003-2d3d7c734680
+go: downloading github.com/fido-device-onboard/go-fdo/tpm v0.0.0-20260116133239-94bd9c5d647c
+go: downloading github.com/google/go-tpm v0.9.8
+go: downloading github.com/spf13/pflag v1.0.10
+go: downloading github.com/spf13/viper v1.21.0
+go: downloading golang.org/x/term v0.32.0
+go: downloading github.com/fsnotify/fsnotify v1.9.0
+go: downloading github.com/sagikazarmark/locafero v0.11.0
+go: downloading github.com/spf13/afero v1.15.0
+go: downloading github.com/spf13/cast v1.10.0
+go: downloading golang.org/x/sys v0.39.0
+go: downloading github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8
+go: downloading golang.org/x/text v0.28.0
+go: downloading github.com/pelletier/go-toml/v2 v2.2.4
+go: downloading go.yaml.in/yaml/v3 v3.0.4
+== versions
+go version go1.27.4 linux/arm64
+k3d version v5.9.0
+k3s version v1.35.5-k3s1 (default)
+v3.22.1+gd6c1a0e
+fleet version v0.16.3 (2137e669ebec4d397262df1149edb65bceaa4466)
+	path	github.com/fido-device-onboard/go-fdo-server
+	mod	github.com/fido-device-onboard/go-fdo-server	v1.0.2	h1:ebAliL6t8JNhD0L891XpKNJhakONOhgjkTPZ8NhOpnk=
+	dep	github.com/fido-device-onboard/go-fdo	v0.0.0-20260908145651-65061850e1c9	h1:fObXsyUKyN24WzLEfciNy5qES1dXYvIVgop1z0d6m1w=
+	path	github.com/fido-device-onboard/go-fdo-client
+	mod	github.com/fido-device-onboard/go-fdo-client	v1.0.0	h1:9AafFxNuo4W5VzPMUhbqazeyDkt2ZdFTBB3rf02JFmM=
+	dep	github.com/fido-device-onboard/go-fdo	v0.0.0-20260204145003-2d3d7c734680	h1:My2EAhqoc71sdxZjHI5C4VkJIfcLf8VFIdH658eiLhM=
+a0c2e18c7d84f119275ef6f5c4a67ad51fa83f4b0e932db326850045652311f4  /opt/fb/bin/fleet
+69ffc8a36c13f93097efc5eecae03de1ad5516bb2dfbc8163e35ded440521be1  /opt/fb/bin/go-fdo-client
+15e7dd75f52605056f214a3215a2f19342621b0d9890bd093dcbd171b11929e5  /opt/fb/bin/go-fdo-server
+2bd1b649ef89175bc0ae1e0fa7de7e0583a5b0401de9896b644b8acbcae1ba64  /opt/fb/bin/helm
+03cde5cf23e6e8e67de5a039ecf26e5b85aca82fba3e5d13dadf904cd218a250  /opt/fb/bin/k3d
+fetch rc=0

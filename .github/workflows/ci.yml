@@ -2,6 +2,7 @@
 # Lint, unit tests, DCO, and OneMind's RAUC build on native runners (brief 30 D-B1.2, D-B1.4, B4.1).
 name: ci
 on:
+  workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
   push:
     branches: [main]

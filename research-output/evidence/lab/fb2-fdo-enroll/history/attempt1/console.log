@@ -1,0 +1,16 @@
+2026-11-12T10:23:39Z == fdo run 1
+curl: (7) Failed to connect to 127.0.0.1 port 8041 after 0 ms: Could not connect to server
+curl: (7) Failed to connect to 127.0.0.1 port 8038 after 0 ms: Could not connect to server
+curl: (7) Failed to connect to 127.0.0.1 port 8043 after 0 ms: Could not connect to server
+curl: (7) Failed to connect to 127.0.0.1 port 8044 after 0 ms: Could not connect to server
+2026-11-12T10:23:41Z health: 200 200 200 200 
+rvinfo 201
+redirect 8043 201
+redirect 8044 201
+2026-11-12T10:23:41Z RESULT T1 PASS
+2026-11-12T10:25:41Z RESULT T2 PASS
+APPROVAL CARD (stand-in for the phone): node.join via FDO
+ device GUID: 0e4334db50b5289004259ef9086b488d
+ device info: fb2-lab-device  serial: LAB-0001
+ manufacturer cert sha256: 56f77b1bb3f7dfe0…
+ decision: APPROVED by owner (stand-in)

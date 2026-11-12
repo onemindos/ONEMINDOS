@@ -1,0 +1,27 @@
+{
+  "id": "T1",
+  "verdict": "FAIL",
+  "at": "2026-11-12T11:02:01Z",
+  "data": {
+    "clusters": [
+      {
+        "site": "site-a",
+        "ring": "2",
+        "ready": "True"
+      },
+      {
+        "site": "box-1",
+        "ring": "0",
+        "ready": "True"
+      },
+      {
+        "site": "site-b",
+        "ring": "1",
+        "ready": "True"
+      }
+    ],
+    "seconds_to_ready": 1326,
+    "hub_to_site_new_conn_dropped_pkts": 0,
+    "site_to_hub_api_new_conns_counted": 9
+  }
+}

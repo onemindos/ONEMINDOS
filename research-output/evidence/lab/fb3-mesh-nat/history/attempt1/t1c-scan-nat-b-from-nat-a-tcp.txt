@@ -1,0 +1,8 @@
+Starting Nmap 7.95 ( https://nmap.org ) at 2026-11-12 02:50 EST
+Nmap scan report for 203.0.113.22
+Host is up (0.042s latency).
+All 1025 scanned ports on 203.0.113.22 are in ignored states.
+Not shown: 1025 filtered tcp ports (no-response)
+MAC Address: EE:3A:EB:E1:77:52 (Unknown)
+
+Nmap done: 1 IP address (1 host up) scanned in 44.52 seconds

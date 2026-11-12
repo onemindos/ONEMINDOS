@@ -1,0 +1,9 @@
+{
+  "id": "E1",
+  "verdict": "OBSERVED",
+  "detail": {
+    "path": "derp",
+    "a_to_b_9001": "allowed-9001-home-b",
+    "last_pong": "pong from home-b (100.64.0.3) via DERP(onemind-hub) in 124ms"
+  }
+}
