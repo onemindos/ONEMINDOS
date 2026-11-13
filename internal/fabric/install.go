@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/onemindos/onemindos/internal/heartbeat"
@@ -107,6 +108,9 @@ func (in *Installer) say(format string, a ...any) {
 }
 
 // writeFile writes atomically with mode, creating parents (0755).
+// rename is os.Rename; tests replace it.
+var rename = os.Rename
+
 func writeFile(path string, body []byte, mode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -132,7 +136,12 @@ func writeFile(path string, body []byte, mode os.FileMode) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(name, path)
+	err = rename(name, path)
+	if errors.Is(err, syscall.EBUSY) || errors.Is(err, syscall.EXDEV) {
+		// A file that is a mount point (a container's /etc/hosts) cannot be replaced by rename: write it in place.
+		return os.WriteFile(path, body, mode)
+	}
+	return err
 }
 
 // Apply installs the identity, joins the mesh, configures the NATS leaf and,
