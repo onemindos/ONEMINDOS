@@ -524,7 +524,7 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 | `GET /v1/restores`, `/restores/{id}` | `backups:read` | `{id, state, action_id, snapshot_id, scope, mode, target, started_at, finished_at, health_gate: {verdict, probes}}`; a restore whose fresh-signal gate fails ends `failed`, never `succeeded` |
 | `POST /v1/onboarding/restore/candidates` | **setup mode only** (no owner yet), from the LAN | `{destination: {kind, config, sealed}, sealed_owner_key}` → `[{instance_id, box_name, generation, restore_points: [{run_id, taken_at, units, arch, k3s_version}]}]`; a box restore chosen here is recorded as the first audit entries of the restored box (`owner_initiated: true`, `phase: onboarding`) |
 
-- `onemindd` local API (loopback only, H-24): `POST :7480/api/v1/backup/run {reason, wait}` → `{run_id, state}`, for the updater's pre-update snapshot.
+- `onemindd` local API (loopback only, H-24): `POST :7480/api/v1/backup/jobs` accepts gateway-signed jobs only and `GET :7480/api/v1/backup/status` reports state. The unsigned `POST /api/v1/backup/run` was removed in #91 (`internal/backup/api.go:20-26`); the updater's pre-update snapshot has to use a signed `backup.run` job.
 - **restic tags** (normative, so a repository is readable without OneMind): `onemind`, `box=<instance_id>`, `gen=<n>`, `unit=<system|k3s|nats|app|node|fence>`, `node=<id>`, `run=<run_id>`, `reason=<…>`, and when relevant `app=<id>`, `rev=<n>`, `k3s=<version>`, `audit_head=<hash>`.
 
 ### 12.13 OS updates
