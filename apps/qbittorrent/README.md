@@ -85,10 +85,10 @@ Source: [docker-qbittorrent-nox Readme](https://github.com/qbittorrent/docker-qb
 The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212771377, job `gate (qbittorrent)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
 
 - Vulnerability: `docker.io/qbittorrentofficial/qbittorrent-nox:5.3.0-2`: CVE-2026-111497 in `brotli-libs` 1.2.0-r1, fixed in 1.2.1-r0.
-- Smoke test failed: `GET /` on Service `qbittorrent:8080` returned 401 (the web UI wants a login; the gate accepts 2xx and 3xx). The process is up. Whether a different smoke path or setting is right needs a look at the app's first-run behaviour.
+- Smoke test failed (ci-apps run 43212771377): `GET /` on Service `qbittorrent:8080` returned 401. Reproduced locally with the same image and settings: a request that comes from outside the container gets 401 on `/` and on `/api/v2/app/version`, while a request from inside the container (loopback) gets 200 (observed, with no bypass configured). The gate's request, which goes through `kubectl port-forward` to the Service, got 401 as well, so the 401 is qBittorrent's login working as designed. The only way to make that probe pass is to bypass login for a subnet or the Service, which this package will not do, and the gate was not changed. Kept blocked, and the brotli CVE has no fixed image either (5.3.0-2 is still the newest tag and `latest`, checked 2026-11-13).
 - Passed: licence (matrix row for qBittorrent matches), ClamAV (0 infected).
 
-To unblock: move the image pin to a release that fixes the CVE (tag verified with `crane`), and make the smoke test pass (for example by having the manifest start the web UI without an auth wall on `/`, if upstream supports it safely; do not weaken the login). Then rerun `sdk/tools/app-gate`.
+To unblock: upstream must publish an image with brotli-libs 1.2.1-r0 or later. The smoke test then needs a gate-level decision, since the login must stay on (founder call; a loopback-only probe does not reach the app from the gate).
 <!-- onemind:notes:end -->
 
 ## Latest security scan
