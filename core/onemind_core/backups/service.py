@@ -297,9 +297,11 @@ class BackupService:
                 if problem is None and spec.mode == "cold":
                     try:
                         ws = self.kube.workloads(f"app-{app.id}")
+                        # Recorded before the first scale-down, so a failure part-way (or in a later
+                        # app) still brings every workload that may have been stopped back up.
+                        cold.append((app, ws))
                         for w in ws:
                             self.kube.scale(f"app-{app.id}", w, 0)
-                        cold.append((app, ws))
                         self.kube.wait_no_pods(f"app-{app.id}", 120)
                     except KubeError as e:
                         problem = f"could not stop the app for a cold copy: {e}"
@@ -511,7 +513,9 @@ class BackupService:
             if not any(path == p or path.startswith(p.rstrip("/") + "/") for p in snap.get("paths") or []):
                 raise ApiError(409, "stale_precondition", "the path is not inside this snapshot")
             steps = ["take a pre-restore snapshot of what is there now (the undo point)",
-                     f"put back {path} as it was at {taken}; the app keeps running"]
+                     f"stop {app_id} so nothing can change the folder while it is put back",
+                     f"put back {path} as it was at {taken}",
+                     f"start {app_id} again"]
             summary = f"Restore {path} of {app_id} from {taken}"
         else:
             steps = [f"take a pre-restore snapshot of {app_id}" + (" and its database" if db else "") + " (the undo point)",
@@ -521,7 +525,7 @@ class BackupService:
                      "if it does not come back healthy: put today's data back and report the restore failed"]
             summary = f"Restore {app_id} to {taken}"
         plan = {"summary": summary, "app_id": app_id, "snapshot": {"id": snap["id"], "taken_at": taken, "reason": snap.get("reason")},
-                "database": db, "steps": steps, "downtime": "none" if "path" in scope else "the app is stopped during the restore",
+                "database": db, "steps": steps, "downtime": "the app is stopped during the restore",
                 "warnings": [] if backup_spec(app).declared else
                 ["this app declares no backup hooks: its copy is crash-consistent only"]}
         return plan, snap
@@ -597,12 +601,28 @@ class BackupService:
             return
 
         if "path" in scope:  # one file or folder: the agent snapshots what is there first
+            # The app is stopped first: a running app could swap a folder for a symlink while root
+            # writes (the agent also refuses symlinks, this removes the race altogether).
+            pns = f"app-{app_id}"
+            pws: list[Workload] = []
+            try:
+                pws = self.kube.workloads(pns)
+                for w in pws:
+                    self.kube.scale(pns, w, 0)
+                self.kube.wait_no_pods(pns, 180)
+            except KubeError as e:
+                self._start_quietly(pns, pws)
+                end("failed", "failed", f"could not stop {app_id}, nothing was changed: {e}")
+                return
+            step(f"stopped {app_id}")
             try:
                 res = self._job("backup.restore", {"scope": "path", "snapshot_id": a.params["snapshot_id"],
                                                    "path": scope["path"]}, a.id) or {}
             except (AgentError, Unavailable) as e:
+                self._start_quietly(pns, pws)
                 end("failed", "failed", f"nothing was changed: {e}")
                 return
+            self._start_quietly(pns, pws)
             if rid:
                 self.repo.update_restore(rid, pre_restore_snapshot_id=res.get("pre_restore_snapshot_id"))
             step("restored " + scope["path"], pre_restore_snapshot_id=res.get("pre_restore_snapshot_id"))
@@ -649,7 +669,7 @@ class BackupService:
         stamp = utc(self.gw.clock()).strftime("%Y%m%dT%H%M%SZ")
         try:
             self._job("backup.restore", {"scope": "app", "app_id": app_id, "snapshot_id": a.params["snapshot_id"],
-                                         "stamp": stamp}, a.id)
+                                         "stamp": stamp, "strict_files": has_db}, a.id)
         except (AgentError, Unavailable) as e:
             self._start(ns, workloads)
             end("failed", "failed", f"the agent could not restore the volumes, the current data is unchanged: {e}")
@@ -702,6 +722,14 @@ class BackupService:
     def _start(self, ns: str, workloads: list[Workload]) -> None:
         for w in workloads:
             self.kube.scale(ns, w, w.replicas)
+
+    def _start_quietly(self, ns: str, workloads: list[Workload]) -> None:
+        """Start every workload, one failing to scale must not leave the others stopped."""
+        for w in workloads:
+            try:
+                self.kube.scale(ns, w, w.replicas)
+            except KubeError as e:
+                log.warning("could not start %s/%s after a restore: %s", ns, w.name, e)
 
     def _health_gate(self, ns: str, since: datetime, expected: int) -> tuple[bool, dict]:
         """Ready pods created after `since`, three checks in a row, within the deadline."""

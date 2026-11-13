@@ -17,7 +17,7 @@
 | `schedule.go` | Hourly run at a fixed minute per box. Daily, in the maintenance hour: repository check, plus a direct run to every non-primary target (the off-site copy). Weekly: verified restores and prune. `Loop` drives it |
 | `verify.go` | `VerifyRestore`: restore into scratch, read every file back, compare sizes with the snapshot listing, run hook checks on the restored copies, record "last verified restore". `CheckRepo`: rotating `--read-data-subset` (n/7, or n/28 on S3) with one retry |
 | `rewind.go` | `ListSnapshots`, `Tree`, `DumpFile`, `RestorePath` (one file or directory, pre-restore snapshot first, atomic rename into place, refuses symlinked parents and paths outside the unit's sources) |
-| `api.go` | Loopback-only `POST /api/v1/backup/run` (for the updater) and `GET /api/v1/backup/status` |
+| `api.go` | Loopback-only `GET /api/v1/backup/status` and signed `POST /api/v1/backup/jobs` (the unsigned `/run` route was removed: runs only come as gateway-signed jobs) |
 | `state.go` | `state.json` (0600, atomic replace): runs, verifications, last verified per unit, schedule bookkeeping. Badge rules for BT-11 |
 
 ### Tags and retention

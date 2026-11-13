@@ -224,6 +224,32 @@ func TestAppRestoreSwapsVolumesAndDumpThenCommitOrRollBack(t *testing.T) {
 	}
 }
 
+// A snapshot taken before the app had a database lacks the dump. With
+// strict_files (the gateway sets it for apps with a database) the restore is
+// refused before anything moves, instead of bringing back files without data.
+func TestAppRestoreRefusesSnapshotWithoutTheDatabaseDump(t *testing.T) {
+	m := newManagedFixture(t)
+	m.ok(t, KindConfigure, usbTarget())
+	filesOnly := notesApp
+	filesOnly.Files = nil
+	r := m.ok(t, KindRun, map[string]any{"reason": "manual", "apps": []AppSpec{filesOnly}, "units": []string{"app:notes"}})
+	b, _ := json.Marshal(r.Result)
+	var run Run
+	_ = json.Unmarshal(b, &run)
+	snap := run.Units[0].SnapshotID
+	if err := m.agent.SetApps([]AppSpec{notesApp}); err != nil {
+		t.Fatal(err)
+	}
+	m.write("storage/pvc-1111_app-notes_data/notes.txt", "LIVE")
+	_, res, _ := m.do(t, KindRestore, map[string]any{"scope": "app", "app_id": "notes", "snapshot_id": snap, "stamp": "20261112T120000Z", "strict_files": true})
+	if res.State != StateFailed || !strings.Contains(res.Error, "no copy of onemind-dumps/app_notes.pgdump") || !strings.Contains(res.Error, "nothing was changed") {
+		t.Fatalf("restore without the dump was not refused: %+v", res)
+	}
+	if m.read("storage/pvc-1111_app-notes_data/notes.txt") != "LIVE" {
+		t.Fatal("a refused restore changed the volume")
+	}
+}
+
 func TestAppRestoreAfterReinstallMatchesClaimNotVolume(t *testing.T) {
 	m := newManagedFixture(t)
 	m.ok(t, KindConfigure, usbTarget())
