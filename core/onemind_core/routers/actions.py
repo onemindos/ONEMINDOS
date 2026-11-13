@@ -63,7 +63,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
     ):
         for guard in gw.approval_guards:  # identity: passkey step-up (F-2); raises to refuse
             guard(p, action_id, body.model_dump() if body else {}, request)
-        return actions.approve(p, action_id)
+        # Clients that send OneMind-API-Version: 1 must name the plan they read (contract §12.4).
+        strict = request.headers.get("OneMind-API-Version") == "1"
+        return actions.approve(p, action_id, body.plan_sha256 if body else None, strict)
 
     @app.post(
         "/v1/actions/{action_id}/deny", tags=["actions"], operation_id="actions.deny",

@@ -273,6 +273,17 @@
             }
           }
         },
+        "credentials": {
+          "description": "PD-07: the app has a login the gateway generates at first install and stores sealed. Shown only to the owner (GET /v1/apps/{id}/credentials); the executor puts it in Secret <id>-credentials (keys USERNAME, PASSWORD) in app-<id>. Kept when the app is removed, erased with its data.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["password"],
+          "properties": {
+            "username": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "password": { "const": "generated", "description": "Only generated passwords: a default password in a public catalog is not a secret." },
+            "showBeforeOpen": { "type": "boolean", "description": "The dashboard shows the login before it opens the app the first time." }
+          }
+        },
         "agent": {
           "description": "Agent principal for the app (contract 11.2): the gateway creates agent:<id> and the Secret <secret> in app-<id> at install.",
           "type": "object",

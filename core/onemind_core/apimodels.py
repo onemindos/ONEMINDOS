@@ -73,7 +73,7 @@ class Action(BaseModel):
 
     model_config = ConfigDict(extra="allow")
     id: str
-    type: str = Field(description="app.install | app.remove (more in §12.5)", json_schema_extra=OPEN_ENUM)
+    type: str = Field(description="app.install | app.remove | app.start | app.stop | app.restart | app.update | app.configure | app.delete_data (more in §12.5)", json_schema_extra=OPEN_ENUM)
     params: dict[str, Any]
     state: str = Field(
         description="requested | awaiting_approval | accepted | dispatched | succeeded | failed | "
@@ -89,6 +89,10 @@ class Action(BaseModel):
     decided_at: str | None
     result: dict[str, Any] | None
     version: int
+    risk: str | None = Field(default=None, description="read | write | sensitive | destructive | actuate (§12.3)")
+    plan: dict[str, Any] | None = Field(default=None, description="§12.4: what the action would do, rendered at request time")
+    plan_sha256: str | None = Field(default=None, description="§12.4: fingerprint the approval is bound to")
+    progress: dict[str, Any] | None = Field(default=None, description="{step, pct} while an executor runs")
 
 
 class AuditRecord(BaseModel):
@@ -119,3 +123,25 @@ class AuditVerify(BaseModel):
     reason: str
     checked_at: str
     last_checkpoint: dict[str, Any] | None
+
+
+class PlanPreview(BaseModel):
+    """GET /v1/apps/{id}/plan and POST /v1/plans (contract §12.4): what an action would do. Files nothing."""
+
+    type: str = Field(description="the action type previewed", json_schema_extra=OPEN_ENUM)
+    app_id: str
+    risk: str = Field(description="read | write | sensitive | destructive | actuate (§12.3)", json_schema_extra=OPEN_ENUM)
+    policy_verdict: str = Field(
+        description="needs_approval | refused (the app is in a state this action cannot start from)",
+        json_schema_extra=OPEN_ENUM,
+    )
+    reason: str | None = Field(description="why the verdict is refused; null otherwise")
+    plan: dict[str, Any] = Field(description="summary, objects, volumes, warnings: what the approval card shows")
+    plan_sha256: str = Field(description="send this with the request and the approval; a different plan is refused")
+
+
+class AppCredentials(BaseModel):
+    """GET /v1/apps/{id}/credentials: the app's generated login. Owner only, audited, never cached."""
+
+    username: str | None
+    password: str
