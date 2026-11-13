@@ -60,10 +60,10 @@ Do **not** enable it on a developer install (stock Debian, no A/B): there, contr
 
 | Unit | Machine | What |
 |---|---|---|
-| `onemind-headscale.service` | hub | mesh coordinator, embedded DERP/STUN; dynamic user, TLS files by `LoadCredential` |
+| `onemind-headscale.service` | hub | mesh coordinator, embedded DERP/STUN; dynamic user, TLS files copied into its runtime directory by a root `ExecStartPre` |
 | `onemind-nats-leaf.service` | node | local NATS leaf linked to the hub over the mesh; user `onemind-nats` |
 | `onemind-nats-accounts.path` + `onemind-nats-reload.service` | hub | reload NATS when the gateway rewrites the per-node accounts |
 
 `install.sh` also writes drop-ins: `tailscaled.service.d/onemind.conf` (box CA only, no log upload),
 `k3s(-agent).service.d/onemind-mesh.conf` and `onemind-nats.service.d/onemind-mesh.conf` (wait for the
-mesh address; NATS gets its TLS files by `LoadCredential`).
+mesh address; NATS gets its TLS files the same way).

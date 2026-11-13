@@ -2,8 +2,9 @@
 # OneMind mesh coordinator on the hub: Headscale v0.29.7 (BSD-3) with its embedded DERP relay and
 # STUN (docs/architecture/NETWORKING.md §4). Installed by deploy/install.sh --role hub; its config
 # is generated there. Until onemind-edge (CORE-NET-5) fronts it on :443, Headscale terminates TLS
-# itself on :8444 with a box-CA certificate the gateway issues (handed over with LoadCredential, so
-# the dynamic user never reads the gateway's tls directory).
+# itself on :8444 with a box-CA certificate the gateway issues. A root ExecStartPre (the "+" prefix) copies it
+# into the unit's RuntimeDirectory, owned by the dynamic user, which never reads the gateway's tls directory.
+# (Not LoadCredential: systemd inside a container does not set credentials up, and the e2e test runs in one.)
 [Unit]
 Description=OneMind mesh coordinator (Headscale, embedded DERP)
 Documentation=https://github.com/juanfont/headscale
@@ -19,8 +20,7 @@ DynamicUser=yes
 StateDirectory=onemind-headscale
 RuntimeDirectory=onemind-headscale
 RuntimeDirectoryMode=0750
-LoadCredential=tls.crt:/var/lib/onemind/tls/control.crt
-LoadCredential=tls.key:/var/lib/onemind/tls/control.key
+ExecStartPre=+/bin/sh -ec 'd=/run/onemind-headscale; install -m0600 /var/lib/onemind/tls/control.crt $$d/tls.crt; install -m0600 /var/lib/onemind/tls/control.key $$d/tls.key; chown --reference=$$d $$d/tls.crt $$d/tls.key'
 CapabilityBoundingSet=
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 NoNewPrivileges=yes

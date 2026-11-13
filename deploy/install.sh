@@ -658,9 +658,9 @@ write_deadline: "10s"
 leafnodes {
   listen: "$HUB_MESH_IP:7422"
   tls {
-    cert_file: "/run/credentials/onemind-nats.service/nats.crt"
-    key_file: "/run/credentials/onemind-nats.service/nats.key"
-    ca_file: "/run/credentials/onemind-nats.service/ca.crt"
+    cert_file: "/run/onemind-nats/nats.crt"
+    key_file: "/run/onemind-nats/nats.key"
+    ca_file: "/run/onemind-nats/ca.crt"
     verify: true
     timeout: 5
   }
@@ -672,15 +672,17 @@ EOF
   install -d -m0755 /etc/systemd/system/onemind-nats.service.d
   cat > /etc/systemd/system/onemind-nats.service.d/onemind-mesh.conf <<'EOF'
 # Written by deploy/install.sh: the leaf listener is bound to the hub's mesh address, and the TLS
-# files come from the gateway's box CA without giving the NATS user access to that directory.
+# files come from the gateway's box CA without giving the NATS user access to that directory: a root
+# ExecStartPre copies them into the unit's RuntimeDirectory (owned by its dynamic user). Not
+# LoadCredential, which systemd does not set up inside a container (the e2e test runs in one).
 [Unit]
 After=tailscaled.service
 Wants=tailscaled.service
 [Service]
+RuntimeDirectory=onemind-nats
+RuntimeDirectoryMode=0750
 ExecStartPre=+/usr/local/bin/onemindd mesh wait-ip --timeout 120s
-LoadCredential=nats.crt:/var/lib/onemind/tls/nats.crt
-LoadCredential=nats.key:/var/lib/onemind/tls/nats.key
-LoadCredential=ca.crt:/var/lib/onemind/tls/ca.crt
+ExecStartPre=+/bin/sh -ec 'd=/run/onemind-nats; for f in nats.crt nats.key ca.crt; do install -m0600 /var/lib/onemind/tls/$$f $$d/$$f; done; chown --reference=$$d $$d/nats.crt $$d/nats.key $$d/ca.crt'
 EOF
   install -m0644 "$SCRIPT_DIR/systemd/onemind-nats-accounts.path" /etc/systemd/system/onemind-nats-accounts.path
   install -m0644 "$SCRIPT_DIR/systemd/onemind-nats-reload.service" /etc/systemd/system/onemind-nats-reload.service
@@ -765,8 +767,8 @@ listen_addr: 0.0.0.0:$HS_PORT
 metrics_listen_addr: 127.0.0.1:9091
 grpc_listen_addr: 127.0.0.1:50443
 grpc_allow_insecure: false
-tls_cert_path: /run/credentials/onemind-headscale.service/tls.crt
-tls_key_path: /run/credentials/onemind-headscale.service/tls.key
+tls_cert_path: /run/onemind-headscale/tls.crt
+tls_key_path: /run/onemind-headscale/tls.key
 noise:
   private_key_path: /var/lib/onemind-headscale/noise_private.key
 prefixes:
