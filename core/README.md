@@ -228,12 +228,15 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 ## Known gaps
 - No `expected_version` on `POST /v1/actions` (D-B9.5 asks for it; contract v0 does not).
 - No policy engine (D-B9.4), approvals push to phone (D-B9.6) or offline sync.
-- MCP is the §11.3 v0 slice only: static or app-issued bearer tokens, no authorization-server
-  façade (RFC 9728 metadata, RFC 8707 audience binding; D-B9.2), no SSE stream, no resources or
-  prompts. D-B9.2 targets newer MCP revisions; 2025-06-18 is what the contract fixes for v0.
+- MCP supports tools and read-only resources (including resource templates), but no prompts:
+  static or app-issued bearer tokens, no authorization-server façade (RFC 9728 metadata,
+  RFC 8707 audience binding; D-B9.2). `/mcp` returns JSON only, not SSE; the separate
+  `/v1/events` SSE stream delivers action, audit and node-status events, not yet alert,
+  notification or app events. MCP v0 uses revision 2025-06-18 (also accepts 2025-03-26).
 - An app agent token does not expire; it lives until the app is removed or reinstalled.
-- `tier: blocked` is shown in the catalog but does not by itself refuse an install; the scan
-  record does (a blocked app's rescan should say `fail`).
+- With scan enforcement enabled (the default), `tier: blocked` independently refuses install
+  approval with `409 stale_precondition`, even with a passing scan. Only the explicit dev-only
+  unscanned noop mode bypasses this gate; it cannot run real installs.
 - The kubernetes executor is tested with a fake runner and a missing binary, not against a live k3s yet.
 - 401s are audited at most once a minute (`auth.rejected`, with a `suppressed_since_last` count),
   so an unauthenticated poller cannot flood the log. Refused action requests, approvals and
