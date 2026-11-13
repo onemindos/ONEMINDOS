@@ -88,3 +88,4 @@
 | D17 | Delete `wip/automation-merge-72` (fully merged in #75) | cleanup |
 | D18 | Optional: `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` secrets for faster, steadier app scans | A5, A9, A11 speed |
 | D19 | Later: delete the `handoff/hermes-*` checkpoint branches once A1–A4 and B4 have merged | cleanup |
+| D20 | **Decided 2026-11-13 (founder):** Lane A now runs as a local Claude Code session on the founder's Mac. Any dev tooling it needs may be installed there; this replaces the old "nothing installed on the founder's Mac" rule in CONTINUE.md. Every other rule above still applies. | Lane A |
