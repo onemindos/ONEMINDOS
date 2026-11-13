@@ -416,7 +416,9 @@ class K3sBootstrapTokens:
         proc = self.runner([self.kubectl, "create", "-f", "-"], input=manifest.encode(), capture_output=True,
                            timeout=self.timeout_s, check=False)
         if proc.returncode != 0:
-            raise RuntimeError("creating the k3s bootstrap token failed")  # stderr may echo the manifest
+            # stderr may echo the manifest: keep one short line with the secret taken out
+            why = (proc.stderr or b"").decode("utf-8", "replace").replace(secret, "***").strip().splitlines()[:1]
+            raise RuntimeError("creating the k3s bootstrap token failed" + (f": {why[0][:240]}" if why else ""))
         creds = f"{tid}.{secret}"
         return tid, (f"{self.ca_hash}::{creds}" if self.ca_hash else creds)
 
@@ -637,7 +639,8 @@ class FabricService:
             self.repo.move(req["id"], ("delivering",), "approved", self.d.clock())
             if k3s_id and self.d.k3s is not None:
                 self.d.k3s.delete(k3s_id)
-            log.warning("join %s: minting credentials failed: %s", req["id"], exc.__class__.__name__)
+            log.warning("join %s: minting credentials failed: %s%s", req["id"], exc.__class__.__name__,
+                        f": {str(exc)[:300]}" if isinstance(exc, RuntimeError) else "")  # RuntimeError text is ours and has no secret
             raise ApiError(503, "unavailable", "the box could not mint join credentials right now; retrying is safe",
                            reason="mesh_control_down", retry_after_s=10) from None
         creds: dict[str, Any] = {

@@ -587,3 +587,17 @@ def test_sign_node_csr_and_ip_certs(tmp_path):
     with pytest.raises(ValueError):
         box.ensure_nats_cert("192.0.2.1")  # outside the CA's address constraints
     assert "*.box1.local" in box.https_names() and "control.onemind.internal" in box.https_names()
+
+
+def test_k3s_token_failure_says_why_without_the_secret():
+    from onemind_core.fabric import K3sBootstrapTokens
+
+    def runner(argv, input=None, **_):
+        # a kubectl that echoes the manifest it was given, as some errors do
+        err = b'Error from server (Forbidden): secrets is forbidden\n' + input
+        return subprocess.CompletedProcess(argv, 1, b"", err)
+
+    k = K3sBootstrapTokens("kubectl", None, runner=runner)
+    with pytest.raises(RuntimeError) as ei:
+        k.create("n1", __import__("datetime").datetime(2030, 1, 1, tzinfo=__import__("datetime").timezone.utc))
+    assert "Forbidden" in str(ei.value) and "token-secret" not in str(ei.value)
