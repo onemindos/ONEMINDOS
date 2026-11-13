@@ -10646,6 +10646,9 @@
           "413": {
             "description": "payload_too_large: quota_exceeded, insufficient_space, upload_too_large or chunk_too_large"
           },
+          "415": {
+            "description": "PATCH needs Content-Type: application/offset+octet-stream"
+          },
           "422": {
             "content": {
               "application/json": {

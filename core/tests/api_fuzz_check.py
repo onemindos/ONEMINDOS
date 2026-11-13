@@ -137,12 +137,13 @@ def prepare(gateway: str, config: Path) -> int:
         # 4.33.1 omits 413 from its negative-data defaults. Scope this addition to
         # the demonstrated token/access-body cases; genuine_payload_rejection independently
         # rejects every 413 at or below the real wire-byte budget. No check disabled.
-        '\n[[operations]]\ninclude-path = "/v1/tokens"\ninclude-method = "POST"\n'
+        # include-path with include-method matches an operation on EITHER, so name the operation instead.
+        '\n[[operations]]\ninclude-name = "POST /v1/tokens"\n'
         '[operations.checks.negative_data_rejection]\n'
         'expected-statuses = [400, 401, 403, 404, 405, 406, 409, 413, 415, 422, 428, 429, "5xx"]\n'
         '[operations.checks.positive_data_acceptance]\n'
         'expected-statuses = ["2xx", "3xx", 401, 403, 404, 409, 413, 429, "5xx"]\n'
-        '\n[[operations]]\ninclude-path = "/v1/apps/{app_id}/access"\ninclude-method = "PUT"\n'
+        '\n[[operations]]\ninclude-name = "PUT /v1/apps/{app_id}/access"\n'
         '[operations.checks.negative_data_rejection]\n'
         'expected-statuses = [400, 401, 403, 404, 405, 406, 409, 413, 415, 422, 428, 429, "5xx"]\n'
         '[operations.checks.positive_data_acceptance]\n'
@@ -152,12 +153,19 @@ def prepare(gateway: str, config: Path) -> int:
         # routes, so any other 5xx anywhere, and any 503 elsewhere, still fails.
         '\n[[operations]]\ninclude-path-regex = "^/v1/(backups|restores)"\n'
         '[operations.checks.not_a_server_error]\n'
-        'expected-statuses = [503]\n'
+        'expected-statuses = ["2xx", "3xx", "4xx", 503]\n'
+        # tus: a missing or wrong Tus-Resumable is the protocol's 412 (and a wrong PATCH content type its
+        # 415), as the schema's required Tus-Resumable header promises.
+        '\n[[operations]]\ninclude-path-regex = "^/v1/files/uploads"\n'
+        '[operations.checks.negative_data_rejection]\n'
+        'expected-statuses = [400, 401, 403, 404, 405, 406, 409, 412, 415, 422, 428, 429, "5xx"]\n'
+        '[operations.checks.missing_required_header]\n'
+        'expected-statuses = [400, 401, 403, 406, 412, 415, 422]\n'
         # Files requests whose values only the server can judge (names, opaque cursors) may be refused
         # 422. semantic_refusal_names_its_reason requires one of the known reasons for that.
-        '\n[[operations]]\ninclude-path-regex = "^/v1/(files|backups|restores|migrate)"\n'
+        '\n[[operations]]\ninclude-path-regex = "^/v1/(files|backups|restores|migrate|notifications|actions|plans)"\n'
         '[operations.checks.positive_data_acceptance]\n'
-        'expected-statuses = ["2xx", "3xx", 401, 403, 404, 409, 413, 422, 429, "5xx"]\n'
+        'expected-statuses = ["2xx", "3xx", 401, 403, 404, 409, 422, 429, "5xx"]\n'
     )
     print(f"prepare: the agent requested {len(ids)} installs; config aims the fuzzers at them")
     return 0

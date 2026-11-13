@@ -31,7 +31,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validato
 from .audit import AuditLog
 from .auth import Principal, new_agent_token, token_hash
 from .catalog import APP_ID_RE, AppEntry, Catalog
-from .errors import ApiError
+from .errors import ApiError, SemanticValueError
 from .executors import AgentSecret, ExecResult, Executor
 from . import lifecycle as lc
 from .scan import scan_problem
@@ -67,12 +67,13 @@ def check_params_fit(action_type: str, p: ActionParams) -> None:
             raise ValueError("app.configure needs params.settings")
         problem = lc.settings_problem(p.settings)
         if problem:
-            raise ValueError(problem)
+            raise SemanticValueError(problem, "invalid_settings")
     elif p.settings is not None:
         raise ValueError(f"params.settings is only for app.configure, not {action_type}")
     if action_type == "app.delete_data":
         if p.confirm != p.app_id:
-            raise ValueError("app.delete_data needs params.confirm equal to the app id, typed by the owner")
+            raise SemanticValueError("app.delete_data needs params.confirm equal to the app id, typed by the owner",
+                                     "confirm_mismatch")
     elif p.confirm is not None:
         raise ValueError("params.confirm is only for app.delete_data")
 

@@ -244,7 +244,7 @@ class MigrateService:
         try:
             return parse_kubeconfig(kubeconfig, context)
         except KubeconfigError as exc:
-            raise ApiError(422, "conflict", f"kubeconfig: {exc}") from None
+            raise ApiError(422, "conflict", f"kubeconfig: {exc}", reason="invalid_kubeconfig") from None
 
     def _read(self, target: KubeTarget, namespace: str):
         try:

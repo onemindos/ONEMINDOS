@@ -430,7 +430,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if cursor:
             cur = decode_cursor(cursor)
             if cur is None:
-                raise ApiError(422, "conflict", "bad cursor")
+                raise ApiError(422, "conflict", "bad cursor", reason="invalid_cursor")
         rows = repo.list_notifications(
             p.id, unread=unread, severities=severity.split(",") if severity else None,
             topics=topic.split(",") if topic else None, since=utc(since) if since else None,

@@ -208,7 +208,7 @@ def test_semantic_refusal_check_wants_a_known_reason_and_only_for_positive_data(
         else h.semantic_refusal_names_its_reason
     check(None, _Resp(422, {"reason": "invalid_path"}), _Case("/v1/files/list"))
     check(None, _Resp(422, {"message": "request failed validation"}), _Case("/v1/files/list", positive=False))
-    check(None, _Resp(422, {"message": "request failed validation"}), _Case("/v1/actions"))
+    check(None, _Resp(422, {"message": "request failed validation"}), _Case("/v1/instance"))
     for body in ({"message": "request failed validation"}, {"reason": "something_else"}):
         with pytest.raises(AssertionError):
             check(None, _Resp(422, body), _Case("/v1/files/list"))
@@ -225,3 +225,42 @@ def test_unavailable_check_pins_the_envelope_and_the_routes():
                        (_Resp(503, ok_body, {}), "/v1/backups/runs")):
         with pytest.raises(AssertionError):
             check(None, resp, _Case(path))
+
+
+def test_semantic_validation_refusals_name_their_reason(client):
+    cases = (("app.delete_data", {"app_id": "uptime-kuma", "confirm": "other"}, "confirm_mismatch"),
+             ("app.configure", {"app_id": "uptime-kuma", "settings": {"API_TOKEN": "x"}}, "invalid_settings"))
+    for type_, params, reason in cases:
+        r = client.post("/v1/plans", headers=OWNER, json={"type": type_, "params": params})
+        assert r.status_code == 422 and r.json()["reason"] == reason, r.text
+    # a plain schema failure stays reason-less: that is what the fuzz treats as a schema disagreement
+    r = client.post("/v1/plans", headers=OWNER, json={"type": "app.stop", "params": {"app_id": "uptime-kuma", "x": 1}})
+    assert r.status_code == 422 and "reason" not in r.json()
+
+
+def test_fuzz_config_names_one_operation_for_the_413_adaptation(client, monkeypatch, tmp_path):
+    """include-path + include-method matches on either, which once leaked the 413 allowance to every POST."""
+    pytest.importorskip("schemathesis")
+    import api_fuzz_check
+    import schemathesis
+    from schemathesis.config import SchemathesisConfig
+
+    monkeypatch.setenv("OWNER_TOKEN", "o")
+    monkeypatch.setenv("AGENT_TOKEN", "a")
+    monkeypatch.setattr(api_fuzz_check, "call", lambda g, t, path, *a: [{"id": "x"}] if path == "/v1/apps" else {"id": "y"})
+    config = tmp_path / "s.toml"
+    assert api_fuzz_check.prepare("http://unit.invalid", config) == 0
+    cfg = SchemathesisConfig.from_str(config.read_text())
+    schema = schemathesis.openapi.from_dict(spec(client), config=cfg)
+    seen = {}
+    for result in schema.get_all_operations():
+        op = result.ok()
+        checks = schema.config.operations.get_for_operation(op).checks
+        seen[op.label] = {name: set(getattr(getattr(checks, name), "expected_statuses", None) or [])
+                          for name in ("positive_data_acceptance", "not_a_server_error")}
+    assert "413" in seen["POST /v1/tokens"]["positive_data_acceptance"]
+    assert "413" in seen["PUT /v1/apps/{app_id}/access"]["positive_data_acceptance"]
+    assert "413" not in seen["POST /v1/files/ops"]["positive_data_acceptance"]
+    assert "413" not in seen["POST /v1/plans"]["positive_data_acceptance"]
+    assert "503" in seen["GET /v1/backups/status"]["not_a_server_error"]
+    assert "503" not in seen["GET /v1/instance"]["not_a_server_error"]

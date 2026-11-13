@@ -34,17 +34,21 @@ def test_payload_status_adaptation_only_adds_413_for_reproduced_operations(monke
     config = tmp_path / 'fuzz.toml'
     assert api_fuzz_check.prepare('http://unit.invalid', config) == 0
     operations = tomllib.loads(config.read_text())['operations']
-    adapted = {(op.get('include-path'), op.get('include-method')): op['checks']
-               for op in operations if 'checks' in op and 'include-path' in op}
-    assert set(adapted) == {('/v1/tokens', 'POST'), ('/v1/apps/{app_id}/access', 'PUT')}
-    # The only other adaptations are two path families, each for one documented status and each paired
-    # with a custom check in api_fuzz_hooks.py that pins the exact envelope; nothing else is adapted.
+    adapted = {op['include-name']: op['checks'] for op in operations if 'checks' in op and 'include-name' in op}
+    # One named operation each: include-path with include-method would match on either and leak to every POST.
+    assert set(adapted) == {'POST /v1/tokens', 'PUT /v1/apps/{app_id}/access'}
+    # The only other adaptations are path families, each for named statuses and each paired with a custom
+    # check in api_fuzz_hooks.py that pins the exact envelope; nothing else is adapted.
     families = {op['include-path-regex']: op['checks'] for op in operations if 'include-path-regex' in op}
-    assert set(families) == {'^/v1/(backups|restores)', '^/v1/(files|backups|restores|migrate)'}
-    assert families['^/v1/(backups|restores)'] == {'not_a_server_error': {'expected-statuses': [503]}}
-    assert set(families['^/v1/(files|backups|restores|migrate)']) == {'positive_data_acceptance'}
-    assert set(families['^/v1/(files|backups|restores|migrate)']['positive_data_acceptance']['expected-statuses']) == (
-        {'2xx', '3xx', 401, 403, 404, 409, 413, 422, 429, '5xx'})
+    semantic = '^/v1/(files|backups|restores|migrate|notifications|actions|plans)'
+    assert set(families) == {'^/v1/(backups|restores)', '^/v1/files/uploads', semantic}
+    assert families['^/v1/(backups|restores)'] == {
+        'not_a_server_error': {'expected-statuses': ['2xx', '3xx', '4xx', 503]}}
+    assert set(families[semantic]) == {'positive_data_acceptance'}
+    assert set(families[semantic]['positive_data_acceptance']['expected-statuses']) == (
+        {'2xx', '3xx', 401, 403, 404, 409, 422, 429, '5xx'})
+    assert set(families['^/v1/files/uploads']) == {'negative_data_rejection', 'missing_required_header'}
+    assert 412 in families['^/v1/files/uploads']['negative_data_rejection']['expected-statuses']
     negative = {400, 401, 403, 404, 405, 406, 409, 415, 422, 428, 429, '5xx'}
     positive = {'2xx', '3xx', 401, 403, 404, 409, 429, '5xx'}
     for checks in adapted.values():

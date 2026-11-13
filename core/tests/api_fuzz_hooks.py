@@ -14,9 +14,11 @@ def genuine_payload_rejection(ctx, response, case):
 # without a reason is a schema or model disagreement (what ST202 exists to catch) and still fails.
 FILES_SEMANTIC_REFUSALS = {
     "invalid_path", "invalid_cursor", "invalid_metadata", "invalid_digest",
-    "invalid_subject", "expiry_too_far", "invalid_quota",
+    "invalid_subject", "expiry_too_far", "invalid_quota", "invalid_kubeconfig",
+    "invalid_settings", "confirm_mismatch",
 }
-SEMANTIC_PATHS = ("/v1/files", "/v1/backups", "/v1/restores", "/v1/migrate")
+SEMANTIC_PATHS = ("/v1/files", "/v1/backups", "/v1/restores", "/v1/migrate", "/v1/notifications", "/v1/actions",
+                  "/v1/plans")
 UNAVAILABLE_REASONS ={"backups_disabled", "target_unreachable", "agent_refused", "agent_failed"}
 
 
@@ -39,4 +41,5 @@ def unavailable_is_the_documented_envelope(ctx, response, case):
     body = response.json()
     assert case.operation.path.startswith(("/v1/backups", "/v1/restores")), "503 outside the backup routes"
     assert body.get("error") == "unavailable" and body.get("reason") in UNAVAILABLE_REASONS, body
-    assert body.get("retry_after_s") == 30 and response.headers.get("retry-after") == "30", body
+    retry_after = response.headers.get("retry-after")
+    assert body.get("retry_after_s") == 30 and retry_after in ("30", ["30"]), (body, retry_after)

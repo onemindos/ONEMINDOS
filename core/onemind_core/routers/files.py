@@ -37,6 +37,7 @@ _ERR = {
     409: {"description": "conflict, stale_precondition or expired; `reason` says which case"},
     412: {"description": "Tus-Resumable version not supported"},
     413: {"description": "payload_too_large: quota_exceeded, insufficient_space, upload_too_large or chunk_too_large"},
+    415: {"description": "PATCH needs Content-Type: application/offset+octet-stream"},
     416: {"description": "Range not satisfiable"},
     422: {"description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"},
     429: {"description": "rate_limited: too many requests awaiting approval"},
@@ -433,7 +434,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return uploads.json(uploads.get(p, upload_id))
 
     @app.patch("/v1/files/uploads/{upload_id}", operation_id="files.uploads.patch", tags=TAG, status_code=204,
-               responses=errs(401, 404, 409, 412, 413, 460, 503))
+               responses=errs(401, 404, 409, 412, 413, 415, 460, 503))
     async def tus_patch(request: Request, upload_id: str, tus_resumable: TusResumable,
                         upload_offset: Annotated[int, Header(ge=0)],
                         content_type: Annotated[str, Header(pattern=r"(?i)^application/offset\+octet-stream(?:\s*;.*)?$")],

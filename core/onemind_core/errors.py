@@ -64,6 +64,15 @@ def error_responses(*statuses: int) -> dict[int, dict]:
     return {s: {"model": ErrorBody, "description": _DESCRIPTIONS[s]} for s in statuses}
 
 
+class SemanticValueError(ValueError):
+    """A validator's refusal of a value that parses but that the server will not take (a secret-looking
+    setting, a confirmation that does not match). The 422 answer names it in `reason`."""
+
+    def __init__(self, message: str, reason: str):
+        super().__init__(message)
+        self.reason = reason
+
+
 class ApiError(Exception):
     def __init__(
         self, status: int, error: str, message: str, *,
@@ -134,7 +143,9 @@ def install_handlers(app: FastAPI) -> None:
         problems = "; ".join(
             f"{'.'.join(str(x) for x in e.get('loc', []))}: {e.get('msg', '')}" for e in exc.errors()
         )
-        return error_response(422, "conflict", f"request failed validation: {problems}"[:1000])
+        reason = next((err.reason for e in exc.errors()
+                       if isinstance(err := (e.get("ctx") or {}).get("error"), SemanticValueError)), None)
+        return error_response(422, "conflict", f"request failed validation: {problems}"[:1000], reason=reason)
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(request: Request, exc: StarletteHTTPException):
