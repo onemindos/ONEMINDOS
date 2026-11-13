@@ -286,4 +286,3 @@ func fabricStatus(args []string, out io.Writer) error {
 	}
 	return nil
 }
-
