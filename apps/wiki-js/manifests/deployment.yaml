@@ -1,0 +1,150 @@
+# SPDX-License-Identifier: Apache-2.0
+# Wiki.js 3.3.1 (github.com/requarks/wiki, dev/build/Dockerfile and dev/build/config.yml at that tag), image
+# ghcr.io/requarks/wiki:3.3.1 (the same digest as ghcr.io/requarks/wiki:3). The image runs as the node user
+# (UID/GID 1000) on port 3000 and reads its database settings from DB_* environment variables. GET /_healthz
+# answers 200 (checked by running the pinned image as UID 1000 with all capabilities dropped, next to the
+# pinned Alpine PostgreSQL in the same network namespace).
+#
+# The database is PostgreSQL 18 in a native sidecar on 127.0.0.1 only, trusting local connections, so no
+# database password or Secret exists; DB_PASS is a placeholder the trust rule ignores. The Alpine image is used
+# (as in metabase and paperless-ngx) because its Debian sibling carries a Go helper and a private-key finding
+# that the app gate rejects. Its postgres user is UID/GID 70.
+#
+# Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wiki-js
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wiki-js
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wiki-js
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      - name: db
+        image: docker.io/library/postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b
+        restartPolicy: Always
+        args: ["postgres", "-c", "listen_addresses=127.0.0.1"]
+        env:
+        - name: POSTGRES_USER
+          value: wiki
+        - name: POSTGRES_DB
+          value: wiki
+        - name: POSTGRES_INITDB_ARGS
+          value: --data-checksums
+        # Only 127.0.0.1 and the pod's own socket reach this server.
+        - name: POSTGRES_HOST_AUTH_METHOD
+          value: trust
+        startupProbe:
+          exec:
+            command: ["pg_isready", "-h", "127.0.0.1", "-U", "wiki", "-d", "wiki"]
+          periodSeconds: 5
+          failureThreshold: 60
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-h", "127.0.0.1", "-U", "wiki", "-d", "wiki"]
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: '1'
+            memory: 512Mi
+        securityContext:
+          runAsUser: 70
+          runAsGroup: 70
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        # PostgreSQL 18 images keep PGDATA in a major-version subdirectory of this path
+        # (/var/lib/postgresql/18/docker), created and owned by the postgres user.
+        volumeMounts:
+        - name: db
+          mountPath: /var/lib/postgresql
+      containers:
+      - name: wiki-js
+        image: ghcr.io/requarks/wiki:3.3.1@sha256:2bdfa19d02d3f0ce18020648cc38ca138c5467fe1cfc4765d4b5f2a59c8efcad
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_HOST
+          value: 127.0.0.1
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          value: wiki
+        # Ignored: the sidecar trusts local connections. The config file requires a value.
+        - name: DB_PASS
+          value: unused
+        - name: DB_NAME
+          value: wiki
+        - name: DB_SSL
+          value: "false"
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        # The first start creates the schema; on a small box it can take a few minutes.
+        startupProbe:
+          httpGet:
+            path: /_healthz
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 60
+        readinessProbe:
+          httpGet:
+            path: /_healthz
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /_healthz
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: '1'
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: data
+          mountPath: /wiki/data
+      volumes:
+      - name: db
+        persistentVolumeClaim:
+          claimName: wiki-js-db
+      - name: data
+        persistentVolumeClaim:
+          claimName: wiki-js-data
