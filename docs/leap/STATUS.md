@@ -327,10 +327,10 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-AGT-1 | Contract: agents, pairings, new request types, request_access, tr… | todo | – | – |
 | UMB-AGT-3 | Agent pairing (device-code shape): `/v1/agent-pairings*`, limits, pa… | todo | – | – |
 | UMB-AGT-4 | Persistent MCP client identity, capped agent_clients, agent.ident… | todo | – | – |
-| UMB-APP-0 | Contract: app lifecycle action types, /v1/apps/{id} detail, /plan… | todo | – | – |
+| UMB-APP-0 | Contract: app lifecycle action types, /v1/apps/{id} detail, /plan… | review | `feat/app-lifecycle` | – |
 | UMB-APP-2 | Signed catalog: CI builds `catalog.json` with a cosign signature; ga… | todo | – | – |
 | UMB-APP-12 | Logs endpoint, redacted | todo | – | – |
-| UMB-APP-3 | Plan endpoint with dependency resolution, alternatives and dependant… | todo | – | – |
+| UMB-APP-3 | Plan endpoint with dependency resolution, alternatives and dependant… | review | `feat/app-lifecycle` | – |
 | UMB-APP-18 | Schema: tagline, category, tags, developer, gallery, rela… | todo | – | – |
 | UMB-CLIENT-0 | Contract 12-clients: discovery, devices, photo sources, shares, even… | todo | – | – |
 | UMB-CLIENT-1 | Discovery: `_onemind._tcp` advert and `GET /v1/discovery` with the C… | todo | – | – |
@@ -376,8 +376,8 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-ACCT-11 | Phone: OIDC sign-in in the system browser, secure refresh token, chi… | todo | – | – |
 | UMB-ACCT-12 | Identity in backups and restore | todo | – | – |
 | UMB-APP-1 | App gate computes install size, archs, release notes, gallery checks | todo | – | – |
-| UMB-APP-4 | Lifecycle actions start, stop, restart, update, configure with progr… | todo | – | – |
-| UMB-APP-5 | Remove keeps data; separate owner-only data delete with typed confir… | todo | – | – |
+| UMB-APP-4 | Lifecycle actions start, stop, restart, update, configure with progr… | review | `feat/app-lifecycle` | – |
+| UMB-APP-5 | Remove keeps data; separate owner-only data delete with typed confir… | review | `feat/app-lifecycle` | – |
 | UMB-APP-9 | Host ports with conflict check in the plan; avahi name per app | todo | – | – |
 | UMB-APP-13 | App page and Market polish: facts band, permissions, notes, related… | todo | – | – |
 | UMB-AGT-5 | `onemind mcp pair` and `onemind mcp setup <client>`; keychain; confi… | todo | – | – |

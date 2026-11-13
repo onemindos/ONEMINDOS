@@ -321,11 +321,13 @@ Requested by: O owner, Ad adult (own scope only), A agent (by grant, §12.6), P 
 | Type | Params | Risk | Requested by | Runs on |
 |---|---|---|---|---|
 | `app.install` | `{app_id, version?, node_id?, bundle_sha256?, settings?, sealed?}` | sensitive | O, A, P, Au | G |
-| `app.remove` | `{app_id, delete_data?: false}` | write; destructive with `delete_data` | O, A, Au (not with `delete_data`) | G (+J) |
+| `app.remove` | `{app_id}`; removes the workloads and **keeps the data** (see `app.delete_data`) | write | O, A, Au | G (+J) |
+| `app.delete_data` | `{app_id, confirm}`; `confirm` is the app id typed by the owner. Only for an app in status `removed` (data kept) | destructive | O only (never A, P, Au) | G (+J) |
+| `app.start` / `app.stop` | `{app_id}`; stop scales workloads to zero and keeps data and the replica counts | write | O, A, Au | G |
 | `app.update` | `{app_id, to_version?, bundle_sha256?}`; an update that widens grants is `sensitive` | write | O, A, Au | G+J (pre-update snapshot) |
 | `app.rollback` | `{app_id, to_revision}` | write | O, A, Au | G |
 | `app.restart` | `{app_id, component?}` | write | O, A, Au | G |
-| `app.configure` | `{app_id, settings, sealed?}` | write; sensitive with `sealed` | O, A (no `sealed`) | G |
+| `app.configure` | `{app_id, settings, sealed?}`; `settings` are plain strings (a name that looks like a secret is refused `422`: secrets go in `sealed`); applied as ConfigMap `onemind-settings`, then the workloads roll | write; sensitive with `sealed` | O, A (no `sealed`) | G |
 | `app.reconcile` | `{app_id}` | write | O, Au | G |
 | `app.move` | `{app_id, to_node_id}` | sensitive | O | G+J |
 | `node.join` | `{join_request_id}` (filed by §12.11) | sensitive | N | G |
@@ -652,3 +654,12 @@ Still `kind: agent` only and still **no approve, deny, policy, grant or token to
 | Audit | `/v1/audit/events\|verify\|checkpoints`; the draft's `/v1/audit/status` is `GET /v1/audit/verify` | API.md |
 | Heartbeat mesh | top-level `mesh: {state, path}` | one object per subsystem, like `update`, `backup`, `storage`; NETWORKING.md's proposed `fabric.mesh` moves here |
 | Decider field | `approved_by` | SDK names (DECISIONS-NEEDED §3) |
+### 12.40 App lifecycle (amendment 2026-11-12; PD-03..PD-07, UMB-APP-0/3/4/5)
+- **Status.** `GET /v1/apps` `status` gains `stopped`, `starting`, `stopping`, `restarting`, `updating`, `configuring`, `deleting_data`; new field `data_kept: bool` (true when the app was removed with its data kept; `status` is then `not_installed`).
+- **Plan.** `GET /v1/apps/{id}/plan?type=<action type>` and `POST /v1/plans` return `{type, app_id, risk, policy_verdict: needs_approval|refused, reason, plan, plan_sha256}`. They file nothing. The plan holds the app's bundle fingerprint, versions (`from_version`, `to_version` for an update), the volumes and what happens to them (`kept` or `deleted`) and warnings. `plan_sha256` follows §12.4.
+- **Binding.** `POST /v1/actions` takes optional `plan_sha256` (`409 stale_precondition`, reason `plan_changed` if the fresh plan differs). The stored plan is rendered again at approval and once more just before the executor runs; a differing hash leaves the action `awaiting_approval` (first look) or ends it `failed` with `result.reason: plan_changed` and nothing run (second look). Clients that send `OneMind-API-Version: 1` must send `plan_sha256` when approving (`409`, reason `plan_unchecked`); others are accepted and the audit record `action.approved` carries `plan_unchecked: true`.
+- **Progress.** While an executor works, the action carries `progress: {step, pct}`, and each report is the event `action.progress` (`data`: `type`, `app_id`, `step`, `pct`).
+- **Health-gated update.** `app.update` is kept only if every workload becomes ready within the executor's health timeout. If not, the executor restores the previous revision and the action ends `failed` with `result.reverted: true`; the app stays `installed` at the old version and the audit log records `app.update_reverted`. If the revert itself cannot be confirmed the action is `outcome_unknown`.
+- **Credentials (PD-07).** A manifest may declare `spec.credentials: {username?, password: generated, showBeforeOpen?}`. The gateway generates the password at the first install, stores it sealed (AES-256-GCM, key file beside the audit log) and hands it to the executor for Secret `<id>-credentials`. `GET /v1/apps/{id}/credentials` returns `{username, password}` to the owner only (`403` and `authz.denied` for anyone else, never an agent; `Cache-Control: no-store`; audited as `app.credentials.revealed` without the value). It survives `app.remove` and is erased by `app.delete_data`.
+- **Request limits by kind.** An agent may request `app.start|stop|restart|update|configure|remove` (no `sealed`), never `app.delete_data`; approval is owner-only as in §3.
+

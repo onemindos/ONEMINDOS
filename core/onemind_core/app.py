@@ -23,6 +23,7 @@ from .config import Settings
 from .context import UNAUTH_AUDIT_INTERVAL_S, Gateway, principal_dependency
 from .errors import install_handlers
 from .events import EventHub
+from .lifecycle import CredentialStore
 from .executors import Executor, NoopExecutor, make_executor
 from .ledger import ActionRepository, SqlActionRepository
 from .nodes import NodeRegistry
@@ -106,7 +107,8 @@ def create_app(
     if settings.public_url is None:
         log.info("ONEMIND_PUBLIC_URL not set; app agent Secrets will use %s", gateway_url)
     actions = ActionService(
-        repo, catalog, executor, audit, clock, gateway_url=gateway_url, require_scan=not skip_scan
+        repo, catalog, executor, audit, clock, gateway_url=gateway_url, require_scan=not skip_scan,
+        credentials=CredentialStore(db, settings.audit_path.parent / "credentials.key"),
     )
     actions.reconcile_interrupted()  # finish what a crashed or killed process left mid-dispatch
     gw = Gateway(
@@ -115,6 +117,11 @@ def create_app(
         catalog=catalog, repo=repo, db=db, executor=executor, actions=actions, skip_scan=skip_scan,
     )
     gw.principal = principal_dependency(gw)
+    # PD-03: what an executor reports while it works becomes an event (and is stored on the action).
+    actions.progress_listeners.append(lambda action_id, p: gw.events.publish_event(
+        "action", "progress", {k: p[k] for k in ("type", "app_id", "step", "pct")},
+        action_id=action_id, resource={"kind": "app", "id": p["app_id"]},
+    ))
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):

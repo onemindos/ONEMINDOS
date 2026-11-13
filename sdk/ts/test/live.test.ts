@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Conformance against a real gateway. core/tests/test_sdk_conformance.py starts one and runs this
 // file with ONEMIND_CONFORMANCE_HUB, _OWNER and _AGENT set; otherwise it is skipped.
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { OneMind, PermissionDeniedError, type OneMindEvent } from "../src/index.js";
 
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
@@ -23,18 +23,13 @@ describe.skipIf(!hub)("live gateway", () => {
       seen.push(e);
       if (seen.some((x) => x.data?.to === "succeeded")) ctrl.abort();
     });
-    // The client derives expires_at from the clock at whole-second resolution, so two requests that
-    // straddle a second boundary are (correctly) different requests. Freeze the clock for the pair.
-    const frozen = vi.spyOn(Date, "now").mockReturnValue(Date.now());
-    let a;
-    try {
-      a = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance" });
-      expect(a.state).toBe("awaiting_approval");
-      const again = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance" });
-      expect(again.id).toBe(a.id);
-    } finally {
-      frozen.mockRestore();
-    }
+    // One fixed expiry: the hub compares it, to the second, when a key is replayed. (Computing it
+    // per call straddled a second boundary and made this test flaky: HTTP 409 on the replay.)
+    const expiresAt = new Date(Date.now() + 3600_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+    const a = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance", expiresAt });
+    expect(a.state).toBe("awaiting_approval");
+    const again = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance", expiresAt });
+    expect(again.id).toBe(a.id);
     await expect(agent.actions.approve(a.id)).rejects.toBeInstanceOf(PermissionDeniedError);
     const done = await owner.actions.approve(a.id);
     expect(done.decided_by?.id).toBe("owner");
