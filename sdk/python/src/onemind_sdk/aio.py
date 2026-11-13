@@ -35,6 +35,7 @@ class Client:
         self._sleep = sleep
         self._trace = trace
         self._offset = timedelta(0)
+        self._expiry = core.ExpiryMemo()
         self._warned = False
         self._http = httpx.AsyncClient(base_url=self.base_url, timeout=timeout, transport=transport,
                                   headers={"User-Agent": f"onemind-sdk-python/{core.VERSION}"})
@@ -152,7 +153,7 @@ class _Actions(_Ns):
                 idempotency_key: str | None = None) -> Action:
         """actions.create: files the action in awaiting_approval; retried with one idempotency key."""
         await self.c.instance.get()  # learn the hub clock first
-        r = core.action_request(type, app_id, self.c.hub_now(), expires_in, idempotency_key)
+        r = core.action_request(type, app_id, self.c.hub_now(), expires_in, idempotency_key, self.c._expiry)
         return Action.model_validate(await self.c.call(r))
 
     async def list(self) -> list[Action]:

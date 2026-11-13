@@ -23,12 +23,11 @@ describe.skipIf(!hub)("live gateway", () => {
       seen.push(e);
       if (seen.some((x) => x.data?.to === "succeeded")) ctrl.abort();
     });
-    // One fixed expiry: the hub compares it, to the second, when a key is replayed. (Computing it
-    // per call straddled a second boundary and made this test flaky: HTTP 409 on the replay.)
-    const expiresAt = new Date(Date.now() + 3600_000).toISOString().replace(/\.\d{3}Z$/, "Z");
-    const a = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance", expiresAt });
+    const a = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance" });
     expect(a.state).toBe("awaiting_approval");
-    const again = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance", expiresAt });
+    // A replay in a later second must still be the same request: the SDK keeps expires_at per key.
+    await new Promise((r) => setTimeout(r, 1200));
+    const again = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance" });
     expect(again.id).toBe(a.id);
     await expect(agent.actions.approve(a.id)).rejects.toBeInstanceOf(PermissionDeniedError);
     const done = await owner.actions.approve(a.id);
