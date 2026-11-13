@@ -22,14 +22,48 @@ def test_fuzz_payload_oracle_rejects_false_413_and_accepts_real_overflow():
 
 
 
-def test_token_body_limit_is_documented_and_not_a_blanket_refusal(property_resources):
+def test_payload_status_adaptation_only_adds_413_for_reproduced_operations(monkeypatch, tmp_path):
+    """A config-generation unit control, not fabricated HTTP/backend evidence."""
+    import tomllib
+    import api_fuzz_check
+
+    monkeypatch.setenv('OWNER_TOKEN', 'unit-owner')
+    monkeypatch.setenv('AGENT_TOKEN', 'unit-agent')
+    monkeypatch.setattr(api_fuzz_check, 'call', lambda gateway, token, path, *args:
+                        [{'id': 'unit-app'}] if path == '/v1/apps' else {'id': 'unit-action'})
+    config = tmp_path / 'fuzz.toml'
+    assert api_fuzz_check.prepare('http://unit.invalid', config) == 0
+    operations = tomllib.loads(config.read_text())['operations']
+    adapted = {(op.get('include-path'), op.get('include-method')): op['checks']
+               for op in operations if 'checks' in op}
+    assert set(adapted) == {('/v1/tokens', 'POST'), ('/v1/apps/{app_id}/access', 'PUT')}
+    negative = {400, 401, 403, 404, 405, 406, 409, 415, 422, 428, 429, '5xx'}
+    positive = {'2xx', '3xx', 401, 403, 404, 409, 429, '5xx'}
+    for checks in adapted.values():
+        assert set(checks['negative_data_rejection']['expected-statuses']) == negative | {413}
+        assert set(checks['positive_data_acceptance']['expected-statuses']) == positive | {413}
+
+
+@pytest.mark.parametrize('method', ['GET', 'DELETE'])
+def test_mcp_transport_authentication_precedes_method_refusal(property_resources, method):
+    from conftest import AGENT
     with property_resources.example() as sample, sample.http() as client:
-        responses = client.get('/openapi.json').json()['paths']['/v1/tokens']['post']['responses']
+        assert client.request(method, '/mcp').status_code == 401
+        assert client.request(method, '/mcp', headers=AGENT).status_code == 405
+
+
+@pytest.mark.parametrize('method,path', [
+    ('POST', '/v1/tokens'), ('PUT', '/v1/apps/uptime-kuma/access'),
+])
+def test_body_limit_is_documented_and_not_a_blanket_refusal(property_resources, method, path):
+    with property_resources.example() as sample, sample.http() as client:
+        spec_path = '/v1/apps/{app_id}/access' if method == 'PUT' else path
+        responses = client.get('/openapi.json').json()['paths'][spec_path][method.lower()]['responses']
         assert '413' in responses
-        response = client.post('/v1/tokens', content=b'x' * 262145, headers=OWNER)
+        response = client.request(method, path, content=b'x' * 262145, headers=OWNER)
         assert response.status_code == 413 and response.json()['error'] == 'payload_too_large'
-        # An ordinary small invalid body still reaches validation, not the body guard.
-        assert client.post('/v1/tokens', json={}, headers=OWNER).status_code == 422
+        # An ordinary small malformed body still reaches validation, not the body guard.
+        assert client.request(method, path, content=b'{', headers=OWNER).status_code == 422
 
 
 @pytest.mark.parametrize('value,valid', [

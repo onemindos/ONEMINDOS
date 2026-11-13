@@ -101,10 +101,13 @@ def install_handlers(app: FastAPI) -> None:
         # OpenAPI gives literal resources precedence over sibling templates. Do the same
         # for routing: DELETE /passkeys/register must not delete credential "register".
         literal = [r for r in request.app.router.routes
-                   if getattr(r, "include_in_schema", False)
-                   and getattr(r, "path", None) == request.scope["path"]]
-        methods = set().union(*(getattr(r, "methods", set()) for r in literal))
-        if methods and request.method not in methods:
+                   if getattr(r, "path", None) == request.scope["path"]]
+        documented = [r for r in literal if getattr(r, "include_in_schema", False)]
+        methods = set().union(*(getattr(r, "methods", set()) for r in documented))
+        handled = set().union(*(getattr(r, "methods", set()) for r in literal))
+        # Hidden transport handlers (MCP GET/DELETE) still authenticate before their
+        # own 405. Do not intercept a method with an explicit handler on this resource.
+        if methods and request.method not in handled:
             response = error_response(405, "not_found", "method not allowed on this resource")
             response.headers["Allow"] = ", ".join(sorted(methods))
             return response

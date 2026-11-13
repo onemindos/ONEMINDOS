@@ -43,10 +43,12 @@ def operations(property_resources):
 
 def test_every_undocumented_method_is_405_with_allow(property_resources, operations):
     def matching(path):
-        """Methods of every documented template that matches this concrete path: a sibling route with
-        a path parameter also answers it (GET /v1/notifications/{id} takes "send"), so its methods
-        are neither 405 here nor missing from Allow."""
-        return {m for _, t, d in operations if re.fullmatch(re.sub(r"\{[^/]+\}", "[^/]+", t), path) for m in d}
+        """OpenAPI literal resources take precedence over parameter siblings. For a
+        concrete parameter resource with no literal entry, aggregate matching templates."""
+        literal = [d for _, template, d in operations if template == path]
+        matches = literal or [d for _, template, d in operations
+                              if re.fullmatch(re.sub(r"\{[^/]+\}", "[^/]+", template), path)]
+        return {method for documented in matches for method in documented}
 
     with property_resources.example() as sample, sample.http() as gateway:
         for path, _, documented in operations:

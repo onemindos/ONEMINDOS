@@ -135,9 +135,14 @@ def prepare(gateway: str, config: Path) -> int:
         '\n[[operations]]\ninclude-operation-id = "nodes.metrics"\n'
         '[operations.parameters]\n"query.window" = "3600"\n'
         # 4.33.1 omits 413 from its negative-data defaults. Scope this addition to
-        # the demonstrated token-body case; genuine_payload_rejection independently
+        # the demonstrated token/access-body cases; genuine_payload_rejection independently
         # rejects every 413 at or below the real wire-byte budget. No check disabled.
         '\n[[operations]]\ninclude-path = "/v1/tokens"\ninclude-method = "POST"\n'
+        '[operations.checks.negative_data_rejection]\n'
+        'expected-statuses = [400, 401, 403, 404, 405, 406, 409, 413, 415, 422, 428, 429, "5xx"]\n'
+        '[operations.checks.positive_data_acceptance]\n'
+        'expected-statuses = ["2xx", "3xx", 401, 403, 404, 409, 413, 429, "5xx"]\n'
+        '\n[[operations]]\ninclude-path = "/v1/apps/{app_id}/access"\ninclude-method = "PUT"\n'
         '[operations.checks.negative_data_rejection]\n'
         'expected-statuses = [400, 401, 403, 404, 405, 406, 409, 413, 415, 422, 428, 429, "5xx"]\n'
         '[operations.checks.positive_data_acceptance]\n'
