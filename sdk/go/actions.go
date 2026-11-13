@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -35,6 +36,53 @@ type actionBody struct {
 	ExpiresAt      string            `json:"expires_at"`
 }
 
+// maxExpiries bounds expiryMemo.
+const maxExpiries = 1024
+
+// expiryMemo fixes expires_at once per idempotency key. The hub compares the whole request body when a
+// key is replayed, so a retry that recomputed expires_at in a later second would get a 409.
+type expiryMemo struct {
+	mu    sync.Mutex
+	m     map[string]memoEntry
+	order []string // keys, oldest first; each key appears once
+}
+
+type memoEntry struct {
+	text string
+	at   time.Time
+}
+
+func (e *expiryMemo) get(key string, now time.Time, span time.Duration) string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if h, ok := e.m[key]; ok && h.at.After(now) {
+		return h.text
+	}
+	if e.m == nil {
+		e.m = map[string]memoEntry{}
+	}
+	at := now.Add(span)
+	text := at.UTC().Format(time.RFC3339)
+	if _, ok := e.m[key]; !ok {
+		e.order = append(e.order, key)
+	}
+	e.m[key] = memoEntry{text: text, at: at}
+	live := e.order[:0]
+	for _, k := range e.order {
+		if e.m[k].at.After(now) {
+			live = append(live, k)
+		} else { // expired: the hub would refuse a replay anyway
+			delete(e.m, k)
+		}
+	}
+	e.order = live
+	for len(e.order) > maxExpiries {
+		delete(e.m, e.order[0])
+		e.order = e.order[1:]
+	}
+	return text
+}
+
 // NewIdempotencyKey returns a random UUIDv4.
 func NewIdempotencyKey() string {
 	var b [16]byte
@@ -50,15 +98,18 @@ func (s *ActionsService) Request(ctx context.Context, r ActionRequest) (*Action,
 	if r.ExpiresIn <= 0 {
 		r.ExpiresIn = DefaultExpiry
 	}
-	if r.IdempotencyKey == "" {
+	fresh := r.IdempotencyKey == ""
+	if fresh {
 		r.IdempotencyKey = NewIdempotencyKey()
 	}
 	if _, err := s.c.Instance.Get(ctx); err != nil { // learn the hub clock first (and fail fast)
 		return nil, err
 	}
-	body := actionBody{
-		Type: r.Type, Params: map[string]string{"app_id": r.AppID}, IdempotencyKey: r.IdempotencyKey,
-		ExpiresAt: s.c.HubNow().Add(r.ExpiresIn).UTC().Format(time.RFC3339),
+	body := actionBody{Type: r.Type, Params: map[string]string{"app_id": r.AppID}, IdempotencyKey: r.IdempotencyKey}
+	if fresh {
+		body.ExpiresAt = s.c.HubNow().Add(r.ExpiresIn).UTC().Format(time.RFC3339)
+	} else { // the caller's key may be replayed: keep expires_at identical (the hub compares the body)
+		body.ExpiresAt = s.c.expiries.get(r.IdempotencyKey, s.c.HubNow(), r.ExpiresIn)
 	}
 	var a Action
 	_, err := s.c.do(ctx, request{method: http.MethodPost, path: "/v1/actions", body: body, retry: true}, &a)
