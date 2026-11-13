@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# A patch adds an init container that mounts the node root. Expected: F-04.
+resources: [deployment.yaml]
+patchesStrategicMerge: [hostpath.yaml]

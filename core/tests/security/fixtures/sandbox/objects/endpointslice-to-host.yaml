@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# The same through an EndpointSlice. Expected: K-01.
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata: {name: escape, labels: {kubernetes.io/service-name: escape}}
+addressType: IPv4
+endpoints: [{addresses: [127.0.0.1]}]
+ports: [{port: 6443}]

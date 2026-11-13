@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# A transformer plugin rewrites objects after the checker's view of the files. Expected: Z-03.
+resources: [deployment.yaml]
+transformers: [plugin.yaml]

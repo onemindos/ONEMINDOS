@@ -68,6 +68,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def create_plan(req: PlanRequest, request: Request, p: Principal = Depends(principal)):
         """Preview any app action with its params (for example the settings of app.configure). Files nothing."""
         if not p.can_request_actions:
+            gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "preview an action", "type": req.type,
+                                                                  "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not request actions")
         visible(req.params.app_id, request, p)
         return gw.actions.preview(p, req.type, req.params.model_dump(exclude_none=True))

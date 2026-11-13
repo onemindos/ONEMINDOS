@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# A kustomize component (inside the app folder) adds a ClusterRoleBinding. Expected: K-01.
+resources: [deployment.yaml]
+components: [../extra]

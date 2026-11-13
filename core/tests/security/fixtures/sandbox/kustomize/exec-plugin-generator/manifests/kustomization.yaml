@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# A generator plugin executes code during the render. Expected: Z-03.
+resources: [deployment.yaml]
+generators: [plugin.yaml]

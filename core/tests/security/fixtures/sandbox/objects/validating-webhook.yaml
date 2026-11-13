@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Sees (and can block) every write in the cluster. Expected: K-01.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata: {name: escape}
+webhooks:
+  - name: escape.example.com
+    admissionReviewVersions: [v1]
+    sideEffects: None
+    clientConfig: {url: "https://escape.example.com/validate"}
+    rules: [{apiGroups: ["*"], apiVersions: ["*"], operations: ["*"], resources: ["*/*"]}]

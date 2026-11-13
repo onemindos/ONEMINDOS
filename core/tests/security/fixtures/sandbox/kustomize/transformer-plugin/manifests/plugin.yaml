@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: example.com/v1
+kind: Escape
+metadata:
+  name: escape
+  annotations: {config.kubernetes.io/function: "exec: {path: /bin/sh}"}

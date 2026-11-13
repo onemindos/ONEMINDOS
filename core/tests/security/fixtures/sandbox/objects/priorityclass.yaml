@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# A priority class that preempts system pods. Expected: K-01.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata: {name: escape}
+value: 2000000000

@@ -15,7 +15,6 @@ Marking helps a well-behaved model; what actually holds is that an agent can onl
 
 from __future__ import annotations
 
-import copy
 import json
 import re
 import unicodedata
@@ -27,6 +26,10 @@ _STRIP = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f‪-‮⁦-⁩‎‏؜]")
 _OPEN = re.compile(r"<(/?)untrusted", re.IGNORECASE)
 CAPS = {"name": 80, "title": 80, "hostname": 80, "description": 500, "reason": 500, "message": 500}
 DEFAULT_CAP = 500
+# Results carry third-party JSON (a node's heartbeat comes from the bus). Deeper than this, a value
+# is replaced by TOO_DEEP, so copying and serialising a result never hits the recursion limit.
+MAX_DEPTH = 64
+TOO_DEEP = "[nested deeper than 64 levels: omitted]"
 
 
 def clean(value: str, field: str = "") -> str:
@@ -71,19 +74,28 @@ def _walk(node: Any, pattern: list[str], path: str, found: list[tuple[str, list]
             found.append((p, [node, head]))
 
 
+def _copy(node: Any, depth: int = 0) -> Any:
+    """A deep copy of JSON-shaped data, bounded at MAX_DEPTH (copy.deepcopy recurses without a bound)."""
+    if isinstance(node, dict):
+        return TOO_DEEP if depth >= MAX_DEPTH else {k: _copy(v, depth + 1) for k, v in node.items()}
+    if isinstance(node, (list, tuple)):
+        return TOO_DEEP if depth >= MAX_DEPTH else [_copy(v, depth + 1) for v in node]
+    return node
+
+
 def mark(structured: dict, patterns: list[str], source_of=None) -> tuple[dict, str, list[str]]:
     """Return (cleaned structured, text with wrappers, untrusted paths).
 
     `patterns` use dots and `*` for any list item or key, e.g. "apps.*.description".
     `source_of(path)` names the source for the wrapper; by default the path itself.
     """
-    structured = copy.deepcopy(structured)
+    structured = _copy(structured)
     found: list[tuple[str, list]] = []
     for pat in patterns:
         _walk(structured, pat.split("."), "", found)
     for path, (container, key) in found:
         container[key] = clean(container[key], path.rsplit(".", 1)[-1])
-    shown = copy.deepcopy(structured)
+    shown = _copy(structured)
     found_shown: list[tuple[str, list]] = []
     for pat in patterns:
         _walk(shown, pat.split("."), "", found_shown)
