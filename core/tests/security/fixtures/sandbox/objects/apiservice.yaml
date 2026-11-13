@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Registers an aggregated API served by the app. Expected: K-01.
+apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata: {name: v1.escape.example.com}
+spec: {group: escape.example.com, version: v1, service: {name: escape, namespace: app-sec-app}, groupPriorityMinimum: 1000, versionPriority: 15}

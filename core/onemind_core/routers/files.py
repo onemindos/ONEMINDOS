@@ -11,6 +11,7 @@ import urllib.parse
 from datetime import datetime
 from typing import Annotated, Literal
 
+import anyio
 from fastapi import Body, Depends, FastAPI, Header, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -386,11 +387,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
         try:
             async for chunk in request.stream():
                 if chunk:
-                    uploads.write(patch, chunk)
+                    # Disk writes block: keep them off the event loop. The chunks of one request are
+                    # awaited one at a time, and the upload's busy mark (Uploads.begin_patch) keeps any
+                    # other PATCH of this upload out, so nothing else touches `patch` meanwhile.
+                    await run_in_threadpool(uploads.write, patch, chunk)
         except ClientDisconnect:
             interrupted = True
         except BaseException:
-            uploads.abort(patch)
+            # Even when this request is being cancelled, roll the partial chunk back and free the busy mark.
+            with anyio.CancelScope(shield=True):
+                await run_in_threadpool(uploads.abort, patch)
             raise
         row = await run_in_threadpool(uploads.finish, p, patch, interrupted=interrupted)
         return Response(status_code=204, headers=tus_headers(**{

@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: Apache-2.0
+# A remote base fetched at render time. Expected: Z-01.
+resources: [deployment.yaml, "https://example.com/escape/kustomization.yaml"]

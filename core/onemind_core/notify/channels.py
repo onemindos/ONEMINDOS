@@ -83,15 +83,25 @@ def _addresses(host: str) -> list[ipaddress._BaseAddress]:
     return [ipaddress.ip_address(info[4][0].split("%")[0]) for info in infos]
 
 
+_THIS_NETWORK = ipaddress.ip_network("0.0.0.0/8")  # "this network": 0.x.y.z can reach the box itself
+
+
 def check_address(addr: ipaddress._BaseAddress, lan_ok: bool) -> None:
     """Refuse link-local (cloud metadata), multicast, unspecified and reserved addresses always;
     anything that is not globally routable (private, loopback, CGNAT/tailnet 100.64/10, ...)
     unless the channel was added by an owner (`lan_ok`)."""
-    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
-        addr = addr.ipv4_mapped  # ::ffff:169.254.169.254 is 169.254.169.254
-    if addr.is_link_local or addr.is_multicast or addr.is_unspecified or addr.is_reserved:
+    if isinstance(addr, ipaddress.IPv6Address):
+        # An IPv4 address carried inside IPv6 is checked as that IPv4 address: ::ffff:169.254.169.254
+        # (mapped), 2002:a9fe:a9fe:: (6to4) and Teredo's client address.
+        embedded = addr.ipv4_mapped or addr.sixtofour or (addr.teredo[1] if addr.teredo else None)
+        if embedded is not None:
+            addr = embedded
+    if (addr.is_link_local or addr.is_multicast or addr.is_unspecified or addr.is_reserved
+            or addr in _THIS_NETWORK):
         raise DeliveryError("destination address is not allowed")
-    if not lan_ok and not addr.is_global:
+    # fec0::/10 (deprecated site-local) is not is_private, so Python calls it global: it is a LAN range.
+    site_local = isinstance(addr, ipaddress.IPv6Address) and addr.is_site_local
+    if not lan_ok and (not addr.is_global or site_local):
         raise DeliveryError("destination is on the local network; only an owner may add such a channel")
 
 

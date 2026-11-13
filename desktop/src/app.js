@@ -25,13 +25,14 @@ import {
   shortHash,
   updatesTile,
 } from './format.js';
+import { backupHealth, CHOICES, destinationsFor, filedText, isOwner, lifecycleLabel, planCard, settingsProblem } from './manage.js';
 
 const tauri = window.__TAURI__;
 const invoke = (cmd, args) => tauri.core.invoke(cmd, args);
 const $ = (id) => document.getElementById(id);
 const view = $('view');
 
-let mode = 'home'; // home | add | approval | inbox
+let mode = 'home'; // home | add | approval | inbox | manage
 let boxes = [];
 let found = [];
 let searching = false;
@@ -40,6 +41,8 @@ let pairing = { url: '', token: '', insecure: false, error: '', busy: false };
 let card = null;
 // Inbox: { boxId, items: null | [...], error, loading }
 let inbox = null;
+// Manage: { boxId, tab, data: {apps, backups, settings}, plan, form, notice, error, busy, denied }
+let manage = null;
 
 function h(tag, attrs = {}, ...kids) {
   const el = document.createElement(tag);
@@ -78,6 +81,7 @@ function back() {
   mode = 'home';
   card = null;
   inbox = null;
+  manage = null;
   load();
 }
 
@@ -152,6 +156,7 @@ function boxCard(b) {
       h('button', { class: 'btn', title: "Opens the box's file share in your file manager", onclick: () => run('open_files', { id: b.id }) }, icon('folder'), 'Files'),
     ),
   );
+  if (online) el.append(h('button', { class: 'btn', style: 'margin-top:8px;width:100%', title: 'Apps, backups and box settings. Every change is a request an owner approves.', text: 'Manage…', onclick: () => openManage(b.id) }));
   el.append(
     h(
       'div',
@@ -234,7 +239,7 @@ function planNodes(d) {
   return [
     h('div', { class: 'plan-summary', text: p.summary || 'The box sent a plan without a summary.' }),
     p.warnings.length ? h('ul', { class: 'warnings' }, p.warnings.map((w) => h('li', { text: w }))) : null,
-    rows.length ? h('dl', { class: 'facts' }, rows.map(([k, v]) => [h('dt', { text: k }), h('dd', { text: v })])) : null,
+    rows.length ? h('dl', { class: 'facts' }, rows.flatMap(([k, v]) => [h('dt', { text: k }), h('dd', { text: v })])) : null,
   ];
 }
 
@@ -376,6 +381,233 @@ function inboxView() {
   return nodes;
 }
 
+// ---- manage: apps, backups, box settings (every write is a request an owner approves) ----
+
+async function openManage(boxId) {
+  mode = 'manage';
+  manage = { boxId, tab: 'apps', data: {}, plan: null, form: null, notice: null, error: '', busy: false, denied: false };
+  render();
+  await loadTab('apps');
+}
+
+async function loadTab(tab) {
+  const m = manage;
+  m.tab = tab;
+  m.plan = null;
+  m.notice = null;
+  m.error = '';
+  m.busy = true;
+  render();
+  try {
+    if (tab === 'apps') m.data.apps = await invoke('manage_apps', { id: m.boxId });
+    if (tab === 'backups') m.data.backups = await invoke('manage_backups', { id: m.boxId });
+    if (tab === 'settings') {
+      m.data.settings = await invoke('manage_settings', { id: m.boxId });
+      const s = m.data.settings;
+      m.form = s ? { box_name: s.box_name || '', time_zone: s.time_zone || '', backup_choice: s.backup_choice, backup_destination_id: s.backup_destination_id } : null;
+    }
+  } catch (e) {
+    m.error = String(e);
+    if (tab === 'settings' && m.error === 'permission_denied') m.denied = true;
+  }
+  m.busy = false;
+  if (manage === m) render();
+}
+
+async function mAct(fn) {
+  const m = manage;
+  m.busy = true;
+  m.error = '';
+  m.notice = null;
+  render();
+  try {
+    await fn();
+  } catch (e) {
+    m.error = String(e);
+    if (m.tab === 'settings' && m.error === 'permission_denied') m.denied = true;
+  }
+  m.busy = false;
+  if (manage === m) render();
+}
+
+function manageBox() {
+  const b = boxes.find((x) => x.id === manage.boxId);
+  return b && b.status;
+}
+
+function appsPane(m) {
+  const apps = m.data.apps;
+  const nodes = [];
+  if (m.plan) {
+    const p = m.plan;
+    const c = planCard(p);
+    nodes.push(
+      h(
+        'section',
+        { class: 'card approval' },
+        h('h2', { class: 'title', text: `${lifecycleLabel(p.kind)} ${p.app_id}` }),
+        h('div', { class: 'plan-summary', text: c.title }),
+        p.warnings.length ? h('ul', { class: 'warnings' }, p.warnings.map((w) => h('li', { text: w }))) : null,
+        c.facts.length ? h('dl', { class: 'facts' }, c.facts.flatMap(([k, v]) => [h('dt', { text: k }), h('dd', { text: v })])) : null,
+        c.canSend ? h('div', { class: 'note', text: 'Sending this only asks. An owner sees this same plan in the approval list and decides.' }) : null,
+        h(
+          'div',
+          { class: 'row', style: 'margin-top:12px' },
+          h('button', { class: 'btn', text: 'Cancel', onclick: () => ((m.plan = null), render()) }),
+          c.canSend
+            ? h('button', {
+                class: 'btn primary',
+                disabled: m.busy,
+                text: m.busy ? 'Sending…' : 'Send request',
+                onclick: () =>
+                  mAct(async () => {
+                    const f = await invoke('manage_request', { id: m.boxId, appId: p.app_id, kind: p.kind, planSha256: p.plan_sha256 });
+                    m.notice = filedText(f);
+                    m.plan = null;
+                    m.data.apps = await invoke('manage_apps', { id: m.boxId });
+                  }),
+              })
+            : null,
+        ),
+      ),
+    );
+    return nodes;
+  }
+  if (!apps) return nodes;
+  if (!apps.length) nodes.push(h('div', { class: 'note', text: 'No apps are installed, or this box does not list them.' }));
+  const waiting = (manageBox() && manageBox().pending) || [];
+  for (const a of apps) {
+    const queued = waiting.some((p) => p.target === a.id);
+    nodes.push(
+      h(
+        'section',
+        { class: 'card' },
+        h('div', { class: 'row-between' }, h('div', { class: 'what', text: a.name }), h('span', { class: 'badge', text: a.status.replace(/_/g, ' ') })),
+        a.version ? h('div', { class: 'note', text: `version ${a.version}` }) : null,
+        queued ? h('div', { class: 'note', text: 'A request for this app is already waiting for approval.' }) : null,
+        a.options.length
+          ? h(
+              'div',
+              { class: 'row', style: 'flex-wrap:wrap;margin-top:8px' },
+              a.options.map((k) =>
+                h('button', {
+                  class: `btn small ${k === 'app.remove' ? 'danger' : ''}`,
+                  disabled: m.busy || queued,
+                  text: lifecycleLabel(k),
+                  onclick: () =>
+                    mAct(async () => {
+                      m.plan = await invoke('manage_plan', { id: m.boxId, appId: a.id, kind: k });
+                    }),
+                }),
+              ),
+            )
+          : h('div', { class: 'note', text: 'Actions are available when the app settles.' }),
+      ),
+    );
+  }
+  return nodes;
+}
+
+function backupsPane(m) {
+  const v = m.data.backups;
+  if (v === undefined) return [];
+  if (v === null) return [h('div', { class: 'note', text: 'This box does not serve backups yet.' })];
+  const hl = backupHealth(v.health);
+  const nodes = [
+    h(
+      'section',
+      { class: 'card' },
+      h('div', { class: 'row-between' }, h('span', { class: `badge ${hl.tone}`, text: hl.label }), h('span', { class: 'note', text: v.copies != null ? `${v.copies} copies` : '' })),
+      h('div', { class: 'note', text: `Last backup: ${v.last_success_at ? ago(Date.parse(v.last_success_at) / 1000) : 'never'}` }),
+      h('div', { class: 'note', text: `Last restore check: ${v.last_verified_restore_at ? ago(Date.parse(v.last_verified_restore_at) / 1000) : 'never'}` }),
+    ),
+    h('div', { class: 'section-title', text: 'Destinations' }),
+  ];
+  if (!v.destinations.length) nodes.push(h('div', { class: 'note', text: 'No destination yet. Add one on the dashboard; it needs an owner’s approval.' }));
+  for (const d of v.destinations) nodes.push(h('div', { class: 'pending-item' }, h('div', {}, h('div', { class: 'what', text: d.label }), h('div', { class: 'who', text: d.kind })), d.primary ? h('span', { class: 'badge', text: 'primary' }) : null));
+  nodes.push(h('div', { class: 'section-title', text: 'Recent runs' }));
+  if (!v.runs.length) nodes.push(h('div', { class: 'note', text: 'No runs yet.' }));
+  for (const r of v.runs) nodes.push(h('div', { class: 'pending-item' }, h('div', { class: 'who', text: r.started_at ? ago(Date.parse(r.started_at) / 1000) : 'unknown' }), h('span', { class: `badge ${r.state === 'succeeded' ? 'ok' : r.state === 'failed' ? 'bad' : ''}`, text: r.state })));
+  const own = isOwner(manageBox());
+  const ask = (kind) =>
+    mAct(async () => {
+      m.notice = filedText(await invoke('manage_backup_request', { id: m.boxId, kind }));
+    });
+  nodes.push(
+    h('div', { class: 'section-title', text: 'Ask for a backup' }),
+    h(
+      'div',
+      { class: 'row' },
+      h('button', { class: 'btn primary', disabled: m.busy || own === false, text: 'Back up now', onclick: () => ask('run') }),
+      h('button', { class: 'btn', disabled: m.busy || own === false, text: 'Check latest backup', onclick: () => ask('verify') }),
+    ),
+    h('div', { class: 'note', text: own === false ? 'Only an owner can ask for a backup.' : 'This only asks. No backup starts until an owner approves. A restore can overwrite data, so it needs a passkey on the dashboard.' }),
+  );
+  return nodes;
+}
+
+function settingsPane(m) {
+  if (m.denied || isOwner(manageBox()) === false) return [h('div', { class: 'note', text: 'Only an owner can see or change the box name, time zone and backup choice.' })];
+  const s = m.data.settings;
+  if (s === undefined) return [];
+  if (s === null || !m.form) return [h('div', { class: 'note', text: 'This box has no first-run settings yet.' })];
+  const f = m.form;
+  const name = h('input', { type: 'text', value: f.box_name, placeholder: 'home', spellcheck: 'false', autocapitalize: 'off' });
+  name.addEventListener('input', () => (f.box_name = name.value.trim().toLowerCase()));
+  const zone = h('input', { type: 'text', value: f.time_zone, placeholder: 'Europe/Berlin', spellcheck: 'false', autocapitalize: 'off' });
+  zone.addEventListener('input', () => (f.time_zone = zone.value.trim()));
+  const opts = destinationsFor(f.backup_choice, s.destinations);
+  const problem = settingsProblem(f, s.destinations);
+  return [
+    h(
+      'section',
+      { class: 'card', style: 'display:flex;flex-direction:column;gap:12px' },
+      h('label', { class: 'field' }, 'Box name', name),
+      h('label', { class: 'field' }, 'Time zone', zone),
+      h('div', { class: 'section-title', style: 'margin:0', text: 'Where backups should go' }),
+      h('div', { class: 'row', style: 'flex-wrap:wrap' }, CHOICES.map(([id, label]) => h('button', { class: `btn small ${f.backup_choice === id ? 'primary' : ''}`, text: label, onclick: () => ((f.backup_choice = id), (f.backup_destination_id = null), render()) }))),
+      f.backup_choice !== 'later'
+        ? opts.length
+          ? h('div', { class: 'row', style: 'flex-wrap:wrap' }, opts.map((d) => h('button', { class: `btn small ${f.backup_destination_id === d.id ? 'primary' : ''}`, text: d.label, onclick: () => ((f.backup_destination_id = f.backup_destination_id === d.id ? null : d.id), render()) })))
+          : h('div', { class: 'note', text: 'No matching destination exists yet. Add one on the dashboard; it needs an owner’s approval.' })
+        : null,
+      h('div', { class: 'note', text: 'These are preferences only: saving does not start a backup, add a destination or issue a recovery kit.' }),
+      problem ? h('div', { class: 'error', text: errorText(problem) }) : null,
+      h('button', {
+        class: 'btn primary',
+        disabled: m.busy || !!problem,
+        text: m.busy ? 'Saving…' : 'Save',
+        onclick: () =>
+          mAct(async () => {
+            const saved = await invoke('manage_settings_save', { id: m.boxId, body: f });
+            m.data.settings = saved;
+            m.notice = 'Saved. This sets your preferences only: it does not start a backup or set one up.';
+          }),
+      }),
+    ),
+  ];
+}
+
+function manageView() {
+  const m = manage;
+  const b = boxes.find((x) => x.id === m.boxId);
+  const tabs = [
+    ['apps', 'Apps'],
+    ['backups', 'Backups'],
+    ['settings', 'Box'],
+  ];
+  const nodes = [
+    h('button', { class: 'link small', text: '← Back', onclick: back }),
+    h('h2', { class: 'title', text: `Manage${b ? ` · ${(b.status && b.status.name) || b.name}` : ''}` }),
+    h('div', { class: 'row' }, tabs.map(([id, label]) => h('button', { class: `btn small ${m.tab === id ? 'primary' : ''}`, text: label, onclick: () => loadTab(id) }))),
+  ];
+  if (m.busy && !m.plan) nodes.push(h('div', { class: 'note', text: 'Talking to the box…' }));
+  if (m.error && !(m.tab === 'settings' && m.denied)) nodes.push(h('div', { class: 'error', text: errorText(m.error) }));
+  if (m.notice) nodes.push(h('div', { class: 'result ok', role: 'status', text: m.notice }));
+  nodes.push(...(m.tab === 'apps' ? appsPane(m) : m.tab === 'backups' ? backupsPane(m) : settingsPane(m)));
+  return nodes;
+}
+
 // ---- add a box ----
 
 function addView(first = false) {
@@ -444,7 +676,7 @@ function addView(first = false) {
   return nodes;
 }
 
-const VIEWS = { home: homeView, add: () => addView(), approval: approvalView, inbox: inboxView };
+const VIEWS = { home: homeView, add: () => addView(), approval: approvalView, inbox: inboxView, manage: manageView };
 
 function render() {
   view.replaceChildren(...[VIEWS[mode]()].flat());
@@ -520,7 +752,7 @@ $('btn-close').addEventListener('click', () => invoke('hide'));
 $('btn-quit').addEventListener('click', () => invoke('quit'));
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (mode === 'approval' || mode === 'inbox') back();
+  if (mode === 'approval' || mode === 'inbox' || mode === 'manage') back();
   else invoke('hide');
 });
 

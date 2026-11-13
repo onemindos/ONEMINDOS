@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Asks the cluster to sign a node client certificate. Expected: K-01.
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata: {name: escape}
+spec: {signerName: kubernetes.io/kube-apiserver-client-kubelet, usages: [client auth], request: ""}

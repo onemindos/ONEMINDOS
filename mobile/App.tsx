@@ -26,6 +26,10 @@ import { PhotoBackupScreen } from './src/photos/PhotoBackupScreen';
 import { usePushPings } from './src/pushPings';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { AppDetailScreen } from './src/screens/AppDetailScreen';
+import { AutomationScreen } from './src/screens/AutomationScreen';
+import { BackupsScreen } from './src/screens/BackupsScreen';
+import { FilesScreen } from './src/screens/FilesScreen';
+import { MigrateScreen } from './src/screens/MigrateScreen';
 import { AppsScreen } from './src/screens/AppsScreen';
 import { ApprovalsScreen } from './src/screens/ApprovalsScreen';
 import { ConnectScreen } from './src/screens/ConnectScreen';
@@ -64,6 +68,10 @@ const linking: LinkingOptions<RootParams> = {
       PhotoAlbums: 'photos/albums',
       Inbox: 'inbox',
       Nodes: 'nodes',
+      Backups: 'backups',
+      Automation: 'automation',
+      Files: 'files',
+      Migrate: 'migrate',
     },
   },
 };
@@ -176,6 +184,10 @@ function SignedIn() {
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="Inbox" component={InboxScreen} />
             <Stack.Screen name="Nodes" component={NodesScreen} />
+            <Stack.Screen name="Backups" component={BackupsScreen} />
+            <Stack.Screen name="Automation" component={AutomationScreen} />
+            <Stack.Screen name="Files" component={FilesScreen} />
+            <Stack.Screen name="Migrate" component={MigrateScreen} options={{ title: 'Migration' }} />
             <Stack.Screen name="PhotoBackup" component={PhotoBackupScreen} options={{ title: 'Photo backup' }} />
             <Stack.Screen name="PhotoAlbums" component={PhotoAlbumsScreen} options={{ title: 'Albums to back up' }} />
           </Stack.Navigator>

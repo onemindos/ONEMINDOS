@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# A namespaced binding to the built-in admin ClusterRole (more than the app kinds). Expected: R-01.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: escape}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: admin}
+subjects: [{kind: ServiceAccount, name: default}]

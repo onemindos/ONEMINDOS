@@ -11,6 +11,7 @@ mod approvals;
 mod discovery;
 mod events;
 mod inbox;
+mod manage;
 mod store;
 
 use serde::Serialize;
@@ -251,6 +252,74 @@ fn open_files(app_handle: AppHandle, app: State<'_, App>, id: String) -> Result<
             .open_url(format!("smb://{host}/"), None::<&str>)
             .map_err(|_| "open_failed".to_string())
     }
+}
+
+// ---- box management (manage.rs): every write only FILES a request; an owner approves it ----
+
+/// A refusal reason the UI explains on its own (the box's `plan_changed`), else the error code.
+fn manage_err(e: api::ApiError) -> String {
+    match &e {
+        api::ApiError::Refused { reason: Some(r), .. } if r == "plan_changed" => "plan_changed".into(),
+        _ => e.code(),
+    }
+}
+
+/// Installed apps with the lifecycle actions each offers.
+#[tauri::command]
+async fn manage_apps(app: State<'_, App>, id: String) -> Result<Vec<manage::AppRow>, String> {
+    let (b, t) = box_and_token(&app, &id)?;
+    match api::get(&app.http, &b.url, Some(&t), "/v1/apps").await {
+        Ok(Some(v)) => Ok(manage::parse_apps(&v)),
+        Ok(None) => Ok(Vec::new()),
+        Err(e) => Err(manage_err(e)),
+    }
+}
+
+/// The plan an app action would run. Files nothing.
+#[tauri::command]
+async fn manage_plan(app: State<'_, App>, id: String, app_id: String, kind: String) -> Result<manage::PlanView, String> {
+    let (b, t) = box_and_token(&app, &id)?;
+    manage::preview(&app.http, &b.url, &t, &app_id, &kind).await.map_err(manage_err)
+}
+
+/// File the request, bound to the plan hash the card showed. It then waits for an owner.
+#[tauri::command]
+async fn manage_request(app_handle: AppHandle, app: State<'_, App>, id: String, app_id: String, kind: String, plan_sha256: String) -> Result<manage::Filed, String> {
+    let (b, t) = box_and_token(&app, &id)?;
+    let out = manage::request_lifecycle(&app.http, &b.url, &t, &app_id, &kind, &plan_sha256).await.map_err(manage_err)?;
+    refresh_one(&app_handle, &b).await;
+    Ok(out)
+}
+
+/// Backup status, destinations and the last runs. `None`: this box has no backup service yet.
+#[tauri::command]
+async fn manage_backups(app: State<'_, App>, id: String) -> Result<Option<manage::BackupView>, String> {
+    let (b, t) = box_and_token(&app, &id)?;
+    manage::backups(&app.http, &b.url, &t).await.map_err(manage_err)
+}
+
+/// File a backup run or a backup check (`run` or `verify`). Restore is not offered here.
+#[tauri::command]
+async fn manage_backup_request(app_handle: AppHandle, app: State<'_, App>, id: String, kind: String) -> Result<manage::Filed, String> {
+    let (b, t) = box_and_token(&app, &id)?;
+    let out = manage::request_backup(&app.http, &b.url, &t, &kind).await.map_err(manage_err)?;
+    refresh_one(&app_handle, &b).await;
+    Ok(out)
+}
+
+/// First-run preferences (owner only; anyone else gets `permission_denied`).
+#[tauri::command]
+async fn manage_settings(app: State<'_, App>, id: String) -> Result<Option<manage::Settings>, String> {
+    let (b, t) = box_and_token(&app, &id)?;
+    manage::settings(&app.http, &b.url, &t).await.map_err(manage_err)
+}
+
+#[tauri::command]
+async fn manage_settings_save(app_handle: AppHandle, app: State<'_, App>, id: String, body: manage::SettingsBody) -> Result<manage::Settings, String> {
+    let (b, t) = box_and_token(&app, &id)?;
+    let out = manage::save_settings(&app.http, &b.url, &t, &body).await.map_err(manage_err)?;
+    refresh_one(&app_handle, &b).await;
+    Ok(out)
 }
 
 #[tauri::command]
@@ -561,6 +630,13 @@ pub fn run() {
             inbox,
             inbox_read,
             open_files,
+            manage_apps,
+            manage_plan,
+            manage_request,
+            manage_backups,
+            manage_backup_request,
+            manage_settings,
+            manage_settings_save,
             hide,
             quit
         ])

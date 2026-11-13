@@ -24,7 +24,7 @@ it('calls only routes the hub serves (or feature-detected ones it does not ship 
   const fn: FetchLike = async (url, init) => {
     const path = new URL(url).pathname.replace(/\/x1(?=\/|$)/g, '/{}');
     seen.push(`${init?.method ?? 'GET'} ${path}`);
-    const list = /\/(nodes|apps|actions|notifications|alerts|registrations)$/.test(path) && init?.method !== 'POST';
+    const list = /\/(nodes|apps|actions|notifications|alerts|registrations|destinations|runs|rules|roots|list|plans)$/.test(path) && init?.method !== 'POST';
     return new Response(JSON.stringify(list ? [] : { key: 'k', marked: 0 }), { status: 200 });
   };
   const api = new HttpApi({ baseUrl: 'https://hub.test', token: 't', fetchFn: fn });
@@ -43,6 +43,12 @@ it('calls only routes the hub serves (or feature-detected ones it does not ship 
     () => api.passkeyRegister({ credential: { id, clientDataJSON: '', attestationObject: '' }, label: 'l' }),
     () => api.deviceRequest({ name: 'n', kind: 'phone', platform: 'ios', app_version: '', os_version: '', jwk: { kty: 'EC', crv: 'P-256', x: '', y: '' } }),
     () => api.deviceRequestStatus(id), () => api.deviceToken('proof', 'r'),
+    () => api.onboardingSettings(), () => api.saveOnboardingSettings({ box_name: 'a', time_zone: 'UTC', backup_choice: 'later', backup_destination_id: null }),
+    () => api.appPlan(id, 'app.restart'), () => api.backupStatus(), () => api.backupDestinations(), () => api.backupRuns(),
+    () => api.requestBackupRun({ idempotencyKey: 'k' }), () => api.requestBackupVerify({ idempotencyKey: 'k' }),
+    () => api.automationState(), () => api.automationRules(), () => api.automationRuns(),
+    () => api.setRuleEnabled(id, true), () => api.setRuleEnabled(id, false), () => api.setAutomationPaused(true), () => api.setAutomationPaused(false),
+    () => api.filesRoots(), () => api.filesList('r', '/'), () => api.migratePlans(),
   ];
   for (const c of calls) await c().catch(() => undefined);
   expect(seen).toHaveLength(calls.length);

@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Kinds are case sensitive; a near miss is not an allowed kind. Expected: K-01.
+apiVersion: apps/v1
+kind: deployment
+metadata: {name: escape}
+spec: {template: {spec: {hostNetwork: true, containers: [{name: app, image: busybox}]}}}
