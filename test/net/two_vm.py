@@ -478,14 +478,23 @@ class Suite:
         rc, pods = self.hubrun("for i in $(seq 1 60); do k3s kubectl -n app-vaultwarden get pods --no-headers 2>/dev/null | grep -q '1/1 *Running' && echo ready && break; sleep 5; done", 330)
         if "ready" not in pods:
             return self.R.set("N2-6", "FAIL", f"vaultwarden not running after approved app.install (approve HTTP {code})") or self.block(["N2-7"], "N2-6 failed")
+        # Running is not yet serving: wait for the Deployment to be Available (procedure, not criteria).
+        self.hubrun("k3s kubectl -n app-vaultwarden wait --for=condition=Available deploy --all --timeout=180s", 200)
         ca = "/etc/onemind/identity/ca.pem"
         base = f"curl -s -m 10 --resolve vaultwarden.{BOX}.local:443:{HUB_LAN} -o /dev/null -w '%{{http_code}}'"
         def get(extra, cafile=True):
             return self.noderun(f"{base} {'--cacert ' + ca if cafile else ''} {extra} https://vaultwarden.{BOX}.local/ || true", 60)[1].strip()[-3:]
-        nos, bearer, noca = get(""), get(f"-H 'Authorization: Bearer {self.token}'"), get("", False)
+        nos, bearer, noca = get(""), "", get("", False)
+        for _ in range(24):  # the app may need a few seconds after Available; the criterion is the final answer
+            bearer = get(f"-H 'Authorization: Bearer {self.token}'")
+            if bearer == "200":
+                break
+            time.sleep(5)
         ok = nos == "401" and bearer == "200" and noca == "000"
         self.R.set("N2-6", "PASS" if ok else "FAIL", f"https://vaultwarden.{BOX}.local: signed out {nos} (want 401), bearer {bearer} (want 200), no box CA {noca} (want 000 = handshake refused)")
         if not ok:
+            rc, diag = self.hubrun("k3s kubectl -n app-vaultwarden get pods,svc,netpol,endpoints -o wide 2>&1; journalctl -u onemind-gateway --no-pager -n 30 2>&1 | cut -c1-240", 90)
+            self.logs["n26-diagnostics.txt"] = diag
             return self.block(["N2-7"], "N2-6 did not pass")
         self.n27_echo(base, ca)
 
