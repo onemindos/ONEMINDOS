@@ -47,7 +47,10 @@ export interface OnboardingProps {
   onDownloadKit?: () => void;
   onThemeChange?: (t: ThemeChoice) => void;
   onRestore?: () => void;
-  onFinish: (draft: OnboardingDraft, requests: ReturnType<typeof finishRequests>) => void;
+  /** Software preferences only, not backup enablement or kit issuance. Awaited before summary. */
+  onSaveSettings?: (draft: OnboardingDraft) => Promise<void>;
+  backupDestinations?: Array<{ id: string; kind: string; label: string }>;
+  onFinish: (draft: OnboardingDraft, requests: ReturnType<typeof finishRequests>) => void | Promise<void>;
 }
 
 function zones(): string[] {
@@ -146,11 +149,16 @@ export function Onboarding({
   onDownloadKit,
   onThemeChange = applyTheme,
   onRestore,
+  onSaveSettings,
+  backupDestinations = [],
   onFinish,
 }: OnboardingProps) {
   const [d, setD] = useState<OnboardingDraft>(() => ({ ...emptyDraft(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'), ...initial }));
   const [step, setStep] = useState(initialStep);
   const [tried, setTried] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string>();
+  const savingRef = useRef(false);
   const [kitDownloaded, setKitDownloaded] = useState(!!initial?.backup?.kitSaved);
   const [cat, setCat] = useState<CategorySlug | 'all'>('all');
   const heading = useRef<HTMLHeadingElement>(null);
@@ -160,8 +168,9 @@ export function Onboarding({
   const offer = useMemo(() => offerable(apps), [apps]);
 
   const s = ONBOARDING_STEPS[step]!;
-  const issues = stepIssues(s.id, d);
-  const reach = furthestReachable(d);
+  // The connected settings flow cannot issue a kit; it never fabricates kitSaved.
+  const issues = onSaveSettings && s.id === 'backups' ? [] : stepIssues(s.id, d);
+  const reach = onSaveSettings ? Math.min(step, 4) : furthestReachable(d);
   const set = (patch: Partial<OnboardingDraft>) => setD((x) => ({ ...x, ...patch }));
 
   useEffect(() => {
@@ -173,14 +182,26 @@ export function Onboarding({
     setTried(false);
   }, [step]);
 
-  const next = (e?: FormEvent) => {
+  const next = async (e?: FormEvent) => {
     e?.preventDefault();
+    if (savingRef.current) return;
     if (issues.length) {
       setTried(true);
       return;
     }
-    if (s.id === 'done') onFinish(d, finishRequests(d));
-    else setStep((i) => Math.min(i + 1, ONBOARDING_STEPS.length - 1));
+    savingRef.current = true;
+    setSaving(true);
+    setSaveError(undefined);
+    try {
+      if (s.id === 'backups') await onSaveSettings?.(d);
+      if (s.id === 'done') await onFinish(d, finishRequests(d));
+      else setStep((i) => Math.min(i + 1, ONBOARDING_STEPS.length - 1));
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Settings were not saved. Try again.');
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   };
 
   const pct = Math.round((step / (ONBOARDING_STEPS.length - 1)) * 100);
@@ -191,7 +212,7 @@ export function Onboarding({
       case 'box':
         return (
           <>
-            <Field id={ids.name} label="Box name" error={nameErr} hint={<>People on your network open it at <strong>{(d.boxName || 'your-name') + '.local'}</strong></>}>
+            <Field id={ids.name} label="Box name" error={nameErr} hint={onSaveSettings ? 'Software display name only. This does not change the network hostname.' : <>People on your network open it at <strong>{(d.boxName || 'your-name') + '.local'}</strong></>}>
               <div className="oms-input-wrap">
                 <ShellIcon name="box" size={18} />
                 <input
@@ -208,7 +229,7 @@ export function Onboarding({
                     if (validateBoxName(e.target.value)) set({ boxName: slugifyBoxName(e.target.value) });
                   }}
                 />
-                <span className="oms-input-suffix">.local</span>
+                {!onSaveSettings && <span className="oms-input-suffix">.local</span>}
               </div>
             </Field>
             <div className="oms-suggest" role="group" aria-label="Suggestions">
@@ -218,7 +239,7 @@ export function Onboarding({
                 </button>
               ))}
             </div>
-            <Field id={ids.tz} label="Time zone" hint="Backups, updates and quiet hours follow this clock.">
+            <Field id={ids.tz} label="Time zone" hint={onSaveSettings ? 'Software preference only; host clock and existing schedules stay unchanged.' : 'Backups, updates and quiet hours follow this clock.'}>
               <select id={ids.tz} className="oms-input oms-select" value={d.timeZone} aria-describedby={`${ids.tz}-msg`} onChange={(e) => set({ timeZone: e.target.value })}>
                 {!tzList.includes(d.timeZone) && <option value={d.timeZone}>{d.timeZone}</option>}
                 {tzList.map((z) => (
@@ -285,7 +306,7 @@ export function Onboarding({
                 <ShellIcon name="approvals" size={16} /> Agents and family members can ask for changes. Only the owner approves.
               </li>
               <li>
-                <ShellIcon name="lock" size={16} /> Lost every device? The emergency kit you save in step 5 recovers the owner.
+                <ShellIcon name="lock" size={16} /> {onSaveSettings ? 'Recovery keys are managed separately by the secure backup flow, not this settings wizard.' : 'Lost every device? The emergency kit you save in step 5 recovers the owner.'}
               </li>
             </ul>
           </>
@@ -430,29 +451,38 @@ export function Onboarding({
       case 'backups':
         return (
           <>
-            <fieldset className="oms-fieldset">
+            <fieldset className="oms-fieldset" disabled={saving}>
               <legend className="oms-label">Where should backups go?</legend>
               <div className="oms-dests">
                 {DESTS.map((x) => (
                   <label key={x.id} className={cx('oms-dest', d.backup.destination === x.id && 'oms-on', x.id === 'later' && 'oms-dest-later')}>
-                    <input type="radio" name="oms-dest" value={x.id} checked={d.backup.destination === x.id} onChange={() => set({ backup: { ...d.backup, destination: x.id } })} />
+                    <input type="radio" name="oms-dest" value={x.id} checked={d.backup.destination === x.id} onChange={() => set({ backup: { ...d.backup, destination: x.id, destinationId: undefined } })} />
                     <span className="oms-dest-icon">
                       <ShellIcon name={x.icon} size={20} />
                     </span>
                     <span className="oms-dest-text">
                       <span className="oms-dest-title">{x.title}</span>
-                      <span className="oms-dest-body">{x.id === 'usb' && hub?.usbDisk ? `Found: ${hub.usbDisk}. ${x.body}` : x.body}</span>
+                      <span className="oms-dest-body">{onSaveSettings && x.id === 'later' ? 'Save no destination preference. Existing backup settings stay unchanged.' : x.id === 'usb' && hub?.usbDisk ? `Found: ${hub.usbDisk}. ${x.body}` : x.body}</span>
                     </span>
                   </label>
                 ))}
               </div>
             </fieldset>
-            {d.backup.destination === 'later' && (
+            {onSaveSettings && <>
+              <p className="om-hint">Saving a choice does not enable backups. Destinations and recovery keys are managed by the secure backup flow; existing protection and schedules stay unchanged.</p>
+              {d.backup.destination !== 'later' && <Field id={`${ids.kit}-destination`} label="Existing backup destination">
+                <select disabled={saving} id={`${ids.kit}-destination`} className="oms-input" value={d.backup.destinationId ?? ''} onChange={(e) => set({ backup: { ...d.backup, destinationId: e.target.value || undefined } })}>
+                  <option value="">Intention only — configure later</option>
+                  {backupDestinations.filter((x) => x.kind === ({ usb: 'usb', peer: 'box', s3: 's3', later: '' }[d.backup.destination])).map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+                </select>
+              </Field>}
+            </>}
+            {!onSaveSettings && d.backup.destination === 'later' && (
               <p className="oms-note om-tone-warn">
                 <ShellIcon name="alert" size={16} /> Until you choose, a disk failure loses your data. Home will remind you.
               </p>
             )}
-            <section className="oms-kit" aria-labelledby={`${ids.kit}-t`}>
+            {!onSaveSettings && <section className="oms-kit" aria-labelledby={`${ids.kit}-t`}>
               <div className="oms-kit-art" aria-hidden="true">
                 <ShellIcon name="key" size={30} />
               </div>
@@ -490,7 +520,7 @@ export function Onboarding({
                   {kitDownloaded ? 'This step cannot be skipped.' : 'Download the kit first. This step cannot be skipped.'}
                 </p>
               </div>
-            </section>
+            </section>}
           </>
         );
       case 'done': {
@@ -510,7 +540,7 @@ export function Onboarding({
                 <dt>Box</dt>
                 <dd>
                   <span>
-                    <strong>{d.boxName}</strong>.local · {d.timeZone.replace(/_/g, ' ')}
+                    <strong>{d.boxName}</strong>{!onSaveSettings && '.local'} · {d.timeZone.replace(/_/g, ' ')}
                   </span>
                 </dd>
               </div>
@@ -530,7 +560,7 @@ export function Onboarding({
               <div>
                 <dt>Backups</dt>
                 <dd>
-                  {d.backup.destination === 'later' ? <StatusPill tone="warn" label="Not set up" /> : DESTS.find((x) => x.id === d.backup.destination)!.title} · emergency kit saved
+                  {onSaveSettings ? `${d.backup.destinationId ? 'Existing destination selected' : 'Intention saved'}; this does not enable backups or issue a recovery kit.` : <>{d.backup.destination === 'later' ? <StatusPill tone="warn" label="Not set up" /> : DESTS.find((x) => x.id === d.backup.destination)!.title} · emergency kit saved</>}
                 </dd>
               </div>
               <div>
@@ -552,11 +582,11 @@ export function Onboarding({
   })();
 
   const lede: Record<(typeof ONBOARDING_STEPS)[number]['id'], string> = {
-    box: 'This is how you will find it on your network and on your phone.',
+    box: onSaveSettings ? 'Choose a software display name and time-zone preference. Host settings stay unchanged.' : 'This is how you will find it on your network and on your phone.',
     owner: 'The owner approves every change: installs, updates, restores. Agents can only ask.',
     appearance: 'Pick a theme and an accent. Everyone who signs in can choose their own later.',
     apps: 'Choose a few to start. Nothing is installed yet: each one becomes a request you approve.',
-    backups: 'A box without a backup is a box you can lose. Choose a destination and save your keys.',
+    backups: onSaveSettings ? 'Choose an intention or select an existing secure destination. This does not switch protection on.' : 'A box without a backup is a box you can lose. Choose a destination and save your keys.',
     done: `${d.boxName || 'Your box'} is ready. Here is what you set up.`,
   };
 
@@ -572,8 +602,8 @@ export function Onboarding({
         </div>
         <ol className="oms-steps">
           {ONBOARDING_STEPS.map((x, i) => {
-            const done = i < step && stepIssues(x.id, d).length === 0;
-            const can = i <= Math.max(reach, step) && i !== step;
+            const done = i < step && (onSaveSettings && x.id === 'backups' || stepIssues(x.id, d).length === 0);
+            const can = !saving && i <= Math.max(reach, step) && i !== step && !(onSaveSettings && i === 5);
             return (
               <li key={x.id} className={cx('oms-step', i === step && 'oms-step-on', done && 'oms-step-done')}>
                 <button type="button" className="oms-step-btn" aria-current={i === step ? 'step' : undefined} disabled={!can} onClick={() => setStep(i)}>
@@ -608,6 +638,7 @@ export function Onboarding({
             <p className="oms-onb-lede">{lede[s.id]}</p>
           </header>
           <div className="oms-onb-body">{body}</div>
+          {saveError && <p role="alert">{saveError}</p>}
           {tried && issues.length > 0 && (
             <div className="oms-issues om-tone-bad" role="alert" id={ids.issues}>
               <ShellIcon name="alert" size={18} />
@@ -620,14 +651,14 @@ export function Onboarding({
           )}
           <footer className="oms-onb-foot">
             {step > 0 ? (
-              <button type="button" className="om-btn om-btn-ghost" onClick={() => setStep((i) => i - 1)}>
+              <button type="button" disabled={saving} className="om-btn om-btn-ghost" onClick={() => setStep((i) => i - 1)}>
                 Back
               </button>
             ) : (
               <span />
             )}
-            <button type="submit" className="om-btn om-btn-primary oms-onb-next" aria-describedby={tried && issues.length ? ids.issues : undefined}>
-              {s.id === 'done' ? 'Go to Home' : s.id === 'backups' ? 'Finish setup' : 'Continue'}
+            <button type="submit" disabled={saving} aria-busy={saving || undefined} className="om-btn om-btn-primary oms-onb-next" aria-describedby={tried && issues.length ? ids.issues : undefined}>
+              {saving ? 'Saving…' : s.id === 'done' ? 'Go to Home' : s.id === 'backups' ? 'Finish setup' : 'Continue'}
               <ShellIcon name="arrow" size={18} />
             </button>
           </footer>
