@@ -103,7 +103,7 @@ def _library_escape(_: Request, exc: LibraryEscape):
 
 def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings.section(PhotosSettings)
-    svc = PhotosService(settings, PhotosRepository(gw.db), gw.clock, gw.events)
+    svc = PhotosService(settings, PhotosRepository(gw.db), gw.clock, gw.events, gw.audit)
     principal = gw.principal
     app.add_exception_handler(PhotosError, _photos_error)
     app.add_exception_handler(LibraryEscape, _library_escape)
