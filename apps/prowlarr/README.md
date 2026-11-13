@@ -46,7 +46,7 @@ Images:
 ## How it is packaged
 
 - **Image:** `ghcr.io/linuxserver/prowlarr`, the LinuxServer image that upstream's wiki lists for Docker (https://wiki.servarr.com/prowlarr/installation/docker). Upstream publishes no image of its own.
-- **Non-root:** the image README supports starting as a non-root user ("Non-Root Operation"); the pod starts as 1000:1000, so `PUID`/`PGID` have no effect. s6-overlay 3.2.1.0 needs a writable `/run`: an `emptyDir`, which Kubernetes creates root-owned and group-writable, so `S6_YES_I_WANT_A_WORLD_WRITABLE_RUN_BECAUSE_KUBERNETES=1` lets its `preinit` accept it.
+- **Non-root:** the image README supports starting as a non-root user ("Non-Root Operation"); the pod starts as 1000:1000, so `PUID`/`PGID` have no effect, and `LSIO_NON_ROOT_USER=1` is set explicitly because the image only detects non-root from a non-root-owned `/run`, which an `emptyDir` never is. s6-overlay 3.2.1.0 needs a writable `/run`: an `emptyDir`, which Kubernetes creates root-owned and group-writable, so `S6_YES_I_WANT_A_WORLD_WRITABLE_RUN_BECAUSE_KUBERNETES=1` lets its `preinit` accept it.
 - **State:** PVC `prowlarr-config` (`/config`: database, settings, backups).
 - **Health:** probes on `GET /ping`, which needs no login (`src/Prowlarr.Http/Ping/PingController.cs`).
 - **Security:** `runAsNonRoot`, `allowPrivilegeEscalation: false`, all Linux capabilities dropped, `RuntimeDefault` seccomp, no service-account token. One replica with the `Recreate` strategy, so two pods never write the same volume.
@@ -67,10 +67,10 @@ From the upstream documentation, https://wiki.servarr.com/prowlarr/quick-start-g
 The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (prowlarr)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
 
 - Vulnerability: `ghcr.io/linuxserver/prowlarr:2.7.0.5723-ls168`: CVE-2026-70188 and CVE-2026-88092 in `Microsoft.AspNetCore.App.Runtime.linux-musl-x64` and `-arm64` 8.0.27 (fixed 8.0.32, 9.0.21, 10.0.13).
-- Smoke test failed: the pod ran but port 9696 refused connections for 10 minutes (startup probe `/ping`), no restarts. The LinuxServer s6 init with the non-root settings does not reach the app. The container's own log is not in the CI summary, so the cause is not yet known.
+- Smoke test failed (ci-apps run 43216348408): the pod ran but port 9696 refused connections for 10 minutes, no restarts. Cause, reproduced locally with the same image, UID 1000, dropped capabilities and an `emptyDir` on `/run`: the image only takes its non-root branch when `/run` is owned by a non-root uid (`LSIO_NON_ROOT_USER` is set by `/docker-mods` from `stat /run -c %u`). A Kubernetes `emptyDir` is root-owned, so the root-only init (`usermod`, `s6-setuidgid abc`) ran, failed without `CAP_SETGID`, and the service looped on `s6-applyuidgid: fatal: unable to set supplementary group list: Operation not permitted`. Fix in this change: the manifest sets `LSIO_NON_ROOT_USER=1`; locally `/ping` then returns 200 with no such errors. Not yet confirmed by a gate run.
 - Licence: GitHub GPL-3.0 matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10). ClamAV 0 infected.
 
-To unblock: find why the process does not listen (run it on a k3d cluster and read `kubectl logs`), fix the manifest, move the image pin to a release with the patched .NET runtime (tag verified with `crane`), and add a licence-matrix row. Then rerun `sdk/tools/app-gate`.
+To unblock: the startup failure is fixed above (rerun the gate to confirm); move the image pin to a release with the patched .NET runtime (tag verified with `crane`), and add a licence-matrix row. Then rerun `sdk/tools/app-gate`.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
