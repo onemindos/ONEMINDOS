@@ -125,7 +125,7 @@ echo "== node (owner-approved join over the mesh)"
 boot "$NODE"
 # The hub mints a one-time join code; the node installer shows a match code and waits; the owner
 # approves on the hub (the same flow test/net/two_vm.py checks on real VMs).
-TICKET=$(on "$HUB" sh -c 'ONEMIND_TOKEN=$(cat /root/owner.token) onemind fabric ticket --json')
+TICKET=$(on "$HUB" sh -c "ONEMIND_TOKEN=\$(cat /root/owner.token) onemind fabric ticket --json")
 PAYLOAD=$(printf '%s' "$TICKET" | python3 -I -c 'import json,sys; t=sys.stdin.read(); print(json.loads(t[t.index("{"):])["qr_payload"])')
 HUB_IP=$(docker inspect -f "{{(index .NetworkSettings.Networks \"$NET\").IPAddress}}" "$HUB")
 docker exec -d "$NODE" sh -c "$INSTALL --role node --join '$PAYLOAD' --hub-addr $HUB_IP > /tmp/node-install.log 2>&1; echo exit=\$? >> /tmp/node-install.log"
