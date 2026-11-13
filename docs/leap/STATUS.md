@@ -59,12 +59,6 @@
 | W2-DEPLOY | Developer install: `install.sh --role hub` or `node`, compose dev hub… | done | `feat/deploy-v0` | [#26](https://github.com/onemindos/ONEMINDOS/pull/26) |
 | W2-HERMES | Hermes packaged as `apps/hermes-agent`, an agent principal | done (acceptance not met: 4 of 9 apps fail their scan) | `feat/app-pipeline` | [#25](https://github.com/onemindos/ONEMINDOS/pull/25) |
 | W2-SEEDS | Wave-2 seed apps | done (acceptance not met: 4 of 9 apps fail their scan) | `feat/app-pipeline` | [#25](https://github.com/onemindos/ONEMINDOS/pull/25) |
-| IMG-LINE | Image line (HANDOFF B2): USB installer, os/ patches from other streams, first-boot + QEMU battery in CI, release.yml + downloads page | review | `feat/image-line` | – |
-| W2-GW | Gateway wave 2: scan gate, app agent principals, `/mcp` with 3 tool… | in-progress | `feat/gateway-agent-mcp` | – (3 commits) |
-| W2-PIPE | App pipeline: scaffolder, app-gate (§9.4), `scan.json` (§11.1), k3d… | in-progress | `feat/app-pipeline` | – (4 commits) |
-| W2-DEPLOY | Developer install: `install.sh --role hub` or `node`, compose dev hub… | in-progress | `feat/deploy-v0` | – (6 commits) |
-| W2-HERMES | Hermes packaged as `apps/hermes-agent`, an agent principal | todo | `feat/app-hermes` (empty) | – |
-| W2-SEEDS | Wave-2 seed apps | todo | `feat/apps-wave2` (empty) | – |
 | PA-ALIGN | Core alignment against the leading self-hosted OSes | done | `docs/core-architecture` | [#17](https://github.com/onemindos/ONEMINDOS/pull/17) |
 | PA-ARCH | Phase-B architecture docs and `CONTRACT-12-DRAFT.md` | done | `docs/core-architecture` | [#17](https://github.com/onemindos/ONEMINDOS/pull/17) |
 | PA-THREAT | Threat model and ranked hardening backlog (H-ids) | done | `docs/security-threat-model` | [#18](https://github.com/onemindos/ONEMINDOS/pull/18) |
