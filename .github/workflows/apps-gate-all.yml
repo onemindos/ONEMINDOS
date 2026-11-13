@@ -132,7 +132,6 @@ jobs:
     env:
       APP: ${{ matrix.app }}
       ARCH: ${{ matrix.platform.arch }}
-      HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
       RUNNER_LABEL: ${{ matrix.platform.runner }}
     steps:
       - name: Record "not finished" (replaced when app-gate exits)
@@ -147,17 +146,6 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
-
-      # D18: optional Docker Hub login, so docker.io pulls by trivy, crane and the k3d node image count against the
-      # account's rate limit, not the runner's shared IP. Skipped when DOCKERHUB_TOKEN is not set and on pull
-      # requests from forks (which never receive secrets). The token is only read by docker/login-action and is
-      # never echoed. Images the k3s node itself pulls during the smoke test are not covered by this login.
-      - name: Docker Hub login (optional, D18)
-        if: env.HAS_DOCKERHUB == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Install the gate's tools (pinned per architecture by version and sha256)
         run: |
