@@ -188,7 +188,7 @@ def test_events_stream_live_and_resume(live, clock):
             again = _read_events(r2, 3)
         assert [e["id"] for e in again] == [e["id"] for e in evs]
         # The agent does not see the owner's actions nor audit.*; a guest sees no action.*.
-        with c.stream("GET", "/v1/events?since_id=0", headers=AGENT) as r3:
+        with c.stream("GET", "/v1/events?since_id=0&types=action.*", headers=AGENT) as r3:
             mine = c2.post("/v1/actions", json=action_body(clock, app_id="whoami", key="ag"), headers=AGENT).json()
             got = _read_events(r3, 1)
         d = json.loads(got[0]["data"])

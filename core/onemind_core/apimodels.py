@@ -87,6 +87,7 @@ class Action(BaseModel):
     expires_at: str
     decided_by: PrincipalRef | None
     decided_at: str | None
+    approved_by: str | None = Field(default=None, description="Approving person's id; null before approval or on denial. decided_by/decided_at are retained.")
     result: dict[str, Any] | None
     version: int
     risk: str | None = Field(default=None, description="read | write | sensitive | destructive | actuate (§12.3)")

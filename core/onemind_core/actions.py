@@ -724,6 +724,14 @@ class ActionService:
             f"action.{result.outcome}", None, a.id,
             {"executor": self.executor.name, "message": result.message, **ids},
         )
+        state = self.repo.get_app_state(app.id)
+        status = state.status if state else None
+        self.audit.append("app.status", None, a.id, {
+            "app_id": app.id, "status": "not_installed" if status in (None, "removed") else status,
+            "data_kept": status == "removed",
+        })
+        if a.type == "app.restart" and result.outcome == "succeeded":
+            self.audit.append("app.restarted", None, a.id, {"app_id": app.id})
         if a.type == "app.update" and result.reverted:
             self.audit.append(
                 "app.update_reverted", None, a.id,
@@ -929,7 +937,8 @@ class ActionService:
             raise ApiError(409, "stale_precondition", problem)
         now = self.clock()
         accepted = self.repo.transition(
-            a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now
+            a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now,
+            approved_by=principal.id,
         )
         if accepted is None:
             self._release_feature(a)

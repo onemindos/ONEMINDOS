@@ -44,6 +44,7 @@ from .routers import mcp as mcp_routes
 from .routers import monitoring as monitoring_routes
 from .routers import migrate as migrate_routes
 from .routers import nodes as nodes_routes
+from .routers import photos as photos_routes
 from .routers import onboarding as onboarding_routes
 from .routers import notifications as notifications_routes
 from .routers import override as override_routes
@@ -66,6 +67,7 @@ ROUTERS: list[Register] = [
     actions_routes.register,
     secrets_routes.register,
     override_routes.register,
+    photos_routes.register,
     databases_routes.register,  # before backups, which dumps and restores its databases
     backups_routes.register,
     onboarding_routes.register,

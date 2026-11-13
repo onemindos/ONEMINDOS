@@ -30,3 +30,5 @@ func tmpName(prefix string) string                              { return prefix 
 func renameAt(int, string, string) error                        { return errUnsupported }
 func mkdirAt(int, string) (int, error)                          { return -1, errUnsupported }
 func setDirMeta(int, int, string, os.FileMode, time.Time) error { return errUnsupported }
+func metaAt(int, string) (dirMeta, error)                       { return dirMeta{}, errUnsupported }
+func applyMetaFd(int, dirMeta) error                            { return errUnsupported }

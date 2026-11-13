@@ -114,9 +114,10 @@ def _check_secret(secret: str | None) -> None:
         raise ApiError(422, "conflict", "secret must not contain control characters")
 
 
-def _person(p: Principal) -> None:
-    if p.kind != "person":
-        raise ApiError(403, "permission_denied", "only people have an inbox, channels and preferences")
+def _denied(gw: Gateway, p: Principal, what: str, message: str) -> ApiError:
+    """A 403 with its authz.denied audit record (contract §3: every decision is audited)."""
+    gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": what, "reason": "permission_denied"})
+    return ApiError(403, "permission_denied", message)
 
 
 def _can_see(p: Principal, audience: dict) -> bool:
@@ -146,6 +147,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
     repo = svc.repo
     tests: dict[str, deque] = defaultdict(deque)
     tests_lock = threading.Lock()
+
+    def _person(p: Principal) -> None:
+        if p.kind != "person":
+            raise _denied(gw, p, "use a personal inbox, channel or preference", "only people have an inbox, channels and preferences")
 
     def audit(p: Principal, name: str, payload: dict) -> None:
         gw.events.publish_event("notify", name, payload, principal=p.as_dict())
@@ -179,7 +184,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/alerts/{alert_id}/ack", operation_id="alerts.ack", tags=["alerts"], responses=error_responses(401, 403, 404, 409))
     def ack_alert(alert_id: str, p: Principal = Depends(principal)):
         if not (p.kind == "person" and p.role in ("owner", "adult")):
-            raise ApiError(403, "permission_denied", "only owners and adults acknowledge alerts")
+            raise _denied(gw, p, "acknowledge an alert", "only owners and adults acknowledge alerts")
         with svc._lock:
             row = alert_for(p, alert_id)
             if row.state != "open":
@@ -193,7 +198,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/alerts/{alert_id}/resolve", operation_id="alerts.resolve", tags=["alerts"], responses=error_responses(401, 403, 404, 409))
     def resolve_alert(alert_id: str, p: Principal = Depends(principal)):
         if not p.is_owner:
-            raise ApiError(403, "permission_denied", "only owners resolve alerts")
+            raise _denied(gw, p, "resolve an alert", "only owners resolve alerts")
         with svc._lock:
             row = alert_for(p, alert_id)
             if row.state == "resolved":
@@ -208,14 +213,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def fix_alert(alert_id: str, request: Request, body: FixIn | None = None, p: Principal = Depends(principal)):
         body = body or FixIn()
         if not (p.is_owner or p.kind == "agent"):
-            raise ApiError(403, "permission_denied", "only owners and agents request fixes")
+            raise _denied(gw, p, "request an alert's fix", "only owners and agents request fixes")
         if body.approve and not p.is_owner:
-            raise ApiError(403, "permission_denied", "only an owner may approve in the same call")
+            raise _denied(gw, p, "approve an alert's fix", "only an owner may approve in the same call")
         ctx = getattr(request.state, "identity", None)
         if body.approve and ctx is not None and not has_any(ctx.scopes, ("actions:approve",)):
             # The route table only asks for actions:request here; an approval needs the approve scope
             # exactly as POST /v1/actions/{id}/approve does (a narrowed owner token must not approve).
-            raise ApiError(403, "permission_denied", "this credential may request fixes but not approve them")
+            raise _denied(gw, p, "approve an alert's fix", "this credential may request fixes but not approve them")
         row = alert_for(p, alert_id)
         fix = json.loads(row.fix_json) if row.fix_json else None
         if fix is None:
@@ -388,7 +393,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         try:
             out = svc.send_from(p, body.severity, body.topic, body.title, body.body, body.dedupe_key)
         except PermissionError as exc:
-            raise ApiError(403, "permission_denied", str(exc)) from None
+            raise _denied(gw, p, "send a notification", str(exc)) from None
         except ValueError as exc:
             raise ApiError(422, "conflict", str(exc)) from None
         except RateLimited as exc:

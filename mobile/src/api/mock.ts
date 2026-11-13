@@ -243,6 +243,23 @@ export class MockApi implements OneMindApi {
     this.actionsList = [action, ...this.actionsList];
     return { ...action };
   }
+  // The demo has no first-run settings, lifecycle plans, backups, automation, files or migration.
+  onboardingSettings = unsupported('First-run settings');
+  saveOnboardingSettings = unsupported('First-run settings');
+  appPlan = unsupported('Plans');
+  backupStatus = unsupported('Backups');
+  backupDestinations = unsupported('Backups');
+  backupRuns = unsupported('Backups');
+  requestBackupRun = unsupported('Backups');
+  requestBackupVerify = unsupported('Backups');
+  automationState = unsupported('Automation');
+  automationRules = unsupported('Automation');
+  automationRuns = unsupported('Automation');
+  setRuleEnabled = unsupported('Automation');
+  setAutomationPaused = unsupported('Automation');
+  filesRoots = unsupported('Files');
+  filesList = unsupported('Files');
+  migratePlans = unsupported('Migration');
   pushRegister = unsupported('Push');
   pushRegistrations = unsupported('Push');
   pushUnregister = unsupported('Push');

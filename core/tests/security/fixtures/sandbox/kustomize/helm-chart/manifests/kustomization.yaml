@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Helm inflation runs a chart nobody reviewed. Expected: Z-03.
+resources: [deployment.yaml]
+helmCharts:
+  - {name: escape, repo: "https://charts.example.com", version: 1.0.0}

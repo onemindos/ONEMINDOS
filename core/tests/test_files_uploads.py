@@ -159,3 +159,82 @@ def test_uploads_never_follow_a_planted_symlink(fc, files_root, tmp_path):
     assert r.status_code == 409
     assert (outside / "victim.txt").read_text() == "keep"
     assert list(outside.iterdir()) == [outside / "victim.txt"]
+
+
+# ---- chunk writes run off the event loop (tus PATCH) -------------------------------------------
+
+def slow_writes(monkeypatch, delay: float):
+    """Make every chunk write take `delay` seconds (it runs in a worker thread). Returns the event
+    set when a write starts."""
+    import threading
+    import time
+
+    from onemind_core.files.uploads import Uploads
+
+    entered, orig = threading.Event(), Uploads.write
+
+    def slow(self, patch, data):
+        entered.set()
+        time.sleep(delay)
+        return orig(self, patch, data)
+
+    monkeypatch.setattr(Uploads, "write", slow)
+    return entered
+
+
+def test_a_slow_chunk_write_does_not_block_the_event_loop(fc, monkeypatch):
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    data = b"x" * 5000
+    loc = create(fc, OWNER, len(data)).headers["location"]
+    entered = slow_writes(monkeypatch, 1.5)
+    with ThreadPoolExecutor(2) as pool:
+        fut = pool.submit(patch, fc, OWNER, loc, 0, data)
+        assert entered.wait(10)
+        t0 = time.monotonic()
+        assert fc.get("/healthz").status_code == 200  # served while the chunk is still being written
+        waited = time.monotonic() - t0
+        assert not fut.done(), "the write finished before the other request: the test proves nothing"
+        assert waited < 1.0, f"another request waited {waited:.2f}s behind a chunk write: the event loop is blocked"
+        assert fut.result(30).status_code == 204
+
+
+def test_concurrent_patches_of_one_upload_stay_consistent(fc, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+
+    data = bytes(range(256)) * 40
+    loc = create(fc, OWNER, len(data), sha256=hashlib.sha256(data).hexdigest()).headers["location"]
+    entered = slow_writes(monkeypatch, 1.0)
+    with ThreadPoolExecutor(2) as pool:
+        first = pool.submit(patch, fc, OWNER, loc, 0, data[:4000])
+        assert entered.wait(10)
+        # same offset while the first chunk is being written: refused, never interleaved
+        second = patch(fc, OWNER, loc, 0, data[:4000])
+        assert second.status_code == 409 and second.json()["reason"] == "upload_busy"
+        stale = patch(fc, OWNER, loc, 123, b"zz")
+        assert stale.status_code == 409
+        assert first.result(30).status_code == 204
+    assert fc.head(loc, headers={**OWNER, **TUS}).headers["upload-offset"] == "4000"
+    # once the first chunk committed, a patch at the old offset is a plain offset mismatch
+    r = patch(fc, OWNER, loc, 0, data[:10])
+    assert r.status_code == 409 and r.json()["reason"] == "offset_mismatch"
+    r = patch(fc, OWNER, loc, 4000, data[4000:])
+    assert r.status_code == 204 and r.headers["onemind-file-sha256"] == hashlib.sha256(data).hexdigest()
+    got = fc.get("/v1/files/download", params={"root": "home:owner", "path": "/f.bin"}, headers=OWNER)
+    assert got.content == data
+
+
+def test_patches_of_different_uploads_run_side_by_side(fc, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+
+    a, b = b"A" * 3000, b"B" * 3000
+    la = create(fc, OWNER, len(a), filename="a.bin").headers["location"]
+    lb = create(fc, OWNER, len(b), filename="b.bin").headers["location"]
+    slow_writes(monkeypatch, 0.5)
+    with ThreadPoolExecutor(2) as pool:
+        fa, fb = pool.submit(patch, fc, OWNER, la, 0, a), pool.submit(patch, fc, OWNER, lb, 0, b)
+        assert fa.result(30).status_code == 204 and fb.result(30).status_code == 204
+    for name, want in (("a.bin", a), ("b.bin", b)):
+        got = fc.get("/v1/files/download", params={"root": "home:owner", "path": "/" + name}, headers=OWNER)
+        assert got.content == want

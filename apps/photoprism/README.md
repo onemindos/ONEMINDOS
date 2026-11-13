@@ -49,7 +49,7 @@ Images:
 ## How it is packaged
 
 - **Images:** upstream `docker.io/photoprism/photoprism:261029` (release `261029-963b58c50`) and `docker.io/library/mariadb:12.3.3`, configured like upstream's `setup/docker/compose.yaml` (same `mariadbd` options).
-- **User:** PhotoPrism runs as 1000:1000, its documented `user:` option, with `PHOTOPRISM_DISABLE_CHOWN`. MariaDB runs as its image user (UID 999).
+- **User:** PhotoPrism runs as 1000:1000, its documented `user:` option, with `PHOTOPRISM_DISABLE_CHOWN`. The image's s6-overlay needs a writable `/run`, so an `emptyDir` is mounted there with `S6_YES_I_WANT_A_WORLD_WRITABLE_RUN_BECAUSE_KUBERNETES=1`. MariaDB runs as its image user (UID 999).
 - **Passwords:** a `secrets` init container generates the initial admin password and the database password once, into `.onemind/` on the storage volume (readable by the pod's group only). PhotoPrism reads them through `PHOTOPRISM_ADMIN_PASSWORD_FILE` and `PHOTOPRISM_DATABASE_PASSWORD_FILE` (`internal/config/env.go`), MariaDB through `MARIADB_PASSWORD_FILE`. Nothing is committed.
 - **Database:** MariaDB is a native sidecar listening on 127.0.0.1 only.
 - **State:** PVCs `photoprism-storage` (10 Gi: cache, sidecars, backups), `photoprism-originals` (50 Gi: the library) and `photoprism-db` (5 Gi).
@@ -79,10 +79,10 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 
 - Vulnerability: `docker.io/photoprism/photoprism:261029`: CVE-2026-90162, CVE-2026-98432, CVE-2026-98725 and CVE-2026-98805 in `linux-libc-dev` 7.0.0-42.42 (fixed 7.0.0-43.43).
 - Vulnerability: `docker.io/library/mariadb:12.3.3`: CVE-2025-68121 in Go `stdlib` v1.24.6 (fixed 1.24.13, 1.25.7, 1.26.0-rc.3).
-- Smoke test failed: the pod stayed at 1/2 ready in CrashLoopBackOff (the `photoprism` container restarted 6 times in 10 minutes; its startup probe on `/api/v1/status` was refused). The container's own log is not in the CI summary, so the cause is not yet known; it needs a run on a cluster (k3d) with `kubectl logs`.
+- Smoke test failed (ci-apps run 43216348408): the pod stayed at 1/2 ready in CrashLoopBackOff (the `photoprism` container restarted 6 times; its startup probe on `/api/v1/status` was refused). Cause, reproduced locally with the same images, UIDs, dropped capabilities and environment: the image starts with s6-overlay (`ENTRYPOINT /init`), whose preinit exits 100 with `/run belongs to uid 0 instead of 1000, has insecure and/or unworkable permissions, and we're lacking the privileges to fix it`. Fix in this change: an `emptyDir` on `/run` and `S6_YES_I_WANT_A_WORLD_WRITABLE_RUN_BECAUSE_KUBERNETES=1`; locally the app then migrates its database through the MariaDB sidecar and `/api/v1/status` returns `operational`. Not yet confirmed by a gate run.
 - Passed: licence (matrix row for PhotoPrism matches), ClamAV (0 infected).
 
-To unblock: find why the photoprism container exits (run the app on a k3d cluster and read `kubectl logs`), fix the manifest, and move the image pins to upstream releases that fix the CVEs (tags verified with `crane`). Then rerun `sdk/tools/app-gate`.
+To unblock: the crash loop is fixed above (rerun the gate to confirm); move the image pins to upstream releases that fix the CVEs (tags verified with `crane`). Then rerun `sdk/tools/app-gate`.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

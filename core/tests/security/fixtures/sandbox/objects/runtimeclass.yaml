@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# A runtime handler of its own choosing. Expected: K-01.
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata: {name: escape}
+handler: runc

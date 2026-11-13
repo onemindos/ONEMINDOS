@@ -49,6 +49,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.get("/v1/apps/{app_id}/owner-override", tags=["apps"], operation_id="apps.owner_override.get", responses=error_responses(401, 403, 404))
     def describe(app_id: str, p: Principal = Depends(principal)):
         if not p.is_owner:
+            gw.audit.append("authz.denied", p.as_dict(), None,
+                            {"attempted": "read owner override info", "app_id": app_id, "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not use the owner override")
         entry = gw.catalog.get(app_id)
         if entry is None:

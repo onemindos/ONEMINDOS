@@ -42,6 +42,18 @@
         "additionalProperties": true,
         "description": "One action of the ledger (contract §3). §12.4 adds optional fields; ignore what you do not know.",
         "properties": {
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Approving person's id; null before approval or on denial. decided_by/decided_at are retained.",
+            "title": "Approved By"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -874,6 +886,87 @@
         "title": "ChannelPatch",
         "type": "object"
       },
+      "CheckAnswer": {
+        "properties": {
+          "client_key": {
+            "title": "Client Key",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "have",
+              "need"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_key",
+          "status"
+        ],
+        "title": "CheckAnswer",
+        "type": "object"
+      },
+      "CheckIn": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CheckItem"
+            },
+            "maxItems": 500,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CheckIn",
+        "type": "object"
+      },
+      "CheckItem": {
+        "properties": {
+          "client_key": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Client Key",
+            "type": "string"
+          },
+          "hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Hash",
+            "type": "string"
+          },
+          "size": {
+            "minimum": 0.0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "client_key",
+          "size",
+          "hash"
+        ],
+        "title": "CheckItem",
+        "type": "object"
+      },
+      "CheckOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CheckAnswer"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CheckOut",
+        "type": "object"
+      },
       "CodeBody": {
         "properties": {
           "code": {
@@ -953,6 +1046,41 @@
           "kubeconfig"
         ],
         "title": "CopyBody",
+        "type": "object"
+      },
+      "Coverage": {
+        "properties": {
+          "as_of": {
+            "title": "As Of",
+            "type": "string"
+          },
+          "backed_up": {
+            "description": "In a box backup snapshot",
+            "title": "Backed Up",
+            "type": "integer"
+          },
+          "on_box": {
+            "title": "On Box",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "verified": {
+            "description": "In a snapshot that passed a restore check: the only ones safe to free",
+            "title": "Verified",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "on_box",
+          "backed_up",
+          "verified",
+          "as_of"
+        ],
+        "title": "Coverage",
         "type": "object"
       },
       "CutoverBody": {
@@ -2436,6 +2564,91 @@
         "title": "QuotaBody",
         "type": "object"
       },
+      "Receipt": {
+        "properties": {
+          "client_key": {
+            "title": "Client Key",
+            "type": "string"
+          },
+          "deduped": {
+            "description": "True when this person already held these bytes; no new copy was kept",
+            "title": "Deduped",
+            "type": "boolean"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_key",
+          "hash",
+          "deduped"
+        ],
+        "title": "Receipt",
+        "type": "object"
+      },
+      "ReceiptLevel": {
+        "properties": {
+          "client_key": {
+            "title": "Client Key",
+            "type": "string"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "on_box",
+              "in_backup",
+              "in_verified_backup"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "received_at": {
+            "title": "Received At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_key",
+          "hash",
+          "received_at",
+          "level"
+        ],
+        "title": "ReceiptLevel",
+        "type": "object"
+      },
+      "ReceiptPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReceiptLevel"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "ReceiptPage",
+        "type": "object"
+      },
       "RefreshBody": {
         "properties": {
           "refresh_token": {
@@ -3007,6 +3220,66 @@
           "password"
         ],
         "title": "SetupBody",
+        "type": "object"
+      },
+      "SourceIn": {
+        "properties": {
+          "client_id": {
+            "description": "Random id made once per app install",
+            "pattern": "^[\\x21-\\x7e]{1,128}$",
+            "title": "Client Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "ios",
+              "android",
+              "other"
+            ],
+            "title": "Platform",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_id",
+          "name",
+          "platform"
+        ],
+        "title": "SourceIn",
+        "type": "object"
+      },
+      "SourceOut": {
+        "properties": {
+          "client_id": {
+            "title": "Client Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "client_id",
+          "name",
+          "platform"
+        ],
+        "title": "SourceOut",
         "type": "object"
       },
       "Subject": {
@@ -11898,6 +12171,735 @@
         "summary": "Save",
         "tags": [
           "onboarding"
+        ]
+      }
+    },
+    "/v1/photos/sources": {
+      "post": {
+        "operationId": "photos.register_source",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "This phone was registered before: its source"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Register Source",
+        "tags": [
+          "photos"
+        ]
+      }
+    },
+    "/v1/photos/sources/{source_id}/check": {
+      "post": {
+        "operationId": "photos.check",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Check",
+        "tags": [
+          "photos"
+        ]
+      }
+    },
+    "/v1/photos/sources/{source_id}/coverage": {
+      "get": {
+        "operationId": "photos.coverage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Coverage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Coverage",
+        "tags": [
+          "photos"
+        ]
+      }
+    },
+    "/v1/photos/sources/{source_id}/receipts": {
+      "get": {
+        "operationId": "photos.receipts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Receipts",
+        "tags": [
+          "photos"
+        ]
+      }
+    },
+    "/v1/photos/uploads": {
+      "post": {
+        "operationId": "photos.create_upload",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Upload-Length",
+            "required": true,
+            "schema": {
+              "title": "Upload-Length",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Upload-Complete",
+            "required": false,
+            "schema": {
+              "default": "?0",
+              "pattern": "^\\?[01]$",
+              "title": "Upload-Complete",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "OneMind-Source-Id",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "title": "Onemind-Source-Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "OneMind-Client-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "title": "Onemind-Client-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "OneMind-Content-Hash",
+            "required": true,
+            "schema": {
+              "maxLength": 71,
+              "title": "Onemind-Content-Hash",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "OneMind-File-Name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 2048,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Onemind-File-Name"
+            }
+          },
+          {
+            "in": "header",
+            "name": "OneMind-Created-At",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Onemind-Created-At"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Upload created; Location names it",
+            "headers": {
+              "Upload-Complete": {
+                "description": "?1 when the upload is finished",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Upload-Length": {
+                "description": "Declared length",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "Upload-Limit": {
+                "description": "max-size=<bytes>",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Upload-Offset": {
+                "description": "Bytes the box holds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Create Upload",
+        "tags": [
+          "photos"
+        ]
+      }
+    },
+    "/v1/photos/uploads/{upload_id}": {
+      "head": {
+        "operationId": "photos.upload_offset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "What the box holds",
+            "headers": {
+              "Upload-Complete": {
+                "description": "?1 when the upload is finished",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Upload-Length": {
+                "description": "Declared length",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "Upload-Limit": {
+                "description": "max-size=<bytes>",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Upload-Offset": {
+                "description": "Bytes the box holds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Upload Offset",
+        "tags": [
+          "photos"
+        ]
+      },
+      "patch": {
+        "operationId": "photos.append",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Upload-Offset",
+            "required": true,
+            "schema": {
+              "minimum": 0,
+              "title": "Upload-Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Upload-Complete",
+            "required": true,
+            "schema": {
+              "pattern": "^\\?[01]$",
+              "title": "Upload-Complete",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Receipt"
+                }
+              }
+            },
+            "description": "Last part: verified, stored and fsynced"
+          },
+          "204": {
+            "description": "Part stored and fsynced",
+            "headers": {
+              "Upload-Complete": {
+                "description": "?1 when the upload is finished",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Upload-Length": {
+                "description": "Declared length",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "Upload-Limit": {
+                "description": "max-size=<bytes>",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Upload-Offset": {
+                "description": "Bytes the box holds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Append",
+        "tags": [
+          "photos"
         ]
       }
     },
