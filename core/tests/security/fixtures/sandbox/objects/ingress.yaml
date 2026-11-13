@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Publishes the app past the gateway proxy. Expected: K-01.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: {name: escape}
+spec: {rules: [{host: escape.example.com, http: {paths: [{path: /, pathType: Prefix, backend: {service: {name: escape, port: {number: 80}}}}]}}]}

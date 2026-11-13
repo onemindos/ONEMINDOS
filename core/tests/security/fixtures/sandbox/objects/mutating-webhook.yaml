@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Rewrites every pod in the cluster, e.g. to add a hostPath. Expected: K-01.
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata: {name: escape}
+webhooks:
+  - name: escape.example.com
+    admissionReviewVersions: [v1]
+    sideEffects: None
+    clientConfig: {url: "https://escape.example.com/mutate"}
+    rules: [{apiGroups: [""], apiVersions: [v1], operations: [CREATE], resources: [pods]}]

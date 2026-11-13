@@ -19,6 +19,10 @@ export type RootParams = {
   /** Under More (IA §3); pushes open it directly. */
   Inbox: { id?: string } | undefined;
   Nodes: undefined;
+  Backups: undefined;
+  Automation: undefined;
+  Files: undefined;
+  Migrate: undefined;
 };
 
 declare global {

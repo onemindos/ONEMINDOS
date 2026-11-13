@@ -114,6 +114,7 @@ h2.title { font-size: var(--om-font-size-lg); font-weight: var(--om-font-weight-
 .facts dd { margin: 0; word-break: break-word; font-family: var(--om-font-mono); }
 .params { max-height: 160px; overflow: auto; margin: var(--om-space-2) 0 0; padding: var(--om-space-2); border-radius: var(--om-radius-xs); background: var(--om-color-surface-sunken); font-family: var(--om-font-mono); font-size: var(--om-font-size-xs); white-space: pre-wrap; word-break: break-word; user-select: text; -webkit-user-select: text; }
 .approval > .note { margin-top: var(--om-space-3); }
+main > * { flex-shrink: 0; } /* long cards scroll instead of squeezing their contents */
 details.api { margin-top: var(--om-space-3); font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); }
 details.api summary { cursor: pointer; }
 .result { margin-top: var(--om-space-3); border-radius: var(--om-radius-sm); padding: var(--om-space-2) var(--om-space-3); font-size: var(--om-font-size-xs); border: 1px solid var(--om-color-neutral-border); background: var(--om-color-neutral-bg); color: var(--om-color-neutral-fg); }

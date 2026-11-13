@@ -11,6 +11,8 @@ describe.skipIf(!hub)("live gateway", () => {
   const owner = new OneMind({ baseUrl: hub ?? "http://x", token: env.ONEMIND_CONFORMANCE_OWNER, principal: "owner" });
 
   it("reads, requests, refuses the agent's approve, approves, streams and verifies", async () => {
+    // The agent's transport records every POST /v1/actions and loses the FIRST response after the hub
+    // accepted it, so the SDK's own retry has to replay the same logical call across a second boundary.
     const payloads: string[] = [];
     const requestSeconds: number[] = [];
     const statuses: number[] = [];
@@ -53,6 +55,11 @@ describe.skipIf(!hub)("live gateway", () => {
     expect(requestSeconds[1]).toBeGreaterThan(requestSeconds[0]!);
     expect(payloads[1]).toBe(payloads[0]);
     expect(a.id).toBe(firstId);
+    // A replay in a later second must still be the same request: the SDK keeps expires_at per key.
+    await new Promise((r) => setTimeout(r, 1200));
+    const again = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance" });
+    expect(again.id).toBe(a.id);
+    // The same key with a different expiry is a different request and must be refused.
     const changed = JSON.parse(payloads[0]!) as { expires_at: string };
     changed.expires_at = new Date(Date.parse(changed.expires_at) + 1000).toISOString();
     const conflict = await fetch(`${hub}/v1/actions`, {
@@ -62,10 +69,6 @@ describe.skipIf(!hub)("live gateway", () => {
     expect(conflict.status).toBe(409);
     expect((await conflict.json() as { error: string }).error).toBe("conflict");
     expect((await owner.actions.list()).filter((x) => x.id === a.id)).toHaveLength(1);
-    // A replay in a later second must still be the same request: the SDK keeps expires_at per key.
-    await new Promise((r) => setTimeout(r, 1200));
-    const again = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance" });
-    expect(again.id).toBe(a.id);
     await expect(agent.actions.approve(a.id)).rejects.toBeInstanceOf(PermissionDeniedError);
     const done = await owner.actions.approve(a.id);
     expect(done.decided_by?.id).toBe("owner");

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Fixture stand-in for window.__TAURI__ so the popover can be previewed in a browser.
-// Scenes: status, calm, down, pair-error, approval, approval-passkey, inbox.
+// Scenes: status, calm, down, pair-error, approval, approval-passkey, inbox, manage.
 // The status fixture uses the shape the Rust core returned from a local dev gateway
 // (pending action requested by the Hermes agent); nodes, updates and backups are fixture
 // values, because a dev gateway without NATS reports no nodes and the update and backup
@@ -37,7 +37,7 @@
     down: [{ id: 'a1b2c3d4e5f6', name: 'Home box', url: 'http://onemind.local:8080', insecure: true, has_token: true,
       status: { ...status, reachable: false, error: 'unreachable', pending: [], fetched_at: now - 200 } }],
   }[scene] || [];
-  if (!boxes.length && (scene.startsWith('approval') || scene === 'inbox')) boxes.push(...[{ id: 'a1b2c3d4e5f6', name: 'Home box', url: 'https://onemind.local:8443', insecure: false, has_token: true, live: true, status }]);
+  if (!boxes.length && (scene.startsWith('approval') || scene === 'inbox' || scene === 'manage')) boxes.push(...[{ id: 'a1b2c3d4e5f6', name: 'Home box', url: 'https://onemind.local:8443', insecure: false, has_token: true, live: true, status }]);
   if (scene === 'inbox' || scene === 'status') boxes.forEach((b) => (b.live = true));
   const passkey = scene === 'approval-passkey';
   const detail = {
@@ -65,6 +65,28 @@
     inbox_read: () => null,
     open_link: () => null,
     open_approvals: () => null,
+    // Manage view (fixture values; every write only files a request).
+    manage_apps: () => [
+      { id: 'uptime-kuma', name: 'Uptime Kuma', version: '2.0.2', status: 'installed', options: ['app.stop', 'app.restart', 'app.update', 'app.remove'] },
+      { id: 'ollama', name: 'Ollama', version: '0.5.1', status: 'stopped', options: ['app.start', 'app.remove'] },
+    ],
+    manage_plan: ({ appId, kind }) => ({
+      app_id: appId, kind, risk: 'write', verdict: 'needs_approval', reason: null,
+      summary: `${kind.replace('app.', '')} ${appId}. It is down for about a minute.`, warnings: ['Open sessions are dropped.'],
+      from_version: kind === 'app.update' ? '2.0.2' : null, to_version: kind === 'app.update' ? '2.0.3' : null, volumes: 1, plan_sha256: 'sha256:fixture',
+    }),
+    manage_request: () => ({ id: 'act-77', state: 'awaiting_approval' }),
+    manage_backups: () => ({
+      health: 'ok', last_success_at: new Date((now - 3 * 3600) * 1000).toISOString(), last_verified_restore_at: new Date((now - 86400) * 1000).toISOString(), next_run_at: null, copies: 2,
+      destinations: [{ id: 'dst_0000000000000001', kind: 'usb', label: 'Blue USB disk', primary: true, state: 'online' }],
+      runs: [{ id: 'run1', state: 'succeeded', started_at: new Date((now - 3 * 3600) * 1000).toISOString() }],
+    }),
+    manage_backup_request: () => ({ id: 'act-78', state: 'awaiting_approval' }),
+    manage_settings: () => ({
+      box_name: 'home', time_zone: 'Europe/Berlin', backup_choice: 'usb', backup_destination_id: 'dst_0000000000000001', saved: true,
+      destinations: [{ id: 'dst_0000000000000001', kind: 'usb', label: 'Blue USB disk', primary: true, state: 'online' }],
+    }),
+    manage_settings_save: ({ body }) => ({ ...body, saved: true, destinations: [] }),
   };
   window.__TAURI__ = {
     core: { invoke: async (cmd, args) => (handlers[cmd] ? handlers[cmd](args) : null) },
@@ -75,6 +97,11 @@
     window.addEventListener('load', () => setTimeout(() => {
       const label = scene === 'inbox' ? 'See all notifications' : 'Review';
       [...document.querySelectorAll('button')].find((b) => b.textContent === label)?.click();
+    }, 500));
+  }
+  if (scene === 'manage') {
+    window.addEventListener('load', () => setTimeout(() => {
+      [...document.querySelectorAll('button')].find((b) => b.textContent === 'Manage…')?.click();
     }, 500));
   }
   if (scene === 'pair-error') {

@@ -595,7 +595,22 @@ def test_channel_test_is_rate_limited(nclient, http):
     assert len(http.requests) == 5
 
 
-def test_owner_listing_hides_other_peoples_destinations(nclient):
+def test_owner_listing_hides_other_peoples_destinations(nclient, monkeypatch):
+    import socket
+
+    from onemind_core.notify import channels
+
+    def resolve(host, port, **kwargs):
+        assert host == "ntfy.sh"
+        return [(socket.AF_INET6, socket.SOCK_STREAM, socket.IPPROTO_TCP, "",
+                 ("2606:4700::1", 0, 0, 0))]
+
+    def no_delivery(*args, **kwargs):
+        pytest.fail("listing channels must not send HTTP requests")
+
+    # Keep the real SSRF checks; only DNS and unexpected HTTP delivery are isolated.
+    monkeypatch.setattr(channels.socket, "getaddrinfo", resolve)
+    monkeypatch.setattr(channels, "http_post", no_delivery)
     mine = add_channel(nclient, {"kind": "ntfy", "label": "mine", "config": {"url": "https://ntfy.sh/owner-topic"}})
     add_channel(nclient, {"kind": "ntfy", "label": "theirs", "config": {"url": "https://ntfy.sh/adult-secret-topic"}},
                 headers=ADULT)
