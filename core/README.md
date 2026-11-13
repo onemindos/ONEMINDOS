@@ -51,6 +51,7 @@ is where that rule is enforced in code, not in a prompt:
 | `onemind_core/nodes.py`, `bus.py` | Heartbeat registry (online/stale/offline) and the NATS connection |
 | `onemind_core/catalog.py` | App catalog from `ONEMIND_APPS_DIR/*/onemind.app.yaml`, incl. `links`, `tier`, `scan`, `spec.agent` |
 | `onemind_core/scan.py` | Reads `apps/<id>/scan.json` (§11.1) and decides whether an install may run (§10.3) |
+| `onemind_core/photos/` | Phone photo backup, box side: resumable digest-verified uploads, per-person libraries, receipts with backup levels (`/v1/photos/...`, off unless `ONEMIND_PHOTOS_ENABLED=1`; [PHOTOS.md](../docs/leap/core/PHOTOS.md)) |
 | `onemind_core/mcp/` | `POST /mcp`: MCP Streamable HTTP for agent principals (§11.3, §12.19): `server.py`, `tools.py` (catalogue), `untrusted.py`, `limits.py` |
 | `onemind_core/auditread.py`, `routers/audit.py` | §12.16 `GET /v1/audit/events[/{seq}]`, `/v1/audit/verify` |
 | `onemind_core/eventstream.py`, `routers/events.py` | §12.8 `GET /v1/events` (SSE, audit-derived ids, resume, `node.status`) |
@@ -204,6 +205,7 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 | `ONEMIND_PUBLIC_URL` | derived (see "Agent principals") | gateway URL written into app agent Secrets |
 | `ONEMIND_ALLOW_UNSCANNED` | `0` | `1` skips the §10.3 scan check; dev only, refused with `kubernetes` |
 | `ONEMIND_APP_SCHEMA` | `sdk/schema/onemind.app.schema.json` if present | manifest JSON Schema |
+| `ONEMIND_PHOTOS_ENABLED`, `ONEMIND_PHOTOS_DIR`, `ONEMIND_PHOTOS_*` | `0`, none | Photos backup routes and library folder; the rest in [PHOTOS.md §6](../docs/leap/core/PHOTOS.md#6-settings-config_sectionphotos) |
 | `ONEMIND_SANDBOX_RULES` | `sdk/policy/app-objects.yaml` (repo or image) | install sandbox rule file; the `kubernetes` executor refuses to start without it (and without `ONEMIND_APP_SCHEMA`) |
 | `ONEMIND_SANDBOX_GATEWAY_SA` | unset | `<namespace>/<serviceaccount>` the executor binds to `onemind-app-deployer` in each `app-<id>` (`deploy/install.sh` sets it) |
 | `ONEMIND_LIMITS_*` | `MAX_BODY_BYTES=262144`, `READ_RATE=20`/`READ_BURST=60`, `REQUEST_RATE=2`/`REQUEST_BURST=10`, `MAX_PENDING=10`, `AUTH_FAILURES_PER_MIN=10`, `AUTH_BACKOFF_S=900`, `ENABLED=1` | contract §12.1 limits (`core/onemind_core/guard.py`) |
