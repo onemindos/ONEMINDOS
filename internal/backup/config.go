@@ -41,6 +41,18 @@ type Config struct {
 	Retention Retention `json:"retention"`
 	Targets   []Target  `json:"targets"`
 	Units     UnitsSpec `json:"units"`
+
+	// Listen is informational. The agent has no listener of its own: its API is mounted on
+	// onemindd's loopback :7480 mux under /api/v1/backup/ (service.go), and the handler refuses
+	// non-loopback callers.
+	Listen string `json:"listen"`
+	// JobPubKeyFile is the gateway's Ed25519 job public key (PEM). Without
+	// it, signed jobs (restore, browse, configure) are refused.
+	JobPubKeyFile string `json:"job_pubkey_file"`
+	// StorageRoots are the local-path provisioner folders that hold app
+	// volumes (<root>/<pv>_<namespace>_<claim>). App volumes named by the
+	// gateway must resolve under one of them.
+	StorageRoots []string `json:"storage_roots"`
 }
 
 // ResticConfig locates the pinned restic binary.
@@ -59,6 +71,10 @@ type Schedule struct {
 	MaintenanceHour int          `json:"maintenance_hour"` // daily check, off-site run
 	VerifyWeekday   time.Weekday `json:"verify_weekday"`   // weekly verified restore and prune
 	VerifyMinAge    Duration     `json:"verify_min_age"`   // newest snapshot at least this old
+	// GatewayHourly leaves the hourly run to the gateway, which runs the
+	// apps' backup hooks (database dumps) first and then sends a signed
+	// backup.run job. The agent keeps the daily check and weekly jobs.
+	GatewayHourly bool `json:"gateway_hourly"`
 }
 
 // Retention is the grandfather-father-son ladder applied after every run.
@@ -141,13 +157,36 @@ type K3sSpec struct {
 	Version string `json:"version"`
 }
 
-// AppSpec is one `app:<id>` unit on this node.
+// AppSpec is one `app:<id>` unit on this node. Apps set in agent.json may
+// name host Paths; apps sent by the gateway (managed.go) may only name
+// volumes, files and SQLite databases inside volumes.
 type AppSpec struct {
 	ID       string       `json:"id"`
 	Revision string       `json:"revision,omitempty"`
-	Paths    []string     `json:"paths"`
+	Paths    []string     `json:"paths,omitempty"`
 	Excludes []string     `json:"excludes,omitempty"`
 	SQLite   []SQLiteFile `json:"sqlite,omitempty"`
+	// Volumes are the app's PersistentVolumeClaims, backed up whole.
+	Volumes []VolumeRef `json:"volumes,omitempty"`
+	// Files are single files inside a volume, e.g. the app's database dump
+	// in the shared PostgreSQL volume.
+	Files []VolumeFile `json:"files,omitempty"`
+	// VolumeSQLite are SQLite databases inside a volume, copied with the
+	// online backup into the unit's staging directory.
+	VolumeSQLite []VolumeFile `json:"volume_sqlite,omitempty"`
+}
+
+// VolumeRef names a local-path volume: <root>/<Volume>_<Namespace>_<Claim>.
+type VolumeRef struct {
+	Namespace string `json:"namespace"`
+	Claim     string `json:"claim"`
+	Volume    string `json:"volume"` // the PersistentVolume name (pvc-<uid>)
+}
+
+// VolumeFile is one path inside a volume.
+type VolumeFile struct {
+	VolumeRef
+	Path string `json:"path"` // relative to the volume root
 }
 
 // Duration is a time.Duration that reads "1h" style strings from JSON.
@@ -177,10 +216,14 @@ func DefaultConfig() Config {
 		DeviceKeyFile: "/data/onemind/secrets/backup-device.key",
 		Schedule:      Schedule{Minute: -1, MaintenanceHour: 3, VerifyWeekday: time.Sunday, VerifyMinAge: Duration{time.Hour}},
 		Retention:     Retention{Hourly: 24, Daily: 7, Weekly: 4, Monthly: 12},
+		Listen:        "127.0.0.1:7480",
+		StorageRoots:  []string{"/data/onemind/storage", "/var/lib/rancher/k3s/storage"},
 	}
 }
 
 // LoadConfig reads a JSON settings file over the defaults and validates it.
+// The gateway's targets and app list (managed.json in the state directory)
+// replace those of agent.json when present.
 func LoadConfig(path string) (Config, error) {
 	c := DefaultConfig()
 	b, err := os.ReadFile(path)
@@ -189,6 +232,16 @@ func LoadConfig(path string) (Config, error) {
 	}
 	if err := json.Unmarshal(b, &c); err != nil {
 		return c, fmt.Errorf("%s: %w", path, err)
+	}
+	if err := c.Validate(); err != nil {
+		return c, err
+	}
+	m, err := readManaged(c.StateDir)
+	if err != nil {
+		return c, err
+	}
+	if m != nil {
+		c.Targets, c.Units.Apps = m.Targets, m.Apps
 	}
 	return c, c.Validate()
 }
@@ -238,6 +291,20 @@ func (c *Config) Validate() error {
 		if !tagValueRe.MatchString(a.ID) || (a.Revision != "" && !tagValueRe.MatchString(a.Revision)) {
 			return fmt.Errorf("app %q: id and revision must be tag-safe", a.ID)
 		}
+		if err := a.validateVolumes(); err != nil {
+			return fmt.Errorf("app %q: %w", a.ID, err)
+		}
+	}
+	for _, r := range c.StorageRoots {
+		if !filepath.IsAbs(r) {
+			return fmt.Errorf("storage_roots must be absolute paths, got %q", r)
+		}
+	}
+	if filepath.Dir(c.DeviceKeyFile) == filepath.Join(c.StateDir, targetSecretsDir) {
+		return fmt.Errorf("device_key_file must not be in %s/%s (destination credentials are pruned there)", c.StateDir, targetSecretsDir)
+	}
+	if c.JobPubKeyFile != "" && !filepath.IsAbs(c.JobPubKeyFile) {
+		return fmt.Errorf("job_pubkey_file must be an absolute path")
 	}
 	if k := c.Units.K3s; k != nil && k.Version != "" && !tagValueRe.MatchString(k.Version) {
 		return fmt.Errorf("k3s version %q is not tag-safe", k.Version)

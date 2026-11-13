@@ -128,6 +128,33 @@ def test_approved_by_is_additive_and_not_the_denier(client, clock):
     assert denied['approved_by'] is None and denied['decided_at'] is not None
 
 
+@pytest.mark.parametrize('outcome', ['succeeded', 'failed', 'outcome_unknown'])
+def test_feature_approval_is_durable_before_dispatch(client, clock, outcome):
+    from datetime import timedelta
+    from onemind_core.actions import FeatureAction
+    from onemind_core.auth import Principal
+    from onemind_core.executors import ExecResult
+
+    actions = client.app.state.actions
+    observed = []
+
+    def run(action, finish):
+        stored = client.app.state.repo.get(action.id)
+        observed.append((stored.state, stored.approved_by, stored.decided_by['id']))
+        finish(ExecResult(outcome, 'feature result'))
+
+    actions.register_type('backup.test', FeatureAction(risk='write', run=run))
+    owner = Principal('owner', 'person', 'owner')
+    pending, _ = actions.request_feature(owner, 'backup.test', {}, idempotency_key='feature-approval',
+                                         expires_at=clock() + timedelta(minutes=5))
+    assert pending['approved_by'] is None
+    result = client.post(f"/v1/actions/{pending['id']}/approve", headers=OWNER)
+    assert result.status_code == 200 and result.json()['state'] == outcome
+    assert observed == [('dispatched', 'owner', 'owner')]
+    assert result.json()['approved_by'] == 'owner'
+    assert client.get(f"/v1/actions/{pending['id']}", headers=OWNER).json()['approved_by'] == 'owner'
+
+
 @pytest.mark.parametrize('state', ['accepted', 'dispatched', 'succeeded', 'failed', 'outcome_unknown'])
 def test_historical_decider_is_not_approval_proof(client, clock, state):
     from onemind_core.ledger import Action
