@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: Apache-2.0
+# Folds changes/*.md fragments into CHANGELOG.md and docs/leap/STATUS.md (scripts/changes.py collect)
+# and pushes the result to the branch bot/changes-collect. It never pushes to main: the orchestrator
+# opens and merges the PR. Manual or weekly (Mondays).
+name: changes-collect
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * 1'
+permissions:
+  contents: read
+jobs:
+  collect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write   # only this job; pushes bot/changes-collect, never main
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Collect fragments
+        run: python3 -I scripts/changes.py collect
+      - name: Push bot/changes-collect (no force)
+        run: |
+          if git diff --quiet; then echo "nothing to collect"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b bot/changes-collect
+          git add -A CHANGELOG.md docs/leap/STATUS.md changes
+          git commit -s -m "chore(changes): collect change fragments into CHANGELOG and STATUS"
+          if git ls-remote --exit-code --heads origin bot/changes-collect >/dev/null 2>&1; then
+            # An older collect branch exists: build on it so the push is a fast-forward.
+            git fetch origin bot/changes-collect
+            git merge --no-edit -X ours origin/bot/changes-collect
+          fi
+          git push origin HEAD:bot/changes-collect

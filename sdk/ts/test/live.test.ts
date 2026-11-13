@@ -23,9 +23,12 @@ describe.skipIf(!hub)("live gateway", () => {
       seen.push(e);
       if (seen.some((x) => x.data?.to === "succeeded")) ctrl.abort();
     });
-    const a = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance" });
+    // One fixed expiry: the hub compares it, to the second, when a key is replayed. (Computing it
+    // per call straddled a second boundary and made this test flaky: HTTP 409 on the replay.)
+    const expiresAt = new Date(Date.now() + 3600_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+    const a = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance", expiresAt });
     expect(a.state).toBe("awaiting_approval");
-    const again = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance" });
+    const again = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance", expiresAt });
     expect(again.id).toBe(a.id);
     await expect(agent.actions.approve(a.id)).rejects.toBeInstanceOf(PermissionDeniedError);
     const done = await owner.actions.approve(a.id);
