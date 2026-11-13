@@ -48,7 +48,7 @@ class ScriptedExecutor(Executor):
         self.calls: list[tuple[str, str]] = []
         self.agents: list = []  # the AgentSecret grant of each call (None for apps without spec.agent)
 
-    def run(self, action_type, app, agent=None):
+    def run(self, action_type, app, agent=None, ctx=None):
         self.calls.append((action_type, app.id))
         self.agents.append(agent)
         if self.raise_exc:

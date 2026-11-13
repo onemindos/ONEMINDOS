@@ -51,6 +51,7 @@ func TestLiveGateway(t *testing.T) {
 	if err != nil || a.State != "awaiting_approval" {
 		t.Fatal(a, err)
 	}
+	time.Sleep(1200 * time.Millisecond) // a replay in a later second must still be the same request
 	again, err := agent.Actions.Request(ctx, ActionRequest{Type: ActionAppInstall, AppID: "uptime-kuma", IdempotencyKey: "go-conformance"})
 	if err != nil || again.Id != a.Id {
 		t.Fatal("idempotent replay", again, err)

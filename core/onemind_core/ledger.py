@@ -66,6 +66,11 @@ class Action:
     decided_at: datetime | None = None
     result: dict | None = None
     version: int = 1
+    # Contract §12.4: the plan rendered at request time, its hash, and live progress {step, pct}.
+    plan: dict | None = None
+    plan_sha256: str | None = None
+    progress: dict | None = None
+    risk: str | None = None
 
     def to_json(self) -> dict:
         return {
@@ -82,6 +87,10 @@ class Action:
             "decided_at": iso(self.decided_at),
             "result": self.result,
             "version": self.version,
+            "risk": self.risk,
+            "plan": self.plan,
+            "plan_sha256": self.plan_sha256,
+            "progress": self.progress,
         }
 
 
@@ -106,12 +115,27 @@ class ActionRepository(Protocol):
         self, action_id: str, now: datetime, decided_by: dict, app_id: str,
         claim: str, allowed: set[str], allow_absent: bool,
     ) -> str: ...
+    def set_progress(self, action_id: str, progress: dict, now: datetime) -> None: ...
+    def get_runtime(self, app_id: str) -> "AppRuntime | None": ...
+    def set_runtime(self, app_id: str, now: datetime, **fields) -> None: ...
+    def delete_runtime(self, app_id: str) -> None: ...
     def get_app_state(self, app_id: str) -> AppState | None: ...
     def set_app_state(self, app_id: str, status: str | None, now: datetime, action_id: str | None = None) -> None: ...
     def list_app_states(self) -> dict[str, AppState]: ...
     def issue_agent_token(self, principal_id: str, app_id: str, token_hash: str, now: datetime) -> None: ...
     def agent_principal_for(self, token_hash: str) -> str | None: ...
     def revoke_agent_token(self, principal_id: str, now: datetime) -> bool: ...
+
+
+@dataclass
+class AppRuntime:
+    """What the gateway knows about an app beyond its status: version, bundle hash, settings."""
+
+    app_id: str
+    version: str | None = None
+    previous_version: str | None = None
+    bundle_sha256: str | None = None
+    settings: dict = field(default_factory=dict)  # non-secret settings applied by app.configure
 
 
 class Base(DeclarativeBase):
@@ -133,6 +157,23 @@ class ActionRow(Base):
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
+    # Core schema v2 (store.py): the lifecycle columns.
+    plan: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    plan_sha256: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    progress: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    risk: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+
+class AppRuntimeRow(Base):
+    """Core schema v2: per-app version history and applied settings (app lifecycle, PD-03..07)."""
+
+    __tablename__ = "app_runtime"
+    app_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    previous_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    bundle_sha256: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    settings: Mapped[dict] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class AppStateRow(Base):
@@ -169,6 +210,10 @@ def _to_action(r: ActionRow) -> Action:
         decided_at=utc(r.decided_at) if r.decided_at else None,
         result=dict(r.result) if r.result else None,
         version=r.version,
+        plan=dict(r.plan) if r.plan else None,
+        plan_sha256=r.plan_sha256,
+        progress=dict(r.progress) if r.progress else None,
+        risk=r.risk,
     )
 
 
@@ -300,6 +345,31 @@ class SqlActionRepository:
         except _Lost:
             return "stale"
         return "accepted"
+
+    def set_progress(self, action_id: str, progress: dict, now: datetime) -> None:
+        with self._session.begin() as s:
+            s.execute(update(ActionRow).where(ActionRow.id == action_id).values(progress=progress, updated_at=now))
+
+    def get_runtime(self, app_id: str) -> AppRuntime | None:
+        with self._session() as s:
+            r = s.get(AppRuntimeRow, app_id)
+            if r is None:
+                return None
+            return AppRuntime(r.app_id, r.version, r.previous_version, r.bundle_sha256, dict(r.settings or {}))
+
+    def set_runtime(self, app_id: str, now: datetime, **fields) -> None:
+        """Upsert; only the given fields (version, previous_version, bundle_sha256, settings) change."""
+        insert_values = {"version": None, "previous_version": None, "bundle_sha256": None, "settings": {}, **fields}
+        with self._session.begin() as s:
+            s.execute(
+                self._insert()(AppRuntimeRow)
+                .values(app_id=app_id, updated_at=now, **insert_values)
+                .on_conflict_do_update(index_elements=[AppRuntimeRow.app_id], set_={"updated_at": now, **fields})
+            )
+
+    def delete_runtime(self, app_id: str) -> None:
+        with self._session.begin() as s:
+            s.execute(delete(AppRuntimeRow).where(AppRuntimeRow.app_id == app_id))
 
     def get_app_state(self, app_id: str) -> AppState | None:
         with self._session() as s:
