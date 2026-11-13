@@ -135,8 +135,8 @@ code, so a hostile hub cannot run commands on the machine running `verify.sh`. O
 - §11.3 MCP: a person token gets `403 permission_denied`; with an agent token, `initialize`,
   `tools/list` (has `list_nodes`, `list_apps`, `request_action`; no approve/deny tool) and
   `request_action` → an ordinary action requested by the agent, which the owner then denies.
-- Wave 2 (§11.3 `/mcp`, §11.4 `links`/`tier`/`scan`): **SKIP** while the gateway lacks them,
-  checked as soon as it has them; `--strict` turns SKIP into FAIL.
+- Wave 2 (§11.3 `/mcp`, §11.4 `links`/`tier`/`scan`): missing endpoint or fields are **FAIL**.
+  `--strict` turns remaining SKIPs (e.g. checks without the required tokens) into FAIL.
 Exit code 0 only when nothing failed.
 
 ## Test record (2026-11-12, Apple-silicon Mac, Lima 2.3.0, all arm64)
