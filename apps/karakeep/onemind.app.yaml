@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# karakeep: Market batch 3 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by sdk/tools/app-scaffold
+# (§9.2) and completed from primary sources: docker/Dockerfile, docker/docker-compose.yml, docker/chrome/Dockerfile and docs/docs/03-configuration/01-environment-variables.md at v0.34.1.
+# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-12.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: karakeep
+  name: "Karakeep"
+  version: "0.34.1"
+  description: "A self-hostable bookmark-everything app (links, notes and images) with AI-based automatic tagging and full text search"
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (bookmarks, read-later) are listed in README.md
+  # until the schema has metadata.tags.
+  category: notes
+  icon: icon.svg
+  license: "AGPL-3.0"
+  source: https://github.com/karakeep-app/karakeep
+  links:
+    docs: "https://docs.karakeep.app/"
+    github: "https://github.com/karakeep-app/karakeep"
+    website: "https://karakeep.com"
+    support: "https://github.com/karakeep-app/karakeep/issues"
+  upstream: {release: "v0.34.1", released_at: "2026-10-22T06:42:02Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVEs in the karakeep and meilisearch images, and the meilisearch cosign identity check fails (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 640}   # sum of the memory requests in manifests/
+  web: {port: 3000}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

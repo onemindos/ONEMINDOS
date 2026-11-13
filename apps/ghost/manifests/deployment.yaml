@@ -1,0 +1,150 @@
+# SPDX-License-Identifier: Apache-2.0
+# Ghost 6.77.0, the official Docker image (docker.io/library/ghost, the 6-alpine line that upstream's
+# TryGhost/ghost-docker compose.yml uses) with MySQL 8.0.46, the database and pin that compose file uses.
+# The image entrypoint switches to node (UID/GID 1000) only when started as root, so it starts as node.
+# MySQL is a native sidecar listening on 127.0.0.1 only, as UID 999 (the image's mysql user): only this
+# pod reaches it, which is why root has no password and no Secret exists (contract §11.2 forbids
+# committed Secrets). GET /ghost/api/admin/site/ is Ghost's public site-info endpoint.
+#
+# Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ghost
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ghost
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ghost
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      - name: mysql
+        image: docker.io/library/mysql:8.0.46@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+        imagePullPolicy: IfNotPresent
+        restartPolicy: Always
+        args:
+        - mysqld
+        - --bind-address=127.0.0.1
+        - --mysqlx=OFF
+        env:
+        - name: MYSQL_DATABASE
+          value: ghost
+        - name: MYSQL_ALLOW_EMPTY_PASSWORD
+          value: 'yes'
+        startupProbe:
+          exec:
+            command:
+            - mysqladmin
+            - ping
+            - -h
+            - 127.0.0.1
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 60
+        readinessProbe:
+          exec:
+            command:
+            - mysqladmin
+            - ping
+            - -h
+            - 127.0.0.1
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 384Mi
+          limits:
+            cpu: '1'
+            memory: 1Gi
+        securityContext:
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: db
+          mountPath: /var/lib/mysql
+      containers:
+      - name: ghost
+        image: docker.io/library/ghost:6.77.0-alpine@sha256:a1c2adb3ab81b6d3fcae4d33bebe56a94a57c3e76c2f0b7b3d213726b2ca8922
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: url
+          value: http://localhost:2368
+        - name: database__client
+          value: mysql
+        - name: database__connection__host
+          value: 127.0.0.1
+        - name: database__connection__user
+          value: root
+        - name: database__connection__password
+          value: ''
+        - name: database__connection__database
+          value: ghost
+        ports:
+        - name: http
+          containerPort: 2368
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /ghost/api/admin/site/
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 60
+        readinessProbe:
+          httpGet:
+            path: /ghost/api/admin/site/
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /ghost/api/admin/site/
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: '2'
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: content
+          mountPath: /var/lib/ghost/content
+      volumes:
+      - name: content
+        persistentVolumeClaim:
+          claimName: ghost-content
+      - name: db
+        persistentVolumeClaim:
+          claimName: ghost-db

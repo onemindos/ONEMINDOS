@@ -77,9 +77,9 @@ A hotspot changes only in a small PR that does nothing else, merged one at a tim
 | Hotspot | Rule |
 |---|---|
 | `sdk/contracts/poc-v0.md` | Contract PRs only, in the order of [BACKLOG.md](BACKLOG.md) S1 (12-a first). A feature PR never edits the contract; it adopts a merged contract PR |
-| `core/onemind_core/app.py` | Edited twice more, one PR each and in this order: DEV-API-1 (adds `routes.py`), then DEV-SDK-1 (response models and operation ids). After that, each feature adds one line to `core/onemind_core/routes.py` |
-| `cmd/onemindd/main.go` | One subcommand line per feature (`join`, `leaf`, `backup`, `rescue`, socket API) |
-| `cmd/onemind/main.go`, `cmd/onemind/cli/root.go` | DEV-CLI-1 reduces `main.go` to `cli.Execute()`; then each command group adds one line to `root.go` |
+| `core/onemind_core/app.py` | Route registration is the `ROUTERS` list (shipped in #38): each feature adds `routers/<feature>.py` and one line there |
+| `cmd/onemindd/main.go` | One line per feature in `cmd/onemindd/registry.go` (`subcommands` or `optionalServices`) |
+| `cmd/onemind/main.go`, `cmd/onemind/cli/root.go` | `main.go` already only calls `cli.Run`; each command group adds one line to `groups` in `root.go` |
 | `os/versions.lock.yaml` | Add-only pins (generators, cobra, cosign, restic, scanners, GPU parts), one commit per stream |
 | `sdk/schema/onemind.app.schema.json` | Changes ship with the matching contract PR (manifest v1 freeze PLAN-E6, `spec.agent.scopes`, `spec.backup`, `spec.network`, `extensions`) |
 | `core/onemind_core/ledger.py` | One migration file per epic, numbered when merged |

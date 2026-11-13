@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Web UI and API on 3001 (SERVER_PORT default; docker-compose.yml).
+apiVersion: v1
+kind: Service
+metadata:
+  name: anything-llm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: anything-llm
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http
+      protocol: TCP

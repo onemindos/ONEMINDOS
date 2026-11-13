@@ -3,13 +3,14 @@
 import type { Tone } from '../tokens/tokens';
 import { cx } from '../lib/cx';
 import { freshness, NODE_LIMITS, type Freshness } from '../lib/freshness';
-import { safeHttpUrl } from '../lib/trust';
+import { AppIcon } from '../components/AppIcon';
 import { secondsSince } from '../lib/time';
 import type { AppRunState, HomeApp, HomeNode } from './types';
 import type { CategoryInfo } from './taxonomy';
 
 export const APP_STATE: Record<AppRunState, { tone: Tone; label: string; pulse?: boolean }> = {
   running: { tone: 'ok', label: 'Running' },
+  installed: { tone: 'info', label: 'Installed' },
   starting: { tone: 'info', label: 'Starting', pulse: true },
   updating: { tone: 'info', label: 'Updating', pulse: true },
   stopped: { tone: 'neutral', label: 'Stopped' },
@@ -33,13 +34,9 @@ export function StatusDot({ tone, pulse, hollow, className }: { tone: Tone; puls
   return <span className={cx('omh-dot', `om-tone-${tone}`, pulse && 'om-pulse', hollow && 'omh-dot-hollow', className)} aria-hidden="true" />;
 }
 
-export function AppGlyph({ app, size = 56 }: { app: Pick<HomeApp, 'name' | 'icon' | 'hue'>; size?: number }) {
-  const src = app.icon ? safeHttpUrl(app.icon) : null;
-  return (
-    <span className={cx('omh-glyph', `omh-hue-${app.hue ?? 'neutral'}`)} style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }} aria-hidden="true">
-      {src ? <img src={src} alt="" width={size} height={size} loading="lazy" /> : app.name.trim().charAt(0).toUpperCase() || '?'}
-    </span>
-  );
+/** Home's app icon is the shared AppIcon (CRITIQUE #20), so an app looks the same here and in the Store. */
+export function AppGlyph({ app, size = 56 }: { app: Pick<HomeApp, 'id' | 'name' | 'icon'>; size?: number }) {
+  return <AppIcon app={app} size={size} className="omh-glyph" />;
 }
 
 export function CategoryIcon({ category, size = 16 }: { category: Pick<CategoryInfo, 'icon'>; size?: number }) {

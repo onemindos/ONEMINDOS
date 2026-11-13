@@ -27,6 +27,7 @@ import type { InstalledApp, LoadState, LogLine, SettingField, StoreActionRequest
 
 const RUN_VIEW: Record<InstalledApp['state'], { tone: Tone; label: string }> = {
   running: { tone: 'ok', label: 'Running' },
+  installed: { tone: 'info', label: 'Installed' },
   starting: { tone: 'info', label: 'Starting' },
   stopped: { tone: 'neutral', label: 'Stopped' },
   unhealthy: { tone: 'bad', label: 'Unhealthy' },
@@ -356,14 +357,23 @@ export interface ManageAppProps {
   onRequest: (req: StoreActionRequest) => void;
   onCopied?: (label: string) => void;
   initialTab?: string;
+  /**
+   * For a hub that cannot keep an app's data on removal (contract v0 deletes the app's namespace):
+   * this sentence replaces the keep/delete choice in the remove dialog, and the request carries
+   * only `app_id`, so the dialog never promises that the data is kept.
+   */
+  removeNote?: string;
 }
 
 type Pending = { type: StoreActionType } | null;
 
-export function ManageApp({ inst, state, now, isOwner, job, logs, logState, backHref, storeHref, onOpen, onRequest, onCopied, initialTab }: ManageAppProps) {
+export function ManageApp({ inst, state, now, isOwner, job, logs, logState, backHref, storeHref, onOpen, onRequest, onCopied, initialTab, removeNote }: ManageAppProps) {
   const [pending, setPending] = useState<Pending>(null);
   const [keep, setKeep] = useState(true);
   const [typed, setTyped] = useState('');
+  // Phones: Open stays visible, the rest sit behind "More actions" (CRITIQUE #22).
+  const [more, setMore] = useState(false);
+  const moreId = useId();
   const close = () => {
     setPending(null);
     setKeep(true);
@@ -393,7 +403,7 @@ export function ManageApp({ inst, state, now, isOwner, job, logs, logState, back
               ? pending.type === 'app.update'
                 ? buildRequest('app.update', app, { to_version: inst.update?.version })
                 : pending.type === 'app.remove'
-                  ? buildRequest('app.remove', app, { keep_data: keep })
+                  ? buildRequest('app.remove', app, removeNote ? {} : { keep_data: keep })
                   : buildRequest(pending.type, app)
               : null;
             const send = (r: StoreActionRequest) => {
@@ -415,7 +425,7 @@ export function ManageApp({ inst, state, now, isOwner, job, logs, logState, back
                     </p>
                     {inst.url && (
                       <p className="om-hint">
-                        <Icon name="lock" size={14} /> {inst.url.replace(/^https?:\/\//, '')} · behind the OneMind sign-in
+                        {inst.url_note ? null : <Icon name="lock" size={14} />} {inst.url.replace(/^https?:\/\//, '')} · {inst.url_note ?? 'behind the OneMind sign-in'}
                       </p>
                     )}
                   </div>
@@ -423,6 +433,10 @@ export function ManageApp({ inst, state, now, isOwner, job, logs, logState, back
                     <Button variant="primary" icon="external" disabled={!inst.url || inst.state === 'stopped'} onClick={() => onOpen(inst)}>
                       Open
                     </Button>
+                    <button type="button" className="om-btn om-btn-secondary om-store-more-toggle" aria-expanded={more} aria-controls={moreId} onClick={() => setMore((m) => !m)}>
+                      More actions
+                    </button>
+                    <div id={moreId} className="om-store-actionbar-more" data-open={more}>
                     <Button disabled={!!why} onClick={ask('app.restart')}>
                       <CategoryIcon name="restart" size={18} />
                       Restart
@@ -450,6 +464,7 @@ export function ManageApp({ inst, state, now, isOwner, job, logs, logState, back
                         Remove…
                       </Button>
                     )}
+                    </div>
                   </div>
                   {why ? <p className="om-store-cta-why">{why}</p> : <p className="om-hint">Restart, stop, update and remove are sent as requests; an owner approves each one first.</p>}
                   {core && <p className="om-hint">Part of OneMind: it updates with the system and cannot be removed.</p>}
@@ -542,21 +557,25 @@ export function ManageApp({ inst, state, now, isOwner, job, logs, logState, back
                       if (!keep) onRequest(buildRequest('app.delete_data', app, { confirm: app.name }));
                     }}
                   >
-                    <fieldset className="om-store-choice">
-                      <legend>What happens to its data ({inst.data_size ?? 'size unknown'})</legend>
-                      <label>
-                        <input type="radio" name="om-keep" checked={keep} onChange={() => setKeep(true)} />
-                        <span>
-                          <strong>Keep the data</strong> (recommended). Reinstalling later picks it up again.
-                        </span>
-                      </label>
-                      <label>
-                        <input type="radio" name="om-keep" checked={!keep} onChange={() => setKeep(false)} />
-                        <span>
-                          <strong>Delete the data too.</strong> This is a second, separate request and cannot be undone after approval.
-                        </span>
-                      </label>
-                    </fieldset>
+                    {removeNote ? (
+                      <p className="om-note om-tone-warn">{removeNote}</p>
+                    ) : (
+                      <fieldset className="om-store-choice">
+                        <legend>What happens to its data ({inst.data_size ?? 'size unknown'})</legend>
+                        <label>
+                          <input type="radio" name="om-keep" checked={keep} onChange={() => setKeep(true)} />
+                          <span>
+                            <strong>Keep the data</strong> (recommended). Reinstalling later picks it up again.
+                          </span>
+                        </label>
+                        <label>
+                          <input type="radio" name="om-keep" checked={!keep} onChange={() => setKeep(false)} />
+                          <span>
+                            <strong>Delete the data too.</strong> This is a second, separate request and cannot be undone after approval.
+                          </span>
+                        </label>
+                      </fieldset>
+                    )}
                     {!keep && (
                       <label className="om-store-field">
                         <span>

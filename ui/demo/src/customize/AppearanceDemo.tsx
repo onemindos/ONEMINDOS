@@ -55,10 +55,11 @@ export function AppearanceDemo({ arg }: { arg?: string }) {
     <CustomizeProvider key={state} store={s.store} cache={s.cache} now={s.clock}>
       <WallpaperLayer />
       <PageHeader title="Appearance" lede="Make OneMind yours: theme, accent, wallpaper and layout. Saved for you only; it changes nothing on the box, so it needs no approval." />
-      <nav className="cz-demo-states" aria-label="Demo state">
+      {/* One demo switcher everywhere (CRITIQUE #25): the same chips as the other demo screens. */}
+      <nav className="d-row" aria-label="Demo state">
         <span className="d-demo-flag">Demo state</span>
         {APPEARANCE_STATES.map((st) => (
-          <a key={st} href={`#/appearance/${st}`} aria-current={st === state ? 'page' : undefined}>
+          <a key={st} href={`#/appearance/${st}`} className="d-chip" aria-current={st === state ? 'page' : undefined}>
             {st}
           </a>
         ))}

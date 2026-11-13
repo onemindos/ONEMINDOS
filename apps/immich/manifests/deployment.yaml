@@ -1,0 +1,185 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/immich-app/immich (contract §9.2), then
+# completed from upstream at tag v3.4.1: docker/docker-compose.yml (server, database, redis),
+# docker/example.env, docs/docs/install/environment-variables.md (DB_*, REDIS_*, IMMICH_PORT),
+# docs/docs/install/requirements.md and docs/docs/FAQ.mdx ("run Immich as a non-root user").
+#
+# One pod, three containers. Immich's PostgreSQL (with the VectorChord extension the compose file
+# pins) and Valkey are native sidecars that start first and listen on 127.0.0.1 only, so nothing
+# outside this pod can reach them: PostgreSQL trusts local connections and no database password
+# or Secret exists. The optional machine-learning service is not packaged (README "Not done yet").
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immich
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: immich
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: immich
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # FAQ: "You can change the user in the container by setting the user argument ... for each
+      # service"; the user needs read/write access to the upload volume.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: database
+          # The exact image and digest of docker/docker-compose.yml at v3.4.1.
+          image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+          restartPolicy: Always
+          # The image CMD plus listen_addresses (a command-line -c overrides the config file).
+          args: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf", "-c", "listen_addresses=127.0.0.1"]
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_DB
+              value: immich
+            - name: POSTGRES_INITDB_ARGS
+              value: --data-checksums
+            # Only 127.0.0.1 and the pod's own socket reach this server.
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: trust
+            # A subdirectory, so the data directory is owned by the postgres user even when the
+            # volume root is not.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "immich"]
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "immich"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          # requirements.md: "if Docker resource limits are used, the Postgres database requires
+          # at least 2GB of RAM".
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: db
+              mountPath: /var/lib/postgresql/data
+            # The compose file sets shm_size: 128mb.
+            - name: shm
+              mountPath: /dev/shm
+        - name: redis
+          # docker/docker-compose.yml pins docker.io/valkey/valkey:9 by digest; this is the
+          # current 9.x patch release, pinned by its own digest.
+          image: docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
+          restartPolicy: Always
+          args: ["valkey-server", "--bind", "127.0.0.1"]
+          startupProbe:
+            exec:
+              command: ["valkey-cli", "-h", "127.0.0.1", "ping"]
+            periodSeconds: 2
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: redis
+              mountPath: /data
+      containers:
+        - name: immich-server
+          image: ghcr.io/immich-app/immich-server:v3.4.1@sha256:7c489add298fc2f92cda4c777de6462aa206877e04087b815f62c7664af0b53b
+          env:
+            - name: DB_HOSTNAME
+              value: 127.0.0.1
+            - name: DB_USERNAME
+              value: postgres
+            - name: DB_DATABASE_NAME
+              value: immich
+            - name: REDIS_HOSTNAME
+              value: 127.0.0.1
+          ports:
+            - name: http
+              containerPort: 2283
+              protocol: TCP
+          # Database migrations run on the first start. GET /api/server/ping answers {"res":"pong"}.
+          startupProbe:
+            httpGet:
+              path: /api/server/ping
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/server/ping
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/server/ping
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # requirements.md: 6 GB minimum with machine learning; "systems with only 4GB of RAM"
+          # can run Immich with machine learning disabled, as here. The split is a OneMind choice.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: library
+              mountPath: /data
+      volumes:
+        - name: library
+          persistentVolumeClaim:
+            claimName: immich-library
+        - name: db
+          persistentVolumeClaim:
+            claimName: immich-db
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 128Mi
+        # Valkey holds the job queue; after a restart Immich re-queues missing work.
+        - name: redis
+          emptyDir:
+            sizeLimit: 256Mi

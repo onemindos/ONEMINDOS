@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# /config: device YAML files and builds; /cache: PlatformIO packages, toolchains and compiler caches.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: esphome-config
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: esphome-cache
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

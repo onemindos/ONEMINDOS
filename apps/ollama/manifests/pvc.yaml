@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# Holds HOME/.ollama (the instance key pair) and OLLAMA_MODELS (downloaded model weights, several
+# GiB each). 50Gi is a OneMind choice. No storageClassName: the cluster default class is used.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 50Gi

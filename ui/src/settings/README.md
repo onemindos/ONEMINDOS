@@ -20,7 +20,7 @@
 ## Rules the code follows
 - **Requests, not changes (P1).** Every control calls `onIntent({type, params, mode, title, call})`. `mode: 'request'` adds power and waits in Approvals; `mode: 'instant'` only takes power away (sign out, revoke, suspend, pause), as SECURITY §3.4 says. `call` is the CLI or API line, and each section ends with "Same thing from a terminal or the API" (P4).
 - **Honest state (P2).** Stale data is drawn dashed with "Last known · N min ago", and every control is disabled while stale. Switches show the hub's value, never an optimistic one.
-- **The UI renders the plan; it never decides it.** `EffectsCard` shows what `GET /v1/actions/{id}/plan` returns (effects, placement, scan, undo, plan hash). If the gateway cannot compute the plan, the card says so.
+- **The UI renders the plan; it never decides it.** `EffectsCard` shows what `GET /v1/actions/{id}/preview` returns (effects, placement, scan, undo, plan hash). If the gateway cannot compute the plan, the card says so.
 - **Categories and deployment classes** label app updates (grouped by class, most vouched-for first), storage use (by category), approvals (category, class, Plugin pill) and About (Core components). Node roles use the TAXONOMY §3.2 wording.
 
 ## Local tokens (in `settings.css`, derived from global tokens only)
@@ -38,4 +38,4 @@ Motion uses `--om-motion-duration-*`, which are 0 ms under `prefers-reduced-moti
 ## Deviations and open points
 - **Private class pill is neutral**, not the violet TAXONOMY §2 suggests: TOKENS.md reserves the agent colour for AI actions only.
 - **Join QR:** the gateway is expected to return the QR module matrix (`JoinCode.qr`); the demo draws a placeholder pattern that is not a scannable code.
-- **New endpoints used** (all PROPOSED, none in contract v0): `/v1/auth/*`, `/v1/tokens`, `/v1/people`, `/v1/agents/*`, `/v1/fabric/*`, `/v1/network`, `/v1/remote`, `/v1/backups`, `/v1/restores`, `/v1/os/*`, `/v1/notify/*`, `/v1/automations`, `/v1/audit*`, `/v1/actions/{id}/plan`.
+- **New endpoints used** (all PROPOSED, none in contract v0): `/v1/auth/*`, `/v1/tokens`, `/v1/users`, `/v1/agents/*`, `/v1/fabric/*`, `/v1/remote`, `/v1/backups`, `/v1/restores`, `/v1/os/*`, `/v1/notifications/*`, `/v1/automation/rules`, `/v1/audit*`, `/v1/actions/{id}/preview`.

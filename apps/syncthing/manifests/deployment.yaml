@@ -1,0 +1,121 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/syncthing/syncthing (contract §9.2), then
+# completed from upstream at tag v2.1.7: README-Docker.md, script/docker-entrypoint.sh and the
+# image config (HOME=/var/syncthing, STHOMEDIR=/var/syncthing/config, STGUIADDRESS=0.0.0.0:8384).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: syncthing
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  # One writer for the config database and the synced folders on a ReadWriteOnce volume.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: syncthing
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: syncthing
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # README-Docker.md: "Syncthing runs as UID 1000 and GID 1000 by default". The entrypoint
+      # switches to PUID:PGID only when started as root; started as 1000 it runs Syncthing
+      # directly, so no capability is needed.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Upstream starts with no GUI password, and README-Docker.md "GUI Security" says to set one
+        # because the GUI listens on 0.0.0.0. Until OneMind isolates app namespaces (CORE-SANDBOX-5),
+        # every pod on the box, agent apps included, can reach this Service, and the GUI controls
+        # every synced file. So the first start creates the keys and config with a GUI user "admin"
+        # and a random password, kept on the volume for the owner (README "First run"):
+        # `syncthing generate --gui-user --gui-password=-` (cmd/syncthing/generate at v2.1.7).
+        # It runs only while config.xml does not exist, so a password the owner set is never touched.
+        - name: gui-auth
+          image: docker.io/syncthing/syncthing:2.1.7@sha256:2b71da7c0d0a91a6ae5285ad079226fecc0a365d08b27720e1f7037b018f7546
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              home=/var/syncthing/config
+              if [ ! -e "$home/config.xml" ]; then
+                mkdir -p "$home"
+                umask 077
+                head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 24 > "$home/.onemind-gui-password"
+                STHOMEDIR="$home" /bin/syncthing generate --no-port-probing --gui-user=admin \
+                  --gui-password=- < "$home/.onemind-gui-password"
+              fi
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/syncthing
+      containers:
+        - name: syncthing
+          image: docker.io/syncthing/syncthing:2.1.7@sha256:2b71da7c0d0a91a6ae5285ad079226fecc0a365d08b27720e1f7037b018f7546
+          ports:
+            - name: http
+              containerPort: 8384
+              protocol: TCP
+            - name: sync-tcp
+              containerPort: 22000
+              protocol: TCP
+            - name: sync-udp
+              containerPort: 22000
+              protocol: UDP
+          # GET /rest/noauth/health is the endpoint the image's own HEALTHCHECK calls.
+          readinessProbe:
+            httpGet:
+              path: /rest/noauth/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /rest/noauth/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream publishes no sizing; a OneMind choice. Hashing large folders is CPU-bound,
+          # so the CPU limit is generous and the memory limit leaves room for the index database.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/syncthing
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: syncthing-data

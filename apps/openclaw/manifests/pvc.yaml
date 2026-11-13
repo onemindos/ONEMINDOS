@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# /home/node/.openclaw: openclaw.json (with the gateway token), state, cache and the agent workspace.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openclaw-home
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
