@@ -469,13 +469,49 @@ def egress_entries(app_id: str, manifest: dict, rules: Rules) -> tuple[list[str]
     return out, bad
 
 
+def web_ports(manifest: dict, docs: Iterable[Any]) -> list[int]:
+    """The pod-side TCP ports behind spec.web.port: the port itself plus what the app's Services
+    map it to (targetPort, by number or by container port name), read from the checked render.
+
+    A NetworkPolicy matches the destination port after the Service has rewritten it.
+    """
+    web = (manifest.get("spec") or {}).get("web") if isinstance(manifest, dict) else None
+    port = web.get("port") if isinstance(web, dict) else None
+    if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
+        return []
+    docs = [d for d in docs if isinstance(d, dict)]
+    names: dict[str, int] = {}
+    for d in docs:
+        tmpl = ((d.get("spec") or {}).get("template") or {}).get("spec") or {}
+        for c in (tmpl.get("containers") or []) + (tmpl.get("initContainers") or []):
+            for cp in (c.get("ports") or []) if isinstance(c, dict) else []:
+                if isinstance(cp, dict) and isinstance(cp.get("containerPort"), int) and cp.get("name"):
+                    names[str(cp["name"])] = cp["containerPort"]
+    out = {port}
+    for d in docs:
+        if d.get("kind") != "Service":
+            continue
+        for sp in (d.get("spec") or {}).get("ports") or []:
+            if not isinstance(sp, dict) or sp.get("port") != port or sp.get("protocol", "TCP") != "TCP":
+                continue
+            tp = sp.get("targetPort", port)
+            tp = names.get(tp) if isinstance(tp, str) else tp
+            if isinstance(tp, int) and not isinstance(tp, bool) and 1 <= tp <= 65535:
+                out.add(tp)
+    return sorted(out)
+
+
 def network_policies(
-    app_id: str, egress: list[str], rules: Rules, extra_egress: Iterable[tuple[str, int | None]] = ()
+    app_id: str, egress: list[str], rules: Rules, extra_egress: Iterable[tuple[str, int | None]] = (),
+    gateway_sources: Iterable[str] = (), gateway_ports: Iterable[int] = (),
 ) -> list[dict]:
     """Default-deny for app-<id>, then the allowances: own namespace, DNS, the proxy, declared egress.
 
     extra_egress: (cidr, port) pairs the gateway adds itself; for an agent app, the gateway's own
     address and port, which `internet` excludes when it is on the LAN.
+    gateway_sources / gateway_ports: the hub's host addresses as a pod on another node sees them
+    (its flannel address and node IP) and the app's web port(s). The gateway runs on the hub host,
+    not in a pod, so the namespace rule never matches it; this lets it reach only those TCP ports.
     """
     ns = f"app-{app_id}"
     labels = {"onemind.io/app": app_id, "onemind.io/managed-by": "onemind-gateway"}
@@ -487,6 +523,13 @@ def network_policies(
     ingress: list[dict] = [{"from": [{"podSelector": {}}]}]
     if rules.proxy_label:
         ingress.append({"from": [{"namespaceSelector": {"matchLabels": dict(rules.proxy_label)}}]})
+    sources = list(dict.fromkeys(str(ipaddress.ip_address(a)) for a in gateway_sources))
+    ports = sorted(set(gateway_ports))
+    if sources and ports:
+        ingress.append({
+            "from": [{"ipBlock": {"cidr": f"{a}/{128 if ':' in a else 32}"}} for a in sources],
+            "ports": [{"protocol": "TCP", "port": p} for p in ports],
+        })
     egress_rules: list[dict] = [
         {"to": [{"podSelector": {}}]},
         {

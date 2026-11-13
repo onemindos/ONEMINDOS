@@ -47,6 +47,7 @@ from .policy import (
     pod_security_level,
     rendered_sha256,
     summarize,
+    web_ports,
 )
 
 log = logging.getLogger("onemind.executor")
@@ -205,6 +206,7 @@ class KubernetesExecutor(Executor):
         sleep: Callable[[float], None] = time.sleep,
         health_timeout_s: float = 120,
         resolve: Callable[[str], list[str]] | None = None,
+        hub_addresses: Callable[[], list[str]] | None = None,
     ):
         self.kubectl = kubectl
         self.timeout_s = timeout_s
@@ -222,6 +224,7 @@ class KubernetesExecutor(Executor):
         self.sleep = sleep
         self.health_timeout_s = health_timeout_s
         self.resolve = resolve or _resolve
+        self.hub_addresses = hub_addresses or (lambda: [])
 
     # ---- the documents the gateway itself writes ---------------------------------------------
     def namespace_doc(self, app: AppEntry, level: str) -> str:
@@ -264,6 +267,22 @@ class KubernetesExecutor(Executor):
             out.append((f"{addr}/{32 if addr.version == 4 else 128}", port))
         return out
 
+    def _netpols(self, app: AppEntry, egress: list[str] | None, agent: AgentSecret | None,
+                 rendered: str | None) -> list[dict]:
+        """Default-deny plus the allowances; the hub's host address may reach only the web port.
+
+        The gateway is a host process on the hub, so for an app whose pod runs on another node its
+        traffic arrives over the pod network from the hub's host addresses, which the namespace
+        rule does not match.
+        """
+        ports: list[int] = []
+        try:
+            ports = web_ports(app.manifest, parse_rendered(rendered or ""))
+        except yaml.YAMLError:
+            pass
+        sources = self.hub_addresses() if ports else []
+        return network_policies(app.id, egress or [], self.rules, self._gateway_egress(agent), sources, ports)
+
     def plan(
         self, action_type: str, app: AppEntry, agent: AgentSecret | None = None, *,
         rendered: str | None = None, level: str = "restricted", egress: list[str] | None = None,
@@ -281,7 +300,7 @@ class KubernetesExecutor(Executor):
             rb = self.rolebinding_doc(app)
             if rb is not None:
                 steps.append(([k, "apply", "-n", ns, "-f", "-"], rb))
-            netpols = network_policies(app.id, egress or [], self.rules, self._gateway_egress(agent))
+            netpols = self._netpols(app, egress, agent, rendered)
             steps.append(([k, "apply", "-n", ns, "-f", "-"], "\n---\n".join(json.dumps(d) for d in netpols)))
             if agent is not None:  # before the manifests, so the pods start with the Secret
                 # Server-side apply: a client-side `kubectl apply` would copy the whole object,
@@ -467,7 +486,7 @@ class KubernetesExecutor(Executor):
             return checked
         rendered, _level, egress, plan_info = checked
         report_progress("applying the new version", 35)
-        netpols = network_policies(app.id, egress or [], self.rules, self._gateway_egress(agent))
+        netpols = self._netpols(app, egress, agent, rendered)
         for argv, stdin in (
             ([k, "apply", "-n", ns, "-f", "-"], "\n---\n".join(json.dumps(d) for d in netpols)),
             ([k, "apply", "-n", ns, "-f", "-"], rendered),  # exactly the checked bytes
@@ -590,9 +609,50 @@ def _display(argv: Sequence[str], app: AppEntry) -> list[str]:
     return [a.replace(root, "$ONEMIND_APPS_DIR", 1) if a.startswith(root) else a for a in argv]
 
 
+def kubectl_hub_addresses(kubectl: str = "kubectl", *, timeout_s: float = 15,
+                          runner: Runner = subprocess.run, hostname: str | None = None) -> Callable[[], list[str]]:
+    """The addresses a pod on another node sees for traffic from this host (the hub).
+
+    Under flannel vxlan, host-originated traffic to a remote pod leaves via flannel.1, whose
+    address is the first address of this node's podCIDR; the node's InternalIP is included for
+    the host-gw and non-masqueraded cases. The hub node is the one named like this host. Empty
+    when it cannot be told, which leaves the policy closed.
+    """
+    name = (hostname or socket.gethostname()).split(".")[0].lower()
+
+    def find() -> list[str]:
+        try:
+            cp = runner([kubectl, "get", "nodes", "-o", "json"], capture_output=True, text=True,
+                        timeout=timeout_s, check=False)
+            items = json.loads(cp.stdout or "{}").get("items") or [] if cp.returncode == 0 else []
+        except (OSError, subprocess.SubprocessError, ValueError):
+            return []
+        out: list[str] = []
+        for node in items:
+            if str(((node.get("metadata") or {}).get("name") or "")).lower() != name:
+                continue
+            spec = node.get("spec") or {}
+            cidrs = list(spec.get("podCIDRs") or []) or ([spec["podCIDR"]] if spec.get("podCIDR") else [])
+            for c in cidrs:
+                try:
+                    out.append(str(ipaddress.ip_network(c, strict=False).network_address))
+                except ValueError:
+                    continue
+            for a in (node.get("status") or {}).get("addresses") or []:
+                if a.get("type") == "InternalIP":
+                    try:
+                        out.append(str(ipaddress.ip_address(a.get("address"))))
+                    except ValueError:
+                        continue
+        return out
+
+    return find
+
+
 def make_executor(
     name: str, kubectl: str = "kubectl", timeout_s: float = 300, sandbox: SandboxSettings | None = None
 ) -> Executor:
     if name == "kubernetes":
-        return KubernetesExecutor(kubectl=kubectl, timeout_s=timeout_s, sandbox=sandbox)
+        return KubernetesExecutor(kubectl=kubectl, timeout_s=timeout_s, sandbox=sandbox,
+                                  hub_addresses=kubectl_hub_addresses(kubectl))
     return NoopExecutor()

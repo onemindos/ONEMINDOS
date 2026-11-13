@@ -493,7 +493,7 @@ class Suite:
         ok = nos == "401" and bearer == "200" and noca == "000"
         self.R.set("N2-6", "PASS" if ok else "FAIL", f"https://vaultwarden.{BOX}.local: signed out {nos} (want 401), bearer {bearer} (want 200), no box CA {noca} (want 000 = handshake refused)")
         if not ok:
-            rc, diag = self.hubrun("k3s kubectl -n app-vaultwarden get pods,svc,netpol,endpoints -o wide 2>&1; journalctl -u onemind-gateway --no-pager -n 30 2>&1 | cut -c1-240", 90)
+            rc, diag = self.hubrun("k3s kubectl -n app-vaultwarden get pods,svc,netpol,endpoints -o wide 2>&1; for ip in $(k3s kubectl -n app-vaultwarden get pods,svc -o jsonpath='{range .items[*]}{.status.podIP}{\" \"}{.spec.clusterIP}{\" \"}{end}'); do echo \"hub->$ip:8080 \"$(curl -s -m 5 -o /dev/null -w '%{http_code}' http://$ip:8080/ 2>&1); done; k3s kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name} {.spec.podCIDR}{\"\n\"}{end}' 2>&1; ip -4 -o addr show flannel.1 2>&1; journalctl -u onemind-gateway --no-pager -n 30 2>&1 | cut -c1-240", 90)
             self.logs["n26-diagnostics.txt"] = diag
             return self.block(["N2-7"], "N2-6 did not pass")
         self.n27_echo(base, ca)

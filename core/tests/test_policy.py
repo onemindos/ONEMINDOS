@@ -18,7 +18,7 @@ from conftest import conform_to_schema, OWNER, FakeKubectl, action_body, fake_ku
 from onemind_core import policy
 from onemind_core.app import create_app
 from onemind_core.catalog import AppEntry, Catalog
-from onemind_core.executors import KubernetesExecutor
+from onemind_core.executors import KubernetesExecutor, kubectl_hub_addresses
 from onemind_core.policy import SandboxSettings
 
 REPO = Path(__file__).resolve().parents[2]
@@ -240,3 +240,69 @@ def test_approve_returns_policy_refused_and_fails_the_action(settings, clock, ru
     lines = [json.loads(x) for x in settings.audit_path.read_text().splitlines()]
     events = [x["event"] for x in lines]
     assert "policy.refused" in events and "action.rejected" not in events
+
+
+def _hub_rule(allow):
+    return [r for r in allow["spec"]["ingress"] if r["from"] and "ipBlock" in r["from"][0]]
+
+
+def test_network_policy_lets_only_the_hub_host_reach_the_web_port(rules):
+    allow = policy.network_policies(
+        "x", ["none"], rules, gateway_sources=["10.42.0.0", "192.0.2.10"], gateway_ports=[8080, 80])[1]
+    [rule] = _hub_rule(allow)
+    assert rule["from"] == [{"ipBlock": {"cidr": "10.42.0.0/32"}}, {"ipBlock": {"cidr": "192.0.2.10/32"}}]
+    assert rule["ports"] == [{"protocol": "TCP", "port": 80}, {"protocol": "TCP", "port": 8080}]
+    assert policy.network_policies("x", ["none"], rules, gateway_sources=["2001:db8::1"], gateway_ports=[80])[1][
+        "spec"]["ingress"][-1]["from"] == [{"ipBlock": {"cidr": "2001:db8::1/128"}}]
+
+
+def test_network_policy_has_no_hub_rule_without_an_address_or_a_port(rules):
+    for kw in ({}, {"gateway_sources": ["10.42.0.0"]}, {"gateway_ports": [80]}):
+        assert _hub_rule(policy.network_policies("x", ["none"], rules, **kw)[1]) == []
+
+
+def test_web_ports_follow_the_service_target_port():
+    manifest = {"spec": {"web": {"port": 8080}}}
+    docs = [
+        {"kind": "Deployment", "spec": {"template": {"spec": {"containers": [{"ports": [{"name": "http", "containerPort": 80}]}]}}}},
+        {"kind": "Service", "spec": {"ports": [{"port": 8080, "targetPort": "http"}, {"port": 9999, "targetPort": 9}]}},
+    ]
+    assert policy.web_ports(manifest, docs) == [80, 8080]
+    assert policy.web_ports({"spec": {}}, docs) == []
+
+
+def test_install_applies_the_hub_rule_only_for_the_web_port(rules, tmp_path):
+    app_dir = tmp_path / "good-minimal"
+    shutil.copytree(FIXTURES / "good-minimal", app_dir)
+    manifest = yaml.safe_load((app_dir / "onemind.app.yaml").read_text())
+    manifest["spec"]["web"] = {"port": 80}
+    (app_dir / "onemind.app.yaml").write_text(yaml.safe_dump(manifest))
+    run = FakeKubectl()
+    ex = KubernetesExecutor(runner=run, rules=rules, hub_addresses=lambda: ["10.42.0.0", "192.0.2.10"])
+    assert ex.run("app.install", entry(app_dir)).outcome == "succeeded"
+    docs = [json.loads(d) for d in run.cluster_calls[1][1].split("\n---\n")]
+    allow = next(d for d in docs if d["metadata"]["name"] == "onemind-allow")
+    [rule] = _hub_rule(allow)
+    assert [b["ipBlock"]["cidr"] for b in rule["from"]] == ["10.42.0.0/32", "192.0.2.10/32"]
+    assert rule["ports"] == [{"protocol": "TCP", "port": 80}]
+    # no known hub address: the policy stays closed
+    run2 = FakeKubectl()
+    assert KubernetesExecutor(runner=run2, rules=rules).run("app.install", entry(app_dir)).outcome == "succeeded"
+    assert "ipBlock" not in run2.cluster_calls[1][1].split("onemind-allow")[1].split('"egress"')[0]
+
+
+def test_kubectl_hub_addresses_reads_this_hosts_node():
+    nodes = {"items": [
+        {"metadata": {"name": "hub"}, "spec": {"podCIDR": "10.42.0.0/24", "podCIDRs": ["10.42.0.0/24"]},
+         "status": {"addresses": [{"type": "InternalIP", "address": "192.0.2.10"}, {"type": "Hostname", "address": "hub"}]}},
+        {"metadata": {"name": "node"}, "spec": {"podCIDR": "10.42.1.0/24"},
+         "status": {"addresses": [{"type": "InternalIP", "address": "192.0.2.11"}]}},
+    ]}
+
+    def runner(argv, **kw):
+        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(nodes), stderr="")
+
+    find = kubectl_hub_addresses
+    assert find(runner=runner, hostname="Hub.lan")() == ["10.42.0.0", "192.0.2.10"]
+    assert find(runner=runner, hostname="other")() == []
+    assert find(runner=lambda argv, **kw: subprocess.CompletedProcess(argv, 1, stdout="", stderr="x"), hostname="hub")() == []
