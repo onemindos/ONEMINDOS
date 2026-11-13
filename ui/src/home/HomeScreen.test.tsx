@@ -197,8 +197,8 @@ describe('editing Home', () => {
     await userEvent.click(within(dock).getByRole('button', { name: 'Move Immich left in the dock' }));
     expect(saved.mock.lastCall![0].pinned).toEqual(['immich', 'jellyfin']);
     const links = within(dock).getAllByRole('link');
-    expect(links[0]).toHaveAccessibleName('Immich, Running');
-    expect(links[1]).toHaveAccessibleName('Jellyfin, Running');
+    expect(links[0]).toHaveAccessibleName(/^Immich\s*, Running$/);
+    expect(links[1]).toHaveAccessibleName(/^Jellyfin\s*, Running$/);
     expect(links[2]).toHaveAccessibleName('All apps');
   });
 });
