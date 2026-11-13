@@ -27,6 +27,7 @@ from starlette.routing import Mount, Route, WebSocketRoute
 from conftest import ScriptedExecutor
 from onemind_core.app import create_app
 from onemind_core.files.settings import FilesSettings
+from onemind_core.photos import PhotosSettings
 
 # Columns of the matrix, in the order the report shows them.
 KINDS = (
@@ -118,7 +119,9 @@ class World:
         self._write_tokens(STATIC)
         self.executor = ScriptedExecutor()
         # FILES switched on with a temporary root, so its routes answer for real (not 503 "files_disabled").
-        sections = {**settings.sections, "files": FilesSettings(root=tmp_path / "files", min_free_bytes=0)}
+        # PHOTOS likewise (off, every caller would get 404 before the role gate runs).
+        sections = {**settings.sections, "files": FilesSettings(root=tmp_path / "files", min_free_bytes=0),
+                    "photos": PhotosSettings(enabled=True, dir=tmp_path / "photos")}
         self.settings = replace(settings, tokens_file=self.tokens_path, sections=sections)
         self.app = create_app(self.settings, clock=clock, executor=self.executor)
         self.client = TestClient(self.app, raise_server_exceptions=False)
@@ -525,7 +528,7 @@ KUBECONFIG = "apiVersion: v1\nkind: Config\n"
 MISSING = {"policy": "pol_0123456789abcdef", "rule": "rul_0123456789abcdef", "dest": "dst_0123456789abcdef",
            "run": "run_0123456789abcdef", "snap": "abcdef0123456789", "restore": "rst_0123456789abcdef",
            "plan": "mig_0123456789abcdef", "request": "frq_0123456789abcdef", "grant": "fgr_0123456789abcdef",
-           "upload": "upl_0123456789abcdef"}
+           "upload": "upl_0123456789abcdef", "source": "src_0123456789ABCDEFGHJKMNPQRS"}
 TUS = {"Tus-Resumable": "1.0.0"}
 UPLOAD_META = "filename cHJvYmUudHh0,root c2hhcmVk,path Lw=="  # filename=probe.txt root=shared path=/
 
