@@ -42,6 +42,18 @@
         "additionalProperties": true,
         "description": "One action of the ledger (contract §3). §12.4 adds optional fields; ignore what you do not know.",
         "properties": {
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Approving person's id; null before approval or on denial. decided_by/decided_at are retained.",
+            "title": "Approved By"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"

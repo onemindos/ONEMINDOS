@@ -451,6 +451,14 @@ class ActionService:
             f"action.{result.outcome}", None, a.id,
             {"executor": self.executor.name, "message": result.message, **ids},
         )
+        state = self.repo.get_app_state(app.id)
+        status = state.status if state else None
+        self.audit.append("app.status", None, a.id, {
+            "app_id": app.id, "status": "not_installed" if status in (None, "removed") else status,
+            "data_kept": status == "removed",
+        })
+        if a.type == "app.restart" and result.outcome == "succeeded":
+            self.audit.append("app.restarted", None, a.id, {"app_id": app.id})
         if a.type == "app.update" and result.reverted:
             self.audit.append(
                 "app.update_reverted", None, a.id,
