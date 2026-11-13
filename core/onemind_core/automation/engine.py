@@ -589,6 +589,10 @@ class AutomationService:
 
     # ---- dry run -------------------------------------------------------------------------------
     def dry_run(self, principal: Principal, rule_id: str, body: DryRunBody) -> dict:
+        # A dry run writes a record that unlocks enabling and costs a scan of recent events:
+        # the owner and agents (which propose rules) may run one; other accounts may not.
+        if not (principal.is_owner or principal.kind == "agent"):
+            raise self._deny(principal, "dry-run automation rules")
         rule = self._rule(rule_id)
         now = self.clock()
         is_event = "event" in rule.trigger

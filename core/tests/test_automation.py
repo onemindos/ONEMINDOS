@@ -151,6 +151,8 @@ def test_enable_needs_a_fresh_dry_run_of_the_current_revision(client, clock):
     enable(client, rule["id"])
     assert client.post(f"/v1/automation/rules/{rule['id']}/disable", headers=AGENT).json()["enabled"] is False
     assert client.post(f"/v1/automation/rules/{rule['id']}/disable", headers=GUEST).status_code == 403
+    # A dry run unlocks enabling and costs an event scan: guests may not run one.
+    assert client.post(f"/v1/automation/rules/{rule['id']}/dry-run", json={}, headers=GUEST).status_code == 403
     assert client.delete(f"/v1/automation/rules/{rule['id']}", headers=OWNER).status_code == 204
 
 
