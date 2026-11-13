@@ -1,0 +1,16 @@
+{
+  "format": "hermes-source-transfer/v1",
+  "lane": "notify",
+  "created_at_utc": "20261113T064930Z",
+  "warning": "WIP TRANSFER ONLY: not tested as a final candidate, not merge-ready. No PR is opened for this checkpoint.",
+  "original_branch": "fix/notify-test-hermetic",
+  "original_head": "8f47821f2cf8174fc1874e2811766cfcd6197348",
+  "original_merge_heads": [],
+  "unresolved_paths": [],
+  "preserved_index_commit": "f615841f41192a34bbaedb8037197c966971ac4e",
+  "index_entries": [],
+  "working_source_digests": [],
+  "pending_missing_paths_not_applied": [],
+  "excluded": "Dependency links, environments, caches, credentials and raw execution logs are not exported.",
+  "instructions": "Inspect this checkpoint and its parent index checkpoint. Do not merge it. Use original feature branch and original merge head for integration; preserve both parents and re-run all checks. Original local merge/index state is retained on the originating worker."
+}
