@@ -277,3 +277,26 @@ def test_fuzz_config_scopes_503_to_backups_and_412_to_tus(client, monkeypatch, t
     assert "412" in seen["POST /v1/files/uploads"]["negative_data_rejection"]
     assert "412" not in seen["POST /v1/files/ops"]["negative_data_rejection"]
     assert "412" in seen["HEAD /v1/files/uploads/{upload_id}"]["missing_required_header"]
+
+
+def test_openapi_bounds_use_json_schema_keywords():
+    # ge/le/gt/lt are pydantic names, not JSON Schema: a bound written that way is invisible to clients
+    # and to the fuzzer (it generated 2**63 for files quotas). JSON Schema says minimum/maximum.
+    import json
+    from pathlib import Path
+
+    spec = json.loads((Path(__file__).resolve().parents[2] / "sdk/openapi/onemind-v1.json").read_text())
+    leaks: list[str] = []
+
+    def walk(o, path):
+        if isinstance(o, dict):
+            if "type" in o and {"ge", "le", "gt", "lt"} & o.keys():
+                leaks.append(path)
+            for k, v in o.items():
+                walk(v, f"{path}/{k}")
+        elif isinstance(o, list):
+            for i, v in enumerate(o):
+                walk(v, f"{path}[{i}]")
+
+    walk(spec, "")
+    assert not leaks, leaks

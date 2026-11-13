@@ -154,7 +154,9 @@ class QuotaBody(BaseModel):
     # JSON Schema's integer includes 5.0 but not true. The column is a signed 64-bit integer (2**63 was a 500);
     # the bound is a round number every JSON client reads exactly (a float cannot hold 2**63 - 1 or 2**53 - 1
     # at the edge, and Schemathesis generated the value just past it).
-    limit_bytes: Annotated[int, BeforeValidator(_not_a_bool), Field(ge=0, le=MAX_QUOTA_BYTES)] | None
+    # The bound sits before the validator: after a BeforeValidator, pydantic writes ge/le into the schema
+    # as raw keys instead of minimum/maximum, and the fuzzer then sends values the server refuses.
+    limit_bytes: Annotated[int, Field(ge=0, le=MAX_QUOTA_BYTES), BeforeValidator(_not_a_bool)] | None
 
 
 IdemKey = Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)]

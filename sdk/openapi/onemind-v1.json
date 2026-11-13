@@ -2655,8 +2655,8 @@
           "limit_bytes": {
             "anyOf": [
               {
-                "ge": 0,
-                "le": 1000000000000000,
+                "maximum": 1000000000000000.0,
+                "minimum": 0.0,
                 "type": "integer"
               },
               {
