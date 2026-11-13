@@ -15,7 +15,7 @@ import anyio
 from fastapi import Body, Depends, FastAPI, Header, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Field
 from starlette.requests import ClientDisconnect
 
 from ..auth import Principal
@@ -48,6 +48,12 @@ _ERR = {
 
 def errs(*codes: int) -> dict:
     return {c: _ERR[c] for c in codes}
+
+
+def _not_a_bool(v):
+    if isinstance(v, bool):
+        raise ValueError("expected an integer, not a boolean")
+    return v
 
 
 # ---- bodies -------------------------------------------------------------------------------
@@ -142,7 +148,8 @@ class DenyBody(BaseModel):
 
 class QuotaBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    limit_bytes: Annotated[int, Field(strict=True, ge=0)] | None
+    # JSON Schema's integer includes 5.0 but not true; the column is a signed 64-bit integer (2**63 was a 500).
+    limit_bytes: Annotated[int, BeforeValidator(_not_a_bool), Field(ge=0, le=2**63 - 1)] | None
 
 
 IdemKey = Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)]

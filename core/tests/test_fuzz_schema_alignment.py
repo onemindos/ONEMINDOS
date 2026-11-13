@@ -239,6 +239,16 @@ def test_semantic_validation_refusals_name_their_reason(client):
     assert r.status_code == 422 and "reason" not in r.json()
 
 
+def test_quota_limit_is_a_bounded_integer_not_a_500(fc):
+    """limit_bytes 2**63 overflowed the 64-bit column: an unhandled 500 found by api-fuzz. Now a 422."""
+    url = "/v1/files/quotas/alice"
+    assert fc.put(url, headers=OWNER, json={"limit_bytes": 2**63}).status_code == 422
+    assert fc.put(url, headers=OWNER, json={"limit_bytes": False}).status_code == 422
+    assert fc.put(url, headers=OWNER, json={"limit_bytes": -1}).status_code == 422
+    assert fc.put(url, headers=OWNER, json={"limit_bytes": 2**63 - 1}).status_code == 200
+    assert fc.put(url, headers=OWNER, json={"limit_bytes": 1024.0}).status_code == 200  # a whole number is an integer
+
+
 def test_fuzz_config_scopes_503_to_backups_and_412_to_tus(client, monkeypatch, tmp_path):
     """The path families apply to their routes only (include-path + include-method once leaked to every POST)."""
     pytest.importorskip("schemathesis")
