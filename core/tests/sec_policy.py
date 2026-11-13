@@ -448,3 +448,37 @@ POLICY |= {
         ("DELETE", "/v1/migrate/repo/{plan_id}/{typ}/{name}", "/v1/migrate/repo/{plan}/data/ab"),
     ]
 }
+
+# ---- networking: feat/net-part2 (CORE-NET-12; contract §12.7 box CA, §12.11 fabric joins, §12.1 rate limits) ------
+# Join tickets are an owner's: a ticket is what lets a machine ask to join the box (agents and guests never mint
+# or list them; every refusal is audited, FabricService._deny). A joining node has no session: the one-time join
+# code in the body (or in the poll's headers) is its only credential, so a bearer token is neither needed nor
+# looked at, and a code the hub never issued is 401 for every caller. The box CA is public data.
+_NET = "contract §12.11, core/onemind_core/routers/net.py"
+_JOIN_CODE = f"{_NET}: no session, the one-time join code authenticates (rate limited per source, §12.1)"
+POLICY |= {
+    ("POST", "/v1/fabric/join-tickets"): Row(grid(201, 403, 403, 403, 403), w.p_missing("/v1/fabric/join-tickets", json={}),
+                                             f"{_NET}: only the owner lets a machine join (an agent never mints a ticket)"),
+    ("GET", "/v1/fabric/join-tickets"): Row(ONLY_OWNER, w.p_static("/v1/fabric/join-tickets"), f"{_NET}: owner only"),
+    ("DELETE", "/v1/fabric/join-tickets/{ticket_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/fabric/join-tickets/tkt_0123456789abcdef"),
+                                                           f"{_NET}: owner only; the gate runs before the lookup"),
+    ("POST", "/v1/fabric/join-requests"): Row(cells(401), w.p_join_request, _JOIN_CODE, challenge="bearer"),
+    ("GET", "/v1/fabric/join-requests/{request_id}"): Row(cells(404), w.p_missing("/v1/fabric/join-requests/jrq_0123456789abcdef"),
+                                                          f"{_JOIN_CODE}; an unknown request id is 404 before any code is checked"),
+    ("GET", "/v1/fabric"): Row(CHILD_CANNOT, w.p_static("/v1/fabric"),
+                               f"{_NET}: the fabric summary (nodes, pending joins) like /v1/nodes: a child has no nodes:read (§12.6)"),
+    ("GET", "/v1/mesh"): Row(CHILD_CANNOT, w.p_static("/v1/mesh"),
+                             f"{_NET}: the mesh view (nodes, devices, app URLs); a child has no nodes:read; mesh addresses are owner only (?addresses)"),
+    ("GET", "/v1/tls"): Row(CHILD_CANNOT, w.p_static("/v1/tls"),
+                            "contract §12.7: CA fingerprint and names to any signed-in caller; a child's role defaults do not cover it"),
+    ("GET", "/v1/tls/ca.crt"): Row(cells(200), w.p_static("/v1/tls/ca.crt"),
+                                   "contract §12.7: the box CA is public data; a phone or node needs it before it can sign in"),
+    ("GET", "/v1/auth/forward"): Row(cells(404), w.p_static("/v1/auth/forward"),
+                                     "NETWORKING §9.3: forward-auth for the app proxy, loopback only (the test client is not loopback: 404)"),
+    ("POST", "/v1/auth/app-session"): Row(
+        cells(403, **GONE, owner=204, adult=204, guest=204, child=204, **PENDING_DENY), w.p_static("/v1/auth/app-session"),
+        "NETWORKING §9: a person's own bearer becomes the app-host cookie; agents are not people",
+        gaps={k: NO_AUDIT for k in ("agent", "app-agent")}),
+    ("DELETE", "/v1/auth/app-session"): Row(cells(204), w.p_static("/v1/auth/app-session"),
+                                            "NETWORKING §9: only clears the caller's own cookie; no data, so no credential"),
+}

@@ -557,3 +557,12 @@ def p_missing(path: str, *, json: Any = None, content: bytes | None = None, head
     """A probe for `path` with {policy}-style placeholders filled from MISSING (an object that is not there)."""
     concrete = path.format(**MISSING)
     return lambda w: Req(concrete, json=json, content=content, headers=dict(headers or {}))
+
+
+# ---- networking (feat/net-part2: join tickets, join requests, mesh, box CA, app sessions) --------------------
+def p_join_request(w: World) -> Req:
+    """A joining node's request with a well-formed body and a join code the hub never issued: the code is the
+    only credential on this route, so every caller (with or without a bearer token) is told 401 unknown code."""
+    return Req("/v1/fabric/join-requests", json={
+        "join_code": "ABCD-EFGH-JKMN", "csr_pem": "x" * 120, "nats_pubkey": "U" + "A" * 55,
+        "node": {"node_id": "f1e2d3c4b5a6", "hostname": "probe-node", "board": "x86_64-efi", "arch": "amd64"}})
