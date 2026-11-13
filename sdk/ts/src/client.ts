@@ -48,6 +48,9 @@ export interface RequestActionInput {
   appId: string;
   /** Default 24 h, counted on the hub's clock. */
   expiresInMs?: number;
+  /** An absolute RFC 3339 expiry; wins over expiresInMs. A caller replaying one logical request by
+   * hand passes the same value, because the hub compares it (to the second) with the first call. */
+  expiresAt?: string;
   /** Default: a fresh UUIDv4, reused on every retry of this one call. */
   idempotencyKey?: string;
 }
@@ -145,7 +148,8 @@ export class OneMind {
         type: input.type,
         params: { app_id: input.appId },
         idempotency_key: input.idempotencyKey ?? uuid4(),
-        expires_at: new Date(this.hubNow() + (input.expiresInMs ?? 24 * 3600_000)).toISOString().replace(/\.\d{3}Z$/, "Z"),
+        expires_at: input.expiresAt
+          ?? new Date(this.hubNow() + (input.expiresInMs ?? 24 * 3600_000)).toISOString().replace(/\.\d{3}Z$/, "Z"),
       };
       return this.call<Action>({ method: "POST", path: "/v1/actions", body, retry: true });
     },

@@ -250,12 +250,19 @@ class CredentialStore(SqlRepository):
             pass
         self.key_path.parent.mkdir(parents=True, exist_ok=True)
         key = secrets.token_bytes(32)
-        try:
-            fd = os.open(self.key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        except FileExistsError:  # another request created it first: use theirs, never overwrite
-            return bytes.fromhex(self.key_path.read_text().strip())
+        # Write the whole key to a private temp file, then hard-link it into place: the link is
+        # atomic and fails if the key exists, so a concurrent reader never sees a half-written key
+        # and nobody overwrites a key that already sealed passwords.
+        tmp = self.key_path.with_name(f".{self.key_path.name}.{secrets.token_hex(4)}.tmp")
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "w") as f:
             f.write(key.hex())
+        try:
+            os.link(tmp, self.key_path)
+        except FileExistsError:  # another request created it first: use theirs
+            return bytes.fromhex(self.key_path.read_text().strip())
+        finally:
+            tmp.unlink(missing_ok=True)
         return key
 
     def has(self, app_id: str) -> bool:
