@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# A StorageClass whose provisioner hands out host paths. Expected: K-01.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata: {name: escape}
+provisioner: rancher.io/local-path
+parameters: {nodePath: /}

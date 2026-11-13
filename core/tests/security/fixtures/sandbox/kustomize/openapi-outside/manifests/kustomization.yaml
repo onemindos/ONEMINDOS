@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# A custom OpenAPI schema read from outside the app folder. Expected: Z-02.
+resources: [deployment.yaml]
+openapi: {path: /etc/kubernetes/schema.json}

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# An inline JSON 6902 patch turns on hostNetwork after review of deployment.yaml. Expected: F-01.
+resources: [deployment.yaml]
+patches:
+  - target: {kind: Deployment, name: app}
+    patch: |-
+      - op: add
+        path: /spec/template/spec/hostNetwork
+        value: true

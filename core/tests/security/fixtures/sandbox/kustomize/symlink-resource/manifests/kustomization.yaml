@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: Apache-2.0
+# A resource that is a symlink to a file outside the app folder (the test makes the link). Expected: Z-02.
+resources: [deployment.yaml, loot.yaml]

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# A ValidatingAdmissionPolicy that can deny the gateway's own writes. Expected: K-01.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata: {name: escape}
+spec:
+  failurePolicy: Fail
+  matchConstraints: {resourceRules: [{apiGroups: ["*"], apiVersions: ["*"], operations: ["*"], resources: ["*"]}]}
+  validations: [{expression: "false"}]

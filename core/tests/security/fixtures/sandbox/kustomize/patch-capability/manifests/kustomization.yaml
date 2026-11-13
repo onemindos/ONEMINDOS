@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# A patch adds CAP_SYS_ADMIN. Expected: F-07.
+resources: [deployment.yaml]
+patches:
+  - target: {kind: Deployment}
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/securityContext/capabilities/add
+        value: [SYS_ADMIN]

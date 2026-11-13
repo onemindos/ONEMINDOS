@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: app}
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: grab
+          image: ghcr.io/example/app:1.0@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          volumeMounts: [{name: host, mountPath: /host}]
+      volumes:
+        - name: host
+          hostPath: {path: /}
