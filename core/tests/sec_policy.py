@@ -428,3 +428,30 @@ POLICY |= {
         ("DELETE", "/v1/migrate/repo/{plan_id}/{typ}/{name}", "/v1/migrate/repo/{plan}/data/ab"),
     ]
 }
+
+# ---- photos (docs/leap/core/PHOTOS.md; core/tests/test_photos*.py) ---------------------------------------------
+# The matrix gateway runs with Photos switched off, so every caller that holds a credential and the scope is told
+# 404 "not turned on" (the switch is checked before the role); a child lacks the scope and is told 403.
+_PHOTOS = "docs/leap/core/PHOTOS.md; core/tests/test_photos*.py"
+_UPLOAD_HEADERS = {
+    "Upload-Length": "1", "Upload-Complete": "?1", "OneMind-Source-Id": "src_00000000000000000000000000",
+    "OneMind-Client-Key": "probe", "OneMind-Content-Hash": "sha256:" + "0" * 64,
+}
+PHOTOS_OFF = grid(404, 404, 404, 403, 404)
+POLICY |= {
+    ("POST", "/v1/photos/sources"): Row(PHOTOS_OFF, w.p_missing("/v1/photos/sources", json={"client_id": "probe-phone", "name": "Probe", "platform": "ios"}),
+                                        f"{_PHOTOS}: a person's own phone; off here"),
+    ("POST", "/v1/photos/sources/{source_id}/check"): Row(PHOTOS_OFF, w.p_missing("/v1/photos/sources/{source}/check", json={"items": []}),
+                                                          f"{_PHOTOS}: owner or adult; off here"),
+    ("GET", "/v1/photos/sources/{source_id}/coverage"): Row(PHOTOS_OFF, w.p_missing("/v1/photos/sources/{source}/coverage"),
+                                                            f"{_PHOTOS}: owner or adult; off here"),
+    ("GET", "/v1/photos/sources/{source_id}/receipts"): Row(PHOTOS_OFF, w.p_missing("/v1/photos/sources/{source}/receipts"),
+                                                            f"{_PHOTOS}: owner or adult; off here"),
+    ("POST", "/v1/photos/uploads"): Row(PHOTOS_OFF, w.p_missing("/v1/photos/uploads", headers=_UPLOAD_HEADERS),
+                                        f"{_PHOTOS}: owner or adult; off here"),
+    ("HEAD", "/v1/photos/uploads/{upload_id}"): Row(PHOTOS_OFF, w.p_missing("/v1/photos/uploads/{upload}"),
+                                                    f"{_PHOTOS}: owner or adult; off here"),
+    ("PATCH", "/v1/photos/uploads/{upload_id}"): Row(PHOTOS_OFF, w.p_missing("/v1/photos/uploads/{upload}", content=b"x",
+                                                     headers={"Upload-Offset": "0", "Upload-Complete": "?1"}),
+                                                     f"{_PHOTOS}: owner or adult; off here"),
+}

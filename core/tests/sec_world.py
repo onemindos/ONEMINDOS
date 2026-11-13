@@ -525,7 +525,7 @@ KUBECONFIG = "apiVersion: v1\nkind: Config\n"
 MISSING = {"policy": "pol_0123456789abcdef", "rule": "rul_0123456789abcdef", "dest": "dst_0123456789abcdef",
            "run": "run_0123456789abcdef", "snap": "abcdef0123456789", "restore": "rst_0123456789abcdef",
            "plan": "mig_0123456789abcdef", "request": "frq_0123456789abcdef", "grant": "fgr_0123456789abcdef",
-           "upload": "upl_0123456789abcdef"}
+           "upload": "upl_0123456789abcdef", "source": "src_00000000000000000000000000"}
 TUS = {"Tus-Resumable": "1.0.0"}
 UPLOAD_META = "filename cHJvYmUudHh0,root c2hhcmVk,path Lw=="  # filename=probe.txt root=shared path=/
 
