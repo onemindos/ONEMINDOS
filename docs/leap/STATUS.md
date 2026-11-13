@@ -48,6 +48,7 @@
 
 | Id | Title | State | Branch | PR |
 |---|---|---|---|---|
+| TEST-CI-A3 | CI test matrix: 3-engine browser tests (axe + visual baseline), weekly amd64+arm64 app gate, mobile builds, site link check | review | `feat/test-ci-matrix` | [#42](https://github.com/onemindos/ONEMINDOS/pull/42) |
 | OS-UPDATER | onemindd OS updater: TUF-verified, policy and window, restic pre-sn… | done | `feat/onemindd-updater` | [#15](https://github.com/onemindos/ONEMINDOS/pull/15) |
 | OS-SECPIPE | OS security pipeline: nightly Debian check, rebuild, SBOM/CVE+VEX/C… | done | `feat/os-security-pipeline` | [#14](https://github.com/onemindos/ONEMINDOS/pull/14) |
 | CORE-UPDATE-1 | Land both update branches with CI green | done | (both update branches) | #15 and [#14](https://github.com/onemindos/ONEMINDOS/pull/14) merged |
@@ -177,17 +178,19 @@
 | CORE-NET-14 | Pi budget, throughput and phone matrix on hardware (VM budget + perf-smoke CI: `feat/perf-budget`; Pi numbers wait on F-25) | in-progress (merged in #68; rest unverified) | feat/perf-budget | [#68](https://github.com/onemindos/ONEMINDOS/pull/68) |
 | CORE-NET-15 | Public app exposure through the relay | parked | – | – |
 | DEV-CLI-8 | `fabric qr/join/leave/remove` and `node join` alias | todo | – | – |
-| CORE-BACKUP-1 | `onemind-local` Retain StorageClass as default | todo | – | – |
+| CORE-BACKUP-1 | `onemind-local` Retain StorageClass as default | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
 | CORE-BACKUP-2 | `internal/backup` agent: restic, schedule, three keys, emergency kit | done | `feat/onemindd-backup` | [#32](https://github.com/onemindos/ONEMINDOS/pull/32) |
-| CORE-BACKUP-3 | k3s datastore online backup with integrity gate | todo | – | – |
-| CORE-BACKUP-4 | Destinations: USB, another OneMind box (append-only), S3 | todo | – | – |
-| CORE-BACKUP-5 | Manifest `backup:` hooks | todo | – | – |
-| CORE-BACKUP-6 | Restore file, app or box, approval-gated; restore at onboarding | todo | – | – |
-| CORE-BACKUP-7 | Verified-restore badge (daily check, weekly scratch restore) | todo | – | – |
+| CORE-BACKUP-3 | k3s datastore online backup with integrity gate | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| CORE-BACKUP-4 | Destinations: USB, another OneMind box (append-only), S3 | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| CORE-BACKUP-5 | Manifest `backup:` hooks | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| CORE-BACKUP-6 | Restore file, app or box, approval-gated; restore at onboarding | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| CORE-BACKUP-7 | Verified-restore badge (daily check, weekly scratch restore) | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
 | CORE-NOTIFY-1 | Alert record and store, `/v1/alerts`, NATS subjects, in-app inbox | in-progress (merged in #44; rest unverified) | `feat/notify-monitor` | [#44](https://github.com/onemindos/ONEMINDOS/pull/44) |
 | DEV-API-12 | Notifications route shapes | in-progress (merged in #44; rest unverified) | built inside CORE-NOTIFY-1 (`feat/notify-monitor`) | [#44](https://github.com/onemindos/ONEMINDOS/pull/44) |
-| CORE-BACKUP-8 | Backups API, screen and alerts | todo | – | – |
-| DEV-API-11 | Backups and restores route shapes | todo | built inside CORE-BACKUP-8 | – |
+| BACKUP-WIRE-1 | One backup service inside onemindd, signed jobs, heartbeat `backup`, Debian 13 proof (extends CORE-BACKUP-2) | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| DB-SHARED-1 | Shared PostgreSQL for apps with `spec.database` | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| CORE-BACKUP-8 | Backups API, screen and alerts | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| DEV-API-11 | Backups and restores route shapes | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
 | DEV-CLI-7 | `backup status/list/now/verify` and `restore` | todo | – | – |
 | CORE-NOTIFY-2 | Sources: approvals, nodes, updates, backups, scans, audit (H-28) | in-progress (merged in #44; rest unverified) | `feat/notify-monitor`: all but the audit-chain check (H-28) | [#44](https://github.com/onemindos/ONEMINDOS/pull/44) |
 | CORE-NOTIFY-3 | Web Push and Android UnifiedPush via the box's ntfy; push registrat… | in-progress (merged in #44; rest unverified) | `feat/notify-monitor`: gateway side done (VAPID, RFC 8291, registrations); browser and phone sides open | [#44](https://github.com/onemindos/ONEMINDOS/pull/44) |
@@ -328,10 +331,10 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-AGT-1 | Contract: agents, pairings, new request types, request_access, tr… | todo | – | – |
 | UMB-AGT-3 | Agent pairing (device-code shape): `/v1/agent-pairings*`, limits, pa… | todo | – | – |
 | UMB-AGT-4 | Persistent MCP client identity, capped agent_clients, agent.ident… | todo | – | – |
-| UMB-APP-0 | Contract: app lifecycle action types, /v1/apps/{id} detail, /plan… | todo | – | – |
+| UMB-APP-0 | Contract: app lifecycle action types, /v1/apps/{id} detail, /plan… | review | `feat/app-lifecycle` | – |
 | UMB-APP-2 | Signed catalog: CI builds `catalog.json` with a cosign signature; ga… | todo | – | – |
 | UMB-APP-12 | Logs endpoint, redacted | todo | – | – |
-| UMB-APP-3 | Plan endpoint with dependency resolution, alternatives and dependant… | todo | – | – |
+| UMB-APP-3 | Plan endpoint with dependency resolution, alternatives and dependant… | review | `feat/app-lifecycle` | – |
 | UMB-APP-18 | Schema: tagline, category, tags, developer, gallery, rela… | todo | – | – |
 | UMB-CLIENT-0 | Contract 12-clients: discovery, devices, photo sources, shares, even… | todo | – | – |
 | UMB-CLIENT-1 | Discovery: `_onemind._tcp` advert and `GET /v1/discovery` with the C… | todo | – | – |
@@ -377,8 +380,8 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-ACCT-11 | Phone: OIDC sign-in in the system browser, secure refresh token, chi… | todo | – | – |
 | UMB-ACCT-12 | Identity in backups and restore | todo | – | – |
 | UMB-APP-1 | App gate computes install size, archs, release notes, gallery checks | todo | – | – |
-| UMB-APP-4 | Lifecycle actions start, stop, restart, update, configure with progr… | todo | – | – |
-| UMB-APP-5 | Remove keeps data; separate owner-only data delete with typed confir… | todo | – | – |
+| UMB-APP-4 | Lifecycle actions start, stop, restart, update, configure with progr… | review | `feat/app-lifecycle` | – |
+| UMB-APP-5 | Remove keeps data; separate owner-only data delete with typed confir… | review | `feat/app-lifecycle` | – |
 | UMB-APP-9 | Host ports with conflict check in the plan; avahi name per app | todo | – | – |
 | UMB-APP-13 | App page and Market polish: facts band, permissions, notes, related… | todo | – | – |
 | UMB-AGT-5 | `onemind mcp pair` and `onemind mcp setup <client>`; keychain; confi… | todo | – | – |

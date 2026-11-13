@@ -14,6 +14,7 @@ import pytest
 from onemind_sdk import (
     AmbiguousResult, Client, Expired, NetworkError, NotFound, OneMindError, UnexpectedResponse,
 )
+from onemind_sdk import _core as core
 from onemind_sdk import aio
 from onemind_sdk._core import SseParser
 
@@ -97,6 +98,41 @@ def test_request_reuses_key_and_uses_hub_clock():
 
     a = make(h).actions.request("app.install", "ntfy")
     assert a.state == "awaiting_approval" and len(keys) == 2 and keys[0] == keys[1]
+
+
+def test_request_reuses_expires_at_for_one_key_across_seconds():
+    # The hub's clock (Date header) moves 5 s per answer, so a recomputed expires_at would differ.
+    tick = {"n": 0}
+    bodies = []
+
+    def h(req):
+        tick["n"] += 1
+        date = format_datetime(datetime.now(UTC) + timedelta(seconds=5 * tick["n"]), usegmt=True)
+        if req.url.path == "/v1/instance":
+            return httpx.Response(200, json={"name": "x", "version": "0", "hub_node_id": None}, headers={"date": date})
+        bodies.append(json.loads(req.content))
+        return httpx.Response(201, json=action("awaiting_approval"), headers={"date": date})
+
+    for client in (make(h),):
+        client.actions.request("app.install", "ntfy", idempotency_key="k1")
+        client.actions.request("app.install", "ntfy", idempotency_key="k1")
+        client.actions.request("app.install", "ntfy", idempotency_key="k2")
+        client.actions.request("app.install", "ntfy")
+        client.actions.request("app.install", "ntfy")
+    assert bodies[0]["expires_at"] == bodies[1]["expires_at"]
+    assert bodies[2]["expires_at"] != bodies[0]["expires_at"]  # another key gets its own
+    assert bodies[3]["idempotency_key"] != bodies[4]["idempotency_key"]  # no key: fresh uuid each call
+
+
+def test_expiry_memo_is_bounded_and_drops_expired():
+    memo = core.ExpiryMemo()
+    now = datetime(2030, 1, 1, tzinfo=UTC)
+    for i in range(core.ExpiryMemo.MAX + 10):
+        memo.get(f"k{i}", now, timedelta(hours=1))
+    assert len(memo._by_key) == core.ExpiryMemo.MAX
+    later = now + timedelta(hours=2)
+    first = memo.get("fresh", later, timedelta(hours=1))
+    assert list(memo._by_key) == ["fresh"] and first == "2030-01-01T03:00:00Z"
 
 
 @pytest.mark.parametrize("principal,decided,ok", [("owner", "owner", True), ("owner", "other", False), (None, "owner", False)])
