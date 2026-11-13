@@ -142,7 +142,9 @@ class PropertyExample:
                             assert resolved == self.schema, "property table escaped its allocated schema"
                 else:
                     observed = connection.exec_driver_sql("PRAGMA database_list").all()
-                    assert next(r[2] for r in observed if r[1] == "main") == str(self.root / "ledger.sqlite")
+                    # Compare real paths: macOS reports /private/var for a /var temp dir.
+                    actual = next(r[2] for r in observed if r[1] == "main")
+                    assert os.path.realpath(actual) == os.path.realpath(self.root / "ledger.sqlite")
 
     def audit_records(self):
         if not self.audit_path.exists():

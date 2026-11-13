@@ -59,7 +59,9 @@ def test_every_undocumented_method_is_405_with_allow(property_resources, operati
                 r = gateway.request(method, path, headers=OWNER)
                 assert r.status_code == 405, (method, path, r.status_code)
                 allow = {m.strip() for m in r.headers.get("allow", "").split(",") if m.strip()}
-                assert allow - {"HEAD"} == methods, (method, path, r.headers.get("allow"))
+                # Starlette adds HEAD to GET routes, so HEAD in Allow is optional unless documented.
+                assert allow - {"HEAD"} == methods - {"HEAD"}, (method, path, r.headers.get("allow"))
+                assert methods & {"HEAD"} <= allow, (method, path, r.headers.get("allow"))
                 assert r.json()["error"] == "not_found"  # §12.2: method_not_allowed is opt-in
 
 
@@ -71,7 +73,11 @@ def test_any_body_gets_a_documented_status(property_resources, operations, data,
     # Allocate inside @given: shrinking/replay must not reuse database/guard state.
     with property_resources.example() as sample, sample.http() as gateway:
         r = gateway.post(path, content=body, headers={**who, "Content-Type": "application/json"})
-    assert r.status_code < 500, (path, body, r.text)
-    assert r.status_code in documented, (path, body, r.status_code, r.text)
+    # §12.2 documents exactly one deliberate 5xx: a switched-off backup feature answers
+    # 503 unavailable/backups_disabled in the §3 envelope. Any other 5xx is still a failure.
+    switched_off = (r.status_code == 503 and path.startswith("/v1/backups")
+                    and r.json().get("error") == "unavailable" and r.json().get("reason") == "backups_disabled")
+    assert r.status_code < 500 or switched_off, (path, body, r.text)
+    assert r.status_code in documented or switched_off, (path, body, r.status_code, r.text)
     if r.status_code >= 400:
         assert r.json()["error"], r.text  # always the §3 envelope
