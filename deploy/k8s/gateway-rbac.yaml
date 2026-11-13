@@ -115,7 +115,7 @@ spec:
     - expression: >-
         request.namespace.startsWith("app-") ||
         (request.resource.resource == "namespaces" && request.subResource == "" && request.name.startsWith("app-")) ||
-        (request.namespace == "kube-system" && request.resource.resource == "secrets" && request.subResource == "" &&
+        (request.namespace == "kube-system" && request.resource.resource == "secrets" && (!has(request.subResource) || request.subResource == "") &&
          request.name.startsWith("bootstrap-token-") &&
          (request.operation == "DELETE" || object.type == "bootstrap.kubernetes.io/token"))
       message: the OneMind gateway may only change app-* namespaces and what is inside them, and node join tokens in kube-system
