@@ -24,6 +24,7 @@ from pathlib import Path
 from .auditread import can_read_all, glob_any, iter_records
 from .auth import Principal
 
+
 SCHEMA = "onemind.event/v1"
 REPLAY_MAX = 10_000
 KEEPALIVE_S = 15.0
@@ -65,6 +66,33 @@ def events_for_record(rec: dict) -> list[dict]:
     elif event in ACTION_STATES and action_id:
         out.append(_envelope(seq, "action.state_changed", ts, {"action_id": action_id},
                              {"to": ACTION_STATES[event], "audit_event": event}, actor))
+    # Only explicit producer facts are mapped: never forward arbitrary audit payloads.
+    data = rec.get("data") or {}
+    payload = data.get("payload", data)
+    mapped = None
+    if event == "action.progress" and action_id and payload.get("app_id"):
+        mapped = (event, {"action_id": action_id, "app_id": payload["app_id"]},
+                  {k: payload[k] for k in ("step", "pct") if k in payload})
+    if event in {"alert.opened", "alert.updated", "alert.acknowledged", "alert.resolved"}:
+        if payload.get("alert_id"):
+            mapped = ("alert.updated" if event == "alert.acknowledged" else event,
+                      {"alert_id": payload["alert_id"]}, {"state": payload.get("state")})
+    elif event == "notification.created" and payload.get("notification_id"):
+        mapped = (event, {"notification_id": payload["notification_id"]}, {})
+    elif event in {"app.status", "app.restarted", "app.healthy", "app.unhealthy"} and payload.get("app_id"):
+        subject = {"app_id": payload["app_id"]}
+        if action_id:
+            subject["action_id"] = action_id
+        if event in {"app.healthy", "app.unhealthy"}:
+            mapped = ("app.health", subject, {"state": event.split(".")[1]})
+        elif event == "app.status":
+            mapped = (event, subject, {k: payload[k] for k in ("status", "data_kept") if k in payload})
+        else:
+            mapped = (event, subject, {})
+    if mapped:
+        ev = _envelope(seq, mapped[0], ts, mapped[1], mapped[2], actor)
+        ev["severity"] = data.get("severity", "info")
+        out.append(ev)
     out.append(_envelope(seq, "audit.appended", ts, {"seq": rec["seq"]}, {"event": event}, actor))
     return out
 
@@ -108,7 +136,7 @@ class EventStream:
         self.owned_action_ids = owned_action_ids
         self.clock = clock
 
-    def _allowed(self, p: Principal) -> Callable[[dict], bool]:
+    def _allowed(self, p: Principal, resource_allowed: Callable[[dict], bool] | None = None) -> Callable[[dict], bool]:
         """Per-principal filter (§12.8): audit.* needs audit:read; agents see their own actions;
         node.status needs nodes:read (§12.6 role defaults: not a child, nor an unknown role)."""
         full = can_read_all(p)
@@ -131,6 +159,16 @@ class EventStream:
 
         def ok(ev: dict) -> bool:
             t = ev["type"]
+            action_id = ev.get("subject", {}).get("action_id")
+            # App visibility does not grant visibility of the action that caused its state.
+            # Apply the same owner/requester boundary to every envelope carrying action ids,
+            # before domain dispatch or generic audit fallback selection.
+            if action_id and not (full or p.is_owner or (p.kind == "agent" and owns(action_id))):
+                return False
+            if resource_allowed is not None and not resource_allowed(ev):
+                return False
+            if t.startswith(("alert.", "notification.", "app.")):
+                return resource_allowed is not None
             if t.startswith("audit."):
                 return full
             if t.startswith("action."):
@@ -154,11 +192,20 @@ class EventStream:
         *,
         poll_s: float = POLL_S,
         keepalive_s: float = KEEPALIVE_S,
+        resource_allowed: Callable[[dict], bool] | None = None,
     ) -> AsyncIterator[bytes]:
-        allowed = self._allowed(p)
+        allowed = self._allowed(p, resource_allowed)
 
         def wanted(ev: dict) -> bool:
             return glob_any(types, ev["type"]) and allowed(ev)
+
+        def selected(rec: dict) -> dict | None:
+            candidates = events_for_record(rec)
+            domain = candidates[:-1]
+            # Generic audit envelopes must not reveal even the existence of a hidden resource.
+            if domain and not all(allowed(ev) for ev in domain):
+                return None
+            return next((ev for ev in candidates if wanted(ev)), None)
 
         yield b"retry: 3000\n\n"
         # Replay or start at the head.
@@ -174,9 +221,9 @@ class EventStream:
             else:
                 for _, rec in records:
                     if rec["seq"] > since_id:
-                        for ev in events_for_record(rec):
-                            if wanted(ev):
-                                yield sse(ev)
+                        ev = selected(rec)
+                        if ev is not None:
+                            yield sse(ev)
         del records
         nodes = {n["node_id"]: n.get("status") for n in self.list_nodes()}
         loop = asyncio.get_running_loop()
@@ -187,10 +234,10 @@ class EventStream:
             sent = False
             for pos, rec in iter_records(self.audit_path, offset):
                 offset = pos
-                for ev in events_for_record(rec):
-                    if wanted(ev):
-                        yield sse(ev)
-                        sent = True
+                ev = selected(rec)
+                if ev is not None:
+                    yield sse(ev)
+                    sent = True
             now = loop.time()
             if now - last_nodes >= NODE_POLL_S:
                 last_nodes = now

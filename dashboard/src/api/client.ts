@@ -16,6 +16,9 @@ import {
  * nothing else (contract §5: "it calls only the §3 API").
  */
 export interface OneMindApi extends WiringApi {
+  onboardingSettings(): Promise<FirstRunSettings>;
+  saveOnboardingSettings(body: FirstRunSettingsBody): Promise<FirstRunSettings>;
+  backupDestinations(): Promise<BackupDestinationRecord[]>;
   healthz(): Promise<{ ok: boolean }>;
   instance(): Promise<Instance>;
   nodes(): Promise<NodeRecord[]>;
@@ -29,6 +32,19 @@ export interface OneMindApi extends WiringApi {
   /** Hub clock minus browser clock (ms), learned from responses; undefined until known. */
   hubOffsetMs(): number | undefined;
 }
+
+export interface FirstRunSettingsBody {
+  box_name: string;
+  time_zone: string;
+  backup_choice: 'usb' | 'peer' | 's3' | 'later';
+  backup_destination_id: string | null;
+}
+export interface FirstRunSettings extends Omit<FirstRunSettingsBody, 'box_name' | 'time_zone'> {
+  box_name: string | null;
+  time_zone: string | null;
+  saved: boolean;
+}
+export interface BackupDestinationRecord { id: string; kind: string; label: string }
 
 const KNOWN_CODES = new Set([
   'permission_denied',
@@ -56,6 +72,9 @@ export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 
 /** Real client: talks to the gateway over HTTP with a bearer token. */
 export class HttpApi implements OneMindApi {
+  onboardingSettings = () => this.req<FirstRunSettings>('GET', '/v1/onboarding/settings');
+  saveOnboardingSettings = (body: FirstRunSettingsBody) => this.req<FirstRunSettings>('PUT', '/v1/onboarding/settings', body);
+  backupDestinations = () => this.req<BackupDestinationRecord[]>('GET', '/v1/backups/destinations', undefined, 'array');
   private readonly base: string;
   private readonly token: string;
   private readonly fetchFn: FetchLike;

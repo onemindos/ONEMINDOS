@@ -330,15 +330,10 @@ class NotifyService:
         return row
 
     def _alert_event(self, what: str, row: AlertRow, by: str | None = None) -> None:
-        """Automatic transitions follow from events already in the audit log, so only a person's
-        acknowledge or resolve (`by`) is audited; every transition goes to NATS."""
-        if by:
-            payload = {"alert_id": row.id, "type": row.type, "state": row.state, "by": by}
-            try:
-                self.gw.events.publish_event("alert", what, payload, severity=row.severity,
-                                             dedupe_key=row.dedupe_key, resource={"kind": "alert", "id": row.id})
-            except Exception:
-                log.exception("alert event failed")
+        """Record every committed transition for ordered SSE replay, then publish the alert."""
+        payload = {"alert_id": row.id, "type": row.type, "state": row.state, "by": by}
+        self.gw.events.publish_event("alert", what, payload, severity=row.severity,
+                                     dedupe_key=row.dedupe_key, resource={"kind": "alert", "id": row.id})
         # Contract §12.9: the alert record on onemind.alert.<source>.<kind> (best effort).
         from .store import alert_json
         try:
@@ -385,6 +380,10 @@ class NotifyService:
                         d.state, d.held_reason, d.release_at, d.next_attempt_at = "held", held[0], held[1], None
                     deliveries.append(d)
             self.repo.add_notification(row, deliveries)
+            self.gw.events.publish_event(
+                "notification", "created", {"notification_id": nid}, severity=severity,
+                resource={"kind": "notification", "id": nid},
+            )
             created.append(nid)
         self._kick.set()
         return created

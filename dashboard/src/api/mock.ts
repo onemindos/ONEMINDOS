@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { OneMindApi } from './client';
+import type { OneMindApi, FirstRunSettings, FirstRunSettingsBody, BackupDestinationRecord } from './client';
 import { MockWiringBase } from './mockWiring';
 import { installBlockReason } from '../lib/scan';
 import { DEMO_TOKENS, INSTANCE, makeActions, makeApps, makeNodes } from './fixtures';
@@ -15,6 +15,21 @@ import { ApiError, type Action, type ActionRequest, type CatalogApp, type Princi
  * the dashboard's live progress can be seen in the demo. `stepMs: 0` finishes on the next read.
  */
 export class MockApi extends MockWiringBase implements OneMindApi {
+  // Demo gateway: first-run settings live in memory for this session (the real gateway persists them
+  // through the owner-only §12.41 routes). No backup job runs and no destination exists in the demo.
+  private firstRun: FirstRunSettings = {
+    box_name: null, time_zone: null, backup_choice: 'later', backup_destination_id: null, saved: false,
+  };
+  async onboardingSettings(): Promise<FirstRunSettings> {
+    return { ...this.firstRun };
+  }
+  async saveOnboardingSettings(body: FirstRunSettingsBody): Promise<FirstRunSettings> {
+    this.firstRun = { ...body, saved: true };
+    return { ...this.firstRun };
+  }
+  async backupDestinations(): Promise<BackupDestinationRecord[]> {
+    return [];
+  }
   protected readonly principal: Principal | undefined;
   protected readonly now: () => number;
   private catalog: CatalogApp[];

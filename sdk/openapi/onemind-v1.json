@@ -42,6 +42,18 @@
         "additionalProperties": true,
         "description": "One action of the ledger (contract §3). §12.4 adds optional fields; ignore what you do not know.",
         "properties": {
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Approving person's id; null before approval or on denial. decided_by/decided_at are retained.",
+            "title": "Approved By"
+          },
           "created_at": {
             "title": "Created At",
             "type": "string"
@@ -1870,6 +1882,113 @@
           }
         },
         "title": "NodeOS",
+        "type": "object"
+      },
+      "OnboardingSettingsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "backup_choice": {
+            "enum": [
+              "usb",
+              "peer",
+              "s3",
+              "later"
+            ],
+            "title": "Backup Choice",
+            "type": "string"
+          },
+          "backup_destination_id": {
+            "anyOf": [
+              {
+                "pattern": "^dst_[0-9a-f]{16}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup Destination Id"
+          },
+          "box_name": {
+            "maxLength": 63,
+            "minLength": 1,
+            "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$",
+            "title": "Box Name",
+            "type": "string"
+          },
+          "time_zone": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Time Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "box_name",
+          "time_zone",
+          "backup_choice"
+        ],
+        "title": "OnboardingSettingsBody",
+        "type": "object"
+      },
+      "OnboardingSettingsView": {
+        "properties": {
+          "backup_choice": {
+            "enum": [
+              "usb",
+              "peer",
+              "s3",
+              "later"
+            ],
+            "title": "Backup Choice",
+            "type": "string"
+          },
+          "backup_destination_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup Destination Id"
+          },
+          "box_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Box Name"
+          },
+          "saved": {
+            "title": "Saved",
+            "type": "boolean"
+          },
+          "time_zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Zone"
+          }
+        },
+        "required": [
+          "box_name",
+          "time_zone",
+          "backup_choice",
+          "backup_destination_id",
+          "saved"
+        ],
+        "title": "OnboardingSettingsView",
         "type": "object"
       },
       "OpBody": {
@@ -11570,6 +11689,106 @@
         "summary": "Read One",
         "tags": [
           "notifications"
+        ]
+      }
+    },
+    "/v1/onboarding/settings": {
+      "get": {
+        "operationId": "onboarding.settings.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingSettingsView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Read",
+        "tags": [
+          "onboarding"
+        ]
+      },
+      "put": {
+        "operationId": "onboarding.settings.save",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardingSettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingSettingsView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Save",
+        "tags": [
+          "onboarding"
         ]
       }
     },

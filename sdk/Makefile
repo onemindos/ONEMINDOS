@@ -14,11 +14,13 @@ SPEC   := openapi/onemind-v1.json
 GO_GEN := go/internal/gen/types.gen.go
 PY_GEN := python/src/onemind_sdk/_gen/models.py
 TS_GEN := ts/src/gen/schema.ts
+OPENAPI_STATE_DIR ?=
+OPENAPI_STATE_ARGS = $(if $(OPENAPI_STATE_DIR),--state-dir "$(OPENAPI_STATE_DIR)",)
 
 .PHONY: openapi gen gen-go gen-py gen-ts check-stale test test-go test-py test-ts
 
 openapi:
-	cd ../core && uv run --quiet python -m onemind_core.openapi --out ../sdk/$(SPEC)
+	cd ../core && uv run --quiet python -m onemind_core.openapi --out ../sdk/$(SPEC) $(OPENAPI_STATE_ARGS)
 
 gen: openapi gen-go gen-py gen-ts
 
@@ -38,7 +40,7 @@ gen-ts:
 
 # Regenerate into the working tree, then let git say whether anything changed.
 check-stale:
-	cd ../core && uv run --quiet python -m onemind_core.openapi --check ../sdk/$(SPEC)
+	cd ../core && uv run --quiet python -m onemind_core.openapi --check ../sdk/$(SPEC) $(OPENAPI_STATE_ARGS)
 	$(MAKE) gen-go gen-py gen-ts
 	@git diff --exit-code -- $(GO_GEN) $(PY_GEN) $(TS_GEN) python/src/onemind_sdk/aio.py \
 	  || { echo "generated SDK code is stale: run 'make -C sdk gen' and commit"; exit 1; }
