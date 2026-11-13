@@ -10,7 +10,14 @@ import { PasskeyError, passkeyMessage, requestOptionsFrom, rpIdFor, type Passkey
 /** Default approval window for actions created from the phone (same as MCP request_action, §11.3). */
 export const REQUEST_TTL_MS = 24 * 3600_000;
 
-const VERB: Record<string, string> = { 'app.install': 'Install', 'app.remove': 'Remove' };
+const VERB: Record<string, string> = {
+  'app.install': 'Install',
+  'app.remove': 'Remove',
+  'app.start': 'Start',
+  'app.stop': 'Stop',
+  'app.restart': 'Restart',
+  'app.update': 'Update',
+};
 
 export function actionTitle(a: Pick<Action, 'type' | 'params'>): string {
   const verb = VERB[a.type];
