@@ -12,27 +12,41 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
+import tempfile
 import unittest
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "sdk/tools"))
+from applib import common  # noqa: E402
 WORKFLOW = yaml.safe_load((ROOT / ".github/workflows/ci-apps.yml").read_text())
 # PyYAML's YAML 1.1 loader treats the Actions key `on` as True.
 TRIGGERS = WORKFLOW.get("on", WORKFLOW.get(True))
 CHANGED = next(step["run"] for step in WORKFLOW["jobs"]["validate"]["steps"]
                if step.get("id") == "changed")
+MATRIX = ROOT / "research-output/evidence/license-matrix.csv"
+MATRIX_PATH = "research-output/evidence/license-matrix.csv"
 APPS = sorted(p.name for p in (ROOT / "apps").iterdir()
               if not p.name.startswith(("_", ".")) and (p / "onemind.app.yaml").is_file())
 
 
 class CiAppsPathsTests(unittest.TestCase):
-    def selected(self, *paths: str, event: str = "pull_request") -> list[str]:
+    # `git diff` lists CHANGED_FILES; `git show <rev>:<path>` prints the old or new matrix fixture.
+    GIT_STUB = ('git() { case "$1" in\n'
+                '  diff) printf "%s\\n" "$CHANGED_FILES" ;;\n'
+                '  show) case "$2" in fixture-base:*) cat "$OLD_CSV" ;; fixture-head:*) cat "$NEW_CSV" ;; esac ;;\n'
+                'esac; }\n')
+
+    def selected(self, *paths: str, event: str = "pull_request",
+                 old_csv: Path | None = None, new_csv: Path | None = None) -> list[str]:
         env = dict(os.environ, CHANGED_FILES="\n".join(paths),
                    BASE_SHA="fixture-base", HEAD_SHA="fixture-head",
-                   GITHUB_EVENT_NAME=event, GITHUB_OUTPUT="/dev/stdout")
+                   GITHUB_EVENT_NAME=event, GITHUB_OUTPUT="/dev/stdout",
+                   OLD_CSV=str(old_csv or MATRIX), NEW_CSV=str(new_csv or MATRIX))
         result = subprocess.run(
-            ["bash", "-c", 'git() { printf "%s\\n" "$CHANGED_FILES"; }\n' + CHANGED],
+            ["bash", "-c", self.GIT_STUB + CHANGED],
             cwd=ROOT, env=env, text=True, capture_output=True, check=True,
         )
         outputs = [line.removeprefix("apps=") for line in result.stdout.splitlines()
@@ -51,12 +65,42 @@ class CiAppsPathsTests(unittest.TestCase):
             "sdk/tools/applib/common.py", "sdk/tools/applib/readme.py",
             "sdk/tools/requirements.txt", "sdk/tools/ci/install-tools.sh",
             "sdk/schema/onemind.app.schema.json",
-            "research-output/evidence/license-matrix.csv",
             ".github/workflows/ci-apps.yml",
         ):
             with self.subTest(path=path):
                 self.assertTrue(self.triggered(path))
                 self.assertEqual(self.selected(path), APPS)
+
+    def matrix_fixture(self, tmp: str, extra_rows: str) -> Path:
+        out = Path(tmp) / "new.csv"
+        out.write_text(MATRIX.read_text() + extra_rows)
+        return out
+
+    def test_matrix_change_gates_only_apps_whose_rows_changed(self):
+        repo = common.owner_repo(common.load_manifest(ROOT / "apps" / APPS[0]))
+        self.assertTrue(repo)
+        row = f"Fixture,v1,MIT,https://github.com/{repo}/blob/abc/LICENSE,github.com/{repo}@abc,y,n,n,y,n,x\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            new = self.matrix_fixture(tmp, row)
+            self.assertTrue(self.triggered(MATRIX_PATH))
+            self.assertEqual(self.selected(MATRIX_PATH, new_csv=new), [APPS[0]])
+            # plus the apps whose own files changed
+            self.assertEqual(self.selected(MATRIX_PATH, f"apps/{APPS[1]}/README.md", new_csv=new),
+                             sorted([APPS[0], APPS[1]]))
+
+    def test_matrix_rows_about_no_app_gate_nothing(self):
+        row = "Some kernel,v1,MIT,https://github.com/nobody/nothing/blob/abc/LICENSE,github.com/nobody/nothing@abc,y,n,n,y,n,x\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(self.selected(MATRIX_PATH, new_csv=self.matrix_fixture(tmp, row)), [])
+
+    def test_unreadable_matrix_gates_every_app(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = Path(tmp) / "bad.csv"
+            bad.write_text("not,the,header\n1,2,3\n")
+            self.assertEqual(self.selected(MATRIX_PATH, new_csv=bad), APPS)
+
+    def test_matrix_with_a_real_gate_input_gates_every_app(self):
+        self.assertEqual(self.selected(MATRIX_PATH, "sdk/tools/app-gate"), APPS)
 
     def test_validation_only_paths_do_not_start_scans(self):
         for path in ("sdk/tools/tests/test_app_tools.py", "sdk/tools/app-readme",
