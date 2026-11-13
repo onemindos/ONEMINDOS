@@ -26,6 +26,7 @@ from starlette.routing import Mount, Route, WebSocketRoute
 
 from conftest import ScriptedExecutor
 from onemind_core.app import create_app
+from onemind_core.files.settings import FilesSettings
 
 # Columns of the matrix, in the order the report shows them.
 KINDS = (
@@ -116,7 +117,9 @@ class World:
         self.tokens_path = tmp_path / "matrix-tokens.yaml"
         self._write_tokens(STATIC)
         self.executor = ScriptedExecutor()
-        self.settings = replace(settings, tokens_file=self.tokens_path)
+        # FILES switched on with a temporary root, so its routes answer for real (not 503 "files_disabled").
+        sections = {**settings.sections, "files": FilesSettings(root=tmp_path / "files", min_free_bytes=0)}
+        self.settings = replace(settings, tokens_file=self.tokens_path, sections=sections)
         self.app = create_app(self.settings, clock=clock, executor=self.executor)
         self.client = TestClient(self.app, raise_server_exceptions=False)
         self._keys = 0
@@ -513,3 +516,41 @@ def p_audit_record(w: World) -> Req:
 
 def p_events(w: World) -> Req:
     return Req("/v1/events", stream=True)
+
+
+# ---- routes that arrived after the first matrix: automation, backups, files, migrate, plans -------------
+# Every probe is a *valid* request that names an object that does not exist, so a refusal is about who
+# asks. The gate runs before the lookup: the owner gets 404 where everybody else gets 403.
+KUBECONFIG = "apiVersion: v1\nkind: Config\n"
+MISSING = {"policy": "pol_0123456789abcdef", "rule": "rul_0123456789abcdef", "dest": "dst_0123456789abcdef",
+           "run": "run_0123456789abcdef", "snap": "abcdef0123456789", "restore": "rst_0123456789abcdef",
+           "plan": "mig_0123456789abcdef", "request": "frq_0123456789abcdef", "grant": "fgr_0123456789abcdef",
+           "upload": "upl_0123456789abcdef"}
+TUS = {"Tus-Resumable": "1.0.0"}
+UPLOAD_META = "filename cHJvYmUudHh0,root c2hhcmVk,path Lw=="  # filename=probe.txt root=shared path=/
+
+
+def _in_a_day(w: World) -> str:
+    return (w.clock.now + timedelta(days=1)).isoformat().replace("+00:00", "Z")
+
+
+def p_policy_create(w: World) -> Req:
+    return Req("/v1/approval-policies", json={
+        "allow": {"types": ["app.remove"], "requested_by": ["automation:*"]}, "limits": {"per_day": 1},
+        "expires_at": _in_a_day(w)})
+
+
+def p_rule_create(w: World) -> Req:
+    return Req("/v1/automation/rules", json={
+        "name": "probe", "trigger": {"schedule": {"cron": "0 3 * * *"}},
+        "actions": [{"type": "app.remove", "params": {"app_id": "whoami"}}]})
+
+
+def p_window_put(w: World) -> Req:
+    return Req("/v1/windows/win_probe", json={"name": "probe", "tz": "UTC", "ranges": [{"start": "21:00", "end": "23:00"}]})
+
+
+def p_missing(path: str, *, json: Any = None, content: bytes | None = None, headers: dict | None = None):
+    """A probe for `path` with {policy}-style placeholders filled from MISSING (an object that is not there)."""
+    concrete = path.format(**MISSING)
+    return lambda w: Req(concrete, json=json, content=content, headers=dict(headers or {}))

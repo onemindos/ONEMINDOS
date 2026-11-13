@@ -104,15 +104,18 @@ def test_cell(method, path, kind, request):
     r = world.send(method, req, headers)
 
     who = f"{method} {path} as {kind} ({DESCRIBE[kind]}); policy: {row.why}"
-    assert r.status_code < 500, f"{who}: server error {r.status_code}: {r.text[:300]}"
+    switched_off = r.status_code == 503 and want == 503 and r.headers.get("content-type", "").startswith("application/json") \
+        and r.json().get("error") == "unavailable"  # a feature that is off says so in the envelope; it is not a crash
+    assert r.status_code < 500 or switched_off, f"{who}: server error {r.status_code}: {r.text[:300]}"
     ok = r.status_code == want if isinstance(want, int) else r.status_code in want
     assert ok, f"{who}: expected {want}, got {r.status_code}: {r.text[:300]}"
 
     if r.status_code in ERROR_CODE:
-        body = r.json()
-        assert body.get("error") == ERROR_CODE[r.status_code] and isinstance(body.get("message"), str), body
+        if row.challenge == "bearer" and method != "HEAD":  # restic's data plane answers a bare status; HEAD has no body
+            body = r.json()
+            assert body.get("error") == ERROR_CODE[r.status_code] and isinstance(body.get("message"), str), body
         if r.status_code == 401:
-            assert r.headers.get("www-authenticate", "").lower().startswith("bearer"), who
+            assert r.headers.get("www-authenticate", "").lower().startswith(row.challenge), who
         assert world.snapshot() == before, f"{who}: a refused request changed state"
         if r.status_code == 403:
             events = [rec.get("event") for rec in world.audit()[audited:]]
