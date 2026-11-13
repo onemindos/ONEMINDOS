@@ -38,7 +38,7 @@ Storage: PVC `penpot-data` 20Gi, PVC `penpot-db` 20Gi.
 Images:
 
 - `docker.io/penpotapp/backend:2.19.1@sha256:bc26c263b33f107a63868ed298bebd9089f252c3799872c31ec1266fef321d29`
-- `docker.io/library/postgres:15.19-trixie@sha256:1aac5b49cefd627f02816141ca4ad012d6cc19460dfe02a9b5168a105be3fc53`
+- `docker.io/library/postgres:15.19-alpine@sha256:eab009ce9447a891d9482702d370bbf132c18563bb87cfdcc2b815c6d3b0372f`
 - `docker.io/valkey/valkey:8.1.11-trixie@sha256:8f836008e0986c36adf50da714c7060cf689dbb335f61fe077939d90fa650809`
 - `docker.io/penpotapp/frontend:2.19.1@sha256:b5b363a4bd38bf2aa781c6255e5208b4b305fa3f12fae1170abeb705ce510032`
 - `docker.io/penpotapp/exporter:2.19.1@sha256:bb25e0ee63ec37228848c714c7b60998d9c9d07f998ab7aebe2e3281d39b2962`
@@ -62,7 +62,7 @@ Penpot is a design and prototyping tool in the browser, like Figma, that saves d
 - One `Deployment` (`Recreate`), five containers in one pod: `frontend` (nginx, the app), `backend` (Java), `exporter` (headless Chromium for PDF and image exports), and native sidecars `db` (PostgreSQL 15, as upstream's compose file) and `valkey` (Valkey 8.1, capped at 128 MB as upstream recommends). They talk over 127.0.0.1; the database and Valkey listen on 127.0.0.1 only, and PostgreSQL trusts local connections, so there is no database password and no Secret.
 - `PENPOT_SECRET_KEY` is generated once by an init container onto the data volume, outside the assets folder the frontend serves, and loaded by the backend and exporter commands before the images' own commands run.
 - Flags: `disable-email-verification` (no mail server is packaged), `disable-secure-session-cookies` (the app is reached over plain HTTP until the app proxy exists, as in upstream's compose file), `disable-admin-console` (not packaged). Telemetry is off.
-- Non-root: Penpot's three containers as UID 1001 (the images' `penpot` user), PostgreSQL and Valkey as UID 999. No privilege escalation, all capabilities dropped.
+- Non-root: Penpot's three containers as UID 1001 (the images' `penpot` user), PostgreSQL as UID 70 (the Alpine image's `postgres` user) and Valkey as UID 999. No privilege escalation, all capabilities dropped.
 - Volumes: `penpot-data` (20 GiB, assets) and `penpot-db` (20 GiB, the designs).
 - Probes: `GET /readyz` on the backend (6060) and exporter (6061); the frontend is ready when the backend is.
 
@@ -97,6 +97,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: the penpot backend, frontend and exporter 2.19.1 images (no CRITICAL with a fix), valkey, ClamAV (0 infected), smoke test (GET / returned 200).
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
+
+**Unblock attempt (apps/market-unblock-2, 2026-11-13):** Only the bundled `postgres:15.19-trixie` blocked this app on images (backend, frontend, exporter, valkey, ClamAV and smoke test passed); the licence-matrix row is still missing (brief 30 B10), which the gate reports as a note about preinstalling on sold boxes. The sidecar moved to `postgres:15.19-alpine` (same major and minor; tag and digest read from the Docker Hub registry on 2026-11-13; digest `sha256:eab009ce…b0372f`). The Alpine image uses `su-exec` (C) instead of the Go helper `gosu` and has no Debian `ssl-cert` package, which is where CVE-2025-68121 and the snakeoil private key came from. It has not been scanned by us yet: the CI gate decides the tier. The Alpine `postgres` user is UID/GID 70 (Debian: 999). Alpine uses musl, so text sorting differs from the Debian image; this is safe only because nobody has installed this app yet.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -35,7 +35,7 @@ Storage: PVC `metabase-db` 5Gi.
 Images:
 
 - `docker.io/metabase/metabase:v0.65.3@sha256:9930a9b0e6974926319f691d1e55f0f9f97996e9ab658cd0cc04d9f86b0f0c1c`
-- `docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42`
+- `docker.io/library/postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -55,7 +55,7 @@ Metabase connects to your databases and lets you ask questions of the data, with
 
 - One `Deployment` (`Recreate`) with Metabase (Java) and PostgreSQL 18 as its application database, a native sidecar on 127.0.0.1 only. PostgreSQL trusts local connections, so there is no database password and no Secret.
 - `MB_ENCRYPTION_SECRET_KEY` is generated once by an init container and kept on the database volume; it encrypts the connection details of the databases you add. Lose the volume and both go together, which is the point: a backup of one is a backup of the other.
-- Non-root: Metabase as UID 2000 (the UID upstream's script would switch to), PostgreSQL as UID 999. No privilege escalation, all capabilities dropped.
+- Non-root: Metabase as UID 2000 (the UID upstream's script would switch to), PostgreSQL as UID 70 (the Alpine image's `postgres` user). No privilege escalation, all capabilities dropped.
 - `MB_ANON_TRACKING_ENABLED=false`: no anonymous usage statistics.
 - Volume: `metabase-db` (5 GiB).
 - Probes: `GET /api/health`; startup allows 15 minutes for the first migrations.
@@ -89,6 +89,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: the metabase v0.65.3 image, licence (matrix row matches), ClamAV (0 infected), smoke test (GET / returned 200).
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
+
+**Unblock attempt (apps/market-unblock-2, 2026-11-13):** Only the bundled `postgres:18.6-trixie` blocked this app (the Metabase `v0.65.3` image, licence, ClamAV and smoke test passed). The sidecar moved to `postgres:18.6-alpine`, the same image `paperless-ngx` uses (tag and digest read from the Docker Hub registry on 2026-11-13; digest `sha256:9ba53c7d…193085b`). The Alpine image uses `su-exec` (C) instead of the Go helper `gosu` and has no Debian `ssl-cert` package, which is where CVE-2025-68121 and the snakeoil private key came from. It has not been scanned by us yet: the CI gate decides the tier, and this app stays `blocked` until a run passes. The Alpine `postgres` user is UID/GID 70 (Debian: 999). Alpine uses musl, so text sorting differs from the Debian image; a database made by one image must not be opened by the other, which is safe only because nobody has installed this app yet. Metabase `v0.65.4` exists but is not needed for this fix.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
