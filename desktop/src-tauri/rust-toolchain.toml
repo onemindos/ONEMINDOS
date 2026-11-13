@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# rustup (CI runners, developer machines with rustup) installs exactly this toolchain.
+# Pinned in os/versions.lock.yaml (desktop.rust).
+[toolchain]
+channel = "1.99.1"
+profile = "minimal"

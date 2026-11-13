@@ -29,7 +29,7 @@ import yaml
 log = logging.getLogger("onemind.auth")
 
 KINDS = {"person", "agent"}
-ROLES = {"owner", "adult", "guest", "agent"}
+ROLES = {"owner", "adult", "guest", "child", "agent"}
 
 
 @dataclass(frozen=True)
@@ -48,7 +48,8 @@ class Principal:
 
     @property
     def can_request_actions(self) -> bool:
-        return self.is_owner or (self.kind == "agent" and self.role == "agent")
+        # Contract §12.1: an automation rule requests as automation:<rule-id> and never approves.
+        return self.is_owner or (self.kind, self.role) in (("agent", "agent"), ("automation", "automation"))
 
 
 def _hash(token: str) -> str:
@@ -149,6 +150,16 @@ class TokenStore:
                 return
             self._by_hash, self._mtime = by_hash, mtime
             log.info("loaded %d principals from tokens file", len(self._by_hash))
+
+    def principals(self) -> list[Principal]:
+        """Every principal in the file (never a token), e.g. to find the owners to notify."""
+        self._reload_if_changed()
+        return list(self._by_hash.values())
+
+    def entries(self) -> list[tuple[str, Principal]]:
+        """(sha256 hex, principal) of every loaded file token, for read-only listing (§12.6)."""
+        self._reload_if_changed()
+        return sorted(self._by_hash.items(), key=lambda kv: kv[1].id)
 
     def lookup(self, token: str) -> Principal | None:
         if not token:

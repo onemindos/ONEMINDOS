@@ -234,7 +234,7 @@ def test_register_source_is_idempotent_per_person(pc, settings):
 
 def test_upload_in_parts_then_have(pc, root, clock):
     phone = Phone(pc, OWNER)
-    data = blob(1, 3 * 1024 * 1024 + 17)
+    data = blob(1, 3 * 1024 * 1024 + 17)  # a body over the gateway cap (256 KiB, 12.1) is 413, so parts are 256 KiB
     key = phone.key("asset-1")
     assert phone.check([(key, data)]) == ["need"]
 
@@ -248,11 +248,11 @@ def test_upload_in_parts_then_have(pc, root, clock):
     assert h.headers["Upload-Length"] == str(len(data)) and h.headers["Cache-Control"] == "no-store"
     assert h.headers["Upload-Limit"].startswith("max-size=")
 
-    chunk = 1024 * 1024
-    for off in range(0, 3 * chunk, chunk):
+    chunk = 256 * 1024
+    for off in range(0, 12 * chunk, chunk):
         r = phone.patch(url, off, data[off:off + chunk], last=False)
         assert r.status_code == 204 and r.headers["Upload-Offset"] == str(off + chunk)
-    r = phone.patch(url, 3 * chunk, data[3 * chunk:], last=True)
+    r = phone.patch(url, 12 * chunk, data[12 * chunk:], last=True)
     assert r.status_code == 200
     assert r.json() == {"client_key": key, "hash": sha(data), "deduped": False}
     assert r.headers["Upload-Complete"] == "?1"
@@ -733,3 +733,81 @@ def test_name_helpers():
     assert person_folder("..").startswith("p-")
     assert source_folder("", "src_01ABCDEFGHJKMNPQRSTVWXYZ0") == "phone-vwxyz0"
     assert new_id("upl").startswith("upl_") and len(new_id("upl")) == 30
+
+
+# ---- confinement (FILES paths, docs/umbrel2/files-backups.md 4.6) ---------------------------------
+
+@pytest.mark.parametrize("name", [
+    "../../../etc/passwd", "/etc/passwd", "..%2f..%2fetc%2fpasswd", "%2e%2e/%2e%2e/x.jpg",
+    "..\\..\\x.jpg", "a/../../b.jpg", "%00evil.jpg", "....//x.jpg",
+])
+def test_hostile_file_names_never_leave_the_library(pc, root, name):
+    phone = Phone(pc, OWNER)
+    phone.upload(phone.key("a"), blob(60, 10), name=name, created_at="2024-01-02T03:04:05+00:00")
+    inside = (root / "library").resolve()
+    for p in root.rglob("*"):
+        assert p.resolve().is_relative_to(root.resolve()), p
+    files = library_files(root, "owner")
+    assert files and all(p.resolve().is_relative_to(inside) for p in files)
+    assert not (root.parent / "etc").exists() and not (root / "etc").exists()
+
+
+def test_a_symlink_planted_in_the_library_is_not_followed(pc, root, tmp_path):
+    import shutil
+
+    phone = Phone(pc, OWNER)
+    phone.upload(phone.key("a"), blob(61, 10), created_at="2024-01-02T03:04:05+00:00")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    month = library_files(root, "owner")[0].parent
+    shutil.rmtree(month)
+    os.symlink(outside, month)  # the month folder now points out of the library
+    data = blob(62, 10)
+    r = phone.create(phone.key("b"), data, created_at="2024-01-09T00:00:00Z")
+    assert r.status_code == 201
+    res = phone.patch(r.headers["Location"], 0, data, last=True)
+    assert res.status_code == 403, res.text
+    assert list(outside.iterdir()) == []  # nothing was written through the link
+
+
+def test_a_symlinked_library_file_is_not_a_backup(pc, root, tmp_path):
+    phone = Phone(pc, OWNER)
+    data = blob(63, 20)
+    phone.upload(phone.key("a"), data)
+    mine = library_files(root, "owner")[0]
+    decoy = tmp_path / "decoy"
+    decoy.write_bytes(data)
+    mine.unlink()
+    os.symlink(decoy, mine)
+    assert phone.check([(phone.key("a"), data)]) == ["need"]
+
+
+@pytest.mark.parametrize("who", [GUEST, AGENT])
+def test_no_photo_route_answers_a_principal_without_a_library(pc, root, who):
+    phone = Phone(pc, OWNER)
+    url = phone.create(phone.key("a"), blob(64, 10)).headers["Location"]
+    calls = [
+        ("POST", f"/v1/photos/sources/{phone.source}/check", {"items": []}),
+        ("GET", f"/v1/photos/sources/{phone.source}/coverage", None),
+        ("GET", f"/v1/photos/sources/{phone.source}/receipts", None),
+        ("POST", "/v1/photos/uploads", None),
+        ("HEAD", url, None), ("PATCH", url, None),
+    ]
+    for method, path, body in calls:
+        r = pc.request(method, path, headers=who, json=body)
+        assert r.status_code in (403, 404, 422), f"{method} {path} gave {r.status_code}"
+
+
+def test_the_server_never_decodes_an_image(pc):
+    # Bytes are stored and hashed, never decoded (no thumbnails or EXIF here), so a pixel bomb costs
+    # only its length, which max_upload_bytes and the free-space reserve bound
+    # (test_limits_on_size_open_uploads_and_free_space).
+    import pathlib
+
+    import onemind_core.photos as photos_pkg
+
+    src = "".join(p.read_text() for p in pathlib.Path(photos_pkg.__file__).parent.glob("*.py"))
+    assert "PIL" not in src and "Image.open" not in src
+    phone = Phone(pc, OWNER)
+    bomb = b"\x89PNG\r\n\x1a\n" + b"\x00" * 4096
+    assert phone.upload(phone.key("bomb"), bomb, name="bomb.png")["deduped"] is False

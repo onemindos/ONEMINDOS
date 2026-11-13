@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Installer stick: DHCP on wired interfaces so the LAN page is reachable. No network is needed
+# to install (the image is on the stick).
+[Match]
+Name=en* eth*
+
+[Network]
+DHCP=yes

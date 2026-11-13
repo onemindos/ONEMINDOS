@@ -1,0 +1,17 @@
+{
+  "id": "T3",
+  "verdict": "PASS",
+  "at": "2026-11-12T10:30:27Z",
+  "data": {
+    "owner_import_http": "200",
+    "completed": "yes",
+    "seconds_after_approval": 18,
+    "bundle_sha256_owner": "0ec1cb88d862de71ac153da381981dca622654c4a911e7be47047ef67165575d",
+    "bundle_sha256_device": "0ec1cb88d862de71ac153da381981dca622654c4a911e7be47047ef67165575d",
+    "command_marker": "onboarded",
+    "command_ran_as_uid": "0",
+    "onboard_process_after": "exited",
+    "onboard_pid": 6626,
+    "restarted": false
+  }
+}

@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# A Role on NetworkPolicies lets the app's ServiceAccount add an allow-all policy next to the
+# gateway's default-deny (policies are additive).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: open-the-network
+rules:
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - create
+  - patch

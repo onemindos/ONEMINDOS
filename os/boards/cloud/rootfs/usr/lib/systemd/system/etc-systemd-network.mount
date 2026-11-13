@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# cloud-init renders the instance's network into /etc/systemd/network; on a read-only root that
+# directory is a tmpfs, re-rendered every boot (cloud.cfg "updates: network: when: [boot]").
+# Defaults stay in /usr/lib/systemd/network.
+[Unit]
+Description=Writable /etc/systemd/network for cloud-init (tmpfs)
+DefaultDependencies=no
+Conflicts=umount.target
+Before=local-fs.target umount.target cloud-init-local.service systemd-networkd.service
+
+[Mount]
+What=tmpfs
+Where=/etc/systemd/network
+Type=tmpfs
+Options=mode=0755,size=1M,nosuid,nodev
+
+[Install]
+WantedBy=local-fs.target

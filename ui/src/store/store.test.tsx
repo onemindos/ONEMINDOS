@@ -8,7 +8,7 @@ import { AppDetail } from './AppDetail';
 import { InstalledList, ManageApp } from './Installed';
 import { InstallReview } from './InstallReview';
 import { JobProgress, JobsTray } from './Jobs';
-import { Market } from './Market';
+import { DISCOVER_RAILS, Market } from './Market';
 import type { LoadState } from './types';
 
 const READY: LoadState = { kind: 'ready', fetched_at: new Date(NOW).toISOString() };
@@ -26,7 +26,11 @@ describe('Market', () => {
     expect(screen.getByRole('heading', { name: 'Every photo, off the phone and on your box' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Needs you/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Recommended for this box/ })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /Field & Robotics/ })).toBeInTheDocument();
+    // CRITIQUE #19: at most DISCOVER_RAILS category rails; the other categories are chips.
+    const more = screen.getByRole('group', { name: 'More categories' });
+    expect(within(more).getByRole('button', { name: /Field & Robotics/ })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Field & Robotics/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^See all/ }).length).toBeLessThanOrEqual(DISCOVER_RAILS);
     await noAxeViolations(container);
   });
 
@@ -96,7 +100,7 @@ describe('AppDetail', () => {
     expect(screen.getByText(/AGPL-3.0/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Source/ })).toHaveAttribute('target', '_blank');
     expect(screen.getByRole('img', { name: /Placeholder for: Timeline/ })).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Request install' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: /^Request install/ }));
     expect(h.onRequestInstall).toHaveBeenCalledWith(imm);
     await noAxeViolations(container);
   });
@@ -225,6 +229,24 @@ describe('Installed', () => {
     await u.click(go);
     expect(onRequest.mock.calls.map((c) => c[0].type)).toEqual(['app.remove', 'app.delete_data']);
     expect(onRequest.mock.calls[0]![0].params.keep_data).toBe(false);
+  });
+  it('with removeNote (a hub that cannot keep data) promises nothing: no keep choice, only app_id sent', async () => {
+    const u = userEvent.setup();
+    const note = 'This hub deletes the app’s namespace on removal.';
+    const { onRequest } = manage({ removeNote: note });
+    await u.click(screen.getByRole('button', { name: /Remove/ }));
+    const dlg = screen.getByRole('alertdialog');
+    expect(dlg).toHaveTextContent(note);
+    expect(within(dlg).queryByRole('radio')).toBeNull();
+    expect(dlg).not.toHaveTextContent('its data is kept');
+    await u.click(within(dlg).getByRole('button', { name: 'Request removal' }));
+    expect(onRequest.mock.calls.map((c) => c[0].type)).toEqual(['app.remove']);
+    expect(onRequest.mock.calls[0]![0].params).toEqual({ app_id: installed[0]!.app.id });
+  });
+  it('says when the app address is not behind the OneMind sign-in', () => {
+    manage({ inst: { ...installed[0]!, url: 'http://box:8123/', url_note: 'the app’s own port' } });
+    expect(screen.getByText(/box:8123\/ · the app’s own port/)).toBeInTheDocument();
+    expect(screen.queryByText(/behind the OneMind sign-in/)).toBeNull();
   });
   it('update shows release notes and the health-gated steps', async () => {
     const u = userEvent.setup();

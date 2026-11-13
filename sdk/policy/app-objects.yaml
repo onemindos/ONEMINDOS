@@ -1,0 +1,119 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# The install sandbox's rule file (docs/leap/core/SANDBOX.md §3.1, hardening H-01..H-04).
+# This is the ONLY place that says what an app may create. The gateway checks every object of
+# the rendered kustomization against it before anything reaches the cluster
+# (core/onemind_core/policy.py); app-gate in CI will call the same checker (SANDBOX-6).
+#
+# Changing this file is a security review: bump `version`, explain the change in the PR, and
+# list every app whose result changes. Adding to `pod_security.reviewed` or
+# `capabilities.add_allowed` widens what runs on the box.
+schema: onemind.io/app-objects/v1
+version: 2
+
+# apiVersion/kind pairs an app may ship. Everything else is refused (K-01), including every
+# cluster-scoped kind (Namespace, ClusterRole, ClusterRoleBinding, CRDs, webhooks, PVs,
+# StorageClasses), DaemonSet, bare Pod, Ingress and NetworkPolicy (the gateway owns those).
+allow:
+  - {apiVersion: apps/v1, kind: Deployment}
+  - {apiVersion: apps/v1, kind: StatefulSet}
+  - {apiVersion: batch/v1, kind: Job}
+  - {apiVersion: batch/v1, kind: CronJob}
+  - {apiVersion: v1, kind: Service}
+  - {apiVersion: v1, kind: ConfigMap}
+  - {apiVersion: v1, kind: Secret}
+  - {apiVersion: v1, kind: PersistentVolumeClaim}
+  - {apiVersion: v1, kind: ServiceAccount}
+  - {apiVersion: policy/v1, kind: PodDisruptionBudget}
+  - {apiVersion: autoscaling/v2, kind: HorizontalPodAutoscaler}
+  # RBAC inside the app's own namespace only (rules R-01..R-03).
+  - {apiVersion: rbac.authorization.k8s.io/v1, kind: Role}
+  - {apiVersion: rbac.authorization.k8s.io/v1, kind: RoleBinding}
+
+# Service.spec.type values allowed (V-01). NodePort, LoadBalancer and ExternalName are refused;
+# app web UIs are reached through the gateway's proxy. spec.externalIPs is always refused (V-02).
+service_types: [ClusterIP]
+
+# PersistentVolumeClaim.spec.storageClassName values allowed (P-01). null = the cluster default.
+storage_classes: [null, local-path, onemind-local]
+
+# Linux capabilities a container may add (F-07). PSA `restricted` allows NET_BIND_SERVICE only.
+# A reviewed app may add more in pod_security.reviewed.<id>.add_capabilities.
+capabilities:
+  add_allowed: [NET_BIND_SERVICE]
+
+# Pod Security Admission level of each app namespace (pod-security.kubernetes.io/enforce).
+# Every app gets `restricted` unless it is listed here with a reason someone reviewed. An app
+# manifest may also declare `spec.security.podSecurity: baseline`; that declaration is honoured
+# only for an app listed here (G-01). audit and warn stay `restricted` for every app.
+pod_security:
+  default: restricted
+  reviewed:
+    home-assistant:
+      level: baseline
+      reviewed: "2026-11-12"
+      reason: >-
+        The upstream image starts s6-overlay (/init) as root and documents no non-root mode.
+        It runs with every capability dropped, no privilege escalation and RuntimeDefault
+        seccomp (apps/home-assistant/manifests/deployment.yaml). Making it non-root is a
+        follow-up for the app, not an exemption.
+
+images:
+  require_digest: true          # I-01: every image is repo[:tag]@sha256:<64 hex>
+
+kustomize:
+  remote_bases: false           # Z-01: no URL or git reference in resources/bases/components
+  helm: false                   # Z-03: no helmCharts, generators, transformers or validators
+
+# Network defaults for the per-app NetworkPolicy the gateway writes (H-04). An app may declare
+# spec.network.egress: a list of `internet`, `none` or CIDRs (X-01 if malformed).
+network:
+  default_egress: [internet]
+  # `internet` means everything except these ranges (the LAN, the node, the pod and service
+  # networks, the tailnet and link-local/metadata addresses).
+  internet_except:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    - 100.64.0.0/10
+    - 169.254.0.0/16
+    - 127.0.0.0/8
+    - 0.0.0.0/8
+    - 224.0.0.0/4
+    - fc00::/7
+    - fe80::/10
+    - ::1/128
+  # Ingress into an app namespace is allowed from its own pods and from pods in namespaces with
+  # this label (the gateway's app proxy, CORE-NET / H-29).
+  proxy_namespace_label: {onemind.io/role: gateway-proxy}
+
+# Rule ids, used in refusals, the approval card and docs.
+rules:
+  K-01: kind is not allowed for apps
+  N-01: object must live in the app's own namespace app-<id>
+  G-01: spec.security.podSecurity asks for a level this rule file has not reviewed for the app
+  G-02: rendered output is not a list of Kubernetes objects
+  F-01: spec.hostNetwork is not allowed
+  F-02: spec.hostPID is not allowed
+  F-03: spec.hostIPC is not allowed
+  F-04: hostPath volumes are not allowed
+  F-05: hostPort is not allowed
+  F-06: privileged containers are not allowed
+  F-07: capability is not on the reviewed list
+  F-08: spec.securityContext.windowsOptions.hostProcess is not allowed
+  S-01: restricted pods must run as non-root (runAsNonRoot true, runAsUser not 0)
+  S-02: restricted containers must set allowPrivilegeEscalation false
+  S-03: restricted containers must drop ALL capabilities
+  S-04: restricted pods must use the RuntimeDefault or Localhost seccomp profile
+  S-05: volume type is not allowed under restricted
+  V-01: Service type is not allowed
+  V-02: Service externalIPs are not allowed
+  P-01: storageClassName is not allowed
+  I-01: image must be pinned by digest (@sha256:)
+  R-01: RoleBinding must reference a Role in the app's namespace, not a ClusterRole
+  R-02: RoleBinding subjects must be ServiceAccounts of the app's namespace
+  R-03: Role rules may only name the app kinds' API groups, and no wildcards, namespaces, exec/attach/proxy/token subresources or escalate/bind/impersonate
+  X-01: spec.network.egress entry is not internet, none or a CIDR
+  Z-01: remote kustomize bases (URLs, git) are not allowed
+  Z-02: kustomize path leaves the app folder
+  Z-03: helm charts and kustomize plugins are not allowed

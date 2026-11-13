@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import type { OneMindApi } from '../api/client';
-import { makeActions, makeApps, makeNodes, INSTANCE } from '../api/fixtures';
 import { ApiError } from '../api/types';
+import { v0Api } from '../test/fakes';
 import { HubDataProvider } from '../data';
 import type { ReactNode } from 'react';
 import { SessionProvider, useSession, type SessionDeps } from '../session';
@@ -41,7 +40,7 @@ describe('Approvals screen', () => {
     expect(screen.getByText(/cannot approve its own request/)).toBeTruthy();
 
     await fireEvent.press(screen.getByTestId('approve-act-0001'));
-    expect(await screen.findByText('Approved and done: Install ollama.')).toBeTruthy();
+    expect(await screen.findByText('Approved (without a passkey) and done: Install ollama.')).toBeTruthy();
     expect(screen.queryByTestId('pending-act-0001')).toBeNull();
     expect(screen.getByText('Nothing is waiting.')).toBeTruthy();
   });
@@ -60,23 +59,10 @@ describe('Approvals screen', () => {
   });
 
   it('against a live hub the role is unknown until the hub answers 403; then the buttons turn off', async () => {
-    const now = Date.now();
     const approve = jest.fn(async () => {
       throw new ApiError(403, 'permission_denied', 'owner only');
     });
-    const api: OneMindApi = {
-      healthz: async () => ({ ok: true }),
-      instance: async () => INSTANCE,
-      nodes: async () => makeNodes(now),
-      node: async () => makeNodes(now)[0]!,
-      apps: async () => makeApps(now),
-      actions: async () => makeActions(now),
-      action: async () => makeActions(now)[0]!,
-      createAction: async () => makeActions(now)[0]!,
-      approve,
-      deny: approve,
-      hubOffsetMs: () => 0,
-    };
+    const api = v0Api({ approve, deny: approve });
     await renderApprovals(deps({ mode: 'live', hubUrl: 'https://hub.example', token: 't' }, () => api));
     expect(screen.getByText(/checks that you are an owner/)).toBeTruthy();
     expect(screen.getByTestId('approve-act-0001')).toBeEnabled();

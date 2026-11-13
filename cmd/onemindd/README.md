@@ -52,14 +52,14 @@ curl -s localhost:7480/api/v1/node
 ```
 On a Mac most Linux fields are empty (`board: unknown`, no `/proc`); that is expected. For real values run the Linux binary in a Debian 13 container or on the hardware.
 
-Environment: `ONEMIND_NATS_URL` (empty = local API only), `ONEMIND_NODE_ROLE` (`hub`/`node`), `ONEMIND_NODE_ID`, `ONEMIND_AGENT_ADDR` (default `:7480`), `ONEMIND_DISK_PATH`, `ONEMIND_LOG_LEVEL`. Flags `-listen`, `-nats`, `-role`, `-interval`, `-version` override them.
+Environment: `ONEMIND_NATS_URL` (empty = local API only), `ONEMIND_NODE_ROLE` (`hub`/`node`), `ONEMIND_NODE_ID`, `ONEMIND_AGENT_ADDR` (default `127.0.0.1:7480`, loopback only; `:7480` for every interface), `ONEMIND_DISK_PATH`, `ONEMIND_LOG_LEVEL`. Flags `-listen`, `-nats`, `-role`, `-interval`, `-version` override them.
 
 Install as a service: see [`deploy/systemd/`](../../deploy/systemd/README.md).
 
 ## v0 shortcuts (from the contract, plus this component's own)
 - **Nodes publish straight to the hub's NATS.** NATS leaf nodes (buffering on the node) come later (contract v0 shortcut; brief 30 BM4).
 - **NATS auth:** only what fits in `ONEMIND_NATS_URL` (e.g. `nats://user:pass@hub:4222`). No NKEY/creds file yet.
-- **The local API has no authentication** and listens on `:7480` (all interfaces) as the contract says. It is read-only and the heartbeat holds no secrets or personal data by design. The rescue console (brief 30 B11, LAN-only HTTPS with the local CA) will replace this.
+- **The local API has no authentication**, so it listens on `127.0.0.1:7480` (loopback only, hardening H-24); the hub learns the same data from heartbeats. It is read-only and the heartbeat holds no secrets or personal data by design. The rescue console (brief 30 B11, LAN-only HTTPS with the local CA) will replace this.
 - **k3s agent readiness** is "the `k3s-agent` unit is active", which is weaker than the server's `/readyz`. The gate's fresh-health check (REC-DEC-07) is a separate job.
 - **RAUC slots** carry `name, class, bootname, state, boot_status, bundle_version`; the contract only says `slots: []`. The JSON field names read from `rauc status` follow RAUC's JSON output as used in our lab work; **UNVERIFIED against RAUC v1.15.2 on hardware** until LT-X86-01 runs it.
 - **OS updates** (B4.2) run in the same binary as a separate process, `onemindd update`, under its own unit; see [`internal/update/`](../../internal/update/README.md). When `/etc/onemind/update.conf` exists (`ONEMIND_UPDATE_CONF` overrides the path), the heartbeat carries an optional `update` object read from the update service's status file: `{channel, current_version, available_version|null, state, last_check|null, last_result}`. Without the file the object is omitted, so heartbeats stay valid under contract §2.

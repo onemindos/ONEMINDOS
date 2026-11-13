@@ -1,0 +1,7 @@
+rows in sessions before: 0
+rows in incomplete_vouchers before: 0
+rows in to0_sessions before: 0
+rows in to1_sessions before: 0
+rows in to2_sessions before: 1
+rows in vouchers before: 1
+rows in replacement_vouchers before: 1

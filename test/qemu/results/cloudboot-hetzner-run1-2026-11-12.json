@@ -1,0 +1,52 @@
+{
+  "env": {
+    "cloud": "hetzner",
+    "board": "cloud-hetzner",
+    "upto": "C0,C1,C2,C3,C4,C5",
+    "accel": "tcg,thread=multi",
+    "host_cpus": 14,
+    "host_machine": "aarch64",
+    "tests": [
+      "C0",
+      "C1",
+      "C2",
+      "C3",
+      "C4",
+      "C5"
+    ]
+  },
+  "minutes": 20.5,
+  "criteria": "test/qemu/CRITERIA-CLOUD.md",
+  "results": [
+    {
+      "test": "C0",
+      "verdict": "PASS",
+      "detail": "sha256sums_ok=True raw_16GiB=True xz_same_bytes=True"
+    },
+    {
+      "test": "C1",
+      "verdict": "PASS",
+      "detail": "config='ONEMIND-FIRSTBOOT: configured role=hub source=nocloud node_id=9ef156ed6d88' tokens_printed=1 gate=('committed-boot', 'A', '0.1.0-dev')"
+    },
+    {
+      "test": "C2",
+      "verdict": "FAIL",
+      "detail": "ssh_admin_sudo=True cloud_init_done=False instance_id=True platform_nocloud=True datasource_list=True hostkeys_on_data_only=True net_eth0_v6=True dsl=['Hetzner', 'NoCloud', 'None'] ds_identify='datasource_list: [ NoCloud, None ]'"
+    },
+    {
+      "test": "C3",
+      "verdict": "PASS",
+      "detail": "healthz=200 node_id=9ef156ed6d88 listed=[('9ef156ed6d88', 'hub', 'online')] unauth=401 dashboard=True (info: /run/onemind/owner-token over ssh matches console=True)"
+    },
+    {
+      "test": "C4",
+      "verdict": "PASS",
+      "detail": "grown=True sizes={'DISK': '50331648', 'START': '23074816', 'PSIZE': '27256799'} 'ONEMIND-FIRSTBOOT: already configured role=hub node_id=9ef15' new_tokens=0 same_node=True same_tokens_file=True healthz=200 listed=[('9ef156ed6d88', 'hub', 'online')] gate=('committed-boot', 'A', '0.1.0-dev')"
+    },
+    {
+      "test": "C5",
+      "verdict": "PASS",
+      "detail": "'ONEMIND-FIRSTBOOT: not configured; waiting for the setup wizard at htt' inside_200=True outside=None (b\"TimeoutError('timed out')\")"
+    }
+  ]
+}

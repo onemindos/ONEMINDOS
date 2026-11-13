@@ -256,4 +256,10 @@
   .om-set-search-inline { max-width: none; }
   .om-set-matrix td::before { content: attr(data-label); }
   .om-set-qr { width: 132px; height: 132px; }
+  /* Approvals on phones (CRITIQUE #23): the waiting list is a vertical list, no sideways scroll;
+     a recent decision keeps its pill on the same line. */
+  .om-set-queue { flex-direction: column; overflow-x: visible; }
+  .om-set-queue > li { flex: none; }
+  .om-set-decisions .om-set-row { flex-wrap: nowrap; align-items: flex-start; }
+  .om-set-decisions .om-set-row-trail { width: auto; }
 }

@@ -67,6 +67,7 @@ Originals keep their own names as plain files, so the photos survive without One
 
 **Order of durable steps.** A receipt exists only after all of them:
 1. Each PATCH streams to `staging/<id>` under an exclusive `flock` (a second writer gets 409) and is **fsynced before** its `Upload-Offset` is acknowledged. The offset is the file's length on disk, so a crash can only make it smaller, never claim bytes that are not there.
+   Note: each PATCH body is at most 256 KiB (the gateway body cap, contract 12.1; larger gets 413), so a file goes up in many parts.
 2. On the last part the box computes SHA-256: from the hash state it kept in memory, or by re-reading the file after a restart. It compares this with `OneMind-Content-Hash`. A mismatch deletes the bytes, fails the upload (410 afterwards), publishes `photos.upload.rejected` and gives no receipt.
 3. The verified file is hard-linked into the shared store, and the person's library entry is linked from it. **Each directory is fsynced.** Only then does the box read the clock for the asset's time, which the backup levels use (§5).
 4. One database transaction records the blob, asset, receipt and the upload's receipt (for replay). Then the box answers 200.

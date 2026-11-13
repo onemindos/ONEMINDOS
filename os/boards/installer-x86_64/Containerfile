@@ -1,0 +1,36 @@
+# syntax=docker/dockerfile:1.7
+# SPDX-License-Identifier: Apache-2.0
+#
+# OneMind USB installer, live system (os/boards/installer-x86_64/README.md). Same pinned Debian 13
+# base and snapshot as the images (os/rootfs/debian.args); a small tree: kernel, systemd, the
+# tools the install needs, Python for the menu and LAN page. Exported as a tar, assembled into a
+# stick image by build.sh together with the x86_64-efi image it carries.
+#   docker buildx build -f os/boards/installer-x86_64/Containerfile --platform linux/amd64 \
+#     $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) --output type=tar,dest=installer.tar .
+ARG BASE=docker.io/library/debian:trixie@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
+
+FROM ${BASE} AS installer
+ARG SNAPSHOT=20261111T000000Z
+ARG TARGETARCH
+ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8
+COPY os/rootfs/sources/configure-apt.sh /usr/local/sbin/onemind-configure-apt
+RUN set -eu; onemind-configure-apt debian "$SNAPSHOT"; \
+    case "$TARGETARCH" in amd64) K="linux-image-amd64 grub-efi-amd64-bin" ;; arm64) K="linux-image-arm64 grub-efi-arm64-bin" ;; \
+      *) echo "unsupported arch $TARGETARCH" >&2; exit 1 ;; esac; \
+    apt-get update; apt-get -y upgrade; \
+    apt-get install -y $K initramfs-tools grub-common systemd systemd-sysv udev dbus kmod \
+      util-linux mount iproute2 procps gdisk e2fsprogs dosfstools mtools zstd efibootmgr python3 avahi-daemon; \
+    rm -rf /var/lib/apt/lists/* /usr/local/sbin/onemind-configure-apt
+COPY os/boards/installer-x86_64/rootfs/ /
+RUN set -eu; \
+    systemctl enable systemd-networkd.service avahi-daemon.service onemind-installer-web.service >/dev/null; \
+    for t in tty1 ttyS0; do systemctl enable "onemind-installer@$t.service" >/dev/null; done; \
+    t=tty1; systemctl mask "getty@$t.service" serial-getty@ttyS0.service systemd-firstboot.service >/dev/null; \
+    passwd -l root >/dev/null; \
+    python3 -I -c "import ast,sys; ast.parse(open('/usr/lib/onemind-installer/onemind_installer.py').read())"; \
+    kver=$(ls /lib/modules | sort -V | tail -n1); \
+    ln -sf "vmlinuz-$kver" /boot/vmlinuz; ln -sf "initrd.img-$kver" /boot/initrd.img; \
+    update-initramfs -u -k "$kver"; \
+    dpkg-query -W -f='${Package} ${Version} ${Architecture}\n' | sort > /usr/share/onemind-installer-packages.txt; \
+    rm -rf /var/cache/apt/*.bin /var/log/apt /var/log/dpkg.log; \
+    printf 'installer arch=%s kernel=%s\n' "$TARGETARCH" "$kver"

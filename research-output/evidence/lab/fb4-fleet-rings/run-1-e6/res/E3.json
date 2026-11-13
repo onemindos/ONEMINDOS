@@ -1,0 +1,9 @@
+{
+  "id": "E3",
+  "verdict": "OBS",
+  "at": "2026-11-12T11:20:36Z",
+  "data": {
+    "seconds_until_deleted_configmap_restored": -1,
+    "note": "-1 = not restored within 300 s"
+  }
+}

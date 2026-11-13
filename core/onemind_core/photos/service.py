@@ -341,7 +341,7 @@ class PhotosService:
         now = self.clock()
         self._alive(up, now)
         try:
-            fd = os.open(self.files.staging(up.id), os.O_WRONLY)
+            fd = os.open(self.files.staging(up.id), os.O_WRONLY | os.O_NOFOLLOW)
         except FileNotFoundError:
             self.repo.fail_upload(up.id, now)
             raise PhotosError(410, "expired", "this upload's bytes are gone; create a new one") from None
@@ -408,7 +408,7 @@ class PhotosService:
             up, library_path, lambda: new_id("ast"), stored_at, stored_at + self.ttl, healed=healed
         )
         if deduped and library_path is not None:  # another of this person's uploads won the race
-            self.files.discard(self.files.root / library_path)
+            self.files.discard_library(library_path)
         return {"client_key": up.client_key, "hash": "sha256:" + up.hash, "deduped": deduped}
 
     def sweep(self, limit: int = 200) -> int:

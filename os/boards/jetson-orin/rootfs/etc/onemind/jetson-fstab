@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# --- OneMind (os/boards/jetson-orin): appended to NVIDIA's /etc/fstab by build-flash-package.sh.
+# /data survives slot switches and OTA; k3s state lives there [C-LAB-rauc-k3s-gate-004].
+# The L4T root stays NVIDIA's read-write rootfs, so /home, /root and /var/log are not bound.
+PARTLABEL=onemind-data  /data  ext4  defaults,x-systemd.requires=onemind-jetson-data.service  0 2
+/data/state/etc-rancher-node  /etc/rancher/node  none bind,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-rancher   /var/lib/rancher   none bind,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-kubelet   /var/lib/kubelet   none bind,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-cni       /var/lib/cni       none bind,x-systemd.requires=onemind-data-layout.service 0 0

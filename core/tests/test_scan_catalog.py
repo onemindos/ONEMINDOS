@@ -170,3 +170,19 @@ def test_noop_executor_is_default_for_make_client(settings, clock):
     # guard for the tests above: make_client builds a real NoopExecutor
     with make_client(settings, clock) as c:
         assert isinstance(c.app.state.actions.executor, NoopExecutor)
+
+
+def test_tier_blocked_refuses_install_even_with_a_passing_scan(client, clock, executor, settings):
+    """Contract 9.4: a human-set tier blocked is not lifted by a passing scan.json (slop CS-09)."""
+    import yaml
+
+    d = settings.apps_dir / "uptime-kuma"
+    write_scan(d, clock.now - timedelta(hours=1))
+    manifest = d / "onemind.app.yaml"
+    doc = yaml.safe_load(manifest.read_text())
+    doc.setdefault("metadata", {})["tier"] = "blocked"
+    manifest.write_text(yaml.safe_dump(doc))
+    action_id = request_install(client, clock)
+    r = client.post(f"/v1/actions/{action_id}/approve", headers=OWNER)
+    assert r.status_code == 409 and "tier blocked" in r.json()["message"], r.text
+    assert executor.calls == []

@@ -51,8 +51,11 @@ is where that rule is enforced in code, not in a prompt:
 | `onemind_core/nodes.py`, `bus.py` | Heartbeat registry (online/stale/offline) and the NATS connection |
 | `onemind_core/catalog.py` | App catalog from `ONEMIND_APPS_DIR/*/onemind.app.yaml`, incl. `links`, `tier`, `scan`, `spec.agent` |
 | `onemind_core/scan.py` | Reads `apps/<id>/scan.json` (§11.1) and decides whether an install may run (§10.3) |
-| `onemind_core/mcp.py` | `POST /mcp`: MCP Streamable HTTP for agent principals (§11.3) |
 | `onemind_core/photos/` | Phone photo backup, box side: resumable digest-verified uploads, per-person libraries, receipts with backup levels (`/v1/photos/...`, off unless `ONEMIND_PHOTOS_ENABLED=1`; [PHOTOS.md](../docs/leap/core/PHOTOS.md)) |
+| `onemind_core/mcp/` | `POST /mcp`: MCP Streamable HTTP for agent principals (§11.3, §12.19): `server.py`, `tools.py` (catalogue), `untrusted.py`, `limits.py` |
+| `onemind_core/auditread.py`, `routers/audit.py` | §12.16 `GET /v1/audit/events[/{seq}]`, `/v1/audit/verify` |
+| `onemind_core/eventstream.py`, `routers/events.py` | §12.8 `GET /v1/events` (SSE, audit-derived ids, resume, `node.status`) |
+| `onemind_core/apimodels.py`, `openapi.py` | Documented response bodies and stable `operationId`s; `python -m onemind_core.openapi` exports `sdk/openapi/onemind-v1.json` |
 | `onemind_core/models.py` | OpenAPI response models for `GET /v1/apps` |
 
 ### Action states
@@ -80,15 +83,23 @@ dropped. Fields the contract forbids (MAC, serial, IP, user names) are stripped 
 
 ### Kubernetes executor (exact commands)
 ```
-install: kubectl apply -f -   (Namespace app-<id>, label onemind.io/app=<id>)
+install: (kustomization tree checked: no URLs, git refs, helm, plugins or paths outside the app)
+         kubectl kustomize --load-restrictor=LoadRestrictionsRootOnly <apps_dir>/<id>/manifests
+         (every rendered object checked against sdk/policy/app-objects.yaml; any violation:
+          action failed, approve -> 409 policy_refused, nothing below runs)
+         kubectl apply -f -   (Namespace app-<id>: onemind.io/app=<id>, pod-security enforce=restricted
+                               or a reviewed baseline, audit/warn=restricted)
+         kubectl apply -n app-<id> -f -   (RoleBinding onemind-gateway, only with ONEMIND_SANDBOX_GATEWAY_SA)
+         kubectl apply -n app-<id> -f -   (NetworkPolicy onemind-default-deny + onemind-allow)
          kubectl apply --server-side --field-manager=onemind-gateway --force-conflicts -n app-<id> -f -
                        (only with spec.agent: the agent Secret, see below; server-side so the token
                         is not copied into a last-applied-configuration annotation)
-         kubectl apply -k <apps_dir>/<id>/manifests -n app-<id>
+         kubectl apply -n app-<id> -f -   (exactly the rendered bytes that were checked)
 remove:  kubectl delete secret <spec.agent.secret> -n app-<id> --ignore-not-found=true   (only with spec.agent)
-         kubectl delete -k <apps_dir>/<id>/manifests -n app-<id> --ignore-not-found=true
          kubectl delete namespace app-<id> --ignore-not-found=true
 ```
+The install sandbox's rules and rule ids: `sdk/policy/app-objects.yaml`; design:
+`docs/leap/core/SANDBOX.md`; what is enforced: `docs/leap/core/SECURITY.md` §7a.
 The `noop` executor changes nothing and returns the same plan as `{"would": "..."}` steps in the
 action's `result`, so a demo shows what a real box would do.
 
@@ -132,9 +143,15 @@ carries `requested_by`, and `action.approved`, `action.dispatched` and the outco
 message, answered with one JSON body (no SSE stream, no session id; `GET`/`DELETE /mcp` → 405).
 - **Who:** principals with `kind: agent` only. A person gets 403 `permission_denied` (audited),
   a missing or unknown token 401. A browser `Origin` that is not the gateway's host gets 403.
-- **Methods:** `initialize`, `ping`, `tools/list`, `tools/call`; notifications get 202.
-- **Tools:** `list_nodes` (= `GET /v1/nodes`), `list_apps` (= `GET /v1/apps`), and
-  `request_action {type, app_id, reason?}`, which files an action exactly like `POST /v1/actions`
+- **Methods:** `initialize`, `ping`, `tools/list`, `tools/call`, `resources/list`, `resources/templates/list`,
+  `resources/read`; notifications get 202.
+- **Read tools** (each = a `/v1` route): `get_instance`, `list_nodes`, `get_node`, `list_apps`, `get_app`, and,
+  for the calling agent's own requests and records only, `list_actions`, `get_action`, `search_audit`.
+  Resources: `onemind://catalog[/{app_id}]`, `onemind://nodes[/{node_id}]`, `onemind://actions/{id}`, `onemind://audit/recent`.
+- **Third-party text** (app names and descriptions, hostnames, agents' reasons) is stripped of control and bidi
+  characters, listed in `_meta["onemind/untrusted"]` and wrapped as `<untrusted source=…>` in the text content.
+- **Limits per agent** (`ONEMIND_MCP_*`): 120 messages/min (HTTP 429), 60 reads/min, 10 requests/hour, 10 pending.
+- **The one write tool:** `request_action {type, app_id, reason?}`, which files an action exactly like `POST /v1/actions`
   with a generated idempotency key and a 24 h expiry and returns `{action_id, state}`. A refusal
   (unknown app, app busy) is a tool result with `isError: true` and the §3 error body. `reason`
   is written to the audit log (the §3 action shape has no field for it).
@@ -189,6 +206,9 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 | `ONEMIND_ALLOW_UNSCANNED` | `0` | `1` skips the §10.3 scan check; dev only, refused with `kubernetes` |
 | `ONEMIND_APP_SCHEMA` | `sdk/schema/onemind.app.schema.json` if present | manifest JSON Schema |
 | `ONEMIND_PHOTOS_ENABLED`, `ONEMIND_PHOTOS_DIR`, `ONEMIND_PHOTOS_*` | `0`, none | Photos backup routes and library folder; the rest in [PHOTOS.md §6](../docs/leap/core/PHOTOS.md#6-settings-config_sectionphotos) |
+| `ONEMIND_SANDBOX_RULES` | `sdk/policy/app-objects.yaml` (repo or image) | install sandbox rule file; the `kubernetes` executor refuses to start without it (and without `ONEMIND_APP_SCHEMA`) |
+| `ONEMIND_SANDBOX_GATEWAY_SA` | unset | `<namespace>/<serviceaccount>` the executor binds to `onemind-app-deployer` in each `app-<id>` (`deploy/install.sh` sets it) |
+| `ONEMIND_LIMITS_*` | `MAX_BODY_BYTES=262144`, `READ_RATE=20`/`READ_BURST=60`, `REQUEST_RATE=2`/`REQUEST_BURST=10`, `MAX_PENDING=10`, `AUTH_FAILURES_PER_MIN=10`, `AUTH_BACKOFF_S=900`, `ENABLED=1` | contract §12.1 limits (`core/onemind_core/guard.py`) |
 | `ONEMIND_DATA_DIR`, `ONEMIND_HOST`, `ONEMIND_PORT`, `ONEMIND_INSTANCE_NAME`, `ONEMIND_KUBECTL`, `ONEMIND_EXECUTOR_TIMEOUT_S` | `./data`, `0.0.0.0`, `8080`, `OneMind`, `kubectl`, `300` | |
 
 ## v0 shortcuts (from the contract; must be removed before a box ships)
@@ -210,12 +230,15 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 ## Known gaps
 - No `expected_version` on `POST /v1/actions` (D-B9.5 asks for it; contract v0 does not).
 - No policy engine (D-B9.4), approvals push to phone (D-B9.6) or offline sync.
-- MCP is the §11.3 v0 slice only: static or app-issued bearer tokens, no authorization-server
-  façade (RFC 9728 metadata, RFC 8707 audience binding; D-B9.2), no SSE stream, no resources or
-  prompts. D-B9.2 targets newer MCP revisions; 2025-06-18 is what the contract fixes for v0.
+- MCP supports tools and read-only resources (including resource templates), but no prompts:
+  static or app-issued bearer tokens, no authorization-server façade (RFC 9728 metadata,
+  RFC 8707 audience binding; D-B9.2). `/mcp` returns JSON only, not SSE; the separate
+  `/v1/events` SSE stream delivers action, audit and node-status events, not yet alert,
+  notification or app events. MCP v0 uses revision 2025-06-18 (also accepts 2025-03-26).
 - An app agent token does not expire; it lives until the app is removed or reinstalled.
-- `tier: blocked` is shown in the catalog but does not by itself refuse an install; the scan
-  record does (a blocked app's rescan should say `fail`).
+- With scan enforcement enabled (the default), `tier: blocked` independently refuses install
+  approval with `409 stale_precondition`, even with a passing scan. Only the explicit dev-only
+  unscanned noop mode bypasses this gate; it cannot run real installs.
 - The kubernetes executor is tested with a fake runner and a missing binary, not against a live k3s yet.
 - 401s are audited at most once a minute (`auth.rejected`, with a `suppressed_since_last` count),
   so an unauthenticated poller cannot flood the log. Refused action requests, approvals and

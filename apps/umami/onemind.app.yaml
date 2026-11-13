@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# Umami: Market batch 5 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: docker-compose.yml, Dockerfile,
+# scripts/start-docker.sh, src/lib/app-secret.ts, src/lib/two-factor/crypto.ts and README.md at
+# v3.5.0.
+# Image digests and archs from crane; licence from the GitHub licence API.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: umami
+  name: "Umami"
+  version: "3.5.0"
+  description: "Privacy-focused website analytics without cookies."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: monitoring
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/umami-software/umami
+  # §9.3 facts from the GitHub API (repos/umami-software/umami), read 2026-11-12.
+  links:
+    docs: "https://umami.is/docs"
+    github: "https://github.com/umami-software/umami"
+    website: "https://umami.is"
+    support: "https://github.com/umami-software/umami/issues"
+  upstream: {release: "v3.5.0", released_at: "2026-11-12T02:57:20Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVE-2025-68121 and a private-key finding in the bundled postgres image (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 1024}
+  web: {port: 3000}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

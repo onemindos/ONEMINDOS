@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/searxng/searxng (contract §9.2), then
+# completed from upstream at commit 626105eec: container/Dockerfile (files owned by 977:977),
+# container/entrypoint.sh (creates settings.yml from the template with a random secret_key on
+# first start) and the image config (GRANIAN_PORT=8080, VOLUME /etc/searxng and /var/cache/searxng).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: searxng
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: searxng
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: searxng
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # The image has no USER; its files belong to searxng (977:977), which the entrypoint
+      # expects. Run as that user: the root-only steps (chown, update-ca-certificates) are skipped.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 977
+        runAsGroup: 977
+        fsGroup: 977
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: searxng
+          image: docker.io/searxng/searxng:2026.11.11-626105eec@sha256:606fc8852a53f0be4ac05116950ff480f6f56b8ef7d77b366868cc76478036e5
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          # GET /healthz is SearXNG's health endpoint (searx/webapp.py).
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream publishes no sizing; a OneMind choice for one household.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /etc/searxng
+            - name: cache
+              mountPath: /var/cache/searxng
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: searxng-data
+        # Favicon and result cache: safe to lose.
+        - name: cache
+          emptyDir:
+            sizeLimit: 512Mi

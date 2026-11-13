@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# cloud-init's state (instance id, cached datasource) persists on /data.
+[Unit]
+Description=cloud-init state on the data partition
+Requires=onemind-data-layout.service
+After=onemind-data-layout.service
+Before=local-fs.target cloud-init-local.service
+
+[Mount]
+What=/data/state/var-lib-cloud
+Where=/var/lib/cloud
+Type=none
+Options=bind
+
+[Install]
+WantedBy=local-fs.target

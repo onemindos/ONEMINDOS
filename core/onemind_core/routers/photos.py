@@ -20,6 +20,7 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_response, error_responses
 from ..photos import MAX_CHECK, PhotosError, PhotosRepository, PhotosService, PhotosSettings
+from ..photos.files import LibraryEscape
 
 FLUSH_BYTES = 1024 * 1024
 HEX64 = r"^[0-9a-f]{64}$"
@@ -96,11 +97,16 @@ def _photos_error(_: Request, exc: PhotosError):
     return res
 
 
+def _library_escape(_: Request, exc: LibraryEscape):
+    return error_response(403, "permission_denied", "the photo library refused a path outside itself")
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings.section(PhotosSettings)
     svc = PhotosService(settings, PhotosRepository(gw.db), gw.clock, gw.events)
     principal = gw.principal
     app.add_exception_handler(PhotosError, _photos_error)
+    app.add_exception_handler(LibraryEscape, _library_escape)
     gw.events.subscribe("backup.run.finished", svc.on_backup_run)
     gw.events.subscribe("backup.verify.finished", svc.on_backup_verify)
     gw.events.subscribe("backup.snapshot.removed", svc.on_snapshot_removed)
@@ -108,7 +114,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     app.state.photos = svc
 
     @app.post(
-        "/v1/photos/sources", tags=["photos"], status_code=201, response_model=SourceOut,
+        "/v1/photos/sources", tags=["photos"], operation_id="photos.register_source", status_code=201, response_model=SourceOut,
         responses={200: {"description": "This phone was registered before: its source"}, **error_responses(401, 403, 404, 422)},
     )
     def register_source(req: SourceIn, p: Principal = Depends(principal)):
@@ -116,21 +122,21 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return JSONResponse(status_code=201 if created else 200, content=body)
 
     @app.post(
-        "/v1/photos/sources/{source_id}/check", tags=["photos"], response_model=CheckOut,
+        "/v1/photos/sources/{source_id}/check", tags=["photos"], operation_id="photos.check", response_model=CheckOut,
         responses=error_responses(401, 403, 404, 422),
     )
     def check(source_id: str, req: CheckIn, p: Principal = Depends(principal)):
         return {"items": svc.check(p, source_id, [(i.client_key, i.size, i.hash) for i in req.items])}
 
     @app.get(
-        "/v1/photos/sources/{source_id}/coverage", tags=["photos"], response_model=Coverage,
+        "/v1/photos/sources/{source_id}/coverage", tags=["photos"], operation_id="photos.coverage", response_model=Coverage,
         responses=error_responses(401, 403, 404),
     )
     def coverage(source_id: str, p: Principal = Depends(principal)):
         return svc.coverage(p, source_id)
 
     @app.get(
-        "/v1/photos/sources/{source_id}/receipts", tags=["photos"], response_model=ReceiptPage,
+        "/v1/photos/sources/{source_id}/receipts", tags=["photos"], operation_id="photos.receipts", response_model=ReceiptPage,
         responses=error_responses(401, 403, 404, 422),
     )
     def receipts(
@@ -142,7 +148,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.receipts(p, source_id, cursor, limit)
 
     @app.post(
-        "/v1/photos/uploads", tags=["photos"], status_code=201,
+        "/v1/photos/uploads", tags=["photos"], operation_id="photos.create_upload", status_code=201,
         responses={201: {"description": "Upload created; Location names it", "headers": UPLOAD_HEADERS},
                    **error_responses(401, 403, 404, 409, 422)},
     )
@@ -168,7 +174,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         })
 
     @app.head(
-        "/v1/photos/uploads/{upload_id}", tags=["photos"], status_code=204,
+        "/v1/photos/uploads/{upload_id}", tags=["photos"], operation_id="photos.upload_offset", status_code=204,
         responses={204: {"description": "What the box holds", "headers": UPLOAD_HEADERS},
                    **error_responses(401, 403, 404)},
     )
@@ -176,7 +182,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return Response(status_code=204, headers=svc.upload_status(p, upload_id))
 
     @app.patch(
-        "/v1/photos/uploads/{upload_id}", tags=["photos"], status_code=204,
+        "/v1/photos/uploads/{upload_id}", tags=["photos"], operation_id="photos.append", status_code=204,
         responses={
             200: {"model": Receipt, "description": "Last part: verified, stored and fsynced"},
             204: {"description": "Part stored and fsynced", "headers": UPLOAD_HEADERS},

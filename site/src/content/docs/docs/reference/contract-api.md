@@ -85,7 +85,7 @@ Published by `onemindd` and served at `GET :7480/api/v1/node`. Schema `onemind.n
 
 `board` is one of `x86_64-efi`, `arm64-efi`, `rpi5`, `jetson-orin`, `vm`, `vm-do`, `unknown`.
 
-## Catalog fields and scan record <span class="om-tag om-tag--warn">in review</span>
+## Catalog fields and scan record <span class="om-tag om-tag--ok">works today</span>
 
 Each `GET /v1/apps` entry gains `links` (docs, GitHub, website, support), `tier` and `scan: {scanned_at, result} | null`. The CI gate writes `apps/<id>/scan.json`:
 
@@ -99,7 +99,7 @@ Each `GET /v1/apps` entry gains `links` (docs, GitHub, website, support), `tier`
  "smoke": "pass|fail|skipped"}
 ```
 
-## MCP endpoint for agents <span class="om-tag om-tag--warn">in review</span>
+## MCP endpoint for agents <span class="om-tag om-tag--ok">works today</span>
 
 `POST /mcp`, Streamable HTTP (MCP 2025-06-18), bearer token, agent principals only (anything else gets `403 permission_denied`).
 

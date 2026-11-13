@@ -1,0 +1,11 @@
+#cloud-config
+# SPDX-License-Identifier: Apache-2.0
+# Example user-data for a OneMind hub on any cloud (docs/leap/core/CLOUD-IMAGES.md §4).
+# Must stay a plain #cloud-config document (not MIME multipart, not gzip): first boot reads the
+# `onemind:` mapping from it. For a worker or leaf: role, hub (address of the hub) and join_token.
+onemind:
+  role: hub          # hub | worker | leaf
+  name: Cloud hub    # optional
+# Proxmox only (its cicustom snippet replaces the generated user-data, keys included):
+# ssh_authorized_keys:
+#   - ssh-ed25519 AAAA... you@laptop
