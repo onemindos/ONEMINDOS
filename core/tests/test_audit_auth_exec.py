@@ -26,10 +26,17 @@ def test_every_decision_is_audited_and_chain_verifies(client, clock, settings):
         "gateway.started",
         "action.requested",
         "action.awaiting_approval",
+        # contract-drift-2: every committed alert transition and every notification is audited so the
+        # event stream can replay them in order; an executed action also records its app.status fact.
+        "alert.opened",
+        "notification.created",
         "authz.denied",
         "action.approved",
+        "alert.resolved",
         "action.dispatched",
         "action.succeeded",
+        "notification.created",
+        "app.status",
     ]
     assert lines[0]["prev_hash"] == GENESIS
     for prev, cur in zip(lines, lines[1:]):

@@ -108,6 +108,14 @@ def _core_v2(conn: Connection) -> None:
             conn.execute(text(f"ALTER TABLE actions ADD COLUMN {name} {ddl}"))
 
 
+@CORE_SCHEMA.step(3, "durable approval attribution; historical approvals remain unknown")
+def _core_v3(conn: Connection) -> None:
+    from sqlalchemy import inspect, text
+
+    if "approved_by" not in {c["name"] for c in inspect(conn).get_columns("actions")}:
+        conn.execute(text("ALTER TABLE actions ADD COLUMN approved_by VARCHAR(200)"))
+
+
 def migrate(engine: Engine, schemas: Iterable[FeatureSchema] | None = None, now: datetime | None = None) -> dict[str, int]:
     """Create missing tables, then bring each feature to its head version. Returns feature -> version."""
     schemas = registered_schemas() if schemas is None else list(schemas)
