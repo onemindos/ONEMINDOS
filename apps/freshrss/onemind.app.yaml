@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# freshrss: Market batch 2 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by sdk/tools/app-scaffold
+# (§9.2) and completed from primary sources: Docker/Dockerfile, Docker/entrypoint.sh, Docker/FreshRSS.Apache.conf, Docker/README.md and cli/health.php at 1.30.4.
+# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-12.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: freshrss
+  name: "FreshRSS"
+  version: "1.30.4"
+  description: "A free, self-hostable news aggregator…"
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (rss) are listed in README.md
+  # until the schema has metadata.tags.
+  category: news
+  icon: icon.svg
+  license: "AGPL-3.0"
+  source: https://github.com/FreshRSS/FreshRSS
+  links:
+    docs: "https://freshrss.github.io/FreshRSS/"
+    github: "https://github.com/FreshRSS/FreshRSS"
+    website: "https://freshrss.org"
+    support: "https://github.com/FreshRSS/FreshRSS/issues"
+  upstream: {release: "1.30.4", released_at: "2026-10-21T20:45:47Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVE-2026-111497 in libbrotli1, fix exists (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 192}   # sum of the memory requests in manifests/
+  web: {port: 80}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

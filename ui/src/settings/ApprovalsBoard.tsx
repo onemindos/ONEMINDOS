@@ -229,7 +229,7 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
           </ul>
         </section>
       )}
-      <CallHint calls={calls ?? ['GET /v1/actions?state=awaiting_approval', 'GET /v1/actions/{id}/plan', 'POST /v1/actions/{id}/approve-options   (passkey challenge bound to the plan hash)', 'POST /v1/actions/{id}/approve', 'POST /v1/actions/{id}/deny']} />
+      <CallHint calls={calls ?? ['GET /v1/actions?state=awaiting_approval', 'GET /v1/actions/{id}/preview', 'POST /v1/actions/{id}/approve-options   (passkey challenge bound to the plan hash)', 'POST /v1/actions/{id}/approve', 'POST /v1/actions/{id}/deny']} />
     </>
   );
 }

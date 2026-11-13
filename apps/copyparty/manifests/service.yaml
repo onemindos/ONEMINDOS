@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Web UI, uploads and WebDAV on 3923 (Dockerfile.ac EXPOSE).
+apiVersion: v1
+kind: Service
+metadata:
+  name: copyparty
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: copyparty
+  ports:
+    - name: http
+      port: 3923
+      targetPort: http
+      protocol: TCP

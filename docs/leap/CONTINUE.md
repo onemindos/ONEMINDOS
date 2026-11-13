@@ -31,8 +31,8 @@
 | 3 | Secrets (owner override off, pending F-7) | `feat/app-secrets` | Gateway module |
 | 4 | Photos server | `feat/photos-server` | Gateway module |
 | 5 | Migration kit | `feat/migrate-kit` | CLI + gateway |
-| 6 | Phone app v1 | `feat/mobile-v1` | Re-check against the identity API now on main |
-| 7 | Dashboard v2 | `feat/dashboard-v2` | Large but isolated to dashboard/ and ui/ |
+| 6 | Phone app v1 | `feat/mobile-v1` | Merged in #63 (2026-11-12) |
+| 7 | Dashboard v2 | `feat/dashboard-v2` | Merged in #73 (2026-11-12) |
 | 8 | Ports from #27 | `feat/deploy-port27` | `deploy/install.sh` changed under it |
 | 9 | Backups switched on + shared Postgres | `feat/backups-on` | Gateway + onemindd wiring |
 | 10 | Storage actions + LUKS2 | `feat/storage-actions` | Gateway + onemindd wiring |
@@ -43,8 +43,8 @@
 |---|---|---|
 | Mesh, HTTPS and join wired in | `feat/net-part2` | install.sh, gateway and onemindd all moved underneath it; needs a 2-VM test |
 | Image line | `feat/image-line` | USB installer unfinished; slow boot battery; wire the other streams' os/ patches |
-| Slop fixes | `docs/slop-audit` | 3 audit reports exist; the fixer never ran |
-| Not started | — | App lifecycle (PD-03..07), dashboard wiring pass, Pi perf budget, Machines spike |
+| Slop fixes | `docs/slop-audit` | Pass 1 merged in #67; pass 2 reports are `docs/quality/slop-audit-2-*.md` |
+| Not started | — | App lifecycle (PD-03..07), dashboard wiring pass. Pi perf budget (#68) and the Machines spike (#70) are merged |
 | Last of all | #43, #58 | Redo the board refresh and CHANGELOG catch-up once everything above has landed |
 
 ## Cloud handoff (an agent with only GitHub access)
@@ -57,7 +57,7 @@ Everything needed is on GitHub: merged work on `main`, open PRs, and pushed bran
 6. Each merged item: CHANGELOG entry + STATUS row in the same PR. When a list here is done, update this page.
 7. The repo is public: no secrets, private IPs, host paths, emails or tailnet names (hygiene + gitleaks enforce it).
 
-Work-in-progress branches saved at handoff (not ready to merge): `feat/perf-budget`, `spike/machines`, `feat/image-line` (USB installer unfinished).
+Work-in-progress branch saved at handoff (not ready to merge): `feat/image-line` (USB installer unfinished). `feat/perf-budget` and `spike/machines` have merged (#68, #70).
 
 ## Founder decisions that unblock more
 F-25 hardware order · F-27 signing-key ceremony · F-7 owner override for blocked apps · F-5 website hosting · the default accent red vs the danger red (brand PR #52 note).

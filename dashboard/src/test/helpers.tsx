@@ -18,6 +18,7 @@ export function renderApp(opts: { token?: string; route?: string; knownRole?: bo
   const deps: SessionDeps = {
     mock: true,
     makeApi: (t) => {
+      if (t === '') return t === (opts.token ?? '') ? api : new MockApi(''); // the credential-less client
       if (t !== (opts.token ?? '')) api = new MockApi(t);
       return api;
     },

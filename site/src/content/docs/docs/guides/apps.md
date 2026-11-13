@@ -116,7 +116,7 @@ There is no "update app" action yet. When the catalog gets a newer version of an
 ## Coming soon
 
 - **Grants**: apps that need a device, the host network or a GPU will say so, and you will see each permission before you approve.
-- **App sandboxing**: restricted containers and default-deny network rules for every app. This is written and waiting in an open pull request.
+- **App sandboxing**: restricted containers and default-deny network rules for every app. The rules are on `main`; the host firewall part is still open.
 - **"Open in OneMind"** buttons on this website that hand an app to your own hub, which asks you to confirm.
 - **Alerts** when an app you have installed becomes blocked.
 

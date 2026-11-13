@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# ghost-content: themes, images and settings files (GHOST_CONTENT). ghost-db: the MySQL data directory.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ghost-content
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ghost-db
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
