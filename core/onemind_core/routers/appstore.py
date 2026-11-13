@@ -5,7 +5,7 @@ only read, except POST /v1/deploy/compose, which converts and writes nothing."""
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..appstore.compose import MAX_COMPOSE_BYTES
@@ -14,6 +14,7 @@ from ..auth import Principal
 from ..catalog import APP_ID_RE
 from ..context import Gateway
 from ..errors import error_responses
+from .apps import app_visible
 
 
 class ComposeBody(BaseModel):
@@ -30,20 +31,24 @@ def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
 
     @app.get("/v1/apps/{app_id}/settings", operation_id="apps.settings", tags=["apps"], responses=error_responses(401, 404, 409))
-    def app_settings(app_id: str, p: Principal = Depends(principal)):
+    def app_settings(app_id: str, request: Request, p: Principal = Depends(principal)):
+        app_visible(gw, app_id, request, p)
         return store.settings_view(p, app_id)
 
     @app.get("/v1/apps/{app_id}/dependencies", operation_id="apps.dependencies", tags=["apps"], responses=error_responses(401, 404))
-    def app_dependencies(app_id: str, _: Principal = Depends(principal)):
+    def app_dependencies(app_id: str, request: Request, p: Principal = Depends(principal)):
+        app_visible(gw, app_id, request, p)
         return store.dependencies_view(app_id)
 
     @app.get("/v1/apps/{app_id}/host-ports", operation_id="apps.host_ports", tags=["apps"], responses=error_responses(401, 404))
-    def app_host_ports(app_id: str, node_id: str | None = Query(default=None, pattern=r"^[a-z0-9-]{1,64}$"),
-                       _: Principal = Depends(principal)):
+    def app_host_ports(app_id: str, request: Request, node_id: str | None = Query(default=None, pattern=r"^[a-z0-9-]{1,64}$"),
+                       p: Principal = Depends(principal)):
+        app_visible(gw, app_id, request, p)
         return store.host_ports_view(app_id, node_id)
 
     @app.get("/v1/apps/{app_id}/exposure", operation_id="apps.exposure", tags=["apps"], responses=error_responses(401, 404))
-    def app_exposure(app_id: str, _: Principal = Depends(principal)):
+    def app_exposure(app_id: str, request: Request, p: Principal = Depends(principal)):
+        app_visible(gw, app_id, request, p)
         return store.exposure_view(app_id)
 
     @app.post("/v1/deploy/compose", operation_id="deploy.compose", tags=["deploy"], responses=error_responses(401, 403, 409, 422))
