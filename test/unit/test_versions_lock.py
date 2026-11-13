@@ -37,6 +37,19 @@ class Pins(unittest.TestCase):
                     continue
                 self.assertEqual(ref, pins[action], f"{f}: {action}@{ref}")
 
+    def test_onemind_layer_pins(self):
+        s = read("os/rootfs/fetch-onemind.sh")
+        L = LOCK["onemind_layer"]
+        for tool in ("go", "node", "uv"):
+            self.assertIn(f"{tool.upper()}_VERSION={L[tool]['version']}", s)
+            for arch in ("amd64", "arm64"):
+                self.assertIn(L[tool][arch], s, f"{tool} {arch}")
+        n = L["nats_server"]
+        self.assertIn(f"NATS_VERSION={n['version']}", s)
+        for arch in ("amd64", "arm64"):
+            self.assertIn(n[arch]["tarball"], s)
+            self.assertIn(n[arch]["binary"], s)
+
     def test_gitleaks_pin(self):
         g = LOCK["tools"]["gitleaks"]
         s = read(".github/workflows/hygiene.yml")

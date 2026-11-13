@@ -1,0 +1,5 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# kubectl for the OneMind gateway: the k3s multi-call binary (same version as the cluster).
+# A wrapper, not a symlink, so it never falls back to the root-only admin kubeconfig.
+exec /usr/local/bin/k3s kubectl "$@"

@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# rpi5 extras: sfdisk grows the MBR extended + data partitions at first boot (rpi5-grow).
+# The kernel comes from Raspberry Pi's archive as pinned debs (fetch-rpi.sh), not from this list.
+fdisk

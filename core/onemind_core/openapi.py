@@ -16,27 +16,36 @@ import argparse
 import json
 import sys
 import tempfile
+from contextlib import nullcontext
 from pathlib import Path
 
 from .config import Settings
 
 
-def document() -> dict:
+def document(state_dir: Path | None = None) -> dict:
     from .app import create_app
 
-    with tempfile.TemporaryDirectory() as tmp:
+    # Explicit retained state is useful for restricted workers and debugging SDK generation.
+    # It runs the same real gateway; it does not suppress or monkeypatch temporary cleanup.
+    if state_dir is not None:
+        state_dir.mkdir(parents=True, exist_ok=True)
+    with (nullcontext(state_dir) if state_dir is not None else tempfile.TemporaryDirectory()) as tmp:
         t = Path(tmp)
-        (t / "apps").mkdir()
+        (t / "apps").mkdir(exist_ok=True)
         settings = Settings(
             tokens_file=None, db_url=f"sqlite:///{t / 'export.db'}", apps_dir=t / "apps", dashboard_dist=None,
             executor="noop", nats_url=None, audit_path=t / "audit.jsonl", node_id="export", instance_name="export",
             app_schema_path=None, kubectl="kubectl", executor_timeout_s=1, host="127.0.0.1", port=8080,
         )
-        return create_app(settings).openapi()
+        app = create_app(settings)
+        try:
+            return app.openapi()
+        finally:
+            app.state.repo.close()
 
 
-def render() -> str:
-    return json.dumps(document(), sort_keys=True, indent=2, ensure_ascii=False) + "\n"
+def render(state_dir: Path | None = None) -> str:
+    return json.dumps(document(state_dir), sort_keys=True, indent=2, ensure_ascii=False) + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -44,8 +53,9 @@ def main(argv: list[str] | None = None) -> int:
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--out", type=Path, help="write the document to this file")
     g.add_argument("--check", type=Path, help="fail if this file is not the current export")
+    ap.add_argument("--state-dir", type=Path, help="retain isolated export state here instead of temporary cleanup")
     args = ap.parse_args(argv)
-    text = render()
+    text = render(args.state_dir)
     if args.check:
         current = args.check.read_text(encoding="utf-8") if args.check.exists() else ""
         if current != text:

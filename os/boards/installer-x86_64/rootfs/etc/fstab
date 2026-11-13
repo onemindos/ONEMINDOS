@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind installer stick: the root stays read-only (nothing on the stick changes while it runs);
+# everything a running system writes goes to RAM.
+PARTLABEL=onemind-installer-root  /         ext4   ro,noatime              0 1
+tmpfs                             /var      tmpfs  mode=0755,size=256m     0 0
+tmpfs                             /tmp      tmpfs  mode=1777,size=256m     0 0

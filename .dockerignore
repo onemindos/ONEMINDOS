@@ -2,3 +2,24 @@
 *
 !os/
 !test/qemu/
+# OneMind layer sources (os/rootfs/Containerfile onemind-* stages)
+!go.mod
+!go.sum
+!cmd/
+!internal/
+!core/
+!dashboard/
+!ui/src/
+!brand/generated/os/
+!brand/logo/png/white/
+!sdk/schema/
+!sdk/policy/
+!sdk/go/
+!apps/
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+**/.pytest_cache
+core/data
+core/tests

@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# Hetzner Cloud snapshot, BIOS (SeaBIOS) (docs/leap/core/CLOUD-IMAGES.md).
+# No rootfs of its own: assembled from the `cloud` rootfs plus overlay/ (make cloud-image CLOUD=hetzner);
+# `make rootfs BOARD=cloud-hetzner` fails on purpose (no rootfs/ directory here).
+name: cloud-hetzner
+arch: amd64
+compatible: onemind-cloud-hetzner    # own RAUC compatible: an update bundle carries this cloud's overlay
+route: grub-bios
+rauc_bootloader: grub
+grub_target: i386-pc
+efi_binary: none
+console: "console=tty0 console=ttyS0,115200"
+layout: layout.yaml
+rootfs_from: cloud
+overlay: overlay
+outputs: [raw, raw.xz]
+cloud: true
+secure_boot: none

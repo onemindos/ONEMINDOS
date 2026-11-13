@@ -168,7 +168,7 @@ Job kinds (v1): `backup.run`, `backup.restore`, `backup.verify-restore`, `backup
 
 Writes are actions (§12.2): `backup.run`, `backup.verify`, `backup.restore`, `backup.target.*`, `backup.key.rotate`, `backup.prune`, `backup.kit.issue`. During onboarding, `backup.restore {scope: box}` is accepted from the setup session and recorded as the first audit entries of the restored box (`owner_initiated: true`, `phase: onboarding`).
 
-**`onemindd` local API (loopback only, H-24):** `POST :7480/api/v1/backup/run {reason, wait}` → `{run_id, state}` for the updater (BACKUPS.md §6.1).
+**`onemindd` local API (loopback only, H-24):** `POST :7480/api/v1/backup/jobs` takes gateway-signed jobs only (`backup.run`, `backup.restore`, ...) and `GET :7480/api/v1/backup/status` reports state. The earlier unsigned `POST /api/v1/backup/run` was removed in #91 (`internal/backup/api.go:20-26`); the updater's pre-update snapshot (BACKUPS.md §6.1) must use a signed job.
 
 **restic tags** (normative, so a repository is readable without OneMind): `onemind`, `box=<instance_id>`, `gen=<n>`, `unit=<system|k3s|nats|app|node|fence>`, `node=<id>`, `run=<run_id>`, `reason=<…>`, and when relevant `app=<id>`, `rev=<n>`, `k3s=<version>`, `audit_head=<hash>`.
 

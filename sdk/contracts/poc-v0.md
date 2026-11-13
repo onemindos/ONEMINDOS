@@ -539,7 +539,7 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 | `GET /v1/restores`, `/restores/{id}` | `backups:read` | `{id, state, action_id, snapshot_id, scope, mode, target, started_at, finished_at, health_gate: {verdict, probes}}`; a restore whose fresh-signal gate fails ends `failed`, never `succeeded` |
 | `POST /v1/onboarding/restore/candidates` | **setup mode only** (no owner yet), from the LAN | `{destination: {kind, config, sealed}, sealed_owner_key}` → `[{instance_id, box_name, generation, restore_points: [{run_id, taken_at, units, arch, k3s_version}]}]`; a box restore chosen here is recorded as the first audit entries of the restored box (`owner_initiated: true`, `phase: onboarding`) |
 
-- `onemindd` local API (loopback only, H-24): `POST :7480/api/v1/backup/run {reason, wait}` → `{run_id, state}`, for the updater's pre-update snapshot.
+- `onemindd` local API (loopback only, H-24): `POST :7480/api/v1/backup/jobs` accepts gateway-signed jobs only and `GET :7480/api/v1/backup/status` reports state. The unsigned `POST /api/v1/backup/run` was removed in #91 (`internal/backup/api.go:20-26`); the updater's pre-update snapshot has to use a signed `backup.run` job.
 - **restic tags** (normative, so a repository is readable without OneMind): `onemind`, `box=<instance_id>`, `gen=<n>`, `unit=<system|k3s|nats|app|node|fence>`, `node=<id>`, `run=<run_id>`, `reason=<…>`, and when relevant `app=<id>`, `rev=<n>`, `k3s=<version>`, `audit_head=<hash>`.
 
 ### 12.13 OS updates
@@ -669,6 +669,34 @@ Still `kind: agent` only and still **no approve, deny, policy, grant or token to
 | Audit | `/v1/audit/events\|verify\|checkpoints`; the draft's `/v1/audit/status` is `GET /v1/audit/verify` | API.md |
 | Heartbeat mesh | top-level `mesh: {state, path}` | one object per subsystem, like `update`, `backup`, `storage`; NETWORKING.md's proposed `fabric.mesh` moves here |
 | Decider field | `approved_by` | SDK names (DECISIONS-NEEDED §3) |
+### 12.41 First-run software preferences (ONB-P1, step 5)
+
+§12.22 remains reserved for the separate app-store/networking proposals; this section does not adopt them.
+
+| Method and path | Who | Returns |
+|---|---|---|
+| `GET /v1/onboarding/settings` | owner person, scope `*` | `200` `{box_name: string|null, time_zone: string|null, backup_choice: usb\|peer\|s3\|later, backup_destination_id: string|null, saved: bool}`; before the first save, names are null, choice is `later` and `saved` is false; `Cache-Control: no-store` |
+| `PUT /v1/onboarding/settings` | owner person, scope `*` | Full replacement `{box_name, time_zone, backup_choice, backup_destination_id?}` → `200` with the persisted readback above and `saved: true`; audited `onboarding.settings.saved` with actor and these software preferences only |
+
+`box_name` is a lowercase RFC 1123 label (1–63 characters, no leading/trailing hyphen).
+`time_zone` is an installed IANA time-zone identifier (including `UTC`), not a path or UTC offset.
+Unknown keys, invalid names/zones/choices, or a destination with choice `later` return `422`.
+An optional destination must already exist in the merged §12.12 backup service and match the
+choice (`usb` → `usb`, `peer` → `box`, `s3` → `s3`); absent/mismatched ids return `422` before
+any preference is written. Destinations are box-wide, not private per person, and only an owner
+may bind one here. Use `GET /v1/backups/destinations` to choose an existing destination; creation
+and credentials stay exclusively in §12.12's approved destination flow. Without a destination,
+the choice is only an intention, not configured protection. This route accepts no credentials,
+kit claim, schedule or approval. `401` without authentication; `403` (audited `authz.denied`) for
+non-owner people, agents/plugins and scoped credentials lacking `*`; no partial writes.
+
+The saved name is the software instance display name (`GET /v1/instance`); neither name nor zone
+changes host configuration. Saving does not start/stop a backup schedule, configure a destination,
+issue an emergency kit, run/restore a backup or actuate a device. An existing schedule remains
+unchanged even for `later`. The wizard must await persistence, keep failures retryable, and never
+claim a kit was saved or backups enabled from these preferences. AI never actuates without human
+approval; §12.40 lifecycle and §12.12 approval/security controls are unchanged.
+
 ### 12.40 App lifecycle (amendment 2026-11-12; PD-03..PD-07, UMB-APP-0/3/4/5)
 - **Status.** `GET /v1/apps` `status` gains `stopped`, `starting`, `stopping`, `restarting`, `updating`, `configuring`, `deleting_data`; new field `data_kept: bool` (true when the app was removed with its data kept; `status` is then `not_installed`).
 - **Plan.** `GET /v1/apps/{id}/plan?type=<action type>` and `POST /v1/plans` return `{type, app_id, risk, policy_verdict: needs_approval|refused, reason, plan, plan_sha256}`. They file nothing. The plan holds the app's bundle fingerprint, versions (`from_version`, `to_version` for an update), the volumes and what happens to them (`kept` or `deleted`) and warnings. `plan_sha256` follows §12.4.

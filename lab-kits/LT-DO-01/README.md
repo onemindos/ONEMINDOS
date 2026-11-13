@@ -15,7 +15,7 @@
 | Step | PASS if | FAIL if |
 |---|---|---|
 | D1 Upload | The `vm-do` qcow2 from the `image` CI run imports as a custom image without an error | Import rejected |
-| D2 First boot | A droplet (smallest size with ≥ 25 GB disk, your SSH key selected) reaches the login prompt on the web console within 10 min, and `ssh onemind@<droplet-ip>` with your key works | No boot, no network, or the key is refused |
+| D2 First boot | A droplet (smallest size with ≥ 25 GB disk, your SSH key selected) reaches the login prompt on the web console within 10 min, and `ssh admin@<droplet-ip>` with your key works | No boot, no network, or the key is refused |
 | D3 Cloud layer | `cloud-init status --long` says `status: done`; the droplet's public IP from the control panel is on `eth0`/`ens3` (`ip -br a`); `/data` is larger than 6 GiB (`df -h /data`; the image's data partition is about 5 GiB, so it grew) | `status: error`, wrong or missing address, or `/data` not grown |
 | D4 OneMind | `rauc status` shows `Booted from: rootfs.0 (A)`; `/data/onemind/gate.log` has `RESULT committed-boot slot=A`; `K3S-FRESH ok` within 10 min | Any of these missing |
 | D5 Update | `sudo rauc install onemind-vm-do-<v>-next.raucb` then `sudo systemctl reboot`, with no further input: the droplet comes back on slot B, gate `RESULT mark-good slot=B version=<v>-next`, SSH still works with the same host key fingerprint | Stuck, rolled back, needs the console, or the host key changed |
@@ -31,15 +31,15 @@
 3. **Create a droplet** (D2) from that custom image, smallest plan with a ≥ 25 GB disk, **your SSH key** selected, no user data. Open the web console and watch the boot (`GRUB-RAUC: …`, then `HEALTH-GATE: … RESULT committed-boot slot=A`).
 4. **Check** (D3, D4, D6) over SSH:
    ```bash
-   ssh onemind@<droplet-ip>
+   ssh admin@<droplet-ip>
    cloud-init status --long; ip -br a; df -h /data
    sudo rauc status; sudo cat /data/onemind/gate.log
    touch /usr/x; ls /etc/ssh/ssh_host_* /data/onemind/ssh/
    ```
 5. **Update** (D5): copy the next bundle up and install it.
    ```bash
-   scp onemind-vm-do-*-next.raucb onemind@<droplet-ip>:   # into ~onemind, which lives on /data
-   ssh onemind@<droplet-ip> 'sudo rauc install ~/onemind-vm-do-*-next.raucb && sudo systemctl reboot'
+   scp onemind-vm-do-*-next.raucb admin@<droplet-ip>:   # into ~admin, which lives on /data
+   ssh admin@<droplet-ip> 'sudo rauc install ~/onemind-vm-do-*-next.raucb && sudo systemctl reboot'
    ```
    Wait 5 minutes without touching anything, then SSH back in (the host key must not change) and run `sudo rauc status; sudo tail -5 /data/onemind/gate.log`.
 6. **Record:** pipe everything you paste through `sh lab-kits/common/redact.sh` (it masks the droplet's IP addresses), write `research-output/evidence/lab/founder-hardware/LT-DO-01.md` from [`../common/RESULT-TEMPLATE.md`](../common/RESULT-TEMPLATE.md), and **destroy the droplet and the custom image** afterwards (the image carries a throwaway dev CA; it is a test image, not a release).

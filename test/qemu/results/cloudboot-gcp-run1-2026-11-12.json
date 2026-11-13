@@ -1,0 +1,46 @@
+{
+  "env": {
+    "cloud": "gcp",
+    "board": "cloud-gcp",
+    "upto": "C0,C1,C2,C3,C4",
+    "accel": "tcg,thread=multi",
+    "host_cpus": 14,
+    "host_machine": "aarch64",
+    "tests": [
+      "C0",
+      "C1",
+      "C2",
+      "C3",
+      "C4"
+    ]
+  },
+  "minutes": 16.1,
+  "criteria": "test/qemu/CRITERIA-CLOUD.md",
+  "results": [
+    {
+      "test": "C0",
+      "verdict": "PASS",
+      "detail": "sha256sums_ok=True one_member_disk_raw=True whole_GiB=True"
+    },
+    {
+      "test": "C1",
+      "verdict": "PASS",
+      "detail": "config='ONEMIND-FIRSTBOOT: configured role=hub source=nocloud node_id=795c0de444fb' tokens_printed=1 gate=('committed-boot', 'A', '0.1.0-dev')"
+    },
+    {
+      "test": "C2",
+      "verdict": "FAIL",
+      "detail": "ssh_admin_sudo=True cloud_init_done=False instance_id=True platform_nocloud=True datasource_list=True hostkeys_on_data_only=True net_mtu_1460=False dsl=['GCE', 'NoCloud', 'None'] ds_identify='datasource_list: [ NoCloud, None ]'"
+    },
+    {
+      "test": "C3",
+      "verdict": "PASS",
+      "detail": "healthz=200 node_id=795c0de444fb listed=[('795c0de444fb', 'hub', 'online')] unauth=401 dashboard=True (info: /run/onemind/owner-token over ssh matches console=True)"
+    },
+    {
+      "test": "C4",
+      "verdict": "PASS",
+      "detail": "grown=True sizes={'DISK': '50331648', 'START': '23070720', 'PSIZE': '27260895'} 'ONEMIND-FIRSTBOOT: already configured role=hub node_id=795c0' new_tokens=0 same_node=True same_tokens_file=True healthz=200 listed=[('795c0de444fb', 'hub', 'online')] gate=('committed-boot', 'A', '0.1.0-dev')"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Make the OneMind data partition usable. NVIDIA's flash creates the GPT entry `onemind-data`
+# (os/boards/jetson-orin/jetson_layout.py) but writes no filesystem into it. Format only when
+# the partition carries no recognisable signature at all; never touch anything else.
+set -eu
+DEV=/dev/disk/by-partlabel/onemind-data
+[ -b "$DEV" ] || { echo "onemind-jetson-data: $DEV missing (flashed without the OneMind layout?)" >&2; exit 1; }
+TYPE=$(blkid -p -s TYPE -o value "$DEV" 2>/dev/null || true)
+case "$TYPE" in
+ext4) echo "onemind-jetson-data: $DEV already ext4" ;;
+"")   if findmnt -rn -S "$DEV" >/dev/null; then echo "onemind-jetson-data: $DEV is mounted, refusing" >&2; exit 1; fi
+      mkfs.ext4 -q -L onemind-data "$DEV"; echo "onemind-jetson-data: formatted $DEV (first boot)" ;;
+*)    echo "onemind-jetson-data: $DEV holds '$TYPE', not ext4; not formatting it" >&2; exit 1 ;;
+esac

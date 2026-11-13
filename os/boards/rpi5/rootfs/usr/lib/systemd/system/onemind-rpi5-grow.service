@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Board rpi5: grow /data to the flashed device before k3s and first boot use it.
+[Unit]
+Description=OneMind: grow the data partition to the SD card / SSD (rpi5)
+RequiresMountsFor=/data
+After=local-fs.target
+Before=k3s.service onemind-firstboot.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/onemind/rpi5-grow
+
+[Install]
+WantedBy=multi-user.target
