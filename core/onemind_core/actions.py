@@ -55,6 +55,12 @@ APP_CLAIMS: dict[str, tuple[str, frozenset[str], bool]] = {
 }
 
 
+# Handler action types whose module reconciles them itself when it registers (reconcile_interrupted
+# runs before the routers register, so self.handlers is still empty then). Types of FeatureAction are
+# not in this set: they are marked outcome_unknown here, as before.
+SELF_RECONCILED_TYPES = frozenset({"node.join"})
+
+
 class ActionHandler(Protocol):
     """The effect of a non-app action type, run only after an owner approved it.
 
@@ -811,7 +817,7 @@ class ActionService:
         forever. (v0 runs one gateway per ledger; several would need leases first.)
         """
         for a in self.repo.list(states={"accepted", "dispatched"}):
-            if a.type not in APP_CLAIMS:
+            if a.type in SELF_RECONCILED_TYPES:
                 # Handler types (node.join) finish on their own schedule: their module reconciles
                 # them when it registers (create_app runs this before the routers register).
                 continue

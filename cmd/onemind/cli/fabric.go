@@ -287,8 +287,3 @@ func fabricStatus(args []string, out io.Writer) error {
 	return nil
 }
 
-// gatewayError is the gateway's error envelope (contract §12.2).
-type gatewayError struct {
-	Error   string `json:"error"`
-	Message string `json:"message"`
-}
