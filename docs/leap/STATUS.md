@@ -176,17 +176,19 @@
 | CORE-NET-14 | Pi budget, throughput and phone matrix on hardware (VM budget + perf-smoke CI: `feat/perf-budget`; Pi numbers wait on F-25) | in-progress (merged in #68; rest unverified) | feat/perf-budget | [#68](https://github.com/onemindos/ONEMINDOS/pull/68) |
 | CORE-NET-15 | Public app exposure through the relay | parked | – | – |
 | DEV-CLI-8 | `fabric qr/join/leave/remove` and `node join` alias | todo | – | – |
-| CORE-BACKUP-1 | `onemind-local` Retain StorageClass as default | todo | – | – |
+| CORE-BACKUP-1 | `onemind-local` Retain StorageClass as default | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
 | CORE-BACKUP-2 | `internal/backup` agent: restic, schedule, three keys, emergency kit | done | `feat/onemindd-backup` | [#32](https://github.com/onemindos/ONEMINDOS/pull/32) |
-| CORE-BACKUP-3 | k3s datastore online backup with integrity gate | todo | – | – |
-| CORE-BACKUP-4 | Destinations: USB, another OneMind box (append-only), S3 | todo | – | – |
-| CORE-BACKUP-5 | Manifest `backup:` hooks | todo | – | – |
-| CORE-BACKUP-6 | Restore file, app or box, approval-gated; restore at onboarding | todo | – | – |
-| CORE-BACKUP-7 | Verified-restore badge (daily check, weekly scratch restore) | todo | – | – |
+| CORE-BACKUP-3 | k3s datastore online backup with integrity gate | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| CORE-BACKUP-4 | Destinations: USB, another OneMind box (append-only), S3 | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| CORE-BACKUP-5 | Manifest `backup:` hooks | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| CORE-BACKUP-6 | Restore file, app or box, approval-gated; restore at onboarding | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| CORE-BACKUP-7 | Verified-restore badge (daily check, weekly scratch restore) | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
 | CORE-NOTIFY-1 | Alert record and store, `/v1/alerts`, NATS subjects, in-app inbox | in-progress (merged in #44; rest unverified) | `feat/notify-monitor` | [#44](https://github.com/onemindos/ONEMINDOS/pull/44) |
 | DEV-API-12 | Notifications route shapes | in-progress (merged in #44; rest unverified) | built inside CORE-NOTIFY-1 (`feat/notify-monitor`) | [#44](https://github.com/onemindos/ONEMINDOS/pull/44) |
-| CORE-BACKUP-8 | Backups API, screen and alerts | todo | – | – |
-| DEV-API-11 | Backups and restores route shapes | todo | built inside CORE-BACKUP-8 | – |
+| BACKUP-WIRE-1 | One backup service inside onemindd, signed jobs, heartbeat `backup`, Debian 13 proof (extends CORE-BACKUP-2) | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| DB-SHARED-1 | Shared PostgreSQL for apps with `spec.database` | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| CORE-BACKUP-8 | Backups API, screen and alerts | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
+| DEV-API-11 | Backups and restores route shapes | review | `feat/backups-on` | [86](https://github.com/onemindos/ONEMINDOS/pull/86) |
 | DEV-CLI-7 | `backup status/list/now/verify` and `restore` | todo | – | – |
 | CORE-NOTIFY-2 | Sources: approvals, nodes, updates, backups, scans, audit (H-28) | in-progress (merged in #44; rest unverified) | `feat/notify-monitor`: all but the audit-chain check (H-28) | [#44](https://github.com/onemindos/ONEMINDOS/pull/44) |
 | CORE-NOTIFY-3 | Web Push and Android UnifiedPush via the box's ntfy; push registrat… | in-progress (merged in #44; rest unverified) | `feat/notify-monitor`: gateway side done (VAPID, RFC 8291, registrations); browser and phone sides open | [#44](https://github.com/onemindos/ONEMINDOS/pull/44) |

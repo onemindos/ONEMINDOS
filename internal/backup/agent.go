@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -35,9 +36,18 @@ type Agent struct {
 	FreeBytes func(path string) (int64, error)
 	IsMount   func(path string) (bool, error)
 	Log       *slog.Logger
+	// Jobs verifies the gateway's signed jobs (job.go); nil refuses them.
+	Jobs *JobVerifier
+
+	// stateErrs counts failed writes of state.json since start (persist). The in-memory
+	// state still holds the change, so this process keeps going, but a restart would lose it.
+	stateErrs atomic.Int64
 
 	lock    chan struct{}
 	running atomic.Value // run id of the job in progress ("" = idle)
+	// cfgMu guards Cfg.Targets and Cfg.Units.Apps, which the gateway can
+	// replace at run time (managed.go). Read them through conf().
+	cfgMu sync.RWMutex
 }
 
 // New builds an agent from validated settings: it checks the restic binary
@@ -64,9 +74,10 @@ func New(cfg Config) (*Agent, error) {
 		return nil, err
 	}
 	a := newAgent(cfg, st)
-	a.OpenRepo = func(t Target) (Repo, error) { return NewRestic(&a.Cfg, t, ExecRunner{}) }
-	units := BuildUnits(&a.Cfg, ExecRunner{})
-	a.Units = func(context.Context) ([]Unit, error) { return units, nil }
+	a.OpenRepo = func(t Target) (Repo, error) { c := a.conf(); return NewRestic(&c, t, ExecRunner{}) }
+	a.Units = func(context.Context) ([]Unit, error) { c := a.conf(); return BuildUnits(&c, ExecRunner{}), nil }
+	a.Jobs = &JobVerifier{PubKeyFile: cfg.JobPubKeyFile, DonePath: filepath.Join(cfg.StateDir, "jobs-done.json"),
+		Now: func() time.Time { return a.Now() }}
 	return a, nil
 }
 
@@ -75,6 +86,21 @@ func newAgent(cfg Config, st *Store) *Agent {
 		Log: slog.Default(), lock: make(chan struct{}, 1)}
 	a.running.Store("")
 	return a
+}
+
+// persist writes the state and never drops a failure silently. The store keeps the change in
+// memory even when the disk write fails, so the running agent stays consistent (a finished
+// job is not run again in a loop); what is lost is only the record across a restart. The
+// failure is logged (the error text names a path and an OS error, never a key or password),
+// counted, and shown as state_write_errors in the status, so the owner can see a full or
+// read-only disk before it costs a backup.
+func (a *Agent) persist(what string, f func(*State)) error {
+	err := a.Store.Update(f)
+	if err != nil {
+		a.stateErrs.Add(1)
+		a.Log.Error("backup state could not be saved", "what", what, "error", err.Error())
+	}
+	return err
 }
 
 func (a *Agent) tryAcquire(id string) bool {
@@ -161,11 +187,11 @@ func (a *Agent) runLocked(ctx context.Context, req RunRequest) (Run, error) {
 	}
 	run := Run{ID: req.ID, Reason: req.Reason, ActionID: req.ActionID, TargetID: t.ID,
 		StartedAt: a.Now().UTC(), State: StateRunning, Units: []UnitResult{}}
-	_ = a.Store.Update(func(s *State) { s.Runs = append(s.Runs, run) })
+	_ = a.persist("run start", func(s *State) { s.Runs = append(s.Runs, run) })
 	finish := func(state, msg string) (Run, error) {
 		end := a.Now().UTC()
 		run.FinishedAt, run.State, run.Error = &end, state, msg
-		err := a.Store.Update(func(s *State) {
+		err := a.persist("run result", func(s *State) {
 			for i := range s.Runs {
 				if s.Runs[i].ID == run.ID {
 					s.Runs[i] = run
@@ -190,7 +216,7 @@ func (a *Agent) runLocked(ctx context.Context, req RunRequest) (Run, error) {
 	if gen, err := a.newestFence(ctx, repo); err != nil {
 		return finish(StateFailed, "fence check: "+err.Error())
 	} else if gen > a.Cfg.Generation {
-		_ = a.Store.Update(func(s *State) { s.FencedBy = gen })
+		_ = a.persist("fence", func(s *State) { s.FencedBy = gen })
 		return finish(StateRefused, fmt.Sprintf("this box was replaced by a restore (generation %d is newer than %d); backups stopped", gen, a.Cfg.Generation))
 	}
 	srcBytes := sourceBytes(units)
@@ -219,7 +245,7 @@ func (a *Agent) runLocked(ctx context.Context, req RunRequest) (Run, error) {
 			}
 		}
 	}
-	_ = a.Store.Update(func(s *State) { s.SourceBytes[t.ID] = srcBytes })
+	_ = a.persist("source size", func(s *State) { s.SourceBytes[t.ID] = srcBytes })
 	switch {
 	case failed == 0:
 		return finish(StateSucceeded, "")
@@ -231,10 +257,11 @@ func (a *Agent) runLocked(ctx context.Context, req RunRequest) (Run, error) {
 }
 
 func (a *Agent) target(id string) (Target, bool) {
+	c := a.conf()
 	if id == "" {
-		return a.Cfg.Primary()
+		return c.Primary()
 	}
-	return a.Cfg.Target(id)
+	return c.Target(id)
 }
 
 func (a *Agent) selectUnits(ctx context.Context, names []string) ([]Unit, error) {
@@ -475,11 +502,21 @@ func GenerateKey(path string) error {
 
 // Heartbeat returns the heartbeat `backup` object.
 func (a *Agent) Heartbeat() Heartbeat {
-	h := Heartbeat{Running: a.Running() != "", LastResult: "none"}
-	st := a.Store.View()
+	h := HeartbeatFromState(a.Store.View())
+	h.Running = a.Running() != ""
+	return h
+}
+
+// HeartbeatFromState builds the heartbeat `backup` object from the state
+// file alone, for the heartbeat agent, which runs in another process.
+// last_result is succeeded|failed|partial|none (contract §12.10); a run
+// refused by the space check or the fence reports failed.
+func HeartbeatFromState(st State) Heartbeat {
+	h := Heartbeat{LastResult: "none"}
 	for i := len(st.Runs) - 1; i >= 0; i-- {
 		r := st.Runs[i]
 		if r.State == StateRunning {
+			h.Running = true
 			continue
 		}
 		at := r.StartedAt.UTC().Format(time.RFC3339)
@@ -504,6 +541,9 @@ type Status struct {
 	Fenced       bool                    `json:"fenced"`
 	Copies       int                     `json:"copies"`
 	LastVerified map[string]Verification `json:"last_verified"`
+	// StateWriteErrors counts failed writes of the agent's own state file since start; non-zero means
+	// the disk is full or read-only and records would be lost on a restart.
+	StateWriteErrors int64 `json:"state_write_errors"`
 }
 
 // Status computes the current status.
@@ -515,8 +555,8 @@ func (a *Agent) Status(ctx context.Context) (Status, error) {
 		return Status{}, err
 	}
 	s := Status{Units: map[string]Badge{}, NextRun: a.nextHourly(now), Running: a.Running(),
-		Generation: a.Cfg.Generation, Fenced: st.FencedBy > a.Cfg.Generation, Copies: len(a.Cfg.Targets),
-		LastVerified: st.LastVerified}
+		Generation: a.Cfg.Generation, Fenced: st.FencedBy > a.Cfg.Generation, Copies: len(a.conf().Targets),
+		LastVerified: st.LastVerified, StateWriteErrors: a.stateErrs.Load()}
 	order := map[string]int{BadgeFailing: 4, BadgeStale: 3, BadgeUnverified: 2, BadgeVerified: 1, BadgeNone: 0}
 	s.Box.State = BadgeNone
 	for _, u := range units {

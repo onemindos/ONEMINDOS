@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# Test fixture for test/backup-wire/lima-e2e.sh: not a Market app. It owns one volume and one
+# database on the shared PostgreSQL, and declares backup hooks, so a backup, a deliberate break and
+# a restore can be checked on both kinds of data. The image is the platform's own pinned
+# PostgreSQL image (it has sh and psql); the container only sleeps.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: backup-probe
+  name: Backup probe
+  version: "1.0.0"
+  description: Test fixture with a volume and a shared PostgreSQL database
+  category: developer
+  icon: icon.svg
+  license: Apache-2.0
+  source: https://github.com/onemindos/ONEMINDOS
+  links:
+    docs: https://github.com/onemindos/ONEMINDOS/tree/main/test/backup-wire
+    github: https://github.com/onemindos/ONEMINDOS
+    website: https://github.com/onemindos/ONEMINDOS
+    support: https://github.com/onemindos/ONEMINDOS/issues
+  upstream: {release: "1.0.0", released_at: "2026-11-12T00:00:00Z", archived: false}
+  tier: community
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 64}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}
+  backup:
+    mode: hot
+    # Runs inside the app's container (never on the host): proves the hook path and leaves a
+    # marker that the snapshot must contain.
+    pre: [{exec: {container: app, command: [sh, -c, "date -u +%Y-%m-%dT%H:%M:%SZ > /data/last-pre-hook"]}}]
+    post: [{exec: {container: app, command: ["true"]}}]
+    exclude: [cache/]
+  database: {engine: postgres, secret: probe-db}

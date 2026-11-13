@@ -36,5 +36,18 @@ for path in ("deploy/compose/compose.yaml", "deploy/compose/onemindd.Dockerfile"
         if m and "/" in m.group(1) and "@sha256:" not in m.group(1) and ":compose-dev" not in m.group(1):
             errors.append(f"{path}: image not pinned by digest: {m.group(1)}")
 
-print("\n".join(errors) if errors else "deploy pins match os/versions.lock.yaml")
+# restic: deploy/pins.env must name exactly what the backup agent accepts (internal/backup/pins.go).
+gopins = read("internal/backup/pins.go")
+for arch in ("amd64", "arm64"):
+    m = re.search(r'\{"restic", "([0-9.]+)", "%s",\s*"([^"]+)",\s*"([0-9a-f]{64})",\s*"([0-9a-f]{64})"' % arch, gopins)
+    if not m:
+        errors.append(f"internal/backup/pins.go has no restic pin for {arch}")
+        continue
+    for key, value in ((f"RESTIC_URL_{arch}", m.group(2)), (f"RESTIC_SHA256_{arch}", m.group(3)),
+                       (f"RESTIC_BIN_SHA256_{arch}", m.group(4)), ("RESTIC_VERSION", m.group(1))):
+        got = re.search(rf'^{key}="([^"]*)"', pins, re.M)
+        if not got or got.group(1) != value:
+            errors.append(f"deploy/pins.env {key}={got.group(1) if got else None!r}, internal/backup/pins.go says {value!r}")
+
+print("\n".join(errors) if errors else "deploy pins match os/versions.lock.yaml and internal/backup/pins.go")
 sys.exit(1 if errors else 0)
