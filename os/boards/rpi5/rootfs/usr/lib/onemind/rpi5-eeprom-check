@@ -1,0 +1,18 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Board rpi5: report the running EEPROM bootloader and warn if it is older than the release this
+# image targets (brief 30 B2 rpi5 row, E10). The image ships no rpi-eeprom and no auto-update: the
+# owner updates the bootloader on purpose (Raspberry Pi Imager > Misc utility images > Bootloader).
+# The version is the firmware's build timestamp, read the way rpi-eeprom-update does
+# (/proc/device-tree/chosen/bootloader/build-timestamp, rpi-eeprom 28.36-1 L48).
+[ -r /etc/default/onemind-rpi5 ] && . /etc/default/onemind-rpi5
+TS=/proc/device-tree/chosen/bootloader/build-timestamp
+[ -f "$TS" ] || { echo "rpi5-eeprom-check: no bootloader timestamp (not a Pi?)"; exit 0; }
+cur=$(printf '%d' "0x$(od -v -An -t x1 "$TS" | tr -d ' \n')")
+cur_d=$(date -u -d "@$cur" +%F); min_d=$(date -u -d "@${EEPROM_MIN_TS:-0}" +%F)
+mkdir -p /data/onemind && echo "$cur_d $cur" > /data/onemind/rpi5-eeprom
+if [ "$cur" -lt "${EEPROM_MIN_TS:-0}" ]; then
+  echo "ONEMIND-RPI5: WARNING bootloader $cur_d is older than the tested $min_d; update it with Raspberry Pi Imager" > /dev/console
+else
+  echo "ONEMIND-RPI5: bootloader $cur_d (tested: $min_d)" > /dev/console
+fi

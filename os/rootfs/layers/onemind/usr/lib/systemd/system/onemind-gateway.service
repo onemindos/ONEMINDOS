@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind Core gateway in the image (:8080; serves the dashboard at /). Hub role only, started by
+# onemind-firstboot. Code and venv are read-only in the slot (/usr/lib/onemind/gateway); its
+# database, audit log, tokens and kubeconfig live in /data/onemind/gateway.
+[Unit]
+Description=OneMind Core gateway (:8080)
+After=network-online.target onemind-firstboot.service onemind-nats.service
+Wants=network-online.target onemind-nats.service
+RequiresMountsFor=/data
+ConditionPathExists=/data/onemind/etc/gateway.env
+
+[Service]
+Type=simple
+User=onemind
+Group=onemind
+EnvironmentFile=/data/onemind/etc/gateway.env
+Environment=HOME=/data/onemind/gateway PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+WorkingDirectory=/data/onemind/gateway
+ExecStart=/usr/lib/onemind/gateway/venv/bin/python3 -m onemind_core
+Restart=always
+RestartSec=3s
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ReadWritePaths=/data/onemind/gateway
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+UMask=0027

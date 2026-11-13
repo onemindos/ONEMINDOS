@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# Azure image, Hyper-V generation 2 (UEFI) (docs/leap/core/CLOUD-IMAGES.md).
+# No rootfs of its own: assembled from the `cloud` rootfs plus overlay/ (make cloud-image CLOUD=azure);
+# `make rootfs BOARD=cloud-azure` fails on purpose (no rootfs/ directory here).
+name: cloud-azure
+arch: amd64
+compatible: onemind-cloud-azure    # own RAUC compatible: an update bundle carries this cloud's overlay
+route: grub-efi
+rauc_bootloader: grub
+grub_target: x86_64-efi
+efi_binary: BOOTX64.EFI
+console: "console=tty0 console=ttyS0,115200"
+layout: layout.yaml
+rootfs_from: cloud
+overlay: overlay
+outputs: [vhd, vhd.xz]
+cloud: true
+secure_boot: none

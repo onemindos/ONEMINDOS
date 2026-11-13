@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Generate this instance's SSH host keys once, on /data (the slot image ships none).
+[Unit]
+Description=OneMind: per-instance SSH host keys on /data
+RequiresMountsFor=/data
+Before=ssh.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'd=/data/onemind/ssh; mkdir -p $$d && chmod 700 $$d; for t in ed25519 rsa; do [ -s $$d/ssh_host_$${t}_key ] || ssh-keygen -q -t $$t -N "" -f $$d/ssh_host_$${t}_key; done'

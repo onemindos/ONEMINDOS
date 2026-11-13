@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind first-boot settings (docs/leap/core/IMAGES.md §3). Edit this file on the flashed card or
+# disk (it is on the FAT partition every computer can open), then boot the box. Read once by
+# onemind-firstboot, then renamed onemind.conf.applied. Leave "role" commented out to use the
+# setup wizard at http://onemind.local:8080/ instead. A cloud-init seed, if present, wins.
+#
+# role       = hub            # hub | worker | leaf
+# name       = OneMind        # shown in the dashboard (hub)
+# hub        = onemind.local  # worker / leaf: the hub's name or address
+# join_token =                # worker / leaf: printed on the hub's console at its first boot

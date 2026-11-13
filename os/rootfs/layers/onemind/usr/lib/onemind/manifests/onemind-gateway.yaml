@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# The gateway's own Kubernetes identity (same as deploy/install.sh gateway_kubeconfig): the
+# built-in "admin" role plus namespace create/delete. Not cluster-admin. k3s applies this file
+# (k3s.service copies /usr/lib/onemind/manifests/ into its auto-deploy directory).
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: onemind-gateway, namespace: onemind-system}
+---
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: onemind-gateway-token
+  namespace: onemind-system
+  annotations: {kubernetes.io/service-account.name: onemind-gateway}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: {name: onemind-gateway-namespaces}
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, watch, create, update, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: {name: onemind-gateway-namespaces}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: onemind-gateway-namespaces}
+subjects: [{kind: ServiceAccount, name: onemind-gateway, namespace: onemind-system}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: {name: onemind-gateway-admin}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: admin}
+subjects: [{kind: ServiceAccount, name: onemind-gateway, namespace: onemind-system}]

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# USB installer for UEFI x86_64 PCs (Beelink, any UEFI PC): a live stick that writes the
+# x86_64-efi image to an internal disk (README.md). Not an A/B board: no RAUC, no slots.
+name: installer-x86_64
+arch: amd64
+kind: installer
+target_board: x86_64-efi        # the image it carries and writes
+grub_target: x86_64-efi
+efi_binary: BOOTX64.EFI
+console: "console=tty0 console=ttyS0,115200"
+esp_volume_id: 4F4E4955         # differs from the images' ESP (4F4E454D) so GRUB never mixes them up

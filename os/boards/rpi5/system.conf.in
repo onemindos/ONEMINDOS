@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind RAUC system configuration, board rpi5 (brief 30 B4.1, BD-07). Rendered by
+# os/boards/rpi5/assemble_rpi5.py. Same policy as os/rauc/system.conf.in; the boot side is RAUC's
+# custom backend over the Pi firmware's tryboot_a_b, as in the F-PI5 kit [C-LAB-rauc-1152-013].
+# Keys: https://rauc.readthedocs.io/en/v1.15.2/reference.html#system-configuration-file
+[system]
+compatible=@COMPATIBLE@
+bootloader=custom
+data-directory=/data/rauc
+# Refuse every bundle that is not dm-verity protected (REC-DEC-05; lab T11).
+bundle-formats=verity
+
+[keyring]
+path=/etc/rauc/keyring.pem
+
+[handlers]
+bootloader-custom-backend=/usr/lib/onemind/rpi-tryboot-ab.sh
+# Writes the trial marker BEFORE any slot is touched (lab finding [C-LAB-rauc-k3s-gate-001]).
+pre-install=/usr/lib/onemind/rauc-pre-install
+
+# A slot = boot partition 2 + root partition 5; B = 3 + 6 (MBR PARTUUIDs, disk id @DISK_ID@).
+[slot.boot.0]
+device=/dev/disk/by-partuuid/@DISK_ID@-02
+type=vfat
+bootname=A
+
+[slot.rootfs.0]
+device=/dev/disk/by-partuuid/@DISK_ID@-05
+type=ext4
+parent=boot.0
+
+[slot.boot.1]
+device=/dev/disk/by-partuuid/@DISK_ID@-03
+type=vfat
+bootname=B
+
+[slot.rootfs.1]
+device=/dev/disk/by-partuuid/@DISK_ID@-06
+type=ext4
+parent=boot.1

@@ -1,0 +1,22 @@
+{
+  "env": {
+    "cloud": "azure",
+    "board": "cloud-azure",
+    "upto": "C0",
+    "accel": "tcg,thread=multi",
+    "host_cpus": 14,
+    "host_machine": "aarch64",
+    "tests": [
+      "C0"
+    ]
+  },
+  "minutes": 0.2,
+  "criteria": "test/qemu/CRITERIA-CLOUD.md",
+  "results": [
+    {
+      "test": "C0",
+      "verdict": "PASS",
+      "detail": "sha256sums_ok=True vpc=True footer_conectix_fixed=True fixed_footer=True whole_MiB=True"
+    }
+  ]
+}

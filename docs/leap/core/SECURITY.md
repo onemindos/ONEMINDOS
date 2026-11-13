@@ -187,6 +187,12 @@ The developer install now does what the image must also do. Record for the image
 3. Ship `deploy/k8s/gateway-rbac.yaml` in `/usr/lib/onemind/manifests/` (k3s auto-applies it) when the core chart replaces the `pause` stand-in, and run the gateway with `ONEMIND_SANDBOX_GATEWAY_SA=onemind-system/onemind-gateway` and `ONEMIND_SANDBOX_RULES` pointing at the image's copy of `sdk/policy/app-objects.yaml` (the core Dockerfile already copies `sdk/`).
 4. `onemindd.service` needs no change: the loopback default comes from the binary.
 
+**Applied by `feat/image-line` (IMG-LINE):**
+- Items 1 (flags) and 2 (`psa.yaml`): done. `os/rootfs/layers/base/usr/lib/systemd/system/k3s.service` and `os/rootfs/layers/base/etc/rancher/k3s/psa.yaml` (a test keeps it identical to `deploy/k8s/psa.yaml`). Not yet: the `k3s secrets-encrypt status` line in the health gate (needs a live k3s to prove the output; left for the QEMU battery run) and item 3 (the `pause` stand-in is still in the image).
+- NATS TLS (CORE-SEC-4), image side: `onemind_firstboot.py` can write a TLS block for the hub's leaf-node port 7422 (cert from the box CA) and a CA pin on a leaf, switched on by `nats_tls = yes` in `onemind.conf`. Off by default until the mesh branch (B3) proves hub plus node join; `onemind-nats.service` copies the files into its own runtime directory. Tests: `test/unit/test_firstboot.py` (`NatsTls`).
+- LUKS2 (CORE-SEC-5): **not applied.** It needs a systemd-initrd unit and a first-boot reformat of `onemind-data`; that cannot be proven without the QEMU battery on the encrypted layout. Listed as remaining in the PR.
+- TUF root: the place stays `/usr/lib/onemind/tuf/<channel>/root.json`. The repo holds no root and no key (founder item F-27); `test/unit/test_image_patches.py` fails if one is committed under `os/`.
+
 ## 8. Who owns which files
 
 | Branch (proposed) | Files |
