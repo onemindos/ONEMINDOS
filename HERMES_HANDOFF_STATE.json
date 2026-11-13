@@ -1,0 +1,6914 @@
+{
+  "format": "hermes-source-transfer/v1",
+  "lane": "pr55",
+  "created_at_utc": "20261113T064930Z",
+  "warning": "WIP TRANSFER ONLY: not tested as a final candidate, not merge-ready. No PR is opened for this checkpoint.",
+  "original_branch": "feat/test-property-fuzz",
+  "original_head": "d41c48670b0e25c736dc1cb8bcc263b02454a261",
+  "original_merge_heads": [
+    "ab3560556a4d3c4fe54e0d78c9dda0a9598b6855"
+  ],
+  "unresolved_paths": [
+    "core/onemind_core/actions.py",
+    "sdk/go/internal/gen/types.gen.go",
+    "sdk/python/src/onemind_sdk/_gen/models.py",
+    "sdk/ts/src/gen/schema.ts",
+    "sdk/ts/test/live.test.ts"
+  ],
+  "preserved_index_commit": "14b75d03e83a0ff4c98ccd476a44ccfddf615484",
+  "index_entries": [
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "apps-gate-all.yml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "3c54fbd66807b02dd01690cecfb6c1b4c1d8ea03",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "changes-collect.yml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "9688d23960374461d8a8c32dc9eed88578bbce00",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "ci-deploy.yml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "0596f8eaa5f0c85ed62a9fef9ddeff0359bf6b51",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "ci-mobile.yml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "42941b41d4d71a0767637f280c266c7b1f5647d3",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "ci.yml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "48ac46d7e89ae13864094f21aa545a7cd1ac826d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "hygiene.yml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "99169b196801b5f1fa3894150728ba593140d43f",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "site.yml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "027f2b4f52d9038ce194bf262db31f3e48b07f97",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "ui-quality.yml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "5ab3d72ffdd77c12640b971c2d7f787b27578b12",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "CHANGELOG.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "c6509486fd98a9e1298070e0a64a9a9ff4b90c9a",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "changes",
+        "README.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "40c20e659b09ad18dccdd477a8f9865fe4f1f63e",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "changes",
+        "ci-changelog-fragments.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "da1277db6df19cab428dbc6883daa750d94d6a72",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "changes",
+        "feat-automation.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "767b0c56855bbeda0d9268590c2dcdc6b9e0a7b5",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "changes",
+        "feat-backups-on.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "4489db8b3bfd9f9bd58b8c2fde9034366efd01e1",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "changes",
+        "feat-deploy-port27.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "7b817a1e6150ef0d30c74726fa9ad52f3cc243b0",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "changes",
+        "feat-files.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "78afcdfc687cf297a824091abf764258b8a2fc30",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "changes",
+        "fix-backups-security.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "865617b6289f735bab28e0a29c0da763e907249b",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "changes",
+        "fix-sdk-idempotent-retry.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "300ed683787e2977c43c1ec634beb4ccd0637d37",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "cmd",
+        "onemindd",
+        "backup.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "2dab9036bed7f318d446cff46df82c94a0ccaafe",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "cmd",
+        "onemindd",
+        "backup_test.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "809948ae8b843c09b4d58543cce60027c29b7a7a",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "cmd",
+        "onemindd",
+        "main.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "a603f9ad099d07fbd45c9fb51997094ab4597683",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "cmd",
+        "onemindd",
+        "registry.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "840fa4ab76bf4ab5c34d1f9f1ee08412e3e95688",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "actions.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "caa14dd5eedce58807ccf667a5312ab8c9f7f68a",
+          "stage": 1
+        },
+        {
+          "mode": "100644",
+          "oid": "202990b672649d758146e0647c9d0286b07702a8",
+          "stage": 2
+        },
+        {
+          "mode": "100644",
+          "oid": "15170ec85aa7275d5254cf90b02d3bdc7ec335d1",
+          "stage": 3
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "apimodels.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "93e3b0ba780c10cdf1eca0693fe49b5ce01797b2",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "app.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "99bc42e88c5fb15f00feeb48b19801e39fc7b480",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "auth.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "3bcd2f10f170247a482cb04395804cdf7121fdf5",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "automation",
+        "__init__.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ee8cafd8ce5151e73bd6cbac27e45f7fe7c61cf1",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "automation",
+        "cron.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "8874c8e11635d7d81136e0a165db54271bedf842",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "automation",
+        "engine.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "8037d2867a898dfc5f21021ebdfcab7273b14dcf",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "automation",
+        "policies.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "bd5db7243e1c7aa714d78daba2f9c916b7c697a5",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "automation",
+        "registry.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "472bf3367a3962fc12b92ad1633a7b06123dede0",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "automation",
+        "store.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "482f5322904f7e947f6500bf5f074383c1f2bae0",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "README.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "242fd14419a48fbd7dd75e3224e47455e0553e84",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "__init__.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ff7824edd5e685241da2f004f1fecdb6be8aa3fd",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "jobs.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "18e264ce2ca8b4b3cc3cff7709ff9478959ad8a9",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "kit.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "037b8b1ff5308e8e434e9f292836d4b82376d6ab",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "kube.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "17c2d653b4d151217d5ec309fddddab48602b78c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "manifest.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "5ebf4512f21194ed1a86bd15a45f51f7f18ee800",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "service.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "f7344ddd760237a9281f4affdc3bf8ce36114e5c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "settings.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "36e1304a04e7a3ec328a5ef036f3087efe4c0df6",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "store.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "6604714b0969e0aadd64e2ec0f9f34bcdd6dc109",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "databases.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "111ded65f3581b6ffd65dc5230932fc05cc52f8c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "executors.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "98d14733992f3262ce89d726795712b91aa54e67",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "__init__.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "c79536643447e3d153dbb6a60b7ad8d626eacbd4",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "access.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "7c51af552f95b97ac46ef319cefadbc133fc2dfa",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "errors.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ab6a545eed78d341651cebff8654b1a307277915",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "paths.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "45ca28ba75a1c305f37466d49229d9253739cc28",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "preview.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "1751e573bed6421a6f658f089c41a934cf3bdc91",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "service.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "2b7b4a5aaefe5848ece5768dbff85b1979e4fe9f",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "settings.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "633848e4f315c09471f843aba1119b935a6b6984",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "store.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ee98ccd0a4c9b5b5a68ecfc87d704d12db839a5d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "uploads.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "465f1a044a49bb776d944eb027b445672c3356b3",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "identity",
+        "scopes.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "bb0e00c44255383d7a4f9f3cec6ec51e1eaf4bb2",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "ledger.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "9b47af0d1fe0e335730cb5b6f89f243d20a5777a",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "lifecycle.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "8d57f379750fdf66c700fa0fb698684cb465e2a5",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "mcp",
+        "tools.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "4e4f7223512bc34c687c17a43ac6f00f586e0fb9",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "models.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "1e1fa948232024f7433c49e2553a7a00177fe22e",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "actions.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "d26c87e34e5c6d51f5e6bea6c65c784aec375f56",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "apps.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "9e03c444daed3a7bd4e8e9a71b802563c32a77f8",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "automation.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "40dbae9fc05030681126fd4078fb50742f704348",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "backups.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "5c36f12d71c076b625c3414002af6148661664c2",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "databases.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "14892a5629cfb8ef2467f5c09148940ce733974b",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "files.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "6722eeccec9b551c191a16228ced0cb00696f50e",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "store.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "833b79e40dad2fff2c30e6f811ed9c52ad026bd0",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "conftest.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "46e3074095894e599ba591e5e4b57a4d1792b9cc",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "files_support.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "58ee40fbf0633585103e014ff99d1eb29b284d74",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_app_lifecycle.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "52b4cbd45bb96fd093c00e53c152729a48fdbd43",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_automation.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "fc2796200c31a06b650d6de0513aabac3d9316a4",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_automation_cron.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ba66eb5fb19679ef26180c94e2f61ee50840bb05",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_backups.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "89d1506c56d704950894a4a5dc7728e77927bc72",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_files_api.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "823e56a165db30d57a91977f8167b9142d44ff5a",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_files_grants.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "6694ffdc2aa1fea42ac163c06b931b07ef37347f",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_files_paths.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "e2d57a3890bda80fe880d8021cae0f59a760ccc2",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_files_uploads.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "55041ca7dc4a431d1e9c8ac2932ea2dd4c2cfc08",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_nodes_catalog.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "630c510673363845239d29f38ade2b78eb36b51b",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_plumbing.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "c212ab5c0b9bf9e29bd02198d60bb048fa6855e2",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_route_authz.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "2bc502ab3f59dcb66a9d1d968f4a9bff4b232b6d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_sdk_conformance.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "7b0122ee8a26f5815312f0de5bf6303f6b93f51d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "README.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "bc001856b2ae92400043cb746541ee8e4a40bc83",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "backup.sh"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "9e6d66c3df8805c7f255fb2b1907b77038e0d187",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "bundle.sh"
+      ],
+      "versions": [
+        {
+          "mode": "100755",
+          "oid": "ad77f13da2d13a9b6a941eb4c330a6e934adf77b",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "check-pins.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "f69b81aa2b6a16127efde737d8f4ada39da1ad27",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "compose",
+        "compose.yaml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "14700492ee3041aba7ea02f58cf63b94059f6323",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "compose",
+        "onemindd.Dockerfile"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ffaff039fca9e4903136e03d3d3f117f9ce80f64",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "compose",
+        "onemindd.Dockerfile.dockerignore"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "646eb65f695bb5d807b01d7e116fe0a3ee1e6012",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "compose",
+        "simnode",
+        "main.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "6bffe3f1a7ef13a320f49afa24bdd3a3579f6b6d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "compose",
+        "simnode",
+        "main_test.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "b0388a59bb7963de3f0bdc3ddaeb6e2744331a63",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "install.sh"
+      ],
+      "versions": [
+        {
+          "mode": "100755",
+          "oid": "8e8d5fd95abf1f538db162ea38ce22f0b75a9788",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "pins.env"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "c6b60604f9e23672ca361ac178bba0ef9683a327",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "platform",
+        "postgres",
+        "kustomization.yaml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "770709fd58ade87b1a811d8fb298570b0098f900",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "platform",
+        "postgres",
+        "networkpolicy.yaml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "8683ddcc9000604e476db93bb3f19ad839ad8817",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "platform",
+        "postgres",
+        "service.yaml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "79161ab070b92b19dc0006a26405b4575770c274",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "platform",
+        "postgres",
+        "statefulset.yaml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "7e950a8f8e65ff6a7c0ec4a0a7d136aec641c682",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "platform",
+        "storage",
+        "storageclass-onemind-local.yaml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "675c4b91d7ef388ac89656c8e1f7bea5187be593",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "systemd",
+        "onemindd-backup.conf"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "6026dfd3bfbdfafc2b28cfd1e3d7dde54da37b4d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "natscheck.py"
+      ],
+      "versions": [
+        {
+          "mode": "100755",
+          "oid": "b6f510269a05b4d683fc77097b3d8d97add57cfd",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "node-check.sh"
+      ],
+      "versions": [
+        {
+          "mode": "100755",
+          "oid": "6e5d4421b809151bd5ee6fcd934eed0f121a6dc9",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "tests",
+        "e2e-systemd",
+        "Dockerfile.debian13"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "151f50270ec9411ebc0bcdb0541daedd37c096c5",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "tests",
+        "e2e-systemd",
+        "entrypoint.sh"
+      ],
+      "versions": [
+        {
+          "mode": "100755",
+          "oid": "af3b0a63eeedaa8ce818fe8ee9c0783b9dc1e890",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "tests",
+        "e2e-systemd",
+        "run.sh"
+      ],
+      "versions": [
+        {
+          "mode": "100755",
+          "oid": "d2c4882a8bd22e2975a3df4b7d8e1cc29ba9cefa",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "tests",
+        "mock_gateway.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "57947047e78fe16f89162b45c7f2fc9b29e7b6a8",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "tests",
+        "test_verify.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "7537a3cac34d6c45ae99401223bdcdaba42b03fe",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "docs",
+        "leap",
+        "CONTINUE.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "3919e48988ce423d8e7dfcac99da98e59071cb3c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "docs",
+        "leap",
+        "STATUS.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "6d8093a5d104213acdce1f3684575f62e5e2b2e0",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "docs",
+        "leap",
+        "core",
+        "APP-LIFECYCLE.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "7a27abc121de8a28a7b8ada49f65b6438f718975",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "docs",
+        "leap",
+        "core",
+        "BACKUP-WIRE-os.patch.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "c84e4a5a819645455fa4d0a667f89c5d371f670d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "docs",
+        "leap",
+        "core",
+        "FILES.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "865aae88c18948aabe3a199feee74d2cbadcbdc8",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "docs",
+        "testing",
+        "CI-MATRIX.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "300dbc5509c17694fd03dc9b6f6d3c2d2e508f19",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "go.mod"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "85bd6728fcf67c1870ddd92717261b3ca066ef22",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "go.sum"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "f337a976705660be6cc12541a04eb291d25e876f",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "agent",
+        "agent.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "0803e424d4070ee761045cb7c8bccddfaac5272f",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "README.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "e08002d53adea24934052d4bf7d5fef9ff4b73e8",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "agent.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "e4f948c8b44e4b7d9a2c76aa17e2fd722f4d3070",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "agent_test.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "75d7509aca57380acb76e681a6b038a106e90967",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "api.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "55f8562b2904240e883fe223011dacf81dc8a2cd",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "apprestore.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "7cec8d44643ac8be79199f3c40aed2df19d63e44",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "canonical.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "cf67f3f235b1da1f6a62ce6f5ee7d02bf44f5484",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "config.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "88b09a3da6613136540cc1485b304da69f7cdacf",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "fake_test.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "670ccefb5e69ca780e70fc2f35d1151dce4665b4",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "fs_other.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "147df462f9bb6b2d11045a9aa35f7e781d586d8b",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "fs_unix.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "3dcf5b8956927bf961e5ec9dd37e5bb94c5995aa",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "job.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "f5b9e2585e23747431c837b54772e30d21b7a58c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "job_test.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "7db4d77961894f3073e59b6f669d913364fa2293",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "jobapi.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "51f307793c986838f68c7feecb2694af203857ea",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "managed.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "623352fa5f84743e088aa52bb0777b4f216c0425",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "managed_test.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "3daaca93822c073ad46f54c76d37fd3f9a668de0",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "rewind.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "d3b276682712a16a6a3dde37339805806059bc87",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "safefs_other.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "90feebcf1a896df7a64dc74cde45db807f4b124d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "safefs_test.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ec1a61d773adb2c32b31dbbc89b1074c8fe5669b",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "safefs_unix.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "de872ddfd403e2874e44f8b10fa915a8f578b202",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "schedule.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "bb07757c33066f63ce709f97aee5028ec5afa099",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "service_test.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "f6e6552047e4d3eb4003b65b2b8109305806b8b6",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "statewrite_test.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "b08156659e2249e6c71ea85b9ca43e04ceb74048",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "units.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ceee591dc5183d5d19f30505b9999ea520c05155",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "verify.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "65c89abe599b8574fd849a1f38bf1f4559bbfe4e",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "internal",
+        "heartbeat",
+        "heartbeat.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "531b0f3fb20a58c2a807af11df3e84ece2d6c850",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "os",
+        "versions.lock.yaml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "63c1ec9e132643473af58fd7311f37f13f3958b2",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "scripts",
+        "changes.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "0ab26ce2e0054be1da69e868174b5a0b1b26f15d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "scripts",
+        "check-links.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "0491cf94bed35ba43e620ac15eb87690e866d095",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "scripts",
+        "merge",
+        "keepboth.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "a799f8304983705c8c7a19ed06f90a50391854e7",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "scripts",
+        "npm-licence-check.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "677a06d4fc5dc1ef3ec5ba21bced2ecfa9262ced",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "contracts",
+        "poc-v0.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "7d0ec651b9a6efa797df0fd479974b6983fe60fd",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "actions.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "e2a1dc39f3b642dcc5890d6a1190adc5c5757c51",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "client.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "caa5f0cde93ba5c748b148b82cd4eb9bb632a0ff",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "go.mod"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "b73a0994d31c793f164681c588d1e273ec4d8f3d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "go.sum"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "1b669966d3ea43d84e4883ec140bbb8f67929d68",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "internal",
+        "gen",
+        "types.gen.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "83df48f0ed1b485b30571b655c2b9d36e99dab19",
+          "stage": 1
+        },
+        {
+          "mode": "100644",
+          "oid": "bfb41eae3d246635018d02327f08bda209bbfc43",
+          "stage": 2
+        },
+        {
+          "mode": "100644",
+          "oid": "7f76b1b0ffaef70c7a9b86464033d95486472a1b",
+          "stage": 3
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "live_test.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "55d56c179dffb1e8ce49d31d322796af567f243a",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "sdk_test.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "0a5a2c5ac39a0e4e2515469c0e95e4de2992176e",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "openapi",
+        "onemind-v1.json"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "f372f3fd90354e00b0d2471e0e116caffa29ab5f",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "python",
+        "src",
+        "onemind_sdk",
+        "_core.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "9e4dc56d7e1fd009bcf2eebaf02c6ad076ffd7ec",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "python",
+        "src",
+        "onemind_sdk",
+        "_gen",
+        "models.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ed6903d8b4648ede10413bb0f50a330a49b142c3",
+          "stage": 1
+        },
+        {
+          "mode": "100644",
+          "oid": "9d2343d3761320e448b0debd0bc53fd22c92a427",
+          "stage": 2
+        },
+        {
+          "mode": "100644",
+          "oid": "b616694b4f9115e695a89bbcef3b7c4673ca1875",
+          "stage": 3
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "python",
+        "src",
+        "onemind_sdk",
+        "aio.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "c5269a49300610c2decfea1da7814cf38013c15e",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "python",
+        "src",
+        "onemind_sdk",
+        "client.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "8151d870253a2d8662822331f171f80d93f1169d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "python",
+        "tests",
+        "test_client.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "fb062eb03d7ead530a30c42eb4532e173f3dbc47",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "schema",
+        "onemind.app.schema.json"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "c4bfb9028f1df21f1f9a231512aab9da10113312",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "tools",
+        "ci",
+        "gate_summary.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "b675e0637798297455f4bf3b3cb5ffe85294c2ea",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "tools",
+        "ci",
+        "install-tools.sh"
+      ],
+      "versions": [
+        {
+          "mode": "100755",
+          "oid": "132e96d4943f86ef06bf1eaf1460eecd31483c17",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "tools",
+        "tests",
+        "test_ci_tools.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "b4138ed20a9b8543bec2942f3d71d05fcf139439",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "ts",
+        "src",
+        "client.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "d8a2fb460ed37b038cbafb895a8c300a987524ad",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "ts",
+        "src",
+        "gen",
+        "schema.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "fff2387f3e6cfaf054b7bbd54900628648270d28",
+          "stage": 1
+        },
+        {
+          "mode": "100644",
+          "oid": "af5531a1425cb63104bea8d34617fe8e164e1ec0",
+          "stage": 2
+        },
+        {
+          "mode": "100644",
+          "oid": "b8cc10f4b1a209079ac22809b93290a0d33e93a9",
+          "stage": 3
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "ts",
+        "test",
+        "client.test.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "4796aec20213b96c6c6873390518a8f79fe96b53",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "ts",
+        "test",
+        "live.test.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ae37ea0820d9e31524d09547059bbb3057871a3f",
+          "stage": 1
+        },
+        {
+          "mode": "100644",
+          "oid": "685ff8a2f646cd2763b056bb1ac6eb75f2dde8cf",
+          "stage": 2
+        },
+        {
+          "mode": "100644",
+          "oid": "194d33f07c13e64a2de2430e5cd05885255c435c",
+          "stage": 3
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "README.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ed6565ef2468289ef6cb435396c4613223e7e528",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "backup-probe",
+        "icon.svg"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "08e1d9be2f3a251374b1fca8ef4cd4662a9b7cf7",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "backup-probe",
+        "manifests",
+        "deployment.yaml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "9ffc33230d03746966df11efb9c57b0445a9f005",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "backup-probe",
+        "manifests",
+        "kustomization.yaml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ac3316bcbc750bb829214f02635f7f15ff12578e",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "backup-probe",
+        "manifests",
+        "pvc.yaml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "58a537eaac53b6fad5d8f238a91a7718045c07db",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "backup-probe",
+        "onemind.app.yaml"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "f090d001fd8a19eb85d952edb7aad9bd3c45e5fc",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "in-vm.sh"
+      ],
+      "versions": [
+        {
+          "mode": "100755",
+          "oid": "00df28b672983115d975745ecb1b7a89fede6df5",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "lima-e2e.sh"
+      ],
+      "versions": [
+        {
+          "mode": "100755",
+          "oid": "6a18c879dfe13b04b9af1cff1402ee35f94c821a",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "test",
+        "unit",
+        "test_changes.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "286d4d4c12ddf3084237f8e36c2d2dbbac5f7fa6",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "test",
+        "unit",
+        "test_check_links.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "07e1b2b1971a5feef30ac5a14d4c080925a0979d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "test",
+        "unit",
+        "test_npm_licence_check.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ff5d49c3b990897e0f72d53178c3b24ac511546c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "tests",
+        "e2e",
+        "specs",
+        "04-landing-streams.spec.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "7f9c42adbec36346d5c64a07532ff78d3874eb5e",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "README.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "2bd31a6d2ff66e69e6d9a5148f90008f6fa80315",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "demo",
+        "src",
+        "DemoApp.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "73999268f428d4c4c8d3ef8de14dde691a33bafe",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "demo",
+        "src",
+        "backups",
+        "BackupsDemo.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "74d08293a8fba188d10b9bf249ce45a5e38fe0d0",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "eslint.config.js"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "3f9fe3430a7318942e26052a337e41c633fc396c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "BackupsOverview.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "05ec8414be92846c3c174b951c2cceefc47ff99f",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "DestinationForm.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "e86ccff44a6558fd10fd7a15ad6f877b25a4d200",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "EmergencyKit.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "1ffda8fa810efcbc7ef645ec647d70b1fc8ab8f3",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "README.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "9cc17d1bf646e62e80c0979e89eac69e84424ce4",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "RestoreDialog.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "6a1d0be0b42db9526a806a4cfe3f8981c48789a2",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "Rewind.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "c5c09e9b25a920645df9007b62d480ecb1c01ce9",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "backups.css"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "d6537c821c736416481eec0db2853e9dab1f9160",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "backups.test.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "b9aa4c01bba4f8e7537a02843a0d2ac762dca4b8",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "index.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "d8f986cc8111ec5d86806ad9eac02741f32f9785",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "logic.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "40ea461bc6467b4f314aef65e2327cfa48e6a0d1",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "types.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "4efefa139ca04c55b9cf6fddedcd30ec5caf707a",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "home",
+        "Dock.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "5d06049bf0deaeb581ce4dc09b9eb4264f74c9ce",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "home",
+        "HomeScreen.test.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "2b36fcdca02952523ad2219527ed016196eacda6",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "home",
+        "home.css"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "aedb19f5deae9e1d0929e644f9f765068468bb16",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "index.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "353f3288437dc5513f6fd9b1c3513f65720bc988",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "styles",
+        "components.css"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "fc63c7fc861130ef1a3194e2a774e975902a7a96",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        ".gitignore"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "8259af907e889c57a75e1c8fda3322cc14231b84",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "README.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "a1bc69abff5f878a81bd292e6917dea2e6d9d958",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "accept-visual.sh"
+      ],
+      "versions": [
+        {
+          "mode": "100755",
+          "oid": "77d0e5158778e84cbae32b5bc3ab018d9ea0667d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "e2e",
+        "a11y.spec.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "686ff9099b38453ad5a05735b9581bedc90bc7b9",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "e2e",
+        "flows.spec.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "62b793739be9b3eb410c6bbaac79f112668beafe",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "e2e",
+        "known-a11y.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "599f42ba1369945b0e6c9b402efafeaa7769e1e9",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "e2e",
+        "screens.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "ff1b0fab946d30c7f1f9e66a27b7a6054f7a11c4",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "e2e",
+        "visual.spec.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "c4c49ed3f4f2c5cef4fcca9a892902c23b62e175",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "package-lock.json"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "056ad946ee5d13764d22e4b041ee9dc7d2d39899",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "package.json"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "f118d9da210b7a8a7f52a116d2d8f964cc3812c7",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "playwright.config.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "bb4bc04bfd568523c88514d0dc71aade76d11ab2",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "serve.mjs"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "22a4cc3b12a84491c982c3ac24c9ffab11a8fd3c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "tsconfig.json"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "f17694b36b81cf1a06729d1cc41b768ed2311e8a",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-approvals.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "93078d32e2dfd3e855c92e8c510d392991ac4c6b",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-home-phone.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "a687a4d95400d197e71a3533c4733fd41824cdc7",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-home.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "43e2d0cdb20c471ec822e76a8612c1936113201e",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-market-uptime-kuma.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "e1ce8a3b30b8fb921d467487f66a430f40b0f5e4",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-market.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "848d4bf2cbb5c31361eeaf57381ad1e1b3382841",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-nodes.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "1064917e958a8e84ce3f8ed6c191b3fd3368b4df",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-signin.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "176f2b492bf3d48ba763b1e4ede615d99ea97be6",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-activity.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "3a4a960330640197a1ca9bc7d2f65fcb4e47960f",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-app-home-assistant.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "526962e1223136bef07581474b3aec732f59ee43",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-appearance.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "31cee926ad0275a93ab699b5e4d17ad5059211f5",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-approvals-dark-phone.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "9cc96c5826ef226c86891e55bfd439f718029725",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-approvals-dark.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "a12deb68df15415a40c072e8e9271933ccb6fe9c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-approvals-phone.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "046f173b9fd8589ae759f67f70620853448276f7",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-approvals.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "54aeb965fd7c854d564f8ae5e54ea29329c8ba1d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-apps.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "6f693c0bf737219ab0e5813615d83e312ec8ebfb",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-backups.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "3217967fe121659e7f9c8df8d6dfaa1605f29419",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-gallery-dark.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "da0ed48dce003886f8d0b023704effd0587befe7",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-gallery.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "d16dec79b4c6e946ed8ca9d49c8a27ef4c194378",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-home-dark.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "49150e451c4481af6e968e36db934d17766716ef",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-home-phone.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "61658cb9c1226724f3ed612d48ba77e847d068cc",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-home.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "6ff6f72ccfaccdf3ab4f2326d666c180f7af374e",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-nodes.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "5143411e995f361704e66944ea4d427f95659c36",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-notifications.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "fd018e7e038ccb712b25d55f28db2814ed72cc8a",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-settings.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "3792285074690a00a4f612d87bbfde39db0719ee",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-shell-onboarding-1.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "efe78f88cb1aa08f37381cab4dcf53e90a6c64c1",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-shell-states.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "8d9340e248c0fc7c1bff8ca1b2e5b1569992d77a",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-store.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "f9671883954c6553859a5e3cfa94b57e7df8da1d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-system.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "7c19392d6a8fbd235ddc44c01c0958a8b93afc7c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-updates.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "58adcdb62d451f15f299d3d3a89c6b46bdf303e8",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-approvals.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "8c8d4cb99f7b2960db3e21e13adedc6a1ad1de50",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-home-phone.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "dea71b6af2f465eedb610a88673e508cf1e25578",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-home.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "005d5ea16bbd37f5bb0a8c5e6fa8e6ed75cd5d54",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-market-uptime-kuma.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "cab58b88fe171937c9b29f8a6e7f9fb739726082",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-market.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "298a587739db3635d7a9022089e8924dff216845",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-nodes.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "303915cba30e61ebb488e62dd95e96ffe513f93e",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-signin.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "8903ed009b7577e544fafdb082ddda470124b948",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-activity.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "791d64e5930c799a7071cc215132eab76bb61ab3",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-app-home-assistant.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "b69f33ad898db14c01de3278956feb2d7312f347",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-appearance.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "5b46b9d717796938beba144c7d2e3baa8aa1019c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-approvals-dark-phone.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "7968f6a57be6653501dbabdff9f4bca4cb6c5086",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-approvals-dark.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "cbbdba6769b319321e240a2ef2590de5d58f3dd9",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-approvals-phone.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "aaae146704ba89057e3db8ab67d62b7d65c7f3d4",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-approvals.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "60651a408ef2b116ca247e9a34afd7060b93e205",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-apps.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "dbffedf2bc90796ed73a308df7620f704d05e816",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-backups.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "196f9e3021c379a8c70554c0fff01663aada842c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-gallery-dark.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "2123c207da6f2fa5a2eca6c0b4fc3c6a0112e993",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-gallery.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "b872357ecfacadf57359e94aac2dbb88e91984ce",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-home-dark.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "63ec21665da7b0788db6c6d38895a66d9f6036ea",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-home-phone.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "402e3adbc61dedc318577963abf7d2196e43db65",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-home.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "985d18f5d8d3437612207cb7dc0e511ee23c8397",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-nodes.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "b72a062d1910da289a5f2ed3a4cac33e2484a2fb",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-notifications.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "05bdf305a78949c54485588175e779bfe5276ac9",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-settings.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "dbd3111b5c060934ab0241d09d506b60e691220d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-shell-onboarding-1.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "39124a409f914ff47deccb6641cd33e97ba079fd",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-shell-states.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "8378a5f304708ed89e62f9a181dd3198675314dc",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-store.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "d34c87a7dcfe315fbe8630951896b33e63a5e7fa",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-system.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "bfe26925f18f71100f50ee882fcde642ba82f814",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-updates.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "034f46b14c2618aef8b11586b5ad53fac51b74e7",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-approvals.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "8b8ceed7a12a7d5eaf66cc8abc29719cc4d47d4b",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-home-phone.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "02629c260af60f8560799b117bec52cf426eae04",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-home.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "62143f84cc37631b6268865c56de9411e60af4df",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-market-uptime-kuma.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "e889ac57fae47640736d3eb44456eb1f56abccec",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-market.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "90d3be7c080725e51ff2e59738ef0b3a2680c4b3",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-nodes.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "dffe1432dbade43ac8d859c208e34653a687142e",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-signin.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "55919fa3b088bbbd982b7c64971b6cf9020f6556",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-activity.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "1f4c3963602d3e5fdd10979afb41f2356dcc7a4d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-app-home-assistant.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "83d328570ab42c664d9a8e54dff2e2068803b0de",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-approvals-dark-phone.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "4ab961c669e4604bfb3b56d22d58d61c05372dbb",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-approvals-dark.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "443d147232762c41c6bae8dd54309b3f106a9301",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-approvals-phone.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "232779a70f943c0b6503f51535f3c909898c773b",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-approvals.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "64742757e8ccd3424a667e989def886a3663eb97",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-apps.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "818cb21a51461300d24d401c530f9ba4b9c0fef2",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-backups.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "bd6bdde54dee0bf678a28a8cf0c67540664c4c4f",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-gallery-dark.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "4f9e5cb6d03ceaa3a444b9b36338c36faaca589b",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-gallery.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "471bea6dae37d7ae9f6781e64ce967295cdc39e8",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-nodes.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "36a89e862ed6bcd13f55f344fcda99176dca41e2",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-notifications.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "c26ed02ccc909f408bac3c30ccf3664810bf934d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-settings.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "c1abfadca57a1651351c7c47a762c67148ae94d4",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-shell-onboarding-1.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "f1aa5f73157c66a99bc65600bc95db52905aba20",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-shell-states.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "6f09baf39586a891b52187d7588c7c881a069819",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-system.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "cf8c6f59b21f789c5b7ef8f720b3d70cf5c8fb21",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-updates.png"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "307d6fcd7cf8396520635e050df0e4a20f691c2d",
+          "stage": 0
+        }
+      ]
+    }
+  ],
+  "working_source_digests": [
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "apps-gate-all.yml"
+      ],
+      "sha256": "9ac72674cc3a55187936a178b4ce4a50be75482582c12c2eb07d38bacba8bc48"
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "changes-collect.yml"
+      ],
+      "sha256": "342d426ebb5faaa2009224070100acdfc530c473bae6d0c212867c60c071fead"
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "ci-deploy.yml"
+      ],
+      "sha256": "56889412346be11ef41d8aa90224915a16666dd7313da643cbdbbc1a6990fc17"
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "ci-mobile.yml"
+      ],
+      "sha256": "2cda2fc08de755cdd32efe57e80099c224da6562b5be3b9155cab2312669e7a4"
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "ci.yml"
+      ],
+      "sha256": "77535b439a741696472c0d2235181cc044d2870e12864f987accb7f460ca6f38"
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "hygiene.yml"
+      ],
+      "sha256": "5357f84aa666e8c8d291fa26c05d65398d607ed319f3dac44d52b6ca94dbf451"
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "site.yml"
+      ],
+      "sha256": "1f4fd90d35ba794f7cc186ed86aa61b4a16c7dc31773b1d8769a1008f3c2708d"
+    },
+    {
+      "path_parts": [
+        ".github",
+        "workflows",
+        "ui-quality.yml"
+      ],
+      "sha256": "62ef33307a43d6fcff51290b4f9a9cef042d138e6741d61f05dd35bbbd47217f"
+    },
+    {
+      "path_parts": [
+        "CHANGELOG.md"
+      ],
+      "sha256": "43500d4be52c98e7bc0a749304777f4f2c806d2cf70c4273b88078f332bed4e6"
+    },
+    {
+      "path_parts": [
+        "changes",
+        "README.md"
+      ],
+      "sha256": "a6e1219052335f6469e5d33e78121d7999f593392cfec15193470bd5ef932356"
+    },
+    {
+      "path_parts": [
+        "changes",
+        "ci-changelog-fragments.md"
+      ],
+      "sha256": "399fa37a0fb665ecff581581ab8ee6316f4b8d30f222b271a632ec351941b157"
+    },
+    {
+      "path_parts": [
+        "changes",
+        "feat-automation.md"
+      ],
+      "sha256": "024e1e66ac9d944b49a811d174d8b1c7437df4408bfd511158d651edb1ff9374"
+    },
+    {
+      "path_parts": [
+        "changes",
+        "feat-backups-on.md"
+      ],
+      "sha256": "0cbd7225d71caa6aa8562ef586979291a063c81dee33559aeee44d5f67809c2a"
+    },
+    {
+      "path_parts": [
+        "changes",
+        "feat-deploy-port27.md"
+      ],
+      "sha256": "b127dcd39027df067fa3741696735ea20262836bf5a89da5bf018fc1712e32a9"
+    },
+    {
+      "path_parts": [
+        "changes",
+        "feat-files.md"
+      ],
+      "sha256": "8a1f1802b29ed2e0ac86d2309c49bd01bacb6913a51c6e8698271a4cb764c841"
+    },
+    {
+      "path_parts": [
+        "changes",
+        "fix-backups-security.md"
+      ],
+      "sha256": "23664a8fec6a9b3cd1ece5aee3b988e0418dc05d8ff9c14dc92511f08705ec0b"
+    },
+    {
+      "path_parts": [
+        "changes",
+        "fix-sdk-idempotent-retry.md"
+      ],
+      "sha256": "fbd35b6bdb6fc7ebf0df9a3ffba08d0639f9a3f1a0b31378ce0311649196e83a"
+    },
+    {
+      "path_parts": [
+        "cmd",
+        "onemindd",
+        "backup.go"
+      ],
+      "sha256": "3d5516f30614c9e6bfa92d7ea01bd1cdef754b2be58210d685696b810998cb79"
+    },
+    {
+      "path_parts": [
+        "cmd",
+        "onemindd",
+        "backup_test.go"
+      ],
+      "sha256": "823b86a19d1154d1e725d209eb4be60d1e602ba73fd574428607f615ef2b5541"
+    },
+    {
+      "path_parts": [
+        "cmd",
+        "onemindd",
+        "main.go"
+      ],
+      "sha256": "9c09c20752ef563dcffcb9de60e48f697f31ba539aaa2fe5c9b64fba0f24c73c"
+    },
+    {
+      "path_parts": [
+        "cmd",
+        "onemindd",
+        "registry.go"
+      ],
+      "sha256": "2ebc58133708fcb9ecc76ec0e0f19bbbf07267866374eafbafe38fb74bbb8ed0"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "actions.py"
+      ],
+      "sha256": "600b429f03aaeb02f3d4a34e4ab44324a2cee1e5f4fc59a9fd1bc11f8732c1c9"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "apimodels.py"
+      ],
+      "sha256": "db97e84a07c77647f21065cf124e4c8d118485ce7ae6ba0575786bd4947587f9"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "app.py"
+      ],
+      "sha256": "c7a398a8717aff326ff475c66b513187beb37dfadfe72d2b8f5c57c2478ada70"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "auth.py"
+      ],
+      "sha256": "c9060b5c4a9940ad18e4ddce616fcae6e5abed76bb459a4c65e285d4c5bb9440"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "automation",
+        "__init__.py"
+      ],
+      "sha256": "fb0d2d396177bedc394f06652b7069e8fb80d51f1b4212288ddaf93a35bfb5d4"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "automation",
+        "cron.py"
+      ],
+      "sha256": "34f7739b4f6f0def70f9220a8b85471b2e1177607804122e2d6099acdbb48440"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "automation",
+        "engine.py"
+      ],
+      "sha256": "0bbcd22255ad515d991aab92d156df689685a077af124d5158299738c32dac60"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "automation",
+        "policies.py"
+      ],
+      "sha256": "f2faa7febf8a085b5ec816a168e489b781b60d2028b126a5c3f0988ace107ba3"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "automation",
+        "registry.py"
+      ],
+      "sha256": "a971b5f5551d218cb279848176a218544883ed263485d84de8f45df539a5b227"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "automation",
+        "store.py"
+      ],
+      "sha256": "0bc78cccd646ae931b95bf516a4337b4c530d73f7e0d9575a81454879d1a1e5f"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "README.md"
+      ],
+      "sha256": "e06738ded7e54e515ddaa876f9cf41eb225186a3832d8e3462c387cc181dec61"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "__init__.py"
+      ],
+      "sha256": "29c4dccccdab7c869fb867f837c65ba5adec8ff46e5c7938697f8884536d0ee2"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "jobs.py"
+      ],
+      "sha256": "b78e65f5cb09d90480862bc039c9498dc2bed6d24c51df4617ab4cd4a5a689ed"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "kit.py"
+      ],
+      "sha256": "ce067383d1bbf3c4fd3884206d3644b83acaa52130edd4d8034b1caa72f72cd1"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "kube.py"
+      ],
+      "sha256": "c402aeca4b82ec72e10320dbacb880bb0dde7ade2076dd190bd7fa5a76af7554"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "manifest.py"
+      ],
+      "sha256": "394d56c0166b4e17697bea0fc52e2988a7a9887274d41e048e5c78bfce374fbd"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "service.py"
+      ],
+      "sha256": "8dd01bff711abefbc9846e01ac9336575e7419937362d6455f940fbcd03604f7"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "settings.py"
+      ],
+      "sha256": "6677bc319b5ab70e4d9b94bf03f1919777117c57529ea18e1f718d037503a1d9"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "backups",
+        "store.py"
+      ],
+      "sha256": "f0153ce31e2a54525b048319ee82117cc2b2aef19bdea56b8cb37b85845a507e"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "databases.py"
+      ],
+      "sha256": "a23af73a1ca868cc2a64d024e63e86a3e38646cb089ea03f20f0ab68c258cf49"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "executors.py"
+      ],
+      "sha256": "8cfdb4d390ebdb96bb4b46b41c0ffbed332eb6feec1312bb54723e33889bf8c9"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "__init__.py"
+      ],
+      "sha256": "59ba47b87a1bba9c920ea7c5deeea98685091531e093a98fb0c04d5e29c13557"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "access.py"
+      ],
+      "sha256": "ba5ebf68d447c41b503359243546a58d57e2a7d665a39cf4900de648772c1671"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "errors.py"
+      ],
+      "sha256": "b002891cc00048617901155dcbebe76a1c378a21226a5cc875b2b6c14ec78c34"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "paths.py"
+      ],
+      "sha256": "d227ddcc0eda39086dd9418deb04b61a7471d434e6027a6c18fbeda8151ff151"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "preview.py"
+      ],
+      "sha256": "841111972a5402f65122252d81a999b9ecfb14026ffc2760fcab5b38dd2020b7"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "service.py"
+      ],
+      "sha256": "3cf77137fb23dbde43d5cff745c1207dee8d8a047ec81f24e34c0f62948d6f2a"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "settings.py"
+      ],
+      "sha256": "3cd364f471f3ae119359265f914814e013b1ef208312318a3ebb2fd169705758"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "store.py"
+      ],
+      "sha256": "5156d775baf71625a921d2519e59de38202b6970884b648919d545ab6789c9af"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "files",
+        "uploads.py"
+      ],
+      "sha256": "528006d197d906d1d8eea04abbf8ec591bc77c7ccb29d5f908f5150f8bb4a86f"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "identity",
+        "scopes.py"
+      ],
+      "sha256": "b98a1e314419d5e31b03b07ffc7efd334e921b64957261fb05f0fd81e7dd130a"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "ledger.py"
+      ],
+      "sha256": "af726d241e2e5f64ec876ff3a7a49e78f4f363af4eeeb612089eef183448db33"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "lifecycle.py"
+      ],
+      "sha256": "bcbc7e27ae9e87c9b950fa57076315526ce03f68abc28a292bd3249ba7c62932"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "mcp",
+        "tools.py"
+      ],
+      "sha256": "de82987d49db9d44757b5323db72112f5fd2a1e0c336fe61fc761988410f461b"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "models.py"
+      ],
+      "sha256": "d5e15739e9f32eeafd9dbc4c810d753accd7b6dd3a9a87d8268f881e135f8d42"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "actions.py"
+      ],
+      "sha256": "86f8149368984934343a90d80b87befdfd92fc55360cb4a8dc3a04051ab0d7ee"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "apps.py"
+      ],
+      "sha256": "b0b60f1ffe0e7bd00761885f05f27a6604bd024f31cc1b3965b3d70325184a15"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "automation.py"
+      ],
+      "sha256": "fb8ea8c52b90c1a4719ab5a2507cafdf5e40c6082cc7224283f50b56ef1b515f"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "backups.py"
+      ],
+      "sha256": "b2958e5f1877e7e75088ba92843604b7670924b36eb00bbd599121d6f3e7211e"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "databases.py"
+      ],
+      "sha256": "b51aed0d1b95846213c9b0e3b288988150654f8a07488ce143789cae8b4ff858"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "files.py"
+      ],
+      "sha256": "9113128875bef1b310bf8fa4106765d4ac07a57f4839e77004d34266f9f2a02e"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "store.py"
+      ],
+      "sha256": "26f5889059a077bfd71e20379c79e4305a5701d2b2cfb8e3663a4b06f88668a6"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "conftest.py"
+      ],
+      "sha256": "7c6d46147cf3a224996c642cd64961af8788c0c71a43f2cd2238e0208bef6b0a"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "files_support.py"
+      ],
+      "sha256": "87e8d8de9d111cbab45bb0d704ec729b5d81f09c0c7ffac7c5057404b1a4bb2b"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_app_lifecycle.py"
+      ],
+      "sha256": "a21081ce0882d7cb52330138c9245af2038429d6f0f8159388d1298bfb40d044"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_automation.py"
+      ],
+      "sha256": "095831c7332d4cb31950f33dbbdfe105ad61a73cd23cc079fcb2532e14cd4c49"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_automation_cron.py"
+      ],
+      "sha256": "8e511336473abb677ca467ab0d7a13c0874539476c28aeea55a92b0b33da4808"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_backups.py"
+      ],
+      "sha256": "c7f2db27042e1d68b514cc3765ff8bd6ff6815384b04b35c5edd1d8bebe41260"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_files_api.py"
+      ],
+      "sha256": "d4420cd8de679e071d016d9029018028f6ed3d80b0ff5b99bc458c17011e0cf9"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_files_grants.py"
+      ],
+      "sha256": "e84568533299365ebc096294a13c45c9b21e8a61ff76712393f905636f875c75"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_files_paths.py"
+      ],
+      "sha256": "5260e4fa5502b10ccf041dcea74eeaf0070123d076eb56bf573b6d1fb0e977a2"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_files_uploads.py"
+      ],
+      "sha256": "b5b32a7f5a65df1748327f1116c4bc84988dfaf93417e842664936b47a30308e"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_nodes_catalog.py"
+      ],
+      "sha256": "26476f3f7bc4414bf03b3182a98abc074d9ff0fb71e206619b45c66c18c1cae5"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_plumbing.py"
+      ],
+      "sha256": "9aeb6be2b1c1d14bfcc0608288fe2fdd5a70e48d1419c1c6216f95471816f682"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_route_authz.py"
+      ],
+      "sha256": "b0e1cfe2d4f2dfdc61ab54de971ca86b4b68523cac46f3a2feac3489a5ea3a3f"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_sdk_conformance.py"
+      ],
+      "sha256": "40fb55c2ff9f184a5edb542a840f4bd5d7a49f838a327bed93df5b6bc0194ef0"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "README.md"
+      ],
+      "sha256": "e49ff62efb3f07217658e20fa419b5b059c4fea5f3fdacfb17cb6abeeba4011d"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "backup.sh"
+      ],
+      "sha256": "422c83e467e5b4088f961161db9d3381fb8357c12fd544f5b08fb9cc7bc37e33"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "bundle.sh"
+      ],
+      "sha256": "af599bf1d435d7333a54adb0713a6940090cad6fdd8403471656e0da1c4142b6"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "check-pins.py"
+      ],
+      "sha256": "7c7e565e4260d7fa94e739128c340dee61475c5f15008d41bb3a89112dc137b6"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "compose",
+        "compose.yaml"
+      ],
+      "sha256": "5804ecab7b551924ad044a783eb4cd272fa27ed211556766db86a08fdaf49cd5"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "compose",
+        "onemindd.Dockerfile"
+      ],
+      "sha256": "dfd7835674abff909b9fc748fa57dbcb7fe1d06634cde57fb7e6f60f8c28a159"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "compose",
+        "onemindd.Dockerfile.dockerignore"
+      ],
+      "sha256": "a5c46d2a7cf559bda5b164154b2b8bb3e620666322eba25f8fefe4178614e870"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "compose",
+        "simnode",
+        "main.go"
+      ],
+      "sha256": "ac2320af647233195958203cf58d2c36567d6be9f65b2c8d1b95480609e7fdd9"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "compose",
+        "simnode",
+        "main_test.go"
+      ],
+      "sha256": "16ca66e9b808ff911c856dc05568fd1ff59d2fd06f5f5848c8b0ba383767db16"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "install.sh"
+      ],
+      "sha256": "639b4461cc2b8890cb43155b0520e7bc95672df74d915cd3fcf6c768b4278e14"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "pins.env"
+      ],
+      "sha256": "5c13433de163f8a52048e8ec16c8c4990d951a8f93769abde011ab0c319099de"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "platform",
+        "postgres",
+        "kustomization.yaml"
+      ],
+      "sha256": "b649477ab88bfcfc3d947b1f35e95eb409703ebc9828d769cf9a77e91956c35d"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "platform",
+        "postgres",
+        "networkpolicy.yaml"
+      ],
+      "sha256": "21b51c285e6744edd4fece6b642e6596050179b8a8634c331fa665a6728f3e24"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "platform",
+        "postgres",
+        "service.yaml"
+      ],
+      "sha256": "1cb324954f7dacb505e687f2a84d9af5c127e4d1efddf3b72d5f7e9a77fa052c"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "platform",
+        "postgres",
+        "statefulset.yaml"
+      ],
+      "sha256": "f16cc6e9ec5e004a0a78038d3bec6a347251f82e32c80c7b8fa149a32cb8cdc9"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "platform",
+        "storage",
+        "storageclass-onemind-local.yaml"
+      ],
+      "sha256": "74421401b89ae64843c329c5c2688a2bf40b370e33a84152badabd04aff4d09b"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "systemd",
+        "onemindd-backup.conf"
+      ],
+      "sha256": "1274f65a88908f634d544d017466a26186636b6c516f24f5df9782a70aaa6458"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "natscheck.py"
+      ],
+      "sha256": "b0ca8b9ceb9c74283c708c4bf328246e10bb98359bf7159571b36e3c2f9e8fad"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "node-check.sh"
+      ],
+      "sha256": "b31a487792de4f8f8b0499e49abc611cd24ce21b0575a51dcb53780ab13fec45"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "tests",
+        "e2e-systemd",
+        "Dockerfile.debian13"
+      ],
+      "sha256": "1dc34a14e6ecaea11106260e01bcedeac53648ead0127dfb667e10a41e620275"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "tests",
+        "e2e-systemd",
+        "entrypoint.sh"
+      ],
+      "sha256": "ae09c0a496b0ac8f693d4e79ba220042d3f39d59f41e9f8f1bde042c28196987"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "tests",
+        "e2e-systemd",
+        "run.sh"
+      ],
+      "sha256": "d3dadc6aa8fd7c77fe92c61267f1d475c677b4d3c43c33ffb37269badfcd20e3"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "tests",
+        "mock_gateway.py"
+      ],
+      "sha256": "2453318af98025c61255d48fea44248dca3ffdd81b358fc3aaf8b97c02c216f9"
+    },
+    {
+      "path_parts": [
+        "deploy",
+        "verify",
+        "tests",
+        "test_verify.py"
+      ],
+      "sha256": "83b74fb62eeeb64ae46e2fe20d152fbcad1e270c7805067cbdc467f655580fb0"
+    },
+    {
+      "path_parts": [
+        "docs",
+        "leap",
+        "CONTINUE.md"
+      ],
+      "sha256": "3fcee6c8c18e167286590653d4f7bbf042a5376159c67136e319059ae3a3b24b"
+    },
+    {
+      "path_parts": [
+        "docs",
+        "leap",
+        "STATUS.md"
+      ],
+      "sha256": "4e32bec14de5a11c4eb856d8f0ac7644d48a4ddeb249f72311f8bbcda13cbd6d"
+    },
+    {
+      "path_parts": [
+        "docs",
+        "leap",
+        "core",
+        "APP-LIFECYCLE.md"
+      ],
+      "sha256": "e271b72b31d4275d32f89f335a0ec9e01e5ae4c6204b2ea0cd81a669f3fba515"
+    },
+    {
+      "path_parts": [
+        "docs",
+        "leap",
+        "core",
+        "BACKUP-WIRE-os.patch.md"
+      ],
+      "sha256": "31b167b927e683d5adfdf124cc69a07d129981b0aaa825a80a55ec003c5b2595"
+    },
+    {
+      "path_parts": [
+        "docs",
+        "leap",
+        "core",
+        "FILES.md"
+      ],
+      "sha256": "51fe822769a8a2ab61ced973787f23e4cd7c8fb3dffeef5fee360bb08fc57f4c"
+    },
+    {
+      "path_parts": [
+        "docs",
+        "testing",
+        "CI-MATRIX.md"
+      ],
+      "sha256": "73924318cf042bfb8e083afd5388872e3709f4f757783957787dbac5721d614c"
+    },
+    {
+      "path_parts": [
+        "go.mod"
+      ],
+      "sha256": "de02140455444ac8e7fc67c0b29916bbf56477bb35c6b19b89b649575e1477c1"
+    },
+    {
+      "path_parts": [
+        "go.sum"
+      ],
+      "sha256": "8e7240bb422fd1bf30b19b37297045c24dffd1c595f276c25d960f222e059e2e"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "agent",
+        "agent.go"
+      ],
+      "sha256": "d1284d642c30559efeaa49e75d0a7b282f9c5ca56bb99325377b22267320647a"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "README.md"
+      ],
+      "sha256": "59bf33bfef10a3f370103510a16c1a99cd96bb65d676d9d0bd782770cf62c451"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "agent.go"
+      ],
+      "sha256": "2e63bf82eb9c019865692cc4b80057c5c5c12d5b41a4420b743c3c3a1786c1f0"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "agent_test.go"
+      ],
+      "sha256": "756dd74ad7366a5e48b4ccb742bf868c1316a9a5bfe31e1b0da1eba617cbe1b2"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "api.go"
+      ],
+      "sha256": "db651ef97af961df8aea3b9208b0f28b457a01bd610db36a537fafa4475b2adb"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "apprestore.go"
+      ],
+      "sha256": "dda6cba623b1fb93e5a78cb82142f2f3b3aa7f9625cda6ffb7bb18ded1d534e4"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "canonical.go"
+      ],
+      "sha256": "b4f61bd0ec915241837f816353178eabe72f8b28a4145ab9910dbbae48f8a399"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "config.go"
+      ],
+      "sha256": "2f8662159c265a34d7f9e4c0b4a579881f48a89fe3472cf726615fd29cad9f85"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "fake_test.go"
+      ],
+      "sha256": "4d298552f2d84319b4a94f7d4162ef183e08a21ac3bab44e546f58835b0eea18"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "fs_other.go"
+      ],
+      "sha256": "1eda262da97bf109064d791ffba408563a6011a3f4702cbf61984434a602328b"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "fs_unix.go"
+      ],
+      "sha256": "740148a404ba6e865217bef57c25da3efcade791c772751d113d4e036277358e"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "job.go"
+      ],
+      "sha256": "e6428abf8c6d91ee50e16fdfd0bc517f69dd3d05827b62fc6b346cba19fda4f2"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "job_test.go"
+      ],
+      "sha256": "4016516a6367e40cb5f991865f7d6dc7138b2423dedb122d99bd16c9ddff95b7"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "jobapi.go"
+      ],
+      "sha256": "b38bff92ec5f5b5963852f37c62bc2446779bafd18e8a55c7499d9b31c6c477b"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "managed.go"
+      ],
+      "sha256": "4e686c6e59daf469d37527f36daa64a0e14bbc6038518a35d17c93dce0e962ea"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "managed_test.go"
+      ],
+      "sha256": "79b0de042b7bab02ac857159afc1c1f6d50ede9839938138073cd6b3cc8d19b6"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "rewind.go"
+      ],
+      "sha256": "fea6348f274483e2112097dab68f197229c9f03e9def63593903d66bfde08b86"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "safefs_other.go"
+      ],
+      "sha256": "5e1e5bd975bd5e160d29d1a82fcc3df3f0813a525ecbc4513c851bf283ea50b6"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "safefs_test.go"
+      ],
+      "sha256": "7a46a3457df0290435ebb173ab2ddd05f7dd4a9d8294262311240d3a2c849c24"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "safefs_unix.go"
+      ],
+      "sha256": "661a85e0aed817963081d0b3bece69da2d8c579e7697d8b94ddbdab391c3ff5b"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "schedule.go"
+      ],
+      "sha256": "03dd668185d4ee041e415510c519b3b93e8fd25c876b612a59aef6da0af6a6e3"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "service_test.go"
+      ],
+      "sha256": "c4c783eec331f7ba1fc16af9b62ca5964220af137212022d2e70d00ce9ff7061"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "statewrite_test.go"
+      ],
+      "sha256": "72ede71b83e62655d5c5609e1dea8bd40a1b22346d1380f0e47f0c5d91dc1322"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "units.go"
+      ],
+      "sha256": "783b9059303b1259b4e72cc75e0a4419cc56fcf0ed749c4fd350aa023b29d48c"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "backup",
+        "verify.go"
+      ],
+      "sha256": "16f4c942a3e2329710eb677d3cd13541273ff90053780aa38fa54d22f363b003"
+    },
+    {
+      "path_parts": [
+        "internal",
+        "heartbeat",
+        "heartbeat.go"
+      ],
+      "sha256": "035dbab296de8382c0ac801634e291944aa8163f5a216392b8fdf0c57b7830be"
+    },
+    {
+      "path_parts": [
+        "os",
+        "versions.lock.yaml"
+      ],
+      "sha256": "4125cfe0dfa97f5d34b1662dfe6d5f652d7cd4fda2d8b238e06b8244ad582594"
+    },
+    {
+      "path_parts": [
+        "scripts",
+        "changes.py"
+      ],
+      "sha256": "2820eb80e40b2c09128a6ea6870cc22d614f083a5f63bce3f2197ee8d555727e"
+    },
+    {
+      "path_parts": [
+        "scripts",
+        "check-links.py"
+      ],
+      "sha256": "2335aeee879eb9f9dc15070232f1797d3707871ed1b1d2128a1591b7fe17cb2a"
+    },
+    {
+      "path_parts": [
+        "scripts",
+        "merge",
+        "keepboth.py"
+      ],
+      "sha256": "10064d496a48a974150591feda536ad34f7d9c285a9523933f163099d3739f00"
+    },
+    {
+      "path_parts": [
+        "scripts",
+        "npm-licence-check.py"
+      ],
+      "sha256": "e8ab63449fa82d1003a0abbb90bc3baf5a8be86c7c809f122bd26f2b5fefcb34"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "contracts",
+        "poc-v0.md"
+      ],
+      "sha256": "695085198975ad5fac153a1d8cd8924ec2979a00d031dd664e2f78e460a2b427"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "actions.go"
+      ],
+      "sha256": "cce2d1fffa8a2ff8502b486a239d122466ddd5852384f2c159ff3a73b83dc050"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "client.go"
+      ],
+      "sha256": "9575362e353139832ad624e1b753fb5e00470233e3388dae54ed09b7be3fb34a"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "go.mod"
+      ],
+      "sha256": "5aec97285d9fc255e8795c7c3ac5b92325b4a34417fd49c963a3057b85ca4189"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "go.sum"
+      ],
+      "sha256": "88616f04cf8ceaf754ee21955f834f13c7841904ab265bfa04d3ac3dab3811a0"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "internal",
+        "gen",
+        "types.gen.go"
+      ],
+      "sha256": "7e29552b55afaa11a13b819f6d290c25fc0d64b3b070776b90e606c93dc7d2e2"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "live_test.go"
+      ],
+      "sha256": "d2d521d9730d9c15ec6284d52fedbe8df3056c85818a849cddf360a1bdd718b4"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "sdk_test.go"
+      ],
+      "sha256": "f384cd82551a87da6057a84e27e25b26a2fb1366216c7693e8fb845571e68158"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "openapi",
+        "onemind-v1.json"
+      ],
+      "sha256": "87dd1e4b4cec4f1d5d332ccab68946cf7d93bcb8788f8a5f2e23320025b8ef8a"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "python",
+        "src",
+        "onemind_sdk",
+        "_core.py"
+      ],
+      "sha256": "c525ab40c7233cbfb637fa5307f574f4b2d11af91662cc858f23c10e8fd7a3d6"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "python",
+        "src",
+        "onemind_sdk",
+        "_gen",
+        "models.py"
+      ],
+      "sha256": "4764742e94daec8b823530ea7a1f31e26496ee2545cefd9ce0d54c7b229862a4"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "python",
+        "src",
+        "onemind_sdk",
+        "aio.py"
+      ],
+      "sha256": "e23714975ee5910b4c27e9a791fb74056a8f3d34ab8dbf44054a9c5dab2e831f"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "python",
+        "src",
+        "onemind_sdk",
+        "client.py"
+      ],
+      "sha256": "d23b95c213ca0f2d67771624e7e4f568f67f1cf04b17db1d11a5e20aa76dc4f5"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "python",
+        "tests",
+        "test_client.py"
+      ],
+      "sha256": "c01e48abe442e7c1cc05ce2b7be913e4974dba5f6d4c6ede70cb9347206a69d3"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "schema",
+        "onemind.app.schema.json"
+      ],
+      "sha256": "4900888394ec7dcfdee8b05a30e2ad0f5026ec97a58ba30f1b5963249e647abf"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "tools",
+        "ci",
+        "gate_summary.py"
+      ],
+      "sha256": "f8dc3c81220c23e44586a992d4c65a049e27ff11a95148b230f5b9793c26449b"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "tools",
+        "ci",
+        "install-tools.sh"
+      ],
+      "sha256": "df11ee6006e627b53d19f370600e533a4f4e173355ae7f4128bebb0e84e79468"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "tools",
+        "tests",
+        "test_ci_tools.py"
+      ],
+      "sha256": "2b46d10d4f508d36f14fe9b248ede8b64da7ef45b51817429b2a076d0ed8c230"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "ts",
+        "src",
+        "client.ts"
+      ],
+      "sha256": "826911110ab223c2fc1633e93058740d1faacbe795e952e92cf47059ba1dda0c"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "ts",
+        "src",
+        "gen",
+        "schema.ts"
+      ],
+      "sha256": "cf9e6931303215536afbaa89e02d9321ff0f9094269ec03caf64884914926eea"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "ts",
+        "test",
+        "client.test.ts"
+      ],
+      "sha256": "ecb9d8b07a4829ea8a62e8ca5918bee14ec85284ce49247089b64e2090c96d13"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "ts",
+        "test",
+        "live.test.ts"
+      ],
+      "sha256": "4d2a1e0083aefaba725c273cf624a512c1ffff351b1785856f54e84813e9000c"
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "README.md"
+      ],
+      "sha256": "946d9becd80e83b3680c0c4de37496c351835a6ea1a38615fa2bd6c9239ac84f"
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "backup-probe",
+        "icon.svg"
+      ],
+      "sha256": "251f701bc68f8336cc5d711ced197c0365d723ae6f8ba71e7e9e7d52f3f659ae"
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "backup-probe",
+        "manifests",
+        "deployment.yaml"
+      ],
+      "sha256": "e6f735f2ddbc5495f9601c2fe76f420347cc5b73a968365cf4fa99debfeb716d"
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "backup-probe",
+        "manifests",
+        "kustomization.yaml"
+      ],
+      "sha256": "1e1af4036826f4b1e719f0929cde9f22a21e61ea8435dd50e47e296d7453b7c4"
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "backup-probe",
+        "manifests",
+        "pvc.yaml"
+      ],
+      "sha256": "91c90febdff9a64199d842f7a1b27dd97da46922fce1c6ed079d06e15d8fa8b7"
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "backup-probe",
+        "onemind.app.yaml"
+      ],
+      "sha256": "c8217929053b0de34a79c06d555bc621b0fea0b6a42ad1040bd6c681d4a1635f"
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "in-vm.sh"
+      ],
+      "sha256": "de67290bfdc6e37fcb5c325a95b2566e7f733f811a2087866752e20f25d386e4"
+    },
+    {
+      "path_parts": [
+        "test",
+        "backup-wire",
+        "lima-e2e.sh"
+      ],
+      "sha256": "19a627fcdf25c8fbeab4d0ee45181df7f7e59936de86c952e1cb1fc6576510b6"
+    },
+    {
+      "path_parts": [
+        "test",
+        "unit",
+        "test_changes.py"
+      ],
+      "sha256": "faafaa4f1013f3532b2ae6e3eb1cb52e37c16c59d5e2266021f93e4060b824b7"
+    },
+    {
+      "path_parts": [
+        "test",
+        "unit",
+        "test_check_links.py"
+      ],
+      "sha256": "551e0aed62e7d2d9a57169435e2c8ab5cbe13ed74466eba865dd09f3fb5a0b1d"
+    },
+    {
+      "path_parts": [
+        "test",
+        "unit",
+        "test_npm_licence_check.py"
+      ],
+      "sha256": "2fe105b3792a741f7f27a2667c03077a086a60ac5f9abf9b5e5569483a26573c"
+    },
+    {
+      "path_parts": [
+        "tests",
+        "e2e",
+        "specs",
+        "04-landing-streams.spec.ts"
+      ],
+      "sha256": "6954afdd922f7de8b1124a3e2eeb76af533bcb628e4c15e89cbb2b9a153d27d4"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "README.md"
+      ],
+      "sha256": "118926cdb95310174fd56a3a39a6856512f7c30def92650c5aed97490b50390f"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "demo",
+        "src",
+        "DemoApp.tsx"
+      ],
+      "sha256": "007017f9c3e6663480b23b8fdec81f2974afb5095dda1ab45c5f9f3bbc8f1225"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "demo",
+        "src",
+        "backups",
+        "BackupsDemo.tsx"
+      ],
+      "sha256": "9652527444e596db5b0b3d95e5f4f46159a84f6877febd86a2762ed625d92651"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "eslint.config.js"
+      ],
+      "sha256": "f6ca95dbc4b58a077e7c6101c87973d0b97fd83354cb5d9f6497ccd97ad3cd09"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "BackupsOverview.tsx"
+      ],
+      "sha256": "d5ea9b31f158b8e56380130a3c2329d95ca34452d01917cea3dcd463fe27f006"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "DestinationForm.tsx"
+      ],
+      "sha256": "403c68a741980658db3a916b2cbd90e79bbccddf9cda08d72decb651cb32cb83"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "EmergencyKit.tsx"
+      ],
+      "sha256": "5325d2773b1b3b4e4eb98244e1a77df66eac6ef2b21803d01918d81198ad3b99"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "README.md"
+      ],
+      "sha256": "922cb62ca7516a127e82b8e51ac17358e0034edccd08f7f1351b4d308eeb066d"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "RestoreDialog.tsx"
+      ],
+      "sha256": "fcbc3bc7739cc88ce6e7a4bfc5f796a2c3acbe300c05ac51353cf5d3acb56e1d"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "Rewind.tsx"
+      ],
+      "sha256": "798959032f959f6028339cfea7183633aadbbb314b03e32d85b1612f3996e7be"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "backups.css"
+      ],
+      "sha256": "c5414e7cca6d0fe82ace9a9deb7579933a8e8f560ea0387793fbf672be79da5f"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "backups.test.tsx"
+      ],
+      "sha256": "33741b757649de35fb069c6f845db5708e26fca79f8a1e22d9ef48d87afc6571"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "index.ts"
+      ],
+      "sha256": "9a13318cbe190660b53522ba6183009584145465bee9b7eb1785a94b32645249"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "logic.ts"
+      ],
+      "sha256": "f8c5cbbd3e3a1763aec3a533088c1da6d5f2625e0dbf8adee9aa66524372b1f9"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "backups",
+        "types.ts"
+      ],
+      "sha256": "bb6711a15dd46770b7958c45fdb3a4ae35ffd7f70cb03683d9308b2df253ceb1"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "home",
+        "Dock.tsx"
+      ],
+      "sha256": "04d53d45bfe9285a65ee5125e3bcebe8a437e3da8397215b2f4401f0437deecd"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "home",
+        "HomeScreen.test.tsx"
+      ],
+      "sha256": "a4e8af609279f6ba981dd1c25b5d473d068c8b4e44b11aa8b71502cfe1e59ea5"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "home",
+        "home.css"
+      ],
+      "sha256": "a4f528a31085f5d56230dc2fc07144c38c84f2ec6b44205397d48d837df1f254"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "index.ts"
+      ],
+      "sha256": "f7a58763e47b348efe01d80925e6fdde5c8b57941f255a85a8e43cccc6447522"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "styles",
+        "components.css"
+      ],
+      "sha256": "b1fc677ab756a6e2d7af57c7c1df374c149c19b217c13cef6019323822e30a0c"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        ".gitignore"
+      ],
+      "sha256": "d9493e4c21cefd0a5b4fc16a492a6b0f8caaad45c4a14495a658036b135397fb"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "README.md"
+      ],
+      "sha256": "2558f2c49cae08f0afbe255a58964e2ee3051e66cf2ff053982f71156804d15f"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "accept-visual.sh"
+      ],
+      "sha256": "6d462a072c685c40cc6d80456227d4f785304507e09dd5e274a9d4726a342ab8"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "e2e",
+        "a11y.spec.ts"
+      ],
+      "sha256": "7b1b104b2a3c0ad22bee74d3b83701d3e11554fbac94113644e7a9bc92e06823"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "e2e",
+        "flows.spec.ts"
+      ],
+      "sha256": "58343a280f9606bc0b7a494deac048c6dd6f58e6c4888bf68a7a9b0579865b29"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "e2e",
+        "known-a11y.ts"
+      ],
+      "sha256": "998b86b7d850d4d1a2ed4f664cbbf5221dba8333768478be50c26c52d5e2cca3"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "e2e",
+        "screens.ts"
+      ],
+      "sha256": "dca53c0a638a2fbd34cd768f73cf6d25fb640a63416f5de4f164dedc5046f771"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "e2e",
+        "visual.spec.ts"
+      ],
+      "sha256": "7c5d144f49217aaf4d7a8e0b18b87252b035e4bd052b207f4efcc101f56b6425"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "package-lock.json"
+      ],
+      "sha256": "878bd47dd4ab6f2e86ded26e5eacaadfc42adfe4e98dd15253cf74247d513863"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "package.json"
+      ],
+      "sha256": "f7f34c1f87e77396c4d5afaca90fe8c07463dc3ad00c1d63f80b1f834ca4d53b"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "playwright.config.ts"
+      ],
+      "sha256": "818846b621adcac63fd83c501a13c85bafd3feb6dfc1047509c54320c0334dda"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "serve.mjs"
+      ],
+      "sha256": "a44b96bebc1879b5f69b8292c65410a3262da513849bdca2fb6cd07cd21f2123"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "tsconfig.json"
+      ],
+      "sha256": "20e635a5d560bc3ad4d20f8d988c7dc57f3ddbce1b8df14b13128ac93432d65f"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-approvals.png"
+      ],
+      "sha256": "20cda40db2fa198b4f17959202d5087565428b8b75c50570d66b44be8cef9c17"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-home-phone.png"
+      ],
+      "sha256": "1abaa4f2c534ff69391307185a02ac79177d1912325f9999770b2fbcfc059b5f"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-home.png"
+      ],
+      "sha256": "eaf5da165d3a289b10cd9bc66b3d3ad829d6626ee9cf66261eadcb56cec52318"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-market-uptime-kuma.png"
+      ],
+      "sha256": "206bf0926a92734a6a6eb60b3a1d0dcd19a149cd233d73592b72be35a4fda8b3"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-market.png"
+      ],
+      "sha256": "5d3bab758eb74dbd024ecb0174daa72eae11a2502c76f1c2653462d58c140324"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-nodes.png"
+      ],
+      "sha256": "3ed3a936f87a65a1ddbf7a461562634e15cab36dc3be1f89a289ec2d205976ed"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "dash-signin.png"
+      ],
+      "sha256": "27a027efc0fff66938a532e3fbd04ab18984a089d8cba4e55bc352d2501b8779"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-activity.png"
+      ],
+      "sha256": "99d619535e679537ea53c59bb1195a7ba65989d3b6f0ebe0879514a9fabc1ab4"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-app-home-assistant.png"
+      ],
+      "sha256": "5c9048f636e2a45a38c739c3d8d993380cebf7e778443549a71f3f3f5b6865c3"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-appearance.png"
+      ],
+      "sha256": "b1f9e8d9bc23feaa4b0f5a9a21e32af36fc6810eb25af6310428f85e5c58c222"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-approvals-dark-phone.png"
+      ],
+      "sha256": "8b0473e43d68504cf81f4a108ab14924b4785f79bd30a0c71f1c55fd97dd560c"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-approvals-dark.png"
+      ],
+      "sha256": "3bd28f38e602ab71ac9718cde59567b6c5f6796e23bcdc963953d34df9e758c5"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-approvals-phone.png"
+      ],
+      "sha256": "fcb2492a03bf3cc5ae4926d36b2802285deaeb59219ebad239c788f97aabf25b"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-approvals.png"
+      ],
+      "sha256": "bee7400fee8ff1b58fd5bfd6ef15d82966185b0a1b024a263a8b927445dd0617"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-apps.png"
+      ],
+      "sha256": "ab1676ca345e6baaa260425558ef836f298c30b99f6e10b934a8c9073e3b5940"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-backups.png"
+      ],
+      "sha256": "2b125af40c03ce9d0e5fcc9df68d0da5d184b8ef1bda5ef98e8e1a25e1138087"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-gallery-dark.png"
+      ],
+      "sha256": "819daefba7fe11a7d37ab26dc81f54c4597f2fbaa2afc12a991bec1a26891c26"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-gallery.png"
+      ],
+      "sha256": "6cfc8c159f7ea66a55f7d73eb4c4c55b83b20595f20f7a47a2c14bd181e063b2"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-home-dark.png"
+      ],
+      "sha256": "a5720f9bcec16a74d1ee7e8ccf558122f1ea478a41dc4514d09f5a587490d8fb"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-home-phone.png"
+      ],
+      "sha256": "c05b7c428de3e22ae2645203b0bf549283bdc7debfb9dfc04cbccd8c95885c9e"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-home.png"
+      ],
+      "sha256": "41ef2554b856f8668af0a98e7234cae067b0cdb9e59be750172331c208f777d5"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-nodes.png"
+      ],
+      "sha256": "34d5386fa57df9a0105caec00f0827ccb397fac258fb07572b1d12f17a5ecf02"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-notifications.png"
+      ],
+      "sha256": "7b379b1221c65e0d744cdb09c9abcdf4e624f06c69baeb1c4b6982187867f830"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-settings.png"
+      ],
+      "sha256": "ab1ff566f18300a47fb8b73928a7ba6cd1bdabe4a0ffdc96abf527942fb7d123"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-shell-onboarding-1.png"
+      ],
+      "sha256": "5b75ac112ad7f4723827cf3f8c6f93aaa834d97d0c58781bf85a05b16c5d67c5"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-shell-states.png"
+      ],
+      "sha256": "1164be6e2cf45c1b434ec0a1185282b9958bee70a852fc5d3e6e742f3ba4791f"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-store.png"
+      ],
+      "sha256": "2574be94e95ac39a50a90dabc4d2583eece339b8db8eda576857701d45b5c7af"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-system.png"
+      ],
+      "sha256": "945cddd4dfcd878567970edbe19f2bd5be5089e97e27d1e9507d486caf1a6493"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "chromium",
+        "ui-updates.png"
+      ],
+      "sha256": "1051c9f0a2c2ae8ff7daad293f5175784089aa00aafa7cce5e8084876460098d"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-approvals.png"
+      ],
+      "sha256": "2f9b3f96818ca51664222da78b493c8691396ab2c7bf26028df803f9ee6570b1"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-home-phone.png"
+      ],
+      "sha256": "c10c9d3906293fbbd201bf480f246969c644bdfbbfdf4dd6cd8a8bd3517ba6a3"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-home.png"
+      ],
+      "sha256": "03289a3070a31aa2c156116ff3c208bab78c2e1ce13a03d0ce41d6768da865c8"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-market-uptime-kuma.png"
+      ],
+      "sha256": "16ba6a7a9189acfd7a32f723781ed739f3a372fde0d2abfd820806c03bd93b31"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-market.png"
+      ],
+      "sha256": "8d16a2015cc84fe51ff0e42ad4ec895eb4cd61989b11e48b099287a17acc93ce"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-nodes.png"
+      ],
+      "sha256": "44d4100de63c6241f2a2ec9dd2de02275ed464821f0b2aa7b34fa6206e1d15d1"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "dash-signin.png"
+      ],
+      "sha256": "bcd9964f2b47ab6fdbcd24cd1332e24f3043ca9044415a5a81e98a7773c8d383"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-activity.png"
+      ],
+      "sha256": "c009f6a01723c3e9011422108eb5722d9f90b507238cb754f199bd8460cbb1b3"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-app-home-assistant.png"
+      ],
+      "sha256": "8e206ce862a088f7677cc965ab3d78a9d6b0affe9a0f7771f48bf3832152b47d"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-appearance.png"
+      ],
+      "sha256": "b7079e4d53ae0ccffa357d9d02779c12304bee8e9d63c04c6a5de458ae98b966"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-approvals-dark-phone.png"
+      ],
+      "sha256": "0c41723e31dffda400fad15d13ef22be8a19ed570db691fcdb137a3c6eb765e3"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-approvals-dark.png"
+      ],
+      "sha256": "4235c4592ad2881da04165ed8271bf2f2426966d602c2a7cfcfb2e39b883736f"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-approvals-phone.png"
+      ],
+      "sha256": "c40f562ce2e66280efc4a246980cfb7675240634beada3df16defcab34152722"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-approvals.png"
+      ],
+      "sha256": "4d627083bccfdc2dcb9f9259592eb03753e6ab7c97266aa7d58ec9a9f9722703"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-apps.png"
+      ],
+      "sha256": "8204656c9897cca07ba0ec0f7e9de6bd8f7fe515918e6f85ea72f54c3f88c947"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-backups.png"
+      ],
+      "sha256": "62b97c2f2da735a1569f7c697b8808bf83e16d6119a14d00bf2c581d760f5848"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-gallery-dark.png"
+      ],
+      "sha256": "b9365b4743b4fb79c2bbb4d7f143789a24b04bd2e24e3b396f0d234720595fea"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-gallery.png"
+      ],
+      "sha256": "51a91dba170a80457e679b6e94e2e0915e6301d53c615e9eda60fb8ab4abb38a"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-home-dark.png"
+      ],
+      "sha256": "a69542c9884879fe3d466da247e71aeaa2f0885afeffc256849a2f535592a302"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-home-phone.png"
+      ],
+      "sha256": "7711cfbacb567a66d938720b912f3024504dc9de14f3b23b6cedf86494aaa4c3"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-home.png"
+      ],
+      "sha256": "ffdc16a1d27e765cb30f796254460380ceb45dfe16b9a1decf3c839b858fb418"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-nodes.png"
+      ],
+      "sha256": "0e48a98fedd26910ff2c587ffc947387a01e1669a9ead2308164867a0cc5e50e"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-notifications.png"
+      ],
+      "sha256": "dbe57b82120743b2a366e43efad6542a2d3fbe2cfbfec1ce2d0a601ced33581c"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-settings.png"
+      ],
+      "sha256": "2ee9979382be68229c5696622a233af0252d5279037ca67ad10ef5f108af8a23"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-shell-onboarding-1.png"
+      ],
+      "sha256": "61c5f5cda57b1c2050051209293600346187b8776d422c9f5e76b140d35b04c7"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-shell-states.png"
+      ],
+      "sha256": "457216f81eaac9af9236a823cc3dc3cd312e33c2c9ed3ac3ca2efebeb43a701e"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-store.png"
+      ],
+      "sha256": "d98a63018e8b63558aba9faf6e20e0d049b8444388b3c918fb867ca9d42e6d21"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-system.png"
+      ],
+      "sha256": "084ec0984fef0ee4c3803ad559a9647a56b774b2871aeac836ab6ef6120a10e6"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "firefox",
+        "ui-updates.png"
+      ],
+      "sha256": "b3ce7fb620d47cb2c40d18d02b241934aed0412076dcbea009ca0f3f406794a7"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-approvals.png"
+      ],
+      "sha256": "baf17d62263f33e2b6787750b9bd3837c8b24070b4b2fe3c0f1c782d152abdcc"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-home-phone.png"
+      ],
+      "sha256": "62496b168fd13a2b399c4474b0e2295ffe53d85051513682b5dfda0968ed6213"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-home.png"
+      ],
+      "sha256": "4d05f3fc0027e447522cc68b6256c5cda839d5678d0a8006b11e1935aa0f4a89"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-market-uptime-kuma.png"
+      ],
+      "sha256": "d5f0d0885318a023854a48c31436d392d12417b88a7cd9f6acf347f12d1ce24a"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-market.png"
+      ],
+      "sha256": "478930ece54d60b560dee9d102e83a29877a55f12af93da3df356391b24be02c"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-nodes.png"
+      ],
+      "sha256": "bac113dc3bbdd0ea11ff3782c0412f177444b826e9d50d11c3c6b478818d2fd6"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "dash-signin.png"
+      ],
+      "sha256": "53f03e489ed8d833c6b4f9adafa39bb05732663e92efa857331698ed325257d3"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-activity.png"
+      ],
+      "sha256": "c1b40e651fb3b0ad79946ed01b5f2e065514a6bec6f6431cfc79f73ebd398ea0"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-app-home-assistant.png"
+      ],
+      "sha256": "e2327dffcc767fea724add92a049901d3f743335026a6173039d2ac4da138ca8"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-approvals-dark-phone.png"
+      ],
+      "sha256": "66cf3172b132f4189a0c2c3f03a59d41f0878a5dad60e2ceaab018560d4b0515"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-approvals-dark.png"
+      ],
+      "sha256": "8f146ec66129cec51f8c3c841b4940356a425c49c6f16ab1189d5dfe7c6c9ff6"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-approvals-phone.png"
+      ],
+      "sha256": "ff1efe7a11720a35842ad85cb36e842a65620512a5b4e0a2fe2c2aba9f697356"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-approvals.png"
+      ],
+      "sha256": "c9cb079a0507aecfce3a5f86b89efb08efc70e2e2b3bb1273455fe3967f2e812"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-apps.png"
+      ],
+      "sha256": "6847c902e416d927a66e62ee3913ae8838ebe318b304c61d368eb8984e530953"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-backups.png"
+      ],
+      "sha256": "54b55c795a8e53a66e7c96c7fa26b28073f77ed72b1c210c5f6f67b0a901d63b"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-gallery-dark.png"
+      ],
+      "sha256": "aa619f4cb314f49b2e7b0404f115d7d9bcafc0a02e16b6bb3b61d9bc41c365fe"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-gallery.png"
+      ],
+      "sha256": "cf79d10192e75cdc30aa1f02de9ccd4c42eca182997640a456309975b052e531"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-nodes.png"
+      ],
+      "sha256": "9ffbb770db258600282f01b1aab3bc34b9c7c9bbd4763b972db52728ccbe98b5"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-notifications.png"
+      ],
+      "sha256": "ae9c37ee924af64035887ed42ba5e5deef5e9fb09c6dc04a5016fa1ef9dcdef9"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-settings.png"
+      ],
+      "sha256": "a5b7c8185d0352b064b04f24cb7b4c20f43f8db72cee22063ff7b6f552197196"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-shell-onboarding-1.png"
+      ],
+      "sha256": "de6be3a983c7bb83fb9c3da3aeeefe19083118b332a1aa823e1b7cce731730d6"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-shell-states.png"
+      ],
+      "sha256": "971b930fc01e012a6d2504b6ffa1a0a95658b5fe71732e2abd62cda8473c4de9"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-system.png"
+      ],
+      "sha256": "f3cb0ee1fb7690c494194b3fc5866bfa9561f61ee796dc40ddca2c11d5241e20"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "test",
+        "visual",
+        "webkit",
+        "ui-updates.png"
+      ],
+      "sha256": "f6734fc1fce95841094b2d7c0bca66b57c5af36fe9ad4df4483c30f9792f6d5b"
+    }
+  ],
+  "pending_missing_paths_not_applied": [],
+  "excluded": "Dependency links, environments, caches, credentials and raw execution logs are not exported.",
+  "instructions": "Inspect this checkpoint and its parent index checkpoint. Do not merge it. Use original feature branch and original merge head for integration; preserve both parents and re-run all checks. Original local merge/index state is retained on the originating worker."
+}

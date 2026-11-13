@@ -48,6 +48,7 @@ describe.skipIf(!hub)("live gateway", () => {
     });
     const a = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance" });
     expect(a.state).toBe("awaiting_approval");
+<<<<<<< HEAD
     expect(payloads).toHaveLength(2);
     expect(statuses).toEqual([201, 200]);
     expect(requestSeconds[1]).toBeGreaterThan(requestSeconds[0]!);
@@ -62,6 +63,12 @@ describe.skipIf(!hub)("live gateway", () => {
     expect(conflict.status).toBe(409);
     expect((await conflict.json() as { error: string }).error).toBe("conflict");
     expect((await owner.actions.list()).filter((x) => x.id === a.id)).toHaveLength(1);
+=======
+    // A replay in a later second must still be the same request: the SDK keeps expires_at per key.
+    await new Promise((r) => setTimeout(r, 1200));
+    const again = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance" });
+    expect(again.id).toBe(a.id);
+>>>>>>> ab3560556a4d3c4fe54e0d78c9dda0a9598b6855
     await expect(agent.actions.approve(a.id)).rejects.toBeInstanceOf(PermissionDeniedError);
     const done = await owner.actions.approve(a.id);
     expect(done.decided_by?.id).toBe("owner");
