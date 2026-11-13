@@ -1,1 +1,0 @@
-===> HARNESS: FAIL aborted: timeout 900s waiting for 'ONEMIND-FIRSTBOOT: configured role=hub source=nocloud[^\\n]*'
