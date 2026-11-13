@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v1
+kind: Service
+metadata:
+  name: calibre-web
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: calibre-web
+  ports:
+  - name: http
+    port: 8083
+    targetPort: http
+    protocol: TCP

@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# komga-config: /config (KOMGA_CONFIGDIR): SQLite databases, the search index, thumbnails and logs.
+# komga-library: /data, where you put your comics and books (Komga's docs mount the library at a
+# path of your choice; /data is this package's). 5Gi and 50Gi are OneMind choices. No
+# storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: komga-config
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: komga-library
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 50Gi

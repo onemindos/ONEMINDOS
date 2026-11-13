@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: Apache-2.0
+# Audiobookshelf 2.37.2 (github.com/advplyr/audiobookshelf, Dockerfile and docker-compose.yml at tag v2.37.2).
+# The image runs node as root on port 80 by default; this package starts it as node (UID/GID 1000 in
+# node:24-alpine) and sets PORT=13378, the app's non-Docker default, so no privileged port is needed.
+# GET /healthcheck answers 200 (server/Server.js).
+#
+# Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audiobookshelf
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: audiobookshelf
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: audiobookshelf
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: audiobookshelf
+        image: ghcr.io/advplyr/audiobookshelf:2.37.2@sha256:b897c33f05972fb1bf484f7487bc878fa91ec8691335c1db6e2929c3a7658efa
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: PORT
+          value: '13378'
+        ports:
+        - name: http
+          containerPort: 13378
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /healthcheck
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /healthcheck
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: '2'
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: metadata
+          mountPath: /metadata
+        - name: audiobooks
+          mountPath: /audiobooks
+        - name: podcasts
+          mountPath: /podcasts
+      volumes:
+      - name: config
+        persistentVolumeClaim:
+          claimName: audiobookshelf-config
+      - name: metadata
+        persistentVolumeClaim:
+          claimName: audiobookshelf-metadata
+      - name: audiobooks
+        persistentVolumeClaim:
+          claimName: audiobookshelf-audiobooks
+      - name: podcasts
+        persistentVolumeClaim:
+          claimName: audiobookshelf-podcasts

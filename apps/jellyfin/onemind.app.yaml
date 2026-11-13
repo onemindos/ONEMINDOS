@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# jellyfin: Market batch 2 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by sdk/tools/app-scaffold
+# (§9.2) and completed from primary sources: the official image's config (crane) and jellyfin.org/docs/general/installation/container.
+# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-12.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: jellyfin
+  name: "Jellyfin"
+  version: "12.4"
+  description: "The Free Software Media System - Server Backend & API"
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (video) are listed in README.md
+  # until the schema has metadata.tags.
+  category: media
+  icon: icon.svg
+  license: "GPL-2.0"
+  source: https://github.com/jellyfin/jellyfin
+  links:
+    docs: "https://jellyfin.org/docs/"
+    github: "https://github.com/jellyfin/jellyfin"
+    website: "https://jellyfin.org"
+    support: "https://github.com/jellyfin/jellyfin/issues"
+  upstream: {release: "v12.4", released_at: "2026-10-26T21:30:17Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 512}   # sum of the memory requests in manifests/
+  web: {port: 8096}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

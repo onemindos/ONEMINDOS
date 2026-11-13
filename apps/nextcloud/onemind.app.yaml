@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# Nextcloud: Market batch 1 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: the nextcloud/docker README (image variants, --user, POSTGRES_*/REDIS_HOST) and the admin manual system requirements (stable33).
+# Image digests and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: nextcloud
+  name: "Nextcloud"
+  version: "33.0.10"
+  description: "Nextcloud server, a safe home for all your data"
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: files
+  icon: icon.svg
+  license: "AGPL-3.0"
+  source: https://github.com/nextcloud/server
+  # §9.3 facts from the GitHub API (repos/nextcloud/server), read 2026-11-12.
+  links:
+    docs: "https://docs.nextcloud.com/server/latest/admin_manual/"
+    github: "https://github.com/nextcloud/server"
+    website: "https://nextcloud.com"
+    support: "https://github.com/nextcloud/server/issues"
+  upstream: {release: "v33.0.10", released_at: "2026-10-15T08:37:28Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVEs and secret findings in the nextcloud and postgres images (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 1024}
+  web: {port: 80}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

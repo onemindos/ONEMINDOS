@@ -1,0 +1,195 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/WordPress/WordPress (contract §9.2). That repo
+# is a mirror of WordPress core with no compose file; the image is the Docker Official Image
+# "wordpress" (github.com/docker-library/wordpress), completed from its image config at
+# 7.1.4-php8.4-apache (CMD apache2-foreground on port 80, VOLUME /var/www/html) and its documented
+# variables WORDPRESS_DB_HOST/USER/NAME and WORDPRESS_DB_PASSWORD_FILE. On first start the
+# entrypoint copies WordPress into /var/www/html and writes wp-config.php with random unique keys.
+#
+# The database is MariaDB (the Official Image), a native sidecar bound to 127.0.0.1. Its password is
+# generated once onto the database volume and read by both containers through *_FILE variables, so
+# no password is committed and no Secret exists. The MariaDB root password is generated the same
+# way into a folder only the database container mounts: the image's MARIADB_RANDOM_ROOT_PASSWORD
+# would print it to the container log ("GENERATED ROOT PASSWORD", docker-entrypoint.sh).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wordpress
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wordpress
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # Apache runs as www-data (UID 33) and listens on port 80; the namespaced "safe" sysctl lets a
+      # non-root process bind it in this pod only.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+        sysctls:
+          - name: net.ipv4.ip_unprivileged_port_start
+            value: "0"
+      initContainers:
+        # Generates the database and root passwords once. Mode 0640 with group 33: the MariaDB sidecar
+        # (UID 999) reads them through the pod's fsGroup; the WordPress container mounts only onemind/. The data directory is made group-writable for the same
+        # reason (the kubelet would create a missing subPath as root, and this step runs as UID 33).
+        # It also creates the web root owned by UID 33: on first start the image's entrypoint copies
+        # WordPress in with tar, which must be able to chmod the target directory.
+        - name: db-password
+          image: docker.io/library/wordpress:7.1.4-php8.4-apache@sha256:63dbbdf2c9ea29a2e4f417c0d4e7c4b821725d115127f70838dbbc5051ee4db0
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              mkdir -p /mnt/mysql /mnt/onemind /mnt/onemind-db /html/html
+              chmod 0770 /mnt/mysql
+              umask 027
+              for f in /mnt/onemind/db-password /mnt/onemind-db/root-password; do
+                if [ ! -s "$f" ]; then
+                  head -c 96 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 40 > "$f"
+                fi
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: db
+              mountPath: /mnt
+            - name: html
+              mountPath: /html
+        - name: db
+          image: docker.io/library/mariadb:11.8.9-noble@sha256:d36f18d65a0459510b8b0f643b226a6d299e3206486e2b64ff20754a6d291707
+          restartPolicy: Always
+          args: ["mariadbd", "--bind-address=127.0.0.1"]
+          env:
+            - name: MARIADB_DATABASE
+              value: wordpress
+            - name: MARIADB_USER
+              value: wordpress
+            - name: MARIADB_PASSWORD_FILE
+              value: /onemind/db-password
+            - name: MARIADB_ROOT_PASSWORD_FILE
+              value: /onemind-db/root-password
+          # healthcheck.sh ships in the image (its documented HEALTHCHECK command).
+          startupProbe:
+            exec:
+              command: ["healthcheck.sh", "--connect", "--innodb_initialized"]
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["healthcheck.sh", "--connect", "--innodb_initialized"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: db
+              mountPath: /var/lib/mysql
+              subPath: mysql
+            - name: db
+              mountPath: /onemind
+              subPath: onemind
+              readOnly: true
+            - name: db
+              mountPath: /onemind-db
+              subPath: onemind-db
+              readOnly: true
+      containers:
+        - name: wordpress
+          image: docker.io/library/wordpress:7.1.4-php8.4-apache@sha256:63dbbdf2c9ea29a2e4f417c0d4e7c4b821725d115127f70838dbbc5051ee4db0
+          env:
+            - name: WORDPRESS_DB_HOST
+              value: 127.0.0.1:3306
+            - name: WORDPRESS_DB_NAME
+              value: wordpress
+            - name: WORDPRESS_DB_USER
+              value: wordpress
+            - name: WORDPRESS_DB_PASSWORD_FILE
+              value: /onemind/db-password
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          # Before the install wizard has run, / answers 302 to /wp-admin/install.php; probes accept
+          # 2xx and 3xx.
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream publishes no container sizing; a OneMind choice for a small site.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: html
+              mountPath: /var/www/html
+              subPath: html
+            - name: db
+              mountPath: /onemind
+              subPath: onemind
+              readOnly: true
+      volumes:
+        - name: html
+          persistentVolumeClaim:
+            claimName: wordpress-html
+        - name: db
+          persistentVolumeClaim:
+            claimName: wordpress-db

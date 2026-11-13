@@ -14,7 +14,7 @@ This page says plainly what is protected now and what is not, because a security
 - **Tamper-evident audit log.** Hash-chained, so edits, deletions and reordering are detectable.
 - **No usable secrets at rest for tokens.** The gateway's tokens file stores only SHA-256 hashes of tokens.
 - **Privacy in heartbeats.** No serials, MACs, IPs or user names leave a node.
-- **Pinned supply chain for the OS build.** The Debian base, k3s, RAUC and every CI action are pinned by digest, hash or commit in [`os/versions.lock.yaml`](https://github.com/onemindos/ONEMINDOS/blob/main/os/versions.lock.yaml), and CI fails if a file uses a pin that is not listed there.
+- **Pinned supply chain for the OS build.** The Debian base, k3s, RAUC and every CI action are pinned by digest, hash or commit in [`os/versions.lock.yaml`](https://github.com/onemindos/ONEMINDOS/blob/main/os/versions.lock.yaml). CI checks the installer's k3s and Debian pins in `deploy/` against that file (`deploy/check-pins.py`).
 - **Public-repo hygiene.** gitleaks and pattern checks for secrets, private addresses and host paths run on every pull request.
 - **Scan gate for apps.** No install without a passing Trivy and ClamAV scan newer than 7 days, checked again at the moment of approval.
 
@@ -24,10 +24,10 @@ This page says plainly what is protected now and what is not, because a security
 
 The box side, the update client that verifies signed TUF metadata, is on `main` but has nothing to install until the image ships ([Updates and rollback](../updates-and-rollback/)).
 
-## In review <span class="om-tag om-tag--warn">in review</span>
+## On `main`, not complete <span class="om-tag om-tag--unknown">being built</span>
 
-- **App sandbox**: restricted Pod Security and default-deny network rules for apps, and narrower Kubernetes permissions for the gateway.
-- **Household identity**: sessions, passkeys and scoped API tokens instead of static tokens.
+- **App sandbox**: restricted Pod Security and default-deny network rules for apps, and narrower Kubernetes permissions for the gateway. The host firewall part is still open.
+- **Household identity**: sessions, passkeys and scoped API tokens, with household roles. It needs HTTPS or `localhost` for browser sign-in, so static tokens remain the default until HTTPS is on.
 
 ## Not protected yet
 

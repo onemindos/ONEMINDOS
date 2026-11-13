@@ -377,7 +377,10 @@ class ActionService:
         prior_state = self.repo.get_app_state(app_id)
         prior = prior_state.status if prior_state else None
         if a.type in ("app.install", "app.update") and app is not None and self.require_scan:
-            problem = scan_problem(app_id, app.scan, now)
+            # Contract 9.4: a malware hit or a human review sets metadata.tier to blocked, and
+            # nothing lifts it but a human. The scan record alone must not override it.
+            problem = f"app {app_id!r} is tier blocked; a human has to review it first" if (app.manifest.get("metadata") or {}).get("tier") == "blocked" else None
+            problem = problem or scan_problem(app_id, app.scan, now)
             if problem:  # §10.3: nothing unscanned runs; the action stays awaiting_approval
                 raise ApiError(409, "stale_precondition", problem)
         outcome = "stale" if app is None else self.repo.accept_and_claim(

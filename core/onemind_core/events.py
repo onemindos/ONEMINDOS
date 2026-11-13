@@ -5,7 +5,7 @@ One call does three things, in this order:
 
 1. appends `<domain>.<name>` to the hash-chained audit log (the record of truth; it is also
    published on NATS `onemind.audit` as every audit line is);
-2. publishes the `onemind.event.v1` envelope (contract §12.3 draft) on NATS
+2. publishes the `onemind.event/v1` envelope (contract §12.8) on NATS
    `onemind.event.<domain>.<name>` (best effort: NATS down never fails the caller);
 3. calls in-process subscribers whose pattern matches (notifications and monitoring use this).
 
@@ -26,9 +26,11 @@ from .audit import AuditLog, canonical_json
 
 log = logging.getLogger("onemind.events")
 
-EVENT_SCHEMA = "onemind.event.v1"
+EVENT_SCHEMA = "onemind.event/v1"  # contract 12.8 (a slash, not a dot)
 SUBJECT_PREFIX = "onemind.event."
-SEVERITIES = ("critical", "error", "warning", "info", "debug")
+SEVERITIES = ("critical", "warning", "info")  # contract 12.8
+# Draft-era names callers may still pass (notify's catalogue maps "error" to warning the same way).
+LEGACY_SEVERITIES = {"error": "warning", "debug": "info"}
 MAX_PAYLOAD_BYTES = 16 * 1024
 TOKEN = r"[a-z][a-z0-9_]{0,39}"
 DOMAIN_RE = re.compile(rf"^{TOKEN}$")
@@ -51,6 +53,16 @@ def matches(pattern: str, event_type: str) -> bool:
         if i >= len(t) or (tok != "*" and tok != t[i]):
             return False
     return len(p) == len(t)
+
+
+def _subject(resource: dict | None, action_id: str | None) -> dict:
+    """Contract 12.8 `subject`: the ids the event concerns, e.g. {"action_id": ..., "node_id": ...}."""
+    out: dict = {}
+    if action_id:
+        out["action_id"] = action_id
+    if resource and resource.get("kind") and resource.get("id"):
+        out[f"{resource['kind']}_id"] = resource["id"]
+    return out
 
 
 class EventHub:
@@ -106,6 +118,7 @@ class EventHub:
             raise ValueError(f"event domain {domain!r} must match {DOMAIN_RE.pattern}")
         if not NAME_RE.match(name):
             raise ValueError(f"event name {name!r} must match {NAME_RE.pattern}")
+        severity = LEGACY_SEVERITIES.get(severity, severity)
         if severity not in SEVERITIES:
             raise ValueError(f"severity must be one of {SEVERITIES}")
         payload = payload or {}
@@ -132,11 +145,13 @@ class EventHub:
             "site_id": None,
             "source_id": source_id,
             "actor_id": (principal or {}).get("id"),
+            "ts": now,
             "occurred_at": now,
             "observed_at": now,
             "correlation_id": action_id,
             "causation_id": causation_id,
             "resource": resource,
+            "subject": _subject(resource, action_id),
             "severity": severity,
             "dedupe_key": dedupe_key,
             "data": payload,

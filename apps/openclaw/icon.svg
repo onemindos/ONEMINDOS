@@ -1,0 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="openclaw">
+  <!-- Neutral generated icon (initials), not the upstream logo. -->
+  <rect width="64" height="64" rx="14" fill="hsl(44,40%,38%)"/>
+  <text x="32" y="41" text-anchor="middle" font-family="sans-serif" font-size="26" font-weight="700" fill="#ffffff">O</text>
+</svg>

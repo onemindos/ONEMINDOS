@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { Component, type ReactNode } from 'react';
 
 /**
@@ -14,10 +15,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
   render() {
     if (!this.state.failed) return this.props.children;
     return (
-      <main className="page">
-        <p className="note note-error" role="alert">
+      <main className="dash-signin">
+        <p className="om-note om-tone-bad" role="alert">
           Could not read the hub's response. Check that this page is served by the OneMind hub, then{' '}
-          <button type="button" className="btn btn-ghost" onClick={() => window.location.reload()}>
+          <button type="button" className="om-btn om-btn-ghost om-btn-sm" onClick={() => window.location.reload()}>
             reload
           </button>
           .
