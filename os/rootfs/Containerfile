@@ -146,6 +146,7 @@ COPY --from=onemind-fetch /opt/nats/nats-server /usr/bin/nats-server
 COPY --from=onemind-gateway /usr/lib/onemind/gateway/ /usr/lib/onemind/gateway/
 COPY --from=onemind-dashboard /src/dashboard/dist/ /usr/lib/onemind/dashboard/
 COPY sdk/schema/ /usr/lib/onemind/sdk/schema/
+COPY sdk/policy/app-objects.yaml /usr/lib/onemind/sdk/policy/app-objects.yaml
 COPY apps/ /usr/lib/onemind/apps/
 COPY os/rootfs/layers/onemind/ /
 COPY os/boards/${BOARD}/rootfs/ /

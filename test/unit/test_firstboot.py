@@ -116,6 +116,8 @@ class Apply(Box):
         env = self.read(os.path.join(self.p.etc, "gateway.env"))
         self.assertIn(f"ONEMIND_NODE_ID={node_id}", env)
         self.assertIn("ONEMIND_INSTANCE_NAME=Home", env)
+        # the kubernetes executor refuses to start without the install sandbox rules (healthz would never answer)
+        self.assertIn("ONEMIND_SANDBOX_RULES=/usr/lib/onemind/sdk/policy/app-objects.yaml", env)
         self.assertIn(f"ONEMIND_NODE_ID={node_id}", self.read(os.path.join(self.p.etc, "onemindd.env")))
         for f in ("gateway.env", "onemindd.env", "nats.conf"):
             self.assertEqual(stat.S_IMODE(os.stat(os.path.join(self.p.etc, f)).st_mode), 0o600, f)

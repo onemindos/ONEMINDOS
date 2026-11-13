@@ -58,6 +58,8 @@ for f in etc/default/k3s etc/default/onemind-health-gate usr/lib/systemd/system/
 done
 mkdir -p "$L/usr/lib/onemind/sdk" "$L/usr/lib/onemind/apps"
 cp -R sdk/schema "$L/usr/lib/onemind/sdk/"
+mkdir -p "$L/usr/lib/onemind/sdk/policy"
+cp sdk/policy/app-objects.yaml "$L/usr/lib/onemind/sdk/policy/"
 cp -R apps/. "$L/usr/lib/onemind/apps/"; rm -f "$L/usr/lib/onemind/apps/README.md"
 cp -R os/rootfs/layers/onemind/. "$L/"
 cp -R os/boards/jetson-orin/rootfs/. "$L/"

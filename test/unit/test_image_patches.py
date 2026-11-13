@@ -62,6 +62,16 @@ class K3s(unittest.TestCase):
         self.assertEqual(rd("os", "rootfs", "layers", "base", "etc", "rancher", "k3s", "psa.yaml"), rd("deploy", "k8s", "psa.yaml"))
 
 
+class GatewaySandboxRules(unittest.TestCase):
+    """core's kubernetes executor needs sdk/policy/app-objects.yaml at start; without it the gateway
+    exits and every firstboot/installer/cloud battery sees healthz=000."""
+    def test_rules_ship_in_the_image_and_the_build_context(self):
+        self.assertIn("COPY sdk/policy/app-objects.yaml /usr/lib/onemind/sdk/policy/app-objects.yaml", rd("os", "rootfs", "Containerfile"))
+        self.assertIn("!sdk/policy/", rd(".dockerignore"))
+        self.assertIn("sdk/policy/app-objects.yaml", rd("os", "boards", "jetson-orin", "make-layer.sh"))
+        self.assertTrue(os.path.isfile(os.path.join(ROOT, "sdk", "policy", "app-objects.yaml")))
+
+
 class NatsUnit(unittest.TestCase):
     def test_tls_files_reach_the_throwaway_user_without_credentials_glob(self):
         u = rd("os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system", "onemind-nats.service")

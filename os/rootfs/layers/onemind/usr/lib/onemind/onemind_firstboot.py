@@ -331,6 +331,7 @@ def configure(p: Paths, cfg: dict, source: str, make_ca_fn=make_ca) -> str | Non
               f"ONEMIND_TOKENS_FILE={p.gateway}/tokens.yaml\nONEMIND_DATA_DIR={p.gateway}\n"
               f"ONEMIND_DB_URL=sqlite:///{p.gateway}/onemind.db\nONEMIND_AUDIT_PATH={p.gateway}/audit.jsonl\n"
               "ONEMIND_APPS_DIR=/usr/lib/onemind/apps\nONEMIND_APP_SCHEMA=/usr/lib/onemind/sdk/schema/onemind.app.schema.json\n"
+              "ONEMIND_SANDBOX_RULES=/usr/lib/onemind/sdk/policy/app-objects.yaml\n"
               "ONEMIND_DASHBOARD_DIST=/usr/lib/onemind/dashboard\nONEMIND_EXECUTOR=kubernetes\n"
               f"ONEMIND_KUBECTL=/usr/lib/onemind/bin/kubectl\nKUBECONFIG={p.gateway}/kubeconfig\n"
               f"ONEMIND_NATS_URL=nats://gateway:{pw['gateway']}@127.0.0.1:4222\n"
