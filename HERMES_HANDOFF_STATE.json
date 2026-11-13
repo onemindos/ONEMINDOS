@@ -1,0 +1,530 @@
+{
+  "format": "hermes-source-transfer/v1",
+  "lane": "first-run",
+  "created_at_utc": "20261113T064930Z",
+  "warning": "WIP TRANSFER ONLY: not tested as a final candidate, not merge-ready. No PR is opened for this checkpoint.",
+  "original_branch": "feat/first-run-settings",
+  "original_head": "0105435b240aec1000f35f7af569ed47179aa8aa",
+  "original_merge_heads": [],
+  "unresolved_paths": [],
+  "preserved_index_commit": "1736bd7154e130e76d6b03c820fe9503d0b7b996",
+  "index_entries": [
+    {
+      "path_parts": [
+        "changes",
+        "feat-first-run-settings.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "6e264d8d7fbff9138c05a6ab9c58a0dadc712e82",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "app.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "180d55d558413e08ee189d0bed59b3a5c88e78cc",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "onboarding.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "81b6d67bd539094ca52ab118d23f800dd6231780",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "openapi.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "eada993dfb627634153ae7ce917910eaf399a243",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "instance.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "2a67388e5fca5e047dacbbd2edfdd16d5ebdde63",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "onboarding.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "83f3cd918b1d74187b6566691133c1d008b54d30",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_onboarding.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "70f5c919ad1d2139b109ab1096c258d81fdd03b6",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_openapi_retained.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "37e93b40c80598e32d404adc6784e0d5deafe53d",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_route_authz.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "31f2076a7085da44e85fabb2e22a7619ea9bf8f8",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "dashboard",
+        "src",
+        "api",
+        "client.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "1aafdac65f41ef37e897c9ed227435783ac4795b",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "dashboard",
+        "src",
+        "api",
+        "mock.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "b29cdc7d6d8c71d35372dfee03e311ba271ffd5c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "dashboard",
+        "src",
+        "pages",
+        "FirstRun.test.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "64c31dac44414b79851d7b726019a27216f1965b",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "dashboard",
+        "src",
+        "pages",
+        "FirstRun.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "277efdda188462be4915195f28743a0069d17a7c",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "Makefile"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "c5065d5a5fda88e0799fa908fccb095cad160582",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "contracts",
+        "poc-v0.md"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "03394927419acaa68fdfd2e70d9f620a0e966e0f",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "internal",
+        "gen",
+        "types.gen.go"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "d55fc095f8b001d1edbc2dc6a0cec0af7f5559cb",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "openapi",
+        "onemind-v1.json"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "a86b93437c70d87239177cd84cd6e81f22eb5734",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "python",
+        "src",
+        "onemind_sdk",
+        "_gen",
+        "models.py"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "fbdb960a5b0052550db459ff40aeeac12cc5b875",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "ts",
+        "src",
+        "gen",
+        "schema.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "00bd8fb393c81bf2a17e4e8d7760c3dd1bd9994e",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "shell",
+        "Onboarding.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "4da78d33f8aac16564da3483b58c9cd17d8e6c6b",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "shell",
+        "OnboardingSettings.test.tsx"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "1551659953043bfa8db7ff6b5a8901cec8c263ef",
+          "stage": 0
+        }
+      ]
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "shell",
+        "firstRun.ts"
+      ],
+      "versions": [
+        {
+          "mode": "100644",
+          "oid": "6be7da5c58ed8eb8129d85143f47851b4c7c3828",
+          "stage": 0
+        }
+      ]
+    }
+  ],
+  "working_source_digests": [
+    {
+      "path_parts": [
+        "changes",
+        "feat-first-run-settings.md"
+      ],
+      "sha256": "c4df6b951028ba210fea6bfe7a11ebb8caee1fa0868c68769f8ba36078961364"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "app.py"
+      ],
+      "sha256": "23796db730968748422c4b77759690935df2ba08ff555aed130cc84b50755b6c"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "onboarding.py"
+      ],
+      "sha256": "1337f33f1af7a7e0dd1d369eef6aa5cb573b36378e8838e95ccafa2d7f6ac331"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "openapi.py"
+      ],
+      "sha256": "c01272aaae9edb6c713e204b3bf2142adc7315a0f994feea4ffe84c07a95d7ba"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "instance.py"
+      ],
+      "sha256": "67fc87d5785cab41be93f75723f4975ea4bfd9948a43a88f0e0a0cd375268f7c"
+    },
+    {
+      "path_parts": [
+        "core",
+        "onemind_core",
+        "routers",
+        "onboarding.py"
+      ],
+      "sha256": "4b63af91a7a73f920f7765693acd6eff88ab32e32501e5d42d722a9ddfe555cb"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_onboarding.py"
+      ],
+      "sha256": "d786d0f4eef60ea6faf85ce3c1cc89acef53f6d7b3f6bac842df0ea5b2a1eae2"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_openapi_retained.py"
+      ],
+      "sha256": "8dd60ba6abb07471594a27572d953bd14d7d1982fadc3fefc91116bfc82c633d"
+    },
+    {
+      "path_parts": [
+        "core",
+        "tests",
+        "test_route_authz.py"
+      ],
+      "sha256": "7a7cddb5d736e406efd1c5ca1b900504655b001fe408bf2a962e524d7ace7bbe"
+    },
+    {
+      "path_parts": [
+        "dashboard",
+        "src",
+        "api",
+        "client.ts"
+      ],
+      "sha256": "9bf97268c1573e804a7865a43d4d6291455b378ba2ddaa4f9a7adb24dffcdec2"
+    },
+    {
+      "path_parts": [
+        "dashboard",
+        "src",
+        "api",
+        "mock.ts"
+      ],
+      "sha256": "d8b847eb769fd61f2932be1a0958d73195ff3628ce2bfa62b608f0b63c04b3e4"
+    },
+    {
+      "path_parts": [
+        "dashboard",
+        "src",
+        "pages",
+        "FirstRun.test.tsx"
+      ],
+      "sha256": "07b53f216f5d3b1cac6987f8549af00c7e47415ecf77f1cc1e12ce85988bec3d"
+    },
+    {
+      "path_parts": [
+        "dashboard",
+        "src",
+        "pages",
+        "FirstRun.tsx"
+      ],
+      "sha256": "76fe956f115ab28570ce00ff4a630c103b709663490e7a206fb1fe131532e794"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "Makefile"
+      ],
+      "sha256": "326b8244a11a28c6fe7317a45734cd79f321abf3d93e1c40458b8b2e2fcb582d"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "contracts",
+        "poc-v0.md"
+      ],
+      "sha256": "0188582a2ad0728f5c73899008bdbfa18a3b10dbf5e055487b5a16c7601eb10d"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "go",
+        "internal",
+        "gen",
+        "types.gen.go"
+      ],
+      "sha256": "11013f55060028e29448b204fe6d25d8c4303c8fec5b4fa1c7e450eb50c5c3a4"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "openapi",
+        "onemind-v1.json"
+      ],
+      "sha256": "2545ab2adf6293459f99f17c3d4544b2e1b67cafe7216db248264340dfd19335"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "python",
+        "src",
+        "onemind_sdk",
+        "_gen",
+        "models.py"
+      ],
+      "sha256": "e12eae5b2b91908b10d666102bad94b3d700acbabaf149c0707a8573580b1f3b"
+    },
+    {
+      "path_parts": [
+        "sdk",
+        "ts",
+        "src",
+        "gen",
+        "schema.ts"
+      ],
+      "sha256": "b0eb52e5fe52a3069ca4fe17340e394da93d769cce28fa1ff21f1d3e4609ec1c"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "shell",
+        "Onboarding.tsx"
+      ],
+      "sha256": "a14f0c8647412a3a9a8cfddeed65f9e7e13cc0029240714c3b9167c80aa4bc0b"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "shell",
+        "OnboardingSettings.test.tsx"
+      ],
+      "sha256": "2fff2012890e7754d981c60d5bd7a6a72f3ec79f20a5844c3b6b5def5b67234f"
+    },
+    {
+      "path_parts": [
+        "ui",
+        "src",
+        "shell",
+        "firstRun.ts"
+      ],
+      "sha256": "30105ed8d73aa0fd78928e85596aaf987a7d8fcb5685e4a1992a4cc9c9e75204"
+    }
+  ],
+  "pending_missing_paths_not_applied": [],
+  "excluded": "Dependency links, environments, caches, credentials and raw execution logs are not exported.",
+  "instructions": "Inspect this checkpoint and its parent index checkpoint. Do not merge it. Use original feature branch and original merge head for integration; preserve both parents and re-run all checks. Original local merge/index state is retained on the originating worker."
+}
