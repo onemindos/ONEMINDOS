@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Namespace-agnostic: the gateway installs it into app-wiki-js (contract §3).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+labels:
+- pairs:
+    app.kubernetes.io/name: wiki-js
+    app.kubernetes.io/part-of: onemind-apps
+  includeSelectors: false
+resources:
+- pvc.yaml
+- deployment.yaml
+- service.yaml
