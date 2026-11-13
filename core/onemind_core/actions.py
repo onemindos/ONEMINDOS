@@ -133,12 +133,30 @@ class FeatureAction:
                  action awaiting_approval and answers 409 stale_precondition.
     run:         the work after approval. It gets the action and a finish(ExecResult) callback and
                  may call finish later from another thread; until then the action is dispatched.
+    claim:       reserves what the action changes (a compare-and-swap in the feature's own tables)
+                 at approval, before the action is accepted, so two approved actions never run on
+                 the same thing. A returned problem answers 409 stale_precondition.
+    release:     gives the claim (and anything else held for the action, e.g. in-memory
+                 credentials) back when the action ends or is denied, expires or is not accepted
+                 after all. Runs at most once per ending and never fails the caller.
+    background:  run() is started on a worker thread (a copy may take hours) instead of inline;
+                 a crash there becomes outcome_unknown.
     """
 
     risk: str
     run: Callable[["Action", Callable[[ExecResult], None]], None]
     requesters: frozenset[str] = frozenset({"person"})
     check: Callable[["Action"], str | None] | None = None
+    claim: Callable[["Action"], str | None] | None = None
+    release: Callable[["Action"], None] | None = None
+    background: bool = False
+
+
+FEATURE_OUTCOMES = ("succeeded", "failed", "outcome_unknown")
+
+
+def _worker(fn: Callable[[], None]) -> None:
+    threading.Thread(target=fn, name="onemind-feature-action", daemon=True).start()
 
 
 @dataclass
@@ -183,12 +201,16 @@ class ActionService:
         # Contract §12.1 / H-14: most actions one non-owner requester may have awaiting approval.
         # 0 = no cap. Set from the limits settings section (guard.py).
         self.max_pending_per_requester = 10
+        # How a background feature action's run() is started after approval; tests make it synchronous.
+        self.spawn: Callable[[Callable[[], None]], None] = _worker
         # Contract §12.17: checked right after a request is filed; the first grant accepts it.
         self.standing_approvals: list[Callable[[Action], StandingGrant | None]] = []
 
     def register_type(self, action_type: str, spec: FeatureAction) -> None:
         if action_type in APP_CLAIMS or action_type in self.feature_types:
             raise ValueError(f"action type {action_type} is already registered")
+        if spec.risk not in ("read", "write", "sensitive", "destructive", "actuate"):
+            raise ValueError(f"{action_type}: unknown risk class {spec.risk!r}")
         self.feature_types[action_type] = spec
 
     # ---- helpers -------------------------------------------------------------------------
@@ -211,6 +233,7 @@ class ActionService:
             moved = self.repo.transition(a.id, {a.state}, "expired", now)
             if moved is not None:
                 self.audit.append("action.expired", None, a.id, {"expires_at": iso(a.expires_at)})
+                self._release_feature(a)
                 return moved
             return self.repo.get(a.id) or a
         return a
@@ -437,7 +460,19 @@ class ActionService:
         if moved is None:
             raise ApiError(409, "conflict", f"action is {self._get(action_id).state}, not awaiting_approval")
         self.audit.append("action.denied", principal.as_dict(), a.id, {"params": a.params})
+        self._release_feature(a)
         return moved.to_json()
+
+    def _release_feature(self, a: Action) -> None:
+        """A feature action that ended or never started: let its module drop what it holds for it
+        (e.g. migrate's in-memory kubeconfig). A failing release never fails the caller."""
+        spec = self.feature_types.get(a.type)
+        if spec is None or spec.release is None:
+            return
+        try:
+            spec.release(a)
+        except Exception:
+            log.exception("release of %s %s failed", a.type, a.id)
 
     def _approve(
         self, principal: Principal, action_id: str, plan_sha256: str | None = None, strict: bool = False,
@@ -663,6 +698,8 @@ class ActionService:
     def _mark_outcome_unknown(self, a: Action, message: str) -> None:
         result = {"outcome": "outcome_unknown", "message": message}
         moved = self.repo.transition(a.id, {"accepted", "dispatched"}, "outcome_unknown", self.clock(), result=result)
+        if a.type in self.feature_types:  # a feature action: its module reconciles its own state
+            self._release_feature(a)
         if a.type in APP_CLAIMS:
             self.repo.set_app_state(a.params["app_id"], "unknown", self.clock(), a.id)
         if a.type == "app.install":
@@ -773,11 +810,15 @@ class ActionService:
         problem = spec.check(a) if spec.check else None
         if problem:
             raise ApiError(409, "stale_precondition", problem)
+        problem = spec.claim(a) if spec.claim else None
+        if problem:  # the action stays awaiting_approval; the owner may deny it or let it expire
+            raise ApiError(409, "stale_precondition", problem)
         now = self.clock()
         accepted = self.repo.transition(
             a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now
         )
         if accepted is None:
+            self._release_feature(a)
             raise ApiError(409, "conflict", "action was decided concurrently")
         ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id, **(standing or {})}
         self.audit.append("action.approved", principal.as_dict(), a.id,
@@ -788,6 +829,8 @@ class ActionService:
         self.audit.append("action.dispatched", None, a.id, {"executor": f"feature:{a.type}", **ids})
 
         def finish(result: ExecResult) -> None:
+            if result.outcome not in FEATURE_OUTCOMES:
+                result = ExecResult("outcome_unknown", f"{a.type} returned outcome {result.outcome!r}")
             with self._finish_lock:
                 final = self.repo.transition(
                     a.id, {"dispatched"}, result.outcome, self.clock(), result=result.to_json()
@@ -795,12 +838,19 @@ class ActionService:
                 if final is not None:
                     self.audit.append(f"action.{result.outcome}", None, a.id,
                                       {"executor": f"feature:{a.type}", "message": result.message, **ids})
+                    self._release_feature(a)
 
-        try:
-            spec.run(a, finish)
-        except Exception as exc:  # the feature could not even start: the effect is unknown
-            log.exception("feature action %s crashed", a.type)
-            finish(ExecResult("outcome_unknown", f"feature error: {exc.__class__.__name__}"))
+        def start() -> None:
+            try:
+                spec.run(a, finish)
+            except Exception as exc:  # the feature could not even start: the effect is unknown
+                log.exception("feature action %s crashed", a.type)
+                finish(ExecResult("outcome_unknown", f"feature error: {exc.__class__.__name__}"))
+
+        if spec.background:
+            self.spawn(start)
+        else:
+            start()
         return self._get(a.id).to_json()
 
 

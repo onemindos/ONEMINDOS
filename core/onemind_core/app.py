@@ -42,6 +42,7 @@ from .routers import automation as automation_routes
 from .routers import instance as instance_routes
 from .routers import mcp as mcp_routes
 from .routers import monitoring as monitoring_routes
+from .routers import migrate as migrate_routes
 from .routers import nodes as nodes_routes
 from .routers import notifications as notifications_routes
 from .routers import static as static_routes
@@ -68,6 +69,7 @@ ROUTERS: list[Register] = [
     monitoring_routes.register,
     identity_routes.register,
     automation_routes.register,
+    migrate_routes.register,
     files_routes.register,
     static_routes.register,
 ]
