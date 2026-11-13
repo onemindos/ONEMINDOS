@@ -171,7 +171,7 @@ uninstall() {
     /etc/systemd/system/onemind-nats.service.d /etc/systemd/system/k3s.service.d /etc/systemd/system/k3s-agent.service.d
   if [ "$ts" = 1 ]; then
     rm -rf /etc/systemd/system/tailscaled.service.d /var/lib/tailscale
-    rm -f /usr/bin/tailscale /usr/sbin/tailscaled /etc/default/tailscaled
+    rm -f /usr/bin/tailscale /usr/sbin/tailscaled /etc/default/tailscaled "$ETC/mesh-guard.nft"
   fi
   systemctl daemon-reload
   rm -f "$BIN/onemindd" "$BIN/onemind" "$BIN/nats-server" "$BIN/headscale"
@@ -401,7 +401,7 @@ memory_cgroup_check() {
 # 1. OS packages + automatic security updates (contract §10.1, developer installs)
 # ------------------------------------------------------------------------------------------
 # avahi + libnss-mdns: NAME.local and <app>.NAME.local (NETWORKING.md §9.1); sqlite3: Headscale backups.
-APT_PKGS="ca-certificates curl tar gzip iproute2 unattended-upgrades needrestart apt-listchanges avahi-daemon avahi-utils libnss-mdns sqlite3"
+APT_PKGS="ca-certificates curl tar gzip iproute2 unattended-upgrades needrestart apt-listchanges avahi-daemon avahi-utils libnss-mdns sqlite3 nftables"
 apt_security_conf() {
   if [ "${ID:-}" = ubuntu ]; then
     cat <<'EOF'
@@ -743,6 +743,22 @@ tailscale_install() {
 [Service]
 Environment=SSL_CERT_FILE=/etc/onemind/identity/ca.pem
 Environment=TS_NO_LOGS_NO_SUPPORT=true
+# Tailscale offers every local interface address as a path to its peers, and flannel's own interface
+# (flannel-wg, in the pod network) carries traffic inside tailscale0: a path through it is a loop.
+# Tailscale has no setting to leave an interface out (tailscale/tailscale#1552), so its UDP port is
+# dropped on flannel's interfaces; the real LAN, relay and mesh paths are not touched.
+ExecStartPre=/usr/sbin/nft -f /etc/onemind/mesh-guard.nft
+ExecStopPost=-/usr/sbin/nft delete table inet onemind_mesh_guard
+EOF
+  # add + flush + table: the same file loads on the first start and on every restart.
+  cat > "$ETC/mesh-guard.nft" <<'EOF'
+# Written by deploy/install.sh: keep tailscaled off flannel's interfaces (see tailscaled.service.d/onemind.conf).
+add table inet onemind_mesh_guard
+flush table inet onemind_mesh_guard
+table inet onemind_mesh_guard {
+  chain out { type filter hook output priority -10; policy accept; oifname "flannel*" udp dport 41641 drop; }
+  chain in { type filter hook input priority -10; policy accept; iifname "flannel*" udp dport 41641 drop; }
+}
 EOF
   systemctl daemon-reload
   systemctl enable tailscaled >/dev/null 2>&1
