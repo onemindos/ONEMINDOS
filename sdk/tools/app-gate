@@ -24,9 +24,11 @@ the gateway refuses to install it (§10.3, §11.1).
 from __future__ import annotations
 
 import argparse
+import atexit
 import datetime as dt
 import json
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -39,7 +41,7 @@ from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from applib import common, licence, readme  # noqa: E402
+    from applib import common, licence, readme, retry  # noqa: E402
 except ImportError as exc:  # pragma: no cover
     sys.stderr.write(f"error: missing dependency ({exc.name}); install sdk/tools/requirements.txt\n")
     sys.exit(2)
@@ -53,6 +55,42 @@ SMOKE_SECRET_PLACEHOLDER = "smoke-test-placeholder"
 
 def now() -> str:
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def export_image(crane: str, ref: str, arch: str, root: Path) -> int:
+    """Unpack the regular files of an image into root (emptied first, so a retry starts clean).
+    Raises ToolError with crane's stderr on failure; retry.retry_call repeats temporary errors."""
+    for child in root.iterdir():
+        shutil.rmtree(child) if child.is_dir() and not child.is_symlink() else child.unlink()
+    proc = subprocess.Popen([crane, "export", "--platform", f"linux/{arch}", ref, "-"],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    files, tar_error = 0, None
+    try:
+        with tarfile.open(fileobj=proc.stdout, mode="r|") as tar:
+            for member in tar:
+                if not member.isreg():
+                    continue
+                rel = PurePosixPath(member.name.lstrip("/"))
+                if ".." in rel.parts or not rel.parts:
+                    continue
+                dest = root.joinpath(*rel.parts)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                src = tar.extractfile(member)
+                if src is None:
+                    continue
+                with dest.open("wb") as fh:
+                    while chunk := src.read(1 << 20):
+                        fh.write(chunk)
+                files += 1
+    except tarfile.TarError as exc:  # a dropped connection truncates the stream
+        tar_error = exc
+        proc.stdout.close()
+    rc = proc.wait()
+    stderr = proc.stderr.read().decode(errors="replace")[-1000:]
+    proc.stderr.close()
+    if rc != 0 or tar_error:
+        raise common.ToolError(f"crane export {ref} ({arch}): {stderr or tar_error}")
+    return files
 
 
 class Check:
@@ -134,7 +172,7 @@ class Gate:
                     "--skip-version-check"]
             if self.args.trivy_cache:
                 argv += ["--cache-dir", str(self.args.trivy_cache)]
-            proc = common.run(argv + [ref], timeout=7200)
+            proc = retry.run_retry(common.run, argv + [ref], timeout=7200)
             if proc.returncode != 0:
                 raise common.ToolError(f"trivy {ref} ({arch}): {proc.stderr.strip()[-2000:]}")
             for res in json.loads(proc.stdout).get("Results") or []:
@@ -148,7 +186,7 @@ class Gate:
                 out.parent.mkdir(parents=True, exist_ok=True)
                 sb = argv[:2] + ["--quiet", "--format", "cyclonedx", "--output", str(out),
                                  "--platform", f"linux/{arch}", "--image-src", "remote", "--skip-version-check"]
-                sbp = common.run(sb + [ref], timeout=3600)
+                sbp = retry.run_retry(common.run, sb + [ref], timeout=3600)
                 if sbp.returncode != 0 or not out.exists():
                     c.fail(f"SBOM for {ref} ({arch}) not written: trivy exited {sbp.returncode}: {(sbp.stderr or '').strip()[-300:]}")
         crit = [v for v in vulns.values() if v.get("Severity") == "CRITICAL"]
@@ -177,27 +215,8 @@ class Gate:
         for arch in archs:
             with tempfile.TemporaryDirectory(prefix="onemind-clam-", dir=self.args.workdir) as tmp:
                 root = Path(tmp)
-                proc = subprocess.Popen([crane, "export", "--platform", f"linux/{arch}", ref, "-"],
-                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                files = 0
-                with tarfile.open(fileobj=proc.stdout, mode="r|") as tar:
-                    for member in tar:
-                        if not member.isreg():
-                            continue
-                        rel = PurePosixPath(member.name.lstrip("/"))
-                        if ".." in rel.parts or not rel.parts:
-                            continue
-                        dest = root.joinpath(*rel.parts)
-                        dest.parent.mkdir(parents=True, exist_ok=True)
-                        src = tar.extractfile(member)
-                        if src is None:
-                            continue
-                        with dest.open("wb") as fh:
-                            while chunk := src.read(1 << 20):
-                                fh.write(chunk)
-                        files += 1
-                if proc.wait() != 0:
-                    raise common.ToolError(f"crane export {ref} ({arch}): {proc.stderr.read().decode()[-1000:]}")
+                files = retry.retry_call(lambda: export_image(crane, ref, arch, root),
+                                         (common.ToolError,))
                 scan = common.run([clamscan, *db, "-r", "--infected", "--no-summary",
                                    "--max-filesize=1000M", "--max-scansize=4000M", str(root)], timeout=7200)
                 hits = [ln for ln in scan.stdout.splitlines() if ln.endswith(" FOUND")]
@@ -223,9 +242,10 @@ class Gate:
             return "failed"
         exe = common.which("cosign")
         for d in signed:
-            proc = common.run([exe, "verify", "--certificate-identity-regexp",
-                               rf"^https://github\.com/{re.escape(owner)}/",
-                               "--certificate-oidc-issuer", COSIGN_ISSUER, f"{name}@{d}"], timeout=600)
+            proc = retry.run_retry(common.run, [exe, "verify", "--certificate-identity-regexp",
+                                                rf"^https://github\.com/{re.escape(owner)}/",
+                                                "--certificate-oidc-issuer", COSIGN_ISSUER, f"{name}@{d}"],
+                                   timeout=600)
             if proc.returncode != 0:
                 c.fail(f"{ref}: cosign verify of {d} failed: {proc.stderr.strip()[-500:]}")
                 return "failed"
@@ -447,6 +467,9 @@ def main(argv: list[str]) -> int:
                         "metadata.tier or scan.json claims more than the gate computes (with --tier check)")
     args = p.parse_args(argv)
 
+    auth_dir = retry.setup_registry_auth()  # GITHUB_TOKEN -> ghcr.io; Docker Hub only if its secrets exist
+    if auth_dir:
+        atexit.register(shutil.rmtree, auth_dir, ignore_errors=True)
     reg, gh = common.Registry(), common.GitHub()
     reports, failed, overclaimed = [], 0, 0
     for app_id in args.app_ids:

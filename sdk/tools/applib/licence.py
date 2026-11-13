@@ -8,6 +8,7 @@ Market, as are unknown and non-commercial licences (contract §9.4).
 from __future__ import annotations
 
 import csv
+import io
 import re
 from pathlib import Path
 
@@ -115,13 +116,17 @@ def normalise(expr: str) -> str:
 
 def matrix_rows(matrix_csv: Path, owner_repo: str) -> list[dict]:
     """Rows of research-output/evidence/license-matrix.csv that cite github.com/<owner>/<repo>."""
+    return matrix_rows_from_text(matrix_csv.read_text(encoding="utf-8"), owner_repo)
+
+
+def matrix_rows_from_text(text: str, owner_repo: str) -> list[dict]:
+    """Same as matrix_rows, from CSV text (used to compare two revisions of the matrix)."""
     needle = f"github.com/{owner_repo}".lower()
     rows = []
-    with matrix_csv.open(encoding="utf-8", newline="") as fh:
-        for row in csv.DictReader(fh):
-            cited = (row.get("license_file_permalink", "") + " " + row.get("source", "")).lower()
-            if re.search(re.escape(needle) + r"(?:[/@ ]|$)", cited):
-                rows.append(row)
+    for row in csv.DictReader(io.StringIO(text, newline="")):
+        cited = (row.get("license_file_permalink", "") + " " + row.get("source", "")).lower()
+        if re.search(re.escape(needle) + r"(?:[/@ ]|$)", cited):
+            rows.append(row)
     return rows
 
 
