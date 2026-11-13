@@ -225,7 +225,7 @@ func (a *Agent) preRestoreSnapshot(ctx context.Context, repo Repo, u Unit, dest 
 	run := Run{ID: NewRunID(a.Now()), Reason: ReasonPreRestore, ActionID: req.ActionID, TargetID: req.TargetID,
 		StartedAt: a.Now().UTC()}
 	if run.TargetID == "" {
-		p, _ := a.Cfg.Primary()
+		p, _ := a.target("")
 		run.TargetID = p.ID
 	}
 	tags := append(a.baseTags(u.Name), "run="+run.ID, "reason="+ReasonPreRestore, "keep="+keepClass(ReasonPreRestore))
@@ -241,7 +241,7 @@ func (a *Agent) preRestoreSnapshot(ctx context.Context, repo Repo, u Unit, dest 
 		ur.State, ur.Error, err = StateFailed, "some files could not be read", errors.New("some files could not be read")
 	}
 	run.State, run.Units, run.BytesAdded = ur.State, []UnitResult{ur}, res.DataAdded
-	_ = a.Store.Update(func(s *State) { s.Runs = append(s.Runs, run) })
+	_ = a.persist("pre-restore run", func(s *State) { s.Runs = append(s.Runs, run) }) // logged; the safety snapshot itself exists in the repository
 	return res.SnapshotID, err
 }
 

@@ -15,10 +15,11 @@ import (
 //
 //	POST /api/v1/backup/run    {reason, wait, action_id?, target_id?} -> {run_id, state}
 //	GET  /api/v1/backup/status -> Status
+//	POST /api/v1/backup/jobs   signed onemind.job/v1 envelope -> JobResult (or a file)
 //
-// It refuses any caller that is not on the loopback interface. Restores and
-// file browsing are not here: they are owner actions that reach the node as
-// signed jobs from the gateway.
+// It refuses any caller that is not on the loopback interface. Restores,
+// browsing and reconfiguration come only as jobs signed with the gateway's
+// job key, after the owner approved the action (or, for reads, asked as owner).
 func (a *Agent) Handler(base context.Context) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/backup/run", func(w http.ResponseWriter, r *http.Request) {
@@ -67,6 +68,7 @@ func (a *Agent) Handler(base context.Context) http.Handler {
 		}()
 		writeJSON(w, http.StatusAccepted, map[string]string{"run_id": rr.ID, "state": StateRunning})
 	})
+	mux.HandleFunc("POST /api/v1/backup/jobs", a.jobsHandler(base)) // signed jobs (job.go, jobapi.go)
 	mux.HandleFunc("GET /api/v1/backup/status", func(w http.ResponseWriter, r *http.Request) {
 		s, err := a.Status(r.Context())
 		if err != nil {

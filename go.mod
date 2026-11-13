@@ -10,7 +10,12 @@ require (
 	github.com/theupdateframework/go-tuf/v2 v2.4.2
 )
 
-require github.com/inconshreveable/mousetrap v1.1.0 // indirect
+require (
+	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
+	github.com/google/uuid v1.5.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/oapi-codegen/runtime v1.1.2 // indirect
+)
 
 require (
 	github.com/antithesishq/antithesis-sdk-go v0.9.0-default-no-op // indirect

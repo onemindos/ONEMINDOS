@@ -74,6 +74,16 @@ def test_owner_only_routes_refuse_everyone_else(client, clock, who):
         ("POST", "/v1/users/x/disable", None),
         ("PUT", "/v1/apps/whoami/access", {"roles": ["guest"], "people": []}),
         ("POST", "/v1/alerts/x/resolve", None),
+        # Backups: destination changes, restores, the emergency kit and browsing a snapshot's files
+        # are owner-only (an agent may request a run or a verify, never these).
+        ("POST", "/v1/backups/destinations", {"kind": "usb", "label": "x", "config": {"path": "/run/onemind/backup/x"}}),
+        ("DELETE", "/v1/backups/destinations/dst_0123456789abcdef", None),
+        ("POST", "/v1/restores", {"snapshot_id": "abcdef0123456789", "scope": {"app_id": "whoami"}}),
+        ("GET", "/v1/backups/kit", None),
+        ("POST", "/v1/backups/kit", None),
+        ("POST", "/v1/backups/kit/confirm", {}),
+        ("GET", "/v1/backups/snapshots/abcdef0123456789/tree", None),
+        ("GET", "/v1/backups/snapshots/abcdef0123456789/file?path=/a", None),
         # app lifecycle: the generated login is owner only (never an agent), and deleting data is
         # owner only to plan or request (contract 12.40)
         ("GET", "/v1/apps/whoami/credentials", None),

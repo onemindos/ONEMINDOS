@@ -8,15 +8,21 @@ This is where "AI never actuates without human approval" is enforced:
   matching read or write request; it is recorded as approved_by policy:<id>@<revision>;
 - an app.install is approved only for an app with a passing scan newer than 7 days (§10.3);
 - an app that declares spec.agent gets its own agent principal at install, revoked at removal
-  (§11.2), so the AI inside it can request actions but, like every agent, never approve them.
+  (§11.2), so the AI inside it can request actions but, like every agent, never approve them;
+- a feature module may own further action types of contract §12.5 (FeatureAction, for example
+  backup.run and backup.restore): they go through the same ledger, the same owner-only approval
+  and the same audit lines; only what runs after approval is the feature's;
+- a feature may prepare an app install before the executor runs (install_hooks, for example the
+  app's database and its Secret); a hook that fails fails the install before anything is applied.
 """
 
 from __future__ import annotations
 
 import inspect
 import logging
+import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
@@ -116,6 +122,38 @@ class StandingGrant:
     release: Callable[[], None]  # gives the reserved use back when the approval does not go through
 
 
+@dataclass(frozen=True)
+class FeatureAction:
+    """An action type owned by a feature module (contract §12.5), registered with register_type.
+
+    risk:        the §12.3 risk class (recorded in the audit; v0 has no standing approvals, so
+                 every class waits for an owner).
+    requesters:  principal kinds that may request it; owners always may, agents only if listed.
+    check:       called again at approval with the stored action; a returned problem keeps the
+                 action awaiting_approval and answers 409 stale_precondition.
+    run:         the work after approval. It gets the action and a finish(ExecResult) callback and
+                 may call finish later from another thread; until then the action is dispatched.
+    """
+
+    risk: str
+    run: Callable[["Action", Callable[[ExecResult], None]], None]
+    requesters: frozenset[str] = frozenset({"person"})
+    check: Callable[["Action"], str | None] | None = None
+
+
+@dataclass
+class InstallHook:
+    """Runs before the executor for app.install (prepare) and after a removal (cleanup).
+
+    prepare returns step records for the action result; raising fails the install before the
+    executor applies anything.
+    """
+
+    name: str
+    prepare: Callable[[AppEntry, "Action"], list[dict]]
+    removed: Callable[[AppEntry, "Action"], None] | None = field(default=None)
+
+
 class ActionService:
     def __init__(
         self,
@@ -139,11 +177,19 @@ class ActionService:
         self.executor = executor
         self.audit = audit
         self.clock = clock
+        self.feature_types: dict[str, FeatureAction] = {}
+        self.install_hooks: list[InstallHook] = []
+        self._finish_lock = threading.Lock()
         # Contract §12.1 / H-14: most actions one non-owner requester may have awaiting approval.
         # 0 = no cap. Set from the limits settings section (guard.py).
         self.max_pending_per_requester = 10
         # Contract §12.17: checked right after a request is filed; the first grant accepts it.
         self.standing_approvals: list[Callable[[Action], StandingGrant | None]] = []
+
+    def register_type(self, action_type: str, spec: FeatureAction) -> None:
+        if action_type in APP_CLAIMS or action_type in self.feature_types:
+            raise ValueError(f"action type {action_type} is already registered")
+        self.feature_types[action_type] = spec
 
     # ---- helpers -------------------------------------------------------------------------
     def _deny(self, principal: Principal, what: str, action_id: str | None = None) -> ApiError:
@@ -404,6 +450,8 @@ class ActionService:
             raise ApiError(409, "expired", "action expired before approval")
         if a.state != "awaiting_approval":
             raise ApiError(409, "conflict", f"action is {a.state}, not awaiting_approval")
+        if a.type in self.feature_types:
+            return self._approve_feature(principal, a, self.feature_types[a.type], standing)
 
         # Check current conditions again: the world may have changed since the request. The claim
         # on the app is made atomically with "accepted", so two actions for one app cannot both
@@ -484,15 +532,32 @@ class ActionService:
                 return self._refuse_dispatch(a, ids, prior)
 
         agent = self._agent_grant(a, app)
-        ctx = self._exec_context(a, app, ids)
-        token = lc.set_progress_callback(self._progress_reporter(a))
+        hook_steps: list[dict] = []
         try:
-            result = self._run_executor(a, app, agent, ctx)
-        except Exception as exc:  # unknown effect: never retry automatically
-            log.exception("executor crashed")
-            result = ExecResult("outcome_unknown", f"executor error: {exc.__class__.__name__}")
-        finally:
-            lc.reset_progress_callback(token)
+            if a.type == "app.install":
+                for hook in self.install_hooks:
+                    hook_steps += [{"hook": hook.name, **st} for st in hook.prepare(app, a)]
+        except Exception as exc:  # nothing was applied yet: the install fails cleanly
+            log.exception("install hook failed")
+            result = ExecResult("failed", f"install preparation failed: {exc}"[:500], hook_steps)
+        else:
+            ctx = self._exec_context(a, app, ids)
+            token = lc.set_progress_callback(self._progress_reporter(a))
+            try:
+                result = self._run_executor(a, app, agent, ctx)
+            except Exception as exc:  # unknown effect: never retry automatically
+                log.exception("executor crashed")
+                result = ExecResult("outcome_unknown", f"executor error: {exc.__class__.__name__}")
+            finally:
+                lc.reset_progress_callback(token)
+            result.steps = hook_steps + result.steps
+            if a.type == "app.remove" and result.outcome == "succeeded":
+                for hook in self.install_hooks:
+                    if hook.removed is not None:
+                        try:
+                            hook.removed(app, a)
+                        except Exception:  # cleanup is best effort; the app is already gone
+                            log.exception("removal hook %s failed", hook.name)
         if a.type == "app.install" and agent is not None and result.outcome != "succeeded":
             # A failed or unknown install must not leave a live credential behind; a new install
             # issues a fresh one.
@@ -598,7 +663,8 @@ class ActionService:
     def _mark_outcome_unknown(self, a: Action, message: str) -> None:
         result = {"outcome": "outcome_unknown", "message": message}
         moved = self.repo.transition(a.id, {"accepted", "dispatched"}, "outcome_unknown", self.clock(), result=result)
-        self.repo.set_app_state(a.params["app_id"], "unknown", self.clock(), a.id)
+        if a.type in APP_CLAIMS:
+            self.repo.set_app_state(a.params["app_id"], "unknown", self.clock(), a.id)
         if a.type == "app.install":
             self._revoke_agent(a, "install outcome unknown")
         if moved is not None:
@@ -656,6 +722,86 @@ class ActionService:
             )
         elif a.type == "app.configure":
             self.repo.set_runtime(app_id, now, settings={**(runtime.settings if runtime else {}), **a.params["settings"]})
+
+
+    # ---- feature-owned action types (contract §12.5) -------------------------------------------
+    def request_feature(
+        self, principal: Principal, action_type: str, params: dict, *, idempotency_key: str,
+        expires_at: datetime, reason: str | None = None, audit_extra: dict | None = None,
+    ) -> tuple[dict, bool]:
+        """File a feature action: same ledger, idempotency and audit as POST /v1/actions.
+
+        params are the feature's already-validated parameters (never secrets: they are stored and
+        audited). audit_extra adds facts to the action.requested line, e.g. credentials: provided.
+        """
+        spec = self.feature_types[action_type]
+        data = {"type": action_type, "params": params, "idempotency_key": idempotency_key}
+
+        def create() -> tuple[dict, bool]:
+            if not principal.can_request_actions or (not principal.is_owner and principal.kind not in spec.requesters):
+                raise self._deny(principal, f"request {action_type}")
+            existing = self.repo.get_by_idempotency_key(idempotency_key)
+            if existing is not None:
+                if existing.type != action_type or existing.params != params or existing.requested_by.get("id") != principal.id:
+                    raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
+                return self.expire_if_due(existing).to_json(), False
+            now = self.clock()
+            exp = utc(expires_at)
+            if exp <= now:
+                raise ApiError(409, "expired", "expires_at is already in the past")
+            action = Action(
+                id=new_action_id(), type=action_type, params=params, state="requested",
+                requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=idempotency_key,
+                created_at=now, updated_at=now, expires_at=exp,
+            )
+            stored, created = self.repo.create(action)
+            if not created:
+                return self.expire_if_due(stored).to_json(), False
+            self.audit.append("action.requested", principal.as_dict(), stored.id, {
+                "type": action_type, "params": params, "risk": spec.risk, "expires_at": iso(exp),
+                "requested_by": principal.id, **({"reason": reason} if reason else {}), **(audit_extra or {}),
+            })
+            moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
+            self.audit.append("action.awaiting_approval", None, stored.id, {})
+            return (moved or stored).to_json(), True
+
+        return self._audited(principal, f"request {action_type}", None, data, create)
+
+    def _approve_feature(
+        self, principal: Principal, a: Action, spec: FeatureAction, standing: dict | None = None
+    ) -> dict:
+        problem = spec.check(a) if spec.check else None
+        if problem:
+            raise ApiError(409, "stale_precondition", problem)
+        now = self.clock()
+        accepted = self.repo.transition(
+            a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now
+        )
+        if accepted is None:
+            raise ApiError(409, "conflict", "action was decided concurrently")
+        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id, **(standing or {})}
+        self.audit.append("action.approved", principal.as_dict(), a.id,
+                          {"type": a.type, "params": a.params, "risk": spec.risk, **ids})
+        if self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock()) is None:
+            self._mark_outcome_unknown(a, "accepted action could not move to dispatched")
+            return self._get(a.id).to_json()
+        self.audit.append("action.dispatched", None, a.id, {"executor": f"feature:{a.type}", **ids})
+
+        def finish(result: ExecResult) -> None:
+            with self._finish_lock:
+                final = self.repo.transition(
+                    a.id, {"dispatched"}, result.outcome, self.clock(), result=result.to_json()
+                )
+                if final is not None:
+                    self.audit.append(f"action.{result.outcome}", None, a.id,
+                                      {"executor": f"feature:{a.type}", "message": result.message, **ids})
+
+        try:
+            spec.run(a, finish)
+        except Exception as exc:  # the feature could not even start: the effect is unknown
+            log.exception("feature action %s crashed", a.type)
+            finish(ExecResult("outcome_unknown", f"feature error: {exc.__class__.__name__}"))
+        return self._get(a.id).to_json()
 
 
 def _detail(v: dict) -> dict:
