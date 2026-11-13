@@ -814,6 +814,7 @@ EOF
   systemctl enable onemind-headscale >/dev/null 2>&1
   systemctl restart onemind-headscale
   for i in $(seq 1 30); do [ -S /run/onemind-headscale/headscale.sock ] && hs users list >/dev/null 2>&1 && return 0; sleep 1; done
+  journalctl -u onemind-headscale --no-pager -n 25 >&2 || true
   die "Headscale did not start (journalctl -u onemind-headscale)"
 }
 

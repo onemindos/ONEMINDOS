@@ -99,7 +99,13 @@ VERIFY_DIR=/root/bundle/src/deploy/verify
 echo "== hub"
 boot "$HUB"
 if on "$HUB" "$INSTALL" --role hub --with-agent-token > "$WORK/hub.log" 2>&1; then res PASS "hub install from the bundle exits 0"
-else res FAIL "hub install from the bundle exits 0"; tail -40 "$WORK/hub.log"; fi
+else
+  res FAIL "hub install from the bundle exits 0"; tail -40 "$WORK/hub.log"
+  # What the failing units said (the install only prints which one did not start).
+  for u in onemind-headscale tailscaled onemind-nats k3s; do
+    echo "--- journalctl -u $u"; on "$HUB" journalctl -u "$u" --no-pager -n 25 2>&1 || true
+  done
+fi
 check "banner: unsupported developer install, no OS rollback" grep -q 'unsupported developer install, no OS rollback' "$WORK/hub.log"
 check "bundle checked against SHA256SUMS, k3s images from the bundle" \
   sh -c "grep -q 'bundle: ok' '$WORK/hub.log' && grep -q 'from the bundle: k3s-airgap-images' '$WORK/hub.log'"

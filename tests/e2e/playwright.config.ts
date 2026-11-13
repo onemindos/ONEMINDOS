@@ -25,6 +25,8 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         baseURL: process.env.E2E_HUB_URL,
+        // The hub's HTTPS uses the box CA of the throwaway test VM (plain HTTP is loopback-only, H-05).
+        ignoreHTTPSErrors: (process.env.E2E_HUB_URL ?? '').startsWith('https://'),
         screenshot: 'on',
         video: 'on',
         // A trace holds every request's Authorization header and every evaluate argument (the owner
