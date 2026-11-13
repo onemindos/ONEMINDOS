@@ -8,8 +8,8 @@ A continuation of HomeBox the inventory and organization system built for the Ho
 | | |
 |---|---|
 | Version | 0.27.1 (upstream release `v0.27.1`, published 2026-10-23) |
-| Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-13) |
+| Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | family |
 | GitHub | <https://github.com/sysadminsmedia/homebox> |
 | Website | <https://homebox.software> |
@@ -67,4 +67,10 @@ From the upstream documentation, https://homebox.software/en/quick-start/:
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T15:52:10Z by `sdk/tools/app-gate`: **pass**. Licence `AGPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/sysadminsmedia/homebox:0.27.1-rootless@sha256:6bb4472e91d3084d292ce654772e26df765d01aa0d38aa7077a7bb07b7d44ac7` | amd64, arm64 | 0 (0) | 2 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

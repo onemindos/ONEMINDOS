@@ -1,0 +1,49 @@
+{
+  "scanned_at": "2026-11-13T21:58:13Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/library/wordpress:7.1.4-php8.4-apache@sha256:63dbbdf2c9ea29a2e4f417c0d4e7c4b821725d115127f70838dbbc5051ee4db0",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 4,
+        "critical": 5,
+        "high": 154
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    },
+    {
+      "ref": "docker.io/library/mariadb:11.8.9-noble@sha256:d36f18d65a0459510b8b0f643b226a6d299e3206486e2b64ff20754a6d291707",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 1,
+        "critical": 1,
+        "high": 25
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "GPL-2.0-or-later",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

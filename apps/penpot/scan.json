@@ -1,0 +1,106 @@
+{
+  "scanned_at": "2026-11-13T19:38:48Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/penpotapp/backend:2.19.1@sha256:bc26c263b33f107a63868ed298bebd9089f252c3799872c31ec1266fef321d29",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 1
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    },
+    {
+      "ref": "docker.io/library/postgres:15.19-trixie@sha256:1aac5b49cefd627f02816141ca4ad012d6cc19460dfe02a9b5168a105be3fc53",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 1,
+        "critical": 2,
+        "high": 147
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 1,
+      "cosign": "unsigned"
+    },
+    {
+      "ref": "docker.io/valkey/valkey:8.1.11-trixie@sha256:8f836008e0986c36adf50da714c7060cf689dbb335f61fe077939d90fa650809",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 50
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    },
+    {
+      "ref": "docker.io/penpotapp/frontend:2.19.1@sha256:b5b363a4bd38bf2aa781c6255e5208b4b305fa3f12fae1170abeb705ce510032",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 2,
+        "high": 39
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    },
+    {
+      "ref": "docker.io/penpotapp/exporter:2.19.1@sha256:bb25e0ee63ec37228848c714c7b60998d9c9d07f998ab7aebe2e3281d39b2962",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 1,
+        "high": 159
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "MPL-2.0",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

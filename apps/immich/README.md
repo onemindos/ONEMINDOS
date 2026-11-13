@@ -8,7 +8,7 @@ High performance self-hosted photo and video management solution.
 | | |
 |---|---|
 | Version | 3.4.1 (upstream release `v3.4.1`, published 2026-11-11) |
-| Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/immich-app/immich> |
@@ -108,4 +108,12 @@ To unblock: verify compatible upstream image tags and multi-architecture digests
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T16:19:59Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23` | amd64, arm64 | 23 (20) | 233 | 0 infected (daily-28182) | 0 | unsigned |
+| `docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7` | amd64, arm64 | 0 (0) | 50 | 0 infected (daily-28182) | 0 | unsigned |
+| `ghcr.io/immich-app/immich-server:v3.4.1@sha256:7c489add298fc2f92cda4c777de6462aa206877e04087b815f62c7664af0b53b` | amd64, arm64 | 3 (2) | 216 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

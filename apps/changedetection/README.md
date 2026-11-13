@@ -8,8 +8,8 @@ Watches web pages for changes and sends an alert when they change.
 | | |
 |---|---|
 | Version | 0.70.3 (upstream release `0.70.3`, published 2026-11-09) |
-| Licence | `Apache-2.0`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-13) |
+| Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | news |
 | GitHub | <https://github.com/dgtlmoon/changedetection.io> |
 | Website | <https://changedetection.io> |
@@ -78,4 +78,10 @@ Source: [the upstream wiki](https://github.com/dgtlmoon/changedetection.io/wiki)
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T14:01:40Z by `sdk/tools/app-gate`: **pass**. Licence `Apache-2.0` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/dgtlmoon/changedetection.io:0.70.3@sha256:47b1e9cc3eff820e6022b655e3fcc948625f60c1770ae8b9c30aa3bf104dc255` | amd64, arm64 | 4 (0) | 123 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

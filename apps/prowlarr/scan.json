@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T19:46:42Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "ghcr.io/linuxserver/prowlarr:2.7.0.5723-ls168@sha256:6660787a99b2e58203539583663c973b48979fc00ff2cb78dc0ea17429e1f6ef",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 4,
+        "critical": 4,
+        "high": 42
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "GPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "fail"
+}

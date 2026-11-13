@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T13:27:00Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "docker.io/adguard/adguardhome:v0.107.80@sha256:e2e1b48c832f7705be915873f95de0d5114de573736441d7f2923a8a6293027c",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 0
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "GPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

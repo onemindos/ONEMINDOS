@@ -8,7 +8,7 @@ A community-supported supercharged document management system: scan, index and a
 | | |
 |---|---|
 | Version | 3.4.2 (upstream release `v3.4.2`, published 2026-11-03) |
-| Licence | `GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/paperless-ngx/paperless-ngx> |
@@ -98,4 +98,12 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T19:16:29Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/paperless-ngx/paperless-ngx:3.4.2@sha256:d704e84f88300eb6ab001ab15720a2330ff99169cf9f94d6b8fcc44b63a84c84` | amd64, arm64 | 9 (0) | 360 | 0 infected (daily-28182) | 0 | unsigned |
+| `docker.io/library/postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b` | amd64, arm64 | 1 (1) | 44 | 0 infected (daily-28182) | 0 | unsigned |
+| `docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7` | amd64, arm64 | 0 (0) | 50 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

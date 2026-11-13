@@ -8,7 +8,7 @@ Independent technology for modern publishing, memberships, subscriptions and new
 | | |
 |---|---|
 | Version | 6.77.0 (upstream release `v6.77.0`, published 2026-11-11) |
-| Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | productivity |
 | GitHub | <https://github.com/TryGhost/Ghost> |
@@ -82,4 +82,11 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T15:20:56Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/library/mysql:8.0.46@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b` | amd64, arm64 | 2 (2) | 112 | 0 infected (daily-28182) | 0 | unsigned |
+| `docker.io/library/ghost:6.77.0-alpine@sha256:a1c2adb3ab81b6d3fcae4d33bebe56a94a57c3e76c2f0b7b3d213726b2ca8922` | amd64, arm64 | 1 (1) | 50 | 0 infected (daily-28182) | 13 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

@@ -8,7 +8,7 @@ Design and prototyping platform for teams, working with open standards (SVG, CSS
 | | |
 |---|---|
 | Version | 2.19.1 (upstream release `2.19.1`, published 2026-11-11) |
-| Licence | `MPL-2.0`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `MPL-2.0`, Market class **L1** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | developer |
 | GitHub | <https://github.com/penpot/penpot> |
@@ -101,4 +101,14 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T19:38:48Z by `sdk/tools/app-gate`: **fail**. Licence `MPL-2.0` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/penpotapp/backend:2.19.1@sha256:bc26c263b33f107a63868ed298bebd9089f252c3799872c31ec1266fef321d29` | amd64, arm64 | 0 (0) | 1 | 0 infected (daily-28182) | 0 | unsigned |
+| `docker.io/library/postgres:15.19-trixie@sha256:1aac5b49cefd627f02816141ca4ad012d6cc19460dfe02a9b5168a105be3fc53` | amd64, arm64 | 2 (1) | 147 | 0 infected (daily-28182) | 1 | unsigned |
+| `docker.io/valkey/valkey:8.1.11-trixie@sha256:8f836008e0986c36adf50da714c7060cf689dbb335f61fe077939d90fa650809` | amd64, arm64 | 0 (0) | 50 | 0 infected (daily-28182) | 0 | unsigned |
+| `docker.io/penpotapp/frontend:2.19.1@sha256:b5b363a4bd38bf2aa781c6255e5208b4b305fa3f12fae1170abeb705ce510032` | amd64, arm64 | 2 (0) | 39 | 0 infected (daily-28182) | 0 | unsigned |
+| `docker.io/penpotapp/exporter:2.19.1@sha256:bb25e0ee63ec37228848c714c7b60998d9c9d07f998ab7aebe2e3281d39b2962` | amd64, arm64 | 1 (0) | 159 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

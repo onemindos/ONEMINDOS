@@ -8,7 +8,7 @@ Business intelligence: ask questions of your databases and build charts and dash
 | | |
 |---|---|
 | Version | 0.65.3 (upstream release `v0.65.3`, published 2026-11-06) |
-| Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | monitoring |
 | GitHub | <https://github.com/metabase/metabase> |
@@ -93,4 +93,11 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T17:07:52Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/metabase/metabase:v0.65.3@sha256:9930a9b0e6974926319f691d1e55f0f9f97996e9ab658cd0cc04d9f86b0f0c1c` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28182) | 0 | unsigned |
+| `docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42` | amd64, arm64 | 2 (1) | 147 | 0 infected (daily-28182) | 1 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

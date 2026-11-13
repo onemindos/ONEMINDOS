@@ -8,8 +8,8 @@ Memos is an open-source, self-hosted note-taking app that brings your everyday t
 | | |
 |---|---|
 | Version | 26.11.0 (upstream release `26.11.0`, published 2026-11-01) |
-| Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-13) |
+| Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | notes |
 | GitHub | <https://github.com/usememos/memos> |
 | Website | <https://usememos.com> |
@@ -65,4 +65,10 @@ From the upstream documentation, https://github.com/usememos/memos/tree/26.11.0/
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T16:49:44Z by `sdk/tools/app-gate`: **pass**. Licence `MIT` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/usememos/memos:26.11.0@sha256:087e7dc6b76b31fcd1107a5767398b2a310ced209adb791efd8760c745dc8034` | amd64, arm64 | 0 (0) | 2 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

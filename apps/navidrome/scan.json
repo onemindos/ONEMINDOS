@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T17:28:03Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "ghcr.io/navidrome/navidrome:0.64.2@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 28
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "GPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

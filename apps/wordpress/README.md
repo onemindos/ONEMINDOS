@@ -8,7 +8,7 @@ Website and blog publishing software.
 | | |
 |---|---|
 | Version | 7.1.4 (upstream release `7.1.4`, published 2026-10-28) |
-| Licence | `GPL-2.0-or-later`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `GPL-2.0-or-later`, Market class **L2** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | productivity |
 | GitHub | <https://github.com/WordPress/WordPress> |
@@ -93,4 +93,11 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T21:58:13Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-2.0-or-later` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/library/wordpress:7.1.4-php8.4-apache@sha256:63dbbdf2c9ea29a2e4f417c0d4e7c4b821725d115127f70838dbbc5051ee4db0` | amd64, arm64 | 5 (4) | 154 | 0 infected (daily-28182) | 0 | unsigned |
+| `docker.io/library/mariadb:11.8.9-noble@sha256:d36f18d65a0459510b8b0f643b226a6d299e3206486e2b64ff20754a6d291707` | amd64, arm64 | 1 (1) | 25 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

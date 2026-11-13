@@ -8,7 +8,7 @@ A local-first personal finance app
 | | |
 |---|---|
 | Version | 26.11.0 (upstream release `v26.11.0`, published 2026-11-02) |
-| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-12) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-13) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | finance |
 | GitHub | <https://github.com/actualbudget/actual> |
@@ -65,10 +65,10 @@ From the upstream docs (https://actualbudget.org/docs/install/docker, https://ac
 
 ## Latest security scan
 
-Scanned 2026-11-12T07:32:37Z by `sdk/tools/app-gate`: **pass**. Licence `MIT` class L1; smoke test pass.
+Scanned 2026-11-13T13:47:43Z by `sdk/tools/app-gate`: **pass**. Licence `MIT` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/actualbudget/actual-server:26.11.0@sha256:06cf186569cf58d93e12659ff1a517b65b5b0ebee7050a3991d4bd8a1d398da6` | amd64, arm64 | 1 (0) | 44 | 0 infected (daily-28181) | 0 | unsigned |
+| `docker.io/actualbudget/actual-server:26.11.0@sha256:06cf186569cf58d93e12659ff1a517b65b5b0ebee7050a3991d4bd8a1d398da6` | amd64, arm64 | 1 (0) | 44 | 0 infected (daily-28182) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

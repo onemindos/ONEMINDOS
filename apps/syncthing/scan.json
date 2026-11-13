@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T20:59:23Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/syncthing/syncthing:2.1.7@sha256:2b71da7c0d0a91a6ae5285ad079226fecc0a365d08b27720e1f7037b018f7546",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 1,
+        "critical": 1,
+        "high": 8
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "MPL-2.0",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

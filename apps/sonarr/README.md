@@ -8,7 +8,7 @@ Smart PVR for newsgroup and bittorrent users.
 | | |
 |---|---|
 | Version | 4.0.20.3014 (upstream release `v4.0.20.3014`, published 2026-09-16) |
-| Licence | `GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/Sonarr/Sonarr> |
@@ -75,4 +75,10 @@ To unblock: find why the process does not listen (run it on a k3d cluster and re
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T20:52:35Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-3.0` class L2; smoke test fail.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/linuxserver/sonarr:4.0.20.3014-ls329@sha256:44b06045a98bc1f237b9ffefc4b28dab64cb29305e4a2a94875ae93b5224e4cc` | amd64, arm64 | 1 (1) | 25 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

@@ -8,7 +8,7 @@ Send push notifications to your phone or desktop using PUT/POST
 | | |
 |---|---|
 | Version | 2.37.2 (upstream release `v2.37.2`, published 2026-11-04) |
-| Licence | `Apache-2.0 OR GPL-2.0`, Market class **L1** (licence gate, scan of 2026-11-12) |
+| Licence | `Apache-2.0 OR GPL-2.0`, Market class **L1** (licence gate, scan of 2026-11-13) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | notifications |
 | GitHub | <https://github.com/binwiederhier/ntfy> |
@@ -79,10 +79,10 @@ Phones outside the home network need the server reachable over HTTPS, and then `
 
 ## Latest security scan
 
-Scanned 2026-11-12T06:30:17Z by `sdk/tools/app-gate`: **pass**. Licence `Apache-2.0 OR GPL-2.0` class L1; smoke test pass.
+Scanned 2026-11-13T17:52:43Z by `sdk/tools/app-gate`: **pass**. Licence `Apache-2.0 OR GPL-2.0` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/binwiederhier/ntfy:v2.37.2@sha256:1875ddcf815c8a3c981d6d78c67a93452d0abba79b1ab9520b1f5f5238902bd7` | amd64, arm64 | 0 (0) | 1 | 0 infected (daily-28180) | 0 | unsigned |
+| `docker.io/binwiederhier/ntfy:v2.37.2@sha256:1875ddcf815c8a3c981d6d78c67a93452d0abba79b1ab9520b1f5f5238902bd7` | amd64, arm64 | 0 (0) | 1 | 0 infected (daily-28182) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

@@ -1,0 +1,49 @@
+{
+  "scanned_at": "2026-11-13T19:52:26Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/photoprism/photoprism:261029@sha256:9409cf8e5a6ebcbe3170d14537556cbc20997aaa307096d6eeedbfc5eeef6719",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 4,
+        "critical": 4,
+        "high": 60
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    },
+    {
+      "ref": "docker.io/library/mariadb:12.3.3@sha256:4ebbcf100a3ba320766dfa0e1af008df12261301db6ef72798c7650f70794aed",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 1,
+        "critical": 1,
+        "high": 25
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "AGPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "fail"
+}

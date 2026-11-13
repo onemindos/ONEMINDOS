@@ -8,7 +8,7 @@ Open source home automation that puts local control and privacy first
 | | |
 |---|---|
 | Version | 2026.11.1 (upstream release `2026.11.1`, published 2026-11-09) |
-| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-12) |
+| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | home-automation |
 | GitHub | <https://github.com/home-assistant/core> |
@@ -80,10 +80,10 @@ From upstream's Container install guide (https://www.home-assistant.io/installat
 
 ## Latest security scan
 
-Scanned 2026-11-12T07:17:49Z by `sdk/tools/app-gate`: **fail**. Licence `Apache-2.0` class L1; smoke test pass.
+Scanned 2026-11-13T16:07:43Z by `sdk/tools/app-gate`: **fail**. Licence `Apache-2.0` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/home-assistant/home-assistant:2026.11.1@sha256:6785d1eca68747a524c156faae1b139ed415c07357386ae6fe17291986e59e82` | amd64, arm64 | 5 (4) | 62 | 0 infected (daily-28180) | 0 | unsigned |
+| `ghcr.io/home-assistant/home-assistant:2026.11.1@sha256:6785d1eca68747a524c156faae1b139ed415c07357386ae6fe17291986e59e82` | amd64, arm64 | 5 (4) | 62 | 0 infected (daily-28182) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

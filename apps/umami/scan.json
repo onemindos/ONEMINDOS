@@ -1,0 +1,49 @@
+{
+  "scanned_at": "2026-11-13T21:31:44Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "ghcr.io/umami-software/umami:3.5.0@sha256:b64f40400d77bcadd39cf5c62a1e368c99524ca442024f96e1133355a19a5dbc",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 4
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    },
+    {
+      "ref": "docker.io/library/postgres:15.19-trixie@sha256:1aac5b49cefd627f02816141ca4ad012d6cc19460dfe02a9b5168a105be3fc53",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 1,
+        "critical": 2,
+        "high": 147
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 1,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "MIT",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

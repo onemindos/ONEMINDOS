@@ -8,7 +8,7 @@ Personal finance manager: accounts, budgets, categories and reports.
 | | |
 |---|---|
 | Version | 6.7.9 (upstream release `v6.7.9`, published 2026-10-11) |
-| Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | finance |
 | GitHub | <https://github.com/firefly-iii/firefly-iii> |
@@ -95,4 +95,11 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T14:51:52Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/fireflyiii/core:version-6.7.9@sha256:d51ab6a3a7b91a5c892441578e0da7f2935f84f36bd1151fc3833acc6e060871` | amd64, arm64 | 3 (2) | 243 | 0 infected (daily-28182) | 0 | unsigned |
+| `docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42` | amd64, arm64 | 2 (1) | 147 | 0 infected (daily-28182) | 1 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

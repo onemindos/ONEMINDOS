@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T16:03:20Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "ghcr.io/jellyfin/jellyfin:12.4@sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 1,
+        "high": 127
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "GPL-2.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

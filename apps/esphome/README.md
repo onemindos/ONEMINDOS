@@ -8,7 +8,7 @@ ESPHome is a system to control your ESP32, ESP8266, BK72xx, RP2040 by simple yet
 | | |
 |---|---|
 | Version | 2026.10.2 (upstream release `2026.10.2`, published 2026-11-02) |
-| Licence | `MIT AND GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `MIT AND GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | home |
 | GitHub | <https://github.com/esphome/esphome> |
@@ -91,4 +91,10 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T14:30:22Z by `sdk/tools/app-gate`: **fail**. Licence `MIT AND GPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/esphome/esphome:2026.10.2@sha256:4a918585150e95e7675be84a347384ff308fde1bd32d0e4472666e1252cc0e8f` | amd64, arm64 | 22 (21) | 602 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

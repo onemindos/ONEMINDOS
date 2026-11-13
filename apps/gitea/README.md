@@ -8,7 +8,7 @@ Git with a cup of tea! Painless self-hosted all-in-one software development serv
 | | |
 |---|---|
 | Version | 28.3.0 (upstream release `v28.3.0`, published 2026-11-01) |
-| Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | developer |
 | GitHub | <https://github.com/go-gitea/gitea> |
@@ -88,4 +88,10 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T15:25:15Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/gitea/gitea:28.3.0-rootless@sha256:40c5a68a0463c0940e1ae32626c8300dd0572f3558e390073ad8379ca67c0e1d` | amd64, arm64 | 1 (1) | 10 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

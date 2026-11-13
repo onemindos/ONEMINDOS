@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T14:24:27Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/excalidraw/excalidraw:latest@sha256:f7ee194addd607bf831d2af0f0a34463dd4225e426cf35199ef0b12a803398e9",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 3,
+        "critical": 3,
+        "high": 67
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "MIT",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

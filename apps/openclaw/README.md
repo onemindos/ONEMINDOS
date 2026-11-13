@@ -8,7 +8,7 @@ The AI that really does things. Any OS. Any Platform. The lobster way. 🦞
 | | |
 |---|---|
 | Version | 2026.11.3 (upstream release `v2026.11.3`, published 2026-11-10) |
-| Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | ai |
 | GitHub | <https://github.com/openclaw/openclaw> |
@@ -82,4 +82,10 @@ To unblock: find why the gateway does not report ready (run it on a k3d cluster 
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T18:56:29Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test fail.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/openclaw/openclaw:2026.11.3@sha256:e73f689d663567f0fe3c5a85c54beb3e102dc21f0814bf375e9039ee2d2df51b` | amd64, arm64 | 4 (1) | 151 | 0 infected (daily-28182) | 1 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

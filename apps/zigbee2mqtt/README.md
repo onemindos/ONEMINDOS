@@ -8,7 +8,7 @@ Bridges Zigbee devices to MQTT, so sensors, lights and switches work without a v
 | | |
 |---|---|
 | Version | 2.14.3 (upstream release `2.14.3`, published 2026-11-01) |
-| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-12) |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-13) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | home-automation |
 | GitHub | <https://github.com/Koenkk/zigbee2mqtt> |
@@ -84,10 +84,10 @@ Upstream publishes no sizing guidance. Measured in the OneMind smoke test (2026-
 
 ## Latest security scan
 
-Scanned 2026-11-12T07:30:33Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-13T21:53:47Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/koenkk/zigbee2mqtt:2.14.3@sha256:fb4a6b0f6868ad1cd6a9996479802b2420e599c3463b62bbff8c8cd9a908f43a` | amd64, arm64 | 0 (0) | 7 | 0 infected (daily-28181) | 0 | unsigned |
+| `ghcr.io/koenkk/zigbee2mqtt:2.14.3@sha256:fb4a6b0f6868ad1cd6a9996479802b2420e599c3463b62bbff8c8cd9a908f43a` | amd64, arm64 | 0 (0) | 7 | 0 infected (daily-28182) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

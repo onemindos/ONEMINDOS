@@ -8,7 +8,7 @@ Virtual whiteboard for hand-drawn style sketches and diagrams.
 | | |
 |---|---|
 | Version | 0.18.1+b2b2815 (upstream release `v0.18.1`, published 2026-04-21) |
-| Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | notes |
 | GitHub | <https://github.com/excalidraw/excalidraw> |
@@ -89,4 +89,10 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T14:24:27Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/excalidraw/excalidraw:latest@sha256:f7ee194addd607bf831d2af0f0a34463dd4225e426cf35199ef0b12a803398e9` | amd64, arm64 | 3 (3) | 67 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

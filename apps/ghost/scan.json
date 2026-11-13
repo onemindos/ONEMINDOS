@@ -1,0 +1,49 @@
+{
+  "scanned_at": "2026-11-13T15:20:56Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/library/mysql:8.0.46@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 2,
+        "critical": 2,
+        "high": 112
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    },
+    {
+      "ref": "docker.io/library/ghost:6.77.0-alpine@sha256:a1c2adb3ab81b6d3fcae4d33bebe56a94a57c3e76c2f0b7b3d213726b2ca8922",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 1,
+        "critical": 1,
+        "high": 50
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 13,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "MIT",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

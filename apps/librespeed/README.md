@@ -8,7 +8,7 @@ Speed test in the browser: measures download, upload, ping and jitter to this bo
 | | |
 |---|---|
 | Version | 6.3.1 (upstream release `v6.3.1`, published 2026-10-21) |
-| Licence | `LGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `LGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | network |
 | GitHub | <https://github.com/librespeed/speedtest> |
@@ -85,4 +85,10 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T16:42:25Z by `sdk/tools/app-gate`: **fail**. Licence `LGPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/librespeed/speedtest:6.3.1@sha256:bc34bf69b6c102b23ab81b6e77beb7cce321fb0d3be33ec6e80edef3e9dd8bab` | amd64, arm64 | 7 (6) | 238 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

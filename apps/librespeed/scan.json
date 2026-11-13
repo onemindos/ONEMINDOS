@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T16:42:25Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "ghcr.io/librespeed/speedtest:6.3.1@sha256:bc34bf69b6c102b23ab81b6e77beb7cce321fb0d3be33ec6e80edef3e9dd8bab",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 6,
+        "critical": 7,
+        "high": 238
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "LGPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

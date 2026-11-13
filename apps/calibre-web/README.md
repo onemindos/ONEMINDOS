@@ -8,7 +8,7 @@ Web app for browsing, reading and downloading eBooks stored in a Calibre databas
 | | |
 |---|---|
 | Version | 0.6.27 (upstream release `0.6.27`, published 2026-08-08) |
-| Licence | `GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/janeczku/calibre-web> |
@@ -80,4 +80,10 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T13:48:36Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/linuxserver/calibre-web:0.6.27-ls394@sha256:8eabbc9ac4d7fcbc252434493078ba22e4e8c3aa461e11b102020b040c5fc3e6` | amd64, arm64 | 2 (2) | 32 | 0 infected (daily-28182) | 2 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

@@ -8,7 +8,7 @@ Eclipse Mosquitto - An open source MQTT broker
 | | |
 |---|---|
 | Version | 2.1.2 (upstream release `v2.1.2`, published 2026-02-09) |
-| Licence | `EPL-2.0 OR BSD-3-Clause`, Market class **blocked** (licence gate, scan of 2026-11-12) |
+| Licence | `EPL-2.0 OR BSD-3-Clause`, Market class **L1** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | iot |
 | GitHub | <https://github.com/eclipse-mosquitto/mosquitto> |
@@ -99,10 +99,10 @@ Source: [Dynamic Security plugin, "Generating the configuration file - 2.1 onwar
 
 ## Latest security scan
 
-Scanned 2026-11-12T07:29:07Z by `sdk/tools/app-gate`: **fail**. Licence `EPL-2.0 OR BSD-3-Clause` class blocked; smoke test skipped.
+Scanned 2026-11-13T17:26:17Z by `sdk/tools/app-gate`: **pass**. Licence `EPL-2.0 OR BSD-3-Clause` class L1; smoke test skipped.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/library/eclipse-mosquitto:2.1.2-alpine@sha256:75d6662dee52c947dc9dd9c29f1d8d7ffef78ddaf38001caa09755681e8bbc98` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28181) | 0 | unsigned |
+| `docker.io/library/eclipse-mosquitto:2.1.2-alpine@sha256:75d6662dee52c947dc9dd9c29f1d8d7ffef78ddaf38001caa09755681e8bbc98` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28182) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

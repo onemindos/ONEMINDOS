@@ -1,5 +1,5 @@
 {
-  "scanned_at": "2026-11-12T07:36:02Z",
+  "scanned_at": "2026-11-13T17:43:13Z",
   "result": "fail",
   "images": [
     {
@@ -15,7 +15,7 @@
         "high": 21
       },
       "clamav": {
-        "signatures": "daily-28181",
+        "signatures": "daily-28182",
         "infected": 0
       },
       "secrets": 0,

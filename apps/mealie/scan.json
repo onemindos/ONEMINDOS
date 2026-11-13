@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T16:57:02Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "ghcr.io/mealie-recipes/mealie:v3.30.0@sha256:90f83da6f3ab0a421efc827118a556168573930105f13fa3321768f42163d784",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 1,
+        "critical": 2,
+        "high": 302
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 45,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "AGPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

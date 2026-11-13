@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T20:01:03Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/qbittorrentofficial/qbittorrent-nox:5.3.0-2@sha256:43b2d352cf76330a7ca34c7320b9b74227d6f31e662e0e123d0457206b09a7ea",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 1,
+        "critical": 1,
+        "high": 8
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "GPL-3.0-or-later",
+    "class": "L2"
+  },
+  "smoke": "fail"
+}

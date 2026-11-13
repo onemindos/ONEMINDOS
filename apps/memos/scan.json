@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T16:49:44Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "ghcr.io/usememos/memos:26.11.0@sha256:087e7dc6b76b31fcd1107a5767398b2a310ced209adb791efd8760c745dc8034",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 2
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "MIT",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T20:36:29Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "docker.io/searxng/searxng:2026.11.11-626105eec@sha256:606fc8852a53f0be4ac05116950ff480f6f56b8ef7d77b366868cc76478036e5",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 0
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "AGPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

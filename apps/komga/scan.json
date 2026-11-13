@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T16:37:18Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/gotson/komga:1.30.1@sha256:d43bb3b57aeeafd274ea805214f5da71ff9306accf012fb14cc13dedc3307212",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 10,
+        "critical": 10,
+        "high": 21
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "MIT",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

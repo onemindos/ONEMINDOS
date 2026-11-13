@@ -8,7 +8,7 @@ Nextcloud server, a safe home for all your data
 | | |
 |---|---|
 | Version | 33.0.10 (upstream release `v33.0.10`, published 2026-10-15) |
-| Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/nextcloud/server> |
@@ -97,4 +97,12 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T17:56:25Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/library/nextcloud:33.0.10-apache@sha256:81cb09055a20142521a267cea2bc27e6a81a065871c70850d209f08803567dbc` | amd64, arm64 | 7 (6) | 256 | 0 infected (daily-28182) | 1 | unsigned |
+| `docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42` | amd64, arm64 | 2 (1) | 147 | 0 infected (daily-28182) | 1 | unsigned |
+| `docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7` | amd64, arm64 | 0 (0) | 50 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

@@ -8,7 +8,7 @@ Privacy-focused website analytics without cookies.
 | | |
 |---|---|
 | Version | 3.5.0 (upstream release `v3.5.0`, published 2026-11-12) |
-| Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | monitoring |
 | GitHub | <https://github.com/umami-software/umami> |
@@ -93,4 +93,11 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T21:31:44Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/umami-software/umami:3.5.0@sha256:b64f40400d77bcadd39cf5c62a1e368c99524ca442024f96e1133355a19a5dbc` | amd64, arm64 | 0 (0) | 4 | 0 infected (daily-28182) | 0 | unsigned |
+| `docker.io/library/postgres:15.19-trixie@sha256:1aac5b49cefd627f02816141ca4ad012d6cc19460dfe02a9b5168a105be3fc53` | amd64, arm64 | 2 (1) | 147 | 0 infected (daily-28182) | 1 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

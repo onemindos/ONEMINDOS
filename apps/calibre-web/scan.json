@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T13:48:36Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "ghcr.io/linuxserver/calibre-web:0.6.27-ls394@sha256:8eabbc9ac4d7fcbc252434493078ba22e4e8c3aa461e11b102020b040c5fc3e6",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 2,
+        "critical": 2,
+        "high": 32
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 2,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "GPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

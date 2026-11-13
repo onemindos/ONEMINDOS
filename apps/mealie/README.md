@@ -8,7 +8,7 @@ Recipe manager and meal planner with shopping lists; imports recipes from a URL.
 | | |
 |---|---|
 | Version | 3.30.0 (upstream release `v3.30.0`, published 2026-10-31) |
-| Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | family |
 | GitHub | <https://github.com/mealie-recipes/mealie> |
@@ -90,4 +90,10 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T16:57:02Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/mealie-recipes/mealie:v3.30.0@sha256:90f83da6f3ab0a421efc827118a556168573930105f13fa3321768f42163d784` | amd64, arm64 | 2 (1) | 302 | 0 infected (daily-28182) | 45 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

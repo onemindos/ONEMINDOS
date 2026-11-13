@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T14:01:40Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "ghcr.io/dgtlmoon/changedetection.io:0.70.3@sha256:47b1e9cc3eff820e6022b655e3fcc948625f60c1770ae8b9c30aa3bf104dc255",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 4,
+        "high": 123
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "Apache-2.0",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

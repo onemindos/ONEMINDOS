@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-13T21:11:22Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "docker.io/tautulli/tautulli:v2.19.1@sha256:239cd6dbc429a0eb441bdf88a7a015871e2d4d6e02b6e6039af30c0487528a8e",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 110
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "GPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

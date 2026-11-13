@@ -8,7 +8,7 @@ File server in one program: browse, upload, download and share files from a brow
 | | |
 |---|---|
 | Version | 1.20.26 (upstream release `v1.20.26`, published 2026-10-14) |
-| Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-13) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/9001/copyparty> |
@@ -92,4 +92,10 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T14:18:37Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/copyparty/ac:1.20.26@sha256:b2054d65e05daa8982ca17c26b12b74315c0ce586a03ff9018a59c80731b9e19` | amd64, arm64 | 1 (1) | 8 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

@@ -1,21 +1,21 @@
 {
-  "scanned_at": "2026-11-12T06:39:05Z",
+  "scanned_at": "2026-11-13T21:40:17Z",
   "result": "fail",
   "images": [
     {
-      "ref": "docker.io/louislam/uptime-kuma:2.5.10-rootless@sha256:0df77d22bb9284368f4a6541197dd413051b13de63615145c24a889f97c7e724",
+      "ref": "docker.io/louislam/uptime-kuma:2.5.11-rootless@sha256:d213a1d2b6a7d7c00afbcb936b53f585afea3e1620432b3a161b68bfffa13dac",
       "archs": [
         "amd64",
         "arm64"
       ],
       "trivy": {
         "version": "0.76.2",
-        "critical_fixable": 4,
-        "critical": 13,
-        "high": 473
+        "critical_fixable": 6,
+        "critical": 15,
+        "high": 649
       },
       "clamav": {
-        "signatures": "daily-28180",
+        "signatures": "daily-28182",
         "infected": 0
       },
       "secrets": 0,

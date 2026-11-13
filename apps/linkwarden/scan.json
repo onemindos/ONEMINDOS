@@ -1,0 +1,49 @@
+{
+  "scanned_at": "2026-11-13T17:11:40Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "ghcr.io/linkwarden/linkwarden:v2.17.0@sha256:7c11fde57d1a0c819b6de0079966eba3a33584d718464af7dacde22bd470ae46",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 1,
+        "critical": 5,
+        "high": 195
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    },
+    {
+      "ref": "docker.io/library/postgres:16.15-trixie@sha256:f9a7b9ebf6f56201f949db745e47bc423c0f0f8294bafe991cc10bf74b029657",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 1,
+        "critical": 2,
+        "high": 147
+      },
+      "clamav": {
+        "signatures": "daily-28182",
+        "infected": 0
+      },
+      "secrets": 1,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "AGPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

@@ -8,8 +8,8 @@ Get up and running with Kimi, GLM, MiniMax, DeepSeek, gpt-oss, Qwen, Gemma and o
 | | |
 |---|---|
 | Version | 0.40.16 (upstream release `v0.40.16`, published 2026-11-09) |
-| Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-13) |
+| Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | ai |
 | GitHub | <https://github.com/ollama/ollama> |
 | Website | <https://ollama.com> |
@@ -81,4 +81,10 @@ Source: [docs.ollama.com](https://docs.ollama.com/) and docs/docker.mdx ("Run mo
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-13T18:10:44Z by `sdk/tools/app-gate`: **pass**. Licence `MIT` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592` | amd64, arm64 | 0 (0) | 3 | 0 infected (daily-28182) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.
