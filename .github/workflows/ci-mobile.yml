@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-# Phone app (mobile/): tests on every change, and an Android debug build that compiles the native
-# modules (UnifiedPush, passkeys) and checks that no Google Play Services auth library is linked.
+# Mobile CI (mobile/README.md; docs/testing/CI-MATRIX.md §3): the phone app's unit tests and both
+# native builds, which until now ran only on a developer Mac.
+#   test:    design-token check + typecheck + jest (API client, approval flow, alerts, session, Approvals screen)
+#   android: expo prebuild + Gradle assembleDebug on ubuntu-24.04 with the NDK React Native names;
+#            the APK must not request any permission app.json blocks; APK uploaded for sideloading
+#   ios:     expo prebuild + CocoaPods + xcodebuild Release for the iOS simulator on macos-26
+#            (unsigned; the JS bundle is embedded, so Metro bundling is proven too)
+# No signing keys, store accounts or secrets are used.
 name: ci-mobile
 
 on:
@@ -17,18 +23,31 @@ on:
       - 'ui/src/tokens/**'
       - 'sdk/openapi/**'
       - '.github/workflows/ci-mobile.yml'
+  workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
+
+concurrency:
+  group: ci-mobile-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPO_NO_TELEMETRY: '1'
 
 jobs:
   test:
+    name: typecheck + jest
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: mobile
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
@@ -38,34 +57,110 @@ jobs:
       - name: Design tokens match ui/src/tokens/tokens.ts
         run: npm run tokens -- --check
       - run: npm run typecheck
-      - run: npm test -- --ci
+      - run: npx jest --ci
 
   android:
+    name: Android debug APK
     needs: test
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: mobile
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci
-      - name: Generate the Android project (not committed; Expo continuous native generation)
-        run: npx expo prebuild --platform android --no-install
-      - name: Build a debug APK (JDK 17 and the Android SDK come with the runner image)
+      - name: Android SDK packages (the NDK React Native pins, CMake for expo-modules-core)
         run: |
+          set -euo pipefail
+          # The NDK version comes from React Native's own version catalog, so it follows RN upgrades.
+          ndk=$(sed -nE 's/^ndkVersion = "([^"]+)"/\1/p' node_modules/react-native/gradle/libs.versions.toml)
+          [ -n "$ndk" ] || { echo "::error::ndkVersion not found in react-native's libs.versions.toml"; exit 1; }
+          sm="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          (yes || true) | "$sm" --licenses > /dev/null
+          "$sm" --install "ndk;$ndk" "cmake;3.22.1" > /dev/null
+          echo "installed ndk;$ndk cmake;3.22.1"
+      - name: Generate android/ (expo prebuild) and build the debug APK
+        run: |
+          set -euo pipefail
           export JAVA_HOME="$JAVA_HOME_17_X64"
-          cd android && ./gradlew --no-daemon assembleDebug
+          npx expo prebuild --platform android --no-install
+          cd android
+          ./gradlew assembleDebug --no-daemon --console=plain
+          ls -l app/build/outputs/apk/debug/app-debug.apk
+      - name: The APK requests none of the permissions app.json blocks
+        run: |
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
+          perms=$("${bt}aapt2" dump permissions "$apk")
+          echo "$perms"
+          # mobile/README.md "Security notes": SYSTEM_ALERT_WINDOW is added by React Native's debug
+          # manifest for the developer menu; release builds drop it. Every other blocked one must be absent.
+          blocked=$(python3 -c 'import json; print("\n".join(p for p in json.load(open("app.json"))["expo"]["android"]["blockedPermissions"] if p != "android.permission.SYSTEM_ALERT_WINDOW"))')
+          bad=0
+          for p in $blocked; do
+            if grep -qF "'$p'" <<<"$perms"; then echo "::error::the debug APK requests blocked permission $p"; bad=1; fi
+          done
+          [ "$bad" -eq 0 ] && echo "no blocked permission requested"
+          exit "$bad"
       - name: No Google Play Services auth library in the app (plugins/withoutPlayServicesCredentials.js)
         run: |
           export JAVA_HOME="$JAVA_HOME_17_X64"
-          cd android && ./gradlew --no-daemon -q :app:dependencies --configuration releaseRuntimeClasspath > deps.txt
+          cd mobile/android && ./gradlew --no-daemon -q :app:dependencies --configuration releaseRuntimeClasspath > deps.txt
           if grep -E "play-services-auth|credentials-play-services-auth" deps.txt; then
             echo "a proprietary Play Services auth library is linked" >&2
             exit 1
           fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: onemind-mobile-debug-apk
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  ios:
+    name: iOS simulator build
+    needs: test
+    runs-on: macos-26
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Generate ios/ (expo prebuild) and install the pods
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          pod --version
+          npx expo prebuild --platform ios --no-install
+          cd ios && pod install
+      - name: Build for the iOS simulator (Release, unsigned, JS bundle embedded)
+        run: |
+          set -euo pipefail
+          xcodebuild -quiet -workspace ios/OneMind.xcworkspace -scheme OneMind -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath ios/build/dd CODE_SIGNING_ALLOWED=NO build
+          app=ios/build/dd/Build/Products/Release-iphonesimulator/OneMind.app
+          test -f "$app/main.jsbundle" || { echo "::error::no embedded JS bundle in $app"; exit 1; }
+          plutil -p "$app/Info.plist" | grep -E 'CFBundleIdentifier|CFBundleShortVersionString|MinimumOSVersion'

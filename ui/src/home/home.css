@@ -249,7 +249,7 @@
 .omh-chip:hover { color: var(--om-color-text); }
 .omh-chip:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 .omh-chip[aria-pressed='true'] { background: var(--om-color-accent); border-color: var(--om-color-accent); color: var(--om-color-accent-text); }
-.omh-chip-count { font-size: var(--om-font-size-xs); opacity: 0.85; font-variant-numeric: tabular-nums; }
+.omh-chip-count { font-size: var(--om-font-size-xs); font-variant-numeric: tabular-nums; }
 .omh-chip-quiet { min-height: 32px; font-size: var(--om-font-size-xs); }
 .omh-chip-quiet[aria-pressed='true'] { background: var(--om-color-accent-soft); color: var(--om-color-accent); border-color: var(--om-color-accent); }
 .omh-appgrid { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--om-space-3); grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
