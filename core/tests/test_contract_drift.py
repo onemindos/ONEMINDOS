@@ -302,4 +302,3 @@ def test_automatic_and_manual_audit_actor_are_explicit(nclient):
             if r['event'].startswith('alert.')]
     assert [r['data']['payload']['by'] for r in rows] == [None, 'owner', None]
     assert all('by' not in e['data'] for r in rows for e in events_for_record(r))
-
