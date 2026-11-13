@@ -140,13 +140,13 @@ TOOLS: list[dict] = [
     {
         "name": "request_action", "title": "Request an app install or removal",
         "description": (
-            "Files a request to install or remove an app. Nothing changes until the owner approves "
+            "Files a request to install, remove, start, stop, restart or update an app. Removing keeps its data. Nothing changes until the owner approves "
             "it in the OneMind app; you cannot approve it yourself. The request expires after 24 hours. "
             "Returns the action id and its state (awaiting_approval); check it later with get_action. "
             "If the same request is already waiting, its id is returned instead of a new one."
         ),
         "inputSchema": _obj({
-            "type": {"type": "string", "enum": ["app.install", "app.remove"]},
+            "type": {"type": "string", "enum": ["app.install", "app.remove", "app.start", "app.stop", "app.restart", "app.update"]},
             "app_id": {"type": "string", "minLength": 1, "maxLength": 59},
             "reason": {"type": "string", "maxLength": MAX_REASON,
                        "description": "Why you ask; shown to the owner, marked as written by an agent."},

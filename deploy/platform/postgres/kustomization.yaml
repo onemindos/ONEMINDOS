@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Shared PostgreSQL on the hub (DB-SHARED-1; core/onemind_core/databases.py). The gateway creates
+# the namespace and the postgres-admin Secret, then applies this the first time an app with
+# spec.database is installed. One database and role per app; nothing listens outside the cluster.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: onemind-db
+resources:
+  - service.yaml
+  - statefulset.yaml
+  - networkpolicy.yaml

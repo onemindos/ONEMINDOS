@@ -32,6 +32,27 @@ const action = (state: string, decidedBy?: string) => ({
   decided_by: decidedBy ? { id: decidedBy, kind: "person", role: "owner" } : null, decided_at: null, result: null, version: 2,
 });
 
+describe("actions.request", () => {
+  it("reuses expires_at for one idempotency key even when the hub clock moves on", async () => {
+    let tick = 0;
+    const bodies: { idempotency_key: string; expires_at: string }[] = [];
+    const { om } = client((url, init) => {
+      const headers = { date: new Date(Date.now() + 5000 * ++tick).toUTCString() };
+      if (url.endsWith("/v1/instance")) return json(200, { name: "x", version: "0", hub_node_id: null }, headers);
+      bodies.push(JSON.parse(String(init.body)));
+      return json(201, action("awaiting_approval"), headers);
+    });
+    await om.actions.request({ type: "app.install", appId: "x", idempotencyKey: "k1" });
+    await om.actions.request({ type: "app.install", appId: "x", idempotencyKey: "k1" });
+    await om.actions.request({ type: "app.install", appId: "x", idempotencyKey: "k2" });
+    await om.actions.request({ type: "app.install", appId: "x" });
+    await om.actions.request({ type: "app.install", appId: "x" });
+    expect(bodies[0]!.expires_at).toBe(bodies[1]!.expires_at);
+    expect(bodies[2]!.expires_at).not.toBe(bodies[0]!.expires_at);
+    expect(bodies[3]!.idempotency_key).not.toBe(bodies[4]!.idempotency_key);
+  });
+});
+
 describe("transport", () => {
   it("retries GET on 503 and maps typed errors", async () => {
     let n = 0;

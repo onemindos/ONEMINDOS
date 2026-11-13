@@ -33,6 +33,7 @@ from urllib.parse import urlsplit
 import yaml
 
 from .catalog import AppEntry
+from .lifecycle import AppCredentialGrant, ExecContext, report_progress
 from .policy import (
     Rules,
     SandboxSettings,
@@ -59,9 +60,13 @@ class ExecResult:
     # Install sandbox (policy.py): the rules an install broke, and what was checked.
     violations: list[dict] | None = None
     plan: dict | None = None
+    # Health-gated update: True when the new revision was not healthy and the old one was restored.
+    reverted: bool | None = None
 
     def to_json(self) -> dict:
         out = {"outcome": self.outcome, "message": self.message, "steps": self.steps}
+        if self.reverted is not None:
+            out["reverted"] = self.reverted
         if self.plan is not None:
             out["plan"] = self.plan
         if self.violations is not None:
@@ -109,32 +114,54 @@ def _b64(value: str) -> str:
 class Executor:
     name = "base"
 
-    def run(self, action_type: str, app: AppEntry, agent: AgentSecret | None = None) -> ExecResult:  # pragma: no cover
+    def run(
+        self, action_type: str, app: AppEntry, agent: AgentSecret | None = None, ctx: ExecContext | None = None
+    ) -> ExecResult:  # pragma: no cover
         raise NotImplementedError
 
 
 class NoopExecutor(Executor):
     name = "noop"
 
-    def run(self, action_type: str, app: AppEntry, agent: AgentSecret | None = None) -> ExecResult:
+    def run(
+        self, action_type: str, app: AppEntry, agent: AgentSecret | None = None, ctx: ExecContext | None = None
+    ) -> ExecResult:
         steps: list[dict] = []
         ns = f"app-{app.id}"
+        ctx = ctx or ExecContext()
+        report_progress(f"{action_type} started", 10)
         if agent is not None and action_type == "app.install":
             steps.append({
                 "would": f"create Secret {agent.name} in {ns}",
                 "keys": ["ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN"],
                 "principal": agent.principal_id,
             })
-        if action_type == "app.install":
+        if ctx.credentials is not None and action_type == "app.install":
+            steps.append({"would": f"create Secret {ctx.credentials.secret_name} in {ns}", "keys": ["USERNAME", "PASSWORD"]})
+        if action_type in ("app.install", "app.update", "app.start"):
             steps.append({"would": f"apply manifests of {app.id} in {ns}"})
+            if action_type == "app.update":
+                steps.append({"would": f"wait until every workload of {app.id} is ready; restore the previous revision if not"})
+        elif action_type == "app.stop":
+            steps.append({"would": f"scale the workloads of {app.id} in {ns} to zero; data kept"})
+        elif action_type == "app.restart":
+            steps.append({"would": f"roll the workloads of {app.id} in {ns}"})
+        elif action_type == "app.configure":
+            steps.append({"would": f"apply ConfigMap {SETTINGS_CONFIGMAP} ({len(ctx.settings)} settings) in {ns}, then roll the workloads"})
         elif action_type == "app.remove":
             if agent is not None:
                 steps.append({"would": f"delete Secret {agent.name} in {ns}", "principal": agent.principal_id})
             steps.append({"would": f"delete the workloads of {app.id} in {ns}; its data (PersistentVolumeClaims) is kept"})
+        elif action_type == "app.delete_data":
+            steps.append({"would": f"delete namespace {ns} with all its PersistentVolumeClaims"})
+        report_progress(f"{action_type} done", 100)
         return ExecResult("succeeded", f"noop executor: {action_type} {app.id} recorded, nothing changed", steps)
 
 
 Runner = Callable[..., subprocess.CompletedProcess]
+
+# The ConfigMap the gateway writes for app.configure; manifests read it with envFrom (optional: true).
+SETTINGS_CONFIGMAP = "onemind-settings"
 
 # Namespaced kinds app.remove deletes: the app kinds of sdk/policy/app-objects.yaml minus
 # PersistentVolumeClaim (data is kept, contract 12.5) and minus RoleBinding (the gateway's own
@@ -143,6 +170,8 @@ REMOVABLE_KINDS = (
     "deployments", "statefulsets", "jobs", "cronjobs", "services", "configmaps", "secrets",
     "serviceaccounts", "poddisruptionbudgets", "horizontalpodautoscalers", "roles",
 )
+WORKLOAD_KINDS = "deployments,statefulsets"
+REPLICAS_ANNOTATION = "onemind.io/replicas-before-stop"
 
 
 def _tail(text: str | bytes | None, limit: int = 2000) -> str:
@@ -174,6 +203,7 @@ class KubernetesExecutor(Executor):
         sandbox: SandboxSettings | None = None,
         rules: Rules | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        health_timeout_s: float = 120,
         resolve: Callable[[str], list[str]] | None = None,
     ):
         self.kubectl = kubectl
@@ -190,6 +220,7 @@ class KubernetesExecutor(Executor):
             rules = load_rules(path)
         self.rules = rules
         self.sleep = sleep
+        self.health_timeout_s = health_timeout_s
         self.resolve = resolve or _resolve
 
     # ---- the documents the gateway itself writes ---------------------------------------------
@@ -275,6 +306,12 @@ class KubernetesExecutor(Executor):
             # a changed or broken manifest cannot block removal.
             kinds = ",".join(REMOVABLE_KINDS)
             return first + [([k, "delete", kinds, "--all", "-n", ns, "--ignore-not-found=true"], None)]
+        if action_type == "app.delete_data":
+            # Only reachable from status `removed` (the gateway checks). The namespace takes the
+            # PersistentVolumeClaims, the gateway's RoleBinding and the NetworkPolicies with it.
+            return [([k, "delete", "namespace", ns, "--ignore-not-found=true"], None)]
+        if action_type == "app.stop":
+            return [([k, "scale", WORKLOAD_KINDS, "--all", "--replicas=0", "-n", ns], None)]
         raise ValueError(f"unsupported action type {action_type}")
 
     # ---- running ------------------------------------------------------------------------------
@@ -336,11 +373,155 @@ class KubernetesExecutor(Executor):
             return _refused(app, violations, plan, steps)
         return rendered, level, egress, plan
 
-    def run(self, action_type: str, app: AppEntry, agent: AgentSecret | None = None) -> ExecResult:
+    # ---- lifecycle helpers ---------------------------------------------------------------------
+    def settings_doc(self, app: AppEntry, settings: dict) -> str:
+        doc = {
+            "apiVersion": "v1", "kind": "ConfigMap",
+            "metadata": {"name": SETTINGS_CONFIGMAP, "namespace": f"app-{app.id}",
+                         "labels": {"onemind.io/app": app.id, "onemind.io/managed-by": "onemind-gateway"}},
+            "data": {k: str(v).lower() if isinstance(v, bool) else str(v) for k, v in sorted(settings.items())},
+        }
+        return json.dumps(doc)
+
+    def credentials_doc(self, app: AppEntry, grant: AppCredentialGrant) -> str:
+        data = {"PASSWORD": _b64(grant.password)}
+        if grant.username:
+            data["USERNAME"] = _b64(grant.username)
+        return json.dumps({
+            "apiVersion": "v1", "kind": "Secret", "type": "Opaque",
+            "metadata": {"name": grant.secret_name, "namespace": f"app-{app.id}",
+                         "labels": {"onemind.io/app": app.id, "onemind.io/credentials": "true"}},
+            "data": data,
+        })
+
+    def _workloads(self, app: AppEntry, steps: list[dict]):
+        """(refs, error): the app's Deployments and StatefulSets as [(ref, replicas, saved_replicas)]."""
+        cp, err = self._exec([self.kubectl, "get", WORKLOAD_KINDS, "-n", f"app-{app.id}", "-o", "json"],
+                             None, app, None, steps, keep_stdout=False)
+        if err is not None:
+            return None, err
+        try:
+            items = json.loads(cp.stdout or "{}").get("items") or []
+            out = []
+            for it in items:
+                kind = "statefulset" if it.get("kind") == "StatefulSet" else "deployment"
+                ann = (it.get("metadata") or {}).get("annotations") or {}
+                saved = ann.get(REPLICAS_ANNOTATION)
+                out.append((f"{kind}/{it['metadata']['name']}", int((it.get("spec") or {}).get("replicas", 1)),
+                            int(saved) if saved is not None else None))
+            return out, None
+        except (ValueError, KeyError, TypeError, AttributeError):
+            return None, ExecResult("failed", "could not read the app's workloads", steps)
+
+    def _rollout_wait(self, app: AppEntry, refs: list[str], steps: list[dict]) -> ExecResult | None:
+        """The health gate: every workload must report a finished rollout. None = healthy."""
+        for ref in refs:
+            argv = [self.kubectl, "rollout", "status", ref, "-n", f"app-{app.id}", f"--timeout={int(self.health_timeout_s)}s"]
+            _, err = self._exec(argv, None, app, None, steps)
+            if err is not None:
+                return err
+        return None
+
+    def _lifecycle(self, action_type: str, app: AppEntry, ctx: ExecContext, steps: list[dict]) -> ExecResult:
+        ns = f"app-{app.id}"
+        k = self.kubectl
+        if action_type == "app.configure":
+            report_progress("writing settings", 20)
+            _, err = self._exec([k, "apply", "-n", ns, "-f", "-"], self.settings_doc(app, ctx.settings), app, None, steps)
+            if err is not None:
+                return err
+        report_progress("reading workloads", 30)
+        work, err = self._workloads(app, steps)
+        if err is not None:
+            return err
+        for i, (ref, replicas, saved) in enumerate(work):
+            report_progress(f"{action_type.split('.')[1]} {ref}", 40 + int(40 * i / max(1, len(work))))
+            if action_type == "app.stop":
+                cmds = []
+                if replicas > 0:  # remember the count; a second stop must not overwrite it with 0
+                    cmds.append([k, "annotate", ref, f"{REPLICAS_ANNOTATION}={replicas}", "--overwrite", "-n", ns])
+                cmds.append([k, "scale", ref, "--replicas=0", "-n", ns])
+            elif action_type == "app.start":
+                cmds = [[k, "scale", ref, f"--replicas={saved if saved else 1}", "-n", ns]]
+            else:
+                cmds = [[k, "rollout", "restart", ref, "-n", ns]]
+            for argv in cmds:
+                _, err = self._exec(argv, None, app, None, steps)
+                if err is not None:
+                    return err
+        if action_type != "app.stop" and work:
+            report_progress("waiting for the workloads", 85)
+            err = self._rollout_wait(app, [w[0] for w in work], steps)
+            if err is not None:
+                return err
+        report_progress("done", 100)
+        return ExecResult("succeeded", f"{action_type} {app.id} applied to namespace {ns}", steps)
+
+    def _update(self, app: AppEntry, agent: AgentSecret | None, steps: list[dict]) -> ExecResult:
+        """Check, apply the new render, wait for health; restore the previous revision if unhealthy."""
+        ns = f"app-{app.id}"
+        k = self.kubectl
+        report_progress("checking the new version against the install rules", 10)
+        checked = self._check(app, steps)
+        if isinstance(checked, ExecResult):
+            return checked
+        rendered, _level, egress, plan_info = checked
+        report_progress("applying the new version", 35)
+        netpols = network_policies(app.id, egress or [], self.rules, self._gateway_egress(agent))
+        for argv, stdin in (
+            ([k, "apply", "-n", ns, "-f", "-"], "\n---\n".join(json.dumps(d) for d in netpols)),
+            ([k, "apply", "-n", ns, "-f", "-"], rendered),  # exactly the checked bytes
+        ):
+            _, err = self._exec(argv, stdin, app, agent, steps)
+            if err is not None:
+                err.plan = plan_info
+                return err
+        work, err = self._workloads(app, steps)
+        if err is not None:
+            err.plan = plan_info
+            return err
+        refs = [w[0] for w in work]
+        report_progress("waiting for the new version to become healthy", 60)
+        unhealthy = self._rollout_wait(app, refs, steps)
+        if unhealthy is None:
+            report_progress("healthy", 100)
+            return ExecResult("succeeded", f"app.update {app.id} applied and healthy", steps, plan=plan_info, reverted=False)
+        if unhealthy.outcome == "outcome_unknown":  # timed out talking to kubectl: we cannot tell
+            unhealthy.plan = plan_info
+            return unhealthy
+        report_progress("not healthy: restoring the previous revision", 75)
+        for ref in refs:
+            _, err = self._exec([k, "rollout", "undo", ref, "-n", ns], None, app, None, steps)
+            if err is not None:  # could not restore: do not claim anything about the app
+                return ExecResult(
+                    "outcome_unknown", "the update was not healthy and the revert did not finish", steps,
+                    plan=plan_info,
+                )
+        back = self._rollout_wait(app, refs, steps)
+        if back is not None:
+            return ExecResult(
+                "outcome_unknown", "the update was not healthy; the previous revision was restored but is not ready",
+                steps, plan=plan_info,
+            )
+        report_progress("previous revision restored", 100)
+        return ExecResult(
+            "failed", "the new version was not healthy; the previous revision was restored", steps,
+            plan=plan_info, reverted=True,
+        )
+
+    def run(
+        self, action_type: str, app: AppEntry, agent: AgentSecret | None = None, ctx: ExecContext | None = None
+    ) -> ExecResult:
         steps: list[dict] = []
+        ctx = ctx or ExecContext()
+        if action_type == "app.update":
+            return self._update(app, agent, steps)
+        if action_type in ("app.stop", "app.start", "app.restart", "app.configure"):
+            return self._lifecycle(action_type, app, ctx, steps)
         plan_info: dict | None = None
         kwargs: dict = {}
         if action_type == "app.install":
+            report_progress("checking the app against the install rules", 10)
             checked = self._check(app, steps)
             if isinstance(checked, ExecResult):
                 return checked
@@ -350,14 +531,26 @@ class KubernetesExecutor(Executor):
             commands = self.plan(action_type, app, agent, **kwargs)
         except ValueError as exc:
             return ExecResult("failed", str(exc), steps, plan=plan_info)
+        if action_type == "app.install":
+            ns = f"app-{app.id}"
+            extra: list[tuple[list[str], str | None]] = []
+            if ctx.credentials is not None:  # same server-side apply as the agent Secret (no last-applied copy)
+                extra.append(([self.kubectl, "apply", "--server-side", "--field-manager=onemind-gateway",
+                               "--force-conflicts", "-n", ns, "-f", "-"], self.credentials_doc(app, ctx.credentials)))
+            if ctx.settings:
+                extra.append(([self.kubectl, "apply", "-n", ns, "-f", "-"], self.settings_doc(app, ctx.settings)))
+            commands = commands[:-1] + extra + commands[-1:]  # before the manifests, so pods start with them
         bound = False
-        for argv, stdin in commands:
-            cp, err = self._exec(argv, stdin, app, agent, steps, retry_forbidden=bound)
+        total = max(1, len(commands))
+        for n, (argv, stdin) in enumerate(commands):
+            report_progress(f"{action_type.split('.')[1]} step {n + 1} of {total}", 20 + int(75 * n / total))
+            _, err = self._exec(argv, stdin, app, agent, steps, retry_forbidden=bound)
             if err is not None:
                 err.plan = plan_info
                 return err
             if stdin is not None and '"kind": "RoleBinding"' in stdin:
                 bound = True  # later steps may race the new binding
+        report_progress("done", 100)
         return ExecResult(
             "succeeded", f"{action_type} {app.id} applied to namespace app-{app.id}", steps, plan=plan_info
         )

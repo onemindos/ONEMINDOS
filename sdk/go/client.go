@@ -69,6 +69,7 @@ type Client struct {
 	warnOnce  sync.Once
 	sleep     func(context.Context, time.Duration) error
 	offset    atomic.Int64 // hub clock minus local clock, from the Date header (ns)
+	expiries  expiryMemo   // expires_at fixed per idempotency key
 
 	Instance *InstanceService
 	Nodes    *NodesService
