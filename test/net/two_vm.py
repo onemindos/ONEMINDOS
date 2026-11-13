@@ -513,7 +513,18 @@ class Suite:
             s0 = json.loads(svc)["items"][0]
             sel, sp = s0["spec"]["selector"], s0["spec"]["ports"][0]
             tp = sp.get("targetPort", sp["port"])
-            cport = tp if isinstance(tp, int) else 8000
+            cport = tp if isinstance(tp, int) else None
+            if cport is None:
+                # A named targetPort: listen where the app's container does, since the app's
+                # NetworkPolicy lets the hub reach only that port (a guessed port is refused).
+                rc, wl = self.hubrun(f"k3s kubectl -n {ns} get deploy,statefulset -o json", 60)
+                for item in json.loads(wl)["items"]:
+                    for c in item["spec"]["template"]["spec"].get("containers", []):
+                        for p in c.get("ports") or []:
+                            if p.get("name") == tp and cport is None:
+                                cport = p["containerPort"]
+                if cport is None:
+                    raise ValueError(f"no container port named {tp}")
             pod = {"apiVersion": "v1", "kind": "Pod", "metadata": {"name": "h34-echo", "namespace": ns, "labels": sel},
                    "spec": {"securityContext": {"runAsNonRoot": True, "runAsUser": 1000, "seccompProfile": {"type": "RuntimeDefault"}},
                             "containers": [{"name": "echo", "image": "docker.io/library/busybox:1.37",
@@ -618,7 +629,7 @@ def main():
             if not s.R.done(cid):
                 s.R.set(cid, "BLOCKED" if not failure else "BLOCKED", f"not reached: {failure}" if failure else "not run")
         fails = [r for r in s.R.r.values() if r["result"] == "FAIL"]
-        if fails or failure:
+        if fails or failure or any(r["result"] == "BLOCKED" for r in s.R.r.values()):
             s.dump(outdir)
         verdict = "FAIL" if fails else ("BLOCKED" if any(r["result"] == "BLOCKED" for r in s.R.r.values()) else "PASS")
         res = {"suite": "net-2vm", "verdict": verdict, "abort": failure, "source_ref": os.environ.get("ONEMIND_NET_SRC_REF") or "checkout",
