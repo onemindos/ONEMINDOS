@@ -364,10 +364,10 @@ func migratePlan(a *App, kc, ns, ctxName, app, name string) error {
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return fmt.Errorf("gateway returned invalid JSON: %w", err)
 	}
-	return printPlan(a.Stdout, p, true)
+	return printMigrationPlan(a.Stdout, p, true)
 }
 
-func printPlan(out io.Writer, p planView, findings bool) error {
+func printMigrationPlan(out io.Writer, p planView, findings bool) error {
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "Plan\t%s\tnamespace %s → private app %s (%q)\n", p.ID, p.Namespace, p.AppID, p.Name)
 	fmt.Fprintf(w, "State\t%s\t\n", p.State)
@@ -474,7 +474,7 @@ func migrateShow(a *App, planArg string) error {
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return fmt.Errorf("gateway returned invalid JSON: %w", err)
 	}
-	return printPlan(a.Stdout, p, true)
+	return printMigrationPlan(a.Stdout, p, true)
 }
 
 // ---- steps ------------------------------------------------------------------------

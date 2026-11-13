@@ -49,6 +49,12 @@ def test_kubeconfig_refusals(user, extra, why):
         parse_kubeconfig(kubeconfig(user=user, **extra))
 
 
+@pytest.mark.parametrize("host", ["169.254.169.254", "[fe80::1]", "0.0.0.0", "224.0.0.1"])
+def test_kubeconfig_link_local_server_refused(host):
+    with pytest.raises(KubeconfigError, match="link-local"):
+        parse_kubeconfig(kubeconfig(server=f"https://{host}:6443"))
+
+
 def test_kubeconfig_plain_http_and_paths_refused():
     with pytest.raises(KubeconfigError, match="https"):
         parse_kubeconfig(kubeconfig(server="http://old.example.test:6443"))

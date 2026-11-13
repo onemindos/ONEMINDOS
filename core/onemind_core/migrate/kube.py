@@ -20,6 +20,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import http.client
+import ipaddress
 import json
 import os
 import re
@@ -151,6 +152,14 @@ def parse_kubeconfig(text: str, context: str | None = None) -> KubeTarget:
         raise KubeconfigError("cluster server must be an https:// URL")
     if parts.path not in ("", "/") or parts.query:
         raise KubeconfigError("cluster server must be scheme://host[:port] with no path")
+    try:
+        ip = ipaddress.ip_address(parts.hostname.strip("[]"))
+    except ValueError:
+        ip = None  # a DNS name
+    if ip is not None and (ip.is_link_local or ip.is_unspecified or ip.is_multicast):
+        # Cloud metadata services live on link-local addresses (169.254.169.254): a kubeconfig
+        # must never turn the gateway into a client of those.
+        raise KubeconfigError("cluster server must not be a link-local, unspecified or multicast address")
     ca = cluster.get("certificate-authority-data")
     ca_pem = _b64(ca, "certificate-authority-data") if ca is not None else None
     token = user.get("token")
