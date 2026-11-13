@@ -37,7 +37,7 @@ case "$(docker info --format '{{.Architecture}}')" in
   *) echo "unsupported Docker architecture" >&2; exit 2 ;;
 esac
 
-# shellcheck disable=SC2329  # run by the EXIT trap below
+# shellcheck disable=SC2317,SC2329  # invoked via trap (SC2317 in shellcheck <0.10, SC2329 after)
 cleanup() {
   if [ "${KEEP:-0}" != 1 ]; then
     docker rm -f "$HUB" "$NODE" >/dev/null 2>&1 || true

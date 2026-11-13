@@ -695,8 +695,11 @@ gateway_runtime_from_bundle() {
     log "gateway: unpacking the bundle's prebuilt runtime into $PREFIX"
     rm -rf "$new"; mkdir -p "$new"
     tar -xzf "$GATEWAY_RUNTIME" -C "$new" --no-same-owner
-    [ -f "$new/opt/onemind/venv/pyvenv.cfg" ] && [ -d "$new/opt/onemind/python" ] \
-      || die "${GATEWAY_RUNTIME##*/} does not hold opt/onemind/{python,venv}"
+    if [ -f "$new/opt/onemind/venv/pyvenv.cfg" ] && [ -d "$new/opt/onemind/python" ]; then
+      :
+    else
+      die "${GATEWAY_RUNTIME##*/} does not hold opt/onemind/{python,venv}"
+    fi
     rm -rf "$PREFIX/python" "$PREFIX/venv" "$PREFIX/core"
     mv "$new/opt/onemind/python" "$PREFIX/python"; mv "$new/opt/onemind/venv" "$PREFIX/venv"; rm -rf "$new"
     printf '%s\n' "$sum" > "$stamp"
