@@ -11,6 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.routing import Match
 
 # The contract section 3 error codes plus the §12.2 codes this gateway sends so far
 # (rate_limited, payload_too_large, policy_refused). Cases the contract has no code for are
@@ -95,6 +96,23 @@ def error_response(
 
 
 def install_handlers(app: FastAPI) -> None:
+    @app.middleware("http")
+    async def static_resource_methods(request: Request, call_next):
+        # OpenAPI gives literal resources precedence over sibling templates. Do the same
+        # for routing: DELETE /passkeys/register must not delete credential "register".
+        literal = [r for r in request.app.router.routes
+                   if getattr(r, "path", None) == request.scope["path"]]
+        documented = [r for r in literal if getattr(r, "include_in_schema", False)]
+        methods = set().union(*(getattr(r, "methods", set()) for r in documented))
+        handled = set().union(*(getattr(r, "methods", set()) for r in literal))
+        # Hidden transport handlers (MCP GET/DELETE) still authenticate before their
+        # own 405. Do not intercept a method with an explicit handler on this resource.
+        if methods and request.method not in handled:
+            response = error_response(405, "not_found", "method not allowed on this resource")
+            response.headers["Allow"] = ", ".join(sorted(methods))
+            return response
+        return await call_next(request)
+
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, exc: ApiError):
         return error_response(
@@ -112,11 +130,20 @@ def install_handlers(app: FastAPI) -> None:
         return error_response(422, "conflict", f"request failed validation: {problems}"[:1000])
 
     @app.exception_handler(StarletteHTTPException)
-    async def _http(_: Request, exc: StarletteHTTPException):
+    async def _http(request: Request, exc: StarletteHTTPException):
         if exc.status_code == 404:
             return error_response(404, "not_found", "no such resource")
         if exc.status_code == 405:
-            return error_response(405, "not_found", "method not allowed on this resource")
+            resp = error_response(405, "not_found", "method not allowed on this resource")
+            # RFC 9110 §15.5.6: a 405 must list the methods the resource supports (finding F-API-2,
+            # api-fuzz.yml). Starlette's own Allow names only the first route for the path.
+            if allow := allowed_methods(request) or (exc.headers or {}).get("Allow"):
+                resp.headers["Allow"] = allow
+            return resp
+        if exc.status_code == 400:
+            # A body that cannot be parsed at all (not UTF-8, say) fails the schema like any other
+            # bad body: 422 conflict (§3, §12.2), not an undocumented 400 (finding F-API-3).
+            return error_response(422, "conflict", f"request failed validation: {exc.detail}"[:1000])
         code = {401: "unauthenticated", 403: "permission_denied"}.get(exc.status_code, "conflict")
         return error_response(exc.status_code, code, str(exc.detail))
 
@@ -132,6 +159,12 @@ def install_handlers(app: FastAPI) -> None:
         bad, body = "#/components/schemas/HTTPValidationError", "#/components/schemas/ErrorBody"
         for ops in doc.get("paths", {}).values():
             for op in ops.values():
+                # The global body guard runs before every body-bearing operation.
+                if "requestBody" in op:
+                    op["responses"].setdefault("413", {
+                        "description": _DESCRIPTIONS[413],
+                        "content": {"application/json": {"schema": {"$ref": body}}},
+                    })
                 for code, r in op.get("responses", {}).items():
                     refs = {(c.get("schema") or {}).get("$ref") for c in (r.get("content") or {}).values()}
                     if code == "422" and bad in refs:
@@ -147,3 +180,19 @@ def install_handlers(app: FastAPI) -> None:
         return doc
 
     app.openapi = openapi  # type: ignore[method-assign]
+
+
+def allowed_methods(request: Request) -> str | None:
+    """Every method the documented routes for this path accept, for a 405's Allow header.
+
+    Routes outside the schema (the dashboard's SPA fallback matches every path) are left out, so
+    an API path never advertises a GET it does not have.
+    """
+    methods: set[str] = set()
+    for route in request.app.router.routes:
+        if not getattr(route, "include_in_schema", False) or not getattr(route, "methods", None):
+            continue
+        match, _ = route.matches(request.scope)
+        if match != Match.NONE:
+            methods |= route.methods
+    return ", ".join(sorted(methods)) or None

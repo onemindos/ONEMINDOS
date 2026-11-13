@@ -3201,6 +3201,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "429": {
             "content": {
               "application/json": {
@@ -3324,6 +3334,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -3495,6 +3515,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -3954,6 +3984,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -4129,6 +4169,16 @@
               }
             },
             "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -4437,6 +4487,16 @@
               }
             },
             "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -4910,8 +4970,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "maxLength": 40,
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ].*[Zz0-9]$",
                   "type": "string"
+                },
+                {
+                  "const": ""
                 },
                 {
                   "type": "null"
@@ -4929,8 +4993,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "maxLength": 40,
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ].*[Zz0-9]$",
                   "type": "string"
+                },
+                {
+                  "const": ""
                 },
                 {
                   "type": "null"
@@ -5189,6 +5257,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -5247,6 +5325,16 @@
               }
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -5439,6 +5527,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -5607,6 +5705,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -5665,6 +5773,16 @@
               }
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -5840,6 +5958,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -5914,6 +6042,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -5967,6 +6105,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -6093,6 +6241,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -6158,6 +6316,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -6254,6 +6422,16 @@
               }
             },
             "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -6466,6 +6644,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -6612,6 +6800,16 @@
               }
             },
             "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -6944,6 +7142,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -7224,6 +7432,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -7347,6 +7565,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -7900,6 +8128,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -8019,12 +8257,67 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
-              },
               "text/event-stream": {
                 "schema": {
-                  "type": "string"
+                  "properties": {
+                    "data": {
+                      "contentMediaType": "application/json",
+                      "contentSchema": {
+                        "properties": {
+                          "actor_id": {
+                            "type": "string"
+                          },
+                          "data": {
+                            "type": "object"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "schema": {
+                            "const": "onemind.event/v1"
+                          },
+                          "severity": {
+                            "type": "string"
+                          },
+                          "subject": {
+                            "type": "object"
+                          },
+                          "ts": {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "schema",
+                          "id",
+                          "type",
+                          "ts",
+                          "subject",
+                          "severity",
+                          "data"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "string"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "retry": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "data"
+                  ],
+                  "type": "object"
                 }
               }
             },
@@ -8236,6 +8529,16 @@
           },
           "409": {
             "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
@@ -8567,6 +8870,16 @@
           "403": {
             "description": "Not allowed for this principal (permission_denied)"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
           },
@@ -8750,6 +9063,16 @@
           "409": {
             "description": "conflict, stale_precondition or expired; `reason` says which case"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -8859,6 +9182,16 @@
           },
           "409": {
             "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -9093,6 +9426,16 @@
           },
           "409": {
             "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
@@ -9688,6 +10031,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -9865,6 +10218,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -9971,6 +10334,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -10159,6 +10532,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -10265,6 +10648,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -10423,18 +10816,37 @@
             }
           },
           {
+            "description": "Seconds, Nm, Nh or an RFC 3339 instant 1..86400 seconds ago; empty uses 3600 s.",
             "in": "query",
             "name": "window",
             "required": false,
             "schema": {
               "anyOf": [
                 {
+                  "pattern": "^(?=[0-9]{1,6}s?$)0*(?:[1-9][0-9]{0,3}|[1-7][0-9]{4}|8[0-5][0-9]{3}|86[0-3][0-9]{2}|86400)s?$",
                   "type": "string"
+                },
+                {
+                  "pattern": "^(?=[0-9]{1,6}m$)0*(?:[1-9][0-9]{0,2}|1[0-3][0-9]{2}|14[0-3][0-9]|1440)m$",
+                  "type": "string"
+                },
+                {
+                  "pattern": "^(?=[0-9]{1,6}h$)0*(?:[1-9]|1[0-9]|2[0-4])h$",
+                  "type": "string"
+                },
+                {
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ].*[Zz0-9]$",
+                  "type": "string"
+                },
+                {
+                  "const": ""
                 },
                 {
                   "type": "null"
                 }
               ],
+              "description": "Seconds, Nm, Nh or an RFC 3339 instant 1..86400 seconds ago; empty uses 3600 s.",
               "title": "Window"
             }
           }
@@ -10714,6 +11126,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -10856,6 +11278,16 @@
               }
             },
             "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -11054,6 +11486,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -11151,6 +11593,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -11367,6 +11819,16 @@
             },
             "description": "No such resource (not_found)"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -11462,6 +11924,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -11691,6 +12163,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -11857,6 +12339,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -12019,6 +12511,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -12125,6 +12627,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -12214,6 +12726,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -12393,6 +12915,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {

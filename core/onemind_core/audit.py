@@ -38,6 +38,28 @@ def chain_hash(prev_hash: str, body: dict) -> str:
     return hashlib.sha256((prev_hash + canonical_json(body)).encode("utf-8")).hexdigest()
 
 
+def _record(line: str | bytes) -> dict:
+    """Read one unambiguous UTF-8 object, including nested objects.
+
+    Last-key-wins JSON would let different readers see different events in the same chain.
+    Use the same decoder for verification and crash recovery.
+    """
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate JSON key")
+            result[key] = value
+        return result
+
+    if isinstance(line, bytes):
+        line = line.decode("utf-8")
+    rec = json.loads(line, object_pairs_hook=unique)
+    if not isinstance(rec, dict):
+        raise ValueError("audit record is not an object")
+    return rec
+
+
 class AuditLog:
     def __init__(
         self,
@@ -59,11 +81,11 @@ class AuditLog:
     def _parse_record(line: bytes) -> dict | None:
         """A line that parses and whose own hash is right, else None."""
         try:
-            rec = json.loads(line)
+            rec = _record(line)
             body = {k: v for k, v in rec.items() if k not in ("prev_hash", "hash")}
-            if isinstance(rec["seq"], int) and chain_hash(rec["prev_hash"], body) == rec["hash"]:
+            if type(rec["seq"]) is int and chain_hash(rec["prev_hash"], body) == rec["hash"]:
                 return rec
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError, UnicodeError):
             pass
         return None
 
@@ -143,20 +165,26 @@ def verify(path: Path) -> tuple[bool, int, str]:
     n = 0
     if not path.exists():
         return True, 0, "no audit log yet"
-    with path.open("r", encoding="utf-8") as fh:
+    # Decode per line: a text stream may decode a later damaged line while buffering an
+    # earlier one, losing the exact verified-prefix count.
+    with path.open("rb") as fh:
         for lineno, line in enumerate(fh, start=1):
             if not line.strip():
                 continue
             try:
-                rec = json.loads(line)
-            except json.JSONDecodeError:
+                rec = _record(line)
+            except (ValueError, UnicodeError):
                 return False, n, f"line {lineno}: not JSON"
             got_prev, got_hash = rec.pop("prev_hash", None), rec.pop("hash", None)
             if got_prev != prev:
                 return False, n, f"line {lineno}: prev_hash does not match the previous line"
-            if rec.get("seq") != n + 1:
+            if type(rec.get("seq")) is not int or rec["seq"] != n + 1:
                 return False, n, f"line {lineno}: seq {rec.get('seq')} out of order"
-            if chain_hash(prev, rec) != got_hash:
+            try:
+                digest = chain_hash(prev, rec)
+            except UnicodeError:
+                return False, n, f"line {lineno}: invalid Unicode in record"
+            if digest != got_hash:
                 return False, n, f"line {lineno}: hash mismatch (line was altered)"
             prev = got_hash
             n += 1

@@ -23,10 +23,10 @@ import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .audit import AuditLog
 from .auth import Principal, new_agent_token, token_hash
@@ -86,6 +86,17 @@ class ActionRequest(BaseModel):
     # Contract §12.4: the fingerprint of the plan the requester looked at. If the plan the gateway
     # renders now differs, the request is refused (409 stale_precondition, reason plan_changed).
     plan_sha256: str | None = Field(default=None, max_length=80)
+
+    @field_validator("expires_at")
+    @classmethod
+    def _expires_at_in_range(cls, v: datetime) -> datetime:
+        # 9999-12-31T23:59:59-23:59 is a valid RFC 3339 time whose UTC instant is past year 9999:
+        # converting it raised OverflowError, an unaudited 500 (finding F-API-1). Refuse it here.
+        try:
+            v.astimezone(UTC)
+        except OverflowError:
+            raise ValueError("expires_at is outside the supported date range") from None
+        return v
 
     @model_validator(mode="after")
     def _params_fit_type(self):
