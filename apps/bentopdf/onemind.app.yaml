@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# bentopdf: Market batch 6 (contract sdk/contracts/poc-v0.md §9.5), written by hand from primary sources:
+# BentoPDF 2.8.11 (github.com/alam00000/bentopdf), image ghcr.io/alam00000/bentopdf. The image is nginx (user nginx,
+# Image digests and archs read from the registry API, GitHub facts from the GitHub API, read 2026-11-13.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: bentopdf
+  name: "BentoPDF"
+  version: "2.8.11"
+  description: "A privacy-first PDF toolkit: merge, split, compress, convert and edit PDFs in the browser, with no upload to a server."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (office) are listed in README.md
+  # until the schema has metadata.tags.
+  category: productivity
+  icon: icon.svg
+  license: "AGPL-3.0"
+  source: https://github.com/alam00000/bentopdf
+  links:
+    docs: "https://github.com/alam00000/bentopdf#readme"
+    github: "https://github.com/alam00000/bentopdf"
+    website: "https://bentopdf.com/"
+    support: "https://github.com/alam00000/bentopdf/issues"
+  upstream: {release: "2.8.11", released_at: "2026-10-31T11:31:39Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 32}   # sum of the memory requests in manifests/
+  web: {port: 8080}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

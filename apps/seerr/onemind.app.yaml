@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# seerr: Market batch 6 (contract sdk/contracts/poc-v0.md §9.5), written by hand from primary sources:
+# Seerr 3.5.2 (github.com/seerr-team/seerr), image ghcr.io/seerr-team/seerr. The image runs as the node user (UID/GID 1000),
+# Image digests and archs read from the registry API, GitHub facts from the GitHub API, read 2026-11-13.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: seerr
+  name: "Seerr"
+  version: "3.5.2"
+  description: "Open-source media request and discovery manager for Jellyfin, Plex and Emby."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (requests) are listed in README.md
+  # until the schema has metadata.tags.
+  category: media
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/seerr-team/seerr
+  links:
+    docs: "https://docs.seerr.dev"
+    github: "https://github.com/seerr-team/seerr"
+    website: "https://docs.seerr.dev"
+    support: "https://github.com/seerr-team/seerr/issues"
+  upstream: {release: "3.5.2", released_at: "2026-11-12T11:03:01Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}   # sum of the memory requests in manifests/
+  web: {port: 5055}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
