@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: Apache-2.0
+# A local base that itself reaches outside the app folder. Expected: Z-02.
+resources: [deployment.yaml, base]

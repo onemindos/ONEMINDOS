@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# A Secret generator reads a file outside the app folder. Expected: Z-02.
+resources: [deployment.yaml]
+secretGenerator:
+  - name: loot
+    files: [key=../../../../tokens.yaml]

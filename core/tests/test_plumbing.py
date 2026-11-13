@@ -104,7 +104,8 @@ def test_feature_router_plugs_in_with_one_entry(settings, clock, executor, monke
 
 def test_gateway_records_core_schema_version(client):
     gw = client.app.state.gateway
-    assert versions(gw.db.engine)["core"] == 2
+    assert versions(gw.db.engine)["core"] == 3
+    assert "approved_by" in {c["name"] for c in inspect(gw.db.engine).get_columns("actions")}
 
 
 # ---- feature tables and upgrade steps -------------------------------------------------------

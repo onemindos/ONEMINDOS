@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# The kustomization moves every object into kube-system. Expected: N-01.
+namespace: kube-system
+resources: [deployment.yaml]

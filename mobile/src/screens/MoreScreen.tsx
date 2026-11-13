@@ -3,7 +3,9 @@
 import { useNavigation } from '@react-navigation/native';
 import { Pressable, Text, View } from 'react-native';
 import type { RootParams } from '../nav';
+import { OP } from '../api/client';
 import { useHubData } from '../data';
+import { useSignedIn } from '../session';
 import { Badge, Card, H1, Screen, s } from '../ui/bits';
 import { font, useTheme } from '../ui/theme';
 
@@ -35,11 +37,16 @@ function Item({ label, detail, to, badge }: { label: string; detail: string; to:
 export function MoreScreen() {
   const { unreadCount, alerts } = useHubData();
   const open = (alerts ?? []).filter((a) => a.state === 'open').length;
+  const { features } = useSignedIn();
   return (
     <Screen testID="more">
       <H1>More</H1>
       <Item to="Inbox" label="Inbox" detail="Alerts and notifications from your box" badge={unreadCount + open || undefined} />
       <Item to="Nodes" label="Nodes" detail="Every machine in your OneMind, and whether it is live" />
+      {features.has(OP.backupStatus) && <Item to="Backups" label="Backups" detail="Is your box protected, and ask for a backup" />}
+      {features.has(OP.automationRules) && <Item to="Automation" label="Automation" detail="Rules, pause and what fired" />}
+      {features.has(OP.filesRoots) && <Item to="Files" label="Files" detail="Browse what the box shares with you" />}
+      {features.has(OP.migratePlans) && <Item to="Migrate" label="Migration" detail="Plans to move apps from another cluster" />}
       <Item to="PhotoBackup" label="Photo backup" detail="This phone's photos to your box" />
       <Item to="Settings" label="Settings" detail="You, this phone, push, connection" />
     </Screen>

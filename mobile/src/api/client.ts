@@ -10,15 +10,28 @@ import {
   type ApiErrorBody,
   type ApproveBody,
   type ApproveOptions,
+  type AutomationRule,
+  type AutomationRun,
+  type AutomationState,
+  type BackupDestination,
+  type BackupRun,
+  type BackupStatus,
   type CatalogApp,
   type DeviceRequest,
   type DeviceRequestBody,
+  type FileEntry,
+  type FileRoot,
+  type FirstRunSettings,
+  type FirstRunSettingsBody,
   type InboxItem,
   type Instance,
+  type LifecycleType,
   type LoginResult,
   type Me,
+  type MigratePlan,
   type NodeRecord,
   type Plan,
+  type PlanPreview,
   type PushRegistration,
   type PushRegistrationRequest,
   type WebAuthnAssertion,
@@ -46,6 +59,20 @@ export const OP = {
   authRefresh: 'POST /v1/auth/refresh',
   deviceRequest: 'POST /v1/devices/requests',
   deviceToken: 'POST /v1/devices/token',
+  /** §12.41 (owner only). */
+  onboardingSettings: 'GET /v1/onboarding/settings',
+  /** §12.40. */
+  appPlan: 'GET /v1/apps/{}/plan',
+  backupStatus: 'GET /v1/backups/status',
+  backupDestinations: 'GET /v1/backups/destinations',
+  backupRuns: 'GET /v1/backups/runs',
+  backupRequestRun: 'POST /v1/backups/runs',
+  backupVerify: 'POST /v1/backups/verify',
+  automationRules: 'GET /v1/automation/rules',
+  automationState: 'GET /v1/automation/state',
+  filesRoots: 'GET /v1/files/roots',
+  filesList: 'GET /v1/files/list',
+  migratePlans: 'GET /v1/migrate/plans',
 } as const;
 
 export type Op = (typeof OP)[keyof typeof OP];
@@ -142,6 +169,29 @@ export interface OneMindApi {
   deviceRequestStatus(id: string, pollCode?: string): Promise<DeviceRequest>;
   /** Device-bound renewal (RFC 9449 DPoP proof in the `DPoP` header). */
   deviceToken(dpopProof: string, refreshToken: string): Promise<LoginResult>;
+
+  // §12.41 first-run settings, owner only (403 for everyone else).
+  onboardingSettings(): Promise<FirstRunSettings>;
+  /** Full replacement; the hub validates the name, zone and destination (422) and writes nothing on a refusal. */
+  saveOnboardingSettings(body: FirstRunSettingsBody): Promise<FirstRunSettings>;
+  // §12.40 app lifecycle. `appPlan` files nothing; the request goes through `createAction` and waits for an owner.
+  appPlan(appId: string, type: LifecycleType | 'app.install'): Promise<PlanPreview>;
+  // §12.12 backups. Both writes only FILE a request (`approve: false` is always sent); an owner approves it.
+  backupStatus(): Promise<BackupStatus>;
+  backupDestinations(): Promise<BackupDestination[]>;
+  backupRuns(): Promise<BackupRun[]>;
+  requestBackupRun(body: { reason?: string; destination_id?: string; idempotencyKey: string }): Promise<Action>;
+  requestBackupVerify(body: { reason?: string; idempotencyKey: string }): Promise<Action>;
+  // §12.17 automation. Disabling a rule and pausing are always safe; enabling and resuming are owner-only.
+  automationState(): Promise<AutomationState>;
+  automationRules(): Promise<AutomationRule[]>;
+  automationRuns(): Promise<AutomationRun[]>;
+  setRuleEnabled(id: string, enabled: boolean): Promise<AutomationRule>;
+  setAutomationPaused(paused: boolean, reason?: string): Promise<AutomationState>;
+  // Files and migration, read only on the phone.
+  filesRoots(): Promise<FileRoot[]>;
+  filesList(root: string, path: string): Promise<FileEntry[]>;
+  migratePlans(): Promise<MigratePlan[]>;
   /** Where the SSE stream lives and which bearer to send; undefined in demo mode (no stream). */
   eventsEndpoint(): { url: string; bearer: () => string | undefined; refresh?: () => Promise<string | undefined> } | undefined;
 }
@@ -446,6 +496,61 @@ export class HttpApi implements OneMindApi {
       auth: false,
       headers: { DPoP: dpopProof },
     });
+  }
+  onboardingSettings() {
+    return this.req<FirstRunSettings>('GET', '/v1/onboarding/settings');
+  }
+  saveOnboardingSettings(body: FirstRunSettingsBody) {
+    return this.req<FirstRunSettings>('PUT', '/v1/onboarding/settings', body);
+  }
+  appPlan(appId: string, type: LifecycleType | 'app.install') {
+    return this.req<PlanPreview>('GET', `/v1/apps/${enc(appId)}/plan?type=${enc(type)}`);
+  }
+  backupStatus() {
+    return this.req<BackupStatus>('GET', '/v1/backups/status');
+  }
+  backupDestinations() {
+    return this.req<BackupDestination[]>('GET', '/v1/backups/destinations', undefined, 'array');
+  }
+  backupRuns() {
+    return this.req<BackupRun[]>('GET', '/v1/backups/runs', undefined, 'array');
+  }
+  // `approve: false` is spelled out: a request from the phone never approves itself (§12.12).
+  requestBackupRun(body: { reason?: string; destination_id?: string; idempotencyKey: string }) {
+    const { idempotencyKey, ...rest } = body;
+    return this.req<Action>('POST', '/v1/backups/runs', { scope: 'box', ...rest, approve: false }, 'object', {
+      headers: { 'Idempotency-Key': idempotencyKey },
+    });
+  }
+  requestBackupVerify(body: { reason?: string; idempotencyKey: string }) {
+    const { idempotencyKey, ...rest } = body;
+    return this.req<Action>('POST', '/v1/backups/verify', { ...rest, approve: false }, 'object', {
+      headers: { 'Idempotency-Key': idempotencyKey },
+    });
+  }
+  automationState() {
+    return this.req<AutomationState>('GET', '/v1/automation/state');
+  }
+  automationRules() {
+    return this.req<AutomationRule[]>('GET', '/v1/automation/rules', undefined, 'array');
+  }
+  automationRuns() {
+    return this.req<AutomationRun[]>('GET', '/v1/automation/runs', undefined, 'array');
+  }
+  setRuleEnabled(id: string, enabled: boolean) {
+    return this.req<AutomationRule>('POST', `/v1/automation/rules/${enc(id)}/${enabled ? 'enable' : 'disable'}`, undefined);
+  }
+  setAutomationPaused(paused: boolean, reason?: string) {
+    return this.req<AutomationState>('POST', `/v1/automation/${paused ? 'pause' : 'resume'}`, reason ? { reason } : {});
+  }
+  filesRoots() {
+    return this.req<FileRoot[]>('GET', '/v1/files/roots', undefined, 'array');
+  }
+  filesList(root: string, path: string) {
+    return this.req<FileEntry[]>('GET', `/v1/files/list?root=${enc(root)}&path=${enc(path)}&limit=200`, undefined, 'array');
+  }
+  migratePlans() {
+    return this.req<MigratePlan[]>('GET', '/v1/migrate/plans', undefined, 'array');
   }
   eventsEndpoint() {
     return {

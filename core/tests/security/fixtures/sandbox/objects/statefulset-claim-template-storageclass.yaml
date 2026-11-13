@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# A StatefulSet claim template on an unreviewed storage class. Expected: P-01.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: {name: escape}
+spec:
+  serviceName: escape
+  selector: {matchLabels: {app: escape}}
+  template:
+    metadata: {labels: {app: escape}}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: app
+          image: ghcr.io/example/app:1.0@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec: {storageClassName: escape-hostpath, accessModes: [ReadWriteOnce], resources: {requests: {storage: 1Gi}}}

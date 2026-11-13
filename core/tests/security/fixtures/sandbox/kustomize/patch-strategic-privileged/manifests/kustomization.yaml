@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# A strategic-merge patch file makes the container privileged. Expected: F-06.
+resources: [deployment.yaml]
+patches:
+  - path: privileged.yaml

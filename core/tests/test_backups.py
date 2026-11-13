@@ -243,6 +243,7 @@ def test_agent_requests_a_run_but_only_the_owner_approves(client, bk):
     add_usb(client, bk)
     r = client.post("/v1/backups/runs", headers=AGENT, json={"scope": {"app_id": "notes"}})
     assert r.status_code == 202 and r.json()["state"] == "awaiting_approval"
+    assert r.json()["approved_by"] is None
     assert client.post(f"/v1/actions/{r.json()['id']}/approve", headers=AGENT).status_code == 403
     before = len(client.get("/v1/actions", headers=OWNER).json())
     for path in ("/v1/backups/runs", "/v1/backups/verify"):
@@ -250,6 +251,8 @@ def test_agent_requests_a_run_but_only_the_owner_approves(client, bk):
     assert len(client.get("/v1/actions", headers=OWNER).json()) == before, "a refused owner shortcut files nothing (§12.1)"
     done = approve(client, r.json()["id"])
     assert done["state"] == "succeeded", done
+    assert done["approved_by"] == done["decided_by"]["id"] == "owner"
+    assert client.get(f"/v1/actions/{r.json()['id']}", headers=OWNER).json()["approved_by"] == "owner"
 
 
 def test_run_runs_hooks_inside_the_app_and_dumps_its_database(client, bk):

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // App restore (BACKUPS.md §7.2, steps 4 and 7). The gateway has already taken
@@ -98,11 +99,7 @@ func (a *Agent) RestoreApp(ctx context.Context, req AppRestoreRequest) (AppResto
 	restoredDirs := map[string]string{} // volume suffix -> its restored folder
 	undo := func() {
 		for i := len(done) - 1; i >= 0; i-- {
-			s := done[i]
-			_ = os.RemoveAll(s.cur)
-			if s.old != "" {
-				_ = os.Rename(s.old, s.cur)
-			}
+			_ = rollbackSwap(done[i])
 		}
 	}
 	for _, v := range spec.Volumes {
@@ -113,6 +110,10 @@ func (a *Agent) RestoreApp(ctx context.Context, req AppRestoreRequest) (AppResto
 		case src == "":
 			item.Reason = "the snapshot has no copy of this volume"
 		default:
+			if err := safeParent(cur); err != nil {
+				undo()
+				return res, fmt.Errorf("volume %s/%s: %w", v.Namespace, v.Claim, err)
+			}
 			if _, err := os.Lstat(cur); err != nil {
 				undo()
 				return res, fmt.Errorf("volume %s/%s: %w", v.Namespace, v.Claim, err)
@@ -187,39 +188,80 @@ func snapshotPathFor(paths []string, suffix, rel string) string {
 
 func pathBase(p string) string { return p[strings.LastIndex(p, "/")+1:] }
 
+// dirMeta is the owner, mode and mtime of an existing entry, read through a
+// directory handle (metaAt) so it can be given to its replacement.
+type dirMeta struct {
+	mode     os.FileMode
+	mtime    time.Time
+	uid, gid int
+	isDir    bool
+}
+
 // swapDir restores src from the snapshot into a new folder beside cur and
 // swaps it in, keeping cur as cur.onemind-old-<stamp>. The new folder takes
 // cur's mode and owner, so the app's user can still write it.
+//
+// The app owns cur's parent and may swap any folder in it for a symlink while
+// root works, so the restore lands in a root-only staging folder first and is
+// then copied and swapped in through a directory handle opened without
+// following symlinks (safefs_unix.go), as restoreDir does for a rewind.
 func (a *Agent) swapDir(ctx context.Context, repo Repo, id, src, cur, stamp string) (swap, error) {
-	if err := safeParent(cur); err != nil {
+	if err := os.MkdirAll(a.Cfg.StateDir, 0o700); err != nil {
 		return swap{}, err
 	}
-	old := cur + oldSuffix + stamp
-	if _, err := os.Lstat(old); err == nil {
-		return swap{}, fmt.Errorf("%s already exists: finish the previous restore first", filepath.Base(old))
-	}
-	tmp, err := os.MkdirTemp(filepath.Dir(cur), ".onemind-restore-")
+	st, err := os.MkdirTemp(a.Cfg.StateDir, "restore-stage-")
 	if err != nil {
 		return swap{}, err
 	}
-	if err := repo.Restore(ctx, id, src, tmp); err != nil {
-		_ = os.RemoveAll(tmp)
+	defer os.RemoveAll(st)
+	if err := repo.Restore(ctx, id, src, st); err != nil {
 		return swap{}, err
 	}
-	if err := copyOwnerAndMode(cur, tmp); err != nil {
-		_ = os.RemoveAll(tmp)
+	pfd, err := openDirNoFollow(filepath.Dir(cur), false)
+	if err != nil {
 		return swap{}, err
 	}
-	if err := os.Rename(cur, old); err != nil {
-		_ = os.RemoveAll(tmp)
+	defer closeDir(pfd)
+	if testHookAfterOpen != nil {
+		testHookAfterOpen()
+	}
+	name := filepath.Base(cur)
+	old := name + oldSuffix + stamp
+	if exists, err := checkDestAt(pfd, old, false); err != nil || exists {
+		if err == nil {
+			err = fmt.Errorf("%s already exists: finish the previous restore first", old)
+		}
 		return swap{}, err
 	}
-	if err := os.Rename(tmp, cur); err != nil {
-		_ = os.Rename(old, cur)
-		_ = os.RemoveAll(tmp)
+	meta, err := metaAt(pfd, name)
+	if err != nil {
 		return swap{}, err
 	}
-	return swap{cur: cur, old: old}, nil
+	if !meta.isDir {
+		return swap{}, fmt.Errorf("%s is not a folder; refusing to restore over it", cur)
+	}
+	tmp := tmpName(".onemind-restore-")
+	tfd, err := mkdirAt(pfd, tmp)
+	if err != nil {
+		return swap{}, err
+	}
+	defer func() { _ = removeAllAt(pfd, tmp) }() // a no-op once renamed into place
+	err = copyTreeAt(st, tfd)
+	if err == nil {
+		err = applyMetaFd(tfd, meta)
+	}
+	closeDir(tfd)
+	if err != nil {
+		return swap{}, err
+	}
+	if err := renameAt(pfd, name, old); err != nil {
+		return swap{}, err
+	}
+	if err := renameAt(pfd, tmp, name); err != nil {
+		_ = renameAt(pfd, old, name)
+		return swap{}, err
+	}
+	return swap{cur: cur, old: filepath.Join(filepath.Dir(cur), old)}, nil
 }
 
 // putOnlineCopy puts back, inside a just-restored volume folder, the online
@@ -284,11 +326,9 @@ func (a *Agent) putOnlineCopy(ctx context.Context, repo Repo, snap Snapshot, app
 }
 
 // swapFile restores one file next to cur and swaps it in. When cur did not
-// exist, undo just removes the restored file (old stays "").
+// exist, undo just removes the restored file (old stays ""). Every step is
+// relative to the parent folder, opened without following symlinks.
 func (a *Agent) swapFile(ctx context.Context, repo Repo, id, src, cur, stamp string) (swap, error) {
-	if err := safeParent(cur); err != nil {
-		return swap{}, err
-	}
 	n, err := lookupNode(ctx, repo, id, src)
 	if err != nil {
 		return swap{}, err
@@ -296,23 +336,77 @@ func (a *Agent) swapFile(ctx context.Context, repo Repo, id, src, cur, stamp str
 	if n.Type != "file" {
 		return swap{}, fmt.Errorf("%s is a %s in the snapshot", src, n.Type)
 	}
+	pfd, err := openDirNoFollow(filepath.Dir(cur), true)
+	if err != nil {
+		return swap{}, err
+	}
+	defer closeDir(pfd)
+	if testHookAfterOpen != nil {
+		testHookAfterOpen()
+	}
+	name := filepath.Base(cur)
+	exists, err := checkDestAt(pfd, name, true)
+	if err != nil {
+		return swap{}, err
+	}
 	s := swap{cur: cur}
-	if _, err := os.Lstat(cur); err == nil {
-		s.old = cur + oldSuffix + stamp
-		if err := os.Rename(cur, s.old); err != nil {
+	mode, mtime := n.Mode, n.Mtime
+	var meta dirMeta
+	oldName := ""
+	if exists {
+		if meta, err = metaAt(pfd, name); err != nil {
 			return swap{}, err
 		}
+		oldName = name + oldSuffix + stamp
+		if err := renameAt(pfd, name, oldName); err != nil {
+			return swap{}, err
+		}
+		s.old = filepath.Join(filepath.Dir(cur), oldName)
+		mode = meta.mode
 	}
-	if err := restoreFile(ctx, repo, id, src, cur, n); err != nil {
-		if s.old != "" {
-			_ = os.Rename(s.old, cur)
+	err = writeFileAt(pfd, name, mode, mtime, func(f *os.File) error {
+		if err := repo.Dump(ctx, id, src, f); err != nil {
+			return err
+		}
+		if exists {
+			_ = applyMetaFd(int(f.Fd()), meta) // best effort, as before: keep the old owner
+		}
+		return nil
+	})
+	if err != nil {
+		if oldName != "" {
+			_ = renameAt(pfd, oldName, name)
 		}
 		return swap{}, err
 	}
-	if s.old != "" {
-		_ = copyOwnerAndMode(s.old, cur)
-	}
 	return s, nil
+}
+
+// rollbackSwap puts s.old back over s.cur, and removeOld deletes it; both go
+// through the parent folder opened without following symlinks.
+func rollbackSwap(s swap) error {
+	pfd, err := openDirNoFollow(filepath.Dir(s.cur), false)
+	if err != nil {
+		return err
+	}
+	defer closeDir(pfd)
+	name := filepath.Base(s.cur)
+	if err := removeAllAt(pfd, name); err != nil {
+		return err
+	}
+	if s.old == "" {
+		return nil
+	}
+	return renameAt(pfd, filepath.Base(s.old), name)
+}
+
+func removeOld(old string) error {
+	pfd, err := openDirNoFollow(filepath.Dir(old), false)
+	if err != nil {
+		return err
+	}
+	defer closeDir(pfd)
+	return removeAllAt(pfd, filepath.Base(old))
 }
 
 // FinishRestoreRequest is the backup.restore.finish job.
@@ -353,14 +447,10 @@ func (a *Agent) FinishRestore(ctx context.Context, req FinishRestoreRequest) (in
 		}
 		n++
 		if req.Commit {
-			errs = append(errs, os.RemoveAll(old))
+			errs = append(errs, removeOld(old))
 			continue
 		}
-		if err := os.RemoveAll(cur); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		errs = append(errs, os.Rename(old, cur))
+		errs = append(errs, rollbackSwap(swap{cur: cur, old: old}))
 	}
 	return n, errors.Join(errs...)
 }
