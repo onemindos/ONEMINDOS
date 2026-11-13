@@ -200,103 +200,6 @@
         "title": "Action",
         "type": "object"
       },
-      "ActionParams": {
-        "additionalProperties": false,
-        "properties": {
-          "app_id": {
-            "maxLength": 59,
-            "minLength": 1,
-            "pattern": "^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$",
-            "title": "App Id",
-            "type": "string"
-          },
-          "confirm": {
-            "anyOf": [
-              {
-                "maxLength": 59,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Confirm"
-          },
-          "settings": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "maxProperties": 50,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Settings"
-          }
-        },
-        "required": [
-          "app_id"
-        ],
-        "title": "ActionParams",
-        "type": "object"
-      },
-      "ActionRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "expires_at": {
-            "format": "date-time",
-            "title": "Expires At",
-            "type": "string"
-          },
-          "idempotency_key": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Idempotency Key",
-            "type": "string"
-          },
-          "params": {
-            "$ref": "#/components/schemas/ActionParams"
-          },
-          "plan_sha256": {
-            "anyOf": [
-              {
-                "maxLength": 80,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Plan Sha256"
-          },
-          "type": {
-            "enum": [
-              "app.install",
-              "app.remove",
-              "app.start",
-              "app.stop",
-              "app.restart",
-              "app.update",
-              "app.configure",
-              "app.delete_data"
-            ],
-            "title": "Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "params",
-          "idempotency_key",
-          "expires_at"
-        ],
-        "title": "ActionRequest",
-        "type": "object"
-      },
       "ActionTemplate": {
         "additionalProperties": false,
         "properties": {
@@ -981,6 +884,96 @@
         "title": "CodeBody",
         "type": "object"
       },
+      "ConfigureActionParams": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "maxLength": 59,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$",
+            "title": "App Id",
+            "type": "string"
+          },
+          "settings": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 50,
+            "minProperties": 1,
+            "title": "Settings",
+            "type": "object"
+          }
+        },
+        "required": [
+          "app_id",
+          "settings"
+        ],
+        "title": "ConfigureActionParams",
+        "type": "object"
+      },
+      "ConfigureActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "params": {
+            "$ref": "#/components/schemas/ConfigureActionParams"
+          },
+          "plan_sha256": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Sha256"
+          },
+          "type": {
+            "const": "app.configure",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "expires_at",
+          "type",
+          "params"
+        ],
+        "title": "ConfigureActionRequest",
+        "type": "object"
+      },
+      "ConfigurePlanRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "params": {
+            "$ref": "#/components/schemas/ConfigureActionParams"
+          },
+          "type": {
+            "const": "app.configure",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "params"
+        ],
+        "title": "ConfigurePlanRequest",
+        "type": "object"
+      },
       "CopyBody": {
         "additionalProperties": false,
         "properties": {
@@ -1139,6 +1132,93 @@
           "kubeconfig"
         ],
         "title": "CutoverBody",
+        "type": "object"
+      },
+      "DeleteDataActionParams": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "maxLength": 59,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$",
+            "title": "App Id",
+            "type": "string"
+          },
+          "confirm": {
+            "maxLength": 59,
+            "minLength": 1,
+            "title": "Confirm",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "confirm"
+        ],
+        "title": "DeleteDataActionParams",
+        "type": "object"
+      },
+      "DeleteDataActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "params": {
+            "$ref": "#/components/schemas/DeleteDataActionParams"
+          },
+          "plan_sha256": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Sha256"
+          },
+          "type": {
+            "const": "app.delete_data",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "expires_at",
+          "type",
+          "params"
+        ],
+        "title": "DeleteDataActionRequest",
+        "type": "object"
+      },
+      "DeleteDataPlanRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "params": {
+            "$ref": "#/components/schemas/DeleteDataActionParams"
+          },
+          "type": {
+            "const": "app.delete_data",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "params"
+        ],
+        "title": "DeleteDataPlanRequest",
         "type": "object"
       },
       "DenyBody": {
@@ -1364,7 +1444,8 @@
               "unauthenticated",
               "rate_limited",
               "payload_too_large",
-              "policy_refused"
+              "policy_refused",
+              "unavailable"
             ],
             "title": "Error",
             "type": "string"
@@ -1473,7 +1554,8 @@
             "title": "Reason"
           },
           "root": {
-            "maxLength": 220,
+            "maxLength": 205,
+            "pattern": "^(?:shared|home:[ -~]{1,200})$",
             "title": "Root",
             "type": "string"
           },
@@ -1698,6 +1780,81 @@
           }
         },
         "title": "LoginBody",
+        "type": "object"
+      },
+      "MkdirOp": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "mkdir",
+            "title": "Op",
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          },
+          "root": {
+            "maxLength": 205,
+            "pattern": "^(?:shared|home:[ -~]{1,200})$",
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "root",
+          "path"
+        ],
+        "title": "MkdirOp",
+        "type": "object"
+      },
+      "MoveOp": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "move",
+            "title": "Op",
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          },
+          "root": {
+            "maxLength": 205,
+            "pattern": "^(?:shared|home:[ -~]{1,200})$",
+            "title": "Root",
+            "type": "string"
+          },
+          "to_path": {
+            "maxLength": 4096,
+            "title": "To Path",
+            "type": "string"
+          },
+          "to_root": {
+            "anyOf": [
+              {
+                "maxLength": 205,
+                "pattern": "^(?:shared|home:[ -~]{1,200})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Root"
+          }
+        },
+        "required": [
+          "op",
+          "root",
+          "path",
+          "to_path"
+        ],
+        "title": "MoveOp",
         "type": "object"
       },
       "Node": {
@@ -1991,99 +2148,6 @@
         "title": "OnboardingSettingsView",
         "type": "object"
       },
-      "OpBody": {
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 255,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "op": {
-            "enum": [
-              "mkdir",
-              "move",
-              "rename",
-              "trash",
-              "restore_trash"
-            ],
-            "title": "Op",
-            "type": "string"
-          },
-          "path": {
-            "anyOf": [
-              {
-                "maxLength": 4096,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Path"
-          },
-          "root": {
-            "anyOf": [
-              {
-                "maxLength": 220,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Root"
-          },
-          "to_path": {
-            "anyOf": [
-              {
-                "maxLength": 4096,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "To Path"
-          },
-          "to_root": {
-            "anyOf": [
-              {
-                "maxLength": 220,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "To Root"
-          },
-          "trash_id": {
-            "anyOf": [
-              {
-                "maxLength": 40,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Trash Id"
-          }
-        },
-        "required": [
-          "op"
-        ],
-        "title": "OpBody",
-        "type": "object"
-      },
       "Options": {
         "additionalProperties": false,
         "properties": {
@@ -2199,7 +2263,7 @@
           "path": {
             "maxLength": 4096,
             "minLength": 1,
-            "pattern": "^/",
+            "pattern": "^(?:/(?:[^/.][^/]*|\\.[^/.][^/]*|\\.\\.[^/]+))+/*$",
             "title": "Path",
             "type": "string"
           }
@@ -2228,6 +2292,100 @@
           }
         },
         "title": "PauseBody",
+        "type": "object"
+      },
+      "PlainActionParams": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "maxLength": 59,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$",
+            "title": "App Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id"
+        ],
+        "title": "PlainActionParams",
+        "type": "object"
+      },
+      "PlainActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "params": {
+            "$ref": "#/components/schemas/PlainActionParams"
+          },
+          "plan_sha256": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Sha256"
+          },
+          "type": {
+            "enum": [
+              "app.install",
+              "app.remove",
+              "app.start",
+              "app.stop",
+              "app.restart",
+              "app.update"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "expires_at",
+          "type",
+          "params"
+        ],
+        "title": "PlainActionRequest",
+        "type": "object"
+      },
+      "PlainPlanRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "params": {
+            "$ref": "#/components/schemas/PlainActionParams"
+          },
+          "type": {
+            "enum": [
+              "app.install",
+              "app.remove",
+              "app.start",
+              "app.stop",
+              "app.restart",
+              "app.update"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "params"
+        ],
+        "title": "PlainPlanRequest",
         "type": "object"
       },
       "PlanBody": {
@@ -2352,35 +2510,6 @@
           "plan_sha256"
         ],
         "title": "PlanPreview",
-        "type": "object"
-      },
-      "PlanRequest": {
-        "additionalProperties": false,
-        "description": "POST /v1/plans (contract §12.4): the same type and params as a request, nothing is filed.",
-        "properties": {
-          "params": {
-            "$ref": "#/components/schemas/ActionParams"
-          },
-          "type": {
-            "enum": [
-              "app.install",
-              "app.remove",
-              "app.start",
-              "app.stop",
-              "app.restart",
-              "app.update",
-              "app.configure",
-              "app.delete_data"
-            ],
-            "title": "Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "params"
-        ],
-        "title": "PlanRequest",
         "type": "object"
       },
       "PolicyBody": {
@@ -2526,6 +2655,7 @@
           "limit_bytes": {
             "anyOf": [
               {
+                "maximum": 1000000000000000.0,
                 "minimum": 0.0,
                 "type": "integer"
               },
@@ -2641,6 +2771,41 @@
         "title": "RefreshBody",
         "type": "object"
       },
+      "RenameOp": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "op": {
+            "const": "rename",
+            "title": "Op",
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          },
+          "root": {
+            "maxLength": 205,
+            "pattern": "^(?:shared|home:[ -~]{1,200})$",
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "root",
+          "path",
+          "name"
+        ],
+        "title": "RenameOp",
+        "type": "object"
+      },
       "RestoreBody": {
         "additionalProperties": false,
         "properties": {
@@ -2717,6 +2882,53 @@
           "scope"
         ],
         "title": "RestoreBody",
+        "type": "object"
+      },
+      "RestoreTrashOp": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "restore_trash",
+            "title": "Op",
+            "type": "string"
+          },
+          "to_path": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Path"
+          },
+          "to_root": {
+            "anyOf": [
+              {
+                "maxLength": 205,
+                "pattern": "^(?:shared|home:[ -~]{1,200})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Root"
+          },
+          "trash_id": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Trash Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "trash_id"
+        ],
+        "title": "RestoreTrashOp",
         "type": "object"
       },
       "RevertBody": {
@@ -3284,6 +3496,34 @@
         "title": "TrashEmptyBody",
         "type": "object"
       },
+      "TrashOp": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "trash",
+            "title": "Op",
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          },
+          "root": {
+            "maxLength": 205,
+            "pattern": "^(?:shared|home:[ -~]{1,200})$",
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "root",
+          "path"
+        ],
+        "title": "TrashOp",
+        "type": "object"
+      },
       "UserCreateBody": {
         "properties": {
           "display_name": {
@@ -3581,6 +3821,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "429": {
             "content": {
               "application/json": {
@@ -3638,7 +3888,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ActionRequest"
+                "discriminator": {
+                  "mapping": {
+                    "app.configure": "#/components/schemas/ConfigureActionRequest",
+                    "app.delete_data": "#/components/schemas/DeleteDataActionRequest",
+                    "app.install": "#/components/schemas/PlainActionRequest",
+                    "app.remove": "#/components/schemas/PlainActionRequest",
+                    "app.restart": "#/components/schemas/PlainActionRequest",
+                    "app.start": "#/components/schemas/PlainActionRequest",
+                    "app.stop": "#/components/schemas/PlainActionRequest",
+                    "app.update": "#/components/schemas/PlainActionRequest"
+                  },
+                  "propertyName": "type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PlainActionRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ConfigureActionRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DeleteDataActionRequest"
+                  }
+                ],
+                "title": "Req"
               }
             }
           },
@@ -3704,6 +3978,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -3875,6 +4159,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -4334,6 +4628,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -4509,6 +4813,16 @@
               }
             },
             "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -4817,6 +5131,16 @@
               }
             },
             "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -5290,8 +5614,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "maxLength": 40,
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ].*[Zz0-9]$",
                   "type": "string"
+                },
+                {
+                  "const": ""
                 },
                 {
                   "type": "null"
@@ -5309,8 +5637,12 @@
             "schema": {
               "anyOf": [
                 {
-                  "maxLength": 40,
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ].*[Zz0-9]$",
                   "type": "string"
+                },
+                {
+                  "const": ""
                 },
                 {
                   "type": "null"
@@ -5569,6 +5901,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -5627,6 +5969,16 @@
               }
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -5819,6 +6171,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -5987,6 +6349,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -6045,6 +6417,16 @@
               }
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -6220,6 +6602,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -6294,6 +6686,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -6347,6 +6749,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -6473,6 +6885,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -6538,6 +6960,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -6634,6 +7066,16 @@
               }
             },
             "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -6846,6 +7288,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -6992,6 +7444,16 @@
               }
             },
             "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -7248,6 +7710,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Destinations",
@@ -7265,6 +7737,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
+                  "minLength": 1,
                   "type": "string"
                 },
                 {
@@ -7324,6 +7798,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -7333,6 +7817,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Add Destination",
@@ -7361,6 +7855,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
+                  "minLength": 1,
                   "type": "string"
                 },
                 {
@@ -7419,6 +7915,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Remove Destination",
@@ -7458,6 +7964,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Kit",
@@ -7476,6 +7992,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
+                  "minLength": 1,
                   "type": "string"
                 },
                 {
@@ -7534,6 +8052,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Issue Kit",
@@ -7604,6 +8132,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -7613,6 +8151,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Confirm Kit",
@@ -7652,6 +8200,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Runs",
@@ -7669,6 +8227,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
+                  "minLength": 1,
                   "type": "string"
                 },
                 {
@@ -7728,6 +8288,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -7737,6 +8307,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Request Run",
@@ -7807,6 +8387,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Run",
@@ -7892,6 +8482,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Snapshots",
@@ -7962,6 +8562,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Snapshot",
@@ -8043,6 +8653,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "File",
@@ -8124,6 +8744,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Tree",
@@ -8163,6 +8793,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Status",
@@ -8202,6 +8842,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Verifications",
@@ -8221,6 +8871,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
+                  "minLength": 1,
                   "type": "string"
                 },
                 {
@@ -8280,6 +8932,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -8289,6 +8951,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Verify",
@@ -8399,12 +9071,67 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
-              },
               "text/event-stream": {
                 "schema": {
-                  "type": "string"
+                  "properties": {
+                    "data": {
+                      "contentMediaType": "application/json",
+                      "contentSchema": {
+                        "properties": {
+                          "actor_id": {
+                            "type": "string"
+                          },
+                          "data": {
+                            "type": "object"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "schema": {
+                            "const": "onemind.event/v1"
+                          },
+                          "severity": {
+                            "type": "string"
+                          },
+                          "subject": {
+                            "type": "object"
+                          },
+                          "ts": {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "schema",
+                          "id",
+                          "type",
+                          "ts",
+                          "subject",
+                          "severity",
+                          "data"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "string"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "retry": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "data"
+                  ],
+                  "type": "object"
                 }
               }
             },
@@ -8456,7 +9183,8 @@
             "name": "root",
             "required": true,
             "schema": {
-              "maxLength": 220,
+              "maxLength": 205,
+              "pattern": "^(?:shared|home:[ -~]{1,200})$",
               "title": "Root",
               "type": "string"
             }
@@ -8617,6 +9345,16 @@
           "409": {
             "description": "conflict, stale_precondition or expired; `reason` says which case"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
           },
@@ -8691,7 +9429,8 @@
             "name": "root",
             "required": true,
             "schema": {
-              "maxLength": 220,
+              "maxLength": 205,
+              "pattern": "^(?:shared|home:[ -~]{1,200})$",
               "title": "Root",
               "type": "string"
             }
@@ -8733,6 +9472,7 @@
                   "type": "null"
                 }
               ],
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
               "title": "Cursor"
             }
           }
@@ -8778,7 +9518,34 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OpBody"
+                "discriminator": {
+                  "mapping": {
+                    "mkdir": "#/components/schemas/MkdirOp",
+                    "move": "#/components/schemas/MoveOp",
+                    "rename": "#/components/schemas/RenameOp",
+                    "restore_trash": "#/components/schemas/RestoreTrashOp",
+                    "trash": "#/components/schemas/TrashOp"
+                  },
+                  "propertyName": "op"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/MkdirOp"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MoveOp"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RenameOp"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TrashOp"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RestoreTrashOp"
+                  }
+                ],
+                "title": "Body"
               }
             }
           },
@@ -8830,7 +9597,8 @@
             "name": "root",
             "required": true,
             "schema": {
-              "maxLength": 220,
+              "maxLength": 205,
+              "pattern": "^(?:shared|home:[ -~]{1,200})$",
               "title": "Root",
               "type": "string"
             }
@@ -8947,6 +9715,16 @@
           "403": {
             "description": "Not allowed for this principal (permission_denied)"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
           },
@@ -9001,6 +9779,7 @@
               "anyOf": [
                 {
                   "maxLength": 64,
+                  "pattern": "^[A-Za-z0-9_-]{1,64}$",
                   "type": "string"
                 },
                 {
@@ -9130,6 +9909,16 @@
           "409": {
             "description": "conflict, stale_precondition or expired; `reason` says which case"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -9240,6 +10029,16 @@
           "409": {
             "description": "conflict, stale_precondition or expired; `reason` says which case"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -9291,7 +10090,8 @@
             "name": "root",
             "required": true,
             "schema": {
-              "maxLength": 220,
+              "maxLength": 205,
+              "pattern": "^(?:shared|home:[ -~]{1,200})$",
               "title": "Root",
               "type": "string"
             }
@@ -9380,6 +10180,7 @@
               "anyOf": [
                 {
                   "maxLength": 64,
+                  "pattern": "^[A-Za-z0-9_-]{1,64}$",
                   "type": "string"
                 },
                 {
@@ -9474,6 +10275,16 @@
           "409": {
             "description": "conflict, stale_precondition or expired; `reason` says which case"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
           },
@@ -9494,13 +10305,11 @@
       "options": {
         "operationId": "files.uploads.options",
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
+          "204": {
+            "description": "The tus capabilities, in the Tus-* response headers"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
           }
         },
         "summary": "Tus Options",
@@ -9512,36 +10321,40 @@
         "operationId": "files.uploads.create",
         "parameters": [
           {
+            "description": "The tus protocol version; anything else is 412.",
             "in": "header",
-            "name": "upload-length",
-            "required": false,
+            "name": "tus-resumable",
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Upload-Length"
+              "const": "1.0.0",
+              "description": "The tus protocol version; anything else is 412.",
+              "title": "Tus-Resumable",
+              "type": "string"
             }
           },
           {
+            "description": "The whole file's size (deferred length is not supported)",
+            "in": "header",
+            "name": "upload-length",
+            "required": true,
+            "schema": {
+              "description": "The whole file's size (deferred length is not supported)",
+              "minimum": 0,
+              "title": "Upload-Length",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "`filename` (base64) at least; also root, path, sha256, overwrite",
             "in": "header",
             "name": "upload-metadata",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "maxLength": 8192,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Upload-Metadata"
+              "description": "`filename` (base64) at least; also root, path, sha256, overwrite",
+              "maxLength": 8192,
+              "pattern": "^[A-Za-z0-9_.-]{1,64}(?: [A-Za-z0-9+/]*={0,2})?(?:,[A-Za-z0-9_.-]{1,64}(?: [A-Za-z0-9+/]*={0,2})?)*$",
+              "title": "Upload-Metadata",
+              "type": "string"
             }
           },
           {
@@ -9559,22 +10372,6 @@
                 }
               ],
               "title": "Repr-Digest"
-            }
-          },
-          {
-            "in": "header",
-            "name": "tus-resumable",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Tus-Resumable"
             }
           }
         ],
@@ -9632,19 +10429,15 @@
             }
           },
           {
+            "description": "The tus protocol version; anything else is 412.",
             "in": "header",
             "name": "tus-resumable",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Tus-Resumable"
+              "const": "1.0.0",
+              "description": "The tus protocol version; anything else is 412.",
+              "title": "Tus-Resumable",
+              "type": "string"
             }
           }
         ],
@@ -9737,19 +10530,15 @@
             }
           },
           {
+            "description": "The tus protocol version; anything else is 412.",
             "in": "header",
             "name": "tus-resumable",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Tus-Resumable"
+              "const": "1.0.0",
+              "description": "The tus protocol version; anything else is 412.",
+              "title": "Tus-Resumable",
+              "type": "string"
             }
           }
         ],
@@ -9800,19 +10589,35 @@
             }
           },
           {
+            "description": "The tus protocol version; anything else is 412.",
+            "in": "header",
+            "name": "tus-resumable",
+            "required": true,
+            "schema": {
+              "const": "1.0.0",
+              "description": "The tus protocol version; anything else is 412.",
+              "title": "Tus-Resumable",
+              "type": "string"
+            }
+          },
+          {
             "in": "header",
             "name": "upload-offset",
-            "required": false,
+            "required": true,
             "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Upload-Offset"
+              "minimum": 0,
+              "title": "Upload-Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "content-type",
+            "required": true,
+            "schema": {
+              "pattern": "(?i)^application/offset\\+octet-stream(?:\\s*;.*)?$",
+              "title": "Content-Type",
+              "type": "string"
             }
           },
           {
@@ -9830,38 +10635,6 @@
                 }
               ],
               "title": "Upload-Checksum"
-            }
-          },
-          {
-            "in": "header",
-            "name": "content-type",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Content-Type"
-            }
-          },
-          {
-            "in": "header",
-            "name": "tus-resumable",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Tus-Resumable"
             }
           }
         ],
@@ -9883,6 +10656,9 @@
           },
           "413": {
             "description": "payload_too_large: quota_exceeded, insufficient_space, upload_too_large or chunk_too_large"
+          },
+          "415": {
+            "description": "PATCH needs Content-Type: application/offset+octet-stream"
           },
           "422": {
             "content": {
@@ -10068,6 +10844,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -10245,6 +11031,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -10351,6 +11147,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -10539,6 +11345,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -10645,6 +11461,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -10803,18 +11629,37 @@
             }
           },
           {
+            "description": "Seconds, Nm, Nh or an RFC 3339 instant 1..86400 seconds ago; empty uses 3600 s.",
             "in": "query",
             "name": "window",
             "required": false,
             "schema": {
               "anyOf": [
                 {
+                  "pattern": "^(?=[0-9]{1,6}s?$)0*(?:[1-9][0-9]{0,3}|[1-7][0-9]{4}|8[0-5][0-9]{3}|86[0-3][0-9]{2}|86400)s?$",
                   "type": "string"
+                },
+                {
+                  "pattern": "^(?=[0-9]{1,6}m$)0*(?:[1-9][0-9]{0,2}|1[0-3][0-9]{2}|14[0-3][0-9]|1440)m$",
+                  "type": "string"
+                },
+                {
+                  "pattern": "^(?=[0-9]{1,6}h$)0*(?:[1-9]|1[0-9]|2[0-4])h$",
+                  "type": "string"
+                },
+                {
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ].*[Zz0-9]$",
+                  "type": "string"
+                },
+                {
+                  "const": ""
                 },
                 {
                   "type": "null"
                 }
               ],
+              "description": "Seconds, Nm, Nh or an RFC 3339 instant 1..86400 seconds ago; empty uses 3600 s.",
               "title": "Window"
             }
           }
@@ -11094,6 +11939,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -11236,6 +12091,16 @@
               }
             },
             "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -11434,6 +12299,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -11531,6 +12406,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -11775,6 +12660,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -11848,6 +12743,16 @@
               }
             },
             "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -11930,6 +12835,16 @@
               }
             },
             "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -12139,7 +13054,10 @@
             "required": false,
             "schema": {
               "default": "?0",
-              "pattern": "^\\?[01]$",
+              "enum": [
+                "?0",
+                "?1"
+              ],
               "title": "Upload-Complete",
               "type": "string"
             }
@@ -12418,7 +13336,10 @@
             "name": "Upload-Complete",
             "required": true,
             "schema": {
-              "pattern": "^\\?[01]$",
+              "enum": [
+                "?0",
+                "?1"
+              ],
               "title": "Upload-Complete",
               "type": "string"
             }
@@ -12529,7 +13450,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PlanRequest"
+                "discriminator": {
+                  "mapping": {
+                    "app.configure": "#/components/schemas/ConfigurePlanRequest",
+                    "app.delete_data": "#/components/schemas/DeleteDataPlanRequest",
+                    "app.install": "#/components/schemas/PlainPlanRequest",
+                    "app.remove": "#/components/schemas/PlainPlanRequest",
+                    "app.restart": "#/components/schemas/PlainPlanRequest",
+                    "app.start": "#/components/schemas/PlainPlanRequest",
+                    "app.stop": "#/components/schemas/PlainPlanRequest",
+                    "app.update": "#/components/schemas/PlainPlanRequest"
+                  },
+                  "propertyName": "type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PlainPlanRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ConfigurePlanRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DeleteDataPlanRequest"
+                  }
+                ],
+                "title": "Body"
               }
             }
           },
@@ -12575,6 +13520,16 @@
               }
             },
             "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -12671,6 +13626,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -12814,6 +13779,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Restores",
@@ -12831,6 +13806,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
+                  "minLength": 1,
                   "type": "string"
                 },
                 {
@@ -12900,6 +13877,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -12909,6 +13896,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Request Restore",
@@ -12979,6 +13976,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Restore",
@@ -13065,6 +14072,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -13228,6 +14245,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -13334,6 +14361,16 @@
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -13423,6 +14460,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -13602,6 +14649,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {

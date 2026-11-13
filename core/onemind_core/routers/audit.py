@@ -55,8 +55,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         event: str | None = Query(None, max_length=500, description="comma = OR, `*` glob, e.g. action.*"),
         principal_id: str | None = Query(None, max_length=200),
         action_id: str | None = Query(None, max_length=200),
-        since: str | None = Query(None, max_length=40, description="RFC 3339, inclusive"),
-        until: str | None = Query(None, max_length=40, description="RFC 3339, exclusive"),
+        since: str | None = Query(None, max_length=40, json_schema_extra={"anyOf": [{"type": "string", "format": "date-time", "pattern": r"^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ].*[Zz0-9]$"}, {"const": ""}, {"type": "null"}]}, description="RFC 3339, inclusive"),
+        until: str | None = Query(None, max_length=40, json_schema_extra={"anyOf": [{"type": "string", "format": "date-time", "pattern": r"^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ].*[Zz0-9]$"}, {"const": ""}, {"type": "null"}]}, description="RFC 3339, exclusive"),
         limit: int = Query(100, ge=1, le=MAX_LIMIT),
         p: Principal = Depends(principal),
     ):
