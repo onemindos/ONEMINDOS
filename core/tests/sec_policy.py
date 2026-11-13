@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """THE authorization policy table: every gateway route x every principal kind -> expected status.
 
-test_authz_matrix.py enumerates the live app's routes (app.routes) and runs one request per cell.
+test_route_authz.py (the matrix half) enumerates the live app's routes (app.routes) and runs one request per cell.
 A route with no row here fails the suite, so a new endpoint cannot ship without someone writing
 down who may call it. A row whose route is not on this tree yet carries `pending` (the stream that
 adds it); its cells skip until the route exists and then run with the statuses below.
