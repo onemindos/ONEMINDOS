@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # 2-VM network proof: a hub and a node (Debian 13, QEMU/KVM) on a private network; install, owner-approved
 # join, mesh, NATS leaf TLS, no plain HTTP on the LAN, HTTPS app proxy. Criteria: test/net/CRITERIA-2VM.md
-# (pre-registered). Criteria that depend on wiring not merged yet report BLOCKED, never PASS.
+# (pre-registered). A criterion that could not run reports BLOCKED, never PASS; pull requests run strict (BLOCKED fails).
 name: net-2vm
 on:
   pull_request:
@@ -18,6 +18,9 @@ on:
       - 'core/onemind_core/natsconf.py'
       - 'core/onemind_core/netconf.py'
       - 'core/onemind_core/proxy.py'
+      - 'core/onemind_core/serve.py'
+      - 'core/onemind_core/ca.py'
+      - 'core/onemind_core/lan.py'
       - 'core/onemind_core/routers/net.py'
       - 'core/onemind_core/app.py'
       - '.github/workflows/net-2vm.yml'
@@ -28,7 +31,7 @@ on:
         required: false
         default: ''
       strict:
-        description: 'Treat BLOCKED as a failure'
+        description: 'Treat BLOCKED as a failure (always on for pull requests)'
         type: boolean
         default: false
 permissions:
@@ -60,9 +63,9 @@ jobs:
       - name: Run the 2-VM proof
         env:
           ONEMIND_NET_SRC_REF: ${{ github.event.inputs.source_ref }}
-          # BLOCKED (feature not merged yet) is reported, not failed, until the blocking PRs have merged;
-          # the merge-queue run of this workflow sets strict. FAIL always fails the job.
-          ONEMIND_NET_STRICT: ${{ github.event.inputs.strict == 'true' && '1' || '0' }}
+          # Strict on every pull request: a BLOCKED criterion fails the job (nothing is counted as passed that did not run).
+          # A manual run is strict only when asked. FAIL always fails the job.
+          ONEMIND_NET_STRICT: ${{ (github.event_name == 'pull_request' || github.event.inputs.strict == 'true') && '1' || '0' }}
         run: |
           mkdir -p test/net/results
           python3 -I test/net/two_vm.py --results test/net/results/run.json

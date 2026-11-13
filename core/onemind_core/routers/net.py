@@ -153,47 +153,47 @@ def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
 
     # ---- fabric (§12.11) ------------------------------------------------------------------------------
-    @app.post("/v1/fabric/join-tickets", tags=["fabric"], status_code=201, responses=error_responses(401, 403, 422))
+    @app.post("/v1/fabric/join-tickets", operation_id="fabric.ticket_create", tags=["fabric"], status_code=201, responses=error_responses(401, 403, 422))
     def create_ticket(body: TicketRequest = Body(default_factory=TicketRequest), p: Principal = Depends(principal)):
         return fabric.create_ticket(p, body)
 
-    @app.get("/v1/fabric/join-tickets", tags=["fabric"], responses=error_responses(401, 403))
+    @app.get("/v1/fabric/join-tickets", operation_id="fabric.ticket_list", tags=["fabric"], responses=error_responses(401, 403))
     def list_tickets(p: Principal = Depends(principal)):
         return fabric.list_tickets(p)
 
-    @app.delete("/v1/fabric/join-tickets/{ticket_id}", tags=["fabric"], status_code=204,
+    @app.delete("/v1/fabric/join-tickets/{ticket_id}", operation_id="fabric.ticket_revoke", tags=["fabric"], status_code=204,
                 responses=error_responses(401, 403, 404, 409))
     def revoke_ticket(ticket_id: str, p: Principal = Depends(principal)):
         fabric.revoke_ticket(p, ticket_id)
         return Response(status_code=204)
 
-    @app.post("/v1/fabric/join-requests", tags=["fabric"], status_code=202,
+    @app.post("/v1/fabric/join-requests", operation_id="fabric.join_request", tags=["fabric"], status_code=202,
               responses=error_responses(401, 409, 422, 429))
     def create_join_request(body: JoinRequestBody, request: Request):
         """No session: the one-time join code authenticates. Files node.join and nothing else."""
         out = fabric.create_request(_source(request), body)
         return JSONResponse(status_code=202, content=out, headers={"Location": out["poll"]})
 
-    @app.get("/v1/fabric/join-requests/{request_id}", tags=["fabric"], responses=error_responses(401, 404, 429, 503))
+    @app.get("/v1/fabric/join-requests/{request_id}", operation_id="fabric.join_status", tags=["fabric"], responses=error_responses(401, 404, 429, 503))
     def poll_join_request(request_id: str, request: Request,
                           onemind_join_code: str = Header(default=""), onemind_join_proof: str = Header(default="")):
         """The joining node polls with its code and a signature by its own key; credentials come once."""
         out = fabric.poll(_source(request), request_id, onemind_join_code, onemind_join_proof)
         return JSONResponse(content=out, headers={"Cache-Control": "no-store"})
 
-    @app.get("/v1/fabric", tags=["fabric"], responses=error_responses(401))
+    @app.get("/v1/fabric", operation_id="fabric.get", tags=["fabric"], responses=error_responses(401))
     def fabric_summary(_: Principal = Depends(principal)):
         return fabric.summary()
 
     # ---- box CA and HTTPS (§12.7) -----------------------------------------------------------------------
-    @app.get("/v1/tls", tags=["tls"], responses=error_responses(401))
+    @app.get("/v1/tls", operation_id="tls.get", tags=["tls"], responses=error_responses(401))
     def tls_info(_: Principal = Depends(principal)):
         cert = box_ca.ensure_https_cert() if net.tls else None
         return {"ca_sha256": box_ca.ca_fingerprint(), "names": list(box_ca.https_names()),
                 "not_after": cert.not_after.isoformat().replace("+00:00", "Z") if cert else None,
                 "https": net.tls, "acme": None}
 
-    @app.get("/v1/tls/ca.crt", tags=["tls"])
+    @app.get("/v1/tls/ca.crt", operation_id="tls.ca", tags=["tls"])
     def ca_cert(format: str = "der"):
         """Open, like /healthz: a phone or a joining node needs the CA before it can sign in. It is
         public data; clients pin it by the sha256 shown in the pairing QR."""
@@ -203,7 +203,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                         headers={"Content-Disposition": f'attachment; filename="onemind-{box}-ca.crt"'})
 
     # ---- mesh view (NETWORKING §15, proposed §12.16) ----------------------------------------------------
-    @app.get("/v1/mesh", tags=["mesh"], responses=error_responses(401))
+    @app.get("/v1/mesh", operation_id="mesh.get", tags=["mesh"], responses=error_responses(401))
     def mesh_view(addresses: bool = False, p: Principal = Depends(principal)):
         show_ips = addresses and p.is_owner  # owner-only toggle, never the default (contract §2)
         scheme = "https" if net.tls else "http"
@@ -245,7 +245,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return out
 
     # ---- forward-auth for an edge in front of the gateway (§9.3) ---------------------------------------
-    @app.get("/v1/auth/forward", tags=["auth"], status_code=204, responses=error_responses(401, 403, 404))
+    @app.get("/v1/auth/forward", operation_id="auth.forward", tags=["auth"], status_code=204, responses=error_responses(401, 403, 404))
     def forward_auth(request: Request, x_forwarded_host: str = Header(default="")):
         """Loopback only. The same decision the in-gateway proxy makes: sign-in first, then access."""
         if not _is_loopback(request):
@@ -269,7 +269,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 return d
         return None
 
-    @app.post("/v1/auth/app-session", tags=["auth"], status_code=204, responses=error_responses(401, 403))
+    @app.post("/v1/auth/app-session", operation_id="auth.app_session_set", tags=["auth"], status_code=204, responses=error_responses(401, 403))
     def app_session(request: Request, p: Principal = Depends(principal)):
         """Set the HttpOnly cookie app hosts accept, for the box domain this request came in on.
 
@@ -285,7 +285,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         gw.audit.append("auth.app_session.set", p.as_dict(), None, {"domain": _cookie_domain(request)})
         return resp
 
-    @app.delete("/v1/auth/app-session", tags=["auth"], status_code=204)
+    @app.delete("/v1/auth/app-session", operation_id="auth.app_session_clear", tags=["auth"], status_code=204)
     def app_session_clear(request: Request):
         resp = Response(status_code=204)
         resp.delete_cookie(SESSION_COOKIE, path="/", domain=_cookie_domain(request), secure=True, httponly=True,

@@ -6,8 +6,8 @@ Without ONEMIND_NET_TLS: one plain HTTP listener on ONEMIND_HOST:ONEMIND_PORT, a
 With ONEMIND_NET_TLS=1, one process serves the same app on:
 - HTTPS on ONEMIND_NET_HTTPS_PORTS (default 443 and 8443) with a box-CA certificate for the box's
   names and every app name (<app>.onemind.local, <app>.<box>.local, <app>.apps.onemind.internal);
-- plain HTTP on ONEMIND_HOST:ONEMIND_PORT for local tools, the health gate and in-cluster callers
-  (the installer keeps it where it was; H-05 wants it on loopback once app pods use HTTPS);
+- plain HTTP on ONEMIND_PORT, bound to loopback only (plain_http_host, H-05): local tools and the health gate;
+  the LAN is served by HTTPS only;
 - optionally ONEMIND_NET_HTTP_REDIRECT_PORT (80), which only redirects to HTTPS.
 
 Lifespan (NATS, startup hooks) runs once, on the plain listener; the others start after it.
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import ipaddress
 import logging
 import signal
 import socket
@@ -46,6 +47,28 @@ def _bind(host: str, port: int) -> socket.socket:
     sock.bind((host, port))
     sock.set_inheritable(True)
     return sock
+
+
+LOOPBACK_HOST = "127.0.0.1"
+
+
+def plain_http_host(host: str) -> str:
+    """The address the plain-HTTP listener binds to once HTTPS is on (H-05, §12.7).
+
+    Plain HTTP never serves the LAN: a wildcard or LAN address is replaced by loopback, which is
+    where local tools, the health gate and the installer's checks reach it. The LAN gets HTTPS
+    (and, optionally, a redirect). Only an explicit loopback address is kept as it is.
+    """
+    h = host.strip("[]")
+    if h == "localhost":
+        return h
+    try:
+        if ipaddress.ip_address(h).is_loopback:
+            return host
+    except ValueError:
+        pass
+    log.warning("ONEMIND_HOST=%r is not loopback: with HTTPS on, plain HTTP is bound to %s only (H-05)", host, LOOPBACK_HOST)
+    return LOOPBACK_HOST
 
 
 def redirect_app(https_port: int):
@@ -91,7 +114,8 @@ async def serve_all(app, settings: Settings) -> None:
     net = settings.section(NetSettings)
     certfile, keyfile = https_cert(settings, net)
     ports = [int(p) for p in net.https_ports]
-    main = _Server(uvicorn.Config(app, host=settings.host, port=settings.port, proxy_headers=False, lifespan="on"))
+    main = _Server(uvicorn.Config(app, host=plain_http_host(settings.host), port=settings.port,
+                                  proxy_headers=False, lifespan="on"))
     https = _Server(uvicorn.Config(app, lifespan="off", proxy_headers=False, ssl_certfile=certfile, ssl_keyfile=keyfile))
     https_socks = [_bind(net.https_host, p) for p in ports]
     extra: list[tuple[_Server, list[socket.socket] | None]] = [(https, https_socks)]
