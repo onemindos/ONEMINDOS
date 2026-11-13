@@ -510,7 +510,7 @@ def network_policies(
     extra_egress: (cidr, port) pairs the gateway adds itself; for an agent app, the gateway's own
     address and port, which `internet` excludes when it is on the LAN.
     gateway_sources / gateway_ports: the hub's host addresses as a pod on another node sees them
-    (its flannel address and node IP) and the app's web port(s). The gateway runs on the hub host,
+    (the address of the hub's local flannel interface) and the app's web port(s). The gateway runs on the hub host,
     not in a pod, so the namespace rule never matches it; this lets it reach only those TCP ports.
     """
     ns = f"app-{app_id}"

@@ -609,41 +609,39 @@ def _display(argv: Sequence[str], app: AppEntry) -> list[str]:
     return [a.replace(root, "$ONEMIND_APPS_DIR", 1) if a.startswith(root) else a for a in argv]
 
 
-def kubectl_hub_addresses(kubectl: str = "kubectl", *, timeout_s: float = 15,
-                          runner: Runner = subprocess.run, hostname: str | None = None) -> Callable[[], list[str]]:
+def local_flannel_addresses(*, timeout_s: float = 15, runner: Runner = subprocess.run,
+                            ip: str = "ip") -> Callable[[], list[str]]:
     """The addresses a pod on another node sees for traffic from this host (the hub).
 
-    Under flannel vxlan, host-originated traffic to a remote pod leaves via flannel.1, whose
-    address is the first address of this node's podCIDR; the node's InternalIP is included for
-    the host-gw and non-masqueraded cases. The hub node is the one named like this host. Empty
-    when it cannot be told, which leaves the policy closed.
+    The gateway runs on the hub host. Host-originated traffic to a pod on another node leaves
+    from the address of the local flannel interface (flannel-wg for wireguard-native, flannel.1
+    for vxlan, flannel-v6 and so on), which `ip route get <remote pod ip>` shows (VERIFIED in the
+    2-VM CI run). So these are the IPv4/IPv6 addresses on local interfaces named `flannel*`, read
+    with `ip -j addr show`; no cluster permission is needed. Empty on any failure, which leaves
+    the policy closed. Read each time the policy is rendered, since the interface appears only
+    after k3s is up.
     """
-    name = (hostname or socket.gethostname()).split(".")[0].lower()
 
     def find() -> list[str]:
         try:
-            cp = runner([kubectl, "get", "nodes", "-o", "json"], capture_output=True, text=True,
+            cp = runner([ip, "-j", "addr", "show"], capture_output=True, text=True,
                         timeout=timeout_s, check=False)
-            items = json.loads(cp.stdout or "{}").get("items") or [] if cp.returncode == 0 else []
+            ifaces = json.loads(cp.stdout or "[]") if cp.returncode == 0 else []
+            if not isinstance(ifaces, list):
+                return []
         except (OSError, subprocess.SubprocessError, ValueError):
             return []
         out: list[str] = []
-        for node in items:
-            if str(((node.get("metadata") or {}).get("name") or "")).lower() != name:
+        for iface in ifaces:
+            if not isinstance(iface, dict) or not str(iface.get("ifname") or "").startswith("flannel"):
                 continue
-            spec = node.get("spec") or {}
-            cidrs = list(spec.get("podCIDRs") or []) or ([spec["podCIDR"]] if spec.get("podCIDR") else [])
-            for c in cidrs:
+            for info in iface.get("addr_info") or []:
                 try:
-                    out.append(str(ipaddress.ip_network(c, strict=False).network_address))
-                except ValueError:
+                    addr = str(ipaddress.ip_address(str((info or {}).get("local") or "")))
+                except (ValueError, AttributeError):
                     continue
-            for a in (node.get("status") or {}).get("addresses") or []:
-                if a.get("type") == "InternalIP":
-                    try:
-                        out.append(str(ipaddress.ip_address(a.get("address"))))
-                    except ValueError:
-                        continue
+                if addr not in out:
+                    out.append(addr)
         return out
 
     return find
@@ -654,5 +652,5 @@ def make_executor(
 ) -> Executor:
     if name == "kubernetes":
         return KubernetesExecutor(kubectl=kubectl, timeout_s=timeout_s, sandbox=sandbox,
-                                  hub_addresses=kubectl_hub_addresses(kubectl))
+                                  hub_addresses=local_flannel_addresses())
     return NoopExecutor()

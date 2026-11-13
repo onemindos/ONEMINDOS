@@ -18,7 +18,7 @@ from conftest import conform_to_schema, OWNER, FakeKubectl, action_body, fake_ku
 from onemind_core import policy
 from onemind_core.app import create_app
 from onemind_core.catalog import AppEntry, Catalog
-from onemind_core.executors import KubernetesExecutor, kubectl_hub_addresses
+from onemind_core.executors import KubernetesExecutor, local_flannel_addresses
 from onemind_core.policy import SandboxSettings
 
 REPO = Path(__file__).resolve().parents[2]
@@ -291,18 +291,31 @@ def test_install_applies_the_hub_rule_only_for_the_web_port(rules, tmp_path):
     assert "ipBlock" not in run2.cluster_calls[1][1].split("onemind-allow")[1].split('"egress"')[0]
 
 
-def test_kubectl_hub_addresses_reads_this_hosts_node():
-    nodes = {"items": [
-        {"metadata": {"name": "hub"}, "spec": {"podCIDR": "198.51.100.0/24", "podCIDRs": ["198.51.100.0/24"]},
-         "status": {"addresses": [{"type": "InternalIP", "address": "192.0.2.10"}, {"type": "Hostname", "address": "hub"}]}},
-        {"metadata": {"name": "node"}, "spec": {"podCIDR": "203.0.113.0/24"},
-         "status": {"addresses": [{"type": "InternalIP", "address": "192.0.2.11"}]}},
-    ]}
+def test_local_flannel_addresses_reads_only_flannel_interfaces():
+    def addr(*locals_):
+        return [{"local": x} for x in locals_]
+
+    ifaces = [
+        {"ifname": "lo", "addr_info": addr("127.0.0.1", "::1")},
+        {"ifname": "eth0", "addr_info": addr("192.0.2.10")},
+        {"ifname": "cni0", "addr_info": addr("198.51.100.1")},
+        {"ifname": "flannel-wg", "addr_info": addr("198.51.100.0", "198.51.100.0", "bogus")},
+        {"ifname": "flannel-v6", "addr_info": addr("2001:db8::")},
+        {"ifname": "tailscale0", "addr_info": addr("203.0.113.5")},
+    ]
+    seen = []
 
     def runner(argv, **kw):
-        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(nodes), stderr="")
+        seen.append(argv)
+        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(ifaces), stderr="")
 
-    find = kubectl_hub_addresses
-    assert find(runner=runner, hostname="Hub.lan")() == ["198.51.100.0", "192.0.2.10"]
-    assert find(runner=runner, hostname="other")() == []
-    assert find(runner=lambda argv, **kw: subprocess.CompletedProcess(argv, 1, stdout="", stderr="x"), hostname="hub")() == []
+    assert local_flannel_addresses(runner=runner)() == ["198.51.100.0", "2001:db8::"]
+    assert seen == [["ip", "-j", "addr", "show"]]
+    # any failure leaves the policy closed
+    assert local_flannel_addresses(runner=lambda argv, **kw: subprocess.CompletedProcess(argv, 1, stdout="", stderr="x"))() == []
+    assert local_flannel_addresses(runner=lambda argv, **kw: subprocess.CompletedProcess(argv, 0, stdout="not json", stderr=""))() == []
+
+    def boom(argv, **kw):
+        raise FileNotFoundError("ip")
+
+    assert local_flannel_addresses(runner=boom)() == []
