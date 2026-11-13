@@ -130,7 +130,10 @@ PLAIN_POD = ("apiVersion: v1\\nkind: Pod\\nmetadata: {name: f5-plain}\\nspec:\\n
 def f5(vm):
     """H-01: the booted k3s enforces the cluster-wide Pod Security default (CRITERIA-FIRSTBOOT.md section 4)."""
     k = "k3s kubectl -n default apply --dry-run=server -f -"
-    _, out = vm.run(f"printf '{PRIV_POD}' | {k} 2>&1; echo PRIV_RC=$?; "
+    # The pod admission chain looks up the namespace's default ServiceAccount first; on a fast boot (CI) the
+    # controller has not created it yet, which would refuse both pods for that reason and not for policy.
+    _, out = vm.run("for i in $(seq 1 90); do k3s kubectl -n default get serviceaccount default >/dev/null 2>&1 && break; sleep 2; done; "
+                    f"printf '{PRIV_POD}' | {k} 2>&1; echo PRIV_RC=$?; "
                     f"printf '{PLAIN_POD}' | {k} 2>&1; echo PLAIN_RC=$?; "
                     "echo UNIT=$(systemctl cat k3s.service | grep -c 'admission-control-config-file=/etc/rancher/k3s/psa.yaml')", 300)
     priv_rc = (re.findall(r"PRIV_RC=(\d+)", out) or ["?"])[-1]
