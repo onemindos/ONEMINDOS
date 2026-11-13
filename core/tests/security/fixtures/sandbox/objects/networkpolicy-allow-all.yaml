@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Overrides the gateway's default-deny. Expected: K-01.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-everything}
+spec: {podSelector: {}, ingress: [{}], egress: [{}], policyTypes: [Ingress, Egress]}

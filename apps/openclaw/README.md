@@ -74,10 +74,10 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 
 - Vulnerability: `ghcr.io/openclaw/openclaw:2026.11.3`: GHSA-cg2g-xh64-v4q7 in `dompurify` 3.4.16 (fixed 3.4.17).
 - Secret finding (Trivy): `slack-access-token` (HIGH) in `/app/qa/scenarios/channels/slack-blocked-lifecycle-no-restart.yaml` (a QA test scenario shipped in the upstream image).
-- Smoke test failed: the pod never became ready in 10 minutes (0/1, one restart; the exec probe against `/startupz` on port 18789 kept failing, then the kubelet killed the container). The container's own log is not in the CI summary, so the cause is not yet known.
+- Smoke test failed (ci-apps run 43216348408): the pod never became ready in 10 minutes (0/1, one restart; the exec probe against `/startupz` kept failing, then the kubelet killed the container). Cause, reproduced locally with the same image, init container and settings: the gateway starts fine (`/healthz` returns `{"ok":true,"status":"live"}`, `/startupz` returns 200 `{"ok":true,"status":"started",...}`), but `/startupz` has no `ready` field and the probe required `.ready === true`, so it could never pass. Fix in this change: the probes accept HTTP below 400 with `status === "started"`, the contract in the image's `docs/gateway/health.md` (503 `starting` until startup settles). Not yet confirmed by a gate run.
 - Licence: GitHub MIT matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10). ClamAV 0 infected.
 
-To unblock: find why the gateway does not report ready (run it on a k3d cluster and read `kubectl logs`; it may need a provider key or a longer startup window), fix the manifest, and move the image pin to a release without these findings (tag verified with `crane`). Then rerun `sdk/tools/app-gate`.
+To unblock: the probe mismatch is fixed above (rerun the gate to confirm); move the image pin to a release without these findings (tag verified with `crane`). Then rerun `sdk/tools/app-gate`.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

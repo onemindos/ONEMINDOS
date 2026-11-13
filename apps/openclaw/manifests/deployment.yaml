@@ -1,12 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 # OpenClaw 2026.11.3, following upstream's Kubernetes manifests (scripts/k8s/manifests and
 # docs/install/kubernetes.md at tag v2026.11.3): node UID 1000, read-only root filesystem, /tmp and
-# XDG_CACHE_HOME writable, `gateway run`, the same /readyz-style JSON probes (/startupz for startup and
+# XDG_CACHE_HOME writable, `gateway run`, the same JSON probes (/startupz for startup and
 # readiness, which the doc recommends for images from 2026.8.1, /healthz for liveness). Two changes:
 # the gateway binds `lan` so the OneMind Service reaches it (docs/gateway/config-gateway.md: non-loopback
 # binds require auth), and the init container writes openclaw.json once with a random gateway token
 # instead of upstream's deploy.sh Secret. Model-provider keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, ...)
 # come from the Secret openclaw-credentials that the owner may create in app-openclaw; optional.
+#
+# Probe contract (docs/gateway/health.md in the image; checked against the running 2026.11.3 image): /startupz answers
+# 503 {status: starting} until startup settles, then 200 {ok: true, status: started}. It has no `ready` field (that
+# belongs to /readyz), so the earlier `.ready === true` test could never pass and the kubelet killed the pod.
 #
 # Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped. Read-only root filesystem.
 apiVersion: apps/v1
@@ -100,7 +104,7 @@ spec:
             command:
             - node
             - -e
-            - 'require(''http'').get(''http://127.0.0.1:18789/startupz'', r => { let b = ''''; r.on(''data'', d => b += d); r.on(''end'', () => { try { process.exit(r.statusCode < 400 && JSON.parse(b).ready === true ? 0 : 1); } catch { process.exit(1); } }); }).on(''error'', () => process.exit(1))'
+            - 'require(''http'').get(''http://127.0.0.1:18789/startupz'', r => { let b = ''''; r.on(''data'', d => b += d); r.on(''end'', () => { try { process.exit(r.statusCode < 400 && JSON.parse(b).status === ''started'' ? 0 : 1); } catch { process.exit(1); } }); }).on(''error'', () => process.exit(1))'
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 30
@@ -109,7 +113,7 @@ spec:
             command:
             - node
             - -e
-            - 'require(''http'').get(''http://127.0.0.1:18789/startupz'', r => { let b = ''''; r.on(''data'', d => b += d); r.on(''end'', () => { try { process.exit(r.statusCode < 400 && JSON.parse(b).ready === true ? 0 : 1); } catch { process.exit(1); } }); }).on(''error'', () => process.exit(1))'
+            - 'require(''http'').get(''http://127.0.0.1:18789/startupz'', r => { let b = ''''; r.on(''data'', d => b += d); r.on(''end'', () => { try { process.exit(r.statusCode < 400 && JSON.parse(b).status === ''started'' ? 0 : 1); } catch { process.exit(1); } }); }).on(''error'', () => process.exit(1))'
           periodSeconds: 10
           timeoutSeconds: 5
         livenessProbe:

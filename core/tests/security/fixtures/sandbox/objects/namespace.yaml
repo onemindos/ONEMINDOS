@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Creates (or relabels) a namespace without Pod Security. Expected: K-01.
+apiVersion: v1
+kind: Namespace
+metadata: {name: escape, labels: {pod-security.kubernetes.io/enforce: privileged}}

@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# RBAC escalation verbs: grant itself more than it holds. Expected: R-03.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: escape}
+rules:
+  - {apiGroups: [rbac.authorization.k8s.io], resources: [roles, rolebindings], verbs: [escalate, bind]}
+  - {apiGroups: [""], resources: [serviceaccounts], verbs: [impersonate]}

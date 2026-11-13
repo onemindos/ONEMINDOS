@@ -117,6 +117,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         p: Principal = Depends(principal),
     ):
         if not (p.kind == "person" and p.role in ("owner", "adult")):
+            gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "read app logs", "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", "only owners and adults read app logs")
         row = app_entry(app_id, request, p)
         if not row["installed"]:

@@ -116,6 +116,10 @@ export interface CatalogApp {
 /** §3 types the phone itself requests; §12.5 adds many more, which the phone shows but never invents. */
 export type ActionType = 'app.install' | 'app.remove' | (string & {});
 
+/** §12.40 lifecycle types the phone files. `app.delete_data` is left to the dashboard (destructive, confirm text). */
+export const LIFECYCLE_TYPES = ['app.start', 'app.stop', 'app.restart', 'app.update', 'app.remove'] as const;
+export type LifecycleType = (typeof LIFECYCLE_TYPES)[number];
+
 /** §3 action states. */
 export type ActionState =
   | 'requested'
@@ -157,6 +161,8 @@ export interface ActionRequest {
   params: { app_id?: string; [key: string]: unknown };
   idempotency_key: string;
   expires_at: string;
+  /** §12.40: the plan the owner saw; the hub answers 409 `plan_changed` if the fresh plan differs. */
+  plan_sha256?: string | null;
 }
 
 /**
@@ -453,4 +459,123 @@ export class ApiError extends Error {
     this.retryAfterS = extra.retryAfterS;
     this.dpopNonce = extra.dpopNonce;
   }
+}
+
+/** §12.41 `GET`/`PUT /v1/onboarding/settings` (owner only). */
+export interface FirstRunSettingsBody {
+  box_name: string;
+  time_zone: string;
+  backup_choice: 'usb' | 'peer' | 's3' | 'later';
+  backup_destination_id: string | null;
+}
+export interface FirstRunSettings extends Omit<FirstRunSettingsBody, 'box_name' | 'time_zone'> {
+  box_name: string | null;
+  time_zone: string | null;
+  saved: boolean;
+}
+
+/** §12.40 `GET /v1/apps/{id}/plan?type=` and `POST /v1/plans`: what an action would do. Files nothing. */
+export interface PlanPreview {
+  type?: string;
+  app_id: string;
+  risk?: Risk;
+  policy_verdict: 'needs_approval' | 'refused' | (string & {});
+  reason?: string | null;
+  plan: Plan & { from_version?: string; to_version?: string };
+  plan_sha256: string;
+}
+
+/** §12.12 badge. */
+export interface BackupBadge {
+  state: 'verified' | 'unverified' | 'stale' | 'failing' | 'none' | (string & {});
+  verified_at?: string | null;
+  last_success_at?: string | null;
+  reason?: string;
+}
+/** §12.12 `GET /v1/backups/status`. */
+export interface BackupStatus {
+  health: 'ok' | 'stale' | 'failing' | 'not_configured' | (string & {});
+  last_success_at?: string | null;
+  last_verified_restore_at?: string | null;
+  next_run_at?: string | null;
+  copies?: number;
+  badges?: { box?: BackupBadge; system?: BackupBadge; apps?: Record<string, BackupBadge> };
+}
+/** §12.12 `GET /v1/backups/destinations` (never credentials). */
+export interface BackupDestination {
+  id: string;
+  kind: 'usb' | 'box' | 's3' | 'rest' | (string & {});
+  label: string;
+  primary?: boolean;
+  append_only?: boolean;
+  state?: string;
+  last_seen_at?: string | null;
+  free_bytes?: number | null;
+}
+/** §12.12 `GET /v1/backups/runs`. */
+export interface BackupRun {
+  id: string;
+  action_id?: string | null;
+  reason?: string | null;
+  destination_id?: string | null;
+  state: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  bytes_done?: number | null;
+  bytes_total?: number | null;
+}
+
+/** §12.17 automation. */
+export interface AutomationState {
+  paused: boolean;
+  changed_by?: unknown;
+  changed_at?: string | null;
+  reason?: string | null;
+}
+export interface AutomationRule {
+  id: string;
+  name: string;
+  system?: boolean;
+  revision?: number;
+  enabled: boolean;
+  trigger?: Record<string, unknown>;
+  last_fired_at?: string | null;
+  breaker?: 'closed' | 'open' | (string & {});
+}
+export interface AutomationRun {
+  id: string;
+  rule_id?: string;
+  fired_at?: string;
+  action_ids?: string[];
+  outcome?: string;
+}
+
+/** `GET /v1/files/roots` and `/v1/files/list` (read only on the phone). */
+export interface FileRoot {
+  root: string;
+  kind: string;
+  name: string;
+  path: string;
+  access?: string;
+  writable?: boolean;
+  used_bytes?: number | null;
+  quota_bytes?: number | null;
+  free_bytes?: number | null;
+}
+export interface FileEntry {
+  name: string;
+  type: 'file' | 'dir' | (string & {});
+  size?: number | null;
+  mtime?: string | null;
+}
+
+/** `GET /v1/migrate/plans`: read only on the phone (a copy or cutover needs a kubeconfig, which stays off phones). */
+export interface MigratePlan {
+  id: string;
+  app_id?: string | null;
+  name?: string | null;
+  namespace?: string;
+  state: string;
+  last_error?: string | null;
+  updated_at?: string | null;
 }
