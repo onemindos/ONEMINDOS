@@ -65,6 +65,8 @@ def test_owner_only_routes_refuse_everyone_else(client, clock, who):
 
     aid = client.post("/v1/actions", headers=OWNER, json=action_body(clock)).json()["id"]
     refused = [
+        ("GET", "/v1/onboarding/settings", None),
+        ("PUT", "/v1/onboarding/settings", {"box_name": "home-hub", "time_zone": "UTC", "backup_choice": "later"}),
         ("POST", f"/v1/actions/{aid}/approve", None),
         ("POST", f"/v1/actions/{aid}/deny", None),
         ("POST", f"/v1/actions/{aid}/approve-options", None),
