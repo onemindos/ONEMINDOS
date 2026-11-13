@@ -89,6 +89,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: licence (matrix row for qBittorrent matches), ClamAV (0 infected).
 
 To unblock: upstream must publish an image with brotli-libs 1.2.1-r0 or later. The smoke test then needs a gate-level decision, since the login must stay on (founder call; a loopback-only probe does not reach the app from the gate).
+
+**Hold (apps/market-unblock-2, 2026-11-13):** `brotli-libs` CVE-2026-111497 and the smoke test gets HTTP 401 on `GET /` (gate run 43405572161). `5.3.0-2` is the newest tag. The 401 is the Web UI's login wall, a smoke-test setting question, not an image fix. Unblock: a rebuilt Alpine image and an agreed smoke path. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
 <!-- onemind:notes:end -->
 
 ## Latest security scan

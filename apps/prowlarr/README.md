@@ -71,6 +71,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Licence: GitHub GPL-3.0 matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10). ClamAV 0 infected.
 
 To unblock: the startup failure is fixed above (rerun the gate to confirm); move the image pin to a release with the patched .NET runtime (tag verified with `crane`), and add a licence-matrix row. Then rerun `sdk/tools/app-gate`.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** .NET runtime 8.0.27, CVE-2026-70188 and CVE-2026-88092 (fixed in 8.0.32), gate run 43405572161. The smoke test passes. `2.7.0.5723-ls168` is the newest tag. Unblock: a LinuxServer rebuild with .NET 8.0.32 or newer. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -93,6 +93,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: licence AGPL-3.0, ClamAV (0 infected), smoke test (GET / returned 200).
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** `libopenexr` CVE-2026-42216/42217, postgres Go `stdlib`, and an Azure key string in a vendored PHP library. No newer `33.x` tag exists (`33.0.10` is the last). Nextcloud `34.0.5` exists but moving to 34 is a founder decision (D9, pending), so it is not bumped here. Unblock: a `33.x` rebuild, or the D9 decision.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -66,6 +66,8 @@ From the upstream Docker guide, <https://nodered.org/docs/getting-started/docker
 - **The editor is open until you do step 2.** This package ships upstream's default settings; it does not generate a login.
 - **Nodes that need native build tools** may fail to install from the palette: the image is Alpine-based and the pod has no privileges to add packages. Upstream's answer is a custom image ([docker-custom](https://github.com/node-red/node-red-docker/tree/master/docker-custom)).
 - **Serial and GPIO nodes** get no device access in this package.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** `openssh-client` 10.3_p1-r1, CVE-2026-123158 (fixed in r2). `5.0.9` is the newest tag; the `-minimal` variant has the same package and `-debian` has its own CRITICAL. Unblock: a rebuild on a newer Alpine. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
 <!-- onemind:notes:end -->
 
 ## Latest security scan

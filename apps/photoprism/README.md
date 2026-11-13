@@ -83,6 +83,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: licence (matrix row for PhotoPrism matches), ClamAV (0 infected).
 
 To unblock: the crash loop is fixed above (rerun the gate to confirm); move the image pins to upstream releases that fix the CVEs (tags verified with `crane`). Then rerun `sdk/tools/app-gate`.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** The gate run 43405572161 could not start the cluster on Docker Hub pulls (infrastructure, not an image verdict); the earlier image findings (`linux-libc-dev`, mariadb Go `stdlib`) are unchanged. `261029` is the newest release; mariadb `13.0.2` is a different major. Unblock: a gate run with the optional Docker Hub login (D18) in place, and a photoprism rebuild.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
