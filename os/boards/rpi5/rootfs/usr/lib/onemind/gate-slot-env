@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# shellcheck shell=bash disable=SC2034
+# Sourced by /usr/lib/onemind/onemind-health-gate on board rpi5: slot state comes from the tryboot
+# backend's markers and autoboot.txt instead of grubenv. Same change as the F-PI5 kit's gate
+# (research-output/evidence/lab/rauc-1152/scripts/pi5/onemind-health-gate vs guest/).
+AB=/boot/efi
+envget() { case $1 in *_OK) [ -f "$AB/slot-${1%_OK}.good" ] && echo 1 || echo 0 ;; *) echo n/a ;; esac; }
+dtint() { [ -f "/proc/device-tree/chosen/bootloader/$1" ] && printf '%d' "0x$(od -v -An -t x1 "/proc/device-tree/chosen/bootloader/$1" | tr -d ' \n')" || echo "?"; }
+envdump() { echo "$(tr '\n' ' ' < "$AB/autoboot.txt") good=[$(cd "$AB" && ls slot-*.good 2>/dev/null | tr '\n' ' ')] dt_tryboot=$(dtint tryboot) dt_partition=$(dtint partition)"; }
+GATE_FELLBACK_WHY="install interrupted, gate rejected it, or its one tryboot attempt ended without a decision (crash, hang, watchdog, power cut)"

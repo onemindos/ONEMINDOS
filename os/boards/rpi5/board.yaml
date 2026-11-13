@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# Raspberry Pi 5 (and CM5 / Pi 500: same SoC, their device trees ship too). Debian 13 arm64
+# userspace + Raspberry Pi's kernel from archive.raspberrypi.com (pinned debs, fetch-rpi.sh).
+# docs/leap/core/IMAGES.md §8 explains the choices.
+name: rpi5
+arch: arm64
+compatible: onemind-rpi5
+route: rpi-tryboot               # Pi firmware tryboot_a_b + RAUC custom backend (01 §4.2, BD-07); no GRUB
+rauc_bootloader: custom
+assembler: os/boards/rpi5/assemble_rpi5.py   # MBR + boot slots; os/assemble/dev-image.sh and mkfixtures.sh use it
+disk_id: 4f4d5035                # MBR disk signature ("OMP5"); root=PARTUUID=4f4d5035-05 / -06
+kernel: "2712"                   # "2712" = kernel_2712.img, 16 KiB pages (Pi 5 default) | "v8" = kernel8.img, 4 KiB pages
+console: "console=serial0,115200 console=tty1"
+layout: layout.yaml
+outputs: [raw]                   # .img.xz + a Raspberry Pi Imager os_list entry (imager_json.py)
+imager_devices: [pi5-64bit]
+eeprom_min: "2026-09-25"         # bootloader the image targets (os/versions.lock.yaml rpi5.eeprom); older warns

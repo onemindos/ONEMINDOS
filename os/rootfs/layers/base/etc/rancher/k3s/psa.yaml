@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# Pod Security Admission defaults for the whole cluster (hardening H-01). k3s reads it through
+# kube-apiserver-arg admission-control-config-file (deploy/install.sh writes both). A namespace
+# without its own label enforces `baseline` and warns and audits at `restricted`. The gateway
+# labels each app-<id> namespace `restricted` (or a reviewed `baseline`, sdk/policy/app-objects.yaml).
+# Only the system namespaces are exempt.
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+  - name: PodSecurity
+    configuration:
+      apiVersion: pod-security.admission.config.k8s.io/v1
+      kind: PodSecurityConfiguration
+      defaults:
+        enforce: baseline
+        enforce-version: latest
+        audit: restricted
+        audit-version: latest
+        warn: restricted
+        warn-version: latest
+      exemptions:
+        usernames: []
+        runtimeClasses: []
+        namespaces: [kube-system, onemind-system]

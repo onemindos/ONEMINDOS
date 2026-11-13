@@ -16,7 +16,9 @@ openssl req -newkey rsa:3072 -nodes -sha256 -keyout "$K/signer.key" -out "$K/sig
 openssl x509 -req -in "$K/signer.csr" -CA "$K/ca.pem" -CAkey "$K/ca.key" -CAcreateserial -days 30 -sha256 \
   -out "$K/signer.pem" -extfile "$SRC/os/assemble/signer.ext" 2>/dev/null
 mkdir -p "$OUTDIR"; rm -f "$OUTDIR/SHA256SUMS"
-python3 -I "$SRC/os/assemble/assemble.py" image --board "$BOARD" --rootfs "$ROOTFS" --work "$W" \
+# A board may name its own assembler with the same CLI (board.yaml `assembler:`, e.g. rpi5).
+ASM=$(sed -n 's/^assembler: *\([^ #]*\).*/\1/p' "$SRC/os/boards/$BOARD/board.yaml"); ASM=${ASM:-os/assemble/assemble.py}
+python3 -I "$SRC/$ASM" image --board "$BOARD" --rootfs "$ROOTFS" --work "$W" \
   --version "$VERSION" --keyring "$K/ca.pem" --cert "$K/signer.pem" --key "$K/signer.key" --out-dir "$OUTDIR"
 cp "$K/ca.pem" "$OUTDIR/dev-ca.cert.pem"
 echo "dev image ready in $OUTDIR (throwaway keys destroyed)"

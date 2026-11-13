@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+# Local setup wizard on :8080 (http://onemind.local:8080/). Started by onemind-firstboot only
+# while the box has no role; exits once the owner has picked one. Not enabled in the image.
+[Unit]
+Description=OneMind setup wizard (:8080, until the box has a role)
+RequiresMountsFor=/data /boot/efi
+ConditionPathExists=!/data/onemind/firstboot/state.json
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/onemind/onemind-setup
+UMask=0077
+Restart=on-failure
+RestartSec=3s
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+NoNewPrivileges=yes

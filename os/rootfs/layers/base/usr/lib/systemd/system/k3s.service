@@ -14,7 +14,7 @@ ExecStartPre=-/sbin/modprobe br_netfilter
 ExecStartPre=-/sbin/modprobe overlay
 # Air-gap images and the core manifests ship in the slot (they belong to the OS release).
 ExecStartPre=/bin/sh -c 'mkdir -p /data/k3s/agent/images /data/k3s/server/manifests && ln -sf /usr/lib/onemind/k3s-airgap-images.tar.zst /data/k3s/agent/images/k3s-airgap-images.tar.zst && cp /usr/lib/onemind/manifests/*.yaml /data/k3s/server/manifests/'
-ExecStart=/usr/local/bin/k3s server --data-dir /data/k3s --disable=traefik --disable=servicelb --disable=metrics-server --write-kubeconfig /run/k3s/k3s.yaml --write-kubeconfig-mode=0600 $K3S_EXTRA_ARGS
+ExecStart=/usr/local/bin/k3s server --data-dir /data/k3s --disable=traefik --disable=servicelb --disable=metrics-server --write-kubeconfig /run/k3s/k3s.yaml --write-kubeconfig-mode=0600 --secrets-encryption --kube-apiserver-arg=admission-control-config-file=/etc/rancher/k3s/psa.yaml $K3S_EXTRA_ARGS
 KillMode=process
 Delegate=yes
 LimitNOFILE=1048576

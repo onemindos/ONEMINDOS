@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# Hub only: once k3s has issued the gateway's ServiceAccount token (manifests/onemind-gateway.yaml),
+# write /data/onemind/gateway/kubeconfig. The gateway reads it per kubectl call, so it needs no restart.
+[Unit]
+Description=OneMind gateway kubeconfig (waits for k3s)
+After=k3s.service onemind-firstboot.service
+RequiresMountsFor=/data
+ConditionPathExists=/data/onemind/etc/gateway.env
+ConditionPathExists=!/data/onemind/gateway/kubeconfig
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/onemind/onemind-firstboot kubeconfig
+TimeoutStartSec=75min

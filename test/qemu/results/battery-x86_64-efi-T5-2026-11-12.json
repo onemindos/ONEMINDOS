@@ -1,0 +1,58 @@
+{
+  "env": {
+    "board": "x86_64-efi",
+    "accel": "tcg,thread=multi",
+    "cpu": "max",
+    "host_cpus": 14,
+    "host_machine": "aarch64",
+    "upto": "T5"
+  },
+  "minutes": 29.9,
+  "results": [
+    {
+      "test": "T0",
+      "verdict": "PASS",
+      "detail": "rauc_in_image_1.15.2=True distro_rauc_absent=True k3s_sha256_pinned=True wrong_key_rejected=True verity_bundles_verity=True plain_good_is_plain_and_signed=True no_naive_gate_in_v1=True"
+    },
+    {
+      "test": "T1",
+      "verdict": "PASS",
+      "detail": "gate=('committed-boot', 'A', '1') K3S-FRESH ok after 151s: ok (fresh: kubelet, heartbeat 2026-11-12T09:02:12Z, core pods, da apps_not_ready=True rauc_1.15.2=True verity_policy=True t=198s"
+    },
+    {
+      "test": "T2",
+      "verdict": "PASS",
+      "detail": "rc=1 sig_error=True env_unchanged=True marker_written=False"
+    },
+    {
+      "test": "T11",
+      "verdict": "PASS",
+      "detail": "rc=1 format_error=True env_unchanged=True marker_written=False"
+    },
+    {
+      "test": "T3",
+      "verdict": "PASS",
+      "detail": "rc=0 trial=('mark-good', 'B', '2') passes=3 first_fails=['fail G1: no kubeconfig on this boot (k3s server has not started)', 'fail G1: no kubeconfig on this boot (k3s server has not started)'] apps='broken-app-5d6b874ccd-wtd4d 0/1 ErrImagePull; ' reboot=('committed-boot', 'B', '2')"
+    },
+    {
+      "test": "T4",
+      "verdict": "PASS",
+      "detail": "rc=0 trial=('mark-bad', 'A', '3') decided_after~350s(since reboot) last_fail='fail G1: no kubeconfig on this boot (k3s server has not started)' then=('committed-boot', 'B', '2') K3S-FRESH ok after 110s: ok (fresh: kube"
+    },
+    {
+      "test": "T4v",
+      "verdict": "PASS",
+      "detail": "verdict=image-bad"
+    },
+    {
+      "test": "T5",
+      "verdict": "PASS",
+      "detail": "rc=0 trial=('mark-bad', 'A', '4') decided_after~343s(since reboot) last_fail='fail G2: kubelet /healthz not answering' then=('committed-boot', 'B', '2') K3S-FRESH ok after 110s: ok (fresh: kube"
+    },
+    {
+      "test": "T5v",
+      "verdict": "PASS",
+      "detail": "verdict=image-bad"
+    }
+  ]
+}

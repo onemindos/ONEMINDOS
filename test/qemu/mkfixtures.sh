@@ -9,7 +9,8 @@
 set -euo pipefail
 BOARD=$1; ROOTFS=$2; OUT=$3; UPTO=${4:-T5}
 SRC=$(cd "$(dirname "$0")/../.." && pwd)
-A="python3 -I $SRC/os/assemble/assemble.py"
+ASM=$(sed -n 's/^assembler: *\([^ #]*\).*/\1/p' "$SRC/os/boards/$BOARD/board.yaml")   # board-specific assembler (rpi5), same CLI
+A="python3 -I $SRC/${ASM:-os/assemble/assemble.py}"
 W=${WORK:-/work/fx-$BOARD}; K=$(mktemp -d /tmp/keys.XXXXXX)
 trap 'rm -rf "$K"' EXIT
 log() { echo "[mkfixtures $(date -u +%T)] $*"; }
@@ -79,7 +80,7 @@ _, v = sh("/usr/bin/rauc", "--version", root=tree)
 checks["rauc_in_image_1.15.2"] = bool(re.fullmatch(r"rauc v?1\.15\.2", v.strip()))
 rc, _ = sh("dpkg-query", "-W", "rauc", root=tree); rc2, _ = sh("dpkg-query", "-W", "rauc-service", root=tree)
 checks["distro_rauc_absent"] = rc != 0 and rc2 != 0
-arch = {"x86_64-efi": "amd64", "vm": "amd64", "vm-do": "amd64", "arm64-efi": "arm64"}[board]
+arch = yaml.safe_load(open(f"{lock.rsplit('/', 1)[0]}/boards/{board}/board.yaml"))["arch"]
 want = lk["k3s"][arch]
 binsha = hashlib.sha256(open(f"{tree}/usr/local/bin/k3s", "rb").read()).hexdigest()
 imgsha = hashlib.sha256(open(f"{tree}/usr/lib/onemind/k3s-airgap-images.tar.zst", "rb").read()).hexdigest()
