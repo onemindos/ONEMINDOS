@@ -437,37 +437,6 @@
         "title": "AppScope",
         "type": "object"
       },
-      "ApproveBody": {
-        "description": "§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.",
-        "properties": {
-          "plan_sha256": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Plan Sha256"
-          },
-          "webauthn": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Webauthn"
-          }
-        },
-        "title": "ApproveBody",
-        "type": "object"
-      },
       "AuditHead": {
         "properties": {
           "hash": {
@@ -1044,6 +1013,25 @@
         "title": "CutoverBody",
         "type": "object"
       },
+      "DenyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "DenyBody",
+        "type": "object"
+      },
       "DestinationBody": {
         "additionalProperties": false,
         "properties": {
@@ -1309,6 +1297,81 @@
           }
         },
         "title": "FixIn",
+        "type": "object"
+      },
+      "GrantBody": {
+        "additionalProperties": false,
+        "properties": {
+          "access": {
+            "enum": [
+              "r",
+              "rw"
+            ],
+            "title": "Access",
+            "type": "string"
+          },
+          "approve": {
+            "default": false,
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "path": {
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "root": {
+            "maxLength": 220,
+            "title": "Root",
+            "type": "string"
+          },
+          "slot": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9-]{0,62}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slot"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/Subject"
+          }
+        },
+        "required": [
+          "subject",
+          "root",
+          "path",
+          "access"
+        ],
+        "title": "GrantBody",
         "type": "object"
       },
       "Healthz": {
@@ -1691,6 +1754,99 @@
           }
         },
         "title": "NodeOS",
+        "type": "object"
+      },
+      "OpBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "op": {
+            "enum": [
+              "mkdir",
+              "move",
+              "rename",
+              "trash",
+              "restore_trash"
+            ],
+            "title": "Op",
+            "type": "string"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "root": {
+            "anyOf": [
+              {
+                "maxLength": 220,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root"
+          },
+          "to_path": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Path"
+          },
+          "to_root": {
+            "anyOf": [
+              {
+                "maxLength": 220,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Root"
+          },
+          "trash_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trash Id"
+          }
+        },
+        "required": [
+          "op"
+        ],
+        "title": "OpBody",
         "type": "object"
       },
       "Options": {
@@ -2127,6 +2283,28 @@
           "platform"
         ],
         "title": "PushIn",
+        "type": "object"
+      },
+      "QuotaBody": {
+        "additionalProperties": false,
+        "properties": {
+          "limit_bytes": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit Bytes"
+          }
+        },
+        "required": [
+          "limit_bytes"
+        ],
+        "title": "QuotaBody",
         "type": "object"
       },
       "RefreshBody": {
@@ -2600,6 +2778,31 @@
         "title": "SetupBody",
         "type": "object"
       },
+      "Subject": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "app",
+              "agent"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "Subject",
+        "type": "object"
+      },
       "TokenCreateBody": {
         "properties": {
           "expires_in_days": {
@@ -2654,6 +2857,51 @@
           "name"
         ],
         "title": "TokenCreateBody",
+        "type": "object"
+      },
+      "TrashEmptyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approve": {
+            "default": false,
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "trash": {
+            "default": "home",
+            "enum": [
+              "home",
+              "shared"
+            ],
+            "title": "Trash",
+            "type": "string"
+          }
+        },
+        "title": "TrashEmptyBody",
         "type": "object"
       },
       "UserCreateBody": {
@@ -2812,6 +3060,69 @@
           "ranges"
         ],
         "title": "WindowBody",
+        "type": "object"
+      },
+      "onemind_core__routers__actions__ApproveBody": {
+        "description": "§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.",
+        "properties": {
+          "plan_sha256": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Sha256"
+          },
+          "webauthn": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webauthn"
+          }
+        },
+        "title": "ApproveBody",
+        "type": "object"
+      },
+      "onemind_core__routers__files__ApproveBody": {
+        "additionalProperties": false,
+        "description": "§12.4: the plan the approver was shown, and the passkey assertion once step-up exists.",
+        "properties": {
+          "plan_sha256": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Sha256"
+          },
+          "webauthn": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webauthn"
+          }
+        },
+        "title": "ApproveBody",
         "type": "object"
       }
     }
@@ -3123,7 +3434,7 @@
               "schema": {
                 "anyOf": [
                   {
-                    "$ref": "#/components/schemas/ApproveBody"
+                    "$ref": "#/components/schemas/onemind_core__routers__actions__ApproveBody"
                   },
                   {
                     "type": "null"
@@ -7753,6 +8064,1466 @@
         "summary": "Live events (text/event-stream)",
         "tags": [
           "events"
+        ]
+      }
+    },
+    "/v1/files/download": {
+      "get": {
+        "operationId": "files.download",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "root",
+            "required": true,
+            "schema": {
+              "maxLength": 220,
+              "title": "Root",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "maxLength": 4096,
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "inline",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Inline",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "206": {
+            "description": "Partial content (Range)"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "416": {
+            "description": "Range not satisfiable"
+          },
+          "422": {
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "Download",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/grants": {
+      "get": {
+        "operationId": "files.grants.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_revoked",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Revoked",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "List Grants",
+        "tags": [
+          "files"
+        ]
+      },
+      "post": {
+        "operationId": "files.grants.request",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "422": {
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "429": {
+            "description": "rate_limited: too many requests awaiting approval"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "Request Grant",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/grants/{grant_id}": {
+      "delete": {
+        "operationId": "files.grants.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Revoke Grant",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/list": {
+      "get": {
+        "operationId": "files.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "root",
+            "required": true,
+            "schema": {
+              "maxLength": 220,
+              "title": "Root",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": false,
+            "schema": {
+              "default": "/",
+              "maxLength": 4096,
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "422": {
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "List Folder",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/ops": {
+      "post": {
+        "operationId": "files.ops",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "413": {
+            "description": "payload_too_large: quota_exceeded, insufficient_space, upload_too_large or chunk_too_large"
+          },
+          "422": {
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "Ops",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/preview": {
+      "get": {
+        "operationId": "files.preview",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "root",
+            "required": true,
+            "schema": {
+              "maxLength": 220,
+              "title": "Root",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "maxLength": 4096,
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "422": {
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "Preview",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/quotas": {
+      "get": {
+        "operationId": "files.quotas.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "Quotas",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/quotas/{person_id}": {
+      "put": {
+        "operationId": "files.quotas.set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "person_id",
+            "required": true,
+            "schema": {
+              "title": "Person Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuotaBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "422": {
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "Set Quota",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/requests": {
+      "get": {
+        "operationId": "files.requests.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "List Requests",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/requests/{request_id}": {
+      "get": {
+        "operationId": "files.requests.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Get Request",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/requests/{request_id}/approve": {
+      "post": {
+        "operationId": "files.requests.approve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/onemind_core__routers__files__ApproveBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Approve",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/requests/{request_id}/cancel": {
+      "post": {
+        "operationId": "files.requests.cancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Cancel",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/requests/{request_id}/deny": {
+      "post": {
+        "operationId": "files.requests.deny",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DenyBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Deny",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/roots": {
+      "get": {
+        "operationId": "files.roots.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "Roots",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/stat": {
+      "get": {
+        "operationId": "files.stat",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "root",
+            "required": true,
+            "schema": {
+              "maxLength": 220,
+              "title": "Root",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": false,
+            "schema": {
+              "default": "/",
+              "maxLength": 4096,
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "422": {
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "Stat",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/trash": {
+      "get": {
+        "operationId": "files.trash.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "trash",
+            "required": false,
+            "schema": {
+              "default": "home",
+              "enum": [
+                "home",
+                "shared"
+              ],
+              "title": "Trash",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "Trash",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/trash/empty": {
+      "post": {
+        "operationId": "files.trash.empty",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrashEmptyBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "422": {
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "429": {
+            "description": "rate_limited: too many requests awaiting approval"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "Request Trash Empty",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/uploads": {
+      "options": {
+        "operationId": "files.uploads.options",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Tus Options",
+        "tags": [
+          "files"
+        ]
+      },
+      "post": {
+        "operationId": "files.uploads.create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "upload-length",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Upload-Length"
+            }
+          },
+          {
+            "in": "header",
+            "name": "upload-metadata",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 8192,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Upload-Metadata"
+            }
+          },
+          {
+            "in": "header",
+            "name": "repr-digest",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 300,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Repr-Digest"
+            }
+          },
+          {
+            "in": "header",
+            "name": "tus-resumable",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tus-Resumable"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "412": {
+            "description": "Tus-Resumable version not supported"
+          },
+          "413": {
+            "description": "payload_too_large: quota_exceeded, insufficient_space, upload_too_large or chunk_too_large"
+          },
+          "422": {
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "Tus Create",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/uploads/{upload_id}": {
+      "delete": {
+        "operationId": "files.uploads.delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "tus-resumable",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tus-Resumable"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "412": {
+            "description": "Tus-Resumable version not supported"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Tus Delete",
+        "tags": [
+          "files"
+        ]
+      },
+      "get": {
+        "operationId": "files.uploads.status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Upload Status",
+        "tags": [
+          "files"
+        ]
+      },
+      "head": {
+        "operationId": "files.uploads.head",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "tus-resumable",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tus-Resumable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "412": {
+            "description": "Tus-Resumable version not supported"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Tus Head",
+        "tags": [
+          "files"
+        ]
+      },
+      "patch": {
+        "operationId": "files.uploads.patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "upload-offset",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Upload-Offset"
+            }
+          },
+          {
+            "in": "header",
+            "name": "upload-checksum",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Upload-Checksum"
+            }
+          },
+          {
+            "in": "header",
+            "name": "content-type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content-Type"
+            }
+          },
+          {
+            "in": "header",
+            "name": "tus-resumable",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tus-Resumable"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "412": {
+            "description": "Tus-Resumable version not supported"
+          },
+          "413": {
+            "description": "payload_too_large: quota_exceeded, insufficient_space, upload_too_large or chunk_too_large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "460": {
+            "description": "tus checksum mismatch: the chunk was discarded"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "Tus Patch",
+        "tags": [
+          "files"
         ]
       }
     },

@@ -18,6 +18,8 @@ want = {
     "K3S_VERSION": version,
     "K3S_SHA256_amd64": re.search(r"^\s+k3s:\s*([0-9a-f]{64})", k3s, re.M).group(1),
     "K3S_SHA256_arm64": re.search(r"^\s+k3s-arm64:\s*([0-9a-f]{64})", k3s, re.M).group(1),
+    "K3S_AIRGAP_SHA256_amd64": re.search(r"^\s+k3s-airgap-images-amd64\.tar\.zst:\s*([0-9a-f]{64})", k3s, re.M).group(1),
+    "K3S_AIRGAP_SHA256_arm64": re.search(r"^\s+k3s-airgap-images-arm64\.tar\.zst:\s*([0-9a-f]{64})", k3s, re.M).group(1),
 }
 for key, value in want.items():
     got = re.search(rf'^{key}="([^"]*)"', pins, re.M)
@@ -29,6 +31,17 @@ if version.replace("+", "%2B") not in pins:
 debian = re.search(r"debian:\n\s+image:\s*\S+\n\s+digest:\s*(sha256:[0-9a-f]{64})", lock).group(1)
 if debian not in read("deploy/compose/onemindd.Dockerfile"):
     errors.append("deploy/compose/onemindd.Dockerfile does not use the locked Debian digest " + debian)
+
+# deploy/bundle.sh images: digest-pinned, the same Go/Node digests as compose, Debian from the lock.
+bundle = dict(re.findall(r'^(BUNDLE_[A-Z]+_IMAGE)="([^"]*)"', pins, re.M))
+for key in ("BUNDLE_GO_IMAGE", "BUNDLE_NODE_IMAGE", "BUNDLE_DEBIAN_IMAGE"):
+    if "@sha256:" not in bundle.get(key, ""):
+        errors.append(f"deploy/pins.env {key} is missing or not pinned by digest")
+if not bundle.get("BUNDLE_DEBIAN_IMAGE", "").endswith("@" + debian):
+    errors.append("deploy/pins.env BUNDLE_DEBIAN_IMAGE does not use the locked Debian digest " + debian)
+for key, path in (("BUNDLE_GO_IMAGE", "deploy/compose/onemindd.Dockerfile"), ("BUNDLE_NODE_IMAGE", "deploy/compose/compose.yaml")):
+    if bundle.get(key, "-").split("@")[-1] not in read(path):
+        errors.append(f"deploy/pins.env {key} digest differs from {path}")
 
 for path in ("deploy/compose/compose.yaml", "deploy/compose/onemindd.Dockerfile"):
     for line in read(path).splitlines():
