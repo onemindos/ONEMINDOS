@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind USB installer LAN page on :8080. An install from it needs the one-time code shown on
+# the console menu (5 wrong codes turn LAN installs off until the next boot).
+[Unit]
+Description=OneMind installer LAN page (:8080)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/onemind-installer/onemind_installer.py web --port 8080
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=journal+console
+Restart=always
+RestartSec=2s
+
+[Install]
+WantedBy=multi-user.target

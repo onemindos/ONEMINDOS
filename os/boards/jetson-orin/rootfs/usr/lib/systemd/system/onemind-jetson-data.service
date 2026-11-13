@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# First boot after the factory flash: put ext4 on the empty onemind-data partition.
+[Unit]
+Description=OneMind (Jetson): prepare the data partition
+DefaultDependencies=no
+Requires=dev-disk-by\x2dpartlabel-onemind\x2ddata.device
+After=dev-disk-by\x2dpartlabel-onemind\x2ddata.device
+Before=data.mount
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/onemind/jetson/onemind-jetson-data

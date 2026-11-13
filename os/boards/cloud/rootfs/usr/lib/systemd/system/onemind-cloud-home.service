@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# Home of the cloud admin user on /data (cloud-init writes ~/.ssh/authorized_keys there), and the
+# state directories of the cloud layer's bind mounts.
+[Unit]
+Description=OneMind: cloud admin home and cloud state directories
+DefaultDependencies=no
+RequiresMountsFor=/data /home /root
+After=onemind-data-layout.service
+Before=cloud-init-local.service var-lib-waagent.mount
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'install -d -o admin -g admin -m 0750 /home/admin; install -d -m 0700 /root; install -d -m 0700 /data/state/var-lib-waagent'

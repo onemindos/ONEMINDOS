@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# cloud-hetzner: the cloud layout booted by BIOS GRUB (i386-pc), as vm-do: a 2 MiB BIOS boot
+# partition first holds GRUB's core.img. Hetzner Cloud x86 servers boot SeaBIOS; the smallest
+# disk is 40 GB, so the 16 GiB image fits and /data grows at first boot.
+table: gpt
+disk_size: 16GiB
+partitions:
+  - {label: onemind-bios,     size: 2MiB,   type: bios,  fs: none}                       # GRUB core.img (BIOS)
+  - {label: onemind-esp,      size: 1GiB,   type: esp,   fs: vfat, volume_id: 4F4E454D}  # grub.cfg, grubenv, i386-pc modules
+  - {label: onemind-boot-a,   size: 512MiB, type: esp,   fs: vfat, fs_label: BOOT-A}     # kept for one layout contract
+  - {label: onemind-boot-b,   size: 512MiB, type: esp,   fs: vfat, fs_label: BOOT-B}
+  - {label: onemind-system-a, size: 4GiB,   type: linux, fs: rootfs, slot: A}
+  - {label: onemind-system-b, size: 4GiB,   type: linux, fs: rootfs, slot: B}
+  - {label: onemind-recovery, size: 1GiB,   type: linux, fs: none}
+  - {label: onemind-data,     size: rest,   type: linux, fs: ext4}                       # grown at first boot

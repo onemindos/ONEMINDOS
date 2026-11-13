@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind USB installer menu on one console (tty1 = the screen, ttyS0 = serial). Both instances
+# share one lock, so only one install runs. Replaces the login prompt: the stick has no login.
+[Unit]
+Description=OneMind installer menu on %I
+After=systemd-user-sessions.service onemind-installer-web.service
+Conflicts=getty@%i.service serial-getty@%i.service
+ConditionPathExists=/dev/%I
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/onemind-installer/onemind_installer.py tui
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/%I
+TTYReset=yes
+TTYVHangup=yes
+Environment=PYTHONUNBUFFERED=1 TERM=linux
+Restart=always
+RestartSec=2s
+
+[Install]
+WantedBy=multi-user.target

@@ -10,6 +10,7 @@ from ..apimodels import Healthz, Instance
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
+from ..onboarding import OnboardingService
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
@@ -27,4 +28,5 @@ def register(app: FastAPI, gw: Gateway) -> None:
         responses={200: {"model": Instance}, **error_responses(401)},
     )
     def instance(_: Principal = Depends(principal)):
-        return {"name": settings.instance_name, "version": __version__, "hub_node_id": settings.node_id}
+        name = OnboardingService(gw.db).read()["box_name"] or settings.instance_name
+        return {"name": name, "version": __version__, "hub_node_id": settings.node_id}

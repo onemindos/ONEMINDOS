@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: Apache-2.0
+# NATS on a hub (clients :4222, leaf nodes :7422) or a leaf (local :4222, forwards to the hub).
+# Config with credentials: /data/onemind/etc/nats.conf, written by onemind-firstboot, handed in
+# as a systemd credential so a throw-away user can read it. Started by onemind-firstboot.
+[Unit]
+Description=OneMind NATS server
+After=network-online.target onemind-firstboot.service
+Wants=network-online.target
+RequiresMountsFor=/data
+ConditionPathExists=/data/onemind/etc/nats.conf
+
+[Service]
+Type=simple
+LoadCredential=nats.conf:/data/onemind/etc/nats.conf
+# TLS (cfg nats_tls): the key is 0600 root on /data, so a root-run step copies the files to the unit's own
+# runtime directory and hands them to the throw-away user. Without TLS files nothing is copied.
+RuntimeDirectory=onemind-nats
+RuntimeDirectoryMode=0700
+ExecStartPre=+/bin/sh -c 'd=/run/onemind-nats; for f in nats-server.pem nats-server.key nats-ca.pem; do if [ -f /data/onemind/etc/$$f ]; then cp /data/onemind/etc/$$f $$d/$$f; fi; done; chown -R "$$(stat -c %%u $$d)" $$d; chmod -R go-rwx $$d'
+ExecStart=/usr/bin/nats-server -c ${CREDENTIALS_DIRECTORY}/nats.conf
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=2s
+DynamicUser=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+UMask=0077
+LimitNOFILE=65536
