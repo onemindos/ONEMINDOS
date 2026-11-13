@@ -155,6 +155,25 @@ def test_feature_approval_is_durable_before_dispatch(client, clock, outcome):
     assert client.get(f"/v1/actions/{pending['id']}", headers=OWNER).json()['approved_by'] == 'owner'
 
 
+def test_app_action_approved_by_is_set_in_the_accepting_write(client, clock, executor):
+    """approved_by lands in the same UPDATE that moves awaiting_approval -> accepted (accept_and_claim),
+    so the executor never sees an approved action whose approved_by is still null."""
+    repo = client.app.state.repo
+    seen = []
+    real_run = executor.run
+
+    def run(action_type, app, agent=None, ctx=None):
+        row = repo.list({'dispatched'})[0]
+        seen.append((row.state, row.approved_by, row.decided_by['id']))
+        return real_run(action_type, app, agent, ctx)
+
+    executor.run = run
+    a = client.post('/v1/actions', headers=AGENT, json=action_body(clock)).json()
+    assert client.get(f"/v1/actions/{a['id']}", headers=OWNER).json()['approved_by'] is None
+    assert client.post(f"/v1/actions/{a['id']}/approve", headers=OWNER).status_code == 200
+    assert seen == [('dispatched', 'owner', 'owner')]
+
+
 @pytest.mark.parametrize('state', ['accepted', 'dispatched', 'succeeded', 'failed', 'outcome_unknown'])
 def test_historical_decider_is_not_approval_proof(client, clock, state):
     from onemind_core.ledger import Action
