@@ -304,3 +304,29 @@ func setDirMeta(fd, dfd int, name string, mode os.FileMode, mtime time.Time) err
 	_ = unix.UtimesNanoAt(dfd, name, ts, unix.AT_SYMLINK_NOFOLLOW)
 	return nil
 }
+
+// metaAt reads name's owner, mode and mtime inside dfd without following a symlink.
+func metaAt(dfd int, name string) (dirMeta, error) {
+	var st unix.Stat_t
+	if err := unix.Fstatat(dfd, name, &st, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+		return dirMeta{}, err
+	}
+	if st.Mode&unix.S_IFMT == unix.S_IFLNK {
+		return dirMeta{}, fmt.Errorf("%s is a symlink; refusing to restore over it", name)
+	}
+	return dirMeta{
+		mode:  os.FileMode(st.Mode & 0o777),
+		mtime: time.Unix(st.Mtim.Sec, st.Mtim.Nsec),
+		uid:   int(st.Uid), gid: int(st.Gid),
+		isDir: st.Mode&unix.S_IFMT == unix.S_IFDIR,
+	}, nil
+}
+
+// applyMetaFd gives the open file or directory fd the owner and mode in m.
+// As root a failed chown is real; unprivileged tests cannot chown.
+func applyMetaFd(fd int, m dirMeta) error {
+	if err := unix.Fchown(fd, m.uid, m.gid); err != nil && os.Geteuid() == 0 {
+		return err
+	}
+	return unix.Fchmod(fd, uint32(m.mode.Perm()))
+}
