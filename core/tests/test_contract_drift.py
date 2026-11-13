@@ -302,3 +302,93 @@ def test_automatic_and_manual_audit_actor_are_explicit(nclient):
             if r['event'].startswith('alert.')]
     assert [r['data']['payload']['by'] for r in rows] == [None, 'owner', None]
     assert all('by' not in e['data'] for r in rows for e in events_for_record(r))
+
+
+@pytest.mark.parametrize('kind,role', [('agent', 'agent'), ('plugin', 'agent'), ('person', 'guest'), ('person', 'child')])
+@pytest.mark.parametrize('event', ['app.status', 'app.restarted'])
+def test_domain_action_metadata_requires_action_visibility(clock, kind, role, event):
+    from pathlib import Path
+    from onemind_core.auth import Principal
+    from onemind_core.eventstream import EventStream
+    stream = EventStream(Path('unused'), lambda: [], lambda pid: {'mine'}, clock)
+    principal = Principal('reader', kind, role)
+    check = stream._allowed(principal, lambda ev: True)
+    ev = events_for_record({'seq': 1, 'event': event, 'ts': 't', 'action_id': 'foreign',
+                            'data': {'app_id': 'whoami', 'status': 'installed'}})[0]
+    assert not check(ev)
+    ev['subject']['action_id'] = 'mine'
+    assert check(ev) == (kind == 'agent')
+
+
+@pytest.mark.parametrize('replay', [False, True])
+def test_sse_app_outcomes_do_not_leak_foreign_action_ids(event_server, nclient, clock, replay):
+    foreign, own = [], []
+    minted = nclient.post('/v1/tokens', headers=OWNER, json={
+        'name': 'other-agent', 'principal': {'kind': 'agent', 'id': 'agent:other'},
+        'scopes': ['actions:request', 'actions:read:own', 'events:read', 'apps:read']})
+    assert minted.status_code == 201, minted.text
+    other_agent = {'Authorization': 'Bearer ' + minted.json()['one_time']['token']}
+    def produce():
+        for who, type_, key, bucket in [(OWNER, 'app.install', 'foreign-install', foreign),
+                                         (OWNER, 'app.restart', 'foreign-restart', foreign),
+                                         (other_agent, 'app.restart', 'other-agent-restart', foreign),
+                                         (AGENT, 'app.restart', 'mine-restart', own)]:
+            a = nclient.post('/v1/actions', headers=who,
+                             json=action_body(clock, type_=type_, key=key)).json()
+            bucket.append(a['id'])
+            approved = nclient.post(f"/v1/actions/{a['id']}/approve", headers=OWNER)
+            assert approved.status_code == 200 and approved.json()['state'] == 'succeeded'
+        publish(nclient, 'app', 'unhealthy', {'app_id': 'whoami'}, 'warning')
+    if replay:
+        produce()
+    with httpx.Client(base_url=event_server, timeout=5) as c:
+        with c.stream('GET', '/v1/events?types=app.*,audit.*' +
+                      ('&since_id=0' if replay else ''), headers=AGENT) as r:
+            assert r.status_code == 200
+            if not replay:
+                produce()
+            got = until_health(r)
+    encoded = json.dumps(got)
+    assert all(aid not in encoded for aid in foreign)
+    mine = [e for e in got if e['subject'].get('action_id') == own[0]]
+    assert [e['type'] for e in mine] == ['app.status', 'app.restarted']
+    assert got[-1]['type'] == 'app.health' and 'action_id' not in got[-1]['subject']
+    assert not any(e['type'].startswith('audit.') for e in got)
+    assert len({e['id'] for e in got}) == len(got)
+
+
+@pytest.mark.parametrize('event_server', ['hc'], indirect=True)
+@pytest.mark.parametrize('action_read', [False, True])
+@pytest.mark.parametrize('types', ['app.*,audit.*', 'audit.*'])
+def test_sse_app_action_scope_is_required_even_for_audit_fallback(event_server, hc, clock, action_read, types):
+    setup_owner(hc)
+    scopes = ['events:read', 'apps:read', 'audit:read'] + (['actions:read'] if action_read else [])
+    minted = hc.post('/v1/tokens', headers=csrf(hc), json={'name': 'app-reader', 'scopes': scopes})
+    assert minted.status_code == 201
+    headers = {'Authorization': 'Bearer ' + minted.json()['one_time']['token']}
+    a = hc.post('/v1/actions', headers=OWNER, json=action_body(clock)).json()
+    assert hc.post(f"/v1/actions/{a['id']}/approve", headers=OWNER).status_code == 200
+    publish(hc, 'app', 'unhealthy', {'app_id': 'whoami'}, 'warning')
+    records = [r for _, r in iter_records(hc.app.state.gateway.settings.audit_path)]
+    final_cursor = str(next(r['seq'] for r in reversed(records) if r['event'] == 'app.unhealthy'))
+    outcome_cursor = str(next(r['seq'] for r in records if r['event'] == 'app.status'))
+    with httpx.Client(base_url=event_server, timeout=3) as c:
+        with c.stream('GET', '/v1/events?since_id=0&types=' + types, headers=headers) as r:
+            got = []
+            for line in r.iter_lines():
+                if line.startswith('data: '):
+                    ev = json.loads(line[6:])
+                    got.append(ev)
+                    if ev['id'] == final_cursor:
+                        break
+    assert got[-1]['id'] == final_cursor  # safe health remains visible without action-read
+    assert any(e['id'] == outcome_cursor for e in got) == action_read
+    if not action_read:
+        assert a['id'] not in json.dumps(got)
+
+
+def test_plugin_principal_cannot_mint_a_stream_credential(nclient):
+    r = nclient.post('/v1/tokens', headers=OWNER, json={
+        'name': 'unsupported-plugin', 'principal': {'kind': 'plugin', 'id': 'plugin:other'},
+        'scopes': ['events:read', 'apps:read', 'actions:read:own']})
+    assert r.status_code == 422

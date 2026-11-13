@@ -159,6 +159,12 @@ class EventStream:
 
         def ok(ev: dict) -> bool:
             t = ev["type"]
+            action_id = ev.get("subject", {}).get("action_id")
+            # App visibility does not grant visibility of the action that caused its state.
+            # Apply the same owner/requester boundary to every envelope carrying action ids,
+            # before domain dispatch or generic audit fallback selection.
+            if action_id and not (full or p.is_owner or (p.kind == "agent" and owns(action_id))):
+                return False
             if resource_allowed is not None and not resource_allowed(ev):
                 return False
             if t.startswith(("alert.", "notification.", "app.")):

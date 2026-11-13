@@ -50,6 +50,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
         def resource_allowed(ev: dict) -> bool:
             t, subject = ev["type"], ev["subject"]
+            if ctx is not None and subject.get("action_id"):
+                action_scopes = ("actions:read", "actions:read:own") if p.kind == "agent" else ("actions:read",)
+                if not has_any(ctx.scopes, action_scopes):
+                    return False
             scope = {"alert": "alerts:read", "notification": "notifications:read",
                      "app": "apps:read", "action": "actions:read", "audit": "audit:read",
                      "node": "nodes:read"}.get(t.split(".")[0])
