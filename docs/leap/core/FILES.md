@@ -127,6 +127,7 @@ The §12.2 envelope `{error, message, reason?}`. Branch on `error`; `reason` ref
 | `UPLOAD_MAX_BYTES` | 64 GiB | largest upload |
 | `CHUNK_MAX_BYTES` | 64 MiB | largest PATCH body |
 | `UPLOAD_EXPIRY_HOURS` | `24` | unfinished uploads expire |
+| `MAX_OPEN_UPLOADS` | `16` | unfinished uploads one principal may hold (429 `too_many_uploads` beyond that) |
 | `PREVIEW_TEXT_BYTES` | 64 KiB | text excerpt size |
 
 ## 9. Choices made here, and what is left

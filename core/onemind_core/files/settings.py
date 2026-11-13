@@ -28,6 +28,8 @@ class FilesSettings:
     # Largest PATCH body; clients send bigger files in several chunks.
     chunk_max_bytes: int = 64 * MIB                   # ONEMIND_FILES_CHUNK_MAX_BYTES
     upload_expiry_hours: int = 24                     # ONEMIND_FILES_UPLOAD_EXPIRY_HOURS
+    # Unfinished uploads one principal may hold at once (each reserves quota and a partial file).
+    max_open_uploads: int = 16                        # ONEMIND_FILES_MAX_OPEN_UPLOADS
     # Bytes of a text file returned inline by the preview endpoint.
     preview_text_bytes: int = 64 * 1024               # ONEMIND_FILES_PREVIEW_TEXT_BYTES
 
@@ -41,6 +43,8 @@ class FilesSettings:
             raise ValueError("ONEMIND_FILES_TRASH_RETENTION_DAYS must be at least 1")
         if self.upload_max_bytes < 1 or self.chunk_max_bytes < 1:
             raise ValueError("ONEMIND_FILES_UPLOAD_MAX_BYTES and _CHUNK_MAX_BYTES must be positive")
+        if self.max_open_uploads < 1:
+            raise ValueError("ONEMIND_FILES_MAX_OPEN_UPLOADS must be at least 1")
         if not 1 <= self.upload_expiry_hours <= 24 * 7:
             raise ValueError("ONEMIND_FILES_UPLOAD_EXPIRY_HOURS must be between 1 and 168")
         if not 0 <= self.preview_text_bytes <= MIB:

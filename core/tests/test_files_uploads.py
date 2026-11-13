@@ -117,3 +117,45 @@ def test_revoked_permission_fails_at_completion(fc, settings):
     r = patch(fc, AGENT, loc, 2, b"cd")
     assert r.status_code == 403
     assert fc.get("/v1/files/stat", params={"root": "shared", "path": "/Inbox/r.txt"}, headers=OWNER).status_code == 404
+
+
+def _part_files(files_root):
+    d = files_root / ".system" / "uploads"
+    return sorted(p.name for p in d.iterdir()) if d.exists() else []
+
+
+def test_abandoned_partial_uploads_are_removed_on_expiry(fc, clock, files_root):
+    loc = create(fc, OWNER, 10).headers["location"]
+    assert patch(fc, OWNER, loc, 0, b"abc").status_code == 204
+    assert len(_part_files(files_root)) == 1
+    clock.advance(timedelta(hours=25).total_seconds())
+    # Nobody touches the abandoned upload: the next upload anyone starts sweeps it.
+    assert create(fc, ADULT, 1, root="home:adult").status_code == 201
+    parts = _part_files(files_root)
+    assert len(parts) == 1 and not parts[0].startswith(loc.rsplit("/", 1)[1])
+
+
+def test_open_uploads_per_principal_are_capped(fc, files_settings):
+    for i in range(files_settings.max_open_uploads):
+        assert create(fc, OWNER, 1, filename=f"f{i}").status_code == 201
+    r = create(fc, OWNER, 1, filename="one-too-many")
+    assert r.status_code == 429 and r.json()["reason"] == "too_many_uploads"
+    assert create(fc, ADULT, 1, root="home:adult").status_code == 201  # per principal
+
+
+def test_uploads_never_follow_a_planted_symlink(fc, files_root, tmp_path):
+    ok(upload(fc, OWNER, "home:owner", "/", "seed.txt", b"x"), 204)
+    home = next((files_root / "home").iterdir())
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "victim.txt").write_text("keep")
+    (home / "linkdir").symlink_to(outside)
+    (home / "victim.txt").symlink_to(outside / "victim.txt")
+    r = create(fc, OWNER, 1, path="/linkdir")
+    assert r.status_code == 403 and r.json()["reason"] == "symlink"
+    r = create(fc, OWNER, 1, filename="victim.txt", overwrite="1")
+    if r.status_code == 201:  # accepted at creation; completion must refuse to replace a symlink
+        r = patch(fc, OWNER, r.headers["location"], 0, b"X")
+    assert r.status_code == 409
+    assert (outside / "victim.txt").read_text() == "keep"
+    assert list(outside.iterdir()) == [outside / "victim.txt"]

@@ -215,3 +215,45 @@ def test_a_failed_apply_reports_no_internal_detail(fc, monkeypatch):
     done = ok(fc.post(f"/v1/files/requests/{req['id']}/approve", headers=OWNER))
     assert done["state"] == "failed" and "/data" not in done["result"]["message"]
     assert ok(fc.get(f"/v1/files/requests/{req['id']}", headers=AGENT))["state"] == "failed"
+
+
+def test_a_grant_confines_every_agent_operation(fc):
+    """Escapes tried with a read-write grant on /Inbox: dot-dot, a sibling sharing the prefix,
+    another root, moving or uploading out, the trash and the owner's approvals."""
+    mkdir(fc, OWNER, "shared", "/Inbox")
+    mkdir(fc, OWNER, "shared", "/Inbox2")
+    ok(upload(fc, OWNER, "shared", "/Inbox2", "secret.txt", b"s"), 204)
+    ok(upload(fc, OWNER, "shared", "/Inbox", "mine.txt", b"m"), 204)
+    assert fc.post("/v1/files/grants", headers=OWNER, json=grant_body(path="/Inbox", access="rw", approve=True)).status_code == 202
+    for path in ("/Inbox/../Inbox2", "/Inbox2", "/Inbox/../", "/Inbox/%2e%2e", "//Inbox2", "/Inbox\\..\\Inbox2"):
+        for route in ("list", "stat"):
+            r = fc.get(f"/v1/files/{route}", params={"root": "shared", "path": path}, headers=AGENT)
+            assert r.status_code in (403, 404, 422), (route, path, r.status_code)
+    r = fc.get("/v1/files/download", params={"root": "shared", "path": "/Inbox/../Inbox2/secret.txt"}, headers=AGENT)
+    assert r.status_code == 422
+    r = fc.get("/v1/files/download", params={"root": "shared", "path": "/Inbox2/secret.txt"}, headers=AGENT)
+    assert r.status_code == 403
+    for root in ("home:owner", "home:agent"):  # another root through the same grant
+        assert fc.get("/v1/files/list", params={"root": root, "path": "/Inbox"}, headers=AGENT).status_code == 403
+    ops = [
+        {"op": "move", "root": "shared", "path": "/Inbox/mine.txt", "to_path": "/Inbox2/mine.txt"},
+        {"op": "move", "root": "shared", "path": "/Inbox2/secret.txt", "to_path": "/Inbox/secret.txt"},
+        {"op": "trash", "root": "shared", "path": "/Inbox2/secret.txt"},
+        {"op": "mkdir", "root": "shared", "path": "/Inbox2/x"},
+        {"op": "rename", "root": "shared", "path": "/Inbox2/secret.txt", "name": "y"},
+        {"op": "rename", "root": "shared", "path": "/Inbox/mine.txt", "name": "../Inbox2/y"},
+    ]
+    for body in ops:
+        r = fc.post("/v1/files/ops", headers=AGENT, json=body)
+        assert r.status_code in (403, 422), (body, r.status_code)
+    r = fc.post("/v1/files/uploads", headers={**AGENT, "Tus-Resumable": "1.0.0", "Upload-Length": "1",
+                                             "Upload-Metadata": "root c2hhcmVk,path L0luYm94Mg==,filename eC50eHQ="})
+    assert r.status_code == 403
+    assert fc.get("/v1/files/preview", params={"root": "shared", "path": "/Inbox2/secret.txt"}, headers=AGENT).status_code == 403
+    assert ok(fc.get("/v1/files/trash", params={"trash": "shared"}, headers=OWNER)) == []
+    # An agent never reaches the owner's approval or trash-emptying powers.
+    req = ok(fc.post("/v1/files/trash/empty", headers=OWNER, json={"trash": "shared"}), 202)
+    assert fc.post(f"/v1/files/requests/{req['id']}/approve", headers=AGENT).status_code == 403
+    assert fc.get("/v1/files/trash", params={"trash": "shared"}, headers=AGENT).status_code == 403
+    assert fc.put("/v1/files/quotas/owner", headers=AGENT, json={"limit_bytes": 0}).status_code == 403
+    assert fc.post("/v1/files/grants", headers=AGENT, json=grant_body(approve=True)).status_code == 403

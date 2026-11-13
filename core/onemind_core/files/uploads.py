@@ -149,7 +149,12 @@ class Uploads:
             digest = repr_digest
         overwrite = metadata.get("overwrite", "") in ("1", "true", "yes")
         t = self.files.target(p, metadata.get("root"), metadata.get("path"), "write")
+        self.expire_due()  # abandoned partial files are removed as soon as anyone starts another upload
         with self.files._lock, self.files._space(t.root) as space, paths.dir_at(space, t.parts) as d:
+            if sum(1 for u in self.repo.open_uploads() if u.principal_id == p.id) >= self.settings.max_open_uploads:
+                raise FilesError(429, "rate_limited",
+                                 f"at most {self.settings.max_open_uploads} unfinished uploads at once; finish or delete one",
+                                 reason="too_many_uploads", headers={"Retry-After": "60"})
             if paths.exists_at(d, name) and not overwrite:
                 raise conflict("a file with that name already exists (send overwrite=1 to replace it)", "exists")
             self.files.check_space(t.root, length)
@@ -220,6 +225,9 @@ class Uploads:
         limit = min(row.length - row.received, self.settings.chunk_max_bytes)
         if content_length is not None and content_length > limit:
             raise FilesError(413, "payload_too_large", f"this chunk may be at most {limit} bytes", reason="chunk_too_large")
+        free = self.files.free_bytes()  # the space reserved at creation is not on disk until written
+        if free is not None and free - (content_length or 0) < self.settings.min_free_bytes:
+            raise FilesError(413, "payload_too_large", "not enough free space on the disk", reason="insufficient_space")
         with self._busy_lock:
             if row.id in self._busy:
                 raise conflict("another request is writing this upload", "upload_busy")
