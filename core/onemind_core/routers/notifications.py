@@ -14,14 +14,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import threading
 from collections import defaultdict, deque
 from datetime import timedelta
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, Query, Request, Response
 from fastapi.responses import JSONResponse
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError
+from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Field, ValidationError
 
 from ..actions import ActionRequest
 from ..auth import Principal
@@ -40,6 +41,15 @@ from ..notify.store import (
     notification_json,
 )
 from ..identity.scopes import ALL, has_any, register_route_scope
+
+def _rfc3339_text(v):
+    # pydantic reads "0.5" or 17 as a Unix time; the published schema says an RFC 3339 date-time string.
+    if isinstance(v, (int, float)) or (isinstance(v, str) and re.fullmatch(r"\s*[-+]?[\d.]+(?:[eE][-+]?\d+)?\s*", v)):
+        raise ValueError("expected an RFC 3339 date-time, not a number")
+    return v
+
+
+Rfc3339 = Annotated[AwareDatetime, BeforeValidator(_rfc3339_text)]
 
 TAG = "notifications"
 
@@ -409,7 +419,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         unread: bool | None = None,
         severity: str | None = None,
         topic: str | None = None,
-        since: AwareDatetime | None = None,
+        since: Rfc3339 | None = None,
         limit: int | None = Query(default=None, ge=1, le=500),
         cursor: str | None = None,
         p: Principal = Depends(principal),

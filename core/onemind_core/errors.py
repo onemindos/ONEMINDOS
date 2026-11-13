@@ -28,6 +28,7 @@ ERROR_CODES = {
     "rate_limited",
     "payload_too_large",
     "policy_refused",
+    "unavailable",
 }
 
 
@@ -37,7 +38,7 @@ class ErrorBody(BaseModel):
     error: Literal[
         "permission_denied", "stale_precondition", "expired", "conflict",
         "outcome_unknown", "not_found", "unauthenticated",
-        "rate_limited", "payload_too_large", "policy_refused",
+        "rate_limited", "payload_too_large", "policy_refused", "unavailable",
     ]
     message: str
     # §12.2 optional fields; present only when they carry something.
@@ -53,6 +54,7 @@ _DESCRIPTIONS = {
     409: "stale_precondition, expired, conflict or policy_refused",
     413: "Request body over its limit (payload_too_large)",
     422: "Request failed validation (conflict, with the bad fields in message)",
+    503: "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)",
     429: "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After",
 }
 
@@ -121,7 +123,12 @@ def install_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(RequestValidationError)
-    async def _validation(_: Request, exc: RequestValidationError):
+    async def _validation(request: Request, exc: RequestValidationError):
+        # A feature router may map specific parameter failures onto its own protocol status (for
+        # example tus's 412 and 415) so the published schema can require what the protocol requires.
+        for hook in getattr(request.app.state, "validation_overrides", ()):
+            if (response := hook(request, exc.errors())) is not None:
+                return response
         # §3 has no "invalid request" code: a body that does not fit the schema is reported as a
         # conflict with it, keeping HTTP 422 and naming the offending fields in the message.
         problems = "; ".join(

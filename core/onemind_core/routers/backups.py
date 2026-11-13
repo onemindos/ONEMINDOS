@@ -26,8 +26,13 @@ from ..backups.service import BackupService, Unavailable
 from ..backups.settings import BackupsSettings
 from ..catalog import APP_ID_RE
 from ..context import Gateway
-from ..errors import ApiError, error_responses
+from ..errors import ApiError, error_responses as _error_responses
 from ..ledger import utc
+
+
+def error_responses(*statuses: int) -> dict[int, dict]:
+    """The shared error entries plus 503: any backup route may answer it (feature off, agent down)."""
+    return _error_responses(*statuses, 503)
 
 SNAP_RE = r"^[0-9a-f]{8,64}$"
 DEST_RE = r"^dst_[0-9a-f]{16}$"
@@ -47,8 +52,13 @@ class AppScope(BaseModel):
     app_id: str = Field(min_length=1, max_length=59, pattern=APP_ID_RE.pattern)
 
 
+# An absolute path of non-empty segments, none of them "." or "..", with optional trailing slashes. This is
+# exactly what _plain accepts, so the published schema describes every path the server takes (and no other).
+PATH_RE = r"^(?:/(?:[^/.][^/]*|\.[^/.][^/]*|\.\.[^/]+))+/*$"
+
+
 class PathScope(AppScope):
-    path: str = Field(min_length=1, max_length=4096, pattern=r"^/")
+    path: str = Field(min_length=1, max_length=4096, pattern=PATH_RE)
 
     @field_validator("path")
     @classmethod
@@ -159,7 +169,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         now = gw.clock()
         exp = utc(body.expires_at) if body.expires_at else now + timedelta(hours=24)
         if exp > now + timedelta(days=7):
-            raise ApiError(422, "conflict", "expires_at may be at most 7 days ahead")
+            raise ApiError(422, "conflict", "expires_at may be at most 7 days ahead", reason="expiry_too_far")
         return exp
 
     def shortcut(p: Principal, body: _Request) -> None:

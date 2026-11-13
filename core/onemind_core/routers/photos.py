@@ -155,7 +155,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def create_upload(
         p: Principal = Depends(principal),
         upload_length: int = Header(alias="Upload-Length"),
-        upload_complete: str = Header(default="?0", alias="Upload-Complete", pattern=r"^\?[01]$"),
+        upload_complete: Literal["?0", "?1"] = Header(default="?0", alias="Upload-Complete"),
         source_id: str = Header(alias="OneMind-Source-Id", max_length=40),
         client_key: str = Header(alias="OneMind-Client-Key", max_length=64),
         content_hash: str = Header(alias="OneMind-Content-Hash", max_length=71),
@@ -194,7 +194,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         request: Request,
         p: Principal = Depends(principal),
         upload_offset: int = Header(alias="Upload-Offset", ge=0),
-        upload_complete: str = Header(alias="Upload-Complete", pattern=r"^\?[01]$"),
+        upload_complete: Literal["?0", "?1"] = Header(alias="Upload-Complete"),
     ):
         complete = upload_complete == "?1"
         started = await run_in_threadpool(svc.begin_append, p, upload_id, upload_offset, complete)
