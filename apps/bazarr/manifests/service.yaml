@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Web UI and API on 6767 (readme-vars.yml).
+apiVersion: v1
+kind: Service
+metadata:
+  name: bazarr
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: bazarr
+  ports:
+    - name: http
+      port: 6767
+      targetPort: http
+      protocol: TCP

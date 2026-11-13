@@ -13,10 +13,15 @@
 name: ci-apps
 
 on:
+  workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
     paths:
       - "apps/**"
-      - "sdk/**"
+      # Only the SDK files this gate reads (not all of sdk/**: the gateway, OpenAPI and language
+      # SDKs have their own workflows and cannot change an app's gate result).
+      - "sdk/tools/**"
+      - "sdk/schema/**"
+      - "research-output/evidence/license-matrix.csv"
       - "renovate.json"
       - ".github/workflows/ci-apps.yml"
 
@@ -24,7 +29,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-apps-${{ github.event.pull_request.number }}
+  group: ci-apps-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -61,6 +66,7 @@ jobs:
         run: python3 -I sdk/tools/app-readme --check
 
       - name: Gitleaks (commits in this PR)
+        if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -73,9 +79,15 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
-          # A change to the gate itself re-gates every app; otherwise only the apps the PR touches.
-          if grep -qE '^(sdk/tools/(app-gate|validate-apps|applib/)|sdk/schema/|\.github/workflows/ci-apps\.yml)' <<<"$files"; then
+          # A manual run (test-all) has no PR to diff: gate every app.
+          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
+            files=.github/workflows/ci-apps.yml
+          else
+            files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          fi
+          # A change to the gate itself (its tools, pinned tool installer, schema or licence matrix) re-gates
+          # every app; otherwise only the apps the PR touches (SDK changes that are not gate inputs gate none).
+          if grep -qE '^(sdk/tools/((app-gate|validate-apps|requirements\.txt|ci/install-tools\.sh)$|applib/)|sdk/schema/|research-output/evidence/license-matrix\.csv$|\.github/workflows/ci-apps\.yml$)' <<<"$files"; then
             ids=$(find apps -mindepth 1 -maxdepth 1 -type d ! -name '_*' ! -name '.*' -printf '%f\n' | sort)
           else
             ids=$(grep -oE '^apps/[^/_.][^/]*/' <<<"$files" | cut -d/ -f2 | sort -u || true)

@@ -1,0 +1,9 @@
+{
+  "id": "E1",
+  "verdict": "OBS",
+  "at": "2026-11-12T10:32:43Z",
+  "data": {
+    "rc": 1,
+    "tail": "Error: device has not been properly initialized: run device-init first "
+  }
+}

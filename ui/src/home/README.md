@@ -29,7 +29,7 @@
 | Nodes | contract `GET /v1/nodes` (§2 heartbeat incl. `uptime_s`). **PROPOSED** heartbeat fields `cpu_percent` (0–100) and `temp_c` (°C or null). |
 | Apps | contract `GET /v1/apps`; **PROPOSED** `tags`, `deploy_class`, `plugin` (TAXONOMY.md §5), `open_url` (SEC-P2), `update_available`, `widgets` (PLUGIN-UI.md §5). |
 | Needs you | contract `GET /v1/actions?state=awaiting_approval`, `POST /v1/actions/{id}/approve|deny`. |
-| Activity, Backups, Updates, Network, app widget payloads | **PROPOSED**: `GET /v1/audit`, `/v1/backups/status`, `/v1/updates`, `/v1/fabric/links`, `/v1/apps/{id}/widgets/{widget}`. |
+| Activity, Backups, Updates, Network, app widget payloads | **PROPOSED**: `GET /v1/audit`, `/v1/backups/status`, `/v1/os/status`, `/v1/fabric`, `/v1/apps/{id}/widgets/{widget}`. |
 | Layout per person | **PROPOSED** `GET/PUT /v1/people/me/home` storing the `HomeLayout` JSON. `HomeScreen` is controlled (`layout` + `onLayoutChange`); `sanitizeHomeLayout()` validates anything read back. The demo uses `browserHomeLayoutStore()` (per browser, a convenience only). |
 
 ## Home tokens

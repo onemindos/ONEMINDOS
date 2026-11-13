@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Per-box certificate authority (H-05; NETWORKING.md §9.4).
+"""Per-box certificate authority (H-05; NETWORKING.md §9.4). Not mounted yet (CORE-NET-8): no importer.
 
 On first start the box creates its own CA under the data dir (ECDSA P-256, 10 years) and issues
 the server certificates the box presents on the LAN and the mesh:

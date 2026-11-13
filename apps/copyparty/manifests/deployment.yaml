@@ -1,0 +1,140 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/9001/copyparty (contract §9.2), then completed
+# from upstream at tag v1.20.26: scripts/docker/README.md ("docker run -u 1000 -p 3923:3923
+# -v ...:/w -v ...:/cfg copyparty/ac"; ac is "the recommended image edition"; config files
+# /cfg/*.conf are loaded), scripts/docker/innvikler.sh (initcfg: chdir /w, then "% /cfg") and
+# docs/examples/docker/basic-docker-compose/copyparty.conf (the [accounts] and volume syntax).
+#
+# Upstream's default shares /w read-write "for anyone". This package writes /cfg/onemind.conf once
+# instead: one account "owner" with a generated password, the files at /files for that account
+# only, and an empty read-only landing folder at / so that GET / answers 200 for health checks
+# (with no access at / copyparty answers 403, copyparty/httpcli.py tx_404). Nothing is committed.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: copyparty
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: copyparty
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: copyparty
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: config
+          image: docker.io/copyparty/ac:1.20.26@sha256:b2054d65e05daa8982ca17c26b12b74315c0ce586a03ff9018a59c80731b9e19
+          command:
+            - /bin/ash
+            - -c
+            - |
+              set -eu
+              mkdir -p /cfg/landing
+              f=/cfg/onemind.conf
+              if [ ! -s "$f" ]; then
+                umask 077
+                pw="$(head -c 96 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 24)"
+                printf '%s\n' \
+                  '# Written once by OneMind (apps/copyparty). Edit freely; it is not overwritten.' \
+                  '[global]' \
+                  '  e2dsa  # index files' \
+                  '  e2ts   # index media tags' \
+                  '' \
+                  '[accounts]' \
+                  "  owner: $pw" \
+                  '' \
+                  '[/]' \
+                  '  /cfg/landing' \
+                  '  accs:' \
+                  '    r: *' \
+                  '' \
+                  '[/files]' \
+                  '  /w' \
+                  '  accs:' \
+                  '    rwmda: owner' > "$f"
+              fi
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: config
+              mountPath: /cfg
+      containers:
+        - name: copyparty
+          image: docker.io/copyparty/ac:1.20.26@sha256:b2054d65e05daa8982ca17c26b12b74315c0ce586a03ff9018a59c80731b9e19
+          ports:
+            - name: http
+              containerPort: 3923
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 2
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Thumbnails and audio transcoding (FFmpeg, Pillow) use the CPU in bursts. Upstream
+          # publishes no sizing; a OneMind choice.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "2"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /w
+            - name: config
+              mountPath: /cfg
+            - name: state
+              mountPath: /state
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: copyparty-data
+        - name: config
+          persistentVolumeClaim:
+            claimName: copyparty-config
+        - name: state
+          emptyDir:
+            sizeLimit: 256Mi

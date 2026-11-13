@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Mesh coordinator client: Headscale's REST API, driven only by owner-approved actions.
 
+Not mounted yet (CORE-NET-8): no router imports this module.
+
 Design: docs/architecture/NETWORKING.md §5 (enrollment), §6 (access rules), §13 (S3, S4, S7).
 
 - HeadscaleClient speaks Headscale's REST API at a pinned version (HEADSCALE_VERSION, API prefix

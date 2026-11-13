@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# penpot-data: the assets volume (/opt/data/assets in docker-compose.yaml: uploaded images, fonts,
+# file thumbnails) and the generated secret key. penpot-db: the PostgreSQL data directory, where
+# the design files themselves live. recommended-settings.md suggests "a minimum database size of
+# 50GB to 100GB" for up to 10 editors; 20Gi is a OneMind choice for a household, and 20Gi for
+# assets. No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: penpot-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: penpot-db
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi

@@ -6,6 +6,14 @@ import { formatAgo, secondsSince } from '../lib/time';
 import { Card, H1, KindBadge, Loading, P, Row, Screen, StateBadge, s } from '../ui/bits';
 import { useTheme } from '../ui/theme';
 
+/** §12.4 `approval`: how the owner's yes was given. F-12: a yes without a passkey is labelled as such. */
+export const APPROVAL_LABEL: Record<string, string> = {
+  passkey: 'with a passkey',
+  token: 'without a passkey',
+  policy: 'by a standing approval',
+  console: 'at the box console',
+};
+
 export function ActivityScreen() {
   const t = useTheme();
   const now = useNow();
@@ -34,6 +42,7 @@ export function ActivityScreen() {
             </P>
           </View>
           {a.decided_by && <Row label="Decided by" value={`${a.decided_by.kind}: ${a.decided_by.id}`} />}
+          {a.approval && <Row label="Approved" value={APPROVAL_LABEL[a.approval] ?? a.approval} />}
           {a.result?.message && <Row label="Result" value={a.result.message} />}
           <Row label="Action id" value={a.id} />
         </Card>

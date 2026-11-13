@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Dashboard, API and the tracking script on 3000 (docker-compose.yml). The database has no Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: umami
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: umami
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP

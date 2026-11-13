@@ -85,7 +85,16 @@ export function WidgetFrame({ title, icon, glyph, size, href, hrefLabel = 'Open'
       {showSource && source && (
         <p className="omh-source">
           <span className="om-visually-hidden">Same data without the UI: </span>
-          <code>{source}</code>
+          <code title={source}>{source}</code>
+          <button
+            type="button"
+            className="omh-source-copy"
+            onClick={() => {
+              void navigator.clipboard?.writeText(source).catch(() => undefined);
+            }}
+          >
+            Copy<span className="om-visually-hidden"> the call for {title}</span>
+          </button>
         </p>
       )}
     </section>

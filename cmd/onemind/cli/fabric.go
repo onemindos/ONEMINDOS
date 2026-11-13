@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/onemindos/onemindos/internal/detect"
 	"github.com/onemindos/onemindos/internal/fabric"
 	"github.com/onemindos/onemindos/internal/mesh"
@@ -24,29 +26,20 @@ import (
 
 // The fabric join on a new machine, and the owner's side of it
 // (contract §12.11; docs/leap/core/FABRIC.md §3.1).
-func fabricCommands() []Command {
-	return []Command{
-		{
-			Path:  []string{"fabric", "join"},
-			Usage: "onemind fabric join 'onemind-join:v1?…' [--hub-addr IP] [--timeout 20m]",
-			Run:   func(env *Env, args []string) error { return fabricJoin(args, env.Stdout) },
-		},
-		{
-			Path:  []string{"fabric", "ticket"},
-			Usage: "onemind fabric ticket [--hub URL] [--role worker|leaf] [--ttl 15m] [--token T] [--json]",
-			Run:   func(env *Env, args []string) error { return fabricTicket(args, env.Stdout) },
-		},
-		{
-			Path:  []string{"fabric", "approve"},
-			Usage: "onemind fabric approve ACTION_ID [--hub URL] [--token T]",
-			Run:   func(env *Env, args []string) error { return fabricApprove(args, env.Stdout) },
-		},
-		{
-			Path:  []string{"fabric", "status"},
-			Usage: "onemind fabric status [--hub URL] [--token T] [--json]",
-			Run:   func(env *Env, args []string) error { return fabricStatus(args, env.Stdout) },
-		},
+func fabricCommands(a *App) []*cobra.Command {
+	// Each subcommand keeps its own flag handling, so cobra passes the arguments through untouched.
+	sub := func(use, short string, run func(args []string, out io.Writer) error) *cobra.Command {
+		return &cobra.Command{Use: use, Short: short, DisableFlagParsing: true,
+			RunE: func(_ *cobra.Command, args []string) error { return run(args, a.Stdout) }}
 	}
+	fab := &cobra.Command{Use: "fabric", Short: "Join this machine to a OneMind, or add one (the owner's side)"}
+	fab.AddCommand(
+		sub("join 'onemind-join:v1?…' [--hub-addr IP] [--timeout 20m]", "Join this machine to a hub (run as root)", fabricJoin),
+		sub("ticket [--hub URL] [--role worker|leaf] [--ttl 15m] [--token T] [--json]", "Mint a one-use join code", fabricTicket),
+		sub("approve ACTION_ID [--hub URL] [--token T]", "Approve a node join request", fabricApprove),
+		sub("status [--hub URL] [--token T] [--json]", "Nodes and pending joins", fabricStatus),
+	)
+	return []*cobra.Command{fab}
 }
 
 // Test seams.
@@ -292,4 +285,10 @@ func fabricStatus(args []string, out io.Writer) error {
 		fmt.Fprintf(out, "%s\t%s\t%s\tjoin:%s\tcode %s (action %s)\n", j.NodeID, j.Hostname, j.Role, j.State, j.MatchCode, j.ActionID)
 	}
 	return nil
+}
+
+// gatewayError is the gateway's error envelope (contract §12.2).
+type gatewayError struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
 }

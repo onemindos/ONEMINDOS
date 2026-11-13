@@ -139,7 +139,8 @@ export interface AppPlan {
 }
 
 /** Lifecycle state of an installed app (contract `status`, plus PROPOSED values). */
-export type InstalledRunState = 'running' | 'starting' | 'stopped' | 'unhealthy' | 'updating' | 'unknown';
+/** `installed`: the gateway applied it but reports no health yet (contract v0 `status: installed`). */
+export type InstalledRunState = 'running' | 'installed' | 'starting' | 'stopped' | 'unhealthy' | 'updating' | 'unknown';
 
 /** PROPOSED: a credential from the manifest (PD-07). Sealed on the box; shown only to the owner. */
 export interface AppCredential {
@@ -183,6 +184,8 @@ export interface InstalledApp {
   checked_at: string;
   /** PROPOSED per-app URL behind the gateway login (PD-02). */
   url?: string;
+  /** Replaces "behind the OneMind sign-in" (and its lock) when `url` is not behind it, e.g. a v0 hub's direct app port. */
+  url_note?: string;
   update?: ReleaseNote;
   data_size?: string;
   last_backup?: string | null;

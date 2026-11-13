@@ -119,14 +119,14 @@ Read it with `gw.settings.section(BackupSettings)`. `Settings.from_env` parses e
 ```python
 gw.events.publish_event(
     "backup", "run.failed", {"run_id": run_id, "target": "usb"},
-    severity="error", resource={"kind": "backup_target", "id": "usb"},
+    severity="critical", resource={"kind": "backup_target", "id": "usb"},
     dedupe_key="backup:usb:failing", principal=p.as_dict() if p else None,
 )
 ```
 
 One call, in this order:
 1. **Audit:** appends `backup.run.failed` to the hash-chained audit log (data: `event_id`, `severity`, `payload`, plus `resource` and `dedupe_key` when set). The audit line is also published on `onemind.audit`, as every audit line is.
-2. **NATS:** publishes the `onemind.event.v1` envelope of the contract §12.3 draft on `onemind.event.backup.run.failed` (best effort; NATS down never fails the caller, the audit line is the record of truth).
+2. **NATS:** publishes the `onemind.event/v1` envelope of contract §12.8 (`schema`, `id`, `type`, `ts`, `subject`, `severity` of `info|warning|critical`, `data`; the draft-era `error` and `debug` severities are mapped to `warning` and `info`) on `onemind.event.backup.run.failed` (best effort; NATS down never fails the caller, the audit line is the record of truth).
 3. **In-process subscribers** whose pattern matches: `gw.events.subscribe("backup.>", handler)`. `*` matches one token, a final `>` one or more. Handlers run in the publisher's thread: keep them quick and queue slow work (a push, an email). A handler that raises is logged and skipped.
 
 Domain and name are lower-case tokens (`[a-z][a-z0-9_]*`, name up to four dotted parts). The payload is JSON, at most 16 KiB, and carries ids and small facts only, never secrets or file contents. Notifications (CORE-NOTIFY-1) and monitoring subscribe here or to `onemind.event.>` on NATS; the event type names come from the catalogue in `docs/architecture/NOTIFICATIONS.md` §3. Until contract PR C12-A settles it, `instance_id` is the hub node id.
@@ -137,18 +137,23 @@ Domain and name are lower-case tokens (`[a-z][a-z0-9_]*`, name up to four dotted
 // SPDX-License-Identifier: Apache-2.0
 package cli
 
-func backupCommands() []Command {
-	return []Command{{
-		Path:  []string{"backup", "now"},
-		Usage: "onemind backup now --hub URL",
-		Run:   func(env *Env, args []string) error { return backupNow(args, env.Stdout) },
-	}}
+func backupCommands(a *App) []*cobra.Command {
+	backup := &cobra.Command{Use: "backup", Short: "Snapshots of app data"}
+	backup.AddCommand(&cobra.Command{
+		Use: "now", Short: "Take a snapshot now", Args: cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			c, _, err := a.client() // the Go SDK client for the selected box (context, --hub, token)
+			if err != nil {
+				return err
+			}
+			...
+		},
+	})
+	return []*cobra.Command{backup}
 }
 ```
 
-Add `backupCommands,` to `groups` in `cli/root.go`; its order is the usage order. The longest matching path wins, so `node info deep` and `node info` can coexist. A command returns an error to print `onemind: <err>` and exit 1; unknown input prints the usage and exits 2. Shared helpers (`httpGet`, `printJSON`, `dash`, `envOr`) are in `cli/helpers.go`. `cmd/onemind/main.go` only calls `cli.Run`.
-
-Founder decision F-8 allows `cobra`. This change keeps stdlib `flag` because the task required identical output and cobra rewrites usage, help and error text. Moving to cobra later is a change to `root.go` alone (DEV-CLI-1), since groups only declare `Path`, `Usage` and `Run`.
+Add `backupCommands,` to `groups` in `cli/root.go`; its order is the help order. The CLI is built with cobra (F-8, DEV-CLI-1) on the Go SDK (`sdk/go`): global flags (`--context`, `--hub`, `--json`, `--timeout`, ...) are on `a.G`, `a.client()` resolves the box, `printJSON`/`table`/`kv` print (gateway strings pass through `sanitize`), and a command returns an error whose exit code comes from `cli/exit.go` (the CLI.md §4.2 table; `exitWith(code, name, msg)` for an explicit one). Unknown input prints the usage and exits 2. `cmd/onemind/main.go` only calls `cli.Run`.
 
 ## 7. `onemindd`: subcommands and optional services
 

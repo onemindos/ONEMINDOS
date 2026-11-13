@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# WebUI on 8080 (entrypoint.sh default). The torrent port 6881 is declared on the container but not
+# published: OneMind apps cannot use host ports, so peers cannot connect in (README "Not done yet").
+apiVersion: v1
+kind: Service
+metadata:
+  name: qbittorrent
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: qbittorrent
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# The Ollama HTTP API (native and OpenAI-compatible under /v1). Other apps on the box reach it at
+# http://ollama.app-ollama.svc.cluster.local:11434 (LibreChat's default config does).
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ollama
+  ports:
+    - name: http
+      port: 11434
+      targetPort: http
+      protocol: TCP

@@ -7,10 +7,6 @@ This is where "AI never actuates without human approval" is enforced:
 - an app.install is approved only for an app with a passing scan newer than 7 days (§10.3);
 - an app that declares spec.agent gets its own agent principal at install, revoked at removal
   (§11.2), so the AI inside it can request actions but, like every agent, never approve them.
-
-Action types that are not about an app (node.join, later mesh.*) plug in a handler with
-register_handler(type, handler): the same ledger, approval rule and audit trail apply, and the
-handler owns the precondition re-check and the effect (docs/leap/core/PLUMBING.md §2).
 """
 
 from __future__ import annotations
@@ -18,7 +14,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from datetime import datetime
-from typing import Literal, Protocol
+from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
@@ -40,22 +36,6 @@ APP_CLAIMS: dict[str, tuple[str, frozenset[str], bool]] = {
     "app.install": ("installing", frozenset({"failed", "unknown"}), True),
     "app.remove": ("removing", frozenset({"installed", "failed", "unknown"}), False),
 }
-
-
-class ActionHandler(Protocol):
-    """The effect of a non-app action type, run only after an owner approved it.
-
-    recheck(action) -> a message when the world changed since the request (the approval answers 409
-    stale_precondition and the action stays awaiting_approval), else None.
-    dispatch(action) -> an ExecResult to finish the action now, or None to leave it dispatched; the
-    handler then calls ActionService.finish() when the effect is complete (a node joining).
-    reconcile_interrupted() leaves the type's accepted/dispatched actions alone: the handler's module
-    picks them up when it registers.
-    """
-
-    def recheck(self, action: Action) -> str | None: ...
-
-    def dispatch(self, action: Action) -> ExecResult | None: ...
 
 
 class ActionParams(BaseModel):
@@ -90,52 +70,9 @@ class ActionService:
         self.executor = executor
         self.audit = audit
         self.clock = clock
-        self.handlers: dict[str, ActionHandler] = {}
-
-    # ---- handlers for non-app action types ---------------------------------------------
-    def register_handler(self, action_type: str, handler: ActionHandler) -> None:
-        if action_type in APP_CLAIMS or action_type in self.handlers:
-            raise ValueError(f"action type {action_type!r} already has a handler")
-        self.handlers[action_type] = handler
-
-    def file(self, action_type: str, params: dict, requested_by: dict, *, expires_at: datetime,
-             idempotency_key: str, audit_principal: dict | None = None) -> Action:
-        """File an action of a registered handler type straight into awaiting_approval.
-
-        For requests that do not come through POST /v1/actions (a joining node, §12.11). The
-        caller has already checked who may ask; approval still needs an owner.
-        """
-        if action_type not in self.handlers:
-            raise ValueError(f"no handler for action type {action_type!r}")
-        now = self.clock()
-        action = Action(
-            id=new_action_id(), type=action_type, params=params, state="requested",
-            requested_by=requested_by, idempotency_key=idempotency_key,
-            created_at=now, updated_at=now, expires_at=utc(expires_at),
-        )
-        stored, created = self.repo.create(action)
-        if not created:
-            raise ApiError(409, "conflict", "this request was already filed")
-        self.audit.append("action.requested", audit_principal, stored.id, {
-            "type": stored.type, "params": stored.params, "expires_at": iso(stored.expires_at),
-            "requested_by": requested_by.get("id"),
-        })
-        moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
-        self.audit.append("action.awaiting_approval", None, stored.id, {})
-        return moved or stored
-
-    def finish(self, action_id: str, outcome: str, message: str, result: dict | None = None, *,
-               from_states: frozenset[str] = frozenset({"dispatched"})) -> Action | None:
-        """Complete a dispatched handler action (succeeded | failed | outcome_unknown). Idempotent.
-
-        A handler that reconciles at startup passes from_states={"accepted", "dispatched"} to close
-        an approval a crash interrupted (as outcome_unknown, never a retry).
-        """
-        body = {"outcome": outcome, "message": message, **(result or {})}
-        final = self.repo.transition(action_id, set(from_states), outcome, self.clock(), result=body)
-        if final is not None:
-            self.audit.append(f"action.{outcome}", None, action_id, {"message": message})
-        return final
+        # Contract §12.1 / H-14: most actions one non-owner requester may have awaiting approval.
+        # 0 = no cap. Set from the limits settings section (guard.py).
+        self.max_pending_per_requester = 10
 
     # ---- helpers -------------------------------------------------------------------------
     def _deny(self, principal: Principal, what: str, action_id: str | None = None) -> ApiError:
@@ -187,7 +124,8 @@ class ActionService:
         try:
             return fn()
         except ApiError as e:
-            if e.status != 403:
+            # 403s are audited as authz.denied, policy refusals as policy.refused.
+            if e.status != 403 and e.error != "policy_refused":
                 self.audit.append(
                     "action.rejected", principal.as_dict(), action_id,
                     {"attempted": attempted, "status": e.status, "error": e.error, "message": e.message, **data},
@@ -222,6 +160,7 @@ class ActionService:
         expires_at = utc(req.expires_at)
         if expires_at <= now:
             raise ApiError(409, "expired", "expires_at is already in the past")
+        self._check_pending_cap(principal)
         app, problem = self._precondition(req.type, params["app_id"])
         if app is None:
             raise ApiError(404, "not_found", problem or "unknown app")
@@ -254,6 +193,20 @@ class ActionService:
         moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
         self.audit.append("action.awaiting_approval", None, stored.id, {})
         return (moved or stored).to_json(), True
+
+    def _check_pending_cap(self, principal: Principal) -> None:
+        cap = self.max_pending_per_requester
+        if principal.is_owner or cap <= 0:
+            return
+        pending = sum(
+            1 for x in self.repo.list(states={"awaiting_approval"})
+            if x.requested_by.get("id") == principal.id and self.expire_if_due(x).state == "awaiting_approval"
+        )
+        if pending >= cap:
+            raise ApiError(
+                429, "rate_limited", f"{pending} requests are already awaiting approval (limit {cap})",
+                reason="too_many_pending", retry_after_s=60,
+            )
 
     def _replay(self, principal: Principal, req: ActionRequest, params: dict, existing: Action) -> tuple[dict, bool]:
         same = (
@@ -289,11 +242,6 @@ class ActionService:
             raise ApiError(409, "expired", "action expired before approval")
         if a.state != "awaiting_approval":
             raise ApiError(409, "conflict", f"action is {a.state}, not awaiting_approval")
-        handler = self.handlers.get(a.type)
-        if handler is not None:
-            return self._approve_handled(principal, a, handler)
-        if a.type not in APP_CLAIMS:
-            raise ApiError(409, "conflict", f"no handler for action type {a.type!r} is running")
 
         # Check current conditions again: the world may have changed since the request. The claim
         # on the app is made atomically with "accepted", so two actions for one app cannot both
@@ -303,7 +251,10 @@ class ActionService:
         claim, allowed, allow_absent = APP_CLAIMS[a.type]
         now = self.clock()
         if a.type == "app.install" and app is not None and self.require_scan:
-            problem = scan_problem(app_id, app.scan, now)
+            # Contract 9.4: a malware hit or a human review sets metadata.tier to blocked, and
+            # nothing lifts it but a human. The scan record alone must not override it.
+            problem = f"app {app_id!r} is tier blocked; a human has to review it first" if (app.manifest.get("metadata") or {}).get("tier") == "blocked" else None
+            problem = problem or scan_problem(app_id, app.scan, now)
             if problem:  # §10.3: nothing unscanned runs; the action stays awaiting_approval
                 raise ApiError(409, "stale_precondition", problem)
         outcome = "stale" if app is None else self.repo.accept_and_claim(
@@ -318,37 +269,20 @@ class ActionService:
         self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params, **ids})
 
         try:
-            return self._dispatch(a, app, ids)
+            out = self._dispatch(a, app, ids)
         except Exception as exc:  # anything after accepted: the effect is unknown, never retry
             log.exception("dispatch interrupted")
             self._mark_outcome_unknown(a, f"dispatch error: {exc.__class__.__name__}")
             return self._get(a.id).to_json()
-
-    def _approve_handled(self, principal: Principal, a: Action, handler: ActionHandler) -> dict:
-        problem = handler.recheck(a)
-        if problem:
-            raise ApiError(409, "stale_precondition", problem)
-        now = self.clock()
-        accepted = self.repo.transition(
-            a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now
-        )
-        if accepted is None:
-            raise ApiError(409, "conflict", "action was decided concurrently")
-        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id}
-        self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params, **ids})
-        dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
-        if dispatched is None:
-            self._mark_outcome_unknown(accepted, "accepted action could not move to dispatched")
-            return self._get(a.id).to_json()
-        self.audit.append("action.dispatched", None, a.id, {"executor": f"handler:{a.type}", **ids})
-        try:
-            result = handler.dispatch(dispatched)
-        except Exception as exc:  # unknown effect: never retry automatically
-            log.exception("action handler crashed")
-            result = ExecResult("outcome_unknown", f"handler error: {exc.__class__.__name__}")
-        if result is not None:
-            self.finish(a.id, result.outcome, result.message)
-        return self._get(a.id).to_json()
+        violations = (out.get("result") or {}).get("violations")
+        if out.get("state") == "failed" and violations:
+            # Contract §12.2: the install sandbox refused the rendered plan. The action is failed
+            # (with the violations in its result) and the approval call says why.
+            raise ApiError(
+                409, "policy_refused", (out.get("result") or {}).get("message") or "install sandbox refused",
+                details=[_detail(v) for v in violations],
+            )
+        return out
 
     def _dispatch(self, a: Action, app: AppEntry, ids: dict) -> dict:
         dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
@@ -367,6 +301,12 @@ class ActionService:
             # issues a fresh one.
             self._revoke_agent(a, f"install {result.outcome}")
 
+        if result.violations:
+            self.audit.append(
+                "policy.refused", None, a.id,
+                {"app_id": app.id, "violations": result.violations,
+                 "policy_version": (result.plan or {}).get("policy_version"), **ids},
+            )
         final = self.repo.transition(a.id, {"dispatched"}, result.outcome, self.clock(), result=result.to_json())
         self._record_app_state(a, result.outcome)
         self.audit.append(
@@ -408,8 +348,7 @@ class ActionService:
     def _mark_outcome_unknown(self, a: Action, message: str) -> None:
         result = {"outcome": "outcome_unknown", "message": message}
         moved = self.repo.transition(a.id, {"accepted", "dispatched"}, "outcome_unknown", self.clock(), result=result)
-        if a.type in APP_CLAIMS:
-            self.repo.set_app_state(a.params["app_id"], "unknown", self.clock(), a.id)
+        self.repo.set_app_state(a.params["app_id"], "unknown", self.clock(), a.id)
         if a.type == "app.install":
             self._revoke_agent(a, "install outcome unknown")
         if moved is not None:
@@ -423,10 +362,6 @@ class ActionService:
         forever. (v0 runs one gateway per ledger; several would need leases first.)
         """
         for a in self.repo.list(states={"accepted", "dispatched"}):
-            if a.type not in APP_CLAIMS:
-                # Handler types (node.join) finish on their own schedule: their module reconciles
-                # them when it registers (create_app runs this before the routers register).
-                continue
             self._mark_outcome_unknown(a, f"gateway restarted while the action was {a.state}")
         now = self.clock()
         for app_id, st in self.repo.list_app_states().items():
@@ -445,3 +380,8 @@ class ActionService:
             self.repo.set_app_state(app_id, "failed", now, a.id)
         else:
             self.repo.set_app_state(app_id, "unknown", now, a.id)
+
+
+def _detail(v: dict) -> dict:
+    where = f"{v.get('kind')}/{v.get('name')}" + (f" {v['path']}" if v.get("path") else "")
+    return {"field": where, "problem": f"{v.get('rule')}: {v.get('message')}", "rule": v.get("rule")}

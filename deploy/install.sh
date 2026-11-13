@@ -4,14 +4,9 @@
 # OneMind developer install (P6, contract sdk/contracts/poc-v0.md §6; brief 30 D-B2.4, REC-DEC-30).
 # UNSUPPORTED DEVELOPER INSTALL, NO OS ROLLBACK: packages are upgraded in place on a stock OS.
 #
-#   sudo deploy/install.sh --role hub  [--hub http://<this-box>:8080] [--box-name NAME] [--lan-addr IP]
-#   sudo deploy/install.sh --role node --join 'onemind-join:v1?…' [--hub-addr IP]
+#   sudo deploy/install.sh --role hub  [--hub http://<this-box>:8080]
+#   sudo deploy/install.sh --role node --hub http://<hub>:8080 --token <join-token>
 #   sudo deploy/install.sh --uninstall [--purge]
-#
-# Networking (docs/architecture/NETWORKING.md, CORE-NET-11): the hub runs the mesh coordinator
-# (Headscale + embedded DERP), joins its own mesh first, then runs k3s and the NATS leaf listener on
-# its mesh address and serves HTTPS with its own box CA. A node joins only through an owner-approved
-# one-time code (`onemind fabric ticket` on the hub, or Add a device on the dashboard).
 #
 # Run it from a checkout of this repository (it builds onemindd, the gateway and the dashboard
 # from that checkout). Re-running it is safe: every step checks what is already there.
@@ -31,24 +26,19 @@ TOOLS=$PREFIX/toolchain
 BIN=/usr/local/bin
 BANNER="unsupported developer install, no OS rollback"
 
-ROLE="" HUB="" JOIN="" HUB_ADDR="" BOX="" LAN_ADDR="" UNINSTALL=0 PURGE=0 ONEMINDD_BIN="" DASH_DIST="" BIND="0.0.0.0" FORCE_OS=0
-HS_PORT=8444   # Headscale's own TLS listener until onemind-edge fronts it on :443 (NETWORKING.md §4.2)
+ROLE="" HUB="" TOKEN="" UNINSTALL=0 PURGE=0 ONEMINDD_BIN="" DASH_DIST="" BIND="0.0.0.0" FORCE_OS=0
 
 usage() {
   cat <<EOF
 Usage:
-  $0 --role hub  [--hub URL] [--box-name NAME] [--lan-addr IP] [--gateway-bind ADDR]
-                 [--dashboard-dist DIR] [--onemindd-bin FILE]
-  $0 --role node --join 'onemind-join:v1?…' [--hub-addr IP] [--onemindd-bin FILE]
+  $0 --role hub  [--hub URL] [--gateway-bind ADDR] [--dashboard-dist DIR] [--onemindd-bin FILE]
+  $0 --role node --hub URL --token JOIN_TOKEN [--onemindd-bin FILE]
   $0 --uninstall [--purge]
 
-  --role hub|node        hub: mesh coordinator, k3s server, NATS, onemindd, gateway + dashboard.
-                         node: mesh client, NATS leaf, onemindd, and the k3s agent for a worker.
-  --hub URL              hub gateway URL that app pods use (default http://<lan addr>:8080).
-  --box-name NAME        the box's name: https://NAME.local and <app>.NAME.local (default: hostname).
-  --lan-addr IP          the hub's LAN IPv4 (default: the address of the default route).
-  --join PAYLOAD         the join code text from "onemind fabric ticket" or the dashboard's QR (node).
-  --hub-addr IP          the hub's LAN IPv4, when this LAN has no working mDNS for NAME.local (node).
+  --role hub|node        hub: k3s server, NATS, onemindd, gateway + dashboard. node: k3s agent + onemindd.
+  --hub URL              hub gateway URL, e.g. http://hub.local:8080 (the host part also gives
+                         k3s https://HOST:6443 and NATS nats://HOST:4222). Optional on the hub.
+  --token T              the join token the hub install printed (node only).
   --gateway-bind ADDR    gateway listen address (default 0.0.0.0; 127.0.0.1 keeps it local,
                          but then app pods and other machines cannot reach it).
   --onemindd-bin FILE    use a prebuilt static onemindd (make -C cmd/onemindd build) instead of Go.
@@ -67,11 +57,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --role) ROLE=${2:-}; shift 2 ;;
     --hub) HUB=${2:-}; shift 2 ;;
-    --join) JOIN=${2:-}; shift 2 ;;
-    --hub-addr) HUB_ADDR=${2:-}; shift 2 ;;
-    --box-name) BOX=${2:-}; shift 2 ;;
-    --lan-addr) LAN_ADDR=${2:-}; shift 2 ;;
-    --token) die "--token was the v0 shared join secret; joins now need an owner-approved code: on the hub run 'onemind fabric ticket', then use --join" ;;
+    --token) TOKEN=${2:-}; shift 2 ;;
     --gateway-bind) BIND=${2:-}; shift 2 ;;
     --onemindd-bin) ONEMINDD_BIN=${2:-}; shift 2 ;;
     --dashboard-dist) DASH_DIST=${2:-}; shift 2 ;;
@@ -99,28 +85,14 @@ banner
 # ------------------------------------------------------------------------------------------
 uninstall() {
   log "stopping and removing OneMind services"
-  # The Tailscale client goes only if OneMind installed it (tailscale_install's marker).
-  local units="onemind-gateway onemindd onemind-nats onemind-nats-leaf onemind-headscale onemind-nats-accounts.path" ts=0
-  [ -f "$ETC/mesh-client" ] && ts=1
-  if [ "$ts" = 1 ]; then
-    if command -v tailscale >/dev/null 2>&1; then tailscale logout >/dev/null 2>&1 || true; fi
-    units="$units tailscaled"
-  fi
-  for u in $units; do
-    case "$u" in *.path) ;; *) u="$u.service" ;; esac
+  systemctl disable --now onemind-gateway-token.timer 2>/dev/null || true
+  rm -f /etc/systemd/system/onemind-gateway-token.timer
+  for u in onemind-gateway onemind-gateway-token onemindd onemind-nats; do
     systemctl disable --now "$u" 2>/dev/null || true
-    rm -f "/etc/systemd/system/$u"
+    rm -f "/etc/systemd/system/$u.service"
   done
-  rm -rf /etc/systemd/system/onemind-nats-reload.service \
-    /etc/systemd/system/onemind-nats.service.d /etc/systemd/system/k3s.service.d /etc/systemd/system/k3s-agent.service.d
-  if [ "$ts" = 1 ]; then
-    rm -rf /etc/systemd/system/tailscaled.service.d /var/lib/tailscale
-    rm -f /usr/bin/tailscale /usr/sbin/tailscaled /etc/default/tailscaled
-  fi
   systemctl daemon-reload
-  rm -f "$BIN/onemindd" "$BIN/onemind" "$BIN/nats-server" "$BIN/headscale"
-  rm -rf /var/lib/private/onemind-headscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf
-  hosts_block ""
+  rm -f "$BIN/onemindd" "$BIN/onemind" "$BIN/nats-server"
   if [ -x "$BIN/k3s-uninstall.sh" ]; then log "removing k3s server (and its data)"; "$BIN/k3s-uninstall.sh"; fi
   if [ -x "$BIN/k3s-agent-uninstall.sh" ]; then log "removing k3s agent"; "$BIN/k3s-agent-uninstall.sh"; fi
   rm -f /etc/apt/apt.conf.d/52onemind-security-only /etc/needrestart/conf.d/50-onemind.conf
@@ -135,29 +107,18 @@ uninstall() {
   log "unattended-upgrades and needrestart stay installed (Debian defaults apply again)"
   log "uninstall done"
 }
-# The coordinator names in /etc/hosts (NETWORKING.md §5.4: LAN first). Empty address = remove.
-hosts_block() {
-  local begin="# BEGIN onemind fabric (managed by onemind fabric join)" end="# END onemind fabric"
-  awk -v b="$begin" -v e="$end" '$0==b{skip=1;next} $0==e{skip=0;next} !skip' /etc/hosts > /etc/hosts.onemind.new
-  [ -n "$1" ] && printf '%s\n%s control.onemind.internal join.onemind.internal\n%s\n' "$begin" "$1" "$end" >> /etc/hosts.onemind.new
-  cat /etc/hosts.onemind.new > /etc/hosts; rm -f /etc/hosts.onemind.new
-}
 if [ "$UNINSTALL" = 1 ]; then uninstall; exit 0; fi
 
 # ------------------------------------------------------------------------------------------
 # Arguments and platform
 # ------------------------------------------------------------------------------------------
 case "$ROLE" in hub|node) ;; *) usage >&2; die "--role hub or --role node is required" ;; esac
-NODE_ROLE=""
 if [ "$ROLE" = node ]; then
-  [ -n "$JOIN" ] || die "--join is required for --role node: on the hub run 'onemind fabric ticket' (or Add a device on the dashboard)"
-  printf '%s' "$JOIN" | grep -Eqx 'onemind-join:v1[?][A-Za-z0-9%=&._:/-]{20,600}' || die "--join does not look like a OneMind join code"
-  case "$JOIN" in *role=leaf*) NODE_ROLE=leaf ;; *) NODE_ROLE=worker ;; esac
+  [ -n "$HUB" ] || die "--hub is required for --role node"
+  [ -n "$TOKEN" ] || die "--token is required for --role node (the hub install prints it)"
+  # The token goes into k3s's env file and the URL into config files: allow only plain characters.
+  printf '%s' "$TOKEN" | grep -Eqx '[A-Za-z0-9:._-]{8,512}' || die "--token has unexpected characters"
 fi
-for a in "$HUB_ADDR" "$LAN_ADDR"; do
-  [ -z "$a" ] || printf '%s' "$a" | grep -Eqx '([0-9]{1,3}[.]){3}[0-9]{1,3}' || die "addresses must be IPv4 (got: $a)"
-done
-if [ -n "$BOX" ]; then printf '%s' "$BOX" | grep -Eqx '[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?' || die "--box-name must be a lowercase DNS label"; fi
 if [ -n "$HUB" ]; then
   printf '%s' "$HUB" | grep -Eqx 'https?://[][A-Za-z0-9.:-]+/?' \
     || die "--hub must look like http://HOST:8080 (got: $HUB)"
@@ -211,8 +172,7 @@ install -d -m0755 "$ETC"
 # 1. OS packages + automatic security updates (contract §10.1, developer installs)
 # ------------------------------------------------------------------------------------------
 apt_setup() {
-  # avahi + libnss-mdns: NAME.local and <app>.NAME.local (NETWORKING.md §9.1); sqlite3: Headscale backups.
-  local pkgs="ca-certificates curl tar gzip iproute2 unattended-upgrades needrestart apt-listchanges avahi-daemon avahi-utils libnss-mdns sqlite3"
+  local pkgs="ca-certificates curl tar gzip iproute2 unattended-upgrades needrestart apt-listchanges"
   # shellcheck disable=SC2086
   if ! dpkg -s $pkgs >/dev/null 2>&1; then
     log "apt: installing $pkgs"
@@ -284,22 +244,16 @@ k3s_server() {
   # A separate agent token: nodes can join as agents but can never join as servers (D-B6.2).
   if [ -f "$ETC/k3s-agent-token" ]; then agent_token=$(cat "$ETC/k3s-agent-token")
   else agent_token=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n'); (umask 077; printf '%s' "$agent_token" > "$ETC/k3s-agent-token"); fi
-  # A cluster made before the mesh (flannel VXLAN on the LAN) cannot be switched in place (NETWORKING.md §8).
-  if [ -d /var/lib/rancher/k3s/server/db ] && ! grep -q '^flannel-backend: "wireguard-native"' "$cfg" 2>/dev/null; then
-    die "this hub's k3s cluster predates the mesh; back it up, run --uninstall, then install again"
-  fi
-  # k3s over the mesh: node IP and API on the hub's mesh address, pod traffic in WireGuard (H-17).
-  # Traefik and ServiceLB are off: the gateway owns :443/:80 and reaches apps on their ClusterIPs
-  # (proxy.py); ServiceLB would otherwise DNAT LAN traffic for 80/443 to Traefik.
-  new_cfg=$(printf '# Written by deploy/install.sh (NETWORKING.md §8)\nwrite-kubeconfig-mode: "0600"\nagent-token: "%s"\nnode-ip: "%s"\nadvertise-address: "%s"\ntls-san: ["hub.onemind.internal", "%s"]\nflannel-backend: "wireguard-native"\nflannel-iface: "tailscale0"\ndisable: ["traefik", "servicelb"]\n' \
-    "$agent_token" "$HUB_MESH_IP" "$HUB_MESH_IP" "$HUB_MESH_IP")
-  k3s_mesh_dropin k3s
+  # H-01: cluster-wide Pod Security defaults (deploy/k8s/psa.yaml). H-12: Secrets encrypted in
+  # the k3s datastore (and so in every backup of it).
+  cmp -s "$SCRIPT_DIR/k8s/psa.yaml" /etc/rancher/k3s/psa.yaml 2>/dev/null \
+    || { install -m0600 "$SCRIPT_DIR/k8s/psa.yaml" /etc/rancher/k3s/psa.yaml; K3S_CHANGED=1; }
+  new_cfg=$(printf '# Written by deploy/install.sh\nwrite-kubeconfig-mode: "0600"\nagent-token: "%s"\nsecrets-encryption: true\nkube-apiserver-arg:\n  - "admission-control-config-file=/etc/rancher/k3s/psa.yaml"\n' "$agent_token")
   if [ "$(cat "$cfg" 2>/dev/null)" != "$new_cfg" ]; then (umask 077; printf '%s\n' "$new_cfg" > "$cfg"); K3S_CHANGED=1; fi
   if [ "${K3S_CHANGED:-0}" = 1 ] || ! systemctl is-active --quiet k3s; then
     log "k3s $K3S_VERSION server: install/restart"
-    # FORCE_RESTART: upstream's script restarts only when the binary or unit changed, not config.yaml.
     INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_SELINUX_WARN=true INSTALL_K3S_SKIP_SELINUX_RPM=true \
-      INSTALL_K3S_FORCE_RESTART=true INSTALL_K3S_EXEC=server sh "$CACHE/k3s-install-$K3S_INSTALL_COMMIT.sh" >/dev/null
+      INSTALL_K3S_EXEC=server sh "$CACHE/k3s-install-$K3S_INSTALL_COMMIT.sh" >/dev/null
   fi
   log "waiting for the k3s node to be Ready"
   local i
@@ -309,55 +263,55 @@ k3s_server() {
     sleep 2
   done
   for i in $(seq 1 60); do [ -s /var/lib/rancher/k3s/server/agent-token ] && break; sleep 1; done
-  # A hub first installed with Traefik keeps its LoadBalancer Service after k3s uninstalls the chart,
-  # and kube-proxy then rejects :80/:443 on the node addresses, in front of the gateway. Its
-  # load-balancer finalizer belonged to ServiceLB, which is off now, so it is cleared first.
-  if "$BIN/k3s" kubectl -n kube-system get service/traefik >/dev/null 2>&1; then
-    "$BIN/k3s" kubectl -n kube-system patch service/traefik --type=merge -p '{"metadata":{"finalizers":null}}' >/dev/null 2>&1 || true
-    "$BIN/k3s" kubectl -n kube-system delete service/traefik deployment/traefik --ignore-not-found --wait=false >/dev/null 2>&1 || true
+  secrets_encryption_check
+}
+
+# H-12: `secrets-encryption: true` encrypts what is written from now on. Secrets written before
+# it was turned on (an install from before this change) stay in clear until rewritten, so they
+# are rewritten once.
+secrets_encryption_check() {
+  local st="" i
+  for i in $(seq 1 30); do
+    st=$("$BIN/k3s" secrets-encrypt status 2>/dev/null || true)
+    printf '%s' "$st" | grep -q 'Encryption Status: Enabled' && break
+    sleep 2
+  done
+  printf '%s' "$st" | grep -q 'Encryption Status: Enabled' \
+    || die "k3s secrets encryption is not enabled (k3s secrets-encrypt status)"
+  if [ ! -f "$ETC/k3s-secrets-reencrypted" ]; then
+    log "k3s: rewriting existing Secrets so they are stored encrypted"
+    # k3s itself updates a few Secrets right after start (the node password), so a replace of a
+    # stale copy can answer "Conflict". Read again and retry; replacing is safe to repeat.
+    local ok=""
+    for i in 1 2 3 4 5; do
+      if "$BIN/k3s" kubectl get secrets -A -o json | "$BIN/k3s" kubectl replace -f - >/dev/null; then
+        ok=1; break
+      fi
+      sleep 2
+    done
+    [ -n "$ok" ] || die "rewriting existing Secrets failed"
+    : > "$ETC/k3s-secrets-reencrypted"
   fi
-  # The CA hash nodes pin in their 1-hour bootstrap token (K10<sha256 of /cacerts>::id.secret).
-  K3S_CA_HASH="K10$(curl -fsk https://127.0.0.1:6443/cacerts | sha256sum | cut -d' ' -f1)"
 }
 
-# k3s waits for this machine's mesh address before it starts (NETWORKING.md §5.2).
-k3s_mesh_dropin() {
-  local d="/etc/systemd/system/$1.service.d"
-  install -d -m0755 "$d"
-  cat > "$d/onemind-mesh.conf.new" <<'EOF'
-# Written by deploy/install.sh: k3s runs on the mesh address (NETWORKING.md §5.2, §8).
-[Unit]
-After=tailscaled.service
-Wants=tailscaled.service
-[Service]
-ExecStartPre=/usr/local/bin/onemindd mesh wait-ip --timeout 120s
-EOF
-  if ! cmp -s "$d/onemind-mesh.conf.new" "$d/onemind-mesh.conf" 2>/dev/null; then
-    mv "$d/onemind-mesh.conf.new" "$d/onemind-mesh.conf"; systemctl daemon-reload; K3S_CHANGED=1
-  else rm -f "$d/onemind-mesh.conf.new"; fi
-}
-
-# The agent's server, 1-hour token, mesh node-ip and flannel interface are in
-# /etc/rancher/k3s/config.yaml, written by `onemind fabric join` after the owner approved.
 k3s_agent() {
-  local cfg=/etc/rancher/k3s/config.yaml server
-  server=$(sed -n 's/^server: "\(.*\)"$/\1/p' "$cfg" 2>/dev/null)
-  [ -n "$server" ] || die "$cfg has no server: the join did not deliver k3s credentials"
-  k3s_mesh_dropin k3s-agent
+  local host env=/etc/systemd/system/k3s-agent.service.env; host=$(hub_host "$HUB")
+  # Re-join when the hub URL or token changed: "active" alone only means it is retrying.
+  if ! grep -qxF "K3S_URL='https://$host:6443'" "$env" 2>/dev/null || ! grep -qxF "K3S_TOKEN='$TOKEN'" "$env" 2>/dev/null; then
+    K3S_CHANGED=1
+  fi
   if [ "${K3S_CHANGED:-0}" = 1 ] || ! systemctl is-active --quiet k3s-agent; then
-    log "k3s $K3S_VERSION agent: joining $server over the mesh"
-    K3S_URL="$server" INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_SELINUX_WARN=true INSTALL_K3S_SKIP_SELINUX_RPM=true \
-      INSTALL_K3S_FORCE_RESTART=true INSTALL_K3S_EXEC=agent sh "$CACHE/k3s-install-$K3S_INSTALL_COMMIT.sh" >/dev/null
+    log "k3s $K3S_VERSION agent: joining https://$host:6443"
+    K3S_URL="https://$host:6443" K3S_TOKEN="$TOKEN" \
+      INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_SELINUX_WARN=true INSTALL_K3S_SKIP_SELINUX_RPM=true \
+      INSTALL_K3S_EXEC=agent sh "$CACHE/k3s-install-$K3S_INSTALL_COMMIT.sh" >/dev/null
   fi
 }
 
 # ------------------------------------------------------------------------------------------
-# 3. NATS (contract §12.9, H-06; NETWORKING.md §7)
-#    hub: clients on loopback only; nodes reach it as leaves over the mesh, TLS with the box CA, each
-#    with its own nkey in its own account (core/onemind_core/natsconf.py, FB-3 lab E2).
-#    node: a local leaf (onemind-nats-leaf.service), configured by `onemind fabric join`.
+# 3. NATS on the hub (contract §1 :4222; v0 shortcut: no auth/TLS, nodes publish directly)
 # ------------------------------------------------------------------------------------------
-nats_binary() {
+nats_install() {
   local tgz="nats-server-$NATS_VERSION-linux-$ARCH.tar.gz"
   fetch "https://github.com/nats-io/nats-server/releases/download/$NATS_VERSION/$tgz" "$(pick NATS_SHA256)" "$CACHE/$tgz"
   if ! "$BIN/nats-server" --version 2>/dev/null | grep -q "${NATS_VERSION#v}"; then
@@ -365,207 +319,17 @@ nats_binary() {
     install -m0755 "$CACHE/nats-server-$NATS_VERSION-linux-$ARCH/nats-server" "$BIN/nats-server"
     rm -rf "$CACHE/nats-server-$NATS_VERSION-linux-$ARCH"
   fi
-}
-
-nats_install() {
-  nats_binary
-  # The accounts file the gateway owns; NATS includes it through a link beside nats.conf, because
-  # nats-server resolves include paths relative to the including file.
-  install -d -m0755 -o onemind -g onemind "$STATE/nats"
-  runuser -u onemind -- "$PREFIX/venv/bin/python" -m onemind_core.natsconf "$STATE/nats/accounts.conf"
-  ln -sfn "$STATE/nats/accounts.conf" "$ETC/nats-accounts.conf"
-  cat > "$ETC/nats.conf" <<EOF
-# OneMind hub NATS (deploy/install.sh; NETWORKING.md §7). Do not edit: rewritten on install.
-server_name: hub
-listen: 127.0.0.1:4222
+  cat > "$ETC/nats.conf" <<'EOF'
+# OneMind hub NATS (deploy/install.sh). v0 shortcut: no auth/TLS, no leaf nodes (contract header).
+listen: 0.0.0.0:4222
 http: 127.0.0.1:8222
 max_payload: 1MB
-# A dead leaf link shows within about a minute instead of 3-7 (FB-3 lab, observation "outage detection").
-ping_interval: "20s"
-ping_max: 2
-write_deadline: "10s"
-leafnodes {
-  listen: "$HUB_MESH_IP:7422"
-  tls {
-    cert_file: "/run/credentials/onemind-nats.service/nats.crt"
-    key_file: "/run/credentials/onemind-nats.service/nats.key"
-    ca_file: "/run/credentials/onemind-nats.service/ca.crt"
-    verify: true
-    timeout: 5
-  }
-}
-include "nats-accounts.conf"
 EOF
   chmod 0644 "$ETC/nats.conf"
   install -m0644 "$SCRIPT_DIR/systemd/onemind-nats.service" /etc/systemd/system/onemind-nats.service
-  install -d -m0755 /etc/systemd/system/onemind-nats.service.d
-  cat > /etc/systemd/system/onemind-nats.service.d/onemind-mesh.conf <<'EOF'
-# Written by deploy/install.sh: the leaf listener is bound to the hub's mesh address, and the TLS
-# files come from the gateway's box CA without giving the NATS user access to that directory.
-[Unit]
-After=tailscaled.service
-Wants=tailscaled.service
-[Service]
-ExecStartPre=+/usr/local/bin/onemindd mesh wait-ip --timeout 120s
-LoadCredential=nats.crt:/var/lib/onemind/tls/nats.crt
-LoadCredential=nats.key:/var/lib/onemind/tls/nats.key
-LoadCredential=ca.crt:/var/lib/onemind/tls/ca.crt
-EOF
-  install -m0644 "$SCRIPT_DIR/systemd/onemind-nats-accounts.path" /etc/systemd/system/onemind-nats-accounts.path
-  install -m0644 "$SCRIPT_DIR/systemd/onemind-nats-reload.service" /etc/systemd/system/onemind-nats-reload.service
   systemctl daemon-reload
-  systemctl enable onemind-nats onemind-nats-accounts.path >/dev/null 2>&1
+  systemctl enable onemind-nats >/dev/null 2>&1
   systemctl restart onemind-nats
-  systemctl restart onemind-nats-accounts.path
-}
-
-nats_leaf_install() {  # node
-  nats_binary
-  id onemind-nats >/dev/null 2>&1 || useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin onemind-nats
-  install -d -m0750 -o onemind-nats -g onemind-nats "$ETC/nats"
-  install -m0644 "$SCRIPT_DIR/systemd/onemind-nats-leaf.service" /etc/systemd/system/onemind-nats-leaf.service
-  systemctl daemon-reload
-}
-
-# ------------------------------------------------------------------------------------------
-# 3b. Mesh (NETWORKING.md §4, §5): Tailscale client everywhere, Headscale on the hub.
-#     Nothing talks to Tailscale Inc: no log upload, no DERP map from them, the client trusts
-#     only the box CA for the coordinator.
-# ------------------------------------------------------------------------------------------
-tailscale_install() {
-  local tgz="tailscale_${TAILSCALE_VERSION}_$ARCH.tgz" d
-  # The mesh client must be OneMind's own. On a machine that already runs Tailscale (its own package,
-  # or logged in to another network), `tailscale up --reset` below would log it out of that network,
-  # possibly cutting the SSH session running this script, and --uninstall would delete its state.
-  # The marker is written before anything is installed, so a re-run after a failure goes on.
-  if [ ! -f "$ETC/mesh-client" ]; then
-    if command -v tailscale >/dev/null 2>&1 || [ -e /usr/sbin/tailscaled ] || [ -d /var/lib/tailscale ]; then
-      die "this machine already has Tailscale; OneMind's mesh client would replace it and log it out of its network. Remove it first (apt purge tailscale; rm -rf /var/lib/tailscale) or use another machine"
-    fi
-    printf '# Written by deploy/install.sh: OneMind installed and owns the Tailscale client here.\n' > "$ETC/mesh-client"
-  fi
-  fetch "https://pkgs.tailscale.com/stable/$tgz" "$(pick TAILSCALE_SHA256)" "$CACHE/$tgz"
-  if ! /usr/sbin/tailscaled --version 2>/dev/null | head -1 | grep -qxF "$TAILSCALE_VERSION"; then
-    d="$CACHE/tailscale_${TAILSCALE_VERSION}_$ARCH"; rm -rf "$d"
-    tar -xzf "$CACHE/$tgz" -C "$CACHE"
-    install -m0755 "$d/tailscale" /usr/bin/tailscale
-    install -m0755 "$d/tailscaled" /usr/sbin/tailscaled
-    install -m0644 "$d/systemd/tailscaled.service" /etc/systemd/system/tailscaled.service
-    rm -rf "$d"
-  fi
-  printf '# Written by deploy/install.sh (NETWORKING.md S12: no log upload to Tailscale Inc)\nPORT="41641"\nFLAGS="--no-logs-no-support"\n' > /etc/default/tailscaled
-  install -d -m0755 /etc/systemd/system/tailscaled.service.d
-  cat > /etc/systemd/system/tailscaled.service.d/onemind.conf <<'EOF'
-# Written by deploy/install.sh: the coordinator's certificate is checked against the box CA only.
-[Service]
-Environment=SSL_CERT_FILE=/etc/onemind/identity/ca.pem
-Environment=TS_NO_LOGS_NO_SUPPORT=true
-EOF
-  systemctl daemon-reload
-  systemctl enable tailscaled >/dev/null 2>&1
-}
-
-hs() { "$BIN/headscale" -c "$ETC/headscale/config.yaml" "$@"; }
-
-headscale_install() {  # hub
-  local f="headscale_${HEADSCALE_VERSION}_linux_$ARCH" i
-  fetch "https://github.com/juanfont/headscale/releases/download/v$HEADSCALE_VERSION/$f" "$(pick HEADSCALE_SHA256)" "$CACHE/$f"
-  cmp -s "$CACHE/$f" "$BIN/headscale" 2>/dev/null || install -m0755 "$CACHE/$f" "$BIN/headscale"
-  install -d -m0755 "$ETC/headscale"
-  cat > "$ETC/headscale/config.yaml" <<EOF
-# Generated by deploy/install.sh (NETWORKING.md §4.2). Do not edit: rewritten on install.
-server_url: https://control.onemind.internal:$HS_PORT
-listen_addr: 0.0.0.0:$HS_PORT
-metrics_listen_addr: 127.0.0.1:9091
-grpc_listen_addr: 127.0.0.1:50443
-grpc_allow_insecure: false
-tls_cert_path: /run/credentials/onemind-headscale.service/tls.crt
-tls_key_path: /run/credentials/onemind-headscale.service/tls.key
-noise:
-  private_key_path: /var/lib/onemind-headscale/noise_private.key
-prefixes:
-  v4: 100.64.0.0/10
-  v6: fd7a:115c:a1e0::/48
-  allocation: sequential
-derp:
-  server:
-    enabled: true
-    region_id: 999
-    region_code: onemind-hub
-    region_name: OneMind hub
-    verify_clients: true
-    stun_listen_addr: 0.0.0.0:3478
-    private_key_path: /var/lib/onemind-headscale/derp_server_private.key
-    automatically_add_embedded_derp_region: true
-    ipv4: $LAN_ADDR
-  urls: []
-  paths: []
-  auto_update_enabled: false
-disable_check_updates: true
-ephemeral_node_inactivity_timeout: 30m
-database:
-  type: sqlite
-  sqlite:
-    path: /var/lib/onemind-headscale/db.sqlite
-    write_ahead_log: true
-policy:
-  mode: database
-dns:
-  magic_dns: true
-  base_domain: onemind.internal
-  override_local_dns: false
-  nameservers:
-    global: []
-unix_socket: /run/onemind-headscale/headscale.sock
-unix_socket_permission: "0770"
-logtail:
-  enabled: false
-log:
-  level: info
-EOF
-  install -m0644 "$SCRIPT_DIR/systemd/onemind-headscale.service" /etc/systemd/system/onemind-headscale.service
-  systemctl daemon-reload
-  systemctl enable onemind-headscale >/dev/null 2>&1
-  systemctl restart onemind-headscale
-  for i in $(seq 1 30); do [ -S /run/onemind-headscale/headscale.sock ] && hs users list >/dev/null 2>&1 && return 0; sleep 1; done
-  die "Headscale did not start (journalctl -u onemind-headscale)"
-}
-
-# The hub enrolls itself with a key it mints over Headscale's local socket (NETWORKING.md §5.2),
-# then gives the gateway a Headscale API key (0600, the gateway's user) for approved joins.
-mesh_hub() {
-  local uid key
-  hosts_block 127.0.0.1
-  systemctl restart tailscaled
-  if ! /usr/local/bin/onemindd mesh wait-ip --timeout 5s >/dev/null 2>&1; then
-    hs users list -o json | grep -q '"name": *"onemind-machines"' || hs users create onemind-machines >/dev/null
-    uid=$(hs users list -o json | "$PREFIX/venv/bin/python" -I -c 'import json,sys; print(next(u["id"] for u in json.load(sys.stdin) if u["name"] == "onemind-machines"))')
-    key=$(hs preauthkeys create --user "$uid" --tags tag:onemind-hub,tag:onemind-k3s --expiration 10m -o json \
-          | "$PREFIX/venv/bin/python" -I -c 'import json,sys; print(json.load(sys.stdin)["key"])')
-    install -d -m0700 /run/onemind
-    (umask 077; printf '%s' "$key" > /run/onemind/hub-authkey)
-    log "mesh: the hub joins its own coordinator"
-    tailscale up --reset --login-server "https://control.onemind.internal:$HS_PORT" --auth-key file:/run/onemind/hub-authkey \
-      --hostname hub --accept-routes=false --accept-dns=false --ssh=false --timeout 60s
-    rm -f /run/onemind/hub-authkey
-  fi
-  HUB_MESH_IP=$(/usr/local/bin/onemindd mesh wait-ip --timeout 60s) || die "the hub did not get a mesh address (tailscale status)"
-  log "mesh: hub is $HUB_MESH_IP on the mesh"
-  if [ ! -s "$ETC/headscale.key" ]; then
-    (umask 077; hs apikeys create --expiration 90d | tail -n1 | tr -d '\r\n' > "$ETC/headscale.key.new")
-    chown onemind:onemind "$ETC/headscale.key.new"; chmod 0600 "$ETC/headscale.key.new"; mv "$ETC/headscale.key.new" "$ETC/headscale.key"
-  fi
-}
-
-# The box CA and the server certificates it issues (core/onemind_core/ca.py), made as the gateway's
-# user so the CA key never belongs to anyone else. Prints nothing secret.
-box_certs() {
-  local extra=""
-  [ -n "${HUB_MESH_IP:-}" ] && extra="--nats-ip $HUB_MESH_IP"
-  # shellcheck disable=SC2086
-  BOX_CA_SHA=$(runuser -u onemind -- "$PREFIX/venv/bin/python" -m onemind_core.ca --dir "$STATE/tls" --box "$BOX" --control $extra)
-  install -d -m0755 "$ETC/identity"
-  install -m0644 "$STATE/tls/ca.crt" "$ETC/identity/ca.pem"
 }
 
 # ------------------------------------------------------------------------------------------
@@ -625,7 +389,7 @@ onemindd_install() {
   local changed=0
   cmp -s "$out/onemindd" "$BIN/onemindd" 2>/dev/null || { install -m0755 "$out/onemindd" "$BIN/onemindd"; changed=1; }
   [ -f "$out/onemind" ] && install -m0755 "$out/onemind" "$BIN/onemind"
-  nats_url=nats://127.0.0.1:4222   # hub: its NATS; node: its local leaf (NETWORKING.md §7)
+  if [ "$ROLE" = hub ]; then nats_url=nats://127.0.0.1:4222; else nats_url="nats://$(hub_host "$HUB"):4222"; fi
   printf '# Written by deploy/install.sh (contract §1)\nONEMIND_NATS_URL=%s\nONEMIND_NODE_ROLE=%s\n' "$nats_url" "$ROLE" > "$ETC/onemindd.env.new"
   cmp -s "$ETC/onemindd.env.new" "$ETC/onemindd.env" 2>/dev/null || changed=1
   mv "$ETC/onemindd.env.new" "$ETC/onemindd.env"; chmod 0644 "$ETC/onemindd.env"
@@ -645,11 +409,18 @@ copy_tree() { # copy_tree SRC_DIR DEST_DIR: replace DEST with SRC, leaving dev c
       --exclude=__pycache__ --exclude=.pytest_cache -cf - . | tar -C "$2.new" -xf -
   rm -rf "$2"; mv "$2.new" "$2"
 }
+# copy_src_tree SRC_DIR DEST_DIR: web sources (dashboard/, ui/src/). Only the top-level dependency
+# and build output stay behind: copy_tree's unanchored --exclude=data would also drop
+# dashboard/src/data/, because tar matches an exclude against every path component.
+copy_src_tree() {
+  rm -rf "$2.new"; mkdir -p "$2.new"
+  tar -C "$1" --exclude=./node_modules --exclude=./dist -cf - . | tar -C "$2.new" -xf -
+  rm -rf "$2"; mv "$2.new" "$2"
+}
 
 gateway_user() {
   id onemind >/dev/null 2>&1 || useradd --system --home-dir "$STATE" --shell /usr/sbin/nologin onemind
-  # 0751: the hub NATS reads nats/accounts.conf inside; nothing in it can be listed or read by others.
-  install -d -m0751 -o onemind -g onemind "$STATE"
+  install -d -m0750 -o onemind -g onemind "$STATE"
 }
 
 gateway_python() {
@@ -661,6 +432,7 @@ gateway_python() {
      "$UV" sync --frozen --no-dev --no-editable --managed-python --python 3.12 --quiet)
   install -d -m0755 "$PREFIX/sdk"
   copy_tree "$SRC/sdk/schema" "$PREFIX/sdk/schema"
+  copy_tree "$SRC/sdk/policy" "$PREFIX/sdk/policy"
   copy_tree "$SRC/apps" "$PREFIX/apps"
   chmod -R a+rX "$PREFIX"
 }
@@ -672,84 +444,62 @@ dashboard_build() {
     log "dashboard: using prebuilt $DASH_DIST"
     copy_tree_plain "$DASH_DIST" "$PREFIX/dashboard"; return 0
   fi
-  sum=$(cd "$SRC/dashboard" && find . -path ./node_modules -prune -o -path ./dist -prune -o -type f -print0 \
+  # The dashboard imports the design system from source (../ui/src), so both trees count.
+  sum=$(cd "$SRC" && find dashboard ui/src -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
         | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$sum" ]; then log "dashboard: up to date"; return 0; fi
   node_toolchain
   log "dashboard: npm ci + vite build with Node $NODE_VERSION (as user onemind, no install scripts)"
-  copy_tree "$SRC/dashboard" "$CACHE/dashboard-src"
+  copy_src_tree "$SRC/dashboard" "$CACHE/dashboard-src"
+  copy_src_tree "$SRC/ui/src" "$CACHE/ui/src"   # ../ui/src as seen from dashboard-src
   # npm packages are third-party code: never run them as root. --ignore-scripts skips dependency
   # lifecycle scripts (esbuild's is an optional speed-up; its platform binary comes as a package).
   install -d -o onemind -g onemind -m0700 "$CACHE/npm-home"
-  chown -R onemind:onemind "$CACHE/dashboard-src"
+  chown -R onemind:onemind "$CACHE/dashboard-src" "$CACHE/ui"
   (cd "$CACHE/dashboard-src" && runuser -u onemind -- env -i PATH="$NODE_DIR/bin:/usr/bin:/bin" HOME="$CACHE/npm-home" \
      npm_config_cache="$CACHE/npm-home/cache" npm_config_update_notifier=false sh -ec \
      'npm ci --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null; npm run build >/dev/null')
   copy_tree_plain "$CACHE/dashboard-src/dist" "$PREFIX/dashboard"
   printf '%s\n' "$sum" > "$stamp"
-  rm -rf "$CACHE/dashboard-src"
+  rm -rf "$CACHE/dashboard-src" "$CACHE/ui"
 }
 copy_tree_plain() { rm -rf "$2.new"; mkdir -p "$2.new"; cp -R "$1/." "$2.new/"; rm -rf "$2"; mv "$2.new" "$2"; chmod -R a+rX "$2"; }
 
-# The gateway's own Kubernetes identity: a ServiceAccount bound to the built-in "admin" role
-# (full control inside namespaces) plus namespace create/delete. It is not cluster-admin: it
-# cannot touch nodes, CRDs or cluster roles. The k3s admin kubeconfig stays root-only.
+# The gateway's own Kubernetes identity (H-03): deploy/k8s/gateway-rbac.yaml. Cluster-wide it may
+# only manage app-* namespaces and bind onemind-app-deployer inside them (fenced by a
+# ValidatingAdmissionPolicy); its token is a 24-hour bound token renewed every 6 hours by
+# onemind-gateway-token.timer. The k3s admin kubeconfig stays root-only.
 gateway_kubeconfig() {
-  local k="$BIN/k3s kubectl" ca token i
-  $k apply -f - >/dev/null <<'EOF'
-apiVersion: v1
-kind: Namespace
-metadata: {name: onemind-system, labels: {app.kubernetes.io/part-of: onemind}}
----
-apiVersion: v1
-kind: ServiceAccount
-metadata: {name: onemind-gateway, namespace: onemind-system}
----
-apiVersion: v1
-kind: Secret
-type: kubernetes.io/service-account-token
-metadata:
-  name: onemind-gateway-token
-  namespace: onemind-system
-  annotations: {kubernetes.io/service-account.name: onemind-gateway}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata: {name: onemind-gateway-namespaces}
-rules:
-  - apiGroups: [""]
-    resources: [namespaces]
-    verbs: [get, list, watch, create, update, patch, delete]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata: {name: onemind-gateway-namespaces}
-roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: onemind-gateway-namespaces}
-subjects: [{kind: ServiceAccount, name: onemind-gateway, namespace: onemind-system}]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata: {name: onemind-gateway-admin}
-roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: admin}
-subjects: [{kind: ServiceAccount, name: onemind-gateway, namespace: onemind-system}]
-EOF
-  for i in $(seq 1 30); do
-    token=$($k -n onemind-system get secret onemind-gateway-token -o jsonpath='{.data.token}' 2>/dev/null | base64 -d || true)
-    [ -n "$token" ] && break; sleep 1
-  done
-  [ -n "$token" ] || die "the gateway ServiceAccount token was not issued"
-  ca=$($k -n onemind-system get secret onemind-gateway-token -o jsonpath='{.data.ca\.crt}')
-  (umask 027
-   cat > "$ETC/gateway.kubeconfig.new" <<EOF
+  local k="$BIN/k3s kubectl"
+  $k apply -f "$SCRIPT_DIR/k8s/gateway-rbac.yaml" >/dev/null
+  # Earlier installs: the cluster-wide admin binding and the never-expiring token Secret.
+  $k delete clusterrolebinding onemind-gateway-admin --ignore-not-found=true >/dev/null
+  $k -n onemind-system delete secret onemind-gateway-token --ignore-not-found=true >/dev/null
+  install -d -m0755 "$PREFIX/bin"
+  cat > "$PREFIX/bin/onemind-gateway-kubeconfig" <<EOF
+#!/bin/sh
+# Written by deploy/install.sh: a fresh 24-hour token for the OneMind gateway (H-03).
+set -eu
+token=\$($BIN/k3s kubectl -n onemind-system create token onemind-gateway --duration=24h)
+ca=\$(base64 -w0 < /var/lib/rancher/k3s/server/tls/server-ca.crt)
+umask 027
+cat > "$ETC/gateway.kubeconfig.new" <<KUBECONFIG
 apiVersion: v1
 kind: Config
-clusters: [{name: k3s, cluster: {server: "https://127.0.0.1:6443", certificate-authority-data: "$ca"}}]
-users: [{name: onemind-gateway, user: {token: "$token"}}]
+clusters: [{name: k3s, cluster: {server: "https://127.0.0.1:6443", certificate-authority-data: "\$ca"}}]
+users: [{name: onemind-gateway, user: {token: "\$token"}}]
 contexts: [{name: onemind-gateway, context: {cluster: k3s, user: onemind-gateway}}]
 current-context: onemind-gateway
+KUBECONFIG
+chgrp onemind "$ETC/gateway.kubeconfig.new"
+mv "$ETC/gateway.kubeconfig.new" "$ETC/gateway.kubeconfig"
 EOF
-  )
-  chgrp onemind "$ETC/gateway.kubeconfig.new"; mv "$ETC/gateway.kubeconfig.new" "$ETC/gateway.kubeconfig"
+  chmod 0755 "$PREFIX/bin/onemind-gateway-kubeconfig"
+  "$PREFIX/bin/onemind-gateway-kubeconfig" || die "could not issue the gateway's Kubernetes token"
+  install -m0644 "$SCRIPT_DIR/systemd/onemind-gateway-token.service" /etc/systemd/system/onemind-gateway-token.service
+  install -m0644 "$SCRIPT_DIR/systemd/onemind-gateway-token.timer" /etc/systemd/system/onemind-gateway-token.timer
+  systemctl daemon-reload
+  systemctl enable --now onemind-gateway-token.timer >/dev/null 2>&1
 }
 
 # Owner token: 256 random bits, printed once, stored only as its sha256 (core/onemind_core/auth.py).
@@ -785,29 +535,15 @@ ONEMIND_DASHBOARD_DIST=$PREFIX/dashboard
 ONEMIND_EXECUTOR=kubernetes
 ONEMIND_KUBECTL=$PREFIX/bin/kubectl
 KUBECONFIG=$ETC/gateway.kubeconfig
+# Install sandbox (H-02, H-03): the rule file, and the ServiceAccount bound in each app-<id>.
+ONEMIND_SANDBOX_RULES=$PREFIX/sdk/policy/app-objects.yaml
+ONEMIND_SANDBOX_GATEWAY_SA=onemind-system/onemind-gateway
 ONEMIND_NATS_URL=nats://127.0.0.1:4222
 ONEMIND_HOST=$BIND
 ONEMIND_PORT=8080
 # §11.2: the URL app pods use to reach this gateway (written into each agent app's Secret as
 # ONEMIND_GATEWAY_URL). The wave-2 gateway reads it from ONEMIND_PUBLIC_URL (core/README.md).
 ONEMIND_PUBLIC_URL=$url
-# Networking (core/onemind_core/netconf.py; NETWORKING.md): HTTPS with the box CA on 443 and 8443,
-# :80 redirects, onemind.local and <app>.$BOX.local over mDNS, the mesh and fabric joins.
-ONEMIND_NET_BOX_NAME=$BOX
-ONEMIND_NET_LAN_ADDR=$LAN_ADDR
-ONEMIND_NET_TLS=1
-ONEMIND_NET_TLS_DIR=$STATE/tls
-ONEMIND_NET_HTTP_REDIRECT_PORT=80
-ONEMIND_NET_MDNS=1
-ONEMIND_MESH_ENABLED=1
-ONEMIND_MESH_HEADSCALE_URL=https://127.0.0.1:$HS_PORT
-ONEMIND_MESH_CONTROL_URL=https://control.onemind.internal:$HS_PORT
-ONEMIND_MESH_HEADSCALE_KEY_FILE=$ETC/headscale.key
-ONEMIND_MESH_HUB_IP=$HUB_MESH_IP
-ONEMIND_FABRIC_HUB_URL=https://$BOX.local
-ONEMIND_FABRIC_NATS_ACCOUNTS_FILE=$STATE/nats/accounts.conf
-ONEMIND_FABRIC_K3S=1
-ONEMIND_FABRIC_K3S_CA_HASH=$K3S_CA_HASH
 EOF
   chmod 0640 "$ETC/gateway.env"; chgrp onemind "$ETC/gateway.env"
   # kubectl for the gateway: the k3s multi-call binary run as "kubectl" (same version as the
@@ -832,52 +568,35 @@ EOF
 # ------------------------------------------------------------------------------------------
 K3S_CHANGED=0
 apt_setup
-systemctl enable --now avahi-daemon >/dev/null 2>&1 || warn "avahi-daemon did not start: NAME.local names will not resolve"
+memory_cgroup_check
+k3s_binary
 if [ "$ROLE" = hub ]; then
-  memory_cgroup_check
-  k3s_binary
-  LAN_ADDR=${LAN_ADDR:-$(primary_ip)}
-  [ -n "$LAN_ADDR" ] || die "could not find this machine's LAN address; pass --lan-addr"
-  BOX=${BOX:-$(hostname | cut -d. -f1 | tr 'A-Z_' 'a-z-' | tr -cd 'a-z0-9-' | cut -c1-63 | sed 's/^-*//;s/-*$//')}
-  [ -n "$BOX" ] || BOX=onemind
+  k3s_server
+  nats_install
   onemindd_install
   gateway_user
   gateway_python
-  box_certs              # CA + HTTPS + Headscale's control certificate
-  tailscale_install
-  headscale_install
-  mesh_hub               # the hub joins its own mesh first: k3s and NATS use its mesh address
-  box_certs              # + the NATS leaf listener certificate for that address
-  k3s_server
-  nats_install
   dashboard_build
   gateway_kubeconfig
   gateway_tokens
-  HUB_URL=${HUB:-"http://$LAN_ADDR:8080"}
+  HUB_URL=${HUB:-"http://$(primary_ip):8080"}
   gateway_service "$HUB_URL"
+  JOIN=$(cat /var/lib/rancher/k3s/server/agent-token)
   banner
-  log "hub ready: https://$BOX.local (and https://onemind.local), box CA sha256 $BOX_CA_SHA"
-  log "mesh: hub $HUB_MESH_IP; k3s and the NATS leaf listener run on it"
+  log "hub ready: dashboard and API at $HUB_URL (and http://127.0.0.1:8080 on this box)"
   if [ -n "$OWNER_TOKEN" ]; then
     printf '\nOWNER TOKEN (shown once; only its sha256 is stored in %s):\n\n    %s\n\n' "$ETC/tokens.yaml" "$OWNER_TOKEN"
   fi
-  printf 'Trust the box CA on your computer: download https://%s.local/v1/tls/ca.crt and check its sha256 is %s\n\n' "$BOX" "$BOX_CA_SHA"
-  printf 'Join another machine: make a one-time code here (or Add a device on the dashboard), then approve:\n\n'
-  printf '    ONEMIND_TOKEN=<owner token> onemind fabric ticket [--role leaf]\n\n'
+  printf 'Join another machine (run there, from a checkout of this repo):\n\n'
+  printf '    sudo deploy/install.sh --role node --hub %s --token %s\n\n' "$HUB_URL" "$JOIN"
   printf 'Check this hub:  ONEMIND_TOKEN=<owner token> deploy/verify/verify.sh http://127.0.0.1:8080\n'
   printf 'Hermes agent (contract §7) model credentials, created by the owner at install time:\n\n'
   printf '    sudo k3s kubectl create namespace app-hermes-agent --dry-run=client -o yaml | sudo k3s kubectl apply -f -\n'
   printf '    read -rs KEY   # paste the key; it stays out of shell history and the process list\n'
   printf "    printf '<PROVIDER>_API_KEY=%%s\\\\n' \"\$KEY\" | sudo k3s kubectl -n app-hermes-agent create secret generic hermes-agent-credentials --from-env-file=/dev/stdin\n\n"
 else
-  if [ "$NODE_ROLE" = worker ]; then memory_cgroup_check; k3s_binary; fi
+  k3s_agent
   onemindd_install
-  tailscale_install
-  nats_leaf_install
-  log "joining: the owner approves this machine on the hub (dashboard Approvals or onemind fabric approve)"
-  # shellcheck disable=SC2086
-  "$BIN/onemind" fabric join "$JOIN" ${HUB_ADDR:+--hub-addr "$HUB_ADDR"}
-  [ "$NODE_ROLE" = worker ] && k3s_agent
   banner
-  log "node joined as a $NODE_ROLE: mesh up, NATS leaf to the hub over the mesh"
+  log "node joined: k3s agent -> https://$(hub_host "$HUB"):6443, heartbeats -> nats://$(hub_host "$HUB"):4222"
 fi
