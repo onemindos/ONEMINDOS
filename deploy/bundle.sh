@@ -10,7 +10,7 @@
 #   dashboard/                                    hub: the built dashboard
 #   downloads/                                    k3s + its install.sh + airgap images, NATS, restic (hub);
 #                                                 the same pinned files install.sh fetches, same sha256
-#   src/                                          deploy/, apps/, sdk/schema/ from this checkout
+#   src/                                          deploy/, apps/, sdk/schema/, sdk/policy/ from this checkout
 #   BUNDLE.txt, SHA256SUMS                        what is in it; a checksum for every other file
 #
 #   deploy/bundle.sh --arch amd64                 # Beelink, DigitalOcean droplet
@@ -87,7 +87,7 @@ if [ "$NODE_ONLY" = 0 ] || [ "$GO_MODE" = docker ]; then
 fi
 
 COMMIT=$(git -C "$REPO" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
-if [ "$COMMIT" != unknown ] && [ -n "$(git -C "$REPO" status --porcelain -- cmd internal core dashboard deploy apps sdk/schema go.mod go.sum 2>/dev/null)" ]; then
+if [ "$COMMIT" != unknown ] && [ -n "$(git -C "$REPO" status --porcelain -- cmd internal core dashboard deploy apps sdk/schema sdk/policy go.mod go.sum 2>/dev/null)" ]; then
   COMMIT="$COMMIT-dirty"
 fi
 VERSION="0.1.0+bundle.$COMMIT"
@@ -176,13 +176,13 @@ if [ "$NODE_ONLY" = 0 ]; then
 fi
 
 # ---- 5. src/: what install.sh reads from a checkout (tracked + new files; gitignored ones never) --
-log "src/: deploy/, apps/, sdk/schema/"
+log "src/: deploy/, apps/, sdk/schema/, sdk/policy/"
 if git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  (cd "$REPO" && git ls-files -z --cached --others --exclude-standard -- deploy apps sdk/schema \
+  (cd "$REPO" && git ls-files -z --cached --others --exclude-standard -- deploy apps sdk/schema sdk/policy \
      | while IFS= read -r -d '' f; do [ -f "$f" ] && printf '%s\0' "$f"; done \
      | COPYFILE_DISABLE=1 tar --null -T - -cf -) | tar -C "$OUT/src" -xf -
 else
-  (cd "$REPO" && COPYFILE_DISABLE=1 tar --exclude=deploy/compose/local --exclude=__pycache__ -cf - deploy apps sdk/schema) \
+  (cd "$REPO" && COPYFILE_DISABLE=1 tar --exclude=deploy/compose/local --exclude=__pycache__ -cf - deploy apps sdk/schema sdk/policy) \
     | tar -C "$OUT/src" -xf -
 fi
 

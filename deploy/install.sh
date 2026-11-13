@@ -684,7 +684,7 @@ gateway_runtime_from_bundle() {
   if [ "$DRY_RUN" = 1 ]; then
     step "Gateway runtime from the bundle"
     plan "unpack ${GATEWAY_RUNTIME##*/} (Python 3.12 + venv, built for $PREFIX) -> $PREFIX/python, $PREFIX/venv"
-    plan "copy sdk/schema -> $PREFIX/sdk/schema and apps/ -> $PREFIX/apps"
+    plan "copy sdk/schema and sdk/policy -> $PREFIX/sdk and apps/ -> $PREFIX/apps"
     return 0
   fi
   [ -f "$GATEWAY_RUNTIME" ] || die "the bundle has no ${GATEWAY_RUNTIME##*/}"
@@ -707,6 +707,7 @@ gateway_runtime_from_bundle() {
   "$PREFIX/venv/bin/python" -c 'import onemind_core' || die "the bundle's gateway runtime does not run here"
   install -d -m0755 "$PREFIX/sdk"
   copy_tree "$SRC/sdk/schema" "$PREFIX/sdk/schema"
+  copy_tree "$SRC/sdk/policy" "$PREFIX/sdk/policy"   # the install sandbox rules (H-02), as in the build-on-box path
   copy_tree "$SRC/apps" "$PREFIX/apps"
   chmod -R a+rX "$PREFIX"
 }
@@ -718,7 +719,7 @@ gateway_python() {
     uv_toolchain
     plan "copy core/ -> $PREFIX/core; uv sync --frozen --no-dev --no-editable --managed-python --python 3.12"
     plan "  (uv.lock hash-checks every wheel; uv downloads Python 3.12 into $PREFIX/python and checks its hash)"
-    plan "copy sdk/schema -> $PREFIX/sdk/schema and apps/ -> $PREFIX/apps"
+    plan "copy sdk/schema and sdk/policy -> $PREFIX/sdk and apps/ -> $PREFIX/apps"
     return 0
   fi
   uv_toolchain
