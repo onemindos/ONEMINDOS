@@ -105,6 +105,15 @@ class LicenceTests(unittest.TestCase):
         rows = licence.matrix_rows(common.MATRIX_CSV, "binwiederhier/ntfy")
         self.assertTrue(rows and rows[0]["SPDX"] == "Apache-2.0 OR GPL-2.0")
         self.assertEqual(licence.matrix_rows(common.MATRIX_CSV, "binwiederhier/ntf"), [])
+    def test_market_batch7_rows(self):
+        # Read from the upstream LICENSE file at the pinned tag (market batch 7). GitHub reports NOASSERTION
+        # for PrivateBin, so only the research matrix row confirms the licence.
+        for repo, spdx, want in (("PrivateBin/PrivateBin", "Zlib", "L1"),
+                                 ("eclipse-mosquitto/mosquitto", "EPL-2.0 OR BSD-3-Clause", "L1"),
+                                 ("danny-avila/LibreChat", "MIT", "L1")):
+            rows = licence.matrix_rows(common.MATRIX_CSV, repo)
+            self.assertTrue(rows, repo)
+            self.assertEqual(licence.gate(spdx, "NOASSERTION", rows)[0], want, repo)
 
 
 class ScaffoldTests(unittest.TestCase):
