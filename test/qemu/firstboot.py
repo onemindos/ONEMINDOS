@@ -145,7 +145,7 @@ def f5(vm):
 def f6(vm):
     """H-12: Secrets are encrypted at rest in the k3s datastore (CRITERIA-FIRSTBOOT.md section 4)."""
     db = "/data/k3s/server/db/state.db"
-    _, out = vm.run("k3s secrets-encrypt status 2>&1 | head -12; echo SEC-STATUS-END; "
+    _, out = vm.run("k3s secrets-encrypt status --data-dir /data/k3s 2>&1 | head -12; echo SEC-STATUS-E''ND; "
                     "v=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n'); "
                     "k3s kubectl -n default create secret generic f6-probe --from-literal=v=$v >/dev/null 2>&1; echo CREATE_RC=$?; "
                     "echo READBACK=$([ \"$(k3s kubectl -n default get secret f6-probe -o jsonpath='{.data.v}' | base64 -d)\" = \"$v\" ] && echo yes || echo no); "
