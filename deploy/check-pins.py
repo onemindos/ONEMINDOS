@@ -18,6 +18,8 @@ want = {
     "K3S_VERSION": version,
     "K3S_SHA256_amd64": re.search(r"^\s+k3s:\s*([0-9a-f]{64})", k3s, re.M).group(1),
     "K3S_SHA256_arm64": re.search(r"^\s+k3s-arm64:\s*([0-9a-f]{64})", k3s, re.M).group(1),
+    "K3S_AIRGAP_SHA256_amd64": re.search(r"^\s+k3s-airgap-images-amd64\.tar\.zst:\s*([0-9a-f]{64})", k3s, re.M).group(1),
+    "K3S_AIRGAP_SHA256_arm64": re.search(r"^\s+k3s-airgap-images-arm64\.tar\.zst:\s*([0-9a-f]{64})", k3s, re.M).group(1),
 }
 for key, value in want.items():
     got = re.search(rf'^{key}="([^"]*)"', pins, re.M)
@@ -30,11 +32,35 @@ debian = re.search(r"debian:\n\s+image:\s*\S+\n\s+digest:\s*(sha256:[0-9a-f]{64}
 if debian not in read("deploy/compose/onemindd.Dockerfile"):
     errors.append("deploy/compose/onemindd.Dockerfile does not use the locked Debian digest " + debian)
 
+# deploy/bundle.sh images: digest-pinned, the same Go/Node digests as compose, Debian from the lock.
+bundle = dict(re.findall(r'^(BUNDLE_[A-Z]+_IMAGE)="([^"]*)"', pins, re.M))
+for key in ("BUNDLE_GO_IMAGE", "BUNDLE_NODE_IMAGE", "BUNDLE_DEBIAN_IMAGE"):
+    if "@sha256:" not in bundle.get(key, ""):
+        errors.append(f"deploy/pins.env {key} is missing or not pinned by digest")
+if not bundle.get("BUNDLE_DEBIAN_IMAGE", "").endswith("@" + debian):
+    errors.append("deploy/pins.env BUNDLE_DEBIAN_IMAGE does not use the locked Debian digest " + debian)
+for key, path in (("BUNDLE_GO_IMAGE", "deploy/compose/onemindd.Dockerfile"), ("BUNDLE_NODE_IMAGE", "deploy/compose/compose.yaml")):
+    if bundle.get(key, "-").split("@")[-1] not in read(path):
+        errors.append(f"deploy/pins.env {key} digest differs from {path}")
+
 for path in ("deploy/compose/compose.yaml", "deploy/compose/onemindd.Dockerfile"):
     for line in read(path).splitlines():
         m = re.search(r"(?:image:|FROM)\s+(\S+)", line)
         if m and "/" in m.group(1) and "@sha256:" not in m.group(1) and ":compose-dev" not in m.group(1):
             errors.append(f"{path}: image not pinned by digest: {m.group(1)}")
 
-print("\n".join(errors) if errors else "deploy pins match os/versions.lock.yaml")
+# restic: deploy/pins.env must name exactly what the backup agent accepts (internal/backup/pins.go).
+gopins = read("internal/backup/pins.go")
+for arch in ("amd64", "arm64"):
+    m = re.search(r'\{"restic", "([0-9.]+)", "%s",\s*"([^"]+)",\s*"([0-9a-f]{64})",\s*"([0-9a-f]{64})"' % arch, gopins)
+    if not m:
+        errors.append(f"internal/backup/pins.go has no restic pin for {arch}")
+        continue
+    for key, value in ((f"RESTIC_URL_{arch}", m.group(2)), (f"RESTIC_SHA256_{arch}", m.group(3)),
+                       (f"RESTIC_BIN_SHA256_{arch}", m.group(4)), ("RESTIC_VERSION", m.group(1))):
+        got = re.search(rf'^{key}="([^"]*)"', pins, re.M)
+        if not got or got.group(1) != value:
+            errors.append(f"deploy/pins.env {key}={got.group(1) if got else None!r}, internal/backup/pins.go says {value!r}")
+
+print("\n".join(errors) if errors else "deploy pins match os/versions.lock.yaml and internal/backup/pins.go")
 sys.exit(1 if errors else 0)

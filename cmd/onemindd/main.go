@@ -33,6 +33,7 @@ import (
 	"syscall"
 
 	"github.com/onemindos/onemindos/internal/agent"
+	"github.com/onemindos/onemindos/internal/backup"
 	"github.com/onemindos/onemindos/internal/detect"
 	"github.com/onemindos/onemindos/internal/heartbeat"
 	"github.com/onemindos/onemindos/internal/service"
@@ -148,6 +149,7 @@ func main() {
 		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log),
 		MeshReport:   meshReport,
 		FabricReport: fabricReport,
+		BackupReport: backupReport(env("ONEMIND_BACKUP_CONF", backup.DefaultConfigPath)),
 		Mounts:       service.Mounts(ctx, optionalServices)})
 	wait := service.Start(ctx, log, optionalServices) // registry.go
 	err := a.Run(ctx)

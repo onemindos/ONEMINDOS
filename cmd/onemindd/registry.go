@@ -10,8 +10,9 @@ import (
 // subcommands are separate onemindd modes (`onemindd <name> ...`), each its own
 // process with its own systemd unit and privileges. One line per feature.
 var subcommands = map[string]func(args []string) int{
-	"update": runUpdate,
-	"mesh":   runMesh, // net.go
+	"update":      runUpdate,
+	"backup-init": runBackupInit, // backup.go: one-shot, creates the device key; the agent itself is backup.Service() below
+	"mesh":        runMesh,       // net.go
 }
 
 // optionalServices run inside the heartbeat agent's process, next to it.

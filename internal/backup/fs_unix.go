@@ -32,3 +32,19 @@ func isMountPoint(path string) (bool, error) {
 	}
 	return fi.Sys().(*syscall.Stat_t).Dev != pi.Sys().(*syscall.Stat_t).Dev, nil
 }
+
+// copyOwnerAndMode gives dst the permission bits and owner of src.
+func copyOwnerAndMode(src, dst string) error {
+	fi, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+	if err := os.Chmod(dst, fi.Mode().Perm()); err != nil {
+		return err
+	}
+	st := fi.Sys().(*syscall.Stat_t)
+	if err := os.Lchown(dst, int(st.Uid), int(st.Gid)); err != nil && os.Geteuid() == 0 {
+		return err // as root a failed chown is real; unprivileged tests cannot chown
+	}
+	return nil
+}

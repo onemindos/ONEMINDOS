@@ -8,10 +8,12 @@ brief 30 **D-B2.4** (developer install P6) and **REC-DEC-30** (P6 is labelled un
 | Path | What it is |
 |---|---|
 | [`install.sh`](install.sh) | P6 developer install on a stock OS: `--role hub` or `--role node` |
+| [`bundle.sh`](bundle.sh) | Builds an offline bundle on your Mac for `install.sh --bundle` |
 | [`pins.env`](pins.env) | Every download `install.sh` makes: version + sha256 |
 | [`systemd/`](systemd/) | Units for `onemindd`, the hub NATS and the gateway |
-| [`compose/`](compose/) | The hub on a Mac with Docker (noop executor, one simulated node) |
-| [`verify/verify.sh`](verify/verify.sh) | Scripted PASS/FAIL of the contract against any hub |
+| [`compose/`](compose/) | The hub on a Mac with Docker (noop executor, one node and two simulated machines) |
+| [`verify/verify.sh`](verify/verify.sh) | Scripted PASS/FAIL of the contract against any hub ([tests](verify/tests/)) |
+| [`verify/node-check.sh`](verify/node-check.sh), [`verify/natscheck.py`](verify/natscheck.py) | Run on a machine: is this hub or node healthy (services, k3s, NATS auth, own heartbeat) |
 | [`check-pins.py`](check-pins.py) | CI: `pins.env` and the compose images match `os/versions.lock.yaml` |
 
 ## Why a "developer install" at all (plain English)
@@ -37,6 +39,66 @@ droplet; amd64 or arm64. Anything else stops unless `--force-os`. Re-running is 
 checks what is there; it restarts a service only when its binary or config changed).
 Options: `--gateway-bind ADDR`, `--onemindd-bin FILE` (skip Go, use `make -C cmd/onemindd build`
 output), `--dashboard-dist DIR` (skip Node), `--hub URL` on the hub (the address it advertises).
+
+### Dry run and targets (ported from PR #27)
+`--dry-run` prints every step the install would take (each download with its URL and sha256, each
+file with its content, each service it would enable) and changes nothing; it needs no root. With
+`--target` it plans for another machine, so you can read the plan on a Mac before touching the box:
+```sh
+deploy/install.sh --role hub  --dry-run --target rpi5
+deploy/install.sh --role node --dry-run --target jetson --hub http://hub.local:8080 --token <join token>
+```
+| `--target` | Machine | What changes in the plan |
+|---|---|---|
+| `debian13` | Beelink or any Debian 13 PC or VM (amd64) | nothing special |
+| `rpi5` | Raspberry Pi 5, Raspberry Pi OS trixie (arm64) | memory cgroup step, below |
+| `jetson` | Jetson Linux (L4T) Ubuntu (arm64) | note: GPU pods need the NVIDIA runtime in k3s's containerd (not done in v0) |
+| `do` | DigitalOcean Debian 13 droplet (amd64) | firewall reminder, below |
+
+`--arch amd64|arm64` overrides the target's usual architecture. A real run (no `--dry-run`) refuses
+`--target` and detects the machine itself: `/proc/device-tree/model` says Raspberry Pi 5,
+`/etc/nv_tegra_release` means Jetson, DMI vendor `DigitalOcean` means a droplet.
+- **Pi 5 memory cgroup.** k3s needs the memory cgroup, and the Raspberry Pi kernel turns it off by
+  default. If `/sys/fs/cgroup/cgroup.controllers` lacks `memory`, the script copies
+  `/boot/firmware/cmdline.txt` to `cmdline.txt.onemind-backup` (once), appends
+  `cgroup_memory=1 cgroup_enable=memory` (docs.k3s.io, Raspberry Pi), and stops with **exit code 3**:
+  reboot, then run the same command again. This runs before anything else is installed.
+- **DigitalOcean firewall reminder.** A droplet has a public address, and v0 serves the gateway on
+  plain HTTP and NATS without auth. On `do` the script prints, at the start and the end, that ports
+  8080, 4222, 6443, 10250 and 8472/udp must be closed to the internet with a DigitalOcean Cloud
+  Firewall (allow them only from your VPC or Tailscale range). It changes no firewall itself.
+
+### Offline bundle (`bundle.sh`, ported from PR #27)
+Without a bundle, the box downloads k3s and NATS and **builds** onemindd (Go), the gateway (uv,
+Python, PyPI wheels) and the dashboard (Node, npm) itself. That needs the internet, a few minutes
+and some RAM, which a Pi does not love. `bundle.sh` does all of it once on your Mac instead:
+```sh
+deploy/bundle.sh --arch amd64                      # Beelink, droplet (arm64: Pi 5, Jetson)
+scp -r out/onemind-bundle-amd64 <user>@<box>:      # or rsync, or a USB stick
+sudo ./onemind-bundle-amd64/src/deploy/install.sh --role hub --bundle ./onemind-bundle-amd64   # on the box
+```
+| In the bundle | What it is |
+|---|---|
+| `onemindd-linux-<arch>`, `onemind-linux-<arch>` | node agent and CLI, static, built from `cmd/` (local Go, or the pinned Go container) |
+| `gateway-runtime-linux-<arch>.tar.gz` | Python 3.12 + the gateway venv: install.sh's own `uv sync --frozen` step, run for `/opt/onemind` in the pinned Debian container |
+| `dashboard/` | the built dashboard (`npm ci --ignore-scripts`, in the pinned Node container) |
+| `downloads/` | k3s, its pinned `install.sh`, **k3s airgap images** (pause, CoreDNS, ...) and NATS: the same files and sha256 as `pins.env` |
+| `src/` | `deploy/`, `apps/`, `sdk/schema/` from your checkout (tracked and new files; gitignored ones such as compose tokens never) |
+| `BUNDLE.txt` | arch, full or `--node-only`, git commit, versions |
+| `SHA256SUMS` | a checksum for every other file |
+
+`install.sh --bundle DIR` (found by itself when run from `DIR/src/deploy/`) first runs
+`sha256sum --strict -c SHA256SUMS` and refuses a bundle with any file that list does not name, the
+wrong architecture, or `--node-only` contents on a hub. Pinned files from `downloads/` are checked
+again against `pins.env`, as a download would be. With a bundle nothing is downloaded or built on the
+box except Debian packages that are missing (apt) and the app images k3s pulls when you install an
+app. `--node-only` makes a smaller bundle for nodes (no gateway, dashboard or NATS; no Docker needed
+when Go is installed); `--no-airgap` leaves the images out (k3s then pulls them).
+- **SHA256SUMS proves the copy is intact, not who built it.** Build your own bundle, and keep it in a
+  folder only you and root can write until the install is done. Signed releases come with the update
+  pipeline (TUF), not here.
+- Building for the other architecture runs the gateway step under emulation: Docker Desktop does that
+  out of the box; on Linux it needs QEMU binfmt.
 
 ### What it installs, and where
 | Piece | How | Where |
@@ -75,7 +137,14 @@ The v0 `--token` join (a long-lived k3s agent token printed by the hub, NATS ope
 ### Tokens
 - **Owner token:** 256 random bits, printed once. `/etc/onemind/tokens.yaml` stores only
   `sha256:<hex>` (the gateway supports that form), so the file holds no usable secret. Lost it?
-  `--uninstall` then install again, or add a new `sha256:` entry by hand.
+  Remove `tokens.yaml` and run the install again (it prints a new one), or add a new `sha256:` entry by hand.
+- **Agent token** (`--with-agent-token`, ported from PR #27): the same for principal `dev-agent`
+  (`kind: agent`), which may request actions but never approve or deny them (§3, §7). On a re-run it
+  is added only if `tokens.yaml` has no agent yet. `verify.sh --agent-token-file` uses it for the
+  agent-403 and §11.3 MCP checks.
+- **No raw API token on disk.** Before printing new tokens the script searches `/etc/onemind`,
+  `/var/lib/onemind`, `/var/cache/onemind`, `/etc/systemd/system` and `/etc/rancher` for them and
+  stops if one is found. Copy each token into a password manager; the script keeps no copy.
 - **Join token:** the k3s `agent-token` in the full `K10<CA hash>::node:<secret>` form, so the node
   also checks it talks to the right server. The hub prints the join command on every run.
 
@@ -134,9 +203,38 @@ docker compose down -v
 ```
 Services: `nats` (2.15.2), `dashboard` (builds `dashboard/` into a volume, then exits), `gateway`
 (`core/Dockerfile`, **noop executor**, so nothing is really installed), `node-sim` (`onemindd` with
-`ONEMIND_NODE_ID=compose-node-1`). All images are pinned by digest; every port is bound to
+`ONEMIND_NODE_ID=compose-node-1`), and two **simulated machines** (ported from PR #27), `sim-rpi5`
+and `sim-jetson`: [`simnode`](compose/simnode/main.go) runs onemindd's own agent code
+(`internal/agent`) but reads the hardware from `internal/detect`'s Raspberry Pi 5 and Jetson fixture
+trees, so Nodes shows a `rpi5` and a `jetson-orin` (with its GPU) next to the `vm`, and their
+heartbeats are exactly what onemindd sends on those boards (PR #27's simulator wrote them by hand).
+They report hardware that is not there: development only. All images are pinned by digest; every port is bound to
 `127.0.0.1`. `ONEMIND_ALLOW_UNSCANNED=1` is set and marked **dev only**: the seed apps have no
 `scan.json` yet, and the contract allows the flag only with the noop executor.
+
+## verify/node-check.sh and natscheck.py (ported from PR #27)
+Run **on** a hub or node after the install: `sudo deploy/verify/node-check.sh`. One line per check,
+a table at the end, exit 0 when nothing failed:
+- `onemindd` active; its local API `:7480/api/v1/node` answers with the §2 schema and the configured role.
+- k3s at the `pins.env` version. Hub: `k3s` active, `/readyz`, nodes Ready, `onemind-nats` and
+  `onemind-gateway` active, gateway `/healthz`. Node: `k3s-agent` active, and **no** admin
+  kubeconfig or server data on the node (D-B6.2).
+- NATS, with the auth main has today. `natscheck.py` reads `ONEMIND_NATS_URL` from
+  `/etc/onemind/onemindd.env` (`--env-file`), so a URL with a token or `user:pass` never reaches a
+  command line, and it never prints credentials. A hub NATS that requires none is a **WARN**
+  ("v0 shortcut until per-node users, H-06"), not a pass. Then the machine's own heartbeat must
+  arrive on `onemind.node.<id>.status` within 25 s.
+- Leaf link (H-06): on a node that has the `onemind-nats-leaf` unit, the loopback leaf's `/leafz`
+  must show a connection to the hub (`natscheck.py leafz`, the same signal as `internal/leaf`);
+  without that unit it is SKIP (v0 nodes publish straight to the hub).
+- Clock synchronised (WARN if not: stale and offline come from timestamps).
+
+`natscheck.py` (standard library only) also works by hand: `ping` and `watch` take `nats://`,
+`nats://TOKEN@`, `nats://USER:PASS@` or `tls://` with `--ca <box CA>`; against a server that wants
+nkey users it says so (it signs no nonces) and points at `leafz`.
+```sh
+python3 -I deploy/verify/natscheck.py watch nats://hub.local:4222 --count 3   # heartbeats of 3 machines
+```
 
 ## verify/verify.sh
 Needs `bash`, `curl`, `python3` (stdlib only). It talks to the hub only over HTTP and NATS, so it
@@ -162,6 +260,22 @@ code, so a hostile hub cannot run commands on the machine running `verify.sh`. O
 - Wave 2 (§11.3 `/mcp`, §11.4 `links`/`tier`/`scan`): **SKIP** while the gateway lacks them,
   checked as soon as it has them; `--strict` turns SKIP into FAIL.
 Exit code 0 only when nothing failed.
+
+## Tests of the deploy kit (ported from PR #27; CI: `ci-deploy.yml`)
+| Test | What it proves | Run |
+|---|---|---|
+| [`verify/tests/test_verify.py`](verify/tests/test_verify.py) | `verify.sh` passes a correct hub with **nothing skipped** (`--strict`) and FAILs the right line for each of 15 broken hubs (no auth, agent may approve, no expiry, deny not cancelled, no idempotency, changed params, failed install, no online node, leaked IP, bad board, person on `/mcp`, an approve tool, broken audit chain, a heartbeat for another node, no dashboard). A hub that answers with node ids made of Python code runs nothing (the #26 eval bug). Tokens never reach curl's command line. `natscheck.py` against no-auth, token and nkey servers, `leafz`, and (with Docker) a real nats-server 2.15.2 with a token and TLS from a CA made at test time | `python3 -I deploy/verify/tests/test_verify.py -v` (about 80 s) |
+| [`verify/tests/mock_gateway.py`](verify/tests/mock_gateway.py) | Not a test itself: an imitation hub (HTTP API with `/mcp`, plus a tiny NATS with heartbeats and a hash-chained `onemind.audit`), `--bug` breaks one rule | used by the test above |
+| [`verify/tests/e2e-systemd/run.sh`](verify/tests/e2e-systemd/run.sh) | The real thing on two "stock Debian 13 machines" (containers with systemd as PID 1): `bundle.sh`, hub and node installed **from the bundle only**, tokens printed once and absent from disk, idempotent re-run, 2 Ready nodes, node-check on both, `verify.sh` with the kubernetes executor, an app Available in k3s, a dry run that changes no file, `--uninstall --purge` | `deploy/verify/tests/e2e-systemd/run.sh` (privileged Docker; about 4 min on arm64; `KEEP=1`, `E2E_APP`, `E2E_BUNDLE`) |
+
+The e2e containers need one thing a real machine does not: under cgroup v2 a long `docker exec`
+sits in the container's root cgroup and blocks k3s from getting its controllers, so
+[`entrypoint.sh`](verify/tests/e2e-systemd/entrypoint.sh) moves PID 1 into a leaf cgroup first
+(as kind and k3d do), and `/lib/modules` is mounted for k3s's kernel modules.
+
+Record (2026-11-12, throwaway Lima VM, Docker 29.9.3, arm64): `test_verify.py` 17 passed, 0 skipped
+(real NATS included); `e2e-systemd/run.sh` **20/20, E2E PASSED** in 3 min 49 s, with `verify.sh`
+45 passed, 0 failed, 0 skipped on the bundle-installed hub. amd64 runs in CI.
 
 ## Test record (2026-11-12, Apple-silicon Mac, Lima 2.3.0, all arm64)
 **Hub on Debian 13** (Lima `template:debian-13`, 4 vCPU, 8 GiB, kernel 6.12.115+deb13.1-cloud-arm64),

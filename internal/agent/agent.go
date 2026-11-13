@@ -47,6 +47,9 @@ type Config struct {
 	// objects (contract §12.10). nil, or a nil result, omits them.
 	MeshReport   func() *mesh.Heartbeat
 	FabricReport func() *heartbeat.Fabric
+	// BackupReport, when set, supplies the optional "backup" object (read
+	// from the backup agent's state file). nil = omit.
+	BackupReport func() *heartbeat.Backup
 	// Mounts adds optional services' HTTP APIs under their path prefix (service.Mounts).
 	Mounts map[string]http.Handler
 }
@@ -135,6 +138,9 @@ func (a *Agent) collect(c *collection) {
 	}
 	if a.cfg.FabricReport != nil {
 		c.st.Fabric = a.cfg.FabricReport()
+	}
+	if a.cfg.BackupReport != nil {
+		c.st.Backup = a.cfg.BackupReport()
 	}
 	a.stMu.Lock()
 	a.last, a.at, a.inflight = c.st, time.Now(), nil

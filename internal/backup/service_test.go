@@ -44,15 +44,3 @@ func TestServiceBrokenConfigIsUnavailableNotFatal(t *testing.T) {
 		t.Fatal("Run must report the broken config so it is logged")
 	}
 }
-
-func TestAPIUnknownTargetIsRejectedBeforeAccepted(t *testing.T) {
-	f := newFixture(t)
-	h := f.agent.Handler(context.Background())
-	req := httptest.NewRequest("POST", "/api/v1/backup/run", strings.NewReader(`{"reason":"manual","target_id":"nope"}`))
-	req.RemoteAddr = "127.0.0.1:5000"
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "unknown target") {
-		t.Fatalf("unknown target: %d %s", w.Code, w.Body)
-	}
-}

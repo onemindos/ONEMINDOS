@@ -235,6 +235,8 @@
   .om-tab { all: unset; box-sizing: border-box; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 100%; color: var(--om-color-text-muted); font-size: 11px; font-weight: var(--om-font-weight-medium); cursor: pointer; text-decoration: none; }
   .om-tab:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: -4px; }
   .om-tab[aria-current='page'], .om-tab-on { color: var(--om-color-accent); }
+  /* The label takes the body text colour: accent red on the tab bar failed axe color-contrast in Firefox and WebKit (dash-market, phone). The accent icon and the bold weight still mark the current tab. */
+  .om-tab[aria-current='page'] .om-nav-label, .om-tab-on .om-nav-label { color: var(--om-color-text); font-weight: var(--om-font-weight-bold); }
   .om-tab .om-nav-badge { position: absolute; top: 6px; left: calc(50% + 6px); margin: 0; }
   .om-more { position: absolute; bottom: calc(100% + 8px); right: var(--om-space-3); min-width: 220px; padding: var(--om-space-2); background: var(--om-color-surface-raised); border: 1px solid var(--om-color-border); border-radius: var(--om-radius-lg); box-shadow: var(--om-shadow-3); }
   .om-table thead { display: none; }

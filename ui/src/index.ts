@@ -49,6 +49,7 @@ export { applyTheme, storedTheme } from './lib/theme';
 export type { ThemeChoice } from './lib/theme';
 export * from './customize';
 export * from './home';
+export * from './backups';
 export * from './settings';
 export * from './network';
 export * from './store';

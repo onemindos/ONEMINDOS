@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# onemind-local: k3s's local-path provisioner with reclaimPolicy Retain (CORE-BACKUP-1, D-B7.1):
+# deleting a claim keeps its folder <pv>_<namespace>_<claim> under the provisioner's path, which is
+# where the backup agent finds an app's data. Not the default class yet: making it the default
+# (and taking the flag off local-path) is CORE-BACKUP-1's change, through the image stream.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: onemind-local
+  labels: {app.kubernetes.io/part-of: onemind}
+provisioner: rancher.io/local-path
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer

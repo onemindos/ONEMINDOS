@@ -7,7 +7,9 @@ from __future__ import annotations
 import json
 import os
 import random
+import threading
 import uuid
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
@@ -66,12 +68,42 @@ class Req:
     headers: dict[str, str] = field(default_factory=dict)
 
 
+class ExpiryMemo:
+    """expires_at, fixed once per idempotency key. The hub compares the whole request body when a key
+    is replayed, so a retry that recomputed expires_at in a later second would get a 409."""
+
+    MAX = 1024
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._by_key: OrderedDict[str, tuple[str, datetime]] = OrderedDict()
+
+    def get(self, key: str, now: datetime, span: timedelta) -> str:
+        with self._lock:
+            hit = self._by_key.get(key)
+            if hit and hit[1] > now:
+                return hit[0]
+            exp = now + span
+            text = exp.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+            self._by_key.pop(key, None)
+            self._by_key[key] = (text, exp)
+            for k in [k for k, (_, e) in self._by_key.items() if e <= now]:  # expired: the hub would refuse a replay anyway
+                del self._by_key[k]
+            while len(self._by_key) > self.MAX:
+                self._by_key.popitem(last=False)
+            return text
+
+
 def action_request(type_: str, app_id: str, hub_now: datetime, expires_in: timedelta | None,
-                   idempotency_key: str | None) -> Req:
-    exp = hub_now + (expires_in or DEFAULT_EXPIRY)
+                   idempotency_key: str | None, memo: ExpiryMemo | None = None) -> Req:
+    span = expires_in or DEFAULT_EXPIRY
+    if idempotency_key and memo is not None:
+        expires_at = memo.get(idempotency_key, hub_now, span)
+    else:
+        expires_at = (hub_now + span).astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     body = {
         "type": type_, "params": {"app_id": app_id}, "idempotency_key": idempotency_key or str(uuid.uuid4()),
-        "expires_at": exp.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "expires_at": expires_at,
     }
     return Req("POST", "/v1/actions", body, retry=True)
 

@@ -96,7 +96,10 @@ type Status struct {
 	// role hub|worker|leaf and its NATS leaf link. Omitted on v0 installs
 	// that never joined through the fabric.
 	Fabric *Fabric `json:"fabric,omitempty"`
-	// Metrics are the node's live load figures (contract §12.10 "metrics"),
+	// Backup is the backup agent's last result (contract 12.10); omitted
+	// when the box has no backup agent configured.
+	Backup *Backup `json:"backup,omitempty"`
+	// Metrics are the node's live load figures (contract 12.10 "metrics"),
 	// read at each heartbeat. Optional: omitted when none can be read.
 	Metrics *Metrics `json:"metrics,omitempty"`
 }
@@ -108,10 +111,17 @@ type Fabric struct {
 	CertExpiresAt *string `json:"cert_expires_at,omitempty"`
 }
 
+// Backup is the heartbeat's optional "backup" object (contract 12.10).
+type Backup struct {
+	Running    bool    `json:"running"`
+	LastRunAt  *string `json:"last_run_at"`
+	LastResult string  `json:"last_result"` // succeeded | failed | partial | none
+}
+
 // Metrics feeds the gateway's per-node history and threshold alerts
-// (contract §12.15). CPUPct is busy time since the previous heartbeat (null
+// (contract 12.15). CPUPct is busy time since the previous heartbeat (null
 // on the first), Load1 the 1-minute load average, TempC the hottest thermal
-// zone in °C. Each is null when this node cannot read it.
+// zone in degrees C. Each is null when this node cannot read it.
 type Metrics struct {
 	CPUPct *float64 `json:"cpu_pct"`
 	Load1  *float64 `json:"load1"`
