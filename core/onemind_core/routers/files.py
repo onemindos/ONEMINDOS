@@ -50,6 +50,9 @@ def errs(*codes: int) -> dict:
     return {c: _ERR[c] for c in codes}
 
 
+MAX_JSON_INT = 2**53 - 1
+
+
 def _not_a_bool(v):
     if isinstance(v, bool):
         raise ValueError("expected an integer, not a boolean")
@@ -148,8 +151,9 @@ class DenyBody(BaseModel):
 
 class QuotaBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    # JSON Schema's integer includes 5.0 but not true; the column is a signed 64-bit integer (2**63 was a 500).
-    limit_bytes: Annotated[int, BeforeValidator(_not_a_bool), Field(ge=0, le=2**63 - 1)] | None
+    # JSON Schema's integer includes 5.0 but not true. The column is a signed 64-bit integer (2**63 was a 500);
+    # the bound is the largest integer every JSON client reads exactly (a float cannot hold 2**63 - 1).
+    limit_bytes: Annotated[int, BeforeValidator(_not_a_bool), Field(ge=0, le=MAX_JSON_INT)] | None
 
 
 IdemKey = Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)]
