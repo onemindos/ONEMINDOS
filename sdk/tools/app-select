@@ -1,0 +1,40 @@
+#!/usr/bin/env -S python3 -I
+# SPDX-License-Identifier: Apache-2.0
+"""Pick the apps a licence-matrix change affects (used by .github/workflows/ci-apps.yml).
+
+  python3 -I sdk/tools/app-select matrix --old OLD.csv --new NEW.csv [--apps-dir apps]
+
+Prints one app id per line (possibly none). Exit 0 ok, 2 on any problem: the caller then gates every
+app, so an error here can only make CI slower, never skip a scan.
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from applib import common, selection  # noqa: E402
+
+
+def main(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="app-select", description=__doc__.split("\n")[0])
+    sub = p.add_subparsers(dest="cmd", required=True)
+    m = sub.add_parser("matrix", help="apps whose licence-matrix rows differ between two CSV files")
+    m.add_argument("--old", type=Path, required=True)
+    m.add_argument("--new", type=Path, required=True)
+    m.add_argument("--apps-dir", type=Path, default=common.APPS_DIR)
+    args = p.parse_args(argv)
+    try:
+        ids = selection.apps_with_changed_rows(args.old.read_text(encoding="utf-8"),
+                                               args.new.read_text(encoding="utf-8"),
+                                               selection.app_repos(args.apps_dir))
+    except (OSError, ValueError, KeyError) as exc:
+        sys.stderr.write(f"error: {exc}\n")
+        return 2
+    print("\n".join(ids))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

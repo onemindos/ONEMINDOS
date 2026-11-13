@@ -48,6 +48,7 @@
 
 | Id | Title | State | Branch | PR |
 |---|---|---|---|---|
+| TEST-CI-A3 | CI test matrix: 3-engine browser tests (axe + visual baseline), weekly amd64+arm64 app gate, mobile builds, site link check | review | `feat/test-ci-matrix` | [#42](https://github.com/onemindos/ONEMINDOS/pull/42) |
 | OS-UPDATER | onemindd OS updater: TUF-verified, policy and window, restic pre-sn… | done | `feat/onemindd-updater` | [#15](https://github.com/onemindos/ONEMINDOS/pull/15) |
 | OS-SECPIPE | OS security pipeline: nightly Debian check, rebuild, SBOM/CVE+VEX/C… | done | `feat/os-security-pipeline` | [#14](https://github.com/onemindos/ONEMINDOS/pull/14) |
 | CORE-UPDATE-1 | Land both update branches with CI green | done | (both update branches) | #15 and [#14](https://github.com/onemindos/ONEMINDOS/pull/14) merged |
@@ -56,6 +57,7 @@
 | W2-GW | Gateway wave 2: scan gate, app agent principals, `/mcp` with 3 tool… | done | `feat/gateway-agent-mcp` | [#24](https://github.com/onemindos/ONEMINDOS/pull/24) |
 | W2-PIPE | App pipeline: scaffolder, app-gate (§9.4), `scan.json` (§11.1), k3d… | done | `feat/app-pipeline` | [#25](https://github.com/onemindos/ONEMINDOS/pull/25) |
 | CI-APP-PATHS | Narrow app-gate triggers without weakening §9.4 checks | done | `ci/narrow-app-gate-paths` | [#74](https://github.com/onemindos/ONEMINDOS/pull/74) |
+| CI-APP-FASTER | Faster app scans, same gate: licence-matrix PRs gate only changed apps, daily rescan fans out per app, registry pulls retry with backoff and log in | review | `ci/faster-app-scans` | PR pending |
 | W2-DEPLOY | Developer install: `install.sh --role hub` or `node`, compose dev hub… | done | `feat/deploy-v0` | [#26](https://github.com/onemindos/ONEMINDOS/pull/26) |
 | W2-HERMES | Hermes packaged as `apps/hermes-agent`, an agent principal | done (acceptance not met: 4 of 9 apps fail their scan) | `feat/app-pipeline` | [#25](https://github.com/onemindos/ONEMINDOS/pull/25) |
 | W2-SEEDS | Wave-2 seed apps | done (acceptance not met: 4 of 9 apps fail their scan) | `feat/app-pipeline` | [#25](https://github.com/onemindos/ONEMINDOS/pull/25) |
