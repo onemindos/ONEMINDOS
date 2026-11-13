@@ -116,7 +116,7 @@ describe('ApprovalCard', () => {
   it('shows requester kind, reason, exact params and the API equivalent', async () => {
     const { container } = render(<ApprovalCard action={action} now={NOW} canDecide={{ allowed: true }} onApprove={() => {}} onDeny={() => {}} />);
     expect(screen.getByRole('heading', { name: 'Install ntfy' })).toBeInTheDocument();
-    expect(screen.getByText('Agent')).toBeInTheDocument();
+    expect(screen.getByText('AI agent')).toBeInTheDocument();
     expect(screen.getByText('agent:hermes-agent')).toBeInTheDocument();
     expect(screen.getByText(/expires in 20 h/)).toBeInTheDocument();
     expect(screen.getByText('POST /v1/actions/act-1/approve')).toBeInTheDocument();
@@ -128,15 +128,15 @@ describe('ApprovalCard', () => {
     const onApprove = vi.fn();
     const onDeny = vi.fn();
     render(<ApprovalCard action={action} now={NOW} canDecide={{ allowed: true }} onApprove={onApprove} onDeny={onDeny} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Approve' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Deny' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Approve/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Deny/ }));
     expect(onApprove).toHaveBeenCalledWith(action);
     expect(onDeny).toHaveBeenCalledWith(action);
   });
 
   it('disables decisions with the reason for someone who may not decide', () => {
     render(<ApprovalCard action={action} now={NOW} canDecide={{ allowed: false, reason: 'Only the owner can approve.' }} onApprove={() => {}} />);
-    const btn = screen.getByRole('button', { name: 'Approve' });
+    const btn = screen.getByRole('button', { name: /^Approve/ });
     expect(btn).toBeDisabled();
     expect(btn).toHaveAccessibleDescription('Only the owner can approve.');
   });
@@ -144,13 +144,13 @@ describe('ApprovalCard', () => {
   it('marks an expired request and blocks approval', () => {
     render(<ApprovalCard action={{ ...action, expires_at: ago(1) }} now={NOW} canDecide={{ allowed: true }} onApprove={() => {}} />);
     expect(screen.getByText('Expired')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Approve/ })).toBeDisabled();
   });
 
   it('shows the hub message for a failed action and no buttons', () => {
     render(<ApprovalCard action={{ ...action, state: 'failed', message: 'image pull failed' }} now={NOW} canDecide={{ allowed: true }} onApprove={() => {}} />);
     expect(screen.getByText(/image pull failed/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Approve/ })).toBeNull();
   });
 });
 

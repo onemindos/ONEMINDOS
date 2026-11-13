@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# changedetection-data: /datastore (docker-compose.yml), the watch list, snapshots of every change
+# and settings. 2Gi is a OneMind choice. No storageClassName: the cluster default class is used
+# (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: changedetection-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi

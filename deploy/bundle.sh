@@ -8,7 +8,7 @@
 #   onemindd-linux-<arch>, onemind-linux-<arch>   node agent and CLI (static, from cmd/)
 #   gateway-runtime-linux-<arch>.tar.gz           hub: Python 3.12 + the gateway venv, built for /opt/onemind
 #   dashboard/                                    hub: the built dashboard
-#   downloads/                                    k3s + its install.sh + airgap images, NATS (hub);
+#   downloads/                                    k3s + its install.sh + airgap images, NATS, restic (hub);
 #                                                 the same pinned files install.sh fetches, same sha256
 #   src/                                          deploy/, apps/, sdk/schema/ from this checkout
 #   BUNDLE.txt, SHA256SUMS                        what is in it; a checksum for every other file
@@ -110,12 +110,14 @@ fi
 NATS_TGZ="nats-server-$NATS_VERSION-linux-$ARCH.tar.gz"
 if [ "$NODE_ONLY" = 0 ]; then
   fetch "https://github.com/nats-io/nats-server/releases/download/$NATS_VERSION/$NATS_TGZ" "$(pick NATS_SHA256)" "$OUT/downloads/$NATS_TGZ"
+  # restic for the backup agent (deploy/backup.sh fetches it by this file name, same sha256)
+  fetch "$(pick RESTIC_URL)" "$(pick RESTIC_SHA256)" "$OUT/downloads/restic-$RESTIC_VERSION.bz2"
 else
-  rm -f "$OUT/downloads/$NATS_TGZ"
+  rm -f "$OUT/downloads/$NATS_TGZ" "$OUT/downloads/restic-$RESTIC_VERSION.bz2"
 fi
 # Nothing else may sit in downloads/ (install.sh refuses files SHA256SUMS does not list anyway).
 find "$OUT/downloads" -type f ! -name "k3s-$K3S_VERSION-$ARCH" ! -name "k3s-install-$K3S_INSTALL_COMMIT.sh" \
-  ! -name "k3s-airgap-images-$ARCH.tar.zst" ! -name "$NATS_TGZ" -delete
+  ! -name "k3s-airgap-images-$ARCH.tar.zst" ! -name "$NATS_TGZ" ! -name "restic-$RESTIC_VERSION.bz2" -delete
 
 # ---- 2. onemindd + onemind (static) ---------------------------------------------------------
 LDFLAGS="-s -w -buildid= -X github.com/onemindos/onemindos/internal/version.Version=$VERSION"

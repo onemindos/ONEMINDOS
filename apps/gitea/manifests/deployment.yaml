@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/go-gitea/gitea (contract §9.2), then
+# completed from upstream: the rootless image docker.io/gitea/gitea:28.3.0-rootless (image config:
+# USER 1000:1000, VOLUME /var/lib/gitea and /etc/gitea, EXPOSE 3000 and 2222) and docs.gitea.com
+# ("Installation with Docker (rootless)").
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  # The default database chosen in the install wizard is SQLite on a ReadWriteOnce volume: one
+  # writer, so the old pod stops before the new one starts.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gitea
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gitea
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # The rootless image already runs as 1000:1000; this states it so the cluster enforces it.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Creates the subPath directories as the app user. Without this the kubelet creates a
+        # missing subPath as root, which the non-root app cannot write on volumes that do not
+        # apply fsGroup (k3s local-path).
+        - name: volume-dirs
+          image: docker.io/gitea/gitea:28.3.0-rootless@sha256:40c5a68a0463c0940e1ae32626c8300dd0572f3558e390073ad8379ca67c0e1d
+          command: ["sh", "-c", "mkdir -p /mnt/data /mnt/config"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /mnt
+      containers:
+        - name: gitea
+          # The -rootless variant of the release tag, not the scaffolder's default (root + s6) image.
+          image: docker.io/gitea/gitea:28.3.0-rootless@sha256:40c5a68a0463c0940e1ae32626c8300dd0572f3558e390073ad8379ca67c0e1d
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+            - name: ssh
+              containerPort: 2222
+              protocol: TCP
+          # GET /api/healthz is Gitea's health endpoint; it answers before and after the wizard.
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream publishes no sizing for this image; a OneMind choice for a household forge.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/gitea
+              subPath: data
+            - name: data
+              mountPath: /etc/gitea
+              subPath: config
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: gitea-data

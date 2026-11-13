@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Web UI and API on 8080 (NGINX_HTTP_PORT in the image). The database has no Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: firefly-iii
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: firefly-iii
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

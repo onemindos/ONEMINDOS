@@ -25,6 +25,8 @@ describe.skipIf(!hub)("live gateway", () => {
     });
     const a = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance" });
     expect(a.state).toBe("awaiting_approval");
+    // A replay in a later second must still be the same request: the SDK keeps expires_at per key.
+    await new Promise((r) => setTimeout(r, 1200));
     const again = await agent.actions.request({ type: "app.install", appId: "whoami", idempotencyKey: "ts-conformance" });
     expect(again.id).toBe(a.id);
     await expect(agent.actions.approve(a.id)).rejects.toBeInstanceOf(PermissionDeniedError);

@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+# Excalidraw: Market batch 5 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: Dockerfile and
+# .github/workflows/publish-docker.yml on the release branch, the workflow's run history, and the
+# Docker Hub tag list for excalidraw/excalidraw.
+# Image digest and archs from crane; licence from the GitHub licence API.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: excalidraw
+  name: "Excalidraw"
+  # The image is built from the release branch, not from a tagged release (see manifests/).
+  version: "0.18.1+b2b2815"
+  description: "Virtual whiteboard for hand-drawn style sketches and diagrams."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: notes
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/excalidraw/excalidraw
+  # §9.3 facts from the GitHub API (repos/excalidraw/excalidraw), read 2026-11-12. v0.18.1 is the
+  # newest GitHub release (the npm package); the image is newer (2026-05-06).
+  links:
+    docs: "https://docs.excalidraw.com"
+    github: "https://github.com/excalidraw/excalidraw"
+    website: "https://excalidraw.com"
+    support: "https://github.com/excalidraw/excalidraw/issues"
+  upstream: {release: "v0.18.1", released_at: "2026-04-21T08:43:20Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVE-2026-111497 and CVE-2026-31789 in the image, fixes exist (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 128}
+  web: {port: 8080}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

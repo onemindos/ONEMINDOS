@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# changedetection.io: Market batch 4 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: docker-compose.yml,
+# Dockerfile and docker-entrypoint.sh at 0.70.3.
+# Image digest and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: changedetection
+  name: "changedetection.io"
+  version: "0.70.3"
+  description: "Watches web pages for changes and sends an alert when they change."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: news
+  icon: icon.svg
+  license: "Apache-2.0"
+  source: https://github.com/dgtlmoon/changedetection.io
+  # §9.3 facts from the GitHub API (repos/dgtlmoon/changedetection.io), read 2026-11-12.
+  links:
+    docs: "https://github.com/dgtlmoon/changedetection.io/wiki"
+    github: "https://github.com/dgtlmoon/changedetection.io"
+    website: "https://changedetection.io"
+    support: "https://github.com/dgtlmoon/changedetection.io/issues"
+  upstream: {release: "0.70.3", released_at: "2026-11-09T14:57:31Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 512}
+  web: {port: 5000}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

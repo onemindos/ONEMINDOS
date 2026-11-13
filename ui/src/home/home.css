@@ -228,8 +228,7 @@
 /* ---------- dots and glyphs ---------- */
 .omh-dot { display: inline-block; flex: none; width: var(--omh-dot); height: var(--omh-dot); border-radius: 50%; background: var(--om-tone-fg); box-shadow: 0 0 0 2px var(--om-color-surface); }
 .omh-dot-hollow { background: var(--om-color-surface); border: 2px solid var(--om-tone-fg); }
-.omh-glyph { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; overflow: hidden; border-radius: var(--omh-glyph-radius); font-weight: var(--om-font-weight-bold); color: var(--om-tone-fg); background: var(--om-tone-bg); border: 1px solid var(--om-tone-border); box-shadow: var(--om-shadow-1); }
-.omh-glyph img { width: 100%; height: 100%; object-fit: cover; }
+.omh-glyph-add { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; overflow: hidden; border-radius: var(--omh-glyph-radius); font-weight: var(--om-font-weight-bold); color: var(--om-tone-fg); background: var(--om-tone-bg); border: 1px solid var(--om-tone-border); box-shadow: var(--om-shadow-1); }
 .omh-hue-teal { --om-tone-fg: var(--om-color-accent); --om-tone-bg: var(--om-color-accent-soft); --om-tone-border: var(--om-color-border); }
 .omh-hue-green { --om-tone-fg: var(--om-color-ok-fg); --om-tone-bg: var(--om-color-ok-bg); --om-tone-border: var(--om-color-ok-border); }
 .omh-hue-blue { --om-tone-fg: var(--om-color-info-fg); --om-tone-bg: var(--om-color-info-bg); --om-tone-border: var(--om-color-info-border); }
@@ -338,3 +337,15 @@
 @media (max-width: 400px) {
   .omh-appgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* ---------- edit mode, calmer (CRITIQUE #24): one toolbar, on the widget you point at or focus;
+   the API line is one truncated row with a Copy button ---------- */
+.omh-grid-editing .omh-cell { position: relative; }
+.omh-grid-editing .omh-editbar { position: absolute; z-index: 2; top: calc(-1 * var(--om-space-3)); right: var(--om-space-2); margin: 0; opacity: 0; pointer-events: none;
+  transition: opacity var(--om-motion-duration-fast) var(--om-motion-ease-standard); }
+.omh-grid-editing .omh-cell:hover .omh-editbar, .omh-grid-editing .omh-cell:focus-within .omh-editbar { opacity: 1; pointer-events: auto; }
+@media (hover: none) { .omh-grid-editing .omh-editbar { position: static; opacity: 1; pointer-events: auto; margin-bottom: var(--om-space-2); } }
+.omh-source { display: flex; align-items: center; gap: var(--om-space-2); overflow-wrap: normal; }
+.omh-source code { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.omh-source-copy { all: unset; flex: none; cursor: pointer; font-size: var(--om-font-size-xs); color: var(--om-color-accent); padding: 2px var(--om-space-1); border-radius: var(--om-radius-sm); }
+.omh-source-copy:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }

@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: onemind-local
+  resources:
+    requests: {storage: 64Mi}

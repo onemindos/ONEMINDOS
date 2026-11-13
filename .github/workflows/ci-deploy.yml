@@ -7,11 +7,10 @@ name: ci-deploy
 on:
   workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
-    paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "apps/**", "os/versions.lock.yaml", ".github/workflows/ci-deploy.yml"]
+    paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "ui/src/**", "apps/**", "os/versions.lock.yaml", ".github/workflows/ci-deploy.yml"]
   push:
     branches: [main]
-    paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "apps/**", "os/versions.lock.yaml", ".github/workflows/ci-deploy.yml"]
-  workflow_dispatch:
+    paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "ui/src/**", "apps/**", "os/versions.lock.yaml", ".github/workflows/ci-deploy.yml"]
 permissions:
   contents: read
 jobs:

@@ -114,6 +114,11 @@ test('alerts are listed (§12.14)', async ({ request }) => {
 });
 
 test('backup status is reported (§12.12)', async ({ request }) => {
-  test.skip(!paths.has('/v1/backups/status'), 'not merged yet: backup agent and API (CORE-BACKUP-2, CORE-BACKUP-8)');
-  await hubFor(request).get<unknown>('/v1/backups/status');
+  // The route exists on every gateway (backups on or off); with no agent it answers health
+  // "not_configured" and setup blocked on the emergency kit, never an error.
+  expect(paths.has('/v1/backups/status')).toBe(true);
+  const s = await hubFor(request).get<{ health: string; copies: number; setup: { blocking: string[] } }>('/v1/backups/status');
+  expect(typeof s.health).toBe('string');
+  expect(typeof s.copies).toBe('number');
+  expect(Array.isArray(s.setup.blocking)).toBe(true);
 });

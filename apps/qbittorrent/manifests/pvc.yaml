@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# qbittorrent-config: /config, the profile (settings, torrent resume data, logs).
+# qbittorrent-downloads: /downloads, the default save path (entrypoint.sh). 1Gi and 100Gi are
+# OneMind choices. No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qbittorrent-config
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qbittorrent-downloads
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 100Gi

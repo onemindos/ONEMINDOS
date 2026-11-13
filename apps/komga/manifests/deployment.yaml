@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/gotson/komga (contract §9.2), then completed
+# from upstream at 1.30.1: komga/docker/Dockerfile.tpl (ENTRYPOINT java -jar application.jar,
+# KOMGA_CONFIGDIR=/config, VOLUME /config, EXPOSE 25600; no USER, so any UID works) and
+# application.yml (databases, Lucene index and logs all under the config dir).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: komga
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: komga
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: komga
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: komga
+          image: docker.io/gotson/komga:1.30.1@sha256:d43bb3b57aeeafd274ea805214f5da71ff9306accf012fb14cc13dedc3307212
+          env:
+            # The JVM sizes its heap from the container limit; 75% leaves room for native memory.
+            - name: JAVA_TOOL_OPTIONS
+              value: -XX:MaxRAMPercentage=75
+            - name: TZ
+              value: UTC
+          ports:
+            - name: http
+              containerPort: 25600
+              protocol: TCP
+          # The first start creates the databases and scans nothing until a library is added.
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream publishes no sizing; a OneMind choice for a JVM app.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: library
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: komga-config
+        - name: library
+          persistentVolumeClaim:
+            claimName: komga-library
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi

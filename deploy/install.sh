@@ -20,6 +20,8 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 SRC=$(cd "$SCRIPT_DIR/.." && pwd)
 # shellcheck source=deploy/pins.env
 . "$SCRIPT_DIR/pins.env"
+# shellcheck source=deploy/backup.sh
+. "$SCRIPT_DIR/backup.sh"
 
 PREFIX=/opt/onemind
 ETC=/etc/onemind
@@ -141,14 +143,15 @@ uninstall() {
     systemctl disable --now "$u" 2>/dev/null || true
     rm -f "/etc/systemd/system/$u.service"
   done
+  rm -rf /etc/systemd/system/onemindd.service.d  # the backup drop-in (deploy/backup.sh)
   systemctl daemon-reload
   rm -f "$BIN/onemindd" "$BIN/onemind" "$BIN/nats-server"
   if [ -x "$BIN/k3s-uninstall.sh" ]; then log "removing k3s server (and its data)"; "$BIN/k3s-uninstall.sh"; fi
   if [ -x "$BIN/k3s-agent-uninstall.sh" ]; then log "removing k3s agent"; "$BIN/k3s-agent-uninstall.sh"; fi
-  rm -f /etc/apt/apt.conf.d/52onemind-security-only /etc/needrestart/conf.d/50-onemind.conf
-  rm -rf "$PREFIX" "$ETC" "$CACHE" /var/lib/onemind-nats /var/lib/private/onemind-nats
+  rm -f /etc/apt/apt.conf.d/52onemind-security-only /etc/needrestart/conf.d/50-onemind.conf /etc/tmpfiles.d/onemind-backup.conf
+  rm -rf "$PREFIX" "$ETC" "$CACHE" /var/lib/onemind-nats /var/lib/private/onemind-nats /usr/lib/onemind/restic
   if [ "$PURGE" = 1 ]; then
-    rm -rf "$STATE" /var/lib/onemindd
+    rm -rf "$STATE" /var/lib/onemindd /var/lib/onemind-backup
     id onemind >/dev/null 2>&1 && userdel onemind
     log "purged $STATE (database, audit log)"
   else
@@ -491,8 +494,16 @@ secrets_encryption_check() {
     || die "k3s secrets encryption is not enabled (k3s secrets-encrypt status)"
   if [ ! -f "$ETC/k3s-secrets-reencrypted" ]; then
     log "k3s: rewriting existing Secrets so they are stored encrypted"
-    "$BIN/k3s" kubectl get secrets -A -o json | "$BIN/k3s" kubectl replace -f - >/dev/null \
-      || die "rewriting existing Secrets failed"
+    # k3s itself updates a few Secrets right after start (the node password), so a replace of a
+    # stale copy can answer "Conflict". Read again and retry; replacing is safe to repeat.
+    local ok=""
+    for i in 1 2 3 4 5; do
+      if "$BIN/k3s" kubectl get secrets -A -o json | "$BIN/k3s" kubectl replace -f - >/dev/null; then
+        ok=1; break
+      fi
+      sleep 2
+    done
+    [ -n "$ok" ] || die "rewriting existing Secrets failed"
     : > "$ETC/k3s-secrets-reencrypted"
   fi
 }
@@ -647,6 +658,14 @@ copy_tree() { # copy_tree SRC_DIR DEST_DIR: replace DEST with SRC, leaving dev c
       --exclude=__pycache__ --exclude=.pytest_cache -cf - . | tar -C "$2.new" -xf -
   rm -rf "$2"; mv "$2.new" "$2"
 }
+# copy_src_tree SRC_DIR DEST_DIR: web sources (dashboard/, ui/src/). Only the top-level dependency
+# and build output stay behind: copy_tree's unanchored --exclude=data would also drop
+# dashboard/src/data/, because tar matches an exclude against every path component.
+copy_src_tree() {
+  rm -rf "$2.new"; mkdir -p "$2.new"
+  tar -C "$1" --exclude=./node_modules --exclude=./dist -cf - . | tar -C "$2.new" -xf -
+  rm -rf "$2"; mv "$2.new" "$2"
+}
 
 gateway_user() {
   if [ "$DRY_RUN" = 1 ]; then
@@ -726,22 +745,24 @@ dashboard_build() {
     log "dashboard: using prebuilt $DASH_DIST"
     copy_tree_plain "$DASH_DIST" "$PREFIX/dashboard"; return 0
   fi
-  sum=$(cd "$SRC/dashboard" && find . -path ./node_modules -prune -o -path ./dist -prune -o -type f -print0 \
+  # The dashboard imports the design system from source (../ui/src), so both trees count.
+  sum=$(cd "$SRC" && find dashboard ui/src -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
         | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$sum" ]; then log "dashboard: up to date"; return 0; fi
   node_toolchain
   log "dashboard: npm ci + vite build with Node $NODE_VERSION (as user onemind, no install scripts)"
-  copy_tree "$SRC/dashboard" "$CACHE/dashboard-src"
+  copy_src_tree "$SRC/dashboard" "$CACHE/dashboard-src"
+  copy_src_tree "$SRC/ui/src" "$CACHE/ui/src"   # ../ui/src as seen from dashboard-src
   # npm packages are third-party code: never run them as root. --ignore-scripts skips dependency
   # lifecycle scripts (esbuild's is an optional speed-up; its platform binary comes as a package).
   install -d -o onemind -g onemind -m0700 "$CACHE/npm-home"
-  chown -R onemind:onemind "$CACHE/dashboard-src"
+  chown -R onemind:onemind "$CACHE/dashboard-src" "$CACHE/ui"
   (cd "$CACHE/dashboard-src" && runuser -u onemind -- env -i PATH="$NODE_DIR/bin:/usr/bin:/bin" HOME="$CACHE/npm-home" \
      npm_config_cache="$CACHE/npm-home/cache" npm_config_update_notifier=false sh -ec \
      'npm ci --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null; npm run build >/dev/null')
   copy_tree_plain "$CACHE/dashboard-src/dist" "$PREFIX/dashboard"
   printf '%s\n' "$sum" > "$stamp"
-  rm -rf "$CACHE/dashboard-src"
+  rm -rf "$CACHE/dashboard-src" "$CACHE/ui"
 }
 copy_tree_plain() { rm -rf "$2.new"; mkdir -p "$2.new"; cp -R "$1/." "$2.new/"; rm -rf "$2"; mv "$2.new" "$2"; chmod -R a+rX "$2"; }
 
@@ -917,12 +938,15 @@ if [ "$ROLE" = hub ]; then
   if [ "$DRY_RUN" = 1 ]; then HUB_URL=${HUB:-"http://<this machine's address>:8080"}; else HUB_URL=${HUB:-"http://$(primary_ip):8080"}; fi
   gateway_service "$HUB_URL"
   if [ "$DRY_RUN" = 1 ]; then
+    step "Backups (restic, onemind-local storage class, backup agent)"
+    plan "install restic $RESTIC_VERSION (pinned by sha256), apply the onemind-local storage class and the shared PostgreSQL manifests, create the job key and start the backup agent"
     step "Finish"
     plan "check that no new API token is on disk, then print it once (and the agent token with --with-agent-token)"
     plan "print the join command with the k3s agent token"
     do_firewall_reminder
     exit 0
   fi
+  backup_setup
   JOIN=$(cat /var/lib/rancher/k3s/server/agent-token)
   no_raw_tokens_on_disk
   banner

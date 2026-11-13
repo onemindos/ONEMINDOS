@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# bazarr-config: /config, settings, the database and logs (readme-vars.yml). 2Gi is a OneMind
+# choice. No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bazarr-config
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Uptime Kuma 2.5.10, upstream rootless image (docker/dockerfile target "rootless": USER node).
+# Uptime Kuma 2.5.11, upstream rootless image (docker/dockerfile target "rootless": USER node).
 # The node user is UID/GID 1000 (nodejs/docker-node Dockerfile; Uptime Kuma wiki "Docker Tags":
 # the data directory must be owned by node:node 1000:1000), so the UID is set numerically for runAsNonRoot.
 apiVersion: apps/v1
@@ -33,7 +33,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: uptime-kuma
-          image: docker.io/louislam/uptime-kuma:2.5.10-rootless@sha256:0df77d22bb9284368f4a6541197dd413051b13de63615145c24a889f97c7e724
+          image: docker.io/louislam/uptime-kuma:2.5.11-rootless@sha256:d213a1d2b6a7d7c00afbcb936b53f585afea3e1620432b3a161b68bfffa13dac
           imagePullPolicy: IfNotPresent
           env:
             - name: UPTIME_KUMA_PORT
@@ -43,7 +43,7 @@ spec:
               containerPort: 3001
               protocol: TCP
           # /api/entry-page answers 200 JSON both in the first-run database-setup server and in the
-          # running app (server/setup-database.js, server/routers/api-router.js at tag 2.5.10).
+          # running app (server/setup-database.js, server/routers/api-router.js at tag 2.5.10, not re-read for 2.5.11).
           # Upstream's Docker HEALTHCHECK allows a 180 s start period; the startup probe allows 300 s.
           startupProbe:
             httpGet:

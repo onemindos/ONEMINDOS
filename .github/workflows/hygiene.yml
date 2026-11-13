@@ -4,6 +4,7 @@ name: hygiene
 on:
   workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
+  merge_group:   # lets a GitHub merge queue be enabled later
   push:
     branches: [main]
 permissions:

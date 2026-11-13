@@ -55,16 +55,16 @@ describe('HomeScreen', () => {
     expect(within(list[0]!).getByRole('heading', { name: 'Needs you' })).toBeInTheDocument();
     const needs = widget('Needs you');
     expect(within(needs).getByText('3 waiting')).toBeInTheDocument();
-    expect(within(needs).getByText('Agent')).toBeInTheDocument();
-    await userEvent.click(within(needs).getAllByRole('button', { name: 'Approve' })[0]!);
+    expect(within(needs).getByText('AI agent')).toBeInTheDocument();
+    await userEvent.click(within(needs).getAllByRole('button', { name: /^Approve/ })[0]!);
     expect(onApprove).toHaveBeenCalledWith(expect.objectContaining({ id: 'a-7f31' }));
-    await userEvent.click(within(needs).getAllByRole('button', { name: 'Deny' })[1]!);
+    await userEvent.click(within(needs).getAllByRole('button', { name: /^Deny/ })[1]!);
     expect(onDeny).toHaveBeenCalledWith(expect.objectContaining({ id: 'a-7f2c' }));
   });
 
   it('a viewer who may not decide sees the buttons disabled with the reason', () => {
     render(<Harness canDecide={{ allowed: false, reason: 'Only the owner can approve.' }} />);
-    const approve = within(widget('Needs you')).getAllByRole('button', { name: 'Approve' })[0]!;
+    const approve = within(widget('Needs you')).getAllByRole('button', { name: /^Approve/ })[0]!;
     expect(approve).toBeDisabled();
     expect(approve).toHaveAccessibleDescription('Only the owner can approve.');
   });
@@ -74,7 +74,7 @@ describe('HomeScreen', () => {
     expect(screen.getByText(/Showing the last known state from 6 min ago/)).toBeInTheDocument();
     expect(screen.getByText('The hub is not answering. Everything below is its last known state.')).toBeInTheDocument();
     expect(screen.getAllByText('Last known').length).toBeGreaterThan(3);
-    expect(within(widget('Needs you')).getAllByRole('button', { name: 'Approve' })[0]).toHaveAccessibleDescription('The hub is not answering. Decide when it is back.');
+    expect(within(widget('Needs you')).getAllByRole('button', { name: /^Approve/ })[0]).toHaveAccessibleDescription('The hub is not answering. Decide when it is back.');
     expect(screen.getAllByText('Running (last known)').length).toBeGreaterThan(0);
   });
 

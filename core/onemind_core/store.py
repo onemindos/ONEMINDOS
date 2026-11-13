@@ -98,6 +98,16 @@ def registered_schemas() -> list[FeatureSchema]:
 CORE_SCHEMA = FeatureSchema("core")
 
 
+@CORE_SCHEMA.step(2, "app lifecycle: plan, plan_sha256, progress and risk on actions (app_runtime is a new table)")
+def _core_v2(conn: Connection) -> None:
+    from sqlalchemy import inspect, text
+
+    have = {c["name"] for c in inspect(conn).get_columns("actions")}
+    for name, ddl in (("plan", "JSON"), ("plan_sha256", "VARCHAR(80)"), ("progress", "JSON"), ("risk", "VARCHAR(16)")):
+        if name not in have:
+            conn.execute(text(f"ALTER TABLE actions ADD COLUMN {name} {ddl}"))
+
+
 def migrate(engine: Engine, schemas: Iterable[FeatureSchema] | None = None, now: datetime | None = None) -> dict[str, int]:
     """Create missing tables, then bring each feature to its head version. Returns feature -> version."""
     schemas = registered_schemas() if schemas is None else list(schemas)

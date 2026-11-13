@@ -68,6 +68,7 @@ def test_python_sdk(gateway, executor):
     head = (owner.audit.list(limit=500)[0] or [None])[-1]
     a = agent.actions.request("app.install", "whoami", idempotency_key="py-conformance")
     assert a.state == "awaiting_approval" and a.requested_by.id == "hermes"
+    time.sleep(1.2)  # a replay in a later second must still be the same request (expires_at is kept per key)
     assert agent.actions.request("app.install", "whoami", idempotency_key="py-conformance").id == a.id
     with pytest.raises(PermissionDenied):
         agent.actions.approve(a.id)
