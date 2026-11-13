@@ -9,7 +9,7 @@ Wiki.js is a modern, powerful wiki engine: Markdown and visual editing, a page t
 |---|---|
 | Version | 3.3.1 (upstream release `3.3.1`, published 2026-11-11) |
 | Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | notes |
 | GitHub | <https://github.com/requarks/wiki> |
 | Website | <https://js.wiki> |
@@ -66,6 +66,16 @@ From the upstream documentation, https://js.wiki:
 - The site URL in the setup page should be the port-forward address until OneMind has an app proxy.
 - The database is only reachable inside the pod; back it up with the volume (the Backups feature), not with an outside `pg_dump`.
 - Licence: AGPL-3.0 (GitHub licence API). There is no research licence-matrix row yet (brief 30 B10).
+
+## Why this app is blocked
+
+The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-13 (ci-apps run 43468044446, job `gate (wiki-js)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. The smoke test passed. Reasons from that run:
+
+- `ghcr.io/requarks/wiki:3.3.1`: CVE-2026-42216 and CVE-2026-42217 in libopenexr (fixed in Debian 3.2.12-1~deb13u1), plus CRITICAL CVE-2026-44172 and CVE-2026-49261 in libmariadb-dev with no fix yet.
+- `postgres:18.6-alpine` sidecar: CVE-2025-68121 in Go stdlib v1.24.6 (fixed in 1.24.13 and 1.25.7).
+- No research licence-matrix row (AGPL-3.0), so not preinstallable on sold boxes until one is added.
+
+**What would unblock it:** an upstream Wiki.js image rebuilt on patched Debian packages, a postgres image built with a fixed Go stdlib, and a licence-matrix row.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
