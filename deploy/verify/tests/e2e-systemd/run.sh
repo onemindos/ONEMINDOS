@@ -10,7 +10,7 @@
 #   2. hub: BUNDLE/src/deploy/install.sh --role hub --with-agent-token (k3s, NATS, onemindd, gateway)
 #   3. owner and agent tokens printed once; no raw token anywhere on the hub's disk
 #   4. hub again: exit 0, tokens kept, no new token printed (idempotent)
-#   5. node: the join command the hub printed, from the same bundle
+#   5. node: --join with a one-time code from `onemind fabric ticket`; the owner approves on the hub
 #   6. 2 k3s nodes Ready; 2 onemindd heartbeats on NATS; the gateway lists 2 online machines
 #   7. node-check.sh passes on the hub and on the node
 #   8. verify.sh on the hub (owner + agent token files, audit file, kubernetes executor); then the
@@ -105,8 +105,6 @@ check "bundle checked against SHA256SUMS, k3s images from the bundle" \
   sh -c "grep -q 'bundle: ok' '$WORK/hub.log' && grep -q 'from the bundle: k3s-airgap-images' '$WORK/hub.log'"
 OWNER=$(sed -n '/^OWNER TOKEN/{n;n;p;}' "$WORK/hub.log" | tr -d ' ')
 AGENT=$(sed -n '/^AGENT TOKEN/{n;n;p;}' "$WORK/hub.log" | tr -d ' ')
-JOIN=$(sed -n 's/^ *sudo deploy\/install.sh --role node --hub \([^ ]*\) --token \([^ ]*\)$/\1 \2/p' "$WORK/hub.log" | head -1)
-HUB_URL=${JOIN% *} JOIN=${JOIN#* }
 if printf '%s' "$OWNER" | grep -Eqx '[0-9a-f]{64}' && printf '%s' "$AGENT" | grep -Eqx '[0-9a-f]{64}'; then
   res PASS "owner and agent tokens printed once"
 else
@@ -123,10 +121,38 @@ else res FAIL "second hub install exits 0"; tail -30 "$WORK/hub2.log"; fi
 check "second run keeps both tokens and prints none" \
   sh -c "grep -q 'owner token kept' '$WORK/hub2.log' && grep -q 'agent principal exists, kept' '$WORK/hub2.log' && ! grep -q 'TOKEN (shown once' '$WORK/hub2.log'"
 
-echo "== node"
+echo "== node (owner-approved join over the mesh)"
 boot "$NODE"
-if on "$NODE" "$INSTALL" --role node --hub "$HUB_URL" --token "$JOIN" > "$WORK/node.log" 2>&1; then res PASS "node install from the bundle (printed join command) exits 0"
-else res FAIL "node install from the bundle (printed join command) exits 0"; tail -40 "$WORK/node.log"; fi
+# The hub mints a one-time join code; the node installer shows a match code and waits; the owner
+# approves on the hub (the same flow test/net/two_vm.py checks on real VMs).
+TICKET=$(on "$HUB" sh -c 'ONEMIND_TOKEN=$(cat /root/owner.token) onemind fabric ticket --json')
+PAYLOAD=$(printf '%s' "$TICKET" | python3 -I -c 'import json,sys; t=sys.stdin.read(); print(json.loads(t[t.index("{"):])["qr_payload"])')
+HUB_IP=$(docker inspect -f "{{(index .NetworkSettings.Networks \"$NET\").IPAddress}}" "$HUB")
+docker exec -d "$NODE" sh -c "$INSTALL --role node --join '$PAYLOAD' --hub-addr $HUB_IP > /tmp/node-install.log 2>&1; echo exit=\$? >> /tmp/node-install.log"
+APPROVED=0
+for _ in $(seq 1 120); do
+  if on "$NODE" grep -q 'Waiting for the owner' /tmp/node-install.log 2>/dev/null; then
+    ACTION=$(on "$HUB" python3 -I -c '
+import json, urllib.request
+tok = open("/root/owner.token").read().strip()
+rq = urllib.request.Request("http://127.0.0.1:8080/v1/fabric", headers={"Authorization": "Bearer " + tok})
+j = json.load(urllib.request.urlopen(rq, timeout=10))
+print((j.get("joining") or [{}])[0].get("action_id", ""))' 2>/dev/null || true)
+    if [ -n "$ACTION" ]; then
+      on "$HUB" sh -c "ONEMIND_TOKEN=\$(cat /root/owner.token) onemind fabric approve $ACTION" >/dev/null 2>&1 && APPROVED=1
+      break
+    fi
+  fi
+  sleep 3
+done
+NODE_EXIT=""
+for _ in $(seq 1 300); do
+  NODE_EXIT=$(on "$NODE" sed -n 's/^exit=//p' /tmp/node-install.log 2>/dev/null || true)
+  [ -n "$NODE_EXIT" ] && break
+  sleep 3
+done
+if [ "$APPROVED" = 1 ] && [ "$NODE_EXIT" = 0 ]; then res PASS "node install from the bundle (join code, owner approval) exits 0"
+else res FAIL "node install from the bundle (join code, owner approval) exits 0 (approved=$APPROVED exit=$NODE_EXIT)"; on "$NODE" tail -40 /tmp/node-install.log || true; fi
 
 echo "== checks"
 READY=0

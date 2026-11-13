@@ -46,7 +46,7 @@ file with its content, each service it would enable) and changes nothing; it nee
 `--target` it plans for another machine, so you can read the plan on a Mac before touching the box:
 ```sh
 deploy/install.sh --role hub  --dry-run --target rpi5
-deploy/install.sh --role node --dry-run --target jetson --hub http://hub.local:8080 --token <join token>
+deploy/install.sh --role node --dry-run --target jetson --join 'onemind-join:v1?…'
 ```
 | `--target` | Machine | What changes in the plan |
 |---|---|---|
@@ -129,7 +129,7 @@ when Go is installed); `--no-airgap` leaves the images out (k3s then pulls them)
 | k3s over the mesh | `node-ip`/`advertise-address` = the mesh IP, `flannel-backend: wireguard-native` on `tailscale0`, Traefik and ServiceLB off (the gateway owns :443/:80); a drop-in waits for the mesh address (`onemindd mesh wait-ip`). A cluster created before the mesh is refused (rebuild after a backup) | `/etc/rancher/k3s/config.yaml`, `k3s(-agent).service.d/onemind-mesh.conf` |
 | Hub NATS | clients `127.0.0.1:4222` only; leaf listener on `<mesh IP>:7422`, TLS `verify: true` with the box CA; one account per node in an include file the gateway writes; a systemd path unit reloads NATS when it changes; pings tuned so a dead link shows within about a minute | `/etc/onemind/nats.conf`, `/var/lib/onemind/nats/accounts.conf`, `onemind-nats-accounts.path` |
 | Node NATS leaf | `onemind-nats-leaf` (user `onemind-nats`), config written by `onemind fabric join` | `/etc/onemind/nats/` |
-| HTTPS gateway | box CA created by `python -m onemind_core.ca` as user `onemind`; HTTPS `:443` and `:8443`, `:80` redirects, `:8080` plain HTTP kept for local tools and app pods; `CAP_NET_BIND_SERVICE` only | `/var/lib/onemind/tls/` |
+| HTTPS gateway | box CA created by `python -m onemind_core.ca` as user `onemind`; HTTPS `:443` and `:8443`, `:80` redirects, `:8080` plain HTTP on loopback only (H-05), for local tools and the health gate; `CAP_NET_BIND_SERVICE` only | `/var/lib/onemind/tls/` |
 | LAN names | avahi; the gateway publishes `onemind.local`, `<app>.<box>.local` and `<app>.onemind.local` for installed apps with a web UI | `avahi-daemon`, `avahi-utils`, `libnss-mdns` |
 
 The v0 `--token` join (a long-lived k3s agent token printed by the hub, NATS open on the LAN) is gone.
@@ -172,7 +172,7 @@ defaults** for every namespace ([`k8s/psa.yaml`](k8s/psa.yaml): enforce `baselin
 from the gateway. Both are cluster-start settings: an upgrade restarts k3s once.
 
 ### Agent apps (contract §7, §11.2), the deploy side
-- `gateway.env` sets `ONEMIND_PUBLIC_URL` (the `--hub` URL, else `http://<primary IP>:8080`): the
+- `gateway.env` sets `ONEMIND_PUBLIC_URL` (the `--hub` URL, else `https://<primary IP>:8443`): the
   URL app pods use to reach the gateway, which the wave-2 gateway writes into each agent app's
   Secret as `ONEMIND_GATEWAY_URL`. The wave-1 gateway ignores the variable.
 - The per-app RoleBinding above lets the gateway create and delete Secrets in `app-<id>`, which §11.2 needs.
@@ -183,10 +183,10 @@ from the gateway. Both are cluster-start settings: an upgrade restarts k3s once.
   `409 stale_precondition`; `verify.sh` counts that as the §10.3 check passing.
 
 ### Choices to flag for the contract owner
-- **Gateway bound to `0.0.0.0:8080` by default.** Brief 30's P6 line says "dashboard bound to
-  localhost", but contract §1 gives the hub gateway `:8080` and §11.2 needs app pods to reach it.
-  `--gateway-bind 127.0.0.1` gives the brief's behaviour (and breaks agent apps and remote browsers).
-  Founder call; the default follows the contract.
+- *(Retired by H-05, CORE-NET-11.)* **Gateway bound to `0.0.0.0:8080`.** Plain HTTP now listens on loopback only
+  (`--gateway-bind` defaults to `127.0.0.1`, and the gateway narrows anything wider while HTTPS is on); the LAN is
+  served by HTTPS on `:443` and `:8443` with the box CA. Agent apps in pods reach it on `https://<primary IP>:8443`;
+  delivering the box CA to those pods (`ONEMIND_GATEWAY_CA`) is not built yet (hardening H-05, follow-up).
 - *(Retired by CORE-NET-11, see Networking above.)* **NATS has no auth or TLS** and listens on `0.0.0.0:4222`, because the contract's v0 shortcut is
   "nodes publish straight to the hub's NATS". Anyone on the LAN can publish fake heartbeats. Leaf
   nodes + account permissions (D-B6.5) replace this.

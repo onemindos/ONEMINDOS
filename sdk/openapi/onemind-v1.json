@@ -1111,7 +1111,8 @@
               "unauthenticated",
               "rate_limited",
               "payload_too_large",
-              "policy_refused"
+              "policy_refused",
+              "unavailable"
             ],
             "title": "Error",
             "type": "string"
@@ -1291,6 +1292,102 @@
           "hub_node_id"
         ],
         "title": "Instance",
+        "type": "object"
+      },
+      "JoinNode": {
+        "properties": {
+          "arch": {
+            "pattern": "^(amd64|arm64)$",
+            "title": "Arch",
+            "type": "string"
+          },
+          "board": {
+            "default": "unknown",
+            "maxLength": 32,
+            "pattern": "^[a-z0-9_-]+$",
+            "title": "Board",
+            "type": "string"
+          },
+          "hostname": {
+            "maxLength": 63,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$",
+            "title": "Hostname",
+            "type": "string"
+          },
+          "node_id": {
+            "pattern": "^[a-z0-9]{1,32}$",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "os": {
+            "$ref": "#/components/schemas/JoinOS"
+          }
+        },
+        "required": [
+          "node_id",
+          "hostname",
+          "arch"
+        ],
+        "title": "JoinNode",
+        "type": "object"
+      },
+      "JoinOS": {
+        "properties": {
+          "id": {
+            "default": "",
+            "maxLength": 32,
+            "title": "Id",
+            "type": "string"
+          },
+          "pretty": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Pretty",
+            "type": "string"
+          },
+          "version_id": {
+            "default": "",
+            "maxLength": 32,
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "title": "JoinOS",
+        "type": "object"
+      },
+      "JoinRequestBody": {
+        "additionalProperties": false,
+        "properties": {
+          "csr_pem": {
+            "maxLength": 4096,
+            "minLength": 100,
+            "title": "Csr Pem",
+            "type": "string"
+          },
+          "join_code": {
+            "maxLength": 20,
+            "minLength": 12,
+            "title": "Join Code",
+            "type": "string"
+          },
+          "nats_pubkey": {
+            "maxLength": 56,
+            "minLength": 56,
+            "title": "Nats Pubkey",
+            "type": "string"
+          },
+          "node": {
+            "$ref": "#/components/schemas/JoinNode"
+          }
+        },
+        "required": [
+          "join_code",
+          "node",
+          "csr_pem",
+          "nats_pubkey"
+        ],
+        "title": "JoinRequestBody",
         "type": "object"
       },
       "KitConfirmBody": {
@@ -2513,6 +2610,34 @@
           "id"
         ],
         "title": "Subject",
+        "type": "object"
+      },
+      "TicketRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_in_s": {
+            "default": 900,
+            "maximum": 3600.0,
+            "minimum": 60.0,
+            "title": "Expires In S",
+            "type": "integer"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 16,
+            "title": "Labels",
+            "type": "object"
+          },
+          "role": {
+            "default": "worker",
+            "pattern": "^(worker|leaf|node)$",
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "title": "TicketRequest",
         "type": "object"
       },
       "TokenCreateBody": {
@@ -4859,6 +4984,53 @@
         ]
       }
     },
+    "/v1/auth/app-session": {
+      "delete": {
+        "operationId": "auth.app_session_clear",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "App Session Clear",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "description": "Set the HttpOnly cookie app hosts accept, for the box domain this request came in on.\n\nBearer-only (a cookie cannot call it), so a cross-site page cannot plant a session. The proxy\nstrips this cookie before a request reaches an app (proxy.py).",
+        "operationId": "auth.app_session_set",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "App Session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/v1/auth/enrol": {
       "post": {
         "operationId": "auth.enrol",
@@ -4923,6 +5095,73 @@
           }
         },
         "summary": "Enrol",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/forward": {
+      "get": {
+        "description": "Loopback only. The same decision the in-gateway proxy makes: sign-in first, then access.",
+        "operationId": "auth.forward",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-forwarded-host",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "X-Forwarded-Host",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Forward Auth",
         "tags": [
           "auth"
         ]
@@ -7779,6 +8018,376 @@
         ]
       }
     },
+    "/v1/fabric": {
+      "get": {
+        "operationId": "fabric.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Fabric Summary",
+        "tags": [
+          "fabric"
+        ]
+      }
+    },
+    "/v1/fabric/join-requests": {
+      "post": {
+        "description": "No session: the one-time join code authenticates. Files node.join and nothing else.",
+        "operationId": "fabric.join_request",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "summary": "Create Join Request",
+        "tags": [
+          "fabric"
+        ]
+      }
+    },
+    "/v1/fabric/join-requests/{request_id}": {
+      "get": {
+        "description": "The joining node polls with its code and a signature by its own key; credentials come once.",
+        "operationId": "fabric.join_status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "onemind-join-code",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Onemind-Join-Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "onemind-join-proof",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Onemind-Join-Proof",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A dependency is down (unavailable, §12.2)"
+          }
+        },
+        "summary": "Poll Join Request",
+        "tags": [
+          "fabric"
+        ]
+      }
+    },
+    "/v1/fabric/join-tickets": {
+      "get": {
+        "operationId": "fabric.ticket_list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "List Tickets",
+        "tags": [
+          "fabric"
+        ]
+      },
+      "post": {
+        "operationId": "fabric.ticket_create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Create Ticket",
+        "tags": [
+          "fabric"
+        ]
+      }
+    },
+    "/v1/fabric/join-tickets/{ticket_id}": {
+      "delete": {
+        "operationId": "fabric.ticket_revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Revoke Ticket",
+        "tags": [
+          "fabric"
+        ]
+      }
+    },
     "/v1/files/download": {
       "get": {
         "operationId": "files.download",
@@ -9309,6 +9918,57 @@
         ]
       }
     },
+    "/v1/mesh": {
+      "get": {
+        "operationId": "mesh.get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "addresses",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Addresses",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Mesh View",
+        "tags": [
+          "mesh"
+        ]
+      }
+    },
     "/v1/monitoring/summary": {
       "get": {
         "operationId": "monitoring.summary",
@@ -10801,6 +11461,77 @@
         "summary": "Restore",
         "tags": [
           "restores"
+        ]
+      }
+    },
+    "/v1/tls": {
+      "get": {
+        "operationId": "tls.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Tls Info",
+        "tags": [
+          "tls"
+        ]
+      }
+    },
+    "/v1/tls/ca.crt": {
+      "get": {
+        "description": "Open, like /healthz: a phone or a joining node needs the CA before it can sign in. It is\npublic data; clients pin it by the sha256 shown in the pairing QR.",
+        "operationId": "tls.ca",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "der",
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Ca Cert",
+        "tags": [
+          "tls"
         ]
       }
     },
