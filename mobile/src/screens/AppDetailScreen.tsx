@@ -2,6 +2,7 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
+import { OP } from '../api/client';
 import { ApiError, type ActionType } from '../api/types';
 import { useHubData } from '../data';
 import { principalLabel, requestAction } from '../lib/approvals';
@@ -10,13 +11,14 @@ import type { RootParams } from '../nav';
 import { useSignedIn } from '../session';
 import { Badge, Button, Card, H1, LinkChip, Notice, P, Row, Screen, s } from '../ui/bits';
 import { useTheme } from '../ui/theme';
+import { AppLifecycle } from './AppLifecycle';
 import { scanLabel, TIER_TONE } from './AppsScreen';
 
 export function AppDetailScreen() {
   const t = useTheme();
   const nav = useNavigation();
   const { params } = useRoute<RouteProp<RootParams, 'AppDetail'>>();
-  const { api, canRequest } = useSignedIn();
+  const { api, canRequest, features } = useSignedIn();
   const { apps, actions, hubOffsetMs, reload } = useHubData();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'bad' }>();
@@ -38,6 +40,8 @@ export function AppDetailScreen() {
         ? `A request is already waiting for approval (from ${principalLabel(waiting.requested_by)}).`
         : blockReason;
   const scan = scanLabel(app);
+  // With §12.40 plans the installed app's actions (including remove) go through AppLifecycle.
+  const managed = app.installed && features.has(OP.appPlan);
 
   async function ask() {
     setBusy(true);
@@ -81,17 +85,21 @@ export function AppDetailScreen() {
         <LinkChip label="Website" url={app.links.website} />
         <LinkChip label="Support" url={app.links.support} />
       </View>
-      {reason && <Notice tone="warn" text={reason} />}
+      {reason && !managed && <Notice tone="warn" text={reason} />}
       {msg && <Notice tone={msg.tone} text={msg.text} />}
-      <View style={s.wrap}>
-        <Button
-          testID="request"
-          label={busy ? 'Sending…' : app.installed ? 'Ask to remove' : 'Ask to install'}
-          variant={app.installed ? 'danger' : 'primary'}
-          disabled={busy || !!reason}
-          onPress={() => void ask()}
-        />
-      </View>
+      {managed ? (
+        <AppLifecycle app={app} />
+      ) : (
+        <View style={s.wrap}>
+          <Button
+            testID="request"
+            label={busy ? 'Sending…' : app.installed ? 'Ask to remove' : 'Ask to install'}
+            variant={app.installed ? 'danger' : 'primary'}
+            disabled={busy || !!reason}
+            onPress={() => void ask()}
+          />
+        </View>
+      )}
       {msg?.tone === 'ok' && (
         <Button variant="secondary" label="Open Approvals" onPress={() => nav.navigate('Tabs', { screen: 'Approvals' })} />
       )}
