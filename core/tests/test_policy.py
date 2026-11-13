@@ -292,30 +292,23 @@ def test_install_applies_the_hub_rule_only_for_the_web_port(rules, tmp_path):
 
 
 def test_local_flannel_addresses_reads_only_flannel_interfaces():
-    def addr(*locals_):
-        return [{"local": x} for x in locals_]
+    # no netlink: the gateway unit allows only AF_INET/AF_INET6/AF_UNIX sockets
+    v4 = {"lo": "127.0.0.1", "eth0": "192.0.2.10", "cni0": "198.51.100.1", "flannel-wg": "198.51.100.0",
+          "flannel.1": "198.51.100.0", "flannel-v6": None, "tailscale0": "203.0.113.5"}
+    inet6 = "\n".join([
+        "00000000000000000000000000000001 01 80 10 80       lo",
+        "20010db8000000000000000000000000 07 80 00 80 flannel-v6",
+        "fe80000000000000000000000000abcd 07 40 20 80 flannel-v6",
+        "20010db8000000000000000000000099 02 40 00 00     eth0",
+        "garbage",
+    ])
+    find = local_flannel_addresses(names=lambda: list(v4), ipv4_of=v4.get, inet6=lambda: inet6)
+    assert find() == ["198.51.100.0", "2001:db8::"]
 
-    ifaces = [
-        {"ifname": "lo", "addr_info": addr("127.0.0.1", "::1")},
-        {"ifname": "eth0", "addr_info": addr("192.0.2.10")},
-        {"ifname": "cni0", "addr_info": addr("198.51.100.1")},
-        {"ifname": "flannel-wg", "addr_info": addr("198.51.100.0", "198.51.100.0", "bogus")},
-        {"ifname": "flannel-v6", "addr_info": addr("2001:db8::")},
-        {"ifname": "tailscale0", "addr_info": addr("203.0.113.5")},
-    ]
-    seen = []
-
-    def runner(argv, **kw):
-        seen.append(argv)
-        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(ifaces), stderr="")
-
-    assert local_flannel_addresses(runner=runner)() == ["198.51.100.0", "2001:db8::"]
-    assert seen == [["ip", "-j", "addr", "show"]]
     # any failure leaves the policy closed
-    assert local_flannel_addresses(runner=lambda argv, **kw: subprocess.CompletedProcess(argv, 1, stdout="", stderr="x"))() == []
-    assert local_flannel_addresses(runner=lambda argv, **kw: subprocess.CompletedProcess(argv, 0, stdout="not json", stderr=""))() == []
+    def boom(*a):
+        raise OSError("no /sys")
 
-    def boom(argv, **kw):
-        raise FileNotFoundError("ip")
-
-    assert local_flannel_addresses(runner=boom)() == []
+    assert local_flannel_addresses(names=boom)() == []
+    assert local_flannel_addresses(names=lambda: ["eth0"], ipv4_of=lambda n: "192.0.2.10", inet6=boom)() == []
+    assert local_flannel_addresses(names=lambda: ["flannel-wg"], ipv4_of=boom, inet6=boom)() == []

@@ -23,6 +23,7 @@ import base64
 import ipaddress
 import json
 import logging
+import os
 import socket
 import subprocess
 import time
@@ -609,39 +610,74 @@ def _display(argv: Sequence[str], app: AppEntry) -> list[str]:
     return [a.replace(root, "$ONEMIND_APPS_DIR", 1) if a.startswith(root) else a for a in argv]
 
 
-def local_flannel_addresses(*, timeout_s: float = 15, runner: Runner = subprocess.run,
-                            ip: str = "ip") -> Callable[[], list[str]]:
+def _ipv4_of(name: str) -> str | None:
+    """The IPv4 address of interface `name` (SIOCGIFADDR on an AF_INET socket: no netlink needed)."""
+    import fcntl
+    import struct
+
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        try:
+            raw = fcntl.ioctl(s.fileno(), 0x8915, struct.pack("256s", name.encode()[:15]))
+        except OSError:  # no IPv4 address on it
+            return None
+    return socket.inet_ntoa(raw[20:24])
+
+
+def _read(path: str) -> str:
+    with open(path, encoding="ascii", errors="replace") as f:
+        return f.read()
+
+
+def local_flannel_addresses(*, names: Callable[[], list[str]] | None = None,
+                            ipv4_of: Callable[[str], str | None] = _ipv4_of,
+                            inet6: Callable[[], str] = lambda: _read("/proc/net/if_inet6"),
+                            ) -> Callable[[], list[str]]:
     """The addresses a pod on another node sees for traffic from this host (the hub).
 
     The gateway runs on the hub host. Host-originated traffic to a pod on another node leaves
     from the address of the local flannel interface (flannel-wg for wireguard-native, flannel.1
     for vxlan, flannel-v6 and so on), which `ip route get <remote pod ip>` shows (VERIFIED in the
-    2-VM CI run). So these are the IPv4/IPv6 addresses on local interfaces named `flannel*`, read
-    with `ip -j addr show`; no cluster permission is needed. Empty on any failure, which leaves
-    the policy closed. Read each time the policy is rendered, since the interface appears only
-    after k3s is up.
+    2-VM CI run). So these are the addresses on local interfaces named `flannel*`.
+
+    They are read without netlink: the gateway's unit allows only AF_INET, AF_INET6 and AF_UNIX
+    sockets (RestrictAddressFamilies), so `ip addr` fails there (it needs AF_NETLINK; seen in the
+    2-VM run as a policy with no hub rule). Interface names come from /sys/class/net, IPv4 from
+    the SIOCGIFADDR ioctl, IPv6 from /proc/net/if_inet6. Empty on any failure, which leaves the
+    policy closed. Read each time the policy is rendered, since the interface appears only after
+    k3s is up.
     """
+    list_names = names or (lambda: sorted(os.listdir("/sys/class/net")))
 
     def find() -> list[str]:
         try:
-            cp = runner([ip, "-j", "addr", "show"], capture_output=True, text=True,
-                        timeout=timeout_s, check=False)
-            ifaces = json.loads(cp.stdout or "[]") if cp.returncode == 0 else []
-            if not isinstance(ifaces, list):
-                return []
-        except (OSError, subprocess.SubprocessError, ValueError):
+            flannel = [n for n in list_names() if n.startswith("flannel")]
+        except OSError:
             return []
         out: list[str] = []
-        for iface in ifaces:
-            if not isinstance(iface, dict) or not str(iface.get("ifname") or "").startswith("flannel"):
+        for n in flannel:
+            try:
+                a = ipv4_of(n)
+                if a:
+                    a = str(ipaddress.ip_address(a))
+                    if a not in out:
+                        out.append(a)
+            except (OSError, ValueError):
                 continue
-            for info in iface.get("addr_info") or []:
-                try:
-                    addr = str(ipaddress.ip_address(str((info or {}).get("local") or "")))
-                except (ValueError, AttributeError):
+        if flannel:
+            try:
+                text = inet6()
+            except OSError:
+                text = ""
+            for line in text.splitlines():
+                f = line.split()
+                if len(f) != 6 or f[5] not in flannel or len(f[0]) != 32:
                     continue
-                if addr not in out:
-                    out.append(addr)
+                try:
+                    a = str(ipaddress.IPv6Address(bytes.fromhex(f[0])))
+                except ValueError:
+                    continue
+                if not ipaddress.IPv6Address(a).is_link_local and a not in out:
+                    out.append(a)
         return out
 
     return find
