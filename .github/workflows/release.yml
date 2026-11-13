@@ -32,6 +32,11 @@ jobs:
           if grep -q "PRIVATE KEY" os/release/release-pubkey.pem; then echo "REFUSED: a private key is committed"; exit 2; fi
       - name: Check script self-test
         run: python3 -I -m unittest discover -s test/unit -p 'test_release.py'
+      - name: Refuse a development version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          case "$VERSION" in *-dev*|"") echo "REFUSED: '$VERSION' is a development version"; exit 2;; esac
 
   publish:
     needs: gate
@@ -50,7 +55,9 @@ jobs:
         run: |
           mkdir -p dl rel
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir dl
-          find dl -type f \( -name '*.xz' -o -name '*.raw' -o -name '*.img' -o -name '*.raucb' \) -exec cp {} rel/ \;
+          # Every file is classified (images, RAUC bundles, installer stick, cloud images) or the release is
+          # refused; development builds are refused too (scripts/release/collect.py).
+          python3 -I scripts/release/collect.py --dl dl --out rel --kinds-out kinds.json
       - name: Sign SHA256SUMS (key from the release environment; never printed)
         env:
           RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
@@ -64,7 +71,12 @@ jobs:
       - name: Verify before publishing (refuses unsigned)
         env:
           VERSION: ${{ inputs.version }}
-        run: python3 -I scripts/release/check-signed.py --dir rel --pubkey os/release/release-pubkey.pem --manifest-out rel-manifest.json --version "$VERSION"
+        run: python3 -I scripts/release/check-signed.py --dir rel --pubkey os/release/release-pubkey.pem --manifest-out rel-manifest.json --kinds kinds.json --version "$VERSION"
+      - name: Keep the manifest (the downloads page reads site/src/data/releases.json, built from it)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-manifest
+          path: rel-manifest.json
       - name: Publish the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

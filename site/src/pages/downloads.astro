@@ -8,6 +8,15 @@ import data from '../data/releases.json';
 
 const REPO = 'https://github.com/onemindos/ONEMINDOS';
 const releases = (data.releases as any[]).filter((r) => r.signed === true);
+// Artefact classes, as scripts/release/collect.py names them (every release has each of them).
+const kinds: [string, string][] = [
+  ['image', 'Disk images (PC, VM, Raspberry Pi, Jetson, ARM)'],
+  ['installer', 'USB installer stick (x86_64)'],
+  ['cloud', 'Cloud images (AWS, Google Cloud, Azure, Hetzner, Proxmox)'],
+  ['rauc-bundle', 'Update bundles (RAUC; for boxes that already run OneMind OS)'],
+  ['imager-list', 'Raspberry Pi Imager list'],
+];
+const byKind = (r: any, k: string) => r.artefacts.filter((a: any) => (a.kind ?? 'image') === k);
 const boards = [
   ['x86_64-efi', 'PC or mini PC (Beelink, NUC): write to the internal disk with the USB installer'],
   ['installer-x86_64', 'USB installer stick for x86_64 PCs'],
@@ -37,18 +46,23 @@ const boards = [
     releases.map((r) => (
       <section>
         <h3>OneMind OS {r.version}</h3>
-        <table>
-          <thead><tr><th>File</th><th>Size</th><th>SHA-256</th></tr></thead>
-          <tbody>
-            {r.artefacts.map((a: any) => (
-              <tr>
-                <td><a href={`${REPO}/releases/download/v${r.version}/${a.name}`}>{a.name}</a></td>
-                <td>{(a.bytes / 1e6).toFixed(0)} MB</td>
-                <td><code>{a.sha256}</code></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {kinds.filter(([k]) => byKind(r, k).length > 0).map(([k, label]) => (
+          <>
+            <h4>{label}</h4>
+            <table>
+              <thead><tr><th>File</th><th>Size</th><th>SHA-256</th></tr></thead>
+              <tbody>
+                {byKind(r, k).map((a: any) => (
+                  <tr>
+                    <td><a href={`${REPO}/releases/download/v${r.version}/${a.name}`}>{a.name}</a></td>
+                    <td>{(a.bytes / 1e6).toFixed(0)} MB</td>
+                    <td><code>{a.sha256}</code></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ))}
         <p>
           <a href={`${REPO}/releases/download/v${r.version}/SHA256SUMS`}>SHA256SUMS</a> and
           <a href={`${REPO}/releases/download/v${r.version}/SHA256SUMS.sig`}> SHA256SUMS.sig</a>

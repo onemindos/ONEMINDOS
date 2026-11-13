@@ -10,6 +10,8 @@
 !core/
 !dashboard/
 !ui/src/
+!brand/generated/os/
+!brand/logo/png/white/
 !sdk/schema/
 !sdk/policy/
 !sdk/go/

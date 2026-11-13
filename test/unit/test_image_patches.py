@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """os/ patches from the other streams, applied by the image line (HANDOFF B2): brand, k3s hardening,
 NATS TLS unit, and the rule that no TUF root or signing key is committed (founder item F-27)."""
-import os, subprocess, sys, tempfile, unittest
+import os, re, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "os", "assemble"))
@@ -70,6 +70,48 @@ class GatewaySandboxRules(unittest.TestCase):
         self.assertIn("!sdk/policy/", rd(".dockerignore"))
         self.assertIn("sdk/policy/app-objects.yaml", rd("os", "boards", "jetson-orin", "make-layer.sh"))
         self.assertTrue(os.path.isfile(os.path.join(ROOT, "sdk", "policy", "app-objects.yaml")))
+
+
+class UpdaterInertWithoutRoot(unittest.TestCase):
+    """The image ships the place for each channel's TUF root, never a root (F-27). Without one the update
+    service does not start (and `onemindd update` refuses: internal/update TestNoRootRefusesEveryMode)."""
+    def test_unit_needs_a_root_and_is_not_enabled(self):
+        u = rd("os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system", "onemind-update.service")
+        self.assertIn("ConditionPathExistsGlob=/usr/lib/onemind/tuf/*/root.json", u)
+        self.assertIn("ConditionPathExists=/etc/onemind/update.conf", u)
+        self.assertNotIn("[Install]", u)          # never enabled by the image; first boot decides
+
+    def test_place_is_documented_and_the_updater_reads_only_it(self):
+        d = os.path.join(ROOT, "os", "rootfs", "layers", "base", "usr", "lib", "onemind", "tuf")
+        self.assertEqual(sorted(os.listdir(d)), ["README.md"])      # the place, no root.json, no key
+        self.assertIn('TUFRootDir:        "/usr/lib/onemind/tuf"', rd("internal", "update", "config.go"))
+        self.assertIn('filepath.Join(c.TUFRootDir, c.Channel, "root.json")', rd("internal", "update", "tuf.go"))
+
+
+class BrandBootSplash(unittest.TestCase):
+    """The brand Plymouth theme is in the image and its initramfs; the splash never touches the serial console."""
+    def test_theme_is_installed_before_the_initramfs_is_built(self):
+        cf = rd("os", "rootfs", "Containerfile")
+        self.assertIn("COPY brand/generated/os/plymouth/onemind/ /usr/share/plymouth/themes/onemind/", cf)
+        self.assertLess(cf.index("plymouth-set-default-theme onemind"), cf.index("update-initramfs -u"))
+        # the initramfs hook needs the label plugin and fontconfig, or update-initramfs fails
+        self.assertIn("\nplymouth plymouth-label fontconfig fonts-dejavu-core\n", rd("os", "rootfs", "packages", "debian-common.txt"))
+        for p in ("!brand/generated/os/", "!brand/logo/png/white/"):
+            self.assertIn(p, rd(".dockerignore"))
+
+    def test_logo_is_the_one_the_brand_names(self):
+        env = rd("brand", "generated", "os", "brand.env")
+        logo = re.search(r'ONEMIND_BRAND_BOOT_LOGO="([^"]+)"', env).group(1)
+        self.assertIn(f"COPY {logo} /usr/share/plymouth/themes/onemind/logo.png", rd("os", "rootfs", "Containerfile"))
+        self.assertTrue(os.path.isfile(os.path.join(ROOT, *logo.split("/"))))
+        self.assertIn("ImageDir=/usr/share/plymouth/themes/onemind", rd("brand", "generated", "os", "plymouth", "onemind", "onemind.plymouth"))
+
+    def test_kernel_command_line_splash_keeps_serial_output(self):
+        g = rd("os", "assemble", "grub.cfg.in")
+        line = re.search(r'^CMDLINE="([^"]+)"', g, re.M).group(1)
+        self.assertIn("splash", line.split())
+        self.assertIn("plymouth.ignore-serial-consoles", line.split())
+        self.assertNotIn("quiet", line.split())        # the battery reads the serial console
 
 
 class DashboardUiSource(unittest.TestCase):

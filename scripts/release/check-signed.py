@@ -62,10 +62,13 @@ def main():
     ap.add_argument("--pubkey", required=True)
     ap.add_argument("--manifest-out")
     ap.add_argument("--version", default="")
+    ap.add_argument("--kinds", help="collect.py --kinds-out file: {name: kind}, copied into the manifest")
     a = ap.parse_args()
     files = check(a.dir, a.pubkey)
     if a.manifest_out:
-        art = [{"name": n, "sha256": h, "bytes": os.path.getsize(os.path.join(a.dir, n))} for n, h in files.items()]
+        kinds = json.load(open(a.kinds)) if a.kinds else {}
+        art = [{"name": n, "kind": kinds.get(n, "other"), "sha256": h, "bytes": os.path.getsize(os.path.join(a.dir, n))}
+               for n, h in files.items()]
         with open(a.manifest_out, "w") as f:
             json.dump({"version": a.version, "signed": True, "artefacts": art}, f, indent=2)
     print(f"ok: {len(files)} artefact(s), signature verified")

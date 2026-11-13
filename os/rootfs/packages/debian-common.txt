@@ -8,6 +8,8 @@ apparmor
 # OneMind layer: onemind.local over mDNS; openssl for the per-box CA at first boot (docs/leap/core/IMAGES.md)
 avahi-daemon openssl
 initramfs-tools
+# Boot splash (brand/generated/os/plymouth): graphical console only, the serial console is untouched
+plymouth plymouth-label fontconfig fonts-dejavu-core
 grub-common
 # RAUC 1.15.2 runtime libraries (RAUC itself is built from source; Debian's rauc is never installed)
 libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200

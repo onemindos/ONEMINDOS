@@ -58,7 +58,9 @@ done
 save_env --file=($esp)/EFI/BOOT/grubenv A_TRY A_OK B_TRY B_OK ORDER
 echo "GRUB-RAUC: ORDER=$ORDER A_OK=$A_OK A_TRY=$A_TRY B_OK=$B_OK B_TRY=$B_TRY default=$default"
 
-CMDLINE="@CONSOLE@ panic=10 rootwait ro loglevel=4"
+# splash: the brand boot splash on a graphical console (plymouth). No `quiet`, and plymouth ignores serial
+# consoles, so the serial log the QEMU battery reads is unchanged.
+CMDLINE="@CONSOLE@ panic=10 rootwait ro loglevel=4 splash plymouth.ignore-serial-consoles"
 
 menuentry "No good slot left: A (ungated fallback)" {
     linux ($disk,gpt@IDX_A@)/boot/vmlinuz root=PARTUUID=@PU_A@ $CMDLINE rauc.slot=A

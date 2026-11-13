@@ -116,6 +116,10 @@ COPY os/rootfs/packages/ /tmp/onemind/packages/
 COPY os/boards/${BOARD}/ /tmp/onemind/board/
 # Watchdog drivers must be listed before the kernel's initramfs is generated.
 COPY os/rootfs/layers/base/usr/share/initramfs-tools/ /usr/share/initramfs-tools/
+# Brand boot splash (brand/generated/os/plymouth; logo = ONEMIND_BRAND_BOOT_LOGO in brand.env). It must be in
+# place before update-initramfs below, which puts the theme into the initramfs.
+COPY brand/generated/os/plymouth/onemind/ /usr/share/plymouth/themes/onemind/
+COPY brand/logo/png/white/onemind-mark-white-256.png /usr/share/plymouth/themes/onemind/logo.png
 RUN set -eu; \
     cat /tmp/onemind/packages/${LEG}-common.txt /tmp/onemind/packages/${LEG}-${TARGETARCH}.txt \
         $(ls /tmp/onemind/board/packages-${LEG}.txt 2>/dev/null) | sed 's/#.*//' | tr -s ' \n' '\n' | sed '/^$/d' > /tmp/onemind/pkgs; \
@@ -165,6 +169,7 @@ RUN set -eu; \
       k3s.service onemind-local-api.service onemind-health-gate.service >/dev/null; \
     systemctl mask systemd-firstboot.service >/dev/null 2>&1 || true; \
     passwd -l root >/dev/null; \
+    plymouth-set-default-theme onemind; \
     kver=$(ls /lib/modules | sort -V | tail -n1); \
     ln -sf "vmlinuz-$kver" /boot/vmlinuz; ln -sf "initrd.img-$kver" /boot/initrd.img; \
     update-initramfs -u -k "$kver"; \
