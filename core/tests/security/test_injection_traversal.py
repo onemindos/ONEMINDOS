@@ -465,6 +465,12 @@ def body_routes(world) -> list[tuple[str, str, str]]:
     return out
 
 
+def _switched_off(r) -> bool:
+    """A feature that is off (BACKUPS in the test gateway) answers 503 with the `unavailable` envelope: not a crash."""
+    return r.status_code == 503 and r.headers.get("content-type", "").startswith("application/json") \
+        and r.json().get("error") == "unavailable"
+
+
 def _send(world, method, path, kind, content: bytes):
     return world.client.request(method, path, content=content, headers={**world.mint(kind), "Content-Type": "application/json"})
 
@@ -508,7 +514,7 @@ def test_json_bombs_never_crash_a_route(world, bomb, request):
         request.applymarker(pytest.mark.xfail(strict=True, reason=MCP_BOMB))
     for method, path, kind in body_routes(world):
         r = _send(world, method, path, kind, payload)
-        assert r.status_code < 500, (bomb, method, path, r.status_code)
+        assert r.status_code < 500 or _switched_off(r), (bomb, method, path, r.status_code)
 
 
 def test_heartbeat_nesting_does_not_break_node_reads(world):
