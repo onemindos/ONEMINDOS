@@ -9,6 +9,11 @@
 # AppArmor unconfined; this package keeps RuntimeDefault and turns off InnoDB native AIO (io_uring),
 # which that profile may block (--innodb-use-native-aio=0, the one option added to upstream's list).
 #
+# The photoprism image starts with s6-overlay (ENTRYPOINT /init, 3.2.3.2). Its preinit exits 100 ("/run belongs to
+# uid 0 instead of 1000 ... lacking the privileges to fix it") when /run is root-owned and not world-writable,
+# which is the image's own /run, so the container crash-looped. A writable emptyDir on /run plus the s6 variable
+# below makes preinit accept it (reproduced and fixed locally with the same uid, caps and env).
+#
 # Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped.
 apiVersion: apps/v1
 kind: Deployment
@@ -137,6 +142,8 @@ spec:
         imagePullPolicy: IfNotPresent
         workingDir: /photoprism
         env:
+        - name: S6_YES_I_WANT_A_WORLD_WRITABLE_RUN_BECAUSE_KUBERNETES
+          value: '1'
         - name: PHOTOPRISM_ADMIN_USER
           value: admin
         - name: PHOTOPRISM_ADMIN_PASSWORD_FILE
@@ -209,6 +216,8 @@ spec:
           mountPath: /photoprism/storage
         - name: originals
           mountPath: /photoprism/originals
+        - name: run
+          mountPath: /run
       volumes:
       - name: storage
         persistentVolumeClaim:
@@ -219,3 +228,6 @@ spec:
       - name: db
         persistentVolumeClaim:
           claimName: photoprism-db
+      - name: run
+        emptyDir:
+          sizeLimit: 64Mi
