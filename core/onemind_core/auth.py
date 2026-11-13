@@ -48,7 +48,8 @@ class Principal:
 
     @property
     def can_request_actions(self) -> bool:
-        return self.is_owner or (self.kind == "agent" and self.role == "agent")
+        # Contract §12.1: an automation rule requests as automation:<rule-id> and never approves.
+        return self.is_owner or (self.kind, self.role) in (("agent", "agent"), ("automation", "automation"))
 
 
 def _hash(token: str) -> str:

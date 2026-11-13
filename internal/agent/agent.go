@@ -42,6 +42,11 @@ type Config struct {
 	// UpdateReport, when set, supplies the optional "update" object of the
 	// heartbeat (read from the update service's status file). nil = omit.
 	UpdateReport func() *heartbeat.Update
+	// BackupReport, when set, supplies the optional "backup" object (read
+	// from the backup agent's state file). nil = omit.
+	BackupReport func() *heartbeat.Backup
+	// Mounts adds optional services' HTTP APIs under their path prefix (service.Mounts).
+	Mounts map[string]http.Handler
 }
 
 // Agent is a running onemindd.
@@ -123,6 +128,9 @@ func (a *Agent) collect(c *collection) {
 	if a.cfg.UpdateReport != nil {
 		c.st.Update = a.cfg.UpdateReport()
 	}
+	if a.cfg.BackupReport != nil {
+		c.st.Backup = a.cfg.BackupReport()
+	}
 	a.stMu.Lock()
 	a.last, a.at, a.inflight = c.st, time.Now(), nil
 	a.stMu.Unlock()
@@ -150,6 +158,9 @@ func (a *Agent) Handler() http.Handler {
 			"nats_connected": a.natsConnected(),
 		})
 	})
+	for prefix, h := range a.cfg.Mounts {
+		mux.Handle(prefix, h)
+	}
 	return mux
 }
 

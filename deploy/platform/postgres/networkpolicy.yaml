@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+# Only app namespaces (label onemind.io/app, set by the gateway) may open a connection, and only on
+# 5432. Each app's role can connect to its own database alone (CONNECT is revoked from PUBLIC).
+# The gateway itself never connects over the network: it runs psql inside the pod (kubectl exec).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-from-apps
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: postgres}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchExpressions:
+              - {key: onemind.io/app, operator: Exists}
+      ports:
+        - {protocol: TCP, port: 5432}
+  egress: []

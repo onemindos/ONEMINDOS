@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# copyparty: Market batch 5 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: scripts/docker/README.md,
+# scripts/docker/Dockerfile.ac, scripts/docker/innvikler.sh, copyparty/httpcli.py and
+# docs/examples/docker/basic-docker-compose/copyparty.conf at v1.20.26.
+# Image digest and archs from crane; licence from the GitHub licence API.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: copyparty
+  name: "copyparty"
+  version: "1.20.26"
+  description: "File server in one program: browse, upload, download and share files from a browser."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: files
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/9001/copyparty
+  # §9.3 facts from the GitHub API (repos/9001/copyparty), read 2026-11-12. The repo sets no
+  # homepage, so the website link is the repo's README.
+  links:
+    docs: "https://github.com/9001/copyparty#readme"
+    github: "https://github.com/9001/copyparty"
+    website: "https://github.com/9001/copyparty#readme"
+    support: "https://github.com/9001/copyparty/issues"
+  upstream: {release: "v1.20.26", released_at: "2026-10-14T23:43:28Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVE-2026-111497 in brotli-libs, fix exists (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 512}
+  web: {port: 3923}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# SearXNG: Market batch 1 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: container/Dockerfile, container/entrypoint.sh and container/docker-compose.yml at commit 626105eec.
+# Image digests and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: searxng
+  name: "SearXNG"
+  version: "2026.11.11-626105eec"
+  description: "SearXNG is a free internet metasearch engine which aggregates results from various search services and databases. Users are neither tracked nor profiled."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: ai
+  icon: icon.svg
+  license: "AGPL-3.0"
+  source: https://github.com/searxng/searxng
+  # §9.3 facts from the GitHub API (repos/searxng/searxng), read 2026-11-12.
+  links:
+    docs: "https://docs.searxng.org/"
+    github: "https://github.com/searxng/searxng"
+    website: "https://docs.searxng.org/"
+    support: "https://github.com/searxng/searxng/issues"
+  upstream: {release: "2026.11.11-626105eec", released_at: "2026-11-11T18:22:48Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}
+  web: {port: 8080}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import type { NodeStatus } from '../api/types';
 
 /** Contract §3: stale after 30 s, offline after 120 s without a heartbeat. */

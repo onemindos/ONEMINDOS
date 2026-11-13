@@ -1,50 +1,36 @@
-# OneMind dashboard (v0)
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+# OneMind dashboard (v2)
 
-The web screen you open to see and control your OneMind: which machines have joined, which apps
-are installed, and which changes are waiting for your approval. It is a React + TypeScript
-single-page app built with Vite. The hub's gateway (`core/`) serves the built files from
-`dashboard/dist` at `/` (contract §3 "Static").
+The web screen you open to see and control your OneMind: a Home launcher, the Market, your
+installed apps, the Approvals queue, Activity, Nodes and Settings. It is a React + TypeScript
+single-page app built with Vite, drawn entirely with the design system **`@onemind/ui`** (`ui/` in
+this repo: shell, home, store, settings, customize). The hub's gateway (`core/`) serves the built
+files from `dashboard/dist` at `/` (contract §3 "Static").
 
-**Build step:** brief 30 **B11 · Dashboard MVP** (REC-B30-12, REC-W11-01), implemented against the
-binding contract [`sdk/contracts/poc-v0.md`](../sdk/contracts/poc-v0.md) §5 (screens), §3 (API),
-§2 (heartbeat) and §4 (app fields), plus the wave-2 Market additions of §9.3, §10.3 and §11.4
-(links, licence, tier and last scan next to Install). Language choice follows BD-02 (TypeScript +
-React for the UI).
+**Build steps:** brief 30 **B11 · Dashboard MVP** (v0, PR #8), then **CORE-DASH-2** (move the
+screens onto `@onemind/ui`, `docs/leap/core/DASHBOARD.md` §7) with parts of CORE-DASH-1/4/8, against
+the binding contract [`sdk/contracts/poc-v0.md`](../sdk/contracts/poc-v0.md) §2, §3, §5, §11.4.
+Fixes design CRITIQUE #19–#26 (`docs/design/CRITIQUE.md`).
 
-## Why it is built this way (plain English)
+## What changed in v2 (plain English)
 
-- **A single-page app (SPA)** is one HTML file plus JavaScript. The browser downloads it once, and
-  after that only small JSON requests travel to the hub. The gateway can serve it as plain static
-  files, so the dashboard has no server of its own to keep running or patch.
-- **It only talks to the §3 API.** Every button here is a normal API call that an AI agent could make
-  under the same rules (REC-W11-20). The dashboard has no secret powers of its own.
-- **AI never actuates without human approval.** Market "Install" does not install anything. It
-  creates an *action* (a request) with a fresh random **idempotency key** (a UUID: if the same
-  request is sent twice, for example after a network hiccup, the hub sees the same key and does
-  not create a second action). Then it takes you to Approvals, where only the owner can approve.
-- **Stale data is never shown as live.** A machine sends a heartbeat every 10 s. The hub marks it
-  *stale* after 30 s and *offline* after 120 s without one. The dashboard also re-checks the age
-  every second, because the hub's last answer gets older while the tab is open. It never compares
-  `last_seen` with the browser's clock: it ages the answer by the time since it was fetched, and
-  ages `last_seen` on the hub's clock (learned from the response `Date` header), so a browser
-  clock that is off does not mark healthy machines stale. Stale and
-  offline cards say "values below are the last report, not live", have a dashed border, and show
-  "last seen N ago".
-- **Nothing unscanned is offered for install.** Every app in the Market goes through a security
-  gate (CVE scan, malware scan, licence check; contract §9.4) that writes a scan record. The hub
-  refuses to install an app whose last scan is missing, failed, or older than 7 days (§10.3). The
-  Market card and the app page show the licence, the **tier** (verified, community or blocked,
-  set by that gate) and the **last scan date**, and grey out Install with the reason written next
-  to it (also read out by screen readers as the button's description). Remove is never blocked.
-  The hub stays the authority: if a scan goes stale after the request, approving returns
-  `409 stale_precondition`.
-- **Accessibility (WCAG 2.2 AA) from the first screen:** status is always written in words, not just
-  colour; every button has a name a screen reader can read; there is a "skip to content" link; tap
-  targets are at least 44 px; and the layout works on a 375 px phone, because phones are clients.
+- **One design system.** Every screen is a `@onemind/ui` component; the dashboard only fetches data,
+  maps it (`src/data/adapters.ts`) and handles clicks. Light and dark themes, accent, wallpaper and
+  density come from Settings → Appearance and are saved **per person** in this browser.
+- **One poll of the hub** (`src/data/hub.tsx`) feeds every screen, the bell, the palette and the
+  jobs tray, so they always agree. While a request is moving, it is polled every 2 s
+  (`GET /v1/actions/{id}`), which is the live install progress.
+- **Honest about what the hub cannot do yet.** Widgets and settings whose API is not on `main`
+  (backups, updates, mesh, people, tokens, notification routes, logs, restart/stop/update) say which
+  work stream brings them and send nothing. Activity says it is built from actions, not the
+  hash-chained audit log. Nothing is invented to fill a card.
+- **`@onemind/ui` is compiled from source** (`../ui/src`, a Vite and TypeScript alias), so there is
+  no separate ui build or publish step yet; React is resolved once, from `dashboard/node_modules`.
+  `deploy/install.sh` copies `ui/src` next to the dashboard for the on-box build.
 
 ## How to run
 
-Needs Node.js 20.19+ (tested with Node 26.5.1, npm 12.0.2 on macOS arm64).
+Needs Node.js 20.19+ (v2 tested with Node 26.13.0, npm 11.20.0 on macOS arm64).
 
 ```sh
 cd dashboard
@@ -60,7 +46,7 @@ npm run dev
 npm run build               # → dashboard/dist
 npm run build:mock && npm run preview   # the built demo on http://localhost:4173
 
-npm test                    # vitest + Testing Library + axe-core
+npm test                    # vitest + Testing Library + axe-core (no ui install needed)
 npm run lint                # eslint, 0 warnings allowed
 npm run typecheck           # tsc --noEmit
 ```
@@ -71,16 +57,16 @@ npm run typecheck           # tsc --noEmit
 
 | Path | What |
 |---|---|
-| `src/api/types.ts` | Types for contract §2 heartbeat, §3 routes/actions/errors, §4 app fields |
-| `src/api/client.ts` | `OneMindApi` interface (one method per §3 route) and `HttpApi` (bearer token, §3 error bodies → `ApiError`) |
-| `src/api/mock.ts`, `fixtures.ts` | Mock gateway for `VITE_MOCK=1`: hub x86, Raspberry Pi 5, Jetson Orin (stale), DigitalOcean droplet (offline); Uptime Kuma, Jellyfin, Ollama (fresh passing scans), Node-RED (scan older than 7 days), Mosquitto (never scanned), Zigbee2MQTT (failed scan, tier blocked); one pending agent request. Approving an install without a fresh passing scan answers 409 `stale_precondition`, like the gateway |
-| `src/lib/scan.ts` | §10.3 rule in the UI (`installBlockReason`), UTC scan date, http(s)-only link filter |
-| `src/lib/useAppRequest.ts` | Install/Remove → action with a stable idempotency key, shared by Market and the app page |
-| `src/components/AppTrust.tsx` | Links list, licence/tier/last-scan facts, Install/Remove button with its block reason |
-| `src/session.tsx` | Token sign-in, kept in `sessionStorage` (cleared when the tab closes) |
-| `src/lib/time.ts` | Freshness rules (30 s / 120 s) and "N ago" text |
-| `src/pages/*` | Sign-in, Home, Nodes, Market, app page (`/market/<app-id>`), Approvals |
-| `src/ui.test.tsx`, `src/api/api.test.ts`, `src/lib/*.test.ts` | Tests (52) |
+| `src/api/` | Contract types, `HttpApi` (bearer token, §3 errors → `ApiError`, hub clock from `Date`), `MockApi` + fixtures for `VITE_MOCK=1` (10 apps incl. legacy category slugs; the noop executor steps every 1.5 s in the demo) |
+| `src/data/adapters.ts` | Pure mappings: catalog → Market/Home/Installed, actions → approvals, progress, notifications, activity; TAXONOMY legacy slugs |
+| `src/data/hub.tsx` | Shared poll of `/v1/instance`, `/v1/nodes`, `/v1/apps`, `/v1/actions`; `request` (idempotency key per app until a definite answer) and `decide` |
+| `src/data/prefs.ts` | Per-person localStorage (appearance, Home layout, read notifications, recent commands). The slot is the principal id, or on a v0 gateway (no `GET /v1/me`) a short fingerprint of the token. A hub copy is not in §12; the switch to it waits behind a PROPOSED `me.preferences` feature |
+| `src/shell/` | `AppShell`, ⌘K palette, notification bell (fed by actions until the notifications API), jobs tray; ui hash links → routes |
+| `src/pages/` | Home, Market (+ app page), Installed (+ manage), Approvals, Activity, Nodes, Settings, Sign-in |
+| `src/*.test.ts(x)` | vitest: adapters, routes, API client, mock rules, every screen with axe (63 tests) |
+
+Routes: `/`, `/market`, `/market/<app>`, `/installed`, `/installed/<app>`, `/approvals?highlight=<id>`,
+`/activity`, `/nodes`, `/settings/<section>`.
 
 ## Roles in the UI
 
@@ -99,38 +85,23 @@ The gateway is the security boundary; the UI only avoids offering what will be r
 - **Mock mode** uses fixtures that match §2–§4; it runs the `noop` executor path instantly.
 - Nodes publish straight to the hub's NATS (no leaf nodes), so the dashboard just reads `/v1/nodes`.
 
-## Known gaps
+## Known gaps (each waits on a stream or a contract route)
 
-- **No "who am I" route in contract v0.** The UI learns a real principal's role only from a 403.
-  Suggested contract change (separate PR, not made here): `GET /v1/me` → `{id, kind, role}`.
-- **The action response shape is not fully specified** in §3. The UI expects `requested_by
-  {id, kind, role}`, `created_at` and `decided_by`, and shows "Unknown requester" if they are
-  missing. It also reads `result` as `{outcome, message, steps}` (what the wave-1 gateway returns)
-  and shows `message` on failed and outcome-unknown requests. The gateway stream should return
-  these, or the contract should name them.
-- **The app page is built from `GET /v1/apps`** (the contract has no single-app route), so it
-  refreshes the whole catalog every 30 s. It does not show the generated `apps/<id>/README.md` or
-  the full scan report (images, CVE counts); the catalog carries only `{scanned_at, result}`.
-- **Scan age is judged on the hub's clock** (learned from the response `Date` header) so a browser
-  with a wrong clock does not grey out a valid app; before the first response it uses the
-  browser's clock.
-- **App icons:** v0 draws an original monogram tile per app because no §3 route serves the
-  manifest's `icon` file yet.
-- **Open app links** use `http://<dashboard host>:<web_port>/`; that depends on how apps are exposed
-  on k3s (ingress vs NodePort), which the contract does not fix yet.
-- The mock fixtures and demo tokens are bundled in the real build too (unused unless
-  `VITE_MOCK=1`); they could be split out with a dynamic import.
-- Screens from the brief beyond the contract's four (Updates, Backups, Alerts, Agents, Robots,
-  Settings, rescue console) are not in this PR.
-- Colour contrast cannot be measured in jsdom, so unit tests switch off axe's `color-contrast` rule.
-  It was checked by running axe-core 4.14.0 in a real browser against `npm run preview` (mock
-  build) on all four screens, at the pane's width and at 375 px: 0 violations of any impact. That
-  check is manual today; a Playwright job in CI would make it automatic.
-- React prints some "not wrapped in act(...)" warnings in tests from the 1 s clock and the 10 s
-  polling; they do not affect results.
+- **No "who am I" route.** Against a real gateway the UI learns the role only from a 403 (§12 adds `GET /v1/me`).
+- **No plan preview or passkey** on approvals: the card says so (§12.3 CORE-SEC-2, §12.4 CORE-SANDBOX).
+- **Removal and data.** The v0 executor deletes the app's namespace on `app.remove`; data survives
+  only where the storage class retains released volumes. The UI says this. Guaranteed keep-data
+  removal (`delete_data: false`) is §12.5 and needs the gateway stream.
+- **Install progress** is the action state only (approved → applying → done); the executor reports
+  no steps or health in v0. "Installed" is shown, never "Running".
+- **No placement plan:** the install review skips the node step and says the hub picks the node.
+- **Open** uses `http(s)://<this host>:<web_port>/`; per-app addresses behind the gateway login are §12 / SEC-P2.
+- **Notifications** are derived from actions and offline nodes; read state is per person, in this browser only.
+- **Bundle size** is ~530 kB (168 kB gzip) in one chunk; route-level code splitting is a follow-up.
+- Colour contrast is not measurable in jsdom (axe's `color-contrast` is off in unit tests); the ui
+  package tests token contrast in both themes.
 
 ## Design
 
-Original look in the spirit of a calm home-server dashboard: a soft gradient "wallpaper", light
-glass cards, an app grid with icon tiles and node cards. No assets or code were copied from
-umbrelOS (PolyForm Noncommercial) or any other product.
+Original look built on `@onemind/ui`. No assets or code were copied from umbrelOS (PolyForm
+Noncommercial) or any other product.

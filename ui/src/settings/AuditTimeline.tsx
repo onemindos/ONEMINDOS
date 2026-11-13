@@ -24,9 +24,16 @@ export interface AuditTimelineProps {
   now: number;
   onVerify?: () => void;
   onRetry?: () => void;
+  /**
+   * Replaces the chain badge when the entries do not come from the hash-chained audit log
+   * (contract v0 serves no audit route; the dashboard then builds Activity from actions).
+   */
+  chainNote?: string;
+  /** The API calls listed at the bottom; defaults to the audit routes. */
+  calls?: string[];
 }
 
-export function AuditTimeline({ data, now, onVerify, onRetry }: AuditTimelineProps) {
+export function AuditTimeline({ data, now, onVerify, onRetry, chainNote, calls }: AuditTimelineProps) {
   const [actor, setActor] = useState<ActorFilter>('all');
   const [q, setQ] = useState('');
   const searchId = useId();
@@ -37,7 +44,7 @@ export function AuditTimeline({ data, now, onVerify, onRetry }: AuditTimelinePro
         lede="Every request, decision and result, newest first. Each entry is chained to the one before it, so nothing can be removed or edited quietly."
         actions={
           onVerify && (
-            <Button icon="lock" onClick={onVerify} disabled={data.status !== 'ready' || data.stale}>
+            <Button icon="lock" onClick={onVerify} disabled={data.status !== 'ready' || data.stale || !!chainNote}>
               Verify the chain
             </Button>
           )
@@ -45,7 +52,7 @@ export function AuditTimeline({ data, now, onVerify, onRetry }: AuditTimelinePro
       />
       <Async value={data} label="activity" now={now} onRetry={onRetry} rows={6}>
         {(d) => {
-          const badge = chainBadge(d.verify, now);
+          const badge = d.verify && !chainNote ? chainBadge(d.verify, now) : { tone: 'info' as Tone, label: 'Not the audit chain', detail: chainNote ?? 'These entries are not hash-chained.' };
           const rows = filterAudit(d.entries, actor, q);
           const days = groupByDay(rows, now);
           return (
@@ -58,7 +65,7 @@ export function AuditTimeline({ data, now, onVerify, onRetry }: AuditTimelinePro
                   <p className="om-set-chain-title">{badge.label}</p>
                   <p className="om-set-chain-text">
                     {badge.detail}
-                    {d.verify.checkpoint && d.verify.state !== 'broken' && ` Signed checkpoint #${d.verify.checkpoint.seq.toLocaleString('en-US')} is also kept on ${d.verify.checkpoint.storedOff}, so a rewrite of the whole log would show.`}
+                    {d.verify?.checkpoint && !chainNote && d.verify.state !== 'broken' && ` Signed checkpoint #${d.verify.checkpoint.seq.toLocaleString('en-US')} is also kept on ${d.verify.checkpoint.storedOff}, so a rewrite of the whole log would show.`}
                   </p>
                 </div>
               </div>
@@ -102,7 +109,13 @@ export function AuditTimeline({ data, now, onVerify, onRetry }: AuditTimelinePro
                             <p className="om-set-meta">
                               <time dateTime={e.at}>{formatAgo(secondsSince(e.at, now))}</time> · #{e.seq}
                               {e.node && ` · ${e.node}`}
-                              {e.app && ` · ${e.app}`} · <span className="om-set-hash" title="Start of this entry's hash">{e.hash}</span>
+                              {e.app && ` · ${e.app}`}
+                              {e.hash && (
+                                <>
+                                  {' · '}
+                                  <span className="om-set-hash" title="Start of this entry's hash">{e.hash}</span>
+                                </>
+                              )}
                             </p>
                           </div>
                           {e.result && <StatusPill tone={e.result} label={e.resultLabel ?? ''} />}
@@ -116,7 +129,7 @@ export function AuditTimeline({ data, now, onVerify, onRetry }: AuditTimelinePro
           );
         }}
       </Async>
-      <CallHint calls={['onemind audit verify', 'GET /v1/audit?after=<seq>', 'GET /v1/audit/verify']} />
+      <CallHint calls={calls ?? ['onemind audit verify', 'GET /v1/audit?after=<seq>', 'GET /v1/audit/verify']} />
     </>
   );
 }

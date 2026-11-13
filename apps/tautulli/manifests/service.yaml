@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Web UI and API on 8181 (Dockerfile EXPOSE).
+apiVersion: v1
+kind: Service
+metadata:
+  name: tautulli
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: tautulli
+  ports:
+    - name: http
+      port: 8181
+      targetPort: http
+      protocol: TCP

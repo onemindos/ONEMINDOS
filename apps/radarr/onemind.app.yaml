@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# radarr: Market batch 3 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by sdk/tools/app-scaffold
+# (§9.2) and completed from primary sources: src/Radarr.Http/Ping/PingController.cs at v6.4.4.10685, wiki.servarr.com/radarr/installation/docker and the LinuxServer image README.
+# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-12.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: radarr
+  name: "Radarr"
+  version: "6.4.4.10685"
+  description: "Movie organizer/manager for usenet and torrent users."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (downloads) are listed in README.md
+  # until the schema has metadata.tags.
+  category: media
+  icon: icon.svg
+  license: "GPL-3.0"
+  source: https://github.com/Radarr/Radarr
+  links:
+    docs: "https://wiki.servarr.com/radarr"
+    github: "https://github.com/Radarr/Radarr"
+    website: "https://radarr.video"
+    support: "https://github.com/Radarr/Radarr/issues"
+  upstream: {release: "v6.4.4.10685", released_at: "2026-09-16T18:13:40Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVE-2026-70188 and CVE-2026-88092 in the .NET runtime, and the pod never becomes ready (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}   # sum of the memory requests in manifests/
+  web: {port: 7878}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

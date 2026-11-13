@@ -19,6 +19,7 @@ import { StoreDemo } from './store/StoreDemo';
 import { SystemDemo } from './settings/SystemDemo';
 import { AppearanceDemo } from './customize/AppearanceDemo';
 import { ShellScreens } from './shell/ShellScreens';
+import { BackupsDemo } from './backups/BackupsDemo';
 
 export const NAV: NavItem[] = [
   { id: 'home', label: 'Home', href: '#/home', icon: 'home', primary: true },
@@ -77,6 +78,7 @@ export function DemoApp() {
       case 'store': return <StoreDemo />;
       case 'home': return <HomeLauncher variant={r.arg} />;
       case 'shell': return <ShellScreens arg={r.arg} />;
+      case 'backup': return <BackupsDemo arg={r.arg} />;
       default:
         return <Home />;
     }

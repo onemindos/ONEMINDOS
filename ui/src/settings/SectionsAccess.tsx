@@ -259,7 +259,7 @@ export function UsersSection({ data, now, onIntent, onRetry }: SectionProps<Pers
         </div>
         <p className="om-hint">Agents are not people: they have their own principals under Agents &amp; MCP and can only ask.</p>
       </Group>
-      <CallHint calls={['GET /v1/people', 'onemind people invite --role adult|guest', 'PUT /v1/people/{id}   (a request the owner approves)']} />
+      <CallHint calls={['GET /v1/users', 'onemind people invite --role adult|guest', 'PUT /v1/users/{id}   (a request the owner approves)']} />
     </>
   );
 }

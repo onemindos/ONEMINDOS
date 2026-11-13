@@ -72,9 +72,11 @@ jobs:
           for dir in apps/*/; do
             id=$(basename "$dir")
             case "$id" in _*|.*) continue ;; esac
+            # The step shell is bash -e: a failing gate (rc 1 = blocked, 2 = tool error) must not end the
+            # loop, or every app after the first blocked one is never rescanned.
+            rc=0
             python3 -I sdk/tools/app-gate "$id" --smoke --tier write --clamav-db /var/lib/clamav \
-              --workdir "$RUNNER_TEMP" --report "$RUNNER_TEMP/out/$id.json"
-            rc=$?
+              --workdir "$RUNNER_TEMP" --report "$RUNNER_TEMP/out/$id.json" || rc=$?
             [ "$rc" -eq 2 ] && errors="$errors $id"
           done
           newly_blocked=""
@@ -101,7 +103,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/changed"
-          git diff --name-only -- apps > "$RUNNER_TEMP/changed/files.txt"
+          # Stage first so NEW files (a first scan.json) are listed too; plain git diff skips untracked files.
+          git add -A -- apps
+          git diff --cached --name-only -- apps > "$RUNNER_TEMP/changed/files.txt"
           if [ -s "$RUNNER_TEMP/changed/files.txt" ]; then
             tar -cf "$RUNNER_TEMP/changed/apps.tar" -T "$RUNNER_TEMP/changed/files.txt"
           fi
@@ -155,7 +159,8 @@ jobs:
             if [ -L "$changed/x/$f" ] || [ ! -f "$changed/x/$f" ]; then echo "not a regular file: $f" >&2; exit 1; fi
             cp "$changed/x/$f" "$f"
           done < "$changed/files.txt"
-          if git diff --quiet -- apps; then echo "no changes"; exit 0; fi
+          git add -A -- apps
+          if git diff --cached --quiet -- apps; then echo "no changes"; exit 0; fi
           branch=bot/apps-rescan
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

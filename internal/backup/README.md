@@ -17,7 +17,7 @@
 | `schedule.go` | Hourly run at a fixed minute per box. Daily, in the maintenance hour: repository check, plus a direct run to every non-primary target (the off-site copy). Weekly: verified restores and prune. `Loop` drives it |
 | `verify.go` | `VerifyRestore`: restore into scratch, read every file back, compare sizes with the snapshot listing, run hook checks on the restored copies, record "last verified restore". `CheckRepo`: rotating `--read-data-subset` (n/7, or n/28 on S3) with one retry |
 | `rewind.go` | `ListSnapshots`, `Tree`, `DumpFile`, `RestorePath` (one file or directory, pre-restore snapshot first, atomic rename into place, refuses symlinked parents and paths outside the unit's sources) |
-| `api.go` | Loopback-only `POST /api/v1/backup/run` (for the updater) and `GET /api/v1/backup/status` |
+| `api.go` | Loopback-only `GET /api/v1/backup/status` and signed `POST /api/v1/backup/jobs` (the unsigned `/run` route was removed: runs only come as gateway-signed jobs) |
 | `state.go` | `state.json` (0600, atomic replace): runs, verifications, last verified per unit, schedule bookkeeping. Badge rules for BT-11 |
 
 ### Tags and retention
@@ -50,16 +50,32 @@ The unit tests cover BT-1, BT-2, BT-9, BT-11, BT-12 (source side) and BT-14 from
 
 Result on 2026-11-12: both pass on Debian 13 arm64 (Lima, vz) with the linux/arm64 pins. They also pass on macOS arm64 with the darwin builds of the same versions. **Not covered:** an S3 target against a real S3 server (no S3-compatible server is pinned yet), and the linux/amd64 pins at run time (their sha256 values were computed from the verified archives, but no amd64 VM run was done).
 
-## Wiring still needed (not in this change)
+## Wiring (BACKUP-WIRE-1, branch `feat/backups-on`)
 
-1. **`cmd/onemindd/main.go`:** read `ONEMIND_BACKUP_CONF` (default `/data/onemind/backup/agent.json`). When the file exists, call `backup.New` and `go a.Loop(ctx)`, and mount `a.Handler(ctx)` on the `:7480` mux for `/api/v1/backup/`. The handler itself refuses non-loopback callers.
-2. **Heartbeat (§12.11):** add `Backup *backup.Heartbeat \`json:"backup,omitempty"\`` to `heartbeat.Status` and fill it from `a.Heartbeat()`. It is kept out of `internal/heartbeat` here to avoid a conflict with the fabric stream, which adds `fabric` to the same struct.
-3. **Updater (§6.1):** when the agent is configured, `internal/update` calls `POST 127.0.0.1:7480/api/v1/backup/run {"reason":"pre-update","wait":true}` instead of its own restic snapshot, and keeps `restic_*` in `update.conf` as the fallback.
-4. **Image stream (`os/**`):** add restic and rest-server to `os/versions.lock.yaml` with the values in `pins.go`; install restic at `/usr/lib/onemind/restic`; add Debian `sqlite3` to the rootfs. The systemd unit for onemindd needs `CAP_DAC_READ_SEARCH` to read app volumes (as `onemind-update.service` does) and `RESTIC_CACHE_DIR` on `/var/cache`.
-5. **`node` targets:** a systemd unit on the target node runs `rest-server --append-only --private-repos --tls` with the fabric certificate and one bcrypt `.htpasswd` user per source box. The integration test uses a `{SHA}` entry only because it needs no extra library.
-6. **Gateway coordinator (K3):** writes `agent.json` (secrets only as file paths), replaces `Agent.Units` with the app list per job, runs manifest `backup:` exec hooks inside the pod before the node job (for example a dump into a volume), exposes the Rewind functions owner-only and audited, maps job kinds `backup.run` → `Run`, `backup.verify-restore` → `VerifyRestore`, `backup.check` → `CheckRepo`, and `backup.restore {scope: path}` → `RestorePath`.
-7. **Keys and kit (K4):** add the owner and escrow keys with `Repo.AddKey` on every target. The kit's base32 groups and QR code are the gateway's job; the agent only needs the key as a file while a job runs.
-8. **Whole-box restore (K6):** after the restore bumps `generation`, call `WriteFence` on every target.
+| Step | Where | State |
+|---|---|---|
+| **One service:** the agent runs inside onemindd as `backup.Service()` (`optionalServices`), enabled when `agent.json` exists. `onemindd backup-init` is a one-shot that creates the device key; it is not a daemon | `service.go`, `cmd/onemindd/backup.go` | done. There is no second backup process or unit. Restores write app data with its owners, so the onemindd unit needs a drop-in with four capabilities (see `docs/leap/core/BACKUP-WIRE-os.patch.md`); `deploy/backup.sh` installs it |
+| Loopback API on onemindd's `127.0.0.1:7480` under `/api/v1/backup/` (contract §12.12); the handler refuses non-loopback callers | `api.go`, `jobapi.go` | done |
+| Signed jobs `POST /api/v1/backup/jobs` (`onemind.job/v1`, Ed25519, canonical JSON shared with the gateway, params hash, expiry, done-list) | `job.go`, `canonical.go`, `jobapi.go` | done |
+| Gateway-managed destinations and apps (`managed.json`; credentials as 0600 files in `target-secrets/`; apps only by volume) | `managed.go` | done |
+| App restore with move-aside, commit or rollback; volumes matched by claim | `apprestore.go` | done |
+| Heartbeat `backup` object (§12.10) | `internal/heartbeat`, `internal/agent`, `cmd/onemindd/backup.go` | done |
+| Gateway coordinator: hooks via exec, database dumps, schedule, status, restore orchestration | `core/onemind_core/backups/` | done |
+| Developer install: pinned restic, `onemind-local`, keys, unit, gateway switch | `deploy/backup.sh` | done |
+| Image | `docs/leap/core/BACKUP-WIRE-os.patch.md` | for the image stream |
+| Updater calls `POST /api/v1/backup/run {reason: pre-update, wait: true}` | `internal/update` | open (updater stream); the endpoint exists on `:7480` |
+| Owner and escrow keys on every target | `backup.key.add` job; the gateway's emergency kit adds the owner key | done for the owner key; escrow and rotation open |
+| Whole-box restore and `WriteFence` | | open (onboarding) |
+
+**End-to-end proof:** `test/backup-wire/lima-e2e.sh` (Debian 13 VM: developer install, back up, break, restore, Rewind, badge green, undo).
+
+Steps from the earlier plan that are still open: the updater calls `POST 127.0.0.1:7480/api/v1/backup/run {"reason":"pre-update","wait":true}` (item above), and the image stream adds restic and rest-server pins (`BACKUP-WIRE-os.patch.md`).
+
+## Where the repository password and keys live (and what is never logged)
+
+In plain words: restic encrypts every backup with a password. The box makes that password itself (256 random bits, `onemindd backup-init`), keeps it in one file (`device_key_file`, mode 0600, folder 0700, on the encrypted `/data` partition once CORE-SEC-5 lands), and hands it to restic only as `RESTIC_PASSWORD_FILE`, a path. The password is never in a command line, never in an environment variable, never in the settings file, and never in a log line, an event or the audit log; the gateway's audit records only that destination credentials were `provided`. The owner and escrow keys are extra restic keys on the same repository (`restic key add`), so the printed emergency kit can open a backup with the device gone. Lose every key and the backup cannot be read: that is the point of encryption, and why setup blocks until the owner has typed the kit back. `backup-init` never overwrites an existing key, because a new password would orphan every snapshot already made (tested in `cmd/onemindd/backup_test.go`). If the agent cannot save its own state file (disk full or read-only) it logs it, counts it, and shows `state_write_errors` in `GET /api/v1/backup/status` (tested in `statewrite_test.go`).
+
+Restores never start on their own: the agent obeys only a job signed with the gateway's Ed25519 key, and the gateway signs one only for an action the owner approved; the app restore moves the old data aside first and rolls back if the fresh pod fails its health check. The weekly verified-restore check (a scratch restore of every unit, `verify.go`) and the daily repository check still run on the agent's schedule, which is what keeps the badge green (`schedule_test.go`).
 
 ## Not done here (follow-ups)
 

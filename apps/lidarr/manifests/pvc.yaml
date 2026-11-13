@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# lidarr-config: /config, settings and the SQLite database. lidarr-music: /music, the music
+# library (readme-vars.yml). 2Gi and 100Gi are OneMind choices. No storageClassName: the cluster
+# default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lidarr-config
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lidarr-music
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 100Gi

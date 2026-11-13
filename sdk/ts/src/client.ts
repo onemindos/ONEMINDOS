@@ -48,6 +48,9 @@ export interface RequestActionInput {
   appId: string;
   /** Default 24 h, counted on the hub's clock. */
   expiresInMs?: number;
+  /** An absolute RFC 3339 expiry; wins over expiresInMs. A caller replaying one logical request by
+   * hand passes the same value, because the hub compares it (to the second) with the first call. */
+  expiresAt?: string;
   /** Default: a fresh UUIDv4, reused on every retry of this one call. */
   idempotencyKey?: string;
 }
@@ -85,6 +88,9 @@ export class OneMind {
   private readonly onTrace?: ClientOptions["onTrace"];
   private warned = false;
   private offsetMs = 0;
+  /** expires_at fixed per idempotency key: the hub compares the whole body on a replay, so a retry
+   *  that recomputed it in a later second would get a 409. Bounded; expired entries are dropped. */
+  private readonly expiries = new Map<string, { text: string; at: number }>();
 
   constructor(opts: ClientOptions) {
     const url = normalizeHubUrl(opts.baseUrl);
@@ -117,6 +123,20 @@ export class OneMind {
     return Date.now() + this.offsetMs;
   }
 
+  private expiryFor(key: string | undefined, spanMs: number): string {
+    const now = this.hubNow();
+    const fmt = (ms: number) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
+    if (key === undefined) return fmt(now + spanMs);
+    const hit = this.expiries.get(key);
+    if (hit && hit.at > now) return hit.text;
+    const text = fmt(now + spanMs);
+    this.expiries.delete(key);
+    this.expiries.set(key, { text, at: now + spanMs });
+    for (const [k, v] of this.expiries) if (v.at <= now) this.expiries.delete(k);
+    while (this.expiries.size > 1024) this.expiries.delete(this.expiries.keys().next().value as string);
+    return text;
+  }
+
   hubOffsetMs(): number {
     return this.offsetMs;
   }
@@ -145,7 +165,7 @@ export class OneMind {
         type: input.type,
         params: { app_id: input.appId },
         idempotency_key: input.idempotencyKey ?? uuid4(),
-        expires_at: new Date(this.hubNow() + (input.expiresInMs ?? 24 * 3600_000)).toISOString().replace(/\.\d{3}Z$/, "Z"),
+        expires_at: input.expiresAt ?? this.expiryFor(input.idempotencyKey, input.expiresInMs ?? 24 * 3600_000),
       };
       return this.call<Action>({ method: "POST", path: "/v1/actions", body, retry: true });
     },

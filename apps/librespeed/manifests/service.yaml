@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# The speed test page on Service port 8080 (Apache listens on 80 in the pod; doc_docker.md maps
+# host 80 to container 8080, which this package changes to avoid a root-only step).
+apiVersion: v1
+kind: Service
+metadata:
+  name: librespeed
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: librespeed
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
