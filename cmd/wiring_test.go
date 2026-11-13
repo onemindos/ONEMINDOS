@@ -6,6 +6,7 @@
 package cmd_test
 
 import (
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -15,7 +16,7 @@ import (
 var notWiredYet = map[string]string{}
 
 // Package-level reachability is coarse: internal/leaf is imported (its health check backs
-// `onemind mesh status`) but leaf.Supervisor.Run still has no caller; it waits for CORE-NET-12.
+// `onemind mesh status`), so TestSymbolsAreCalled below checks the symbols it names (slop CS2-06).
 
 func goList(t *testing.T, args ...string) []string {
 	t.Helper()
@@ -45,6 +46,25 @@ func TestEveryInternalPackageIsReachableFromABinary(t *testing.T) {
 		}
 		if _, ok := notWiredYet[name]; !ok {
 			t.Errorf("internal/%s is not used by any binary under cmd/. Wire it (docs/leap/core/PLUMBING.md sections 6-7) or list it in notWiredYet with its epic", name)
+		}
+	}
+}
+
+// TestSymbolsAreCalled covers what the package-level check cannot see (slop CS2-06): a finished
+// function whose package is imported but which nothing calls. Each entry names a file under cmd/
+// and the text that must be in it.
+func TestSymbolsAreCalled(t *testing.T) {
+	for _, c := range []struct{ file, text, why string }{
+		{"onemindd/registry.go", "leafSupervisor.Service(", "leaf.Supervisor.Run supervises the NATS leaf (CORE-NET-12)"},
+		{"onemindd/net.go", "fabric.Reporter(role, leafSupervisor.Link)", "the heartbeat's fabric.leaf_link reads the supervisor"},
+		{"onemindd/net.go", "mesh.Reporter(log)", "the heartbeat's mesh object"},
+	} {
+		raw, err := os.ReadFile(c.file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(raw), c.text) {
+			t.Errorf("%s no longer contains %q: %s", c.file, c.text, c.why)
 		}
 	}
 }

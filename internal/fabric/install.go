@@ -253,6 +253,10 @@ func (in *Installer) writeLeaf(id *Identity, cr *Credentials) error {
 	if _, err := leaf.Apply(conf, c); err != nil {
 		return err
 	}
+	// onemindd cannot read /etc/onemind/nats (its sandbox), so it supervises the leaf from this copy.
+	if _, err := leaf.SaveConfig(in.p(leaf.DefaultConfigPath), c); err != nil {
+		return err
+	}
 	// The leaf's nats-server runs as its own system user (deploy/systemd/onemind-nats-leaf.service).
 	for _, f := range []string{dir, conf, nkeyFile, filepath.Join(dir, "ca.pem"), filepath.Join(dir, "node.crt"), filepath.Join(dir, "node.key")} {
 		if err := in.Sys.Chown(f, NATSUser); err != nil {
