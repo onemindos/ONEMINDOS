@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: Apache-2.0
+# Records one run of a test from docs/testing/TEST-REGISTER.md (how: docs/testing/README.md).
+name: Test result
+description: Record the result of a test from the test register (TR-###).
+title: "test: TR-### <outcome> on <environment>"
+labels: ["test-result"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One issue per run. Before pasting logs, remove IP and MAC addresses, serial numbers, e-mail addresses, tailnet names, tokens and home paths (`lab-kits/common/redact.sh` helps). This repository is public.
+  - type: input
+    id: tr
+    attributes:
+      label: Test id
+      description: The TR id(s) from docs/testing/TEST-REGISTER.md.
+      placeholder: TR-005
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit under test
+      description: Short commit hash, or the Actions run that built it.
+      placeholder: c2088ea
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Where it ran, without private details.
+      placeholder: "GitHub ubuntu-24.04 / Lima debian-13 arm64 / Beelink U55 / Pi 5 4 GB / iPhone (iOS 26)"
+    validations:
+      required: true
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Outcome
+      options:
+        - pass
+        - fail
+        - blocked (environment limit)
+        - partial
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What you ran
+      description: The exact commands or kit steps, and anything you did differently from the register.
+      render: shell
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and observed
+      description: Copy the register's "Expected result", then say what happened. For blocked, give the reason.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (redacted)
+      description: The relevant lines only, or a link to an Actions run or an evidence file.
+      render: text
+  - type: input
+    id: evidence
+    attributes:
+      label: Evidence link
+      description: Actions run, evidence file or lab-kit RESULT file.

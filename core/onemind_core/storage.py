@@ -33,12 +33,13 @@ import logging
 import socket
 import threading
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import JSON, DateTime, String, Text, select
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -62,6 +63,10 @@ class StorageSettings:
     socket: Path = Path("/run/onemind/storage.sock")  # ONEMIND_STORAGE_SOCKET
     poll_s: int = 60  # ONEMIND_STORAGE_POLL_S: finish operations, raise health events
     timeout_s: float = 15.0  # ONEMIND_STORAGE_TIMEOUT_S: one request to the storage service
+    # ONEMIND_STORAGE_RECOVERY_KEY_API=1: let an owner take the LUKS recovery key through
+    # POST /v1/storage/recovery-key. OFF: how keys are held and shown waits on founder decisions
+    # F-61/F-62 (D4); until they are made the gateway never hands a key out.
+    recovery_key_api: bool = False
 
     def validate(self) -> None:
         if self.poll_s < 5:
@@ -86,7 +91,17 @@ StorageType = Literal[
 # What each type needs in params.
 NEEDS = {"create": {"device"}, "add": {"device"}, "replace": {"member", "device"}, "remove": {"member"}, "repair": set()}
 
-DEVICE = r"^(/dev/[A-Za-z0-9/_.:+-]{1,120}|[A-Za-z0-9_.:+-]{1,120})$"
+# A bare reference (WWN, serial, devid:N, kernel name) cannot start with "-" (an option) or ".".
+DEVICE = r"^(/dev/[A-Za-z0-9/_.:+-]{1,120}|[A-Za-z0-9_:+][A-Za-z0-9_.:+-]{0,119})$"
+
+
+def _device_ref(v: str | None) -> str | None:
+    """A disk reference is a /dev path or a WWN/serial/devid; never a path that climbs out of /dev.
+    The node still accepts only disks its own lsblk reported (internal/storage Find); this refuses
+    the rest before anything is stored, audited or sent."""
+    if v is not None and v.startswith("/dev/") and any(seg in ("", ".", "..") for seg in v[5:].split("/")):
+        raise ValueError("device path must be /dev/<name> with no '..', '.' or empty parts")
+    return v
 
 
 class StorageParams(BaseModel):
@@ -96,6 +111,11 @@ class StorageParams(BaseModel):
     member: str | None = Field(default=None, pattern=DEVICE)  # devid, device, disk or "missing"
     unprotect: bool = False  # remove: accept going below two members
     wipe: bool = False  # replace/remove: erase the old disk afterwards
+
+    @field_validator("device", "member")
+    @classmethod
+    def _safe_ref(cls, v: str | None) -> str | None:
+        return _device_ref(v)
 
 
 class StoragePlanRequest(BaseModel):
@@ -265,6 +285,7 @@ class StorageService:
         self.repo = StorageRepository(gw.db)
         self.node_id = gw.settings.node_id or "hub"
         self._inflight: set[str] = set()
+        self._finishers: dict[str, Callable[[ExecResult], None]] = {}
         self._lock = threading.Lock()
         self._seen: dict[str, str] | None = None  # storage_observations, loaded at the first poll
         # An action the node does not know yet is "never started" only after this long: dispatch may
@@ -359,13 +380,15 @@ class StorageService:
         params = {**req.params.model_dump(exclude_none=True), "node_id": self._node(req.params)}
         existing = self.gw.repo.get_by_idempotency_key(key)
         if existing is not None:  # a replay files nothing new and renders nothing
-            action, created = self.gw.actions.file(principal, req.type, params, key, expires, req.reason)
+            action, created = self.gw.actions.request_feature(
+                principal, req.type, params, idempotency_key=key, expires_at=expires, reason=req.reason)
             return _redacted({"action": action, **(self.repo.get(action["id"]) or {})}, principal), created
         plan = self.render(req.type, req.params)
         if plan.get("blocked"):
             failed = [f"{c['id']}: {c['detail']}" for c in plan.get("checks", []) if not c.get("ok")]
             raise ApiError(409, "stale_precondition", "the plan is blocked: " + "; ".join(failed)[:900])
-        action, created = self.gw.actions.file(principal, req.type, params, key, expires, req.reason)
+        action, created = self.gw.actions.request_feature(
+            principal, req.type, params, idempotency_key=key, expires_at=expires, reason=req.reason)
         if created:
             self.repo.add(StorageOperationRow(
                 action_id=action["id"], node_id=params["node_id"], type=req.type, params=params, plan=plan,
@@ -395,7 +418,7 @@ class StorageService:
         self.gw.events.publish_event("storage", "recovery_key.shown", {"node_id": self.node_id}, principal=principal.as_dict())
         return {"one_time": {"recovery_key": body["recovery_key"]}}
 
-    # ---- ActionTypeHandler ---------------------------------------------------------------------------
+    # ---- FeatureAction callbacks (check, run) ----------------------------------------------------------
     def recheck(self, a: Action) -> str | None:
         row = self.repo.get(a.id)
         if row is None:
@@ -411,7 +434,17 @@ class StorageService:
             return "the plan changed since the request (a disk or the set changed): deny it and request again"
         return None
 
-    def dispatch(self, a: Action) -> ExecResult | None:
+    def run(self, a: Action, finish: Callable[[ExecResult], None]) -> None:
+        """After approval: start the operation on the node. The action closes now when the node
+        refused it, else the poller closes it (through `finish`) when the node's journal ends."""
+        result = self._dispatch(a)
+        if result is not None:
+            finish(result)
+            return
+        with self._lock:
+            self._finishers[a.id] = finish
+
+    def _dispatch(self, a: Action) -> ExecResult | None:
         row = self.repo.get(a.id) or {}
         kind = TYPES[a.type][0]
         body = {**self._engine_request(kind, a.params), "plan_sha256": row.get("plan_sha256"), "action_id": a.id}
@@ -432,6 +465,16 @@ class StorageService:
         msg = (resp or {}).get("message", f"storage service answered {status}")
         self.repo.update(a.id, self.gw.clock(), state="failed", error=msg)
         return ExecResult("failed", f"not started: {msg}")
+
+    def _close(self, a: Action, outcome: str, msg: str) -> bool:
+        """Close the ledger action through the callback `run` kept. After a gateway restart the
+        ledger already says outcome_unknown (actions.reconcile_interrupted) and stays so."""
+        with self._lock:
+            finish = self._finishers.pop(a.id, None)
+        if finish is None:
+            return False
+        finish(ExecResult(outcome, msg))
+        return True
 
     # ---- poller ----------------------------------------------------------------------------------------
     def start(self) -> None:
@@ -465,8 +508,13 @@ class StorageService:
             self._observe(st)
 
     def _sync_operations(self) -> None:
-        for a in self.gw.repo.list(states={"accepted", "dispatched"}):
+        # Actions the ledger still tracks, plus those a gateway restart left as outcome_unknown while
+        # the node kept working: the storage row, not the ledger, says whether it is still going.
+        for a in self.gw.repo.list(states={"accepted", "dispatched", "outcome_unknown"}):
             if a.type not in TYPES:
+                continue
+            row = self.repo.get(a.id)
+            if row is None or row["state"] in FINAL:
                 continue
             with self._lock:
                 if a.id in self._inflight:
@@ -481,12 +529,10 @@ class StorageService:
                     continue  # just approved: dispatch may still be sending it
                 # Never reached the node (the gateway stopped between approval and dispatch).
                 self.repo.update(a.id, now, state="failed", error="never started")
-                self.gw.actions.finish(a.id, "failed", "the storage service never started it", from_states=frozenset({"accepted", "dispatched"}))
+                self._close(a, "failed", "the storage service never started it")
                 continue
             if status != 200 or not isinstance(op, dict):
                 continue
-            if a.state == "accepted":  # the node has it, so it was dispatched (the gateway stopped right after)
-                self.gw.repo.transition(a.id, {"accepted"}, "dispatched", now)
             state = op.get("state")
             self.repo.update(a.id, now, state=state, progress=_progress(op), error=op.get("error"))
             if state not in FINAL:
@@ -495,12 +541,12 @@ class StorageService:
             msg = {"succeeded": "the operation finished and the set was verified",
                    "rolled_back": f"rolled back, the set is as before: {op.get('error')}",
                    "needs_attention": f"stopped; needs the owner: {op.get('error')}"}.get(state, op.get("error") or state)
-            if self.gw.actions.finish(a.id, outcome, msg, {"outcome": outcome, "message": msg, "operation": _progress(op)}):
-                sev = {"succeeded": "info", "rolled_back": "warning"}.get(state, "critical")
-                self.gw.events.publish_event(
-                    "storage", "operation.finished", {"node_id": self.node_id, "action_id": a.id, "type": a.type, "state": state, "error": op.get("error")},
-                    action_id=a.id, severity=sev, resource={"kind": "storage_set", "id": self.node_id},
-                )
+            self._close(a, outcome, msg)
+            sev = {"succeeded": "info", "rolled_back": "warning"}.get(state, "critical")
+            self.gw.events.publish_event(
+                "storage", "operation.finished", {"node_id": self.node_id, "action_id": a.id, "type": a.type, "state": state, "error": op.get("error")},
+                action_id=a.id, severity=sev, resource={"kind": "storage_set", "id": self.node_id},
+            )
 
     def _observe(self, st: dict) -> None:
         if self._seen is None:

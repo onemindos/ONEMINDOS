@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# The whiteboard on Service port 8080 (nginx listens on 80 in the pod).
+apiVersion: v1
+kind: Service
+metadata:
+  name: excalidraw
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: excalidraw
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

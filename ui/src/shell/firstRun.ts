@@ -4,7 +4,7 @@
 // steps headless. Starter apps are not installed by the wizard: each becomes an `app.install`
 // request the owner approves on Home after setup (P1).
 import type { CSSProperties } from 'react';
-import { ACCENTS as APPEARANCE_ACCENTS, ACCENT_IDS as APPEARANCE_ACCENT_IDS, presetAccent, type AccentId as AppearanceAccentId } from '../customize/accents';
+import { ACCENTS as APPEARANCE_ACCENTS, ACCENT_IDS as APPEARANCE_ACCENT_IDS, DEFAULT_ACCENT, presetAccent, type AccentId as AppearanceAccentId } from '../customize/accents';
 import type { ThemeChoice } from '../lib/theme';
 import { deployClass, type CategorySlug, type DeployClass } from './taxonomy';
 
@@ -27,10 +27,10 @@ export const accentName = (id: AccentId): string => APPEARANCE_ACCENTS[id].name;
 
 /**
  * CSS variables that re-tint a subtree with an accent. `light-dark()` follows the
- * `color-scheme` the token sheet sets for System, Light and Dark. Teal returns {} (the default).
+ * `color-scheme` the token sheet sets for System, Light and Dark. The default (brand) accent returns {}.
  */
 export function accentVars(id: AccentId): CSSProperties {
-  if (id === 'teal') return {};
+  if (id === DEFAULT_ACCENT) return {};
   const { light: l, dark: d } = presetAccent(id);
   const pair = (k: keyof typeof l.set) => `light-dark(${l.set[k]}, ${d.set[k]})`;
   return {
@@ -53,7 +53,7 @@ export interface OnboardingDraft {
   theme: ThemeChoice;
   accent: AccentId;
   starterApps: string[];
-  backup: { destination: BackupDestination; kitSaved: boolean };
+  backup: { destination: BackupDestination; kitSaved: boolean; destinationId?: string };
 }
 
 export function emptyDraft(timeZone = 'UTC'): OnboardingDraft {
@@ -63,7 +63,7 @@ export function emptyDraft(timeZone = 'UTC'): OnboardingDraft {
     ownerName: '',
     passkey: 'none',
     theme: 'system',
-    accent: 'teal',
+    accent: DEFAULT_ACCENT,
     starterApps: [],
     backup: { destination: 'usb', kitSaved: false },
   };
@@ -133,7 +133,7 @@ const q = (s: string) => (/^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, `
 export function initCommand(d: OnboardingDraft): string {
   const parts = ['onemind init', `--name ${q(d.boxName || '<name>')}`, `--timezone ${q(d.timeZone)}`, `--owner ${q(d.ownerName.trim() || '<your name>')}`];
   if (d.theme !== 'system') parts.push(`--theme ${d.theme}`);
-  if (d.accent !== 'teal') parts.push(`--accent ${d.accent}`);
+  if (d.accent !== DEFAULT_ACCENT) parts.push(`--accent ${d.accent}`);
   if (d.backup.destination !== 'later') parts.push(`--backup ${d.backup.destination}`);
   if (d.starterApps.length) parts.push(`--request-apps ${d.starterApps.join(',')}`);
   return parts.join(' ');

@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-/* OneMind accent on Starlight's tokens (dark is Starlight's default; light below). */
+/* The accent (--sl-color-accent-*) comes from brand.generated.css (brand/brand.json).
+   Status colours below (dark is Starlight's default; light after). */
 :root {
-  --sl-color-accent-low: #0b3b37;
-  --sl-color-accent: #14b8a6;
-  --sl-color-accent-high: #99f6e4;
   --om-ok: #22c55e;
   --om-warn: #eab308;
   --om-fail: #ef4444;
   --om-unknown: #94a3b8;
 }
 :root[data-theme='light'] {
-  --sl-color-accent-low: #ccfbf1;
-  --sl-color-accent: #0f766e;
-  --sl-color-accent-high: #134e4a;
   --om-ok: #15803d;
   --om-warn: #a16207;
   --om-fail: #b91c1c;

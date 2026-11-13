@@ -70,6 +70,9 @@ export interface Instance {
   name: string;
   version: string;
   hub_node_id: string;
+  /** §12.1 additions. */
+  api?: { version: string; min_client?: string };
+  features?: string[];
 }
 
 /** §9.3 `metadata.links`; the gateway passes only absolute http(s) URLs, else null. */
@@ -110,7 +113,8 @@ export interface CatalogApp {
   scan: ScanSummary | null;
 }
 
-export type ActionType = 'app.install' | 'app.remove';
+/** §3 types the phone itself requests; §12.5 adds many more, which the phone shows but never invents. */
+export type ActionType = 'app.install' | 'app.remove' | (string & {});
 
 /** §3 action states. */
 export type ActionState =
@@ -124,8 +128,10 @@ export type ActionState =
   | 'expired'
   | 'cancelled';
 
-export type PrincipalKind = 'person' | 'agent';
-export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'agent';
+/** §3 kinds plus the §12.1 additions (`plugin`, `automation`, `node`). */
+export type PrincipalKind = 'person' | 'agent' | 'plugin' | 'automation' | 'node';
+/** §12.6 adds `child`; unknown roles are treated as the least privileged. */
+export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'agent';
 
 /** §3 tokens map to principals `{id, kind, role}`. */
 export interface Principal {
@@ -147,7 +153,8 @@ export interface PrincipalRef {
 /** §3 `POST /v1/actions` body. */
 export interface ActionRequest {
   type: ActionType;
-  params: { app_id: string };
+  /** §3 `{app_id}`; §12.5 types carry other params, shown to the owner exactly as stored. */
+  params: { app_id?: string; [key: string]: unknown };
   idempotency_key: string;
   expires_at: string;
 }
@@ -178,9 +185,228 @@ export interface Action extends ActionRequest {
   decided_by?: PrincipalRef | null;
   decided_at?: string | null;
   result?: ActionResult | null;
+  // §12.4 additions, all optional for v0 gateways.
+  risk?: Risk;
+  /** Why the requester asked (≤ 500 chars). From an agent this is untrusted text. */
+  reason?: string | null;
+  target?: { kind: string; id: string; node_id?: string } | null;
+  plan?: Plan | null;
+  plan_sha256?: string | null;
+  /** `person:<id>` or `policy:<id>@<rev>` (§12.1). */
+  approved_by?: string | null;
+  approved_via?: 'dashboard' | 'phone' | 'cli' | 'policy' | 'console' | null;
+  approval?: 'passkey' | 'token' | 'policy' | 'console' | null;
+  hold?: { window_id: string; until: string } | null;
 }
 
-/** §3 error body. */
+/** §12.3 risk classes. */
+export type Risk = 'read' | 'write' | 'sensitive' | 'destructive' | 'actuate';
+
+/** §12.4 plan, rendered by the gateway at request time; what the owner approves is this plan. */
+export interface Plan {
+  summary?: string;
+  objects?: unknown[];
+  images?: unknown[];
+  volumes?: unknown[];
+  nodes?: unknown[];
+  warnings?: string[];
+}
+
+/** §12.4 `POST /v1/actions/{id}/approve-options`. `publicKey`/`rpId`/`allowCredentials` are optional extras (see lib/webauthn). */
+export interface ApproveOptions {
+  challenge: string;
+  action_sha256: string;
+  /** null when the action has no plan (the hub's identity module sends null, not ""). */
+  plan_sha256: string | null;
+  expires_at: string;
+  /** The hub's challenge record (login and passkey-register options carry it too). */
+  challenge_id?: string;
+  rpId?: string;
+  allowCredentials?: Array<{ id: string; type: 'public-key'; transports?: string[] }>;
+  userVerification?: 'required' | 'preferred' | 'discouraged';
+  publicKey?: Partial<WebAuthnRequestOptions>;
+}
+
+/** The assertion fields the gateway checks (§12.4 approve body `webauthn`). Base64url strings. */
+export interface WebAuthnAssertion {
+  id: string;
+  clientDataJSON: string;
+  authenticatorData: string;
+  signature: string;
+  userHandle?: string;
+}
+
+export interface WebAuthnAttestation {
+  id: string;
+  clientDataJSON: string;
+  attestationObject: string;
+  transports?: string[];
+}
+
+/** WebAuthn PublicKeyCredentialRequestOptions in JSON form (base64url binary fields). */
+export interface WebAuthnRequestOptions {
+  challenge: string;
+  rpId: string;
+  timeout?: number;
+  allowCredentials?: Array<{ id: string; type: 'public-key'; transports?: string[] }>;
+  userVerification?: 'required' | 'preferred' | 'discouraged';
+}
+
+/** WebAuthn PublicKeyCredentialCreationOptions in JSON form. */
+export interface WebAuthnCreationOptions {
+  challenge: string;
+  rp: { id: string; name: string };
+  user: { id: string; name: string; displayName: string };
+  pubKeyCredParams: Array<{ type: 'public-key'; alg: number }>;
+  timeout?: number;
+  excludeCredentials?: Array<{ id: string; type: 'public-key'; transports?: string[] }>;
+  authenticatorSelection?: {
+    authenticatorAttachment?: 'platform' | 'cross-platform';
+    residentKey?: 'discouraged' | 'preferred' | 'required';
+    requireResidentKey?: boolean;
+    userVerification?: 'discouraged' | 'preferred' | 'required';
+  };
+  attestation?: 'none' | 'indirect' | 'direct' | 'enterprise';
+}
+
+/** §12.4 approve body. */
+export interface ApproveBody {
+  plan_sha256?: string;
+  webauthn?: WebAuthnAssertion;
+}
+
+/** §12.6 `GET /v1/me`. */
+export interface Me {
+  principal: { id: string; kind: PrincipalKind; role: PrincipalRole; display_name?: string; username?: string };
+  token: { id: string; scopes: string[]; expires_at: string | null; source?: string } | null;
+  session: { id: string; expires_at: string; auth_method?: string; passkey_at?: string | null } | null;
+  passkeys: number;
+  scopes?: string[];
+  capabilities: string[];
+  step_up?: { passkeys_active: boolean; require_passkey_approval: boolean };
+}
+
+/** §12.6 login answer for apps and the CLI (bearer, not cookie). */
+export interface LoginResult {
+  access_token: string;
+  expires_at: string;
+  refresh_token?: string;
+  refresh_expires_at?: string;
+  session?: { id: string; expires_at: string };
+  /** Sent on sign-in (not on refresh). */
+  principal?: { id: string; kind: PrincipalKind; role: PrincipalRole; display_name?: string };
+}
+
+/** §12.14 severities and inbox item. */
+export type Severity = 'info' | 'warning' | 'critical';
+
+export interface InboxItem {
+  id: string;
+  severity: Severity;
+  topic: string;
+  title: string;
+  body: string;
+  link: string | null;
+  source: string;
+  action_id?: string | null;
+  alert_id?: string | null;
+  created_at: string;
+  read_at: string | null;
+}
+
+/** §12.14 alert record (`onemind.alert/v1`). */
+export interface AlertRecord {
+  id: string;
+  type: string;
+  severity: Severity;
+  title: string;
+  body: string;
+  subject?: Record<string, string>;
+  source_id?: string;
+  state: 'open' | 'acknowledged' | 'resolved';
+  dedupe_key?: string;
+  opened_at: string;
+  updated_at?: string;
+  resolved_at?: string | null;
+  occurrences?: number;
+  flapping?: boolean;
+  fix: { type: string; params: Record<string, unknown> } | null;
+  learn_more_url?: string | null;
+  topic?: string;
+  link?: string | null;
+  acked_by?: string | null;
+  acked_at?: string | null;
+}
+
+/**
+ * §12.14 push registration. `environment` and `bundle_id` are mobile proposals for the APNs relay (mobile/docs/push.md):
+ * today's hub accepts only webpush and unifiedpush and refuses unknown fields, so the client sends them only for apns.
+ */
+export interface PushRegistrationRequest {
+  platform: 'webpush' | 'unifiedpush' | 'apns';
+  endpoint?: string;
+  token?: string;
+  keys?: { p256dh: string; auth: string };
+  label: string;
+  environment?: 'sandbox' | 'production';
+  bundle_id?: string;
+}
+
+/** What the hub answers (device_json): the endpoint and keys are sealed on the box and never returned. */
+export interface PushRegistration {
+  id: string;
+  platform: PushRegistrationRequest['platform'];
+  label: string;
+  state?: string;
+  created_at?: string;
+  last_seen_at?: string | null;
+}
+
+/**
+ * Device registry (docs/umbrel2/clients.md §4.4, CLIENT-2; not yet in the contract).
+ * A device request files the owner-approved action `device.add`.
+ */
+export interface DeviceRequestBody {
+  name: string;
+  kind: 'phone';
+  platform: 'ios' | 'android';
+  app_version: string;
+  os_version: string;
+  jwk: EcPublicJwk;
+}
+
+export interface EcPublicJwk {
+  kty: 'EC';
+  crv: 'P-256';
+  x: string;
+  y: string;
+}
+
+export type DeviceState = 'pending' | 'active' | 'denied' | 'revoked';
+
+export interface DeviceRequest {
+  id: string;
+  state: DeviceState;
+  device_id?: string;
+  action_id?: string | null;
+  /** One-time code the requester polls with (clients.md §4.4). */
+  poll_code?: string;
+  /** Present once, when the request turns `active`. */
+  one_time?: { refresh_token?: string };
+}
+
+/** §12.8 event envelope `onemind.event/v1`. */
+export interface HubEvent {
+  schema: 'onemind.event/v1';
+  id: string;
+  type: string;
+  ts: string;
+  subject?: Record<string, string>;
+  severity?: Severity;
+  data?: Record<string, unknown>;
+}
+
+/** §3 error codes plus the §12.2 additions. */
 export type ApiErrorCode =
   | 'permission_denied'
   | 'stale_precondition'
@@ -188,21 +414,43 @@ export type ApiErrorCode =
   | 'conflict'
   | 'outcome_unknown'
   | 'not_found'
-  | 'unauthenticated';
+  | 'unauthenticated'
+  | 'rate_limited'
+  | 'unavailable'
+  | 'payload_too_large'
+  | 'policy_refused';
 
+/** §3 envelope with the optional §12.2 fields. Clients branch on `error` (and `reason`) only. */
 export interface ApiErrorBody {
-  error: ApiErrorCode;
+  error: string;
   message: string;
+  reason?: string;
+  request_id?: string;
+  details?: Array<{ field?: string; problem?: string }>;
+  retry_after_s?: number | null;
 }
 
 export class ApiError extends Error {
   readonly status: number;
   readonly code: ApiErrorCode | 'network' | 'unknown';
+  /** §12.2 open-ended reason (`step_up_required`, `plan_changed`, …). */
+  readonly reason?: string;
+  readonly retryAfterS?: number;
+  /** RFC 9449 §8: the server wants a fresh DPoP proof carrying this nonce. */
+  readonly dpopNonce?: string;
 
-  constructor(status: number, code: ApiError['code'], message: string) {
+  constructor(
+    status: number,
+    code: ApiError['code'],
+    message: string,
+    extra: { reason?: string; retryAfterS?: number; dpopNonce?: string } = {},
+  ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.reason = extra.reason;
+    this.retryAfterS = extra.retryAfterS;
+    this.dpopNonce = extra.dpopNonce;
   }
 }

@@ -1,0 +1,35 @@
+[
+  {
+    "site": "site-a",
+    "display": {
+      "readyBundles": "2/2"
+    },
+    "summary": {
+      "desiredReady": 2,
+      "ready": 2
+    },
+    "agentLastSeen": "2026-11-12T11:10:52Z"
+  },
+  {
+    "site": "box-1",
+    "display": {
+      "readyBundles": "2/2"
+    },
+    "summary": {
+      "desiredReady": 2,
+      "ready": 2
+    },
+    "agentLastSeen": "2026-11-12T11:10:38Z"
+  },
+  {
+    "site": "site-b",
+    "display": {
+      "readyBundles": "2/2"
+    },
+    "summary": {
+      "desiredReady": 2,
+      "ready": 2
+    },
+    "agentLastSeen": "2026-11-12T11:15:29Z"
+  }
+]

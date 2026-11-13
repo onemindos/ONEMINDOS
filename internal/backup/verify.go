@@ -28,6 +28,13 @@ func errUnknownTarget(id string) error { return fmt.Errorf("no target %q", id) }
 // Starting the restored app in a sealed namespace with fresh probes is the
 // gateway's part (K7); this is the node-side, file-level proof.
 func (a *Agent) VerifyRestore(ctx context.Context, u Unit, targetID string) (Verification, error) {
+	return a.VerifyRestoreMinAge(ctx, u, targetID, a.Cfg.Schedule.VerifyMinAge.Duration)
+}
+
+// VerifyRestoreMinAge is VerifyRestore with the minimum snapshot age given;
+// 0 verifies the newest snapshot (an owner's "verify now", contract §12.5
+// backup.verify {latest: true}).
+func (a *Agent) VerifyRestoreMinAge(ctx context.Context, u Unit, targetID string, minAge time.Duration) (Verification, error) {
 	t, ok := a.target(targetID)
 	if !ok {
 		return Verification{}, errUnknownTarget(targetID)
@@ -38,7 +45,7 @@ func (a *Agent) VerifyRestore(ctx context.Context, u Unit, targetID string) (Ver
 	defer a.release()
 	v := Verification{ID: "ver_" + NewRunID(a.Now())[4:], Unit: u.Name, TargetID: t.ID, Kind: "restore",
 		StartedAt: a.Now().UTC(), Details: map[string]any{}}
-	verdict, err := a.verifyRestore(ctx, u, t, &v)
+	verdict, err := a.verifyRestore(ctx, u, t, &v, minAge)
 	v.Verdict, v.FinishedAt = verdict, a.Now().UTC()
 	if err != nil {
 		v.Details["error"] = err.Error()
@@ -53,7 +60,7 @@ func (a *Agent) VerifyRestore(ctx context.Context, u Unit, targetID string) (Ver
 	return v, serr
 }
 
-func (a *Agent) verifyRestore(ctx context.Context, u Unit, t Target, v *Verification) (string, error) {
+func (a *Agent) verifyRestore(ctx context.Context, u Unit, t Target, v *Verification, minAge time.Duration) (string, error) {
 	repo, err := a.readyRepo(ctx, t)
 	if err != nil {
 		return VerdictError, err
@@ -62,7 +69,7 @@ func (a *Agent) verifyRestore(ctx context.Context, u Unit, t Target, v *Verifica
 	if err != nil {
 		return VerdictError, err
 	}
-	cutoff := a.Now().Add(-a.Cfg.Schedule.VerifyMinAge.Duration)
+	cutoff := a.Now().Add(-minAge)
 	var snap *Snapshot
 	for i := range snaps {
 		s := &snaps[i]
@@ -71,7 +78,7 @@ func (a *Agent) verifyRestore(ctx context.Context, u Unit, t Target, v *Verifica
 		}
 	}
 	if snap == nil {
-		return VerdictError, fmt.Errorf("no snapshot of %s older than %s", u.Name, a.Cfg.Schedule.VerifyMinAge.Duration)
+		return VerdictError, fmt.Errorf("no snapshot of %s older than %s", u.Name, minAge)
 	}
 	v.SnapshotID = snap.ID
 	v.Details["snapshot_time"] = snap.Time.UTC().Format(time.RFC3339)

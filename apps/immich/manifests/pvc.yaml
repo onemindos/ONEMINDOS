@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# immich-library: /data, the server's upload location (UPLOAD_LOCATION in example.env): originals,
+# thumbnails, encoded video and database backups. immich-db: the PostgreSQL data directory
+# (DB_DATA_LOCATION); requirements.md: "typically between 1-3 GB". 100Gi and 5Gi are OneMind
+# choices. No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-library
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-db
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi

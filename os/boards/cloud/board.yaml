@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Generic UEFI cloud image, and the rootfs every cloud-<name> board is assembled from
+# (docs/leap/core/CLOUD-IMAGES.md). cloud-init picks the cloud from DMI (ds-identify).
+name: cloud
+arch: amd64
+compatible: onemind-cloud
+route: grub-efi                 # grub-efi | grub-bios (BD-08)
+rauc_bootloader: grub
+grub_target: x86_64-efi
+efi_binary: BOOTX64.EFI
+console: "console=tty0 console=ttyS0,115200"
+layout: layout.yaml
+outputs: [raw]
+cloud: true             # cloud-init + sshd; admin user "admin" (the "onemind" user is the gateway's)
+secure_boot: none       # unsigned GRUB: launch with Secure Boot / Trusted Launch / Shielded VM secure boot off

@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# The site and /wp-admin on Service port 8080 (Apache listens on 80 in the pod). The database has
+# no Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: wordpress
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

@@ -7,7 +7,7 @@ import pytest
 
 from conftest import AGENT, GUEST, OWNER, make_client
 from onemind_core.catalog import Catalog, builtin_check
-from onemind_core.nodes import NodeRegistry
+from onemind_core.nodes import MAX_NODES, OFFLINE_AFTER_S, NodeRegistry
 
 
 def heartbeat(node_id="3f9c2a1b7d4e", **extra):
@@ -89,11 +89,27 @@ def test_forbidden_fields_are_stripped(clock):
     assert n["status"] == "online"
 
 
+def test_registry_is_bounded_against_invented_node_ids(clock):
+    """NATS has no users yet, so any LAN device can publish as any node id: the registry must not
+    grow without bound, must keep serving known nodes, and must make room only from offline ones."""
+    reg = NodeRegistry(clock)
+    for i in range(MAX_NODES):
+        assert reg.ingest(f"onemind.node.n{i}.status", heartbeat(f"n{i}"))
+    assert reg.ingest("onemind.node.flood.status", heartbeat("flood")) is False  # all online: refused
+    assert len(reg.list()) == MAX_NODES and reg.get("flood") is None
+    assert reg.ingest("onemind.node.n7.status", heartbeat("n7"))  # a known node still updates
+    clock.advance(OFFLINE_AFTER_S + 1)
+    assert reg.ingest("onemind.node.n7.status", heartbeat("n7"))  # n7 is fresh again; the rest are offline
+    assert reg.ingest("onemind.node.late.status", heartbeat("late"))  # makes room by dropping an offline node
+    ids = {n["node_id"] for n in reg.list()}
+    assert len(ids) == MAX_NODES and {"n7", "late"} <= ids
+
+
 # ---- apps ------------------------------------------------------------------------------
 
 CATALOG_KEYS = {
     "id", "name", "version", "description", "category", "icon", "license", "source",
-    "archs", "requires", "web_port", "installed", "status",
+    "archs", "requires", "web_port", "installed", "status", "data_kept",
     "links", "tier", "scan",  # §11.4
 }
 VALID_APPS = {"uptime-kuma", "whoami", "hermes-like"}
@@ -112,9 +128,9 @@ def test_apps_catalog_shape(client):
     assert ku["installed"] is False and ku["status"] == "not_installed"
 
 
-@pytest.mark.parametrize("path", ["/v1/apps/uptime-kuma", "/v1/apps/uptime-kuma/icon"])
+@pytest.mark.parametrize("path", ["/v1/apps/uptime-kuma/icon"])
 def test_no_routes_beyond_contract(client, path):
-    # Section 3 lists only GET /v1/apps; an open icon route would also break "only /healthz is open".
+    # §12.15 adds GET /v1/apps/{id}; an open icon route would still break "only /healthz is open".
     assert client.get(path).status_code in (401, 404)
     assert client.get(path, headers=OWNER).status_code == 404
 

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# cloud-init's growpart grows the onemind-data partition to the instance's disk; this grows the
+# ext4 filesystem on it (online). A no-op when nothing changed.
+[Unit]
+Description=OneMind: grow the data filesystem to its partition
+After=cloud-init-network.service cloud-init.service
+RequiresMountsFor=/data
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/resize2fs /dev/disk/by-partlabel/onemind-data
+
+[Install]
+WantedBy=multi-user.target

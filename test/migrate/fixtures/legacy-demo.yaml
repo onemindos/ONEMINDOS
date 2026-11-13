@@ -1,0 +1,191 @@
+# SPDX-License-Identifier: Apache-2.0
+# A generic "old cluster" namespace for the migration kit e2e (test/migrate/README.md):
+# a notes app with a volume, a database-like StatefulSet that writes all the time, a stateless
+# web page, an Ingress, a CronJob and things the kit must refuse or drop. Seeded data is random
+# and generated in the VM at run time. Images are tag-only on purpose (except db), so the plan
+# has to pin them to the digests k3s actually runs.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: legacy-demo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-page
+  namespace: legacy-demo
+data:
+  index.html: "<h1>legacy web</h1>\n"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: notes-data
+  namespace: legacy-demo
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notes
+  namespace: legacy-demo
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: notes}
+  template:
+    metadata:
+      labels: {app: notes}
+    spec:
+      nodeSelector: {kubernetes.io/os: linux}
+      containers:
+        - name: notes
+          image: docker.io/library/busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /data/docs/sub
+              if [ ! -f /data/docs/.seeded ]; then
+                i=0; while [ $i -lt 40 ]; do head -c 8192 /dev/urandom > /data/docs/f$i.bin; i=$((i+1)); done
+                echo "a note" > "/data/docs/sub/name with spaces.txt"
+                chmod 640 /data/docs/f1.bin; chown 1000:1000 /data/docs/f2.bin
+                touch /data/docs/.seeded
+              fi
+              exec httpd -f -p 8080 -h /data/docs
+          env:
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef: {name: notes-env, key: API_KEY, optional: true}
+          ports:
+            - containerPort: 8080
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: notes-data}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notes
+  namespace: legacy-demo
+spec:
+  type: NodePort
+  selector: {app: notes}
+  ports:
+    - {name: http, port: 80, targetPort: 8080}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: notes
+  namespace: legacy-demo
+spec:
+  rules:
+    - host: notes.example.test
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: notes
+                port: {name: http}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: legacy-demo
+spec:
+  clusterIP: None
+  selector: {app: db}
+  ports:
+    - {port: 5432}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: legacy-demo
+spec:
+  replicas: 1
+  serviceName: db
+  selector:
+    matchLabels: {app: db}
+  template:
+    metadata:
+      labels: {app: db}
+    spec:
+      terminationGracePeriodSeconds: 2
+      containers:
+        - name: db
+          image: docker.io/library/busybox:1.37.0@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+          # Writes a line every 200 ms: a warm copy taken while it runs may differ, the final one
+          # (old app stopped) must match exactly.
+          command: [sh, -c, 'while true; do date +%s%N >> /var/lib/db/log.txt; sleep 0.2; done']
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 32Mi}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/db}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: legacy-demo
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: web}
+  template:
+    metadata:
+      labels: {app: web}
+    spec:
+      containers:
+        - name: web
+          image: docker.io/library/busybox:1.37.0
+          command: [httpd, -f, -p, "8080", -h, /www]
+          resources:
+            limits: {cpu: 50m, memory: 32Mi}
+          volumeMounts:
+            - {name: page, mountPath: /www}
+      volumes:
+        - name: page
+          configMap: {name: web-page}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nightly
+  namespace: legacy-demo
+spec:
+  schedule: "0 3 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: job
+              image: docker.io/library/busybox:1.37.0
+              command: ["true"]

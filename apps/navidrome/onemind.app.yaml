@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# navidrome: Market batch 3 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by sdk/tools/app-scaffold
+# (§9.2) and completed from primary sources: Dockerfile, contrib/docker-compose/docker-compose.yml and server/server.go (/ping) at v0.64.2.
+# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-12.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: navidrome
+  name: "Navidrome"
+  version: "0.64.2"
+  description: "🎧 Your Personal Streaming Service"
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (music) are listed in README.md
+  # until the schema has metadata.tags.
+  category: media
+  icon: icon.svg
+  license: "GPL-3.0"
+  source: https://github.com/navidrome/navidrome
+  links:
+    docs: "https://www.navidrome.org/docs/"
+    github: "https://github.com/navidrome/navidrome"
+    website: "https://www.navidrome.org"
+    support: "https://github.com/navidrome/navidrome/issues"
+  upstream: {release: "v0.64.2", released_at: "2026-09-24T23:26:20Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 128}   # sum of the memory requests in manifests/
+  web: {port: 4533}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

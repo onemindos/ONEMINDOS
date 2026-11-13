@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Reverse proxy for installed apps, with gateway sign-in in front (H-29; NETWORKING.md §9).
 
-Routing (an ASGI middleware, so HTTP and WebSocket share one code path):
+NOT MOUNTED YET (CORE-NET-8): no router or middleware registration in app.py uses this module.
+Routing (written as an ASGI middleware, so HTTP and WebSocket share one code path):
 - by host: <app>.<box-domain> (for example uptime-kuma.onemind.local or <app>.apps.onemind.internal);
 - by path, as a fallback for clients without multi-label mDNS: /apps/<app>/... on any host the
   gateway answers, with the /apps/<app> prefix removed before the request goes upstream. **Off by
@@ -27,7 +28,8 @@ What it refuses (no open proxy):
   listed without signing in.
 
 Timeouts: connect, idle read and total request body size are bounded (H-20). The decision
-`AppProxy.decide()` is the same one the Go edge will ask for through /v1/auth/forward (§9.3).
+`AppProxy.decide()` is the same one the Go edge will ask for through /v1/auth/forward (§9.3;
+that route does not exist yet).
 """
 
 from __future__ import annotations

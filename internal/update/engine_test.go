@@ -240,6 +240,24 @@ func TestWrongRootRefused(t *testing.T) {
 	wantCalls(t, f.calls)
 }
 
+// F-27: the repo and dev images ship no TUF root (only the documented place). With no root in the image
+// the updater must refuse every mode and never reach RAUC, even for a validly published repository.
+func TestNoRootRefusesEveryMode(t *testing.T) {
+	f := newFixture(t, "security", "window = any\n")
+	f.add("vm", "0.1.1", true)
+	f.publish(0)
+	if err := os.RemoveAll(filepath.Join(f.dir, "tuf")); err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range []Mode{ModeScheduled, ModeCheck, ModeApply} {
+		_, err := f.run(m)
+		if err == nil || !strings.Contains(err.Error(), "trusted root") {
+			t.Fatalf("mode %d with no image root: err = %v, want a trusted-root refusal", m, err)
+		}
+	}
+	wantCalls(t, f.calls)
+}
+
 func TestWrongBoardNotOffered(t *testing.T) {
 	f := newFixture(t, "security", "window = any\n")
 	f.add("rpi5", "0.1.1", true)

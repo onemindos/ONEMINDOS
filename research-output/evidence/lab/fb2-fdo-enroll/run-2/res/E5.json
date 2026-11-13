@@ -1,0 +1,9 @@
+{
+  "id": "E5",
+  "verdict": "OBS",
+  "at": "2026-11-12T10:30:27Z",
+  "data": {
+    "reonboard_completed_before_revoke": false,
+    "note": "control for T5"
+  }
+}

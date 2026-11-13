@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# 3000 is the web UI. 53 UDP/TCP is DNS; as a ClusterIP it answers only inside the cluster until
+# OneMind can expose an app on the home network (README "Not done yet").
+apiVersion: v1
+kind: Service
+metadata:
+  name: adguard-home
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: adguard-home
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP
+    - name: dns-udp
+      port: 53
+      targetPort: dns-udp
+      protocol: UDP
+    - name: dns-tcp
+      port: 53
+      targetPort: dns-tcp
+      protocol: TCP

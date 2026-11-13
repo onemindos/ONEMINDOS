@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# The app on Service port 9001 (docker-compose.yaml publishes 9001:8080, and PENPOT_PUBLIC_URI is
+# http://localhost:9001). The backend, exporter, database and Valkey have no Service: the frontend
+# proxies /api, /ws and exports to them inside the pod.
+apiVersion: v1
+kind: Service
+metadata:
+  name: penpot
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: penpot
+  ports:
+    - name: http
+      port: 9001
+      targetPort: http
+      protocol: TCP

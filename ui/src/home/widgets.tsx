@@ -4,6 +4,7 @@
 import { useId, type ReactNode } from 'react';
 import type { ActionSummary } from '../components/ApprovalCard';
 import { actionTitle, equivalentCall, requesterPill } from '../components/ApprovalCard';
+import { BRAND } from '../components/BrandMark';
 import { Button } from '../components/Button';
 import { Meter } from '../components/Meter';
 import { FreshnessPill, StatusPill } from '../components/StatusPill';
@@ -340,7 +341,7 @@ function BackupsWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
 
 function UpdatesWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const l = ctx.data.updates;
-  const common = { title: 'Updates', icon: 'updates' as const, size: w.size, href: ctx.links.updates, hrefLabel: 'Review', source: 'GET /v1/updates (proposed)', showSource: ctx.showSource };
+  const common = { title: 'Updates', icon: 'updates' as const, size: w.size, href: ctx.links.updates, hrefLabel: 'Review', source: 'GET /v1/os/status (proposed)', showSource: ctx.showSource };
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   const u = l.data;
   const checkAge = secondsSince(u.checked_at, ctx.now);
@@ -354,7 +355,7 @@ function UpdatesWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
         {u.os && (
           <li>
             <span className="omh-row-main">
-              <strong>OneMind OS</strong> {u.os.from} → {u.os.to}
+              <strong>{BRAND.name}</strong> {u.os.from} → {u.os.to}
             </span>
             {u.os.channel === 'security' && <StatusPill tone="warn" label="Security" />}
           </li>
@@ -384,7 +385,7 @@ const REMOTE = { off: 'Remote access is off', mesh: 'Reachable on your mesh', pu
 
 function MeshWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const l = ctx.data.mesh;
-  const common = { title: 'Network', icon: 'link' as const, size: w.size, href: ctx.links.mesh, source: 'GET /v1/fabric/links (proposed)', showSource: ctx.showSource };
+  const common = { title: 'Network', icon: 'link' as const, size: w.size, href: ctx.links.mesh, source: 'GET /v1/fabric (proposed)', showSource: ctx.showSource };
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   const m = l.data;
   if (!m.links.length) return <WidgetFrame {...common} state={{ kind: 'empty', title: 'Only the hub so far', body: 'Add a node to see its link here.' }} />;

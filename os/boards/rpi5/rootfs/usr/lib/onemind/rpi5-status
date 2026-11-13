@@ -1,0 +1,12 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Board rpi5: one-screen A/B status for LT-PI5-01 (read-only). Port of the F-PI5 kit's onemind-status.
+dt() { f=/proc/device-tree/chosen/bootloader/$1; [ -f "$f" ] && printf '%d' "0x$(od -v -An -t x1 "$f" | tr -d ' \n')" || echo '?'; }
+echo "release:      $(. /usr/lib/os-release; echo "$ONEMIND_VERSION")   cmdline slot: $(sed -n 's/.*rauc\.slot=\([A-Z]\).*/\1/p' /proc/cmdline)   page size: $(getconf PAGESIZE)"
+echo "firmware:     tryboot=$(dt tryboot) partition=$(dt partition)   (partition 2 = A, 3 = B)   bootloader: $(cat /data/onemind/rpi5-eeprom 2>/dev/null)"
+echo "autoboot.txt: $(tr '\n' ' ' < /boot/efi/autoboot.txt)"
+echo "good marks:   $(cd /boot/efi && ls slot-*.good 2>/dev/null | tr '\n' ' ')"
+echo "pending:      $(cat /data/onemind/pending 2>/dev/null || echo none)   reboot-param: $(cat /run/systemd/reboot-param 2>/dev/null || echo none)"
+echo "rauc:         $(rauc --version)"
+rauc status 2>&1 | grep -E 'Booted from|Activated|boot status|\[(boot|rootfs)\.' | sed 's/^/  /'
+echo "gate (last 6):"; tail -n 6 /data/onemind/gate.log 2>/dev/null | cut -c1-200 | sed 's/^/  /'

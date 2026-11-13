@@ -12,6 +12,7 @@ import shutil
 import socketserver
 import tempfile
 import threading
+from contextlib import contextmanager
 from dataclasses import replace
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
@@ -23,6 +24,8 @@ from onemind_core.app import create_app
 from onemind_core.storage import StorageService, StorageSettings
 
 from conftest import AGENT, GUEST, OWNER
+from onemind_core.identity import IdentitySettings
+from test_identity import ORIGIN, RP_ID, SoftAuthenticator, csrf, register_passkey, setup_owner
 
 SHA_A = "a" * 64
 SHA_B = "b" * 64
@@ -37,12 +40,14 @@ class FakeNode:
         self.blocked = False
         self.ops: dict[str, dict] = {}
         self.started: list[dict] = []
+        self.plans = 0  # how many plans were asked of the node
         self.busy = False
-        self.recovery_key: str | None = "cbdefghi-jklnrtuv-cbdefghi-jklnrtuv-cbdefghi-jklnrtuv-cbdefghi-jklnrtuv"
+        self.recovery_key: str | None = "FAKE-RECOVERY-KEY-FOR-TESTS-ONLY"
         self.state = "unprotected"
         self.verdict = "ok"
 
     def plan(self, req: dict) -> dict:
+        self.plans += 1
         return {
             "kind": "protect", "mount": "/data", "blocked": self.blocked, "plan_sha256": self.sha,
             "checks": [{"id": "unused:/dev/vdc", "ok": not self.blocked, "detail": "holds: ext4"}],
@@ -141,9 +146,34 @@ def no_poller(monkeypatch):
     monkeypatch.setattr(StorageService, "start", lambda self: None)
 
 
+def _settings(settings, node, enabled=True, **storage):
+    st = StorageSettings(enabled=enabled, socket=node.sock, timeout_s=5, **storage)
+    idn = IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False)
+    return replace(settings, sections={"storage": st, "identity": idn})
+
+
+@contextmanager
+def booted(settings, clock, node, enabled=True, key=None, **storage):
+    """A gateway with identity on and one owner with a passkey (`c.key`), as a real box has: the
+    destructive storage types are approved only with that passkey. Pass `key` after a restart."""
+    with TestClient(create_app(_settings(settings, node, enabled, **storage), clock=clock)) as c:
+        if key is None:
+            setup_owner(c)
+            key = SoftAuthenticator()
+            register_passkey(c, key)
+        c.key = key
+        yield c
+
+
 def storage_client(settings, clock, node, enabled=True):
-    s = replace(settings, sections={"storage": StorageSettings(enabled=enabled, socket=node.sock, poll_s=60, timeout_s=5)})
-    return TestClient(create_app(s, clock=clock))
+    return booted(settings, clock, node, enabled)
+
+
+def approve(c, action_id, key=None, headers=OWNER):
+    """Approve as the owner would: ask for the challenge, sign it with the passkey, send it."""
+    opts = c.post(f"/v1/actions/{action_id}/approve-options", headers=headers).json()
+    return c.post(f"/v1/actions/{action_id}/approve", headers=headers,
+                  json={"webauthn": (key or c.key).assert_(opts["challenge"], flat=True)})
 
 
 def request_create(c, headers=OWNER, **extra):
@@ -170,7 +200,7 @@ def test_request_approve_run_and_finish(settings, clock, node, no_poller):
         assert body["plan"]["targets"][0]["serial_tail"] == SERIAL[-4:]  # the approval card names the disk
         assert node.started == []  # nothing runs before approval
 
-        a = c.post(f"/v1/actions/{action['id']}/approve", headers=OWNER)
+        a = approve(c, action['id'])
         assert a.status_code == 200 and a.json()["state"] == "dispatched", a.text
         assert node.started == [{"kind": "create", "device": "/dev/vdc", "plan_sha256": SHA_A, "action_id": action["id"]}]
         op = c.get(f"/v1/storage/operations/{action['id']}", headers=OWNER).json()
@@ -183,7 +213,8 @@ def test_request_approve_run_and_finish(settings, clock, node, no_poller):
         node.ops[action["id"]]["next"] = 3
         svc.poll()
         done = c.get(f"/v1/actions/{action['id']}", headers=OWNER).json()
-        assert done["state"] == "succeeded" and done["result"]["operation"]["state"] == "succeeded"
+        assert done["state"] == "succeeded" and "verified" in done["result"]["message"]
+        assert c.get(f"/v1/storage/operations/{action['id']}", headers=OWNER).json()["state"] == "succeeded"
         assert any(e["type"] == "storage.operation.finished" and e["data"]["state"] == "succeeded" for e in seen)
         svc.poll()  # closed once
         assert sum(e["type"] == "storage.operation.finished" for e in seen) == 1
@@ -196,7 +227,7 @@ def test_plan_changed_before_approval_is_stale(settings, clock, node, no_poller)
     with storage_client(settings, clock, node) as c:
         action = request_create(c).json()["action"]
         node.sha = SHA_B  # someone swapped the cable: the disk on that path is a different one
-        a = c.post(f"/v1/actions/{action['id']}/approve", headers=OWNER)
+        a = approve(c, action['id'])
         assert a.status_code == 409 and a.json()["error"] == "stale_precondition", a.text
         assert c.get(f"/v1/actions/{action['id']}", headers=OWNER).json()["state"] == "awaiting_approval"
         assert node.started == []
@@ -206,9 +237,10 @@ def test_node_refuses_changed_plan_at_dispatch(settings, clock, node, no_poller,
     with storage_client(settings, clock, node) as c:
         action = request_create(c).json()["action"]
         svc = c.app.state.storage
-        monkeypatch.setattr(svc, "recheck", lambda a: None)  # the change lands between approval and dispatch
+        types = c.app.state.gateway.actions.feature_types  # the change lands between approval and dispatch
+        types["storage.mirror.create"] = replace(types["storage.mirror.create"], check=lambda a: None)
         node.sha = SHA_B
-        a = c.post(f"/v1/actions/{action['id']}/approve", headers=OWNER).json()
+        a = approve(c, action['id']).json()
         assert a["state"] == "failed" and "not started" in a["result"]["message"]
         assert node.started == []
 
@@ -243,7 +275,7 @@ def test_refusals(settings, clock, node, no_poller):
         assert r.status_code == 422  # no owner shortcut for disk changes in v0
         node.busy = True
         action = request_create(c).json()["action"]
-        a = c.post(f"/v1/actions/{action['id']}/approve", headers=OWNER).json()
+        a = approve(c, action['id']).json()
         assert a["state"] == "failed" and "another storage operation" in a["result"]["message"]
 
 
@@ -261,10 +293,11 @@ def test_idempotent_replay(settings, clock, node, no_poller):
 
 def test_disabled_and_unreachable(settings, clock, node, no_poller):
     with storage_client(settings, clock, node, enabled=False) as c:
+        key = c.key
         assert c.get("/v1/storage", headers=GUEST).json() == {"node_id": "abc123def456", "enabled": False, "available": False}
         assert request_create(c).status_code == 409
     node.sock = Path("/tmp/om-st-missing/s.sock")
-    with storage_client(settings, clock, node) as c:
+    with booted(settings, clock, node, key=key) as c:
         assert c.get("/v1/storage", headers=OWNER).json()["available"] is False
         r = request_create(c)
         assert r.status_code == 409 and "not reachable" in r.json()["message"]
@@ -280,7 +313,7 @@ def test_summary_has_no_disk_identities(settings, clock, node, no_poller):
 
 
 def test_recovery_key_shown_once_to_owners(settings, clock, node, no_poller):
-    with storage_client(settings, clock, node) as c:
+    with booted(settings, clock, node, recovery_key_api=True) as c:
         assert c.post("/v1/storage/recovery-key", headers=AGENT).status_code == 403
         r = c.post("/v1/storage/recovery-key", headers=OWNER)
         assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
@@ -309,22 +342,28 @@ def test_health_and_state_events_once(settings, clock, node, no_poller):
 
 
 def test_gateway_restart_keeps_a_running_operation(settings, clock, node, no_poller):
-    s = replace(settings, sections={"storage": StorageSettings(enabled=True, socket=node.sock)})
-    with TestClient(create_app(s, clock=clock)) as c:
+    """The ledger cannot know what a restart interrupted (outcome_unknown, actions.py); the node's
+    journal can, so the storage row still ends with the truth and the owner gets the event."""
+    with booted(settings, clock, node) as c:
+        key = c.key
         action = request_create(c).json()["action"]
-        assert c.post(f"/v1/actions/{action['id']}/approve", headers=OWNER).json()["state"] == "dispatched"
-    with TestClient(create_app(s, clock=clock)) as c:  # the gateway restarts mid-operation
-        assert c.get(f"/v1/actions/{action['id']}", headers=OWNER).json()["state"] == "dispatched"
+        assert approve(c, action["id"]).json()["state"] == "dispatched"
+    with booted(settings, clock, node, key=key) as c:  # the gateway restarts mid-operation
+        assert c.get(f"/v1/actions/{action['id']}", headers=OWNER).json()["state"] == "outcome_unknown"
+        seen = events(c)
         node.ops[action["id"]].update(state="rolled_back", error="step 13 device-add exited 1")
         c.app.state.storage.poll()
-        a = c.get(f"/v1/actions/{action['id']}", headers=OWNER).json()
-        assert a["state"] == "failed" and "rolled back" in a["result"]["message"]
+        op = c.get(f"/v1/storage/operations/{action['id']}", headers=OWNER).json()
+        assert op["state"] == "rolled_back" and "device-add" in op["error"]
+        assert [e["data"]["state"] for e in seen if e["type"] == "storage.operation.finished"] == ["rolled_back"]
+        c.app.state.storage.poll()  # told once
+        assert sum(e["type"] == "storage.operation.finished" for e in seen) == 1
 
 
 def test_dispatched_but_never_started(settings, clock, node, no_poller):
     with storage_client(settings, clock, node) as c:
         action = request_create(c).json()["action"]
-        c.post(f"/v1/actions/{action['id']}/approve", headers=OWNER)
+        approve(c, action['id'])
         node.ops.clear()  # the node never got it
         c.app.state.storage.poll()  # just approved: dispatch may still be on its way
         assert c.get(f"/v1/actions/{action['id']}", headers=OWNER).json()["state"] == "dispatched"
@@ -340,14 +379,14 @@ def test_poller_does_not_fail_an_action_being_dispatched(settings, clock, node, 
     with storage_client(settings, clock, node) as c:
         action = request_create(c).json()["action"]
         svc = c.app.state.storage
-        real = svc.dispatch
+        real = svc._dispatch
 
         def dispatch_after_a_poll(a):
             svc.poll()  # the background poller runs between "accepted" and the request to the node
             return real(a)
 
-        monkeypatch.setattr(svc, "dispatch", dispatch_after_a_poll)
-        assert c.post(f"/v1/actions/{action['id']}/approve", headers=OWNER).json()["state"] == "dispatched"
+        monkeypatch.setattr(svc, "_dispatch", dispatch_after_a_poll)
+        assert approve(c, action['id']).json()["state"] == "dispatched"
         assert node.started and c.get(f"/v1/storage/operations/{action['id']}", headers=OWNER).json()["state"] == "running"
 
 
@@ -366,19 +405,19 @@ def test_full_disk_ids_only_for_owners(settings, clock, node, no_poller):
 
 def test_health_events_survive_a_gateway_restart(settings, clock, node, no_poller):
     """A problem that ends while the gateway is down still resolves its alert; nothing is told twice."""
-    s = replace(settings, sections={"storage": StorageSettings(enabled=True, socket=node.sock)})
     node.state, node.verdict = "degraded", "critical"
-    with TestClient(create_app(s, clock=clock)) as c:
+    with booted(settings, clock, node) as c:
+        key = c.key
         c.app.state.storage.poll()
     node.state, node.verdict = "protected", "ok"
-    with TestClient(create_app(s, clock=clock)) as c:
+    with booted(settings, clock, node, key=key) as c:
         seen = events(c)
         c.app.state.storage.poll()
         c.app.state.storage.poll()
         types = [e["type"] for e in seen]
         assert types.count("storage.ok") == 1 and types.count("storage.disk.ok") == 1, types
         assert "storage.degraded" not in types and "storage.disk.failing" not in types
-    with TestClient(create_app(s, clock=clock)) as c:  # unchanged across a restart: nothing new
+    with booted(settings, clock, node, key=key) as c:  # unchanged across a restart: nothing new
         seen = events(c)
         c.app.state.storage.poll()
         assert seen == []

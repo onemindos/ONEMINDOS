@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# Penpot: Market batch 4 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources at tag 2.19.1:
+# docker/images/docker-compose.yaml, docker/images/Dockerfile.{frontend,backend,exporter},
+# docker/images/files/nginx-entrypoint.sh, backend/scripts/run.template.sh, backend/src/app/health.clj,
+# exporter/src/app/http.cljs and docs/technical-guide/getting-started/{docker,recommended-settings}.md.
+# Image digests and archs from crane; licence from the GitHub licence API.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: penpot
+  name: "Penpot"
+  version: "2.19.1"
+  description: "Design and prototyping platform for teams, working with open standards (SVG, CSS)."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: developer
+  icon: icon.svg
+  license: "MPL-2.0"
+  source: https://github.com/penpot/penpot
+  # §9.3 facts from the GitHub API (repos/penpot/penpot), read 2026-11-12.
+  links:
+    docs: "https://help.penpot.app/technical-guide/"
+    github: "https://github.com/penpot/penpot"
+    website: "https://penpot.app"
+    support: "https://github.com/penpot/penpot/issues"
+  upstream: {release: "2.19.1", released_at: "2026-11-11T10:03:30Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVE-2025-68121 and a private-key finding in the bundled postgres image (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 4096}
+  web: {port: 9001}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
