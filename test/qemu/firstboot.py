@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F4). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F6). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -121,6 +121,47 @@ def f0(vm, board):
     record("F0", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" units={units}")
 
 
+PRIV_POD = ("apiVersion: v1\\nkind: Pod\\nmetadata: {name: f5-priv}\\nspec:\\n  containers:\\n"
+            "  - {name: c, image: registry.invalid/f5:1, securityContext: {privileged: true}}\\n")
+PLAIN_POD = ("apiVersion: v1\\nkind: Pod\\nmetadata: {name: f5-plain}\\nspec:\\n  containers:\\n"
+             "  - {name: c, image: registry.invalid/f5:1}\\n")
+
+
+def f5(vm):
+    """H-01: the booted k3s enforces the cluster-wide Pod Security default (CRITERIA-FIRSTBOOT.md section 4)."""
+    k = "k3s kubectl -n default apply --dry-run=server -f -"
+    _, out = vm.run(f"printf '{PRIV_POD}' | {k} 2>&1; echo PRIV_RC=$?; "
+                    f"printf '{PLAIN_POD}' | {k} 2>&1; echo PLAIN_RC=$?; "
+                    "echo UNIT=$(systemctl cat k3s.service | grep -c 'admission-control-config-file=/etc/rancher/k3s/psa.yaml')", 300)
+    priv_rc = (re.findall(r"PRIV_RC=(\d+)", out) or ["?"])[-1]
+    plain_rc = (re.findall(r"PLAIN_RC=(\d+)", out) or ["?"])[-1]
+    unit = (re.findall(r"UNIT=(\d+)", out) or ["0"])[-1]
+    refused = "violates PodSecurity" in out and "baseline" in out
+    record("F5", priv_rc != "0" and priv_rc != "?" and refused and plain_rc == "0" and unit != "0",
+           f"privileged_rc={priv_rc} violates_PodSecurity_baseline={refused} plain_rc={plain_rc} unit_has_psa_flag={unit != '0'} "
+           f"out={out.strip()[-300:]!r}")
+
+
+def f6(vm):
+    """H-12: Secrets are encrypted at rest in the k3s datastore (CRITERIA-FIRSTBOOT.md section 4)."""
+    db = "/data/k3s/server/db/state.db"
+    _, out = vm.run("k3s secrets-encrypt status 2>&1 | head -12; echo SEC-STATUS-END; "
+                    "v=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n'); "
+                    "k3s kubectl -n default create secret generic f6-probe --from-literal=v=$v >/dev/null 2>&1; echo CREATE_RC=$?; "
+                    "echo READBACK=$([ \"$(k3s kubectl -n default get secret f6-probe -o jsonpath='{.data.v}' | base64 -d)\" = \"$v\" ] && echo yes || echo no); "
+                    f"sync; echo DBSIZE=$(stat -c %s {db} 2>/dev/null || echo 0); "
+                    f"echo PLAIN=$(cat {db} {db}-wal 2>/dev/null | grep -a -c \"$v\"); "
+                    f"echo ENVELOPE=$(cat {db} {db}-wal 2>/dev/null | grep -a -c 'k8s:enc:aescbc:v1:'); "
+                    "k3s kubectl -n default delete secret f6-probe >/dev/null 2>&1; echo DELETE_RC=$?", 300)
+    g = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or [""])[-1]
+    status = out.split("SEC-STATUS-END")[0]
+    enabled = re.search(r"Encryption Status:\s*Enabled", status) is not None
+    record("F6", enabled and g("CREATE_RC") == "0" and g("READBACK") == "yes" and int(g("DBSIZE") or 0) > 0
+           and g("PLAIN") == "0" and int(g("ENVELOPE") or 0) >= 1 and g("DELETE_RC") == "0",
+           f"status_enabled={enabled} create_rc={g('CREATE_RC')} readback={g('READBACK')} db_bytes={g('DBSIZE')} "
+           f"plaintext_hits={g('PLAIN')} envelope_hits={g('ENVELOPE')} delete_rc={g('DELETE_RC')} status={status.strip()[:160]!r}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -167,6 +208,9 @@ def main():
         fil = (re.findall(r"^FILE=(\w+)", out, re.M) or [""])[-1]
         record("F2", body[1] == "200" and body[0] == fil and len(fil) == 64,
                f"code={body[1]} body_sha={body[0][:16]} index_sha={fil[:16]}")
+
+        vm.mark("F5 PSA admission (H-01)"); f5(vm)
+        vm.mark("F6 secrets encrypted at rest (H-12)"); f6(vm)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
