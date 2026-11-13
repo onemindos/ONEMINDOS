@@ -4,6 +4,7 @@ systemd systemd-sysv systemd-resolved udev dbus login passwd
 kmod iproute2 iptables procps util-linux mount e2fsprogs dosfstools
 ca-certificates curl socat zstd squashfs-tools
 apparmor
+avahi-daemon openssl
 # Ubuntu 26.04 defaults to dracut; we name initramfs-tools explicitly [C-LAB-ubuntu-2604-leg-001]
 initramfs-tools
 grub-common

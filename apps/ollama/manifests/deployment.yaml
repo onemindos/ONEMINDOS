@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/ollama/ollama (contract §9.2), then
+# completed from upstream at tag v0.40.16: docs/docker.mdx (CPU only: `-v ollama:/root/.ollama
+# -p 11434:11434`), docs/faq.mdx (OLLAMA_MODELS) and the image config (OLLAMA_HOST=0.0.0.0:11434).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ollama
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ollama
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # The image has no USER (root). Ollama needs no privilege: it writes only its key pair under
+      # $HOME/.ollama and the models under OLLAMA_MODELS, both on the volume here.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ollama
+          image: docker.io/ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
+          env:
+            # Upstream mounts /root/.ollama; as UID 1000 the same files live under this HOME.
+            - name: HOME
+              value: /var/lib/ollama
+            - name: OLLAMA_MODELS
+              value: /var/lib/ollama/models
+          ports:
+            - name: http
+              containerPort: 11434
+              protocol: TCP
+          # GET / answers "Ollama is running" with 200.
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # CPU inference. Upstream gives no fixed sizing: memory follows the model loaded (a 3B
+          # model at 4-bit needs about 3 GiB). The limit is a OneMind choice that fits small
+          # models on an 8 GB node; larger models need the limit raised.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "4"
+              memory: 6Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/ollama
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: ollama-data

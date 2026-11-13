@@ -1,0 +1,52 @@
+{
+  "env": {
+    "cloud": "aws",
+    "board": "cloud-aws",
+    "upto": "C0,C1,C2,C3,C4,C6",
+    "accel": "tcg,thread=multi",
+    "host_cpus": 14,
+    "host_machine": "aarch64",
+    "tests": [
+      "C0",
+      "C1",
+      "C2",
+      "C3",
+      "C4",
+      "C6"
+    ]
+  },
+  "minutes": 14.0,
+  "criteria": "test/qemu/CRITERIA-CLOUD.md",
+  "results": [
+    {
+      "test": "C0",
+      "verdict": "PASS",
+      "detail": "sha256sums_ok=True raw_16GiB=True xz_same_bytes=True"
+    },
+    {
+      "test": "C1",
+      "verdict": "PASS",
+      "detail": "config='ONEMIND-FIRSTBOOT: configured role=hub source=nocloud node_id=f3463a653235' tokens_printed=1 gate=('committed-boot', 'A', '0.1.0-dev')"
+    },
+    {
+      "test": "C2",
+      "verdict": "PASS",
+      "detail": "ssh_admin_sudo=True cloud_init_done=True instance_id=True platform_nocloud=True datasource_list=True hostkeys_on_data_only=True net_dhcp_ipv4=True dev=enp0s1 dsl=['Ec2', 'NoCloud', 'None'] ds_identify='datasource_list: [ NoCloud, None ]'"
+    },
+    {
+      "test": "C3",
+      "verdict": "PASS",
+      "detail": "healthz=200 node_id=f3463a653235 listed=[('f3463a653235', 'hub', 'online')] unauth=401 dashboard=True (info: /run/onemind/owner-token over ssh matches console=True)"
+    },
+    {
+      "test": "C4",
+      "verdict": "PASS",
+      "detail": "grown=True sizes={'DISK': '50331648', 'START': '23070720', 'PSIZE': '27260895'} 'ONEMIND-FIRSTBOOT: already configured role=hub node_id=f3463' new_tokens=0 same_node=True same_tokens_file=True healthz=200 listed=[('f3463a653235', 'hub', 'online')] gate=('committed-boot', 'A', '0.1.0-dev')"
+    },
+    {
+      "test": "C6",
+      "verdict": "PASS",
+      "detail": "install_rc=0 gate=('mark-good', 'B', '0.1.0-dev-next') dsl=['Ec2', 'NoCloud', 'None'] already=True new_token=False same_node=True healthz=200"
+    }
+  ]
+}

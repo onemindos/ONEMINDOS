@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: Apache-2.0
+# Prowlarr 2.7.0.5723, LinuxServer image (the Docker image upstream's wiki lists: wiki.servarr.com/prowlarr/installation/docker).
+# The image README (github.com/linuxserver/docker-prowlarr, "Non-Root Operation") supports starting as a
+# non-root user; PUID/PGID then have no effect and the init scripts take their LSIO_NON_ROOT_USER branch.
+# s6-overlay 3.2.1.0 needs a writable /run: an emptyDir, which Kubernetes creates root-owned and group-
+# writable, so S6_YES_I_WANT_A_WORLD_WRITABLE_RUN_BECAUSE_KUBERNETES=1 lets its preinit accept it
+# (s6-overlay libexec/preinit). GET /ping is anonymous (src/Prowlarr.Http/Ping/PingController.cs).
+#
+# Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prowlarr
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prowlarr
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prowlarr
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: prowlarr
+        image: ghcr.io/linuxserver/prowlarr:2.7.0.5723-ls168@sha256:6660787a99b2e58203539583663c973b48979fc00ff2cb78dc0ea17429e1f6ef
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TZ
+          value: Etc/UTC
+        - name: S6_YES_I_WANT_A_WORLD_WRITABLE_RUN_BECAUSE_KUBERNETES
+          value: '1'
+        ports:
+        - name: http
+          containerPort: 9696
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /ping
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 60
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: '2'
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: run
+          mountPath: /run
+      volumes:
+      - name: config
+        persistentVolumeClaim:
+          claimName: prowlarr-config
+      - name: run
+        emptyDir:
+          sizeLimit: 1Gi

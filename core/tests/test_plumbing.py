@@ -104,7 +104,8 @@ def test_feature_router_plugs_in_with_one_entry(settings, clock, executor, monke
 
 def test_gateway_records_core_schema_version(client):
     gw = client.app.state.gateway
-    assert versions(gw.db.engine)["core"] == 1
+    assert versions(gw.db.engine)["core"] == 3
+    assert "approved_by" in {c["name"] for c in inspect(gw.db.engine).get_columns("actions")}
 
 
 # ---- feature tables and upgrade steps -------------------------------------------------------
@@ -256,16 +257,18 @@ def test_publish_event_audits_publishes_and_fans_out(hub, tmp_path):
     events.subscribe("node.*", other.append)
     env = events.publish_event(
         "backup", "run.failed", {"run_id": "r1", "reason": "target unreachable"},
-        principal={"id": "owner", "kind": "person", "role": "owner"}, severity="error",
+        principal={"id": "owner", "kind": "person", "role": "owner"}, severity="critical",
         resource={"kind": "backup_target", "id": "t1"}, dedupe_key="backup:t1:failing",
     )
     assert env["schema"] == EVENT_SCHEMA and env["type"] == "backup.run.failed" and env["actor_id"] == "owner"
     assert env["id"].startswith("evt_") and env["instance_id"] == "abc123def456"
+    # contract 12.8: schema with a slash, ts and subject
+    assert env["schema"] == "onemind.event/v1" and env["ts"] and env["subject"] == {"backup_target_id": "t1"}
     # 1. hash chain
     lines = [json.loads(x) for x in (tmp_path / "audit.jsonl").read_text().splitlines()]
     assert lines[-1]["event"] == "backup.run.failed"
     assert lines[-1]["data"] == {
-        "event_id": env["id"], "severity": "error", "payload": {"run_id": "r1", "reason": "target unreachable"},
+        "event_id": env["id"], "severity": "critical", "payload": {"run_id": "r1", "reason": "target unreachable"},
         "resource": {"kind": "backup_target", "id": "t1"}, "dedupe_key": "backup:t1:failing",
     }
     assert verify(tmp_path / "audit.jsonl")[0]
@@ -370,3 +373,12 @@ def test_publish_event_reaches_real_nats(settings, clock, executor):
         stop.set()
         t.join(10)
     assert received and json.loads(received[0]) == env
+
+
+def test_event_severity_follows_contract_12_8(hub):
+    """Only info|warning|critical leave the gateway; draft-era names are mapped, junk is refused."""
+    events, _ = hub
+    assert events.publish_event("backup", "x", {}, severity="error")["severity"] == "warning"
+    assert events.publish_event("backup", "x", {}, severity="debug")["severity"] == "info"
+    with pytest.raises(ValueError):
+        events.publish_event("backup", "x", {}, severity="bogus")

@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# photoprism: Market batch 2 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by sdk/tools/app-scaffold
+# (§9.2) and completed from primary sources: setup/docker/compose.yaml, LICENSE, internal/config/env.go and config_auth.go at 261029-963b58c50.
+# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-12.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: photoprism
+  name: "PhotoPrism"
+  version: "261029-963b58c50"
+  description: "AI-Powered Photos App 🌈💎✨"
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (photos) are listed in README.md
+  # until the schema has metadata.tags.
+  category: files
+  icon: icon.svg
+  license: "AGPL-3.0"
+  source: https://github.com/photoprism/photoprism
+  links:
+    docs: "https://docs.photoprism.app/"
+    github: "https://github.com/photoprism/photoprism"
+    website: "https://www.photoprism.app"
+    support: "https://github.com/photoprism/photoprism/issues"
+  upstream: {release: "261029-963b58c50", released_at: "2026-10-29T22:20:43Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVEs in the photoprism and mariadb images, and the pod crash-loops in the smoke test (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 1280}   # sum of the memory requests in manifests/
+  web: {port: 2342}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

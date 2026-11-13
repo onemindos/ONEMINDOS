@@ -7,7 +7,7 @@ status: planned
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 :::note[Planned]
-Backups are designed and researched, not built. The one piece on `main` is the restic snapshot the update client takes before every OS update. Everything below is the plan, from [research 06](https://github.com/onemindos/ONEMINDOS/blob/main/research-output/06-backups-recovery.md).
+OneMind takes no backups today. Two pieces are on `main`: the restic snapshot the update client takes before every OS update (on the image only), and the backup agent ([`internal/backup`](https://github.com/onemindos/ONEMINDOS/tree/main/internal/backup)), which is tested but not switched on yet. Everything below is the plan, from [research 06](https://github.com/onemindos/ONEMINDOS/blob/main/research-output/06-backups-recovery.md). What this means for you today: [Backups guide](../../guides/backups/).
 :::
 
 ## What we will build
@@ -26,4 +26,4 @@ Agents may **start** a backup and **read** backup status. **Restores, key change
 
 ## Storage
 
-App volumes use a storage class that **retains** data when an app is removed. Data is deleted only through an explicit "remove data" action, which takes a backup first.
+The plan: app volumes use a storage class that **retains** data when an app is removed, and data is deleted only through an explicit "remove data" action, which takes a backup first. Today, removing an app still deletes its data.

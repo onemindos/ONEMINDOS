@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
+/** Phone navigation per docs/design/IA.md §1 and §3: four primary tabs plus More. */
 export type TabParams = {
   Home: undefined;
-  Nodes: undefined;
   Apps: undefined;
   Approvals: undefined;
   Activity: undefined;
+  More: undefined;
 };
 
 export type RootParams = {
@@ -15,6 +16,9 @@ export type RootParams = {
   Settings: undefined;
   PhotoBackup: undefined;
   PhotoAlbums: undefined;
+  /** Under More (IA §3); pushes open it directly. */
+  Inbox: { id?: string } | undefined;
+  Nodes: undefined;
 };
 
 declare global {

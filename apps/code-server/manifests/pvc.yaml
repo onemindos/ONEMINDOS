@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# /home/coder: settings, extensions, the generated password (~/.config/code-server/config.yaml) and projects.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: code-server-home
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

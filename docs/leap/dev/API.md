@@ -858,7 +858,7 @@ A security fix may tighten v1 behaviour (for example refuse a scope combination)
 
 | Id | Title | Size | Depends on | Owns (files) |
 |---|---|---|---|---|
-| DEV-API-1 | Inventory, conventions and route registration seam | S | — | `core/onemind_core/routes.py` (new: one `register(app, deps)` per feature module, so feature PRs do not all edit `app.py`), one serialized edit of `app.py` |
+| DEV-API-1 | Inventory, conventions and route registration seam | S | — | `core/onemind_core/routers/<feature>.py` with `register(app, gw)`, listed in `ROUTERS` in `core/onemind_core/app.py` (shipped in #38; see docs/leap/core/PLUMBING.md section 1) |
 | DEV-API-2 | OpenAPI snapshot, `api-compat` CI gate, extensions linter | S | 1, DEV-SDK-1 (produces `sdk/openapi/onemind-v1.json`) | `sdk/openapi/compat/` (baseline for oasdiff), `.github/workflows/api-compat.yml`, `Makefile` target |
 | DEV-API-3 | Errors v1, request ids, size limits | S | 1, contract C12-A (new codes) | `core/onemind_core/errors.py`, `core/onemind_core/limits.py` (new) |
 | DEV-API-4 | Pagination, filters, ETags, idempotency header | M | 1 | `core/onemind_core/listing.py`, `core/onemind_core/idempotency.py` (new) |
@@ -885,7 +885,7 @@ A security fix may tighten v1 behaviour (for example refuse a scope combination)
 
 ### 15.3 Collision rules
 
-- One module per feature in `core/onemind_core/`, registered through `routes.py` (DEV-API-1). After that epic, a feature PR adds one line to `routes.py`; `app.py` is not edited again.
+- One module per feature in `core/onemind_core/`, registered as `routers/<feature>.py` and one line in `ROUTERS` in `app.py` (PLUMBING.md section 1; the seam shipped in #38).
 - Serialized hotspots: `core/onemind_core/app.py` (DEV-API-1 only), `sdk/contracts/poc-v0.md` (one contract PR per phase: §3 errors and scopes in B1, new action types in B3), `os/versions.lock.yaml` (generator pins in DEV-SDK-2), `cmd/onemindd/main.go` (not touched by this spec).
 - `ledger.py` migrations: one migration file per epic, numbered when merged.
 - `sdk/openapi/onemind-v1.json` is regenerated, never merged by hand. On a conflict, rebase and run `make openapi`.

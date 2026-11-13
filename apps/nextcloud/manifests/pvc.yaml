@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# nextcloud-html: /var/www/html, the image's VOLUME (code, config/, custom_apps/, data/ with every
+# user's files). nextcloud-db: /var/lib/postgresql (PostgreSQL 18 keeps PGDATA in 18/docker
+# below it). Upstream gives no sizes; 20Gi and 5Gi are OneMind choices. No storageClassName: the
+# cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-html
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-db
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi

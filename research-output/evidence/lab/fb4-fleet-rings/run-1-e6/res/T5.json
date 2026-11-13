@@ -1,0 +1,17 @@
+{
+  "id": "T5",
+  "verdict": "PASS",
+  "at": "2026-11-12T11:09:17Z",
+  "data": {
+    "first_seen_v3_s": {
+      "box-1": 16,
+      "site-b": 16,
+      "site-a": 16
+    },
+    "first_available_v3_s": {
+      "box-1": 16,
+      "site-b": 16,
+      "site-a": 16
+    }
+  }
+}

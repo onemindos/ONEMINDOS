@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# Lidarr: Market batch 5 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: the image's repo
+# github.com/linuxserver/docker-lidarr readme-vars.yml (Lidarr publishes no image of its own) and
+# linuxserver's non-root documentation.
+# Image digest and archs from crane; licence from the GitHub licence API.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: lidarr
+  name: "Lidarr"
+  version: "3.1.6.5079"
+  description: "Music collection manager: watches for new albums by your artists and organises your library."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: media
+  icon: icon.svg
+  license: "GPL-3.0"
+  source: https://github.com/Lidarr/Lidarr
+  # §9.3 facts from the GitHub API (repos/Lidarr/Lidarr), read 2026-11-12.
+  links:
+    docs: "https://wiki.servarr.com/lidarr"
+    github: "https://github.com/Lidarr/Lidarr"
+    website: "https://lidarr.audio"
+    support: "https://github.com/Lidarr/Lidarr/issues"
+  upstream: {release: "v3.1.6.5079", released_at: "2026-10-26T01:51:41Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVE-2026-70188 and CVE-2026-88092 in the .NET runtime, fixes exist (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 512}
+  web: {port: 8686}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

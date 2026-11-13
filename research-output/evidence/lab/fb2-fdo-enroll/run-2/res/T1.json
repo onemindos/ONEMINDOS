@@ -1,0 +1,12 @@
+{
+  "id": "T1",
+  "verdict": "PASS",
+  "at": "2026-11-12T10:28:07Z",
+  "data": {
+    "health": "200 200 200 200 ",
+    "di_rc": 0,
+    "guid": "500379ed6e6b79a28df7d10b48cd3732",
+    "voucher_http": "200",
+    "voucher_bytes": 2301
+  }
+}

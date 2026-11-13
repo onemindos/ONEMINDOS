@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # OneMind hub on a Mac with Docker (contract sdk/contracts/poc-v0.md §6): NATS, the gateway with
-# the noop executor, the dashboard (built once, served by the gateway) and one simulated node.
+# the noop executor, the dashboard (built once, served by the gateway), one node (onemindd in a
+# container) and two simulated machines, a Raspberry Pi 5 and a Jetson (simnode).
 # DEVELOPMENT ONLY. Every port is bound to 127.0.0.1, so nothing is reachable from the network.
 #
 #   ./gen-tokens.sh                 # once: random owner + agent tokens into ./local/ (gitignored)
@@ -9,6 +10,10 @@
 #       --agent-token-file local/agent.token
 #   docker compose down -v
 name: onemind-dev
+
+x-onemindd-build: &onemindd-build
+  context: ../..
+  dockerfile: deploy/compose/onemindd.Dockerfile
 
 services:
   nats:
@@ -38,6 +43,8 @@ services:
       npm_config_update_notifier: "false"
     volumes:
       - ../../dashboard:/src:ro
+      # The dashboard compiles @onemind/ui from ../ui/src (vite.config.ts, tsconfig.json paths).
+      - ../../ui/src:/ui/src:ro
       - dashboard-dist:/out
 
   gateway:
@@ -70,9 +77,7 @@ services:
 
   # One simulated node: onemindd in a container, publishing heartbeats to the hub's NATS.
   node-sim:
-    build:
-      context: ../..
-      dockerfile: deploy/compose/onemindd.Dockerfile
+    build: *onemindd-build
     image: onemindd:compose-dev
     depends_on:
       nats: {condition: service_healthy}
@@ -80,8 +85,37 @@ services:
       ONEMIND_NATS_URL: nats://nats:4222
       ONEMIND_NODE_ROLE: node
       ONEMIND_NODE_ID: compose-node-1
+      # Inside the container: every interface, so the loopback-only port mapping below works.
+      ONEMIND_AGENT_ADDR: ":7480"
     hostname: node-sim
     ports: ["127.0.0.1:7480:7480"]
+    restart: unless-stopped
+
+  # Two simulated machines (ported from PR #27): onemindd's own agent code reading a Raspberry Pi 5
+  # and a Jetson from internal/detect's fixture trees, so Nodes shows several boards on a Mac.
+  # They report hardware that is not there; development only.
+  sim-rpi5:
+    build: *onemindd-build
+    image: onemindd:compose-dev
+    entrypoint: ["/usr/local/bin/simnode", "-root", "/fixture/rpi5", "-arch", "arm64", "-hostname", "sim-pi5"]
+    depends_on:
+      nats: {condition: service_healthy}
+    environment:
+      ONEMIND_NATS_URL: nats://nats:4222
+      ONEMIND_NODE_ROLE: node
+      ONEMIND_NODE_ID: compose-sim-rpi5
+    restart: unless-stopped
+
+  sim-jetson:
+    build: *onemindd-build
+    image: onemindd:compose-dev
+    entrypoint: ["/usr/local/bin/simnode", "-root", "/fixture/jetson", "-arch", "arm64", "-hostname", "sim-jetson"]
+    depends_on:
+      nats: {condition: service_healthy}
+    environment:
+      ONEMIND_NATS_URL: nats://nats:4222
+      ONEMIND_NODE_ROLE: node
+      ONEMIND_NODE_ID: compose-sim-jetson
     restart: unless-stopped
 
 volumes:

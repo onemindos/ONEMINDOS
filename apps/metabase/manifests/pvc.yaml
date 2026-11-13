@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# metabase-db: the PostgreSQL data directory (questions, dashboards, users, settings) and the
+# generated encryption key. 5Gi is a OneMind choice. No storageClassName: the cluster default class
+# is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: metabase-db
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi

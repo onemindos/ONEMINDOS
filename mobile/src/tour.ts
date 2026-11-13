@@ -12,19 +12,22 @@ export const TOUR_ROLE: 'owner' | 'adult' | 'agent' | undefined =
 export const TOUR_STEP_MS = 8000;
 
 export type TourStep =
-  | { tab: 'Home' | 'Nodes' | 'Apps' | 'Approvals' | 'Activity' }
+  | { tab: 'Home' | 'Apps' | 'Approvals' | 'Activity' | 'More' }
+  | { screen: 'Nodes' | 'Inbox' }
   | { app: string }
   | { settings: true }
   | { photos: 'screen' | 'enable' | 'albums' | 'cellular' | 'wifi' };
 
 export const TOUR: TourStep[] = [
   { tab: 'Home' },
-  { tab: 'Nodes' },
+  { screen: 'Nodes' },
   { tab: 'Apps' },
   { app: 'ollama' },
   { app: 'node-red' },
   { tab: 'Approvals' },
   { tab: 'Activity' },
+  { tab: 'More' },
+  { screen: 'Inbox' },
   { settings: true },
   { photos: 'screen' },
   { photos: 'enable' },

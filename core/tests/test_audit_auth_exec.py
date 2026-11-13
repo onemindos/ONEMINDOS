@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from conftest import AGENT, OWNER, action_body, make_client
+from conftest import AGENT, OWNER, FakeKubectl, action_body, fake_kustomize, make_client
 from onemind_core.audit import GENESIS, AuditLog, chain_hash, main as audit_main, verify
 from onemind_core.auth import TokenStore, parse_tokens
 from onemind_core.catalog import Catalog
@@ -26,10 +26,17 @@ def test_every_decision_is_audited_and_chain_verifies(client, clock, settings):
         "gateway.started",
         "action.requested",
         "action.awaiting_approval",
+        # contract-drift-2: every committed alert transition and every notification is audited so the
+        # event stream can replay them in order; an executed action also records its app.status fact.
+        "alert.opened",
+        "notification.created",
         "authz.denied",
         "action.approved",
+        "alert.resolved",
         "action.dispatched",
         "action.succeeded",
+        "notification.created",
+        "app.status",
     ]
     assert lines[0]["prev_hash"] == GENESIS
     for prev, cur in zip(lines, lines[1:]):
@@ -217,57 +224,56 @@ def test_short_tokens_rejected():
 
 # ---- executors -------------------------------------------------------------------------
 
-class FakeRun:
-    def __init__(self, results):
-        self.results = list(results)
-        self.calls = []
-
-    def __call__(self, argv, **kw):
-        self.calls.append((argv, kw.get("input")))
-        r = self.results.pop(0)
-        if isinstance(r, Exception):
-            raise r
-        return subprocess.CompletedProcess(argv, r, stdout="ok", stderr="err" if r else "")
-
-
 @pytest.fixture
 def kuma(settings):
     return Catalog(settings.apps_dir).get("uptime-kuma")
 
 
 def test_kubernetes_install_commands(kuma):
-    run = FakeRun([0, 0])
+    run = FakeKubectl()
     res = KubernetesExecutor(runner=run).run("app.install", kuma)
-    assert res.outcome == "succeeded"
-    (ns_argv, ns_in), (apply_argv, _) = run.calls
-    assert ns_argv == ["kubectl", "apply", "-f", "-"] and "name: app-uptime-kuma" in ns_in
-    assert apply_argv[:3] == ["kubectl", "apply", "-k"]
-    assert apply_argv[3].endswith("uptime-kuma/manifests")
-    assert apply_argv[4:] == ["-n", "app-uptime-kuma"]
+    assert res.outcome == "succeeded", res
+    render = run.calls[0][0]
+    assert render[:2] == ["kubectl", "kustomize"] and render[-1].endswith("uptime-kuma/manifests")
+    (ns_argv, ns_in), (np_argv, np_in), (apply_argv, apply_in) = run.cluster_calls
+    assert ns_argv == ["kubectl", "apply", "-f", "-"]
+    ns = json.loads(ns_in)
+    assert ns["metadata"]["name"] == "app-uptime-kuma"
+    assert ns["metadata"]["labels"]["pod-security.kubernetes.io/enforce"] == "restricted"
+    assert np_argv == ["kubectl", "apply", "-n", "app-uptime-kuma", "-f", "-"] and "onemind-default-deny" in np_in
+    # what was checked is what is applied: the render, through stdin, never -k
+    assert apply_argv == ["kubectl", "apply", "-n", "app-uptime-kuma", "-f", "-"]
+    assert apply_in == fake_kustomize(kuma.manifests_dir)
     # host paths are redacted in the recorded steps
-    assert res.steps[1]["argv"][3] == "$ONEMIND_APPS_DIR/uptime-kuma/manifests"
+    assert res.steps[0]["argv"][-1] == "$ONEMIND_APPS_DIR/uptime-kuma/manifests"
+    assert res.plan["pod_security"] == "restricted" and res.plan["rendered_sha256"].startswith("sha256:")
 
 
 def test_kubernetes_remove_commands(kuma):
-    run = FakeRun([0, 0])
+    run = FakeKubectl()
     res = KubernetesExecutor(runner=run).run("app.remove", kuma)
     assert res.outcome == "succeeded"
-    assert run.calls[0][0][:3] == ["kubectl", "delete", "-k"]
-    assert "-n" in run.calls[0][0] and "app-uptime-kuma" in run.calls[0][0]
-    assert run.calls[1][0] == ["kubectl", "delete", "namespace", "app-uptime-kuma", "--ignore-not-found=true"]
+    calls = [a for a, _ in run.calls]
+    assert len(calls) == 1 and calls[0][:2] == ["kubectl", "delete"] and calls[0][3:] == [
+        "--all", "-n", "app-uptime-kuma", "--ignore-not-found=true"]
+    # Contract 12.5: plain app.remove keeps the data. Never the namespace, never a PVC, never the
+    # gateway's own RoleBinding.
+    kinds = calls[0][2].split(",")
+    assert "namespace" not in kinds and "persistentvolumeclaims" not in kinds and "pvc" not in kinds
+    assert "rolebindings" not in kinds and "networkpolicies" not in kinds
 
 
 @pytest.mark.parametrize(
     "results,outcome",
     [
-        ([0, 1], "failed"),
+        ([0, 0, 1], "failed"),
         ([1], "failed"),
         ([FileNotFoundError()], "failed"),
         ([0, subprocess.TimeoutExpired("kubectl", 5)], "outcome_unknown"),
     ],
 )
 def test_kubernetes_outcomes(kuma, results, outcome):
-    res = KubernetesExecutor(runner=FakeRun(results)).run("app.install", kuma)
+    res = KubernetesExecutor(runner=FakeKubectl(results)).run("app.install", kuma)
     assert res.outcome == outcome
 
 

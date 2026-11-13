@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# Google Compute Engine image, UEFI_COMPATIBLE (docs/leap/core/CLOUD-IMAGES.md).
+# No rootfs of its own: assembled from the `cloud` rootfs plus overlay/ (make cloud-image CLOUD=gcp);
+# `make rootfs BOARD=cloud-gcp` fails on purpose (no rootfs/ directory here).
+name: cloud-gcp
+arch: amd64
+compatible: onemind-cloud-gcp    # own RAUC compatible: an update bundle carries this cloud's overlay
+route: grub-efi
+rauc_bootloader: grub
+grub_target: x86_64-efi
+efi_binary: BOOTX64.EFI
+console: "console=tty0 console=ttyS0,115200"
+layout: layout.yaml
+rootfs_from: cloud
+overlay: overlay
+outputs: [tar.gz]
+cloud: true
+secure_boot: none

@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# copyparty-data: /w, the shared files (and copyparty's index, kept in /w/.hist by default).
+# copyparty-config: /cfg, the generated onemind.conf and copyparty's own settings
+# (XDG_CONFIG_HOME=/cfg in Dockerfile.ac). 100Gi and 1Gi are OneMind choices. No storageClassName:
+# the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: copyparty-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: copyparty-config
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi

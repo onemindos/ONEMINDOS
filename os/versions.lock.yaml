@@ -49,6 +49,8 @@ tools:
     version: 8.30.1
     linux_x64_tarball: gitleaks_8.30.1_linux_x64.tar.gz
     sha256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    linux_arm64_tarball: gitleaks_8.30.1_linux_arm64.tar.gz
+    linux_arm64_sha256: e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080   # same checksums file, read 2026-11-12
     source: https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1 checksums file [C-BRIEF30-006]
   trivy:            # CVE scan with Debian tracker VEX (brief 30 D-B1.5 [C-LIC-056]); os/update/fetch-tools.sh
     version: 0.76.2
@@ -83,14 +85,14 @@ tools:
     actions/setup-node: 49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
     actions/setup-python: 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
     astral-sh/setup-uv: d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
-  app_gate:   # sdk/tools/ci/install-tools.sh (linux amd64), sha256 from each release's checksums file, read 2026-11-12
-    trivy: {version: 0.76.2, file: trivy_0.76.2_Linux-64bit.tar.gz, sha256: bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf}   # D-B1.5
-    crane: {version: v0.22.1, file: go-containerregistry_Linux_x86_64.tar.gz, sha256: 0ab7a1d6932a213aed964ce97666c3077fe691c8606413674a8b3e0b9ec4cda0}
-    cosign: {version: v3.1.4, file: cosign-linux-amd64, sha256: 424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa}
-    k3d: {version: v5.9.0, file: k3d-linux-amd64, sha256: 06d8f25bc3a971c4eb29e0ff08429b180402db0f4dec838c9eac427e296800a0}
-    kubectl: {version: v1.37.2, file: kubectl (dl.k8s.io linux/amd64), sha256: c04487523e7aa7d1493f7808174c899db93d7a9cf57531420cd76b9bd415f8f4}
-    kustomize: {version: v5.8.3, file: kustomize_v5.8.3_linux_amd64.tar.gz, sha256: cb9e31198d3f63b44848bd0afc4c8efc56e6cfef9c93a4a39a211940e6decd61}
-    kubeconform: {version: v0.8.0, file: kubeconform-linux-amd64.tar.gz, sha256: 9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883}
+  app_gate:   # sdk/tools/ci/install-tools.sh (linux amd64 + arm64), sha256 from each release's checksums file, amd64 read 2026-11-12, arm64 read 2026-11-12
+    trivy: {version: 0.76.2, file: trivy_0.76.2_Linux-64bit.tar.gz, sha256: bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf, arm64_file: trivy_0.76.2_Linux-ARM64.tar.gz, arm64_sha256: ab9d51f86e6a5fb936f605faff6b593ac51bc378fff4d3e8b9d58358b9c367c3}   # D-B1.5
+    crane: {version: v0.22.1, file: go-containerregistry_Linux_x86_64.tar.gz, sha256: 0ab7a1d6932a213aed964ce97666c3077fe691c8606413674a8b3e0b9ec4cda0, arm64_file: go-containerregistry_Linux_arm64.tar.gz, arm64_sha256: 898c0cff975f898a33e8c4580bdafb0e7c02c7faa33374e946762f97c4ab7110}
+    cosign: {version: v3.1.4, file: cosign-linux-amd64, sha256: 424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa, arm64_file: cosign-linux-arm64, arm64_sha256: ade83b7aac62e131cacfe96d958948b2150cc9efec46a570a2649b8e27dedad2}
+    k3d: {version: v5.9.0, file: k3d-linux-amd64, sha256: 06d8f25bc3a971c4eb29e0ff08429b180402db0f4dec838c9eac427e296800a0, arm64_file: k3d-linux-arm64, arm64_sha256: 03cde5cf23e6e8e67de5a039ecf26e5b85aca82fba3e5d13dadf904cd218a250}
+    kubectl: {version: v1.37.2, file: kubectl (dl.k8s.io linux/amd64), sha256: c04487523e7aa7d1493f7808174c899db93d7a9cf57531420cd76b9bd415f8f4, arm64_file: kubectl (dl.k8s.io linux/arm64), arm64_sha256: fcc16f63186659d9722014b7e02d5fdd2d4e669cb8c0ab66365d7d3b8ba03509}
+    kustomize: {version: v5.8.3, file: kustomize_v5.8.3_linux_amd64.tar.gz, sha256: cb9e31198d3f63b44848bd0afc4c8efc56e6cfef9c93a4a39a211940e6decd61, arm64_file: kustomize_v5.8.3_linux_arm64.tar.gz, arm64_sha256: 9867b76482cfc6d25b546abc1d2b5a32bd137505aba640649b4b378f64f6d68f}
+    kubeconform: {version: v0.8.0, file: kubeconform-linux-amd64.tar.gz, sha256: 9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883, arm64_file: kubeconform-linux-arm64.tar.gz, arm64_sha256: 1f53fc8e81258197a35e8603054162a5af1de8c5af13746c71ab680d9534ed87}
     k3s_image: docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332   # k3d smoke cluster, same k3s as above
 
 desktop:          # desktop/ (CLIENT-8). Crate and npm pins are exact in desktop/src-tauri/Cargo.toml and
@@ -100,7 +102,81 @@ desktop:          # desktop/ (CLIENT-8). Crate and npm pins are exact in desktop
     source: cargo --version of the Homebrew rust 1.99.1 used for the first local build, read 2026-11-12
   tauri: 2.12.5                      # crate; @tauri-apps/cli 2.12.4 (npm); Apache-2.0 OR MIT
 
+onemind_layer:      # the OneMind layer of the image (os/rootfs/fetch-onemind.sh, Containerfile onemind-* stages)
+  nats_server:      # ships in the image as /usr/bin/nats-server (brief 30 D-B6.5)
+    version: v2.15.2
+    tag_commit: ffbde89370bc3cbef677e86fd4a6134fa5f18f9d
+    amd64: {tarball: 67cb8e10bc6f0c4b47f75a728529a20953dbae2a4f9a4a52ae8517d65ae303ff, binary: 33f3fe3fed80b2b229bd9fe4b735257ad8583cd2349452a0c74f3d768b593e66}
+    arm64: {tarball: bc2c788dcbf2849af749564e06a0d48c19bced851f2d68a2e21c54d078949b28, binary: 9f03b5f7b53b1d3dd3474dce5744b4b55149ceafd8bbeded0ae4c27695c4aeb4}
+    source: release SHA256SUMS (tarballs) and sha256 of the extracted binary, read 2026-11-12
+  go:               # builds onemindd + onemind (static, CGO_ENABLED=0); builder stage only
+    version: 1.26.11
+    amd64: 9849f4e04ee35303714e34fbc3ac8ab44ea3e448a95aa182f91e3b9b79c710ec
+    arm64: 6c2f29b458b5add0835f18b776f69c8881a6d88428f1484a6da55755e620757e
+    source: https://go.dev/dl/?mode=json, read 2026-11-12 (same as deploy/pins.env)
+  node:             # builds the dashboard (npm ci from dashboard/package-lock.json); builder stage only
+    version: v24.22.3
+    amd64: 061ec3e3062115705b56b51fa9cc330ab50d34b6969387d4e4b1a50c6809acc2
+    arm64: 261af2af250dfd7e9f25cf151d1b2713a0adf8f10a9ad116c4947f68627affe8
+    source: https://nodejs.org/dist/v24.22.3/SHASUMS256.txt, read 2026-11-12
+  uv:               # installs the gateway from core/uv.lock (--frozen) with a uv-managed Python 3.12
+    version: 0.13.7
+    amd64: c5221ff41b7892bfc223543883600125f6a47fe845093e0f5bdff4f359196d83
+    arm64: 71279f8d3c67241e807b9d8db872d1bf541579fb9f08b7d1eb1682196d1e57dc
+    python: cpython-3.12.16 (uv python install, for the target arch; uv pins and hash-checks the download)
+    source: release .sha256 files, read 2026-11-12 (same version as core/Dockerfile)
+
 firmware:
   # Debian 13 ovmf / qemu-efi-aarch64 / seabios packages in the tools container (same snapshot).
   ovmf: from the Debian snapshot above (lab hash of OVMF_CODE_4M.fd 624e06de…e4e0, ovmf 2025.02-8+deb13u1)
   seabios: from the Debian snapshot above (bios-256k.bin shipped with qemu-system-x86)
+
+rpi5:               # board rpi5 (brief 30 B2 rpi5 row, BD-07); os/boards/rpi5/fetch-rpi.sh, pin-rpi.sh
+  archive:
+    url: https://archive.raspberrypi.com/debian  # suite trixie, component main; no snapshot service, but the pool keeps old versions
+    key_fingerprint: CF8A1AF502A2AA2D763BAE7E82B129927FA3303E   # "Raspberry Pi Archive Signing Key"; signing subkey DE5C1FD28F18825391E92B58F7BB0489EDD83D6C
+    keyring_deb: pool/main/r/raspberrypi-archive-keyring/raspberrypi-archive-keyring_2025.1+rpt1_all.deb
+    keyring_deb_sha256: 2e727149d7acb8cc7f604e66d0049161039c8aa1eaf1175e54f9e69d963d60e4
+    source: InRelease dated 2026-11-12T09:00:22Z verified with gpgv against that key; Packages.gz (arm64) sha256 7c6985732fb21d3cd25ab38b59aba36c6b69a36682e588199d139f1e6e14657e from it, read 2026-11-12
+  kernel:           # both flavours ship in each boot slot: kernel_2712.img (16 KiB pages, default) and kernel8.img (4 KiB)
+    version: 6.18.60-1+rpt1
+    debs:
+      - {path: pool/main/l/linux/linux-base-6.18.60+rpt-rpi-2712_6.18.60-1+rpt1_arm64.deb,  sha256: c2406f32e9653b01095a3d9561d01bcf3f2960f204e42ce36ced8aab24fa9518}
+      - {path: pool/main/l/linux/linux-image-6.18.60+rpt-rpi-2712_6.18.60-1+rpt1_arm64.deb, sha256: 663099a4badd7e583ae28bbb0ef60fc3b6d1faafabbb8c6252a989730b9224e9}
+      - {path: pool/main/l/linux/linux-base-6.18.60+rpt-rpi-v8_6.18.60-1+rpt1_arm64.deb,    sha256: 0d27ecbe7e8e48328d4c293e9c61e8e0e1b0536d63bb3194b8d0050b24b96626}
+      - {path: pool/main/l/linux/linux-image-6.18.60+rpt-rpi-v8_6.18.60-1+rpt1_arm64.deb,   sha256: fbd80d4c6b488b099cfd17370a9b219b17215ee1c909c1839f8c040d098acf73}
+    source: the arm64 Packages index above (Filename + SHA256), files re-hashed after download, 2026-11-12
+  eeprom:           # the bootloader the image targets; NOT shipped (no rpi-eeprom, no auto-update, E10). Updated by the owner on purpose.
+    release: "2026-09-25"
+    package: rpi-eeprom 28.36-1 (pool/main/r/rpi-eeprom/rpi-eeprom_28.36-1_all.deb, sha256 46f3726ea2d76f836c8368cedf7cb151ce0bd0f4028da39e5d026959285a40b7)
+    image: firmware/raspberrypi/bootloader-2712/default/pieeprom-2026-09-25.bin
+    image_sha256: 02c4daa25df5af66af50da63ee97dfd03b21a40ac5b495a1c447979a2aa00edd
+    build_timestamp: 1790351949     # BUILD_TIMESTAMP in that image; compared with /proc/device-tree/chosen/bootloader/build-timestamp
+    status: untested on hardware until LT-PI5-01 records the EEPROM in use
+
+jetson:             # os/boards/jetson-orin (D-007: NVIDIA L4T on Jetson). Never redistributed by OneMind: the owner's
+                    # host downloads these (build-flash-package.sh checks every sha256; pins.sh carries the same values).
+  target: "39.2.1"  # JetPack 7.2.1, the OneMind Jetson target (brief 30 §6 B2 "JetPack 7.2+")
+  ota_base: "36.5.2" # JetPack 6.2.x base for LT-JET-01 step 3 (r36 -> r39 image-based OTA rehearsal)
+  l4t:
+    "39.2.1":
+      url: https://developer.download.nvidia.com/embedded/L4T/r39_Release_v2.1/release/
+      bsp: {file: Jetson_Linux_R39.2.1_aarch64.tbz2, sha256: 2e5619088ba88e85dab25247f033d70659b6f676ff835176a07766dcb0fdbe6b, size: 1287223769}
+      sample_rootfs: {file: Tegra_Linux_Sample-Root-Filesystem_R39.2.1_aarch64.tbz2, sha256: 58a6485b56c6d6b5ee8478e902eed0ed4984fd73135b88b76aeaa5c1f44be66e, size: 2022864741}
+      ota_tools: {file: ota_tools_R39.2.1_aarch64.tbz2, sha256: bc84c2ef0e7e43ccd496691c134b3931c21858272ed75fa0e4b9c853eca2a441, size: 58523}
+      bootloader_utils_deb: {file: nvidia-l4t-bootloader-utils_39.2.1-20260806224157_arm64.deb, sha256: c05285f68b5ce23a6f382a949eb44162e5cd2a8123f8e5cdaeb86a12b5e01c8f}  # evidence only: hook + unit names read from it
+    "36.5.2":
+      url: https://developer.download.nvidia.com/embedded/L4T/r36_Release_v5.2/releases/
+      bsp: {file: Jetson_Linux_R36.5.2_aarch64.tbz2, sha256: 752326264c5e16826d3044a78e59ae06109467d37705143b94e664c91a471f47}
+      sample_rootfs: {file: Tegra_Linux_Sample-Root-Filesystem_R36.5.2_aarch64.tbz2, sha256: 077da9b27b1d3bc2247c2b73ce10cce880bdefe1f048d2a64df878d855a5b435}
+      ota_tools: {file: ota_tools_R36.5.2_aarch64.tbz2, sha256: dc867412c8fa9cad6dad60742a1e6c6821297b943f7697c4356d74d73188bac9}
+      init_deb: {file: nvidia-l4t-init_36.5.2-20260716114719_arm64.deb, sha256: 55a16fc44bfe69198a9bf7309a5bca270e96f1cebbead7eb4e3b70a75e605f45}  # evidence only: hook + unit names read from it
+  source: >-
+    sha256 of NVIDIA's files hashed on download 2026-11-12 (nothing executed); both BSP tarballs equal meta-tegra's
+    SRC_URI[sha256sum] (OE4T/meta-tegra wrynose c5efa2ff tegra-binaries-39.2.1.inc, scarthgap e7d217e2
+    tegra-binaries-36.5.2.inc); the .deb hashes are from NVIDIA's apt Packages index (repo.download.nvidia.com/jetson
+    som r39.2, t234 r36.5) and re-hashed after download
+
+e2e_vm:             # tests/e2e/harness/run.sh --backend qemu (GitHub ubuntu-24.04 runners); read from SHA512SUMS 2026-11-12
+  amd64_url: https://cloud.debian.org/images/cloud/trixie/20261103-2651/debian-13-genericcloud-amd64-20261103-2651.qcow2
+  amd64_sha512: d25999de0770d4cde1be72c299ba3ad94eac7ea8fd4d18f8cc86c69df69337e2e8a91d64465a9bfd8f2a78c566fcbcb0842eacc91c09efdef72d719d9f13b535
