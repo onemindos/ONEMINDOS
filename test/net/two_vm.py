@@ -530,9 +530,22 @@ class Suite:
         if rc != 0:
             return self.R.set("N2-7", "BLOCKED", f"echo pod did not become Ready (harness limit, not a product result): {out.strip()[-200:]}")
         cookies = "__Host-onemind_session=x; __Host-onemind_csrf=y; onemind_session=z; keep=1"
-        rc, echo = self.noderun(f"curl -s -m 10 --resolve vaultwarden.{BOX}.local:443:{HUB_LAN} --cacert {ca} -H 'Authorization: Bearer {self.token}' -H 'Cookie: {cookies}' https://vaultwarden.{BOX}.local/cgi-bin/echo || true", 60)
-        m = re.search(r"cookie=\[(.*)\]", echo)
+        for _ in range(18):  # like N2-6: the Service endpoints follow the new pod a few seconds after Ready
+            rc, echo = self.noderun(f"curl -s -m 10 --resolve vaultwarden.{BOX}.local:443:{HUB_LAN} --cacert {ca} -H 'Authorization: Bearer {self.token}' -H 'Cookie: {cookies}' https://vaultwarden.{BOX}.local/cgi-bin/echo || true", 60)
+            m = re.search(r"cookie=\[(.*)\]", echo)
+            if m:
+                break
+            time.sleep(5)
         if not m:
+            k = f"k3s kubectl -n {ns}"
+            rc, diag = self.hubrun(
+                f"{k} get pods,svc,endpoints -o wide 2>&1; {k} get networkpolicy onemind-allow -o jsonpath='{{.spec.ingress}}' 2>&1; echo; "
+                f"for ip in $({k} get pods,svc -o jsonpath='{{range .items[*]}}{{.status.podIP}} {{.spec.clusterIP}} {{end}}'); do "
+                f"echo hub-$ip:{cport} $(curl -s -m 5 -o /dev/null -w '%{{http_code}}' http://$ip:{cport}/cgi-bin/echo 2>&1); "
+                "echo route: $(ip route get $ip 2>&1); done; "
+                f"{k} logs h34-echo --tail=20 2>&1; "
+                "journalctl -u onemind-gateway --no-pager -n 30 2>&1 | cut -c1-240", 90)
+            self.logs["n27-diagnostics.txt"] = diag
             return self.R.set("N2-7", "BLOCKED", f"the echo did not answer through the proxy (harness or routing limit): {echo.strip()[:150]}")
         seen = m.group(1)
         leaked = re.findall(r"(?:^|[;\s])((?:__Host-)?onemind_[A-Za-z]+)=", seen)
