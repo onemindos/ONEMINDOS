@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# Ollama: Market batch 1 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: docs/docker.mdx and docs/faq.mdx at v0.40.16 and the image config (OLLAMA_HOST=0.0.0.0:11434).
+# Image digests and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: ollama
+  name: "Ollama"
+  version: "0.40.16"
+  description: "Get up and running with Kimi, GLM, MiniMax, DeepSeek, gpt-oss, Qwen, Gemma and other models."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: ai
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/ollama/ollama
+  # §9.3 facts from the GitHub API (repos/ollama/ollama), read 2026-11-12.
+  links:
+    docs: "https://docs.ollama.com/"
+    github: "https://github.com/ollama/ollama"
+    website: "https://ollama.com"
+    support: "https://github.com/ollama/ollama/issues"
+  upstream: {release: "v0.40.16", released_at: "2026-11-09T18:21:19Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 4096}
+  web: {port: 11434}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

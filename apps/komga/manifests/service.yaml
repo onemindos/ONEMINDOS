@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Web reader, API and OPDS on 25600 (Dockerfile.tpl EXPOSE; application.yml server.port).
+apiVersion: v1
+kind: Service
+metadata:
+  name: komga
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: komga
+  ports:
+    - name: http
+      port: 25600
+      targetPort: http
+      protocol: TCP

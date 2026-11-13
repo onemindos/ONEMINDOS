@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# umami-db: the PostgreSQL data directory (websites, events, users) and the generated keys. 10Gi is
+# a OneMind choice; event data grows with traffic. No storageClassName: the cluster default class
+# is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: umami-db
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi

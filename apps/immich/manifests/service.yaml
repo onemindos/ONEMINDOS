@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Web UI and API on 2283 (IMMICH_PORT default). The database and Valkey have no Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: immich
+  ports:
+    - name: http
+      port: 2283
+      targetPort: http
+      protocol: TCP

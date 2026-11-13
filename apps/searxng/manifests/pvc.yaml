@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# Holds /etc/searxng (settings.yml with the generated secret_key), so settings and the key
+# survive restarts. 1Gi is a OneMind choice.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: searxng-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi

@@ -1,0 +1,187 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/metabase/metabase (contract §9.2), then
+# completed from upstream at tag v0.65.3: bin/docker/Dockerfile (port 3000, /plugins world-writable,
+# ENTRYPOINT /app/run_metabase.sh) and bin/docker/run_metabase.sh (when not started as root it
+# runs "java $JAVA_OPTS -jar /app/metabase.jar" directly; as root it would create a "metabase" user
+# with MUID 2000 and switch to it, so this package starts as UID 2000).
+#
+# The application database is PostgreSQL 18 in a native sidecar on 127.0.0.1 only, trusting local
+# connections, so no database password or Secret exists (Metabase's built-in H2 file database is
+# not meant for production use). MB_ENCRYPTION_SECRET_KEY, which encrypts the credentials of the
+# databases you connect, is generated once and exported before upstream's entrypoint runs.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metabase
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: metabase
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: metabase
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2000
+        runAsGroup: 2000
+        fsGroup: 2000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Generates the encryption key once, on the database volume so it is backed up with the data
+        # it protects, and creates the subPath directory as the app user (k3s local-path).
+        - name: encryption-key
+          image: docker.io/metabase/metabase:v0.65.3@sha256:9930a9b0e6974926319f691d1e55f0f9f97996e9ab658cd0cc04d9f86b0f0c1c
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              mkdir -p /mnt/onemind
+              f=/mnt/onemind/encryption-key
+              if [ ! -s "$f" ]; then
+                umask 077
+                head -c 96 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 64 > "$f"
+              fi
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: db
+              mountPath: /mnt
+        - name: db
+          image: docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+          restartPolicy: Always
+          args: ["postgres", "-c", "listen_addresses=127.0.0.1"]
+          env:
+            - name: POSTGRES_USER
+              value: metabase
+            - name: POSTGRES_DB
+              value: metabase
+            - name: POSTGRES_INITDB_ARGS
+              value: --data-checksums
+            # Only 127.0.0.1 and the pod's own socket reach this server.
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: trust
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "metabase", "-d", "metabase"]
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "metabase", "-d", "metabase"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          # PostgreSQL 18 images keep PGDATA in a major-version subdirectory of this path
+          # (/var/lib/postgresql/18/docker), created and owned by the postgres user.
+          volumeMounts:
+            - name: db
+              mountPath: /var/lib/postgresql
+      containers:
+        - name: metabase
+          image: docker.io/metabase/metabase:v0.65.3@sha256:9930a9b0e6974926319f691d1e55f0f9f97996e9ab658cd0cc04d9f86b0f0c1c
+          command:
+            - sh
+            - -c
+            - export MB_ENCRYPTION_SECRET_KEY="$(cat /onemind/encryption-key)" && exec /app/run_metabase.sh
+          env:
+            - name: MB_DB_TYPE
+              value: postgres
+            - name: MB_DB_HOST
+              value: 127.0.0.1
+            - name: MB_DB_PORT
+              value: "5432"
+            - name: MB_DB_DBNAME
+              value: metabase
+            - name: MB_DB_USER
+              value: metabase
+            # Metabase sends anonymous usage statistics unless this is false.
+            - name: MB_ANON_TRACKING_ENABLED
+              value: "false"
+            # The JVM sizes its heap from the container limit; 75% leaves room for native memory.
+            - name: JAVA_OPTS
+              value: -XX:MaxRAMPercentage=75
+            - name: JAVA_TIMEZONE
+              value: UTC
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          # The first start runs many migrations; on a small box it can take several minutes.
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream publishes no container sizing; a OneMind choice for a JVM app. Measured idle
+          # after first start: 1301Mi (k3s arm64, 2026-11-12).
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1536Mi
+            limits:
+              cpu: "2"
+              memory: 3Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: db
+              mountPath: /onemind
+              subPath: onemind
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: db
+          persistentVolumeClaim:
+            claimName: metabase-db
+        - name: tmp
+          emptyDir:
+            sizeLimit: 512Mi
