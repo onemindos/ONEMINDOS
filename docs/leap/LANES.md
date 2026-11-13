@@ -69,8 +69,8 @@
 ## Founder decisions (Zeus only)
 | ID | Decision | Blocks |
 |---|---|---|
-| D1 | DCO on #55 and #56: 8 old unsigned commits (#55: `864e161` `7d4a46a` `988d0d3` `040d6c2` `779d008`; #56: `9a1c52f` `880e710` `bcf54fd`). (a) A retroactive sign-off commit by their author. (b) An approved, linked replacement PR. (c) Close both and rebuild. | A3, A4 |
-| D2 | Merge authority: may Lane A queue the ex-Hermes items (A1–A5) when every check is green and they are reviewed? | A1–A5 |
+| D1 | **Decided 2026-11-13 (founder delegated, option b):** #55 and #56 have 8 old unsigned commits, all by Hermes's retired `Legacy` identity, so a retroactive sign-off by their author is impossible (#55: `864e161` `7d4a46a` `988d0d3` `040d6c2` `779d008`; #56: `9a1c52f` `880e710` `bcf54fd`). Lane A opens one **transparent replacement PR** for each: the same changes as new signed commits. The body links the original PR, lists these 8 commits and states why. Then the original PR is closed with a link to its replacement. No history rewrite, no forged sign-offs, nothing hidden. | A3, A4 |
+| D2 | **Decided 2026-11-13 (founder delegated):** Lane A may queue A1–A11, and Lane B may queue B1–B10, once every check is green and the diff has been reviewed, including security. | all |
 | D3 | F-27 signing key and TUF root ceremony | B1 release, alpha |
 | D4 | F-61 / F-62 LUKS2 design | B1, A7 |
 | D5 | F-7 owner override for blocked apps | A6 |
