@@ -141,7 +141,7 @@ vm_down() { "${BACKEND}_down"; }
 cleanup() {
   local rc=$?
   if [ "$KEEP" = 1 ]; then
-    log "VM kept: gateway at https://127.0.0.1:$PORT (owner token in $SECRETS/owner.token)"
+    log "VM kept: gateway at https://onemind.local:$PORT (map it to 127.0.0.1, trust $SECRETS/box-ca.pem) (owner token in $SECRETS/owner.token)"
     [ "$BACKEND" = lima ] && log "delete with: limactl delete -f $NAME"
     [ "$BACKEND" = qemu ] && log "stop with: kill \$(cat $WORK/qemu.pid)"
   else
@@ -203,10 +203,15 @@ NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 printf '{"scanned_at": "%s", "result": "pass", "images": [], "smoke": "skipped",\n "e2e_fixture": "tests/e2e/harness/run.sh: stands in for the 9.4 app-gate until it runs on the hub"}\n' "$NOW" \
   | vm_sh "sudo bash -c 'cat > /opt/onemind/apps/$APP/scan.json'"
 
-# The hub's plain HTTP is loopback-only (H-05), so the host reaches the gateway over HTTPS on :8443; the box
-# CA belongs to this throwaway VM, so the host side does not verify it (curl -k, Playwright ignoreHTTPSErrors).
-HUB="https://127.0.0.1:$PORT"
-for i in $(seq 1 60); do curl -fsSk "$HUB/healthz" >/dev/null 2>&1 && break; sleep 2; done
+# The hub's plain HTTP is loopback-only (H-05), so the host reaches the gateway over HTTPS on :8443, and
+# verifies it: the box CA comes out of the VM, and onemind.local (a name in the box certificate) is mapped to
+# the forwarded port on this machine for these processes only. Nothing turns certificate checks off.
+BOXCA="$SECRETS/box-ca.pem"
+vm_sh 'sudo cat /etc/onemind/identity/ca.pem' > "$BOXCA"
+grep -q 'BEGIN CERTIFICATE' "$BOXCA" || die "could not read the box CA from the hub"
+CA_SPKI=$(openssl x509 -in "$BOXCA" -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64)
+HUB="https://onemind.local:$PORT"
+for i in $(seq 1 60); do curl -fsS --cacert "$BOXCA" --resolve "onemind.local:$PORT:127.0.0.1" "$HUB/healthz" >/dev/null 2>&1 && break; sleep 2; done
 [ "$i" -lt 60 ] || die "the gateway is not reachable from the host at $HUB"
 log "gateway reachable from the host at $HUB"
 
@@ -228,7 +233,10 @@ if [ "$PLAYWRIGHT" = 1 ]; then
     && npx playwright install ${E2E_PW_WITH_DEPS:+--with-deps} chromium >/dev/null)
   rm -f "$OUT/golden-actions.jsonl"   # lib/runlog.ts: the action ids of this run only
   set +e
-  (cd "$E2E" && E2E_HUB_URL="$HUB" E2E_OWNER_TOKEN_FILE="$SECRETS/owner.token" \
+  (cd "$E2E" && NODE_EXTRA_CA_CERTS="$BOXCA" E2E_RESOLVE="onemind.local=127.0.0.1" \
+    NODE_OPTIONS="--require $E2E/lib/resolve.cjs" \
+    E2E_CHROMIUM_ARGS="[\"--ignore-certificate-errors-spki-list=$CA_SPKI\",\"--host-resolver-rules=MAP onemind.local 127.0.0.1\"]" \
+    E2E_HUB_URL="$HUB" E2E_OWNER_TOKEN_FILE="$SECRETS/owner.token" \
     E2E_AGENT_TOKEN_FILE="$SECRETS/agent.token" E2E_AGENT_ID="$AGENT_ID" E2E_APP="$APP" \
     E2E_AUDIT_FETCH="$WORK/fetch-audit.sh" E2E_OUT="$OUT" npx playwright test --project=unit --project=golden)
   PW_RC=$?

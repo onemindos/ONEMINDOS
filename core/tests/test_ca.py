@@ -156,25 +156,3 @@ def test_box_name_validated(tmp_path):
         with pytest.raises(ValueError):
             BoxCA(tmp_path, bad)
     assert ca_mod.LAN_DOMAIN == "onemind.local"
-
-
-def test_https_cert_names_loopback_and_the_lan_address(tmp_path, clock):
-    """App pods and local tools dial the gateway by address (https://<LAN address>:8443, https://127.0.0.1:8443),
-    so the HTTPS certificate carries both addresses and a client verifies them against the box CA."""
-    box = BoxCA(tmp_path / "tls", "box1", lan_addr="198.51.100.1", clock=clock)
-    cert = box.ensure_https_cert()
-    san = x509.load_pem_x509_certificate(cert.cert_path.read_bytes()).extensions.get_extension_for_class(
-        x509.SubjectAlternativeName).value
-    assert sorted(str(i) for i in san.get_values_for_type(x509.IPAddress)) == ["127.0.0.1", "198.51.100.1"]
-    pems = x509.load_pem_x509_certificates(cert.cert_path.read_bytes())
-    store = verification.Store([x509.load_pem_x509_certificate(box.ca_pem())])
-    when = clock.now + timedelta(days=1)
-    for ip in ("127.0.0.1", "198.51.100.1"):
-        verifier = verification.PolicyBuilder().store(store).time(when).build_server_verifier(
-            verification.IPAddress(__import__("ipaddress").ip_address(ip)))
-        verifier.verify(pems[0], pems[1:])
-    # an address that is not the box's is not vouched for
-    verifier = verification.PolicyBuilder().store(store).time(when).build_server_verifier(
-        verification.IPAddress(__import__("ipaddress").ip_address("203.0.113.9")))
-    with pytest.raises(verification.VerificationError):
-        verifier.verify(pems[0], pems[1:])

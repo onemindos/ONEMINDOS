@@ -63,13 +63,11 @@ class IssuedCert:
 class BoxCA:
     """The box CA and the server certificates it issues. One instance per tls directory."""
 
-    def __init__(self, tls_dir: Path, box_name: str, *, lan_addr: str | None = None,
-                 clock: Callable[[], datetime] = _utcnow):
+    def __init__(self, tls_dir: Path, box_name: str, *, clock: Callable[[], datetime] = _utcnow):
         if not BOX_RE.match(box_name):
             raise ValueError("box name must be a lowercase DNS label")
         self.dir = tls_dir
         self.box = box_name
-        self.lan_addr = str(ipaddress.ip_address(lan_addr)) if lan_addr else None
         self.clock = clock
         self._lock = threading.Lock()
         self._key: ec.EllipticCurvePrivateKey | None = None
@@ -261,17 +259,12 @@ class BoxCA:
                 pass  # unreadable, wrong or too open: re-issue
         return self.issue(name, names, ip_addresses=ips)
 
-    def https_ips(self) -> tuple[str, ...]:
-        """Addresses clients may dial the gateway on: this machine's loopback (local tools) and the LAN address
-        (app pods call the gateway at https://<LAN address>:8443; a name check needs the address in the SAN)."""
-        return ("127.0.0.1",) + ((self.lan_addr,) if self.lan_addr else ())
-
     def https_names(self) -> tuple[str, ...]:
         """One certificate for the gateway's HTTPS listener: the box names and every app name."""
         return self.gateway_names() + self.wildcard_names()
 
     def ensure_https_cert(self) -> IssuedCert:
-        return self.ensure_cert("https", self.https_names(), ip_addresses=self.https_ips())
+        return self.ensure_cert("https", self.https_names())
 
     def ensure_nats_cert(self, hub_mesh_ip: str) -> IssuedCert:
         """The hub's NATS leaf listener: nodes dial tls://<hub mesh ip>:7422, so the IP is a SAN."""
@@ -353,10 +346,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--dir", required=True, type=Path, help="tls directory (the box CA lives here)")
     ap.add_argument("--box", required=True, help="box name (DNS label): <box>.local")
     ap.add_argument("--nats-ip", help="hub mesh IPv4: also issue the NATS leaf listener certificate")
-    ap.add_argument("--lan-addr", help="the hub's LAN IPv4: a subject alternative name of the HTTPS certificate")
     ap.add_argument("--control", action="store_true", help="also issue Headscale's control.onemind.internal certificate")
     args = ap.parse_args(argv)
-    box = BoxCA(args.dir, args.box, lan_addr=args.lan_addr)
+    box = BoxCA(args.dir, args.box)
     box.ensure_https_cert()
     if args.nats_ip:
         box.ensure_nats_cert(args.nats_ip)

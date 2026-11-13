@@ -25,8 +25,9 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         baseURL: process.env.E2E_HUB_URL,
-        // The hub's HTTPS uses the box CA of the throwaway test VM (plain HTTP is loopback-only, H-05).
-        ignoreHTTPSErrors: (process.env.E2E_HUB_URL ?? '').startsWith('https://'),
+        // The browser trusts the box CA by its public key only (E2E_CHROMIUM_ARGS from the harness: a pin on the
+        // CA's SPKI, plus the name mapping the forwarded port needs); verification itself stays on.
+        launchOptions: { args: process.env.E2E_CHROMIUM_ARGS ? JSON.parse(process.env.E2E_CHROMIUM_ARGS) : [] },
         screenshot: 'on',
         video: 'on',
         // A trace holds every request's Authorization header and every evaluate argument (the owner
