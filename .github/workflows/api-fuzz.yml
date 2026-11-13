@@ -54,7 +54,7 @@ jobs:
 
       - name: Throwaway tokens, catalog and data directory
         run: |
-          mkdir -p "$FUZZ/data"
+          mkdir -p "$FUZZ/data" "$FUZZ/files"
           owner=$(openssl rand -hex 32); agent=$(openssl rand -hex 32)
           echo "::add-mask::$owner"; echo "::add-mask::$agent"
           # Only the hashes go in the tokens file (contract §3 "sha256:" keys).
@@ -79,6 +79,9 @@ jobs:
           ONEMIND_TOKENS_FILE: ${{ env.FUZZ }}/tokens.yaml
           ONEMIND_APPS_DIR: ${{ env.FUZZ }}/apps
           ONEMIND_DATA_DIR: ${{ env.FUZZ }}/data
+          # The files spaces live here, so the /v1/files routes are fuzzed against real storage
+          # instead of answering 503 storage_unavailable (the default root is /data/onemind/files).
+          ONEMIND_FILES_ROOT: ${{ env.FUZZ }}/files
           ONEMIND_EXECUTOR: noop
           ONEMIND_NATS_URL: ""
           ONEMIND_NODE_ID: fuzz-hub

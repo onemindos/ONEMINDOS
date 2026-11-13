@@ -147,6 +147,17 @@ def prepare(gateway: str, config: Path) -> int:
         'expected-statuses = [400, 401, 403, 404, 405, 406, 409, 413, 415, 422, 428, 429, "5xx"]\n'
         '[operations.checks.positive_data_acceptance]\n'
         'expected-statuses = ["2xx", "3xx", 401, 403, 404, 409, 413, 429, "5xx"]\n'
+        # The backup routes answer 503 `unavailable` when the feature is off or its agent is down (§12.2),
+        # which is documented. unavailable_is_the_documented_envelope pins the exact envelope and the
+        # routes, so any other 5xx anywhere, and any 503 elsewhere, still fails.
+        '\n[[operations]]\ninclude-path-regex = "^/v1/(backups|restores)"\n'
+        '[operations.checks.not_a_server_error]\n'
+        'expected-statuses = [503]\n'
+        # Files requests whose values only the server can judge (names, opaque cursors) may be refused
+        # 422. semantic_refusal_names_its_reason requires one of the known reasons for that.
+        '\n[[operations]]\ninclude-path-regex = "^/v1/(files|backups|restores|migrate)"\n'
+        '[operations.checks.positive_data_acceptance]\n'
+        'expected-statuses = ["2xx", "3xx", 401, 403, 404, 409, 413, 422, 429, "5xx"]\n'
     )
     print(f"prepare: the agent requested {len(ids)} installs; config aims the fuzzers at them")
     return 0
