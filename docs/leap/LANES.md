@@ -55,7 +55,7 @@
 | B7 | Upload writes off the event loop | `fix/files-tus-threadpool` (new) | `tus_patch` writes chunks synchronously in the async handler. Move the writes to a thread and keep the free-space checks and offsets correct. Add a test. |
 | B8 | Alpha checklist draft | `docs/alpha-checklist` (new) | `docs/leap/ALPHA-CHECKLIST.md` (Wave G #9): images, downloads page, signed releases, upgrade path, docs. Mark each item done, in progress or BLOCKED ON FOUNDER (name the decision). |
 | B9 | Photos server | `feat/photos-server` (no PR) | Merge main once and open the PR. Path traversal and grant checks reuse #77's file confinement. |
-| B10 | Board and changelog catch-up | #43, #58, then `docs/leap/CONTINUE.md` | Last of all, and only if the founder keeps #43 and #58 (D16). Redo them against final main, then mark finished rows in CONTINUE.md. |
+| B10 | Close stale PRs + catch-up | #27, #43, #58, then `docs/leap/CONTINUE.md` | Per D15/D16: check #27 against #78, then close #27, #43 and #58 with a reason. Add any truly missing #24–#50 changelog entries as one fragment PR. Last of all, mark finished rows in CONTINUE.md. |
 
 **Lane B does not touch:** `.github/workflows/`, `apps/`, the generated SDK files, and every Lane A branch.
 **Lane A does not touch:** `os/`, `deploy/install.sh`, `deploy/pins.env`, the mesh, proxy and NATS code, and every Lane B branch.
@@ -83,9 +83,9 @@
 | D12 | ADR-001 wording: Rugix vs RAUC | docs |
 | D13 | Contract D6/D8 text | contract |
 | D14 | The install flow | first-run, alpha |
-| D15 | PR #27 (yours): keep or close | none (excluded from both lanes) |
-| D16 | #43 and #58: close, or redo last (B10) | B10 |
-| D17 | Delete `wip/automation-merge-72` (fully merged in #75) | cleanup |
+| D15 | **Decided 2026-11-13 (founder): close PR #27**, superseded by #78. Lane B first checks that #27 has nothing #78 did not port (report it if it does), then comments "Superseded by #78" and closes it. | B10 |
+| D16 | **Decided 2026-11-13 (founder): close #43 and #58** (stale; fragments replaced them). Lane B comments with the reason and closes both. If CHANGELOG entries for #24–#50 really are missing, add them in one small `changes/` fragment PR. | B10 |
+| D17 | **Done 2026-11-13:** founder deleted `wip/automation-merge-72` (fully merged in #75). | — |
 | D18 | Optional: `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` secrets for faster, steadier app scans | A5, A9, A11 speed |
 | D19 | Later: delete the `handoff/hermes-*` checkpoint branches once A1–A4 and B4 have merged | cleanup |
 | D20 | **Decided 2026-11-13 (founder):** Lane A now runs as a local Claude Code session on the founder's Mac. Any dev tooling it needs may be installed there; this replaces the old "nothing installed on the founder's Mac" rule in CONTINUE.md. Every other rule above still applies. | Lane A |
