@@ -50,11 +50,11 @@
 ## Cloud handoff (an agent with only GitHub access)
 Everything needed is on GitHub: merged work on `main`, open PRs, and pushed branches for the rest. Nothing depends on the founder's Mac.
 1. Clone the repo, read this page and [NEXT-WAVE.md](NEXT-WAVE.md). Work the lists above in order: quick, then medium; heavy last.
-2. Per item: `git merge origin/main` into the branch; for append-style files (CHANGELOG.md, docs/leap/STATUS.md, scripts/hygiene-allow.tsv) use `python3 -I scripts/merge/keepboth.py <files>`; resolve code conflicts by hand keeping both features.
+2. Per item: `git merge origin/main` into the branch; for append-style files (CHANGELOG.md, docs/leap/STATUS.md, scripts/hygiene-allow.tsv) use `python3 -I scripts/merge/keepboth.py <files>` (rarely needed now that fragments exist); resolve code conflicts by hand keeping both features.
 3. Run the checks for what changed (core pytest on SQLite and PostgreSQL, `go vet` + `go test ./...`, `npm test` in ui/ dashboard/ mobile/ desktop/ where touched, `sh scripts/lint.sh`, `python3 -I scripts/hygiene.py`, gitleaks). CI runs the heavy ones (app gate, QEMU battery, browsers).
 4. Push, open or update the PR, then `scripts/merge/merge-when-green.sh <pr>`: it merges only when every check passed. Wait for GitHub to compute the next PR's mergeable state before the next merge. Never force-push; never disable checks.
 5. App PRs: if an app fails its scan or licence check, set its tier to `blocked` with the reason in its README; do not drop it silently.
-6. Each merged item: CHANGELOG entry + STATUS row in the same PR. When a list here is done, update this page.
+6. Each item: add `changes/<branch>.md` (branch with `/` as `-`; format in [changes/README.md](../../changes/README.md)) with its CHANGELOG text and optional STATUS rows. Do not edit CHANGELOG.md or STATUS.md in the PR: that is what made every merge conflict with every other PR. `scripts/changes.py collect` (weekly `changes-collect` job, branch `bot/changes-collect`) folds fragments in. When a list here is done, update this page.
 7. The repo is public: no secrets, private IPs, host paths, emails or tailnet names (hygiene + gitleaks enforce it).
 
 Work-in-progress branch saved at handoff (not ready to merge): `feat/image-line` (USB installer unfinished). `feat/perf-budget` and `spike/machines` have merged (#68, #70).
