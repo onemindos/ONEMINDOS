@@ -26,7 +26,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         baseURL: process.env.E2E_HUB_URL,
         // The browser trusts the box CA by its public key only (E2E_CHROMIUM_ARGS from the harness: a pin on the
-        // CA's SPKI, plus the name mapping the forwarded port needs); verification itself stays on.
+        // CA's SPKI); name and certificate verification stay on, and onemind.local must resolve to the forwarded port.
         launchOptions: { args: process.env.E2E_CHROMIUM_ARGS ? JSON.parse(process.env.E2E_CHROMIUM_ARGS) : [] },
         screenshot: 'on',
         video: 'on',

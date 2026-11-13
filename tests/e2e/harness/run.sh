@@ -204,14 +204,23 @@ printf '{"scanned_at": "%s", "result": "pass", "images": [], "smoke": "skipped",
   | vm_sh "sudo bash -c 'cat > /opt/onemind/apps/$APP/scan.json'"
 
 # The hub's plain HTTP is loopback-only (H-05), so the host reaches the gateway over HTTPS on :8443, and
-# verifies it: the box CA comes out of the VM, and onemind.local (a name in the box certificate) is mapped to
-# the forwarded port on this machine for these processes only. Nothing turns certificate checks off.
+# verifies it: the box CA comes out of the VM, and the name the certificate is for (onemind.local) must resolve
+# to this machine, where the port is forwarded. mDNS is not available on CI runners, so an /etc/hosts line does
+# it (added here on CI only; on a laptop the script asks you to add it). Nothing turns certificate checks off.
+if ! getent hosts onemind.local 2>/dev/null | grep -q '^127\.0\.0\.1' && ! grep -qE '^127\.0\.0\.1[[:space:]].*onemind\.local' /etc/hosts; then
+  if [ -n "${CI:-}" ] && sudo -n true 2>/dev/null; then
+    echo '127.0.0.1 onemind.local' | sudo tee -a /etc/hosts >/dev/null
+    log "added 127.0.0.1 onemind.local to /etc/hosts (CI runner)"
+  else
+    die "onemind.local must resolve to 127.0.0.1 on this machine: add '127.0.0.1 onemind.local' to /etc/hosts and run again"
+  fi
+fi
 BOXCA="$SECRETS/box-ca.pem"
 vm_sh 'sudo cat /etc/onemind/identity/ca.pem' > "$BOXCA"
 grep -q 'BEGIN CERTIFICATE' "$BOXCA" || die "could not read the box CA from the hub"
 CA_SPKI=$(openssl x509 -in "$BOXCA" -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | base64)
 HUB="https://onemind.local:$PORT"
-for i in $(seq 1 60); do curl -fsS --cacert "$BOXCA" --resolve "onemind.local:$PORT:127.0.0.1" "$HUB/healthz" >/dev/null 2>&1 && break; sleep 2; done
+for i in $(seq 1 60); do curl -fsS --cacert "$BOXCA" "$HUB/healthz" >/dev/null 2>&1 && break; sleep 2; done
 [ "$i" -lt 60 ] || die "the gateway is not reachable from the host at $HUB"
 log "gateway reachable from the host at $HUB"
 
@@ -233,9 +242,8 @@ if [ "$PLAYWRIGHT" = 1 ]; then
     && npx playwright install ${E2E_PW_WITH_DEPS:+--with-deps} chromium >/dev/null)
   rm -f "$OUT/golden-actions.jsonl"   # lib/runlog.ts: the action ids of this run only
   set +e
-  (cd "$E2E" && NODE_EXTRA_CA_CERTS="$BOXCA" E2E_RESOLVE="onemind.local=127.0.0.1" \
-    NODE_OPTIONS="--require $E2E/lib/resolve.cjs" \
-    E2E_CHROMIUM_ARGS="[\"--ignore-certificate-errors-spki-list=$CA_SPKI\",\"--host-resolver-rules=MAP onemind.local 127.0.0.1\"]" \
+  (cd "$E2E" && NODE_EXTRA_CA_CERTS="$BOXCA" \
+    E2E_CHROMIUM_ARGS="[\"--ignore-certificate-errors-spki-list=$CA_SPKI\"]" \
     E2E_HUB_URL="$HUB" E2E_OWNER_TOKEN_FILE="$SECRETS/owner.token" \
     E2E_AGENT_TOKEN_FILE="$SECRETS/agent.token" E2E_AGENT_ID="$AGENT_ID" E2E_APP="$APP" \
     E2E_AUDIT_FETCH="$WORK/fetch-audit.sh" E2E_OUT="$OUT" npx playwright test --project=unit --project=golden)
