@@ -10,7 +10,11 @@ Power cut = SIGKILL of the QEMU process. Runs in the tools container (QEMU + fir
 
   python3 -I run-tests.py --board x86_64-efi --fixtures DIR --log serial.log [--upto T5] [--results r.json]
 """
-import argparse, json, os, platform, re, shutil, subprocess, sys, threading, time
+import argparse, importlib.util, json, os, platform, re, shutil, subprocess, sys, threading, time
+
+_ff = importlib.util.spec_from_file_location("failfast", os.path.join(os.path.dirname(os.path.abspath(__file__)), "failfast.py"))
+failfast = importlib.util.module_from_spec(_ff)
+_ff.loader.exec_module(failfast)
 
 ANSI = re.compile(rb"\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][0-9A-B]|\r")
 GATE = r"HEALTH-GATE: \S+ RESULT (\S+) slot=(\w) version=(\S+)([^\n]*)"
@@ -54,6 +58,8 @@ class VM:
                 self.cfg[k] = os.environ[f"ONEMIND_FW_{k.upper()}"]
         self.buf, self.pos, self.lock, self.proc = "", 0, threading.Lock(), None
         self.accel, self.cpu = accel_for(self.cfg)
+        # Opt-in fail-fast (failfast.py): the boot harnesses set it; the T-battery must not (T6/T7 panic on purpose).
+        self.failfast, self._watch = False, failfast.Watch()
         self.vars = None
         if self.cfg["vars"]:
             self.vars = os.path.join(workdir, "VARS.fd")
@@ -108,6 +114,9 @@ class VM:
                 if m:
                     self.pos = m.end()
                     return m
+                fatal = self._watch.check(self.buf) if self.failfast else None
+            if fatal:
+                raise RuntimeError(f"fatal sign on the console while waiting for {pattern!r}: {fatal}")
             if self.proc.poll() is not None:
                 raise RuntimeError(f"QEMU exited (rc={self.proc.returncode}) while waiting for {pattern!r}")
             time.sleep(0.2)

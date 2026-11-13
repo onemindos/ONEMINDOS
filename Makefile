@@ -70,6 +70,11 @@ firstboot:
 	  --log /out/firstboot-$(BOARD)/serial.log --results /out/firstboot-$(BOARD)/results.json; \
 	  rc=$$?; rm -f $(OUT)/firstboot-$(BOARD)/work/disk.img; exit $$rc
 
+# Local KVM check of F0-F4 (build + fixtures + firstboot); see test/qemu/README.md "Local first boot".
+.PHONY: local-firstboot
+local-firstboot:
+	test/qemu/local-firstboot.sh BOARD=$(BOARD) FUPTO=$(FUPTO)
+
 convert: tools
 	$(DOCKER_RUN) $(TOOLS) /src/os/assemble/convert.sh /out/image-$(BOARD)
 

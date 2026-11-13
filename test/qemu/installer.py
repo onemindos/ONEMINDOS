@@ -78,14 +78,46 @@ def http(method, path, token=None, data=None, timeout=20):
         return 0, str(e)
 
 
-def poll(method, path, until, timeout, token=None):
-    end, last = time.time() + timeout, (0, "")
+def poll(method, path, until, timeout, token=None, guard=None):
+    """`guard()` (fail fast, failfast.py) runs about every 30 s; it raises RuntimeError when the guest is
+    already known to be broken, so the poll does not wait out its timeout."""
+    end, last, nxt = time.time() + timeout, (0, ""), time.time() + 30
     while time.time() < end:
         last = http(method, path, token)
         if until(*last):
             break
+        if guard and time.time() >= nxt:
+            nxt = time.time() + 30
+            guard()
         time.sleep(5)
     return last
+
+
+def make_guard(vm, shell):
+    """Console fatal signs, plus (when the serial root shell is up) a gateway crash loop via NRestarts."""
+    ff = battery.failfast
+
+    def guard():
+        with vm.lock:
+            why = vm._watch.check(vm.buf)
+        if why:
+            raise RuntimeError(f"fatal sign on the console: {why}")
+        if shell:
+            _, out = vm.run(f"systemctl show -p NRestarts --value {ff.GATEWAY_UNIT}", 30)
+            n = (out.strip().splitlines() or [""])[-1]
+            if ff.restarts_exceeded(n):
+                raise RuntimeError(f"fatal sign: {ff.GATEWAY_UNIT} crash loop (NRestarts={n})")
+    return guard
+
+
+def diagnose(vm, why):
+    """Best effort: put the gateway journal into the log via the serial root shell."""
+    vm.mark(f"DIAGNOSE ({why}): gateway journal")
+    vm.failfast = False
+    try:
+        print(vm.run(battery.failfast.dump_cmd(), 90)[1][-6000:], flush=True)
+    except (TimeoutError, RuntimeError, OSError) as e:
+        vm.mark(f"DIAGNOSE failed: {e}")
 
 
 def blocks(path):
@@ -160,6 +192,7 @@ def main():
            "host_machine": platform.machine(), "upto": "I5", "target_gib": TARGET_GIB, "expected_sha256": want_sha}
     print(f"ENV {json.dumps(env)}", flush=True)
     t0 = time.time()
+    vm.failfast = True
     try:
         vm.mark("I1 installer boots from the USB stick")
         seg = vm.here(); vm.start()
@@ -225,7 +258,14 @@ def main():
         time.sleep(3)
         toks = TOKEN.findall(vm.since(seg))
         token = toks[0] if toks else ""
-        hz = poll("GET", "/healthz", lambda c, b: c == 200, 900)[0]
+        shell = False
+        try:                       # the installed system's serial root shell, for the crash-loop check and the journal dump
+            vm.shell_ready(); shell = True
+        except (TimeoutError, RuntimeError):
+            vm.mark("serial root shell not available; fail-fast uses console signs only")
+        hz = poll("GET", "/healthz", lambda c, b: c == 200, 900, guard=make_guard(vm, shell))[0]
+        if hz != 200 and shell:
+            diagnose(vm, f"healthz={hz}")
         nst, nbody = poll("GET", "/v1/nodes", lambda c, b: c == 200 and '"hub"' in b, 600, token=token)
         try:
             nodes = [(x["node_id"], x["role"], x["status"]) for x in json.loads(nbody)] if nst == 200 else []
@@ -243,6 +283,8 @@ def main():
         record("I4", ok4, d4)
     except (TimeoutError, RuntimeError, AttributeError) as e:
         record("HARNESS", False, f"aborted: {e}")
+        if "fatal sign" in str(e) and "Kernel panic" not in str(e) and vm.proc and vm.proc.poll() is None:
+            diagnose(vm, "fatal sign")
         if vm.proc and vm.proc.poll() is None:
             vm.kill()
     total = (time.time() - t0) / 60

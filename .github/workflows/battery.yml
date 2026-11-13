@@ -21,6 +21,11 @@ on:
       runner: {type: string, default: ubuntu-24.04}
 permissions:
   contents: read
+# Pull-request runs only: a newer push supersedes the old run. The group differs from the caller's
+# (image-<ref>), otherwise a called workflow would cancel its own caller. Main, nightly and tags never cancel.
+concurrency:
+  group: battery-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}-${{ inputs.board }}-${{ inputs.leg }}-${{ inputs.upto }}-${{ inputs.snapshot != '' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   battery:
     runs-on: ${{ inputs.runner }}

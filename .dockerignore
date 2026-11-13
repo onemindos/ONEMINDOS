@@ -9,6 +9,7 @@
 !internal/
 !core/
 !dashboard/
+!ui/src/
 !sdk/schema/
 !sdk/policy/
 !sdk/go/

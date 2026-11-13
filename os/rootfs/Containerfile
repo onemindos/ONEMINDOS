@@ -72,6 +72,8 @@ WORKDIR /src/dashboard
 COPY dashboard/package.json dashboard/package-lock.json ./
 RUN npm ci --loglevel=error
 COPY dashboard/ ./
+# @onemind/ui is consumed from source (dashboard tsconfig paths + vite alias -> ../ui/src), no ui build.
+COPY ui/src/ /src/ui/src/
 RUN npm run build && test -f dist/index.html
 
 FROM onemind-buildbase AS onemind-pyprep

@@ -11,7 +11,7 @@ gateway, all through ports forwarded on 127.0.0.1 (user networking, restrict=on)
   python3 -I cloudboot.py --cloud aws --image-dir /out/image-cloud-aws --work DIR --log serial.log \
       [--tests C0,C1,C2,C3,C4,C5,C6] [--results r.json]
 """
-import argparse, hashlib, importlib.util, json, os, platform, re, secrets, shutil, socket, subprocess, sys
+import argparse, hashlib, importlib.util, json, os, platform, re, secrets, shlex, shutil, socket, subprocess, sys
 import tarfile, time, urllib.error, urllib.request, uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -196,12 +196,19 @@ def http(port, path, token=None, timeout=10):
         return None, repr(e).encode()
 
 
-def wait_http(port, path, token=None, timeout=900):
-    end, last = time.time() + timeout, (None, b"")
+def wait_http(port, path, token=None, timeout=900, guard=None):
+    """Poll until HTTP 200 or the timeout. `guard()` (fail fast, failfast.py) is called about every 30 s and
+    returns a reason string when the guest is already known to be broken; polling then stops."""
+    end, last, next_guard = time.time() + timeout, (None, b""), time.time() + 30
     while time.time() < end:
         last = http(port, path, token)
         if last[0] == 200:
             break
+        if guard and time.time() >= next_guard:
+            next_guard = time.time() + 30
+            why = guard()
+            if why:
+                return (None, why.encode())
         time.sleep(5)
     return last
 
@@ -250,6 +257,7 @@ class Run:
         vm.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=0)
         import threading
         threading.Thread(target=vm._reader, daemon=True).start()
+        vm.failfast = True
         self.vm = vm
         return vm
 
@@ -260,9 +268,45 @@ class Run:
                            capture_output=True, text=True, timeout=timeout)
         return r.returncode, r.stdout + r.stderr
 
+    def console_fatal(self):
+        """Fail fast: a fatal sign on the serial console (kernel panic, emergency mode, OneMind unit failed)."""
+        v = self.vm
+        if v is not None:
+            with v.lock:
+                why = v._watch.check(v.buf)
+            if why:
+                raise RuntimeError(f"fatal sign on the console: {why}")
+
+    def guard(self):
+        """Reason string when the gateway is in a crash loop (NRestarts), else None; also checks the console."""
+        self.console_fatal()
+        try:
+            _, out = self.ssh(f"systemctl show -p NRestarts --value {self.battery.failfast.GATEWAY_UNIT}", 30)
+        except subprocess.TimeoutExpired:
+            return None
+        n = (out.strip().splitlines() or [""])[-1]
+        return f"{self.battery.failfast.GATEWAY_UNIT} crash loop (NRestarts={n})" if self.battery.failfast.restarts_exceeded(n) else None
+
+    def diagnose(self, why):
+        """Best effort: put the gateway journal into the log so the cause of a missing /healthz is visible."""
+        self.vm.mark(f"DIAGNOSE ({why}): gateway journal")
+        try:
+            _, out = self.ssh("sudo sh -c " + shlex.quote(self.battery.failfast.dump_cmd()), 90)
+            self.logf.write(out + "\n"); self.logf.flush()
+            print(out[-6000:], flush=True)
+        except (subprocess.SubprocessError, OSError) as e:
+            self.vm.mark(f"DIAGNOSE failed: {e}")
+
+    def healthz(self, why="healthz"):
+        code, body = wait_http(self.ports["http"], "/healthz", guard=self.guard)
+        if code != 200:
+            self.diagnose(f"{why}={code} {body[:80]!r}")
+        return code, body
+
     def ssh_ready(self, timeout=900):
         end = time.time() + timeout
         while time.time() < end:
+            self.console_fatal()
             try:
                 rc, out = self.ssh("sudo -n true && echo SSH-OK", 60)
                 if rc == 0 and "SSH-OK" in out:
@@ -413,7 +457,7 @@ def boot_main(R, base, tests, extra):
 
     # C3: OneMind answers through the forwarded port
     nid, tok_sha = R.node_id()
-    hz = wait_http(R.ports["http"], "/healthz")[0]
+    hz = R.healthz()[0]
     rows = R.listed(token, nid) if token and hz == 200 else []
     me = [r for r in rows if r[0] == nid]
     noauth = http(R.ports["http"], "/v1/nodes")[0]
@@ -449,7 +493,7 @@ def boot_main(R, base, tests, extra):
     R.ssh_ready()
     new_toks = TOKEN.findall(vm.since(seg))
     nid2, tok_sha2 = R.node_id()
-    hz2 = wait_http(R.ports["http"], "/healthz")[0]
+    hz2 = R.healthz()[0]
     rows2 = R.listed(token, nid)
     record("C4", grown and not new_toks and nid2 == nid and tok_sha2 == tok_sha and hz2 == 200
            and any(r[0] == nid for r in rows2),
@@ -472,7 +516,7 @@ def boot_main(R, base, tests, extra):
         s = vm.since(seg)
         dsl6 = R.datasource_list()
         nid6, _ = R.node_id()
-        hz6 = wait_http(R.ports["http"], "/healthz")[0]
+        hz6 = R.healthz()[0]
         rows6 = R.listed(token, nid)
         record("C6", rc == 0 and g6[0] == "mark-good" and g6[1] == "B" and dsl6 == R.p["datasources"]
                and re.search(ALREADY, s) is not None and not TOKEN.search(s) and nid6 == nid and hz6 == 200

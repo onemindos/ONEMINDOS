@@ -55,11 +55,26 @@ def make_work(fx, work):
 def http_code(vm, url, token=None, timeout=900):
     """Poll until HTTP 200 or the timeout; returns the last code seen."""
     auth = f"-H 'Authorization: Bearer {token}' " if token else ""
+    # Fail fast: a gateway in a crash loop (NRestarts, Restart=always) will not answer; stop waiting (failfast.py).
+    lim = battery.failfast.RESTART_LIMIT
     _, out = vm.run(f"t0=$SECONDS; while :; do c=$(curl -s -o /dev/null -w '%{{http_code}}' {auth}{url}); "
-                    f"[ \"$c\" = 200 ] || [ $((SECONDS - t0)) -ge {timeout} ] && break; sleep 5; done; echo CODE=$c",
+                    f"[ \"$c\" = 200 ] || [ $((SECONDS - t0)) -ge {timeout} ] && break; "
+                    f"n=$(systemctl show -p NRestarts --value {battery.failfast.GATEWAY_UNIT} 2>/dev/null); "
+                    f"[ \"${{n:-0}}\" -ge {lim} ] 2>/dev/null && {{ c=crashloop-$n; break; }}; sleep 5; done; echo CODE=$c",
                     timeout + 60)
-    m = re.findall(r"CODE=(\d+)", out)
+    m = re.findall(r"CODE=(\S+)", out)
     return m[-1] if m else "none"
+
+
+def diagnose(vm, why):
+    """Best effort: put the gateway journal into the log (the serial log and stdout) so the cause is visible."""
+    vm.mark(f"DIAGNOSE ({why}): gateway journal")
+    vm.failfast = False
+    try:
+        _, out = vm.run(battery.failfast.dump_cmd(), 90)
+        print(out[-6000:], flush=True)
+    except (TimeoutError, RuntimeError, OSError) as e:
+        vm.mark(f"DIAGNOSE failed: {e}")
 
 
 def nodes(vm, token, want_id, timeout=600):
@@ -123,6 +138,7 @@ def main():
            "host_machine": platform.machine(), "upto": a.upto}
     print(f"ENV {json.dumps(env)}", flush=True)
     rc = 1
+    vm.failfast = True          # stop at the first fatal console sign instead of waiting out the timeouts
     try:
         vm.mark("F1 first boot as hub (NoCloud seed)"); vm.start()
         cfg = vm.expect(CONFIGURED, 900).group(0)
@@ -134,6 +150,8 @@ def main():
         token = toks[0] if toks else ""
         ids = ident(vm)
         hz = http_code(vm, f"{GW}/healthz", timeout=900)
+        if hz != "200":
+            diagnose(vm, f"healthz={hz}")
         listed = nodes(vm, token, ids["node_id"]) if token and hz == "200" else []
         _, out = vm.run(f"curl -s -o /dev/null -w 'NOAUTH=%{{http_code}}\\n' {GW}/v1/nodes")
         noauth = "NOAUTH=401" in out
@@ -158,6 +176,8 @@ def main():
             new_toks = TOKEN.findall(vm.since(seg))
             ids3 = ident(vm)
             hz3 = http_code(vm, f"{GW}/healthz", timeout=900)
+            if hz3 != "200":
+                diagnose(vm, f"healthz={hz3} after reboot")
             listed3 = nodes(vm, token, ids["node_id"])
             same = [n for n in listed3 if n[0] == ids["node_id"]]
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
@@ -176,6 +196,8 @@ def main():
             ver2 = re.search(r'^ONEMIND_VERSION="?2"?\s*$', out, re.M) is not None
             ids4 = ident(vm)
             hz4 = http_code(vm, f"{GW}/healthz", timeout=900)
+            if hz4 != "200":
+                diagnose(vm, f"healthz={hz4} after update")
             listed4 = nodes(vm, token, ids["node_id"])
             same = [n for n in listed4 if n[0] == ids["node_id"]]
             already = re.search(ALREADY, s) is not None
@@ -186,6 +208,8 @@ def main():
         rc = 0
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")
+        if "fatal sign" in str(e) and "Kernel panic" not in str(e) and vm.proc and vm.proc.poll() is None:
+            diagnose(vm, "fatal console sign")
     if rc == 0:
         vm.poweroff()
     elif vm.proc and vm.proc.poll() is None:

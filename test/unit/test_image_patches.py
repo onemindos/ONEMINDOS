@@ -72,6 +72,18 @@ class GatewaySandboxRules(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(ROOT, "sdk", "policy", "app-objects.yaml")))
 
 
+class DashboardUiSource(unittest.TestCase):
+    """The dashboard imports @onemind/ui from source (../ui/src, see dashboard/vite.config.ts); the image's
+    dashboard stage must have ui/src beside dashboard/ or `npm run build` fails with TS2307."""
+    def test_ui_src_reaches_the_dashboard_stage(self):
+        cf = rd("os", "rootfs", "Containerfile")
+        stage = cf[cf.index("AS onemind-dashboard"):cf.index("AS onemind-pyprep")]
+        self.assertIn("COPY ui/src/ /src/ui/src/", stage)
+        self.assertLess(stage.index("COPY ui/src/"), stage.index("npm run build"))
+        self.assertIn("!ui/src/", rd(".dockerignore"))
+        self.assertIn("../ui/src", rd("dashboard", "tsconfig.json"))
+
+
 class NatsUnit(unittest.TestCase):
     def test_tls_files_reach_the_throwaway_user_without_credentials_glob(self):
         u = rd("os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system", "onemind-nats.service")
