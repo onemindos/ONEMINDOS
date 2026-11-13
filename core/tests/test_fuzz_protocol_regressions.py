@@ -22,7 +22,7 @@ def test_fuzz_payload_oracle_rejects_false_413_and_accepts_real_overflow():
 
 
 
-def test_payload_status_adaptation_only_adds_413_for_reproduced_operations(monkeypatch, tmp_path):
+def test_fuzz_config_states_the_expected_statuses_and_no_operation_is_selected_by_path_and_method(monkeypatch, tmp_path):
     """A config-generation unit control, not fabricated HTTP/backend evidence."""
     import tomllib
     import api_fuzz_check
@@ -33,27 +33,23 @@ def test_payload_status_adaptation_only_adds_413_for_reproduced_operations(monke
                         [{'id': 'unit-app'}] if path == '/v1/apps' else {'id': 'unit-action'})
     config = tmp_path / 'fuzz.toml'
     assert api_fuzz_check.prepare('http://unit.invalid', config) == 0
-    operations = tomllib.loads(config.read_text())['operations']
-    adapted = {op['include-name']: op['checks'] for op in operations if 'checks' in op and 'include-name' in op}
-    # One named operation each: include-path with include-method would match on either and leak to every POST.
-    assert set(adapted) == {'POST /v1/tokens', 'PUT /v1/apps/{app_id}/access'}
-    # The only other adaptations are path families, each for named statuses and each paired with a custom
-    # check in api_fuzz_hooks.py that pins the exact envelope; nothing else is adapted.
+    doc = tomllib.loads(config.read_text())
+    # Global: 413 and 422 are expected statuses, each guarded by a custom check in api_fuzz_hooks.py
+    # (genuine_payload_rejection, semantic_refusal_names_its_reason) that fails every one that is not genuine.
+    assert set(doc['checks']['negative_data_rejection']['expected-statuses']) == {
+        400, 401, 403, 404, 405, 406, 409, 413, 415, 422, 428, 429, '5xx'}
+    assert set(doc['checks']['positive_data_acceptance']['expected-statuses']) == {
+        '2xx', '3xx', 401, 403, 404, 409, 413, 422, 429, '5xx'}
+    # Everything else is a named path family; no operation is selected by include-path + include-method,
+    # which Schemathesis matches on either and once leaked an allowance to every POST.
+    operations = doc['operations']
+    assert not [op for op in operations if 'include-method' in op or 'include-path' in op]
     families = {op['include-path-regex']: op['checks'] for op in operations if 'include-path-regex' in op}
-    semantic = '^/v1/(files|backups|restores|migrate|notifications|actions|plans)'
-    assert set(families) == {'^/v1/(backups|restores)', '^/v1/files/uploads', semantic}
+    assert set(families) == {'^/v1/(backups|restores)', '^/v1/files/uploads'}
     assert families['^/v1/(backups|restores)'] == {
         'not_a_server_error': {'expected-statuses': ['2xx', '3xx', '4xx', 503]}}
-    assert set(families[semantic]) == {'positive_data_acceptance'}
-    assert set(families[semantic]['positive_data_acceptance']['expected-statuses']) == (
-        {'2xx', '3xx', 401, 403, 404, 409, 422, 429, '5xx'})
     assert set(families['^/v1/files/uploads']) == {'negative_data_rejection', 'missing_required_header'}
     assert 412 in families['^/v1/files/uploads']['negative_data_rejection']['expected-statuses']
-    negative = {400, 401, 403, 404, 405, 406, 409, 415, 422, 428, 429, '5xx'}
-    positive = {'2xx', '3xx', 401, 403, 404, 409, 429, '5xx'}
-    for checks in adapted.values():
-        assert set(checks['negative_data_rejection']['expected-statuses']) == negative | {413}
-        assert set(checks['positive_data_acceptance']['expected-statuses']) == positive | {413}
 
 
 @pytest.mark.parametrize('method', ['GET', 'DELETE'])

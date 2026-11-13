@@ -142,7 +142,7 @@ class DenyBody(BaseModel):
 
 class QuotaBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    limit_bytes: int | None = Field(ge=0)
+    limit_bytes: Annotated[int, Field(strict=True, ge=0)] | None
 
 
 IdemKey = Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)]

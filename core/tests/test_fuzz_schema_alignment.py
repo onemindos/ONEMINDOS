@@ -208,7 +208,8 @@ def test_semantic_refusal_check_wants_a_known_reason_and_only_for_positive_data(
         else h.semantic_refusal_names_its_reason
     check(None, _Resp(422, {"reason": "invalid_path"}), _Case("/v1/files/list"))
     check(None, _Resp(422, {"message": "request failed validation"}), _Case("/v1/files/list", positive=False))
-    check(None, _Resp(422, {"message": "request failed validation"}), _Case("/v1/instance"))
+    check(None, _Resp(200, {}), _Case("/v1/instance"))
+    check(None, _Resp(422, {"reason": "invalid_request"}), _Case("/v1/instance"))
     for body in ({"message": "request failed validation"}, {"reason": "something_else"}):
         with pytest.raises(AssertionError):
             check(None, _Resp(422, body), _Case("/v1/files/list"))
@@ -238,8 +239,8 @@ def test_semantic_validation_refusals_name_their_reason(client):
     assert r.status_code == 422 and "reason" not in r.json()
 
 
-def test_fuzz_config_names_one_operation_for_the_413_adaptation(client, monkeypatch, tmp_path):
-    """include-path + include-method matches on either, which once leaked the 413 allowance to every POST."""
+def test_fuzz_config_scopes_503_to_backups_and_412_to_tus(client, monkeypatch, tmp_path):
+    """The path families apply to their routes only (include-path + include-method once leaked to every POST)."""
     pytest.importorskip("schemathesis")
     import api_fuzz_check
     import schemathesis
@@ -256,11 +257,12 @@ def test_fuzz_config_names_one_operation_for_the_413_adaptation(client, monkeypa
     for result in schema.get_all_operations():
         op = result.ok()
         checks = schema.config.operations.get_for_operation(op).checks
-        seen[op.label] = {name: set(getattr(getattr(checks, name), "expected_statuses", None) or [])
-                          for name in ("positive_data_acceptance", "not_a_server_error")}
-    assert "413" in seen["POST /v1/tokens"]["positive_data_acceptance"]
-    assert "413" in seen["PUT /v1/apps/{app_id}/access"]["positive_data_acceptance"]
-    assert "413" not in seen["POST /v1/files/ops"]["positive_data_acceptance"]
-    assert "413" not in seen["POST /v1/plans"]["positive_data_acceptance"]
+        seen[op.label] = {name: set(getattr(getattr(checks, name, None), "expected_statuses", None) or [])
+                          for name in ("not_a_server_error", "negative_data_rejection", "missing_required_header")}
     assert "503" in seen["GET /v1/backups/status"]["not_a_server_error"]
+    assert "503" in seen["POST /v1/restores"]["not_a_server_error"]
     assert "503" not in seen["GET /v1/instance"]["not_a_server_error"]
+    assert "503" not in seen["POST /v1/files/ops"]["not_a_server_error"]
+    assert "412" in seen["POST /v1/files/uploads"]["negative_data_rejection"]
+    assert "412" not in seen["POST /v1/files/ops"]["negative_data_rejection"]
+    assert "412" in seen["HEAD /v1/files/uploads/{upload_id}"]["missing_required_header"]

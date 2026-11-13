@@ -7736,6 +7736,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
+                  "minLength": 1,
                   "type": "string"
                 },
                 {
@@ -7852,6 +7854,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
+                  "minLength": 1,
                   "type": "string"
                 },
                 {
@@ -7987,6 +7991,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
+                  "minLength": 1,
                   "type": "string"
                 },
                 {
@@ -8220,6 +8226,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
+                  "minLength": 1,
                   "type": "string"
                 },
                 {
@@ -8862,6 +8870,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
+                  "minLength": 1,
                   "type": "string"
                 },
                 {
@@ -13795,6 +13805,8 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 200,
+                  "minLength": 1,
                   "type": "string"
                 },
                 {

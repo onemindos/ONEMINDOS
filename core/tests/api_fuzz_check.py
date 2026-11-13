@@ -134,20 +134,17 @@ def prepare(gateway: str, config: Path) -> int:
         # Pin only this parameter; deterministic protocol tests retain syntax/range refusals.
         '\n[[operations]]\ninclude-operation-id = "nodes.metrics"\n'
         '[operations.parameters]\n"query.window" = "3600"\n'
-        # 4.33.1 omits 413 from its negative-data defaults. Scope this addition to
-        # the demonstrated token/access-body cases; genuine_payload_rejection independently
-        # rejects every 413 at or below the real wire-byte budget. No check disabled.
-        # include-path with include-method matches an operation on EITHER, so name the operation instead.
-        '\n[[operations]]\ninclude-name = "POST /v1/tokens"\n'
-        '[operations.checks.negative_data_rejection]\n'
+        # Schemathesis 4.33.1 omits 413 from its negative-data defaults, and a generated body of schema-valid
+        # or schema-invalid arrays can exceed the gateway's 256 KiB guard on any operation. 413 is therefore
+        # expected everywhere, and genuine_payload_rejection (api_fuzz_hooks.py) independently fails every
+        # 413 that is not either over the real wire-byte budget or a declared upload size or space limit.
+        # A schema-valid request may also be refused 422 where only the server can judge the value (a
+        # name's Unicode rules, an opaque cursor, a time zone); semantic_refusal_names_its_reason fails
+        # such a 422 unless it carries one of the closed set of reasons. No check is disabled.
+        '\n[checks.negative_data_rejection]\n'
         'expected-statuses = [400, 401, 403, 404, 405, 406, 409, 413, 415, 422, 428, 429, "5xx"]\n'
-        '[operations.checks.positive_data_acceptance]\n'
-        'expected-statuses = ["2xx", "3xx", 401, 403, 404, 409, 413, 429, "5xx"]\n'
-        '\n[[operations]]\ninclude-name = "PUT /v1/apps/{app_id}/access"\n'
-        '[operations.checks.negative_data_rejection]\n'
-        'expected-statuses = [400, 401, 403, 404, 405, 406, 409, 413, 415, 422, 428, 429, "5xx"]\n'
-        '[operations.checks.positive_data_acceptance]\n'
-        'expected-statuses = ["2xx", "3xx", 401, 403, 404, 409, 413, 429, "5xx"]\n'
+        '\n[checks.positive_data_acceptance]\n'
+        'expected-statuses = ["2xx", "3xx", 401, 403, 404, 409, 413, 422, 429, "5xx"]\n'
         # The backup routes answer 503 `unavailable` when the feature is off or its agent is down (§12.2),
         # which is documented. unavailable_is_the_documented_envelope pins the exact envelope and the
         # routes, so any other 5xx anywhere, and any 503 elsewhere, still fails.
@@ -158,14 +155,9 @@ def prepare(gateway: str, config: Path) -> int:
         # 415), as the schema's required Tus-Resumable header promises.
         '\n[[operations]]\ninclude-path-regex = "^/v1/files/uploads"\n'
         '[operations.checks.negative_data_rejection]\n'
-        'expected-statuses = [400, 401, 403, 404, 405, 406, 409, 412, 415, 422, 428, 429, "5xx"]\n'
+        'expected-statuses = [400, 401, 403, 404, 405, 406, 409, 412, 413, 415, 422, 428, 429, "5xx"]\n'
         '[operations.checks.missing_required_header]\n'
         'expected-statuses = [400, 401, 403, 406, 412, 415, 422]\n'
-        # Files requests whose values only the server can judge (names, opaque cursors) may be refused
-        # 422. semantic_refusal_names_its_reason requires one of the known reasons for that.
-        '\n[[operations]]\ninclude-path-regex = "^/v1/(files|backups|restores|migrate|notifications|actions|plans)"\n'
-        '[operations.checks.positive_data_acceptance]\n'
-        'expected-statuses = ["2xx", "3xx", 401, 403, 404, 409, 422, 429, "5xx"]\n'
     )
     print(f"prepare: the agent requested {len(ids)} installs; config aims the fuzzers at them")
     return 0

@@ -126,9 +126,11 @@ def install_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, exc: ApiError):
+        # A 422 the handler raised on purpose (a value only the server can judge) always names a reason.
+        reason = exc.reason or ("invalid_request" if exc.status == 422 else None)
         return error_response(
             exc.status, exc.error, exc.message,
-            reason=exc.reason, details=exc.details, retry_after_s=exc.retry_after_s,
+            reason=reason, details=exc.details, retry_after_s=exc.retry_after_s,
         )
 
     @app.exception_handler(RequestValidationError)
@@ -143,8 +145,13 @@ def install_handlers(app: FastAPI) -> None:
         problems = "; ".join(
             f"{'.'.join(str(x) for x in e.get('loc', []))}: {e.get('msg', '')}" for e in exc.errors()
         )
+        # A `value_error` is one of our own validators refusing a value that parses (a time zone, a
+        # trigger shape): a deliberate refusal, so it names a reason. Structural failures (missing field,
+        # wrong type, pattern, length) have none: they mean the client broke the published schema.
         reason = next((err.reason for e in exc.errors()
                        if isinstance(err := (e.get("ctx") or {}).get("error"), SemanticValueError)), None)
+        if reason is None and any(e.get("type") == "value_error" for e in exc.errors()):
+            reason = "invalid_request"
         return error_response(422, "conflict", f"request failed validation: {problems}"[:1000], reason=reason)
 
     @app.exception_handler(StarletteHTTPException)

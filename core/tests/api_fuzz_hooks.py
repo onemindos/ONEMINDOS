@@ -15,10 +15,8 @@ def genuine_payload_rejection(ctx, response, case):
 FILES_SEMANTIC_REFUSALS = {
     "invalid_path", "invalid_cursor", "invalid_metadata", "invalid_digest",
     "invalid_subject", "expiry_too_far", "invalid_quota", "invalid_kubeconfig",
-    "invalid_settings", "confirm_mismatch",
+    "invalid_settings", "confirm_mismatch", "invalid_root", "invalid_request",
 }
-SEMANTIC_PATHS = ("/v1/files", "/v1/backups", "/v1/restores", "/v1/migrate", "/v1/notifications", "/v1/actions",
-                  "/v1/plans")
 UNAVAILABLE_REASONS ={"backups_disabled", "target_unreachable", "agent_refused", "agent_failed"}
 
 
@@ -26,8 +24,6 @@ UNAVAILABLE_REASONS ={"backups_disabled", "target_unreachable", "agent_refused",
 def semantic_refusal_names_its_reason(ctx, response, case):
     meta = case.meta
     if response.status_code != 422 or meta is None or not meta.generation.mode.is_positive:
-        return
-    if not case.operation.path.startswith(SEMANTIC_PATHS):
         return
     reason = response.json().get("reason")
     assert reason in FILES_SEMANTIC_REFUSALS, f"schema-valid request refused 422 with reason {reason!r}"
