@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Only the web port. PostgreSQL and Valkey listen on 127.0.0.1 inside the pod and have no Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: nextcloud
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nextcloud
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

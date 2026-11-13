@@ -27,7 +27,8 @@ export interface HomeNode
   temp_c?: number | null;
 }
 
-export type AppRunState = 'running' | 'starting' | 'updating' | 'stopped' | 'unhealthy' | 'unknown';
+/** `installed`: the gateway applied it but reports no health yet (contract v0 `status: installed`). */
+export type AppRunState = 'running' | 'installed' | 'starting' | 'updating' | 'stopped' | 'unhealthy' | 'unknown';
 
 /** Typed widget templates (PLUGIN-UI.md §2). The host renders; no app code runs here. */
 export type AppWidgetPayload =

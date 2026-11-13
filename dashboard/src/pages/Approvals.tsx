@@ -1,191 +1,71 @@
+// SPDX-License-Identifier: Apache-2.0
+// Approvals: the queue of requests and the recent decisions. Approving uses the signed-in token
+// today (contract §3); passkey approval and the gateway-computed plan come with §12.3 and §12.4.
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { ApiError, type Action } from '../api/types';
-import { ErrorNote, KindBadge, Loading } from '../components/bits';
-import { useNow, usePoll } from '../lib/hooks';
-import { formatAgo, formatIn, secondsSince } from '../lib/time';
-import { useSignedIn } from '../session';
+import { ApprovalsBoard, actionTitle, useToast, type ActionSummary, type SettingsLoadable } from '@onemind/ui';
+import { toActionSummary } from '../data/adapters';
+import { errorText, useHub } from '../data/hub';
 
-const TYPE_VERB: Record<string, string> = { 'app.install': 'Install', 'app.remove': 'Remove' };
-
-function title(a: Action) {
-  return `${TYPE_VERB[a.type] ?? a.type} ${a.params.app_id}`;
-}
-
-function ActionCard({
-  action,
-  now,
-  highlight,
-  onDecide,
-  busy,
-  canDecide,
-}: {
-  action: Action;
-  now: number;
-  highlight: boolean;
-  onDecide?: (a: Action, d: 'approve' | 'deny') => void;
-  busy: boolean;
-  canDecide: 'yes' | 'no' | 'unknown';
-}) {
-  const expired = Date.parse(action.expires_at) <= now;
-  const id = `action-${action.id}`;
-  const pending = action.state === 'awaiting_approval';
-  const disabled = busy || canDecide === 'no' || expired;
-  return (
-    <li>
-      <article className={`action-card ${highlight ? 'action-new' : ''}`} aria-labelledby={id}>
-        <header className="node-head">
-          <h3 id={id}>{title(action)}</h3>
-          <span className={`badge badge-state-${action.state}`}>{action.state.replace(/_/g, ' ')}</span>
-        </header>
-        <p className="requester">
-          Requested by <KindBadge kind={action.requested_by?.kind} /> <strong>{action.requested_by?.id ?? 'unknown'}</strong>
-          {action.requested_by?.role ? ` (${action.requested_by.role})` : ''}
-          {action.created_at ? `, ${formatAgo(secondsSince(action.created_at, now))}` : ''}
-        </p>
-        <dl className="facts facts-compact">
-          <div>
-            <dt>Action type</dt>
-            <dd>
-              <code>{action.type}</code>
-            </dd>
-          </div>
-          <div>
-            <dt>Expires</dt>
-            <dd>
-              {pending ? <strong>{formatIn(action.expires_at, now)}</strong> : formatIn(action.expires_at, now)}{' '}
-              <span className="small">({action.expires_at})</span>
-            </dd>
-          </div>
-          <div>
-            <dt>Idempotency key</dt>
-            <dd>
-              <code>{action.idempotency_key}</code>
-            </dd>
-          </div>
-        </dl>
-        {(action.state === 'failed' || action.state === 'outcome_unknown') && (
-          <p className="note note-error">
-            {action.result?.message ? `What the hub reported: ${action.result.message}` : 'The hub gave no reason.'}
-          </p>
-        )}
-        <p className="small params-label">Exact parameters</p>
-        <pre className="params">
-          {JSON.stringify(action.params, null, 2)}
-        </pre>
-        {pending && onDecide && (
-          <div className="decide">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={disabled}
-              aria-label={`Approve ${title(action)}`}
-              onClick={() => onDecide(action, 'approve')}
-            >
-              Approve
-            </button>
-            <button
-              type="button"
-              className="btn btn-danger"
-              disabled={disabled}
-              aria-label={`Deny ${title(action)}`}
-              onClick={() => onDecide(action, 'deny')}
-            >
-              Deny
-            </button>
-            {expired && <span className="small">This request has expired and can no longer be approved.</span>}
-          </div>
-        )}
-      </article>
-    </li>
-  );
-}
+export const PLAN_NOTE =
+  'This hub does not compute a plan for requests yet (§12.4, CORE-SANDBOX), so check the exact request above. An app.install or app.remove applies or deletes that app from the Market catalog; an install runs only after its scan check.';
+export const APPROVE_HINT = 'Approving uses your sign-in token for now. Passkey approval, bound to the plan, comes with CORE-SEC-2 (§12.3).';
 
 export function Approvals() {
-  const { api, canDecide, markForbidden } = useSignedIn();
-  const now = useNow();
+  const hub = useHub();
+  const toast = useToast();
   const [params] = useSearchParams();
-  const highlight = params.get('highlight');
-  const actions = usePoll(() => api.actions(), 5_000);
-  const [busy, setBusy] = useState<string>();
-  const [message, setMessage] = useState<{ text: string; error: boolean }>();
-  // Decisions the hub has confirmed. An action never returns to awaiting_approval,
-  // so a list fetched before the decision must not bring back live buttons.
-  const [decided, setDecided] = useState<Record<string, Action>>({});
+  const all = hub.actionList.map(toActionSummary);
+  const waiting = all.filter((a) => a.state === 'awaiting_approval');
+  const decided = all.filter((a) => a.state !== 'awaiting_approval' && a.state !== 'requested').slice(0, 10);
+  const stale = hub.freshness === 'stale' || hub.freshness === 'offline';
+  const actions: SettingsLoadable<ActionSummary[]> =
+    hub.actions.data !== undefined
+      ? { status: 'ready', data: waiting, asOf: hub.asOf ?? new Date().toISOString(), stale }
+      : hub.actions.error
+        ? { status: 'error', error: { error: hub.actions.error.code === 'network' ? 'unavailable' : (hub.actions.error.code as 'not_found'), message: hub.actions.error.message } }
+        : { status: 'loading' };
 
-  async function decide(a: Action, d: 'approve' | 'deny') {
-    setBusy(a.id);
-    setMessage(undefined);
-    try {
-      const res = d === 'approve' ? await api.approve(a.id) : await api.deny(a.id);
-      setDecided((m) => ({ ...m, [res.id]: res }));
-      setMessage({ text: `${title(a)}: ${res.state.replace(/_/g, ' ')}.`, error: false });
-    } catch (e) {
-      if (e instanceof ApiError && e.code === 'permission_denied') {
-        markForbidden();
-        setMessage({ text: 'Only the owner can approve or deny requests.', error: true });
-      } else if (e instanceof ApiError && e.code === 'expired') {
-        setMessage({ text: `${title(a)} expired before it was approved.`, error: true });
-      } else {
-        setMessage({ text: `Could not ${d}: ${e instanceof Error ? e.message : String(e)}`, error: true });
-      }
-    } finally {
-      await actions.reload();
-      setBusy(undefined);
-    }
-  }
+  // What the owner just decided, followed to its end. Written in words as a status line so the
+  // outcome is announced even after the request leaves the waiting list.
+  const [last, setLast] = useState<{ id: string; title: string }>();
+  const lastNow = last ? all.find((a) => a.id === last.id) : undefined;
+  const ended = lastNow && !['requested', 'awaiting_approval', 'accepted', 'dispatched'].includes(lastNow.state);
 
-  const all = (actions.data ?? []).map((a) => (a.state === 'awaiting_approval' && decided[a.id]) || a);
-  const pending = all.filter((a) => a.state === 'awaiting_approval');
-  const history = all.filter((a) => a.state !== 'awaiting_approval');
+  const decide = (a: ActionSummary, how: 'approve' | 'deny') =>
+    void hub.decide(a.id, how).then(
+      () => {
+        setLast({ id: a.id, title: actionTitle(a) });
+        toast.show({ tone: how === 'approve' ? 'ok' : 'neutral', title: how === 'approve' ? 'Approved' : 'Denied', body: how === 'approve' ? 'The hub is applying it. Progress shows on the app page and in the tray.' : 'Nothing changes.' });
+      },
+      (e: unknown) => {
+        const { code, message } = errorText(e);
+        toast.show({ tone: 'bad', title: `Could not ${how}`, body: `${message} (${code})` });
+      },
+    );
 
   return (
-    <div className="page">
-      <h1>Approvals</h1>
-      <p className="lede">
-        Every change to this OneMind waits here for the owner. AI agents can ask, but only a person who owns the box can
-        say yes.
-      </p>
-      {canDecide === 'no' && <p className="note">You can see requests, but only the owner can approve or deny them.</p>}
-      {canDecide === 'unknown' && (
-        <p className="note">The hub checks that you are the owner when you approve or deny.</p>
+    <>
+      {last && lastNow && (
+        <p className="om-note om-tone-info" {...(ended ? { role: 'status' } : {})}>
+          {last.title}: {ended ? lastNow.state.replace(/_/g, ' ') : 'approved, the hub is applying it'}.
+        </p>
       )}
-      <div aria-live="polite" role="status">
-        {message && <p className={`note ${message.error ? 'note-error' : 'note-ok'}`}>{message.text}</p>}
-      </div>
-      {actions.error && <ErrorNote error={actions.error} fetchedAt={actions.fetchedAt} now={now} />}
-      <section aria-labelledby="pending-title">
-        <h2 id="pending-title">Waiting for approval ({pending.length})</h2>
-        {actions.loading && !actions.data ? (
-          <Loading what="requests" />
-        ) : pending.length === 0 ? (
-          <p>Nothing is waiting.</p>
-        ) : (
-          <ul className="stack">
-            {pending.map((a) => (
-              <ActionCard
-                key={a.id}
-                action={a}
-                now={now}
-                highlight={a.id === highlight}
-                onDecide={(x, d) => void decide(x, d)}
-                busy={busy !== undefined}
-                canDecide={canDecide}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
-      {history.length > 0 && (
-        <section aria-labelledby="history-title">
-          <h2 id="history-title">History</h2>
-          <ul className="stack">
-            {history.map((a) => (
-              <ActionCard key={a.id} action={a} now={now} highlight={false} busy={false} canDecide={canDecide} />
-            ))}
-          </ul>
-        </section>
-      )}
-    </div>
+    <ApprovalsBoard
+      actions={actions}
+      plans={{}}
+      planNote={PLAN_NOTE}
+      approveHint={APPROVE_HINT}
+      calls={['GET /v1/actions', 'POST /v1/actions/{id}/approve', 'POST /v1/actions/{id}/deny']}
+      decided={decided}
+      now={hub.now}
+      canDecide={hub.canDecide === 'no' ? { allowed: false, reason: 'Only the owner can approve or deny. Agents can ask; they can never approve.' } : { allowed: true }}
+      onApprove={(a) => decide(a, 'approve')}
+      onDeny={(a) => decide(a, 'deny')}
+      onRetry={hub.reloadAll}
+      initialId={params.get('highlight') ?? undefined}
+      key={params.get('highlight') ?? ''}
+    />
+    </>
   );
 }

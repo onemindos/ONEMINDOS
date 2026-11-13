@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { render } from '@testing-library/react';
 import axe from 'axe-core';
 import { MemoryRouter } from 'react-router';
@@ -17,6 +18,7 @@ export function renderApp(opts: { token?: string; route?: string; knownRole?: bo
   const deps: SessionDeps = {
     mock: true,
     makeApi: (t) => {
+      if (t === '') return t === (opts.token ?? '') ? api : new MockApi(''); // the credential-less client
       if (t !== (opts.token ?? '')) api = new MockApi(t);
       return api;
     },

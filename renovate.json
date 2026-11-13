@@ -35,6 +35,14 @@
       "matchUpdateTypes": ["patch", "digest"],
       "addLabels": ["automerge"],
       "automerge": true
+    },
+    {
+      "description": "Database sidecars: no major PostgreSQL or MariaDB bumps. A new major cannot open the old data directory (PostgreSQL refuses to start; PostgreSQL 18+ images start an empty cluster in a new versioned folder), and the CI smoke test installs on a fresh volume, so it stays green. A major move needs a dump and restore, as its own change.",
+      "matchManagers": ["kubernetes"],
+      "matchFileNames": ["apps/**"],
+      "matchPackageNames": ["/(^|/)postgres$/", "/(^|/)mariadb$/"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
     }
   ]
 }

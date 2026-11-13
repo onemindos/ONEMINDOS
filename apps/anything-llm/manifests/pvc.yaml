@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# anything-llm-data: /app/server/storage (STORAGE_DIR): the SQLite database, uploaded documents,
+# the built-in LanceDB vector store, downloaded embedding models, and the .env file the app writes
+# its settings to. 20Gi is a OneMind choice. No storageClassName: the cluster default class is used
+# (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: anything-llm-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi

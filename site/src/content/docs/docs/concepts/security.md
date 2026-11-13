@@ -24,10 +24,10 @@ This page says plainly what is protected now and what is not, because a security
 
 The box side, the update client that verifies signed TUF metadata, is on `main` but has nothing to install until the image ships ([Updates and rollback](../updates-and-rollback/)).
 
-## In review <span class="om-tag om-tag--warn">in review</span>
+## On `main`, not complete <span class="om-tag om-tag--unknown">being built</span>
 
-- **App sandbox**: restricted Pod Security and default-deny network rules for apps, and narrower Kubernetes permissions for the gateway.
-- **Household identity**: sessions, passkeys and scoped API tokens instead of static tokens.
+- **App sandbox**: restricted Pod Security and default-deny network rules for apps, and narrower Kubernetes permissions for the gateway. The host firewall part is still open.
+- **Household identity**: sessions, passkeys and scoped API tokens, with household roles. It needs HTTPS or `localhost` for browser sign-in, so static tokens remain the default until HTTPS is on.
 
 ## Not protected yet
 

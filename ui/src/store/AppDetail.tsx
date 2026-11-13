@@ -367,6 +367,7 @@ export function AppDetail({ app, state, plan, planState, job, now, backHref, onR
                         onClick={() => onRequestInstall(app)}
                       >
                         {action.kind === 'request-deploy' ? 'Request deploy' : 'Request install'}
+                        <span className="om-visually-hidden"> {app.name}</span>
                       </Button>
                     )}
                     {reason && (

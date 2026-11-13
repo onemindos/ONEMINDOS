@@ -1,0 +1,210 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/nextcloud/server (contract §9.2), then
+# completed from upstream: the nextcloud/docker README (apache image, "--user", POSTGRES_HOST/DB/
+# USER/PASSWORD, REDIS_HOST) and the admin manual system requirements for Nextcloud 33
+# (PostgreSQL 14-18, 18 recommended; 512 MB per PHP process recommended).
+#
+# One pod, three containers. PostgreSQL and Valkey (the Redis-compatible store upstream supports
+# through REDIS_HOST) are native sidecars that start first and listen on 127.0.0.1 only, so
+# nothing outside this pod can reach them. That is why PostgreSQL trusts local connections and
+# no database password or Secret exists (contract §11.2 forbids committed Secrets).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  # ReadWriteOnce volumes and one database: the old pod stops before the new one starts.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nextcloud
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nextcloud
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # README "Running as an arbitrary user": with --user the image runs every process
+      # as that UID. 33 is www-data, the owner the image expects for /var/www/html. Apache keeps
+      # port 80; the namespaced "safe" sysctl lets a non-root process bind it in this pod only.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+        sysctls:
+          - name: net.ipv4.ip_unprivileged_port_start
+            value: "0"
+      initContainers:
+        # With REDIS_HOST set, the image's entrypoint (configure_redis_session) writes
+        # /usr/local/etc/php/conf.d/redis-session.ini on every start. That directory belongs to
+        # root, so as UID 33 the entrypoint fails ("Permission denied") and the container exits.
+        # This step copies the image's own conf.d (extension and PHP settings) into an emptyDir
+        # that the app container mounts there, so the entrypoint can write the file. It runs on
+        # every pod start, so a new image's settings are picked up.
+        - name: php-conf
+          image: docker.io/library/nextcloud:33.0.10-apache@sha256:81cb09055a20142521a267cea2bc27e6a81a065871c70850d209f08803567dbc
+          # Plain -R, not -a: the emptyDir's root is not owned by UID 33, so preserving its
+          # timestamps fails.
+          command: ["sh", "-c", "cp -R /usr/local/etc/php/conf.d/. /mnt/php-conf/"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: php-conf
+              mountPath: /mnt/php-conf
+        - name: postgres
+          image: docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+          restartPolicy: Always
+          args: ["postgres", "-c", "listen_addresses=127.0.0.1"]
+          env:
+            - name: POSTGRES_USER
+              value: nextcloud
+            - name: POSTGRES_DB
+              value: nextcloud
+            # Only 127.0.0.1 and the pod's own socket reach this server (listen_addresses above).
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: trust
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "nextcloud", "-d", "nextcloud"]
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "nextcloud", "-d", "nextcloud"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          # The official image's postgres user (999); its entrypoint supports an arbitrary user
+          # when PGDATA is writable ("Arbitrary --user Notes" on the image page).
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: db
+              mountPath: /var/lib/postgresql
+        - name: valkey
+          image: docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7
+          restartPolicy: Always
+          # Used for file locking and caching only: nothing to persist.
+          args: ["valkey-server", "--bind", "127.0.0.1", "--save", "", "--appendonly", "no"]
+          startupProbe:
+            exec:
+              command: ["valkey-cli", "-h", "127.0.0.1", "ping"]
+            periodSeconds: 2
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: valkey
+              mountPath: /data
+      containers:
+        - name: nextcloud
+          image: docker.io/library/nextcloud:33.0.10-apache@sha256:81cb09055a20142521a267cea2bc27e6a81a065871c70850d209f08803567dbc
+          env:
+            # With POSTGRES_* set, the installer page has the database filled in (README "Auto
+            # configuration via environment variables"). The password is required by that check
+            # but not used: the server above trusts 127.0.0.1.
+            - name: POSTGRES_HOST
+              value: 127.0.0.1
+            - name: POSTGRES_DB
+              value: nextcloud
+            - name: POSTGRES_USER
+              value: nextcloud
+            - name: POSTGRES_PASSWORD
+              value: unused
+            - name: REDIS_HOST
+              value: 127.0.0.1
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          # The first start copies the Nextcloud code into /var/www/html, which takes a while.
+          # GET /status.php answers 200 before and after installation.
+          startupProbe:
+            httpGet:
+              path: /status.php
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /status.php
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /status.php
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # The admin manual recommends 512 MB per PHP process; the limit allows a few
+          # concurrent requests. A OneMind choice above that floor.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 1536Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: html
+              mountPath: /var/www/html
+            - name: php-conf
+              mountPath: /usr/local/etc/php/conf.d
+      volumes:
+        - name: html
+          persistentVolumeClaim:
+            claimName: nextcloud-html
+        - name: db
+          persistentVolumeClaim:
+            claimName: nextcloud-db
+        - name: valkey
+          emptyDir:
+            sizeLimit: 64Mi
+        # A writable copy of the image's PHP conf.d (see the php-conf init container).
+        - name: php-conf
+          emptyDir:
+            sizeLimit: 4Mi

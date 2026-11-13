@@ -1,0 +1,184 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/firefly-iii/firefly-iii (contract §9.2), then
+# completed from upstream: .env.example at v6.7.9 (APP_KEY of exactly 32 characters, readable
+# from a file with APP_KEY_FILE; DB_CONNECTION pgsql; DB_* readable with _FILE) and the image
+# config of fireflyiii/core:version-6.7.9 (USER www-data = UID 33, nginx on 8080,
+# HEALTHCHECK_PATH=/healthcheck, upload volume /var/www/html/storage/upload).
+#
+# Upstream's compose file (github.com/firefly-iii/docker) uses MariaDB; .env.example and the docs
+# support PostgreSQL, used here as a native sidecar on 127.0.0.1 only. PostgreSQL trusts local
+# connections, so no database password or Secret exists.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: firefly-iii
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: firefly-iii
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: firefly-iii
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # APP_KEY encrypts data at rest and has no safe default. It is generated once onto the data
+        # volume (outside the upload directory) and read through APP_KEY_FILE.
+        - name: app-key
+          image: docker.io/fireflyiii/core:version-6.7.9@sha256:d51ab6a3a7b91a5c892441578e0da7f2935f84f36bd1151fc3833acc6e060871
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              mkdir -p /mnt/upload /mnt/onemind
+              f=/mnt/onemind/app-key
+              if [ ! -s "$f" ]; then
+                umask 077
+                head -c 96 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32 > "$f"
+              fi
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /mnt
+        - name: db
+          image: docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+          restartPolicy: Always
+          args: ["postgres", "-c", "listen_addresses=127.0.0.1"]
+          env:
+            - name: POSTGRES_USER
+              value: firefly
+            - name: POSTGRES_DB
+              value: firefly
+            - name: POSTGRES_INITDB_ARGS
+              value: --data-checksums
+            # Only 127.0.0.1 and the pod's own socket reach this server.
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: trust
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "firefly", "-d", "firefly"]
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-h", "127.0.0.1", "-U", "firefly", "-d", "firefly"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          # PostgreSQL 18 images keep PGDATA in a major-version subdirectory of this path
+          # (/var/lib/postgresql/18/docker), created and owned by the postgres user.
+          volumeMounts:
+            - name: db
+              mountPath: /var/lib/postgresql
+      containers:
+        - name: firefly-iii
+          image: docker.io/fireflyiii/core:version-6.7.9@sha256:d51ab6a3a7b91a5c892441578e0da7f2935f84f36bd1151fc3833acc6e060871
+          env:
+            - name: APP_KEY_FILE
+              value: /onemind/app-key
+            # The URL the browser uses: the port-forward in README.md "First run".
+            - name: APP_URL
+              value: http://localhost:8080
+            - name: DB_CONNECTION
+              value: pgsql
+            - name: DB_HOST
+              value: 127.0.0.1
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_DATABASE
+              value: firefly
+            - name: DB_USERNAME
+              value: firefly
+            - name: DB_PASSWORD
+              value: ""
+            - name: TZ
+              value: UTC
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          # Database migrations run on the first start.
+          startupProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # The image sets PHP_MEMORY_LIMIT=512M; the limit leaves room for nginx and PHP-FPM workers.
+          # A OneMind choice; upstream publishes no sizing.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/www/html/storage/upload
+              subPath: upload
+            - name: data
+              mountPath: /onemind
+              subPath: onemind
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: firefly-iii-data
+        - name: db
+          persistentVolumeClaim:
+            claimName: firefly-iii-db

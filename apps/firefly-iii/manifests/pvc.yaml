@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# firefly-iii-data: uploaded attachments (/var/www/html/storage/upload, the image's VOLUME) and the
+# generated APP_KEY. firefly-iii-db: the PostgreSQL data directory. 5Gi and 5Gi are OneMind
+# choices. No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: firefly-iii-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: firefly-iii-db
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
