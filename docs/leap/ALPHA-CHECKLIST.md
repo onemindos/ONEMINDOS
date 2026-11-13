@@ -22,7 +22,7 @@ Status key: **DONE** (merged, PR cited), **IN PROGRESS** (open PR), **BLOCKED ON
 | Item | Status | Evidence |
 |---|---|---|
 | Website (Astro + Starlight) builds in CI | DONE | `site/` and `.github/workflows/site.yml` on main. |
-| A page that lists the image, checksums and signature | TODO | No downloads page exists in `site/src/pages/`. Cannot be filled until there is a signed image (section 3). |
+| A page that lists the image, checksums and signature | IN PROGRESS | Open PR #66 adds `site/src/pages/downloads.astro` (artefacts grouped by class: images, RAUC bundles, installer, cloud), fed by `scripts/release/collect.py`. Not on main yet. Publishing real artefacts is BLOCKED ON FOUNDER: F-27 (nothing is signed before that). |
 | Hosting and domain | BLOCKED ON FOUNDER | F-5 (site.yml says it does not deploy until decided). |
 
 ## 3. Signed releases
@@ -68,4 +68,4 @@ Status key: **DONE** (merged, PR cited), **IN PROGRESS** (open PR), **BLOCKED ON
 
 1. Land #66 (image line), then #88 (mesh, HTTPS, join).
 2. Founder: F-27 and F-25 unblock the most.
-3. After F-27: build the downloads page and run the first signed-release upgrade test.
+3. After F-27: publish the first signed artefacts to the downloads page (built in #66) and run the first signed-release upgrade test.
