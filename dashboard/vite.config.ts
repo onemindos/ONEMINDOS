@@ -13,7 +13,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [{ find: /^@onemind\/ui$/, replacement: `${uiSrc}/index.ts` }],
-    dedupe: ['react', 'react-dom'],
+    dedupe: ['react', 'react-dom', 'uqr'],
   },
   build: { outDir: 'dist', sourcemap: false },
   server: {
