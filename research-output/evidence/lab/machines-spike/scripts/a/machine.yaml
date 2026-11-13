@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: Apache-2.0
+# LAB-machines-spike option A: one machine = VirtualMachine with a DataVolume template (CDI imports
+# the image over HTTP into a raw disk.img on a local-path PVC). @NAME@, @NS@, @URL@ and the
+# indented user-data are filled in by scripts/a/apply.sh.
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata: {name: "@NAME@", namespace: "@NS@", labels: {machlab/option: a}}
+spec:
+  runStrategy: Always
+  dataVolumeTemplates:
+  - metadata: {name: "@NAME@-disk"}
+    spec:
+      source: {http: {url: "@URL@"}}
+      storage:
+        storageClassName: local-path
+        accessModes: [ReadWriteOnce]
+        volumeMode: Filesystem
+        resources: {requests: {storage: 8Gi}}
+  template:
+    metadata: {labels: {app: "@NAME@", machlab/option: a}}
+    spec:
+      domain:
+        cpu: {cores: 2}
+        resources:
+          requests: {memory: 1Gi, cpu: "2"}
+          limits: {memory: 1Gi, cpu: "2"}
+        devices:
+          disks:
+          - {name: root, disk: {bus: virtio}}
+          - {name: cloudinit, disk: {bus: virtio}}
+          interfaces: [{name: default, masquerade: {}}]
+      networks: [{name: default, pod: {}}]
+      volumes:
+      - {name: root, dataVolume: {name: "@NAME@-disk"}}
+      - name: cloudinit
+        cloudInitNoCloud:
+          userData: |
+@USERDATA@

@@ -50,6 +50,7 @@ export function NodeCard({ node, now, actions }: { node: NodeSummary; now: numbe
   const diskUsed = node.disk_total_gb - node.disk_free_gb;
   return (
     <Card
+      as="article"
       level={3}
       variant={notLive ? 'stale' : 'default'}
       title={node.hostname}

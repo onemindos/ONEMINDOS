@@ -28,11 +28,12 @@ export function Dock({ apps, layout, editing, hubLive, hrefFor, appsHref, onChan
             const st = appState(a, hubLive);
             return (
               <li key={a.id} className="omh-dock-item">
-                <a href={hrefFor(a)} className="omh-dock-app" aria-label={`${a.name}, ${st.label}`}>
+                <a href={hrefFor(a)} className="omh-dock-app">
                   <AppGlyph app={a} size={44} />
                   <StatusDot tone={st.tone} hollow={st.lastKnown} className="omh-dock-dot" />
-                  <span className="omh-dock-label" aria-hidden="true">
+                  <span className="omh-dock-label">
                     {a.name}
+                    <span className="om-visually-hidden">{`, ${st.label}`}</span>
                   </span>
                 </a>
                 {editing && (

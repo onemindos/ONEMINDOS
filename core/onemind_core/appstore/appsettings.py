@@ -317,3 +317,4 @@ def configmap_data(fields: list[SettingField], values: dict) -> dict[str, str]:
 
 def needs_restart(fields: list[SettingField], changed: dict) -> bool:
     return any(f.restart for f in fields if f.name in changed)
+

@@ -27,6 +27,20 @@ NODE_ID       HOSTNAME  ROLE  BOARD       ARCH   OS         K3S    STATUS  LAST_
 
 Gateway errors are printed with the contract's error code, for example `HTTP 401 unauthenticated: …`.
 
+## Sign in, look and act <span class="om-tag om-tag--ok">works today</span>
+
+```sh
+printf %s "$TOKEN" | onemind login --hub http://hub.local:8080 --name home --principal owner --token-stdin
+onemind status                                        # box, nodes, waiting approvals, audit chain
+onemind apps list --installed                         # or: apps info APP_ID
+onemind apps install ntfy                             # files the request; an owner approves it
+onemind actions list --pending                        # or: info, watch, approve, deny
+onemind audit verify                                  # recompute every hash; exit 8 when broken
+onemind mcp doctor                                    # check an AI agent's token and tool list
+```
+
+Every command takes `--json`. `onemind completion bash|zsh|fish|powershell` prints shell completion. The full list with flags is in [`cmd/onemind/README.md`](https://github.com/onemindos/ONEMINDOS/blob/main/cmd/onemind/README.md).
+
 ## Updates <span class="om-tag om-tag--unknown">being built</span>
 
 ```sh
@@ -38,6 +52,10 @@ onemind update apply
 The commands are on `main`. They report and install OneMind image updates, so on a developer install there is nothing for them to do.
 
 See [Updates and rollback](../../concepts/updates-and-rollback/).
+
+## Coming soon
+
+`onemind mesh status` (this machine's mesh state and its NATS leaf) and `onemind storage` (disks, disk health, mirror plans) are written and tested on `main`, but not yet registered in the tool, so `onemind` does not accept them yet.
 
 ## Build
 

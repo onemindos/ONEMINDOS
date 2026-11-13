@@ -1,0 +1,46 @@
+{
+  "env": {
+    "cloud": "azure",
+    "board": "cloud-azure",
+    "upto": "C0,C1,C2,C3,C4",
+    "accel": "tcg,thread=multi",
+    "host_cpus": 14,
+    "host_machine": "aarch64",
+    "tests": [
+      "C0",
+      "C1",
+      "C2",
+      "C3",
+      "C4"
+    ]
+  },
+  "minutes": 10.3,
+  "criteria": "test/qemu/CRITERIA-CLOUD.md",
+  "results": [
+    {
+      "test": "C0",
+      "verdict": "FAIL",
+      "detail": "sha256sums_ok=True vpc=False fixed_footer=False whole_MiB=False"
+    },
+    {
+      "test": "C1",
+      "verdict": "PASS",
+      "detail": "config='ONEMIND-FIRSTBOOT: configured role=hub source=nocloud node_id=612c00dd7ab1' tokens_printed=1 gate=('committed-boot', 'A', '0.1.0-dev')"
+    },
+    {
+      "test": "C2",
+      "verdict": "PASS",
+      "detail": "ssh_admin_sudo=True cloud_init_done=True instance_id=True platform_nocloud=True datasource_list=True hostkeys_on_data_only=True net_dhcp_ipv4=True dev=enp0s1 dsl=['Azure', 'NoCloud', 'None'] ds_identify='datasource_list: [ NoCloud, None ]'"
+    },
+    {
+      "test": "C3",
+      "verdict": "PASS",
+      "detail": "healthz=200 node_id=612c00dd7ab1 listed=[('612c00dd7ab1', 'hub', 'online')] unauth=401 dashboard=True (info: /run/onemind/owner-token over ssh matches console=True)"
+    },
+    {
+      "test": "C4",
+      "verdict": "PASS",
+      "detail": "grown=True sizes={'DISK': '50331648', 'START': '23070720', 'PSIZE': '27260895'} 'ONEMIND-FIRSTBOOT: already configured role=hub node_id=612c0' new_tokens=0 same_node=True same_tokens_file=True healthz=200 listed=[('612c00dd7ab1', 'hub', 'online')] gate=('committed-boot', 'A', '0.1.0-dev')"
+    }
+  ]
+}

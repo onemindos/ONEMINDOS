@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/morpheus65535/bazarr (contract §9.2). Bazarr
+# publishes no container image of its own; this package uses linuxserver.io's. Completed from
+# github.com/linuxserver/docker-bazarr readme-vars.yml (volume /config, optional /movies and /tv;
+# port 6767; "nonroot_supported: true") and linuxserver's docs/misc/non-root.md (start with a
+# fixed UID; s6 needs a writable /run; PUID/PGID have no effect).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bazarr
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bazarr
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bazarr
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # linuxserver's /docker-mods switches to non-root mode only when /run is not owned by root
+        # ("stat /run -c %u"); an emptyDir is root-owned. This creates a run directory owned by UID
+        # 1000 inside the emptyDir, mounted below at /run with subPath.
+        - name: run-dir
+          image: lscr.io/linuxserver/bazarr:v1.6.2-ls372@sha256:832820dec70bce9e912c6eee7a95baf6551e03dbc63325a7208daaa455423752
+          command: ["mkdir", "-p", "/mnt/run"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: run
+              mountPath: /mnt
+      containers:
+        - name: bazarr
+          image: lscr.io/linuxserver/bazarr:v1.6.2-ls372@sha256:832820dec70bce9e912c6eee7a95baf6551e03dbc63325a7208daaa455423752
+          env:
+            - name: TZ
+              value: Etc/UTC
+          ports:
+            - name: http
+              containerPort: 6767
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream publishes no sizing; a OneMind choice. Measured idle: 245Mi (k3s arm64, 2026-11-12).
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            # non-root.md: s6 "needs to be able to write its service files to /run".
+            - name: run
+              mountPath: /run
+              subPath: run
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: bazarr-config
+        - name: run
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi

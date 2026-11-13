@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from typing import Literal
 
 from fastapi import FastAPI, Request
@@ -11,7 +13,7 @@ from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # The contract section 3 error codes plus the §12.2 codes this gateway sends so far
-# (rate_limited, payload_too_large, policy_refused, unavailable). Cases the contract has no code for are
+# (rate_limited, payload_too_large, policy_refused). Cases the contract has no code for are
 # mapped onto these (see install_handlers and the README's "v0 deviations"); adding a code needs
 # a contract PR.
 ERROR_CODES = {
@@ -25,7 +27,6 @@ ERROR_CODES = {
     "rate_limited",
     "payload_too_large",
     "policy_refused",
-    "unavailable",
 }
 
 
@@ -35,7 +36,7 @@ class ErrorBody(BaseModel):
     error: Literal[
         "permission_denied", "stale_precondition", "expired", "conflict",
         "outcome_unknown", "not_found", "unauthenticated",
-        "rate_limited", "payload_too_large", "policy_refused", "unavailable",
+        "rate_limited", "payload_too_large", "policy_refused",
     ]
     message: str
     # §12.2 optional fields; present only when they carry something.
@@ -51,8 +52,7 @@ _DESCRIPTIONS = {
     409: "stale_precondition, expired, conflict or policy_refused",
     413: "Request body over its limit (payload_too_large)",
     422: "Request failed validation (conflict, with the bad fields in message)",
-    429: "A rate limit or the pending-action cap (rate_limited); see Retry-After",
-    503: "A dependency is down, for example kubectl or the cluster (unavailable)",
+    429: "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After",
 }
 
 
@@ -119,3 +119,31 @@ def install_handlers(app: FastAPI) -> None:
             return error_response(405, "not_found", "method not allowed on this resource")
         code = {401: "unauthenticated", 403: "permission_denied"}.get(exc.status_code, "conflict")
         return error_response(exc.status_code, code, str(exc.detail))
+
+    build = app.openapi
+
+    def openapi() -> dict:
+        # A request that fails validation gets ErrorBody (422 `conflict`, above), never FastAPI's
+        # HTTPValidationError, so /openapi.json says so for routes that do not list 422 themselves.
+        # Also keeps the HTTPValidationError `loc` union out of the generated SDK types.
+        # Errors are always JSON, also on a route whose success is text (app logs): FastAPI files
+        # their model under the route's media type, so move it back to application/json.
+        doc = build()
+        bad, body = "#/components/schemas/HTTPValidationError", "#/components/schemas/ErrorBody"
+        for ops in doc.get("paths", {}).values():
+            for op in ops.values():
+                for code, r in op.get("responses", {}).items():
+                    refs = {(c.get("schema") or {}).get("$ref") for c in (r.get("content") or {}).values()}
+                    if code == "422" and bad in refs:
+                        op["responses"][code] = {"description": _DESCRIPTIONS[422],
+                                                 "content": {"application/json": {"schema": {"$ref": body}}}}
+                    elif refs == {body} and set(r["content"]) != {"application/json"}:
+                        r["content"] = {"application/json": {"schema": {"$ref": body}}}
+        schemas = doc.get("components", {}).get("schemas", {})
+        if bad not in json.dumps(doc.get("paths", {})):
+            schemas.pop("HTTPValidationError", None)
+            if "#/components/schemas/ValidationError" not in json.dumps(doc):
+                schemas.pop("ValidationError", None)
+        return doc
+
+    app.openapi = openapi  # type: ignore[method-assign]

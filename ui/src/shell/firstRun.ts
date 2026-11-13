@@ -53,7 +53,7 @@ export interface OnboardingDraft {
   theme: ThemeChoice;
   accent: AccentId;
   starterApps: string[];
-  backup: { destination: BackupDestination; kitSaved: boolean };
+  backup: { destination: BackupDestination; kitSaved: boolean; destinationId?: string };
 }
 
 export function emptyDraft(timeZone = 'UTC'): OnboardingDraft {

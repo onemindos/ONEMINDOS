@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# LAB-machines-spike M4: one household member's namespace with a quota (both options).
+apiVersion: v1
+kind: Namespace
+metadata: {name: machines-alice}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: machines, namespace: machines-alice}
+spec:
+  hard: {requests.memory: 2Gi, limits.memory: 2Gi, requests.cpu: "6", limits.cpu: "6"}

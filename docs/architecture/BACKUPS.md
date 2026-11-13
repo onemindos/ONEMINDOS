@@ -123,7 +123,7 @@ A printable page (and PDF) generated in the browser from a one-time response. It
 ## 6. Pre-update and pre-restore snapshots
 
 ### 6.1 OS updates
-The updater (`internal/update/engine.go`) snapshots `/data` with its own restic settings in `update.conf`. Change: when the backup agent is configured, the updater instead calls it on the local API (`POST :7480/api/v1/backup/run {reason: "pre-update", wait: true}`, loopback only). That takes a full run with `reason=pre-update`. The `restic_*` keys in `update.conf` stay as an override for boxes without the agent. The existing "security installs anyway with `snapshot: none` + warning" rule is kept.
+The updater (`internal/update/engine.go`) snapshots `/data` with its own restic settings in `update.conf`. Change (not built yet): when the backup agent is configured, the updater instead asks for a full run with `reason=pre-update`. There is no unsigned local run route (`POST /api/v1/backup/run` was removed in #91, `internal/backup/api.go:20-26`): the only way to start a run is a gateway-signed `backup.run` job on `POST :7480/api/v1/backup/jobs` (loopback only; `jobsHandler` verifies the signature, `internal/backup/jobapi.go`), so the pre-update request has to go through the gateway or get its own signed path. `GET :7480/api/v1/backup/status` stays. The `restic_*` keys in `update.conf` stay as an override for boxes without the agent. The existing "security installs anyway with `snapshot: none` + warning" rule is kept.
 
 ### 6.2 App updates and restores
 `app.update` (DEPLOYMENTS.md §5) and `backup.restore` both take an `app:<id>` snapshot with `reason=pre-update` / `reason=pre-restore` first, so **every restore can be undone** by restoring that snapshot.
@@ -250,7 +250,7 @@ backup_state(box generation, fence_seen_generation, settings_json)   -- one row
 | Step | What | Size | Depends on |
 |---|---|---|---|
 | K1 | `onemind-local` (Retain) and `onemind-scratch` classes in the platform layer; remove app keeps data | S | DEPLOYMENTS D1 |
-| K2 | Backup agent in `onemindd` (Go): restic runner pinned per arch, units `system`/`k3s`/`app`/`node`, tags, local API `POST /api/v1/backup/run`; jobs `backup.run`, `backup.restore`, `backup.verify-restore`, `backup.check` | L | FABRIC F4 (jobs) |
+| K2 | Backup agent in `onemindd` (Go): restic runner pinned per arch, units `system`/`k3s`/`app`/`node`, tags, local API `POST /api/v1/backup/jobs` (signed jobs, loopback only) and `GET /api/v1/backup/status`; jobs `backup.run`, `backup.restore`, `backup.verify-restore`, `backup.check` | L | FABRIC F4 (jobs) |
 | K3 | Gateway coordinator: targets, schedules as system automations, runs, hooks via exec, retention, space check, status API, Backups screen | M | K2, AUTOMATION A1 |
 | K4 | Keys and kit: three keys, kit page, type-back check, rotation | S | K3, SEC-P1 |
 | K5 | Targets: USB detection and format action; `node` with rest-server append-only; S3 | M | K3, FABRIC F2 |

@@ -1,0 +1,133 @@
+# SPDX-License-Identifier: Apache-2.0
+# FreshRSS 1.30.4 (github.com/FreshRSS/FreshRSS, Docker/Dockerfile, Docker/entrypoint.sh and
+# Docker/FreshRSS.Apache.conf at tag 1.30.4). Debian image: Apache on port 80, logs to stderr.
+# It runs as www-data (UID/GID 33), the user Apache would switch to, so Apache stays on that user; the
+# namespaced safe sysctl lets it bind port 80 in this pod only. As non-root, the entrypoint's root-only
+# steps (timezone links, php.ini edits, chown) print errors and are skipped; Apache's run and lock
+# directories are emptyDirs. The upstream image refreshes feeds from cron as root; the refresh sidecar
+# runs the same script (app/actualize_script.php) every 30 minutes as www-data instead.
+#
+# Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: freshrss
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: freshrss
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: freshrss
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: '0'
+      containers:
+      - name: freshrss
+        image: docker.io/freshrss/freshrss:1.30.4@sha256:af44385229541bee24aa9148d0ff8f3b40e095373c63a2c0f74e09a27d3c59df
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TZ
+          value: UTC
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: '1'
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: data
+          mountPath: /var/www/FreshRSS/data
+        - name: extensions
+          mountPath: /var/www/FreshRSS/extensions
+        - name: apache-run
+          mountPath: /var/run/apache2
+        - name: apache-lock
+          mountPath: /var/lock/apache2
+      - name: refresh
+        image: docker.io/freshrss/freshrss:1.30.4@sha256:af44385229541bee24aa9148d0ff8f3b40e095373c63a2c0f74e09a27d3c59df
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - -c
+        - |
+          # Upstream refreshes feeds from cron every 30 minutes (Docker/Dockerfile: 7,37 * * * *, run as www-data).
+          while :; do php /var/www/FreshRSS/app/actualize_script.php; sleep 1800; done
+        workingDir: /var/www/FreshRSS
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: data
+          mountPath: /var/www/FreshRSS/data
+        - name: extensions
+          mountPath: /var/www/FreshRSS/extensions
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: freshrss-data
+      - name: extensions
+        persistentVolumeClaim:
+          claimName: freshrss-extensions
+      - name: apache-run
+        emptyDir:
+          sizeLimit: 16Mi
+      - name: apache-lock
+        emptyDir:
+          sizeLimit: 16Mi

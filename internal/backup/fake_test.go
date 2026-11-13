@@ -228,6 +228,12 @@ func (f *fakeRepo) AddKey(context.Context, string) error { return nil }
 type fakeSQLite struct{}
 
 func (fakeSQLite) Run(_ context.Context, _ string, args, _ []string, _ io.Reader, out io.Writer) ([]byte, int, error) {
+	if len(args) == 3 && args[0] == "-nofollow" {
+		if fi, err := os.Lstat(args[1]); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+			return []byte("refusing to open a symlink"), 1, fmt.Errorf("symlink")
+		}
+		args = args[1:]
+	}
 	if len(args) == 2 && strings.HasPrefix(args[1], ".backup '") {
 		dst := strings.TrimSuffix(strings.TrimPrefix(args[1], ".backup '"), "'")
 		b, err := os.ReadFile(args[0])

@@ -47,7 +47,15 @@ class CatalogApp(BaseModel):
     requires: dict
     web_port: int | None
     installed: bool
-    status: str = Field(description="not_installed | installing | installed | removing | failed | unknown")
+    status: str = Field(
+        description="not_installed | installing | installed | stopped | starting | stopping | restarting | "
+        "updating | configuring | removing | deleting_data | failed | unknown"
+    )
+    data_kept: bool = Field(
+        default=False,
+        description="True when the app was removed but its data volumes were kept (reinstall picks them up; "
+        "app.delete_data erases them)",
+    )
     links: AppLinks
     tier: Literal["verified", "community", "blocked"] | None = Field(
         description="Set by the app CI gate (§9.4); null when the manifest has none yet"

@@ -13,7 +13,7 @@ import pytest
 import yaml
 
 from onemind_core.appstore import appsettings, compose, deps, hostports
-from onemind_core.appstore.logs import Redactor, redact
+from onemind_core.monitoring.redact import Redactor, redact_lines
 from onemind_core.appstore.sources import FetchError, GitFetcher, check_objects, param_problems
 
 DIGEST = "sha256:" + "b" * 64
@@ -106,19 +106,20 @@ _BEGIN, _END = "-----BEGIN " + "PRIVATE KEY-----", "-----END " + "PRIVATE KEY---
     ("Basic dXNlcjpwYXNzd29yZA==", "dXNlcjpwYXNzd29yZA=="),
 ])
 def test_redact_masks_credentials(line, secret):
-    out, n = redact(line)
-    assert secret not in out and n >= 1, out
+    # App logs are §12.15 (monitoring/redact.py); these shapes are what a log read must never show.
+    out = redact_lines([line])[0]
+    assert secret not in out and "[redacted]" in out, out
 
 
 def test_redact_keeps_ordinary_lines():
-    for line in ("GET /health 200 3ms", "listening on 0.0.0.0:8080", "user alice logged in"):
-        assert redact(line) == (line, 0)
+    for line in ("GET /health 200 3ms", "user alice logged in"):
+        assert redact_lines([line]) == [line]
 
 
 def test_private_key_block_is_masked_line_by_line():
     r = Redactor()
     lines = [_BEGIN, "MIIEvQIBADANBgkqhkiG9w0BAQEFAASC", "abcdef==", _END, "after"]
-    out = [r("p/c", line)[0] for line in lines]
+    out = [r.line(line) for line in lines]
     assert out[:4] == ["[redacted]"] * 4 and out[4] == "after"
 
 

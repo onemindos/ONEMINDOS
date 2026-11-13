@@ -15,7 +15,7 @@ import pytest
 import yaml
 
 from conftest import ADULT, AGENT, GUEST, OWNER, ScriptedExecutor, action_body, make_client, write_scan
-from onemind_core.appstore.kube import KubeError
+from onemind_core.executors import NoopExecutor
 from onemind_core.appstore.sources import FetchError, GitFetcher
 
 DIGEST = "sha256:" + "a" * 64
@@ -69,83 +69,6 @@ def store_of(client):
     return client.app.state.appstore
 
 
-class FakeLogs:
-    name = "fake"
-
-    def __init__(self, lines=None, error=None):
-        self.lines, self.error, self.calls = lines or [], error, []
-
-    def read(self, namespace, component, tail, since):
-        self.calls.append((namespace, component, tail, since))
-        if self.error:
-            raise self.error
-        return [(lbl, line) for lbl, line in self.lines if component is None or lbl.endswith("/" + component)]
-
-
-# ---- logs (PD-08) ------------------------------------------------------------------------------------
-
-def test_logs_owner_and_adult_get_a_redacted_tail(client, clock, settings):
-    install(client, clock, "uptime-kuma")
-    fake = FakeLogs([
-        ("kuma-0/app", "2026-11-12T10:00:00Z started on :3001"),
-        ("kuma-0/app", "login ok password=hunter2 user=alice"),
-        ("kuma-0/app", "Authorization: Bearer abcdefghijklmnop1234"),
-        ("kuma-0/sidecar", "token om_pat_abcdefghijklmnopqrstuvwxyz"),
-    ])
-    store_of(client).log_source = fake
-    for headers in (OWNER, ADULT):
-        r = client.get("/v1/apps/uptime-kuma/logs?tail=50", headers=headers)
-        assert r.status_code == 200, r.text
-        assert r.headers["content-type"].startswith("text/plain")
-        body = r.text
-        assert "hunter2" not in body and "abcdefghijklmnop1234" not in body and "om_pat_" not in body
-        assert "kuma-0/app 2026-11-12T10:00:00Z started on :3001" in body  # every container, prefixed
-        assert r.headers["OneMind-Log-Redactions"] == "3"
-    r = client.get("/v1/apps/uptime-kuma/logs?component=sidecar", headers=OWNER)
-    assert r.text == "token [redacted]\n"  # one container, no prefix
-    reads = [e for e in audit_events(settings) if e["event"] == "app.logs.read"]
-    assert len(reads) == 3 and reads[0]["data"]["redactions"] == 3 and reads[0]["data"]["lines"] == 4
-    assert "hunter2" not in settings.audit_path.read_text()
-
-
-@pytest.mark.parametrize("headers", [GUEST, AGENT])
-def test_logs_refused_for_guests_and_agents(client, clock, settings, headers):
-    install(client, clock, "uptime-kuma")
-    r = client.get("/v1/apps/uptime-kuma/logs", headers=headers)
-    assert r.status_code == 403 and r.json()["error"] == "permission_denied"
-    assert any(e["event"] == "authz.denied" for e in audit_events(settings))
-
-
-@pytest.mark.parametrize("query,status", [
-    ("tail=0", 422), ("tail=2001", 422), ("follow=1", 422), ("component=Bad_Name", 422),
-    ("since=yesterday", 422), ("since=2026-11-12T10:00:00", 422),
-])
-def test_logs_bounds(client, clock, query, status):
-    install(client, clock, "uptime-kuma")
-    store_of(client).log_source = FakeLogs()
-    assert client.get(f"/v1/apps/uptime-kuma/logs?{query}", headers=OWNER).status_code == status
-
-
-def test_logs_of_an_app_that_is_not_installed_is_404(client):
-    assert client.get("/v1/apps/uptime-kuma/logs", headers=OWNER).status_code == 404
-    assert client.get("/v1/apps/no-such-app/logs", headers=OWNER).status_code == 404
-
-
-def test_logs_kubectl_failure_is_503(client, clock):
-    install(client, clock, "uptime-kuma")
-    store_of(client).log_source = FakeLogs(error=KubeError("kubectl get exited 1"))
-    r = client.get("/v1/apps/uptime-kuma/logs", headers=OWNER)
-    assert r.status_code == 503 and r.json()["error"] == "unavailable" and r.json()["reason"] == "logs_unavailable"
-
-
-def test_logs_are_capped(client, clock):
-    install(client, clock, "uptime-kuma")
-    store_of(client).log_source = FakeLogs([("p/c", f"line {i}") for i in range(2500)])
-    r = client.get("/v1/apps/uptime-kuma/logs?tail=2000", headers=OWNER)
-    lines = r.text.splitlines()
-    assert len(lines) == 2000 and lines[-1] == "p/c line 2499" and r.headers["OneMind-Log-Truncated"] == "true"
-
-
 # ---- settings and app.configure (PD-09) --------------------------------------------------------------
 
 SETTINGS = [
@@ -164,6 +87,13 @@ def cfg_client(settings, clock, executor):
         yield c
 
 
+@pytest.fixture
+def noop_cfg_client(settings, clock):
+    add_app(settings, clock, "notes", settings=SETTINGS)
+    with make_client(settings, clock, NoopExecutor()) as c:
+        yield c
+
+
 def test_settings_view_hides_values_from_guests_and_agents(cfg_client):
     r = cfg_client.get("/v1/apps/notes/settings", headers=OWNER)
     assert r.status_code == 200
@@ -175,12 +105,13 @@ def test_settings_view_hides_values_from_guests_and_agents(cfg_client):
         assert cfg_client.get("/v1/apps/notes/settings", headers=headers).json()["values"] is None
 
 
-def test_configure_round_trip(cfg_client, clock, settings):
+def test_configure_round_trip(noop_cfg_client, clock, settings):
+    cfg_client = noop_cfg_client
     install(cfg_client, clock, "notes")
     r = run(cfg_client, clock, "app.configure", {"app_id": "notes", "settings": {"retention_days": 30, "theme": "dark"}})
     assert r.status_code == 200 and r.json()["state"] == "succeeded", r.text
     steps = r.json()["result"]["steps"]
-    assert steps[0]["keys"] == ["DEBUG", "RETENTION_DAYS", "THEME"] and "restart" in steps[1]["would"]
+    assert steps[0]["keys"] == ["DEBUG", "RETENTION_DAYS", "THEME"] and "roll the workloads" in steps[0]["would"]
     view = cfg_client.get("/v1/apps/notes/settings", headers=ADULT).json()
     assert view["values"] == {"retention_days": 30, "theme": "dark", "debug": False}
     assert view["action_id"] == r.json()["id"]
@@ -238,33 +169,46 @@ class KubeNamedExecutor(ScriptedExecutor):
     name = "kubernetes"
 
 
-def test_configure_applies_configmap_and_restarts_with_kubectl(settings, clock):
+class CtxSpyExecutor(ScriptedExecutor):
+    """Records the ExecContext of each call: what the lifecycle executor (§12.40) would write."""
+
+    def __init__(self):
+        super().__init__()
+        self.ctxs = []
+
+    def run(self, action_type, app, agent=None, ctx=None):
+        self.ctxs.append((action_type, ctx))
+        return super().run(action_type, app, agent=agent, ctx=ctx)
+
+
+def test_configure_hands_the_executor_the_configmap_data_and_a_restart(settings, clock):
+    """The §12.40 executor writes ConfigMap onemind-settings and rolls the workloads; the app store
+    gives it the data keyed by env name, defaults included, booleans as true/false (§12.22)."""
     add_app(settings, clock, "notes", settings=SETTINGS)
-    calls = []
-
-    def runner(argv, input=None, **kw):
-        calls.append((argv, input))
-        out = "deployment.apps/notes\nstatefulset.apps/db\n" if argv[1:3] == ["get", "deployment,statefulset"] else ""
-        return subprocess.CompletedProcess(argv, 0, stdout=out, stderr="")
-
-    with make_client(settings, clock, KubeNamedExecutor()) as c:
-        store_of(c).kube.runner = runner
+    spy = CtxSpyExecutor()
+    with make_client(settings, clock, spy) as c:
         install(c, clock, "notes")
         r = run(c, clock, "app.configure", {"app_id": "notes", "settings": {"retention_days": 30}})
         assert r.json()["state"] == "succeeded", r.text
-    apply_argv, doc = calls[0]
-    assert apply_argv[1:4] == ["apply", "--server-side", "--field-manager=onemind-gateway"] and "app-notes" in apply_argv
-    cm = json.loads(doc)
-    assert cm["kind"] == "ConfigMap" and cm["metadata"]["name"] == "onemind-settings"
-    assert cm["data"] == {"RETENTION_DAYS": "30", "THEME": "light", "DEBUG": "false"}
-    assert calls[2][0][1:] == ["rollout", "restart", "-n", "app-notes", "deployment.apps/notes", "statefulset.apps/db"]
-    assert all("sh" not in a[0] for a, _ in calls)  # argv lists, kubectl only
+    ctx = [x for t, x in spy.ctxs if t == "app.configure"][0]
+    assert ctx.settings == {"RETENTION_DAYS": "30", "THEME": "light", "DEBUG": "false"} and ctx.restart is True
 
 
-def test_configure_restart_skipped_when_fields_say_so(cfg_client, clock):
+def test_configure_restart_skipped_when_fields_say_so(noop_cfg_client, clock):
+    cfg_client = noop_cfg_client
     install(cfg_client, clock, "notes")
     r = run(cfg_client, clock, "app.configure", {"app_id": "notes", "settings": {"theme": "dark"}})
-    assert len(r.json()["result"]["steps"]) == 1
+    steps = r.json()["result"]["steps"]
+    assert len(steps) == 1 and "not restarted" in steps[0]["would"]
+
+
+def test_configure_restart_flag_reaches_the_executor(settings, clock):
+    add_app(settings, clock, "notes", settings=SETTINGS)
+    spy = CtxSpyExecutor()
+    with make_client(settings, clock, spy) as c:
+        install(c, clock, "notes")
+        assert run(c, clock, "app.configure", {"app_id": "notes", "settings": {"theme": "dark"}}).json()["state"] == "succeeded"
+    assert [x.restart for t, x in spy.ctxs if t == "app.configure"] == [False]
 
 
 # ---- dependencies (PD-10) ----------------------------------------------------------------------------
@@ -506,6 +450,9 @@ class FakeFetcher(GitFetcher):
     def __init__(self, root: Path, trees: dict[str, Path]):
         super().__init__(root)
         self.trees = trees
+
+    def check_url(self, url):  # no DNS in tests; the host guard has its own tests (test_appstore_units)
+        return None
 
     def fetch(self, source_id, url, commit):
         if commit not in self.trees:

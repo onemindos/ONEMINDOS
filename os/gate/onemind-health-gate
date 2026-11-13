@@ -21,9 +21,12 @@ log() { local m="HEALTH-GATE: $(date -u +%T) $*"; echo "$m" >>"$LOG"; echo "$m" 
 SLOT=$(sed -n 's/.*rauc\.slot=\([A-Z]\).*/\1/p' /proc/cmdline); OTHER=A; [ "$SLOT" = A ] && OTHER=B
 VER=$(. /usr/lib/os-release; echo "${ONEMIND_VERSION:-unknown}")
 envget() { grub-editenv "$GRUBENV" list | sed -n "s/^$1=//p"; }
+envdump() { grub-editenv "$GRUBENV" list | tr '\n' ' '; }
+# A board whose RAUC backend is not GRUB (rpi5: Pi firmware tryboot) overrides envget/envdump here.
+[ -r /usr/lib/onemind/gate-slot-env ] && . /usr/lib/onemind/gate-slot-env
 P=""; PV=""; [ -s "$PENDING" ] && read -r P PV < "$PENDING"
 if [ -z "$P" ]; then MODE=committed; elif [ "$P" = "$SLOT" ]; then MODE=trial; else MODE=fell-back; fi
-log "start slot=$SLOT version=$VER mode=$MODE host_cpus=$(nproc) env=[$(grub-editenv "$GRUBENV" list | tr '\n' ' ')]"
+log "start slot=$SLOT version=$VER mode=$MODE host_cpus=$(nproc) env=[$(envdump)]"
 
 commit() { # mark-good booted; never fail silently (LAB-rauc finding 4)
   local e; if e=$(rauc status mark-good booted 2>&1); then return 0; fi
@@ -44,7 +47,7 @@ committed)
   commit && log "RESULT committed-boot slot=$SLOT version=$VER"
   watch_only ;;
 fell-back)
-  why="gate rejected it or install was interrupted"
+  why=${GATE_FELLBACK_WHY:-"gate rejected it or install was interrupted"}
   [ "$(envget "${P}_OK")" = 1 ] && why="trial boots used up (crash/hang/power cut) with ${P}_TRY=$(envget "${P}_TRY")"
   rauc status mark-bad other >/dev/null 2>&1
   rm -f "$PENDING"; sync

@@ -39,6 +39,7 @@ from ..catalog import APP_ID_RE
 
 MAX_COMPOSE_BYTES = 256 * 1024
 MAX_NODES = 20000
+MAX_DEPTH = 100
 MAX_SERVICES = 20
 LABEL_RE = re.compile(r"^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$")
 DIGEST_IMAGE_RE = re.compile(r"^[a-z0-9][a-z0-9._/:-]*(:[A-Za-z0-9._-]+)?@sha256:[0-9a-f]{64}$")
@@ -115,17 +116,19 @@ def check_expansion(doc: Any, limit: int = MAX_NODES) -> None:
     schema validator, a serializer) pays the expanded size: the "billion laughs" attack."""
     budget = [limit]
 
-    def walk(node: Any) -> None:
+    def walk(node: Any, depth: int = 1) -> None:
         budget[0] -= 1
         if budget[0] < 0:
             raise ComposeError(f"the document expands to more than {limit} nodes")
+        if depth > MAX_DEPTH:
+            raise ComposeError(f"the document is nested more than {MAX_DEPTH} levels deep")
         if isinstance(node, dict):
             for k, v in node.items():
-                walk(k)
-                walk(v)
+                walk(k, depth + 1)
+                walk(v, depth + 1)
         elif isinstance(node, list):
             for v in node:
-                walk(v)
+                walk(v, depth + 1)
 
     walk(doc)
 
@@ -545,6 +548,14 @@ def _dump(obj: dict) -> str:
 
 def convert(compose_text: str, app_id: str, name: str | None = None) -> Result:
     """Convert; raises ComposeError when the text is not a readable Compose document."""
+    try:
+        return _convert(compose_text, app_id, name)
+    except RecursionError as exc:  # hostile nesting: PyYAML and every walker recurse per level
+        raise ComposeError(f"the document is nested too deeply (at most {MAX_DEPTH} levels)") from exc
+
+
+
+def _convert(compose_text: str, app_id: str, name: str | None = None) -> Result:
     if not isinstance(app_id, str) or not APP_ID_RE.match(app_id) or not LABEL_RE.match(app_id):
         raise ComposeError("app_id must be a DNS label starting with a letter (at most 59 characters)")
     data = compose_text.encode("utf-8")

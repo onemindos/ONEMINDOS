@@ -1,0 +1,13 @@
+<?xml version="1.0" standalone='no'?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- OneMind on the LAN: the box answers as onemind.local (avahi publishes the host name);
+     this record also announces the dashboard / setup wizard on :8080 for mDNS browsers. -->
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">OneMind on %h</name>
+  <service>
+    <type>_http._tcp</type>
+    <port>8080</port>
+    <txt-record>path=/</txt-record>
+  </service>
+</service-group>

@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Web UI and API on 3000 (docker-compose.yml). The database has no Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: linkwarden
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: linkwarden
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP

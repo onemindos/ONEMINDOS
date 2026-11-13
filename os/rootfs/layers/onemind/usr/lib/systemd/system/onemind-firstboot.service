@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind first boot (docs/leap/core/IMAGES.md §3). Runs on every boot: the first time it reads
+# the role (NoCloud seed, /boot/efi/onemind.conf, or the setup wizard) and writes per-box secrets
+# to /data; every time it starts that role's units. The only OneMind unit enabled in the image.
+[Unit]
+Description=OneMind first boot (role, per-box secrets, role services)
+DefaultDependencies=no
+After=onemind-data-layout.service local-fs.target systemd-udevd.service cloud-init.service
+Wants=onemind-data-layout.service
+Before=multi-user.target
+RequiresMountsFor=/data /boot/efi
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+UMask=0077
+# The boot splash (plymouth) redirects /dev/console into itself while it runs, which swallowed the owner
+# token and the "configured" line this unit prints there. Stop it first (no-op when it is not running).
+ExecStartPre=-/usr/bin/plymouth quit
+ExecStart=/usr/lib/onemind/onemind-firstboot apply
+StandardOutput=journal
+TimeoutStartSec=5min
+
+[Install]
+WantedBy=multi-user.target

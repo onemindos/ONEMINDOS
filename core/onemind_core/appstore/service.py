@@ -3,13 +3,14 @@
 
 `AppStore(gw)` owns the feature's state and does three things for the gateway:
 
-1. **Reads** for the router: logs, settings, dependencies, host ports, exposure, sources and the
-   Compose conversion.
-2. **Action types** registered on the gateway's ActionService: `app.configure`, `source.add`,
-   `source.move`, `source.remove`, `exposure.private`, `exposure.mesh`, `exposure.public`. Only
-   an owner approves any of them; agents may request `app.configure` only.
-3. **Preconditions** on `app.install` and `app.remove`: dependencies, host ports, the on-box scan
-   of community apps, and "remove these first".
+1. **Reads** for the router: settings, dependencies, host ports, exposure, sources and the
+   Compose conversion. App logs are §12.15 (routers/monitoring.py), not here.
+2. **Action types** registered on the gateway's ActionService: `source.add`, `source.move`,
+   `source.remove`, `exposure.private`, `exposure.mesh`, `exposure.public` (owner requests, owner
+   approves; an agent never requests them). `app.configure` is §12.40's type; this module only
+   checks its values against `spec.settings` and keeps the typed values for the settings view.
+3. **Preconditions** on `app.install`, `app.remove` and `app.configure`: dependencies, host ports,
+   the on-box scan of community apps, "remove these first", and setting values.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..actions import ActionTypeSpec
+from ..actions import FeatureAction
 from ..auth import Principal
 from ..catalog import APP_ID_RE, MANIFEST, AppEntry
 from ..context import Gateway
@@ -34,8 +35,7 @@ from ..executors import ExecResult
 from ..ledger import Action, iso
 from ..scan import MAX_AGE
 from ..sections import config_section
-from . import appsettings, compose, deps, exposure, hostports, logs
-from .kube import Kube, KubeError
+from . import appsettings, compose, deps, exposure, hostports
 from .sources import (
     COMMIT_RE, FetchError, GitFetcher, ImageScanner, NoImageScanner, SourceAppEntry, SourceCatalog,
     param_problems, scan_entry,
@@ -57,15 +57,12 @@ class AppStoreSettings:
     git: str = "git"                  # ONEMIND_APPSTORE_GIT
     fetch_timeout_s: int = 120        # ONEMIND_APPSTORE_FETCH_TIMEOUT_S
     max_source_mb: int = 64           # ONEMIND_APPSTORE_MAX_SOURCE_MB
-    kubectl_timeout_s: int = 30       # ONEMIND_APPSTORE_KUBECTL_TIMEOUT_S
 
     def validate(self) -> None:
         if not 5 <= self.fetch_timeout_s <= 900:
             raise ValueError("ONEMIND_APPSTORE_FETCH_TIMEOUT_S must be 5-900")
         if not 1 <= self.max_source_mb <= 1024:
             raise ValueError("ONEMIND_APPSTORE_MAX_SOURCE_MB must be 1-1024")
-        if not 2 <= self.kubectl_timeout_s <= 300:
-            raise ValueError("ONEMIND_APPSTORE_KUBECTL_TIMEOUT_S must be 2-300")
 
 
 def new_source_id() -> str:
@@ -79,13 +76,6 @@ def _refuse(status: int, code: str, message: str, reason: str | None = None, det
 
 
 # ---- action params ---------------------------------------------------------------------------------
-
-class ConfigureParams(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    app_id: str = Field(min_length=1, max_length=59, pattern=APP_ID)
-    settings: dict[str, Any]
-    sealed: dict | None = None
-
 
 class SourceAddParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -115,7 +105,6 @@ class AppStore:
         self.gw = gw
         cfg = gw.settings.section(AppStoreSettings)
         self.repo = AppStoreRepository(gw.db)
-        self.kube = Kube(gw.settings.kubectl, cfg.kubectl_timeout_s)
         root = cfg.sources_dir or gw.settings.audit_path.parent / "sources"
         self.fetcher = fetcher or GitFetcher(
             root, git=cfg.git, timeout_s=cfg.fetch_timeout_s, max_bytes=cfg.max_source_mb * 1024 * 1024,
@@ -123,16 +112,13 @@ class AppStore:
         self.image_scanner: ImageScanner = image_scanner or NoImageScanner()
         self.sources = SourceCatalog(self.repo, self.fetcher, gw.catalog.validate)
         self.reserved = hostports.load_reserved()
-        self.log_source: logs.LogSource | None = None  # tests set one; else by executor
 
     # ---- shared helpers ----------------------------------------------------------------------------
-    @property
-    def live(self) -> bool:
-        """True when the gateway changes a real cluster (the kubernetes executor)."""
-        return self.gw.executor.name == "kubernetes"
-
     def statuses(self) -> dict[str, str]:
-        return {app_id: st.status for app_id, st in self.gw.repo.list_app_states().items()}
+        # "removed" is an app taken away with its data kept (§12.40): not installed, so it provides
+        # nothing, holds no host port and has no exposure.
+        return {app_id: st.status for app_id, st in self.gw.repo.list_app_states().items()
+                if st.status != "removed"}
 
     def _app(self, app_id: str) -> AppEntry:
         if not isinstance(app_id, str) or not APP_ID_RE.match(app_id):
@@ -151,34 +137,6 @@ class AppStore:
         return p.kind == "person" and p.role in ("owner", "adult")
 
     # ---- logs (PD-08) ------------------------------------------------------------------------------
-    def logs(self, p: Principal, app_id: str, component: str | None, tail: int, since: str | None,
-             follow: bool) -> logs.LogResult:
-        if not self._adult_person(p):
-            raise self._deny(p, f"read the logs of {app_id}")
-        self._app(app_id)
-        if follow:
-            raise _refuse(422, "conflict", "follow (SSE) is not served yet; poll with tail")
-        if component is not None and not logs.COMPONENT_RE.match(component):
-            raise _refuse(422, "conflict", "component must be a container name (DNS label)")
-        if not 1 <= tail <= logs.MAX_TAIL:
-            raise _refuse(422, "conflict", f"tail must be 1-{logs.MAX_TAIL}")
-        try:
-            since_ts = logs.parse_since(since)
-        except ValueError as exc:
-            raise _refuse(422, "conflict", f"since must be an RFC 3339 time ({exc})") from exc
-        if app_id not in self.statuses():
-            raise _refuse(404, "not_found", f"app {app_id!r} is not installed")
-        source = self.log_source or (logs.KubectlLogSource(self.kube) if self.live else logs.NoopLogSource())
-        try:
-            result = logs.collect(source, f"app-{app_id}", component, tail, since_ts)
-        except KubeError as exc:
-            raise _refuse(503, "unavailable", f"cannot read logs: {exc}", reason="logs_unavailable") from exc
-        self.gw.audit.append("app.logs.read", p.as_dict(), None, {
-            "app_id": app_id, "component": component, "tail": tail, "since": since,
-            "lines": len(result.lines), "redactions": result.redactions, "truncated": result.truncated,
-        })
-        return result
-
     # ---- settings (PD-09) --------------------------------------------------------------------------
     def fields(self, entry: AppEntry) -> list[appsettings.SettingField]:
         try:
@@ -198,59 +156,44 @@ class AppStore:
             "updated_at": iso(updated_at), "action_id": action_id,
         }
 
-    def _check_configure(self, params: dict, principal: Principal, phase: str) -> None:
-        if params.get("sealed") is not None:
-            raise _refuse(422, "conflict", "sealed settings are not served yet; use spec.secrets")
+    def _check_configure(self, params: dict, phase: str) -> None:
+        """app.configure on an app that declares spec.settings (registered in ActionService.app_checks).
+
+        The lifecycle executor (contract §12.40) writes the ConfigMap; this checks the values against
+        the manifest's fields, at request and again at approval. Apps without spec.settings keep the
+        generic §12.40 behaviour.
+        """
         entry = self._app(params["app_id"])
         fields = self.fields(entry)
         if not fields:
-            raise _refuse(409, "stale_precondition", f"app {entry.id!r} has no settings")
-        problems = appsettings.value_problems(fields, params["settings"])
+            return
+        problems = appsettings.value_problems(fields, params.get("settings") or {})
         if problems:
             status = 422 if phase == "request" else 409
             code = "conflict" if phase == "request" else "stale_precondition"
             raise _refuse(status, code, "settings: " + "; ".join(problems)[:900], reason="settings_invalid",
                           details=[{"field": f"params.settings.{p.split(':', 1)[0]}", "problem": p} for p in problems[:20]])
 
-    def _run_configure(self, a: Action) -> ExecResult:
-        app_id, changed = a.params["app_id"], a.params["settings"]
-        entry = self._app(app_id)
+    def settings_transform(self, app: AppEntry, merged: dict, changed: dict) -> tuple[dict, bool]:
+        """(ConfigMap onemind-settings data, restart?): env name -> string with defaults included, and
+        whether a changed field needs the workloads restarted."""
+        fields = self.fields(app)
+        if not fields:
+            return merged, True
+        values = appsettings.effective(fields, merged)
+        return appsettings.configmap_data(fields, values), appsettings.needs_restart(fields, changed)
+
+    def _record_settings(self, a: Action) -> None:
+        entry = self.gw.catalog.get(a.params["app_id"])
+        if entry is None:
+            return
         fields = self.fields(entry)
-        stored, _, _ = self.repo.get_settings(app_id)
-        values = {**appsettings.effective(fields, stored), **changed}
-        data = appsettings.configmap_data(fields, values)
-        restart = appsettings.needs_restart(fields, changed)
-        ns = f"app-{app_id}"
-        steps: list[dict] = []
-        if not self.live:
-            steps.append({"would": f"apply ConfigMap {CONFIGMAP} in {ns}", "keys": sorted(data)})
-            if restart:
-                steps.append({"would": f"restart the Deployments and StatefulSets of {ns}"})
-            self.repo.set_settings(app_id, values, a.id, self.gw.clock())
-            return ExecResult("succeeded", f"noop executor: settings of {app_id} recorded, nothing changed", steps)
-        doc = {
-            "apiVersion": "v1", "kind": "ConfigMap",
-            "metadata": {"name": CONFIGMAP, "namespace": ns, "labels": {"onemind.io/app": app_id},
-                         "annotations": {"onemind.io/settings-action": a.id}},
-            "data": data,
-        }
-        try:
-            self.kube.run(["apply", "--server-side", "--field-manager=onemind-gateway", "--force-conflicts",
-                           "-n", ns, "-f", "-"], json.dumps(doc))
-            steps.append({"applied": f"ConfigMap {CONFIGMAP}", "keys": sorted(data)})
-        except KubeError as exc:
-            return ExecResult("outcome_unknown" if exc.unknown else "failed", str(exc), steps)
-        self.repo.set_settings(app_id, values, a.id, self.gw.clock())
-        if restart:
-            try:
-                names = [n for n in self.kube.run(["get", "deployment,statefulset", "-n", ns, "-o", "name"]).split()
-                         if n.startswith(("deployment.apps/", "statefulset.apps/"))]
-                if names:
-                    self.kube.run(["rollout", "restart", "-n", ns, *names])
-                steps.append({"restarted": names})
-            except KubeError as exc:
-                return ExecResult("failed", f"settings saved, restart failed: {exc}", steps)
-        return ExecResult("succeeded", f"settings of {app_id} applied" + (" and restarted" if restart else ""), steps)
+        if not fields:
+            return
+        stored, _, _ = self.repo.get_settings(entry.id)
+        values = {**appsettings.effective(fields, stored),
+                  **(a.params.get("settings") or {})}
+        self.repo.set_settings(entry.id, values, a.id, self.gw.clock())
 
     # ---- dependencies (PD-10) and host ports (PD-11) ----------------------------------------------
     def dependencies_view(self, app_id: str) -> dict:
@@ -280,7 +223,10 @@ class AppStore:
         return hostports.conflicts(entry.id, entry.manifest, others, self.reserved)
 
     def check_app(self, action_type: str, params: dict, app: AppEntry, phase: str) -> None:
-        """app.install / app.remove preconditions (registered in ActionService.app_checks)."""
+        """app.install / app.remove / app.configure preconditions (registered in ActionService.app_checks)."""
+        if action_type == "app.configure":
+            self._check_configure(params, phase)
+            return
         statuses = self.statuses()
         if action_type == "app.install":
             missing = deps.unsatisfied(app.manifest, deps.providing(statuses))
@@ -345,7 +291,9 @@ class AppStore:
         return run
 
     def after_dispatch(self, a: Action, outcome: str) -> None:
-        """A removal (or a fresh install) starts from private again."""
+        """A removal (or a fresh install) starts from private again; a configure records the typed values."""
+        if a.type == "app.configure" and outcome == "succeeded":
+            self._record_settings(a)
         if a.type in ("app.install", "app.remove") and outcome == "succeeded":
             app_id = a.params["app_id"]
             if self.repo.get_exposure(app_id)[1] is not None:
@@ -432,6 +380,10 @@ class AppStore:
         problems = param_problems(params["name"], params["url"], params["commit"])
         if problems:
             raise _refuse(422, "conflict", "; ".join(problems))
+        try:
+            self.fetcher.check_url(params["url"])
+        except FetchError as exc:
+            raise _refuse(422, "conflict", str(exc), reason="source_host_refused") from exc
         if self.repo.source_by_name(params["name"]) is not None:
             raise _refuse(409, "conflict", f"a source named {params['name']!r} exists")
 
@@ -512,32 +464,30 @@ class AppStore:
         return ExecResult("succeeded", f"source {src.name} removed", [])
 
     # ---- registration ------------------------------------------------------------------------------
-    def specs(self) -> list[ActionTypeSpec]:
-        return [
-            ActionTypeSpec("app.configure", ConfigureParams, "write", self._run_configure,
-                           requesters=frozenset({"owner", "agent"}),
-                           claim=("configuring", frozenset({"installed"})), check=self._check_configure,
-                           settle=lambda a, outcome: "unknown" if outcome == "outcome_unknown" else "installed"),
-            ActionTypeSpec("source.add", SourceAddParams, "sensitive", self._run_source_add,
-                           check=self._check_source_add),
-            ActionTypeSpec("source.move", SourceMoveParams, "sensitive", self._run_source_move,
-                           check=self._check_source_move),
-            ActionTypeSpec("source.remove", SourceRemoveParams, "write", self._run_source_remove,
-                           check=self._check_source_remove),
-            ActionTypeSpec("exposure.private", AppParams, "write", self._run_exposure("private"),
-                           check=self._check_exposure("private")),
-            ActionTypeSpec("exposure.mesh", AppParams, "sensitive", self._run_exposure("mesh"),
-                           check=self._check_exposure("mesh")),
-            ActionTypeSpec("exposure.public", AppParams, "sensitive", self._run_exposure("public"),
-                           check=self._check_exposure("public")),
-        ]
+    def specs(self) -> dict[str, FeatureAction]:
+        def feature(risk, params_model, run, check):
+            """One POST /v1/actions type: only a person owner requests it, never an agent (§12.22)."""
+            return FeatureAction(
+                risk, lambda a, finish: finish(run(a)), params_model=params_model,
+                check_request=lambda params, principal: check(params, principal, "request"),
+                check=lambda a: check(a.params, None, "approve"),
+            )
+        return {
+            "source.add": feature("sensitive", SourceAddParams, self._run_source_add, self._check_source_add),
+            "source.move": feature("sensitive", SourceMoveParams, self._run_source_move, self._check_source_move),
+            "source.remove": feature("write", SourceRemoveParams, self._run_source_remove, self._check_source_remove),
+            "exposure.private": feature("write", AppParams, self._run_exposure("private"), self._check_exposure("private")),
+            "exposure.mesh": feature("sensitive", AppParams, self._run_exposure("mesh"), self._check_exposure("mesh")),
+            "exposure.public": feature("sensitive", AppParams, self._run_exposure("public"), self._check_exposure("public")),
+        }
 
     def install(self) -> None:
         actions = self.gw.actions
-        for spec in self.specs():
-            actions.register_type(spec)
+        for action_type, spec in self.specs().items():
+            actions.register_type(action_type, spec)
         actions.app_checks.append(self.check_app)
         actions.after_dispatch.append(self.after_dispatch)
+        actions.settings_transform = self.settings_transform
         self.gw.catalog.providers.append(self.sources)
 
 

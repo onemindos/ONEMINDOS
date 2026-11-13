@@ -21,12 +21,14 @@ is `unavailable` and the record is `fail`: source apps can be browsed but not in
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import os
 import re
 import shutil
 import subprocess
 import uuid
+from urllib.parse import urlsplit
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -36,6 +38,7 @@ from typing import Any, Protocol
 import yaml
 
 from ..catalog import APP_ID_RE, MANIFEST, AppEntry
+from ..notify.channels import DeliveryError, _addresses, check_address
 from ..scan import ScanRecord
 from .compose import ComposeError, check_expansion
 from .store import AppStoreRepository, Source, SourceScan
@@ -74,6 +77,33 @@ class FetchError(Exception):
     pass
 
 
+def host_problem(url: str, resolve: Callable[[str], list] = _addresses) -> str | None:
+    """Why the gateway must not connect to this URL's host, or None.
+
+    A source URL is typed by an owner and approved by an owner, so a host on the local network
+    (a Gitea on the LAN) is allowed: the approval card names it. What is never allowed is a target
+    that makes the gateway an SSRF relay: link-local (cloud metadata 169.254.169.254), loopback
+    (the gateway's own admin ports and the cluster), multicast, unspecified and reserved addresses.
+    Reuses the notification channels' check_address (an owner-added channel may reach the LAN too).
+    """
+    host = urlsplit(url).hostname
+    if not host:
+        return "the url has no host"
+    try:
+        addrs = resolve(host)
+    except DeliveryError as exc:
+        return str(exc)
+    for addr in addrs:
+        mapped = addr.ipv4_mapped if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped else addr
+        try:
+            check_address(addr, lan_ok=True)
+        except DeliveryError as exc:
+            return f"{host}: {exc}"
+        if mapped.is_loopback:
+            return f"{host}: loopback addresses are not allowed"
+    return None
+
+
 Runner = Callable[..., subprocess.CompletedProcess]
 
 
@@ -81,14 +111,24 @@ class GitFetcher:
     """Fetches exactly one commit of a repository into <root>/<source_id>/<commit>/ (read as data)."""
 
     def __init__(self, root: Path, *, git: str = "git", timeout_s: float = 120, max_bytes: int = 64 * 1024 * 1024,
-                 max_files: int = 10000, allow_file_urls: bool = False, runner: Runner = subprocess.run):
+                 max_files: int = 10000, allow_file_urls: bool = False, runner: Runner = subprocess.run,
+                 resolve: Callable[[str], list] = _addresses):
         self.root, self.git, self.timeout_s = root, git, timeout_s
+        self.resolve = resolve
         self.max_bytes, self.max_files = max_bytes, max_files
         self.allow_file_urls = allow_file_urls  # tests only: fetch from a local file:// repository
         self.runner = runner
 
     def path(self, source_id: str, commit: str) -> Path:
         return self.root / source_id / commit
+
+    def check_url(self, url: str) -> None:
+        """Raise FetchError for a host the gateway must not connect to (see host_problem)."""
+        if self.allow_file_urls and url.startswith("file://"):
+            return
+        problem = host_problem(url, self.resolve)
+        if problem:
+            raise FetchError(f"refusing to fetch: {problem}")
 
     def _config(self) -> list[str]:
         cfg = {
@@ -126,6 +166,7 @@ class GitFetcher:
             return final
         if param_problems(url=url, commit=commit) and not (self.allow_file_urls and url.startswith("file://")):
             raise FetchError("refusing to fetch: bad url or commit")
+        self.check_url(url)  # again at fetch time: the name may resolve differently than at approval
         base = self.root / source_id
         base.mkdir(parents=True, exist_ok=True)
         tmp = base / f".tmp-{commit[:12]}-{uuid.uuid4().hex[:8]}"

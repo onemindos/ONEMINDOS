@@ -1,0 +1,39 @@
+{
+  "env": {
+    "board": "arm64-efi",
+    "accel": "kvm",
+    "cpu": "host",
+    "host_cpus": 14,
+    "host_machine": "aarch64",
+    "upto": "F4"
+  },
+  "minutes": 2.7,
+  "criteria": "test/qemu/CRITERIA-FIRSTBOOT.md",
+  "results": [
+    {
+      "test": "F0",
+      "verdict": "PASS",
+      "detail": "onemindd=True onemind_cli=True nats_server_runs=True nats_sha256_pinned=True gateway_imports=True dashboard=True tuf_dir=True units_exist=True only_firstboot_enabled=True units={'onemind-firstboot': 'enabled', 'onemind-gateway': 'static', 'onemind-nats': 'static', 'onemindd': 'static', 'onemind-update': 'static'}"
+    },
+    {
+      "test": "F1",
+      "verdict": "PASS",
+      "detail": "config='ONEMIND-FIRSTBOOT: configured role=hub source=nocloud node_id=ea7f5ff43e3f' tokens_printed=1 healthz=200 node_id=ea7f5ff43e3f listed=[('ea7f5ff43e3f', 'hub', 'online')] unauth_401=True gate=('committed-boot', 'A', '1') t=31s"
+    },
+    {
+      "test": "F2",
+      "verdict": "PASS",
+      "detail": "code=200 body_sha=5eb7e6406e299dec index_sha=5eb7e6406e299dec"
+    },
+    {
+      "test": "F3",
+      "verdict": "PASS",
+      "detail": "'ONEMIND-FIRSTBOOT: already configured role=hub node_id=ea7f5ff43e3f' new_tokens=0 same_ids=True healthz=200 listed=[('ea7f5ff43e3f', 'hub', 'online')] gate=('committed-boot', 'A', '1')"
+    },
+    {
+      "test": "F4",
+      "verdict": "PASS",
+      "detail": "install_rc=0 gate=('mark-good', 'B', '2') marker_kept=True version2=True already_configured=True new_token=False same_ids=True healthz=200 listed=[('ea7f5ff43e3f', 'hub', 'online')]"
+    }
+  ]
+}

@@ -26,10 +26,10 @@ export const STEP_TITLE: Record<ReviewStep, string> = {
 };
 
 /** Only the steps that apply, in the fixed order (TAXONOMY §4.6). */
-export function reviewSteps(app: CatalogApp, plan?: AppPlan): ReviewStep[] {
+export function reviewSteps(app: CatalogApp, plan?: AppPlan, noPlacement = false): ReviewStep[] {
   const s: ReviewStep[] = [];
   if (app.deploy_class === 'market-community') s.push('community');
-  s.push('node');
+  if (!noPlacement) s.push('node');
   if (app.placement?.devices?.length) s.push('devices');
   if (app.placement?.hostNetwork || plan?.host_ports?.length) s.push('network');
   if (app.storage?.data || plan?.volumes?.length) s.push('storage');
@@ -47,10 +47,16 @@ export interface InstallReviewProps {
   now: number;
   onClose: () => void;
   onSubmit: (req: StoreActionRequest) => void;
+  /**
+   * The gateway serves no placement plan (contract v0): skip the node step, let the hub place
+   * the app, and say so in this sentence on the review step.
+   */
+  placementNote?: string;
 }
 
-export function InstallReview({ app, plan, planError, open, now, onClose, onSubmit }: InstallReviewProps) {
-  const steps = reviewSteps(app, plan);
+export function InstallReview({ app, plan, planError, open, now, onClose, onSubmit, placementNote }: InstallReviewProps) {
+  const noPlacement = !!placementNote && !plan && !planError;
+  const steps = reviewSteps(app, plan, noPlacement);
   const [i, setI] = useState(0);
   const [node, setNode] = useState<string | undefined>(undefined);
   const [ackCommunity, setAck] = useState(false);
@@ -168,7 +174,7 @@ export function InstallReview({ app, plan, planError, open, now, onClose, onSubm
               </div>
               <div>
                 <dt>Node</dt>
-                <dd>{chosen ?? 'none fits'}</dd>
+                <dd>{noPlacement ? placementNote : (chosen ?? 'none fits')}</dd>
               </div>
               <div>
                 <dt>Expires</dt>
@@ -230,7 +236,7 @@ export function InstallReview({ app, plan, planError, open, now, onClose, onSubm
           {last ? (
             <Button
               variant="primary"
-              disabled={!chosen || blocked}
+              disabled={(!chosen && !noPlacement) || blocked}
               onClick={() => {
                 onSubmit(req);
                 close();

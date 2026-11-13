@@ -232,7 +232,7 @@ export interface AuditEntry {
   app?: string;
   result?: 'ok' | 'warn' | 'bad' | 'info';
   resultLabel?: string;
-  /** First characters of this entry's hash; the full hash is in the API. */
+  /** First characters of this entry's hash; the full hash is in the API. Empty when not chained. */
   hash: string;
 }
 export interface AuditVerify {
@@ -245,7 +245,8 @@ export interface AuditVerify {
   checkpoint?: { seq: number; at: string; storedOff: string };
 }
 export interface ActivityData {
-  verify: AuditVerify;
+  /** Absent when the entries are not from the audit log (see AuditTimeline `chainNote`). */
+  verify?: AuditVerify;
   entries: AuditEntry[];
 }
 

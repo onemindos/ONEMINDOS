@@ -7,11 +7,13 @@ on:
   pull_request:
     paths:
       - 'desktop/**'
+      - 'ui/src/tokens/tokens.css'   # desktop/src/tokens.css must stay an exact copy (npm run check:ui)
       - '.github/workflows/ci-desktop.yml'
   push:
     branches: [main]
     paths:
       - 'desktop/**'
+      - 'ui/src/tokens/tokens.css'
       - '.github/workflows/ci-desktop.yml'
 
 permissions:
@@ -45,6 +47,8 @@ jobs:
         working-directory: desktop/src-tauri
         run: rustup show active-toolchain || rustup toolchain install
       - run: npm ci
+      - name: Icons from the brand sources (desktop/assets, written by scripts/brand-sync.py)
+        run: npm run icons && npm run icons:tray
       - name: UI checks
         run: npm run check:ui
       - name: Rust unit tests
