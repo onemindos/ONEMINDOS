@@ -68,24 +68,24 @@ def register(app: FastAPI, gw: Gateway) -> None:
             gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "storage owner read", "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", "only an owner may do this")
 
-    @app.get("/v1/storage", tags=["storage"], responses=error_responses(401))
+    @app.get("/v1/storage", tags=["storage"], operation_id="storage.summary", responses=error_responses(401))
     def storage_summary(_: Principal = Depends(principal)):
         """The data set of this box: state, members, running operation. No disk identities."""
         return svc.summary()
 
-    @app.get("/v1/storage/devices", tags=["storage"], responses=error_responses(401, 403, 409))
+    @app.get("/v1/storage/devices", tags=["storage"], operation_id="storage.devices.list", responses=error_responses(401, 403, 409))
     def storage_devices(p: Principal = Depends(principal)):
         """Every disk with its role and health (full serials: owners only)."""
         owner(p)
         return svc.devices()
 
-    @app.post("/v1/storage/plans", tags=["storage"], responses=error_responses(401, 403, 409, 422))
+    @app.post("/v1/storage/plans", tags=["storage"], operation_id="storage.plans.create", responses=error_responses(401, 403, 409, 422))
     def storage_plan(req: StoragePlanRequest, p: Principal = Depends(principal)):
         """Dry run: the plan a storage action would get. Nothing is filed or changed."""
         return svc.plan(p, req)
 
     @app.post(
-        "/v1/storage/actions", tags=["storage"], status_code=202,
+        "/v1/storage/actions", tags=["storage"], operation_id="storage.actions.create", status_code=202,
         responses={200: {"description": "Idempotent replay"}, **error_responses(401, 403, 409, 422)},
     )
     def storage_request(
@@ -97,14 +97,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return JSONResponse(status_code=202 if created else 200, content=body,
                             headers={"Location": f"/v1/actions/{body['action']['id']}"})
 
-    @app.get("/v1/storage/operations/{action_id}", tags=["storage"], responses=error_responses(401, 403, 404))
+    @app.get("/v1/storage/operations/{action_id}", tags=["storage"], operation_id="storage.operations.get", responses=error_responses(401, 403, 404))
     def storage_operation(action_id: str, p: Principal = Depends(principal)):
         """The stored plan and, while it runs, the node's journal (step by step)."""
         if not p.can_request_actions:
             raise ApiError(403, "permission_denied", "only requesters and owners read storage operations")
         return svc.operation(action_id, p)
 
-    @app.post("/v1/storage/recovery-key", tags=["storage"], responses=error_responses(401, 403, 404, 409))
+    @app.post("/v1/storage/recovery-key", tags=["storage"], operation_id="storage.recovery_key.take", responses=error_responses(401, 403, 404, 409))
     def storage_recovery_key(p: Principal = Depends(principal)):
         """The data set's recovery key, once (H-11). Never stored by the gateway, never shown again."""
         owner(p)

@@ -12134,7 +12134,7 @@
     "/v1/storage": {
       "get": {
         "description": "The data set of this box: state, members, running operation. No disk identities.",
-        "operationId": "storage_summary_v1_storage_get",
+        "operationId": "storage.summary",
         "responses": {
           "200": {
             "content": {
@@ -12164,7 +12164,7 @@
     "/v1/storage/actions": {
       "post": {
         "description": "Request a storage action; it waits for the owner's approval with its plan.",
-        "operationId": "storage_request_v1_storage_actions_post",
+        "operationId": "storage.actions.create",
         "parameters": [
           {
             "in": "header",
@@ -12256,7 +12256,7 @@
     "/v1/storage/devices": {
       "get": {
         "description": "Every disk with its role and health (full serials: owners only).",
-        "operationId": "storage_devices_v1_storage_devices_get",
+        "operationId": "storage.devices.list",
         "responses": {
           "200": {
             "content": {
@@ -12306,7 +12306,7 @@
     "/v1/storage/operations/{action_id}": {
       "get": {
         "description": "The stored plan and, while it runs, the node's journal (step by step).",
-        "operationId": "storage_operation_v1_storage_operations__action_id__get",
+        "operationId": "storage.operations.get",
         "parameters": [
           {
             "in": "path",
@@ -12377,7 +12377,7 @@
     "/v1/storage/plans": {
       "post": {
         "description": "Dry run: the plan a storage action would get. Nothing is filed or changed.",
-        "operationId": "storage_plan_v1_storage_plans_post",
+        "operationId": "storage.plans.create",
         "requestBody": {
           "content": {
             "application/json": {
@@ -12447,7 +12447,7 @@
     "/v1/storage/recovery-key": {
       "post": {
         "description": "The data set's recovery key, once (H-11). Never stored by the gateway, never shown again.",
-        "operationId": "storage_recovery_key_v1_storage_recovery_key_post",
+        "operationId": "storage.recovery_key.take",
         "responses": {
           "200": {
             "content": {

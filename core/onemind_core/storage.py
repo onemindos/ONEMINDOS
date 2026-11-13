@@ -20,8 +20,11 @@ How a disk change happens:
 
 v0 limits: only the hub's own node (other nodes need the signed jobs of contract §12.11); an
 unreachable storage service is reported as 409 stale_precondition (§12.2's `unavailable` code is
-not in the §3 set yet); passkey step-up for these destructive types comes from the identity
-stream's approval guard (F-2), until then the owner token approves (F-12 interim, API.md §8.4).
+not in the §3 set yet).
+
+Security: the four destructive types are approved only with the owner's passkey (the guard in
+routers/storage.py, on top of identity's); agents only request. No key passes through the gateway:
+the recovery key route is off until founder decisions F-61/F-62 (ONEMIND_STORAGE_RECOVERY_KEY_API).
 """
 
 from __future__ import annotations

@@ -48,11 +48,11 @@ A feature PR does not edit the contract (WORKSTREAMS §4). These names are what 
 | `POST /v1/storage/plans` | requesters | `{type, risk, plan, plan_sha256}`; nothing filed. Here and in the two routes below, non-owners get `plan.targets` without `id` (the full WWN or serial) |
 | `POST /v1/storage/actions` | requesters (remove: owner) | `202 {action, plan, plan_sha256, risk, …}` + `Location`; `Idempotency-Key` header or body field; replay `200` |
 | `GET /v1/storage/operations/{action_id}` | requesters | the stored plan, state, progress and, while it runs, the node's journal step by step |
-| `POST /v1/storage/recovery-key` | owner | `{one_time: {recovery_key}}` once, `Cache-Control: no-store`; then `404` |
+| `POST /v1/storage/recovery-key` | owner | `404` unless `ONEMIND_STORAGE_RECOVERY_KEY_API=1` (pending F-61/F-62); then `{one_time: {recovery_key}}` once, `Cache-Control: no-store`, then `404` |
 
 **Node socket** (`/run/onemind/storage.sock`, `internal/storage/ops/server.go`): `GET /v1/status`, `POST /v1/plans`, `POST /v1/operations`, `GET /v1/operations[/{id}]`, `POST /v1/recovery-key/take`.
 
-**Settings** (`@config_section("storage")`): `ONEMIND_STORAGE_ENABLED` (off by default), `ONEMIND_STORAGE_SOCKET`, `ONEMIND_STORAGE_POLL_S` (60), `ONEMIND_STORAGE_TIMEOUT_S` (15).
+**Settings** (`@config_section("storage")`): `ONEMIND_STORAGE_ENABLED` (off by default), `ONEMIND_STORAGE_SOCKET`, `ONEMIND_STORAGE_POLL_S` (60), `ONEMIND_STORAGE_TIMEOUT_S` (15), `ONEMIND_STORAGE_RECOVERY_KEY_API` (off; pending F-61/F-62).
 
 ## 4. The engine: what happens after a power cut
 
@@ -89,7 +89,7 @@ Other rules:
 - Only the newest generation is unlocked. Every membership change moves the remaining members one generation further, so a removed or replaced disk is stale. A replace keeps the old member current until `btrfs replace` has finished, then demotes it.
 - If the newest generation cannot mount, older-generation members of the set are tried before a degraded mount (btrfs ignores a disk that really left; its superblock is wiped). `repair` re-stamps every member at one generation.
 
-**Recovery key shown once:** `init` leaves it in `/run/onemind/storage/recovery-key` (tmpfs). The owner's dashboard takes it through `POST /v1/storage/recovery-key`, and the node overwrites and deletes the file. A reboot before that loses it; rotation (a new key on every member, using the set key) is a follow-up.
+**Recovery key shown once (PENDING F-61/F-62, off by default):** `init` leaves it in `/run/onemind/storage/recovery-key` (tmpfs). Where keys live, TPM2 use and the recovery key are founder decisions (F-61, F-62, F-63), so the gateway route that would hand it to an owner, `POST /v1/storage/recovery-key`, answers `404` unless `ONEMIND_STORAGE_RECOVERY_KEY_API=1`. Until the founder decides, treat the key handling in `luks.go`, `init` and `assemble` as a lab design, not a shipped one. Rotation is a follow-up.
 
 ## 6. Events for notifications (CORE-NOTIFY-1)
 
@@ -125,14 +125,15 @@ Payloads carry the node id, disk path, model and serial **tail** only; `<hash>` 
 - The node's socket is mode 0660, root and group `onemind` (the gateway); each connection's peer credentials are checked again (`SO_PEERCRED`; a failed lookup refuses the connection). In the lab a user outside the group could not connect. Its folder `/run/onemind` stays enterable (0755) even under the unit's `UMask=0077`, since other services' sockets live there too.
 - Three renders of the plan (request, approval, run) with the same `plan_sha256`: a swapped disk never gets wiped.
 - Agents request and read; they never approve (403 before any handler runs). `remove`, which can lower protection, is owner-only.
-- No secret goes through the gateway except the recovery key, once, to an owner, with `no-store`. Keys reach `cryptsetup` on stdin or from tmpfs files; plans and journals contain no key.
-- **Gap until the identity stream merges:** contract §12.3 wants a passkey step-up on destructive approvals. The identity branch adds it as an approval guard on `/v1/actions/{id}/approve` for every type; until then the owner token approves (F-12 interim, API.md §8.4). Storage actions are off by default (`ONEMIND_STORAGE_ENABLED`).
+- No secret goes through the gateway. The recovery key route exists but is off by default (F-61/F-62); when switched on it hands an owner the key once with `no-store`, and the key is never in the audit chain, an event, a log or any other answer (`test_no_key_in_logs_audit_events_or_answers`). Keys reach `cryptsetup` on stdin or from tmpfs files; plans and journals contain no key. The request model has no field a key could travel in.
+- **Passkey step-up (A7 review):** the four destructive types (create, add, replace, remove) are approved only with an owner passkey assertion. `routers/storage.py` adds an approval guard after the identity guard: a bare owner token or session, an unregistered passkey and identity's `require_passkey_approval=False` all end in `401 step_up_required`, and nothing reaches the disks. `repair` (risk `write`) erases nothing and keeps the ordinary owner approval. Tests: `core/tests/test_storage_security.py`. Storage actions are off by default (`ONEMIND_STORAGE_ENABLED`).
+- **Device references:** `device` and `member` are `/dev/<name>` (no `.`, `..` or empty parts), or a bare WWN, serial, `devid:N` or kernel name that cannot start with `-` or `.`. The gateway refuses the rest with 422 before a plan is asked for; the node then accepts only disks its own `lsblk` reported (`storage.Find`) and builds every command from the reported path.
 
 ## 8. v0 limits
 
 - Only the hub's own disks. Other nodes need the signed jobs of contract §12.11; a request for another node is refused.
 - An unreachable node service is `409 stale_precondition` (the §12.2 `unavailable` / 503 code is not in the §3 error set yet).
-- Feature-owned action types plug into `actions.py` through `register_type`, `file` and `finish` (one hook, WORKSTREAMS §3), until DEV-API-7's registry replaces it. `POST /v1/actions` and MCP `request_action` do not take storage types yet.
+- The five types are `FeatureAction` specs on the action registry (`ActionService.register_type`, `request_feature`): `check` re-renders the plan at approval, `run` starts the operation and keeps the `finish` callback for the poller. After a gateway restart the ledger marks a running storage action `outcome_unknown` (it cannot know what the node did); the storage row and the `storage.operation.finished` event still follow the node's journal. `POST /v1/actions` and MCP `request_action` do not take storage types (a test checks it).
 - No `storage init --plain` for boards without LUKS (F-62), no recovery-key rotation, no "wipe this disk" action (the lab blanked a half-prepared disk by hand once), no scrub scheduler (UMB-STOR-6), no heartbeat `storage` object yet.
 
 ## 9. Tests
