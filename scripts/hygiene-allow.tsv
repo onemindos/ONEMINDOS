@@ -47,3 +47,9 @@ deploy/install.sh	100\.64\.0\.0	B-FP-9
 internal/fabric/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 ui/src/network/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 ui/demo/src/network/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+# B-FP-6: cloud images. /home/admin is the admin user's home inside the image (as B-FP-1), and the QEMU user-network subnet in CRITERIA-CLOUD.md §6 is QEMU's built-in default, not a real network.
+os/boards/cloud/*	/home/admin	B-FP-6
+scripts/hygiene-allow.tsv	/home/admin	B-FP-6
+test/qemu/CRITERIA-CLOUD.md	10\.0\.2\.0	B-FP-6
+os/boards/vm-do/*	/home/admin	B-FP-6
+test/qemu/*	/home/admin	B-FP-6

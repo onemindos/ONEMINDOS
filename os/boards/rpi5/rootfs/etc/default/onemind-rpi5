@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# Board rpi5. EEPROM_MIN_TS = BUILD_TIMESTAMP of the bootloader this image targets:
+# pieeprom-2026-09-25.bin from rpi-eeprom 28.36-1 (os/versions.lock.yaml rpi5.eeprom).
+EEPROM_MIN_TS=1790351949

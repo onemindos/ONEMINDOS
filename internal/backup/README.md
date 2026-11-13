@@ -63,13 +63,13 @@ Result on 2026-11-12: both pass on Debian 13 arm64 (Lima, vz) with the linux/arm
 | Gateway coordinator: hooks via exec, database dumps, schedule, status, restore orchestration | `core/onemind_core/backups/` | done |
 | Developer install: pinned restic, `onemind-local`, keys, unit, gateway switch | `deploy/backup.sh` | done |
 | Image | `docs/leap/core/BACKUP-WIRE-os.patch.md` | for the image stream |
-| Updater calls `POST /api/v1/backup/run {reason: pre-update, wait: true}` | `internal/update` | open (updater stream); the endpoint exists on `:7480` |
+| Updater gets a pre-update backup run through a gateway-signed `backup.run` job (the unsigned `/api/v1/backup/run` route was removed in #91) | `internal/update` | open (updater stream) |
 | Owner and escrow keys on every target | `backup.key.add` job; the gateway's emergency kit adds the owner key | done for the owner key; escrow and rotation open |
 | Whole-box restore and `WriteFence` | | open (onboarding) |
 
 **End-to-end proof:** `test/backup-wire/lima-e2e.sh` (Debian 13 VM: developer install, back up, break, restore, Rewind, badge green, undo).
 
-Steps from the earlier plan that are still open: the updater calls `POST 127.0.0.1:7480/api/v1/backup/run {"reason":"pre-update","wait":true}` (item above), and the image stream adds restic and rest-server pins (`BACKUP-WIRE-os.patch.md`).
+Steps from the earlier plan that are still open: the updater gets its pre-update run via a signed job (item above), and the image stream adds restic and rest-server pins (`BACKUP-WIRE-os.patch.md`).
 
 ## Where the repository password and keys live (and what is never logged)
 

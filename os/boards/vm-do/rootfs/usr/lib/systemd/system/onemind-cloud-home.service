@@ -9,4 +9,4 @@ Before=cloud-init-local.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/sh -c 'install -d -o onemind -g onemind -m 0750 /home/onemind; install -d -m 0700 /root'
+ExecStart=/bin/sh -c 'install -d -o admin -g admin -m 0750 /home/admin; install -d -m 0700 /root'

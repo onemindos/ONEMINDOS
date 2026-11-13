@@ -71,6 +71,7 @@ class Action:
     plan_sha256: str | None = None
     progress: dict | None = None
     risk: str | None = None
+    approved_by: str | None = None
 
     def to_json(self) -> dict:
         return {
@@ -85,6 +86,7 @@ class Action:
             "expires_at": iso(self.expires_at),
             "decided_by": self.decided_by,
             "decided_at": iso(self.decided_at),
+            "approved_by": self.approved_by,
             "result": self.result,
             "version": self.version,
             "risk": self.risk,
@@ -162,6 +164,7 @@ class ActionRow(Base):
     plan_sha256: Mapped[str | None] = mapped_column(String(80), nullable=True)
     progress: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     risk: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
 class AppRuntimeRow(Base):
@@ -214,6 +217,7 @@ def _to_action(r: ActionRow) -> Action:
         plan_sha256=r.plan_sha256,
         progress=dict(r.progress) if r.progress else None,
         risk=r.risk,
+        approved_by=r.approved_by,
     )
 
 
@@ -319,7 +323,7 @@ class SqlActionRepository:
                     .where(ActionRow.id == action_id, ActionRow.state == "awaiting_approval")
                     .values(
                         state="accepted", updated_at=now, version=ActionRow.version + 1,
-                        decided_by=decided_by, decided_at=now,
+                        decided_by=decided_by, decided_at=now, approved_by=decided_by["id"],
                     )
                 )
                 if res.rowcount != 1:

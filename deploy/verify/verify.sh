@@ -16,7 +16,7 @@
 #   --audit-file F     also verify the whole hash chain of the gateway's audit.jsonl (hub only).
 #   --no-execute       deny the action instead of approving it (nothing is installed).
 #   --keep             leave the app installed after the flow (default: remove it again).
-#   --strict           treat SKIP (wave-2 features the gateway does not have yet) as FAIL.
+#   --strict           treat remaining SKIPs (e.g. missing tokens) as FAIL; missing wave-2 features already FAIL.
 #
 # Output: one PASS/FAIL/SKIP line per contract item, then a summary. Exit 0 only if nothing failed.
 # Tokens never reach a command line: curl reads the Authorization header from a 0600 file.

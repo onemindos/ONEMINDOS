@@ -300,7 +300,7 @@ Every action type has a fixed risk class (§12.5). The class decides who may app
 - `plan` is rendered at request time (H-13). `plan_sha256` = sha256 of the canonical JSON of `{type, params, target, plan.objects}`.
 - `approval` is `passkey`, `token`, `policy` or `console`.
 - `hold: {window_id, until}` marks an accepted action waiting for its maintenance window. It stays in state `accepted` (no new state). On gateway restart, held actions stay `accepted`; the §3 rule (an interrupted dispatch becomes `outcome_unknown`) applies only to actions that were dispatched.
-- `requested_by.id` and `approved_by` are what the audit records (§11.2).
+- `requested_by.id` and `approved_by` are what the audit records (§11.2). The current gateway returns `approved_by` as the approving person's **id string**, or null before approval and on denial/expiry. This is additive: `decided_by: {id, kind, role} | null` and `decided_at` stay unchanged (a denial has a decider, not an approver). New approvals store the approving id atomically with acceptance; that durable fact survives subsequent failure or unknown outcomes. Historical rows without this approval fact return null even if their state or generic decider suggests approval. `approved_via` and `approval` remain reserved: the ledger does not record a trustworthy client channel or approval mechanism, so clients must not infer them from the role, user-agent or outcome. The existing `risk`, `plan`, `plan_sha256` and `progress` fields are those shipped by §12.40, not a second model.
 
 | Method and path | Who | Returns |
 |---|---|---|
@@ -372,6 +372,20 @@ Agents never request `node.join`, grant or role changes, token creation, policy 
 | `POST /v1/auth/logout` | the session | `204` |
 | `GET /v1/auth/sessions`, `DELETE /v1/auth/sessions/{id}` | the person (own); owner (all) | `[{id, principal_id, client, created_at, last_seen_at, current}]`; revoke is instant |
 | `GET /v1/me` | any principal | `{principal: {id, kind, role, display_name?}, token: {id, scopes, expires_at} \| null, session: {id, expires_at} \| null, passkeys: n, capabilities: ["can_approve", …]}` |
+
+**Implemented bootstrap and credential operations** (DR2-01; all bodies are JSON). These routes already ship; unlike the future console-only bootstrap described above, the current setup accepts the install owner token or configured first-boot token in the `Authorization` header as bearer bootstrap proof. `POST /v1/auth/password` changes an existing password; password sign-in remains `POST /v1/auth/login`.
+
+| Method and path | Proof and body | Success and errors |
+|---|---|---|
+| `POST /v1/auth/setup` | Bootstrap bearer; `{username, password, display_name?, client?: browser\|cli\|app}` | `201` session; `401 unauthenticated` invalid bootstrap proof; `409 conflict` reason `already_set_up` once any account exists, or `username_taken`; `422 conflict` bad username/password |
+| `POST /v1/auth/enrol` | No existing session required; one-use invitation `{code, password, username?, client?: browser\|cli\|app}`. A username is needed if the invitation has none | `201` session; `401 unauthenticated` reason `code_unknown` for absent/expired/disabled invitation, `code_used` if a concurrent claim wins; `409 conflict` `username_taken`; `422 conflict` invalid username/password |
+| `POST /v1/auth/refresh` | No access token required; `{refresh_token}` for a bearer session | `200 {access_token, expires_at, refresh_token, refresh_expires_at, session: {id, expires_at}}`; rotates both secrets in the same session, old refresh and access no longer work; `401 unauthenticated` for unknown/expired/revoked token, disabled user or lost concurrent refresh |
+| `POST /v1/auth/password` | Own household **session**, cookie or bearer, never a static/API token; `{current_password, new_password}` | `204`; `401 unauthenticated` reason `bad_credentials` for wrong current password; `422 conflict` reason `weak_password`; revokes all other sessions, keeps this one |
+| `POST /v1/auth/totp/setup` | Own household session; no body | `200 {one_time: {secret, otpauth_uri}}` for pending setup, not enabled yet; `409 conflict` if already enabled |
+| `POST /v1/auth/totp/confirm` | Own household session; `{code}` | `204`, enables pending seed; `409 conflict` without pending setup; `422 conflict` reason `totp_invalid` for a nonmatching code |
+| `POST /v1/auth/totp/disable` | Own household session; `{password}` | `204`, clears active/pending seed and replay step; `401 unauthenticated` reason `bad_credentials` for wrong password |
+
+`client` defaults to `browser`. Setup/enrol session responses include `principal` and `session: {id, expires_at}`. Browser sessions set the HttpOnly session cookie and readable CSRF cookie and return `csrf_token`; CLI/app sessions instead return `access_token`, `expires_at`, `refresh_token`, `refresh_expires_at`. Credential changes require `OneMind-CSRF` on cookie sessions (`403 permission_denied`, reason `csrf` when missing/wrong); valid API/static tokens are `403`, anonymous/invalid sessions `401`. These self-service routes do not let an owner edit another person's credentials. Usernames are stripped/lowercased then must match `[a-z][a-z0-9._-]{1,31}`; passwords are 12–1024 characters. Request-model limits: setup/enrol username ≤64, setup display name ≤100, invitation/refresh token ≤200, passwords ≤1024, TOTP code ≤12; invalid JSON/model fields return `422` (§12.2 opt-in applies to schema errors). Setup/enrol/refresh/password/disable also return `429 rate_limited` on the per-source failure limiter; all routes remain subject to gateway body/rate limits. Enrolment proof and TOTP seed are never audit payloads.
 
 **Users** (direct owner writes with step-up, audited):
 
@@ -450,9 +464,10 @@ data: {"schema":"onemind.event/v1","id":"18342","type":"action.state_changed","t
 : keepalive
 ```
 - **Envelope `onemind.event/v1`:** `schema`, `id`, `type`, `ts` (when it happened), `subject` (the ids it concerns: `action_id`, `node_id`, `app_id`, `alert_id`, `rule_id`, `job_id`, as applicable), `data` (small facts and ids only, never secrets or file contents), and optional `severity` (`info|warning|critical`), `source_id`, `actor_id`, `correlation_id`, `causation_id`, `dedupe_key`, `observed_at`. The same envelope is used on NATS (§12.9).
-- `id` is monotonic; audit-derived events use the audit `seq`. Resume with `Last-Event-ID` or `since_id`; the gateway replays from a buffer of 24 h or 10,000 events, and beyond it sends `stream.reset` first (the client re-reads state over REST). `: keepalive` every 15 s.
-- Events are filtered per principal before sending (a guest never sees `audit.*`; a plugin sees its own app plus `node.status`).
-- **v1 types** (additive; clients ignore unknown types): `action.requested`, `action.state_changed`; `node.status` (status changes only), `node.join_requested`, `node.joined`, `node.removed`, `node.degraded`; `app.status`, `app.health`, `app.restarted`; `backup.run.finished`, `backup.verify.finished`, `backup.health`; `restore.state_changed`; `os.update.state`; `storage.state`; `mesh.state`; `alert.opened`, `alert.updated`, `alert.resolved`; `notification.created` (own inbox); `automation.fired`; `audit.appended` (`audit:read` only), `audit.checkpoint`; `stream.reset`.
+- `id` is monotonic; audit-derived events use the audit `seq`. Resume with `Last-Event-ID` or `since_id` (explicit `since_id` takes precedence); the current gateway replays the latest 10,000 audit records, not a guaranteed 24-hour window. Beyond that window it sends `stream.reset` first (the client re-reads state over REST). `: keepalive` every 15 s.
+- Events are filtered per principal before sending (a guest never sees `audit.*`; a plugin sees its own app plus `node.status`). In the current gateway, alert transitions use the same **current audience** as `GET /v1/alerts/{id}` (including owner-addressed read-only alerts for agents); `notification.created` is **own inbox only**, even for owners/adults with full audit access; app events require current app visibility. Any domain envelope carrying `action_id` additionally requires action-read scope and action visibility (agents: only their own requests; restricted/unsupported principal kinds do not inherit action visibility from app access). The same combined authorization applies before any generic audit fallback. Identity credentials additionally need `alerts:read`, `notifications:read`, or `apps:read` respectively, besides the stream's `events:read`. Missing/pruned objects fail closed. Filters apply identically to replay and live delivery. Envelopes contain ids/state only, never notification text, destinations, channel ids, credentials or alert audiences.
+- **Implemented delivery (DR2-04).** Automatic and human alert transitions are durable: `alert.opened`, `alert.updated` (including acknowledgement), `alert.resolved`, subject `{alert_id}`, data `{state}`. `notification.created` is recorded only after an inbox row is committed, subject `{notification_id}`, data `{}`. `app.status` follows a recorded executor result, subject `{app_id, action_id}`, data `{status}` (`removed` is shown as `not_installed` with `data_kept: true`); `app.restarted` is recorded only after a **successful** `app.restart`, not when requested, refused or failed. `app.health` translates the monitoring service's existing `app.healthy`/`app.unhealthy` facts into data `{state: healthy|unhealthy}`; it does not claim every status change is a successful health probe. These events use audit sequence ids and the same ordered replay/Last-Event-ID rules as action events. Each audit record sends at most one matching authorized envelope: its domain event is preferred, otherwise `audit.appended` if requested and permitted. Domain records hidden by resource authorization do not produce generic audit envelopes. This avoids same-cursor siblings being lost on reconnect. `action.progress` bridges the existing lifecycle producer, subject `{action_id, app_id}`, data `{step, pct}`. Node status stays transient and carries no SSE id. The remaining v1 types below are planned until their producing modules ship.
+- **v1 types** (additive; clients ignore unknown types): `action.requested`, `action.state_changed`, `action.progress`; `node.status` (status changes only), `node.join_requested`, `node.joined`, `node.removed`, `node.degraded`; `app.status`, `app.health`, `app.restarted`; `backup.run.finished`, `backup.verify.finished`, `backup.health`; `restore.state_changed`; `os.update.state`; `storage.state`; `mesh.state`; `alert.opened`, `alert.updated`, `alert.resolved`; `notification.created` (own inbox); `automation.fired`; `audit.appended` (`audit:read` only), `audit.checkpoint`; `stream.reset`.
 
 ### 12.9 NATS
 The OS owns `onemind.>`. Apps and plugins never publish there (brief 30 E7); app subjects stay in the app grammar (`evt.`, `cmd.`, `tel.`, `svc.` …) and are out of scope here.
@@ -524,7 +539,7 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 | `GET /v1/restores`, `/restores/{id}` | `backups:read` | `{id, state, action_id, snapshot_id, scope, mode, target, started_at, finished_at, health_gate: {verdict, probes}}`; a restore whose fresh-signal gate fails ends `failed`, never `succeeded` |
 | `POST /v1/onboarding/restore/candidates` | **setup mode only** (no owner yet), from the LAN | `{destination: {kind, config, sealed}, sealed_owner_key}` → `[{instance_id, box_name, generation, restore_points: [{run_id, taken_at, units, arch, k3s_version}]}]`; a box restore chosen here is recorded as the first audit entries of the restored box (`owner_initiated: true`, `phase: onboarding`) |
 
-- `onemindd` local API (loopback only, H-24): `POST :7480/api/v1/backup/run {reason, wait}` → `{run_id, state}`, for the updater's pre-update snapshot.
+- `onemindd` local API (loopback only, H-24): `POST :7480/api/v1/backup/jobs` accepts gateway-signed jobs only and `GET :7480/api/v1/backup/status` reports state. The unsigned `POST /api/v1/backup/run` was removed in #91 (`internal/backup/api.go:20-26`); the updater's pre-update snapshot has to use a signed `backup.run` job.
 - **restic tags** (normative, so a repository is readable without OneMind): `onemind`, `box=<instance_id>`, `gen=<n>`, `unit=<system|k3s|nats|app|node|fence>`, `node=<id>`, `run=<run_id>`, `reason=<…>`, and when relevant `app=<id>`, `rev=<n>`, `k3s=<version>`, `audit_head=<hash>`.
 
 ### 12.13 OS updates
@@ -654,6 +669,34 @@ Still `kind: agent` only and still **no approve, deny, policy, grant or token to
 | Audit | `/v1/audit/events\|verify\|checkpoints`; the draft's `/v1/audit/status` is `GET /v1/audit/verify` | API.md |
 | Heartbeat mesh | top-level `mesh: {state, path}` | one object per subsystem, like `update`, `backup`, `storage`; NETWORKING.md's proposed `fabric.mesh` moves here |
 | Decider field | `approved_by` | SDK names (DECISIONS-NEEDED §3) |
+### 12.41 First-run software preferences (ONB-P1, step 5)
+
+§12.22 remains reserved for the separate app-store/networking proposals; this section does not adopt them.
+
+| Method and path | Who | Returns |
+|---|---|---|
+| `GET /v1/onboarding/settings` | owner person, scope `*` | `200` `{box_name: string|null, time_zone: string|null, backup_choice: usb\|peer\|s3\|later, backup_destination_id: string|null, saved: bool}`; before the first save, names are null, choice is `later` and `saved` is false; `Cache-Control: no-store` |
+| `PUT /v1/onboarding/settings` | owner person, scope `*` | Full replacement `{box_name, time_zone, backup_choice, backup_destination_id?}` → `200` with the persisted readback above and `saved: true`; audited `onboarding.settings.saved` with actor and these software preferences only |
+
+`box_name` is a lowercase RFC 1123 label (1–63 characters, no leading/trailing hyphen).
+`time_zone` is an installed IANA time-zone identifier (including `UTC`), not a path or UTC offset.
+Unknown keys, invalid names/zones/choices, or a destination with choice `later` return `422`.
+An optional destination must already exist in the merged §12.12 backup service and match the
+choice (`usb` → `usb`, `peer` → `box`, `s3` → `s3`); absent/mismatched ids return `422` before
+any preference is written. Destinations are box-wide, not private per person, and only an owner
+may bind one here. Use `GET /v1/backups/destinations` to choose an existing destination; creation
+and credentials stay exclusively in §12.12's approved destination flow. Without a destination,
+the choice is only an intention, not configured protection. This route accepts no credentials,
+kit claim, schedule or approval. `401` without authentication; `403` (audited `authz.denied`) for
+non-owner people, agents/plugins and scoped credentials lacking `*`; no partial writes.
+
+The saved name is the software instance display name (`GET /v1/instance`); neither name nor zone
+changes host configuration. Saving does not start/stop a backup schedule, configure a destination,
+issue an emergency kit, run/restore a backup or actuate a device. An existing schedule remains
+unchanged even for `later`. The wizard must await persistence, keep failures retryable, and never
+claim a kit was saved or backups enabled from these preferences. AI never actuates without human
+approval; §12.40 lifecycle and §12.12 approval/security controls are unchanged.
+
 ### 12.40 App lifecycle (amendment 2026-11-12; PD-03..PD-07, UMB-APP-0/3/4/5)
 - **Status.** `GET /v1/apps` `status` gains `stopped`, `starting`, `stopping`, `restarting`, `updating`, `configuring`, `deleting_data`; new field `data_kept: bool` (true when the app was removed with its data kept; `status` is then `not_installed`).
 - **Plan.** `GET /v1/apps/{id}/plan?type=<action type>` and `POST /v1/plans` return `{type, app_id, risk, policy_verdict: needs_approval|refused, reason, plan, plan_sha256}`. They file nothing. The plan holds the app's bundle fingerprint, versions (`from_version`, `to_version` for an update), the volumes and what happens to them (`kept` or `deleted`) and warnings. `plan_sha256` follows §12.4.
