@@ -214,6 +214,14 @@ def test_only_people_with_a_library_back_up(pc, who, status):
     assert r.status_code == status
 
 
+@pytest.mark.parametrize("who", [GUEST, AGENT])
+def test_a_refused_caller_is_audited_as_authz_denied(pc, settings, who):
+    before = audit_types(settings).count("authz.denied")
+    r = pc.post("/v1/photos/sources", json={"client_id": "c1", "name": "P", "platform": "ios"}, headers=who)
+    assert r.status_code == 403 and r.json()["error"] == "permission_denied"
+    assert audit_types(settings).count("authz.denied") == before + 1
+
+
 # ---- sources -------------------------------------------------------------------------------------
 
 def test_register_source_is_idempotent_per_person(pc, settings):
