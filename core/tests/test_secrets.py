@@ -22,6 +22,7 @@ from onemind_core.appsecrets.store import SecretValueRow, StagedSecretRow
 from onemind_core.audit import verify
 from onemind_core.catalog import Catalog
 from onemind_core.executors import AgentSecret, AppSecret, KubernetesExecutor, NoopExecutor
+from onemind_core.lifecycle import ExecContext
 
 APP = "vault-like"
 CRED = "vault-like-credentials"
@@ -535,30 +536,6 @@ def kube_app(settings):
     return Catalog(settings.apps_dir).get(APP)
 
 
-def test_kubernetes_plan_applies_secrets_server_side_before_manifests(settings):
-    app = kube_app(settings)
-    secrets = [AppSecret(CRED, {"PROVIDER_API_KEY": API_KEY}), AppSecret(INTERNAL, {"SESSION_SECRET": "generated-value"})]
-    plan = KubernetesExecutor(kubectl="kubectl").plan("app.install", app, None, secrets)
-    argvs = [p[0] for p in plan]
-    assert argvs[0][:3] == ["kubectl", "apply", "-f"]
-    for argv, stdin in plan[1:3]:
-        assert argv[:3] == ["kubectl", "apply", "--server-side"] and "--field-manager=onemind-gateway" in argv
-        doc = json.loads(stdin)
-        assert doc["kind"] == "Secret" and doc["metadata"]["namespace"] == f"app-{APP}"
-        assert doc["metadata"]["labels"] == {"onemind.io/app": APP, "onemind.io/app-secret": "true"}
-        assert "stringData" not in doc
-    assert json.loads(plan[1][1])["data"] == {"PROVIDER_API_KEY": base64.b64encode(API_KEY.encode()).decode()}
-    assert argvs[-1][:3] == ["kubectl", "apply", "-k"]
-    assert all(API_KEY not in " ".join(a) for a in argvs)  # values only ever on stdin
-
-
-def test_kubernetes_configure_applies_and_restarts(settings):
-    app = kube_app(settings)
-    plan = KubernetesExecutor(kubectl="kubectl").plan("app.configure", app, None, [AppSecret(CRED, {"A": "abcd"})])
-    assert plan[0][0][:3] == ["kubectl", "apply", "--server-side"]
-    assert plan[-1] == (["kubectl", "rollout", "restart", "deployment,statefulset", "-n", f"app-{APP}"], None)
-
-
 def fake_runner(outputs):
     calls = []
 
@@ -570,6 +547,57 @@ def fake_runner(outputs):
     return run, calls
 
 
+WORKLOADS = json.dumps({"items": [
+    {"kind": "Deployment", "metadata": {"name": "web"}, "spec": {"replicas": 1}},
+    {"kind": "StatefulSet", "metadata": {"name": "db", "annotations": {}}, "spec": {"replicas": 1}},
+]})
+
+
+def kubectl_ok(argv):
+    return (0, WORKLOADS, "") if argv[1:2] == ["get"] else (0, "", "")
+
+
+def test_kubernetes_install_applies_secrets_server_side_before_manifests(settings):
+    app = kube_app(settings)
+    secrets = (AppSecret(CRED, {"PROVIDER_API_KEY": API_KEY}), AppSecret(INTERNAL, {"SESSION_SECRET": "generated-value"}))
+    run, calls = fake_runner(kubectl_ok)
+    res = KubernetesExecutor(kubectl="kubectl", runner=run).run("app.install", app, None, ExecContext(secrets=secrets))
+    assert res.outcome == "succeeded", res.message
+    applied = [(a, i) for a, i in calls if a[1:2] == ["apply"]]
+    argvs = [a for a, _ in applied]
+    assert argvs[0][:3] == ["kubectl", "apply", "-f"]  # the namespace
+    secret_steps = [(a, i) for a, i in applied if a[:3] == ["kubectl", "apply", "--server-side"]]
+    assert len(secret_steps) == 2
+    for argv, stdin in secret_steps:
+        assert "--field-manager=onemind-gateway" in argv
+        doc = json.loads(stdin)
+        assert doc["kind"] == "Secret" and doc["metadata"]["namespace"] == f"app-{APP}"
+        assert doc["metadata"]["labels"] == {"onemind.io/app": APP, "onemind.io/app-secret": "true"}
+        assert "stringData" not in doc
+    assert json.loads(secret_steps[0][1])["data"] == {"PROVIDER_API_KEY": base64.b64encode(API_KEY.encode()).decode()}
+    # the checked manifests go last, so the pods start with their Secrets
+    assert applied[-1][0] == ["kubectl", "apply", "-n", f"app-{APP}", "-f", "-"]
+    assert applied.index(secret_steps[-1]) < len(applied) - 1
+    assert all(API_KEY not in " ".join(a) for a, _ in calls)  # values only ever on stdin
+    assert API_KEY not in json.dumps(res.to_json())
+
+
+def test_kubernetes_configure_applies_secrets_then_restarts_and_waits(settings):
+    app = kube_app(settings)
+    run, calls = fake_runner(kubectl_ok)
+    res = KubernetesExecutor(kubectl="kubectl", runner=run).run(
+        "app.configure", app, None, ExecContext(secrets=(AppSecret(CRED, {"A": "abcd"}),)))
+    assert res.outcome == "succeeded", res.message
+    assert calls[0][0][:3] == ["kubectl", "apply", "--server-side"]
+    assert json.loads(calls[0][1])["data"] == {"A": base64.b64encode(b"abcd").decode()}
+    restarts = [a for a, _ in calls if a[1:3] == ["rollout", "restart"]]
+    assert restarts == [
+        ["kubectl", "rollout", "restart", "deployment/web", "-n", f"app-{APP}"],
+        ["kubectl", "rollout", "restart", "statefulset/db", "-n", f"app-{APP}"],
+    ]
+    assert any(a[1:3] == ["rollout", "status"] for a, _ in calls)  # the health gate waits for them
+
+
 def test_kubectl_output_is_scrubbed_of_every_value(settings):
     b64 = base64.b64encode(API_KEY.encode()).decode()
 
@@ -578,7 +606,8 @@ def test_kubectl_output_is_scrubbed_of_every_value(settings):
 
     run, _ = fake_runner(outputs)
     ex = KubernetesExecutor(kubectl="kubectl", runner=run)
-    res = ex.run("app.configure", kube_app(settings), None, [AppSecret(CRED, {"PROVIDER_API_KEY": API_KEY})])
+    res = ex.run("app.configure", kube_app(settings), None,
+                 ExecContext(secrets=(AppSecret(CRED, {"PROVIDER_API_KEY": API_KEY}),)))
     assert res.outcome == "failed"
     text = json.dumps(res.to_json())
     assert API_KEY not in text and b64 not in text and "[redacted]" in text
@@ -593,30 +622,33 @@ def test_value_cut_by_the_output_tail_is_still_scrubbed(settings):
 
     run, _ = fake_runner(outputs)
     res = KubernetesExecutor(kubectl="kubectl", runner=run).run(
-        "app.configure", kube_app(settings), None, [AppSecret(CRED, {"PROVIDER_API_KEY": API_KEY})])
+        "app.configure", kube_app(settings), None,
+        ExecContext(secrets=(AppSecret(CRED, {"PROVIDER_API_KEY": API_KEY}),)))
     text = json.dumps(res.to_json())
     assert tail not in text and "[redacted]" in text
 
 
 def test_nothing_to_restart_is_not_a_failure(settings):
+    # An app made only of Jobs or CronJobs has no Deployment or StatefulSet: nothing to roll.
     def outputs(argv):
-        if argv[1:3] == ["rollout", "restart"]:
-            return 1, "", "error: no objects passed to restart\n"
-        return 0, "secret/x serverside-applied\n", ""
+        return (0, json.dumps({"items": []}), "") if argv[1:2] == ["get"] else (0, "secret/x serverside-applied\n", "")
 
     run, calls = fake_runner(outputs)
     res = KubernetesExecutor(kubectl="kubectl", runner=run).run(
-        "app.configure", kube_app(settings), None, [AppSecret(CRED, {"A": "abcd"})])
-    assert res.outcome == "succeeded" and res.steps[-1]["note"] == "no Deployment or StatefulSet to restart"
+        "app.configure", kube_app(settings), None, ExecContext(secrets=(AppSecret(CRED, {"A": "abcd"}),)))
+    assert res.outcome == "succeeded"
+    assert not [a for a, _ in calls if a[1:3] == ["rollout", "restart"]]
 
 
 def test_restart_failure_for_other_reasons_fails(settings):
     def outputs(argv):
-        return (1, "", "forbidden") if argv[1:3] == ["rollout", "restart"] else (0, "", "")
+        if argv[1:3] == ["rollout", "restart"]:
+            return 1, "", "forbidden"
+        return kubectl_ok(argv)
 
     run, _ = fake_runner(outputs)
     res = KubernetesExecutor(kubectl="kubectl", runner=run).run(
-        "app.configure", kube_app(settings), None, [AppSecret(CRED, {"A": "abcd"})])
+        "app.configure", kube_app(settings), None, ExecContext(secrets=(AppSecret(CRED, {"A": "abcd"}),)))
     assert res.outcome == "failed"
 
 

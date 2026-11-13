@@ -282,8 +282,8 @@ class AppSecretsService:
         if expires > now + MAX_TTL:
             raise ApiError(422, "conflict", "expires_at may be at most 7 days ahead")
         self.purge()
-        body, created = actions.request(
-            principal, "app.configure", {"app_id": app.id, "secrets": changes},
+        body, created = actions.request_configure(
+            principal, {"app_id": app.id, "secrets": changes},
             idempotency_key or f"secrets-{uuid.uuid4()}", expires, reason,
         )
         if created:

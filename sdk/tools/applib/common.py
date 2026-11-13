@@ -15,6 +15,8 @@ from typing import Callable
 
 import yaml
 
+from . import retry
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 APPS_DIR = REPO_ROOT / "apps"
 MATRIX_CSV = REPO_ROOT / "research-output" / "evidence" / "license-matrix.csv"
@@ -135,7 +137,7 @@ class Registry:
 
     def _crane(self, *args: str) -> str | None:
         exe = self.crane or which("crane")
-        proc = run([exe, *args], timeout=600)
+        proc = retry.run_retry(run, [exe, *args], timeout=600)
         if proc.returncode != 0:
             if re.search(r"MANIFEST_UNKNOWN|NAME_UNKNOWN|not found|404", proc.stderr):
                 return None

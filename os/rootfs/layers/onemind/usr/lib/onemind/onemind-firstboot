@@ -1,0 +1,4 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# onemind-firstboot (onemind_firstboot.py), run with the gateway venv's pinned Python 3.12.
+exec /usr/lib/onemind/gateway/venv/bin/python3 -I /usr/lib/onemind/onemind_firstboot.py "$@"

@@ -1,0 +1,190 @@
+# SPDX-License-Identifier: Apache-2.0
+# Real-browser quality gate for the ui/ demo and the dashboard (docs/testing/CI-MATRIX.md §1).
+#   build:    ui demo (vite build) + dashboard mock build (VITE_MOCK=1); ui/test pins, licences, typecheck
+#   browsers: Playwright in Chromium, Firefox and WebKit, one job each:
+#             axe-core on every screen in ui/test/e2e/screens.ts (light + dark, 1280 and 375 px),
+#             failing on any serious or critical finding or console error; sign-in and navigation
+#             flows; visual snapshots against ui/test/visual/<browser>/.
+# A run with update_baseline (Actions -> ui-quality -> Run workflow) rewrites every snapshot, uploads
+# visual-baseline-<browser> artifacts and (job commit-baseline) commits the PNGs to the branch it ran on,
+# never to main. People review the new images as image diffs in the pull request before it merges;
+# ui/test/accept-visual.sh (ui/test/README.md) still works for a local accept. Complements ci-ui.yml / ci-dashboard.yml (lint, vitest in jsdom, build).
+name: ui-quality
+
+on:
+  pull_request:
+    paths:
+      - 'ui/**'
+      - 'dashboard/**'
+      - 'scripts/npm-licence-check.py'
+      - '.github/workflows/ui-quality.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ui/**'
+      - 'dashboard/**'
+      - 'scripts/npm-licence-check.py'
+      - '.github/workflows/ui-quality.yml'
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        type: boolean
+        default: false
+        description: 'Rewrite every visual snapshot, upload them as visual-baseline-<browser> artifacts and commit them to this branch (refused on main)'
+
+permissions: {}
+
+concurrency:
+  group: ui-quality-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            ui/package-lock.json
+            dashboard/package-lock.json
+            ui/test/package-lock.json
+      - name: Browser-test dependencies are pinned and licence-clean
+        run: python3 -I scripts/npm-licence-check.py ui/test --allow Apache-2.0 MIT MPL-2.0
+      - name: Build the ui demo
+        working-directory: ui
+        run: npm ci && npm run build:demo
+      - name: Build the dashboard (mock data, no gateway)
+        working-directory: dashboard
+        run: npm ci && npm run build:mock
+      - name: Typecheck the browser tests
+        working-directory: ui/test
+        run: npm ci && npm run typecheck
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ui-quality-builds
+          path: |
+            ui/dist-demo/
+            dashboard/dist/
+          if-no-files-found: error
+          retention-days: 3
+
+  browsers:
+    name: ${{ matrix.browser }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    defaults:
+      run:
+        working-directory: ui/test
+    env:
+      BROWSER: ${{ matrix.browser }}
+      UPDATE_BASELINE: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baseline }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ui/test/package-lock.json
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ui-quality-builds
+          path: .
+      - run: npm ci
+      - name: Install ${{ matrix.browser }} (the build Playwright 1.64.1 pins) and its system libraries
+        run: npx playwright install --with-deps "$BROWSER"
+      - name: Playwright (axe on every screen, flows, visual snapshots)
+        run: |
+          if [ "$UPDATE_BASELINE" = true ]; then
+            npx playwright test --project="$BROWSER" --update-snapshots=all
+          else
+            npx playwright test --project="$BROWSER"
+          fi
+      - name: Upload the report (traces, axe results, screenshot diffs)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: |
+            ui/test/playwright-report/
+            ui/test/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: New or changed baseline images
+        id: baseline
+        if: ${{ !cancelled() }}
+        run: |
+          changes=$(git status --porcelain --untracked-files=all -- "visual/$BROWSER")
+          if [ -n "$changes" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "$changes"
+            echo "::notice::visual-baseline-$BROWSER holds new or changed snapshots; accept with ui/test/accept-visual.sh $GITHUB_RUN_ID"
+          else
+            echo "baseline unchanged"
+          fi
+      - name: Upload the candidate baseline
+        if: ${{ !cancelled() && steps.baseline.outputs.changed == 'true' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: visual-baseline-${{ matrix.browser }}
+          path: ui/test/visual/${{ matrix.browser }}/
+          if-no-files-found: error
+          retention-days: 30
+
+  # Commit the refreshed baseline to the branch the run was started on, so nobody has to download
+  # artifacts by hand. Only on a manual update_baseline run, never on main, only PNGs under
+  # ui/test/visual/<browser>/. Review happens in the pull request (GitHub shows image diffs).
+  commit-baseline:
+    needs: browsers
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.update_baseline && github.ref != 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: visual-baseline-*
+          path: ${{ runner.temp }}/baseline
+      - name: Copy the PNGs into ui/test/visual/<browser>/ and commit
+        env:
+          SRC: ${{ runner.temp }}/baseline
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          [ -d "$SRC" ] || { echo "no visual-baseline artifacts: nothing changed"; exit 0; }
+          for dir in "$SRC"/visual-baseline-*; do
+            b=${dir##*/visual-baseline-}
+            case "$b" in chromium|firefox|webkit) ;; *) echo "unexpected artifact $dir" >&2; exit 1 ;; esac
+            if find "$dir" \( -type l -o ! -type d ! -name '*.png' \) | grep -q .; then
+              echo "visual-baseline-$b holds something other than regular PNG files; refusing" >&2; exit 1
+            fi
+            rm -rf "ui/test/visual/$b"; mkdir -p "ui/test/visual/$b"
+            cp "$dir"/*.png "ui/test/visual/$b/"
+          done
+          git add -A -- ui/test/visual
+          if git diff --cached --quiet; then echo "baseline unchanged"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -s -m "ui: accept visual baseline from ui-quality run $GITHUB_RUN_ID" \
+            -m "Committed by the commit-baseline job (manual update_baseline run). Review the image diffs in the pull request."
+          git push origin "HEAD:refs/heads/$BRANCH"

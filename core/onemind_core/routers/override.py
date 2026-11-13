@@ -22,7 +22,15 @@ log = logging.getLogger("onemind.override")
 
 def register(app: FastAPI, gw: Gateway) -> None:
     cfg = gw.settings.section(OwnerOverrideSettings)
-    ov = OwnerOverride(cfg.enabled, gw.audit, gw.events)
+
+    class IdentityStepUp:
+        """Asks the identity feature (registered later, on app.state) whether an owner has passkeys."""
+
+        def passkeys_active(self) -> bool:
+            ident = getattr(app.state, "identity", None)
+            return bool(ident is not None and ident.passkeys_active())
+
+    ov = OwnerOverride(cfg.enabled, gw.audit, gw.events, step_up=IdentityStepUp())
     gw.actions.owner_override = ov
     app.state.owner_override = ov
     principal = gw.principal
@@ -38,7 +46,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
         gw.on_startup(announce)
 
-    @app.get("/v1/apps/{app_id}/owner-override", tags=["apps"], responses=error_responses(401, 403, 404))
+    @app.get("/v1/apps/{app_id}/owner-override", tags=["apps"], operation_id="apps.owner_override.get", responses=error_responses(401, 403, 404))
     def describe(app_id: str, p: Principal = Depends(principal)):
         if not p.is_owner:
             raise ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not use the owner override")

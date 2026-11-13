@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# linkwarden-data: /data/data (docker-compose.yml), the saved copies of pages (screenshots, PDFs,
+# readable text, uploads), plus the generated NEXTAUTH_SECRET. linkwarden-db: the PostgreSQL data
+# directory. 20Gi and 5Gi are OneMind choices. No storageClassName: the cluster default class is
+# used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: linkwarden-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: linkwarden-db
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi

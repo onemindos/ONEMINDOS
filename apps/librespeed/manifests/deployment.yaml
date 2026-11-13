@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: Apache-2.0
+# Scaffolded by sdk/tools/app-scaffold from github.com/librespeed/speedtest (contract §9.2), then
+# completed from upstream at tag v6.3.1: Dockerfile (FROM php:8-apache, MODE=standalone,
+# TELEMETRY=false, WEBPORT=8080), docker/entrypoint.sh (copies the app into /var/www/html, then
+# runs apache2-foreground; when WEBPORT is not 80 it edits /etc/apache2, which needs root) and
+# doc_docker.md (the image's own address is ghcr.io/librespeed/speedtest).
+#
+# WEBPORT=80 skips that root-only edit, so the container runs as www-data (UID 33), which owns
+# /var/www/html in the PHP base image; the namespaced "safe" sysctl lets it bind port 80 in this
+# pod only. With telemetry off (the default) nothing is stored, so there is no volume.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: librespeed
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: librespeed
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: librespeed
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 33
+        runAsGroup: 33
+        seccompProfile:
+          type: RuntimeDefault
+        sysctls:
+          - name: net.ipv4.ip_unprivileged_port_start
+            value: "0"
+      containers:
+        - name: librespeed
+          image: ghcr.io/librespeed/speedtest:6.3.1@sha256:bc34bf69b6c102b23ab81b6e77beb7cce321fb0d3be33ec6e80edef3e9dd8bab
+          env:
+            - name: MODE
+              value: standalone
+            - name: WEBPORT
+              value: "80"
+            # The results database and its stats PASSWORD are only used with telemetry on.
+            - name: TELEMETRY
+              value: "false"
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # A test streams random data at line rate; the CPU limit caps how fast the box can serve
+          # it. Upstream publishes no sizing; a OneMind choice.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "2"
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

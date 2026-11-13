@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=OneMind: report the Raspberry Pi 5 bootloader version (rpi5)
+RequiresMountsFor=/data
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/onemind/rpi5-eeprom-check
+
+[Install]
+WantedBy=multi-user.target

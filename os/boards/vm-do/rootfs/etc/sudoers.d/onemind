@@ -1,3 +1,0 @@
-# SPDX-License-Identifier: Apache-2.0
-Defaults lecture=never
-onemind ALL=(ALL) NOPASSWD:ALL

@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Cloud layer (docs/leap/core/CLOUD-IMAGES.md). grub-pc-bin: BIOS GRUB modules, so BIOS clouds
+# (cloud-hetzner) are assembled from this same rootfs. dhcpcd-base: cloud-init's ephemeral DHCP
+# (Ec2Local, GCELocal, Azure, Hetzner find their metadata service before networkd is up).
+grub-pc-bin
+cloud-init openssh-server cloud-guest-utils sudo dhcpcd-base

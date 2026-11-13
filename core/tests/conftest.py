@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from onemind_core.app import create_app
 from onemind_core.config import Settings
+from onemind_core.guard import LimitSettings
 from onemind_core.executors import ExecResult, Executor, NoopExecutor
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -48,10 +49,10 @@ class ScriptedExecutor(Executor):
         self.agents: list = []  # the AgentSecret grant of each call (None for apps without spec.agent)
         self.secrets: list = []  # the AppSecret list of each call (() for apps without spec.secrets)
 
-    def run(self, action_type, app, agent=None, secrets=()):
+    def run(self, action_type, app, agent=None, ctx=None):
         self.calls.append((action_type, app.id))
         self.agents.append(agent)
-        self.secrets.append(list(secrets))
+        self.secrets.append(list(ctx.secrets) if ctx is not None else [])
         if self.raise_exc:
             raise RuntimeError("boom")
         return ExecResult(self.outcome, f"scripted {self.outcome}")
@@ -123,6 +124,9 @@ def settings(tmp_path: Path, clock) -> Settings:
         executor_timeout_s=5,
         host="127.0.0.1",
         port=8080,
+        # Tests fire requests faster than a person: rate buckets wide open, everything else at
+        # its defaults. test_guard.py exercises the real limits.
+        sections={"limits": LimitSettings(read_burst=100_000, request_burst=100_000, auth_failures_per_min=100_000)},
     )
 
 
@@ -150,3 +154,65 @@ def action_body(clock: Clock, app_id="uptime-kuma", type_="app.install", key="k1
         "idempotency_key": key,
         "expires_at": (clock.now + timedelta(seconds=ttl)).isoformat().replace("+00:00", "Z"),
     }
+
+
+def fake_kustomize(manifests_dir) -> str:
+    """A stand-in for `kubectl kustomize` that concatenates the listed local resources."""
+    import yaml
+
+    kdir = Path(manifests_dir)
+    doc = yaml.safe_load((kdir / "kustomization.yaml").read_text()) or {}
+    parts = [(kdir / r).read_text() for r in doc.get("resources") or []]
+    return "\n---\n".join(parts)
+
+
+class FakeKubectl:
+    """Fake subprocess runner: renders with fake_kustomize, answers everything else with `rc`.
+
+    results: optional list of return codes or exceptions for the non-render calls, in order.
+    """
+
+    def __init__(self, results=None, rc=0, echo=False):
+        self.results = list(results) if results is not None else None
+        self.rc = rc
+        self.echo = echo
+        self.calls = []
+
+    def __call__(self, argv, **kw):
+        import subprocess
+
+        self.calls.append((argv, kw.get("input")))
+        if argv[1:2] == ["kustomize"]:
+            return subprocess.CompletedProcess(argv, 0, stdout=fake_kustomize(argv[-1]), stderr="")
+        r = self.results.pop(0) if self.results is not None else self.rc
+        if isinstance(r, Exception):
+            raise r
+        stdin = kw.get("input") or ""
+        return subprocess.CompletedProcess(argv, r, stdout=stdin if self.echo else "ok", stderr="err" if r else "")
+
+    @property
+    def cluster_calls(self):
+        return [(a, i) for a, i in self.calls if a[1:2] != ["kustomize"]]
+
+
+def conform_to_schema(app_dir: Path) -> None:
+    """Fill the contract §9.3 fields that sdk/schema now requires, for fixtures written before it.
+
+    Tests that validate against the real schema call this on their tmp copy of a fixture; the
+    fixture files themselves keep their deliberate oddities for the tests that need them.
+    """
+    import yaml
+
+    path = app_dir / "onemind.app.yaml"
+    doc = yaml.safe_load(path.read_text())
+    meta, spec = doc["metadata"], doc["spec"]
+    meta["links"] = {
+        "docs": "https://example.com/docs",
+        "github": "https://github.com/example/" + meta["id"],
+        "website": "https://example.com",
+        "support": "https://github.com/example/" + meta["id"] + "/issues",
+    }
+    meta.setdefault("upstream", {"release": "v" + str(meta["version"]), "released_at": "2026-01-01T00:00:00Z", "archived": False})
+    meta.setdefault("tier", "community")
+    spec.setdefault("updates", {"channel": "stable", "automerge": "none"})
+    path.write_text(yaml.safe_dump(doc, sort_keys=False))

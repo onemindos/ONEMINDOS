@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# wordpress-html: /var/www/html (the image's VOLUME): WordPress core, wp-config.php, themes, plugins
+# and uploads. wordpress-db: the MariaDB data directory and the generated database and root
+# passwords.
+# 10Gi and 5Gi are OneMind choices. No storageClassName: the cluster default class is used
+# (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wordpress-html
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wordpress-db
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi

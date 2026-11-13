@@ -1,8 +1,10 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+// SPDX-License-Identifier: Apache-2.0
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import { HttpApi, type OneMindApi } from './api/client';
 import { DEMO_TOKENS } from './api/fixtures';
 import { MockApi } from './api/mock';
 import type { Principal } from './api/types';
+import { personKey } from './data/prefs';
 
 /**
  * Can the signed-in principal approve or deny?
@@ -18,6 +20,8 @@ export interface Session {
   token: string;
   api: OneMindApi;
   principal: Principal | undefined;
+  /** Whose preferences this browser shows: the principal id, or a token fingerprint (prefs.ts). */
+  person: string;
   canDecide: DecideAbility;
   canRequest: DecideAbility;
   mock: boolean;
@@ -26,6 +30,8 @@ export interface Session {
 interface SessionCtx {
   session: Session | null;
   signIn(token: string): Promise<void>;
+  /** A client with no credentials, for the routes that sign a person in (login, setup, enrol). */
+  anon: OneMindApi;
   signOut(): void;
   markForbidden(): void;
 }
@@ -65,7 +71,7 @@ function build(token: string, deps: SessionDeps): Session {
       ? 'yes'
       : 'no'
     : 'unknown';
-  return { token, api, principal, canDecide, canRequest, mock: deps.mock };
+  return { token, api, principal, person: personKey(principal?.id, token), canDecide, canRequest, mock: deps.mock };
 }
 
 export function SessionProvider({ deps, children }: { deps: SessionDeps; children: ReactNode }) {
@@ -73,6 +79,9 @@ export function SessionProvider({ deps, children }: { deps: SessionDeps; childre
     const t = readStored();
     return t ? build(t, deps) : null;
   });
+
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   const signIn = useCallback(
     async (token: string) => {
@@ -85,6 +94,9 @@ export function SessionProvider({ deps, children }: { deps: SessionDeps; childre
   );
 
   const signOut = useCallback(() => {
+    // Best effort: end the session on the hub too, so a copied access token stops working.
+    // A static token is not a session (the hub answers 409); that is fine.
+    sessionRef.current?.api.logout().catch(() => undefined);
     writeStored(null);
     setSession(null);
   }, []);
@@ -93,7 +105,8 @@ export function SessionProvider({ deps, children }: { deps: SessionDeps; childre
     setSession((s) => (s ? { ...s, canDecide: 'no' } : s));
   }, []);
 
-  const value = useMemo(() => ({ session, signIn, signOut, markForbidden }), [session, signIn, signOut, markForbidden]);
+  const anon = useMemo(() => (deps.makeApi ? deps.makeApi('') : deps.mock ? new MockApi('') : new HttpApi({ token: '' })), [deps]);
+  const value = useMemo(() => ({ session, signIn, anon, signOut, markForbidden }), [session, signIn, anon, signOut, markForbidden]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
@@ -107,5 +120,5 @@ export function useSession(): SessionCtx {
 export function useSignedIn(): Session & Omit<SessionCtx, 'session'> {
   const c = useSession();
   if (!c.session) throw new Error('not signed in');
-  return { ...c.session, signIn: c.signIn, signOut: c.signOut, markForbidden: c.markForbidden };
+  return { ...c.session, signIn: c.signIn, anon: c.anon, signOut: c.signOut, markForbidden: c.markForbidden };
 }

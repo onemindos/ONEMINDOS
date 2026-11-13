@@ -172,21 +172,19 @@ def test_non_owners_cannot_override(on, clock, headers):
     assert on.get(f"/v1/apps/{APP}/owner-override", headers=headers).status_code == 403
 
 
-class Passkeys:
-    def __init__(self, active):
-        self.active = active
-
-    def passkeys_active(self):
-        return self.active
-
-
 def test_passkey_step_up_once_identity_has_passkeys(on, clock, settings):
-    on.app.state.owner_override.step_up = Passkeys(True)
+    # The override follows the identity feature's own answer: no wiring call, no flag of its own.
+    gw = on.app.state.gateway
+    on.app.state.identity.passkeys_active = lambda: True  # as if an owner had registered a passkey
     aid = request(on, clock)
     r = approve(on, aid, OK)
-    assert r.status_code == 401 and "passkey" in r.json()["message"]
+    assert r.status_code == 401 and "passkey" in r.json()["message"]  # identity's approval guard
     assert on.get(f"/v1/apps/{APP}/owner-override", headers=OWNER).json()["step_up"] == "passkey"
-    # the identity feature's approval guard verifies the assertion before the action service runs
+    # The guard verifies an assertion whenever one is sent (covered by the identity tests); here a
+    # stand-in accepts it, to prove the override itself still insists that one came with it.
+    gw.approval_guards[:] = [lambda p, action_id, body, request: None]
+    r = approve(on, aid, OK)
+    assert r.status_code == 401 and "step_up_required" in r.json()["message"]
     r = approve(on, aid, OK, webauthn={"id": "cred", "clientDataJSON": "e30", "authenticatorData": "", "signature": ""})
     assert r.json()["state"] == "succeeded"
     (mark,) = [e for e in audit(settings) if e["event"] == "app.owner_override"]
@@ -194,7 +192,7 @@ def test_passkey_step_up_once_identity_has_passkeys(on, clock, settings):
 
 
 def test_no_passkeys_registered_means_typed_confirmation_only(on, clock):
-    on.app.state.owner_override.step_up = Passkeys(False)
+    on.app.state.identity.passkeys_active = lambda: False
     assert approve(on, request(on, clock), OK).json()["state"] == "succeeded"
 
 

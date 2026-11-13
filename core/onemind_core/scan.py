@@ -42,8 +42,31 @@ class ScanRecord:
         return {"scanned_at": self.scanned_at.isoformat().replace("+00:00", "Z"), "result": self.result}
 
 
+# scan.json path -> (stat signature, record). GET /v1/apps reads every app's scan on every poll; the
+# parsed record only changes when the file does. Freshness (7 days) is judged by the caller with
+# `now`, never cached here, and unreadable or invalid files are not cached at all.
+_CACHE: dict[Path, tuple[tuple, ScanRecord]] = {}
+
+
 def read_scan(app_dir: Path) -> ScanRecord | None:
     path = app_dir / SCAN_FILE
+    try:
+        st = path.stat()
+        sig = (st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_ino)
+        hit = _CACHE.get(path)
+        if hit is not None and hit[0] == sig:
+            return hit[1]
+    except OSError:
+        sig = None
+    record = _read_scan_file(app_dir, path)
+    if record is not None and sig is not None:
+        _CACHE[path] = (sig, record)
+    else:
+        _CACHE.pop(path, None)
+    return record
+
+
+def _read_scan_file(app_dir: Path, path: Path) -> ScanRecord | None:
     try:
         if path.stat().st_size > MAX_BYTES:
             log.warning("ignoring %s/%s: larger than %d bytes", app_dir.name, SCAN_FILE, MAX_BYTES)

@@ -32,14 +32,14 @@
 | 16 | App detail, screenshots | The "Illustration · not a real screenshot" label was clipped at the page edge, and slides stretched unevenly. | L | **Fixed**: label on the left; fixed slide width |
 | 17 | Home, phone, System widget | Node names wrapped ("office-/laptop") beside the numbers. | L | **Fixed**: numbers on their own line under 560 px |
 | 18 | Home, category chips | The chip row scrolled sideways with the last chip cut flat ("Network"), so the scroll was invisible. | L | **Fixed**: fade on the right edge |
-| 19 | Store, Discover | Discover lists every category in full under the editorial rails: 6,900 px at 1280 px. umbrelOS-style Discover is a few curated rows, with "All apps" one tap away. | M | Open: limit Discover to editorial rails + 4 category rails; move the rest behind "All" (store) |
-| 20 | Home vs Store | App icons differ: pastel single-letter glyphs on Home, saturated two-letter gradient tiles in the Store. One app looks like two brands. | M | Open: one `AppIcon` used by both (home + store) |
-| 21 | Dialogs on phones | Install review and other dialogs are centred modals at 390 px; the COMPONENTS "Sheet" (PU-32) is still planned. | M | Open: bottom sheet under 720 px (components) |
-| 22 | Manage, phone | Action buttons wrap into ragged rows (Open / Restart / Stop, then Update alone). | L | Open: primary + overflow menu on phones (store) |
-| 23 | Approvals, phone | The waiting list scrolls sideways with cards cut at the edge and no hint; Recent decisions put each pill on its own line. | L | Open: vertical list under 720 px; pill inline (settings) |
-| 24 | Home, edit mode | Every widget gets its own toolbar (drag, arrows, S/M/L, remove) and its API line wraps mid-path. Busy, though complete. | L | Open: one toolbar on focus/hover; API line truncated with copy (home) |
-| 25 | Demo-only | State switchers differ per area (underlined links on Appearance, pills elsewhere). Not product UI, but it shows in every screenshot. | L | Open: one demo switcher (demo) |
-| 26 | Docs | `ui/src/*/README.md` and the store commit cite `docs/design/TAXONOMY.md`, which is not in this tree. | M | Open: add TAXONOMY.md or fix the links (docs) |
+| 19 | Store, Discover | Discover lists every category in full under the editorial rails: 6,900 px at 1280 px. umbrelOS-style Discover is a few curated rows, with "All apps" one tap away. | M | Fixed (`feat/dashboard-v2`): editorial rails + the 4 fullest category rails; the other categories are chips under "More categories" (`DISCOVER_RAILS`) |
+| 20 | Home vs Store | App icons differ: pastel single-letter glyphs on Home, saturated two-letter gradient tiles in the Store. One app looks like two brands. | M | Fixed (`feat/dashboard-v2`): `components/AppIcon.tsx`; `AppTile` and Home's `AppGlyph` render it; test checks the same hue and monogram |
+| 21 | Dialogs on phones | Install review and other dialogs are centred modals at 390 px; the COMPONENTS "Sheet" (PU-32) is still planned. | M | Fixed (`feat/dashboard-v2`): every `Dialog` is a bottom sheet under 720 px (grabber, full-width stacked actions, safe-area padding) |
+| 22 | Manage, phone | Action buttons wrap into ragged rows (Open / Restart / Stop, then Update alone). | L | Fixed (`feat/dashboard-v2`): Open + "More actions" disclosure under 720 px |
+| 23 | Approvals, phone | The waiting list scrolls sideways with cards cut at the edge and no hint; Recent decisions put each pill on its own line. | L | Fixed (`feat/dashboard-v2`): vertical queue under 720 px; decision pill stays inline |
+| 24 | Home, edit mode | Every widget gets its own toolbar (drag, arrows, S/M/L, remove) and its API line wraps mid-path. Busy, though complete. | L | Fixed (`feat/dashboard-v2`): toolbar shows on the hovered or focused widget (always on touch); API line is one truncated row with Copy |
+| 25 | Demo-only | State switchers differ per area (underlined links on Appearance, pills elsewhere). Not product UI, but it shows in every screenshot. | L | Fixed (`feat/dashboard-v2`): Appearance uses the same chip switcher as the other demo screens |
+| 26 | Docs | `ui/src/*/README.md` and the store commit cite `docs/design/TAXONOMY.md`, which is not in this tree. | M | Fixed: `docs/design/TAXONOMY.md` is in the tree; the README links resolve |
 
 ## 2. Before and after
 

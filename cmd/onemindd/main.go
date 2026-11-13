@@ -7,7 +7,7 @@
 //	ONEMIND_NATS_URL    hub NATS URL, e.g. nats://hub.local:4222 (empty = API only)
 //	ONEMIND_NODE_ROLE   hub | node (default node)
 //	ONEMIND_NODE_ID     override the id derived from /etc/machine-id
-//	ONEMIND_AGENT_ADDR  local API address (default :7480)
+//	ONEMIND_AGENT_ADDR  local API address (default 127.0.0.1:7480, loopback only)
 //	ONEMIND_DISK_PATH   filesystem measured for disk_* (default /)
 //	ONEMIND_LOG_LEVEL   debug | info | warn | error (default info)
 //	ONEMIND_UPDATE_CONF OS update settings (default /etc/onemind/update.conf);
@@ -30,6 +30,7 @@ import (
 	"syscall"
 
 	"github.com/onemindos/onemindos/internal/agent"
+	"github.com/onemindos/onemindos/internal/backup"
 	"github.com/onemindos/onemindos/internal/detect"
 	"github.com/onemindos/onemindos/internal/heartbeat"
 	"github.com/onemindos/onemindos/internal/service"
@@ -114,6 +115,10 @@ func main() {
 	interval := flag.Duration("interval", agent.DefaultInterval, "heartbeat interval")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+	if flag.NArg() > 0 { // a typo or a missing subcommand must not start a second agent
+		fmt.Fprintf(os.Stderr, "onemindd: unknown command %q\n", flag.Arg(0))
+		os.Exit(2)
+	}
 
 	if *showVersion {
 		fmt.Println("onemindd", version.Version)
@@ -137,7 +142,9 @@ func main() {
 
 	log.Info("onemindd starting", "version", version.Version, "node_id", col.ID(), "role", *role, "board", col.Board())
 	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, Interval: *interval, Collector: col, Logger: log,
-		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log)})
+		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log),
+		BackupReport: backupReport(env("ONEMIND_BACKUP_CONF", backup.DefaultConfigPath)),
+		Mounts:       service.Mounts(ctx, optionalServices)})
 	wait := service.Start(ctx, log, optionalServices) // registry.go
 	err := a.Run(ctx)
 	stop()

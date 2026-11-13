@@ -107,7 +107,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         <div role="status" aria-live="polite" className="om-toast-region">
           {polite.map(render)}
         </div>
-        <div role="alert" aria-live="assertive" className="om-toast-region">
+        <div role={urgent.length ? 'alert' : undefined} aria-live="assertive" className="om-toast-region">
           {urgent.map(render)}
         </div>
       </div>

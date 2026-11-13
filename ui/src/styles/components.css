@@ -199,7 +199,7 @@
 .om-skip:focus { top: var(--om-space-3); }
 .om-sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: var(--om-space-4) var(--om-space-3); display: flex; flex-direction: column; gap: var(--om-space-5); }
 .om-brand { display: flex; align-items: center; gap: var(--om-space-3); padding: var(--om-space-1) var(--om-space-2); }
-.om-brand-mark { width: 28px; height: 28px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, var(--om-color-surface) 0 28%, var(--om-color-accent) 31% 100%); box-shadow: 0 0 0 1px var(--om-color-border); }
+.om-brand-mark { width: 28px; height: 28px; flex: none; display: block; }
 .om-brand-text { display: flex; flex-direction: column; line-height: 1.2; }
 .om-brand-name { font-weight: var(--om-font-weight-bold); letter-spacing: 0.01em; }
 .om-brand-box { font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); }
@@ -235,6 +235,8 @@
   .om-tab { all: unset; box-sizing: border-box; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 100%; color: var(--om-color-text-muted); font-size: 11px; font-weight: var(--om-font-weight-medium); cursor: pointer; text-decoration: none; }
   .om-tab:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: -4px; }
   .om-tab[aria-current='page'], .om-tab-on { color: var(--om-color-accent); }
+  /* The label takes the body text colour: accent red on the tab bar failed axe color-contrast in Firefox and WebKit (dash-market, phone). The accent icon and the bold weight still mark the current tab. */
+  .om-tab[aria-current='page'] .om-nav-label, .om-tab-on .om-nav-label { color: var(--om-color-text); font-weight: var(--om-font-weight-bold); }
   .om-tab .om-nav-badge { position: absolute; top: 6px; left: calc(50% + 6px); margin: 0; }
   .om-more { position: absolute; bottom: calc(100% + 8px); right: var(--om-space-3); min-width: 220px; padding: var(--om-space-2); background: var(--om-color-surface-raised); border: 1px solid var(--om-color-border); border-radius: var(--om-radius-lg); box-shadow: var(--om-shadow-3); }
   .om-table thead { display: none; }
@@ -244,3 +246,30 @@
   .om-table .om-secondary { display: none; }
   .om-expires { margin-left: 0; }
 }
+
+/* ---------- app icon (one for Home and the Store, CRITIQUE #20) ---------- */
+.om-app-icon {
+  position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; overflow: hidden;
+  border-radius: 26%;
+  color: var(--om-app-icon-fg);
+  font-weight: var(--om-font-weight-bold);
+  letter-spacing: -0.02em;
+  background: linear-gradient(145deg, var(--om-app-icon-a), var(--om-app-icon-b));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--om-app-icon-fg) 22%, transparent), var(--om-shadow-1);
+}
+.om-app-icon img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ---------- dialogs become bottom sheets on phones (CRITIQUE #21, COMPONENTS "Sheet") ---------- */
+@keyframes om-sheet-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (max-width: 720px) {
+  .om-dialog-backdrop { place-items: end stretch; padding: 0; }
+  .om-dialog, .om-dialog-sm, .om-dialog-md, .om-dialog-lg {
+    max-width: none; max-height: 92vh; border-radius: var(--om-radius-xl) var(--om-radius-xl) 0 0; border-bottom: 0;
+    padding: var(--om-space-5) var(--om-space-4) calc(var(--om-space-5) + env(safe-area-inset-bottom));
+    animation: om-sheet-up var(--om-motion-duration-base) var(--om-motion-ease-standard);
+  }
+  .om-dialog::before { content: ''; align-self: center; width: 40px; height: 4px; flex: none; border-radius: var(--om-radius-pill); background: var(--om-color-border-strong); margin-top: calc(-1 * var(--om-space-2)); }
+  .om-dialog-actions { flex-direction: column-reverse; }
+  .om-dialog-actions > .om-btn { width: 100%; }
+}
+@media (max-width: 720px) and (prefers-reduced-motion: reduce) { .om-dialog { animation: none; } }

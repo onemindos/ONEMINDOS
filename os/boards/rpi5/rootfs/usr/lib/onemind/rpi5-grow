@@ -1,0 +1,19 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Board rpi5: grow the extended partition 4 and the data partition 7 to the end of the SD card,
+# USB SSD or NVMe the image was flashed to, then the ext4 on it (online). A no-op once grown.
+# MBR logical partitions: growpart cannot resize an extended partition, so sfdisk does it
+# (util-linux sfdisk(8): "-N", ",+" keeps the start and takes the maximum size).
+set -eu
+P7=/dev/disk/by-partuuid/4f4d5035-07
+part=$(readlink -f "$P7")
+disk=/dev/$(lsblk -ndo PKNAME "$part")
+end7=$(( $(cat "/sys/class/block/${part#/dev/}/start") + $(cat "/sys/class/block/${part#/dev/}/size") ))
+total=$(cat "/sys/class/block/${disk#/dev/}/size")
+if [ $((total - end7)) -lt 8192 ]; then echo "rpi5-grow: $part already fills $disk"; exit 0; fi
+echo "rpi5-grow: growing partitions 4 and 7 of $disk ($end7 -> $total sectors)" > /dev/console
+echo ',+' | sfdisk --quiet --no-reread --no-tell-kernel -N 4 "$disk"
+echo ',+' | sfdisk --quiet --no-reread --no-tell-kernel -N 7 "$disk"
+partx -u --nr 4:7 "$disk"
+resize2fs "$P7"
+echo "rpi5-grow: /data is now $(df -h --output=size /data | tail -n1 | tr -d ' ')" > /dev/console

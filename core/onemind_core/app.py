@@ -23,15 +23,29 @@ from .config import Settings
 from .context import UNAUTH_AUDIT_INTERVAL_S, Gateway, principal_dependency
 from .errors import install_handlers
 from .events import EventHub
+from .lifecycle import CredentialStore
 from .executors import Executor, NoopExecutor, make_executor
 from .ledger import ActionRepository, SqlActionRepository
 from .nodes import NodeRegistry
+from .policy import SandboxSettings
 from .routers import Register
 from .routers import actions as actions_routes
 from .routers import apps as apps_routes
+from .routers import backups as backups_routes
+from .routers import databases as databases_routes
+from .routers import audit as audit_routes
+from .routers import events as events_routes
+from .routers import files as files_routes
+from .routers import guard as guard_routes
+from .routers import identity as identity_routes
+from .routers import automation as automation_routes
 from .routers import instance as instance_routes
 from .routers import mcp as mcp_routes
+from .routers import monitoring as monitoring_routes
+from .routers import migrate as migrate_routes
 from .routers import nodes as nodes_routes
+from .routers import onboarding as onboarding_routes
+from .routers import notifications as notifications_routes
 from .routers import override as override_routes
 from .routers import secrets as secrets_routes
 from .routers import static as static_routes
@@ -44,6 +58,7 @@ log = logging.getLogger("onemind.gateway")
 
 # The router registry. Order is route order (and /openapi.json order); static must stay last.
 ROUTERS: list[Register] = [
+    guard_routes.register,  # limits and security headers; adds no routes
     instance_routes.register,
     nodes_routes.register,
     apps_routes.register,
@@ -51,6 +66,17 @@ ROUTERS: list[Register] = [
     actions_routes.register,
     secrets_routes.register,
     override_routes.register,
+    databases_routes.register,  # before backups, which dumps and restores its databases
+    backups_routes.register,
+    onboarding_routes.register,
+    audit_routes.register,
+    events_routes.register,
+    notifications_routes.register,
+    monitoring_routes.register,
+    identity_routes.register,
+    automation_routes.register,
+    migrate_routes.register,
+    files_routes.register,
     static_routes.register,
 ]
 
@@ -80,7 +106,9 @@ def create_app(
     owns_engine = engine is None
     db = Database(engine if engine is not None else ledger.make_engine(settings.db_url))
     migrate(db.engine)
-    executor = executor or make_executor(settings.executor, settings.kubectl, settings.executor_timeout_s)
+    executor = executor or make_executor(
+        settings.executor, settings.kubectl, settings.executor_timeout_s, settings.section(SandboxSettings)
+    )
     # §11.1: the scan check is skipped only on explicit request, and only when nothing real runs.
     skip_scan = settings.allow_unscanned and settings.executor == "noop" and isinstance(executor, NoopExecutor)
     if settings.allow_unscanned and not skip_scan:
@@ -93,7 +121,8 @@ def create_app(
     if settings.public_url is None:
         log.info("ONEMIND_PUBLIC_URL not set; app agent Secrets will use %s", gateway_url)
     actions = ActionService(
-        repo, catalog, executor, audit, clock, gateway_url=gateway_url, require_scan=not skip_scan
+        repo, catalog, executor, audit, clock, gateway_url=gateway_url, require_scan=not skip_scan,
+        credentials=CredentialStore(db, settings.audit_path.parent / "credentials.key"),
     )
     actions.reconcile_interrupted()  # finish what a crashed or killed process left mid-dispatch
     gw = Gateway(
@@ -102,6 +131,11 @@ def create_app(
         catalog=catalog, repo=repo, db=db, executor=executor, actions=actions, skip_scan=skip_scan,
     )
     gw.principal = principal_dependency(gw)
+    # PD-03: what an executor reports while it works becomes an event (and is stored on the action).
+    actions.progress_listeners.append(lambda action_id, p: gw.events.publish_event(
+        "action", "progress", {k: p[k] for k in ("type", "app_id", "step", "pct")},
+        action_id=action_id, resource={"kind": "app", "id": p["app_id"]},
+    ))
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):

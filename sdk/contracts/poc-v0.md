@@ -119,7 +119,7 @@ spec:
 - **Clean packaging only.** Copy nothing from the founder's private deployment: no Zoho, Whop or Todoist entries, Mac SSH material, tailnet names, OIDC issuer, owner name or Langfuse. Model-provider credentials come from a Kubernetes Secret `hermes-agent-credentials` that the **owner creates at install time** (`deploy/` prints the command), never from the repo.
 - **Agent principal:** at install the gateway creates a token with `kind: agent`, `role: agent` for Hermes and stores it in Secret `hermes-agent-onemind` (`ONEMIND_GATEWAY_URL`, `ONEMIND_AGENT_TOKEN`). Hermes can then **request** actions (`POST /v1/actions`) and read nodes and apps. It can never approve (403, contract §3).
 - **Agent tools (gateway, wave 2):** a minimal MCP endpoint `POST /mcp` (Streamable HTTP) on the gateway, for agent principals only, with tools `list_nodes`, `list_apps` and `request_action`. It has no approve tool. Hermes's default config points one `mcp_servers.onemind` entry at it. This is the v0 slice of D-B9.2; the authorization-server façade comes later.
-- **Demo to prove:** ask Hermes "install ntfy". An action appears in Approvals as requested by an agent. The owner approves, ntfy is installed, and the audit chain records requester `agent:hermes` and approver `person:owner`.
+- **Demo to prove:** ask Hermes "install ntfy". An action appears in Approvals as requested by an agent. The owner approves, ntfy is installed, and the audit chain records requester `agent:hermes-agent` and approver `person:owner`.
 
 ## 8. Seed apps (B10 list; the wave-1 apps PR ships 3, wave 2 adds 5)
 - **Wave 1:** uptime-kuma, ntfy, home-assistant.
@@ -321,11 +321,13 @@ Requested by: O owner, Ad adult (own scope only), A agent (by grant, §12.6), P 
 | Type | Params | Risk | Requested by | Runs on |
 |---|---|---|---|---|
 | `app.install` | `{app_id, version?, node_id?, bundle_sha256?, settings?, sealed?}` | sensitive | O, A, P, Au | G |
-| `app.remove` | `{app_id, delete_data?: false}` | write; destructive with `delete_data` | O, A, Au (not with `delete_data`) | G (+J) |
+| `app.remove` | `{app_id}`; removes the workloads and **keeps the data** (see `app.delete_data`) | write | O, A, Au | G (+J) |
+| `app.delete_data` | `{app_id, confirm}`; `confirm` is the app id typed by the owner. Only for an app in status `removed` (data kept) | destructive | O only (never A, P, Au) | G (+J) |
+| `app.start` / `app.stop` | `{app_id}`; stop scales workloads to zero and keeps data and the replica counts | write | O, A, Au | G |
 | `app.update` | `{app_id, to_version?, bundle_sha256?}`; an update that widens grants is `sensitive` | write | O, A, Au | G+J (pre-update snapshot) |
 | `app.rollback` | `{app_id, to_revision}` | write | O, A, Au | G |
 | `app.restart` | `{app_id, component?}` | write | O, A, Au | G |
-| `app.configure` | `{app_id, settings, sealed?}` | write; sensitive with `sealed` | O, A (no `sealed`) | G |
+| `app.configure` | `{app_id, settings, sealed?}`; `settings` are plain strings (a name that looks like a secret is refused `422`: secrets go in `sealed`); applied as ConfigMap `onemind-settings`, then the workloads roll | write; sensitive with `sealed` | O, A (no `sealed`) | G |
 | `app.reconcile` | `{app_id}` | write | O, Au | G |
 | `app.move` | `{app_id, to_node_id}` | sensitive | O | G+J |
 | `node.join` | `{join_request_id}` (filed by §12.11) | sensitive | N | G |
@@ -477,13 +479,15 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 "backup":  {"running": false, "last_run_at": "…", "last_result": "succeeded"},
 "storage": {"state": "protected", "mount": "/data", "used_bytes": 0, "free_bytes": 0,
             "needs_scrub": false, "reasons": []},
-"fabric":  {"role": "worker", "leaf_link": "up", "outbox_pending": 0, "cert_expires_at": "…"}
+"fabric":  {"role": "worker", "leaf_link": "up", "outbox_pending": 0, "cert_expires_at": "…"},
+"metrics": {"cpu_pct": 12.5, "load1": 0.52, "temp_c": 61.3}
 ```
 - `update` is exactly the struct in `internal/heartbeat` (PR #15): `state` is `idle|downloading|installing|pending_reboot|trial|committed|rolled_back|error`; `available_version` and `last_check` may be null.
 - `mesh.state` is `up|down|none`, `mesh.path` is `direct|relayed|none`. Mesh addresses are never in the heartbeat; the gateway reads them from the coordinator.
 - `backup.last_result` is `succeeded|failed|partial|none`; `last_run_at` may be null.
 - `storage.state` is `protected|unprotected|degraded|unavailable|unsupported` (`internal/storage`); `reasons` are short slugs; disks are reported only through the owner-only storage API, never in the heartbeat.
 - `fabric.role` is `hub|worker|leaf` (the top-level §2 `role` stays `hub|node`); `leaf_link` is `up|down|none`.
+- `metrics` (added 2026-11-12, CORE-NOTIFY monitoring): `cpu_pct` is busy time since the previous heartbeat, `load1` the 1-minute load average, `temp_c` the hottest thermal zone; each may be null.
 - The gateway adds `received_at` and `clock_skew_s` when it serves nodes; they are not in the published heartbeat.
 
 ### 12.11 Fabric: join ticket → node request → owner approval
@@ -520,7 +524,7 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 | `GET /v1/restores`, `/restores/{id}` | `backups:read` | `{id, state, action_id, snapshot_id, scope, mode, target, started_at, finished_at, health_gate: {verdict, probes}}`; a restore whose fresh-signal gate fails ends `failed`, never `succeeded` |
 | `POST /v1/onboarding/restore/candidates` | **setup mode only** (no owner yet), from the LAN | `{destination: {kind, config, sealed}, sealed_owner_key}` → `[{instance_id, box_name, generation, restore_points: [{run_id, taken_at, units, arch, k3s_version}]}]`; a box restore chosen here is recorded as the first audit entries of the restored box (`owner_initiated: true`, `phase: onboarding`) |
 
-- `onemindd` local API (loopback only, H-24): `POST :7480/api/v1/backup/run {reason, wait}` → `{run_id, state}`, for the updater's pre-update snapshot.
+- `onemindd` local API (loopback only, H-24): `POST :7480/api/v1/backup/jobs` accepts gateway-signed jobs only and `GET :7480/api/v1/backup/status` reports state. The unsigned `POST /api/v1/backup/run` was removed in #91 (`internal/backup/api.go:20-26`); the updater's pre-update snapshot has to use a signed `backup.run` job.
 - **restic tags** (normative, so a repository is readable without OneMind): `onemind`, `box=<instance_id>`, `gen=<n>`, `unit=<system|k3s|nats|app|node|fence>`, `node=<id>`, `run=<run_id>`, `reason=<…>`, and when relevant `app=<id>`, `rev=<n>`, `k3s=<version>`, `audit_head=<hash>`.
 
 ### 12.13 OS updates
@@ -580,7 +584,7 @@ Core monitoring needs no metrics stack: it reads heartbeats, the Kubernetes API 
 | `GET /v1/apps/{id}` | `apps:read` (shared apps only for guests and children) | the §11.4 catalog entry plus `{installed, status, node_id, current_revision, update_available?, health: {state: healthy\|unhealthy\|starting\|stopped\|unknown, checked_at, reason?}, components: [{name, ready, restarts, last_restart_at?, last_exit_reason?}], backup: <badge>, access: {roles, shared_with_me}}` |
 | `GET /v1/apps/{id}/logs?component=&since=&tail=&follow=` | `logs:read` (owner, adult; agents and plugins only with `logs:read:<app-id>`) | `text/plain` lines, or SSE with `follow=1`; at most 2000 lines per request and 15 min per stream; each stream opened is audited |
 | `GET /v1/apps/{id}/metrics` | `monitoring:read` | `{app_id, at, components: [{name, cpu_millicores, mem_mb, restarts}]}` (current values; `null` fields when metrics-server is absent) |
-| `GET /v1/nodes/{node_id}/metrics?window=` | `monitoring:read` | `{node_id, source: metrics-server\|heartbeat, samples: [{at, cpu_pct, mem_used_mb, mem_total_mb, disk_free_gb, disk_total_gb}]}`; one sample per minute kept in memory, `window` ≤ 24 h (default 1 h); `cpu_pct` is null for leaf nodes without k3s |
+| `GET /v1/nodes/{node_id}/metrics?window=` | `monitoring:read` | `{node_id, source: metrics-server\|heartbeat, samples: [{at, cpu_pct, mem_used_mb, mem_total_mb, disk_free_gb, disk_total_gb, temp_c, load1}]}`; one sample per minute kept in memory, `window` ≤ 24 h (default 1 h); `cpu_pct` is null for leaf nodes without k3s |
 | `GET /v1/monitoring/summary` | `monitoring:read` | `{nodes: {online, stale, offline}, apps: {healthy, unhealthy, starting, stopped}, open_alerts: {info, warning, critical}, storage: [{node_id, state}], at}` for the Home screen |
 
 App status values (§3 `status`) gain `updating`, `reverting`, `drifted`, `stopped`. **Monitoring alerts** (opened by the gateway, resolved automatically): `app.unhealthy` (health check failing for 3 min), `app.crashlooping` (≥ 3 restarts in 10 min), `node.offline`, `node.degraded`, `disk.low` (< 10 % free on `/data`), `storage.degraded`, `backup.failing`, `update.rolled_back`. `system.check` runs the repair checks every 15 minutes and opens `repair:<slug>:<context>` alerts.
@@ -650,3 +654,40 @@ Still `kind: agent` only and still **no approve, deny, policy, grant or token to
 | Audit | `/v1/audit/events\|verify\|checkpoints`; the draft's `/v1/audit/status` is `GET /v1/audit/verify` | API.md |
 | Heartbeat mesh | top-level `mesh: {state, path}` | one object per subsystem, like `update`, `backup`, `storage`; NETWORKING.md's proposed `fabric.mesh` moves here |
 | Decider field | `approved_by` | SDK names (DECISIONS-NEEDED §3) |
+### 12.41 First-run software preferences (ONB-P1, step 5)
+
+§12.22 remains reserved for the separate app-store/networking proposals; this section does not adopt them.
+
+| Method and path | Who | Returns |
+|---|---|---|
+| `GET /v1/onboarding/settings` | owner person, scope `*` | `200` `{box_name: string|null, time_zone: string|null, backup_choice: usb\|peer\|s3\|later, backup_destination_id: string|null, saved: bool}`; before the first save, names are null, choice is `later` and `saved` is false; `Cache-Control: no-store` |
+| `PUT /v1/onboarding/settings` | owner person, scope `*` | Full replacement `{box_name, time_zone, backup_choice, backup_destination_id?}` → `200` with the persisted readback above and `saved: true`; audited `onboarding.settings.saved` with actor and these software preferences only |
+
+`box_name` is a lowercase RFC 1123 label (1–63 characters, no leading/trailing hyphen).
+`time_zone` is an installed IANA time-zone identifier (including `UTC`), not a path or UTC offset.
+Unknown keys, invalid names/zones/choices, or a destination with choice `later` return `422`.
+An optional destination must already exist in the merged §12.12 backup service and match the
+choice (`usb` → `usb`, `peer` → `box`, `s3` → `s3`); absent/mismatched ids return `422` before
+any preference is written. Destinations are box-wide, not private per person, and only an owner
+may bind one here. Use `GET /v1/backups/destinations` to choose an existing destination; creation
+and credentials stay exclusively in §12.12's approved destination flow. Without a destination,
+the choice is only an intention, not configured protection. This route accepts no credentials,
+kit claim, schedule or approval. `401` without authentication; `403` (audited `authz.denied`) for
+non-owner people, agents/plugins and scoped credentials lacking `*`; no partial writes.
+
+The saved name is the software instance display name (`GET /v1/instance`); neither name nor zone
+changes host configuration. Saving does not start/stop a backup schedule, configure a destination,
+issue an emergency kit, run/restore a backup or actuate a device. An existing schedule remains
+unchanged even for `later`. The wizard must await persistence, keep failures retryable, and never
+claim a kit was saved or backups enabled from these preferences. AI never actuates without human
+approval; §12.40 lifecycle and §12.12 approval/security controls are unchanged.
+
+### 12.40 App lifecycle (amendment 2026-11-12; PD-03..PD-07, UMB-APP-0/3/4/5)
+- **Status.** `GET /v1/apps` `status` gains `stopped`, `starting`, `stopping`, `restarting`, `updating`, `configuring`, `deleting_data`; new field `data_kept: bool` (true when the app was removed with its data kept; `status` is then `not_installed`).
+- **Plan.** `GET /v1/apps/{id}/plan?type=<action type>` and `POST /v1/plans` return `{type, app_id, risk, policy_verdict: needs_approval|refused, reason, plan, plan_sha256}`. They file nothing. The plan holds the app's bundle fingerprint, versions (`from_version`, `to_version` for an update), the volumes and what happens to them (`kept` or `deleted`) and warnings. `plan_sha256` follows §12.4.
+- **Binding.** `POST /v1/actions` takes optional `plan_sha256` (`409 stale_precondition`, reason `plan_changed` if the fresh plan differs). The stored plan is rendered again at approval and once more just before the executor runs; a differing hash leaves the action `awaiting_approval` (first look) or ends it `failed` with `result.reason: plan_changed` and nothing run (second look). Clients that send `OneMind-API-Version: 1` must send `plan_sha256` when approving (`409`, reason `plan_unchecked`); others are accepted and the audit record `action.approved` carries `plan_unchecked: true`.
+- **Progress.** While an executor works, the action carries `progress: {step, pct}`, and each report is the event `action.progress` (`data`: `type`, `app_id`, `step`, `pct`).
+- **Health-gated update.** `app.update` is kept only if every workload becomes ready within the executor's health timeout. If not, the executor restores the previous revision and the action ends `failed` with `result.reverted: true`; the app stays `installed` at the old version and the audit log records `app.update_reverted`. If the revert itself cannot be confirmed the action is `outcome_unknown`.
+- **Credentials (PD-07).** A manifest may declare `spec.credentials: {username?, password: generated, showBeforeOpen?}`. The gateway generates the password at the first install, stores it sealed (AES-256-GCM, key file beside the audit log) and hands it to the executor for Secret `<id>-credentials`. `GET /v1/apps/{id}/credentials` returns `{username, password}` to the owner only (`403` and `authz.denied` for anyone else, never an agent; `Cache-Control: no-store`; audited as `app.credentials.revealed` without the value). It survives `app.remove` and is erased by `app.delete_data`.
+- **Request limits by kind.** An agent may request `app.start|stop|restart|update|configure|remove` (no `sealed`), never `app.delete_data`; approval is owner-only as in §3.
+

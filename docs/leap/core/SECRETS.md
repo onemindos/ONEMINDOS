@@ -27,7 +27,7 @@ spec:
 | `keys[].required` | owner-entered and needed: the install cannot be approved without it |
 | `keys[].generate` | the box creates 32 random bytes (base64url) at install; never typed; rotatable. Not with `required`, not for a `url` |
 
-The schema is `sdk/schema/onemind.app.schema.json`; the gateway runs the same rules (`core/onemind_core/appsecrets/spec.py`) and skips an app whose declaration is invalid. `app-gate`'s smoke test fills required and generated keys with placeholders. Hermes now declares `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `OPENAI_BASE_URL` this way, and `deploy/install.sh` no longer prints a `kubectl create secret` command.
+The schema is `sdk/schema/onemind.app.schema.json`; the gateway runs the same rules (`core/onemind_core/appsecrets/spec.py`) and skips an app whose declaration is invalid. `app-gate`'s smoke test fills required and generated keys with placeholders. Hermes now declares `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `OPENAI_BASE_URL` this way. `deploy/install.sh` (image-line stream) still prints the old `kubectl create secret` command until that stream drops it; the owner form replaces it.
 
 ## 2. How the owner enters values
 
@@ -51,7 +51,7 @@ Removing an app keeps its stored values, like its data, so a reinstall finds bot
 | `POST /v1/actions/{id}/approve` | owner | optional body `{sealed?, override?, webauthn?}` |
 | `GET /v1/apps/{id}/owner-override` | owner | `{enabled, scan_problem, eligible, refusal, confirm, reason_length, step_up}` for the approval card |
 
-`app.configure` is not accepted by `POST /v1/actions` or the MCP `request_action` tool: only an owner files it, through the secrets route. Agents can read which keys are set (as contract §12.18's `GET /v1/apps/{id}` allows) and nothing else. This is narrower than contract §12.5, whose `app.configure` takes `{app_id, settings, sealed?}` and may be requested by agents without `sealed`: here the params are `{app_id, secrets: [...]}` and only an owner files it. `spec.settings` and agent requests join the same type when settings land.
+`app.configure` is shared with the app lifecycle (contract §12.5): a request through `POST /v1/actions` or the MCP tool carries plain `params.settings` and nothing else (`ActionParams` forbids any other field, so no secret value or change list can come in that way, and an agent's request never touches a secret). A change of secrets is filed only by an owner, through `POST /v1/apps/{id}/secrets`, with params `{app_id, secrets: [...]}`; that path is never offered to a standing approval. Approving either kind re-applies the app's current secrets and rolls its workloads (health-gated, as for settings). Agents can read which keys are set (as contract §12.18's `GET /v1/apps/{id}` allows, for apps shared with them) and nothing else.
 
 **Sealed input** (contract §12.1): `shared = X25519(ephemeral, box)`, `k = HKDF-SHA256(shared, salt = epk ‖ box_pub, info = "onemind sealed-input v1")`, `ct = nonce(12) ‖ AES-256-GCM(k, nonce, {"values": {<secret>: {<key>: <value>}}}, aad = "onemind/app-secrets/<app-id>")`; `epk` and `ct` are base64url without padding, `kid` is optional. The AAD binds a sealed form to one app, so it cannot be replayed into another. The browser side is `ui/src/secrets/seal.ts` (WebCrypto); a one-off run on 2026-11-12 sealed with that file under Node and opened with the gateway's Python code.
 
@@ -80,7 +80,7 @@ When on, an owner adds `"override": {"reason": "...", "confirm": "<app id>"}` to
 
 A used override writes a **critical** `app.owner_override` event (audit line, NATS `onemind.event.app.owner_override`, in-process subscribers) with `mark: "owner override: <reason>"`, `tone: "red"`, the scan facts, the requester and how presence was proven; `owner_override: true` on `action.approved`; and the mark in the action's `result.owner_override`, so the dashboard shows it wherever the install appears (`OwnerOverrideMark`). With the override off, the attempt is refused with `403` and audited as `authz.denied` (`owner_override_disabled`).
 
-**Passkeys.** `OwnerOverride.step_up` takes any object with `passkeys_active() -> bool`. The identity feature (`feat/identity`) already verifies a `webauthn` assertion in its approval guard before the action service runs; when it merges, its `register` adds one line, `gw.actions.owner_override.step_up = svc`, and the override then refuses any approval without an assertion while an owner passkey exists. Until then no passkeys exist, and the audit records `step_up: "none (no passkeys registered)"`.
+**Passkeys.** The override asks the identity feature, through `app.state.identity.passkeys_active()`, whether an owner has a passkey (`routers/override.py`, no flag of its own). The identity approval guard runs before the action service and verifies any `webauthn` assertion that comes with an approval, so the override only has to insist that one came; once an owner has a passkey it refuses the approval without one (`401`, `step_up_required`). With no passkeys the audit records `step_up: "none (no passkeys registered)"`. Tested in `test_owner_override.py` and `test_secrets_review.py`.
 
 ## 6. Security model
 
@@ -101,23 +101,28 @@ Why fingerprints are keyed: contract §12.1 suggests recording a value's sha256.
 |---|---|---|
 | Declarations, store key, sealed input, install and change flows, purge, restart, key loss, executor plans, scrubbing, `onemind-secrets` | `core/tests/test_secrets.py`, `test_secrets_cli.py`, `test_hermes_secrets.py` | pass |
 | Override off/on, every refusal, passkey step-up, red mark, env parsing | `core/tests/test_owner_override.py` | pass |
-| Whole core suite on SQLite and on PostgreSQL 17 | `make -C core test`; `ONEMIND_TEST_DB_URL=postgresql+psycopg://…` | 403 passed, 2 skipped (NATS) on each |
+| Whole core suite on SQLite and on PostgreSQL 17 | `make -C core test`; `ONEMIND_TEST_DB_URL=postgresql+psycopg://…` | re-run after the merge with the app lifecycle and identity (2026-11-13): see the PR description |
 | Form, dialog, mark (axe), WebCrypto sealing opened with the box's construction | `ui/src/secrets/*.test.ts(x)` | pass |
 | `validate-apps hermes-agent`, `app-readme --check`, sdk tool tests | `sdk/tools` | pass |
 
 **On a real cluster** (throwaway Lima VM, k3s v1.37.2, created and deleted 2026-11-12): the executor's own install and configure plans were run with the VM's kubectl. Both Secrets were server-side applied with `onemind-gateway` as the only field manager and no `last-applied-configuration` annotation; the pod read the value through `envFrom`; configure replaced it, removed a cleared key from the Secret and restarted the Deployment, whose new pod had the new value; `rollout restart deployment,statefulset` in a namespace without either kind exited 0 ("No resources found"). The executor also accepts kubectl's older `no objects passed to restart` failure as "nothing to restart" (UNVERIFIED on any current kubectl). Still to do in CI: DT-9 through the full gateway on k3d.
 
+## 7a. Review notes (2026-11-13, after merging main)
+
+- **At rest:** AES-256-GCM, never plaintext in the database or in dumps. The store key is a separate 0600 file in a 0700 directory, but by default on the same data partition as the database, so a copy of the whole disk without LUKS (CORE-SEC-5) gives both. This is the design, not a gap to fix here.
+- **F-7:** the override is off unless `ONEMIND_ALLOW_OWNER_OVERRIDE=1` is set at start (founder decision F-7 is still pending; the proposed default is no). No route, setting or approval field turns it on; it never lifts a blocked tier (contract 9.4).
+- **Sharing:** `GET /v1/apps/{id}/secrets` follows the per-app sharing filter, so an app hidden from a person does not show its secret names.
+
 ## 8. Follow-ups
 
 - Dashboard wiring of `ui/src/secrets` (install approval card, app page, override dialog) in the dashboard pass; until then `onemind-secrets`.
-- Identity merge: the one `step_up` line above.
 - Owner reveal of a generated value with passkey (APPDEP-11), for apps whose generated password the owner must type somewhere.
 - Rotating the store key itself (re-encrypt every row; `key_id` is stored per row for this).
 - Revisions and plans (DEPLOYMENTS D2): record secret fingerprints in the revision and the plan, so approval binds to them.
 - A Go `onemind secrets` command group when DEV-CLI lands.
 - Image: see [`SECRETS-os.patch.md`](SECRETS-os.patch.md).
 - Scan evidence for the override (review, 2026-11-12): app-gate leaves out an image whose pin check failed and writes `infected: 0` when `clamscan` itself errors, so a record can look clean for an image ClamAV never scanned. app-gate should list every image with `clamav: null` (or an `error`) when the scan did not run; the gateway already refuses an image entry without a count. Until then the override can accept an unpinned image's install.
-- Passkey step-up: the override checks only that a `webauthn` object came with the approval. That is safe only once the identity guard verifies every approval that carries an override; check this when `feat/identity` sets `step_up`.
+- Passkey step-up: every caller that sends an override goes through `POST /v1/actions/{id}/approve`, whose identity guard verifies the assertion. Any new route that calls `ActionService.approve` with an `ApprovalInput` override must run the approval guards first.
 - Recovery when a generated value is lost with the key and the app is not installed: install refuses it (it cannot be entered, and regenerating it could break data its old value protects). Adopting the value from the app's Secret in the cluster, or an owner-confirmed regenerate, needs a decision.
 
 ## 9. Files

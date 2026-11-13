@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# AnythingLLM: Market batch 5 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: docker/Dockerfile,
+# docker/docker-compose.yml, docker/docker-entrypoint.sh, docker/docker-healthcheck.sh and
+# server/utils/http/index.js at v1.19.0.
+# Image digest and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: anything-llm
+  name: "AnythingLLM"
+  version: "1.19.0"
+  description: "Chat with your documents using a local or hosted language model, with agents and workspaces."
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: ai
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/Mintplex-Labs/anything-llm
+  # §9.3 facts from the GitHub API (repos/Mintplex-Labs/anything-llm), read 2026-11-12.
+  links:
+    docs: "https://docs.anythingllm.com"
+    github: "https://github.com/Mintplex-Labs/anything-llm"
+    website: "https://anythingllm.com"
+    support: "https://github.com/Mintplex-Labs/anything-llm/issues"
+  upstream: {release: "v1.19.0", released_at: "2026-10-26T16:14:51Z", archived: false}
+  # blocked by the CI app gate: many CRITICAL CVEs with a fix in the image, and a gitlab-pat finding (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 2048}
+  web: {port: 3001}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
