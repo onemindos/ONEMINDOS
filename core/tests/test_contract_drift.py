@@ -155,6 +155,62 @@ def test_feature_approval_is_durable_before_dispatch(client, clock, outcome):
     assert client.get(f"/v1/actions/{pending['id']}", headers=OWNER).json()['approved_by'] == 'owner'
 
 
+@pytest.mark.parametrize('approval', ['person', 'policy'])
+@pytest.mark.parametrize('outcome', ['succeeded', 'failed', 'outcome_unknown'])
+def test_merged_app_approval_is_atomic_and_survives_outcome(client, clock, executor, monkeypatch, approval, outcome):
+    """Main's owner-set policies retain the same durable acceptance boundary as manual approval."""
+    from test_automation import install, policy
+
+    install(client, clock)
+    expected = 'owner'
+    if approval == 'policy':
+        response = policy(client, clock, requested_by=('agent:hermes',))
+        assert response.status_code == 201
+        expected = f"policy:{response.json()['id']}@1"
+    repo = client.app.state.repo
+    accept = repo.accept_and_claim
+    run = executor.run
+    observed = []
+    accepted_ids = []
+    dispatched = []
+
+    def observe_accept(action_id, *args, **kwargs):
+        result = accept(action_id, *args, **kwargs)
+        stored = repo.get(action_id)
+        observed.append((stored.state, stored.approved_by, stored.decided_by['id']))
+        assert stored.state == 'accepted' and stored.approved_by == expected
+        accepted_ids.append(action_id)
+        return result
+
+    def observe_dispatch(*args, **kwargs):
+        assert len(accepted_ids) == 1
+        stored = repo.get(accepted_ids[0])
+        assert stored.state == 'dispatched' and stored.approved_by == expected
+        assert observed == [('accepted', expected, expected)]
+        dispatched.append(stored.id)
+        return run(*args, **kwargs)
+
+    monkeypatch.setattr(repo, 'accept_and_claim', observe_accept)
+    monkeypatch.setattr(executor, 'run', observe_dispatch)
+    executor.outcome = outcome
+    response = client.post('/v1/actions', headers=AGENT,
+                           json=action_body(clock, app_id='whoami', type_='app.remove', key='approval-merge'))
+    assert response.status_code == 201
+    action = response.json()
+    if approval == 'person':
+        assert action['state'] == 'awaiting_approval' and action['approved_by'] is None
+        assert client.post(f"/v1/actions/{action['id']}/approve", headers=AGENT).status_code == 403
+        response = client.post(f"/v1/actions/{action['id']}/approve", headers=OWNER)
+        assert response.status_code == 200
+        action = response.json()
+    assert observed == [('accepted', expected, expected)]
+    assert dispatched == [action['id']]
+    assert action['state'] == outcome and action['approved_by'] == expected
+    assert action['decided_by']['id'] == expected
+    durable = client.get(f"/v1/actions/{action['id']}", headers=OWNER).json()
+    assert durable['approved_by'] == expected and durable['state'] == outcome
+
+
 @pytest.mark.parametrize('state', ['accepted', 'dispatched', 'succeeded', 'failed', 'outcome_unknown'])
 def test_historical_decider_is_not_approval_proof(client, clock, state):
     from onemind_core.ledger import Action

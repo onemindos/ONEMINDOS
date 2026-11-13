@@ -35,8 +35,10 @@ from .routers import backups as backups_routes
 from .routers import databases as databases_routes
 from .routers import audit as audit_routes
 from .routers import events as events_routes
+from .routers import files as files_routes
 from .routers import guard as guard_routes
 from .routers import identity as identity_routes
+from .routers import automation as automation_routes
 from .routers import instance as instance_routes
 from .routers import mcp as mcp_routes
 from .routers import monitoring as monitoring_routes
@@ -65,6 +67,8 @@ ROUTERS: list[Register] = [
     notifications_routes.register,
     monitoring_routes.register,
     identity_routes.register,
+    automation_routes.register,
+    files_routes.register,
     static_routes.register,
 ]
 

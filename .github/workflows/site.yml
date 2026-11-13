@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-# Website build check (site/README.md). Builds on PRs; never deploys (hosting is a founder decision).
+# Website build and link check (site/README.md; docs/testing/CI-MATRIX.md §4). Builds on PRs; never
+# deploys (hosting is a founder decision).
 # The apps catalog is generated from apps/, so app changes rebuild the site too.
 name: site
 
@@ -10,12 +11,14 @@ on:
       - 'site/**'
       - 'apps/**'
       - '.github/workflows/site.yml'
+      - 'scripts/check-links.py'
   push:
     branches: [main]
     paths:
       - 'site/**'
       - 'apps/**'
       - '.github/workflows/site.yml'
+      - 'scripts/check-links.py'
 
 permissions:
   contents: read
@@ -38,3 +41,5 @@ jobs:
       - run: npm run build
         env:
           ASTRO_TELEMETRY_DISABLED: '1'
+      - name: Link check (every internal link and #fragment, links into this repository; offline)
+        run: python3 -I ../scripts/check-links.py dist --repo-url https://github.com/onemindos/ONEMINDOS --repo-root ..
