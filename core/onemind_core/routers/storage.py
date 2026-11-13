@@ -101,6 +101,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def storage_operation(action_id: str, p: Principal = Depends(principal)):
         """The stored plan and, while it runs, the node's journal (step by step)."""
         if not p.can_request_actions:
+            gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "read storage operation", "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", "only requesters and owners read storage operations")
         return svc.operation(action_id, p)
 

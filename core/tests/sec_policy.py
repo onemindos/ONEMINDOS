@@ -428,3 +428,24 @@ POLICY |= {
         ("DELETE", "/v1/migrate/repo/{plan_id}/{typ}/{name}", "/v1/migrate/repo/{plan}/data/ab"),
     ]
 }
+
+
+# ---- storage (STORAGE-ACT-1; docs/leap/core/STORAGE-ACTIONS.md) ---------------------------------------------
+# The matrix gateway runs with storage switched off (ONEMIND_STORAGE_ENABLED unset), so a caller that is allowed
+# in is told 409 "off on this box"; the role gate that runs first still answers 403. Approving a destructive
+# storage action needs the owner's passkey: core/tests/test_storage_security.py.
+_STORAGE = "docs/leap/core/STORAGE-ACTIONS.md; core/tests/test_storage_security.py"
+_STORAGE_PLAN = {"type": "storage.mirror.create", "params": {"device": "/dev/vdc"}}
+POLICY |= {
+    ("GET", "/v1/storage"): Row(READ_ANY, w.p_static("/v1/storage"), f"{_STORAGE}: any reader; no disk identities"),
+    ("GET", "/v1/storage/devices"): Row(grid(409, 403, 403, 403, 403), w.p_static("/v1/storage/devices"),
+                                        f"{_STORAGE}: full disk serials are owner only"),
+    ("POST", "/v1/storage/plans"): Row(grid(409, 403, 403, 403, 409), w.p_missing("/v1/storage/plans", json=_STORAGE_PLAN),
+                                       f"{_STORAGE}: requesters preview a plan; nothing changes"),
+    ("POST", "/v1/storage/actions"): Row(grid(409, 403, 403, 403, 409), w.p_missing("/v1/storage/actions", json=_STORAGE_PLAN),
+                                         f"{_STORAGE}: requesters file; only an owner approves, with a passkey"),
+    ("GET", "/v1/storage/operations/{action_id}"): Row(grid(404, 403, 403, 403, 404), w.p_missing("/v1/storage/operations/x"),
+                                                       f"{_STORAGE}: requesters read the stored plan"),
+    ("POST", "/v1/storage/recovery-key"): Row(grid(404, 403, 403, 403, 403), w.p_missing("/v1/storage/recovery-key"),
+                                              f"{_STORAGE}: owner only, and off until F-61/F-62"),
+}
