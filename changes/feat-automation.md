@@ -8,4 +8,4 @@ status_rows:
   - CORE-AUTO-5 | in-review | breaker publishes automation.breaker.opened; notification routing not yet
   - DEV-API-13 | in-review | automation routes of contract 12.17
 ---
-Automation (contract section 12.17): schedule and event rules that only request actions as automation:RULE-ID; owner-set standing approvals with limits counted in the database (types, params, per day, window, expiry up to 90 days, F-6 patch updates) recorded as approved_by policy:ID@REV; maintenance windows; dry run required before enable; and a kill switch that pauses all automation.
+Automation (contract section 12.17): schedule and event rules that only request actions as automation:RULE-ID; owner-set standing approvals with limits counted in the database (types, params, per day, window, expiry up to 90 days, F-6 patch updates) recorded as approved_by policy:ID@REV; maintenance windows; dry run required before enable; and a kill switch that pauses all automation. A dry run (owner or agent only) shows what a rule would file without filing it.

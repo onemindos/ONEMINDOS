@@ -107,7 +107,7 @@ def audit_events(client) -> list[dict]:
     ({**remove_rule({"schedule": {"cron": "0 3 * * *"}}),
       "actions": [{"type": "app.remove", "params": {"app_id": "whoami", "delete_data": True}}]}, "destructive"),
     ({**remove_rule({"schedule": {"cron": "0 3 * * *"}}),
-      "actions": [{"type": "app.restart", "params": {"app_id": "whoami"}}]}, "cannot file"),
+      "actions": [{"type": "app.rollback", "params": {"app_id": "whoami"}}]}, "cannot file"),
     ({**remove_rule({"schedule": {"cron": "0 3 * * *"}}),
       "actions": [{"type": "app.remove", "params": {"app_id": "${event.resource.id}"}}]}, "no event"),
     ({**remove_rule({"event": {"type": "app.unhealthy"}}),
