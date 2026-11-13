@@ -96,6 +96,20 @@ def error_response(
 
 
 def install_handlers(app: FastAPI) -> None:
+    @app.middleware("http")
+    async def static_resource_methods(request: Request, call_next):
+        # OpenAPI gives literal resources precedence over sibling templates. Do the same
+        # for routing: DELETE /passkeys/register must not delete credential "register".
+        literal = [r for r in request.app.router.routes
+                   if getattr(r, "include_in_schema", False)
+                   and getattr(r, "path", None) == request.scope["path"]]
+        methods = set().union(*(getattr(r, "methods", set()) for r in literal))
+        if methods and request.method not in methods:
+            response = error_response(405, "not_found", "method not allowed on this resource")
+            response.headers["Allow"] = ", ".join(sorted(methods))
+            return response
+        return await call_next(request)
+
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, exc: ApiError):
         return error_response(
@@ -142,6 +156,12 @@ def install_handlers(app: FastAPI) -> None:
         bad, body = "#/components/schemas/HTTPValidationError", "#/components/schemas/ErrorBody"
         for ops in doc.get("paths", {}).values():
             for op in ops.values():
+                # The global body guard runs before every body-bearing operation.
+                if "requestBody" in op:
+                    op["responses"].setdefault("413", {
+                        "description": _DESCRIPTIONS[413],
+                        "content": {"application/json": {"schema": {"$ref": body}}},
+                    })
                 for code, r in op.get("responses", {}).items():
                     refs = {(c.get("schema") or {}).get("$ref") for c in (r.get("content") or {}).values()}
                     if code == "422" and bad in refs:

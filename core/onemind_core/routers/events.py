@@ -16,6 +16,24 @@ from .audit import owned_action_ids
 # §12.9: events:read for household accounts and identity tokens (not a guest or child scope).
 register_route_scope("GET,HEAD", r"/v1/events", ("events:read",))
 
+# OpenAPI 3.1 describes one parsed SSE record, NOT a JSON HTTP response.
+# `data` remains the serialized §12.8 envelope; id is absent on transient events.
+SSE_RECORD_SCHEMA = {
+    "type": "object", "required": ["event", "data"],
+    "properties": {
+        "event": {"type": "string"}, "id": {"type": "string"}, "retry": {"type": "integer"},
+        "data": {"type": "string", "contentMediaType": "application/json", "contentSchema": {
+            "type": "object", "required": ["schema", "id", "type", "ts", "subject", "severity", "data"],
+            "properties": {
+                "schema": {"const": "onemind.event/v1"}, "id": {"type": "string"},
+                "type": {"type": "string"}, "ts": {"type": "string", "format": "date-time"},
+                "subject": {"type": "object"}, "severity": {"type": "string"},
+                "data": {"type": "object"}, "actor_id": {"type": "string"},
+            },
+        }},
+    },
+}
+
 
 def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
@@ -24,6 +42,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.get(
         "/v1/events", tags=["events"], operation_id="events.stream",
+        response_class=StreamingResponse,
         summary="Live events (text/event-stream)",
         description=(
             "Server-Sent Events with the onemind.event/v1 envelope. `id` is the audit seq; resume with "
@@ -31,7 +50,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             "At most 5 open streams per principal (429 rate_limited)."
         ),
         responses={
-            200: {"content": {"text/event-stream": {"schema": {"type": "string"}}},
+            200: {"content": {"text/event-stream": {"schema": SSE_RECORD_SCHEMA}},
                   "description": "The event stream"},
             **error_responses(401, 422, 429),
         },

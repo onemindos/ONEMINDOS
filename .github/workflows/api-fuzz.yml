@@ -36,6 +36,8 @@ jobs:
       EXAMPLES: ${{ github.event_name == 'pull_request' && '40' || '400' }}
       GATEWAY: http://127.0.0.1:8080
       FUZZ: ${{ github.workspace }}/fuzz-run
+      PYTHONPATH: ${{ github.workspace }}/core/tests
+      SCHEMATHESIS_HOOKS: api_fuzz_hooks
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
