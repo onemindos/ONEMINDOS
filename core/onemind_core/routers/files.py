@@ -50,7 +50,7 @@ def errs(*codes: int) -> dict:
     return {c: _ERR[c] for c in codes}
 
 
-MAX_JSON_INT = 2**53 - 1
+MAX_QUOTA_BYTES = 10**15  # 1 PB: far above any box, and exact as a JSON float
 
 
 def _not_a_bool(v):
@@ -152,8 +152,9 @@ class DenyBody(BaseModel):
 class QuotaBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     # JSON Schema's integer includes 5.0 but not true. The column is a signed 64-bit integer (2**63 was a 500);
-    # the bound is the largest integer every JSON client reads exactly (a float cannot hold 2**63 - 1).
-    limit_bytes: Annotated[int, BeforeValidator(_not_a_bool), Field(ge=0, le=MAX_JSON_INT)] | None
+    # the bound is a round number every JSON client reads exactly (a float cannot hold 2**63 - 1 or 2**53 - 1
+    # at the edge, and Schemathesis generated the value just past it).
+    limit_bytes: Annotated[int, BeforeValidator(_not_a_bool), Field(ge=0, le=MAX_QUOTA_BYTES)] | None
 
 
 IdemKey = Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)]

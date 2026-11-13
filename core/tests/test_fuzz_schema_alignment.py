@@ -245,8 +245,8 @@ def test_quota_limit_is_a_bounded_integer_not_a_500(fc):
     assert fc.put(url, headers=OWNER, json={"limit_bytes": 2**63}).status_code == 422
     assert fc.put(url, headers=OWNER, json={"limit_bytes": False}).status_code == 422
     assert fc.put(url, headers=OWNER, json={"limit_bytes": -1}).status_code == 422
-    assert fc.put(url, headers=OWNER, json={"limit_bytes": 2**53}).status_code == 422
-    assert fc.put(url, headers=OWNER, json={"limit_bytes": 2**53 - 1}).status_code == 200
+    assert fc.put(url, headers=OWNER, json={"limit_bytes": 10**15 + 1}).status_code == 422
+    assert fc.put(url, headers=OWNER, json={"limit_bytes": 10**15}).status_code == 200
     assert fc.put(url, headers=OWNER, json={"limit_bytes": 1024.0}).status_code == 200  # a whole number is an integer
 
 
