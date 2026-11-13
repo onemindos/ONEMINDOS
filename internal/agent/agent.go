@@ -24,15 +24,17 @@ import (
 	"github.com/onemindos/onemindos/internal/version"
 )
 
-// Defaults from contract §1.
+// Defaults from contract §1. The local API listens on loopback only (hardening H-24): it has no
+// authentication, and the hub learns the same data from heartbeats. Set ONEMIND_AGENT_ADDR=:7480
+// to listen on every interface (the compose demo does, inside its container).
 const (
-	DefaultListen   = ":7480"
+	DefaultListen   = "127.0.0.1:7480"
 	DefaultInterval = 10 * time.Second
 )
 
 // Config configures an Agent.
 type Config struct {
-	Listen    string        // HTTP listen address, default ":7480"
+	Listen    string        // HTTP listen address, default "127.0.0.1:7480"
 	NATSURL   string        // empty = do not publish (local API only)
 	Interval  time.Duration // heartbeat period, default 10 s
 	Collector *detect.Collector
@@ -43,6 +45,8 @@ type Config struct {
 	// BackupReport, when set, supplies the optional "backup" object (read
 	// from the backup agent's state file). nil = omit.
 	BackupReport func() *heartbeat.Backup
+	// Mounts adds optional services' HTTP APIs under their path prefix (service.Mounts).
+	Mounts map[string]http.Handler
 }
 
 // Agent is a running onemindd.
@@ -154,6 +158,9 @@ func (a *Agent) Handler() http.Handler {
 			"nats_connected": a.natsConnected(),
 		})
 	})
+	for prefix, h := range a.cfg.Mounts {
+		mux.Handle(prefix, h)
+	}
 	return mux
 }
 

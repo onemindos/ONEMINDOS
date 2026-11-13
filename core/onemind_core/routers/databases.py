@@ -23,7 +23,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     app.state.databases = pg
     gw.actions.install_hooks.append(InstallHook("database", lambda entry, _action: pg.prepare_install(entry)))
 
-    @app.get("/v1/databases", tags=["databases"], responses=error_responses(401, 403))
+    @app.get("/v1/databases", operation_id="databases.list", tags=["databases"], responses=error_responses(401, 403))
     def databases(p: Principal = Depends(gw.principal)):
         """Apps' databases on the shared PostgreSQL. Never a password: those live in each app's Secret."""
         if not (p.is_owner or p.role == "adult"):

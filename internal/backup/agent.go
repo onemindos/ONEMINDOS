@@ -39,6 +39,10 @@ type Agent struct {
 	// Jobs verifies the gateway's signed jobs (job.go); nil refuses them.
 	Jobs *JobVerifier
 
+	// stateErrs counts failed writes of state.json since start (persist). The in-memory
+	// state still holds the change, so this process keeps going, but a restart would lose it.
+	stateErrs atomic.Int64
+
 	lock    chan struct{}
 	running atomic.Value // run id of the job in progress ("" = idle)
 	// cfgMu guards Cfg.Targets and Cfg.Units.Apps, which the gateway can
@@ -82,6 +86,21 @@ func newAgent(cfg Config, st *Store) *Agent {
 		Log: slog.Default(), lock: make(chan struct{}, 1)}
 	a.running.Store("")
 	return a
+}
+
+// persist writes the state and never drops a failure silently. The store keeps the change in
+// memory even when the disk write fails, so the running agent stays consistent (a finished
+// job is not run again in a loop); what is lost is only the record across a restart. The
+// failure is logged (the error text names a path and an OS error, never a key or password),
+// counted, and shown as state_write_errors in the status, so the owner can see a full or
+// read-only disk before it costs a backup.
+func (a *Agent) persist(what string, f func(*State)) error {
+	err := a.Store.Update(f)
+	if err != nil {
+		a.stateErrs.Add(1)
+		a.Log.Error("backup state could not be saved", "what", what, "error", err.Error())
+	}
+	return err
 }
 
 func (a *Agent) tryAcquire(id string) bool {
@@ -168,11 +187,11 @@ func (a *Agent) runLocked(ctx context.Context, req RunRequest) (Run, error) {
 	}
 	run := Run{ID: req.ID, Reason: req.Reason, ActionID: req.ActionID, TargetID: t.ID,
 		StartedAt: a.Now().UTC(), State: StateRunning, Units: []UnitResult{}}
-	_ = a.Store.Update(func(s *State) { s.Runs = append(s.Runs, run) })
+	_ = a.persist("run start", func(s *State) { s.Runs = append(s.Runs, run) })
 	finish := func(state, msg string) (Run, error) {
 		end := a.Now().UTC()
 		run.FinishedAt, run.State, run.Error = &end, state, msg
-		err := a.Store.Update(func(s *State) {
+		err := a.persist("run result", func(s *State) {
 			for i := range s.Runs {
 				if s.Runs[i].ID == run.ID {
 					s.Runs[i] = run
@@ -197,7 +216,7 @@ func (a *Agent) runLocked(ctx context.Context, req RunRequest) (Run, error) {
 	if gen, err := a.newestFence(ctx, repo); err != nil {
 		return finish(StateFailed, "fence check: "+err.Error())
 	} else if gen > a.Cfg.Generation {
-		_ = a.Store.Update(func(s *State) { s.FencedBy = gen })
+		_ = a.persist("fence", func(s *State) { s.FencedBy = gen })
 		return finish(StateRefused, fmt.Sprintf("this box was replaced by a restore (generation %d is newer than %d); backups stopped", gen, a.Cfg.Generation))
 	}
 	srcBytes := sourceBytes(units)
@@ -226,7 +245,7 @@ func (a *Agent) runLocked(ctx context.Context, req RunRequest) (Run, error) {
 			}
 		}
 	}
-	_ = a.Store.Update(func(s *State) { s.SourceBytes[t.ID] = srcBytes })
+	_ = a.persist("source size", func(s *State) { s.SourceBytes[t.ID] = srcBytes })
 	switch {
 	case failed == 0:
 		return finish(StateSucceeded, "")
@@ -502,7 +521,7 @@ func HeartbeatFromState(st State) Heartbeat {
 		}
 		at := r.StartedAt.UTC().Format(time.RFC3339)
 		h.LastRunAt, h.LastResult = &at, r.State
-		if r.State == StateRefused {
+		if r.State == StateRefused { // contract §12.10 allows succeeded|failed|partial|none
 			h.LastResult = StateFailed
 		}
 		break
@@ -522,6 +541,9 @@ type Status struct {
 	Fenced       bool                    `json:"fenced"`
 	Copies       int                     `json:"copies"`
 	LastVerified map[string]Verification `json:"last_verified"`
+	// StateWriteErrors counts failed writes of the agent's own state file since start; non-zero means
+	// the disk is full or read-only and records would be lost on a restart.
+	StateWriteErrors int64 `json:"state_write_errors"`
 }
 
 // Status computes the current status.
@@ -534,7 +556,7 @@ func (a *Agent) Status(ctx context.Context) (Status, error) {
 	}
 	s := Status{Units: map[string]Badge{}, NextRun: a.nextHourly(now), Running: a.Running(),
 		Generation: a.Cfg.Generation, Fenced: st.FencedBy > a.Cfg.Generation, Copies: len(a.conf().Targets),
-		LastVerified: st.LastVerified}
+		LastVerified: st.LastVerified, StateWriteErrors: a.stateErrs.Load()}
 	order := map[string]int{BadgeFailing: 4, BadgeStale: 3, BadgeUnverified: 2, BadgeVerified: 1, BadgeNone: 0}
 	s.Box.State = BadgeNone
 	for _, u := range units {

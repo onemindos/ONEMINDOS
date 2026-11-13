@@ -68,7 +68,7 @@ func (a *Agent) dueJobs(now time.Time) (due []string, slots map[string]time.Time
 		}
 	}
 	if len(initial) > 0 {
-		_ = a.Store.Update(func(s *State) {
+		_ = a.persist("schedule start", func(s *State) {
 			for _, j := range initial {
 				s.LastJobs[j] = now
 			}
@@ -87,7 +87,9 @@ func (a *Agent) Tick(ctx context.Context, now time.Time) {
 			return
 		}
 		a.runJob(ctx, j)
-		_ = a.Store.Update(func(s *State) { s.LastJobs[j] = slots[j] })
+		// The store keeps this in memory even if the disk write fails, so the job is not re-run in
+		// a loop; the failure is logged and counted by persist.
+		_ = a.persist("last job "+j, func(s *State) { s.LastJobs[j] = slots[j] })
 	}
 }
 

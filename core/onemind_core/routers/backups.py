@@ -183,17 +183,17 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     tags = ["backups"]
 
-    @app.get("/v1/backups/status", tags=tags, responses=error_responses(401, 403))
+    @app.get("/v1/backups/status", operation_id="backups.status", tags=tags, responses=error_responses(401, 403))
     def status(_: Principal = Depends(reader)):
         return svc.status()
 
-    @app.get("/v1/backups/destinations", tags=tags, responses=error_responses(401, 403))
+    @app.get("/v1/backups/destinations", operation_id="backups.destinations.list", tags=tags, responses=error_responses(401, 403))
     def destinations(p: Principal = Depends(principal)):
         if not (p.is_owner or p.role == "adult"):
             raise deny(p, "list backup destinations")
         return svc.destinations()
 
-    @app.post("/v1/backups/destinations", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
+    @app.post("/v1/backups/destinations", operation_id="backups.destinations.add", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
     def add_destination(body: DestinationBody, p: Principal = Depends(owner),
                         idem: str | None = Header(default=None, alias="Idempotency-Key")):
         b = body.model_dump()
@@ -201,7 +201,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         action, created = svc.request_destination(p, b, idempotency_key=key(idem), expires_at=window(body), reason=body.reason)
         return filed(p, body, action, created)
 
-    @app.delete("/v1/backups/destinations/{dest_id}", tags=tags, status_code=202, responses=error_responses(401, 403, 404))
+    @app.delete("/v1/backups/destinations/{dest_id}", operation_id="backups.destinations.remove", tags=tags, status_code=202, responses=error_responses(401, 403, 404))
     def remove_destination(dest_id: str, p: Principal = Depends(owner),
                            idem: str | None = Header(default=None, alias="Idempotency-Key")):
         if not any(d.id == dest_id for d in svc.repo.destinations()):
@@ -211,7 +211,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                                      idempotency_key=key(idem), expires_at=window(body))
         return filed(p, body, action, created)
 
-    @app.post("/v1/backups/runs", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
+    @app.post("/v1/backups/runs", operation_id="backups.runs.request", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
     def request_run(body: RunBody, p: Principal = Depends(principal),
                     idem: str | None = Header(default=None, alias="Idempotency-Key")):
         shortcut(p, body)
@@ -223,29 +223,29 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                                      expires_at=window(body), reason=body.reason)
         return filed(p, body, action, created)
 
-    @app.get("/v1/backups/runs", tags=tags, responses=error_responses(401, 403))
+    @app.get("/v1/backups/runs", operation_id="backups.runs.list", tags=tags, responses=error_responses(401, 403))
     def runs(_: Principal = Depends(reader)):
         return svc.runs()
 
-    @app.get("/v1/backups/runs/{run_id}", tags=tags, responses=error_responses(401, 403, 404))
+    @app.get("/v1/backups/runs/{run_id}", operation_id="backups.runs.get", tags=tags, responses=error_responses(401, 403, 404))
     def run(run_id: str, _: Principal = Depends(reader)):
         return svc.run(run_id)
 
-    @app.get("/v1/backups/snapshots", tags=tags, responses=error_responses(401, 403))
+    @app.get("/v1/backups/snapshots", operation_id="backups.snapshots.list", tags=tags, responses=error_responses(401, 403))
     def snapshots(app_id: str | None = Query(default=None, pattern=APP_ID_RE.pattern),
                   unit: str | None = Query(default=None, max_length=128), _: Principal = Depends(reader)):
         return svc.snapshots(app_id=app_id, unit=unit)
 
-    @app.get("/v1/backups/snapshots/{snapshot_id}", tags=tags, responses=error_responses(401, 403, 404))
+    @app.get("/v1/backups/snapshots/{snapshot_id}", operation_id="backups.snapshots.get", tags=tags, responses=error_responses(401, 403, 404))
     def snapshot(snapshot_id: str, _: Principal = Depends(reader)):
         return svc.snapshot(snapshot_id)
 
-    @app.get("/v1/backups/snapshots/{snapshot_id}/tree", tags=tags, responses=error_responses(401, 403, 404))
+    @app.get("/v1/backups/snapshots/{snapshot_id}/tree", operation_id="backups.snapshots.tree", tags=tags, responses=error_responses(401, 403, 404))
     def tree(snapshot_id: str, path: str = Query(default="/", max_length=4096), p: Principal = Depends(owner)):
         gw.audit.append("backup.browse", p.as_dict(), None, {"snapshot_id": snapshot_id, "path": path})
         return svc.tree(snapshot_id, path)
 
-    @app.get("/v1/backups/snapshots/{snapshot_id}/file", tags=tags, responses=error_responses(401, 403, 404))
+    @app.get("/v1/backups/snapshots/{snapshot_id}/file", operation_id="backups.snapshots.file", tags=tags, responses=error_responses(401, 403, 404))
     def file(snapshot_id: str, path: str = Query(min_length=2, max_length=4096), p: Principal = Depends(owner)):
         gw.audit.append("backup.download", p.as_dict(), None, {"snapshot_id": snapshot_id, "path": path})
         body, headers = svc.file(snapshot_id, path)
@@ -253,7 +253,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return StreamingResponse(body, media_type="application/octet-stream", headers={
             "Content-Length": headers["Content-Length"], "Content-Disposition": f'attachment; filename="{name}"'})
 
-    @app.post("/v1/backups/verify", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
+    @app.post("/v1/backups/verify", operation_id="backups.verify", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
     def verify(body: VerifyBody, p: Principal = Depends(principal),
                idem: str | None = Header(default=None, alias="Idempotency-Key")):
         shortcut(p, body)
@@ -264,11 +264,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                                      expires_at=window(body), reason=body.reason)
         return filed(p, body, action, created)
 
-    @app.get("/v1/backups/verifications", tags=tags, responses=error_responses(401, 403))
+    @app.get("/v1/backups/verifications", operation_id="backups.verifications.list", tags=tags, responses=error_responses(401, 403))
     def verifications(_: Principal = Depends(reader)):
         return svc.verifications()
 
-    @app.post("/v1/restores", tags=["restores"], status_code=202, responses=error_responses(401, 403, 404, 409, 422))
+    @app.post("/v1/restores", operation_id="restores.request", tags=["restores"], status_code=202, responses=error_responses(401, 403, 404, 409, 422))
     def request_restore(body: RestoreBody, p: Principal = Depends(principal),
                         idem: str | None = Header(default=None, alias="Idempotency-Key")):
         if not p.is_owner:  # agents need the explicit grant actions:request:backup.restore (not in v0)
@@ -283,19 +283,19 @@ def register(app: FastAPI, gw: Gateway) -> None:
         restore = next((r for r in svc.restores() if r["action_id"] == action["id"]), None)
         return filed(p, body, action, created, {"restore": restore})
 
-    @app.get("/v1/restores", tags=["restores"], responses=error_responses(401, 403))
+    @app.get("/v1/restores", operation_id="restores.list", tags=["restores"], responses=error_responses(401, 403))
     def restores(_: Principal = Depends(reader)):
         return svc.restores()
 
-    @app.get("/v1/restores/{restore_id}", tags=["restores"], responses=error_responses(401, 403, 404))
+    @app.get("/v1/restores/{restore_id}", operation_id="restores.get", tags=["restores"], responses=error_responses(401, 403, 404))
     def restore(restore_id: str, _: Principal = Depends(reader)):
         return svc.restore(restore_id)
 
-    @app.get("/v1/backups/kit", tags=tags, responses=error_responses(401, 403))
+    @app.get("/v1/backups/kit", operation_id="backups.kit.get", tags=tags, responses=error_responses(401, 403))
     def kit(_: Principal = Depends(owner)):
         return svc.kit_state()
 
-    @app.post("/v1/backups/kit", tags=tags, status_code=201, responses=error_responses(401, 403, 409))
+    @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201, responses=error_responses(401, 403, 409))
     def issue_kit(p: Principal = Depends(owner), idem: str | None = Header(default=None, alias="Idempotency-Key")):
         """Owner shortcut: files backup.kit.issue and approves it; the key is in this response only."""
         if not svc.enabled:
@@ -311,6 +311,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return JSONResponse(status_code=201, headers={"Cache-Control": "no-store"},
                             content={"action": action, "kit": svc.kit_state(), "one_time": one_time})
 
-    @app.post("/v1/backups/kit/confirm", tags=tags, responses=error_responses(401, 403, 404, 409))
+    @app.post("/v1/backups/kit/confirm", operation_id="backups.kit.confirm", tags=tags, responses=error_responses(401, 403, 404, 409))
     def confirm_kit(body: KitConfirmBody, p: Principal = Depends(owner)):
         return svc.confirm_kit(p, body.answers)

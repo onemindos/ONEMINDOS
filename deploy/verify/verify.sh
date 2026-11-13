@@ -190,7 +190,7 @@ else
     if [ "$(jpy "all(k in a for a in d for k in ('links','tier','scan'))")" = ok ]; then
       check "$(jpy "all(a['scan'] is None or ('scanned_at' in a['scan'] and 'result' in a['scan']) for a in d) or 'bad scan field'")" "§11.4 catalog entries carry links, tier and scan"
     else
-      skip "§11.4 links/tier/scan catalog fields (wave-2 gateway)"
+      fail "§11.4 catalog entries lack links, tier or scan (the gateway must send them)"
     fi
     APP_STATUS=$(jpy "next((a['status'] for a in d if a['id'] == v[0]), 'absent')" "$APP")
   else
@@ -276,7 +276,7 @@ else
   # ---- §11.3 MCP (wave 2): only agents may use it ----
   req POST /mcp owner '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
   case "$CODE" in
-    404|405) skip "§11.3 POST /mcp (wave-2 gateway)" ;;
+    404|405) fail "§11.3 POST /mcp is missing (HTTP $CODE): the gateway must serve /mcp" ;;
     403) check "$(jpy "d.get('error') == 'permission_denied' or d")" "§11.3 /mcp refuses a person principal (403)" ;;
     *) fail "§11.3 /mcp with an owner token should be 403, got HTTP $CODE" ;;
   esac

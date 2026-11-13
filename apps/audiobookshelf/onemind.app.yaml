@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# audiobookshelf: Market batch 2 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by sdk/tools/app-scaffold
+# (§9.2) and completed from primary sources: Dockerfile, docker-compose.yml and server/Server.js (/healthcheck) at v2.37.2.
+# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-12.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: audiobookshelf
+  name: "Audiobookshelf"
+  version: "2.37.2"
+  description: "Self-hosted audiobook and podcast server"
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (books, podcasts) are listed in README.md
+  # until the schema has metadata.tags.
+  category: media
+  icon: icon.svg
+  license: "GPL-3.0"
+  source: https://github.com/advplyr/audiobookshelf
+  links:
+    docs: "https://www.audiobookshelf.org/docs"
+    github: "https://github.com/advplyr/audiobookshelf"
+    website: "https://audiobookshelf.org"
+    support: "https://github.com/advplyr/audiobookshelf/issues"
+  upstream: {release: "v2.37.2", released_at: "2026-10-23T20:18:17Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVEs in node dependencies of the image, fixes exist (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}   # sum of the memory requests in manifests/
+  web: {port: 13378}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

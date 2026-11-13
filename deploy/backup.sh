@@ -9,7 +9,8 @@
 #   - the "onemind-local" storage class: app volumes that survive deleting their claim (Retain);
 #   - the shared PostgreSQL's manifests, which the gateway applies when the first app needs one;
 #   - the gateway's Ed25519 job key: the backup agent obeys only jobs signed with it;
-#   - `onemindd backup` as its own service (onemind-backup.service), loopback-only on :7481;
+#   - the backup agent inside onemindd (backup.Service(), one service, loopback :7480), with a
+#     systemd drop-in giving onemindd the four capabilities a restore needs;
 #   - ONEMIND_BACKUPS_ENABLED=1 for the gateway, which then runs the hourly backups with each
 #     app's hooks. No destination is configured here: the owner adds one (a USB disk, another
 #     OneMind box, an S3 bucket) and approves it, then prints the emergency kit.
@@ -35,8 +36,9 @@ backup_setup() {
   # The agent may write only where its unit says (ReadWritePaths). systemd silently drops a path
   # that does not exist when the service starts, which would leave app volumes read-only for a
   # restore: create them now and at every boot (/run is emptied on reboot).
-  printf '%s\n' '# OneMind backup agent (deploy/backup.sh): folders onemind-backup.service may write.' \
+  printf '%s\n' '# OneMind backup agent (deploy/backup.sh): folders onemindd (backup drop-in) may write.' \
     'd /run/onemind/backup 0755 root root -' 'd /var/lib/rancher/k3s/storage 0700 root root -' \
+    'd /var/lib/onemind-backup 0700 root root -' \
     > /etc/tmpfiles.d/onemind-backup.conf
   systemd-tmpfiles --create /etc/tmpfiles.d/onemind-backup.conf
 
@@ -68,7 +70,7 @@ backup_setup() {
   "device_key_file": "$agent_state/secrets/device.key",
   "restic": {"binary": "/usr/lib/onemind/restic", "cache_dir": "/var/cache/onemind-backup"},
   "sqlite3_binary": "/usr/bin/sqlite3",
-  "listen": "127.0.0.1:7481",
+  "listen": "127.0.0.1:7480",
   "job_pubkey_file": "$ETC/job.pub",
   "storage_roots": ["/var/lib/rancher/k3s/storage"],
   "schedule": {"minute": -1, "maintenance_hour": 3, "verify_weekday": 0, "verify_min_age": "1h", "gateway_hourly": true},
@@ -86,12 +88,16 @@ EOF
   )
   mv "$conf.new" "$conf"
 
-  # The heartbeat agent reads the same file for the heartbeat's "backup" object.
+  # onemindd reads this file: it starts the backup agent and fills the heartbeat's "backup" object.
   grep -q '^ONEMIND_BACKUP_CONF=' "$ETC/onemindd.env" || echo "ONEMIND_BACKUP_CONF=$conf" >> "$ETC/onemindd.env"
-  install -m0644 "$SCRIPT_DIR/systemd/onemind-backup.service" /etc/systemd/system/onemind-backup.service
+  # One service: the agent runs inside onemindd. Retire the separate unit of earlier dev installs.
+  systemctl disable --now onemind-backup >/dev/null 2>&1 || true
+  rm -f /etc/systemd/system/onemind-backup.service
+  install -d -m0755 /etc/systemd/system/onemindd.service.d
+  install -m0644 "$SCRIPT_DIR/systemd/onemindd-backup.conf" /etc/systemd/system/onemindd.service.d/backup.conf
   systemctl daemon-reload
-  systemctl enable onemind-backup >/dev/null 2>&1
-  systemctl restart onemind-backup onemindd
+  "$BIN/onemindd" backup-init -config "$conf"
+  systemctl restart onemindd
 
   if ! grep -q '^ONEMIND_BACKUPS_ENABLED=' "$ETC/gateway.env"; then
     cat >> "$ETC/gateway.env" <<EOF
@@ -104,9 +110,9 @@ EOF
   fi
   local _
   for _ in $(seq 1 60); do
-    curl -fsS http://127.0.0.1:7481/api/v1/backup/status >/dev/null 2>&1 \
+    curl -fsS http://127.0.0.1:7480/api/v1/backup/status >/dev/null 2>&1 \
       && curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1 && return 0
     sleep 1
   done
-  die "backups: the agent or the gateway did not come up (journalctl -u onemind-backup -u onemind-gateway)"
+  die "backups: the agent or the gateway did not come up (journalctl -u onemindd -u onemind-gateway)"
 }

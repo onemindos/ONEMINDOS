@@ -85,3 +85,56 @@ Ranking: lost data or a broken box first, then the daily experience of the house
 - A native phone Home with wallpaper and tiles (clients C17): on the phone, Home stays a status screen. Customization lives in the dashboard.
 - HDD+SSD acceleration and a ZFS "NAS tier" (storage): btrfs has no tiering. UMB-STOR-12 decides after measuring.
 - Machines and agents disagree: the agents study accepted VMs as a gap for this cycle, while the machines study plans them. F-57 decides.
+
+## Re-score against `main` (2026-11-12, Wave G #5)
+
+> **Explain it like I am the founder**
+> The table above says "Today" means merged on `main`, but it was written before most of the leap landed. This section re-checks every row against the code on `origin/main` (`ad81f84`) and the open PR list, not against STATUS.md. Short version: **the look is there, the safety backbone is there as daemons and APIs, and the glue between them and the dashboard is what is missing.** For example the backup agent, the disk inventory, the OS updater, passkeys and notifications all exist and have tests, but the dashboard cannot yet show or drive any of them, and `main` still cannot start, stop or update an app. The ranked streams that follow from this are in [docs/strategy/umbrel-parity.md](../strategy/umbrel-parity.md) section 0.3.
+
+Marks: `done-on-main` (code and tests on `origin/main`), `in-open-PR (#n)`, `not started` (nothing on `main` or in an open PR). "Partial" says what is missing. Paths are in this repository.
+
+| Feature | Mark | What is on `main` (evidence), and what is not |
+|---|---|---|
+| Desktop look | done-on-main (partial) | Wallpapers, accents, density: `ui/src/customize/`; Home launcher, dock, widgets: `ui/src/home/`; command palette: `ui/src/shell/CommandPalette.tsx`; wired in `dashboard/src/pages/Home.tsx` and `dashboard/src/shell/Shell.tsx` (#29, #73). Not done: the per-person Home document on the hub (UMB-DESK-0/1; preferences are browser-only, `dashboard/src/data/prefs.ts`) |
+| Native clients | done-on-main (partial) | Phone: `mobile/` with Approvals, Inbox, Push, Photos screens (#21, #34, #63). Desktop tray: `desktop/src-tauri/src/{approvals,inbox,discovery}.rs` (#33, #51). Not done: device keys as approved requests, laptop backup, signed desktop releases (UMB-CLIENT-3, 10 to 12) |
+| App store and install | done-on-main (partial) | Schema, validator, app gate, `scan.json` (#11, #25: `sdk/tools/app-gate`); Market UI with categories (`ui/src/store/`); 19 apps in `apps/`. Install plan bound by hash: **in-open-PR (#72)**. Signed catalog and pinned community sources: **in-open-PR (#57)**, contract #47. Market batches 1: #61 merged, batches 2 to 5: #49 and #62 open |
+| App updates and removal | removal done-on-main; updates **in-open-PR (#72)** | `app.remove` keeps data (`core/onemind_core/executors.py`). No `app.update`, snapshot-first or automatic revert on `main` |
+| App URLs and local HTTPS | not started (partial) | Box CA `core/onemind_core/ca.py`, mesh `internal/mesh`, app proxy `core/onemind_core/proxy.py` with tests, but the proxy is "NOT MOUNTED YET" and `app.py` does not register it |
+| Household accounts | done-on-main (API); dashboard not started | Passkeys, sessions, TOTP, users, roles, per-app sharing, `/v1/me` in `core/onemind_core/routers/identity.py` (#41). `dashboard/src/pages/SignIn.tsx` still takes a static token; the household settings sections say "coming" |
+| AI agents (MCP) | done-on-main (partial) | `/mcp` with agent principals, request-only tool, untrusted-content marking: `core/onemind_core/routers/mcp.py`, `core/onemind_core/mcp/` (#24, #48); stdio bridge `internal/mcpbridge`. Not done: per-agent scope UI, pairing by code, withdraw/preview tools (DEV-MCP-2/3 todo) |
+| Disks and redundancy | agent done-on-main; gateway and UI not started | `internal/storage` (inventory, btrfs, SMART, dry-run plans, #31). No `/v1/storage` route; Settings Storage has no API (`dashboard/src/pages/Settings.tsx`) |
+| Disk health | agent done-on-main; alerts not wired | SMART verdicts in `internal/storage/smart.go`; no alert path from them in `core/onemind_core/notify/catalogue.py` |
+| Files | **in-open-PR (#77)** | Gateway file API, tus uploads, confined paths, folder grants (FILES-1/2/6); nothing on `main` |
+| Network shares | not started | |
+| Backups | agent done-on-main; gateway and UI not started | `internal/backup` (restic pinned, schedule, verify, rewind, #32). No `/v1/backups/*` route on `main`; the verified-restore badge has no data |
+| Rewind | agent done-on-main; UI not started | `internal/backup/rewind.go` |
+| Cloud import | not started | |
+| Photos | done-on-main (phone side) | Resumable phone backup with hash dedupe: `mobile/src/photos/` (#34). Not done: hub timeline, sharing, map, importers (UMB-PHOTO-1, 2, 5 to 7) |
+| OS updates | done-on-main (daemon); gateway and UI not started | `internal/update` (TUF, window, restic snapshot, health gate; #15), nightly security rebuild (#14). No `/v1/os/*` route, Updates screen "coming" |
+| System controls | not started | No factory reset, Wi-Fi, restart or move-to-new-hardware action types registered |
+| Live usage and events | done-on-main (API) | `GET /v1/events` (SSE), `/v1/nodes/{id}/metrics`, `/v1/apps/{id}/metrics`, `/v1/monitoring/summary`; dashboard client calls none of the metrics routes |
+| Notifications | done-on-main (API, partial clients) | `/v1/alerts`, `/v1/notifications*`, `/v1/push/*` (#44); phone inbox and push registration (#63). Dashboard bell is fed by approvals only |
+| Virtual machines | not started (spike only) | Machines runtime spike merged (#70, docs and lab kit only; F-57 still open) |
+| More than one box | done-on-main (partial) | onemindd node agent and heartbeat (#7), mesh and NATS leaf (#37), `/v1/nodes`. Not done: join approval route and fabric placement (CORE-FABRIC; `docs/leap/fabric/EPICS.md` has the plan) |
+
+### Top 15 moves: where each stands
+
+| # | Move | Mark |
+|---|---|---|
+| 1 | Disks that cannot silently lose data | agent done-on-main (#31); gateway, UI, LUKS/TPM2 not started |
+| 2 | Backups proven by restore, Rewind | agent done-on-main (#32); no gateway or UI |
+| 3 | Phone photo backup with safe-to-free | phone side done-on-main (#34); safe-to-free needs the backup gateway |
+| 4 | Deployments that never fail silently | in-open-PR (#72) |
+| 5 | Accounts for the whole house | API done-on-main (#41); dashboard not started |
+| 6 | Agents request, owner approves | done-on-main for `/mcp` and passkey approvals; pairing and per-agent scopes not started |
+| 7 | Home desktop wired to the hub | done-on-main in the browser; hub storage not started |
+| 8 | Files as a core page | in-open-PR (#77) |
+| 9 | Devices are requests | not started |
+| 10 | Desktop companion | tray done-on-main (#33, #51); laptop backup and signed releases not started |
+| 11 | Trusted app supply | partial (scan gate done-on-main; signed catalog and pinned sources in #57) |
+| 12 | Photos app | not started on the hub |
+| 13 | System controls | not started |
+| 14 | Bring data in | not started (a migration kit for clusters is in #76) |
+| 15 | Virtual machines | not started (spike only) |
+
+**Why the pattern matters (plain words):** the daemons were built first on purpose, because the safe way to do a disk or backup change is a small, tested program on the box. What is missing is the middle layer, gateway routes that file each action for approval, and the screens that show the result. That is why the next streams (see the parity page, section 0.3) are mostly "wire what exists" and not "build something new".

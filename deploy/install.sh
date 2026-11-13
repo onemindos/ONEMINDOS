@@ -87,10 +87,13 @@ banner
 # ------------------------------------------------------------------------------------------
 uninstall() {
   log "stopping and removing OneMind services"
-  for u in onemind-gateway onemind-backup onemindd onemind-nats; do
+  systemctl disable --now onemind-gateway-token.timer 2>/dev/null || true
+  rm -f /etc/systemd/system/onemind-gateway-token.timer
+  for u in onemind-gateway onemind-gateway-token onemindd onemind-nats; do
     systemctl disable --now "$u" 2>/dev/null || true
     rm -f "/etc/systemd/system/$u.service"
   done
+  rm -rf /etc/systemd/system/onemindd.service.d  # the backup drop-in (deploy/backup.sh)
   systemctl daemon-reload
   rm -f "$BIN/onemindd" "$BIN/onemind" "$BIN/nats-server"
   if [ -x "$BIN/k3s-uninstall.sh" ]; then log "removing k3s server (and its data)"; "$BIN/k3s-uninstall.sh"; fi
@@ -244,7 +247,11 @@ k3s_server() {
   # A separate agent token: nodes can join as agents but can never join as servers (D-B6.2).
   if [ -f "$ETC/k3s-agent-token" ]; then agent_token=$(cat "$ETC/k3s-agent-token")
   else agent_token=$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n'); (umask 077; printf '%s' "$agent_token" > "$ETC/k3s-agent-token"); fi
-  new_cfg=$(printf '# Written by deploy/install.sh\nwrite-kubeconfig-mode: "0600"\nagent-token: "%s"\n' "$agent_token")
+  # H-01: cluster-wide Pod Security defaults (deploy/k8s/psa.yaml). H-12: Secrets encrypted in
+  # the k3s datastore (and so in every backup of it).
+  cmp -s "$SCRIPT_DIR/k8s/psa.yaml" /etc/rancher/k3s/psa.yaml 2>/dev/null \
+    || { install -m0600 "$SCRIPT_DIR/k8s/psa.yaml" /etc/rancher/k3s/psa.yaml; K3S_CHANGED=1; }
+  new_cfg=$(printf '# Written by deploy/install.sh\nwrite-kubeconfig-mode: "0600"\nagent-token: "%s"\nsecrets-encryption: true\nkube-apiserver-arg:\n  - "admission-control-config-file=/etc/rancher/k3s/psa.yaml"\n' "$agent_token")
   if [ "$(cat "$cfg" 2>/dev/null)" != "$new_cfg" ]; then (umask 077; printf '%s\n' "$new_cfg" > "$cfg"); K3S_CHANGED=1; fi
   if [ "${K3S_CHANGED:-0}" = 1 ] || ! systemctl is-active --quiet k3s; then
     log "k3s $K3S_VERSION server: install/restart"
@@ -259,6 +266,35 @@ k3s_server() {
     sleep 2
   done
   for i in $(seq 1 60); do [ -s /var/lib/rancher/k3s/server/agent-token ] && break; sleep 1; done
+  secrets_encryption_check
+}
+
+# H-12: `secrets-encryption: true` encrypts what is written from now on. Secrets written before
+# it was turned on (an install from before this change) stay in clear until rewritten, so they
+# are rewritten once.
+secrets_encryption_check() {
+  local st="" i
+  for i in $(seq 1 30); do
+    st=$("$BIN/k3s" secrets-encrypt status 2>/dev/null || true)
+    printf '%s' "$st" | grep -q 'Encryption Status: Enabled' && break
+    sleep 2
+  done
+  printf '%s' "$st" | grep -q 'Encryption Status: Enabled' \
+    || die "k3s secrets encryption is not enabled (k3s secrets-encrypt status)"
+  if [ ! -f "$ETC/k3s-secrets-reencrypted" ]; then
+    log "k3s: rewriting existing Secrets so they are stored encrypted"
+    # k3s itself updates a few Secrets right after start (the node password), so a replace of a
+    # stale copy can answer "Conflict". Read again and retry; replacing is safe to repeat.
+    local ok=""
+    for i in 1 2 3 4 5; do
+      if "$BIN/k3s" kubectl get secrets -A -o json | "$BIN/k3s" kubectl replace -f - >/dev/null; then
+        ok=1; break
+      fi
+      sleep 2
+    done
+    [ -n "$ok" ] || die "rewriting existing Secrets failed"
+    : > "$ETC/k3s-secrets-reencrypted"
+  fi
 }
 
 k3s_agent() {
@@ -376,6 +412,14 @@ copy_tree() { # copy_tree SRC_DIR DEST_DIR: replace DEST with SRC, leaving dev c
       --exclude=__pycache__ --exclude=.pytest_cache -cf - . | tar -C "$2.new" -xf -
   rm -rf "$2"; mv "$2.new" "$2"
 }
+# copy_src_tree SRC_DIR DEST_DIR: web sources (dashboard/, ui/src/). Only the top-level dependency
+# and build output stay behind: copy_tree's unanchored --exclude=data would also drop
+# dashboard/src/data/, because tar matches an exclude against every path component.
+copy_src_tree() {
+  rm -rf "$2.new"; mkdir -p "$2.new"
+  tar -C "$1" --exclude=./node_modules --exclude=./dist -cf - . | tar -C "$2.new" -xf -
+  rm -rf "$2"; mv "$2.new" "$2"
+}
 
 gateway_user() {
   id onemind >/dev/null 2>&1 || useradd --system --home-dir "$STATE" --shell /usr/sbin/nologin onemind
@@ -391,6 +435,7 @@ gateway_python() {
      "$UV" sync --frozen --no-dev --no-editable --managed-python --python 3.12 --quiet)
   install -d -m0755 "$PREFIX/sdk"
   copy_tree "$SRC/sdk/schema" "$PREFIX/sdk/schema"
+  copy_tree "$SRC/sdk/policy" "$PREFIX/sdk/policy"
   copy_tree "$SRC/apps" "$PREFIX/apps"
   chmod -R a+rX "$PREFIX"
 }
@@ -402,84 +447,62 @@ dashboard_build() {
     log "dashboard: using prebuilt $DASH_DIST"
     copy_tree_plain "$DASH_DIST" "$PREFIX/dashboard"; return 0
   fi
-  sum=$(cd "$SRC/dashboard" && find . -path ./node_modules -prune -o -path ./dist -prune -o -type f -print0 \
+  # The dashboard imports the design system from source (../ui/src), so both trees count.
+  sum=$(cd "$SRC" && find dashboard ui/src -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
         | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$sum" ]; then log "dashboard: up to date"; return 0; fi
   node_toolchain
   log "dashboard: npm ci + vite build with Node $NODE_VERSION (as user onemind, no install scripts)"
-  copy_tree "$SRC/dashboard" "$CACHE/dashboard-src"
+  copy_src_tree "$SRC/dashboard" "$CACHE/dashboard-src"
+  copy_src_tree "$SRC/ui/src" "$CACHE/ui/src"   # ../ui/src as seen from dashboard-src
   # npm packages are third-party code: never run them as root. --ignore-scripts skips dependency
   # lifecycle scripts (esbuild's is an optional speed-up; its platform binary comes as a package).
   install -d -o onemind -g onemind -m0700 "$CACHE/npm-home"
-  chown -R onemind:onemind "$CACHE/dashboard-src"
+  chown -R onemind:onemind "$CACHE/dashboard-src" "$CACHE/ui"
   (cd "$CACHE/dashboard-src" && runuser -u onemind -- env -i PATH="$NODE_DIR/bin:/usr/bin:/bin" HOME="$CACHE/npm-home" \
      npm_config_cache="$CACHE/npm-home/cache" npm_config_update_notifier=false sh -ec \
      'npm ci --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null; npm run build >/dev/null')
   copy_tree_plain "$CACHE/dashboard-src/dist" "$PREFIX/dashboard"
   printf '%s\n' "$sum" > "$stamp"
-  rm -rf "$CACHE/dashboard-src"
+  rm -rf "$CACHE/dashboard-src" "$CACHE/ui"
 }
 copy_tree_plain() { rm -rf "$2.new"; mkdir -p "$2.new"; cp -R "$1/." "$2.new/"; rm -rf "$2"; mv "$2.new" "$2"; chmod -R a+rX "$2"; }
 
-# The gateway's own Kubernetes identity: a ServiceAccount bound to the built-in "admin" role
-# (full control inside namespaces) plus namespace create/delete. It is not cluster-admin: it
-# cannot touch nodes, CRDs or cluster roles. The k3s admin kubeconfig stays root-only.
+# The gateway's own Kubernetes identity (H-03): deploy/k8s/gateway-rbac.yaml. Cluster-wide it may
+# only manage app-* namespaces and bind onemind-app-deployer inside them (fenced by a
+# ValidatingAdmissionPolicy); its token is a 24-hour bound token renewed every 6 hours by
+# onemind-gateway-token.timer. The k3s admin kubeconfig stays root-only.
 gateway_kubeconfig() {
-  local k="$BIN/k3s kubectl" ca token i
-  $k apply -f - >/dev/null <<'EOF'
-apiVersion: v1
-kind: Namespace
-metadata: {name: onemind-system, labels: {app.kubernetes.io/part-of: onemind}}
----
-apiVersion: v1
-kind: ServiceAccount
-metadata: {name: onemind-gateway, namespace: onemind-system}
----
-apiVersion: v1
-kind: Secret
-type: kubernetes.io/service-account-token
-metadata:
-  name: onemind-gateway-token
-  namespace: onemind-system
-  annotations: {kubernetes.io/service-account.name: onemind-gateway}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata: {name: onemind-gateway-namespaces}
-rules:
-  - apiGroups: [""]
-    resources: [namespaces]
-    verbs: [get, list, watch, create, update, patch, delete]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata: {name: onemind-gateway-namespaces}
-roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: onemind-gateway-namespaces}
-subjects: [{kind: ServiceAccount, name: onemind-gateway, namespace: onemind-system}]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata: {name: onemind-gateway-admin}
-roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: admin}
-subjects: [{kind: ServiceAccount, name: onemind-gateway, namespace: onemind-system}]
-EOF
-  for i in $(seq 1 30); do
-    token=$($k -n onemind-system get secret onemind-gateway-token -o jsonpath='{.data.token}' 2>/dev/null | base64 -d || true)
-    [ -n "$token" ] && break; sleep 1
-  done
-  [ -n "$token" ] || die "the gateway ServiceAccount token was not issued"
-  ca=$($k -n onemind-system get secret onemind-gateway-token -o jsonpath='{.data.ca\.crt}')
-  (umask 027
-   cat > "$ETC/gateway.kubeconfig.new" <<EOF
+  local k="$BIN/k3s kubectl"
+  $k apply -f "$SCRIPT_DIR/k8s/gateway-rbac.yaml" >/dev/null
+  # Earlier installs: the cluster-wide admin binding and the never-expiring token Secret.
+  $k delete clusterrolebinding onemind-gateway-admin --ignore-not-found=true >/dev/null
+  $k -n onemind-system delete secret onemind-gateway-token --ignore-not-found=true >/dev/null
+  install -d -m0755 "$PREFIX/bin"
+  cat > "$PREFIX/bin/onemind-gateway-kubeconfig" <<EOF
+#!/bin/sh
+# Written by deploy/install.sh: a fresh 24-hour token for the OneMind gateway (H-03).
+set -eu
+token=\$($BIN/k3s kubectl -n onemind-system create token onemind-gateway --duration=24h)
+ca=\$(base64 -w0 < /var/lib/rancher/k3s/server/tls/server-ca.crt)
+umask 027
+cat > "$ETC/gateway.kubeconfig.new" <<KUBECONFIG
 apiVersion: v1
 kind: Config
-clusters: [{name: k3s, cluster: {server: "https://127.0.0.1:6443", certificate-authority-data: "$ca"}}]
-users: [{name: onemind-gateway, user: {token: "$token"}}]
+clusters: [{name: k3s, cluster: {server: "https://127.0.0.1:6443", certificate-authority-data: "\$ca"}}]
+users: [{name: onemind-gateway, user: {token: "\$token"}}]
 contexts: [{name: onemind-gateway, context: {cluster: k3s, user: onemind-gateway}}]
 current-context: onemind-gateway
+KUBECONFIG
+chgrp onemind "$ETC/gateway.kubeconfig.new"
+mv "$ETC/gateway.kubeconfig.new" "$ETC/gateway.kubeconfig"
 EOF
-  )
-  chgrp onemind "$ETC/gateway.kubeconfig.new"; mv "$ETC/gateway.kubeconfig.new" "$ETC/gateway.kubeconfig"
+  chmod 0755 "$PREFIX/bin/onemind-gateway-kubeconfig"
+  "$PREFIX/bin/onemind-gateway-kubeconfig" || die "could not issue the gateway's Kubernetes token"
+  install -m0644 "$SCRIPT_DIR/systemd/onemind-gateway-token.service" /etc/systemd/system/onemind-gateway-token.service
+  install -m0644 "$SCRIPT_DIR/systemd/onemind-gateway-token.timer" /etc/systemd/system/onemind-gateway-token.timer
+  systemctl daemon-reload
+  systemctl enable --now onemind-gateway-token.timer >/dev/null 2>&1
 }
 
 # Owner token: 256 random bits, printed once, stored only as its sha256 (core/onemind_core/auth.py).
@@ -515,6 +538,9 @@ ONEMIND_DASHBOARD_DIST=$PREFIX/dashboard
 ONEMIND_EXECUTOR=kubernetes
 ONEMIND_KUBECTL=$PREFIX/bin/kubectl
 KUBECONFIG=$ETC/gateway.kubeconfig
+# Install sandbox (H-02, H-03): the rule file, and the ServiceAccount bound in each app-<id>.
+ONEMIND_SANDBOX_RULES=$PREFIX/sdk/policy/app-objects.yaml
+ONEMIND_SANDBOX_GATEWAY_SA=onemind-system/onemind-gateway
 ONEMIND_NATS_URL=nats://127.0.0.1:4222
 ONEMIND_HOST=$BIND
 ONEMIND_PORT=8080

@@ -2,6 +2,7 @@
 // Settings sections about the machines: Devices & nodes, Network & mesh, Storage, About.
 import { useState } from 'react';
 import { formatAgo, formatDay, formatIn, secondsSince } from '../lib/time';
+import { BRAND } from '../components/BrandMark';
 import { Button } from '../components/Button';
 import { FreshnessPill, StatusPill } from '../components/StatusPill';
 import { Meter } from '../components/Meter';
@@ -67,7 +68,7 @@ export function DevicesSection({ data, now, onIntent, onRetry }: SectionProps<De
                         Single use, joins as a <strong>{NODE_ROLE[d.join.role].label.toLowerCase()}</strong>, expires {formatIn(d.join.expires_at, now)}. The join appears in Approvals with what the machine is; you approve it with your passkey.
                       </p>
                       <pre className="om-code">onemind join {d.join.code}</pre>
-                      <Button size="sm" variant="ghost" disabled={!live} onClick={() => onIntent({ type: 'fabric.join_code.revoke', params: { code: d.join!.code }, mode: 'instant', title: 'Join code cancelled', call: 'DELETE /v1/fabric/join-codes/{code}' })}>
+                      <Button size="sm" variant="ghost" disabled={!live} onClick={() => onIntent({ type: 'fabric.join_code.revoke', params: { code: d.join!.code }, mode: 'instant', title: 'Join code cancelled', call: 'DELETE /v1/fabric/join-tickets/{ticket_id}' })}>
                         Cancel this code
                       </Button>
                     </div>
@@ -175,7 +176,7 @@ export function NetworkSection({ data, now, onIntent, onRetry }: SectionProps<Ne
           </>
         )}
       </Async>
-      <CallHint calls={['GET /v1/network', 'PUT /v1/remote   (a request)', 'onemind apps expose <app> --tier public   (a separate request)']} />
+      <CallHint calls={['GET /v1/fabric', 'PUT /v1/remote   (a request)', 'onemind apps expose <app> --tier public   (a separate request)']} />
     </>
   );
 }
@@ -277,7 +278,7 @@ export function AboutSection({ data, now, onIntent, onRetry }: SectionProps<Abou
           <>
             <div className="om-set-facts">
               <Fact label="Name" value={d.box} />
-              <Fact label="OneMind OS" value={d.version} />
+              <Fact label={BRAND.name} value={d.version} />
               <Fact label="Base" value={d.base} />
               <Fact label="Up for" value={uptime(d.uptime_s)} />
             </div>

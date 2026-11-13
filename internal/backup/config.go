@@ -42,8 +42,9 @@ type Config struct {
 	Targets   []Target  `json:"targets"`
 	Units     UnitsSpec `json:"units"`
 
-	// Listen is the loopback address of the agent's local API (`onemindd
-	// backup`); a non-loopback address is refused.
+	// Listen is informational. The agent has no listener of its own: its API is mounted on
+	// onemindd's loopback :7480 mux under /api/v1/backup/ (service.go), and the handler refuses
+	// non-loopback callers.
 	Listen string `json:"listen"`
 	// JobPubKeyFile is the gateway's Ed25519 job public key (PEM). Without
 	// it, signed jobs (restore, browse, configure) are refused.
@@ -53,9 +54,6 @@ type Config struct {
 	// gateway must resolve under one of them.
 	StorageRoots []string `json:"storage_roots"`
 }
-
-// DefaultConfigPath is where `onemindd backup` reads its settings.
-const DefaultConfigPath = "/data/onemind/backup/agent.json"
 
 // ResticConfig locates the pinned restic binary.
 type ResticConfig struct {
@@ -218,7 +216,7 @@ func DefaultConfig() Config {
 		DeviceKeyFile: "/data/onemind/secrets/backup-device.key",
 		Schedule:      Schedule{Minute: -1, MaintenanceHour: 3, VerifyWeekday: time.Sunday, VerifyMinAge: Duration{time.Hour}},
 		Retention:     Retention{Hourly: 24, Daily: 7, Weekly: 4, Monthly: 12},
-		Listen:        "127.0.0.1:7481",
+		Listen:        "127.0.0.1:7480",
 		StorageRoots:  []string{"/data/onemind/storage", "/var/lib/rancher/k3s/storage"},
 	}
 }

@@ -353,14 +353,14 @@ describe('Approvals board and effects card', () => {
     expect(within(screen.getByRole('list', { name: 'Waiting requests' })).getAllByRole('button')).toHaveLength(1);
     await userEvent.click(within(chips).getByRole('button', { name: /^All/ }));
     await userEvent.click(within(screen.getByRole('list', { name: 'Waiting requests' })).getByRole('button', { name: /Install x1/ }));
-    await userEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Approve/ }));
     expect(onApprove).toHaveBeenCalledWith(expect.objectContaining({ id: 'x1' }));
     await noAxeViolations(container);
   });
 
   it('pauses decisions when the request list is stale', () => {
     render(<ApprovalsBoard actions={ready([a('x1', { id: 'agent:hermes', kind: 'agent' })], true)} plans={{}} now={NOW} canDecide={{ allowed: true }} onApprove={vi.fn()} onDeny={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Approve/ })).toBeDisabled();
     expect(screen.getByText(/decisions are paused/)).toBeInTheDocument();
   });
 

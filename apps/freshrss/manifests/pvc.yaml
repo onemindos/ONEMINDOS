@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# data/: configuration, users and their SQLite databases. extensions/: third-party extensions.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: freshrss-data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: freshrss-extensions
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

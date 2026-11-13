@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Every 6 hours, so a 24-hour token is always at least 18 hours from expiry.
+[Unit]
+Description=OneMind gateway: renew its Kubernetes token every 6 hours
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=6h
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

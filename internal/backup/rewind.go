@@ -241,7 +241,7 @@ func (a *Agent) preRestoreSnapshot(ctx context.Context, repo Repo, u Unit, dest 
 		ur.State, ur.Error, err = StateFailed, "some files could not be read", errors.New("some files could not be read")
 	}
 	run.State, run.Units, run.BytesAdded = ur.State, []UnitResult{ur}, res.DataAdded
-	_ = a.Store.Update(func(s *State) { s.Runs = append(s.Runs, run) })
+	_ = a.persist("pre-restore run", func(s *State) { s.Runs = append(s.Runs, run) }) // logged; the safety snapshot itself exists in the repository
 	return res.SnapshotID, err
 }
 
@@ -304,7 +304,9 @@ func restoreDir(ctx context.Context, repo Repo, id, p, dest string, n Node, now 
 	}
 	if err := os.Rename(tmp, dest); err != nil {
 		if old != "" {
-			_ = os.Rename(old, dest)
+			if rerr := os.Rename(old, dest); rerr != nil {
+				return fmt.Errorf("%w; the original is kept at %s (moving it back failed: %v)", err, old, rerr)
+			}
 		}
 		return err
 	}

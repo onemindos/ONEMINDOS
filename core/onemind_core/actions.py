@@ -112,6 +112,9 @@ class ActionService:
         self.feature_types: dict[str, FeatureAction] = {}
         self.install_hooks: list[InstallHook] = []
         self._finish_lock = threading.Lock()
+        # Contract §12.1 / H-14: most actions one non-owner requester may have awaiting approval.
+        # 0 = no cap. Set from the limits settings section (guard.py).
+        self.max_pending_per_requester = 10
 
     def register_type(self, action_type: str, spec: FeatureAction) -> None:
         if action_type in APP_CLAIMS or action_type in self.feature_types:
@@ -168,7 +171,8 @@ class ActionService:
         try:
             return fn()
         except ApiError as e:
-            if e.status != 403:
+            # 403s are audited as authz.denied, policy refusals as policy.refused.
+            if e.status != 403 and e.error != "policy_refused":
                 self.audit.append(
                     "action.rejected", principal.as_dict(), action_id,
                     {"attempted": attempted, "status": e.status, "error": e.error, "message": e.message, **data},
@@ -203,6 +207,7 @@ class ActionService:
         expires_at = utc(req.expires_at)
         if expires_at <= now:
             raise ApiError(409, "expired", "expires_at is already in the past")
+        self._check_pending_cap(principal)
         app, problem = self._precondition(req.type, params["app_id"])
         if app is None:
             raise ApiError(404, "not_found", problem or "unknown app")
@@ -235,6 +240,20 @@ class ActionService:
         moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
         self.audit.append("action.awaiting_approval", None, stored.id, {})
         return (moved or stored).to_json(), True
+
+    def _check_pending_cap(self, principal: Principal) -> None:
+        cap = self.max_pending_per_requester
+        if principal.is_owner or cap <= 0:
+            return
+        pending = sum(
+            1 for x in self.repo.list(states={"awaiting_approval"})
+            if x.requested_by.get("id") == principal.id and self.expire_if_due(x).state == "awaiting_approval"
+        )
+        if pending >= cap:
+            raise ApiError(
+                429, "rate_limited", f"{pending} requests are already awaiting approval (limit {cap})",
+                reason="too_many_pending", retry_after_s=60,
+            )
 
     def _replay(self, principal: Principal, req: ActionRequest, params: dict, existing: Action) -> tuple[dict, bool]:
         same = (
@@ -281,7 +300,10 @@ class ActionService:
         claim, allowed, allow_absent = APP_CLAIMS[a.type]
         now = self.clock()
         if a.type == "app.install" and app is not None and self.require_scan:
-            problem = scan_problem(app_id, app.scan, now)
+            # Contract 9.4: a malware hit or a human review sets metadata.tier to blocked, and
+            # nothing lifts it but a human. The scan record alone must not override it.
+            problem = f"app {app_id!r} is tier blocked; a human has to review it first" if (app.manifest.get("metadata") or {}).get("tier") == "blocked" else None
+            problem = problem or scan_problem(app_id, app.scan, now)
             if problem:  # §10.3: nothing unscanned runs; the action stays awaiting_approval
                 raise ApiError(409, "stale_precondition", problem)
         outcome = "stale" if app is None else self.repo.accept_and_claim(
@@ -296,11 +318,20 @@ class ActionService:
         self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params, **ids})
 
         try:
-            return self._dispatch(a, app, ids)
+            out = self._dispatch(a, app, ids)
         except Exception as exc:  # anything after accepted: the effect is unknown, never retry
             log.exception("dispatch interrupted")
             self._mark_outcome_unknown(a, f"dispatch error: {exc.__class__.__name__}")
             return self._get(a.id).to_json()
+        violations = (out.get("result") or {}).get("violations")
+        if out.get("state") == "failed" and violations:
+            # Contract §12.2: the install sandbox refused the rendered plan. The action is failed
+            # (with the violations in its result) and the approval call says why.
+            raise ApiError(
+                409, "policy_refused", (out.get("result") or {}).get("message") or "install sandbox refused",
+                details=[_detail(v) for v in violations],
+            )
+        return out
 
     def _dispatch(self, a: Action, app: AppEntry, ids: dict) -> dict:
         dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
@@ -336,6 +367,12 @@ class ActionService:
             # issues a fresh one.
             self._revoke_agent(a, f"install {result.outcome}")
 
+        if result.violations:
+            self.audit.append(
+                "policy.refused", None, a.id,
+                {"app_id": app.id, "violations": result.violations,
+                 "policy_version": (result.plan or {}).get("policy_version"), **ids},
+            )
         final = self.repo.transition(a.id, {"dispatched"}, result.outcome, self.clock(), result=result.to_json())
         self._record_app_state(a, result.outcome)
         self.audit.append(
@@ -488,3 +525,8 @@ class ActionService:
             log.exception("feature action %s crashed", a.type)
             finish(ExecResult("outcome_unknown", f"feature error: {exc.__class__.__name__}"))
         return self._get(a.id).to_json()
+
+
+def _detail(v: dict) -> dict:
+    where = f"{v.get('kind')}/{v.get('name')}" + (f" {v['path']}" if v.get("path") else "")
+    return {"field": where, "problem": f"{v.get('rule')}: {v.get('message')}", "rule": v.get("rule")}

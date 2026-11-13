@@ -41,7 +41,7 @@ Values are `internal/backup/pins.go` (read 2026-11-12 from the GitHub release `S
 | Put | From | Notes |
 |---|---|---|
 | `/usr/lib/onemind/restic` (0755) | the pinned archive above, sha256-checked twice (archive, binary) | the agent's `pins.go` check runs at every start |
-| `/usr/lib/systemd/system/onemind-backup.service`, enabled | `deploy/systemd/onemind-backup.service`; `ExecStart=/usr/bin/onemindd backup` on the image | four capabilities only; loopback API `127.0.0.1:7481` |
+| `/usr/lib/systemd/system/onemindd.service.d/backup.conf` | `deploy/systemd/onemindd-backup.conf` | **one backup service, inside onemindd** (`backup.Service()`): no separate unit. The drop-in gives onemindd four capabilities and the writable folders a restore needs; loopback API `127.0.0.1:7480/api/v1/backup/` |
 | `/usr/lib/tmpfiles.d/onemind-backup.conf` | `d /run/onemind/backup 0755 root root -` and `d /data/onemind/storage 0700 root root -` | **required:** systemd drops a `ReadWritePaths=-…` entry whose folder is missing at start, which leaves app volumes read-only for restores (found by `test/backup-wire`) |
 | Debian `sqlite3` | apt, in the image build | online copies of the gateway and k3s databases |
 | `/usr/share/onemind/platform/postgres/` | `deploy/platform/postgres/` | the gateway applies it the first time an app asks for a database (`ONEMIND_DATABASES_PLATFORM_DIR` default) |
@@ -51,9 +51,9 @@ Values are `internal/backup/pins.go` (read 2026-11-12 from the GitHub release `S
 
 1. `/data/onemind/custodian/job.key` (0600, gateway user) with `job.pub` beside it: the gateway creates it on its first start if missing (`core/onemind_core/backups/jobs.py`); copy `job.pub` to `/data/onemind/backup/job.pub` for the agent, or point `job_pubkey_file` at it.
 2. `/data/onemind/backup/agent.json`: as `deploy/backup.sh` writes it, with `box_id` and `node_id` = the node id (sha256 of `/etc/machine-id`, 12 hex), `state_dir` `/data/onemind/backup`, `storage_roots` `["/data/onemind/storage"]`, `schedule.gateway_hourly: true`, and the `system` unit naming the gateway database and audit log under `/data/onemind/`.
-3. The device key: `ExecStartPre=onemindd backup init` creates it (256 random bits, 0600, never overwritten), on the LUKS2 `/data` once CORE-SEC-5 lands.
+3. The device key: `ExecStartPre=onemindd backup-init` in the same drop-in (one-shot, not a daemon) creates it (256 random bits, 0600, never overwritten), on the LUKS2 `/data` once CORE-SEC-5 lands.
 4. Gateway environment: `ONEMIND_BACKUPS_ENABLED=1`, `ONEMIND_BACKUPS_JOB_KEY_FILE=/data/onemind/custodian/job.key`.
-5. Heartbeat agent environment: `ONEMIND_BACKUP_CONF=/data/onemind/backup/agent.json` (it reads the agent's state file for the heartbeat's `backup` object).
+5. onemindd environment: `ONEMIND_BACKUP_CONF=/data/onemind/backup/agent.json` (it starts the backup agent from it and reads the agent's state file for the heartbeat's `backup` object).
 
 ## 4. Not in this patch
 

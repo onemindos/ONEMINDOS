@@ -10,7 +10,7 @@
 ```
 owner / agent ──REST──▶ gateway ── kubectl exec (hooks, pg_dump, pg_restore) ──▶ app pods, shared PostgreSQL
                           │
-                          └─ signed onemind.job/v1 ─▶ 127.0.0.1:7481 onemindd backup ── restic ──▶ USB / box / S3
+                          └─ signed onemind.job/v1 ─▶ 127.0.0.1:7480 onemindd (backup.Service) ── restic ──▶ USB / box / S3
 ```
 
 - **Job signature.** Ed25519 over canonical JSON (`jobs.py` and `internal/backup/canonical.go` agree byte for byte; both test suites hold the same vector). The job key is `<state>/custodian/job.key` (0600, created on first start); the agent reads the public half from `job_pubkey_file`. Each job has an id the agent remembers (no replay) and expires after 10 minutes (60 s clock skew allowed).
@@ -51,7 +51,7 @@ The owner key is 256 random bits, printed as 13 groups of four letters plus a ch
 
 | Topic | Built | Why, and what replaces it |
 |---|---|---|
-| Agent address | `127.0.0.1:7481` (§12.12 names `:7480`) | the agent is its own process with its own capabilities; the heartbeat agent keeps `:7480`. Proposed contract edit: name `:7481` for `onemindd backup` |
+| Agent address | `127.0.0.1:7480` under `/api/v1/backup/` (§12.12) | one backup service, inside onemindd (`backup.Service()`); no second daemon. onemindd gets four capabilities through a systemd drop-in (`deploy/systemd/onemindd-backup.conf`) |
 | `spec.database` | in the schema, not in the contract | proposed §12.18 text: "`spec.database: {engine: postgres, secret}` — database and role `app_<id>` on the hub's shared PostgreSQL; Secret keys PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD, DATABASE_URL" |
 | Destination credentials | `credentials` in the request, held in memory until approval | `sealed` (§12.1) needs `GET /v1/secrets/public-key` from the secrets stream |
 | Scheduled runs | not actions; audited `backup.schedule.fired` with `approved_by: policy:backup-schedule@1` | the automation stream's standing approvals (§12.17) make them policy-approved actions |

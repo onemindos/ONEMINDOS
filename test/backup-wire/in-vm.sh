@@ -46,9 +46,10 @@ mkdir -p /tmp/dist && echo '<!doctype html><title>OneMind</title>' > /tmp/dist/i
   || { tail -40 /tmp/install.log; exit 1; }
 TOKEN=$(awk '/^OWNER TOKEN/{getline; getline; print $1; exit}' /tmp/install.log)
 check "install finished and printed an owner token" '[ -n "$TOKEN" ]'
-check "onemind-backup.service is active" 'systemctl is-active --quiet onemind-backup'
-check "the backup agent listens on loopback only" '[ "$(ss -ltnH "sport = :7481" | awk "{print \$4}" | sort -u)" = 127.0.0.1:7481 ]'
-check "an unsigned restore job is refused" '[ "$(curl -s -o /dev/null -w %{http_code} -X POST -d "{\"kind\":\"backup.restore\"}" http://127.0.0.1:7481/api/v1/backup/jobs)" = 403 ]'
+check "onemindd (with the backup agent inside) is active" 'systemctl is-active --quiet onemindd'
+check "there is no second backup unit" '! systemctl cat onemind-backup >/dev/null 2>&1'
+check "the backup agent listens on loopback only" '[ "$(ss -ltnH "sport = :7480" | awk "{print \$4}" | sort -u)" = 127.0.0.1:7480 ]'
+check "an unsigned restore job is refused" '[ "$(curl -s -o /dev/null -w %{http_code} -X POST -d "{\"kind\":\"backup.restore\"}" http://127.0.0.1:7480/api/v1/backup/jobs)" = 403 ]'
 check "status before setup: kit blocks onboarding" '[ "$(api $GW/v1/backups/status | jq -r ".setup.blocking[0]")" = emergency_kit ]'
 
 step "2. add the USB disk as the destination (owner shortcut: request + approve)"

@@ -12,17 +12,49 @@ import (
 	"github.com/onemindos/onemindos/internal/backup"
 )
 
-func TestBackupRegisteredAndLoopbackOnly(t *testing.T) {
-	if subcommands["backup"] == nil {
-		t.Fatal("onemindd backup must be registered")
+func TestBackupHasNoDaemonSubcommand(t *testing.T) {
+	if subcommands["backup-init"] == nil {
+		t.Fatal("onemindd backup-init must be registered")
 	}
-	for addr, ok := range map[string]bool{
-		"127.0.0.1:7481": true, "[::1]:7481": true, "localhost:7481": true,
-		":7481": false, "0.0.0.0:7481": false, "192.0.2.10:7481": false, "nonsense": false,
-	} {
-		if err := loopbackOnly(addr); (err == nil) != ok {
-			t.Errorf("loopbackOnly(%q) = %v", addr, err)
+	// One backup service, inside onemindd (backup.Service()): no `onemindd backup` daemon mode.
+	if subcommands["backup"] != nil {
+		t.Fatal("there must be no second backup daemon")
+	}
+	found := false
+	for _, s := range optionalServices {
+		if s.Name == "backup" {
+			found = true
 		}
+	}
+	if !found {
+		t.Fatal("backup.Service() must be an optional service of onemindd")
+	}
+}
+
+func TestBackupInitCreatesKeyOnceAndNeverOverwrites(t *testing.T) {
+	dir := t.TempDir()
+	c := backup.DefaultConfig()
+	c.BoxID, c.NodeID = "box1", "node1"
+	c.StateDir, c.ScratchDir = filepath.Join(dir, "state"), filepath.Join(dir, "scratch")
+	c.DeviceKeyFile = filepath.Join(dir, "secrets", "device.key")
+	b, _ := json.Marshal(c)
+	conf := filepath.Join(dir, "agent.json")
+	if err := os.WriteFile(conf, b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if rc := runBackupInit([]string{"-config", conf}); rc != 0 {
+		t.Fatalf("first init: %d", rc)
+	}
+	first, err := os.ReadFile(c.DeviceKeyFile)
+	if err != nil || len(first) == 0 {
+		t.Fatalf("key not written: %v", err)
+	}
+	if rc := runBackupInit([]string{"-config", conf}); rc != 0 {
+		t.Fatalf("second init: %d", rc)
+	}
+	second, _ := os.ReadFile(c.DeviceKeyFile)
+	if string(first) != string(second) {
+		t.Fatal("init must never overwrite an existing device key (it would orphan every snapshot)")
 	}
 }
 

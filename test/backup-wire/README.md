@@ -16,7 +16,7 @@ test/backup-wire/lima-e2e.sh --delete   # delete the VM afterwards
 
 | Step | Checks |
 |---|---|
-| 1. Developer install | `deploy/install.sh --role hub` brings up k3s, NATS, the gateway, `onemindd` and `onemind-backup.service`; the agent listens on `127.0.0.1:7481` only; an unsigned restore job is refused (403); setup is blocked on the emergency kit |
+| 1. Developer install | `deploy/install.sh --role hub` brings up k3s, NATS, the gateway, and `onemindd` (the backup agent runs inside it, with a systemd drop-in); the agent API is on `127.0.0.1:7480` only; an unsigned restore job is refused (403); setup is blocked on the emergency kit |
 | 2. Destination | a loop-mounted ext4 image at `/run/onemind/backup/<uuid>` added as a USB destination through `POST /v1/backups/destinations` (owner shortcut) |
 | 3. Probe app | `backup-probe/` (one volume on `onemind-local`, `spec.database`, a `backup.pre` hook) installs; the shared PostgreSQL starts on Retain storage; the app logs in to its own database with its own role and cannot open the maintenance database; no password in the install result |
 | 5. Backup | a run with `system`, `k3s` and `app:backup-probe` all succeeded; the pre hook ran inside the app container; plain restic lists the snapshot by its tags; it holds the volume and the `pg_dump`; excluded paths are absent; the heartbeat carries `backup.last_result` |

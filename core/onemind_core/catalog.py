@@ -127,6 +127,9 @@ def builtin_check(doc: object) -> list[str]:
     for key in ("name", "version"):
         if md.get(key) in (None, ""):
             errs.append(f"metadata.{key} is required")
+    # H-18: the Market renders source as a link; only https:// (never javascript: or data:).
+    if md.get("source") is not None and not (isinstance(md.get("source"), str) and md["source"].startswith("https://")):
+        errs.append("metadata.source must be an https:// URL")
     archs = spec.get("archs")
     if not isinstance(archs, list) or not archs or not all(a in ("amd64", "arm64") for a in archs):
         errs.append("spec.archs must be a non-empty list of amd64/arm64")
@@ -156,6 +159,10 @@ class Catalog:
         else:
             log.info("no app schema found; using the built-in manifest check")
         self.errors: dict[str, list[str]] = {}
+        # manifest path -> (stat signature, parsed AppEntry or error list). A manifest is parsed and
+        # validated once, and again only when its file changes (see _outcome).
+        self._parsed: dict[Path, tuple[tuple, AppEntry | list[str]]] = {}
+        self.parse_count = 0  # manifests actually parsed; tests use it to prove load() is cached
 
     @property
     def validation_mode(self) -> str:
@@ -175,28 +182,59 @@ class Catalog:
             errs.extend(agent_spec_errors(doc.get("spec") if isinstance(doc, dict) else None))
         return errs
 
-    def load(self) -> dict[str, AppEntry]:
-        """Re-scan the apps folder. Cheap enough to do per request for a home-sized Market."""
-        apps: dict[str, AppEntry] = {}
-        errors: dict[str, list[str]] = {}
-        if not self.apps_dir.is_dir():
-            self.errors = {}
-            return apps
-        for path in sorted(self.apps_dir.glob(f"*/{MANIFEST}")):
-            folder = path.parent.name
-            try:
-                doc = yaml.safe_load(path.read_text())
-            except (OSError, yaml.YAMLError) as exc:
-                errors[folder] = [f"cannot parse: {exc.__class__.__name__}"]
-                continue
+    def _outcome(self, path: Path) -> AppEntry | list[str]:
+        """The AppEntry for one manifest, or its list of errors. Parsed again only if the file changed.
+
+        Why: yaml.safe_load is pure Python and the JSON Schema check is slow, so re-reading every
+        manifest on every request made GET /v1/apps cost about 2 ms per app (perf-smoke p95 grew
+        with the catalog). A file's identity (mtime, ctime, size, inode) changes whenever it is
+        edited or replaced, so an edit is picked up on the next request, same as before.
+        """
+        folder = path.parent.name
+        try:
+            st = path.stat()
+        except OSError as exc:
+            return [f"cannot parse: {exc.__class__.__name__}"]
+        sig = (st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_ino)
+        hit = self._parsed.get(path)
+        if hit is not None and hit[0] == sig:
+            return hit[1]
+        self.parse_count += 1
+        outcome: AppEntry | list[str]
+        try:
+            doc = yaml.safe_load(path.read_text())
+        except (OSError, yaml.YAMLError) as exc:
+            outcome = [f"cannot parse: {exc.__class__.__name__}"]
+        else:
             errs = self._validate(doc)
             if not errs and doc["metadata"]["id"] != folder:
                 errs.append(f"metadata.id {doc['metadata']['id']!r} must match folder name {folder!r}")
             if errs:
-                errors[folder] = errs
                 log.warning("skipping app %s: %s", folder, "; ".join(errs))
-                continue
-            apps[folder] = AppEntry(id=folder, dir=path.parent, manifest=doc)
+                outcome = errs
+            else:
+                outcome = AppEntry(id=folder, dir=path.parent, manifest=doc)
+        self._parsed[path] = (sig, outcome)
+        return outcome
+
+    def load(self) -> dict[str, AppEntry]:
+        """The current catalog. Lists the folder on every call (new and removed apps show at once);
+        a manifest is only re-parsed when its file changed."""
+        apps: dict[str, AppEntry] = {}
+        errors: dict[str, list[str]] = {}
+        if not self.apps_dir.is_dir():
+            self.errors = {}
+            self._parsed.clear()
+            return apps
+        paths = sorted(self.apps_dir.glob(f"*/{MANIFEST}"))
+        for stale in set(self._parsed) - set(paths):
+            del self._parsed[stale]
+        for path in paths:
+            outcome = self._outcome(path)
+            if isinstance(outcome, AppEntry):
+                apps[outcome.id] = outcome
+            else:
+                errors[path.parent.name] = list(outcome)
         self.errors = errors
         return apps
 

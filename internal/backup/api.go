@@ -54,6 +54,10 @@ func (a *Agent) Handler(base context.Context) http.Handler {
 			writeJSON(w, http.StatusOK, map[string]string{"run_id": run.ID, "state": run.State, "error": run.Error})
 			return
 		}
+		if _, ok := a.target(rr.TargetID); !ok {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad_request", "detail": "unknown target"})
+			return
+		}
 		if !a.tryAcquire(rr.ID) {
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "busy", "running": a.Running()})
 			return

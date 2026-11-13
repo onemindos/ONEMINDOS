@@ -40,7 +40,7 @@ export interface ActionSummary {
 
 export const ACTION_STATE: Record<ActionState, { tone: Tone; label: string }> = {
   requested: { tone: 'info', label: 'Requested' },
-  awaiting_approval: { tone: 'warn', label: 'Waiting for approval' },
+  awaiting_approval: { tone: 'warn', label: 'Awaiting approval' },
   accepted: { tone: 'info', label: 'Approved' },
   dispatched: { tone: 'info', label: 'Running' },
   succeeded: { tone: 'ok', label: 'Done' },
@@ -82,7 +82,7 @@ export function equivalentCall(a: Pick<ActionSummary, 'id'>, decision: 'approve'
  */
 export function requesterPill(who: { id: string; kind: 'person' | 'agent' }): { tone: Tone; label: string } {
   if (who.id.startsWith('system:')) return { tone: 'info', label: 'System' };
-  return who.kind === 'agent' ? { tone: 'agent', label: 'Agent' } : { tone: 'neutral', label: 'Person' };
+  return who.kind === 'agent' ? { tone: 'agent', label: 'AI agent' } : { tone: 'neutral', label: 'Person' };
 }
 
 export interface ApprovalCardProps {
@@ -108,6 +108,7 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
   const blocked = !canDecide.allowed ? canDecide.reason : expired ? 'This request has expired and can no longer be approved.' : undefined;
   return (
     <Card
+      as="article"
       level={3}
       title={title}
       className={highlight ? 'om-highlight' : undefined}
@@ -116,10 +117,10 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
       footer={
         pending && (onApprove || onDeny) ? (
           <div className="om-decide">
-            <Button variant="primary" icon="check" disabled={!!blocked} busy={busy} onClick={() => onApprove?.(action)} aria-describedby={blocked ? detailsId : undefined}>
+            <Button variant="primary" icon="check" disabled={!!blocked} busy={busy} aria-label={`Approve ${title}`} onClick={() => onApprove?.(action)} aria-describedby={blocked ? detailsId : undefined}>
               Approve
             </Button>
-            <Button variant="secondary" icon="x" disabled={!!blocked || busy} onClick={() => onDeny?.(action)}>
+            <Button variant="secondary" icon="x" disabled={!!blocked || busy} aria-label={`Deny ${title}`} onClick={() => onDeny?.(action)}>
               Deny
             </Button>
             {blocked && (

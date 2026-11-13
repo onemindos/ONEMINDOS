@@ -17,8 +17,8 @@ LOOPBACK_HOSTS = ("127.0.0.1", "::1", "localhost")
 class BackupsSettings:
     # ONEMIND_BACKUPS_ENABLED=1: this gateway drives the box's backup agent (onemindd backup).
     enabled: bool = False
-    # The agent's loopback API (onemind-backup.service). Never another machine (H-24).
-    agent_url: str = "http://127.0.0.1:7481"
+    # The agent's loopback API (onemindd (backup drop-in)). Never another machine (H-24).
+    agent_url: str = "http://127.0.0.1:7480"
     # Ed25519 job key (PEM, 0600). Unset: <directory of the audit log>/custodian/job.key, created
     # on first start. Its public half (job.pub beside it) goes into the agent's job_pubkey_file.
     job_key_file: Path | None = None

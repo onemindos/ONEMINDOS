@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# kustomize strips a forced `git::` prefix and clones the rest; no URL scheme starts the string.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- objects.yaml
+- git::https://example.com/org/repo//config
