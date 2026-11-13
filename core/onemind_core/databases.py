@@ -166,11 +166,25 @@ class SharedPostgres:
     def dump(self, app_id: str) -> dict:
         """pg_dump -Fc the app's database into the PostgreSQL volume; returns the VolumeFile."""
         name = db_name(app_id)
-        final = f"{DATA_DIR}/{DUMP_SUBDIR}/{name}.pgdump"
-        self.kube.exec(self.ns, POD, ["mkdir", "-p", f"{DATA_DIR}/{DUMP_SUBDIR}"], container=CONTAINER)
-        self.kube.exec(self.ns, POD, ["pg_dump", "-U", "postgres", "-Fc", "-d", name, "-f", final + ".tmp"],
-                       container=CONTAINER, timeout=3600)
-        self.kube.exec(self.ns, POD, ["mv", "-f", final + ".tmp", final], container=CONTAINER)
+        folder = f"{DATA_DIR}/{DUMP_SUBDIR}"
+        final = f"{folder}/{name}.pgdump"
+        tmp = final + ".tmp"
+        # A dump holds every row of the app's database, so only the postgres user may read it:
+        # the folder is 0700 and the file is created empty under umask 077 (0600) before pg_dump
+        # fills it. The backup agent runs as root and reads it anyway.
+        self.kube.exec(self.ns, POD, ["sh", "-c", 'umask 077; mkdir -p "$1"; chmod 700 "$1"', "sh", folder],
+                       container=CONTAINER)
+        try:
+            self.kube.exec(self.ns, POD, ["sh", "-c", 'umask 077; : > "$1"', "sh", tmp], container=CONTAINER)
+            self.kube.exec(self.ns, POD, ["pg_dump", "-U", "postgres", "-Fc", "-d", name, "-f", tmp],
+                           container=CONTAINER, timeout=3600)
+            self.kube.exec(self.ns, POD, ["mv", "-f", tmp, final], container=CONTAINER)
+        except Exception:
+            try:  # never leave a half-written (or readable) dump behind
+                self.kube.exec(self.ns, POD, ["rm", "-f", tmp], container=CONTAINER)
+            except Exception:
+                pass
+            raise
         return self.dump_file(app_id)
 
     def restore(self, app_id: str) -> None:

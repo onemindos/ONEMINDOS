@@ -183,7 +183,7 @@ func (a *Agent) RestorePath(ctx context.Context, req RestoreRequest) (RestoreRes
 	if n.Type == "file" {
 		err = restoreFile(ctx, repo, snap.ID, p, dest, n)
 	} else {
-		err = restoreDir(ctx, repo, snap.ID, p, dest, n, a.Now())
+		err = restoreDir(ctx, repo, snap.ID, p, dest, n, a.Now(), a.Cfg.StateDir)
 	}
 	a.Log.Info("rewind restore", "path", p, "snapshot", snap.ID, "pre_restore", res.PreRestoreSnapshotID, "error", err)
 	return res, err
@@ -245,100 +245,85 @@ func (a *Agent) preRestoreSnapshot(ctx context.Context, repo Repo, u Unit, dest 
 	return res.SnapshotID, err
 }
 
+// restoreFile writes one snapshot file to dest through a directory handle
+// opened without following symlinks (safefs_unix.go): nothing the app does to
+// the path after the open can redirect the write.
 func restoreFile(ctx context.Context, repo Repo, id, p, dest string, n Node) error {
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(dest), ".onemind-restore-*")
+	dfd, err := openDirNoFollow(filepath.Dir(dest), true)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name())
-	if err := repo.Dump(ctx, id, p, tmp); err != nil {
-		tmp.Close()
+	defer closeDir(dfd)
+	if testHookAfterOpen != nil {
+		testHookAfterOpen()
+	}
+	name := filepath.Base(dest)
+	if _, err := checkDestAt(dfd, name, true); err != nil {
 		return err
 	}
-	if err := tmp.Sync(); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err := tmp.Chmod(n.Mode.Perm()); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	if err := os.Chtimes(tmp.Name(), n.Mtime, n.Mtime); err != nil {
-		return err
-	}
-	if fi, err := os.Lstat(dest); err == nil && fi.IsDir() {
-		return fmt.Errorf("%s is now a directory; restore it as a directory or move it first", dest)
-	}
-	return os.Rename(tmp.Name(), dest)
+	return writeFileAt(dfd, name, n.Mode, n.Mtime, func(f *os.File) error { return repo.Dump(ctx, id, p, f) })
 }
 
-func restoreDir(ctx context.Context, repo Repo, id, p, dest string, n Node, now time.Time) error {
-	parent := filepath.Dir(dest)
-	if err := os.MkdirAll(parent, 0o755); err != nil {
+// restoreDir restores a directory into a private staging folder (root-only,
+// under stage), copies it into a new folder beside dest through a symlink-safe
+// directory handle, then swaps it in. Nothing app-writable is ever a path
+// that root writes through.
+func restoreDir(ctx context.Context, repo Repo, id, p, dest string, n Node, now time.Time, stage string) (err error) {
+	if err := os.MkdirAll(stage, 0o700); err != nil {
 		return err
 	}
-	tmp, err := os.MkdirTemp(parent, ".onemind-restore-")
+	st, err := os.MkdirTemp(stage, "restore-stage-")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmp)
-	if err := repo.Restore(ctx, id, p, tmp); err != nil {
+	defer os.RemoveAll(st)
+	if err := repo.Restore(ctx, id, p, st); err != nil {
 		return err
 	}
-	if err := os.Chmod(tmp, n.Mode.Perm()); err != nil {
+	pfd, err := openDirNoFollow(filepath.Dir(dest), true)
+	if err != nil {
 		return err
 	}
-	_ = os.Chtimes(tmp, n.Mtime, n.Mtime)
+	defer closeDir(pfd)
+	if testHookAfterOpen != nil {
+		testHookAfterOpen()
+	}
+	name := filepath.Base(dest)
+	exists, err := checkDestAt(pfd, name, false)
+	if err != nil {
+		return err
+	}
+	tmp := tmpName(".onemind-restore-")
+	tfd, err := mkdirAt(pfd, tmp)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = removeAllAt(pfd, tmp) }() // a no-op once renamed into place
+	err = copyTreeAt(st, tfd)
+	if err == nil {
+		err = setDirMeta(tfd, pfd, tmp, n.Mode, n.Mtime)
+	}
+	closeDir(tfd)
+	if err != nil {
+		return err
+	}
 	old := ""
-	if _, err := os.Lstat(dest); err == nil {
-		old = dest + ".onemind-old-" + now.UTC().Format("20060102T150405Z")
-		if err := os.Rename(dest, old); err != nil {
+	if exists {
+		old = name + ".onemind-old-" + now.UTC().Format("20060102T150405Z")
+		if err := renameAt(pfd, name, old); err != nil {
 			return err
 		}
 	}
-	if err := os.Rename(tmp, dest); err != nil {
+	if err := renameAt(pfd, tmp, name); err != nil {
 		if old != "" {
-			if rerr := os.Rename(old, dest); rerr != nil {
+			if rerr := renameAt(pfd, old, name); rerr != nil {
 				return fmt.Errorf("%w; the original is kept at %s (moving it back failed: %v)", err, old, rerr)
 			}
 		}
 		return err
 	}
 	if old != "" {
-		return os.RemoveAll(old) // the pre-restore snapshot holds it
-	}
-	return nil
-}
-
-// safeParent refuses a destination whose existing ancestors include a
-// symlink, so a restore cannot be redirected outside the unit's sources.
-func safeParent(dest string) error {
-	if fi, err := os.Lstat(dest); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("%s is a symlink; refusing to restore over it", dest)
-	}
-	dir := filepath.Dir(dest)
-	for {
-		if _, err := os.Lstat(dir); err == nil {
-			break
-		}
-		next := filepath.Dir(dir)
-		if next == dir {
-			break
-		}
-		dir = next
-	}
-	real, err := filepath.EvalSymlinks(dir)
-	if err != nil {
-		return err
-	}
-	if real != dir {
-		return fmt.Errorf("%s goes through a symlink (%s); refusing to restore", dest, real)
+		return removeAllAt(pfd, old) // the pre-restore snapshot holds it
 	}
 	return nil
 }

@@ -197,6 +197,7 @@ func (a *Agent) runJobKind(ctx context.Context, j Job) (any, error) {
 			Path       string `json:"path"`
 			AppID      string `json:"app_id"`
 			Stamp      string `json:"stamp"`
+			Strict     bool   `json:"strict_files"`
 		}
 		if err := decodeParams(j.Params, &p); err != nil {
 			return nil, err
@@ -205,7 +206,7 @@ func (a *Agent) runJobKind(ctx context.Context, j Job) (any, error) {
 		case "path":
 			return a.RestorePath(ctx, RestoreRequest{TargetID: p.TargetID, SnapshotID: p.SnapshotID, Path: p.Path, ActionID: j.ActionID})
 		case "app":
-			return a.RestoreApp(ctx, AppRestoreRequest{TargetID: p.TargetID, SnapshotID: p.SnapshotID, AppID: p.AppID, Stamp: p.Stamp})
+			return a.RestoreApp(ctx, AppRestoreRequest{TargetID: p.TargetID, SnapshotID: p.SnapshotID, AppID: p.AppID, Stamp: p.Stamp, StrictFiles: p.Strict})
 		}
 		return nil, badParams{fmt.Errorf("scope must be path or app")}
 

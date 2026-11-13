@@ -420,11 +420,56 @@ def test_restore_one_path(client, bk):
     snap = restorable(client, bk)
     r = client.post("/v1/restores", headers=OWNER, json={"snapshot_id": snap["id"],
                     "scope": {"app_id": "notes", "path": snap["paths"][0] + "/notes.txt"}})
-    assert r.status_code == 202 and r.json()["restore"]["plan"]["downtime"] == "none"
+    assert r.status_code == 202 and "stopped" in r.json()["restore"]["plan"]["downtime"]
     done = approve(client, r.json()["id"])
     assert done["state"] == "succeeded"
     assert bk.agent.jobs[-1][1]["scope"] == "path"
-    assert not any(c[0] == "scale" for c in bk.kube.calls), "a one-file restore does not stop the app"
+    # The app is stopped while root writes into its folder (a running app could swap a symlink in).
+    seq = [c[:4] for c in bk.kube.calls if c[0] == "scale"]
+    assert seq == [("scale", "app-notes", "notes", 0), ("scale", "app-notes", "notes", 1)]
+
+
+def test_path_restore_that_cannot_stop_the_app_changes_nothing(client, bk):
+    snap = restorable(client, bk)
+    r = client.post("/v1/restores", headers=OWNER, json={"snapshot_id": snap["id"],
+                    "scope": {"app_id": "notes", "path": snap["paths"][0] + "/notes.txt"}})
+    before = len(bk.agent.jobs)
+
+    def no_stop(ns, w, n):
+        raise KubeError("scale refused")
+    bk.kube.scale = no_stop
+    done = approve(client, r.json()["id"])
+    assert done["state"] == "failed", done
+    assert "backup.restore" not in [k for k, _, _ in bk.agent.jobs[before:]]
+
+
+def test_app_restore_asks_the_agent_to_refuse_a_snapshot_without_the_dump(client, bk):
+    snap = restorable(client, bk)
+    r = client.post("/v1/restores", headers=OWNER, json={"snapshot_id": snap["id"], "scope": {"app_id": "notes"}})
+    approve(client, r.json()["id"])
+    job = next(p for k, p, _ in bk.agent.jobs if k == "backup.restore" and p.get("scope") == "app")
+    assert job["strict_files"] is True, "an app with a database is never restored files-only"
+
+
+def test_cold_backup_scales_every_stopped_app_back_up_when_stopping_fails_midway(client, bk, monkeypatch):
+    from onemind_core.backups import service as svc_mod
+    real = svc_mod.backup_spec
+    monkeypatch.setattr(svc_mod, "backup_spec", lambda app: replace(real(app), mode="cold"))
+    add_usb(client, bk)
+    two = [Workload("deployment", "web", 2), Workload("statefulset", "worker", 3)]
+    bk.kube.workloads = lambda ns: two
+    real_scale = bk.kube.scale
+
+    def flaky(ns, w, n):
+        if n == 0 and w.name == "worker":
+            raise KubeError("scale refused")
+        real_scale(ns, w, n)
+    bk.kube.scale = flaky
+    bk.kube.calls.clear()
+    r = client.post("/v1/backups/runs", headers=OWNER, json={"approve": True})
+    assert r.status_code == 202, r.text
+    ups = {c[2]: c[3] for c in bk.kube.calls if c[0] == "scale" and c[3] > 0}
+    assert ups == {"web": 2, "worker": 3}, "every workload that may have been stopped is scaled back to its replicas"
 
 
 # ---- emergency kit ---------------------------------------------------------------------------------
@@ -582,3 +627,20 @@ def test_fresh_ready_counts_a_pod_started_in_the_same_second():
     ok, info = Pods().fresh_ready("app-x", since, 1)
     assert ok and info == {"fresh_pods": 1, "ready": 1, "expected": 1}
     assert Pods().fresh_ready("app-x", since, 2)[0] is False, "the pod from the second before is not fresh"
+
+
+# ---- review fixes: dump file permissions ---------------------------------------------------------
+def test_dump_file_is_created_private_and_a_failed_dump_leaves_no_tmp(client, bk):
+    bk.pg.dump("notes")
+    cmds = [c[2] for c in bk.kube.calls if c[0] == "exec" and c[1] == "onemind-db"]
+    assert any(c[0] == "sh" and "umask 077" in c[2] and "chmod 700" in c[2] for c in cmds), "dump folder is 0700"
+    create = next(i for i, c in enumerate(cmds) if c[0] == "sh" and ": >" in c[2])
+    dump = next(i for i, c in enumerate(cmds) if c[0] == "pg_dump")
+    assert create < dump, "the file exists at 0600 before pg_dump writes into it"
+    assert cmds[dump][-1].endswith(".pgdump.tmp")
+    bk.kube.calls.clear()
+    bk.kube.fail_exec.add("pg_dump")
+    with pytest.raises(KubeError):
+        bk.pg.dump("notes")
+    last = [c[2] for c in bk.kube.calls if c[0] == "exec"][-1]
+    assert last[:2] == ("rm", "-f") and last[2].endswith(".pgdump.tmp"), "the half-written dump is deleted"

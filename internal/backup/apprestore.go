@@ -30,6 +30,10 @@ type AppRestoreRequest struct {
 	SnapshotID string `json:"snapshot_id"`
 	AppID      string `json:"app_id"`
 	Stamp      string `json:"stamp"`
+	// StrictFiles makes a snapshot that lacks any file the app declares (its
+	// database dump) a refusal before anything is swapped, instead of
+	// restoring the volumes without the data that belongs with them.
+	StrictFiles bool `json:"strict_files,omitempty"`
 }
 
 // RestoredItem is one volume or file of an app restore.
@@ -79,6 +83,17 @@ func (a *Agent) RestoreApp(ctx context.Context, req AppRestoreRequest) (AppResto
 		return res, fmt.Errorf("snapshot %s is of %s, not app:%s", snap.ShortID, snap.Tag("unit"), req.AppID)
 	}
 	roots := a.conf().StorageRoots
+	if req.StrictFiles {
+		var missing []string
+		for _, f := range spec.Files {
+			if snapshotPathFor(snap.Paths, f.suffix(), f.Path) == "" {
+				missing = append(missing, f.Path)
+			}
+		}
+		if len(missing) > 0 {
+			return res, fmt.Errorf("snapshot %s has no copy of %s (its database dump), so restoring would bring back the files without the data that belongs with them; nothing was changed", snap.ShortID, strings.Join(missing, ", "))
+		}
+	}
 	var done []swap
 	restoredDirs := map[string]string{} // volume suffix -> its restored folder
 	undo := func() {
