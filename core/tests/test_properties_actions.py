@@ -171,7 +171,7 @@ class ActionMachine(RuleBasedStateMachine):
     def _app_allowed(self, type_, app):
         status = self.app_states.get(app)
         if type_ == "app.install":
-            return status in (None, "failed", "unknown")
+            return status in (None, "failed", "unknown", "removed")  # lifecycle.TYPES: a removed app may be reinstalled
         return status in ("installed", "failed", "unknown")
 
     @initialize(target=actions)
@@ -265,7 +265,8 @@ class ActionMachine(RuleBasedStateMachine):
                 if model["type"] == "app.install":
                     self.app_states[model["app"]] = "installed"
                 else:
-                    self.app_states.pop(model["app"], None)
+                    # lifecycle: remove keeps the data, so the state row stays as "removed"
+                    self.app_states[model["app"]] = "removed"
             else:
                 self.app_states[model["app"]] = "failed" if model["state"] == "failed" else "unknown"
         assert after == model["state"]
