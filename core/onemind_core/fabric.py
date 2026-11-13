@@ -413,7 +413,7 @@ class K3sBootstrapTokens:
             "  usage-bootstrap-authentication: \"true\"\n  usage-bootstrap-signing: \"true\"\n"
             "  auth-extra-groups: \"system:bootstrappers:k3s:default-node-token\"\n"
         )
-        proc = self.runner([self.kubectl, "apply", "-f", "-"], input=manifest.encode(), capture_output=True,
+        proc = self.runner([self.kubectl, "create", "-f", "-"], input=manifest.encode(), capture_output=True,
                            timeout=self.timeout_s, check=False)
         if proc.returncode != 0:
             raise RuntimeError("creating the k3s bootstrap token failed")  # stderr may echo the manifest

@@ -83,7 +83,7 @@ class FakeKubectl:
         self.fail = False
 
     def __call__(self, argv, input=None, **_):
-        if argv[1] == "apply":
+        if argv[1] == "create":
             if self.fail:
                 return subprocess.CompletedProcess(argv, 1, b"", b"boom")
             self.created.append(input.decode())
