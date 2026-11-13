@@ -14,6 +14,9 @@ RequiresMountsFor=/data /boot/efi
 Type=oneshot
 RemainAfterExit=yes
 UMask=0077
+# The boot splash (plymouth) redirects /dev/console into itself while it runs, which swallowed the owner
+# token and the "configured" line this unit prints there. Stop it first (no-op when it is not running).
+ExecStartPre=-/usr/bin/plymouth quit
 ExecStart=/usr/lib/onemind/onemind-firstboot apply
 StandardOutput=journal
 TimeoutStartSec=5min
