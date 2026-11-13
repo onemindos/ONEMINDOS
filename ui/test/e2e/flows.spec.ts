@@ -16,14 +16,16 @@ test('dashboard: bad token refused, demo owner signs in, navigates and signs out
 
   await token.fill(DASH_TOKEN);
   await signIn.click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Home OneMind' })).toBeVisible();
+  // Home's h1 is the greeting since the dashboard wiring (it was the brand line before).
+  const homeHeading = /^Good (morning|afternoon|evening), owner$/;
+  await expect(page.getByRole('heading', { level: 1, name: homeHeading })).toBeVisible();
 
   const nav = page.getByRole('navigation', { name: 'Main' });
   for (const [link, path, heading] of [
-    [/^Nodes/, '/nodes', 'Machines'],
+    [/^Nodes/, '/nodes', 'Nodes'],
     [/^Market/, '/market', 'Market'],
     [/^Approvals/, '/approvals', 'Approvals'],
-    [/^Home/, '/', 'Home OneMind'],
+    [/^Home/, '/', homeHeading],
   ] as const) {
     await nav.getByRole('link', { name: link }).click();
     await expect(page).toHaveURL(new URL(path, DASH_URL).href);
