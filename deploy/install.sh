@@ -863,7 +863,7 @@ box_certs() {
   fi
   [ -n "${HUB_MESH_IP:-}" ] && extra="--nats-ip $HUB_MESH_IP"
   # shellcheck disable=SC2086
-  BOX_CA_SHA=$(runuser -u onemind -- "$PREFIX/venv/bin/python" -m onemind_core.ca --dir "$STATE/tls" --box "$BOX" --control $extra)
+  BOX_CA_SHA=$(runuser -u onemind -- "$PREFIX/venv/bin/python" -m onemind_core.ca --dir "$STATE/tls" --box "$BOX" --control --lan-addr "$LAN_ADDR" $extra)
   install -d -m0755 "$ETC/identity"
   install -m0644 "$STATE/tls/ca.crt" "$ETC/identity/ca.pem"
 }

@@ -67,7 +67,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     mesh_cfg = settings.section(MeshSettings)
     fab_cfg = settings.section(FabricSettings)
     box = net.box()
-    box_ca = BoxCA(net.tls_dir or settings.audit_path.parent / "tls", box, clock=gw.clock)
+    box_ca = BoxCA(net.tls_dir or settings.audit_path.parent / "tls", box, lan_addr=net.lan_addr, clock=gw.clock)
     mesh: MeshService | None = None
     if mesh_cfg.enabled:
         assert mesh_cfg.headscale_key_file is not None  # MeshSettings.validate
