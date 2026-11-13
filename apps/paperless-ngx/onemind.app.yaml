@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# Paperless-ngx: Market batch 1 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by
+# sdk/tools/app-scaffold (§9.2) and completed from primary sources: docker/compose/docker-compose.postgres.yml, docker-compose.env, Dockerfile, docs/setup.md (Rootless) and docs/configuration.md at v3.4.2.
+# Image digests and archs from crane; licence row in research-output/evidence/license-matrix.csv.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: paperless-ngx
+  name: "Paperless-ngx"
+  version: "3.4.2"
+  description: "A community-supported supercharged document management system: scan, index and archive all your documents"
+  # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
+  # the schema has metadata.tags).
+  category: files
+  icon: icon.svg
+  license: "GPL-3.0"
+  source: https://github.com/paperless-ngx/paperless-ngx
+  # §9.3 facts from the GitHub API (repos/paperless-ngx/paperless-ngx), read 2026-11-12.
+  links:
+    docs: "https://docs.paperless-ngx.com/"
+    github: "https://github.com/paperless-ngx/paperless-ngx"
+    website: "https://docs.paperless-ngx.com/"
+    support: "https://github.com/paperless-ngx/paperless-ngx/issues"
+  upstream: {release: "v3.4.2", released_at: "2026-11-03T21:57:15Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVE-2025-68121 and a private-key finding in the bundled postgres image (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 1536}
+  web: {port: 8000}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

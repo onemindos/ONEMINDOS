@@ -144,6 +144,56 @@ func TestRequestReusesIdempotencyKeyAcrossRetries(t *testing.T) {
 	}
 }
 
+func TestRequestReusesExpiresAtForOneKeyAcrossSeconds(t *testing.T) {
+	var mu sync.Mutex
+	var bodies []actionBody
+	tick := 0
+	c := newTest(t, func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		tick++ // the hub's clock (Date header) moves 5 s per answer
+		w.Header().Set("Date", time.Now().Add(time.Duration(5*tick)*time.Second).UTC().Format(http.TimeFormat))
+		if r.URL.Path == "/v1/instance" {
+			mu.Unlock()
+			fmt.Fprint(w, `{"name":"x","version":"0","hub_node_id":null}`)
+			return
+		}
+		var b actionBody
+		_ = json.NewDecoder(r.Body).Decode(&b)
+		bodies = append(bodies, b)
+		mu.Unlock()
+		w.WriteHeader(201)
+		fmt.Fprint(w, actionJSON("awaiting_approval", ""))
+	})
+	for _, key := range []string{"k1", "k1", "k2", "", ""} {
+		if _, err := c.Actions.Request(context.Background(), ActionRequest{Type: ActionAppInstall, AppID: "x", IdempotencyKey: key}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if bodies[0].ExpiresAt != bodies[1].ExpiresAt {
+		t.Fatalf("same key, different expires_at: %q vs %q", bodies[0].ExpiresAt, bodies[1].ExpiresAt)
+	}
+	if bodies[2].ExpiresAt == bodies[0].ExpiresAt {
+		t.Fatal("another key must get its own expires_at")
+	}
+	if bodies[3].IdempotencyKey == bodies[4].IdempotencyKey {
+		t.Fatal("no key: a fresh uuid per call")
+	}
+}
+
+func TestExpiryMemoBoundedAndDropsExpired(t *testing.T) {
+	var m expiryMemo
+	now := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < maxExpiries+10; i++ {
+		m.get(fmt.Sprintf("k%d", i), now, time.Hour)
+	}
+	if len(m.m) != maxExpiries || len(m.order) != maxExpiries {
+		t.Fatalf("not bounded: %d %d", len(m.m), len(m.order))
+	}
+	if got := m.get("fresh", now.Add(2*time.Hour), time.Hour); got != "2030-01-01T03:00:00Z" || len(m.m) != 1 {
+		t.Fatalf("expired entries kept: %q %d", got, len(m.m))
+	}
+}
+
 func actionJSON(state string, decidedBy string) string {
 	d := "null"
 	if decidedBy != "" {

@@ -1,0 +1,90 @@
+# SPDX-License-Identifier: Apache-2.0
+# code-server 4.145.2 (github.com/coder/code-server, ci/release-image/Dockerfile and entrypoint.sh at tag
+# v4.145.2). The image runs as coder (USER 1000). Its entrypoint first runs fixuid, a setuid helper that
+# cannot work without privilege escalation, so this package starts code-server the way the entrypoint
+# finally does (dumb-init /usr/bin/code-server --bind-addr 0.0.0.0:8080) without that step.
+# GET /healthz is code-server's own health endpoint.
+#
+# Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: code-server
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: code-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: code-server
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: code-server
+        image: docker.io/codercom/code-server:4.145.2@sha256:09565f9e07f5624554e295e8bab0e2fec4a7c533eb3cff459ed6596a4d3d7c1c
+        imagePullPolicy: IfNotPresent
+        command:
+        - dumb-init
+        - /usr/bin/code-server
+        args:
+        - --bind-addr
+        - 0.0.0.0:8080
+        - /home/coder
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: '2'
+            memory: 2Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: home
+          mountPath: /home/coder
+      volumes:
+      - name: home
+        persistentVolumeClaim:
+          claimName: code-server-home

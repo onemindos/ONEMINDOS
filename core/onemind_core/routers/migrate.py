@@ -93,8 +93,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings.section(MigrateSettings)
     box = BoxKube(gw.settings.kubectl, gw.settings.executor_timeout_s) if gw.settings.executor == "kubernetes" else None
     svc = MigrateService(gw, settings, box=box)
-    for ft in svc.action_types():
-        gw.actions.register_type(ft)
+    for action_type, spec in svc.action_types().items():
+        gw.actions.register_type(action_type, spec)
     gw.on_startup(svc.reconcile)
     app.state.migrate = svc
     principal = gw.principal

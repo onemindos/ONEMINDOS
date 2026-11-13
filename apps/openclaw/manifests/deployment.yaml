@@ -1,0 +1,147 @@
+# SPDX-License-Identifier: Apache-2.0
+# OpenClaw 2026.11.3, following upstream's Kubernetes manifests (scripts/k8s/manifests and
+# docs/install/kubernetes.md at tag v2026.11.3): node UID 1000, read-only root filesystem, /tmp and
+# XDG_CACHE_HOME writable, `gateway run`, the same /readyz-style JSON probes (/startupz for startup and
+# readiness, which the doc recommends for images from 2026.8.1, /healthz for liveness). Two changes:
+# the gateway binds `lan` so the OneMind Service reaches it (docs/gateway/config-gateway.md: non-loopback
+# binds require auth), and the init container writes openclaw.json once with a random gateway token
+# instead of upstream's deploy.sh Secret. Model-provider keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, ...)
+# come from the Secret openclaw-credentials that the owner may create in app-openclaw; optional.
+#
+# Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped. Read-only root filesystem.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openclaw
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openclaw
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: openclaw
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      - name: init-config
+        image: ghcr.io/openclaw/openclaw:2026.11.3@sha256:e73f689d663567f0fe3c5a85c54beb3e102dc21f0814bf375e9039ee2d2df51b
+        imagePullPolicy: IfNotPresent
+        command:
+        - node
+        - -e
+        - |
+          const fs = require('fs'), crypto = require('crypto');
+          const dir = '/home/node/.openclaw', file = dir + '/openclaw.json';
+          fs.mkdirSync(dir + '/workspace', { recursive: true });
+          if (!fs.existsSync(file)) {
+            const config = { gateway: { mode: 'local', bind: 'lan', port: 18789,
+              auth: { mode: 'token', token: crypto.randomBytes(32).toString('hex') }, controlUi: { enabled: true } },
+              agents: { defaults: { workspace: '~/.openclaw/workspace' } }, cron: { enabled: false } };
+            fs.writeFileSync(file, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+          }
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: home
+          mountPath: /home/node/.openclaw
+      containers:
+      - name: openclaw
+        image: ghcr.io/openclaw/openclaw:2026.11.3@sha256:e73f689d663567f0fe3c5a85c54beb3e102dc21f0814bf375e9039ee2d2df51b
+        imagePullPolicy: IfNotPresent
+        command:
+        - node
+        - /app/dist/index.js
+        - gateway
+        - run
+        envFrom:
+        - secretRef:
+            name: openclaw-credentials
+            optional: true
+        env:
+        - name: HOME
+          value: /home/node
+        - name: OPENCLAW_CONFIG_DIR
+          value: /home/node/.openclaw
+        - name: XDG_CACHE_HOME
+          value: /home/node/.openclaw/.cache
+        - name: NODE_ENV
+          value: production
+        ports:
+        - name: http
+          containerPort: 18789
+          protocol: TCP
+        startupProbe:
+          exec:
+            command:
+            - node
+            - -e
+            - 'require(''http'').get(''http://127.0.0.1:18789/startupz'', r => { let b = ''''; r.on(''data'', d => b += d); r.on(''end'', () => { try { process.exit(r.statusCode < 400 && JSON.parse(b).ready === true ? 0 : 1); } catch { process.exit(1); } }); }).on(''error'', () => process.exit(1))'
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          exec:
+            command:
+            - node
+            - -e
+            - 'require(''http'').get(''http://127.0.0.1:18789/startupz'', r => { let b = ''''; r.on(''data'', d => b += d); r.on(''end'', () => { try { process.exit(r.statusCode < 400 && JSON.parse(b).ready === true ? 0 : 1); } catch { process.exit(1); } }); }).on(''error'', () => process.exit(1))'
+          periodSeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+            - node
+            - -e
+            - 'require(''http'').get(''http://127.0.0.1:18789/healthz'', r => { let b = ''''; r.on(''data'', d => b += d); r.on(''end'', () => { try { process.exit(r.statusCode < 400 && JSON.parse(b).ok === true ? 0 : 1); } catch { process.exit(1); } }); }).on(''error'', () => process.exit(1))'
+          periodSeconds: 30
+          timeoutSeconds: 10
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: '1'
+            memory: 2Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: home
+          mountPath: /home/node/.openclaw
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: home
+        persistentVolumeClaim:
+          claimName: openclaw-home
+      - name: tmp
+        emptyDir:
+          sizeLimit: 1Gi

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Feature action types (actions.FeatureActionType): one ledger, owner-only approval, audited."""
+"""Feature action types (actions.FeatureAction: claim, release, background): one ledger, owner-only approval, audited."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from datetime import timedelta
 
 import pytest
 
-from onemind_core.actions import FeatureActionType
+from onemind_core.actions import FeatureAction
 from onemind_core.auth import Principal
 from onemind_core.errors import ApiError
 from onemind_core.executors import ExecResult
@@ -28,7 +28,7 @@ class Demo:
         self.outcome = "succeeded"
         self.raise_in_run = False
 
-    def check(self, params: dict) -> str | None:
+    def check(self, action) -> str | None:
         return self.problem
 
     def claim(self, action) -> str | None:
@@ -42,15 +42,15 @@ class Demo:
         self.claimed.discard(action.params["thing"])
         self.released.append(action.id)
 
-    def run(self, action) -> ExecResult:
+    def run(self, action, finish) -> None:
         self.runs.append(action.id)
         if self.raise_in_run:
             raise RuntimeError("boom")
-        return ExecResult(self.outcome, f"demo {self.outcome}")
+        finish(ExecResult(self.outcome, f"demo {self.outcome}"))
 
-    def type(self) -> FeatureActionType:
-        return FeatureActionType(
-            type="demo.thing", risk="write", check=self.check, run=self.run, claim=self.claim, release=self.release
+    def spec(self, risk: str = "write", run=None) -> FeatureAction:
+        return FeatureAction(
+            risk=risk, check=self.check, run=run or self.run, claim=self.claim, release=self.release, background=True
         )
 
 
@@ -58,7 +58,7 @@ class Demo:
 def demo(client):
     d = Demo()
     svc = client.app.state.actions
-    svc.register_type(d.type())
+    svc.register_type("demo.thing", d.spec())
     svc.spawn = lambda fn: fn()  # synchronous in tests
     return d
 
@@ -102,12 +102,7 @@ def test_agent_can_neither_request_nor_approve(client, clock, demo, settings):
     assert demo.runs == []
 
 
-def test_stale_at_request_and_at_approval(client, clock, demo):
-    demo.problem = "plan changed"
-    with pytest.raises(ApiError) as e:
-        _file(client, clock)
-    assert e.value.status == 409 and e.value.error == "stale_precondition"
-    demo.problem = None
+def test_stale_at_approval(client, clock, demo):
     action, _ = _file(client, clock, key="k2")
     demo.problem = "plan changed"
     r = client.post(f"/v1/actions/{action['id']}/approve", headers=OWNER)
@@ -183,8 +178,8 @@ def test_restart_marks_dispatched_feature_action_unknown(settings, clock, demo, 
 def test_register_twice_or_unknown_risk_refused(client, demo):
     svc = client.app.state.actions
     with pytest.raises(ValueError):
-        svc.register_type(demo.type())
+        svc.register_type("demo.thing", demo.spec())
     with pytest.raises(ValueError):
-        svc.register_type(FeatureActionType(type="app.install", risk="write", check=demo.check, run=demo.run))
+        svc.register_type("app.install", demo.spec())
     with pytest.raises(ValueError):
-        svc.register_type(FeatureActionType(type="demo.other", risk="huge", check=demo.check, run=demo.run))
+        svc.register_type("demo.other", demo.spec(risk="huge"))

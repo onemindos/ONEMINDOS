@@ -8,6 +8,8 @@
 
 ## 1. Merge ownership (every unmerged branch has exactly one owner)
 
+> **Status 2026-11-12 (slop audit pass 2):** merged since this table was written: #40, #41, #44, #48 (`feat/devsurface`), #54, #61, #63, #67, #68, #70, #71, #73, #74, #34, #33, #51, #46. Check `git log origin/main --merges` before relying on a row; STATUS.md has the per-epic state.
+
 | Branch | What | Merged by | Waits for |
 |---|---|---|---|
 | `feat/sec-p0` (#40) | Security P0 | Wave D integrator | CI |

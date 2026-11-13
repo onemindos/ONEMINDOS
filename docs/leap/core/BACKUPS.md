@@ -24,7 +24,7 @@
 | Piece | Where | State |
 |---|---|---|
 | Pre-update restic snapshot of `/data` (optional) | `internal/update/` | `main` (PR #15) |
-| restic pinned version | `os/versions.lock.yaml` (`tools`) | `main` (check the entry before building) |
+| restic pinned version | `internal/backup/pins.go` (not yet in `os/versions.lock.yaml`; `grep restic os/versions.lock.yaml` finds nothing on 2026-11-12) | partial |
 | Seed apps' PVCs use k3s `local-path` (reclaim `Delete`) | `apps/*/manifests/pvc.yaml` | `main` |
 | Everything else in brief 30 B7 | – | not built |
 

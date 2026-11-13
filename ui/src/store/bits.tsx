@@ -2,33 +2,20 @@
 // Small store building blocks: app tile, class pills, fit line, skeletons, load gate, tabs.
 // Every store component imports this file, so the store styles load with it.
 import './store.css';
-import { useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
 import { Icon } from '../components/Icon';
 import { StatusPill } from '../components/StatusPill';
 import { cx } from '../lib/cx';
 import { formatAgo, secondsSince } from '../lib/time';
-import { safeHttpUrl } from '../lib/trust';
-import { monogram, tileHue } from './logic';
-import { TILE_HUES, TILE_TEXT } from './storeTokens';
+import { AppIcon } from '../components/AppIcon';
 import { DEPLOY_CLASSES } from './taxonomy';
 import type { CatalogApp, FitSummary, LoadState } from './types';
 
-/** The app's icon tile. Uses `icon` when it is an http(s) or same-origin path; otherwise a generated monogram. */
+/** The app's icon tile: the shared AppIcon (CRITIQUE #20), kept under its store name. */
 export function AppTile({ app, size = 48 }: { app: Pick<CatalogApp, 'id' | 'name' | 'icon'>; size?: number }) {
-  const src = app.icon && (app.icon.startsWith('/') ? app.icon : safeHttpUrl(app.icon));
-  const hue = TILE_HUES[tileHue(app.id)]!;
-  return (
-    <span
-      className="om-store-tile"
-      data-hue={hue.name}
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.38), '--om-store-a': hue.a, '--om-store-b': hue.b, '--om-store-fg': TILE_TEXT } as CSSProperties}
-      aria-hidden="true"
-    >
-      {src ? <img src={src} alt="" width={size} height={size} /> : monogram(app.name)}
-    </span>
-  );
+  return <AppIcon app={app} size={size} />;
 }
 
 /** Deployment class pill, plus "Plugin" and "Blocked" when they apply (TAXONOMY §2). */

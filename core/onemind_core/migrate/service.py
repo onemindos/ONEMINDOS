@@ -31,7 +31,7 @@ from pathlib import Path
 from urllib.parse import quote, urlsplit
 
 from .. import __version__
-from ..actions import FeatureActionType
+from ..actions import FeatureAction
 from ..auth import Principal
 from ..catalog import APP_ID_RE
 from ..errors import ApiError
@@ -277,8 +277,14 @@ class MigrateService:
                 raise ApiError(409, "stale_precondition",
                                "this kubeconfig points at a different cluster than the plan was made from")
             extra = {"credentials": "provided", "credentials_sha256": target.fingerprint}
+        full = {"plan_id": row.id, **params}
+        # The precondition is checked at request time too (an idempotent replay is answered as it was).
+        if self.gw.repo.get_by_idempotency_key(idempotency_key) is None:
+            problem = self._precheck(action_type, full)
+            if problem:
+                raise ApiError(409, "stale_precondition", problem)
         action, created = self.gw.actions.request_feature(
-            p, action_type, {"plan_id": row.id, **params}, idempotency_key=idempotency_key,
+            p, action_type, full, idempotency_key=idempotency_key,
             expires_at=expires_at, reason=reason, audit_extra=extra,
         )
         if target is not None and action["state"] in ("requested", "awaiting_approval"):
@@ -299,17 +305,29 @@ class MigrateService:
         return held.target
 
     # ---- action types ------------------------------------------------------------------------
-    def action_types(self) -> list[FeatureActionType]:
-        return [
-            FeatureActionType("migrate.import", "sensitive", self._check_import, self._run_import,
-                              claim=self._claim_import, release=self._release),
-            FeatureActionType("migrate.copy", "destructive", self._check_copy, self._run_copy,
-                              claim=self._claim_with_kube, release=self._release),
-            FeatureActionType("migrate.cutover", "destructive", self._check_cutover, self._run_cutover,
-                              claim=self._claim_with_kube, release=self._release),
-            FeatureActionType("migrate.revert", "destructive", self._check_revert, self._run_revert,
-                              claim=self._claim_revert, release=self._release),
-        ]
+    def action_types(self) -> dict[str, FeatureAction]:
+        """The four step types, for ActionService.register_type. Each runs on a worker thread
+        (a copy may take hours); claim reserves the plan, release drops it and the credentials."""
+
+        def spec(risk: str, check: Callable[[dict], str | None], run: Callable[[Action], ExecResult],
+                 claim: Callable[[Action], str | None]) -> FeatureAction:
+            return FeatureAction(
+                risk=risk, run=lambda a, finish: finish(run(a)), check=lambda a: check(a.params),
+                claim=claim, release=self._release, background=True,
+            )
+
+        return {
+            "migrate.import": spec("sensitive", self._check_import, self._run_import, self._claim_import),
+            "migrate.copy": spec("destructive", self._check_copy, self._run_copy, self._claim_with_kube),
+            "migrate.cutover": spec("destructive", self._check_cutover, self._run_cutover, self._claim_with_kube),
+            "migrate.revert": spec("destructive", self._check_revert, self._run_revert, self._claim_revert),
+        }
+
+    def _precheck(self, action_type: str, params: dict) -> str | None:
+        return {
+            "migrate.import": self._check_import, "migrate.copy": self._check_copy,
+            "migrate.cutover": self._check_cutover, "migrate.revert": self._check_revert,
+        }[action_type](params)
 
     def _claim(self, a: Action) -> str | None:
         if not self.store.claim(a.params["plan_id"], a.id, self._now()):

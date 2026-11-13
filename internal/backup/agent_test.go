@@ -225,16 +225,17 @@ func TestAPI(t *testing.T) {
 	if w := do("192.0.2.1:5000", "GET", "/api/v1/backup/status", ""); w.Code != http.StatusForbidden {
 		t.Fatalf("remote caller: %d", w.Code)
 	}
-	if w := do("127.0.0.1:5000", "POST", "/api/v1/backup/run", `{"reason":"scheduled"}`); w.Code != http.StatusBadRequest {
-		t.Fatalf("scheduled over API: %d", w.Code)
+	// There is no unsigned way to start a backup: the old loopback run route is gone.
+	for _, body := range []string{`{"reason":"manual"}`, `{"reason":"pre-update","wait":true}`} {
+		if w := do("127.0.0.1:5000", "POST", "/api/v1/backup/run", body); w.Code != http.StatusNotFound && w.Code != http.StatusMethodNotAllowed {
+			t.Fatalf("unsigned run accepted: %d %s", w.Code, w.Body)
+		}
 	}
-	w := do("127.0.0.1:5000", "POST", "/api/v1/backup/run", `{"reason":"pre-update","wait":true}`)
-	var out map[string]string
-	_ = json.Unmarshal(w.Body.Bytes(), &out)
-	if w.Code != 200 || out["state"] != StateSucceeded || !strings.HasPrefix(out["run_id"], "run_") {
-		t.Fatalf("run: %d %s", w.Code, w.Body)
+	if st, err := f.agent.Status(context.Background()); err != nil || st.LastRun != nil {
+		t.Fatalf("an unsigned call started a run: %+v %v", st.LastRun, err)
 	}
-	w = do("[::1]:5000", "GET", "/api/v1/backup/status", "")
+	f.run(ReasonPreUpdate)
+	w := do("[::1]:5000", "GET", "/api/v1/backup/status", "")
 	var s Status
 	if err := json.Unmarshal(w.Body.Bytes(), &s); err != nil || s.LastRun == nil || s.LastRun.Reason != ReasonPreUpdate {
 		t.Fatalf("status: %v %s", err, w.Body)

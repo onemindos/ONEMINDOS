@@ -120,7 +120,7 @@ All Python tests run on SQLite and PostgreSQL.
 - **Private apps in the catalog:** imported apps are tracked in `app_states` and `/v1/migrate/plans`, but `GET /v1/apps`, the app proxy (`<app>.onemind.local`) and `app.remove` read only the Market catalog. A private-app root in the catalog belongs to CORE-DEPLOY-1/3.
 - **Secrets:** `onemind secret set` (CORE-DEPLOY-4) is not built; until then a workload that needs a non-optional secret will not start on the box.
 - **PSA:** when app namespaces enforce `restricted` (SANDBOX), the root restore Job must move to a system path (same question as `backup.restore`).
-- **Action registry:** the four types use the stopgap hook in `actions.py` (`FeatureActionType`); DEV-API-7's registry replaces it, and contract §12.5 should list the `migrate.*` types.
+- **Action registry:** the four types use the feature-action mechanism in `actions.py` (`FeatureAction`, extended with `claim`, `release` and `background`); DEV-API-7's registry will replace it, and contract §12.5 should list the `migrate.*` types. They are never covered by a standing approval or an automation.
 - **Schema:** `metadata.origin`, `metadata.generatedBy` and `spec.secrets` follow contract §12.18 but are not in `sdk/schema/onemind.app.schema.json` yet.
 - **Two clusters:** the e2e uses one k3s for both sides (separate namespaces, separate identities). A two-VM run and a CI job are next.
 - **Offline check:** `onemind migrate check <dir>` on exported files (DEPLOYMENTS §3.6) is not built; the plan is the dry-run.

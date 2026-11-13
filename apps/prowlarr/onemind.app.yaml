@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# prowlarr: Market batch 3 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by sdk/tools/app-scaffold
+# (§9.2) and completed from primary sources: src/Prowlarr.Http/Ping/PingController.cs at v2.7.0.5723, wiki.servarr.com/prowlarr/installation/docker and the LinuxServer image README.
+# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-12.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: prowlarr
+  name: "Prowlarr"
+  version: "2.7.0.5723"
+  description: "Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base stack to integrate with your various PVR apps, supporting management of both Torrent Trackers and Usenet Indexers."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (indexers) are listed in README.md
+  # until the schema has metadata.tags.
+  category: media
+  icon: icon.svg
+  license: "GPL-3.0"
+  source: https://github.com/Prowlarr/Prowlarr
+  links:
+    docs: "https://wiki.servarr.com/prowlarr"
+    github: "https://github.com/Prowlarr/Prowlarr"
+    website: "https://prowlarr.com"
+    support: "https://github.com/Prowlarr/Prowlarr/issues"
+  upstream: {release: "v2.7.0.5723", released_at: "2026-10-27T18:19:55Z", archived: false}
+  # blocked by the CI app gate: CRITICAL CVE-2026-70188 and CVE-2026-88092 in the .NET runtime, and the pod never becomes ready (details in README.md)
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}   # sum of the memory requests in manifests/
+  web: {port: 9696}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

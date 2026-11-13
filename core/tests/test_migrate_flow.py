@@ -427,3 +427,30 @@ def test_revert_after_switch_over_warns_about_box_changes(client, world, clock):
     r = client.post(f"/v1/migrate/plans/{plan['id']}/revert", headers=OWNER, json={"kubeconfig": kubeconfig()})
     got = _approve(client, r.json()["id"])
     assert "since the switch-over are not in the old app" in got["result"]["message"]
+
+
+def test_only_the_owner_requests_steps_and_no_policy_or_automation_covers_them(client, world, clock):
+    from onemind_core.automation import registry
+
+    plan = _plan(client)
+    body = {"kubeconfig": kubeconfig()}
+    for who in (ADULT, GUEST, AGENT):
+        for step in ("copy", "cutover", "revert"):
+            r = client.post(f"/v1/migrate/plans/{plan['id']}/{step}", headers=who, json=body)
+            assert r.status_code == 403, (who, step)
+        r = client.post(f"/v1/migrate/plans/{plan['id']}/import", headers=who, json={})
+        assert r.status_code == 403
+    # A standing approval (read and write only, §12.3) and an automation never reach these types.
+    for t in ("migrate.import", "migrate.copy", "migrate.cutover", "migrate.revert"):
+        assert registry.policy_may_cover(t, {}) is not None
+        assert registry.automatable(t, {}) is not None
+
+
+def test_restic_data_plane_refuses_without_a_valid_per_plan_user(client, world):
+    plan = _plan(client)
+    pid = plan["id"]
+    for method, path in (("GET", f"/v1/migrate/repo/{pid}/config"), ("POST", f"/v1/migrate/repo/{pid}/?create=true"),
+                         ("GET", f"/v1/migrate/repo/{pid}/keys/")):
+        assert client.request(method, path).status_code == 401, path
+    # an owner's API token is not a restic user
+    assert client.get(f"/v1/migrate/repo/{pid}/config", headers=OWNER).status_code == 401

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Holds /var/syncthing (the image's VOLUME): config/ (keys, config.xml, index database) and the
+# default folder "Sync". Upstream gives no size; 20Gi is a OneMind choice. No storageClassName:
+# the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: syncthing-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi

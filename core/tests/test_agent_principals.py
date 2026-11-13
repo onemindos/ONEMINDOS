@@ -219,7 +219,7 @@ def test_kubernetes_executor_creates_secret_before_manifests(settings, clock):
         assert run_action(c, clock, type_="app.remove", key="k2")["state"] == "succeeded"
         argvs = [argv for argv, _ in run.calls]
         assert argvs[0] == ["kubectl", "delete", "secret", SECRET, "-n", "app-hermes-like", "--ignore-not-found=true"]
-        assert argvs[1][:3] == ["kubectl", "delete", "namespace"]
+        assert argvs[1][:2] == ["kubectl", "delete"] and "namespace" not in argvs[1][2].split(",")
         assert c.get("/v1/nodes", headers=bearer(token)).status_code == 401
 
 

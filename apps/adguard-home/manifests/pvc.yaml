@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# conf/ -> /opt/adguardhome/conf (AdGuardHome.yaml, written by the setup wizard) and work/ ->
+# /opt/adguardhome/work (filters, query log, statistics). 2Gi is a OneMind choice.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: adguard-home-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
