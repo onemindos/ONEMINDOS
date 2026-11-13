@@ -4,6 +4,8 @@ This is where "AI never actuates without human approval" is enforced:
 - owners and agents may *request* an action (it lands in awaiting_approval);
 - only a person with role owner may approve or deny; an agent always gets 403 permission_denied;
 - nothing reaches the executor until an approval has moved the action to accepted;
+- a standing approval the owner set in advance (§12.17, automation/policies.py) may accept a
+  matching read or write request; it is recorded as approved_by policy:<id>@<revision>;
 - an app.install is approved only for an app with a passing scan newer than 7 days (§10.3);
 - an app that declares spec.agent gets its own agent principal at install, revoked at removal
   (§11.2), so the AI inside it can request actions but, like every agent, never approve them;
@@ -104,6 +106,22 @@ class PlanRequest(BaseModel):
         return self
 
 
+def _never_by_policy(a: Action) -> bool:
+    """True unless the §12.3 risk class of this request lets a standing approval accept it."""
+    from .automation import registry  # imported late: the registry imports ActionType from here
+
+    return registry.policy_may_cover(a.type, a.params) is not None
+
+
+@dataclass(frozen=True)
+class StandingGrant:
+    """A standing approval (contract §12.17) covering one request; built by the automation module."""
+
+    principal: Principal  # kind "policy", id "policy:<id>@<revision>"
+    audit: dict  # added to the approval's audit lines (approved_via, policy, uses, created_by)
+    release: Callable[[], None]  # gives the reserved use back when the approval does not go through
+
+
 @dataclass(frozen=True)
 class FeatureAction:
     """An action type owned by a feature module (contract §12.5), registered with register_type.
@@ -165,6 +183,8 @@ class ActionService:
         # Contract §12.1 / H-14: most actions one non-owner requester may have awaiting approval.
         # 0 = no cap. Set from the limits settings section (guard.py).
         self.max_pending_per_requester = 10
+        # Contract §12.17: checked right after a request is filed; the first grant accepts it.
+        self.standing_approvals: list[Callable[[Action], StandingGrant | None]] = []
 
     def register_type(self, action_type: str, spec: FeatureAction) -> None:
         if action_type in APP_CLAIMS or action_type in self.feature_types:
@@ -340,7 +360,44 @@ class ActionService:
         )
         moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
         self.audit.append("action.awaiting_approval", None, stored.id, {})
-        return (moved or stored).to_json(), True
+        action = moved or stored
+        return self._standing_approve(action) or action.to_json(), True
+
+    def _standing_approve(self, a: Action) -> dict | None:
+        """Accept a fresh request under an owner-set standing approval, or leave it for a person.
+
+        The risk ceiling is checked here as well as in the policy module, so no hook can make a
+        policy accept a sensitive, destructive or actuate request (docs/leap/core/AUTOMATION.md §4).
+        """
+        if not self.standing_approvals or _never_by_policy(a):
+            return None
+        for decide in self.standing_approvals:
+            try:
+                grant = decide(a)
+            except Exception:  # a broken policy store must not approve, nor fail the filed request
+                log.exception("standing approval check failed")
+                continue
+            if grant is None:
+                continue
+            try:
+                return self._audited(
+                    grant.principal, "approve action", a.id, {},
+                    lambda: self._approve(grant.principal, a.id, standing=grant.audit),
+                )
+            except ApiError:  # e.g. a stale precondition: the action stays awaiting_approval
+                grant.release()
+                return None
+            except Exception:  # the request is filed: never fail it; give the use back unless accepted
+                log.exception("standing approval failed")
+                try:
+                    now = self._get(a.id)
+                except Exception:
+                    return None
+                if now.state == "awaiting_approval":
+                    grant.release()
+                    return None
+                return now.to_json()
+        return None
 
     def _check_pending_cap(self, principal: Principal) -> None:
         cap = self.max_pending_per_requester
@@ -383,9 +440,10 @@ class ActionService:
         return moved.to_json()
 
     def _approve(
-        self, principal: Principal, action_id: str, plan_sha256: str | None = None, strict: bool = False
+        self, principal: Principal, action_id: str, plan_sha256: str | None = None, strict: bool = False,
+        standing: dict | None = None,
     ) -> dict:
-        if not principal.is_owner:
+        if standing is None and not principal.is_owner:
             raise self._deny(principal, "approve actions", action_id)
         a = self.expire_if_due(self._get(action_id))
         if a.state == "expired":
@@ -393,7 +451,7 @@ class ActionService:
         if a.state != "awaiting_approval":
             raise ApiError(409, "conflict", f"action is {a.state}, not awaiting_approval")
         if a.type in self.feature_types:
-            return self._approve_feature(principal, a, self.feature_types[a.type])
+            return self._approve_feature(principal, a, self.feature_types[a.type], standing)
 
         # Check current conditions again: the world may have changed since the request. The claim
         # on the app is made atomically with "accepted", so two actions for one app cannot both
@@ -440,7 +498,7 @@ class ActionService:
         if outcome == "stale":
             problem = self._precondition(a.type, app_id)[1] or f"app {app_id!r} changed state concurrently"
             raise ApiError(409, "stale_precondition", problem)
-        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id}
+        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id, **(standing or {})}
         # Contract §12.4: an approval that named no plan fingerprint is allowed for old clients, but recorded.
         extra = {"plan_unchecked": True} if plan_sha256 is None and a.plan_sha256 is not None else {}
         self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params, **ids, **extra})
@@ -709,7 +767,9 @@ class ActionService:
 
         return self._audited(principal, f"request {action_type}", None, data, create)
 
-    def _approve_feature(self, principal: Principal, a: Action, spec: FeatureAction) -> dict:
+    def _approve_feature(
+        self, principal: Principal, a: Action, spec: FeatureAction, standing: dict | None = None
+    ) -> dict:
         problem = spec.check(a) if spec.check else None
         if problem:
             raise ApiError(409, "stale_precondition", problem)
@@ -719,7 +779,7 @@ class ActionService:
         )
         if accepted is None:
             raise ApiError(409, "conflict", "action was decided concurrently")
-        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id}
+        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id, **(standing or {})}
         self.audit.append("action.approved", principal.as_dict(), a.id,
                           {"type": a.type, "params": a.params, "risk": spec.risk, **ids})
         if self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock()) is None:
