@@ -32,6 +32,7 @@ from .policy import SandboxSettings
 from .routers import Register
 from .routers import actions as actions_routes
 from .routers import apps as apps_routes
+from .routers import appstore as appstore_routes
 from .routers import backups as backups_routes
 from .routers import databases as databases_routes
 from .routers import audit as audit_routes
@@ -49,6 +50,8 @@ from .routers import nodes as nodes_routes
 from .routers import photos as photos_routes
 from .routers import onboarding as onboarding_routes
 from .routers import notifications as notifications_routes
+from .routers import override as override_routes
+from .routers import secrets as secrets_routes
 from .routers import static as static_routes
 from .routers import storage as storage_routes
 from .routers.static import API_EXACT, API_TREES, is_api_path
@@ -64,8 +67,11 @@ ROUTERS: list[Register] = [
     instance_routes.register,
     nodes_routes.register,
     apps_routes.register,
+    appstore_routes.register,
     mcp_routes.register,
     actions_routes.register,
+    secrets_routes.register,
+    override_routes.register,
     photos_routes.register,
     databases_routes.register,  # before backups, which dumps and restores its databases
     backups_routes.register,
@@ -129,7 +135,6 @@ def create_app(
         repo, catalog, executor, audit, clock, gateway_url=gateway_url, require_scan=not skip_scan,
         credentials=CredentialStore(db, settings.audit_path.parent / "credentials.key"),
     )
-    actions.reconcile_interrupted()  # finish what a crashed or killed process left mid-dispatch
     gw = Gateway(
         settings=settings, clock=clock, tokens=tokens, registry=registry, bus=bus, audit=audit,
         events=EventHub(audit, clock, publish=bus.publish_threadsafe, instance_id=settings.node_id),
@@ -183,4 +188,7 @@ def create_app(
 
     for register in ROUTERS:
         register(app, gw)
+    # Finish what a crashed or killed process left mid-dispatch; after the routers, so the action
+    # types and app claims features registered are known.
+    actions.reconcile_interrupted()
     return app

@@ -76,6 +76,11 @@ def render(app_dir: Path, objects: list[dict] | None = None) -> str:
     if agent and agent.get("principal"):
         rows.append(("Agent principal", f"yes: the gateway creates `agent:{meta['id']}` and Secret "
                                         f"`{agent.get('secret')}` at install (contract §11.2)"))
+    for sec in spec.get("secrets") or []:
+        keys = ", ".join(f"`{k['key']}`" + (" (required)" if k.get("required") else "")
+                         + (" (generated)" if k.get("generate") else "") for k in sec.get("keys") or [])
+        rows.append((f"Secret `{sec['name']}`", f"{keys}: entered in the install approval or generated "
+                                                 "by the box, stored encrypted, never shown again"))
 
     out = [HEADER, f"# {meta['name']}\n", f"{meta['description']}\n", "| | |", "|---|---|"]
     out += [f"| {k} | {v} |" for k, v in rows]

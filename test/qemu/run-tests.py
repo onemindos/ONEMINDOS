@@ -4,13 +4,16 @@
 research-output/evidence/lab/rauc-1152/scripts/run-tests.py, parameterised by board.
 Criteria: test/qemu/CRITERIA.md (pre-registered; never edited to make a result pass).
 
-Boots the board's test disk under QEMU with user-mode networking (restrict=on: no route out) and
-an i6300esb watchdog, drives the serial console, runs T1..T11 (+ TC1 on cloud boards).
+Boots the board's test disk under QEMU with user-mode networking (restrict=on: no route out; one
+forwarded port to the guest's :8080 for the off-box check) and an i6300esb watchdog, drives the
+serial console, runs T1..T11 (+ TC1 on cloud boards), then TD1..TD3 (test/qemu/CRITERIA-DATAFAIL.md)
+when --upto is T5 or later.
 Power cut = SIGKILL of the QEMU process. Runs in the tools container (QEMU + firmware pinned):
 
   python3 -I run-tests.py --board x86_64-efi --fixtures DIR --log serial.log [--upto T5] [--results r.json]
 """
 import argparse, importlib.util, json, os, platform, re, shutil, subprocess, sys, threading, time
+import urllib.error, urllib.request
 
 _ff = importlib.util.spec_from_file_location("failfast", os.path.join(os.path.dirname(os.path.abspath(__file__)), "failfast.py"))
 failfast = importlib.util.module_from_spec(_ff)
@@ -21,6 +24,10 @@ GATE = r"HEALTH-GATE: \S+ RESULT (\S+) slot=(\w) version=(\S+)([^\n]*)"
 ENV = "grub-editenv /boot/efi/EFI/BOOT/grubenv list"
 B = "/run/onemind-test/bundles"
 ORDER = ["T1", "TC1", "T2", "T11", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10"]
+# Data disk failure (CRITERIA-DATAFAIL.md): the GPT name the box mounts /data by, and the renamed one.
+DATA_LABEL, DETACHED = "onemind-data", "onemind-data-detached"
+RECOV = r"ONEMIND-RECOVERY: entered slot=(\w) version=(\S+) reason=(\S+) decision=(\S+)"
+FWD = int(os.environ.get("ONEMIND_QEMU_FWD_PORT", "18080"))   # host 127.0.0.1:FWD -> guest :8080
 
 BOARDS = {  # QEMU settings per board (CRITERIA.md §3 item 6)
     "x86_64-efi": dict(qemu="qemu-system-x86_64", machine="q35", arch="x86_64", console="ttyS0",
@@ -69,7 +76,7 @@ class VM:
         c = self.cfg
         cmd = [c["qemu"], "-machine", c["machine"], "-accel", self.accel, "-cpu", self.cpu,
                "-smp", "4", "-m", "3072", "-nodefaults", "-display", "none", "-vga", "none",
-               "-nic", "user,model=virtio-net-pci,restrict=on",
+               "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{FWD}-:8080",
                "-device", "i6300esb", "-action", "watchdog=reset"]
         if c["code"]:
             cmd += ["-drive", f"if=pflash,format=raw,readonly=on,file={c['code']}",
@@ -195,6 +202,141 @@ def update_and_reboot(vm, bundle):
     seg = vm.here()
     vm.send("systemctl reboot")
     return rc, seg
+
+
+def data_partition(fx, name):
+    out = subprocess.run(["sgdisk", "-p", f"{fx}/disk.img"], capture_output=True, text=True, check=True).stdout
+    for line in out.splitlines():
+        m = re.match(r"\s*(\d+)\s+\d+\s+\d+\s.*\s(\S+)\s*$", line)
+        if m and m.group(2) == name:
+            return m.group(1)
+    raise RuntimeError(f"no GPT partition named {name} in {fx}/disk.img")
+
+
+def set_data(vm, attached):
+    """Detach or restore the data disk: rename its GPT partition (QEMU must be stopped)."""
+    frm, to = (DETACHED, DATA_LABEL) if attached else (DATA_LABEL, DETACHED)
+    n = data_partition(vm.fx, frm)
+    subprocess.run(["sgdisk", "-c", f"{n}:{to}", f"{vm.fx}/disk.img"], check=True, capture_output=True)
+    vm.mark(f"DATA DISK {'RESTORED' if attached else 'DETACHED'}: GPT partition {n} {frm} -> {to}")
+
+
+def host_get(path):
+    """The off-box client: the host, through QEMU's forwarded port."""
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{FWD}{path}", timeout=10) as r:
+            return r.status, r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")
+    except OSError as e:
+        return None, str(e)
+
+
+def tag(out, name):
+    """Value of a NAME=value line the guest printed (the echoed command shows NAME=$(...), never a value)."""
+    vals = re.findall(rf"^{re.escape(name)}=([^\s$]*)", out, re.M)
+    real = [v for v in vals if v]
+    return real[-1] if real else (vals[-1] if vals else None)
+
+
+def recovery_check(vm, full=True):
+    """One recovery boot: the console line, then (full) the recovery state and reachability (§1)."""
+    m = vm.expect(RECOV, 600)
+    slot, ver, reason, decision = m.groups()
+    vm.shell_ready()
+    d = {"slot": slot, "version": ver, "reason": reason, "decision": decision}
+    if not full:
+        return d
+    _, o = vm.run("for u in onemind-recovery.target emergency.target rescue.target; do echo \"ACT_${u%%.*}=$(systemctl is-active $u)\"; done; "
+                  "for u in onemind-health-gate k3s; do echo \"RAN_$u=$(systemctl show -p InactiveExitTimestampMonotonic --value $u.service)\"; done; "
+                  "echo \"IP=$(ip -4 -o addr show scope global | awk '{print $4}' | cut -d/ -f1 | head -n1)\"")
+    d["recovery_active"] = tag(o, "ACT_onemind-recovery") == "active"
+    d["no_emergency"] = tag(o, "ACT_emergency") != "active" and tag(o, "ACT_rescue") != "active"
+    d["gate_k3s_never_started"] = tag(o, "RAN_onemind-health-gate") == "0" and tag(o, "RAN_k3s") == "0"
+    ip = tag(o, "IP") or ""
+    d["ip"] = bool(ip)
+    _, o = vm.run(f"for i in $(seq 60); do c=$(curl -s -o /dev/null -w '%{{http_code}}' http://{ip}:8080/); [ \"$c\" = 503 ] && break; sleep 2; done; "
+                  f"echo \"CODE=$c\"; echo \"HITS=$(curl -s http://{ip}:8080/ | grep -c 'data disk')\"", 300)
+    d["guest_page"] = tag(o, "CODE") == "503" and (tag(o, "HITS") or "0") != "0"
+
+    def host_ok():
+        code, body = host_get("/")
+        jcode, js = host_get("/status.json")
+        try:
+            state = json.loads(js).get("state")
+        except ValueError:
+            state = None
+        return code == 503 and "data disk" in body and jcode == 503 and state == "recovery"
+    d["host_page"] = host_ok()
+    time.sleep(60)
+    d["host_page_after_60s"] = host_ok()
+    rc, _ = vm.run("true", 60)
+    d["shell_after_60s"] = rc == 0
+    _, o = vm.run(f"echo \"NOTE=$(grep -c ' slot={slot} version={ver} ' /boot/efi/onemind/data-failed)\"; "
+                  f"echo \"MARKER=$(cat /boot/efi/onemind/pending 2>/dev/null | tr ' ' :)\"")
+    d["esp_note"] = (tag(o, "NOTE") or "0") != "0"
+    d["esp_marker"] = tag(o, "MARKER") or ""
+    d["env"] = envkv(vm.run(ENV)[1])
+    return d
+
+
+def reachable(d):
+    return all(d[k] for k in ("recovery_active", "no_emergency", "gate_k3s_never_started", "ip",
+                              "guest_page", "host_page", "host_page_after_60s", "shell_after_60s"))
+
+
+def other(slot):
+    return "B" if slot == "A" else "A"
+
+
+def datafail(vm):
+    """TD1-TD3 (CRITERIA-DATAFAIL.md), from whatever committed state the earlier tests left."""
+    _, o = vm.run("echo \"SLOT=$(sed -n 's/.*rauc\\.slot=\\([AB]\\).*/\\1/p' /proc/cmdline)\"; . /usr/lib/os-release; echo \"VER=$ONEMIND_VERSION\"")
+    S, V = tag(o, "SLOT"), tag(o, "VER")
+
+    vm.mark(f"TD1 data disk detached, committed slot {S} v{V}")
+    vm.poweroff(); set_data(vm, False); vm.restart("TD1 boot with the data disk detached")
+    d = recovery_check(vm)
+    vm.poweroff(); set_data(vm, True); vm.restart("TD1 boot with the data disk restored")
+    g = vm.wait_gate(); vm.shell_ready()
+    _, o = vm.run(f"echo \"ESPNOTE=$(ls /boot/efi/onemind/data-failed 2>/dev/null | wc -l)\"; "
+                  f"echo \"MOVED=$(grep -c ' slot={S} version={V} decision=committed ' /data/onemind/data-failures.log)\"")
+    moved = tag(o, "ESPNOTE") == "0" and (tag(o, "MOVED") or "0") != "0"
+    record("TD1", d["slot"] == S and d["decision"] == "committed" and d["reason"] == "missing" and reachable(d)
+           and d["esp_note"] and f"{S}_OK=1" in d["env"] and f"{S}_TRY=0" in d["env"]
+           and g == ("committed-boot", S, V) and moved,
+           f"recovery={ {k: v for k, v in d.items() if k != 'env'} } env={d['env']} restored={g} note_moved={moved}")
+
+    T = other(S)
+    vm.mark(f"TD2 good -> {T}, data disk detached for the trial boot")
+    rc, _ = install(vm, "good.raucb")
+    vm.poweroff(); set_data(vm, False); vm.restart("TD2 trial boot with the data disk detached")
+    d = recovery_check(vm)
+    vm.poweroff(); set_data(vm, True); vm.restart("TD2 trial boot with the data disk restored")
+    g = vm.wait_gate(); vm.shell_ready()
+    _, o = vm.run("echo \"BAD2=$(cat /data/onemind/bad-releases 2>/dev/null | grep -c 'version=2 ')\"")
+    record("TD2", rc == 0 and d["slot"] == T and d["decision"] == "trial" and reachable(d) and f"{T}_OK=1" in d["env"]
+           and d["esp_marker"] == f"{T}:2" and g == ("mark-good", T, "2") and tag(o, "BAD2") == "0",
+           f"rc={rc} recovery={ {k: v for k, v in d.items() if k != 'env'} } env={d['env']} restored={g} bad_v2_lines={tag(o, 'BAD2')}")
+
+    T2, O = other(T), T
+    vm.mark(f"TD3 good -> {T2}, data disk detached for the whole trial")
+    rc, _ = install(vm, "good.raucb")
+    vm.poweroff(); set_data(vm, False); vm.restart("TD3 trial boots with the data disk detached")
+    seen = []
+    for i in range(4):
+        d = recovery_check(vm, full=False)
+        seen.append((d["slot"], d["decision"]))
+        if i < 3:
+            vm.send("systemctl reboot")
+    vm.poweroff(); set_data(vm, True); vm.restart("TD3 boot with the data disk restored")
+    g = vm.wait_gate(); line = vm.last_gate; vm.shell_ready()
+    _, o = vm.run("echo \"LAST_BAD=$(tail -n1 /data/onemind/bad-releases | cut -d' ' -f2- | tr ' ' :)\"")
+    want = [(T2, "trial")] * 3 + [(O, "fell-back")]
+    verdict = re.search(r"verdict=(\S+)", line)
+    record("TD3", rc == 0 and seen == want and g == ("fell-back", O, "2") and "verdict=environment-bad" in line
+           and tag(o, "LAST_BAD") == "version=2:verdict=environment-bad",
+           f"rc={rc} boots={seen} restored={g} verdict={verdict.group(1) if verdict else None} last_bad={tag(o, 'LAST_BAD')}")
 
 
 def main():
@@ -367,6 +509,9 @@ def main():
             g2 = vm.wait_gate(); vm.shell_ready(); state(vm, "T10r-end")
             tgt = "B" if g[1] == "A" else "A"
             record("T10r", rc2 == 0 and g2 == ("mark-good", tgt, "2"), f"recovery install rc={rc2} result={g2}")
+
+        if upto >= ORDER.index("T5"):
+            datafail(vm)
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")
         finish(vm, a, env_info, t0, logf, alive=False)

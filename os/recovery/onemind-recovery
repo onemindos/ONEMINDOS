@@ -1,0 +1,104 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# OneMind recovery mode (os/recovery/README.md §2 step 5, §3, §4). Runs once per recovery boot:
+#   1. note the failure on the ESP (the gate reads it when /data works again)
+#   2. decide what to do with the update slots, from the ESP copy of RAUC's trial marker
+#   3. raise the alert (console, login banner, journal) and render the status page
+# Never touches the data disk. Console lines start with "ONEMIND-RECOVERY:" (test/qemu reads them).
+set -u
+RUN=/run/onemind-recovery
+ESP_STATE=${ONEMIND_ESP_STATE:-/boot/efi/onemind}
+MSGID=8a1f4c2e6b0d4f7a9c3e5b1d2f4a6c80
+mkdir -p "$RUN"; chmod 0755 "$RUN"
+REASON=unknown; DETAIL="the data partition could not be used"; SOURCE=unknown; SINCE=$(date -u +%FT%TZ)
+# shellcheck disable=SC1091
+[ -r "$RUN/status" ] && . "$RUN/status"
+SLOT=$(sed -n 's/.*rauc\.slot=\([A-Z]\).*/\1/p' /proc/cmdline)
+VER=$(. /usr/lib/os-release; echo "${ONEMIND_VERSION:-unknown}")
+BOOT_ID=$(cat /proc/sys/kernel/random/boot_id)
+log() { echo "ONEMIND-RECOVERY: $*" | tee /dev/console; }
+
+# 2a. Trial or not? Only the ESP copy of the marker is readable without /data.
+P=""; PV=""
+[ -s "$ESP_STATE/pending" ] && read -r P PV < "$ESP_STATE/pending"
+if [ -z "$P" ]; then DECISION=committed; elif [ "$P" = "$SLOT" ]; then DECISION=trial; else DECISION=fell-back; fi
+log "entered slot=${SLOT:-?} version=$VER reason=$REASON decision=$DECISION"
+
+# 1. The note. One line per recovery boot; the gate moves them to /data/onemind/data-failures.log.
+if mkdir -p "$ESP_STATE" && echo "$(date -u +%FT%TZ) slot=${SLOT:-?} version=$VER decision=$DECISION reason=$REASON boot_id=$BOOT_ID" >> "$ESP_STATE/data-failed"; then
+  sync "$ESP_STATE/data-failed" 2>/dev/null || sync
+else
+  log "WARNING: could not write the note on the ESP ($ESP_STATE)"
+fi
+
+# 2b. RAUC refuses to start without its data-directory (/data/rauc); give it one in /run, this boot only.
+mkdir -p "$RUN/rauc" /run/systemd/system/rauc.service.d
+sed 's#^data-directory=.*#data-directory=/run/onemind-recovery/rauc#' /etc/rauc/system.conf > "$RUN/rauc/system.conf"
+printf '[Service]\nExecStart=\nExecStart=/usr/bin/rauc --conf=%s --mount=/run/rauc/mnt service\n' "$RUN/rauc/system.conf" \
+  > /run/systemd/system/rauc.service.d/50-onemind-recovery.conf
+systemctl daemon-reload
+case $DECISION in
+  committed|fell-back)
+    # Same as the gate's committed mode: reset this (already committed) slot's try counter, so restarts
+    # with a dead disk never walk the box back to the other, older slot. The other slot is not touched.
+    if e=$(rauc status mark-good booted 2>&1); then
+      SLOTMSG="slot $SLOT kept (try counter reset; it was committed before)"
+    else
+      SLOTMSG="slot $SLOT: could not reset the try counter: $(echo "$e" | tail -n1)"
+    fi
+    [ "$DECISION" = fell-back ] && SLOTMSG="$SLOTMSG; the update to slot $P (v$PV) is left undecided until /data works" ;;
+  trial)
+    SLOTMSG="trial of version $VER on slot $SLOT left undecided: the health gate decides when /data works again" ;;
+esac
+log "slots: $SLOTMSG"
+
+# 3a. The alert: journal (crit, fixed MESSAGE_ID) and the login banner. No push: README §5 FC-R1.
+logger --journald <<J
+MESSAGE_ID=$MSGID
+PRIORITY=2
+SYSLOG_IDENTIFIER=onemind-recovery
+ONEMIND_REASON=$REASON
+ONEMIND_SLOT=$SLOT
+ONEMIND_SOURCE=$SOURCE
+ONEMIND_VERSION=$VER
+MESSAGE=OneMind recovery mode: the data partition is not usable ($REASON: $DETAIL). Apps and data are offline. Nothing was formatted or repaired.
+J
+mkdir -p /run/issue.d
+printf '\n  OneMind recovery mode: the data disk could not be used (%s).\n  Apps and data are offline; nothing was erased. Status: http://\\4:8080/\n\n' "$REASON" \
+  > /run/issue.d/50-onemind-recovery.issue
+
+# 3b. The status page (static; onemind-recovery-respond serves it).
+case $REASON in
+  missing)     WHAT="The data disk was not found. It may be unplugged, without power, or dead." ;;
+  unmountable) WHAT="The data disk is there, but its filesystem could not be checked or opened." ;;
+  read-only)   WHAT="The data disk opened read-only, which usually means the system found errors on it." ;;
+  unwritable)  WHAT="The data disk opened, but a test write to it failed." ;;
+  layout)      WHAT="The data disk opened, but the folders OneMind keeps on it could not be connected." ;;
+  *)           WHAT="The data disk could not be used." ;;
+esac
+cat > "$RUN/index.html.new" <<H
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OneMind: recovery mode</title>
+<style>
+:root{--bg:#f6f6f4;--fg:#1b1b1b;--muted:#5b5b5b;--card:#fff;--line:#ddd;--warn:#9a3b00}
+@media (prefers-color-scheme:dark){:root{--bg:#141414;--fg:#ececec;--muted:#a8a8a8;--card:#1e1e1e;--line:#333;--warn:#ffb070}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+main{max-width:40rem;margin:0 auto;padding:2rem 1rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:1.25rem 1.5rem}
+h1{font-size:1.4rem;margin:0 0 .5rem;color:var(--warn)} dt{color:var(--muted);font-size:.85rem} dd{margin:0 0 .5rem}
+small{color:var(--muted)}
+</style></head><body><main><div class="card">
+<h1>OneMind is in recovery mode: data disk problem</h1>
+<p>$WHAT</p>
+<p>Your apps and files are offline while the data disk cannot be used. <strong>Nothing has been erased.</strong> OneMind never formats or repairs the data disk by itself.</p>
+<p><strong>What to do:</strong> check that the disk is connected and powered, then restart the box. If it comes back here, the disk may be damaged: do not format it. Restore from your backup onto a new disk, or ask for help.</p>
+<dl><dt>Reason</dt><dd>$REASON</dd><dt>Since</dt><dd>$SINCE</dd><dt>OneMind OS</dt><dd>version $VER, slot ${SLOT:-?}</dd></dl>
+<small>The box keeps its network, so you can reach this page at onemind.local:8080.</small>
+</div></main></body></html>
+H
+printf '{"state": "recovery", "reason": "%s", "since": "%s", "version": "%s", "slot": "%s", "decision": "%s"}\n' \
+  "$REASON" "$SINCE" "$VER" "${SLOT:-?}" "$DECISION" > "$RUN/status.json.new"
+chmod 0644 "$RUN/index.html.new" "$RUN/status.json.new"
+mv "$RUN/index.html.new" "$RUN/index.html"; mv "$RUN/status.json.new" "$RUN/status.json"
+log "ready: status page on :8080, no apps or AI running"

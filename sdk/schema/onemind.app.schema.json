@@ -603,6 +603,104 @@
             }
           }
         },
+        "secrets": {
+          "description": "Secrets the app needs (contract 12.18; docs/leap/core/SECRETS.md). Never values: the owner enters owner keys in the install approval, the box generates keys with generate: true, and the gateway writes each as a Kubernetes Secret in app-<id>.",
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "keys"
+            ],
+            "properties": {
+              "name": {
+                "description": "Secret name (DNS-1123 subdomain), unique in the app and not the spec.agent Secret.",
+                "type": "string",
+                "maxLength": 253,
+                "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "keys": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 32,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "key"
+                  ],
+                  "properties": {
+                    "key": {
+                      "description": "Data key in the Secret (often the environment variable name).",
+                      "type": "string",
+                      "pattern": "^[-._a-zA-Z0-9]{1,253}$"
+                    },
+                    "kind": {
+                      "description": "How the form shows and checks it; default password.",
+                      "enum": [
+                        "api-key",
+                        "password",
+                        "token",
+                        "url"
+                      ]
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 500
+                    },
+                    "required": {
+                      "description": "Owner-entered and needed: the install cannot be approved without it.",
+                      "type": "boolean"
+                    },
+                    "generate": {
+                      "description": "The box creates a random value at install and can rotate it; never entered.",
+                      "type": "boolean"
+                    }
+                  },
+                  "not": {
+                    "description": "A generated key is always set, so it is never also required; a url is never generated.",
+                    "anyOf": [
+                      {
+                        "required": [
+                          "generate",
+                          "required"
+                        ],
+                        "properties": {
+                          "generate": {
+                            "const": true
+                          },
+                          "required": {
+                            "const": true
+                          }
+                        }
+                      },
+                      {
+                        "required": [
+                          "generate",
+                          "kind"
+                        ],
+                        "properties": {
+                          "generate": {
+                            "const": true
+                          },
+                          "kind": {
+                            "const": "url"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
         "database": {
           "description": "A database on the hub's shared PostgreSQL (DB-SHARED-1): at install the gateway creates database and role app_<id> and writes Secret <secret> in app-<id> with PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD and DATABASE_URL. Dumps are part of the app's backups.",
           "type": "object",

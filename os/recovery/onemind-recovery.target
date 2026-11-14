@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind recovery mode (os/recovery/README.md): reached only when onemind-data-check.service finds
+# the data partition unusable (OnFailure= isolate). Network, mDNS, the console and the status page;
+# no k3s, gateway, health gate, apps or AI.
+[Unit]
+Description=OneMind recovery mode (the data partition is not usable)
+Requires=basic.target
+Wants=systemd-networkd.service systemd-resolved.service avahi-daemon.service getty.target onemind-recovery.service onemind-recovery-web.service
+After=basic.target
+Conflicts=rescue.service rescue.target emergency.service emergency.target
+AllowIsolate=yes

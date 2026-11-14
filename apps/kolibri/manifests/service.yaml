@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+# 8080 is the Kolibri web app. 8081 is its separate zip-content origin, which serves interactive
+# content (HTML5 apps, H5P, Perseus exercises) sandboxed on a second port (docker/README.md, "Ports").
+apiVersion: v1
+kind: Service
+metadata:
+  name: kolibri
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kolibri
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+    - name: zip-content
+      port: 8081
+      targetPort: zip-content
+      protocol: TCP
