@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+# Test fixture: an app that declares owner-entered and generated secrets (spec.secrets).
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: vault-like
+  name: Vault-like app
+  version: "0.0.1"
+  description: Test app with declared secrets
+  category: security
+  icon: icon.svg
+  license: MIT
+  source: https://example.com/vault-like
+  tier: community
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 64}
+  web: {port: 8080}
+  manifests: manifests/
+  agent: {principal: true, secret: vault-like-onemind}
+  secrets:
+    - name: vault-like-credentials
+      description: Keys the app needs
+      keys:
+        - {key: PROVIDER_API_KEY, kind: api-key, description: Model provider key, required: true}
+        - {key: PROVIDER_BASE_URL, kind: url, description: Custom endpoint}
+        - {key: ADMIN_PASSWORD, kind: password, description: Optional admin password}
+    - name: vault-like-internal
+      keys:
+        - {key: SESSION_SECRET, kind: token, generate: true, description: Signs sessions}

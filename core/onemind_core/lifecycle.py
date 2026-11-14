@@ -210,6 +210,9 @@ class ExecContext:
     params: dict = field(default_factory=dict)
     settings: dict = field(default_factory=dict)  # settings to apply (configure: new; others: stored)
     credentials: AppCredentialGrant | None = None
+    # The app's declared secrets with their current values (executors.AppSecret; appsecrets/).
+    # Never shown in a repr, step, result or log line.
+    secrets: tuple = field(default=(), repr=False)
 
 
 # ---- sealed credentials (PD-07) ----------------------------------------------------------

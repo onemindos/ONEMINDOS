@@ -18,7 +18,7 @@ NOT_MOUNTED_YET = {
     "mesh": "CORE-NET-8 (mesh coordinator router)",
     "proxy": "CORE-NET-8 (app reverse proxy middleware)",
 }
-ENTRY_POINTS = {"__init__", "__main__", "openapi"}  # run by `python -m` or imported as a package
+ENTRY_POINTS = {"__init__", "__main__", "openapi", "cli"}  # run by `python -m`, a console script (pyproject [project.scripts]), or imported as a package
 
 
 def _modules() -> dict[str, str]:

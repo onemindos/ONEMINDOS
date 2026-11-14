@@ -2190,6 +2190,28 @@
         "title": "Options",
         "type": "object"
       },
+      "OverrideInput": {
+        "additionalProperties": false,
+        "description": "F-7 owner override (override.py): why, and the app id typed as confirmation.",
+        "properties": {
+          "confirm": {
+            "maxLength": 200,
+            "title": "Confirm",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "confirm"
+        ],
+        "title": "OverrideInput",
+        "type": "object"
+      },
       "PasskeyRegisterBody": {
         "properties": {
           "credential": {
@@ -3217,6 +3239,108 @@
         "title": "ScanSummary",
         "type": "object"
       },
+      "SealedInput": {
+        "additionalProperties": false,
+        "description": "`{\"alg\": \"X25519-AES256GCM\", \"kid\"?, \"epk\", \"ct\"}`, encrypted to GET /v1/secrets/public-key.",
+        "properties": {
+          "alg": {
+            "maxLength": 40,
+            "title": "Alg",
+            "type": "string"
+          },
+          "ct": {
+            "maxLength": 131072,
+            "minLength": 1,
+            "title": "Ct",
+            "type": "string"
+          },
+          "epk": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Epk",
+            "type": "string"
+          },
+          "kid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kid"
+          }
+        },
+        "required": [
+          "alg",
+          "epk",
+          "ct"
+        ],
+        "title": "SealedInput",
+        "type": "object"
+      },
+      "SecretsChange": {
+        "additionalProperties": false,
+        "description": "POST /v1/apps/{id}/secrets: what to change. An empty body re-applies the current values.",
+        "properties": {
+          "clear": {
+            "description": "<secret>/<key> to unset",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Clear",
+            "type": "array"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "generate": {
+            "description": "<secret>/<key> to rotate",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Generate",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "sealed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SealedInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "SecretsChange",
+        "type": "object"
+      },
       "SendIn": {
         "additionalProperties": false,
         "properties": {
@@ -3829,8 +3953,18 @@
         "type": "object"
       },
       "onemind_core__routers__actions__ApproveBody": {
-        "description": "§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.",
+        "description": "§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.\n\nsealed: the app's secrets form for app.install (appsecrets/); override: the F-7 owner override.",
         "properties": {
+          "override": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OverrideInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "plan_sha256": {
             "anyOf": [
               {
@@ -3842,6 +3976,16 @@
               }
             ],
             "title": "Plan Sha256"
+          },
+          "sealed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SealedInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "webauthn": {
             "anyOf": [
@@ -5568,6 +5712,76 @@
         ]
       }
     },
+    "/v1/apps/{app_id}/owner-override": {
+      "get": {
+        "operationId": "apps.owner_override.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Describe",
+        "tags": [
+          "apps"
+        ]
+      }
+    },
     "/v1/apps/{app_id}/plan": {
       "get": {
         "description": "What `type` would do to this app, and the fingerprint (`plan_sha256`) an approval binds to.",
@@ -5658,6 +5872,184 @@
         "summary": "App Plan",
         "tags": [
           "apps"
+        ]
+      }
+    },
+    "/v1/apps/{app_id}/secrets": {
+      "get": {
+        "operationId": "apps.secrets.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Describe",
+        "tags": [
+          "secrets"
+        ]
+      },
+      "post": {
+        "operationId": "apps.secrets.change",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecretsChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Change",
+        "tags": [
+          "secrets"
         ]
       }
     },
@@ -14137,6 +14529,35 @@
         "summary": "Restore",
         "tags": [
           "restores"
+        ]
+      }
+    },
+    "/v1/secrets/public-key": {
+      "get": {
+        "operationId": "secrets.public_key",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Public Key",
+        "tags": [
+          "secrets"
         ]
       }
     },

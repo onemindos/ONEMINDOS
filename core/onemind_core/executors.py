@@ -8,6 +8,9 @@
   `kubectl apply -f -`; removal deletes the workloads and keeps the data volumes. For an app with `spec.agent.principal` it
   creates the agent Secret before the manifests (so the app's pods start with it) and deletes it
   first on removal.
+  The app's declared `spec.secrets` (values from the secret store, appsecrets/) are applied the
+  same way, server-side, before the manifests; `app.configure` re-applies them and rolls the
+  app's workloads.
 
 Outcome rules:
 - install sandbox refusal          -> failed, with `violations` in the result (kubectl never ran)
@@ -107,8 +110,46 @@ class AgentSecret:
         return json.dumps(doc)  # JSON is YAML; no quoting surprises in the token or URL
 
 
+@dataclass(frozen=True)
+class AppSecret:
+    """One declared `spec.secrets` Secret with its current values (DEPLOYMENTS.md §7).
+
+    The values never appear in a step, result, repr or log line: steps list the key names only,
+    and kubectl output is scrubbed of every value (raw and base64) before it is recorded.
+    """
+
+    name: str
+    data: dict[str, str] = field(default_factory=dict, repr=False)
+
+    def keys(self) -> list[str]:
+        return sorted(self.data)
+
+    def manifest(self, namespace: str, app_id: str) -> str:
+        doc = {
+            "apiVersion": "v1",
+            "kind": "Secret",
+            "type": "Opaque",
+            "metadata": {
+                "name": self.name,
+                "namespace": namespace,
+                "labels": {"onemind.io/app": app_id, "onemind.io/app-secret": "true"},
+            },
+            # Server-side apply with one field manager: a key this manager applied before and no
+            # longer sends (a cleared value) is removed from the Secret by the API server.
+            "data": {k: _b64(v) for k, v in sorted(self.data.items())},
+        }
+        return json.dumps(doc)
+
+
 def _b64(value: str) -> str:
     return base64.b64encode(value.encode()).decode()
+
+
+def _ssa(kubectl: str, ns: str) -> list[str]:
+    # Server-side apply: a client-side `kubectl apply` would copy the whole object, values
+    # included, into the kubectl.kubernetes.io/last-applied-configuration annotation, where tools
+    # that mask Secret data still show it in plain text.
+    return [kubectl, "apply", "--server-side", "--field-manager=onemind-gateway", "--force-conflicts", "-n", ns, "-f", "-"]
 
 
 class Executor:
@@ -138,6 +179,9 @@ class NoopExecutor(Executor):
             })
         if ctx.credentials is not None and action_type == "app.install":
             steps.append({"would": f"create Secret {ctx.credentials.secret_name} in {ns}", "keys": ["USERNAME", "PASSWORD"]})
+        if action_type in ("app.install", "app.configure"):
+            for sec in ctx.secrets:
+                steps.append({"would": f"apply Secret {sec.name} in {ns} (server-side)", "keys": sec.keys()})
         if action_type in ("app.install", "app.update", "app.start"):
             steps.append({"would": f"apply manifests of {app.id} in {ns}"})
             if action_type == "app.update":
@@ -147,7 +191,9 @@ class NoopExecutor(Executor):
         elif action_type == "app.restart":
             steps.append({"would": f"roll the workloads of {app.id} in {ns}"})
         elif action_type == "app.configure":
-            steps.append({"would": f"apply ConfigMap {SETTINGS_CONFIGMAP} ({len(ctx.settings)} settings) in {ns}, then roll the workloads"})
+            if ctx.settings:
+                steps.append({"would": f"apply ConfigMap {SETTINGS_CONFIGMAP} ({len(ctx.settings)} settings) in {ns}"})
+            steps.append({"would": f"roll the workloads of {app.id} in {ns}"})
         elif action_type == "app.remove":
             if agent is not None:
                 steps.append({"would": f"delete Secret {agent.name} in {ns}", "principal": agent.principal_id})
@@ -316,10 +362,12 @@ class KubernetesExecutor(Executor):
 
     # ---- running ------------------------------------------------------------------------------
     def _exec(self, argv: list[str], stdin: str | None, app: AppEntry, agent: AgentSecret | None,
-              steps: list[dict], *, keep_stdout: bool = True, retry_forbidden: bool = False):
+              steps: list[dict], *, keep_stdout: bool = True, retry_forbidden: bool = False,
+              secrets: Sequence[AppSecret] = ()):
         """Run one command. Returns (CompletedProcess, None) or (None, ExecResult to return)."""
         step = {"argv": _display(argv, app)}
         steps.append(step)
+        hidden = _sensitive(agent, secrets)
         attempts = 5 if retry_forbidden else 1
         for attempt in range(attempts):
             try:
@@ -329,7 +377,7 @@ class KubernetesExecutor(Executor):
                 return None, ExecResult("failed", f"{self.kubectl} not found on PATH", steps)
             except subprocess.TimeoutExpired as exc:
                 step["error"] = f"timeout after {self.timeout_s}s"
-                step["stderr"] = _scrub(_tail(exc.stderr), agent)
+                step["stderr"] = _tail(_scrub(exc.stderr, hidden))
                 return None, ExecResult("outcome_unknown", f"kubectl timed out after {self.timeout_s}s", steps)
             # A RoleBinding just created may take a moment to reach the API server's authorizer.
             if cp.returncode != 0 and attempt + 1 < attempts and "forbidden" in _tail(cp.stderr).lower():
@@ -337,8 +385,8 @@ class KubernetesExecutor(Executor):
                 continue
             break
         step["returncode"] = cp.returncode
-        step["stdout"] = _scrub(_tail(cp.stdout), agent) if keep_stdout else f"<{len(cp.stdout or '')} bytes>"
-        step["stderr"] = _scrub(_tail(cp.stderr), agent)
+        step["stdout"] = _tail(_scrub(cp.stdout, hidden)) if keep_stdout else f"<{len(cp.stdout or '')} bytes>"
+        step["stderr"] = _tail(_scrub(cp.stderr, hidden))
         if cp.returncode != 0:
             return None, ExecResult("failed", f"kubectl exited {cp.returncode}", steps)
         return cp, None
@@ -426,10 +474,17 @@ class KubernetesExecutor(Executor):
         ns = f"app-{app.id}"
         k = self.kubectl
         if action_type == "app.configure":
-            report_progress("writing settings", 20)
-            _, err = self._exec([k, "apply", "-n", ns, "-f", "-"], self.settings_doc(app, ctx.settings), app, None, steps)
-            if err is not None:
-                return err
+            # Secrets first, server-side (values on stdin only, scrubbed from recorded output).
+            for sec in ctx.secrets:
+                report_progress("writing secrets", 15)
+                _, err = self._exec(_ssa(k, ns), sec.manifest(ns, app.id), app, None, steps, secrets=ctx.secrets)
+                if err is not None:
+                    return err
+            if ctx.settings:  # none stored and none sent: a secrets-only change on a plain app
+                report_progress("writing settings", 20)
+                _, err = self._exec([k, "apply", "-n", ns, "-f", "-"], self.settings_doc(app, ctx.settings), app, None, steps, secrets=ctx.secrets)
+                if err is not None:
+                    return err
         report_progress("reading workloads", 30)
         work, err = self._workloads(app, steps)
         if err is not None:
@@ -446,7 +501,7 @@ class KubernetesExecutor(Executor):
             else:
                 cmds = [[k, "rollout", "restart", ref, "-n", ns]]
             for argv in cmds:
-                _, err = self._exec(argv, None, app, None, steps)
+                _, err = self._exec(argv, None, app, None, steps, secrets=ctx.secrets)
                 if err is not None:
                     return err
         if action_type != "app.stop" and work:
@@ -537,6 +592,8 @@ class KubernetesExecutor(Executor):
             if ctx.credentials is not None:  # same server-side apply as the agent Secret (no last-applied copy)
                 extra.append(([self.kubectl, "apply", "--server-side", "--field-manager=onemind-gateway",
                                "--force-conflicts", "-n", ns, "-f", "-"], self.credentials_doc(app, ctx.credentials)))
+            for sec in ctx.secrets:  # declared spec.secrets, server-side, before the manifests
+                extra.append((_ssa(self.kubectl, ns), sec.manifest(ns, app.id)))
             if ctx.settings:
                 extra.append(([self.kubectl, "apply", "-n", ns, "-f", "-"], self.settings_doc(app, ctx.settings)))
             commands = commands[:-1] + extra + commands[-1:]  # before the manifests, so pods start with them
@@ -544,7 +601,7 @@ class KubernetesExecutor(Executor):
         total = max(1, len(commands))
         for n, (argv, stdin) in enumerate(commands):
             report_progress(f"{action_type.split('.')[1]} step {n + 1} of {total}", 20 + int(75 * n / total))
-            _, err = self._exec(argv, stdin, app, agent, steps, retry_forbidden=bound)
+            _, err = self._exec(argv, stdin, app, agent, steps, retry_forbidden=bound, secrets=ctx.secrets)
             if err is not None:
                 err.plan = plan_info
                 return err
@@ -576,11 +633,23 @@ def _resolve(host: str) -> list[str]:
     return sorted({info[4][0].split("%", 1)[0] for info in infos})
 
 
-def _scrub(text: str, agent: AgentSecret | None) -> str:
-    # kubectl does not echo stringData, but an error message must never carry the token anyway.
-    if agent is not None and agent.token:
-        for form in (agent.token, _b64(agent.token)):
-            text = text.replace(form, "[redacted]")
+def _sensitive(agent: AgentSecret | None, secrets: Sequence[AppSecret]) -> list[str]:
+    values = [agent.token] if agent is not None and agent.token else []
+    values += [v for s in secrets for v in s.data.values() if v]
+    # Longest first, so a value that contains another is redacted whole.
+    return sorted({form for v in values for form in (v, _b64(v))}, key=len, reverse=True)
+
+
+def _scrub(text: str | bytes | None, hidden: Sequence[str]) -> str:
+    # kubectl does not echo Secret data, but an error message must never carry a value anyway.
+    # Scrub the whole output before _tail cuts it: a value cut at the tail's edge would no
+    # longer match and its end would be kept.
+    if text is None:
+        return ""
+    if isinstance(text, bytes):
+        text = text.decode("utf-8", "replace")
+    for form in hidden:
+        text = text.replace(form, "[redacted]")
     return text
 
 
