@@ -1,0 +1,4 @@
+NAME                   STATUS   ROLES           AGE   VERSION        INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                       KERNEL-VERSION                         CONTAINER-RUNTIME
+lima-omos-netp2-hub    Ready    control-plane   89s   v1.37.2+k3s1   100.64.0.1    <none>        Debian GNU/Linux 13 (trixie)   6.12.115+deb13.1-cloud-arm64 (arm64)   containerd://2.3.7-k3s1
+lima-omos-netp2-node   Ready    <none>          23s   v1.37.2+k3s1   100.64.0.2    <none>        Debian GNU/Linux 13 (trixie)   6.12.115+deb13.1-cloud-arm64 (arm64)   containerd://2.3.7-k3s1
+0

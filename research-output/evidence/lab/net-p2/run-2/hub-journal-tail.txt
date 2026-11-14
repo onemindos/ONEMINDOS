@@ -1,0 +1,118 @@
+Nov 12 05:53:59 lima-omos-netp2-hub systemd[1]: Started onemind-headscale.service - OneMind mesh coordinator (Headscale, embedded DERP).
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 WRN
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: WARN: The "ephemeral_node_inactivity_timeout" configuration key is deprecated. Please use "node.ephemeral.inactivity_timeout" instead. "ephemeral_node_inactivity_timeout" has been removed.
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 INF no private key file at path, creating... path=/var/lib/onemind-headscale/noise_private.key
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 INF Opening database database=sqlite3 path=/var/lib/onemind-headscale/db.sqlite
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 INF no private key file at path, creating... path=/var/lib/onemind-headscale/derp_server_private.key
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 INF starting headscale commit=c9cf210b8bc84d13177e18b91f555788a44b47b6 version=v0.29.7
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 INF Clients with a lower minimum version will be rejected minimum_version=v1.80
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 INF home/runner/work/headscale/headscale/hscontrol/derp/server/derp_server.go:144 > derp region: {RegionID:999 RegionCode:onemind-hub RegionName:OneMind hub Latitude:0 Longitude:0 Avoid:false NoMeasureNoHome:false Nodes:[0x6dcce16e120]}
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 INF home/runner/work/headscale/headscale/hscontrol/derp/server/derp_server.go:145 > derp nodes[0]: &{Name:999 RegionID:999 HostName:control.onemind.internal CertName: IPv4:192.0.2.4 IPv6: STUNPort:3478 STUNOnly:false DERPPort:8444 InsecureForTests:false STUNTestIP: CanPort80:false}
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 INF HA subnet router health probing enabled interval=10000 timeout=5000
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 INF stun server started at [::]:3478
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 INF enabling remote gRPC at 127.0.0.1:50443
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 INF listening and serving gRPC on: 127.0.0.1:50443
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 INF listening and serving HTTP on: 0.0.0.0:8444
+Nov 12 05:53:59 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:53:59-05:00 INF listening and serving debug and metrics on: 127.0.0.1:9091
+Nov 12 05:54:05 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:05-05:00 INF user created user.name=onemind-machines
+Nov 12 05:54:06 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:06-05:00 INF http request bytes=176 elapsed=0.100661 method=GET path=/key proto=HTTP/1.1 remote=127.0.0.1:52512 status=200
+Nov 12 05:54:07 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:07-05:00 INF http request bytes=254 elapsed=786.824291 method=POST path=/machine/register proto=HTTP/2.0 remote=127.0.0.1:52518 status=200
+Nov 12 05:54:07 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:07-05:00 INF http request bytes=0 elapsed=500.509646 method=POST path=/machine/map proto=HTTP/2.0 remote=127.0.0.1:52518 status=200
+Nov 12 05:54:08 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:08-05:00 INF node connected machine.key=[wKOMq] node.expired=false node.id=1 node.is_tagged=true node.key=[giZ/I] node.name=hub node.online=true node.tags=["tag:onemind-hub","tag:onemind-k3s"]
+Nov 12 05:54:08 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:08-05:00 INF home/runner/work/headscale/headscale/hscontrol/poll.go:293 > node has connected chan=0x6dccdf63e30 component=poll machine.key=[wKOMq] node.expired=false node.id=1 node.is_tagged=true node.key=[giZ/I] node.name=hub node.online=false node.tags=["tag:onemind-hub","tag:onemind-k3s"] omit_peers=false stream=true
+Nov 12 05:54:08 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:08-05:00 INF http request bytes=0 elapsed=416.490901 method=POST path=/machine/map proto=HTTP/2.0 remote=127.0.0.1:52518 status=200
+Nov 12 05:54:09 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:09-05:00 INF http request bytes=0 elapsed=500.544626 method=POST path=/machine/map proto=HTTP/2.0 remote=127.0.0.1:52518 status=200
+Nov 12 05:54:09 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:09-05:00 INF http request bytes=0 elapsed=499.85871 method=POST path=/machine/map proto=HTTP/2.0 remote=127.0.0.1:52518 status=200
+Nov 12 05:54:17 lima-omos-netp2-hub systemd[1]: Starting onemind-nats.service - OneMind hub NATS server (:4222)...
+Nov 12 05:54:17 lima-omos-netp2-hub onemindd[3513]: 100.64.0.1
+Nov 12 05:54:17 lima-omos-netp2-hub systemd[1]: Started onemind-nats.service - OneMind hub NATS server (:4222).
+Nov 12 05:54:18 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:54:18.011339 [INF] Starting nats-server
+Nov 12 05:54:18 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:54:18.011397 [INF]   Version:  2.15.2
+Nov 12 05:54:18 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:54:18.011400 [INF]   Git:      [5a815f1]
+Nov 12 05:54:18 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:54:18.011402 [INF]   Name:     hub
+Nov 12 05:54:18 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:54:18.011403 [INF]   ID:       NAZ67F3UUFERN64UP4R5XZOP2LFB7TKJLEGRG2NE5THOP4BPISBOAXCG
+Nov 12 05:54:18 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:54:18.011407 [WRN] Plaintext passwords detected, use nkeys or bcrypt
+Nov 12 05:54:18 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:54:18.011412 [INF] Using configuration file: /etc/onemind/nats.conf (sha256:<sha256-or-token>)
+Nov 12 05:54:18 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:54:18.013056 [INF] Starting http monitor on 127.0.0.1:8222
+Nov 12 05:54:18 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:54:18.013194 [INF] Listening for leafnode connections on 100.64.0.1:7422
+Nov 12 05:54:18 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:54:18.013310 [INF] Listening for client connections on 127.0.0.1:4222
+Nov 12 05:54:18 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:54:18.013314 [INF] Server is ready
+Nov 12 05:54:21 lima-omos-netp2-hub systemd[1]: Started onemind-gateway.service - OneMind Core gateway (HTTPS :443/:8443, local HTTP :8080).
+Nov 12 05:54:21 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:21-05:00 INF http request bytes=0 elapsed=272.93663 method=POST path=/machine/map proto=HTTP/2.0 remote=127.0.0.1:52518 status=200
+Nov 12 05:54:21 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:21-05:00 INF http request bytes=0 elapsed=499.545522 method=POST path=/machine/map proto=HTTP/2.0 remote=127.0.0.1:52518 status=200
+Nov 12 05:54:22 lima-omos-netp2-hub python[3859]: 2026-11-12 05:54:22,156 INFO onemind.auth: loaded 1 principals from tokens file
+Nov 12 05:54:22 lima-omos-netp2-hub python[3859]: 2026-11-12 05:54:22,210 INFO onemind.catalog: validating app manifests against onemind.app.schema.json
+Nov 12 05:54:22 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:22-05:00 INF http request bytes=0 elapsed=282.436513 method=POST path=/machine/map proto=HTTP/2.0 remote=127.0.0.1:52518 status=200
+Nov 12 05:54:22 lima-omos-netp2-hub python[3859]: INFO:     Started server process [3859]
+Nov 12 05:54:22 lima-omos-netp2-hub python[3859]: INFO:     Waiting for application startup.
+Nov 12 05:54:22 lima-omos-netp2-hub python[3859]: INFO:     Application startup complete.
+Nov 12 05:54:22 lima-omos-netp2-hub python[3859]: INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
+Nov 12 05:54:22 lima-omos-netp2-hub python[3859]: 2026-11-12 05:54:22,605 INFO onemind.bus: connected to NATS
+Nov 12 05:54:22 lima-omos-netp2-hub python[3859]: 2026-11-12 05:54:22,615 INFO onemind.serve: HTTPS on 0.0.0.0 ports 443,8443 (box CA); HTTP :80 redirects
+Nov 12 05:54:22 lima-omos-netp2-hub python[3859]: INFO:     Started server process [3859]
+Nov 12 05:54:22 lima-omos-netp2-hub python[3859]: INFO:     Started server process [3859]
+Nov 12 05:54:22 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:22-05:00 INF http request bytes=2 elapsed=100.214071 method=POST path=/api/v1/policy/check proto=HTTP/1.1 remote=127.0.0.1:52450 status=200
+Nov 12 05:54:22 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:54:22-05:00 INF http request bytes=1152 elapsed=151.919525 method=PUT path=/api/v1/policy proto=HTTP/1.1 remote=127.0.0.1:52454 status=200
+Nov 12 05:54:22 lima-omos-netp2-hub python[3859]: 2026-11-12 05:54:22,874 INFO onemind.net: mesh policy applied (79865bb8bc44)
+Nov 12 05:54:23 lima-omos-netp2-hub python[3859]: INFO:     127.0.0.1:33034 - "GET /healthz HTTP/1.1" 200 OK
+Nov 12 05:54:25 lima-omos-netp2-hub python[3859]: INFO:     192.0.2.5:48606 - "GET / HTTP/1.1" 308 Permanent Redirect
+Nov 12 05:54:25 lima-omos-netp2-hub python[3859]: INFO:     127.0.0.1:33042 - "POST /v1/fabric/join-tickets HTTP/1.1" 201 Created
+Nov 12 05:55:06 lima-omos-netp2-hub python[3859]: INFO:     192.0.2.5:39026 - "POST /v1/fabric/join-requests HTTP/1.1" 202 Accepted
+Nov 12 05:55:06 lima-omos-netp2-hub python[3859]: INFO:     192.0.2.5:39026 - "GET /v1/fabric/join-requests/jr_01M77PB8G6PY6XKPW8YYW749D0 HTTP/1.1" 200 OK
+Nov 12 05:55:09 lima-omos-netp2-hub python[3859]: INFO:     192.0.2.5:39026 - "GET /v1/fabric/join-requests/jr_01M77PB8G6PY6XKPW8YYW749D0 HTTP/1.1" 200 OK
+Nov 12 05:55:11 lima-omos-netp2-hub python[3859]: INFO:     127.0.0.1:40472 - "GET /v1/fabric HTTP/1.1" 200 OK
+Nov 12 05:55:11 lima-omos-netp2-hub python[3859]: INFO:     127.0.0.1:40484 - "GET /v1/actions/f958ea80-5781-4c58-9f1f-de358dc9a030 HTTP/1.1" 200 OK
+Nov 12 05:55:11 lima-omos-netp2-hub python[3859]: 2026-11-12 05:55:11,475 INFO onemind.fabric: NATS accounts updated (1 nodes)
+Nov 12 05:55:11 lima-omos-netp2-hub python[3859]: INFO:     127.0.0.1:40484 - "POST /v1/actions/f958ea80-5781-4c58-9f1f-de358dc9a030/approve HTTP/1.1" 200 OK
+Nov 12 05:55:11 lima-omos-netp2-hub systemd[1]: Reloading onemind-nats.service - OneMind hub NATS server (:4222)...
+Nov 12 05:55:11 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:55:11.547440 [INF] Trapped "hangup" signal
+Nov 12 05:55:11 lima-omos-netp2-hub systemd[1]: Reloaded onemind-nats.service - OneMind hub NATS server (:4222).
+Nov 12 05:55:11 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:55:11.548275 [INF] Reloaded: authorization nkey users
+Nov 12 05:55:11 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:55:11.548285 [INF] Reloaded: authorization users
+Nov 12 05:55:11 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:55:11.548287 [INF] Reloaded: accounts
+Nov 12 05:55:11 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:55:11.548399 [INF] Reloaded server configuration (sha256:<sha256-or-token>)
+Nov 12 05:55:13 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:13-05:00 INF http request bytes=170 elapsed=94.873672 method=GET path=/api/v1/user proto=HTTP/1.1 remote=127.0.0.1:33802 status=200
+Nov 12 05:55:13 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:13-05:00 INF http request bytes=475 elapsed=184.564554 method=POST path=/api/v1/preauthkey proto=HTTP/1.1 remote=127.0.0.1:33808 status=200
+Nov 12 05:55:13 lima-omos-netp2-hub python[3859]: INFO:     192.0.2.5:39026 - "GET /v1/fabric/join-requests/jr_01M77PB8G6PY6XKPW8YYW749D0 HTTP/1.1" 200 OK
+Nov 12 05:55:13 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:13-05:00 INF http request bytes=176 elapsed=0.059666 method=GET path=/key proto=HTTP/1.1 remote=192.0.2.5:50066 status=200
+Nov 12 05:55:13 lima-omos-netp2-hub python[3859]: WARNING:  Unsupported upgrade request.
+Nov 12 05:55:13 lima-omos-netp2-hub python[3859]: INFO:     192.0.2.5:57144 - "POST /ts2021 HTTP/1.1" 308 Permanent Redirect
+Nov 12 05:55:14 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:14-05:00 INF http request bytes=254 elapsed=890.304031 method=POST path=/machine/register proto=HTTP/2.0 remote=192.0.2.5:50070 status=200
+Nov 12 05:55:15 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:15-05:00 INF http request bytes=0 elapsed=500.093963 method=POST path=/machine/map proto=HTTP/2.0 remote=192.0.2.5:50070 status=200
+Nov 12 05:55:15 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:15-05:00 INF node connected machine.key=[bL3SN] node.expired=false node.id=2 node.is_tagged=true node.key=[DK8fA] node.name=node-ebc2df567332 node.online=true node.tags=["tag:onemind-k3s","tag:onemind-worker"]
+Nov 12 05:55:15 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:15-05:00 INF home/runner/work/headscale/headscale/hscontrol/poll.go:293 > node has connected chan=0x6dcce0e8d20 component=poll machine.key=[bL3SN] node.expired=false node.id=2 node.is_tagged=true node.key=[DK8fA] node.name=node-ebc2df567332 node.online=false node.tags=["tag:onemind-k3s","tag:onemind-worker"] omit_peers=false stream=true
+Nov 12 05:55:16 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:16-05:00 INF http request bytes=0 elapsed=412.03386 method=POST path=/machine/map proto=HTTP/2.0 remote=192.0.2.5:50070 status=200
+Nov 12 05:55:16 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:16-05:00 INF http request bytes=0 elapsed=474.307983 method=POST path=/machine/map proto=HTTP/2.0 remote=127.0.0.1:52518 status=200
+Nov 12 05:55:16 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:55:16.021571 [INF] 100.64.0.2:36462 - lid:9 - Leafnode connection created
+Nov 12 05:55:16 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:55:16.027782 [INF] 100.64.0.2:36462 - lid:9 - JetStream using domains: local "", remote "node-ebc2df567332"
+Nov 12 05:55:16 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:16-05:00 INF http request bytes=0 elapsed=497.382578 method=POST path=/machine/map proto=HTTP/2.0 remote=192.0.2.5:50070 status=200
+Nov 12 05:55:17 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:17-05:00 INF http request bytes=0 elapsed=499.324341 method=POST path=/machine/map proto=HTTP/2.0 remote=192.0.2.5:50070 status=200
+Nov 12 05:55:21 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:21-05:00 INF http request bytes=0 elapsed=75.950686 method=POST path=/machine/map proto=HTTP/2.0 remote=192.0.2.5:50070 status=200
+Nov 12 05:55:22 lima-omos-netp2-hub python[3859]: INFO:     127.0.0.1:49680 - "POST /v1/fabric/join-requests HTTP/1.1" 401 Unauthorized
+Nov 12 05:55:27 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:27-05:00 INF http request bytes=2446 elapsed=87.944283 method=GET path=/api/v1/node proto=HTTP/1.1 remote=127.0.0.1:37654 status=200
+Nov 12 05:55:37 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:37-05:00 INF http request bytes=0 elapsed=82.38006 method=POST path=/machine/map proto=HTTP/2.0 remote=127.0.0.1:52518 status=200
+Nov 12 05:55:42 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:55:42.912041 [INF] 100.64.0.2:60178 - lid:11 - Leafnode connection created
+Nov 12 05:55:42 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:55:42.917181 [ERR] 100.64.0.2:60178 - lid:11 - TLS leafnode handshake error: tls: client didn't provide a certificate
+Nov 12 05:55:42 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:55:42.917201 [INF] 100.64.0.2:60178 - lid:11 - Leafnode connection closed: TLS Handshake Failure
+Nov 12 05:55:43 lima-omos-netp2-hub python[3859]: INFO:     127.0.0.1:49526 - "GET /v1/actions/f958ea80-5781-4c58-9f1f-de358dc9a030 HTTP/1.1" 200 OK
+Nov 12 05:55:47 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:47-05:00 INF http request bytes=0 elapsed=65.474198 method=POST path=/machine/map proto=HTTP/2.0 remote=192.0.2.5:50070 status=200
+Nov 12 05:55:47 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:55:47-05:00 INF http request bytes=0 elapsed=265.500498 method=POST path=/machine/map proto=HTTP/2.0 remote=192.0.2.5:50070 status=200
+Nov 12 05:55:53 lima-omos-netp2-hub python[3859]: INFO:     127.0.0.1:41512 - "GET /v1/actions/f958ea80-5781-4c58-9f1f-de358dc9a030 HTTP/1.1" 200 OK
+Nov 12 05:55:53 lima-omos-netp2-hub python[3859]: INFO:     127.0.0.1:41528 - "POST /v1/actions HTTP/1.1" 201 Created
+Nov 12 05:55:54 lima-omos-netp2-hub python[3859]: INFO:     127.0.0.1:41540 - "POST /v1/actions/532fd1fe-97da-4e63-904d-bff7a39b0ce5/approve HTTP/1.1" 200 OK
+Nov 12 05:56:20 lima-omos-netp2-hub python[3859]: INFO:     192.0.2.5:42464 - "GET / HTTP/1.1" 401 Unauthorized
+Nov 12 05:56:21 lima-omos-netp2-hub python[3859]: INFO:     192.0.2.5:42480 - "GET / HTTP/1.1" 200 OK
+Nov 12 05:56:21 lima-omos-netp2-hub python[3859]: INFO:     192.0.2.5:42494 - "POST /v1/auth/app-session HTTP/1.1" 204 No Content
+Nov 12 05:56:21 lima-omos-netp2-hub python[3859]: INFO:     192.0.2.5:42508 - "GET /alive HTTP/1.1" 200 OK
+Nov 12 05:56:21 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:56:21.682562 [INF] 100.64.0.2:36242 - lid:12 - Leafnode connection created
+Nov 12 05:56:21 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:56:21.682679 [ERR] 100.64.0.2:36242 - lid:12 - TLS leafnode handshake error: EOF
+Nov 12 05:56:21 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:56:21.682685 [INF] 100.64.0.2:36242 - lid:12 - Leafnode connection closed: TLS Handshake Failure
+Nov 12 05:56:23 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:56:23-05:00 INF http request bytes=0 elapsed=467.57513 method=POST path=/machine/map proto=HTTP/2.0 remote=127.0.0.1:52518 status=200
+Nov 12 05:56:27 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:56:27-05:00 INF http request bytes=0 elapsed=354.51739 method=POST path=/machine/map proto=HTTP/2.0 remote=192.0.2.5:50070 status=200
+Nov 12 05:56:43 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:56:43-05:00 INF http request bytes=0 elapsed=445.184961 method=POST path=/machine/map proto=HTTP/2.0 remote=127.0.0.1:52518 status=200
+Nov 12 05:56:47 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:56:47-05:00 INF http request bytes=0 elapsed=50.107612 method=POST path=/machine/map proto=HTTP/2.0 remote=192.0.2.5:50070 status=200
+Nov 12 05:57:37 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:57:37.052806 [INF] 100.64.0.2:36462 - lid:9 - Leafnode connection closed: Stale Connection - Remote: node-ebc2df567332
+Nov 12 05:57:37 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:57:37-05:00 INF http request bytes=0 elapsed=309.434263 method=POST path=/machine/map proto=HTTP/2.0 remote=192.0.2.5:50070 status=200
+Nov 12 05:57:47 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:57:47.148663 [INF] 100.64.0.2:49690 - lid:13 - Leafnode connection created
+Nov 12 05:57:47 lima-omos-netp2-hub nats-server[3533]: [3533] 2026/11/12 05:57:47.160922 [INF] 100.64.0.2:49690 - lid:13 - JetStream using domains: local "", remote "node-ebc2df567332"
+Nov 12 05:58:00 lima-omos-netp2-hub headscale[2690]: 2026-11-12T05:58:00-05:00 INF http request bytes=0 elapsed=319.071503 method=POST path=/machine/map proto=HTTP/2.0 remote=192.0.2.5:50070 status=200

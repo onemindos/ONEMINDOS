@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# The gateway rewrites the hub NATS accounts file (core/onemind_core/natsconf.py) when a node joins or
+# leaves; it cannot signal NATS (another user), so systemd watches the file and reloads NATS.
+[Unit]
+Description=Reload the hub NATS when the gateway rewrites its per-node accounts
+
+[Path]
+PathChanged=/var/lib/onemind/nats/accounts.conf
+Unit=onemind-nats-reload.service
+
+[Install]
+WantedBy=multi-user.target

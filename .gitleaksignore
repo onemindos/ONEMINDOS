@@ -9,6 +9,7 @@ research-output/evidence/sources/LAB-secureboot-rauc/ukify.txt:generic-api-key:2
 # Mender APT repo public GPG key fingerprint (not a secret)
 research-output/evidence/lab/mender/scripts/build.sh:generic-api-key:16
 research-output/evidence/sources/LAB-mender/mender-convert@85e8c50_configs_mender_convert_config_L225-L240.txt:generic-api-key:13
+internal/leaf/testdata/hub-accounts.golden.conf:generic-api-key:22
 # Raspberry Pi Archive Signing Key public fingerprint (not a secret)
 3be137b5262471b8a6bd5bb58b820ee8af040bff:os/versions.lock.yaml:generic-api-key:119
 # same public fingerprint, dir-scan form (line moved by the merge with main)

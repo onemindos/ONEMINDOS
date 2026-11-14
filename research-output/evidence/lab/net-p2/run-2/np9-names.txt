@@ -1,0 +1,6 @@
+box1.local	192.0.2.4
+onemind.local	192.0.2.4
+vaultwarden.box1.local	192.0.2.4
+vaultwarden.onemind.local	192.0.2.4
+--- from the node over the Lima switch:
+no mDNS answer (user-v2 forwards no multicast)

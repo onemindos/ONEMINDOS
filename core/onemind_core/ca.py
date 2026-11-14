@@ -34,9 +34,11 @@ from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 CA_VALIDITY = timedelta(days=3652)
 LEAF_VALIDITY = timedelta(days=365)
+NODE_VALIDITY = timedelta(days=365)  # renewal (POST /v1/fabric/nodes/{id}/renew) is a follow-up
 RENEW_BEFORE = timedelta(days=30)
 CLOCK_SKEW = timedelta(minutes=5)  # backdate notBefore so a slightly slow phone clock still accepts
 BOX_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
+NODE_ID_RE = re.compile(r"^[a-z0-9]{1,32}$")
 LAN_DOMAIN = "onemind.local"
 MESH_DOMAIN = "onemind.internal"
 # Mesh address ranges (Headscale defaults, NETWORKING §3).
@@ -237,26 +239,124 @@ class BoxCA:
                         + ca_cert.public_bytes(serialization.Encoding.PEM), 0o644)
         return IssuedCert(name, cert_path, key_path, cert.not_valid_after_utc, names)
 
-    def ensure_cert(self, name: str, dns_names: Iterable[str]) -> IssuedCert:
+    def ensure_cert(self, name: str, dns_names: Iterable[str], *, ip_addresses: Iterable[str] = ()) -> IssuedCert:
         """Keep a certificate current: re-issue when missing, near expiry, or the names changed."""
         names = self._check_names(dns_names)
+        ips = sorted(str(ipaddress.ip_address(i)) for i in ip_addresses)
         ca_cert = self.ensure()
         cert_path, key_path = self._path(f"{name}.crt"), self._path(f"{name}.key")
         if cert_path.exists() and key_path.exists():
             try:
                 self._check_private(key_path)
                 cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
-                have = tuple(cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
-                             .value.get_values_for_type(x509.DNSName))
+                san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+                have = tuple(san.get_values_for_type(x509.DNSName))
+                have_ips = sorted(str(i) for i in san.get_values_for_type(x509.IPAddress))
                 fresh = cert.not_valid_after_utc - self.clock() > RENEW_BEFORE
-                if fresh and sorted(have) == sorted(names) and cert.issuer == ca_cert.subject:
+                if fresh and sorted(have) == sorted(names) and have_ips == ips and cert.issuer == ca_cert.subject:
                     return IssuedCert(name, cert_path, key_path, cert.not_valid_after_utc, names)
             except (ValueError, x509.ExtensionNotFound, PermissionError):
                 pass  # unreadable, wrong or too open: re-issue
-        return self.issue(name, names)
+        return self.issue(name, names, ip_addresses=ips)
+
+    def https_names(self) -> tuple[str, ...]:
+        """One certificate for the gateway's HTTPS listener: the box names and every app name."""
+        return self.gateway_names() + self.wildcard_names()
+
+    def ensure_https_cert(self) -> IssuedCert:
+        return self.ensure_cert("https", self.https_names())
+
+    def ensure_nats_cert(self, hub_mesh_ip: str) -> IssuedCert:
+        """The hub's NATS leaf listener: nodes dial tls://<hub mesh ip>:7422, so the IP is a SAN."""
+        return self.ensure_cert("nats", (f"hub.{MESH_DOMAIN}",), ip_addresses=(hub_mesh_ip,))
+
+    def ensure_control_cert(self) -> IssuedCert:
+        """Headscale's own TLS listener (control.onemind.internal) until onemind-edge fronts it."""
+        return self.ensure_cert("control", (f"control.{MESH_DOMAIN}",))
+
+    # ---- node certificates (contract §12.11) ------------------------------------------------------
+    def sign_node_csr(self, csr_pem: bytes | str, node_id: str, *, validity: timedelta = NODE_VALIDITY) -> x509.Certificate:
+        """Sign a joining node's CSR after the owner approved node.join.
+
+        Only the CSR's public key is used: the subject and names are the box's choice
+        (CN=node-<id>, SAN node-<id>.onemind.internal), never what the node asked for. The node's
+        private key never leaves the node. The certificate is for TLS client and server use (the
+        NATS leaf link presents it; FABRIC §3).
+        """
+        if not NODE_ID_RE.match(node_id):
+            raise ValueError("node id must be lowercase letters and digits")
+        if isinstance(csr_pem, str):
+            csr_pem = csr_pem.encode()
+        try:
+            csr = x509.load_pem_x509_csr(csr_pem)
+        except ValueError:
+            raise ValueError("csr_pem is not a PEM certificate request") from None
+        if not csr.is_signature_valid:
+            raise ValueError("the certificate request's signature does not verify")
+        pub = csr.public_key()
+        if not isinstance(pub, ec.EllipticCurvePublicKey) or pub.curve.name != "secp256r1":
+            raise ValueError("node keys must be ECDSA P-256")
+        ca_cert = self.ensure()
+        with self._lock:
+            assert self._key is not None
+            now = self.clock()
+            name = f"node-{node_id}"
+            cert = (
+                x509.CertificateBuilder()
+                .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, name)]))
+                .issuer_name(ca_cert.subject)
+                .public_key(pub)
+                .serial_number(x509.random_serial_number())
+                .not_valid_before(now - CLOCK_SKEW)
+                .not_valid_after(min(now + validity, ca_cert.not_valid_after_utc))
+                .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+                .add_extension(x509.KeyUsage(
+                    digital_signature=True, content_commitment=False, key_encipherment=False,
+                    data_encipherment=False, key_agreement=False, key_cert_sign=False, crl_sign=False,
+                    encipher_only=False, decipher_only=False,
+                ), critical=True)
+                .add_extension(x509.ExtendedKeyUsage(
+                    [ExtendedKeyUsageOID.CLIENT_AUTH, ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+                .add_extension(x509.SubjectAlternativeName([x509.DNSName(f"{name}.{MESH_DOMAIN}")]), critical=False)
+                .add_extension(x509.SubjectKeyIdentifier.from_public_key(pub), critical=False)
+                .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(self._key.public_key()), critical=False)
+                .sign(self._key, hashes.SHA256())
+            )
+        return cert
 
     def ensure_gateway_cert(self) -> IssuedCert:
         return self.ensure_cert("gateway", self.gateway_names())
 
     def ensure_wildcard_cert(self) -> IssuedCert:
         return self.ensure_cert("apps-wildcard", self.wildcard_names())
+
+
+def box_name_from_hostname(hostname: str | None) -> str:
+    """A DNS label for <box>.local from a hostname: lower case, [a-z0-9-], at most 63, never empty."""
+    label = re.sub(r"[^a-z0-9-]+", "-", (hostname or "").split(".")[0].lower()).strip("-")[:63].strip("-")
+    return label or "onemind"
+
+
+def main(argv: list[str] | None = None) -> int:
+    """`python -m onemind_core.ca`: what the installer runs (as the gateway's user) before NATS,
+    Headscale and the gateway start, so their certificates exist. Prints the CA fingerprint."""
+    import argparse
+
+    ap = argparse.ArgumentParser(prog="python -m onemind_core.ca")
+    ap.add_argument("--dir", required=True, type=Path, help="tls directory (the box CA lives here)")
+    ap.add_argument("--box", required=True, help="box name (DNS label): <box>.local")
+    ap.add_argument("--nats-ip", help="hub mesh IPv4: also issue the NATS leaf listener certificate")
+    ap.add_argument("--control", action="store_true", help="also issue Headscale's control.onemind.internal certificate")
+    args = ap.parse_args(argv)
+    box = BoxCA(args.dir, args.box)
+    box.ensure_https_cert()
+    if args.nats_ip:
+        box.ensure_nats_cert(args.nats_ip)
+    if args.control:
+        box.ensure_control_cert()
+    print(box.ca_fingerprint())
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

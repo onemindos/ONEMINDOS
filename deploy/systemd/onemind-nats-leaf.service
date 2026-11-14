@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: Apache-2.0
+# A node's local NATS leaf (docs/architecture/NETWORKING.md §7): onemindd and local services publish
+# on 127.0.0.1:4222, and the leaf forwards to the hub over the mesh with TLS pinned to the box CA,
+# the node certificate and the node's own nkey (its own account on the hub). leaf.conf is written
+# by `onemind fabric join`; the unit waits for it. Runs as the static user onemind-nats, which owns
+# /etc/onemind/nats.
+[Unit]
+Description=OneMind NATS leaf (local bus, linked to the hub over the mesh)
+Documentation=https://docs.nats.io/running-a-nats-service/configuration/leafnodes
+After=network-online.target tailscaled.service
+Wants=network-online.target
+ConditionPathExists=/etc/onemind/nats/leaf.conf
+
+[Service]
+Type=simple
+User=onemind-nats
+Group=onemind-nats
+ExecStart=/usr/local/bin/nats-server -c /etc/onemind/nats/leaf.conf
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=2s
+StateDirectory=onemind-nats-leaf
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LimitNOFILE=65536
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

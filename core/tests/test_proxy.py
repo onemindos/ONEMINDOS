@@ -75,6 +75,9 @@ async def set_cookies(_: Request):
     r = JSONResponse({"ok": True})
     r.set_cookie("onemind_session", "planted", domain="onemind.local")
     r.set_cookie("theme", "dark")
+    r.set_cookie("__Host-onemind_session", "planted", path="/", secure=True)
+    r.set_cookie("__Host-onemind_csrf", "planted", path="/", secure=True)
+    r.set_cookie("onemind_csrf", "planted")
     return r
 
 
@@ -223,7 +226,18 @@ def test_app_cannot_set_session_cookie(env):
     assert r.status_code == 200
     cookies = r.headers.get_list("set-cookie")
     assert any(c.startswith("theme=") for c in cookies)
-    assert not any("onemind_session" in c for c in cookies)
+    assert not any("onemind_" in c.lower() for c in cookies)
+
+
+def test_identity_cookies_never_reach_the_app(env):
+    """H-34: identity's __Host- cookies and every onemind_* cookie are stripped; others pass through."""
+    r = client(env).get("/x", headers={**bearer(env, "owner"), "Cookie": (
+        "__Host-onemind_session=a; __Host-onemind_csrf=b; onemind_session=c; onemind_csrf=d; "
+        "__host-ONEMIND_x=e; keep=1; onemindful=2")})
+    assert r.status_code == 200, r.text
+    assert r.json()["headers"]["cookie"] == "keep=1; onemindful=2"
+    r = client(env).get("/x", headers={**bearer(env, "owner"), "Cookie": "__Host-onemind_session=a"})
+    assert "cookie" not in r.json()["headers"]
 
 
 def test_cross_origin_unsafe_method_refused(env):
