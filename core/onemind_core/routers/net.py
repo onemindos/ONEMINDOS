@@ -193,7 +193,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 "not_after": cert.not_after.isoformat().replace("+00:00", "Z") if cert else None,
                 "https": net.tls, "acme": None}
 
-    @app.get("/v1/tls/ca.crt", operation_id="tls.ca", tags=["tls"])
+    @app.get("/v1/tls/ca.crt", operation_id="tls.ca", tags=["tls"], response_class=Response,
+             responses={200: {"description": "The box CA certificate: DER by default, PEM with ?format=pem",
+                              "content": {"application/x-x509-ca-cert": {"schema": {"type": "string", "format": "binary"}},
+                                          "application/x-pem-file": {"schema": {"type": "string"}}}}})
     def ca_cert(format: str = "der"):
         """Open, like /healthz: a phone or a joining node needs the CA before it can sign in. It is
         public data; clients pin it by the sha256 shown in the pairing QR."""

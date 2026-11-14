@@ -15260,11 +15260,19 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/x-pem-file": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/x-x509-ca-cert": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "The box CA certificate: DER by default, PEM with ?format=pem"
           },
           "422": {
             "content": {
