@@ -30,6 +30,7 @@ import collections
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -115,9 +116,18 @@ def prepare(gateway: str, config: Path) -> int:
     expires = (datetime.now(UTC) + timedelta(days=1)).isoformat().replace("+00:00", "Z")
     ids = []
     for app_id in apps:
-        a = call(gateway, os.environ["AGENT_TOKEN"], "/v1/actions", {
-            "type": "app.install", "params": {"app_id": app_id},
-            "idempotency_key": f"fuzz-seed-{app_id}", "expires_at": expires})
+        try:
+            a = call(gateway, os.environ["AGENT_TOKEN"], "/v1/actions", {
+                "type": "app.install", "params": {"app_id": app_id},
+                "idempotency_key": f"fuzz-seed-{app_id}", "expires_at": expires})
+        except urllib.error.HTTPError as e:
+            # An app that needs other apps installed first (spec.dependencies) is refused at request
+            # time with 409 dependency_missing: that is the gateway working. Its id stays in the apps
+            # dictionary; it just seeds no action. Any other refusal still fails the run.
+            if e.code == 409 and json.loads(e.read() or b"{}").get("reason") == "dependency_missing":
+                print(f"seed: {app_id} skipped (needs other apps installed first)", file=sys.stderr)
+                continue
+            raise
         ids.append(a["id"])
     if not ids:
         print("FAIL: the catalog is empty, nothing to aim the fuzzers at", file=sys.stderr)
