@@ -1,0 +1,22 @@
+{"state":"mounted","set_uuid":"f587b105-7dd7-49f2-ae22-975c78079dbd","members":["/dev/mapper/onemind-data-64abeb67","/dev/mapper/onemind-data-a3e280b6","/dev/mapper/onemind-data-d8af25e1"]}
+{"state":"degraded","reasons":["the set ran degraded since its last repair: the returned disk may hold stale copies until a scrub"],"encrypted":true,"generation":17,"members":["1:/dev/mapper/onemind-data-64abeb67","2:/dev/mapper/onemind-data-d8af25e1","3:/dev/mapper/onemind-data-a3e280b6"],"profiles":["Data=raid1","System=raid1c3","Metadata=raid1c3"]}
+plan: kind=repair blocked=false profiles=raid1/raid1c3 encrypted=true sha=729fa287f585
+  1. [commit] scrub: btrfs scrub start -B /data
+  2. [commit] balance: btrfs balance start -dconvert=raid1,soft -mconvert=raid1c3,soft /data
+{"id":"lab-repair-2","state":"running","next":0,"error":null,"reason":null,"message":null}
+final state: succeeded
+  1. scrub [commit] done attempts=1 
+  2. balance [commit] done attempts=1 
+  3. verify [verify] done attempts=1 
+  4. stats-reset [verify] done attempts=1 
+  5. token-member [commit] done attempts=1 
+  6. token-member [commit] done attempts=1 
+  7. token-member [commit] done attempts=1 
+  8. marker-clear [verify] done attempts=1 
+{"state":"succeeded","error":null,"resumes":null,"relocated":null,"rollback":[]}
+  scrub: WARNING: errors detected during scrubbing, 1 corrected
+  scrub: Error summary:    super=1 verify=28 csum=16384
+  scrub:   Corrected:      16412
+  scrub:   Uncorrectable:  0
+{"state":"protected","reasons":null,"encrypted":true,"generation":18,"members":["1:/dev/mapper/onemind-data-64abeb67","2:/dev/mapper/onemind-data-d8af25e1","3:/dev/mapper/onemind-data-a3e280b6"],"profiles":["Data=raid1","System=raid1c3","Metadata=raid1c3"]}
+corpus OK: 41 files match their checksums
