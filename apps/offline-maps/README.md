@@ -8,8 +8,8 @@ Vector street maps of your region that work with no internet, from OpenStreetMap
 | | |
 |---|---|
 | Version | 1.31.2 (upstream release `v1.31.2`, published 2026-07-22) |
-| Licence | `BSD-3-Clause`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Licence | `BSD-3-Clause`, Market class **L1** (licence gate, scan of 2026-11-14) |
+| Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | field |
 | GitHub | <https://github.com/protomaps/go-pmtiles> |
 | Website | <https://protomaps.com> |
@@ -89,4 +89,11 @@ kubectl -n app-offline-maps exec deploy/offline-maps -c viewer -- python3 -c "im
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-14T12:20:27Z by `sdk/tools/app-gate`: **pass**. Licence `BSD-3-Clause` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | amd64, arm64 | 0 (0) | 54 | 0 infected (daily-28183) | 0 | unsigned |
+| `docker.io/protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3` | amd64, arm64 | 0 (0) | 35 | 0 infected (daily-28183) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

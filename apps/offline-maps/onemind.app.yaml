@@ -23,7 +23,7 @@ metadata:
     website: https://protomaps.com
     support: https://github.com/protomaps/go-pmtiles/issues
   upstream: {release: "v1.31.2", released_at: "2026-07-22T19:02:26Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 256}

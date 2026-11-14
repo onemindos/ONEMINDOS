@@ -18,13 +18,13 @@ Pattern credit: Project N.O.M.A.D. (Crosstalk Solutions, Apache-2.0) for the ide
 
 | App | What it does | Tier today | Notes |
 |---|---|---|---|
-| [Kiwix](../../kiwix/README.md) | The library: Wikipedia and other books (ZIM files), with a library manager that downloads, checks (SHA-256) and serves the books you list | set by the CI gate | GPL-3.0, its own container |
-| [Offline Maps](../../offline-maps/README.md) | Vector street maps of your region from one PMTiles file | set by the CI gate | BSD-3-Clause + OneMind viewer; map data ODbL |
+| [Kiwix](../../kiwix/README.md) | The library: Wikipedia and other books (ZIM files), with a library manager that downloads, checks (SHA-256) and serves the books you list | **verified** (CI gate pass, smoke pass) | GPL-3.0, its own container |
+| [Offline Maps](../../offline-maps/README.md) | Vector street maps of your region from one PMTiles file | **verified** (CI gate pass, smoke pass) | BSD-3-Clause + OneMind viewer; map data ODbL |
 | [Kolibri](../../kolibri/README.md) | Courses, lessons, exercises and classes | **blocked** (upstream image has fixable CRITICAL CVEs) | optional in the bundle; installs once upstream ships a fixed image |
 | [Ollama](../../ollama/README.md) | Runs the local AI model | community | already in the Market |
-| [Library Chat](../../library-chat/README.md) | Ask the library; answers cite the articles | set by the CI gate | OneMind's own, read-only; see "Known gap" below |
+| [Library Chat](../../library-chat/README.md) | Ask the library; answers cite the articles | **verified** (CI gate pass, smoke pass) | OneMind's own, read-only; see "Known gap" below |
 
-The CI app gate decides each tier (contract §9.4), and the gateway refuses to install an app whose scan did not pass (§10.3).
+The CI app gate decided each tier (contract §9.4; ci-apps run 43591778335 on PR #124), and the gateway refuses to install an app whose scan did not pass (§10.3).
 
 ## Profiles
 
@@ -62,7 +62,7 @@ Kiwix downloads its books by itself, checking each one. Follow it with `kubectl 
 
 The gateway gives every app its own namespace behind a **default-deny network policy** (H-04, `core/onemind_core/policy.py`). An app can talk to itself, to DNS, to the app proxy and to the internet, but **not to another app**. That is the right default, but it means Library Chat's questions cannot reach Kiwix or Ollama yet. Each app works on its own; the chat answers "not reachable".
 
-The fix belongs in the gateway, not in these manifests. When an app declares `spec.dependencies: [kiwix, ollama]` and the owner approves the install, the gateway should open exactly the provider's Service port: egress from `app-library-chat`, and ingress into `app-kiwix` and `app-ollama` from that one namespace. That is a contract change (§12.22) and a security review, and it is proposed as its own task. Nothing here weakens the policy.
+The fix belongs in the gateway, not in these manifests. When an app declares `spec.dependencies: [kiwix, ollama]` and the owner approves the install, the gateway should open exactly the provider's Service port: egress from `app-library-chat`, and ingress into `app-kiwix` and `app-ollama` from that one namespace. That is a contract change (§12.22) and a security review, and it is proposed in onemindos/ONEMINDOS#220. Nothing here weakens the policy.
 
 ## Licences in short
 

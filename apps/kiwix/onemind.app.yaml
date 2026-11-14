@@ -21,7 +21,7 @@ metadata:
     website: https://kiwix.org
     support: https://github.com/kiwix/kiwix-tools/issues
   upstream: {release: "3.8.2", released_at: "2026-03-02T08:24:42Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 512}

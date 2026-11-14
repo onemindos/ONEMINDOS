@@ -8,7 +8,7 @@ Offline learning platform with courses, videos, exercises and classes that work 
 | | |
 |---|---|
 | Version | 0.19.5 (upstream release `v0.19.5`, published 2026-07-13) |
-| Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-14) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | learning |
 | GitHub | <https://github.com/learningequality/kolibri> |
@@ -78,11 +78,17 @@ The licence and packaging are fine, but the pinned image fails the scan gate (co
 - `Django`: CVE-2025-64459 (fixed in 5.2.8, 5.1.14, 4.2.26);
 - `certifi`: GHSA-6q48-6c7w-9gw2 (fixed in 2026.10.18).
 
-So the gate computes tier **blocked**: the Market lists Kolibri but refuses to install it (§10.3, §11.1), and the bundle installer skips it (it is optional there). The gate was not weakened. The CI `gate (kolibri)` job of this PR records the same result.
+So the gate computes tier **blocked**: the Market lists Kolibri but refuses to install it (§10.3, §11.1), and the bundle installer skips it (it is optional there). The gate was not weakened. CI confirmed it: ci-apps run 43591778335, job `gate (kolibri)` (PR #124, 2026-11-14), computed tier `blocked` with the same 5 findings.
 
 To unblock: 0.19.5 is the newest Kolibri release and image tag (registry read 2026-11-14), so there is nothing newer to pin. Kolibri unblocks when Learning Equality publishes an image rebuilt on a patched base with Django ≥ 5.2.8. The daily `apps-rescan` picks up a new tag once a PR bumps the pin. An upstream issue asking for a rebuild is the quickest path.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-14T12:25:48Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/learningequality/kolibri:0.19.5@sha256:19810f674f1e94a4f925f4f45f8a45de1735310e83540361c4e8614eca34a9fe` | amd64, arm64 | 5 (5) | 129 | 0 infected (daily-28183) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.
