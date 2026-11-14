@@ -46,7 +46,22 @@ jobs:
       - name: go test -fuzz (30 s on a PR, 8 min at night)
         env:
           FUZZTIME: ${{ github.event_name == 'pull_request' && '30s' || '8m' }}
-        run: go test -run '^$' -fuzz "^${{ matrix.target }}\$" -fuzztime "$FUZZTIME" "./internal/${{ matrix.pkg }}"
+        run: |
+          set -o pipefail
+          log="$RUNNER_TEMP/fuzz.log"
+          if go test -run '^$' -fuzz "^${{ matrix.target }}\$" -fuzztime "$FUZZTIME" "./internal/${{ matrix.pkg }}" 2>&1 | tee "$log"; then
+            exit 0
+          fi
+          # Go's fuzz engine sometimes fails a clean run with "context deadline exceeded" while it shuts
+          # down at the end of -fuzztime (seen on PR #57, run 43570450213: 1.5M execs, no crasher). A real
+          # finding always writes its input ("Failing input written to testdata/fuzz/..."), so only that
+          # exact shutdown error with no input written passes, with a warning. Any other failure fails.
+          if grep -q "context deadline exceeded" "$log" && ! grep -q "Failing input written" "$log" \
+             && [ -z "$(git status --porcelain -- "internal/${{ matrix.pkg }}/testdata")" ]; then
+            echo "::warning::${{ matrix.target }}: fuzz engine reported its own deadline at shutdown, no failing input; counted as a pass"
+            exit 0
+          fi
+          exit 1
       # A failure writes the input to internal/<pkg>/testdata/fuzz/<target>/. Commit that file with
       # the fix: it then runs as a regression case in every `go test`.
       - name: Keep the failing input
