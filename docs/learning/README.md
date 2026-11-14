@@ -29,4 +29,12 @@ Read in order: each builds on the one before.
 | 15 | [The design system and the dashboard](15-design-system-and-dashboard.md) | yes |
 | 16 | [How we test](16-testing-strategy.md) | unit to system tests yes; fuzz, property and browser e2e not yet |
 
+## Founder notes (2026-11-14 onward)
+Short answers to founder questions, saved so they are not lost in chat. Folder: [`founder/`](founder/).
+
+| # | Note |
+|---|---|
+| 01 | [What "onemindd" means, and why GitHub Free is enough for now](founder/01-daemons-and-the-github-plan.md) |
+| 02 | [Inside the umbrelOS 2.0.1 images](founder/02-umbrelos-image-teardown.md) |
+
 The "On `main`?" column was checked on 2026-11-12. The leap's live state is in [`docs/leap/STATUS.md`](../leap/STATUS.md).
