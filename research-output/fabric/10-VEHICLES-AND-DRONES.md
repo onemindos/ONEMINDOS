@@ -8,6 +8,8 @@
 
 ## 1. The pattern, as shipping products do it
 
+**2026-11-14 founder-requested addendum:** [First-class robotics](15-FIRST-CLASS-ROBOTICS.md) saves Debian/Ubuntu qualification, full citizenship acceptance and the gateway/companion/controller boundary. It bounds this report's shorthand “read everything” and “outbox keeps everything”: only selected authorized telemetry crosses the adapter, retention is bounded, raw ROS control remains isolated, and no compatibility or deployed support is implied. All new robotics acceptance is NOT RUN; existing phases and decisions are unchanged.
+
 | Evidence | What it shows |
 |---|---|
 | PX4 Offboard mode: setpoints come from "a companion computer" over MAVLink/MAVSDK or ROS 2 (uXRCE-DDS or Zenoh); a 2 Hz proof-of-life is required; on loss PX4 leaves Offboard and lands or runs `COM_OBL_RC_ACT`; generic offboard "bypass[es] all internal PX4 control loops and should be used with great care"; PX4 cannot tell ROS 2 messages from internal ones, so conflicting writes can be "possibly catastrophic" [C-FB9-001] | The flight controller owns the failsafe; low-level setpoint control from outside is dangerous and must not be an AI tool |
