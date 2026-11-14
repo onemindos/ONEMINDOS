@@ -104,6 +104,8 @@ The scan counts 20 fixable CRITICAL package/CVE pairs in PostgreSQL and two in t
 Licence, pinning, secrets and ClamAV checks passed for amd64 and arm64 (zero infected, signatures `daily-28181`). The smoke test returned HTTP 200. Images are unsigned (informational). None of these successes overrides the vulnerability block.
 
 To unblock: verify compatible upstream image tags and multi-architecture digests that fix the findings, rerun the full gate, and review the block explicitly. No pins were changed here; no scan pass is fabricated. The CI scan remains an artifact rather than a committed `scan.json`, so the generated section below describes committed scan availability, not absence of a CI run.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** Debian CVEs and Go `stdlib` in `postgres:14-vectorchord0.4.3-pgvectors0.2.0`, and `libopenexr` in the server image `v3.4.1` (the newest). Postgres tags `17-vectorchord0.4.x` exist, but changing the major version needs a data migration and Immich's supported pairing, so it is not a pin bump. Needs a founder or upstream-pairing decision before any change.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

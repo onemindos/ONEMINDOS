@@ -87,6 +87,8 @@ There are 21 fixable package/identifier pairs (the Perl findings count once per 
 - Passed in that run: licence and image pinning checks, secret scan (0 findings), ClamAV (0 infected on amd64 and arm64), smoke test (GET / returned 200). A working dashboard does not clear the vulnerability block.
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** `libbrotli1`, `perl`, `linux-libc-dev`, `pillow` and `uv` findings. `2026.10.2` is the newest tag. Unblock: a release rebuilt on a newer Debian with updated Python packages. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
 <!-- onemind:notes:end -->
 
 ## Latest security scan

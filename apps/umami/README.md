@@ -35,7 +35,7 @@ Storage: PVC `umami-db` 10Gi.
 Images:
 
 - `ghcr.io/umami-software/umami:3.5.0@sha256:b64f40400d77bcadd39cf5c62a1e368c99524ca442024f96e1133355a19a5dbc`
-- `docker.io/library/postgres:15.19-trixie@sha256:1aac5b49cefd627f02816141ca4ad012d6cc19460dfe02a9b5168a105be3fc53`
+- `docker.io/library/postgres:15.19-alpine@sha256:eab009ce9447a891d9482702d370bbf132c18563bb87cfdcc2b815c6d3b0372f`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -55,7 +55,7 @@ Umami counts visits to your websites (pages, referrers, countries, devices) with
 
 - One `Deployment` (`Recreate`) with Umami and PostgreSQL 15 (the version upstream's compose file uses) as a native sidecar on 127.0.0.1 only. PostgreSQL trusts local connections, so there is no database password and no Secret.
 - `APP_SECRET` (required; Umami refuses to start without it) and `TWO_FACTOR_ENCRYPTION_KEY` (256-bit, for two-factor sign-in) are generated once by an init container onto the database volume and loaded by the container command before upstream's start script.
-- Non-root: Umami as the image's `nextjs` user (UID 1001), PostgreSQL as UID 999. No privilege escalation, all capabilities dropped.
+- Non-root: Umami as the image's `nextjs` user (UID 1001), PostgreSQL as UID 70 (the Alpine image's `postgres` user). No privilege escalation, all capabilities dropped.
 - Volume: `umami-db` (10 GiB).
 - Probes: `GET /api/heartbeat` (upstream's compose health check).
 
@@ -89,6 +89,10 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: ClamAV (0 infected), smoke test (GET / returned 200).
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
+
+**Unblock attempt (apps/market-unblock-2, 2026-11-13):** Only the bundled `postgres:15.19-trixie` blocked this app on images (ClamAV and smoke test passed); the licence-matrix row is still missing (brief 30 B10), which the gate reports as a note about preinstalling on sold boxes. The sidecar moved to `postgres:15.19-alpine` (same major and minor; tag and digest read from the Docker Hub registry on 2026-11-13; digest `sha256:eab009ce…b0372f`). The Alpine image uses `su-exec` (C) instead of the Go helper `gosu` and has no Debian `ssl-cert` package, which is where the snakeoil private key came from. It has not been scanned by us yet: the CI gate decides the tier. The Alpine `postgres` user is UID/GID 70 (Debian: 999). Alpine uses musl, so text sorting differs from the Debian image; this is safe only because nobody has installed this app yet.
+
+**Gate result (ci-apps run 43468040302, 2026-11-13): still blocked.** The Alpine image also ships Go `stdlib` v1.24.6, so CVE-2025-68121 remains (fixed in 1.24.13, 1.25.7 or 1.26.0-rc.3). The snakeoil private-key finding is gone and the smoke test passed on the Alpine sidecar. What would unblock it: an upstream `postgres` image of the same major built with a fixed Go; the daily `apps-rescan` workflow picks that up without a code change.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -89,6 +89,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: licence (matrix row for WordPress matches), ClamAV (0 infected), smoke test (GET / returned 302).
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** Go `stdlib` in `mariadb:11.8.9-noble`. Only different majors exist (`12.x-noble`), which need a data-format decision and are not a pin bump. Unblock: an `11.8.x` rebuild. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
 <!-- onemind:notes:end -->
 
 ## Latest security scan
