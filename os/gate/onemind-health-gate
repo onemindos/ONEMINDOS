@@ -11,12 +11,16 @@
 #              decision: mark it bad so it is never retried
 #   committed  no marker -> mark-good now (resets GRUB's try counter); check k3s for
 #              the log only; never roll back a committed OS
+# Data disk failures (os/recovery/README.md §3): boots that ran in recovery mode leave notes on
+# the ESP. A trial that ran out while its boots were in recovery is "environment-bad", not
+# "image-bad": a failed data disk is not evidence against the update.
 set -u
 GRUBENV=/boot/efi/EFI/BOOT/grubenv
 [ -f /etc/default/onemind-health-gate ] && . /etc/default/onemind-health-gate
 TIMEOUT=${ONEMIND_GATE_TIMEOUT:-300}; STABLE=${ONEMIND_GATE_STABLE:-3}; INTERVAL=${ONEMIND_GATE_INTERVAL:-10}
 STATE=/data/onemind; PENDING=$STATE/pending; BAD=$STATE/bad-releases
 mkdir -p "$STATE"; LOG=$STATE/gate.log
+ESP_STATE=${ONEMIND_ESP_STATE:-/boot/efi/onemind}; ESP_PENDING=$ESP_STATE/pending; DATAFAIL=$ESP_STATE/data-failed
 log() { local m="HEALTH-GATE: $(date -u +%T) $*"; echo "$m" >>"$LOG"; echo "$m" >/dev/console; }
 SLOT=$(sed -n 's/.*rauc\.slot=\([A-Z]\).*/\1/p' /proc/cmdline); OTHER=A; [ "$SLOT" = A ] && OTHER=B
 VER=$(. /usr/lib/os-release; echo "${ONEMIND_VERSION:-unknown}")
@@ -27,6 +31,13 @@ envdump() { grub-editenv "$GRUBENV" list | tr '\n' ' '; }
 P=""; PV=""; [ -s "$PENDING" ] && read -r P PV < "$PENDING"
 if [ -z "$P" ]; then MODE=committed; elif [ "$P" = "$SLOT" ]; then MODE=trial; else MODE=fell-back; fi
 log "start slot=$SLOT version=$VER mode=$MODE host_cpus=$(nproc) env=[$(envdump)]"
+# Notes from recovery-mode boots: keep them for this run's verdict, move them into /data for the gateway.
+DF=""; [ -s "$DATAFAIL" ] && DF=$(cat "$DATAFAIL")
+if [ -n "$DF" ]; then
+  printf '%s\n' "$DF" >> "$STATE/data-failures.log" && sync "$STATE/data-failures.log" 2>/dev/null && rm -f "$DATAFAIL"
+  log "DATA-FAILURES $(printf '%s\n' "$DF" | wc -l) earlier boot(s) ran in recovery mode: $(printf '%s\n' "$DF" | tail -n1)"
+fi
+clear_pending() { rm -f "$PENDING" "$ESP_PENDING"; sync; }
 
 commit() { # mark-good booted; never fail silently (LAB-rauc finding 4)
   local e; if e=$(rauc status mark-good booted 2>&1); then return 0; fi
@@ -44,15 +55,21 @@ remember_bad() { echo "$(date -u +%FT%TZ) version=$1 verdict=$2" >> "$BAD"; sync
 
 case $MODE in
 committed)
+  [ -e "$ESP_PENDING" ] && clear_pending   # a stale ESP copy (e.g. the data disk was replaced)
   commit && log "RESULT committed-boot slot=$SLOT version=$VER"
   watch_only ;;
 fell-back)
   why=${GATE_FELLBACK_WHY:-"gate rejected it or install was interrupted"}
   [ "$(envget "${P}_OK")" = 1 ] && why="trial boots used up (crash/hang/power cut) with ${P}_TRY=$(envget "${P}_TRY")"
+  verdict=image-bad; again="never retried"
+  if printf '%s\n' "$DF" | grep -q " slot=$P version=$PV decision=trial "; then
+    verdict=environment-bad; again="re-offered (REC-DEC-45)"
+    why="its trial boots ran in recovery mode: the data disk failed, which says nothing about the image"
+  fi
   rauc status mark-bad other >/dev/null 2>&1
-  rm -f "$PENDING"; sync
-  remember_bad "$PV" image-bad
-  commit && log "RESULT fell-back slot=$SLOT version=$VER; slot $P (v$PV) marked bad, never retried ($why)"
+  clear_pending
+  remember_bad "$PV" "$verdict"
+  commit && log "RESULT fell-back slot=$SLOT version=$VER; slot $P (v$PV) marked bad verdict=$verdict, $again ($why)"
   watch_only ;;
 trial)
   t0=$SECONDS; ok=0; r="n/a"; worst=0   # worst = highest check stage that failed after G1-G3 passed
@@ -67,7 +84,7 @@ trial)
           log "APPS (excluded from gate): ${apps:-none}"
           log "G8 n/a: no extensions in v0"
           if commit; then
-            rm -f "$PENDING"; sync
+            clear_pending
             log "RESULT mark-good slot=$SLOT version=$VER after $((SECONDS - t0))s"; exit 0
           fi
           ok=0   # refused commit: keep trying until the deadline [C-LAB-debian-rugix-024]
@@ -84,7 +101,7 @@ trial)
   verdict=image-bad; [ "$worst" = 4 ] && verdict=environment-bad
   if [ "$(envget "${OTHER}_OK")" = 1 ]; then
     rauc status mark-bad booted >/dev/null 2>&1
-    rm -f "$PENDING"; sync
+    clear_pending
     remember_bad "$VER" "$verdict"
     log "RESULT mark-bad slot=$SLOT version=$VER verdict=$verdict after $((SECONDS - t0))s (last: $r) -> reboot to $OTHER"
     systemctl reboot

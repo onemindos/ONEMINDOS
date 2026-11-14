@@ -1,0 +1,17 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# One HTTP response of the recovery status page (socat EXEC; runs as nobody). The pages are
+# rendered once by onemind-recovery; nothing from the request is echoed or interpreted beyond
+# choosing /status.json or the HTML page.
+D=${ONEMIND_RECOVERY_RUN:-/run/onemind-recovery}; set -f
+IFS= read -r -t 5 req || exit 0
+while IFS= read -r -t 5 h; do h=${h%$'\r'}; [ -z "$h" ] && break; done
+set -- $req
+case ${2:-/} in
+  /status.json*) f=$D/status.json; t="application/json" ;;
+  *)             f=$D/index.html;  t="text/html; charset=utf-8" ;;
+esac
+[ -r "$f" ] || { f=/dev/null; }
+n=$(( $(wc -c < "$f") ))
+printf 'HTTP/1.0 503 Service Unavailable\r\nContent-Type: %s\r\nContent-Length: %s\r\nCache-Control: no-store\r\nRetry-After: 300\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src '"'"'none'"'"'; style-src '"'"'unsafe-inline'"'"'\r\nConnection: close\r\n\r\n' "$t" "$n"
+[ "${1:-GET}" = HEAD ] || cat "$f"
