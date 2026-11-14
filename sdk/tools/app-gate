@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import atexit
+import base64
 import datetime as dt
 import json
 import re
@@ -326,6 +327,7 @@ class Gate:
         ns = f"app-{self.id}"
         k = lambda *a, t=900: common.run([kubectl, "-n", ns, *a], timeout=t)  # noqa: E731
         common.run([kubectl, "create", "namespace", ns])
+        passed = False
         try:
             agent = self.spec.get("agent") or {}
             if agent.get("principal"):
@@ -364,12 +366,41 @@ class Gate:
                 pf.wait(timeout=30)
             if status is not None and 200 <= status < 400:
                 c.note(f"GET / on Service {svc}:{port} returned {status}")
+                passed = True
                 return "pass"
             c.fail(f"GET / on Service {svc}:{port} returned {status}")
             return "fail"
         finally:
+            if not passed and self.args.logs_dir:
+                self.collect_logs(ns, self.args.logs_dir, c)
             if not self.args.smoke_keep:
                 common.run([kubectl, "delete", "namespace", ns, "--wait=true", "--timeout=300s"], timeout=400)
+
+    def collect_logs(self, ns: str, logs_dir: Path, c) -> None:
+        """On a failed smoke test, save scrubbed pod logs and events to logs_dir. Never raises: a
+        failure to collect only adds a note, so it can never change the gate's result."""
+        try:
+            kubectl = common.which("kubectl")
+            k = lambda *a: common.run([kubectl, "-n", ns, *a], timeout=120)  # noqa: E731
+            secrets = secret_values(k("get", "secrets", "-o", "json").stdout)
+            logs_dir.mkdir(parents=True, exist_ok=True)
+
+            def write(name: str, text: str) -> None:
+                (logs_dir / name).write_text(scrub(text, secrets), encoding="utf-8")
+
+            pods = json.loads(k("get", "pods", "-o", "json").stdout or "{}").get("items", [])
+            for pod in pods:
+                name = common.dig(pod, ("metadata", "name"))
+                parts = [k("logs", name, "--all-containers", "--tail=1000").stdout]
+                for st in common.dig(pod, ("status", "containerStatuses")) or []:
+                    if st.get("restartCount", 0) > 0:
+                        prev = k("logs", name, "-c", st["name"], "--previous", "--tail=1000")
+                        parts.append(f"\n==== previous run of container {st['name']} ====\n{prev.stdout}{prev.stderr}")
+                write(f"{name}.log", "".join(parts))
+            write("events.log", k("get", "events").stdout)
+            c.note(f"smoke failed: scrubbed pod logs and events for {len(pods)} pod(s) saved to {logs_dir}")
+        except Exception as exc:  # noqa: BLE001 - collecting logs must never change the result
+            c.note(f"could not collect pod logs: {type(exc).__name__}: {exc}")
 
     # -- driver ---------------------------------------------------------------------------------
     def run(self) -> tuple[dict, str]:
@@ -407,6 +438,26 @@ class Gate:
         self.report["checks"] = {n: {"ok": c.ok, "notes": c.notes} for n, c in self.checks.items()}
         self.report.update({"result": result, "computed_tier": tier})
         return scan, tier
+
+
+def secret_values(secrets_json: str) -> list[str]:
+    """Every decoded value of every Secret in a `kubectl get secrets -o json` document."""
+    values = []
+    for item in json.loads(secrets_json or "{}").get("items", []):
+        for v in (item.get("data") or {}).values():
+            try:
+                values.append(base64.b64decode(v).decode("utf-8", "replace"))
+            except ValueError:
+                pass
+    return values
+
+
+def scrub(text: str, secrets: list[str]) -> str:
+    """Replace every secret value of length >= 6 (and the smoke placeholder) with [REDACTED]."""
+    for v in sorted({*secrets, SMOKE_SECRET_PLACEHOLDER}, key=len, reverse=True):
+        if len(v) >= 6 or v == SMOKE_SECRET_PLACEHOLDER:
+            text = text.replace(v, "[REDACTED]")
+    return text
 
 
 def http_status(url: str, deadline: float) -> int | None:
@@ -453,6 +504,8 @@ def main(argv: list[str]) -> int:
     p.add_argument("--smoke", action="store_true", help="run check 9 against the current kubectl context")
     p.add_argument("--smoke-timeout", type=int, default=900)
     p.add_argument("--smoke-keep", action="store_true", help="keep the app-<id> namespace afterwards")
+    p.add_argument("--logs-dir", type=Path,
+                   help="when the smoke test fails, save scrubbed pod logs and events here (never on pass)")
     p.add_argument("--clamav-db", type=Path, help="ClamAV database directory (default: clamscan's)")
     p.add_argument("--trivy-cache", type=Path, help="Trivy cache directory")
     p.add_argument("--sbom-dir", type=Path, help="also write a CycloneDX SBOM per image and arch")

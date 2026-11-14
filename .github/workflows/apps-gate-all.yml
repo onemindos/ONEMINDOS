@@ -7,7 +7,9 @@
 #   signatures: ClamAV signatures fetched once, shared by every gate job (same signatures everywhere,
 #               one download instead of one per job)
 #   gate:       one job per app and architecture; read-only (--tier check --no-write); report.json,
-#               gate.log and status.json uploaded as apps-gate-<app>-<arch>
+#               gate.log and status.json uploaded as apps-gate-<app>-<arch>; when the smoke test fails,
+#               --logs-dir also saves the pods' logs and events (every Secret value scrubbed to
+#               [REDACTED]) and a failed job uploads them as apps-gate-logs-<app>-<arch>, kept 7 days
 #   report:     the app x arch table in the run summary (contents: read only)
 #   issue:      one issue, "App gate on every app (amd64 + arm64): failures", opened or rewritten with
 #               every failing cell and closed when everything passes (full runs only; the only job
@@ -189,7 +191,7 @@ jobs:
           set -uo pipefail
           out="$RUNNER_TEMP/out"
           python3 -I sdk/tools/app-gate "$APP" --smoke --tier check --no-write --clamav-db "$RUNNER_TEMP/clamav" \
-            --workdir "$RUNNER_TEMP" --report "$out/report.json" 2>&1 | tee "$out/gate.log"
+            --workdir "$RUNNER_TEMP" --logs-dir "$RUNNER_TEMP/logs" --report "$out/report.json" 2>&1 | tee "$out/gate.log"
           rc=${PIPESTATUS[0]}
           RC=$rc python3 -c 'import json, os; print(json.dumps({"app": os.environ["APP"], "arch": os.environ["ARCH"], "runner": os.environ["RUNNER_LABEL"], "rc": int(os.environ["RC"])}))' > "$out/status.json"
           echo "app-gate exit code $rc (0 pass, 1 fail, 2 tool or input error)"
@@ -203,6 +205,15 @@ jobs:
           path: ${{ runner.temp }}/out/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Upload the scrubbed pod logs of a failed smoke test
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: apps-gate-logs-${{ matrix.app }}-${{ matrix.platform.arch }}
+          path: ${{ runner.temp }}/logs/
+          if-no-files-found: ignore
+          retention-days: 7
 
   report:
     needs: [plan, gate]
