@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 124
 branch: apps/offline-knowledge
 ---
 Offline Knowledge bundle (REC-NOMAD-01): four Market apps and a bundle installer. Kiwix (offline Wikipedia) comes with a library manager that downloads the owner's chosen ZIM files, checks each against the mirror's SHA-256 and the free space, and serves them. Kolibri (offline courses) runs non-root with telemetry off; the gate blocks it for now, because the newest upstream image has fixable CRITICAL CVEs. Offline Maps is go-pmtiles plus OneMind's own viewer: PMTiles over HTTP ranges, MapLibre assets pinned by hash, map data ODbL with OpenStreetMap attribution. Library Chat is OneMind's read-only RAG app: Kiwix full-text search, then the existing Ollama app, with cited answers and unit tests. A bundle with starter and greenhouse/off-grid profiles and install.py, which files one approval-gated app.install per app in dependency order. Nine licence-matrix rows cover code, content and model weights. Known gap, proposed separately: the gateway's default-deny network policy (H-04) blocks app-to-app traffic, so Library Chat cannot reach Kiwix and Ollama on a box until declared dependencies open a path.
