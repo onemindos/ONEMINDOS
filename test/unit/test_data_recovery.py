@@ -100,6 +100,21 @@ class Wiring(unittest.TestCase):
         self.assertIn("decision=$DECISION", rec)   # the note the gate greps for
 
 
+class Harness(unittest.TestCase):
+    def test_gate_regex_reads_the_fell_back_line(self):
+        # TD3 (and T6/T7) compare the version the gate logs; "version=2;" must parse as "2".
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("rt", os.path.join(ROOT, "test", "qemu", "run-tests.py"))
+        rt = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(rt)
+        line = ("HEALTH-GATE: 21:37:34 RESULT fell-back slot=A version=2; slot B (v2) marked bad "
+                "verdict=environment-bad, re-offered (REC-DEC-45) (why)")
+        m = re.search(rt.GATE, line)
+        self.assertEqual(m.groups()[:3], ("fell-back", "A", "2"))
+        m = re.search(rt.GATE, "HEALTH-GATE: 19:58:46 RESULT committed-boot slot=A version=1")
+        self.assertEqual(m.groups()[:3], ("committed-boot", "A", "1"))
+
+
 @unittest.skipUnless(shutil.which("bash"), "needs bash")
 class Page(unittest.TestCase):
     def setUp(self):
