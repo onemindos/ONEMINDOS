@@ -9,7 +9,7 @@ A minimalist, self-hosted pastebin where the server knows nothing: pastes are en
 |---|---|
 | Version | 2.1.1 (upstream release `2.1.1`, published 2026-11-04) |
 | Licence | `Zlib`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/PrivateBin/PrivateBin> |
 | Website | <https://privatebin.info> |
@@ -56,9 +56,13 @@ From the upstream documentation, https://github.com/PrivateBin/PrivateBin/wiki: 
 
 ## Known limits in this package
 
-- No `conf.php` is mounted, so upstream defaults apply (filesystem storage, standard expiry choices, discussions off). Anyone who can reach the app can create pastes.
+- No `conf.php` is mounted, so upstream defaults apply (filesystem storage, standard expiry choices, discussions off). PrivateBin has no accounts: anyone who can reach the app can create pastes.
 - Browser encryption needs a secure context: over plain HTTP from a LAN address the browser may refuse the Web Crypto API. Use a port-forward to localhost, or HTTPS once OneMind has ingress for apps.
 - Licence: `Zlib` for PrivateBin's own code, read from LICENSE.md at tag 2.1.1; the file also lists bundled libraries under GPLv2 (rawinflate), BSD-3-Clause, MIT, Apache-2.0 and CC-BY. The research licence matrix has a row for it. The image is run unmodified.
+
+## Why this app is blocked
+
+Founder decision D25 (2026-11-13, `docs/leap/LANES.md`): PrivateBin ships only behind the OneMind login, so that household members can create pastes and people outside can only read a paste whose link they were given. PrivateBin itself has no accounts, and per-app login gating at the edge (forward-auth, CORE-NET-5, `docs/architecture/NETWORKING.md` §9.3) is not built yet. Until it is, the app is tier **blocked**: the gateway lists it in the Market but refuses to install it (§10.3, §11.1). The packaging is kept as it is. When forward-auth lands, the manifest gets its access setting and the app goes through the CI app gate again.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
