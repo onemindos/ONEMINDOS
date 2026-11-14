@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Scripted route inventory (threat model §5): every route the app registers is either on the short
+"""Board item CORE-SEC-11 (security suite: every route has a written policy row, tested per role).
+
+Scripted route inventory (threat model §5): every route the app registers is either on the short
 public list below or answers 401 without a credential, and the routes that decide who may do what
 refuse every non-owner credential.
 
@@ -120,6 +122,9 @@ def test_owner_only_routes_refuse_everyone_else(client, clock, who):
         # owner only to plan or request (contract 12.40)
         ("GET", "/v1/apps/whoami/credentials", None),
         ("POST", "/v1/plans", {"type": "app.delete_data", "params": {"app_id": "whoami", "confirm": "whoami"}}),
+        # storage: full disk identities and the LUKS recovery key are owner only (STORAGE-ACT-1)
+        ("GET", "/v1/storage/devices", None),
+        ("POST", "/v1/storage/recovery-key", None),
     ]
     for method, path, body in refused:
         r = client.request(method, path, headers=who, json=body)

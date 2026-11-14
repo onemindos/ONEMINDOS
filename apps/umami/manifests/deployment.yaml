@@ -65,7 +65,7 @@ spec:
             - name: db
               mountPath: /mnt
         - name: db
-          image: docker.io/library/postgres:15.19-trixie@sha256:1aac5b49cefd627f02816141ca4ad012d6cc19460dfe02a9b5168a105be3fc53
+          image: docker.io/library/postgres:15.19-alpine@sha256:eab009ce9447a891d9482702d370bbf132c18563bb87cfdcc2b815c6d3b0372f
           restartPolicy: Always
           args: ["postgres", "-c", "listen_addresses=127.0.0.1"]
           env:
@@ -98,8 +98,8 @@ spec:
               cpu: "1"
               memory: 512Mi
           securityContext:
-            runAsUser: 999
-            runAsGroup: 999
+            runAsUser: 70
+            runAsGroup: 70
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]

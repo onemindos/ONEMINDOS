@@ -84,6 +84,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: licence MIT matches, ClamAV (0 infected, amd64 and arm64), smoke test (GET / returned 200). Not signed with cosign (recorded as unsigned, informational).
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** CRITICAL CVE-2026-123158 in `openssh-keygen` 10.3_p1-r1 (fixed in r2). `28.3.0-rootless` is the newest tag. Unblock: a rebuild on a newer Alpine. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
 <!-- onemind:notes:end -->
 
 ## Latest security scan

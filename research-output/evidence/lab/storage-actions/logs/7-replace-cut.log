@@ -1,0 +1,29 @@
+plan: kind=replace blocked=false profiles=raid1/raid1 encrypted=true sha=c0783969c0c8
+  warning: replacing devid 2 on /dev/vdc
+  1. [prepare] wipe: sgdisk --zap-all /dev/vdd
+  2. [prepare] partition: sgdisk --new=1:0:0 --typecode=1:8309 --change-name=1:onemind-data --partition-guid=1:a3e280b6-7643-43db-b6dc-36bac244900d /dev/vdd
+  3. [prepare] settle: udevadm settle
+  4. [prepare] rundir: mkdir -p -m 0700 /run/onemind/storage
+  5. [prepare] luks-header-drop: rm -f /run/onemind/storage/header-d2c0b6d4.img
+  6. [prepare] luks-header-backup: cryptsetup luksHeaderBackup /dev/vdb1 --header-backup-file /run/onemind/storage/header-d2c0b6d4.img
+  7. [prepare] luks-header-restore: cryptsetup luksHeaderRestore --batch-mode /dev/vdd1 --header-backup-file /run/onemind/storage/header-d2c0b6d4.img
+  8. [prepare] luks-header-drop: rm -f /run/onemind/storage/header-d2c0b6d4.img
+  9. [prepare] luks-uuid: cryptsetup luksUUID --batch-mode --uuid d2c0b6d4-3217-4a92-a61e-227dc967137f /dev/vdd1
+  10. [prepare] luks-open: cryptsetup open --key-file /data/onemind/storage/keys/set.key /dev/vdd1 onemind-data-vdd
+  11. [prepare] token: cryptsetup token import --token-replace --token-id 30 /dev/vdd1
+  12. [join] token-member: cryptsetup token import --token-replace --token-id 30 /dev/vdb1
+  13. [join] token-member: cryptsetup token import --token-replace --token-id 30 /dev/vdc1
+  14. [commit] replace: btrfs replace start -B -f 2 /dev/mapper/onemind-data-vdd /data
+  15. [commit] resize: btrfs filesystem resize 2:max /data
+  16. [commit] balance: btrfs balance start -dconvert=raid1,soft -mconvert=raid1,soft /data
+  17. [commit] token-member: cryptsetup token import --token-replace --token-id 30 /dev/vdd1
+  18. [commit] token-member: cryptsetup token import --token-replace --token-id 30 /dev/vdb1
+  19. [commit] old-close: cryptsetup close /dev/mapper/luks-d6f8c410-8b0c-4925-b5af-ce4f4bf0ea61
+  20. [commit] old-erase: cryptsetup erase --batch-mode /dev/vdc1
+  21. [commit] old-wipefs: wipefs --all /dev/vdc1
+  22. [commit] old-zap: sgdisk --zap-all /dev/vdc
+  23. [verify] verify: btrfs filesystem df -b /data
+{"id":"lab-replace-1","state":"running","next":0,"error":null,"reason":null,"message":null}
+  Started on 12.Nov 05:23:35, finished on 12.Nov 05:23:37, 0 write errs, 0 uncorr. read errs
+journal: succeeded next=23/23 step=- resumes=0
+POWER CUT 10:24:34

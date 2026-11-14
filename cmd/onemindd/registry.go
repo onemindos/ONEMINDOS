@@ -12,7 +12,8 @@ import (
 var subcommands = map[string]func(args []string) int{
 	"update":      runUpdate,
 	"backup-init": runBackupInit, // backup.go: one-shot, creates the device key; the agent itself is backup.Service() below
-	"mesh":        runMesh,       // net.go
+	"storage":     runStorage,
+	"mesh":        runMesh, // net.go
 }
 
 // optionalServices run inside the heartbeat agent's process, next to it.

@@ -1,0 +1,169 @@
+# SPDX-License-Identifier: Apache-2.0
+# API fuzzing of the gateway with Schemathesis (MIT, test-only, installed only here) against its
+# /openapi.json, plus the nightly deep run of the Hypothesis properties.
+# What it proves and how to run it locally: docs/testing/PROPERTY-AND-FUZZ.md.
+#
+#   schemathesis  start the gateway in the runner (noop executor, the real seed catalog, fresh
+#                 random tokens), have the agent request one install per app and aim the fuzzers'
+#                 action ids and app ids at them, fuzz every operation first as the agent, then as
+#                 the owner, and
+#                 check what the runs left behind (core/tests/api_fuzz_check.py): no 5xx, documented
+#                 statuses and bodies, nothing approved while only the agent was fuzzing, every
+#                 decision by the owner, an intact audit chain, no traceback in the gateway log.
+#   properties    nightly: the Hypothesis property tests with 20x the PR example budget.
+name: api-fuzz
+
+on:
+  pull_request:
+    paths: ["core/**", "sdk/schema/**", "sdk/tools/applib/**", "apps/*/onemind.app.yaml", ".github/workflows/api-fuzz.yml"]
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-fuzz-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  schemathesis:
+    runs-on: ubuntu-24.04
+    # PRs fuzz 40 cases per operation (~7 min a phase). Nightly and manual runs fuzz 400, about 10x as long
+    # over three phases; 45 minutes cancelled the first full run on main (run 43558739985, A9).
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 45 || 180 }}
+    env:
+      # Generated cases per operation in the fuzzing phase: quick on PRs, deep at night.
+      EXAMPLES: ${{ github.event_name == 'pull_request' && '40' || '400' }}
+      GATEWAY: http://127.0.0.1:8080
+      FUZZ: ${{ github.workspace }}/fuzz-run
+      PYTHONPATH: ${{ github.workspace }}/core/tests
+      SCHEMATHESIS_HOOKS: api_fuzz_hooks
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+
+      - name: Install the gateway and the pinned fuzz group (versions and hashes from uv.lock)
+        working-directory: core
+        run: uv sync --locked --python 3.12 --group fuzz
+
+      - name: Licence check of everything installed, the fuzz group included
+        working-directory: core
+        run: .venv/bin/python -m pytest -q tests/test_dependency_licences.py
+
+      - name: Throwaway tokens, catalog and data directory
+        run: |
+          mkdir -p "$FUZZ/data" "$FUZZ/files"
+          owner=$(openssl rand -hex 32); agent=$(openssl rand -hex 32)
+          echo "::add-mask::$owner"; echo "::add-mask::$agent"
+          # Only the hashes go in the tokens file (contract §3 "sha256:" keys).
+          printf 'tokens:\n  "sha256:%s": {id: owner, kind: person, role: owner}\n  "sha256:%s": {id: fuzz-agent, kind: agent, role: agent}\n' \
+            "$(printf %s "$owner" | sha256sum | cut -d' ' -f1)" "$(printf %s "$agent" | sha256sum | cut -d' ' -f1)" > "$FUZZ/tokens.yaml"
+          { echo "OWNER_TOKEN=$owner"; echo "AGENT_TOKEN=$agent"; } >> "$GITHUB_ENV"
+          # The seed catalog with its scan records dated now, so the §10.3 scan gate (7 days) stays
+          # on and approved installs reach the noop executor.
+          cp -r apps "$FUZZ/apps"
+          python3 -I - "$FUZZ/apps" <<'EOF'
+          import datetime, json, pathlib, sys
+          now = datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+          for p in pathlib.Path(sys.argv[1]).glob("*/scan.json"):
+              doc = json.loads(p.read_text())
+              doc["scanned_at"] = now
+              p.write_text(json.dumps(doc))
+          EOF
+
+      - name: Start the gateway (noop executor, no NATS)
+        working-directory: core
+        env:
+          ONEMIND_TOKENS_FILE: ${{ env.FUZZ }}/tokens.yaml
+          ONEMIND_APPS_DIR: ${{ env.FUZZ }}/apps
+          ONEMIND_DATA_DIR: ${{ env.FUZZ }}/data
+          # The files spaces live here, so the /v1/files routes are fuzzed against real storage
+          # instead of answering 503 storage_unavailable (the default root is /data/onemind/files).
+          ONEMIND_FILES_ROOT: ${{ env.FUZZ }}/files
+          ONEMIND_EXECUTOR: noop
+          ONEMIND_NATS_URL: ""
+          ONEMIND_NODE_ID: fuzz-hub
+          ONEMIND_HOST: 127.0.0.1
+          ONEMIND_PORT: "8080"
+          # This isolated fuzz gateway tests protocol/authorization, not request throttling.
+          # The production defaults and dedicated test_guard.py coverage stay unchanged.
+          ONEMIND_LIMITS_READ_BURST: "100000"
+          ONEMIND_LIMITS_REQUEST_BURST: "100000"
+          ONEMIND_LIMITS_AUTH_FAILURES_PER_MIN: "100000"
+          ONEMIND_LIMITS_MAX_PENDING: "100000"
+        run: |
+          nohup .venv/bin/python -m onemind_core > "$FUZZ/gateway.log" 2>&1 &
+          for _ in $(seq 1 60); do curl -fsS "$GATEWAY/healthz" >/dev/null 2>&1 && exit 0; sleep 1; done
+          cat "$FUZZ/gateway.log"; exit 1
+
+      - name: Aim the fuzzers at real apps and at actions the agent requested
+        working-directory: core
+        run: .venv/bin/python tests/api_fuzz_check.py --phase prepare --config "$FUZZ/schemathesis.toml"
+
+      - name: Fuzz as the agent
+        working-directory: core
+        run: |
+          .venv/bin/schemathesis --config-file "$FUZZ/schemathesis.toml" run "$GATEWAY/openapi.json" -H "Authorization: Bearer $AGENT_TOKEN" \
+            --checks all --exclude-path /mcp --max-examples "$EXAMPLES" --seed "${{ github.run_id }}" \
+            --report junit --report-dir "$FUZZ/report-agent"
+
+      - name: Nothing was decided while only the agent was fuzzing
+        working-directory: core
+        run: .venv/bin/python tests/api_fuzz_check.py --phase agent --audit "$FUZZ/data/audit.jsonl" --log "$FUZZ/gateway.log"
+
+      - name: Fuzz as the owner
+        working-directory: core
+        run: |
+          .venv/bin/schemathesis --config-file "$FUZZ/schemathesis.toml" run "$GATEWAY/openapi.json" -H "Authorization: Bearer $OWNER_TOKEN" \
+            --checks all --exclude-path /mcp --max-examples "$EXAMPLES" --seed "${{ github.run_id }}" \
+            --report junit --report-dir "$FUZZ/report-owner"
+
+      # /mcp is one JSON-RPC endpoint (MCP Streamable HTTP): its protocol answers (400, 406) are not
+      # in the OpenAPI document, so only "no server error" applies here. MCP conformance itself is
+      # the MCP stream's suite (test/mcp-conformance).
+      - name: Fuzz /mcp for server errors (agent and owner)
+        working-directory: core
+        run: |
+          for token in "$AGENT_TOKEN" "$OWNER_TOKEN"; do
+            .venv/bin/schemathesis --config-file "$FUZZ/schemathesis.toml" run "$GATEWAY/openapi.json" -H "Authorization: Bearer $token" \
+              --include-path /mcp --checks not_a_server_error --max-examples "$EXAMPLES" --seed "${{ github.run_id }}"
+          done
+
+      - name: Every decision was the owner's, and the audit chain is intact
+        working-directory: core
+        run: .venv/bin/python tests/api_fuzz_check.py --phase owner --audit "$FUZZ/data/audit.jsonl" --log "$FUZZ/gateway.log"
+
+      - name: Keep the reports, the gateway log and the audit log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: api-fuzz-${{ github.run_id }}
+          path: |
+            fuzz-run/report-*
+            fuzz-run/gateway.log
+            fuzz-run/data/audit.jsonl
+          retention-days: 14
+          if-no-files-found: ignore
+
+  properties:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - name: Hypothesis properties, 20x the PR budget
+        working-directory: core
+        env:
+          ONEMIND_PROPERTY_DEPTH: deep
+          ONEMIND_PROPERTY_BACKEND: sqlite
+          ONEMIND_PROPERTY_ARTIFACTS: ${{ github.workspace }}/property-evidence/sqlite-deep
+        run: |
+          uv sync --locked --python 3.12
+          .venv/bin/python -m pytest -q tests/test_properties_*.py tests/test_property_resources.py tests/test_action_model_controls.py

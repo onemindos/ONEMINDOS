@@ -15,4 +15,4 @@ internal/leaf/testdata/hub-accounts.golden.conf:generic-api-key:22
 # same public fingerprint, dir-scan form (line moved by the merge with main)
 os/versions.lock.yaml:generic-api-key:135
 # same public fingerprint, dir-scan form (line moved again by the merge with main)
-os/versions.lock.yaml:generic-api-key:137
+os/versions.lock.yaml:generic-api-key:138

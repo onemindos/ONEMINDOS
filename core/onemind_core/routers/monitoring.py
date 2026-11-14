@@ -45,6 +45,15 @@ register_route_scope("GET,HEAD", r"/v1/nodes/[^/]+/metrics", ("monitoring:read",
 register_route_scope("GET,HEAD", r"/v1/monitoring/summary", ("monitoring:read",))
 _DURATION = re.compile(r"^(\d{1,6})([smh]?)$")
 _COMPONENT = re.compile(r"^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$")
+# Duration strings are bounded in their own units. Absolute instants additionally
+# depend on the current clock (1..86400 seconds ago), checked by parse_window.
+NODE_WINDOW_SCHEMA = {"anyOf": [
+    {"type": "string", "pattern": r"^(?=[0-9]{1,6}s?$)0*(?:[1-9][0-9]{0,3}|[1-7][0-9]{4}|8[0-5][0-9]{3}|86[0-3][0-9]{2}|86400)s?$"},
+    {"type": "string", "pattern": r"^(?=[0-9]{1,6}m$)0*(?:[1-9][0-9]{0,2}|1[0-3][0-9]{2}|14[0-3][0-9]|1440)m$"},
+    {"type": "string", "pattern": r"^(?=[0-9]{1,6}h$)0*(?:[1-9]|1[0-9]|2[0-4])h$"},
+    {"type": "string", "format": "date-time", "pattern": r"^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt ].*[Zz0-9]$"},
+    {"const": ""}, {"type": "null"},
+]}
 
 
 def parse_window(value: str | None, now: datetime, default_s: int, max_s: int) -> int:
@@ -187,7 +196,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     # ---- nodes --------------------------------------------------------------------------
     @app.get("/v1/nodes/{node_id}/metrics", operation_id="nodes.metrics", tags=["nodes"], responses=error_responses(401, 404, 422))
-    def node_metrics(node_id: str, window: str | None = None, _: Principal = Depends(principal)):
+    def node_metrics(node_id: str, window: str | None = Query(
+        None, json_schema_extra=NODE_WINDOW_SCHEMA,
+        description="Seconds, Nm, Nh or an RFC 3339 instant 1..86400 seconds ago; empty uses 3600 s.",
+    ), _: Principal = Depends(principal)):
         now = gw.clock()
         secs = parse_window(window, now, 3600, 24 * 3600)
         samples, source = mon.history.window(node_id, now, secs)

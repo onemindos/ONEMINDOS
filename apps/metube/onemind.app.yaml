@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# metube: Market batch 6 (contract sdk/contracts/poc-v0.md §9.5), written by hand from primary sources:
+# MeTube 2026.11.10 (github.com/alexta69/metube, Dockerfile and docker-entrypoint.sh at that tag). The image has no USER and
+# Image digests and archs read from the registry API, GitHub facts from the GitHub API, read 2026-11-13.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: metube
+  name: "MeTube"
+  version: "2026.11.10"
+  description: "Self-hosted video downloader for YouTube and other sites: a web UI for yt-dlp."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (downloads) are listed in README.md
+  # until the schema has metadata.tags.
+  category: media
+  icon: icon.svg
+  license: "AGPL-3.0"
+  source: https://github.com/alexta69/metube
+  links:
+    docs: "https://github.com/alexta69/metube#readme"
+    github: "https://github.com/alexta69/metube"
+    website: "https://github.com/alexta69/metube"
+    support: "https://github.com/alexta69/metube/issues"
+  upstream: {release: "2026.11.10", released_at: "2026-11-10T18:30:27Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 128}   # sum of the memory requests in manifests/
+  web: {port: 8081}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

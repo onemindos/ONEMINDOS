@@ -91,6 +91,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: licence AGPL-3.0 (matrix row matches), ClamAV (0 infected), smoke test (GET / returned 302).
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** `libbrotli1` and `linux-libc-dev` in the app image `version-6.7.9` (the newest tag). The bundled `postgres:18.6-trixie` would also move to `18.6-alpine` as `paperless-ngx` did, but that alone cannot unblock the app, so the sidecar stays as it is. Unblock: a Firefly III rebuild with fixed Debian packages, then the Alpine postgres.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

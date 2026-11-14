@@ -71,3 +71,11 @@ Only `uptime-kuma` and `paperless-ngx`, and neither tier was changed: both stay 
 2. If the Alpine postgres passes, repeat it for `metabase`, `firefly-iii`, `nextcloud` (on their branches or after merge); for `penpot`, `umami` and `linkwarden` find the Alpine tag of their own major first.
 3. Add the missing licence-matrix rows (`mosquitto` spelling, LibreChat and the many "no row" apps): a research-file change, one commit.
 4. Re-run `apps-rescan` weekly: Alpine and Debian rebuilds clear most brotli, openssh and certifi findings without any change from us.
+
+## Part 2 (apps/market-unblock-2, 2026-11-13)
+
+Every blocked image was read from the Docker Hub and GHCR registry APIs again. All pinned digests are unchanged since part 1 except `calibre-web` (the LinuxServer tag `0.6.27-ls394` was re-pointed; our pinned digest is the one of `0.6.27-ls409`, so only the label was corrected).
+
+- **Changed (unscanned, the gate decides):** `metabase`, `penpot` and `umami` blocked only on their bundled `postgres:*-trixie` (Go `stdlib` CVE-2025-68121 in `gosu`, Debian snakeoil key). They now use `postgres:18.6-alpine` (metabase) and `postgres:15.19-alpine` (penpot, umami), same major as before, UID 70, as `paperless-ngx` did in part 1.
+- **Held, documented in each README:** every other blocked app (reasons and "what would unblock it" are in the README of the app). `mealie` has a newer tag `v3.31.0` that is not scanned and cannot be claimed as a fix. `firefly-iii`, `linkwarden` and `nextcloud` have Alpine postgres tags but their app images still block. `nextcloud` 34 is not touched (decision D9 pending). `mosquitto` and `librechat` need a licence-matrix row (outside `apps/`).
+- Run 43405572161 (the six apps of #102): `radarr`, `prowlarr` (.NET 8.0.27, fixed in 8.0.32), `sonarr`, `qbittorrent` (brotli-libs; qbittorrent also gets 401), `openclaw` (dompurify, 3 CRITICAL without a fix, a Slack-token-shaped QA file); `photoprism` failed to create the cluster on Docker Hub pulls (infrastructure). Their smoke tests pass except qbittorrent. No fixed tags exist, so they stay blocked.

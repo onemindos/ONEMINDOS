@@ -146,6 +146,7 @@ class Vector:
     field: str              # the violation's path must mention this field
     gap: str | None = None  # why it is an escape the checker misses today
     restricted_only: bool = False  # a PSA restricted rule (S-*): baseline apps may do it
+    baseline_rule: str | None = None  # a restricted_only vector that a baseline (F-*) rule also refuses
 
 
 ADMISSION = "PSA admission in the app namespace still refuses it, but the plan the owner approves does not show it"
@@ -180,19 +181,16 @@ POD_VECTORS = [
     Vector("allowPrivilegeEscalation", _csc(allowPrivilegeEscalation=True), "S-02", "allowPrivilegeEscalation",
            restricted_only=True),
     Vector("no-drop-ALL", _csc(capabilities={"drop": ["NET_RAW"]}), "S-03", "capabilities", restricted_only=True),
-    Vector("seccomp-Unconfined", _csc(seccompProfile={"type": "Unconfined"}), "S-04", "seccompProfile", restricted_only=True),
+    # Unconfined seccomp is also a PSA baseline violation (F-09), so a baseline app may not do it either.
+    Vector("seccomp-Unconfined", _csc(seccompProfile={"type": "Unconfined"}), "S-04", "seccompProfile",
+           restricted_only=True, baseline_rule="F-09"),
     Vector("volume-nfs", _volume({"nfs": {"server": "nas.example.com", "path": "/"}}), "S-05", "nfs", restricted_only=True),
     Vector("volume-gitRepo", _volume({"gitRepo": {"repository": "https://example.com/x.git"}}), "S-05", "gitRepo",
            restricted_only=True),
-    Vector("procMount-Unmasked", _csc(procMount="Unmasked"), None, "procMount",
-           gap="procMount: Unmasked exposes the host's /proc paths; PSA baseline forbids it; the rule file has no rule. " + ADMISSION),
-    Vector("unsafe-sysctl", _psc(sysctls=[{"name": "kernel.msgmax", "value": "65536"}]), None, "sysctls",
-           gap="an unsafe sysctl changes kernel settings shared beyond the pod; PSA baseline allows only the safe set; "
-               "no rule. " + ADMISSION),
-    Vector("selinux-spc_t", _csc(seLinuxOptions={"type": "spc_t"}), None, "seLinuxOptions",
-           gap="SELinux type spc_t is a super-privileged container; PSA baseline forbids custom types; no rule. " + ADMISSION),
-    Vector("apparmor-Unconfined", _csc(appArmorProfile={"type": "Unconfined"}), None, "appArmorProfile",
-           gap="AppArmor Unconfined drops the profile; PSA baseline forbids it; no rule. " + ADMISSION),
+    Vector("procMount-Unmasked", _csc(procMount="Unmasked"), "F-10", "procMount"),
+    Vector("unsafe-sysctl", _psc(sysctls=[{"name": "kernel.msgmax", "value": "65536"}]), "F-13", "sysctls"),
+    Vector("selinux-spc_t", _csc(seLinuxOptions={"type": "spc_t"}), "F-12", "seLinuxOptions"),
+    Vector("apparmor-Unconfined", _csc(appArmorProfile={"type": "Unconfined"}), "F-11", "appArmorProfile"),
     Vector("ephemeral-volume-storageclass",
            _volume({"ephemeral": {"volumeClaimTemplate": {"spec": {
                "storageClassName": "escape-hostpath", "accessModes": ["ReadWriteOnce"],
@@ -256,6 +254,10 @@ def test_pod_vector_under_baseline(rules, baseline_app, vector, request):
     if vector.name == "volume-gitRepo":
         request.applymarker(pytest.mark.xfail(strict=True, reason="gap: " + GITREPO_BASELINE))
         assert found
+        return
+    if vector.restricted_only and vector.baseline_rule:
+        assert vector.baseline_rule in {v.rule for v in found}, [v.to_json() for v in found]
+        assert "S-04" not in {v.rule for v in found}, "baseline is not restricted: S- rules do not apply"
         return
     if vector.restricted_only:
         assert not found, "baseline is not restricted: S- rules do not apply"
@@ -357,6 +359,7 @@ def test_kustomization_vector_is_refused(rules, vector, tmp_path):
 def test_every_object_rule_has_an_escape_fixture(rules):
     """A new rule in sdk/policy/app-objects.yaml needs an escape here that proves it bites."""
     covered = {v.rule for v in POD_VECTORS if v.rule}
+    covered |= {v.baseline_rule for v in POD_VECTORS if v.baseline_rule}  # proved by test_pod_vector_under_baseline
     covered |= {expected_of(p.read_text(), p.name) for p in OBJECT_FILES}
     covered |= {expected_of((p / "manifests" / "kustomization.yaml").read_text(), p.name) for p in KUSTOMIZE_VECTORS}
     manifest_level = {"G-01", "G-02", "X-01"}  # about onemind.app.yaml, covered by the sandbox stream's own tests

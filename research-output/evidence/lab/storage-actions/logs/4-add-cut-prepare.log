@@ -1,0 +1,22 @@
+plan: kind=protect blocked=false profiles=raid1/raid1c3 encrypted=true sha=6b4b06d5d391
+  1. [prepare] wipe: sgdisk --zap-all /dev/vdd
+  2. [prepare] partition: sgdisk --new=1:0:0 --typecode=1:8309 --change-name=1:onemind-data --partition-guid=1:a3e280b6-7643-43db-b6dc-36bac244900d /dev/vdd
+  3. [prepare] settle: udevadm settle
+  4. [prepare] rundir: mkdir -p -m 0700 /run/onemind/storage
+  5. [prepare] luks-header-drop: rm -f /run/onemind/storage/header-d2c0b6d4.img
+  6. [prepare] luks-header-backup: cryptsetup luksHeaderBackup /dev/vdb1 --header-backup-file /run/onemind/storage/header-d2c0b6d4.img
+  7. [prepare] luks-header-restore: cryptsetup luksHeaderRestore --batch-mode /dev/vdd1 --header-backup-file /run/onemind/storage/header-d2c0b6d4.img
+  8. [prepare] luks-header-drop: rm -f /run/onemind/storage/header-d2c0b6d4.img
+  9. [prepare] luks-uuid: cryptsetup luksUUID --batch-mode --uuid d2c0b6d4-3217-4a92-a61e-227dc967137f /dev/vdd1
+  10. [prepare] luks-open: cryptsetup open --key-file /data/onemind/storage/keys/set.key /dev/vdd1 onemind-data-vdd
+  11. [prepare] token: cryptsetup token import --token-replace --token-id 30 /dev/vdd1
+  12. [join] token-member: cryptsetup token import --token-replace --token-id 30 /dev/vdb1
+  13. [join] token-member: cryptsetup token import --token-replace --token-id 30 /dev/vdc1
+  14. [join] device-add: btrfs device add /dev/mapper/onemind-data-vdd /data
+  15. [commit] balance: btrfs balance start -dconvert=raid1,soft -mconvert=raid1c3,soft /data
+  16. [verify] verify: btrfs filesystem df -b /data
+{"id":"lab-add-1","state":"running","next":0,"error":null,"reason":null,"message":null}
+journal: running next=9/16 step=luks-open resumes=0
+/dev/vdd1 token: {"generation":2,"partuuid":"64abeb67-b5f1-4df4-ba32-57c69c747940"}
+  own partuuid: a3e280b6-7643-43db-b6dc-36bac244900d
+POWER CUT 10:19:27

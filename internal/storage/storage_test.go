@@ -265,8 +265,8 @@ func TestPlanCreate(t *testing.T) {
 	}
 	c := cmds(p)
 	for _, want := range []string{
-		"sgdisk --new=1:0:0 --typecode=1:8309 --change-name=1:onemind-data /dev/vdb",
-		"cryptsetup luksFormat --type luks2 --batch-mode --key-file /run/k /dev/vdc1",
+		"sgdisk --new=1:0:0 --typecode=1:8309 --change-name=1:onemind-data --partition-guid=1:" + DerivedUUID("onemind-data", "/dev/vdb", "part") + " /dev/vdb",
+		"cryptsetup luksFormat --type luks2 --batch-mode --uuid " + DerivedUUID("onemind-data", "/dev/vdc", "luks") + " --key-file /run/k /dev/vdc1",
 		"mkfs.btrfs --label onemind-data --data raid1 --metadata raid1 /dev/mapper/onemind-data-vdb /dev/mapper/onemind-data-vdc",
 		"mount -o noatime,compress=zstd:1,space_cache=v2,discard=async /dev/mapper/onemind-data-vdb /data",
 		"btrfs subvolume create /data/@snapshots",
