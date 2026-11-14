@@ -1148,6 +1148,8 @@ coredns_hub_name() {
     plan "kubectl apply the coredns-custom ConfigMap (kube-system): hub.onemind.internal -> $ip (pods reach the gateway on https://hub.onemind.internal:8443)"
     return 0
   fi
+  # A placeholder here would be a CoreDNS parse error, which takes down all cluster DNS.
+  [ -n "${HUB_MESH_IP:-}" ] || die "no hub mesh address for the cluster DNS entry hub.onemind.internal"
   $k apply -f - >/dev/null <<EOF
 apiVersion: v1
 kind: ConfigMap
