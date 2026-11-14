@@ -31,7 +31,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import (
+    AwareDatetime, BaseModel, ConfigDict, Discriminator, Field, Tag, ValidationError, field_validator, model_validator,
+)
 
 from .audit import AuditLog
 from .auth import Principal, new_agent_token, token_hash
@@ -169,8 +171,9 @@ class PlainActionParams(BaseModel):
 
 
 class ConfigureActionParams(PlainActionParams):
-    # plain settings, never secrets (those go through the sealed path)
-    settings: dict[str, str] = Field(min_length=1, max_length=50)
+    # plain settings, never secrets (those go through the sealed path). Typed settings (D21, §12.22):
+    # a value is a string, integer, number or boolean; the app's spec.settings says which.
+    settings: dict[str, str | int | float | bool] = Field(min_length=1, max_length=50)
 
 
 class DeleteDataActionParams(PlainActionParams):
@@ -228,8 +231,27 @@ class DeleteDataActionRequest(_ActionRequestFields):
         return self
 
 
+class FeatureActionRequest(_ActionRequestFields):
+    # A type a feature registered at runtime (contract §12.5, §12.22: source.add|move|remove,
+    # exposure.private|mesh|public, ...). The service checks params against the model the feature
+    # registered and refuses a type nobody registered, so this variant cannot widen what is accepted.
+    type: str = Field(min_length=1, max_length=64, pattern=TYPE_RE)
+    params: dict[str, Any]
+
+
+_LIFECYCLE_TAGS = {**{t: "plain" for t in _PLAIN_TYPES.__args__}, "app.configure": "configure",
+                   "app.delete_data": "delete_data"}
+
+
+def _action_variant(body: Any) -> str:
+    t = body.get("type") if isinstance(body, dict) else getattr(body, "type", None)
+    return _LIFECYCLE_TAGS.get(t, "feature") if isinstance(t, str) else "plain"
+
+
 ActionRequestBody = Annotated[
-    PlainActionRequest | ConfigureActionRequest | DeleteDataActionRequest, Field(discriminator="type")
+    Annotated[PlainActionRequest, Tag("plain")] | Annotated[ConfigureActionRequest, Tag("configure")]
+    | Annotated[DeleteDataActionRequest, Tag("delete_data")] | Annotated[FeatureActionRequest, Tag("feature")],
+    Discriminator(_action_variant),
 ]
 
 

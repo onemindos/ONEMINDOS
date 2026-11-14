@@ -28,10 +28,15 @@ def test_action_body_schema_offers_settings_and_confirm_only_where_the_server_ta
     doc = spec(client)
     body = resolve(doc, doc["paths"][path]["post"]["requestBody"]["content"]["application/json"]["schema"])
     variants = {}
+    feature = []
     for v in body["oneOf"]:
         v = resolve(doc, v)
         params = resolve(doc, v["properties"]["params"])
-        for t in v["properties"]["type"].get("enum") or [v["properties"]["type"]["const"]]:
+        tprop = v["properties"]["type"]
+        if "enum" not in tprop and "const" not in tprop:
+            feature.append(tprop)  # the registered-feature variant (source.*, exposure.*): any type a feature registered
+            continue
+        for t in tprop.get("enum") or [tprop["const"]]:
             variants[t] = set(params["properties"]) | {"~required:" + r for r in params.get("required", [])}
     assert variants["app.stop"] == {"app_id", "~required:app_id"}
     assert variants["app.configure"] >= {"settings", "~required:settings"}
@@ -39,6 +44,8 @@ def test_action_body_schema_offers_settings_and_confirm_only_where_the_server_ta
     assert variants["app.delete_data"] >= {"confirm", "~required:confirm"}
     assert set(variants) == {"app.install", "app.remove", "app.start", "app.stop", "app.restart", "app.update",
                              "app.configure", "app.delete_data"}
+    if path == "/v1/actions":
+        assert len(feature) == 1 and feature[0].get("pattern"), feature
 
 
 def test_the_server_still_refuses_what_the_schema_no_longer_offers(client):

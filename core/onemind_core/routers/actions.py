@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..actions import ActionRequest, ActionRequestBody, ApprovalInput
+from ..actions import ActionRequest, ActionRequestBody, ApprovalInput, FeatureActionRequest
 from ..apimodels import Action
 from ..appsecrets.api import SealedInput
 from ..auth import Principal
@@ -51,6 +52,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
         },
     )
     def create_action(req: ActionRequestBody, p: Principal = Depends(principal)):
+        if isinstance(req, FeatureActionRequest) and req.type not in actions.feature_types:
+            # Same 422 a lifecycle body with a bad type gets: only registered types are requests.
+            raise RequestValidationError([{"type": "literal_error", "loc": ("body", "type"),
+                                           "msg": f"unknown action type {req.type!r}", "input": req.type}])
         body, created = actions.create(p, ActionRequest.model_validate(req.model_dump()))
         return JSONResponse(status_code=201 if created else 200, content=body)
 
