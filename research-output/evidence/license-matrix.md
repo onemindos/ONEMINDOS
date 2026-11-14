@@ -280,3 +280,9 @@ Archived means no further fixes, including security fixes [C-LIC-080]. **MinIO**
 - **08 line ~120 and W7-R8:** state that Isaac ROS is proprietary [C-LIC-021], and make the Isaac images an optional app.
 - **07:** add LIC-R3 (GPL-3 Installation Information) next to SEC-03 and SEC-04.
 - **26 (open questions for Zeus):** (1) send outreach O-1…O-4; (2) accept the owner-takeover requirement for locked or fused boxes; (3) counsel review of H-2 (GPL-3 and locked boot), H-4 (Ubuntu) and H-9 (ZFS).
+
+## Addendum 2026-11-14: Offline Knowledge bundle (REC-NOMAD-01)
+
+Nine rows were added to [`license-matrix.csv`](license-matrix.csv) for the Offline Knowledge Market bundle (`apps/_bundles/offline-knowledge/`). They cover the code (go-pmtiles, OneMind's own Library Chat and map viewer, MapLibre GL JS, PMTiles JS and the Protomaps style, and the basemap fonts and sprites), the content (Protomaps basemap builds under ODbL, Wikipedia ZIM files under CC BY-SA 4.0, and Kolibri channels, licensed per resource) and the default model weights (Qwen3 1.7B, Apache-2.0). The existing Kiwix (GPL-3.0) and Kolibri (MIT) rows [C-LIC-054] were re-read and still hold.
+
+The one rule that matters for sold boxes: **content is chosen by the owner and is never preloaded unless its licence allows commercial redistribution.** Wikipedia, Wikivoyage and Wiktionary qualify. Several other ZIM files and Kolibri channels are non-commercial (CC BY-NC-SA). That is checked per file in a later pass and labelled UNVERIFIED in the rows. Project N.O.M.A.D.'s Creator Pack content (C-TD-project-nomad-030) is never bundled.

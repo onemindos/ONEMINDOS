@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: Apache-2.0
+# Offline Maps: Offline Knowledge bundle (REC-NOMAD-01, research-output/02-competitors/project-nomad.md §18).
+# Sources: github.com/protomaps/go-pmtiles release v1.31.2 (main.go: extract, serve), the official
+# image protomaps/go-pmtiles (digest and archs from `crane`, 2026-11-14), docs.protomaps.com
+# (basemap downloads and licence). The viewer (manifests/map_viewer.py) is OneMind's own code on
+# the official python image; it uses MapLibre GL JS, PMTiles JS and the Protomaps basemap style.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: offline-maps
+  name: Offline Maps
+  version: "1.31.2"
+  description: Vector street maps of your region that work with no internet, from OpenStreetMap data in a single PMTiles file
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags: maps.
+  category: field
+  icon: icon.svg
+  license: BSD-3-Clause
+  source: https://github.com/protomaps/go-pmtiles
+  # §9.3 facts from the GitHub API (repos/protomaps/go-pmtiles and its releases/latest), read 2026-11-14.
+  links:
+    docs: https://docs.protomaps.com/
+    github: https://github.com/protomaps/go-pmtiles
+    website: https://protomaps.com
+    support: https://github.com/protomaps/go-pmtiles/issues
+  upstream: {release: "v1.31.2", released_at: "2026-07-22T19:02:26Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}
+  web: {port: 8080}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}
+  settings:
+    - name: language
+      env: MAPS_LANG
+      type: string
+      title: Label language
+      description: "Language code for place names, for example en, es or de. Names fall back to the local name when a translation is missing."
+      default: "en"
+      maxLength: 8
+      pattern: "^[a-z]{2,3}(-[a-z]{2,4})?$"
+    - name: flavor
+      env: MAPS_FLAVOR
+      type: enum
+      title: Map style
+      enum: [light, dark, white, grayscale, black]
+      default: light
+  # Map archives are cut again from the public build (README "Add a map"), and the viewer assets
+  # are downloaded again on start, so neither is backed up.
+  backup:
+    mode: hot
+    exclude: ["maps/*.pmtiles", "assets/", "assets.new/"]

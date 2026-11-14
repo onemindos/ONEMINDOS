@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: Apache-2.0
+# Kiwix: Offline Knowledge bundle (REC-NOMAD-01, research-output/02-competitors/project-nomad.md §18).
+# Sources: github.com/kiwix/kiwix-tools release 3.8.2 (tag commit f76e38bdc06b), docker/server/Dockerfile
+# and start.sh at that tag; kiwix-serve --help (3.8.2). Image digest and archs from `crane`, 2026-11-14.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: kiwix
+  name: Kiwix
+  version: "3.8.2"
+  description: Offline Wikipedia and other reference libraries (ZIM files), with a library manager that downloads and checks them
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags: offline-knowledge.
+  category: learning
+  icon: icon.svg
+  license: GPL-3.0
+  source: https://github.com/kiwix/kiwix-tools
+  # §9.3 facts from the GitHub API (repos/kiwix/kiwix-tools and its releases/latest), read 2026-11-14.
+  links:
+    docs: https://wiki.kiwix.org/wiki/Kiwix-serve
+    github: https://github.com/kiwix/kiwix-tools
+    website: https://kiwix.org
+    support: https://github.com/kiwix/kiwix-tools/issues
+  upstream: {release: "3.8.2", released_at: "2026-03-02T08:24:42Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 512}
+  web: {port: 8080}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}
+  settings:
+    - name: zims
+      env: KIWIX_ZIMS
+      type: string
+      title: Books (ZIM files)
+      description: "Space-separated paths under download.kiwix.org/zim/, for example wikipedia/wikipedia_en_medicine_mini_2026-10.zim. Listed books are downloaded, checked and served; books left out stop being served."
+      default: "wikipedia/wikipedia_en_climate-change_mini_2026-10.zim"
+      maxLength: 2048
+    - name: mirror
+      env: KIWIX_MIRROR
+      type: string
+      title: Download mirror
+      description: "https:// base URL of a Kiwix mirror's zim/ folder. Each file is still checked against that mirror's .sha256 file."
+      default: "https://download.kiwix.org/zim"
+      maxLength: 200
+      pattern: "^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._~-]+)*$"
+    - name: reserve_mb
+      env: KIWIX_RESERVE_MB
+      type: integer
+      title: Free space to keep (MiB)
+      description: A download is skipped when it would leave less than this much free space on the library volume.
+      default: 1024
+      minimum: 0
+      maximum: 1048576
+  # ZIM files can be hundreds of GiB and are downloaded again from the mirror, so only the
+  # library list is backed up (REC-NOMAD-07: content is an optional, size-aware tier).
+  backup:
+    mode: hot
+    exclude: ["*.zim", "*.zim.part"]

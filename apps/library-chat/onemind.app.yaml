@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: Apache-2.0
+# Library Chat: Offline Knowledge bundle (REC-NOMAD-01, research-output/02-competitors/project-nomad.md §8, §18).
+# OneMind's own app: a small read-only RAG service (manifests/library_chat.py, Python standard
+# library) on the official python image. It retrieves from the Kiwix app's full-text search and
+# answers with the Ollama app; it never acts on the system (AI never actuates, D-B9).
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: library-chat
+  name: Library Chat
+  version: "0.1.0"
+  description: Ask your offline library questions and get short answers from a local AI model, with links to the articles it used
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags: chat, rag.
+  category: ai
+  icon: icon.svg
+  license: Apache-2.0
+  source: https://github.com/onemindos/ONEMINDOS
+  links:
+    docs: https://github.com/onemindos/ONEMINDOS/blob/main/apps/library-chat/README.md
+    github: https://github.com/onemindos/ONEMINDOS
+    website: https://github.com/onemindos/ONEMINDOS
+    support: https://github.com/onemindos/ONEMINDOS/issues
+  # OneMind ships this app from the repo itself: the "release" is this manifest version, and the
+  # pinned runtime image is python 3.14.10 (trixie slim).
+  upstream: {release: "0.1.0", released_at: "2026-11-14T12:00:00Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 128}
+  web: {port: 8080}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}
+  dependencies:
+    - id: kiwix
+      reason: Library Chat searches and quotes the books in the Kiwix library
+    - id: ollama
+      reason: A local model in Ollama writes the answers
+  settings:
+    - name: model
+      env: CHAT_MODEL
+      type: string
+      title: Model
+      description: "Ollama model that writes the answers, for example qwen3:1.7b (Apache-2.0, fits a Pi 5 with 8 GB). The owner pulls it in Ollama first."
+      default: "qwen3:1.7b"
+      maxLength: 100
+      pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+    - name: sources
+      env: CHAT_SOURCES
+      type: integer
+      title: Articles per answer
+      description: How many library articles are read for each question. More gives better answers but is slower on a small box.
+      default: 4
+      minimum: 1
+      maximum: 8
+    - name: kiwix_public_url
+      env: KIWIX_PUBLIC_URL
+      type: string
+      title: Kiwix address in your browser
+      description: "Where your browser opens Kiwix, for example http://localhost:8090, so the source list links to the articles. Empty shows titles only."
+      default: ""
+      maxLength: 200

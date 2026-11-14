@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# Holds the ZIM files and library.xml. 64 GiB fits the "mini" and "nopic" English Wikipedia
+# editions plus a few topic books; the full English Wikipedia with pictures (about 110 GiB)
+# needs a bigger disk. No storageClassName: the cluster default class is used (k3s local-path,
+# which does not enforce the size, so the library manager checks free space itself).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kiwix-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 64Gi
